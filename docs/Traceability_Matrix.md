@@ -272,6 +272,7 @@ where the firmware implements the requirement.
 | S2LP-FR-017 | S2LP-ARC-001 | S2LP-DD-CONFIG | `parse_register_file`, `load_register_file` | `TestParsingWhatPeopleWrite` (11), `TestLoadingFromDisk` (3) |
 | S2LP-FR-018 | S2LP-ARC-001 | S2LP-DD-CONFIG | the refusals in `parse_register_file` | `TestRefusingWhatIsWrong` (8), `test_an_empty_file_is_refused` |
 | S2LP-FR-019 | S2LP-ARC-001 | S2LP-DD-CONFIG, -S2LP | `apply_configuration`, `verify_configuration`, `ConfigurationCheck` | `TestApplyingToARadio` (5), `TestVerifyingAgainstARadio` (8), notably `test_a_loose_check_ignores_what_the_file_does_not_name` and `test_a_strict_check_does_not` |
+| S2LP-FR-021 | S2LP-ARC-001 | S2LP-DD-CONFIG, -S2LP | `_reset_mode`, `_reset_before_configuring`, `power_cycle` | `TestStartingFromAKnownState` (9), notably `test_a_reset_that_did_not_take_stops_before_writing`; `test_the_reset_strobe_does_not_restore_register_defaults`, `test_the_reset_strobe_leaves_the_register_file_alone` |
 | S2LP-FR-020 | S2LP-ARC-001 | S2LP-DD-CONFIG, -S2LP | `format_register_file`, `save_configuration` | `TestWritingAFileBack` (4), `TestCapturingFromARadio` (3) |
 | S2LP-FR-030 | S2LP-ARC-001 | S2LP-DD-S2LP | `configure_radio` and the radio properties | `TestRadioConfiguration` (12) |
 | S2LP-FR-031 | S2LP-ARC-001 | S2LP-DD-S2LP | `configure_radio` returns `radio_info()` | `test_configure_returns_what_the_radio_says_afterwards` |

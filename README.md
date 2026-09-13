@@ -433,6 +433,14 @@ MOD2: 27                ; comments after # ; or //
   expect: [{name: configured, measure: matches, equals: 1}]
 ```
 
+`apply_configuration(..., reset="defaults")` writes every register back to its
+documented default first, so a file naming a handful of registers still produces
+a known radio rather than one that depends on what ran before. The reset is
+confirmed by read-back before the file is written. Note that the device's reset
+*strobe* does **not** do this — on this part it resets the digital section and
+leaves every register as it was — so `power_cycle()` (shutdown and back) is the
+real thing.
+
 Verifying comes in two forms, and the difference is the point: the **loose**
 check asks "is what this test needs set?", and the **strict** one adds "and is
 nothing else set?" — which is what catches a register left behind by whatever
@@ -594,7 +602,7 @@ python examples/02_channel_spread.py            # simulator
 python -m pytest tests/ --cov=benchtools --cov-report=term
 ```
 
-**1 664 tests, 94% statement coverage, no hardware required** — no oscilloscope,
+**1 685 tests, 94% statement coverage, no hardware required** — no oscilloscope,
 no probe, no target, no GDB, no dongle, no BLE sensor, no power supply, no
 sub-1 GHz kit. With
 every optional extra removed: 1 152 pass, 36 skip, 0 fail.

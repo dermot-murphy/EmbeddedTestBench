@@ -184,9 +184,11 @@ class SimulatedS2lp:
     def _cmd_sdkevalspicommandstrobes(self, arguments: List[str]) -> str:
         code = self._number(arguments[0])
         if code == Strobe.RESET:
-            keep_air, keep_sent = list(self.inbound), list(self.transmitted)
-            self.reset()
-            self.inbound, self.transmitted = keep_air, keep_sent
+            # SRES resets the digital section and *not* the SPI registers -
+            # ST's own command header says so, and modelling it as a register
+            # reset made a driver that used it to get defaults appear to work.
+            self.tx_fifo = bytearray()
+            self.rx_fifo = bytearray()
         elif code == Strobe.FLUSH_RX_FIFO:
             self.rx_fifo = bytearray()
         elif code == Strobe.FLUSH_TX_FIFO:
@@ -224,8 +226,17 @@ class SimulatedS2lp:
         )
 
     def _cmd_sdkevalsdn(self, arguments: List[str]) -> str:
+        """Shutdown. Leaving it is a power-on reset, so registers go to default.
+
+        This is the only thing here that restores register defaults, because on
+        the part it is the only thing that does: SRES explicitly does not.
+        What is on the air, and what was transmitted, are not the radio's state
+        and survive - a log of what happened is not undone by a power cycle.
+        """
         if self._number(arguments[0]):
+            air, sent, missed = list(self.inbound), list(self.transmitted), self.missed
             self.reset()
+            self.inbound, self.transmitted, self.missed = air, sent, missed
         return self._ok("SdkEvalSdn")
 
     def _cmd_sdkevalledhandler(self, _arguments: List[str]) -> str:

@@ -56,10 +56,37 @@ class TestRegisterFile:
 
 
 class TestStrobes:
-    def test_reset_restores_the_register_file(self, simulator):
+    def test_the_reset_strobe_leaves_the_register_file_alone(self, simulator):
+        """ST's command header: SRES is a "reset of all digital part, except
+        SPI registers". Modelling it as a register reset let a driver that used
+        it to get defaults pass every test and be wrong on the bench."""
         ask(simulator, "SdkEvalSpiWriteRegisters 0x2E {C0}")
         ask(simulator, "SdkEvalSpiCommandStrobes 112")
+        assert "0x2E,0xC0" in ask(simulator, "SdkEvalSpiReadRegisters 0x2E 1")
+
+    def test_the_reset_strobe_does_empty_the_fifos(self, simulator):
+        simulator.rx_fifo.extend(b"\x01")
+        simulator.tx_fifo.extend(b"\x02")
+        ask(simulator, "SdkEvalSpiCommandStrobes 112")
+        assert simulator.rx_fifo == bytearray() and simulator.tx_fifo == bytearray()
+
+    def test_shutdown_and_back_is_a_power_on_reset(self, simulator):
+        """The only thing here that restores register defaults, because on the
+        part it is the only thing that does."""
+        ask(simulator, "SdkEvalSpiWriteRegisters 0x2E {C0}")
+        ask(simulator, "SdkEvalSdn 1")
+        ask(simulator, "SdkEvalSdn 0")
         assert "0x2E,0x20" in ask(simulator, "SdkEvalSpiReadRegisters 0x2E 1")
+
+    def test_a_power_cycle_does_not_undo_the_log_of_what_happened(self, simulator):
+        """What was transmitted, and what is on the air, are not the radio's
+        state."""
+        ask(simulator, "S2LPSendNBytes {01}")
+        simulator.queue_packet(b"\x02")
+        ask(simulator, "SdkEvalSdn 1")
+        ask(simulator, "SdkEvalSdn 0")
+        assert simulator.transmitted == [b"\x01"]
+        assert len(simulator.inbound) == 1
 
     def test_flushing_the_rx_fifo_empties_it(self, simulator):
         simulator.rx_fifo.extend(b"\x01\x02")

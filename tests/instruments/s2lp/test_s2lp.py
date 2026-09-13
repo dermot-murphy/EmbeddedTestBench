@@ -187,10 +187,25 @@ class TestStrobes:
         with pytest.raises(ConfigurationError, match="flush_rx"):
             radio.strobe("transmit")
 
-    def test_reset_returns_the_radio_to_its_reset_values(self, radio):
+    def test_the_reset_strobe_does_not_restore_register_defaults(self, radio):
+        """ST's command header calls SRES a "reset of all digital part, except
+        SPI registers". A radio reset this way comes back configured exactly as
+        it was, and code that used it to get defaults would be wrong in a way
+        no amount of testing against a forgiving simulator would reveal."""
         radio.write_register("PCKTCTRL3", 0xC0)
         radio.reset(settle=0.0)
+        assert radio.read_register("PCKTCTRL3") == 0xC0
+
+    def test_a_power_cycle_does(self, radio):
+        """Shutdown and back is a power-on reset, and the only thing here that
+        returns every register to its default."""
+        radio.write_register("PCKTCTRL3", 0xC0)
+        radio.power_cycle(settle=0.0)
         assert radio.registers_differing_from_reset() == {}
+
+    def test_a_power_cycle_goes_through_shutdown(self, radio, simulator):
+        radio.power_cycle(settle=0.0)
+        assert simulator.command_log[-2:] == ["SdkEvalSdn 1", "SdkEvalSdn 0"]
 
     def test_restore_defaults_writes_the_map_back(self, radio):
         radio.write_register("PCKTCTRL3", 0xC0)

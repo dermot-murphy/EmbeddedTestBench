@@ -210,6 +210,73 @@ class TestApplyingToARadio:
         assert radio.read_register("PCKTCTRL3") == 0xC0
 
 
+class TestStartingFromAKnownState:
+    """A partial file applied onto whatever was there before is not
+    deterministic. These cover the reset that makes it so.
+
+    Traces to: S2LP-FR-021.
+    """
+
+    def test_by_default_nothing_is_reset(self, radio, tmp_path):
+        """Applying a configuration writes what the file names. Wiping 123
+        registers is a bigger action than applying three, and is asked for."""
+        radio.write_register("GPIO0_CONF", 0x55)
+        radio.apply_configuration(write(tmp_path, BASIC))
+        assert radio.read_register("GPIO0_CONF") == 0x55
+
+    def test_reset_defaults_clears_what_a_previous_test_left(self, radio, tmp_path):
+        radio.write_register("GPIO0_CONF", 0x55)
+        radio.apply_configuration(write(tmp_path, BASIC), reset="defaults")
+        assert radio.read_register("GPIO0_CONF") == reg.BY_NAME["GPIO0_CONF"].reset
+
+    def test_and_the_file_is_still_applied_on_top(self, radio, tmp_path):
+        radio.write_register("GPIO0_CONF", 0x55)
+        radio.apply_configuration(write(tmp_path, BASIC), reset="defaults")
+        assert radio.read_register("PCKTCTRL3") == 0xC0
+
+    def test_so_a_strict_check_afterwards_means_something(self, radio, tmp_path):
+        """This is the pairing a test wants: reset, apply, then assert that the
+        radio holds the file and nothing else."""
+        path = write(tmp_path, BASIC)
+        radio.write_register("GPIO0_CONF", 0x55)
+        radio.apply_configuration(path, reset="defaults")
+        assert radio.verify_configuration(path, strict=True).matches
+
+    def test_true_means_defaults(self, radio, tmp_path):
+        radio.write_register("GPIO0_CONF", 0x55)
+        radio.apply_configuration(write(tmp_path, BASIC), reset=True)
+        assert radio.read_register("GPIO0_CONF") == reg.BY_NAME["GPIO0_CONF"].reset
+
+    def test_reset_power_takes_the_radio_through_shutdown(self, radio, tmp_path, simulator):
+        radio.write_register("GPIO0_CONF", 0x55)
+        radio.apply_configuration(write(tmp_path, BASIC), reset="power")
+        assert "SdkEvalSdn 1" in simulator.command_log
+        assert radio.read_register("GPIO0_CONF") == reg.BY_NAME["GPIO0_CONF"].reset
+        assert radio.read_register("PCKTCTRL3") == 0xC0
+
+    @pytest.mark.parametrize("mode", ["sres", "yes", "hard", 2])
+    def test_an_unknown_reset_mode_lists_the_real_ones(self, radio, tmp_path, mode):
+        with pytest.raises(ConfigurationError, match="none, defaults, power"):
+            radio.apply_configuration(write(tmp_path, BASIC), reset=mode)
+
+    def test_a_reset_that_did_not_take_stops_before_writing(self, radio, tmp_path, simulator):
+        """"The reset was commanded" and "the radio is at defaults" are
+        different facts, and the file is written on top of the second one."""
+        original = simulator._cmd_sdkevalsdn
+        simulator._cmd_sdkevalsdn = lambda arguments: original(["0"])   # never shuts down
+        radio.write_register("GPIO0_CONF", 0x55)
+        with pytest.raises(InstrumentError, match="not at its register defaults"):
+            radio.apply_configuration(write(tmp_path, BASIC), reset="power")
+        assert radio.read_register("PCKTCTRL3") == reg.BY_NAME["PCKTCTRL3"].reset
+
+    def test_the_failure_names_what_is_not_at_its_default(self, radio, tmp_path, simulator):
+        original = simulator._cmd_sdkevalsdn
+        simulator._cmd_sdkevalsdn = lambda arguments: original(["0"])
+        radio.write_register("GPIO0_CONF", 0x55)
+        with pytest.raises(InstrumentError, match=r"GPIO0_CONF = 0x55 \(default 0x0A\)"):
+            radio.apply_configuration(write(tmp_path, BASIC), reset="power")
+
+
 class TestVerifyingAgainstARadio:
     def test_a_radio_that_matches(self, radio, tmp_path):
         path = write(tmp_path, BASIC)

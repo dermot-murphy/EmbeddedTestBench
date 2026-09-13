@@ -13,12 +13,12 @@
 
 | Metric | Result |
 |---|---|
-| Tests executed | **1 664** |
-| Passed | **1 664** |
+| Tests executed | **1 685** |
+| Passed | **1 685** |
 | Failed | 0 |
 | Errors | 0 |
 | Skipped | 0 |
-| Statement coverage | **94%** (9 825 statements, 569 missed) |
+| Statement coverage | **94%** (9 856 statements, 569 missed) |
 | Execution time | 46.0 s with coverage instrumentation, 32.4 s without |
 | Runtime | CPython 3.11.15, Linux |
 | Framework | pytest 9.1.1, pytest-cov |
@@ -57,12 +57,12 @@ hygiene rules of §4.3 - and its first build is recorded as BLE-OPEN-01.
 |---|---|---|---|
 | SWE4-UT-SCOPE | `instruments/tek3014b/test_scope.py` | 87 | Pass |
 | SWE4-UT-JLINK | `instruments/jlink/test_probe.py` | 70 | Pass |
-| SWE4-UT-S2LP | `instruments/s2lp/test_s2lp.py` | 73 | Pass |
+| SWE4-UT-S2LP | `instruments/s2lp/test_s2lp.py` | 75 | Pass |
 | SWE4-UT-S2LPREG | `instruments/s2lp/test_registers.py` | 34 | Pass |
 | SWE4-UT-S2LPPROTO | `instruments/s2lp/test_protocol.py` | 31 | Pass |
-| SWE4-UT-S2LPCONFIG | `instruments/s2lp/test_configuration.py` | 51 | Pass |
-| SWE4-UT-S2LPSIM | `instruments/s2lp/test_simulator.py` | 25 | Pass |
-| SWE4-UT-S2LPCLI | `instruments/s2lp/test_cli.py` | 31 | Pass |
+| SWE4-UT-S2LPCONFIG | `instruments/s2lp/test_configuration.py` | 63 | Pass |
+| SWE4-UT-S2LPSIM | `instruments/s2lp/test_simulator.py` | 28 | Pass |
+| SWE4-UT-S2LPCLI | `instruments/s2lp/test_cli.py` | 35 | Pass |
 | SWE4-UT-S2LPSESSION | `instruments/s2lp/test_session.py` | 14 | Pass |
 | SWE4-UT-PSU | `instruments/gpd2303s/test_psu.py` | 74 | Pass |
 | SWE4-UT-BLE | `instruments/nordic_dongle/test_dongle.py` | 64 | Pass |
@@ -110,7 +110,7 @@ hygiene rules of §4.3 - and its first build is recorded as BLE-OPEN-01.
 | SWE4-UT-RESOLVE | `runner/test_resolve.py` | 13 | Pass |
 | SWE4-UT-SOCKET | `core/transport/test_socket.py` | 12 | Pass |
 | SWE4-UT-VISA | `core/transport/test_visa.py` | 6 | Pass |
-| **Total** | | **1 664** | **Pass** |
+| **Total** | | **1 685** | **Pass** |
 
 ## 3. Coverage detail
 
@@ -120,10 +120,10 @@ hygiene rules of §4.3 - and its first build is recorded as BLE-OPEN-01.
 | S2LP | `instruments/s2lp/configuration.py` | 130 | 4 | 97% |
 | S2LP | `instruments/s2lp/constants.py` | 57 | 1 | 98% |
 | S2LP | `instruments/s2lp/protocol.py` | 97 | 4 | 96% |
-| S2LP | `instruments/s2lp/s2lp.py` | 311 | 14 | 95% |
-| S2LP | `instruments/s2lp/cli.py` | 163 | 9 | 94% |
+| S2LP | `instruments/s2lp/s2lp.py` | 386 | 15 | 96% |
+| S2LP | `instruments/s2lp/cli.py` | 171 | 9 | 95% |
 | S2LP | `instruments/s2lp/session.py` | 123 | 9 | 93% |
-| S2LP | `instruments/s2lp/simulator.py` | 226 | 29 | 87% |
+| S2LP | `instruments/s2lp/simulator.py` | 231 | 26 | 89% |
 | S2LP | `instruments/s2lp/packets.py` | 123 | 19 | 85% |
 | PSU | `instruments/gpd2303s/constants.py` | 24 | 0 | 100% |
 | PSU | `instruments/gpd2303s/psu.py` | 239 | 6 | 97% |
@@ -592,7 +592,32 @@ register set twice, a line that is not a setting, and an empty file. Applying
 verifies by read-back, because this radio's writes are acknowledged by the
 firmware rather than by the radio.
 
-### 9.4 A capture states how it was taken
+### 9.4 A configuration is applied to a known radio
+
+A file that names some registers says nothing about the others, so what a
+partial file produces depends on what ran before it. `reset` settles that, and
+the reset itself is confirmed before anything is written:
+
+| Applied after a stray write to GPIO0_CONF | Registers not at their default afterwards |
+|---|---|
+| `apply_configuration(file)` | `GPIO0_CONF`, plus the file's own |
+| `apply_configuration(file, reset="defaults")` | the file's own |
+| `apply_configuration(file, reset="power")` | the file's own |
+
+which is what makes the strict check meaningful: after a reset and an apply,
+"the radio holds this file and nothing else" is a statement the suite has
+established rather than inherited.
+
+The device's reset **strobe** is deliberately not one of the choices - see
+D-35. A simulated kit whose `SdkEvalSdn` never shuts down produces:
+
+```
+InstrumentError: the radio is not at its register defaults after a power reset:
+GPIO0_CONF = 0x55 (default 0x0A). The configuration was not applied, because it
+would have been written on top of a state nobody established.
+```
+
+### 9.5 A capture states how it was taken
 
 | Capture | Packets | Gaps | `is_continuous` | What it may be quoted as |
 |---|---|---|---|---|
@@ -608,7 +633,7 @@ No GPD-2303S was present (PC-8). The driver is verified against a simulated
 supply that models a **load**, which is what makes the interesting condition
 reachable: a channel whose load draws more than its limit.
 
-### 9.1 Constant current is detected, not averaged over
+### 10.1 Constant current is detected, not averaged over
 
 Channel 2 with 2 Ω across it, set to 3.3 V with a 500 mA limit:
 
@@ -624,7 +649,7 @@ The figure to note is 1.000 V. A driver that reported only the voltage would
 hand a test a plausible number describing a circuit nobody asked for, and the
 test would fail somewhere else entirely - or, worse, pass.
 
-### 9.2 The emulated per-channel switch behaves as documented
+### 10.2 The emulated per-channel switch behaves as documented
 
 | Action | Channel 1 | Channel 2 | Supply's own switch |
 |---|---|---|---|
@@ -638,7 +663,7 @@ Row three is the property that matters: programming a parked channel does not
 energise it. Row five is the other: once every channel is off, the supply's real
 switch is opened, so "all off" is not two rails sitting at zero volts.
 
-### 9.3 What could not be verified without the instrument
+### 10.3 What could not be verified without the instrument
 
 | Item | Why |
 |---|---|
@@ -718,6 +743,8 @@ SDK to provide it transitively.
 | D-32 | The S2-LP driver read the firmware's ``{rssi:D4}`` tag as decimal. ST's firmware writes that tag with its ``%x`` specifier, so it carries **bare hex**: ``D4`` read as decimal is 4, and the driver reported -144 dBm for a signal at -40 dBm | **Major** (evidence integrity): a plausible number, wrong by 104 dB, in every received packet and in the packet log | **Closed** — tags the firmware writes in hex are read in hex, explicitly, by `Reply.hex_number` | `test_a_hex_tag_has_no_0x_in_front_of_it`, `test_the_rssi_is_the_one_the_board_reported` |
 | D-33 | The reply parser's number pattern had no sign, so a negative value arrived positive. `S2LPQiGetRssidBm` answers in dBm: -110 dBm was read as +110 dBm | **Major**, and of the worst kind: the result is not merely wrong but physically impossible, and nothing downstream would have questioned it | **Closed** — the pattern accepts a leading minus, and the driver's RSSI test asserts the sign | `test_rssi_is_read_in_dbm`, `TestNumbers` |
 | D-34 | A polled capture counted a re-arm per iteration with no bound on iterations. Against a radio that answers "nothing" immediately it spent the whole timeout re-arming - 35 006 times in two seconds - and reported that as a capture | **Minor** on hardware, where each arm blocks; **major** as a measurement claim, because the gap count is what tells a reader whether a capture was continuous | **Closed** — the polled path is bounded by an attempt count as well as by time, and reports `stopped_early` | `test_a_polled_capture_is_bounded_by_attempts` |
+
+| D-35 | The simulated kit modelled the **SRES strobe as restoring register defaults**. ST's own command header calls it a "reset of all digital part, except SPI registers", and the driver's own docstring said so - but the simulator disagreed, and the test asserting `reset()` restored defaults passed against it | **Major** (in the test double, so the error was invisible): a driver using `reset()` to reach a known state would have passed every test here and left every register exactly as it was on the bench, with a configuration file then applied on top of an unknown state | **Closed** — SRES empties the FIFOs and leaves the register file; `SdkEvalSdn` (shutdown and back) is modelled as the power-on reset, which on the part is the only thing that restores defaults. `power_cycle()` added, and `apply_configuration(reset=...)` uses it | `test_the_reset_strobe_does_not_restore_register_defaults`, `test_the_reset_strobe_leaves_the_register_file_alone`, `test_a_power_cycle_does` |
 
 No open defects.
 

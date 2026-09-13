@@ -158,6 +158,31 @@ python -m benchtools s2lp -r /dev/ttyACM0 config --save captured.regs
 Verifying exits 1 on a mismatch, so a build step stops rather than measuring a
 radio set up differently from the one the test specifies.
 
+**Starting from a known radio.** A file that names some registers says nothing
+about the others, so a partial file applied onto whatever was there before is
+not deterministic:
+
+```python
+radio.apply_configuration(path, reset="defaults")   # write every default, then the file
+radio.apply_configuration(path, reset="power")      # shutdown and back, then the file
+```
+
+```bash
+python -m benchtools s2lp -r /dev/ttyACM0 config file.regs --apply --reset defaults
+```
+
+The reset is **confirmed by read-back** before the file is written: "the reset
+was commanded" and "the radio is at defaults" are different facts, and the file
+is written on top of the second one.
+
+> **The `SRES` strobe does not do this.** ST's command header calls it a "reset
+> of all digital part, except SPI registers", so `radio.reset()` leaves the
+> radio configured exactly as it was. `restore_defaults()` writes the defaults;
+> `power_cycle()` goes through shutdown, which is the only thing that genuinely
+> returns every register - including bits a write cannot reach. This caught a
+> defect in the simulator here (D-35), where SRES was modelled as a register
+> reset and the tests agreed with it.
+
 **Two checks, asking different questions:**
 
 | | Loose (default) | Strict |

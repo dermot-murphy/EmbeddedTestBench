@@ -116,12 +116,13 @@ def _cmd_config(radio: S2lpDevkit, args) -> int:
 
     configuration = radio.load_configuration(args.file)
     if args.apply:
-        check = radio.apply_configuration(configuration)
+        check = radio.apply_configuration(configuration, reset=args.reset)
     else:
         check = radio.verify_configuration(configuration, strict=args.strict)
 
     payload = check.as_dict()
     payload["applied"] = bool(args.apply)
+    payload["reset"] = args.reset if args.apply else "none"
     payload["settings"] = [setting.as_dict() for setting in configuration]
     if not check.matches:
         payload["warning"] = (
@@ -250,6 +251,11 @@ def build_parser() -> argparse.ArgumentParser:
     config.add_argument("file", nargs="?", help="register file: names and hex values")
     config.add_argument("--apply", action="store_true",
                         help="write the values to the radio (default is to verify only)")
+    config.add_argument("--reset", choices=S2lpDevkit.RESET_MODES, default="none",
+                        help="applying: put the radio at its register defaults first. "
+                             "'defaults' writes them; 'power' shuts the radio down and "
+                             "back, a real power-on reset. The reset strobe does NOT "
+                             "restore register defaults and is not offered here.")
     config.add_argument("--strict", action="store_true",
                         help="verifying: also require every register the file does "
                              "not name to be at its reset value")

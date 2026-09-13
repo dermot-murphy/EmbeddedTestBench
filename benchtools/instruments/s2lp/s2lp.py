@@ -215,10 +215,32 @@ class S2lpDevkit(Instrument):
     def reset(self, settle: float = 0.2) -> None:
         """Reset the radio's digital section (the ``SRES`` strobe).
 
-        The SPI registers survive this, as they do on the part; use
-        :meth:`restore_defaults` to put them back to their reset values.
+        **This does not restore register defaults.** ST's own command header
+        describes ``SRES`` as a "reset of all digital part, except SPI
+        registers", so a radio reset this way comes back configured exactly as
+        it was. For defaults use :meth:`restore_defaults` (write them) or
+        :meth:`power_cycle` (a real power-on reset).
         """
         self.strobe(Strobe.RESET)
+        if settle > 0:
+            time.sleep(settle)
+
+    def power_cycle(self, settle: float = 0.1) -> None:
+        """Take the radio through shutdown and back: a power-on reset.
+
+        This is the only operation that genuinely returns **every** register to
+        its documented default, including the bits a register write cannot
+        reach. It is also the most disruptive: the radio comes back with its
+        crystal restarting and nothing configured.
+
+        Use :meth:`restore_defaults` instead when the radio must stay powered -
+        it writes the same values, and is deterministic, but can only restore
+        what is writable.
+        """
+        self._session.execute("SdkEvalSdn", 1)
+        if settle > 0:
+            time.sleep(settle)
+        self._session.execute("SdkEvalSdn", 0)
         if settle > 0:
             time.sleep(settle)
 
@@ -447,8 +469,14 @@ class S2lpDevkit(Instrument):
             return source
         return load_register_file(str(source))
 
+    #: What ``apply_configuration`` may do before it writes anything.
+    RESET_MODES = ("none", "defaults", "power")
+
     def apply_configuration(
-        self, source: Union[str, RegisterConfiguration], verify: bool = True
+        self,
+        source: Union[str, RegisterConfiguration],
+        verify: bool = True,
+        reset: Union[bool, str] = "none",
     ) -> ConfigurationCheck:
         """Write the register values a file asks for, and check they took.
 
@@ -456,14 +484,35 @@ class S2lpDevkit(Instrument):
         when written after another and a file that works should be applied the
         way it was written. Consecutive registers are still sent together.
 
+        :param reset: What to do first.
+
+            * ``"none"`` (the default, also ``False``) - write only what the
+              file names and leave every other register as it is. What the
+              radio was doing before is carried into the test.
+            * ``"defaults"`` (also ``True``) - write every writable register
+              back to its documented reset value first, so the radio holds
+              exactly the file's settings on top of a known state. This is what
+              a test usually wants: it is what makes a partial file
+              deterministic, and what makes a strict check afterwards mean
+              something.
+            * ``"power"`` - take the radio through shutdown and back, a real
+              power-on reset, before writing. The truest reset, and the most
+              disruptive.
+
+            Either reset is **confirmed** before the file is applied: the
+            registers are read back and must actually be at their defaults.
+            "The reset was commanded" and "the radio is at defaults" are
+            different facts, and the second is the one the file is written on
+            top of.
         :param verify: Read the registers back afterwards. On by default: a
             write to this radio is acknowledged by the firmware, not by the
             radio, so "the command was accepted" and "the register holds the
             value" are different facts.
-        :raises InstrumentError: if a register did not take the value asked for,
-            naming every one that differs.
+        :raises InstrumentError: if the reset did not take, or a register did
+            not take the value asked for, naming every one that differs.
         """
         configuration = self.load_configuration(source)
+        self._reset_before_configuring(self._reset_mode(reset))
         for address, values in self._runs_of(configuration):
             self.write_registers(address, values)
 
@@ -477,6 +526,41 @@ class S2lpDevkit(Instrument):
                 % (configuration.source or "the file", check.describe())
             )
         return check
+
+    @classmethod
+    def _reset_mode(cls, reset: Union[bool, str]) -> str:
+        """Normalise the ``reset`` argument, refusing anything else."""
+        if reset is True:
+            return "defaults"
+        if reset is False or reset is None:
+            return "none"
+        mode = str(reset).strip().lower()
+        if mode not in cls.RESET_MODES:
+            raise ConfigurationError(
+                "%r is not a way to reset this radio; the choices are %s"
+                % (reset, ", ".join(cls.RESET_MODES))
+            )
+        return mode
+
+    def _reset_before_configuring(self, mode: str) -> None:
+        """Put the radio at its defaults, and confirm that it is."""
+        if mode == "none":
+            return
+        if mode == "power":
+            self.power_cycle()
+        else:
+            self.restore_defaults()
+
+        remaining = self.registers_differing_from_reset()
+        if remaining:
+            raise InstrumentError(
+                "the radio is not at its register defaults after a %s reset: %s. "
+                "The configuration was not applied, because it would have been "
+                "written on top of a state nobody established."
+                % (mode, ", ".join(
+                    "%s = 0x%02X (default 0x%02X)" % (name, value, default)
+                    for name, (default, value) in sorted(remaining.items())))
+            )
 
     @staticmethod
     def _runs_of(configuration: RegisterConfiguration):

@@ -1012,6 +1012,17 @@ Design points:
 - **Applying verifies by default.** A write is acknowledged by the firmware, not
   by the radio: "the command was accepted" and "the register holds the value"
   are different facts.
+- **`reset` decides what the file is written on top of** (S2LP-FR-021).
+  `"defaults"` writes every writable register back to its documented value;
+  `"power"` takes the radio through shutdown and back. Either is *confirmed* by
+  read-back before anything is applied, because "the reset was commanded" and
+  "the radio is at defaults" are different facts and the file is written on top
+  of the second. The default is `"none"`: wiping 123 registers is a larger
+  action than applying three and should be asked for.
+- **The reset strobe is not one of the choices.** ST's command header calls
+  `SRES` a "reset of all digital part, except SPI registers", so a radio reset
+  that way comes back configured exactly as it was. Offering it here would
+  invite precisely the mistake this option exists to prevent.
 - **`format_register_file` omits read-only registers.** A captured file that
   names one cannot be applied, and a record that cannot be replayed is a trap.
 

@@ -150,6 +150,27 @@ class TestConfigFiles:
         assert names == ["PCKTCTRL3", "PCKTCTRL2", "MOD2"]
         assert payload["settings"][0]["fields"]["PCKT_FRMT"] == 3
 
+    def test_applying_does_not_reset_unless_asked(self, capsys, tmp_path):
+        _, payload, _ = run(capsys, *SIM, "config", self.write(tmp_path), "--apply")
+        assert payload["reset"] == "none"
+
+    def test_applying_can_start_from_the_register_defaults(self, capsys, tmp_path):
+        _, payload, _ = run(capsys, *SIM, "config", self.write(tmp_path),
+                            "--apply", "--reset", "defaults")
+        assert payload["reset"] == "defaults"
+        assert payload["matches"] is True
+
+    def test_applying_can_power_cycle_first(self, capsys, tmp_path):
+        _, payload, _ = run(capsys, *SIM, "config", self.write(tmp_path),
+                            "--apply", "--reset", "power")
+        assert payload["reset"] == "power" and payload["matches"] is True
+
+    def test_the_reset_strobe_is_not_offered_as_a_reset_mode(self):
+        """It does not restore register defaults, so offering it here would
+        invite exactly the mistake this option exists to prevent."""
+        with pytest.raises(SystemExit):
+            main(list(SIM) + ["config", "x.regs", "--apply", "--reset", "sres"])
+
     def test_a_bad_file_names_the_line(self, capsys, tmp_path):
         status, _, stderr = run(capsys, *SIM, "config",
                                 self.write(tmp_path, "PCKTCTRL3 0xC0\nNOTAREG 1\n"))

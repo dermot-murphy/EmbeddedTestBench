@@ -37,8 +37,15 @@ setup:
   # specification: the person who works out the settings is rarely the person
   # writing the tests, and a setting that moves should not need a code change.
   # Paths are relative to where the runner is invoked, as bench paths are.
+  # reset: defaults puts every writable register back to its documented value
+  # before the file is written, so this suite starts from a known radio rather
+  # than from whatever the last one left behind. Without it the strict check
+  # below would be asserting something this suite did not establish.
+  #
+  # Note it is not the SRES strobe: on this part that resets the digital
+  # section and leaves the registers exactly as they were.
   - do: s2lp.apply_configuration
-    with: {source: configs/s2lp_915_38k4_basic.regs}
+    with: {source: configs/s2lp_915_38k4_basic.regs, reset: defaults}
 
   - do: s2lp.set_payload_length
     with: {length: 16}
