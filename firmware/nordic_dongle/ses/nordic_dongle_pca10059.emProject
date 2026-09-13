@@ -60,6 +60,7 @@
       <file file_name="$(SDK_ROOT)/components/libraries/memobj/nrf_memobj.c" />
       <file file_name="$(SDK_ROOT)/components/libraries/queue/nrf_queue.c" />
       <file file_name="$(SDK_ROOT)/components/libraries/ringbuf/nrf_ringbuf.c" />
+      <file file_name="$(SDK_ROOT)/components/libraries/experimental_section_vars/nrf_section_iter.c" />
       <file file_name="$(SDK_ROOT)/components/libraries/strerror/nrf_strerror.c" />
       <file file_name="$(SDK_ROOT)/components/libraries/sortlist/nrf_sortlist.c" />
       <file file_name="$(SDK_ROOT)/components/libraries/atomic_flags/nrf_atflags.c" />
