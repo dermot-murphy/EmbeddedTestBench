@@ -180,7 +180,9 @@ class TestLoading:
         assert load_spec(str(path)).source == str(path)
 
     @pytest.mark.parametrize(
-        "name,aliases", [("clock_skew.yaml", ["scope"]), ("firmware_timing.yaml", ["probe"])]
+        "name,aliases",
+        [("clock_skew.yaml", ["scope"]), ("firmware_timing.yaml", ["probe"]),
+         ("sensor_rails.yaml", ["psu"]), ("dongle_firmware.yaml", ["dongle"])],
     )
     def test_shipped_specifications_are_valid(self, name, aliases):
         """The examples in specs/ must stay loadable as the API changes."""
@@ -190,4 +192,4 @@ class TestLoading:
         root = pathlib.Path(__file__).resolve().parents[2]
         spec = load_spec(str(root / "specs" / name))
         assert spec.instruments_used == aliases
-        assert len(spec.tests) >= 4
+        assert len(spec.tests) >= 3

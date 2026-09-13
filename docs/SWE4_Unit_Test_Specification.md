@@ -199,6 +199,9 @@ module's imports:
 | SWE4-UT-LIMITS | `runner/test_limits.py` | Every limit form, construction validation, rendering | RUN-FR-020 .. -023 |
 | SWE4-UT-RESOLVE | `runner/test_resolve.py` | Result path resolution and its failure messages | RUN-FR-013 |
 | SWE4-UT-SPEC | `runner/test_spec.py` | Specification parsing and every malformed form | RUN-FR-010 .. -015 |
+| SWE4-UT-PSU | `instruments/gpd2303s/test_psu.py` | The supply driver: identity, setting and its range refusals, measurement, constant-current detection, per-channel output emulation and what it does not promise, status decoding, error reporting, command pacing and the safe state | PSU-FR-001 .. -043 |
+| SWE4-UT-PSUSIM | `instruments/gpd2303s/test_simulator.py` | Self-checks on the simulated supply: Ohm's law, the constant-current fallback, the single output switch, silent refusals, and clamping as the hardware clamps | PSU-FR-050 |
+| SWE4-UT-PSUCLI | `instruments/gpd2303s/test_cli.py` | Every supply sub-command end to end; JSON output; the current-limit warning; that `set` does not energise a rail | PSU-FR-060 |
 | SWE4-UT-BENCH | `runner/test_bench.py` | Bench configuration, lazy connection, driver registry, simulation detection, instrument identity recorded per run | RUN-FR-001 .. -006, RUN-FR-037 |
 | SWE4-UT-ENGINE | `runner/test_runner.py` | Execution, failure versus error, setup abort, skips, roll-up, property steps, instruments in the record | RUN-FR-030 .. -037 |
 | SWE4-UT-REPORT | `runner/test_report.py` | JSON, markdown and JUnit output; the instruments table and its identity-failure row | RUN-FR-037, RUN-FR-040 .. -043 |

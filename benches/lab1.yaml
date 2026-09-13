@@ -44,8 +44,21 @@ instruments:
       # bench whose results are evidence, someone should decide to reflash.
       update_firmware: false
 
+  # GW Instek GPD-2303S, over its USB-serial port or RS-232. A bare port name
+  # is read as a serial port. The line rate must match the supply's own front
+  # panel setting (Utility > Baud); status reports what the supply thinks it is.
+  psu:
+    driver: gpd2303s
+    resource: /dev/ttyUSB0        # COM4 on Windows
+    timeout: 5.0
+    options:
+      baudrate: 9600
+      # Minimum gap between commands. The supply has no flow control and drops
+      # what it cannot buffer, silently. Lower it only with evidence.
+      command_interval: 0.05
+
   # Any instrument without a dedicated driver yet can still be addressed,
   # identified and sent raw SCPI through the generic driver.
-  psu:
+  dmm:
     driver: generic
     resource: 192.168.1.60

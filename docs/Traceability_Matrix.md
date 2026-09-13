@@ -33,7 +33,8 @@ docstring, so the link is carried in the artefact and not only in this table.
 | STK-15 — scan, select and advertising profile | BLE-FR-020 … -024, -030 … -036, -080 |
 | STK-16 — dongle firmware, SES and SDK 17 | BLE-FR-090, -001, -003, -010; BLE-NFR-001 … -003, -006 |
 | STK-17 — log the session to a text file | BLE-FR-060 … -062, -004 |
-| STK-13, STK-18 — PSU, RS-232 multimeter | No requirements in this revision (CON-03, OPEN-03). `Instrument` (CORE-FR-012 … -016) and the serial transport (CORE-FR-017) are the seams each will use. |
+| STK-13 — programmable supply for the sensor | PSU-FR-001 … -060; PSU-NFR-001 … -003; CORE-FR-017 |
+| STK-18 — RS-232 multimeter | No requirements in this revision (CON-03, OPEN-03). `Instrument` (CORE-FR-012 … -016) and the serial transport (CORE-FR-017) are the seams it will use. |
 
 ## 2. CORE requirements to design, code and test
 
@@ -250,7 +251,45 @@ where the firmware implements the requirement.
 | BLE-NFR-004 | `test_no_mandatory_third_party_imports`; pyserial is the `serial` extra, imported inside `_open_link`. |
 | BLE-NFR-005 | `test_the_dongle_clock_is_the_default`, `test_as_dict_carries_the_figure_and_its_caveats`, and the CLI's `warning` key. |
 
-## 7. RUN requirements to design, code and test
+## 7. PSU requirements to design, code and test
+
+| Requirement | Architecture | Design unit | Source | Verifying test(s) |
+|---|---|---|---|---|
+| PSU-FR-001 | PSU-ARC-001 | PSU-DD-PSU | `set_voltage`, `set_current_limit`, `voltage_setpoint`, `current_limit` | `TestSetting` (8) |
+| PSU-FR-002 | PSU-ARC-001 | PSU-DD-PSU, PSU-DD-CONST | `_check_range` | `test_an_impossible_voltage_is_refused_before_it_is_sent` (3), `test_an_impossible_current_limit_is_refused` (2), `test_the_supply_clamps_rather_than_refusing` |
+| PSU-FR-003 | PSU-ARC-001 | PSU-DD-PSU | `_quantise` | `test_the_setpoint_read_back_equals_the_one_sent`, `test_a_value_between_steps_is_rounded_as_the_supply_rounds_it` |
+| PSU-FR-004 | PSU-ARC-001 | PSU-DD-PSU | `_check_channel` | `test_a_channel_that_does_not_exist_is_named` (4), `test_a_channel_that_does_not_exist_is_refused` |
+| PSU-FR-005 | PSU-ARC-001 | PSU-DD-PSU | `configure_channel` | `test_configure_sets_the_limit_before_the_voltage` |
+| PSU-FR-010 | PSU-ARC-001 | PSU-DD-PSU | `measure_voltage`, `measure_current`, `_parse_reading` | `TestMeasuring` (8) |
+| PSU-FR-011 | PSU-ARC-001 | PSU-DD-PSU | `ChannelReading.power`, `measure_power` | `test_power_is_derived_from_both_readings` |
+| PSU-FR-012 | PSU-ARC-001 | PSU-DD-PSU | `read_channel`, `read_all` | `test_read_channel_gathers_everything_at_once`, `test_read_all_covers_every_channel` |
+| PSU-FR-020 | PSU-ARC-001 | PSU-DD-PSU, PSU-DD-SIM | `ChannelReading.mode`, `channel_mode` | `TestCurrentLimit` (5), notably `test_the_rail_is_below_its_setpoint_there` |
+| PSU-FR-021 | PSU-ARC-001 | PSU-DD-PSU, PSU-DD-CONST | `status`, `SupplyStatus` | `TestStatus` (6) |
+| PSU-FR-022 | PSU-ARC-001 | PSU-DD-PSU | `status` length check | `test_a_short_reply_blames_the_line_rate` |
+| PSU-FR-023 | PSU-ARC-001 | PSU-DD-PSU | `ChannelReading.regulated` | `test_regulated_is_the_question_a_test_actually_means` |
+| PSU-FR-024 | PSU-ARC-001 | PSU-DD-PSU | `read_event_queue` | `TestErrors` (6) |
+| PSU-FR-030 | PSU-ARC-001, AD-19 | PSU-DD-PSU | `output_on`, `output_off`, `set_output`, `is_output_on` | `TestOutputSwitching` (11), notably `test_switching_a_channel_off_parks_it_at_zero_volts` |
+| PSU-FR-031 | PSU-ARC-001, AD-19 | PSU-DD-PSU | `_parked` | `test_the_setpoint_survives_being_switched_off` |
+| PSU-FR-032 | PSU-ARC-001, AD-19 | PSU-DD-PSU | `set_voltage` parked branch | `test_setting_a_voltage_on_a_parked_channel_does_not_energise_it`, `test_and_that_new_setpoint_is_what_comes_up` |
+| PSU-FR-033 | PSU-ARC-001 | PSU-DD-PSU | `set_current_limit` | `test_the_current_limit_is_not_parked` |
+| PSU-FR-034 | PSU-ARC-001, AD-19 | PSU-DD-PSU | `output_off` | `test_the_last_channel_off_opens_the_real_switch` |
+| PSU-FR-035 | PSU-ARC-001 | PSU-DD-PSU | `all_outputs_on`, `all_outputs_off` | `test_all_outputs_off_really_switches_off`, `test_all_outputs_on_restores_every_parked_channel` |
+| PSU-FR-040 | PSU-ARC-001 | PSU-DD-PSU | `_post_open`, `_read_identity` | `test_connecting_changes_nothing`, `test_it_knows_the_output_was_already_on`, `TestConnection` (7) |
+| PSU-FR-041 | PSU-ARC-001 | PSU-DD-PSU, PSU-DD-CONST | `_pace`, `_default_command_interval` | `TestPacing` (7) |
+| PSU-FR-042 | PSU-ARC-001 | PSU-DD-PSU | `_normalise_resource` | `test_a_bare_port_name_is_a_serial_port`, `test_resource_forms` (5) |
+| PSU-FR-043 | PSU-ARC-001 | PSU-DD-PSU | `reset` | `TestReset` (3) |
+| PSU-FR-050 | PSU-ARC-001 | PSU-DD-SIM | `simulator.py`, `register_driver("gpd2303s", …)` | `SWE4-UT-PSUSIM` (20), `test_correct_driver_per_alias` |
+| PSU-FR-060 | PSU-ARC-001 | PSU-DD-CLI | `cli.py` | `SWE4-UT-PSUCLI` (20) |
+
+### PSU non-functional
+
+| Requirement | Evidence |
+|---|---|
+| PSU-NFR-001 | `test_no_mandatory_third_party_imports`; the supply reaches its port through CORE-DD-SERIAL, whose pyserial import is inside `_open_link`. |
+| PSU-NFR-002 | `test_set_does_not_switch_the_output_on`, `test_setting_a_voltage_on_a_parked_channel_does_not_energise_it`, `test_connecting_changes_nothing`. Energising is always an explicit call. |
+| PSU-NFR-003 | Volts, amps and watts throughout; `ChannelReading` carries `mode`, and `read` on the command line warns when a channel is in current limit. |
+
+## 8. RUN requirements to design, code and test
 
 | Requirement | Architecture | Design unit | Source | Verifying test(s) |
 |---|---|---|---|---|
@@ -287,7 +326,7 @@ where the firmware implements the requirement.
 | RUN-FR-052 | ARC-001 | RUN-DD-CLI | report path suffixing | `test_several_specs_get_suffixed_reports` |
 | RUN-FR-053 | ARC-001 | RUN-DD-CLI | `benchtools/cli.py` | `TestTopLevelDispatch` (7) |
 
-## 8. Architecture to design to source
+## 9. Architecture to design to source
 
 | Architectural element | Design unit | Source |
 |---|---|---|
@@ -304,9 +343,10 @@ where the firmware implements the requirement.
 | JLINK-ARC-001 | JLINK-DD-GDBMI, -SESSION, -SERVER, -RTT, -SWO, -TIMING, -CONST, -SIM, -PROBE, -CLI | `instruments/jlink/*.py` |
 | BLE-ARC-001 | BLE-DD-PROTOCOL, -SESSION, -PROFILE, -LATENCY, -CONST, -DONGLE, -SIM, -CLI | `instruments/nordic_dongle/*.py` |
 | BLE-ARC-001 | BLE-DD-CDC, -TIMESTAMP, -SCANNER, -NUS, -CMD, -MAIN, -BUILD, -TEST | `firmware/nordic_dongle/{src,include,config,ses,gcc,scripts,test}/*` |
+| PSU-ARC-001 | PSU-DD-PSU, -CONST, -SIM, -CLI | `instruments/gpd2303s/{psu,constants,simulator,cli}.py` |
 | RUN-ARC-001 | RUN-DD-SPEC, -LIMITS, -RESOLVE, -BENCH, -RESULTS, -RUNNER, -REPORT, -CLI | `runner/*.py`, `cli.py` |
 
-## 9. Coverage analysis
+## 10. Coverage analysis
 
 | Question | Answer |
 |---|---|
@@ -314,16 +354,16 @@ where the firmware implements the requirement.
 | Tests not tracing to a requirement | **None.** Every test file names its requirements in its module docstring. |
 | Source modules with no design unit | **None.** Every module names its design unit in its docstring - firmware sources included, checked by `test_every_source_declares_its_trace` in `SWE4-UT-BLEFW`; `__main__.py` is covered by RUN-DD-CLI. |
 | Design units with no source | **None.** |
-| Stakeholder requirements not decomposed | **None of those in scope.** STK-01 to STK-11 and STK-14 to STK-17 trace downward; STK-06 additionally produces BENCHTOOLS-VISA-001 as its work product. STK-12 is partly addressed (AD-15 constrains the driver boundary for it) and the translator itself is deferred: CON-06, OPEN-04. STK-13 and STK-18 are recorded as future work with no requirements in this revision: CON-03, OPEN-03. |
-| Architectural decisions without a verifying test | **None.** AD-01 → `test_full_driver_over_the_socket`; AD-02 → `test_layering.py`; AD-03 → `TestDriverRegistry`; AD-04 → `TestFraming`; AD-05 → `test_payload_containing_a_hash_byte_is_not_re_parsed`; AD-06 → `TestChannelSpread`; AD-07 → `test_busy_is_polled_until_clear`; AD-08 → `TestSpecParsing`; AD-09 → `TestFailureVersusError`; AD-10 → `test_all_sim_resources_count_as_simulated`; AD-11 → `test_the_probe_is_an_instrument_but_not_scpi`, `test_scpi_instrument_is_an_instrument`; AD-12 → `SWE4-UT-GDBMI`, `SWE4-UT-GDBSESSION`, `test_connect_to_the_simulator`; AD-13 → `test_resource_parsing`, `test_a_remote_server_is_never_spawned`; AD-14 → `SWE4-UT-TIMING`, `test_a_short_interval_is_flagged_untrustworthy`; AD-15 → `test_serialises_for_a_report`, `test_shipped_specifications_are_valid`; AD-16 → `SWE4-UT-BLEFW`; AD-17 → `test_both_clocks_are_recorded`, `test_the_host_clock_resolves_a_millisecond`; AD-18 → `test_a_lossy_link_is_declared_rather_than_averaged`, `test_a_dropping_dongle_says_so`. |
+| Stakeholder requirements not decomposed | **None of those in scope.** STK-01 to STK-11 and STK-14 to STK-17 trace downward; STK-06 additionally produces BENCHTOOLS-VISA-001 as its work product. STK-12 is partly addressed (AD-15 constrains the driver boundary for it) and the translator itself is deferred: CON-06, OPEN-04. STK-13 is decomposed into `PSU-` and verified. STK-18 remains future work with no requirements in this revision: CON-03, OPEN-03. |
+| Architectural decisions without a verifying test | **None.** AD-01 → `test_full_driver_over_the_socket`; AD-02 → `test_layering.py`; AD-03 → `TestDriverRegistry`; AD-04 → `TestFraming`; AD-05 → `test_payload_containing_a_hash_byte_is_not_re_parsed`; AD-06 → `TestChannelSpread`; AD-07 → `test_busy_is_polled_until_clear`; AD-08 → `TestSpecParsing`; AD-09 → `TestFailureVersusError`; AD-10 → `test_all_sim_resources_count_as_simulated`; AD-11 → `test_the_probe_is_an_instrument_but_not_scpi`, `test_scpi_instrument_is_an_instrument`; AD-12 → `SWE4-UT-GDBMI`, `SWE4-UT-GDBSESSION`, `test_connect_to_the_simulator`; AD-13 → `test_resource_parsing`, `test_a_remote_server_is_never_spawned`; AD-14 → `SWE4-UT-TIMING`, `test_a_short_interval_is_flagged_untrustworthy`; AD-15 → `test_serialises_for_a_report`, `test_shipped_specifications_are_valid`; AD-16 → `SWE4-UT-BLEFW`; AD-17 → `test_both_clocks_are_recorded`, `test_the_host_clock_resolves_a_millisecond`; AD-18 → `test_a_lossy_link_is_declared_rather_than_averaged`, `test_a_dropping_dongle_says_so`; AD-19 → `TestOutputSwitching` (11), notably `test_the_last_channel_off_opens_the_real_switch` and `test_setting_a_voltage_on_a_parked_channel_does_not_energise_it`. |
 
-## 10. Open items
+## 11. Open items
 
 | ID | Item | Owner action |
 |---|---|---|
 | OPEN-01 | Bench confirmation items in BENCHTOOLS-VISA-001 §5.1 (device name, portmapper transport, hardcopy format, measurement settling, record lengths) | Discharge on first use with physical hardware. |
 | OPEN-02 | TDS3000 SCPI command spellings not transcribed from the programmer manual (CON-02) | Spot-check against Tektronix 071-0381-03 on first bench use. |
-| OPEN-03 | No requirements yet for the instruments named for future work (CON-03): the sensor supply PSU (STK-13), the RS-232 multimeter (STK-18), and the families named earlier — loads, signal sources, logic and protocol analysers | Add a prefixed requirements section, design unit, test group and matrix rows per instrument as each driver is written. |
+| OPEN-03 | No requirements yet for the instruments still named for future work (CON-03): the RS-232 multimeter (STK-18), and the families named earlier — loads, signal sources, logic and protocol analysers. STK-13 is **closed**: the GPD-2303S supply is specified (PSU-FR-001 … -060), designed, implemented and tested | Add a prefixed requirements section, design unit, test group and matrix rows per instrument as each driver is written, as was done for `PSU-`. |
 | OPEN-06 | The dongle firmware compiles against SDK 15.2 headers but has not been linked, flashed or run against SDK 17.1.0 (CON-07) | Build the SES project against nRF5 SDK 17.1.0, flash it by DFU, and work through `docs/ble/BLE_Dongle_Notes.md` §5 (BLE-OPEN-01 to BLE-OPEN-04). The compile check is `firmware/nordic_dongle/scripts/compile_check.sh`. |
 | OPEN-04 | Markdown-to-Robot-Framework translation (STK-12, CON-06) is not implemented | Decide whether to adopt Robot Framework. If adopted, add a `ROBOT-` element in front of the existing runner; AD-15 has kept the driver boundary suitable for it. |
 | OPEN-05 | J-Link bench confirmation items (CON-04, CON-05) — `docs/jlink/JLink_Integration_Notes.md` §4: Windows execution, real MI version behaviour, SWO timestamp scaling, RTT control-block discovery, flash timing | Discharge on first use with a probe and a target. Tracked there as JLINK-OPEN-01 to JLINK-OPEN-04. |

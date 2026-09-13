@@ -931,6 +931,96 @@ document-and-test discipline had not (SWE.4 report §4.4).
 
 ---
 
+# PSU — `benchtools.instruments.gpd2303s`
+
+A GW Instek GPD-2303S: two channels, 30 V and 3 A each, over RS-232 or its
+USB-serial port. It answers `*IDN?` and nothing else from IEEE 488.2, so the
+units below take the transport and lifecycle from CORE-DD-SCPI and replace
+`*CLS`, `*RST` and the error queue with this supply's own.
+
+## PSU-DD-CONST — `constants.py`
+
+Ratings, programming resolution, line rates, the status-word tables and the
+CV/CC and tracking vocabularies. They are here so an out-of-range setting can be
+refused *before* it is sent: this supply clamps rather than refusing, and a test
+that asked for 35 V, was given 30 V and never told would report a pass against a
+condition it never applied.
+
+## PSU-DD-PSU — `psu.py`
+
+`Gpd2303S`, and the two records it returns.
+
+| Group | Members |
+|---|---|
+| Lifecycle | `connect`, `_normalise_resource`, `_post_open`, `_read_identity`, `reset` |
+| Setting | `set_voltage`, `set_current_limit`, `configure_channel` |
+| Reading | `voltage_setpoint`, `current_limit`, `measure_voltage`, `measure_current`, `measure_power`, `read_channel`, `read_all`, `channel_mode` |
+| Status | `status`, `read_event_queue`, `output`, `tracking` |
+| Switching | `output_on`, `output_off`, `set_output`, `is_output_on`, `all_outputs_on`, `all_outputs_off` |
+
+Design points:
+
+- **`ChannelReading` carries the mode with the numbers.** A voltage reading
+  alone cannot say whether the supply was holding the voltage it was asked for
+  or holding a current limit instead, and those are different experiments.
+  `regulated` answers the question a test usually means by "is it on": energised,
+  in constant voltage, and at its setpoint.
+- **Per-channel output is emulated** (AD-19). `_parked` maps a channel to the
+  setpoint it was switched off at, and membership of that map *is* what parked
+  means - deriving it from the supply's global switch as well would be two facts
+  that can disagree. `output_off` programs the channel to zero and opens the
+  real switch only when every channel is parked; `set_voltage` on a parked
+  channel updates the parked value rather than the live one, so setting a
+  voltage can never energise a rail as a side effect.
+- **The current limit is never parked.** It is the protection for whatever is
+  connected, and it applies whether the channel is on or off. `reset` leaves the
+  limits alone for the same reason: a reset that silently raised them would be
+  the opposite of safe.
+- **`configure_channel` sets the limit before the voltage**, so a channel coming
+  up at a new voltage is never even briefly protected by the previous test's
+  limit.
+- **Commands are paced** on a real link (`_pace`, `DEFAULT_COMMAND_INTERVAL`).
+  The supply has a small input buffer and no flow control; a command it drops is
+  silent, and the next query answers perfectly well while the rail is not where
+  the test believes it is. A simulated or loopback link is not paced - there is
+  no buffer to overrun, and 50 ms a command would cost the suite minutes.
+- **`_post_open` changes nothing.** Connecting to a supply that is powering a
+  board must not disturb the board, so it identifies the supply, reads its
+  status, and stops.
+- **Error checking is off by default.** At 9600 baud a poll after every command
+  doubles the time of a sweep, and the range checking that matters is done in
+  the driver. `read_event_queue` uses `ERR?` and carries its text verbatim,
+  because the exact wording is a bench confirmation item (PSU-OPEN-02).
+
+## PSU-DD-SIM — `simulator.py`
+
+A supply *with a load on it*, which is what makes it worth having: a channel
+whose load draws more than its limit falls into CC and its voltage drops, so a
+driver that ignores the mode fails a test here rather than on the rig.
+
+`SimulatedChannel.output()` is the whole of regulation in two branches - a
+voltage source until the current it would have to deliver exceeds the limit,
+then a current source at that limit with the voltage left to the load.
+
+It is not built on CORE-DD-SIM: that class splits messages on `;` and on a
+space, which is SCPI's grammar and not this supply's - `VSET1:3.300` is one
+command, not a header and a sub-system. It models the single output switch, and
+it **clamps** an out-of-range setting exactly as the hardware does, which is the
+behaviour PSU-FR-002 exists to protect a test from. An unrecognised command is
+met with silence, as the hardware meets it, so a driver that misspells one sees
+a timeout in a test rather than only on the bench.
+
+## PSU-DD-CLI — `cli.py`
+
+Sub-commands `info`, `read`, `set`, `on`, `off`, `status`, emitting JSON
+(AD-15). Two deliberate choices, both about not damaging what is connected:
+`set` programs a channel and does **not** energise it (`--on` does that,
+explicitly), and `off` with a channel number reports in its output that the
+channel is parked at zero volts rather than disconnected. `read` adds a
+`warning` key when a channel it read is in current limit.
+
+---
+
 # RUN — `benchtools.runner`
 
 ## RUN-DD-SPEC — `spec.py`

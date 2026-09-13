@@ -32,10 +32,10 @@ MATRIX_DOC = DOCS / "Traceability_Matrix.md"
 
 #: Requirement identifier, e.g. CORE-FR-001, JLINK-FR-060 or CORE-NFR-007.
 #: One prefix per element of SWE.1 §3; a new element is registered here.
-_REQUIREMENT = r"(?:CORE|ANA|INST|SCOPE|JLINK|BLE|RUN)-(?:FR|NFR)-\d{3}"
+_REQUIREMENT = r"(?:CORE|ANA|INST|SCOPE|JLINK|BLE|PSU|RUN)-(?:FR|NFR)-\d{3}"
 
 #: Design unit identifier, e.g. CORE-DD-SCPI.
-_DESIGN_UNIT = r"(?:CORE|ANA|INST|SCOPE|JLINK|BLE|RUN)-DD-[A-Z0-9]+"
+_DESIGN_UNIT = r"(?:CORE|ANA|INST|SCOPE|JLINK|BLE|PSU|RUN)-DD-[A-Z0-9]+"
 
 
 def _text(path: pathlib.Path) -> str:

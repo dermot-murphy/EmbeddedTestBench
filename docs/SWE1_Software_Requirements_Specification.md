@@ -44,7 +44,7 @@ USB link. It is specified, designed and traced here like the rest of the item.
 | STK-10 | Use the J-Link driver from the test bench, so firmware state is an assertable quantity in a bench test alongside instrument measurements. |
 | STK-11 | Run first on a Windows PC; eventually run the entire test bench inside Docker. |
 | STK-12 | Possibly express tests in Markdown and translate them to Robot Framework files. |
-| STK-13 | Control the sensor supply voltage with a programmable power supply. *(future)* |
+| STK-13 | Control the sensor supply voltage with a programmable power supply. |
 | STK-14 | Send BLE UART commands through a Nordic dongle in command/response mode, read the responses, and measure the time until each response. |
 | STK-15 | Scan for BLE sensors, select one, and measure its advertising profile. |
 | STK-16 | Provide the dongle's embedded firmware, built with SEGGER Embedded Studio against nRF5 SDK 17. |
@@ -64,6 +64,7 @@ prefixes are per element so they stay unique as instruments are added.
 | `SCOPE-` | `benchtools.instruments.tek3014b` | The oscilloscope driver. |
 | `JLINK-` | `benchtools.instruments.jlink` | The SEGGER J-Link debug probe driver. Not a SCPI instrument, and the only element that reaches the target through a debug probe rather than a measurement link. |
 | `BLE-` | `benchtools.instruments.nordic_dongle` **and** `firmware/nordic_dongle` | The BLE bench dongle: host driver and the dongle's own firmware. One element, because the protocol between them is one design decision and splitting it across two elements would let the halves drift apart. |
+| `PSU-` | `benchtools.instruments.gpd2303s` | The GW Instek GPD-2303S bench supply. Separate from `INST-` because its command set is neither SCPI nor shared with any other instrument here, and its single output switch is a hardware constraint that shapes its whole interface. |
 | `RUN-` | `benchtools.runner` | The bench test runner. |
 
 ---
@@ -399,9 +400,75 @@ implements them; §9.6 says which.
 
 ---
 
-## 10. RUN — bench test runner
+## 10. PSU — GW Instek GPD-2303S bench supply
 
-### 10.1 Bench configuration
+A two-channel 30 V / 3 A linear supply, reached over RS-232 or its USB-serial
+port. It is the sensor supply of STK-13.
+
+The requirements below are shaped by three properties of this particular
+instrument, each of which is a way a test can record a number that is not true:
+it **clamps** a setting it cannot deliver instead of refusing it, it leaves
+**constant-current** operation visible only in a status word, and it has **one
+output switch for two channels**.
+
+### 10.1 Setting and reading
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| PSU-FR-001 | The driver shall set and read back each channel's output voltage and current limit, in volts and amps. | STK-13 | Test |
+| PSU-FR-002 | A setting outside what the supply can deliver shall be refused before it is sent. The supply clamps silently, so a test that asked for 35 V would otherwise record a pass for a condition it never applied. | STK-13 | Test |
+| PSU-FR-003 | A setpoint shall be rounded to the supply's programming resolution before it is sent, so that a value read back compares equal to the value written. | STK-13 | Test |
+| PSU-FR-004 | A channel number the supply does not have shall be refused, naming the channels it does have. | STK-13 | Test |
+| PSU-FR-005 | Setting a channel's voltage and current limit together shall set the limit first, so that a channel is never briefly protected by a previous setting. | STK-13 | Test |
+| PSU-FR-010 | The driver shall measure each channel's output voltage and output current. A reply carrying its unit shall be read as a number. | STK-13 | Test |
+| PSU-FR-011 | Output power shall be available, and shall be identified as derived from the two readings rather than measured. | STK-13 | Test |
+| PSU-FR-012 | A single call shall return a channel's measurements, its setpoints and its regulation mode together, so that the mode qualifying a reading comes from the same moment as the reading. | STK-13 | Test |
+
+### 10.2 Regulation and status
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| PSU-FR-020 | The driver shall report whether each channel is in constant voltage or constant current. A channel in constant current is not delivering the voltage that was set, and no voltage reading alone says so. | STK-13, STK-17 | Test |
+| PSU-FR-021 | The driver shall decode the supply's status word - per-channel mode, tracking, beeper, output state and line rate - and shall retain the raw reply beside the decoded values. | STK-13 | Test |
+| PSU-FR-022 | A status reply that is not the documented length shall be reported as such, naming the line rate as the likely cause, rather than decoded. | STK-13 | Test |
+| PSU-FR-023 | The driver shall report whether a channel is *regulated*: energised, in constant voltage, and at its setpoint. | STK-13, STK-17 | Test |
+| PSU-FR-024 | The driver shall be able to read and clear whatever the supply reports about a rejected command, carrying its text verbatim. | STK-13 | Test |
+
+### 10.3 Output switching
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| PSU-FR-030 | The driver shall switch each channel on and off individually. The supply has one output switch for both channels, so a single channel is switched off by programming it to zero volts; the interface shall state that this is not an isolator and not a safety interlock. | STK-13 | Test, Inspection |
+| PSU-FR-031 | A channel switched off shall retain the setpoint it was switched off at, and shall return to it when switched on. | STK-13 | Test |
+| PSU-FR-032 | Setting a voltage on a channel that is switched off shall not energise it; the new value shall apply when it is next switched on. | STK-13 | Test |
+| PSU-FR-033 | A channel's current limit shall remain in force whether or not the channel is switched on. | STK-13 | Test |
+| PSU-FR-034 | When every channel has been switched off, the supply's own output switch shall be opened, so that "all off" is not two rails at zero volts. | STK-13 | Test |
+| PSU-FR-035 | The supply's output switch shall be operable directly, on and off, without reference to individual channels. | STK-13 | Test |
+
+### 10.4 Link and bench use
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| PSU-FR-040 | Connecting shall identify the supply and read its state, and shall change nothing: a supply powering a board must not be disturbed by a driver attaching to it. | STK-13, STK-17 | Test |
+| PSU-FR-041 | Commands shall be paced on a real link. The supply has a small input buffer and no flow control, and a command it drops is silent. | STK-13 | Test |
+| PSU-FR-042 | A bare port name shall be taken as a serial port rather than a network host. | STK-13 | Test |
+| PSU-FR-043 | The driver shall provide a safe state - outputs off and rails at zero - without altering current limits, which are the protection set for whatever is connected. | STK-13, STK-17 | Test |
+| PSU-FR-050 | The supply shall be registered as a bench driver, and a simulated supply shall answer the same command set with a load model, so that constant-current operation is verifiable without hardware. | STK-08, STK-13 | Test |
+| PSU-FR-060 | A command-line interface shall expose identification, status, measurement, setting and output switching, emitting JSON, and shall warn when a channel it read is in current limit. | STK-13 | Test |
+
+### 10.5 PSU non-functional
+
+| ID | Requirement | Verification |
+|---|---|---|
+| PSU-NFR-001 | The driver shall add no mandatory third-party dependency; the serial library shall be an optional extra. | Test, Inspection |
+| PSU-NFR-002 | No operation shall energise an output that the caller did not ask to be energised. | Test, Inspection |
+| PSU-NFR-003 | Every value the supply reports shall be presented in SI units, with the regulation mode that qualifies it. | Test |
+
+---
+
+## 11. RUN — bench test runner
+
+### 11.1 Bench configuration
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -412,7 +479,7 @@ implements them; §9.6 says which.
 | RUN-FR-005 | The runner shall support replacing every instrument with its simulator, so a specification can be exercised without hardware. | STK-08 | Test |
 | RUN-FR-006 | A run shall be recorded as simulated whenever no instrument on the bench is real hardware, so simulated results cannot be mistaken for measurements. | STK-08 | Test |
 
-### 10.2 Test specification
+### 11.2 Test specification
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -423,7 +490,7 @@ implements them; §9.6 says which.
 | RUN-FR-014 | A malformed specification shall be rejected with a message identifying what to fix. | STK-08 | Test |
 | RUN-FR-015 | A test shall be markable as skipped, with a reason. | STK-08 | Test |
 
-### 10.3 Limits
+### 11.3 Limits
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -432,7 +499,7 @@ implements them; §9.6 says which.
 | RUN-FR-022 | A measured value shall be scalable before the limit is checked, so a limit can be stated in convenient units. | STK-08 | Test |
 | RUN-FR-023 | A limit shall render as human-readable text for the report, and a failure shall state by how much the value missed. | STK-08 | Test |
 
-### 10.4 Execution
+### 11.4 Execution
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -445,7 +512,7 @@ implements them; §9.6 says which.
 | RUN-FR-036 | A step shall be able to name a driver property as well as a method. A property shall be read when the step executes and shall take no arguments. | STK-08 | Test |
 | RUN-FR-037 | The run record and every report shall identify each instrument the run used - driver, model, serial number, resource and, where the instrument reports one, the firmware build - recorded after the run rather than before. An instrument that would not identify shall be recorded as such rather than omitted. | STK-08, STK-16, STK-17 | Test |
 
-### 10.5 Reporting
+### 11.5 Reporting
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -460,7 +527,7 @@ implements them; §9.6 says which.
 
 ---
 
-## 11. Assumptions and constraints
+## 12. Assumptions and constraints
 
 | ID | Statement |
 |---|---|

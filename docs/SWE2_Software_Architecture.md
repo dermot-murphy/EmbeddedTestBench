@@ -86,6 +86,7 @@ instrument, and to be importable without importing any other element.
 | SCOPE-ARC-001 | `instruments.tek3014b` | The TDS3000 SCPI vocabulary and the oscilloscope's capability envelope. | `Tek3014B` |
 | BLE-ARC-001 | `instruments.nordic_dongle` **and** `firmware/nordic_dongle` | The BLE bench dongle, as one element across two languages. Host side: the line protocol (`protocol`), the command/event session with its log (`session`), advertising statistics (`profile`), latency statistics (`latency`), the driver façade (`dongle`) and a simulated dongle. Dongle side: USB CDC line transport, command dispatch, scanner, UART client and the microsecond clock. `include/protocol.h` is the interface both are built from. | `NordicDongle`, `DongleSession`, `AdvertisingProfile`, `ResponseTiming`, `SimulatedDongle`; `cmd_parser_handle`, `scanner_on_ble_evt`, `nus_client_command` |
 | JLINK-ARC-001 | `instruments.jlink` | The debug probe driver. `JLinkProbe` is the façade over seven collaborators, each independently testable: MI record parsing (`gdbmi`), the command/response session (`session`), server discovery and lifetime (`server`), RTT (`rtt`), ITM/SWO decoding (`swo`), timing results (`timing`), and the probe and target envelope (`constants`). Its simulator answers the MI dialogue. | `JLinkProbe`, `GdbMiSession`, `RttClient`, `ItmDecoder`, `TimingResult`, `GdbServer` |
+| PSU-ARC-001 | `instruments.gpd2303s` | The GW Instek bench supply. Not a SCPI instrument: it takes the transport and lifecycle from `ScpiInstrument` and replaces the SCPI-specific parts (`*CLS`, `*RST`, `SYSTem:ERRor?`) with its own. Its own command grammar, a load-modelling simulator, and a command line. | `Gpd2303S`, `ChannelReading`, `SupplyStatus`, `SimulatedGpd` |
 | RUN-ARC-001 | `runner` | Specification model, bench resolution, execution engine, result records, report writers, command line. | `load_spec`, `BenchConfig`, `BenchRunner`, `write_*` |
 
 ## 4. Key architectural decisions
@@ -341,6 +342,33 @@ rather than the plumbing - or explicitly cannot be, which is the honest
 alternative. The firmware's outgoing queue drops whole lines and counts them
 rather than truncating one, because half a line would be a parse error in the
 host and would look like a protocol fault rather than congestion.
+
+### AD-19 — Emulate per-channel output, and say so at every turn
+
+**Context.** The GPD-2303S has one output switch for two channels. A bench
+specification, and every other supply driver, wants per-channel control.
+
+**Decision.** The driver presents `output_on(channel)` and
+`output_off(channel)`, implemented by programming the channel to zero volts and
+remembering its setpoint. The supply's real switch is opened only when *every*
+channel has been switched off, so "all off" means off. The emulation is stated
+in the method's own docstring, in the command line's output, and in the notes:
+a channel switched off this way is at 0 V with its current limit unchanged, not
+open circuit.
+
+**Alternatives.** Exposing only the global switch would have been the most
+honest interface and the least usable one: a two-rail test would have to drive
+the two channels as one. Hiding the emulation entirely would have been usable
+and dangerous - somebody would eventually use `output_off` as an interlock.
+
+**Consequences.** A channel that is "off" will still sink current from a board
+powered by something else, and cannot be used as a safety measure. In exchange,
+a specification written against this supply reads like one written against a
+two-channel supply, and the one place the abstraction leaks is documented
+wherever a caller will meet it. The parked setpoint is driver state, not
+instrument state: a second program talking to the same supply does not know
+about it, which is why the driver reads the hardware rather than its own
+bookkeeping wherever the hardware can answer.
 
 ## 5. Dynamic behaviour — a runner invocation
 

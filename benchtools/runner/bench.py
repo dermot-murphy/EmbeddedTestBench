@@ -33,6 +33,7 @@ from ..core.errors import BenchConfigError, BenchToolsError
 from ..core.instrument import Instrument
 from ..instruments.generic import GenericScpiInstrument
 from ..instruments.jlink import JLinkProbe
+from ..instruments.gpd2303s import Gpd2303S
 from ..instruments.nordic_dongle import NordicDongle
 from ..instruments.tek3014b import Tek3014B
 
@@ -68,6 +69,8 @@ register_driver("jlink", JLinkProbe)
 register_driver("segger", JLinkProbe)
 register_driver("ble-dongle", NordicDongle)
 register_driver("nordic", NordicDongle)
+register_driver("gpd2303s", Gpd2303S)
+register_driver("gwinstek-psu", Gpd2303S)
 
 
 @dataclass(frozen=True)

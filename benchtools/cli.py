@@ -25,6 +25,7 @@ Commands:
   scope       control a Tektronix TDS3014B oscilloscope
   jlink       control a target through a SEGGER J-Link debug probe
   ble         scan, drive and profile a BLE sensor through a Nordic dongle
+  psu         control a GW Instek GPD-2303S bench power supply
   drivers     list the instrument drivers a bench configuration can name
   backends    list the transport backends a resource string can select
 
@@ -34,6 +35,7 @@ Examples:
   benchtools scope -r sim:// idn
   benchtools jlink -r sim:// -e build/app.elf time sensor.c:40 sensor.c:75
   benchtools ble -r sim:// profile --select SENS-01 --duration 30 --interval 0.1
+  benchtools psu -r sim:// set 1 -V 3.3 -I 0.5 --on
   benchtools run tests/clock_skew.yaml --simulate --markdown report.md
   benchtools run tests/*.yaml --bench benches/lab1.yaml --junit results.xml
 
@@ -74,6 +76,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         from .instruments.nordic_dongle.cli import main as ble_main
 
         return ble_main(rest)
+
+    if command in ("psu", "gpd2303s", "supply"):
+        from .instruments.gpd2303s.cli import main as psu_main
+
+        return psu_main(rest)
 
     if command == "drivers":
         from .runner.bench import registered_drivers

@@ -13,13 +13,13 @@
 
 | Metric | Result |
 |---|---|
-| Tests executed | **1 202** |
-| Passed | **1 202** |
+| Tests executed | **1 394** |
+| Passed | **1 394** |
 | Failed | 0 |
 | Errors | 0 |
 | Skipped | 0 |
-| Statement coverage | **94%** (7 604 statements, 444 missed) |
-| Execution time | 38.8 s with coverage instrumentation, 27.6 s without |
+| Statement coverage | **94%** (8 428 statements, 480 missed) |
+| Execution time | 43.5 s with coverage instrumentation, 31.6 s without |
 | Runtime | CPython 3.11.15, Linux |
 | Framework | pytest 9.1.1, pytest-cov |
 
@@ -35,7 +35,7 @@ installed for this run, so their tests executed.
 The suite was also run with all extras blocked - `matplotlib`, `pyvisa`,
 `pyyaml` and now `pyserial` - to confirm the claim that the package works
 without them: **1 152 passed, 36 skipped, 0 failed**. (The totals
-differ from 1 202 because the runner command-line module is skipped as a whole
+differ from the figure above because the runner command-line module is skipped as a whole
 rather than test by test — the shipped specifications are YAML, so without
 `pyyaml` there is nothing in that module to run. Its JSON equivalents are covered
 in `test_spec.py`.) The whole J-Link driver runs in that configuration, which is
@@ -57,21 +57,24 @@ hygiene rules of §4.3 - and its first build is recorded as BLE-OPEN-01.
 |---|---|---|---|
 | SWE4-UT-SCOPE | `instruments/tek3014b/test_scope.py` | 87 | Pass |
 | SWE4-UT-JLINK | `instruments/jlink/test_probe.py` | 70 | Pass |
+| SWE4-UT-PSU | `instruments/gpd2303s/test_psu.py` | 74 | Pass |
 | SWE4-UT-BLE | `instruments/nordic_dongle/test_dongle.py` | 64 | Pass |
 | SWE4-UT-BLEFIRMWARE | `instruments/nordic_dongle/test_firmware.py` | 49 | Pass |
 | SWE4-UT-BLEPROTO | `instruments/nordic_dongle/test_protocol.py` | 34 | Pass |
 | SWE4-UT-BLEPROFILE | `instruments/nordic_dongle/test_profile.py` | 30 | Pass |
 | SWE4-UT-BLESIM | `instruments/nordic_dongle/test_simulator.py` | 27 | Pass |
+| SWE4-UT-PSUSIM | `instruments/gpd2303s/test_simulator.py` | 20 | Pass |
+| SWE4-UT-PSUCLI | `instruments/gpd2303s/test_cli.py` | 20 | Pass |
 | SWE4-UT-SERIAL | `core/transport/test_serial.py` | 25 | Pass |
 | SWE4-UT-BLESESSION | `instruments/nordic_dongle/test_session.py` | 23 | Pass |
 | SWE4-UT-BLECLI | `instruments/nordic_dongle/test_cli.py` | 25 | Pass |
 | SWE4-UT-BLELATENCY | `instruments/nordic_dongle/test_latency.py` | 20 | Pass |
 | SWE4-UT-BLEFW | `instruments/nordic_dongle/test_firmware_protocol.py` | 17 | Pass |
-| SWE4-UT-LAYERING | `test_layering.py` | 54 | Pass |
+| SWE4-UT-LAYERING | `test_layering.py` | 71 | Pass |
 | SWE4-UT-GDBMI | `instruments/jlink/test_gdbmi.py` | 37 | Pass |
 | SWE4-UT-BENCH | `runner/test_bench.py` | 41 | Pass |
 | SWE4-UT-MEASURE | `analysis/test_measure.py` | 35 | Pass |
-| SWE4-UT-SPEC | `runner/test_spec.py` | 35 | Pass |
+| SWE4-UT-SPEC | `runner/test_spec.py` | 37 | Pass |
 | SWE4-UT-WAVEFORM | `analysis/test_waveform.py` | 34 | Pass |
 | SWE4-UT-JLINKSERVER | `instruments/jlink/test_server.py` | 32 | Pass |
 | SWE4-UT-SCPI | `core/test_scpi.py` | 28 | Pass |
@@ -100,12 +103,16 @@ hygiene rules of §4.3 - and its first build is recorded as BLE-OPEN-01.
 | SWE4-UT-RESOLVE | `runner/test_resolve.py` | 13 | Pass |
 | SWE4-UT-SOCKET | `core/transport/test_socket.py` | 12 | Pass |
 | SWE4-UT-VISA | `core/transport/test_visa.py` | 6 | Pass |
-| **Total** | | **1 273** | **Pass** |
+| **Total** | | **1 394** | **Pass** |
 
 ## 3. Coverage detail
 
 | Element | Module | Statements | Missed | Coverage |
 |---|---|---|---|---|
+| PSU | `instruments/gpd2303s/constants.py` | 24 | 0 | 100% |
+| PSU | `instruments/gpd2303s/psu.py` | 239 | 6 | 97% |
+| PSU | `instruments/gpd2303s/simulator.py` | 119 | 7 | 94% |
+| PSU | `instruments/gpd2303s/cli.py` | 110 | 8 | 93% |
 | CORE | `core/enums.py` | 20 | 0 | 100% |
 | CORE | `core/errors.py` | 20 | 0 | 100% |
 | CORE | `core/transport/constants.py` | 8 | 0 | 100% |
@@ -484,7 +491,52 @@ environment: correctness against real GDB is a bench confirmation item
 (JLINK-OPEN-02). What is verified here is that the parser handles the grammar as
 documented, including the constructs a naive parser gets wrong — see D-09.
 
-## 9. Runner verification results
+## 9. Power supply verification results
+
+No GPD-2303S was present (PC-8). The driver is verified against a simulated
+supply that models a **load**, which is what makes the interesting condition
+reachable: a channel whose load draws more than its limit.
+
+### 9.1 Constant current is detected, not averaged over
+
+Channel 2 with 2 Ω across it, set to 3.3 V with a 500 mA limit:
+
+| Quantity | Value | |
+|---|---|---|
+| Setpoint | 3.300 V | what the test asked for |
+| Measured voltage | 1.000 V | what the board actually got |
+| Measured current | 0.500 A | the limit, not the demand |
+| Mode | `CC` | the reason for the other three |
+| `regulated` | `False` | the one line a test should assert on |
+
+The figure to note is 1.000 V. A driver that reported only the voltage would
+hand a test a plausible number describing a circuit nobody asked for, and the
+test would fail somewhere else entirely - or, worse, pass.
+
+### 9.2 The emulated per-channel switch behaves as documented
+
+| Action | Channel 1 | Channel 2 | Supply's own switch |
+|---|---|---|---|
+| both configured, `all_outputs_on()` | 3.300 V | 5.000 V | closed |
+| `output_off(1)` | 0.000 V | 5.000 V | **still closed** |
+| `set_voltage(1, 5.0)` | 0.000 V | 5.000 V | still closed |
+| `output_on(1)` | 5.000 V | 5.000 V | closed |
+| `output_off(1)`, `output_off(2)` | 0.000 V | 0.000 V | **open** |
+
+Row three is the property that matters: programming a parked channel does not
+energise it. Row five is the other: once every channel is off, the supply's real
+switch is opened, so "all off" is not two rails sitting at zero volts.
+
+### 9.3 What could not be verified without the instrument
+
+| Item | Why |
+|---|---|
+| PSU-OPEN-01 | The bit **order** of the `STATUS?` reply. The decode follows the programming manual; whether the supply sends bit 0 first is a one-minute check on hardware (switch the output on and see which character changes). The raw reply is retained in `SupplyStatus.raw` so a mis-order is visible rather than silently decoded. |
+| PSU-OPEN-02 | The exact text and behaviour of `ERR?`. Anything not recognisably "no error" is carried verbatim rather than parsed, so the driver is correct either way; what is unproven is whether the supply clears the error on reading it. |
+| PSU-OPEN-03 | The command interval a real GPD-2303S needs. 50 ms is a conservative default taken from the supply having no flow control; the figure to confirm is the smallest interval at which a long sweep loses nothing. |
+| PSU-OPEN-04 | Settling time after a setpoint change. The driver does not wait; a specification that measures immediately after `set_voltage` should state its own `sleep`. |
+
+## 10. Runner verification results
 
 | Check | Result |
 |---|---|
@@ -500,7 +552,7 @@ documented, including the constructs a naive parser gets wrong — see D-09.
 | Exit status 0 / 1 / 2 for pass / problem / usage | Pass |
 | The shipped `specs/clock_skew.yaml` and both `benches/*.yaml` load and run | Pass |
 
-## 10. Defects found, and their disposition
+## 11. Defects found, and their disposition
 
 | ID | Severity | Status | Regression test |
 |---|---|---|---|
@@ -548,6 +600,9 @@ selection, so the module can be brought back to a known state (the target wants
 that after a soft restart as much as the tests do); and the sources that use
 `UNUSED_PARAMETER` now include `app_util_platform.h` rather than relying on the
 SDK to provide it transitively.
+
+| D-30 | The driver treated the supply's **global** output switch as the state of each channel. Connecting to a supply whose output was off therefore marked both channels off, after which `set_voltage` parked the value instead of sending it - and the supply was never programmed at all | **Major**: `configure_channel` then `output_on` would energise a rail at the *previous* setpoint, silently, and every subsequent reading would be consistent with it | **Closed** — a channel is parked if and only if the driver parked it; there is now one fact where there were two that could disagree | `test_configure_sets_the_limit_before_the_voltage`, `TestReset` (3), `test_it_can_be_turned_on` |
+| D-31 | The simulated supply's command pattern allowed only a channel digit, so `OUT0` matched nothing and was silently refused. Every "switch off" in a simulated test appeared to succeed while the model stayed on | **Major** (in the test double, so the whole class of switching tests was vacuous — see the note on D-11 and D-12 below) | **Closed** — the digit position is parsed as a digit, and a channel that does not exist is refused explicitly rather than by failing to parse | `test_out0_is_understood`, `test_a_channel_that_does_not_exist_is_refused` |
 
 No open defects.
 
@@ -613,7 +668,7 @@ Notes on process effectiveness:
   (they check identifiers, not test names), so this one was a manual cross-check;
   it is worth repeating per release.
 
-## 11. Verdict against the pass criteria
+## 12. Verdict against the pass criteria
 
 | ID | Criterion | Result |
 |---|---|---|
@@ -646,7 +701,7 @@ discharged without physical hardware:
   cover linking, flash size, or behaviour on silicon, which BLE-OPEN-01 to -04
   exist to establish.
 
-## 12. Supplementary checks performed
+## 13. Supplementary checks performed
 
 | Check | Result |
 |---|---|
