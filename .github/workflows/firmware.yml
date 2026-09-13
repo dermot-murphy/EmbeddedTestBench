@@ -124,11 +124,23 @@ jobs:
         working-directory: firmware/nordic_dongle
         run: arm-none-eabi-size _build/nordic_dongle_pca10059.out
 
+      # nrfutil is pinned twice over. 6.1.7 is the last release of the Python
+      # nrfutil that packages for the nRF5 SDK 17 bootloader, and it supports
+      # Python 3.10 at the newest; on the runner's own Python an unpinned
+      # install resolves all the way back to a Python 2 release, which dies in
+      # pkg generate on dict.iteritems. Pinning the interpreter as well keeps
+      # the resolution stable when the runner image moves on again.
+      - name: Set up Python for nrfutil
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
       - name: Package for DFU
         working-directory: firmware/nordic_dongle
         run: |
           set -euo pipefail
-          python3 -m pip install --quiet nrfutil
+          python3 -m pip install --quiet 'nrfutil==6.1.7'
+          nrfutil version
           make SDK_ROOT="$GITHUB_WORKSPACE/sdk/$SDK_DIRECTORY" dfu
 
       - name: Upload the firmware

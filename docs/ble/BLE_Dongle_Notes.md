@@ -165,6 +165,19 @@ one matching the SoftDevice on the dongle.
 The dongle's factory bootloader does not verify signatures, so no key is needed.
 Set `DFU_KEY` if flashing a bootloader that does.
 
+Install `nrfutil` pinned:
+
+```
+pip install 'nrfutil==6.1.7'
+```
+
+6.1.7 is the last release of the Python `nrfutil` that packages for the nRF5
+SDK 17 bootloader, and it supports Python 3.10 at the newest. On a newer
+interpreter `pip install nrfutil` resolves backwards instead of refusing, and
+lands on a Python 2 era release that fails inside `pkg generate` with
+`'dict' object has no attribute 'iteritems'`. The firmware workflow pins both
+the version and a 3.10 interpreter for that reason.
+
 ### 3.3 Keeping the dongle and the build in step
 
 Measurements taken with a stale dongle look perfectly plausible and answer a
