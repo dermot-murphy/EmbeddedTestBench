@@ -14,6 +14,11 @@
 #ifndef SDK_CONFIG_H__
 #define SDK_CONFIG_H__
 
+/* The GATT queue has to carry this protocol's payloads, so it is sized from
+ * them rather than from a number that looks about right. protocol.h includes
+ * nothing, so it is safe to pull in this early. */
+#include "protocol.h"
+
 /* ---------------------------------------------------------------- clocks */
 #define NRF_CLOCK_ENABLED			1
 #define CLOCK_CONFIG_LF_SRC			1	/**< XTAL on the dongle */
@@ -22,6 +27,24 @@
 #define NRFX_CLOCK_ENABLED			1
 #define NRFX_CLOCK_CONFIG_LF_SRC		1
 #define NRFX_CLOCK_CONFIG_IRQ_PRIORITY		6
+/* nrf_drv_clock registers a SoC observer and a SoftDevice state observer, and
+ * static asserts that each priority is below its PRIO_LEVELS. Both are
+ * required even though both are the SDK's own default. */
+#define CLOCK_CONFIG_SOC_OBSERVER_PRIO		0
+#define CLOCK_CONFIG_STATE_OBSERVER_PRIO	0
+
+/* ---------------------------------------------------------------- power */
+/* The USB stack runs on POWER events: app_usbd asserts that the USBD and POWER
+ * interrupt priorities match, and nrfx asserts that POWER and CLOCK match. All
+ * three are 6. */
+#define POWER_ENABLED				1
+#define POWER_CONFIG_IRQ_PRIORITY		6
+#define POWER_CONFIG_DEFAULT_DCDCEN		0
+#define POWER_CONFIG_DEFAULT_DCDCENHV		0
+#define NRFX_POWER_ENABLED			1
+#define NRFX_POWER_CONFIG_IRQ_PRIORITY		6
+#define NRFX_POWER_CONFIG_DEFAULT_DCDCEN	0
+#define NRFX_POWER_CONFIG_DEFAULT_DCDCENHV	0
 
 /* ------------------------------------------------------- app_timer / RTC */
 #define APP_TIMER_ENABLED			1
@@ -57,6 +80,8 @@
 #define APP_USBD_PID				0x521A	/**< Nordic's CDC ACM example PID */
 #define APP_USBD_DEVICE_VER_MAJOR		1
 #define APP_USBD_DEVICE_VER_MINOR		0
+#define APP_USBD_DEVICE_VER_SUB			0
+#define APP_USBD_CONFIG_LOG_ENABLED		0
 #define APP_USBD_CONFIG_SELF_POWERED		0
 #define APP_USBD_CONFIG_MAX_POWER		100
 #define APP_USBD_CONFIG_POWER_EVENTS_PROCESS	1
@@ -65,9 +90,22 @@
 #define APP_USBD_CONFIG_SOF_HANDLING_MODE	1
 #define APP_USBD_CONFIG_DESC_STRING_SIZE	31
 #define APP_USBD_CONFIG_DESC_STRING_UTF_ENABLED	0
-#define APP_USBD_STRINGS_MANUFACTURER		"Nordic Semiconductor"
-#define APP_USBD_STRINGS_PRODUCT		"BenchTools BLE dongle"
+/* Each string needs its descriptor *and* its index: app_usbd_core.c reads the
+ * index macros when it builds the device descriptor, and they are configuration
+ * here rather than an enumeration the SDK derives. The descriptors are wrapped
+ * in APP_USBD_STRING_DESC because the UTF conversion is off; the macro is
+ * defined by the time these are expanded. */
+#define APP_USBD_STRING_ID_MANUFACTURER		1
+#define APP_USBD_STRINGS_MANUFACTURER		APP_USBD_STRING_DESC("Nordic Semiconductor")
+#define APP_USBD_STRING_ID_PRODUCT		2
+#define APP_USBD_STRINGS_PRODUCT		APP_USBD_STRING_DESC("BenchTools BLE dongle")
+/* The serial number is generated at run time from the device's FICR by
+ * app_usbd_serial_num.c, so its descriptor is that module's array. */
 #define APP_USBD_STRING_ID_SERIAL		3
+#define APP_USBD_STRINGS_SERIAL_EXTERN		1
+#define APP_USBD_STRINGS_SERIAL			g_extern_serial_number
+#define APP_USBD_STRING_ID_CONFIGURATION	4
+#define APP_USBD_STRINGS_CONFIGURATION		APP_USBD_STRING_DESC("Default configuration")
 /* APP_USBD_STRINGS_USER is an X-macro list, not a descriptor: defining it as
  * one breaks app_usbd_string_desc.h. No user strings are needed. */
 #define APP_USBD_STRINGS_USER
@@ -91,6 +129,10 @@
 #define NRF_SDH_BLE_CENTRAL_LINK_COUNT		1
 #define NRF_SDH_BLE_TOTAL_LINK_COUNT		1
 #define NRF_SDH_BLE_GAP_EVENT_LENGTH		6
+/* Data length extension, to match the 247-byte MTU below: without it every
+ * long write is fragmented across connection events, which is exactly the
+ * timing this dongle exists to measure. The SDK static asserts this is < 252. */
+#define NRF_SDH_BLE_GAP_DATA_LENGTH		251
 #define NRF_SDH_BLE_GATT_MAX_MTU_SIZE		247
 #define NRF_SDH_BLE_GATTS_ATTR_TAB_SIZE		248
 #define NRF_SDH_BLE_VS_UUID_COUNT		2	/**< the NUS base UUID */
@@ -135,8 +177,17 @@
  *  central examples use. */
 #define NRF_BLE_GQ_ENABLED			1
 #define NRF_BLE_GQ_QUEUE_SIZE			4
-#define NRF_BLE_GQ_DATAPOOL_ELEMENT_SIZE	20
+/** Sized from the protocol, not from the SDK's default of 20. Every UART
+ *  command this dongle sends goes through this queue, and the queue *rejects*
+ *  a write longer than this with NRF_ERROR_DATA_SIZE - so a default of 20
+ *  would have refused every command over 20 bytes at run time, with nothing
+ *  in the build to say so. */
+#define NRF_BLE_GQ_DATAPOOL_ELEMENT_SIZE	PROTO_MAX_PAYLOAD
 #define NRF_BLE_GQ_DATAPOOL_ELEMENT_COUNT	8
+#define NRF_BLE_GQ_GATTC_WRITE_MAX_DATA_LEN	PROTO_MAX_PAYLOAD
+/** This dongle is a central and never sends notifications, but nrf_ble_gq.c
+ *  declares a stack buffer of this size unconditionally. The SDK's default. */
+#define NRF_BLE_GQ_GATTS_HVX_MAX_DATA_LEN	20
 
 /** Observer priorities. Every SDK module that registers a BLE observer static
  *  asserts on its own priority macro, so each must be defined even though the

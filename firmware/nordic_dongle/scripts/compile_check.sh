@@ -62,6 +62,7 @@ for directory in \
 	components/libraries/usbd/class/cdc components/libraries/usbd/class/cdc/acm \
 	components/libraries/util components/libraries/fifo components/drivers_nrf/usbd \
 	components/softdevice/s140/headers components/softdevice/s140/headers/nrf52 \
+	external/utf_converter \
 	components/softdevice/common components/toolchain/cmsis/include \
 	integration/nrfx integration/nrfx/legacy modules/nrfx \
 	modules/nrfx/drivers/include modules/nrfx/hal modules/nrfx/mdk ; do
