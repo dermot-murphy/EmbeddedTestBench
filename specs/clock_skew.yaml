@@ -11,6 +11,9 @@ description: >
   that the clock period is within tolerance.
 requirements: [SYS-REQ-042, SYS-REQ-043]
 
+instruments:
+  scope: tek3014b
+
 # Run once before the tests. A failure here aborts the suite, because every
 # measurement afterwards would be taken against an unknown setup.
 setup:

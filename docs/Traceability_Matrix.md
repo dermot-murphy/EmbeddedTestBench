@@ -3,12 +3,12 @@
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-TRACE-001 |
-| Version | 2.0 |
+| Version | 3.0 |
 | Date | 2026-09-13 |
 | Process reference | Automotive SPICE V4.0, SWE.1 BP6 / SWE.2 BP7 / SWE.3 BP5 / SWE.4 BP6 |
-| Item | `benchtools` 2.0.0 |
+| Item | `benchtools` 3.0.0 |
 
-Traceability is maintained in both directions. **Downward** (§2–§6): stakeholder
+Traceability is maintained in both directions. **Downward** (§2–§7): stakeholder
 need → requirement → architecture → design unit → source → test. **Upward**: every
 source module and test group names its requirements and design unit in its own
 docstring, so the link is carried in the artefact and not only in this table.
@@ -25,6 +25,11 @@ docstring, so the link is carried in the artefact and not only in this table.
 | STK-06 — determine whether VISA must be used | CORE-FR-001, -006; SCOPE-FR-090; BENCHTOOLS-VISA-001 |
 | STK-07 — host further tools sharing common code | CORE-FR-004, -010, -020 … -031, -040, -041; CORE-NFR-008, -009; INST-FR-001 … -003 |
 | STK-08 — overall bench test runner | RUN-FR-001 … -006, -010 … -015, -020 … -023, -030 … -035, -040 … -043, -050 … -053 |
+| STK-09 — J-Link: flash, verify, run/stop, breakpoints, RAM, variables, RTT, timing, call stack | JLINK-FR-001 … -005, -010, -011, -020 … -023, -030 … -036, -040 … -045, -050 … -055, -060 … -067, -090; CORE-FR-009, -012 … -016; JLINK-NFR-001, -004 |
+| STK-10 — use the probe from the test bench | JLINK-FR-080, -081, -053; RUN-FR-001, -010; CORE-FR-012 … -014 |
+| STK-11 — Windows first, Docker eventually | CORE-FR-009; JLINK-FR-003, -004, -005; JLINK-NFR-002, -003 |
+| STK-12 — Markdown to Robot Framework | JLINK-FR-081, -100 — return types constrained for a keyword layer (AD-15). Translator not implemented: CON-06, OPEN-04. |
+| STK-13 to STK-15 — PSU, BLE dongle, RS-232 multimeter | No requirements in this revision (CON-03, OPEN-03). `Instrument` (CORE-FR-012 … -016) is the seam each will use. |
 
 ## 2. CORE requirements to design, code and test
 
@@ -38,9 +43,15 @@ docstring, so the link is carried in the artefact and not only in this table.
 | CORE-FR-006 | ARC-003 | CORE-DD-VISA | `core/transport/visa_backend.py` | `TestVisaTransport` (6), `test_visa_backend_is_opt_in` |
 | CORE-FR-007 | ARC-002, ARC-003 | CORE-DD-TRANSPORT, -VXI11 | `base.py`, `Vxi11Transport._send` | `test_large_transfer_is_reassembled`, `test_write_is_chunked_to_max_recv_size` |
 | CORE-FR-008 | ARC-003 | CORE-DD-VXI11 | `Vxi11Transport._open_link` | `test_device_names_are_probed_in_order`, `test_link_reports_the_accepted_device_name`, `test_unknown_device_name_raises` |
+| CORE-FR-009 | ARC-003 | CORE-DD-PROCESS | `core/transport/process.py` | `TestRoundTrip` (5), `TestFailures` (6), `TestLifecycle` (4), `TestBackendRegistration` (2); notably `test_a_program_that_exits_at_once_reports_its_stderr`, `test_stderr_is_drained_so_the_child_cannot_block` |
 | CORE-FR-010 | ARC-003 | CORE-DD-FACTORY | `core/transport/factory.py` | `TestDriverRegistry.test_a_new_driver_can_be_registered`, `test_backends_listing` |
 | CORE-FR-011 | ARC-003 | CORE-DD-FACTORY | `parse_resource` | `TestParseResource` (17), `TestOpenTransport` (2) |
-| CORE-FR-020 | ARC-001 | CORE-DD-SCPI | `ScpiInstrument.connect/initialise/close` | `test_context_manager_closes`, `test_reset_reinitialises`, `TestGenericInstrument` |
+| CORE-FR-012 | ARC-006 | CORE-DD-INSTRUMENT | `core/instrument.py` | `test_initialise_opens_then_runs_the_hook`, `test_context_manager_initialises_once`, `test_context_manager_closes_on_an_exception`, `test_close_releases` |
+| CORE-FR-013 | ARC-006 | CORE-DD-INSTRUMENT | `InstrumentIdentity`, `Instrument.identify` | `test_fields_can_be_given_directly`, `test_from_idn_parses_four_fields`, `test_from_idn_tolerates_missing_fields`, `test_identity_is_cached`, `test_refresh_re_reads`, `test_convenience_properties` |
+| CORE-FR-014 | ARC-006, ARC-004 | CORE-DD-INSTRUMENT | `Instrument.SIMULATOR_CLASS` | `test_unknown_model_falls_back`, `test_the_probe_is_an_instrument_but_not_scpi`, `test_bare_sim_resource_uses_the_driver_simulator` |
+| CORE-FR-015 | ARC-006 | CORE-DD-INSTRUMENT | `read_event_queue`, `check_errors` | `test_no_error_queue_by_default`, `test_reported_events_raise`, `test_after_configuration_respects_the_flag` |
+| CORE-FR-016 | ARC-006 | CORE-DD-INSTRUMENT | `Instrument.close` | `test_close_never_raises`, `test_closing_is_idempotent` |
+| CORE-FR-020 | ARC-001, ARC-006 | CORE-DD-SCPI, CORE-DD-INSTRUMENT | `ScpiInstrument.connect/initialise/close` | `test_context_manager_closes`, `test_reset_reinitialises`, `TestGenericInstrument` |
 | CORE-FR-021 | ARC-001 | CORE-DD-SCPI | `_query_float`, `_query_int`, `_query_fields` | `test_unparsable_number_is_reported`, `test_compound_query_field_count_is_checked` |
 | CORE-FR-022 | ARC-001 | CORE-DD-SCPI | `InstrumentIdentity` | `TestInstrumentIdentity` (3), `test_identity_is_cached_then_refreshable` |
 | CORE-FR-023 | ARC-001 | CORE-DD-SCPI | `reset`, `clear_status`, `operation_complete`, `event_status` | `test_mandated_queries` |
@@ -58,7 +69,7 @@ docstring, so the link is carried in the artefact and not only in this table.
 
 | Requirement | Realised by | Verified by |
 |---|---|---|
-| CORE-NFR-001 | AD-01; `pyproject.toml` `dependencies = []`; `vxi11.py` imports only stdlib | Inspection; the extras-blocked suite run (520 passed, 27 skipped) |
+| CORE-NFR-001 | AD-01; `pyproject.toml` `dependencies = []`; `vxi11.py` and the whole J-Link driver import only stdlib | `test_no_mandatory_third_party_imports` (every module parsed); plus the extras-blocked suite run, BENCHTOOLS-SWE4-002 §2.2 |
 | CORE-NFR-002 | `requires-python = ">=3.8"`; no newer syntax or library | Inspection |
 | CORE-NFR-003 | Lazy imports in `plotting.py`, `visa_backend.py`, `spec.load_mapping` | `test_clear_error_when_matplotlib_is_absent`; the module skips in `test_plotting.py`, `test_visa.py`, `runner/test_cli.py` |
 | CORE-NFR-004 | AD-06; `core/validation.py` | `test_nothing_is_sent_when_validation_fails`, plus every `ConfigurationError` test |
@@ -66,7 +77,7 @@ docstring, so the link is carried in the artefact and not only in this table.
 | CORE-NFR-006 | `Transport.timeout`, `wait_for_acquisition` deadline, socket timeouts | `test_timeout_must_be_positive`, `test_starved_link_times_out`, `test_silent_instrument_times_out`, `test_timeout_is_restored_after_the_transfer` |
 | CORE-NFR-007 | — | 94% measured; BENCHTOOLS-SWE4-002 §3 |
 | CORE-NFR-008 | AD-02 | `test_core_never_references_an_instrument`, `test_core_is_importable_on_its_own` |
-| CORE-NFR-009 | AD-02 | `test_layer_dependencies_point_one_way` (37 sources), `test_analysis_is_importable_without_instruments` |
+| CORE-NFR-009 | AD-02 | `test_layer_dependencies_point_one_way` (over 50 sources), `test_analysis_is_importable_without_instruments` |
 
 ## 3. ANA requirements to design, code and test
 
@@ -124,7 +135,60 @@ docstring, so the link is carried in the artefact and not only in this table.
 | SCOPE-FR-100 | SCOPE-ARC-001 | SCOPE-DD-CLI | `instruments/tek3014b/cli.py` | `instruments/tek3014b/test_cli.py` (20) |
 | SCOPE-FR-101 | SCOPE-ARC-001 | SCOPE-DD-SCOPE | `read_event_queue` override | `TestErrorHandling` (6) |
 
-## 5. RUN requirements to design, code and test
+## 5. JLINK requirements to design, code and test
+
+| Requirement | Architecture | Design unit | Source | Verifying test(s) |
+|---|---|---|---|---|
+| JLINK-FR-001 | JLINK-ARC-001 | JLINK-DD-GDBMI | `jlink/gdbmi.py` | `SWE4-UT-GDBMI` (37), notably `test_repeated_key_yields_every_entry`, `test_mixed_names_keep_their_keys`, `test_nested_structures`, `test_text_is_unescaped`, `test_non_mi_lines_are_ignored` |
+| JLINK-FR-002 | JLINK-ARC-001 | JLINK-DD-SESSION | `jlink/session.py` | `TestCommands` (7), `TestAsyncRecords` (6), `TestDiagnostics` (3) |
+| JLINK-FR-003 | JLINK-ARC-001 | JLINK-DD-SERVER | `jlink/server.py` | `TestDiscovery` (5), `TestCommandLine` (9); notably `test_windows_names_are_searched_first`, `test_unattended_flags_are_present`, `test_a_missing_tool_is_reported_with_what_to_do` |
+| JLINK-FR-004 | JLINK-ARC-001 | JLINK-DD-SERVER, JLINK-DD-PROBE | `GdbServer.start`, `JLinkProbe._parse_target` | `test_an_already_listening_port_is_used`, `test_a_remote_server_is_never_spawned`, `test_a_server_that_exits_reports_its_own_output`, `test_resource_parsing` |
+| JLINK-FR-005 | JLINK-ARC-001 | JLINK-DD-SERVER | `GdbServer.stop`, `was_spawned` | `test_only_a_spawned_server_is_stopped`, `test_closing_is_idempotent` |
+| JLINK-FR-010 | JLINK-ARC-001 | JLINK-DD-CONST | `jlink/constants.py` | `test_limits_are_data_driven`, `test_hardware_breakpoint_limit_is_enforced`, `test_channel_beyond_the_limit_is_rejected` |
+| JLINK-FR-011 | JLINK-ARC-001 | JLINK-DD-PROBE | `JLinkProbe.load_symbols` | `test_symbols_are_loaded`, `test_missing_elf_is_reported`, `test_missing_symbols_are_mentioned_in_the_error` |
+| JLINK-FR-020 | JLINK-ARC-001 | JLINK-DD-PROBE | `JLinkProbe.flash` | `test_flash_reports_what_was_written`, `test_flash_resets_first_by_default`, `test_flash_result_serialises` |
+| JLINK-FR-021 | JLINK-ARC-001 | JLINK-DD-PROBE | `JLinkProbe.verify`, `SectionVerdict` | `test_verify_alone_reports_mismatched_sections`, `test_verify_result_serialises` |
+| JLINK-FR-022 | JLINK-ARC-001 | JLINK-DD-PROBE | `VerifyResult.matched` | `test_verification_failure_raises`, `test_an_empty_comparison_is_not_a_pass`, `test_flash_without_an_image_is_rejected` |
+| JLINK-FR-023 | JLINK-ARC-001 | JLINK-DD-PROBE | `JLinkProbe.erase` | `test_monitor_passthrough` (erase issues `monitor` commands), `TestExecutionModel` |
+| JLINK-FR-030 | JLINK-ARC-001 | JLINK-DD-PROBE | `reset`, `run`, `halt`, `step` | `test_reset_halts_by_default`, `test_reset_can_leave_it_running`, `test_step`, `test_run_to_a_location` |
+| JLINK-FR-031 | JLINK-ARC-001 | JLINK-DD-PROBE | `is_halted`, `program_counter`, `registers` | `test_program_counter_and_registers`, `test_halt_reports_where` |
+| JLINK-FR-032 | JLINK-ARC-001 | JLINK-DD-PROBE, JLINK-DD-CONST | `wait_for_halt`, `HaltReason` | `test_never_reaching_a_breakpoint_times_out`, `test_unknown_halt_reason_does_not_break_the_driver` |
+| JLINK-FR-033 | JLINK-ARC-001 | JLINK-DD-PROBE | `set_breakpoint`, `list_breakpoints`, `delete_breakpoint`, `clear_breakpoints` | `TestBreakpoints` (8), notably `test_conditional_breakpoint`, `test_temporary_breakpoint_is_marked` |
+| JLINK-FR-034 | JLINK-ARC-001 | JLINK-DD-PROBE, JLINK-DD-CONST | `set_breakpoint(hardware=True)` | `test_hardware_breakpoint_limit_is_enforced` |
+| JLINK-FR-035 | JLINK-ARC-001 | JLINK-DD-PROBE | `set_watchpoint` | `test_watchpoints` |
+| JLINK-FR-036 | JLINK-ARC-001 | JLINK-DD-PROBE | `run_to` | `test_run_to_a_location`, `test_unreachable_location_is_reported` |
+| JLINK-FR-040 | JLINK-ARC-001 | JLINK-DD-PROBE | `read_memory`, `write_memory`, `read_word`, `read_u8`, `read_u16` | `TestMemory` (7), notably `test_large_transfers_are_split`, `test_negative_size_is_rejected` |
+| JLINK-FR-041 | JLINK-ARC-001 | JLINK-DD-PROBE | `read_variable`, `write_variable`, `variable_address`, `variable_size` | `TestVariables` (9), notably `test_read_string`, `test_memory_agrees_with_the_variable`, `test_value_parsing` |
+| JLINK-FR-042 | JLINK-ARC-001 | JLINK-DD-PROBE | `evaluate` | `test_evaluate_expression`, `test_unknown_variable_is_reported` |
+| JLINK-FR-045 | JLINK-ARC-001 | JLINK-DD-PROBE, JLINK-DD-GDBMI | `call_stack`, `StackFrame` | `TestCallStack` (6), notably `test_frames_innermost_first`, `test_frames_carry_source_positions` |
+| JLINK-FR-050 | JLINK-ARC-001 | JLINK-DD-RTT | `jlink/rtt.py`, `RttClient.read`, `write`, `SocketRttBackend` | `test_lines_arrive_when_the_target_runs`, `test_read_returns_text`, `test_write_reaches_the_target`, `test_probe_rtt_helpers`; over a real socket: `TestRttOverASocket` (8) |
+| JLINK-FR-051 | JLINK-ARC-001 | JLINK-DD-RTT | `read_lines`, `read_line`, `pending_count` | `test_reads_consume`, `test_read_line_waits`, `test_read_line_returns_none_on_timeout`, `test_pending_count`, `test_a_fragmented_line_is_assembled_by_the_client` |
+| JLINK-FR-052 | JLINK-ARC-001 | JLINK-DD-RTT | `expect`, `RttTimeout` | `test_expect_finds_a_pattern`, `test_expect_timeout_reports_what_arrived`, `test_rtt_expect_through_the_probe` |
+| JLINK-FR-053 | JLINK-ARC-001 | JLINK-DD-RTT | `command` | `test_command_and_reply`, `test_command_discards_older_lines` |
+| JLINK-FR-055 | JLINK-ARC-001 | JLINK-DD-RTT | `start(log_path=…)`, `_history` | `test_log_file_is_written_and_flushed`, `test_log_path_is_reported`, `test_history_survives_consuming_reads`, `test_probe_rtt_log` |
+| JLINK-FR-060 | JLINK-ARC-001 | JLINK-DD-TIMING, JLINK-DD-PROBE | `measure_time_between`, `TimingResult` | `test_recovers_the_exact_interval`, `test_result_records_the_method_and_clock`, `test_method_accepts_a_string` |
+| JLINK-FR-061 | JLINK-ARC-001 | JLINK-DD-PROBE, JLINK-DD-CONST | `enable_cycle_counter`, `read_cycle_counter`, `_counter_delta` | `TestCycleCounter` (6), notably `test_dwt_is_enabled_first`, `test_counter_wrap_is_handled` |
+| JLINK-FR-062 | JLINK-ARC-001 | JLINK-DD-TIMING | `TimingMethod.HOST_CLOCK` | `test_produces_a_figure`, `test_a_short_interval_is_flagged_untrustworthy` |
+| JLINK-FR-063 | JLINK-ARC-001 | JLINK-DD-PROBE | `_measure_target_variables` | `test_from_two_variables_filled_in_by_the_firmware`, `test_reading_one_timer_at_both_points`, `test_without_any_variable_is_rejected` |
+| JLINK-FR-064 | JLINK-ARC-001 | JLINK-DD-SWO, JLINK-DD-PROBE | `jlink/swo.py`, `SwoStream`, `_measure_swo` | `SWE4-UT-SWO` (20), `test_recovers_the_interval_without_halting`, `test_a_port_with_no_instrumentation_is_reported`; over a real socket: `TestSwoOverASocket` (8) |
+| JLINK-FR-065 | JLINK-ARC-001 | JLINK-DD-TIMING | `resolution_seconds`, `is_trustworthy`, `halts_target` | `test_a_short_interval_is_flagged_untrustworthy`, `test_recovers_the_interval_without_halting`, `test_serialises_for_a_report` |
+| JLINK-FR-066 | JLINK-ARC-001 | JLINK-DD-TIMING | `TimingResult` statistics | `test_repeat_gives_statistics`, `test_statistics_over_varying_samples`, `test_repeat_must_be_positive` |
+| JLINK-FR-067 | JLINK-ARC-001 | JLINK-DD-TIMING | `TimingResult.seconds` | `test_no_samples_is_an_error_not_a_zero`, `test_repr_survives_no_samples` |
+| JLINK-FR-080 | JLINK-ARC-001, RUN-ARC-001 | JLINK-DD-PROBE, RUN-DD-BENCH | `register_driver("jlink", JLinkProbe)` | `test_declared_drivers_are_checked`, `test_the_wrong_kind_of_instrument_is_reported`, `test_simulated_from_a_mapping_uses_the_right_driver` |
+| JLINK-FR-081 | JLINK-ARC-001 | JLINK-DD-TIMING, JLINK-DD-PROBE | `as_dict` on every result type | `test_serialises_for_a_report`, `test_verify_result_serialises`, `test_flash_result_serialises`, `test_shipped_specifications_are_valid[firmware_timing.yaml]` |
+| JLINK-FR-090 | JLINK-ARC-001 | JLINK-DD-SIM | `jlink/simulator.py` | `SWE4-UT-JLINKSIM` (23) |
+| JLINK-FR-100 | JLINK-ARC-001 | JLINK-DD-CLI | `jlink/cli.py` | `SWE4-UT-JLINKCLI` (22) |
+
+### JLINK non-functional
+
+| Requirement | Evidence |
+|---|---|
+| JLINK-NFR-001 | `test_no_mandatory_third_party_imports` parses every module and fails on a third-party import at module level; `pyproject.toml` declares no new dependency for the driver. |
+| JLINK-NFR-002 | `CORE-DD-PROCESS` uses reader threads rather than `select` (which rejects pipe handles on Windows); `select` is used only on sockets, where Windows supports it; `JLINK-DD-SERVER` searches Windows executable names first. Verified by `SWE4-UT-PROCESS`, `SWE4-UT-JLINKSOCKETS` and `test_windows_names_are_searched_first`; confirmation on a Windows host is JLINK-OPEN-01. |
+| JLINK-NFR-003 | `test_resource_parsing`, `test_a_remote_server_is_never_spawned`, `test_the_host_is_an_argument`; both links are TCP by construction (AD-13). |
+| JLINK-NFR-004 | `test_result_records_the_method_and_clock`, `test_serialises_for_a_report`, `test_methods_without_cycles_omit_them`, and the CLI's `warning` key (`SWE4-UT-JLINKCLI`). |
+
+## 6. RUN requirements to design, code and test
 
 | Requirement | Architecture | Design unit | Source | Verifying test(s) |
 |---|---|---|---|---|
@@ -159,36 +223,40 @@ docstring, so the link is carried in the artefact and not only in this table.
 | RUN-FR-052 | ARC-001 | RUN-DD-CLI | report path suffixing | `test_several_specs_get_suffixed_reports` |
 | RUN-FR-053 | ARC-001 | RUN-DD-CLI | `benchtools/cli.py` | `TestTopLevelDispatch` (7) |
 
-## 6. Architecture to design to source
+## 7. Architecture to design to source
 
 | Architectural element | Design unit | Source |
 |---|---|---|
+| CORE-ARC-006 | CORE-DD-INSTRUMENT | `core/instrument.py` |
 | CORE-ARC-001 | CORE-DD-SCPI | `core/scpi.py` |
 | CORE-ARC-002 | CORE-DD-TRANSPORT | `core/transport/base.py` |
-| CORE-ARC-003 | CORE-DD-VXI11, -SOCKET, -VISA, -FACTORY | `core/transport/{vxi11,socket_raw,visa_backend,factory,constants}.py` |
+| CORE-ARC-003 | CORE-DD-VXI11, -SOCKET, -VISA, -PROCESS, -FACTORY | `core/transport/{vxi11,socket_raw,visa_backend,process,factory,constants}.py` |
 | CORE-ARC-004 | CORE-DD-SIM, CORE-DD-MOCK | `core/simulator.py`, `core/transport/mock.py` |
 | CORE-ARC-005 | CORE-DD-ENUMS, -VALIDATE, -ERR | `core/{enums,validation,errors}.py` |
 | ANA-ARC-001 | ANA-DD-WAVEFORM | `analysis/waveform.py` |
 | ANA-ARC-002 | ANA-DD-MEASURE, ANA-DD-PLOT | `analysis/{measure,plotting}.py` |
 | INST-ARC-001 | INST-DD-GENERIC | `instruments/generic.py` |
 | SCOPE-ARC-001 | SCOPE-DD-SCOPE, -CONST, -SIM, -CLI | `instruments/tek3014b/*.py` |
+| JLINK-ARC-001 | JLINK-DD-GDBMI, -SESSION, -SERVER, -RTT, -SWO, -TIMING, -CONST, -SIM, -PROBE, -CLI | `instruments/jlink/*.py` |
 | RUN-ARC-001 | RUN-DD-SPEC, -LIMITS, -RESOLVE, -BENCH, -RESULTS, -RUNNER, -REPORT, -CLI | `runner/*.py`, `cli.py` |
 
-## 7. Coverage analysis
+## 8. Coverage analysis
 
 | Question | Answer |
 |---|---|
-| Requirements with no verifying test | **None.** All 99 functional and 9 non-functional requirements trace to at least one test, or to a recorded inspection where a test is not the appropriate method (CORE-NFR-002, and part of CORE-NFR-001). |
+| Requirements with no verifying test | **None.** All 144 functional and 13 non-functional requirements trace to at least one test, or to a recorded inspection where a test is not the appropriate method (CORE-NFR-002, JLINK-NFR-001, and part of CORE-NFR-001). |
 | Tests not tracing to a requirement | **None.** Every test file names its requirements in its module docstring. |
 | Source modules with no design unit | **None.** Every module names its design unit in its docstring; `__main__.py` is covered by RUN-DD-CLI. |
 | Design units with no source | **None.** |
-| Stakeholder requirements not decomposed | **None.** All eight trace downward; STK-06 additionally produces BENCHTOOLS-VISA-001 as its work product. |
-| Architectural decisions without a verifying test | **None.** AD-01 → `test_full_driver_over_the_socket`; AD-02 → `test_layering.py`; AD-03 → `TestDriverRegistry`; AD-04 → `TestFraming`; AD-05 → `test_payload_containing_a_hash_byte_is_not_re_parsed`; AD-06 → `TestChannelSpread`; AD-07 → `test_busy_is_polled_until_clear`; AD-08 → `TestSpecParsing`; AD-09 → `TestFailureVersusError`; AD-10 → `test_all_sim_resources_count_as_simulated`. |
+| Stakeholder requirements not decomposed | **None of those in scope.** STK-01 to STK-11 trace downward; STK-06 additionally produces BENCHTOOLS-VISA-001 as its work product. STK-12 is partly addressed (AD-15 constrains the driver boundary for it) and the translator itself is deferred: CON-06, OPEN-04. STK-13 to STK-15 are recorded as future work with no requirements in this revision: CON-03, OPEN-03. |
+| Architectural decisions without a verifying test | **None.** AD-01 → `test_full_driver_over_the_socket`; AD-02 → `test_layering.py`; AD-03 → `TestDriverRegistry`; AD-04 → `TestFraming`; AD-05 → `test_payload_containing_a_hash_byte_is_not_re_parsed`; AD-06 → `TestChannelSpread`; AD-07 → `test_busy_is_polled_until_clear`; AD-08 → `TestSpecParsing`; AD-09 → `TestFailureVersusError`; AD-10 → `test_all_sim_resources_count_as_simulated`; AD-11 → `test_the_probe_is_an_instrument_but_not_scpi`, `test_scpi_instrument_is_an_instrument`; AD-12 → `SWE4-UT-GDBMI`, `SWE4-UT-GDBSESSION`, `test_connect_to_the_simulator`; AD-13 → `test_resource_parsing`, `test_a_remote_server_is_never_spawned`; AD-14 → `SWE4-UT-TIMING`, `test_a_short_interval_is_flagged_untrustworthy`; AD-15 → `test_serialises_for_a_report`, `test_shipped_specifications_are_valid`. |
 
-## 8. Open items
+## 9. Open items
 
 | ID | Item | Owner action |
 |---|---|---|
 | OPEN-01 | Bench confirmation items in BENCHTOOLS-VISA-001 §5.1 (device name, portmapper transport, hardcopy format, measurement settling, record lengths) | Discharge on first use with physical hardware. |
 | OPEN-02 | TDS3000 SCPI command spellings not transcribed from the programmer manual (CON-02) | Spot-check against Tektronix 071-0381-03 on first bench use. |
-| OPEN-03 | No requirements yet for the instrument families named for future work (CON-03): power supplies and loads, DMMs, signal sources, logic and protocol analysers, BLE and RF | Add a prefixed requirements section, design unit, test group and matrix rows per instrument as each driver is written. |
+| OPEN-03 | No requirements yet for the instruments named for future work (CON-03): the sensor supply PSU (STK-13), the Nordic BLE dongle (STK-14), the RS-232 multimeter (STK-15), and the families named earlier — loads, signal sources, logic and protocol analysers | Add a prefixed requirements section, design unit, test group and matrix rows per instrument as each driver is written. |
+| OPEN-04 | Markdown-to-Robot-Framework translation (STK-12, CON-06) is not implemented | Decide whether to adopt Robot Framework. If adopted, add a `ROBOT-` element in front of the existing runner; AD-15 has kept the driver boundary suitable for it. |
+| OPEN-05 | J-Link bench confirmation items (CON-04, CON-05) — `docs/jlink/JLink_Integration_Notes.md` §4: Windows execution, real MI version behaviour, SWO timestamp scaling, RTT control-block discovery, flash timing | Discharge on first use with a probe and a target. Tracked there as JLINK-OPEN-01 to JLINK-OPEN-04. |

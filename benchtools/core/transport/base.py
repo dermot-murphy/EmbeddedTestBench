@@ -83,6 +83,18 @@ class Transport(abc.ABC):
         """Short human-readable description of the link, for logs and reports."""
         return type(self).__name__
 
+    @property
+    def has_buffered_data(self) -> bool:
+        """``True`` when bytes have already been received but not yet read.
+
+        Needed by protocols where unsolicited output is meaningful. SCPI has
+        none, so :meth:`write` discards buffered bytes to stop a stale response
+        being mistaken for the next answer. A protocol with asynchronous
+        notifications - GDB/MI, where ``*stopped`` can arrive at any moment -
+        must drain them before writing, and this is how it knows to.
+        """
+        return bool(self._buffer)
+
     # ------------------------------------------------------------------
     # Primitives implemented by subclasses
     # ------------------------------------------------------------------

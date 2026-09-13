@@ -43,6 +43,21 @@ class TestSpecParsing:
         })
         assert spec.instruments_used == []
 
+    def test_declared_instrument_drivers(self):
+        spec = TestSpec.from_mapping({
+            "name": "S",
+            "instruments": {"probe": "jlink", "scope": "tek3014b"},
+            "tests": [{"name": "T", "steps": [{"do": "probe.identity"}]}],
+        })
+        assert spec.instrument_drivers == {"probe": "jlink", "scope": "tek3014b"}
+
+    def test_instrument_drivers_default_to_empty(self):
+        assert TestSpec.from_mapping(MINIMAL).instrument_drivers == {}
+
+    def test_instruments_block_must_be_a_mapping(self):
+        with pytest.raises(SpecError, match="mapping of alias to driver"):
+            TestSpec.from_mapping(dict(MINIMAL, instruments=["probe"]))
+
     def test_requirements_accept_a_string_or_a_list(self):
         assert TestSpec.from_mapping(dict(MINIMAL, requirements="R1")).requirements == ("R1",)
         assert TestSpec.from_mapping(
@@ -164,12 +179,15 @@ class TestLoading:
         path.write_text(json.dumps(MINIMAL))
         assert load_spec(str(path)).source == str(path)
 
-    def test_shipped_specification_is_valid(self):
-        """The example in specs/ must stay loadable as the API changes."""
+    @pytest.mark.parametrize(
+        "name,aliases", [("clock_skew.yaml", ["scope"]), ("firmware_timing.yaml", ["probe"])]
+    )
+    def test_shipped_specifications_are_valid(self, name, aliases):
+        """The examples in specs/ must stay loadable as the API changes."""
         import pathlib
 
         pytest.importorskip("yaml")
         root = pathlib.Path(__file__).resolve().parents[2]
-        spec = load_spec(str(root / "specs" / "clock_skew.yaml"))
-        assert spec.instruments_used == ["scope"]
+        spec = load_spec(str(root / "specs" / name))
+        assert spec.instruments_used == aliases
         assert len(spec.tests) >= 4

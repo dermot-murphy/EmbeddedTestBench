@@ -20,6 +20,7 @@ from .factory import (
     registered_backends,
 )
 from .mock import MockTransport
+from .process import ProcessTransport
 from .socket_raw import SocketTransport
 from .visa_backend import VisaTransport, pyvisa_available
 from .vxi11 import Vxi11Error, Vxi11Transport, query_portmapper
@@ -33,6 +34,7 @@ __all__ = [
     "VisaTransport",
     "pyvisa_available",
     "MockTransport",
+    "ProcessTransport",
     "open_transport",
     "parse_resource",
     "register_backend",

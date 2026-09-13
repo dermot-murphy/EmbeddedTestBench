@@ -3,10 +3,10 @@
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-SWE1-001 |
-| Version | 2.0 |
+| Version | 3.0 |
 | Date | 2026-09-13 |
 | Process reference | Automotive SPICE V4.0, SWE.1 Software Requirements Analysis |
-| Item | **BenchTools** — bench test tooling (`benchtools` 2.0.0) |
+| Item | **BenchTools** — bench test tooling (`benchtools` 3.0.0) |
 
 ## 1. Scope
 
@@ -19,8 +19,9 @@ It is a **test tool**: it is not part of any delivered vehicle software and
 carries no ASIL classification. It is developed to this process discipline
 because measurement results derived from it are used as evidence.
 
-Out of scope: instrument firmware, GPIB and RS-232 interfaces, hardware fixture
-design, and any instrument not listed in §5.
+Out of scope: instrument firmware, target application firmware, GPIB, hardware
+fixture design, and any instrument not listed in §3. RS-232 is out of scope in
+this revision but is required by STK-14 and will be added as a transport.
 
 ## 2. Stakeholder requirements
 
@@ -34,6 +35,13 @@ design, and any instrument not listed in §5.
 | STK-06 | Determine whether VISA must be used. |
 | STK-07 | Host further instrument tools in the same repository, sharing common code. |
 | STK-08 | Provide an overall bench test runner that drives those tools. |
+| STK-09 | Debug and exercise target firmware through a SEGGER J-Link: flash, verify against a binary, run, stop, set breakpoints, read and write RAM, read variables, read and write RTT, log RTT, measure the time between lines of code, and read the call stack. |
+| STK-10 | Use the J-Link driver from the test bench, so firmware state is an assertable quantity in a bench test alongside instrument measurements. |
+| STK-11 | Run first on a Windows PC; eventually run the entire test bench inside Docker. |
+| STK-12 | Possibly express tests in Markdown and translate them to Robot Framework files. |
+| STK-13 | Control the sensor supply voltage with a programmable power supply. *(future)* |
+| STK-14 | Send BLE UART commands to a Nordic dongle, read the responses, and measure the advertising profile. *(future)* |
+| STK-15 | Measure current with a multimeter over RS-232 through a USB converter. *(future)* |
 
 ## 3. Element structure
 
@@ -46,6 +54,7 @@ prefixes are per element so they stay unique as instruments are added.
 | `ANA-` | `benchtools.analysis` | Operates on captured records, not live instruments, so it is deterministic and replayable. |
 | `INST-` | `benchtools.instruments` | Requirements common to all drivers. |
 | `SCOPE-` | `benchtools.instruments.tek3014b` | The oscilloscope driver. |
+| `JLINK-` | `benchtools.instruments.jlink` | The SEGGER J-Link debug probe driver. Not a SCPI instrument, and the only element that reaches the target through a debug probe rather than a measurement link. |
 | `RUN-` | `benchtools.runner` | The bench test runner. |
 
 ---
@@ -64,10 +73,28 @@ prefixes are per element so they stay unique as instruments are added.
 | CORE-FR-006 | The link layer shall provide an optional transport that delegates to a VISA library, which shall not be required for normal operation. | STK-06 | Test |
 | CORE-FR-007 | The link layer shall transfer messages of arbitrary length, chunking writes to the link's negotiated maximum and reassembling chunked responses. | STK-01 | Test |
 | CORE-FR-008 | The link layer shall probe the VXI-11 logical device names used by both VXI-11.2 and VXI-11.3 devices, and shall report which was accepted. | STK-01 | Test |
+| CORE-FR-009 | The link layer shall provide a transport to a child process over its standard input and output, for tools that speak a line protocol rather than listening on a socket. It shall work on Windows as well as POSIX hosts, retain the child's diagnostic output, and report that output if the child exits unexpectedly. | STK-07, STK-09, STK-11 | Test |
 | CORE-FR-010 | Transport backends and resource-string schemes shall be held in registries, so a new link type can be added from its own module without modifying the factory. | STK-07 | Test, Inspection |
 | CORE-FR-011 | The link layer shall accept a host name, an IPv4 address, or a VISA-style resource string, and shall select a transport automatically. | STK-01 | Test |
 
-### 4.2 SCPI instrument base
+### 4.2 Generic instrument base
+
+Not every bench instrument speaks SCPI. A debug probe (§8) is driven over GDB/MI,
+a BLE dongle over its own serial protocol. The lifecycle those drivers share with
+a SCPI instrument is therefore specified separately from the SCPI vocabulary, so
+the runner can treat any of them as a bench instrument.
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| CORE-FR-012 | A generic instrument base shall provide the link lifecycle — open, initialise to a known state, close, and use as a context manager — without assuming any particular command language. | STK-07, STK-09 | Test |
+| CORE-FR-013 | The generic base shall hold instrument identification as manufacturer, model, serial number and firmware, populated through a hook each driver implements, and shall cache it until a refresh is requested. | STK-07 | Test |
+| CORE-FR-014 | The generic base shall declare the simulator class used when the resource string selects simulation, so that any driver is verifiable without hardware irrespective of its command language. | STK-07 | Test |
+| CORE-FR-015 | The generic base shall provide an event-queue read and an error check that a driver may override, defaulting to reporting no events for instruments that have no error queue. | STK-07 | Test |
+| CORE-FR-016 | Closing an instrument shall never raise, so that a failure during a measurement cannot be masked by a failure while cleaning up. | STK-07 | Test |
+
+### 4.3 SCPI instrument base
+
+Extends §4.2 with the SCPI and IEEE 488.2 vocabulary.
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -81,21 +108,21 @@ prefixes are per element so they stay unique as instruments are added.
 | CORE-FR-027 | The base shall encode and decode IEEE 488.2 definite- and indefinite-length arbitrary block data, for use by waveform transfer, trace transfer and bulk upload. | STK-04, STK-07 | Test |
 | CORE-FR-028 | The base shall provide raw command and query access, for instrument features a driver does not wrap. | STK-07 | Test |
 
-### 4.3 Validation and shared types
+### 4.4 Validation and shared types
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
 | CORE-FR-030 | A shared enumeration base shall accept a member, a member name or a SCPI mnemonic, case-insensitively, and shall reject anything else with a message listing the valid values. | STK-07 | Test |
 | CORE-FR-031 | Shared validation shall check ranges, channel availability and enumerated choices, raising a message that names the setting, the offending value, the permitted range and the unit. | STK-03, STK-07 | Test |
 
-### 4.4 Simulator harness
+### 4.5 Simulator harness
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
 | CORE-FR-040 | A shared simulator harness shall provide SCPI message dispatch, compound-message splitting, the IEEE 488.2 mandated queries, an event queue and binary replies, so each instrument's simulator implements only its own behaviour. | STK-07 | Test |
 | CORE-FR-041 | An unrecognised command shall be recorded in the simulated event queue rather than ignored, so that a driver which misspells a command fails a test instead of passing silently. | STK-07 | Test |
 
-### 4.5 CORE non-functional
+### 4.6 CORE non-functional
 
 | ID | Requirement | Verification |
 |---|---|---|
@@ -178,9 +205,106 @@ prefixes are per element so they stay unique as instruments are added.
 
 ---
 
-## 8. RUN — bench test runner
+## 8. JLINK — SEGGER J-Link debug probe driver
 
-### 8.1 Bench configuration
+The probe is not an instrument in the SCPI sense: it does not answer `*IDN?` and
+has no error queue. It is nonetheless a *bench instrument* — it is configured,
+it is commanded, and it yields measurements — so it implements the generic base of
+§4.2 and is usable from the runner of §9.
+
+### 8.1 Link to the probe
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| JLINK-FR-001 | The driver shall communicate with the target through the GDB machine interface (GDB/MI), parsing result, asynchronous, stream and prompt records, including nested tuples and lists, C-string escapes, and repeated result names. | STK-09 | Test |
+| JLINK-FR-002 | The driver shall issue MI commands with a sequence token and correlate each reply to its command, shall surface an MI error as a typed exception naming the command and the reason, and shall drain asynchronous records that arrive between commands rather than discarding them. | STK-09 | Test |
+| JLINK-FR-003 | The driver shall locate and launch the SEGGER J-Link GDB Server and a GDB for the target architecture, searching the executable names used on Windows first, and shall report a clear diagnostic naming the missing tool and where it is normally installed. | STK-09, STK-11 | Test |
+| JLINK-FR-004 | The driver shall attach to a GDB server already listening, whether started by the user or running on another host, and shall not attempt to spawn a server on a host that is not the local one. | STK-09, STK-11 | Test |
+| JLINK-FR-005 | The driver shall close the link and stop only the server it started itself, leaving a server it merely attached to running. | STK-09 | Test |
+
+### 8.2 Target configuration
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| JLINK-FR-010 | The driver shall accept the target device name, debug interface (SWD or JTAG), interface speed, probe serial number, and the core clock frequency, and shall hold each probe's capability envelope — hardware breakpoint count, watchpoint count, RTT channel count and maximum transfer size — as data rather than in code. | STK-09 | Test, Inspection |
+| JLINK-FR-011 | The driver shall load target symbols from an ELF file, reporting a missing or unreadable file before any target operation is attempted. | STK-09 | Test |
+
+### 8.3 Programming and verification
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| JLINK-FR-020 | The driver shall programme the target from an ELF file and report the sections written, their addresses, their sizes and the elapsed time. | STK-09 | Test |
+| JLINK-FR-021 | The driver shall verify the target's memory against the binary section by section, and shall report per-section verdicts, not merely an overall result. | STK-09 | Test |
+| JLINK-FR-022 | A verification mismatch shall raise, naming the sections that differ. A verification over an empty section list shall be reported as not matched, never as a pass. | STK-09 | Test |
+| JLINK-FR-023 | The driver shall erase the target's non-volatile memory. | STK-09 | Test |
+
+### 8.4 Execution control
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| JLINK-FR-030 | The driver shall reset the target, optionally halting at the reset vector, and shall run, halt, resume and single-step the core. | STK-09 | Test |
+| JLINK-FR-031 | The driver shall report whether the core is halted, its program counter, and its register values. | STK-09 | Test |
+| JLINK-FR-032 | The driver shall wait for the target to halt with a bounded timeout, and shall report the reason for the halt — breakpoint, watchpoint, step, signal or an unrecognised reason — rather than only that it stopped. | STK-09 | Test |
+| JLINK-FR-033 | The driver shall set a breakpoint by source location, function or address, optionally temporary, optionally conditional, and optionally forced into hardware; it shall list, delete and clear breakpoints. | STK-09 | Test |
+| JLINK-FR-034 | The driver shall refuse to set more hardware breakpoints than the probe's envelope allows, reporting the limit, rather than letting the request fail on the target. | STK-09 | Test |
+| JLINK-FR-035 | The driver shall set watchpoints on a variable or address for write, read, or either access, within the probe's watchpoint envelope. | STK-09 | Test |
+| JLINK-FR-036 | The driver shall run the target to a given location, reporting whether it arrived there or halted for another reason. | STK-09 | Test |
+
+### 8.5 Target state
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| JLINK-FR-040 | The driver shall read and write target memory of arbitrary length, splitting transfers to the probe's maximum transfer size, and shall provide byte, half-word and word accessors. | STK-09 | Test |
+| JLINK-FR-041 | The driver shall read and write a variable by name, returning integers, floating-point values and strings as the debug information describes them, and shall report a variable's address and size. | STK-09 | Test |
+| JLINK-FR-042 | The driver shall evaluate an arbitrary expression in the target's context. | STK-09 | Test |
+| JLINK-FR-045 | The driver shall read the call stack, reporting for each frame its level, function, source file and line, and the frame address. | STK-09 | Test |
+
+### 8.6 Real Time Transfer
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| JLINK-FR-050 | The driver shall read from and write to an RTT channel without halting the core. | STK-09 | Test |
+| JLINK-FR-051 | The driver shall read RTT as whole lines, retaining a partial line until its terminator arrives, and shall report how many lines are waiting. | STK-09 | Test |
+| JLINK-FR-052 | The driver shall wait for RTT output matching a regular expression with a bounded timeout, and on timeout shall report both the pattern sought and the text that did arrive. | STK-09 | Test |
+| JLINK-FR-053 | The driver shall send a command over RTT and return the matching response, so a firmware console is usable as a test interface. | STK-09, STK-10 | Test |
+| JLINK-FR-055 | The driver shall log every RTT line to a file as it arrives, flushed per line so the log survives a target or host failure, and shall retain the complete history independently of the lines consumed by reads. | STK-09 | Test |
+
+### 8.7 Timing between lines of code
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| JLINK-FR-060 | The driver shall measure the elapsed time between two locations in the target's code, by a method the caller selects, and shall report the result in cycles and in seconds together with the method used. | STK-09 | Test |
+| JLINK-FR-061 | The driver shall provide measurement by the Cortex-M DWT cycle counter, enabling the trace unit and the counter, and shall account for the counter's 32-bit wrap. | STK-09 | Test |
+| JLINK-FR-062 | The driver shall provide measurement by the host clock, for targets with no cycle counter, and shall not present its result as more precise than the host clock permits. | STK-09 | Test |
+| JLINK-FR-063 | The driver shall provide measurement from a target timer captured into variables by the firmware, given the timer's frequency. | STK-09 | Test |
+| JLINK-FR-064 | The driver shall provide measurement from SWO/ITM trace, decoding the ITM packet stream, so that the interval is measured **without halting the core**. | STK-09 | Test |
+| JLINK-FR-065 | Every timing result shall report the resolution of the method that produced it, and shall be flagged as not trustworthy when the measured interval is not large enough with respect to that resolution. Halting methods shall declare that they halt the target. | STK-09 | Test |
+| JLINK-FR-066 | The driver shall repeat a timing measurement and report minimum, maximum, mean, spread and standard deviation over the repetitions. | STK-05, STK-09 | Test |
+| JLINK-FR-067 | A timing result derived from no samples shall raise rather than report zero. | STK-09 | Test |
+
+### 8.8 Bench and command-line use
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| JLINK-FR-080 | The probe shall be registered as a bench driver, so a bench configuration and a test specification reference it by name like any instrument. | STK-10 | Test |
+| JLINK-FR-081 | Every probe operation usable as a test step shall return a value or a record of plain types, so a declarative specification can assert on it without driver-specific code. | STK-10, STK-12 | Test |
+| JLINK-FR-090 | A simulated probe shall answer the GDB/MI dialogue the driver uses, with a deterministic firmware model — symbols, memory, call stacks, RTT traffic, ITM events and a known interval between two locations — so the driver is fully verifiable without a probe or a target. | STK-09 | Test |
+| JLINK-FR-100 | A command-line interface shall expose identification, flashing, verification, reset, run, halt, memory and variable access, the call stack, RTT and timing, emitting JSON so results are usable from a script. | STK-09, STK-12 | Test |
+
+### 8.9 JLINK non-functional
+
+| ID | Requirement | Verification |
+|---|---|---|
+| JLINK-NFR-001 | The driver shall add no mandatory third-party runtime dependency. | Inspection, Test |
+| JLINK-NFR-002 | The driver shall run on Windows and on Linux, with no POSIX-only facility on either the process link or the RTT link. | Inspection, Test |
+| JLINK-NFR-003 | Both links to the probe — GDB/MI and RTT — shall be capable of being TCP connections to a host other than the one running the driver, so that the driver can run inside a container while the probe is attached elsewhere. | Test, Inspection |
+| JLINK-NFR-004 | A measurement shall never be reported without the method that produced it and that method's resolution. | Test |
+
+---
+
+## 9. RUN — bench test runner
+
+### 9.1 Bench configuration
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -191,7 +315,7 @@ prefixes are per element so they stay unique as instruments are added.
 | RUN-FR-005 | The runner shall support replacing every instrument with its simulator, so a specification can be exercised without hardware. | STK-08 | Test |
 | RUN-FR-006 | A run shall be recorded as simulated whenever no instrument on the bench is real hardware, so simulated results cannot be mistaken for measurements. | STK-08 | Test |
 
-### 8.2 Test specification
+### 9.2 Test specification
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -202,7 +326,7 @@ prefixes are per element so they stay unique as instruments are added.
 | RUN-FR-014 | A malformed specification shall be rejected with a message identifying what to fix. | STK-08 | Test |
 | RUN-FR-015 | A test shall be markable as skipped, with a reason. | STK-08 | Test |
 
-### 8.3 Limits
+### 9.3 Limits
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -211,7 +335,7 @@ prefixes are per element so they stay unique as instruments are added.
 | RUN-FR-022 | A measured value shall be scalable before the limit is checked, so a limit can be stated in convenient units. | STK-08 | Test |
 | RUN-FR-023 | A limit shall render as human-readable text for the report, and a failure shall state by how much the value missed. | STK-08 | Test |
 
-### 8.4 Execution
+### 9.4 Execution
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -222,7 +346,7 @@ prefixes are per element so they stay unique as instruments are added.
 | RUN-FR-034 | A specification shall not be able to invoke private driver methods. | STK-08 | Test |
 | RUN-FR-035 | The runner shall verify the bench provides every instrument the specification uses before executing anything. | STK-08 | Test |
 
-### 8.5 Reporting
+### 9.5 Reporting
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -237,7 +361,7 @@ prefixes are per element so they stay unique as instruments are added.
 
 ---
 
-## 9. Assumptions and constraints
+## 10. Assumptions and constraints
 
 | ID | Statement |
 |---|---|
@@ -246,4 +370,10 @@ prefixes are per element so they stay unique as instruments are added.
 | ASM-03 | The TDS3014B supports a limited number of simultaneous VXI-11 links (in practice one). |
 | CON-01 | Verification to date is against protocol simulators and loopback servers, not physical hardware. Bench confirmation items are listed in the VISA determination report §5.1. |
 | CON-02 | TDS3000 SCPI command spellings were not transcribed from the programmer manual during development (the manual host was unreachable from the build environment) and require spot-checking on first bench use. |
-| CON-03 | Instrument families named for future work (power supplies and loads, DMMs, signal sources, logic and protocol analysers, BLE and RF) have no requirements in this revision. The core is designed for them but not validated against them. |
+| ASM-04 | The J-Link GDB Server and a GDB for the target architecture are installed on the host that has the probe attached, and the server's ports (2331 GDB, 2332 SWO, 19021 RTT) are reachable from the host running the driver. |
+| ASM-05 | The target is a Cortex-M part whose DWT unit is present and not locked by the vendor, for the cycle-counter timing method. Targets without it are served by the other three methods. |
+| ASM-06 | Target firmware built with debug information (`-g`) and, for the RTT and SWO methods, linked against SEGGER RTT and with SWO enabled by the firmware or the server. |
+| CON-03 | Instrument families named for future work (STK-13 to STK-15: power supplies, the Nordic BLE dongle, and a multimeter over RS-232) have no requirements in this revision. The core is designed for them but not validated against them. |
+| CON-04 | The J-Link driver is verified against a simulated probe and a simulated target, not against physical hardware. Bench confirmation items are listed in `docs/jlink/JLink_Integration_Notes.md` §4. |
+| CON-05 | The scaling of SWO/ITM local timestamps to core cycles depends on the trace prescaler configured by the GDB server and the firmware. It is implemented from the ARMv7-M architecture reference manual and requires confirmation against a part before SWO timing figures are quoted (JLINK-OPEN-03). |
+| CON-06 | Markdown-to-Robot-Framework translation (STK-12) is not implemented in this revision. The driver's return types are constrained by JLINK-FR-081 so that it can be added without changing the driver. |

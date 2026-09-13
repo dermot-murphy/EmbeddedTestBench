@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-SWE3-001 |
-| Version | 2.0 |
+| Version | 3.0 |
 | Date | 2026-09-13 |
 | Process reference | Automotive SPICE V4.0, SWE.3 Software Detailed Design and Unit Construction |
 
@@ -111,6 +111,28 @@ Optional PyVISA transport. `pyvisa` is imported inside `_open_link`, so importin
 the package never requires it. `_recv_chunk` derives the END flag from the VISA
 status code, which is what lets the base class's framing work unchanged.
 
+## CORE-DD-PROCESS — `transport/process.py`
+
+`ProcessTransport`: a `Transport` over a child process's standard input and output,
+registered as the `process` and `stdio` backends. Written for GDB (JLINK-DD-SESSION)
+and usable by any tool with a line protocol.
+
+Design points:
+
+- **Reader threads, not `select`.** `select` does not accept pipe handles on
+  Windows, and the first deployment is a Windows PC (STK-11). One thread drains
+  stdout into a `queue.Queue`, another drains stderr into a bounded `deque` of 200
+  lines. Bounded, because a tool that prints a warning per command must not become
+  a memory leak over a long bench run.
+- `bufsize=0` and `stream.read(65536)`: the read returns as soon as any bytes are
+  available, so the transport blocks per *block* rather than per byte, without
+  waiting for a buffer to fill.
+- `ready_timeout` (0.5 s) catches the common failure: the executable exists but
+  exits immediately — a missing shared library, a bad argument. The diagnostic is
+  the child's own stderr, which is the only text that says what was actually wrong.
+- `returncode` is retained after `close()`, so a post-mortem can say how the tool
+  died after the transport has gone.
+
 ## CORE-DD-MOCK — `transport/mock.py`
 
 Loopback transport accepting any `Responder` — anything with
@@ -130,6 +152,37 @@ significant rule: a bare host or a `TCPIP::…::INSTR` string resolves to the
 `open_transport` accepts a `responder_factory`, called when the resource selects
 the simulator. This is how an instrument driver supplies *its own* simulator
 without this module knowing about any instrument.
+
+## CORE-DD-INSTRUMENT — `instrument.py`
+
+`Instrument`, the lifecycle every driver shares, with no command language in it
+(AD-11). `ScpiInstrument` and `JLinkProbe` both derive from it, and the runner's
+driver registry is typed on it.
+
+| Group | Members |
+|---|---|
+| Lifecycle | `connect` (classmethod), `initialise`, `close`, `__enter__`, `__exit__` |
+| Subclass hooks | `_open`, `_close`, `is_open`, `_post_open`, `_read_identity` |
+| Identity | `identify`, `identity`, `manufacturer`, `model`, `serial_number`, `firmware` |
+| Simulation | `SIMULATOR_CLASS`, `MODEL_NAME` |
+| Errors | `read_event_queue`, `check_errors`, `_after_configuration` |
+
+Design points:
+
+- The hooks are separated from the template methods so a subclass overrides *what*
+  opening means, never *when* initialisation happens. `_post_open` is a chain: the
+  SCPI layer sends `*CLS` there, the probe loads symbols and attaches, and neither
+  has to remember to call the other's setup.
+- `close()` never raises (CORE-FR-016). A transport that is already dead must not
+  turn a measurement failure into a confusing secondary error from the `finally`
+  block that was trying to tidy up.
+- `InstrumentIdentity` lives here because the runner reports identity for any
+  instrument, but `from_idn()` — the IEEE 488.2 four-field split — is a *SCPI*
+  parse, so it is a named constructor rather than the constructor. A probe fills
+  the fields from what the GDB server reports about the emulator.
+- `read_event_queue` defaults to returning nothing, because an instrument with no
+  error queue is the normal case outside SCPI. `check_errors` is therefore a no-op
+  by default rather than a forced override.
 
 ## CORE-DD-SCPI — `scpi.py`
 
@@ -305,6 +358,191 @@ emitting JSON so the tool composes into a harness. `--resource` defaults to
 `sim://`. Per-channel options accept one value for all channels or one per
 channel. A negative value must be passed with `=` (`--position=-4,-3`), standard
 `argparse` behaviour, documented in the README.
+
+---
+
+# JLINK — `benchtools.instruments.jlink`
+
+Seven collaborators and a façade (JLINK-ARC-001). The split is by *reason to
+change*: the MI grammar changes with GDB, RTT with SEGGER's protocol, ITM with the
+ARM architecture, the envelope with the probe model.
+
+## JLINK-DD-GDBMI — `jlink/gdbmi.py`
+
+The GDB/MI grammar, and nothing else: no I/O, no state. `parse_line` returns a
+`ResultRecord`, `AsyncRecord`, `StreamRecord`, `PromptRecord`, or `None` for a line
+that is not MI at all (GDB emits those on start-up).
+
+Parsing points that matter:
+
+- `parse_value` is a recursive-descent parser over a `_Cursor`, because MI values
+  nest arbitrarily: `frame={args=[{name="x",value="1"}]}`.
+- A list whose elements all carry the **same** name — `[frame={…},frame={…}]`, which
+  is how a backtrace arrives — becomes a plain list of three frames, not a
+  one-element dict that silently loses two. This is the defect this module exists to
+  prevent; `test_gdbmi.py` pins it.
+- Repeated result names at the top level accumulate into a list for the same reason.
+- `unescape_cstring` is separate and separately tested: MI strings carry `\n`,
+  `\"`, `\\` and octal escapes, and a mis-unescaped path is a wrong file name.
+
+## JLINK-DD-SESSION — `jlink/session.py`
+
+`GdbMiSession`: one command, one reply, over any `Transport`.
+
+- Every command is prefixed with a monotonic token and the reply is matched on it,
+  so a late reply cannot be read as the answer to the next question.
+- **Drain before write.** MI async records (`*stopped`, `=thread-exited`) arrive
+  unbidden, and the base transport discards buffered data before a write to avoid
+  reading a stale reply. That is right for SCPI and wrong here, so the session
+  drains asynchronous records into a queue first, using
+  `Transport.has_buffered_data` to know there is something to drain.
+- `wait_for_async` returns a record already buffered before waiting, re-raises
+  `ConnectionFailedError` — a dead GDB is not a timeout — and treats any other
+  transport error as "nothing yet" until the deadline.
+- `execute_console` wraps `-interpreter-exec console "…"` with `\` and `"` escaped,
+  for the commands that have no MI form (`monitor`, `compare-sections`, `load`).
+- `GdbError` names the command and GDB's own reason, because "error" alone from a
+  debugger is worthless.
+
+## JLINK-DD-SERVER — `jlink/server.py`
+
+Discovery and lifetime of the J-Link GDB Server and GDB.
+
+- `find_gdb_server` searches the Windows executable names first
+  (`JLinkGDBServerCL.exe`, `JLinkGDBServer.exe`) then the Unix ones, and the
+  diagnostic names the tool and where SEGGER installs it.
+- `port_is_open` is checked **before** spawning: a server already listening is used,
+  never duplicated — a second server on the same probe fails in a way that reads
+  like a hardware fault.
+- The server is spawned only for a local target (AD-13); for a remote one the driver
+  attaches and says so.
+- `was_spawned` gates `stop()`: a server the driver did not start is a server it must
+  not kill (JLINK-FR-005).
+- Flags: `-nogui -silent -singlerun -strict`. `-singlerun` so the server exits with
+  the session; `-strict` so a bad device name fails at start rather than producing a
+  half-working link.
+
+## JLINK-DD-RTT — `jlink/rtt.py`
+
+RTT over the server's RTT port, behind an `RttSource` protocol so the socket and the
+simulator are interchangeable.
+
+- `_pending` and `_history` are separate deques: reads consume `_pending`, while
+  `_history` keeps every line for the report. They were one deque, and `history`
+  then returned only what had not been read — a log with the interesting lines
+  missing.
+- `_pump()` is called synchronously at the start of every read, so a test's result
+  does not depend on when a background thread happened to run.
+- A partial line is retained until its terminator arrives; firmware writes half a
+  line all the time.
+- `RttTimeout` names the pattern sought **and** the text that did arrive. The text
+  is usually the answer — a firmware assertion, a different prompt.
+- `log_to` flushes per line, so the log of a target that then hung is complete.
+
+## JLINK-DD-SWO — `jlink/swo.py`
+
+ITM/SWO packet decoding (ARMv7-M ARM Appendix D) and the SWO socket reader.
+
+- `ItmDecoder.feed()` is incremental: SWO arrives in arbitrary TCP fragments.
+- A source packet is identified by `header & 0x03 != 0` — the two-bit *size* field.
+  Testing bit 0 alone, which reads plausibly, classifies every 16-bit ITM write as a
+  protocol packet and silently drops it. `test_swo.py` pins the 1-, 2- and 4-byte
+  cases.
+- Local timestamp formats 1 and 2, extension, global timestamp, overflow and sync
+  are decoded, because a decoder that skips the ones it does not need desynchronises
+  on the first one it meets.
+- `encode_software_event` and `encode_local_timestamp` exist so the tests build real
+  packet streams rather than asserting against the decoder's own output.
+- `timestamp_cycles` scales timestamps by the trace prescaler. **This scaling is
+  from the architecture manual and is unconfirmed against a part** (CON-05,
+  JLINK-OPEN-03), and the module says so where a reader will see it.
+
+## JLINK-DD-TIMING — `jlink/timing.py`
+
+`TimingSample` and `TimingResult`: the result type, with no measuring in it.
+
+`TimingResult` carries the method, the samples, the core clock and whether the
+target was halted, and derives `seconds`, `microseconds`, `cycles`, `minimum`,
+`maximum`, `spread`, `standard_deviation`, `resolution_seconds` and
+`is_trustworthy` (false when the interval is under ten times the method's
+resolution). `as_dict()` is the plain-types boundary of AD-15.
+
+An empty sample list raises `MeasurementError` rather than reporting zero seconds —
+a zero would be indistinguishable from a fast interval.
+
+## JLINK-DD-CONST — `jlink/constants.py`
+
+The vocabulary and the envelope, as data (JLINK-FR-010): `DebugInterface`,
+`ResetType`, `HaltReason` (with an `UNKNOWN` fallback, so a GDB version reporting a
+reason this driver has not met does not crash the run), `BreakpointKind`,
+`WatchpointKind`, `TimingMethod`, the server's ports, the DEMCR/DWT register
+addresses, and `ProbeLimits` — hardware breakpoints, watchpoints, RTT channels,
+maximum transfer size, core clock, and `cycle_counter_max_seconds`, the interval
+beyond which the 32-bit cycle counter wraps.
+
+`TimingMethod` carries the trade-off of each method in its docstring, next to the
+member, because that is where the choice is made.
+
+## JLINK-DD-SIM — `jlink/simulator.py`
+
+A simulated probe **and** a simulated target: `SimulatedFirmware` holds the
+execution flow, cycle counts per location, symbols, memory, call stacks, RTT
+traffic, ITM events and sections; `SimulatedJLink` answers the MI dialogue.
+
+- The default firmware puts `sensor.c:40` at 5 000 cycles and `sensor.c:75` at
+  69 000 — exactly 64 000 cycles, which at 64 MHz is exactly 1.000 ms. The timing
+  tests therefore assert an exact figure rather than a range, and a scaling error of
+  any size fails.
+- `read_memory` special-cases `DWT_CYCCNT` so the counter advances with simulated
+  execution.
+- `-break-insert` is split with `shlex.split`, not `split()`: a condition contains
+  spaces and quotes, and the naive split truncated `if sensor_count > 3` to
+  `sensor_count`.
+- A hardware breakpoint is reported as `type="hw breakpoint"`, which is what GDB
+  says. Reporting `"breakpoint"` for both made the driver's hardware-breakpoint
+  count always zero, so the envelope limit could never trip.
+
+## JLINK-DD-PROBE — `jlink/probe.py`
+
+`JLinkProbe`, the façade: an `Instrument` (CORE-DD-INSTRUMENT) whose transport is a
+GDB process or a simulator.
+
+| Group | Members |
+|---|---|
+| Lifecycle | `connect`, `_post_open`, `load_symbols`, `attach`, `monitor`, `close` |
+| Programming | `flash`, `verify`, `erase` |
+| Execution | `reset`, `run`/`resume`, `halt`/`stop`, `step`, `wait_for_halt`, `is_halted`, `program_counter`, `registers`, `run_to` |
+| Breakpoints | `set_breakpoint`, `set_watchpoint`, `list_breakpoints`, `delete_breakpoint`, `clear_breakpoints` |
+| Memory | `read_memory`, `write_memory`, `read_word`, `write_word`, `read_u8`, `read_u16`, `read_ram`, `write_ram` |
+| Symbols | `read_variable`, `write_variable`, `variable_address`, `variable_size`, `evaluate`, `call_stack`/`backtrace` |
+| RTT | `rtt_start`, `rtt_stop`, `rtt_read_lines`, `rtt_write`, `rtt_expect`, `rtt_command`, `rtt_log` |
+| Timing | `enable_cycle_counter`, `read_cycle_counter`, `measure_time_between` |
+
+Design points:
+
+- `_parse_target` accepts `sim://`, `jlink://`, `gdb://` and `tcp://`, with or
+  without a host and port, so one resource string covers the simulator, a local
+  probe and a probe on another machine (AD-13).
+- Memory transfers are chunked to `ProbeLimits.max_transfer_bytes`; a 1 MB read is
+  not one MI command.
+- `_counter_delta` handles the cycle counter's 32-bit wrap; over a 64 MHz core that
+  is every 67 s, well inside a plausible measurement.
+- `measure_time_between` dispatches on `TimingMethod` to `_run_to_breakpoint`,
+  `_measure_target_variables` or `_measure_swo`, and every path returns the same
+  `TimingResult`, so a specification asserting on `microseconds` does not care which
+  method produced it.
+- `VerifyResult.matched` is false for an empty section list: "nothing was compared"
+  must never render as a pass (JLINK-FR-022).
+- The RTT client is attached automatically when the transport's responder is a
+  simulated probe, so a simulated bench exercises the RTT paths rather than skipping
+  them.
+
+## JLINK-DD-CLI — `jlink/cli.py`
+
+Sub-commands `info`, `flash`, `verify`, `reset`, `run`, `halt`, `read`, `write`,
+`var`, `stack`, `rtt`, `time`, emitting JSON (AD-15). The `time` sub-command adds a
+`warning` key when the result is not trustworthy, so a figure quoted from a shell
+script carries the same caveat the API gives.
 
 ---
 

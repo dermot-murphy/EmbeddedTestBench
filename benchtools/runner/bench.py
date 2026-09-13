@@ -30,8 +30,9 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, Iterator, Optional, Type
 
 from ..core.errors import BenchConfigError
-from ..core.scpi import ScpiInstrument
+from ..core.instrument import Instrument
 from ..instruments.generic import GenericScpiInstrument
+from ..instruments.jlink import JLinkProbe
 from ..instruments.tek3014b import Tek3014B
 
 __all__ = [
@@ -45,10 +46,10 @@ __all__ = [
 _LOG = logging.getLogger(__name__)
 
 #: Driver name to class. Extended with :func:`register_driver`.
-_DRIVERS: Dict[str, Type[ScpiInstrument]] = {}
+_DRIVERS: Dict[str, Type[Instrument]] = {}
 
 
-def register_driver(name: str, driver: Type[ScpiInstrument]) -> None:
+def register_driver(name: str, driver: Type[Instrument]) -> None:
     """Register an instrument driver under the name a bench config uses."""
     _DRIVERS[name.lower()] = driver
 
@@ -62,6 +63,8 @@ register_driver("tek3014b", Tek3014B)
 register_driver("tds3014b", Tek3014B)
 register_driver("generic", GenericScpiInstrument)
 register_driver("scpi", GenericScpiInstrument)
+register_driver("jlink", JLinkProbe)
+register_driver("segger", JLinkProbe)
 
 
 @dataclass(frozen=True)
@@ -152,13 +155,30 @@ class BenchConfig:
 
         Used by ``--simulate`` and by the test suite, so a specification can be
         exercised with no hardware and no separate configuration file.
+
+        :param aliases: Either a sequence of alias names, all given *driver*, or a
+            mapping of alias to driver name. The mapping form is what a
+            specification's ``instruments`` block provides, and is the only way a
+            suite spanning different instrument types can be simulated without a
+            bench file.
+        :param driver: Driver for aliases with none declared.
         """
+        if isinstance(aliases, dict):
+            wanted = {str(alias): str(name or driver) for alias, name in aliases.items()}
+        else:
+            wanted = {str(alias): driver for alias in aliases}
+        unknown = sorted(name for name in wanted.values() if name.lower() not in _DRIVERS)
+        if unknown:
+            raise BenchConfigError(
+                "cannot simulate unknown driver(s) %s; registered drivers are %s"
+                % (", ".join(unknown), ", ".join(registered_drivers()))
+            )
         return cls(
             name="simulated bench",
             description="every instrument replaced by its simulator",
             instruments={
-                alias: InstrumentConfig(alias=alias, driver=driver, resource="sim://")
-                for alias in aliases
+                alias: InstrumentConfig(alias=alias, driver=name.lower(), resource="sim://")
+                for alias, name in wanted.items()
             },
         )
 
@@ -185,7 +205,7 @@ class Bench:
     def __init__(self, config: BenchConfig, simulate: bool = False) -> None:
         self.config = config
         self.simulate = bool(simulate)
-        self._open: Dict[str, ScpiInstrument] = {}
+        self._open: Dict[str, Instrument] = {}
 
     # ------------------------------------------------------------------
     def require(self, aliases) -> None:
@@ -202,7 +222,37 @@ class Bench:
                 )
             )
 
-    def get(self, alias: str) -> ScpiInstrument:
+    def check_drivers(self, declared) -> None:
+        """Raise if the bench provides a different *kind* of instrument.
+
+        A specification that declares ``probe: jlink`` pointed at a bench whose
+        ``probe`` is an oscilloscope should say so here, rather than failing four
+        steps later on a missing method.
+
+        Driver *classes* are compared rather than names, because several names
+        map to one driver (``jlink`` and ``segger``, ``tek3014b`` and ``tds3014b``).
+        """
+        for alias, wanted in (declared or {}).items():
+            configured = self.config.instruments.get(alias)
+            if configured is None:
+                continue                      # require() reports a missing alias
+            expected = _DRIVERS.get(str(wanted).lower())
+            actual = _DRIVERS.get(configured.driver)
+            if expected is None:
+                raise BenchConfigError(
+                    "the specification wants instrument %r to be driver %r, which "
+                    "is not registered; registered drivers are %s"
+                    % (alias, wanted, ", ".join(registered_drivers()))
+                )
+            if actual is not expected:
+                raise BenchConfigError(
+                    "the specification wants instrument %r to be a %s, but bench "
+                    "%r provides a %s"
+                    % (alias, expected.__name__, self.config.name,
+                       actual.__name__ if actual else configured.driver)
+                )
+
+    def get(self, alias: str) -> Instrument:
         """Return the instrument registered as *alias*, connecting if needed."""
         if alias in self._open:
             return self._open[alias]
@@ -241,7 +291,7 @@ class Bench:
         )
 
     @property
-    def connected(self) -> Dict[str, ScpiInstrument]:
+    def connected(self) -> Dict[str, Instrument]:
         """Instruments connected so far."""
         return dict(self._open)
 

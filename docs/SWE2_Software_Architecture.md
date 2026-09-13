@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-SWE2-001 |
-| Version | 2.0 |
+| Version | 3.0 |
 | Date | 2026-09-13 |
 | Process reference | Automotive SPICE V4.0, SWE.2 Software Architectural Design |
 
@@ -16,6 +16,10 @@
 | D3 | A bench runner must drive the tools (STK-08) | Test intent lives in data, not code. The runner depends on drivers through a uniform base class, never on any specific one. |
 | D4 | Cross-channel timing must be trustworthy (ANA-FR-016) | All channels are read from one acquisition; analysis operates on records, never on a live instrument, so it is deterministic and replayable. |
 | D5 | Must be verifiable without hardware (SCOPE-FR-090, RUN-FR-005) | A test double sits at the transport boundary — the widest seam that still exercises the SCPI vocabulary — and a simulator harness is shared so each instrument writes only its own behaviour. |
+| D6b | Not every bench instrument speaks SCPI (STK-09, and STK-14 to come) | The instrument lifecycle is separated from the SCPI vocabulary: `Instrument` carries connect/initialise/close/identify/simulate, `ScpiInstrument` adds 488.2 and SCPI. The runner depends only on the former, so a debug probe or a BLE dongle is a bench instrument on equal terms. |
+| D7 | The probe must be reachable from a container (STK-11, JLINK-NFR-003) | Both links to the probe are TCP: GDB/MI to the J-Link GDB Server and RTT to its RTT port. Nothing in the driver requires the probe to be on the same host, and the driver refuses to spawn a server on a host that is not local. |
+| D8 | Timing figures must be defensible (JLINK-FR-065, JLINK-NFR-004) | Timing is a strategy with four implementations of differing resolution and intrusiveness. A result carries its method, its resolution and whether it halted the target, and flags itself when the interval is too small for the method used. |
+| D9 | Tests may later be authored in Markdown and run under Robot Framework (STK-12) | The driver boundary returns plain types and dataclasses of plain types, never objects a keyword layer would have to unwrap. Test intent already lives in data (D3), so a translator becomes a front end to the existing runner rather than a second execution engine. |
 | D6 | An invalid setting must not half-configure an instrument (CORE-NFR-004) | Validation precedes transmission; a complete setup is sent as one compound message. |
 
 ## 2. Layering
@@ -29,6 +33,8 @@
    +--------------------------------------------------------------+
    |  benchtools.instruments                                      |
    |  tek3014b (scope, constants, simulator, cli)                 |
+   |  jlink    (probe, gdbmi, session, server, rtt, swo,          |
+   |            timing, constants, simulator, cli)                |
    |  generic  (anything answering *IDN?)                         |
    +--------------------------------------------------------------+
               |                                    |
@@ -39,14 +45,17 @@
               |                                    |
    +--------------------------------------------------------------+
    |  benchtools.core                                             |
+   |  instrument (Instrument: lifecycle, identity, simulate)      |
    |  scpi (ScpiInstrument, 488.2 blocks)                         |
    |  simulator (SimulatedInstrument, Responder)                  |
    |  enums   validation   errors                                 |
    |  transport: base / vxi11 / socket_raw / visa_backend /        |
-   |             mock / factory (registry)                        |
+   |             process / mock / factory (registry)              |
    +--------------------------------------------------------------+
-                              |
-                       [ instrument ]
+                    |                          |
+             [ instrument ]          [ J-Link GDB Server ]
+                                       |            |
+                                  [ probe ] --- [ target ]
 ```
 
 Dependencies point one way only: **core, then analysis, then instruments, then
@@ -59,7 +68,8 @@ instrument, and to be importable without importing any other element.
 
 | ID | Element | Responsibility | Key interfaces |
 |---|---|---|---|
-| CORE-ARC-001 | `core.scpi.ScpiInstrument` | The link lifecycle, command and query primitives, identification, IEEE 488.2 operations, error checking, 488.2 block codec. Every driver subclasses it. | `connect`, `initialise`, `identify`, `read_event_queue`, `check_errors`, `_query_*` |
+| CORE-ARC-006 | `core.instrument.Instrument` | The instrument lifecycle, independent of command language: open, initialise, close, context manager, cached identity, declared simulator class, overridable event queue. The runner depends on this and on nothing below it. | `connect`, `initialise`, `close`, `identify`, `read_event_queue`, `check_errors`, `SIMULATOR_CLASS` |
+| CORE-ARC-001 | `core.scpi.ScpiInstrument` | Extends CORE-ARC-006 with SCPI: command and query primitives, `*IDN?` parsing, IEEE 488.2 operations, `SYSTem:ERRor?` polling, 488.2 block codec. Every SCPI driver subclasses it. | `_command`, `_query`, `_query_float`, `reset`, `parse_ieee_block` |
 | CORE-ARC-002 | `core.transport.Transport` | Abstract instrument link with buffered message framing built on three subclass primitives. | `write`, `read_message`, `read_exactly`, `read_raw`, `query`, `clear` |
 | CORE-ARC-003 | Concrete transports and the factory | Four interchangeable transports selected by resource string, held in a registry so a new link type registers itself. | `open_transport`, `parse_resource`, `register_backend` |
 | CORE-ARC-004 | `core.simulator.SimulatedInstrument` | Shared simulator harness: dispatch, compound messages, 488.2 queries, event queue, binary replies. `Responder` is the protocol the mock transport accepts. | `respond`, `handle`, `_cmd_*`, `push_event` |
@@ -68,6 +78,7 @@ instrument, and to be importable without importing any other element.
 | ANA-ARC-002 | `analysis.measure`, `analysis.plotting` | Pure analysis over `Waveform` objects, and host-side rendering. | `measure_channel_spread`, `measure_period`, `plot_waveforms` |
 | INST-ARC-001 | `instruments.*` | One subpackage per instrument, adding only its command vocabulary, capability envelope and simulator. | per `ScpiInstrument` |
 | SCOPE-ARC-001 | `instruments.tek3014b` | The TDS3000 SCPI vocabulary and the oscilloscope's capability envelope. | `Tek3014B` |
+| JLINK-ARC-001 | `instruments.jlink` | The debug probe driver. `JLinkProbe` is the façade over seven collaborators, each independently testable: MI record parsing (`gdbmi`), the command/response session (`session`), server discovery and lifetime (`server`), RTT (`rtt`), ITM/SWO decoding (`swo`), timing results (`timing`), and the probe and target envelope (`constants`). Its simulator answers the MI dialogue. | `JLinkProbe`, `GdbMiSession`, `RttClient`, `ItmDecoder`, `TimingResult`, `GdbServer` |
 | RUN-ARC-001 | `runner` | Specification model, bench resolution, execution engine, result records, report writers, command line. | `load_spec`, `BenchConfig`, `BenchRunner`, `write_*` |
 
 ## 4. Key architectural decisions
@@ -158,6 +169,106 @@ instrument on the bench is real hardware, and every report says so.
 *Rationale:* a report is evidence. Simulated numbers presented without that
 qualification would be read as hardware measurements.
 
+### AD-11 — The instrument lifecycle is separated from the SCPI vocabulary
+
+**Context.** `ScpiInstrument` carried both the lifecycle every driver needs
+(connect, initialise, close, identify, simulate, check errors) and the SCPI
+specifics (`*IDN?`, `*CLS`, `SYSTem:ERRor?`, 488.2 blocks). The runner depended on
+that class, so "bench instrument" meant "SCPI instrument".
+
+**Decision.** Split it. `core.instrument.Instrument` holds the lifecycle and knows
+nothing of any command language; `ScpiInstrument` subclasses it and adds SCPI. The
+runner's driver registry is typed on `Instrument`.
+
+**Consequences.** A debug probe is a bench instrument without pretending to speak
+SCPI — no stub `*IDN?`, no empty error queue implementation. The BLE dongle and the
+RS-232 multimeter to come will need exactly the same seam. The cost is one more
+class in the hierarchy, and identity parsing moving to the SCPI layer where it
+belongs: `InstrumentIdentity.from_idn()` is IEEE 488.2, so it is not in the generic
+constructor, and a non-SCPI driver populates the fields itself.
+
+**Alternatives rejected.** Making the probe a `ScpiInstrument` with stubbed SCPI
+would have put lies in the type. A separate `Probe` hierarchy alongside
+`ScpiInstrument` would have forced the runner to know which kind it holds.
+
+### AD-12 — Drive the probe through the J-Link GDB Server and GDB/MI
+
+**Context.** Three ways to reach a J-Link: the `JLinkARM` DLL through `ctypes` (or
+`pylink-square`), the server's telnet/`monitor` interface, or the GDB Server with a
+GDB speaking the machine interface.
+
+**Decision.** GDB/MI through the J-Link GDB Server, with `monitor` commands for the
+probe-specific operations that have no MI equivalent.
+
+**Consequences.** Symbolic operations — a breakpoint at `sensor.c:75`, the value of
+`sensor_mv`, a call stack with file and line — come from GDB's DWARF reader, which
+is the requirement (JLINK-FR-041, -045) and is a large amount of code not to write.
+Both links are TCP, which is what makes D7 achievable. MI is a stable, documented,
+versioned interface, unlike the DLL's ABI. The costs: two processes to manage
+instead of none, an MI parser to write and test (`gdbmi`, 37 tests), and asynchronous
+records that can arrive at any moment — handled by draining the transport before
+each command rather than discarding whatever is buffered.
+
+**Alternatives rejected.** The DLL is the shortest path to memory and flash but has
+no symbol knowledge, would have to be shipped per platform, and is a native library
+inside a container. `pylink-square` is a third-party dependency (CORE-NFR-001,
+JLINK-NFR-001) and still has no DWARF reader.
+
+### AD-13 — Both links to the probe are TCP, so the bench containerises
+
+**Context.** The whole bench is to move into Docker (STK-11), but a probe is a USB
+device and USB pass-through into a container is awkward and host-specific.
+
+**Decision.** The driver reaches the probe only over TCP: GDB/MI to the GDB Server's
+port and RTT to its RTT port. `jlink://host:port` attaches to a server anywhere. The
+driver spawns a server only when the target is local, and refuses otherwise with a
+diagnostic saying so.
+
+**Consequences.** The container needs no USB access and no J-Link software: the
+server runs on the machine the probe is plugged into — which is also the Windows PC
+of the first deployment — and the container connects to it. Nothing has to change
+when the bench is containerised, which is why this decision is taken now rather
+than then. The cost is that a stale server on the expected port is used rather than
+replaced; this is deliberate, since a server the driver did not start is also a
+server it must not kill (JLINK-FR-005).
+
+### AD-14 — Four timing methods, each reporting its own resolution
+
+**Context.** "Measure the time between two lines of code" has no single correct
+implementation. A cycle counter is exact but halts the core; the host clock works
+anywhere but resolves milliseconds; SWO does not halt but needs trace wiring; a
+target timer is exact but needs firmware cooperation.
+
+**Decision.** Implement all four behind one call with a selectable method. Every
+result carries the method, the resolution of that method, whether it halted the
+target, and a `is_trustworthy` flag that is false when the interval is not at least
+an order of magnitude above the resolution.
+
+**Consequences.** The caller chooses the trade-off knowingly, and a measurement can
+never be quoted without the means by which it was obtained (JLINK-NFR-004). This is
+an evidence-integrity property, not a convenience: the host-clock method returns
+about 93 µs for a 1 ms interval in the simulated bench, and the flag is what stops
+that figure being read as a measurement.
+
+**Alternatives rejected.** Picking one method would have made the driver unusable on
+some targets. Choosing automatically would have hidden which one ran, and with it
+the resolution the number should be read at.
+
+### AD-15 — Plain types at the driver boundary, for a keyword layer later
+
+**Context.** Tests may be authored in Markdown and translated to Robot Framework
+(STK-12). Robot keywords exchange strings and simple values.
+
+**Decision.** Every probe operation returns a plain type or a dataclass of plain
+types — `VerifyResult`, `FlashResult`, `HaltInfo`, `StackFrame`, `TimingResult` with
+`as_dict()`. No operation returns a live handle the caller must manage, and every
+one is reachable through the declarative runner's dotted method paths.
+
+**Consequences.** A Robot keyword library, or a Markdown translator, is a thin front
+end over the same runner; neither needs driver-specific glue. The CLI already
+demonstrates it by emitting JSON. No Robot dependency is taken in this revision, so
+the decision costs nothing if that path is not followed.
+
 ## 5. Dynamic behaviour — a runner invocation
 
 ```
@@ -191,6 +302,9 @@ CLI            BenchRunner        Bench           Tek3014B        Transport
 | Round trips per channel configured | 2 (one compound setup message, one error check). The error check is disableable. |
 | Wire volume per 10 000-point record | ~10 kB binary versus ~50 kB ASCII. Binary is the default. |
 | Instrument connections per run | One per alias actually used; connection is lazy. |
+| Processes per probe connection | Two at most: the GDB Server (only if not already listening) and one GDB. |
+| Round trips per probe halt/read/resume | 3 MI commands; a variable read is 1. Memory is chunked at the probe's maximum transfer size (64 kB). |
+| Cost of a halting timing measurement | Two breakpoint stops per repetition; the target is stopped for the duration, which is why JLINK-FR-064 exists. |
 
 ## 7. Interfaces to external elements
 
@@ -203,3 +317,6 @@ CLI            BenchRunner        Bench           Tek3014B        Transport
 | `pyyaml` | in | Optional; YAML specifications. JSON needs nothing. |
 | `matplotlib` | out | Optional; host-side plots. |
 | `pyvisa` | bidirectional | Optional; alternative transport. |
+| J-Link GDB Server | bidirectional | TCP: GDB/MI via GDB on port 2331, RTT on 19021, SWO on 2332. May be on another host. |
+| `arm-none-eabi-gdb` | bidirectional | Child process over stdin/stdout, speaking GDB/MI. Required for the J-Link driver only. |
+| SWD / JTAG | bidirectional | Probe to target, below the GDB Server; not visible to this software. |

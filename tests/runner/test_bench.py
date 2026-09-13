@@ -76,6 +76,21 @@ class TestBenchConfig:
         assert sorted(config.instruments) == ["psu", "scope"]
         assert all(item.resource == "sim://" for item in config.instruments.values())
 
+    def test_simulated_from_a_mapping_uses_the_right_driver(self):
+        """A suite spanning a scope and a probe cannot be simulated with one
+        driver for every alias."""
+        config = BenchConfig.simulated({"scope": "tek3014b", "probe": "jlink"})
+        assert config.instruments["probe"].driver == "jlink"
+        assert config.instruments["scope"].driver == "tek3014b"
+
+    def test_simulated_falls_back_for_an_undeclared_alias(self):
+        config = BenchConfig.simulated({"scope": ""}, driver="tek3014b")
+        assert config.instruments["scope"].driver == "tek3014b"
+
+    def test_simulated_rejects_an_unknown_driver(self):
+        with pytest.raises(BenchConfigError, match="cannot simulate unknown driver"):
+            BenchConfig.simulated({"x": "flux-capacitor"})
+
     def test_load_from_json(self, tmp_path):
         path = tmp_path / "bench.json"
         path.write_text(json.dumps({"name": "B", "instruments": {"scope": "tek3014b@sim://"}}))
@@ -136,6 +151,25 @@ class TestBench:
         })
         with Bench(config, simulate=True) as bench:
             assert bench.get("scope").model == "TDS 3014B"
+
+    def test_declared_drivers_are_checked(self, bench):
+        bench.check_drivers({"scope": "tek3014b", "psu": "generic"})
+
+    def test_a_driver_alias_is_accepted(self, bench):
+        """Several names map to one driver, so classes are compared, not names."""
+        bench.check_drivers({"scope": "tds3014b"})
+
+    def test_the_wrong_kind_of_instrument_is_reported(self, bench):
+        """Better here than four steps later on a missing method."""
+        with pytest.raises(BenchConfigError, match="wants instrument 'scope' to be a JLinkProbe"):
+            bench.check_drivers({"scope": "jlink"})
+
+    def test_an_unregistered_declared_driver_is_reported(self, bench):
+        with pytest.raises(BenchConfigError, match="not registered"):
+            bench.check_drivers({"scope": "nonexistent"})
+
+    def test_an_absent_alias_is_left_to_require(self, bench):
+        bench.check_drivers({"thermometer": "generic"})
 
     def test_iteration_yields_aliases(self, bench):
         assert list(bench) == ["psu", "scope"]

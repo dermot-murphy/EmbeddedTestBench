@@ -5,9 +5,9 @@ How to write a test specification and a bench configuration, and how to run them
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-GUIDE-001 |
-| Version | 1.0 |
+| Version | 2.0 |
 | Date | 2026-09-13 |
-| Applies to | `benchtools` 2.0.0 |
+| Applies to | `benchtools` 3.0.0 |
 
 ---
 
@@ -42,7 +42,17 @@ instruments:
   psu:
     driver: generic             # no dedicated driver yet: identify and raw SCPI
     resource: 192.168.1.60
+
+  probe:
+    driver: jlink               # a debug probe is a bench instrument too
+    resource: jlink://          # or jlink://bench-pc:2331 for a probe elsewhere
+    device: nRF52840_xxAA
+    elf: build/app.elf
+    core_clock_hz: 64000000
 ```
+
+Keys a driver does not recognise are passed to it, which is how the probe gets
+`device`, `elf` and `core_clock_hz`. A driver ignores what it does not use.
 
 The alias on the left (`scope`, `psu`) is what a specification refers to.
 
@@ -107,12 +117,35 @@ teardown:                    # once, after all tests, whatever the outcome
 | `name` | yes | Suite name; appears in every report |
 | `description` | no | Free text |
 | `requirements` | no | Requirements the suite as a whole addresses |
+| `instruments` | no | Alias to driver name, declaring what kind of instrument each alias must be |
 | `setup` | no | Steps run once before the tests |
 | `tests` | yes | One or more named tests |
 | `teardown` | no | Steps run once after the tests, in a `finally` |
 
 **A setup failure aborts the suite.** Every measurement taken after an unknown
 setup would be meaningless, so none are attempted.
+
+The `instruments` block states what each alias has to be:
+
+```yaml
+instruments:
+  probe: jlink
+  scope: tek3014b
+```
+
+It does two things. It makes `--simulate` work for a suite that spans more than one
+kind of instrument — without it, every alias would be simulated as the same driver.
+And it is checked against the bench before the first step runs, so pointing a suite
+at the wrong rig is reported as
+
+```
+the specification wants instrument 'probe' to be a JLinkProbe,
+but bench 'lab2' provides a Tek3014B
+```
+
+rather than failing four steps later on a method that does not exist. Driver
+aliases are resolved before comparing, so `tds3014b` and `tek3014b` are the same
+answer.
 
 ### 3.2 A test
 
@@ -216,6 +249,42 @@ the element that could not be resolved.
 | `measure_period_host` | `(waveforms, PeriodResult)` | `1.mean`, `1.minimum`, `1.maximum`, `1.standard_deviation`, `1.peak_to_peak_jitter`, `1.frequency`, `1.count` |
 | `capture_single` | `{channel: Waveform}` | `<n>.peak_to_peak`, `<n>.mean`, `<n>.clipped_sample_count` |
 
+### 5.2 Useful paths for the debug probe
+
+| Method | Returns | Useful paths |
+|---|---|---|
+| `read_variable`, `read_word`, `variable_address`, `evaluate` | a scalar | *(omit `measure`)* |
+| `measure_time_between` | `TimingResult` | `microseconds`, `milliseconds`, `cycles`, `spread`, `standard_deviation`, `minimum`, `maximum`, `count`, `is_trustworthy`, `halts_target`, `resolution_seconds` |
+| `flash` | `FlashResult` | `bytes_written`, `verified`, `seconds`, `sections` |
+| `verify` | `VerifyResult` | `matched`, `mismatched`, `sections` |
+| `call_stack` | `[StackFrame]` | `0.function`, `0.line`, `0.file` — and the list itself for a depth limit |
+| `wait_for_halt`, `halt` | `HaltInfo` | `reason`, `line`, `file`, `function`, `address`, `breakpoint_number` |
+| `rtt_read_lines` | `[str]` | the list itself |
+| `rtt_command`, `rtt_expect` | a regular-expression match | `1` for the first group, `0` for the whole match |
+
+Two of these are worth asserting on beside any timing limit:
+
+```yaml
+- do: probe.measure_time_between
+  with: {start: sensor.c:40, end: sensor.c:75, method: CYCLE_COUNTER, repeat: 20}
+  expect:
+    - name: acquisition_time
+      measure: milliseconds
+      unit: ms
+      max: 1.2
+    - name: measurement_is_resolvable
+      measure: is_trustworthy       # false if the method cannot resolve the interval
+      equals: 1
+    - name: firmware_kept_running
+      measure: halts_target         # 0 requires a non-intrusive method
+      equals: 0
+```
+
+A boolean is compared as `1` or `0`, since a limit is numeric throughout.
+
+A limit on a figure whose method cannot resolve it is not a test, so the runner
+gives you the means to say so in the specification rather than in a comment.
+
 ---
 
 ## 6. Running
@@ -310,5 +379,12 @@ register_driver("psu-1234", PowerSupply)
 ```
 
 A bench configuration can then name `driver: psu-1234`. The driver must subclass
-`benchtools.core.scpi.ScpiInstrument`; if it sets `SIMULATOR_CLASS`, it works
-against `sim://` immediately, and so does every specification that uses it.
+`benchtools.core.instrument.Instrument` — `ScpiInstrument` for anything speaking
+SCPI, `Instrument` directly for anything that does not, as the J-Link driver does.
+If it sets `SIMULATOR_CLASS`, it works against `sim://` immediately, and so does
+every specification that uses it.
+
+What the runner requires of a driver is only this: a `connect` classmethod, the
+context-manager lifecycle, `identify`, and public methods that return plain values
+or objects a dotted `measure` path can walk. Anything meeting that is a bench
+instrument, whatever it speaks on the wire.

@@ -26,8 +26,8 @@ from __future__ import annotations
 import logging
 from typing import List, Optional, Sequence, Tuple, Type
 
-from .errors import InstrumentError, ProtocolError
-from .simulator import Responder
+from .errors import ProtocolError
+from .instrument import Instrument, InstrumentIdentity
 from .transport.base import Transport
 from .transport.factory import open_transport
 
@@ -94,28 +94,7 @@ def format_ieee_block(payload: bytes) -> bytes:
     return b"#" + str(len(count)).encode("ascii") + count + payload
 
 
-class InstrumentIdentity:
-    """Parsed ``*IDN?`` response.
-
-    :param raw: The unparsed response, retained for logs and reports.
-    """
-
-    __slots__ = ("raw", "manufacturer", "model", "serial_number", "firmware")
-
-    def __init__(self, raw: str) -> None:
-        self.raw = raw
-        fields = [field.strip() for field in raw.split(",")]
-        fields += [""] * (4 - len(fields))
-        self.manufacturer, self.model, self.serial_number, self.firmware = fields[:4]
-
-    def __str__(self) -> str:
-        return self.raw
-
-    def __repr__(self) -> str:  # pragma: no cover - diagnostic only
-        return "<InstrumentIdentity %s %s>" % (self.manufacturer, self.model)
-
-
-class ScpiInstrument:
+class ScpiInstrument(Instrument):
     """Base class for a SCPI instrument driver.
 
     :param transport: An open or unopened link.
@@ -126,12 +105,6 @@ class ScpiInstrument:
     :param owns_transport: Close the transport when :meth:`close` is called.
     """
 
-    #: Simulator class used for a ``sim://`` resource. Subclasses set this so
-    #: that ``connect("sim://")`` yields a model of *that* instrument, without
-    #: the transport layer knowing anything about instruments.
-    SIMULATOR_CLASS: Optional[Type[Responder]] = None
-
-    #: Human-readable name used in messages when the model is not yet known.
     MODEL_NAME = "SCPI instrument"
 
     def __init__(
@@ -140,11 +113,9 @@ class ScpiInstrument:
         auto_check_errors: bool = True,
         owns_transport: bool = True,
     ) -> None:
+        super().__init__(auto_check_errors=auto_check_errors)
         self._transport = transport
-        self.auto_check_errors = bool(auto_check_errors)
         self._owns_transport = bool(owns_transport)
-        self._identity: Optional[InstrumentIdentity] = None
-        self._initialised = False
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -190,31 +161,26 @@ class ScpiInstrument:
             raise
         return instrument
 
-    def initialise(self) -> None:
-        """Put the instrument into a known *communication* state.
-
-        Clears the status and event queues. Deliberately does **not** reset the
-        front-panel setup: silently discarding an operator's setup would be a
-        surprising side effect of connecting. Call :meth:`reset` for that.
-        """
+    def _open(self) -> None:
         self._transport.open()
-        self._write("*CLS")
-        self._initialised = True
 
-    def close(self) -> None:
-        """Close the instrument link, if this driver owns it."""
+    def _close(self) -> None:
         if self._owns_transport:
             self._transport.close()
 
-    def __enter__(self) -> "ScpiInstrument":
-        self._transport.open()
-        if not self._initialised:
-            self.initialise()
-        return self
+    @property
+    def is_open(self) -> bool:
+        """``True`` while the instrument link is open."""
+        return self._transport.is_open
 
-    def __exit__(self, exc_type, exc, tb) -> bool:
-        self.close()
-        return False
+    def _post_open(self) -> None:
+        """Clear the status and event queues.
+
+        Deliberately does **not** reset the front-panel setup: silently
+        discarding an operator's setup would be a surprising side effect of
+        connecting. Call :meth:`reset` for that.
+        """
+        self._write("*CLS")
 
     @property
     def transport(self) -> Transport:
@@ -272,38 +238,12 @@ class ScpiInstrument:
             )
         return fields
 
-    def _after_configuration(self) -> None:
-        """Hook run after a configuration change; checks errors if enabled."""
-        if self.auto_check_errors:
-            self.check_errors()
-
     # ------------------------------------------------------------------
     # Identification and status
     # ------------------------------------------------------------------
-    def identity(self, refresh: bool = False) -> str:
-        """Return the raw ``*IDN?`` string, cached after the first call."""
-        return self.identify(refresh=refresh).raw
-
-    def identify(self, refresh: bool = False) -> InstrumentIdentity:
-        """Return the parsed ``*IDN?`` response, cached after the first call."""
-        if self._identity is None or refresh:
-            self._identity = InstrumentIdentity(self._query("*IDN?"))
-        return self._identity
-
-    @property
-    def manufacturer(self) -> str:
-        """Manufacturer field of the identification string."""
-        return self.identify().manufacturer
-
-    @property
-    def model(self) -> str:
-        """Model field of the identification string."""
-        return self.identify().model or "unknown"
-
-    @property
-    def firmware(self) -> str:
-        """Firmware field of the identification string."""
-        return self.identify().firmware
+    def _read_identity(self) -> InstrumentIdentity:
+        """Identify the instrument with the IEEE 488.2 ``*IDN?`` query."""
+        return InstrumentIdentity.from_idn(self._query("*IDN?"))
 
     def reset(self, settle: float = 0.5) -> None:
         """Issue ``*RST``, then restore the driver's communication state.
@@ -315,7 +255,7 @@ class ScpiInstrument:
         self._write("*RST")
         if settle > 0.0:
             time.sleep(settle)
-        self.initialise()
+        self._post_open()
 
     def clear_status(self) -> None:
         """Clear the status byte and event queue (``*CLS``)."""
@@ -362,20 +302,6 @@ class ScpiInstrument:
                 break
             events.append((number, description.strip().strip('"')))
         return events
-
-    def check_errors(self) -> None:
-        """Raise :class:`~benchtools.core.errors.InstrumentError` if the instrument complained.
-
-        Call this after a block of configuration, so a rejected setting is
-        caught where it happened rather than discovered as odd data later.
-        """
-        events = self.read_event_queue()
-        if events:
-            summary = "; ".join("%d: %s" % item for item in events)
-            raise InstrumentError(
-                "%s reported %d event(s): %s" % (self.MODEL_NAME, len(events), summary),
-                events,
-            )
 
     # ------------------------------------------------------------------
     # Raw access, for commands a driver does not wrap

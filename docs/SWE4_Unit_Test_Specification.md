@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-SWE4-001 |
-| Version | 2.0 |
+| Version | 3.0 |
 | Date | 2026-09-13 |
 | Process reference | Automotive SPICE V4.0, SWE.4 Software Unit Verification |
 
@@ -25,6 +25,9 @@ the correct behaviour for an optional extra.
 | Instrument substitute | `benchtools.core.simulator.SimulatedInstrument` and its subclasses, behind `MockTransport` |
 | VXI-11 substitute | `tests/core/transport/vxi11_server.py` — an ONC-RPC server on a loopback socket |
 | Socket substitute | `tests/core/transport/scpi_socket_server.py` — line-oriented SCPI over loopback TCP |
+| RTT and SWO substitute | `tests/instruments/jlink/test_sockets.py::LoopbackServer` — a TCP server on loopback standing in for the GDB Server's RTT and SWO ports |
+| Debug probe substitute | `benchtools.instruments.jlink.SimulatedJLink` — answers the GDB/MI dialogue over `MockTransport`, with a deterministic simulated target (symbols, memory, stacks, RTT, ITM, timing) |
+| Child-process substitute | The host's own Python interpreter, driven as a child through `ProcessTransport`, so pipe framing and child death are exercised without a debugger installed |
 | Optional extras exercised | `matplotlib`, `pyvisa` + `pyvisa-py`, `pyyaml` |
 
 ### 1.3 Independence of the oracle
@@ -39,7 +42,19 @@ Three measures ensure tests do not merely confirm the code agrees with itself:
    simulated measurement subsystem are derived from the signal model parameters,
    not from the sampled record, so host-side analysis is checked against an
    independent reference.
-3. **Cross-validation between computation paths.** Host-side analysis is compared
+3. **Timing is checked against an independently injected interval.** The
+   simulated firmware places two locations 64 000 cycles apart, which at the
+   simulated 64 MHz core is exactly 1.000 ms. Three of the four timing methods —
+   cycle counter, target timer and SWO/ITM — reach that figure by different routes
+   (a DWT register read, two firmware variables, and a decoded ITM timestamp
+   stream), so agreement between them is agreement between three implementations,
+   not self-confirmation. The fourth, the host clock, is expected *not* to reach it,
+   and the test asserts that it is flagged untrustworthy rather than that it is
+   accurate.
+4. **ITM streams are built by an independent encoder.** `test_swo.py` assembles
+   packet bytes with the architecture manual's framing, rather than comparing the
+   decoder against itself.
+5. **Cross-validation between computation paths.** Host-side analysis is compared
    against the simulated instrument's own measurement engine
    (`test_spread_skews_match_the_instrument_delay_measurement`), and the built-in
    VXI-11 transport is compared against PyVISA's independent implementation over
@@ -76,6 +91,10 @@ module's imports:
   instrument).
 - `benchtools.core` is importable in a subprocess without importing any other
   element, and `benchtools.analysis` without importing instruments or the runner.
+- No module imports a third-party package at module level, so no dependency can
+  become mandatory by accident (CORE-NFR-001, JLINK-NFR-001). Optional extras are
+  imported inside the function that needs them, which is also what allows the
+  named diagnostic of CORE-NFR-003.
 
 ### 1.6 Test selection rationale
 
@@ -89,7 +108,9 @@ module's imports:
 | Architectural testing | Import-graph and layering constraints (§1.5) |
 | Work-product testing | Traceability consistency between code and documents (§1.4) |
 | Regression testing | One test per defect found during development (§4) |
-| Round-trip testing | 488.2 block encode/decode, binary versus ASCII curve decoding, JSON report write/read |
+| Round-trip testing | 488.2 block encode/decode, binary versus ASCII curve decoding, JSON report write/read, ITM encode/decode, GDB/MI escape/unescape |
+| Protocol grammar testing | GDB/MI records: nesting, repeated names, uniformly named lists, escapes, non-MI lines (`SWE4-UT-GDBMI`) |
+| Resource-limit testing | Hardware breakpoint and watchpoint envelopes, memory chunk boundaries, the 32-bit cycle-counter wrap |
 
 ### 1.7 Pass criteria
 
@@ -101,6 +122,9 @@ module's imports:
 | PC-4 | Timing measurements recover injected skews to better than one tenth of a sample interval. |
 | PC-5 | The layering constraints of §1.5 hold. |
 | PC-6 | The work-product consistency checks of §1.4 hold. |
+| PC-7 | Every timing method recovers the injected 1.000 ms interval exactly, except the host clock, which is required to flag itself as not trustworthy. |
+| PC-8 | No test requires a J-Link, a target, a debugger or a GDB server to be installed. |
+| PC-9 | No module imports a third-party package at module level. |
 
 ## 2. Test groups
 
@@ -109,6 +133,8 @@ module's imports:
 | SWE4-UT-LAYERING | `test_layering.py` | Import graph and element isolation | CORE-NFR-001, -008, -009 |
 | SWE4-UT-TRACE | `test_traceability.py` | Consistency between the code and the SWE.1 to SWE.4 work products: every requirement traced, no orphan rows, every cited identifier defined, every module carrying its own trace | All (traceability base practices) |
 | SWE4-UT-SCPI | `core/test_scpi.py` | `ScpiInstrument`: lifecycle, primitives, identity, error queue, 488.2 blocks, simulator injection | CORE-FR-020 .. -028, INST-FR-001, -002 |
+| SWE4-UT-INSTRUMENT | `core/test_instrument.py` | `Instrument`: lifecycle template and hooks, identity caching, a close that cannot raise, simulator declaration, default empty event queue | CORE-FR-012 .. -016 |
+| SWE4-UT-PROCESS | `core/transport/test_process.py` | `ProcessTransport`: pipe framing, reader threads, bounded stderr retention, a child that exits immediately, retained exit status | CORE-FR-009, CORE-NFR-005, -006 |
 | SWE4-UT-SIMBASE | `core/test_simulator.py` | Shared simulator harness: dispatch, compound messages, event queue, binary replies, subclassing | CORE-FR-040, -041 |
 | SWE4-UT-VALIDATE | `core/test_validation.py` | Range, channel and choice validation; the enumeration base | CORE-FR-030, -031, CORE-NFR-004 |
 | SWE4-UT-TRANSPORT | `core/transport/test_base.py` | Message framing, buffering, stale-response discard, lifecycle, timeouts | CORE-FR-005, -007, CORE-NFR-005, -006 |
@@ -122,6 +148,16 @@ module's imports:
 | SWE4-UT-SCOPE | `instruments/tek3014b/test_scope.py` | Driver behaviour and emitted SCPI; validation; acquisition; capture; measurement; hardcopy; errors | SCOPE-FR-010 .. -101, INST-FR-003 |
 | SWE4-UT-ENV | `instruments/tek3014b/test_simulator.py` | Self-checks on the oscilloscope simulator | SCOPE-FR-090 |
 | SWE4-UT-CLI | `instruments/tek3014b/test_cli.py` | Scope sub-commands end to end; argument expansion; exit statuses | SCOPE-FR-100 |
+| SWE4-UT-GDBMI | `instruments/jlink/test_gdbmi.py` | The GDB/MI grammar: all record kinds, nested tuples and lists, uniformly named lists, repeated names, C-string escapes, non-MI lines | JLINK-FR-001 |
+| SWE4-UT-GDBSESSION | `instruments/jlink/test_session.py` | Token correlation, MI errors as typed exceptions, draining asynchronous records before a write, waiting for `*stopped`, console command escaping, a dead GDB distinguished from a timeout | JLINK-FR-002 |
+| SWE4-UT-JLINK | `instruments/jlink/test_probe.py` | The probe driver: resource forms, symbols, attach, flash and per-section verification, erase, reset/run/halt/step, breakpoints and their envelope, watchpoints, memory and word access with chunking, variables, call stack, RTT delegation, all four timing methods | JLINK-FR-003 .. -005, -010 .. -011, -020 .. -023, -030 .. -036, -040 .. -045, -050 .. -055, -060 .. -067, -080, -081 |
+| SWE4-UT-RTT | `instruments/jlink/test_rtt.py` | RTT: line assembly from fragments, retained partial lines, history independent of consumption, pattern matching with timeout, the timeout diagnostic, per-line flushed logging | JLINK-FR-050 .. -055 |
+| SWE4-UT-SWO | `instruments/jlink/test_swo.py` | ITM decoding: 1-, 2- and 4-byte source packets, sync, overflow, both local timestamp formats, extension and global timestamps, fragmented feeds, prescaler scaling | JLINK-FR-064 |
+| SWE4-UT-TIMING | `instruments/jlink/test_timing.py` | `TimingResult`: statistics over repetitions, resolution per method, the trustworthiness rule, halting declaration, empty samples raising, `as_dict` | JLINK-FR-060, -065 .. -067, JLINK-NFR-004 |
+| SWE4-UT-JLINKSERVER | `instruments/jlink/test_server.py` | Server and GDB discovery with Windows names first, the command line and its unattended flags, an already-listening port, a server that cannot be spawned remotely, one that exits during start-up, one that never listens, and stopping only what was started | JLINK-FR-003 .. -005, JLINK-NFR-002 |
+| SWE4-UT-JLINKSOCKETS | `instruments/jlink/test_sockets.py` | The RTT and SWO TCP links against a loopback server: fragmented arrival, writes reaching the server, collection with a timeout, an unreachable port, and the host as an argument | JLINK-FR-050, -051, -064, JLINK-NFR-002, -003 |
+| SWE4-UT-JLINKSIM | `instruments/jlink/test_simulator.py` | Self-checks on the simulated probe and target: the MI dialogue, the exact 64 000-cycle interval, symbols, stacks, RTT, sections, the hardware-breakpoint type | JLINK-FR-090 |
+| SWE4-UT-JLINKCLI | `instruments/jlink/test_cli.py` | Every probe sub-command end to end; JSON output; the untrustworthy-measurement warning; exit statuses | JLINK-FR-100 |
 | SWE4-UT-LIMITS | `runner/test_limits.py` | Every limit form, construction validation, rendering | RUN-FR-020 .. -023 |
 | SWE4-UT-RESOLVE | `runner/test_resolve.py` | Result path resolution and its failure messages | RUN-FR-013 |
 | SWE4-UT-SPEC | `runner/test_spec.py` | Specification parsing and every malformed form | RUN-FR-010 .. -015 |

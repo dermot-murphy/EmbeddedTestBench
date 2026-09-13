@@ -205,3 +205,66 @@ def test_analysis_is_importable_without_instruments():
     )
     leaked = [name for name in result.stdout.strip().split(",") if name]
     assert leaked == [], "importing benchtools.analysis also imported %s" % ", ".join(leaked)
+
+
+#: Third-party packages the code may use, and only from inside a function so the
+#: package imports without them. Each is an extra in ``pyproject.toml``.
+OPTIONAL_EXTRAS = {"matplotlib", "yaml", "pyvisa", "numpy"}
+
+
+def _module_level_imports(path: pathlib.Path):
+    """Root names of packages imported at module level (not inside a function)."""
+    tree = ast.parse(path.read_text(), filename=str(path))
+    roots = set()
+    for node in tree.body:                       # module level only
+        if isinstance(node, ast.Import):
+            roots |= {alias.name.split(".")[0] for alias in node.names}
+        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+            roots.add(node.module.split(".")[0])
+        elif isinstance(node, ast.If):           # `if TYPE_CHECKING:` and the like
+            for inner in ast.walk(node):
+                if isinstance(inner, ast.Import):
+                    roots |= {alias.name.split(".")[0] for alias in inner.names}
+                elif isinstance(inner, ast.ImportFrom) and inner.level == 0 and inner.module:
+                    roots.add(inner.module.split(".")[0])
+    return roots
+
+
+def _standard_library_names():
+    import sys
+
+    names = getattr(sys, "stdlib_module_names", None)
+    if names is not None:                        # 3.10+
+        return set(names)
+    return set(sys.builtin_module_names) | {     # 3.8/3.9 fallback: what is used here
+        "abc", "argparse", "ast", "binascii", "collections", "contextlib", "copy",
+        "csv", "dataclasses", "datetime", "deque", "enum", "functools", "glob",
+        "importlib", "io", "json", "logging", "math", "os", "pathlib", "queue",
+        "random", "re", "select", "shlex", "shutil", "socket", "statistics",
+        "struct", "subprocess", "sys", "tempfile", "threading", "time", "types",
+        "typing", "unittest", "warnings", "xml", "zipfile",
+    }
+
+
+def test_no_mandatory_third_party_imports():
+    """CORE-NFR-001 and JLINK-NFR-001, checked rather than asserted in a docstring.
+
+    A third-party import at module level makes that dependency mandatory: the
+    module cannot be imported without it, so neither can the package. Optional
+    extras are therefore imported inside the function that needs them, where the
+    absence can be turned into a diagnostic naming the extra (CORE-NFR-003).
+    """
+    standard = _standard_library_names()
+    offenders = []
+    for path in _sources():
+        for root in _module_level_imports(path):
+            if root in standard or root in ("benchtools", "__future__"):
+                continue
+            offenders.append(
+                "%s imports %s at module level%s"
+                % (path.relative_to(ROOT.parent), root,
+                   " (an optional extra)" if root in OPTIONAL_EXTRAS else "")
+            )
+    assert not offenders, (
+        "mandatory third-party dependencies introduced:\n  " + "\n  ".join(sorted(offenders))
+    )

@@ -1,10 +1,10 @@
 # Documentation index
 
 Work products follow Automotive SPICE V4.0, SWE.1 to SWE.4. The software item is
-**BenchTools**: the bench test tooling as a whole. Its four elements - the shared
-core, the analysis library, the instrument drivers and the test runner - are
-units within that item, so there is one coherent doc set rather than four
-partial ones.
+**BenchTools**: the bench test tooling as a whole. Its elements - the shared core,
+the analysis library, the instrument and debug-probe drivers, and the test runner -
+are units within that item, so there is one coherent doc set rather than one per
+driver.
 
 Requirement identifiers are namespaced by element, so they stay unique as
 instruments are added:
@@ -15,6 +15,7 @@ instruments are added:
 | `ANA-` | Analysis of captured records | `benchtools.analysis` |
 | `INST-` | Instrument drivers, common requirements | `benchtools.instruments` |
 | `SCOPE-` | Tektronix TDS3014B driver | `benchtools.instruments.tek3014b` |
+| `JLINK-` | SEGGER J-Link debug probe driver | `benchtools.instruments.jlink` |
 | `RUN-` | Bench test runner | `benchtools.runner` |
 
 ## Documents
@@ -34,6 +35,7 @@ instruments are added:
 | Document | Contents |
 |---|---|
 | [TDS3014B VISA Determination Report](tek3014b/VISA_Determination_Report.md) | Whether VISA is required to drive the oscilloscope over Ethernet, with evidence and bench confirmation items |
+| [J-Link Integration Notes](jlink/JLink_Integration_Notes.md) | Why the GDB Server rather than the DLL, running it on Windows and in Docker, choosing a timing method, and the probe's bench confirmation items |
 
 ## Adding an instrument
 
@@ -41,4 +43,11 @@ A new driver needs its own requirements section in SWE.1 (prefix it, e.g.
 `PSU-`), a design unit in SWE.3, a test group in SWE.4, and rows in the
 traceability matrix. It does **not** need its own copy of the doc set. If it
 raises an instrument-specific engineering question - as the VISA question did for
-the oscilloscope - that gets its own report under `docs/<instrument>/`.
+the oscilloscope, and the DLL-versus-GDB question did for the probe - that gets
+its own report under `docs/<instrument>/`.
+
+The J-Link is the worked example of a driver that is **not** a SCPI instrument: it
+implements `core.instrument.Instrument` rather than `ScpiInstrument`, which is the
+same seam the PSU, the BLE dongle and the RS-232 multimeter (STK-13 to STK-15)
+will use. Adding one should not require touching `benchtools.core`; if it does,
+that is a finding about the core, not about the instrument.

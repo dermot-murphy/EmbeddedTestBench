@@ -4,14 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "benchtools"
-version = "2.0.0"
-description = "Bench test tooling: instrument drivers, analysis and a declarative test runner, with no mandatory VISA dependency"
+version = "3.0.0"
+description = "Bench test tooling: instrument and debug-probe drivers, analysis and a declarative test runner, with no mandatory VISA or vendor dependency"
 readme = "README.md"
 requires-python = ">=3.8"
 license = { text = "MIT" }
 keywords = [
     "test-equipment", "oscilloscope", "tektronix", "tds3014b",
     "vxi11", "scpi", "lxi", "instrument-control", "test-automation",
+    "jlink", "segger", "gdb", "rtt", "swo", "itm", "cortex-m", "embedded",
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -21,10 +22,13 @@ classifiers = [
     "Topic :: Scientific/Engineering",
     "Topic :: Software Development :: Testing",
     "Topic :: System :: Hardware :: Hardware Drivers",
+    "Topic :: Software Development :: Embedded Systems",
+    "Topic :: Software Development :: Debuggers",
 ]
 
-# No mandatory runtime dependencies. VXI-11 is implemented against the standard
-# library, so a driver works on a bare Python install.
+# No mandatory runtime dependencies. VXI-11 and GDB/MI are implemented against the
+# standard library, so a driver works on a bare Python install. The J-Link driver
+# needs two *executables* (the J-Link GDB Server and a GDB), not Python packages.
 dependencies = []
 
 [project.optional-dependencies]

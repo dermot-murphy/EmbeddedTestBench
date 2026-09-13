@@ -51,8 +51,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="replace every instrument with its simulator")
     parser.add_argument("--simulate-driver", default="tek3014b",
                         choices=registered_drivers(),
-                        help="driver used for simulated instruments when no bench "
-                             "configuration is given (default: %(default)s)")
+                        help="driver for simulated instruments whose alias the specification "
+                             "does not declare (default: %(default)s)")
     parser.add_argument("--json", metavar="PATH", help="write the full result record as JSON")
     parser.add_argument("--markdown", metavar="PATH", help="write a markdown report")
     parser.add_argument("--junit", metavar="PATH", help="write a JUnit XML report for CI")
@@ -64,7 +64,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _load_bench_config(args: argparse.Namespace, aliases: Sequence[str]) -> BenchConfig:
+def _load_bench_config(args: argparse.Namespace, aliases) -> BenchConfig:
     """Resolve the bench configuration from the arguments."""
     if args.bench:
         config = load_bench(args.bench)
@@ -114,7 +114,15 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print("error: %s" % exc, file=sys.stderr)
         return _EXIT_USAGE
 
-    aliases = sorted({alias for spec in specs for alias in spec.instruments_used})
+    # Prefer each specification's declared driver per alias, so a suite spanning
+    # an oscilloscope and a debug probe can be simulated without a bench file.
+    aliases: dict = {}
+    for spec in specs:
+        for alias in spec.instruments_used:
+            aliases.setdefault(alias, spec.instrument_drivers.get(alias, ""))
+        for alias, driver in spec.instrument_drivers.items():
+            if driver:
+                aliases[alias] = driver
     try:
         config = _load_bench_config(args, aliases)
     except BenchToolsError as exc:

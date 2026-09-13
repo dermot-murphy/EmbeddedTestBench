@@ -5,7 +5,7 @@ point: the transport layer, the SCPI plumbing, the validation helpers and the
 simulator harness are the same for an oscilloscope, a power supply, a DMM, a
 signal generator, a spectrum analyser or a BLE tester.
 
-Traces to: CORE-ARC-001 .. CORE-ARC-004.
+Traces to: CORE-ARC-001 .. CORE-ARC-006.
 """
 
 from .enums import EdgeDirection, ScpiEnum, Slope
@@ -22,12 +22,8 @@ from .errors import (
     TransportTimeoutError,
     UnsupportedTransportError,
 )
-from .scpi import (
-    InstrumentIdentity,
-    ScpiInstrument,
-    format_ieee_block,
-    parse_ieee_block,
-)
+from .instrument import Instrument, InstrumentIdentity
+from .scpi import ScpiInstrument, format_ieee_block, parse_ieee_block
 from .simulator import Responder, SimulatedInstrument, format_number, scpi_slug
 from .transport import (
     MockTransport,
@@ -43,6 +39,7 @@ from .transport import (
 from .validation import validate_channel, validate_channels, validate_choice, validate_range
 
 __all__ = [
+    "Instrument",
     "ScpiInstrument",
     "InstrumentIdentity",
     "parse_ieee_block",

@@ -1,0 +1,133 @@
+# Bench test specification: firmware flash, RTT and execution timing.
+#
+# Against simulators:
+#   benchtools run specs/firmware_timing.yaml --simulate --markdown report.md
+# Against real hardware:
+#   benchtools run specs/firmware_timing.yaml --bench benches/lab1.yaml
+
+name: Sensor firmware timing and integrity
+description: >
+  Programme the sensor firmware, confirm what is on the part matches the build,
+  then measure the sensor acquisition window and check the firmware reports
+  itself correctly over RTT.
+requirements: [FW-REQ-010, FW-REQ-011, FW-REQ-020, FW-REQ-021]
+
+# What kind of instrument each alias must be. Lets --simulate stand up the right
+# model per alias, and makes pointing this suite at the wrong bench an error
+# rather than a confusing missing-method failure.
+instruments:
+  probe: jlink
+
+setup:
+  # Flashing resets and halts first, then verifies against the file. A failed
+  # verification raises, so the suite stops rather than testing an unknown image.
+  - do: probe.flash
+    with: {verify: true}
+  - do: probe.reset
+    with: {halt: true}
+
+tests:
+  - name: Programmed image matches the build artefact
+    requirement: FW-REQ-010
+    description: >
+      compare-sections reads the target back and compares it against every
+      loadable section of the ELF.
+    steps:
+      - do: probe.verify
+        expect:
+          - name: image_matches
+            measure: matched
+            equals: 1
+
+  - name: Firmware reports its version over RTT
+    requirement: FW-REQ-011
+    steps:
+      - do: probe.reset
+        with: {halt: true}
+      - do: probe.rtt_start
+      - do: probe.rtt_command
+        with: {text: version, pattern: "([0-9]+\\.[0-9]+\\.[0-9]+)", timeout: 5.0}
+      - do: probe.read_variable
+        with: {name: firmware_version}
+
+  - name: Sensor acquisition completes within 1.2 ms
+    requirement: FW-REQ-020
+    description: >
+      Measured with the Cortex-M cycle counter, which resolves one core cycle -
+      15.6 ns at 64 MHz - rather than the millisecond the host clock manages.
+    steps:
+      - do: probe.measure_time_between
+        with:
+          start: sensor.c:40
+          end: sensor.c:75
+          method: CYCLE_COUNTER
+          repeat: 5
+        expect:
+          - name: acquisition_time
+            measure: milliseconds
+            unit: ms
+            max: 1.2
+          - name: acquisition_spread
+            measure: spread
+            unit: s
+            scale: 1.0e6
+            display_unit: us
+            max: 50.0
+          # A figure the method cannot resolve must not be asserted on.
+          - name: measurement_is_resolvable
+            measure: is_trustworthy
+            equals: 1
+
+  - name: Sensor acquisition measured without halting the core
+    requirement: FW-REQ-020
+    description: >
+      The SWO/ITM method timestamps instrumentation in the trace stream, so it
+      measures free-running execution rather than stop-to-stop time.
+    steps:
+      - do: probe.measure_time_between
+        with:
+          start: sensor.c:40
+          end: sensor.c:75
+          method: SWO_ITM
+          itm_port: 1
+        expect:
+          - name: acquisition_time_free_running
+            measure: milliseconds
+            unit: ms
+            max: 1.2
+          - name: did_not_halt_the_core
+            measure: halts_target
+            equals: 0
+
+  - name: Sensor reading is within range after acquisition
+    requirement: FW-REQ-021
+    steps:
+      - do: probe.run_to
+        with: {location: sensor.c:75}
+      - do: probe.read_variable
+        with: {name: sensor_mv}
+        expect:
+          - name: sensor_mv
+            unit: mV
+            min: 500
+            max: 3300
+
+  - name: Call stack at the acquisition point is as designed
+    requirement: FW-REQ-021
+    description: >
+      Guards against the acquisition being reached from an unexpected path, for
+      instance from an interrupt rather than the main loop.
+    steps:
+      - do: probe.run_to
+        with: {location: sensor.c:75}
+      - do: probe.call_stack
+        expect:
+          - name: stack_depth
+            measure: __len__
+            min: 2
+            max: 8
+
+teardown:
+  - do: probe.rtt_stop
+  - do: probe.reset
+    with: {halt: false}

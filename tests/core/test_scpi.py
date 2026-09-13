@@ -45,8 +45,15 @@ class TestIeee488Blocks:
 
 
 class TestInstrumentIdentity:
+    """``*IDN?`` parsing is ``from_idn``, not the constructor.
+
+    The generic identity type is shared with instruments that have no ``*IDN?``
+    at all - a debug probe reports a serial number and firmware string - so
+    parsing the IEEE 488.2 four-field form is an explicit SCPI step.
+    """
+
     def test_four_fields_are_parsed(self):
-        identity = InstrumentIdentity("TEKTRONIX,TDS 3014B,0,CF:91.1CT FV:v3.41")
+        identity = InstrumentIdentity.from_idn("TEKTRONIX,TDS 3014B,0,CF:91.1CT FV:v3.41")
         assert identity.manufacturer == "TEKTRONIX"
         assert identity.model == "TDS 3014B"
         assert identity.serial_number == "0"
@@ -54,13 +61,25 @@ class TestInstrumentIdentity:
 
     def test_short_response_does_not_raise(self):
         """A sparse *IDN? must degrade, not crash: some instruments send fewer fields."""
-        identity = InstrumentIdentity("ACME,PSU-1")
+        identity = InstrumentIdentity.from_idn("ACME,PSU-1")
         assert identity.model == "PSU-1"
         assert identity.serial_number == ""
         assert identity.firmware == ""
 
     def test_raw_is_retained(self):
-        assert str(InstrumentIdentity("A,B,C,D")) == "A,B,C,D"
+        assert str(InstrumentIdentity.from_idn("A,B,C,D")) == "A,B,C,D"
+
+    def test_fields_can_be_given_directly(self):
+        """A non-SCPI instrument populates the fields it actually has."""
+        identity = InstrumentIdentity(
+            raw="J-Link V11 compiled Jan 1 2024",
+            manufacturer="SEGGER",
+            model="J-Link V11",
+            serial_number="801012345",
+            firmware="V7.94",
+        )
+        assert identity.model == "J-Link V11"
+        assert identity.serial_number == "801012345"
 
 
 class TestGenericInstrument:

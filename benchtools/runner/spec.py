@@ -11,6 +11,9 @@ Example (YAML)::
     description: Verify the clock fan-out skew across four loads.
     requirements: [SYS-REQ-042]
 
+    instruments:                 # optional: what kind each alias must be
+      scope: tek3014b
+
     setup:
       - do: scope.configure_channel
         with: {channel: 1, volts_per_div: 1.0, position_div: -4.0}
@@ -205,6 +208,11 @@ class TestSpec:
     :param setup: Steps run once before the tests. A failure here aborts the
         suite, because every test would otherwise run against an unknown setup.
     :param teardown: Steps run once after the tests, whatever the outcome.
+    :param instrument_drivers: Optional mapping of alias to the driver the
+        specification expects there. Two things depend on it: ``--simulate`` can
+        stand up the right simulator for each alias without a bench file, and the
+        runner can reject a bench that provides the wrong *kind* of instrument
+        rather than failing later on a missing method.
     """
 
     # Not a pytest test class, despite the name.
@@ -216,6 +224,7 @@ class TestSpec:
     requirements: Sequence[str] = ()
     setup: Sequence[Step] = ()
     teardown: Sequence[Step] = ()
+    instrument_drivers: Dict[str, str] = field(default_factory=dict)
     source: str = ""
 
     @classmethod
@@ -230,7 +239,16 @@ class TestSpec:
         requirements = data.get("requirements", []) or []
         if isinstance(requirements, str):
             requirements = [requirements]
+        declared = data.get("instruments", {}) or {}
+        if not isinstance(declared, dict):
+            raise SpecError(
+                "'instruments' must be a mapping of alias to driver name, got %s"
+                % type(declared).__name__
+            )
         return cls(
+            instrument_drivers={
+                str(alias): str(driver) for alias, driver in declared.items()
+            },
             name=str(name),
             description=str(data.get("description", "")),
             requirements=tuple(str(item) for item in requirements),

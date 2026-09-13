@@ -10,3 +10,11 @@ instruments:
     driver: tek3014b
     resource: sim://
     timeout: 10.0
+
+  probe:
+    driver: jlink
+    resource: sim://
+    timeout: 10.0
+    options:
+      elf: firmware.elf
+      core_clock_hz: 64000000

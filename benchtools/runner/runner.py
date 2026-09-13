@@ -252,6 +252,7 @@ class BenchRunner:
 
         try:
             self.bench.require(spec.instruments_used)
+            self.bench.check_drivers(spec.instrument_drivers)
         except BenchToolsError as exc:
             run.setup_error = str(exc)
             run.finished = _now()

@@ -10,6 +10,7 @@ into an open :class:`~benchtools.core.transport.base.Transport`. Accepted forms:
     TCPIP0::192.168.1.50::inst0::INSTR  VISA-style string with device name
     socket://192.168.1.50:4000          raw SCPI socket
     TCPIP::192.168.1.50::4000::SOCKET   VISA-style raw socket
+    process://arm-none-eabi-gdb --interp=mi2   a child process over its pipes
     visa://TCPIP::192.168.1.50::INSTR   force the PyVISA backend
     sim://                              in-process simulator
 
@@ -34,6 +35,7 @@ from ..errors import UnsupportedTransportError
 from .base import Transport
 from .constants import DEFAULT_RAW_SOCKET_PORT, DEFAULT_VXI11_DEVICE_NAMES
 from .mock import MockTransport
+from .process import ProcessTransport
 from .socket_raw import SocketTransport
 from .visa_backend import VisaTransport
 from .vxi11 import Vxi11Transport
@@ -80,6 +82,7 @@ register_backend("vxi11", Vxi11Transport, ("vxi11",))
 register_backend("socket", SocketTransport, ("socket", "tcp"))
 register_backend("visa", VisaTransport, ("visa",))
 register_backend("sim", MockTransport, ("sim", "mock"))
+register_backend("process", ProcessTransport, ("process", "stdio"))
 
 
 def _split_host_port(text: str, default_port: int) -> Tuple[str, int]:

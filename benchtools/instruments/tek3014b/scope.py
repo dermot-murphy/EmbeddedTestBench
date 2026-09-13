@@ -145,16 +145,16 @@ class Tek3014B(ScpiInstrument):
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
-    def initialise(self) -> None:
+    def _post_open(self) -> None:
         """Put the instrument's response formatting into a known state.
 
         Turns off command headers and verbose mode so queries return bare
-        values, then clears the status and event queues. Deliberately does
-        **not** reset the front-panel setup; call :meth:`reset` for that.
+        values, then clears the status and event queues via the base class.
+        Deliberately does **not** reset the front-panel setup; call
+        :meth:`reset` for that.
         """
-        self._transport.open()
         self._write("HEADER OFF;:VERBOSE OFF")
-        super().initialise()
+        super()._post_open()
 
     @property
     def limits(self) -> ModelLimits:

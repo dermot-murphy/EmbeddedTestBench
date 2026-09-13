@@ -30,11 +30,12 @@ DESIGN_DOC = DOCS / "SWE3_Software_Detailed_Design.md"
 TEST_SPEC_DOC = DOCS / "SWE4_Unit_Test_Specification.md"
 MATRIX_DOC = DOCS / "Traceability_Matrix.md"
 
-#: Requirement identifier, e.g. CORE-FR-001 or CORE-NFR-007.
-_REQUIREMENT = r"(?:CORE|ANA|INST|SCOPE|RUN)-(?:FR|NFR)-\d{3}"
+#: Requirement identifier, e.g. CORE-FR-001, JLINK-FR-060 or CORE-NFR-007.
+#: One prefix per element of SWE.1 §3; a new element is registered here.
+_REQUIREMENT = r"(?:CORE|ANA|INST|SCOPE|JLINK|RUN)-(?:FR|NFR)-\d{3}"
 
 #: Design unit identifier, e.g. CORE-DD-SCPI.
-_DESIGN_UNIT = r"(?:CORE|ANA|INST|SCOPE|RUN)-DD-[A-Z0-9]+"
+_DESIGN_UNIT = r"(?:CORE|ANA|INST|SCOPE|JLINK|RUN)-DD-[A-Z0-9]+"
 
 
 def _text(path: pathlib.Path) -> str:
@@ -154,12 +155,12 @@ class TestTestGroupTraceability:
 
 class TestArchitectureTraceability:
     def test_architectural_elements_cited_in_code_are_defined(self):
-        declared = set(re.findall(r"(?:CORE|ANA|INST|SCOPE|RUN)-ARC-\d{3}", _text(ARCHITECTURE_DOC)))
+        declared = set(re.findall(r"(?:CORE|ANA|INST|SCOPE|JLINK|RUN)-ARC-\d{3}", _text(ARCHITECTURE_DOC)))
         offenders = []
         for path in (ROOT / "benchtools").rglob("*.py"):
             if "__pycache__" in path.parts:
                 continue
-            for cited in set(re.findall(r"(?:CORE|ANA|INST|SCOPE|RUN)-ARC-\d{3}", path.read_text())):
+            for cited in set(re.findall(r"(?:CORE|ANA|INST|SCOPE|JLINK|RUN)-ARC-\d{3}", path.read_text())):
                 if cited not in declared:
                     offenders.append("%s cites %s" % (path.relative_to(ROOT), cited))
         assert not offenders, (

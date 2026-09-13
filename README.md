@@ -1,10 +1,13 @@
 # TestTools — `benchtools`
 
-Bench test tooling: instrument drivers, analysis of captured records, and a
-declarative test runner that drives a bench and produces pass/fail evidence.
+Bench test tooling: instrument drivers, a debug probe driver, analysis of captured
+records, and a declarative test runner that drives a bench and produces pass/fail
+evidence.
 
-**No VISA installation required.** VXI-11 is implemented directly on the Python
-standard library, so the package has **no mandatory third-party dependencies**.
+**No VISA installation required, and no vendor Python package.** VXI-11 and GDB/MI
+are implemented directly on the Python standard library, so the package has **no
+mandatory third-party dependencies** — checked by a test that parses every module,
+not just asserted here.
 
 ```bash
 pip install -e ".[spec,plot]"
@@ -24,6 +27,7 @@ benchtools/
 ├── analysis/      waveform scaling, edge/period/spread measurement, plotting
 ├── instruments/   one subpackage per instrument
 │   ├── tek3014b/    Tektronix TDS3014B oscilloscope
+│   ├── jlink/       SEGGER J-Link debug probe (flash, RTT, breakpoints, timing)
 │   └── generic.py   anything answering *IDN?
 └── runner/        declarative bench test runner
 ```
@@ -32,6 +36,11 @@ Dependencies point one way only — **core → analysis → instruments → runn
 that is enforced by a test, not a convention. `benchtools.core` contains no
 reference to any instrument and imports on its own, which is what keeps it
 reusable as instruments are added.
+
+A bench instrument does not have to speak SCPI. `core.instrument.Instrument`
+carries the lifecycle (connect, initialise, identify, close, simulate);
+`ScpiInstrument` adds SCPI on top. The J-Link driver is an `Instrument` driven over
+GDB/MI, and the runner treats it like any other instrument.
 
 | Directory | Contents |
 |---|---|
@@ -178,6 +187,92 @@ benchtools backends       # transport backends a resource string can select
 
 ---
 
+## Debug probe driver — SEGGER J-Link
+
+Firmware state becomes an assertable quantity in a bench test: flash and verify,
+run and halt, breakpoints, RAM, variables by name, RTT, the call stack, and the
+time between two lines of code.
+
+```python
+from benchtools.instruments.jlink import JLinkProbe, TimingMethod
+
+with JLinkProbe.connect("jlink://", device="nRF52840_xxAA", elf="build/app.elf",
+                        core_clock_hz=64e6) as probe:
+    result = probe.flash(verify=True)            # 17 280 bytes, 3 sections, verified
+    probe.reset(halt=True)
+
+    probe.rtt_start(log_path="rtt.log")          # RTT needs no halting
+    probe.run_to("sensor.c:75")
+    version = probe.rtt_command("version", r"(\d+\.\d+\.\d+)").group(1)
+
+    print(probe.read_variable("sensor_mv"))      # 1234, by name, from DWARF
+    for frame in probe.call_stack():
+        print(frame)                             # #0 sensor_done at sensor.c:75
+
+    timing = probe.measure_time_between("sensor.c:40", "sensor.c:75",
+                                        method=TimingMethod.SWO_ITM, repeat=20)
+    print(timing.microseconds, timing.is_trustworthy, timing.halts_target)
+```
+
+It talks to the **J-Link GDB Server** over TCP and to GDB over a pipe, using the
+GDB machine interface. That choice is what gives `read_variable("sensor_mv")` and a
+call stack with file and line: GDB's DWARF reader does the symbol work. No
+`JLinkARM.dll`, no `pylink`, nothing to install in Python.
+
+### Timing between two lines of code, four ways
+
+| Method | Resolution | Halts the core | Needs |
+|---|---|---|---|
+| `CYCLE_COUNTER` | one core cycle (15.6 ns at 64 MHz) | yes | Cortex-M DWT |
+| `SWO_ITM` | one trace cycle | **no** | SWO wired, firmware writing to an ITM port |
+| `TARGET_TIMER` | one timer tick | yes | firmware capturing a timer |
+| `HOST_CLOCK` | ≈ 1 ms | yes | nothing |
+
+Every result reports the method, its resolution, whether it halted the target, and
+whether the interval is large enough for the method to resolve:
+
+```
+CYCLE_COUNTER   1000.000 us  (64000 cycles, halts=True)
+SWO_ITM         1000.000 us  (64000 cycles, halts=False)
+HOST_CLOCK        93.574 us  (- cycles, halts=True)   <- below this method's resolution
+```
+
+The last line is the point. A figure a method cannot resolve is flagged rather than
+quoted, and a specification can assert on the flag beside the limit.
+
+### Command line
+
+```bash
+# Options that say *which* probe come before the sub-command; the sub-command's
+# own arguments come after it.
+python -m benchtools jlink --resource sim:// info
+python -m benchtools jlink --resource jlink:// --device nRF52840_xxAA --elf build/app.elf flash
+python -m benchtools jlink --resource sim:// var sensor_mv
+python -m benchtools jlink --resource sim:// stack
+python -m benchtools jlink --resource sim:// rtt --duration 5 --log rtt.log
+python -m benchtools jlink --resource sim:// time sensor.c:40 sensor.c:75 --method swo_itm --repeat 20
+```
+
+Every sub-command emits JSON.
+
+### Ready for Docker
+
+The probe is USB, so USB pass-through into a container would be the awkward part —
+and is not needed. Both links are TCP: run the GDB Server on the machine the probe
+is plugged into, and point the driver at it.
+
+```bash
+# on the PC with the probe
+JLinkGDBServerCL -device nRF52840_xxAA -if SWD -speed 4000 -nogui -silent -strict
+# anywhere else, with no J-Link software at all
+python -m benchtools jlink --resource jlink://bench-pc:2331 --elf build/app.elf info
+```
+
+See [J-Link Integration Notes](docs/jlink/JLink_Integration_Notes.md) for Windows
+setup, the port map, choosing a timing method, and the bench confirmation items.
+
+---
+
 ## Addressing an instrument
 
 | Resource string | Transport |
@@ -231,7 +326,10 @@ class PowerSupply(ScpiInstrument):
 ```
 
 The base supplies the link lifecycle, query primitives, identification, the error
-queue and IEEE 488.2 block handling. Register it with
+queue and IEEE 488.2 block handling. For an instrument that does **not** speak SCPI
+— a debug probe, a BLE dongle — subclass `benchtools.core.instrument.Instrument`
+instead and implement `_open`, `_close`, `is_open` and `_read_identity`; the J-Link
+driver is the worked example. Register either with
 `benchtools.runner.register_driver("psu-1234", PowerSupply)` and bench
 configurations can name it. New link types (serial, USBTMC, HTTP) register with
 `benchtools.core.transport.register_backend`.
@@ -246,6 +344,7 @@ configurations can name it. New link types (serial, USBTMC, HTTP) register with
 | [`examples/02_channel_spread.py`](examples/02_channel_spread.py) | Four-channel skew, cross-checked against the instrument's own delay measurement |
 | [`examples/03_period_and_jitter.py`](examples/03_period_and_jitter.py) | Period measured both ways, with jitter statistics |
 | [`examples/04_run_bench_suite.py`](examples/04_run_bench_suite.py) | Driving the test runner from Python |
+| [`examples/05_jlink_firmware.py`](examples/05_jlink_firmware.py) | Flash, verify, RTT, variables, call stack, and all four timing methods through a J-Link |
 
 Each takes an address (or bench file) and defaults to simulation:
 
@@ -262,14 +361,21 @@ python examples/02_channel_spread.py            # simulator
 python -m pytest tests/ --cov=benchtools --cov-report=term
 ```
 
-**579 tests, 94% statement coverage, no hardware required.** With the optional
-extras removed: 538 pass, 27 skip, 0 fail.
+**932 tests, 94% statement coverage, no hardware required** — no oscilloscope, no
+probe, no target, no GDB. With the optional extras removed: 883 pass, 28 skip,
+0 fail.
 
-The suite includes an independently implemented VXI-11 RPC server and a SCPI socket
-server on loopback, so the protocol code is verified against something other than
-itself. It also verifies the architecture and the documents: `test_layering.py`
-enforces the dependency direction, and `test_traceability.py` checks that every
-requirement is traced and every identifier cited in a docstring is defined.
+The suite includes an independently implemented VXI-11 RPC server, a SCPI socket
+server and a loopback TCP server standing in for the GDB Server's RTT and SWO
+ports, so the protocol code is verified against something other than itself. The
+simulated target puts two source lines exactly 64 000 cycles apart, so three
+independent timing methods — a DWT register read, two firmware variables and a
+decoded ITM stream — can be checked against the same injected 1.000 ms.
+
+It also verifies the architecture and the documents: `test_layering.py` enforces
+the dependency direction and fails on any module-level third-party import, and
+`test_traceability.py` checks that every requirement is traced and every identifier
+cited in a docstring is defined.
 
 ---
 
@@ -279,12 +385,13 @@ requirement is traced and every identifier cited in a docstring is defined.
 |---|---|
 | [Documentation index](docs/README.md) | Work-product map and identifier prefixes |
 | [VISA Determination Report](docs/tek3014b/VISA_Determination_Report.md) | Whether VISA is required, with evidence and bench confirmation items |
+| [J-Link Integration Notes](docs/jlink/JLink_Integration_Notes.md) | Why the GDB Server rather than the DLL, Windows and Docker, timing methods, probe confirmation items |
 | [Bench Runner Guide](docs/Bench_Runner_Guide.md) | Writing specifications and bench configurations |
-| [SWE.1 Requirements](docs/SWE1_Software_Requirements_Specification.md) | 99 functional and 9 non-functional requirements |
-| [SWE.2 Architecture](docs/SWE2_Software_Architecture.md) | Layering, elements, ten architectural decisions |
+| [SWE.1 Requirements](docs/SWE1_Software_Requirements_Specification.md) | 144 functional and 13 non-functional requirements |
+| [SWE.2 Architecture](docs/SWE2_Software_Architecture.md) | Layering, elements, fifteen architectural decisions |
 | [SWE.3 Detailed Design](docs/SWE3_Software_Detailed_Design.md) | Per-module design units |
 | [SWE.4 Test Specification](docs/SWE4_Unit_Test_Specification.md) | Strategy, test groups, pass criteria |
-| [SWE.4 Test Report](docs/SWE4_Unit_Test_Report.md) | Results, coverage, measured accuracy, seven defects found |
+| [SWE.4 Test Report](docs/SWE4_Unit_Test_Report.md) | Results, coverage, measured accuracy, fourteen defects found |
 | [Traceability Matrix](docs/Traceability_Matrix.md) | Bidirectional trace, stakeholder need to test |
 
 Work products follow Automotive SPICE V4.0 SWE.1–SWE.4. This is a test tool: it is
@@ -302,6 +409,16 @@ using this for qualification work, discharge the bench confirmation items in the
 notably the SCPI command spellings, which could not be transcribed from the
 Tektronix programmer manual during development.
 
-The instrument families planned next — power supplies and loads, DMMs, signal
-sources, logic and protocol analysers, BLE and RF — have no drivers yet. The core
-is designed for them but is not validated against them.
+The J-Link driver is verified against a simulated probe and a simulated target. Its
+confirmation items are in the [integration notes §4](docs/jlink/JLink_Integration_Notes.md#4-bench-confirmation-items);
+the one that could change a reported number is the SWO/ITM timestamp scaling, so
+treat SWO timing figures as provisional until they are compared against the cycle
+counter on a real part. It has not yet been run on Windows, which is where it is
+intended to run first.
+
+Planned next, with no drivers yet: a programmable PSU for the sensor supply, a
+Nordic BLE dongle for BLE UART and advertising-profile measurement, a multimeter
+for current over RS-232, and — under consideration — authoring tests in Markdown
+and translating them to Robot Framework. The driver boundary returns plain types
+with that last one in mind, but no translator exists. The core is designed for all
+of them and validated against none.
