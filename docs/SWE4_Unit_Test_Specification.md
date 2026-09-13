@@ -98,9 +98,13 @@ The dongle firmware is verified three ways, none of which needs a dongle:
 3. **Cross-compilation** (`compile_check.sh`). The whole firmware is compiled for
    Cortex-M4 against real SDK headers.
 
-Between them these catch behaviour, interface drift and compilation. What no
-amount of them establishes is that the firmware *runs*: see the report's §4.4
-and BLE-OPEN-01.
+4. **The real build** (`.github/workflows/firmware.yml`). The firmware is
+   cross-compiled against nRF5 SDK 17.1.0, linked, sized and packaged for DFU on
+   every push that touches `firmware/**`.
+
+Between them these catch behaviour, interface drift, compilation and the link.
+What no amount of them establishes is that the firmware *runs*: see the report's
+§4.6 and BLE-OPEN-02 to -04.
 
 ### 1.5 Architectural verification
 

@@ -639,7 +639,7 @@ source carries its trace and allocates nothing dynamically.
 | [SWE.2 Architecture](docs/SWE2_Software_Architecture.md) | Layering, elements, eighteen architectural decisions |
 | [SWE.3 Detailed Design](docs/SWE3_Software_Detailed_Design.md) | Per-module design units |
 | [SWE.4 Test Specification](docs/SWE4_Unit_Test_Specification.md) | Strategy, test groups, pass criteria |
-| [SWE.4 Test Report](docs/SWE4_Unit_Test_Report.md) | Results, coverage, measured accuracy, nineteen defects found |
+| [SWE.4 Test Report](docs/SWE4_Unit_Test_Report.md) | Results, coverage, measured accuracy, thirty-eight defects found |
 | [Traceability Matrix](docs/Traceability_Matrix.md) | Bidirectional trace, stakeholder need to test |
 
 Work products follow Automotive SPICE V4.0 SWE.1–SWE.4. This is a test tool: it is
@@ -664,10 +664,11 @@ treat SWO timing figures as provisional until they are compared against the cycl
 counter on a real part. It has not yet been run on Windows, which is where it is
 intended to run first.
 
-**The BLE dongle firmware compiles but has never been linked, flashed or run.**
-It targets nRF5 SDK 17.1.0; it is compiled against real SDK headers — SDK 15.2 in
-the `canembed/canembed-arm` image — with `-Wall -Wextra` and zero warnings, apart
-from four lines using SDK 17-only API that the script lists explicitly:
+**The BLE dongle firmware builds and links, but has never been flashed or run.**
+It targets nRF5 SDK 17.1.0 and is built against it in CI. It also compiles
+against SDK 15.2 headers in the `canembed/canembed-arm` image, with `-Wall
+-Wextra` and zero warnings, apart from four lines using SDK 17-only API that the
+script lists explicitly:
 
 ```bash
 docker run --rm -v "$PWD":/work:ro canembed/canembed-arm \
@@ -689,11 +690,16 @@ They found two more defects on their first run, both of which compile perfectly:
 a refused advertising line still counted as *reported* (defeating the host's loss
 detection), and the tail of an over-long command becoming a command of its own.
 
-`.github/workflows/firmware.yml` runs the unit tests and a real cross-compile
-against SDK 17.1.0 on every push and pull request that touches `firmware/**`,
-and uploads the hex, elf, map and DFU package as artefacts.
+`.github/workflows/firmware.yml` runs the unit tests and a real build against
+SDK 17.1.0 on every push and pull request that touches `firmware/**`, and uploads
+the hex, elf, map, DFU package and build manifest as artefacts. It is green: the
+image links in 51 652 bytes of flash and 12 636 of static RAM, around 6% of each
+region. Getting there took eleven failing runs, and every fault was in the build
+configuration rather than the sources — a source file nrfx 2.x does not have,
+three that were never compiled, seven missing `sdk_config.h` keys, and a GATT
+queue sized for 20-byte writes against a protocol that sends 96.
 
-What remains is linking against SDK 17.1.0 and running it: see
+What remains is flashing it and running it: see
 [BLE Dongle Notes §5](docs/ble/BLE_Dongle_Notes.md#5-bench-confirmation-items).
 The host driver is fully verified against a simulated dongle.
 

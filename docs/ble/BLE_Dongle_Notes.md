@@ -320,8 +320,8 @@ docker run --rm -v "$PWD":/work:ro canembed/canembed-arm \
 On GitHub, `.github/workflows/firmware.yml` does all of this on every push and
 pull request that touches `firmware/**`: the unit tests first, then a real
 cross-compile against SDK 17.1.0 with the hex, elf, map and DFU package uploaded
-as artefacts. That workflow is the first place SDK 17.1.0 is actually used, so it
-is also where BLE-OPEN-01 will be discharged or shown to need more work.
+as artefacts. That workflow is the first place SDK 17.1.0 is actually used, and
+it is **green**: see §5.4.
 
 All six units compile with `-Wall -Wextra -O2` and **zero warnings**, apart from
 four lines using SDK 17's GATT queue, which SDK 15.2 has no equivalent for. The
@@ -339,7 +339,8 @@ worth repeating here because they are the kind that survive review:
 
 **What this establishes:** syntax, types, every SDK call that exists in both
 versions, and the `sdk_config.h` keys the SDK's headers assert on. **What it does
-not:** that the firmware links, fits in flash, or runs.
+not:** that the firmware links, fits in flash, or runs. Linking and flash are
+§5.4; running is still open.
 
 ### 5.3 What remains
 
@@ -347,7 +348,7 @@ Treat the first real build as part of the work, not as a formality.
 
 | ID | Item | How to discharge |
 |---|---|---|
-| BLE-OPEN-01 | **First build against SDK 17.1.0, linked.** Narrowed by §5.1: the sources compile, and the `sdk_config.h` keys the headers assert on are now present. What is untested is linking (the SES project's file list and the flash placement), the flash and RAM figures, and the SDK 17-only GATT-queue lines | Build the SES project per §3.1 on a machine with SDK 17.1.0; expect the remaining work to be in the project file rather than the sources |
+| BLE-OPEN-01 | ~~**First build against SDK 17.1.0, linked.**~~ | **Discharged** — see §5.4. It builds, links, fits and packages. The remaining unknowns were all in the build configuration, not the sources |
 | BLE-OPEN-02 | **Behaviour under load.** The outgoing queue is 32 lines; a busy room may overflow it. The drop counter will say so — the question is whether the figures stay usable. | Scan with no address filter in a busy area and watch `adv stats` |
 | BLE-OPEN-03 | **Timestamp accuracy.** The timestamp is taken at the top of the radio event handler, which is some microseconds after the packet. The offset is constant and so does not affect intervals, but it does affect any absolute comparison with another instrument. | Advertise from a second dongle at a known interval and compare |
 | BLE-OPEN-04 | **Connection parameters.** The firmware requests 7.5–30 ms; the sensor may refuse. `+conn interval_us` reports what was agreed, and every latency figure depends on it. | Read `interval_us` on first connection and record it with the results |
@@ -356,6 +357,33 @@ Two smaller unknowns, recorded here rather than in the code: whether
 `ble_advdata_search` returns the offset this firmware assumes for a name in a
 scan response, and whether the dongle's bootloader accepts an unsigned DFU
 package (§3.2). Both fail loudly rather than silently.
+
+### 5.4 The first real build
+
+`.github/workflows/firmware.yml` run 12, on commit `f66a248`, is the first green
+build against nRF5 SDK 17.1.0: `arm-none-eabi-gcc` 10.3-2021.10, linked, sized
+and packaged as `nordic_dongle_dfu.zip`. Both jobs pass and all five artefacts -
+`.hex`, `.out`, `.map`, the DFU zip and `firmware_manifest.json` - are uploaded.
+
+| | Bytes | Region | Used |
+|---|---|---|---|
+| Flash (`text` + `data`) | 51 652 | 0xd9000 = 888 832 (0x27000 up to the factory bootloader) | 5.8% |
+| Static RAM (`data` + `bss`) | 12 636 | 0x3d518 = 251 160 above the SoftDevice | 5.0% |
+
+`text` 49 800, `data` 1 852, `bss` 10 784. The 8 KiB stack and 2 KiB heap come
+from `__STACK_SIZE` and `__HEAP_SIZE` in the build; the `.map` in the artefact is
+the authority on where they sit relative to those numbers. The headroom is large
+either way, which is what BLE-OPEN-01 was asking.
+
+Eleven runs failed before it, and all of it was in the build configuration:
+a source named that nrfx 2.x does not have and three that were never compiled
+(D-37), seven missing `sdk_config.h` keys (D-38), and a GATT queue sized for
+20-byte writes against a protocol that sends 96 (D-36). None of that was
+reachable by reading the sources, which is the argument for the workflow.
+
+The build date is pinned to the commit (`SOURCE_DATE_EPOCH`), so the image, the
+manifest and the DFU package carry one identity and rebuilding a commit
+reproduces it.
 
 ## 6. What this element does not do
 

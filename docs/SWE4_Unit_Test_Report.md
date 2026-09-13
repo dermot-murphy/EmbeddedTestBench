@@ -46,10 +46,11 @@ present for this run, and no test needs one (PC-8): the probe is substituted at
 the GDB/MI boundary, the RTT and SWO sockets by a loopback server, the dongle at
 its line protocol, and the serial port by pyserial's own `loop://` handler.
 
-**The dongle firmware was not compiled or executed** (CON-07): no SDK or
-toolchain was available. It is verified in the two ways source can be verified
-without a compiler - against the driver it must agree with, and against the
-hygiene rules of §4.3 - and its first build is recorded as BLE-OPEN-01.
+**The dongle firmware is built but not executed** (CON-07): no dongle is
+available. It is verified against the driver it must agree with, against the
+hygiene rules of §4.3, by its own unit tests (§4.4), and by a real
+cross-compile, link and DFU package against nRF5 SDK 17.1.0 in CI (§4.6).
+Behaviour on silicon remains BLE-OPEN-02 to -04.
 
 ## 2. Results by test group
 
@@ -316,14 +317,61 @@ removed - both then compile with 0 warnings.
 **What this establishes:** syntax, types, every SDK API this firmware calls that
 exists in both versions, and the `sdk_config.h` keys the SDK's own headers
 static-assert on. **What it does not:** that the firmware links, fits in flash,
-or runs. BLE-OPEN-01 is narrowed, not discharged: it now means building the SES
-project against SDK 17.1.0 on a machine that has it.
+or runs. That is §4.6, which is where BLE-OPEN-01 is discharged.
 
 It found seven defects (D-20 to D-26), one of which was a concurrency error that
 no amount of reading had caught.
 
 PC-12 is met: every firmware unit test passes, and the firmware still compiles
 for the target after the fixes they prompted.
+
+### 4.6 First build against nRF5 SDK 17.1.0, linked and packaged
+
+The `firmware` workflow builds against the real SDK: it downloads nRF5 SDK
+17.1.0, cross-compiles with `arm-none-eabi-gcc` 10.3-2021.10, links, reports the
+size, and packages the hex as a DFU zip. It runs on every push touching
+`firmware/**`.
+
+Run 12 on commit `f66a248` is the first green one. Both jobs pass and all five
+artefacts are produced - `.hex`, `.out`, `.map`, `nordic_dongle_dfu.zip` and
+`firmware_manifest.json`.
+
+The link map, from the build's own `size` output:
+
+| | Bytes | Region | Used |
+|---|---|---|---|
+| Flash (`text` + `data`) | 51 652 | 0x27000 … 0x100000 less the bootloader, 0xd9000 = 888 832 | 5.8% |
+| Static RAM (`data` + `bss`) | 12 636 | 0x3d518 = 251 160 above the SoftDevice's requirement | 5.0% |
+
+`text` 49 800, `data` 1 852, `bss` 10 784. The 8 KiB stack and 2 KiB heap are
+set by the build (`__STACK_SIZE`, `__HEAP_SIZE`); the `.map` in the artefact is
+the authority on where they sit relative to those figures. Either way the image
+is nowhere near the region, which was the open question.
+
+**BLE-OPEN-01 is discharged.** The firmware builds, links and fits, and the
+GATT-queue lines that SDK 15.2 could not compile do compile against SDK 17.1.0.
+What remains is on-silicon behaviour, which is BLE-OPEN-02 to -04 and CON-07 -
+none of which can be reached without a dongle.
+
+Getting there took eleven red runs, and what they found is worth recording,
+because none of it was reachable by reading:
+
+- The build could not have linked on any machine (D-37). The Makefile named a
+  source that does not exist in nrfx 2.x and omitted three that do; a missing
+  source was a warning, not an error.
+- `sdk_config.h` was missing seven keys (D-38). Each fails inside an unrelated
+  SDK file, because SDK modules expand their own configuration macros into
+  static assertions and, in one case, into a ternary in C code - so a key is
+  required even when the feature it configures is switched off.
+- The GATT queue was sized for 20-byte writes against a protocol that sends up
+  to 96 (D-36), which would have refused every long command on the part.
+
+One tooling fault is not a product defect but is recorded here because it will
+catch anyone following the flashing instructions: an unpinned
+`pip install nrfutil` on a current Python does not refuse to install - it
+resolves backwards to a Python 2 era release, which dies in `pkg generate` on
+`dict.iteritems`. The workflow now pins `nrfutil==6.1.7` and a 3.10 interpreter,
+and `docs/ble/BLE_Dongle_Notes.md` §3.2 says why.
 
 PC-5 and PC-9 are met. This is the check that keeps the shared core shareable as
 the instruments named in CON-03 are added — and it has already paid: adding the
@@ -746,6 +794,10 @@ SDK to provide it transitively.
 
 | D-35 | The simulated kit modelled the **SRES strobe as restoring register defaults**. ST's own command header calls it a "reset of all digital part, except SPI registers", and the driver's own docstring said so - but the simulator disagreed, and the test asserting `reset()` restored defaults passed against it | **Major** (in the test double, so the error was invisible): a driver using `reset()` to reach a known state would have passed every test here and left every register exactly as it was on the bench, with a configuration file then applied on top of an unknown state | **Closed** — SRES empties the FIFOs and leaves the register file; `SdkEvalSdn` (shutdown and back) is modelled as the power-on reset, which on the part is the only thing that restores defaults. `power_cycle()` added, and `apply_configuration(reset=...)` uses it | `test_the_reset_strobe_does_not_restore_register_defaults`, `test_the_reset_strobe_leaves_the_register_file_alone`, `test_a_power_cycle_does` |
 
+| D-36 | The dongle's GATT queue was left at the SDK's default write size of 20 bytes while the host protocol sends commands up to `PROTO_MAX_PAYLOAD` (96). `nrf_ble_gq` refuses a longer write with `NRF_ERROR_DATA_SIZE` | **Major**, and invisible to every check that had been run: it compiles, links and passes the host-side tests, and fails only on the part, on any command over 20 bytes | **Closed** — `NRF_BLE_GQ_DATAPOOL_ELEMENT_SIZE` and `NRF_BLE_GQ_GATTC_WRITE_MAX_DATA_LEN` are taken from `protocol.h`, so the queue is sized from the protocol rather than alongside it | Structural: `sdk_config.h` includes `protocol.h`; the sizes cannot now disagree |
+| D-37 | The Makefile's source list had never been exercised against a real SDK tree. It named `nrfx_power_clock.c`, which does not exist in nrfx 2.x, and omitted `nrf_section_iter.c`, `nrf_drv_power.c` and `utf.c`, which were on the include path but never compiled. Nordic's `Makefile.common` only **warns** about a source it cannot find | **Major**: the firmware could not be built as delivered — the first three faults are compile or link failures, and the warning meant the cause was in the middle of the output rather than at the end | **Closed** — the source list is corrected, and the Makefile now stops with the list of names it cannot find and what to check, rather than warning | The `firmware` workflow: a missing source is a hard error, so a recurrence cannot reach a green build |
+| D-38 | `sdk_config.h`, written by hand, was missing seven keys the SDK's own modules expand into static assertions (`NRF_SORTLIST_CONFIG_LOG_ENABLED` and `_LOG_LEVEL`, `POWER_CONFIG_SOC_OBSERVER_PRIO`, `POWER_CONFIG_STATE_OBSERVER_PRIO`, the `APP_USBD_STRING_ID_*` and string descriptors, `NRF_SDH_BLE_GAP_DATA_LENGTH`) | **Major** as a build fault, and awkward to diagnose: the error surfaces in an unrelated SDK file, and `nrf_sortlist.h` needs its logging key present even with logging off because it expands the name through a **ternary in C code**, not through the preprocessor | **Closed** — every key is present, each with the comment saying which module asserts on it and why | The `firmware` workflow, which compiles every unit against the real SDK headers |
+
 No open defects.
 
 Notes on process effectiveness:
@@ -835,13 +887,13 @@ discharged without physical hardware:
   -04, of which the SWO timestamp scaling is the one that could change a
   reported figure);
 - `docs/ble/BLE_Dongle_Notes.md` §5, for the dongle. The firmware now has unit
-  tests (§4.4) and **compiles** against real SDK headers (§4.5), which is a
-  materially stronger position than
-  this report's first issue described, but it is compiled against SDK 15.2 and
-  not linked, flashed or run. The verdict covers the host driver, the protocol
-  agreement, the firmware's source-level rules and its compilation. It does not
-  cover linking, flash size, or behaviour on silicon, which BLE-OPEN-01 to -04
-  exist to establish.
+  tests (§4.4), **compiles** against real SDK headers (§4.5) and **builds,
+  links and packages** against nRF5 SDK 17.1.0 in CI (§4.6), which is a
+  materially stronger position than this report's first issue described. The
+  verdict covers the host driver, the protocol agreement, the firmware's
+  source-level rules, its compilation and its link. It does not cover behaviour
+  on silicon: nothing here has run on a dongle, which BLE-OPEN-02 to -04 exist
+  to establish.
 
 ## 14. Supplementary checks performed
 
