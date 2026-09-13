@@ -165,6 +165,15 @@
 #define NRF_QUEUE_ENABLED			1
 #define NRF_SECTION_ITER_ENABLED		1
 #define NRF_SORTLIST_ENABLED			1	/**< app_timer v2 needs it */
+/* nrf_sortlist.h expands its instance name through a *ternary in C code*
+ * - (NRF_LOG_ENABLED && NRF_SORTLIST_CONFIG_LOG_ENABLED) ? name : NULL -
+ * rather than through the logging macros that compile away. So the key has to
+ * exist even with logging off, or every NRF_SORTLIST_DEF fails to compile, and
+ * the error appears inside app_timer2.c with no mention of sortlist logging. */
+#define NRF_SORTLIST_CONFIG_LOG_ENABLED		0
+#define NRF_SORTLIST_CONFIG_LOG_LEVEL		3
+#define NRF_SORTLIST_CONFIG_INFO_COLOR		0
+#define NRF_SORTLIST_CONFIG_DEBUG_COLOR		0
 #define NRF_ATFLAGS_ENABLED			1	/**< ble_conn_state needs it */
 #define NRF_BALLOC_CLI_CMDS			0
 #define APP_SCHEDULER_ENABLED			0

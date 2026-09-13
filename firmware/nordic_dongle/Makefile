@@ -80,7 +80,6 @@ SRC_FILES += \
   $(SDK_ROOT)/integration/nrfx/legacy/nrf_drv_clock.c \
   $(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_clock.c \
   $(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_power.c \
-  $(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_power_clock.c \
   $(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_systick.c \
   $(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_timer.c \
   $(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_usbd.c \
@@ -211,6 +210,22 @@ help:
 	@echo	  sdk_config       - open the configuration tool
 
 TEMPLATE_PATH := $(SDK_ROOT)/components/toolchain/gcc
+
+# Nordic's Makefile.common *warns* about a source file it cannot find and then
+# builds without it. That is how a missing interrupt handler reaches a linker
+# error three screens later, or worse, links because something else defines a
+# weak symbol. A source this project names and the SDK does not have is a
+# mistake about the SDK, and it is worth saying so here.
+#
+# The SoftDevice hex is checked separately: it is only needed for flashing.
+MISSING_SOURCES := $(strip $(foreach source,$(SRC_FILES),$(if $(wildcard $(source)),,$(source))))
+ifneq ($(MISSING_SOURCES),)
+  $(info SDK_ROOT is $(SDK_ROOT))
+  $(foreach source,$(MISSING_SOURCES),$(info missing source: $(source)))
+  $(error $(words $(MISSING_SOURCES)) source file(s) named by this Makefile \
+do not exist under SDK_ROOT. Check SDK_ROOT points at an nRF5 SDK 17 tree, and \
+that these paths are right for its nrfx version)
+endif
 
 include $(TEMPLATE_PATH)/Makefile.common
 

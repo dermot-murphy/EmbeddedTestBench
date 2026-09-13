@@ -114,7 +114,10 @@ jobs:
         working-directory: firmware/nordic_dongle
         run: |
           set -euo pipefail
-          make SDK_ROOT="$GITHUB_WORKSPACE/sdk/$SDK_DIRECTORY" -j"$(nproc)" manifest
+          # -k: keep going after a failure, so one run reports every compile
+          # error rather than the first. A cross-compile check that has to be
+          # pushed once per error is a slow way to find five of them.
+          make SDK_ROOT="$GITHUB_WORKSPACE/sdk/$SDK_DIRECTORY" -j"$(nproc)" -k manifest
           cat _build/firmware_manifest.json
 
       - name: Report the size
