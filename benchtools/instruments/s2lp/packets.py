@@ -17,7 +17,7 @@ merely lost - it is *invisible*. A capture therefore records how it was taken
 listening". A count of what was missed is not available from this hardware path,
 and this package does not invent one.
 
-Traces to: S2LP-FR-030 .. S2LP-FR-036, S2LP-DD-PACKETS.
+Traces to: S2LP-FR-040 .. S2LP-FR-046, S2LP-DD-PACKETS.
 """
 
 from __future__ import annotations

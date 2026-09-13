@@ -1,0 +1,29 @@
+# S2-LP: 915 MHz, 38.4 kbps 2-GFSK, basic packet format.
+#
+# Register values only - names and hex, one per line. Anything after #, ; or //
+# is a comment, and the separator may be a space, '=', ':' or ','. Values are
+# hexadecimal whether or not they carry 0x.
+#
+# This file states what a test requires. Registers it does not name are not the
+# test's business unless the test asks for a strict check, which additionally
+# requires everything else to be at its reset value.
+#
+#   python -m benchtools s2lp -r /dev/ttyACM0 config configs/s2lp_915_38k4_basic.regs --apply
+#   python -m benchtools s2lp -r /dev/ttyACM0 config configs/s2lp_915_38k4_basic.regs --strict
+#
+# Capture a working radio's settings into a file of this shape with:
+#
+#   python -m benchtools s2lp -r /dev/ttyACM0 config --save mine.regs
+
+# --- packet handler ---------------------------------------------------
+PCKTCTRL3   0x20        # PCKT_FRMT=0 basic, RX_MODE=0 normal
+PCKTCTRL2   0x00        # fixed length, no Manchester, no M-BUS
+PCKTCTRL1   0x2C        # CRC mode, whitening and FEC as the link needs
+
+# --- modulation -------------------------------------------------------
+MOD2        0x27        # MOD_TYPE=2 (2-GFSK BT=1), datarate exponent
+MOD1        0x5A        # interpolation on, deviation exponent
+
+# --- packet length ----------------------------------------------------
+PCKTLEN1    0x00
+PCKTLEN0    0x10        # 16 bytes

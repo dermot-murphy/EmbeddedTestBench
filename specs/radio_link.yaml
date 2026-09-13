@@ -32,6 +32,14 @@ setup:
       modulation: 2-gfsk-bt1
       deviation_hz: 20000
       bandwidth_hz: 100000
+
+  # The register values this suite requires live in a file, not in this
+  # specification: the person who works out the settings is rarely the person
+  # writing the tests, and a setting that moves should not need a code change.
+  # Paths are relative to where the runner is invoked, as bench paths are.
+  - do: s2lp.apply_configuration
+    with: {source: configs/s2lp_915_38k4_basic.regs}
+
   - do: s2lp.set_payload_length
     with: {length: 16}
 
@@ -68,6 +76,32 @@ tests:
     steps:
       - do: s2lp.payload_length
         expect: [{name: payload, equals: 16}]
+
+  - name: The radio holds the register values this suite requires
+    requirement: SYS-REQ-201
+    steps:
+      # Loose: the file says what this test needs, and says nothing about the
+      # registers it does not name.
+      - do: s2lp.verify_configuration
+        with: {source: configs/s2lp_915_38k4_basic.regs}
+        save: configuration
+        expect:
+          - name: configured
+            measure: matches
+            equals: 1
+
+  - name: Nothing else has been left set by an earlier test
+    requirement: SYS-REQ-202
+    steps:
+      # Strict: every register the file does not name must be at its reset
+      # value. This is the check that catches a leftover from whatever ran
+      # before - and the reason a suite can start from a known radio.
+      - do: s2lp.verify_configuration
+        with: {source: configs/s2lp_915_38k4_basic.regs, strict: true}
+        expect:
+          - name: exactly_configured
+            measure: matches
+            equals: 1
 
   - name: The packet format register holds what it should
     requirement: SYS-REQ-201

@@ -269,18 +269,22 @@ where the firmware implements the requirement.
 | S2LP-FR-014 | S2LP-ARC-001 | S2LP-DD-S2LP, -REGS | `read_all_registers`, `dump_registers`, `contiguous_runs` | `test_read_all_registers_is_not_123_round_trips`, `test_the_dump_names_registers_and_decodes_fields`, `test_what_has_been_changed_is_the_short_answer` |
 | S2LP-FR-015 | S2LP-ARC-001 | S2LP-DD-S2LP | address check in `read_registers` | `test_a_mis_framed_reply_is_caught_not_believed`, `test_a_short_reply_is_caught` |
 | S2LP-FR-016 | S2LP-ARC-001 | S2LP-DD-S2LP, -CONST | `strobe`, `Strobe` | `TestStrobes` (5) |
-| S2LP-FR-020 | S2LP-ARC-001 | S2LP-DD-S2LP | `configure_radio` and the radio properties | `TestRadioConfiguration` (12) |
-| S2LP-FR-021 | S2LP-ARC-001 | S2LP-DD-S2LP | `configure_radio` returns `radio_info()` | `test_configure_returns_what_the_radio_says_afterwards` |
-| S2LP-FR-022 | S2LP-ARC-001 | S2LP-DD-S2LP, -CONST | `_check_frequency`, `BOARDS` | `test_a_frequency_outside_the_board_s_band_is_refused` (3) |
-| S2LP-FR-023 | S2LP-ARC-001 | S2LP-DD-S2LP | `_post_open`, `_read_identity`, `band` | `test_connecting_configures_nothing`, `test_it_learns_the_board_and_its_band`, `test_the_band_comes_from_the_board_not_from_configuration` |
-| S2LP-FR-024 | S2LP-ARC-001 | S2LP-DD-S2LP | `rssi_dbm_from_register` | `TestRssiConversion` (3), `test_the_rssi_is_encoded_as_the_register_encodes_it` |
-| S2LP-FR-030 | S2LP-ARC-001 | S2LP-DD-S2LP, -PACKETS | `transmit`, `transmit_batch` | `TestTransmit` (5) |
-| S2LP-FR-031 | S2LP-ARC-001 | S2LP-DD-S2LP, -PACKETS | `receive`, `Packet` | `TestReceive` (4), notably `test_nothing_on_the_air_returns_none_not_an_empty_packet` |
-| S2LP-FR-032 | S2LP-ARC-001 | S2LP-DD-S2LP | `capture(continuous=True)` | `test_a_continuous_capture_has_no_gaps` |
-| S2LP-FR-033 | S2LP-ARC-001, AD-20 | S2LP-DD-PACKETS | `Capture.gaps`, `is_continuous` | `test_a_polled_capture_reports_its_gaps`, `test_a_polled_capture_is_bounded_by_attempts` |
-| S2LP-FR-034 | S2LP-ARC-001 | S2LP-DD-PACKETS | `Capture.stopped_early` | `test_a_capture_that_gets_nothing_says_so_rather_than_failing` |
-| S2LP-FR-035 | S2LP-ARC-001 | S2LP-DD-SESSION | `S2lpSession.log_to` | `TestLogging` (5 session), `test_the_session_log_carries_both_directions` |
-| S2LP-FR-036 | S2LP-ARC-001 | S2LP-DD-PACKETS | `PacketLog` | `TestLogs` (6), notably `test_a_truncated_packet_log_still_reads` |
+| S2LP-FR-017 | S2LP-ARC-001 | S2LP-DD-CONFIG | `parse_register_file`, `load_register_file` | `TestParsingWhatPeopleWrite` (11), `TestLoadingFromDisk` (3) |
+| S2LP-FR-018 | S2LP-ARC-001 | S2LP-DD-CONFIG | the refusals in `parse_register_file` | `TestRefusingWhatIsWrong` (8), `test_an_empty_file_is_refused` |
+| S2LP-FR-019 | S2LP-ARC-001 | S2LP-DD-CONFIG, -S2LP | `apply_configuration`, `verify_configuration`, `ConfigurationCheck` | `TestApplyingToARadio` (5), `TestVerifyingAgainstARadio` (8), notably `test_a_loose_check_ignores_what_the_file_does_not_name` and `test_a_strict_check_does_not` |
+| S2LP-FR-020 | S2LP-ARC-001 | S2LP-DD-CONFIG, -S2LP | `format_register_file`, `save_configuration` | `TestWritingAFileBack` (4), `TestCapturingFromARadio` (3) |
+| S2LP-FR-030 | S2LP-ARC-001 | S2LP-DD-S2LP | `configure_radio` and the radio properties | `TestRadioConfiguration` (12) |
+| S2LP-FR-031 | S2LP-ARC-001 | S2LP-DD-S2LP | `configure_radio` returns `radio_info()` | `test_configure_returns_what_the_radio_says_afterwards` |
+| S2LP-FR-032 | S2LP-ARC-001 | S2LP-DD-S2LP, -CONST | `_check_frequency`, `BOARDS` | `test_a_frequency_outside_the_board_s_band_is_refused` (3) |
+| S2LP-FR-033 | S2LP-ARC-001 | S2LP-DD-S2LP | `_post_open`, `_read_identity`, `band` | `test_connecting_configures_nothing`, `test_it_learns_the_board_and_its_band`, `test_the_band_comes_from_the_board_not_from_configuration` |
+| S2LP-FR-034 | S2LP-ARC-001 | S2LP-DD-S2LP | `rssi_dbm_from_register` | `TestRssiConversion` (3), `test_the_rssi_is_encoded_as_the_register_encodes_it` |
+| S2LP-FR-040 | S2LP-ARC-001 | S2LP-DD-S2LP, -PACKETS | `transmit`, `transmit_batch` | `TestTransmit` (5) |
+| S2LP-FR-041 | S2LP-ARC-001 | S2LP-DD-S2LP, -PACKETS | `receive`, `Packet` | `TestReceive` (4), notably `test_nothing_on_the_air_returns_none_not_an_empty_packet` |
+| S2LP-FR-042 | S2LP-ARC-001 | S2LP-DD-S2LP | `capture(continuous=True)` | `test_a_continuous_capture_has_no_gaps` |
+| S2LP-FR-043 | S2LP-ARC-001, AD-20 | S2LP-DD-PACKETS | `Capture.gaps`, `is_continuous` | `test_a_polled_capture_reports_its_gaps`, `test_a_polled_capture_is_bounded_by_attempts` |
+| S2LP-FR-044 | S2LP-ARC-001 | S2LP-DD-PACKETS | `Capture.stopped_early` | `test_a_capture_that_gets_nothing_says_so_rather_than_failing` |
+| S2LP-FR-045 | S2LP-ARC-001 | S2LP-DD-SESSION | `S2lpSession.log_to` | `TestLogging` (5 session), `test_the_session_log_carries_both_directions` |
+| S2LP-FR-046 | S2LP-ARC-001 | S2LP-DD-PACKETS | `PacketLog` | `TestLogs` (6), notably `test_a_truncated_packet_log_still_reads` |
 | S2LP-FR-050 | S2LP-ARC-001 | S2LP-DD-SIM | `simulator.py`, `register_driver("s2lp", …)` | `SWE4-UT-S2LPSIM` (25), `test_correct_driver_per_alias` |
 | S2LP-FR-060 | S2LP-ARC-001 | S2LP-DD-CLI | `cli.py` | `SWE4-UT-S2LPCLI` (25) |
 
@@ -385,7 +389,7 @@ where the firmware implements the requirement.
 | JLINK-ARC-001 | JLINK-DD-GDBMI, -SESSION, -SERVER, -RTT, -SWO, -TIMING, -CONST, -SIM, -PROBE, -CLI | `instruments/jlink/*.py` |
 | BLE-ARC-001 | BLE-DD-PROTOCOL, -SESSION, -PROFILE, -LATENCY, -CONST, -DONGLE, -SIM, -CLI | `instruments/nordic_dongle/*.py` |
 | BLE-ARC-001 | BLE-DD-CDC, -TIMESTAMP, -SCANNER, -NUS, -CMD, -MAIN, -BUILD, -TEST | `firmware/nordic_dongle/{src,include,config,ses,gcc,scripts,test}/*` |
-| S2LP-ARC-001 | S2LP-DD-S2LP, -REGS, -PROTOCOL, -SESSION, -PACKETS, -SIM, -CLI, -CONST | `instruments/s2lp/{s2lp,registers,protocol,session,packets,simulator,cli,constants}.py` |
+| S2LP-ARC-001 | S2LP-DD-S2LP, -REGS, -CONFIG, -PROTOCOL, -SESSION, -PACKETS, -SIM, -CLI, -CONST | `instruments/s2lp/{s2lp,registers,configuration,protocol,session,packets,simulator,cli,constants}.py` |
 | PSU-ARC-001 | PSU-DD-PSU, -CONST, -SIM, -CLI | `instruments/gpd2303s/{psu,constants,simulator,cli}.py` |
 | RUN-ARC-001 | RUN-DD-SPEC, -LIMITS, -RESOLVE, -BENCH, -RESULTS, -RUNNER, -REPORT, -CLI | `runner/*.py`, `cli.py` |
 

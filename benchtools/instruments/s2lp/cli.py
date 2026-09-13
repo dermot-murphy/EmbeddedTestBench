@@ -106,6 +106,33 @@ def _cmd_registers(radio: S2lpDevkit, args) -> int:
     return _EXIT_OK
 
 
+def _cmd_config(radio: S2lpDevkit, args) -> int:
+    """Apply, verify or capture a register file."""
+    if args.save:
+        path = radio.save_configuration(args.save, only_changed=not args.all)
+        _emit({"saved": path, "registers": len(open(path, encoding="utf-8").read().splitlines())},
+              args.json)
+        return _EXIT_OK
+
+    configuration = radio.load_configuration(args.file)
+    if args.apply:
+        check = radio.apply_configuration(configuration)
+    else:
+        check = radio.verify_configuration(configuration, strict=args.strict)
+
+    payload = check.as_dict()
+    payload["applied"] = bool(args.apply)
+    payload["settings"] = [setting.as_dict() for setting in configuration]
+    if not check.matches:
+        payload["warning"] = (
+            "the radio is not in the configuration %s describes, so any "
+            "measurement taken now is of a radio set up differently from the "
+            "one the test specifies." % configuration.source
+        )
+    _emit(payload, args.json)
+    return _EXIT_OK if check.matches else _EXIT_ERROR
+
+
 def _cmd_radio(radio: S2lpDevkit, args) -> int:
     if args.frequency or args.rate or args.modulation or args.deviation or args.bandwidth:
         info = radio.configure_radio(
@@ -217,6 +244,20 @@ def build_parser() -> argparse.ArgumentParser:
     radio.add_argument("--bandwidth", type=int, help="channel filter bandwidth in Hz")
     radio.add_argument("--power", type=float, help="output power in dBm")
     radio.set_defaults(handler=_cmd_radio)
+
+    config = subparsers.add_parser(
+        "config", help="apply, verify or capture a register file")
+    config.add_argument("file", nargs="?", help="register file: names and hex values")
+    config.add_argument("--apply", action="store_true",
+                        help="write the values to the radio (default is to verify only)")
+    config.add_argument("--strict", action="store_true",
+                        help="verifying: also require every register the file does "
+                             "not name to be at its reset value")
+    config.add_argument("--save", metavar="PATH",
+                        help="instead, write the radio's current registers out as a file")
+    config.add_argument("--all", action="store_true",
+                        help="--save: include registers that are at their reset value")
+    config.set_defaults(handler=_cmd_config)
 
     tx = subparsers.add_parser("tx", help="transmit a packet")
     tx.add_argument("data", help="payload: 0x-prefixed hex, or text")

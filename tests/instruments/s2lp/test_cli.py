@@ -115,6 +115,61 @@ class TestSubcommands:
         assert status == 0 and payload["sent"] is True
 
 
+class TestConfigFiles:
+    """``s2lp config``: the register values a test requires, from a file.
+
+    Traces to: S2LP-FR-017 .. S2LP-FR-019.
+    """
+
+    FILE = "PCKTCTRL3 0xC0\nPCKTCTRL2 0x01\nMOD2 0x27\n"
+
+    def write(self, tmp_path, text=None):
+        path = tmp_path / "config.regs"
+        path.write_text(self.FILE if text is None else text)
+        return str(path)
+
+    def test_verifying_a_radio_that_does_not_match_exits_one(self, capsys, tmp_path):
+        """So a build step stops rather than measuring a radio set up
+        differently from the one the test specifies."""
+        status, payload, _ = run(capsys, *SIM, "config", self.write(tmp_path))
+        assert status == 1
+        assert payload["matches"] is False
+        assert payload["applied"] is False
+        assert "set up differently" in payload["warning"]
+        assert payload["mismatches"]["PCKTCTRL3"] == {"expected": "0xC0", "actual": "0x20"}
+
+    def test_applying_it_then_reports_a_match(self, capsys, tmp_path):
+        status, payload, _ = run(capsys, *SIM, "config", self.write(tmp_path), "--apply")
+        assert status == 0
+        assert payload["matches"] is True and payload["applied"] is True
+        assert payload["checked"] == 3
+
+    def test_the_settings_it_read_are_reported(self, capsys, tmp_path):
+        _, payload, _ = run(capsys, *SIM, "config", self.write(tmp_path), "--apply")
+        names = [setting["name"] for setting in payload["settings"]]
+        assert names == ["PCKTCTRL3", "PCKTCTRL2", "MOD2"]
+        assert payload["settings"][0]["fields"]["PCKT_FRMT"] == 3
+
+    def test_a_bad_file_names_the_line(self, capsys, tmp_path):
+        status, _, stderr = run(capsys, *SIM, "config",
+                                self.write(tmp_path, "PCKTCTRL3 0xC0\nNOTAREG 1\n"))
+        assert status == 1
+        assert "line 2" in stderr
+
+    def test_saving_captures_the_radio(self, capsys, tmp_path):
+        path = str(tmp_path / "captured.regs")
+        status, payload, _ = run(capsys, *SIM, "config", "--save", path)
+        assert status == 0
+        assert payload["saved"] == path
+        assert "register" in open(path, encoding="utf-8").read()
+
+    def test_the_shipped_example_verifies_against_a_radio_it_was_applied_to(self, capsys):
+        """The file in configs/ is a working example, not decoration."""
+        example = "configs/s2lp_915_38k4_basic.regs"
+        assert run(capsys, *SIM, "config", example)[0] == 1
+        assert run(capsys, *SIM, "config", example, "--apply")[0] == 0
+
+
 class TestLogs:
     def test_both_logs_are_written(self, capsys, tmp_path):
         session = tmp_path / "s.log"
@@ -145,7 +200,7 @@ class TestUsage:
 
     def test_the_parser_documents_every_subcommand(self):
         text = build_parser().format_help()
-        for name in ("info", "registers", "radio", "tx", "rx", "capture", "strobe"):
+        for name in ("info", "registers", "radio", "config", "tx", "rx", "capture", "strobe"):
             assert name in text
 
 

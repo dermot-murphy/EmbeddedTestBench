@@ -24,7 +24,7 @@ a protocol's timing, and this driver never presents it as if it were.
 setting outside the board's filter and matching network, transmit into it, and
 report exactly what it was told - while almost nothing comes out of the antenna.
 
-Traces to: S2LP-FR-001 .. S2LP-FR-060, S2LP-ARC-001, S2LP-DD-S2LP.
+Traces to: S2LP-FR-001 .. S2LP-FR-060, S2LP-ARC-001, S2LP-DD-S2LP, S2LP-DD-CONFIG.
 """
 
 from __future__ import annotations
@@ -38,6 +38,12 @@ from ...core.instrument import Instrument, InstrumentIdentity
 from ...core.transport.base import Transport
 from ...core.transport.factory import open_transport
 from . import registers as reg
+from .configuration import (
+    ConfigurationCheck,
+    RegisterConfiguration,
+    format_register_file,
+    load_register_file,
+)
 from .constants import (
     BOARDS,
     DEFAULT_BAUDRATE,
@@ -423,6 +429,124 @@ class S2lpDevkit(Instrument):
                 elif block:
                     self.write_registers(block_start, block)
                     block, block_start = [], None
+
+    # ------------------------------------------------------------------
+    # Register values from a file
+    # ------------------------------------------------------------------
+    @staticmethod
+    def load_configuration(
+        source: Union[str, RegisterConfiguration]
+    ) -> RegisterConfiguration:
+        """Read a register file, or pass one already loaded straight through.
+
+        Accepting both means a specification can name a path and a Python caller
+        can hand over a configuration it built or edited, without two methods
+        that do the same thing.
+        """
+        if isinstance(source, RegisterConfiguration):
+            return source
+        return load_register_file(str(source))
+
+    def apply_configuration(
+        self, source: Union[str, RegisterConfiguration], verify: bool = True
+    ) -> ConfigurationCheck:
+        """Write the register values a file asks for, and check they took.
+
+        Written in the file's own order, because some settings only take effect
+        when written after another and a file that works should be applied the
+        way it was written. Consecutive registers are still sent together.
+
+        :param verify: Read the registers back afterwards. On by default: a
+            write to this radio is acknowledged by the firmware, not by the
+            radio, so "the command was accepted" and "the register holds the
+            value" are different facts.
+        :raises InstrumentError: if a register did not take the value asked for,
+            naming every one that differs.
+        """
+        configuration = self.load_configuration(source)
+        for address, values in self._runs_of(configuration):
+            self.write_registers(address, values)
+
+        if not verify:
+            return ConfigurationCheck(source=configuration.source,
+                                      checked=len(configuration))
+        check = self.verify_configuration(configuration)
+        if not check.matches:
+            raise InstrumentError(
+                "the radio did not take the configuration in %s: %s"
+                % (configuration.source or "the file", check.describe())
+            )
+        return check
+
+    @staticmethod
+    def _runs_of(configuration: RegisterConfiguration):
+        """Group a configuration's settings into consecutive blocks, in order."""
+        runs = []
+        for setting in configuration:
+            if runs and setting.address == runs[-1][0] + len(runs[-1][1]):
+                runs[-1][1].append(setting.value)
+            else:
+                runs.append((setting.address, [setting.value]))
+        return runs
+
+    def verify_configuration(
+        self, source: Union[str, RegisterConfiguration], strict: bool = False
+    ) -> ConfigurationCheck:
+        """Check the radio against the register values a file asks for.
+
+        :param strict: Also require that every register the file does **not**
+            name is at its reset value. The two modes answer different
+            questions: without it, "is what this test needs set?"; with it, "is
+            the radio in exactly this configuration and nothing else?" - which
+            catches a setting left behind by whatever ran before.
+        """
+        configuration = self.load_configuration(source)
+        wanted = configuration.as_map()
+        values = self.read_all_registers() if strict else {
+            address: value
+            for start, count in reg.contiguous_runs(list(wanted))
+            for address, value in zip(range(start, start + count),
+                                      self.read_registers(start, count))
+        }
+
+        check = ConfigurationCheck(
+            source=configuration.source, checked=len(configuration), strict=bool(strict)
+        )
+        for setting in configuration:
+            actual = values.get(setting.address)
+            if actual != setting.value:
+                check.mismatches[setting.name] = (setting.value, actual if actual is not None else -1)
+
+        if strict:
+            for address, actual in sorted(values.items()):
+                if address in wanted:
+                    continue
+                register = reg.BY_ADDRESS.get(address)
+                if register is not None and register.writable and actual != register.reset:
+                    check.unexpected[register.name] = (register.reset, actual)
+        return check
+
+    def save_configuration(
+        self, path: str, title: str = "", only_changed: bool = True
+    ) -> str:
+        """Write the radio's current registers out as a register file.
+
+        So a radio configured by hand - or by the vendor's GUI - can be captured
+        and replayed. Read-only registers are left out: a file naming one cannot
+        be applied, and a captured configuration that cannot be applied is a
+        trap rather than a record.
+
+        :returns: The path written.
+        """
+        values = self.read_all_registers()
+        text = format_register_file(
+            values,
+            title=title or "captured from %s on %s" % (self.board, self._transport.description),
+            only_changed=only_changed,
+        )
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(text)
+        return path
 
     # ------------------------------------------------------------------
     # Radio configuration

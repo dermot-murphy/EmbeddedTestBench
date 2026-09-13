@@ -6,6 +6,14 @@ so no firmware of ours runs on the board.
 Traces to: S2LP-FR-001 .. S2LP-FR-060, S2LP-ARC-001.
 """
 
+from .configuration import (
+    ConfigurationCheck,
+    RegisterConfiguration,
+    RegisterSetting,
+    format_register_file,
+    load_register_file,
+    parse_register_file,
+)
 from .constants import BOARDS, DEFAULT_BOARD, MODEL, Modulation, PacketFormat, Strobe
 from .packets import Capture, Packet, PacketLog
 from .protocol import Reply, format_command, parse_reply
@@ -18,6 +26,12 @@ __all__ = [
     "S2lpDevkit",
     "SimulatedS2lp",
     "S2lpSession",
+    "RegisterConfiguration",
+    "RegisterSetting",
+    "ConfigurationCheck",
+    "load_register_file",
+    "parse_register_file",
+    "format_register_file",
     "Packet",
     "Capture",
     "PacketLog",

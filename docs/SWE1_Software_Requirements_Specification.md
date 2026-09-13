@@ -503,28 +503,32 @@ timestamp. And the radio will accept a frequency the board cannot radiate.
 | S2LP-FR-014 | The driver shall dump every register in one operation, reading consecutive addresses in blocks, and shall be able to report which registers differ from their reset values. | STK-19 | Test |
 | S2LP-FR-015 | A reply whose register addresses do not match those asked for shall be reported as an error, not read as values. | STK-19 | Test |
 | S2LP-FR-016 | The driver shall send any command strobe, by name or opcode. | STK-19 | Test |
+| S2LP-FR-017 | The driver shall read the register values a test requires from a file of register names and values. The file shall tolerate the punctuation such files are written with - a space, `=`, `:` or `,` between name and value, comments, and an address in place of a name - and values shall be hexadecimal. | STK-19 | Test |
+| S2LP-FR-018 | A register file that cannot be applied shall be refused, naming the file and the line: an unknown register, a value that does not fit a register, a read-only register, a register set twice, or a line that is not a setting. An empty file shall be refused rather than applied silently. | STK-19 | Test |
+| S2LP-FR-019 | The driver shall apply a register file to the radio and confirm by read-back that it took, and shall check the radio against a file without writing to it. The check shall be available in two forms: the registers the file names, or additionally that every register it does not name is at its reset value. | STK-19 | Test |
+| S2LP-FR-020 | The driver shall write the radio's current register values out as a file of the same form, so a radio configured by hand or by the vendor's GUI can be captured and replayed. Registers that cannot be written shall be omitted from it. | STK-19 | Test |
 
 ### 11.3 Radio configuration
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
-| S2LP-FR-020 | The driver shall set and read the carrier frequency, modulation, data rate, frequency deviation, channel filter bandwidth and output power. | STK-19 | Test |
-| S2LP-FR-021 | A configuration operation shall report what the radio says it is set to afterwards, not what it was asked for. | STK-19 | Test |
-| S2LP-FR-022 | A frequency outside the band the attached board is built for shall be refused, because the radio would accept it and transmit into a filter and matching network that do not pass it. | STK-19 | Test |
-| S2LP-FR-023 | The board shall be identified at connection, and its band taken from what it reports rather than from configuration. Connecting shall change no radio setting. | STK-19 | Test |
-| S2LP-FR-024 | Signal strength shall be reported in dBm, converted by the device's documented scale. | STK-19 | Test |
+| S2LP-FR-030 | The driver shall set and read the carrier frequency, modulation, data rate, frequency deviation, channel filter bandwidth and output power. | STK-19 | Test |
+| S2LP-FR-031 | A configuration operation shall report what the radio says it is set to afterwards, not what it was asked for. | STK-19 | Test |
+| S2LP-FR-032 | A frequency outside the band the attached board is built for shall be refused, because the radio would accept it and transmit into a filter and matching network that do not pass it. | STK-19 | Test |
+| S2LP-FR-033 | The board shall be identified at connection, and its band taken from what it reports rather than from configuration. Connecting shall change no radio setting. | STK-19 | Test |
+| S2LP-FR-034 | Signal strength shall be reported in dBm, converted by the device's documented scale. | STK-19 | Test |
 
 ### 11.4 Transmitting, receiving and logging
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
-| S2LP-FR-030 | The driver shall transmit a payload given as bytes or as text, and shall transmit one repeatedly at an interval timed by the board rather than by the host. | STK-19 | Test |
-| S2LP-FR-031 | The driver shall receive a packet, reporting its payload, its signal strength and the board's timestamp. Receiving nothing shall be reported as nothing received, and shall be distinguishable from receiving an empty packet. | STK-19 | Test |
-| S2LP-FR-032 | The driver shall capture a number of packets, keeping the radio armed for the whole capture where the firmware allows it. | STK-19 | Test |
-| S2LP-FR-033 | A capture shall record how many times the radio was re-armed during it, so that a capture with gaps cannot be quoted as a complete record of the air. | STK-19 | Test |
-| S2LP-FR-034 | A capture that is cut short, by time or by the host, shall say so in its result rather than raise. | STK-19 | Test |
-| S2LP-FR-035 | Every line exchanged with the board shall be loggable to a text file, host-timestamped and flushed per line, including lines the driver did not understand. | STK-19 | Test |
-| S2LP-FR-036 | Every packet, sent and received, shall be loggable as one structured record per line, readable after an interrupted capture. Both logs shall be available at once, and a note shall be writable into both. | STK-19 | Test |
+| S2LP-FR-040 | The driver shall transmit a payload given as bytes or as text, and shall transmit one repeatedly at an interval timed by the board rather than by the host. | STK-19 | Test |
+| S2LP-FR-041 | The driver shall receive a packet, reporting its payload, its signal strength and the board's timestamp. Receiving nothing shall be reported as nothing received, and shall be distinguishable from receiving an empty packet. | STK-19 | Test |
+| S2LP-FR-042 | The driver shall capture a number of packets, keeping the radio armed for the whole capture where the firmware allows it. | STK-19 | Test |
+| S2LP-FR-043 | A capture shall record how many times the radio was re-armed during it, so that a capture with gaps cannot be quoted as a complete record of the air. | STK-19 | Test |
+| S2LP-FR-044 | A capture that is cut short, by time or by the host, shall say so in its result rather than raise. | STK-19 | Test |
+| S2LP-FR-045 | Every line exchanged with the board shall be loggable to a text file, host-timestamped and flushed per line, including lines the driver did not understand. | STK-19 | Test |
+| S2LP-FR-046 | Every packet, sent and received, shall be loggable as one structured record per line, readable after an interrupted capture. Both logs shall be available at once, and a note shall be writable into both. | STK-19 | Test |
 
 ### 11.5 Bench use
 

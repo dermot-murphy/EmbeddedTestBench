@@ -13,13 +13,13 @@
 
 | Metric | Result |
 |---|---|
-| Tests executed | **1 606** |
-| Passed | **1 606** |
+| Tests executed | **1 664** |
+| Passed | **1 664** |
 | Failed | 0 |
 | Errors | 0 |
 | Skipped | 0 |
-| Statement coverage | **94%** (9 620 statements, 565 missed) |
-| Execution time | 45.1 s with coverage instrumentation, 32.1 s without |
+| Statement coverage | **94%** (9 825 statements, 569 missed) |
+| Execution time | 46.0 s with coverage instrumentation, 32.4 s without |
 | Runtime | CPython 3.11.15, Linux |
 | Framework | pytest 9.1.1, pytest-cov |
 
@@ -60,8 +60,9 @@ hygiene rules of §4.3 - and its first build is recorded as BLE-OPEN-01.
 | SWE4-UT-S2LP | `instruments/s2lp/test_s2lp.py` | 73 | Pass |
 | SWE4-UT-S2LPREG | `instruments/s2lp/test_registers.py` | 34 | Pass |
 | SWE4-UT-S2LPPROTO | `instruments/s2lp/test_protocol.py` | 31 | Pass |
+| SWE4-UT-S2LPCONFIG | `instruments/s2lp/test_configuration.py` | 51 | Pass |
 | SWE4-UT-S2LPSIM | `instruments/s2lp/test_simulator.py` | 25 | Pass |
-| SWE4-UT-S2LPCLI | `instruments/s2lp/test_cli.py` | 25 | Pass |
+| SWE4-UT-S2LPCLI | `instruments/s2lp/test_cli.py` | 31 | Pass |
 | SWE4-UT-S2LPSESSION | `instruments/s2lp/test_session.py` | 14 | Pass |
 | SWE4-UT-PSU | `instruments/gpd2303s/test_psu.py` | 74 | Pass |
 | SWE4-UT-BLE | `instruments/nordic_dongle/test_dongle.py` | 64 | Pass |
@@ -76,7 +77,7 @@ hygiene rules of §4.3 - and its first build is recorded as BLE-OPEN-01.
 | SWE4-UT-BLECLI | `instruments/nordic_dongle/test_cli.py` | 25 | Pass |
 | SWE4-UT-BLELATENCY | `instruments/nordic_dongle/test_latency.py` | 20 | Pass |
 | SWE4-UT-BLEFW | `instruments/nordic_dongle/test_firmware_protocol.py` | 17 | Pass |
-| SWE4-UT-LAYERING | `test_layering.py` | 80 | Pass |
+| SWE4-UT-LAYERING | `test_layering.py` | 81 | Pass |
 | SWE4-UT-GDBMI | `instruments/jlink/test_gdbmi.py` | 37 | Pass |
 | SWE4-UT-BENCH | `runner/test_bench.py` | 41 | Pass |
 | SWE4-UT-MEASURE | `analysis/test_measure.py` | 35 | Pass |
@@ -109,17 +110,18 @@ hygiene rules of §4.3 - and its first build is recorded as BLE-OPEN-01.
 | SWE4-UT-RESOLVE | `runner/test_resolve.py` | 13 | Pass |
 | SWE4-UT-SOCKET | `core/transport/test_socket.py` | 12 | Pass |
 | SWE4-UT-VISA | `core/transport/test_visa.py` | 6 | Pass |
-| **Total** | | **1 606** | **Pass** |
+| **Total** | | **1 664** | **Pass** |
 
 ## 3. Coverage detail
 
 | Element | Module | Statements | Missed | Coverage |
 |---|---|---|---|---|
 | S2LP | `instruments/s2lp/registers.py` | 95 | 0 | 100% |
+| S2LP | `instruments/s2lp/configuration.py` | 130 | 4 | 97% |
 | S2LP | `instruments/s2lp/constants.py` | 57 | 1 | 98% |
 | S2LP | `instruments/s2lp/protocol.py` | 97 | 4 | 96% |
 | S2LP | `instruments/s2lp/s2lp.py` | 311 | 14 | 95% |
-| S2LP | `instruments/s2lp/cli.py` | 146 | 9 | 94% |
+| S2LP | `instruments/s2lp/cli.py` | 163 | 9 | 94% |
 | S2LP | `instruments/s2lp/session.py` | 123 | 9 | 93% |
 | S2LP | `instruments/s2lp/simulator.py` | 226 | 29 | 87% |
 | S2LP | `instruments/s2lp/packets.py` | 123 | 19 | 85% |
@@ -558,7 +560,39 @@ does not. A dump renders as:
 which is the point of holding the map at all: 123 hex bytes say nothing about
 how a radio was configured, and this says it.
 
-### 9.3 A capture states how it was taken
+### 9.3 Register values from a file
+
+The values a test requires are read from a file of register names and hex
+values, applied, and checked back. The check has two modes, and the difference
+between them is the point:
+
+| | Loose (default) | Strict |
+|---|---|---|
+| Registers the file names | must match | must match |
+| Registers it does not name | not examined | must be at their reset value |
+| Question answered | "is what this test needs set?" | "is the radio in exactly this configuration?" |
+| Reads | only the named registers | the whole map |
+
+Applied to a fresh simulated radio and then verified:
+
+```
+3 register(s) match config.regs and nothing else is set
+```
+
+and after a single stray write to a register the file does not name, the loose
+check still passes while the strict one reports:
+
+```
+1 set but not named by the file: GPIO0_CONF = 0x55
+```
+
+Every way a file can be wrong is refused naming the file and the line — an
+unknown register, a value that does not fit a byte, a read-only register, a
+register set twice, a line that is not a setting, and an empty file. Applying
+verifies by read-back, because this radio's writes are acknowledged by the
+firmware rather than by the radio.
+
+### 9.4 A capture states how it was taken
 
 | Capture | Packets | Gaps | `is_continuous` | What it may be quoted as |
 |---|---|---|---|---|

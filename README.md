@@ -50,6 +50,7 @@ GDB/MI, and the runner treats it like any other instrument.
 | `firmware/` | Embedded firmware that is part of an instrument, with its own unit tests — currently the BLE dongle |
 | `specs/` | Example test specifications |
 | `benches/` | Example bench configurations |
+| `configs/` | Instrument register configurations a test can require |
 | `examples/` | Runnable Python examples |
 | `docs/` | ASPICE V4 SWE.1–SWE.4 work products |
 
@@ -398,6 +399,7 @@ with S2lpDevkit.connect("/dev/ttyACM0",
 
 ```bash
 python -m benchtools s2lp -r /dev/ttyACM0 registers --plain     # all 123, decoded
+python -m benchtools s2lp -r /dev/ttyACM0 config configs/basic.regs --apply
 python -m benchtools s2lp -r /dev/ttyACM0 tx 0x0102ff
 python -m benchtools s2lp -r sim:// capture --count 10          # no kit needed
 ```
@@ -409,6 +411,39 @@ count:
 0x2E PCKTCTRL3              = 0xC0            PCKT_FRMT=3
 0x2F PCKTCTRL2              = 0x07  (reset)   MBUS_3OF6_EN=1 MANCHESTER_EN=1 FIX_VAR_LEN=1
 ```
+
+### The register values a test needs come from a file
+
+A radio configuration is a list of register values, and it belongs in a file
+rather than in a test — the person who works out the settings is rarely the
+person writing the specification.
+
+```
+# configs/s2lp_915_38k4_basic.regs
+PCKTCTRL3   0x20        # a space, '=', ':' or ',' all work; values are hex
+PCKTCTRL2 = 0x00
+MOD2: 27                ; comments after # ; or //
+```
+
+```yaml
+- do: s2lp.apply_configuration
+  with: {source: configs/s2lp_915_38k4_basic.regs}
+- do: s2lp.verify_configuration
+  with: {source: configs/s2lp_915_38k4_basic.regs, strict: true}
+  expect: [{name: configured, measure: matches, equals: 1}]
+```
+
+Verifying comes in two forms, and the difference is the point: the **loose**
+check asks "is what this test needs set?", and the **strict** one adds "and is
+nothing else set?" — which is what catches a register left behind by whatever
+ran before. Applying writes and then reads back, because this radio's writes are
+acknowledged by the firmware rather than by the radio. `config --save` captures a
+working radio's settings into a file of the same shape, so a configuration
+arrived at in ST's GUI can be replayed.
+
+Every way a file can be wrong names the file and the line: an unknown register,
+a value that does not fit a byte, a read-only register, a register set twice, a
+line that is not a setting, an empty file.
 
 ### What the firmware cannot do, and what the driver does about it
 
@@ -559,7 +594,7 @@ python examples/02_channel_spread.py            # simulator
 python -m pytest tests/ --cov=benchtools --cov-report=term
 ```
 
-**1 606 tests, 94% statement coverage, no hardware required** — no oscilloscope,
+**1 664 tests, 94% statement coverage, no hardware required** — no oscilloscope,
 no probe, no target, no GDB, no dongle, no BLE sensor, no power supply, no
 sub-1 GHz kit. With
 every optional extra removed: 1 152 pass, 36 skip, 0 fail.

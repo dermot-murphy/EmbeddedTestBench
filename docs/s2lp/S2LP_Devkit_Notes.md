@@ -126,20 +126,95 @@ exists to prevent. A write to a read-only register is **refused**, because the
 radio would accept it, discard it, and read back the old value, which looks like
 the driver losing a setting.
 
-### 3.3 From the command line
+### 3.3 Register values from a file
+
+A test's required register values live in a file, not in the test. The person
+who works out the settings is rarely the person writing the specification, and a
+setting that moves should not need a code change.
+
+```
+# 915 MHz, 38.4 kbps, basic packets
+PCKTCTRL3   0x20        # a space, '=', ':' or ',' all work
+PCKTCTRL2 = 0x00
+MOD2: 27                ; values are hexadecimal, 0x optional
+0x11, 5A                // an address instead of a name
+```
+
+`configs/s2lp_915_38k4_basic.regs` is a worked example.
+
+```python
+radio.apply_configuration("configs/s2lp_915_38k4_basic.regs")     # write, then read back
+check = radio.verify_configuration("configs/...", strict=False)   # check without writing
+radio.save_configuration("captured.regs")                         # capture this radio
+```
+
+```bash
+python -m benchtools s2lp -r /dev/ttyACM0 config configs/s2lp_915_38k4_basic.regs
+python -m benchtools s2lp -r /dev/ttyACM0 config configs/s2lp_915_38k4_basic.regs --apply
+python -m benchtools s2lp -r /dev/ttyACM0 config configs/s2lp_915_38k4_basic.regs --strict
+python -m benchtools s2lp -r /dev/ttyACM0 config --save captured.regs
+```
+
+Verifying exits 1 on a mismatch, so a build step stops rather than measuring a
+radio set up differently from the one the test specifies.
+
+**Two checks, asking different questions:**
+
+| | Loose (default) | Strict |
+|---|---|---|
+| Registers the file names | must match | must match |
+| Registers it does not name | not examined | must be at their reset value |
+| Answers | "is what this test needs set?" | "is the radio in exactly this configuration?" |
+
+The strict check is what catches a register left set by whatever ran before it.
+The loose one lets a file cover one aspect of a configuration without having to
+describe the whole radio.
+
+**What the file will not let you do**, each refused naming the file and the
+line: name a register that does not exist, give a value that does not fit a
+byte, set a read-only register (the radio would ignore the write and read back
+its own value), set a register twice, or write a line that is not a setting. An
+empty file is refused too — it would be applied and verified without doing
+anything, and without saying so.
+
+A `#define` line is **not** accepted, deliberately: distinguishing it from a
+comment would mean `#` sometimes starting a comment and sometimes not, and a
+format in which a typo turns a setting into a comment silently is worse than one
+that refuses the line.
+
+From a specification:
+
+```yaml
+setup:
+  - do: s2lp.apply_configuration
+    with: {source: configs/s2lp_915_38k4_basic.regs}
+
+tests:
+  - name: The radio holds the values this suite requires
+    steps:
+      - do: s2lp.verify_configuration
+        with: {source: configs/s2lp_915_38k4_basic.regs, strict: true}
+        expect: [{name: configured, measure: matches, equals: 1}]
+```
+
+`specs/radio_link.yaml` runs exactly that. Paths are relative to where the
+runner is invoked, as bench paths are.
+
+### 3.4 From the command line
 
 ```bash
 python -m benchtools s2lp -r /dev/ttyACM0 info
 python -m benchtools s2lp -r /dev/ttyACM0 registers --plain          # the whole map
 python -m benchtools s2lp -r /dev/ttyACM0 registers PCKTCTRL3
 python -m benchtools s2lp -r /dev/ttyACM0 registers PCKTCTRL3 --write 0xC0
+python -m benchtools s2lp -r /dev/ttyACM0 config configs/s2lp_915_38k4_basic.regs --apply
 python -m benchtools s2lp -r /dev/ttyACM0 radio --frequency 915000000 --rate 38400
 python -m benchtools s2lp -r /dev/ttyACM0 tx 0x0102ff
 python -m benchtools s2lp -r /dev/ttyACM0 --packet-log rx.jsonl capture --count 50
 python -m benchtools s2lp -r sim:// registers                        # no kit needed
 ```
 
-### 3.4 The two logs
+### 3.5 The two logs
 
 They answer different questions, so both are kept.
 

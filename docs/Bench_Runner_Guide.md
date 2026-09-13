@@ -202,6 +202,34 @@ Built-in actions not bound to an instrument:
 |---|---|---|
 | `sleep` | `seconds` | A settling time, stated explicitly rather than hidden in a driver |
 
+### 3.4 Values a test requires, from a file
+
+A step's arguments do not have to be written in the specification. Where an
+instrument supports it, a file can carry them — the S2-LP driver reads the
+register values a test requires from a file of names and hex values:
+
+```yaml
+setup:
+  - do: s2lp.apply_configuration
+    with: {source: configs/s2lp_915_38k4_basic.regs}
+
+tests:
+  - name: The radio holds the values this suite requires
+    steps:
+      - do: s2lp.verify_configuration
+        with: {source: configs/s2lp_915_38k4_basic.regs, strict: true}
+        expect: [{name: configured, measure: matches, equals: 1}]
+```
+
+This keeps two things that change at different rates apart: the settings, worked
+out by whoever characterised the radio, and the test, written by whoever decides
+what must be proven. Paths are relative to where the runner is invoked, as bench
+paths are.
+
+`configs/` holds the shipped examples. See
+[S2-LP Devkit Notes §3.3](../docs/s2lp/S2LP_Devkit_Notes.md) for the file format
+and what it refuses.
+
 ---
 
 ## 4. Limits

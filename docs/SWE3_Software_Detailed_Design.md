@@ -968,6 +968,53 @@ Design points:
 - The dump reads **contiguous runs**: 15 commands instead of 123, which on a
   115200 baud link is the difference between instant and not.
 
+## S2LP-DD-CONFIG — `configuration.py`
+
+Register values read from a file, applied to a radio and checked against it.
+The list of settings lives in a file rather than in a test because the person
+who works out the settings is rarely the person writing the specification, and a
+setting that moves should not require a code change.
+
+| Unit | Responsibility |
+|---|---|
+| `RegisterSetting` | One register, the value asked for, and the line it came from |
+| `RegisterConfiguration` | The settings of one file, **in the file's order** |
+| `ConfigurationCheck` | What the radio holds against what the file asked for: `mismatches`, `unexpected`, `matches` |
+| `parse_register_file` / `load_register_file` | Text or file to a configuration |
+| `format_register_file` | A configuration back out as text |
+
+Design points:
+
+- **Forgiving about punctuation, strict about content.** These files are written
+  by hand and exported by tools that each punctuate differently, so the
+  separator may be a space, `=`, `:` or `,`; `#`, `;` and `//` start comments;
+  and a register may be named by address. But every line ends up written to a
+  radio, so an unknown register, a value that does not fit a byte, a read-only
+  register, a register named twice, or a line that is not a setting is an error
+  naming the file and the line.
+- **Values are hexadecimal**, with or without `0x`. Guessing per line - `10` as
+  ten in one file and sixteen in the next - is exactly the ambiguity that
+  produces a radio configured almost right.
+- **A C `#define` line is deliberately not accepted.** Supporting it would mean
+  deciding whether a `#` starts a comment by looking at what follows it, and a
+  format where a typo turns a setting into a comment silently is worse than one
+  that refuses the line.
+- **The file's order is kept**, because some settings only take effect written
+  after another; `_runs_of` still groups consecutive addresses into single
+  writes without reordering.
+- **A register set twice is an error, not last-wins.** A file that sets a
+  register twice does not say what it wants.
+- **Two verification modes** (S2LP-FR-019). The loose check answers "is what
+  this test needs set?"; the strict check adds "and is nothing else set?",
+  which is what catches a register left behind by whatever ran before. The
+  loose check reads only the registers the file names; the strict one reads the
+  whole map, because it has to.
+- **Applying verifies by default.** A write is acknowledged by the firmware, not
+  by the radio: "the command was accepted" and "the register holds the value"
+  are different facts.
+- **`format_register_file` omits read-only registers.** A captured file that
+  names one cannot be applied, and a record that cannot be replayed is a trap.
+
 ## S2LP-DD-PROTOCOL — `protocol.py`
 
 The host's half of ST's CLI line protocol, and nothing else: it formats a command

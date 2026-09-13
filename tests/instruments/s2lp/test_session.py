@@ -3,7 +3,7 @@
 Two behaviours here are not in the protocol and are easy to get wrong: knowing
 where a reply ends, and stopping a capture that is already running.
 
-Traces to: S2LP-FR-001 .. S2LP-FR-004, S2LP-FR-035, SWE4-UT-S2LPSESSION.
+Traces to: S2LP-FR-001 .. S2LP-FR-004, S2LP-FR-045, SWE4-UT-S2LPSESSION.
 """
 
 from __future__ import annotations

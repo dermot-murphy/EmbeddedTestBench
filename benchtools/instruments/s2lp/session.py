@@ -18,7 +18,7 @@ host-timestamped, flushed per line. It is the evidence for anything measured
 through this driver. The structured packet log is a different file and lives in
 :mod:`packets`.
 
-Traces to: S2LP-FR-001 .. S2LP-FR-004, S2LP-FR-035, S2LP-DD-SESSION.
+Traces to: S2LP-FR-001 .. S2LP-FR-004, S2LP-FR-045, S2LP-DD-SESSION.
 """
 
 from __future__ import annotations
