@@ -45,7 +45,7 @@ GDB/MI, and the runner treats it like any other instrument.
 
 | Directory | Contents |
 |---|---|
-| `firmware/` | Embedded firmware that is part of an instrument — currently the BLE dongle |
+| `firmware/` | Embedded firmware that is part of an instrument, with its own unit tests — currently the BLE dongle |
 | `specs/` | Example test specifications |
 | `benches/` | Example bench configurations |
 | `examples/` | Runnable Python examples |
@@ -506,8 +506,25 @@ docker run --rm -v "$PWD":/work:ro canembed/canembed-arm \
 ```
 
 That check found seven defects, including a critical-region misuse and a missing
-GATT queue that would have failed on the first characteristic discovery. What
-remains is linking against SDK 17.1.0 and running it: see
+GATT queue that would have failed on the first characteristic discovery.
+
+The firmware also has **128 unit tests of its own** — Unity, CMake and CTest,
+with fake SDK headers at the SDK boundary so its real sources are what run:
+
+```bash
+cmake -S firmware/nordic_dongle/test -B build/firmware-tests
+cmake --build build/firmware-tests && ctest --test-dir build/firmware-tests
+```
+
+They found two more defects on their first run, both of which compile perfectly:
+a refused advertising line still counted as *reported* (defeating the host's loss
+detection), and the tail of an over-long command becoming a command of its own.
+
+`.github/workflows/firmware.yml` runs the unit tests and a real cross-compile
+against SDK 17.1.0 on every push and pull request that touches `firmware/**`,
+and uploads the hex, elf, map and DFU package as artefacts.
+
+What remains is linking against SDK 17.1.0 and running it: see
 [BLE Dongle Notes §5](docs/ble/BLE_Dongle_Notes.md#5-bench-confirmation-items).
 The host driver is fully verified against a simulated dongle.
 

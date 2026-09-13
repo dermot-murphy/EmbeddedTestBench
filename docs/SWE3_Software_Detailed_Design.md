@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-SWE3-001 |
-| Version | 4.1 |
+| Version | 4.2 |
 | Date | 2026-09-13 |
 | Process reference | Automotive SPICE V4.0, SWE.3 Software Detailed Design and Unit Construction |
 
@@ -713,6 +713,43 @@ quoted from a shell script carries the same caveat the API gives.
 
 ---
 
+## BLE-DD-TEST — `firmware/test/`
+
+Host-side unit tests for the firmware: Unity, built by CMake, run by CTest.
+
+The seam is the **SDK boundary**. `test/support/include/` holds fake headers -
+`ble_gap.h`, `nrf_ble_scan.h`, `app_usbd_cdc_acm.h`, `nrfx_timer.h` and the rest
+- placed ahead of everything on the include path, so the firmware's own sources
+compile unchanged and what runs under test is the code that runs on the dongle.
+Each fake does the least that keeps the firmware honest, with one deliberate
+exception: where behaviour depends on the SDK's *semantics* rather than its
+signature - `ble_advdata_search` returning the offset of the payload, not of the
+length byte - the fake implements the semantics, because a stub returning a
+constant would hide exactly the mistake worth finding.
+
+| Binary | Unit under test | Fakes linked |
+|---|---|---|
+| `test_timestamp` | `timestamp.c` | SDK |
+| `test_cdc_acm` | `cdc_acm.c` | SDK |
+| `test_ble_scanner` | `ble_scanner.c` | SDK, host link |
+| `test_nus_client` | `nus_client.c` | SDK, host link, scanner |
+| `test_cmd_parser` | `cmd_parser.c` | SDK, host link, scanner, UART client |
+
+A binary links only the fakes it needs: a fake beside the module it stands in
+for is a duplicate symbol, which is why there is no reset-everything helper and
+each `setUp` resets what its own binary has.
+
+Three points about state. The firmware's modules hold static state with no
+reset - as they do on the dongle, where the only reset is a reset - so:
+`cmd_parser_init` clears the selection (it is "start from a known state", which
+the target wants too); `test_cdc_acm` drains whatever the previous test left in
+flight, which exercises the drain path as a side benefit; and the two timestamp
+tests that must run before initialisation are run first, deliberately and in
+writing, with everything after them made order-independent by measuring deltas.
+
+The critical-region fakes keep the SDK's brace-pair shape rather than being flat
+calls, so the misuse of defect D-23 cannot compile here either.
+
 ## BLE-DD-CDC — `firmware/src/cdc_acm.c`
 
 USB CDC ACM as a line transport, with a 32-line outgoing queue.
@@ -797,6 +834,12 @@ their own switch with `NRF_MODULE_ENABLED`, which reads an undefined symbol as
 disabled, so a component enabled without its settings fails to compile and names
 the missing symbol. `package_dfu.sh`/`.bat` wrap the built hex for the dongle's
 factory bootloader with `nrfutil`, since a PCA10059 has no onboard debugger.
+
+The Makefile beside the SES project is the headless build: CI cannot licence an
+IDE, and "the firmware builds" is worth knowing on every push. It is modelled on
+Nordic's own armgcc makefiles and includes the SDK's `Makefile.common`, with
+`gcc/nordic_dongle_gcc_nrf52.ld` repeating the flash and RAM figures the SES
+project carries - if the SoftDevice changes, both change together.
 
 `compile_check.sh` compiles every unit against real SDK headers inside the
 `canembed/canembed-arm` image, which carries GCC 10.2.1 and nRF5 SDK 15.2.0.

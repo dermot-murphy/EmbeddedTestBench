@@ -3,11 +3,11 @@
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-BLE-001 |
-| Version | 1.1 |
+| Version | 1.2 |
 | Date | 2026-09-13 |
 | Element | `BLE-` — `benchtools.instruments.nordic_dongle` + `firmware/nordic_dongle` |
 | Firmware target | nRF52840 USB dongle (PCA10059), S140 7.2.0, nRF5 SDK 17.1.0, SEGGER Embedded Studio |
-| Status | Host driver verified against a simulated dongle. Firmware **compiles** against real SDK headers (§5.1); not yet linked, flashed or run |
+| Status | Host driver verified against a simulated dongle. Firmware has 128 unit tests (§5.1) and **compiles** against real SDK headers (§5.2); not yet linked, flashed or run |
 
 The engineering note for the BLE dongle: why it needs firmware of its own, what
 the protocol is, how to build and flash it, how to read the numbers it produces,
@@ -107,6 +107,16 @@ driver's `DongleError` mirrors and `test_firmware_protocol.py` checks.
 
 ### 3.1 Build
 
+Either open the SES project, or build headlessly with the Makefile:
+
+```
+cd firmware/nordic_dongle
+make SDK_ROOT=/path/to/nRF5_SDK_17.1.0 -j
+make SDK_ROOT=/path/to/nRF5_SDK_17.1.0 dfu      # and package it
+```
+
+SES remains the reference; the Makefile exists because CI cannot licence an IDE.
+
 1. Install nRF5 SDK 17.1.0 and SEGGER Embedded Studio for ARM.
 2. Open `firmware/nordic_dongle/ses/nordic_dongle_pca10059.emProject`.
 3. Set `SDK_ROOT` (Tools → Options → Building → Global macros), or build headless:
@@ -198,7 +208,29 @@ measurement; it is the cross-check that shows what the host link contributes.
 
 ## 5. Bench confirmation items
 
-### 5.1 What the compiler has already said
+### 5.1 Firmware unit tests
+
+```
+cmake -S firmware/nordic_dongle/test -B build/firmware-tests
+cmake --build build/firmware-tests
+ctest --test-dir build/firmware-tests --output-on-failure
+```
+
+128 cases across five binaries. Unity is fetched at configure time; pass
+`-DUNITY_DIR=/path/to/Unity` to use a local copy instead. Nothing else is
+needed - no SDK, no toolchain, no dongle - because fake SDK headers sit at the
+SDK boundary and the firmware's own sources are what run.
+
+They found two defects on their first run, both of which compile perfectly: an
+advertising line the queue refused was still counted as *reported*, so the
+host's loss detection could never fire; and the tail of an over-long command
+became a command of its own.
+
+`test_cmd_parser` is worth knowing about if you change the protocol: it asserts
+the exact shape of every reply, and the host driver's tests assert the same
+shapes from the other side.
+
+### 5.2 What the compiler has already said
 
 The firmware **has now been compiled**, in the `canembed/canembed-arm` container
 image, which carries `arm-none-eabi-gcc` 10.2.1, SEGGER Embedded Studio 4.16 and
@@ -210,6 +242,12 @@ policy), so this is a cross-version check:
 docker run --rm -v "$PWD":/work:ro canembed/canembed-arm \
        bash /work/firmware/nordic_dongle/scripts/compile_check.sh
 ```
+
+On GitHub, `.github/workflows/firmware.yml` does all of this on every push and
+pull request that touches `firmware/**`: the unit tests first, then a real
+cross-compile against SDK 17.1.0 with the hex, elf, map and DFU package uploaded
+as artefacts. That workflow is the first place SDK 17.1.0 is actually used, so it
+is also where BLE-OPEN-01 will be discharged or shown to need more work.
 
 All six units compile with `-Wall -Wextra -O2` and **zero warnings**, apart from
 four lines using SDK 17's GATT queue, which SDK 15.2 has no equivalent for. The
@@ -229,7 +267,7 @@ worth repeating here because they are the kind that survive review:
 versions, and the `sdk_config.h` keys the SDK's headers assert on. **What it does
 not:** that the firmware links, fits in flash, or runs.
 
-### 5.2 What remains
+### 5.3 What remains
 
 Treat the first real build as part of the work, not as a formality.
 

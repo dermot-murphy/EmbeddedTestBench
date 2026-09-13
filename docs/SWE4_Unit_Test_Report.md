@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-SWE4-002 |
-| Version | 4.1 |
+| Version | 4.2 |
 | Date | 2026-09-13 |
 | Specification | BENCHTOOLS-SWE4-001 |
 | Item under verification | `benchtools` 4.0.0 and `firmware/nordic_dongle` |
@@ -234,7 +234,36 @@ the rules it is written to.
 
 PC-10 is met.
 
-### 4.4 Firmware compilation against real SDK headers
+### 4.4 Firmware unit tests
+
+The firmware now has unit tests of its own: Unity, built by CMake, run by CTest,
+with fake SDK headers at the SDK boundary so the firmware's sources compile
+unchanged and the logic under test is the logic that runs on the dongle.
+
+| Binary | Cases | Result |
+|---|---|---|
+| `test_cmd_parser` | 47 | Pass |
+| `test_ble_scanner` | 30 | Pass |
+| `test_nus_client` | 20 | Pass |
+| `test_cdc_acm` | 19 | Pass |
+| `test_timestamp` | 11 | Pass |
+| **Total** | **128** | **Pass** |
+
+```
+cmake -S firmware/nordic_dongle/test -B build/firmware-tests
+cmake --build build/firmware-tests
+ctest --test-dir build/firmware-tests --output-on-failure
+```
+
+`test_cmd_parser` is the one to note. The host driver is tested against a
+*simulated* dongle; this is the only place the **real firmware's** replies are
+checked, so the two halves of the protocol are now verified against each other
+from both sides rather than one side being assumed.
+
+The suite found two defects immediately (D-27, D-28), both of the kind that
+compile cleanly and behave wrongly.
+
+### 4.5 Firmware compilation against real SDK headers
 
 Since the first issue of this report, the firmware has been **compiled**, in the
 `canembed/canembed-arm` container image, which carries `arm-none-eabi-gcc`
@@ -268,6 +297,9 @@ project against SDK 17.1.0 on a machine that has it.
 
 It found seven defects (D-20 to D-26), one of which was a concurrency error that
 no amount of reading had caught.
+
+PC-12 is met: every firmware unit test passes, and the firmware still compiles
+for the target after the fixes they prompted.
 
 PC-5 and PC-9 are met. This is the check that keeps the shared core shareable as
 the instruments named in CON-03 are added — and it has already paid: adding the
@@ -506,6 +538,15 @@ Missing SES project entries were corrected with them: `nrf_sortlist.c` and
 and the include paths for `sortlist`, `atomic_flags`, `nrf_ble_gq` and
 `ble_link_ctx_manager`.
 
+| D-27 | An advertising line the transmit queue **refused** was still counted as reported, so the firmware's "reported" and "received" counters always agreed | **Major** (evidence integrity): the host compares those counters to tell a lossy link from a quiet sensor, and this made `AdvertisingProfile.is_complete` incapable of ever being false for a firmware-side drop | **Closed** — counted only when the queue accepts the line | `test_a_dropped_line_is_counted_as_not_reported` |
+| D-28 | After an over-long command the receiver started a **new** line where the buffer overflowed, instead of discarding to the terminator. The tail of a truncated command therefore became a command: `xxx…xxxreset` would have executed `reset` | **Major** (a command nobody sent) | **Closed** — bytes are discarded until the terminator | `test_the_tail_of_an_over_long_command_is_not_a_command` |
+
+Two smaller corrections came with them: `cmd_parser_init` now clears the
+selection, so the module can be brought back to a known state (the target wants
+that after a soft restart as much as the tests do); and the sources that use
+`UNUSED_PARAMETER` now include `app_util_platform.h` rather than relying on the
+SDK to provide it transitively.
+
 No open defects.
 
 Notes on process effectiveness:
@@ -535,6 +576,13 @@ Notes on process effectiveness:
   never trip. A simulator that is too permissive is worse than no simulator,
   because the suite reports success. They are recorded here as defects for that
   reason, and each now has a test asserting the behaviour the driver depends on.
+- **Unit tests found what compiling could not.** D-27 and D-28 both compile
+  perfectly. One made a loss-detection counter incapable of detecting loss; the
+  other would have executed the tail of a truncated command. Neither is visible
+  by reading, and neither would have been found by a bench session that did not
+  happen to overflow a buffer or a queue. This is the argument for testing
+  firmware logic on a host: the cases that matter are the ones that are awkward
+  to provoke on the part.
 - **Compiling found in twenty minutes what review had not found at all.** Seven
   defects, five of which stop the build outright, in code that had been read
   carefully twice. Two are worth singling out: D-23, where the SDK's
@@ -577,6 +625,7 @@ Notes on process effectiveness:
 | PC-8 | No test requires a probe, target, debugger or GDB server | **Pass** — §1 |
 | PC-9 | No module imports a third-party package at module level | **Pass** — §4.2 |
 | PC-10 | Firmware and driver agree; firmware hygiene holds | **Pass** — §4.3 |
+| PC-12 | Firmware unit tests pass; the firmware still compiles | **Pass** — §4.4, §4.5 |
 | PC-11 | A simulated 100 ms sensor reads as 105 ms mean, 10 ms spread; a sensor that skips beacons is reported as missing them | **Pass** — §7.1 |
 
 **Overall verdict: PASS**, subject to the bench confirmation items that cannot be
@@ -586,8 +635,9 @@ discharged without physical hardware:
 - `docs/jlink/JLink_Integration_Notes.md` §4, for the probe (JLINK-OPEN-01 to
   -04, of which the SWO timestamp scaling is the one that could change a
   reported figure);
-- `docs/ble/BLE_Dongle_Notes.md` §5, for the dongle. The firmware now **compiles**
-  against real SDK headers (§4.4), which is a materially stronger position than
+- `docs/ble/BLE_Dongle_Notes.md` §5, for the dongle. The firmware now has unit
+  tests (§4.4) and **compiles** against real SDK headers (§4.5), which is a
+  materially stronger position than
   this report's first issue described, but it is compiled against SDK 15.2 and
   not linked, flashed or run. The verdict covers the host driver, the protocol
   agreement, the firmware's source-level rules and its compilation. It does not
@@ -616,5 +666,7 @@ discharged without physical hardware:
 | `python -m benchtools` | Runs |
 | `benchtools` console script after `pip install -e .` | Installs and runs |
 | Full suite with `matplotlib`, `pyvisa`, `pyyaml`, `numpy` and `pyserial` blocked | 1 152 passed, 36 skipped, 0 failed |
-| `firmware/nordic_dongle/scripts/compile_check.sh` in `canembed/canembed-arm` | All six firmware units compile, 0 warnings, apart from four listed SDK 17-only lines (§4.4) |
+| `firmware/nordic_dongle/scripts/compile_check.sh` in `canembed/canembed-arm` | All six firmware units compile, 0 warnings, apart from four listed SDK 17-only lines (§4.5) |
+| `ctest --test-dir build/firmware-tests` | 5 binaries, 128 cases, all pass in 0.01 s |
+| `make SDK_ROOT=…` against SDK 15.2 | Drives a real build to the compile stage; stops only on files SDK 15.2 places elsewhere or lacks, which is the expected result for an SDK 17 project |
 | Import with those extras blocked | Package imports; only the plot, VISA and YAML paths raise, each naming its extra |

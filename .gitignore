@@ -9,3 +9,7 @@ htmlcov/
 *.csv
 *.png
 !docs/**/*.png
+
+# Firmware build output
+firmware/**/_build/
+build/

@@ -168,9 +168,10 @@ static void report_advertising(const ble_gap_evt_adv_report_t * p_report,
 	}
 	payload[length * 2U] = '\0';
 
-	m_profile_reported++;
-
-	(void)cdc_acm_send_format(
+	/* Counted only if the queue took it. Counting the attempt would make the
+	 * host's reconciliation - reported against received - always agree, which
+	 * is precisely the check that exists to detect a lossy link. */
+	if (cdc_acm_send_format(
 		"+adv t=%llu addr=%s type=%u rssi=%d pdu=%u ch=%u name=%s data=%s",
 		(unsigned long long)when_us,
 		address,
@@ -179,7 +180,10 @@ static void report_advertising(const ble_gap_evt_adv_report_t * p_report,
 		(unsigned)p_report->type.scan_response,
 		(unsigned)p_report->ch_index,
 		name,
-		payload);
+		payload))
+	{
+		m_profile_reported++;
+	}
 }
 
 static void scan_event_handler(scan_evt_t const * p_scan_evt)

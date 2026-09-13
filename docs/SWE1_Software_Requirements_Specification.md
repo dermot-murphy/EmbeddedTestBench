@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-SWE1-001 |
-| Version | 4.1 |
+| Version | 4.2 |
 | Date | 2026-09-13 |
 | Process reference | Automotive SPICE V4.0, SWE.1 Software Requirements Analysis |
 | Item | **BenchTools** — bench test tooling (`benchtools` 4.0.0) |
@@ -388,6 +388,7 @@ implements them; §9.6 says which.
 | ID | Requirement | Verification |
 |---|---|---|
 | BLE-NFR-001 | The firmware shall allocate no memory dynamically, shall not recurse, and shall bound every buffer at compile time. | Test, Inspection |
+| BLE-NFR-006 | The firmware shall be verifiable without a dongle: its units shall be testable on a host, and its build shall be reproducible headlessly. | Test |
 | BLE-NFR-002 | The firmware shall not block a radio event handler on USB, so that reporting cannot distort the timing being reported. | Inspection |
 | BLE-NFR-003 | The command set, events, error codes and size limits shall be defined once and checked automatically for agreement between firmware and host driver. | Test |
 | BLE-NFR-004 | The host driver shall add no mandatory third-party dependency; the serial library shall be an optional extra. | Test, Inspection |

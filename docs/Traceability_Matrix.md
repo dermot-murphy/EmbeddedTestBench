@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-TRACE-001 |
-| Version | 4.1 |
+| Version | 4.2 |
 | Date | 2026-09-13 |
 | Process reference | Automotive SPICE V4.0, SWE.1 BP6 / SWE.2 BP7 / SWE.3 BP5 / SWE.4 BP6 |
 | Item | `benchtools` 4.0.0 + `firmware/nordic_dongle` |
@@ -31,7 +31,7 @@ docstring, so the link is carried in the artefact and not only in this table.
 | STK-12 — Markdown to Robot Framework | JLINK-FR-081, -100 — return types constrained for a keyword layer (AD-15). Translator not implemented: CON-06, OPEN-04. |
 | STK-14 — BLE UART command/response and response time | BLE-FR-040 … -045, -050 … -054; CORE-FR-017; BLE-NFR-005 |
 | STK-15 — scan, select and advertising profile | BLE-FR-020 … -024, -030 … -036, -080 |
-| STK-16 — dongle firmware, SES and SDK 17 | BLE-FR-090, -001, -003, -010; BLE-NFR-001 … -003 |
+| STK-16 — dongle firmware, SES and SDK 17 | BLE-FR-090, -001, -003, -010; BLE-NFR-001 … -003, -006 |
 | STK-17 — log the session to a text file | BLE-FR-060 … -062, -004 |
 | STK-13, STK-18 — PSU, RS-232 multimeter | No requirements in this revision (CON-03, OPEN-03). `Instrument` (CORE-FR-012 … -016) and the serial transport (CORE-FR-017) are the seams each will use. |
 
@@ -201,10 +201,10 @@ where the firmware implements the requirement.
 | Requirement | Architecture | Design unit | Source | Verifying test(s) |
 |---|---|---|---|---|
 | BLE-FR-001 | BLE-ARC-001 | BLE-DD-PROTOCOL | `firmware/include/protocol.h`, `protocol.py` | `SWE4-UT-BLEPROTO` (34), `SWE4-UT-BLEFW` (17) |
-| BLE-FR-002 | BLE-ARC-001 | BLE-DD-CMD, BLE-DD-SESSION | `firmware/src/cmd_parser.c`, `session.py` | `TestCommands` (6), `test_every_command_has_a_handler_in_the_firmware` |
-| BLE-FR-003 | BLE-ARC-001 | BLE-DD-CDC | `firmware/src/cdc_acm.c` | `test_a_dropping_dongle_says_so`, `test_drop_notices_are_counted`; firmware behaviour by inspection (CON-07) |
-| BLE-FR-004 | BLE-ARC-001 | BLE-DD-PROFILE | `AdvertisingProfile.is_complete` | `test_a_lossy_capture_is_declared`, `test_a_lossy_link_is_declared_rather_than_averaged` |
-| BLE-FR-010 | BLE-ARC-001 | BLE-DD-TIMESTAMP | `firmware/src/timestamp.c` | `test_events_arrive_on_the_nominal_interval`, `test_the_clock_advances_monotonically` |
+| BLE-FR-002 | BLE-ARC-001 | BLE-DD-CMD, BLE-DD-SESSION, BLE-DD-TEST | `firmware/src/cmd_parser.c`, `session.py` | `TestCommands` (6), `test_every_command_has_a_handler_in_the_firmware`; firmware side: `SWE4-UT-FWUNIT` `test_cmd_parser` (47) |
+| BLE-FR-003 | BLE-ARC-001 | BLE-DD-CDC, BLE-DD-TEST | `firmware/src/cdc_acm.c` | `test_a_dropping_dongle_says_so`, `test_drop_notices_are_counted`; firmware side: `test_a_full_queue_drops_whole_lines_and_counts_them`, `test_writes_are_serialised_one_at_a_time`, `test_the_tail_of_an_over_long_command_is_not_a_command` |
+| BLE-FR-004 | BLE-ARC-001 | BLE-DD-PROFILE, BLE-DD-SCANNER | `AdvertisingProfile.is_complete`, `report_advertising` | `test_a_lossy_capture_is_declared`, `test_a_lossy_link_is_declared_rather_than_averaged`; firmware side: `test_a_dropped_line_is_counted_as_not_reported`, `test_the_counters_reconcile_what_was_seen_and_sent` |
+| BLE-FR-010 | BLE-ARC-001 | BLE-DD-TIMESTAMP, BLE-DD-TEST | `firmware/src/timestamp.c` | `test_events_arrive_on_the_nominal_interval`, `test_the_clock_advances_monotonically`; firmware side: `test_timestamp` (11), notably `test_the_counter_is_extended_past_thirty_two_bits` |
 | BLE-FR-011 | BLE-ARC-001 | BLE-DD-SESSION, BLE-DD-LATENCY | `Event.host_time`, `LatencySource` | `test_host_time_is_recorded_on_every_event`, `test_both_clocks_are_recorded` |
 | BLE-FR-020 | BLE-ARC-001 | BLE-DD-SCANNER | `firmware/src/ble_scanner.c`, `NordicDongle.scan` | `test_scan_finds_the_sensors`, `test_scanning_finds_sensors` |
 | BLE-FR-021 | BLE-ARC-001 | BLE-DD-SCANNER | `scanner_get`, `_sensor_from_event` | `test_a_sensor_with_no_name_is_still_listed` |
@@ -234,14 +234,15 @@ where the firmware implements the requirement.
 | BLE-FR-062 | BLE-ARC-001 | BLE-DD-SESSION | `note`, `log_note` | `test_a_note_can_be_written`, `test_a_note_lands_in_the_log` |
 | BLE-FR-070 | BLE-ARC-001 | BLE-DD-CLI | `nordic_dongle/cli.py` | `SWE4-UT-BLECLI` (18) |
 | BLE-FR-080 | BLE-ARC-001, RUN-ARC-001 | BLE-DD-SIM, RUN-DD-BENCH | `simulator.py`, `register_driver("ble-dongle", …)` | `SWE4-UT-BLESIM` (27), `test_the_top_level_command_dispatches` |
-| BLE-FR-090 | BLE-ARC-001 | BLE-DD-BUILD | `firmware/ses/*.emProject`, `firmware/scripts/{package_dfu,compile_check}.*` | `compile_check.sh` compiles every unit against real SDK headers (BENCHTOOLS-SWE4-002 §4.4); linking and flashing remain bench confirmation items (CON-07, BLE-OPEN-01) |
+| BLE-FR-090 | BLE-ARC-001 | BLE-DD-BUILD | `firmware/ses/*.emProject`, `firmware/Makefile`, `firmware/gcc/*.ld`, `firmware/scripts/{package_dfu,compile_check}.*`, `.github/workflows/firmware.yml` | `compile_check.sh` compiles every unit against real SDK headers (BENCHTOOLS-SWE4-002 §4.4); linking and flashing remain bench confirmation items (CON-07, BLE-OPEN-01) |
 
 ### BLE non-functional
 
 | Requirement | Evidence |
 |---|---|
-| BLE-NFR-001 | `test_no_dynamic_allocation` parses every firmware source; buffers are `PROTO_MAX_*` sized; no recursion by inspection; `compile_check.sh` compiles the whole firmware with `-Wall -Wextra` and no warnings. |
-| BLE-NFR-002 | `BLE-DD-CDC`: the radio event handler queues and returns. Verified by inspection; behaviour under load is a bench confirmation item (BLE-OPEN-02). |
+| BLE-NFR-001 | `test_no_dynamic_allocation` parses every firmware source; buffers are `PROTO_MAX_*` sized; no recursion by inspection; `compile_check.sh` compiles the whole firmware with `-Wall -Wextra` and no warnings; `SWE4-UT-FWUNIT` exercises the bounded buffers at their limits. |
+| BLE-NFR-006 | `SWE4-UT-FWUNIT`: 128 cases run the firmware's own sources on a host, with no dongle, SDK or toolchain; `firmware/nordic_dongle/Makefile` builds it headlessly, and `.github/workflows/firmware.yml` does both on every push touching `firmware/**`. |
+| BLE-NFR-002 | `BLE-DD-CDC`: the radio event handler queues and returns. `test_cdc_acm` proves the queue never blocks and that every path leaves its critical region; behaviour under load on the part is a bench confirmation item (BLE-OPEN-02). |
 | BLE-NFR-003 | `SWE4-UT-BLEFW`: the header is parsed and compared with the driver's constants - commands, argument bounds, handlers, events, error codes, limits, version. |
 | BLE-NFR-004 | `test_no_mandatory_third_party_imports`; pyserial is the `serial` extra, imported inside `_open_link`. |
 | BLE-NFR-005 | `test_the_dongle_clock_is_the_default`, `test_as_dict_carries_the_figure_and_its_caveats`, and the CLI's `warning` key. |
@@ -297,7 +298,7 @@ where the firmware implements the requirement.
 | SCOPE-ARC-001 | SCOPE-DD-SCOPE, -CONST, -SIM, -CLI | `instruments/tek3014b/*.py` |
 | JLINK-ARC-001 | JLINK-DD-GDBMI, -SESSION, -SERVER, -RTT, -SWO, -TIMING, -CONST, -SIM, -PROBE, -CLI | `instruments/jlink/*.py` |
 | BLE-ARC-001 | BLE-DD-PROTOCOL, -SESSION, -PROFILE, -LATENCY, -CONST, -DONGLE, -SIM, -CLI | `instruments/nordic_dongle/*.py` |
-| BLE-ARC-001 | BLE-DD-CDC, -TIMESTAMP, -SCANNER, -NUS, -CMD, -MAIN, -BUILD | `firmware/nordic_dongle/{src,include,config,ses,scripts}/*` |
+| BLE-ARC-001 | BLE-DD-CDC, -TIMESTAMP, -SCANNER, -NUS, -CMD, -MAIN, -BUILD, -TEST | `firmware/nordic_dongle/{src,include,config,ses,gcc,scripts,test}/*` |
 | RUN-ARC-001 | RUN-DD-SPEC, -LIMITS, -RESOLVE, -BENCH, -RESULTS, -RUNNER, -REPORT, -CLI | `runner/*.py`, `cli.py` |
 
 ## 9. Coverage analysis

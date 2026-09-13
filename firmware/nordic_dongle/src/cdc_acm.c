@@ -59,6 +59,7 @@ static volatile uint32_t m_dropped;
 static char		m_rx_byte[CDC_RX_CHUNK];
 static char		m_rx_line[PROTO_MAX_LINE];
 static uint32_t		m_rx_length;
+static bool		m_rx_overflow;		/**< discarding to the terminator */
 static volatile bool	m_rx_ready;		/**< a complete line is waiting */
 static char		m_rx_complete[PROTO_MAX_LINE];
 
@@ -114,8 +115,9 @@ static void cdc_event_handler(app_usbd_class_inst_t const * p_inst,
 	switch (event)
 	{
 	case APP_USBD_CDC_ACM_USER_EVT_PORT_OPEN:
-		m_port_open = true;
-		m_rx_length = 0U;
+		m_port_open   = true;
+		m_rx_length   = 0U;
+		m_rx_overflow = false;
 		(void)app_usbd_cdc_acm_read(&m_app_cdc_acm, m_rx_byte, CDC_RX_CHUNK);
 		break;
 
@@ -138,13 +140,18 @@ static void cdc_event_handler(app_usbd_class_inst_t const * p_inst,
 
 			if ((received == '\n') || (received == '\r'))
 			{
-				if ((m_rx_length > 0U) && !m_rx_ready)
+				if ((m_rx_length > 0U) && !m_rx_ready && !m_rx_overflow)
 				{
 					m_rx_line[m_rx_length] = '\0';
 					(void)memcpy(m_rx_complete, m_rx_line, m_rx_length + 1U);
 					m_rx_ready = true;
 				}
-				m_rx_length = 0U;
+				m_rx_length   = 0U;
+				m_rx_overflow = false;
+			}
+			else if (m_rx_overflow)
+			{
+				/* Still discarding the remains of an over-long line. */
 			}
 			else if (m_rx_length < (PROTO_MAX_LINE - 1U))
 			{
@@ -153,10 +160,15 @@ static void cdc_event_handler(app_usbd_class_inst_t const * p_inst,
 			}
 			else
 			{
-				/* Over-long line: discard it rather than acting on
-				 * half a command. The host sees no reply and
-				 * times out, which is the honest outcome. */
-				m_rx_length = 0U;
+				/* Over-long line: discard it, and keep discarding
+				 * until the terminator. Starting a new line here
+				 * would make the *tail* of a too-long command a
+				 * command in its own right - and the tail of
+				 * anything is not what the host asked for. The
+				 * host sees no reply and times out, which is the
+				 * honest outcome. */
+				m_rx_length   = 0U;
+				m_rx_overflow = true;
 			}
 		} while (app_usbd_cdc_acm_read(&m_app_cdc_acm, m_rx_byte, CDC_RX_CHUNK) == NRF_SUCCESS);
 		break;

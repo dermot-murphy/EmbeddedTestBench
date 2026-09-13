@@ -25,6 +25,7 @@
 #include <string.h>
 
 #include "app_error.h"
+#include "app_util_platform.h"
 #include "app_timer.h"
 #include "ble_db_discovery.h"
 #include "nrf_ble_gatt.h"

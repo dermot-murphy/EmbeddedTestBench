@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-SWE4-001 |
-| Version | 4.0 |
+| Version | 4.2 |
 | Date | 2026-09-13 |
 | Process reference | Automotive SPICE V4.0, SWE.4 Software Unit Verification |
 
@@ -28,6 +28,7 @@ the correct behaviour for an optional extra.
 | BLE dongle substitute | `benchtools.instruments.nordic_dongle.SimulatedDongle` - answers the dongle's line protocol over `MockTransport`, with a deterministic sensor population on a virtual microsecond clock |
 | Serial-port substitute | pyserial's `loop://` URL handler, which provides a real serial object with no hardware |
 | RTT and SWO substitute | `tests/instruments/jlink/test_sockets.py::LoopbackServer` — a TCP server on loopback standing in for the GDB Server's RTT and SWO ports |
+| Firmware SDK substitute | `firmware/nordic_dongle/test/support/` — fake SDK headers at the SDK boundary, so the firmware's own sources compile and run on the host |
 | Debug probe substitute | `benchtools.instruments.jlink.SimulatedJLink` — answers the GDB/MI dialogue over `MockTransport`, with a deterministic simulated target (symbols, memory, stacks, RTT, ITM, timing) |
 | Child-process substitute | The host's own Python interpreter, driven as a child through `ProcessTransport`, so pipe framing and child death are exercised without a debugger installed |
 | Optional extras exercised | `matplotlib`, `pyvisa` + `pyvisa-py`, `pyyaml` |
@@ -85,6 +86,22 @@ the build, checking that:
 These check consistency, not content: whether a requirement is well written is a
 review question, but whether it is traced at all is mechanical.
 
+### 1.4a Firmware verification
+
+The dongle firmware is verified three ways, none of which needs a dongle:
+
+1. **Unit tests on the host** (`SWE4-UT-FWUNIT`). The firmware's sources are
+   compiled unchanged against fake SDK headers, so the logic under test is the
+   logic that runs on the part. This is where behaviour is checked.
+2. **Agreement with the host driver** (`SWE4-UT-BLEFW`). The protocol header is
+   parsed and compared against the driver's constants.
+3. **Cross-compilation** (`compile_check.sh`). The whole firmware is compiled for
+   Cortex-M4 against real SDK headers.
+
+Between them these catch behaviour, interface drift and compilation. What no
+amount of them establishes is that the firmware *runs*: see the report's §4.4
+and BLE-OPEN-01.
+
 ### 1.5 Architectural verification
 
 The layering that makes the shared core reusable is easy to state and easy to
@@ -134,6 +151,7 @@ module's imports:
 | PC-9 | No module imports a third-party package at module level. |
 | PC-10 | The firmware's command set, events, error codes and limits agree with the driver's, and every firmware source carries its trace, allocates nothing dynamically, and holds the house indentation. |
 | PC-11 | A simulated 100 ms sensor reads as a mean interval of exactly 105 ms with a spread of exactly 10 ms, and a sensor that skips beacons is reported as missing them rather than as advertising slowly. |
+| PC-12 | Every firmware unit test passes, and the firmware compiles for the target after any change they prompt. |
 
 ## 2. Test groups
 
@@ -170,6 +188,7 @@ module's imports:
 | SWE4-UT-SERIAL | `core/transport/test_serial.py` | Serial transport: port and rate parsing, a TCP port not mistaken for a line rate, scheme registration, framing over `loop://`, a write the far end will not take | CORE-FR-017, CORE-NFR-003, -006 |
 | SWE4-UT-BLE | `instruments/nordic_dongle/test_dongle.py` | The dongle driver: identity and protocol check, scanning and filtering, selection, connection, UART, response timing, advertising profile, logging | BLE-FR-002 .. -062 |
 | SWE4-UT-BLEPROTO | `instruments/nordic_dongle/test_protocol.py` | The line protocol: replies, errors, events, empty and `=`-bearing values, non-protocol lines, hex, addresses and their types | BLE-FR-001, -002 |
+| SWE4-UT-FWUNIT | `firmware/nordic_dongle/test/*.c` | **Firmware unit tests** (Unity, CMake, CTest, 128 cases): the command dispatcher and every reply shape; the host link's line assembly, bounded queue and drop counting; the sensor table, filters and advertising reports; the UART client's link, writes and round-trip timing; the microsecond clock and its 32-bit wrap | BLE-FR-002 .. -004, -010, -020 .. -030, -040 .. -051, BLE-NFR-001, -002 |
 | SWE4-UT-BLEFW | `instruments/nordic_dongle/test_firmware_protocol.py` | Firmware and driver agreement: commands, argument bounds, handlers attached, events, error codes, size limits, protocol version; and firmware hygiene: traces, no dynamic allocation, indentation | BLE-FR-001, -080, -090, BLE-NFR-001, -003 |
 | SWE4-UT-BLESESSION | `instruments/nordic_dongle/test_session.py` | Command/reply with events interleaved, early-stopping collection, waiting for an event, drop notices, and session logging | BLE-FR-002, -004, -060 .. -062 |
 | SWE4-UT-BLEPROFILE | `instruments/nordic_dongle/test_profile.py` | Advertising statistics: channel coalescing, advDelay, missed events, duty cycle, completeness, exactly nominal intervals | BLE-FR-030 .. -036 |

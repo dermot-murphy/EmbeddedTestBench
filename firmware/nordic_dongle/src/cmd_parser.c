@@ -14,6 +14,7 @@
 #include <string.h>
 
 #include "app_error.h"
+#include "app_util_platform.h"
 #include "nrf_sdh.h"
 #include "nrf_soc.h"
 
@@ -641,6 +642,13 @@ bool cmd_parser_init(void)
 {
 	uint32_t	index;
 	uint32_t	attached = 0U;
+
+	/* Start from a known state: no sensor selected. On the target this runs
+	 * once at boot, where the state is zero anyway; it matters after a soft
+	 * restart, and it is what lets the unit tests be order-independent. */
+	m_have_selected    = false;
+	m_selected_name[0] = '\0';
+	(void)memset(&m_selected, 0, sizeof(m_selected));
 
 	for (index = 0U; index < CMD_COUNT; index++)
 	{
