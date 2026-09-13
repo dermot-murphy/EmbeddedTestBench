@@ -115,13 +115,14 @@ static void nus_c_event_handler(ble_nus_c_t * p_nus_c, ble_nus_c_evt_t const * p
 	}
 }
 
-uint32_t nus_client_init(void)
+uint32_t nus_client_init(nrf_ble_gq_t * p_gatt_queue)
 {
 	ble_nus_c_init_t init;
 
 	(void)memset(&init, 0, sizeof(init));
 	init.evt_handler   = nus_c_event_handler;
 	init.error_handler = NULL;
+	init.p_gatt_queue  = p_gatt_queue;
 
 	return ble_nus_c_init(&m_nus_client, &init);
 }
@@ -142,7 +143,7 @@ uint32_t nus_client_connect(const ble_gap_addr_t * p_address)
 	scan_params.window        = SCAN_WINDOW_UNITS;
 	scan_params.timeout       = 500U;		/**< 5 s, in 10 ms units */
 	scan_params.scan_phys     = BLE_GAP_PHY_1MBPS;
-	scan_params.filter_policy = BLE_GAP_SCAN_FILTER_POLICY_ACCEPT_ALL;
+	scan_params.filter_policy = BLE_GAP_SCAN_FP_ACCEPT_ALL;
 
 	(void)memset(&conn_params, 0, sizeof(conn_params));
 	conn_params.min_conn_interval = CONN_INTERVAL_MIN_UNITS;

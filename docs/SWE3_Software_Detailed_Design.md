@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-SWE3-001 |
-| Version | 4.0 |
+| Version | 4.1 |
 | Date | 2026-09-13 |
 | Process reference | Automotive SPICE V4.0, SWE.3 Software Detailed Design and Unit Construction |
 
@@ -797,6 +797,13 @@ their own switch with `NRF_MODULE_ENABLED`, which reads an undefined symbol as
 disabled, so a component enabled without its settings fails to compile and names
 the missing symbol. `package_dfu.sh`/`.bat` wrap the built hex for the dongle's
 factory bootloader with `nrfutil`, since a PCA10059 has no onboard debugger.
+
+`compile_check.sh` compiles every unit against real SDK headers inside the
+`canembed/canembed-arm` image, which carries GCC 10.2.1 and nRF5 SDK 15.2.0.
+It is a cross-version check - the firmware targets 17.1.0 - so it lists, rather
+than hides, the lines using SDK 17 API that the older SDK lacks. Its value is
+that it needs no bench and no Nordic download: it found seven defects the
+document-and-test discipline had not (SWE.4 report §4.4).
 
 ---
 

@@ -495,10 +495,19 @@ treat SWO timing figures as provisional until they are compared against the cycl
 counter on a real part. It has not yet been run on Windows, which is where it is
 intended to run first.
 
-**The BLE dongle firmware has never been compiled or run.** It is written against
-nRF5 SDK 17.1.0 and verified in the ways source can be verified without a
-toolchain — its protocol is checked against the driver, and its hygiene rules are
-enforced by tests — but its first build is part of the work, not a formality. See
+**The BLE dongle firmware compiles but has never been linked, flashed or run.**
+It targets nRF5 SDK 17.1.0; it is compiled against real SDK headers — SDK 15.2 in
+the `canembed/canembed-arm` image — with `-Wall -Wextra` and zero warnings, apart
+from four lines using SDK 17-only API that the script lists explicitly:
+
+```bash
+docker run --rm -v "$PWD":/work:ro canembed/canembed-arm \
+       bash /work/firmware/nordic_dongle/scripts/compile_check.sh
+```
+
+That check found seven defects, including a critical-region misuse and a missing
+GATT queue that would have failed on the first characteristic discovery. What
+remains is linking against SDK 17.1.0 and running it: see
 [BLE Dongle Notes §5](docs/ble/BLE_Dongle_Notes.md#5-bench-confirmation-items).
 The host driver is fully verified against a simulated dongle.
 

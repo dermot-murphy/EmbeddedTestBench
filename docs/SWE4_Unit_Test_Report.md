@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-SWE4-002 |
-| Version | 4.0 |
+| Version | 4.1 |
 | Date | 2026-09-13 |
 | Specification | BENCHTOOLS-SWE4-001 |
 | Item under verification | `benchtools` 4.0.0 and `firmware/nordic_dongle` |
@@ -232,8 +232,42 @@ the rules it is written to.
 | No `malloc`/`calloc`/`realloc`/`free` anywhere in the firmware | Pass (BLE-NFR-001) |
 | House indentation (tabs) throughout the firmware | Pass |
 
-PC-10 is met. What this does **not** establish is that the firmware compiles,
-links, fits, or behaves: see BLE-OPEN-01 to BLE-OPEN-04.
+PC-10 is met.
+
+### 4.4 Firmware compilation against real SDK headers
+
+Since the first issue of this report, the firmware has been **compiled**, in the
+`canembed/canembed-arm` container image, which carries `arm-none-eabi-gcc`
+10.2.1, SEGGER Embedded Studio 4.16 and nRF5 SDK 15.2.0.
+
+The firmware targets SDK 17.1.0, which is not in the image and cannot be
+downloaded here (Nordic's hosts are blocked by the network policy), so this is a
+**cross-version** check. It is run by
+`firmware/nordic_dongle/scripts/compile_check.sh`.
+
+| Unit | Result |
+|---|---|
+| `timestamp.c` | Compiles, 0 warnings |
+| `cdc_acm.c` | Compiles, 0 warnings |
+| `ble_scanner.c` | Compiles, 0 warnings |
+| `cmd_parser.c` | Compiles, 0 warnings |
+| `nus_client.c` | Compiles apart from two SDK 17 members (`ble_nus_c_init_t.error_handler`, `.p_gatt_queue`) |
+| `main.c` | Compiles apart from `ble_db_discovery_init_t`, which SDK 15.2 does not have |
+
+Compiled with `-Wall -Wextra -std=c99 -O2` for Cortex-M4 hard-float. The four
+excluded lines are the SDK 17 GATT-queue plumbing, which SDK 15.2 has no
+equivalent for; they are listed by the script rather than skipped silently, and
+a second pass compiles copies of those two files with exactly those lines
+removed - both then compile with 0 warnings.
+
+**What this establishes:** syntax, types, every SDK API this firmware calls that
+exists in both versions, and the `sdk_config.h` keys the SDK's own headers
+static-assert on. **What it does not:** that the firmware links, fits in flash,
+or runs. BLE-OPEN-01 is narrowed, not discharged: it now means building the SES
+project against SDK 17.1.0 on a machine that has it.
+
+It found seven defects (D-20 to D-26), one of which was a concurrency error that
+no amount of reading had caught.
 
 PC-5 and PC-9 are met. This is the check that keeps the shared core shareable as
 the instruments named in CON-03 are added — and it has already paid: adding the
@@ -459,6 +493,19 @@ documented, including the constructs a naive parser gets wrong — see D-09.
 | D-18 | The simulated dongle rolled an advertising event scheduled for the *current* instant forward by a whole interval, so whenever two sensors coincided the quieter one was never heard | Minor (**test double** defect; a scan silently found fewer sensors than it should) | **Closed** — only a schedule strictly in the past is rolled forward | `test_scan_finds_the_sensors`, `test_scanning_finds_sensors` |
 | D-19 | The serial transport reported a write the far end would not take as a connection failure | Minor (diagnosis quality: it sends the reader to look at the cable when the port is fine and flow control is asserted) | **Closed** — reported as a timeout naming flow control | `test_a_write_the_far_end_will_not_take_is_a_timeout` |
 
+| D-20 | `ble_scanner.h` declared functions taking `ble_evt_t` but included only `ble_gap.h`, which does not define it | Minor (would not compile) | **Closed** — includes `ble.h` | `compile_check.sh`: `ble_scanner.c` |
+| D-21 | The scan filter policy was written `BLE_GAP_SCAN_FILTER_POLICY_ACCEPT_ALL`; no SoftDevice header has ever spelled it that way (`BLE_GAP_SCAN_FP_ACCEPT_ALL`) | Minor (would not compile) | **Closed** | `compile_check.sh`: `ble_scanner.c`, `nus_client.c` |
+| D-22 | `command_list` declared a local `count` shadowing the parameter of the same name, left behind when the handlers were given a uniform signature | Minor (would not compile) | **Closed** — renamed to `found` | `compile_check.sh`: `cmd_parser.c` |
+| D-23 | `tx_pump` called `CRITICAL_REGION_EXIT()` inside an early return. The SDK's macro pair opens and closes a *brace*, so the region was structurally unbalanced — and the intent, returning from inside a critical region, is wrong regardless | **Major** (would not compile; and the pattern, had it compiled, leaves interrupts disabled on one path) | **Closed** — the decision is taken inside the region and acted on outside it | `compile_check.sh`: `cdc_acm.c` |
+| D-24 | `APP_USBD_STRINGS_USER` was defined as a string descriptor. It is an X-macro *list*, so the definition broke `app_usbd_string_desc.h` itself | Minor (would not compile; the error appeared inside an SDK header, several levels from the cause) | **Closed** — no user strings are declared | `compile_check.sh`: `cdc_acm.c` |
+| D-25 | `sdk_config.h` defined `BLE_DB_DISCOVERY_BLE_OBSERVER_PRIO`; the SDK's header reads `BLE_DB_DISC_BLE_OBSERVER_PRIO` | Minor, and the worst kind of configuration error: **the wrong name compiles and does nothing**, so the module would have registered its observer at an unintended priority had the header not asserted | **Closed** | `compile_check.sh`: `main.c` |
+| D-26 | SDK 17's `ble_nus_c` and `ble_db_discovery` submit GATT operations through a queue (`nrf_ble_gq`); the firmware created none and passed `NULL` | **Major** (would have compiled and then failed at run time, on the first characteristic discovery) | **Closed** — `main.c` owns one queue and hands it to both, per Nordic's own central examples | Found by the version delta, since SDK 15.2 has no queue at all; verified by inspection against the SDK 17 API |
+
+Missing SES project entries were corrected with them: `nrf_sortlist.c` and
+`nrf_atflags.c` (required by `app_timer` v2 and `ble_conn_state`), `nrf_ble_gq.c`,
+and the include paths for `sortlist`, `atomic_flags`, `nrf_ble_gq` and
+`ble_link_ctx_manager`.
+
 No open defects.
 
 Notes on process effectiveness:
@@ -488,6 +535,18 @@ Notes on process effectiveness:
   never trip. A simulator that is too permissive is worse than no simulator,
   because the suite reports success. They are recorded here as defects for that
   reason, and each now has a test asserting the behaviour the driver depends on.
+- **Compiling found in twenty minutes what review had not found at all.** Seven
+  defects, five of which stop the build outright, in code that had been read
+  carefully twice. Two are worth singling out: D-23, where the SDK's
+  critical-region macros are a brace pair and cannot contain a `return` - a rule
+  invisible unless you have read the macro or the compiler tells you; and D-26,
+  where the code would have compiled and failed on the first GATT discovery,
+  which is the failure a bench engineer would have spent an afternoon on. The
+  lesson is not subtle: **source that has never been near a compiler should be
+  described as such, and getting it to a compiler is worth real effort.**
+- **The version gap was informative rather than an obstacle.** SDK 15.2 lacking
+  the GATT queue is precisely what exposed D-26: the compiler's complaint that a
+  member did not exist prompted the question of what it is *for* in SDK 17.
 - **D-15 is the defect this element was most likely to produce**, and the least
   likely to be noticed: a sensor advertising exactly to specification, failed by
   a limit it meets, because of the last bit of a double. It was found by a test
@@ -527,11 +586,13 @@ discharged without physical hardware:
 - `docs/jlink/JLink_Integration_Notes.md` §4, for the probe (JLINK-OPEN-01 to
   -04, of which the SWO timestamp scaling is the one that could change a
   reported figure);
-- `docs/ble/BLE_Dongle_Notes.md` §5, for the dongle — **and here the
-  qualification is larger**: the firmware has never been compiled or run
-  (CON-07). The verdict covers the host driver, the protocol agreement and the
-  firmware's source-level rules. It does not cover the firmware's behaviour on
-  silicon, which BLE-OPEN-01 to -04 exist to establish.
+- `docs/ble/BLE_Dongle_Notes.md` §5, for the dongle. The firmware now **compiles**
+  against real SDK headers (§4.4), which is a materially stronger position than
+  this report's first issue described, but it is compiled against SDK 15.2 and
+  not linked, flashed or run. The verdict covers the host driver, the protocol
+  agreement, the firmware's source-level rules and its compilation. It does not
+  cover linking, flash size, or behaviour on silicon, which BLE-OPEN-01 to -04
+  exist to establish.
 
 ## 12. Supplementary checks performed
 
@@ -555,4 +616,5 @@ discharged without physical hardware:
 | `python -m benchtools` | Runs |
 | `benchtools` console script after `pip install -e .` | Installs and runs |
 | Full suite with `matplotlib`, `pyvisa`, `pyyaml`, `numpy` and `pyserial` blocked | 1 152 passed, 36 skipped, 0 failed |
+| `firmware/nordic_dongle/scripts/compile_check.sh` in `canembed/canembed-arm` | All six firmware units compile, 0 warnings, apart from four listed SDK 17-only lines (§4.4) |
 | Import with those extras blocked | Package imports; only the plot, VISA and YAML paths raise, each naming its extra |

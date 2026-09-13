@@ -70,17 +70,26 @@ static volatile bool	m_port_open;
 static void tx_pump(void)
 {
 	ret_code_t	error;
-	uint32_t	tail;
+	uint32_t	tail  = 0U;
+	bool		start = false;
 
+	/* CRITICAL_REGION_ENTER() opens a scope that CRITICAL_REGION_EXIT()
+	 * closes, so the two must be balanced in the same block and there can be
+	 * no return between them. The decision is therefore taken inside the
+	 * region and acted on outside it. */
 	CRITICAL_REGION_ENTER();
-	if (m_tx_busy || (m_tx_head == m_tx_tail) || !m_port_open)
+	if (!m_tx_busy && (m_tx_head != m_tx_tail) && m_port_open)
 	{
-		CRITICAL_REGION_EXIT();
+		tail      = m_tx_tail;
+		m_tx_busy = true;
+		start     = true;
+	}
+	CRITICAL_REGION_EXIT();
+
+	if (!start)
+	{
 		return;
 	}
-	tail      = m_tx_tail;
-	m_tx_busy = true;
-	CRITICAL_REGION_EXIT();
 
 	error = app_usbd_cdc_acm_write(&m_app_cdc_acm,
 				       m_tx_queue[tail].text,

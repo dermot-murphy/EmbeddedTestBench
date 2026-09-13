@@ -258,14 +258,14 @@ static void command_scan(char * tokens[], uint32_t count)
 
 static void command_list(char * tokens[], uint32_t count)
 {
-	UNUSED_PARAMETER(tokens);
-	UNUSED_PARAMETER(count);
-
-	uint32_t	count = scanner_count();
+	uint32_t	found = scanner_count();
 	uint32_t	index;
 	uint64_t	now_us = timestamp_now_us();
 
-	for (index = 0U; index < count; index++)
+	UNUSED_PARAMETER(tokens);
+	UNUSED_PARAMETER(count);
+
+	for (index = 0U; index < found; index++)
 	{
 		const scanner_sensor_t *	p_sensor = scanner_get(index);
 		char				address[18];
@@ -282,7 +282,7 @@ static void command_list(char * tokens[], uint32_t count)
 			p_sensor->name);
 	}
 
-	reply_ok("sensors=%lu", (unsigned long)count);
+	reply_ok("sensors=%lu", (unsigned long)found);
 }
 
 static void command_select(char * tokens[], uint32_t count)

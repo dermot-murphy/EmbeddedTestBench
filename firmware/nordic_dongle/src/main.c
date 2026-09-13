@@ -28,6 +28,7 @@
 #include "app_timer.h"
 #include "ble_db_discovery.h"
 #include "nrf_ble_gatt.h"
+#include "nrf_ble_gq.h"
 #include "nrf_delay.h"
 #include "nrf_drv_clock.h"
 #include "nrf_sdh.h"
@@ -44,6 +45,11 @@
 
 NRF_BLE_GATT_DEF(m_gatt);
 BLE_DB_DISCOVERY_DEF(m_db_discovery);
+
+/** GATT operations queue. SDK 17's database discovery and UART client both
+ *  submit through it, and they share one so that a discovery and a write cannot
+ *  race for the same link. */
+NRF_BLE_GQ_DEF(m_gatt_queue, NRF_SDH_BLE_CENTRAL_LINK_COUNT, NRF_BLE_GQ_QUEUE_SIZE);
 
 /**
  * @brief Dispatch a BLE stack event to the modules that care about it.
@@ -103,7 +109,7 @@ static void db_discovery_init(void)
 
 	(void)memset(&init, 0, sizeof(init));
 	init.evt_handler  = db_discovery_handler;
-	init.p_gatt_queue = NULL;
+	init.p_gatt_queue = &m_gatt_queue;
 
 	error = ble_db_discovery_init(&init);
 	APP_ERROR_CHECK(error);
@@ -140,7 +146,7 @@ int main(void)
 	gatt_init();
 	db_discovery_init();
 	APP_ERROR_CHECK(scanner_init());
-	APP_ERROR_CHECK(nus_client_init());
+	APP_ERROR_CHECK(nus_client_init(&m_gatt_queue));
 
 	if (!cmd_parser_init())
 	{

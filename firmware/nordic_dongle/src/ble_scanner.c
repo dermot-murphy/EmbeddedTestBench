@@ -211,7 +211,7 @@ uint32_t scanner_init(void)
 	params.window        = SCAN_WINDOW_UNITS;
 	params.timeout       = 0U;
 	params.scan_phys     = BLE_GAP_PHY_1MBPS;
-	params.filter_policy = BLE_GAP_SCAN_FILTER_POLICY_ACCEPT_ALL;
+	params.filter_policy = BLE_GAP_SCAN_FP_ACCEPT_ALL;
 
 	init.p_scan_param     = &params;
 	init.connect_if_match = false;
@@ -244,7 +244,7 @@ uint32_t scanner_start(const scanner_filter_t * p_filter, uint32_t duration_ms)
 	/* GAP timeout counts 10 ms units; 0 means scan until stopped. */
 	params.timeout       = (uint16_t)(duration_ms / 10U);
 	params.scan_phys     = BLE_GAP_PHY_1MBPS;
-	params.filter_policy = BLE_GAP_SCAN_FILTER_POLICY_ACCEPT_ALL;
+	params.filter_policy = BLE_GAP_SCAN_FP_ACCEPT_ALL;
 
 	error = nrf_ble_scan_params_set(&m_scan, &params);
 	if (error != NRF_SUCCESS)

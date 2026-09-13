@@ -24,6 +24,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "ble.h"
 #include "ble_gap.h"
 #include "protocol.h"
 

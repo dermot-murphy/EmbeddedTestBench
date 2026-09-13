@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-TRACE-001 |
-| Version | 4.0 |
+| Version | 4.1 |
 | Date | 2026-09-13 |
 | Process reference | Automotive SPICE V4.0, SWE.1 BP6 / SWE.2 BP7 / SWE.3 BP5 / SWE.4 BP6 |
 | Item | `benchtools` 4.0.0 + `firmware/nordic_dongle` |
@@ -234,13 +234,13 @@ where the firmware implements the requirement.
 | BLE-FR-062 | BLE-ARC-001 | BLE-DD-SESSION | `note`, `log_note` | `test_a_note_can_be_written`, `test_a_note_lands_in_the_log` |
 | BLE-FR-070 | BLE-ARC-001 | BLE-DD-CLI | `nordic_dongle/cli.py` | `SWE4-UT-BLECLI` (18) |
 | BLE-FR-080 | BLE-ARC-001, RUN-ARC-001 | BLE-DD-SIM, RUN-DD-BENCH | `simulator.py`, `register_driver("ble-dongle", …)` | `SWE4-UT-BLESIM` (27), `test_the_top_level_command_dispatches` |
-| BLE-FR-090 | BLE-ARC-001 | BLE-DD-BUILD | `firmware/ses/*.emProject`, `firmware/scripts/package_dfu.*` | Inspection; first build is a bench confirmation item (CON-07, BLE-OPEN-01) |
+| BLE-FR-090 | BLE-ARC-001 | BLE-DD-BUILD | `firmware/ses/*.emProject`, `firmware/scripts/{package_dfu,compile_check}.*` | `compile_check.sh` compiles every unit against real SDK headers (BENCHTOOLS-SWE4-002 §4.4); linking and flashing remain bench confirmation items (CON-07, BLE-OPEN-01) |
 
 ### BLE non-functional
 
 | Requirement | Evidence |
 |---|---|
-| BLE-NFR-001 | `test_no_dynamic_allocation` parses every firmware source; buffers are `PROTO_MAX_*` sized; no recursion by inspection. |
+| BLE-NFR-001 | `test_no_dynamic_allocation` parses every firmware source; buffers are `PROTO_MAX_*` sized; no recursion by inspection; `compile_check.sh` compiles the whole firmware with `-Wall -Wextra` and no warnings. |
 | BLE-NFR-002 | `BLE-DD-CDC`: the radio event handler queues and returns. Verified by inspection; behaviour under load is a bench confirmation item (BLE-OPEN-02). |
 | BLE-NFR-003 | `SWE4-UT-BLEFW`: the header is parsed and compared with the driver's constants - commands, argument bounds, handlers, events, error codes, limits, version. |
 | BLE-NFR-004 | `test_no_mandatory_third_party_imports`; pyserial is the `serial` extra, imported inside `_open_link`. |
@@ -318,6 +318,6 @@ where the firmware implements the requirement.
 | OPEN-01 | Bench confirmation items in BENCHTOOLS-VISA-001 §5.1 (device name, portmapper transport, hardcopy format, measurement settling, record lengths) | Discharge on first use with physical hardware. |
 | OPEN-02 | TDS3000 SCPI command spellings not transcribed from the programmer manual (CON-02) | Spot-check against Tektronix 071-0381-03 on first bench use. |
 | OPEN-03 | No requirements yet for the instruments named for future work (CON-03): the sensor supply PSU (STK-13), the RS-232 multimeter (STK-18), and the families named earlier — loads, signal sources, logic and protocol analysers | Add a prefixed requirements section, design unit, test group and matrix rows per instrument as each driver is written. |
-| OPEN-06 | The dongle firmware has never been compiled or run (CON-07): no SDK, toolchain or dongle in the build environment | Build it in SES against nRF5 SDK 17.1.0, flash it by DFU, and work through `docs/ble/BLE_Dongle_Notes.md` §5 (BLE-OPEN-01 to BLE-OPEN-04). |
+| OPEN-06 | The dongle firmware compiles against SDK 15.2 headers but has not been linked, flashed or run against SDK 17.1.0 (CON-07) | Build the SES project against nRF5 SDK 17.1.0, flash it by DFU, and work through `docs/ble/BLE_Dongle_Notes.md` §5 (BLE-OPEN-01 to BLE-OPEN-04). The compile check is `firmware/nordic_dongle/scripts/compile_check.sh`. |
 | OPEN-04 | Markdown-to-Robot-Framework translation (STK-12, CON-06) is not implemented | Decide whether to adopt Robot Framework. If adopted, add a `ROBOT-` element in front of the existing runner; AD-15 has kept the driver boundary suitable for it. |
 | OPEN-05 | J-Link bench confirmation items (CON-04, CON-05) — `docs/jlink/JLink_Integration_Notes.md` §4: Windows execution, real MI version behaviour, SWO timestamp scaling, RTT control-block discovery, flash timing | Discharge on first use with a probe and a target. Tracked there as JLINK-OPEN-01 to JLINK-OPEN-04. |

@@ -23,6 +23,7 @@
 
 #include "ble.h"
 #include "ble_gap.h"
+#include "nrf_ble_gq.h"
 #include "protocol.h"
 
 #ifdef __cplusplus
@@ -42,8 +43,12 @@ typedef struct
 
 /**
  * @brief Initialise the client. Call once, after the SoftDevice is enabled.
+ *
+ * @param[in] p_gatt_queue  Queue the client submits its GATT operations to.
+ *     Owned by the caller, because database discovery uses the same one: two
+ *     queues would let a discovery and a write race for the same link.
  */
-uint32_t nus_client_init(void);
+uint32_t nus_client_init(nrf_ble_gq_t * p_gatt_queue);
 
 /**
  * @brief Connect to @p p_address.

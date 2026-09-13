@@ -3,11 +3,11 @@
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-BLE-001 |
-| Version | 1.0 |
+| Version | 1.1 |
 | Date | 2026-09-13 |
 | Element | `BLE-` — `benchtools.instruments.nordic_dongle` + `firmware/nordic_dongle` |
 | Firmware target | nRF52840 USB dongle (PCA10059), S140 7.2.0, nRF5 SDK 17.1.0, SEGGER Embedded Studio |
-| Status | Host driver verified against a simulated dongle. **The firmware has never been compiled or run** — see §5 |
+| Status | Host driver verified against a simulated dongle. Firmware **compiles** against real SDK headers (§5.1); not yet linked, flashed or run |
 
 The engineering note for the BLE dongle: why it needs firmware of its own, what
 the protocol is, how to build and flash it, how to read the numbers it produces,
@@ -198,17 +198,44 @@ measurement; it is the cross-check that shows what the host link contributes.
 
 ## 5. Bench confirmation items
 
-**The firmware in this repository has never been compiled or run.** No SDK,
-toolchain or dongle was available in the environment it was written in (CON-07).
-It is written against SDK 17.1.0 APIs and verified only in the ways source can be
-verified without a compiler: the protocol is checked against the driver, and the
-hygiene rules (traces, no dynamic allocation, indentation) are enforced by tests.
+### 5.1 What the compiler has already said
 
-Treat the first build as part of the work, not as a formality.
+The firmware **has now been compiled**, in the `canembed/canembed-arm` container
+image, which carries `arm-none-eabi-gcc` 10.2.1, SEGGER Embedded Studio 4.16 and
+nRF5 SDK **15.2.0**. The firmware targets SDK 17.1.0, which is not in the image
+and cannot be fetched here (Nordic's download hosts are blocked by the network
+policy), so this is a cross-version check:
+
+```
+docker run --rm -v "$PWD":/work:ro canembed/canembed-arm \
+       bash /work/firmware/nordic_dongle/scripts/compile_check.sh
+```
+
+All six units compile with `-Wall -Wextra -O2` and **zero warnings**, apart from
+four lines using SDK 17's GATT queue, which SDK 15.2 has no equivalent for. The
+script lists those lines rather than skipping them silently.
+
+It found seven defects, recorded as D-20 to D-26 in the SWE.4 report. Two are
+worth repeating here because they are the kind that survive review:
+
+- `CRITICAL_REGION_ENTER()` and `CRITICAL_REGION_EXIT()` are a **brace pair**.
+  A `return` between them leaves the scope unbalanced - and would have left
+  interrupts disabled on that path had it compiled.
+- SDK 17's `ble_nus_c` and `ble_db_discovery` require a **GATT queue**
+  (`nrf_ble_gq`). The firmware created none. That compiles and then fails at run
+  time on the first characteristic discovery.
+
+**What this establishes:** syntax, types, every SDK call that exists in both
+versions, and the `sdk_config.h` keys the SDK's headers assert on. **What it does
+not:** that the firmware links, fits in flash, or runs.
+
+### 5.2 What remains
+
+Treat the first real build as part of the work, not as a formality.
 
 | ID | Item | How to discharge |
 |---|---|---|
-| BLE-OPEN-01 | **First build.** Expect to fix `sdk_config.h` keys: the configuration here is minimal by design, and a missing key appears as a compile error naming it. | Build in SES per §3.1; add keys until it compiles; commit the result |
+| BLE-OPEN-01 | **First build against SDK 17.1.0, linked.** Narrowed by §5.1: the sources compile, and the `sdk_config.h` keys the headers assert on are now present. What is untested is linking (the SES project's file list and the flash placement), the flash and RAM figures, and the SDK 17-only GATT-queue lines | Build the SES project per §3.1 on a machine with SDK 17.1.0; expect the remaining work to be in the project file rather than the sources |
 | BLE-OPEN-02 | **Behaviour under load.** The outgoing queue is 32 lines; a busy room may overflow it. The drop counter will say so — the question is whether the figures stay usable. | Scan with no address filter in a busy area and watch `adv stats` |
 | BLE-OPEN-03 | **Timestamp accuracy.** The timestamp is taken at the top of the radio event handler, which is some microseconds after the packet. The offset is constant and so does not affect intervals, but it does affect any absolute comparison with another instrument. | Advertise from a second dongle at a known interval and compare |
 | BLE-OPEN-04 | **Connection parameters.** The firmware requests 7.5–30 ms; the sensor may refuse. `+conn interval_us` reports what was agreed, and every latency figure depends on it. | Read `interval_us` on first connection and record it with the results |

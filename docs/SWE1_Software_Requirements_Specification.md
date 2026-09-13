@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-SWE1-001 |
-| Version | 4.0 |
+| Version | 4.1 |
 | Date | 2026-09-13 |
 | Process reference | Automotive SPICE V4.0, SWE.1 Software Requirements Analysis |
 | Item | **BenchTools** — bench test tooling (`benchtools` 4.0.0) |
@@ -469,7 +469,7 @@ implements them; §9.6 says which.
 | ASM-07 | The dongle is an nRF52840 USB dongle (PCA10059) with its factory bootloader and S140 SoftDevice, enumerating as a USB CDC serial port on the host. |
 | ASM-08 | The sensor under test exposes Nordic's UART Service and answers a text console over it. A sensor with a different service needs a firmware change, not a driver change. |
 | ASM-09 | Advertising is on the primary channels (37, 38, 39) at 1 Mbit/s; extended advertising and coded PHY are not scanned for in this revision. |
-| CON-07 | The dongle firmware is written against nRF5 SDK 17.1.0 APIs but **has not been compiled or run** during development: no SDK, toolchain or dongle was available in the build environment. Its first build is a bench confirmation item (`docs/ble/BLE_Dongle_Notes.md` §5). |
+| CON-07 | The dongle firmware targets nRF5 SDK 17.1.0. It **compiles** against real SDK headers (SDK 15.2.0, in the `canembed/canembed-arm` image) with zero warnings, apart from four lines using SDK 17-only API; it has **not** been linked, flashed or run, and SDK 17.1.0 itself could not be obtained in the build environment. See `docs/ble/BLE_Dongle_Notes.md` §5. |
 | CON-08 | Only RTT-free, connection-oriented UART is supported; the dongle connects to one sensor at a time. |
 | CON-03 | Instrument families named for future work (STK-13 and STK-18: power supplies and a multimeter over RS-232) have no requirements in this revision. The core is designed for them but not validated against them. |
 | CON-04 | The J-Link driver is verified against a simulated probe and a simulated target, not against physical hardware. Bench confirmation items are listed in `docs/jlink/JLink_Integration_Notes.md` §4. |
