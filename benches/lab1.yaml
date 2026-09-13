@@ -57,6 +57,15 @@ instruments:
       # what it cannot buffer, silently. Lower it only with evidence.
       command_interval: 0.05
 
+  # ST S2-LP development kit, running ST's own CLI firmware (the firmware the
+  # S2-LP DK GUI drives). Nothing of ours runs on the board, so there is nothing
+  # to flash before a session. The band comes from the board's own
+  # identification, not from here.
+  s2lp:
+    driver: s2lp
+    resource: /dev/ttyACM1        # COM7 on Windows
+    timeout: 5.0
+
   # Any instrument without a dedicated driver yet can still be addressed,
   # identified and sent raw SCPI through the generic driver.
   dmm:

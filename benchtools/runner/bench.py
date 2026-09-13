@@ -35,6 +35,7 @@ from ..instruments.generic import GenericScpiInstrument
 from ..instruments.jlink import JLinkProbe
 from ..instruments.gpd2303s import Gpd2303S
 from ..instruments.nordic_dongle import NordicDongle
+from ..instruments.s2lp import S2lpDevkit
 from ..instruments.tek3014b import Tek3014B
 
 __all__ = [
@@ -71,6 +72,8 @@ register_driver("ble-dongle", NordicDongle)
 register_driver("nordic", NordicDongle)
 register_driver("gpd2303s", Gpd2303S)
 register_driver("gwinstek-psu", Gpd2303S)
+register_driver("s2lp", S2lpDevkit)
+register_driver("s2lp-devkit", S2lpDevkit)
 
 
 @dataclass(frozen=True)

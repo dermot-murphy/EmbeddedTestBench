@@ -86,6 +86,7 @@ instrument, and to be importable without importing any other element.
 | SCOPE-ARC-001 | `instruments.tek3014b` | The TDS3000 SCPI vocabulary and the oscilloscope's capability envelope. | `Tek3014B` |
 | BLE-ARC-001 | `instruments.nordic_dongle` **and** `firmware/nordic_dongle` | The BLE bench dongle, as one element across two languages. Host side: the line protocol (`protocol`), the command/event session with its log (`session`), advertising statistics (`profile`), latency statistics (`latency`), the driver façade (`dongle`) and a simulated dongle. Dongle side: USB CDC line transport, command dispatch, scanner, UART client and the microsecond clock. `include/protocol.h` is the interface both are built from. | `NordicDongle`, `DongleSession`, `AdvertisingProfile`, `ResponseTiming`, `SimulatedDongle`; `cmd_parser_handle`, `scanner_on_ble_evt`, `nus_client_command` |
 | JLINK-ARC-001 | `instruments.jlink` | The debug probe driver. `JLinkProbe` is the façade over seven collaborators, each independently testable: MI record parsing (`gdbmi`), the command/response session (`session`), server discovery and lifetime (`server`), RTT (`rtt`), ITM/SWO decoding (`swo`), timing results (`timing`), and the probe and target envelope (`constants`). Its simulator answers the MI dialogue. | `JLinkProbe`, `GdbMiSession`, `RttClient`, `ItmDecoder`, `TimingResult`, `GdbServer` |
+| S2LP-ARC-001 | `instruments.s2lp` | The ST S2-LP development kit, host side only: ST's firmware runs on the board (AD-20). The line protocol (`protocol`), the command/reply session with its raw log (`session`), the device's register map (`registers`), packet records and their structured log (`packets`), the driver façade (`s2lp`) and a simulated kit with a register file and a modelled air interface. | `S2lpDevkit`, `S2lpSession`, `Register`, `Packet`, `Capture`, `SimulatedS2lp` |
 | PSU-ARC-001 | `instruments.gpd2303s` | The GW Instek bench supply. Not a SCPI instrument: it takes the transport and lifecycle from `ScpiInstrument` and replaces the SCPI-specific parts (`*CLS`, `*RST`, `SYSTem:ERRor?`) with its own. Its own command grammar, a load-modelling simulator, and a command line. | `Gpd2303S`, `ChannelReading`, `SupplyStatus`, `SimulatedGpd` |
 | RUN-ARC-001 | `runner` | Specification model, bench resolution, execution engine, result records, report writers, command line. | `load_spec`, `BenchConfig`, `BenchRunner`, `write_*` |
 
@@ -369,6 +370,41 @@ wherever a caller will meet it. The parked setpoint is driver state, not
 instrument state: a second program talking to the same supply does not know
 about it, which is why the driver reads the hardware rather than its own
 bookkeeping wherever the hardware can answer.
+
+### AD-20 — Use the vendor's firmware where the vendor already provides one
+
+**Context.** The S2-LP development kit is driven by ST's GUI through firmware ST
+ships for it: a CLI application over the kit's USB serial port, with commands for
+SPI register access, radio configuration, transmit and receive. The BLE dongle in
+this repository has firmware of our own (AD-16), so the precedent pulled the
+other way.
+
+**Decision.** Use ST's firmware unchanged, and write only the host driver. The
+firmware's command set becomes an **external interface** to this project rather
+than something it controls: it is written down in `constants.COMMANDS`, and every
+command the driver sends is checked against it.
+
+**Why this is not AD-16.** The dongle's firmware exists because a radio event
+must be timestamped on the radio's side of a USB link, and no stock firmware did
+that. Here the requirement is register access, transmit, receive and logging -
+all of which ST's firmware already does, and none of which is made more accurate
+by being reimplemented. Writing firmware would have added a build, a flashing
+procedure, a licence question and a second thing to keep in step with the
+datasheet, in exchange for nothing the measurement needs.
+
+**Consequences.** The kit works with the firmware it arrives with, and with ST's
+GUI, and nothing has to be flashed before a bench session. In exchange this
+element inherits the firmware's limits and cannot fix them: reception is polled,
+so the radio is deaf between calls; timestamps are the motherboard's
+millisecond timer; and the command set is what it is. The driver's job is
+therefore to be **honest about those limits** rather than to hide them - hence
+the re-arm count carried in every capture (S2LP-FR-033) and the millisecond
+resolution stated wherever a board timestamp is reported.
+
+**Licence.** ST's package is under SLA0072, a limited licence, not a permissive
+one. Interoperating with the protocol is not redistribution; vendoring the
+source would be. No ST source is in this repository, and the register map holds
+facts about the silicon rather than vendor prose (S2LP-NFR-002).
 
 ## 5. Dynamic behaviour — a runner invocation
 

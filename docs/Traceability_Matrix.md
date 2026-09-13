@@ -34,6 +34,8 @@ docstring, so the link is carried in the artefact and not only in this table.
 | STK-16 — dongle firmware, SES and SDK 17 | BLE-FR-090, -001, -003, -010; BLE-NFR-001 … -003, -006 |
 | STK-17 — log the session to a text file | BLE-FR-060 … -062, -004 |
 | STK-13 — programmable supply for the sensor | PSU-FR-001 … -060; PSU-NFR-001 … -003; CORE-FR-017 |
+| STK-19 — S2-LP kit: registers, transmit, receive, log | S2LP-FR-001 … -060; S2LP-NFR-001 … -004; CORE-FR-017 |
+| STK-20 — use ST's firmware if it is fit for purpose | AD-20; S2LP-FR-001, -002; S2LP-NFR-002. The firmware was examined before any was written: BENCHTOOLS-SWE4-002 §10, `docs/s2lp/S2LP_Devkit_Notes.md` §1 |
 | STK-18 — RS-232 multimeter | No requirements in this revision (CON-03, OPEN-03). `Instrument` (CORE-FR-012 … -016) and the serial transport (CORE-FR-017) are the seams it will use. |
 
 ## 2. CORE requirements to design, code and test
@@ -251,7 +253,47 @@ where the firmware implements the requirement.
 | BLE-NFR-004 | `test_no_mandatory_third_party_imports`; pyserial is the `serial` extra, imported inside `_open_link`. |
 | BLE-NFR-005 | `test_the_dongle_clock_is_the_default`, `test_as_dict_carries_the_figure_and_its_caveats`, and the CLI's `warning` key. |
 
-## 7. PSU requirements to design, code and test
+## 7. S2LP requirements to design, code and test
+
+| Requirement | Architecture | Design unit | Source | Verifying test(s) |
+|---|---|---|---|---|
+| S2LP-FR-001 | S2LP-ARC-001, AD-20 | S2LP-DD-SESSION, -CONST | `session.py`, `constants.COMMANDS` | `TestConnection` (9), `TestFraming` (5) |
+| S2LP-FR-002 | S2LP-ARC-001 | S2LP-DD-PROTOCOL | `format_command` | `TestFormattingCommands` (12) |
+| S2LP-FR-003 | S2LP-ARC-001 | S2LP-DD-SESSION | `read_reply` brace depth | `test_a_reply_spread_over_several_lines`, `test_a_reply_that_never_closes_is_a_timeout_that_says_what_arrived`, `test_nested_braces_do_not_end_the_reply_early` |
+| S2LP-FR-004 | S2LP-ARC-001 | S2LP-DD-PROTOCOL | `Reply.hex_number`, `_NUMBER` | `test_a_hex_tag_has_no_0x_in_front_of_it`, `test_every_line_is_kept_verbatim`, `test_output_before_the_reply_is_kept_not_swallowed` |
+| S2LP-FR-005 | S2LP-ARC-001 | S2LP-DD-SESSION | `S2lpSession.stop` | `TestStopping` (2), `test_the_stop_character_is_not_a_command` |
+| S2LP-FR-010 | S2LP-ARC-001 | S2LP-DD-S2LP, -REGS | `read_register(s)`, `write_register(s)` | `TestRegisters` (12) |
+| S2LP-FR-011 | S2LP-ARC-001 | S2LP-DD-REGS | `registers.py` | `SWE4-UT-S2LPREG` (34), notably `TestTheTableItself` (9) |
+| S2LP-FR-012 | S2LP-ARC-001 | S2LP-DD-REGS, -S2LP | `Field.insert`, `write_field` | `TestFields` (4 driver, 7 map), notably `test_writing_a_field_leaves_the_rest_of_the_register_alone` |
+| S2LP-FR-013 | S2LP-ARC-001 | S2LP-DD-S2LP | `write_registers` access check | `test_a_read_only_register_is_refused_rather_than_ignored`, `test_a_write_to_a_read_only_register_is_ignored` |
+| S2LP-FR-014 | S2LP-ARC-001 | S2LP-DD-S2LP, -REGS | `read_all_registers`, `dump_registers`, `contiguous_runs` | `test_read_all_registers_is_not_123_round_trips`, `test_the_dump_names_registers_and_decodes_fields`, `test_what_has_been_changed_is_the_short_answer` |
+| S2LP-FR-015 | S2LP-ARC-001 | S2LP-DD-S2LP | address check in `read_registers` | `test_a_mis_framed_reply_is_caught_not_believed`, `test_a_short_reply_is_caught` |
+| S2LP-FR-016 | S2LP-ARC-001 | S2LP-DD-S2LP, -CONST | `strobe`, `Strobe` | `TestStrobes` (5) |
+| S2LP-FR-020 | S2LP-ARC-001 | S2LP-DD-S2LP | `configure_radio` and the radio properties | `TestRadioConfiguration` (12) |
+| S2LP-FR-021 | S2LP-ARC-001 | S2LP-DD-S2LP | `configure_radio` returns `radio_info()` | `test_configure_returns_what_the_radio_says_afterwards` |
+| S2LP-FR-022 | S2LP-ARC-001 | S2LP-DD-S2LP, -CONST | `_check_frequency`, `BOARDS` | `test_a_frequency_outside_the_board_s_band_is_refused` (3) |
+| S2LP-FR-023 | S2LP-ARC-001 | S2LP-DD-S2LP | `_post_open`, `_read_identity`, `band` | `test_connecting_configures_nothing`, `test_it_learns_the_board_and_its_band`, `test_the_band_comes_from_the_board_not_from_configuration` |
+| S2LP-FR-024 | S2LP-ARC-001 | S2LP-DD-S2LP | `rssi_dbm_from_register` | `TestRssiConversion` (3), `test_the_rssi_is_encoded_as_the_register_encodes_it` |
+| S2LP-FR-030 | S2LP-ARC-001 | S2LP-DD-S2LP, -PACKETS | `transmit`, `transmit_batch` | `TestTransmit` (5) |
+| S2LP-FR-031 | S2LP-ARC-001 | S2LP-DD-S2LP, -PACKETS | `receive`, `Packet` | `TestReceive` (4), notably `test_nothing_on_the_air_returns_none_not_an_empty_packet` |
+| S2LP-FR-032 | S2LP-ARC-001 | S2LP-DD-S2LP | `capture(continuous=True)` | `test_a_continuous_capture_has_no_gaps` |
+| S2LP-FR-033 | S2LP-ARC-001, AD-20 | S2LP-DD-PACKETS | `Capture.gaps`, `is_continuous` | `test_a_polled_capture_reports_its_gaps`, `test_a_polled_capture_is_bounded_by_attempts` |
+| S2LP-FR-034 | S2LP-ARC-001 | S2LP-DD-PACKETS | `Capture.stopped_early` | `test_a_capture_that_gets_nothing_says_so_rather_than_failing` |
+| S2LP-FR-035 | S2LP-ARC-001 | S2LP-DD-SESSION | `S2lpSession.log_to` | `TestLogging` (5 session), `test_the_session_log_carries_both_directions` |
+| S2LP-FR-036 | S2LP-ARC-001 | S2LP-DD-PACKETS | `PacketLog` | `TestLogs` (6), notably `test_a_truncated_packet_log_still_reads` |
+| S2LP-FR-050 | S2LP-ARC-001 | S2LP-DD-SIM | `simulator.py`, `register_driver("s2lp", …)` | `SWE4-UT-S2LPSIM` (25), `test_correct_driver_per_alias` |
+| S2LP-FR-060 | S2LP-ARC-001 | S2LP-DD-CLI | `cli.py` | `SWE4-UT-S2LPCLI` (25) |
+
+### S2LP non-functional
+
+| Requirement | Evidence |
+|---|---|
+| S2LP-NFR-001 | `test_no_mandatory_third_party_imports`; the kit reaches its port through CORE-DD-SERIAL, whose pyserial import is inside `_open_link`. |
+| S2LP-NFR-002 | No file in this repository is derived from ST source by copying: the register map holds addresses, reset values, field names and bit positions, and no vendor prose. `docs/s2lp/S2LP_Devkit_Notes.md` §6 records how it was cross-checked and under what terms. |
+| S2LP-NFR-003 | `Packet.board_time_ms` is named for its unit and its clock; `Capture.gaps` states how a capture was taken. The millisecond limit is stated in `packets.py`, in SWE.3 and in the notes. |
+| S2LP-NFR-004 | `test_connecting_configures_nothing`; transmission is only `transmit`/`transmit_batch`, each an explicit call. |
+
+## 8. PSU requirements to design, code and test
 
 | Requirement | Architecture | Design unit | Source | Verifying test(s) |
 |---|---|---|---|---|
@@ -289,7 +331,7 @@ where the firmware implements the requirement.
 | PSU-NFR-002 | `test_set_does_not_switch_the_output_on`, `test_setting_a_voltage_on_a_parked_channel_does_not_energise_it`, `test_connecting_changes_nothing`. Energising is always an explicit call. |
 | PSU-NFR-003 | Volts, amps and watts throughout; `ChannelReading` carries `mode`, and `read` on the command line warns when a channel is in current limit. |
 
-## 8. RUN requirements to design, code and test
+## 9. RUN requirements to design, code and test
 
 | Requirement | Architecture | Design unit | Source | Verifying test(s) |
 |---|---|---|---|---|
@@ -326,7 +368,7 @@ where the firmware implements the requirement.
 | RUN-FR-052 | ARC-001 | RUN-DD-CLI | report path suffixing | `test_several_specs_get_suffixed_reports` |
 | RUN-FR-053 | ARC-001 | RUN-DD-CLI | `benchtools/cli.py` | `TestTopLevelDispatch` (7) |
 
-## 9. Architecture to design to source
+## 10. Architecture to design to source
 
 | Architectural element | Design unit | Source |
 |---|---|---|
@@ -343,10 +385,11 @@ where the firmware implements the requirement.
 | JLINK-ARC-001 | JLINK-DD-GDBMI, -SESSION, -SERVER, -RTT, -SWO, -TIMING, -CONST, -SIM, -PROBE, -CLI | `instruments/jlink/*.py` |
 | BLE-ARC-001 | BLE-DD-PROTOCOL, -SESSION, -PROFILE, -LATENCY, -CONST, -DONGLE, -SIM, -CLI | `instruments/nordic_dongle/*.py` |
 | BLE-ARC-001 | BLE-DD-CDC, -TIMESTAMP, -SCANNER, -NUS, -CMD, -MAIN, -BUILD, -TEST | `firmware/nordic_dongle/{src,include,config,ses,gcc,scripts,test}/*` |
+| S2LP-ARC-001 | S2LP-DD-S2LP, -REGS, -PROTOCOL, -SESSION, -PACKETS, -SIM, -CLI, -CONST | `instruments/s2lp/{s2lp,registers,protocol,session,packets,simulator,cli,constants}.py` |
 | PSU-ARC-001 | PSU-DD-PSU, -CONST, -SIM, -CLI | `instruments/gpd2303s/{psu,constants,simulator,cli}.py` |
 | RUN-ARC-001 | RUN-DD-SPEC, -LIMITS, -RESOLVE, -BENCH, -RESULTS, -RUNNER, -REPORT, -CLI | `runner/*.py`, `cli.py` |
 
-## 10. Coverage analysis
+## 11. Coverage analysis
 
 | Question | Answer |
 |---|---|
@@ -354,16 +397,18 @@ where the firmware implements the requirement.
 | Tests not tracing to a requirement | **None.** Every test file names its requirements in its module docstring. |
 | Source modules with no design unit | **None.** Every module names its design unit in its docstring - firmware sources included, checked by `test_every_source_declares_its_trace` in `SWE4-UT-BLEFW`; `__main__.py` is covered by RUN-DD-CLI. |
 | Design units with no source | **None.** |
-| Stakeholder requirements not decomposed | **None of those in scope.** STK-01 to STK-11 and STK-14 to STK-17 trace downward; STK-06 additionally produces BENCHTOOLS-VISA-001 as its work product. STK-12 is partly addressed (AD-15 constrains the driver boundary for it) and the translator itself is deferred: CON-06, OPEN-04. STK-13 is decomposed into `PSU-` and verified. STK-18 remains future work with no requirements in this revision: CON-03, OPEN-03. |
-| Architectural decisions without a verifying test | **None.** AD-01 → `test_full_driver_over_the_socket`; AD-02 → `test_layering.py`; AD-03 → `TestDriverRegistry`; AD-04 → `TestFraming`; AD-05 → `test_payload_containing_a_hash_byte_is_not_re_parsed`; AD-06 → `TestChannelSpread`; AD-07 → `test_busy_is_polled_until_clear`; AD-08 → `TestSpecParsing`; AD-09 → `TestFailureVersusError`; AD-10 → `test_all_sim_resources_count_as_simulated`; AD-11 → `test_the_probe_is_an_instrument_but_not_scpi`, `test_scpi_instrument_is_an_instrument`; AD-12 → `SWE4-UT-GDBMI`, `SWE4-UT-GDBSESSION`, `test_connect_to_the_simulator`; AD-13 → `test_resource_parsing`, `test_a_remote_server_is_never_spawned`; AD-14 → `SWE4-UT-TIMING`, `test_a_short_interval_is_flagged_untrustworthy`; AD-15 → `test_serialises_for_a_report`, `test_shipped_specifications_are_valid`; AD-16 → `SWE4-UT-BLEFW`; AD-17 → `test_both_clocks_are_recorded`, `test_the_host_clock_resolves_a_millisecond`; AD-18 → `test_a_lossy_link_is_declared_rather_than_averaged`, `test_a_dropping_dongle_says_so`; AD-19 → `TestOutputSwitching` (11), notably `test_the_last_channel_off_opens_the_real_switch` and `test_setting_a_voltage_on_a_parked_channel_does_not_energise_it`. |
+| Stakeholder requirements not decomposed | **None of those in scope.** STK-01 to STK-11 and STK-14 to STK-17 trace downward; STK-06 additionally produces BENCHTOOLS-VISA-001 as its work product. STK-12 is partly addressed (AD-15 constrains the driver boundary for it) and the translator itself is deferred: CON-06, OPEN-04. STK-13 is decomposed into `PSU-` and verified; STK-19 and STK-20 into `S2LP-` and AD-20. STK-18 remains future work with no requirements in this revision: CON-03, OPEN-03. |
+| Architectural decisions without a verifying test | **None.** AD-01 → `test_full_driver_over_the_socket`; AD-02 → `test_layering.py`; AD-03 → `TestDriverRegistry`; AD-04 → `TestFraming`; AD-05 → `test_payload_containing_a_hash_byte_is_not_re_parsed`; AD-06 → `TestChannelSpread`; AD-07 → `test_busy_is_polled_until_clear`; AD-08 → `TestSpecParsing`; AD-09 → `TestFailureVersusError`; AD-10 → `test_all_sim_resources_count_as_simulated`; AD-11 → `test_the_probe_is_an_instrument_but_not_scpi`, `test_scpi_instrument_is_an_instrument`; AD-12 → `SWE4-UT-GDBMI`, `SWE4-UT-GDBSESSION`, `test_connect_to_the_simulator`; AD-13 → `test_resource_parsing`, `test_a_remote_server_is_never_spawned`; AD-14 → `SWE4-UT-TIMING`, `test_a_short_interval_is_flagged_untrustworthy`; AD-15 → `test_serialises_for_a_report`, `test_shipped_specifications_are_valid`; AD-16 → `SWE4-UT-BLEFW`; AD-17 → `test_both_clocks_are_recorded`, `test_the_host_clock_resolves_a_millisecond`; AD-18 → `test_a_lossy_link_is_declared_rather_than_averaged`, `test_a_dropping_dongle_says_so`; AD-19 → `TestOutputSwitching` (11), notably `test_the_last_channel_off_opens_the_real_switch` and `test_setting_a_voltage_on_a_parked_channel_does_not_energise_it`; AD-20 → `SWE4-UT-S2LPPROTO` and `SWE4-UT-S2LPSESSION` verify the driver against ST's declared command set, and `test_a_polled_capture_reports_its_gaps` verifies the honesty the decision requires. |
 
-## 11. Open items
+## 12. Open items
 
 | ID | Item | Owner action |
 |---|---|---|
 | OPEN-01 | Bench confirmation items in BENCHTOOLS-VISA-001 §5.1 (device name, portmapper transport, hardcopy format, measurement settling, record lengths) | Discharge on first use with physical hardware. |
 | OPEN-02 | TDS3000 SCPI command spellings not transcribed from the programmer manual (CON-02) | Spot-check against Tektronix 071-0381-03 on first bench use. |
-| OPEN-03 | No requirements yet for the instruments still named for future work (CON-03): the RS-232 multimeter (STK-18), and the families named earlier — loads, signal sources, logic and protocol analysers. STK-13 is **closed**: the GPD-2303S supply is specified (PSU-FR-001 … -060), designed, implemented and tested | Add a prefixed requirements section, design unit, test group and matrix rows per instrument as each driver is written, as was done for `PSU-`. |
+| OPEN-03 | No requirements yet for the instruments still named for future work (CON-03): the RS-232 multimeter (STK-18), and the families named earlier — loads, signal sources, logic and protocol analysers. STK-13 and STK-19/STK-20 are **closed**: the GPD-2303S supply (PSU-FR-001 … -060) and the S2-LP kit (S2LP-FR-001 … -060) are each specified, designed, implemented and tested | Add a prefixed requirements section, design unit, test group and matrix rows per instrument as each driver is written, as was done for `PSU-`. |
 | OPEN-06 | The dongle firmware compiles against SDK 15.2 headers but has not been linked, flashed or run against SDK 17.1.0 (CON-07) | Build the SES project against nRF5 SDK 17.1.0, flash it by DFU, and work through `docs/ble/BLE_Dongle_Notes.md` §5 (BLE-OPEN-01 to BLE-OPEN-04). The compile check is `firmware/nordic_dongle/scripts/compile_check.sh`. |
 | OPEN-04 | Markdown-to-Robot-Framework translation (STK-12, CON-06) is not implemented | Decide whether to adopt Robot Framework. If adopted, add a `ROBOT-` element in front of the existing runner; AD-15 has kept the driver boundary suitable for it. |
+| OPEN-07 | S2-LP kit bench confirmation items — `docs/s2lp/S2LP_Devkit_Notes.md` §7: the firmware's exact reply text and error codes, the board name it reports, the meaning of `S2LPGetNBytesBatch`'s reference-timer argument, and the link budget in practice | Discharge on first use with a kit. Tracked there as S2LP-OPEN-01 to S2LP-OPEN-05. Nothing in them blocks use of the driver: the parser reads tags by name and keeps every line, so an unexpected reply is visible rather than fatal. |
+| OPEN-08 | PSU bench confirmation items — `docs/psu/GPD2303S_Notes.md` §5: the bit order of `STATUS?`, the behaviour of `ERR?`, the command interval a real supply needs, and settling time | Discharge on first use with a supply. Tracked there as PSU-OPEN-01 to PSU-OPEN-04. |
 | OPEN-05 | J-Link bench confirmation items (CON-04, CON-05) — `docs/jlink/JLink_Integration_Notes.md` §4: Windows execution, real MI version behaviour, SWO timestamp scaling, RTT control-block discovery, flash timing | Discharge on first use with a probe and a target. Tracked there as JLINK-OPEN-01 to JLINK-OPEN-04. |

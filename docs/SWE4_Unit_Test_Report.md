@@ -13,13 +13,13 @@
 
 | Metric | Result |
 |---|---|
-| Tests executed | **1 394** |
-| Passed | **1 394** |
+| Tests executed | **1 606** |
+| Passed | **1 606** |
 | Failed | 0 |
 | Errors | 0 |
 | Skipped | 0 |
-| Statement coverage | **94%** (8 428 statements, 480 missed) |
-| Execution time | 43.5 s with coverage instrumentation, 31.6 s without |
+| Statement coverage | **94%** (9 620 statements, 565 missed) |
+| Execution time | 45.1 s with coverage instrumentation, 32.1 s without |
 | Runtime | CPython 3.11.15, Linux |
 | Framework | pytest 9.1.1, pytest-cov |
 
@@ -57,6 +57,12 @@ hygiene rules of §4.3 - and its first build is recorded as BLE-OPEN-01.
 |---|---|---|---|
 | SWE4-UT-SCOPE | `instruments/tek3014b/test_scope.py` | 87 | Pass |
 | SWE4-UT-JLINK | `instruments/jlink/test_probe.py` | 70 | Pass |
+| SWE4-UT-S2LP | `instruments/s2lp/test_s2lp.py` | 73 | Pass |
+| SWE4-UT-S2LPREG | `instruments/s2lp/test_registers.py` | 34 | Pass |
+| SWE4-UT-S2LPPROTO | `instruments/s2lp/test_protocol.py` | 31 | Pass |
+| SWE4-UT-S2LPSIM | `instruments/s2lp/test_simulator.py` | 25 | Pass |
+| SWE4-UT-S2LPCLI | `instruments/s2lp/test_cli.py` | 25 | Pass |
+| SWE4-UT-S2LPSESSION | `instruments/s2lp/test_session.py` | 14 | Pass |
 | SWE4-UT-PSU | `instruments/gpd2303s/test_psu.py` | 74 | Pass |
 | SWE4-UT-BLE | `instruments/nordic_dongle/test_dongle.py` | 64 | Pass |
 | SWE4-UT-BLEFIRMWARE | `instruments/nordic_dongle/test_firmware.py` | 49 | Pass |
@@ -70,11 +76,11 @@ hygiene rules of §4.3 - and its first build is recorded as BLE-OPEN-01.
 | SWE4-UT-BLECLI | `instruments/nordic_dongle/test_cli.py` | 25 | Pass |
 | SWE4-UT-BLELATENCY | `instruments/nordic_dongle/test_latency.py` | 20 | Pass |
 | SWE4-UT-BLEFW | `instruments/nordic_dongle/test_firmware_protocol.py` | 17 | Pass |
-| SWE4-UT-LAYERING | `test_layering.py` | 71 | Pass |
+| SWE4-UT-LAYERING | `test_layering.py` | 80 | Pass |
 | SWE4-UT-GDBMI | `instruments/jlink/test_gdbmi.py` | 37 | Pass |
 | SWE4-UT-BENCH | `runner/test_bench.py` | 41 | Pass |
 | SWE4-UT-MEASURE | `analysis/test_measure.py` | 35 | Pass |
-| SWE4-UT-SPEC | `runner/test_spec.py` | 37 | Pass |
+| SWE4-UT-SPEC | `runner/test_spec.py` | 38 | Pass |
 | SWE4-UT-WAVEFORM | `analysis/test_waveform.py` | 34 | Pass |
 | SWE4-UT-JLINKSERVER | `instruments/jlink/test_server.py` | 32 | Pass |
 | SWE4-UT-SCPI | `core/test_scpi.py` | 28 | Pass |
@@ -103,12 +109,20 @@ hygiene rules of §4.3 - and its first build is recorded as BLE-OPEN-01.
 | SWE4-UT-RESOLVE | `runner/test_resolve.py` | 13 | Pass |
 | SWE4-UT-SOCKET | `core/transport/test_socket.py` | 12 | Pass |
 | SWE4-UT-VISA | `core/transport/test_visa.py` | 6 | Pass |
-| **Total** | | **1 394** | **Pass** |
+| **Total** | | **1 606** | **Pass** |
 
 ## 3. Coverage detail
 
 | Element | Module | Statements | Missed | Coverage |
 |---|---|---|---|---|
+| S2LP | `instruments/s2lp/registers.py` | 95 | 0 | 100% |
+| S2LP | `instruments/s2lp/constants.py` | 57 | 1 | 98% |
+| S2LP | `instruments/s2lp/protocol.py` | 97 | 4 | 96% |
+| S2LP | `instruments/s2lp/s2lp.py` | 311 | 14 | 95% |
+| S2LP | `instruments/s2lp/cli.py` | 146 | 9 | 94% |
+| S2LP | `instruments/s2lp/session.py` | 123 | 9 | 93% |
+| S2LP | `instruments/s2lp/simulator.py` | 226 | 29 | 87% |
+| S2LP | `instruments/s2lp/packets.py` | 123 | 19 | 85% |
 | PSU | `instruments/gpd2303s/constants.py` | 24 | 0 | 100% |
 | PSU | `instruments/gpd2303s/psu.py` | 239 | 6 | 97% |
 | PSU | `instruments/gpd2303s/simulator.py` | 119 | 7 | 94% |
@@ -491,7 +505,70 @@ environment: correctness against real GDB is a bench confirmation item
 (JLINK-OPEN-02). What is verified here is that the parser handles the grammar as
 documented, including the constructs a naive parser gets wrong — see D-09.
 
-## 9. Power supply verification results
+## 9. S2-LP kit verification results
+
+No S2-LP kit was present (PC-8). The driver is verified against a simulated kit
+that models a **register file with a radio attached**: writing a register changes
+what the queries that read it answer, and a packet queued on the simulated air is
+delivered to exactly one receive.
+
+### 9.1 The vendor firmware was examined before any was written
+
+STK-20 asked whether ST's firmware is fit for purpose. It was read, not assumed
+about: the source of the CLI application ST's S2-LP DK GUI drives is published at
+`STMicroelectronics/x-cube-subg2`, under
+`Projects/NUCLEO-L053R8/Examples/S2868A1_CLI/`.
+
+| Question | Answer, and where it was read |
+|---|---|
+| What does the GUI talk to? | `README.md`: "CLI example for S2-LP Expansion Board and S2-LP DK GUI". A CLI application over the kit's USB serial port |
+| What is the wire format? | `command-interpreter2.c` — ASCII lines; `command-interpreter2.h` documents the argument letters (`u` one byte, `v` two, `w` four, `b` a string in `{ }` hex or quotes) |
+| Can every register be read and written? | Yes: `SDK_CLI_commands.h` declares `SdkEvalSpiReadRegisters` (`uu`) and `SdkEvalSpiWriteRegisters` (`ub`), plus strobes and FIFO access |
+| Can it transmit and receive? | Yes: `S2LP_CLI_commands.h` declares `S2LPSendNBytes`, `S2LPSendNBytesBatch`, `S2LPGetNBytes`, `S2LPGetNBytesBatch` |
+| What do replies look like? | `SDK_CLI_commands.c` and `response.c` — brace-delimited tags, e.g. `{regs_list: 0x00,0x0A}` and `{timer:000004D2}` |
+| Can a long capture be stopped? | Yes: `checkStop()` polls the port for the single character `S` inside the capture loops |
+| Line rate | 115200 8N1 (`stm32l0xx_nucleo.c`) |
+
+**Conclusion: fit for purpose, and used unchanged** (AD-20). Nothing in this
+repository runs on the kit. Three limits come with that decision and are carried
+into the design rather than hidden:
+
+| Limit | Consequence, and what the driver does about it |
+|---|---|
+| Reception is **polled** — the firmware arms the radio when asked and returns | A packet arriving between calls is invisible. `Capture.gaps` records every re-arm; `is_continuous` is false when there were any, and `capture(continuous=True)` keeps the board in its own loop so that there are none |
+| Timestamps are the **motherboard's millisecond timer** | Good enough to order packets and time a sequence, not to characterise protocol timing. The field is named `board_time_ms`, and the limit is stated wherever it is reported |
+| ST's package is under **SLA0072**, a limited licence | The protocol is interoperated with; no ST source is vendored. The register map holds facts about the silicon, not vendor prose (S2LP-NFR-002) |
+
+### 9.2 The register map
+
+123 registers, each with its address, reset value, access and named bit fields.
+The map is data, so it is verified as data: unique addresses, unique names, no
+overlapping fields, every field inside its byte, and every status register
+read-only (`SWE4-UT-S2LPREG`, 34 cases).
+
+Read as contiguous runs, a full dump is **15 commands rather than 123** — on a
+115200 baud link, the difference between a dump that feels instant and one that
+does not. A dump renders as:
+
+```
+0x2E PCKTCTRL3              = 0xC0            PCKT_FRMT=3
+0x2F PCKTCTRL2              = 0x07  (reset)   MBUS_3OF6_EN=1 MANCHESTER_EN=1 FIX_VAR_LEN=1
+```
+
+which is the point of holding the map at all: 123 hex bytes say nothing about
+how a radio was configured, and this says it.
+
+### 9.3 A capture states how it was taken
+
+| Capture | Packets | Gaps | `is_continuous` | What it may be quoted as |
+|---|---|---|---|---|
+| `capture(count=3)` — board-side loop | 3 | 0 | yes | a record of the air for its duration |
+| `capture(count=2, continuous=False)` | 0 | 9 | no | "nothing was heard while listening" — nothing more |
+
+The second row is the one that matters. Both captures are honest; only the first
+supports a statement about what was *not* transmitted.
+
+## 10. Power supply verification results
 
 No GPD-2303S was present (PC-8). The driver is verified against a simulated
 supply that models a **load**, which is what makes the interesting condition
@@ -536,7 +613,7 @@ switch is opened, so "all off" is not two rails sitting at zero volts.
 | PSU-OPEN-03 | The command interval a real GPD-2303S needs. 50 ms is a conservative default taken from the supply having no flow control; the figure to confirm is the smallest interval at which a long sweep loses nothing. |
 | PSU-OPEN-04 | Settling time after a setpoint change. The driver does not wait; a specification that measures immediately after `set_voltage` should state its own `sleep`. |
 
-## 10. Runner verification results
+## 11. Runner verification results
 
 | Check | Result |
 |---|---|
@@ -552,7 +629,7 @@ switch is opened, so "all off" is not two rails sitting at zero volts.
 | Exit status 0 / 1 / 2 for pass / problem / usage | Pass |
 | The shipped `specs/clock_skew.yaml` and both `benches/*.yaml` load and run | Pass |
 
-## 11. Defects found, and their disposition
+## 12. Defects found, and their disposition
 
 | ID | Severity | Status | Regression test |
 |---|---|---|---|
@@ -603,6 +680,10 @@ SDK to provide it transitively.
 
 | D-30 | The driver treated the supply's **global** output switch as the state of each channel. Connecting to a supply whose output was off therefore marked both channels off, after which `set_voltage` parked the value instead of sending it - and the supply was never programmed at all | **Major**: `configure_channel` then `output_on` would energise a rail at the *previous* setpoint, silently, and every subsequent reading would be consistent with it | **Closed** — a channel is parked if and only if the driver parked it; there is now one fact where there were two that could disagree | `test_configure_sets_the_limit_before_the_voltage`, `TestReset` (3), `test_it_can_be_turned_on` |
 | D-31 | The simulated supply's command pattern allowed only a channel digit, so `OUT0` matched nothing and was silently refused. Every "switch off" in a simulated test appeared to succeed while the model stayed on | **Major** (in the test double, so the whole class of switching tests was vacuous — see the note on D-11 and D-12 below) | **Closed** — the digit position is parsed as a digit, and a channel that does not exist is refused explicitly rather than by failing to parse | `test_out0_is_understood`, `test_a_channel_that_does_not_exist_is_refused` |
+
+| D-32 | The S2-LP driver read the firmware's ``{rssi:D4}`` tag as decimal. ST's firmware writes that tag with its ``%x`` specifier, so it carries **bare hex**: ``D4`` read as decimal is 4, and the driver reported -144 dBm for a signal at -40 dBm | **Major** (evidence integrity): a plausible number, wrong by 104 dB, in every received packet and in the packet log | **Closed** — tags the firmware writes in hex are read in hex, explicitly, by `Reply.hex_number` | `test_a_hex_tag_has_no_0x_in_front_of_it`, `test_the_rssi_is_the_one_the_board_reported` |
+| D-33 | The reply parser's number pattern had no sign, so a negative value arrived positive. `S2LPQiGetRssidBm` answers in dBm: -110 dBm was read as +110 dBm | **Major**, and of the worst kind: the result is not merely wrong but physically impossible, and nothing downstream would have questioned it | **Closed** — the pattern accepts a leading minus, and the driver's RSSI test asserts the sign | `test_rssi_is_read_in_dbm`, `TestNumbers` |
+| D-34 | A polled capture counted a re-arm per iteration with no bound on iterations. Against a radio that answers "nothing" immediately it spent the whole timeout re-arming - 35 006 times in two seconds - and reported that as a capture | **Minor** on hardware, where each arm blocks; **major** as a measurement claim, because the gap count is what tells a reader whether a capture was continuous | **Closed** — the polled path is bounded by an attempt count as well as by time, and reports `stopped_early` | `test_a_polled_capture_is_bounded_by_attempts` |
 
 No open defects.
 
@@ -668,7 +749,7 @@ Notes on process effectiveness:
   (they check identifiers, not test names), so this one was a manual cross-check;
   it is worth repeating per release.
 
-## 12. Verdict against the pass criteria
+## 13. Verdict against the pass criteria
 
 | ID | Criterion | Result |
 |---|---|---|
@@ -701,7 +782,7 @@ discharged without physical hardware:
   cover linking, flash size, or behaviour on silicon, which BLE-OPEN-01 to -04
   exist to establish.
 
-## 13. Supplementary checks performed
+## 14. Supplementary checks performed
 
 | Check | Result |
 |---|---|

@@ -50,6 +50,8 @@ USB link. It is specified, designed and traced here like the rest of the item.
 | STK-16 | Provide the dongle's embedded firmware, built with SEGGER Embedded Studio against nRF5 SDK 17. |
 | STK-17 | Log the BLE session to a text file. |
 | STK-18 | Measure current with a multimeter over RS-232 through a USB converter. *(future)* |
+| STK-19 | Evaluate a sub-1 GHz radio with an ST S2-LP development kit over USB: program and read every register, transmit, receive, and log all data to a file. |
+| STK-20 | Use the kit's existing ST firmware if it is fit for purpose, rather than writing firmware for it. |
 
 ## 3. Element structure
 
@@ -64,6 +66,7 @@ prefixes are per element so they stay unique as instruments are added.
 | `SCOPE-` | `benchtools.instruments.tek3014b` | The oscilloscope driver. |
 | `JLINK-` | `benchtools.instruments.jlink` | The SEGGER J-Link debug probe driver. Not a SCPI instrument, and the only element that reaches the target through a debug probe rather than a measurement link. |
 | `BLE-` | `benchtools.instruments.nordic_dongle` **and** `firmware/nordic_dongle` | The BLE bench dongle: host driver and the dongle's own firmware. One element, because the protocol between them is one design decision and splitting it across two elements would let the halves drift apart. |
+| `S2LP-` | `benchtools.instruments.s2lp` | The ST S2-LP development kit. Unlike the BLE dongle, the firmware is **ST's own** (STK-20), so this element is a host driver only and the firmware's command set is an external interface rather than something this project controls. |
 | `PSU-` | `benchtools.instruments.gpd2303s` | The GW Instek GPD-2303S bench supply. Separate from `INST-` because its command set is neither SCPI nor shared with any other instrument here, and its single output switch is a hardware constraint that shapes its whole interface. |
 | `RUN-` | `benchtools.runner` | The bench test runner. |
 
@@ -466,9 +469,84 @@ output switch for two channels**.
 
 ---
 
-## 11. RUN — bench test runner
+## 11. S2LP — ST S2-LP development kit
 
-### 11.1 Bench configuration
+A sub-1 GHz transceiver on an evaluation board, reached over USB. The board runs
+**ST's own CLI firmware** - the firmware ST's S2-LP DK GUI drives - and this
+element is the host half only: no firmware of this project's runs on the kit
+(STK-20, AD-20).
+
+Three properties of that firmware shape the requirements below, and each is a
+way a capture can be believed when it should not be. Reception is **polled**:
+the firmware arms the radio when asked and hears nothing between one call and
+the next. Timestamps are the **board's millisecond timer**, not a radio
+timestamp. And the radio will accept a frequency the board cannot radiate.
+
+### 11.1 The link to the firmware
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| S2LP-FR-001 | The driver shall communicate with ST's CLI firmware over the kit's USB serial port, as ST's GUI does, without replacing or modifying that firmware. | STK-19, STK-20 | Test, Inspection |
+| S2LP-FR-002 | A command shall be checked against the firmware's declared argument types before it is sent, and a command or value the firmware would reject shall be reported naming the command and the argument. | STK-19 | Test |
+| S2LP-FR-003 | A reply shall be read until the firmware's braces balance, rather than as a fixed number of lines, because the firmware answers some commands on one line and others over several. | STK-19 | Test |
+| S2LP-FR-004 | A value the firmware writes in hexadecimal without a prefix shall be read as hexadecimal. A line the driver did not understand shall be kept, not discarded. | STK-19 | Test |
+| S2LP-FR-005 | A long-running command shall be stoppable by the means the firmware provides, without resetting the board. | STK-19 | Test |
+
+### 11.2 Registers
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| S2LP-FR-010 | The driver shall read and write any register of the transceiver, by name or by address, singly or as a block. | STK-19 | Test |
+| S2LP-FR-011 | The driver shall hold the device's register map - every documented register by name and address, with its reset value, its access and its named bit fields - and shall decode a reading against it. | STK-19 | Test |
+| S2LP-FR-012 | A named bit field shall be writable without disturbing the other fields of its register, and a value too wide for a field shall be refused rather than truncated. | STK-19 | Test |
+| S2LP-FR-013 | A write to a register the device treats as read-only shall be refused, rather than sent and silently discarded. | STK-19 | Test |
+| S2LP-FR-014 | The driver shall dump every register in one operation, reading consecutive addresses in blocks, and shall be able to report which registers differ from their reset values. | STK-19 | Test |
+| S2LP-FR-015 | A reply whose register addresses do not match those asked for shall be reported as an error, not read as values. | STK-19 | Test |
+| S2LP-FR-016 | The driver shall send any command strobe, by name or opcode. | STK-19 | Test |
+
+### 11.3 Radio configuration
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| S2LP-FR-020 | The driver shall set and read the carrier frequency, modulation, data rate, frequency deviation, channel filter bandwidth and output power. | STK-19 | Test |
+| S2LP-FR-021 | A configuration operation shall report what the radio says it is set to afterwards, not what it was asked for. | STK-19 | Test |
+| S2LP-FR-022 | A frequency outside the band the attached board is built for shall be refused, because the radio would accept it and transmit into a filter and matching network that do not pass it. | STK-19 | Test |
+| S2LP-FR-023 | The board shall be identified at connection, and its band taken from what it reports rather than from configuration. Connecting shall change no radio setting. | STK-19 | Test |
+| S2LP-FR-024 | Signal strength shall be reported in dBm, converted by the device's documented scale. | STK-19 | Test |
+
+### 11.4 Transmitting, receiving and logging
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| S2LP-FR-030 | The driver shall transmit a payload given as bytes or as text, and shall transmit one repeatedly at an interval timed by the board rather than by the host. | STK-19 | Test |
+| S2LP-FR-031 | The driver shall receive a packet, reporting its payload, its signal strength and the board's timestamp. Receiving nothing shall be reported as nothing received, and shall be distinguishable from receiving an empty packet. | STK-19 | Test |
+| S2LP-FR-032 | The driver shall capture a number of packets, keeping the radio armed for the whole capture where the firmware allows it. | STK-19 | Test |
+| S2LP-FR-033 | A capture shall record how many times the radio was re-armed during it, so that a capture with gaps cannot be quoted as a complete record of the air. | STK-19 | Test |
+| S2LP-FR-034 | A capture that is cut short, by time or by the host, shall say so in its result rather than raise. | STK-19 | Test |
+| S2LP-FR-035 | Every line exchanged with the board shall be loggable to a text file, host-timestamped and flushed per line, including lines the driver did not understand. | STK-19 | Test |
+| S2LP-FR-036 | Every packet, sent and received, shall be loggable as one structured record per line, readable after an interrupted capture. Both logs shall be available at once, and a note shall be writable into both. | STK-19 | Test |
+
+### 11.5 Bench use
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| S2LP-FR-050 | The kit shall be registered as a bench driver, and a simulated kit shall answer the same firmware command set with a register file and a modelled air interface, so that every operation is verifiable without hardware. | STK-08, STK-19 | Test |
+| S2LP-FR-060 | A command-line interface shall expose identification, register dump and access, radio configuration, transmit, receive, capture and strobes, emitting JSON, and shall warn when a capture was not continuous. | STK-19 | Test |
+
+### 11.6 S2LP non-functional
+
+| ID | Requirement | Verification |
+|---|---|---|
+| S2LP-NFR-001 | The driver shall add no mandatory third-party dependency; the serial library shall be an optional extra. | Test, Inspection |
+| S2LP-NFR-002 | No vendor source shall be redistributed in this repository. The register map shall hold facts about the device, not vendor prose. | Inspection |
+| S2LP-NFR-003 | A measurement shall never be reported without the clock that produced it and that clock's resolution. | Test, Inspection |
+| S2LP-NFR-004 | No operation shall transmit unless the caller asked for a transmission. | Test, Inspection |
+
+---
+
+## 12. RUN — bench test runner
+
+### 12.1 Bench configuration
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -479,7 +557,7 @@ output switch for two channels**.
 | RUN-FR-005 | The runner shall support replacing every instrument with its simulator, so a specification can be exercised without hardware. | STK-08 | Test |
 | RUN-FR-006 | A run shall be recorded as simulated whenever no instrument on the bench is real hardware, so simulated results cannot be mistaken for measurements. | STK-08 | Test |
 
-### 11.2 Test specification
+### 12.2 Test specification
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -490,7 +568,7 @@ output switch for two channels**.
 | RUN-FR-014 | A malformed specification shall be rejected with a message identifying what to fix. | STK-08 | Test |
 | RUN-FR-015 | A test shall be markable as skipped, with a reason. | STK-08 | Test |
 
-### 11.3 Limits
+### 12.3 Limits
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -499,7 +577,7 @@ output switch for two channels**.
 | RUN-FR-022 | A measured value shall be scalable before the limit is checked, so a limit can be stated in convenient units. | STK-08 | Test |
 | RUN-FR-023 | A limit shall render as human-readable text for the report, and a failure shall state by how much the value missed. | STK-08 | Test |
 
-### 11.4 Execution
+### 12.4 Execution
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -512,7 +590,7 @@ output switch for two channels**.
 | RUN-FR-036 | A step shall be able to name a driver property as well as a method. A property shall be read when the step executes and shall take no arguments. | STK-08 | Test |
 | RUN-FR-037 | The run record and every report shall identify each instrument the run used - driver, model, serial number, resource and, where the instrument reports one, the firmware build - recorded after the run rather than before. An instrument that would not identify shall be recorded as such rather than omitted. | STK-08, STK-16, STK-17 | Test |
 
-### 11.5 Reporting
+### 12.5 Reporting
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -527,7 +605,7 @@ output switch for two channels**.
 
 ---
 
-## 12. Assumptions and constraints
+## 13. Assumptions and constraints
 
 | ID | Statement |
 |---|---|

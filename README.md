@@ -30,6 +30,7 @@ benchtools/
 │   ├── jlink/       SEGGER J-Link debug probe (flash, RTT, breakpoints, timing)
 │   ├── nordic_dongle/  Nordic BLE dongle (scan, UART over BLE, advertising profile)
 │   ├── gpd2303s/    GW Instek GPD-2303S bench power supply
+│   ├── s2lp/        ST S2-LP sub-1 GHz development kit (registers, TX, RX, logs)
 │   └── generic.py   anything answering *IDN?
 └── runner/        declarative bench test runner
 ```
@@ -375,6 +376,57 @@ compiled or run.
 
 ---
 
+## Sub-1 GHz radio — ST S2-LP development kit
+
+Program and read every register, transmit, receive, and log everything — through
+**ST's own firmware**. The kit arrives running the CLI firmware that ST's S2-LP
+DK GUI drives, and this driver is a client of that interface, so nothing needs
+flashing and the GUI still works.
+
+```python
+from benchtools.instruments.s2lp import S2lpDevkit
+
+with S2lpDevkit.connect("/dev/ttyACM0",
+                        log_path="session.log", packet_log="packets.jsonl") as radio:
+    radio.configure_radio(frequency_hz=915_000_000, data_rate_bps=38_400)
+    radio.write_field("PCKTCTRL3", "PCKT_FRMT", 0)     # one field, rest untouched
+    radio.transmit(b"ping")
+
+    capture = radio.capture(count=20, timeout=60.0)
+    print(capture.describe())
+```
+
+```bash
+python -m benchtools s2lp -r /dev/ttyACM0 registers --plain     # all 123, decoded
+python -m benchtools s2lp -r /dev/ttyACM0 tx 0x0102ff
+python -m benchtools s2lp -r sim:// capture --count 10          # no kit needed
+```
+
+A register dump is the point of holding the device's map rather than a byte
+count:
+
+```
+0x2E PCKTCTRL3              = 0xC0            PCKT_FRMT=3
+0x2F PCKTCTRL2              = 0x07  (reset)   MBUS_3OF6_EN=1 MANCHESTER_EN=1 FIX_VAR_LEN=1
+```
+
+### What the firmware cannot do, and what the driver does about it
+
+| | |
+|---|---|
+| **Reception is polled** — the firmware arms the radio when asked, and hears nothing between calls | Every capture records how many times it re-armed. `is_continuous` is false when it did, so "nothing was transmitted" and "we were not listening" stay distinguishable. The default keeps the board in its own loop, with no gaps |
+| **Timestamps are the board's millisecond timer**, not a radio timestamp | The field is called `board_time_ms`, so nobody quotes it as protocol timing |
+| **The radio accepts a frequency the board cannot radiate** and reports it faithfully | A frequency outside the band the *board itself reported* is refused |
+
+Two logs, because they answer different questions: `--log` records every line in
+both directions (the evidence), `--packet-log` records one JSON object per packet
+(the data).
+
+See [S2-LP Devkit Notes](docs/s2lp/S2LP_Devkit_Notes.md) for the protocol, the
+firmware investigation, the licence position, and five bench confirmation items.
+
+---
+
 ## Power supply — GW Instek GPD-2303S
 
 Two channels, 30 V and 3 A each, over RS-232 or its USB-serial port. It powers
@@ -490,6 +542,7 @@ configurations can name it. New link types (serial, USBTMC, HTTP) register with
 | [`examples/05_jlink_firmware.py`](examples/05_jlink_firmware.py) | Flash, verify, RTT, variables, call stack, and all four timing methods through a J-Link |
 | [`examples/06_ble_sensor.py`](examples/06_ble_sensor.py) | Scan, select, advertising profile, and command/response timing through a BLE dongle |
 | [`examples/07_supply_rails.py`](examples/07_supply_rails.py) | Bringing up two rails, and catching one that is in current limit |
+| [`examples/08_s2lp_radio.py`](examples/08_s2lp_radio.py) | Dumping an S2-LP's registers, transmitting, and capturing to a packet log |
 
 Each takes an address (or bench file) and defaults to simulation:
 
@@ -506,8 +559,9 @@ python examples/02_channel_spread.py            # simulator
 python -m pytest tests/ --cov=benchtools --cov-report=term
 ```
 
-**1 394 tests, 94% statement coverage, no hardware required** — no oscilloscope,
-no probe, no target, no GDB, no dongle, no BLE sensor, no power supply. With
+**1 606 tests, 94% statement coverage, no hardware required** — no oscilloscope,
+no probe, no target, no GDB, no dongle, no BLE sensor, no power supply, no
+sub-1 GHz kit. With
 every optional extra removed: 1 152 pass, 36 skip, 0 fail.
 
 The suite includes an independently implemented VXI-11 RPC server, a SCPI socket
@@ -536,6 +590,7 @@ source carries its trace and allocates nothing dynamically.
 | [J-Link Integration Notes](docs/jlink/JLink_Integration_Notes.md) | Why the GDB Server rather than the DLL, Windows and Docker, timing methods, probe confirmation items |
 | [Bench Runner Guide](docs/Bench_Runner_Guide.md) | Writing specifications and bench configurations |
 | [BLE Dongle Notes](docs/ble/BLE_Dongle_Notes.md) | Why the dongle needs firmware, the line protocol, building and flashing, reading a profile, and what is unproven |
+| [S2-LP Devkit Notes](docs/s2lp/S2LP_Devkit_Notes.md) | Why ST's firmware is used unchanged, its CLI protocol, the register map, what a polled capture can and cannot be quoted as, and the licence position |
 | [GPD-2303S Notes](docs/psu/GPD2303S_Notes.md) | The three ways this supply will mislead a test, its command set and status word, and the bench confirmation items |
 | [SWE.1 Requirements](docs/SWE1_Software_Requirements_Specification.md) | 177 functional and 18 non-functional requirements |
 | [SWE.2 Architecture](docs/SWE2_Software_Architecture.md) | Layering, elements, eighteen architectural decisions |

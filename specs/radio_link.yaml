@@ -1,0 +1,96 @@
+# The S2-LP kit is configured as intended, and the link works.
+#
+# Run this before any radio measurement on this bench. Every figure that follows
+# depends on the radio actually being tuned where the test thinks it is, and on
+# the board being the one the suite expects - a 915 MHz kit and an 868 MHz kit
+# answer every command identically and produce entirely different results.
+#
+# Against hardware:
+#   python -m benchtools run specs/radio_link.yaml --bench benches/lab1.yaml
+# Without it:
+#   python -m benchtools run specs/radio_link.yaml --simulate
+#
+# The simulated kit is in loopback only when a test asks it to be, so the
+# reception test below is written to pass on a quiet bench: it asserts that a
+# capture reports its own continuity, not that a packet arrived. Asserting on
+# arrivals needs a second radio, which is S2LP-OPEN-05.
+
+name: S2-LP radio link
+description: >
+  Confirm the kit identifies itself, tunes where it is told, keeps its register
+  configuration, and reports captures honestly.
+requirements: [SYS-REQ-200, SYS-REQ-201, SYS-REQ-202]
+
+instruments:
+  s2lp: s2lp
+
+setup:
+  - do: s2lp.configure_radio
+    with:
+      frequency_hz: 915000000
+      data_rate_bps: 38400
+      modulation: 2-gfsk-bt1
+      deviation_hz: 20000
+      bandwidth_hz: 100000
+  - do: s2lp.set_payload_length
+    with: {length: 16}
+
+tests:
+  - name: The radio is tuned where it was told
+    requirement: SYS-REQ-200
+    steps:
+      # A property read: no arguments, taken when the step runs.
+      - do: s2lp.frequency_hz
+        expect:
+          - name: carrier
+            scale: 1.0e-6
+            display_unit: MHz
+            nominal: 915.0
+            tolerance: 0.05
+
+  - name: The radio configuration reads back as it was set
+    requirement: SYS-REQ-200
+    steps:
+      - do: s2lp.radio_info
+        save: radio
+        expect:
+          - name: data_rate
+            measure: data_rate_bps
+            nominal: 38400
+            tolerance_percent: 1.0
+          - name: deviation
+            measure: deviation_hz
+            nominal: 20000
+            tolerance_percent: 5.0
+
+  - name: The packet handler carries the payload the suite expects
+    requirement: SYS-REQ-201
+    steps:
+      - do: s2lp.payload_length
+        expect: [{name: payload, equals: 16}]
+
+  - name: The packet format register holds what it should
+    requirement: SYS-REQ-201
+    steps:
+      # Straight to the register, by name and field: 0 is the basic format.
+      - do: s2lp.read_field
+        with: {register: PCKTCTRL3, field: PCKT_FRMT}
+        expect: [{name: packet_format, equals: 0}]
+
+  - name: A capture states whether it was continuous
+    requirement: SYS-REQ-202
+    steps:
+      # The assertion is about the capture's honesty, not about traffic: a
+      # capture with re-arm gaps cannot be quoted as evidence that nothing was
+      # transmitted, and this is the flag that says which kind it was.
+      - do: s2lp.capture
+        with: {count: 2, timeout: 2.0}
+        save: capture
+        expect:
+          - name: continuous
+            measure: is_continuous
+            equals: 1
+
+teardown:
+  - do: s2lp.strobe
+    with: {what: standby}

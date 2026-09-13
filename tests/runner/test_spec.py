@@ -182,7 +182,8 @@ class TestLoading:
     @pytest.mark.parametrize(
         "name,aliases",
         [("clock_skew.yaml", ["scope"]), ("firmware_timing.yaml", ["probe"]),
-         ("sensor_rails.yaml", ["psu"]), ("dongle_firmware.yaml", ["dongle"])],
+         ("sensor_rails.yaml", ["psu"]), ("dongle_firmware.yaml", ["dongle"]),
+         ("radio_link.yaml", ["s2lp"])],
     )
     def test_shipped_specifications_are_valid(self, name, aliases):
         """The examples in specs/ must stay loadable as the API changes."""

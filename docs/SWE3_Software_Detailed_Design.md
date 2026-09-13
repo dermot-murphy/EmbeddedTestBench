@@ -931,6 +931,152 @@ document-and-test discipline had not (SWE.4 report §4.4).
 
 ---
 
+# S2LP — `benchtools.instruments.s2lp`
+
+An ST S2-LP development kit over USB. The board runs **ST's own CLI firmware**
+(AD-20), so every unit here is host-side and the firmware's command set is an
+external interface.
+
+## S2LP-DD-CONST — `constants.py`
+
+The boards and their bands, the modulation and strobe codes, the FIFO and
+payload limits, and `COMMANDS`: the firmware's command names with the argument
+types ST declares for each. Written down so that a driver mistake - a command
+that does not exist, or an argument that does not fit - fails as a named error in
+a test rather than as a timeout on the bench.
+
+## S2LP-DD-REGS — `registers.py`
+
+The device's register map: 123 registers by name and address, each with its reset
+value, its access and its named bit fields. `Field` extracts and inserts bits;
+`Register.describe` renders one readable line; `contiguous_runs` groups the
+sparse map into blocks that can be read in one command each.
+
+Design points:
+
+- **It is what makes "read all registers" useful.** A dump of 123 hex bytes says
+  nothing. `PCKTCTRL3 = 0xC0  PCKT_FRMT=3` says what the radio was configured to
+  do, and `registers_differing_from_reset` answers the question behind the
+  question: what has this radio been set up to do?
+- **`Field.insert` refuses a value too wide for its field.** Truncating silently
+  would write a different configuration from the one asked for, and the read-back
+  would agree with the truncation.
+- **Reserved bits are not fields.** Anything this map names, the datasheet names.
+- **It holds facts, not prose** (S2LP-NFR-002): addresses, reset values, field
+  names and bit positions. Field descriptions belong in the datasheet, and the
+  vendor's wording stays in the vendor's document.
+- The dump reads **contiguous runs**: 15 commands instead of 123, which on a
+  115200 baud link is the difference between instant and not.
+
+## S2LP-DD-PROTOCOL — `protocol.py`
+
+The host's half of ST's CLI line protocol, and nothing else: it formats a command
+line and parses a reply, and knows nothing about radios.
+
+`format_command` checks arguments against the types the firmware declares, so an
+out-of-range value is caught naming the command rather than producing a terse
+firmware error. `parse_reply` collects the reply's brace-delimited tags -
+`regs_list`, `bytes`, `rssi`, `error`, `timer` - and keeps every line verbatim.
+
+Two details that bite:
+
+- **`Reply.hex_number` exists because the firmware writes some tags with `%x`**,
+  which emits bare hex. Read as decimal, an RSSI of `D4` is 4 - a plausible
+  figure that is wrong by 104 dB. The tags the firmware writes in hex are read in
+  hex, explicitly.
+- **The number pattern accepts a minus sign.** `S2LPQiGetRssidBm` answers in dBm,
+  and dropping the sign turns -110 dBm into +110 dBm: not merely wrong but
+  impossible, and nothing downstream would question it.
+
+## S2LP-DD-SESSION — `session.py`
+
+Commands out, replies in, every line logged.
+
+- **Where a reply ends** is decided by counting braces, because the firmware
+  closes some replies on the first line and others five lines later. Waiting for
+  a fixed number of lines would truncate half the command set.
+- **`stop()` sends a single `S`**, with no terminator: ST's firmware polls the
+  port for that character inside its capture loops, and it is the only way to end
+  a long capture without resetting the board.
+- `collect()` yields replies as they arrive, so a caller can log each packet as
+  it lands; a batch cut short returns what arrived rather than raising, because
+  a truncated capture is a fact the caller needs.
+- The **raw session log** is written here: every line, both directions,
+  host-timestamped, flushed per line.
+
+## S2LP-DD-PACKETS — `packets.py`
+
+`Packet` (direction, payload, RSSI, both clocks, error), `Capture` (the packets
+plus how they were taken) and `PacketLog` (JSON Lines, one object per line).
+
+The design point is `Capture.gaps`. ST's firmware receives when asked: each
+polled receive arms the radio, waits, and returns, and a packet arriving between
+calls is not lost so much as *invisible*. A capture therefore records how many
+times it re-armed, and `is_continuous` is false when it did - so "nothing was
+transmitted" and "we were not listening" stay distinguishable. A count of what
+was missed is not available from this hardware path, and this package does not
+invent one.
+
+JSON Lines rather than one JSON document, so a capture interrupted half way
+through is still a readable file - which is the usual case, since a capture is
+usually interrupted on purpose.
+
+## S2LP-DD-S2LP — `s2lp.py`
+
+`S2lpDevkit`, the façade: an `Instrument` (CORE-DD-INSTRUMENT) over a serial
+transport.
+
+| Group | Members |
+|---|---|
+| Lifecycle | `connect`, `_normalise_resource`, `_post_open`, `_read_identity`, `reset` |
+| Registers | `read_register(s)`, `write_register(s)`, `read_all_registers`, `dump_registers`, `registers_differing_from_reset`, `read_field`, `write_field`, `strobe`, `restore_defaults` |
+| Radio | `configure_radio`, `radio_info`, `frequency_hz`, `set_frequency`, `modulation`, `set_modulation`, `power_dbm`, `set_power_dbm`, `rssi_dbm`, `payload_length`, `set_payload_length` |
+| Traffic | `transmit`, `transmit_batch`, `receive`, `capture`, `stop` |
+| Logging | `start_log`, `start_packet_log`, `log_note`, `log_path`, `packet_log_path` |
+
+Design points:
+
+- **`_post_open` identifies and configures nothing.** Connecting must not retune
+  a radio somebody left set up.
+- **The band comes from the board**, not from configuration, and a frequency
+  outside it is refused: the radio would accept it, report it faithfully, and
+  transmit into a filter and matching network that do not pass it.
+- **`write_field` reads, modifies and writes**, so the other fields of the
+  register keep their values. Writing a field's value to the whole register is
+  the mistake this method exists to prevent.
+- **A register read is checked against the addresses that came back.** The
+  firmware interleaves address and value; if the addresses are not the ones asked
+  for, neither are the values.
+- **`capture(continuous=True)` keeps the board in its own loop** and has no gaps.
+  The polled path is bounded by an attempt count as well as by time, because an
+  arm that finds nothing returns immediately and an unbounded loop would spend
+  the whole timeout re-arming and call the result a capture.
+- **Verification is `radio_info()` after configuration**, not the values that
+  were sent. The two differ whenever a setting is not reachable.
+
+## S2LP-DD-SIM — `simulator.py`
+
+A register file with a radio attached, satisfying `Responder` (CORE-DD-MOCK).
+Writing PCKTCTRL3 changes what the packet-format query answers; a strobe flushes
+a FIFO; a packet queued on the simulated air is delivered to exactly one receive
+and is then gone.
+
+Two behaviours are modelled because they are the ones that mislead: a receive
+that finds nothing answers with an error after its timeout rather than an empty
+packet, and a packet arriving while the radio is not armed is counted and lost.
+A write to a read-only register is accepted and discarded, as the hardware
+discards it - which is what the driver's refusal (S2LP-FR-013) protects a test
+from.
+
+## S2LP-DD-CLI — `cli.py`
+
+Sub-commands `info`, `registers`, `radio`, `tx`, `rx`, `capture`, `strobe`,
+emitting JSON (AD-15). `--log` and `--packet-log` open both logs at once. `rx`
+with nothing on the air exits 1 and says why that is not the same as the air
+being quiet; `capture` adds a warning when the capture was not continuous.
+
+---
+
 # PSU — `benchtools.instruments.gpd2303s`
 
 A GW Instek GPD-2303S: two channels, 30 V and 3 A each, over RS-232 or its
