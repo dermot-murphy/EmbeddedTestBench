@@ -100,13 +100,23 @@
 #define APP_USBD_STRING_ID_PRODUCT		2
 #define APP_USBD_STRINGS_PRODUCT		APP_USBD_STRING_DESC("BenchTools BLE dongle")
 /* The serial number is generated at run time from the device's FICR by
- * app_usbd_serial_num.c, so its descriptor is that module's array. Note the
- * singular spelling: app_usbd_string_desc.c declares the extern as
- * `extern uint16_t APP_USBD_STRING_SERIAL[]` and indexes the table with it,
- * while every other string uses the plural APP_USBD_STRINGS_. */
+ * app_usbd_serial_num.c, so its descriptor is that module's array rather than
+ * a literal: two dongles on one host must not present the same USB serial.
+ *
+ * Note the singular APP_USBD_STRING_SERIAL - app_usbd_string_desc.c indexes
+ * its table with that spelling, while every other string uses the plural
+ * APP_USBD_STRINGS_. The switch that makes the SDK declare the array for us is
+ * spelled both ways in different SDK versions, so both are set, and the
+ * declaration is made here as well. A second compatible extern declaration is
+ * harmless; relying on guessing which spelling this SDK reads is not. */
 #define APP_USBD_STRING_ID_SERIAL		3
+#define APP_USBD_STRING_SERIAL_EXTERN		1
 #define APP_USBD_STRINGS_SERIAL_EXTERN		1
 #define APP_USBD_STRING_SERIAL			g_extern_serial_number
+#ifndef __ASSEMBLER__
+#include <stdint.h>
+extern uint16_t g_extern_serial_number[];
+#endif
 #define APP_USBD_STRING_ID_CONFIGURATION	4
 /* The languages the string descriptors are offered in. 0x0409 is the USB
  * LANGID for English (United States), which is what
