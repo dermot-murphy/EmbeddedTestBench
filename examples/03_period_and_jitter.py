@@ -11,8 +11,8 @@ deviation and peak-to-peak jitter across every cycle on screen.
 
 import sys
 
-from tek3014b import Tek3014B
-from tek3014b.errors import MeasurementError
+from benchtools.core.errors import MeasurementError
+from benchtools.instruments.tek3014b import Tek3014B
 
 
 def main(resource: str = "sim://") -> int:

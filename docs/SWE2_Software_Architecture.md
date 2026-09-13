@@ -2,176 +2,204 @@
 
 | Field | Value |
 |---|---|
-| Document ID | TEK3014B-SWE2-001 |
-| Version | 1.0 |
-| Date | 2026-09-12 |
+| Document ID | BENCHTOOLS-SWE2-001 |
+| Version | 2.0 |
+| Date | 2026-09-13 |
 | Process reference | Automotive SPICE V4.0, SWE.2 Software Architectural Design |
 
 ## 1. Architectural drivers
 
 | # | Driver | Consequence |
 |---|---|---|
-| D1 | VISA must be optional (STK-06, SWE1-NFR-001) | The protocol is implemented in-package, and the choice of protocol stack is pushed behind an abstraction so it becomes a deployment decision, not an architectural one. |
-| D2 | Cross-channel timing must be trustworthy (SWE1-FR-062) | All channels are read from **one** acquisition; analysis operates on records, never on a live instrument, so it is deterministic and replayable. |
-| D3 | Must be verifiable without hardware (SWE1-FR-090) | A test double is placed at the transport boundary — the widest seam that still exercises the SCPI vocabulary. |
-| D4 | An invalid setting must not half-configure the instrument (SWE1-NFR-004) | Validation precedes transmission; a complete setup is sent as one compound message. |
-| D5 | Optional features must not become mandatory weight (SWE1-NFR-003) | `matplotlib` and `pyvisa` are imported lazily, inside the functions that need them. |
+| D1 | VISA must be optional (STK-06, CORE-NFR-001) | The VXI-11 protocol is implemented in-package, and the choice of protocol stack is pushed behind an abstraction, making it a deployment decision rather than an architectural one. |
+| D2 | More instruments are coming (STK-07): power supplies and loads, DMMs, signal sources, logic and protocol analysers, BLE and RF | Everything not specific to one instrument is factored into a shared core. Transports and drivers are held in registries so new ones are added without modifying existing code. |
+| D3 | A bench runner must drive the tools (STK-08) | Test intent lives in data, not code. The runner depends on drivers through a uniform base class, never on any specific one. |
+| D4 | Cross-channel timing must be trustworthy (ANA-FR-016) | All channels are read from one acquisition; analysis operates on records, never on a live instrument, so it is deterministic and replayable. |
+| D5 | Must be verifiable without hardware (SCOPE-FR-090, RUN-FR-005) | A test double sits at the transport boundary — the widest seam that still exercises the SCPI vocabulary — and a simulator harness is shared so each instrument writes only its own behaviour. |
+| D6 | An invalid setting must not half-configure an instrument (CORE-NFR-004) | Validation precedes transmission; a complete setup is sent as one compound message. |
 
 ## 2. Layering
 
 ```
-                 +-------------------------------------------+
-   Presentation  |  cli.py           __main__.py             |
-                 +-------------------------------------------+
-                                    |
-                 +-------------------------------------------+
-   Application   |  scope.Tek3014B                           |
-                 |  SCPI vocabulary, validation, sequencing   |
-                 +-------------------------------------------+
-                        |                    |            |
-        +---------------+          +---------+        +---+------------+
-        |                          |                  |                |
- +--------------+        +------------------+   +-----------+   +-------------+
- |  waveform    |        |  measure         |   | plotting  |   | constants   |
- |  decode,     |        |  levels, edges,  |   | (lazy     |   | enums,      |
- |  scale, CSV  |        |  period, spread  |   | matplotlib|   | ModelLimits |
- +--------------+        +------------------+   +-----------+   +-------------+
-        |                          |
-        +------------+-------------+
-                     |
-     +-----------------------------------------------+
-     |  transport.Transport  (abstract)              |
-     |  buffered framing: read_message / read_exactly|
-     |                     / read_raw                |
-     +-----------------------------------------------+
-        |             |              |             |
- +-----------+  +-----------+  +------------+  +----------+
- | Vxi11     |  | Socket    |  | Visa       |  | Mock     |
- | (stdlib   |  | (raw TCP) |  | (pyvisa,   |  | (-> simulator)
- |  ONC-RPC) |  |           |  |  optional) |  |          |
- +-----------+  +-----------+  +------------+  +----------+
-        |                                            |
-   [ instrument ]                            +-----------------+
-                                             | simulator       |
-                                             | SimulatedTDS3014B|
-                                             +-----------------+
+   +--------------------------------------------------------------+
+   |  benchtools.runner                                           |
+   |  spec -> bench -> runner -> results -> report   +  cli       |
+   +--------------------------------------------------------------+
+                        |                    |
+   +--------------------------------------------------------------+
+   |  benchtools.instruments                                      |
+   |  tek3014b (scope, constants, simulator, cli)                 |
+   |  generic  (anything answering *IDN?)                         |
+   +--------------------------------------------------------------+
+              |                                    |
+   +-------------------------------+               |
+   |  benchtools.analysis          |               |
+   |  waveform  measure  plotting  |               |
+   +-------------------------------+               |
+              |                                    |
+   +--------------------------------------------------------------+
+   |  benchtools.core                                             |
+   |  scpi (ScpiInstrument, 488.2 blocks)                         |
+   |  simulator (SimulatedInstrument, Responder)                  |
+   |  enums   validation   errors                                 |
+   |  transport: base / vxi11 / socket_raw / visa_backend /        |
+   |             mock / factory (registry)                        |
+   +--------------------------------------------------------------+
+                              |
+                       [ instrument ]
 ```
 
-Dependencies point downwards only. `waveform` and `measure` have no knowledge of the
-transport; `transport` has no knowledge of SCPI semantics beyond message framing.
+Dependencies point one way only: **core, then analysis, then instruments, then
+runner**. This is not merely a convention — it is enforced by
+`tests/test_layering.py`, which parses every module's imports and fails the build
+on a violation. The core is additionally checked to contain no reference to any
+instrument, and to be importable without importing any other element.
 
 ## 3. Architectural elements
 
 | ID | Element | Responsibility | Key interfaces |
 |---|---|---|---|
-| SWE2-ARC-001 | `scope.Tek3014B` | Owns the SCPI vocabulary, validates settings against `ModelLimits`, sequences acquisitions, converts responses into typed results. | `configure_channel`, `set_time_per_div`, `configure_edge_trigger`, `capture_single`, `measure`, `measure_channel_spread`, `screenshot` |
-| SWE2-ARC-002 | `transport.Transport` | Abstract instrument link. Supplies buffered message framing on top of three subclass primitives (`_send`, `_recv_chunk`, open/close). | `write`, `read_message`, `read_exactly`, `read_raw`, `query`, `clear`, `read_stb` |
-| SWE2-ARC-003 | Concrete transports | Four interchangeable implementations: `Vxi11Transport`, `SocketTransport`, `VisaTransport`, `MockTransport`, selected by `open_transport`. | per `Transport` |
-| SWE2-ARC-004 | `waveform` | Data model. De-frames IEEE 488.2 blocks, decodes digitiser codes, scales to seconds and volts, exports CSV, detects clipping. | `Waveform`, `WaveformPreamble`, `parse_ieee_block` |
-| SWE2-ARC-005 | `measure` | Pure analysis over `Waveform` objects: level estimation, interpolated edge detection, period statistics, N-channel spread. | `measure_period`, `measure_channel_spread`, `find_crossings` |
-| SWE2-ARC-006 | `simulator` + `MockTransport` | Behavioural instrument model used as a test double at the transport boundary. | `SimulatedTDS3014B.respond` |
-| SWE2-ARC-007 | `constants` | Single definition point for every SCPI mnemonic and the `ModelLimits` capability envelope. | enums, `TDS3014B_LIMITS` |
-| SWE2-ARC-008 | `plotting` | Host-side rendering, with `matplotlib` imported lazily. | `plot_waveforms` |
-| SWE2-ARC-009 | `cli` | Command-line front end producing JSON on stdout. | `main` |
-| SWE2-ARC-010 | `errors` | Single typed exception hierarchy rooted at `Tek3014BError`. | exception classes |
+| CORE-ARC-001 | `core.scpi.ScpiInstrument` | The link lifecycle, command and query primitives, identification, IEEE 488.2 operations, error checking, 488.2 block codec. Every driver subclasses it. | `connect`, `initialise`, `identify`, `read_event_queue`, `check_errors`, `_query_*` |
+| CORE-ARC-002 | `core.transport.Transport` | Abstract instrument link with buffered message framing built on three subclass primitives. | `write`, `read_message`, `read_exactly`, `read_raw`, `query`, `clear` |
+| CORE-ARC-003 | Concrete transports and the factory | Four interchangeable transports selected by resource string, held in a registry so a new link type registers itself. | `open_transport`, `parse_resource`, `register_backend` |
+| CORE-ARC-004 | `core.simulator.SimulatedInstrument` | Shared simulator harness: dispatch, compound messages, 488.2 queries, event queue, binary replies. `Responder` is the protocol the mock transport accepts. | `respond`, `handle`, `_cmd_*`, `push_event` |
+| CORE-ARC-005 | `core.validation`, `core.enums`, `core.errors` | Range and channel validation, the SCPI enumeration base, and the single exception hierarchy. | `validate_range`, `ScpiEnum`, `BenchToolsError` |
+| ANA-ARC-001 | `analysis.waveform` | Data model: decode digitiser codes, scale to seconds and volts, detect clipping, export CSV. | `Waveform`, `WaveformPreamble` |
+| ANA-ARC-002 | `analysis.measure`, `analysis.plotting` | Pure analysis over `Waveform` objects, and host-side rendering. | `measure_channel_spread`, `measure_period`, `plot_waveforms` |
+| INST-ARC-001 | `instruments.*` | One subpackage per instrument, adding only its command vocabulary, capability envelope and simulator. | per `ScpiInstrument` |
+| SCOPE-ARC-001 | `instruments.tek3014b` | The TDS3000 SCPI vocabulary and the oscilloscope's capability envelope. | `Tek3014B` |
+| RUN-ARC-001 | `runner` | Specification model, bench resolution, execution engine, result records, report writers, command line. | `load_spec`, `BenchConfig`, `BenchRunner`, `write_*` |
 
 ## 4. Key architectural decisions
 
 ### AD-01 — Implement VXI-11 rather than depend on VISA
-*Decision:* implement the ONC-RPC/VXI-11 core channel directly on the standard library.
-*Rationale:* VXI-11 is an open published protocol; a VISA library is one implementation of
-it. Implementing it removes a heavyweight, platform-specific, sometimes licensed
-dependency from every test host, and makes the driver deployable in locked-down CI.
-*Cost:* roughly 320 lines of protocol code that must itself be verified — addressed by
-testing against an independently written RPC server and cross-checking against pyvisa-py.
-*Alternatives rejected:* mandatory PyVISA (moves the dependency problem to every host);
-raw socket (the instrument has no such service).
+*Decision:* implement the ONC-RPC/VXI-11 core channel on the standard library.
+*Rationale:* VXI-11 is an open published protocol; a VISA library is one
+implementation of it. Implementing it removes a heavyweight, platform-specific,
+sometimes licensed dependency from every test host.
+*Cost:* ~320 lines of protocol code that must itself be verified — addressed by
+testing against an independently written RPC server and cross-checking against
+pyvisa-py.
 
-### AD-02 — Framing primitives in the base transport, not in each transport
-*Decision:* subclasses supply `_recv_chunk() -> (data, end)`; the base class builds
-`read_message`, `read_exactly` and `read_raw` on top.
-*Rationale:* the three framing modes SCPI needs (terminator-delimited, length-delimited,
-read-to-END) are identical across transports; only the notion of "end" differs. Writing
-them once removes the most likely place for the transports to diverge in behaviour.
+### AD-02 — A shared core with enforced one-way dependencies
+*Decision:* factor the transport, SCPI plumbing, validation and simulator harness
+into `benchtools.core`, and enforce the layering with a test.
+*Rationale:* roughly half of the original single-instrument driver was already
+instrument-agnostic. With six more instrument families planned, that code is
+either shared once or duplicated six times.
+*Consequence:* a specific coupling had to be broken. `transport/mock.py`
+previously imported the oscilloscope's simulator, so the entire transport package
+— and therefore every future driver — depended on one oscilloscope. The mock
+transport now accepts any `Responder`, and each driver declares its own simulator
+via `SIMULATOR_CLASS`. The dependency is inverted: instruments know about the
+core, never the reverse.
 
-### AD-03 — Read binary blocks by declared length, not to end-of-message
-*Decision:* `CURVe?` responses are read by consuming the IEEE 488.2 header and then exactly
-the declared number of bytes.
-*Rationale:* binary sample data can legitimately contain the terminator byte, and a raw
-socket has no END indication at all. Reading by length is correct on every transport.
-*Consequence:* the payload returned is already de-framed and must **not** be passed through
-the block parser again — `Waveform.from_payload` exists for exactly this, distinct from
-`Waveform.from_block`. (A defect of precisely this kind was found and fixed during
-development; see the unit test report.)
+### AD-03 — Registries, not if-chains, for transports and drivers
+*Decision:* transports, resource schemes and instrument drivers are registered by
+name.
+*Rationale:* BLE and RF instruments will need link types that are not SCPI over
+LAN — serial dongles, USBTMC, HTTP-controlled boxes. A registry lets those arrive
+in their own modules. It also means a bench configuration names a driver as data,
+so a test specification cannot reach arbitrary code.
 
-### AD-04 — N-channel timing analysis host-side, from one acquisition
-*Decision:* the spread measurement captures all channels from a single acquisition and
-computes edge times on the host.
-*Rationale:* the instrument's `DELay` measurement takes two sources, so an N-channel spread
-would need N-1 sequential instrument measurements taken over different acquisitions — which
-measures instrument repeatability as much as signal skew. One acquisition on a common time
-base is the only way to get a meaningful figure. It is also deterministic and unit-testable.
-*Consequence:* correctness depends on the record being unclipped, which is why clipping
-detection (SWE1-FR-052) is a requirement rather than a nicety.
+### AD-04 — Framing primitives in the base transport
+*Decision:* subclasses supply `_recv_chunk() -> (data, end)`; the base builds
+`read_message`, `read_exactly` and `read_raw`.
+*Rationale:* the three framing modes SCPI needs are identical across transports;
+only the notion of "end" differs. Writing them once removes the most likely place
+for transports to diverge.
 
-### AD-05 — Validate before transmitting
-*Decision:* `ModelLimits` is checked before any byte is sent, and a complete channel setup
-is emitted as one compound message.
-*Rationale:* a partially applied setup is worse than a rejected one, because it is silent.
+### AD-05 — Read binary blocks by declared length, not to end-of-message
+*Decision:* `CURVe?` responses are read by consuming the IEEE 488.2 header and
+then exactly the declared number of bytes.
+*Rationale:* binary sample data can legitimately contain the terminator byte, and
+a raw socket has no end-of-message indication at all.
+*Consequence:* the payload returned is already de-framed and must **not** be
+passed through the block parser again — `Waveform.from_payload` exists for
+exactly this, distinct from `from_block`. A defect of precisely this kind was
+found and fixed during development; see the test report.
 
-### AD-06 — Poll `BUSY?` rather than `*OPC?` for acquisition completion
-*Decision:* acquisition completion is detected by polling `BUSY?`.
-*Rationale:* on this instrument family `*OPC?` returns when the command is parsed, not when
-the acquisition finishes, so it would report completion immediately.
+### AD-06 — N-channel timing analysis host-side, from one acquisition
+*Decision:* the spread measurement captures all channels from a single
+acquisition and computes edge times on the host.
+*Rationale:* an oscilloscope's `DELay` measurement takes two sources, so an
+N-channel spread would need N-1 sequential measurements over different
+acquisitions — which measures instrument repeatability as much as signal skew.
+*Consequence:* correctness depends on the record being unclipped, which is why
+clipping detection is a requirement rather than a nicety.
 
-### AD-07 — Test double at the transport boundary
-*Decision:* the simulator sits behind `MockTransport`, not behind `Tek3014B`.
-*Rationale:* it is the widest seam that still exercises the real SCPI command strings,
-the real framing code and the real scaling arithmetic. A mock at a higher level would
-leave the command vocabulary untested, which is precisely where silent failures live.
-*Consequence:* the simulator computes measurements analytically from its signal model
-rather than from the sampled record, so host-side analysis is checked against an
-independent reference rather than against itself.
+### AD-07 — Poll for acquisition completion rather than `*OPC?`
+*Decision:* acquisition completion is detected by polling the instrument's busy
+indication.
+*Rationale:* on the TDS3000 family `*OPC?` returns when the command is parsed,
+not when the acquisition finishes.
 
-## 5. Dynamic behaviour — a capture-and-spread sequence
+### AD-08 — Test intent as data, separated from the bench
+*Decision:* the runner takes a declarative specification (what to do, what counts
+as a pass) and a separate bench configuration (which instruments, where).
+*Rationale:* limits and intent stay reviewable by a test engineer and trace
+directly to a requirement, which is the reason for not writing bench tests as
+scripts. Separating the bench makes a specification portable across rigs and
+runnable against simulators unchanged.
+*Consequence:* the runner needs a generic way to address a value inside a driver's
+return type, which is `runner.resolve`. This is the price of the decision and is
+confined to one small module.
+
+### AD-09 — Failure and error are distinct throughout
+*Decision:* a measurement outside its limit is a *failure*; a step that could not
+execute is an *error*. The distinction is carried through result records, the
+markdown report and JUnit XML.
+*Rationale:* conflating them turns a broken rig into a pile of apparent product
+defects, and hides real ones.
+
+### AD-10 — A run against simulators is always disclosed
+*Decision:* a run is flagged simulated when `--simulate` is used *or* when no
+instrument on the bench is real hardware, and every report says so.
+*Rationale:* a report is evidence. Simulated numbers presented without that
+qualification would be read as hardware measurements.
+
+## 5. Dynamic behaviour — a runner invocation
 
 ```
-caller            Tek3014B          Transport         Instrument
-  |                   |                  |                 |
-  |-- configure_channel(1..4) ---------->|                 |
-  |                   |-- validate ------|                 |
-  |                   |-- "SELECT:CH1 ON;:CH1:SCALE ..." -->|
-  |                   |-- "ALLEV?" ----------------------->|
-  |                   |<----------------- no events -------|
-  |-- configure_edge_trigger() --------->|                 |
-  |-- measure_channel_spread([1,2,3,4]) |                 |
-  |                   |-- "ACQUIRE:STOPAFTER SEQUENCE;:ACQUIRE:STATE RUN"
-  |                   |-- "BUSY?" (poll until 0) --------->|
-  |                   |   for each channel:                |
-  |                   |     "DATA:SOURCE CHn"              |
-  |                   |     "WFMPRE:XINCR?;:..."           |
-  |                   |     "CURVE?"  -> read header,      |
-  |                   |                  then N bytes      |
-  |                   |-- scale to (s, V) ----------------|
-  |                   |-- estimate levels, find edges,     |
-  |                   |   interpolate, compute spread      |
-  |<-- (waveforms, SpreadResult) --------|                 |
+CLI            BenchRunner        Bench           Tek3014B        Transport
+ |                  |               |                 |                |
+ |- load_spec ----->|               |                 |                |
+ |- load_bench ---->|               |                 |                |
+ |- run(spec) ----->|               |                 |                |
+ |                  |- require() -->|  (fail fast if an alias is absent)
+ |                  |   setup steps:                  |                |
+ |                  |- get("scope")->|- connect() --->|- open() ------>|
+ |                  |- configure_channel(...) ------->|- write ------->|
+ |                  |   per test, per step:           |                |
+ |                  |- measure_channel_spread() ----->|- acquire,      |
+ |                  |                                 |  capture,      |
+ |                  |                                 |  analyse       |
+ |                  |<- (waveforms, SpreadResult) ----|                |
+ |                  |- resolve_path("1.spread")       |                |
+ |                  |- Limit.check(scaled)            |                |
+ |                  |   teardown steps, then close    |                |
+ |<- RunRecord -----|- close() ----->|- close() ----->|- close() ----->|
+ |- write_json / write_markdown / write_junit          |                |
 ```
 
 ## 6. Resource and performance characteristics
 
 | Aspect | Value |
 |---|---|
-| Memory per captured channel | ~10 000 points held as three Python lists (raw, times, volts), roughly 1 MB per channel. Acceptable for a host tool; a numpy path would be the optimisation if it ever matters. |
-| Round trips per channel captured | 3 (`DATA:SOURCE`, batched preamble, `CURVe?`). The preamble is fetched as one compound query rather than seven. |
-| Round trips per channel configured | 2 (one compound setup message, one `ALLEV?` error check). The error check is disableable via `auto_check_errors=False`. |
-| Wire volume per 10 000-point record | ~10 kB binary (1-byte width), versus ~50 kB for ASCII. Binary is the default. |
+| Memory per captured channel | ~10 000 points as three Python lists, roughly 1 MB per channel. |
+| Round trips per channel captured | 3 (`DATA:SOURCE`, batched preamble, `CURVe?`); the preamble is one compound query rather than seven. |
+| Round trips per channel configured | 2 (one compound setup message, one error check). The error check is disableable. |
+| Wire volume per 10 000-point record | ~10 kB binary versus ~50 kB ASCII. Binary is the default. |
+| Instrument connections per run | One per alias actually used; connection is lazy. |
 
 ## 7. Interfaces to external elements
 
 | Interface | Direction | Description |
 |---|---|---|
-| Ethernet / VXI-11 | bidirectional | ONC-RPC to the instrument, per TEK3014B-VISA-001 §4. |
-| File system | out | CSV records, PNG plots, hardcopy images, JSON results. |
-| `matplotlib` | out | Optional, lazily imported, for host-side plots only. |
-| `pyvisa` | bidirectional | Optional, lazily imported, alternative transport only. |
+| Ethernet / VXI-11 | bidirectional | ONC-RPC to instruments. |
+| File system | in | Test specifications and bench configurations (JSON or YAML). |
+| File system | out | CSV records, plots, hardcopy images, JSON/markdown/JUnit reports. |
+| Process exit status | out | 0 pass, 1 failure or error, 2 usage — so the runner is usable directly as a CI step. |
+| `pyyaml` | in | Optional; YAML specifications. JSON needs nothing. |
+| `matplotlib` | out | Optional; host-side plots. |
+| `pyvisa` | bidirectional | Optional; alternative transport. |

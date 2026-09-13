@@ -1,0 +1,120 @@
+# Bench test specification: clock distribution timing.
+#
+# Run against simulators:
+#   benchtools run specs/clock_skew.yaml --simulate --markdown report.md
+# Run against real hardware:
+#   benchtools run specs/clock_skew.yaml --bench benches/lab1.yaml
+
+name: Clock distribution timing
+description: >
+  Verify that the four fan-out clock outputs switch within the skew budget, and
+  that the clock period is within tolerance.
+requirements: [SYS-REQ-042, SYS-REQ-043]
+
+# Run once before the tests. A failure here aborts the suite, because every
+# measurement afterwards would be taken against an unknown setup.
+setup:
+  - do: scope.configure_channel
+    with: {channel: 1, volts_per_div: 1.0, position_div: -4.0, coupling: DC}
+  - do: scope.configure_channel
+    with: {channel: 2, volts_per_div: 1.0, position_div: -3.0, coupling: DC}
+  - do: scope.configure_channel
+    with: {channel: 3, volts_per_div: 1.0, position_div: -2.0, coupling: DC}
+  - do: scope.configure_channel
+    with: {channel: 4, volts_per_div: 1.0, position_div: -1.0, coupling: DC}
+  - do: scope.set_time_per_div
+    with: {seconds_per_div: 200.0e-9}
+  - do: scope.set_record_length
+    with: {points: 10000}
+  - do: scope.configure_edge_trigger
+    with: {source: 1, level: 1.65, slope: RISE, mode: NORMAL}
+
+tests:
+  - name: Rising-edge skew across the four clock loads
+    requirement: SYS-REQ-042
+    description: >
+      All four channels are captured from one acquisition, so their relative
+      edge timing is directly comparable.
+    steps:
+      - do: scope.measure_channel_spread
+        with:
+          channels: [1, 2, 3, 4]
+          direction: RISE
+          percent: 50.0
+        expect:
+          # measure_channel_spread returns (waveforms, SpreadResult), so the
+          # path selects element 1 and then the attribute.
+          - name: rising_skew_spread
+            measure: "1.spread"
+            unit: s
+            scale: 1.0e9
+            display_unit: ns
+            max: 20.0
+          - name: ch2_skew
+            measure: "1.skews.2"
+            unit: s
+            scale: 1.0e9
+            display_unit: ns
+            max: 15.0
+          - name: ch3_skew
+            measure: "1.skews.3"
+            unit: s
+            scale: 1.0e9
+            display_unit: ns
+            max: 15.0
+
+  - name: Falling-edge skew across the four clock loads
+    requirement: SYS-REQ-042
+    steps:
+      - do: scope.measure_channel_spread
+        with:
+          channels: [1, 2, 3, 4]
+          direction: FALL
+        expect:
+          - name: falling_skew_spread
+            measure: "1.spread"
+            scale: 1.0e9
+            display_unit: ns
+            max: 20.0
+
+  - name: Clock period within 1 percent of 1 us
+    requirement: SYS-REQ-043
+    steps:
+      - do: scope.measure_period
+        with: {channel: 1}
+        expect:
+          - name: period
+            scale: 1.0e6
+            display_unit: us
+            nominal: 1.0
+            tolerance_percent: 1.0
+
+  - name: Clock period jitter within budget
+    requirement: SYS-REQ-043
+    steps:
+      - do: scope.measure_period_host
+        with: {channel: 1}
+        expect:
+          - name: period_jitter_pk_pk
+            measure: "1.peak_to_peak_jitter"
+            scale: 1.0e12
+            display_unit: ps
+            max: 500.0
+          - name: measured_cycles
+            measure: "1.count"
+            min: 1
+
+  - name: Amplitude at each load
+    requirement: SYS-REQ-042
+    steps:
+      - do: scope.measure_amplitude
+        with: {channel: 1}
+        expect:
+          - name: ch1_amplitude
+            unit: V
+            nominal: 2.0
+            tolerance: 0.5
+
+teardown:
+  - do: scope.run
+    with: {continuous: true}

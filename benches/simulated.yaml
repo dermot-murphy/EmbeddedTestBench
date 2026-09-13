@@ -1,0 +1,12 @@
+# A bench where every instrument is simulated. Useful for developing a
+# specification, and for CI, where no hardware exists.
+name: Simulated bench
+description: >
+  Every instrument is replaced by its in-process model. Results verify the
+  specification and the tooling, not any physical hardware.
+
+instruments:
+  scope:
+    driver: tek3014b
+    resource: sim://
+    timeout: 10.0

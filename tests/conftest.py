@@ -7,7 +7,8 @@ from __future__ import annotations
 
 import pytest
 
-from tek3014b import ChannelSignal, MockTransport, SimulatedTDS3014B, Tek3014B
+from benchtools.core import MockTransport
+from benchtools.instruments.tek3014b import ChannelSignal, SimulatedTDS3014B, Tek3014B
 
 #: Skews used across the timing tests, in seconds.
 REFERENCE_SKEWS = {1: 0.0, 2: 12.0e-9, 3: 25.0e-9, 4: 5.0e-9}

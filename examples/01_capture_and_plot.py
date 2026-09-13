@@ -12,7 +12,8 @@ or against the built-in simulator, which needs no hardware::
 
 import sys
 
-from tek3014b import Tek3014B, plot_waveforms
+from benchtools.analysis import plot_waveforms
+from benchtools.instruments.tek3014b import Tek3014B
 
 DESTINATION = "capture"
 

@@ -1,0 +1,19 @@
+# Example configuration for a real bench. Addresses are site-specific:
+# copy this file and change them.
+#
+# No VISA installation is needed. A bare address uses the built-in VXI-11
+# transport; see docs/tek3014b/VISA_Determination_Report.md.
+name: Lab bench 1
+description: Clock distribution test rig.
+
+instruments:
+  scope:
+    driver: tek3014b
+    resource: 192.168.1.50        # or vxi11://192.168.1.50/gpib0,1
+    timeout: 15.0
+
+  # Any instrument without a dedicated driver yet can still be addressed,
+  # identified and sent raw SCPI through the generic driver.
+  psu:
+    driver: generic
+    resource: 192.168.1.60

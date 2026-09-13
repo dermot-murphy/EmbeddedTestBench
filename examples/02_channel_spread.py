@@ -12,7 +12,8 @@ base, so their relative edge times are directly comparable.
 
 import sys
 
-from tek3014b import Tek3014B, plot_waveforms
+from benchtools.analysis import plot_waveforms
+from benchtools.instruments.tek3014b import Tek3014B
 
 CHANNELS = [1, 2, 3, 4]
 

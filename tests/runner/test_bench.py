@@ -1,0 +1,189 @@
+"""Bench configuration and live instrument resolution.
+
+Traces to: RUN-FR-001 .. RUN-FR-005, SWE4-UT-BENCH.
+"""
+
+from __future__ import annotations
+
+import json
+
+import pytest
+
+from benchtools.core.errors import BenchConfigError
+from benchtools.core.scpi import ScpiInstrument
+from benchtools.core.simulator import SimulatedInstrument
+from benchtools.runner.bench import (
+    Bench,
+    BenchConfig,
+    InstrumentConfig,
+    load_bench,
+    register_driver,
+    registered_drivers,
+)
+
+
+class TestInstrumentConfig:
+    def test_mapping_form(self):
+        config = InstrumentConfig.from_mapping(
+            "scope", {"driver": "tek3014b", "resource": "1.2.3.4", "timeout": 15}
+        )
+        assert (config.driver, config.resource, config.timeout) == ("tek3014b", "1.2.3.4", 15.0)
+
+    def test_shorthand_form(self):
+        config = InstrumentConfig.from_mapping("psu", "generic@sim://")
+        assert (config.driver, config.resource) == ("generic", "sim://")
+
+    def test_resource_defaults_to_the_simulator(self):
+        assert InstrumentConfig.from_mapping("s", {"driver": "generic"}).resource == "sim://"
+
+    def test_driver_names_are_case_insensitive(self):
+        assert InstrumentConfig.from_mapping("s", {"driver": "TEK3014B"}).driver == "tek3014b"
+
+    def test_unknown_driver_lists_the_registered_ones(self):
+        with pytest.raises(BenchConfigError, match="registered drivers are"):
+            InstrumentConfig.from_mapping("s", {"driver": "flux-capacitor"})
+
+    def test_missing_driver_is_reported(self):
+        with pytest.raises(BenchConfigError, match="has no driver"):
+            InstrumentConfig.from_mapping("s", {"resource": "sim://"})
+
+    def test_bad_shorthand_is_reported(self):
+        with pytest.raises(BenchConfigError, match="shorthand"):
+            InstrumentConfig.from_mapping("s", "just-a-driver")
+
+    def test_non_numeric_timeout_is_reported(self):
+        with pytest.raises(BenchConfigError, match="non-numeric timeout"):
+            InstrumentConfig.from_mapping("s", {"driver": "generic", "timeout": "soon"})
+
+
+class TestBenchConfig:
+    def test_from_mapping(self):
+        config = BenchConfig.from_mapping({
+            "name": "B", "instruments": {"scope": {"driver": "tek3014b"}},
+        })
+        assert config.name == "B" and "scope" in config.instruments
+
+    def test_no_instruments_is_rejected(self):
+        with pytest.raises(BenchConfigError, match="lists no instruments"):
+            BenchConfig.from_mapping({"name": "B"})
+
+    def test_instruments_must_be_a_mapping(self):
+        with pytest.raises(BenchConfigError, match="mapping of alias"):
+            BenchConfig.from_mapping({"name": "B", "instruments": ["scope"]})
+
+    def test_simulated_factory(self):
+        config = BenchConfig.simulated(["scope", "psu"])
+        assert sorted(config.instruments) == ["psu", "scope"]
+        assert all(item.resource == "sim://" for item in config.instruments.values())
+
+    def test_load_from_json(self, tmp_path):
+        path = tmp_path / "bench.json"
+        path.write_text(json.dumps({"name": "B", "instruments": {"scope": "tek3014b@sim://"}}))
+        assert load_bench(str(path)).name == "B"
+
+    def test_shipped_bench_files_are_valid(self):
+        import pathlib
+
+        pytest.importorskip("yaml")
+        root = pathlib.Path(__file__).resolve().parents[2]
+        for name in ("simulated.yaml", "lab1.yaml"):
+            config = load_bench(str(root / "benches" / name))
+            assert config.instruments
+
+
+class TestBench:
+    @pytest.fixture
+    def bench(self):
+        config = BenchConfig.from_mapping({
+            "name": "B",
+            "instruments": {"scope": "tek3014b@sim://", "psu": "generic@sim://"},
+        })
+        with Bench(config) as instance:
+            yield instance
+
+    def test_instruments_connect_on_first_use(self, bench):
+        assert bench.connected == {}
+        bench.get("scope")
+        assert list(bench.connected) == ["scope"]
+
+    def test_the_same_instance_is_reused(self, bench):
+        assert bench.get("scope") is bench.get("scope")
+
+    def test_correct_driver_per_alias(self, bench):
+        assert bench.get("scope").model == "TDS 3014B"
+        assert "SIMULATED" in bench.get("psu").model
+
+    def test_unknown_alias_lists_what_exists(self, bench):
+        with pytest.raises(BenchConfigError, match="it provides psu, scope"):
+            bench.get("thermometer")
+
+    def test_require_passes_for_present_instruments(self, bench):
+        bench.require(["scope", "psu"])
+
+    def test_require_reports_everything_missing(self, bench):
+        with pytest.raises(BenchConfigError, match="'dmm'.*'scope2'|'scope2'.*'dmm'"):
+            bench.require(["dmm", "scope2"])
+
+    def test_close_releases_everything(self, bench):
+        scope = bench.get("scope")
+        bench.close()
+        assert bench.connected == {}
+        assert not scope.transport.is_open
+
+    def test_simulate_overrides_the_configured_resource(self):
+        config = BenchConfig.from_mapping({
+            "name": "B", "instruments": {"scope": "tek3014b@192.0.2.1"},
+        })
+        with Bench(config, simulate=True) as bench:
+            assert bench.get("scope").model == "TDS 3014B"
+
+    def test_iteration_yields_aliases(self, bench):
+        assert list(bench) == ["psu", "scope"]
+
+    def test_all_sim_resources_count_as_simulated(self, bench):
+        """A report must disclose simulation even without --simulate."""
+        assert bench.is_simulated is True
+
+    def test_a_real_resource_is_not_simulated(self):
+        config = BenchConfig.from_mapping({
+            "name": "B", "instruments": {"scope": "tek3014b@192.0.2.1"},
+        })
+        assert Bench(config).is_simulated is False
+
+    def test_simulate_flag_forces_it(self):
+        config = BenchConfig.from_mapping({
+            "name": "B", "instruments": {"scope": "tek3014b@192.0.2.1"},
+        })
+        assert Bench(config, simulate=True).is_simulated is True
+
+    def test_a_mixed_bench_is_not_simulated(self):
+        """One real instrument makes the run a hardware run."""
+        config = BenchConfig.from_mapping({
+            "name": "B",
+            "instruments": {"scope": "tek3014b@sim://", "psu": "generic@192.0.2.2"},
+        })
+        assert Bench(config).is_simulated is False
+
+
+class TestDriverRegistry:
+    def test_defaults_are_registered(self):
+        assert "tek3014b" in registered_drivers()
+        assert "generic" in registered_drivers()
+
+    def test_a_new_driver_can_be_registered(self):
+        class Widget(ScpiInstrument):
+            SIMULATOR_CLASS = SimulatedInstrument
+            MODEL_NAME = "Widget"
+
+        register_driver("widget-test", Widget)
+        try:
+            assert "widget-test" in registered_drivers()
+            config = BenchConfig.from_mapping({
+                "name": "B", "instruments": {"w": "widget-test@sim://"},
+            })
+            with Bench(config) as bench:
+                assert isinstance(bench.get("w"), Widget)
+        finally:
+            from benchtools.runner import bench as bench_module
+
+            bench_module._DRIVERS.pop("widget-test", None)
