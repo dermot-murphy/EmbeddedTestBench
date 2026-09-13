@@ -17,6 +17,12 @@ instruments:
   dongle: ble-dongle
 
 setup:
+  # Record which firmware the dongle is running. With a build configured on the
+  # bench this also compares the two; with none it simply records, so the same
+  # suite runs against a simulated bench. The figures land in every report.
+  - do: dongle.check_firmware
+    save: dongle_firmware
+
   # Find the sensor and keep it for the rest of the suite. A named filter keeps
   # a busy room from filling the dongle's table.
   - do: dongle.scan

@@ -7,7 +7,7 @@
 | Date | 2026-09-13 |
 | Element | `BLE-` — `benchtools.instruments.nordic_dongle` + `firmware/nordic_dongle` |
 | Firmware target | nRF52840 USB dongle (PCA10059), S140 7.2.0, nRF5 SDK 17.1.0, SEGGER Embedded Studio |
-| Status | Host driver verified against a simulated dongle. Firmware has 128 unit tests (§5.1) and **compiles** against real SDK headers (§5.2); not yet linked, flashed or run |
+| Status | Host driver verified against a simulated dongle. Firmware has 131 unit tests (§5.1) and **compiles** against real SDK headers (§5.2); not yet linked, flashed or run |
 
 The engineering note for the BLE dongle: why it needs firmware of its own, what
 the protocol is, how to build and flash it, how to read the numbers it produces,
@@ -60,7 +60,7 @@ Every event carries `t=`, microseconds on the dongle's clock.
 
 | Command | Meaning |
 |---|---|
-| `ver` | identity, protocol version, uptime, lines dropped |
+| `ver` | identity, **firmware version and build date**, protocol version, uptime, lines dropped |
 | `scan start <ms> [name=] [addr=] [active=] [rssi=]` | scan, with firmware-side filtering |
 | `scan stop` | stop scanning |
 | `list` | one `+sensor` event per device found, then `ok sensors=<n>` |
@@ -73,6 +73,7 @@ Every event carries `t=`, microseconds on the dongle's clock.
 | `adv start [<addr>]` / `adv stop` / `adv stats` | advertising profile capture and its counters |
 | `time` | the dongle's timestamp now, and its rate |
 | `reset` | reset the dongle |
+| `dfu` | answer, then restart into the bootloader so the host can refresh the firmware |
 
 ### 2.2 Events
 
@@ -129,6 +130,22 @@ emBuild -config Release -D SDK_ROOT=/path/to/nRF5_SDK_17.1.0 \
 The project produces an application hex only. The SoftDevice and bootloader come
 from the factory, which is why the application is linked at 0x27000.
 
+`make manifest` (which `dfu` runs for you) writes `_build/firmware_manifest.json`
+beside the image: version, build instant, protocol, model, hex, package and
+SHA-256. That file is what the host compares a dongle against, so keep it with
+the build; CI uploads it with the artefacts.
+
+```
+make SDK_ROOT=... identity          # version=1.1.0 built=2026-09-13T12:00:00Z
+SOURCE_DATE_EPOCH=1757764800 make SDK_ROOT=... manifest   # reproducible date
+```
+
+A build that injects no date - an IDE build - falls back to the compiler's
+`__DATE__`/`__TIME__`, which the firmware tags `local:`. The host will not order
+those: they are local time in an awkward format, and two dongles built in
+different timezones would compare wrongly. Such a dongle reports a build date
+and still fails a comparison, which is the honest answer.
+
 ### 3.2 Flash
 
 A PCA10059 has no onboard debugger: it is programmed over USB through its
@@ -148,7 +165,51 @@ one matching the SoftDevice on the dongle.
 The dongle's factory bootloader does not verify signatures, so no key is needed.
 Set `DFU_KEY` if flashing a bootloader that does.
 
-### 3.3 First contact
+### 3.3 Keeping the dongle and the build in step
+
+Measurements taken with a stale dongle look perfectly plausible and answer a
+different question. The driver checks, and can fix it:
+
+```
+python -m benchtools ble --resource /dev/ttyACM0 firmware firmware/nordic_dongle/_build
+python -m benchtools ble --resource /dev/ttyACM0 firmware firmware/nordic_dongle/_build --update
+```
+
+Without `--update` it reports and exits 1 on a mismatch, so a build step stops
+rather than publishing numbers taken with the wrong image. With it, the dongle is
+asked into its bootloader (`dfu`), flashed with `nrfutil`, reconnected and
+**re-read**: "the tool reported success" and "the dongle is running the image"
+are different facts, and only the second is recorded.
+
+Both the version and the build date are compared. During development every image
+is `1.1.0`; comparing versions alone would call a week-old dongle up to date,
+which is the case this exists for.
+
+From a bench file, so every suite gets it without asking:
+
+```yaml
+instruments:
+  dongle:
+    driver: ble-dongle
+    resource: /dev/ttyACM0
+    options:
+      firmware: firmware/nordic_dongle/_build
+      update_firmware: false      # true to refresh automatically
+```
+
+and from a specification, as a step like any other:
+
+```yaml
+setup:
+  - do: dongle.check_firmware
+    save: dongle_firmware
+```
+
+The version and build date of every instrument the run used are recorded in the
+run's JSON record and in the **Instruments** table of its markdown report,
+whether or not the suite checked them.
+
+### 3.4 First contact
 
 ```
 python -m benchtools ble --resource /dev/ttyACM0 info

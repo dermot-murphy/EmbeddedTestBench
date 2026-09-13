@@ -328,6 +328,9 @@ implements them; §9.6 says which.
 | BLE-FR-004 | The host shall be able to reconcile what it received against what the dongle sent, and a capture that lost lines shall be reported as incomplete rather than analysed as if complete. | STK-15, STK-17 | Test |
 | BLE-FR-010 | Every event shall carry a timestamp taken on the dongle, resolving one microsecond, taken as close to the radio event as the stack allows. The timestamp shall not wrap within a measurement session. | STK-14, STK-15 | Test |
 | BLE-FR-011 | The host shall record its own arrival time beside the dongle's timestamp, and shall not present the host figure as the measurement. | STK-14 | Test |
+| BLE-FR-012 | The firmware shall report, on request, the version and the build date of the image it is running. The build date shall be the instant the image was built, in UTC, and shall be produced from a single source shared with the build. | STK-14, STK-16 | Test, Inspection |
+| BLE-FR-013 | The firmware shall, on request, answer first and then restart into its bootloader, so that the host can refresh it over the same link without the operator touching the hardware. | STK-14 | Test |
+| BLE-FR-014 | The host shall compare the version and build date on the dongle against those of a named build, shall report a difference in either as a mismatch, and shall be able to refresh the dongle and confirm afterwards that the intended image is running. | STK-14, STK-16, STK-17 | Test |
 
 ### 9.2 Scanning and selection
 
@@ -439,6 +442,8 @@ implements them; §9.6 says which.
 | RUN-FR-033 | A test failure shall not stop later tests. Stopping after an error shall be selectable. | STK-08 | Test |
 | RUN-FR-034 | A specification shall not be able to invoke private driver methods. | STK-08 | Test |
 | RUN-FR-035 | The runner shall verify the bench provides every instrument the specification uses before executing anything. | STK-08 | Test |
+| RUN-FR-036 | A step shall be able to name a driver property as well as a method. A property shall be read when the step executes and shall take no arguments. | STK-08 | Test |
+| RUN-FR-037 | The run record and every report shall identify each instrument the run used - driver, model, serial number, resource and, where the instrument reports one, the firmware build - recorded after the run rather than before. An instrument that would not identify shall be recorded as such rather than omitted. | STK-08, STK-16, STK-17 | Test |
 
 ### 10.5 Reporting
 

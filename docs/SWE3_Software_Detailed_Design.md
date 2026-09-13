@@ -671,6 +671,7 @@ is a serial port or a simulator.
 | UART | `write`, `command`, `measure_response_time` |
 | Advertising | `measure_advertising_profile` |
 | Logging | `start_log`, `stop_log`, `log_note`, `log_path` |
+| Firmware | `firmware_version`, `firmware_built`, `firmware_built_at`, `protocol_version`, `protocol_is_compatible`, `expect_firmware`, `check_firmware`, `enter_dfu`, `update_firmware`, `ensure_firmware` |
 
 Design points:
 
@@ -679,11 +680,88 @@ Design points:
   else in the package and exactly wrong here.
 - `_post_open` checks the firmware's protocol version against the driver's and
   refuses a mismatch at connection time, rather than failing three commands later.
+  Only the **major** version is fatal. A minor difference means one side has
+  commands the other lacks, which shows up per command and is recoverable; a
+  major difference means the two disagree about what a line means, which is not.
+  `update_firmware=True` suspends the check entirely, because refusing to talk
+  to an out-of-date dongle would mean refusing to fix it.
+- `_read_identity` parses `fw=` and `built=` out of the `ver` reply and puts the
+  **build**, not the protocol version, in `Identity.firmware`. A report reader
+  needs to know which image produced the numbers; the protocol version is a
+  property of the conversation, not of the evidence.
 - The capture in `measure_advertising_profile` is bounded by the dongle's clock
   with the host's wall clock as a backstop, so a sensor that goes silent still
   ends the capture.
 - The connection interval is taken from the `+conn` event rather than a later
   query, because it is the floor under every latency measured on that link.
+
+## BLE-DD-FIRMWARE — `firmware.py`
+
+Build identity and refresh, kept out of `dongle.py` because it is about images
+on disk rather than about the link.
+
+| Unit | Responsibility |
+|---|---|
+| `FirmwareBuild` | What the build produced: version, build instant, protocol, model, hex, DFU package, SHA-256. Loaded from `firmware_manifest.json` (BLE-DD-VERSION), located from a manifest, a build directory or a project directory. |
+| `FirmwareStatus` | The comparison: `version_matches`, `date_matches`, `matches`, `is_older`, `compared`, `updated`, and `describe()` for a log line. |
+| `parse_build_date` | ISO 8601 text to an aware UTC instant, or `None`. |
+| `run_nrfutil` | The default flasher: `nrfutil dfu usb-serial`, with its output carried into the exception when it fails. |
+
+Design points:
+
+- **The date is compared, not only the version.** During development every image
+  is `1.1.0`; comparing versions alone would call a week-old dongle up to date.
+  This is the case the unit exists for.
+- `is_older` is three-valued. A build date the driver cannot order - a
+  `local:` date from a compiler macro, or anything not ISO 8601 - gives `None`,
+  not `False`: "unknown" and "no" are different answers, and only one of them
+  justifies leaving the dongle alone.
+- `matches` is false when there is nothing to compare against. A run that never
+  established which image was under test has not established that it matched.
+- The package is required only when flashing. Checking a dongle against a build
+  that was never packaged is a legitimate thing to do, and `make dfu` is the
+  advice to give if flashing is then asked for.
+- After flashing, the driver reconnects and re-reads `ver`. "The tool reported
+  success" and "the dongle is running the image" are different facts, and only
+  the second one is worth recording.
+
+## BLE-DD-VERSION — `firmware/include/firmware_version.h`, `firmware/src/firmware_version.c`, `Makefile`
+
+One version string, in a header the firmware compiles and the Makefile greps, so
+the image and the manifest cannot disagree - the failure mode that would make
+every comparison above meaningless.
+
+The build date is injected as `-DFIRMWARE_BUILD_DATE`, derived from
+`SOURCE_DATE_EPOCH` when set, so a reproducible build reproduces its date. When
+nothing injects it the header falls back to `"local:" __DATE__ " " __TIME__`,
+tagged `local:` precisely so the host refuses to treat it as an instant: the
+compiler macros carry no timezone and no ordering.
+
+The date is held in **one translation unit**, `firmware_version.c`, whose object
+the Makefile deletes before every build. This is not tidiness: the date arrives
+through `CFLAGS`, and make does not recompile a file because a command line
+changed. Without the deletion an incremental build would leave the *first*
+build's date in the image while the manifest carried today's - and the host,
+comparing the two, would report a dongle as out of date immediately after
+refreshing it, for ever. One compile per build buys the guarantee that the two
+cannot disagree. CI pins `SOURCE_DATE_EPOCH` to the commit's timestamp, so its
+several make invocations all stamp one identity.
+
+`make manifest` writes `firmware_manifest.json` beside the image - version,
+build instant, protocol, model, hex, DFU package, SHA-256 - which is what
+BLE-DD-FIRMWARE reads and what CI uploads with the artefacts.
+
+## BLE-DD-BOOTLOADER — `firmware/src/bootloader.c`
+
+Entry into the Nordic USB bootloader: set `GPREGRET` to `BOOTLOADER_DFU_START`
+(0xB1) and reset. The register survives a reset; the bootloader reads it and
+stays in DFU instead of jumping to the application.
+
+The write goes through `sd_power_gpregret_clr/set` while the SoftDevice is
+enabled and straight to `NRF_POWER->GPREGRET` when it is not - writing the
+peripheral directly under an enabled SoftDevice is undefined. `cmd_parser`
+sends the reply and drains the USB queue *before* calling in, so the host
+receives `ok dfu=1` rather than a silence it would have to interpret.
 
 ## BLE-DD-SIM — `simulator.py`
 
@@ -705,11 +783,14 @@ whose USB queue could not keep up, which is what `is_complete` exists to detect.
 
 ## BLE-DD-CLI — `cli.py`
 
-Sub-commands `info`, `scan`, `select`, `profile`, `cmd`, `monitor`, emitting
+Sub-commands `info`, `scan`, `select`, `profile`, `cmd`, `monitor`, `firmware`,
+emitting
 JSON. `--log` records the whole session beside whatever the sub-command prints:
 that file is the evidence, the JSON is the summary. `profile` and `cmd` add a
 `warning` key when the result is incomplete or not resolvable, so a figure
-quoted from a shell script carries the same caveat the API gives.
+quoted from a shell script carries the same caveat the API gives. `firmware`
+exits 1 on a mismatch, so a build step stops rather than publishing numbers
+taken with the wrong image; `--update` refreshes the dongle instead.
 
 ---
 
@@ -892,14 +973,26 @@ fast when the bench lacks an alias the specification uses. `is_simulated` is tru
 when `--simulate` was given *or* every configured resource is a simulator, which
 is what lets every report disclose it.
 
+`describe_instruments()` asks every instrument the run actually opened what it
+is - driver, model, serial number, resource, and the firmware build where the
+instrument reports one - and is called *after* the run rather than before, so an
+instrument the suite refreshed in setup is recorded as the one that produced the
+measurements. It never opens an instrument to describe it: doing so would change
+what the run did. An instrument that will not identify is recorded with an
+`identity_error` rather than dropped, because silence about the bench is worse
+than a recorded failure.
+
 ## RUN-DD-RESULTS — `results.py`
 
 `Status` (PASS/FAIL/ERROR/SKIP) with a `severity` ordering and a `worst()`
 aggregator, so roll-up from measurement to step to case to run is one rule applied
 at each level. `MeasurementRecord`, `StepRecord`, `CaseRecord` and `RunRecord` are
 plain data with `as_dict()`; `RunRecord.requirements_verified` groups cases by
-requirement and reports the worst outcome of each. Report writers read only these,
-so a new format needs no change to the engine.
+requirement and reports the worst outcome of each. `RunRecord.instruments` holds
+what the bench said it was, keyed by alias (RUN-FR-037): a measurement without
+the instrument that made it is not evidence, and for a programmable instrument
+the firmware build decides whether the number means what it appears to mean.
+Report writers read only these, so a new format needs no change to the engine.
 
 ## RUN-DD-RUNNER — `runner.py`
 
@@ -912,6 +1005,12 @@ suite; teardown runs in a `finally`. `BUILTIN_ACTIONS` holds actions not bound t
 an instrument (currently `sleep`, so a settling time is stated explicitly rather
 than hidden in a driver).
 
+A `do:` that names a **property** rather than a method is read when the step
+runs, and rejects `with:` arguments (RUN-FR-036). Refusing properties would
+force a driver to wrap `firmware_version` in a `get_firmware_version()` for the
+runner's benefit, which is the tail wagging the dog; reading it at resolution
+time would report the value from before the step rather than at it.
+
 ## RUN-DD-REPORT — `report.py`
 
 `write_json` (lossless), `format_markdown`/`write_markdown` (verdict, then
@@ -919,6 +1018,12 @@ requirements, then problems, then all measurements; simulation disclosed), and
 `write_junit` (a limit failure is `<failure>`, an execution error is `<error>`, the
 requirement is the classname). `summary_line` gives a one-line console or commit
 status.
+
+The markdown report carries an **Instruments** table - alias, driver, model,
+firmware, resource - from `RunRecord.instruments`, omitted when the run recorded
+none. It sits with the verdict rather than in an appendix: whoever reads the
+numbers needs to know, on the same page, which dongle and which firmware build
+produced them.
 
 ## RUN-DD-CLI — `cli.py` and `benchtools/cli.py`
 

@@ -23,6 +23,7 @@ from ... import __version__
 from ...core.errors import BenchToolsError
 from .constants import DEFAULT_BAUDRATE, DEFAULT_COMMAND_TIMEOUT
 from .dongle import NordicDongle
+from .firmware import FirmwareBuild
 from .latency import LatencySource
 
 __all__ = ["main", "build_parser"]
@@ -60,6 +61,8 @@ def _cmd_info(dongle: NordicDongle, args) -> int:
             "identity": identity.raw,
             "manufacturer": identity.manufacturer,
             "model": identity.model,
+            "firmware": dongle.firmware_version,
+            "built": dongle.firmware_built,
             "protocol": dongle.protocol_version,
             "driver_protocol": dongle.limits.model,
             "dongle_time_us": dongle.dongle_time_us(),
@@ -67,6 +70,28 @@ def _cmd_info(dongle: NordicDongle, args) -> int:
         },
         args.json,
     )
+    return _EXIT_OK
+
+
+def _cmd_firmware(dongle: NordicDongle, args) -> int:
+    """Report the build on the dongle, and refresh it when asked."""
+    status = dongle.check_firmware(args.build)
+    if args.update and not status.matches and status.compared:
+        status = dongle.update_firmware(args.build, port=args.port)
+
+    payload = dict(status.as_dict())
+    payload["protocol"] = dongle.protocol_version
+    payload["protocol_compatible"] = dongle.protocol_is_compatible
+    if status.compared and not status.matches and not args.update:
+        payload["warning"] = (
+            "the dongle is not running the build in %s. Measurements taken with "
+            "it answer a different question from the one this build asks. "
+            "Re-run with --update to refresh it."
+            % (args.build or "the configured build")
+        )
+    _emit(payload, args.json)
+    if status.compared and not status.matches:
+        return _EXIT_ERROR
     return _EXIT_OK
 
 
@@ -189,6 +214,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--baud", type=int, default=DEFAULT_BAUDRATE, help="line rate (USB CDC ignores it)")
     parser.add_argument("-t", "--timeout", type=float, default=10.0, help="link timeout in seconds")
     parser.add_argument("--log", metavar="PATH", help="append the whole session to this text file")
+    parser.add_argument("--firmware", metavar="PATH",
+                        help="the firmware build the dongle should be running: a manifest, "
+                             "or a directory holding one")
     parser.add_argument("--json", metavar="PATH", help="also write the result as JSON to PATH")
     parser.add_argument("-v", "--verbose", action="count", default=0, help="repeat for debug")
 
@@ -196,6 +224,20 @@ def build_parser() -> argparse.ArgumentParser:
 
     info = subparsers.add_parser("info", help="identify the dongle")
     info.set_defaults(handler=_cmd_info)
+
+    firmware = subparsers.add_parser(
+        "firmware",
+        help="report the firmware on the dongle, and refresh it if it is not the build",
+    )
+    firmware.add_argument(
+        "build", nargs="?",
+        help="firmware manifest, or a directory holding one "
+             "(firmware/nordic_dongle/_build after a build)",
+    )
+    firmware.add_argument("--update", action="store_true",
+                          help="flash the build when the dongle is running something else")
+    firmware.add_argument("--port", help="serial port the bootloader appears on, if it differs")
+    firmware.set_defaults(handler=_cmd_firmware)
 
     scan = subparsers.add_parser("scan", help="list the sensors in range")
     scan.add_argument("--duration", type=float, default=3.0, help="seconds to scan")
@@ -259,6 +301,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             baudrate=args.baud,
             timeout=args.timeout,
             log_path=args.log,
+            firmware=args.firmware,
+            # The firmware sub-command must be able to reach a dongle running
+            # something incompatible: that is the one it is there to fix.
+            update_firmware=(args.command == "firmware" and getattr(args, "update", False)),
         )
     except BenchToolsError as exc:
         print("error: could not connect to %s: %s" % (args.resource, exc), file=sys.stderr)

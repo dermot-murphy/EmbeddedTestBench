@@ -16,6 +16,25 @@ PROJECT_NAME     := nordic_dongle_pca10059
 TARGETS          := $(PROJECT_NAME)
 OUTPUT_DIRECTORY := _build
 
+# The build's identity. The version is read from the single place it is
+# declared, so the Makefile cannot disagree with the firmware about it. The date
+# is UTC and ISO 8601, and honours SOURCE_DATE_EPOCH, so a reproducible build
+# stays reproducible - the host compares this string, and a date that changed on
+# every rebuild would report every dongle as out of date.
+FIRMWARE_VERSION := $(shell sed -n 's/^\#define FIRMWARE_VERSION[ \t]*"\(.*\)".*/\1/p' include/firmware_version.h)
+SOURCE_DATE_EPOCH ?= $(shell date -u +%s)
+FIRMWARE_BUILD_DATE := $(shell date -u -d @$(SOURCE_DATE_EPOCH) +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || \
+                               date -u -r $(SOURCE_DATE_EPOCH) +%Y-%m-%dT%H:%M:%SZ)
+MANIFEST := $(OUTPUT_DIRECTORY)/firmware_manifest.json
+
+# The date reaches the image through CFLAGS, and make does not recompile a file
+# because a command line changed. Left alone, an incremental build would keep
+# the first build's date in the image while the manifest carried today's - and
+# the host, which compares the two, would report a dongle as out of date
+# immediately after refreshing it, for ever. Deleting this one object costs a
+# single compile and makes that disagreement impossible.
+$(shell rm -f $(OUTPUT_DIRECTORY)/$(PROJECT_NAME)/firmware_version.c.o)
+
 SDK_ROOT         ?= ../../../nRF5_SDK_17.1.0
 PROJ_DIR         := .
 
@@ -32,6 +51,8 @@ SRC_FILES += \
   $(PROJ_DIR)/src/main.c \
   $(PROJ_DIR)/src/cdc_acm.c \
   $(PROJ_DIR)/src/cmd_parser.c \
+  $(PROJ_DIR)/src/firmware_version.c \
+  $(PROJ_DIR)/src/bootloader.c \
   $(PROJ_DIR)/src/ble_scanner.c \
   $(PROJ_DIR)/src/nus_client.c \
   $(PROJ_DIR)/src/timestamp.c \
@@ -136,6 +157,7 @@ CFLAGS += -DCONFIG_GPIO_AS_PINRESET
 CFLAGS += -DFLOAT_ABI_HARD
 CFLAGS += -DINITIALIZE_USER_SECTIONS
 CFLAGS += -DNO_VTOR_CONFIG
+CFLAGS += -DFIRMWARE_BUILD_DATE=\"$(FIRMWARE_BUILD_DATE)\"
 CFLAGS += -DNRF52840_XXAA
 CFLAGS += -DNRF_SD_BLE_API_VERSION=7
 CFLAGS += -DS140
@@ -175,7 +197,7 @@ $(PROJECT_NAME): ASMFLAGS += -D__HEAP_SIZE=2048 -D__STACK_SIZE=8192
 
 LIB_FILES += -lc -lnosys -lm
 
-.PHONY: default help dfu
+.PHONY: default help dfu manifest identity
 
 default: $(PROJECT_NAME)
 
@@ -183,6 +205,8 @@ help:
 	@echo	following targets are available:
 	@echo	  $(PROJECT_NAME)  - build the firmware
 	@echo	  dfu              - package it for the dongle bootloader
+	@echo	  manifest         - write the build identity the host compares against
+	@echo	  identity         - print the version and build date
 	@echo	  flash_softdevice - flash the SoftDevice (needs a debugger)
 	@echo	  sdk_config       - open the configuration tool
 
@@ -195,7 +219,7 @@ $(foreach target, $(TARGETS), $(call define_target, $(target)))
 # --- packaging ---------------------------------------------------------
 # 0xCA is S140 7.2.0. The dongle's factory bootloader does not verify
 # signatures, so no key is needed; set DFU_KEY for one that does.
-dfu: default
+dfu: default manifest
 	nrfutil pkg generate \
 		--hw-version 52 \
 		--application-version 1 \
@@ -204,3 +228,22 @@ dfu: default
 		$(if $(DFU_KEY),--key-file $(DFU_KEY),) \
 		$(OUTPUT_DIRECTORY)/nordic_dongle_dfu.zip
 	@echo packaged $(OUTPUT_DIRECTORY)/nordic_dongle_dfu.zip
+
+identity:
+	@echo version=$(FIRMWARE_VERSION)
+	@echo built=$(FIRMWARE_BUILD_DATE)
+
+# The manifest is how the host knows what it built without parsing a hex file or
+# guessing from a file date. The dongle reports the same version and date over
+# its link, and the driver compares the two.
+manifest: default
+	@printf '{\n' > $(MANIFEST)
+	@printf '  "version": "%s",\n'     "$(FIRMWARE_VERSION)"    >> $(MANIFEST)
+	@printf '  "built": "%s",\n'       "$(FIRMWARE_BUILD_DATE)" >> $(MANIFEST)
+	@printf '  "protocol": "%s",\n'    "$(shell sed -n 's/^\#define PROTO_VERSION[ \t]*"\(.*\)".*/\1/p' include/protocol.h)" >> $(MANIFEST)
+	@printf '  "model": "%s",\n'       "$(shell sed -n 's/^\#define PROTO_MODEL[ \t]*"\(.*\)".*/\1/p' include/protocol.h)" >> $(MANIFEST)
+	@printf '  "hex": "%s",\n'         "$(PROJECT_NAME).hex"    >> $(MANIFEST)
+	@printf '  "package": "%s",\n'     "nordic_dongle_dfu.zip"  >> $(MANIFEST)
+	@printf '  "sha256": "%s"\n'       "$(shell sha256sum $(OUTPUT_DIRECTORY)/$(PROJECT_NAME).hex 2>/dev/null | cut -d" " -f1)" >> $(MANIFEST)
+	@printf '}\n' >> $(MANIFEST)
+	@echo wrote $(MANIFEST)

@@ -115,7 +115,13 @@ class SimulatedDongle:
     """
 
     #: What ``ver`` reports, in the same shape the firmware uses.
-    IDENTITY = "Nordic PCA10059 proto=1.0"
+    IDENTITY = "Nordic PCA10059"
+
+    #: The build the simulated dongle is running. A test that exercises the
+    #: update path changes these, as flashing a real dongle would.
+    DEFAULT_FIRMWARE_VERSION = "1.1.0"
+    DEFAULT_FIRMWARE_BUILT = "2026-09-13T12:00:00Z"
+    DEFAULT_PROTOCOL = "1.1"
 
     def __init__(
         self,
@@ -130,6 +136,14 @@ class SimulatedDongle:
         self.clock_us = 1_000_000              # a dongle that has been up a second
         self.command_log: List[str] = []
         self.dropped = 0
+
+        self.firmware_version = self.DEFAULT_FIRMWARE_VERSION
+        self.firmware_built = self.DEFAULT_FIRMWARE_BUILT
+        self.protocol = self.DEFAULT_PROTOCOL
+        #: True once ``dfu`` has been accepted: the dongle is in its bootloader
+        #: and answers nothing until it is flashed and restarted.
+        self.in_bootloader = False
+        self.dfu_requests = 0
 
         self._scanning = False
         self._scan_until_us: Optional[int] = None
@@ -158,6 +172,11 @@ class SimulatedDongle:
         if not line:
             return None
         self.command_log.append(line)
+
+        if self.in_bootloader:
+            # A dongle in its bootloader does not speak this protocol at all.
+            # Returning nothing is what the host sees: a timeout.
+            return None
 
         lines = self._flush_queue()
         lines.extend(self._dispatch(line))
@@ -323,9 +342,22 @@ class SimulatedDongle:
 
     def _cmd_ver(self, arguments: List[str]) -> List[str]:
         return [
-            "ok %s uptime_us=%d dropped=%d"
-            % (self.IDENTITY, self.clock_us, self.dropped)
+            "ok %s fw=%s built=%s proto=%s uptime_us=%d dropped=%d"
+            % (
+                self.IDENTITY,
+                self.firmware_version,
+                self.firmware_built,
+                self.protocol,
+                self.clock_us,
+                self.dropped,
+            )
         ]
+
+    def _cmd_dfu(self, arguments: List[str]) -> List[str]:
+        """Answer, then go quiet: the link comes back as the bootloader's."""
+        self.dfu_requests += 1
+        self.in_bootloader = True
+        return ["ok dfu=1 fw=%s" % self.firmware_version]
 
     def _cmd_time(self, arguments: List[str]) -> List[str]:
         return ["ok t=%d hz=1000000" % self.clock_us]
@@ -516,6 +548,16 @@ class SimulatedDongle:
             "ok profiling=1 addr=%s scanning=%d"
             % (address, 1 if self._scanning else 0)
         ]
+
+    def apply_update(self, version: str, built: str) -> None:
+        """Flash a new build and restart, as a DFU does.
+
+        This is what a test's flasher calls instead of running ``nrfutil``.
+        """
+        self.firmware_version = version
+        self.firmware_built = built
+        self.in_bootloader = False
+        self._cmd_reset([])
 
     def _cmd_reset(self, arguments: List[str]) -> List[str]:
         self._scanning = False

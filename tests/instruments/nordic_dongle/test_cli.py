@@ -10,6 +10,7 @@ import json
 import pytest
 
 from benchtools.cli import main as top_level_main
+from benchtools.instruments.nordic_dongle import SimulatedDongle
 from benchtools.instruments.nordic_dongle.cli import build_parser, main
 
 
@@ -34,7 +35,9 @@ class TestSubcommands:
         status, payload, _ = run(capsys, *SIM, "info")
         assert status == 0
         assert payload["manufacturer"] == "Nordic"
-        assert payload["protocol"] == "1.0"
+        assert payload["protocol"] == "1.1"
+        assert payload["firmware"] == SimulatedDongle.DEFAULT_FIRMWARE_VERSION
+        assert payload["built"] == SimulatedDongle.DEFAULT_FIRMWARE_BUILT
 
     def test_scan(self, capsys):
         status, payload, _ = run(capsys, *SIM, "scan", "--duration", "1")
@@ -132,6 +135,65 @@ class TestFailures:
         assert caught.value.code == 2
 
 
+class TestFirmwareCommand:
+    """``ble firmware``: is this dongle running the build under test?
+
+    Traces to: BLE-FR-012 .. BLE-FR-014, BLE-FR-070.
+    """
+
+    def manifest(self, directory, version, built):
+        directory.mkdir(parents=True, exist_ok=True)
+        (directory / "firmware_manifest.json").write_text(json.dumps({
+            "version": version, "built": built, "protocol": "1.1",
+            "model": "PCA10059", "hex": "f.hex", "package": "f.zip",
+        }))
+        (directory / "f.zip").write_bytes(b"not really a zip")
+        return str(directory)
+
+    def test_a_matching_build_exits_clean(self, capsys, tmp_path):
+        build = self.manifest(tmp_path / "b", SimulatedDongle.DEFAULT_FIRMWARE_VERSION,
+                              SimulatedDongle.DEFAULT_FIRMWARE_BUILT)
+        status, payload, _ = run(capsys, *SIM, "firmware", build)
+        assert status == 0
+        assert payload["matches"] is True
+        assert payload["installed_version"] == SimulatedDongle.DEFAULT_FIRMWARE_VERSION
+
+    def test_a_stale_dongle_fails_and_says_why(self, capsys, tmp_path):
+        """Exit 1 so a build step stops rather than publishing the numbers."""
+        build = self.manifest(tmp_path / "b", "2.0.0", "2026-11-01T00:00:00Z")
+        status, payload, _ = run(capsys, *SIM, "firmware", build)
+        assert status == 1
+        assert payload["matches"] is False
+        assert payload["is_older"] is True
+        assert "--update" in payload["warning"]
+
+    def test_with_no_build_it_just_reports_what_is_installed(self, capsys):
+        status, payload, _ = run(capsys, *SIM, "firmware")
+        assert status == 0
+        assert payload["compared"] is False
+        assert payload["installed_version"] == SimulatedDongle.DEFAULT_FIRMWARE_VERSION
+        assert payload["protocol_compatible"] is True
+
+    def test_the_build_can_come_from_the_global_option(self, capsys, tmp_path):
+        build = self.manifest(tmp_path / "b", SimulatedDongle.DEFAULT_FIRMWARE_VERSION,
+                              SimulatedDongle.DEFAULT_FIRMWARE_BUILT)
+        status, payload, _ = run(capsys, *SIM, "--firmware", build, "firmware")
+        assert status == 0 and payload["matches"] is True
+
+    def test_updating_is_attempted_only_when_asked(self, capsys, tmp_path, monkeypatch):
+        """--update is a write to the instrument; it must be explicit."""
+        import benchtools.instruments.nordic_dongle.dongle as module
+
+        attempts = []
+        monkeypatch.setattr(module.NordicDongle, "update_firmware",
+                            lambda self, *a, **k: attempts.append(a) or self.check_firmware())
+        build = self.manifest(tmp_path / "b", "2.0.0", "2026-11-01T00:00:00Z")
+        run(capsys, *SIM, "firmware", build)
+        assert attempts == []
+        run(capsys, *SIM, "firmware", build, "--update")
+        assert len(attempts) == 1
+
+
 class TestDispatch:
     @pytest.mark.parametrize("name", ["ble", "dongle", "nordic"])
     def test_the_top_level_command_dispatches(self, name, capsys):
@@ -144,5 +206,5 @@ class TestDispatch:
 
     def test_the_parser_documents_every_subcommand(self):
         text = build_parser().format_help()
-        for name in ("info", "scan", "select", "profile", "cmd", "monitor"):
+        for name in ("info", "scan", "select", "profile", "cmd", "monitor", "firmware"):
             assert name in text

@@ -19,7 +19,9 @@
 #include "nrf_soc.h"
 
 #include "ble_scanner.h"
+#include "bootloader.h"
 #include "cdc_acm.h"
+#include "firmware_version.h"
 #include "nus_client.h"
 #include "timestamp.h"
 
@@ -171,9 +173,15 @@ static void command_ver(char * tokens[], uint32_t count)
 	UNUSED_PARAMETER(tokens);
 	UNUSED_PARAMETER(count);
 
-	reply_ok("%s %s proto=%s uptime_us=%llu dropped=%lu",
+	/* The version and the build date together: the version is what changes
+	 * deliberately, the date is what distinguishes two builds of the same
+	 * version - which is the case during development, and exactly when a
+	 * stale dongle misleads. */
+	reply_ok("%s %s fw=%s built=%s proto=%s uptime_us=%llu dropped=%lu",
 		 PROTO_MANUFACTURER,
 		 PROTO_MODEL,
+		 firmware_version_string,
+		 firmware_build_date_string,
 		 PROTO_VERSION,
 		 (unsigned long long)timestamp_now_us(),
 		 (unsigned long)cdc_acm_dropped());
@@ -573,6 +581,19 @@ static void command_time(char * tokens[], uint32_t count)
 		 (unsigned long)TIMESTAMP_HZ);
 }
 
+static void command_dfu(char * tokens[], uint32_t count)
+{
+	UNUSED_PARAMETER(tokens);
+	UNUSED_PARAMETER(count);
+
+	reply_ok("dfu=1 fw=%s", firmware_version_string);
+	/* Let the reply reach the host: after this the USB link goes down and
+	 * comes back as the bootloader's, and a host waiting for a reply it will
+	 * never get cannot tell that from a dongle that has crashed. */
+	cdc_acm_process();
+	bootloader_enter_dfu();
+}
+
 static void command_reset(char * tokens[], uint32_t count)
 {
 	UNUSED_PARAMETER(tokens);
@@ -633,7 +654,8 @@ static const struct
 	{ "cmd",        command_cmd        },
 	{ "adv",        command_adv        },
 	{ "time",       command_time       },
-	{ "reset",      command_reset      }
+	{ "reset",      command_reset      },
+	{ "dfu",        command_dfu        }
 };
 
 #define HANDLER_COUNT	(sizeof(m_handlers) / sizeof(m_handlers[0]))

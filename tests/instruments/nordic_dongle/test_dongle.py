@@ -43,7 +43,11 @@ class TestConnection:
         identity = dongle.identify()
         assert identity.manufacturer == "Nordic"
         assert identity.model == "PCA10059"
-        assert identity.firmware == "1.0"
+        # The firmware field carries the build on the dongle, not the protocol
+        # it speaks: the build is what decides what a measurement means.
+        assert identity.firmware.startswith(SimulatedDongle.DEFAULT_FIRMWARE_VERSION)
+        assert SimulatedDongle.DEFAULT_FIRMWARE_BUILT in identity.firmware
+        assert dongle.protocol_version == "1.1"
 
     def test_it_is_an_instrument_but_not_scpi(self, dongle):
         """The runner drives it through the same contract as every other
@@ -73,10 +77,14 @@ class TestConnection:
             assert instrument.identify().model == "PCA10059"
 
     def test_a_firmware_speaking_another_protocol_is_reported(self, simulator):
-        """Better here than as a confusing failure three commands later."""
-        simulator.IDENTITY = "Nordic PCA10059 proto=9.9"
+        """Better here than as a confusing failure three commands later.
+
+        Only the major version is fatal: a minor difference means one side has
+        commands the other lacks, which fails per command and is recoverable.
+        """
+        simulator.protocol = "9.9"
         instrument = NordicDongle(MockTransport(responder=simulator))
-        with pytest.raises(InstrumentError, match="speaks protocol 9.9"):
+        with pytest.raises(InstrumentError, match="9.9"):
             instrument.initialise()
 
     def test_closing_is_idempotent(self, dongle):

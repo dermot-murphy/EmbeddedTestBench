@@ -315,6 +315,33 @@ Firmware and driver are **one element with one interface artefact**:
 the firmware builds its dispatch table from it, and a test parses it and fails
 the build if the driver has drifted.
 
+### The dongle says which build it is running
+
+A dongle flashed last week produces numbers that look perfectly plausible and
+answer a different question. The firmware reports its version *and its build
+date*, the build writes the same pair into `firmware_manifest.json`, and the
+driver compares them — both, because during development every image is `1.1.0`
+and comparing versions alone would call a stale dongle up to date.
+
+```python
+with NordicDongle.connect("COM5", firmware="firmware/nordic_dongle/_build") as dongle:
+    status = dongle.check_firmware()
+    print(status.describe())          # "1.1.0 built 2026-09-06T…, expected 2026-09-13T…"
+    dongle.ensure_firmware()          # dfu, flash, reconnect, and check it took
+```
+
+```bash
+python -m benchtools ble -r COM5 firmware firmware/nordic_dongle/_build           # exits 1 if stale
+python -m benchtools ble -r COM5 firmware firmware/nordic_dongle/_build --update  # refresh it
+```
+
+The refresh is self-service: the dongle is asked into its bootloader over the
+same link, flashed with `nrfutil`, reconnected and re-read — because "the tool
+reported success" and "the dongle is running the image" are different facts.
+
+Every run records what each instrument was, firmware build included, in its JSON
+record and in the **Instruments** table of its markdown report.
+
 ### Reading an advertising profile honestly
 
 Three things this gets right that a naive implementation does not:

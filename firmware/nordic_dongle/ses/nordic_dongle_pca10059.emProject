@@ -46,6 +46,8 @@
       <file file_name="../src/ble_scanner.c" />
       <file file_name="../src/nus_client.c" />
       <file file_name="../src/timestamp.c" />
+      <file file_name="../src/bootloader.c" />
+      <file file_name="../src/firmware_version.c" />
       <file file_name="../config/sdk_config.h" />
       <file file_name="../include/protocol.h" />
       <file file_name="../include/app_ble_config.h" />

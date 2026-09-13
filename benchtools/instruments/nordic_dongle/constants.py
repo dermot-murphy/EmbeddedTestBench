@@ -31,7 +31,12 @@ __all__ = [
 #: Protocol revision this driver speaks. Checked against the dongle's reply to
 #: ``ver``: a dongle running older firmware is reported at connection time, not
 #: discovered halfway through a measurement.
-PROTOCOL_VERSION = "1.0"
+#:
+#: Compared by major version. A differing *minor* version means one side has
+#: commands the other does not - reported, and survivable, because the missing
+#: ones fail individually with "unknown command". A differing *major* version
+#: means a command means something different, which is not survivable.
+PROTOCOL_VERSION = "1.1"
 
 #: Commands the firmware accepts, with the argument bounds it enforces.
 COMMANDS: Dict[str, Tuple[int, int]] = {
@@ -47,6 +52,7 @@ COMMANDS: Dict[str, Tuple[int, int]] = {
     "adv": (1, 2),
     "time": (0, 0),
     "reset": (0, 0),
+    "dfu": (0, 0),
 }
 
 #: Unsolicited event names, without the leading ``+``.

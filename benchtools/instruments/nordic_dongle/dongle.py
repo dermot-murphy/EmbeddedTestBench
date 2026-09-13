@@ -16,7 +16,7 @@ It is not a SCPI instrument, so it implements
 :class:`~benchtools.core.instrument.Instrument` directly - the same seam the
 J-Link probe uses.
 
-Traces to: BLE-FR-001 .. BLE-FR-062, BLE-ARC-001, BLE-DD-DONGLE.
+Traces to: BLE-FR-001 .. BLE-FR-062, BLE-ARC-001, BLE-DD-DONGLE, BLE-DD-FIRMWARE.
 """
 
 from __future__ import annotations
@@ -35,6 +35,13 @@ from ...core.errors import (
 from ...core.instrument import Instrument, InstrumentIdentity
 from ...core.transport.base import Transport
 from ...core.transport.factory import open_transport
+from .firmware import (
+    FirmwareBuild,
+    FirmwareStatus,
+    FirmwareUpdateError,
+    parse_build_date,
+    run_nrfutil,
+)
 from .constants import (
     DEFAULT_BAUDRATE,
     DEFAULT_COMMAND_TIMEOUT,
@@ -129,6 +136,10 @@ class NordicDongle(Instrument):
         self._connected = False
         self._connection_interval_us = 0
         self._firmware_protocol = ""
+        self._firmware_version = ""
+        self._firmware_built = ""
+        self._expected_firmware: Optional[FirmwareBuild] = None
+        self._allow_incompatible_protocol = False
 
     # ------------------------------------------------------------------
     # Connection
@@ -141,6 +152,9 @@ class NordicDongle(Instrument):
         timeout: float = 5.0,
         log_path: Optional[str] = None,
         limits: Optional[DongleLimits] = None,
+        firmware: Union[str, "FirmwareBuild", None] = None,
+        require_firmware: bool = False,
+        update_firmware: bool = False,
         initialise: bool = True,
         **_ignored,
     ) -> "NordicDongle":
@@ -153,6 +167,14 @@ class NordicDongle(Instrument):
         :param baudrate: Line rate. A USB CDC port ignores it.
         :param log_path: Start logging the session to this file immediately, so
             the connection dialogue is in the log too.
+        :param firmware: The build the dongle is expected to be running: a
+            :class:`~benchtools.instruments.nordic_dongle.firmware.FirmwareBuild`,
+            a manifest path, or a directory containing one. A bench
+            configuration usually names the firmware build directory here.
+        :param require_firmware: Refuse to connect to a dongle running anything
+            else. Use on a bench whose results are evidence.
+        :param update_firmware: Flash the expected build when the dongle is
+            running something else. Implies *require_firmware*.
         :param initialise: Open the link and identify. False to construct
             without talking to it.
         """
@@ -165,10 +187,25 @@ class NordicDongle(Instrument):
             **({"baudrate": baudrate} if target.startswith("serial://") else {}),
         )
         instrument = cls(transport, timeout=timeout, limits=limits)
+        instrument._expected_firmware = FirmwareBuild.load(firmware)
+        # A dongle too old to talk to is still a dongle that can be updated.
+        instrument._allow_incompatible_protocol = bool(update_firmware)
         if log_path:
             instrument._session.log_to(log_path)
         if initialise:
             instrument.initialise()
+            if update_firmware:
+                instrument.ensure_firmware()
+            elif require_firmware:
+                status = instrument.check_firmware()
+                if not status.matches:
+                    instrument.close()
+                    raise InstrumentError(
+                        "the dongle is not running the expected firmware: %s. "
+                        "Flash it (make dfu, then nrfutil dfu usb-serial), or "
+                        "pass update_firmware=True to have the driver do it."
+                        % status.describe()
+                    )
         return instrument
 
     @staticmethod
@@ -213,29 +250,73 @@ class NordicDongle(Instrument):
         """Identify the firmware and check it speaks a protocol we know."""
         identity = self._read_identity()
         self._identity = identity
-        if self._firmware_protocol and self._firmware_protocol != PROTOCOL_VERSION:
+        self._check_protocol()
+
+    def _check_protocol(self) -> None:
+        """Refuse an incompatible protocol; report a merely different one.
+
+        Compared by major version. A differing minor means one side has commands
+        the other has not, which is survivable: the missing ones fail
+        individually with "unknown command", which says what is wrong. A
+        differing major means a command means something else, which is not.
+
+        A dongle running old firmware must stay reachable enough to be
+        *updated*, so an incompatible one is still opened when the caller has
+        asked for an update - otherwise the driver could refuse to talk to the
+        very dongle it is meant to fix.
+        """
+        reported = self._firmware_protocol
+        if not reported or reported == PROTOCOL_VERSION:
+            return
+
+        theirs = reported.split(".")[0]
+        ours = PROTOCOL_VERSION.split(".")[0]
+        advice = (
+            "Rebuild and reflash firmware/nordic_dongle - or connect with "
+            "update_firmware=True and a firmware= build, and the driver will "
+            "do it."
+        )
+        if theirs != ours:
+            if self._allow_incompatible_protocol:
+                _LOG.warning(
+                    "the dongle speaks protocol %s and this driver speaks %s; "
+                    "continuing because an update was requested",
+                    reported, PROTOCOL_VERSION,
+                )
+                return
             raise InstrumentError(
-                "the dongle speaks protocol %s and this driver speaks %s. "
-                "Rebuild and reflash firmware/nordic_dongle, or use a driver "
-                "of the matching version."
-                % (self._firmware_protocol, PROTOCOL_VERSION)
+                "the dongle speaks protocol %s and this driver speaks %s, "
+                "which are not compatible. %s" % (reported, PROTOCOL_VERSION, advice)
             )
+
+        _LOG.warning(
+            "the dongle speaks protocol %s and this driver speaks %s: commands "
+            "one side lacks will be refused individually. %s",
+            reported, PROTOCOL_VERSION, advice,
+        )
 
     def _read_identity(self) -> InstrumentIdentity:
         reply = self._session.execute("ver")
         fields = reply.fields
         self._firmware_protocol = fields.get("proto", "")
+        self._firmware_version = fields.get("fw", "")
+        self._firmware_built = fields.get("built", "")
         # "ok Nordic PCA10059 proto=1.0 uptime_us=... dropped=..." - the first
         # two tokens are positional, so they arrive as valueless keys.
         positional = [key for key, value in fields.items() if value == ""]
         manufacturer = positional[0] if positional else "Nordic"
         model = positional[1] if len(positional) > 1 else self._limits.model
+        # The firmware field is the build, not the protocol: it is what a
+        # reader of a report needs to know which dongle produced the numbers.
+        firmware = self._firmware_version or self._firmware_protocol
+        if self._firmware_version and self._firmware_built:
+            firmware = "%s (built %s)" % (self._firmware_version, self._firmware_built)
         return InstrumentIdentity(
             raw=reply.raw[3:] if reply.raw.startswith("ok ") else reply.raw,
             manufacturer=manufacturer,
             model=model,
             serial_number="",
-            firmware=self._firmware_protocol,
+            firmware=firmware,
         )
 
     # ------------------------------------------------------------------
@@ -253,6 +334,219 @@ class NordicDongle(Instrument):
     def protocol_version(self) -> str:
         """The protocol version the dongle reported."""
         return self._firmware_protocol
+
+    @property
+    def protocol_is_compatible(self) -> bool:
+        """True when the dongle's protocol major version matches the driver's."""
+        if not self._firmware_protocol:
+            return False
+        return self._firmware_protocol.split(".")[0] == PROTOCOL_VERSION.split(".")[0]
+
+    @property
+    def firmware_version(self) -> str:
+        """The firmware version the dongle reported, e.g. ``"1.1.0"``.
+
+        Empty for firmware older than protocol 1.1, which did not report one -
+        which is itself an answer: that dongle needs updating.
+        """
+        return self._firmware_version
+
+    @property
+    def firmware_built(self) -> str:
+        """When the running firmware was built, as the dongle reports it.
+
+        ISO 8601 UTC for a build that injected a date; a ``local:`` string for
+        one that did not.
+        """
+        return self._firmware_built
+
+    @property
+    def firmware_built_at(self):
+        """The build instant, or ``None`` if the dongle reported no clear one."""
+        return parse_build_date(self._firmware_built)
+
+    @property
+    def expected_firmware(self) -> Optional[FirmwareBuild]:
+        """The build this dongle is expected to be running, if one was given."""
+        return self._expected_firmware
+
+    def expect_firmware(self, firmware: Union[str, FirmwareBuild]) -> FirmwareBuild:
+        """Set the build to compare against, after connecting.
+
+        :param firmware: A build, a manifest path, or a directory holding one.
+        """
+        build = FirmwareBuild.load(firmware)
+        if build is None:
+            raise ConfigurationError("no firmware build given")
+        self._expected_firmware = build
+        return build
+
+    # ------------------------------------------------------------------
+    # Firmware identity and refresh
+    # ------------------------------------------------------------------
+    def check_firmware(
+        self,
+        firmware: Union[str, FirmwareBuild, None] = None,
+    ) -> FirmwareStatus:
+        """Compare what the dongle is running against what was built.
+
+        Both the version and the build date are compared. Two builds of one
+        version are different firmware, and during development that is the
+        common case - so comparing versions alone would call a stale dongle
+        up to date.
+
+        :param firmware: The build to compare against; the one given at connect
+            time when omitted.
+        :returns: A :class:`FirmwareStatus`, whose fields are plain types so a
+            declarative test can assert on them.
+        """
+        build = FirmwareBuild.load(firmware) or self._expected_firmware
+        self.identify(refresh=True)
+
+        status = FirmwareStatus(
+            installed_version=self._firmware_version,
+            installed_built=self._firmware_built,
+        )
+        if build is None:
+            status.reason = (
+                "no expected build was given, so nothing was compared. Pass "
+                "firmware=<manifest or build directory> to connect(), or name "
+                "it in the bench configuration."
+            )
+            return status
+
+        status.expected_version = build.version
+        status.expected_built = build.built
+        status.package = build.package
+        status.compared = True
+        status.reason = status.describe()
+        return status
+
+    def enter_dfu(self, timeout: float = 2.0) -> bool:
+        """Ask the dongle to reset into its bootloader.
+
+        The link goes down and comes back as the bootloader's, so this closes
+        the session. A dongle that does not answer is reported rather than
+        assumed: it may already be in the bootloader, or it may be dead, and
+        those need different actions from whoever is at the bench.
+
+        :returns: True if the dongle acknowledged before resetting.
+        """
+        try:
+            self._session.execute("dfu", timeout=timeout)
+            acknowledged = True
+        except BenchToolsError:
+            acknowledged = False
+        finally:
+            self._connected = False
+            try:
+                self.transport.close()
+            except BenchToolsError:            # pragma: no cover - already down
+                pass
+        return acknowledged
+
+    def update_firmware(
+        self,
+        firmware: Union[str, FirmwareBuild, None] = None,
+        port: Optional[str] = None,
+        timeout: float = 180.0,
+        settle: float = 3.0,
+        flasher=None,
+    ) -> FirmwareStatus:
+        """Flash the expected build onto the dongle and reconnect.
+
+        The sequence is: ask the dongle into its bootloader, run the flashing
+        tool, wait for it to re-enumerate, reopen the link, and read back what
+        is now running - because "the tool reported success" is not the same
+        fact as "the dongle runs the build I wanted".
+
+        :param port: Serial port the bootloader appears on. Defaults to the
+            port this dongle was opened on, which is right on Linux and often
+            wrong on Windows, where the bootloader takes a different COM number.
+        :param settle: Seconds to allow for re-enumeration before reconnecting.
+        :param flasher: Called as ``flasher(package, port)``; ``nrfutil`` by
+            default. A test supplies its own.
+        :raises FirmwareUpdateError: if the update cannot be carried out, or the
+            dongle comes back running something other than the expected build.
+        """
+        build = FirmwareBuild.load(firmware) or self._expected_firmware
+        if build is None:
+            raise ConfigurationError(
+                "no firmware build given, so there is nothing to flash. Pass "
+                "firmware=<manifest or build directory>."
+            )
+        package = build.require_package()
+        target_port = port or getattr(self.transport, "port", None)
+        if (not target_port) and (flasher is not None):
+            # A supplied flasher does its own addressing - a simulated dongle
+            # has no port, and requiring one would make the path untestable.
+            target_port = self.transport.description
+        if not target_port:
+            raise ConfigurationError(
+                "no serial port to flash: this dongle was opened on %r. Give "
+                "port=... explicitly." % self.transport.description
+            )
+
+        self._session.note("updating firmware to %s from %s" % (build, package))
+        self.enter_dfu()
+        time.sleep(settle)
+
+        run = flasher if flasher is not None else run_nrfutil
+        output = run(package, str(target_port))
+        _LOG.info("nrfutil: %s", str(output).strip()[:400])
+
+        time.sleep(settle)
+        self._reopen()
+
+        status = self.check_firmware(build)
+        status.updated = True
+        if not status.matches:
+            raise FirmwareUpdateError(
+                "the dongle was flashed but is running %s (built %s), not %s "
+                "(built %s). Check the package is the one just built."
+                % (
+                    status.installed_version or "?",
+                    status.installed_built or "unknown",
+                    build.version,
+                    build.built,
+                )
+            )
+        self._session.note("firmware updated to %s" % build)
+        return status
+
+    def ensure_firmware(
+        self,
+        firmware: Union[str, FirmwareBuild, None] = None,
+        update: bool = True,
+        **update_arguments,
+    ) -> FirmwareStatus:
+        """Make the dongle run the expected build, flashing it if it does not.
+
+        The call a bench makes at the start of a run: check, refresh if stale,
+        and report what happened either way.
+
+        :param update: False to check without flashing, in which case a
+            mismatch raises rather than being corrected.
+        """
+        status = self.check_firmware(firmware)
+        if status.matches or not status.compared:
+            return status
+        if not update:
+            raise InstrumentError(
+                "the dongle is not running the expected firmware and updating "
+                "was not permitted: %s" % status.describe()
+            )
+        return self.update_firmware(firmware, **update_arguments)
+
+    def _reopen(self) -> None:
+        """Close and reopen the link, after the dongle has restarted."""
+        try:
+            self.transport.close()
+        except BenchToolsError:                # pragma: no cover - already closed
+            pass
+        self._initialised = False
+        self._identity = None
+        self.initialise()
 
     # ------------------------------------------------------------------
     # Logging

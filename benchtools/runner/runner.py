@@ -17,7 +17,7 @@ useful if they mean something:
 
 Conflating them turns a broken rig into a pile of apparent product defects.
 
-Traces to: RUN-FR-010 .. RUN-FR-033, RUN-ARC-001, RUN-DD-RUNNER.
+Traces to: RUN-FR-010 .. RUN-FR-037, RUN-ARC-001, RUN-DD-RUNNER.
 """
 
 from __future__ import annotations
@@ -103,18 +103,40 @@ class BenchRunner:
             raise SpecError("action %r refers to a private method" % action)
 
         instrument = self.bench.get(alias)
-        method = getattr(instrument, method_name, None)
-        if method is None or not callable(method):
+        if not hasattr(instrument, method_name):
             available = sorted(
-                name
-                for name in dir(instrument)
-                if not name.startswith("_") and callable(getattr(instrument, name, None))
+                name for name in dir(instrument) if not name.startswith("_")
             )
             raise SpecError(
-                "instrument %r (%s) has no method %r. Available: %s"
+                "instrument %r (%s) has no method or property %r. Available: %s"
                 % (alias, type(instrument).__name__, method_name, ", ".join(available))
             )
-        return method
+
+        member = getattr(instrument, method_name)
+        if callable(member):
+            return member
+
+        # A property is a reading with no arguments and no side effects, which
+        # is exactly what a measurement step is. Refusing them would force a
+        # driver to wrap `firmware_version` in `get_firmware_version()` for the
+        # runner's benefit, which is the tail wagging the dog.
+        def read_property(**arguments):
+            if arguments:
+                raise SpecError(
+                    "%r is a property of %s and takes no arguments, but %s "
+                    "%s given"
+                    % (
+                        action,
+                        type(instrument).__name__,
+                        ", ".join(sorted(arguments)),
+                        "was" if len(arguments) == 1 else "were",
+                    )
+                )
+            # Read now rather than at resolution time: a property read when the
+            # step runs is the value at that moment, which is the point.
+            return getattr(instrument, method_name)
+
+        return read_property
 
     # ------------------------------------------------------------------
     # Step execution
@@ -255,6 +277,7 @@ class BenchRunner:
             self.bench.check_drivers(spec.instrument_drivers)
         except BenchToolsError as exc:
             run.setup_error = str(exc)
+            run.instruments = self.bench.describe_instruments()
             run.finished = _now()
             run.duration_s = time.monotonic() - started
             return run
@@ -282,6 +305,10 @@ class BenchRunner:
             if spec.teardown:
                 _LOG.info("running suite teardown (%d step(s))", len(spec.teardown))
                 self.run_steps(spec.teardown)
+            # Recorded before closing, and after the run rather than before, so
+            # an instrument the suite updated - a dongle reflashed in setup -
+            # is recorded as what actually produced the measurements.
+            run.instruments = self.bench.describe_instruments()
             run.finished = _now()
             run.duration_s = time.monotonic() - started
 

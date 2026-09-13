@@ -58,17 +58,18 @@ hygiene rules of §4.3 - and its first build is recorded as BLE-OPEN-01.
 | SWE4-UT-SCOPE | `instruments/tek3014b/test_scope.py` | 87 | Pass |
 | SWE4-UT-JLINK | `instruments/jlink/test_probe.py` | 70 | Pass |
 | SWE4-UT-BLE | `instruments/nordic_dongle/test_dongle.py` | 64 | Pass |
+| SWE4-UT-BLEFIRMWARE | `instruments/nordic_dongle/test_firmware.py` | 49 | Pass |
 | SWE4-UT-BLEPROTO | `instruments/nordic_dongle/test_protocol.py` | 34 | Pass |
 | SWE4-UT-BLEPROFILE | `instruments/nordic_dongle/test_profile.py` | 30 | Pass |
 | SWE4-UT-BLESIM | `instruments/nordic_dongle/test_simulator.py` | 27 | Pass |
 | SWE4-UT-SERIAL | `core/transport/test_serial.py` | 25 | Pass |
 | SWE4-UT-BLESESSION | `instruments/nordic_dongle/test_session.py` | 23 | Pass |
-| SWE4-UT-BLECLI | `instruments/nordic_dongle/test_cli.py` | 20 | Pass |
+| SWE4-UT-BLECLI | `instruments/nordic_dongle/test_cli.py` | 25 | Pass |
 | SWE4-UT-BLELATENCY | `instruments/nordic_dongle/test_latency.py` | 20 | Pass |
 | SWE4-UT-BLEFW | `instruments/nordic_dongle/test_firmware_protocol.py` | 17 | Pass |
 | SWE4-UT-LAYERING | `test_layering.py` | 54 | Pass |
 | SWE4-UT-GDBMI | `instruments/jlink/test_gdbmi.py` | 37 | Pass |
-| SWE4-UT-BENCH | `runner/test_bench.py` | 37 | Pass |
+| SWE4-UT-BENCH | `runner/test_bench.py` | 41 | Pass |
 | SWE4-UT-MEASURE | `analysis/test_measure.py` | 35 | Pass |
 | SWE4-UT-SPEC | `runner/test_spec.py` | 35 | Pass |
 | SWE4-UT-WAVEFORM | `analysis/test_waveform.py` | 34 | Pass |
@@ -84,14 +85,14 @@ hygiene rules of §4.3 - and its first build is recorded as BLE-OPEN-01.
 | SWE4-UT-TRACE | `test_traceability.py` | 18 | Pass |
 | SWE4-UT-PROCESS | `core/transport/test_process.py` | 18 | Pass |
 | SWE4-UT-JLINKSOCKETS | `instruments/jlink/test_sockets.py` | 16 | Pass |
-| SWE4-UT-ENGINE | `runner/test_runner.py` | 25 | Pass |
+| SWE4-UT-ENGINE | `runner/test_runner.py` | 33 | Pass |
 | SWE4-UT-VALIDATE | `core/test_validation.py` | 23 | Pass |
 | SWE4-UT-FACTORY | `core/transport/test_factory.py` | 23 | Pass |
 | SWE4-UT-LIMITS | `runner/test_limits.py` | 23 | Pass |
 | SWE4-UT-SIMBASE | `core/test_simulator.py` | 22 | Pass |
 | SWE4-UT-VXI11 | `core/transport/test_vxi11.py` | 22 | Pass |
 | SWE4-UT-CLI | `instruments/tek3014b/test_cli.py` | 20 | Pass |
-| SWE4-UT-REPORT | `runner/test_report.py` | 20 | Pass |
+| SWE4-UT-REPORT | `runner/test_report.py` | 24 | Pass |
 | SWE4-UT-TRANSPORT | `core/transport/test_base.py` | 19 | Pass |
 | SWE4-UT-ENV | `instruments/tek3014b/test_simulator.py` | 19 | Pass |
 | SWE4-UT-PLOT | `analysis/test_plotting.py` | 15 | Pass |
@@ -99,7 +100,7 @@ hygiene rules of §4.3 - and its first build is recorded as BLE-OPEN-01.
 | SWE4-UT-RESOLVE | `runner/test_resolve.py` | 13 | Pass |
 | SWE4-UT-SOCKET | `core/transport/test_socket.py` | 12 | Pass |
 | SWE4-UT-VISA | `core/transport/test_visa.py` | 6 | Pass |
-| **Total** | | **1 202** | **Pass** |
+| **Total** | | **1 273** | **Pass** |
 
 ## 3. Coverage detail
 
@@ -242,12 +243,12 @@ unchanged and the logic under test is the logic that runs on the dongle.
 
 | Binary | Cases | Result |
 |---|---|---|
-| `test_cmd_parser` | 47 | Pass |
+| `test_cmd_parser` | 50 | Pass |
 | `test_ble_scanner` | 30 | Pass |
 | `test_nus_client` | 20 | Pass |
-| `test_cdc_acm` | 19 | Pass |
+| `test_cdc_acm` | 20 | Pass |
 | `test_timestamp` | 11 | Pass |
-| **Total** | **128** | **Pass** |
+| **Total** | **131** | **Pass** |
 
 ```
 cmake -S firmware/nordic_dongle/test -B build/firmware-tests
@@ -540,6 +541,7 @@ and the include paths for `sortlist`, `atomic_flags`, `nrf_ble_gq` and
 
 | D-27 | An advertising line the transmit queue **refused** was still counted as reported, so the firmware's "reported" and "received" counters always agreed | **Major** (evidence integrity): the host compares those counters to tell a lossy link from a quiet sensor, and this made `AdvertisingProfile.is_complete` incapable of ever being false for a firmware-side drop | **Closed** — counted only when the queue accepts the line | `test_a_dropped_line_is_counted_as_not_reported` |
 | D-28 | After an over-long command the receiver started a **new** line where the buffer overflowed, instead of discarding to the terminator. The tail of a truncated command therefore became a command: `xxx…xxxreset` would have executed `reset` | **Major** (a command nobody sent) | **Closed** — bytes are discarded until the terminator | `test_the_tail_of_an_over_long_command_is_not_a_command` |
+| D-29 | The driver refused to connect to a dongle whose protocol version differed from its own. Since refreshing the firmware runs **over that connection**, an out-of-date dongle could not be reached to be fixed - the check made the recovery path impossible | **Major** (the fault excluded its own remedy) | **Closed** — only a *major* version difference is fatal, a minor one warns, and `update_firmware=True` suspends the check | `test_an_incompatible_dongle_can_still_be_reached_to_update_it`, `test_a_different_minor_version_is_survivable` |
 
 Two smaller corrections came with them: `cmd_parser_init` now clears the
 selection, so the module can be brought back to a known state (the target wants
@@ -667,6 +669,6 @@ discharged without physical hardware:
 | `benchtools` console script after `pip install -e .` | Installs and runs |
 | Full suite with `matplotlib`, `pyvisa`, `pyyaml`, `numpy` and `pyserial` blocked | 1 152 passed, 36 skipped, 0 failed |
 | `firmware/nordic_dongle/scripts/compile_check.sh` in `canembed/canembed-arm` | All six firmware units compile, 0 warnings, apart from four listed SDK 17-only lines (§4.5) |
-| `ctest --test-dir build/firmware-tests` | 5 binaries, 128 cases, all pass in 0.01 s |
+| `ctest --test-dir build/firmware-tests` | 5 binaries, 131 cases, all pass in 0.01 s |
 | `make SDK_ROOT=…` against SDK 15.2 | Drives a real build to the compile stage; stops only on files SDK 15.2 places elsewhere or lacks, which is the expected result for an SDK 17 project |
 | Import with those extras blocked | Package imports; only the plot, VISA and YAML paths raise, each naming its extra |

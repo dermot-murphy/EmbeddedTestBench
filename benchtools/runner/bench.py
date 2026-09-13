@@ -20,7 +20,7 @@ Example (YAML)::
 Drivers are named, not imported by the specification, so a test file cannot
 reach arbitrary code. New drivers are added with :func:`register_driver`.
 
-Traces to: RUN-FR-001 .. RUN-FR-005, RUN-DD-BENCH.
+Traces to: RUN-FR-001 .. RUN-FR-005, RUN-FR-037, RUN-DD-BENCH.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterator, Optional, Type
 
-from ..core.errors import BenchConfigError
+from ..core.errors import BenchConfigError, BenchToolsError
 from ..core.instrument import Instrument
 from ..instruments.generic import GenericScpiInstrument
 from ..instruments.jlink import JLinkProbe
@@ -297,6 +297,40 @@ class Bench:
     def connected(self) -> Dict[str, Instrument]:
         """Instruments connected so far."""
         return dict(self._open)
+
+    def describe_instruments(self) -> Dict[str, Dict[str, str]]:
+        """What each open instrument says it is, for the run record.
+
+        Identification is asked of the instrument, not taken from the bench
+        configuration: the configuration says what was *meant* to be there, and
+        the point of this is to record what actually answered - including which
+        firmware it was running, which for a programmable instrument decides
+        whether its numbers mean what they appear to mean.
+        """
+        described: Dict[str, Dict[str, str]] = {}
+        for alias, instrument in self._open.items():
+            configured = self.config.instruments.get(alias)
+            entry = {
+                "driver": type(instrument).__name__,
+                "resource": configured.resource if configured else "",
+            }
+            try:
+                identity = instrument.identify()
+                entry.update(
+                    {
+                        "manufacturer": identity.manufacturer,
+                        "model": identity.model,
+                        "serial_number": identity.serial_number,
+                        "firmware": identity.firmware,
+                        "identity": identity.raw,
+                    }
+                )
+            except BenchToolsError as exc:
+                # An instrument that will not say what it is still belongs in
+                # the record, with the reason it would not.
+                entry["identity_error"] = str(exc)
+            described[alias] = entry
+        return described
 
     def close(self) -> None:
         """Close every connected instrument, reporting but not raising errors."""

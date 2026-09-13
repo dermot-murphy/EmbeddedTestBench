@@ -206,6 +206,9 @@ where the firmware implements the requirement.
 | BLE-FR-004 | BLE-ARC-001 | BLE-DD-PROFILE, BLE-DD-SCANNER | `AdvertisingProfile.is_complete`, `report_advertising` | `test_a_lossy_capture_is_declared`, `test_a_lossy_link_is_declared_rather_than_averaged`; firmware side: `test_a_dropped_line_is_counted_as_not_reported`, `test_the_counters_reconcile_what_was_seen_and_sent` |
 | BLE-FR-010 | BLE-ARC-001 | BLE-DD-TIMESTAMP, BLE-DD-TEST | `firmware/src/timestamp.c` | `test_events_arrive_on_the_nominal_interval`, `test_the_clock_advances_monotonically`; firmware side: `test_timestamp` (11), notably `test_the_counter_is_extended_past_thirty_two_bits` |
 | BLE-FR-011 | BLE-ARC-001 | BLE-DD-SESSION, BLE-DD-LATENCY | `Event.host_time`, `LatencySource` | `test_host_time_is_recorded_on_every_event`, `test_both_clocks_are_recorded` |
+| BLE-FR-012 | BLE-ARC-001 | BLE-DD-VERSION, BLE-DD-CMD, BLE-DD-FIRMWARE | `firmware_version.h`, `Makefile` (`manifest`), `command_ver` | `test_the_dongle_reports_its_build` (`TestTheDongleReportsItsBuild`, 3); firmware side: `test_ver_reports_which_build_is_on_the_dongle`, `test_the_build_date_carries_no_spaces` |
+| BLE-FR-013 | BLE-ARC-001 | BLE-DD-BOOTLOADER, BLE-DD-CMD | `bootloader.c`, `command_dfu`, `NordicDongle.enter_dfu` | `test_the_dongle_is_asked_into_its_bootloader_first`; firmware side: `test_dfu_answers_before_it_resets` |
+| BLE-FR-014 | BLE-ARC-001 | BLE-DD-FIRMWARE, BLE-DD-DONGLE, BLE-DD-CLI | `FirmwareBuild`, `FirmwareStatus`, `check_firmware`, `update_firmware`, `ensure_firmware`, `ble firmware` | `TestStatus` (8), `TestChecking` (7), `TestUpdating` (8), `TestFirmwareCommand` (5), notably `test_the_same_version_rebuilt_is_a_mismatch` and `test_a_flash_that_does_not_take_is_reported` |
 | BLE-FR-020 | BLE-ARC-001 | BLE-DD-SCANNER | `firmware/src/ble_scanner.c`, `NordicDongle.scan` | `test_scan_finds_the_sensors`, `test_scanning_finds_sensors` |
 | BLE-FR-021 | BLE-ARC-001 | BLE-DD-SCANNER | `scanner_get`, `_sensor_from_event` | `test_a_sensor_with_no_name_is_still_listed` |
 | BLE-FR-022 | BLE-ARC-001 | BLE-DD-SCANNER, BLE-DD-CONST | `passes_filter`, `ScanFilter` | `test_filtering_by_name`, `test_filtering_by_signal_strength`, `test_filtering_by_address`, `test_a_name_filter_is_applied` |
@@ -241,7 +244,7 @@ where the firmware implements the requirement.
 | Requirement | Evidence |
 |---|---|
 | BLE-NFR-001 | `test_no_dynamic_allocation` parses every firmware source; buffers are `PROTO_MAX_*` sized; no recursion by inspection; `compile_check.sh` compiles the whole firmware with `-Wall -Wextra` and no warnings; `SWE4-UT-FWUNIT` exercises the bounded buffers at their limits. |
-| BLE-NFR-006 | `SWE4-UT-FWUNIT`: 128 cases run the firmware's own sources on a host, with no dongle, SDK or toolchain; `firmware/nordic_dongle/Makefile` builds it headlessly, and `.github/workflows/firmware.yml` does both on every push touching `firmware/**`. |
+| BLE-NFR-006 | `SWE4-UT-FWUNIT`: 131 cases run the firmware's own sources on a host, with no dongle, SDK or toolchain; `firmware/nordic_dongle/Makefile` builds it headlessly, and `.github/workflows/firmware.yml` does both on every push touching `firmware/**`. |
 | BLE-NFR-002 | `BLE-DD-CDC`: the radio event handler queues and returns. `test_cdc_acm` proves the queue never blocks and that every path leaves its critical region; behaviour under load on the part is a bench confirmation item (BLE-OPEN-02). |
 | BLE-NFR-003 | `SWE4-UT-BLEFW`: the header is parsed and compared with the driver's constants - commands, argument bounds, handlers, events, error codes, limits, version. |
 | BLE-NFR-004 | `test_no_mandatory_third_party_imports`; pyserial is the `serial` extra, imported inside `_open_link`. |
@@ -273,6 +276,8 @@ where the firmware implements the requirement.
 | RUN-FR-033 | ARC-001 | RUN-DD-RUNNER | `stop_on_error` | `test_a_failure_does_not_stop_later_tests`, `test_stop_on_error_abandons_the_rest` |
 | RUN-FR-034 | ARC-001 | RUN-DD-RUNNER | `_resolve_action` | `test_private_methods_are_unreachable` |
 | RUN-FR-035 | ARC-001 | RUN-DD-BENCH | `Bench.require` | `test_missing_instrument_is_reported_before_anything_runs`, `test_require_reports_everything_missing` |
+| RUN-FR-036 | ARC-001 | RUN-DD-RUNNER | `_resolve_action` property branch | `TestPropertySteps` (6), notably `test_the_value_is_the_one_at_the_time_of_the_step` |
+| RUN-FR-037 | ARC-001 | RUN-DD-BENCH, RUN-DD-RESULTS, RUN-DD-REPORT | `Bench.describe_instruments`, `RunRecord.instruments`, the report's Instruments table | `TestDescribingInstruments` (4), `TestInstrumentsInTheRecord` (2), `TestInstrumentsSection` (4) |
 | RUN-FR-040 | ARC-001 | RUN-DD-RESULTS | `requirements_verified` | `test_requirement_roll_up`, `test_requirement_takes_the_worst_of_its_tests`, `test_requirements_table` |
 | RUN-FR-041 | ARC-001 | RUN-DD-REPORT | `write_json` | `TestJson` (3) |
 | RUN-FR-042 | ARC-001 | RUN-DD-REPORT | `format_markdown` | `TestMarkdown` (8) |

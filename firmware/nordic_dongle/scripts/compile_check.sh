@@ -78,7 +78,7 @@ ARCH="-mcpu=cortex-m4 -mthumb -mabi=aapcs -mfloat-abi=hard -mfpu=fpv4-sp-d16"
 WARN="-Wall -Wextra -Wno-unused-parameter -Wno-expansion-to-defined"
 
 status=0
-for unit in timestamp cdc_acm ble_scanner nus_client cmd_parser main; do
+for unit in timestamp cdc_acm ble_scanner nus_client bootloader firmware_version cmd_parser main; do
 	printf '%-16s ' "$unit.c"
 	if arm-none-eabi-gcc -c $ARCH $DEFS $WARN -std=c99 -O2 $INC \
 	       "$FW/src/$unit.c" -o "$OUT/$unit.o" 2> "$OUT/$unit.err"; then

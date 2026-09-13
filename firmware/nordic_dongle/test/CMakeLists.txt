@@ -91,5 +91,12 @@ add_firmware_test(test_nus_client
 	SOURCES ${FIRMWARE_DIR}/src/nus_client.c ${FAKE_SDK} ${FAKE_HOST_LINK} ${FAKE_SCANNER})
 
 add_firmware_test(test_cmd_parser
-	SOURCES ${FIRMWARE_DIR}/src/cmd_parser.c ${FAKE_SDK} ${FAKE_HOST_LINK}
-	        ${FAKE_SCANNER} ${FAKE_NUS})
+	SOURCES ${FIRMWARE_DIR}/src/cmd_parser.c ${FIRMWARE_DIR}/src/bootloader.c
+	        ${FIRMWARE_DIR}/src/firmware_version.c
+	        ${FAKE_SDK} ${FAKE_HOST_LINK} ${FAKE_SCANNER} ${FAKE_NUS})
+
+# A fixed build date, injected exactly as the real build injects one, so the
+# test can assert the whole field rather than that it merely looks plausible.
+set(TEST_BUILD_DATE "2000-01-01T00:00:00Z")
+target_compile_definitions(test_cmd_parser
+	PRIVATE FIRMWARE_BUILD_DATE="${TEST_BUILD_DATE}")

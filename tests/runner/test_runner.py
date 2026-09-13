@@ -13,6 +13,7 @@ from __future__ import annotations
 import pytest
 
 from benchtools.runner import BenchConfig, BenchRunner, Status, TestSpec
+from benchtools.runner.spec import Step
 
 
 def spec_of(**overrides) -> TestSpec:
@@ -102,7 +103,7 @@ class TestFailureVersusError:
         run = run_spec(spec_of(**{"do": "scope.levitate"}))
         assert run.status is Status.ERROR
         assert run.errored == 1 and run.failed == 0
-        assert "has no method 'levitate'" in run.cases[0].error
+        assert "has no method or property 'levitate'" in run.cases[0].error
 
     def test_error_message_lists_available_methods(self):
         run = run_spec(spec_of(**{"do": "scope.levitate"}))
@@ -244,3 +245,82 @@ class TestStatusAggregation:
         config = BenchConfig.simulated(["scope"])
         with BenchRunner.from_config(config, simulate=True) as runner:
             assert runner.run(passing_spec).simulated is True
+
+
+class TestPropertySteps:
+    """A reading with no arguments is a step too.
+
+    Requiring a driver to wrap ``firmware_version`` in ``get_firmware_version()``
+    purely so a specification can name it would be the runner dictating driver
+    design. These tests fix the behaviour that avoids that.
+
+    Traces to: RUN-FR-036, RUN-DD-RUNNER.
+    """
+
+    @pytest.fixture
+    def runner(self):
+        config = BenchConfig.from_mapping({
+            "name": "B", "instruments": {"dongle": "ble-dongle@sim://"},
+        })
+        instance = BenchRunner.from_config(config)
+        yield instance
+        instance.close()
+
+    def test_a_property_is_read_when_the_step_runs(self, runner):
+        record = runner.run_step(Step.from_mapping({"do": "dongle.firmware_version"}, index=0))
+        assert record.status is Status.PASS
+
+    def test_its_value_can_be_saved_and_asserted(self, runner):
+        record = runner.run_step(Step.from_mapping({
+            "do": "dongle.protocol_is_compatible",
+            "expect": [{"name": "compatible", "equals": 1}],
+        }, index=0))
+        assert record.status is Status.PASS
+        assert record.measurements[0].value == 1.0
+
+    def test_the_value_is_the_one_at_the_time_of_the_step(self, runner):
+        """Resolving the action must not freeze the reading."""
+        dongle = runner.bench.get("dongle")
+        action = runner._resolve_action("dongle.firmware_version")
+        before = action()
+        dongle._identity = None
+        dongle._firmware_version = "9.9.9"
+        assert action() == "9.9.9" != before
+
+    def test_arguments_to_a_property_are_a_specification_error(self, runner):
+        record = runner.run_step(Step.from_mapping({
+            "do": "dongle.firmware_version", "with": {"channel": 1},
+        }, index=0))
+        assert record.status is Status.ERROR
+        assert "is a property" in record.error and "channel" in record.error
+
+    def test_a_private_attribute_is_still_out_of_reach(self, runner):
+        record = runner.run_step(Step.from_mapping({"do": "dongle._transport"}, index=0))
+        assert record.status is Status.ERROR
+        assert "private" in record.error
+
+    def test_an_unknown_name_lists_what_exists(self, runner):
+        record = runner.run_step(Step.from_mapping({"do": "dongle.firmware_versoin"}, index=0))
+        assert record.status is Status.ERROR
+        assert "firmware_version" in record.error
+
+
+class TestInstrumentsInTheRecord:
+    """Traces to: RUN-FR-037, RUN-DD-RESULTS."""
+
+    def test_the_run_records_what_it_used(self, runner, passing_spec):
+        run = runner.run(passing_spec)
+        assert "scope" in run.instruments
+        assert run.instruments["scope"]["driver"]
+        assert run.as_dict()["instruments"] == run.instruments
+
+    def test_recorded_even_when_setup_fails(self, runner):
+        """The bench that could not be set up is the thing to look at."""
+        spec = TestSpec.from_mapping({
+            "name": "S",
+            "tests": [{"name": "t", "steps": [
+                {"do": "scope.identity"}, {"do": "absent.identity"}]}],
+        }, source="<test>")
+        run = runner.run(spec)
+        assert run.setup_error
+        assert isinstance(run.instruments, dict)

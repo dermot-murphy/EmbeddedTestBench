@@ -459,6 +459,28 @@ void NVIC_SystemReset(void)
 	fake_system_resets++;
 }
 
+/* --- the retained register, which survives a reset on the target ---- */
+
+static fake_power_t	m_power;
+fake_power_t * const	NRF_POWER = &m_power;
+
+uint32_t sd_power_gpregret_set(uint8_t gpregret_id, uint32_t gpregret_msk)
+{
+	(void)gpregret_id;
+	m_power.GPREGRET |= gpregret_msk;
+	return NRF_SUCCESS;
+}
+
+uint32_t sd_power_gpregret_clr(uint8_t gpregret_id, uint32_t gpregret_msk)
+{
+	(void)gpregret_id;
+	m_power.GPREGRET &= ~gpregret_msk;
+	return NRF_SUCCESS;
+}
+
+uint32_t fake_retained_register(void)		{ return m_power.GPREGRET; }
+void     fake_retained_register_reset(void)	{ m_power.GPREGRET = 0U; }
+
 /* ------------------------------------------------------------------ */
 /* UART service client                                                 */
 /* ------------------------------------------------------------------ */

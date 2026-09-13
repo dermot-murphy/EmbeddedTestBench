@@ -11,6 +11,7 @@
  * Traces to: BLE-FR-002, BLE-FR-020 .. BLE-FR-053, BLE-DD-CMD, SWE4-UT-FWUNIT.
  */
 
+#include <stdio.h>
 #include <string.h>
 
 #include "unity.h"
@@ -18,6 +19,7 @@
 #include "cmd_parser.h"
 #include "ble_scanner.h"
 #include "fakes.h"
+#include "firmware_version.h"
 #include "nrf_soc.h"
 #include "nus_client.h"
 #include "protocol.h"
@@ -67,6 +69,7 @@ static void test_every_command_answers_exactly_once(void)
 	const char * commands[] = {
 		"ver", "time", "list", "selected", "scan stop", "adv stats",
 		"disconnect", "uart 00", "cmd 00", "select 0", "connect", "nonsense",
+		/* dfu and reset are exercised on their own: they reset the part. */
 	};
 	uint32_t index;
 
@@ -133,6 +136,48 @@ static void test_ver_reports_the_protocol_and_uptime(void)
 	TEST_ASSERT_TRUE(reply_has("proto=" PROTO_VERSION));
 	TEST_ASSERT_TRUE(reply_has("uptime_us=1234567"));
 	TEST_ASSERT_TRUE(reply_has("dropped="));
+}
+
+static void test_ver_reports_which_build_is_on_the_dongle(void)
+{
+	/* The host compares both against what it built: the version for a
+	 * deliberate change, the date for a rebuild of the same version. */
+	handle("ver");
+	TEST_ASSERT_TRUE(reply_has("fw=" FIRMWARE_VERSION));
+	TEST_ASSERT_TRUE(reply_has("built="));
+	TEST_ASSERT_TRUE(strstr(reply(), "built=") > strstr(reply(), "fw="));
+}
+
+static void test_the_build_date_carries_no_spaces(void)
+{
+	/* The link is a space-separated line protocol, so a date with a space in
+	 * it would arrive as two fields and silently lose its time of day. The
+	 * build injects an ISO 8601 instant for exactly this reason; the test
+	 * build injects the same shape (see CMakeLists.txt). */
+	char		expected[64];
+
+	handle("ver");
+	snprintf(expected, sizeof expected, "built=%s ", FIRMWARE_BUILD_DATE);
+	TEST_ASSERT_NOT_NULL_MESSAGE(strstr(reply(), expected),
+				     "the whole build date must be one field");
+}
+
+static void test_dfu_answers_before_it_resets(void)
+{
+	/* A host waiting for a reply it will never get cannot tell a dongle in
+	 * the bootloader from one that has crashed. */
+	fake_retained_register_reset();
+	fake_system_resets = 0U;
+
+	handle("dfu");
+
+	TEST_ASSERT_TRUE(reply_has("dfu=1"));
+	TEST_ASSERT_TRUE(reply_has("fw=" FIRMWARE_VERSION));
+	TEST_ASSERT_EQUAL_UINT32(1U, fake_system_resets);
+	TEST_ASSERT_EQUAL_HEX32(0xB1U, fake_retained_register());
+
+	fake_system_resets = 0U;
+	fake_retained_register_reset();
 }
 
 static void test_time_reports_the_clock_and_its_rate(void)
@@ -498,6 +543,9 @@ int main(void)
 	RUN_TEST(test_the_error_text_matches_the_table);
 
 	RUN_TEST(test_ver_reports_the_protocol_and_uptime);
+	RUN_TEST(test_ver_reports_which_build_is_on_the_dongle);
+	RUN_TEST(test_the_build_date_carries_no_spaces);
+	RUN_TEST(test_dfu_answers_before_it_resets);
 	RUN_TEST(test_time_reports_the_clock_and_its_rate);
 
 	RUN_TEST(test_scan_start_clears_the_table_first);

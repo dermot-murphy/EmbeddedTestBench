@@ -5,6 +5,7 @@ Traces to: RUN-FR-040 .. RUN-FR-043, SWE4-UT-REPORT.
 
 from __future__ import annotations
 
+import copy
 import json
 import xml.etree.ElementTree as ElementTree
 
@@ -184,3 +185,49 @@ class TestJunit:
         path = write_junit(failed, str(tmp_path / "r.xml"))
         root = ElementTree.parse(path).getroot()
         assert root.find("testcase").find("error") is not None
+
+
+class TestInstrumentsSection:
+    """Which instruments produced the numbers, and what they were running.
+
+    Traces to: RUN-FR-037, RUN-FR-041, RUN-DD-REPORT.
+    """
+
+    @pytest.fixture(scope="class")
+    def dongle_run(self):
+        spec = TestSpec.from_mapping({
+            "name": "Identity suite",
+            "tests": [{"name": "reads its build", "steps": [
+                {"do": "dongle.firmware_version"}]}],
+        }, source="<test>")
+        config = BenchConfig.from_mapping({
+            "name": "B", "instruments": {"dongle": "ble-dongle@sim://"},
+        })
+        with BenchRunner.from_config(config) as runner:
+            return runner.run(spec)
+
+    def test_the_table_names_the_instrument_and_its_build(self, dongle_run):
+        text = format_markdown(dongle_run)
+        assert "## Instruments" in text
+        assert "| dongle |" in text
+        assert "NordicDongle" in text
+        assert dongle_run.instruments["dongle"]["firmware"] in text
+
+    def test_json_carries_the_same_facts(self, dongle_run, tmp_path):
+        path = write_json(dongle_run, str(tmp_path / "r.json"))
+        data = json.loads(open(path, encoding="utf-8").read())
+        assert data["instruments"]["dongle"]["driver"] == "NordicDongle"
+
+    def test_an_instrument_that_would_not_identify_is_shown_as_such(self, run):
+        run = copy.copy(run)          # the fixture is shared; do not disturb it
+        run.instruments = {
+            "scope": {"driver": "Tek3014B", "resource": "usb://",
+                      "identity_error": "no answer to *IDN?"},
+        }
+        text = format_markdown(run)
+        assert "no answer to *IDN?" in text
+
+    def test_a_run_with_no_instruments_omits_the_section(self, run):
+        run = copy.copy(run)
+        run.instruments = {}
+        assert "## Instruments" not in format_markdown(run)

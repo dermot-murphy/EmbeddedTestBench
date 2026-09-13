@@ -31,8 +31,12 @@
 extern "C" {
 #endif
 
-/** Protocol revision. Bumped when a command or event changes shape. */
-#define PROTO_VERSION			"1.0"
+/** Protocol revision. Bumped when a command or event changes shape.
+ *
+ * 1.1 - ``ver`` reports the firmware version and build date; ``dfu`` added.
+ * 1.0 - first release.
+ */
+#define PROTO_VERSION			"1.1"
 
 /** Manufacturer and model reported by @c ver, in the host's identity fields. */
 #define PROTO_MANUFACTURER		"Nordic"
@@ -60,7 +64,7 @@ extern "C" {
  * @c min_args and @c max_args count the tokens after the command word.
  */
 #define PROTO_COMMAND_TABLE \
-	X(ver,		0, 0, "identity, protocol version and uptime") \
+	X(ver,		0, 0, "identity: firmware version, build date, protocol, uptime") \
 	X(scan,		1, 5, "scan start <ms> [name=<text>] [addr=<a>] [active=<0|1>] [rssi=<min>] | scan stop") \
 	X(list,		0, 0, "sensors seen by the last scan, one event per sensor") \
 	X(select,	1, 1, "select <index|addr> as the sensor for later commands") \
@@ -71,7 +75,8 @@ extern "C" {
 	X(cmd,		1, 1, "cmd <hex> - write, await the reply, and report the round trip") \
 	X(adv,		1, 2, "adv start [<addr>] | adv stop | adv stats") \
 	X(time,		0, 0, "the dongle's microsecond timestamp now") \
-	X(reset,	0, 0, "reset the dongle")
+	X(reset,	0, 0, "reset the dongle") \
+	X(dfu,		0, 0, "reset into the bootloader, to accept a firmware update")
 
 /**
  * Event table: X(name, help)

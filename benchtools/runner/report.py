@@ -14,7 +14,7 @@ Three formats, for three audiences:
 Writers only read :mod:`benchtools.runner.results`, so adding a format needs no
 change to the execution engine.
 
-Traces to: RUN-FR-040 .. RUN-FR-043, RUN-DD-REPORT.
+Traces to: RUN-FR-037, RUN-FR-040 .. RUN-FR-043, RUN-DD-REPORT.
 """
 
 from __future__ import annotations
@@ -92,6 +92,27 @@ def format_markdown(run: RunRecord) -> str:
     if run.simulated:
         out.append("> Run against simulated instruments. These results verify the "
                    "specification and the tooling, **not** any physical hardware.")
+        out.append("")
+
+    if run.instruments:
+        # What actually answered, not what the bench file asked for. Firmware
+        # version in particular decides whether a measurement means what it
+        # appears to mean, so it belongs in the evidence rather than in a log.
+        out.append("## Instruments")
+        out.append("")
+        out.append("| Alias | Driver | Model | Firmware | Resource |")
+        out.append("|---|---|---|---|---|")
+        for alias in sorted(run.instruments):
+            entry = run.instruments[alias]
+            out.append("| %s | %s | %s | %s | %s |" % (
+                alias,
+                entry.get("driver", "-"),
+                entry.get("model", "-") or "-",
+                entry.get("firmware", "-") or "-",
+                entry.get("resource", "-") or "-",
+            ))
+            if entry.get("identity_error"):
+                out.append("| | | | **would not identify** | %s |" % entry["identity_error"])
         out.append("")
 
     if run.setup_error:

@@ -1,0 +1,73 @@
+# Bench test specification: the dongle is running the firmware we built.
+#
+# For a bench whose results are evidence. The dongle's firmware is part of the
+# measuring instrument: a stale one produces numbers that look perfectly
+# plausible and answer a different question, and nothing about the numbers says
+# so. This suite makes that condition a failure rather than a surprise.
+#
+#   benchtools run specs/dongle_firmware.yaml --bench benches/lab1.yaml
+#
+# It needs a bench whose dongle declares `firmware:` - a manifest, or the
+# directory holding one, written by `make manifest` (or `make dfu`) in
+# firmware/nordic_dongle. Against a bench with none, the comparison is reported
+# as not performed and the first test fails, which is the correct answer to
+# "is the dongle running the build?" when nobody has said what the build is.
+
+name: BLE dongle firmware identity
+description: >
+  Compare the firmware version and build date the dongle reports against the
+  build the host has, and refuse to proceed if they differ.
+requirements: [BT-REQ-001, BT-REQ-002]
+
+instruments:
+  dongle: ble-dongle
+
+tests:
+  - name: The dongle is running the firmware from this build
+    requirement: BT-REQ-001
+    description: >
+      Version and build date, both. Two builds of one version are different
+      firmware, and during development that is the usual case - so comparing
+      versions alone would call a stale dongle up to date.
+    steps:
+      - do: dongle.check_firmware
+        save: firmware
+        expect:
+          - name: comparison_was_possible
+            measure: compared
+            equals: 1
+          - name: version_matches
+            measure: version_matches
+            equals: 1
+          - name: build_date_matches
+            measure: date_matches
+            equals: 1
+          - name: firmware_is_the_build
+            measure: matches
+            equals: 1
+
+  - name: The build on the dongle is recorded in the report
+    requirement: BT-REQ-001
+    description: >
+      Read as properties, so the version and the date are in the evidence even
+      when the comparison cannot be made - a report that says which firmware
+      produced its numbers is worth more than one that merely passed.
+    steps:
+      - do: dongle.firmware_version
+        save: firmware_version
+      - do: dongle.firmware_built
+        save: firmware_built
+      - do: dongle.protocol_version
+        save: protocol_version
+
+  - name: The dongle speaks a protocol this driver understands
+    requirement: BT-REQ-002
+    description: >
+      A dongle whose protocol major version differs is not one this driver can
+      drive; a differing minor version means one side lacks commands the other
+      has, which is survivable but worth knowing.
+    steps:
+      - do: dongle.protocol_is_compatible
+        expect:
+          - name: protocol_compatible
+            equals: 1

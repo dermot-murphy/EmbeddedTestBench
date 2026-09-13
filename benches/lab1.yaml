@@ -34,6 +34,15 @@ instruments:
     driver: ble-dongle
     resource: /dev/ttyACM0        # COM5 on Windows
     timeout: 10.0
+    options:
+      # The build this dongle should be running. The driver compares the
+      # version *and* the build date against what the dongle reports, so a
+      # rebuild of the same version is still a mismatch - which is the case
+      # that matters during development.
+      firmware: firmware/nordic_dongle/_build
+      # true lets the driver flash it when it is out of date. Off here: on a
+      # bench whose results are evidence, someone should decide to reflash.
+      update_firmware: false
 
   # Any instrument without a dedicated driver yet can still be addressed,
   # identified and sent raw SCPI through the generic driver.

@@ -9,7 +9,7 @@ import json
 
 import pytest
 
-from benchtools.core.errors import BenchConfigError
+from benchtools.core.errors import BenchConfigError, InstrumentError
 from benchtools.core.scpi import ScpiInstrument
 from benchtools.core.simulator import SimulatedInstrument
 from benchtools.runner.bench import (
@@ -221,3 +221,55 @@ class TestDriverRegistry:
             from benchtools.runner import bench as bench_module
 
             bench_module._DRIVERS.pop("widget-test", None)
+
+
+class TestDescribingInstruments:
+    """What made the measurement is part of the measurement.
+
+    A result without the instrument - and, for anything programmable, the
+    firmware it was running - is not evidence. These tests cover what a run
+    record carries about the bench.
+
+    Traces to: RUN-FR-037, RUN-DD-BENCH.
+    """
+
+    @pytest.fixture
+    def bench(self):
+        config = BenchConfig.from_mapping({
+            "name": "B",
+            "instruments": {"scope": "tek3014b@sim://", "dongle": "ble-dongle@sim://"},
+        })
+        with Bench(config) as instance:
+            yield instance
+
+    def test_only_instruments_that_were_used(self, bench):
+        """Opening an instrument to describe it would change what the run did."""
+        bench.get("scope")
+        assert list(bench.describe_instruments()) == ["scope"]
+
+    def test_what_is_recorded(self, bench):
+        bench.get("scope")
+        described = bench.describe_instruments()["scope"]
+        assert described["driver"] == "Tek3014B"
+        assert described["resource"] == "sim://"
+        assert described["model"]
+        assert "identity" in described
+
+    def test_firmware_is_recorded_where_the_instrument_reports_it(self, bench):
+        """The dongle's firmware build decides what its timings mean."""
+        dongle = bench.get("dongle")
+        described = bench.describe_instruments()["dongle"]
+        assert described["firmware"] == dongle.identify().firmware
+        assert dongle.firmware_version in described["firmware"]
+
+    def test_an_instrument_that_will_not_identify_is_still_recorded(self, bench):
+        """Silence about the bench is worse than a recorded failure."""
+        instrument = bench.get("scope")
+
+        def refuse():
+            raise InstrumentError("no answer to *IDN?")
+
+        instrument.identify = refuse
+        described = bench.describe_instruments()["scope"]
+        assert described["identity_error"] == "no answer to *IDN?"
+        assert described["driver"] == "Tek3014B"

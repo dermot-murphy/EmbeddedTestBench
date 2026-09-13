@@ -16,6 +16,13 @@ serial port. It is a bench instrument like any other::
         timing = dongle.measure_response_time("version", repeat=10)
         print(timing.milliseconds, timing.is_trustworthy)
 
+The dongle's firmware is part of the instrument, so the driver can tell whether
+it is the build you think it is - and refresh it if not::
+
+    with NordicDongle.connect("COM5", firmware="firmware/nordic_dongle/_build",
+                              update_firmware=True) as dongle:
+        print(dongle.firmware_version, dongle.firmware_built)
+
 ``sim://`` drives a deterministic model instead, so every one of those calls is
 testable with no dongle, no sensor and no radio.
 
@@ -36,6 +43,13 @@ from .constants import (
     ScanFilter,
 )
 from .dongle import NordicDongle, Sensor
+from .firmware import (
+    MANIFEST_NAME,
+    FirmwareBuild,
+    FirmwareStatus,
+    FirmwareUpdateError,
+    parse_build_date,
+)
 from .latency import LatencySource, ResponseSample, ResponseTiming
 from .profile import ADV_DELAY_MAX_S, COALESCE_WINDOW_S, AdvertisingEvent, AdvertisingProfile
 from .protocol import (
@@ -52,6 +66,11 @@ from .simulator import DEFAULT_SENSORS, SimulatedDongle, SimulatedSensor
 __all__ = [
     "NordicDongle",
     "Sensor",
+    "FirmwareBuild",
+    "FirmwareStatus",
+    "FirmwareUpdateError",
+    "MANIFEST_NAME",
+    "parse_build_date",
     "AdvertisingEvent",
     "AdvertisingProfile",
     "COALESCE_WINDOW_S",

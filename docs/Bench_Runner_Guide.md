@@ -53,6 +53,9 @@ instruments:
   dongle:
     driver: ble-dongle          # and so is a BLE dongle
     resource: /dev/ttyACM0      # COM5 on Windows; a bare name means a serial port
+    options:
+      firmware: firmware/nordic_dongle/_build   # the build it should be running
+      update_firmware: false                    # true to refresh it when it is not
 ```
 
 Keys a driver does not recognise are passed to it, which is how the probe gets
@@ -175,6 +178,17 @@ answer.
 specification is data, possibly written by someone who is not reviewing the
 driver. Get the method list from `benchtools scope --help`, from the driver's
 docstrings, or by running a wrong name — the error lists what is available.
+
+`do` may also name a **property** — a reading with no arguments, such as
+`dongle.firmware_version`. It is read when the step runs, and `with:` is an
+error:
+
+```yaml
+- do: dongle.protocol_is_compatible
+  expect: [{name: compatible, equals: 1}]
+- do: dongle.firmware_version
+  save: firmware
+```
 
 Built-in actions not bound to an instrument:
 
@@ -389,6 +403,25 @@ on the bench is real hardware, and every report says so:
 
 One real instrument makes it a hardware run. Do not present a simulated report as
 a measurement result.
+
+### 8.1 Which instruments made the measurements
+
+Every run records what the bench actually was — driver, model, serial number,
+resource, and the firmware build where the instrument reports one — for the
+instruments the run *used*. It is recorded after the run rather than before, so
+an instrument the suite refreshed in setup is recorded as the one that produced
+the numbers, and an instrument that would not identify is recorded with its
+error rather than dropped.
+
+The markdown report carries it beside the verdict:
+
+| Alias | Driver | Model | Firmware | Resource |
+|---|---|---|---|---|
+| dongle | NordicDongle | PCA10059 | 1.1.0 (built 2026-09-13T12:00:00Z) | /dev/ttyACM0 |
+
+and the JSON record carries the same under `instruments`. A measurement without
+the instrument that made it is not evidence; for anything programmable, the
+firmware build decides whether the number means what it appears to mean.
 
 ---
 

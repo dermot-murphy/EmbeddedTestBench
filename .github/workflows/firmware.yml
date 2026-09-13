@@ -78,6 +78,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Every make invocation in this job stamps the same build date, taken
+      # from the commit rather than from the clock: the image, the manifest and
+      # the DFU package are then one build with one identity, and rebuilding
+      # the same commit reproduces it.
+      - name: Pin the build date to the commit
+        run: |
+          set -euo pipefail
+          echo "SOURCE_DATE_EPOCH=$(git -C "$GITHUB_WORKSPACE" show -s --format=%ct HEAD)" >> "$GITHUB_ENV"
+
       - name: Install the Arm toolchain
         uses: carlosperate/arm-none-eabi-gcc-action@v1
         with:
@@ -99,11 +108,14 @@ jobs:
           unzip -q sdk.zip -d sdk
           rm sdk.zip
 
+      # One invocation builds the image and writes the manifest beside it, so
+      # the date in the image and the date in the manifest are the same string.
       - name: Build
         working-directory: firmware/nordic_dongle
         run: |
           set -euo pipefail
-          make SDK_ROOT="$GITHUB_WORKSPACE/sdk/$SDK_DIRECTORY" -j"$(nproc)"
+          make SDK_ROOT="$GITHUB_WORKSPACE/sdk/$SDK_DIRECTORY" -j"$(nproc)" manifest
+          cat _build/firmware_manifest.json
 
       - name: Report the size
         working-directory: firmware/nordic_dongle
@@ -125,6 +137,7 @@ jobs:
             firmware/nordic_dongle/_build/nordic_dongle_pca10059.out
             firmware/nordic_dongle/_build/nordic_dongle_pca10059.map
             firmware/nordic_dongle/_build/nordic_dongle_dfu.zip
+            firmware/nordic_dongle/_build/firmware_manifest.json
           if-no-files-found: error
           retention-days: 90
 

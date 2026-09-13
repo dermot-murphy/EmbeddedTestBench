@@ -4,7 +4,7 @@ These are plain data: the runner fills them in, the report writers read them.
 Keeping them separate from both means a new output format needs no change to
 the execution engine.
 
-Traces to: RUN-FR-030, RUN-DD-RESULTS.
+Traces to: RUN-FR-030, RUN-FR-037, RUN-DD-RESULTS.
 """
 
 from __future__ import annotations
@@ -132,6 +132,11 @@ class RunRecord:
     setup_error: str = ""
     spec_source: str = ""
     simulated: bool = False
+    #: Alias to what the instrument said it was: driver, model, firmware,
+    #: resource. Recorded because a measurement without the instrument that
+    #: made it is not evidence - and firmware version in particular decides
+    #: whether a result means what it appears to mean.
+    instruments: Dict[str, Dict[str, str]] = field(default_factory=dict)
 
     # ------------------------------------------------------------------
     def count(self, status: Status) -> int:
@@ -208,6 +213,7 @@ class RunRecord:
                 "errored": self.errored,
                 "skipped": self.skipped,
             },
+            "instruments": self.instruments,
             "requirements": list(self.requirements),
             "requirements_verified": self.requirements_verified,
             "setup_error": self.setup_error,

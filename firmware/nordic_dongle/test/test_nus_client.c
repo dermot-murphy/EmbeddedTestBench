@@ -10,6 +10,7 @@
 #include "unity.h"
 
 #include "ble_nus_c.h"
+#include "ble_scanner.h"
 #include "fakes.h"
 #include "nus_client.h"
 
