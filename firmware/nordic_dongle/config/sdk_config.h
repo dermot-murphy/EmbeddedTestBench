@@ -39,6 +39,9 @@
  * three are 6. */
 #define POWER_ENABLED				1
 #define POWER_CONFIG_IRQ_PRIORITY		6
+/* nrf_drv_power registers a SoftDevice state observer, as nrf_drv_clock
+ * does, and static asserts the priority is below NRF_SDH_STATE_OBSERVER_PRIO_LEVELS. */
+#define POWER_CONFIG_STATE_OBSERVER_PRIO	0
 #define POWER_CONFIG_DEFAULT_DCDCEN		0
 #define POWER_CONFIG_DEFAULT_DCDCENHV		0
 #define NRFX_POWER_ENABLED			1
