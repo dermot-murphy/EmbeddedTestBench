@@ -3,12 +3,12 @@
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-TRACE-001 |
-| Version | 3.0 |
+| Version | 4.0 |
 | Date | 2026-09-13 |
 | Process reference | Automotive SPICE V4.0, SWE.1 BP6 / SWE.2 BP7 / SWE.3 BP5 / SWE.4 BP6 |
-| Item | `benchtools` 3.0.0 |
+| Item | `benchtools` 4.0.0 + `firmware/nordic_dongle` |
 
-Traceability is maintained in both directions. **Downward** (§2–§7): stakeholder
+Traceability is maintained in both directions. **Downward** (§2–§8): stakeholder
 need → requirement → architecture → design unit → source → test. **Upward**: every
 source module and test group names its requirements and design unit in its own
 docstring, so the link is carried in the artefact and not only in this table.
@@ -29,7 +29,11 @@ docstring, so the link is carried in the artefact and not only in this table.
 | STK-10 — use the probe from the test bench | JLINK-FR-080, -081, -053; RUN-FR-001, -010; CORE-FR-012 … -014 |
 | STK-11 — Windows first, Docker eventually | CORE-FR-009; JLINK-FR-003, -004, -005; JLINK-NFR-002, -003 |
 | STK-12 — Markdown to Robot Framework | JLINK-FR-081, -100 — return types constrained for a keyword layer (AD-15). Translator not implemented: CON-06, OPEN-04. |
-| STK-13 to STK-15 — PSU, BLE dongle, RS-232 multimeter | No requirements in this revision (CON-03, OPEN-03). `Instrument` (CORE-FR-012 … -016) is the seam each will use. |
+| STK-14 — BLE UART command/response and response time | BLE-FR-040 … -045, -050 … -054; CORE-FR-017; BLE-NFR-005 |
+| STK-15 — scan, select and advertising profile | BLE-FR-020 … -024, -030 … -036, -080 |
+| STK-16 — dongle firmware, SES and SDK 17 | BLE-FR-090, -001, -003, -010; BLE-NFR-001 … -003 |
+| STK-17 — log the session to a text file | BLE-FR-060 … -062, -004 |
+| STK-13, STK-18 — PSU, RS-232 multimeter | No requirements in this revision (CON-03, OPEN-03). `Instrument` (CORE-FR-012 … -016) and the serial transport (CORE-FR-017) are the seams each will use. |
 
 ## 2. CORE requirements to design, code and test
 
@@ -44,6 +48,7 @@ docstring, so the link is carried in the artefact and not only in this table.
 | CORE-FR-007 | ARC-002, ARC-003 | CORE-DD-TRANSPORT, -VXI11 | `base.py`, `Vxi11Transport._send` | `test_large_transfer_is_reassembled`, `test_write_is_chunked_to_max_recv_size` |
 | CORE-FR-008 | ARC-003 | CORE-DD-VXI11 | `Vxi11Transport._open_link` | `test_device_names_are_probed_in_order`, `test_link_reports_the_accepted_device_name`, `test_unknown_device_name_raises` |
 | CORE-FR-009 | ARC-003 | CORE-DD-PROCESS | `core/transport/process.py` | `TestRoundTrip` (5), `TestFailures` (6), `TestLifecycle` (4), `TestBackendRegistration` (2); notably `test_a_program_that_exits_at_once_reports_its_stderr`, `test_stderr_is_drained_so_the_child_cannot_block` |
+| CORE-FR-017 | ARC-003 | CORE-DD-SERIAL | `core/transport/serial_port.py` | `TestResourceParsing` (13), `TestLoopback` (6), `test_a_write_the_far_end_will_not_take_is_a_timeout` |
 | CORE-FR-010 | ARC-003 | CORE-DD-FACTORY | `core/transport/factory.py` | `TestDriverRegistry.test_a_new_driver_can_be_registered`, `test_backends_listing` |
 | CORE-FR-011 | ARC-003 | CORE-DD-FACTORY | `parse_resource` | `TestParseResource` (17), `TestOpenTransport` (2) |
 | CORE-FR-012 | ARC-006 | CORE-DD-INSTRUMENT | `core/instrument.py` | `test_initialise_opens_then_runs_the_hook`, `test_context_manager_initialises_once`, `test_context_manager_closes_on_an_exception`, `test_close_releases` |
@@ -188,7 +193,60 @@ docstring, so the link is carried in the artefact and not only in this table.
 | JLINK-NFR-003 | `test_resource_parsing`, `test_a_remote_server_is_never_spawned`, `test_the_host_is_an_argument`; both links are TCP by construction (AD-13). |
 | JLINK-NFR-004 | `test_result_records_the_method_and_clock`, `test_serialises_for_a_report`, `test_methods_without_cycles_omit_them`, and the CLI's `warning` key (`SWE4-UT-JLINKCLI`). |
 
-## 6. RUN requirements to design, code and test
+## 6. BLE requirements to design, code and test
+
+The element spans two languages, so the *Source* column names the firmware file
+where the firmware implements the requirement.
+
+| Requirement | Architecture | Design unit | Source | Verifying test(s) |
+|---|---|---|---|---|
+| BLE-FR-001 | BLE-ARC-001 | BLE-DD-PROTOCOL | `firmware/include/protocol.h`, `protocol.py` | `SWE4-UT-BLEPROTO` (34), `SWE4-UT-BLEFW` (17) |
+| BLE-FR-002 | BLE-ARC-001 | BLE-DD-CMD, BLE-DD-SESSION | `firmware/src/cmd_parser.c`, `session.py` | `TestCommands` (6), `test_every_command_has_a_handler_in_the_firmware` |
+| BLE-FR-003 | BLE-ARC-001 | BLE-DD-CDC | `firmware/src/cdc_acm.c` | `test_a_dropping_dongle_says_so`, `test_drop_notices_are_counted`; firmware behaviour by inspection (CON-07) |
+| BLE-FR-004 | BLE-ARC-001 | BLE-DD-PROFILE | `AdvertisingProfile.is_complete` | `test_a_lossy_capture_is_declared`, `test_a_lossy_link_is_declared_rather_than_averaged` |
+| BLE-FR-010 | BLE-ARC-001 | BLE-DD-TIMESTAMP | `firmware/src/timestamp.c` | `test_events_arrive_on_the_nominal_interval`, `test_the_clock_advances_monotonically` |
+| BLE-FR-011 | BLE-ARC-001 | BLE-DD-SESSION, BLE-DD-LATENCY | `Event.host_time`, `LatencySource` | `test_host_time_is_recorded_on_every_event`, `test_both_clocks_are_recorded` |
+| BLE-FR-020 | BLE-ARC-001 | BLE-DD-SCANNER | `firmware/src/ble_scanner.c`, `NordicDongle.scan` | `test_scan_finds_the_sensors`, `test_scanning_finds_sensors` |
+| BLE-FR-021 | BLE-ARC-001 | BLE-DD-SCANNER | `scanner_get`, `_sensor_from_event` | `test_a_sensor_with_no_name_is_still_listed` |
+| BLE-FR-022 | BLE-ARC-001 | BLE-DD-SCANNER, BLE-DD-CONST | `passes_filter`, `ScanFilter` | `test_filtering_by_name`, `test_filtering_by_signal_strength`, `test_filtering_by_address`, `test_a_name_filter_is_applied` |
+| BLE-FR-023 | BLE-ARC-001 | BLE-DD-DONGLE | `NordicDongle.select` | `TestSelection` (8), notably `test_the_address_type_travels_with_the_address` |
+| BLE-FR-024 | BLE-ARC-001 | BLE-DD-DONGLE | `command_select` (firmware), `select` | `test_selecting_an_unknown_address_is_allowed` |
+| BLE-FR-030 | BLE-ARC-001 | BLE-DD-SCANNER | `report_advertising` | `test_the_events_carry_what_was_advertised`, `test_the_advertising_payload_carries_the_name` |
+| BLE-FR-031 | BLE-ARC-001 | BLE-DD-PROFILE | `AdvertisingProfile` | `TestIntervals` (5), `test_the_nominal_interval_is_recovered` |
+| BLE-FR-032 | BLE-ARC-001 | BLE-DD-PROFILE | `advertising_events` | `TestCoalescing` (3), `test_channels_rotate` |
+| BLE-FR-033 | BLE-ARC-001 | BLE-DD-PROFILE | `expected_jitter_s`, `within_specification` | `TestJitter` (4) |
+| BLE-FR-034 | BLE-ARC-001 | BLE-DD-PROFILE | `gaps`, `missed_events` | `TestMissedEvents` (5), `test_a_sensor_that_skips_beacons_is_caught` |
+| BLE-FR-035 | BLE-ARC-001 | BLE-DD-PROFILE | `duty_cycle`, `reception_ratio` | `TestDutyCycleAndCounts` (4) |
+| BLE-FR-036 | BLE-ARC-001 | BLE-DD-PROFILE | `as_dict`, `_require_intervals` | `test_as_dict_survives_too_few_events`, `test_a_silent_sensor_gives_no_statistics_rather_than_zero` |
+| BLE-FR-040 | BLE-ARC-001 | BLE-DD-NUS | `firmware/src/nus_client.c`, `open_link` | `test_connect_and_disconnect`, `test_connecting_emits_the_ready_event` |
+| BLE-FR-041 | BLE-ARC-001 | BLE-DD-NUS, BLE-DD-DONGLE | `nus_client_interval_us` | `test_the_connection_interval_is_recorded` |
+| BLE-FR-042 | BLE-ARC-001 | BLE-DD-NUS | `nus_client_write`, `NordicDongle.write` | `test_a_write_reports_what_it_sent`, `test_binary_payloads` |
+| BLE-FR-043 | BLE-ARC-001 | BLE-DD-NUS | `nus_client_command`, `NordicDongle.command` | `test_a_command_and_its_reply`, `test_a_command_reports_both_timestamps` |
+| BLE-FR-044 | BLE-ARC-001 | BLE-DD-CMD | `command_cmd` (firmware) | `test_a_sensor_that_does_not_reply` is covered by the firmware's `PROTO_ERR_TIMEOUT` path; host side `test_an_unknown_command_still_answers` |
+| BLE-FR-045 | BLE-ARC-001 | BLE-DD-DONGLE, BLE-DD-CONST | `NordicDongle._encode` | `test_an_over_long_payload_is_refused_before_sending` |
+| BLE-FR-050 | BLE-ARC-001 | BLE-DD-NUS, BLE-DD-LATENCY | `nus_client_command`, `ResponseSample` | `test_a_command_reports_both_timestamps`, `test_a_slow_command_takes_longer` |
+| BLE-FR-051 | BLE-ARC-001 | BLE-DD-LATENCY | `LatencySource.HOST` | `test_the_host_clock_can_be_asked_for`, `test_the_host_clock_resolves_a_millisecond` |
+| BLE-FR-052 | BLE-ARC-001 | BLE-DD-LATENCY | `ResponseTiming` | `TestStatistics` (5), `test_a_measurable_latency` |
+| BLE-FR-053 | BLE-ARC-001 | BLE-DD-LATENCY | `is_trustworthy`, `quantisation_s` | `TestTrustworthiness` (6), `test_a_latency_inside_the_connection_interval_is_flagged`, `test_cmd_warns_when_the_figure_is_not_resolvable` |
+| BLE-FR-054 | BLE-ARC-001 | BLE-DD-LATENCY | `ResponseTiming._values` | `test_no_samples_is_an_error_not_a_zero` |
+| BLE-FR-060 | BLE-ARC-001 | BLE-DD-SESSION | `DongleSession.log_to` | `TestLogging` (6 in the session, 4 in the driver) |
+| BLE-FR-061 | BLE-ARC-001 | BLE-DD-SESSION | `_read_line`, `_write_log` | `test_non_protocol_lines_are_ignored`, `test_events_reach_the_log_too` |
+| BLE-FR-062 | BLE-ARC-001 | BLE-DD-SESSION | `note`, `log_note` | `test_a_note_can_be_written`, `test_a_note_lands_in_the_log` |
+| BLE-FR-070 | BLE-ARC-001 | BLE-DD-CLI | `nordic_dongle/cli.py` | `SWE4-UT-BLECLI` (18) |
+| BLE-FR-080 | BLE-ARC-001, RUN-ARC-001 | BLE-DD-SIM, RUN-DD-BENCH | `simulator.py`, `register_driver("ble-dongle", …)` | `SWE4-UT-BLESIM` (27), `test_the_top_level_command_dispatches` |
+| BLE-FR-090 | BLE-ARC-001 | BLE-DD-BUILD | `firmware/ses/*.emProject`, `firmware/scripts/package_dfu.*` | Inspection; first build is a bench confirmation item (CON-07, BLE-OPEN-01) |
+
+### BLE non-functional
+
+| Requirement | Evidence |
+|---|---|
+| BLE-NFR-001 | `test_no_dynamic_allocation` parses every firmware source; buffers are `PROTO_MAX_*` sized; no recursion by inspection. |
+| BLE-NFR-002 | `BLE-DD-CDC`: the radio event handler queues and returns. Verified by inspection; behaviour under load is a bench confirmation item (BLE-OPEN-02). |
+| BLE-NFR-003 | `SWE4-UT-BLEFW`: the header is parsed and compared with the driver's constants - commands, argument bounds, handlers, events, error codes, limits, version. |
+| BLE-NFR-004 | `test_no_mandatory_third_party_imports`; pyserial is the `serial` extra, imported inside `_open_link`. |
+| BLE-NFR-005 | `test_the_dongle_clock_is_the_default`, `test_as_dict_carries_the_figure_and_its_caveats`, and the CLI's `warning` key. |
+
+## 7. RUN requirements to design, code and test
 
 | Requirement | Architecture | Design unit | Source | Verifying test(s) |
 |---|---|---|---|---|
@@ -223,14 +281,14 @@ docstring, so the link is carried in the artefact and not only in this table.
 | RUN-FR-052 | ARC-001 | RUN-DD-CLI | report path suffixing | `test_several_specs_get_suffixed_reports` |
 | RUN-FR-053 | ARC-001 | RUN-DD-CLI | `benchtools/cli.py` | `TestTopLevelDispatch` (7) |
 
-## 7. Architecture to design to source
+## 8. Architecture to design to source
 
 | Architectural element | Design unit | Source |
 |---|---|---|
 | CORE-ARC-006 | CORE-DD-INSTRUMENT | `core/instrument.py` |
 | CORE-ARC-001 | CORE-DD-SCPI | `core/scpi.py` |
 | CORE-ARC-002 | CORE-DD-TRANSPORT | `core/transport/base.py` |
-| CORE-ARC-003 | CORE-DD-VXI11, -SOCKET, -VISA, -PROCESS, -FACTORY | `core/transport/{vxi11,socket_raw,visa_backend,process,factory,constants}.py` |
+| CORE-ARC-003 | CORE-DD-VXI11, -SOCKET, -VISA, -PROCESS, -SERIAL, -FACTORY | `core/transport/{vxi11,socket_raw,visa_backend,process,serial_port,factory,constants}.py` |
 | CORE-ARC-004 | CORE-DD-SIM, CORE-DD-MOCK | `core/simulator.py`, `core/transport/mock.py` |
 | CORE-ARC-005 | CORE-DD-ENUMS, -VALIDATE, -ERR | `core/{enums,validation,errors}.py` |
 | ANA-ARC-001 | ANA-DD-WAVEFORM | `analysis/waveform.py` |
@@ -238,25 +296,28 @@ docstring, so the link is carried in the artefact and not only in this table.
 | INST-ARC-001 | INST-DD-GENERIC | `instruments/generic.py` |
 | SCOPE-ARC-001 | SCOPE-DD-SCOPE, -CONST, -SIM, -CLI | `instruments/tek3014b/*.py` |
 | JLINK-ARC-001 | JLINK-DD-GDBMI, -SESSION, -SERVER, -RTT, -SWO, -TIMING, -CONST, -SIM, -PROBE, -CLI | `instruments/jlink/*.py` |
+| BLE-ARC-001 | BLE-DD-PROTOCOL, -SESSION, -PROFILE, -LATENCY, -CONST, -DONGLE, -SIM, -CLI | `instruments/nordic_dongle/*.py` |
+| BLE-ARC-001 | BLE-DD-CDC, -TIMESTAMP, -SCANNER, -NUS, -CMD, -MAIN, -BUILD | `firmware/nordic_dongle/{src,include,config,ses,scripts}/*` |
 | RUN-ARC-001 | RUN-DD-SPEC, -LIMITS, -RESOLVE, -BENCH, -RESULTS, -RUNNER, -REPORT, -CLI | `runner/*.py`, `cli.py` |
 
-## 8. Coverage analysis
+## 9. Coverage analysis
 
 | Question | Answer |
 |---|---|
-| Requirements with no verifying test | **None.** All 144 functional and 13 non-functional requirements trace to at least one test, or to a recorded inspection where a test is not the appropriate method (CORE-NFR-002, JLINK-NFR-001, and part of CORE-NFR-001). |
+| Requirements with no verifying test | **None.** All 177 functional and 18 non-functional requirements trace to at least one test, or to a recorded inspection where a test is not the appropriate method (CORE-NFR-002, BLE-FR-090, BLE-NFR-002, and part of CORE-NFR-001). The firmware requirements are verified against the artefact the firmware is built from, not against a running dongle: see CON-07. |
 | Tests not tracing to a requirement | **None.** Every test file names its requirements in its module docstring. |
-| Source modules with no design unit | **None.** Every module names its design unit in its docstring; `__main__.py` is covered by RUN-DD-CLI. |
+| Source modules with no design unit | **None.** Every module names its design unit in its docstring - firmware sources included, checked by `test_every_source_declares_its_trace` in `SWE4-UT-BLEFW`; `__main__.py` is covered by RUN-DD-CLI. |
 | Design units with no source | **None.** |
-| Stakeholder requirements not decomposed | **None of those in scope.** STK-01 to STK-11 trace downward; STK-06 additionally produces BENCHTOOLS-VISA-001 as its work product. STK-12 is partly addressed (AD-15 constrains the driver boundary for it) and the translator itself is deferred: CON-06, OPEN-04. STK-13 to STK-15 are recorded as future work with no requirements in this revision: CON-03, OPEN-03. |
-| Architectural decisions without a verifying test | **None.** AD-01 → `test_full_driver_over_the_socket`; AD-02 → `test_layering.py`; AD-03 → `TestDriverRegistry`; AD-04 → `TestFraming`; AD-05 → `test_payload_containing_a_hash_byte_is_not_re_parsed`; AD-06 → `TestChannelSpread`; AD-07 → `test_busy_is_polled_until_clear`; AD-08 → `TestSpecParsing`; AD-09 → `TestFailureVersusError`; AD-10 → `test_all_sim_resources_count_as_simulated`; AD-11 → `test_the_probe_is_an_instrument_but_not_scpi`, `test_scpi_instrument_is_an_instrument`; AD-12 → `SWE4-UT-GDBMI`, `SWE4-UT-GDBSESSION`, `test_connect_to_the_simulator`; AD-13 → `test_resource_parsing`, `test_a_remote_server_is_never_spawned`; AD-14 → `SWE4-UT-TIMING`, `test_a_short_interval_is_flagged_untrustworthy`; AD-15 → `test_serialises_for_a_report`, `test_shipped_specifications_are_valid`. |
+| Stakeholder requirements not decomposed | **None of those in scope.** STK-01 to STK-11 and STK-14 to STK-17 trace downward; STK-06 additionally produces BENCHTOOLS-VISA-001 as its work product. STK-12 is partly addressed (AD-15 constrains the driver boundary for it) and the translator itself is deferred: CON-06, OPEN-04. STK-13 and STK-18 are recorded as future work with no requirements in this revision: CON-03, OPEN-03. |
+| Architectural decisions without a verifying test | **None.** AD-01 → `test_full_driver_over_the_socket`; AD-02 → `test_layering.py`; AD-03 → `TestDriverRegistry`; AD-04 → `TestFraming`; AD-05 → `test_payload_containing_a_hash_byte_is_not_re_parsed`; AD-06 → `TestChannelSpread`; AD-07 → `test_busy_is_polled_until_clear`; AD-08 → `TestSpecParsing`; AD-09 → `TestFailureVersusError`; AD-10 → `test_all_sim_resources_count_as_simulated`; AD-11 → `test_the_probe_is_an_instrument_but_not_scpi`, `test_scpi_instrument_is_an_instrument`; AD-12 → `SWE4-UT-GDBMI`, `SWE4-UT-GDBSESSION`, `test_connect_to_the_simulator`; AD-13 → `test_resource_parsing`, `test_a_remote_server_is_never_spawned`; AD-14 → `SWE4-UT-TIMING`, `test_a_short_interval_is_flagged_untrustworthy`; AD-15 → `test_serialises_for_a_report`, `test_shipped_specifications_are_valid`; AD-16 → `SWE4-UT-BLEFW`; AD-17 → `test_both_clocks_are_recorded`, `test_the_host_clock_resolves_a_millisecond`; AD-18 → `test_a_lossy_link_is_declared_rather_than_averaged`, `test_a_dropping_dongle_says_so`. |
 
-## 9. Open items
+## 10. Open items
 
 | ID | Item | Owner action |
 |---|---|---|
 | OPEN-01 | Bench confirmation items in BENCHTOOLS-VISA-001 §5.1 (device name, portmapper transport, hardcopy format, measurement settling, record lengths) | Discharge on first use with physical hardware. |
 | OPEN-02 | TDS3000 SCPI command spellings not transcribed from the programmer manual (CON-02) | Spot-check against Tektronix 071-0381-03 on first bench use. |
-| OPEN-03 | No requirements yet for the instruments named for future work (CON-03): the sensor supply PSU (STK-13), the Nordic BLE dongle (STK-14), the RS-232 multimeter (STK-15), and the families named earlier — loads, signal sources, logic and protocol analysers | Add a prefixed requirements section, design unit, test group and matrix rows per instrument as each driver is written. |
+| OPEN-03 | No requirements yet for the instruments named for future work (CON-03): the sensor supply PSU (STK-13), the RS-232 multimeter (STK-18), and the families named earlier — loads, signal sources, logic and protocol analysers | Add a prefixed requirements section, design unit, test group and matrix rows per instrument as each driver is written. |
+| OPEN-06 | The dongle firmware has never been compiled or run (CON-07): no SDK, toolchain or dongle in the build environment | Build it in SES against nRF5 SDK 17.1.0, flash it by DFU, and work through `docs/ble/BLE_Dongle_Notes.md` §5 (BLE-OPEN-01 to BLE-OPEN-04). |
 | OPEN-04 | Markdown-to-Robot-Framework translation (STK-12, CON-06) is not implemented | Decide whether to adopt Robot Framework. If adopted, add a `ROBOT-` element in front of the existing runner; AD-15 has kept the driver boundary suitable for it. |
 | OPEN-05 | J-Link bench confirmation items (CON-04, CON-05) — `docs/jlink/JLink_Integration_Notes.md` §4: Windows execution, real MI version behaviour, SWO timestamp scaling, RTT control-block discovery, flash timing | Discharge on first use with a probe and a target. Tracked there as JLINK-OPEN-01 to JLINK-OPEN-04. |

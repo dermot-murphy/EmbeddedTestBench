@@ -5,9 +5,9 @@ How to write a test specification and a bench configuration, and how to run them
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-GUIDE-001 |
-| Version | 2.0 |
+| Version | 3.0 |
 | Date | 2026-09-13 |
-| Applies to | `benchtools` 3.0.0 |
+| Applies to | `benchtools` 4.0.0 |
 
 ---
 
@@ -49,6 +49,10 @@ instruments:
     device: nRF52840_xxAA
     elf: build/app.elf
     core_clock_hz: 64000000
+
+  dongle:
+    driver: ble-dongle          # and so is a BLE dongle
+    resource: /dev/ttyACM0      # COM5 on Windows; a bare name means a serial port
 ```
 
 Keys a driver does not recognise are passed to it, which is how the probe gets
@@ -284,6 +288,42 @@ A boolean is compared as `1` or `0`, since a limit is numeric throughout.
 
 A limit on a figure whose method cannot resolve it is not a test, so the runner
 gives you the means to say so in the specification rather than in a comment.
+
+### 5.3 Useful paths for the BLE dongle
+
+| Method | Returns | Useful paths |
+|---|---|---|
+| `scan` | `[Sensor]` | `__len__`, `0.rssi`, `0.name`, `0.address` |
+| `select`, `open_link` | `Sensor` | `address`, `name`, `rssi` |
+| `measure_advertising_profile` | `AdvertisingProfile` | `mean_interval_s`, `minimum_interval_s`, `maximum_interval_s`, `spread_s`, `jitter_s`, `expected_jitter_s`, `rate_hz`, `count`, `missed_events`, `expected_events`, `duty_cycle`, `reception_ratio`, `is_complete`, `lost_reports` |
+| `measure_response_time` | `ResponseTiming` | `milliseconds`, `seconds`, `minimum_s`, `maximum_s`, `spread_s`, `standard_deviation_s`, `count`, `is_trustworthy`, `quantisation_s` |
+| `command` | `ResponseSample` | `text`, `dongle_us`, `host_s` |
+| `write` | `int` | *(omit `measure`)* |
+
+Three of these belong in a specification beside the limits, not in a comment:
+
+```yaml
+- do: dongle.measure_advertising_profile
+  with: {duration: 5.0, expected_interval: 0.100}
+  expect:
+    - name: mean_interval
+      measure: mean_interval_s
+      unit: s
+      scale: 1000.0
+      display_unit: ms
+      min: 99.0                 # a conforming sensor sits ABOVE nominal:
+      max: 112.0                # advDelay adds 0-10 ms to every interval
+    - name: missed_events
+      measure: missed_events
+      max: 0
+    - name: capture_was_lossless
+      measure: is_complete      # 0 means the host lost reports, so a missed
+      equals: 1                 # beacon cannot be blamed on the sensor
+```
+
+A limit of "100 ms ± 1 ms" fails every conforming sensor, because the Bluetooth
+specification *requires* a random 0-10 ms advertising delay. See
+`docs/ble/BLE_Dongle_Notes.md` §4.1.
 
 ---
 

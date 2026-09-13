@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-SWE2-001 |
-| Version | 3.0 |
+| Version | 4.0 |
 | Date | 2026-09-13 |
 | Process reference | Automotive SPICE V4.0, SWE.2 Software Architectural Design |
 
@@ -19,6 +19,8 @@
 | D6b | Not every bench instrument speaks SCPI (STK-09, and STK-14 to come) | The instrument lifecycle is separated from the SCPI vocabulary: `Instrument` carries connect/initialise/close/identify/simulate, `ScpiInstrument` adds 488.2 and SCPI. The runner depends only on the former, so a debug probe or a BLE dongle is a bench instrument on equal terms. |
 | D7 | The probe must be reachable from a container (STK-11, JLINK-NFR-003) | Both links to the probe are TCP: GDB/MI to the J-Link GDB Server and RTT to its RTT port. Nothing in the driver requires the probe to be on the same host, and the driver refuses to spawn a server on a host that is not local. |
 | D8 | Timing figures must be defensible (JLINK-FR-065, JLINK-NFR-004) | Timing is a strategy with four implementations of differing resolution and intrusiveness. A result carries its method, its resolution and whether it halted the target, and flags itself when the interval is too small for the method used. |
+| D10 | One instrument is partly embedded software (STK-16) | The dongle's firmware and its host driver are one architectural element with one interface artefact, `protocol.h`, that both are built from and that a test parses. The alternative - two elements and a prose protocol - is how firmware and host drift apart. |
+| D11 | A radio measurement cannot be timed from the host (STK-14, STK-15) | Timestamps are taken in the dongle's radio event handler on a 1 us clock, and the host's own arrival time is carried beside them as a cross-check rather than as the measurement. USB contributes about a millisecond, which is the same order as a 20 ms advertising interval. |
 | D9 | Tests may later be authored in Markdown and run under Robot Framework (STK-12) | The driver boundary returns plain types and dataclasses of plain types, never objects a keyword layer would have to unwrap. Test intent already lives in data (D3), so a translator becomes a front end to the existing runner rather than a second execution engine. |
 | D6 | An invalid setting must not half-configure an instrument (CORE-NFR-004) | Validation precedes transmission; a complete setup is sent as one compound message. |
 
@@ -35,6 +37,8 @@
    |  tek3014b (scope, constants, simulator, cli)                 |
    |  jlink    (probe, gdbmi, session, server, rtt, swo,          |
    |            timing, constants, simulator, cli)                |
+   |  nordic_dongle (dongle, protocol, session, profile,          |
+   |            latency, constants, simulator, cli)               |
    |  generic  (anything answering *IDN?)                         |
    +--------------------------------------------------------------+
               |                                    |
@@ -50,12 +54,14 @@
    |  simulator (SimulatedInstrument, Responder)                  |
    |  enums   validation   errors                                 |
    |  transport: base / vxi11 / socket_raw / visa_backend /        |
-   |             process / mock / factory (registry)              |
+   |             process / serial_port / mock / factory (registry)|
    +--------------------------------------------------------------+
-                    |                          |
-             [ instrument ]          [ J-Link GDB Server ]
-                                       |            |
-                                  [ probe ] --- [ target ]
+            |                  |                       |
+    [ instrument ]   [ J-Link GDB Server ]    [ USB CDC ]
+                       |            |               |
+                  [ probe ] --- [ target ]   [ dongle firmware ]
+                                                    | radio
+                                              [ BLE sensor ]
 ```
 
 Dependencies point one way only: **core, then analysis, then instruments, then
@@ -78,6 +84,7 @@ instrument, and to be importable without importing any other element.
 | ANA-ARC-002 | `analysis.measure`, `analysis.plotting` | Pure analysis over `Waveform` objects, and host-side rendering. | `measure_channel_spread`, `measure_period`, `plot_waveforms` |
 | INST-ARC-001 | `instruments.*` | One subpackage per instrument, adding only its command vocabulary, capability envelope and simulator. | per `ScpiInstrument` |
 | SCOPE-ARC-001 | `instruments.tek3014b` | The TDS3000 SCPI vocabulary and the oscilloscope's capability envelope. | `Tek3014B` |
+| BLE-ARC-001 | `instruments.nordic_dongle` **and** `firmware/nordic_dongle` | The BLE bench dongle, as one element across two languages. Host side: the line protocol (`protocol`), the command/event session with its log (`session`), advertising statistics (`profile`), latency statistics (`latency`), the driver façade (`dongle`) and a simulated dongle. Dongle side: USB CDC line transport, command dispatch, scanner, UART client and the microsecond clock. `include/protocol.h` is the interface both are built from. | `NordicDongle`, `DongleSession`, `AdvertisingProfile`, `ResponseTiming`, `SimulatedDongle`; `cmd_parser_handle`, `scanner_on_ble_evt`, `nus_client_command` |
 | JLINK-ARC-001 | `instruments.jlink` | The debug probe driver. `JLinkProbe` is the façade over seven collaborators, each independently testable: MI record parsing (`gdbmi`), the command/response session (`session`), server discovery and lifetime (`server`), RTT (`rtt`), ITM/SWO decoding (`swo`), timing results (`timing`), and the probe and target envelope (`constants`). Its simulator answers the MI dialogue. | `JLinkProbe`, `GdbMiSession`, `RttClient`, `ItmDecoder`, `TimingResult`, `GdbServer` |
 | RUN-ARC-001 | `runner` | Specification model, bench resolution, execution engine, result records, report writers, command line. | `load_spec`, `BenchConfig`, `BenchRunner`, `write_*` |
 
@@ -269,6 +276,72 @@ end over the same runner; neither needs driver-specific glue. The CLI already
 demonstrates it by emitting JSON. No Robot dependency is taken in this revision, so
 the decision costs nothing if that path is not followed.
 
+### AD-16 — Firmware and driver are one element with one interface artefact
+
+**Context.** The dongle needs custom firmware: nothing off the shelf timestamps
+an advertising report at the radio and reports it over USB in a form a test can
+assert on. That makes part of this item embedded C, in a different language and
+a different build, changed by different tools.
+
+**Decision.** Treat the dongle firmware and its host driver as **one**
+architectural element (BLE-ARC-001), with `firmware/nordic_dongle/include/protocol.h`
+as the sole definition of what passes between them. The firmware builds its
+command table from that header; the host driver mirrors it in `constants.py`;
+and `test_firmware_protocol.py` parses the header and fails the build if the two
+disagree about a command, an event, an error code or a size limit.
+
+**Consequences.** A command added to one side and forgotten on the other is a red
+test rather than "unknown command" at a bench six weeks later. The firmware also
+comes under the same traceability rules as the Python: every C file carries its
+`Traces to:` line, and the same test checks that, that no file allocates
+dynamically, and that the house indentation holds. The cost is that the header
+must stay free of anything that is merely an internal firmware choice - hence
+`app_ble_config.h` beside it for the things the host has no business knowing.
+
+**Alternatives rejected.** A separate `FW-` element with its own document set
+would double the paperwork for one interface. Nordic's stock `ble_connectivity`
+firmware with `pc-ble-driver-py` on the host would have removed the firmware
+entirely, but it puts the BLE stack on the *host* side of the USB link, so every
+timestamp would carry USB jitter - which is precisely the measurement this
+element exists to avoid (AD-17).
+
+### AD-17 — Timestamps are taken in the dongle, and the host's are kept beside them
+
+**Context.** An advertising interval is 20 ms to 10 s; a connection interval is
+7.5 ms to 4 s. USB polling plus host scheduling contributes roughly a
+millisecond, with millisecond-scale jitter.
+
+**Decision.** Every event carries `t=`, a microsecond timestamp taken in the
+dongle's radio event handler from a TIMER peripheral, extended to 64 bits. The
+host records its own arrival time in the `Event`, and every latency result
+carries a `LatencySource` saying which clock produced it.
+
+**Consequences.** Interval statistics are about the sensor. The host figures are
+kept, not discarded, because the difference between the two *is* the overhead of
+the host link, and a bench that cannot see that overhead cannot tell a slow
+sensor from a busy host. `ResponseTiming.is_trustworthy` is false when a figure
+is inside the connection interval, for the same reason the J-Link driver flags a
+figure inside its clock's resolution (AD-14): a number that cannot be
+distinguished from the instrument's own floor is not a measurement of the thing
+under test.
+
+### AD-18 — Filter in the firmware, count in both places
+
+**Context.** A busy room produces hundreds of advertising reports a second. The
+USB link and the host both have limits, and dropping reports silently would show
+up as a sensor that skipped beacons.
+
+**Decision.** Address and name filtering happen in the firmware, before anything
+is sent. The firmware counts what the radio delivered and what it managed to
+send; the host counts what it received. `AdvertisingProfile.is_complete`
+compares them, and a profile computed from a lossy stream says so.
+
+**Consequences.** A missed advertising event can be attributed to the sensor
+rather than the plumbing - or explicitly cannot be, which is the honest
+alternative. The firmware's outgoing queue drops whole lines and counts them
+rather than truncating one, because half a line would be a parse error in the
+host and would look like a protocol fault rather than congestion.
+
 ## 5. Dynamic behaviour — a runner invocation
 
 ```
@@ -304,6 +377,9 @@ CLI            BenchRunner        Bench           Tek3014B        Transport
 | Instrument connections per run | One per alias actually used; connection is lazy. |
 | Processes per probe connection | Two at most: the GDB Server (only if not already listening) and one GDB. |
 | Round trips per probe halt/read/resume | 3 MI commands; a variable read is 1. Memory is chunked at the probe's maximum transfer size (64 kB). |
+| Advertising reports per second, one sensor | 3 channels at the advertising rate; at 20 ms that is up to 150 lines/s, about 20 kB/s over USB. |
+| Dongle event queue | 32 lines. Above that, lines are dropped and counted rather than truncated. |
+| Host event backlog | 4096 events, bounded so an unattended session cannot grow without limit. |
 | Cost of a halting timing measurement | Two breakpoint stops per repetition; the target is stopped for the duration, which is why JLINK-FR-064 exists. |
 
 ## 7. Interfaces to external elements
@@ -320,3 +396,7 @@ CLI            BenchRunner        Bench           Tek3014B        Transport
 | J-Link GDB Server | bidirectional | TCP: GDB/MI via GDB on port 2331, RTT on 19021, SWO on 2332. May be on another host. |
 | `arm-none-eabi-gdb` | bidirectional | Child process over stdin/stdout, speaking GDB/MI. Required for the J-Link driver only. |
 | SWD / JTAG | bidirectional | Probe to target, below the GDB Server; not visible to this software. |
+| USB CDC (serial) | bidirectional | The BLE dongle's line protocol. May be a local port or one published over TCP by a terminal server, which is how a container reaches a dongle on another machine. |
+| Bluetooth Low Energy | bidirectional | Dongle to sensor: advertising reports in, UART service both ways. Below the dongle firmware; not visible to the host driver except as events. |
+| `pyserial` | bidirectional | Optional; the serial transport. |
+| nRF5 SDK 17.1.0 + S140 | in | Builds the dongle firmware. Not needed to run the host driver or the tests. |

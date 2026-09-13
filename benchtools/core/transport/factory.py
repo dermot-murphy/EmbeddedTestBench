@@ -36,6 +36,7 @@ from .base import Transport
 from .constants import DEFAULT_RAW_SOCKET_PORT, DEFAULT_VXI11_DEVICE_NAMES
 from .mock import MockTransport
 from .process import ProcessTransport
+from .serial_port import SerialTransport
 from .socket_raw import SocketTransport
 from .visa_backend import VisaTransport
 from .vxi11 import Vxi11Transport
@@ -83,6 +84,7 @@ register_backend("socket", SocketTransport, ("socket", "tcp"))
 register_backend("visa", VisaTransport, ("visa",))
 register_backend("sim", MockTransport, ("sim", "mock"))
 register_backend("process", ProcessTransport, ("process", "stdio"))
+register_backend("serial", SerialTransport, ("serial", "com", "rs232"))
 
 
 def _split_host_port(text: str, default_port: int) -> Tuple[str, int]:

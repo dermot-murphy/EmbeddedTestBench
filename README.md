@@ -1,8 +1,8 @@
 # TestTools — `benchtools`
 
-Bench test tooling: instrument drivers, a debug probe driver, analysis of captured
-records, and a declarative test runner that drives a bench and produces pass/fail
-evidence.
+Bench test tooling: instrument drivers, a debug probe driver, a BLE dongle with
+its own firmware, analysis of captured records, and a declarative test runner
+that drives a bench and produces pass/fail evidence.
 
 **No VISA installation required, and no vendor Python package.** VXI-11 and GDB/MI
 are implemented directly on the Python standard library, so the package has **no
@@ -28,6 +28,7 @@ benchtools/
 ├── instruments/   one subpackage per instrument
 │   ├── tek3014b/    Tektronix TDS3014B oscilloscope
 │   ├── jlink/       SEGGER J-Link debug probe (flash, RTT, breakpoints, timing)
+│   ├── nordic_dongle/  Nordic BLE dongle (scan, UART over BLE, advertising profile)
 │   └── generic.py   anything answering *IDN?
 └── runner/        declarative bench test runner
 ```
@@ -44,6 +45,7 @@ GDB/MI, and the runner treats it like any other instrument.
 
 | Directory | Contents |
 |---|---|
+| `firmware/` | Embedded firmware that is part of an instrument — currently the BLE dongle |
 | `specs/` | Example test specifications |
 | `benches/` | Example bench configurations |
 | `examples/` | Runnable Python examples |
@@ -273,6 +275,78 @@ setup, the port map, choosing a timing method, and the bench confirmation items.
 
 ---
 
+## BLE dongle — Nordic nRF52840, with its own firmware
+
+Scan for sensors, pick one, drive its console over BLE UART, and measure what the
+radio is actually doing.
+
+```python
+from benchtools.instruments.nordic_dongle import NordicDongle
+
+with NordicDongle.connect("COM5", log_path="ble.log") as dongle:
+    sensors = dongle.scan(3.0, name="SENS")           # firmware-side filtering
+    dongle.select(sensors[0])
+
+    profile = dongle.measure_advertising_profile(30.0, expected_interval=0.100)
+    print(profile.mean_interval_s, profile.missed_events, profile.duty_cycle)
+    print(profile.is_complete)        # False means the host lost reports
+
+    dongle.open_link()
+    reply = dongle.command("version")                 # -> "1.4.2"
+    timing = dongle.measure_response_time("measure", repeat=10)
+    print(timing.milliseconds, timing.is_trustworthy)
+```
+
+### The firmware is part of the instrument
+
+`firmware/nordic_dongle/` is an nRF5 SDK 17 application for the PCA10059 dongle,
+built with SEGGER Embedded Studio and flashed by DFU over USB. It exists for one
+reason: **a radio measurement cannot be timed from the host side of a USB link.**
+
+Nordic's stock `ble_connectivity` firmware with `pc-ble-driver-py` puts the BLE
+stack on the host, so an advertising report is timestamped after USB polling and
+OS scheduling — about a millisecond of noise, with millisecond jitter, on a
+quantity whose smallest legal value is 20 ms. This firmware timestamps in the
+radio event handler on a 1 MHz timer instead, and the host records its own
+arrival time separately as a cross-check on the link.
+
+Firmware and driver are **one element with one interface artefact**:
+`include/protocol.h` defines the commands, events, error codes and size limits;
+the firmware builds its dispatch table from it, and a test parses it and fails
+the build if the driver has drifted.
+
+### Reading an advertising profile honestly
+
+Three things this gets right that a naive implementation does not:
+
+| | |
+|---|---|
+| **One advertising event is up to three packets** (channels 37/38/39) | Reports within 5 ms are coalesced, so intervals are between beacons, not between channels |
+| **The specification requires jitter** — advDelay adds a random 0–10 ms to every interval | A healthy 100 ms sensor shows a 105 ms mean and ~2.9 ms sd; a limit of "100 ms ± 1 ms" fails every conforming sensor |
+| **A missed beacon and a lost USB line look identical** | The dongle counts what the radio delivered, the host counts what arrived, and `is_complete` says whether the two agree |
+
+Response times get the same treatment: a reply cannot arrive between connection
+events, so a latency inside one connection interval is flagged as not
+trustworthy — it says where the write landed, not what the firmware did.
+
+### Command line
+
+```bash
+python -m benchtools ble -r sim:// scan --duration 5
+python -m benchtools ble -r COM5 --log ble.log profile --select SENS-01 --duration 30 --interval 0.1
+python -m benchtools ble -r COM5 cmd measure --select SENS-01 --repeat 10
+python -m benchtools ble -r COM5 monitor --duration 60        # stream events to the log
+```
+
+`--log` writes every line in both directions with host timestamps, flushed per
+line. That file is the evidence; the JSON is the summary.
+
+See [BLE Dongle Notes](docs/ble/BLE_Dongle_Notes.md) for the protocol, the build
+and flash procedure, and what remains unproven — the firmware has not yet been
+compiled or run.
+
+---
+
 ## Addressing an instrument
 
 | Resource string | Transport |
@@ -345,6 +419,7 @@ configurations can name it. New link types (serial, USBTMC, HTTP) register with
 | [`examples/03_period_and_jitter.py`](examples/03_period_and_jitter.py) | Period measured both ways, with jitter statistics |
 | [`examples/04_run_bench_suite.py`](examples/04_run_bench_suite.py) | Driving the test runner from Python |
 | [`examples/05_jlink_firmware.py`](examples/05_jlink_firmware.py) | Flash, verify, RTT, variables, call stack, and all four timing methods through a J-Link |
+| [`examples/06_ble_sensor.py`](examples/06_ble_sensor.py) | Scan, select, advertising profile, and command/response timing through a BLE dongle |
 
 Each takes an address (or bench file) and defaults to simulation:
 
@@ -361,9 +436,9 @@ python examples/02_channel_spread.py            # simulator
 python -m pytest tests/ --cov=benchtools --cov-report=term
 ```
 
-**932 tests, 94% statement coverage, no hardware required** — no oscilloscope, no
-probe, no target, no GDB. With the optional extras removed: 883 pass, 28 skip,
-0 fail.
+**1 202 tests, 94% statement coverage, no hardware required** — no oscilloscope,
+no probe, no target, no GDB, no dongle, no BLE sensor. With every optional extra
+removed: 1 152 pass, 36 skip, 0 fail.
 
 The suite includes an independently implemented VXI-11 RPC server, a SCPI socket
 server and a loopback TCP server standing in for the GDB Server's RTT and SWO
@@ -372,10 +447,13 @@ simulated target puts two source lines exactly 64 000 cycles apart, so three
 independent timing methods — a DWT register read, two firmware variables and a
 decoded ITM stream — can be checked against the same injected 1.000 ms.
 
-It also verifies the architecture and the documents: `test_layering.py` enforces
-the dependency direction and fails on any module-level third-party import, and
-`test_traceability.py` checks that every requirement is traced and every identifier
-cited in a docstring is defined.
+It also verifies the architecture, the documents and the firmware:
+`test_layering.py` enforces the dependency direction and fails on any
+module-level third-party import; `test_traceability.py` checks that every
+requirement is traced and every identifier cited in a docstring is defined; and
+`test_firmware_protocol.py` parses the dongle firmware's protocol header and
+fails if the driver has drifted from it — as well as checking that every firmware
+source carries its trace and allocates nothing dynamically.
 
 ---
 
@@ -387,11 +465,12 @@ cited in a docstring is defined.
 | [VISA Determination Report](docs/tek3014b/VISA_Determination_Report.md) | Whether VISA is required, with evidence and bench confirmation items |
 | [J-Link Integration Notes](docs/jlink/JLink_Integration_Notes.md) | Why the GDB Server rather than the DLL, Windows and Docker, timing methods, probe confirmation items |
 | [Bench Runner Guide](docs/Bench_Runner_Guide.md) | Writing specifications and bench configurations |
-| [SWE.1 Requirements](docs/SWE1_Software_Requirements_Specification.md) | 144 functional and 13 non-functional requirements |
-| [SWE.2 Architecture](docs/SWE2_Software_Architecture.md) | Layering, elements, fifteen architectural decisions |
+| [BLE Dongle Notes](docs/ble/BLE_Dongle_Notes.md) | Why the dongle needs firmware, the line protocol, building and flashing, reading a profile, and what is unproven |
+| [SWE.1 Requirements](docs/SWE1_Software_Requirements_Specification.md) | 177 functional and 18 non-functional requirements |
+| [SWE.2 Architecture](docs/SWE2_Software_Architecture.md) | Layering, elements, eighteen architectural decisions |
 | [SWE.3 Detailed Design](docs/SWE3_Software_Detailed_Design.md) | Per-module design units |
 | [SWE.4 Test Specification](docs/SWE4_Unit_Test_Specification.md) | Strategy, test groups, pass criteria |
-| [SWE.4 Test Report](docs/SWE4_Unit_Test_Report.md) | Results, coverage, measured accuracy, fourteen defects found |
+| [SWE.4 Test Report](docs/SWE4_Unit_Test_Report.md) | Results, coverage, measured accuracy, nineteen defects found |
 | [Traceability Matrix](docs/Traceability_Matrix.md) | Bidirectional trace, stakeholder need to test |
 
 Work products follow Automotive SPICE V4.0 SWE.1–SWE.4. This is a test tool: it is
@@ -416,9 +495,15 @@ treat SWO timing figures as provisional until they are compared against the cycl
 counter on a real part. It has not yet been run on Windows, which is where it is
 intended to run first.
 
+**The BLE dongle firmware has never been compiled or run.** It is written against
+nRF5 SDK 17.1.0 and verified in the ways source can be verified without a
+toolchain — its protocol is checked against the driver, and its hygiene rules are
+enforced by tests — but its first build is part of the work, not a formality. See
+[BLE Dongle Notes §5](docs/ble/BLE_Dongle_Notes.md#5-bench-confirmation-items).
+The host driver is fully verified against a simulated dongle.
+
 Planned next, with no drivers yet: a programmable PSU for the sensor supply, a
-Nordic BLE dongle for BLE UART and advertising-profile measurement, a multimeter
-for current over RS-232, and — under consideration — authoring tests in Markdown
-and translating them to Robot Framework. The driver boundary returns plain types
-with that last one in mind, but no translator exists. The core is designed for all
-of them and validated against none.
+multimeter for current over RS-232 (the serial transport it needs now exists),
+and — under consideration — authoring tests in Markdown and translating them to
+Robot Framework. The driver boundary returns plain types with that last one in
+mind, but no translator exists.

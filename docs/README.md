@@ -16,6 +16,7 @@ instruments are added:
 | `INST-` | Instrument drivers, common requirements | `benchtools.instruments` |
 | `SCOPE-` | Tektronix TDS3014B driver | `benchtools.instruments.tek3014b` |
 | `JLINK-` | SEGGER J-Link debug probe driver | `benchtools.instruments.jlink` |
+| `BLE-` | Nordic BLE bench dongle: host driver **and** dongle firmware | `benchtools.instruments.nordic_dongle`, `firmware/nordic_dongle` |
 | `RUN-` | Bench test runner | `benchtools.runner` |
 
 ## Documents
@@ -36,6 +37,7 @@ instruments are added:
 |---|---|
 | [TDS3014B VISA Determination Report](tek3014b/VISA_Determination_Report.md) | Whether VISA is required to drive the oscilloscope over Ethernet, with evidence and bench confirmation items |
 | [J-Link Integration Notes](jlink/JLink_Integration_Notes.md) | Why the GDB Server rather than the DLL, running it on Windows and in Docker, choosing a timing method, and the probe's bench confirmation items |
+| [BLE Dongle Notes](ble/BLE_Dongle_Notes.md) | Why the dongle needs firmware of its own, the line protocol, building and flashing it, how to read an advertising profile and a response time, and the firmware's bench confirmation items |
 
 ## Adding an instrument
 
@@ -45,6 +47,11 @@ traceability matrix. It does **not** need its own copy of the doc set. If it
 raises an instrument-specific engineering question - as the VISA question did for
 the oscilloscope, and the DLL-versus-GDB question did for the probe - that gets
 its own report under `docs/<instrument>/`.
+
+An instrument that needs firmware of its own is an element spanning two
+languages, as the BLE dongle does. It stays **one** element with one interface
+artefact that both halves are built from and a test compares them against - see
+AD-16 - rather than a separate `FW-` element with its own document set.
 
 The J-Link is the worked example of a driver that is **not** a SCPI instrument: it
 implements `core.instrument.Instrument` rather than `ScpiInstrument`, which is the

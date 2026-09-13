@@ -24,6 +24,7 @@ Commands:
   run         run bench test specifications against a bench
   scope       control a Tektronix TDS3014B oscilloscope
   jlink       control a target through a SEGGER J-Link debug probe
+  ble         scan, drive and profile a BLE sensor through a Nordic dongle
   drivers     list the instrument drivers a bench configuration can name
   backends    list the transport backends a resource string can select
 
@@ -32,6 +33,7 @@ Run 'benchtools <command> --help' for a command's own options.
 Examples:
   benchtools scope -r sim:// idn
   benchtools jlink -r sim:// -e build/app.elf time sensor.c:40 sensor.c:75
+  benchtools ble -r sim:// profile --select SENS-01 --duration 30 --interval 0.1
   benchtools run tests/clock_skew.yaml --simulate --markdown report.md
   benchtools run tests/*.yaml --bench benches/lab1.yaml --junit results.xml
 
@@ -67,6 +69,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         from .instruments.jlink.cli import main as jlink_main
 
         return jlink_main(rest)
+
+    if command in ("ble", "dongle", "nordic"):
+        from .instruments.nordic_dongle.cli import main as ble_main
+
+        return ble_main(rest)
 
     if command == "drivers":
         from .runner.bench import registered_drivers

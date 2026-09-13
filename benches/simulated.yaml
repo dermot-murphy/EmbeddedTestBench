@@ -18,3 +18,8 @@ instruments:
     options:
       elf: firmware.elf
       core_clock_hz: 64000000
+
+  dongle:
+    driver: ble-dongle
+    resource: sim://
+    timeout: 10.0

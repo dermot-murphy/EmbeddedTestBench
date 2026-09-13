@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "benchtools"
-version = "3.0.0"
-description = "Bench test tooling: instrument and debug-probe drivers, analysis and a declarative test runner, with no mandatory VISA or vendor dependency"
+version = "4.0.0"
+description = "Bench test tooling: instrument, debug-probe and BLE-dongle drivers, analysis and a declarative test runner, with no mandatory VISA or vendor dependency"
 readme = "README.md"
 requires-python = ">=3.8"
 license = { text = "MIT" }
@@ -13,6 +13,7 @@ keywords = [
     "test-equipment", "oscilloscope", "tektronix", "tds3014b",
     "vxi11", "scpi", "lxi", "instrument-control", "test-automation",
     "jlink", "segger", "gdb", "rtt", "swo", "itm", "cortex-m", "embedded",
+    "bluetooth", "ble", "nordic", "nrf52840", "advertising", "nus", "serial",
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -39,6 +40,8 @@ spec = ["pyyaml>=5.1"]
 plot = ["matplotlib>=3.3"]
 # Route the instrument link through a VISA library instead of the built-in one.
 visa = ["pyvisa>=1.11", "pyvisa-py>=0.5"]
+# Serial ports: the BLE dongle's USB CDC link, and RS-232 instruments.
+serial = ["pyserial>=3.4"]
 test = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
@@ -46,6 +49,7 @@ test = [
     "matplotlib>=3.3",
     "pyvisa>=1.11",
     "pyvisa-py>=0.5",
+    "pyserial>=3.4",
 ]
 
 [project.scripts]

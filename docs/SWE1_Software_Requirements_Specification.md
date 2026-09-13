@@ -3,10 +3,10 @@
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-SWE1-001 |
-| Version | 3.0 |
+| Version | 4.0 |
 | Date | 2026-09-13 |
 | Process reference | Automotive SPICE V4.0, SWE.1 Software Requirements Analysis |
-| Item | **BenchTools** — bench test tooling (`benchtools` 3.0.0) |
+| Item | **BenchTools** — bench test tooling (`benchtools` 4.0.0) |
 
 ## 1. Scope
 
@@ -19,9 +19,14 @@ It is a **test tool**: it is not part of any delivered vehicle software and
 carries no ASIL classification. It is developed to this process discipline
 because measurement results derived from it are used as evidence.
 
-Out of scope: instrument firmware, target application firmware, GPIB, hardware
-fixture design, and any instrument not listed in §3. RS-232 is out of scope in
-this revision but is required by STK-14 and will be added as a transport.
+Out of scope: target application firmware, GPIB, hardware fixture design, and
+any instrument not listed in §3.
+
+One piece of embedded software **is** in scope, and is the exception that proves
+the rule: the bench dongle's firmware (§9). It is part of the instrument, not
+part of any product, and it exists because the measurement it makes - a radio
+event timestamped to the microsecond - cannot be made from the host side of a
+USB link. It is specified, designed and traced here like the rest of the item.
 
 ## 2. Stakeholder requirements
 
@@ -40,8 +45,11 @@ this revision but is required by STK-14 and will be added as a transport.
 | STK-11 | Run first on a Windows PC; eventually run the entire test bench inside Docker. |
 | STK-12 | Possibly express tests in Markdown and translate them to Robot Framework files. |
 | STK-13 | Control the sensor supply voltage with a programmable power supply. *(future)* |
-| STK-14 | Send BLE UART commands to a Nordic dongle, read the responses, and measure the advertising profile. *(future)* |
-| STK-15 | Measure current with a multimeter over RS-232 through a USB converter. *(future)* |
+| STK-14 | Send BLE UART commands through a Nordic dongle in command/response mode, read the responses, and measure the time until each response. |
+| STK-15 | Scan for BLE sensors, select one, and measure its advertising profile. |
+| STK-16 | Provide the dongle's embedded firmware, built with SEGGER Embedded Studio against nRF5 SDK 17. |
+| STK-17 | Log the BLE session to a text file. |
+| STK-18 | Measure current with a multimeter over RS-232 through a USB converter. *(future)* |
 
 ## 3. Element structure
 
@@ -55,6 +63,7 @@ prefixes are per element so they stay unique as instruments are added.
 | `INST-` | `benchtools.instruments` | Requirements common to all drivers. |
 | `SCOPE-` | `benchtools.instruments.tek3014b` | The oscilloscope driver. |
 | `JLINK-` | `benchtools.instruments.jlink` | The SEGGER J-Link debug probe driver. Not a SCPI instrument, and the only element that reaches the target through a debug probe rather than a measurement link. |
+| `BLE-` | `benchtools.instruments.nordic_dongle` **and** `firmware/nordic_dongle` | The BLE bench dongle: host driver and the dongle's own firmware. One element, because the protocol between them is one design decision and splitting it across two elements would let the halves drift apart. |
 | `RUN-` | `benchtools.runner` | The bench test runner. |
 
 ---
@@ -74,6 +83,7 @@ prefixes are per element so they stay unique as instruments are added.
 | CORE-FR-007 | The link layer shall transfer messages of arbitrary length, chunking writes to the link's negotiated maximum and reassembling chunked responses. | STK-01 | Test |
 | CORE-FR-008 | The link layer shall probe the VXI-11 logical device names used by both VXI-11.2 and VXI-11.3 devices, and shall report which was accepted. | STK-01 | Test |
 | CORE-FR-009 | The link layer shall provide a transport to a child process over its standard input and output, for tools that speak a line protocol rather than listening on a socket. It shall work on Windows as well as POSIX hosts, retain the child's diagnostic output, and report that output if the child exits unexpectedly. | STK-07, STK-09, STK-11 | Test |
+| CORE-FR-017 | The link layer shall provide a serial-port transport, selecting the port by name (``COM5``, ``/dev/ttyACM0``), and shall also accept a port published over TCP so that a container can reach a device attached to another machine. The serial library shall be an optional dependency. | STK-14, STK-18 | Test |
 | CORE-FR-010 | Transport backends and resource-string schemes shall be held in registries, so a new link type can be added from its own module without modifying the factory. | STK-07 | Test, Inspection |
 | CORE-FR-011 | The link layer shall accept a host name, an IPv4 address, or a VISA-style resource string, and shall select a transport automatically. | STK-01 | Test |
 
@@ -302,9 +312,92 @@ it is commanded, and it yields measurements — so it implements the generic bas
 
 ---
 
-## 9. RUN — bench test runner
+## 9. BLE — Nordic dongle and its firmware
 
-### 9.1 Bench configuration
+The element has two halves that must agree: firmware on an nRF52840 dongle, and
+a host driver. Requirements are written once and apply to whichever half
+implements them; §9.6 says which.
+
+### 9.1 The host link
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| BLE-FR-001 | The dongle and the host shall communicate over USB CDC with a line protocol in which a command is one line, a reply is one line beginning ``ok`` or ``err``, and an unsolicited event is one line beginning ``+``. The protocol shall be defined in a single artefact that both halves are built from. | STK-14, STK-15 | Test, Inspection |
+| BLE-FR-002 | Every command shall produce exactly one reply, including when it fails, so that a lost reply is detectable rather than appearing as a hang. A failure shall carry a numeric code and text. | STK-14 | Test |
+| BLE-FR-003 | The firmware shall queue outgoing lines rather than block a radio event handler on the USB endpoint, and shall count lines it could not send. | STK-15 | Test, Inspection |
+| BLE-FR-004 | The host shall be able to reconcile what it received against what the dongle sent, and a capture that lost lines shall be reported as incomplete rather than analysed as if complete. | STK-15, STK-17 | Test |
+| BLE-FR-010 | Every event shall carry a timestamp taken on the dongle, resolving one microsecond, taken as close to the radio event as the stack allows. The timestamp shall not wrap within a measurement session. | STK-14, STK-15 | Test |
+| BLE-FR-011 | The host shall record its own arrival time beside the dongle's timestamp, and shall not present the host figure as the measurement. | STK-14 | Test |
+
+### 9.2 Scanning and selection
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| BLE-FR-020 | The dongle shall scan for advertising devices for a given duration and report each device once, with its address, address type, signal strength and advertised name. | STK-15 | Test |
+| BLE-FR-021 | A device that advertises no name shall be reported with an empty name rather than omitted. | STK-15 | Test |
+| BLE-FR-022 | Scanning shall be filterable by name, by address and by minimum signal strength, and the filter shall be applied in the firmware. | STK-15 | Test |
+| BLE-FR-023 | The host shall select one sensor, by index, address, name or object, and that selection shall persist for later commands. The address type shall travel with the address. | STK-15 | Test |
+| BLE-FR-024 | Selecting an address that no scan has seen shall be permitted, so a suite that knows its sensor need not scan first. | STK-15 | Test |
+
+### 9.3 UART over BLE
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| BLE-FR-040 | The dongle shall connect to the selected sensor, discover Nordic's UART Service, and subscribe to its notifications. | STK-14 | Test |
+| BLE-FR-041 | The connection interval shall be reported, because it bounds every latency measured over that link. | STK-14 | Test |
+| BLE-FR-042 | The host shall write bytes or text to the sensor without waiting for a reply. | STK-14 | Test |
+| BLE-FR-043 | The host shall send a command and return the sensor's reply, in one operation. | STK-14 | Test |
+| BLE-FR-044 | A sensor that does not reply within the timeout shall be reported as a timeout, not as a round trip of the timeout's length. | STK-14 | Test |
+| BLE-FR-045 | A payload longer than the firmware accepts shall be refused by the host before transmission, naming the limit. | STK-14 | Test |
+
+### 9.4 Time until response
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| BLE-FR-050 | The round trip from request to reply shall be measured on the dongle's microsecond clock, timestamped when the request is handed to the stack and when the notification arrives. | STK-14 | Test |
+| BLE-FR-051 | The host's own round trip shall be measured and reported separately, as a cross-check on the link rather than as the sensor's latency. | STK-14 | Test |
+| BLE-FR-052 | A command shall be repeatable, with minimum, maximum, mean, spread and standard deviation reported over the repetitions. | STK-14 | Test |
+| BLE-FR-053 | Every latency result shall report the clock that produced it, that clock's resolution, and the connection interval; and shall be flagged as not trustworthy when the measured latency cannot be told apart from the connection interval. | STK-14 | Test |
+| BLE-FR-054 | A latency result derived from no samples shall raise rather than report zero. | STK-14 | Test |
+
+### 9.5 Advertising profile
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| BLE-FR-030 | The dongle shall report every advertising event from a chosen address, timestamped, with signal strength, channel and payload. | STK-15 | Test |
+| BLE-FR-031 | The host shall derive the advertising interval: mean, minimum, maximum, spread and standard deviation. | STK-15 | Test |
+| BLE-FR-032 | Advertising reports of one event on several channels shall be coalesced into a single advertising event, so that the interval measured is between beacons and not between channels. | STK-15 | Test |
+| BLE-FR-033 | The analysis shall account for the advertising delay the Bluetooth specification requires (0 to 10 ms per interval), stating the jitter a conforming sensor shows, so that correct behaviour is not reported as instability. | STK-15 | Test |
+| BLE-FR-034 | Advertising events the sensor did not send shall be counted, against a nominal interval supplied by the caller or inferred from the capture, and the two cases shall be distinguishable. | STK-15 | Test |
+| BLE-FR-035 | The proportion of the capture in which the sensor kept to its rate (duty cycle) and the proportion of expected events received shall be reported. | STK-15 | Test |
+| BLE-FR-036 | A capture too short for statistics shall report the counts it has and raise only when a statistic is actually asked for. | STK-15 | Test |
+
+### 9.6 Firmware, tooling and bench use
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| BLE-FR-060 | The session shall be loggable to a text file: every line in both directions, host-timestamped, flushed per line so a session that then hangs still has a complete log. | STK-17 | Test |
+| BLE-FR-061 | The log shall include lines the driver ignored, since a log that omits what the tooling discarded cannot explain why it discarded it. | STK-17 | Test |
+| BLE-FR-062 | Comments shall be writable into the log, so a measurement can be annotated with what it was verifying. | STK-17 | Test |
+| BLE-FR-070 | A command-line interface shall expose identification, scanning, selection, advertising profile, command/response timing and event monitoring, emitting JSON. | STK-14, STK-15 | Test |
+| BLE-FR-080 | The dongle shall be registered as a bench driver, and a simulated dongle shall answer the same protocol with a deterministic sensor population, so every operation is verifiable without a dongle, a sensor or a radio. | STK-08, STK-15 | Test |
+| BLE-FR-090 | The firmware shall build as a SEGGER Embedded Studio project against nRF5 SDK 17 for the PCA10059 dongle, and shall be packageable as a DFU image for the dongle's factory bootloader. | STK-16 | Inspection |
+
+### 9.7 BLE non-functional
+
+| ID | Requirement | Verification |
+|---|---|---|
+| BLE-NFR-001 | The firmware shall allocate no memory dynamically, shall not recurse, and shall bound every buffer at compile time. | Test, Inspection |
+| BLE-NFR-002 | The firmware shall not block a radio event handler on USB, so that reporting cannot distort the timing being reported. | Inspection |
+| BLE-NFR-003 | The command set, events, error codes and size limits shall be defined once and checked automatically for agreement between firmware and host driver. | Test |
+| BLE-NFR-004 | The host driver shall add no mandatory third-party dependency; the serial library shall be an optional extra. | Test, Inspection |
+| BLE-NFR-005 | A measurement shall never be reported without the clock that produced it and that clock's resolution. | Test |
+
+---
+
+## 10. RUN — bench test runner
+
+### 10.1 Bench configuration
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -315,7 +408,7 @@ it is commanded, and it yields measurements — so it implements the generic bas
 | RUN-FR-005 | The runner shall support replacing every instrument with its simulator, so a specification can be exercised without hardware. | STK-08 | Test |
 | RUN-FR-006 | A run shall be recorded as simulated whenever no instrument on the bench is real hardware, so simulated results cannot be mistaken for measurements. | STK-08 | Test |
 
-### 9.2 Test specification
+### 10.2 Test specification
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -326,7 +419,7 @@ it is commanded, and it yields measurements — so it implements the generic bas
 | RUN-FR-014 | A malformed specification shall be rejected with a message identifying what to fix. | STK-08 | Test |
 | RUN-FR-015 | A test shall be markable as skipped, with a reason. | STK-08 | Test |
 
-### 9.3 Limits
+### 10.3 Limits
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -335,7 +428,7 @@ it is commanded, and it yields measurements — so it implements the generic bas
 | RUN-FR-022 | A measured value shall be scalable before the limit is checked, so a limit can be stated in convenient units. | STK-08 | Test |
 | RUN-FR-023 | A limit shall render as human-readable text for the report, and a failure shall state by how much the value missed. | STK-08 | Test |
 
-### 9.4 Execution
+### 10.4 Execution
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -346,7 +439,7 @@ it is commanded, and it yields measurements — so it implements the generic bas
 | RUN-FR-034 | A specification shall not be able to invoke private driver methods. | STK-08 | Test |
 | RUN-FR-035 | The runner shall verify the bench provides every instrument the specification uses before executing anything. | STK-08 | Test |
 
-### 9.5 Reporting
+### 10.5 Reporting
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -361,7 +454,7 @@ it is commanded, and it yields measurements — so it implements the generic bas
 
 ---
 
-## 10. Assumptions and constraints
+## 11. Assumptions and constraints
 
 | ID | Statement |
 |---|---|
@@ -373,7 +466,12 @@ it is commanded, and it yields measurements — so it implements the generic bas
 | ASM-04 | The J-Link GDB Server and a GDB for the target architecture are installed on the host that has the probe attached, and the server's ports (2331 GDB, 2332 SWO, 19021 RTT) are reachable from the host running the driver. |
 | ASM-05 | The target is a Cortex-M part whose DWT unit is present and not locked by the vendor, for the cycle-counter timing method. Targets without it are served by the other three methods. |
 | ASM-06 | Target firmware built with debug information (`-g`) and, for the RTT and SWO methods, linked against SEGGER RTT and with SWO enabled by the firmware or the server. |
-| CON-03 | Instrument families named for future work (STK-13 to STK-15: power supplies, the Nordic BLE dongle, and a multimeter over RS-232) have no requirements in this revision. The core is designed for them but not validated against them. |
+| ASM-07 | The dongle is an nRF52840 USB dongle (PCA10059) with its factory bootloader and S140 SoftDevice, enumerating as a USB CDC serial port on the host. |
+| ASM-08 | The sensor under test exposes Nordic's UART Service and answers a text console over it. A sensor with a different service needs a firmware change, not a driver change. |
+| ASM-09 | Advertising is on the primary channels (37, 38, 39) at 1 Mbit/s; extended advertising and coded PHY are not scanned for in this revision. |
+| CON-07 | The dongle firmware is written against nRF5 SDK 17.1.0 APIs but **has not been compiled or run** during development: no SDK, toolchain or dongle was available in the build environment. Its first build is a bench confirmation item (`docs/ble/BLE_Dongle_Notes.md` §5). |
+| CON-08 | Only RTT-free, connection-oriented UART is supported; the dongle connects to one sensor at a time. |
+| CON-03 | Instrument families named for future work (STK-13 and STK-18: power supplies and a multimeter over RS-232) have no requirements in this revision. The core is designed for them but not validated against them. |
 | CON-04 | The J-Link driver is verified against a simulated probe and a simulated target, not against physical hardware. Bench confirmation items are listed in `docs/jlink/JLink_Integration_Notes.md` §4. |
 | CON-05 | The scaling of SWO/ITM local timestamps to core cycles depends on the trace prescaler configured by the GDB server and the firmware. It is implemented from the ARMv7-M architecture reference manual and requires confirmation against a part before SWO timing figures are quoted (JLINK-OPEN-03). |
 | CON-06 | Markdown-to-Robot-Framework translation (STK-12) is not implemented in this revision. The driver's return types are constrained by JLINK-FR-081 so that it can be added without changing the driver. |

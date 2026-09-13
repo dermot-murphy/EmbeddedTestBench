@@ -26,6 +26,15 @@ instruments:
       core_clock_hz: 64000000     # wrong here makes every cycle timing wrong
       speed_khz: 4000
 
+  # Nordic BLE dongle running firmware/nordic_dongle. A bare port name is read
+  # as a serial port, so 'COM5' and '/dev/ttyACM0' both work; a port published
+  # over TCP lets a containerised bench reach a dongle on another machine:
+  #     resource: serial://socket://bench-pc:4001
+  dongle:
+    driver: ble-dongle
+    resource: /dev/ttyACM0        # COM5 on Windows
+    timeout: 10.0
+
   # Any instrument without a dedicated driver yet can still be addressed,
   # identified and sent raw SCPI through the generic driver.
   psu:

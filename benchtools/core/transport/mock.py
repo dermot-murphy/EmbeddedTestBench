@@ -12,6 +12,11 @@ what keeps this layer reusable: an instrument driver supplies its own
 simulator (see ``ScpiInstrument.SIMULATOR_CLASS``), rather than the transport
 importing one.
 
+A simulator that also implements ``poll() -> bytes`` (see
+:class:`~benchtools.core.simulator.Streamer`) can speak without being spoken
+to, which is what an instrument that streams events needs: the transport calls
+``poll()`` when the driver reads and no reply is outstanding.
+
 Traces to: CORE-FR-004, CORE-FR-041, CORE-DD-MOCK.
 """
 
@@ -81,10 +86,18 @@ class MockTransport(Transport):
 
     def _recv_chunk(self, max_bytes: int) -> Tuple[bytes, bool]:
         if not self._has_reply:
-            raise TransportError(
-                "the simulated instrument has no response pending; the last "
-                "command was not a query"
-            )
+            # Nothing was asked for. An instrument that streams events may still
+            # have something to say, so give it the chance before reporting that
+            # the read has nothing to return.
+            streamed = self._poll_responder()
+            if streamed:
+                self._pending = bytearray(streamed)
+                self._has_reply = True
+            else:
+                raise TransportError(
+                    "the simulated instrument has no response pending; the last "
+                    "command was not a query"
+                )
         take = min(int(max_bytes), self._chunk_size, len(self._pending))
         chunk = bytes(self._pending[:take])
         del self._pending[:take]
@@ -92,6 +105,14 @@ class MockTransport(Transport):
         if end:
             self._has_reply = False
         return chunk, end
+
+    def _poll_responder(self) -> bytes:
+        """Ask a streaming simulator for unsolicited output."""
+        poll = getattr(self.responder, "poll", None)
+        if poll is None:
+            return b""
+        produced = poll()
+        return bytes(produced or b"")
 
     def clear(self) -> None:
         """Discard any pending simulated response."""

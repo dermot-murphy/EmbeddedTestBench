@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-SWE4-001 |
-| Version | 3.0 |
+| Version | 4.0 |
 | Date | 2026-09-13 |
 | Process reference | Automotive SPICE V4.0, SWE.4 Software Unit Verification |
 
@@ -25,6 +25,8 @@ the correct behaviour for an optional extra.
 | Instrument substitute | `benchtools.core.simulator.SimulatedInstrument` and its subclasses, behind `MockTransport` |
 | VXI-11 substitute | `tests/core/transport/vxi11_server.py` — an ONC-RPC server on a loopback socket |
 | Socket substitute | `tests/core/transport/scpi_socket_server.py` — line-oriented SCPI over loopback TCP |
+| BLE dongle substitute | `benchtools.instruments.nordic_dongle.SimulatedDongle` - answers the dongle's line protocol over `MockTransport`, with a deterministic sensor population on a virtual microsecond clock |
+| Serial-port substitute | pyserial's `loop://` URL handler, which provides a real serial object with no hardware |
 | RTT and SWO substitute | `tests/instruments/jlink/test_sockets.py::LoopbackServer` — a TCP server on loopback standing in for the GDB Server's RTT and SWO ports |
 | Debug probe substitute | `benchtools.instruments.jlink.SimulatedJLink` — answers the GDB/MI dialogue over `MockTransport`, with a deterministic simulated target (symbols, memory, stacks, RTT, ITM, timing) |
 | Child-process substitute | The host's own Python interpreter, driven as a child through `ProcessTransport`, so pipe framing and child death are exercised without a debugger installed |
@@ -51,10 +53,15 @@ Three measures ensure tests do not merely confirm the code agrees with itself:
    not self-confirmation. The fourth, the host clock, is expected *not* to reach it,
    and the test asserts that it is flagged untrustworthy rather than that it is
    accurate.
-4. **ITM streams are built by an independent encoder.** `test_swo.py` assembles
+4. **The firmware is checked against the driver, not against itself.**
+   `test_firmware_protocol.py` parses `firmware/nordic_dongle/include/protocol.h`
+   - the artefact the C is compiled from - and compares its command table, event
+   table, error codes and size limits against the driver's constants. Neither
+   side can be made to agree by editing the other's tests.
+5. **ITM streams are built by an independent encoder.** `test_swo.py` assembles
    packet bytes with the architecture manual's framing, rather than comparing the
    decoder against itself.
-5. **Cross-validation between computation paths.** Host-side analysis is compared
+6. **Cross-validation between computation paths.** Host-side analysis is compared
    against the simulated instrument's own measurement engine
    (`test_spread_skews_match_the_instrument_delay_measurement`), and the built-in
    VXI-11 transport is compared against PyVISA's independent implementation over
@@ -125,6 +132,8 @@ module's imports:
 | PC-7 | Every timing method recovers the injected 1.000 ms interval exactly, except the host clock, which is required to flag itself as not trustworthy. |
 | PC-8 | No test requires a J-Link, a target, a debugger or a GDB server to be installed. |
 | PC-9 | No module imports a third-party package at module level. |
+| PC-10 | The firmware's command set, events, error codes and limits agree with the driver's, and every firmware source carries its trace, allocates nothing dynamically, and holds the house indentation. |
+| PC-11 | A simulated 100 ms sensor reads as a mean interval of exactly 105 ms with a spread of exactly 10 ms, and a sensor that skips beacons is reported as missing them rather than as advertising slowly. |
 
 ## 2. Test groups
 
@@ -158,6 +167,15 @@ module's imports:
 | SWE4-UT-JLINKSOCKETS | `instruments/jlink/test_sockets.py` | The RTT and SWO TCP links against a loopback server: fragmented arrival, writes reaching the server, collection with a timeout, an unreachable port, and the host as an argument | JLINK-FR-050, -051, -064, JLINK-NFR-002, -003 |
 | SWE4-UT-JLINKSIM | `instruments/jlink/test_simulator.py` | Self-checks on the simulated probe and target: the MI dialogue, the exact 64 000-cycle interval, symbols, stacks, RTT, sections, the hardware-breakpoint type | JLINK-FR-090 |
 | SWE4-UT-JLINKCLI | `instruments/jlink/test_cli.py` | Every probe sub-command end to end; JSON output; the untrustworthy-measurement warning; exit statuses | JLINK-FR-100 |
+| SWE4-UT-SERIAL | `core/transport/test_serial.py` | Serial transport: port and rate parsing, a TCP port not mistaken for a line rate, scheme registration, framing over `loop://`, a write the far end will not take | CORE-FR-017, CORE-NFR-003, -006 |
+| SWE4-UT-BLE | `instruments/nordic_dongle/test_dongle.py` | The dongle driver: identity and protocol check, scanning and filtering, selection, connection, UART, response timing, advertising profile, logging | BLE-FR-002 .. -062 |
+| SWE4-UT-BLEPROTO | `instruments/nordic_dongle/test_protocol.py` | The line protocol: replies, errors, events, empty and `=`-bearing values, non-protocol lines, hex, addresses and their types | BLE-FR-001, -002 |
+| SWE4-UT-BLEFW | `instruments/nordic_dongle/test_firmware_protocol.py` | Firmware and driver agreement: commands, argument bounds, handlers attached, events, error codes, size limits, protocol version; and firmware hygiene: traces, no dynamic allocation, indentation | BLE-FR-001, -080, -090, BLE-NFR-001, -003 |
+| SWE4-UT-BLESESSION | `instruments/nordic_dongle/test_session.py` | Command/reply with events interleaved, early-stopping collection, waiting for an event, drop notices, and session logging | BLE-FR-002, -004, -060 .. -062 |
+| SWE4-UT-BLEPROFILE | `instruments/nordic_dongle/test_profile.py` | Advertising statistics: channel coalescing, advDelay, missed events, duty cycle, completeness, exactly nominal intervals | BLE-FR-030 .. -036 |
+| SWE4-UT-BLELATENCY | `instruments/nordic_dongle/test_latency.py` | Round-trip statistics, which clock, resolution, the connection-interval floor, empty samples | BLE-FR-050 .. -054, BLE-NFR-005 |
+| SWE4-UT-BLESIM | `instruments/nordic_dongle/test_simulator.py` | Self-checks on the simulated dongle: exact intervals, skipped beacons, channel rotation, refusals, drop counters | BLE-FR-080 |
+| SWE4-UT-BLECLI | `instruments/nordic_dongle/test_cli.py` | Every dongle sub-command end to end; JSON output; the incomplete-capture and unresolvable-latency warnings | BLE-FR-070 |
 | SWE4-UT-LIMITS | `runner/test_limits.py` | Every limit form, construction validation, rendering | RUN-FR-020 .. -023 |
 | SWE4-UT-RESOLVE | `runner/test_resolve.py` | Result path resolution and its failure messages | RUN-FR-013 |
 | SWE4-UT-SPEC | `runner/test_spec.py` | Specification parsing and every malformed form | RUN-FR-010 .. -015 |

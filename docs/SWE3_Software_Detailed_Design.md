@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-SWE3-001 |
-| Version | 3.0 |
+| Version | 4.0 |
 | Date | 2026-09-13 |
 | Process reference | Automotive SPICE V4.0, SWE.3 Software Detailed Design and Unit Construction |
 
@@ -132,6 +132,28 @@ Design points:
   the child's own stderr, which is the only text that says what was actually wrong.
 - `returncode` is retained after `close()`, so a post-mortem can say how the tool
   died after the transport has gone.
+
+## CORE-DD-SERIAL — `transport/serial_port.py`
+
+`SerialTransport`, registered as the `serial`, `com` and `rs232` backends. Opens
+through pyserial's URL handler rather than a device node, so one class covers a
+local port (`COM5`, `/dev/ttyACM0`), a port published over TCP
+(`socket://bench-pc:4001`, which is how a container reaches a dongle attached to
+another machine), and pyserial's own `loop://`, which is what the tests drive.
+
+Design points:
+
+- **No reader thread**, unlike `CORE-DD-PROCESS`. A serial port supports a read
+  timeout on Windows as well as POSIX; a pipe does not. A thread here would add
+  a hand-off and buy nothing.
+- pyserial is imported inside `_open_link`, so the package installs and runs
+  without it and its absence is a diagnostic naming the extra (CORE-NFR-003).
+- A trailing `:<digits>` in the resource is a line rate, except where it is a
+  TCP port: `COM5:9600` is 9600 baud, `socket://host:4001` is not 4001 baud.
+- A write the far end will not take is reported as a **timeout**, not a
+  connection failure. The port is fine; flow control is asserted or the device
+  stopped reading, and saying "connection failed" sends the reader to look at
+  the cable.
 
 ## CORE-DD-MOCK — `transport/mock.py`
 
@@ -543,6 +565,238 @@ Sub-commands `info`, `flash`, `verify`, `reset`, `run`, `halt`, `read`, `write`,
 `var`, `stack`, `rtt`, `time`, emitting JSON (AD-15). The `time` sub-command adds a
 `warning` key when the result is not trustworthy, so a figure quoted from a shell
 script carries the same caveat the API gives.
+
+---
+
+# BLE — `benchtools.instruments.nordic_dongle` and `firmware/nordic_dongle`
+
+One element in two languages (AD-16). The host units come first, then the
+firmware units; `BLE-DD-PROTOCOL` is the interface both sides are built from.
+
+## BLE-DD-PROTOCOL — `protocol.py` and `firmware/include/protocol.h`
+
+The header is the contract: command table, event table, error table and size
+limits, as X-macro tables the firmware expands into its dispatch table and the
+host's test suite parses. `protocol.py` is the host's parser for the same
+grammar: `parse_line` returns a `Reply`, an `Event`, or `None` for a line that
+is not ours - a boot banner, a stray newline.
+
+Points that matter:
+
+- A value may be empty (`name=` for a sensor advertising no name) and may
+  contain `=`; only the first `=` of a token separates. A token with no `=` is
+  kept under its own name, which is how the positional words of
+  `ok Nordic PCA10059 proto=1.0` survive.
+- Addresses are validated and upper-cased, and carry an optional `/<type>`
+  suffix. The type travels with the address everywhere because connecting with
+  the wrong one fails by never finding the device - the least diagnosable
+  failure in BLE.
+- No I/O and no state, so every shape is a one-line test rather than a hardware
+  session.
+
+## BLE-DD-SESSION — `session.py`
+
+`DongleSession`: command in, reply out, with events queued beside it.
+
+- Lines are classified before use, so an advertising report that arrives while a
+  command is outstanding is never mistaken for its reply. Nothing is discarded:
+  that report is exactly what a profile capture must not lose.
+- `collect(duration, on_event, stop)` reads events; `stop` ends collection on a
+  predicate. That predicate is what lets a capture be bounded by the *dongle's*
+  clock: against a simulator, whose clock advances as fast as it is read, a
+  wall-clock bound would collect eight minutes of advertising in a quarter of a
+  second (defect D-16).
+- `wait_for_event` is satisfied by an event already queued, so a caller that
+  asks a moment late is not made to wait for a second one.
+- Session logging lives here because this is the only place that sees the whole
+  conversation, including lines the driver ignored. A log that omits what the
+  tooling discarded cannot explain why it discarded it. Flushed per line.
+
+## BLE-DD-PROFILE — `profile.py`
+
+`AdvertisingEvent` and `AdvertisingProfile`. Three subtleties, each handled here
+rather than left to whoever reads the numbers:
+
+| Subtlety | Handling |
+|---|---|
+| One advertising event is up to three packets (channels 37/38/39) | Reports within `COALESCE_WINDOW_S` (5 ms) are one event; the first is kept, so the interval is measured from the same point each time |
+| The specification *requires* jitter: advDelay is a uniform 0-10 ms added to every interval | `expected_jitter_s` states what a conforming sensor shows (2.89 ms); `within_specification` allows for it; the inferred nominal interval subtracts the mean 5 ms |
+| A missing beacon and a lost USB line look identical | The firmware counts what the radio delivered, the host counts what arrived, `is_complete` compares them |
+
+Intervals are subtracted as integer microseconds and converted once. Subtracting
+two floats puts an exactly nominal 100 ms interval at 0.09999999999999998, which
+fails a limit written as ">= 0.1" - a sensor rejected by floating-point
+representation rather than by behaviour (defect D-15).
+
+## BLE-DD-LATENCY — `latency.py`
+
+`ResponseSample` and `ResponseTiming`: the result type for a command/response
+round trip, with no measuring in it.
+
+Two clocks are carried: the dongle's (the measurement) and the host's (the
+cross-check). `resolution_s` is 1 us for the first and 1 ms for the second - not
+the microsecond `perf_counter` will print, because the figure carries USB
+polling and OS scheduling. `quantisation_s` is the connection interval: a reply
+cannot arrive between connection events, so a latency inside one interval says
+where the write landed, not what the firmware did, and `is_trustworthy` is false
+there.
+
+Deliberately a sibling of `JLINK-DD-TIMING` rather than a shared type: the two
+measure different things with different floors. If a third instrument needs
+statistics of this shape, the place for them is `benchtools.analysis`.
+
+## BLE-DD-CONST — `constants.py`
+
+The command set, event names, error codes, address types and the firmware's
+capability envelope, as data. Every name here also appears in `protocol.h`, and
+`test_firmware_protocol.py` compares the two (BLE-NFR-003).
+
+`DongleError.coerce` and `AddressType.coerce` fall back rather than raising, so
+a dongle running newer firmware that reports a code this driver has not met
+degrades instead of crashing a run. `DongleLimits` holds the `PROTO_MAX_*`
+figures so the driver refuses an over-long payload with a clear message rather
+than letting the firmware truncate it silently, and states both clocks'
+resolutions - 1 us on the dongle, 1 ms on the host - in one place.
+
+## BLE-DD-DONGLE — `dongle.py`
+
+`NordicDongle`, the façade: an `Instrument` (CORE-DD-INSTRUMENT) whose transport
+is a serial port or a simulator.
+
+| Group | Members |
+|---|---|
+| Lifecycle | `connect`, `_open`, `_close`, `_post_open`, `_read_identity`, `reset` |
+| Discovery | `scan`, `refresh_sensors`, `sensors`, `find_sensor`, `select`, `selected` |
+| Link | `open_link`, `close_link`, `is_linked`, `connection_interval_us` |
+| UART | `write`, `command`, `measure_response_time` |
+| Advertising | `measure_advertising_profile` |
+| Logging | `start_log`, `stop_log`, `log_note`, `log_path` |
+
+Design points:
+
+- `_normalise_resource` turns a bare `COM5` into `serial://COM5`. Without it the
+  factory would read it as a network host, which is the right default everywhere
+  else in the package and exactly wrong here.
+- `_post_open` checks the firmware's protocol version against the driver's and
+  refuses a mismatch at connection time, rather than failing three commands later.
+- The capture in `measure_advertising_profile` is bounded by the dongle's clock
+  with the host's wall clock as a backstop, so a sensor that goes silent still
+  ends the capture.
+- The connection interval is taken from the `+conn` event rather than a later
+  query, because it is the floor under every latency measured on that link.
+
+## BLE-DD-SIM — `simulator.py`
+
+A simulated dongle and the sensors it can hear, satisfying `Streamer`
+(CORE-DD-MOCK): `respond()` answers commands, `poll()` produces advertising.
+
+The model is exact rather than lifelike. Advertising events are placed on a
+virtual microsecond clock at the nominal interval plus a rotating pattern of
+advertising delays (0, 3, 7, 10 ms), so a 100 ms sensor reads as a mean of
+exactly 105 ms with a spread of exactly 10 ms. The clock advances only when the
+host reads, so a two minute capture runs in milliseconds and still produces the
+intervals a two minute capture would.
+
+The default population is part of the contract the tests assert against:
+`SENS-01` at 100 ms, `SENS-02` at 250 ms missing one beacon in five (so gap
+detection has something to find), and an unnamed, unconnectable beacon (so
+filtering and refusals have something to work on). `drop_every` models a dongle
+whose USB queue could not keep up, which is what `is_complete` exists to detect.
+
+## BLE-DD-CLI — `cli.py`
+
+Sub-commands `info`, `scan`, `select`, `profile`, `cmd`, `monitor`, emitting
+JSON. `--log` records the whole session beside whatever the sub-command prints:
+that file is the evidence, the JSON is the summary. `profile` and `cmd` add a
+`warning` key when the result is incomplete or not resolvable, so a figure
+quoted from a shell script carries the same caveat the API gives.
+
+---
+
+## BLE-DD-CDC — `firmware/src/cdc_acm.c`
+
+USB CDC ACM as a line transport, with a 32-line outgoing queue.
+
+Output is queued, never written from a radio event handler: a burst of
+advertising reports arrives faster than USB will take it, and blocking in the
+handler would delay the next radio event and corrupt the very measurement being
+made. When the queue is full a whole line is **dropped and counted**, never
+truncated - half a line is a parse error in the host and would look like a
+protocol fault rather than congestion.
+
+Input is read a byte at a time (which is how the CDC driver reports it) and
+assembled into a line; an over-long line is discarded rather than acted on in
+part.
+
+## BLE-DD-TIMESTAMP — `firmware/src/timestamp.c`
+
+A 1 MHz TIMER (TIMER3; TIMER0 belongs to the SoftDevice) captured on demand and
+extended to 64 bits by counting overflows in its interrupt.
+
+Not `app_timer`: that counts 32.768 kHz RTC ticks, resolving 30.5 us, which is
+the same order as the jitter being measured. The 32-bit hardware counter wraps
+every 71.6 minutes at 1 MHz, so the overflow count is re-read after the capture
+and the capture repeated if it changed - a read that straddles an overflow
+cannot return a stale figure, and at most one retry is ever needed.
+
+## BLE-DD-SCANNER — `firmware/src/ble_scanner.c`
+
+Scanning, the sensor table and advertising-report timestamping.
+
+- The timestamp is taken **first**, before the payload is parsed: every
+  microsecond spent before it is added to the interval being measured.
+- Discovery and profiling share one scan; only the reporting differs. Profiling
+  filters to one address in the firmware, because forwarding every packet from a
+  busy room over USB is what causes the drops that would then be misread as the
+  sensor missing an advertising event (AD-18).
+- A 100 ms window inside a 100 ms interval is a continuous scan: a duty-cycled
+  scan would add its own gaps to the sensor's, and afterwards the two would be
+  indistinguishable.
+- The sensor table is bounded and does not evict: once full, a new address is
+  ignored rather than displacing one the host may already have selected.
+- Addresses are formatted most significant octet first, as they are written,
+  while the stack stores them the other way round.
+
+## BLE-DD-NUS — `firmware/src/nus_client.c`
+
+Nordic's UART Service as a command/response channel. Connects, discovers,
+subscribes, and provides write and timed-command operations.
+
+The round trip is timestamped at both ends in the dongle: when the write is
+handed to the SoftDevice, and when the notification arrives. The write timestamp
+is the instant the request left the application, not the antenna - the
+difference is bounded by the connection interval, which is reported alongside so
+the figure can be read correctly. USB is serviced while waiting for a reply, so
+a five second timeout does not cost the host five seconds of advertising events.
+
+## BLE-DD-CMD — `firmware/src/cmd_parser.c`
+
+The dispatcher: one line in, exactly one `ok` or `err` line out.
+
+Argument bounds come from `PROTO_COMMAND_TABLE`, so the checks and the
+documented command set cannot drift. Handlers are attached **by name** rather
+than by position, and `cmd_parser_init` verifies at start-up that every
+documented command has one - a command documented with no implementation would
+otherwise answer "unknown command" at a bench. A timeout waiting for a sensor is
+reported as an error, not as a round trip of the timeout's length, which would
+enter the log as a measurement.
+
+## BLE-DD-MAIN — `firmware/src/main.c`
+
+Start-up and the main loop: clock, timestamp, USB, SoftDevice, GATT, discovery,
+scanner, UART client, then `cdc_acm_process()` and one command line per pass.
+The BLE observer dispatches to the scanner first (so reports are timestamped
+before anything else looks at them), then the UART client, then discovery.
+
+## BLE-DD-BUILD — `firmware/ses/`, `firmware/config/sdk_config.h`, `firmware/scripts/`
+
+A SEGGER Embedded Studio project with `SDK_ROOT` as its one external macro, a
+flash placement putting the application above the S140 SoftDevice at 0x27000,
+and a minimal `sdk_config.h` enabling only what is used - SDK components test
+their own switch with `NRF_MODULE_ENABLED`, which reads an undefined symbol as
+disabled, so a component enabled without its settings fails to compile and names
+the missing symbol. `package_dfu.sh`/`.bat` wrap the built hex for the dongle's
+factory bootloader with `nrfutil`, since a PCA10059 has no onboard debugger.
 
 ---
 

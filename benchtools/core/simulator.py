@@ -27,6 +27,7 @@ from typing import List, Optional, Protocol, Tuple, runtime_checkable
 
 __all__ = [
     "Responder",
+    "Streamer",
     "SimulatedInstrument",
     "scpi_slug",
     "format_number",
@@ -59,6 +60,31 @@ class Responder(Protocol):
 
     def respond(self, message: bytes) -> Optional[bytes]:
         """Return the raw reply to *message*, or ``None`` if there is none."""
+        ...
+
+
+class Streamer(Protocol):
+    """A responder that also speaks when it is not spoken to.
+
+    Some instruments push data without being asked: a BLE dongle reporting
+    advertising packets, a protocol analyser reporting frames, a logger sending
+    a reading every second. A simulator for one of those implements ``poll()``
+    beside ``respond()``, and
+    :class:`~benchtools.core.transport.mock.MockTransport` calls it when the
+    driver reads with no reply outstanding.
+
+    ``poll()`` must not block: it returns whatever the instrument has to say
+    now, or ``b""``. A simulator whose events are on a virtual clock advances
+    that clock here, which is what lets a test capture a minute of advertising
+    in a few milliseconds and still assert on exact intervals.
+    """
+
+    def respond(self, message: bytes) -> Optional[bytes]:
+        """Return the raw reply to *message*, or ``None`` if there is none."""
+        ...
+
+    def poll(self) -> bytes:
+        """Return unsolicited output, or ``b""`` if there is none."""
         ...
 
 
