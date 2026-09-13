@@ -84,6 +84,7 @@
 
     <folder Name="nRF_Drivers">
       <file file_name="$(SDK_ROOT)/integration/nrfx/legacy/nrf_drv_clock.c" />
+      <file file_name="$(SDK_ROOT)/integration/nrfx/legacy/nrf_drv_power.c" />
       <file file_name="$(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_clock.c" />
       <file file_name="$(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_power.c" />
       <file file_name="$(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_systick.c" />
