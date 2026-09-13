@@ -100,11 +100,19 @@
 #define APP_USBD_STRING_ID_PRODUCT		2
 #define APP_USBD_STRINGS_PRODUCT		APP_USBD_STRING_DESC("BenchTools BLE dongle")
 /* The serial number is generated at run time from the device's FICR by
- * app_usbd_serial_num.c, so its descriptor is that module's array. */
+ * app_usbd_serial_num.c, so its descriptor is that module's array. Note the
+ * singular spelling: app_usbd_string_desc.c declares the extern as
+ * `extern uint16_t APP_USBD_STRING_SERIAL[]` and indexes the table with it,
+ * while every other string uses the plural APP_USBD_STRINGS_. */
 #define APP_USBD_STRING_ID_SERIAL		3
 #define APP_USBD_STRINGS_SERIAL_EXTERN		1
-#define APP_USBD_STRINGS_SERIAL			g_extern_serial_number
+#define APP_USBD_STRING_SERIAL			g_extern_serial_number
 #define APP_USBD_STRING_ID_CONFIGURATION	4
+/* The languages the string descriptors are offered in. 0x0409 is the USB
+ * LANGID for English (United States), which is what
+ * APP_USBD_LANG_AND_SUBLANG(ENGLISH, ENGLISH_US) evaluates to; the number is
+ * used directly so this does not depend on two SDK enumeration spellings. */
+#define APP_USBD_STRINGS_LANGIDS		0x0409
 #define APP_USBD_STRINGS_CONFIGURATION		APP_USBD_STRING_DESC("Default configuration")
 /* APP_USBD_STRINGS_USER is an X-macro list, not a descriptor: defining it as
  * one breaks app_usbd_string_desc.h. No user strings are needed. */
