@@ -13,12 +13,12 @@
 
 | Metric | Result |
 |---|---|
-| Tests executed | **1 731** |
-| Passed | **1 731** |
+| Tests executed | **1 794** |
+| Passed | **1 794** |
 | Failed | 0 |
 | Errors | 0 |
 | Skipped | 0 |
-| Statement coverage | **94%** (9 895 statements, 566 missed) |
+| Statement coverage | **94%** (10 075 statements, 570 missed) |
 | Execution time | 43.6 s with coverage instrumentation, 30.6 s without |
 | Runtime | CPython 3.11.15, Linux |
 | Framework | pytest 9.1.1, pytest-cov |
@@ -34,7 +34,7 @@ installed for this run, so their tests executed.
 
 The suite was also run with all extras blocked - `matplotlib`, `pyvisa`,
 `pyyaml` and `pyserial` - to confirm the claim that the package works
-without them: **1 678 passed, 39 skipped, 0 failed**. They were blocked by a
+without them: **1 729 passed, 40 skipped, 0 failed**. They were blocked by a
 `sitecustomize` that raises `ModuleNotFoundError` for those four names, which
 is closer to a machine that never had them than uninstalling is. (The totals
 differ from the figure above because the runner command-line module is skipped as a whole
@@ -59,7 +59,7 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | Test group | File | Tests | Result |
 |---|---|---|---|
 | SWE4-UT-SCOPE | `instruments/tek3014b/test_scope.py` | 87 | Pass |
-| SWE4-UT-JLINK | `instruments/jlink/test_probe.py` | 70 | Pass |
+| SWE4-UT-JLINK | `instruments/jlink/test_probe.py` | 78 | Pass |
 | SWE4-UT-S2LP | `instruments/s2lp/test_s2lp.py` | 75 | Pass |
 | SWE4-UT-S2LPREG | `instruments/s2lp/test_registers.py` | 34 | Pass |
 | SWE4-UT-S2LPPROTO | `instruments/s2lp/test_protocol.py` | 31 | Pass |
@@ -101,7 +101,7 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | SWE4-UT-ENGINE | `runner/test_runner.py` | 33 | Pass |
 | SWE4-UT-VALIDATE | `core/test_validation.py` | 23 | Pass |
 | SWE4-UT-FACTORY | `core/transport/test_factory.py` | 23 | Pass |
-| SWE4-UT-LIMITS | `runner/test_limits.py` | 23 | Pass |
+| SWE4-UT-LIMITS | `runner/test_limits.py` | 37 | Pass |
 | SWE4-UT-SIMBASE | `core/test_simulator.py` | 22 | Pass |
 | SWE4-UT-VXI11 | `core/transport/test_vxi11.py` | 22 | Pass |
 | SWE4-UT-CLI | `instruments/tek3014b/test_cli.py` | 20 | Pass |
@@ -110,10 +110,12 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | SWE4-UT-ENV | `instruments/tek3014b/test_simulator.py` | 19 | Pass |
 | SWE4-UT-PLOT | `analysis/test_plotting.py` | 15 | Pass |
 | SWE4-UT-RUNCLI | `runner/test_cli.py` | 15 | Pass |
-| SWE4-UT-RESOLVE | `runner/test_resolve.py` | 13 | Pass |
+| SWE4-UT-RESOLVE | `runner/test_resolve.py` | 27 | Pass |
+| SWE4-UT-BRINGUP | `runner/test_sensor_bringup.py` | 12 | Pass |
+| SWE4-UT-COREFW | `core/test_firmware.py` | 13 | Pass |
 | SWE4-UT-SOCKET | `core/transport/test_socket.py` | 12 | Pass |
 | SWE4-UT-VISA | `core/transport/test_visa.py` | 6 | Pass |
-| **Total** | | **1 731** | **Pass** |
+| **Total** | | **1 794** | **Pass** |
 
 ## 3. Coverage detail
 
@@ -133,6 +135,7 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | PSU | `instruments/gpd3303d/simulator.py` | 140 | 7 | 95% |
 | PSU | `instruments/gpd3303d/cli.py` | 113 | 6 | 95% |
 | CORE | `core/enums.py` | 20 | 0 | 100% |
+| CORE | `core/firmware.py` | 80 | 3 | 96% |
 | CORE | `core/errors.py` | 20 | 0 | 100% |
 | CORE | `core/transport/constants.py` | 8 | 0 | 100% |
 | CORE | `core/validation.py` | 33 | 0 | 100% |
@@ -173,14 +176,14 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | BLE | `instruments/nordic_dongle/dongle.py` | 285 | 13 | 95% |
 | BLE | `instruments/nordic_dongle/session.py` | 165 | 9 | 95% |
 | BLE | `instruments/nordic_dongle/simulator.py` | 276 | 17 | 94% |
-| RUN | `runner/limits.py` | 81 | 0 | 100% |
+| RUN | `runner/limits.py` | 98 | 1 | 99% |
 | RUN | `runner/results.py` | 106 | 0 | 100% |
 | RUN | `runner/bench.py` | 134 | 2 | 99% |
 | RUN | `runner/report.py` | 138 | 1 | 99% |
-| RUN | `runner/spec.py` | 139 | 2 | 99% |
+| RUN | `runner/spec.py` | 188 | 7 | 96% |
 | RUN | `runner/cli.py` | 94 | 3 | 97% |
 | RUN | `runner/runner.py` | 139 | 5 | 96% |
-| RUN | `runner/resolve.py` | 37 | 2 | 95% |
+| RUN | `runner/resolve.py` | 92 | 0 | 100% |
 | — | `cli.py` | 42 | 0 | 100% |
 | — | `__main__.py` | 4 | 4 | 0% |
 | **TOTAL** | | **7 604** | **444** | **94%** |
@@ -768,7 +771,49 @@ driver could only repeat what it had been told about it.
 | A missing bench instrument is reported before anything executes | Pass |
 | A simulated run is disclosed in every report | Pass |
 | Exit status 0 / 1 / 2 for pass / problem / usage | Pass |
-| The shipped `specs/clock_skew.yaml` and both `benches/*.yaml` load and run | Pass |
+| Every shipped `specs/*.yaml` runs against `benches/simulated_bench.yaml`: 36 cases, all pass | Pass |
+| A value saved by one step is usable by a later one, as an argument and as a limit | Pass |
+| A reference to a name nothing has saved is an error, naming what has been saved | Pass |
+| A limit stated as text compares as text, and the report shows the text | Pass |
+
+### 11.1 A chained test, run end to end
+
+`specs/sensor_bringup.yaml` is the first test of a bench session and the first
+shipped specification that is a **chain** rather than a list: what one step
+establishes decides what the next one does.
+
+| Step | Establishes | Used by |
+|---|---|---|
+| `psu.configure_channel`, `psu.read_channel` | the board is powered at 3.2 V and not in current limit | everything after it |
+| `dongle.ensure_firmware` | the instrument that will measure the board is the build it should be | the radio steps |
+| `probe.flash` | the image is on the part and verifies | — |
+| `probe.image_build` | what the build system recorded about that image | the version comparison |
+| `probe.read_word` at UICR `CUSTOMER[0]` | which board this is | the scan and the selection |
+| `probe.reset(halt=false)`, `probe.rtt_lines_within` | it started and is running | — |
+| `dongle.scan`, `select`, `open_link` | that board, found over the air **by its own identifier** | the command |
+| `dongle.command("rd version")` | what the running firmware says it is | compared with the manifest |
+
+Run on the simulated bench, all seven cases pass and the record is marked
+simulated. The run is not the interesting part, though: a specification that
+passes whatever the bench does reads as evidence and is worse than none. So each
+fact it claims to establish was broken in turn (`SWE4-UT-BRINGUP`):
+
+| Broken | Result |
+|---|---|
+| The build manifest says 9.9.9, the board says 1.4.2 | **FAIL** on `reported_version`, with both versions in the record - not an error |
+| The part's identifier reads 0xFFFFFFFF (never programmed) | **FAIL** where it is read, rather than three steps later as "no sensor found" |
+| The board is started and says nothing on RTT | **FAIL** on a count of zero lines, rather than a timeout raised as an error |
+
+The last two are the reason two of the steps are shaped as they are. Bounding
+the identifier (`min: 1`, `max: 0xFFFFFFFE`) puts the failure where the fault
+is. Counting RTT lines rather than waiting for a pattern makes a silent board a
+failed test rather than a broken bench, which is the distinction of RUN-FR-031
+applied to a liveness check.
+
+The manifests the simulated bench reads are fixtures, not build output, and
+three tests assert they say what the simulators say - otherwise a simulated run
+would fail for reasons that are about the fixture rather than about the
+specification.
 
 ## 12. Defects found, and their disposition
 
@@ -831,6 +876,8 @@ SDK to provide it transitively.
 | D-36 | The dongle's GATT queue was left at the SDK's default write size of 20 bytes while the host protocol sends commands up to `PROTO_MAX_PAYLOAD` (96). `nrf_ble_gq` refuses a longer write with `NRF_ERROR_DATA_SIZE` | **Major**, and invisible to every check that had been run: it compiles, links and passes the host-side tests, and fails only on the part, on any command over 20 bytes | **Closed** — `NRF_BLE_GQ_DATAPOOL_ELEMENT_SIZE` and `NRF_BLE_GQ_GATTC_WRITE_MAX_DATA_LEN` are taken from `protocol.h`, so the queue is sized from the protocol rather than alongside it | Structural: `sdk_config.h` includes `protocol.h`; the sizes cannot now disagree |
 | D-37 | The Makefile's source list had never been exercised against a real SDK tree. It named `nrfx_power_clock.c`, which does not exist in nrfx 2.x, and omitted `nrf_section_iter.c`, `nrf_drv_power.c` and `utf.c`, which were on the include path but never compiled. Nordic's `Makefile.common` only **warns** about a source it cannot find | **Major**: the firmware could not be built as delivered — the first three faults are compile or link failures, and the warning meant the cause was in the middle of the output rather than at the end | **Closed** — the source list is corrected, and the Makefile now stops with the list of names it cannot find and what to check, rather than warning | The `firmware` workflow: a missing source is a hard error, so a recurrence cannot reach a green build |
 | D-38 | `sdk_config.h`, written by hand, was missing seven keys the SDK's own modules expand into static assertions (`NRF_SORTLIST_CONFIG_LOG_ENABLED` and `_LOG_LEVEL`, `POWER_CONFIG_SOC_OBSERVER_PRIO`, `POWER_CONFIG_STATE_OBSERVER_PRIO`, the `APP_USBD_STRING_ID_*` and string descriptors, `NRF_SDH_BLE_GAP_DATA_LENGTH`) | **Major** as a build fault, and awkward to diagnose: the error surfaces in an unrelated SDK file, and `nrf_sortlist.h` needs its logging key present even with logging off because it expands the name through a **ternary in C code**, not through the preprocessor | **Closed** — every key is present, each with the comment saying which module asserts on it and why | The `firmware` workflow, which compiles every unit against the real SDK headers |
+
+| D-39 | The simulated target modelled **reset-and-run as reset-and-halt**: `monitor reset 0` left the core halted and silent. Writing the bring-up specification is what found it - the board was started and never said anything | **Major in the model** (the class of D-31 and D-35): the simulator contradicted the thing it stands for, so "start the firmware and check it is running" could not be demonstrated, and any test of it would have been measuring the simulator | **Closed** — a reset with the run argument resets and then runs, emitting whatever the firmware emits along its flow, exactly as a resume does | `test_a_running_target_produces_lines`, `test_a_halted_target_produces_none`, `TestItPasses` |
 
 No open defects.
 
@@ -900,7 +947,7 @@ Notes on process effectiveness:
 
 | ID | Criterion | Result |
 |---|---|---|
-| PC-1 | All tests pass | **Pass** — 1 731/1 731 |
+| PC-1 | All tests pass | **Pass** — 1 794/1 794 |
 | PC-2 | Statement coverage ≥ 90% | **Pass** — 94% |
 | PC-3 | Every requirement covered | **Pass** — see BENCHTOOLS-TRACE-001 |
 | PC-4 | Injected skews recovered to < 0.1 sample interval | **Pass** — worst case 0.055 |
@@ -950,7 +997,7 @@ discharged without physical hardware:
 | `benchtools` sub-commands `run`, `scope`, `drivers`, `backends` | All run |
 | `python -m benchtools` | Runs |
 | `benchtools` console script after `pip install -e .` | Installs and runs |
-| Full suite with `matplotlib`, `pyvisa`, `pyyaml` and `pyserial` blocked | 1 678 passed, 39 skipped, 0 failed |
+| Full suite with `matplotlib`, `pyvisa`, `pyyaml` and `pyserial` blocked | 1 729 passed, 40 skipped, 0 failed |
 | `firmware/nordic_dongle/scripts/compile_check.sh` in `canembed/canembed-arm` | All six firmware units compile, 0 warnings, apart from four listed SDK 17-only lines (§4.5) |
 | `ctest --test-dir build/firmware-tests` | 5 binaries, 131 cases, all pass in 0.01 s |
 | `make SDK_ROOT=…` against SDK 15.2 | Drives a real build to the compile stage; stops only on files SDK 15.2 places elsewhere or lacks, which is the expected result for an SDK 17 project |

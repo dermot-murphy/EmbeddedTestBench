@@ -79,6 +79,7 @@ instrument, and to be importable without importing any other element.
 | CORE-ARC-002 | `core.transport.Transport` | Abstract instrument link with buffered message framing built on three subclass primitives. | `write`, `read_message`, `read_exactly`, `read_raw`, `query`, `clear` |
 | CORE-ARC-003 | Concrete transports and the factory | Four interchangeable transports selected by resource string, held in a registry so a new link type registers itself. | `open_transport`, `parse_resource`, `register_backend` |
 | CORE-ARC-004 | `core.simulator.SimulatedInstrument` | Shared simulator harness: dispatch, compound messages, 488.2 queries, event queue, binary replies. `Responder` is the protocol the mock transport accepts. | `respond`, `handle`, `_cmd_*`, `push_event` |
+| CORE-ARC-007 | `core.firmware` | What a build system recorded about an image, read from the manifest beside it. Here rather than in an instrument because two need it and neither may import the other (AD-22): the dongle reads one to decide whether to refresh itself, the debug probe to say what it just flashed. | `FirmwareBuild`, `MANIFEST_NAME`, `parse_build_date` |
 | CORE-ARC-005 | `core.validation`, `core.enums`, `core.errors` | Range and channel validation, the SCPI enumeration base, and the single exception hierarchy. | `validate_range`, `ScpiEnum`, `BenchToolsError` |
 | ANA-ARC-001 | `analysis.waveform` | Data model: decode digitiser codes, scale to seconds and volts, detect clipping, export CSV. | `Waveform`, `WaveformPreamble` |
 | ANA-ARC-002 | `analysis.measure`, `analysis.plotting` | Pure analysis over `Waveform` objects, and host-side rendering. | `measure_channel_spread`, `measure_period`, `plot_waveforms` |
@@ -436,6 +437,37 @@ immediately and legibly on a supply someone left in series, instead of
 configuring a rail that was never configured. The cost is one `STATUS?` query
 before each write to the slaved channel, which is 50 ms on a paced link, and
 only on that channel.
+
+### AD-22 — A specification carries values between steps rather than repeating them
+
+**Context.** The first test of a bench session is a chain: power the board,
+program it, read the identifier the part was programmed with at manufacture,
+find that board over the air by it, and confirm it reports the version that was
+just flashed onto it. Until now a step's result could be saved and nothing could
+read it, so every one of those facts would have had to be written into the
+specification.
+
+**Decision.** `save:` keeps a step's result; `{from: <name>}` takes it in any
+later step, as an argument or as a limit, with an optional `format` template for
+when the thing on the wire is a rendering of the value rather than the value
+(RUN-FR-016). Limits gained exact comparison against text, because a version and
+a device name are not numbers (RUN-FR-024), and the reader of a build manifest
+moved into the core so the debug probe can say what it flashed without importing
+the dongle (CORE-FR-050, CORE-DD-FIRMWARE).
+
+**Alternatives.** Writing the identifier and the version into the specification
+was the alternative, and it fails in a specific way: the test asserts its own
+input. It passes against the wrong board, because the identifier it looks for is
+the one it was told to look for; and it goes stale silently the day someone
+rebuilds the firmware. Letting a specification carry arbitrary expressions was
+rejected for the reason specifications are data at all (AD-08): a reviewer must
+be able to read one without reading code.
+
+**Consequences.** A chained test states relationships between facts the bench
+establishes, rather than restating constants. The cost is that a reference
+cannot be checked when the specification is loaded - what `build.version` refers
+to does not exist until that step has run - so an unresolvable reference is a
+run-time error, and it names every value that *has* been saved.
 
 ## 5. Dynamic behaviour — a runner invocation
 

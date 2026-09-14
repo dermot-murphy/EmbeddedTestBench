@@ -71,6 +71,7 @@ docstring, so the link is carried in the artefact and not only in this table.
 | CORE-FR-030 | ARC-005 | CORE-DD-ENUMS | `core/enums.py` | `TestScpiEnum` (6) |
 | CORE-FR-031 | ARC-005 | CORE-DD-VALIDATE | `core/validation.py` | `TestValidateRange` (6), `TestValidateChannels` (6), `TestValidateChoice` (2) |
 | CORE-FR-040 | ARC-004 | CORE-DD-SIM | `core/simulator.py` | `TestBaseSimulator` (12), `TestSubclassing` (3) |
+| CORE-FR-050 | ARC-004 | CORE-DD-FIRMWARE | `FirmwareBuild.from_path`, `load`, `built_at`; the `hint` each caller supplies | `TestReading` (6), `TestDiagnostics` (4), `TestBuildDates` (3), `test_a_missing_manifest_says_how_to_produce_one` |
 | CORE-FR-041 | ARC-004 | CORE-DD-SIM | `_unknown_command` | `test_unknown_header_is_recorded_not_ignored`, `test_unknown_query_still_answers` |
 
 ### CORE non-functional
@@ -158,6 +159,7 @@ docstring, so the link is carried in the artefact and not only in this table.
 | JLINK-FR-021 | JLINK-ARC-001 | JLINK-DD-PROBE | `JLinkProbe.verify`, `SectionVerdict` | `test_verify_alone_reports_mismatched_sections`, `test_verify_result_serialises` |
 | JLINK-FR-022 | JLINK-ARC-001 | JLINK-DD-PROBE | `VerifyResult.matched` | `test_verification_failure_raises`, `test_an_empty_comparison_is_not_a_pass`, `test_flash_without_an_image_is_rejected` |
 | JLINK-FR-023 | JLINK-ARC-001 | JLINK-DD-PROBE | `JLinkProbe.erase` | `test_monitor_passthrough` (erase issues `monitor` commands), `TestExecutionModel` |
+| JLINK-FR-024 | JLINK-ARC-001 | JLINK-DD-PROBE | `JLinkProbe.image_build`, over CORE-DD-FIRMWARE | `TestWhatWasFlashed` (5), `test_the_reported_version_is_recorded_as_text` |
 | JLINK-FR-030 | JLINK-ARC-001 | JLINK-DD-PROBE | `reset`, `run`, `halt`, `step` | `test_reset_halts_by_default`, `test_reset_can_leave_it_running`, `test_step`, `test_run_to_a_location` |
 | JLINK-FR-031 | JLINK-ARC-001 | JLINK-DD-PROBE | `is_halted`, `program_counter`, `registers` | `test_program_counter_and_registers`, `test_halt_reports_where` |
 | JLINK-FR-032 | JLINK-ARC-001 | JLINK-DD-PROBE, JLINK-DD-CONST | `wait_for_halt`, `HaltReason` | `test_never_reaching_a_breakpoint_times_out`, `test_unknown_halt_reason_does_not_break_the_driver` |
@@ -173,6 +175,7 @@ docstring, so the link is carried in the artefact and not only in this table.
 | JLINK-FR-051 | JLINK-ARC-001 | JLINK-DD-RTT | `read_lines`, `read_line`, `pending_count` | `test_reads_consume`, `test_read_line_waits`, `test_read_line_returns_none_on_timeout`, `test_pending_count`, `test_a_fragmented_line_is_assembled_by_the_client` |
 | JLINK-FR-052 | JLINK-ARC-001 | JLINK-DD-RTT | `expect`, `RttTimeout` | `test_expect_finds_a_pattern`, `test_expect_timeout_reports_what_arrived`, `test_rtt_expect_through_the_probe` |
 | JLINK-FR-053 | JLINK-ARC-001 | JLINK-DD-RTT | `command` | `test_command_and_reply`, `test_command_discards_older_lines` |
+| JLINK-FR-054 | JLINK-ARC-001 | JLINK-DD-PROBE | `JLinkProbe.rtt_lines_within` | `TestIsItRunning` (3), `test_a_board_that_says_nothing_on_rtt` |
 | JLINK-FR-055 | JLINK-ARC-001 | JLINK-DD-RTT | `start(log_path=…)`, `_history` | `test_log_file_is_written_and_flushed`, `test_log_path_is_reported`, `test_history_survives_consuming_reads`, `test_probe_rtt_log` |
 | JLINK-FR-060 | JLINK-ARC-001 | JLINK-DD-TIMING, JLINK-DD-PROBE | `measure_time_between`, `TimingResult` | `test_recovers_the_exact_interval`, `test_result_records_the_method_and_clock`, `test_method_accepts_a_string` |
 | JLINK-FR-061 | JLINK-ARC-001 | JLINK-DD-PROBE, JLINK-DD-CONST | `enable_cycle_counter`, `read_cycle_counter`, `_counter_delta` | `TestCycleCounter` (6), notably `test_dwt_is_enabled_first`, `test_counter_wrap_is_handled` |
@@ -353,10 +356,12 @@ where the firmware implements the requirement.
 | RUN-FR-013 | ARC-001 | RUN-DD-RESOLVE | `runner/resolve.py` | `TestResolution` (9), `TestErrors` (4) |
 | RUN-FR-014 | ARC-001 | RUN-DD-SPEC | validation in `from_mapping` | `test_malformed_specifications_are_reported` (7), `TestExpectationParsing` (6) |
 | RUN-FR-015 | ARC-001 | RUN-DD-SPEC | `TestCase.skip` | `test_skip_is_carried`, `test_skipped_test_is_not_executed` |
+| RUN-FR-016 | ARC-001 | RUN-DD-RESOLVE, RUN-DD-SPEC | `Reference`, `parse_references`, `resolve_references`, `Expectation.limit_against`; `BenchRunner.run_step` resolves arguments | `TestReferences` (9), `TestLimitsTakenFromAnEarlierStep` (6), `SWE4-UT-BRINGUP` (12) |
 | RUN-FR-020 | ARC-001 | RUN-DD-LIMITS | `Limit` | `TestChecking.test_maximum/minimum/two_sided` |
 | RUN-FR-021 | ARC-001 | RUN-DD-LIMITS | `Limit.window` | `test_absolute_tolerance`, `test_percentage_tolerance`, `test_exact_equality` |
 | RUN-FR-022 | ARC-001 | RUN-DD-SPEC | `Expectation.scale` | `test_measured_value_is_scaled_for_the_limit` |
 | RUN-FR-023 | ARC-001 | RUN-DD-LIMITS | `Limit.text`, `LimitOutcome.reason` | `TestRendering` (6), `test_out_of_limit_is_a_failure_not_an_error` |
+| RUN-FR-024 | ARC-001 | RUN-DD-LIMITS | `TextLimit`, `Expectation._limit_for`, `_format_value` | `TestTextLimits` (8), `test_the_reported_version_is_recorded_as_text` |
 | RUN-FR-030 | ARC-001 | RUN-DD-RUNNER, -RESULTS | `runner/runner.py`, `results.py` | `TestHappyPath` (7) |
 | RUN-FR-031 | ARC-001 | RUN-DD-RUNNER | error vs failure classification | `TestFailureVersusError` (9) |
 | RUN-FR-032 | ARC-001 | RUN-DD-RUNNER | setup abort, teardown `finally` | `test_setup_failure_aborts_the_suite`, `test_teardown_runs_even_after_a_failure` |
@@ -384,6 +389,7 @@ where the firmware implements the requirement.
 | CORE-ARC-003 | CORE-DD-VXI11, -SOCKET, -VISA, -PROCESS, -SERIAL, -FACTORY | `core/transport/{vxi11,socket_raw,visa_backend,process,serial_port,factory,constants}.py` |
 | CORE-ARC-004 | CORE-DD-SIM, CORE-DD-MOCK | `core/simulator.py`, `core/transport/mock.py` |
 | CORE-ARC-005 | CORE-DD-ENUMS, -VALIDATE, -ERR | `core/{enums,validation,errors}.py` |
+| CORE-ARC-007 | CORE-DD-FIRMWARE | `core/firmware.py` |
 | ANA-ARC-001 | ANA-DD-WAVEFORM | `analysis/waveform.py` |
 | ANA-ARC-002 | ANA-DD-MEASURE, ANA-DD-PLOT | `analysis/{measure,plotting}.py` |
 | INST-ARC-001 | INST-DD-GENERIC | `instruments/generic.py` |
@@ -404,7 +410,7 @@ where the firmware implements the requirement.
 | Source modules with no design unit | **None.** Every module names its design unit in its docstring - firmware sources included, checked by `test_every_source_declares_its_trace` in `SWE4-UT-BLEFW`; `__main__.py` is covered by RUN-DD-CLI. |
 | Design units with no source | **None.** |
 | Stakeholder requirements not decomposed | **None of those in scope.** STK-01 to STK-11 and STK-14 to STK-17 trace downward; STK-06 additionally produces BENCHTOOLS-VISA-001 as its work product. STK-12 is partly addressed (AD-15 constrains the driver boundary for it) and the translator itself is deferred: CON-06, OPEN-04. STK-13 is decomposed into `PSU-` and verified; STK-19 and STK-20 into `S2LP-` and AD-20. STK-18 remains future work with no requirements in this revision: CON-03, OPEN-03. |
-| Architectural decisions without a verifying test | **None.** AD-01 → `test_full_driver_over_the_socket`; AD-02 → `test_layering.py`; AD-03 → `TestDriverRegistry`; AD-04 → `TestFraming`; AD-05 → `test_payload_containing_a_hash_byte_is_not_re_parsed`; AD-06 → `TestChannelSpread`; AD-07 → `test_busy_is_polled_until_clear`; AD-08 → `TestSpecParsing`; AD-09 → `TestFailureVersusError`; AD-10 → `test_all_sim_resources_count_as_simulated`; AD-11 → `test_the_probe_is_an_instrument_but_not_scpi`, `test_scpi_instrument_is_an_instrument`; AD-12 → `SWE4-UT-GDBMI`, `SWE4-UT-GDBSESSION`, `test_connect_to_the_simulator`; AD-13 → `test_resource_parsing`, `test_a_remote_server_is_never_spawned`; AD-14 → `SWE4-UT-TIMING`, `test_a_short_interval_is_flagged_untrustworthy`; AD-15 → `test_serialises_for_a_report`, `test_shipped_specifications_are_valid`; AD-16 → `SWE4-UT-BLEFW`; AD-17 → `test_both_clocks_are_recorded`, `test_the_host_clock_resolves_a_millisecond`; AD-18 → `test_a_lossy_link_is_declared_rather_than_averaged`, `test_a_dropping_dongle_says_so`; AD-19 → `TestOutputSwitching` (11), notably `test_the_last_channel_off_opens_the_real_switch` and `test_setting_a_voltage_on_a_parked_channel_does_not_energise_it`; AD-20 → `SWE4-UT-S2LPPROTO` and `SWE4-UT-S2LPSESSION` verify the driver against ST's declared command set, and `test_a_polled_capture_reports_its_gaps` verifies the honesty the decision requires; AD-21 → `TestTracking` in `test_psu.py` (14), with `TestTracking` in `test_simulator.py` (10) establishing that the supply really does discard what the driver refuses to send. |
+| Architectural decisions without a verifying test | **None.** AD-01 → `test_full_driver_over_the_socket`; AD-02 → `test_layering.py`; AD-03 → `TestDriverRegistry`; AD-04 → `TestFraming`; AD-05 → `test_payload_containing_a_hash_byte_is_not_re_parsed`; AD-06 → `TestChannelSpread`; AD-07 → `test_busy_is_polled_until_clear`; AD-08 → `TestSpecParsing`; AD-09 → `TestFailureVersusError`; AD-10 → `test_all_sim_resources_count_as_simulated`; AD-11 → `test_the_probe_is_an_instrument_but_not_scpi`, `test_scpi_instrument_is_an_instrument`; AD-12 → `SWE4-UT-GDBMI`, `SWE4-UT-GDBSESSION`, `test_connect_to_the_simulator`; AD-13 → `test_resource_parsing`, `test_a_remote_server_is_never_spawned`; AD-14 → `SWE4-UT-TIMING`, `test_a_short_interval_is_flagged_untrustworthy`; AD-15 → `test_serialises_for_a_report`, `test_shipped_specifications_are_valid`; AD-16 → `SWE4-UT-BLEFW`; AD-17 → `test_both_clocks_are_recorded`, `test_the_host_clock_resolves_a_millisecond`; AD-18 → `test_a_lossy_link_is_declared_rather_than_averaged`, `test_a_dropping_dongle_says_so`; AD-19 → `TestOutputSwitching` (11), notably `test_the_last_channel_off_opens_the_real_switch` and `test_setting_a_voltage_on_a_parked_channel_does_not_energise_it`; AD-20 → `SWE4-UT-S2LPPROTO` and `SWE4-UT-S2LPSESSION` verify the driver against ST's declared command set, and `test_a_polled_capture_reports_its_gaps` verifies the honesty the decision requires; AD-21 → `TestTracking` in `test_psu.py` (14), with `TestTracking` in `test_simulator.py` (10) establishing that the supply really does discard what the driver refuses to send; AD-22 → `TestReferences` (9) and `TestLimitsTakenFromAnEarlierStep` (6) for the mechanism, and `SWE4-UT-BRINGUP` (12) for what it is for - the shipped chained specification, with each fact it establishes broken in turn to confirm it would fail. |
 
 ## 12. Open items
 

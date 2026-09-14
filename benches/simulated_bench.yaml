@@ -1,0 +1,63 @@
+# A bench of simulators, for exercising a specification with no hardware.
+#
+#     python -m benchtools run specs/sensor_bringup.yaml \
+#            --bench benches/simulated_bench.yaml
+#
+# Every resource is sim://, so the drivers talk to their own simulators. That
+# much `--simulate` would also give you - what it would not is the options
+# below, and they are what makes the bring-up specification runnable: it checks
+# firmware against a manifest, and a manifest is a file whether the instrument
+# is real or not.
+#
+# The manifests under benches/simulated/ are fixtures, not build output, and
+# they are asserted to agree with the simulators. See that directory's README.
+#
+# A report from this bench is marked simulated, and says so in every format it
+# writes - a simulated number that reads as a measurement is the one thing this
+# repository will not do.
+name: Simulated bench
+description: Every instrument replaced by its simulator, with manifests to match.
+
+# Every shipped specification runs against this bench:
+#     python -m benchtools run specs/*.yaml --bench benches/simulated_bench.yaml
+
+instruments:
+  psu:
+    driver: gpd3303d
+    resource: sim://
+    timeout: 5.0
+
+  probe:
+    driver: jlink
+    resource: sim://
+    timeout: 30.0
+    options:
+      device: nRF52840_xxAA
+      core_clock_hz: 64000000
+      # Where the sensor build's manifest is. The simulated part reports 1.4.2
+      # for "rd version", and this says the same, because the specification
+      # compares the two.
+      firmware: benches/simulated/sensor
+
+  # The other two shipped specifications use these, so `specs/*.yaml` against
+  # this bench runs everything rather than erroring on the aliases it lacks.
+  scope:
+    driver: tek3014b
+    resource: sim://
+    timeout: 15.0
+
+  s2lp:
+    driver: s2lp
+    resource: sim://
+    timeout: 5.0
+
+  dongle:
+    driver: ble-dongle
+    resource: sim://
+    timeout: 10.0
+    options:
+      firmware: benches/simulated/dongle
+      # The simulated dongle is already running this build, so "refresh if
+      # needed" needs nothing - which is the outcome to want here: flashing a
+      # simulator would be flashing nothing.
+      update_firmware: true

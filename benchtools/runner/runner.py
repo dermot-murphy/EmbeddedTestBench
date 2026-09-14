@@ -29,8 +29,8 @@ from typing import Any, Callable, Dict, List, Optional, Sequence
 
 from ..core.errors import BenchToolsError, SpecError, StepError
 from .bench import Bench, BenchConfig
-from .limits import Limit
-from .resolve import resolve_path
+from .limits import Limit, TextLimit
+from .resolve import resolve_path, resolve_references
 from .results import CaseRecord, MeasurementRecord, RunRecord, Status, StepRecord
 from .spec import Expectation, Step, TestSpec
 
@@ -143,31 +143,53 @@ class BenchRunner:
     # ------------------------------------------------------------------
     def _check_expectation(self, result: Any, expectation: Expectation) -> MeasurementRecord:
         """Extract one value from *result* and check it against its limit."""
+        limit_text = expectation.limit.text if expectation.limit else str(expectation.reference)
+
+        def failed_to_resolve(reason: str) -> MeasurementRecord:
+            return MeasurementRecord(
+                name=expectation.name,
+                value=None,
+                unit=expectation.display_unit,
+                limit=limit_text,
+                status=Status.ERROR,
+                reason=reason,
+            )
+
         try:
             raw = resolve_path(result, expectation.measure)
         except SpecError as exc:
+            return failed_to_resolve(str(exc))
+
+        # A limit may be a value an earlier step saved, so it is built here
+        # rather than when the specification was loaded.
+        try:
+            limit = expectation.limit_against(self._saved)
+        except SpecError as exc:
+            return failed_to_resolve(str(exc))
+        limit_text = limit.text
+
+        if isinstance(limit, TextLimit):
+            # Compared as text: no scaling, and bytes are decoded so a reply
+            # straight off a link compares against what the specification says.
+            if isinstance(raw, (bytes, bytearray)):
+                raw = raw.decode("utf-8", errors="replace")
+            outcome = limit.check(raw)
             return MeasurementRecord(
                 name=expectation.name,
-                value=None,
+                value=None if raw is None else str(raw).strip(),
                 unit=expectation.display_unit,
-                limit=expectation.limit.text,
-                status=Status.ERROR,
-                reason=str(exc),
+                limit=outcome.text,
+                status=Status.PASS if outcome.passed else Status.FAIL,
+                reason=outcome.reason,
             )
+
         try:
             numeric = float(raw)
         except (TypeError, ValueError):
-            return MeasurementRecord(
-                name=expectation.name,
-                value=None,
-                unit=expectation.display_unit,
-                limit=expectation.limit.text,
-                status=Status.ERROR,
-                reason="measured value %r is not a number" % (raw,),
-            )
+            return failed_to_resolve("measured value %r is not a number" % (raw,))
 
         scaled = numeric * expectation.scale
-        outcome = expectation.limit.check(scaled)
+        outcome = limit.check(scaled)
         return MeasurementRecord(
             name=expectation.name,
             value=scaled,
@@ -188,10 +210,14 @@ class BenchRunner:
         )
         try:
             method = self._resolve_action(step.action)
+            # Any argument may name a value an earlier step saved. Resolving
+            # here rather than at load time is the point: the value does not
+            # exist until that step has run.
+            arguments = resolve_references(step.arguments, self._saved)
             _LOG.info("step %s(%s)", step.action, ", ".join(
-                "%s=%r" % item for item in sorted(step.arguments.items())
+                "%s=%r" % item for item in sorted(arguments.items())
             ))
-            result = method(**step.arguments)
+            result = method(**arguments)
         except BenchToolsError as exc:
             record.status = Status.ERROR
             record.error = "%s: %s" % (type(exc).__name__, exc)

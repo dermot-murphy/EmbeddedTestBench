@@ -133,6 +133,12 @@ Extends §4.2 with the SCPI and IEEE 488.2 vocabulary.
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
+| CORE-FR-050 | A build's manifest - the version and build date its build system recorded beside the image - shall be readable by any element that needs it, and the diagnostic for a missing one shall name every path searched and take from the caller the sentence saying how that particular build produces one. | STK-07, STK-16 | Test |
+
+### 4.7 Simulation
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
 | CORE-FR-040 | A shared simulator harness shall provide SCPI message dispatch, compound-message splitting, the IEEE 488.2 mandated queries, an event queue and binary replies, so each instrument's simulator implements only its own behaviour. | STK-07 | Test |
 | CORE-FR-041 | An unrecognised command shall be recorded in the simulated event queue rather than ignored, so that a driver which misspells a command fails a test instead of passing silently. | STK-07 | Test |
 
@@ -251,6 +257,7 @@ it is commanded, and it yields measurements — so it implements the generic bas
 | JLINK-FR-021 | The driver shall verify the target's memory against the binary section by section, and shall report per-section verdicts, not merely an overall result. | STK-09 | Test |
 | JLINK-FR-022 | A verification mismatch shall raise, naming the sections that differ. A verification over an empty section list shall be reported as not matched, never as a pass. | STK-09 | Test |
 | JLINK-FR-023 | The driver shall erase the target's non-volatile memory. | STK-09 | Test |
+| JLINK-FR-024 | The driver shall report what the build system recorded about the image it programmed - the version and the build date - from the manifest beside that image, so a test can state the version it put on a part rather than repeating one into a specification where it would go stale. | STK-09, STK-16 | Test |
 
 ### 8.4 Execution control
 
@@ -281,6 +288,7 @@ it is commanded, and it yields measurements — so it implements the generic bas
 | JLINK-FR-051 | The driver shall read RTT as whole lines, retaining a partial line until its terminator arrives, and shall report how many lines are waiting. | STK-09 | Test |
 | JLINK-FR-052 | The driver shall wait for RTT output matching a regular expression with a bounded timeout, and on timeout shall report both the pattern sought and the text that did arrive. | STK-09 | Test |
 | JLINK-FR-053 | The driver shall send a command over RTT and return the matching response, so a firmware console is usable as a test interface. | STK-09, STK-10 | Test |
+| JLINK-FR-054 | The driver shall report how many RTT lines arrive within a bounded interval, so that "the target is running" is a measurement a limit can fail rather than a timeout that raises. A target that started and said nothing is a failed test, not a broken bench. | STK-09, STK-10 | Test |
 | JLINK-FR-055 | The driver shall log every RTT line to a file as it arrives, flushed per line so the log survives a target or host failure, and shall retain the complete history independently of the lines consumed by reads. | STK-09 | Test |
 
 ### 8.7 Timing between lines of code
@@ -582,6 +590,7 @@ timestamp. And the radio will accept a frequency the board cannot radiate.
 | RUN-FR-013 | A step shall name an instrument method and its arguments, and shall be able to address values inside the returned result by path. | STK-08 | Test |
 | RUN-FR-014 | A malformed specification shall be rejected with a message identifying what to fix. | STK-08 | Test |
 | RUN-FR-015 | A test shall be markable as skipped, with a reason. | STK-08 | Test |
+| RUN-FR-016 | A step shall be able to save its result under a name, and any later step shall be able to use that saved value - or a value addressed inside it - as an argument or as a limit, optionally rendered through a format template. A reference to a name nothing has saved shall be refused, naming what has been saved. Without this a chained test would have to write down what an earlier step established, which makes the test assert its own input. | STK-08, STK-16 | Test |
 
 ### 12.3 Limits
 
@@ -591,6 +600,7 @@ timestamp. And the radio will accept a frequency the board cannot radiate.
 | RUN-FR-021 | A limit shall support a nominal value with an absolute or percentage tolerance. | STK-08 | Test |
 | RUN-FR-022 | A measured value shall be scalable before the limit is checked, so a limit can be stated in convenient units. | STK-08 | Test |
 | RUN-FR-023 | A limit shall render as human-readable text for the report, and a failure shall state by how much the value missed. | STK-08 | Test |
+| RUN-FR-024 | A limit shall support exact comparison against text - a version, a device name - reported as the text itself rather than as a number. Matching shall be exact on the stripped value: a looser rule would pass 1.4.20 for 1.4.2, which is the failure such a limit exists to catch. | STK-08, STK-16 | Test |
 
 ### 12.4 Execution
 

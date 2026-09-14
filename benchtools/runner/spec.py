@@ -40,7 +40,7 @@ JSON is accepted with the same structure, so a specification can be written and
 loaded with no third-party package. YAML needs ``pyyaml``, which is an optional
 extra.
 
-Traces to: RUN-FR-010 .. RUN-FR-014, RUN-DD-SPEC.
+Traces to: RUN-FR-010 .. RUN-FR-016, RUN-DD-SPEC.
 """
 
 from __future__ import annotations
@@ -48,10 +48,11 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Union
 
 from ..core.errors import OptionalDependencyError, SpecError
-from .limits import Limit
+from .limits import Limit, TextLimit
+from .resolve import Reference, parse_references
 
 __all__ = ["Expectation", "Step", "TestCase", "TestSpec", "load_spec", "load_mapping"]
 
@@ -64,6 +65,16 @@ def _require_mapping(value, what: str) -> dict:
     if not isinstance(value, dict):
         raise SpecError("%s must be a mapping, got %s" % (what, type(value).__name__))
     return value
+
+
+def _optional_number(value, what: str) -> Optional[float]:
+    """A number, or None when the key was absent."""
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError) as exc:
+        raise SpecError("%s has a non-numeric tolerance %r" % (what, value)) from exc
 
 
 def _require_sequence(value, what: str) -> list:
@@ -87,10 +98,13 @@ class Expectation:
 
     name: str
     measure: str
-    limit: Limit
+    limit: Union[Limit, TextLimit, None]
     unit: str = ""
     scale: float = 1.0
     display_unit: str = ""
+    reference: Optional[Reference] = None
+    tolerance: Optional[float] = None
+    tolerance_percent: Optional[float] = None
 
     @classmethod
     def from_mapping(cls, data, index: int) -> "Expectation":
@@ -102,6 +116,22 @@ class Expectation:
             raise SpecError(
                 "expectation %r declares no limit; add min, max or equals" % name
             )
+
+        # A limit may name a value saved by an earlier step rather than state
+        # one. It can only be built when that step has run, so the expectation
+        # carries the reference and the runner resolves it.
+        reference = None
+        for key in ("equals", "nominal"):
+            if Reference.is_reference(limit_source.get(key)):
+                reference = Reference.from_mapping(limit_source.pop(key))
+                break
+        if reference is not None and any(
+            key in limit_source for key in ("minimum", "maximum", "min", "max")
+        ):
+            raise SpecError(
+                "expectation %r takes a value from an earlier step and also "
+                "declares a bound; use one or the other" % name
+            )
         try:
             scale = float(data.get("scale", 1.0))
         except (TypeError, ValueError) as exc:
@@ -109,13 +139,75 @@ class Expectation:
         if scale == 0.0:
             raise SpecError("expectation %r has a scale of zero" % name)
         unit = str(data.get("unit", ""))
+        tolerance = tolerance_percent = None
+        if reference is not None:
+            tolerance = _optional_number(limit_source.pop("tolerance", None), name)
+            tolerance_percent = _optional_number(
+                limit_source.pop("tolerance_percent", None), name
+            )
+            if limit_source:
+                raise SpecError(
+                    "expectation %r takes its value from an earlier step, so "
+                    "%s has nothing to bound"
+                    % (name, ", ".join(sorted(limit_source)))
+                )
+            limit = None
+        else:
+            limit = cls._limit_for(name, limit_source)
         return cls(
             name=name,
             measure=measure,
-            limit=Limit.from_mapping(limit_source),
+            limit=limit,
             unit=unit,
             scale=scale,
             display_unit=str(data.get("display_unit", "")) or unit,
+            reference=reference,
+            tolerance=tolerance,
+            tolerance_percent=tolerance_percent,
+        )
+
+    @staticmethod
+    def _limit_for(name, source):
+        """The limit this expectation checks against."""
+        wanted = source.get("equals", source.get("nominal"))
+        if isinstance(wanted, str):
+            if len(source) > 1:
+                raise SpecError(
+                    "expectation %r compares against text, so it cannot also "
+                    "declare a tolerance or a bound" % name
+                )
+            return TextLimit(wanted.strip())
+        return Limit.from_mapping(source)
+
+    def limit_against(self, saved) -> Union[Limit, TextLimit]:
+        """The limit to apply, with any reference to an earlier step resolved.
+
+        :raises SpecError: if the reference cannot be resolved, or resolves to
+            text where a tolerance was declared.
+        """
+        if self.reference is None:
+            return self.limit
+        wanted = self.reference.resolve(saved)
+        if isinstance(wanted, (bytes, bytearray)):
+            wanted = wanted.decode("utf-8", errors="replace")
+        if isinstance(wanted, str):
+            if self.tolerance is not None or self.tolerance_percent is not None:
+                raise SpecError(
+                    "expectation %r declares a tolerance, but %s is the text "
+                    "%r" % (self.name, self.reference.path, wanted)
+                )
+            return TextLimit(wanted.strip())
+        try:
+            numeric = float(wanted)
+        except (TypeError, ValueError) as exc:
+            raise SpecError(
+                "expectation %r cannot compare against %r taken from %s"
+                % (self.name, wanted, self.reference.path)
+            ) from exc
+        return Limit(
+            equals=numeric,
+            tolerance=self.tolerance,
+            tolerance_percent=self.tolerance_percent,
         )
 
 
@@ -153,7 +245,7 @@ class Step:
         )
         return cls(
             action=str(action),
-            arguments=dict(arguments),
+            arguments=parse_references(dict(arguments)),
             expectations=expectations,
             save=data.get("save"),
             description=str(data.get("description", "")),

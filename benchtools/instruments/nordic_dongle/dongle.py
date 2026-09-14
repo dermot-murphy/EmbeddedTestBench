@@ -36,9 +36,11 @@ from ...core.instrument import Instrument, InstrumentIdentity
 from ...core.transport.base import Transport
 from ...core.transport.factory import open_transport
 from .firmware import (
+    PACKAGE_HINT,
     FirmwareBuild,
     FirmwareStatus,
     FirmwareUpdateError,
+    load_build,
     parse_build_date,
     run_nrfutil,
 )
@@ -187,7 +189,7 @@ class NordicDongle(Instrument):
             **({"baudrate": baudrate} if target.startswith("serial://") else {}),
         )
         instrument = cls(transport, timeout=timeout, limits=limits)
-        instrument._expected_firmware = FirmwareBuild.load(firmware)
+        instrument._expected_firmware = load_build(firmware)
         # A dongle too old to talk to is still a dongle that can be updated.
         instrument._allow_incompatible_protocol = bool(update_firmware)
         if log_path:
@@ -375,7 +377,7 @@ class NordicDongle(Instrument):
 
         :param firmware: A build, a manifest path, or a directory holding one.
         """
-        build = FirmwareBuild.load(firmware)
+        build = load_build(firmware)
         if build is None:
             raise ConfigurationError("no firmware build given")
         self._expected_firmware = build
@@ -400,7 +402,7 @@ class NordicDongle(Instrument):
         :returns: A :class:`FirmwareStatus`, whose fields are plain types so a
             declarative test can assert on them.
         """
-        build = FirmwareBuild.load(firmware) or self._expected_firmware
+        build = load_build(firmware) or self._expected_firmware
         self.identify(refresh=True)
 
         status = FirmwareStatus(
@@ -469,13 +471,13 @@ class NordicDongle(Instrument):
         :raises FirmwareUpdateError: if the update cannot be carried out, or the
             dongle comes back running something other than the expected build.
         """
-        build = FirmwareBuild.load(firmware) or self._expected_firmware
+        build = load_build(firmware) or self._expected_firmware
         if build is None:
             raise ConfigurationError(
                 "no firmware build given, so there is nothing to flash. Pass "
                 "firmware=<manifest or build directory>."
             )
-        package = build.require_package()
+        package = build.require_package(hint=PACKAGE_HINT)
         target_port = port or getattr(self.transport, "port", None)
         if (not target_port) and (flasher is not None):
             # A supplied flasher does its own addressing - a simulated dongle

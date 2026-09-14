@@ -35,6 +35,7 @@ from ...core.errors import (
     MeasurementError,
     ProtocolError,
 )
+from ...core.firmware import MANIFEST_NAME, FirmwareBuild
 from ...core.instrument import Instrument, InstrumentIdentity
 from ...core.transport.base import Transport
 from ...core.transport.mock import MockTransport
@@ -265,6 +266,7 @@ class JLinkProbe(Instrument):
         limits: ProbeLimits = JLINK_LIMITS,
         target_address: str = "",
         auto_check_errors: bool = True,
+        firmware: Optional[str] = None,
     ) -> None:
         super().__init__(auto_check_errors=auto_check_errors)
         self._session = session
@@ -278,6 +280,7 @@ class JLinkProbe(Instrument):
                 rtt = RttClient(SimulatedRttBackend(responder))
         self._rtt = rtt
         self._elf = elf
+        self._firmware = firmware
         self._limits = limits
         self._target_address = target_address
         self._attached = False
@@ -294,6 +297,7 @@ class JLinkProbe(Instrument):
         resource: str = "sim://",
         device: Optional[str] = None,
         elf: Optional[str] = None,
+        firmware: Optional[str] = None,
         interface: Union[DebugInterface, str] = DebugInterface.SWD,
         speed_khz: int = 4000,
         serial_number: Optional[str] = None,
@@ -318,6 +322,11 @@ class JLinkProbe(Instrument):
             when spawning a server.
         :param elf: ELF file providing symbols. Without it, variables by name and
             source-line breakpoints are unavailable; everything else still works.
+        :param firmware: Where the target build's manifest is - a directory or
+            the manifest itself. Only :meth:`image_build` uses it, so that a
+            specification can ask what version it flashed without naming a path
+            that belongs to the bench rather than to the test. Defaults to
+            beside *elf*.
         :param core_clock_hz: Core clock, for converting cycles to time. Defaults
             to the value in *limits*.
         :param start_server: Spawn a local GDB Server if none is listening.
@@ -370,6 +379,7 @@ class JLinkProbe(Instrument):
             server=server,
             rtt=rtt,
             elf=elf,
+            firmware=firmware,
             limits=limits,
             target_address=address,
             auto_check_errors=auto_check_errors,
@@ -612,6 +622,49 @@ class JLinkProbe(Instrument):
                 )
         self._cycle_counter_ready = False
         return result
+
+    def image_build(self, path: Optional[str] = None) -> FirmwareBuild:
+        """What the build system said about the image on the target.
+
+        The probe knows which file it flashed; the build that produced that file
+        writes a ``firmware_manifest.json`` beside it. Reading that is how a
+        test can state the version it *put* on the part, rather than repeating a
+        version string into a specification where it will go stale silently.
+
+        This is a claim about the **file**, not about the part. It is worth
+        saying because that is exactly what makes it useful: comparing it with
+        what the running firmware reports over its own link is a real check on
+        two independent things agreeing, and a version typed into a
+        specification would make that comparison circular.
+
+        :param path: Manifest, or a directory holding one. Defaults to the
+            ``firmware`` the probe was configured with, then to beside the image
+            currently loaded.
+        :raises ConfigurationError: if there is no image and no path, or no
+            manifest where it looked.
+
+        Traces to: JLINK-FR-024.
+        """
+        target = path or self._firmware or self._elf
+        if not target:
+            raise ConfigurationError(
+                "no image to describe: pass path=..., or give the probe "
+                "firmware=<build directory> (or elf=..., and the manifest "
+                "beside it is used)"
+            )
+        if os.path.isdir(target) or os.path.basename(target) == MANIFEST_NAME:
+            where = target
+        else:
+            # An image rather than a manifest: the manifest is its neighbour.
+            where = os.path.dirname(os.path.abspath(target)) or "."
+        return FirmwareBuild.load(
+            where,
+            hint=(
+                "The manifest is written by the build that produced the image; "
+                "build the target firmware, or point image_build at the "
+                "directory holding its manifest."
+            ),
+        )
 
     def verify(self, path: Optional[str] = None, timeout: float = 180.0) -> VerifyResult:
         """Compare the target's memory against an image file.
@@ -1119,6 +1172,29 @@ class JLinkProbe(Instrument):
     def rtt_expect(self, pattern: str, timeout: float = 5.0):
         """Wait for an RTT line matching *pattern* and return the match."""
         return self.rtt.expect(pattern, timeout=timeout)
+
+    def rtt_lines_within(self, timeout: float = 2.0) -> int:
+        """Count the RTT lines the target emits within *timeout* seconds.
+
+        "Is it running?" is a question about output arriving at all, and a
+        silent target is a **failed test**, not a broken bench. Waiting for a
+        pattern raises on timeout, which a runner records as an error - the
+        wrong verdict for a sensor that started and said nothing. This returns a
+        count instead, so a specification bounds it like any other measurement
+        (``min: 1``) and a silence is a failure with a number beside it.
+
+        Lines are consumed, as :meth:`rtt_read_lines` consumes them; they remain
+        in :attr:`rtt_log`.
+
+        Traces to: JLINK-FR-054.
+        """
+        deadline = time.monotonic() + max(0.0, float(timeout))
+        seen = len(self.rtt_read_lines())
+        while seen == 0 and time.monotonic() < deadline:
+            time.sleep(min(0.05, max(0.0, deadline - time.monotonic())))
+            seen += len(self.rtt_read_lines())
+        _LOG.info("%d RTT line(s) within %.2f s", seen, timeout)
+        return seen
 
     def rtt_command(self, text: str, pattern: str = ".+", timeout: float = 5.0):
         """Send an RTT command and wait for its reply."""

@@ -76,6 +76,11 @@ DEFAULT_SENSORS: Tuple[SimulatedSensor, ...] = (
         rssi=-62,
         interval_us=100_000,
         responses={
+            # The bench's sensor console takes "rd <what>". The bare forms are
+            # kept alongside because the driver's own tests use them, and a
+            # console that accepts both is the usual case anyway.
+            "rd version": "1.4.2",
+            "rd id": "SENS-01",
             "version": "1.4.2",
             "id": "SENS-01",
             "temp": "23.5",
@@ -90,7 +95,12 @@ DEFAULT_SENSORS: Tuple[SimulatedSensor, ...] = (
         rssi=-78,
         interval_us=250_000,
         miss_every=5,
-        responses={"version": "1.3.9", "id": "SENS-02"},
+        responses={
+            "rd version": "1.3.9",
+            "rd id": "SENS-02",
+            "version": "1.3.9",
+            "id": "SENS-02",
+        },
     ),
     SimulatedSensor(
         address="F1:22:33:44:55:66",

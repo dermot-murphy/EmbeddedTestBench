@@ -14,7 +14,9 @@ Two facts identify a build, and both are needed:
   misleading.
 
 The firmware reports both over its link; the build writes both into a manifest
-beside the DFU package. Comparing the two is the whole of :class:`FirmwareStatus`.
+beside the DFU package. Reading that manifest is the core's job
+(:class:`benchtools.core.firmware.FirmwareBuild`, which the debug probe uses
+too); comparing the two is the whole of :class:`FirmwareStatus`.
 
 Traces to: BLE-FR-012 .. BLE-FR-014, BLE-DD-FIRMWARE.
 """
@@ -30,173 +32,43 @@ from datetime import datetime, timezone
 from typing import Dict, Optional, Union
 
 from ...core.errors import ConfigurationError, InstrumentError
+from ...core.firmware import MANIFEST_NAME, FirmwareBuild, parse_build_date
 
 __all__ = [
+    "BUILD_HINT",
     "FirmwareBuild",
     "FirmwareStatus",
     "FirmwareUpdateError",
     "MANIFEST_NAME",
+    "load_build",
     "parse_build_date",
 ]
 
-#: What the build writes, and what the driver looks for.
-MANIFEST_NAME = "firmware_manifest.json"
+#: How to produce a manifest for *this* firmware, for the diagnostic when there
+#: is none. The reader of that message is usually someone who has just cloned
+#: the repository and has no build yet.
+BUILD_HINT = (
+    "Build the firmware and run 'make manifest' - or 'make dfu', which writes "
+    "one - in firmware/nordic_dongle."
+)
 
-#: Directories searched under a project root when given a directory rather than
-#: a manifest. The first is where the Makefile puts its output.
-_SEARCH = ("_build", ".", "build")
+#: How to produce the DFU package, which only flashing needs.
+PACKAGE_HINT = "Run 'make dfu' in firmware/nordic_dongle."
 
 
 class FirmwareUpdateError(InstrumentError):
     """A firmware update could not be carried out."""
 
 
-def parse_build_date(text: str) -> Optional[datetime]:
-    """Parse a build date as the firmware reports it.
+def load_build(
+    where: Union[str, FirmwareBuild, None],
+) -> Optional[FirmwareBuild]:
+    """Read a dongle build description, with this firmware's build hint.
 
-    ISO 8601 UTC (``2026-09-13T14:22:31Z``) is what an injected date looks like.
-    A build that did not inject one reports the compiler's macros, tagged
-    ``local:`` - local time, no zone, not sortable - and this returns ``None``
-    for those rather than inventing a timezone for them.
-
-    :returns: An aware :class:`~datetime.datetime`, or ``None`` if the text is
-        not an unambiguous instant.
+    The manifest format is the core's (:mod:`benchtools.core.firmware`); what
+    is local to the dongle is only how to produce one.
     """
-    value = (text or "").strip()
-    if not value or value.startswith("local:"):
-        return None
-    try:
-        if value.endswith("Z"):
-            value = value[:-1] + "+00:00"
-        parsed = datetime.fromisoformat(value)
-    except ValueError:
-        return None
-    if parsed.tzinfo is None:
-        return None
-    return parsed.astimezone(timezone.utc)
-
-
-@dataclass
-class FirmwareBuild:
-    """A build of the dongle firmware, as the build system described it.
-
-    :param version: From ``firmware_version.h``.
-    :param built: ISO 8601 UTC instant, or a ``local:`` string from a build that
-        injected no date.
-    :param package: Path to the DFU package, when one was produced.
-    :param source: Where this description was read from, for diagnostics.
-    """
-
-    version: str = ""
-    built: str = ""
-    protocol: str = ""
-    model: str = ""
-    package: Optional[str] = None
-    hex_path: Optional[str] = None
-    sha256: str = ""
-    source: str = ""
-
-    # ------------------------------------------------------------------
-    @classmethod
-    def load(cls, where: Union[str, "FirmwareBuild", None]) -> Optional["FirmwareBuild"]:
-        """Accept whatever a caller has: a build, a manifest, a directory, None."""
-        if where is None or isinstance(where, FirmwareBuild):
-            return where
-        return cls.from_path(str(where))
-
-    @classmethod
-    def from_path(cls, path: str) -> "FirmwareBuild":
-        """Read a manifest, or find one under a directory.
-
-        :raises ConfigurationError: if no manifest is there, naming what was
-            searched and how to produce one.
-        """
-        target = pathlib.Path(path)
-        candidates = []
-        if target.is_dir():
-            candidates = [target / name / MANIFEST_NAME for name in _SEARCH]
-            candidates += [target / MANIFEST_NAME]
-        else:
-            candidates = [target]
-
-        for candidate in candidates:
-            if candidate.is_file():
-                return cls.from_manifest(str(candidate))
-
-        raise ConfigurationError(
-            "no firmware manifest found for %r (looked for %s). Build the "
-            "firmware and run 'make manifest' - or 'make dfu', which writes one "
-            "- in firmware/nordic_dongle."
-            % (path, ", ".join(str(candidate) for candidate in candidates))
-        )
-
-    @classmethod
-    def from_manifest(cls, path: str) -> "FirmwareBuild":
-        """Read a manifest written by the firmware build."""
-        try:
-            with open(path, "r", encoding="utf-8") as handle:
-                data = json.load(handle)
-        except OSError as exc:
-            raise ConfigurationError("cannot read %s: %s" % (path, exc)) from exc
-        except ValueError as exc:
-            raise ConfigurationError(
-                "%s is not valid JSON: %s. It is written by the firmware build; "
-                "rebuild rather than editing it." % (path, exc)
-            ) from exc
-
-        directory = os.path.dirname(os.path.abspath(path))
-        package = data.get("package")
-        hex_name = data.get("hex")
-        return cls(
-            version=str(data.get("version", "")),
-            built=str(data.get("built", "")),
-            protocol=str(data.get("protocol", "")),
-            model=str(data.get("model", "")),
-            package=os.path.join(directory, package) if package else None,
-            hex_path=os.path.join(directory, hex_name) if hex_name else None,
-            sha256=str(data.get("sha256", "")),
-            source=os.path.abspath(path),
-        )
-
-    # ------------------------------------------------------------------
-    @property
-    def built_at(self) -> Optional[datetime]:
-        """The build instant, or ``None`` if the build did not record one."""
-        return parse_build_date(self.built)
-
-    @property
-    def has_package(self) -> bool:
-        """True when a DFU package exists to flash."""
-        return bool(self.package) and os.path.isfile(self.package)
-
-    def require_package(self) -> str:
-        """The DFU package path, or a diagnostic saying how to produce one."""
-        if not self.package:
-            raise ConfigurationError(
-                "the firmware manifest at %s names no DFU package. Run "
-                "'make dfu' in firmware/nordic_dongle." % (self.source or "?")
-            )
-        if not os.path.isfile(self.package):
-            raise ConfigurationError(
-                "the DFU package %s named by %s does not exist. Run 'make dfu' "
-                "in firmware/nordic_dongle." % (self.package, self.source or "?")
-            )
-        return self.package
-
-    def as_dict(self) -> Dict[str, object]:
-        """Flat mapping for a report."""
-        return {
-            "version": self.version,
-            "built": self.built,
-            "protocol": self.protocol,
-            "model": self.model,
-            "package": self.package,
-            "sha256": self.sha256,
-            "source": self.source,
-        }
-
-    def __str__(self) -> str:
-        return "%s (built %s)" % (self.version or "?", self.built or "unknown")
+    return FirmwareBuild.load(where, hint=BUILD_HINT)
 
 
 @dataclass

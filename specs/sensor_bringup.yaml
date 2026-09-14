@@ -1,0 +1,183 @@
+# Bring a sensor board up from cold and prove it is the board we think it is.
+#
+# This is the first test of a session: nothing downstream of it means anything
+# until it passes. It powers the board, checks the dongle that will be
+# measuring it, programs the firmware under test, and then establishes the one
+# fact every later result depends on - that the thing answering over the air is
+# the board this bench just flashed, running the image it just put there.
+#
+# Against hardware:
+#   python -m benchtools run specs/sensor_bringup.yaml --bench benches/lab1.yaml
+# Without it:
+#   python -m benchtools run specs/sensor_bringup.yaml --bench benches/simulated_bench.yaml
+#
+# The identifier read from the part decides which radio to connect to, and the
+# version the build recorded decides what the firmware must report. Neither is
+# written down here on purpose: a specification that named the identifier would
+# pass on the wrong board, and one that named the version would go stale the
+# day someone rebuilt the firmware. Both are taken from the step that
+# established them (`save:` and `{from: ...}`).
+#
+# The identifier is read from UICR CUSTOMER[0], which is programmed once at
+# manufacture and survives the flash - which is what makes it an identity and
+# not a variable of the program.
+
+name: Sensor bring-up
+description: >
+  Power the sensor board, confirm the dongle is running the build it should be,
+  program the sensor firmware, read the board identifier off the part, start it,
+  confirm it is running, then find it over the air by that identifier and
+  confirm it reports the version that was just flashed onto it.
+requirements: [SYS-REQ-010, SYS-REQ-011, SYS-REQ-012]
+
+instruments:
+  psu: gpd3303d
+  probe: jlink
+  dongle: ble-dongle
+
+setup:
+  # The limit before the voltage, always: a rail coming up at a new voltage must
+  # never be protected by the previous test's limit, even for a moment.
+  # 3.2 V at 500 mA, switched on in the same step.
+  - do: psu.configure_channel
+    with: {channel: 1, volts: 3.2, current_limit: 0.5, output: true}
+
+teardown:
+  # Off at the end however the run went. This opens the supply's own output
+  # switch rather than parking a channel at zero volts.
+  - do: dongle.close_link
+  - do: probe.rtt_stop
+  - do: psu.all_outputs_off
+
+tests:
+  - name: The board is powered at 3.2 V and is not in current limit
+    requirement: SYS-REQ-010
+    steps:
+      # A board in current limit sits below its setpoint, and every measurement
+      # taken afterwards describes a browning-out board rather than this one.
+      - do: psu.read_channel
+        with: {channel: 1}
+        save: rail
+        expect:
+          - name: rail_voltage
+            measure: voltage
+            unit: V
+            nominal: 3.2
+            tolerance: 0.05
+          - name: rail_regulated
+            measure: regulated
+            equals: 1
+          - name: rail_current
+            measure: current
+            unit: A
+            max: 0.5
+
+  - name: The dongle is running the build it should be
+    requirement: SYS-REQ-011
+    steps:
+      # The dongle's firmware is part of the measuring instrument: a stale one
+      # produces plausible numbers that answer a different question. This
+      # refreshes it when it is out of date - the bench file decides whether
+      # that is allowed - and then states what is on it either way.
+      - do: dongle.ensure_firmware
+        save: dongle_firmware
+        expect:
+          - name: dongle_firmware_matches
+            measure: matches
+            equals: 1
+
+  - name: The sensor firmware is programmed and verified
+    requirement: SYS-REQ-012
+    steps:
+      # The image is the bench's, not this specification's: which file gets
+      # flashed is a property of the rig. Verification is on by default and is
+      # the part that matters - programming that half-succeeded is the failure
+      # this catches.
+      - do: probe.flash
+        save: flashed
+        expect:
+          - name: image_verified
+            measure: verify.matched
+            equals: 1
+
+      # What the build system said about that image. This is a claim about the
+      # file, which is exactly why it is worth comparing with what the running
+      # firmware says about itself later.
+      - do: probe.image_build
+        save: build
+
+  - name: The board identifies itself
+    requirement: SYS-REQ-012
+    steps:
+      # Four bytes at UICR CUSTOMER[0], read as a word. An unprogrammed part
+      # reads 0xFFFFFFFF, and a blank one 0x00000000; both are refused here,
+      # because either would send the scan below looking for a board that does
+      # not exist and the failure would surface three steps later as "no
+      # sensor found".
+      - do: probe.read_word
+        with: {address: 0x10001080}
+        save: sensor_id
+        expect:
+          - name: sensor_id
+            minimum: 1
+            maximum: 4294967294
+
+  - name: The sensor starts and is running
+    requirement: SYS-REQ-012
+    steps:
+      - do: probe.rtt_start
+
+      # Reset and run: no debugger holding the core, which is how the board
+      # behaves when the bench is not attached to it.
+      - do: probe.reset
+        with: {halt: false}
+
+      # Output arriving at all is the evidence that it started. A silent board
+      # is a failed test rather than a broken bench, so this counts lines
+      # instead of waiting for a pattern - a count can be bounded, a timeout
+      # can only raise.
+      - do: probe.rtt_lines_within
+        with: {timeout: 3.0}
+        expect:
+          - name: rtt_lines
+            minimum: 1
+
+  - name: The board is found over the air by its own identifier
+    requirement: SYS-REQ-012
+    steps:
+      # The name comes from the part, not from this file. Change the template
+      # if your firmware names itself differently - it is the one line here
+      # that encodes a convention rather than a fact.
+      - do: dongle.scan
+        with:
+          duration: 3.0
+          name: {from: sensor_id, format: "SENS-{:02X}"}
+        save: found
+        expect:
+          - name: matching_devices
+            measure: length
+            minimum: 1
+
+      - do: dongle.select
+        with:
+          sensor: {from: sensor_id, format: "SENS-{:02X}"}
+        expect:
+          - name: selected_name
+            measure: name
+            equals: {from: sensor_id, format: "SENS-{:02X}"}
+
+      - do: dongle.open_link
+
+  - name: The firmware reports the version that was flashed onto it
+    requirement: SYS-REQ-012
+    steps:
+      # The two ends of this test: what the build produced, read from its
+      # manifest, and what the board says over a radio link the bench had to
+      # establish to ask. Nothing in between could make them agree by accident.
+      - do: dongle.command
+        with: {request: "rd version"}
+        save: reported
+        expect:
+          - name: reported_version
+            measure: text
+            equals: {from: build.version}

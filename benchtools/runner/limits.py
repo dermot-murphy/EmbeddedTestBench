@@ -9,7 +9,7 @@ one- or two-sided bound, ``equals`` with ``tolerance`` gives a nominal value
 with a window, and ``tolerance_percent`` expresses that window relative to the
 nominal.
 
-Traces to: RUN-FR-020 .. RUN-FR-023, RUN-DD-LIMITS.
+Traces to: RUN-FR-020 .. RUN-FR-024, RUN-DD-LIMITS.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ from typing import Optional
 
 from ..core.errors import SpecError
 
-__all__ = ["Limit", "LimitOutcome"]
+__all__ = ["Limit", "LimitOutcome", "TextLimit"]
 
 
 @dataclass(frozen=True)
@@ -148,4 +148,45 @@ class Limit:
             return LimitOutcome(False, "%g is below the minimum %g" % (value, self.minimum), text)
         if self.maximum is not None and value > self.maximum:
             return LimitOutcome(False, "%g is above the maximum %g" % (value, self.maximum), text)
+        return LimitOutcome(True, "", text)
+
+
+@dataclass(frozen=True)
+class TextLimit:
+    """An exact-match bound on a value that is text, not a number.
+
+    Not every pass criterion is numeric. "The firmware reports the version that
+    was flashed onto it" is a bench test like any other, and before this there
+    was no way to state it: every limit went through ``float()`` and a version
+    string failed as "not a number" - an error, not a verdict.
+
+    Comparison is exact on the stripped text. Nothing looser is offered on
+    purpose: a limit that matched loosely would pass for a version that merely
+    began with the right digits, which is the failure this exists to catch.
+
+    Traces to: RUN-FR-024.
+    """
+
+    equals: str
+
+    @property
+    def window(self) -> Optional[float]:
+        """No numeric window applies to text; present for a common interface."""
+        return None
+
+    @property
+    def text(self) -> str:
+        """Human-readable rendering, as it appears in a report."""
+        return '= "%s"' % self.equals
+
+    def check(self, value) -> LimitOutcome:
+        """Check *value* against this limit, comparing as text."""
+        text = self.text
+        if value is None:
+            return LimitOutcome(False, "no value was measured", text)
+        actual = str(value).strip()
+        if actual != self.equals:
+            return LimitOutcome(
+                False, '"%s" != required "%s"' % (actual, self.equals), text
+            )
         return LimitOutcome(True, "", text)

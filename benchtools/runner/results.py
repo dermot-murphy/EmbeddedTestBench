@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import enum
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Union
 
 __all__ = ["Status", "MeasurementRecord", "StepRecord", "CaseRecord", "RunRecord"]
 
@@ -45,11 +45,14 @@ class MeasurementRecord:
     """One measured value and whether it met its limit."""
 
     name: str
-    value: Optional[float]
+    #: The measured value: a number, or text where the limit is an exact match
+    #: on text (a version, a device name). A report shows whichever it is.
+    value: Union[float, str, None]
     unit: str
     limit: str
     status: Status
     reason: str = ""
+    #: The unscaled number behind :attr:`value`; None for a text measurement.
     raw_value: Optional[float] = None
 
     def as_dict(self) -> Dict[str, Any]:

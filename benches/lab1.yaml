@@ -25,6 +25,11 @@ instruments:
       elf: build/app.elf          # symbols, for variables and call stacks
       core_clock_hz: 64000000     # wrong here makes every cycle timing wrong
       speed_khz: 4000
+      # Where the sensor build left its firmware_manifest.json. A test can then
+      # ask what version it flashed (probe.image_build) instead of repeating a
+      # version string into a specification, where it would go stale the day
+      # someone rebuilt the firmware. Defaults to beside the elf above.
+      firmware: build
 
   # Nordic BLE dongle running firmware/nordic_dongle. A bare port name is read
   # as a serial port, so 'COM5' and '/dev/ttyACM0' both work; a port published

@@ -133,6 +133,36 @@ benchtools run specs/*.yaml --bench benches/lab1.yaml \
 Exit status is **0** pass, **1** failure or error, **2** usage — so it works
 directly as a CI step.
 
+**A step can use what an earlier step established.** `save:` keeps a result;
+`{from: ...}` takes it, as an argument or as a limit. That is what lets a test
+chain rather than repeat itself:
+
+```yaml
+- do: probe.read_word              # the identifier programmed into the part
+  with: {address: 0x10001080}
+  save: sensor_id
+
+- do: dongle.scan                  # find that board, by that identifier
+  with: {duration: 3.0, name: {from: sensor_id, format: "SENS-{:02X}"}}
+
+- do: dongle.command               # and ask it what it is running
+  with: {request: "rd version"}
+  expect:
+    - name: reported_version
+      measure: text
+      equals: {from: build.version}     # what was flashed onto it, from its manifest
+```
+
+Writing the identifier or the version into the specification instead would make
+the test assert its own input: it would pass on the wrong board, and go stale the
+day someone rebuilt the firmware. `specs/sensor_bringup.yaml` is the worked
+example — supply, dongle firmware, flash, identity, RTT, radio, version — and it
+runs end to end with no hardware:
+
+```bash
+benchtools run specs/sensor_bringup.yaml --bench benches/simulated_bench.yaml
+```
+
 **Failure and error are distinct throughout.** A measurement outside its limit is a
 *failure* (the bench worked; the thing under test did not meet its requirement). A
 step that could not run is an *error* (the test told you nothing). Conflating them
@@ -608,10 +638,10 @@ python examples/02_channel_spread.py            # simulator
 python -m pytest tests/ --cov=benchtools --cov-report=term
 ```
 
-**1 731 tests, 94% statement coverage, no hardware required** — no oscilloscope,
+**1 794 tests, 94% statement coverage, no hardware required** — no oscilloscope,
 no probe, no target, no GDB, no dongle, no BLE sensor, no power supply, no
 sub-1 GHz kit. With
-every optional extra removed: 1 678 pass, 39 skip, 0 fail.
+every optional extra removed: 1 729 pass, 40 skip, 0 fail.
 
 The suite includes an independently implemented VXI-11 RPC server, a SCPI socket
 server and a loopback TCP server standing in for the GDB Server's RTT and SWO
@@ -645,7 +675,7 @@ source carries its trace and allocates nothing dynamically.
 | [SWE.2 Architecture](docs/SWE2_Software_Architecture.md) | Layering, elements, eighteen architectural decisions |
 | [SWE.3 Detailed Design](docs/SWE3_Software_Detailed_Design.md) | Per-module design units |
 | [SWE.4 Test Specification](docs/SWE4_Unit_Test_Specification.md) | Strategy, test groups, pass criteria |
-| [SWE.4 Test Report](docs/SWE4_Unit_Test_Report.md) | Results, coverage, measured accuracy, thirty-eight defects found |
+| [SWE.4 Test Report](docs/SWE4_Unit_Test_Report.md) | Results, coverage, measured accuracy, thirty-nine defects found |
 | [Traceability Matrix](docs/Traceability_Matrix.md) | Bidirectional trace, stakeholder need to test |
 
 Work products follow Automotive SPICE V4.0 SWE.1–SWE.4. This is a test tool: it is

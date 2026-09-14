@@ -22,7 +22,7 @@ from __future__ import annotations
 import json
 import os
 import xml.etree.ElementTree as ElementTree
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from .results import CaseRecord, RunRecord, Status
 
@@ -43,10 +43,16 @@ def _ensure_parent(path: str) -> None:
         os.makedirs(directory, exist_ok=True)
 
 
-def _format_value(value: Optional[float], unit: str) -> str:
+def _format_value(value: Union[float, str, None], unit: str) -> str:
     if value is None:
         return "-"
-    return "%.6g%s" % (value, (" " + unit) if unit else "")
+    suffix = (" " + unit) if unit else ""
+    # A measurement compared as text - a version, a device name - is reported
+    # as the text itself. Rendering it as a number would lose the only thing
+    # about it that mattered.
+    if isinstance(value, str):
+        return value + suffix
+    return "%.6g%s" % (value, suffix)
 
 
 def summary_line(run: RunRecord) -> str:

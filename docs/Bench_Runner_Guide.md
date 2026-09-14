@@ -230,6 +230,61 @@ paths are.
 [S2-LP Devkit Notes §3.3](../docs/s2lp/S2LP_Devkit_Notes.md) for the file format
 and what it refuses.
 
+### 3.5 Values a later step takes from an earlier one
+
+A bench test is rarely a list of independent actions. The identifier read off a
+part decides which radio to connect to; the version a build produced decides
+what the firmware must report. Write those into the specification and the test
+asserts its own input: it passes on the wrong board, and it goes stale the day
+someone rebuilds the firmware.
+
+`save:` keeps a step's result under a name. Any later step can then use it —
+as an argument, or as a limit — by writing `{from: <name>}`:
+
+```yaml
+- do: probe.read_word
+  with: {address: 0x10001080}
+  save: sensor_id
+
+- do: dongle.scan
+  with:
+    duration: 3.0
+    name: {from: sensor_id, format: "SENS-{:02X}"}
+```
+
+| Key | Meaning |
+|---|---|
+| `from` | The `save` name, optionally with a path into it: `build.version` |
+| `format` | Optional [`str.format`](https://docs.python.org/3/library/string.html#formatstrings) template, for when the thing on the wire is a rendering of the value rather than the value |
+
+The path after the name is the same dotted form as `measure` (§5), so
+`{from: reading.voltage}` works on a step that saved a result object.
+
+As a limit, a reference is what makes a comparison between two independently
+established facts expressible:
+
+```yaml
+- do: probe.image_build          # what the build system recorded
+  save: build
+
+- do: dongle.command             # what the board says over the air
+  with: {request: "rd version"}
+  expect:
+    - name: reported_version
+      measure: text
+      equals: {from: build.version}
+```
+
+A tolerance may accompany a numeric reference (`equals: {from: x}`,
+`tolerance: 0.1`); a bound may not — use one or the other. A reference to a name
+nothing has saved is an **error**, and the message lists what has been saved,
+because a reference to a step that has not run yet is invisible in the
+specification itself.
+
+`specs/sensor_bringup.yaml` is the worked example: it reads a board's identifier
+off the part, finds that board over the air by it, and compares what the board
+reports with what was flashed onto it.
+
 ---
 
 ## 4. Limits
@@ -245,6 +300,8 @@ reads.
 | Nominal, absolute window | `nominal`, `tolerance` | `nominal: 3.3`, `tolerance: 0.1` |
 | Nominal, relative window | `nominal`, `tolerance_percent` | `nominal: 1.0`, `tolerance_percent: 1.0` |
 | Exact | `nominal` alone | `nominal: 4` |
+| Exact, text | `equals` with a string | `equals: "1.4.2"` |
+| Taken from an earlier step | `equals` with a reference | `equals: {from: build.version}` |
 
 `minimum`/`maximum`/`equals` are accepted as the long forms. Bounds are inclusive.
 A failure states by how much the value missed:
@@ -252,7 +309,13 @@ A failure states by how much the value missed:
 ```
 rising_skew_spread: 25 is above the maximum 20
 period: 1.02 is 0.02 from nominal 1, outside +/- 0.01
+"1.3.9" != required "1.4.2"
 ```
+
+A limit written as text compares as text: no scaling, exact on the stripped
+value, and the report shows the text rather than a number. Exact on purpose —
+a looser rule would pass `1.4.20` for `1.4.2`, which is the failure such a limit
+exists to catch. See §3.5 for taking one from an earlier step.
 
 ### 4.1 Units and `scale`
 
@@ -285,12 +348,19 @@ zero-argument method.
 | `1.spread` | `result[1].spread` | `(waveforms, SpreadResult)` |
 | `1.skews.3` | `result[1].skews[3]` | as above, then a channel-keyed dict |
 | `1.peak_to_peak_jitter` | `result[1].peak_to_peak_jitter` | `(waveforms, PeriodResult)` |
+| `length` | how many | a method returning a list, e.g. `dongle.scan` |
 
 Dict keys are tried as text and then as an integer, because YAML gives `3` as a
 string while a channel-keyed dict uses `int`.
 
 A path that does not resolve is an **error**, not a failure, and the message names
 the element that could not be resolved.
+
+`length` is worth knowing for a step that returns a list: `measure: length` with
+`min: 1` makes "the scan found the board" a limit that can fail. Addressing
+element `0` instead would *error* on an empty list, and "nothing was found" is a
+test result, not a broken bench. A mapping key or attribute of that name still
+wins.
 
 ### 5.1 Useful paths for the oscilloscope
 
@@ -307,12 +377,14 @@ the element that could not be resolved.
 |---|---|---|
 | `read_variable`, `read_word`, `variable_address`, `evaluate` | a scalar | *(omit `measure`)* |
 | `measure_time_between` | `TimingResult` | `microseconds`, `milliseconds`, `cycles`, `spread`, `standard_deviation`, `minimum`, `maximum`, `count`, `is_trustworthy`, `halts_target`, `resolution_seconds` |
-| `flash` | `FlashResult` | `bytes_written`, `verified`, `seconds`, `sections` |
+| `flash` | `FlashResult` | `bytes_written`, `verify.matched`, `seconds`, `sections` |
 | `verify` | `VerifyResult` | `matched`, `mismatched`, `sections` |
 | `call_stack` | `[StackFrame]` | `0.function`, `0.line`, `0.file` — and the list itself for a depth limit |
 | `wait_for_halt`, `halt` | `HaltInfo` | `reason`, `line`, `file`, `function`, `address`, `breakpoint_number` |
-| `rtt_read_lines` | `[str]` | the list itself |
+| `rtt_read_lines` | `[str]` | the list itself, or `length` |
+| `rtt_lines_within` | how many lines arrived | *(omit `measure`)* — `min: 1` is "it is running" |
 | `rtt_command`, `rtt_expect` | a regular-expression match | `1` for the first group, `0` for the whole match |
+| `image_build` | `FirmwareBuild` | `version`, `built` — what the build system recorded about the image that was flashed |
 
 Two of these are worth asserting on beside any timing limit:
 
@@ -341,7 +413,7 @@ gives you the means to say so in the specification rather than in a comment.
 
 | Method | Returns | Useful paths |
 |---|---|---|
-| `scan` | `[Sensor]` | `__len__`, `0.rssi`, `0.name`, `0.address` |
+| `scan` | `[Sensor]` | `length`, `0.rssi`, `0.name`, `0.address` |
 | `select`, `open_link` | `Sensor` | `address`, `name`, `rssi` |
 | `measure_advertising_profile` | `AdvertisingProfile` | `mean_interval_s`, `minimum_interval_s`, `maximum_interval_s`, `spread_s`, `jitter_s`, `expected_jitter_s`, `rate_hz`, `count`, `missed_events`, `expected_events`, `duty_cycle`, `reception_ratio`, `is_complete`, `lost_reports` |
 | `measure_response_time` | `ResponseTiming` | `milliseconds`, `seconds`, `minimum_s`, `maximum_s`, `spread_s`, `standard_deviation_s`, `count`, `is_trustworthy`, `quantisation_s` |

@@ -111,6 +111,31 @@ Optional PyVISA transport. `pyvisa` is imported inside `_open_link`, so importin
 the package never requires it. `_recv_chunk` derives the END flag from the VISA
 status code, which is what lets the base class's framing work unchanged.
 
+## CORE-DD-FIRMWARE — `firmware.py`
+
+`FirmwareBuild`: what a build system recorded about an image, read from the
+`firmware_manifest.json` written beside it. `MANIFEST_NAME`, `parse_build_date`.
+
+Design points:
+
+- **It is in the core because two elements need it and neither may import the
+  other** (CORE-NFR-008, CORE-NFR-009). The dongle reads a manifest to decide
+  whether to refresh itself (BLE-DD-FIRMWARE); the debug probe reads one to say
+  what version it has just flashed onto a target (JLINK-DD-PROBE). Duplicating
+  the reader is how the two would drift apart on what a manifest is.
+- **Two facts identify a build, and both are needed**: the version, which
+  changes when someone deliberately changes behaviour, and the build date, which
+  distinguishes two builds of the *same* version - the usual case during
+  development, and precisely when a stale image is most misleading.
+- **The "how to produce one" sentence comes from the caller**, as a `hint`. The
+  core cannot know it: `make dfu` is the dongle's answer and means nothing to a
+  sensor build. What the core does know is every path it searched, and it says
+  so with or without a hint.
+- **A build date the build did not inject is not a date.** A `local:` prefix
+  marks the compiler's own macros - local time, no zone - and `built_at` returns
+  `None` for it rather than a wrong instant. Two dongles built in different
+  timezones would otherwise compare wrongly.
+
 ## CORE-DD-PROCESS — `transport/process.py`
 
 `ProcessTransport`: a `Transport` over a child process's standard input and output,

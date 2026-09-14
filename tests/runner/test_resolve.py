@@ -1,6 +1,6 @@
 """Addressing values inside a step's return value.
 
-Traces to: RUN-FR-013, SWE4-UT-RESOLVE.
+Traces to: RUN-FR-013, RUN-FR-016, SWE4-UT-RESOLVE.
 """
 
 from __future__ import annotations
@@ -10,7 +10,12 @@ from dataclasses import dataclass
 import pytest
 
 from benchtools.core.errors import SpecError
-from benchtools.runner.resolve import resolve_path
+from benchtools.runner.resolve import (
+    Reference,
+    parse_references,
+    resolve_path,
+    resolve_references,
+)
 
 
 @dataclass
@@ -76,3 +81,93 @@ class TestErrors:
     def test_missing_dict_key(self):
         with pytest.raises(SpecError, match="cannot resolve"):
             resolve_path({"a": 1}, "b")
+
+
+class TestHowMany:
+    """`length` on a step that returned a collection.
+
+    Without it, "the scan found a device" could only be written as an
+    expectation on element 0 - which *errors* on an empty list instead of
+    failing a limit, and "nothing was found" is a test result rather than a
+    broken bench.
+
+    Traces to: RUN-FR-013.
+    """
+
+    def test_a_list(self):
+        assert resolve_path([1, 2, 3], "length") == 3
+
+    def test_an_empty_list_is_zero_rather_than_an_error(self):
+        assert resolve_path([], "length") == 0
+
+    def test_a_mapping_key_of_that_name_still_wins(self):
+        """A driver that returns a dict with a 'length' key means that key."""
+        assert resolve_path({"length": 9}, "length") == 9
+
+    def test_count_is_not_borrowed_from_list(self):
+        """`list.count` exists and means something else entirely; asking for it
+        must not silently call it."""
+        with pytest.raises(SpecError):
+            resolve_path([1, 2, 3], "count")
+
+
+class TestReferences:
+    """Values carried from one step to a later one.
+
+    A bench test is rarely a list of independent actions: the identifier read
+    off a part decides which radio to connect to. Writing that identifier into
+    the specification instead would make the test assert its own input.
+
+    Traces to: RUN-FR-016.
+    """
+
+    def test_a_saved_value_is_resolved(self):
+        reference = Reference.from_mapping({"from": "sensor_id"})
+        assert reference.resolve({"sensor_id": 7}) == 7
+
+    def test_a_path_into_a_saved_value(self):
+        reference = Reference.from_mapping({"from": "build.version"})
+        saved = {"build": Result()}
+        assert reference.resolve({"build": {"version": "1.4.2"}}) == "1.4.2"
+        assert saved  # the dataclass form is covered by resolve_path itself
+
+    def test_a_format_renders_the_value(self):
+        reference = Reference.from_mapping({"from": "id", "format": "SENS-{:02X}"})
+        assert reference.resolve({"id": 1}) == "SENS-01"
+        assert reference.resolve({"id": 0x1A2B3C4D}) == "SENS-1A2B3C4D"
+
+    def test_a_reference_to_a_step_that_has_not_run_says_what_has(self):
+        """The likeliest mistake, and invisible in the specification itself."""
+        reference = Reference.from_mapping({"from": "later"})
+        with pytest.raises(SpecError, match="saved so far: earlier"):
+            reference.resolve({"earlier": 1})
+
+    def test_a_reference_with_no_name_is_refused(self):
+        with pytest.raises(SpecError, match="must name a saved value"):
+            Reference.from_mapping({"from": "  "})
+
+    def test_an_unknown_key_is_refused(self):
+        with pytest.raises(SpecError, match="only 'from' and 'format'"):
+            Reference.from_mapping({"from": "id", "fromat": "typo"})
+
+    def test_a_format_that_cannot_be_applied_names_the_value(self):
+        reference = Reference.from_mapping({"from": "id", "format": "{:02X}"})
+        with pytest.raises(SpecError, match="cannot be applied"):
+            reference.resolve({"id": "not a number"})
+
+    def test_references_are_found_wherever_they_are_written(self):
+        parsed = parse_references(
+            {"name": {"from": "id"}, "list": [1, {"from": "other"}], "plain": 5}
+        )
+        assert isinstance(parsed["name"], Reference)
+        assert isinstance(parsed["list"][1], Reference)
+        assert parsed["plain"] == 5
+
+    def test_resolving_replaces_them_in_place(self):
+        parsed = parse_references({"name": {"from": "id", "format": "SENS-{:02X}"}})
+        assert resolve_references(parsed, {"id": 2}) == {"name": "SENS-02"}
+
+    def test_an_ordinary_mapping_is_left_alone(self):
+        """A step argument that happens to be a mapping is not a reference."""
+        arguments = {"limits": {"min": 1, "max": 2}}
+        assert parse_references(arguments) == arguments

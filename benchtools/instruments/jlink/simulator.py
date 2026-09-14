@@ -69,6 +69,8 @@ class SimulatedFirmware:
         for the SWO timing method.
     :param sections: Flash sections as ``name -> (address, size)``.
     :param core_clock_hz: Core clock, used to convert cycles to seconds.
+    :param memory: Words present in the part rather than in the program, by
+        address - an identifier programmed at manufacture, for instance.
     """
 
     path: str = "firmware.elf"
@@ -82,6 +84,10 @@ class SimulatedFirmware:
     itm_at: Dict[str, Tuple[int, int]] = field(default_factory=dict)
     sections: Dict[str, Tuple[int, int]] = field(default_factory=dict)
     core_clock_hz: float = 64.0e6
+    #: Words in target memory that are not variables of the program: an
+    #: identifier programmed into the part at manufacture, a lock byte, a
+    #: calibration word. Address to 32-bit value.
+    memory: Dict[int, int] = field(default_factory=dict)
 
     def address_of(self, location: str) -> int:
         """Return the address of *location*, inventing a stable one if unknown."""
@@ -90,6 +96,18 @@ class SimulatedFirmware:
         # A stable synthetic address, so an unlisted location still behaves
         # consistently across calls rather than differing each time.
         return 0x08000000 + (abs(hash(location)) % 0x10000) * 2
+
+
+#: Where the simulated part keeps its board identifier: nRF52 UICR
+#: ``CUSTOMER[0]``. A real part reads 0xFFFFFFFF here until someone programs it.
+DEVICE_ID_ADDRESS = 0x10001080
+
+#: The identifier this simulated board carries. Deliberately a small number:
+#: rendered by the bench's naming rule it gives ``SENS-01``, which is the
+#: device the simulated dongle advertises, so a specification that reads the
+#: identifier and then goes looking for that board works end to end with no
+#: hardware.
+SIMULATED_DEVICE_ID = 0x01
 
 
 def _default_firmware() -> SimulatedFirmware:
@@ -162,6 +180,13 @@ def _default_firmware() -> SimulatedFirmware:
             ".rodata": (0x08004000, 0x200),
             ".data": (0x20000000, 0x180),
         },
+        memory={
+            # The board identifier, where this bench's sensor firmware keeps it.
+            # It is not a variable of the program: it is programmed once, at
+            # manufacture, and outlives any image flashed over it - which is
+            # exactly why a test reads it to find out which board it has.
+            DEVICE_ID_ADDRESS: SIMULATED_DEVICE_ID,
+        },
     )
 
 
@@ -222,6 +247,17 @@ class SimulatedJLink:
         self.itm_events: List[Tuple[int, int, int]] = []
         self.monitor_log: List[str] = []
         self._load_symbol_values()
+        self._load_preset_memory()
+
+    def _load_preset_memory(self) -> None:
+        """Write the firmware's preset words into memory.
+
+        After the symbols, so a firmware that presets an address a variable also
+        occupies gets the preset - the preset describes the part, the symbol
+        describes the program, and the part wins.
+        """
+        for address, value in self.firmware.memory.items():
+            self._write_int(address, value, 4)
 
     def _load_symbol_values(self) -> None:
         """Write integer symbol values into memory so raw reads agree."""
@@ -823,10 +859,20 @@ class SimulatedJLink:
         self.monitor_log.append(command)
         lower = command.lower()
         if lower.startswith("reset"):
+            # "reset 0" is reset *and run*, which is how a target is started
+            # without a debugger holding it. Modelling it as reset-and-halt
+            # would give a silent, stopped target to every test that starts the
+            # firmware and then asks whether it is running - and the answer
+            # would be about the simulator, not about anything the driver did.
+            running = lower[len("reset"):].strip() == "0"
             self.flow_index = 0
             self.location = self.firmware.flow[0] if self.firmware.flow else "main"
             self.cycles = 0
             self.halted = True
+            if running:
+                # Let it run, exactly as a resume does: execution walks the
+                # flow, emitting whatever the firmware emits along it.
+                self.resume()
             return self._stream(["Resetting target"]) + self._ok(token)
         if lower in ("halt", "h"):
             self.halted = True

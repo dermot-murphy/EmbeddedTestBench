@@ -25,7 +25,12 @@ from benchtools.instruments.nordic_dongle import (
     SimulatedDongle,
     parse_build_date,
 )
-from benchtools.instruments.nordic_dongle.firmware import MANIFEST_NAME, run_nrfutil
+from benchtools.instruments.nordic_dongle.firmware import (
+    MANIFEST_NAME,
+    PACKAGE_HINT,
+    load_build,
+    run_nrfutil,
+)
 
 INSTALLED_VERSION = SimulatedDongle.DEFAULT_FIRMWARE_VERSION
 INSTALLED_BUILT = SimulatedDongle.DEFAULT_FIRMWARE_BUILT
@@ -92,7 +97,16 @@ class TestLoadingABuild:
         assert pathlib.Path(build.package).parent == tmp_path
 
     def test_a_missing_manifest_says_how_to_produce_one(self, tmp_path):
+        """The reader is generic (`benchtools.core.firmware`); knowing how a
+        dongle manifest is produced is the dongle's own contribution to the
+        message, so it is `load_build` that must carry it."""
         with pytest.raises(ConfigurationError, match="make manifest"):
+            load_build(str(tmp_path))
+
+    def test_the_generic_reader_still_says_what_it_looked_for(self, tmp_path):
+        """Without a hint the message cannot say how to produce one, but it
+        must still name every path it tried."""
+        with pytest.raises(ConfigurationError, match=MANIFEST_NAME):
             FirmwareBuild.from_path(str(tmp_path))
 
     def test_a_corrupt_manifest_is_reported(self, tmp_path):
@@ -106,7 +120,7 @@ class TestLoadingABuild:
         build = FirmwareBuild.from_path(str(tmp_path))
         assert build.has_package is False
         with pytest.raises(ConfigurationError, match="make dfu"):
-            build.require_package()
+            build.require_package(hint=PACKAGE_HINT)
 
     def test_load_passes_through_a_build_and_none(self, tmp_path):
         write_manifest(tmp_path)

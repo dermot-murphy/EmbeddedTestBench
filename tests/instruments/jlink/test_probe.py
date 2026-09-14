@@ -5,6 +5,8 @@ Traces to: JLINK-FR-003 .. JLINK-FR-045, SWE4-UT-JLINK.
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from benchtools.core.errors import (
@@ -403,3 +405,94 @@ class TestMonitorAndRaw:
 
         with pytest.raises(GdbError):
             probe.session.execute_console("nonsense-command")
+
+
+class TestWhatWasFlashed:
+    """The build description of the image on the target.
+
+    A specification that wrote the version down would go stale the day someone
+    rebuilt the firmware, and the comparison it makes - build against running
+    firmware - would be circular. The probe knows which file it flashed, and
+    the build that produced that file left a manifest beside it.
+
+    Traces to: JLINK-FR-024.
+    """
+
+    def build_directory(self, tmp_path, version="1.4.2"):
+        tmp_path.mkdir(parents=True, exist_ok=True)
+        (tmp_path / "firmware_manifest.json").write_text(
+            json.dumps({"version": version, "built": "2026-09-13T12:00:00Z"})
+        )
+        return tmp_path
+
+    def test_it_reads_the_manifest_beside_the_image(self, tmp_path):
+        directory = self.build_directory(tmp_path)
+        (directory / "app.elf").write_text("not really an elf")
+        probe = JLinkProbe.connect("sim://", elf=str(directory / "app.elf"))
+        try:
+            assert probe.image_build().version == "1.4.2"
+        finally:
+            probe.close()
+
+    def test_a_configured_build_directory_wins(self, tmp_path):
+        """The bench says where the build is; the ELF is only symbols."""
+        directory = self.build_directory(tmp_path / "build", version="2.0.0")
+        probe = JLinkProbe.connect("sim://", firmware=str(directory))
+        try:
+            assert probe.image_build().version == "2.0.0"
+        finally:
+            probe.close()
+
+    def test_a_path_given_at_the_step_wins_over_both(self, tmp_path):
+        elsewhere = self.build_directory(tmp_path / "elsewhere", version="3.1.4")
+        probe = JLinkProbe.connect("sim://", firmware=str(tmp_path / "nothing"))
+        try:
+            assert probe.image_build(str(elsewhere)).version == "3.1.4"
+        finally:
+            probe.close()
+
+    def test_the_manifest_itself_can_be_named(self, tmp_path):
+        directory = self.build_directory(tmp_path)
+        probe = JLinkProbe.connect("sim://")
+        try:
+            build = probe.image_build(str(directory / "firmware_manifest.json"))
+            assert build.version == "1.4.2"
+        finally:
+            probe.close()
+
+    def test_no_manifest_says_where_it_looked_and_what_makes_one(self, tmp_path):
+        probe = JLinkProbe.connect("sim://", firmware=str(tmp_path))
+        try:
+            with pytest.raises(ConfigurationError, match="written by the build"):
+                probe.image_build()
+        finally:
+            probe.close()
+
+
+class TestIsItRunning:
+    """RTT output arriving at all, which is what "it started" looks like from
+    outside.
+
+    Traces to: JLINK-FR-054.
+    """
+
+    def test_a_running_target_produces_lines(self, probe):
+        probe.rtt_start()
+        probe.reset(halt=False)
+        assert probe.rtt_lines_within(1.0) >= 1
+
+    def test_a_halted_target_produces_none(self, probe):
+        """Zero is a number a limit can fail, which is the point of counting
+        rather than waiting for a pattern: a silent board is a failed test, not
+        a broken bench."""
+        probe.rtt_start()
+        assert probe.rtt_lines_within(0.2) == 0
+
+    def test_it_does_not_wait_once_lines_have_arrived(self, probe):
+        import time
+
+        probe.rtt_start()
+        probe.reset(halt=False)
+        started = time.monotonic()
+        probe.rtt_lines_within(5.0)
+        assert time.monotonic() - started < 1.0
