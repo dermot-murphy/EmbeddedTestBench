@@ -40,7 +40,7 @@ instruments:
     timeout: 15.0
 
   psu:
-    driver: gpd2303s            # GW Instek GPD-2303S, over its USB-serial port
+    driver: gpd3303d            # GW Instek GPD-3303D, over its USB-serial port
     resource: /dev/ttyUSB0      # COM4 on Windows
     options:
       baudrate: 9600            # must match the supply's front-panel setting
@@ -74,7 +74,7 @@ Shorthand, when the defaults suffice:
 ```yaml
 instruments:
   scope: tek3014b@192.168.1.50
-  psu: gpd2303s@sim://
+  psu: gpd3303d@sim://
 ```
 
 | Key | Meaning |

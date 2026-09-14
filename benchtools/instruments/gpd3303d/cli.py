@@ -1,4 +1,4 @@
-"""Command line for the GW Instek GPD-2303S supply.
+"""Command line for the GW Instek GPD-3303D supply.
 
 ``benchtools psu --help``. Results are printed as JSON so the tool composes
 into a larger harness, and ``--resource sim://`` runs every sub-command with no
@@ -23,8 +23,14 @@ from typing import Optional, Sequence
 
 from ... import __version__
 from ...core.errors import BenchToolsError
-from .constants import CHANNELS, DEFAULT_BAUDRATE, MODEL
-from .psu import Gpd2303S
+from .constants import (
+    CHANNELS,
+    DEFAULT_BAUDRATE,
+    MODEL,
+    TRACKED_CHANNEL,
+    TrackingMode,
+)
+from .psu import Gpd3303D
 
 __all__ = ["main", "build_parser"]
 
@@ -41,7 +47,7 @@ def _emit(payload: dict, path: Optional[str]) -> None:
 
 
 # ---------------------------------------------------------------------------
-def _cmd_info(psu: Gpd2303S, args) -> int:
+def _cmd_info(psu: Gpd3303D, args) -> int:
     identity = psu.identify()
     status = psu.status()
     _emit(
@@ -58,10 +64,21 @@ def _cmd_info(psu: Gpd2303S, args) -> int:
     return _EXIT_OK
 
 
-def _cmd_read(psu: Gpd2303S, args) -> int:
+def _cmd_read(psu: Gpd3303D, args) -> int:
     channels = [args.channel] if args.channel else list(CHANNELS)
     readings = [psu.read_channel(channel).as_dict() for channel in channels]
-    payload = {"channels": readings, "output": psu.output}
+    tracking = psu.tracking
+    payload = {"channels": readings, "output": psu.output, "tracking": tracking}
+    if tracking in (TrackingMode.SERIES, TrackingMode.PARALLEL) and (
+        TRACKED_CHANNEL in channels
+    ):
+        # Not a refusal - reading is always allowed - but the figures for the
+        # slaved channel are channel 1's, and nothing in them says so.
+        payload["tracking_warning"] = (
+            "the supply is in %s tracking: channel %d follows channel 1, so its "
+            "figures are channel 1's setting rather than one anyone made for it."
+            % (tracking, TRACKED_CHANNEL)
+        )
     limited = [reading["channel"] for reading in readings if reading["in_current_limit"]]
     if limited:
         payload["warning"] = (
@@ -73,7 +90,7 @@ def _cmd_read(psu: Gpd2303S, args) -> int:
     return _EXIT_OK
 
 
-def _cmd_set(psu: Gpd2303S, args) -> int:
+def _cmd_set(psu: Gpd3303D, args) -> int:
     """Program a channel. Switching it on is a separate decision."""
     if args.current is not None:
         psu.set_current_limit(args.channel, args.current)
@@ -85,7 +102,7 @@ def _cmd_set(psu: Gpd2303S, args) -> int:
     return _EXIT_OK
 
 
-def _cmd_on(psu: Gpd2303S, args) -> int:
+def _cmd_on(psu: Gpd3303D, args) -> int:
     if args.channel:
         psu.output_on(args.channel)
     else:
@@ -95,7 +112,7 @@ def _cmd_on(psu: Gpd2303S, args) -> int:
     return _EXIT_OK
 
 
-def _cmd_off(psu: Gpd2303S, args) -> int:
+def _cmd_off(psu: Gpd3303D, args) -> int:
     payload = {}
     if args.channel:
         psu.output_off(args.channel)
@@ -113,7 +130,7 @@ def _cmd_off(psu: Gpd2303S, args) -> int:
     return _EXIT_OK
 
 
-def _cmd_status(psu: Gpd2303S, args) -> int:
+def _cmd_status(psu: Gpd3303D, args) -> int:
     _emit(psu.status().as_dict(), args.json)
     return _EXIT_OK
 
@@ -180,7 +197,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     logging.basicConfig(level=level, format="%(levelname)-8s %(name)s: %(message)s")
 
     try:
-        psu = Gpd2303S.connect(args.resource, baudrate=args.baudrate, timeout=args.timeout)
+        psu = Gpd3303D.connect(args.resource, baudrate=args.baudrate, timeout=args.timeout)
     except BenchToolsError as exc:
         print("error: could not connect to %s: %s" % (args.resource, exc), file=sys.stderr)
         return _EXIT_ERROR

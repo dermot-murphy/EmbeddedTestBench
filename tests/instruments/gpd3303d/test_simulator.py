@@ -5,15 +5,20 @@ none of them mean anything. These assert the model's own behaviour - Ohm's law,
 the constant-current fallback, the single output switch, and the refusals -
 independently of the driver.
 
-Traces to: PSU-FR-050, SWE4-UT-PSUSIM.
+Traces to: PSU-FR-006, PSU-FR-050, SWE4-UT-PSUSIM.
 """
 
 from __future__ import annotations
 
 import pytest
 
-from benchtools.instruments.gpd2303s import ChannelMode, SimulatedGpd
-from benchtools.instruments.gpd2303s.simulator import SimulatedChannel
+from benchtools.instruments.gpd3303d import (
+    TRACKED_CHANNEL,
+    ChannelMode,
+    SimulatedGpd,
+    TrackingMode,
+)
+from benchtools.instruments.gpd3303d.simulator import SimulatedChannel
 
 
 def ask(simulator, command):
@@ -60,7 +65,7 @@ class TestChannelModel:
 
 class TestCommands:
     def test_idn(self, ):
-        assert ask(SimulatedGpd(), "*IDN?").startswith("GW INSTEK,GPD-2303S")
+        assert ask(SimulatedGpd(), "*IDN?").startswith("GW INSTEK,GPD-3303D")
 
     def test_setting_and_reading_back(self):
         simulator = SimulatedGpd()
@@ -158,3 +163,84 @@ class TestCommands:
         ask(simulator, "VSET1:1.000")
         ask(simulator, "OUT1")
         assert simulator.command_log == ["VSET1:1.000", "OUT1"]
+
+
+class TestTracking:
+    """Series and parallel tracking, which is where channel 2 stops being a
+    channel: the supply drives it from channel 1 and discards what is sent to
+    it. The driver refuses to send it - these assert the behaviour that makes
+    the refusal worth having."""
+
+    def test_it_starts_independent(self):
+        assert SimulatedGpd().tracking == TrackingMode.INDEPENDENT
+
+    @pytest.mark.parametrize(
+        "command,mode",
+        [
+            ("TRACK0", TrackingMode.INDEPENDENT),
+            ("TRACK1", TrackingMode.SERIES),
+            ("TRACK2", TrackingMode.PARALLEL),
+        ],
+    )
+    def test_the_mode_can_be_set(self, command, mode):
+        simulator = SimulatedGpd()
+        ask(simulator, command)
+        assert simulator.tracking == mode
+
+    def test_a_mode_that_does_not_exist_is_refused(self):
+        simulator = SimulatedGpd()
+        ask(simulator, "TRACK9")
+        assert simulator.tracking == TrackingMode.INDEPENDENT
+        assert "no tracking mode" in simulator.last_error
+
+    @pytest.mark.parametrize("mode", [TrackingMode.SERIES, TrackingMode.PARALLEL])
+    def test_the_slaved_channel_is_discarded_silently(self, mode):
+        """No error, no reply, no change: the supply's silence is exactly what
+        makes this dangerous, so the model must be silent too."""
+        simulator = SimulatedGpd(tracking=mode)
+        ask(simulator, "VSET1:5.000")
+        assert ask(simulator, "VSET%d:1.000" % TRACKED_CHANNEL) is None
+        assert ask(simulator, "VSET%d?" % TRACKED_CHANNEL) == "5.000"
+        assert simulator.last_error == ""
+
+    @pytest.mark.parametrize("mode", [TrackingMode.SERIES, TrackingMode.PARALLEL])
+    def test_the_slaved_channel_follows_channel_1(self, mode):
+        simulator = SimulatedGpd(tracking=mode)
+        ask(simulator, "VSET1:5.000")
+        ask(simulator, "ISET1:0.500")
+        assert ask(simulator, "VSET%d?" % TRACKED_CHANNEL) == "5.000"
+        assert ask(simulator, "ISET%d?" % TRACKED_CHANNEL) == "0.500"
+
+    def test_switching_to_tracking_brings_the_slaved_channel_with_it(self):
+        simulator = SimulatedGpd()
+        ask(simulator, "VSET1:5.000")
+        ask(simulator, "VSET2:1.000")
+        ask(simulator, "TRACK1")
+        assert ask(simulator, "VSET%d?" % TRACKED_CHANNEL) == "5.000"
+
+    @pytest.mark.parametrize(
+        "mode,bits",
+        [
+            (TrackingMode.INDEPENDENT, "10"),
+            (TrackingMode.SERIES, "11"),
+            (TrackingMode.PARALLEL, "01"),
+        ],
+    )
+    def test_the_status_word_carries_the_mode(self, mode, bits):
+        """Bits 2 and 3, least significant first, as the manual numbers them."""
+        simulator = SimulatedGpd(tracking=mode)
+        assert ask(simulator, "STATUS?")[2:4] == bits
+
+    def test_an_unmodelled_mode_reports_an_undocumented_pattern(self):
+        """Not a comfortable default: a state the model cannot describe must
+        look undescribable to the driver, or the driver's handling of one is
+        never exercised."""
+        simulator = SimulatedGpd(tracking="something else entirely")
+        assert ask(simulator, "STATUS?")[2:4] == "00"
+
+    def test_a_reset_does_not_move_the_switch(self):
+        """On the supply the mode is a front-panel switch; a power cycle does
+        not move it."""
+        simulator = SimulatedGpd(tracking=TrackingMode.SERIES)
+        simulator.reset()
+        assert simulator.tracking == TrackingMode.SERIES

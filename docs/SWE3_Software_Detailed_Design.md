@@ -1135,12 +1135,17 @@ being quiet; `capture` adds a warning when the capture was not continuous.
 
 ---
 
-# PSU — `benchtools.instruments.gpd2303s`
+# PSU — `benchtools.instruments.gpd3303d`
 
-A GW Instek GPD-2303S: two channels, 30 V and 3 A each, over RS-232 or its
-USB-serial port. It answers `*IDN?` and nothing else from IEEE 488.2, so the
-units below take the transport and lifecycle from CORE-DD-SCPI and replace
-`*CLS`, `*RST` and the error queue with this supply's own.
+A GW Instek GPD-3303D: two programmable channels, 30 V and 3 A each, over
+RS-232 or its USB-serial port. It answers `*IDN?` and nothing else from
+IEEE 488.2, so the units below take the transport and lifecycle from
+CORE-DD-SCPI and replace `*CLS`, `*RST` and the error queue with this supply's
+own.
+
+The supply's third output - the fixed 2.5 / 3.3 / 5 V rail - is outside the
+element: it is selected by a front-panel switch that no command reaches, so
+there is nothing about it a driver could set or measure.
 
 ## PSU-DD-CONST — `constants.py`
 
@@ -1152,12 +1157,12 @@ condition it never applied.
 
 ## PSU-DD-PSU — `psu.py`
 
-`Gpd2303S`, and the two records it returns.
+`Gpd3303D`, and the two records it returns.
 
 | Group | Members |
 |---|---|
 | Lifecycle | `connect`, `_normalise_resource`, `_post_open`, `_read_identity`, `reset` |
-| Setting | `set_voltage`, `set_current_limit`, `configure_channel` |
+| Setting | `set_voltage`, `set_current_limit`, `configure_channel`, `_check_tracking` |
 | Reading | `voltage_setpoint`, `current_limit`, `measure_voltage`, `measure_current`, `measure_power`, `read_channel`, `read_all`, `channel_mode` |
 | Status | `status`, `read_event_queue`, `output`, `tracking` |
 | Switching | `output_on`, `output_off`, `set_output`, `is_output_on`, `all_outputs_on`, `all_outputs_off` |
@@ -1176,6 +1181,16 @@ Design points:
   real switch only when every channel is parked; `set_voltage` on a parked
   channel updates the parked value rather than the live one, so setting a
   voltage can never energise a rail as a side effect.
+- **`_check_tracking` refuses what the supply would discard** (AD-21,
+  PSU-FR-006). In series and parallel tracking the supply drives CH2 from CH1
+  and silently discards anything sent to CH2, so `set_voltage`,
+  `set_current_limit`, `output_on` and `output_off` raise for that channel,
+  naming the mode. The mode is read at the moment of the write, not cached: it
+  is a front-panel switch and can move between two commands. `all_outputs_on`,
+  `all_outputs_off` and `reset` deliberately do not call it - they act on the
+  supply's real switch and on CH1, and a safe state must be reachable in every
+  mode. An undecodable mode warns and allows, so that one unconfirmed status
+  bit cannot disable setting altogether.
 - **The current limit is never parked.** It is the protection for whatever is
   connected, and it applies whether the channel is on or off. `reset` leaves the
   limits alone for the same reason: a reset that silently raised them would be

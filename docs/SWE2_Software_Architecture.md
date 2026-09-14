@@ -87,7 +87,7 @@ instrument, and to be importable without importing any other element.
 | BLE-ARC-001 | `instruments.nordic_dongle` **and** `firmware/nordic_dongle` | The BLE bench dongle, as one element across two languages. Host side: the line protocol (`protocol`), the command/event session with its log (`session`), advertising statistics (`profile`), latency statistics (`latency`), the driver façade (`dongle`) and a simulated dongle. Dongle side: USB CDC line transport, command dispatch, scanner, UART client and the microsecond clock. `include/protocol.h` is the interface both are built from. | `NordicDongle`, `DongleSession`, `AdvertisingProfile`, `ResponseTiming`, `SimulatedDongle`; `cmd_parser_handle`, `scanner_on_ble_evt`, `nus_client_command` |
 | JLINK-ARC-001 | `instruments.jlink` | The debug probe driver. `JLinkProbe` is the façade over seven collaborators, each independently testable: MI record parsing (`gdbmi`), the command/response session (`session`), server discovery and lifetime (`server`), RTT (`rtt`), ITM/SWO decoding (`swo`), timing results (`timing`), and the probe and target envelope (`constants`). Its simulator answers the MI dialogue. | `JLinkProbe`, `GdbMiSession`, `RttClient`, `ItmDecoder`, `TimingResult`, `GdbServer` |
 | S2LP-ARC-001 | `instruments.s2lp` | The ST S2-LP development kit, host side only: ST's firmware runs on the board (AD-20). The line protocol (`protocol`), the command/reply session with its raw log (`session`), the device's register map (`registers`), packet records and their structured log (`packets`), the driver façade (`s2lp`) and a simulated kit with a register file and a modelled air interface. | `S2lpDevkit`, `S2lpSession`, `Register`, `Packet`, `Capture`, `SimulatedS2lp` |
-| PSU-ARC-001 | `instruments.gpd2303s` | The GW Instek bench supply. Not a SCPI instrument: it takes the transport and lifecycle from `ScpiInstrument` and replaces the SCPI-specific parts (`*CLS`, `*RST`, `SYSTem:ERRor?`) with its own. Its own command grammar, a load-modelling simulator, and a command line. | `Gpd2303S`, `ChannelReading`, `SupplyStatus`, `SimulatedGpd` |
+| PSU-ARC-001 | `instruments.gpd3303d` | The GW Instek bench supply, programmable channels 1 and 2; its fixed rail is a front-panel switch and is outside the element. Not a SCPI instrument: it takes the transport and lifecycle from `ScpiInstrument` and replaces the SCPI-specific parts (`*CLS`, `*RST`, `SYSTem:ERRor?`) with its own. Its own command grammar, a load-modelling simulator, and a command line. | `Gpd3303D`, `ChannelReading`, `SupplyStatus`, `SimulatedGpd` |
 | RUN-ARC-001 | `runner` | Specification model, bench resolution, execution engine, result records, report writers, command line. | `load_spec`, `BenchConfig`, `BenchRunner`, `write_*` |
 
 ## 4. Key architectural decisions
@@ -346,7 +346,7 @@ host and would look like a protocol fault rather than congestion.
 
 ### AD-19 — Emulate per-channel output, and say so at every turn
 
-**Context.** The GPD-2303S has one output switch for two channels. A bench
+**Context.** The GPD-3303D has one output switch for two channels. A bench
 specification, and every other supply driver, wants per-channel control.
 
 **Decision.** The driver presents `output_on(channel)` and
@@ -405,6 +405,37 @@ resolution stated wherever a board timestamp is reported.
 one. Interoperating with the protocol is not redistribution; vendoring the
 source would be. No ST source is in this repository, and the register map holds
 facts about the silicon rather than vendor prose (S2LP-NFR-002).
+
+### AD-21 — Refuse what a tracking supply would discard, rather than report it
+
+**Context.** The GPD-3303D's front panel selects independent, series or parallel
+tracking. In series and parallel the supply drives CH2 from CH1 and **accepts
+and discards** anything addressed to CH2: no error, nothing in `STATUS?`, and
+`VSET2?` answering with CH1's setting. The same is true of the emulated
+per-channel switch of AD-19, which is built on programming a channel to zero.
+
+**Decision.** The driver reads the mode at the moment of the write and raises
+for a setpoint or per-channel switch addressed to the slaved channel, naming the
+mode and what to do instead. Channel 1 is untouched - it is the master in both
+modes - and the global switch and the safe state stay operable in every mode,
+because a safe state must never be unreachable. A mode the status word does not
+decode is warned about and allowed: the bit order is a confirmation item
+(PSU-OPEN-01, PSU-OPEN-06), and one unconfirmed bit should not leave the driver
+unable to set anything. `TRACK<n>` is never sent: which rails are tied together
+is a wiring decision, and changing it from a test script could put a board
+across two channels in series at twice the voltage the operator set up.
+
+**Alternatives.** Reporting the mode and passing the write through was the
+previous behaviour, inherited from the two-channel GPD-2303S where it was
+harmless. It is the exact shape of D-30 and D-31: a command that appears to
+succeed and changes nothing. Caching the mode at connect was rejected because it
+is a switch a person can move between two commands.
+
+**Consequences.** A specification written for independent operation fails
+immediately and legibly on a supply someone left in series, instead of
+configuring a rail that was never configured. The cost is one `STATUS?` query
+before each write to the slaved channel, which is 50 ms on a paced link, and
+only on that channel.
 
 ## 5. Dynamic behaviour — a runner invocation
 

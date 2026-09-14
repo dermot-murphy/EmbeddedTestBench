@@ -25,7 +25,7 @@ Commands:
   scope       control a Tektronix TDS3014B oscilloscope
   jlink       control a target through a SEGGER J-Link debug probe
   ble         scan, drive and profile a BLE sensor through a Nordic dongle
-  psu         control a GW Instek GPD-2303S bench power supply
+  psu         control a GW Instek GPD-3303D bench power supply
   s2lp        drive an ST S2-LP sub-1 GHz development kit
   drivers     list the instrument drivers a bench configuration can name
   backends    list the transport backends a resource string can select
@@ -79,8 +79,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
         return ble_main(rest)
 
-    if command in ("psu", "gpd2303s", "supply"):
-        from .instruments.gpd2303s.cli import main as psu_main
+    if command in ("psu", "gpd3303d", "supply"):
+        from .instruments.gpd3303d.cli import main as psu_main
 
         return psu_main(rest)
 

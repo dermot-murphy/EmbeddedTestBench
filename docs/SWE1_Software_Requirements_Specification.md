@@ -67,7 +67,7 @@ prefixes are per element so they stay unique as instruments are added.
 | `JLINK-` | `benchtools.instruments.jlink` | The SEGGER J-Link debug probe driver. Not a SCPI instrument, and the only element that reaches the target through a debug probe rather than a measurement link. |
 | `BLE-` | `benchtools.instruments.nordic_dongle` **and** `firmware/nordic_dongle` | The BLE bench dongle: host driver and the dongle's own firmware. One element, because the protocol between them is one design decision and splitting it across two elements would let the halves drift apart. |
 | `S2LP-` | `benchtools.instruments.s2lp` | The ST S2-LP development kit. Unlike the BLE dongle, the firmware is **ST's own** (STK-20), so this element is a host driver only and the firmware's command set is an external interface rather than something this project controls. |
-| `PSU-` | `benchtools.instruments.gpd2303s` | The GW Instek GPD-2303S bench supply. Separate from `INST-` because its command set is neither SCPI nor shared with any other instrument here, and its single output switch is a hardware constraint that shapes its whole interface. |
+| `PSU-` | `benchtools.instruments.gpd3303d` | The GW Instek GPD-3303D bench supply. Separate from `INST-` because its command set is neither SCPI nor shared with any other instrument here, and its single output switch is a hardware constraint that shapes its whole interface. |
 | `RUN-` | `benchtools.runner` | The bench test runner. |
 
 ---
@@ -403,16 +403,25 @@ implements them; §9.6 says which.
 
 ---
 
-## 10. PSU — GW Instek GPD-2303S bench supply
+## 10. PSU — GW Instek GPD-3303D bench supply
 
-A two-channel 30 V / 3 A linear supply, reached over RS-232 or its USB-serial
-port. It is the sensor supply of STK-13.
+A linear supply with two programmable 30 V / 3 A channels, reached over RS-232
+or its USB-serial port. It is the sensor supply of STK-13.
 
-The requirements below are shaped by three properties of this particular
+The supply also has a **third** output: a fixed 2.5 / 3.3 / 5 V, 3 A rail
+selected by a front-panel switch. It is outside this element, deliberately. No
+command reaches it, so nothing the driver could report about it would be a
+measurement - it would be a repetition of whatever the bench file had been told
+about a switch position. A rail may be taken from CH3 if that suits the bench;
+which position the switch is in is then recorded by hand, like any other piece
+of wiring.
+
+The requirements below are shaped by four properties of this particular
 instrument, each of which is a way a test can record a number that is not true:
 it **clamps** a setting it cannot deliver instead of refusing it, it leaves
-**constant-current** operation visible only in a status word, and it has **one
-output switch for two channels**.
+**constant-current** operation visible only in a status word, it has **one
+output switch for two channels**, and in **series or parallel tracking** it
+accepts and discards anything sent to channel 2.
 
 ### 10.1 Setting and reading
 
@@ -423,6 +432,7 @@ output switch for two channels**.
 | PSU-FR-003 | A setpoint shall be rounded to the supply's programming resolution before it is sent, so that a value read back compares equal to the value written. | STK-13 | Test |
 | PSU-FR-004 | A channel number the supply does not have shall be refused, naming the channels it does have. | STK-13 | Test |
 | PSU-FR-005 | Setting a channel's voltage and current limit together shall set the limit first, so that a channel is never briefly protected by a previous setting. | STK-13 | Test |
+| PSU-FR-006 | A setpoint or per-channel output change addressed to a channel the supply is slaving to another shall be refused, naming the tracking mode and what to do instead. In series and parallel tracking the supply accepts such a command and discards it, reporting nothing; the driver shall not be the component that turns that silence into a setpoint a test believes in. A tracking mode the status word does not decode shall be warned about and allowed, so that one unconfirmed status bit cannot disable setting altogether. The supply's own output switch and the safe state shall remain operable in every mode. | STK-13, STK-17 | Test |
 | PSU-FR-010 | The driver shall measure each channel's output voltage and output current. A reply carrying its unit shall be read as a number. | STK-13 | Test |
 | PSU-FR-011 | Output power shall be available, and shall be identified as derived from the two readings rather than measured. | STK-13 | Test |
 | PSU-FR-012 | A single call shall return a channel's measurements, its setpoints and its regulation mode together, so that the mode qualifying a reading comes from the same moment as the reading. | STK-13 | Test |
@@ -457,7 +467,7 @@ output switch for two channels**.
 | PSU-FR-042 | A bare port name shall be taken as a serial port rather than a network host. | STK-13 | Test |
 | PSU-FR-043 | The driver shall provide a safe state - outputs off and rails at zero - without altering current limits, which are the protection set for whatever is connected. | STK-13, STK-17 | Test |
 | PSU-FR-050 | The supply shall be registered as a bench driver, and a simulated supply shall answer the same command set with a load model, so that constant-current operation is verifiable without hardware. | STK-08, STK-13 | Test |
-| PSU-FR-060 | A command-line interface shall expose identification, status, measurement, setting and output switching, emitting JSON, and shall warn when a channel it read is in current limit. | STK-13 | Test |
+| PSU-FR-060 | A command-line interface shall expose identification, status, measurement, setting and output switching, emitting JSON, and shall warn when a channel it read is in current limit or is being slaved to another by the supply's tracking mode. | STK-13 | Test |
 
 ### 10.5 PSU non-functional
 

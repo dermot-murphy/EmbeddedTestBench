@@ -29,7 +29,7 @@ benchtools/
 │   ├── tek3014b/    Tektronix TDS3014B oscilloscope
 │   ├── jlink/       SEGGER J-Link debug probe (flash, RTT, breakpoints, timing)
 │   ├── nordic_dongle/  Nordic BLE dongle (scan, UART over BLE, advertising profile)
-│   ├── gpd2303s/    GW Instek GPD-2303S bench power supply
+│   ├── gpd3303d/    GW Instek GPD-3303D bench power supply
 │   ├── s2lp/        ST S2-LP sub-1 GHz development kit (registers, TX, RX, logs)
 │   └── generic.py   anything answering *IDN?
 └── runner/        declarative bench test runner
@@ -470,16 +470,21 @@ firmware investigation, the licence position, and five bench confirmation items.
 
 ---
 
-## Power supply — GW Instek GPD-2303S
+## Power supply — GW Instek GPD-3303D
 
-Two channels, 30 V and 3 A each, over RS-232 or its USB-serial port. It powers
-the board everything else on the bench is measuring, which is why it comes with
-a warning rather than a feature list.
+Two programmable channels, 30 V and 3 A each, over RS-232 or its USB-serial
+port. It powers the board everything else on the bench is measuring, which is
+why it comes with a warning rather than a feature list.
+
+The supply's third output — the fixed 2.5 / 3.3 / 5 V rail — is outside the
+driver on purpose: it is a front-panel switch that no command reaches, so
+anything reported about it would be a repetition of what someone typed into a
+bench file, not a reading.
 
 ```python
-from benchtools.instruments.gpd2303s import Gpd2303S
+from benchtools.instruments.gpd3303d import Gpd3303D
 
-with Gpd2303S.connect("/dev/ttyUSB0") as psu:      # COM4 on Windows
+with Gpd3303D.connect("/dev/ttyUSB0") as psu:      # COM4 on Windows
     psu.configure_channel(1, volts=3.3, current_limit=0.5)   # limit first
     psu.output_on(1)
 
@@ -488,13 +493,14 @@ with Gpd2303S.connect("/dev/ttyUSB0") as psu:      # COM4 on Windows
     assert reading.regulated, "the board is pulling more than 500 mA"
 ```
 
-### Three things this supply will otherwise lie to you about
+### Four things this supply will otherwise lie to you about
 
 | | |
 |---|---|
 | **It clamps what it cannot deliver.** Ask for 35 V and it outputs 30 V and reports 30 V, with no error | The driver refuses an out-of-range setting *before* sending it, so a test cannot pass against a condition it never applied |
 | **A channel in current limit is not at the voltage it was set to.** A 3.3 V rail with a 500 mA limit into a 1.5 A load reads 1.0 V — a real, plausible number describing a circuit nobody asked for | `ChannelReading` carries the CV/CC mode with the numbers, and `regulated` is the single line a specification should assert on |
 | **One output switch, two channels.** There is no per-channel output command in the instrument | Per-channel control is emulated by parking a channel at 0 V, and every place a caller meets it says so. `output_off(1)` is **not** isolation and **not** an interlock; `all_outputs_off()` opens the real switch |
+| **In series or parallel tracking, channel 2 is not a channel.** The supply drives it from channel 1 and *accepts and discards* anything sent to it — no error, and `VSET2?` answering with channel 1's setting | The driver reads the mode at the moment of the write and refuses, naming it. Channel 1, the global switch and `reset()` keep working in every mode, because a safe state must never be unreachable |
 
 ```bash
 python -m benchtools psu -r /dev/ttyUSB0 set 1 -V 3.3 -I 0.5 --on
@@ -506,8 +512,8 @@ python -m benchtools psu -r sim:// status          # no supply needed
 Run it first: every other measurement on the bench is taken on a board this
 supply is powering.
 
-See [GPD-2303S Notes](docs/psu/GPD2303S_Notes.md) for the command set, the
-status word, and the four bench confirmation items that need the instrument.
+See [GPD-3303D Notes](docs/psu/GPD3303D_Notes.md) for the command set, the
+status word, and the six bench confirmation items that need the instrument.
 
 ---
 
@@ -602,10 +608,10 @@ python examples/02_channel_spread.py            # simulator
 python -m pytest tests/ --cov=benchtools --cov-report=term
 ```
 
-**1 685 tests, 94% statement coverage, no hardware required** — no oscilloscope,
+**1 731 tests, 94% statement coverage, no hardware required** — no oscilloscope,
 no probe, no target, no GDB, no dongle, no BLE sensor, no power supply, no
 sub-1 GHz kit. With
-every optional extra removed: 1 152 pass, 36 skip, 0 fail.
+every optional extra removed: 1 678 pass, 39 skip, 0 fail.
 
 The suite includes an independently implemented VXI-11 RPC server, a SCPI socket
 server and a loopback TCP server standing in for the GDB Server's RTT and SWO
@@ -634,7 +640,7 @@ source carries its trace and allocates nothing dynamically.
 | [Bench Runner Guide](docs/Bench_Runner_Guide.md) | Writing specifications and bench configurations |
 | [BLE Dongle Notes](docs/ble/BLE_Dongle_Notes.md) | Why the dongle needs firmware, the line protocol, building and flashing, reading a profile, and what is unproven |
 | [S2-LP Devkit Notes](docs/s2lp/S2LP_Devkit_Notes.md) | Why ST's firmware is used unchanged, its CLI protocol, the register map, what a polled capture can and cannot be quoted as, and the licence position |
-| [GPD-2303S Notes](docs/psu/GPD2303S_Notes.md) | The three ways this supply will mislead a test, its command set and status word, and the bench confirmation items |
+| [GPD-3303D Notes](docs/psu/GPD3303D_Notes.md) | The four ways this supply will mislead a test, its command set and status word, and the bench confirmation items |
 | [SWE.1 Requirements](docs/SWE1_Software_Requirements_Specification.md) | 177 functional and 18 non-functional requirements |
 | [SWE.2 Architecture](docs/SWE2_Software_Architecture.md) | Layering, elements, eighteen architectural decisions |
 | [SWE.3 Detailed Design](docs/SWE3_Software_Detailed_Design.md) | Per-module design units |

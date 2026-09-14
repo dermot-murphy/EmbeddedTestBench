@@ -2,7 +2,7 @@
 """Bring up two supply rails, and catch one that is not delivering.
 
     python examples/07_supply_rails.py                  # simulated supply
-    python examples/07_supply_rails.py /dev/ttyUSB0     # a real GPD-2303S
+    python examples/07_supply_rails.py /dev/ttyUSB0     # a real GPD-3303D
     python examples/07_supply_rails.py COM4
 
 The second half of this example is the point. A channel in current limit reads a
@@ -13,12 +13,18 @@ and is otherwise invisible.
 
 Nothing here is energised without an explicit call, and the example switches the
 supply off before it exits, including after a failure.
+
+The supply must be in independent tracking: this uses both channels, and in
+series or parallel the supply drives channel 2 from channel 1 and discards
+anything sent to it. The driver refuses that rather than reporting a setpoint
+the hardware threw away, so on a supply left in series this stops at channel 2
+and says so.
 """
 
 import sys
 
 from benchtools.core.errors import BenchToolsError
-from benchtools.instruments.gpd2303s import Gpd2303S
+from benchtools.instruments.gpd3303d import Gpd3303D
 
 RAILS = (
     # channel, volts, current limit, what it is
@@ -27,7 +33,7 @@ RAILS = (
 )
 
 
-def show(psu: Gpd2303S, channel: int, label: str) -> bool:
+def show(psu: Gpd3303D, channel: int, label: str) -> bool:
     """Print one channel's state and say whether it is doing its job."""
     reading = psu.read_channel(channel)
     print(
@@ -42,7 +48,7 @@ def show(psu: Gpd2303S, channel: int, label: str) -> bool:
 
 
 def main(resource: str = "sim://") -> int:
-    with Gpd2303S.connect(resource) as psu:
+    with Gpd3303D.connect(resource) as psu:
         identity = psu.identify()
         print("Supply   : %s %s, serial %s"
               % (identity.manufacturer, identity.model, identity.serial_number or "(none)"))

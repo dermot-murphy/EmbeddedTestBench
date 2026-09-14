@@ -33,7 +33,7 @@ from ..core.errors import BenchConfigError, BenchToolsError
 from ..core.instrument import Instrument
 from ..instruments.generic import GenericScpiInstrument
 from ..instruments.jlink import JLinkProbe
-from ..instruments.gpd2303s import Gpd2303S
+from ..instruments.gpd3303d import Gpd3303D
 from ..instruments.nordic_dongle import NordicDongle
 from ..instruments.s2lp import S2lpDevkit
 from ..instruments.tek3014b import Tek3014B
@@ -70,8 +70,8 @@ register_driver("jlink", JLinkProbe)
 register_driver("segger", JLinkProbe)
 register_driver("ble-dongle", NordicDongle)
 register_driver("nordic", NordicDongle)
-register_driver("gpd2303s", Gpd2303S)
-register_driver("gwinstek-psu", Gpd2303S)
+register_driver("gpd3303d", Gpd3303D)
+register_driver("gwinstek-psu", Gpd3303D)
 register_driver("s2lp", S2lpDevkit)
 register_driver("s2lp-devkit", S2lpDevkit)
 

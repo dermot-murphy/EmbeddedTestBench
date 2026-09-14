@@ -44,11 +44,19 @@ instruments:
       # bench whose results are evidence, someone should decide to reflash.
       update_firmware: false
 
-  # GW Instek GPD-2303S, over its USB-serial port or RS-232. A bare port name
+  # GW Instek GPD-3303D, over its USB-serial port or RS-232. A bare port name
   # is read as a serial port. The line rate must match the supply's own front
   # panel setting (Utility > Baud); status reports what the supply thinks it is.
+  #
+  # The front panel must be in INDEPENDENT tracking for a two-rail run. In
+  # series or parallel the supply drives CH2 from CH1 and discards anything
+  # sent to CH2; the driver refuses it rather than pretending, so a run on a
+  # supply left in series fails at the first CH2 setting and says why.
+  #
+  # The fixed 2.5/3.3/5 V rail is a front-panel switch and is not driven from
+  # here. If a rail is taken from it, record the switch position by hand.
   psu:
-    driver: gpd2303s
+    driver: gpd3303d
     resource: /dev/ttyUSB0        # COM4 on Windows
     timeout: 5.0
     options:

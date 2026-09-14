@@ -1,21 +1,29 @@
-# GW Instek GPD-2303S — Integration Notes
+# GW Instek GPD-3303D — Integration Notes
 
 | | |
 |---|---|
-| Instrument | GW Instek GPD-2303S, two channels, 30 V / 3 A each |
+| Instrument | GW Instek GPD-3303D: two programmable channels, 30 V / 3 A each, plus a fixed 2.5 / 3.3 / 5 V, 3 A rail |
 | Link | RS-232 (DB-9) or the rear USB port, which enumerates as a serial port |
-| Driver | `benchtools.instruments.gpd2303s.Gpd2303S`, bench driver name `gpd2303s` |
-| Status | Driver verified against a simulated supply with a load model (SWE.4 §9). **No GPD-2303S has been attached**: four bench confirmation items remain, §5 |
+| Driver | `benchtools.instruments.gpd3303d.Gpd3303D`, bench driver name `gpd3303d` |
+| Status | Driver verified against a simulated supply with a load model (SWE.4 §10). **No GPD-3303D has been attached**: six bench confirmation items remain, §5 |
 
 This is the supply of STK-13, used to power the sensor board whose radio and
 firmware timing the rest of this repository measures. It is worth reading §1
-before using it: three properties of this particular instrument decide the shape
-of the driver, and all three are ways a test can record a number that is not
+before using it: four properties of this particular instrument decide the shape
+of the driver, and all four are ways a test can record a number that is not
 true.
+
+**The third channel is not in this driver.** The fixed 2.5 / 3.3 / 5 V rail is
+selected by a front-panel switch, and no command reaches it: a driver could not
+set it, and could not read back which position the switch is in. Anything it
+reported about that rail would be a repetition of what someone had typed into a
+bench file, dressed up as an instrument reading. Power a rail from CH3 if it
+suits the bench and record the switch position by hand, as you would any other
+piece of wiring.
 
 ---
 
-## 1. Three things this supply does that will mislead a test
+## 1. Four things this supply does that will mislead a test
 
 ### 1.1 It clamps a setting it cannot deliver
 
@@ -27,7 +35,7 @@ The driver refuses out-of-range settings **before** they are sent:
 
 ```python
 psu.set_voltage(1, 35.0)
-# ConfigurationError: a voltage of 35 V is outside what a GPD-2303S can
+# ConfigurationError: a voltage of 35 V is outside what a GPD-3303D can
 # deliver (0 to 30 V); the supply would clamp it silently
 ```
 
@@ -74,6 +82,34 @@ its setpoint (AD-19). The consequences are worth stating plainly:
 If a procedure needs the board genuinely disconnected, use `all_outputs_off()`
 or pull the lead. Do not use `output_off(channel)`.
 
+### 1.4 In series or parallel tracking, channel 2 is not a channel
+
+The front panel selects independent, series or parallel tracking. In series and
+parallel the supply drives CH2 from CH1 - and it **accepts and discards**
+anything addressed to CH2. No error, nothing in `STATUS?`, and `VSET2?` answers
+with whatever CH1 is set to, so a read-back agrees with nothing you sent.
+
+```python
+psu.set_voltage(2, 3.3)
+# ConfigurationError: channel 2 cannot be set or switched on its own while the
+# supply is in series tracking: it follows channel 1, and the supply would
+# accept the setting and discard it. Use channel 1, or switch the supply to
+# independent tracking on the front panel.
+```
+
+| While tracking | |
+|---|---|
+| `set_voltage(2, ...)`, `set_current_limit(2, ...)` | refused, naming the mode |
+| `output_on(2)`, `output_off(2)` | refused — the per-channel switch is emulated by programming the channel to zero, so it is discarded too |
+| Channel 1 | works normally; it is the master in both modes |
+| `all_outputs_on/off()`, `reset()` | work in every mode: they act on the real switch and on CH1 |
+
+The mode is read from the supply at each setting rather than cached, because it
+is a switch on the front panel: it can move between one command and the next.
+A mode the status word does not decode is **warned about and allowed** - the bit
+order is itself a confirmation item (PSU-OPEN-01, PSU-OPEN-06), and one
+unconfirmed bit should not leave the driver unable to set anything.
+
 ---
 
 ## 2. The command set
@@ -83,14 +119,15 @@ Not SCPI. The supply answers `*IDN?` and nothing else from IEEE 488.2 - no
 
 | Command | Meaning |
 |---|---|
-| `*IDN?` | `GW INSTEK,GPD-2303S,SN:EW000000,V2.00` |
+| `*IDN?` | `GW INSTEK,GPD-3303D,SN:EW000000,V2.00` |
 | `VSET<n>:<volts>` / `VSET<n>?` | set and read a channel's voltage setpoint |
 | `ISET<n>:<amps>` / `ISET<n>?` | set and read a channel's current limit |
 | `VOUT<n>?` / `IOUT<n>?` | measure output voltage and current; the reply may carry its unit (`3.300V`) |
 | `OUT1` / `OUT0` | close and open the one output switch |
 | `STATUS?` | eight characters, `0` or `1` — see below |
 | `ERR?` | the last complaint, cleared by reading it |
-| `BEEP0` / `BEEP1`, `TRACK<n>`, `SAV<n>` / `RCL<n>`, `BAUD<n>` | not used by this driver |
+| `TRACK<n>` | `0` independent, `1` series, `2` parallel. Read through `STATUS?`, never sent: which rails are tied together is a wiring decision, and a driver that changed it remotely could energise a board at twice the voltage the operator set up |
+| `BEEP0` / `BEEP1`, `SAV<n>` / `RCL<n>`, `BAUD<n>` | not used by this driver |
 
 Commands are terminated with a line feed; replies come back CR LF.
 
@@ -116,9 +153,9 @@ instrument (PSU-OPEN-01).
 ### 3.1 From Python
 
 ```python
-from benchtools.instruments.gpd2303s import Gpd2303S
+from benchtools.instruments.gpd3303d import Gpd3303D
 
-with Gpd2303S.connect("/dev/ttyUSB0") as psu:        # COM4 on Windows
+with Gpd3303D.connect("/dev/ttyUSB0") as psu:        # COM4 on Windows
     psu.configure_channel(1, volts=3.3, current_limit=0.5)
     psu.output_on(1)
 
@@ -150,7 +187,7 @@ limit.
 ```yaml
 # benches/lab1.yaml
 psu:
-  driver: gpd2303s
+  driver: gpd3303d
   resource: /dev/ttyUSB0
   options: {baudrate: 9600, command_interval: 0.05}
 ```
@@ -196,16 +233,24 @@ is a specific, short check.
 
 | ID | Item | How to discharge it |
 |---|---|---|
-| PSU-OPEN-01 | The **bit order** of `STATUS?`. The decode follows the programming manual, first character as bit 0 | Connect, `python -m benchtools psu -r <port> status`, note `raw`; switch the output on and repeat. The character that changes is bit 5. If it is the third from the end rather than the third from the start, the reply is bit 7 first and `Gpd2303S.status` needs its string reversed |
+| PSU-OPEN-01 | The **bit order** of `STATUS?`. The decode follows the programming manual, first character as bit 0 | Connect, `python -m benchtools psu -r <port> status`, note `raw`; switch the output on and repeat. The character that changes is bit 5. If it is the third from the end rather than the third from the start, the reply is bit 7 first and `Gpd3303D.status` needs its string reversed |
 | PSU-OPEN-02 | The wording and behaviour of `ERR?` | Send a deliberately bad command (`VSET3:1.000`), then `ERR?` twice. Confirm the text, and that the second read is clean. The driver carries the text verbatim either way |
 | PSU-OPEN-03 | The command interval a real supply needs | Run a long sweep at 50 ms, confirm no setpoint is missed, then bisect downward. 50 ms is a conservative default, not a measured one |
 | PSU-OPEN-04 | Settling time after a setpoint change | Step 0 V to 5 V and watch on the oscilloscope already on this bench. The driver does not wait; a specification that measures immediately after `set_voltage` should state its own `sleep` |
+| PSU-OPEN-05 | Whether the supply discards a setpoint sent to the slaved channel **silently**, as modelled here | Front panel to series, then `VSET1:5.000`, `VSET2:1.000`, `VSET2?`, `ERR?`. The expectation is `5.000` and no error. The driver refuses the command either way, so only the sentence describing the supply is at stake |
+| PSU-OPEN-06 | Whether the tracking bits are ordered as decoded (bit 2 then bit 3; `01` independent, `11` series, `10` parallel) | The same check as PSU-OPEN-01: move the front-panel switch through its three positions and watch characters 3 and 4 of `raw` |
 
 ## 6. What this driver does not do
 
-Tracking modes (series and parallel), memory save and recall, the beeper, and
-the front-panel lock are not implemented. `STATUS?` *reports* the tracking mode,
-so a supply left in series mode by a previous user is visible rather than
-silently halving the channel count; setting it is not offered, because series
-and parallel change which channel is a slave and what its readings mean, and
-that is a bench decision rather than a test-script one.
+**The fixed 2.5 / 3.3 / 5 V rail.** See the header: it is a front-panel switch,
+not a remote control, and there is nothing about it a driver could measure.
+
+**Changing the tracking mode.** `TRACK<n>` is never sent. The mode is read from
+`STATUS?` and acted on - a supply left in series by a previous user is refused
+rather than silently obeyed (§1.4) - but which rails are tied together is a
+wiring decision. A driver that changed it remotely could put a board across two
+channels in series at twice the voltage the operator set up, from a test script,
+with the lid on.
+
+**Memory save and recall, the beeper, and the front-panel lock** are not
+implemented. Nothing in the bench's use of this supply needs them.

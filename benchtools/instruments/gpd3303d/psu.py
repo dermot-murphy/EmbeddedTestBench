@@ -1,13 +1,17 @@
-"""Driver for the GW Instek GPD-2303S bench power supply.
+"""Driver for the GW Instek GPD-3303D bench power supply.
 
-A two-channel 30 V / 3 A linear supply with an RS-232 (and USB-serial) command
-set of its own. It is not a SCPI instrument: it answers ``*IDN?`` and nothing
-else from IEEE 488.2 - no ``*RST``, no ``*CLS``, no ``SYSTem:ERRor?`` - so this
-driver takes the transport and lifecycle from
+A linear supply with two programmable 30 V / 3 A channels and an RS-232 (and
+USB-serial) command set of its own. It is not a SCPI instrument: it answers
+``*IDN?`` and nothing else from IEEE 488.2 - no ``*RST``, no ``*CLS``, no
+``SYSTem:ERRor?`` - so this driver takes the transport and lifecycle from
 :class:`~benchtools.core.scpi.ScpiInstrument` and replaces the SCPI-specific
 parts explicitly.
 
-Three things about this supply shape the driver, and each of them is a way a
+The supply's **third** output - the fixed 2.5 / 3.3 / 5 V rail - is not driven
+from here. It is selected by a front-panel switch, so a driver could neither
+set it nor read back what it is set to; see :data:`.constants.CHANNELS`.
+
+Four things about this supply shape the driver, and each of them is a way a
 naive implementation reports a number that is not true:
 
 **The output switch is global.** ``OUT1`` and ``OUT0`` switch *both* channels;
@@ -26,7 +30,13 @@ no flow control, so the driver paces commands (see ``command_interval``). A
 dropped command at 9600 baud is silent: the supply answers the next query
 perfectly well, and the rail is not where the test believes it is.
 
-Traces to: PSU-FR-001 .. PSU-FR-040, PSU-ARC-001, PSU-DD-PSU.
+**In series or parallel tracking, CH2 is not its own channel.** The supply
+drives it from CH1 and discards setpoints sent to it - without an error, and
+without anything in ``STATUS?`` to say it did. The driver refuses to send them
+(:meth:`_check_tracking`), because the alternative is a test that configures a
+rail, reads back the value it sent, and never learns that the supply ignored it.
+
+Traces to: PSU-FR-001 .. PSU-FR-043, PSU-ARC-001, PSU-DD-PSU.
 """
 
 from __future__ import annotations
@@ -52,6 +62,7 @@ from .constants import (
     MODEL,
     STATUS_BAUDRATES,
     STATUS_LENGTH,
+    TRACKED_CHANNEL,
     TRACKING_MODES,
     VOLTAGE_RESOLUTION,
     ChannelMode,
@@ -59,7 +70,7 @@ from .constants import (
 )
 from .simulator import SimulatedGpd
 
-__all__ = ["Gpd2303S", "ChannelReading", "SupplyStatus"]
+__all__ = ["Gpd3303D", "ChannelReading", "SupplyStatus"]
 
 _LOG = logging.getLogger(__name__)
 
@@ -162,8 +173,8 @@ class SupplyStatus:
 
 
 # ---------------------------------------------------------------------------
-class Gpd2303S(ScpiInstrument):
-    """A GW Instek GPD-2303S two-channel bench supply.
+class Gpd3303D(ScpiInstrument):
+    """A GW Instek GPD-3303D two-channel bench supply.
 
     :param transport: An open or openable link, usually a serial port.
     :param command_interval: Minimum seconds between commands. See the module
@@ -172,9 +183,9 @@ class Gpd2303S(ScpiInstrument):
 
     Example::
 
-        from benchtools.instruments.gpd2303s import Gpd2303S
+        from benchtools.instruments.gpd3303d import Gpd3303D
 
-        with Gpd2303S.connect("/dev/ttyUSB0") as psu:
+        with Gpd3303D.connect("/dev/ttyUSB0") as psu:
             psu.set_voltage(1, 3.3)
             psu.set_current_limit(1, 0.5)
             psu.output_on(1)
@@ -235,7 +246,7 @@ class Gpd2303S(ScpiInstrument):
         command_interval: Optional[float] = None,
         initialise: bool = True,
         **kwargs,
-    ) -> "Gpd2303S":
+    ) -> "Gpd3303D":
         """Open a supply.
 
         :param resource: ``/dev/ttyUSB0``, ``COM4``, ``serial://COM4:57600``,
@@ -289,7 +300,7 @@ class Gpd2303S(ScpiInstrument):
     def _read_identity(self) -> InstrumentIdentity:
         """``*IDN?``, the one IEEE 488.2 query this supply answers.
 
-        A GPD answers ``GW INSTEK,GPD-2303S,SN:EW000000,V2.00``. The serial
+        A GPD answers ``GW INSTEK,GPD-3303D,SN:EW000000,V2.00``. The serial
         number carries an ``SN:`` prefix that is part of the label, not part of
         the number, so it is removed here rather than in every report.
         """
@@ -307,8 +318,11 @@ class Gpd2303S(ScpiInstrument):
         set for the board that is connected, and a reset that silently raised
         them would be the opposite of safe.
         """
+        # Written directly rather than through set_voltage: a safe state must
+        # be reachable in every tracking mode, and in series or parallel the
+        # slaved channel refuses a setpoint. Zeroing channel 1 zeroes both.
         for channel in CHANNELS:
-            self.set_voltage(channel, 0.0)
+            self._write("VSET%d:0.000" % channel)
         self.all_outputs_off()
         self._parked.clear()
         if settle > 0:
@@ -369,6 +383,59 @@ class Gpd2303S(ScpiInstrument):
             )
         return int(channel)
 
+    def _check_tracking(self, channel: int) -> None:
+        """Refuse to program a channel the supply is slaving to another.
+
+        In series and parallel tracking the supply drives CH2 from CH1. It
+        accepts ``VSET2:`` and ``ISET2:`` and does nothing with them: no error,
+        nothing in ``STATUS?``, and a read-back of CH2 that agrees with
+        whatever CH1 is doing. A test that set CH2 in tracking mode would
+        therefore be measuring CH1's setting under CH2's name.
+
+        The mode is read from the supply at the moment of the write rather
+        than cached, because it is a front-panel switch: it can move between
+        one command and the next, and a cached answer would be a guess about
+        hardware nobody was watching.
+
+        A mode the status word does not decode to one of the three documented
+        values is **warned about and allowed**. Refusing would turn an
+        unrecognised status bit - the bit order is a bench confirmation item,
+        PSU-OPEN-01 - into a driver that cannot set anything at all.
+
+        This guards the per-channel output switch as well as the setpoints,
+        because that switch is *emulated by programming the channel to zero
+        volts*: if the supply discards a setpoint sent to this channel, it
+        discards the "off" too, and the driver would report a rail switched off
+        while it followed channel 1 at whatever the test last asked for.
+
+        The global switch (:meth:`all_outputs_on`, :meth:`all_outputs_off`) and
+        :meth:`reset` are deliberately **not** guarded: they act on the supply's
+        real output switch and on channel 1, so they work in every mode. A safe
+        state must never be unreachable.
+
+        Traces to: PSU-FR-006.
+        """
+        if channel != TRACKED_CHANNEL:
+            return
+        mode = self.status().tracking
+        if mode == TrackingMode.INDEPENDENT:
+            return
+        if mode == TrackingMode.UNKNOWN:
+            _LOG.warning(
+                "the supply's tracking mode did not decode, so whether channel "
+                "%d is slaved to channel 1 is unknown; the setting is being "
+                "sent anyway and may be discarded by the supply",
+                channel,
+            )
+            return
+        raise ConfigurationError(
+            "channel %d cannot be set or switched on its own while the supply "
+            "is in %s tracking: it follows channel 1, and the supply would "
+            "accept the setting and discard it. Use channel 1, or switch the "
+            "supply to independent tracking on the front panel."
+            % (channel, mode)
+        )
+
     @staticmethod
     def _quantise(value: float, resolution: float) -> float:
         """Round to the supply's programming step, as the supply itself will.
@@ -407,10 +474,17 @@ class Gpd2303S(ScpiInstrument):
         On a channel that is switched **off** this updates the remembered
         setpoint instead of the live one, so that setting a voltage never
         energises a rail as a side effect; :meth:`output_on` applies it.
+
+        Raises :class:`~benchtools.core.errors.ConfigurationError` for a
+        channel the supply is slaving to another - see :meth:`_check_tracking`.
+        A parked channel is refused too: the value could not take effect while
+        the supply is tracking, and pretending otherwise would put a setpoint
+        in the driver that the hardware will never honour.
         """
         channel = self._check_channel(channel)
         wanted = self._check_range(volts, MAX_VOLTAGE, "a voltage", "V")
         wanted = self._quantise(wanted, VOLTAGE_RESOLUTION)
+        self._check_tracking(channel)
         if channel in self._parked:
             self._parked[channel] = wanted
             _LOG.debug("channel %d is parked; %.3f V held until it is switched on",
@@ -425,10 +499,14 @@ class Gpd2303S(ScpiInstrument):
 
         The limit applies whether or not the channel is switched on: it is the
         protection for whatever is connected, and it is never parked.
+
+        Raises :class:`~benchtools.core.errors.ConfigurationError` for a
+        channel the supply is slaving to another - see :meth:`_check_tracking`.
         """
         channel = self._check_channel(channel)
         wanted = self._check_range(amps, MAX_CURRENT, "a current limit", "A")
         wanted = self._quantise(wanted, CURRENT_RESOLUTION)
+        self._check_tracking(channel)
         self._write("ISET%d:%.3f" % (channel, wanted))
         self._after_configuration()
         return wanted
@@ -576,8 +654,12 @@ class Gpd2303S(ScpiInstrument):
         other channel too if it was not parked at zero - which is the honest
         behaviour of the hardware, and why :meth:`output_off` parks rather than
         disconnects.
+
+        Refused for a channel the supply is slaving to another; use
+        :meth:`all_outputs_on`, which acts on the real switch.
         """
         channel = self._check_channel(channel)
+        self._check_tracking(channel)
         parked = self._parked.pop(channel, None)
         if parked is not None:
             self._write("VSET%d:%.3f" % (channel, parked))
@@ -587,7 +669,7 @@ class Gpd2303S(ScpiInstrument):
     def output_off(self, channel: int) -> None:
         """Switch one channel off, as far as this supply can.
 
-        **This is not an isolator.** The GPD-2303S has one output switch for
+        **This is not an isolator.** The GPD-3303D has one output switch for
         both channels, so a single channel is switched off by programming it to
         zero volts: the terminals are at 0 V with the current limit unchanged,
         not open circuit. A channel switched off this way will still sink
@@ -596,8 +678,14 @@ class Gpd2303S(ScpiInstrument):
 
         When every channel has been switched off, the supply's real output
         switch is opened too, so "all off" means what it says.
+
+        Refused for a channel the supply is slaving to another: programming
+        that channel to zero would be discarded, and the rail would follow
+        channel 1 while the driver called it off. Use :meth:`all_outputs_off`,
+        which opens the switch itself.
         """
         channel = self._check_channel(channel)
+        self._check_tracking(channel)
         if channel not in self._parked:
             self._parked[channel] = self.voltage_setpoint(channel)
         self._write("VSET%d:0.000" % channel)

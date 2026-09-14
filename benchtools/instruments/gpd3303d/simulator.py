@@ -1,4 +1,4 @@
-"""A simulated GPD-2303S.
+"""A simulated GPD-3303D.
 
 The model is a *supply with a load on it*, not a set of registers that echo
 back what was written. That distinction is what makes the simulator worth
@@ -8,12 +8,14 @@ CC/CV mode fails a test here rather than on the rig.
 
 What is modelled: the command grammar and its replies, per-channel setpoints,
 the single global output switch, a resistive load per channel, constant-current
-fallback, the status word, and the supply's refusal of an out-of-range value.
+fallback, the status word, the supply's refusal of an out-of-range value, and
+the three tracking modes - including the part that matters, which is that a
+setpoint sent to the slaved channel is **accepted and discarded**.
 
-What is not: tracking modes beyond reporting independent, the front panel, and
-the timing of the supply's own regulation loop.
+What is not: the fixed 2.5 / 3.3 / 5 V rail, which no command reaches; the
+front panel; and the timing of the supply's own regulation loop.
 
-Traces to: PSU-FR-050, PSU-DD-SIM.
+Traces to: PSU-FR-006, PSU-FR-050, PSU-DD-SIM.
 """
 
 from __future__ import annotations
@@ -26,7 +28,10 @@ from .constants import (
     MAX_CURRENT,
     MAX_VOLTAGE,
     MODEL,
+    TRACKED_CHANNEL,
+    TRACKING_MODES,
     ChannelMode,
+    TrackingMode,
 )
 
 __all__ = ["SimulatedGpd", "SimulatedChannel"]
@@ -76,7 +81,7 @@ class SimulatedChannel:
 
 
 class SimulatedGpd:
-    """A GPD-2303S that answers its own command set.
+    """A GPD-3303D that answers its own command set.
 
     Satisfies :class:`~benchtools.core.simulator.Responder`, so it is reachable
     through ``sim://`` like every other simulated instrument. It is not built on
@@ -89,17 +94,28 @@ class SimulatedGpd:
 
     DEFAULT_IDN = "GW INSTEK,%s,SN:SIM00000,V2.00" % MODEL
 
-    #: ``STATUS?`` bits that are not per-channel: independent tracking, beeper
-    #: on, and 9600 baud, which is how a supply leaves the factory.
+    #: ``STATUS?`` bits that are not per-channel: beeper on and 9600 baud,
+    #: which is how a supply leaves the factory. Tracking is per instance,
+    #: because a test changes it.
     BEEP = True
     BAUD_BITS = "10"
+
+    #: The two status bits for each tracking mode, bit 2 first, from
+    #: :data:`.constants.TRACKING_MODES` so that the simulator and the driver
+    #: cannot disagree about which pattern means what.
+    _TRACKING_BITS = {name: bits for bits, name in TRACKING_MODES.items()}
 
     #: The digit is not restricted to a channel number: ``OUT0`` and ``OUT1``
     #: use the same position for the switch state, and a command naming a
     #: channel that does not exist must be *refused*, not unparsed.
     _PATTERN = re.compile(r"^(?P<name>[A-Z*]+)(?P<digit>\d)?(?P<tail>[:?].*)?$", re.I)
 
-    def __init__(self, idn: Optional[str] = None, load_ohms: Optional[Dict[int, float]] = None) -> None:
+    def __init__(
+        self,
+        idn: Optional[str] = None,
+        load_ohms: Optional[Dict[int, float]] = None,
+        tracking: str = TrackingMode.INDEPENDENT,
+    ) -> None:
         self.idn = idn if idn is not None else self.DEFAULT_IDN
         self.command_log: List[str] = []
         self.channels = {
@@ -107,12 +123,19 @@ class SimulatedGpd:
         }
         #: The single output switch, which is what the hardware really has.
         self.output = False
+        #: Independent, series or parallel. On the bench this is a front-panel
+        #: switch as well as a command, so a test may set it either way.
+        self.tracking = tracking
         self.last_error = ""
         self.reset()
 
     # ------------------------------------------------------------------
     def reset(self) -> None:
-        """Power-on state: output off, both channels at zero."""
+        """Power-on state: output off, both channels at zero.
+
+        Tracking is left alone: on the supply it is a switch position, and a
+        power cycle does not move it.
+        """
         self.output = False
         self.last_error = ""
         for channel in self.channels.values():
@@ -174,9 +197,34 @@ class SimulatedGpd:
         self._set(channel, argument, "current_limit", MAX_CURRENT)
         return None
 
+    def _cmd_track(self, channel, _argument) -> None:
+        """``TRACK0``, ``TRACK1``, ``TRACK2``: independent, series, parallel."""
+        modes = {0: TrackingMode.INDEPENDENT, 1: TrackingMode.SERIES,
+                 2: TrackingMode.PARALLEL}
+        if channel not in modes:
+            self.last_error = "Command Error, no tracking mode %s" % channel
+            return None
+        self.tracking = modes[channel]
+        if self.tracking != TrackingMode.INDEPENDENT:
+            self._follow()
+        return None
+
+    def _follow(self) -> None:
+        """Slave the tracked channel to channel 1, as the supply does."""
+        master = self.channels[CHANNELS[0]]
+        slaved = self.channels[TRACKED_CHANNEL]
+        slaved.voltage_setpoint = master.voltage_setpoint
+        slaved.current_limit = master.current_limit
+
     def _set(self, channel, argument, attribute: str, limit: float) -> None:
         if channel not in self.channels:
             self.last_error = "Command Error, no channel %s" % channel
+            return
+        if channel == TRACKED_CHANNEL and self.tracking != TrackingMode.INDEPENDENT:
+            # The behaviour the driver refuses to depend on: the supply takes
+            # the command, does nothing, and reports nothing. No error is
+            # recorded here because the hardware records none - that silence
+            # is the whole point.
             return
         try:
             value = float(argument)
@@ -190,6 +238,8 @@ class SimulatedGpd:
         if clamped != value:
             self.last_error = "Data Out of Range"
         setattr(self.channels[channel], attribute, clamped)
+        if self.tracking != TrackingMode.INDEPENDENT:
+            self._follow()
 
     def _reading(self, channel, quantity: str) -> Optional[float]:
         """One channel's figure, or ``None`` for a channel that does not exist."""
@@ -228,7 +278,12 @@ class SimulatedGpd:
             == ChannelMode.CONSTANT_VOLTAGE else "0"
             for number in CHANNELS
         ]
-        bits += ["1", "0"]                      # independent tracking (0b01)
+        # A mode this simulator has no bit pattern for reports 0b00, which is
+        # undocumented, rather than claiming independent. A test that sets a
+        # state the model does not know about should see the driver's handling
+        # of an undecodable status word, not a comfortable default.
+        pattern = self._TRACKING_BITS.get(self.tracking, 0b00)
+        bits += [str(pattern & 0b1), str((pattern >> 1) & 0b1)]
         bits += ["1" if self.BEEP else "0"]
         bits += ["1" if self.output else "0"]
         bits += list(self.BAUD_BITS)

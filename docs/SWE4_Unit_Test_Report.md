@@ -13,13 +13,13 @@
 
 | Metric | Result |
 |---|---|
-| Tests executed | **1 685** |
-| Passed | **1 685** |
+| Tests executed | **1 731** |
+| Passed | **1 731** |
 | Failed | 0 |
 | Errors | 0 |
 | Skipped | 0 |
-| Statement coverage | **94%** (9 856 statements, 569 missed) |
-| Execution time | 46.0 s with coverage instrumentation, 32.4 s without |
+| Statement coverage | **94%** (9 895 statements, 566 missed) |
+| Execution time | 43.6 s with coverage instrumentation, 30.6 s without |
 | Runtime | CPython 3.11.15, Linux |
 | Framework | pytest 9.1.1, pytest-cov |
 
@@ -33,8 +33,10 @@ No test was skipped. The `matplotlib`, `pyvisa` and `pyyaml` optional extras wer
 installed for this run, so their tests executed.
 
 The suite was also run with all extras blocked - `matplotlib`, `pyvisa`,
-`pyyaml` and now `pyserial` - to confirm the claim that the package works
-without them: **1 152 passed, 36 skipped, 0 failed**. (The totals
+`pyyaml` and `pyserial` - to confirm the claim that the package works
+without them: **1 678 passed, 39 skipped, 0 failed**. They were blocked by a
+`sitecustomize` that raises `ModuleNotFoundError` for those four names, which
+is closer to a machine that never had them than uninstalling is. (The totals
 differ from the figure above because the runner command-line module is skipped as a whole
 rather than test by test — the shipped specifications are YAML, so without
 `pyyaml` there is nothing in that module to run. Its JSON equivalents are covered
@@ -65,14 +67,14 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | SWE4-UT-S2LPSIM | `instruments/s2lp/test_simulator.py` | 28 | Pass |
 | SWE4-UT-S2LPCLI | `instruments/s2lp/test_cli.py` | 35 | Pass |
 | SWE4-UT-S2LPSESSION | `instruments/s2lp/test_session.py` | 14 | Pass |
-| SWE4-UT-PSU | `instruments/gpd2303s/test_psu.py` | 74 | Pass |
+| SWE4-UT-PSU | `instruments/gpd3303d/test_psu.py` | 102 | Pass |
 | SWE4-UT-BLE | `instruments/nordic_dongle/test_dongle.py` | 64 | Pass |
 | SWE4-UT-BLEFIRMWARE | `instruments/nordic_dongle/test_firmware.py` | 49 | Pass |
 | SWE4-UT-BLEPROTO | `instruments/nordic_dongle/test_protocol.py` | 34 | Pass |
 | SWE4-UT-BLEPROFILE | `instruments/nordic_dongle/test_profile.py` | 30 | Pass |
 | SWE4-UT-BLESIM | `instruments/nordic_dongle/test_simulator.py` | 27 | Pass |
-| SWE4-UT-PSUSIM | `instruments/gpd2303s/test_simulator.py` | 20 | Pass |
-| SWE4-UT-PSUCLI | `instruments/gpd2303s/test_cli.py` | 20 | Pass |
+| SWE4-UT-PSUSIM | `instruments/gpd3303d/test_simulator.py` | 35 | Pass |
+| SWE4-UT-PSUCLI | `instruments/gpd3303d/test_cli.py` | 23 | Pass |
 | SWE4-UT-SERIAL | `core/transport/test_serial.py` | 25 | Pass |
 | SWE4-UT-BLESESSION | `instruments/nordic_dongle/test_session.py` | 23 | Pass |
 | SWE4-UT-BLECLI | `instruments/nordic_dongle/test_cli.py` | 25 | Pass |
@@ -111,7 +113,7 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | SWE4-UT-RESOLVE | `runner/test_resolve.py` | 13 | Pass |
 | SWE4-UT-SOCKET | `core/transport/test_socket.py` | 12 | Pass |
 | SWE4-UT-VISA | `core/transport/test_visa.py` | 6 | Pass |
-| **Total** | | **1 685** | **Pass** |
+| **Total** | | **1 731** | **Pass** |
 
 ## 3. Coverage detail
 
@@ -126,10 +128,10 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | S2LP | `instruments/s2lp/session.py` | 123 | 9 | 93% |
 | S2LP | `instruments/s2lp/simulator.py` | 231 | 26 | 89% |
 | S2LP | `instruments/s2lp/packets.py` | 123 | 19 | 85% |
-| PSU | `instruments/gpd2303s/constants.py` | 24 | 0 | 100% |
-| PSU | `instruments/gpd2303s/psu.py` | 239 | 6 | 97% |
-| PSU | `instruments/gpd2303s/simulator.py` | 119 | 7 | 94% |
-| PSU | `instruments/gpd2303s/cli.py` | 110 | 8 | 93% |
+| PSU | `instruments/gpd3303d/constants.py` | 25 | 0 | 100% |
+| PSU | `instruments/gpd3303d/psu.py` | 253 | 5 | 98% |
+| PSU | `instruments/gpd3303d/simulator.py` | 140 | 7 | 95% |
+| PSU | `instruments/gpd3303d/cli.py` | 113 | 6 | 95% |
 | CORE | `core/enums.py` | 20 | 0 | 100% |
 | CORE | `core/errors.py` | 20 | 0 | 100% |
 | CORE | `core/transport/constants.py` | 8 | 0 | 100% |
@@ -677,7 +679,7 @@ supports a statement about what was *not* transmitted.
 
 ## 10. Power supply verification results
 
-No GPD-2303S was present (PC-8). The driver is verified against a simulated
+No GPD-3303D was present (PC-8). The driver is verified against a simulated
 supply that models a **load**, which is what makes the interesting condition
 reachable: a channel whose load draws more than its limit.
 
@@ -711,14 +713,46 @@ Row three is the property that matters: programming a parked channel does not
 energise it. Row five is the other: once every channel is off, the supply's real
 switch is opened, so "all off" is not two rails sitting at zero volts.
 
-### 10.3 What could not be verified without the instrument
+### 10.3 Channel 2 while the supply is tracking
+
+The element was retargeted from the GPD-2303S to the GPD-3303D. The two
+supplies share a command set, and the driver's behaviour is unchanged except
+for one property the 3303D brings with its tracking modes: in **series** and
+**parallel**, the supply drives CH2 from CH1, and a setpoint addressed to CH2
+is accepted and discarded. No error, nothing in `STATUS?`, and a read-back of
+CH2 that agrees with CH1.
+
+That is the shape of D-30 and D-31 again - a command that appears to succeed
+and changes nothing - so it is refused rather than reported:
+
+| Call, supply in series or parallel tracking | Result |
+|---|---|
+| `set_voltage(2, 3.3)`, `set_current_limit(2, 0.5)` | refused, naming the mode; nothing sent |
+| `output_on(2)`, `output_off(2)` | refused: the per-channel switch is emulated by programming the channel to zero, so it is discarded too |
+| `set_voltage(1, 5.0)` | applied - CH1 is the master in both modes, and CH2 follows it |
+| `all_outputs_on()`, `all_outputs_off()`, `reset()` | applied: they act on the supply's real switch and on CH1, so a safe state is reachable in every mode |
+| tracking mode the status word does not decode | warned about and **allowed**, so one unconfirmed status bit cannot disable setting altogether |
+
+The simulated supply models the discard - `VSET2:` in tracking mode changes
+nothing and records no error - so the refusal is tested against the behaviour it
+exists for rather than against a rule restating itself. That is the lesson of
+D-31 and D-35 applied in advance: a test double that is politely wrong makes
+every test above it vacuous.
+
+The supply's third output, the fixed 2.5 / 3.3 / 5 V rail, is outside the
+element. It is selected by a front-panel switch that no command reaches, so a
+driver could only repeat what it had been told about it.
+
+### 10.4 What could not be verified without the instrument
 
 | Item | Why |
 |---|---|
 | PSU-OPEN-01 | The bit **order** of the `STATUS?` reply. The decode follows the programming manual; whether the supply sends bit 0 first is a one-minute check on hardware (switch the output on and see which character changes). The raw reply is retained in `SupplyStatus.raw` so a mis-order is visible rather than silently decoded. |
 | PSU-OPEN-02 | The exact text and behaviour of `ERR?`. Anything not recognisably "no error" is carried verbatim rather than parsed, so the driver is correct either way; what is unproven is whether the supply clears the error on reading it. |
-| PSU-OPEN-03 | The command interval a real GPD-2303S needs. 50 ms is a conservative default taken from the supply having no flow control; the figure to confirm is the smallest interval at which a long sweep loses nothing. |
+| PSU-OPEN-03 | The command interval a real GPD-3303D needs. 50 ms is a conservative default taken from the supply having no flow control; the figure to confirm is the smallest interval at which a long sweep loses nothing. |
 | PSU-OPEN-04 | Settling time after a setpoint change. The driver does not wait; a specification that measures immediately after `set_voltage` should state its own `sleep`. |
+| PSU-OPEN-05 | Whether a real GPD-3303D discards a setpoint sent to the slaved channel **silently**, as modelled here, or records something in `ERR?`. The driver refuses the command either way, so the refusal is right in both cases; what is unconfirmed is the sentence that says the supply reports nothing. Send `VSET2:1.000` in series tracking, then `ERR?`. |
+| PSU-OPEN-06 | Whether the supply's own manual numbers the `STATUS?` tracking bits as this driver decodes them (bit 2 then bit 3, `01` independent, `11` series, `10` parallel). Related to PSU-OPEN-01 and confirmed by the same one-minute check: move the front-panel switch and watch which characters change. |
 
 ## 11. Runner verification results
 
@@ -866,7 +900,7 @@ Notes on process effectiveness:
 
 | ID | Criterion | Result |
 |---|---|---|
-| PC-1 | All tests pass | **Pass** — 1 202/1 202 |
+| PC-1 | All tests pass | **Pass** — 1 731/1 731 |
 | PC-2 | Statement coverage ≥ 90% | **Pass** — 94% |
 | PC-3 | Every requirement covered | **Pass** — see BENCHTOOLS-TRACE-001 |
 | PC-4 | Injected skews recovered to < 0.1 sample interval | **Pass** — worst case 0.055 |
@@ -916,7 +950,7 @@ discharged without physical hardware:
 | `benchtools` sub-commands `run`, `scope`, `drivers`, `backends` | All run |
 | `python -m benchtools` | Runs |
 | `benchtools` console script after `pip install -e .` | Installs and runs |
-| Full suite with `matplotlib`, `pyvisa`, `pyyaml`, `numpy` and `pyserial` blocked | 1 152 passed, 36 skipped, 0 failed |
+| Full suite with `matplotlib`, `pyvisa`, `pyyaml` and `pyserial` blocked | 1 678 passed, 39 skipped, 0 failed |
 | `firmware/nordic_dongle/scripts/compile_check.sh` in `canembed/canembed-arm` | All six firmware units compile, 0 warnings, apart from four listed SDK 17-only lines (§4.5) |
 | `ctest --test-dir build/firmware-tests` | 5 binaries, 131 cases, all pass in 0.01 s |
 | `make SDK_ROOT=…` against SDK 15.2 | Drives a real build to the compile stage; stops only on files SDK 15.2 places elsewhere or lacks, which is the expected result for an SDK 17 project |

@@ -17,10 +17,15 @@ name: Sensor board supply rails
 description: >
   Bring up the 3V3 and 5V rails, confirm each is regulated rather than in
   current limit, and confirm the board draws what it should.
+
+  The supply must be in independent tracking: this specification uses both
+  channels, and in series or parallel the supply would drive channel 2 from
+  channel 1 and discard what this asks for. The driver refuses rather than
+  allowing that, so the run stops at the first channel 2 setting.
 requirements: [SYS-REQ-100, SYS-REQ-101]
 
 instruments:
-  psu: gpd2303s
+  psu: gpd3303d
 
 setup:
   # The limit first, always: a rail coming up at a new voltage must never be

@@ -5,12 +5,15 @@ Traces to: PSU-FR-060, SWE4-UT-PSUCLI.
 
 from __future__ import annotations
 
+import argparse
 import json
 
 import pytest
 
+from benchtools.core.transport.mock import MockTransport
 from benchtools.cli import main as top_level_main
-from benchtools.instruments.gpd2303s.cli import build_parser, main
+from benchtools.instruments.gpd3303d import Gpd3303D, SimulatedGpd, TrackingMode
+from benchtools.instruments.gpd3303d.cli import _cmd_read, build_parser, main
 
 
 def run(capsys, *argv):
@@ -30,7 +33,7 @@ class TestSubcommands:
         status, payload, _ = run(capsys, *SIM, "info")
         assert status == 0
         assert payload["manufacturer"] == "GW INSTEK"
-        assert payload["model"] == "GPD-2303S"
+        assert payload["model"] == "GPD-3303D"
         assert payload["status"]["tracking"] == "independent"
 
     def test_status(self, capsys):
@@ -89,9 +92,9 @@ class TestSubcommands:
 class TestWarnings:
     def test_a_channel_in_current_limit_is_flagged(self, capsys, monkeypatch):
         """The numbers are real and describe a circuit nobody asked for."""
-        import benchtools.instruments.gpd2303s.cli as module
+        import benchtools.instruments.gpd3303d.cli as module
 
-        original = module.Gpd2303S.connect
+        original = module.Gpd3303D.connect
 
         def loaded(*args, **kwargs):
             psu = original(*args, **kwargs)
@@ -99,7 +102,7 @@ class TestWarnings:
             psu.configure_channel(1, volts=3.3, current_limit=0.5, output=True)
             return psu
 
-        monkeypatch.setattr(module.Gpd2303S, "connect", loaded)
+        monkeypatch.setattr(module.Gpd3303D, "connect", loaded)
         status, payload, _ = run(capsys, *SIM, "read", "1")
         assert status == 0
         assert "current limit" in payload["warning"]
@@ -126,7 +129,7 @@ class TestUsage:
 
 
 class TestDispatch:
-    @pytest.mark.parametrize("name", ["psu", "gpd2303s", "supply"])
+    @pytest.mark.parametrize("name", ["psu", "gpd3303d", "supply"])
     def test_the_top_level_command_dispatches(self, name, capsys):
         assert top_level_main([name, "--resource", "sim://", "info"]) == 0
         assert "GW INSTEK" in capsys.readouterr().out
@@ -134,3 +137,34 @@ class TestDispatch:
     def test_the_usage_lists_the_supply(self, capsys):
         top_level_main([])
         assert "psu " in capsys.readouterr().out
+
+
+class TestTrackingIsVisibleWhenReading:
+    """`read` never refuses - reading is always allowed - but the figures for a
+    slaved channel are channel 1's, and nothing in the numbers says so.
+
+    Traces to: PSU-FR-006, PSU-FR-060.
+    """
+
+    def read(self, capsys, tracking):
+        simulator = SimulatedGpd(tracking=tracking)
+        psu = Gpd3303D(MockTransport(responder=simulator), command_interval=0.0)
+        psu.initialise()
+        try:
+            _cmd_read(psu, argparse.Namespace(channel=None, json=True))
+        finally:
+            psu.close()
+        text = capsys.readouterr().out
+        return json.loads(text[text.index("{"):])
+
+    def test_an_independent_supply_says_so_and_does_not_warn(self, capsys):
+        payload = self.read(capsys, TrackingMode.INDEPENDENT)
+        assert payload["tracking"] == "independent"
+        assert "tracking_warning" not in payload
+
+    @pytest.mark.parametrize("mode", [TrackingMode.SERIES, TrackingMode.PARALLEL])
+    def test_a_tracking_supply_is_flagged(self, capsys, mode):
+        payload = self.read(capsys, mode)
+        assert payload["tracking"] == mode
+        assert mode in payload["tracking_warning"]
+        assert "follows channel 1" in payload["tracking_warning"]

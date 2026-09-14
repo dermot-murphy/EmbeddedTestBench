@@ -1,9 +1,10 @@
-"""The GPD-2303S driver.
+"""The GPD-3303D driver.
 
-The tests are organised around the three ways this supply can make a test lie:
+The tests are organised around the four ways this supply can make a test lie:
 a value it clamps silently, a channel in current limit that is not at the
-voltage it was asked for, and an output switch that is global while the API
-looks per-channel.
+voltage it was asked for, an output switch that is global while the API looks
+per-channel, and a tracking mode in which channel 2 is not its own channel at
+all.
 
 Traces to: PSU-FR-001 .. PSU-FR-050, SWE4-UT-PSU.
 """
@@ -14,12 +15,13 @@ import pytest
 
 from benchtools.core.errors import ConfigurationError, InstrumentError, ProtocolError
 from benchtools.core.transport.mock import MockTransport
-from benchtools.instruments.gpd2303s import (
+from benchtools.instruments.gpd3303d import (
     CHANNELS,
     MAX_CURRENT,
     MAX_VOLTAGE,
+    TRACKED_CHANNEL,
     ChannelMode,
-    Gpd2303S,
+    Gpd3303D,
     SimulatedGpd,
     TrackingMode,
 )
@@ -31,7 +33,7 @@ class TestConnection:
     def test_identity(self, psu):
         identity = psu.identify()
         assert identity.manufacturer == "GW INSTEK"
-        assert identity.model == "GPD-2303S"
+        assert identity.model == "GPD-3303D"
         assert identity.firmware == "V2.00"
 
     def test_the_serial_number_loses_its_label(self, psu):
@@ -41,8 +43,8 @@ class TestConnection:
     def test_a_bare_port_name_is_a_serial_port(self):
         """COM4 must not be parsed as a network host, which is the sensible
         default everywhere else and wrong here."""
-        assert Gpd2303S._normalise_resource("COM4") == "serial://COM4"
-        assert Gpd2303S._normalise_resource("/dev/ttyUSB0") == "serial:///dev/ttyUSB0"
+        assert Gpd3303D._normalise_resource("COM4") == "serial://COM4"
+        assert Gpd3303D._normalise_resource("/dev/ttyUSB0") == "serial:///dev/ttyUSB0"
 
     @pytest.mark.parametrize(
         "resource,expected",
@@ -51,11 +53,11 @@ class TestConnection:
          ("socket://terminal:4002", "socket://terminal:4002")],
     )
     def test_resource_forms(self, resource, expected):
-        assert Gpd2303S._normalise_resource(resource) == expected
+        assert Gpd3303D._normalise_resource(resource) == expected
 
     def test_connect_through_the_factory(self):
-        with Gpd2303S.connect("sim://") as psu:
-            assert psu.model == "GPD-2303S"
+        with Gpd3303D.connect("sim://") as psu:
+            assert psu.model == "GPD-3303D"
 
     def test_connecting_changes_nothing(self, simulator):
         """A supply powering a board must not be disturbed by a driver
@@ -65,7 +67,7 @@ class TestConnection:
         simulator.output = True
         before = list(simulator.command_log)
 
-        instrument = Gpd2303S(MockTransport(responder=simulator), command_interval=0.0)
+        instrument = Gpd3303D(MockTransport(responder=simulator), command_interval=0.0)
         instrument.initialise()
 
         assert simulator.channels[1].voltage_setpoint == 5.0
@@ -79,7 +81,7 @@ class TestConnection:
         without remembering what it had been set to."""
         simulator.channels[1].voltage_setpoint = 5.0
         simulator.output = True
-        instrument = Gpd2303S(MockTransport(responder=simulator), command_interval=0.0)
+        instrument = Gpd3303D(MockTransport(responder=simulator), command_interval=0.0)
         instrument.initialise()
         assert instrument.is_output_on(1) is True
         instrument.close()
@@ -159,13 +161,13 @@ class TestMeasuring:
 
     def test_the_unit_suffix_is_not_mistaken_for_a_number(self, psu):
         """VOUT answers "3.300V" and ISET answers "0.500"; both are numbers."""
-        assert Gpd2303S._parse_reading("3.300V", "VOUT1?") == 3.3
-        assert Gpd2303S._parse_reading("0.500A", "IOUT1?") == 0.5
-        assert Gpd2303S._parse_reading(" 12.000 ", "VSET1?") == 12.0
+        assert Gpd3303D._parse_reading("3.300V", "VOUT1?") == 3.3
+        assert Gpd3303D._parse_reading("0.500A", "IOUT1?") == 0.5
+        assert Gpd3303D._parse_reading(" 12.000 ", "VSET1?") == 12.0
 
     def test_a_reply_that_is_not_a_number_is_reported_with_the_command(self, psu):
         with pytest.raises(ProtocolError, match="VOUT1"):
-            Gpd2303S._parse_reading("OVERLOAD", "VOUT1?")
+            Gpd3303D._parse_reading("OVERLOAD", "VOUT1?")
 
     def test_power_is_derived_from_both_readings(self, loaded):
         loaded.configure_channel(1, volts=3.3, current_limit=0.5, output=True)
@@ -350,7 +352,7 @@ class TestStatus:
     def test_a_short_reply_blames_the_line_rate(self, simulator):
         """Which is what it almost always is, and is worth saying rather than
         decoding four characters into a confident wrong answer."""
-        instrument = Gpd2303S(MockTransport(responder=simulator), command_interval=0.0)
+        instrument = Gpd3303D(MockTransport(responder=simulator), command_interval=0.0)
         instrument.initialise()
         simulator._cmd_status_q = lambda *_: "1010"
         with pytest.raises(ProtocolError, match="line rate"):
@@ -391,7 +393,7 @@ class TestErrors:
 
     def test_it_can_be_turned_on(self, simulator):
         simulator.last_error = "Data Out of Range"
-        instrument = Gpd2303S(MockTransport(responder=simulator),
+        instrument = Gpd3303D(MockTransport(responder=simulator),
                               auto_check_errors=True, command_interval=0.0)
         instrument.initialise()
         with pytest.raises(InstrumentError):
@@ -409,20 +411,20 @@ class TestPacing:
         "description,paced",
         [("serial:///dev/ttyUSB0", True), ("serial://COM4:9600", True),
          ("socket://terminal-server:4002", True),
-         ("simulated GPD-2303S", False), ("serial://loop://", False)],
+         ("simulated GPD-3303D", False), ("serial://loop://", False)],
     )
     def test_which_links_are_paced(self, description, paced):
-        interval = Gpd2303S._default_command_interval(description)
+        interval = Gpd3303D._default_command_interval(description)
         assert (interval > 0.0) is paced
 
     def test_the_interval_can_be_set(self):
-        instrument = Gpd2303S(MockTransport(responder=SimulatedGpd()), command_interval=0.2)
+        instrument = Gpd3303D(MockTransport(responder=SimulatedGpd()), command_interval=0.2)
         assert instrument._command_interval == 0.2
 
     def test_it_waits_between_commands(self, simulator):
         import time
 
-        instrument = Gpd2303S(MockTransport(responder=simulator), command_interval=0.02)
+        instrument = Gpd3303D(MockTransport(responder=simulator), command_interval=0.02)
         instrument.initialise()
         started = time.monotonic()
         for _ in range(3):
@@ -450,3 +452,126 @@ class TestReset:
         with silence and a timeout."""
         loaded.reset(settle=0.0)
         assert "*RST" not in loaded.transport.responder.command_log
+
+
+class TestTracking:
+    """Channel 2 while the supply is slaving it to channel 1.
+
+    The supply takes ``VSET2:`` in series or parallel tracking, does nothing
+    with it, and reports nothing. Every test here is about the driver refusing
+    to be the component that turns that silence into a number.
+
+    Traces to: PSU-FR-006.
+    """
+
+    @pytest.fixture(params=[TrackingMode.SERIES, TrackingMode.PARALLEL])
+    def tracking(self, request) -> str:
+        return request.param
+
+    @pytest.fixture
+    def tracked(self, tracking) -> Gpd3303D:
+        """A supply whose front panel is in series or parallel tracking."""
+        simulator = SimulatedGpd(tracking=tracking)
+        instrument = Gpd3303D(MockTransport(responder=simulator), command_interval=0.0)
+        instrument.initialise()
+        yield instrument
+        instrument.close()
+
+    def test_the_supply_really_does_discard_the_setpoint(self, tracking):
+        """The premise. If the simulated supply accepted VSET2 while tracking,
+        every test below would be asserting a rule that protects nothing."""
+        simulator = SimulatedGpd(tracking=tracking)
+        simulator.respond(b"VSET1:5.000")
+        simulator.respond(b"VSET2:1.000")
+        assert simulator.channels[TRACKED_CHANNEL].voltage_setpoint == 5.0
+        assert simulator.last_error == "", "the supply reports no error either"
+
+    def test_a_voltage_is_refused(self, tracked, tracking):
+        with pytest.raises(ConfigurationError, match=tracking):
+            tracked.set_voltage(TRACKED_CHANNEL, 3.3)
+
+    def test_a_current_limit_is_refused(self, tracked, tracking):
+        with pytest.raises(ConfigurationError, match=tracking):
+            tracked.set_current_limit(TRACKED_CHANNEL, 0.5)
+
+    def test_the_refusal_says_what_to_do_instead(self, tracked):
+        with pytest.raises(ConfigurationError, match="independent"):
+            tracked.set_voltage(TRACKED_CHANNEL, 3.3)
+
+    def test_nothing_was_sent(self, tracked):
+        """A refusal that still writes is worse than no refusal: the setpoint
+        is discarded by the supply and the driver has raised about it."""
+        with pytest.raises(ConfigurationError):
+            tracked.set_voltage(TRACKED_CHANNEL, 3.3)
+        assert not any(
+            line.startswith("VSET%d:" % TRACKED_CHANNEL)
+            for line in tracked.transport.responder.command_log
+        )
+
+    def test_a_parked_channel_is_refused_too(self, tracked):
+        """Parking would record a setpoint the hardware can never honour."""
+        tracked.set_voltage(1, 1.0)
+        with pytest.raises(ConfigurationError):
+            tracked.output_off(TRACKED_CHANNEL)
+        with pytest.raises(ConfigurationError):
+            tracked.set_voltage(TRACKED_CHANNEL, 3.3)
+
+    def test_switching_the_slaved_channel_is_refused(self, tracked):
+        """The per-channel switch is emulated by programming the channel to
+        zero volts, so it is discarded exactly as a setpoint is."""
+        with pytest.raises(ConfigurationError):
+            tracked.output_off(TRACKED_CHANNEL)
+        with pytest.raises(ConfigurationError):
+            tracked.output_on(TRACKED_CHANNEL)
+
+    def test_channel_1_is_unaffected(self, tracked):
+        """It is the master in both modes; refusing it would be a driver that
+        cannot use a supply in tracking at all."""
+        assert tracked.set_voltage(1, 5.0) == 5.0
+        assert tracked.set_current_limit(1, 0.5) == 0.5
+
+    def test_the_slaved_channel_follows_channel_1(self, tracked):
+        tracked.set_voltage(1, 5.0)
+        assert tracked.voltage_setpoint(TRACKED_CHANNEL) == 5.0
+
+    def test_the_global_switch_still_works(self, tracked):
+        """A safe state must be reachable in every mode."""
+        tracked.set_voltage(1, 5.0)
+        tracked.all_outputs_on()
+        assert tracked.output is True
+        tracked.all_outputs_off()
+        assert tracked.output is False
+
+    def test_reset_still_works(self, tracked):
+        tracked.set_voltage(1, 5.0)
+        tracked.all_outputs_on()
+        tracked.reset(settle=0.0)
+        assert tracked.output is False
+        assert tracked.voltage_setpoint(1) == 0.0
+        assert tracked.voltage_setpoint(TRACKED_CHANNEL) == 0.0
+
+    def test_the_mode_is_reported(self, tracked, tracking):
+        assert tracked.tracking == tracking
+        assert tracked.status().tracking == tracking
+
+    def test_independent_is_not_refused(self, psu):
+        assert psu.tracking == TrackingMode.INDEPENDENT
+        assert psu.set_voltage(TRACKED_CHANNEL, 3.3) == 3.3
+
+    def test_the_mode_is_re_read_for_every_setting(self, tracked):
+        """It is a front-panel switch: it can move between two commands, and a
+        cached answer would be a guess about hardware nobody was watching."""
+        with pytest.raises(ConfigurationError):
+            tracked.set_voltage(TRACKED_CHANNEL, 3.3)
+        tracked.transport.responder.respond(b"TRACK0")
+        assert tracked.set_voltage(TRACKED_CHANNEL, 3.3) == 3.3
+
+    def test_an_undecodable_mode_warns_and_allows(self, psu, caplog):
+        """The status bit order is a bench confirmation item (PSU-OPEN-01).
+        Refusing on a pattern we do not recognise would turn one unverified bit
+        into a driver that cannot set anything at all - so it warns instead."""
+        psu.transport.responder.tracking = "a mode this driver has no name for"
+        assert psu.status().tracking == TrackingMode.UNKNOWN
+        with caplog.at_level("WARNING"):
+            assert psu.set_voltage(TRACKED_CHANNEL, 3.3) == 3.3
+        assert "tracking mode did not decode" in caplog.text
