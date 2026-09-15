@@ -54,7 +54,15 @@ from ..core.errors import OptionalDependencyError, SpecError
 from .limits import Limit, TextLimit
 from .resolve import Reference, parse_references
 
-__all__ = ["Expectation", "Step", "TestCase", "TestSpec", "load_spec", "load_mapping"]
+__all__ = [
+    "Expectation",
+    "Step",
+    "TestCase",
+    "TestSpec",
+    "load_spec",
+    "load_mapping",
+    "render",
+]
 
 #: Keys accepted on an expectation but consumed by the limit, not the expectation.
 _LIMIT_KEYS = ("min", "max", "minimum", "maximum", "equals", "nominal",
@@ -65,6 +73,28 @@ def _require_mapping(value, what: str) -> dict:
     if not isinstance(value, dict):
         raise SpecError("%s must be a mapping, got %s" % (what, type(value).__name__))
     return value
+
+
+def render(template: str, value: float) -> str:
+    """Render *value* through *template*, as a specification asked for.
+
+    An integral value is rendered as an integer, so ``"{:06X}"`` works: a hex
+    format cannot be applied to a float, and a value read out of a part is a
+    whole number that arithmetic has turned into one.
+
+    :raises SpecError: if the template cannot be applied, naming both. Falling
+        back to the number would hide a broken specification behind a result
+        that looks right.
+    """
+    number = float(value)
+    if number.is_integer():
+        number = int(number)
+    try:
+        return template.format(number)
+    except (ValueError, TypeError, IndexError, KeyError) as exc:
+        raise SpecError(
+            "format %r cannot be applied to %r: %s" % (template, value, exc)
+        ) from exc
 
 
 def _optional_number(value, what: str) -> Optional[float]:
@@ -94,6 +124,9 @@ class Expectation:
     :param scale: Multiplier applied before the limit is checked, so a spec can
         state a limit in convenient units (nanoseconds, millivolts).
     :param display_unit: Unit the scaled value is reported in.
+    :param format: Template the scaled value is rendered through for the record,
+        e.g. ``"{:06X}"``. Presentation only - the limit is checked against the
+        number either way.
     """
 
     name: str
@@ -102,6 +135,11 @@ class Expectation:
     unit: str = ""
     scale: float = 1.0
     display_unit: str = ""
+    #: How the value is rendered in the record. Presentation only: the limit is
+    #: still checked against the number. An identifier read off a part is the
+    #: case this exists for - 662316 and 0A1B2C are the same value, and only one
+    #: of them can be compared with what is printed on the board.
+    format: str = ""
     reference: Optional[Reference] = None
     tolerance: Optional[float] = None
     tolerance_percent: Optional[float] = None
@@ -162,6 +200,7 @@ class Expectation:
             scale=scale,
             display_unit=str(data.get("display_unit", "")) or unit,
             reference=reference,
+            format=str(data.get("format", "")),
             tolerance=tolerance,
             tolerance_percent=tolerance_percent,
         )

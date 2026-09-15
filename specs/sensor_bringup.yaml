@@ -137,6 +137,12 @@ tests:
         save: sensor_id
         expect:
           - name: sensor_id
+            # Reported as the six hex digits that are on the board and in its
+            # advertising name. The bounds are still checked against the number;
+            # `format` only decides how the record reads. 0x000000 is a valid
+            # record with no identifier in it, and 0xFFFFFF is what three
+            # unprogrammed bytes look like.
+            format: "{:06X}"
             minimum: 1
             maximum: 16777214
 

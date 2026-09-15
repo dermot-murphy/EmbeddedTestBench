@@ -363,6 +363,7 @@ where the firmware implements the requirement.
 | RUN-FR-022 | ARC-001 | RUN-DD-SPEC | `Expectation.scale` | `test_measured_value_is_scaled_for_the_limit` |
 | RUN-FR-023 | ARC-001 | RUN-DD-LIMITS | `Limit.text`, `LimitOutcome.reason` | `TestRendering` (6), `test_out_of_limit_is_a_failure_not_an_error` |
 | RUN-FR-024 | ARC-001 | RUN-DD-LIMITS | `TextLimit`, `Expectation._limit_for`, `_format_value` | `TestTextLimits` (8), `test_the_reported_version_is_recorded_as_text` |
+| RUN-FR-025 | ARC-001 | RUN-DD-SPEC, RUN-DD-ENGINE | `spec.render`, `Expectation.format`, `BenchRunner._render_limit`, `MeasurementRecord.as_dict` | `TestHowAValueIsReported` (8), `test_the_identifier_is_reported_in_hex`, `test_the_number_is_still_in_the_record` |
 | RUN-FR-030 | ARC-001 | RUN-DD-RUNNER, -RESULTS | `runner/runner.py`, `results.py` | `TestHappyPath` (7) |
 | RUN-FR-031 | ARC-001 | RUN-DD-RUNNER | error vs failure classification | `TestFailureVersusError` (9) |
 | RUN-FR-032 | ARC-001 | RUN-DD-RUNNER | setup abort, teardown `finally` | `test_setup_failure_aborts_the_suite`, `test_teardown_runs_even_after_a_failure` |

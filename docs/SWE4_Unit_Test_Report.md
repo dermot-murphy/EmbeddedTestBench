@@ -13,12 +13,12 @@
 
 | Metric | Result |
 |---|---|
-| Tests executed | **1 806** |
-| Passed | **1 806** |
+| Tests executed | **1 816** |
+| Passed | **1 816** |
 | Failed | 0 |
 | Errors | 0 |
 | Skipped | 0 |
-| Statement coverage | **94%** (10 086 statements, 570 missed) |
+| Statement coverage | **94%** (10 119 statements, 573 missed) |
 | Execution time | 43.6 s with coverage instrumentation, 30.6 s without |
 | Runtime | CPython 3.11.15, Linux |
 | Framework | pytest 9.1.1, pytest-cov |
@@ -34,7 +34,7 @@ installed for this run, so their tests executed.
 
 The suite was also run with all extras blocked - `matplotlib`, `pyvisa`,
 `pyyaml` and `pyserial` - to confirm the claim that the package works
-without them: **1 737 passed, 40 skipped, 0 failed**. They were blocked by a
+without them: **1 745 passed, 40 skipped, 0 failed**. They were blocked by a
 `sitecustomize` that raises `ModuleNotFoundError` for those four names, which
 is closer to a machine that never had them than uninstalling is. (The totals
 differ from the figure above because the runner command-line module is skipped as a whole
@@ -101,7 +101,7 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | SWE4-UT-ENGINE | `runner/test_runner.py` | 33 | Pass |
 | SWE4-UT-VALIDATE | `core/test_validation.py` | 23 | Pass |
 | SWE4-UT-FACTORY | `core/transport/test_factory.py` | 23 | Pass |
-| SWE4-UT-LIMITS | `runner/test_limits.py` | 37 | Pass |
+| SWE4-UT-LIMITS | `runner/test_limits.py` | 45 | Pass |
 | SWE4-UT-SIMBASE | `core/test_simulator.py` | 22 | Pass |
 | SWE4-UT-VXI11 | `core/transport/test_vxi11.py` | 22 | Pass |
 | SWE4-UT-CLI | `instruments/tek3014b/test_cli.py` | 20 | Pass |
@@ -111,11 +111,11 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | SWE4-UT-PLOT | `analysis/test_plotting.py` | 15 | Pass |
 | SWE4-UT-RUNCLI | `runner/test_cli.py` | 15 | Pass |
 | SWE4-UT-RESOLVE | `runner/test_resolve.py` | 27 | Pass |
-| SWE4-UT-BRINGUP | `runner/test_sensor_bringup.py` | 16 | Pass |
+| SWE4-UT-BRINGUP | `runner/test_sensor_bringup.py` | 18 | Pass |
 | SWE4-UT-COREFW | `core/test_firmware.py` | 13 | Pass |
 | SWE4-UT-SOCKET | `core/transport/test_socket.py` | 12 | Pass |
 | SWE4-UT-VISA | `core/transport/test_visa.py` | 6 | Pass |
-| **Total** | | **1 806** | **Pass** |
+| **Total** | | **1 816** | **Pass** |
 
 ## 3. Coverage detail
 
@@ -775,6 +775,7 @@ driver could only repeat what it had been told about it.
 | A value saved by one step is usable by a later one, as an argument and as a limit | Pass |
 | A reference to a name nothing has saved is an error, naming what has been saved | Pass |
 | A limit stated as text compares as text, and the report shows the text | Pass |
+| A value reported through a format reads as the part does, and the number stays in the record | Pass |
 
 ### 11.1 A chained test, run end to end
 
@@ -788,7 +789,7 @@ establishes decides what the next one does.
 | `dongle.ensure_firmware` | the instrument that will measure the board is the build it should be | the radio steps |
 | `probe.flash` | the image is on the part and verifies | — |
 | `probe.image_build` | what the build system recorded about that image | the version comparison |
-| `probe.read_u8`, `probe.read_integer` at UICR `CUSTOMER[0]` | that the identity record is valid, and which board this is | the scan and the selection |
+| `probe.read_u8`, `probe.read_integer` at UICR `CUSTOMER[0]` | that the identity record is valid, and which board this is - reported as `0A1B2C`, as it reads on the board | the scan and the selection |
 | `probe.reset(halt=false)`, `probe.rtt_lines_within` | it started and is running | — |
 | `dongle.scan`, `select`, `open_link` | that board, found over the air **by its own identifier** | the command |
 | `dongle.command("rd version")` | what the running firmware says it is | compared with the manifest |
@@ -948,7 +949,7 @@ Notes on process effectiveness:
 
 | ID | Criterion | Result |
 |---|---|---|
-| PC-1 | All tests pass | **Pass** — 1 806/1 806 |
+| PC-1 | All tests pass | **Pass** — 1 816/1 816 |
 | PC-2 | Statement coverage ≥ 90% | **Pass** — 94% |
 | PC-3 | Every requirement covered | **Pass** — see BENCHTOOLS-TRACE-001 |
 | PC-4 | Injected skews recovered to < 0.1 sample interval | **Pass** — worst case 0.055 |
@@ -998,7 +999,7 @@ discharged without physical hardware:
 | `benchtools` sub-commands `run`, `scope`, `drivers`, `backends` | All run |
 | `python -m benchtools` | Runs |
 | `benchtools` console script after `pip install -e .` | Installs and runs |
-| Full suite with `matplotlib`, `pyvisa`, `pyyaml` and `pyserial` blocked | 1 737 passed, 40 skipped, 0 failed |
+| Full suite with `matplotlib`, `pyvisa`, `pyyaml` and `pyserial` blocked | 1 745 passed, 40 skipped, 0 failed |
 | `firmware/nordic_dongle/scripts/compile_check.sh` in `canembed/canembed-arm` | All six firmware units compile, 0 warnings, apart from four listed SDK 17-only lines (§4.5) |
 | `ctest --test-dir build/firmware-tests` | 5 binaries, 131 cases, all pass in 0.01 s |
 | `make SDK_ROOT=…` against SDK 15.2 | Drives a real build to the compile stage; stops only on files SDK 15.2 places elsewhere or lacks, which is the expected result for an SDK 17 project |

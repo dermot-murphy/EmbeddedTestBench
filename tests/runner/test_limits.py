@@ -1,6 +1,6 @@
 """Pass/fail limit checking.
 
-Traces to: RUN-FR-020 .. RUN-FR-024, SWE4-UT-LIMITS.
+Traces to: RUN-FR-020 .. RUN-FR-025, SWE4-UT-LIMITS.
 """
 
 from __future__ import annotations
@@ -9,6 +9,7 @@ import pytest
 
 from benchtools.core.errors import SpecError
 from benchtools.runner.limits import Limit, TextLimit
+from benchtools.runner.results import Status
 from benchtools.runner.spec import Expectation
 
 
@@ -201,3 +202,62 @@ class TestLimitsTakenFromAnEarlierStep:
         )
         limit = expectation.limit_against({"build": b"1.4.2"})
         assert isinstance(limit, TextLimit) and limit.check("1.4.2").passed
+
+
+class TestHowAValueIsReported:
+    """`format` renders the value for the record without changing the check.
+
+    An identifier read off a part is unreadable in decimal: 662316 and 0A1B2C
+    are the same value and only one of them can be compared with what is
+    printed on the board. The limit is still a limit on the number.
+
+    Traces to: RUN-FR-025.
+    """
+
+    def check(self, value, **fields):
+        """Run one expectation through the runner's own checking."""
+        from benchtools.runner.bench import Bench, BenchConfig
+        from benchtools.runner.runner import BenchRunner
+
+        data = {"name": "identifier"}
+        data.update(fields)
+        runner = BenchRunner(Bench(BenchConfig.simulated([])))
+        return runner._check_expectation(value, Expectation.from_mapping(data, 0))
+
+    def test_the_value_is_rendered(self):
+        measured = self.check(0x0A1B2C, format="{:06X}", minimum=1)
+        assert measured.value == "0A1B2C"
+
+    def test_the_number_is_kept_beside_it(self):
+        measured = self.check(0x0A1B2C, format="{:06X}", minimum=1)
+        assert measured.raw_value == 0x0A1B2C
+        assert measured.as_dict()["raw_value"] == 0x0A1B2C
+
+    def test_the_bounds_are_rendered_the_same_way(self):
+        """Hex beside decimal bounds would be worse than either alone."""
+        measured = self.check(0x0A1B2C, format="{:06X}", minimum=1, maximum=0xFFFFFE)
+        assert measured.limit == ">= 000001, <= FFFFFE"
+
+    def test_a_nominal_and_its_window_too(self):
+        measured = self.check(16, format="0x{:X}", nominal=16, tolerance=2)
+        assert measured.limit == "= 0x10 +/- 0x2"
+
+    def test_the_limit_still_applies_to_the_number(self):
+        measured = self.check(0, format="{:06X}", minimum=1)
+        assert measured.status is Status.FAIL
+        assert measured.value == "000000"
+
+    def test_scaling_happens_before_rendering(self):
+        measured = self.check(2.0, format="{:d} ns", scale=1.0e9, minimum=1)
+        assert measured.value == "2000000000 ns"
+
+    def test_a_format_that_cannot_be_applied_is_an_error(self):
+        """Not a quiet fallback to the number: that would hide a broken
+        specification behind a result that looks right."""
+        measured = self.check(1.5, format="{:06X}", minimum=1)
+        assert measured.status is Status.ERROR
+        assert "cannot be applied" in measured.reason
+
+    def test_without_it_nothing_changes(self):
+        measured = self.check(3.5, minimum=1)
+        assert measured.value == 3.5 and "raw_value" not in measured.as_dict()

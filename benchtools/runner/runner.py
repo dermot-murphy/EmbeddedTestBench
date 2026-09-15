@@ -32,7 +32,7 @@ from .bench import Bench, BenchConfig
 from .limits import Limit, TextLimit
 from .resolve import resolve_path, resolve_references
 from .results import CaseRecord, MeasurementRecord, RunRecord, Status, StepRecord
-from .spec import Expectation, Step, TestSpec
+from .spec import Expectation, Step, TestSpec, render
 
 __all__ = ["BenchRunner", "BUILTIN_ACTIONS"]
 
@@ -190,15 +190,45 @@ class BenchRunner:
 
         scaled = numeric * expectation.scale
         outcome = limit.check(scaled)
+        reported: Any = scaled
+        limit_text = outcome.text
+        if expectation.format:
+            # Presentation only, and the number is kept in raw_value: an
+            # identifier is unreadable in decimal, and a limit whose bounds
+            # were still decimal beside a hex value would be worse than either.
+            try:
+                reported = render(expectation.format, scaled)
+                limit_text = self._render_limit(limit, expectation.format)
+            except SpecError as exc:
+                return failed_to_resolve(str(exc))
         return MeasurementRecord(
             name=expectation.name,
-            value=scaled,
+            value=reported,
             unit=expectation.display_unit,
-            limit=outcome.text,
+            limit=limit_text,
             status=Status.PASS if outcome.passed else Status.FAIL,
             reason=outcome.reason,
             raw_value=numeric,
         )
+
+    @staticmethod
+    def _render_limit(limit: Limit, template: str) -> str:
+        """The limit's text with its bounds rendered as the value will be."""
+        parts = []
+        if limit.equals is not None:
+            window = limit.window
+            if window is None:
+                parts.append("= %s" % render(template, limit.equals))
+            else:
+                parts.append(
+                    "= %s +/- %s"
+                    % (render(template, limit.equals), render(template, window))
+                )
+        if limit.minimum is not None:
+            parts.append(">= %s" % render(template, limit.minimum))
+        if limit.maximum is not None:
+            parts.append("<= %s" % render(template, limit.maximum))
+        return ", ".join(parts)
 
     def run_step(self, step: Step) -> StepRecord:
         """Execute one step and check its expectations."""

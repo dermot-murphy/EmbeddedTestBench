@@ -332,6 +332,31 @@ Write the limit in whatever unit reads naturally and use `scale` to get there:
 
 Both the scaled and the raw value are kept in the JSON record.
 
+### 4.2 How the value reads: `format`
+
+Some values are not decimal numbers to the person reading the report. An
+identifier, an address, a register mask: 662316 and `0A1B2C` are the same value,
+and only one of them can be compared with what is printed on the board.
+
+```yaml
+- name: sensor_id
+  format: "{:06X}"       # how it is reported
+  min: 1
+  max: 16777214          # how it is checked
+```
+
+```
+| sensor_id | 0A1B2C | >= 000001, <= FFFFFE | PASS |
+```
+
+`format` is presentation only. The limit is still checked against the number,
+the bounds are rendered the same way so the two read together, and the number
+stays in the JSON record as `raw_value` — a report a person reads and a record a
+tool computes with want different things, and this is not a reason to give up
+either. It applies after `scale`. A template that cannot be applied to the value
+is an **error**, not a quiet fall back to the number: a broken specification
+should not hide behind a result that looks right.
+
 ---
 
 ## 5. Addressing a value inside a result: `measure`

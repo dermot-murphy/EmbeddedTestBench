@@ -128,7 +128,26 @@ class TestItPasses:
     def test_the_identifier_comes_from_the_part(self):
         """Three bytes, most significant first - the order they are printed in
         and the order they appear in the name."""
-        assert measurement(run(), "sensor_id").value == SIMULATED_DEVICE_ID
+        measured = measurement(run(), "sensor_id")
+        assert measured.raw_value == SIMULATED_DEVICE_ID
+
+    def test_the_identifier_is_reported_in_hex(self):
+        """662316 and 0A1B2C are the same value, and only one of them can be
+        compared with what is printed on the board and advertised by it."""
+        measured = measurement(run(), "sensor_id")
+        assert measured.value == "{:06X}".format(SIMULATED_DEVICE_ID)
+        assert measured.value in measurement(run(), "linked_board").value
+        assert "FFFFFE" in measured.limit, "the bounds read in hex too"
+
+    def test_the_number_is_still_in_the_record(self):
+        """Presentation must not cost the record what it is for (RUN-FR-041)."""
+        for case_record in run().cases:
+            for step in case_record.steps:
+                for measured in step.measurements:
+                    if measured.name == "sensor_id":
+                        assert measured.as_dict()["raw_value"] == SIMULATED_DEVICE_ID
+                        return
+        raise AssertionError("no sensor_id measurement")
 
     def test_the_device_was_chosen_by_that_identifier(self):
         record = run()

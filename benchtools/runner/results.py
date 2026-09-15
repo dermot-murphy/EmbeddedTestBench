@@ -56,7 +56,7 @@ class MeasurementRecord:
     raw_value: Optional[float] = None
 
     def as_dict(self) -> Dict[str, Any]:
-        return {
+        record = {
             "name": self.name,
             "value": self.value,
             "unit": self.unit,
@@ -64,6 +64,13 @@ class MeasurementRecord:
             "status": self.status.value,
             "reason": self.reason,
         }
+        # The number behind a rendered value, so the record stays lossless when
+        # a specification asked for the value to be reported as text
+        # (RUN-FR-041): 0A1B2C is what a person compares with the board, and
+        # 662316 is what anything downstream can compute with.
+        if self.raw_value is not None and not isinstance(self.value, float):
+            record["raw_value"] = self.raw_value
+        return record
 
 
 @dataclass
