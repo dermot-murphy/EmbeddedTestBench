@@ -986,6 +986,50 @@ class JLinkProbe(Instrument):
         """Read one little-endian 16-bit halfword."""
         return int.from_bytes(self.read_memory(address, 2), "little")
 
+    def read_integer(
+        self,
+        address: int,
+        size: int,
+        byteorder: str = "little",
+        signed: bool = False,
+    ) -> int:
+        """Read *size* bytes at *address* as one integer.
+
+        The word accessors above are little-endian because that is how the core
+        loads a word. A field a part was *programmed* with need not be: an
+        identifier written into a device at manufacture is usually laid out in
+        address order, most significant byte first, because that is the order it
+        is printed and read back in. Nor need it be four bytes.
+
+        Both of those are properties of the thing being read, not of the
+        debugger, so they are arguments:
+
+            probe.read_integer(0x10001081, 3, byteorder="big")
+
+        :param address: First byte.
+        :param size: How many bytes, 1 to 8.
+        :param byteorder: ``"big"`` for address order, ``"little"`` otherwise.
+        :param signed: Interpret as two's complement.
+        :raises ConfigurationError: for a size outside 1 to 8, or a byte order
+            that is neither - a misspelling here would otherwise read a
+            plausible and entirely wrong number.
+
+        Traces to: JLINK-FR-043.
+        """
+        count = int(size)
+        if not 1 <= count <= 8:
+            raise ConfigurationError(
+                "read_integer takes 1 to 8 bytes, not %r. For a larger field "
+                "use read_memory and decode it where its meaning is known."
+                % (size,)
+            )
+        order = str(byteorder).lower()
+        if order not in ("little", "big"):
+            raise ConfigurationError(
+                "byteorder must be 'little' or 'big', not %r" % (byteorder,)
+            )
+        return int.from_bytes(self.read_memory(address, count), order, signed=bool(signed))
+
     #: Reading RAM is reading memory; the alias is for readability in specs.
     read_ram = read_memory
     write_ram = write_memory

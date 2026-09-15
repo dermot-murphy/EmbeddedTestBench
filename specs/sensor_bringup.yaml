@@ -18,16 +18,26 @@
 # day someone rebuilt the firmware. Both are taken from the step that
 # established them (`save:` and `{from: ...}`).
 #
-# The identifier is read from UICR CUSTOMER[0], which is programmed once at
-# manufacture and survives the flash - which is what makes it an identity and
-# not a variable of the program.
+# The identity record is at UICR CUSTOMER[0], programmed once at manufacture and
+# surviving the flash - which is what makes it an identity and not a variable of
+# the program. Four bytes:
+#
+#     0x10001080  validity: 0 means the three bytes after it are an identifier
+#     0x10001081  identifier, most significant byte first
+#     0x10001082
+#     0x10001083
+#
+# An unprogrammed part reads 0xFF in the validity byte, so "never programmed"
+# and "corrupted" fail the same check. The identifier appears in the board's
+# advertising name as six upper-case hex digits, in that same address order.
 
 name: Sensor bring-up
 description: >
   Power the sensor board, confirm the dongle is running the build it should be,
-  program the sensor firmware, read the board identifier off the part, start it,
-  confirm it is running, then find it over the air by that identifier and
-  confirm it reports the version that was just flashed onto it.
+  program the sensor firmware, read the board's identity record off the part and
+  check it is valid, start the board, confirm it is running, then find it over
+  the air by that identifier and confirm it reports the version that was just
+  flashed onto it.
 requirements: [SYS-REQ-010, SYS-REQ-011, SYS-REQ-012]
 
 instruments:
@@ -109,18 +119,26 @@ tests:
   - name: The board identifies itself
     requirement: SYS-REQ-012
     steps:
-      # Four bytes at UICR CUSTOMER[0], read as a word. An unprogrammed part
-      # reads 0xFFFFFFFF, and a blank one 0x00000000; both are refused here,
-      # because either would send the scan below looking for a board that does
-      # not exist and the failure would surface three steps later as "no
-      # sensor found".
-      - do: probe.read_word
+      # The validity byte first. Reading the identifier of a part that never
+      # had one programmed would send the scan below looking for a board that
+      # does not exist, and the failure would surface three steps later as "no
+      # sensor found" - pointing at the radio rather than at the part.
+      - do: probe.read_u8
         with: {address: 0x10001080}
+        expect:
+          - name: identity_is_valid
+            equals: 0
+
+      # Then the three identifier bytes, most significant first. Read in
+      # address order rather than as part of a word: the record's byte order is
+      # a property of the record, not of the core that happens to load it.
+      - do: probe.read_integer
+        with: {address: 0x10001081, size: 3, byteorder: big}
         save: sensor_id
         expect:
           - name: sensor_id
             minimum: 1
-            maximum: 4294967294
+            maximum: 16777214
 
   - name: The sensor starts and is running
     requirement: SYS-REQ-012
@@ -145,28 +163,40 @@ tests:
   - name: The board is found over the air by its own identifier
     requirement: SYS-REQ-012
     steps:
-      # The name comes from the part, not from this file. Change the template
-      # if your firmware names itself differently - it is the one line here
-      # that encodes a convention rather than a fact.
+      # What is scanned for comes from the part, not from this file: six hex
+      # digits of identifier. The filter matches a name *containing* them, so
+      # nothing here assumes what the rest of the name looks like - the format
+      # below is the one line that encodes a convention rather than a fact, and
+      # it is only the rendering of the digits.
+      #
+      # Exactly one, not at least one: two boards answering to one identifier
+      # is a manufacturing fault, and finding the second one here is cheaper
+      # than finding it in a week of contradictory results.
       - do: dongle.scan
         with:
           duration: 3.0
-          name: {from: sensor_id, format: "SENS-{:02X}"}
+          name: {from: sensor_id, format: "{:06X}"}
         save: found
         expect:
-          - name: matching_devices
+          - name: boards_with_that_identifier
             measure: length
-            minimum: 1
+            equals: 1
 
+      # Selected by the full name the scan reported, so the link is opened to
+      # the device that matched rather than to whatever the dongle saw first.
       - do: dongle.select
         with:
-          sensor: {from: sensor_id, format: "SENS-{:02X}"}
-        expect:
-          - name: selected_name
-            measure: name
-            equals: {from: sensor_id, format: "SENS-{:02X}"}
+          sensor: {from: found.0.name}
+        save: selected
 
+      # Not a restatement of the step above: selecting a device and opening a
+      # link to it are two operations, and this is the one that records which
+      # board the rest of the run actually talked to.
       - do: dongle.open_link
+        expect:
+          - name: linked_board
+            measure: name
+            equals: {from: found.0.name}
 
   - name: The firmware reports the version that was flashed onto it
     requirement: SYS-REQ-012

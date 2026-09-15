@@ -242,14 +242,14 @@ someone rebuilds the firmware.
 as an argument, or as a limit — by writing `{from: <name>}`:
 
 ```yaml
-- do: probe.read_word
-  with: {address: 0x10001080}
+- do: probe.read_integer
+  with: {address: 0x10001081, size: 3, byteorder: big}
   save: sensor_id
 
 - do: dongle.scan
   with:
     duration: 3.0
-    name: {from: sensor_id, format: "SENS-{:02X}"}
+    name: {from: sensor_id, format: "{:06X}"}      # the dongle matches a name containing this
 ```
 
 | Key | Meaning |
@@ -375,7 +375,8 @@ wins.
 
 | Method | Returns | Useful paths |
 |---|---|---|
-| `read_variable`, `read_word`, `variable_address`, `evaluate` | a scalar | *(omit `measure`)* |
+| `read_variable`, `read_word`, `read_u8`, `variable_address`, `evaluate` | a scalar | *(omit `measure`)* |
+| `read_integer` | a scalar, `size` bytes in the `byteorder` given | *(omit `measure`)* — for a record whose width and byte order are its own, not the core's |
 | `measure_time_between` | `TimingResult` | `microseconds`, `milliseconds`, `cycles`, `spread`, `standard_deviation`, `minimum`, `maximum`, `count`, `is_trustworthy`, `halts_target`, `resolution_seconds` |
 | `flash` | `FlashResult` | `bytes_written`, `verify.matched`, `seconds`, `sections` |
 | `verify` | `VerifyResult` | `matched`, `mismatched`, `sections` |

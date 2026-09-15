@@ -43,20 +43,20 @@ class TestSubcommands:
         status, payload, _ = run(capsys, *SIM, "scan", "--duration", "1")
         assert status == 0
         assert payload["count"] == 3
-        assert payload["sensors"][0]["name"] == "SENS-01"
+        assert payload["sensors"][0]["name"] == "SENS-0A1B2C"
 
     def test_scan_with_a_filter(self, capsys):
-        _, payload, _ = run(capsys, *SIM, "scan", "--duration", "1", "--name", "SENS-02")
+        _, payload, _ = run(capsys, *SIM, "scan", "--duration", "1", "--name", "SENS-0B2C3D")
         assert payload["count"] == 1
 
     def test_select(self, capsys):
-        status, payload, _ = run(capsys, *SIM, "select", "SENS-01", "--scan-seconds", "1")
+        status, payload, _ = run(capsys, *SIM, "select", "SENS-0A1B2C", "--scan-seconds", "1")
         assert status == 0
         assert payload["address"] == "E4:1C:7B:02:9A:11"
 
     def test_profile(self, capsys):
         status, payload, _ = run(
-            capsys, *SIM, "profile", "--select", "SENS-01",
+            capsys, *SIM, "profile", "--select", "SENS-0A1B2C",
             "--duration", "2", "--interval", "0.1", "--scan-seconds", "1",
         )
         assert status == 0
@@ -68,7 +68,7 @@ class TestSubcommands:
 
     def test_profile_can_include_every_event(self, capsys):
         _, payload, _ = run(
-            capsys, *SIM, "profile", "--select", "SENS-01",
+            capsys, *SIM, "profile", "--select", "SENS-0A1B2C",
             "--duration", "1", "--interval", "0.1", "--scan-seconds", "1", "--events",
         )
         assert len(payload["events"]) == payload["count"]
@@ -76,7 +76,7 @@ class TestSubcommands:
 
     def test_cmd_reports_the_reply_and_the_timing(self, capsys):
         status, payload, _ = run(
-            capsys, *SIM, "cmd", "measure", "--select", "SENS-01",
+            capsys, *SIM, "cmd", "measure", "--select", "SENS-0A1B2C",
             "--repeat", "3", "--scan-seconds", "1",
         )
         assert status == 0
@@ -88,7 +88,7 @@ class TestSubcommands:
     def test_cmd_warns_when_the_figure_is_not_resolvable(self, capsys):
         """12.5 ms on a 30 ms link is the link's floor, not the sensor's."""
         _, payload, _ = run(
-            capsys, *SIM, "cmd", "version", "--select", "SENS-01", "--scan-seconds", "1"
+            capsys, *SIM, "cmd", "version", "--select", "SENS-0A1B2C", "--scan-seconds", "1"
         )
         assert payload["trustworthy"] is False
         assert "connection interval" in payload["warning"]

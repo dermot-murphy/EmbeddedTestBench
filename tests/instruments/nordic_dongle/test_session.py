@@ -86,7 +86,7 @@ class TestCommands:
 class TestEventsAroundCommands:
     def test_an_event_before_the_reply_is_not_mistaken_for_it(self, session, scripted):
         """The reply is the line that says ok, whatever arrived first."""
-        scripted.script["list"] = "+sensor t=1 idx=0 addr=E4:1C:7B:02:9A:11 name=SENS-01\nok sensors=1"
+        scripted.script["list"] = "+sensor t=1 idx=0 addr=E4:1C:7B:02:9A:11 name=SENS-0A1B2C\nok sensors=1"
         reply = session.execute("list")
         assert reply.ok and reply.fields["sensors"] == "1"
         assert [event.name for event in session.take_events()] == ["sensor"]

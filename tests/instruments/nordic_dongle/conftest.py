@@ -15,13 +15,13 @@ from benchtools.instruments.nordic_dongle import NordicDongle, SimulatedDongle
 #: 110 ms; the mean is 105 ms over whole rotations and within a couple of
 #: milliseconds of it over a partial one - as with a real sensor, whose advDelay
 #: is random rather than rotating.
-SENSOR_NAME = "SENS-01"
+SENSOR_NAME = "SENS-0A1B2C"
 SENSOR_ADDRESS = "E4:1C:7B:02:9A:11"
 NOMINAL_INTERVAL_S = 0.100
 MEAN_INTERVAL_S = 0.105
 
 #: The second sensor drops one advertising event in five.
-FLAKY_NAME = "SENS-02"
+FLAKY_NAME = "SENS-0B2C3D"
 FLAKY_ADDRESS = "C9:3A:51:0F:22:04"
 FLAKY_INTERVAL_S = 0.250
 

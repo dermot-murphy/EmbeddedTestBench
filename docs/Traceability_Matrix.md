@@ -170,6 +170,7 @@ docstring, so the link is carried in the artefact and not only in this table.
 | JLINK-FR-040 | JLINK-ARC-001 | JLINK-DD-PROBE | `read_memory`, `write_memory`, `read_word`, `read_u8`, `read_u16` | `TestMemory` (7), notably `test_large_transfers_are_split`, `test_negative_size_is_rejected` |
 | JLINK-FR-041 | JLINK-ARC-001 | JLINK-DD-PROBE | `read_variable`, `write_variable`, `variable_address`, `variable_size` | `TestVariables` (9), notably `test_read_string`, `test_memory_agrees_with_the_variable`, `test_value_parsing` |
 | JLINK-FR-042 | JLINK-ARC-001 | JLINK-DD-PROBE | `evaluate` | `test_evaluate_expression`, `test_unknown_variable_is_reported` |
+| JLINK-FR-043 | JLINK-ARC-001 | JLINK-DD-PROBE | `read_integer` | `TestByteOrderedReads` (6), `test_the_identifier_comes_from_the_part` |
 | JLINK-FR-045 | JLINK-ARC-001 | JLINK-DD-PROBE, JLINK-DD-GDBMI | `call_stack`, `StackFrame` | `TestCallStack` (6), notably `test_frames_innermost_first`, `test_frames_carry_source_positions` |
 | JLINK-FR-050 | JLINK-ARC-001 | JLINK-DD-RTT | `jlink/rtt.py`, `RttClient.read`, `write`, `SocketRttBackend` | `test_lines_arrive_when_the_target_runs`, `test_read_returns_text`, `test_write_reaches_the_target`, `test_probe_rtt_helpers`; over a real socket: `TestRttOverASocket` (8) |
 | JLINK-FR-051 | JLINK-ARC-001 | JLINK-DD-RTT | `read_lines`, `read_line`, `pending_count` | `test_reads_consume`, `test_read_line_waits`, `test_read_line_returns_none_on_timeout`, `test_pending_count`, `test_a_fragmented_line_is_assembled_by_the_client` |

@@ -28,7 +28,7 @@ setup:
   - do: dongle.scan
     with: {duration: 3.0, name: SENS}
   - do: dongle.select
-    with: {sensor: SENS-01}
+    with: {sensor: SENS-0A1B2C}
 
 tests:
   - name: Advertising interval is 100 ms as specified

@@ -69,8 +69,8 @@ class SimulatedFirmware:
         for the SWO timing method.
     :param sections: Flash sections as ``name -> (address, size)``.
     :param core_clock_hz: Core clock, used to convert cycles to seconds.
-    :param memory: Words present in the part rather than in the program, by
-        address - an identifier programmed at manufacture, for instance.
+    :param memory: Bytes present in the part rather than in the program, by
+        address - an identity record programmed at manufacture, for instance.
     """
 
     path: str = "firmware.elf"
@@ -84,10 +84,12 @@ class SimulatedFirmware:
     itm_at: Dict[str, Tuple[int, int]] = field(default_factory=dict)
     sections: Dict[str, Tuple[int, int]] = field(default_factory=dict)
     core_clock_hz: float = 64.0e6
-    #: Words in target memory that are not variables of the program: an
+    #: Bytes in target memory that are not variables of the program: an
     #: identifier programmed into the part at manufacture, a lock byte, a
-    #: calibration word. Address to 32-bit value.
-    memory: Dict[int, int] = field(default_factory=dict)
+    #: calibration record. Address to the raw bytes at it - raw, because such a
+    #: record has its own layout and byte order, and writing it as a word here
+    #: would bake this model's guess about that into the fixture.
+    memory: Dict[int, bytes] = field(default_factory=dict)
 
     def address_of(self, location: str) -> int:
         """Return the address of *location*, inventing a stable one if unknown."""
@@ -98,16 +100,23 @@ class SimulatedFirmware:
         return 0x08000000 + (abs(hash(location)) % 0x10000) * 2
 
 
-#: Where the simulated part keeps its board identifier: nRF52 UICR
-#: ``CUSTOMER[0]``. A real part reads 0xFFFFFFFF here until someone programs it.
+#: Where the simulated part keeps its identity record: nRF52 UICR
+#: ``CUSTOMER[0]``. A real part reads 0xFFFFFFFF here until someone programs it,
+#: which is an invalid record by the rule below.
 DEVICE_ID_ADDRESS = 0x10001080
 
-#: The identifier this simulated board carries. Deliberately a small number:
-#: rendered by the bench's naming rule it gives ``SENS-01``, which is the
-#: device the simulated dongle advertises, so a specification that reads the
-#: identifier and then goes looking for that board works end to end with no
-#: hardware.
-SIMULATED_DEVICE_ID = 0x01
+#: The first byte of that record says whether the rest of it means anything:
+#: **zero is valid**. A part that was never programmed reads 0xFF here, so the
+#: unprogrammed case fails the same check as a corrupted one.
+DEVICE_ID_VALID = 0x00
+SIMULATED_DEVICE_ID_VALIDITY = DEVICE_ID_VALID
+
+#: The three bytes after it are the identifier, most significant first - the
+#: order they are printed in, and the order the board advertises them in. This
+#: one renders as ``0A1B2C``, which is in the name of the device the simulated
+#: dongle advertises, so a specification that reads the identifier off the part
+#: and then goes looking for that board works end to end with no hardware.
+SIMULATED_DEVICE_ID = 0x0A1B2C
 
 
 def _default_firmware() -> SimulatedFirmware:
@@ -181,11 +190,15 @@ def _default_firmware() -> SimulatedFirmware:
             ".data": (0x20000000, 0x180),
         },
         memory={
-            # The board identifier, where this bench's sensor firmware keeps it.
-            # It is not a variable of the program: it is programmed once, at
-            # manufacture, and outlives any image flashed over it - which is
-            # exactly why a test reads it to find out which board it has.
-            DEVICE_ID_ADDRESS: SIMULATED_DEVICE_ID,
+            # The identity record: a validity byte, then three identifier bytes
+            # in address order. It is not a variable of the program - it is
+            # programmed once, at manufacture, and outlives any image flashed
+            # over it, which is exactly why a test reads it to find out which
+            # board it has.
+            DEVICE_ID_ADDRESS: (
+                bytes([SIMULATED_DEVICE_ID_VALIDITY])
+                + SIMULATED_DEVICE_ID.to_bytes(3, "big")
+            ),
         },
     )
 
@@ -256,8 +269,9 @@ class SimulatedJLink:
         occupies gets the preset - the preset describes the part, the symbol
         describes the program, and the part wins.
         """
-        for address, value in self.firmware.memory.items():
-            self._write_int(address, value, 4)
+        for address, raw in self.firmware.memory.items():
+            for offset, byte in enumerate(bytes(raw)):
+                self.memory[address + offset] = byte
 
     def _load_symbol_values(self) -> None:
         """Write integer symbol values into memory so raw reads agree."""

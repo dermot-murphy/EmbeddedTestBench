@@ -72,7 +72,7 @@ class SimulatedSensor:
 DEFAULT_SENSORS: Tuple[SimulatedSensor, ...] = (
     SimulatedSensor(
         address="E4:1C:7B:02:9A:11",
-        name="SENS-01",
+        name="SENS-0A1B2C",
         rssi=-62,
         interval_us=100_000,
         responses={
@@ -80,9 +80,9 @@ DEFAULT_SENSORS: Tuple[SimulatedSensor, ...] = (
             # kept alongside because the driver's own tests use them, and a
             # console that accepts both is the usual case anyway.
             "rd version": "1.4.2",
-            "rd id": "SENS-01",
+            "rd id": "SENS-0A1B2C",
             "version": "1.4.2",
-            "id": "SENS-01",
+            "id": "SENS-0A1B2C",
             "temp": "23.5",
             "battery": "97",
             "measure": "OK 1024",
@@ -91,15 +91,15 @@ DEFAULT_SENSORS: Tuple[SimulatedSensor, ...] = (
     ),
     SimulatedSensor(
         address="C9:3A:51:0F:22:04",
-        name="SENS-02",
+        name="SENS-0B2C3D",
         rssi=-78,
         interval_us=250_000,
         miss_every=5,
         responses={
             "rd version": "1.3.9",
-            "rd id": "SENS-02",
+            "rd id": "SENS-0B2C3D",
             "version": "1.3.9",
-            "id": "SENS-02",
+            "id": "SENS-0B2C3D",
         },
     ),
     SimulatedSensor(

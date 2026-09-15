@@ -259,7 +259,7 @@ class TestResponseTiming:
             linked.measure_response_time("version", repeat=0)
 
     def test_the_replies_are_kept(self, linked):
-        assert linked.measure_response_time("id", repeat=2).responses == ["SENS-01", "SENS-01"]
+        assert linked.measure_response_time("id", repeat=2).responses == ["SENS-0A1B2C", "SENS-0A1B2C"]
 
 
 class TestAdvertisingProfile:
@@ -387,5 +387,5 @@ class TestMiscellany:
 
     def test_a_sensor_renders_readably(self):
         sensor = Sensor(address=SENSOR_ADDRESS, name=SENSOR_NAME, rssi=-62, index=0)
-        assert "SENS-01" in str(sensor)
+        assert "SENS-0A1B2C" in str(sensor)
         assert sensor.as_dict()["rssi"] == -62

@@ -132,9 +132,14 @@ class TestReferences:
         assert saved  # the dataclass form is covered by resolve_path itself
 
     def test_a_format_renders_the_value(self):
-        reference = Reference.from_mapping({"from": "id", "format": "SENS-{:02X}"})
-        assert reference.resolve({"id": 1}) == "SENS-01"
-        assert reference.resolve({"id": 0x1A2B3C4D}) == "SENS-1A2B3C4D"
+        """The thing on the wire is often a rendering of the value rather than
+        the value: an identifier appears in a device name as hex."""
+        reference = Reference.from_mapping({"from": "id", "format": "{:06X}"})
+        assert reference.resolve({"id": 0x0A1B2C}) == "0A1B2C"
+        assert reference.resolve({"id": 1}) == "000001"
+        assert Reference.from_mapping(
+            {"from": "id", "format": "node-{:04d}"}
+        ).resolve({"id": 7}) == "node-0007"
 
     def test_a_reference_to_a_step_that_has_not_run_says_what_has(self):
         """The likeliest mistake, and invisible in the specification itself."""
@@ -164,8 +169,8 @@ class TestReferences:
         assert parsed["plain"] == 5
 
     def test_resolving_replaces_them_in_place(self):
-        parsed = parse_references({"name": {"from": "id", "format": "SENS-{:02X}"}})
-        assert resolve_references(parsed, {"id": 2}) == {"name": "SENS-02"}
+        parsed = parse_references({"name": {"from": "id", "format": "{:06X}"}})
+        assert resolve_references(parsed, {"id": 2}) == {"name": "000002"}
 
     def test_an_ordinary_mapping_is_left_alone(self):
         """A step argument that happens to be a mapping is not a reference."""

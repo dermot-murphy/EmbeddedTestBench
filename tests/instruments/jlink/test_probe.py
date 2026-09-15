@@ -496,3 +496,51 @@ class TestIsItRunning:
         started = time.monotonic()
         probe.rtt_lines_within(5.0)
         assert time.monotonic() - started < 1.0
+
+
+class TestByteOrderedReads:
+    """Reading a field a part was programmed with, rather than a word the core
+    would load.
+
+    An identity record's width and byte order belong to the record. The word
+    accessors are little-endian because that is how a Cortex-M loads a word;
+    an identifier written at manufacture is usually in address order, because
+    that is the order it is printed and read back in.
+
+    Traces to: JLINK-FR-043.
+    """
+
+    RECORD = bytes([0x00, 0x0A, 0x1B, 0x2C])
+    ADDRESS = 0x20000200
+
+    @pytest.fixture
+    def programmed(self, probe):
+        probe.write_memory(self.ADDRESS, self.RECORD)
+        return probe
+
+    def test_address_order(self, programmed):
+        assert programmed.read_integer(self.ADDRESS + 1, 3, byteorder="big") == 0x0A1B2C
+
+    def test_the_other_order_is_a_different_number(self, programmed):
+        """Worth asserting: getting this wrong reads a plausible value, and
+        nothing downstream would question 0x2C1B0A."""
+        assert programmed.read_integer(self.ADDRESS + 1, 3) == 0x2C1B0A
+
+    def test_one_byte(self, programmed):
+        assert programmed.read_integer(self.ADDRESS, 1) == 0x00
+
+    def test_signed(self, probe):
+        probe.write_memory(self.ADDRESS, b"\xff\xff")
+        assert probe.read_integer(self.ADDRESS, 2, signed=True) == -1
+        assert probe.read_integer(self.ADDRESS, 2) == 0xFFFF
+
+    @pytest.mark.parametrize("size", [0, -1, 9])
+    def test_a_width_it_does_not_support_is_refused(self, probe, size):
+        with pytest.raises(ConfigurationError, match="1 to 8 bytes"):
+            probe.read_integer(self.ADDRESS, size)
+
+    def test_a_misspelled_byte_order_is_refused(self, probe):
+        """Not silently treated as little-endian: that would read a plausible
+        and entirely wrong number."""
+        with pytest.raises(ConfigurationError, match="little.*big"):
+            probe.read_integer(self.ADDRESS, 2, byteorder="bug")

@@ -76,7 +76,7 @@ class TestAdvertising:
         assert max(intervals) == 110_000
 
     def test_a_sensor_that_misses_beacons(self, simulator):
-        """SENS-02 skips one in five, which must show as a gap not a silence."""
+        """SENS-0B2C3D skips one in five, which must show as a gap not a silence."""
         send(simulator, "scan start 20000")
         send(simulator, "adv start C9:3A:51:0F:22:04")
 
@@ -104,8 +104,8 @@ class TestAdvertising:
                 if parsed is not None and getattr(parsed, "name", "") == "adv":
                     event = parsed
         payload = bytes.fromhex(event.get("data"))
-        assert b"SENS-01" in payload
-        assert event.get("name") == "SENS-01"
+        assert b"SENS-0A1B2C" in payload
+        assert event.get("name") == "SENS-0A1B2C"
 
     def test_nothing_is_produced_when_not_scanning(self, simulator):
         assert simulator.poll() == b""
@@ -152,7 +152,7 @@ class TestScanAndSelect:
         assert reply_of(lines).fields["sensors"] == "3"
 
     def test_a_name_filter_is_applied(self, simulator):
-        send(simulator, "scan start 5000 name=SENS-02")
+        send(simulator, "scan start 5000 name=SENS-0B2C3D")
         for _ in range(20):
             simulator.poll()
         assert reply_of(send(simulator, "list")).fields["sensors"] == "1"
@@ -239,7 +239,7 @@ class TestCustomPopulation:
 
     def test_the_default_population_is_stable(self):
         """The tests assert on these figures, so they are part of the contract."""
-        assert [sensor.name for sensor in DEFAULT_SENSORS] == ["SENS-01", "SENS-02", ""]
+        assert [sensor.name for sensor in DEFAULT_SENSORS] == ["SENS-0A1B2C", "SENS-0B2C3D", ""]
         assert DEFAULT_SENSORS[0].interval_us == 100_000
         assert DEFAULT_SENSORS[1].miss_every == 5
         assert DEFAULT_SENSORS[2].connectable is False

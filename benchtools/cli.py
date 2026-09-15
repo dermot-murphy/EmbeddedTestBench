@@ -35,7 +35,7 @@ Run 'benchtools <command> --help' for a command's own options.
 Examples:
   benchtools scope -r sim:// idn
   benchtools jlink -r sim:// -e build/app.elf time sensor.c:40 sensor.c:75
-  benchtools ble -r sim:// profile --select SENS-01 --duration 30 --interval 0.1
+  benchtools ble -r sim:// profile --select SENS-0A1B2C --duration 30 --interval 0.1
   benchtools psu -r sim:// set 1 -V 3.3 -I 0.5 --on
   benchtools s2lp -r sim:// registers --plain
   benchtools run tests/clock_skew.yaml --simulate --markdown report.md

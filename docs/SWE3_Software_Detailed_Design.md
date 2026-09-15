@@ -548,6 +548,17 @@ traffic, ITM events and sections; `SimulatedJLink` answers the MI dialogue.
 - A hardware breakpoint is reported as `type="hw breakpoint"`, which is what GDB
   says. Reporting `"breakpoint"` for both made the driver's hardware-breakpoint
   count always zero, so the envelope limit could never trip.
+- `SimulatedFirmware.memory` holds bytes that belong to the **part** rather than
+  to the program: the identity record at UICR `CUSTOMER[0]` — a validity byte of
+  zero and then three identifier bytes in address order, `00 0A 1B 2C`. Raw
+  bytes, not a word, because such a record has its own layout and byte order and
+  writing it as a word would bake a guess about that into the fixture. The
+  identifier renders as `0A1B2C`, which is in the name of the board the
+  simulated dongle advertises (BLE-DD-SIM); the two must agree or the bring-up
+  specification could not run without hardware.
+- A reset **with the run argument runs** (D-39). Modelling `monitor reset 0` as
+  reset-and-halt left a silent, stopped target for every test that starts the
+  firmware and then asks whether it is running.
 
 ## JLINK-DD-PROBE — `jlink/probe.py`
 
@@ -557,12 +568,12 @@ GDB process or a simulator.
 | Group | Members |
 |---|---|
 | Lifecycle | `connect`, `_post_open`, `load_symbols`, `attach`, `monitor`, `close` |
-| Programming | `flash`, `verify`, `erase` |
+| Programming | `flash`, `verify`, `erase`, `image_build` |
 | Execution | `reset`, `run`/`resume`, `halt`/`stop`, `step`, `wait_for_halt`, `is_halted`, `program_counter`, `registers`, `run_to` |
 | Breakpoints | `set_breakpoint`, `set_watchpoint`, `list_breakpoints`, `delete_breakpoint`, `clear_breakpoints` |
-| Memory | `read_memory`, `write_memory`, `read_word`, `write_word`, `read_u8`, `read_u16`, `read_ram`, `write_ram` |
+| Memory | `read_memory`, `write_memory`, `read_word`, `write_word`, `read_u8`, `read_u16`, `read_integer`, `read_ram`, `write_ram` |
 | Symbols | `read_variable`, `write_variable`, `variable_address`, `variable_size`, `evaluate`, `call_stack`/`backtrace` |
-| RTT | `rtt_start`, `rtt_stop`, `rtt_read_lines`, `rtt_write`, `rtt_expect`, `rtt_command`, `rtt_log` |
+| RTT | `rtt_start`, `rtt_stop`, `rtt_read_lines`, `rtt_lines_within`, `rtt_write`, `rtt_expect`, `rtt_command`, `rtt_log` |
 | Timing | `enable_cycle_counter`, `read_cycle_counter`, `measure_time_between` |
 
 Design points:
@@ -570,6 +581,22 @@ Design points:
 - `_parse_target` accepts `sim://`, `jlink://`, `gdb://` and `tcp://`, with or
   without a host and port, so one resource string covers the simulator, a local
   probe and a probe on another machine (AD-13).
+- **`read_integer` states the byte order; the word accessors do not.** A word is
+  little-endian because that is how the core loads one. A record a part was
+  *programmed* with - an identifier written at manufacture - is usually in
+  address order and need not be four bytes wide, and both are properties of the
+  record rather than of the debugger. A misspelled byte order is refused rather
+  than treated as little-endian, because it would otherwise read a plausible and
+  entirely wrong number.
+- **`image_build` is a claim about the file, not about the part** (CORE-DD-FIRMWARE).
+  It reads the manifest beside the image the probe flashed, so a test can state
+  the version it *put* on a board. Comparing that with what the running firmware
+  reports over its own link is then a check on two independent things agreeing;
+  a version typed into a specification would make it circular.
+- **`rtt_lines_within` counts rather than waits.** `rtt_expect` raises on
+  timeout, which a runner records as an error - the wrong verdict for a board
+  that started and said nothing. A count is a measurement a limit can fail, so
+  silence reads as a failed test (RUN-FR-031).
 - Memory transfers are chunked to `ProbeLimits.max_transfer_bytes`; a 1 MB read is
   not one MI command.
 - `_counter_delta` handles the cycle counter's 32-bit wrap; over a 64 MHz core that
@@ -801,9 +828,13 @@ host reads, so a two minute capture runs in milliseconds and still produces the
 intervals a two minute capture would.
 
 The default population is part of the contract the tests assert against:
-`SENS-01` at 100 ms, `SENS-02` at 250 ms missing one beacon in five (so gap
+`SENS-0A1B2C` at 100 ms, `SENS-0B2C3D` at 250 ms missing one beacon in five (so gap
 detection has something to find), and an unnamed, unconnectable beacon (so
-filtering and refusals have something to work on). `drop_every` models a dongle
+filtering and refusals have something to work on). The names carry the board
+identifier as six hex digits because that is how these boards name themselves,
+and `SENS-0A1B2C` is the identity record the simulated part carries (JLINK-DD-SIM)
+- the two have to agree or the bring-up specification could not be run without
+hardware. `drop_every` models a dongle
 whose USB queue could not keep up, which is what `is_complete` exists to detect.
 
 ## BLE-DD-CLI — `cli.py`

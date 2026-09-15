@@ -278,6 +278,7 @@ it is commanded, and it yields measurements — so it implements the generic bas
 | JLINK-FR-040 | The driver shall read and write target memory of arbitrary length, splitting transfers to the probe's maximum transfer size, and shall provide byte, half-word and word accessors. | STK-09 | Test |
 | JLINK-FR-041 | The driver shall read and write a variable by name, returning integers, floating-point values and strings as the debug information describes them, and shall report a variable's address and size. | STK-09 | Test |
 | JLINK-FR-042 | The driver shall evaluate an arbitrary expression in the target's context. | STK-09 | Test |
+| JLINK-FR-043 | The driver shall read a field of one to eight bytes as an integer in a byte order the caller states, because the byte order and width of a record programmed into a part are properties of that record and not of the core that loads it. A width or byte order outside what is supported shall be refused, since a misspelling would otherwise read a plausible and entirely wrong number. | STK-09 | Test |
 | JLINK-FR-045 | The driver shall read the call stack, reporting for each frame its level, function, source file and line, and the frame address. | STK-09 | Test |
 
 ### 8.6 Real Time Transfer

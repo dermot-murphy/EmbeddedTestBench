@@ -28,7 +28,11 @@ import pytest
 # them, which is worth more than three tests in the extras-blocked run.
 pytest.importorskip("yaml", reason="pyyaml is not installed (it is an optional extra)")
 
-from benchtools.instruments.jlink.simulator import DEVICE_ID_ADDRESS, SIMULATED_DEVICE_ID
+from benchtools.instruments.jlink.simulator import (
+    DEVICE_ID_ADDRESS,
+    DEVICE_ID_VALID,
+    SIMULATED_DEVICE_ID,
+)
 from benchtools.instruments.nordic_dongle import DEFAULT_SENSORS, SimulatedDongle
 from benchtools.runner.bench import Bench, load_bench
 from benchtools.runner.results import Status
@@ -84,14 +88,21 @@ class TestTheBenchFixturesAreHonest:
         assert data["built"] == SimulatedDongle.DEFAULT_FIRMWARE_BUILT
 
     def test_the_sensor_manifest_matches_what_the_simulated_sensor_reports(self):
-        sensor = next(item for item in DEFAULT_SENSORS if item.name == "SENS-01")
+        sensor = next(item for item in DEFAULT_SENSORS if item.name == "SENS-0A1B2C")
         assert manifest("sensor")["version"] == sensor.responses["rd version"]
 
     def test_the_simulated_board_is_the_one_the_dongle_advertises(self):
-        """The identifier in the part, rendered by the specification's naming
-        rule, must be a device the simulated dongle actually advertises."""
-        expected = "SENS-{:02X}".format(SIMULATED_DEVICE_ID)
-        assert any(item.name == expected for item in DEFAULT_SENSORS)
+        """The identifier in the part, rendered as the six hex digits the
+        specification scans for, must appear in the name of a board the
+        simulated dongle actually advertises."""
+        digits = "{:06X}".format(SIMULATED_DEVICE_ID)
+        assert any(digits in item.name for item in DEFAULT_SENSORS)
+
+    def test_exactly_one_simulated_board_carries_that_identifier(self):
+        """The specification requires exactly one, so a population with two
+        would fail it for a reason that is about the fixture."""
+        digits = "{:06X}".format(SIMULATED_DEVICE_ID)
+        assert sum(digits in item.name for item in DEFAULT_SENSORS) == 1
 
 
 class TestItPasses:
@@ -109,11 +120,20 @@ class TestItPasses:
     def test_the_rail_is_the_one_that_was_asked_for(self):
         assert measurement(run(), "rail_voltage").value == pytest.approx(3.2)
 
+    def test_the_identity_record_is_checked_before_it_is_used(self):
+        """Zero is valid. A part that was never programmed reads 0xFF here, so
+        "never programmed" fails the same check as "corrupted"."""
+        assert measurement(run(), "identity_is_valid").value == DEVICE_ID_VALID
+
     def test_the_identifier_comes_from_the_part(self):
+        """Three bytes, most significant first - the order they are printed in
+        and the order they appear in the name."""
         assert measurement(run(), "sensor_id").value == SIMULATED_DEVICE_ID
 
     def test_the_device_was_chosen_by_that_identifier(self):
-        assert measurement(run(), "selected_name").value == "SENS-01"
+        record = run()
+        assert measurement(record, "boards_with_that_identifier").value == 1
+        assert measurement(record, "linked_board").value == "SENS-0A1B2C"
 
     def test_the_reported_version_is_recorded_as_text(self):
         """A version is not a number, and a report that rendered it as one
@@ -135,22 +155,42 @@ class TestItWouldFail:
         assert reported.status is Status.FAIL
         assert reported.value == "1.4.2" and "9.9.9" in reported.limit
 
-    def test_a_part_with_no_identifier_programmed(self):
-        """An unprogrammed UICR reads 0xFFFFFFFF. Caught where it is read,
-        rather than three steps later as "no sensor found"."""
-        record = run()
-        assert case(record, "identifies itself").status is Status.PASS
+    @pytest.mark.parametrize(
+        "record,why",
+        [
+            (b"\xff\xff\xff\xff", "never programmed"),
+            (b"\x01\x0a\x1b\x2c", "validity byte not zero"),
+        ],
+    )
+    def test_a_part_whose_identity_record_is_not_valid(self, record, why):
+        """Caught where it is read, rather than three steps later as "no sensor
+        found" - which would point at the radio rather than at the part."""
+        assert case(run(), "identifies itself").status is Status.PASS, why
         bench = Bench(load_bench(str(BENCH)))
         try:
             probe = bench.get("probe")
-            probe.write_word(DEVICE_ID_ADDRESS, 0xFFFFFFFF)
-            assert probe.read_word(DEVICE_ID_ADDRESS) == 0xFFFFFFFF
-            runner = BenchRunner(bench)
+            probe.write_memory(DEVICE_ID_ADDRESS, record)
+            assert probe.read_u8(DEVICE_ID_ADDRESS) != DEVICE_ID_VALID
             spec = load_spec(str(SPEC))
             identity = next(
                 item for item in spec.tests if "identifies itself" in item.name
             )
-            assert runner.run_case(identity).status is Status.FAIL
+            assert BenchRunner(bench).run_case(identity).status is Status.FAIL
+        finally:
+            bench.close()
+
+    def test_an_identifier_of_zero_is_refused(self):
+        """A valid record whose identifier is nothing. The scan would go
+        looking for board 000000."""
+        bench = Bench(load_bench(str(BENCH)))
+        try:
+            probe = bench.get("probe")
+            probe.write_memory(DEVICE_ID_ADDRESS, b"\x00\x00\x00\x00")
+            spec = load_spec(str(SPEC))
+            identity = next(
+                item for item in spec.tests if "identifies itself" in item.name
+            )
+            assert BenchRunner(bench).run_case(identity).status is Status.FAIL
         finally:
             bench.close()
 

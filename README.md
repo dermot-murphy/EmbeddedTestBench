@@ -138,12 +138,12 @@ directly as a CI step.
 chain rather than repeat itself:
 
 ```yaml
-- do: probe.read_word              # the identifier programmed into the part
-  with: {address: 0x10001080}
+- do: probe.read_integer           # the identifier programmed into the part
+  with: {address: 0x10001081, size: 3, byteorder: big}
   save: sensor_id
 
 - do: dongle.scan                  # find that board, by that identifier
-  with: {duration: 3.0, name: {from: sensor_id, format: "SENS-{:02X}"}}
+  with: {duration: 3.0, name: {from: sensor_id, format: "{:06X}"}}
 
 - do: dongle.command               # and ask it what it is running
   with: {request: "rd version"}
@@ -393,8 +393,8 @@ trustworthy — it says where the write landed, not what the firmware did.
 
 ```bash
 python -m benchtools ble -r sim:// scan --duration 5
-python -m benchtools ble -r COM5 --log ble.log profile --select SENS-01 --duration 30 --interval 0.1
-python -m benchtools ble -r COM5 cmd measure --select SENS-01 --repeat 10
+python -m benchtools ble -r COM5 --log ble.log profile --select SENS-0A1B2C --duration 30 --interval 0.1
+python -m benchtools ble -r COM5 cmd measure --select SENS-0A1B2C --repeat 10
 python -m benchtools ble -r COM5 monitor --duration 60        # stream events to the log
 ```
 
@@ -638,10 +638,10 @@ python examples/02_channel_spread.py            # simulator
 python -m pytest tests/ --cov=benchtools --cov-report=term
 ```
 
-**1 794 tests, 94% statement coverage, no hardware required** — no oscilloscope,
+**1 806 tests, 94% statement coverage, no hardware required** — no oscilloscope,
 no probe, no target, no GDB, no dongle, no BLE sensor, no power supply, no
 sub-1 GHz kit. With
-every optional extra removed: 1 729 pass, 40 skip, 0 fail.
+every optional extra removed: 1 737 pass, 40 skip, 0 fail.
 
 The suite includes an independently implemented VXI-11 RPC server, a SCPI socket
 server and a loopback TCP server standing in for the GDB Server's RTT and SWO

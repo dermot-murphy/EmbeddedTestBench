@@ -3,7 +3,7 @@
 
     python examples/06_ble_sensor.py                 # simulated dongle and sensors
     python examples/06_ble_sensor.py COM5            # a dongle on Windows
-    python examples/06_ble_sensor.py /dev/ttyACM0 SENS-01
+    python examples/06_ble_sensor.py /dev/ttyACM0 SENS-0A1B2C
     python examples/06_ble_sensor.py serial://socket://bench-pc:4001
 
 Everything printed here comes from the dongle's own microsecond clock except
@@ -16,7 +16,7 @@ from benchtools.core.errors import BenchToolsError
 from benchtools.instruments.nordic_dongle import LatencySource, NordicDongle
 
 
-def main(resource: str = "sim://", wanted: str = "SENS-01", log: str = "ble_session.log") -> int:
+def main(resource: str = "sim://", wanted: str = "SENS-0A1B2C", log: str = "ble_session.log") -> int:
     with NordicDongle.connect(resource, log_path=log) as dongle:
         identity = dongle.identify()
         print("Dongle   : %s %s, protocol %s" % (identity.manufacturer, identity.model, identity.firmware))
