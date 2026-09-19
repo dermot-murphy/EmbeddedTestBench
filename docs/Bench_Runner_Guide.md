@@ -230,7 +230,61 @@ paths are.
 [S2-LP Devkit Notes §3.3](../docs/s2lp/S2LP_Devkit_Notes.md) for the file format
 and what it refuses.
 
-### 3.5 Values a later step takes from an earlier one
+### 3.5 A command and response document
+
+A sensor's command set is written down before anyone tests it. Copying those
+commands into a specification makes two things that must agree, and they stop
+agreeing the first time someone adds a command to one of them. So the document
+is the test: `dongle.run_script` reads it and runs it.
+
+```markdown
+## Identity
+
+| Step | Command    | Expected response    | Notes |
+|------|------------|----------------------|-------|
+| 1    | rd version | /^[0-9]+\.[0-9]+\.[0-9]+$/ | The build decides which |
+| 2    | rd id      | /^SENS-[0-9A-F]{6}$/ | Matches the advertising name |
+| 3    | delay 100  |                      | |
+| 4    | log start  |                      | Nothing promised |
+```
+
+Each `##` heading is a test; each row is a step. Extra columns are ignored, so a
+document can carry notes and requirement references. Three kinds of step, and
+only the first can fail:
+
+| Row | Result |
+|---|---|
+| A command with an expected response | **pass** if the reply matches, **fail** if it does not or none arrives |
+| `delay <milliseconds>` | **skip** — waiting is not a claim about the sensor |
+| A command with an empty expected cell | **skip** — sent, and whatever comes back within a short window is recorded |
+
+An expected response is matched exactly after trimming; written `/like this/` it
+is a regular expression, for a reply carrying a value that varies. Anchor it
+with `^` and `$` to require the whole reply.
+
+The specification that runs the document holds no commands at all:
+
+```yaml
+- do: dongle.run_script
+  with: {source: specs/sensor_commands.md, report: ble_commands.md}
+  expect:
+    - {name: command_steps_failed, measure: failed, equals: 0}
+    - {name: command_steps_passed, measure: passed, minimum: 1}
+```
+
+`failed`, not `passed`, is the verdict: a run passes when no step failed. The
+second expectation is what stops a document of delays and fire-and-forget
+commands reading as a document that checked everything.
+
+The report it writes has a row per step — test, step, command, response,
+expected response, the time from the end of the command to the start of the
+response at 10 ms resolution, and the result — and the session log
+(`dongle.start_log`) carries the whole exchange with a note marking each test.
+`specs/sensor_commands.md` and `specs/sensor_commands.yaml` are the worked
+example; a document that would not parse, or would not pass against the
+simulated sensor, fails the suite's own tests.
+
+### 3.6 Values a later step takes from an earlier one
 
 A bench test is rarely a list of independent actions. The identifier read off a
 part decides which radio to connect to; the version a build produced decides
@@ -315,7 +369,7 @@ period: 1.02 is 0.02 from nominal 1, outside +/- 0.01
 A limit written as text compares as text: no scaling, exact on the stripped
 value, and the report shows the text rather than a number. Exact on purpose —
 a looser rule would pass `1.4.20` for `1.4.2`, which is the failure such a limit
-exists to catch. See §3.5 for taking one from an earlier step.
+exists to catch. See §3.6 for taking one from an earlier step.
 
 ### 4.1 Units and `scale`
 

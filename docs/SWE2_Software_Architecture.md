@@ -85,7 +85,7 @@ instrument, and to be importable without importing any other element.
 | ANA-ARC-002 | `analysis.measure`, `analysis.plotting` | Pure analysis over `Waveform` objects, and host-side rendering. | `measure_channel_spread`, `measure_period`, `plot_waveforms` |
 | INST-ARC-001 | `instruments.*` | One subpackage per instrument, adding only its command vocabulary, capability envelope and simulator. | per `ScpiInstrument` |
 | SCOPE-ARC-001 | `instruments.tek3014b` | The TDS3000 SCPI vocabulary and the oscilloscope's capability envelope. | `Tek3014B` |
-| BLE-ARC-001 | `instruments.nordic_dongle` **and** `firmware/nordic_dongle` | The BLE bench dongle, as one element across two languages. Host side: the line protocol (`protocol`), the command/event session with its log (`session`), advertising statistics (`profile`), latency statistics (`latency`), the driver façade (`dongle`) and a simulated dongle. Dongle side: USB CDC line transport, command dispatch, scanner, UART client and the microsecond clock. `include/protocol.h` is the interface both are built from. | `NordicDongle`, `DongleSession`, `AdvertisingProfile`, `ResponseTiming`, `SimulatedDongle`; `cmd_parser_handle`, `scanner_on_ble_evt`, `nus_client_command` |
+| BLE-ARC-001 | `instruments.nordic_dongle` **and** `firmware/nordic_dongle` | The BLE bench dongle, as one element across two languages. Host side: the line protocol (`protocol`), the command/event session with its log (`session`), advertising statistics (`profile`), latency statistics (`latency`), command documents read and run (`script`, AD-23), the driver façade (`dongle`) and a simulated dongle. Dongle side: USB CDC line transport, command dispatch, scanner, UART client and the microsecond clock. `include/protocol.h` is the interface both are built from. | `NordicDongle`, `DongleSession`, `AdvertisingProfile`, `ResponseTiming`, `SimulatedDongle`; `cmd_parser_handle`, `scanner_on_ble_evt`, `nus_client_command` |
 | JLINK-ARC-001 | `instruments.jlink` | The debug probe driver. `JLinkProbe` is the façade over seven collaborators, each independently testable: MI record parsing (`gdbmi`), the command/response session (`session`), server discovery and lifetime (`server`), RTT (`rtt`), ITM/SWO decoding (`swo`), timing results (`timing`), and the probe and target envelope (`constants`). Its simulator answers the MI dialogue. | `JLinkProbe`, `GdbMiSession`, `RttClient`, `ItmDecoder`, `TimingResult`, `GdbServer` |
 | S2LP-ARC-001 | `instruments.s2lp` | The ST S2-LP development kit, host side only: ST's firmware runs on the board (AD-20). The line protocol (`protocol`), the command/reply session with its raw log (`session`), the device's register map (`registers`), packet records and their structured log (`packets`), the driver façade (`s2lp`) and a simulated kit with a register file and a modelled air interface. | `S2lpDevkit`, `S2lpSession`, `Register`, `Packet`, `Capture`, `SimulatedS2lp` |
 | PSU-ARC-001 | `instruments.gpd3303d` | The GW Instek bench supply, programmable channels 1 and 2; its fixed rail is a front-panel switch and is outside the element. Not a SCPI instrument: it takes the transport and lifecycle from `ScpiInstrument` and replaces the SCPI-specific parts (`*CLS`, `*RST`, `SYSTem:ERRor?`) with its own. Its own command grammar, a load-modelling simulator, and a command line. | `Gpd3303D`, `ChannelReading`, `SupplyStatus`, `SimulatedGpd` |
@@ -468,6 +468,36 @@ establishes, rather than restating constants. The cost is that a reference
 cannot be checked when the specification is loaded - what `build.version` refers
 to does not exist until that step has run - so an unresolvable reference is a
 run-time error, and it names every value that *has* been saved.
+
+### AD-23 — The document that specifies a command set is the test of it
+
+**Context.** A sensor's command set is written down long before anyone tests
+it. Turning that document into a test means copying the commands into a
+specification, which makes two things that must agree - and they stop agreeing
+the first time someone adds a command to one of them. STK-12 asked for tests
+that come from a markdown document; CON-06 deferred the general question of
+adopting Robot Framework for it.
+
+**Decision.** The driver reads the document directly
+(BLE-DD-SCRIPT, BLE-FR-100 … -108): a heading per test, a table of step number,
+command and expected response. Running it produces a result per row - what was
+sent, what came back, what was expected, how long the exchange took and whether
+it passed - and a run passes when no step failed. The specification that runs
+it is four lines, and holds no commands at all.
+
+**Alternatives.** A new construct in the specification language - a step that
+iterates a table - was rejected because it puts the commands back in the
+specification, in a second format. Robot Framework remains undecided (CON-06,
+OPEN-04) and is not needed for this: what STK-12 wanted here was a document a
+test engineer maintains, not a framework.
+
+**Consequences.** The document is maintained by whoever owns the command set,
+and the test follows it without a code change. In exchange the document must be
+strict about its own shape - an unreadable row is refused naming the line,
+because a row skipped quietly is a command nobody tested and nobody missed - and
+the three step kinds must stay distinguishable in the report: a step that was
+skipped must never read as one that passed, which is why a run states how many
+steps it checked as well as how many passed.
 
 ## 5. Dynamic behaviour — a runner invocation
 

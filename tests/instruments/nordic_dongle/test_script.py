@@ -1,0 +1,459 @@
+"""Command and response tests read from the document that specifies them.
+
+Two halves, and the second is the one that matters. Reading the document is
+mechanical: these tests pin the shape it accepts and every shape it refuses,
+because a row read wrongly is a command silently untested. Running it is a
+claim about a sensor: a step that passes must have been checked, a step that
+was skipped must not look like one that passed, and a run that says PASS must
+mean no step failed.
+
+Traces to: BLE-FR-100 .. BLE-FR-108, SWE4-UT-BLESCRIPT.
+"""
+
+from __future__ import annotations
+
+import pytest
+
+from benchtools.core.errors import ConfigurationError, InstrumentError
+from benchtools.core.transport.mock import MockTransport
+from benchtools.instruments.nordic_dongle import (
+    NordicDongle,
+    SimulatedDongle,
+    load_script,
+    parse_script,
+)
+from benchtools.instruments.nordic_dongle.script import (
+    FAIL,
+    PASS,
+    RESOLUTION_S,
+    SKIP,
+    run_script,
+)
+
+DOCUMENT = """# Sensor commands
+
+Prose between the tables is ignored.
+
+## Identity
+
+| Step | Command    | Expected response |
+|------|------------|-------------------|
+| 1    | rd version | 1.4.2             |
+| 2    | rd id      | /^SENS-[0-9A-F]{6}$/ |
+
+## Readings
+
+| Step | Command   | Expected response |
+|------|-----------|-------------------|
+| 1    | temp      | 23.5              |
+| 2    | delay 250 |                   |
+| 3    | log start |                   |
+"""
+
+
+def document(body: str) -> str:
+    """A minimal document wrapping *body* as one test's table."""
+    return "## A test\n\n| Step | Command | Expected response |\n|---|---|---|\n" + body
+
+
+class TestReadingTheDocument:
+    def test_a_heading_becomes_a_test(self):
+        script = parse_script(DOCUMENT)
+        assert [test.name for test in script.tests] == ["Identity", "Readings"]
+
+    def test_the_document_title_is_not_a_test(self):
+        """A single # is the document's own title; ## and below name tests."""
+        assert "Sensor commands" not in [test.name for test in parse_script(DOCUMENT).tests]
+
+    def test_steps_keep_their_number_and_their_test(self):
+        step = parse_script(DOCUMENT).tests[0].steps[1]
+        assert (step.test, step.number, step.command) == ("Identity", "2", "rd id")
+
+    def test_a_delay_is_read_as_a_duration_not_a_command(self):
+        step = parse_script(DOCUMENT).tests[1].steps[1]
+        assert step.is_delay and step.delay_s == pytest.approx(0.25)
+        assert step.command == ""
+
+    @pytest.mark.parametrize("written", ["delay 250", "DELAY 250", "delay 250 ms", "delay 250ms"])
+    def test_the_ways_a_delay_is_written(self, written):
+        step = parse_script(document("| 1 | %s | |\n" % written)).steps[0]
+        assert step.delay_s == pytest.approx(0.25)
+
+    def test_a_command_with_no_expected_response_expects_nothing(self):
+        step = parse_script(DOCUMENT).tests[1].steps[2]
+        assert step.command == "log start"
+        assert not step.expects_response and not step.is_delay
+
+    def test_extra_columns_are_left_alone(self):
+        """A document carries notes and requirement references; the reader
+        takes the three columns it needs and ignores the rest."""
+        script = parse_script(
+            "## A test\n"
+            "| Step | Command | Expected response | Notes |\n"
+            "|---|---|---|---|\n"
+            "| 1 | temp | 23.5 | degrees |\n"
+        )
+        assert script.steps[0].expected == "23.5"
+
+    def test_the_columns_may_be_in_any_order(self):
+        script = parse_script(
+            "## A test\n"
+            "| Expected response | Step | Command |\n"
+            "|---|---|---|\n"
+            "| 23.5 | 1 | temp |\n"
+        )
+        step = script.steps[0]
+        assert (step.number, step.command, step.expected) == ("1", "temp", "23.5")
+
+    def test_how_many_steps_actually_check_something(self):
+        """A document of delays and fire-and-forget commands cannot fail, and a
+        report saying PASS without saying that would mislead."""
+        script = parse_script(DOCUMENT)
+        assert len(script) == 5 and script.checks == 3
+
+    def test_a_file_is_read_from_disk(self, tmp_path):
+        path = tmp_path / "commands.md"
+        path.write_text(DOCUMENT)
+        assert load_script(str(path)).source == str(path)
+
+    def test_a_file_that_is_not_there_says_so(self, tmp_path):
+        with pytest.raises(ConfigurationError, match="cannot read the command document"):
+            load_script(str(tmp_path / "absent.md"))
+
+
+class TestTheDocumentIsRefused:
+    """Every one of these is a row that would otherwise be a command nobody
+    tested and nobody missed."""
+
+    def test_a_table_before_any_heading(self):
+        with pytest.raises(ConfigurationError, match="before any test heading"):
+            parse_script("| Step | Command | Expected response |\n|---|---|---|\n| 1 | temp | 1 |\n")
+
+    def test_a_missing_column(self):
+        with pytest.raises(ConfigurationError, match="expected"):
+            parse_script("## A test\n| Step | Command |\n|---|---|\n| 1 | temp |\n")
+
+    def test_a_row_with_the_wrong_number_of_cells(self):
+        with pytest.raises(ConfigurationError, match="cell"):
+            parse_script(document("| 1 | temp |\n"))
+
+    def test_a_row_with_no_step_number(self):
+        with pytest.raises(ConfigurationError, match="no step number"):
+            parse_script(document("|  | temp | 23.5 |\n"))
+
+    def test_the_same_step_number_twice_in_one_test(self):
+        with pytest.raises(ConfigurationError, match="already used on line"):
+            parse_script(document("| 1 | temp | 23.5 |\n| 1 | battery | 97 |\n"))
+
+    def test_the_same_step_number_in_different_tests_is_fine(self):
+        script = parse_script(
+            "## One\n| Step | Command | Expected response |\n|---|---|---|\n| 1 | temp | 1 |\n"
+            "\n## Two\n| Step | Command | Expected response |\n|---|---|---|\n| 1 | temp | 1 |\n"
+        )
+        assert len(script) == 2
+
+    def test_a_row_with_no_command(self):
+        with pytest.raises(ConfigurationError, match="no command"):
+            parse_script(document("| 1 |  | 23.5 |\n"))
+
+    def test_a_delay_that_expects_a_response(self):
+        with pytest.raises(ConfigurationError, match="delay cannot have an expected"):
+            parse_script(document("| 1 | delay 100 | 23.5 |\n"))
+
+    @pytest.mark.parametrize("amount", ["0", "0.0"])
+    def test_a_delay_of_nothing(self, amount):
+        with pytest.raises(ConfigurationError, match="is not a wait"):
+            parse_script(document("| 1 | delay %s | |\n" % amount))
+
+    def test_a_document_with_no_tests(self):
+        with pytest.raises(ConfigurationError, match="names no tests"):
+            parse_script("# Just a title\n\nSome prose.\n")
+
+    def test_the_diagnostic_names_the_document_and_the_line(self):
+        with pytest.raises(ConfigurationError, match=r"commands\.md line 5"):
+            parse_script(document("| 1 |  | 23.5 |\n"), source="commands.md")
+
+
+class TestMatching:
+    def make(self, expected: str):
+        return parse_script(document("| 1 | temp | %s |\n" % expected)).steps[0]
+
+    def test_exact(self):
+        assert self.make("23.5").matches("23.5")
+
+    def test_surrounding_space_does_not_decide_a_test(self):
+        assert self.make("23.5").matches("  23.5 ")
+
+    def test_a_different_reply_does_not_match(self):
+        assert not self.make("23.5").matches("24.5")
+
+    def test_a_longer_reply_does_not_match(self):
+        """Exact means exact: 23.50 is not 23.5, and a rule that let it pass
+        would let a truncated or padded reply pass too."""
+        assert not self.make("23.5").matches("23.50")
+
+    def test_a_pattern_when_it_is_marked_as_one(self):
+        step = self.make(r"/^-?[0-9]+\.[0-9]$/")
+        assert step.pattern is not None
+        assert step.matches("23.5") and step.matches("-4.0")
+        assert not step.matches("23.55")
+
+    def test_a_slash_in_an_ordinary_response_is_not_a_pattern(self):
+        step = self.make("OK 1/2")
+        assert step.pattern is None and step.matches("OK 1/2")
+
+
+class TestRunningIt:
+    @pytest.fixture
+    def dongle(self):
+        instrument = NordicDongle(MockTransport(responder=SimulatedDongle()))
+        instrument.initialise()
+        instrument.scan(duration=0.2, name="0A1B2C")
+        instrument.select("SENS-0A1B2C")
+        instrument.open_link()
+        yield instrument
+        instrument.close()
+
+    def run(self, dongle, body: str, **arguments):
+        waited = []
+        return run_script(
+            dongle,
+            parse_script(document(body)),
+            sleep=waited.append,
+            **arguments,
+        ), waited
+
+    def test_a_matching_reply_passes(self, dongle):
+        run, _ = self.run(dongle, "| 1 | rd version | 1.4.2 |\n")
+        assert run.results[0].result is PASS
+        assert run.result == PASS and run.passed == 1
+
+    def test_a_reply_that_does_not_match_fails_and_shows_both(self, dongle):
+        run, _ = self.run(dongle, "| 1 | rd version | 9.9.9 |\n")
+        step = run.results[0]
+        assert step.result == FAIL
+        assert step.response == "1.4.2" and step.expected == "9.9.9"
+        assert run.result == FAIL
+
+    def test_a_delay_waits_and_is_skipped(self, dongle):
+        run, waited = self.run(dongle, "| 1 | delay 250 | |\n")
+        assert waited == [pytest.approx(0.25)]
+        assert run.results[0].result == SKIP
+        assert run.results[0].elapsed_s == pytest.approx(0.25)
+
+    def test_a_command_with_nothing_promised_is_skipped_but_recorded(self, dongle):
+        """Knowing what the board said is useful even when nothing was
+        promised: the next revision of the document can make a claim about it."""
+        run, _ = self.run(dongle, "| 1 | temp | |\n")
+        step = run.results[0]
+        assert step.result == SKIP and step.response == "23.5"
+
+    def test_a_skipped_step_does_not_make_a_run_pass_on_its_own(self, dongle):
+        run, _ = self.run(dongle, "| 1 | delay 10 | |\n")
+        assert run.result == PASS and run.passed == 0 and run.skipped == 1
+
+    def test_one_failure_fails_the_run(self, dongle):
+        run, _ = self.run(
+            dongle,
+            "| 1 | rd version | 1.4.2 |\n| 2 | temp | 0.0 |\n| 3 | battery | 97 |\n",
+        )
+        assert run.passed == 2 and run.failed == 1
+        assert run.result == FAIL
+        assert [item.number for item in run.failures] == ["2"]
+
+    def test_the_steps_are_reported_in_document_order(self, dongle):
+        run, _ = self.run(
+            dongle, "| 1 | temp | 23.5 |\n| 2 | battery | 97 |\n| 3 | id | SENS-0A1B2C |\n"
+        )
+        assert [item.number for item in run.results] == ["1", "2", "3"]
+
+    def test_the_time_is_the_dongle_clock_at_ten_millisecond_resolution(self, dongle):
+        """`measure` takes 95 ms on this sensor. The dongle measures it in
+        microseconds; the report quotes 10 ms, and keeps what was measured."""
+        run, _ = self.run(dongle, "| 1 | measure | OK 1024 |\n")
+        step = run.results[0]
+        assert step.clock == "dongle"
+        assert step.elapsed_s == pytest.approx(0.095)
+        assert step.reported_s == pytest.approx(0.10)
+        assert step.as_dict()["resolution_s"] == RESOLUTION_S
+
+    def test_the_measured_time_is_kept_beside_the_quoted_one(self, dongle):
+        run, _ = self.run(dongle, "| 1 | measure | OK 1024 |\n")
+        record = run.results[0].as_dict()
+        assert record["seconds"] == pytest.approx(0.10)
+        assert record["measured_seconds"] == pytest.approx(0.095)
+
+    def test_the_run_records_which_sensor_answered(self, dongle):
+        run, _ = self.run(dongle, "| 1 | temp | 23.5 |\n")
+        assert "SENS-0A1B2C" in run.sensor
+
+    def test_the_session_log_carries_the_exchange_and_names_the_test(self, dongle, tmp_path):
+        """Whatever the report says, the log has what was sent and what came
+        back - and a note per test, so the two read together."""
+        path = tmp_path / "ble.log"
+        dongle.start_log(str(path))
+        self.run(dongle, "| 1 | temp | 23.5 |\n")
+        dongle.stop_log()
+        log = path.read_text()
+        assert "# script: A test" in log
+        assert "cmd %s" % b"temp".hex() in log
+        assert b"23.5".hex() in log
+
+
+class TestASensorThatDoesNotAnswer:
+    """The simulated sensor always replies - it answers an unknown command
+    with an error - so silence is modelled here instead, with a dongle whose
+    command call raises as a real one does on timeout."""
+
+    class Silent:
+        """A dongle that never gets a reply."""
+
+        selected = None
+
+        def command(self, request, timeout=0.0):
+            raise InstrumentError("the sensor did not reply within %.2f s" % timeout)
+
+    def run(self, body: str, **arguments):
+        return run_script(
+            self.Silent(), parse_script(document(body)), sleep=lambda seconds: None,
+            **arguments
+        )
+
+    def test_a_step_that_expected_a_reply_fails(self):
+        run = self.run("| 1 | temp | 23.5 |\n", timeout=0.05)
+        step = run.results[0]
+        assert step.result == FAIL and run.result == FAIL
+        assert "no reply within 0.05 s" in step.reason
+
+    def test_a_step_that_expected_none_is_still_only_skipped(self):
+        """The document promised nothing, so silence keeps that promise."""
+        run = self.run("| 1 | log start | |\n", listen=0.05)
+        step = run.results[0]
+        assert step.result == SKIP and run.result == PASS
+        assert "expected none" in step.reason
+
+    def test_the_listening_window_is_the_one_given_not_the_timeout(self):
+        """A document full of fire-and-forget commands would otherwise wait the
+        full reply timeout on every one of them."""
+        run = self.run("| 1 | log start | |\n", timeout=30.0, listen=0.05)
+        assert "0.05 s" in run.results[0].reason
+
+    def test_nothing_is_recorded_as_a_response(self):
+        run = self.run("| 1 | temp | 23.5 |\n", timeout=0.05)
+        assert run.results[0].response == ""
+        assert run.results[0].elapsed_s is None
+
+
+class TestTheReport:
+    @pytest.fixture
+    def run(self):
+        instrument = NordicDongle(MockTransport(responder=SimulatedDongle()))
+        instrument.initialise()
+        instrument.scan(duration=0.2, name="0A1B2C")
+        instrument.select("SENS-0A1B2C")
+        instrument.open_link()
+        script = parse_script(
+            document(
+                "| 1 | rd version | 1.4.2 |\n"
+                "| 2 | delay 100 | |\n"
+                "| 3 | temp | 0.0 |\n"
+            ),
+            source="commands.md",
+        )
+        try:
+            yield run_script(instrument, script, sleep=lambda seconds: None)
+        finally:
+            instrument.close()
+
+    def test_it_leads_with_the_verdict(self, run):
+        assert "| Result | **FAIL** |" in run.markdown()
+
+    def test_it_has_a_row_per_step_with_the_columns_asked_for(self, run):
+        lines = [line for line in run.markdown().splitlines() if line.startswith("| A test |")]
+        assert len(lines) == 3
+        assert "| A test | 3 | temp | 0.0 | 0.0 |" not in lines[2], "response and expected differ"
+        assert "23.5" in lines[2] and "0.0" in lines[2]
+
+    def test_failures_are_listed_separately_with_both_values(self, run):
+        text = run.markdown()
+        assert "## Failures" in text
+        assert "expected `0.0`, got `23.5`" in text
+
+    def test_the_document_and_the_sensor_are_named(self, run):
+        text = run.markdown()
+        assert "commands.md" in text and "SENS-0A1B2C" in text
+
+    def test_it_says_what_a_skip_means(self, run):
+        assert "made no claim" in run.markdown()
+
+    def test_it_is_written_where_asked(self, run, tmp_path):
+        path = run.write(str(tmp_path / "results.md"))
+        assert "| Result | **FAIL** |" in open(path, encoding="utf-8").read()
+
+    def test_the_record_carries_every_column(self, run):
+        record = run.as_dict()
+        assert record["result"] == "FAIL"
+        assert set(record["steps"][0]) >= {
+            "test", "step", "command", "response", "expected",
+            "seconds", "resolution_s", "clock", "result",
+        }
+
+
+class TestThroughTheDriver:
+    def test_it_runs_a_document_and_writes_the_report(self, tmp_path):
+        instrument = NordicDongle(MockTransport(responder=SimulatedDongle()))
+        instrument.initialise()
+        instrument.scan(duration=0.2, name="0A1B2C")
+        instrument.select("SENS-0A1B2C")
+        instrument.open_link()
+        source = tmp_path / "commands.md"
+        source.write_text(document("| 1 | rd version | 1.4.2 |\n"))
+        report = tmp_path / "results.md"
+        try:
+            run = instrument.run_script(str(source), report=str(report))
+        finally:
+            instrument.close()
+        assert run.result == PASS and report.is_file()
+
+    def test_it_refuses_to_run_with_no_link_open(self, tmp_path):
+        """Every step would fail for the same reason, and none of the failures
+        would be about the sensor."""
+        instrument = NordicDongle(MockTransport(responder=SimulatedDongle()))
+        instrument.initialise()
+        source = tmp_path / "commands.md"
+        source.write_text(document("| 1 | temp | 23.5 |\n"))
+        try:
+            with pytest.raises(InstrumentError, match="no link is open"):
+                instrument.run_script(str(source))
+        finally:
+            instrument.close()
+
+
+class TestTheShippedDocument:
+    """`specs/sensor_commands.md` is shipped as the worked example, and is run
+    by `specs/sensor_commands.yaml`. If it stopped parsing, or stopped passing
+    against the simulated sensor, the example would be teaching the wrong
+    thing."""
+
+    import pathlib
+
+    SOURCE = pathlib.Path(__file__).resolve().parents[3] / "specs" / "sensor_commands.md"
+
+    def test_it_reads(self):
+        script = load_script(str(self.SOURCE))
+        assert len(script.tests) >= 4 and script.checks >= 6
+
+    def test_it_passes_against_the_simulated_sensor(self):
+        instrument = NordicDongle(MockTransport(responder=SimulatedDongle()))
+        instrument.initialise()
+        instrument.scan(duration=0.2, name="0A1B2C")
+        instrument.select("SENS-0A1B2C")
+        instrument.open_link()
+        try:
+            run = run_script(
+                instrument, load_script(str(self.SOURCE)), sleep=lambda seconds: None
+            )
+        finally:
+            instrument.close()
+        assert run.result == PASS, [item.as_dict() for item in run.failures]
+        assert run.skipped == 3, "the delay and the two commands promising nothing"

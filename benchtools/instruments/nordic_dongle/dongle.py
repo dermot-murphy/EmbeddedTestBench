@@ -35,6 +35,7 @@ from ...core.errors import (
 from ...core.instrument import Instrument, InstrumentIdentity
 from ...core.transport.base import Transport
 from ...core.transport.factory import open_transport
+from .script import CommandScript, ScriptRun, load_script, run_script
 from .firmware import (
     PACKAGE_HINT,
     FirmwareBuild,
@@ -804,6 +805,54 @@ class NordicDongle(Instrument):
             transmitted_us=int(reply.fields["t_tx"]) if "t_tx" in reply.fields else None,
             received_us=int(reply.fields["t_rx"]) if "t_rx" in reply.fields else None,
         )
+
+    def run_script(
+        self,
+        source,
+        report: Optional[str] = None,
+        timeout: float = DEFAULT_COMMAND_TIMEOUT,
+        listen: float = 0.5,
+    ) -> ScriptRun:
+        """Run a command document against the connected sensor.
+
+        The document specifies the command set; running it is how the sensor is
+        tested against what was written down. Copying those commands into a
+        test specification would make two things that must agree, and they stop
+        agreeing the first time someone adds a command to one of them - so the
+        document is the test. See
+        :mod:`~benchtools.instruments.nordic_dongle.script` for its shape.
+
+        Every command goes through :meth:`command`, so the session log carries
+        the whole exchange with both clocks whatever the report says, and each
+        test's heading is marked in that log as it starts.
+
+        :param source: Path to the document, or a parsed
+            :class:`~benchtools.instruments.nordic_dongle.script.CommandScript`.
+        :param report: Where to write the markdown report, if anywhere.
+        :param timeout: Seconds to wait for a reply the document expects. A
+            step that times out **fails**: the document said it would answer.
+        :param listen: Seconds to listen after a command the document expects
+            no reply to. Whatever arrives is recorded; the step is still
+            skipped, because the document made no claim to check.
+        :raises ConfigurationError: if the document cannot be read.
+        :raises InstrumentError: if no link is open. Every step would fail
+            identically for a reason that has nothing to do with the sensor.
+
+        Traces to: BLE-FR-100 .. BLE-FR-108.
+        """
+        if not self.is_linked:
+            raise InstrumentError(
+                "no link is open, so no command could reach a sensor. Select a "
+                "sensor and open_link() before running a command document; "
+                "otherwise every step would fail for the same reason and none "
+                "of the failures would be about the sensor."
+            )
+        script = source if isinstance(source, CommandScript) else load_script(str(source))
+        run = run_script(self, script, timeout=timeout, listen=listen)
+        if report:
+            run.write(report)
+            _LOG.info("command document results written to %s", report)
+        return run
 
     def measure_response_time(
         self,

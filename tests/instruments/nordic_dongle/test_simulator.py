@@ -243,3 +243,33 @@ class TestCustomPopulation:
         assert DEFAULT_SENSORS[0].interval_us == 100_000
         assert DEFAULT_SENSORS[1].miss_every == 5
         assert DEFAULT_SENSORS[2].connectable is False
+
+
+class TestTheDefaultPopulationIsNotShared:
+    """`DEFAULT_SENSORS` is a module-level tuple of dataclasses holding mutable
+    dicts. Handing those objects to every simulator made one test's change to a
+    sensor's replies visible to every simulator built afterwards - and the
+    tests it broke were in other files, describing the sensor rather than the
+    test that had altered it (D-40).
+
+    Traces to: BLE-FR-080.
+    """
+
+    def test_the_default_population_is_not_shared_between_simulators(self):
+        first, second = SimulatedDongle(), SimulatedDongle()
+        first.sensors[0].responses["temp"] = "changed"
+        assert second.sensors[0].responses["temp"] != "changed"
+
+    def test_the_module_level_default_is_left_alone(self):
+        simulator = SimulatedDongle()
+        simulator.sensors[0].responses.clear()
+        simulator.sensors.pop()
+        assert DEFAULT_SENSORS[0].responses, "the shipped population still has replies"
+        assert len(DEFAULT_SENSORS) == 3
+
+    def test_a_population_given_explicitly_is_copied_too(self):
+        given = SimulatedSensor(address="AA:BB:CC:DD:EE:FF", name="SENS-000001",
+                                responses={"temp": "1.0"})
+        simulator = SimulatedDongle(sensors=(given,))
+        simulator.sensors[0].responses["temp"] = "2.0"
+        assert given.responses["temp"] == "1.0"

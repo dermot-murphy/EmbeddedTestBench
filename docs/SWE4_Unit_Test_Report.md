@@ -13,12 +13,12 @@
 
 | Metric | Result |
 |---|---|
-| Tests executed | **1 816** |
-| Passed | **1 816** |
+| Tests executed | **1 878** |
+| Passed | **1 878** |
 | Failed | 0 |
 | Errors | 0 |
 | Skipped | 0 |
-| Statement coverage | **94%** (10 119 statements, 573 missed) |
+| Statement coverage | **94%** (10 374 statements, 575 missed) |
 | Execution time | 43.6 s with coverage instrumentation, 30.6 s without |
 | Runtime | CPython 3.11.15, Linux |
 | Framework | pytest 9.1.1, pytest-cov |
@@ -34,7 +34,7 @@ installed for this run, so their tests executed.
 
 The suite was also run with all extras blocked - `matplotlib`, `pyvisa`,
 `pyyaml` and `pyserial` - to confirm the claim that the package works
-without them: **1 745 passed, 40 skipped, 0 failed**. They were blocked by a
+without them: **1 807 passed, 40 skipped, 0 failed**. They were blocked by a
 `sitecustomize` that raises `ModuleNotFoundError` for those four names, which
 is closer to a machine that never had them than uninstalling is. (The totals
 differ from the figure above because the runner command-line module is skipped as a whole
@@ -72,12 +72,13 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | SWE4-UT-BLEFIRMWARE | `instruments/nordic_dongle/test_firmware.py` | 49 | Pass |
 | SWE4-UT-BLEPROTO | `instruments/nordic_dongle/test_protocol.py` | 34 | Pass |
 | SWE4-UT-BLEPROFILE | `instruments/nordic_dongle/test_profile.py` | 30 | Pass |
-| SWE4-UT-BLESIM | `instruments/nordic_dongle/test_simulator.py` | 27 | Pass |
+| SWE4-UT-BLESIM | `instruments/nordic_dongle/test_simulator.py` | 30 | Pass |
 | SWE4-UT-PSUSIM | `instruments/gpd3303d/test_simulator.py` | 35 | Pass |
 | SWE4-UT-PSUCLI | `instruments/gpd3303d/test_cli.py` | 23 | Pass |
 | SWE4-UT-SERIAL | `core/transport/test_serial.py` | 25 | Pass |
 | SWE4-UT-BLESESSION | `instruments/nordic_dongle/test_session.py` | 23 | Pass |
 | SWE4-UT-BLECLI | `instruments/nordic_dongle/test_cli.py` | 25 | Pass |
+| SWE4-UT-BLESCRIPT | `instruments/nordic_dongle/test_script.py` | 58 | Pass |
 | SWE4-UT-BLELATENCY | `instruments/nordic_dongle/test_latency.py` | 20 | Pass |
 | SWE4-UT-BLEFW | `instruments/nordic_dongle/test_firmware_protocol.py` | 17 | Pass |
 | SWE4-UT-LAYERING | `test_layering.py` | 81 | Pass |
@@ -115,7 +116,7 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | SWE4-UT-COREFW | `core/test_firmware.py` | 13 | Pass |
 | SWE4-UT-SOCKET | `core/transport/test_socket.py` | 12 | Pass |
 | SWE4-UT-VISA | `core/transport/test_visa.py` | 6 | Pass |
-| **Total** | | **1 816** | **Pass** |
+| **Total** | | **1 878** | **Pass** |
 
 ## 3. Coverage detail
 
@@ -171,6 +172,7 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | BLE | `instruments/nordic_dongle/profile.py` | 152 | 3 | 98% |
 | BLE | `instruments/nordic_dongle/cli.py` | 147 | 4 | 97% |
 | BLE | `instruments/nordic_dongle/latency.py` | 93 | 3 | 97% |
+| BLE | `instruments/nordic_dongle/script.py` | 243 | 4 | 98% |
 | BLE | `instruments/nordic_dongle/protocol.py` | 95 | 3 | 97% |
 | BLE | `instruments/nordic_dongle/constants.py` | 72 | 3 | 96% |
 | BLE | `instruments/nordic_dongle/dongle.py` | 285 | 13 | 95% |
@@ -771,7 +773,7 @@ driver could only repeat what it had been told about it.
 | A missing bench instrument is reported before anything executes | Pass |
 | A simulated run is disclosed in every report | Pass |
 | Exit status 0 / 1 / 2 for pass / problem / usage | Pass |
-| Every shipped `specs/*.yaml` runs against `benches/simulated_bench.yaml`: 36 cases, all pass | Pass |
+| Every shipped `specs/*.yaml` runs against `benches/simulated_bench.yaml`: 38 cases, all pass | Pass |
 | A value saved by one step is usable by a later one, as an argument and as a limit | Pass |
 | A reference to a name nothing has saved is an error, naming what has been saved | Pass |
 | A limit stated as text compares as text, and the report shows the text | Pass |
@@ -816,6 +818,41 @@ The manifests the simulated bench reads are fixtures, not build output, and
 three tests assert they say what the simulators say - otherwise a simulated run
 would fail for reasons that are about the fixture rather than about the
 specification.
+
+### 11.2 A command set tested against its own document
+
+`specs/sensor_commands.md` is the sensor's command set written as a document -
+a heading per test, a row per step - and `specs/sensor_commands.yaml` runs it.
+The suite holds no commands: it powers the board, programs it, starts both logs,
+finds the board by its identifier, and hands the document to the driver.
+
+Run against the simulated sensor, the document produces 11 step results:
+
+| | Steps | |
+|---|---|---|
+| Passed | 8 | a reply that matched what the document says |
+| Failed | 0 | |
+| Skipped | 3 | one delay, and two commands the document promises nothing for |
+
+and the run passes, because no step failed. The report has the row the
+specification asked for - test, step, command, response, expected response, the
+exchange time, the result - with `measure` showing 0.10 s against the simulated
+sensor's 95 ms, quoted at the 10 ms resolution the report states.
+
+The interesting part is what the tests do to that. `SWE4-UT-BLESCRIPT` asserts
+the shipped document parses **and passes**, so the worked example cannot rot;
+twelve refusals, each naming the line, because a row read wrongly is a command
+nobody tested and nobody missed; and three properties a report of this shape can
+get quietly wrong:
+
+- **A skipped step must never read as a passed one.** A document of delays
+  passes while checking nothing, so a run reports skipped beside passed and
+  failed, and `CommandScript.checks` says how many rows make a claim at all.
+- **A step that promised a reply and got none must fail**, not be skipped as
+  though nothing was asked. A step that promised nothing must be skipped whether
+  or not something arrives.
+- **The time must carry its clock.** The dongle's microsecond figure is what is
+  measured and 10 ms is what is quoted; both are in the record (BLE-NFR-005).
 
 ## 12. Defects found, and their disposition
 
@@ -880,6 +917,8 @@ SDK to provide it transitively.
 | D-38 | `sdk_config.h`, written by hand, was missing seven keys the SDK's own modules expand into static assertions (`NRF_SORTLIST_CONFIG_LOG_ENABLED` and `_LOG_LEVEL`, `POWER_CONFIG_SOC_OBSERVER_PRIO`, `POWER_CONFIG_STATE_OBSERVER_PRIO`, the `APP_USBD_STRING_ID_*` and string descriptors, `NRF_SDH_BLE_GAP_DATA_LENGTH`) | **Major** as a build fault, and awkward to diagnose: the error surfaces in an unrelated SDK file, and `nrf_sortlist.h` needs its logging key present even with logging off because it expands the name through a **ternary in C code**, not through the preprocessor | **Closed** — every key is present, each with the comment saying which module asserts on it and why | The `firmware` workflow, which compiles every unit against the real SDK headers |
 
 | D-39 | The simulated target modelled **reset-and-run as reset-and-halt**: `monitor reset 0` left the core halted and silent. Writing the bring-up specification is what found it - the board was started and never said anything | **Major in the model** (the class of D-31 and D-35): the simulator contradicted the thing it stands for, so "start the firmware and check it is running" could not be demonstrated, and any test of it would have been measuring the simulator | **Closed** — a reset with the run argument resets and then runs, emitting whatever the firmware emits along its flow, exactly as a resume does | `test_a_running_target_produces_lines`, `test_a_halted_target_produces_none`, `TestItPasses` |
+
+| D-40 | `DEFAULT_SENSORS` is a module-level tuple of dataclasses holding mutable dicts, and every `SimulatedDongle` shared them. A test that changed one sensor's replies changed them for every simulator built afterwards | **Major in the test double**, and of the worst kind to diagnose: the tests it broke were in other files, and the failures described the sensor rather than the test that had altered it. Found by writing a test that silenced a sensor and watching six unrelated tests fail | **Closed** — a simulated dongle deep-copies the sensors it is given, so one simulator cannot poison another. The test that found it now models silence with a stub instead, which is the honest way to model a sensor the simulator does not have | `test_the_default_population_is_not_shared_between_simulators`, `TestASensorThatDoesNotAnswer` (4) |
 
 No open defects.
 
@@ -949,7 +988,7 @@ Notes on process effectiveness:
 
 | ID | Criterion | Result |
 |---|---|---|
-| PC-1 | All tests pass | **Pass** — 1 816/1 816 |
+| PC-1 | All tests pass | **Pass** — 1 878/1 878 |
 | PC-2 | Statement coverage ≥ 90% | **Pass** — 94% |
 | PC-3 | Every requirement covered | **Pass** — see BENCHTOOLS-TRACE-001 |
 | PC-4 | Injected skews recovered to < 0.1 sample interval | **Pass** — worst case 0.055 |
@@ -999,7 +1038,7 @@ discharged without physical hardware:
 | `benchtools` sub-commands `run`, `scope`, `drivers`, `backends` | All run |
 | `python -m benchtools` | Runs |
 | `benchtools` console script after `pip install -e .` | Installs and runs |
-| Full suite with `matplotlib`, `pyvisa`, `pyyaml` and `pyserial` blocked | 1 745 passed, 40 skipped, 0 failed |
+| Full suite with `matplotlib`, `pyvisa`, `pyyaml` and `pyserial` blocked | 1 807 passed, 40 skipped, 0 failed |
 | `firmware/nordic_dongle/scripts/compile_check.sh` in `canembed/canembed-arm` | All six firmware units compile, 0 warnings, apart from four listed SDK 17-only lines (§4.5) |
 | `ctest --test-dir build/firmware-tests` | 5 binaries, 131 cases, all pass in 0.01 s |
 | `make SDK_ROOT=…` against SDK 15.2 | Drives a real build to the compile stage; stops only on files SDK 15.2 places elsewhere or lacks, which is the expected result for an SDK 17 project |

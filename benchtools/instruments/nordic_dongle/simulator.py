@@ -21,6 +21,7 @@ Traces to: BLE-FR-080, BLE-DD-SIM.
 
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
@@ -138,9 +139,14 @@ class SimulatedDongle:
         sensors: Optional[Tuple[SimulatedSensor, ...]] = None,
         drop_every: int = 0,
     ) -> None:
-        self.sensors: List[SimulatedSensor] = list(
-            sensors if sensors is not None else DEFAULT_SENSORS
-        )
+        # Copied, not shared. DEFAULT_SENSORS is a module-level tuple of
+        # dataclasses holding mutable dicts: a test that changed one sensor's
+        # replies would change them for every simulator built afterwards, and
+        # the tests it broke would be somewhere else entirely.
+        self.sensors: List[SimulatedSensor] = [
+            copy.deepcopy(sensor)
+            for sensor in (sensors if sensors is not None else DEFAULT_SENSORS)
+        ]
         self.drop_every = int(drop_every)
 
         self.clock_us = 1_000_000              # a dongle that has been up a second

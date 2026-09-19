@@ -680,6 +680,39 @@ two floats puts an exactly nominal 100 ms interval at 0.09999999999999998, which
 fails a limit written as ">= 0.1" - a sensor rejected by floating-point
 representation rather than by behaviour (defect D-15).
 
+## BLE-DD-SCRIPT — `script.py`
+
+`CommandScript`, `ScriptTest`, `ScriptStep`; `ScriptRun`, `StepResult`;
+`parse_script`, `load_script`, `run_script`. The document that specifies the
+sensor's command set, read and run as the test of it (AD-23).
+
+Design points:
+
+- **The reader is strict and the diagnostic names the line.** A row that cannot
+  be read, a step number used twice in one test, a delay that is not a positive
+  duration: each is refused. These documents are maintained by hand, and a row
+  skipped quietly is a command nobody tested and nobody missed.
+- **Three kinds of step, and only one of them can fail.** A command with an
+  expected response passes or fails. A delay is skipped - waiting is not a claim
+  about the sensor. A command the document gives no expected response for is
+  sent, whatever arrives within a bounded window is recorded, and the step is
+  skipped: the document made no claim to check, and what the board said is worth
+  seeing anyway.
+- **A skipped step must never read as one that passed.** `ScriptRun` reports
+  passed, failed *and* skipped, and `CommandScript.checks` says how many rows
+  make a claim at all - a document of delays and fire-and-forget commands passes
+  while checking nothing, and the report has to say so.
+- **The time is the dongle's, quoted at 10 ms and kept at microseconds.**
+  `RESOLUTION_S` is what the report shows; `StepResult.elapsed_s` is what was
+  measured and `clock` is which clock measured it, because a figure without its
+  clock is not a measurement (BLE-NFR-005).
+- **`run_script` never raises for a step.** A step's outcome *is* its result:
+  an exception from one command would abandon the rest of a document, and the
+  rows after it would be unreported rather than untested.
+- **Outcomes are plain strings**, not the runner's `Status`: an instrument may
+  not import the runner (CORE-NFR-009), and these strings end up in a document
+  a person reads.
+
 ## BLE-DD-LATENCY — `latency.py`
 
 `ResponseSample` and `ResponseTiming`: the result type for a command/response

@@ -43,6 +43,15 @@ from .constants import (
     ScanFilter,
 )
 from .dongle import NordicDongle, Sensor
+from .script import (
+    CommandScript,
+    ScriptRun,
+    ScriptStep,
+    ScriptTest,
+    StepResult,
+    load_script,
+    parse_script,
+)
 from .firmware import (
     MANIFEST_NAME,
     FirmwareBuild,
@@ -66,6 +75,13 @@ from .simulator import DEFAULT_SENSORS, SimulatedDongle, SimulatedSensor
 __all__ = [
     "NordicDongle",
     "Sensor",
+    "CommandScript",
+    "ScriptRun",
+    "ScriptStep",
+    "ScriptTest",
+    "StepResult",
+    "load_script",
+    "parse_script",
     "FirmwareBuild",
     "FirmwareStatus",
     "FirmwareUpdateError",

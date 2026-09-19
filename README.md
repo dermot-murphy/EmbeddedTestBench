@@ -153,6 +153,24 @@ chain rather than repeat itself:
       equals: {from: build.version}     # what was flashed onto it, from its manifest
 ```
 
+**A command set can be its own test.** `specs/sensor_commands.md` is a markdown
+document of commands and expected responses — a heading per test, a row per
+step — and the driver runs it:
+
+```yaml
+- do: dongle.run_script
+  with: {source: specs/sensor_commands.md, report: ble_commands.md}
+  expect: [{name: command_steps_failed, measure: failed, equals: 0}]
+```
+
+Out of a run come the per-step results (test, step, command, response, expected
+response, the exchange time at 10 ms resolution, pass/fail), the session log of
+every line in both directions, and the firmware's own RTT output. A `delay 250`
+row waits and is skipped; a row with no expected response is sent and recorded
+and skipped. Copying those commands into a specification instead would make two
+things that must agree, and they would stop agreeing the first time someone
+added a command to one of them.
+
 Writing the identifier or the version into the specification instead would make
 the test assert its own input: it would pass on the wrong board, and go stale the
 day someone rebuilt the firmware. `specs/sensor_bringup.yaml` is the worked
@@ -638,10 +656,10 @@ python examples/02_channel_spread.py            # simulator
 python -m pytest tests/ --cov=benchtools --cov-report=term
 ```
 
-**1 816 tests, 94% statement coverage, no hardware required** — no oscilloscope,
+**1 878 tests, 94% statement coverage, no hardware required** — no oscilloscope,
 no probe, no target, no GDB, no dongle, no BLE sensor, no power supply, no
 sub-1 GHz kit. With
-every optional extra removed: 1 745 pass, 40 skip, 0 fail.
+every optional extra removed: 1 807 pass, 40 skip, 0 fail.
 
 The suite includes an independently implemented VXI-11 RPC server, a SCPI socket
 server and a loopback TCP server standing in for the GDB Server's RTT and SWO
@@ -675,7 +693,7 @@ source carries its trace and allocates nothing dynamically.
 | [SWE.2 Architecture](docs/SWE2_Software_Architecture.md) | Layering, elements, eighteen architectural decisions |
 | [SWE.3 Detailed Design](docs/SWE3_Software_Detailed_Design.md) | Per-module design units |
 | [SWE.4 Test Specification](docs/SWE4_Unit_Test_Specification.md) | Strategy, test groups, pass criteria |
-| [SWE.4 Test Report](docs/SWE4_Unit_Test_Report.md) | Results, coverage, measured accuracy, thirty-nine defects found |
+| [SWE.4 Test Report](docs/SWE4_Unit_Test_Report.md) | Results, coverage, measured accuracy, forty defects found |
 | [Traceability Matrix](docs/Traceability_Matrix.md) | Bidirectional trace, stakeholder need to test |
 
 Work products follow Automotive SPICE V4.0 SWE.1–SWE.4. This is a test tool: it is

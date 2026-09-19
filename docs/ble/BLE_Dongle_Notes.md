@@ -280,6 +280,41 @@ same operation over a range of intervals and take the difference.
 The host's own round trip is recorded beside the dongle's. It is not the
 measurement; it is the cross-check that shows what the host link contributes.
 
+## 4.1 The command set as its own test
+
+The sensor's command set is written down before anyone tests it.
+`specs/sensor_commands.md` is that document, and the driver runs it:
+
+```python
+dongle.open_link()
+run = dongle.run_script("specs/sensor_commands.md", report="ble_commands.md")
+print(run.result, run.passed, run.failed, run.skipped)
+```
+
+A heading per test, a row per step, three kinds of step:
+
+| Row | What happens | Result |
+|---|---|---|
+| `rd version` with an expected response | sent, and the reply compared | **pass** or **fail** |
+| `delay 250` | waits 250 ms | **skip** — waiting claims nothing |
+| a command with an empty expected cell | sent; anything arriving within `listen` seconds is recorded | **skip** — the document claimed nothing |
+
+An expected response matches exactly after trimming, or as a regular expression
+when written `/like this/`. A step whose reply never arrives **fails** — the
+document said the sensor would answer — while a step that promised nothing is
+skipped whether or not anything comes back.
+
+**A skipped step is not a passed one.** A document of delays and fire-and-forget
+rows passes while checking nothing, which is why a run reports how many steps
+passed, failed *and* were skipped, and why the specification that runs it
+asserts `passed >= 1` beside `failed == 0`.
+
+The time in each row is the dongle's own figure for the exchange — end of
+command to start of response — quoted to 10 ms with the measured microseconds
+kept beside it. Every command goes through the ordinary command path, so
+`start_log` captures the whole exchange with both clocks, with a note marking
+each test as it begins.
+
 ## 5. Bench confirmation items
 
 ### 5.1 Firmware unit tests
