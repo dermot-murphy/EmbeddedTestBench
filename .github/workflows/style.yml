@@ -28,7 +28,7 @@ jobs:
 
       - name: Run CStyleCheck
         id: cstylecheck
-        uses: dermot-murphy/CStyleCheck@v1
+        uses: dermot-murphy/CStyleCheck@v1.6.0
         with:
           config: .cstylecheck.yml
           include: |

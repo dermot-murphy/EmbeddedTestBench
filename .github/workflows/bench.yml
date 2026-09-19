@@ -7,6 +7,11 @@
 # that the reports are complete; it shows nothing about instrument behaviour,
 # which is TB-SYS4-001's job and needs hardware. The action says so in its own
 # annotations and job summary rather than leaving the distinction to a reader.
+#
+# The run uses benches/simulated_bench.yaml rather than the action's
+# `simulate: true`. Both swap in the simulators; only the bench file carries the
+# options the bring-up specification needs - where each firmware manifest lives.
+# A manifest is a file whether the instrument is real or not.
 
 name: bench
 
@@ -31,7 +36,8 @@ jobs:
           specs: |
             specs/sensor_bringup.yaml
             specs/sensor_commands.yaml
-          simulate: 'true'
+          bench:    benches/simulated_bench.yaml
+          simulate: 'false'
           junit:    results/bench.xml
           markdown: results/bench.md
           json:     results/bench.json

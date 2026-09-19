@@ -86,7 +86,7 @@ addresses, field widths and reset values — written independently
 | Nordic Semiconductor | `nrfutil` | **6.1.7** | The last Python release packaging for the SDK 17 bootloader; unpinned installs resolve backwards to a Python 2 release that fails on `dict.iteritems` (TB-RISK-006) |
 | Arm | GNU Arm Embedded toolchain | As pinned in `.github/workflows/firmware.yml` | Flash and RAM figures are toolchain-dependent |
 | PyPI maintainers | `pyvisa`, `pyserial`, `bleak`, `pytest`, `PyYAML` | As declared in `pyproject.toml` | Interface stability |
-| `dermot-murphy` | `CStyleCheck` GitHub Action | `@v1` | Coding-standard enforcement (TB-RISK-011) |
+| `dermot-murphy` | `CStyleCheck` GitHub Action | `@v1.6.0` | Coding-standard enforcement (TB-RISK-011) |
 
 ---
 
@@ -124,11 +124,19 @@ record which was chosen.
 
 ## 7. Coding-Standard Checker
 
-`dermot-murphy/CStyleCheck@v1` is run by `.github/workflows/style.yml` against
+`dermot-murphy/CStyleCheck@v1.6.0` is run by `.github/workflows/style.yml` against
 `firmware/nordic_dongle`. It is the mechanical enforcement of TB-STD-002 and
 TB-STY-001. It is a dependency like any other: pinned by tag, its failures
 treated as findings against the firmware source, and its unavailability treated
 as a problem with the style job rather than a licence to merge unchecked C.
+
+The pin is the **exact** version, `@v1.6.0`, not a floating `@v1`. Two reasons,
+one of them discovered the hard way: the repository publishes exact version tags
+only, so `@v1` does not resolve and a workflow using it fails to start; and an
+exact pin is what TB-SUP8-001 §4 asks for anyway, because a checker that
+silently changes its rule set changes what a green build means. Moving to a
+newer version is a change, made deliberately, with whatever new findings it
+brings dealt with in the same change.
 
 ---
 

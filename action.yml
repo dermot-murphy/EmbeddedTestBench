@@ -12,6 +12,11 @@
 #   - uses: dermot-murphy/TestTools@v1
 #     with:
 #       specs: specs/sensor_commands.yaml
+#       bench: benches/simulated_bench.yaml
+#
+# `simulate: 'true'` also replaces every instrument with its simulator, but it
+# supplies no bench options - so a specification that checks firmware against a
+# manifest needs the simulated *bench*, which carries those manifest paths.
 #
 # Against a real bench on a self-hosted runner:
 #
@@ -87,8 +92,10 @@ inputs:
   json:
     description: >-
       Path for the full JSON result record. When empty the action still writes
-      one to the runner temp directory, because it reads that record to produce
-      annotations and outputs.
+      one to the runner temp directory, because it reads the records to produce
+      annotations and outputs. With more than one specification benchtools
+      numbers the files - `bench_1.json`, `bench_2.json` - and the action reads
+      all of them.
     required: false
     default: ''
 
@@ -149,11 +156,12 @@ inputs:
 outputs:
 
   status:
-    description: 'Overall result: PASS, FAIL or ERROR.'
+    description: >-
+      Overall result across every specification: PASS, FAIL or ERROR.
     value: ${{ steps.bench.outputs.status }}
 
   total:
-    description: 'Number of test cases run.'
+    description: 'Number of test cases run, across every specification.'
     value: ${{ steps.bench.outputs.total }}
 
   passed:
@@ -177,7 +185,8 @@ outputs:
     value: ${{ steps.bench.outputs.simulated }}
 
   json-file:
-    description: 'Path to the JSON result record.'
+    description: >-
+      Comma-separated paths to the JSON result records - one per specification.
     value: ${{ steps.bench.outputs.json_file }}
 
 # ---------------------------------------------------------------------------
@@ -297,42 +306,79 @@ runs:
         completed = subprocess.run(argv)
 
         # The runner's own exit code says whether it could run at all; the
-        # record says what happened. A record that was never written means the
-        # run did not start, which is an error however fail-on is set.
-        try:
-            record = json.loads(Path(json_path).read_text())
-        except (OSError, ValueError):
+        # records say what happened. benchtools writes one file per
+        # specification, numbering them <stem>_1, <stem>_2 ... when there is
+        # more than one, so the exact path is only written for a single spec.
+        wanted = Path(json_path)
+        found = [wanted] if wanted.exists() else []
+        if not found:
+            numbered = []
+            for candidate in wanted.parent.glob("%s_*%s" % (wanted.stem, wanted.suffix)):
+                tail = candidate.stem[len(wanted.stem) + 1:]
+                if tail.isdigit():
+                    numbered.append((int(tail), candidate))
+            found = [path for _, path in sorted(numbered)]
+
+        records = []
+        for path in found:
+            try:
+                records.append(json.loads(path.read_text()))
+            except (OSError, ValueError) as exc:
+                print("::error::Could not read result record %s: %s" % (path, exc))
+
+        # No record at all means the run did not start, which is an error
+        # however fail-on is set.
+        if not records:
             print("::error::benchtools produced no result record "
                   "(exit code %d)" % completed.returncode)
             sys.exit(1)
 
-        totals = record.get("totals", {})
-        status = record.get("status", "ERROR")
-        simulated = bool(record.get("simulated"))
+        totals = {key: 0 for key in
+                  ("total", "passed", "failed", "errored", "skipped")}
+        for record in records:
+            for key in totals:
+                totals[key] += record.get("totals", {}).get(key, 0)
+
+        simulated = any(record.get("simulated") for record in records)
+        statuses = [record.get("status", "ERROR") for record in records]
+        if totals["errored"] or "ERROR" in statuses:
+            status = "ERROR"
+        elif totals["failed"] or "FAIL" in statuses:
+            status = "FAIL"
+        else:
+            status = "PASS"
+
+        def titled(record, name):
+            # With one specification the suite name is noise; with several it
+            # is the only way to tell which one a failure came from.
+            if len(records) == 1:
+                return name
+            return "%s - %s" % (record.get("suite", "?"), name)
 
         # ── Annotations ──────────────────────────────────────────────────────
         if flag("INPUT_ANNOTATIONS"):
-            source = record.get("spec_source", "")
-            if record.get("setup_error"):
-                print("::error file=%s::Bench setup failed: %s"
-                      % (source, record["setup_error"]))
-            for case in record.get("cases", []):
-                name = case.get("name", "(unnamed)")
-                if case.get("status") == "ERROR":
-                    detail = case.get("error") or "the bench could not make the measurement"
-                    print("::error file=%s,title=%s::%s" % (source, name, detail))
-                elif case.get("status") == "FAIL":
-                    reasons = []
-                    for step in case.get("steps", []):
-                        for measurement in step.get("measurements", []):
-                            if measurement.get("status") == "FAIL":
-                                reasons.append(
-                                    "%s = %s (expected %s)"
-                                    % (measurement.get("name", "?"),
-                                       measurement.get("value"),
-                                       measurement.get("limit", "?")))
-                    detail = "; ".join(reasons) or case.get("error") or "expectation not met"
-                    print("::error file=%s,title=%s::%s" % (source, name, detail))
+            for record in records:
+                source = record.get("spec_source", "")
+                if record.get("setup_error"):
+                    print("::error file=%s::Bench setup failed: %s"
+                          % (source, record["setup_error"]))
+                for case in record.get("cases", []):
+                    name = titled(record, case.get("name", "(unnamed)"))
+                    if case.get("status") == "ERROR":
+                        detail = case.get("error") or "the bench could not make the measurement"
+                        print("::error file=%s,title=%s::%s" % (source, name, detail))
+                    elif case.get("status") == "FAIL":
+                        reasons = []
+                        for step in case.get("steps", []):
+                            for measurement in step.get("measurements", []):
+                                if measurement.get("status") == "FAIL":
+                                    reasons.append(
+                                        "%s = %s (expected %s)"
+                                        % (measurement.get("name", "?"),
+                                           measurement.get("value"),
+                                           measurement.get("limit", "?")))
+                        detail = "; ".join(reasons) or case.get("error") or "expectation not met"
+                        print("::error file=%s,title=%s::%s" % (source, name, detail))
             if simulated:
                 print("::warning::This run was simulated. It shows that the "
                       "specification executes, not that the instruments behave "
@@ -341,49 +387,63 @@ runs:
         # ── Job summary ──────────────────────────────────────────────────────
         summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
         if flag("INPUT_SUMMARY") and summary_path:
-            lines = [
-                "## Bench run — %s" % record.get("suite", "(unnamed suite)"),
-                "",
-                "| Field | Value |",
-                "|---|---|",
-                "| Result | **%s** |" % status,
-                "| Bench | %s |" % record.get("bench", "?"),
-                "| Specification | %s |" % record.get("spec_source", "?"),
-                "| Simulated | %s |" % ("**yes**" if simulated else "no"),
-                "| Duration | %.2f s |" % float(record.get("duration_s", 0.0) or 0.0),
-                "",
-                "| Total | Passed | Failed | Errored | Skipped |",
-                "|---|---|---|---|---|",
-                "| %d | %d | %d | %d | %d |" % (
-                    totals.get("total", 0), totals.get("passed", 0),
-                    totals.get("failed", 0), totals.get("errored", 0),
-                    totals.get("skipped", 0)),
-                "",
-            ]
-            instruments = record.get("instruments", {})
-            if instruments:
-                lines += ["### Instruments", "",
-                          "| Alias | Driver | Identity |", "|---|---|---|"]
-                for alias, info in instruments.items():
-                    identity = str(info.get("identity", "")).splitlines()
-                    lines.append("| %s | %s | %s |"
-                                 % (alias, info.get("driver", "?"),
-                                    identity[0] if identity else ""))
-                lines.append("")
-            cases = record.get("cases", [])
-            if cases:
-                lines += ["### Cases", "",
-                          "| Case | Requirement | Result | Duration |",
-                          "|---|---|---|---|"]
-                for case in cases:
-                    lines.append("| %s | %s | %s | %.3f s |"
-                                 % (case.get("name", ""),
-                                    case.get("requirement", ""),
-                                    case.get("status", ""),
-                                    float(case.get("duration_s", 0.0) or 0.0)))
-                lines.append("")
+            lines = []
+            if len(records) > 1:
+                lines += [
+                    "## Bench run — %d specifications" % len(records),
+                    "",
+                    "| Result | Total | Passed | Failed | Errored | Skipped |",
+                    "|---|---|---|---|---|---|",
+                    "| **%s** | %d | %d | %d | %d | %d |" % (
+                        status, totals["total"], totals["passed"],
+                        totals["failed"], totals["errored"], totals["skipped"]),
+                    "",
+                ]
+            for record in records:
+                record_totals = record.get("totals", {})
+                lines += [
+                    "## %s" % record.get("suite", "(unnamed suite)"),
+                    "",
+                    "| Field | Value |",
+                    "|---|---|",
+                    "| Result | **%s** |" % record.get("status", "?"),
+                    "| Bench | %s |" % record.get("bench", "?"),
+                    "| Specification | %s |" % record.get("spec_source", "?"),
+                    "| Simulated | %s |" % ("**yes**" if record.get("simulated") else "no"),
+                    "| Duration | %.2f s |" % float(record.get("duration_s", 0.0) or 0.0),
+                    "",
+                    "| Total | Passed | Failed | Errored | Skipped |",
+                    "|---|---|---|---|---|",
+                    "| %d | %d | %d | %d | %d |" % (
+                        record_totals.get("total", 0), record_totals.get("passed", 0),
+                        record_totals.get("failed", 0), record_totals.get("errored", 0),
+                        record_totals.get("skipped", 0)),
+                    "",
+                ]
+                instruments = record.get("instruments", {})
+                if instruments:
+                    lines += ["### Instruments", "",
+                              "| Alias | Driver | Identity |", "|---|---|---|"]
+                    for alias, info in instruments.items():
+                        identity = str(info.get("identity", "")).splitlines()
+                        lines.append("| %s | %s | %s |"
+                                     % (alias, info.get("driver", "?"),
+                                        identity[0] if identity else ""))
+                    lines.append("")
+                cases = record.get("cases", [])
+                if cases:
+                    lines += ["### Cases", "",
+                              "| Case | Requirement | Result | Duration |",
+                              "|---|---|---|---|"]
+                    for case in cases:
+                        lines.append("| %s | %s | %s | %.3f s |"
+                                     % (case.get("name", ""),
+                                        case.get("requirement", ""),
+                                        case.get("status", ""),
+                                        float(case.get("duration_s", 0.0) or 0.0)))
+                    lines.append("")
             if simulated:
-                lines += ["> Every instrument in this run was simulated.", ""]
+                lines += ["> Instruments in this run were simulated.", ""]
             with open(summary_path, "a", encoding="utf-8") as handle:
                 handle.write("\n".join(lines))
 
@@ -393,18 +453,18 @@ runs:
             with open(output_path, "a", encoding="utf-8") as handle:
                 handle.write("status=%s\n" % status)
                 for key in ("total", "passed", "failed", "errored", "skipped"):
-                    handle.write("%s=%d\n" % (key, totals.get(key, 0)))
+                    handle.write("%s=%d\n" % (key, totals[key]))
                 handle.write("simulated=%s\n" % str(simulated).lower())
-                handle.write("json_file=%s\n" % json_path)
+                handle.write("json_file=%s\n" % ",".join(str(p) for p in found))
 
         # ── Exit code ────────────────────────────────────────────────────────
         fail_on = value("INPUT_FAIL_ON").lower() or "failure"
-        errored = totals.get("errored", 0)
-        failed = totals.get("failed", 0)
+        errored = totals["errored"]
+        failed = totals["failed"]
 
-        print("%s: %d passed, %d failed, %d errored, %d skipped"
-              % (status, totals.get("passed", 0), failed, errored,
-                 totals.get("skipped", 0)))
+        print("%s: %d passed, %d failed, %d errored, %d skipped across %d "
+              "specification(s)" % (status, totals["passed"], failed, errored,
+                                    totals["skipped"], len(records)))
 
         if fail_on == "never":
             sys.exit(0)

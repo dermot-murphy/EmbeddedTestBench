@@ -150,7 +150,7 @@ recorded on TB-TMPL-001, because no such review has been held.
 | Python (CI) | 3.10 | `.github/workflows/firmware.yml` |
 | `nrfutil` | 6.1.7 | `.github/workflows/firmware.yml` — exact pin, see TB-ACQ4-001 §4.3 |
 | GNU Arm Embedded toolchain | As pinned in the firmware workflow | `.github/workflows/firmware.yml` |
-| `dermot-murphy/CStyleCheck` | `@v1` | `.github/workflows/style.yml` |
+| `dermot-murphy/CStyleCheck` | `@v1.6.0` | `.github/workflows/style.yml` |
 | C rule configuration | `.cstylecheck.yml` with `.cstylecheck-baseline.json` (113 baselined violations) | Repository root |
 | `pytest` | As declared in the `test` extra | `pyproject.toml` |
 

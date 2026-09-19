@@ -685,7 +685,7 @@ Three workflows run in `.github/workflows/`:
 | Workflow | What it does |
 |---|---|
 | `firmware.yml` | The dongle firmware's own Unity/CTest unit tests, then the real cross-compile against nRF5 SDK 17.1.0 and a DFU package |
-| `style.yml` | `dermot-murphy/CStyleCheck@v1` over `firmware/nordic_dongle`, against `.cstylecheck.yml` and a baseline |
+| `style.yml` | `dermot-murphy/CStyleCheck@v1.6.0` over `firmware/nordic_dongle`, against `.cstylecheck.yml` and a baseline |
 | `bench.yml` | The bench specifications, run through this repository's own action against the simulated bench |
 
 The Python suite is not yet one of them; it runs before every commit. That gap
@@ -703,7 +703,7 @@ bench specifications in CI:
     specs: |
       specs/sensor_bringup.yaml
       specs/sensor_commands.yaml
-    bench:    benches/lab1.yaml   # omit with simulate: 'true'
+    bench:    benches/lab1.yaml   # or benches/simulated_bench.yaml
     simulate: 'false'
     junit:    results/bench.xml
     markdown: results/bench.md
@@ -717,6 +717,13 @@ and publishes JUnit XML. Failure and error stay apart all the way to the exit
 code — `fail-on: error` gates on the bench being able to measure, rather than on
 the target passing — and a run with any simulated instrument says so in the
 annotations, the summary and every report file.
+
+`simulate: 'true'` also swaps in the simulators, but it supplies no bench
+options, so a specification that checks firmware against a manifest needs
+`benches/simulated_bench.yaml` instead — a manifest is a file whether the
+instrument is real or not. With several specifications, `benchtools` numbers the
+result files and the action reads all of them, reporting one summary per suite
+and a combined total.
 
 Full input and output reference: [`action.yml`](action.yml).
 

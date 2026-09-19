@@ -146,7 +146,7 @@ inheriting a claim TestBench never made.
 | Layer | Enforces | Runs |
 |---|---|---|
 | Compiler (`-Wall -Werror`) | The overlap between MISRA's type and control-flow rules and what GCC diagnoses | Every build, locally and in CI |
-| **CStyleCheck** `@v1` | The mechanically checkable subset of TB-STY-001 and the naming, structure and sign-compatibility rules of TB-STD-002 — see CSC-STD-001 for its matrix | Every push, `.github/workflows/style.yml` |
+| **CStyleCheck** `@v1.6.0` | The mechanically checkable subset of TB-STY-001 and the naming, structure and sign-compatibility rules of TB-STD-002 — see CSC-STD-001 for its matrix | Every push, `.github/workflows/style.yml` |
 | AStyle configuration | Formatting, where a file is reformatted | On demand |
 | Review | Everything the tools cannot see: whether a rule was followed in substance, and whether a deviation is justified | TB-TMPL-001 §6.5 |
 
