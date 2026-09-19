@@ -1,6 +1,90 @@
 {
   "violations": [
     {
+      "file": "firmware/nordic_dongle/src/nus_client.c",
+      "line": 23,
+      "rule": "constant.prefix",
+      "message": "'CONN_INTERVAL_MIN_UNITS' must be prefixed with 'nus_client_' (module prefix)"
+    },
+    {
+      "file": "firmware/nordic_dongle/src/nus_client.c",
+      "line": 29,
+      "rule": "constant.prefix",
+      "message": "'CONN_INTERVAL_MAX_UNITS' must be prefixed with 'nus_client_' (module prefix)"
+    },
+    {
+      "file": "firmware/nordic_dongle/src/nus_client.c",
+      "line": 30,
+      "rule": "constant.prefix",
+      "message": "'CONN_SLAVE_LATENCY' must be prefixed with 'nus_client_' (module prefix)"
+    },
+    {
+      "file": "firmware/nordic_dongle/src/nus_client.c",
+      "line": 31,
+      "rule": "constant.prefix",
+      "message": "'CONN_SUPERVISION_UNITS' must be prefixed with 'nus_client_' (module prefix)"
+    },
+    {
+      "file": "firmware/nordic_dongle/src/nus_client.c",
+      "line": 32,
+      "rule": "constant.prefix",
+      "message": "'SCAN_INTERVAL_UNITS' must be prefixed with 'nus_client_' (module prefix)"
+    },
+    {
+      "file": "firmware/nordic_dongle/src/nus_client.c",
+      "line": 34,
+      "rule": "constant.prefix",
+      "message": "'SCAN_WINDOW_UNITS' must be prefixed with 'nus_client_' (module prefix)"
+    },
+    {
+      "file": "firmware/nordic_dongle/src/nus_client.c",
+      "line": 51,
+      "rule": "function.prefix",
+      "message": "'report_rx' must be prefixed with 'nus_client_' (module prefix)"
+    },
+    {
+      "file": "firmware/nordic_dongle/src/timestamp.c",
+      "line": 29,
+      "rule": "function.prefix",
+      "message": "'timer_event_handler' must be prefixed with 'timestamp_' (module prefix)"
+    },
+    {
+      "file": "firmware/nordic_dongle/src/firmware_version.c",
+      "line": 20,
+      "rule": "variable.global.g_prefix",
+      "message": "Global variable 'firmware_version_string' local part should start with 'g_'"
+    },
+    {
+      "file": "firmware/nordic_dongle/src/firmware_version.c",
+      "line": 21,
+      "rule": "variable.global.g_prefix",
+      "message": "Global variable 'firmware_build_date_string' local part should start with 'g_'"
+    },
+    {
+      "file": "firmware/nordic_dongle/src/cdc_acm.c",
+      "line": 28,
+      "rule": "constant.prefix",
+      "message": "'CDC_RX_CHUNK' must be prefixed with 'cdc_acm_' (module prefix)"
+    },
+    {
+      "file": "firmware/nordic_dongle/src/cdc_acm.c",
+      "line": 70,
+      "rule": "function.prefix",
+      "message": "'tx_pump' must be prefixed with 'cdc_acm_' (module prefix)"
+    },
+    {
+      "file": "firmware/nordic_dongle/src/cdc_acm.c",
+      "line": 178,
+      "rule": "function.prefix",
+      "message": "'usbd_user_event_handler' must be prefixed with 'cdc_acm_' (module prefix)"
+    },
+    {
+      "file": "firmware/nordic_dongle/src/cdc_acm.c",
+      "line": 109,
+      "rule": "misc.function_length",
+      "message": "Function 'cdc_event_handler' body has 67 lines, exceeding maximum 60 (JPL Power of Ten Rule 4)"
+    },
+    {
       "file": "firmware/nordic_dongle/src/ble_scanner.c",
       "line": 21,
       "rule": "constant.prefix",
@@ -14,7 +98,7 @@
     },
     {
       "file": "firmware/nordic_dongle/src/ble_scanner.c",
-      "line": 49,
+      "line": 48,
       "rule": "function.prefix",
       "message": "'extract_name' must be prefixed with 'ble_scanner_' (module prefix)"
     },
@@ -38,97 +122,97 @@
     },
     {
       "file": "firmware/nordic_dongle/src/ble_scanner.c",
-      "line": 187,
+      "line": 186,
       "rule": "function.prefix",
       "message": "'scan_event_handler' must be prefixed with 'ble_scanner_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/ble_scanner.c",
-      "line": 202,
+      "line": 201,
       "rule": "function.prefix",
       "message": "'scanner_init' must be prefixed with 'ble_scanner_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/ble_scanner.c",
-      "line": 228,
+      "line": 227,
       "rule": "function.prefix",
       "message": "'scanner_start' must be prefixed with 'ble_scanner_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/ble_scanner.c",
-      "line": 268,
+      "line": 267,
       "rule": "function.prefix",
       "message": "'scanner_stop' must be prefixed with 'ble_scanner_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/ble_scanner.c",
-      "line": 281,
+      "line": 280,
       "rule": "function.prefix",
       "message": "'scanner_is_active' must be prefixed with 'ble_scanner_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/ble_scanner.c",
-      "line": 286,
+      "line": 285,
       "rule": "function.prefix",
       "message": "'scanner_clear' must be prefixed with 'ble_scanner_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/ble_scanner.c",
-      "line": 292,
+      "line": 291,
       "rule": "function.prefix",
       "message": "'scanner_count' must be prefixed with 'ble_scanner_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/ble_scanner.c",
-      "line": 297,
+      "line": 296,
       "rule": "function.prefix",
       "message": "'scanner_get' must be prefixed with 'ble_scanner_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/ble_scanner.c",
-      "line": 302,
+      "line": 301,
       "rule": "function.prefix",
       "message": "'scanner_find' must be prefixed with 'ble_scanner_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/ble_scanner.c",
-      "line": 317,
+      "line": 316,
       "rule": "function.prefix",
       "message": "'scanner_profile_start' must be prefixed with 'ble_scanner_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/ble_scanner.c",
-      "line": 334,
+      "line": 333,
       "rule": "function.prefix",
       "message": "'scanner_profile_stop' must be prefixed with 'ble_scanner_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/ble_scanner.c",
-      "line": 339,
+      "line": 338,
       "rule": "function.prefix",
       "message": "'scanner_profile_is_active' must be prefixed with 'ble_scanner_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/ble_scanner.c",
-      "line": 344,
+      "line": 343,
       "rule": "function.prefix",
       "message": "'scanner_profile_counters' must be prefixed with 'ble_scanner_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/ble_scanner.c",
-      "line": 350,
+      "line": 349,
       "rule": "function.prefix",
       "message": "'scanner_on_ble_evt' must be prefixed with 'ble_scanner_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/ble_scanner.c",
-      "line": 391,
+      "line": 390,
       "rule": "function.prefix",
       "message": "'scanner_format_address' must be prefixed with 'ble_scanner_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/ble_scanner.c",
-      "line": 400,
+      "line": 399,
       "rule": "function.prefix",
       "message": "'scanner_parse_address' must be prefixed with 'ble_scanner_' (module prefix)"
     },
@@ -137,30 +221,6 @@
       "line": 426,
       "rule": "misc.unsigned_suffix",
       "message": "Unsigned constant '1' should have 'U' or 'u' suffix (or assign to a signed type)"
-    },
-    {
-      "file": "firmware/nordic_dongle/src/cdc_acm.c",
-      "line": 28,
-      "rule": "constant.prefix",
-      "message": "'CDC_RX_CHUNK' must be prefixed with 'cdc_acm_' (module prefix)"
-    },
-    {
-      "file": "firmware/nordic_dongle/src/cdc_acm.c",
-      "line": 71,
-      "rule": "function.prefix",
-      "message": "'tx_pump' must be prefixed with 'cdc_acm_' (module prefix)"
-    },
-    {
-      "file": "firmware/nordic_dongle/src/cdc_acm.c",
-      "line": 179,
-      "rule": "function.prefix",
-      "message": "'usbd_user_event_handler' must be prefixed with 'cdc_acm_' (module prefix)"
-    },
-    {
-      "file": "firmware/nordic_dongle/src/cdc_acm.c",
-      "line": 109,
-      "rule": "misc.function_length",
-      "message": "Function 'cdc_event_handler' body has 67 lines, exceeding maximum 60 (JPL Power of Ten Rule 4)"
     },
     {
       "file": "firmware/nordic_dongle/src/cmd_parser.c",
@@ -200,37 +260,37 @@
     },
     {
       "file": "firmware/nordic_dongle/src/cmd_parser.c",
-      "line": 53,
+      "line": 52,
       "rule": "function.prefix",
       "message": "'reply_error' must be prefixed with 'cmd_parser_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/cmd_parser.c",
-      "line": 61,
+      "line": 60,
       "rule": "function.prefix",
       "message": "'reply_ok' must be prefixed with 'cmd_parser_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/cmd_parser.c",
-      "line": 84,
+      "line": 83,
       "rule": "function.prefix",
       "message": "'tokenise' must be prefixed with 'cmd_parser_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/cmd_parser.c",
-      "line": 113,
+      "line": 112,
       "rule": "function.prefix",
       "message": "'key_value' must be prefixed with 'cmd_parser_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/cmd_parser.c",
-      "line": 130,
+      "line": 129,
       "rule": "function.prefix",
       "message": "'decode_hex' must be prefixed with 'cmd_parser_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/cmd_parser.c",
-      "line": 157,
+      "line": 156,
       "rule": "function.prefix",
       "message": "'encode_hex' must be prefixed with 'cmd_parser_' (module prefix)"
     },
@@ -373,76 +433,16 @@
       "message": "Unsigned constant '10' should have 'U' or 'u' suffix (or assign to a signed type)"
     },
     {
-      "file": "firmware/nordic_dongle/src/firmware_version.c",
-      "line": 20,
-      "rule": "variable.global.g_prefix",
-      "message": "Global variable 'firmware_version_string' local part should start with 'g_'"
-    },
-    {
-      "file": "firmware/nordic_dongle/src/firmware_version.c",
-      "line": 21,
-      "rule": "variable.global.g_prefix",
-      "message": "Global variable 'firmware_build_date_string' local part should start with 'g_'"
-    },
-    {
-      "file": "firmware/nordic_dongle/src/nus_client.c",
+      "file": "firmware/nordic_dongle/src/cmd_parser.h",
       "line": 23,
       "rule": "constant.prefix",
-      "message": "'CONN_INTERVAL_MIN_UNITS' must be prefixed with 'nus_client_' (module prefix)"
-    },
-    {
-      "file": "firmware/nordic_dongle/src/nus_client.c",
-      "line": 29,
-      "rule": "constant.prefix",
-      "message": "'CONN_INTERVAL_MAX_UNITS' must be prefixed with 'nus_client_' (module prefix)"
-    },
-    {
-      "file": "firmware/nordic_dongle/src/nus_client.c",
-      "line": 30,
-      "rule": "constant.prefix",
-      "message": "'CONN_SLAVE_LATENCY' must be prefixed with 'nus_client_' (module prefix)"
-    },
-    {
-      "file": "firmware/nordic_dongle/src/nus_client.c",
-      "line": 31,
-      "rule": "constant.prefix",
-      "message": "'CONN_SUPERVISION_UNITS' must be prefixed with 'nus_client_' (module prefix)"
-    },
-    {
-      "file": "firmware/nordic_dongle/src/nus_client.c",
-      "line": 32,
-      "rule": "constant.prefix",
-      "message": "'SCAN_INTERVAL_UNITS' must be prefixed with 'nus_client_' (module prefix)"
-    },
-    {
-      "file": "firmware/nordic_dongle/src/nus_client.c",
-      "line": 34,
-      "rule": "constant.prefix",
-      "message": "'SCAN_WINDOW_UNITS' must be prefixed with 'nus_client_' (module prefix)"
-    },
-    {
-      "file": "firmware/nordic_dongle/src/nus_client.c",
-      "line": 52,
-      "rule": "function.prefix",
-      "message": "'report_rx' must be prefixed with 'nus_client_' (module prefix)"
-    },
-    {
-      "file": "firmware/nordic_dongle/src/timestamp.c",
-      "line": 30,
-      "rule": "function.prefix",
-      "message": "'timer_event_handler' must be prefixed with 'timestamp_' (module prefix)"
+      "message": "'CMD_MAX_ARGS' must be prefixed with 'cmd_parser_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/cdc_acm.h",
       "line": 29,
       "rule": "constant.prefix",
       "message": "'CDC_TX_QUEUE_LINES' must be prefixed with 'cdc_acm_' (module prefix)"
-    },
-    {
-      "file": "firmware/nordic_dongle/src/cmd_parser.h",
-      "line": 23,
-      "rule": "constant.prefix",
-      "message": "'CMD_MAX_ARGS' must be prefixed with 'cmd_parser_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/include/app_ble_config.h",

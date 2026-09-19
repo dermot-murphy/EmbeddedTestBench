@@ -20,6 +20,10 @@
 # A rule the project has decided against is switched off here and said so in
 # the style guide. A rule the project accepts but does not yet meet stays on
 # and goes in the baseline, which is debt - see TB-ANA-001 6.12.
+#
+# The baseline is written by the pinned checker version and is not portable
+# across versions. If the pin in style.yml moves, regenerate it in the same
+# change with --write-baseline and deal with whatever the newer version finds.
 # ============================================================
 
 file_prefix:

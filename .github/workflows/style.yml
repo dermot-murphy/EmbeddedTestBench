@@ -9,6 +9,11 @@
 # present when the check was introduced, so the job fails on *new* ones. The
 # baseline is debt, not absolution — see TB-ANA-001 §6.12 for what is in it and
 # what closing it involves.
+#
+# Pinned to v1.5.1, not the newest v1.6.0: v1.6.0 writes its version banner into
+# the results file its own action then parses as JSON, so the action fails after
+# the check itself has passed. See TB-ACQ4-001 §7. The baseline is written by
+# the pinned version and must be regenerated if that pin moves.
 
 name: style
 
@@ -28,7 +33,7 @@ jobs:
 
       - name: Run CStyleCheck
         id: cstylecheck
-        uses: dermot-murphy/CStyleCheck@v1.6.0
+        uses: dermot-murphy/CStyleCheck@v1.5.1
         with:
           config: .cstylecheck.yml
           include: |
