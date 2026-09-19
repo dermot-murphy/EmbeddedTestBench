@@ -1,0 +1,46 @@
+# C coding-standard check.
+#
+# Enforces the mechanically checkable part of TB-STD-002 (Embedded C Coding
+# Standard) and TB-STY-001 (Embedded C Style Guide) over the firmware this
+# project owns. The nRF5 SDK and the SoftDevice are vendor sources and are out
+# of scope (TB-STD-002 §1.3), so they are not in the include patterns.
+#
+# The run is baselined: `.cstylecheck-baseline.json` records the violations
+# present when the check was introduced, so the job fails on *new* ones. The
+# baseline is debt, not absolution — see TB-ANA-001 §6.12 for what is in it and
+# what closing it involves.
+
+name: style
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  cstylecheck:
+    name: Embedded C standard
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Run CStyleCheck
+        id: cstylecheck
+        uses: dermot-murphy/CStyleCheck@v1
+        with:
+          config: .cstylecheck.yml
+          include: |
+            firmware/nordic_dongle/src/**/*.c
+            firmware/nordic_dongle/src/**/*.h
+            firmware/nordic_dongle/include/**/*.h
+          baseline-file: .cstylecheck-baseline.json
+          fail-on: error
+
+      - name: Report counts
+        if: always()
+        run: |
+          echo "errors=${{ steps.cstylecheck.outputs.errors }}"
+          echo "warnings=${{ steps.cstylecheck.outputs.warnings }}"
+          echo "info=${{ steps.cstylecheck.outputs.info }}"

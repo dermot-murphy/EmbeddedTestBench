@@ -1,0 +1,952 @@
+# ============================================================
+# TestBench — CStyleCheck rule configuration
+# ============================================================
+# Enforces the mechanically checkable part of TB-STD-002 (Embedded C Coding
+# Standard) and TB-STY-001 (Embedded C Style Guide) over the firmware this
+# project owns. Run by .github/workflows/style.yml against
+# firmware/nordic_dongle, with .cstylecheck-baseline.json so the job fails on
+# new violations rather than on the 113 that existed when it was introduced.
+#
+# Derived from the CStyleCheck default rule set, with four project decisions
+# applied. Each is recorded in TB-STY-001, not only here:
+#
+#   functions.style: lower_snake        the firmware, the SDK beside it and the
+#                                       host driver are all lower snake case
+#   variables.static.s_prefix: "m_"     Nordic's convention for module statics
+#   variables.pointer_prefix: disabled  Barr-C 7.1.k not adopted - TB-STY-001 18.4
+#   misc.yoda_conditions: disabled      not adopted - TB-STY-001 49
+#   misc.file_length.max_lines: 800     see TB-STY-001 6.4
+#
+# A rule the project has decided against is switched off here and said so in
+# the style guide. A rule the project accepts but does not yet meet stays on
+# and goes in the baseline, which is debt - see TB-ANA-001 6.12.
+# ============================================================
+
+file_prefix:
+  enabled: true
+  severity: error
+  separator: "_"          # character inserted between module name and identifier
+  case: lower             # module name case: lower | upper | as_is
+  exempt_main: true       # skip prefix check entirely for main.c / main.h
+  exempt_patterns:        # regex patterns for identifiers exempt from prefix rule
+    - "^main$"
+    - "^ISR$"
+    - "^app_"
+    - "^m_"
+    - "^nrf_"
+    - "^ble_"
+    - "^nus_"
+    - "^cdc_"
+    - "^cmd_"
+    - "^proto_"
+    - "^bootloader_"
+    - "^timestamp_"
+    - "^firmware_"             # shared 'app_' namespace accepted as a valid prefix
+
+# --- Variables ---
+# Rules are broken down by scope.  The top-level 'case', 'severity', and
+# 'min_length' act as defaults for any scope that does not override them.
+variables:
+  enabled: true
+  severity: error
+  case: lower_snake       # default case for all scopes not individually configured
+  min_length: 3             # Barr-C 7.1.e: no variable shorter than 3 characters
+  max_length: 40           # Barr-C 7.1.d: no variable longer than 31 chars
+                            # (we use 40 to allow for module prefix)
+  allow_single_char_loop_vars: true  # Barr-C 7.1.e: when true, single-character
+                                      # loop variables (e.g. i, j, k) are exempt
+                                      # from the min_length rule
+  # When true, variables that appear only as for-loop iteration counters
+  # (e.g. i, ix, ii) are exempt from the min_length rule regardless of
+  # allow_single_char_loop_vars. Useful when min_length >= 2 but you want
+  # to permit conventional loop counters.
+  # NOTE: intentionally set to false in tests/ copy -- TestAllowLoopVarsShort
+  # in test_misc_improvements.py verifies default-is-false behaviour.
+  # src/ canonical copy sets this to true (project default).
+  allow_loop_vars_short: true
+
+  # Uppercase abbreviations that are allowed anywhere in an otherwise
+  # lower_snake name.  Add any project-standard abbreviations here.
+  # e.g.  read_FIFO_registers  and  MCU_timing  both pass lower_snake
+  # when FIFO and MCU are listed.
+  allowed_abbreviations:
+    - FIFO
+    - MCU
+    - ADC
+    - DAC
+    - SPI
+    - I2C
+    - UART
+    - CAN
+    - DMA
+    - IRQ
+    - ISR
+    - GPIO
+    - PWM
+    - PLL
+    - USB
+    - CRC
+    - RTC
+    - API
+    - SDK
+    - HAL
+    - RTOS
+    - CPU
+    - ECU
+    - OTA
+
+  # Global variables  (file scope, not static)
+  global:
+    severity: error
+    case: lower_snake
+    require_module_prefix: true
+    g_prefix:
+      enabled: true
+      severity: warning
+      prefix: "g_"        # local part (after module prefix) must start with g_
+
+  # File-scope static variables
+  static:
+    severity: error
+    case: lower_snake
+    require_module_prefix: true
+    s_prefix:
+      enabled: true
+      severity: warning
+      prefix: "m_"        # Nordic SDK convention: module statics are m_*
+
+  # Local variables (inside a function body, not a parameter)
+  local:
+    severity: error
+    case: lower_snake
+    require_module_prefix: false
+
+  # Function parameters
+  parameter:
+    severity: warning
+    case: lower_snake
+    require_module_prefix: false
+    # Parameter p_ prefix rule.
+    # When enabled every function parameter name must begin with p_
+    # (after any module prefix, if applicable). If the parameter also
+    # requires another prefix (pointer p_, bool b_, handle h_) the
+    # parameter prefix p_ must come first:
+    #   uint8_t        p_channel       OK -- plain param
+    #   uint8_t *      p_p_buffer      OK -- param + pointer (p_ then p_)
+    #   bool           p_b_enabled     OK -- param + bool  (p_ then b_)
+    #   TaskHandle_t   p_h_task        OK -- param + handle (p_ then h_)
+    p_prefix:
+      enabled: false        # off by default -- enable to enforce
+      severity: warning
+      prefix: "p_"
+
+  # Pointer prefix -- single pointer (*) -> local part must start with p_
+  # (BARR-C 7.1.k)
+  pointer_prefix:
+    enabled: false
+    severity: warning
+    prefix: "p_"
+
+  # Double-pointer prefix (**) -> local part must start with pp_
+  # (BARR-C 7.1.l)
+  pp_prefix:
+    enabled: false
+    severity: warning
+    prefix: "pp_"
+
+  # Boolean prefix -- bool / _Bool variables -> local part must start with b_
+  # and should be phrased as a question: b_is_buffer_full, b_done_yet
+  # (BARR-C 7.1.m)
+  bool_prefix:
+    enabled: false
+    severity: warning
+    prefix: "b_"
+
+  # Handle prefix -- non-pointer handle variables must start with h_
+  # (BARR-C 7.1.n)
+  # List every handle type used in your project under handle_types.
+  # Common examples: FILE (stdio), OS/RTOS handle types (FreeRTOS, CMSIS-RTOS).
+  handle_prefix:
+    enabled: true
+    severity: warning
+    prefix: "h_"
+    handle_types:
+      # POSIX / stdio
+      - FILE
+      # FreeRTOS
+      - TaskHandle_t
+      - QueueHandle_t
+      - SemaphoreHandle_t
+      - TimerHandle_t
+      - EventGroupHandle_t
+      - StreamBufferHandle_t
+      - MessageBufferHandle_t
+      # CMSIS-RTOS v2
+      - osThreadId_t
+      - osMutexId_t
+      - osSemaphoreId_t
+      - osMessageQueueId_t
+      - osTimerId_t
+      - osEventFlagsId_t
+      # Generic / project-specific: add your own here
+      # - MY_HANDLE_T
+
+  # No embedded numeric values (BARR-C 7.1.g)
+  # A variable name must not contain a digit that is "called out elsewhere"
+  # (e.g. the number of bits in a type, the number of elements in an array).
+  # Examples that should be flagged: buffer32, array8, gpio3
+  # Use exempt_patterns (regex) for hardware-port numbers you deliberately allow.
+  no_numeric_in_name:
+    enabled: false          # off by default -- enable for strict Barr-C compliance
+    severity: warning
+    exempt_patterns:        # regex patterns exempt from this rule
+      # Peripheral port numbers (uart2, spi1, i2c0, can1, tim3)
+      - "^uart[0-9]+$"
+      - "^spi[0-9]+$"
+      - "^i2c[0-9]+$"
+      - "^can[0-9]+$"
+      - "^tim[0-9]+$"
+      # Unit qualifiers embedded after an underscore separator
+      # e.g. timer_24hour, delay_100ms, freq_48mhz, buf_16bit
+      - ".*_[0-9]+(hour|hours|min|sec|ms|us|ns|hz|khz|mhz|bit|bits|byte|bytes|baud|rpm|deg)$"
+
+  # Prefix ordering (BARR-C 7.1.o)
+  # When a variable requires multiple prefixes they must appear in the order:
+  #   [g_] [p_|pp_] [b_|h_]
+  # Examples:
+  #   global pointer to bool:          g_p_b_done
+  #   global double-pointer:           g_pp_buf
+  #   global handle:                   g_h_uart
+  # This check is only meaningful when the individual prefix rules are enabled.
+  prefix_order:
+    enabled: false          # off by default -- enable with strict Barr-C compliance
+    severity: warning
+
+# --- Constants (#define object-like, const-qualified variables) ---
+constants:
+  enabled: true
+  severity: error
+  case: upper_snake
+  max_length: 60
+  min_length: 2
+  # Patterns of constant names that are exempt from case and prefix rules.
+  # Supports full Python regex syntax.
+  exempt_patterns:
+    - "^STACK_SIZE$"        # common RTOS / linker constant
+    - "^PRIORITY$"          # common RTOS task priority
+    - "^__"                 # names starting with __ (RTOS / compiler reserved)
+    - "^configUSE_"         # FreeRTOS configuration macros
+    - "^portMAX_DELAY$"
+    - "^pdTRUE$"
+    - "^pdFALSE$"
+    - "^pdPASS$"
+    - "^pdFAIL$"
+    - "^errQUEUE_EMPTY$"
+    - "^NULL$"
+    - "^TRUE$"
+    - "^FALSE$"
+    - "^STATIC$"          # common alias for static
+    - "^INLINE$"          # common alias for inline
+    - "^LOCAL_INLINE$"    # common alias for static inline
+    - "^CONST$"           # common alias for const
+    - "^EXTERN$"          # common alias for extern
+
+# --- Macros (#define function-like) ---
+macros:
+  enabled: true
+  severity: error
+  case: upper_snake
+  max_length: 60
+  # Patterns of macro names exempt from case and prefix checks.
+  exempt_patterns:
+    - "^__"                 # compiler / RTOS reserved
+    - "^configASSERT$"
+    - "^taskENTER_CRITICAL$"
+    - "^taskEXIT_CRITICAL$"
+    - "^portYIELD$"
+    - "^vTaskDelay$"        # FreeRTOS API macros that use camelCase
+  function_like_suffix:
+    enabled: false          # optionally require e.g. trailing _M
+    suffix: "_M"
+
+  # -----------------------------------------------------------------------
+  # CERT PRE11-C: macro body must not end with a bare semicolon (issue #223)
+  # -----------------------------------------------------------------------
+  # A trailing ; in a #define body causes a double-semicolon at every call
+  # site (FOO(); → ;;) and syntax errors when the macro is used in an
+  # expression context.
+  # Handles line-continuation macros.
+  trailing_semicolon:
+    enabled: true
+    severity: warning
+
+  # -----------------------------------------------------------------------
+  # CERT PRE10-C: multi-statement macros must use do{}while(0) (issue #222)
+  # -----------------------------------------------------------------------
+  # A function-like macro whose body contains two or more statements (i.e.
+  # contains ';' more than once) must be wrapped in do { ... } while(0) so
+  # that it behaves correctly in all control-flow contexts (e.g. if/else
+  # without braces).
+  multistatement_wrapper:
+    enabled: true
+    severity: warning
+
+# --- Enumerations ---
+enums:
+  enabled: true
+  severity: error
+  # Enum type name
+  type_case: lower_snake          # e.g. uart_status_t
+  type_suffix:
+    enabled: true
+    suffix: "_t"                  # lower-case _t for enum type names
+  # Enum member values
+  member_case: upper_snake        # e.g. UART_STATUS_OK
+  member_prefix_from_type:
+    enabled: true
+    severity: warning
+    # The prefix is derived automatically:
+    #   1. Strip type suffix (_t) from type name  -> uart_status
+    #   2. Convert to member case (upper_snake)   -> UART_STATUS
+    #   3. Members must start with UART_STATUS_
+
+# --- Typedefs ---
+typedefs:
+  enabled: true
+  severity: warning
+  case: upper_snake
+  suffix:
+    enabled: true
+    suffix: "_T"                  # e.g. UART_CONFIG_T
+
+# --- Structs / Unions ---
+structs:
+  enabled: true
+  severity: warning
+  tag_case: lower_snake           # struct tag: uart_config_s
+  tag_suffix:
+    enabled: true
+    suffix: "_s"
+  # Member names: no module prefix required
+  member_case: lower_snake
+  # Uppercase abbreviations permitted in member names, same as
+  # variables.allowed_abbreviations. e.g. FIFO, CRC, SPI, ADC.
+  allowed_abbreviations: []
+
+# --- Functions ---
+functions:
+  enabled: true
+  severity: error
+  # Pattern: <module>_<Object><Verb>  e.g. uart_BufferRead
+  # object_verb  -> modulePrefix_ObjectVerb  (e.g. uart_BufferRead)
+  # verb_object  -> modulePrefix_VerbObject  (e.g. uart_ReadBuffer)
+  # lower_snake  -> module_prefix_body       (e.g. uart_buffer_read)
+  style: lower_snake
+  object_case: pascal
+  verb_case: pascal
+  max_length: 60
+  min_length: 4
+  # Allowed abbreviations in function body segments (same concept as
+  # variables.allowed_abbreviations but scoped to function names).
+  allowed_abbreviations:
+    - FIFO
+    - MCU
+    - ADC
+    - DAC
+    - SPI
+    - I2C
+    - UART
+    - CAN
+    - DMA
+    - IRQ
+    - GPIO
+    - PWM
+    - USB
+    - CRC
+    - RTC
+    - API
+    - ECU
+    - OTA
+    - OBD
+
+  # Object names that, when present in a function body, cause the
+  # object_verb style check to be waived entirely.  Use this for
+  # established abbreviations that act as both object and verb.
+  # e.g.  APP_Cmd_Wr_Mode  passes because Wr is in this list.
+  object_exclusions:
+    - Wr
+    - Rd
+    - IoCntrl
+    - EcuReset
+    - Init
+
+  isr_suffix:
+    enabled: true
+    severity: warning
+    suffix: "_IRQHandler"         # e.g. USART1_IRQHandler
+  static_prefix:
+    enabled: false                # set to true to require prv_ on static fns
+    prefix: "prv_"
+    severity: warning
+
+# --- Include guards ---
+include_guards:
+  enabled: true
+  severity: error
+  pattern: "{FILENAME_UPPER}_{EXT_UPPER}_"
+  allow_pragma_once: true
+
+# --- Miscellaneous embedded-C conventions ---
+misc:
+  # Magic numbers
+  magic_numbers:
+    enabled: true
+    severity: warning
+    # Array-index literals (e.g. array[2]) are always exempt regardless of
+    # this list.
+    exempt_values: [0, 1, -1, 2, 8, 16, 32, 64, 128, 256, 1024, 0xFF, 0xFFFF]
+
+  # Numeric literal unsigned suffix (e.g. 10U, 255U)
+  unsigned_suffix:
+    enabled: true
+    severity: info
+    require_on_unsigned_constants: true
+    # When true, the literal 0 does not require a U suffix (it is bitwise
+    # compatible with both signed and unsigned types). Set to false for
+    # strict Barr-C compliance where 0U must be used with unsigned types.
+    zero_is_neutral: true
+
+    # Functions whose integer arguments are known to be signed (int) and
+    # therefore do not need a U suffix. Literals inside any call to a
+    # listed function are fully exempt -- no header scanning required.
+    # Add project-specific functions (e.g. RTOS APIs) to extend the list.
+    # Set to an empty list [] to disable this exemption entirely.
+    exempt_function_args:
+      # C standard memory functions  (int c parameter in memset/memchr)
+      - memset
+      - memcmp
+      - memchr
+      # C stdio -- printf family accepts signed int arguments
+      - printf
+      - fprintf
+      - sprintf
+      - snprintf
+      - vprintf
+      - vfprintf
+      - vsprintf
+      - vsnprintf
+      # C stdio character I/O
+      - fputc
+      - putc
+      - putchar
+      - ungetc
+      # Add your own project functions here, e.g.:
+      # - my_log_write
+      # - rtos_task_delay
+    # Note: literals used as array indices are always exempt (e.g. array[2]).
+
+  # Max line length
+  line_length:
+    enabled: true
+    severity: warning
+    max: 180
+
+  # Tabs vs spaces
+  # NOTE: this is intentionally set to 'spaces' in the tests/ copy so that
+  # the tab-prefixed source in TestWarningsAsErrors (test_cli.py) triggers
+  # misc.indentation INFO violations, enabling --warnings-as-errors tests.
+  # The src/ canonical copy uses 'tabs' as the project default.
+  indentation:
+    enabled: true
+    severity: info
+    style: tabs           # spaces | tabs
+    width: 8
+
+  # Block-comment spacing
+  # Checks that between the closing */ of a multi-line block comment
+  # and the next non-blank line there are at least min_blank_lines and
+  # at most max_blank_lines blank lines.
+  block_comment_spacing:
+    enabled: false        # off by default -- enable to enforce
+    severity: warning
+    min_blank_lines: 1    # minimum blank lines after */
+    max_blank_lines: 2    # maximum blank lines after */
+
+  # Copyright block comment header
+  # Checks that every C source file begins with the copyright block comment
+  # supplied via --copyright FILE on the command line, followed by exactly
+  # one blank line.  The match is exact except that the year (or year range)
+  # on the '(C) Copyright YEAR' line may differ -- any 4-digit year or
+  # YYYY-YYYY range is accepted.
+  #
+  # This rule is only active when --copyright is provided; the 'enabled'
+  # flag lets you disable it even when the file is present (e.g. in a
+  # per-file exclusion via --exclusions).
+  copyright_header:
+    enabled: true           # active whenever --copyright FILE is supplied
+    severity: error
+
+  # EOF comment
+  # Requires the last non-blank line of every file to match a configured
+  # template, with {filename} substituted by the file's base name.
+  # A single blank line must follow it as the very last line in the file.
+  #
+  # filename_case controls the case applied to {filename}:
+  #   lower    -> ascii.c          (default)
+  #   upper    -> ASCII.C
+  #   preserve -> unchanged from the file system name
+  #
+  # Example for ascii.c with default settings:
+  #   /* EOF: ascii.c */
+  #   <blank line>
+  eof_comment:
+    enabled: false          # set to true to enforce
+    severity: warning
+    template: "/* EOF: {filename} */"
+    filename_case: lower    # lower | upper | preserve
+
+  # Yoda conditions: constant must appear on the LEFT of == and !=
+  #   Correct:    if (NULL == p_buf)
+  #   Violation:  if (p_buf == NULL)
+  # Only == and != are checked; directional operators < > <= >= are excluded.
+  yoda_conditions:
+    enabled: false
+    severity: warning
+
+  # Constant-to-constant comparison: both sides of == or != are compile-time
+  # constants (literals, ALL_CAPS macros, true/false/NULL/nullptr).  This is
+  # almost certainly a logic error because the result never changes at runtime.
+  #
+  # Examples (violations):
+  #   if (NULL == NULL)        ← always true
+  #   if (ERROR == SUCCESS)    ← always the same value
+  #   if (true == false)       ← always false
+  # Correct: compare a constant against a runtime variable:
+  #   if (NULL == p_ptr)       ← Yoda style (handled by yoda_conditions)
+  constant_comparison:
+    enabled: true
+    severity: warning
+
+  # -----------------------------------------------------------------------
+  # MISRA C:2012 Rule 7.3 / MISRA C:2023 Rule 7.3 (Required)
+  # -----------------------------------------------------------------------
+  # Integer literal suffixes must use uppercase letters only.
+  # The lowercase letter 'l' is visually indistinguishable from the digit
+  # '1' in many fonts and must not be used in any suffix position.
+  #
+  #   Violation:  1l   1ul   0xFFl   100UL  <- last example OK (uppercase L)
+  #   Correct:    1L   1UL   0xFFL
+  lowercase_l_suffix:
+    enabled: true
+    severity: error
+
+  # -----------------------------------------------------------------------
+  # MISRA C:2012 Rule 7.1 / MISRA C:2023 Rule 7.1 (Required)
+  # -----------------------------------------------------------------------
+  # Octal integer constants (leading zero followed by octal digits) are
+  # forbidden.  Zero-padded numbers look like decimals but are not.
+  #
+  #   Violation:  010  (= 8, not 10)   07   0777
+  #   Correct:    0    0x08   8U
+  #
+  # Note: the bare literal 0 (zero alone, or 0 with suffix 0U/0L) is
+  # always permitted.  Floating-point literals (0.5) and hexadecimal
+  # literals (0x07) are not affected.
+  octal_constant:
+    enabled: true
+    severity: error
+
+  # -----------------------------------------------------------------------
+  # MISRA C:2012 Rule 4.2 (Advisory) / MISRA C:2023 Rule 4.2 (Required)
+  # -----------------------------------------------------------------------
+  # Trigraphs are three-character sequences (??=, ??(, etc.) that the
+  # C preprocessor silently replaces before parsing.  They are forbidden
+  # because they can change the meaning of code in ways that are easy to
+  # overlook, especially in comments.
+  #
+  # The nine trigraphs and their expansions:
+  #   ??=  ->  #     ??(  ->  [     ??)  ->  ]
+  #   ??/  ->  \     ??'  ->  ^     ??<  ->  {
+  #   ??>  ->  }     ??!  ->  |     ??-  ->  ~
+  trigraph:
+    enabled: true
+    severity: error   # MISRA C:2023 promotes this to Required
+
+  # -----------------------------------------------------------------------
+  # Non-ASCII source characters (issue #279)
+  # -----------------------------------------------------------------------
+  # Source files shall contain only printable ASCII characters (0x20–0x7E)
+  # and the standard whitespace characters (tab 0x09, newline 0x0A,
+  # carriage return 0x0D).  Non-ASCII bytes (0x80–0xFF) and non-printable
+  # control characters (0x00–0x08, 0x0B–0x0C, 0x0E–0x1F, 0x7F) are
+  # forbidden.
+  #
+  # Rationale (MISRA C:2012 Rule 4.1 / MISRA C:2023 Rule 4.1):
+  #   The source character set for C is the basic source character set.
+  #   Characters outside this set have implementation-defined behaviour
+  #   and must not appear in source code.
+  #
+  # Common sources of non-ASCII characters in embedded C:
+  #   - UTF-8 encoded string literals with accented characters
+  #   - Comments containing non-ASCII text (e.g. author names, units)
+  #   - Copy-pasted content from word processors (curly quotes, em-dashes)
+  #
+  # Exceptions: string literals and character constants may sometimes
+  # need non-ASCII characters for internationalisation.  Use the
+  # exempt_string_literals option to allow non-ASCII inside double-quoted
+  # strings only.
+  #
+  #   Violation:  uint8_t café_count;   // é is non-ASCII
+  #   Correct:    uint8_t cafe_count;
+  non_ascii_source:
+    enabled: true
+    severity: error
+    # When true, non-ASCII bytes inside double-quoted string literals
+    # are exempted from this rule (they may be intentional UTF-8 content).
+    exempt_string_literals: false
+
+  # -----------------------------------------------------------------------
+  # Declared but not defined (issue #114)
+  # -----------------------------------------------------------------------
+  # Cross-file check: identifies C objects that are declared (via 'extern'
+  # or a forward typedef) but for which no matching definition is found in
+  # any of the files passed in the same checker invocation.
+  #
+  # Covers:
+  #   - extern function declarations  →  function body definition
+  #   - extern variable declarations  →  file-scope variable definition
+  #   - typedef struct Tag Tag;       →  full typedef struct { … } Tag;
+  #   - typedef enum  Tag Tag;        →  full typedef enum  { … } Tag;
+  #
+  # Single-file invocations always produce no violations (the definition
+  # may exist in an unscanned translation unit such as a BSP library).
+  #
+  # Symbols intentionally left undefined (e.g. platform HAL stubs) can be
+  # suppressed with an inline comment on the declaration line:
+  #   extern void HAL_UART_Init(void);  /* cstylecheck: disable misc.declared_not_defined */
+  #
+  # Default severity is 'warning' (not 'error') because the definition may
+  # reside in unscanned BSP or COTS files not included in the checker run.
+  declared_not_defined:
+    enabled: false    # opt-in; disabled by default
+    severity: warning
+    # extern_macros: list of project-specific macros that expand to 'extern'
+    # (or equivalent linkage specifiers such as __declspec(dllimport)).
+    # Add the macro name here so that declarations like:
+    #   API_WDT_EXTERN void WDT_Init(void);
+    # are treated as extern declarations by this rule (issue #168).
+    # Alternative: add the macro to your --defines file with 'API_WDT_EXTERN extern'.
+    extern_macros: []
+
+  # -----------------------------------------------------------------------
+  # Comment-to-code ratio (issue #68)
+  # -----------------------------------------------------------------------
+  # Measures the ratio of explanatory comment lines to code lines within
+  # each scanned file.  Violations are raised when the ratio falls below
+  # the configured thresholds.
+  #
+  # Excluded from both counts:
+  #   - Blank lines
+  #   - The file header: all leading comment/blank lines before the first
+  #     non-comment, non-blank line (copyright notices, licence blocks)
+  #   - Doxygen blocks: /** … */ are documentation, not explanatory comments
+  #
+  # Counted as comment lines:
+  #   // line comments and /* … */ regular block comment lines
+  #
+  # Counted as code lines:
+  #   Every non-blank, non-comment line (code, preprocessor, etc.)
+  #   A line with a trailing // comment still counts as a code line
+  #
+  # Example violation messages:
+  #   uart.c:1: warning [misc.comment_ratio] comment ratio 0.08 is below
+  #             warning threshold 0.15 (8 comment lines / 96 code lines)
+  #   spi.c:1:  error   [misc.comment_ratio] comment ratio 0.02 is below
+  #             error threshold 0.05 (1 comment line / 48 code lines)
+  comment_ratio:
+    enabled: false          # opt-in; disabled by default
+    severity: warning       # severity for below-warning-threshold violations
+    warning_threshold: 0.15 # ratio below which a WARNING is raised  (15%)
+    error_threshold: 0.05   # ratio below which an ERROR is raised    (5%)
+    min_code_lines: 10      # skip files with fewer code lines (avoids trivial-file false positives)
+
+  # -----------------------------------------------------------------------
+  # Whitespace (blank-line) ratio (issue #143)
+  # -----------------------------------------------------------------------
+  # Measures the ratio of blank lines to code lines in the file body.
+  # Very few blank lines relative to code indicates dense, hard-to-read code.
+  #
+  # Excluded from both counts:
+  #   - The file header: all leading comment/blank lines before the first
+  #     non-comment, non-blank line (copyright notices, licence blocks)
+  #   - Comment-only lines (// and /* … */) — excluded from denominator
+  #
+  # Counted as blank lines (numerator):
+  #   Empty and whitespace-only lines in the code body
+  #
+  # Counted as code lines (denominator):
+  #   Every non-blank, non-comment line (code, preprocessor, etc.)
+  #   A line with a trailing // comment still counts as a code line
+  #
+  # Default error threshold is approximately 0.1 × warning threshold,
+  # per the original issue specification ("Error if < 0.1 of warning level").
+  #
+  # Example violation messages:
+  #   uart.c:1: warning [misc.whitespace_ratio] whitespace ratio 0.06 is below
+  #             warning threshold 0.1 (6 blank lines / 95 code lines)
+  #   cfg.c:1:  error   [misc.whitespace_ratio] whitespace ratio 0.008 is below
+  #             error threshold 0.01 (1 blank line / 122 code lines)
+  whitespace_ratio:
+    enabled: false          # opt-in; disabled by default
+    severity: warning       # severity for below-warning-threshold violations
+    warning_threshold: 0.10 # ratio below which a WARNING is raised  (10%)
+    error_threshold: 0.01   # ratio below which an ERROR is raised    (1%)
+    min_lines: 20           # skip files with fewer code lines (avoids trivial-file false positives)
+
+  # -----------------------------------------------------------------------
+  # Maximum lines per function body (JPL Power of Ten Rule 4, issue #221)
+  # -----------------------------------------------------------------------
+  # Each function body (including comments and blank lines within it) must
+  # not exceed max_lines lines.  The JPL default is 60; JSF uses 200.
+  # When count_comments is false, only non-blank, non-comment lines count.
+  function_length:
+    enabled: true
+    severity: warning
+    max_lines: 60           # JPL Power of Ten default; JSF uses 200
+    count_comments: true    # include blank and comment lines in the count
+
+  # -----------------------------------------------------------------------
+  # Mandatory Doxygen-style function header comment (ESA-R-1, issue #224)
+  # -----------------------------------------------------------------------
+  # Every function definition must be immediately preceded by a block
+  # comment containing at minimum @brief, @param (for each parameter), and
+  # @return (for non-void functions).
+  # style: "doxygen" requires @brief/@param/@return;
+  #        "javadoc" same tags;
+  #        "any"     accepts any non-empty comment (no tag check).
+  function_doc_header:
+    enabled: false          # opt-in; requires existing code to be updated
+    severity: warning
+    require_brief: true
+    require_param: true
+    require_return: true
+    style: doxygen
+
+  # -----------------------------------------------------------------------
+  # Minimum assert() calls per function (JPL Power of Ten Rule 5, #225)
+  # -----------------------------------------------------------------------
+  # Every non-trivial function must contain at least min_asserts calls to
+  # assert() (or a project-defined assert macro).  Functions shorter than
+  # min_function_lines are exempt, as are functions in exempt_functions.
+  assert_density:
+    enabled: false          # opt-in; off by default
+    severity: info
+    min_asserts: 1          # minimum assert() calls per qualifying function
+    min_function_lines: 10  # skip functions with fewer lines than this
+    exempt_functions: []    # regex patterns for exempt function names
+
+  # -----------------------------------------------------------------------
+  # Null statements must be on their own line with a comment (JSF Rule 192)
+  # -----------------------------------------------------------------------
+  # Flags: (1) control-flow expressions with ; on the same line (while(x);),
+  # and (2) standalone ';' on its own line without an explanatory comment.
+  null_statement_comment:
+    enabled: true
+    severity: warning
+
+  # -----------------------------------------------------------------------
+  # Blank line required after the local variable declaration block (LK-8)
+  # -----------------------------------------------------------------------
+  # Within each function body, the first executable statement must be
+  # preceded by at least one blank line after the last local variable
+  # declaration.  Functions with no declarations are not affected.
+  declaration_spacing:
+    enabled: false          # opt-in; disabled by default
+    severity: info
+
+  # -----------------------------------------------------------------------
+  # Maximum lines per source file (ESA/industry practice, issue #232)
+  # -----------------------------------------------------------------------
+  # Source files exceeding max_lines total lines are flagged.  Optionally
+  # blank lines and/or comment-only lines can be excluded from the count.
+  file_length:
+    enabled: true
+    severity: warning
+    max_lines: 800          # industry common defaults: 300–1000
+    count_blank_lines: true
+    count_comment_lines: true
+
+  # -----------------------------------------------------------------------
+  # Reserved C/POSIX standard header filename (CERT PRE04-C, issue #230)
+  # -----------------------------------------------------------------------
+  # A project source file must not share its basename with a standard C or
+  # POSIX header (e.g. string.h, stdio.h) because #include "string.h" would
+  # then include the local file instead of the system header.
+  reserved_header_name:
+    enabled: true
+    severity: error
+    extra_reserved: []      # additional project-specific names to reserve
+
+# --- Reserved / banned identifier names ---
+# Checks that no declared variable, function, macro, or constant name
+# shadows a C keyword, C++ keyword, or C standard library name.
+# Additional names can be banned via --banned-names FILE on the command line.
+# Per-file exceptions: add 'reserved_name' to disabled_rules in the exclusions YAML (--exclusions).
+reserved_names:
+  enabled: true
+  severity: error
+
+# --- Comment spell-check ---
+# When enabled, every word in every comment is checked against a built-in
+# English dictionary merged with the project-specific exempt word lists.
+#
+# Two ways to supply project-specific words:
+#   1. Add words to 'exempt_values' below (checked into version control).
+#   2. Pass --spell-words <file> on the command line (one word per line,
+#      lines starting with # are comments).  Useful for generated or
+#      user-specific abbreviation lists.
+spell_check:
+  enabled: false            # set to true to enable; info-level by default
+  severity: info
+  exempt_values:
+    # Project-specific abbreviations and proper nouns
+    - "Sensoteq"
+    - "sensoteq"
+    - "PRQA"
+    - "MISRA"
+    - "ASPICE"
+    - "FreeRTOS"
+    - "freertos"
+    - "CMSIS"
+    - "STM32"
+    - "stm32"
+    - "HAL"
+    - "NVIC"
+    - "SysTick"
+    - "systick"
+    - "PLL"
+    - "HSE"
+    - "HSI"
+    - "LSE"
+    - "LSI"
+    - "AHB"
+    - "APB"
+    - "HCLK"
+    - "PCLK"
+    - "IRQ"
+    - "IRQHandler"
+    - "DMA"
+    - "USART"
+    - "I2C"
+    - "SPI"
+    - "GPIO"
+    - "ADC"
+    - "DAC"
+    - "TIM"
+    - "RCC"
+    - "PWM"
+    - "OTA"
+    - "CRC"
+    - "IDE"
+    - "SDK"
+    - "MCU"
+    - "CPU"
+    - "RTOS"
+    - "API"
+    - "APP"
+    - "HAL"
+    - "MW"
+    - "DRV"
+    # Common technical abbreviations
+    - "buf"
+    - "cfg"
+    - "ctx"
+    - "clk"
+    - "cnt"
+    - "ctr"
+    - "dev"
+    - "drv"
+    - "hdl"
+    - "idx"
+    - "inst"
+    - "io"
+    - "irq"
+    - "len"
+    - "msg"
+    - "num"
+    - "obj"
+    - "pos"
+    - "ptr"
+    - "rx"
+    - "tx"
+    - "src"
+    - "dst"
+    - "tmp"
+    - "val"
+
+# --- Paths / files to ignore entirely ---
+ignore:
+  paths:
+    - "third_party/**"
+    - "vendor/**"
+    - "build/**"
+    - "*.pb.c"
+  files:
+    - "stm32f4xx_hal_*.c"
+    - "stm32f4xx_hal_*.h"
+
+# --- Identifier naming constraints ---
+# Cross-category rules governing identifier length and character constraints.
+# These complement the per-category length limits in variables/functions/etc.
+naming:
+  # -----------------------------------------------------------------------
+  # Min/max identifier length across all categories (ESA-R-7, JSF Rule 45)
+  # -----------------------------------------------------------------------
+  # Enforces a project-wide minimum and maximum identifier length applied
+  # uniformly across variables, functions, macros, and type names.
+  # short exempt_names (i, j, k, …) are always allowed as loop counters.
+  identifier_length:
+    enabled: false          # opt-in; off by default
+    severity: warning
+    min_length: 3           # ESA-R-7 default; set to 0 to disable min check
+    max_length: 31          # JSF Rule 45 default; set to 0 to disable max check
+    exempt_names: ["i", "j", "k", "n", "x", "y", "z"]
+    check_variables: true
+    check_functions: true
+    check_macros: true
+    check_types: true
+
+  # -----------------------------------------------------------------------
+  # No single-character identifiers except conventional loop counters (ESA-R-4)
+  # -----------------------------------------------------------------------
+  # Single-character names are ambiguous and non-searchable in code review.
+  # Identifiers in the exempt list (default: i, j, k, n, x, y, z) are
+  # accepted as conventional loop counter abbreviations.
+  no_single_char_identifiers:
+    enabled: false          # opt-in; off by default
+    severity: warning
+    exempt: ["i", "j", "k", "n", "x", "y", "z"]
+
+# --- Sign compatibility (cross-file) ---
+# Check that unsigned literals (e.g. 100U) are not passed to signed parameters
+# and vice-versa, based on function prototypes found in header files.
+#
+# Type resolution follows typedef chains:
+#   typedef signed char int8_t;  -> int8_t is signed
+#   typedef int8_t sint8;        -> sint8  is signed
+#
+# Arguments are classified as:
+#   UNSIGNED  : literal with U/u suffix (e.g. 100U, 0xFFU), or (unsigned T) cast
+#   SIGNED    : negative literal (-1), or (signed T) cast
+#   NEUTRAL   : plain positive integer literal (10, 0xFF) -- allowed for either
+#   UNKNOWN   : variable or expression -- skipped conservatively
+#
+# Only arguments that are definitively SIGNED or UNSIGNED and conflict with
+# the parameter's resolved signedness generate a violation.
+sign_compatibility:
+  enabled: true
+  severity: error
+  # Whether to treat plain 'char' (without signed/unsigned keyword) as signed.
+  # Most embedded compilers default to signed char; set false if your toolchain
+  # defaults to unsigned char.
+  plain_char_is_signed: true

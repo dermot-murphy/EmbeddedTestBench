@@ -1,0 +1,46 @@
+# Bench specifications, run through this repository's own action.
+#
+# The action is used from the checkout (`uses: ./`) rather than from a tag, so
+# a change to action.yml is exercised by the pull request that makes it.
+#
+# Every instrument here is simulated. That shows the specifications execute and
+# that the reports are complete; it shows nothing about instrument behaviour,
+# which is TB-SYS4-001's job and needs hardware. The action says so in its own
+# annotations and job summary rather than leaving the distinction to a reader.
+
+name: bench
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  simulated:
+    name: Simulated bench
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Run the bench specifications
+        id: bench
+        uses: ./
+        with:
+          specs: |
+            specs/sensor_bringup.yaml
+            specs/sensor_commands.yaml
+          simulate: 'true'
+          junit:    results/bench.xml
+          markdown: results/bench.md
+          json:     results/bench.json
+          fail-on:  failure
+
+      - name: Upload the reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-reports
+          path: results/
+          if-no-files-found: warn

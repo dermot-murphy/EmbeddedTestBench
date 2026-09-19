@@ -67,6 +67,7 @@ physical bench instruments whose identity affects a result.
 | Bench descriptions | `benches/**` | Bench name | git |
 | Bench specifications | `specs/**` | Spec filename | git |
 | CI workflows and actions | `.github/workflows/*.yml`, `action.yml` | Filename | git |
+| C rule configuration | `.cstylecheck.yml`, `.cstylecheck-baseline.json` | Filename | git — the baseline changes only with a recorded reason |
 | Build tools | Python, `nrfutil`, GNU Arm toolchain, nRF5 SDK | Name + exact version | Pinned in the workflow; recorded in TB-SVD-001 |
 | External actions | `dermot-murphy/CStyleCheck@v1` | Repository + tag | Pinned in the workflow |
 | Bench instruments | Scope, supply, J-Link, dongle | Model + serial + firmware revision | Queried at run time and written into every report |
