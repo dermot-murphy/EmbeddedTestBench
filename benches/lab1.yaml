@@ -1,0 +1,86 @@
+# Example configuration for a real bench. Addresses are site-specific:
+# copy this file and change them.
+#
+# No VISA installation is needed for the oscilloscope, and no vendor Python
+# package for the probe. See docs/tek3014b/VISA_Determination_Report.md.
+name: Lab bench 1
+description: Sensor board test rig - oscilloscope, debug probe and a supply.
+
+instruments:
+  scope:
+    driver: tek3014b
+    resource: 192.168.1.50        # or vxi11://192.168.1.50/gpib0,1
+    timeout: 15.0
+
+  # SEGGER J-Link. 'jlink://' spawns a local GDB Server; give a host to attach
+  # to one already running elsewhere, which is how a containerised bench reaches
+  # a probe plugged into another machine:
+  #     resource: jlink://192.168.1.9:2331
+  probe:
+    driver: jlink
+    resource: jlink://
+    timeout: 30.0
+    options:
+      device: nRF52840_xxAA       # required to start a GDB Server
+      elf: build/app.elf          # symbols, for variables and call stacks
+      core_clock_hz: 64000000     # wrong here makes every cycle timing wrong
+      speed_khz: 4000
+      # Where the sensor build left its firmware_manifest.json. A test can then
+      # ask what version it flashed (probe.image_build) instead of repeating a
+      # version string into a specification, where it would go stale the day
+      # someone rebuilt the firmware. Defaults to beside the elf above.
+      firmware: build
+
+  # Nordic BLE dongle running firmware/nordic_dongle. A bare port name is read
+  # as a serial port, so 'COM5' and '/dev/ttyACM0' both work; a port published
+  # over TCP lets a containerised bench reach a dongle on another machine:
+  #     resource: serial://socket://bench-pc:4001
+  dongle:
+    driver: ble-dongle
+    resource: /dev/ttyACM0        # COM5 on Windows
+    timeout: 10.0
+    options:
+      # The build this dongle should be running. The driver compares the
+      # version *and* the build date against what the dongle reports, so a
+      # rebuild of the same version is still a mismatch - which is the case
+      # that matters during development.
+      firmware: firmware/nordic_dongle/_build
+      # true lets the driver flash it when it is out of date. Off here: on a
+      # bench whose results are evidence, someone should decide to reflash.
+      update_firmware: false
+
+  # GW Instek GPD-3303D, over its USB-serial port or RS-232. A bare port name
+  # is read as a serial port. The line rate must match the supply's own front
+  # panel setting (Utility > Baud); status reports what the supply thinks it is.
+  #
+  # The front panel must be in INDEPENDENT tracking for a two-rail run. In
+  # series or parallel the supply drives CH2 from CH1 and discards anything
+  # sent to CH2; the driver refuses it rather than pretending, so a run on a
+  # supply left in series fails at the first CH2 setting and says why.
+  #
+  # The fixed 2.5/3.3/5 V rail is a front-panel switch and is not driven from
+  # here. If a rail is taken from it, record the switch position by hand.
+  psu:
+    driver: gpd3303d
+    resource: /dev/ttyUSB0        # COM4 on Windows
+    timeout: 5.0
+    options:
+      baudrate: 9600
+      # Minimum gap between commands. The supply has no flow control and drops
+      # what it cannot buffer, silently. Lower it only with evidence.
+      command_interval: 0.05
+
+  # ST S2-LP development kit, running ST's own CLI firmware (the firmware the
+  # S2-LP DK GUI drives). Nothing of ours runs on the board, so there is nothing
+  # to flash before a session. The band comes from the board's own
+  # identification, not from here.
+  s2lp:
+    driver: s2lp
+    resource: /dev/ttyACM1        # COM7 on Windows
+    timeout: 5.0
+
+  # Any instrument without a dedicated driver yet can still be addressed,
+  # identified and sent raw SCPI through the generic driver.
+  dmm:
+    driver: generic
+    resource: 192.168.1.60

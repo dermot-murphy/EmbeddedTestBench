@@ -1,0 +1,123 @@
+<!DOCTYPE CrossStudio_Project_File>
+<solution Name="nordic_dongle_pca10059" target="8" version="2">
+  <!--
+    SEGGER Embedded Studio project for the BenchTools BLE bench dongle.
+
+    Set SDK_ROOT before building, either in Tools > Options > Building > Global
+    macros, or on the command line:
+
+      emBuild -config Release -D SDK_ROOT=/path/to/nRF5_SDK_17.1.0 \
+              nordic_dongle_pca10059.emProject
+
+    The project produces an application hex only. The dongle's SoftDevice and
+    bootloader come from the factory, and scripts/package_dfu.sh wraps the hex
+    for the bootloader.
+
+    Traces to: BLE-FR-090, BLE-DD-BUILD.
+  -->
+  <project Name="nordic_dongle_pca10059">
+    <configuration
+      Name="Common"
+      arm_architecture="v7EM"
+      arm_core_type="Cortex-M4"
+      arm_endian="Little"
+      arm_fp_abi="Hard"
+      arm_fpu_type="FPv4-SP-D16"
+      arm_linker_heap_size="2048"
+      arm_linker_process_stack_size="0"
+      arm_linker_stack_size="8192"
+      arm_target_device_name="nRF52840_xxAA"
+      arm_target_interface_type="SWD"
+      c_user_include_directories="../include;../src;../config;$(SDK_ROOT)/components;$(SDK_ROOT)/components/ble/ble_db_discovery;$(SDK_ROOT)/components/ble/ble_services/ble_nus_c;$(SDK_ROOT)/components/ble/common;$(SDK_ROOT)/components/ble/nrf_ble_gatt;$(SDK_ROOT)/components/ble/nrf_ble_scan;$(SDK_ROOT)/components/ble/nrf_ble_gq;$(SDK_ROOT)/components/ble/ble_link_ctx_manager;$(SDK_ROOT)/components/libraries/atomic;$(SDK_ROOT)/components/libraries/atomic_flags;$(SDK_ROOT)/components/libraries/atomic_fifo;$(SDK_ROOT)/components/libraries/balloc;$(SDK_ROOT)/components/libraries/delay;$(SDK_ROOT)/components/libraries/experimental_section_vars;$(SDK_ROOT)/components/libraries/memobj;$(SDK_ROOT)/components/libraries/queue;$(SDK_ROOT)/components/libraries/ringbuf;$(SDK_ROOT)/components/libraries/sortlist;$(SDK_ROOT)/components/libraries/mutex;$(SDK_ROOT)/components/libraries/fifo;$(SDK_ROOT)/components/libraries/strerror;$(SDK_ROOT)/components/libraries/timer;$(SDK_ROOT)/components/libraries/usbd;$(SDK_ROOT)/components/libraries/usbd/class/cdc;$(SDK_ROOT)/components/libraries/usbd/class/cdc/acm;$(SDK_ROOT)/components/libraries/util;$(SDK_ROOT)/components/softdevice/s140/headers;$(SDK_ROOT)/components/softdevice/s140/headers/nrf52;$(SDK_ROOT)/components/softdevice/common;$(SDK_ROOT)/components/toolchain/cmsis/include;$(SDK_ROOT)/external/utf_converter;$(SDK_ROOT)/integration/nrfx;$(SDK_ROOT)/integration/nrfx/legacy;$(SDK_ROOT)/modules/nrfx;$(SDK_ROOT)/modules/nrfx/drivers/include;$(SDK_ROOT)/modules/nrfx/hal;$(SDK_ROOT)/modules/nrfx/mdk"
+      c_preprocessor_definitions="APP_TIMER_V2;APP_TIMER_V2_RTC1_ENABLED;BOARD_PCA10059;CONFIG_GPIO_AS_PINRESET;FLOAT_ABI_HARD;INITIALIZE_USER_SECTIONS;NO_VTOR_CONFIG;NRF52840_XXAA;NRF_SD_BLE_API_VERSION=7;S140;SOFTDEVICE_PRESENT;__HEAP_SIZE=2048;__STACK_SIZE=8192"
+      debug_target_connection="J-Link"
+      gcc_entry_point="Reset_Handler"
+      linker_section_placements_segments="FLASH RX 0x0 0x100000;RAM RWX 0x20000000 0x40000"
+      linker_section_placement_macros="FLASH_PH_START=0x0;FLASH_PH_SIZE=0x100000;RAM_PH_START=0x20000000;RAM_PH_SIZE=0x40000;FLASH_START=0x27000;FLASH_SIZE=0xd9000;RAM_START=0x20002ae8;RAM_SIZE=0x3d518"
+      linker_section_placement_file="flash_placement.xml"
+      macros="SDK_ROOT=../../../nRF5_SDK_17.1.0"
+      project_directory=""
+      project_type="Executable" />
+
+    <folder Name="Application">
+      <file file_name="../src/main.c" />
+      <file file_name="../src/cdc_acm.c" />
+      <file file_name="../src/cmd_parser.c" />
+      <file file_name="../src/ble_scanner.c" />
+      <file file_name="../src/nus_client.c" />
+      <file file_name="../src/timestamp.c" />
+      <file file_name="../src/bootloader.c" />
+      <file file_name="../src/firmware_version.c" />
+      <file file_name="../config/sdk_config.h" />
+      <file file_name="../include/protocol.h" />
+      <file file_name="../include/app_ble_config.h" />
+    </folder>
+
+    <folder Name="nRF_Libraries">
+      <file file_name="$(SDK_ROOT)/components/libraries/atomic/nrf_atomic.c" />
+      <file file_name="$(SDK_ROOT)/components/libraries/atomic_fifo/nrf_atfifo.c" />
+      <file file_name="$(SDK_ROOT)/components/libraries/balloc/nrf_balloc.c" />
+      <file file_name="$(SDK_ROOT)/components/libraries/memobj/nrf_memobj.c" />
+      <file file_name="$(SDK_ROOT)/components/libraries/queue/nrf_queue.c" />
+      <file file_name="$(SDK_ROOT)/components/libraries/ringbuf/nrf_ringbuf.c" />
+      <file file_name="$(SDK_ROOT)/components/libraries/experimental_section_vars/nrf_section_iter.c" />
+      <file file_name="$(SDK_ROOT)/components/libraries/strerror/nrf_strerror.c" />
+      <file file_name="$(SDK_ROOT)/components/libraries/sortlist/nrf_sortlist.c" />
+      <file file_name="$(SDK_ROOT)/components/libraries/atomic_flags/nrf_atflags.c" />
+      <file file_name="$(SDK_ROOT)/components/libraries/timer/app_timer2.c" />
+      <file file_name="$(SDK_ROOT)/components/libraries/timer/drv_rtc.c" />
+      <file file_name="$(SDK_ROOT)/components/libraries/util/app_error.c" />
+      <file file_name="$(SDK_ROOT)/components/libraries/util/app_error_handler_gcc.c" />
+      <file file_name="$(SDK_ROOT)/components/libraries/util/app_error_weak.c" />
+      <file file_name="$(SDK_ROOT)/components/libraries/util/app_util_platform.c" />
+      <file file_name="$(SDK_ROOT)/components/libraries/util/nrf_assert.c" />
+    </folder>
+
+    <folder Name="nRF_USB">
+      <file file_name="$(SDK_ROOT)/components/libraries/usbd/app_usbd.c" />
+      <file file_name="$(SDK_ROOT)/components/libraries/usbd/app_usbd_core.c" />
+      <file file_name="$(SDK_ROOT)/components/libraries/usbd/app_usbd_serial_num.c" />
+      <file file_name="$(SDK_ROOT)/components/libraries/usbd/app_usbd_string_desc.c" />
+      <file file_name="$(SDK_ROOT)/external/utf_converter/utf.c" />
+      <file file_name="$(SDK_ROOT)/components/libraries/usbd/class/cdc/acm/app_usbd_cdc_acm.c" />
+    </folder>
+
+    <folder Name="nRF_Drivers">
+      <file file_name="$(SDK_ROOT)/integration/nrfx/legacy/nrf_drv_clock.c" />
+      <file file_name="$(SDK_ROOT)/integration/nrfx/legacy/nrf_drv_power.c" />
+      <file file_name="$(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_clock.c" />
+      <file file_name="$(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_power.c" />
+      <file file_name="$(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_systick.c" />
+      <file file_name="$(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_timer.c" />
+      <file file_name="$(SDK_ROOT)/modules/nrfx/drivers/src/nrfx_usbd.c" />
+      <file file_name="$(SDK_ROOT)/modules/nrfx/soc/nrfx_atomic.c" />
+    </folder>
+
+    <folder Name="nRF_BLE">
+      <file file_name="$(SDK_ROOT)/components/ble/common/ble_advdata.c" />
+      <file file_name="$(SDK_ROOT)/components/ble/common/ble_conn_params.c" />
+      <file file_name="$(SDK_ROOT)/components/ble/common/ble_conn_state.c" />
+      <file file_name="$(SDK_ROOT)/components/ble/common/ble_srv_common.c" />
+      <file file_name="$(SDK_ROOT)/components/ble/ble_db_discovery/ble_db_discovery.c" />
+      <file file_name="$(SDK_ROOT)/components/ble/ble_services/ble_nus_c/ble_nus_c.c" />
+      <file file_name="$(SDK_ROOT)/components/ble/nrf_ble_gatt/nrf_ble_gatt.c" />
+      <file file_name="$(SDK_ROOT)/components/ble/nrf_ble_scan/nrf_ble_scan.c" />
+      <file file_name="$(SDK_ROOT)/components/ble/nrf_ble_gq/nrf_ble_gq.c" />
+    </folder>
+
+    <folder Name="nRF_SoftDevice">
+      <file file_name="$(SDK_ROOT)/components/softdevice/common/nrf_sdh.c" />
+      <file file_name="$(SDK_ROOT)/components/softdevice/common/nrf_sdh_ble.c" />
+      <file file_name="$(SDK_ROOT)/components/softdevice/common/nrf_sdh_soc.c" />
+    </folder>
+
+    <folder Name="None">
+      <file file_name="$(SDK_ROOT)/modules/nrfx/mdk/ses_startup_nrf52840.s" />
+      <file file_name="$(SDK_ROOT)/modules/nrfx/mdk/ses_startup_nrf_common.s" />
+      <file file_name="$(SDK_ROOT)/modules/nrfx/mdk/system_nrf52840.c" />
+    </folder>
+
+    <configuration Name="Release" c_preprocessor_definitions="NDEBUG" gcc_optimization_level="Optimize For Size" />
+    <configuration Name="Debug" c_preprocessor_definitions="DEBUG; DEBUG_NRF" gcc_optimization_level="None" />
+  </project>
+</solution>

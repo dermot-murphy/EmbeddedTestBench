@@ -1,0 +1,117 @@
+# Bench test specification: the sensor's radio behaviour.
+#
+# Against simulators:
+#   benchtools run specs/sensor_ble.yaml --simulate --markdown report.md
+# Against real hardware:
+#   benchtools run specs/sensor_ble.yaml --bench benches/lab1.yaml
+
+name: Sensor BLE advertising and command response
+description: >
+  Find the sensor, measure its advertising profile against the specified
+  interval, and measure how long it takes to answer a command over BLE UART.
+  Every figure here comes from the dongle's microsecond clock; the host's own
+  timings are recorded in the session log beside them.
+requirements: [BT-REQ-010, BT-REQ-011, BT-REQ-020, BT-REQ-021]
+
+instruments:
+  dongle: ble-dongle
+
+setup:
+  # Record which firmware the dongle is running. With a build configured on the
+  # bench this also compares the two; with none it simply records, so the same
+  # suite runs against a simulated bench. The figures land in every report.
+  - do: dongle.check_firmware
+    save: dongle_firmware
+
+  # Find the sensor and keep it for the rest of the suite. A named filter keeps
+  # a busy room from filling the dongle's table.
+  - do: dongle.scan
+    with: {duration: 3.0, name: SENS}
+  - do: dongle.select
+    with: {sensor: SENS-0A1B2C}
+
+tests:
+  - name: Advertising interval is 100 ms as specified
+    requirement: BT-REQ-010
+    description: >
+      The Bluetooth specification adds a random 0-10 ms advertising delay to
+      every interval, so the mean sits above the nominal and the spread is
+      about 10 ms. Both are correct behaviour, and the limits allow for them.
+    steps:
+      - do: dongle.measure_advertising_profile
+        with: {duration: 5.0, expected_interval: 0.100}
+        expect:
+          - name: mean_interval
+            measure: mean_interval_s
+            unit: s
+            scale: 1000.0
+            display_unit: ms
+            min: 99.0
+            max: 112.0
+          - name: shortest_interval
+            measure: minimum_interval_s
+            unit: s
+            scale: 1000.0
+            display_unit: ms
+            min: 95.0
+          - name: interval_spread
+            measure: spread_s
+            unit: s
+            scale: 1000.0
+            display_unit: ms
+            max: 12.0
+
+  - name: No advertising events are missed
+    requirement: BT-REQ-011
+    description: >
+      A gap of more than one and a half nominal intervals is a beacon the
+      sensor did not send. The completeness check matters as much as the count:
+      if the host lost reports, a missing beacon cannot be blamed on the sensor.
+    steps:
+      - do: dongle.measure_advertising_profile
+        with: {duration: 5.0, expected_interval: 0.100}
+        expect:
+          - name: missed_events
+            measure: missed_events
+            max: 0
+          - name: duty_cycle
+            measure: duty_cycle
+            min: 0.99
+          - name: capture_was_lossless
+            measure: is_complete
+            equals: 1
+
+  - name: Sensor answers a command within 150 ms
+    requirement: BT-REQ-020
+    description: >
+      Ten exchanges, timed on the dongle. The trustworthiness check guards the
+      limit: a latency inside one connection interval says where the write
+      landed rather than what the firmware did.
+    steps:
+      - do: dongle.open_link
+      - do: dongle.measure_response_time
+        with: {request: measure, repeat: 10}
+        expect:
+          - name: response_time
+            measure: milliseconds
+            unit: ms
+            max: 150.0
+          - name: response_spread
+            measure: spread_s
+            unit: s
+            scale: 1000.0
+            display_unit: ms
+            max: 50.0
+          - name: measurement_is_resolvable
+            measure: is_trustworthy
+            equals: 1
+
+  - name: Sensor reports the expected firmware version
+    requirement: BT-REQ-021
+    steps:
+      - do: dongle.command
+        with: {request: version}
+        save: version_reply
+
+teardown:
+  - do: dongle.close_link

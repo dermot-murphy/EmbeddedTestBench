@@ -1,0 +1,166 @@
+# Firmware: unit tests, cross-compile, and a downloadable build artefact.
+#
+# Runs only when something under firmware/ changes - sources, headers, the test
+# suite, the build files - or when this workflow itself changes. The host-side
+# Python driver has its own suite and is unaffected by a firmware edit.
+#
+# Two jobs, in order:
+#
+#   unit-tests  Unity + CTest on the host, with fake SDK headers at the SDK
+#               boundary. No SDK, no toolchain, no hardware; runs in seconds.
+#   firmware    The real cross-compile against nRF5 SDK 17.1.0, producing the
+#               hex, elf and map, plus a DFU package for the dongle.
+#
+# The firmware job downloads the SDK from Nordic and caches it; the first run on
+# a new cache key takes a few minutes, later runs seconds.
+#
+# Traces to: BLE-FR-090, BLE-NFR-003, SWE4-UT-FWUNIT.
+
+name: firmware
+
+on:
+  push:
+    paths:
+      - 'firmware/**'
+      - '.github/workflows/firmware.yml'
+  pull_request:
+    paths:
+      - 'firmware/**'
+      - '.github/workflows/firmware.yml'
+  workflow_dispatch:
+
+# A new push supersedes an in-flight run of the same branch.
+concurrency:
+  group: firmware-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SDK_VERSION: '17.1.0'
+  SDK_DIRECTORY: nRF5_SDK_17.1.0_ddde560
+  SDK_URL: https://nsscprodmedia.blob.core.windows.net/prod/software-and-other-downloads/sdks/nrf5/binaries/nrf5_sdk_17.1.0_ddde560.zip
+
+jobs:
+  unit-tests:
+    name: Unit tests (Unity + CTest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: >
+          cmake -S firmware/nordic_dongle/test -B build/firmware-tests
+          -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build
+        run: cmake --build build/firmware-tests --parallel
+
+      - name: Test
+        run: >
+          ctest --test-dir build/firmware-tests
+          --output-on-failure
+          --output-junit ${{ github.workspace }}/build/firmware-tests/results.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware-unit-test-results
+          path: |
+            build/firmware-tests/results.xml
+            build/firmware-tests/Testing/**/*.xml
+          if-no-files-found: warn
+          retention-days: 30
+
+  firmware:
+    name: Build firmware
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    steps:
+      - uses: actions/checkout@v4
+
+      # Every make invocation in this job stamps the same build date, taken
+      # from the commit rather than from the clock: the image, the manifest and
+      # the DFU package are then one build with one identity, and rebuilding
+      # the same commit reproduces it.
+      - name: Pin the build date to the commit
+        run: |
+          set -euo pipefail
+          echo "SOURCE_DATE_EPOCH=$(git -C "$GITHUB_WORKSPACE" show -s --format=%ct HEAD)" >> "$GITHUB_ENV"
+
+      - name: Install the Arm toolchain
+        uses: carlosperate/arm-none-eabi-gcc-action@v1
+        with:
+          release: '10.3-2021.10'
+
+      - name: Cache the nRF5 SDK
+        id: sdk-cache
+        uses: actions/cache@v4
+        with:
+          path: sdk
+          key: nrf5-sdk-${{ env.SDK_VERSION }}
+
+      - name: Download the nRF5 SDK
+        if: steps.sdk-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p sdk
+          curl -fsSL -o sdk.zip "$SDK_URL"
+          unzip -q sdk.zip -d sdk
+          rm sdk.zip
+
+      # One invocation builds the image and writes the manifest beside it, so
+      # the date in the image and the date in the manifest are the same string.
+      - name: Build
+        working-directory: firmware/nordic_dongle
+        run: |
+          set -euo pipefail
+          # -k: keep going after a failure, so one run reports every compile
+          # error rather than the first. A cross-compile check that has to be
+          # pushed once per error is a slow way to find five of them.
+          make SDK_ROOT="$GITHUB_WORKSPACE/sdk/$SDK_DIRECTORY" -j"$(nproc)" -k manifest
+          cat _build/firmware_manifest.json
+
+      - name: Report the size
+        working-directory: firmware/nordic_dongle
+        run: arm-none-eabi-size _build/nordic_dongle_pca10059.out
+
+      # nrfutil is pinned twice over. 6.1.7 is the last release of the Python
+      # nrfutil that packages for the nRF5 SDK 17 bootloader, and it supports
+      # Python 3.10 at the newest; on the runner's own Python an unpinned
+      # install resolves all the way back to a Python 2 release, which dies in
+      # pkg generate on dict.iteritems. Pinning the interpreter as well keeps
+      # the resolution stable when the runner image moves on again.
+      - name: Set up Python for nrfutil
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Package for DFU
+        working-directory: firmware/nordic_dongle
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet 'nrfutil==6.1.7'
+          nrfutil version
+          make SDK_ROOT="$GITHUB_WORKSPACE/sdk/$SDK_DIRECTORY" dfu
+
+      - name: Upload the firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: nordic-dongle-firmware-${{ github.sha }}
+          path: |
+            firmware/nordic_dongle/_build/nordic_dongle_pca10059.hex
+            firmware/nordic_dongle/_build/nordic_dongle_pca10059.out
+            firmware/nordic_dongle/_build/nordic_dongle_pca10059.map
+            firmware/nordic_dongle/_build/nordic_dongle_dfu.zip
+            firmware/nordic_dongle/_build/firmware_manifest.json
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload the build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware-build-log-${{ github.sha }}
+          path: firmware/nordic_dongle/_build/**
+          if-no-files-found: ignore
+          retention-days: 7

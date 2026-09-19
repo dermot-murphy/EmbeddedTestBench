@@ -1,0 +1,128 @@
+# Run the sensor's own command document against the board.
+#
+# The commands are not in this file. They are in specs/sensor_commands.md,
+# which is the document that specifies the command set: one heading per test,
+# a row per step, and an expected response. Copying them here would make two
+# things that must agree, and they would stop agreeing the first time someone
+# added a command to one of them.
+#
+# Against hardware:
+#   python -m benchtools run specs/sensor_commands.yaml --bench benches/lab1.yaml
+# Without it:
+#   python -m benchtools run specs/sensor_commands.yaml --bench benches/simulated_bench.yaml
+#
+# Three files come out of a run, beside the runner's own report:
+#
+#   ble_session.log      every line in both directions, with both clocks, and a
+#                        note marking each test as it starts
+#   sensor_rtt.log       whatever the firmware printed while this ran
+#   ble_commands.md      a row per step: test, step, command, response,
+#                        expected response, time, result
+#
+# They are written relative to where the runner is invoked, as bench paths are.
+
+name: Sensor BLE command set
+description: >
+  Power the board, program it, start it, connect to it over BLE, and run the
+  command document against it - reporting every step, with the session log and
+  the firmware's RTT output beside the results.
+requirements: [SYS-REQ-020, SYS-REQ-021]
+
+instruments:
+  psu: gpd3303d
+  probe: jlink
+  dongle: ble-dongle
+
+setup:
+  - do: psu.configure_channel
+    with: {channel: 1, volts: 3.2, current_limit: 0.5, output: true}
+
+  # Both logs start before anything happens to the board, so that whatever the
+  # run turns out to be about, the evidence covers it from the beginning.
+  - do: dongle.start_log
+    with: {path: ble_session.log}
+  - do: probe.rtt_start
+    with: {log_path: sensor_rtt.log}
+
+  - do: probe.flash
+  - do: probe.reset
+    with: {halt: false}
+
+teardown:
+  - do: dongle.close_link
+  - do: probe.rtt_stop
+  - do: dongle.stop_log
+  - do: psu.all_outputs_off
+
+tests:
+  - name: The board is up and answering
+    requirement: SYS-REQ-020
+    steps:
+      - do: probe.rtt_lines_within
+        with: {timeout: 3.0}
+        expect:
+          - name: rtt_lines
+            minimum: 1
+
+      - do: probe.read_u8
+        with: {address: 0x10001080}
+        expect:
+          - name: identity_is_valid
+            equals: 0
+
+      - do: probe.read_integer
+        with: {address: 0x10001081, size: 3, byteorder: big}
+        save: sensor_id
+        expect:
+          - name: sensor_id
+            format: "{:06X}"
+            minimum: 1
+            maximum: 16777214
+
+      - do: dongle.scan
+        with:
+          duration: 3.0
+          name: {from: sensor_id, format: "{:06X}"}
+        save: found
+        expect:
+          - name: boards_with_that_identifier
+            measure: length
+            equals: 1
+
+      - do: dongle.select
+        with:
+          sensor: {from: found.0.name}
+
+      - do: dongle.open_link
+        expect:
+          - name: linked_board
+            measure: name
+            equals: {from: found.0.name}
+
+  - name: The command set behaves as its document says
+    requirement: SYS-REQ-021
+    steps:
+      # One step here, and as many results as the document has rows. The
+      # per-step detail - what was sent, what came back, what was expected, how
+      # long it took - is in ble_commands.md; this is the verdict over it.
+      #
+      # `failed`, not `passed`: a document whose rows are all delays and
+      # commands promising nothing would report zero passes and have failed
+      # nothing, which is the honest outcome for a document that checked
+      # nothing. Asserting on passes would call that a failure, and asserting
+      # `result` alone would hide how many steps there were.
+      - do: dongle.run_script
+        with:
+          source: specs/sensor_commands.md
+          report: ble_commands.md
+        save: commands
+        expect:
+          - name: command_steps_failed
+            measure: failed
+            equals: 0
+          - name: command_steps_passed
+            measure: passed
+            minimum: 1
+          - name: command_document_result
+            measure: result
+            equals: "PASS"
