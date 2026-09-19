@@ -1,20 +1,99 @@
-# SWE.3 — Software Detailed Design
+# Software Detailed Design
 
-| Field | Value |
-|---|---|
-| Document ID | BENCHTOOLS-SWE3-001 |
-| Version | 4.2 |
-| Date | 2026-09-13 |
-| Process reference | Automotive SPICE V4.0, SWE.3 Software Detailed Design and Unit Construction |
-
-Each section is a design unit, named `<ELEMENT>-DD-<NAME>` and referenced from the
-module docstring of the implementing source file.
+*Automotive SPICE® PAM v4.0 | SWE.3 Software Detailed Design and Unit Construction*
 
 ---
 
-# CORE — `benchtools.core`
+## 1. Document Identification & Control
 
-## CORE-DD-ERR — `errors.py`
+| Field | Value | Field | Value |
+|---|---|---|---|
+| **Document ID** | TB-SWE3-001 | **Version** | 0.1 |
+| **Project** | TestBench | **Date** | 2026-09-19 |
+| **Status** | Draft | **Classification** | Internal |
+| **Author** | Claude | **Reviewer** | Dermot Murphy |
+| **Approver** | Dermot Murphy | **Related Process** | SWE.3 |
+
+> **Note — Reviewer independence (TB-DEV-002):** The Reviewer and Approver are the same person (Dermot Murphy). This is accepted under deviation record **TB-DEV-002** (`docs/aspice/TestBench_DEV002_Independent_Review_Deviation.md`) on the basis that TestBench has a single human team member.
+
+---
+
+## 2. Revision History
+
+| Version | Date | Author | Description of Change |
+|---|---|---|---|
+| 0.1 | 2026-09-19 | Claude | Initial |
+
+---
+
+## 3. Purpose & Scope
+
+### 3.1 Purpose
+
+This document describes the detailed design of every software unit of
+**TestBench**: what each unit is, what it holds, and - where the reason is not
+obvious from the code - why it is built the way it is. It refines TB-SWE2-001
+and is the basis for unit verification (TB-SWE4-001).
+
+This document satisfies **Automotive SPICE® PAM v4.0, SWE.3 — Software Detailed
+Design and Unit Construction**.
+
+### 3.2 Referenced Documents
+
+| Document ID | Title | Version |
+|---|---|---|
+| TB-SWE1-001 | TestBench Software Requirements Specification | 0.1 |
+| TB-SWE2-001 | TestBench Software Architecture Description | 0.1 |
+| TB-SWE4-001 | TestBench Software Unit Verification Specification | 0.1 |
+| TB-RTM-001 | TestBench Requirements Traceability Matrix | 0.1 |
+
+### 3.3 Unit Identification
+
+Each unit is named `<ELEMENT>-DD-<NAME>` and is cited from the module docstring
+of the source file that implements it. The citation is checked mechanically:
+`tests/test_traceability.py` fails if a module cites a unit this document does
+not declare.
+
+---
+
+## 4. Unit Catalogue
+
+| # | Element | Package | Design units |
+|---|---|---|---|
+| 5.1 | CORE | `benchtools.core` | 15 |
+| 5.2 | ANA | `benchtools.analysis` | 3 |
+| 5.3 | INST | `benchtools.instruments` | 5 |
+| 5.4 | JLINK | `benchtools.instruments.jlink` | 10 |
+| 5.5 | BLE | `benchtools.instruments.nordic_dongle` and `firmware/nordic_dongle` | 20 |
+| 5.6 | S2LP | `benchtools.instruments.s2lp` | 9 |
+| 5.7 | PSU | `benchtools.instruments.gpd3303d` | 4 |
+| 5.8 | RUN | `benchtools.runner` | 8 |
+| | **Total** | | **74** |
+
+### 4.1 Package Structure
+
+```
+benchtools/
+├── core/          instrument lifecycle, transports, SCPI base, validation, build manifests
+├── analysis/      waveform model, measurement, plotting
+├── instruments/   one subpackage per instrument, plus the generic driver
+│   ├── tek3014b/      oscilloscope
+│   ├── jlink/         debug probe
+│   ├── nordic_dongle/ BLE dongle - host half of the element
+│   ├── gpd3303d/      bench supply
+│   └── s2lp/          sub-1 GHz development kit
+└── runner/        bench configuration, specifications, limits, execution, reports
+
+firmware/nordic_dongle/    the dongle's own half of the BLE element, in C
+```
+
+---
+
+## 5. Detailed Unit Design
+
+### 5.1 CORE — `benchtools.core`
+
+#### CORE-DD-ERR — `errors.py`
 
 Single exception hierarchy, rooted at `BenchToolsError`, so a caller can guard a
 whole measurement sequence across any number of instruments and the runner with
@@ -42,7 +121,7 @@ BenchToolsError
 `ConfigurationError` also derives from `ValueError`, because it is raised for
 argument validation and should read naturally to callers already handling it.
 
-## CORE-DD-ENUMS — `enums.py`
+#### CORE-DD-ENUMS — `enums.py`
 
 `ScpiEnum` is a `str` enum whose value is the literal SCPI argument. `coerce()`
 accepts a member, a member name or a mnemonic, case-insensitively, and otherwise
@@ -50,7 +129,7 @@ raises with the valid values listed. Only cross-instrument enumerations live her
 (`EdgeDirection`, `Slope`); model-specific ones belong in that instrument's
 `constants` module.
 
-## CORE-DD-VALIDATE — `validation.py`
+#### CORE-DD-VALIDATE — `validation.py`
 
 `validate_range`, `validate_channel`, `validate_channels`, `validate_choice`.
 Messages name the setting, the offending value, the permitted range and the unit.
@@ -58,7 +137,7 @@ Messages name the setting, the offending value, the permitted range and the unit
 almost always means the caller built the list wrongly, and quietly returning
 fewer channels than asked for would hide that.
 
-## CORE-DD-TRANSPORT — `transport/base.py`
+#### CORE-DD-TRANSPORT — `transport/base.py`
 
 Abstract link providing buffered framing. Subclasses implement `_open_link`,
 `_close_link`, `_send(data)` and `_recv_chunk(max_bytes) -> (data, end)`.
@@ -80,7 +159,7 @@ Design points:
   asserts end-of-message.
 - Context-manager support guarantees the link is released on an exception path.
 
-## CORE-DD-VXI11 — `transport/vxi11.py`
+#### CORE-DD-VXI11 — `transport/vxi11.py`
 
 Pure-standard-library VXI-11 client, in three layers: an XDR codec
 (`_Packer`/`_Unpacker`, RFC 4506), ONC-RPC with record marking (RFC 5531), and
@@ -97,7 +176,7 @@ the VXI-11 core channel procedures. Notable behaviour:
 
 Protocol detail and the VISA analysis are in the VISA determination report.
 
-## CORE-DD-SOCKET — `transport/socket_raw.py`
+#### CORE-DD-SOCKET — `transport/socket_raw.py`
 
 Raw TCP transport, for instruments that expose a SCPI socket. `_recv_chunk`
 reports `end=True` only on a closed stream, so framing falls to the terminator.
@@ -105,13 +184,13 @@ reports `end=True` only on a closed stream, so framing falls to the terminator.
 on a stream socket; this is documented as heuristic and is the main technical
 argument for preferring VXI-11 where both exist.
 
-## CORE-DD-VISA — `transport/visa_backend.py`
+#### CORE-DD-VISA — `transport/visa_backend.py`
 
 Optional PyVISA transport. `pyvisa` is imported inside `_open_link`, so importing
 the package never requires it. `_recv_chunk` derives the END flag from the VISA
 status code, which is what lets the base class's framing work unchanged.
 
-## CORE-DD-FIRMWARE — `firmware.py`
+#### CORE-DD-FIRMWARE — `firmware.py`
 
 `FirmwareBuild`: what a build system recorded about an image, read from the
 `firmware_manifest.json` written beside it. `MANIFEST_NAME`, `parse_build_date`.
@@ -136,7 +215,7 @@ Design points:
   `None` for it rather than a wrong instant. Two dongles built in different
   timezones would otherwise compare wrongly.
 
-## CORE-DD-PROCESS — `transport/process.py`
+#### CORE-DD-PROCESS — `transport/process.py`
 
 `ProcessTransport`: a `Transport` over a child process's standard input and output,
 registered as the `process` and `stdio` backends. Written for GDB (JLINK-DD-SESSION)
@@ -158,7 +237,7 @@ Design points:
 - `returncode` is retained after `close()`, so a post-mortem can say how the tool
   died after the transport has gone.
 
-## CORE-DD-SERIAL — `transport/serial_port.py`
+#### CORE-DD-SERIAL — `transport/serial_port.py`
 
 `SerialTransport`, registered as the `serial`, `com` and `rs232` backends. Opens
 through pyserial's URL handler rather than a device node, so one class covers a
@@ -180,7 +259,7 @@ Design points:
   stopped reading, and saying "connection failed" sends the reader to look at
   the cable.
 
-## CORE-DD-MOCK — `transport/mock.py`
+#### CORE-DD-MOCK — `transport/mock.py`
 
 Loopback transport accepting any `Responder` — anything with
 `respond(bytes) -> bytes | None`. It has no knowledge of which instrument is
@@ -188,7 +267,7 @@ simulated. Responses are returned in small chunks so that framing and
 reassembly are exercised rather than bypassed. The description is derived from
 the responder's `*IDN?` model field, so it is meaningful for any instrument.
 
-## CORE-DD-FACTORY — `transport/factory.py`
+#### CORE-DD-FACTORY — `transport/factory.py`
 
 `parse_resource()` is separated from `open_transport()` so parsing is testable
 without opening a connection. Backends and URL schemes live in registries
@@ -200,7 +279,7 @@ significant rule: a bare host or a `TCPIP::…::INSTR` string resolves to the
 the simulator. This is how an instrument driver supplies *its own* simulator
 without this module knowing about any instrument.
 
-## CORE-DD-INSTRUMENT — `instrument.py`
+#### CORE-DD-INSTRUMENT — `instrument.py`
 
 `Instrument`, the lifecycle every driver shares, with no command language in it
 (AD-11). `ScpiInstrument` and `JLinkProbe` both derive from it, and the runner's
@@ -231,7 +310,7 @@ Design points:
   error queue is the normal case outside SCPI. `check_errors` is therefore a no-op
   by default rather than a forced override.
 
-## CORE-DD-SCPI — `scpi.py`
+#### CORE-DD-SCPI — `scpi.py`
 
 `ScpiInstrument`, the base every driver subclasses.
 
@@ -261,7 +340,7 @@ simulator, which is what inverts the transport-to-instrument dependency.
 keywords to the driver's constructor, so a driver with extra parameters (such as
 a capability envelope) needs no override.
 
-## CORE-DD-SIM — `simulator.py`
+#### CORE-DD-SIM — `simulator.py`
 
 `SimulatedInstrument` holds the shared harness: compound message splitting on `;`
 with a leading `:` reset, handler dispatch by name (`scpi_slug` maps `CH1:SCALE?`
@@ -278,9 +357,9 @@ The base class is concrete and usable on its own, which is what makes a bare
 
 ---
 
-# ANA — `benchtools.analysis`
+### 5.2 ANA — `benchtools.analysis`
 
-## ANA-DD-WAVEFORM — `waveform.py`
+#### ANA-DD-WAVEFORM — `waveform.py`
 
 - `decode_curve(payload, width, signed)` decodes big-endian 1- or 2-byte codes
   using `array`, byte-swapping only on a little-endian host.
@@ -304,7 +383,7 @@ The base class is concrete and usable on its own, which is what makes a bare
 - `waveforms_to_csv` exports several channels with one shared time column, and
   rejects records of differing length.
 
-## ANA-DD-MEASURE — `measure.py`
+#### ANA-DD-MEASURE — `measure.py`
 
 - `estimate_levels` builds a histogram and takes the most populated bin in each
   half as the base and top level — the same idea as an instrument's own high/low
@@ -327,7 +406,7 @@ The base class is concrete and usable on its own, which is what makes a bare
 `SpreadResult` stores the crossings and derives everything else as properties, so
 there is one source of truth and the summary cannot disagree with the data.
 
-## ANA-DD-PLOT — `plotting.py`
+#### ANA-DD-PLOT — `plotting.py`
 
 `matplotlib` is imported inside `plot_waveforms` and the `Agg` backend selected,
 so no display is needed on a test rig. Channel colours mirror the oscilloscope
@@ -337,9 +416,9 @@ is what turns a skew number into reviewable evidence.
 
 ---
 
-# INST — `benchtools.instruments`
+### 5.3 INST — `benchtools.instruments`
 
-## INST-DD-GENERIC — `generic.py`
+#### INST-DD-GENERIC — `generic.py`
 
 `GenericScpiInstrument` adds nothing to `ScpiInstrument` beyond a model name. It
 covers the part of every instrument that is always the same — prove it is
@@ -347,7 +426,7 @@ reachable, find out what it is, read its errors, send raw SCPI — and is what t
 runner uses for a bench entry with no dedicated driver. Because it adds nothing,
 it also demonstrates that the core is genuinely instrument-agnostic.
 
-## SCOPE-DD-CONST — `tek3014b/constants.py`
+#### SCOPE-DD-CONST — `tek3014b/constants.py`
 
 TDS3000-family enumerations and `ModelLimits`, the capability envelope
 (channel count, volts/div range, position range, time/div range, record lengths,
@@ -355,7 +434,7 @@ average counts, bandwidth options). `TDS3014B_LIMITS` is the default instance;
 supporting another family member is constructing a different one and passing it to
 `Tek3014B(limits=...)` or `connect(..., limits=...)`.
 
-## SCOPE-DD-SCOPE — `tek3014b/scope.py`
+#### SCOPE-DD-SCOPE — `tek3014b/scope.py`
 
 The oscilloscope's SCPI vocabulary. Everything not specific to the instrument
 comes from `ScpiInstrument`; this module contributes:
@@ -388,7 +467,7 @@ Implementation notes:
 - `measure` raises when the instrument returns its 9.9E37 sentinel, rather than
   handing the caller a number that is not a measurement.
 
-## SCOPE-DD-SIM — `tek3014b/simulator.py`
+#### SCOPE-DD-SIM — `tek3014b/simulator.py`
 
 `SimulatedTDS3014B` subclasses `SimulatedInstrument`, adding the TDS3000 command
 set, instrument state and `ChannelSignal` — an analytic description of each input
@@ -398,7 +477,7 @@ including clipping at the digitiser rail. Measurements are computed from the mod
 parameters, **not** from the sampled record, so host-side analysis is validated
 against an independent reference. `make_png` produces a genuinely valid PNG.
 
-## SCOPE-DD-CLI — `tek3014b/cli.py`
+#### SCOPE-DD-CLI — `tek3014b/cli.py`
 
 Sub-commands `idn`, `capture`, `spread`, `period`, `measure`, `screenshot`,
 emitting JSON so the tool composes into a harness. `--resource` defaults to
@@ -408,13 +487,13 @@ channel. A negative value must be passed with `=` (`--position=-4,-3`), standard
 
 ---
 
-# JLINK — `benchtools.instruments.jlink`
+### 5.4 JLINK — `benchtools.instruments.jlink`
 
 Seven collaborators and a façade (JLINK-ARC-001). The split is by *reason to
 change*: the MI grammar changes with GDB, RTT with SEGGER's protocol, ITM with the
 ARM architecture, the envelope with the probe model.
 
-## JLINK-DD-GDBMI — `jlink/gdbmi.py`
+#### JLINK-DD-GDBMI — `jlink/gdbmi.py`
 
 The GDB/MI grammar, and nothing else: no I/O, no state. `parse_line` returns a
 `ResultRecord`, `AsyncRecord`, `StreamRecord`, `PromptRecord`, or `None` for a line
@@ -432,7 +511,7 @@ Parsing points that matter:
 - `unescape_cstring` is separate and separately tested: MI strings carry `\n`,
   `\"`, `\\` and octal escapes, and a mis-unescaped path is a wrong file name.
 
-## JLINK-DD-SESSION — `jlink/session.py`
+#### JLINK-DD-SESSION — `jlink/session.py`
 
 `GdbMiSession`: one command, one reply, over any `Transport`.
 
@@ -451,7 +530,7 @@ Parsing points that matter:
 - `GdbError` names the command and GDB's own reason, because "error" alone from a
   debugger is worthless.
 
-## JLINK-DD-SERVER — `jlink/server.py`
+#### JLINK-DD-SERVER — `jlink/server.py`
 
 Discovery and lifetime of the J-Link GDB Server and GDB.
 
@@ -469,7 +548,7 @@ Discovery and lifetime of the J-Link GDB Server and GDB.
   the session; `-strict` so a bad device name fails at start rather than producing a
   half-working link.
 
-## JLINK-DD-RTT — `jlink/rtt.py`
+#### JLINK-DD-RTT — `jlink/rtt.py`
 
 RTT over the server's RTT port, behind an `RttSource` protocol so the socket and the
 simulator are interchangeable.
@@ -486,7 +565,7 @@ simulator are interchangeable.
   is usually the answer — a firmware assertion, a different prompt.
 - `log_to` flushes per line, so the log of a target that then hung is complete.
 
-## JLINK-DD-SWO — `jlink/swo.py`
+#### JLINK-DD-SWO — `jlink/swo.py`
 
 ITM/SWO packet decoding (ARMv7-M ARM Appendix D) and the SWO socket reader.
 
@@ -504,7 +583,7 @@ ITM/SWO packet decoding (ARMv7-M ARM Appendix D) and the SWO socket reader.
   from the architecture manual and is unconfirmed against a part** (CON-05,
   JLINK-OPEN-03), and the module says so where a reader will see it.
 
-## JLINK-DD-TIMING — `jlink/timing.py`
+#### JLINK-DD-TIMING — `jlink/timing.py`
 
 `TimingSample` and `TimingResult`: the result type, with no measuring in it.
 
@@ -517,7 +596,7 @@ resolution). `as_dict()` is the plain-types boundary of AD-15.
 An empty sample list raises `MeasurementError` rather than reporting zero seconds —
 a zero would be indistinguishable from a fast interval.
 
-## JLINK-DD-CONST — `jlink/constants.py`
+#### JLINK-DD-CONST — `jlink/constants.py`
 
 The vocabulary and the envelope, as data (JLINK-FR-010): `DebugInterface`,
 `ResetType`, `HaltReason` (with an `UNKNOWN` fallback, so a GDB version reporting a
@@ -530,7 +609,7 @@ beyond which the 32-bit cycle counter wraps.
 `TimingMethod` carries the trade-off of each method in its docstring, next to the
 member, because that is where the choice is made.
 
-## JLINK-DD-SIM — `jlink/simulator.py`
+#### JLINK-DD-SIM — `jlink/simulator.py`
 
 A simulated probe **and** a simulated target: `SimulatedFirmware` holds the
 execution flow, cycle counts per location, symbols, memory, call stacks, RTT
@@ -560,7 +639,7 @@ traffic, ITM events and sections; `SimulatedJLink` answers the MI dialogue.
   reset-and-halt left a silent, stopped target for every test that starts the
   firmware and then asks whether it is running.
 
-## JLINK-DD-PROBE — `jlink/probe.py`
+#### JLINK-DD-PROBE — `jlink/probe.py`
 
 `JLinkProbe`, the façade: an `Instrument` (CORE-DD-INSTRUMENT) whose transport is a
 GDB process or a simulator.
@@ -611,7 +690,7 @@ Design points:
   simulated probe, so a simulated bench exercises the RTT paths rather than skipping
   them.
 
-## JLINK-DD-CLI — `jlink/cli.py`
+#### JLINK-DD-CLI — `jlink/cli.py`
 
 Sub-commands `info`, `flash`, `verify`, `reset`, `run`, `halt`, `read`, `write`,
 `var`, `stack`, `rtt`, `time`, emitting JSON (AD-15). The `time` sub-command adds a
@@ -620,12 +699,12 @@ script carries the same caveat the API gives.
 
 ---
 
-# BLE — `benchtools.instruments.nordic_dongle` and `firmware/nordic_dongle`
+### 5.5 BLE — `benchtools.instruments.nordic_dongle` and `firmware/nordic_dongle`
 
 One element in two languages (AD-16). The host units come first, then the
 firmware units; `BLE-DD-PROTOCOL` is the interface both sides are built from.
 
-## BLE-DD-PROTOCOL — `protocol.py` and `firmware/include/protocol.h`
+#### BLE-DD-PROTOCOL — `protocol.py` and `firmware/include/protocol.h`
 
 The header is the contract: command table, event table, error table and size
 limits, as X-macro tables the firmware expands into its dispatch table and the
@@ -646,7 +725,7 @@ Points that matter:
 - No I/O and no state, so every shape is a one-line test rather than a hardware
   session.
 
-## BLE-DD-SESSION — `session.py`
+#### BLE-DD-SESSION — `session.py`
 
 `DongleSession`: command in, reply out, with events queued beside it.
 
@@ -664,7 +743,7 @@ Points that matter:
   conversation, including lines the driver ignored. A log that omits what the
   tooling discarded cannot explain why it discarded it. Flushed per line.
 
-## BLE-DD-PROFILE — `profile.py`
+#### BLE-DD-PROFILE — `profile.py`
 
 `AdvertisingEvent` and `AdvertisingProfile`. Three subtleties, each handled here
 rather than left to whoever reads the numbers:
@@ -680,7 +759,7 @@ two floats puts an exactly nominal 100 ms interval at 0.09999999999999998, which
 fails a limit written as ">= 0.1" - a sensor rejected by floating-point
 representation rather than by behaviour (defect D-15).
 
-## BLE-DD-SCRIPT — `script.py`
+#### BLE-DD-SCRIPT — `script.py`
 
 `CommandScript`, `ScriptTest`, `ScriptStep`; `ScriptRun`, `StepResult`;
 `parse_script`, `load_script`, `run_script`. The document that specifies the
@@ -713,7 +792,7 @@ Design points:
   not import the runner (CORE-NFR-009), and these strings end up in a document
   a person reads.
 
-## BLE-DD-LATENCY — `latency.py`
+#### BLE-DD-LATENCY — `latency.py`
 
 `ResponseSample` and `ResponseTiming`: the result type for a command/response
 round trip, with no measuring in it.
@@ -730,7 +809,7 @@ Deliberately a sibling of `JLINK-DD-TIMING` rather than a shared type: the two
 measure different things with different floors. If a third instrument needs
 statistics of this shape, the place for them is `benchtools.analysis`.
 
-## BLE-DD-CONST — `constants.py`
+#### BLE-DD-CONST — `constants.py`
 
 The command set, event names, error codes, address types and the firmware's
 capability envelope, as data. Every name here also appears in `protocol.h`, and
@@ -743,7 +822,7 @@ figures so the driver refuses an over-long payload with a clear message rather
 than letting the firmware truncate it silently, and states both clocks'
 resolutions - 1 us on the dongle, 1 ms on the host - in one place.
 
-## BLE-DD-DONGLE — `dongle.py`
+#### BLE-DD-DONGLE — `dongle.py`
 
 `NordicDongle`, the façade: an `Instrument` (CORE-DD-INSTRUMENT) whose transport
 is a serial port or a simulator.
@@ -780,7 +859,7 @@ Design points:
 - The connection interval is taken from the `+conn` event rather than a later
   query, because it is the floor under every latency measured on that link.
 
-## BLE-DD-FIRMWARE — `firmware.py`
+#### BLE-DD-FIRMWARE — `firmware.py`
 
 Build identity and refresh, kept out of `dongle.py` because it is about images
 on disk rather than about the link.
@@ -810,7 +889,7 @@ Design points:
   success" and "the dongle is running the image" are different facts, and only
   the second one is worth recording.
 
-## BLE-DD-VERSION — `firmware/include/firmware_version.h`, `firmware/src/firmware_version.c`, `Makefile`
+#### BLE-DD-VERSION — `firmware/include/firmware_version.h`, `firmware/src/firmware_version.c`, `Makefile`
 
 One version string, in a header the firmware compiles and the Makefile greps, so
 the image and the manifest cannot disagree - the failure mode that would make
@@ -836,7 +915,7 @@ several make invocations all stamp one identity.
 build instant, protocol, model, hex, DFU package, SHA-256 - which is what
 BLE-DD-FIRMWARE reads and what CI uploads with the artefacts.
 
-## BLE-DD-BOOTLOADER — `firmware/src/bootloader.c`
+#### BLE-DD-BOOTLOADER — `firmware/src/bootloader.c`
 
 Entry into the Nordic USB bootloader: set `GPREGRET` to `BOOTLOADER_DFU_START`
 (0xB1) and reset. The register survives a reset; the bootloader reads it and
@@ -848,7 +927,7 @@ peripheral directly under an enabled SoftDevice is undefined. `cmd_parser`
 sends the reply and drains the USB queue *before* calling in, so the host
 receives `ok dfu=1` rather than a silence it would have to interpret.
 
-## BLE-DD-SIM — `simulator.py`
+#### BLE-DD-SIM — `simulator.py`
 
 A simulated dongle and the sensors it can hear, satisfying `Streamer`
 (CORE-DD-MOCK): `respond()` answers commands, `poll()` produces advertising.
@@ -870,7 +949,7 @@ and `SENS-0A1B2C` is the identity record the simulated part carries (JLINK-DD-SI
 hardware. `drop_every` models a dongle
 whose USB queue could not keep up, which is what `is_complete` exists to detect.
 
-## BLE-DD-CLI — `cli.py`
+#### BLE-DD-CLI — `cli.py`
 
 Sub-commands `info`, `scan`, `select`, `profile`, `cmd`, `monitor`, `firmware`,
 emitting
@@ -883,7 +962,7 @@ taken with the wrong image; `--update` refreshes the dongle instead.
 
 ---
 
-## BLE-DD-TEST — `firmware/test/`
+#### BLE-DD-TEST — `firmware/test/`
 
 Host-side unit tests for the firmware: Unity, built by CMake, run by CTest.
 
@@ -920,7 +999,7 @@ writing, with everything after them made order-independent by measuring deltas.
 The critical-region fakes keep the SDK's brace-pair shape rather than being flat
 calls, so the misuse of defect D-23 cannot compile here either.
 
-## BLE-DD-CDC — `firmware/src/cdc_acm.c`
+#### BLE-DD-CDC — `firmware/src/cdc_acm.c`
 
 USB CDC ACM as a line transport, with a 32-line outgoing queue.
 
@@ -935,7 +1014,7 @@ Input is read a byte at a time (which is how the CDC driver reports it) and
 assembled into a line; an over-long line is discarded rather than acted on in
 part.
 
-## BLE-DD-TIMESTAMP — `firmware/src/timestamp.c`
+#### BLE-DD-TIMESTAMP — `firmware/src/timestamp.c`
 
 A 1 MHz TIMER (TIMER3; TIMER0 belongs to the SoftDevice) captured on demand and
 extended to 64 bits by counting overflows in its interrupt.
@@ -946,7 +1025,7 @@ every 71.6 minutes at 1 MHz, so the overflow count is re-read after the capture
 and the capture repeated if it changed - a read that straddles an overflow
 cannot return a stale figure, and at most one retry is ever needed.
 
-## BLE-DD-SCANNER — `firmware/src/ble_scanner.c`
+#### BLE-DD-SCANNER — `firmware/src/ble_scanner.c`
 
 Scanning, the sensor table and advertising-report timestamping.
 
@@ -964,7 +1043,7 @@ Scanning, the sensor table and advertising-report timestamping.
 - Addresses are formatted most significant octet first, as they are written,
   while the stack stores them the other way round.
 
-## BLE-DD-NUS — `firmware/src/nus_client.c`
+#### BLE-DD-NUS — `firmware/src/nus_client.c`
 
 Nordic's UART Service as a command/response channel. Connects, discovers,
 subscribes, and provides write and timed-command operations.
@@ -976,7 +1055,7 @@ difference is bounded by the connection interval, which is reported alongside so
 the figure can be read correctly. USB is serviced while waiting for a reply, so
 a five second timeout does not cost the host five seconds of advertising events.
 
-## BLE-DD-CMD — `firmware/src/cmd_parser.c`
+#### BLE-DD-CMD — `firmware/src/cmd_parser.c`
 
 The dispatcher: one line in, exactly one `ok` or `err` line out.
 
@@ -988,14 +1067,14 @@ otherwise answer "unknown command" at a bench. A timeout waiting for a sensor is
 reported as an error, not as a round trip of the timeout's length, which would
 enter the log as a measurement.
 
-## BLE-DD-MAIN — `firmware/src/main.c`
+#### BLE-DD-MAIN — `firmware/src/main.c`
 
 Start-up and the main loop: clock, timestamp, USB, SoftDevice, GATT, discovery,
 scanner, UART client, then `cdc_acm_process()` and one command line per pass.
 The BLE observer dispatches to the scanner first (so reports are timestamped
 before anything else looks at them), then the UART client, then discovery.
 
-## BLE-DD-BUILD — `firmware/ses/`, `firmware/config/sdk_config.h`, `firmware/scripts/`
+#### BLE-DD-BUILD — `firmware/ses/`, `firmware/config/sdk_config.h`, `firmware/scripts/`
 
 A SEGGER Embedded Studio project with `SDK_ROOT` as its one external macro, a
 flash placement putting the application above the S140 SoftDevice at 0x27000,
@@ -1020,13 +1099,13 @@ document-and-test discipline had not (SWE.4 report §4.4).
 
 ---
 
-# S2LP — `benchtools.instruments.s2lp`
+### 5.6 S2LP — `benchtools.instruments.s2lp`
 
 An ST S2-LP development kit over USB. The board runs **ST's own CLI firmware**
 (AD-20), so every unit here is host-side and the firmware's command set is an
 external interface.
 
-## S2LP-DD-CONST — `constants.py`
+#### S2LP-DD-CONST — `constants.py`
 
 The boards and their bands, the modulation and strobe codes, the FIFO and
 payload limits, and `COMMANDS`: the firmware's command names with the argument
@@ -1034,7 +1113,7 @@ types ST declares for each. Written down so that a driver mistake - a command
 that does not exist, or an argument that does not fit - fails as a named error in
 a test rather than as a timeout on the bench.
 
-## S2LP-DD-REGS — `registers.py`
+#### S2LP-DD-REGS — `registers.py`
 
 The device's register map: 123 registers by name and address, each with its reset
 value, its access and its named bit fields. `Field` extracts and inserts bits;
@@ -1057,7 +1136,7 @@ Design points:
 - The dump reads **contiguous runs**: 15 commands instead of 123, which on a
   115200 baud link is the difference between instant and not.
 
-## S2LP-DD-CONFIG — `configuration.py`
+#### S2LP-DD-CONFIG — `configuration.py`
 
 Register values read from a file, applied to a radio and checked against it.
 The list of settings lives in a file rather than in a test because the person
@@ -1115,7 +1194,7 @@ Design points:
 - **`format_register_file` omits read-only registers.** A captured file that
   names one cannot be applied, and a record that cannot be replayed is a trap.
 
-## S2LP-DD-PROTOCOL — `protocol.py`
+#### S2LP-DD-PROTOCOL — `protocol.py`
 
 The host's half of ST's CLI line protocol, and nothing else: it formats a command
 line and parses a reply, and knows nothing about radios.
@@ -1135,7 +1214,7 @@ Two details that bite:
   and dropping the sign turns -110 dBm into +110 dBm: not merely wrong but
   impossible, and nothing downstream would question it.
 
-## S2LP-DD-SESSION — `session.py`
+#### S2LP-DD-SESSION — `session.py`
 
 Commands out, replies in, every line logged.
 
@@ -1151,7 +1230,7 @@ Commands out, replies in, every line logged.
 - The **raw session log** is written here: every line, both directions,
   host-timestamped, flushed per line.
 
-## S2LP-DD-PACKETS — `packets.py`
+#### S2LP-DD-PACKETS — `packets.py`
 
 `Packet` (direction, payload, RSSI, both clocks, error), `Capture` (the packets
 plus how they were taken) and `PacketLog` (JSON Lines, one object per line).
@@ -1168,7 +1247,7 @@ JSON Lines rather than one JSON document, so a capture interrupted half way
 through is still a readable file - which is the usual case, since a capture is
 usually interrupted on purpose.
 
-## S2LP-DD-S2LP — `s2lp.py`
+#### S2LP-DD-S2LP — `s2lp.py`
 
 `S2lpDevkit`, the façade: an `Instrument` (CORE-DD-INSTRUMENT) over a serial
 transport.
@@ -1201,7 +1280,7 @@ Design points:
 - **Verification is `radio_info()` after configuration**, not the values that
   were sent. The two differ whenever a setting is not reachable.
 
-## S2LP-DD-SIM — `simulator.py`
+#### S2LP-DD-SIM — `simulator.py`
 
 A register file with a radio attached, satisfying `Responder` (CORE-DD-MOCK).
 Writing PCKTCTRL3 changes what the packet-format query answers; a strobe flushes
@@ -1215,7 +1294,7 @@ A write to a read-only register is accepted and discarded, as the hardware
 discards it - which is what the driver's refusal (S2LP-FR-013) protects a test
 from.
 
-## S2LP-DD-CLI — `cli.py`
+#### S2LP-DD-CLI — `cli.py`
 
 Sub-commands `info`, `registers`, `radio`, `tx`, `rx`, `capture`, `strobe`,
 emitting JSON (AD-15). `--log` and `--packet-log` open both logs at once. `rx`
@@ -1224,7 +1303,7 @@ being quiet; `capture` adds a warning when the capture was not continuous.
 
 ---
 
-# PSU — `benchtools.instruments.gpd3303d`
+### 5.7 PSU — `benchtools.instruments.gpd3303d`
 
 A GW Instek GPD-3303D: two programmable channels, 30 V and 3 A each, over
 RS-232 or its USB-serial port. It answers `*IDN?` and nothing else from
@@ -1236,7 +1315,7 @@ The supply's third output - the fixed 2.5 / 3.3 / 5 V rail - is outside the
 element: it is selected by a front-panel switch that no command reaches, so
 there is nothing about it a driver could set or measure.
 
-## PSU-DD-CONST — `constants.py`
+#### PSU-DD-CONST — `constants.py`
 
 Ratings, programming resolution, line rates, the status-word tables and the
 CV/CC and tracking vocabularies. They are here so an out-of-range setting can be
@@ -1244,7 +1323,7 @@ refused *before* it is sent: this supply clamps rather than refusing, and a test
 that asked for 35 V, was given 30 V and never told would report a pass against a
 condition it never applied.
 
-## PSU-DD-PSU — `psu.py`
+#### PSU-DD-PSU — `psu.py`
 
 `Gpd3303D`, and the two records it returns.
 
@@ -1300,7 +1379,7 @@ Design points:
   the driver. `read_event_queue` uses `ERR?` and carries its text verbatim,
   because the exact wording is a bench confirmation item (PSU-OPEN-02).
 
-## PSU-DD-SIM — `simulator.py`
+#### PSU-DD-SIM — `simulator.py`
 
 A supply *with a load on it*, which is what makes it worth having: a channel
 whose load draws more than its limit falls into CC and its voltage drops, so a
@@ -1318,7 +1397,7 @@ behaviour PSU-FR-002 exists to protect a test from. An unrecognised command is
 met with silence, as the hardware meets it, so a driver that misspells one sees
 a timeout in a test rather than only on the bench.
 
-## PSU-DD-CLI — `cli.py`
+#### PSU-DD-CLI — `cli.py`
 
 Sub-commands `info`, `read`, `set`, `on`, `off`, `status`, emitting JSON
 (AD-15). Two deliberate choices, both about not damaging what is connected:
@@ -1329,9 +1408,9 @@ channel is parked at zero volts rather than disconnected. `read` adds a
 
 ---
 
-# RUN — `benchtools.runner`
+### 5.8 RUN — `benchtools.runner`
 
-## RUN-DD-SPEC — `spec.py`
+#### RUN-DD-SPEC — `spec.py`
 
 The specification model: `TestSpec` → `TestCase` → `Step` → `Expectation`, all
 frozen dataclasses built by `from_mapping` classmethods that validate as they go
@@ -1341,7 +1420,7 @@ collects the aliases referenced anywhere, so the runner can verify the bench
 before starting. `TestSpec` and `TestCase` set `__test__ = False`: their names
 would otherwise make pytest try to collect them.
 
-## RUN-DD-LIMITS — `limits.py`
+#### RUN-DD-LIMITS — `limits.py`
 
 `Limit` supports `minimum`, `maximum`, `equals` with `tolerance` or
 `tolerance_percent`, in any consistent combination, validated at construction.
@@ -1351,7 +1430,7 @@ name/unit/scale alongside them. `check()` returns a `LimitOutcome` carrying the
 rendered limit text and, on failure, by how much the value missed. A `None` or NaN
 value fails rather than passing.
 
-## RUN-DD-RESOLVE — `resolve.py`
+#### RUN-DD-RESOLVE — `resolve.py`
 
 Driver methods return whatever suits them: a float, a dataclass, a dict keyed by
 channel, a tuple of records and a result object. `resolve_path` addresses into
@@ -1360,7 +1439,7 @@ int, because YAML gives keys as text while a channel-keyed dict uses ints), then
 sequence index, then an attribute, then a zero-argument method. This is the price
 of AD-08 and is confined to this module.
 
-## RUN-DD-BENCH — `bench.py`
+#### RUN-DD-BENCH — `bench.py`
 
 `InstrumentConfig` and `BenchConfig` model the bench; `Bench` holds the live
 instruments. Drivers are selected from a registry by name (`register_driver`), so
@@ -1380,7 +1459,7 @@ what the run did. An instrument that will not identify is recorded with an
 `identity_error` rather than dropped, because silence about the bench is worse
 than a recorded failure.
 
-## RUN-DD-RESULTS — `results.py`
+#### RUN-DD-RESULTS — `results.py`
 
 `Status` (PASS/FAIL/ERROR/SKIP) with a `severity` ordering and a `worst()`
 aggregator, so roll-up from measurement to step to case to run is one rule applied
@@ -1392,7 +1471,7 @@ the instrument that made it is not evidence, and for a programmable instrument
 the firmware build decides whether the number means what it appears to mean.
 Report writers read only these, so a new format needs no change to the engine.
 
-## RUN-DD-RUNNER — `runner.py`
+#### RUN-DD-RUNNER — `runner.py`
 
 `BenchRunner` resolves each step's `do:` to a bound method on a bench instrument —
 rejecting private names, and on an unknown name listing what is available — calls
@@ -1409,7 +1488,7 @@ force a driver to wrap `firmware_version` in a `get_firmware_version()` for the
 runner's benefit, which is the tail wagging the dog; reading it at resolution
 time would report the value from before the step rather than at it.
 
-## RUN-DD-REPORT — `report.py`
+#### RUN-DD-REPORT — `report.py`
 
 `write_json` (lossless), `format_markdown`/`write_markdown` (verdict, then
 requirements, then problems, then all measurements; simulation disclosed), and
@@ -1423,7 +1502,7 @@ none. It sits with the verdict rather than in an appendix: whoever reads the
 numbers needs to know, on the same page, which dongle and which firmware build
 produced them.
 
-## RUN-DD-CLI — `cli.py` and `benchtools/cli.py`
+#### RUN-DD-CLI — `cli.py` and `benchtools/cli.py`
 
 `benchtools run` takes one or more specifications, a `--bench` or `--simulate`,
 and report destinations; with several specifications the report paths are suffixed
@@ -1431,3 +1510,16 @@ so they do not overwrite. Exit status is 0 pass, 1 failure or error, 2 usage.
 `benchtools/cli.py` dispatches `run`, `scope`, `drivers` and `backends` by name
 rather than nesting argparse parsers, so each tool keeps its own complete
 `--help`.
+
+---
+
+## 6. Review & Approval
+
+| Role | Name | Signature / Electronic Approval | Date |
+|---|---|---|---|
+| Author | Claude | Approved | 2026-09-19 |
+| Technical Reviewer | Dermot Murphy | — | *pending* |
+| Quality Assurance | Dermot Murphy | — | *pending* |
+| Approver | Dermot Murphy | — | *pending* |
+
+> **Note:** This document is under configuration management (SUP.8). Post-approval changes require a change request (SUP.10) and a new document version.

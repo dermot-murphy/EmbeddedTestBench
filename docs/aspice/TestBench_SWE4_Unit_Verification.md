@@ -1,22 +1,62 @@
-# SWE.4 — Software Unit Verification Specification
+# Software Unit Verification Specification
 
-| Field | Value |
-|---|---|
-| Document ID | BENCHTOOLS-SWE4-001 |
-| Version | 4.2 |
-| Date | 2026-09-13 |
-| Process reference | Automotive SPICE V4.0, SWE.4 Software Unit Verification |
+*Automotive SPICE® PAM v4.0 | SWE.4 Software Unit Verification*
 
-## 1. Verification strategy
+---
 
-### 1.1 Method
+## 1. Document Identification & Control
+
+| Field | Value | Field | Value |
+|---|---|---|---|
+| **Document ID** | TB-SWE4-001 | **Version** | 0.1 |
+| **Project** | TestBench | **Date** | 2026-09-19 |
+| **Status** | Draft | **Classification** | Internal |
+| **Author** | Claude | **Reviewer** | Dermot Murphy |
+| **Approver** | Dermot Murphy | **Related Process** | SWE.4 |
+
+> **Note — Reviewer independence (TB-DEV-002):** The Reviewer and Approver are the same person (Dermot Murphy). This is accepted under deviation record **TB-DEV-002** (`docs/aspice/TestBench_DEV002_Independent_Review_Deviation.md`) on the basis that TestBench has a single human team member.
+
+---
+
+## 2. Revision History
+
+| Version | Date | Author | Description of Change |
+|---|---|---|---|
+| 0.1 | 2026-09-19 | Claude | Initial |
+
+---
+
+## 3. Purpose & Scope
+
+### 3.1 Purpose
+
+This document states how the units of **TestBench** are verified: the strategy, the test groups, the notable individual cases and the pass criteria. Results are recorded separately in TB-SWE4-002, which this project keeps apart from the specification so that what was intended and what happened cannot be edited into agreement.
+
+This document satisfies **Automotive SPICE® PAM v4.0, SWE.4 — Software Unit Verification**.
+
+### 3.2 Referenced Documents
+
+| Document ID | Title | Version |
+|---|---|---|
+| TB-SYS2-001 | TestBench System Requirements Specification | 0.1 |
+| TB-SWE1-001 | TestBench Software Requirements Specification | 0.1 |
+| TB-SWE2-001 | TestBench Software Architecture Description | 0.1 |
+| TB-SWE3-001 | TestBench Software Detailed Design | 0.1 |
+| TB-RTM-001 | TestBench Requirements Traceability Matrix | 0.1 |
+| TB-SWE4-002 | TestBench Software Unit Verification Report | 0.1 |
+
+---
+
+## 4. Verification strategy
+
+### 4.1 Method
 
 Automated unit and integration tests executed with `pytest`. Every test runs
 without instrument hardware; no test is skipped for lack of it. Tests skip only
 when an optional dependency is absent (`matplotlib`, `pyvisa`, `pyyaml`), which is
 the correct behaviour for an optional extra.
 
-### 1.2 Test environment
+### 4.2 Test environment
 
 | Item | Value |
 |---|---|
@@ -33,7 +73,7 @@ the correct behaviour for an optional extra.
 | Child-process substitute | The host's own Python interpreter, driven as a child through `ProcessTransport`, so pipe framing and child death are exercised without a debugger installed |
 | Optional extras exercised | `matplotlib`, `pyvisa` + `pyvisa-py`, `pyyaml` |
 
-### 1.3 Independence of the oracle
+### 4.3 Independence of the oracle
 
 Three measures ensure tests do not merely confirm the code agrees with itself:
 
@@ -68,7 +108,7 @@ Three measures ensure tests do not merely confirm the code agrees with itself:
    VXI-11 transport is compared against PyVISA's independent implementation over
    the same server.
 
-### 1.4 Work-product verification
+### 4.4 Work-product verification
 
 Traceability documents rot silently: a requirement is added and never traced, a
 design unit is renamed and the docstring pointing at it goes stale, an element is
@@ -106,7 +146,7 @@ Between them these catch behaviour, interface drift, compilation and the link.
 What no amount of them establishes is that the firmware *runs*: see the report's
 §4.6 and BLE-OPEN-02 to -04.
 
-### 1.5 Architectural verification
+### 4.5 Architectural verification
 
 The layering that makes the shared core reusable is easy to state and easy to
 lose: one convenient import and the core stops being shareable. `test_layering.py`
@@ -124,7 +164,7 @@ module's imports:
   imported inside the function that needs them, which is also what allows the
   named diagnostic of CORE-NFR-003.
 
-### 1.6 Test selection rationale
+### 4.6 Test selection rationale
 
 | Technique | Where applied |
 |---|---|
@@ -140,7 +180,7 @@ module's imports:
 | Protocol grammar testing | GDB/MI records: nesting, repeated names, uniformly named lists, escapes, non-MI lines (`SWE4-UT-GDBMI`) |
 | Resource-limit testing | Hardware breakpoint and watchpoint envelopes, memory chunk boundaries, the 32-bit cycle-counter wrap |
 
-### 1.7 Pass criteria
+### 4.7 Pass criteria
 
 | ID | Criterion |
 |---|---|
@@ -157,7 +197,7 @@ module's imports:
 | PC-11 | A simulated 100 ms sensor reads as a mean interval of exactly 105 ms with a spread of exactly 10 ms, and a sensor that skips beacons is reported as missing them rather than as advertising slowly. |
 | PC-12 | Every firmware unit test passes, and the firmware compiles for the target after any change they prompt. |
 
-## 2. Test groups
+## 5. Test groups
 
 | Test ID | File | Purpose | Requirements verified |
 |---|---|---|---|
@@ -221,7 +261,7 @@ module's imports:
 | SWE4-UT-REPORT | `runner/test_report.py` | JSON, markdown and JUnit output; the instruments table and its identity-failure row | RUN-FR-037, RUN-FR-040 .. -043 |
 | SWE4-UT-RUNCLI | `runner/test_cli.py` | Runner command line and top-level dispatch | RUN-FR-050 .. -053 |
 
-## 3. Notable individual test cases
+## 6. Notable individual test cases
 
 | Test | What it pins down |
 |---|---|
@@ -251,7 +291,7 @@ module's imports:
 | `test_shipped_specification_is_valid` / `test_shipped_bench_files_are_valid` | The examples in `specs/` and `benches/` stay loadable as the API changes. |
 | `test_clear_error_when_matplotlib_is_absent` | A missing optional extra produces a named diagnostic, not `ImportError`. |
 
-## 4. Defects found by this verification
+## 7. Defects found by this verification
 
 | ID | Defect | Detected by | Resolution |
 |---|---|---|---|
@@ -267,7 +307,7 @@ driver is most prone to — a framing error that is silent for most data and wro
 for some. D-06 is an evidence-integrity defect rather than a functional one, which
 is exactly the kind that survives functional testing.
 
-## 5. Items not covered by unit verification
+## 8. Items not covered by unit verification
 
 The following require physical hardware and are listed as bench confirmation items
 in the VISA determination report §5.1:
@@ -281,3 +321,16 @@ in the VISA determination report §5.1:
 | Exact SCPI command spellings against the programmer manual | The manual was unreachable from the build environment (CON-02) |
 | Analogue accuracy, bandwidth and noise behaviour | Instrument specification, not software |
 | Behaviour of instrument families named for future work | No drivers exist yet (CON-03) |
+
+---
+
+## 9. Review & Approval
+
+| Role | Name | Signature / Electronic Approval | Date |
+|---|---|---|---|
+| Author | Claude | Approved | 2026-09-19 |
+| Technical Reviewer | Dermot Murphy | — | *pending* |
+| Quality Assurance | Dermot Murphy | — | *pending* |
+| Approver | Dermot Murphy | — | *pending* |
+
+> **Note:** This document is under configuration management (SUP.8). Post-approval changes require a change request (SUP.10) and a new document version.

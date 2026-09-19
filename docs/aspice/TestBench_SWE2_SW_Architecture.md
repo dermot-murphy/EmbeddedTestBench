@@ -1,13 +1,52 @@
-# SWE.2 — Software Architectural Design
+# Software Architecture Description
 
-| Field | Value |
-|---|---|
-| Document ID | BENCHTOOLS-SWE2-001 |
-| Version | 4.0 |
-| Date | 2026-09-13 |
-| Process reference | Automotive SPICE V4.0, SWE.2 Software Architectural Design |
+*Automotive SPICE® PAM v4.0 | SWE.2 Software Architectural Design*
 
-## 1. Architectural drivers
+---
+
+## 1. Document Identification & Control
+
+| Field | Value | Field | Value |
+|---|---|---|---|
+| **Document ID** | TB-SWE2-001 | **Version** | 0.1 |
+| **Project** | TestBench | **Date** | 2026-09-19 |
+| **Status** | Draft | **Classification** | Internal |
+| **Author** | Claude | **Reviewer** | Dermot Murphy |
+| **Approver** | Dermot Murphy | **Related Process** | SWE.2 |
+
+> **Note — Reviewer independence (TB-DEV-002):** The Reviewer and Approver are the same person (Dermot Murphy). This is accepted under deviation record **TB-DEV-002** (`docs/aspice/TestBench_DEV002_Independent_Review_Deviation.md`) on the basis that TestBench has a single human team member.
+
+---
+
+## 2. Revision History
+
+| Version | Date | Author | Description of Change |
+|---|---|---|---|
+| 0.1 | 2026-09-19 | Claude | Initial |
+
+---
+
+## 3. Purpose & Scope
+
+### 3.1 Purpose
+
+This document describes the software architecture of **TestBench**: the elements it is decomposed into, the dependencies permitted between them, and the decisions that shaped both. It refines TB-SWE1-001 and is the direct input to detailed design (TB-SWE3-001).
+
+This document satisfies **Automotive SPICE® PAM v4.0, SWE.2 — Software Architectural Design**.
+
+### 3.2 Referenced Documents
+
+| Document ID | Title | Version |
+|---|---|---|
+| TB-SYS2-001 | TestBench System Requirements Specification | 0.1 |
+| TB-SWE1-001 | TestBench Software Requirements Specification | 0.1 |
+| TB-SWE2-001 | TestBench Software Architecture Description | 0.1 |
+| TB-SWE3-001 | TestBench Software Detailed Design | 0.1 |
+| TB-RTM-001 | TestBench Requirements Traceability Matrix | 0.1 |
+
+---
+
+## 4. Architectural drivers
 
 | # | Driver | Consequence |
 |---|---|---|
@@ -24,7 +63,7 @@
 | D9 | Tests may later be authored in Markdown and run under Robot Framework (STK-12) | The driver boundary returns plain types and dataclasses of plain types, never objects a keyword layer would have to unwrap. Test intent already lives in data (D3), so a translator becomes a front end to the existing runner rather than a second execution engine. |
 | D6 | An invalid setting must not half-configure an instrument (CORE-NFR-004) | Validation precedes transmission; a complete setup is sent as one compound message. |
 
-## 2. Layering
+## 5. Layering
 
 ```
    +--------------------------------------------------------------+
@@ -70,7 +109,7 @@ runner**. This is not merely a convention — it is enforced by
 on a violation. The core is additionally checked to contain no reference to any
 instrument, and to be importable without importing any other element.
 
-## 3. Architectural elements
+## 6. Architectural elements
 
 | ID | Element | Responsibility | Key interfaces |
 |---|---|---|---|
@@ -91,7 +130,7 @@ instrument, and to be importable without importing any other element.
 | PSU-ARC-001 | `instruments.gpd3303d` | The GW Instek bench supply, programmable channels 1 and 2; its fixed rail is a front-panel switch and is outside the element. Not a SCPI instrument: it takes the transport and lifecycle from `ScpiInstrument` and replaces the SCPI-specific parts (`*CLS`, `*RST`, `SYSTem:ERRor?`) with its own. Its own command grammar, a load-modelling simulator, and a command line. | `Gpd3303D`, `ChannelReading`, `SupplyStatus`, `SimulatedGpd` |
 | RUN-ARC-001 | `runner` | Specification model, bench resolution, execution engine, result records, report writers, command line. | `load_spec`, `BenchConfig`, `BenchRunner`, `write_*` |
 
-## 4. Key architectural decisions
+## 7. Key architectural decisions
 
 ### AD-01 — Implement VXI-11 rather than depend on VISA
 *Decision:* implement the ONC-RPC/VXI-11 core channel on the standard library.
@@ -499,7 +538,7 @@ the three step kinds must stay distinguishable in the report: a step that was
 skipped must never read as one that passed, which is why a run states how many
 steps it checked as well as how many passed.
 
-## 5. Dynamic behaviour — a runner invocation
+## 8. Dynamic behaviour — a runner invocation
 
 ```
 CLI            BenchRunner        Bench           Tek3014B        Transport
@@ -523,7 +562,7 @@ CLI            BenchRunner        Bench           Tek3014B        Transport
  |- write_json / write_markdown / write_junit          |                |
 ```
 
-## 6. Resource and performance characteristics
+## 9. Resource and performance characteristics
 
 | Aspect | Value |
 |---|---|
@@ -539,7 +578,7 @@ CLI            BenchRunner        Bench           Tek3014B        Transport
 | Host event backlog | 4096 events, bounded so an unattended session cannot grow without limit. |
 | Cost of a halting timing measurement | Two breakpoint stops per repetition; the target is stopped for the duration, which is why JLINK-FR-064 exists. |
 
-## 7. Interfaces to external elements
+## 10. Interfaces to external elements
 
 | Interface | Direction | Description |
 |---|---|---|
@@ -557,3 +596,16 @@ CLI            BenchRunner        Bench           Tek3014B        Transport
 | Bluetooth Low Energy | bidirectional | Dongle to sensor: advertising reports in, UART service both ways. Below the dongle firmware; not visible to the host driver except as events. |
 | `pyserial` | bidirectional | Optional; the serial transport. |
 | nRF5 SDK 17.1.0 + S140 | in | Builds the dongle firmware. Not needed to run the host driver or the tests. |
+
+---
+
+## 11. Review & Approval
+
+| Role | Name | Signature / Electronic Approval | Date |
+|---|---|---|---|
+| Author | Claude | Approved | 2026-09-19 |
+| Technical Reviewer | Dermot Murphy | — | *pending* |
+| Quality Assurance | Dermot Murphy | — | *pending* |
+| Approver | Dermot Murphy | — | *pending* |
+
+> **Note:** This document is under configuration management (SUP.8). Post-approval changes require a change request (SUP.10) and a new document version.

@@ -1,19 +1,52 @@
-# Bidirectional Traceability Matrix
+# Requirements Traceability Matrix
 
-| Field | Value |
-|---|---|
-| Document ID | BENCHTOOLS-TRACE-001 |
-| Version | 4.2 |
-| Date | 2026-09-13 |
-| Process reference | Automotive SPICE V4.0, SWE.1 BP6 / SWE.2 BP7 / SWE.3 BP5 / SWE.4 BP6 |
-| Item | `benchtools` 4.0.0 + `firmware/nordic_dongle` |
+*Automotive SPICE® PAM v4.0 | Bidirectional traceability across SWE.1 to SWE.4*
 
-Traceability is maintained in both directions. **Downward** (§2–§8): stakeholder
-need → requirement → architecture → design unit → source → test. **Upward**: every
-source module and test group names its requirements and design unit in its own
-docstring, so the link is carried in the artefact and not only in this table.
+---
 
-## 1. Stakeholder requirements to software requirements
+## 1. Document Identification & Control
+
+| Field | Value | Field | Value |
+|---|---|---|---|
+| **Document ID** | TB-RTM-001 | **Version** | 0.1 |
+| **Project** | TestBench | **Date** | 2026-09-19 |
+| **Status** | Draft | **Classification** | Internal |
+| **Author** | Claude | **Reviewer** | Dermot Murphy |
+| **Approver** | Dermot Murphy | **Related Process** | SWE.1 / SWE.2 / SWE.3 / SWE.4 |
+
+> **Note — Reviewer independence (TB-DEV-002):** The Reviewer and Approver are the same person (Dermot Murphy). This is accepted under deviation record **TB-DEV-002** (`docs/aspice/TestBench_DEV002_Independent_Review_Deviation.md`) on the basis that TestBench has a single human team member.
+
+---
+
+## 2. Revision History
+
+| Version | Date | Author | Description of Change |
+|---|---|---|---|
+| 0.1 | 2026-09-19 | Claude | Initial |
+
+---
+
+## 3. Purpose & Scope
+
+### 3.1 Purpose
+
+This matrix carries the trace in both directions: stakeholder requirement to software requirement to architecture element to design unit to source to test, and back. It is one work product rather than a section repeated in five, because a trace split across documents is a trace that can disagree with itself.
+
+It is checked mechanically by `tests/test_traceability.py` on every run of the suite: a requirement declared in TB-SWE1-001 and absent here fails the build, as does a requirement, design unit or test group cited in source or tests without being declared.
+
+### 3.2 Referenced Documents
+
+| Document ID | Title | Version |
+|---|---|---|
+| TB-SYS2-001 | TestBench System Requirements Specification | 0.1 |
+| TB-SWE1-001 | TestBench Software Requirements Specification | 0.1 |
+| TB-SWE2-001 | TestBench Software Architecture Description | 0.1 |
+| TB-SWE3-001 | TestBench Software Detailed Design | 0.1 |
+| TB-RTM-001 | TestBench Requirements Traceability Matrix | 0.1 |
+
+---
+
+## 4. Stakeholder requirements to software requirements
 
 | Stakeholder req | Software requirements |
 |---|---|
@@ -38,7 +71,7 @@ docstring, so the link is carried in the artefact and not only in this table.
 | STK-20 — use ST's firmware if it is fit for purpose | AD-20; S2LP-FR-001, -002; S2LP-NFR-002. The firmware was examined before any was written: BENCHTOOLS-SWE4-002 §10, `docs/s2lp/S2LP_Devkit_Notes.md` §1 |
 | STK-18 — RS-232 multimeter | No requirements in this revision (CON-03, OPEN-03). `Instrument` (CORE-FR-012 … -016) and the serial transport (CORE-FR-017) are the seams it will use. |
 
-## 2. CORE requirements to design, code and test
+## 5. CORE requirements to design, code and test
 
 | Requirement | Architecture | Design unit | Source | Verifying test(s) |
 |---|---|---|---|---|
@@ -88,7 +121,7 @@ docstring, so the link is carried in the artefact and not only in this table.
 | CORE-NFR-008 | AD-02 | `test_core_never_references_an_instrument`, `test_core_is_importable_on_its_own` |
 | CORE-NFR-009 | AD-02 | `test_layer_dependencies_point_one_way` (over 50 sources), `test_analysis_is_importable_without_instruments` |
 
-## 3. ANA requirements to design, code and test
+## 6. ANA requirements to design, code and test
 
 | Requirement | Architecture | Design unit | Source | Verifying test(s) |
 |---|---|---|---|---|
@@ -108,7 +141,7 @@ docstring, so the link is carried in the artefact and not only in this table.
 | ANA-FR-020 | ARC-002 | ANA-DD-PLOT | `plot_waveforms` | `TestPlotting` (8) |
 | ANA-FR-021 | ARC-002 | ANA-DD-PLOT | `plot_waveforms(spread=)` | `test_spread_annotation` |
 
-## 4. INST and SCOPE requirements to design, code and test
+## 7. INST and SCOPE requirements to design, code and test
 
 | Requirement | Architecture | Design unit | Source | Verifying test(s) |
 |---|---|---|---|---|
@@ -144,7 +177,7 @@ docstring, so the link is carried in the artefact and not only in this table.
 | SCOPE-FR-100 | SCOPE-ARC-001 | SCOPE-DD-CLI | `instruments/tek3014b/cli.py` | `instruments/tek3014b/test_cli.py` (20) |
 | SCOPE-FR-101 | SCOPE-ARC-001 | SCOPE-DD-SCOPE | `read_event_queue` override | `TestErrorHandling` (6) |
 
-## 5. JLINK requirements to design, code and test
+## 8. JLINK requirements to design, code and test
 
 | Requirement | Architecture | Design unit | Source | Verifying test(s) |
 |---|---|---|---|---|
@@ -200,7 +233,7 @@ docstring, so the link is carried in the artefact and not only in this table.
 | JLINK-NFR-003 | `test_resource_parsing`, `test_a_remote_server_is_never_spawned`, `test_the_host_is_an_argument`; both links are TCP by construction (AD-13). |
 | JLINK-NFR-004 | `test_result_records_the_method_and_clock`, `test_serialises_for_a_report`, `test_methods_without_cycles_omit_them`, and the CLI's `warning` key (`SWE4-UT-JLINKCLI`). |
 
-## 6. BLE requirements to design, code and test
+## 9. BLE requirements to design, code and test
 
 The element spans two languages, so the *Source* column names the firmware file
 where the firmware implements the requirement.
@@ -266,7 +299,7 @@ where the firmware implements the requirement.
 | BLE-NFR-004 | `test_no_mandatory_third_party_imports`; pyserial is the `serial` extra, imported inside `_open_link`. |
 | BLE-NFR-005 | `test_the_dongle_clock_is_the_default`, `test_as_dict_carries_the_figure_and_its_caveats`, and the CLI's `warning` key. |
 
-## 7. S2LP requirements to design, code and test
+## 10. S2LP requirements to design, code and test
 
 | Requirement | Architecture | Design unit | Source | Verifying test(s) |
 |---|---|---|---|---|
@@ -311,7 +344,7 @@ where the firmware implements the requirement.
 | S2LP-NFR-003 | `Packet.board_time_ms` is named for its unit and its clock; `Capture.gaps` states how a capture was taken. The millisecond limit is stated in `packets.py`, in SWE.3 and in the notes. |
 | S2LP-NFR-004 | `test_connecting_configures_nothing`; transmission is only `transmit`/`transmit_batch`, each an explicit call. |
 
-## 8. PSU requirements to design, code and test
+## 11. PSU requirements to design, code and test
 
 | Requirement | Architecture | Design unit | Source | Verifying test(s) |
 |---|---|---|---|---|
@@ -350,7 +383,7 @@ where the firmware implements the requirement.
 | PSU-NFR-002 | `test_set_does_not_switch_the_output_on`, `test_setting_a_voltage_on_a_parked_channel_does_not_energise_it`, `test_connecting_changes_nothing`. Energising is always an explicit call. |
 | PSU-NFR-003 | Volts, amps and watts throughout; `ChannelReading` carries `mode`, and `read` on the command line warns when a channel is in current limit. |
 
-## 9. RUN requirements to design, code and test
+## 12. RUN requirements to design, code and test
 
 | Requirement | Architecture | Design unit | Source | Verifying test(s) |
 |---|---|---|---|---|
@@ -390,7 +423,7 @@ where the firmware implements the requirement.
 | RUN-FR-052 | ARC-001 | RUN-DD-CLI | report path suffixing | `test_several_specs_get_suffixed_reports` |
 | RUN-FR-053 | ARC-001 | RUN-DD-CLI | `benchtools/cli.py` | `TestTopLevelDispatch` (7) |
 
-## 10. Architecture to design to source
+## 13. Architecture to design to source
 
 | Architectural element | Design unit | Source |
 |---|---|---|
@@ -412,7 +445,7 @@ where the firmware implements the requirement.
 | PSU-ARC-001 | PSU-DD-PSU, -CONST, -SIM, -CLI | `instruments/gpd3303d/{psu,constants,simulator,cli}.py` |
 | RUN-ARC-001 | RUN-DD-SPEC, -LIMITS, -RESOLVE, -BENCH, -RESULTS, -RUNNER, -REPORT, -CLI | `runner/*.py`, `cli.py` |
 
-## 11. Coverage analysis
+## 14. Coverage analysis
 
 | Question | Answer |
 |---|---|
@@ -423,7 +456,7 @@ where the firmware implements the requirement.
 | Stakeholder requirements not decomposed | **None of those in scope.** STK-01 to STK-11 and STK-14 to STK-17 trace downward; STK-06 additionally produces BENCHTOOLS-VISA-001 as its work product. STK-12 is partly addressed (AD-15 constrains the driver boundary for it, and AD-23 reads a markdown command document as a test) and Robot Framework itself is deferred: CON-06, OPEN-04. STK-13 is decomposed into `PSU-` and verified; STK-19 and STK-20 into `S2LP-` and AD-20. STK-18 remains future work with no requirements in this revision: CON-03, OPEN-03. |
 | Architectural decisions without a verifying test | **None.** AD-01 → `test_full_driver_over_the_socket`; AD-02 → `test_layering.py`; AD-03 → `TestDriverRegistry`; AD-04 → `TestFraming`; AD-05 → `test_payload_containing_a_hash_byte_is_not_re_parsed`; AD-06 → `TestChannelSpread`; AD-07 → `test_busy_is_polled_until_clear`; AD-08 → `TestSpecParsing`; AD-09 → `TestFailureVersusError`; AD-10 → `test_all_sim_resources_count_as_simulated`; AD-11 → `test_the_probe_is_an_instrument_but_not_scpi`, `test_scpi_instrument_is_an_instrument`; AD-12 → `SWE4-UT-GDBMI`, `SWE4-UT-GDBSESSION`, `test_connect_to_the_simulator`; AD-13 → `test_resource_parsing`, `test_a_remote_server_is_never_spawned`; AD-14 → `SWE4-UT-TIMING`, `test_a_short_interval_is_flagged_untrustworthy`; AD-15 → `test_serialises_for_a_report`, `test_shipped_specifications_are_valid`; AD-16 → `SWE4-UT-BLEFW`; AD-17 → `test_both_clocks_are_recorded`, `test_the_host_clock_resolves_a_millisecond`; AD-18 → `test_a_lossy_link_is_declared_rather_than_averaged`, `test_a_dropping_dongle_says_so`; AD-19 → `TestOutputSwitching` (11), notably `test_the_last_channel_off_opens_the_real_switch` and `test_setting_a_voltage_on_a_parked_channel_does_not_energise_it`; AD-20 → `SWE4-UT-S2LPPROTO` and `SWE4-UT-S2LPSESSION` verify the driver against ST's declared command set, and `test_a_polled_capture_reports_its_gaps` verifies the honesty the decision requires; AD-21 → `TestTracking` in `test_psu.py` (14), with `TestTracking` in `test_simulator.py` (10) establishing that the supply really does discard what the driver refuses to send; AD-22 → `TestReferences` (9) and `TestLimitsTakenFromAnEarlierStep` (6) for the mechanism, and `SWE4-UT-BRINGUP` (12) for what it is for - the shipped chained specification, with each fact it establishes broken in turn to confirm it would fail; AD-23 → `SWE4-UT-BLESCRIPT` (58), including `TestTheShippedDocument`, which runs `specs/sensor_commands.md` against the simulated sensor so the worked example cannot rot. |
 
-## 12. Open items
+## 15. Open items
 
 | ID | Item | Owner action |
 |---|---|---|
@@ -435,3 +468,16 @@ where the firmware implements the requirement.
 | OPEN-07 | S2-LP kit bench confirmation items — `docs/s2lp/S2LP_Devkit_Notes.md` §7: the firmware's exact reply text and error codes, the board name it reports, the meaning of `S2LPGetNBytesBatch`'s reference-timer argument, and the link budget in practice | Discharge on first use with a kit. Tracked there as S2LP-OPEN-01 to S2LP-OPEN-05. Nothing in them blocks use of the driver: the parser reads tags by name and keeps every line, so an unexpected reply is visible rather than fatal. |
 | OPEN-08 | PSU bench confirmation items — `docs/psu/GPD3303D_Notes.md` §5: the bit order of `STATUS?`, the behaviour of `ERR?`, the command interval a real supply needs, and settling time | Discharge on first use with a supply. Tracked there as PSU-OPEN-01 to PSU-OPEN-04. |
 | OPEN-05 | J-Link bench confirmation items (CON-04, CON-05) — `docs/jlink/JLink_Integration_Notes.md` §4: Windows execution, real MI version behaviour, SWO timestamp scaling, RTT control-block discovery, flash timing | Discharge on first use with a probe and a target. Tracked there as JLINK-OPEN-01 to JLINK-OPEN-04. |
+
+---
+
+## 16. Review & Approval
+
+| Role | Name | Signature / Electronic Approval | Date |
+|---|---|---|---|
+| Author | Claude | Approved | 2026-09-19 |
+| Technical Reviewer | Dermot Murphy | — | *pending* |
+| Quality Assurance | Dermot Murphy | — | *pending* |
+| Approver | Dermot Murphy | — | *pending* |
+
+> **Note:** This document is under configuration management (SUP.8). Post-approval changes require a change request (SUP.10) and a new document version.
