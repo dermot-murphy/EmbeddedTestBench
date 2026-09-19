@@ -47,8 +47,8 @@ that nobody can reconstruct.
 | TB-SUP9-001 | TestBench Problem Resolution Management Plan | 0.1 |
 | TB-SUP10-001 | TestBench Change Request Management Plan | 0.1 |
 | TB-TMPL-001 | TestBench Work Product Review Record — Template | 0.1 |
-| TB-STD-001 | TestBench Embedded C Coding Standard | 0.1 |
-| TB-STD-002 | TestBench Embedded C Style Guide | 0.1 |
+| TB-STD-002 | TestBench Embedded C Coding Standard | 0.1 |
+| TB-STY-001 | TestBench Embedded C Style Guide | 0.1 |
 | TB-DEV-001 | TestBench AI Authorship Deviation | 0.1 |
 | TB-DEV-002 | TestBench Independent Review Deviation | 0.1 |
 
@@ -80,7 +80,7 @@ and `benches/`, and the workflows under `.github/`.
 |---|---|
 | ASPICE documents (`docs/aspice/`) | Review on TB-TMPL-001 before status leaves Draft; traceability check for the requirement, design and test documents |
 | Python source (`benchtools/`) | Unit tests, coverage, traceability of requirement citations |
-| Firmware source (`firmware/`) | Build in CI, CStyleCheck against TB-STD-001 and TB-STD-002, flash and RAM figures recorded |
+| Firmware source (`firmware/`) | Build in CI, CStyleCheck against TB-STD-002 and TB-STY-001, flash and RAM figures recorded |
 | Bench specifications (`specs/`, `benches/`) | Executed against the simulated bench in the suite |
 | Workflows (`.github/`) | Exercised by being run; a workflow that has never run green is not relied upon |
 | This document set | Reviewed as above; the deviations in TB-DEV-001 and TB-DEV-002 are restated in each document's identification block |

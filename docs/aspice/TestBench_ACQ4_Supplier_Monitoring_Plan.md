@@ -101,7 +101,7 @@ Trust is stated so that it can be checked rather than assumed.
 | SEGGER tools | Programme and read the target faithfully | Have a stable command-line output format | Output parsing is tested; a parse failure is an error, never a default value |
 | `nrfutil` | Produce a valid DFU package for a given SDK | Remain compatible across versions | Pinned exactly |
 | PyPI packages | Honour semantic versioning | Never regress | Version ranges declared; the suite is the check |
-| CStyleCheck | Report violations of TB-STD-001 and TB-STD-002 | Be available forever | Pinned tag; failure blocks the style job only |
+| CStyleCheck | Report violations of TB-STD-002 and TB-STY-001 | Be available forever | Pinned tag; failure blocks the style job only |
 
 ---
 
@@ -125,8 +125,8 @@ record which was chosen.
 ## 7. Coding-Standard Checker
 
 `dermot-murphy/CStyleCheck@v1` is run by `.github/workflows/style.yml` against
-`firmware/nordic_dongle`. It is the mechanical enforcement of TB-STD-001 and
-TB-STD-002. It is a dependency like any other: pinned by tag, its failures
+`firmware/nordic_dongle`. It is the mechanical enforcement of TB-STD-002 and
+TB-STY-001. It is a dependency like any other: pinned by tag, its failures
 treated as findings against the firmware source, and its unavailability treated
 as a problem with the style job rather than a licence to merge unchecked C.
 

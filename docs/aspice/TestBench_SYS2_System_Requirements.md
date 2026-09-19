@@ -213,7 +213,7 @@ Each requirement carries a verification method: **T** test, **A** analysis,
 |---|---|---|
 | TB-SYS2-090 | The host software shall run on Windows and on Linux, and the whole bench shall be capable of running inside a container where the instrument links are network links. | A |
 | TB-SYS2-091 | The dongle firmware shall build from a clean checkout in continuous integration, and its flash and RAM usage shall be recorded. | T |
-| TB-SYS2-092 | C source in this project shall conform to TB-STD-001 and TB-STD-002, checked mechanically on every push. | T |
+| TB-SYS2-092 | C source in this project shall conform to TB-STD-002 and TB-STY-001, checked mechanically on every push. | T |
 | TB-SYS2-093 | No vendor-supplied source or documentation text shall be incorporated into this repository; vendor devices shall be described by independently recorded facts. | I |
 | TB-SYS2-094 | The system shall fail loudly on a request it cannot satisfy, with a message naming what was asked and why it could not be done. | T |
 | TB-SYS2-095 | Every system requirement in this document shall be traceable to at least one software requirement or firmware element, and to at least one test. | A |
@@ -261,7 +261,7 @@ software requirements in TB-SWE1-001 §6–§14. The full matrix is TB-RTM-001.
 | Wireless §9 | `BLE-FR-*`, `BLE-NFR-*`, `S2LP-FR-*`, `S2LP-NFR-*` |
 | Measurement §10 | `SCOPE-FR-*`, `ANA-FR-*` |
 | Test definition §11 | `RUN-FR-*` |
-| Non-functional §12 | `CORE-NFR-*`, TB-STD-001, TB-STD-002 |
+| Non-functional §12 | `CORE-NFR-*`, TB-STD-002, TB-STY-001 |
 
 ---
 

@@ -134,7 +134,7 @@ Tick, cross, or mark n/a. A cross needs a finding in §7.
 | # | Question | Result |
 |---|---|---|
 | S1 | Does it match the detailed design, or has the design been updated with it? | |
-| S2 | Does C code conform to TB-STD-002 and the MISRA C:2012 subset in TB-STD-001? | |
+| S2 | Does C code conform to TB-STY-001 and the MISRA C:2012 subset in TB-STD-002? | |
 | S3 | Does it fail loudly rather than continue on an unsatisfiable request? | |
 | S4 | Are the error paths tested, not only the successful ones? | |
 | S5 | Are magic numbers named, and are units in the names or the types? | |
