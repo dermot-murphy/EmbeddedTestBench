@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterator, Optional, Type
+from typing import Any, Dict, Iterator, Type
 
 from ..core.errors import BenchConfigError, BenchToolsError
 from ..core.instrument import Instrument

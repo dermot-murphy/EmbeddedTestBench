@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import abc
 import logging
-from typing import Optional, Tuple
+from typing import Tuple
 
 from ..errors import ProtocolError, TransportError, TransportTimeoutError
 from .constants import DEFAULT_TERMINATOR, MAX_RESPONSE_BYTES

@@ -207,7 +207,7 @@ class TestChannelSpread:
         assert result.spread == pytest.approx(25.0e-9, abs=2.0e-12)
 
     def test_falling_edge_spread(self, skewed):
-        skews, waveforms = skewed
+        _skews, waveforms = skewed
         result = measure_channel_spread(waveforms, direction=EdgeDirection.FALL)
         assert result.spread == pytest.approx(25.0e-9, abs=2.0e-12)
 

@@ -67,7 +67,7 @@ date says which revision it describes.
 | Firmware C files (project-owned) | 47 |
 | Firmware C lines | 2 856 |
 | ASPICE documents | 27 |
-| CI workflows | 3 — `firmware.yml`, `style.yml`, `bench.yml` |
+| CI workflows | 5 — `firmware.yml`, `style.yml`, `bench.yml`, `tests.yml`, `lint.yml` |
 | Tests passing | 1 878 |
 | Statement coverage | 94% (577 of 10 374 statements uncovered) |
 
@@ -81,8 +81,8 @@ module has a test module beside it.
 
 | Severity | Count |
 |---|---|
-| 🔴 Critical | 2 |
-| 🟡 Warning | 6 |
+| 🔴 Critical | 1 (1 resolved) |
+| 🟡 Warning | 7 |
 | 🔵 Improvement | 4 |
 | ✅ Well handled | 6 |
 
@@ -90,30 +90,31 @@ module has a test module beside it.
 
 ## 6. Findings
 
-### 6.1 🔴 Critical — The Python suite is not run by CI
+### 6.1 ✅ Resolved — The Python suite is now run by CI
 
-Three workflows exist. `firmware.yml` runs the firmware's own Unity/CTest unit
-tests and the cross-compile, and is path-filtered to `firmware/**`.
-`style.yml` runs the C coding-standard check. `bench.yml` runs the bench
-specifications through this repository's action against the simulated bench.
+*Raised 2026-09-19 as this report's first critical finding; resolved the same
+day.*
 
-None of them runs `pytest`. The 1 878 tests that constitute nearly all of this
-project's evidence run only when someone runs them locally before committing.
+**What it was.** Three workflows existed — `firmware.yml` (the firmware's own
+Unity/CTest tests and the cross-compile), `style.yml` (the C coding-standard
+check) and `bench.yml` (the bench specifications). None ran `pytest`, so the
+1 878 tests carrying nearly all of this project's evidence ran only when
+someone remembered to run them locally. Everything the quality plan relies on —
+the traceability check binding documents to code, the layering test enforcing
+the architecture — was unenforced on a pull request, and the four quality
+objectives TB-QA-001 … TB-QA-004 were measured automatically nowhere.
 
-Everything the quality plan relies on — the traceability check that binds
-documents to code, the layering test that enforces the architecture, the driver
-tests — is therefore unenforced on a pull request. A change that breaks them can
-be merged by anyone who does not run them, and TB-SUP1-001 §4 lists four quality
-objectives (TB-QA-001 through TB-QA-004) whose measurement is not automated
-anywhere.
+**What closed it.** `.github/workflows/tests.yml` runs the suite on every push
+and pull request, on two Python versions, and fails the build below the
+TB-QA-002 coverage target of 90%. The traceability and layering checks are
+part of that suite, so they are now enforced where they can block a merge.
 
-`bench.yml` narrows the gap without closing it: a broken driver will often fail
-a specification, but a broken traceability check or a violated architectural
-boundary will not.
-
-**Action:** add a workflow running `pytest` on every push and pull request, with
-the extras installed. This is the single highest-value change in this report and
-the cheapest.
+**What it exposed.** The workflow tests Python 3.9 and 3.12, while
+`pyproject.toml` declares `requires-python = ">=3.8"`. Nothing verifies 3.8,
+which is end-of-life and not reliably available on hosted runners. The package
+therefore claims a floor it does not test. Either 3.8 joins the matrix or the
+declared floor moves to 3.9; that is a packaging decision, recorded here rather
+than made quietly.
 
 ### 6.2 🔴 Critical — No driver has met its instrument
 
@@ -251,6 +252,52 @@ findings need a decision recorded in TB-STY-001 first: either adopt the module
 prefix on internal functions, or exempt internal linkage as a stated
 convention.
 
+### 6.13 🟡 Warning — The Python lint check runs against a baseline of 458 findings
+
+`pylint` at its defaults reported **3 282** findings over `benchtools/` and
+`tests/`, scoring 8.23/10. That came down in three steps, and the difference
+between them is the point:
+
+| Step | Findings removed | What it was |
+|---|---|---|
+| Rules the project has decided against | 932 | Disabled in `pyproject.toml` with the reason written beside each |
+| Rules that do not apply to a test suite | 1 816 | Disabled for `tests/` only, in `scripts/lint.py`, with the reason |
+| **Defects actually fixed** | **76** | 57 unused imports, 8 unused variables, 4 missing `raise ... from`, 7 packed statements |
+| Remaining, baselined | 458 | Debt |
+
+The four project decisions are: `consider-using-f-string` (645 — the package
+uses %-formatting consistently, and converting it buys a reader nothing),
+`import-outside-toplevel` (63 — optional dependencies are imported where they
+are used *on purpose*, so a driver works on a bare Python install),
+`attribute-defined-outside-init` (79 — simulator state is established in
+`reset()`, which pylint does not follow), and two naming regexes that permit
+`_cmd_ALLEV_Q` (a method named for the SCPI header it handles — renaming it
+would hide the thing it exists to match).
+
+What is in the baseline:
+
+| Rule | Count | What it is |
+|---|---|---|
+| `missing-function-docstring` | 98 | Undocumented functions in the package |
+| `line-too-long` | 47 | Lines over 100 characters |
+| `useless-return` | 41 | Trailing `return None` |
+| `consider-using-with` | 36 | Resources opened without a context manager |
+| `unused-argument` | 35 | Mostly callback signatures required by an API |
+| `too-many-*` | 124 | Design metrics — instance attributes, arguments, locals, branches |
+| `duplicate-code` | 22 | Parallel drivers' tests read alike |
+| `broad-exception-caught` | 13 | The runner turns any driver exception into a recorded step error |
+| others | 42 | |
+
+`broad-exception-caught` is worth a second look rather than a permanent
+baseline entry: catching `Exception` at the runner boundary is deliberate and
+implements TB-SYS2-003, so those thirteen are arguably a decision rather than
+debt. They are baselined rather than disabled because a blanket disable would
+also hide the careless catches nobody has written yet.
+
+**Action:** the 98 missing docstrings and the 47 long lines are the tractable
+half and would come out in ordinary work on those files. The design metrics
+should be left alone until a module is being changed for another reason.
+
 ---
 
 ## 7. Well Handled
@@ -270,7 +317,7 @@ convention.
 
 | # | Action | Finding | Effort | Value |
 |---|---|---|---|---|
-| 1 | Add a CI workflow running `pytest` | 6.1 | Low | **Highest.** It makes every other control enforcing |
+| ~~1~~ | ~~Add a CI workflow running `pytest`~~ — **done**, `tests.yml` | 6.1 | Low | Highest; it makes every other control enforcing |
 | 2 | Attach instruments; work TB-SYS4-001 §4 stages in order | 6.2 | High | Highest — it is the only thing that can qualify the system |
 | 3 | Set `-std` explicitly and enable `-Wextra` | 6.4 | Low | Medium |
 | 4 | Hold and record reviews, starting with the requirements documents | 6.5 | Medium | Medium |

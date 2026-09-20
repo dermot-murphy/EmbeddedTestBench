@@ -61,7 +61,7 @@ class TestExecutionModel:
 
     def test_the_interval_is_exactly_one_millisecond(self):
         """64 000 cycles at 64 MHz. Chosen so tests assert a round number."""
-        firmware = SimulatedFirmware()
+        _firmware = SimulatedFirmware()
         default = SimulatedJLink().firmware
         assert default.cycles_at["sensor.c:75"] - default.cycles_at["sensor.c:40"] == 64_000
         assert 64_000 / default.core_clock_hz == pytest.approx(1.0e-3)

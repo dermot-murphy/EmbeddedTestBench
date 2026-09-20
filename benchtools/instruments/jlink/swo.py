@@ -30,7 +30,7 @@ Traces to: JLINK-FR-064, JLINK-DD-SWO.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import List, Optional
 
 __all__ = ["ItmEvent", "ItmDecoder", "SwoStream"]

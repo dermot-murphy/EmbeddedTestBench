@@ -14,7 +14,6 @@ import pytest
 from benchtools.core.errors import ProtocolError
 from benchtools.instruments.s2lp.constants import COMMANDS
 from benchtools.instruments.s2lp.protocol import (
-    Reply,
     format_bytes,
     format_command,
     parse_pairs,

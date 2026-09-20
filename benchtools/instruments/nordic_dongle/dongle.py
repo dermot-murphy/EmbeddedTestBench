@@ -24,13 +24,12 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass
-from typing import Callable, Dict, List, Optional, Sequence, Union
+from typing import Callable, List, Optional, Union
 
 from ...core.errors import (
     BenchToolsError,
     ConfigurationError,
     InstrumentError,
-    MeasurementError,
 )
 from ...core.instrument import Instrument, InstrumentIdentity
 from ...core.transport.base import Transport
@@ -59,7 +58,6 @@ from .latency import LatencySource, ResponseSample, ResponseTiming
 from .profile import AdvertisingEvent, AdvertisingProfile
 from .protocol import (
     Event,
-    address_type_of,
     encode_payload,
     format_address,
     from_hex,

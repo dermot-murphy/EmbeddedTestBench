@@ -29,7 +29,6 @@ from typing import Iterator, List, Optional
 
 from ...core.errors import (
     ConnectionFailedError,
-    ProtocolError,
     TransportError,
     TransportTimeoutError,
 )

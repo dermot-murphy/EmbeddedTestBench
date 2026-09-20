@@ -26,7 +26,7 @@ import os
 import re
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from ...core.errors import (
     BenchToolsError,
@@ -40,7 +40,6 @@ from ...core.instrument import Instrument, InstrumentIdentity
 from ...core.transport.base import Transport
 from ...core.transport.mock import MockTransport
 from ...core.transport.process import ProcessTransport
-from ...core.validation import validate_range
 from .constants import (
     DEFAULT_GDB_PORT,
     DEFAULT_RTT_PORT,
@@ -54,7 +53,6 @@ from .constants import (
     HaltReason,
     JLINK_LIMITS,
     ProbeLimits,
-    ResetType,
     TimingMethod,
     WatchpointKind,
 )
@@ -407,8 +405,10 @@ class JLinkProbe(Instrument):
             host, _, port = text.rpartition(":")
             try:
                 return (host or "127.0.0.1"), int(port)
-            except ValueError:
-                raise ConfigurationError("invalid port in probe resource %r" % resource)
+            except ValueError as exc:
+                raise ConfigurationError(
+                    "invalid port in probe resource %r" % resource
+                ) from exc
         return text, DEFAULT_GDB_PORT
 
     # ------------------------------------------------------------------

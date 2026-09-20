@@ -69,6 +69,7 @@ and `benches/`, and the workflows under `.github/`.
 | TB-QA-003 | Documents and code agree | `tests/test_traceability.py` | Passes, every change |
 | TB-QA-004 | Every requirement is verified | Traceability check | No requirement without a covering test |
 | TB-QA-005 | Firmware builds from a clean checkout | `.github/workflows/firmware.yml` | Green, every push |
+| TB-QA-008 | The suite and the lint check run where they can block a merge | `.github/workflows/tests.yml`, `lint.yml` | Green, every push |
 | TB-QA-006 | C source conforms to the standard | `.github/workflows/style.yml` (CStyleCheck) | Green, every push |
 | TB-QA-007 | Nothing unconfirmed is presented as confirmed | Review check C6, TB-TMPL-001 | No exceptions |
 
@@ -100,9 +101,10 @@ and `benches/`, and the workflows under `.github/`.
 
 ### 6.2 On Every Push
 
-The workflows in `.github/workflows/` build the firmware, run the coding-standard
-check, and run the Python suite. A red workflow is a problem under TB-SUP9-001,
-not a thing to re-run until it passes.
+The workflows in `.github/workflows/` build the firmware, run the C
+coding-standard check, run the bench specifications against the simulated
+bench, run the Python suite with coverage, and lint the Python. A red workflow
+is a problem under TB-SUP9-001, not a thing to re-run until it passes.
 
 ### 6.3 Before a Document Leaves Draft
 

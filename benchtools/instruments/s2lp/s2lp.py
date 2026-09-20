@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple, Union
+from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 from ...core.errors import ConfigurationError, InstrumentError, ProtocolError
 from ...core.instrument import Instrument, InstrumentIdentity

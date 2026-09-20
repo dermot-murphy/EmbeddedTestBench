@@ -12,7 +12,7 @@ import pytest
 
 from benchtools.core.errors import TransportTimeoutError
 from benchtools.core.transport.mock import MockTransport
-from benchtools.instruments.s2lp import S2lpSession, SimulatedS2lp
+from benchtools.instruments.s2lp import S2lpSession
 
 
 class Scripted:

@@ -62,3 +62,52 @@ include = ["benchtools*"]
 testpaths = ["tests"]
 addopts = "-q"
 filterwarnings = ["ignore::UserWarning:pyvisa_py.*"]
+
+# ---------------------------------------------------------------------------
+# pylint
+# ---------------------------------------------------------------------------
+# Run by .github/workflows/lint.yml through scripts/lint.py, which also
+# compares the findings against .pylint-baseline.json so the job fails on new
+# ones rather than on the debt that was there when the check was introduced.
+#
+# The same rule as the C side (TB-STY-001): a rule the project has decided
+# against is switched off here and said so; a rule the project accepts but has
+# not yet met stays on and goes in the baseline.
+
+[tool.pylint.main]
+jobs = 0
+persistent = false
+
+[tool.pylint.format]
+max-line-length = 100
+
+[tool.pylint."messages control"]
+disable = [
+    # Not adopted. The package uses %-formatting throughout - 645 occurrences,
+    # applied consistently, and readable. Converting them would be churn
+    # across every module in exchange for nothing a reader gains.
+    "consider-using-f-string",
+
+    # Not adopted, and the opposite of what this package does deliberately.
+    # Optional dependencies (pyyaml, matplotlib, pyvisa, pyserial) are imported
+    # inside the function that needs them, so a driver works on a bare Python
+    # install and a missing extra fails where it is used with a message naming
+    # it. Hoisting those imports to module level would break that.
+    "import-outside-toplevel",
+
+    # Not adopted. Instrument simulators hold state that `reset()` establishes
+    # and the command handlers replace; `__init__` calls `reset()`, which
+    # pylint does not follow. Listing every field twice to satisfy the check
+    # would make the reset path easier to get wrong, not harder.
+    "attribute-defined-outside-init",
+]
+
+[tool.pylint.basic]
+# Method names that mirror an instrument's own command spelling. The TDS3014B
+# simulator dispatches on the SCPI command it received, so `_cmd_ALLEV_Q` is
+# the header `ALLEV?` and renaming it to snake_case would hide the thing the
+# method exists to match.
+method-rgx = "^(([a-z_][a-z0-9_]{2,})|(_cmd_[A-Z0-9_]+))$"
+
+# Locals that are constants in everything but scope.
+variable-rgx = "^(([a-z_][a-z0-9_]{1,})|([A-Z_][A-Z0-9_]+))$"

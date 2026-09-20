@@ -23,7 +23,6 @@ from ... import __version__
 from ...core.errors import BenchToolsError
 from .constants import DEFAULT_BAUDRATE, DEFAULT_COMMAND_TIMEOUT
 from .dongle import NordicDongle
-from .firmware import FirmwareBuild
 from .latency import LatencySource
 
 __all__ = ["main", "build_parser"]
@@ -178,7 +177,7 @@ def _cmd_monitor(dongle: NordicDongle, args) -> int:
 
     seen = 0
     try:
-        for event in dongle.session.collect(args.duration, on_event=lambda item: print(item.raw)):
+        for _event in dongle.session.collect(args.duration, on_event=lambda item: print(item.raw)):
             seen += 1
     finally:
         dongle.session.execute("adv", "stop", allow_error=True)

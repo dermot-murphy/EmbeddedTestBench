@@ -25,9 +25,9 @@ from __future__ import annotations
 import datetime
 import logging
 import time
-from typing import Any, Callable, Dict, List, Optional, Sequence
+from typing import Any, Callable, Dict, List, Sequence
 
-from ..core.errors import BenchToolsError, SpecError, StepError
+from ..core.errors import BenchToolsError, SpecError
 from .bench import Bench, BenchConfig
 from .limits import Limit, TextLimit
 from .resolve import resolve_path, resolve_references
