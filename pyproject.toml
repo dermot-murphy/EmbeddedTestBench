@@ -75,7 +75,11 @@ filterwarnings = ["ignore::UserWarning:pyvisa_py.*"]
 # not yet met stays on and goes in the baseline.
 
 [tool.pylint.main]
-jobs = 0
+# One job, not one per core. pylint's duplicate-code check compares files
+# against each other, so what it finds depends on how the files were split
+# across workers - and a gate that answers differently on a four-core laptop
+# and a runner is not a gate.
+jobs = 1
 persistent = false
 
 [tool.pylint.format]

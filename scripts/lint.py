@@ -75,11 +75,34 @@ def collect():
     return messages
 
 
+def key_of(message):
+    """The identity a finding is recorded under.
+
+    Normally the file and the rule, which is stable when lines move above a
+    finding. `duplicate-code` is the exception: it is about two modules at
+    once, and pylint attributes it to an arbitrary third file - the runs that
+    produced this baseline blamed `core/transport/visa_backend.py` for a
+    similarity between two instrument sessions. Which file it picks varies
+    between machines, so keying it by path reported the same finding as new on
+    a different runner. It is keyed by the modules its own message names
+    instead, with the line ranges dropped so that editing either module does
+    not re-report it.
+    """
+    if message["symbol"] != "duplicate-code":
+        return (message["path"], message["symbol"])
+    modules = sorted(
+        line[2:].split(":")[0]
+        for line in message["message"].splitlines()
+        if line.startswith("==")
+    )
+    return (" & ".join(modules) or message["path"], "duplicate-code")
+
+
 def tally(messages):
-    """Count messages per (file, symbol) - stable when lines move."""
+    """Count messages per key - see key_of."""
     counts = collections.Counter()
     for message in messages:
-        counts[(message["path"], message["symbol"])] += 1
+        counts[key_of(message)] += 1
     return counts
 
 
@@ -124,7 +147,7 @@ def report_new(counts, baseline, messages):
             continue
         path, symbol = key
         for message in messages:
-            if (message["path"], message["symbol"]) == key:
+            if key_of(message) == key:
                 print("::error file=%s,line=%d,title=%s::%s"
                       % (path, message["line"], symbol, message["message"]))
         new += count - allowed
