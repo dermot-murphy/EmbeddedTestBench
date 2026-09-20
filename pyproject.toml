@@ -62,3 +62,70 @@ include = ["benchtools*"]
 testpaths = ["tests"]
 addopts = "-q"
 filterwarnings = ["ignore::UserWarning:pyvisa_py.*"]
+
+# ---------------------------------------------------------------------------
+# pylint
+# ---------------------------------------------------------------------------
+# Run by .github/workflows/lint.yml through scripts/lint.py, which also
+# compares the findings against .pylint-baseline.json so the job fails on new
+# ones rather than on the debt that was there when the check was introduced.
+#
+# The same rule as the C side (TB-STY-001): a rule the project has decided
+# against is switched off here and said so; a rule the project accepts but has
+# not yet met stays on and goes in the baseline.
+
+[tool.pylint.main]
+# One job, not one per core. pylint's duplicate-code check compares files
+# against each other, so what it finds depends on how the files were split
+# across workers - and a gate that answers differently on a four-core laptop
+# and a runner is not a gate.
+jobs = 1
+persistent = false
+
+[tool.pylint.format]
+max-line-length = 100
+
+[tool.pylint."messages control"]
+disable = [
+    # Not adopted. The package uses %-formatting throughout - 645 occurrences,
+    # applied consistently, and readable. Converting them would be churn
+    # across every module in exchange for nothing a reader gains.
+    "consider-using-f-string",
+
+    # Not adopted, and the opposite of what this package does deliberately.
+    # Optional dependencies (pyyaml, matplotlib, pyvisa, pyserial) are imported
+    # inside the function that needs them, so a driver works on a bare Python
+    # install and a missing extra fails where it is used with a message naming
+    # it. Hoisting those imports to module level would break that.
+    "import-outside-toplevel",
+
+    # Not adopted, because it cannot be enforced. duplicate-code compares
+    # files against each other, and which pairs it reports depends on the
+    # order the files are walked in - so the same tree gives different answers
+    # on different machines. Two runs of this repository, one local and one on
+    # a GitHub runner, found the same number of similarities and named
+    # different pairs. A rule whose output is not reproducible cannot gate a
+    # build, and baselining it only moves the flapping into the baseline.
+    #
+    # What it was pointing at is real and is recorded as debt in TB-ANA-001
+    # §6.13 rather than silenced: five driver CLIs carry the same `main()`
+    # boilerplate - parse, set the logging level, dispatch - and that belongs
+    # in one helper. Factoring it out is its own change, not a CI ticket's.
+    "duplicate-code",
+
+    # Not adopted. Instrument simulators hold state that `reset()` establishes
+    # and the command handlers replace; `__init__` calls `reset()`, which
+    # pylint does not follow. Listing every field twice to satisfy the check
+    # would make the reset path easier to get wrong, not harder.
+    "attribute-defined-outside-init",
+]
+
+[tool.pylint.basic]
+# Method names that mirror an instrument's own command spelling. The TDS3014B
+# simulator dispatches on the SCPI command it received, so `_cmd_ALLEV_Q` is
+# the header `ALLEV?` and renaming it to snake_case would hide the thing the
+# method exists to match.
+method-rgx = "^(([a-z_][a-z0-9_]{2,})|(_cmd_[A-Z0-9_]+))$"
+
+# Locals that are constants in everything but scope.
+variable-rgx = "^(([a-z_][a-z0-9_]{1,})|([A-Z_][A-Z0-9_]+))$"

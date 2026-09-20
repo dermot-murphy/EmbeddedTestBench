@@ -147,11 +147,18 @@ class TestIdentityCaching:
 class TestErrorChecking:
     def test_no_error_queue_by_default(self):
         class Plain(Instrument):
-            def _open(self): pass
-            def _close(self): pass
+            def _open(self):
+                pass
+
+            def _close(self):
+                pass
+
             @property
-            def is_open(self): return True
-            def _read_identity(self): return InstrumentIdentity(raw="x")
+            def is_open(self):
+                return True
+
+            def _read_identity(self):
+                return InstrumentIdentity(raw="x")
 
         Plain().check_errors()          # must not raise
 

@@ -23,10 +23,9 @@ from __future__ import annotations
 import logging
 import time
 from collections import deque
-from typing import Callable, Deque, Iterable, List, Optional
+from typing import Callable, Deque, List, Optional
 
 from ...core.errors import (
-    BenchToolsError,
     ConnectionFailedError,
     InstrumentError,
     TransportError,

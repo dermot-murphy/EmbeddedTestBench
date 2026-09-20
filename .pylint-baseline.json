@@ -1,0 +1,1051 @@
+{
+  "comment": "Findings present when the pylint check was introduced. The job fails on findings beyond these. Regenerate with scripts/lint.py --write-baseline, and say why in the commit that does it.",
+  "total": 436,
+  "findings": [
+    {
+      "path": "benchtools/analysis/measure.py",
+      "symbol": "too-many-arguments",
+      "count": 1
+    },
+    {
+      "path": "benchtools/analysis/measure.py",
+      "symbol": "too-many-locals",
+      "count": 2
+    },
+    {
+      "path": "benchtools/analysis/measure.py",
+      "symbol": "too-many-positional-arguments",
+      "count": 1
+    },
+    {
+      "path": "benchtools/analysis/plotting.py",
+      "symbol": "too-many-arguments",
+      "count": 1
+    },
+    {
+      "path": "benchtools/analysis/plotting.py",
+      "symbol": "too-many-locals",
+      "count": 1
+    },
+    {
+      "path": "benchtools/analysis/plotting.py",
+      "symbol": "too-many-positional-arguments",
+      "count": 1
+    },
+    {
+      "path": "benchtools/analysis/waveform.py",
+      "symbol": "consider-using-enumerate",
+      "count": 1
+    },
+    {
+      "path": "benchtools/analysis/waveform.py",
+      "symbol": "redefined-outer-name",
+      "count": 1
+    },
+    {
+      "path": "benchtools/analysis/waveform.py",
+      "symbol": "too-many-instance-attributes",
+      "count": 1
+    },
+    {
+      "path": "benchtools/cli.py",
+      "symbol": "too-many-return-statements",
+      "count": 1
+    },
+    {
+      "path": "benchtools/core/firmware.py",
+      "symbol": "too-many-instance-attributes",
+      "count": 1
+    },
+    {
+      "path": "benchtools/core/instrument.py",
+      "symbol": "broad-exception-caught",
+      "count": 1
+    },
+    {
+      "path": "benchtools/core/scpi.py",
+      "symbol": "too-many-arguments",
+      "count": 1
+    },
+    {
+      "path": "benchtools/core/scpi.py",
+      "symbol": "too-many-positional-arguments",
+      "count": 1
+    },
+    {
+      "path": "benchtools/core/simulator.py",
+      "symbol": "too-few-public-methods",
+      "count": 1
+    },
+    {
+      "path": "benchtools/core/simulator.py",
+      "symbol": "unnecessary-ellipsis",
+      "count": 3
+    },
+    {
+      "path": "benchtools/core/simulator.py",
+      "symbol": "useless-return",
+      "count": 2
+    },
+    {
+      "path": "benchtools/core/transport/base.py",
+      "symbol": "broad-exception-caught",
+      "count": 1
+    },
+    {
+      "path": "benchtools/core/transport/factory.py",
+      "symbol": "too-many-branches",
+      "count": 1
+    },
+    {
+      "path": "benchtools/core/transport/factory.py",
+      "symbol": "too-many-return-statements",
+      "count": 1
+    },
+    {
+      "path": "benchtools/core/transport/process.py",
+      "symbol": "consider-using-with",
+      "count": 1
+    },
+    {
+      "path": "benchtools/core/transport/process.py",
+      "symbol": "line-too-long",
+      "count": 1
+    },
+    {
+      "path": "benchtools/core/transport/process.py",
+      "symbol": "too-many-arguments",
+      "count": 1
+    },
+    {
+      "path": "benchtools/core/transport/process.py",
+      "symbol": "too-many-instance-attributes",
+      "count": 1
+    },
+    {
+      "path": "benchtools/core/transport/process.py",
+      "symbol": "too-many-positional-arguments",
+      "count": 1
+    },
+    {
+      "path": "benchtools/core/transport/serial_port.py",
+      "symbol": "broad-exception-caught",
+      "count": 3
+    },
+    {
+      "path": "benchtools/core/transport/serial_port.py",
+      "symbol": "too-many-arguments",
+      "count": 1
+    },
+    {
+      "path": "benchtools/core/transport/serial_port.py",
+      "symbol": "too-many-instance-attributes",
+      "count": 1
+    },
+    {
+      "path": "benchtools/core/transport/serial_port.py",
+      "symbol": "too-many-positional-arguments",
+      "count": 1
+    },
+    {
+      "path": "benchtools/core/transport/visa_backend.py",
+      "symbol": "line-too-long",
+      "count": 1
+    },
+    {
+      "path": "benchtools/core/transport/vxi11.py",
+      "symbol": "line-too-long",
+      "count": 3
+    },
+    {
+      "path": "benchtools/core/transport/vxi11.py",
+      "symbol": "missing-function-docstring",
+      "count": 10
+    },
+    {
+      "path": "benchtools/core/transport/vxi11.py",
+      "symbol": "too-many-arguments",
+      "count": 3
+    },
+    {
+      "path": "benchtools/core/transport/vxi11.py",
+      "symbol": "too-many-instance-attributes",
+      "count": 1
+    },
+    {
+      "path": "benchtools/core/transport/vxi11.py",
+      "symbol": "too-many-positional-arguments",
+      "count": 3
+    },
+    {
+      "path": "benchtools/instruments/gpd3303d/cli.py",
+      "symbol": "missing-function-docstring",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/gpd3303d/constants.py",
+      "symbol": "too-few-public-methods",
+      "count": 2
+    },
+    {
+      "path": "benchtools/instruments/gpd3303d/psu.py",
+      "symbol": "arguments-differ",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/gpd3303d/psu.py",
+      "symbol": "missing-function-docstring",
+      "count": 2
+    },
+    {
+      "path": "benchtools/instruments/gpd3303d/psu.py",
+      "symbol": "too-many-public-methods",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/gpd3303d/simulator.py",
+      "symbol": "too-few-public-methods",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/gpd3303d/simulator.py",
+      "symbol": "useless-return",
+      "count": 5
+    },
+    {
+      "path": "benchtools/instruments/jlink/cli.py",
+      "symbol": "line-too-long",
+      "count": 2
+    },
+    {
+      "path": "benchtools/instruments/jlink/cli.py",
+      "symbol": "too-many-statements",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/jlink/gdbmi.py",
+      "symbol": "missing-function-docstring",
+      "count": 4
+    },
+    {
+      "path": "benchtools/instruments/jlink/gdbmi.py",
+      "symbol": "too-many-return-statements",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/jlink/probe.py",
+      "symbol": "broad-exception-caught",
+      "count": 2
+    },
+    {
+      "path": "benchtools/instruments/jlink/probe.py",
+      "symbol": "line-too-long",
+      "count": 6
+    },
+    {
+      "path": "benchtools/instruments/jlink/probe.py",
+      "symbol": "missing-function-docstring",
+      "count": 2
+    },
+    {
+      "path": "benchtools/instruments/jlink/probe.py",
+      "symbol": "too-many-arguments",
+      "count": 5
+    },
+    {
+      "path": "benchtools/instruments/jlink/probe.py",
+      "symbol": "too-many-instance-attributes",
+      "count": 2
+    },
+    {
+      "path": "benchtools/instruments/jlink/probe.py",
+      "symbol": "too-many-lines",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/jlink/probe.py",
+      "symbol": "too-many-locals",
+      "count": 2
+    },
+    {
+      "path": "benchtools/instruments/jlink/probe.py",
+      "symbol": "too-many-positional-arguments",
+      "count": 5
+    },
+    {
+      "path": "benchtools/instruments/jlink/probe.py",
+      "symbol": "too-many-public-methods",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/jlink/probe.py",
+      "symbol": "too-many-return-statements",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/jlink/rtt.py",
+      "symbol": "broad-exception-caught",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/jlink/rtt.py",
+      "symbol": "consider-using-with",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/jlink/rtt.py",
+      "symbol": "line-too-long",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/jlink/rtt.py",
+      "symbol": "missing-function-docstring",
+      "count": 8
+    },
+    {
+      "path": "benchtools/instruments/jlink/rtt.py",
+      "symbol": "too-many-instance-attributes",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/jlink/rtt.py",
+      "symbol": "unnecessary-ellipsis",
+      "count": 4
+    },
+    {
+      "path": "benchtools/instruments/jlink/server.py",
+      "symbol": "consider-using-with",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/jlink/server.py",
+      "symbol": "too-many-arguments",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/jlink/server.py",
+      "symbol": "too-many-instance-attributes",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/jlink/server.py",
+      "symbol": "too-many-positional-arguments",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/jlink/session.py",
+      "symbol": "broad-exception-caught",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/jlink/simulator.py",
+      "symbol": "too-many-branches",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/jlink/simulator.py",
+      "symbol": "too-many-instance-attributes",
+      "count": 2
+    },
+    {
+      "path": "benchtools/instruments/jlink/simulator.py",
+      "symbol": "too-many-return-statements",
+      "count": 2
+    },
+    {
+      "path": "benchtools/instruments/jlink/simulator.py",
+      "symbol": "unused-argument",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/jlink/swo.py",
+      "symbol": "too-many-branches",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/jlink/swo.py",
+      "symbol": "too-many-return-statements",
+      "count": 2
+    },
+    {
+      "path": "benchtools/instruments/nordic_dongle/cli.py",
+      "symbol": "line-too-long",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/nordic_dongle/cli.py",
+      "symbol": "too-many-statements",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/nordic_dongle/constants.py",
+      "symbol": "missing-function-docstring",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/nordic_dongle/dongle.py",
+      "symbol": "missing-function-docstring",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/nordic_dongle/dongle.py",
+      "symbol": "too-many-arguments",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/nordic_dongle/dongle.py",
+      "symbol": "too-many-instance-attributes",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/nordic_dongle/dongle.py",
+      "symbol": "too-many-lines",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/nordic_dongle/dongle.py",
+      "symbol": "too-many-positional-arguments",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/nordic_dongle/dongle.py",
+      "symbol": "too-many-public-methods",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/nordic_dongle/dongle.py",
+      "symbol": "unused-argument",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/nordic_dongle/dongle.py",
+      "symbol": "use-maxsplit-arg",
+      "count": 2
+    },
+    {
+      "path": "benchtools/instruments/nordic_dongle/firmware.py",
+      "symbol": "missing-function-docstring",
+      "count": 2
+    },
+    {
+      "path": "benchtools/instruments/nordic_dongle/firmware.py",
+      "symbol": "too-many-instance-attributes",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/nordic_dongle/latency.py",
+      "symbol": "missing-function-docstring",
+      "count": 8
+    },
+    {
+      "path": "benchtools/instruments/nordic_dongle/profile.py",
+      "symbol": "missing-function-docstring",
+      "count": 2
+    },
+    {
+      "path": "benchtools/instruments/nordic_dongle/profile.py",
+      "symbol": "too-many-instance-attributes",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/nordic_dongle/profile.py",
+      "symbol": "too-many-public-methods",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/nordic_dongle/script.py",
+      "symbol": "broad-exception-caught",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/nordic_dongle/script.py",
+      "symbol": "missing-function-docstring",
+      "count": 8
+    },
+    {
+      "path": "benchtools/instruments/nordic_dongle/script.py",
+      "symbol": "too-many-branches",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/nordic_dongle/script.py",
+      "symbol": "too-many-instance-attributes",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/nordic_dongle/script.py",
+      "symbol": "too-many-locals",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/nordic_dongle/script.py",
+      "symbol": "too-many-statements",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/nordic_dongle/session.py",
+      "symbol": "consider-using-with",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/nordic_dongle/simulator.py",
+      "symbol": "line-too-long",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/nordic_dongle/simulator.py",
+      "symbol": "too-many-instance-attributes",
+      "count": 2
+    },
+    {
+      "path": "benchtools/instruments/nordic_dongle/simulator.py",
+      "symbol": "unused-argument",
+      "count": 7
+    },
+    {
+      "path": "benchtools/instruments/s2lp/cli.py",
+      "symbol": "consider-using-with",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/s2lp/cli.py",
+      "symbol": "line-too-long",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/s2lp/cli.py",
+      "symbol": "missing-function-docstring",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/s2lp/cli.py",
+      "symbol": "too-many-statements",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/s2lp/configuration.py",
+      "symbol": "missing-function-docstring",
+      "count": 7
+    },
+    {
+      "path": "benchtools/instruments/s2lp/constants.py",
+      "symbol": "too-few-public-methods",
+      "count": 4
+    },
+    {
+      "path": "benchtools/instruments/s2lp/packets.py",
+      "symbol": "consider-using-with",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/s2lp/packets.py",
+      "symbol": "missing-function-docstring",
+      "count": 10
+    },
+    {
+      "path": "benchtools/instruments/s2lp/protocol.py",
+      "symbol": "missing-function-docstring",
+      "count": 3
+    },
+    {
+      "path": "benchtools/instruments/s2lp/registers.py",
+      "symbol": "line-too-long",
+      "count": 2
+    },
+    {
+      "path": "benchtools/instruments/s2lp/registers.py",
+      "symbol": "missing-function-docstring",
+      "count": 2
+    },
+    {
+      "path": "benchtools/instruments/s2lp/s2lp.py",
+      "symbol": "line-too-long",
+      "count": 2
+    },
+    {
+      "path": "benchtools/instruments/s2lp/s2lp.py",
+      "symbol": "missing-function-docstring",
+      "count": 8
+    },
+    {
+      "path": "benchtools/instruments/s2lp/s2lp.py",
+      "symbol": "too-many-arguments",
+      "count": 2
+    },
+    {
+      "path": "benchtools/instruments/s2lp/s2lp.py",
+      "symbol": "too-many-positional-arguments",
+      "count": 2
+    },
+    {
+      "path": "benchtools/instruments/s2lp/s2lp.py",
+      "symbol": "too-many-public-methods",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/s2lp/session.py",
+      "symbol": "consider-using-with",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/s2lp/session.py",
+      "symbol": "missing-function-docstring",
+      "count": 2
+    },
+    {
+      "path": "benchtools/instruments/s2lp/simulator.py",
+      "symbol": "too-many-instance-attributes",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/s2lp/simulator.py",
+      "symbol": "unused-argument",
+      "count": 2
+    },
+    {
+      "path": "benchtools/instruments/tek3014b/cli.py",
+      "symbol": "line-too-long",
+      "count": 11
+    },
+    {
+      "path": "benchtools/instruments/tek3014b/cli.py",
+      "symbol": "too-many-statements",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/tek3014b/constants.py",
+      "symbol": "too-many-instance-attributes",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/tek3014b/scope.py",
+      "symbol": "broad-exception-caught",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/tek3014b/scope.py",
+      "symbol": "too-many-arguments",
+      "count": 4
+    },
+    {
+      "path": "benchtools/instruments/tek3014b/scope.py",
+      "symbol": "too-many-locals",
+      "count": 2
+    },
+    {
+      "path": "benchtools/instruments/tek3014b/scope.py",
+      "symbol": "too-many-positional-arguments",
+      "count": 4
+    },
+    {
+      "path": "benchtools/instruments/tek3014b/scope.py",
+      "symbol": "too-many-public-methods",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/tek3014b/scope.py",
+      "symbol": "unused-argument",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/tek3014b/simulator.py",
+      "symbol": "invalid-name",
+      "count": 3
+    },
+    {
+      "path": "benchtools/instruments/tek3014b/simulator.py",
+      "symbol": "line-too-long",
+      "count": 3
+    },
+    {
+      "path": "benchtools/instruments/tek3014b/simulator.py",
+      "symbol": "too-many-branches",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/tek3014b/simulator.py",
+      "symbol": "too-many-instance-attributes",
+      "count": 2
+    },
+    {
+      "path": "benchtools/instruments/tek3014b/simulator.py",
+      "symbol": "too-many-return-statements",
+      "count": 1
+    },
+    {
+      "path": "benchtools/instruments/tek3014b/simulator.py",
+      "symbol": "useless-return",
+      "count": 31
+    },
+    {
+      "path": "benchtools/runner/bench.py",
+      "symbol": "broad-exception-caught",
+      "count": 1
+    },
+    {
+      "path": "benchtools/runner/bench.py",
+      "symbol": "missing-function-docstring",
+      "count": 2
+    },
+    {
+      "path": "benchtools/runner/cli.py",
+      "symbol": "too-many-branches",
+      "count": 1
+    },
+    {
+      "path": "benchtools/runner/cli.py",
+      "symbol": "too-many-locals",
+      "count": 1
+    },
+    {
+      "path": "benchtools/runner/limits.py",
+      "symbol": "line-too-long",
+      "count": 1
+    },
+    {
+      "path": "benchtools/runner/report.py",
+      "symbol": "consider-using-from-import",
+      "count": 1
+    },
+    {
+      "path": "benchtools/runner/report.py",
+      "symbol": "too-many-branches",
+      "count": 1
+    },
+    {
+      "path": "benchtools/runner/report.py",
+      "symbol": "too-many-statements",
+      "count": 1
+    },
+    {
+      "path": "benchtools/runner/resolve.py",
+      "symbol": "missing-function-docstring",
+      "count": 1
+    },
+    {
+      "path": "benchtools/runner/results.py",
+      "symbol": "missing-function-docstring",
+      "count": 9
+    },
+    {
+      "path": "benchtools/runner/results.py",
+      "symbol": "too-many-instance-attributes",
+      "count": 1
+    },
+    {
+      "path": "benchtools/runner/runner.py",
+      "symbol": "broad-exception-caught",
+      "count": 1
+    },
+    {
+      "path": "benchtools/runner/spec.py",
+      "symbol": "line-too-long",
+      "count": 1
+    },
+    {
+      "path": "benchtools/runner/spec.py",
+      "symbol": "missing-function-docstring",
+      "count": 4
+    },
+    {
+      "path": "benchtools/runner/spec.py",
+      "symbol": "too-many-instance-attributes",
+      "count": 2
+    },
+    {
+      "path": "tests/analysis/test_measure.py",
+      "symbol": "invalid-name",
+      "count": 1
+    },
+    {
+      "path": "tests/analysis/test_measure.py",
+      "symbol": "line-too-long",
+      "count": 2
+    },
+    {
+      "path": "tests/analysis/test_measure.py",
+      "symbol": "use-implicit-booleaness-not-comparison",
+      "count": 1
+    },
+    {
+      "path": "tests/analysis/test_plotting.py",
+      "symbol": "consider-using-with",
+      "count": 6
+    },
+    {
+      "path": "tests/analysis/test_plotting.py",
+      "symbol": "too-few-public-methods",
+      "count": 1
+    },
+    {
+      "path": "tests/analysis/test_waveform.py",
+      "symbol": "consider-using-with",
+      "count": 2
+    },
+    {
+      "path": "tests/core/test_instrument.py",
+      "symbol": "abstract-method",
+      "count": 4
+    },
+    {
+      "path": "tests/core/test_scpi.py",
+      "symbol": "too-few-public-methods",
+      "count": 1
+    },
+    {
+      "path": "tests/core/test_scpi.py",
+      "symbol": "unused-argument",
+      "count": 1
+    },
+    {
+      "path": "tests/core/test_simulator.py",
+      "symbol": "unused-argument",
+      "count": 1
+    },
+    {
+      "path": "tests/core/test_simulator.py",
+      "symbol": "useless-return",
+      "count": 2
+    },
+    {
+      "path": "tests/core/transport/test_visa.py",
+      "symbol": "unused-argument",
+      "count": 3
+    },
+    {
+      "path": "tests/core/transport/vxi11_server.py",
+      "symbol": "too-many-instance-attributes",
+      "count": 1
+    },
+    {
+      "path": "tests/core/transport/vxi11_server.py",
+      "symbol": "too-many-return-statements",
+      "count": 1
+    },
+    {
+      "path": "tests/instruments/gpd3303d/test_psu.py",
+      "symbol": "unused-argument",
+      "count": 2
+    },
+    {
+      "path": "tests/instruments/jlink/test_server.py",
+      "symbol": "too-few-public-methods",
+      "count": 1
+    },
+    {
+      "path": "tests/instruments/jlink/test_server.py",
+      "symbol": "unused-argument",
+      "count": 2
+    },
+    {
+      "path": "tests/instruments/jlink/test_server.py",
+      "symbol": "useless-return",
+      "count": 1
+    },
+    {
+      "path": "tests/instruments/jlink/test_session.py",
+      "symbol": "too-few-public-methods",
+      "count": 1
+    },
+    {
+      "path": "tests/instruments/jlink/test_sockets.py",
+      "symbol": "use-implicit-booleaness-not-comparison",
+      "count": 3
+    },
+    {
+      "path": "tests/instruments/jlink/test_swo.py",
+      "symbol": "line-too-long",
+      "count": 1
+    },
+    {
+      "path": "tests/instruments/jlink/test_swo.py",
+      "symbol": "use-implicit-booleaness-not-comparison",
+      "count": 1
+    },
+    {
+      "path": "tests/instruments/nordic_dongle/test_cli.py",
+      "symbol": "use-implicit-booleaness-not-comparison",
+      "count": 1
+    },
+    {
+      "path": "tests/instruments/nordic_dongle/test_dongle.py",
+      "symbol": "consider-using-with",
+      "count": 1
+    },
+    {
+      "path": "tests/instruments/nordic_dongle/test_dongle.py",
+      "symbol": "line-too-long",
+      "count": 1
+    },
+    {
+      "path": "tests/instruments/nordic_dongle/test_dongle.py",
+      "symbol": "unspecified-encoding",
+      "count": 1
+    },
+    {
+      "path": "tests/instruments/nordic_dongle/test_dongle.py",
+      "symbol": "unused-argument",
+      "count": 1
+    },
+    {
+      "path": "tests/instruments/nordic_dongle/test_firmware.py",
+      "symbol": "too-few-public-methods",
+      "count": 2
+    },
+    {
+      "path": "tests/instruments/nordic_dongle/test_firmware.py",
+      "symbol": "unused-argument",
+      "count": 3
+    },
+    {
+      "path": "tests/instruments/nordic_dongle/test_firmware.py",
+      "symbol": "use-implicit-booleaness-not-comparison",
+      "count": 1
+    },
+    {
+      "path": "tests/instruments/nordic_dongle/test_protocol.py",
+      "symbol": "line-too-long",
+      "count": 1
+    },
+    {
+      "path": "tests/instruments/nordic_dongle/test_protocol.py",
+      "symbol": "too-few-public-methods",
+      "count": 1
+    },
+    {
+      "path": "tests/instruments/nordic_dongle/test_script.py",
+      "symbol": "consider-using-with",
+      "count": 1
+    },
+    {
+      "path": "tests/instruments/nordic_dongle/test_script.py",
+      "symbol": "line-too-long",
+      "count": 1
+    },
+    {
+      "path": "tests/instruments/nordic_dongle/test_script.py",
+      "symbol": "too-few-public-methods",
+      "count": 1
+    },
+    {
+      "path": "tests/instruments/nordic_dongle/test_session.py",
+      "symbol": "line-too-long",
+      "count": 1
+    },
+    {
+      "path": "tests/instruments/nordic_dongle/test_session.py",
+      "symbol": "unused-argument",
+      "count": 1
+    },
+    {
+      "path": "tests/instruments/s2lp/test_cli.py",
+      "symbol": "consider-using-with",
+      "count": 1
+    },
+    {
+      "path": "tests/instruments/s2lp/test_configuration.py",
+      "symbol": "consider-using-with",
+      "count": 1
+    },
+    {
+      "path": "tests/instruments/s2lp/test_configuration.py",
+      "symbol": "too-few-public-methods",
+      "count": 1
+    },
+    {
+      "path": "tests/instruments/s2lp/test_protocol.py",
+      "symbol": "too-few-public-methods",
+      "count": 1
+    },
+    {
+      "path": "tests/instruments/s2lp/test_protocol.py",
+      "symbol": "use-implicit-booleaness-not-comparison",
+      "count": 1
+    },
+    {
+      "path": "tests/instruments/s2lp/test_registers.py",
+      "symbol": "superfluous-parens",
+      "count": 1
+    },
+    {
+      "path": "tests/instruments/s2lp/test_s2lp.py",
+      "symbol": "consider-using-with",
+      "count": 3
+    },
+    {
+      "path": "tests/instruments/s2lp/test_session.py",
+      "symbol": "consider-using-with",
+      "count": 5
+    },
+    {
+      "path": "tests/instruments/s2lp/test_session.py",
+      "symbol": "too-few-public-methods",
+      "count": 1
+    },
+    {
+      "path": "tests/instruments/s2lp/test_session.py",
+      "symbol": "unused-argument",
+      "count": 1
+    },
+    {
+      "path": "tests/instruments/tek3014b/test_scope.py",
+      "symbol": "consider-using-with",
+      "count": 3
+    },
+    {
+      "path": "tests/instruments/tek3014b/test_scope.py",
+      "symbol": "unused-argument",
+      "count": 2
+    },
+    {
+      "path": "tests/instruments/tek3014b/test_simulator.py",
+      "symbol": "line-too-long",
+      "count": 1
+    },
+    {
+      "path": "tests/runner/test_cli.py",
+      "symbol": "consider-using-with",
+      "count": 1
+    },
+    {
+      "path": "tests/runner/test_cli.py",
+      "symbol": "unused-argument",
+      "count": 5
+    },
+    {
+      "path": "tests/runner/test_limits.py",
+      "symbol": "too-few-public-methods",
+      "count": 1
+    },
+    {
+      "path": "tests/runner/test_report.py",
+      "symbol": "consider-using-from-import",
+      "count": 1
+    },
+    {
+      "path": "tests/runner/test_report.py",
+      "symbol": "consider-using-with",
+      "count": 5
+    },
+    {
+      "path": "tests/runner/test_report.py",
+      "symbol": "unused-argument",
+      "count": 1
+    },
+    {
+      "path": "tests/runner/test_sensor_bringup.py",
+      "symbol": "wrong-import-position",
+      "count": 6
+    },
+    {
+      "path": "tests/test_traceability.py",
+      "symbol": "line-too-long",
+      "count": 2
+    },
+    {
+      "path": "tests/test_traceability.py",
+      "symbol": "too-few-public-methods",
+      "count": 1
+    }
+  ]
+}

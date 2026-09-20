@@ -23,15 +23,12 @@ Traces to: BLE-FR-012 .. BLE-FR-014, BLE-DD-FIRMWARE.
 
 from __future__ import annotations
 
-import json
-import os
-import pathlib
 import subprocess
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from dataclasses import dataclass
+from datetime import datetime
 from typing import Dict, Optional, Union
 
-from ...core.errors import ConfigurationError, InstrumentError
+from ...core.errors import InstrumentError
 from ...core.firmware import MANIFEST_NAME, FirmwareBuild, parse_build_date
 
 __all__ = [

@@ -134,12 +134,12 @@ class SocketTransport(Transport):
             while True:
                 try:
                     chunk = self._sock.recv(65536)
-                except socket.timeout:
+                except socket.timeout as exc:
                     if collected:
                         break
                     raise TransportTimeoutError(
                         "no data from %s within %.3f s" % (self.description, self._timeout)
-                    )
+                    ) from exc
                 if not chunk:
                     break
                 collected.extend(chunk)

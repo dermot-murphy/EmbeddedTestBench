@@ -39,8 +39,10 @@ def _parse_channels(text: str) -> List[int]:
             continue
         try:
             channels.append(int(token))
-        except ValueError:
-            raise argparse.ArgumentTypeError("%r is not a channel number" % token)
+        except ValueError as exc:
+            raise argparse.ArgumentTypeError(
+                "%r is not a channel number" % token
+            ) from exc
     if not channels:
         raise argparse.ArgumentTypeError("no channels given")
     return channels
@@ -56,8 +58,10 @@ def _per_channel(text: Optional[str], channels: Sequence[int], name: str) -> Dic
     values = [token.strip() for token in str(text).split(",") if token.strip()]
     try:
         numbers = [float(value) for value in values]
-    except ValueError:
-        raise SystemExit("%s: %r is not a number or a comma-separated list" % (name, text))
+    except ValueError as exc:
+        raise SystemExit(
+            "%s: %r is not a number or a comma-separated list" % (name, text)
+        ) from exc
     if len(numbers) == 1:
         return {channel: numbers[0] for channel in channels}
     if len(numbers) != len(channels):

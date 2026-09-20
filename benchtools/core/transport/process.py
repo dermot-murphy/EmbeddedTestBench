@@ -25,11 +25,10 @@ import logging
 import os
 import queue
 import shlex
-import signal
 import subprocess
 import threading
 from collections import deque
-from typing import Deque, List, Optional, Sequence, Tuple
+from typing import Deque, List, Optional, Tuple
 
 from ..errors import ConnectionFailedError, TransportError, TransportTimeoutError
 from .base import Transport

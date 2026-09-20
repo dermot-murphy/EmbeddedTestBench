@@ -31,7 +31,7 @@ import csv
 import math
 import os
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence
 
 from ..core.errors import ProtocolError
 from ..core.scpi import parse_ieee_block

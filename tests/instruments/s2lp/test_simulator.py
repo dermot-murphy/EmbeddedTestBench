@@ -10,9 +10,8 @@ Traces to: S2LP-FR-050, SWE4-UT-S2LPSIM.
 
 from __future__ import annotations
 
-import pytest
 
-from benchtools.instruments.s2lp import SimulatedS2lp, registers as reg
+from benchtools.instruments.s2lp import registers as reg
 from benchtools.instruments.s2lp.simulator import RX_TIMEOUT
 
 

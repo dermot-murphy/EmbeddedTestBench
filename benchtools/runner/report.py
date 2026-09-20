@@ -22,7 +22,7 @@ from __future__ import annotations
 import json
 import os
 import xml.etree.ElementTree as ElementTree
-from typing import List, Optional, Union
+from typing import List, Union
 
 from .results import CaseRecord, RunRecord, Status
 

@@ -21,6 +21,9 @@ build/
 # "Result: PASS" - committed, it would be indistinguishable from bench evidence,
 # which is what TB-DEV-001 and TB-SUP9-001 section 8 exist to prevent.
 #
+# *.log covers ble_session.log and sensor_rtt.log by pattern, and the logs any
+# other specification writes. No .log file is tracked in this repository.
+#
 # The markdown and JSON rules are anchored to the repository root on purpose.
 # specs/sensor_commands.md is tracked source, not a report, and the firmware
 # manifests under benches/simulated/ are tracked fixtures.

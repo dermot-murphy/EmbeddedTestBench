@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import ast
 import pathlib
+import sys
 
 import pytest
 
@@ -161,7 +162,6 @@ def test_core_never_references_an_instrument():
 def test_core_is_importable_on_its_own():
     """Importing core must not drag in analysis, instruments or the runner."""
     import subprocess
-    import sys
 
     script = (
         "import sys, benchtools.core\n"
@@ -186,7 +186,6 @@ def test_core_is_importable_on_its_own():
 def test_analysis_is_importable_without_instruments():
     """Analysis must be usable on stored records with no instrument present."""
     import subprocess
-    import sys
 
     script = (
         "import sys, benchtools.analysis\n"
@@ -230,20 +229,69 @@ def _module_level_imports(path: pathlib.Path):
     return roots
 
 
-def _standard_library_names():
-    import sys
+def _is_standard_library(name):
+    """Is ``name`` a standard library module on the interpreter running this?
 
+    ``sys.stdlib_module_names`` arrived in 3.10 and answers directly. Below
+    that the question is answered by finding the module and asking where it
+    lives: built into the interpreter, or inside the standard library
+    directory. A hand-kept list of names was here before and did what such
+    lists do - it went stale, and CI on 3.9 reported ``array`` and ``zlib`` as
+    third-party dependencies of a package that has none.
+    """
     names = getattr(sys, "stdlib_module_names", None)
     if names is not None:                        # 3.10+
-        return set(names)
-    return set(sys.builtin_module_names) | {     # 3.8/3.9 fallback: what is used here
-        "abc", "argparse", "ast", "binascii", "collections", "contextlib", "copy",
-        "csv", "dataclasses", "datetime", "deque", "enum", "functools", "glob",
-        "importlib", "io", "json", "logging", "math", "os", "pathlib", "queue",
-        "random", "re", "select", "shlex", "shutil", "socket", "statistics",
-        "struct", "subprocess", "sys", "tempfile", "threading", "time", "types",
-        "typing", "unittest", "warnings", "xml", "zipfile",
-    }
+        return name in names
+
+    if name in sys.builtin_module_names:
+        return True
+
+    import importlib.util
+
+    try:
+        spec = importlib.util.find_spec(name)
+    except (ImportError, ValueError):
+        spec = None
+    if spec is None:
+        return False
+    if spec.origin in (None, "built-in", "frozen"):
+        return True
+    return _lives_in_the_standard_library(spec.origin)
+
+
+def _lives_in_the_standard_library(origin):
+    """Is this file inside the standard library directory?"""
+    import os
+    import sysconfig
+
+    stdlib = sysconfig.get_paths().get("stdlib")
+    if not stdlib:
+        return False
+    origin = os.path.realpath(origin)
+    stdlib = os.path.realpath(stdlib)
+    # site-packages sits under the stdlib directory on some layouts, and what
+    # is installed there is exactly what this test is looking for.
+    if origin.startswith(os.path.join(stdlib, "site-packages") + os.sep):
+        return False
+    return origin.startswith(stdlib + os.sep)
+
+
+def test_standard_library_detection_without_stdlib_module_names(monkeypatch):
+    """The pre-3.10 path classifies correctly, on any interpreter.
+
+    It only runs below 3.10, so on a newer one it is dead code that nobody
+    exercises - which is how it came to report `array` and `zlib`, both
+    standard library, as third-party dependencies when CI first ran the suite
+    on 3.9. Removing `sys.stdlib_module_names` here makes the check take that
+    path whatever interpreter the suite is running on.
+    """
+    monkeypatch.delattr(sys, "stdlib_module_names", raising=False)
+
+    for name in ("array", "zlib", "os", "json", "sys", "binascii", "select"):
+        assert _is_standard_library(name), "%s is standard library" % name
+
+    for name in ("pytest", "definitely_not_a_module_anyone_installed"):
+        assert not _is_standard_library(name), "%s is not standard library" % name
 
 
 def test_no_mandatory_third_party_imports():
@@ -254,11 +302,10 @@ def test_no_mandatory_third_party_imports():
     extras are therefore imported inside the function that needs them, where the
     absence can be turned into a diagnostic naming the extra (CORE-NFR-003).
     """
-    standard = _standard_library_names()
     offenders = []
     for path in _sources():
         for root in _module_level_imports(path):
-            if root in standard or root in ("benchtools", "__future__"):
+            if root in ("benchtools", "__future__") or _is_standard_library(root):
                 continue
             offenders.append(
                 "%s imports %s at module level%s"

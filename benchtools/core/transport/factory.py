@@ -33,7 +33,7 @@ from typing import Callable, Dict, Optional, Tuple, Type
 
 from ..errors import UnsupportedTransportError
 from .base import Transport
-from .constants import DEFAULT_RAW_SOCKET_PORT, DEFAULT_VXI11_DEVICE_NAMES
+from .constants import DEFAULT_RAW_SOCKET_PORT
 from .mock import MockTransport
 from .process import ProcessTransport
 from .serial_port import SerialTransport
