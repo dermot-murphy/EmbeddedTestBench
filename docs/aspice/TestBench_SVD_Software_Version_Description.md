@@ -185,7 +185,7 @@ recorded on TB-TMPL-001, because no such review has been held.
 | 5 | The firmware build sets no explicit `-std` and does not enable `-Wextra` | TB-STD-002 §7.1, §7.2 |
 | 6 | The RS-232 multimeter (STK-18) is deferred; no requirements exist for it | TB-SYS2-104 |
 | 7 | No document in this baseline has been reviewed | §5.3 |
-| 8 | The Python lint check is baselined at 458 existing findings and fails only on new ones | TB-ANA-001 §6.13 |
+| 8 | The Python lint check is baselined at 436 existing findings and fails only on new ones; `duplicate-code` is disabled because its output is not reproducible across machines | TB-ANA-001 §6.13 |
 | 9 | The C standard check is baselined at 113 existing violations and fails only on new ones | TB-ANA-001 §6.12 |
 | 10 | `pyproject.toml` declares `requires-python = ">=3.8"`, but the test matrix covers 3.9 and 3.12 — 3.8 is claimed and not verified | TB-ANA-001 §6.1 |
 

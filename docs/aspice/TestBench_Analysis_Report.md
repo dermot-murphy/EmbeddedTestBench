@@ -252,7 +252,7 @@ findings need a decision recorded in TB-STY-001 first: either adopt the module
 prefix on internal functions, or exempt internal linkage as a stated
 convention.
 
-### 6.13 🟡 Warning — The Python lint check runs against a baseline of 458 findings
+### 6.13 🟡 Warning — The Python lint check runs against a baseline of 436 findings
 
 `pylint` at its defaults reported **3 282** findings over `benchtools/` and
 `tests/`, scoring 8.23/10. That came down in three steps, and the difference
@@ -260,12 +260,13 @@ between them is the point:
 
 | Step | Findings removed | What it was |
 |---|---|---|
-| Rules the project has decided against | 932 | Disabled in `pyproject.toml` with the reason written beside each |
+| Rules the project has decided against | 954 | Disabled in `pyproject.toml` with the reason written beside each |
 | Rules that do not apply to a test suite | 1 816 | Disabled for `tests/` only, in `scripts/lint.py`, with the reason |
 | **Defects actually fixed** | **76** | 57 unused imports, 8 unused variables, 4 missing `raise ... from`, 7 packed statements |
-| Remaining, baselined | 458 | Debt |
+| Remaining, baselined | 436 | Debt |
 
-The four project decisions are: `consider-using-f-string` (645 — the package
+The five project decisions are: `duplicate-code` (22 — see below),
+`consider-using-f-string` (645 — the package
 uses %-formatting consistently, and converting it buys a reader nothing),
 `import-outside-toplevel` (63 — optional dependencies are imported where they
 are used *on purpose*, so a driver works on a bare Python install),
@@ -284,9 +285,23 @@ What is in the baseline:
 | `consider-using-with` | 36 | Resources opened without a context manager |
 | `unused-argument` | 35 | Mostly callback signatures required by an API |
 | `too-many-*` | 124 | Design metrics — instance attributes, arguments, locals, branches |
-| `duplicate-code` | 22 | Parallel drivers' tests read alike |
 | `broad-exception-caught` | 13 | The runner turns any driver exception into a recorded step error |
 | others | 42 | |
+
+**`duplicate-code` is disabled because it cannot be enforced, and that hides
+something real.** The rule compares files against each other, and which pairs
+it reports depends on the order the files are walked in: the same tree, linted
+locally and on a GitHub runner, produced the same *number* of similarities and
+named *different pairs*. A rule whose output is not reproducible cannot gate a
+build, and baselining it only moves the flapping into the baseline.
+
+What it was pointing at is real, so it is recorded here rather than silenced:
+five driver command-line modules — `gpd3303d`, `jlink`, `s2lp`, `tek3014b` and
+the runner — carry the same `main()` boilerplate, parsing arguments, setting
+the logging level from `-v` and dispatching inside a `try`. Three of them also
+share an identical `_emit()` that dumps JSON to stdout and optionally to a
+file. That belongs in one helper in `core`. It is a real piece of debt with a
+real fix, and it is its own change rather than a CI ticket's.
 
 `broad-exception-caught` is worth a second look rather than a permanent
 baseline entry: catching `Exception` at the runner boundary is deliberate and

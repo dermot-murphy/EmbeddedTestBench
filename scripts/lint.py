@@ -34,8 +34,6 @@ BASELINE = ROOT / ".pylint-baseline.json"
 #   redefined-outer-name        how a fixture is passed to a test
 #   protected-access            tests reach into internals on purpose; that a
 #                               private detail is verified is a feature
-#   duplicate-code              parallel tests for parallel drivers read alike,
-#                               and should
 TARGETS = (
     ("benchtools", ()),
     ("scripts", ()),
@@ -46,7 +44,6 @@ TARGETS = (
             "missing-class-docstring",
             "redefined-outer-name",
             "protected-access",
-            "duplicate-code",
         ),
     ),
 )
@@ -76,26 +73,18 @@ def collect():
 
 
 def key_of(message):
-    """The identity a finding is recorded under.
+    """The identity a finding is recorded under: its file and its rule.
 
-    Normally the file and the rule, which is stable when lines move above a
-    finding. `duplicate-code` is the exception: it is about two modules at
-    once, and pylint attributes it to an arbitrary third file - the runs that
-    produced this baseline blamed `core/transport/visa_backend.py` for a
-    similarity between two instrument sessions. Which file it picks varies
-    between machines, so keying it by path reported the same finding as new on
-    a different runner. It is keyed by the modules its own message names
-    instead, with the line ranges dropped so that editing either module does
-    not re-report it.
+    Deliberately not the line number, so that editing a file above a finding
+    does not report it as new.
+
+    This works because every rule pylint reports here is a property of one
+    file. `duplicate-code` was not - it is about two modules at once, names an
+    arbitrary third file as its location, and reports different pairs
+    depending on the order files are walked in. It is disabled in
+    pyproject.toml for that reason rather than keyed around.
     """
-    if message["symbol"] != "duplicate-code":
-        return (message["path"], message["symbol"])
-    modules = sorted(
-        line[2:].split(":")[0]
-        for line in message["message"].splitlines()
-        if line.startswith("==")
-    )
-    return (" & ".join(modules) or message["path"], "duplicate-code")
+    return (message["path"], message["symbol"])
 
 
 def tally(messages):
