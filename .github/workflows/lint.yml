@@ -1,0 +1,49 @@
+# pylint over the Python this project owns.
+#
+# The C source has been checked mechanically since #12; the 23 611 lines of
+# Python were checked by nothing but the test suite. This closes that.
+#
+# The configuration lives in pyproject.toml under [tool.pylint], where each
+# rule the project has decided against is switched off with its reason. What is
+# left is run through scripts/lint.py, which compares the findings against
+# .pylint-baseline.json so the job fails on new ones rather than on the debt
+# that was already there.
+#
+# Same rule as the C side: a rule decided against is disabled and said so; a
+# rule accepted but not yet met stays on and is visible as debt. TB-ANA-001
+# §6.13 lists what is in the baseline.
+
+name: lint
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pylint:
+    name: pylint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # pylint resolves imports, so the package and its extras have to be
+      # installed or half the findings would be import errors.
+      - name: Install
+        run: |
+          pip install --quiet -e .[test]
+          pip install --quiet 'pylint==4.0.8'
+
+      - name: Run pylint against the baseline
+        run: python scripts/lint.py

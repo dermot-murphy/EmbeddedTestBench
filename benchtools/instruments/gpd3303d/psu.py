@@ -44,9 +44,9 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Tuple
 
-from ...core.errors import ConfigurationError, InstrumentError, ProtocolError
+from ...core.errors import ConfigurationError, ProtocolError
 from ...core.instrument import InstrumentIdentity
 from ...core.scpi import ScpiInstrument
 from ...core.transport.base import Transport
@@ -56,7 +56,6 @@ from .constants import (
     CURRENT_RESOLUTION,
     DEFAULT_BAUDRATE,
     DEFAULT_COMMAND_INTERVAL,
-    MANUFACTURER,
     MAX_CURRENT,
     MAX_VOLTAGE,
     MODEL,

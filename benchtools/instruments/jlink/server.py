@@ -16,7 +16,6 @@ Traces to: JLINK-FR-003, JLINK-FR-004, JLINK-DD-SERVER.
 from __future__ import annotations
 
 import logging
-import os
 import shutil
 import socket
 import subprocess

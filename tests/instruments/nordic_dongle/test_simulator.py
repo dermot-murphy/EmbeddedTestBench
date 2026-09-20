@@ -10,7 +10,6 @@ Traces to: BLE-FR-080, SWE4-UT-BLESIM.
 
 from __future__ import annotations
 
-import pytest
 
 from benchtools.instruments.nordic_dongle.constants import DongleError
 from benchtools.instruments.nordic_dongle.protocol import parse_line

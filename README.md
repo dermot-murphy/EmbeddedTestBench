@@ -684,12 +684,20 @@ Three workflows run in `.github/workflows/`:
 
 | Workflow | What it does |
 |---|---|
+| `tests.yml` | The Python suite on 3.9 and 3.12, with coverage gated at 90% |
+| `lint.yml` | `pylint` over `benchtools/`, `tests/` and `scripts/`, against a recorded baseline |
 | `firmware.yml` | The dongle firmware's own Unity/CTest unit tests, then the real cross-compile against nRF5 SDK 17.1.0 and a DFU package |
 | `style.yml` | `dermot-murphy/CStyleCheck@v1.5.1` over `firmware/nordic_dongle`, against `.cstylecheck.yml` and a baseline |
 | `bench.yml` | The bench specifications, run through this repository's own action against the simulated bench |
 
-The Python suite is not yet one of them; it runs before every commit. That gap
-is finding 6.1 of the [analysis report](docs/aspice/TestBench_Analysis_Report.md).
+`tests.yml` is the one that makes the others mean something: the traceability
+check and the layering test live in the suite, so they now run where they can
+block a merge rather than only on a developer's machine.
+
+Both linters run against a **baseline** — the findings present when the check
+was introduced — so a job fails on new findings rather than on existing debt.
+What is in each baseline, and what closing it involves, is in the
+[analysis report](docs/aspice/TestBench_Analysis_Report.md) §6.12 and §6.13.
 
 ### Using the bench runner as an action
 

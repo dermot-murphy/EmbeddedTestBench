@@ -16,7 +16,7 @@ Traces to: ANA-FR-020, ANA-FR-021, ANA-DD-PLOT.
 from __future__ import annotations
 
 import os
-from typing import Dict, Mapping, Optional, Sequence
+from typing import Mapping, Optional
 
 from ..core.errors import OptionalDependencyError
 from .measure import SpreadResult
@@ -41,7 +41,7 @@ CHANNEL_COLOURS = {1: "#f6c700", 2: "#00c0f0", 3: "#f000c0", 4: "#00d060"}
 def matplotlib_available() -> bool:
     """Return ``True`` when ``matplotlib`` can be imported."""
     try:
-        import matplotlib  # noqa: F401
+        import matplotlib  # noqa: F401  # pylint: disable=unused-import
     except ImportError:
         return False
     return True

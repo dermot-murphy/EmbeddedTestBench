@@ -11,7 +11,7 @@ Traces to: BLE-FR-001, BLE-FR-070, BLE-DD-CONST.
 from __future__ import annotations
 
 import enum
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict, Optional, Tuple
 
 __all__ = [

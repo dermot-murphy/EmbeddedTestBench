@@ -148,7 +148,7 @@ class TestCaptureAndMeasure:
 
     def test_screenshot(self, capsys, tmp_path):
         target = tmp_path / "screen.png"
-        status, payload = run(capsys, "-r", "sim://", "screenshot", str(target))
+        status, _payload = run(capsys, "-r", "sim://", "screenshot", str(target))
         assert status == 0
         assert target.read_bytes().startswith(b"\x89PNG")
 

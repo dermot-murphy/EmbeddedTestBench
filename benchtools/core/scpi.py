@@ -24,7 +24,7 @@ Traces to: CORE-FR-020 .. CORE-FR-027, CORE-ARC-001, CORE-DD-SCPI.
 from __future__ import annotations
 
 import logging
-from typing import List, Optional, Sequence, Tuple, Type
+from typing import List, Optional, Tuple
 
 from .errors import ProtocolError
 from .instrument import Instrument, InstrumentIdentity
