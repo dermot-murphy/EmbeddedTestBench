@@ -13,3 +13,9 @@ htmlcov/
 # Firmware build output
 firmware/**/_build/
 build/
+
+# Bench run output written by the specifications in specs/
+ble_session.log
+sensor_rtt.log
+ble_commands.md
+results/

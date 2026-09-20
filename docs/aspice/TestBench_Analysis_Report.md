@@ -67,7 +67,7 @@ date says which revision it describes.
 | Firmware C files (project-owned) | 47 |
 | Firmware C lines | 2 856 |
 | ASPICE documents | 27 |
-| CI workflows | 1 |
+| CI workflows | 3 — `firmware.yml`, `style.yml`, `bench.yml` |
 | Tests passing | 1 878 |
 | Statement coverage | 94% (577 of 10 374 statements uncovered) |
 
@@ -82,7 +82,7 @@ module has a test module beside it.
 | Severity | Count |
 |---|---|
 | 🔴 Critical | 2 |
-| 🟡 Warning | 5 |
+| 🟡 Warning | 6 |
 | 🔵 Improvement | 4 |
 | ✅ Well handled | 6 |
 
@@ -92,9 +92,13 @@ module has a test module beside it.
 
 ### 6.1 🔴 Critical — The Python suite is not run by CI
 
-`.github/workflows/` contains **one** workflow, `firmware.yml`. The 1 878 tests
-that constitute nearly all of this project's evidence run only when someone runs
-them locally before committing.
+Three workflows exist. `firmware.yml` runs the firmware's own Unity/CTest unit
+tests and the cross-compile, and is path-filtered to `firmware/**`.
+`style.yml` runs the C coding-standard check. `bench.yml` runs the bench
+specifications through this repository's action against the simulated bench.
+
+None of them runs `pytest`. The 1 878 tests that constitute nearly all of this
+project's evidence run only when someone runs them locally before committing.
 
 Everything the quality plan relies on — the traceability check that binds
 documents to code, the layering test that enforces the architecture, the driver
@@ -102,6 +106,10 @@ tests — is therefore unenforced on a pull request. A change that breaks them c
 be merged by anyone who does not run them, and TB-SUP1-001 §4 lists four quality
 objectives (TB-QA-001 through TB-QA-004) whose measurement is not automated
 anywhere.
+
+`bench.yml` narrows the gap without closing it: a broken driver will often fail
+a specification, but a broken traceability check or a violated architectural
+boundary will not.
 
 **Action:** add a workflow running `pytest` on every push and pull request, with
 the extras installed. This is the single highest-value change in this report and
@@ -211,6 +219,38 @@ first person to need one will find no file to add to.
 **Action:** create the register with its header and no entries when the first
 deviation is raised, not before.
 
+### 6.12 🟡 Warning — The C standard check runs against a baseline of 113 violations
+
+`.cstylecheck-baseline.json` records 113 violations present when the check was
+introduced, so `style.yml` fails only on new ones. The baseline is real debt,
+and what is in it is worth naming:
+
+| Rule | Count | What it is |
+|---|---|---|
+| `function.prefix` | 43 | Static helper functions carry no module prefix. The checker cannot distinguish internal linkage, so every one is reported |
+| `constant.prefix` | 30 | File-scope constants use a short uppercase prefix (`CMD_`) rather than the full module name |
+| `misc.unsigned_suffix` | 27 | Unsigned literals written without a `U` suffix |
+| `misc.magic_number` | 5 | Literals that should be named |
+| `macro.prefix` | 3 | X-macros named `X` |
+| `misc.function_length` | 2 | Two long functions |
+| `variable.global.g_prefix` | 2 | Globals without the `g_` prefix |
+| `macro.trailing_semicolon` | 1 | CERT PRE11-C |
+
+The rules that TestBench's firmware genuinely does not adopt — Barr-C's `p_`
+pointer prefix and Yoda conditions — are **disabled** in `.cstylecheck.yml`
+rather than baselined, because a rule the project has decided against should be
+switched off and said so, not silently suppressed. The statics prefix is
+configured to the `m_` this firmware actually uses.
+
+The distinction matters: the disabled rules are decisions, the baselined ones
+are debt.
+
+**Action:** the `misc.unsigned_suffix` and `misc.magic_number` entries are worth
+fixing outright — they are MISRA-adjacent and the fixes are local. The prefix
+findings need a decision recorded in TB-STY-001 first: either adopt the module
+prefix on internal functions, or exempt internal linkage as a stated
+convention.
+
 ---
 
 ## 7. Well Handled
@@ -236,8 +276,9 @@ deviation is raised, not before.
 | 4 | Hold and record reviews, starting with the requirements documents | 6.5 | Medium | Medium |
 | 5 | Add a MISRA checker to the style workflow | 6.3 | Low | Medium |
 | 6 | Cover the transport error paths and `visa_backend.py` | 6.7, 6.8 | Medium | Medium |
-| 7 | Smoke-test `__main__.py` | 6.9 | Trivial | Low |
-| 8 | Split `probe.py` when next substantially changed | 6.6 | Medium | Low |
+| 7 | Fix the U-suffix and magic-number entries in the style baseline | 6.12 | Low | Medium |
+| 8 | Smoke-test `__main__.py` | 6.9 | Trivial | Low |
+| 9 | Split `probe.py` when next substantially changed | 6.6 | Medium | Low |
 
 Actions 1 and 3 together cost an afternoon and close a critical finding and a
 warning. Action 2 is the project.

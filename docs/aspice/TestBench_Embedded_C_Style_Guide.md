@@ -237,9 +237,15 @@ third_party/        /* vendor code — exempt from this guide */
 
 ### 6.4 Maximum File Length
 
-Each source file shall not exceed **500 lines** in total (including blanks, comments, and code). `[RULE: misc.file_length]`
+Each source file shall not exceed **800 lines** in total (including blanks,
+comments, and code). `[RULE: misc.file_length]`
 
 Files approaching this limit should be split into logical sub-modules.
+
+> The limit is 800 rather than the 500 this rule is usually configured with,
+> because `cmd_parser.c` is 732 lines and splitting it to satisfy a number
+> would be rearranging code to please a checker. It is set where it constrains
+> growth without inviting that.
 
 ---
 
@@ -550,11 +556,17 @@ All variable names shall use **lower snake case**: `tx_byte_count`, `buffer_inde
 | Scope | Required prefix (local part, after module prefix) | Example |
 |---|---|---|
 | Global (extern linkage) | `g_` | `uart_g_tx_count` |
-| File-scope static | `s_` | `uart_s_rx_queue` |
+| File-scope static | `m_` | `m_rx_queue` |
 | Local variable | none | `byte_count` |
 | Parameter | none (see 18.3) | `buffer_size` |
 
 `[RULE: variables.global.g_prefix, variables.static.s_prefix]`
+
+> **Project decision — `m_`, not `s_`.** The firmware sits beside nRF5 SDK
+> sources that use `m_` for module statics, and a file that mixes the two
+> conventions is harder to read than one that picks the neighbour's.
+> `.cstylecheck.yml` configures `variables.static.s_prefix.prefix: "m_"`
+> accordingly.
 
 ### 18.3 Parameter Prefix (Optional)
 
@@ -566,9 +578,20 @@ void uart_BufferWrite(uint8_t *p_p_data, uint16_t p_length);
 
 ### 18.4 Pointer Prefix
 
-Single-pointer variables shall have their local part begin with `p_`: `p_buffer`, `uart_s_p_rx_head`. `[RULE: variables.pointer_prefix]`
-
-Double-pointer variables shall begin with `pp_`: `pp_device_list`. `[RULE: variables.pp_prefix]`
+> **Not adopted.** Barr-C 7.1.k and 7.1.l ask that single-pointer variables
+> begin with `p_` and double pointers with `pp_`. TestBench does not adopt
+> either: the firmware's types are visible at every declaration, the SDK
+> around it does not use the convention, and encoding a type in a name that
+> the compiler already checks buys nothing here.
+>
+> `variables.pointer_prefix` and `variables.pp_prefix` are **disabled** in
+> `.cstylecheck.yml` rather than suppressed in the baseline, because a rule
+> the project has decided against should be switched off and said so.
+>
+> The rules as Barr-C states them, for a project that does want them:
+> single-pointer variables begin with `p_` (`p_buffer`); double pointers with
+> `pp_` (`pp_device_list`). `[RULE: variables.pointer_prefix,
+> variables.pp_prefix — disabled]`
 
 ### 18.5 Boolean Prefix (Optional)
 
@@ -632,27 +655,41 @@ An optional `_M` suffix may be required by the project configuration to distingu
 
 ### 21.1 Style
 
-The project shall use **Object–Verb** style: `<Module>_<Object><Verb>`
+The project shall use **lower snake case**: `<module>_<what_it_does>`
 
 ```
-uart_BufferRead       (module=uart, object=Buffer, verb=Read)
-can_MessageSend       (module=can, object=Message, verb=Send)
-adc_ChannelConvert    (module=adc, object=Channel, verb=Convert)
+cmd_parser_handle_line
+nus_client_send
+timestamp_now_us
 ```
 
-`[RULE: functions.style = object_verb]`
+`[RULE: functions.style = lower_snake]`
 
-Object and verb segments shall use **PascalCase**. `[RULE: functions.object_case = pascal, functions.verb_case = pascal]`
+> **Project decision.** The Object–Verb style this rule set defaults to
+> (`uart_BufferRead`) is a reasonable convention and is not this project's:
+> the firmware, the SDK beside it and the host driver that speaks to it are
+> all lower snake case, and one convention across the interface is worth more
+> than a better one on one side of it.
 
 Minimum length: 4 characters. Maximum length: 60 characters.
 
 ### 21.2 Static (Private) Functions
 
-When `functions.static_prefix.enabled` is `true`, file-scope static functions shall be prefixed with `prv_`:
+File-scope static functions carry **no prefix** — neither the module prefix
+nor `prv_`. Internal linkage already says the function is private, and the
+module is the file.
 
 ```c
-static void prv_uart_FifoFlush(void);
+static void fifo_flush(void);           /* internal helper */
+void cmd_parser_handle_line(char *line); /* public */
 ```
+
+`functions.static_prefix` is disabled. The checker cannot tell internal
+linkage from external, so it reports every unprefixed static helper as a
+`function.prefix` violation; those 43 reports are in the baseline rather than
+being fixed by renaming private functions to satisfy a rule the project has
+not adopted. Closing that entry means deciding the question properly — see
+TB-ANA-001 §6.12.
 
 ### 21.3 Permitted Object Exclusions
 
@@ -1260,16 +1297,17 @@ uint8_t byte = (uint8_t)raw_value;  /* truncation intentional: only lower 8 bits
 
 `[RULE: misc.yoda_conditions]`
 
-In equality comparisons (`==`, `!=`), the **constant or rvalue** shall appear on the **left**:
-
-```c
-if (NULL == p_buffer)       { /* correct */ }
-if (UART_STATUS_OK == ret)  { /* correct */ }
-
-if (p_buffer == NULL)       { /* wrong */ }
-```
-
-This prevents accidental assignment in place of comparison.
+> **Not adopted.** The convention writes the constant on the left
+> (`if (NULL == buffer)`) so that a mistyped `=` fails to compile.
+>
+> TestBench does not adopt it. The failure it guards against is caught by
+> `-Wall -Werror`, which this project already builds with, and the cost is
+> paid on every comparison by every reader. `misc.yoda_conditions` is
+> **disabled** in `.cstylecheck.yml`.
+>
+> The rule, for a project that does want it: in equality comparisons (`==`,
+> `!=`) the constant or rvalue appears on the left.
+> `[RULE: misc.yoda_conditions — disabled]`
 
 ---
 

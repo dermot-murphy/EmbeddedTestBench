@@ -86,7 +86,7 @@ addresses, field widths and reset values — written independently
 | Nordic Semiconductor | `nrfutil` | **6.1.7** | The last Python release packaging for the SDK 17 bootloader; unpinned installs resolve backwards to a Python 2 release that fails on `dict.iteritems` (TB-RISK-006) |
 | Arm | GNU Arm Embedded toolchain | As pinned in `.github/workflows/firmware.yml` | Flash and RAM figures are toolchain-dependent |
 | PyPI maintainers | `pyvisa`, `pyserial`, `bleak`, `pytest`, `PyYAML` | As declared in `pyproject.toml` | Interface stability |
-| `dermot-murphy` | `CStyleCheck` GitHub Action | `@v1` | Coding-standard enforcement (TB-RISK-011) |
+| `dermot-murphy` | `CStyleCheck` GitHub Action | `@v1.5.1` | Coding-standard enforcement (TB-RISK-011) |
 
 ---
 
@@ -124,11 +124,33 @@ record which was chosen.
 
 ## 7. Coding-Standard Checker
 
-`dermot-murphy/CStyleCheck@v1` is run by `.github/workflows/style.yml` against
+`dermot-murphy/CStyleCheck@v1.5.1` is run by `.github/workflows/style.yml` against
 `firmware/nordic_dongle`. It is the mechanical enforcement of TB-STD-002 and
 TB-STY-001. It is a dependency like any other: pinned by tag, its failures
 treated as findings against the firmware source, and its unavailability treated
 as a problem with the style job rather than a licence to merge unchecked C.
+
+The pin is the **exact** version, `@v1.5.1`, not a floating `@v1` and not the
+newest release. Three things are recorded here, all of them found by running it
+rather than by reading about it:
+
+1. **`@v1` does not resolve.** The repository publishes exact version tags only,
+   so a workflow referring to `@v1` fails to start. The `@v1` form came from the
+   action's own usage example, which is not a tag list.
+2. **v1.6.0 is skipped because its action is broken.** The checker runs
+   correctly — 17 files, 0 violations — and the action then fails with
+   `could not read results JSON`, because v1.6.0 writes its version banner into
+   the results file the action parses as JSON. v1.5.1, v1.5.0 and v1.4.1 write
+   the file cleanly. This is a defect in the supplier's product, of the kind
+   §6 exists to notice; the response available to this project is to pin away
+   from it, which is what §5 says about a dependency that misbehaves.
+3. **An exact pin is what TB-SUP8-001 §4 asks for anyway**, because a checker
+   that silently changes its rule set changes what a green build means.
+
+The baseline file is written by the pinned version and is not portable across
+versions: the same 113 violations recorded by v1.6.0 were not matched by v1.5.1.
+Moving the pin therefore means regenerating the baseline in the same change, and
+dealing with whatever new findings the newer version brings.
 
 ---
 

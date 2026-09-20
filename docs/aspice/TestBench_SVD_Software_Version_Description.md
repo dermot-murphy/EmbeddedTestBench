@@ -133,6 +133,9 @@ recorded on TB-TMPL-001, because no such review has been held.
 
 | Item | Purpose |
 |---|---|
+| `action.yml` | The bench-runner composite action this repository publishes |
+| `.github/workflows/bench.yml` | Runs the specifications below through that action against the simulated bench |
+| `.github/workflows/style.yml` | Runs CStyleCheck over `firmware/nordic_dongle` |
 | `benches/simulated_bench.yaml` | The fully simulated bench |
 | `benches/simulated/sensor/firmware_manifest.json` | Simulated sensor image, version 1.4.2 |
 | `benches/simulated/dongle/firmware_manifest.json` | Simulated dongle image, version 1.1.0, protocol 1.1 |
@@ -147,7 +150,8 @@ recorded on TB-TMPL-001, because no such review has been held.
 | Python (CI) | 3.10 | `.github/workflows/firmware.yml` |
 | `nrfutil` | 6.1.7 | `.github/workflows/firmware.yml` — exact pin, see TB-ACQ4-001 §4.3 |
 | GNU Arm Embedded toolchain | As pinned in the firmware workflow | `.github/workflows/firmware.yml` |
-| `dermot-murphy/CStyleCheck` | `@v1` | `.github/workflows/style.yml` |
+| `dermot-murphy/CStyleCheck` | `@v1.5.1` | `.github/workflows/style.yml` |
+| C rule configuration | `.cstylecheck.yml` with `.cstylecheck-baseline.json` (113 baselined violations) | Repository root |
 | `pytest` | As declared in the `test` extra | `pyproject.toml` |
 
 ---
@@ -176,7 +180,8 @@ recorded on TB-TMPL-001, because no such review has been held.
 | 5 | The firmware build sets no explicit `-std` and does not enable `-Wextra` | TB-STD-002 §7.1, §7.2 |
 | 6 | The RS-232 multimeter (STK-18) is deferred; no requirements exist for it | TB-SYS2-104 |
 | 7 | No document in this baseline has been reviewed | §5.3 |
-| 8 | The Python suite is not yet run by a CI workflow; it is run before every commit | TB-SUP1-001 §6.2 |
+| 8 | No CI workflow runs the Python suite; it is run before every commit. `firmware.yml` runs the firmware's Unity/CTest tests, `bench.yml` the specifications, `style.yml` the C standard check | TB-ANA-001 §6.1 |
+| 9 | The C standard check is baselined at 113 existing violations and fails only on new ones | TB-ANA-001 §6.12 |
 
 None of these is a defect against a stated requirement. They are the distance
 between what TestBench is shown to do and what it will eventually be shown to

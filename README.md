@@ -52,7 +52,7 @@ GDB/MI, and the runner treats it like any other instrument.
 | `benches/` | Example bench configurations |
 | `configs/` | Instrument register configurations a test can require |
 | `examples/` | Runnable Python examples |
-| `docs/` | ASPICE V4 SWE.1–SWE.4 work products |
+| `docs/` | ASPICE V4 CL2 work products: SYS.2–SYS.5, SWE.1–SWE.6, the management and support plans, and the C coding standards |
 
 ---
 
@@ -678,6 +678,57 @@ source carries its trace and allocates nothing dynamically.
 
 ---
 
+## Continuous integration
+
+Three workflows run in `.github/workflows/`:
+
+| Workflow | What it does |
+|---|---|
+| `firmware.yml` | The dongle firmware's own Unity/CTest unit tests, then the real cross-compile against nRF5 SDK 17.1.0 and a DFU package |
+| `style.yml` | `dermot-murphy/CStyleCheck@v1.5.1` over `firmware/nordic_dongle`, against `.cstylecheck.yml` and a baseline |
+| `bench.yml` | The bench specifications, run through this repository's own action against the simulated bench |
+
+The Python suite is not yet one of them; it runs before every commit. That gap
+is finding 6.1 of the [analysis report](docs/aspice/TestBench_Analysis_Report.md).
+
+### Using the bench runner as an action
+
+This repository publishes a composite action, so another project can run its
+bench specifications in CI:
+
+```yaml
+- uses: dermot-murphy/TestTools@v1
+  id: bench
+  with:
+    specs: |
+      specs/sensor_bringup.yaml
+      specs/sensor_commands.yaml
+    bench:    benches/lab1.yaml   # or benches/simulated_bench.yaml
+    simulate: 'false'
+    junit:    results/bench.xml
+    markdown: results/bench.md
+
+- run: echo "${{ steps.bench.outputs.passed }} passed, ${{ steps.bench.outputs.failed }} failed"
+```
+
+It annotates each failed case inline with the measurement that missed and the
+limit it missed by, writes a job summary listing every instrument's identity,
+and publishes JUnit XML. Failure and error stay apart all the way to the exit
+code — `fail-on: error` gates on the bench being able to measure, rather than on
+the target passing — and a run with any simulated instrument says so in the
+annotations, the summary and every report file.
+
+`simulate: 'true'` also swaps in the simulators, but it supplies no bench
+options, so a specification that checks firmware against a manifest needs
+`benches/simulated_bench.yaml` instead — a manifest is a file whether the
+instrument is real or not. With several specifications, `benchtools` numbers the
+result files and the action reads all of them, reporting one summary per suite
+and a combined total.
+
+Full input and output reference: [`action.yml`](action.yml).
+
+---
+
 ## Documentation
 
 | Document | Contents |
@@ -694,10 +745,20 @@ source carries its trace and allocates nothing dynamically.
 | [SWE.3 Detailed Design](docs/aspice/TestBench_SWE3_Detailed_Design.md) | Per-module design units |
 | [SWE.4 Test Specification](docs/aspice/TestBench_SWE4_Unit_Verification.md) | Strategy, test groups, pass criteria |
 | [SWE.4 Test Report](docs/aspice/TestBench_SWE4_Unit_Verification_Report.md) | Results, coverage, measured accuracy, forty defects found |
-| [Traceability Matrix](docs/aspice/TestBench_TestBench_Traceability_Matrix.md) | Bidirectional trace, stakeholder need to test |
+| [Traceability Matrix](docs/aspice/TestBench_Traceability_Matrix.md) | Bidirectional trace, stakeholder need to test |
+| [System Requirements & Architecture](docs/aspice/TestBench_SYS2_System_Requirements.md) | What the whole bench must do, and the elements and interfaces that do it |
+| [System Qualification](docs/aspice/TestBench_SYS5_System_Qualification_Test.md) | Eight scenarios, simulated and on hardware, and the gap between the two columns |
+| [Repository Analysis Report](docs/aspice/TestBench_Analysis_Report.md) | What is measured here, what the checks do not reach, and what to do first |
+| [Process Capability Records](docs/aspice/TestBench_PA2_Capability_Records.md) | Level 2 generic practices, rated against the evidence that exists |
 
-Work products follow Automotive SPICE V4.0 SWE.1–SWE.4. This is a test tool: it is
-not delivered vehicle software and carries no ASIL classification.
+The full index is [docs/README.md](docs/README.md).
+
+Work products follow Automotive SPICE V4.0 at Capability Level 2 - SYS.2 to
+SYS.5, SWE.1 to SWE.6, the management and support plans, and the C coding
+standards. This is a test tool: it is not delivered vehicle software and carries
+no ASIL classification. Capability Level 2 is **not** achieved, and
+[TB-PA2-001](docs/aspice/TestBench_PA2_Capability_Records.md) says which three
+practices fall short and why.
 
 ---
 
