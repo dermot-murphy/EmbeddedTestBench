@@ -68,6 +68,7 @@ date says which revision it describes.
 | Firmware C lines | 2 856 |
 | ASPICE documents | 27 |
 | CI workflows | 5 — `firmware.yml`, `style.yml`, `bench.yml`, `tests.yml`, `lint.yml` |
+| Python versions tested | 3 — 3.8 (the declared floor), 3.9, 3.12 |
 | Tests passing | 1 878 |
 | Statement coverage | 94% (577 of 10 374 statements uncovered) |
 
@@ -109,12 +110,17 @@ and pull request, on two Python versions, and fails the build below the
 TB-QA-002 coverage target of 90%. The traceability and layering checks are
 part of that suite, so they are now enforced where they can block a merge.
 
-**What it exposed.** The workflow tests Python 3.9 and 3.12, while
-`pyproject.toml` declares `requires-python = ">=3.8"`. Nothing verifies 3.8,
-which is end-of-life and not reliably available on hosted runners. The package
-therefore claims a floor it does not test. Either 3.8 joins the matrix or the
-declared floor moves to 3.9; that is a packaging decision, recorded here rather
-than made quietly.
+**What it exposed, and what happened to it.** The workflow first tested 3.9
+and 3.12 while `pyproject.toml` declared `requires-python = ">=3.8"`, so the
+package claimed a floor nothing verified. 3.8 joined the matrix rather than the
+claim being lowered: the floor is not decoration for a package whose whole
+point is having no mandatory runtime dependencies, and the bench PC that design
+serves is the one least likely to have been rebuilt lately.
+
+The suite passed on 3.8.20 unchanged — 1 879 tests, 94.37% coverage — so
+nothing in the source needed fixing. The 3.8 leg runs on `ubuntu-22.04`,
+because 3.8 is end-of-life and is not in the tool cache for the 24.04 image
+that `ubuntu-latest` now means.
 
 ### 6.2 🔴 Critical — No driver has met its instrument
 
