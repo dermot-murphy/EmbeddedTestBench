@@ -23,12 +23,12 @@ instruments are added:
 
 | Document | Contents |
 |---|---|
-| [SWE.1 Software Requirements](SWE1_Software_Requirements_Specification.md) | What the tooling must do, per element |
-| [SWE.2 Software Architecture](SWE2_Software_Architecture.md) | Layering, elements, and the architectural decisions |
-| [SWE.3 Detailed Design](SWE3_Software_Detailed_Design.md) | Per-module design units |
-| [SWE.4 Test Specification](SWE4_Unit_Test_Specification.md) | Verification strategy, test groups, pass criteria |
-| [SWE.4 Test Report](SWE4_Unit_Test_Report.md) | Results, coverage, measured accuracy, defects found |
-| [Traceability Matrix](Traceability_Matrix.md) | Bidirectional trace, stakeholder need to test |
+| [SWE.1 Software Requirements](TestBench_SWE1_SW_Requirements.md) | What the tooling must do, per element |
+| [SWE.2 Software Architecture](TestBench_SWE2_SW_Architecture.md) | Layering, elements, and the architectural decisions |
+| [SWE.3 Detailed Design](TestBench_SWE3_Detailed_Design.md) | Per-module design units |
+| [SWE.4 Test Specification](TestBench_SWE4_Unit_Verification.md) | Verification strategy, test groups, pass criteria |
+| [SWE.4 Test Report](TestBench_SWE4_Unit_Verification_Report.md) | Results, coverage, measured accuracy, defects found |
+| [Traceability Matrix](TestBench_Traceability_Matrix.md) | Bidirectional trace, stakeholder need to test |
 | [Bench Runner Guide](Bench_Runner_Guide.md) | How to write a test specification and a bench configuration |
 
 ## Instrument-specific

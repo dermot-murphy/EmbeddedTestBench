@@ -689,12 +689,12 @@ source carries its trace and allocates nothing dynamically.
 | [BLE Dongle Notes](docs/ble/BLE_Dongle_Notes.md) | Why the dongle needs firmware, the line protocol, building and flashing, reading a profile, and what is unproven |
 | [S2-LP Devkit Notes](docs/s2lp/S2LP_Devkit_Notes.md) | Why ST's firmware is used unchanged, its CLI protocol, the register map, what a polled capture can and cannot be quoted as, and the licence position |
 | [GPD-3303D Notes](docs/psu/GPD3303D_Notes.md) | The four ways this supply will mislead a test, its command set and status word, and the bench confirmation items |
-| [SWE.1 Requirements](docs/SWE1_Software_Requirements_Specification.md) | 177 functional and 18 non-functional requirements |
-| [SWE.2 Architecture](docs/SWE2_Software_Architecture.md) | Layering, elements, eighteen architectural decisions |
-| [SWE.3 Detailed Design](docs/SWE3_Software_Detailed_Design.md) | Per-module design units |
-| [SWE.4 Test Specification](docs/SWE4_Unit_Test_Specification.md) | Strategy, test groups, pass criteria |
-| [SWE.4 Test Report](docs/SWE4_Unit_Test_Report.md) | Results, coverage, measured accuracy, forty defects found |
-| [Traceability Matrix](docs/Traceability_Matrix.md) | Bidirectional trace, stakeholder need to test |
+| [SWE.1 Requirements](docs/aspice/TestBench_SWE1_SW_Requirements.md) | 177 functional and 18 non-functional requirements |
+| [SWE.2 Architecture](docs/aspice/TestBench_SWE2_SW_Architecture.md) | Layering, elements, eighteen architectural decisions |
+| [SWE.3 Detailed Design](docs/aspice/TestBench_SWE3_Detailed_Design.md) | Per-module design units |
+| [SWE.4 Test Specification](docs/aspice/TestBench_SWE4_Unit_Verification.md) | Strategy, test groups, pass criteria |
+| [SWE.4 Test Report](docs/aspice/TestBench_SWE4_Unit_Verification_Report.md) | Results, coverage, measured accuracy, forty defects found |
+| [Traceability Matrix](docs/aspice/TestBench_TestBench_Traceability_Matrix.md) | Bidirectional trace, stakeholder need to test |
 
 Work products follow Automotive SPICE V4.0 SWE.1–SWE.4. This is a test tool: it is
 not delivered vehicle software and carries no ASIL classification.

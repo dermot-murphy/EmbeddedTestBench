@@ -1,16 +1,59 @@
-# SWE.1 — Software Requirements Specification
+# Software Requirements Specification
 
-| Field | Value |
-|---|---|
-| Document ID | BENCHTOOLS-SWE1-001 |
-| Version | 4.2 |
-| Date | 2026-09-13 |
-| Process reference | Automotive SPICE V4.0, SWE.1 Software Requirements Analysis |
-| Item | **BenchTools** — bench test tooling (`benchtools` 4.0.0) |
+*Automotive SPICE® PAM v4.0 | SWE.1 Software Requirements Analysis*
 
-## 1. Scope
+---
 
-BenchTools is host-side software for automated and semi-automated electronics
+## 1. Document Identification & Control
+
+| Field | Value | Field | Value |
+|---|---|---|---|
+| **Document ID** | TB-SWE1-001 | **Version** | 0.1 |
+| **Project** | TestBench | **Date** | 2026-09-19 |
+| **Status** | Draft | **Classification** | Internal |
+| **Author** | Claude | **Reviewer** | Dermot Murphy |
+| **Approver** | Dermot Murphy | **Related Process** | SWE.1 |
+
+> **Note — Reviewer independence (TB-DEV-002):** The Reviewer and Approver are the same person (Dermot Murphy). This is accepted under deviation record **TB-DEV-002** (`docs/aspice/TestBench_DEV002_Independent_Review_Deviation.md`) on the basis that TestBench has a single human team member.
+
+---
+
+## 2. Revision History
+
+| Version | Date | Author | Description of Change |
+|---|---|---|---|
+| 0.1 | 2026-09-19 | Claude | Initial |
+
+---
+
+## 3. Purpose & Scope
+
+### 3.1 Purpose
+
+This Software Requirements Specification refines the system-level requirements of
+TB-SYS2-001 into software-specific, implementable requirements for **TestBench**,
+the bench test tooling in this repository. It is the direct input to software
+architectural design (SWE.2) and defines the verification criteria used in
+SWE.4 to SWE.6.
+
+This document satisfies **Automotive SPICE® PAM v4.0, SWE.1 — Software
+Requirements Analysis**.
+
+### 3.2 Referenced Documents
+
+| Document ID | Title | Version |
+|---|---|---|
+| TB-SYS2-001 | TestBench System Requirements Specification | 0.1 |
+| TB-SYS3-001 | TestBench System Architecture Description | 0.1 |
+| TB-SWE2-001 | TestBench Software Architecture Description | 0.1 |
+| TB-SWE3-001 | TestBench Software Detailed Design | 0.1 |
+| TB-SWE4-001 | TestBench Software Unit Verification | 0.1 |
+| TB-RTM-001 | TestBench Requirements Traceability Matrix | 0.1 |
+| TB-SUP8-001 | TestBench Configuration Management Plan | 0.1 |
+
+### 3.3 Scope
+
+TestBench is host-side software for automated and semi-automated electronics
 bench testing. It provides instrument drivers, analysis of captured records, and
 a declarative test runner that drives a bench of instruments and produces
 pass/fail evidence.
@@ -20,15 +63,17 @@ carries no ASIL classification. It is developed to this process discipline
 because measurement results derived from it are used as evidence.
 
 Out of scope: target application firmware, GPIB, hardware fixture design, and
-any instrument not listed in §3.
+any instrument not listed in §5.
 
 One piece of embedded software **is** in scope, and is the exception that proves
-the rule: the bench dongle's firmware (§9). It is part of the instrument, not
+the rule: the bench dongle's firmware (§11). It is part of the instrument, not
 part of any product, and it exists because the measurement it makes - a radio
 event timestamped to the microsecond - cannot be made from the host side of a
 USB link. It is specified, designed and traced here like the rest of the item.
 
-## 2. Stakeholder requirements
+---
+
+## 4. Stakeholder requirements
 
 | ID | Requirement |
 |---|---|
@@ -53,7 +98,7 @@ USB link. It is specified, designed and traced here like the rest of the item.
 | STK-19 | Evaluate a sub-1 GHz radio with an ST S2-LP development kit over USB: program and read every register, transmit, receive, and log all data to a file. |
 | STK-20 | Use the kit's existing ST firmware if it is fit for purpose, rather than writing firmware for it. |
 
-## 3. Element structure
+## 5. Element structure
 
 Requirements are grouped by the element that implements them. Identifier
 prefixes are per element so they stay unique as instruments are added.
@@ -72,9 +117,9 @@ prefixes are per element so they stay unique as instruments are added.
 
 ---
 
-## 4. CORE — instrument-agnostic foundations
+## 6. CORE — instrument-agnostic foundations
 
-### 4.1 Instrument link
+### 6.1 Instrument link
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -91,9 +136,9 @@ prefixes are per element so they stay unique as instruments are added.
 | CORE-FR-010 | Transport backends and resource-string schemes shall be held in registries, so a new link type can be added from its own module without modifying the factory. | STK-07 | Test, Inspection |
 | CORE-FR-011 | The link layer shall accept a host name, an IPv4 address, or a VISA-style resource string, and shall select a transport automatically. | STK-01 | Test |
 
-### 4.2 Generic instrument base
+### 6.2 Generic instrument base
 
-Not every bench instrument speaks SCPI. A debug probe (§8) is driven over GDB/MI,
+Not every bench instrument speaks SCPI. A debug probe (§10) is driven over GDB/MI,
 a BLE dongle over its own serial protocol. The lifecycle those drivers share with
 a SCPI instrument is therefore specified separately from the SCPI vocabulary, so
 the runner can treat any of them as a bench instrument.
@@ -106,9 +151,9 @@ the runner can treat any of them as a bench instrument.
 | CORE-FR-015 | The generic base shall provide an event-queue read and an error check that a driver may override, defaulting to reporting no events for instruments that have no error queue. | STK-07 | Test |
 | CORE-FR-016 | Closing an instrument shall never raise, so that a failure during a measurement cannot be masked by a failure while cleaning up. | STK-07 | Test |
 
-### 4.3 SCPI instrument base
+### 6.3 SCPI instrument base
 
-Extends §4.2 with the SCPI and IEEE 488.2 vocabulary.
+Extends §6.2 with the SCPI and IEEE 488.2 vocabulary.
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -122,27 +167,27 @@ Extends §4.2 with the SCPI and IEEE 488.2 vocabulary.
 | CORE-FR-027 | The base shall encode and decode IEEE 488.2 definite- and indefinite-length arbitrary block data, for use by waveform transfer, trace transfer and bulk upload. | STK-04, STK-07 | Test |
 | CORE-FR-028 | The base shall provide raw command and query access, for instrument features a driver does not wrap. | STK-07 | Test |
 
-### 4.4 Validation and shared types
+### 6.4 Validation and shared types
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
 | CORE-FR-030 | A shared enumeration base shall accept a member, a member name or a SCPI mnemonic, case-insensitively, and shall reject anything else with a message listing the valid values. | STK-07 | Test |
 | CORE-FR-031 | Shared validation shall check ranges, channel availability and enumerated choices, raising a message that names the setting, the offending value, the permitted range and the unit. | STK-03, STK-07 | Test |
 
-### 4.5 Simulator harness
+### 6.5 Simulator harness
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
 | CORE-FR-050 | A build's manifest - the version and build date its build system recorded beside the image - shall be readable by any element that needs it, and the diagnostic for a missing one shall name every path searched and take from the caller the sentence saying how that particular build produces one. | STK-07, STK-16 | Test |
 
-### 4.7 Simulation
+### 6.6 Simulation
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
 | CORE-FR-040 | A shared simulator harness shall provide SCPI message dispatch, compound-message splitting, the IEEE 488.2 mandated queries, an event queue and binary replies, so each instrument's simulator implements only its own behaviour. | STK-07 | Test |
 | CORE-FR-041 | An unrecognised command shall be recorded in the simulated event queue rather than ignored, so that a driver which misspells a command fails a test instead of passing silently. | STK-07 | Test |
 
-### 4.6 CORE non-functional
+### 6.7 CORE non-functional
 
 | ID | Requirement | Verification |
 |---|---|---|
@@ -158,7 +203,7 @@ Extends §4.2 with the SCPI and IEEE 488.2 vocabulary.
 
 ---
 
-## 5. ANA — analysis of captured records
+## 7. ANA — analysis of captured records
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -180,7 +225,7 @@ Extends §4.2 with the SCPI and IEEE 488.2 vocabulary.
 
 ---
 
-## 6. INST — requirements common to all drivers
+## 8. INST — requirements common to all drivers
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -190,7 +235,7 @@ Extends §4.2 with the SCPI and IEEE 488.2 vocabulary.
 
 ---
 
-## 7. SCOPE — Tektronix TDS3014B driver
+## 9. SCOPE — Tektronix TDS3014B driver
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -225,14 +270,14 @@ Extends §4.2 with the SCPI and IEEE 488.2 vocabulary.
 
 ---
 
-## 8. JLINK — SEGGER J-Link debug probe driver
+## 10. JLINK — SEGGER J-Link debug probe driver
 
 The probe is not an instrument in the SCPI sense: it does not answer `*IDN?` and
 has no error queue. It is nonetheless a *bench instrument* — it is configured,
 it is commanded, and it yields measurements — so it implements the generic base of
-§4.2 and is usable from the runner of §9.
+§6.2 and is usable from the runner of §14.
 
-### 8.1 Link to the probe
+### 10.1 Link to the probe
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -242,14 +287,14 @@ it is commanded, and it yields measurements — so it implements the generic bas
 | JLINK-FR-004 | The driver shall attach to a GDB server already listening, whether started by the user or running on another host, and shall not attempt to spawn a server on a host that is not the local one. | STK-09, STK-11 | Test |
 | JLINK-FR-005 | The driver shall close the link and stop only the server it started itself, leaving a server it merely attached to running. | STK-09 | Test |
 
-### 8.2 Target configuration
+### 10.2 Target configuration
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
 | JLINK-FR-010 | The driver shall accept the target device name, debug interface (SWD or JTAG), interface speed, probe serial number, and the core clock frequency, and shall hold each probe's capability envelope — hardware breakpoint count, watchpoint count, RTT channel count and maximum transfer size — as data rather than in code. | STK-09 | Test, Inspection |
 | JLINK-FR-011 | The driver shall load target symbols from an ELF file, reporting a missing or unreadable file before any target operation is attempted. | STK-09 | Test |
 
-### 8.3 Programming and verification
+### 10.3 Programming and verification
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -259,7 +304,7 @@ it is commanded, and it yields measurements — so it implements the generic bas
 | JLINK-FR-023 | The driver shall erase the target's non-volatile memory. | STK-09 | Test |
 | JLINK-FR-024 | The driver shall report what the build system recorded about the image it programmed - the version and the build date - from the manifest beside that image, so a test can state the version it put on a part rather than repeating one into a specification where it would go stale. | STK-09, STK-16 | Test |
 
-### 8.4 Execution control
+### 10.4 Execution control
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -271,7 +316,7 @@ it is commanded, and it yields measurements — so it implements the generic bas
 | JLINK-FR-035 | The driver shall set watchpoints on a variable or address for write, read, or either access, within the probe's watchpoint envelope. | STK-09 | Test |
 | JLINK-FR-036 | The driver shall run the target to a given location, reporting whether it arrived there or halted for another reason. | STK-09 | Test |
 
-### 8.5 Target state
+### 10.5 Target state
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -281,7 +326,7 @@ it is commanded, and it yields measurements — so it implements the generic bas
 | JLINK-FR-043 | The driver shall read a field of one to eight bytes as an integer in a byte order the caller states, because the byte order and width of a record programmed into a part are properties of that record and not of the core that loads it. A width or byte order outside what is supported shall be refused, since a misspelling would otherwise read a plausible and entirely wrong number. | STK-09 | Test |
 | JLINK-FR-045 | The driver shall read the call stack, reporting for each frame its level, function, source file and line, and the frame address. | STK-09 | Test |
 
-### 8.6 Real Time Transfer
+### 10.6 Real Time Transfer
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -292,7 +337,7 @@ it is commanded, and it yields measurements — so it implements the generic bas
 | JLINK-FR-054 | The driver shall report how many RTT lines arrive within a bounded interval, so that "the target is running" is a measurement a limit can fail rather than a timeout that raises. A target that started and said nothing is a failed test, not a broken bench. | STK-09, STK-10 | Test |
 | JLINK-FR-055 | The driver shall log every RTT line to a file as it arrives, flushed per line so the log survives a target or host failure, and shall retain the complete history independently of the lines consumed by reads. | STK-09 | Test |
 
-### 8.7 Timing between lines of code
+### 10.7 Timing between lines of code
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -305,7 +350,7 @@ it is commanded, and it yields measurements — so it implements the generic bas
 | JLINK-FR-066 | The driver shall repeat a timing measurement and report minimum, maximum, mean, spread and standard deviation over the repetitions. | STK-05, STK-09 | Test |
 | JLINK-FR-067 | A timing result derived from no samples shall raise rather than report zero. | STK-09 | Test |
 
-### 8.8 Bench and command-line use
+### 10.8 Bench and command-line use
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -314,7 +359,7 @@ it is commanded, and it yields measurements — so it implements the generic bas
 | JLINK-FR-090 | A simulated probe shall answer the GDB/MI dialogue the driver uses, with a deterministic firmware model — symbols, memory, call stacks, RTT traffic, ITM events and a known interval between two locations — so the driver is fully verifiable without a probe or a target. | STK-09 | Test |
 | JLINK-FR-100 | A command-line interface shall expose identification, flashing, verification, reset, run, halt, memory and variable access, the call stack, RTT and timing, emitting JSON so results are usable from a script. | STK-09, STK-12 | Test |
 
-### 8.9 JLINK non-functional
+### 10.9 JLINK non-functional
 
 | ID | Requirement | Verification |
 |---|---|---|
@@ -325,13 +370,13 @@ it is commanded, and it yields measurements — so it implements the generic bas
 
 ---
 
-## 9. BLE — Nordic dongle and its firmware
+## 11. BLE — Nordic dongle and its firmware
 
 The element has two halves that must agree: firmware on an nRF52840 dongle, and
 a host driver. Requirements are written once and apply to whichever half
-implements them; §9.6 says which.
+implements them; §11.6 says which.
 
-### 9.1 The host link
+### 11.1 The host link
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -345,7 +390,7 @@ implements them; §9.6 says which.
 | BLE-FR-013 | The firmware shall, on request, answer first and then restart into its bootloader, so that the host can refresh it over the same link without the operator touching the hardware. | STK-14 | Test |
 | BLE-FR-014 | The host shall compare the version and build date on the dongle against those of a named build, shall report a difference in either as a mismatch, and shall be able to refresh the dongle and confirm afterwards that the intended image is running. | STK-14, STK-16, STK-17 | Test |
 
-### 9.2 Scanning and selection
+### 11.2 Scanning and selection
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -355,7 +400,7 @@ implements them; §9.6 says which.
 | BLE-FR-023 | The host shall select one sensor, by index, address, name or object, and that selection shall persist for later commands. The address type shall travel with the address. | STK-15 | Test |
 | BLE-FR-024 | Selecting an address that no scan has seen shall be permitted, so a suite that knows its sensor need not scan first. | STK-15 | Test |
 
-### 9.3 UART over BLE
+### 11.3 UART over BLE
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -366,7 +411,7 @@ implements them; §9.6 says which.
 | BLE-FR-044 | A sensor that does not reply within the timeout shall be reported as a timeout, not as a round trip of the timeout's length. | STK-14 | Test |
 | BLE-FR-045 | A payload longer than the firmware accepts shall be refused by the host before transmission, naming the limit. | STK-14 | Test |
 
-### 9.4 Time until response
+### 11.4 Time until response
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -376,7 +421,7 @@ implements them; §9.6 says which.
 | BLE-FR-053 | Every latency result shall report the clock that produced it, that clock's resolution, and the connection interval; and shall be flagged as not trustworthy when the measured latency cannot be told apart from the connection interval. | STK-14 | Test |
 | BLE-FR-054 | A latency result derived from no samples shall raise rather than report zero. | STK-14 | Test |
 
-### 9.5 Advertising profile
+### 11.5 Advertising profile
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -388,7 +433,7 @@ implements them; §9.6 says which.
 | BLE-FR-035 | The proportion of the capture in which the sensor kept to its rate (duty cycle) and the proportion of expected events received shall be reported. | STK-15 | Test |
 | BLE-FR-036 | A capture too short for statistics shall report the counts it has and raise only when a statistic is actually asked for. | STK-15 | Test |
 
-### 9.6 Firmware, tooling and bench use
+### 11.6 Firmware, tooling and bench use
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -408,7 +453,7 @@ implements them; §9.6 says which.
 | BLE-FR-108 | The run shall be reportable as a markdown file, and every command shall be sent through the ordinary command path so that the session log carries the whole exchange with both clocks, marked with the test each command belonged to. | STK-12, STK-17 | Test |
 | BLE-FR-090 | The firmware shall build as a SEGGER Embedded Studio project against nRF5 SDK 17 for the PCA10059 dongle, and shall be packageable as a DFU image for the dongle's factory bootloader. | STK-16 | Inspection |
 
-### 9.7 BLE non-functional
+### 11.7 BLE non-functional
 
 | ID | Requirement | Verification |
 |---|---|---|
@@ -421,7 +466,7 @@ implements them; §9.6 says which.
 
 ---
 
-## 10. PSU — GW Instek GPD-3303D bench supply
+## 12. PSU — GW Instek GPD-3303D bench supply
 
 A linear supply with two programmable 30 V / 3 A channels, reached over RS-232
 or its USB-serial port. It is the sensor supply of STK-13.
@@ -441,7 +486,7 @@ it **clamps** a setting it cannot deliver instead of refusing it, it leaves
 output switch for two channels**, and in **series or parallel tracking** it
 accepts and discards anything sent to channel 2.
 
-### 10.1 Setting and reading
+### 12.1 Setting and reading
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -455,7 +500,7 @@ accepts and discards anything sent to channel 2.
 | PSU-FR-011 | Output power shall be available, and shall be identified as derived from the two readings rather than measured. | STK-13 | Test |
 | PSU-FR-012 | A single call shall return a channel's measurements, its setpoints and its regulation mode together, so that the mode qualifying a reading comes from the same moment as the reading. | STK-13 | Test |
 
-### 10.2 Regulation and status
+### 12.2 Regulation and status
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -465,7 +510,7 @@ accepts and discards anything sent to channel 2.
 | PSU-FR-023 | The driver shall report whether a channel is *regulated*: energised, in constant voltage, and at its setpoint. | STK-13, STK-17 | Test |
 | PSU-FR-024 | The driver shall be able to read and clear whatever the supply reports about a rejected command, carrying its text verbatim. | STK-13 | Test |
 
-### 10.3 Output switching
+### 12.3 Output switching
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -476,7 +521,7 @@ accepts and discards anything sent to channel 2.
 | PSU-FR-034 | When every channel has been switched off, the supply's own output switch shall be opened, so that "all off" is not two rails at zero volts. | STK-13 | Test |
 | PSU-FR-035 | The supply's output switch shall be operable directly, on and off, without reference to individual channels. | STK-13 | Test |
 
-### 10.4 Link and bench use
+### 12.4 Link and bench use
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -487,7 +532,7 @@ accepts and discards anything sent to channel 2.
 | PSU-FR-050 | The supply shall be registered as a bench driver, and a simulated supply shall answer the same command set with a load model, so that constant-current operation is verifiable without hardware. | STK-08, STK-13 | Test |
 | PSU-FR-060 | A command-line interface shall expose identification, status, measurement, setting and output switching, emitting JSON, and shall warn when a channel it read is in current limit or is being slaved to another by the supply's tracking mode. | STK-13 | Test |
 
-### 10.5 PSU non-functional
+### 12.5 PSU non-functional
 
 | ID | Requirement | Verification |
 |---|---|---|
@@ -497,7 +542,7 @@ accepts and discards anything sent to channel 2.
 
 ---
 
-## 11. S2LP — ST S2-LP development kit
+## 13. S2LP — ST S2-LP development kit
 
 A sub-1 GHz transceiver on an evaluation board, reached over USB. The board runs
 **ST's own CLI firmware** - the firmware ST's S2-LP DK GUI drives - and this
@@ -510,7 +555,7 @@ the firmware arms the radio when asked and hears nothing between one call and
 the next. Timestamps are the **board's millisecond timer**, not a radio
 timestamp. And the radio will accept a frequency the board cannot radiate.
 
-### 11.1 The link to the firmware
+### 13.1 The link to the firmware
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -520,7 +565,7 @@ timestamp. And the radio will accept a frequency the board cannot radiate.
 | S2LP-FR-004 | A value the firmware writes in hexadecimal without a prefix shall be read as hexadecimal. A line the driver did not understand shall be kept, not discarded. | STK-19 | Test |
 | S2LP-FR-005 | A long-running command shall be stoppable by the means the firmware provides, without resetting the board. | STK-19 | Test |
 
-### 11.2 Registers
+### 13.2 Registers
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -537,7 +582,7 @@ timestamp. And the radio will accept a frequency the board cannot radiate.
 | S2LP-FR-021 | Applying a register file shall be able to put the radio at its register defaults first, either by writing them or by a power-on reset, so that a file naming some registers produces a known state rather than one that depends on what ran before. The reset shall be confirmed by read-back before the file is written. The device's reset **strobe** shall not be offered for this: it resets the digital section and leaves the registers as they were. | STK-19 | Test |
 | S2LP-FR-020 | The driver shall write the radio's current register values out as a file of the same form, so a radio configured by hand or by the vendor's GUI can be captured and replayed. Registers that cannot be written shall be omitted from it. | STK-19 | Test |
 
-### 11.3 Radio configuration
+### 13.3 Radio configuration
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -547,7 +592,7 @@ timestamp. And the radio will accept a frequency the board cannot radiate.
 | S2LP-FR-033 | The board shall be identified at connection, and its band taken from what it reports rather than from configuration. Connecting shall change no radio setting. | STK-19 | Test |
 | S2LP-FR-034 | Signal strength shall be reported in dBm, converted by the device's documented scale. | STK-19 | Test |
 
-### 11.4 Transmitting, receiving and logging
+### 13.4 Transmitting, receiving and logging
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -559,14 +604,14 @@ timestamp. And the radio will accept a frequency the board cannot radiate.
 | S2LP-FR-045 | Every line exchanged with the board shall be loggable to a text file, host-timestamped and flushed per line, including lines the driver did not understand. | STK-19 | Test |
 | S2LP-FR-046 | Every packet, sent and received, shall be loggable as one structured record per line, readable after an interrupted capture. Both logs shall be available at once, and a note shall be writable into both. | STK-19 | Test |
 
-### 11.5 Bench use
+### 13.5 Bench use
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
 | S2LP-FR-050 | The kit shall be registered as a bench driver, and a simulated kit shall answer the same firmware command set with a register file and a modelled air interface, so that every operation is verifiable without hardware. | STK-08, STK-19 | Test |
 | S2LP-FR-060 | A command-line interface shall expose identification, register dump and access, radio configuration, transmit, receive, capture and strobes, emitting JSON, and shall warn when a capture was not continuous. | STK-19 | Test |
 
-### 11.6 S2LP non-functional
+### 13.6 S2LP non-functional
 
 | ID | Requirement | Verification |
 |---|---|---|
@@ -577,9 +622,9 @@ timestamp. And the radio will accept a frequency the board cannot radiate.
 
 ---
 
-## 12. RUN — bench test runner
+## 14. RUN — bench test runner
 
-### 12.1 Bench configuration
+### 14.1 Bench configuration
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -590,7 +635,7 @@ timestamp. And the radio will accept a frequency the board cannot radiate.
 | RUN-FR-005 | The runner shall support replacing every instrument with its simulator, so a specification can be exercised without hardware. | STK-08 | Test |
 | RUN-FR-006 | A run shall be recorded as simulated whenever no instrument on the bench is real hardware, so simulated results cannot be mistaken for measurements. | STK-08 | Test |
 
-### 12.2 Test specification
+### 14.2 Test specification
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -602,7 +647,7 @@ timestamp. And the radio will accept a frequency the board cannot radiate.
 | RUN-FR-015 | A test shall be markable as skipped, with a reason. | STK-08 | Test |
 | RUN-FR-016 | A step shall be able to save its result under a name, and any later step shall be able to use that saved value - or a value addressed inside it - as an argument or as a limit, optionally rendered through a format template. A reference to a name nothing has saved shall be refused, naming what has been saved. Without this a chained test would have to write down what an earlier step established, which makes the test assert its own input. | STK-08, STK-16 | Test |
 
-### 12.3 Limits
+### 14.3 Limits
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -613,7 +658,7 @@ timestamp. And the radio will accept a frequency the board cannot radiate.
 | RUN-FR-025 | A measurement shall be reportable through a format template, so a value whose meaning is not decimal - an identifier, an address, a mask - reads in the record as it reads on the part. The template shall not affect the check, which remains against the number; the number shall be retained in the result record; and the limit's own bounds shall be rendered the same way, since a hexadecimal value beside decimal bounds is less legible than either alone. A template that cannot be applied shall be an error, not a silent fall back to the number. | STK-08, STK-16 | Test |
 | RUN-FR-024 | A limit shall support exact comparison against text - a version, a device name - reported as the text itself rather than as a number. Matching shall be exact on the stripped value: a looser rule would pass 1.4.20 for 1.4.2, which is the failure such a limit exists to catch. | STK-08, STK-16 | Test |
 
-### 12.4 Execution
+### 14.4 Execution
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -626,7 +671,7 @@ timestamp. And the radio will accept a frequency the board cannot radiate.
 | RUN-FR-036 | A step shall be able to name a driver property as well as a method. A property shall be read when the step executes and shall take no arguments. | STK-08 | Test |
 | RUN-FR-037 | The run record and every report shall identify each instrument the run used - driver, model, serial number, resource and, where the instrument reports one, the firmware build - recorded after the run rather than before. An instrument that would not identify shall be recorded as such rather than omitted. | STK-08, STK-16, STK-17 | Test |
 
-### 12.5 Reporting
+### 14.5 Reporting
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -641,7 +686,7 @@ timestamp. And the radio will accept a frequency the board cannot radiate.
 
 ---
 
-## 13. Assumptions and constraints
+## 15. Assumptions and constraints
 
 | ID | Statement |
 |---|---|
@@ -656,9 +701,38 @@ timestamp. And the radio will accept a frequency the board cannot radiate.
 | ASM-07 | The dongle is an nRF52840 USB dongle (PCA10059) with its factory bootloader and S140 SoftDevice, enumerating as a USB CDC serial port on the host. |
 | ASM-08 | The sensor under test exposes Nordic's UART Service and answers a text console over it. A sensor with a different service needs a firmware change, not a driver change. |
 | ASM-09 | Advertising is on the primary channels (37, 38, 39) at 1 Mbit/s; extended advertising and coded PHY are not scanned for in this revision. |
-| CON-07 | The dongle firmware targets nRF5 SDK 17.1.0. It **compiles** against real SDK headers (SDK 15.2.0, in the `canembed/canembed-arm` image) with zero warnings, apart from four lines using SDK 17-only API; it has **not** been linked, flashed or run, and SDK 17.1.0 itself could not be obtained in the build environment. See `docs/ble/BLE_Dongle_Notes.md` §5. |
+| CON-07 | The dongle firmware targets nRF5 SDK 17.1.0. It **builds, links, fits and packages** against that SDK in CI (`.github/workflows/firmware.yml`), and also compiles against SDK 15.2.0 headers in the `canembed/canembed-arm` image. It has **not** been flashed or run on a dongle. See `docs/ble/BLE_Dongle_Notes.md` §5. |
 | CON-08 | Only RTT-free, connection-oriented UART is supported; the dongle connects to one sensor at a time. |
 | CON-03 | Instrument families named for future work (STK-13 and STK-18: power supplies and a multimeter over RS-232) have no requirements in this revision. The core is designed for them but not validated against them. |
 | CON-04 | The J-Link driver is verified against a simulated probe and a simulated target, not against physical hardware. Bench confirmation items are listed in `docs/jlink/JLink_Integration_Notes.md` §4. |
 | CON-05 | The scaling of SWO/ITM local timestamps to core cycles depends on the trace prescaler configured by the GDB server and the firmware. It is implemented from the ARMv7-M architecture reference manual and requires confirmation against a part before SWO timing figures are quoted (JLINK-OPEN-03). |
 | CON-06 | Markdown-to-Robot-Framework translation (STK-12) is not implemented in this revision. The driver's return types are constrained by JLINK-FR-081 so that it can be added without changing the driver. |
+
+---
+
+## 16. Requirements Traceability
+
+The consolidated trace - stakeholder requirement to software requirement to
+architecture element to design unit to source to test - is maintained as a
+single work product, **TB-RTM-001**
+(`docs/aspice/TestBench_Traceability_Matrix.md`), rather than being restated in
+each document.
+
+That matrix is checked mechanically by `tests/test_traceability.py`, which fails
+the build if a requirement declared here is absent from it, if a requirement
+cited in source or tests is not declared here, or if a design unit or test group
+is cited without being declared. Traceability in this project is therefore a
+property the suite enforces rather than a table someone maintains by hand.
+
+---
+
+## 17. Review & Approval
+
+| Role | Name | Signature / Electronic Approval | Date |
+|---|---|---|---|
+| Author | Claude | Approved | 2026-09-19 |
+| Technical Reviewer | Dermot Murphy | — | *pending* |
+| Quality Assurance | Dermot Murphy | — | *pending* |
+| Approver | Dermot Murphy | — | *pending* |
+
+> **Note:** This document is under configuration management (SUP.8). Post-approval changes require a change request (SUP.10) and a new document version.
