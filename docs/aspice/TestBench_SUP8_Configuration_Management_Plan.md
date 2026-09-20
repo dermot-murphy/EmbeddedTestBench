@@ -8,8 +8,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SUP8-001 | **Version** | 0.1 |
-| **Project** | TestBench | **Date** | 2026-09-19 |
+| **Document ID** | TB-SUP8-001 | **Version** | 0.2 |
+| **Project** | TestBench | **Date** | 2026-09-20 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SUP.8 |
@@ -23,6 +23,7 @@
 | Version | Date | Author | Description of Change |
 |---|---|---|---|
 | 0.1 | 2026-09-19 | Claude | Initial |
+| 0.2 | 2026-09-20 | Claude | Section 5 rewritten: `develop` recorded as the integration branch, stacked pull request procedure and the 2026-09-20 retargeting observation added, section 9 corrected to match |
 
 ---
 
@@ -84,16 +85,66 @@ rather than to the model name (TB-RISK-002).
 
 ## 5. Repository and Branching
 
+### 5.1 Branches
+
+| Branch | Purpose |
+|---|---|
+| `main` | Released state. Nothing is committed here directly. |
+| `develop` | Integration branch. Every change merges here first; `main` is updated from `develop` at a release. |
+| `feature/<topic>`, `docs/<topic>`, `fix/<topic>` | One branch per ticket, branched from `develop`. |
+
 | Item | Convention |
 |---|---|
 | Repository | `dermot-murphy/TestTools` |
-| Default branch | `main` — always buildable; the suite passes on every commit |
-| Work branches | One branch per piece of work, merged by pull request |
-| Direct pushes to `main` | Not made; changes arrive through pull requests |
+| Direct pushes to `main` or `develop` | Not made; changes arrive through pull requests |
+| Ticket | Every change starts from an issue, referenced in the commit message |
 | History | Never rewritten on a branch someone else may have checked out |
 
 A pull request is merged only when CI is green. A red build is fixed or the
-change is withdrawn; it is not merged with a note to fix it afterwards.
+change is withdrawn; it is not merged with a note to fix it afterwards. Where no
+workflow applies to a change, that is stated explicitly rather than implied by
+the absence of a failure.
+
+### 5.2 Stacked Pull Requests
+
+When one body of work splits into several tickets that build on each other, each
+branch is based on its predecessor, so that each pull request's diff shows only
+its own work and review stays honest.
+
+A stack is merged in dependency order, and each pull request is **retargeted to
+`develop` before it is merged**. This is not a precaution. A pull request based
+on its predecessor's branch merges *into that branch*, not into `develop`.
+
+A branch is deleted only after confirming that no open pull request is based on
+it. Deleting a base branch closes the pull requests that target it.
+
+A stacked chain is merged with merge commits, not squashed. Each branch contains
+its predecessors' commits; squashing replaces them with a commit that is not an
+ancestor of the next branch, and every later merge in the chain is made harder
+for it.
+
+### 5.3 Recorded Observation: Retargeting
+
+**2026-09-20, this repository.** PR #3 merged into `develop` at 16:15:31 and its
+head branch was deleted. PR #5, whose base was that branch, was **closed** at
+16:15:37 — not retargeted to `develop`.
+
+Recovery required restoring the deleted branch at its original commit, because a
+pull request whose base branch has been deleted cannot be reopened, and a closed
+pull request's base branch cannot be changed. The order that works is: restore
+the branch, reopen the pull request, change its base, then delete the restored
+branch.
+
+This is recorded as an observation of this repository on that date, not as a
+general statement about how GitHub behaves under every configuration. The
+distinction matters: treating the unverified general case as fact is what caused
+the failure it describes (TB-RISK-004).
+
+### 5.4 Relationship to CLAUDE.md
+
+`CLAUDE.md` at the repository root carries the same procedure in working form,
+for contributors and for Claude Code. It and this section are one configuration
+item in two places and are changed together; neither is updated alone.
 
 ---
 
@@ -149,7 +200,7 @@ The state of any configuration item is answered from the repository:
 |---|---|
 | What is in this release? | TB-SVD-001 for that baseline |
 | What changed since the last baseline? | `git log <previous-tag>..<tag>` |
-| Which document version is current? | The Version field in the document, on `main` |
+| Which document version is current? | The Version field in the document, on `develop`; on `main` for a released baseline |
 | What produced this report? | The report's own header: spec revision, bench, instrument identities, simulated or not |
 | What tool versions built this firmware? | The workflow file at that revision, plus TB-SVD-001 |
 

@@ -102,6 +102,8 @@ because it gets acted on.
 
 ## Related
 
-- `TB-SUP8-001` — Configuration Management Plan. Its §5 should carry this procedure
-  in ASPICE form; the two must not drift apart.
+- `TB-SUP8-001 §5` — Configuration Management Plan. Carries this procedure in
+  ASPICE form, including the 2026-09-20 retargeting observation. That section and
+  this file are one configuration item in two places: change them together,
+  never one alone.
 - `TB-RISK-004` — the risk this file's last section mitigates.
