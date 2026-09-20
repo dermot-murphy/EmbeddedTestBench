@@ -136,7 +136,7 @@ recorded on TB-TMPL-001, because no such review has been held.
 | `action.yml` | The bench-runner composite action this repository publishes |
 | `.github/workflows/bench.yml` | Runs the specifications below through that action against the simulated bench |
 | `.github/workflows/style.yml` | Runs CStyleCheck over `firmware/nordic_dongle` |
-| `.github/workflows/tests.yml` | Runs the Python suite with coverage, on two Python versions |
+| `.github/workflows/tests.yml` | Runs the Python suite with coverage, on Python 3.8, 3.9 and 3.12 |
 | `.github/workflows/lint.yml` | Runs pylint over `benchtools/`, `tests/` and `scripts/` against its baseline |
 | `scripts/lint.py` | The pylint runner and baseline comparison |
 | `benches/simulated_bench.yaml` | The fully simulated bench |
@@ -150,7 +150,8 @@ recorded on TB-TMPL-001, because no such review has been held.
 
 | Tool | Version | Where pinned |
 |---|---|---|
-| Python (CI) | 3.10 | `.github/workflows/firmware.yml` |
+| Python (CI, firmware DFU packaging) | 3.10 | `.github/workflows/firmware.yml` |
+| Python (CI, test matrix) | 3.8, 3.9, 3.12 | `.github/workflows/tests.yml` — 3.8 is the floor `pyproject.toml` declares |
 | `nrfutil` | 6.1.7 | `.github/workflows/firmware.yml` — exact pin, see TB-ACQ4-001 §4.3 |
 | GNU Arm Embedded toolchain | As pinned in the firmware workflow | `.github/workflows/firmware.yml` |
 | `dermot-murphy/CStyleCheck` | `@v1.5.1` | `.github/workflows/style.yml` |
@@ -187,7 +188,7 @@ recorded on TB-TMPL-001, because no such review has been held.
 | 7 | No document in this baseline has been reviewed | §5.3 |
 | 8 | The Python lint check is baselined at 436 existing findings and fails only on new ones; `duplicate-code` is disabled because its output is not reproducible across machines | TB-ANA-001 §6.13 |
 | 9 | The C standard check is baselined at 113 existing violations and fails only on new ones | TB-ANA-001 §6.12 |
-| 10 | `pyproject.toml` declares `requires-python = ">=3.8"`, but the test matrix covers 3.9 and 3.12 — 3.8 is claimed and not verified | TB-ANA-001 §6.1 |
+| 10 | Python 3.8 is end-of-life upstream. It is tested because `pyproject.toml` declares it as the floor; when supporting it stops being tenable the floor should be raised rather than the leg dropped | TB-ANA-001 §6.1 |
 
 None of these is a defect against a stated requirement. They are the distance
 between what TestBench is shown to do and what it will eventually be shown to

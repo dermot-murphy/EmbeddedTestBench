@@ -684,7 +684,7 @@ Three workflows run in `.github/workflows/`:
 
 | Workflow | What it does |
 |---|---|
-| `tests.yml` | The Python suite on 3.9 and 3.12, with coverage gated at 90% |
+| `tests.yml` | The Python suite on 3.8, 3.9 and 3.12, with coverage gated at 90% |
 | `lint.yml` | `pylint` over `benchtools/`, `tests/` and `scripts/`, against a recorded baseline |
 | `firmware.yml` | The dongle firmware's own Unity/CTest unit tests, then the real cross-compile against nRF5 SDK 17.1.0 and a DFU package |
 | `style.yml` | `dermot-murphy/CStyleCheck@v1.5.1` over `firmware/nordic_dongle`, against `.cstylecheck.yml` and a baseline |
