@@ -172,6 +172,14 @@ class TestReading:
             with pytest.raises(InstrumentError):
                 dmm.read(timeout=0.05)
 
+    def test_the_bench_can_say_what_the_simulated_meter_reads(self):
+        # So that a specification carrying real limits can be exercised with
+        # no hardware. The limits stay the specification's; only the value
+        # being judged comes from the bench.
+        with Tti1604.connect("sim://", simulated_value=0.0214) as dmm:
+            dmm.select_milliamps()
+            assert dmm.read().value == pytest.approx(0.0214)
+
     def test_a_held_reading_is_flagged_rather_than_hidden(self):
         simulator = SimulatedTti1604(value=1.0)
         simulator.status["hold"] = True

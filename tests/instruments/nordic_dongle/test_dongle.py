@@ -144,6 +144,43 @@ class TestScanning:
         assert scanned.find_sensor("nothing here") is None
 
 
+class TestStrongest:
+    """Choosing by signal strength rather than by name.
+
+    Worth its own class because "strongest" is a statement about a link at a
+    moment, not about which board is nearest, and because the empty case has
+    to fail here rather than three steps later at the point of connecting.
+    """
+
+    def test_the_highest_rssi_wins(self, dongle):
+        dongle.scan(1.0)
+        found = dongle.sensors
+        assert len(found) > 1, "the fixture needs more than one sensor to choose between"
+        assert dongle.strongest().rssi == max(sensor.rssi for sensor in found)
+
+    def test_a_supplied_list_is_used_instead_of_the_last_scan(self, dongle):
+        near = Sensor(address="AA:BB:CC:DD:EE:01", name="NEAR", rssi=-40, index=1)
+        far = Sensor(address="AA:BB:CC:DD:EE:02", name="FAR", rssi=-90, index=0)
+        assert dongle.strongest([far, near]).name == "NEAR"
+
+    def test_a_tie_is_broken_by_scan_order(self, dongle):
+        # Repeating a scan over two boards at equal strength must select the
+        # same one, not alternate between them.
+        first = Sensor(address="AA:BB:CC:DD:EE:01", name="FIRST", rssi=-55, index=0)
+        second = Sensor(address="AA:BB:CC:DD:EE:02", name="SECOND", rssi=-55, index=1)
+        assert dongle.strongest([first, second]).name == "FIRST"
+        assert dongle.strongest([second, first]).name == "FIRST"
+
+    def test_an_empty_scan_is_refused_where_it_happened(self, dongle):
+        # Selecting from nothing would otherwise surface at connect time and
+        # read as a link problem rather than as an empty room.
+        with pytest.raises(InstrumentError) as excinfo:
+            dongle.strongest([])
+        message = str(excinfo.value)
+        assert "found nothing" in message
+        assert "advertising" in message
+
+
 class TestSelection:
     def test_select_by_name(self, dongle):
         dongle.scan(1.0)

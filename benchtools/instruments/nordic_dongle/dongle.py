@@ -659,6 +659,35 @@ class NordicDongle(Instrument):
                 return sensor
         return None
 
+    def strongest(self, sensors: Optional[List[Sensor]] = None) -> Sensor:
+        """The sensor heard most strongly in the last scan.
+
+        "Strongest" is the highest RSSI, which is received power at the
+        *dongle*. It is a statement about this link at this moment - antenna
+        orientation, what is between the two, and the board's own transmit
+        power all move it - and not about which board is nearest or which is
+        transmitting hardest. A test that needs a particular board should say
+        which board (:meth:`find_sensor`); this is for the case where the
+        bench holds one board and the strongest signal is the way to say so
+        without writing its address into the specification.
+
+        Ties are broken by scan index, so repeating a scan over two boards at
+        equal strength selects the same one rather than alternating.
+
+        :param sensors: Choose among these rather than the last scan's table.
+        :raises InstrumentError: Nothing was heard. Selecting from an empty
+            scan would otherwise fail later, at the point of connecting, and
+            look like a link problem rather than an empty room.
+        """
+        candidates = list(self._sensors if sensors is None else sensors)
+        if not candidates:
+            raise InstrumentError(
+                "no sensor to choose from: the last scan found nothing. Check "
+                "the board is powered and advertising, and that the scan was "
+                "long enough and not filtered to exclude it."
+            )
+        return max(candidates, key=lambda found: (found.rssi, -found.index))
+
     def select(self, sensor: Union[int, str, Sensor]) -> Sensor:
         """Choose the sensor later commands apply to.
 

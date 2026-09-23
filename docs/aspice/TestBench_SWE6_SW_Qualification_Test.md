@@ -8,8 +8,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE6-001 | **Version** | 0.1 |
-| **Project** | TestBench | **Date** | 2026-09-19 |
+| **Document ID** | TB-SWE6-001 | **Version** | 0.2 |
+| **Project** | TestBench | **Date** | 2026-09-23 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.6 |
@@ -23,6 +23,7 @@
 | Version | Date | Author | Description of Change |
 |---|---|---|---|
 | 0.1 | 2026-09-19 | Claude | Initial |
+| 0.2 | 2026-09-23 | Claude | TB-QT-02a added: the five-instrument specification run against the simulated bench. |
 
 ---
 
@@ -77,6 +78,7 @@ Three properties shape the strategy:
 |---|---|---|---|
 | TB-QT-01 | `CORE-FR-*`, `INST-FR-*` | Load `benches/simulated_bench.yaml` and open every instrument in it | Every driver opens; every identity is recorded |
 | TB-QT-02 | `RUN-FR-*` | Run `specs/sensor_bringup.yaml` against the simulated bench | Run completes; report names spec, bench and every identity; result is pass |
+| TB-QT-02a | `RUN-FR-*`, `DMM-FR-*`, `BLE-FR-025` | Run `specs/sensor_power_signal_and_link.yaml` against the simulated bench: five instruments in one pass, including a current measured through the meter and a board chosen by signal strength | Run completes; every instrument identity recorded; result is pass. A bench stating a simulated current outside the specification's band fails that test and only that test |
 | TB-QT-03 | `RUN-FR-*`, `BLE-FR-*` | Run `specs/sensor_commands.yaml`, which executes `specs/sensor_commands.md` | Each markdown test appears in the report with per-step command, response, expectation, time and result |
 | TB-QT-04 | `RUN-FR-*` | A markdown step that is a delay, and a step with no stated expectation | Both recorded as **skip**, in order, neither as pass |
 | TB-QT-05 | `RUN-FR-*` | A step whose response does not match its expectation | Step **fail**; following steps still executed and recorded; overall result fail |
