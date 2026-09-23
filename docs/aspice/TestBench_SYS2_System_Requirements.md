@@ -8,8 +8,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SYS2-001 | **Version** | 0.1 |
-| **Project** | TestBench | **Date** | 2026-09-19 |
+| **Document ID** | TB-SYS2-001 | **Version** | 0.2 |
+| **Project** | TestBench | **Date** | 2026-09-23 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SYS.2 |
@@ -23,6 +23,7 @@
 | Version | Date | Author | Description of Change |
 |---|---|---|---|
 | 0.1 | 2026-09-19 | Claude | Initial |
+| 0.2 | 2026-09-23 | Claude | TB-SYS2-051…053 added for the multimeter; TB-SYS2-104 no longer records it as deferred; STK-18 trace updated. |
 
 ---
 
@@ -36,7 +37,7 @@ to it, the dongle firmware TestBench itself supplies, and the target under test
 as it appears to the bench.
 
 It sits between the stakeholder requirements (TB-SWE1-001 §4) and the software
-requirements (TB-SWE1-001 §6–§14). A stakeholder requirement says what the
+requirements (TB-SWE1-001 §6–§15). A stakeholder requirement says what the
 engineer wants; a system requirement says what the bench must therefore do,
 including the parts that are not software; a software requirement says what the
 code must do.
@@ -167,6 +168,9 @@ Each requirement carries a verification method: **T** test, **A** analysis,
 | TB-SYS2-045 | The system shall select a target by an identifier read from the target's own memory, matching it against the identifier carried in the advertising name. | T |
 | TB-SYS2-046 | The system shall programme, read and write every register of the S2-LP transceiver, transmit and receive over the sub-GHz link, and log all data exchanged. | T |
 | TB-SYS2-047 | The system shall use the vendor's own firmware for the S2-LP kit; that firmware's command set is an external interface and is not modified. | I |
+| TB-SYS2-051 | The system shall measure voltage, current, resistance and frequency with a TTi 1604 bench multimeter over RS-232, reporting every value in SI units. | T |
+| TB-SYS2-052 | The system shall report a multimeter reading taken from a frozen display as held, so that a stored value is not recorded as a present measurement. | T |
+| TB-SYS2-053 | The system shall report a multimeter overrange as an overrange rather than as a number. | T |
 
 ### 9.1 Target Identity
 
@@ -228,14 +232,14 @@ Each requirement carries a verification method: **T** test, **A** analysis,
 | TB-SYS2-101 | Instrument accuracy is the manufacturer's specification. TestBench does not improve it and does not restate it. |
 | TB-SYS2-102 | TestBench is a test tool. It carries no ASIL classification and is not part of any delivered product. |
 | TB-SYS2-103 | The S2-LP kit runs ST's firmware under SLA0072; see TB-ACQ4-001 §4.2. |
-| TB-SYS2-104 | The multimeter interface (STK-18) is deferred; no requirement in this document depends on it. |
+| TB-SYS2-104 | The multimeter interface (STK-18) is implemented for the TTi 1604 (TB-SYS2-051…053). Its protocol is taken from cited documentation; no behaviour has been confirmed against a physical meter — see `docs/dmm/TTi1604_Notes.md` §5. |
 
 ---
 
 ## 14. Traceability
 
 Upward to the stakeholder requirements in TB-SWE1-001 §4, downward to the
-software requirements in TB-SWE1-001 §6–§14. The full matrix is TB-RTM-001.
+software requirements in TB-SWE1-001 §6–§15. The full matrix is TB-RTM-001.
 
 | Stakeholder | System requirements |
 |---|---|
@@ -250,7 +254,7 @@ software requirements in TB-SWE1-001 §6–§14. The full matrix is TB-RTM-001.
 | STK-14, STK-15 | TB-SYS2-040…TB-SYS2-045 |
 | STK-16 | TB-SYS2-091 |
 | STK-17 | TB-SYS2-044 |
-| STK-18 | TB-SYS2-104 *(deferred)* |
+| STK-18 | TB-SYS2-051, TB-SYS2-052, TB-SYS2-053, TB-SYS2-104 |
 | STK-19, STK-20 | TB-SYS2-046, TB-SYS2-047, TB-SYS2-103 |
 
 | System requirement group | Software requirements |

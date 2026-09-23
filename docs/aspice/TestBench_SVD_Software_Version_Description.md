@@ -8,8 +8,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SVD-001 | **Version** | 0.1 |
-| **Project** | TestBench | **Date** | 2026-09-19 |
+| **Document ID** | TB-SVD-001 | **Version** | 0.2 |
+| **Project** | TestBench | **Date** | 2026-09-23 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SUP.8 |
@@ -23,6 +23,7 @@
 | Version | Date | Author | Description of Change |
 |---|---|---|---|
 | 0.1 | 2026-09-19 | Claude | Initial |
+| 0.2 | 2026-09-23 | Claude | Known problem 6 restated: the multimeter is implemented but unconfirmed against hardware, rather than deferred. |
 
 ---
 
@@ -184,7 +185,7 @@ recorded on TB-TMPL-001, because no such review has been held.
 | 3 | Bench-confirmation items remain open for the scope, probe, dongle, supply and S2-LP kit | TB-SYS5-001 §7 |
 | 4 | No MISRA checker runs in CI; those rules rest on review | TB-STD-001 §7.1 |
 | 5 | The firmware build sets no explicit `-std` and does not enable `-Wextra` | TB-STD-002 §7.1, §7.2 |
-| 6 | The RS-232 multimeter (STK-18) is deferred; no requirements exist for it | TB-SYS2-104 |
+| 6 | The TTi 1604 multimeter driver is written from cited documentation and has not been run against a physical meter | `docs/dmm/TTi1604_Notes.md` §5, TB-SYS2-104 |
 | 7 | No document in this baseline has been reviewed | §5.3 |
 | 8 | The Python lint check is baselined at 436 existing findings and fails only on new ones; `duplicate-code` is disabled because its output is not reproducible across machines | TB-ANA-001 §6.13 |
 | 9 | The C standard check is baselined at 113 existing violations and fails only on new ones | TB-ANA-001 §6.12 |

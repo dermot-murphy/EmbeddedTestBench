@@ -111,7 +111,7 @@ AD-16 - rather than a separate `FW-` element with its own document set.
 
 The J-Link is the worked example of a driver that is **not** a SCPI instrument: it
 implements `core.instrument.Instrument` rather than `ScpiInstrument`, which is the
-same seam the BLE dongle uses and the RS-232 multimeter (STK-18) will. The
+same seam the BLE dongle and the RS-232 multimeter (STK-18) use. The
 GPD-3303D supply is the intermediate case: it answers `*IDN?` and nothing else
 from IEEE 488.2, so it takes the transport and lifecycle from `ScpiInstrument`
 and replaces the SCPI-specific parts explicitly. Adding one should not require touching `benchtools.core`; if it does,

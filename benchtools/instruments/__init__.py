@@ -9,4 +9,4 @@ Drivers are imported individually so that using one does not pull in the rest::
 Traces to: INST-ARC-001.
 """
 
-__all__ = ["tek3014b", "generic"]
+__all__ = ["tek3014b", "generic", "tti1604"]

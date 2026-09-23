@@ -8,8 +8,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE2-001 | **Version** | 0.1 |
-| **Project** | TestBench | **Date** | 2026-09-19 |
+| **Document ID** | TB-SWE2-001 | **Version** | 0.2 |
+| **Project** | TestBench | **Date** | 2026-09-23 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.2 |
@@ -23,6 +23,7 @@
 | Version | Date | Author | Description of Change |
 |---|---|---|---|
 | 0.1 | 2026-09-19 | Claude | Initial |
+| 0.2 | 2026-09-23 | Claude | DMM-ARC-001 added: the TTi 1604 multimeter element. |
 
 ---
 
@@ -128,6 +129,7 @@ instrument, and to be importable without importing any other element.
 | JLINK-ARC-001 | `instruments.jlink` | The debug probe driver. `JLinkProbe` is the façade over seven collaborators, each independently testable: MI record parsing (`gdbmi`), the command/response session (`session`), server discovery and lifetime (`server`), RTT (`rtt`), ITM/SWO decoding (`swo`), timing results (`timing`), and the probe and target envelope (`constants`). Its simulator answers the MI dialogue. | `JLinkProbe`, `GdbMiSession`, `RttClient`, `ItmDecoder`, `TimingResult`, `GdbServer` |
 | S2LP-ARC-001 | `instruments.s2lp` | The ST S2-LP development kit, host side only: ST's firmware runs on the board (AD-20). The line protocol (`protocol`), the command/reply session with its raw log (`session`), the device's register map (`registers`), packet records and their structured log (`packets`), the driver façade (`s2lp`) and a simulated kit with a register file and a modelled air interface. | `S2lpDevkit`, `S2lpSession`, `Register`, `Packet`, `Capture`, `SimulatedS2lp` |
 | PSU-ARC-001 | `instruments.gpd3303d` | The GW Instek bench supply, programmable channels 1 and 2; its fixed rail is a front-panel switch and is outside the element. Not a SCPI instrument: it takes the transport and lifecycle from `ScpiInstrument` and replaces the SCPI-specific parts (`*CLS`, `*RST`, `SYSTem:ERRor?`) with its own. Its own command grammar, a load-modelling simulator, and a command line. | `Gpd3303D`, `ChannelReading`, `SupplyStatus`, `SimulatedGpd` |
+| DMM-ARC-001 | `instruments.tti1604` | The TTi 1604 bench multimeter, on an opto-isolated RS-232 link. Not a SCPI instrument and not close to one: no command language, no query, no `*IDN?`, no error queue. The link carries single characters standing for key presses, and the meter streams a ten-byte binary frame per measurement. Frame decoding (`protocol`) is pure and separate from the link, because decoding is where a wrong number comes from and it should be testable without a meter. The instrument envelope and protocol facts (`constants`), the driver façade (`dmm`), a behavioural simulator and a command line. | `Tti1604`, `Reading`, `FrameAssembler`, `decode`, `SimulatedTti1604` |
 | RUN-ARC-001 | `runner` | Specification model, bench resolution, execution engine, result records, report writers, command line. | `load_spec`, `BenchConfig`, `BenchRunner`, `write_*` |
 
 ## 7. Key architectural decisions
