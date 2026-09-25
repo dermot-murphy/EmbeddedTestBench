@@ -457,3 +457,176 @@ class TestTheShippedDocument:
             instrument.close()
         assert run.result == PASS, [item.as_dict() for item in run.failures]
         assert run.skipped == 3, "the delay and the two commands promising nothing"
+
+
+
+# ----------------------------------------------------------------------
+# Variables, connect and disconnect (#46)
+# ----------------------------------------------------------------------
+VARIABLES = """# Parameterised
+
+| Variable  | Default | Notes |
+|-----------|---------|-------|
+| SENSOR_ID |         | required |
+| SETTLE_MS | 100     |       |
+| VERSION   | 1.4     |       |
+
+## Identity
+
+| Step | Command              | Expected response  |
+|------|----------------------|--------------------|
+| 1    | connect ${SENSOR_ID} |                    |
+| 2    | delay ${SETTLE_MS}   |                    |
+| 3    | rd version           | /^${VERSION}/      |
+| 4    | disconnect           |                    |
+"""
+
+
+def no_wait(seconds):
+    """Stand-in for time.sleep: the tests must not wait in real time."""
+    del seconds
+
+
+class TestVariables:
+    """``${NAME}`` is Robot Framework's syntax, so a row converts as written."""
+
+    def test_defaults_and_values_are_substituted(self):
+        script = parse_script(VARIABLES, variables={"SENSOR_ID": "sens"})
+        steps = script.steps
+        assert steps[0].target == "sens"
+        assert steps[1].delay_s == pytest.approx(0.100)
+        assert steps[2].expected == "/^1.4/"
+        assert script.variables == {"SENSOR_ID": "sens", "SETTLE_MS": "100", "VERSION": "1.4"}
+
+    def test_a_value_overrides_a_default(self):
+        script = parse_script(VARIABLES, variables={"SENSOR_ID": "s", "SETTLE_MS": "250"})
+        assert script.steps[1].delay_s == pytest.approx(0.250)
+
+    def test_a_variable_with_no_default_must_be_given(self):
+        with pytest.raises(ConfigurationError, match="--var SENSOR_ID="):
+            parse_script(VARIABLES)
+
+    def test_an_undeclared_variable_is_refused(self):
+        with pytest.raises(ConfigurationError, match=r"\$\{NOPE\} is not declared"):
+            parse_script(document("| 1 | rd ${NOPE} | 1 |\n"))
+
+    def test_a_value_for_an_undeclared_variable_is_refused(self):
+        """A misspelt --var would otherwise leave the default silently in force."""
+        with pytest.raises(ConfigurationError, match="SENSOR_IDD"):
+            parse_script(VARIABLES, variables={"SENSOR_ID": "s", "SENSOR_IDD": "x"})
+
+    def test_a_variable_declared_twice_is_refused(self):
+        text = "| Variable | Default |\n|---|---|\n| A | 1 |\n| A | 2 |\n\n"
+        with pytest.raises(ConfigurationError, match="declared twice"):
+            parse_script(text + document("| 1 | x | 1 |\n"))
+
+    def test_a_bad_variable_name_is_refused(self):
+        text = "| Variable | Default |\n|---|---|\n| 2FAST | 1 |\n\n"
+        with pytest.raises(ConfigurationError, match="not a variable name"):
+            parse_script(text + document("| 1 | x | 1 |\n"))
+
+    def test_variables_are_declared_before_the_first_step(self):
+        text = document("| 1 | x | 1 |\n") + "\n| Variable | Default |\n|---|---|\n| A | 1 |\n"
+        with pytest.raises(ConfigurationError, match="after the first step"):
+            parse_script(text)
+
+    def test_a_table_that_is_not_steps_is_prose(self):
+        """A legend or a conversion table sits beside the steps unread."""
+        legend = "## Legend\n\n| Row | Robot Framework |\n|---|---|\n| a | b |\n\n"
+        script = parse_script(legend + document("| 1 | temp | 23.5 |\n"))
+        assert [test.name for test in script.tests] == ["A test"]
+
+
+def unlinked():
+    """A dongle over the simulator, with no sensor selected and no link."""
+    instrument = NordicDongle(MockTransport(responder=SimulatedDongle()))
+    instrument.initialise()
+    return instrument
+
+
+class TestConnectAndDisconnect:
+    def test_connect_and_disconnect_are_steps_for_the_dongle(self):
+        script = parse_script(document("| 1 | connect SENS | |\n| 2 | disconnect | |\n"))
+        assert [step.action for step in script.steps] == ["connect", "disconnect"]
+        assert script.connects is True
+        assert script.checks == 1           # a connect is a claim; a disconnect is not
+
+    def test_connect_names_a_sensor(self):
+        with pytest.raises(ConfigurationError, match="names no sensor"):
+            parse_script(document("| 1 | connect | |\n"))
+
+    def test_connect_has_no_expected_response(self):
+        with pytest.raises(ConfigurationError, match="cannot have an expected response"):
+            parse_script(document("| 1 | connect SENS | ok |\n"))
+
+    def test_a_document_that_connects_needs_no_link_opened_for_it(self):
+        instrument = unlinked()
+        try:
+            script = parse_script(VARIABLES, variables={"SENSOR_ID": "sens-0a1b"})
+            run = run_script(instrument, script, sleep=no_wait, scan_s=0.2)
+            assert [item.result for item in run.results] == [PASS, SKIP, PASS, SKIP]
+            assert "SENS-0A1B2C" in run.sensor
+            assert run.variables["SENSOR_ID"] == "sens-0a1b"
+            assert instrument.is_linked is False
+        finally:
+            instrument.close()
+
+    def test_a_link_the_document_opened_is_closed_when_it_ends(self):
+        instrument = unlinked()
+        try:
+            script = parse_script(document("| 1 | connect SENS-0A1B2C | |\n"))
+            run_script(instrument, script, sleep=no_wait, scan_s=0.2)
+            assert instrument.is_linked is False
+        finally:
+            instrument.close()
+
+    def test_a_sensor_that_cannot_be_found_fails_the_connect_and_what_follows(self):
+        instrument = unlinked()
+        try:
+            script = parse_script(document("| 1 | connect kappa | |\n| 2 | rd version | 1.4.2 |\n"))
+            run = run_script(instrument, script, sleep=no_wait, scan_s=0.2, connect_attempts=1)
+            assert [item.result for item in run.results] == [FAIL, FAIL]
+            assert "kappa" in run.results[0].reason
+        finally:
+            instrument.close()
+
+    def test_connect_takes_an_address(self):
+        instrument = unlinked()
+        try:
+            script = parse_script(document("| 1 | connect E4:1C:7B:02:9A:11 | |\n"))
+            run = run_script(instrument, script, sleep=no_wait, scan_s=0.2)
+            assert run.results[0].result == PASS
+        finally:
+            instrument.close()
+
+    def test_the_driver_runs_a_document_that_connects_with_no_link_open(self, tmp_path):
+        source = tmp_path / "test.md"
+        source.write_text(VARIABLES)
+        instrument = unlinked()
+        try:
+            run = instrument.run_script(str(source), variables={"SENSOR_ID": "SENS-0A1B2C"})
+        finally:
+            instrument.close()
+        assert run.result == PASS
+
+
+class TestTheTemplate:
+    """`specs/templates/ble_sensor_test.md` is what people copy. It must parse,
+    must demand a sensor, and must start by connecting to it."""
+
+    import pathlib
+
+    SOURCE = (pathlib.Path(__file__).resolve().parents[3]
+              / "specs" / "templates" / "ble_sensor_test.md")
+
+    def test_it_parses_with_a_sensor_given(self):
+        script = load_script(str(self.SOURCE), variables={"SENSOR_ID": "kappa"})
+        assert script.steps[0].action == "connect"
+        assert script.steps[0].target == "kappa"
+        assert script.connects is True
+        assert any(step.is_delay for step in script.steps)
+        assert script.checks >= 2
+
+    def test_it_will_not_run_without_a_sensor(self):
+        with pytest.raises(ConfigurationError, match="SENSOR_ID"):
+            load_script(str(self.SOURCE))

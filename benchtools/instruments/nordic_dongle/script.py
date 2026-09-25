@@ -17,7 +17,28 @@ The document is a heading per test, then a table::
     | 3    | delay 100  |                   |
     | 4    | log start  |                   |
 
-Three kinds of step, and only the first can fail:
+A document may declare variables in a table before its first test, and use
+them as ``${NAME}`` in any command, expected response or delay - Robot
+Framework's own syntax, so a row converts to a keyword call as written::
+
+    | Variable  | Default | Notes              |
+    |-----------|---------|--------------------|
+    | SENSOR_ID |         | required: no default |
+    | SETTLE_MS | 500     |                    |
+
+A variable with no default must be given a value when the document is run
+(``--var SENSOR_ID=kappa``); one that is used but not declared, or given but
+not declared, is an error naming the line.
+
+Two steps act on the dongle rather than the sensor:
+
+* ``connect <sensor>`` scans, selects the sensor by address or by a fragment of
+  its name (any case), and opens the link. **Pass** or **fail**: it is the
+  claim that the sensor can be reached. A document that connects closes the
+  link again when it ends.
+* ``disconnect`` closes the link. **Skip**.
+
+Three kinds of step talk to the sensor, and only the first can fail:
 
 * **A command with an expected response.** The reply is compared with the
   expected text, exactly, after trimming. A cell written ``/like this/`` is a
@@ -47,11 +68,15 @@ from __future__ import annotations
 import re
 import time
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Sequence
+from typing import Dict, List, Mapping, Optional, Sequence
 
 from ...core.errors import ConfigurationError
 
 __all__ = [
+    "COMMAND",
+    "CONNECT",
+    "DELAY",
+    "DISCONNECT",
     "PASS",
     "FAIL",
     "SKIP",
@@ -80,6 +105,23 @@ RESOLUTION_S = 0.01
 #: ``delay 250``, or ``delay 250 ms``: a pause, not a command.
 _DELAY = re.compile(r"^delay\s+(?P<amount>[0-9]+(?:\.[0-9]+)?)\s*(?:ms|msec)?$", re.I)
 
+#: ``connect <sensor>`` and ``disconnect``: steps for the dongle, not the sensor.
+_CONNECT = re.compile(r"^connect(?:\s+(?P<target>\S.*))?$", re.I)
+_DISCONNECT = re.compile(r"^disconnect$", re.I)
+
+#: A Bluetooth address, optionally with its type: ``D1:8D:3B:4C:19:96/1``.
+_ADDRESS = re.compile(r"^[0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5}(?:/[0-9])?$")
+
+#: ``${NAME}``: a variable, as Robot Framework writes one.
+_VARIABLE = re.compile(r"\$\{(?P<name>[^}]*)\}")
+_VARIABLE_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+#: What a step does. A plain command is the default.
+COMMAND = "command"
+DELAY = "delay"
+CONNECT = "connect"
+DISCONNECT = "disconnect"
+
 #: ``/pattern/``: the expected response is a regular expression.
 _PATTERN = re.compile(r"^/(?P<body>.*)/$", re.S)
 
@@ -97,6 +139,12 @@ _COLUMNS = {
     "expected": ("expected", "expected response", "expected reply", "response"),
 }
 
+#: Column headings of the variables table.
+_VARIABLE_COLUMNS = {
+    "variable": ("variable", "name"),
+    "default": ("default", "value", "default value"),
+}
+
 
 @dataclass(frozen=True)
 class ScriptStep:
@@ -108,6 +156,9 @@ class ScriptStep:
     :param expected: The expected response as written, empty when none.
     :param delay_s: Seconds to wait, for a delay step.
     :param line: Line in the document, for diagnostics.
+    :param action: What the step does: :data:`COMMAND`, :data:`DELAY`,
+        :data:`CONNECT` or :data:`DISCONNECT`.
+    :param target: The sensor a ``connect`` step names.
     """
 
     test: str
@@ -116,6 +167,8 @@ class ScriptStep:
     expected: str = ""
     delay_s: Optional[float] = None
     line: int = 0
+    action: str = COMMAND
+    target: str = ""
 
     @property
     def is_delay(self) -> bool:
@@ -123,8 +176,13 @@ class ScriptStep:
 
     @property
     def expects_response(self) -> bool:
-        """Whether this step makes a claim that can fail."""
-        return not self.is_delay and bool(self.expected)
+        """Whether this step sends a command and checks the reply."""
+        return self.action == COMMAND and bool(self.expected)
+
+    @property
+    def makes_claim(self) -> bool:
+        """Whether this step can fail: a checked command, or a connect."""
+        return self.expects_response or self.action == CONNECT
 
     @property
     def pattern(self) -> Optional[str]:
@@ -157,6 +215,7 @@ class CommandScript:
 
     tests: Sequence[ScriptTest] = ()
     source: str = ""
+    variables: Mapping[str, str] = field(default_factory=dict)
 
     @property
     def steps(self) -> List[ScriptStep]:
@@ -171,7 +230,17 @@ class CommandScript:
         fire-and-forget commands cannot fail, and a report that said "PASS"
         without saying that would be misleading.
         """
-        return sum(1 for step in self.steps if step.expects_response)
+        return sum(1 for step in self.steps if step.makes_claim)
+
+    @property
+    def connects(self) -> bool:
+        """Whether the document opens its own link before its first command."""
+        for step in self.steps:
+            if step.action == CONNECT:
+                return True
+            if step.action == COMMAND:
+                return False
+        return False
 
     def __len__(self) -> int:
         return len(self.steps)
@@ -222,26 +291,236 @@ def _parse_delay(text: str, where: str) -> Optional[float]:
     return amount / 1000.0
 
 
-def parse_script(text: str, source: str = "") -> CommandScript:
+def _variable_columns(headings: Sequence[str]) -> Optional[Dict[str, int]]:
+    """Columns of a variables table, or None when the table is not one."""
+    found: Dict[str, int] = {}
+    for position, heading in enumerate(headings):
+        name = heading.strip().lower().rstrip(":")
+        for column, accepted in _VARIABLE_COLUMNS.items():
+            if name in accepted and column not in found:
+                found[column] = position
+    return found if "variable" in found else None
+
+
+def _substitute(text: str, values: Mapping[str, Optional[str]], where: str) -> str:
+    """Replace every ``${NAME}`` in *text*.
+
+    :raises ConfigurationError: for a name the document does not declare, or
+        one declared without a default and not given a value.
+    """
+    def replace(match) -> str:
+        name = match.group("name")
+        if name not in values:
+            raise ConfigurationError(
+                "%s: ${%s} is not declared. Add it to the | Variable | Default | "
+                "table at the top of the document." % (where, name)
+            )
+        value = values[name]
+        if value is None:
+            raise ConfigurationError(
+                "%s: ${%s} has no default and was not given a value. Run with "
+                "--var %s=<value>." % (where, name, name)
+            )
+        return value
+
+    return _VARIABLE.sub(replace, text)
+
+
+def _is_step_table(headings: Sequence[str]) -> bool:
+    """Whether a table claims to hold steps: it names any step column.
+
+    One that names some but not all of them is a step table with a mistake in
+    it, and is refused rather than skipped - a skipped table is a set of
+    commands nobody tested and nobody missed. A table naming none of them is
+    prose (a legend, a conversion table) and is left alone.
+    """
+    for heading in headings:
+        name = heading.strip().lower().rstrip(":")
+        if any(name in accepted for accepted in _COLUMNS.values()):
+            return True
+    return False
+
+
+class _Reader:
+    """State while reading one document, so each kind of row has one place."""
+
+    def __init__(self, label: str, overrides: Mapping[str, str]) -> None:
+        self.label = label
+        self.overrides = dict(overrides)
+        self.declared: Dict[str, Optional[str]] = {}
+        self.bound = False
+        self.tests: List[ScriptTest] = []
+        self.heading: Optional[str] = None
+        self.steps: List[ScriptStep] = []
+        self.numbers: Dict[str, int] = {}
+        #: What the table being read is: None between tables, else "steps",
+        #: "variables" or "prose".
+        self.mode: Optional[str] = None
+        self.columns: Dict[str, int] = {}
+        self.width = 0
+
+    # -- structure ---------------------------------------------------------
+    def close(self) -> None:
+        if self.heading is not None and self.steps:
+            self.tests.append(ScriptTest(name=self.heading, steps=tuple(self.steps)))
+
+    def start_test(self, title: str) -> None:
+        self.close()
+        self.heading = title
+        self.steps, self.numbers = [], {}
+        self.mode = None
+
+    def end_table(self) -> None:
+        self.mode = None
+
+    def bind(self, where: str) -> None:
+        """Apply the values given for the run, once, before the first step."""
+        if self.bound:
+            return
+        self.bound = True
+        unknown = sorted(set(self.overrides) - set(self.declared))
+        if unknown:
+            raise ConfigurationError(
+                "%s: a value was given for %s, which the document does not "
+                "declare. Declared: %s."
+                % (where, ", ".join(unknown), ", ".join(sorted(self.declared)) or "none")
+            )
+        self.declared.update(self.overrides)
+
+    @property
+    def values(self) -> Dict[str, str]:
+        return {name: value for name, value in self.declared.items() if value is not None}
+
+    # -- rows --------------------------------------------------------------
+    def table_row(self, line: str, stripped: str, where: str, number: int) -> None:
+        if self.mode is None:
+            self.table_header(_cells(line), where)
+            return
+        if self.mode == "prose" or _SEPARATOR.match(stripped):
+            return
+        cells = _cells(line)
+        if len(cells) != self.width:
+            raise ConfigurationError(
+                "%s: the row has %d cell(s) and the table has %d column(s). A "
+                "pipe inside a command or a response needs escaping as \\|."
+                % (where, len(cells), self.width)
+            )
+        if self.mode == "variables":
+            self.variable_row(cells, where)
+        else:
+            self.step_row(cells, where, number)
+
+    def table_header(self, headings: List[str], where: str) -> None:
+        self.width = len(headings)
+        variables = _variable_columns(headings)
+        if variables is not None:
+            if self.bound:
+                raise ConfigurationError(
+                    "%s: a variables table after the first step. Declare every "
+                    "variable before any step uses one." % where
+                )
+            self.mode, self.columns = "variables", variables
+            return
+        if not _is_step_table(headings):
+            self.mode = "prose"
+            return
+        if self.heading is None:
+            raise ConfigurationError(
+                "%s: a table before any test heading. Put the rows under a "
+                "'## <test name>' heading, so every result can name its test."
+                % where
+            )
+        self.mode, self.columns = "steps", _column_index(headings, where)
+
+    def variable_row(self, cells: List[str], where: str) -> None:
+        name = cells[self.columns["variable"]].strip("`").strip()
+        if not _VARIABLE_NAME.match(name):
+            raise ConfigurationError(
+                "%s: %r is not a variable name. Use letters, digits and "
+                "underscores, starting with a letter - SENSOR_ID, say." % (where, name)
+            )
+        if name in self.declared:
+            raise ConfigurationError("%s: %s is declared twice." % (where, name))
+        column = self.columns.get("default")
+        default = cells[column].strip("`").strip() if column is not None else ""
+        self.declared[name] = default if default else None
+
+    def step_row(self, cells: List[str], where: str, number: int) -> None:
+        self.bind(where)
+        step_number = cells[self.columns["step"]]
+        command = _substitute(cells[self.columns["command"]], self.declared, where)
+        expected = _substitute(cells[self.columns["expected"]], self.declared, where)
+
+        if not step_number:
+            raise ConfigurationError(
+                "%s: the row has no step number. Results are reported against "
+                "it, so a row without one could not be read back." % where
+            )
+        if step_number in self.numbers:
+            raise ConfigurationError(
+                "%s: step %s is already used on line %d of this test. Two rows "
+                "with one number make a result ambiguous."
+                % (where, step_number, self.numbers[step_number])
+            )
+        self.numbers[step_number] = number
+        self.steps.append(_interpret(self.heading, step_number, command, expected, where, number))
+
+
+def _interpret(test: str, number: str, command: str, expected: str, where: str,
+               line: int) -> ScriptStep:
+    """Turn one row's cells, variables already substituted, into a step."""
+    delay_s = _parse_delay(command, where)
+    connect = _CONNECT.match(command)
+    if expected and delay_s is not None:
+        raise ConfigurationError(
+            "%s: a delay cannot have an expected response (%r). A delay "
+            "waits; it does not ask the sensor anything." % (where, expected)
+        )
+    if expected and (connect or _DISCONNECT.match(command)):
+        raise ConfigurationError(
+            "%s: %r cannot have an expected response (%r). It acts on the "
+            "dongle; it does not ask the sensor anything. A connect passes "
+            "when the link opens." % (where, command.split()[0], expected)
+        )
+    if delay_s is not None:
+        return ScriptStep(test=test, number=number, delay_s=delay_s, line=line, action=DELAY)
+    if connect:
+        target = (connect.group("target") or "").strip()
+        if not target:
+            raise ConfigurationError(
+                "%s: 'connect' names no sensor. Give an address or part of its "
+                "name: connect ${SENSOR_ID}." % where
+            )
+        return ScriptStep(test=test, number=number, command=command, line=line,
+                          action=CONNECT, target=target)
+    if _DISCONNECT.match(command):
+        return ScriptStep(test=test, number=number, command=command, line=line,
+                          action=DISCONNECT)
+    if not command:
+        raise ConfigurationError(
+            "%s: the row has no command. Use 'delay <milliseconds>' for a "
+            "wait, or remove the row." % where
+        )
+    return ScriptStep(test=test, number=number, command=command, expected=expected, line=line)
+
+
+def parse_script(
+    text: str,
+    source: str = "",
+    variables: Optional[Mapping[str, str]] = None,
+) -> CommandScript:
     """Read a command document.
 
     :param text: The document.
     :param source: Its path, for diagnostics.
+    :param variables: Values for the document's variables, overriding its
+        defaults - the sensor to test, typically.
     :raises ConfigurationError: for anything that cannot be read as a step,
         naming the document and the line. A row this reader skipped quietly
         would be a command nobody tested and nobody missed.
     """
     label = source or "command document"
-    tests: List[ScriptTest] = []
-    heading: Optional[str] = None
-    steps: List[ScriptStep] = []
-    numbers: Dict[str, int] = {}
-    columns: Optional[Dict[str, int]] = None
-    width = 0
-
-    def close() -> None:
-        if heading is not None and steps:
-            tests.append(ScriptTest(name=heading, steps=tuple(steps)))
+    reader = _Reader(label, variables or {})
 
     for number, raw in enumerate(text.splitlines(), start=1):
         line = raw.rstrip()
@@ -250,93 +529,30 @@ def parse_script(text: str, source: str = "") -> CommandScript:
 
         match = _HEADING.match(stripped)
         if match:
-            if len(match.group("hashes")) == 1 and heading is None and not steps:
+            if len(match.group("hashes")) == 1 and reader.heading is None and not reader.steps:
                 continue                      # the document's own title
-            close()
-            heading = match.group("title")
-            steps, numbers, columns = [], {}, None
+            reader.start_test(match.group("title"))
             continue
 
         if not stripped.startswith("|"):
-            continue                          # prose between tables
-
-        if heading is None:
-            raise ConfigurationError(
-                "%s: a table before any test heading. Put the rows under a "
-                "'## <test name>' heading, so every result can name its test."
-                % where
-            )
-
-        if columns is None:
-            columns = _column_index(_cells(line), where)
-            width = len(_cells(line))
+            reader.end_table()                # prose between tables
             continue
 
-        if _SEPARATOR.match(stripped):
-            continue
+        reader.table_row(line, stripped, where, number)
 
-        cells = _cells(line)
-        if len(cells) != width:
-            raise ConfigurationError(
-                "%s: the row has %d cell(s) and the table has %d column(s). A "
-                "pipe inside a command or a response needs escaping as \\|."
-                % (where, len(cells), width)
-            )
-
-        step_number = cells[columns["step"]]
-        command = cells[columns["command"]]
-        expected = cells[columns["expected"]]
-
-        if not step_number:
-            raise ConfigurationError(
-                "%s: the row has no step number. Results are reported against "
-                "it, so a row without one could not be read back." % where
-            )
-        if step_number in numbers:
-            raise ConfigurationError(
-                "%s: step %s is already used on line %d of this test. Two rows "
-                "with one number make a result ambiguous."
-                % (where, step_number, numbers[step_number])
-            )
-        numbers[step_number] = number
-
-        delay_s = _parse_delay(command, where)
-        if delay_s is not None:
-            if expected:
-                raise ConfigurationError(
-                    "%s: a delay cannot have an expected response (%r). A delay "
-                    "waits; it does not ask the sensor anything."
-                    % (where, expected)
-                )
-        elif not command:
-            raise ConfigurationError(
-                "%s: the row has no command. Use 'delay <milliseconds>' for a "
-                "wait, or remove the row." % where
-            )
-
-        steps.append(
-            ScriptStep(
-                test=heading,
-                number=step_number,
-                command="" if delay_s is not None else command,
-                expected=expected,
-                delay_s=delay_s,
-                line=number,
-            )
-        )
-
-    close()
-    if not tests:
+    reader.close()
+    reader.bind(label)                        # a value for nothing is still an error
+    if not reader.tests:
         raise ConfigurationError(
             "%s names no tests. A command document is a '## <test name>' "
             "heading followed by a table of | Step | Command | Expected "
             "response | rows." % label
         )
-    return CommandScript(tests=tuple(tests), source=source)
+    return CommandScript(tests=tuple(reader.tests), source=source, variables=reader.values)
 
 
-def load_script(path: str) -> CommandScript:
-    """Read a command document from a file."""
+def load_script(path: str, variables: Optional[Mapping[str, str]] = None) -> CommandScript:
+    """Read a command document from a file, with values for its variables."""
     try:
         with open(path, "r", encoding="utf-8") as handle:
             text = handle.read()
@@ -344,7 +560,7 @@ def load_script(path: str) -> CommandScript:
         raise ConfigurationError(
             "cannot read the command document %s: %s" % (path, exc)
         ) from exc
-    return parse_script(text, source=path)
+    return parse_script(text, source=path, variables=variables)
 
 
 # ----------------------------------------------------------------------
@@ -402,6 +618,7 @@ class ScriptRun:
     results: List[StepResult] = field(default_factory=list)
     source: str = ""
     sensor: str = ""
+    variables: Mapping[str, str] = field(default_factory=dict)
 
     @property
     def passed(self) -> int:
@@ -437,6 +654,7 @@ class ScriptRun:
         return {
             "source": self.source,
             "sensor": self.sensor,
+            "variables": dict(self.variables),
             "result": self.result,
             "passed": self.passed,
             "failed": self.failed,
@@ -455,6 +673,8 @@ class ScriptRun:
             "| Result | **%s** |" % self.result,
             "| Document | `%s` |" % (self.source or "?"),
             "| Sensor | %s |" % (self.sensor or "not recorded"),
+            "| Variables | %s |" % (_cell(", ".join(
+                "%s=%s" % item for item in sorted(self.variables.items()))) or "none"),
             "| Steps | %d passed, %d failed, %d skipped |"
             % (self.passed, self.failed, self.skipped),
             "",
@@ -508,29 +728,104 @@ def _cell(text: str) -> str:
     return (text or "").replace("|", "\\|").replace("\n", " ")
 
 
+#: Seconds a ``connect`` step scans before choosing: long enough to hear a
+#: sensor that advertises every 9 s at least once.
+CONNECT_SCAN_S = 10.0
+
+#: Connection attempts a ``connect`` step makes. A sensor that advertises rarely
+#: can fall outside a connect window; each failure is in the session log.
+CONNECT_ATTEMPTS = 3
+
+
 def run_script(
     dongle,
     script: CommandScript,
     timeout: float = 3.0,
     listen: float = 0.5,
     sleep=time.sleep,
+    scan_s: float = CONNECT_SCAN_S,
+    connect_attempts: int = CONNECT_ATTEMPTS,
 ) -> ScriptRun:
-    """Run *script* against a connected *dongle*, one step at a time.
+    """Run *script* against *dongle*, one step at a time.
 
-    :param dongle: A :class:`~benchtools.instruments.nordic_dongle.NordicDongle`
-        with a link open to the sensor.
+    :param dongle: A :class:`~benchtools.instruments.nordic_dongle.NordicDongle`,
+        with a link open to the sensor unless the document connects itself.
     :param timeout: Seconds to wait for a reply the document expects. A step
         that times out **fails**: the document said the sensor would answer.
     :param listen: Seconds to wait after a command the document expects no
         reply to. Whatever arrives is recorded and the step is still skipped.
     :param sleep: Injected for the tests, which must not wait in real time.
+    :param scan_s: How long a ``connect`` step scans.
+    :param connect_attempts: How many links a ``connect`` step tries.
+
+    A link a ``connect`` step opened is closed when the run ends, pass or fail.
     """
-    run = ScriptRun(source=script.source, sensor=_sensor_name(dongle))
-    for test in script.tests:
-        _note(dongle, "script: %s" % test.name)
-        for step in test.steps:
-            run.results.append(_run_step(dongle, step, timeout, listen, sleep))
+    run = ScriptRun(source=script.source, sensor=_sensor_name(dongle),
+                    variables=dict(script.variables))
+    opened = False
+    try:
+        for test in script.tests:
+            _note(dongle, "script: %s" % test.name)
+            for step in test.steps:
+                if step.action == CONNECT:
+                    result = _run_connect(dongle, step, scan_s, connect_attempts)
+                    opened = opened or result.result == PASS
+                    run.sensor = _sensor_name(dongle) or run.sensor
+                elif step.action == DISCONNECT:
+                    result = _run_disconnect(dongle, step)
+                else:
+                    result = _run_step(dongle, step, timeout, listen, sleep)
+                run.results.append(result)
+    finally:
+        if opened and getattr(dongle, "is_linked", False):
+            dongle.close_link()
     return run
+
+
+def _run_connect(dongle, step: ScriptStep, scan_s: float, attempts: int) -> StepResult:
+    """Scan, choose the sensor the step names, and open a link. Never raises."""
+    started = time.perf_counter()
+    try:
+        if getattr(dongle, "is_linked", False):
+            dongle.close_link()
+        dongle.scan(scan_s, active=True)
+        if _ADDRESS.match(step.target):
+            dongle.select(step.target)
+        else:
+            dongle.select_by_name(step.target)
+        failure = None
+        for _ in range(max(1, attempts)):
+            try:
+                dongle.open_link()
+                failure = None
+                break
+            except Exception as exc:          # noqa: BLE001 - retried, then reported
+                failure = exc
+        if failure is not None:
+            raise failure
+    except Exception as exc:                  # noqa: BLE001 - reported, not raised
+        return StepResult(test=step.test, number=step.number, command=step.command,
+                          result=FAIL, reason=str(exc).split(". ")[0])
+    return StepResult(
+        test=step.test,
+        number=step.number,
+        command=step.command,
+        response="linked to %s" % (_sensor_name(dongle) or step.target),
+        elapsed_s=time.perf_counter() - started,
+        clock="host",
+        result=PASS,
+    )
+
+
+def _run_disconnect(dongle, step: ScriptStep) -> StepResult:
+    """Close the link, if one is open. Never raises."""
+    try:
+        dongle.close_link()
+    except Exception as exc:                  # noqa: BLE001 - reported, not raised
+        return StepResult(test=step.test, number=step.number, command=step.command,
+                          result=SKIP, reason="disconnect failed: %s" % exc)
+    return StepResult(test=step.test, number=step.number, command=step.command,
+                      result=SKIP, reason="closing the link makes no claim about the sensor")
 
 
 def _run_step(dongle, step: ScriptStep, timeout: float, listen: float, sleep) -> StepResult:

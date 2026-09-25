@@ -318,6 +318,56 @@ response at 10 ms resolution, and the result — and the session log
 example; a document that would not parse, or would not pass against the
 simulated sensor, fails the suite's own tests.
 
+#### Variables, connecting, and running a document on its own
+
+A document can take parameters and open its own link, so one file tests any
+sensor it is pointed at. `specs/templates/ble_sensor_test.md` is the template
+to copy.
+
+```markdown
+| Variable  | Default | Notes |
+|-----------|---------|-------|
+| SENSOR_ID |         | Required |
+| SETTLE_MS | 500     |       |
+
+## Connect and identify
+
+| Step | Command              | Expected response      |
+|------|----------------------|------------------------|
+| 1    | connect ${SENSOR_ID} |                        |
+| 2    | delay ${SETTLE_MS}   |                        |
+| 3    | rd version           | /^ACK rd version = V11/ |
+| 4    | disconnect           |                        |
+```
+
+- **Variables** are declared in a `| Variable | Default |` table before the first
+  step and used as `${NAME}` in any command, expected response or delay. One
+  with no default must be given a value. Using an undeclared variable, or
+  giving a value for one, is an error naming the line.
+- **`connect <sensor>`** scans for 10 s, selects the sensor by address or by a
+  fragment of its advertised name (any case, strongest match), and opens the
+  link, trying up to three times. It **passes** when the link opens and
+  **fails** otherwise; the steps after a failed connect fail with it.
+- **`disconnect`** closes the link and is skipped. A link the document opened
+  is closed when the run ends, pass or fail.
+- Tables that name none of the step columns - a legend, a conversion table -
+  are prose and are left alone.
+
+A document that connects runs on its own:
+
+```
+benchtools ble --resource COM10 script specs/templates/ble_sensor_test.md     --var SENSOR_ID=kappa --report results.md
+```
+
+It prints the run as JSON and exits 0 when every checked step passed, 1 when one
+failed or the run could not start. From a specification, pass the values with
+`variables`: `{do: dongle.run_script, with: {source: ..., variables: {SENSOR_ID:
+kappa}}}`.
+
+`${NAME}` is Robot Framework's variable syntax, and each row is one keyword
+call; the template ends with the mapping, for when these documents move to
+Robot Framework.
+
 ### 3.6 Values a later step takes from an earlier one
 
 A bench test is rarely a list of independent actions. The identifier read off a

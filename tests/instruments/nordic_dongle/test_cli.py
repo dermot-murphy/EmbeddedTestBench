@@ -208,3 +208,46 @@ class TestDispatch:
         text = build_parser().format_help()
         for name in ("info", "scan", "select", "profile", "cmd", "monitor", "firmware"):
             assert name in text
+
+
+class TestScript:
+    """``benchtools ble script``: a document run on its own, for its exit status."""
+
+    DOCUMENT = (
+        "| Variable | Default |\n|---|---|\n| SENSOR_ID | |\n\n"
+        "## Identity\n\n| Step | Command | Expected response |\n|---|---|---|\n"
+        "| 1 | connect ${SENSOR_ID} | |\n| 2 | rd version | %s |\n"
+    )
+
+    def test_a_passing_document_exits_zero(self, capsys, tmp_path):
+        source = tmp_path / "test.md"
+        source.write_text(self.DOCUMENT % "1.4.2")
+        report = tmp_path / "report.md"
+        status, payload, _ = run(capsys, *SIM, "script", str(source),
+                                 "--var", "SENSOR_ID=sens-0a1b", "--report", str(report))
+        assert status == 0
+        assert payload["result"] == "PASS"
+        assert payload["variables"] == {"SENSOR_ID": "sens-0a1b"}
+        assert report.is_file()
+
+    def test_a_failing_document_exits_one(self, capsys, tmp_path):
+        source = tmp_path / "test.md"
+        source.write_text(self.DOCUMENT % "9.9.9")
+        status, payload, _ = run(capsys, *SIM, "script", str(source),
+                                 "--var", "SENSOR_ID=sens-0a1b")
+        assert status == 1
+        assert payload["result"] == "FAIL"
+
+    def test_a_missing_sensor_is_an_error(self, capsys, tmp_path):
+        source = tmp_path / "test.md"
+        source.write_text(self.DOCUMENT % "1.4.2")
+        status, _, err = run(capsys, *SIM, "script", str(source))
+        assert status == 1
+        assert "--var SENSOR_ID=" in err
+
+    def test_a_var_without_a_value_is_an_error(self, capsys, tmp_path):
+        source = tmp_path / "test.md"
+        source.write_text(self.DOCUMENT % "1.4.2")
+        status, _, err = run(capsys, *SIM, "script", str(source), "--var", "SENSOR_ID")
+        assert status == 1
+        assert "NAME=VALUE" in err

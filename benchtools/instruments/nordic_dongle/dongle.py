@@ -24,7 +24,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass
-from typing import Callable, List, Optional, Union
+from typing import Callable, Dict, List, Optional, Union
 
 from ...core.errors import (
     BenchToolsError,
@@ -965,6 +965,7 @@ class NordicDongle(Instrument):
         report: Optional[str] = None,
         timeout: float = DEFAULT_COMMAND_TIMEOUT,
         listen: float = 0.5,
+        variables: Optional[Dict[str, str]] = None,
     ) -> ScriptRun:
         """Run a command document against the connected sensor.
 
@@ -987,20 +988,31 @@ class NordicDongle(Instrument):
         :param listen: Seconds to listen after a command the document expects
             no reply to. Whatever arrives is recorded; the step is still
             skipped, because the document made no claim to check.
-        :raises ConfigurationError: if the document cannot be read.
-        :raises InstrumentError: if no link is open. Every step would fail
-            identically for a reason that has nothing to do with the sensor.
+        :param variables: Values for the document's ``${NAME}`` variables,
+            overriding its defaults - ``{"SENSOR_ID": "kappa"}``, say.
+        :raises ConfigurationError: if the document cannot be read, or a
+            variable it needs has no value.
+        :raises InstrumentError: if no link is open and the document does not
+            connect before its first command. Every step would fail identically
+            for a reason that has nothing to do with the sensor.
 
         Traces to: BLE-FR-100 .. BLE-FR-108.
         """
-        if not self.is_linked:
+        if isinstance(source, CommandScript):
+            if variables:
+                raise ConfigurationError(
+                    "variables apply when a document is read; this one is already parsed"
+                )
+            script = source
+        else:
+            script = load_script(str(source), variables=variables)
+        if not self.is_linked and not script.connects:
             raise InstrumentError(
-                "no link is open, so no command could reach a sensor. Select a "
-                "sensor and open_link() before running a command document; "
-                "otherwise every step would fail for the same reason and none "
-                "of the failures would be about the sensor."
+                "no link is open, so no command could reach a sensor. Start the "
+                "document with 'connect <sensor>', or select a sensor and "
+                "open_link() first; otherwise every step would fail for the same "
+                "reason and none of the failures would be about the sensor."
             )
-        script = source if isinstance(source, CommandScript) else load_script(str(source))
         run = run_script(self, script, timeout=timeout, listen=listen)
         if report:
             run.write(report)
