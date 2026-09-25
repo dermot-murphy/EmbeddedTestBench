@@ -356,13 +356,18 @@ to copy.
 A document that connects runs on its own:
 
 ```
-benchtools ble --resource COM10 script specs/templates/ble_sensor_test.md     --var SENSOR_ID=kappa --report results.md
+benchtools ble --resource COM10 script specs/templates/ble_sensor_test.md \
+    --var SENSOR_ID=5C1712 --report results.md
 ```
 
 It prints the run as JSON and exits 0 when every checked step passed, 1 when one
 failed or the run could not start. From a specification, pass the values with
 `variables`: `{do: dongle.run_script, with: {source: ..., variables: {SENSOR_ID:
-kappa}}}`.
+5C1712}}}`.
+
+The template's *Build identity* test reads the sensor's `rd id`, `rd sha`
+(the firmware's git commit), `rd compiler` and `rd pcb`, and checks the ID
+against `${SENSOR_ID}`. A pattern starting `(?i)` ignores case.
 
 `${NAME}` is Robot Framework's variable syntax, and each row is one keyword
 call; the template ends with the mapping, for when these documents move to

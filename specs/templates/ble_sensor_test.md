@@ -7,7 +7,7 @@ Run it against a sensor:
 
 ```
 benchtools ble --resource COM10 script specs/templates/ble_sensor_test.md \
-    --var SENSOR_ID=kappa --report results.md
+    --var SENSOR_ID=5C1712 --report results.md
 ```
 
 The exit status is 0 when every checked step passed and 1 when one failed or
@@ -45,7 +45,7 @@ for a sensor that advertises every 9 s, and tries the link up to three times.
 
 | Variable     | Default | Notes |
 |--------------|---------|-------|
-| SENSOR_ID    |         | Required. An address, or part of the advertised name: `kappa`, `5C1712` |
+| SENSOR_ID    |         | Required. The sensor's ID, as in its name `KAPPA_<ID>_...` and its `rd id` reply: `5C1712` |
 | SETTLE_MS    | 500     | Pause after connecting, before the first command |
 | VERSION      | V11     | The start of the version the sensor must report |
 
@@ -56,6 +56,18 @@ for a sensor that advertises every 9 s, and tries the link up to three times.
 | 1    | connect ${SENSOR_ID} |                                          | Must pass, or nothing after it can |
 | 2    | delay ${SETTLE_MS}   |                                          | |
 | 3    | rd version           | /^ACK rd version = ${VERSION}/           | The sensor answers `ACK <verb> <object> = <value>` |
+
+## Build identity
+
+What the sensor says it is, and what it was built from. `(?i)` makes a pattern
+ignore case, as `connect` does, so `--var SENSOR_ID=5c1712` checks the same.
+
+| Step | Command     | Expected response                              | Notes |
+|------|-------------|------------------------------------------------|-------|
+| 1    | rd id       | /(?i)^ACK rd id = 0x${SENSOR_ID}$/             | The ID in the advertised name |
+| 2    | rd sha      | /^ACK rd sha = [0-9a-f]{7,40}$/                | Git commit the firmware was built from, abbreviated |
+| 3    | rd compiler | /^ACK rd compiler = V[0-9]+\.[0-9]+\.[0-9]+$/  | Compiler version: `V9.03.01` |
+| 4    | rd pcb      | /^ACK rd pcb = V[0-9]+[A-Z]*$/                 | Board revision: `V4X` |
 
 ## Commands and replies
 
