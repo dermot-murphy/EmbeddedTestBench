@@ -12,6 +12,7 @@ htmlcov/
 
 # Firmware build output
 firmware/**/_build/
+firmware/**/ses/Output/
 build/
 
 # Bench run artifacts
