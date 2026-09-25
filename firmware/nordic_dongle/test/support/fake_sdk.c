@@ -459,6 +459,27 @@ void NVIC_SystemReset(void)
 	fake_system_resets++;
 }
 
+/* --- GPIO and delay, recorded rather than performed ------------------ */
+
+static uint32_t	m_gpio_output_pin  = UINT32_MAX;
+static uint32_t	m_gpio_cleared_pin = UINT32_MAX;
+static uint32_t	m_delay_total_ms;
+
+void nrf_gpio_cfg_output(uint32_t pin_number)	{ m_gpio_output_pin = pin_number; }
+void nrf_gpio_pin_clear(uint32_t pin_number)	{ m_gpio_cleared_pin = pin_number; }
+uint32_t fake_gpio_output_pin(void)		{ return m_gpio_output_pin; }
+uint32_t fake_gpio_cleared_pin(void)		{ return m_gpio_cleared_pin; }
+
+void fake_gpio_reset(void)
+{
+	m_gpio_output_pin  = UINT32_MAX;
+	m_gpio_cleared_pin = UINT32_MAX;
+	m_delay_total_ms   = 0U;
+}
+
+void nrf_delay_ms(uint32_t ms_time)		{ m_delay_total_ms += ms_time; }
+uint32_t fake_delay_total_ms(void)		{ return m_delay_total_ms; }
+
 /* --- the retained register, which survives a reset on the target ---- */
 
 static fake_power_t	m_power;

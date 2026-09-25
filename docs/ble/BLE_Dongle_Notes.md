@@ -150,7 +150,9 @@ nrfutil nrf5sdk-tools pkg generate --hw-version 52 --application-version 1 \
 
 The dongle's bootloader presents a serial port (`nRF52 SDFU USB`), not a USB
 drive, so an image cannot be copied onto it; program it with
-`nrfutil device program --firmware dongle_dfu.zip` after pressing RESET.
+`nrfutil device program --firmware dongle_dfu.zip` once it is in the
+bootloader. A dongle already running this firmware gets there with its `dfu`
+command; any other needs the RESET button.
 
 `make manifest` (which `dfu` runs for you) writes `_build/firmware_manifest.json`
 beside the image: version, build instant, protocol, model, hex, package and
@@ -171,8 +173,10 @@ and still fails a comparison, which is the honest answer.
 ### 3.2 Flash
 
 A PCA10059 has no onboard debugger: it is programmed over USB through its
-bootloader. Press the small RESET button on the side of the dongle — the red LED
-pulses — then:
+bootloader. A dongle running this firmware enters it on the `dfu` command
+(`NordicDongle.enter_dfu()`), which pulls the dongle's own reset pin. A dongle
+running anything else needs the small RESET button on the side pressed — the
+red LED pulses. Then:
 
 ```
 cd firmware/nordic_dongle/scripts

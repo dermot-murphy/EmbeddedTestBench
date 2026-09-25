@@ -82,6 +82,14 @@ uint32_t cdc_acm_dropped(void);
  */
 bool cdc_acm_is_open(void);
 
+/**
+ * @brief True when every queued line has been handed to the host.
+ *
+ * Call cdc_acm_process() to make progress; this only reports. Used before a
+ * reset, which would otherwise discard whatever was still queued.
+ */
+bool cdc_acm_tx_idle(void);
+
 #ifdef __cplusplus
 }
 #endif

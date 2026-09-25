@@ -65,6 +65,7 @@ void     cdc_acm_process(void)				{ }
 bool     cdc_acm_take_line(char * buffer, uint32_t size)	{ (void)buffer; (void)size; return false; }
 uint32_t cdc_acm_dropped(void)				{ return m_dropped; }
 bool     cdc_acm_is_open(void)				{ return true; }
+bool     cdc_acm_tx_idle(void)				{ return true; }
 
 uint32_t     fake_line_count(void)		{ return m_line_count; }
 const char * fake_line(uint32_t index)		{ return (index < m_line_count) ? m_lines[index] : ""; }
