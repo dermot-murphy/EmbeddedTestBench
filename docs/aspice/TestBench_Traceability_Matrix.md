@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-RTM-001 | **Version** | 0.2 |
+| **Document ID** | TB-RTM-001 | **Version** | 0.3 |
 | **Project** | TestBench | **Date** | 2026-09-23 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -24,6 +24,7 @@
 |---|---|---|---|
 | 0.1 | 2026-09-19 | Claude | Initial |
 | 0.2 | 2026-09-23 | Claude | Section 12 added: DMM requirements to design, code and test. STK-18 decomposed. OPEN-03 narrowed to the instrument families still unwritten. Sections 13 to 17 renumbered. |
+| 0.3 | 2026-09-23 | Claude | Rows added for BLE-FR-025 and DMM-FR-045. |
 
 ---
 
@@ -262,6 +263,7 @@ where the firmware implements the requirement.
 | BLE-FR-034 | BLE-ARC-001 | BLE-DD-PROFILE | `gaps`, `missed_events` | `TestMissedEvents` (5), `test_a_sensor_that_skips_beacons_is_caught` |
 | BLE-FR-035 | BLE-ARC-001 | BLE-DD-PROFILE | `duty_cycle`, `reception_ratio` | `TestDutyCycleAndCounts` (4) |
 | BLE-FR-036 | BLE-ARC-001 | BLE-DD-PROFILE | `as_dict`, `_require_intervals` | `test_as_dict_survives_too_few_events`, `test_a_silent_sensor_gives_no_statistics_rather_than_zero` |
+| BLE-FR-025 | BLE-ARC-001 | BLE-DD-DONGLE | `strongest` | `TestStrongest` (4) |
 | BLE-FR-040 | BLE-ARC-001 | BLE-DD-NUS | `firmware/src/nus_client.c`, `open_link` | `test_connect_and_disconnect`, `test_connecting_emits_the_ready_event` |
 | BLE-FR-041 | BLE-ARC-001 | BLE-DD-NUS, BLE-DD-DONGLE | `nus_client_interval_us` | `test_the_connection_interval_is_recorded` |
 | BLE-FR-042 | BLE-ARC-001 | BLE-DD-NUS | `nus_client_write`, `NordicDongle.write` | `test_a_write_reports_what_it_sent`, `test_binary_payloads` |
@@ -414,6 +416,7 @@ where the firmware implements the requirement.
 | DMM-FR-024 | DMM-ARC-001 | DMM-DD-DMM | `_send_character`, `_await_echo` | `test_a_dropped_keystroke_is_resent`, `test_every_command_is_echoed` |
 | DMM-FR-025 | DMM-ARC-001 | DMM-DD-DMM | `_send_character` | `test_a_meter_that_never_echoes_is_reported_with_the_likely_cause` |
 | DMM-FR-026 | DMM-ARC-001 | DMM-DD-PROTO | `FrameAssembler.residue`, `_drain` | `test_an_echo_is_recovered_as_residue`, `test_a_digit_byte_equal_to_a_key_character_is_not_mistaken_for_an_echo` |
+| DMM-FR-045 | DMM-ARC-001 | DMM-DD-DMM, DMM-DD-SIM | `connect(simulated_value=...)` | `test_the_bench_can_say_what_the_simulated_meter_reads`; `specs/sensor_power_signal_and_link.yaml` against `benches/simulated_bench.yaml` |
 | DMM-NFR-001 | DMM-ARC-001 | DMM-DD-DMM | pyserial reached only through `SerialTransport`; `sim://` needs none | `test_layer_dependencies_point_one_way`, the suite runs with no serial library |
 | DMM-NFR-002 | DMM-ARC-001 | DMM-DD-DMM, DMM-DD-CLI | no call sends `g`; no `on` sub-command exists | `test_connecting_does_not_touch_the_operate_key` |
 | DMM-NFR-003 | DMM-ARC-001 | DMM-DD-CONST | module docstring cites each source; open items listed | Inspection: `docs/dmm/TTi1604_Notes.md` §1, §5 |

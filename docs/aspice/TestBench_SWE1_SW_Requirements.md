@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE1-001 | **Version** | 0.2 |
+| **Document ID** | TB-SWE1-001 | **Version** | 0.3 |
 | **Project** | TestBench | **Date** | 2026-09-23 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -24,6 +24,7 @@
 |---|---|---|---|
 | 0.1 | 2026-09-19 | Claude | Initial |
 | 0.2 | 2026-09-23 | Claude | Section 14 added: `DMM-` requirements for the TTi 1604 multimeter (DMM-FR-001…026, DMM-NFR-001…004). Sections 15 to 18 renumbered. |
+| 0.3 | 2026-09-23 | Claude | BLE-FR-025 (choose the strongest advertiser) and DMM-FR-045 (the bench states what the simulated meter reads) added; RUN subsection numbering corrected after the section 14 insertion. |
 
 ---
 
@@ -400,6 +401,7 @@ implements them; §11.6 says which.
 | BLE-FR-022 | Scanning shall be filterable by name, by address and by minimum signal strength, and the filter shall be applied in the firmware. | STK-15 | Test |
 | BLE-FR-023 | The host shall select one sensor, by index, address, name or object, and that selection shall persist for later commands. The address type shall travel with the address. | STK-15 | Test |
 | BLE-FR-024 | Selecting an address that no scan has seen shall be permitted, so a suite that knows its sensor need not scan first. | STK-15 | Test |
+| BLE-FR-025 | The host shall be able to choose the sensor heard most strongly, so that a specification can address whichever board is on the bench without naming one. Strength is received power at the dongle and is a property of the link at that moment, not of which board is nearest; a tie shall resolve to the lower scan index, so that repeating a scan selects the same board rather than alternating. Choosing from an empty scan shall be refused where it happens, because the alternative surfaces at connect time and reads as a link fault rather than an empty room. | STK-15 | Test |
 
 ### 11.3 UART over BLE
 
@@ -685,7 +687,13 @@ review, in which case the reading is real but is not now.
 | DMM-FR-025 | A command that is never echoed shall be reported with the handshake lines named as the likely cause. | STK-18 | Test |
 | DMM-FR-026 | The echo shall be identified as the bytes left over once complete frames have been removed from the stream, not by searching the stream for the echoed character. Seven-segment digit patterns collide with the key characters exactly: `0x61` is both the Up key and the pattern for a `1` with its decimal point, so a scan for the character finds one inside an ordinary reading. | STK-18 | Test |
 
-### 14.5 DMM non-functional
+### 14.5 Simulation
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| DMM-FR-045 | The bench configuration shall be able to state what the simulated meter reads, so that a specification carrying real limits can be exercised with no hardware. The limits shall remain the specification's and the value the bench's. | STK-18, STK-16 | Test |
+
+### 14.6 DMM non-functional
 
 | ID | Requirement | Verification |
 |---|---|---|
@@ -698,7 +706,7 @@ review, in which case the reading is real but is not now.
 
 ## 15. RUN — bench test runner
 
-### 14.1 Bench configuration
+### 15.1 Bench configuration
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -709,7 +717,7 @@ review, in which case the reading is real but is not now.
 | RUN-FR-005 | The runner shall support replacing every instrument with its simulator, so a specification can be exercised without hardware. | STK-08 | Test |
 | RUN-FR-006 | A run shall be recorded as simulated whenever no instrument on the bench is real hardware, so simulated results cannot be mistaken for measurements. | STK-08 | Test |
 
-### 14.2 Test specification
+### 15.2 Test specification
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -721,7 +729,7 @@ review, in which case the reading is real but is not now.
 | RUN-FR-015 | A test shall be markable as skipped, with a reason. | STK-08 | Test |
 | RUN-FR-016 | A step shall be able to save its result under a name, and any later step shall be able to use that saved value - or a value addressed inside it - as an argument or as a limit, optionally rendered through a format template. A reference to a name nothing has saved shall be refused, naming what has been saved. Without this a chained test would have to write down what an earlier step established, which makes the test assert its own input. | STK-08, STK-16 | Test |
 
-### 14.3 Limits
+### 15.3 Limits
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -732,7 +740,7 @@ review, in which case the reading is real but is not now.
 | RUN-FR-025 | A measurement shall be reportable through a format template, so a value whose meaning is not decimal - an identifier, an address, a mask - reads in the record as it reads on the part. The template shall not affect the check, which remains against the number; the number shall be retained in the result record; and the limit's own bounds shall be rendered the same way, since a hexadecimal value beside decimal bounds is less legible than either alone. A template that cannot be applied shall be an error, not a silent fall back to the number. | STK-08, STK-16 | Test |
 | RUN-FR-024 | A limit shall support exact comparison against text - a version, a device name - reported as the text itself rather than as a number. Matching shall be exact on the stripped value: a looser rule would pass 1.4.20 for 1.4.2, which is the failure such a limit exists to catch. | STK-08, STK-16 | Test |
 
-### 14.4 Execution
+### 15.4 Execution
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -745,7 +753,7 @@ review, in which case the reading is real but is not now.
 | RUN-FR-036 | A step shall be able to name a driver property as well as a method. A property shall be read when the step executes and shall take no arguments. | STK-08 | Test |
 | RUN-FR-037 | The run record and every report shall identify each instrument the run used - driver, model, serial number, resource and, where the instrument reports one, the firmware build - recorded after the run rather than before. An instrument that would not identify shall be recorded as such rather than omitted. | STK-08, STK-16, STK-17 | Test |
 
-### 14.5 Reporting
+### 15.5 Reporting
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|

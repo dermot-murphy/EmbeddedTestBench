@@ -46,6 +46,16 @@ instruments:
     resource: sim://
     timeout: 15.0
 
+  # The bench multimeter, in series with the sensor's supply. The value is
+  # the bench's statement of what the modelled meter reads; the limits that
+  # judge it stay in the specification.
+  dmm:
+    driver: tti1604
+    resource: sim://
+    timeout: 5.0
+    options:
+      simulated_value: 0.0214
+
   s2lp:
     driver: s2lp
     resource: sim://

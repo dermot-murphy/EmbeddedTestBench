@@ -112,13 +112,15 @@ class Tti1604(ScpiInstrument):
     # The base class takes a generic resource and backend; this meter has one
     # link type and two lines that must be driven, so its own parameters say
     # what can actually be varied.
-    def connect(  # pylint: disable=arguments-differ
+    def connect(  # pylint: disable=arguments-differ,too-many-arguments
         cls,
         resource: str = "sim://",
+        *,
         timeout: float = 5.0,
         baudrate: int = DEFAULT_BAUDRATE,
         initialise: bool = True,
         enter_remote: bool = True,
+        simulated_value: Optional[float] = None,
         **kwargs,
     ) -> "Tti1604":
         """Open a meter.
@@ -129,9 +131,16 @@ class Tti1604(ScpiInstrument):
         :param enter_remote: Put the meter into remote mode, without which it
             streams nothing. Turn this off only to observe a meter that
             another program is already driving.
+        :param simulated_value: What the *simulated* meter should measure, in
+            SI units. Ignored for a real meter. This is how a bench file says
+            what the modelled instrument reads, so that a specification with
+            real limits in it can be exercised with no hardware - the limits
+            stay the test's, and the value stays the bench's.
         """
         target = cls._normalise_resource(resource)
         link_kwargs = {"responder_factory": cls.SIMULATOR_CLASS}
+        if simulated_value is not None:
+            link_kwargs["responder"] = cls.SIMULATOR_CLASS(value=float(simulated_value))
         if target.startswith("serial://"):
             # The handshake lines are interface power here, not flow control.
             link_kwargs.update(
