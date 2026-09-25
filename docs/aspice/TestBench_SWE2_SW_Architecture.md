@@ -24,6 +24,7 @@
 |---|---|---|---|
 | 0.1 | 2026-09-19 | Claude | Initial |
 | 0.2 | 2026-09-23 | Claude | DMM-ARC-001 added: the TTi 1604 multimeter element. |
+| 0.3 | 2026-09-25 | Claude | AD-23 brought up to date: command documents take variables, connect, timeouts, notes and `<disconnect>`, results are error, skip, fail or pass, and running moved to `script_run.py` (BLE-DD-SCRIPTRUN) (#46, #48). |
 
 ---
 
@@ -520,10 +521,13 @@ that come from a markdown document; CON-06 deferred the general question of
 adopting Robot Framework for it.
 
 **Decision.** The driver reads the document directly
-(BLE-DD-SCRIPT, BLE-FR-100 … -108): a heading per test, a table of step number,
-command and expected response. Running it produces a result per row - what was
-sent, what came back, what was expected, how long the exchange took and whether
-it passed - and a run passes when no step failed. The specification that runs
+(BLE-DD-SCRIPT, BLE-DD-SCRIPTRUN, BLE-FR-100 … -116): a heading per test, a
+table of step number, command and expected response, with optional timeout and
+note columns and variables. Running it produces a result per row - what was
+sent, what came back, what was expected, how long the exchange took, the result
+and a note - and an event log; a run is in error when a step errored, fails when
+a step failed, and passes otherwise. Reading lives in `script.py` and running in
+`script_run.py`, so each stays a size one person can read. The specification that runs
 it is four lines, and holds no commands at all.
 
 **Alternatives.** A new construct in the specification language - a step that

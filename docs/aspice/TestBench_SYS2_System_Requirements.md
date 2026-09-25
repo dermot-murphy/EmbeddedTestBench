@@ -24,6 +24,7 @@
 |---|---|---|---|
 | 0.1 | 2026-09-19 | Claude | Initial |
 | 0.2 | 2026-09-23 | Claude | TB-SYS2-051…053 added for the multimeter; TB-SYS2-104 no longer records it as deferred; STK-18 trace updated. |
+| 0.3 | 2026-09-25 | Claude | TB-SYS2-075 and -076 revised, and TB-SYS2-080…084 added, for command/response tests: an error result and the order results are decided in, the sensor as a parameter with connect and disconnect steps, per-step timeouts, an expected disconnection, and the event log (#46, #48). |
 
 ---
 
@@ -203,11 +204,16 @@ Each requirement carries a verification method: **T** test, **A** analysis,
 | TB-SYS2-072 | A specification shall be able to express an expectation as a limit, a tolerance, or an exact text, and shall state which. | T |
 | TB-SYS2-073 | The system shall support a command/response test written as a table in a markdown document, where that document is simultaneously the specification of the command set and the test of it. | T |
 | TB-SYS2-074 | In such a document a step may be a delay, or a command with no stated expectation; both shall be recorded and reported as skipped, not as passed. | T |
-| TB-SYS2-075 | A run shall pass if no step failed, and fail otherwise. | T |
-| TB-SYS2-076 | The system shall record, for every step: the test, the step number, what was sent, what was received, what was expected, the elapsed time, and the result. | T |
+| TB-SYS2-075 | A run shall be in error if any step errored, fail if any step failed, and pass otherwise. | T |
+| TB-SYS2-076 | The system shall record, for every step: the test, the step number, what was sent, what was received, what was expected, the elapsed time, the result, and a note saying why. | T |
 | TB-SYS2-077 | Elapsed times in a command/response report shall be reported at 10 ms resolution, with the underlying higher-resolution measurement retained. | T |
 | TB-SYS2-078 | A report shall name the specification and the bench it ran against, and shall be written to a file. | T |
 | TB-SYS2-079 | The system shall produce machine-readable results suitable for a CI system to consume. | T |
+| TB-SYS2-080 | A step's result shall be the first that applies of: error, when the system returned a failure code; skip, when nothing was expected; fail, when the response differs from what was expected; pass, when it matches. | T |
+| TB-SYS2-081 | A command/response test shall be able to take the sensor under test as a parameter, and to connect to it and disconnect from it as steps. | T |
+| TB-SYS2-082 | A step shall be able to set how long it waits for its response, since some commands take longer than others. | T |
+| TB-SYS2-083 | A step shall be able to expect the sensor to disconnect after a command, and the time from the command to the disconnection shall be measured. | T |
+| TB-SYS2-084 | A run shall be able to log each event - transmission, reception, delay, connection, disconnection, error - with the time it occurred, the step, the data and the result. | T |
 
 ---
 
@@ -246,10 +252,10 @@ software requirements in TB-SWE1-001 §6–§15. The full matrix is TB-RTM-001.
 | STK-01…STK-05 | TB-SYS2-060…TB-SYS2-064 |
 | STK-06 | TB-SYS2-090 |
 | STK-07 | TB-SYS2-011, TB-SYS2-014 |
-| STK-08 | TB-SYS2-070…TB-SYS2-079 |
+| STK-08 | TB-SYS2-070…TB-SYS2-084 |
 | STK-09, STK-10 | TB-SYS2-030…TB-SYS2-036, TB-SYS2-002 |
 | STK-11 | TB-SYS2-090 |
-| STK-12 | TB-SYS2-073, TB-SYS2-074 |
+| STK-12 | TB-SYS2-073, TB-SYS2-074, TB-SYS2-080…TB-SYS2-084 |
 | STK-13 | TB-SYS2-020…TB-SYS2-025 |
 | STK-14, STK-15 | TB-SYS2-040…TB-SYS2-045 |
 | STK-16 | TB-SYS2-091 |
