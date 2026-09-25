@@ -26,6 +26,7 @@ __all__ = [
     "DEFAULT_BAUDRATE",
     "DEFAULT_SCAN_MS",
     "DEFAULT_COMMAND_TIMEOUT",
+    "DISCONNECT_EVENT_TIMEOUT",
 ]
 
 #: Protocol revision this driver speaks. Checked against the dongle's reply to
@@ -69,6 +70,10 @@ DEFAULT_SCAN_MS = 3000
 #: than the firmware's own 2 s timeout, so the dongle's more informative
 #: "the sensor did not reply" wins over a host-side timeout.
 DEFAULT_COMMAND_TIMEOUT = 3.0
+
+#: Seconds to wait for the ``+disc`` that follows an accepted ``disconnect``.
+#: The link drops within a few connection intervals; this is generous.
+DISCONNECT_EVENT_TIMEOUT = 2.0
 
 
 class DongleError(enum.IntEnum):

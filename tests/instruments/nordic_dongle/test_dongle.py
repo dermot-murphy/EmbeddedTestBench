@@ -241,6 +241,32 @@ class TestLink:
         with pytest.raises(DongleCommandError, match="refused"):
             dongle.open_link()
 
+    def test_a_sensor_that_never_links_is_reported_as_not_connected(self, simulator, scanned):
+        """Observed against a sensor advertising every 9 s: the dongle's connect
+        window closed with "+disc reason=timeout". That must not be reported as
+        a link that failed to become ready, and must not wait out the timeout."""
+        simulator.sensors[0].connect_outcome = "timeout"
+        with pytest.raises(InstrumentError, match="could not connect") as caught:
+            scanned.open_link(timeout=5.0)
+        assert "ready" not in str(caught.value)
+        assert scanned.is_linked is False
+
+    def test_a_link_that_never_becomes_ready_is_reported_as_linked(self, simulator, scanned):
+        simulator.sensors[0].connect_outcome = "no_service"
+        with pytest.raises(InstrumentError, match="linked to .* did not become ready"):
+            scanned.open_link(timeout=0.3)
+
+    def test_a_failed_link_is_closed_so_the_next_attempt_is_not_refused(self, simulator, scanned):
+        """Observed on hardware: a link left half-open refused every later
+        connect with "not valid in this state"."""
+        simulator.sensors[0].connect_outcome = "no_service"
+        with pytest.raises(InstrumentError):
+            scanned.open_link(timeout=0.3)
+
+        simulator.sensors[0].connect_outcome = "ready"
+        scanned.open_link()
+        assert scanned.is_linked is True
+
     def test_writing_without_a_link_is_reported(self, scanned):
         with pytest.raises(DongleCommandError, match="not connected"):
             scanned.write("version")
