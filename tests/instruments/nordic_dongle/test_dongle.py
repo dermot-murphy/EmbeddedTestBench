@@ -210,6 +210,32 @@ class TestSelection:
         dongle.scan(1.0)
         assert dongle.select(SENSOR_ADDRESS).address == SENSOR_ADDRESS
 
+    def test_a_name_fragment_selects_the_strongest_match(self, dongle):
+        """Both simulated sensors are named SENS-...; the stronger is chosen."""
+        dongle.scan(1.0)
+        assert dongle.select_by_name("SENS").address == SENSOR_ADDRESS
+        assert dongle.selected.address == SENSOR_ADDRESS
+
+    def test_a_name_fragment_ignores_case_by_default(self, dongle):
+        """The firmware's own name filter is case-sensitive; this is not."""
+        dongle.scan(1.0)
+        assert dongle.select_by_name("sens-0b2c").name == FLAKY_NAME
+
+    def test_case_can_be_made_to_matter(self, dongle):
+        dongle.scan(1.0)
+        with pytest.raises(InstrumentError, match="containing 'sens'"):
+            dongle.select_by_name("sens", ignore_case=False)
+
+    def test_a_fragment_nothing_matches_names_what_was_heard(self, dongle):
+        dongle.scan(1.0)
+        with pytest.raises(InstrumentError, match="SENS-0A1B2C"):
+            dongle.select_by_name("kappa")
+
+    def test_an_empty_fragment_is_refused(self, dongle):
+        dongle.scan(1.0)
+        with pytest.raises(ConfigurationError):
+            dongle.select_by_name("")
+
     def test_selecting_an_unknown_name_is_refused(self, dongle):
         dongle.scan(1.0)
         with pytest.raises(InstrumentError):

@@ -723,6 +723,35 @@ class NordicDongle(Instrument):
         self._selected = chosen
         return chosen
 
+    def select_by_name(self, fragment: str, ignore_case: bool = True) -> Sensor:
+        """Choose the strongest sensor in the last scan whose name contains *fragment*.
+
+        The firmware's own name filter (``scan(name=...)``) is case-sensitive;
+        this matches on the host, so ``"kappa"`` finds ``KAPPA_5C1712``. Scan
+        first, and without a name filter if the case is not known.
+
+        :raises ConfigurationError: if *fragment* is empty.
+        :raises InstrumentError: if no sensor in the last scan matches.
+        """
+        if not fragment:
+            raise ConfigurationError("a name fragment is needed to select by name")
+        wanted = fragment.casefold() if ignore_case else fragment
+
+        def name_of(sensor: Sensor) -> str:
+            name = sensor.name or ""
+            return name.casefold() if ignore_case else name
+
+        matches = [sensor for sensor in self._sensors if wanted in name_of(sensor)]
+        if not matches:
+            heard = ", ".join(sensor.name for sensor in self._sensors if sensor.name) or "none"
+            raise InstrumentError(
+                "no sensor in the last scan has a name containing %r%s. Named "
+                "sensors heard: %s. A sensor that advertises rarely needs a scan "
+                "longer than its advertising interval."
+                % (fragment, " (ignoring case)" if ignore_case else "", heard)
+            )
+        return self.select(max(matches, key=lambda sensor: sensor.rssi))
+
     @property
     def selected(self) -> Optional[Sensor]:
         """The sensor chosen by :meth:`select`."""
