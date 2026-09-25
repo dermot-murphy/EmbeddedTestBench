@@ -127,8 +127,29 @@ emBuild -config Release -D SDK_ROOT=/path/to/nRF5_SDK_17.1.0 \
         nordic_dongle_pca10059.emProject
 ```
 
+`SDK_ROOT` has no default in the project, so one of the two must be set. Point
+it at the folder that directly contains `components/` and `modules/`; the SDK
+zip unpacks into a folder of the same name, so check for an extra level.
+Verified on 2026-09-25 with SES 5.10 and SES 7.32a against SDK 17.1.0; the
+output lands in `ses/Output/Release/Exe/`.
+
 The project produces an application hex only. The SoftDevice and bootloader come
 from the factory, which is why the application is linked at 0x27000.
+
+A dongle that has had other firmware loaded, such as the nRF Sniffer, may no
+longer carry the SoftDevice. Package the SoftDevice with the application so the
+bootloader accepts it either way:
+
+```
+nrfutil nrf5sdk-tools pkg generate --hw-version 52 --application-version 1 \
+    --application ses/Output/Release/Exe/nordic_dongle_pca10059.hex \
+    --softdevice $SDK_ROOT/components/softdevice/s140/hex/s140_nrf52_7.2.0_softdevice.hex \
+    --sd-req 0x00,0xCA --sd-id 0xCA dongle_dfu.zip
+```
+
+The dongle's bootloader presents a serial port (`nRF52 SDFU USB`), not a USB
+drive, so an image cannot be copied onto it; program it with
+`nrfutil device program --firmware dongle_dfu.zip` after pressing RESET.
 
 `make manifest` (which `dfu` runs for you) writes `_build/firmware_manifest.json`
 beside the image: version, build instant, protocol, model, hex, package and
