@@ -181,7 +181,7 @@ static void command_ver(char * tokens[], uint32_t count)
 		 PROTO_MANUFACTURER,
 		 PROTO_MODEL,
 		 firmware_version_string,
-		 firmware_build_date_string,
+		 firmware_build_date(),
 		 PROTO_VERSION,
 		 (unsigned long long)timestamp_now_us(),
 		 (unsigned long)cdc_acm_dropped());
