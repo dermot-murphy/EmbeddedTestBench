@@ -236,19 +236,19 @@
     },
     {
       "file": "firmware/nordic_dongle/src/cmd_parser.c",
-      "line": 626,
+      "line": 651,
       "rule": "macro.prefix",
       "message": "'X' must be prefixed with 'cmd_parser_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/cmd_parser.c",
-      "line": 634,
+      "line": 659,
       "rule": "constant.prefix",
       "message": "'CMD_COUNT' must be prefixed with 'cmd_parser_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/cmd_parser.c",
-      "line": 658,
+      "line": 683,
       "rule": "constant.prefix",
       "message": "'HANDLER_COUNT' must be prefixed with 'cmd_parser_' (module prefix)"
     },
@@ -362,13 +362,13 @@
     },
     {
       "file": "firmware/nordic_dongle/src/cmd_parser.c",
-      "line": 581,
+      "line": 593,
       "rule": "function.prefix",
       "message": "'command_dfu' must be prefixed with 'cmd_parser_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/cmd_parser.c",
-      "line": 594,
+      "line": 619,
       "rule": "function.prefix",
       "message": "'command_reset' must be prefixed with 'cmd_parser_' (module prefix)"
     },

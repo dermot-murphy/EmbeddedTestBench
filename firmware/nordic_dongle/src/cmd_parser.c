@@ -582,7 +582,7 @@ static void command_time(char * tokens[], uint32_t count)
 }
 
 /** Longest the dfu command waits for its reply to leave, before resetting. */
-#define DFU_REPLY_TIMEOUT_US		250000U
+#define CMD_PARSER_DFU_REPLY_TIMEOUT_US		250000U
 
 /**
  * How long the dfu command keeps servicing USB after its reply has left the
@@ -590,7 +590,7 @@ static void command_time(char * tokens[], uint32_t count)
  * has it, which is not the same as the host having read it: on a PCA10059
  * under Windows, resetting as soon as the queue emptied still lost the reply.
  */
-#define DFU_REPLY_GRACE_US		50000U
+#define CMD_PARSER_DFU_REPLY_GRACE_US		50000U
 
 static void command_dfu(char * tokens[], uint32_t count)
 {
@@ -613,8 +613,8 @@ static void command_dfu(char * tokens[], uint32_t count)
 	{
 		cdc_acm_process();
 		elapsed = timestamp_elapsed_us(start, timestamp_now_us());
-	} while ((!cdc_acm_tx_idle() || (elapsed < DFU_REPLY_GRACE_US)) &&
-		 (elapsed < DFU_REPLY_TIMEOUT_US));
+	} while ((!cdc_acm_tx_idle() || (elapsed < CMD_PARSER_DFU_REPLY_GRACE_US)) &&
+		 (elapsed < CMD_PARSER_DFU_REPLY_TIMEOUT_US));
 
 	bootloader_enter_dfu();
 }
