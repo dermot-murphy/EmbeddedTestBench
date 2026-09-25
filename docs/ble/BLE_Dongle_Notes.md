@@ -138,13 +138,14 @@ from the factory, which is why the application is linked at 0x27000.
 
 A dongle that has had other firmware loaded, such as the nRF Sniffer, may no
 longer carry the SoftDevice. Package the SoftDevice with the application so the
-bootloader accepts it either way:
+bootloader accepts it either way. S140 7.2.0 is `0x100` in
+`nrfutil nrf5sdk-tools pkg generate --help`:
 
 ```
 nrfutil nrf5sdk-tools pkg generate --hw-version 52 --application-version 1 \
     --application ses/Output/Release/Exe/nordic_dongle_pca10059.hex \
     --softdevice $SDK_ROOT/components/softdevice/s140/hex/s140_nrf52_7.2.0_softdevice.hex \
-    --sd-req 0x00,0xCA --sd-id 0xCA dongle_dfu.zip
+    --sd-req 0x00,0x100 --sd-id 0x100 dongle_dfu.zip
 ```
 
 The dongle's bootloader presents a serial port (`nRF52 SDFU USB`), not a USB
