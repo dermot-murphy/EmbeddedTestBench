@@ -20,9 +20,12 @@
 #include "ble_scanner.h"
 #include "fakes.h"
 #include "firmware_version.h"
+#include "nrf_delay.h"
+#include "nrf_gpio.h"
 #include "nrf_soc.h"
 #include "nus_client.h"
 #include "protocol.h"
+#include "timestamp.h"
 
 /** Run a command line through the parser, as the main loop would. */
 static void handle(const char * line)
@@ -168,14 +171,59 @@ static void test_dfu_answers_before_it_resets(void)
 	 * the bootloader from one that has crashed. */
 	fake_retained_register_reset();
 	fake_system_resets = 0U;
+	fake_clock_set_step(1000U);
 
 	handle("dfu");
 
 	TEST_ASSERT_TRUE(reply_has("dfu=1"));
 	TEST_ASSERT_TRUE(reply_has("fw=" FIRMWARE_VERSION));
-	TEST_ASSERT_EQUAL_UINT32(1U, fake_system_resets);
 	TEST_ASSERT_EQUAL_HEX32(0xB1U, fake_retained_register());
 
+	fake_system_resets = 0U;
+	fake_retained_register_reset();
+}
+
+static void test_dfu_keeps_servicing_usb_after_its_reply_has_left(void)
+{
+	/* Observed on a PCA10059 under Windows: resetting as soon as the transmit
+	 * queue emptied still lost the reply. The command keeps the link up for a
+	 * grace period after that - and gives up at a limit rather than waiting
+	 * for ever on a host that has stopped reading. */
+	uint64_t	before;
+	uint64_t	waited;
+
+	fake_clock_set_step(1000U);
+	before = timestamp_now_us();
+
+	handle("dfu");
+
+	waited = timestamp_now_us() - before;
+	TEST_ASSERT_TRUE_MESSAGE(waited >= 50000U, "the grace period was cut short");
+	TEST_ASSERT_TRUE_MESSAGE(waited <= 260000U, "the wait is not bounded");
+
+	fake_system_resets = 0U;
+	fake_retained_register_reset();
+	fake_gpio_reset();
+}
+
+static void test_dfu_pulls_the_dongles_own_reset_pin(void)
+{
+	/* The PCA10059 open bootloader enters DFU only after a pin reset; a soft
+	 * reset brings the application straight back. P0.19 is wired to nRESET. */
+	fake_gpio_reset();
+	fake_system_resets = 0U;
+	fake_clock_set_step(1000U);
+
+	handle("dfu");
+
+	TEST_ASSERT_EQUAL_UINT32(19U, fake_gpio_output_pin());
+	TEST_ASSERT_EQUAL_UINT32(19U, fake_gpio_cleared_pin());
+	TEST_ASSERT_TRUE(fake_delay_total_ms() > 0U);
+	/* The soft reset is the fallback for a board where the pin is not wired;
+	 * on the fake nothing resets, so it is reached. */
+	TEST_ASSERT_EQUAL_UINT32(1U, fake_system_resets);
+
+	fake_gpio_reset();
 	fake_system_resets = 0U;
 	fake_retained_register_reset();
 }
@@ -546,6 +594,8 @@ int main(void)
 	RUN_TEST(test_ver_reports_which_build_is_on_the_dongle);
 	RUN_TEST(test_the_build_date_carries_no_spaces);
 	RUN_TEST(test_dfu_answers_before_it_resets);
+	RUN_TEST(test_dfu_keeps_servicing_usb_after_its_reply_has_left);
+	RUN_TEST(test_dfu_pulls_the_dongles_own_reset_pin);
 	RUN_TEST(test_time_reports_the_clock_and_its_rate);
 
 	RUN_TEST(test_scan_start_clears_the_table_first);

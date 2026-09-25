@@ -343,3 +343,8 @@ bool cdc_acm_is_open(void)
 {
 	return m_port_open;
 }
+
+bool cdc_acm_tx_idle(void)
+{
+	return (m_tx_head == m_tx_tail) && !m_tx_busy;
+}

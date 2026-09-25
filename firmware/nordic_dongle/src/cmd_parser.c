@@ -581,16 +581,41 @@ static void command_time(char * tokens[], uint32_t count)
 		 (unsigned long)TIMESTAMP_HZ);
 }
 
+/** Longest the dfu command waits for its reply to leave, before resetting. */
+#define CMD_PARSER_DFU_REPLY_TIMEOUT_US		250000U
+
+/**
+ * How long the dfu command keeps servicing USB after its reply has left the
+ * transmit queue. A transfer is complete for the dongle once the USB peripheral
+ * has it, which is not the same as the host having read it: on a PCA10059
+ * under Windows, resetting as soon as the queue emptied still lost the reply.
+ */
+#define CMD_PARSER_DFU_REPLY_GRACE_US		50000U
+
 static void command_dfu(char * tokens[], uint32_t count)
 {
 	UNUSED_PARAMETER(tokens);
 	UNUSED_PARAMETER(count);
 
+	uint64_t	start;
+	uint64_t	elapsed;
+
 	reply_ok("dfu=1 fw=%s", firmware_version_string);
 	/* Let the reply reach the host: after this the USB link goes down and
 	 * comes back as the bootloader's, and a host waiting for a reply it will
-	 * never get cannot tell that from a dongle that has crashed. */
-	cdc_acm_process();
+	 * never get cannot tell that from a dongle that has crashed. One pass of
+	 * cdc_acm_process() only starts the transfer - observed on a PCA10059,
+	 * the reply was lost every time - so keep servicing USB until the queue
+	 * is empty and the grace period has passed, but not for ever: a host that
+	 * has stopped reading must not keep the dongle out of its bootloader. */
+	start = timestamp_now_us();
+	do
+	{
+		cdc_acm_process();
+		elapsed = timestamp_elapsed_us(start, timestamp_now_us());
+	} while ((!cdc_acm_tx_idle() || (elapsed < CMD_PARSER_DFU_REPLY_GRACE_US)) &&
+		 (elapsed < CMD_PARSER_DFU_REPLY_TIMEOUT_US));
+
 	bootloader_enter_dfu();
 }
 

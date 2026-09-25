@@ -921,15 +921,25 @@ BLE-DD-FIRMWARE reads and what CI uploads with the artefacts.
 
 #### BLE-DD-BOOTLOADER — `firmware/src/bootloader.c`
 
-Entry into the Nordic USB bootloader: set `GPREGRET` to `BOOTLOADER_DFU_START`
-(0xB1) and reset. The register survives a reset; the bootloader reads it and
-stays in DFU instead of jumping to the application.
+Entry into the Nordic USB bootloader is by **pin reset**. The PCA10059 open
+bootloader in nRF5 SDK 17.1.0 is built with `NRF_BL_DFU_ENTER_METHOD_PINRESET 1`
+and `NRF_BL_DFU_ENTER_METHOD_GPREGRET 0`: it enters DFU after a pin reset and
+ignores `GPREGRET`. So the firmware drives P0.19 low, which on the PCA10059 is
+wired to nRESET (`BSP_SELF_PINRESET_PIN`, the method Nordic's own USB DFU trigger
+uses). If the chip is still running 10 ms later the pin is not wired on this
+board, and it falls back to `NVIC_SystemReset()`.
 
-The write goes through `sd_power_gpregret_clr/set` while the SoftDevice is
-enabled and straight to `NRF_POWER->GPREGRET` when it is not - writing the
-peripheral directly under an enabled SoftDevice is undefined. `cmd_parser`
-sends the reply and drains the USB queue *before* calling in, so the host
-receives `ok dfu=1` rather than a silence it would have to interpret.
+Before that it still sets `GPREGRET` to `BOOTLOADER_DFU_START` (0xB1), for a
+bootloader built to honour it. The write goes through `sd_power_gpregret_clr/set`
+while the SoftDevice is enabled and straight to `NRF_POWER->GPREGRET` when it is
+not - writing the peripheral directly under an enabled SoftDevice is undefined.
+
+`cmd_parser` sends the reply first, so the host receives `ok dfu=1` rather than
+a silence it would have to interpret. It keeps servicing USB until the transmit
+queue is empty (`cdc_acm_tx_idle()`) and a further 50 ms have passed, bounded at
+250 ms. The grace period is needed: a transfer is complete for the dongle once
+the USB peripheral has it, and resetting at that point lost the reply every time
+on a PCA10059 under Windows (issue #33).
 
 #### BLE-DD-SIM — `simulator.py`
 
