@@ -8,8 +8,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-RTM-001 | **Version** | 0.3 |
-| **Project** | TestBench | **Date** | 2026-09-23 |
+| **Document ID** | TB-RTM-001 | **Version** | 0.4 |
+| **Project** | TestBench | **Date** | 2026-09-24 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.1 / SWE.2 / SWE.3 / SWE.4 |
@@ -25,6 +25,7 @@
 | 0.1 | 2026-09-19 | Claude | Initial |
 | 0.2 | 2026-09-23 | Claude | Section 12 added: DMM requirements to design, code and test. STK-18 decomposed. OPEN-03 narrowed to the instrument families still unwritten. Sections 13 to 17 renumbered. |
 | 0.3 | 2026-09-23 | Claude | Rows added for BLE-FR-025 and DMM-FR-045. |
+| 0.4 | 2026-09-24 | Claude | Rows added for RUN-FR-054…057. |
 
 ---
 
@@ -457,6 +458,10 @@ where the firmware implements the requirement.
 | RUN-FR-041 | ARC-001 | RUN-DD-REPORT | `write_json` | `TestJson` (3) |
 | RUN-FR-042 | ARC-001 | RUN-DD-REPORT | `format_markdown` | `TestMarkdown` (8) |
 | RUN-FR-043 | ARC-001 | RUN-DD-REPORT | `write_junit` | `TestJunit` (6) |
+| RUN-FR-054 | RUN-ARC-001 | RUN-DD-SPEC, RUN-DD-RUNCLI | `TestSpec.warning`, `_warnings_of`, `_announce_warnings` | `test_the_warning_is_printed_before_anything_runs` |
+| RUN-FR-055 | RUN-ARC-001 | RUN-DD-RUNCLI | `_announce_warnings` (stderr) | `test_the_warning_is_printed_before_anything_runs` |
+| RUN-FR-056 | RUN-ARC-001 | RUN-DD-RUNCLI | `_acknowledged`, `--acknowledge` | `test_hardware_without_a_terminal_refuses_to_start`, `test_a_terminal_is_asked_and_yes_proceeds`, `test_anything_but_yes_stops_the_run` (4) |
+| RUN-FR-057 | RUN-ARC-001 | RUN-DD-RUNCLI | `_acknowledged`, `_EXIT_NOT_ACKNOWLEDGED` | `test_a_simulated_run_is_not_gated`, `test_a_specification_with_no_warning_is_never_gated` |
 | RUN-FR-050 | ARC-001 | RUN-DD-CLI | `runner/cli.py` | `TestRunCommand` (8) |
 | RUN-FR-051 | ARC-001 | RUN-DD-CLI | exit statuses | `test_simulated_run_passes`, `test_failure_exits_nonzero`, `test_no_bench_and_no_simulate_is_a_usage_error` |
 | RUN-FR-052 | ARC-001 | RUN-DD-CLI | report path suffixing | `test_several_specs_get_suffixed_reports` |

@@ -84,6 +84,7 @@ All ASPICE work products live in [`aspice/`](aspice/). Every one is at version
 | Document | Contents |
 |---|---|
 | [Bench Runner Guide](Bench_Runner_Guide.md) | How to write a test specification and a bench configuration |
+| [Bench Self-Check Setup](Bench_Self_Check_Setup.md) | Setting up a Windows or Linux machine to run the bench self-check against real instruments |
 
 ## Instrument-specific
 

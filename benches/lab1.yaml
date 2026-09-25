@@ -84,5 +84,5 @@ instruments:
   # without them it is simply mute. See docs/dmm/TTi1604_Notes.md.
   dmm:
     driver: tti1604
-    resource: /dev/ttyUSB0        # COM5 on Windows
+    resource: /dev/ttyUSB1        # COM5 on Windows
     timeout: 5.0

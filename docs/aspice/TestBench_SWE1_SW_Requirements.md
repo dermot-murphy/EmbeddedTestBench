@@ -8,8 +8,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE1-001 | **Version** | 0.3 |
-| **Project** | TestBench | **Date** | 2026-09-23 |
+| **Document ID** | TB-SWE1-001 | **Version** | 0.4 |
+| **Project** | TestBench | **Date** | 2026-09-24 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.1 |
@@ -25,6 +25,7 @@
 | 0.1 | 2026-09-19 | Claude | Initial |
 | 0.2 | 2026-09-23 | Claude | Section 14 added: `DMM-` requirements for the TTi 1604 multimeter (DMM-FR-001…026, DMM-NFR-001…004). Sections 15 to 18 renumbered. |
 | 0.3 | 2026-09-23 | Claude | BLE-FR-025 (choose the strongest advertiser) and DMM-FR-045 (the bench states what the simulated meter reads) added; RUN subsection numbering corrected after the section 14 insertion. |
+| 0.4 | 2026-09-24 | Claude | RUN-FR-054…057 added: a specification's safety warning, printed before the bench is opened, and the acknowledgement that gates a warned run on real hardware. |
 
 ---
 
@@ -765,6 +766,10 @@ review, in which case the reading is real but is not now.
 | RUN-FR-051 | The command line shall exit 0 when everything passed, 1 on a failure or error, and 2 on a usage or specification error. | STK-08 | Test |
 | RUN-FR-052 | Running several specifications shall write per-specification reports without overwriting each other. | STK-08 | Test |
 | RUN-FR-053 | A single top-level command shall dispatch to each tool's own command line. | STK-07, STK-08 | Test |
+| RUN-FR-054 | A specification shall be able to carry a safety warning, and the runner shall print it before the bench is opened and before any setup step runs. A hazard disclosed in the report has been disclosed after the event. | STK-08, STK-17 | Test |
+| RUN-FR-055 | The warning shall be written to the error stream, so that a run whose output is redirected still puts it in front of the operator. | STK-08 | Test |
+| RUN-FR-056 | On a bench that is not simulated, a warned specification shall not start until the operator acknowledges the warning, either by an explicit option or by answering a prompt at a terminal. Confirmation shall be exact: nothing but the full word shall count. A warning a script can step over by not reading it is not a control, and what it protects cannot be recovered afterwards. | STK-08, STK-17 | Test |
+| RUN-FR-057 | A simulated run shall not be gated, because nothing is energised and an unattended run has nobody to ask. Refusal to start shall be reported with its own exit status, distinct from a test failure. | STK-08 | Test |
 
 ---
 

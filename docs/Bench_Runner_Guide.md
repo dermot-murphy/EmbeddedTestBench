@@ -129,6 +129,7 @@ teardown:                    # once, after all tests, whatever the outcome
 |---|---|---|
 | `name` | yes | Suite name; appears in every report |
 | `description` | no | Free text |
+| `warning` | no | A hazard, printed before anything is energised; gates the run on real hardware |
 | `requirements` | no | Requirements the suite as a whole addresses |
 | `instruments` | no | Alias to driver name, declaring what kind of instrument each alias must be |
 | `setup` | no | Steps run once before the tests |
@@ -137,6 +138,37 @@ teardown:                    # once, after all tests, whatever the outcome
 
 **A setup failure aborts the suite.** Every measurement taken after an unknown
 setup would be meaningless, so none are attempted.
+
+#### `warning`: a hazard the operator must see first
+
+Some suites are dangerous to run with the bench in its normal state — they
+energise outputs, put a meter on a current range, or drive a line that
+something is connected to. `warning` says so, and the runner prints it
+**before the bench is opened**, on the error stream so that redirecting the
+output does not hide it:
+
+```yaml
+warning: |
+  DISCONNECT EVERYTHING FROM THE INSTRUMENTS BEFORE RUNNING THIS TEST.
+  This test energises the supply output.
+```
+
+On a bench that is not simulated the run then stops until the warning is
+acknowledged:
+
+* `--acknowledge` confirms it up front, which is how an unattended hardware run
+  is done.
+* At a terminal, the runner asks. Only the full word `yes` counts — `y` is not
+  confirmation of a warning about damaging equipment.
+* Refusing exits **3**, distinct from a test failure, and no instrument is
+  opened.
+
+A **simulated** run is never gated: nothing is energised, and there is nobody
+to ask. That is what keeps a warned specification runnable in CI.
+
+The reason the gate exists rather than a printed line alone is that the
+consequence of ignoring this particular warning is silent — something wired to
+the bench is damaged, and no report says so.
 
 The `instruments` block states what each alias has to be:
 
@@ -167,6 +199,7 @@ answer.
 | `name` | yes | Test name |
 | `requirement` | no | Requirement verified; may be a list |
 | `description` | no | Free text |
+| `warning` | no | A hazard, printed before anything is energised; gates the run on real hardware |
 | `steps` | yes | Steps executed in order |
 | `skip` / `skip_reason` | no | Mark the test unrun, with a reason |
 
@@ -179,6 +212,7 @@ answer.
 | `expect` | no | Measurements to extract and check |
 | `save` | no | Keep the result under this name |
 | `description` | no | Free text |
+| `warning` | no | A hazard, printed before anything is energised; gates the run on real hardware |
 
 `do` names a **public** method of a bench instrument. Private names are refused: a
 specification is data, possibly written by someone who is not reviewing the

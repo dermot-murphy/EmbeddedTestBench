@@ -34,6 +34,7 @@ _LOG = logging.getLogger("benchtools.runner")
 _EXIT_OK = 0
 _EXIT_PROBLEM = 1
 _EXIT_USAGE = 2
+_EXIT_NOT_ACKNOWLEDGED = 3
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -58,10 +59,65 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--junit", metavar="PATH", help="write a JUnit XML report for CI")
     parser.add_argument("--stop-on-error", action="store_true",
                         help="abandon the remaining tests after the first error")
+    parser.add_argument("--acknowledge", action="store_true",
+                        help="confirm a specification's safety warning without being asked; "
+                             "needed to run a warned specification unattended on real hardware")
     parser.add_argument("-v", "--verbose", action="count", default=0,
                         help="increase logging (repeat for debug)")
     parser.add_argument("--version", action="version", version="benchtools %s" % __version__)
     return parser
+
+
+def _warnings_of(specs) -> list:
+    """The safety warnings the specifications about to run carry."""
+    return [(spec.name, spec.warning) for spec in specs if spec.warning]
+
+
+def _announce_warnings(warned) -> None:
+    """Put the hazards on the console before anything is energised.
+
+    Written to stderr so that a run whose stdout is being captured still puts
+    the warning in front of whoever is standing at the bench.
+    """
+    for name, warning in warned:
+        print("", file=sys.stderr)
+        print("!" * 72, file=sys.stderr)
+        print("SAFETY WARNING - %s" % name, file=sys.stderr)
+        print("!" * 72, file=sys.stderr)
+        for line in warning.splitlines():
+            print(line, file=sys.stderr)
+        print("!" * 72, file=sys.stderr)
+        print("", file=sys.stderr)
+
+
+def _acknowledged(warned, acknowledged: bool, simulated: bool) -> bool:
+    """Whether a warned run may proceed.
+
+    A simulated bench is never gated: nothing is energised, and CI has nobody
+    to answer the question. On real hardware the run stops unless the operator
+    says so - either beforehand with ``--acknowledge``, or by answering the
+    prompt. Refusing an unattended run is deliberate: a warning that a script
+    can skip by not reading it is not a control at all, and the thing it is
+    protecting is something the operator cannot get back.
+    """
+    if not warned or simulated or acknowledged:
+        return True
+    if not (sys.stdin.isatty() and sys.stderr.isatty()):
+        print(
+            "error: this specification carries a safety warning and the bench is "
+            "not simulated, but there is no terminal to confirm at. Re-run with "
+            "--acknowledge once the warning above has been acted on.",
+            file=sys.stderr,
+        )
+        return False
+    try:
+        answer = input("Type 'yes' to confirm the warning above has been acted on: ")
+    except EOFError:
+        answer = ""
+    if answer.strip().lower() == "yes":
+        return True
+    print("error: not confirmed; nothing was energised.", file=sys.stderr)
+    return False
 
 
 def _load_bench_config(args: argparse.Namespace, aliases) -> BenchConfig:
@@ -129,10 +185,17 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print("error: %s" % exc, file=sys.stderr)
         return _EXIT_USAGE
 
+    # Before the bench is opened, let alone a setup step run: a warning that
+    # arrives after the supply is on has warned nobody.
+    warned = _warnings_of(specs)
+    _announce_warnings(warned)
+
     runs: List[RunRecord] = []
     with BenchRunner.from_config(
         config, simulate=args.simulate, stop_on_error=args.stop_on_error
     ) as runner:
+        if not _acknowledged(warned, args.acknowledge, runner.bench.is_simulated):
+            return _EXIT_NOT_ACKNOWLEDGED
         for index, spec in enumerate(specs):
             run = runner.run(spec)
             runs.append(run)

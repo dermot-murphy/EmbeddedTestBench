@@ -352,6 +352,12 @@ class TestSpec:
     name: str
     tests: Sequence[TestCase]
     description: str = ""
+    #: A hazard the operator must know about *before* anything is energised.
+    #: The runner prints it ahead of the first setup step and, on real
+    #: hardware, refuses to start until it is acknowledged. A description
+    #: would not do: it reaches the reader in the report, by which time the
+    #: supply has been on for a while.
+    warning: str = ""
     requirements: Sequence[str] = ()
     setup: Sequence[Step] = ()
     teardown: Sequence[Step] = ()
@@ -382,6 +388,7 @@ class TestSpec:
             },
             name=str(name),
             description=str(data.get("description", "")),
+            warning=str(data.get("warning", "")).strip(),
             requirements=tuple(str(item) for item in requirements),
             setup=tuple(
                 Step.from_mapping(item, i)
