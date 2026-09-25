@@ -51,6 +51,7 @@
     <folder Name="Application">
       <file file_name="../src/main.c" />
       <file file_name="../src/cdc_acm.c" />
+      <file file_name="../src/cmd_args.c" />
       <file file_name="../src/cmd_parser.c" />
       <file file_name="../src/ble_scanner.c" />
       <file file_name="../src/nus_client.c" />

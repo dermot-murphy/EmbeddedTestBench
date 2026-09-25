@@ -24,7 +24,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass
-from typing import Callable, List, Optional, Union
+from typing import Callable, Dict, List, Optional, Union
 
 from ...core.errors import (
     BenchToolsError,
@@ -34,7 +34,8 @@ from ...core.errors import (
 from ...core.instrument import Instrument, InstrumentIdentity
 from ...core.transport.base import Transport
 from ...core.transport.factory import open_transport
-from .script import CommandScript, ScriptRun, load_script, run_script
+from .script import CommandScript, load_script
+from .script_run import EventLog, ScriptRun, run_script
 from .firmware import (
     PACKAGE_HINT,
     FirmwareBuild,
@@ -48,9 +49,11 @@ from .constants import (
     DEFAULT_BAUDRATE,
     DEFAULT_COMMAND_TIMEOUT,
     DEFAULT_SCAN_MS,
+    COMMAND_TIMEOUT_RANGE,
     CONNECT_TIMEOUT_RANGE,
     DEFAULT_CONNECT_TIMEOUT,
     DISCONNECT_EVENT_TIMEOUT,
+    FIRMWARE_COMMAND_TIMEOUT,
     SERVICE_DISCOVERY_TIMEOUT,
     DONGLE_LIMITS,
     PROTOCOL_VERSION,
@@ -70,9 +73,26 @@ from .protocol import (
 from .session import DongleCommandError, DongleSession
 from .simulator import SimulatedDongle
 
-__all__ = ["NordicDongle", "Sensor"]
+__all__ = ["DisconnectSample", "NordicDongle", "Sensor"]
 
 _LOG = logging.getLogger(__name__)
+
+
+@dataclass
+class DisconnectSample:
+    """A command after which the sensor was expected to drop the link.
+
+    :param dongle_us: Write to disconnection, on the dongle's clock.
+    :param host_s: The same, as the host saw it, including USB.
+    """
+
+    request: str
+    disconnected: bool
+    dongle_us: Optional[int] = None
+    host_s: float = 0.0
+    transmitted_us: Optional[int] = None
+    disconnected_us: Optional[int] = None
+    reason: str = ""
 
 
 @dataclass
@@ -379,7 +399,7 @@ class NordicDongle(Instrument):
 
     @property
     def firmware_version(self) -> str:
-        """The firmware version the dongle reported, e.g. ``"1.2.0"``.
+        """The firmware version the dongle reported, e.g. ``"1.3.0"``.
 
         Empty for firmware older than protocol 1.1, which did not report one -
         which is itself an answer: that dongle needs updating.
@@ -917,6 +937,49 @@ class NordicDongle(Instrument):
     # ------------------------------------------------------------------
     # UART over BLE
     # ------------------------------------------------------------------
+    def command_expecting_disconnect(
+        self,
+        request: Union[str, bytes],
+        timeout: float = DEFAULT_COMMAND_TIMEOUT,
+    ) -> DisconnectSample:
+        """Send a command after which the sensor should drop the link, and time it.
+
+        The command is written without waiting for a reply - a sensor that is
+        resetting sends none - and the time to the ``+disc`` is taken on the
+        dongle's clock, from the write to the disconnection.
+
+        :param timeout: Seconds to wait for the link to drop.
+        :returns: Whether it dropped, and when. A sensor that stays connected is
+            a result, not an exception.
+        :raises InstrumentError: if the command could not be sent.
+        """
+        encoded = self._encode(request)
+        self._session.take_events("disc")
+        started = time.perf_counter()
+        reply = self._session.execute("uart", encoded)
+        transmitted_us = int(reply.fields.get("t", 0))
+        try:
+            event = self._session.wait_for_event("disc", timeout=timeout)
+        except BenchToolsError:
+            return DisconnectSample(
+                request=request if isinstance(request, str) else from_hex(encoded).hex(),
+                disconnected=False,
+                host_s=time.perf_counter() - started,
+                transmitted_us=transmitted_us,
+            )
+        self._connected = False
+        self._connection_interval_us = 0
+        disconnected_us = event.integer("t", 0)
+        return DisconnectSample(
+            request=request if isinstance(request, str) else from_hex(encoded).hex(),
+            disconnected=True,
+            dongle_us=(disconnected_us - transmitted_us) if transmitted_us else None,
+            host_s=time.perf_counter() - started,
+            transmitted_us=transmitted_us,
+            disconnected_us=disconnected_us,
+            reason=str(event.get("reason") or ""),
+        )
+
     def write(self, payload: Union[str, bytes]) -> int:
         """Send bytes to the sensor without waiting for a reply.
 
@@ -938,11 +1001,29 @@ class NordicDongle(Instrument):
         two are kept separately because quoting the second as the first would
         report a millisecond of host scheduling as sensor latency.
 
+        :param timeout: Seconds the dongle waits for the reply, 0.1 to 60. Sent
+            to a protocol 1.3 dongle; an older one waits its own fixed 2 s,
+            and a longer wait asked of it is logged as not honoured.
+        :raises ConfigurationError: if *timeout* is out of range.
         :raises InstrumentError: if the sensor does not reply.
         """
         encoded = self._encode(request)
+        low, high = COMMAND_TIMEOUT_RANGE
+        if not low <= timeout <= high:
+            raise ConfigurationError(
+                "a command timeout must be between %g and %g s, not %r" % (low, high, timeout)
+            )
+        arguments = [encoded]
+        if self._protocol_at_least(1, 3):
+            arguments.append("timeout=%d" % round(timeout * 1000.0))
+        elif timeout > FIRMWARE_COMMAND_TIMEOUT:
+            _LOG.warning(
+                "the dongle speaks protocol %s and waits %.0f s for a reply, not "
+                "the %.1f s asked; update its firmware to set one",
+                self._firmware_protocol or "unknown", FIRMWARE_COMMAND_TIMEOUT, timeout,
+            )
         started = time.perf_counter()
-        reply = self._session.execute("cmd", encoded, timeout=timeout + 1.0)
+        reply = self._session.execute("cmd", *arguments, timeout=timeout + 1.0)
         elapsed = time.perf_counter() - started
 
         self._session.take_events("rx")         # the reply is in the ok line
@@ -959,12 +1040,14 @@ class NordicDongle(Instrument):
             received_us=int(reply.fields["t_rx"]) if "t_rx" in reply.fields else None,
         )
 
-    def run_script(
+    def run_script(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
         source,
         report: Optional[str] = None,
         timeout: float = DEFAULT_COMMAND_TIMEOUT,
         listen: float = 0.5,
+        variables: Optional[Dict[str, str]] = None,
+        events: Optional[str] = None,
     ) -> ScriptRun:
         """Run a command document against the connected sensor.
 
@@ -987,21 +1070,38 @@ class NordicDongle(Instrument):
         :param listen: Seconds to listen after a command the document expects
             no reply to. Whatever arrives is recorded; the step is still
             skipped, because the document made no claim to check.
-        :raises ConfigurationError: if the document cannot be read.
-        :raises InstrumentError: if no link is open. Every step would fail
-            identically for a reason that has nothing to do with the sensor.
+        :param variables: Values for the document's ``${NAME}`` variables,
+            overriding its defaults - ``{"SENSOR_ID": "kappa"}``, say.
+        :param events: Where to write the event log - one line per TX, RX,
+            delay, connect, disconnect and error, with the time it happened.
+        :raises ConfigurationError: if the document cannot be read, or a
+            variable it needs has no value.
+        :raises InstrumentError: if no link is open and the document does not
+            connect before its first command. Every step would fail identically
+            for a reason that has nothing to do with the sensor.
 
         Traces to: BLE-FR-100 .. BLE-FR-108.
         """
-        if not self.is_linked:
+        if isinstance(source, CommandScript):
+            if variables:
+                raise ConfigurationError(
+                    "variables apply when a document is read; this one is already parsed"
+                )
+            script = source
+        else:
+            script = load_script(str(source), variables=variables)
+        if not self.is_linked and not script.connects:
             raise InstrumentError(
-                "no link is open, so no command could reach a sensor. Select a "
-                "sensor and open_link() before running a command document; "
-                "otherwise every step would fail for the same reason and none "
-                "of the failures would be about the sensor."
+                "no link is open, so no command could reach a sensor. Start the "
+                "document with 'connect <sensor>', or select a sensor and "
+                "open_link() first; otherwise every step would fail for the same "
+                "reason and none of the failures would be about the sensor."
             )
-        script = source if isinstance(source, CommandScript) else load_script(str(source))
-        run = run_script(self, script, timeout=timeout, listen=listen)
+        log = EventLog(events)
+        try:
+            run = run_script(self, script, timeout=timeout, listen=listen, events=log)
+        finally:
+            log.close()
         if report:
             run.write(report)
             _LOG.info("command document results written to %s", report)

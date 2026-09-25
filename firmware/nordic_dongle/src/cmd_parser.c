@@ -20,13 +20,13 @@
 
 #include "ble_scanner.h"
 #include "bootloader.h"
+#include "cmd_args.h"
 #include "cdc_acm.h"
 #include "firmware_version.h"
 #include "nus_client.h"
 #include "timestamp.h"
 
 /** Default time to wait for a sensor's reply to @c cmd. */
-#define CMD_DEFAULT_TIMEOUT_MS		2000U
 
 /** The sensor chosen by @c select, if any. */
 static ble_gap_addr_t	m_selected;
@@ -374,47 +374,6 @@ static void command_selected(char * tokens[], uint32_t count)
 		 (unsigned)(nus_client_is_ready() ? 1U : 0U));
 }
 
-#define CMD_PARSER_DECIMAL_BASE		10U	/**< for numbers in arguments */
-/** Read connect's optional address and timeout=<ms>, in either order. False
- *  if a token is malformed, repeated or out of range. */
-static bool cmd_parser_connect_arguments(char * tokens[], uint32_t count,
-					 ble_gap_addr_t * p_target, bool * p_have_target,
-					 uint32_t * p_timeout_ms)
-{
-	static const char	timeout_key[] = "timeout=";
-	uint32_t		index;
-	char *			end;
-	unsigned long		value;
-
-	*p_have_target = false;
-	*p_timeout_ms  = PROTOCOL_CONNECT_DEFAULT_MS;
-
-	for (index = 1U; index < count; index++)
-	{
-		if (strncmp(tokens[index], timeout_key, sizeof(timeout_key) - 1U) == 0)
-		{
-			value = strtoul(&tokens[index][sizeof(timeout_key) - 1U], &end,
-					(int)CMD_PARSER_DECIMAL_BASE);
-			if ((*end != '\0') || (value < PROTOCOL_CONNECT_MIN_MS) ||
-			    (value > PROTOCOL_CONNECT_MAX_MS))
-			{
-				return false;
-			}
-			*p_timeout_ms = (uint32_t)value;
-		}
-		else if (*p_have_target || !scanner_parse_address(tokens[index], p_target))
-		{
-			return false;
-		}
-		else
-		{
-			*p_have_target = true;
-		}
-	}
-
-	return true;
-}
-
 static void command_connect(char * tokens[], uint32_t count)
 {
 	ble_gap_addr_t	target;
@@ -423,7 +382,7 @@ static void command_connect(char * tokens[], uint32_t count)
 	uint32_t	error;
 	char		address[18];
 
-	if (!cmd_parser_connect_arguments(tokens, count, &target, &have_target, &timeout_ms))
+	if (!cmd_args_connect(tokens, count, &target, &have_target, &timeout_ms))
 	{
 		reply_error(PROTO_ERR_VALUE);
 		return;
@@ -516,8 +475,16 @@ static void command_cmd(char * tokens[], uint32_t count)
 	nus_response_t	response;
 	int32_t		length;
 	uint32_t	error;
+	uint32_t	timeout_ms = PROTOCOL_CMD_DEFAULT_MS;
+	bool		valid = false;
 
-	UNUSED_PARAMETER(count);
+	/* cmd <hex> [timeout=<ms>]: some commands take longer than others. */
+	if ((count > 2U) && (!cmd_args_timeout(tokens[2], PROTOCOL_CMD_MIN_MS,
+						       PROTOCOL_CMD_MAX_MS, &timeout_ms, &valid) || !valid))
+	{
+		reply_error(PROTO_ERR_VALUE);
+		return;
+	}
 
 	length = decode_hex(argument, payload, sizeof(payload));
 	if (length < 0)
@@ -527,7 +494,7 @@ static void command_cmd(char * tokens[], uint32_t count)
 	}
 
 	error = nus_client_command(payload, (uint16_t)length,
-				   CMD_DEFAULT_TIMEOUT_MS, &response);
+				   timeout_ms, &response);
 	if (error == NRF_ERROR_INVALID_STATE)
 	{
 		reply_error(PROTO_ERR_NOT_CONN);

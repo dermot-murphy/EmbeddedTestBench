@@ -64,6 +64,9 @@ class SimulatedSensor:
     latency_overrides: Dict[str, int] = field(default_factory=dict)
     connectable: bool = True
     connect_outcome: str = "ready"
+    #: Commands after which the sensor drops the link, and how long after, in
+    #: microseconds - a reset, say.
+    disconnect_on: Dict[str, int] = field(default_factory=dict)
 
     def advertising_payload(self) -> bytes:
         """The advertising data, with the local name appended when there is one."""
@@ -135,9 +138,9 @@ class SimulatedDongle:
 
     #: The build the simulated dongle is running. A test that exercises the
     #: update path changes these, as flashing a real dongle would.
-    DEFAULT_FIRMWARE_VERSION = "1.2.0"
+    DEFAULT_FIRMWARE_VERSION = "1.3.0"
     DEFAULT_FIRMWARE_BUILT = "2026-09-13T12:00:00Z"
-    DEFAULT_PROTOCOL = "1.2"
+    DEFAULT_PROTOCOL = "1.3"
 
     def __init__(
         self,
@@ -163,6 +166,8 @@ class SimulatedDongle:
         self.protocol = self.DEFAULT_PROTOCOL
         #: The window the last ``connect`` asked for, in milliseconds.
         self.last_connect_timeout_ms: Optional[int] = None
+        #: The reply wait the last ``cmd`` asked for, in milliseconds.
+        self.last_command_timeout_ms: Optional[int] = None
         #: True once ``dfu`` has been accepted: the dongle is in its bootloader
         #: and answers nothing until it is flashed and restarted.
         self.in_bootloader = False
@@ -529,7 +534,17 @@ class SimulatedDongle:
         except ValueError:
             return [self._error(DongleError.VALUE, "bad argument value")]
         self.clock_us += 500
-        return ["ok len=%d t=%d" % (len(payload), self.clock_us)]
+        transmitted_us = self.clock_us
+        sensor = self._connected
+        request = payload.decode("utf-8", errors="replace").strip()
+        if request in sensor.disconnect_on:
+            # The sensor drops the link: 0x13 is "remote user terminated".
+            self._connected = None
+            self._queue.append(
+                "+disc t=%d reason=0x13" % (transmitted_us + sensor.disconnect_on[request])
+            )
+            self.clock_us = transmitted_us + sensor.disconnect_on[request]
+        return ["ok len=%d t=%d" % (len(payload), transmitted_us)]
 
     def _cmd_cmd(self, arguments: List[str]) -> List[str]:
         if self._connected is None:
@@ -539,14 +554,27 @@ class SimulatedDongle:
         except ValueError:
             return [self._error(DongleError.VALUE, "bad argument value")]
 
+        timeout_ms = 2_000
+        if len(arguments) > 1:
+            value = arguments[1][len("timeout="):] if arguments[1].startswith("timeout=") else ""
+            if not value.isdigit() or not 100 <= int(value) <= 60_000:
+                return [self._error(DongleError.VALUE, "bad argument value")]
+            timeout_ms = int(value)
+        self.last_command_timeout_ms = timeout_ms
+
         sensor = self._connected
         request = payload.decode("utf-8", errors="replace").strip()
         reply = sensor.responses.get(request)
         if reply is None:
             reply = "ERR unknown command"
 
+        latency_us = sensor.latency_overrides.get(request, sensor.latency_us)
+        if latency_us > timeout_ms * 1000:
+            self.clock_us += timeout_ms * 1000
+            return [self._error(DongleError.TIMEOUT, "the sensor did not reply")]
+
         transmitted_us = self.clock_us
-        self.clock_us += sensor.latency_overrides.get(request, sensor.latency_us)
+        self.clock_us += latency_us
         received_us = self.clock_us
         encoded = reply.encode("utf-8")
 

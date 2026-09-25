@@ -23,7 +23,7 @@
 #define FIRMWARE_VERSION_H__
 
 /** Firmware version. Change it when behaviour changes; the host compares it. */
-#define FIRMWARE_VERSION		"1.2.0"
+#define FIRMWARE_VERSION		"1.3.0"
 
 /* FIRMWARE_BUILD_DATE is injected by the build system, and deliberately not
  * defaulted here. Without it, firmware_version.c falls back to the compiler's

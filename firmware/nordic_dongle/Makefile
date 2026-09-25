@@ -50,6 +50,7 @@ SRC_FILES += \
   $(SDK_ROOT)/modules/nrfx/mdk/system_nrf52840.c \
   $(PROJ_DIR)/src/main.c \
   $(PROJ_DIR)/src/cdc_acm.c \
+  $(PROJ_DIR)/src/cmd_args.c \
   $(PROJ_DIR)/src/cmd_parser.c \
   $(PROJ_DIR)/src/firmware_version.c \
   $(PROJ_DIR)/src/bootloader.c \

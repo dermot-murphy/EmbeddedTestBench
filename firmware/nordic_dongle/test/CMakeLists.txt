@@ -95,7 +95,7 @@ add_firmware_test(test_firmware_version
 	SOURCES ${FIRMWARE_DIR}/src/firmware_version.c)
 
 add_firmware_test(test_cmd_parser
-	SOURCES ${FIRMWARE_DIR}/src/cmd_parser.c ${FIRMWARE_DIR}/src/bootloader.c
+	SOURCES ${FIRMWARE_DIR}/src/cmd_parser.c ${FIRMWARE_DIR}/src/cmd_args.c ${FIRMWARE_DIR}/src/bootloader.c
 	        ${FIRMWARE_DIR}/src/firmware_version.c
 	        ${FAKE_SDK} ${FAKE_HOST_LINK} ${FAKE_SCANNER} ${FAKE_NUS})
 
