@@ -20,12 +20,12 @@ PACKAGE="$HERE/../ses/Output/nordic_dongle_dfu.zip"
 
 APP_VERSION=1
 
-# SoftDevice the application requires. 0xCA is S140 7.2.0, which is what nRF5
-# SDK 17.1.0 ships and what the dongle's factory bootloader has. If a DFU is
-# rejected as incompatible, list the identifiers with
+# SoftDevice the application requires. 0x100 is S140 7.2.0, which is what nRF5
+# SDK 17.1.0 ships and this firmware is linked against (0xCA is 7.0.1). If a
+# DFU is rejected as incompatible, list the identifiers with
 #   nrfutil pkg generate --help
 # and use the one matching the SoftDevice actually on the dongle.
-SD_REQ=0xCA
+SD_REQ=0x100
 
 # Signing key. The dongle's factory bootloader does not verify signatures, so
 # this is normally left unset; set DFU_KEY to sign for a bootloader that does.

@@ -180,7 +180,7 @@ cd firmware/nordic_dongle/scripts
 ```
 
 The script wraps the hex with `nrfutil pkg generate` and flashes it with
-`nrfutil dfu usb-serial`. `--sd-req 0xCA` is S140 7.2.0; if a DFU is refused as
+`nrfutil dfu usb-serial`. `--sd-req 0x100` is S140 7.2.0 (`0xCA` is 7.0.1); if a DFU is refused as
 incompatible, list the identifiers with `nrfutil pkg generate --help` and use the
 one matching the SoftDevice on the dongle.
 

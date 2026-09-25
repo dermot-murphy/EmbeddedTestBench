@@ -236,14 +236,14 @@ include $(TEMPLATE_PATH)/Makefile.common
 $(foreach target, $(TARGETS), $(call define_target, $(target)))
 
 # --- packaging ---------------------------------------------------------
-# 0xCA is S140 7.2.0. The dongle's factory bootloader does not verify
+# 0x100 is S140 7.2.0 (0xCA is 7.0.1). The dongle's factory bootloader does not verify
 # signatures, so no key is needed; set DFU_KEY for one that does.
 dfu: default manifest
 	nrfutil pkg generate \
 		--hw-version 52 \
 		--application-version 1 \
 		--application $(OUTPUT_DIRECTORY)/$(PROJECT_NAME).hex \
-		--sd-req 0xCA \
+		--sd-req 0x100 \
 		$(if $(DFU_KEY),--key-file $(DFU_KEY),) \
 		$(OUTPUT_DIRECTORY)/nordic_dongle_dfu.zip
 	@echo packaged $(OUTPUT_DIRECTORY)/nordic_dongle_dfu.zip
