@@ -36,6 +36,7 @@
 BLE_NUS_C_DEF(m_nus_client);
 
 static uint16_t			m_conn_handle = BLE_CONN_HANDLE_INVALID;
+static ble_db_discovery_t *	m_p_db_discovery;
 static uint32_t			m_interval_us;
 static bool			m_ready;
 
@@ -115,9 +116,11 @@ static void nus_c_event_handler(ble_nus_c_t * p_nus_c, ble_nus_c_evt_t const * p
 	}
 }
 
-uint32_t nus_client_init(nrf_ble_gq_t * p_gatt_queue)
+uint32_t nus_client_init(nrf_ble_gq_t * p_gatt_queue, ble_db_discovery_t * p_db_discovery)
 {
 	ble_nus_c_init_t init;
+
+	m_p_db_discovery = p_db_discovery;
 
 	(void)memset(&init, 0, sizeof(init));
 	init.evt_handler   = nus_c_event_handler;
@@ -254,6 +257,7 @@ void nus_client_on_ble_evt(const ble_evt_t * p_ble_evt)
 	const ble_gap_evt_t *	p_gap = &p_ble_evt->evt.gap_evt;
 	uint64_t		when_us = timestamp_now_us();
 	char			address[18];
+	uint32_t		error;
 
 	switch (p_ble_evt->header.evt_id)
 	{
@@ -265,6 +269,22 @@ void nus_client_on_ble_evt(const ble_evt_t * p_ble_evt)
 			"+conn t=%llu addr=%s state=linked interval_us=%lu",
 			(unsigned long long)when_us, address,
 			(unsigned long)m_interval_us);
+
+		/* The link is not usable until discovery has found the UART service
+		 * and reported BLE_NUS_C_EVT_DISCOVERY_COMPLETE. Nothing else starts
+		 * it: without this a sensor links and never becomes ready (#38). */
+		(void)ble_nus_c_handles_assign(&m_nus_client, m_conn_handle, NULL);
+		error = ble_db_discovery_start(m_p_db_discovery, m_conn_handle);
+		if (error != NRF_SUCCESS)
+		{
+			/* Say so and drop the link, rather than leave the host waiting
+			 * for a ready that cannot come. */
+			(void)cdc_acm_send_format("+conn t=%llu state=failed error=0x%lx",
+						  (unsigned long long)when_us,
+						  (unsigned long)error);
+			(void)sd_ble_gap_disconnect(m_conn_handle,
+						    BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
+		}
 		break;
 
 	case BLE_GAP_EVT_DISCONNECTED:
@@ -293,7 +313,8 @@ void nus_client_on_ble_evt(const ble_evt_t * p_ble_evt)
 		break;
 	}
 
-	ble_nus_c_on_ble_evt(p_ble_evt, &m_nus_client);
+	/* Not ble_nus_c_on_ble_evt(): BLE_NUS_C_DEF registers its own observer,
+	 * and a second delivery repeated every NUS event (#38). */
 }
 
 void nus_client_on_db_disc_evt(void * p_evt)
