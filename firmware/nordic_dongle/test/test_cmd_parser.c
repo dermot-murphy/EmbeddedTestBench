@@ -536,6 +536,36 @@ static void test_cmd_reports_both_timestamps_and_the_round_trip(void)
 	TEST_ASSERT_TRUE(reply_has("data=312e342e32"));      /* "1.4.2" */
 }
 
+static void test_cmd_waits_two_seconds_by_default(void)
+{
+	fake_nus_client_set_ready(true);
+	fake_nus_client_set_reply("1.4.2", 12500U);
+	handle("cmd 00");
+	TEST_ASSERT_EQUAL_UINT32(2000U, fake_nus_client_command_timeout_ms());
+}
+
+static void test_cmd_takes_a_timeout_for_a_slow_command(void)
+{
+	/* Some commands take longer than others (#46). */
+	fake_nus_client_set_ready(true);
+	fake_nus_client_set_reply("1.4.2", 12500U);
+	handle("cmd 00 timeout=15000");
+	TEST_ASSERT_EQUAL_UINT32(15000U, fake_nus_client_command_timeout_ms());
+	TEST_ASSERT_TRUE(reply_has("dt_us=12500"));
+}
+
+static void test_cmd_refuses_a_bad_timeout(void)
+{
+	fake_nus_client_set_ready(true);
+	handle("cmd 00 timeout=99");
+	TEST_ASSERT_EQUAL_STRING("err 3 bad argument value", reply());
+	handle("cmd 00 timeout=60001");
+	TEST_ASSERT_EQUAL_STRING("err 3 bad argument value", reply());
+	handle("cmd 00 wait=5");
+	TEST_ASSERT_EQUAL_STRING("err 3 bad argument value", reply());
+	TEST_ASSERT_EQUAL_UINT32(0U, fake_nus_client_commands());
+}
+
 static void test_a_sensor_that_does_not_reply_is_a_timeout_not_a_measurement(void)
 {
 	/* Reporting the timeout as a round trip would put a fiction in the log. */
@@ -674,6 +704,9 @@ int main(void)
 	RUN_TEST(test_odd_length_hex_is_refused);
 	RUN_TEST(test_non_hex_is_refused);
 	RUN_TEST(test_cmd_reports_both_timestamps_and_the_round_trip);
+	RUN_TEST(test_cmd_waits_two_seconds_by_default);
+	RUN_TEST(test_cmd_takes_a_timeout_for_a_slow_command);
+	RUN_TEST(test_cmd_refuses_a_bad_timeout);
 	RUN_TEST(test_a_sensor_that_does_not_reply_is_a_timeout_not_a_measurement);
 	RUN_TEST(test_cmd_without_a_link);
 

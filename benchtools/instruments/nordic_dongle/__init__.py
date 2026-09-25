@@ -45,13 +45,12 @@ from .constants import (
 from .dongle import NordicDongle, Sensor
 from .script import (
     CommandScript,
-    ScriptRun,
     ScriptStep,
     ScriptTest,
-    StepResult,
     load_script,
     parse_script,
 )
+from .script_run import EventLog, ScriptRun, StepResult, run_script
 from .firmware import (
     MANIFEST_NAME,
     FirmwareBuild,
@@ -80,6 +79,8 @@ __all__ = [
     "ScriptStep",
     "ScriptTest",
     "StepResult",
+    "EventLog",
+    "run_script",
     "load_script",
     "parse_script",
     "FirmwareBuild",

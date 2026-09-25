@@ -30,6 +30,8 @@ __all__ = [
     "DEFAULT_CONNECT_TIMEOUT",
     "CONNECT_TIMEOUT_RANGE",
     "SERVICE_DISCOVERY_TIMEOUT",
+    "FIRMWARE_COMMAND_TIMEOUT",
+    "COMMAND_TIMEOUT_RANGE",
 ]
 
 #: Protocol revision this driver speaks. Checked against the dongle's reply to
@@ -40,7 +42,7 @@ __all__ = [
 #: commands the other does not - reported, and survivable, because the missing
 #: ones fail individually with "unknown command". A differing *major* version
 #: means a command means something different, which is not survivable.
-PROTOCOL_VERSION = "1.2"
+PROTOCOL_VERSION = "1.3"
 
 #: Commands the firmware accepts, with the argument bounds it enforces.
 COMMANDS: Dict[str, Tuple[int, int]] = {
@@ -52,7 +54,7 @@ COMMANDS: Dict[str, Tuple[int, int]] = {
     "connect": (0, 2),
     "disconnect": (0, 0),
     "uart": (1, 1),
-    "cmd": (1, 1),
+    "cmd": (1, 2),
     "adv": (1, 2),
     "time": (0, 0),
     "reset": (0, 0),
@@ -80,6 +82,11 @@ DEFAULT_COMMAND_TIMEOUT = 3.0
 #: of protocol 1.1 more often than not.
 DEFAULT_CONNECT_TIMEOUT = 15.0
 CONNECT_TIMEOUT_RANGE = (1.0, 60.0)
+
+#: How long the dongle waits for a sensor's reply, and the range it accepts
+#: (``cmd <hex> timeout=<ms>``, protocol 1.3). Older firmware waits a fixed 2 s.
+FIRMWARE_COMMAND_TIMEOUT = 2.0
+COMMAND_TIMEOUT_RANGE = (0.1, 60.0)
 
 #: Time allowed after the link comes up for the UART service to be found.
 SERVICE_DISCOVERY_TIMEOUT = 10.0

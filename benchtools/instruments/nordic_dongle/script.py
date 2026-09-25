@@ -33,12 +33,38 @@ not declared, is an error naming the line.
 Two steps act on the dongle rather than the sensor:
 
 * ``connect <sensor>`` scans, selects the sensor by address or by a fragment of
-  its name (any case), and opens the link. **Pass** or **fail**: it is the
-  claim that the sensor can be reached. A document that connects closes the
+  its name (any case), and opens the link. A document that connects closes the
   link again when it ends.
-* ``disconnect`` closes the link. **Skip**.
+* ``disconnect`` closes the link.
 
-Three kinds of step talk to the sensor, and only the first can fail:
+Every step gets one of four results, decided in this order - the first that
+applies wins:
+
+1. **Error** - the system returned a failure code: the dongle refused the
+   command, a connect or disconnect failed, the link or the transport failed,
+   or no reply came to a command that expected one.
+2. **Skip** - the expected cell is empty: a delay, a connect or disconnect that
+   worked, or a command the document promised nothing for (whatever it
+   answered, or its silence, is recorded).
+3. **Fail** - the reply does not match the expected response.
+4. **Pass** - the reply matches.
+
+A run is **ERROR** if any step errored, else **FAIL** if any failed, else
+**PASS**. Skips neither fail a run nor vouch for it. Each result carries a note:
+why it came out as it did, and the document's own Notes cell.
+
+An expected response of ``<disconnect>`` says the sensor will drop the link
+after the command - a reset, say. The command is sent without waiting for a
+reply, and the time from sending it to the disconnection is measured on the
+dongle's clock. **Pass** if the link drops within the step's timeout, **fail**
+if it does not.
+
+A ``Timeout`` column, in milliseconds, sets how long a step waits: for the reply
+to a command, for the listening window of a command that expects none, for the
+link to drop, or for a ``connect`` to find its sensor. Empty means the run's
+default. A delay or a disconnect cannot have one.
+
+The steps that talk to the sensor:
 
 * **A command with an expected response.** The reply is compared with the
   expected text, exactly, after trimming. A cell written ``/like this/`` is a
@@ -60,14 +86,16 @@ row that cannot be read, a step number used twice, a delay that is not a number
 are each an error naming the document and the line. These files are maintained
 by hand, and a row silently ignored is a command silently untested.
 
+Running a document, its results and its event log are in
+:mod:`~benchtools.instruments.nordic_dongle.script_run`.
+
 Traces to: BLE-FR-100 .. BLE-FR-108, BLE-DD-SCRIPT.
 """
 
 from __future__ import annotations
 
 import re
-import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Dict, List, Mapping, Optional, Sequence
 
 from ...core.errors import ConfigurationError
@@ -77,15 +105,14 @@ __all__ = [
     "CONNECT",
     "DELAY",
     "DISCONNECT",
+    "ERROR",
     "PASS",
     "FAIL",
     "SKIP",
     "RESOLUTION_S",
     "CommandScript",
-    "ScriptRun",
     "ScriptStep",
     "ScriptTest",
-    "StepResult",
     "load_script",
     "parse_script",
 ]
@@ -96,6 +123,7 @@ __all__ = [
 PASS = "PASS"
 FAIL = "FAIL"
 SKIP = "SKIP"
+ERROR = "ERROR"
 
 #: Resolution the elapsed time is reported at, in seconds. The dongle times the
 #: exchange on its microsecond clock; this is the granularity the report quotes,
@@ -108,6 +136,12 @@ _DELAY = re.compile(r"^delay\s+(?P<amount>[0-9]+(?:\.[0-9]+)?)\s*(?:ms|msec)?$",
 #: ``connect <sensor>`` and ``disconnect``: steps for the dongle, not the sensor.
 _CONNECT = re.compile(r"^connect(?:\s+(?P<target>\S.*))?$", re.I)
 _DISCONNECT = re.compile(r"^disconnect$", re.I)
+
+#: ``<disconnect>`` in the expected cell: the sensor drops the link.
+_DISCONNECT_EXPECTED = re.compile(r"^<\s*disconnect\s*>$", re.I)
+
+#: A timeout cell: milliseconds, optionally written with the unit.
+_TIMEOUT = re.compile(r"^(?P<amount>[0-9]+(?:\.[0-9]+)?)\s*(?:ms|msec)?$", re.I)
 
 #: A Bluetooth address, optionally with its type: ``D1:8D:3B:4C:19:96/1``.
 _ADDRESS = re.compile(r"^[0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5}(?:/[0-9])?$")
@@ -137,6 +171,8 @@ _COLUMNS = {
     "step": ("step", "step number", "no", "#"),
     "command": ("command", "ble command", "request"),
     "expected": ("expected", "expected response", "expected reply", "response"),
+    "note": ("note", "notes", "comment", "comments"),
+    "timeout": ("timeout", "timeout (ms)", "timeout ms", "timeout_ms"),
 }
 
 #: Column headings of the variables table.
@@ -169,20 +205,28 @@ class ScriptStep:
     line: int = 0
     action: str = COMMAND
     target: str = ""
+    note: str = ""
+    timeout_s: Optional[float] = None
 
     @property
     def is_delay(self) -> bool:
+        """Whether this step waits rather than acts."""
         return self.delay_s is not None
+
+    @property
+    def expects_disconnect(self) -> bool:
+        """Whether the sensor is expected to drop the link after this command."""
+        return self.action == COMMAND and bool(_DISCONNECT_EXPECTED.match(self.expected.strip()))
 
     @property
     def expects_response(self) -> bool:
         """Whether this step sends a command and checks the reply."""
-        return self.action == COMMAND and bool(self.expected)
+        return self.action == COMMAND and bool(self.expected) and not self.expects_disconnect
 
     @property
     def makes_claim(self) -> bool:
-        """Whether this step can fail: a checked command, or a connect."""
-        return self.expects_response or self.action == CONNECT
+        """Whether this step can pass or fail: it has an expected response."""
+        return self.expects_response or self.expects_disconnect
 
     @property
     def pattern(self) -> Optional[str]:
@@ -198,6 +242,7 @@ class ScriptStep:
         return response.strip() == self.expected.strip()
 
     def describe(self) -> str:
+        """The step as a person would name it: test and number."""
         return "%s step %s" % (self.test, self.number)
 
 
@@ -308,7 +353,7 @@ def _substitute(text: str, values: Mapping[str, Optional[str]], where: str) -> s
     :raises ConfigurationError: for a name the document does not declare, or
         one declared without a default and not given a value.
     """
-    def replace(match) -> str:
+    def value_of(match) -> str:
         name = match.group("name")
         if name not in values:
             raise ConfigurationError(
@@ -323,7 +368,7 @@ def _substitute(text: str, values: Mapping[str, Optional[str]], where: str) -> s
             )
         return value
 
-    return _VARIABLE.sub(replace, text)
+    return _VARIABLE.sub(value_of, text)
 
 
 def _is_step_table(headings: Sequence[str]) -> bool:
@@ -341,7 +386,7 @@ def _is_step_table(headings: Sequence[str]) -> bool:
     return False
 
 
-class _Reader:
+class _Reader:  # pylint: disable=too-many-instance-attributes
     """State while reading one document, so each kind of row has one place."""
 
     def __init__(self, label: str, overrides: Mapping[str, str]) -> None:
@@ -361,16 +406,19 @@ class _Reader:
 
     # -- structure ---------------------------------------------------------
     def close(self) -> None:
+        """Finish the test being read, if it has steps."""
         if self.heading is not None and self.steps:
             self.tests.append(ScriptTest(name=self.heading, steps=tuple(self.steps)))
 
     def start_test(self, title: str) -> None:
+        """Begin the test a heading names."""
         self.close()
         self.heading = title
         self.steps, self.numbers = [], {}
         self.mode = None
 
     def end_table(self) -> None:
+        """Note that a table has ended, so the next one is read afresh."""
         self.mode = None
 
     def bind(self, where: str) -> None:
@@ -389,10 +437,12 @@ class _Reader:
 
     @property
     def values(self) -> Dict[str, str]:
+        """The variables that have a value, as the run will use them."""
         return {name: value for name, value in self.declared.items() if value is not None}
 
     # -- rows --------------------------------------------------------------
     def table_row(self, line: str, stripped: str, where: str, number: int) -> None:
+        """Read one line of a table, whichever kind of table it is."""
         if self.mode is None:
             self.table_header(_cells(line), where)
             return
@@ -411,6 +461,7 @@ class _Reader:
             self.step_row(cells, where, number)
 
     def table_header(self, headings: List[str], where: str) -> None:
+        """Decide from its headings what kind of table this is."""
         self.width = len(headings)
         variables = _variable_columns(headings)
         if variables is not None:
@@ -433,6 +484,7 @@ class _Reader:
         self.mode, self.columns = "steps", _column_index(headings, where)
 
     def variable_row(self, cells: List[str], where: str) -> None:
+        """Declare one variable, with its default if it has one."""
         name = cells[self.columns["variable"]].strip("`").strip()
         if not _VARIABLE_NAME.match(name):
             raise ConfigurationError(
@@ -446,6 +498,7 @@ class _Reader:
         self.declared[name] = default if default else None
 
     def step_row(self, cells: List[str], where: str, number: int) -> None:
+        """Read one step, with the variables substituted."""
         self.bind(where)
         step_number = cells[self.columns["step"]]
         command = _substitute(cells[self.columns["command"]], self.declared, where)
@@ -463,12 +516,50 @@ class _Reader:
                 % (where, step_number, self.numbers[step_number])
             )
         self.numbers[step_number] = number
-        self.steps.append(_interpret(self.heading, step_number, command, expected, where, number))
+        step = _interpret(ScriptStep(test=self.heading, number=step_number, command=command,
+                                     expected=expected, line=number), where)
+        if "note" in self.columns:
+            note = _substitute(cells[self.columns["note"]], self.declared, where)
+            step = replace(step, note=note)
+        if "timeout" in self.columns:
+            text = _substitute(cells[self.columns["timeout"]], self.declared, where)
+            step = replace(step, timeout_s=_parse_timeout(text, step, where))
+        self.steps.append(step)
 
 
-def _interpret(test: str, number: str, command: str, expected: str, where: str,
-               line: int) -> ScriptStep:
-    """Turn one row's cells, variables already substituted, into a step."""
+#: Bounds on a Timeout cell, in seconds, by what the step does.
+_TIMEOUT_RANGES = {COMMAND: (0.1, 60.0), CONNECT: (1.0, 60.0)}
+
+
+def _parse_timeout(text: str, step: ScriptStep, where: str) -> Optional[float]:
+    """Seconds from a Timeout cell, or None when it is empty."""
+    text = text.strip()
+    if not text:
+        return None
+    if step.action not in _TIMEOUT_RANGES:
+        raise ConfigurationError(
+            "%s: a %s step cannot have a timeout (%r); it does not wait for "
+            "anything." % (where, step.action, text)
+        )
+    match = _TIMEOUT.match(text)
+    low, high = _TIMEOUT_RANGES[step.action]
+    seconds = float(match.group("amount")) / 1000.0 if match else None
+    if seconds is None or not low <= seconds <= high:
+        raise ConfigurationError(
+            "%s: a timeout is milliseconds from %g to %g for a %s step, not %r."
+            % (where, low * 1000.0, high * 1000.0, step.action, text)
+        )
+    return seconds
+
+
+def _interpret(row: ScriptStep, where: str) -> ScriptStep:
+    """Turn one row's cells, variables already substituted, into a step.
+
+    *row* carries the test, step number, command, expected response and line
+    as read; what the step does is decided here.
+    """
+    test, number, line = row.test, row.number, row.line
+    command, expected = row.command, row.expected
     delay_s = _parse_delay(command, where)
     connect = _CONNECT.match(command)
     if expected and delay_s is not None:
@@ -561,355 +652,3 @@ def load_script(path: str, variables: Optional[Mapping[str, str]] = None) -> Com
             "cannot read the command document %s: %s" % (path, exc)
         ) from exc
     return parse_script(text, source=path, variables=variables)
-
-
-# ----------------------------------------------------------------------
-# Running it
-# ----------------------------------------------------------------------
-@dataclass
-class StepResult:
-    """What one step did.
-
-    :param elapsed_s: Time from the end of the command to the start of the
-        response, as the clock named in *clock* measured it. None for a step
-        that asked nothing, and for a delay it is the wait itself.
-    :param clock: Which clock produced *elapsed_s* - the dongle's microsecond
-        clock, or the host's, which includes USB. Recorded because a figure
-        without its clock is not a measurement (BLE-NFR-005).
-    """
-
-    test: str
-    number: str
-    command: str
-    response: str = ""
-    expected: str = ""
-    elapsed_s: Optional[float] = None
-    clock: str = ""
-    result: str = SKIP
-    reason: str = ""
-
-    @property
-    def reported_s(self) -> Optional[float]:
-        """The elapsed time at the resolution this report quotes."""
-        if self.elapsed_s is None:
-            return None
-        return round(round(self.elapsed_s / RESOLUTION_S) * RESOLUTION_S, 3)
-
-    def as_dict(self) -> Dict[str, object]:
-        return {
-            "test": self.test,
-            "step": self.number,
-            "command": self.command,
-            "response": self.response,
-            "expected": self.expected,
-            "seconds": self.reported_s,
-            "measured_seconds": self.elapsed_s,
-            "resolution_s": RESOLUTION_S,
-            "clock": self.clock,
-            "result": self.result,
-            "reason": self.reason,
-        }
-
-
-@dataclass
-class ScriptRun:
-    """Every step of one run of a document, and the verdict over them."""
-
-    results: List[StepResult] = field(default_factory=list)
-    source: str = ""
-    sensor: str = ""
-    variables: Mapping[str, str] = field(default_factory=dict)
-
-    @property
-    def passed(self) -> int:
-        return sum(1 for item in self.results if item.result == PASS)
-
-    @property
-    def failed(self) -> int:
-        return sum(1 for item in self.results if item.result == FAIL)
-
-    @property
-    def skipped(self) -> int:
-        return sum(1 for item in self.results if item.result == SKIP)
-
-    @property
-    def result(self) -> str:
-        """**Pass** when no step failed.
-
-        Skipped steps neither fail a run nor vouch for it, which is why the
-        report states how many steps were checked as well as how many passed.
-        """
-        return FAIL if self.failed else PASS
-
-    @property
-    def is_pass(self) -> bool:
-        """The verdict as a number a limit can check: 1 when it passed."""
-        return self.result == PASS
-
-    @property
-    def failures(self) -> List[StepResult]:
-        return [item for item in self.results if item.result == FAIL]
-
-    def as_dict(self) -> Dict[str, object]:
-        return {
-            "source": self.source,
-            "sensor": self.sensor,
-            "variables": dict(self.variables),
-            "result": self.result,
-            "passed": self.passed,
-            "failed": self.failed,
-            "skipped": self.skipped,
-            "steps": [item.as_dict() for item in self.results],
-        }
-
-    # ------------------------------------------------------------------
-    def markdown(self) -> str:
-        """The run as a report: the verdict, then every step in order."""
-        lines = [
-            "# BLE command and response results",
-            "",
-            "| | |",
-            "|---|---|",
-            "| Result | **%s** |" % self.result,
-            "| Document | `%s` |" % (self.source or "?"),
-            "| Sensor | %s |" % (self.sensor or "not recorded"),
-            "| Variables | %s |" % (_cell(", ".join(
-                "%s=%s" % item for item in sorted(self.variables.items()))) or "none"),
-            "| Steps | %d passed, %d failed, %d skipped |"
-            % (self.passed, self.failed, self.skipped),
-            "",
-            "Times are from the end of the command to the start of the response, "
-            "quoted to %g ms. A skipped step made no claim: a delay, or a command "
-            "the document gives no expected response for."
-            % (RESOLUTION_S * 1000.0),
-            "",
-            "| Test | Step | Command | Response | Expected | Time (s) | Result |",
-            "|---|---|---|---|---|---|---|",
-        ]
-        for item in self.results:
-            seconds = "-" if item.reported_s is None else "%.2f" % item.reported_s
-            lines.append(
-                "| %s | %s | %s | %s | %s | %s | %s |"
-                % (
-                    item.test,
-                    item.number,
-                    _cell(item.command) or "_delay_",
-                    _cell(item.response),
-                    _cell(item.expected),
-                    seconds,
-                    item.result,
-                )
-            )
-        if self.failures:
-            lines += ["", "## Failures", ""]
-            for item in self.failures:
-                lines.append(
-                    "- **%s step %s** `%s`: expected `%s`, got `%s`%s"
-                    % (
-                        item.test,
-                        item.number,
-                        item.command,
-                        item.expected,
-                        item.response,
-                        " - %s" % item.reason if item.reason else "",
-                    )
-                )
-        return "\n".join(lines) + "\n"
-
-    def write(self, path: str) -> str:
-        """Write the markdown report to *path* and return the path."""
-        with open(path, "w", encoding="utf-8") as handle:
-            handle.write(self.markdown())
-        return path
-
-
-def _cell(text: str) -> str:
-    """Text safe to put in a markdown table cell."""
-    return (text or "").replace("|", "\\|").replace("\n", " ")
-
-
-#: Seconds a ``connect`` step scans before choosing: long enough to hear a
-#: sensor that advertises every 9 s at least once.
-CONNECT_SCAN_S = 10.0
-
-#: Connection attempts a ``connect`` step makes. A sensor that advertises rarely
-#: can fall outside a connect window; each failure is in the session log.
-CONNECT_ATTEMPTS = 3
-
-
-def run_script(
-    dongle,
-    script: CommandScript,
-    timeout: float = 3.0,
-    listen: float = 0.5,
-    sleep=time.sleep,
-    scan_s: float = CONNECT_SCAN_S,
-    connect_attempts: int = CONNECT_ATTEMPTS,
-) -> ScriptRun:
-    """Run *script* against *dongle*, one step at a time.
-
-    :param dongle: A :class:`~benchtools.instruments.nordic_dongle.NordicDongle`,
-        with a link open to the sensor unless the document connects itself.
-    :param timeout: Seconds to wait for a reply the document expects. A step
-        that times out **fails**: the document said the sensor would answer.
-    :param listen: Seconds to wait after a command the document expects no
-        reply to. Whatever arrives is recorded and the step is still skipped.
-    :param sleep: Injected for the tests, which must not wait in real time.
-    :param scan_s: How long a ``connect`` step scans.
-    :param connect_attempts: How many links a ``connect`` step tries.
-
-    A link a ``connect`` step opened is closed when the run ends, pass or fail.
-    """
-    run = ScriptRun(source=script.source, sensor=_sensor_name(dongle),
-                    variables=dict(script.variables))
-    opened = False
-    try:
-        for test in script.tests:
-            _note(dongle, "script: %s" % test.name)
-            for step in test.steps:
-                if step.action == CONNECT:
-                    result = _run_connect(dongle, step, scan_s, connect_attempts)
-                    opened = opened or result.result == PASS
-                    run.sensor = _sensor_name(dongle) or run.sensor
-                elif step.action == DISCONNECT:
-                    result = _run_disconnect(dongle, step)
-                else:
-                    result = _run_step(dongle, step, timeout, listen, sleep)
-                run.results.append(result)
-    finally:
-        if opened and getattr(dongle, "is_linked", False):
-            dongle.close_link()
-    return run
-
-
-def _run_connect(dongle, step: ScriptStep, scan_s: float, attempts: int) -> StepResult:
-    """Scan, choose the sensor the step names, and open a link. Never raises."""
-    started = time.perf_counter()
-    try:
-        if getattr(dongle, "is_linked", False):
-            dongle.close_link()
-        dongle.scan(scan_s, active=True)
-        if _ADDRESS.match(step.target):
-            dongle.select(step.target)
-        else:
-            dongle.select_by_name(step.target)
-        failure = None
-        for _ in range(max(1, attempts)):
-            try:
-                dongle.open_link()
-                failure = None
-                break
-            except Exception as exc:          # noqa: BLE001 - retried, then reported
-                failure = exc
-        if failure is not None:
-            raise failure
-    except Exception as exc:                  # noqa: BLE001 - reported, not raised
-        return StepResult(test=step.test, number=step.number, command=step.command,
-                          result=FAIL, reason=str(exc).split(". ")[0])
-    return StepResult(
-        test=step.test,
-        number=step.number,
-        command=step.command,
-        response="linked to %s" % (_sensor_name(dongle) or step.target),
-        elapsed_s=time.perf_counter() - started,
-        clock="host",
-        result=PASS,
-    )
-
-
-def _run_disconnect(dongle, step: ScriptStep) -> StepResult:
-    """Close the link, if one is open. Never raises."""
-    try:
-        dongle.close_link()
-    except Exception as exc:                  # noqa: BLE001 - reported, not raised
-        return StepResult(test=step.test, number=step.number, command=step.command,
-                          result=SKIP, reason="disconnect failed: %s" % exc)
-    return StepResult(test=step.test, number=step.number, command=step.command,
-                      result=SKIP, reason="closing the link makes no claim about the sensor")
-
-
-def _run_step(dongle, step: ScriptStep, timeout: float, listen: float, sleep) -> StepResult:
-    """Execute one step. Never raises: a step's outcome is its result."""
-    if step.is_delay:
-        sleep(step.delay_s)
-        return StepResult(
-            test=step.test,
-            number=step.number,
-            command="delay %g ms" % (step.delay_s * 1000.0),
-            elapsed_s=step.delay_s,
-            clock="requested",
-            result=SKIP,
-            reason="a delay makes no claim about the sensor",
-        )
-
-    wanted = timeout if step.expects_response else listen
-    try:
-        sample = dongle.command(step.command, timeout=wanted)
-    except Exception as exc:                 # noqa: BLE001 - reported, not raised
-        if step.expects_response:
-            return StepResult(
-                test=step.test,
-                number=step.number,
-                command=step.command,
-                expected=step.expected,
-                result=FAIL,
-                reason="no reply within %.2f s (%s)" % (wanted, type(exc).__name__),
-            )
-        return StepResult(
-            test=step.test,
-            number=step.number,
-            command=step.command,
-            result=SKIP,
-            reason="no reply within %.2f s, and the document expected none" % wanted,
-        )
-
-    elapsed, clock = _elapsed(sample)
-    response = sample.text.strip()
-    if not step.expects_response:
-        return StepResult(
-            test=step.test,
-            number=step.number,
-            command=step.command,
-            response=response,
-            elapsed_s=elapsed,
-            clock=clock,
-            result=SKIP,
-            reason="the document gives no expected response",
-        )
-
-    matched = step.matches(response)
-    return StepResult(
-        test=step.test,
-        number=step.number,
-        command=step.command,
-        response=response,
-        expected=step.expected,
-        elapsed_s=elapsed,
-        clock=clock,
-        result=PASS if matched else FAIL,
-        reason="" if matched else "the reply does not match the expected response",
-    )
-
-
-def _elapsed(sample):
-    """The exchange time and which clock measured it."""
-    if sample.dongle_us is not None:
-        return sample.dongle_us / 1.0e6, "dongle"
-    return sample.host_s, "host"
-
-
-def _sensor_name(dongle) -> str:
-    """Which sensor the run talked to, for the report's header."""
-    selected = getattr(dongle, "selected", None)
-    if selected is None:
-        return ""
-    name = getattr(selected, "name", "") or ""
-    address = getattr(selected, "address", "") or ""
-    return ("%s %s" % (name, address)).strip()
-
-
-def _note(dongle, text: str) -> None:
-    """Mark the session log, so the log and the report read together."""
-    note = getattr(dongle, "log_note", None)
-    if callable(note):
-        note(text)

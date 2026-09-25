@@ -184,9 +184,11 @@ def _cmd_script(dongle: NordicDongle, args) -> int:
         timeout=args.timeout_s,
         listen=args.listen,
         variables=_parse_variables(args.var),
+        events=args.events,
     )
     payload = run.as_dict()
     payload["report"] = args.report
+    payload["events"] = args.events
     payload["log"] = dongle.log_path
     _emit(payload, args.json)
     return _EXIT_OK if run.is_pass else _EXIT_ERROR
@@ -310,8 +312,11 @@ def build_parser() -> argparse.ArgumentParser:
     script.add_argument("--var", action="append", metavar="NAME=VALUE",
                         help="value for a ${NAME} the document declares; repeatable")
     script.add_argument("--report", metavar="PATH", help="write the markdown report here")
+    script.add_argument("--events", metavar="PATH",
+                        help="write the event log here: time, event, step, data, result")
     script.add_argument("--timeout-s", type=float, default=DEFAULT_COMMAND_TIMEOUT,
-                        help="seconds to wait for a reply the document expects")
+                        help="default seconds to wait for a reply; a step's Timeout "
+                        "cell overrides it")
     script.add_argument("--listen", type=float, default=0.5,
                         help="seconds to listen after a command with no expected reply")
     script.set_defaults(handler=_cmd_script)

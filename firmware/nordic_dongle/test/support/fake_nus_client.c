@@ -86,10 +86,14 @@ uint32_t nus_client_write(const uint8_t * p_data, uint16_t length)
 	return 0U;
 }
 
+static uint32_t	m_command_timeout_ms;
+
+uint32_t fake_nus_client_command_timeout_ms(void)	{ return m_command_timeout_ms; }
+
 uint32_t nus_client_command(const uint8_t * p_data, uint16_t length,
 			    uint32_t timeout_ms, nus_response_t * p_response)
 {
-	(void)timeout_ms;
+	m_command_timeout_ms = timeout_ms;
 
 	if (!m_ready)
 	{

@@ -77,6 +77,7 @@ const uint8_t *	fake_nus_client_last_payload(void);
 uint16_t	fake_nus_client_last_length(void);
 uint32_t	fake_nus_client_connects(void);
 uint32_t	fake_nus_client_connect_timeout_ms(void);
+uint32_t	fake_nus_client_command_timeout_ms(void);
 uint32_t	fake_nus_client_disconnects(void);
 void		fake_nus_client_set_connect_result(uint32_t result);
 void		fake_nus_client_reset(void);

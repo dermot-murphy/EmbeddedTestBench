@@ -47,7 +47,7 @@ class TestConnection:
         # it speaks: the build is what decides what a measurement means.
         assert identity.firmware.startswith(SimulatedDongle.DEFAULT_FIRMWARE_VERSION)
         assert SimulatedDongle.DEFAULT_FIRMWARE_BUILT in identity.firmware
-        assert dongle.protocol_version == "1.2"
+        assert dongle.protocol_version == "1.3"
 
     def test_it_is_an_instrument_but_not_scpi(self, dongle):
         """The runner drives it through the same contract as every other
@@ -507,3 +507,52 @@ class TestMiscellany:
         sensor = Sensor(address=SENSOR_ADDRESS, name=SENSOR_NAME, rssi=-62, index=0)
         assert "SENS-0A1B2C" in str(sensor)
         assert sensor.as_dict()["rssi"] == -62
+
+
+class TestCommandTimeout:
+    """Some commands take longer than others (#46)."""
+
+    def test_the_wait_is_sent_to_the_dongle(self, simulator, linked):
+        linked.command("rd version", timeout=9.0)
+        assert simulator.last_command_timeout_ms == 9000
+
+    def test_an_out_of_range_wait_is_refused_before_sending(self, linked):
+        with pytest.raises(ConfigurationError, match="command timeout"):
+            linked.command("rd version", timeout=0.05)
+        with pytest.raises(ConfigurationError, match="command timeout"):
+            linked.command("rd version", timeout=61.0)
+
+    def test_an_older_dongle_is_sent_no_wait(self, simulator):
+        """Protocol 1.2 firmware would refuse the extra argument."""
+        simulator.protocol = "1.2"
+        instrument = NordicDongle(MockTransport(responder=simulator), timeout=5.0)
+        instrument.initialise()
+        try:
+            instrument.scan(1.0)
+            instrument.select(SENSOR_NAME)
+            instrument.open_link()
+            assert instrument.command("rd version", timeout=1.0).text == "1.4.2"
+            assert simulator.last_command_timeout_ms == 2000     # the firmware's own
+        finally:
+            instrument.close()
+
+    def test_a_reply_slower_than_the_wait_is_a_timeout(self, simulator, linked):
+        simulator.sensors[0].latency_overrides["rd version"] = 3_000_000
+        with pytest.raises(InstrumentError, match="did not reply"):
+            linked.command("rd version", timeout=2.0)
+        assert linked.command("rd version", timeout=4.0).dongle_us == 3_000_000
+
+
+class TestExpectingADisconnect:
+    def test_the_drop_is_timed_from_the_write(self, simulator, linked):
+        simulator.sensors[0].disconnect_on = {"wr mode normal": 350_000}
+        sample = linked.command_expecting_disconnect("wr mode normal", timeout=2.0)
+        assert sample.disconnected is True
+        assert sample.dongle_us == 350_000
+        assert sample.reason == "0x13"
+        assert linked.is_linked is False
+
+    def test_a_sensor_that_stays_is_reported_not_raised(self, linked):
+        sample = linked.command_expecting_disconnect("rd version", timeout=0.2)
+        assert sample.disconnected is False
+        assert linked.is_linked is True

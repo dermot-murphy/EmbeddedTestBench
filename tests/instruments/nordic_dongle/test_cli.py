@@ -35,7 +35,7 @@ class TestSubcommands:
         status, payload, _ = run(capsys, *SIM, "info")
         assert status == 0
         assert payload["manufacturer"] == "Nordic"
-        assert payload["protocol"] == "1.2"
+        assert payload["protocol"] == "1.3"
         assert payload["firmware"] == SimulatedDongle.DEFAULT_FIRMWARE_VERSION
         assert payload["built"] == SimulatedDongle.DEFAULT_FIRMWARE_BUILT
 
@@ -144,7 +144,7 @@ class TestFirmwareCommand:
     def manifest(self, directory, version, built):
         directory.mkdir(parents=True, exist_ok=True)
         (directory / "firmware_manifest.json").write_text(json.dumps({
-            "version": version, "built": built, "protocol": "1.2",
+            "version": version, "built": built, "protocol": "1.3",
             "model": "PCA10059", "hex": "f.hex", "package": "f.zip",
         }))
         (directory / "f.zip").write_bytes(b"not really a zip")
@@ -251,3 +251,15 @@ class TestScript:
         status, _, err = run(capsys, *SIM, "script", str(source), "--var", "SENSOR_ID")
         assert status == 1
         assert "NAME=VALUE" in err
+
+
+    def test_the_event_log_is_written_where_asked(self, capsys, tmp_path):
+        source = tmp_path / "test.md"
+        source.write_text(TestScript.DOCUMENT % "1.4.2")
+        events = tmp_path / "events.log"
+        status, payload, _ = run(capsys, *SIM, "script", str(source),
+                                 "--var", "SENSOR_ID=sens-0a1b", "--events", str(events))
+        assert status == 0
+        assert payload["events"] == str(events)
+        kinds = [line.split("\t")[1] for line in events.read_text().splitlines()[1:]]
+        assert kinds == ["CONNECT", "TX", "RX"]

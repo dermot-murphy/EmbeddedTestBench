@@ -346,24 +346,53 @@ to copy.
   giving a value for one, is an error naming the line.
 - **`connect <sensor>`** scans for 10 s, selects the sensor by address or by a
   fragment of its advertised name (any case, strongest match), and opens the
-  link, trying up to three times. It **passes** when the link opens and
-  **fails** otherwise; the steps after a failed connect fail with it.
-- **`disconnect`** closes the link and is skipped. A link the document opened
-  is closed when the run ends, pass or fail.
+  link, trying up to three times. A link the document opened is closed when
+  the run ends, pass or fail.
+- **`disconnect`** closes the link.
+- **`<disconnect>`** as the expected response says the sensor will drop the
+  link after the command - a reset. The command is sent without waiting for a
+  reply, and the time to the disconnection is measured on the dongle's clock.
+- A **Timeout** column, in milliseconds, sets how long a step waits: for a
+  reply, a listening window, the link to drop, or a connect. Empty uses the
+  run's default (`--timeout-s`, 3 s). Some commands take longer than others;
+  waits over 2 s need dongle firmware 1.3 (`cmd <hex> timeout=<ms>`).
+- A **Note** column is carried into the report beside the result.
 - Tables that name none of the step columns - a legend, a conversion table -
   are prose and are left alone.
+
+Every step gets one result, the first of these that applies:
+
+| Result | When |
+|---|---|
+| **ERROR** | The system returned a failure code: the dongle refused the command, a connect or disconnect failed, or no reply came where one was expected |
+| **SKIP** | The expected cell is empty - a delay, a connect or disconnect that worked, or a command nothing was promised for |
+| **FAIL** | The reply differs from the expected one, or the link stayed up after a `<disconnect>` step |
+| **PASS** | The reply matches, or the link dropped as expected |
+
+The run is **ERROR** if any step errored, else **FAIL** if any failed, else
+**PASS**. The report has a row per step: command, expected, actual, response
+time (to 10 ms), result and note.
 
 A document that connects runs on its own:
 
 ```
 benchtools ble --resource COM10 script specs/templates/ble_sensor_test.md \
-    --var SENSOR_ID=5C1712 --report results.md
+    --var SENSOR_ID=5C1712 --report results.md --events events.log
 ```
 
 It prints the run as JSON and exits 0 when every checked step passed, 1 when one
-failed or the run could not start. From a specification, pass the values with
-`variables`: `{do: dongle.run_script, with: {source: ..., variables: {SENSOR_ID:
-5C1712}}}`.
+failed or errored, or the run could not start. `--events` writes the event
+log: one tab-separated line per event - `time`, `event`, `step`, `data`,
+`result` - where the events are `TX`, `RX`, `DELAY`, `CONNECT`, `DISCONNECT` and
+`ERROR`. The time is the host's, to the millisecond; each `RX` line carries the
+dongle's own measurement of the exchange, to the microsecond. From a
+specification, pass the values with `variables` and the log with `events`:
+`{do: dongle.run_script, with: {source: ..., variables: {SENSOR_ID: 5C1712},
+events: events.log}}`.
+
+A `<disconnect>` whose reason is `0x08` was a supervision timeout: the sensor
+went silent, and the measured time includes the dongle's 4 s wait to decide
+the link had gone.
 
 The template's *Build identity* test reads the sensor's `rd id`, `rd sha`
 (the firmware's git commit), `rd compiler` and `rd pcb`, and checks the ID
