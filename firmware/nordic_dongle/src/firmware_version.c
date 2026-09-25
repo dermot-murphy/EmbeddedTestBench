@@ -39,21 +39,21 @@ const char * firmware_build_date(void)
  * is done once, at the first call. */
 const char * firmware_build_date(void)
 {
-	static const char	date[] = __DATE__;	/* "Sep  5 2026" */
-	static const char	time[] = __TIME__;	/* "20:13:52" */
+	static const char	compiled_on[] = __DATE__;	/* "Sep  5 2026" */
+	static const char	compiled_at[] = __TIME__;	/* "20:13:52" */
 	static char		text[sizeof "local:Sep-05-2026T20:13:52"];
 
 	if (text[0] == '\0')
 	{
 		(void)memcpy(&text[0], "local:", 6U);
-		(void)memcpy(&text[6], &date[0], 3U);
+		(void)memcpy(&text[6], &compiled_on[0], 3U);
 		text[9] = '-';
-		text[10] = (date[4] == ' ') ? '0' : date[4];
-		text[11] = date[5];
+		text[10] = (compiled_on[4] == ' ') ? '0' : compiled_on[4];
+		text[11] = compiled_on[5];
 		text[12] = '-';
-		(void)memcpy(&text[13], &date[7], 4U);
+		(void)memcpy(&text[13], &compiled_on[7], 4U);
 		text[17] = 'T';
-		(void)memcpy(&text[18], &time[0], 8U);
+		(void)memcpy(&text[18], &compiled_at[0], 8U);
 		text[26] = '\0';
 	}
 
