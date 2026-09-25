@@ -340,6 +340,28 @@ class NordicDongle(Instrument):
         """The protocol version the dongle reported."""
         return self._firmware_protocol
 
+    def _start_connect(self, connect_timeout: float) -> None:
+        """Check the window, clear stale link events, and send ``connect``."""
+        low, high = CONNECT_TIMEOUT_RANGE
+        if not low <= connect_timeout <= high:
+            raise ConfigurationError(
+                "connect_timeout must be between %.0f and %.0f s, not %r"
+                % (low, high, connect_timeout)
+            )
+        # Stale link events from an earlier attempt must not be read as this
+        # attempt's outcome.
+        self._session.take_events("conn")
+        self._session.take_events("disc")
+        if self._protocol_at_least(1, 2):
+            self._session.execute("connect", "timeout=%d" % round(connect_timeout * 1000.0))
+            return
+        _LOG.warning(
+            "the dongle speaks protocol %s, which has a fixed 5 s connect "
+            "window; update its firmware to set one",
+            self._firmware_protocol or "unknown",
+        )
+        self._session.execute("connect")
+
     def _protocol_at_least(self, major: int, minor: int) -> bool:
         """True when the dongle reported protocol *major*.*minor* or later."""
         try:
@@ -771,28 +793,9 @@ class NordicDongle(Instrument):
             does not become ready, in time. The message says which.
         """
         sensor = self._require_selected()
-        low, high = CONNECT_TIMEOUT_RANGE
-        if not low <= connect_timeout <= high:
-            raise ConfigurationError(
-                "connect_timeout must be between %.0f and %.0f s, not %r"
-                % (low, high, connect_timeout)
-            )
+        self._start_connect(connect_timeout)
         if timeout is None:
             timeout = connect_timeout + SERVICE_DISCOVERY_TIMEOUT
-
-        # Stale link events from an earlier attempt must not be read as this
-        # attempt's outcome.
-        self._session.take_events("conn")
-        self._session.take_events("disc")
-        if self._protocol_at_least(1, 2):
-            self._session.execute("connect", "timeout=%d" % round(connect_timeout * 1000.0))
-        else:
-            _LOG.warning(
-                "the dongle speaks protocol %s, which has a fixed 5 s connect "
-                "window; update its firmware to set one",
-                self._firmware_protocol or "unknown",
-            )
-            self._session.execute("connect")
 
         deadline = time.monotonic() + timeout
         linked = False

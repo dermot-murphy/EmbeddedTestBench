@@ -457,25 +457,32 @@ class SimulatedDongle:
             )
         ]
 
-    def _cmd_connect(self, arguments: List[str]) -> List[str]:
-        sensor = self._selected
+    @staticmethod
+    def _connect_arguments(arguments: List[str]) -> Optional[Tuple[int, Optional[str]]]:
+        """``connect``'s window and address, or None if the firmware would refuse them."""
         timeout_ms = 15_000
         addresses = []
         for argument in arguments:
-            if argument.startswith("timeout="):
-                try:
-                    timeout_ms = int(argument[len("timeout="):])
-                except ValueError:
-                    return [self._error(DongleError.VALUE, "bad argument value")]
-                if not 1_000 <= timeout_ms <= 60_000:
-                    return [self._error(DongleError.VALUE, "bad argument value")]
-            else:
+            if not argument.startswith("timeout="):
                 addresses.append(argument)
+                continue
+            value = argument[len("timeout="):]
+            if not value.isdigit() or not 1_000 <= int(value) <= 60_000:
+                return None
+            timeout_ms = int(value)
         if len(addresses) > 1:
+            return None
+        return timeout_ms, (addresses[0] if addresses else None)
+
+    def _cmd_connect(self, arguments: List[str]) -> List[str]:
+        parsed = self._connect_arguments(arguments)
+        if parsed is None:
             return [self._error(DongleError.VALUE, "bad argument value")]
+        timeout_ms, address = parsed
         self.last_connect_timeout_ms = timeout_ms
-        if addresses:
-            wanted = addresses[0].upper().split("/")[0]
+        sensor = self._selected
+        if address is not None:
+            wanted = address.upper().split("/")[0]
             sensor = next(
                 (item for item in self.sensors if item.address.upper() == wanted), None
             )
