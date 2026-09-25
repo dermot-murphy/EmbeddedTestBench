@@ -8,8 +8,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE1-001 | **Version** | 0.1 |
-| **Project** | TestBench | **Date** | 2026-09-19 |
+| **Document ID** | TB-SWE1-001 | **Version** | 0.2 |
+| **Project** | TestBench | **Date** | 2026-09-23 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.1 |
@@ -23,6 +23,7 @@
 | Version | Date | Author | Description of Change |
 |---|---|---|---|
 | 0.1 | 2026-09-19 | Claude | Initial |
+| 0.2 | 2026-09-23 | Claude | Section 14 added: `DMM-` requirements for the TTi 1604 multimeter (DMM-FR-001…026, DMM-NFR-001…004). Sections 15 to 18 renumbered. |
 
 ---
 
@@ -275,7 +276,7 @@ Extends §6.2 with the SCPI and IEEE 488.2 vocabulary.
 The probe is not an instrument in the SCPI sense: it does not answer `*IDN?` and
 has no error queue. It is nonetheless a *bench instrument* — it is configured,
 it is commanded, and it yields measurements — so it implements the generic base of
-§6.2 and is usable from the runner of §14.
+§6.2 and is usable from the runner of §15.
 
 ### 10.1 Link to the probe
 
@@ -622,7 +623,80 @@ timestamp. And the radio will accept a frequency the board cannot radiate.
 
 ---
 
-## 14. RUN — bench test runner
+## 14. DMM — TTi 1604 bench multimeter
+
+A 4-3/4 digit (40 000 count) true-RMS bench meter on an opto-isolated RS-232
+link. It has **no command language**: the link carries single ASCII characters
+standing for front-panel key presses, and in remote mode the meter streams a
+ten-byte binary frame after every measurement. There is no query, no `*IDN?`
+and no error queue.
+
+Four properties shape the requirements below, and each is a way a reading can
+be believed when it should not be. The **host powers the interface** through
+the handshake lines. The **stream has no gaps**, so a reader can land
+mid-frame and decode a plausible wrong number. The **digits are a
+seven-segment bitmap**, so the display can carry letters where a number is
+expected. And the **display can be frozen** by Hold, Touch-Hold or a Min-Max
+review, in which case the reading is real but is not now.
+
+### 14.1 The link
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| DMM-FR-001 | The driver shall open the port at 9600 baud, 8 data bits, no parity, one stop bit, which is the meter's only configuration. | STK-18 | Test |
+| DMM-FR-002 | The driver shall assert DTR and shall not assert RTS. The opto-isolated interface draws its power from these lines; left at a serial library's defaults the meter is mute, and the obvious diagnoses — wrong rate, bad cable, dead meter — are all wrong. | STK-18 | Test |
+| DMM-FR-003 | The driver shall not use DTR/DSR flow control, because those lines are carrying interface power rather than flow state. | STK-18 | Test |
+| DMM-FR-004 | A bare port name shall be taken as a serial port rather than as a host name. | STK-18 | Test |
+| DMM-FR-005 | The driver shall report an identity of its own, stating that the meter answers no identification query, and shall not present a serial number or firmware revision the instrument does not supply. | STK-18, STK-17 | Test |
+
+### 14.2 Remote and local
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| DMM-FR-006 | The driver shall put the meter into remote mode on connecting, unless asked not to. Before that the meter streams nothing whatsoever. | STK-18 | Test |
+| DMM-FR-007 | The driver shall be able to return the meter to local control. | STK-18 | Test |
+| DMM-FR-008 | Connecting shall not press the Operate key. That key toggles the measurement circuits, so pressing it to ensure the meter is on switches off a meter that already was — and because the interface stays powered either way, the mistake does not present as one. | STK-18, STK-17 | Test |
+| DMM-FR-009 | Where no measurement arrives, the driver shall name both states in which a healthy meter is silent — not in remote mode, and switched off at Operate — and shall say which of them it has ruled out. | STK-18 | Test |
+
+### 14.3 Frames and decoding
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| DMM-FR-010 | The driver shall locate each ten-byte frame by its leading carriage return rather than by taking the next ten bytes. A frame read from the wrong offset decodes the display digits against the wrong columns and yields a plausible wrong number rather than an error. | STK-18 | Test |
+| DMM-FR-011 | A frame of the wrong length, or one not beginning at a frame start, shall be refused rather than decoded. | STK-18 | Test |
+| DMM-FR-012 | The driver shall decode the five display digits from their seven-segment patterns, with bit 0 as the decimal point. | STK-18 | Test |
+| DMM-FR-013 | A segment pattern the driver does not recognise shall be marked in the decoded text rather than dropped. Dropping it turns 1.234 into 1234. | STK-18 | Test |
+| DMM-FR-014 | The driver shall decode the measurement type, AC or DC, and the range from the range byte. | STK-18 | Test |
+| DMM-FR-015 | The driver shall report every value in SI units — volts, amps, ohms or hertz — whatever the display shows. | STK-18 | Test |
+| DMM-FR-016 | Resistance shall be scaled for the meter's kilohm display on every range but the 400 ohm one, including the top range, where 40 Mohm is displayed as 40 000 kohm. | STK-18 | Test |
+| DMM-FR-017 | With Hz selected the reading shall be reported as a frequency, whichever input the measurement type names. | STK-18 | Test |
+| DMM-FR-018 | An overrange display shall be reported as an overrange and shall not carry a numeric value. | STK-18 | Test |
+| DMM-FR-019 | The displayed text shall be reported alongside the value, as the evidence for it. | STK-18, STK-17 | Test |
+| DMM-FR-020 | A reading taken while the display is frozen — Hold, Touch-Hold, or a Min-Max review — shall be marked as held. The value is a real measurement but is not the present one, and a test that records it as live is measuring the past. | STK-18, STK-17 | Test |
+| DMM-FR-021 | The function and status annunciators shall be decoded and reported. | STK-18 | Test |
+| DMM-FR-022 | The raw frame shall be retained with the decoded reading. | STK-18 | Test |
+
+### 14.4 Key presses
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| DMM-FR-023 | The driver shall send front-panel key presses by name, and shall refuse a name the meter has no key for, listing the keys it has. | STK-18 | Test |
+| DMM-FR-024 | The driver shall confirm each key press against the meter's echo and shall resend a command that was not echoed. At 9600 baud with no flow control on the data path a lost keystroke is silent, and the meter is then measuring something other than what the test asked for. | STK-18 | Test |
+| DMM-FR-025 | A command that is never echoed shall be reported with the handshake lines named as the likely cause. | STK-18 | Test |
+| DMM-FR-026 | The echo shall be identified as the bytes left over once complete frames have been removed from the stream, not by searching the stream for the echoed character. Seven-segment digit patterns collide with the key characters exactly: `0x61` is both the Up key and the pattern for a `1` with its decimal point, so a scan for the character finds one inside an ordinary reading. | STK-18 | Test |
+
+### 14.5 DMM non-functional
+
+| ID | Requirement | Verification |
+|---|---|---|
+| DMM-NFR-001 | The driver shall add no mandatory third-party dependency; the serial library shall be an optional extra. | Test, Inspection |
+| DMM-NFR-002 | No operation shall press the Operate key on the caller's behalf. | Test, Inspection |
+| DMM-NFR-003 | The protocol facts the driver encodes shall be traceable to a cited source, and anything not confirmed against a physical meter shall be recorded as unconfirmed. | Inspection |
+| DMM-NFR-004 | No third-party source shall be redistributed in this repository. Where another implementation was consulted, the protocol facts it demonstrates shall be recorded in this project's own form and its licence and authorship cited. | Inspection |
+
+---
+
+## 15. RUN — bench test runner
 
 ### 14.1 Bench configuration
 
@@ -686,7 +760,7 @@ timestamp. And the radio will accept a frequency the board cannot radiate.
 
 ---
 
-## 15. Assumptions and constraints
+## 16. Assumptions and constraints
 
 | ID | Statement |
 |---|---|
@@ -710,7 +784,7 @@ timestamp. And the radio will accept a frequency the board cannot radiate.
 
 ---
 
-## 16. Requirements Traceability
+## 17. Requirements Traceability
 
 The consolidated trace - stakeholder requirement to software requirement to
 architecture element to design unit to source to test - is maintained as a
@@ -726,7 +800,7 @@ property the suite enforces rather than a table someone maintains by hand.
 
 ---
 
-## 17. Review & Approval
+## 18. Review & Approval
 
 | Role | Name | Signature / Electronic Approval | Date |
 |---|---|---|---|

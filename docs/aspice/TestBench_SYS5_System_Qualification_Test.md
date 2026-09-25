@@ -8,8 +8,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SYS5-001 | **Version** | 0.1 |
-| **Project** | TestBench | **Date** | 2026-09-19 |
+| **Document ID** | TB-SYS5-001 | **Version** | 0.2 |
+| **Project** | TestBench | **Date** | 2026-09-23 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SYS.5 |
@@ -23,6 +23,7 @@
 | Version | Date | Author | Description of Change |
 |---|---|---|---|
 | 0.1 | 2026-09-19 | Claude | Initial |
+| 0.2 | 2026-09-23 | Claude | The multimeter replaces the deferred row in the bench-confirmation table, with open items DMM-OPEN-01…05. |
 
 ---
 
@@ -180,7 +181,7 @@ here.
 | BLE dongle | BLE-OPEN-02…04 (OPEN-06) — on-silicon behaviour; the firmware builds, links, fits and packages, which discharged BLE-OPEN-01 | TB-SWE4-002 §4.6 | TB-SYS2-040…045 |
 | Power supply | PSU-OPEN-01…06 (OPEN-08) — `STATUS?` bit order and tracking bits, `ERR?` text, command interval, settling time, whether a slaved-channel setpoint is discarded silently | `docs/psu/GPD3303D_Notes.md` §5 | TB-SYS2-020…025 |
 | S2-LP | S2LP-OPEN-01…05 (OPEN-07) — the vendor firmware's reply text and error codes, board naming, register behaviour | `docs/s2lp/S2LP_Devkit_Notes.md` §7 | TB-SYS2-046, -047 |
-| Deferred | OPEN-03 — no requirements yet for the RS-232 multimeter (STK-18) | TB-RTM-001 §15 | TB-SYS2-104 |
+| Multimeter | DMM-OPEN-01…05 — the segment patterns beyond the ten digits, the continuity and diode reading formats, the echo's timing relative to the measurement stream, and whether a range change emits a frame taken under the previous setting | `docs/dmm/TTi1604_Notes.md` §5 | TB-SYS2-051…053, TB-SYS2-104 |
 
 ---
 

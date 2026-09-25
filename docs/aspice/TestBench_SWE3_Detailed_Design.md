@@ -8,8 +8,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE3-001 | **Version** | 0.1 |
-| **Project** | TestBench | **Date** | 2026-09-19 |
+| **Document ID** | TB-SWE3-001 | **Version** | 0.2 |
+| **Project** | TestBench | **Date** | 2026-09-23 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.3 |
@@ -23,6 +23,7 @@
 | Version | Date | Author | Description of Change |
 |---|---|---|---|
 | 0.1 | 2026-09-19 | Claude | Initial |
+| 0.2 | 2026-09-23 | Claude | Design units added for the TTi 1604: DMM-DD-CONST, DMM-DD-PROTO, DMM-DD-DMM, DMM-DD-SIM, DMM-DD-CLI. |
 
 ---
 
@@ -1322,6 +1323,72 @@ CV/CC and tracking vocabularies. They are here so an out-of-range setting can be
 refused *before* it is sent: this supply clamps rather than refusing, and a test
 that asked for 35 V, was given 30 V and never told would report a pass against a
 condition it never applied.
+
+#### DMM-DD-CONST — `constants.py`
+
+What the 1604 is, and what its protocol says: link settings, the handshake
+states that power the interface, frame layout and field positions, the
+seven-segment patterns, the key characters, and the published reading rate.
+Each entry cites the source it came from.
+
+The segment table is the load-bearing one. It is a bitmap, not a character
+code, and the identifying relationship is that `8` is every segment (`0xFE`)
+and `0` is that less the middle (`0xFC`). That relationship is what fixes bit 1
+as the middle segment and bit 0 as the decimal point rather than a segment.
+
+#### DMM-DD-PROTO — `protocol.py`
+
+Pure decoding: ten bytes to a `Reading`. It knows nothing about serial ports,
+because a wrong number originates here and this is the part that must be
+testable without a meter, a port, or a simulator.
+
+| Group | Members |
+|---|---|
+| Decoding | `decode`, `digits_text`, `unit_and_scale`, `find_frame_start` |
+| Framing | `FrameAssembler.feed`, `.frames`, `.residue`, `.pending` |
+| Result | `Reading`, `Reading.held` |
+
+`FrameAssembler` exists because frames and command echoes share one direction
+of one link. It separates them **by structure rather than by value**: complete
+frames are extracted first, and whatever remains is echo. Searching the stream
+for the echoed character instead would be wrong, and not rarely — `0x61` is
+both the Up key and the seven-segment pattern for a `1` carrying its decimal
+point, so an ordinary reading of 1.0 volts contains one.
+
+`Reading.held` is deliberately a property over three separate annunciators —
+Hold, Touch-Hold, and the Min-Max review. A caller should not have to know
+which of the three froze the display in order to know that the number is not
+this moment's.
+
+#### DMM-DD-DMM — `dmm.py`
+
+`Tti1604`, the driver façade.
+
+| Group | Members |
+|---|---|
+| Lifecycle | `connect`, `_normalise_resource`, `_post_open`, `_read_identity`, `check_errors` |
+| Keys | `press`, `_send_character`, `_await_echo`, `select_*` |
+| Mode | `remote`, `local`, `is_remote` |
+| Reading | `read`, `read_many`, `measure`, `_drain` |
+
+`check_errors` is a documented no-op: the meter has no error queue, and a
+driver that pretended otherwise would be inventing a clean bill of health.
+`_post_open` enters remote mode and does nothing else — in particular it does
+not press Operate, which toggles.
+
+#### DMM-DD-SIM — `simulator.py`
+
+A behavioural model rather than canned frames: front-panel state, key handling,
+and frame encoding built from the same segment table the decoder reads, so the
+two cannot disagree. It reproduces the two states in which a real meter is
+silent — local mode, and Operate off — because both look like a dead link from
+the far end and neither is a fault.
+
+#### DMM-DD-CLI — `cli.py`
+
+`benchtools dmm`. Reports `held` beside every value, and `--reject-held` turns
+a frozen display into a non-zero exit. No `on` sub-command exists, because
+Operate toggles.
 
 #### PSU-DD-PSU — `psu.py`
 

@@ -139,3 +139,26 @@ class TestLoopback:
         transport.close()
         with pytest.raises(TransportError):
             transport.read_message()
+
+
+class TestHandshakeLines:
+    """DTR and RTS are interface power on some instruments, not flow control.
+
+    The TTi 1604's opto-isolated interface draws its power from them: with DTR
+    unasserted the meter is mute, which presents as a dead port rather than as
+    a configuration mistake.
+    """
+
+    def test_the_lines_are_left_alone_by_default(self):
+        transport = SerialTransport(port="loop://")
+        assert transport._dtr is None
+        assert transport._rts is None
+
+    def test_requested_states_are_applied_after_opening(self):
+        transport = SerialTransport(port="loop://", dtr=True, rts=False)
+        transport.open()
+        try:
+            assert transport._serial.dtr is True
+            assert transport._serial.rts is False
+        finally:
+            transport.close()

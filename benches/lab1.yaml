@@ -79,8 +79,10 @@ instruments:
     resource: /dev/ttyACM1        # COM7 on Windows
     timeout: 5.0
 
-  # Any instrument without a dedicated driver yet can still be addressed,
-  # identified and sent raw SCPI through the generic driver.
+  # The bench multimeter, on a USB-to-RS-232 converter. The driver asserts
+  # DTR and clears RTS: they power the meter's opto-isolated interface, and
+  # without them it is simply mute. See docs/dmm/TTi1604_Notes.md.
   dmm:
-    driver: generic
-    resource: 192.168.1.60
+    driver: tti1604
+    resource: /dev/ttyUSB0        # COM5 on Windows
+    timeout: 5.0
