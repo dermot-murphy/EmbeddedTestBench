@@ -30,8 +30,14 @@
 #define CONN_SLAVE_LATENCY		0U
 #define CONN_SUPERVISION_UNITS		400U		/**< 4 s / 10 ms */
 
+/* While connecting, listen all the time: window equal to interval. Nothing
+ * else needs the radio then, and at half duty a sensor advertising every 9 s
+ * was missed more often than not (#39). */
 #define SCAN_INTERVAL_UNITS		160U
-#define SCAN_WINDOW_UNITS		80U
+#define SCAN_WINDOW_UNITS		160U
+
+/** The SoftDevice counts the connect timeout in 10 ms units. */
+#define NUS_CLIENT_CONNECT_TIMEOUT_UNIT_MS		10U
 
 BLE_NUS_C_DEF(m_nus_client);
 
@@ -130,7 +136,7 @@ uint32_t nus_client_init(nrf_ble_gq_t * p_gatt_queue, ble_db_discovery_t * p_db_
 	return ble_nus_c_init(&m_nus_client, &init);
 }
 
-uint32_t nus_client_connect(const ble_gap_addr_t * p_address)
+uint32_t nus_client_connect(const ble_gap_addr_t * p_address, uint32_t timeout_ms)
 {
 	ble_gap_scan_params_t	scan_params;
 	ble_gap_conn_params_t	conn_params;
@@ -144,7 +150,7 @@ uint32_t nus_client_connect(const ble_gap_addr_t * p_address)
 	scan_params.active        = 0U;
 	scan_params.interval      = SCAN_INTERVAL_UNITS;
 	scan_params.window        = SCAN_WINDOW_UNITS;
-	scan_params.timeout       = 500U;		/**< 5 s, in 10 ms units */
+	scan_params.timeout       = (uint16_t)(timeout_ms / NUS_CLIENT_CONNECT_TIMEOUT_UNIT_MS);
 	scan_params.scan_phys     = BLE_GAP_PHY_1MBPS;
 	scan_params.filter_policy = BLE_GAP_SCAN_FP_ACCEPT_ALL;
 

@@ -36,7 +36,14 @@ extern "C" {
  * 1.1 - ``ver`` reports the firmware version and build date; ``dfu`` added.
  * 1.0 - first release.
  */
-#define PROTO_VERSION			"1.1"
+#define PROTO_VERSION			"1.2"
+
+/** How long a connection attempt listens for the sensor, by default and at
+ *  most, in milliseconds. A sensor advertising every 9 s was missed by a
+ *  5 s window more often than not (#39). */
+#define PROTOCOL_CONNECT_DEFAULT_MS	15000U
+#define PROTOCOL_CONNECT_MIN_MS		1000U
+#define PROTOCOL_CONNECT_MAX_MS		60000U
 
 /** Manufacturer and model reported by @c ver, in the host's identity fields. */
 #define PROTO_MANUFACTURER		"Nordic"
@@ -69,7 +76,7 @@ extern "C" {
 	X(list,		0, 0, "sensors seen by the last scan, one event per sensor") \
 	X(select,	1, 1, "select <index|addr> as the sensor for later commands") \
 	X(selected,	0, 0, "report the selected sensor") \
-	X(connect,	0, 1, "connect to the selected sensor, or to <addr>") \
+	X(connect,	0, 2, "connect to the selected sensor, or to <addr>; timeout=<ms> bounds the attempt") \
 	X(disconnect,	0, 0, "disconnect") \
 	X(uart,		1, 1, "uart <hex> - write raw bytes to the sensor's UART service") \
 	X(cmd,		1, 1, "cmd <hex> - write, await the reply, and report the round trip") \

@@ -55,9 +55,12 @@ typedef struct
 uint32_t nus_client_init(nrf_ble_gq_t * p_gatt_queue, ble_db_discovery_t * p_db_discovery);
 
 /**
- * @brief Connect to @p p_address.
+ * @brief Connect to @p p_address, listening for it for up to @p timeout_ms.
+ *
+ * The attempt listens continuously: nothing else needs the radio while it
+ * runs, and a sensor that advertises rarely is easy to miss otherwise.
  */
-uint32_t nus_client_connect(const ble_gap_addr_t * p_address);
+uint32_t nus_client_connect(const ble_gap_addr_t * p_address, uint32_t timeout_ms);
 
 /**
  * @brief Disconnect, if connected.

@@ -374,28 +374,68 @@ static void command_selected(char * tokens[], uint32_t count)
 		 (unsigned)(nus_client_is_ready() ? 1U : 0U));
 }
 
+#define CMD_PARSER_DECIMAL_BASE		10U	/**< for numbers in arguments */
+/** Read connect's optional address and timeout=<ms>, in either order. False
+ *  if a token is malformed, repeated or out of range. */
+static bool cmd_parser_connect_arguments(char * tokens[], uint32_t count,
+					 ble_gap_addr_t * p_target, bool * p_have_target,
+					 uint32_t * p_timeout_ms)
+{
+	static const char	timeout_key[] = "timeout=";
+	uint32_t		index;
+	char *			end;
+	unsigned long		value;
+
+	*p_have_target = false;
+	*p_timeout_ms  = PROTOCOL_CONNECT_DEFAULT_MS;
+
+	for (index = 1U; index < count; index++)
+	{
+		if (strncmp(tokens[index], timeout_key, sizeof(timeout_key) - 1U) == 0)
+		{
+			value = strtoul(&tokens[index][sizeof(timeout_key) - 1U], &end,
+					(int)CMD_PARSER_DECIMAL_BASE);
+			if ((*end != '\0') || (value < PROTOCOL_CONNECT_MIN_MS) ||
+			    (value > PROTOCOL_CONNECT_MAX_MS))
+			{
+				return false;
+			}
+			*p_timeout_ms = (uint32_t)value;
+		}
+		else if (*p_have_target || !scanner_parse_address(tokens[index], p_target))
+		{
+			return false;
+		}
+		else
+		{
+			*p_have_target = true;
+		}
+	}
+
+	return true;
+}
+
 static void command_connect(char * tokens[], uint32_t count)
 {
 	ble_gap_addr_t	target;
+	bool		have_target;
+	uint32_t	timeout_ms;
 	uint32_t	error;
 	char		address[18];
 
-	if (count > 1U)
+	if (!cmd_parser_connect_arguments(tokens, count, &target, &have_target, &timeout_ms))
 	{
-		if (!scanner_parse_address(tokens[1], &target))
+		reply_error(PROTO_ERR_VALUE);
+		return;
+	}
+	if (!have_target)
+	{
+		if (!m_have_selected)
 		{
-			reply_error(PROTO_ERR_VALUE);
+			reply_error(PROTO_ERR_NO_SENSOR);
 			return;
 		}
-	}
-	else if (m_have_selected)
-	{
 		target = m_selected;
-	}
-	else
-	{
-		reply_error(PROTO_ERR_NO_SENSOR);
-		return;
 	}
 
 	if (nus_client_is_connected())
@@ -408,7 +448,7 @@ static void command_connect(char * tokens[], uint32_t count)
 	 * connection attempt is not refused for a reason the host cannot see. */
 	(void)scanner_stop();
 
-	error = nus_client_connect(&target);
+	error = nus_client_connect(&target, timeout_ms);
 	if (error != NRF_SUCCESS)
 	{
 		reply_error(PROTO_ERR_BLE);
@@ -416,7 +456,7 @@ static void command_connect(char * tokens[], uint32_t count)
 	}
 
 	scanner_format_address(&target, address);
-	reply_ok("connecting=1 addr=%s", address);
+	reply_ok("connecting=1 addr=%s timeout_ms=%lu", address, (unsigned long)timeout_ms);
 }
 
 static void command_disconnect(char * tokens[], uint32_t count)
