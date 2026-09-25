@@ -898,9 +898,12 @@ every comparison above meaningless.
 
 The build date is injected as `-DFIRMWARE_BUILD_DATE`, derived from
 `SOURCE_DATE_EPOCH` when set, so a reproducible build reproduces its date. When
-nothing injects it the header falls back to `"local:" __DATE__ " " __TIME__`,
-tagged `local:` precisely so the host refuses to treat it as an instant: the
-compiler macros carry no timezone and no ordering.
+nothing injects it, `firmware_build_date()` falls back to the compiler's
+`__DATE__` and `__TIME__`, rearranged once at first call as
+`local:Sep-05-2026T20:13:52`. It is tagged `local:` precisely so the host refuses
+to treat it as an instant: the compiler macros carry no timezone and no ordering.
+It carries no spaces because the link protocol splits fields on them; the
+macros' own form arrived at the host as `local:Sep` (issue #34).
 
 The date is held in **one translation unit**, `firmware_version.c`, whose object
 the Makefile deletes before every build. This is not tidiness: the date arrives
