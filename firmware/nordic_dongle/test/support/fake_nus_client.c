@@ -35,7 +35,12 @@ static uint32_t	m_connects;
 static uint32_t	m_disconnects;
 static uint32_t	m_connect_result;
 
-uint32_t nus_client_init(nrf_ble_gq_t * p_gatt_queue)	{ (void)p_gatt_queue; return 0U; }
+uint32_t nus_client_init(nrf_ble_gq_t * p_gatt_queue, ble_db_discovery_t * p_db_discovery)
+{
+	(void)p_gatt_queue;
+	(void)p_db_discovery;
+	return 0U;
+}
 
 uint32_t nus_client_connect(const ble_gap_addr_t * p_address)
 {

@@ -448,6 +448,32 @@ uint32_t ble_db_discovery_init(const ble_db_discovery_init_t * p_init)
 	return NRF_SUCCESS;
 }
 
+static uint32_t	m_db_discovery_starts;
+static uint16_t	m_db_discovery_conn_handle = 0xFFFFU;
+static uint32_t	m_db_discovery_start_result = NRF_SUCCESS;
+
+uint32_t ble_db_discovery_start(ble_db_discovery_t * p_db_discovery, uint16_t conn_handle)
+{
+	if (p_db_discovery == NULL)
+	{
+		return NRF_ERROR_NULL;
+	}
+	m_db_discovery_starts++;
+	m_db_discovery_conn_handle = conn_handle;
+	return m_db_discovery_start_result;
+}
+
+uint32_t fake_db_discovery_starts(void)				{ return m_db_discovery_starts; }
+uint16_t fake_db_discovery_conn_handle(void)			{ return m_db_discovery_conn_handle; }
+void     fake_db_discovery_set_start_result(uint32_t result)	{ m_db_discovery_start_result = result; }
+
+void fake_db_discovery_reset(void)
+{
+	m_db_discovery_starts       = 0U;
+	m_db_discovery_conn_handle  = 0xFFFFU;
+	m_db_discovery_start_result = NRF_SUCCESS;
+}
+
 void ble_db_discovery_on_ble_evt(ble_evt_t const * p_ble_evt, void * p_context)
 {
 	(void)p_ble_evt;
@@ -553,11 +579,16 @@ uint32_t ble_nus_c_string_send(ble_nus_c_t * p_nus_c, uint8_t * p_string, uint16
 	return NRF_SUCCESS;
 }
 
+static uint32_t	m_nus_forwarded;
+
 void ble_nus_c_on_ble_evt(ble_evt_t const * p_ble_evt, void * p_context)
 {
 	(void)p_ble_evt;
 	(void)p_context;
+	m_nus_forwarded++;
 }
+
+uint32_t fake_nus_forwarded_events(void)	{ return m_nus_forwarded; }
 
 void ble_nus_c_on_db_disc_evt(ble_nus_c_t * p_nus_c, void * p_evt)
 {
@@ -592,4 +623,5 @@ void fake_nus_reset(void)
 	m_nus_send_count    = 0U;
 	m_nus_send_result   = NRF_SUCCESS;
 	m_nus_notifications = false;
+	m_nus_forwarded     = 0U;
 }
