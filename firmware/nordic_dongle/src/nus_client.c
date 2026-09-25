@@ -252,39 +252,48 @@ uint32_t nus_client_command(const uint8_t *  p_data,
 	return NRF_SUCCESS;
 }
 
+/**
+ * @brief A link is up: report it, then start looking for the UART service.
+ */
+static void nus_client_on_connected(const ble_gap_evt_t * p_gap, uint64_t when_us)
+{
+	char		address[18];
+	uint32_t	error;
+
+	m_conn_handle = p_gap->conn_handle;
+	m_interval_us = (uint32_t)p_gap->params.connected.conn_params.min_conn_interval * 1250U;
+	scanner_format_address(&p_gap->params.connected.peer_addr, address);
+	(void)cdc_acm_send_format(
+		"+conn t=%llu addr=%s state=linked interval_us=%lu",
+		(unsigned long long)when_us, address,
+		(unsigned long)m_interval_us);
+
+	/* The link is not usable until discovery has found the UART service and
+	 * reported BLE_NUS_C_EVT_DISCOVERY_COMPLETE. Nothing else starts it:
+	 * without this a sensor links and never becomes ready (#38). */
+	(void)ble_nus_c_handles_assign(&m_nus_client, m_conn_handle, NULL);
+	error = ble_db_discovery_start(m_p_db_discovery, m_conn_handle);
+	if (error != NRF_SUCCESS)
+	{
+		/* Say so and drop the link, rather than leave the host waiting for a
+		 * ready that cannot come. */
+		(void)cdc_acm_send_format("+conn t=%llu state=failed error=0x%lx",
+					  (unsigned long long)when_us,
+					  (unsigned long)error);
+		(void)sd_ble_gap_disconnect(m_conn_handle,
+					    BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
+	}
+}
+
 void nus_client_on_ble_evt(const ble_evt_t * p_ble_evt)
 {
 	const ble_gap_evt_t *	p_gap = &p_ble_evt->evt.gap_evt;
 	uint64_t		when_us = timestamp_now_us();
-	char			address[18];
-	uint32_t		error;
 
 	switch (p_ble_evt->header.evt_id)
 	{
 	case BLE_GAP_EVT_CONNECTED:
-		m_conn_handle = p_gap->conn_handle;
-		m_interval_us = (uint32_t)p_gap->params.connected.conn_params.min_conn_interval * 1250U;
-		scanner_format_address(&p_gap->params.connected.peer_addr, address);
-		(void)cdc_acm_send_format(
-			"+conn t=%llu addr=%s state=linked interval_us=%lu",
-			(unsigned long long)when_us, address,
-			(unsigned long)m_interval_us);
-
-		/* The link is not usable until discovery has found the UART service
-		 * and reported BLE_NUS_C_EVT_DISCOVERY_COMPLETE. Nothing else starts
-		 * it: without this a sensor links and never becomes ready (#38). */
-		(void)ble_nus_c_handles_assign(&m_nus_client, m_conn_handle, NULL);
-		error = ble_db_discovery_start(m_p_db_discovery, m_conn_handle);
-		if (error != NRF_SUCCESS)
-		{
-			/* Say so and drop the link, rather than leave the host waiting
-			 * for a ready that cannot come. */
-			(void)cdc_acm_send_format("+conn t=%llu state=failed error=0x%lx",
-						  (unsigned long long)when_us,
-						  (unsigned long)error);
-			(void)sd_ble_gap_disconnect(m_conn_handle,
-						    BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
-		}
+		nus_client_on_connected(p_gap, when_us);
 		break;
 
 	case BLE_GAP_EVT_DISCONNECTED:

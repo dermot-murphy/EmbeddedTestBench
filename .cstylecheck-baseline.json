@@ -38,7 +38,7 @@
     },
     {
       "file": "firmware/nordic_dongle/src/nus_client.c",
-      "line": 51,
+      "line": 52,
       "rule": "function.prefix",
       "message": "'report_rx' must be prefixed with 'nus_client_' (module prefix)"
     },
@@ -50,15 +50,9 @@
     },
     {
       "file": "firmware/nordic_dongle/src/firmware_version.c",
-      "line": 20,
+      "line": 22,
       "rule": "variable.global.g_prefix",
       "message": "Global variable 'firmware_version_string' local part should start with 'g_'"
-    },
-    {
-      "file": "firmware/nordic_dongle/src/firmware_version.c",
-      "line": 21,
-      "rule": "variable.global.g_prefix",
-      "message": "Global variable 'firmware_build_date_string' local part should start with 'g_'"
     },
     {
       "file": "firmware/nordic_dongle/src/cdc_acm.c",
@@ -467,12 +461,6 @@
       "line": 24,
       "rule": "constant.prefix",
       "message": "'FIRMWARE_VERSION' must be prefixed with 'firmware_version_' (module prefix)"
-    },
-    {
-      "file": "firmware/nordic_dongle/include/firmware_version.h",
-      "line": 29,
-      "rule": "constant.prefix",
-      "message": "'FIRMWARE_BUILD_DATE' must be prefixed with 'firmware_version_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/include/protocol.h",
