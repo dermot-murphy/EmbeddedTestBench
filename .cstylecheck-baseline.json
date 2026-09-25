@@ -32,13 +32,13 @@
     },
     {
       "file": "firmware/nordic_dongle/src/nus_client.c",
-      "line": 34,
+      "line": 37,
       "rule": "constant.prefix",
       "message": "'SCAN_WINDOW_UNITS' must be prefixed with 'nus_client_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/nus_client.c",
-      "line": 52,
+      "line": 58,
       "rule": "function.prefix",
       "message": "'report_rx' must be prefixed with 'nus_client_' (module prefix)"
     },
@@ -230,19 +230,19 @@
     },
     {
       "file": "firmware/nordic_dongle/src/cmd_parser.c",
-      "line": 651,
+      "line": 691,
       "rule": "macro.prefix",
       "message": "'X' must be prefixed with 'cmd_parser_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/cmd_parser.c",
-      "line": 659,
+      "line": 699,
       "rule": "constant.prefix",
       "message": "'CMD_COUNT' must be prefixed with 'cmd_parser_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/cmd_parser.c",
-      "line": 683,
+      "line": 723,
       "rule": "constant.prefix",
       "message": "'HANDLER_COUNT' must be prefixed with 'cmd_parser_' (module prefix)"
     },
@@ -320,49 +320,49 @@
     },
     {
       "file": "firmware/nordic_dongle/src/cmd_parser.c",
-      "line": 374,
+      "line": 415,
       "rule": "function.prefix",
       "message": "'command_connect' must be prefixed with 'cmd_parser_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/cmd_parser.c",
-      "line": 419,
+      "line": 459,
       "rule": "function.prefix",
       "message": "'command_disconnect' must be prefixed with 'cmd_parser_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/cmd_parser.c",
-      "line": 433,
+      "line": 473,
       "rule": "function.prefix",
       "message": "'command_uart' must be prefixed with 'cmd_parser_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/cmd_parser.c",
-      "line": 467,
+      "line": 507,
       "rule": "function.prefix",
       "message": "'command_cmd' must be prefixed with 'cmd_parser_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/cmd_parser.c",
-      "line": 516,
+      "line": 556,
       "rule": "function.prefix",
       "message": "'command_adv' must be prefixed with 'cmd_parser_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/cmd_parser.c",
-      "line": 571,
+      "line": 611,
       "rule": "function.prefix",
       "message": "'command_time' must be prefixed with 'cmd_parser_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/cmd_parser.c",
-      "line": 593,
+      "line": 633,
       "rule": "function.prefix",
       "message": "'command_dfu' must be prefixed with 'cmd_parser_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/cmd_parser.c",
-      "line": 619,
+      "line": 659,
       "rule": "function.prefix",
       "message": "'command_reset' must be prefixed with 'cmd_parser_' (module prefix)"
     },
@@ -470,120 +470,78 @@
     },
     {
       "file": "firmware/nordic_dongle/include/protocol.h",
-      "line": 40,
+      "line": 47,
       "rule": "constant.prefix",
       "message": "'PROTO_MANUFACTURER' must be prefixed with 'protocol_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/include/protocol.h",
-      "line": 43,
+      "line": 50,
       "rule": "constant.prefix",
       "message": "'PROTO_MODEL' must be prefixed with 'protocol_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/include/protocol.h",
-      "line": 44,
+      "line": 51,
       "rule": "constant.prefix",
       "message": "'PROTO_MAX_LINE' must be prefixed with 'protocol_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/include/protocol.h",
-      "line": 47,
+      "line": 54,
       "rule": "constant.prefix",
       "message": "'PROTO_MAX_EVENT' must be prefixed with 'protocol_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/include/protocol.h",
-      "line": 51,
+      "line": 58,
       "rule": "constant.prefix",
       "message": "'PROTO_MAX_SENSORS' must be prefixed with 'protocol_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/include/protocol.h",
-      "line": 54,
+      "line": 61,
       "rule": "constant.prefix",
       "message": "'PROTO_MAX_NAME' must be prefixed with 'protocol_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/include/protocol.h",
-      "line": 57,
+      "line": 64,
       "rule": "constant.prefix",
       "message": "'PROTO_MAX_PAYLOAD' must be prefixed with 'protocol_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/include/protocol.h",
-      "line": 60,
+      "line": 67,
       "rule": "constant.prefix",
       "message": "'PROTO_COMMAND_TABLE' must be prefixed with 'protocol_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/include/protocol.h",
-      "line": 80,
+      "line": 87,
       "rule": "constant.prefix",
       "message": "'PROTO_EVENT_TABLE' must be prefixed with 'protocol_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/include/protocol.h",
-      "line": 94,
+      "line": 101,
       "rule": "constant.prefix",
       "message": "'PROTO_ERROR_TABLE' must be prefixed with 'protocol_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/include/protocol.h",
-      "line": 113,
+      "line": 120,
       "rule": "macro.prefix",
       "message": "'X' must be prefixed with 'protocol_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/include/protocol.h",
-      "line": 112,
+      "line": 119,
       "rule": "misc.magic_number",
       "message": "Magic number 10 should be a named constant"
     },
     {
       "file": "firmware/nordic_dongle/include/protocol.h",
-      "line": 68,
-      "rule": "misc.unsigned_suffix",
-      "message": "Unsigned constant '1' should have 'U' or 'u' suffix (or assign to a signed type)"
-    },
-    {
-      "file": "firmware/nordic_dongle/include/protocol.h",
-      "line": 68,
-      "rule": "misc.unsigned_suffix",
-      "message": "Unsigned constant '5' should have 'U' or 'u' suffix (or assign to a signed type)"
-    },
-    {
-      "file": "firmware/nordic_dongle/include/protocol.h",
-      "line": 70,
-      "rule": "misc.unsigned_suffix",
-      "message": "Unsigned constant '1' should have 'U' or 'u' suffix (or assign to a signed type)"
-    },
-    {
-      "file": "firmware/nordic_dongle/include/protocol.h",
-      "line": 70,
-      "rule": "misc.unsigned_suffix",
-      "message": "Unsigned constant '1' should have 'U' or 'u' suffix (or assign to a signed type)"
-    },
-    {
-      "file": "firmware/nordic_dongle/include/protocol.h",
-      "line": 72,
-      "rule": "misc.unsigned_suffix",
-      "message": "Unsigned constant '1' should have 'U' or 'u' suffix (or assign to a signed type)"
-    },
-    {
-      "file": "firmware/nordic_dongle/include/protocol.h",
-      "line": 74,
-      "rule": "misc.unsigned_suffix",
-      "message": "Unsigned constant '1' should have 'U' or 'u' suffix (or assign to a signed type)"
-    },
-    {
-      "file": "firmware/nordic_dongle/include/protocol.h",
-      "line": 74,
-      "rule": "misc.unsigned_suffix",
-      "message": "Unsigned constant '1' should have 'U' or 'u' suffix (or assign to a signed type)"
-    },
-    {
-      "file": "firmware/nordic_dongle/include/protocol.h",
       "line": 75,
       "rule": "misc.unsigned_suffix",
       "message": "Unsigned constant '1' should have 'U' or 'u' suffix (or assign to a signed type)"
@@ -592,77 +550,119 @@
       "file": "firmware/nordic_dongle/include/protocol.h",
       "line": 75,
       "rule": "misc.unsigned_suffix",
-      "message": "Unsigned constant '1' should have 'U' or 'u' suffix (or assign to a signed type)"
-    },
-    {
-      "file": "firmware/nordic_dongle/include/protocol.h",
-      "line": 76,
-      "rule": "misc.unsigned_suffix",
-      "message": "Unsigned constant '1' should have 'U' or 'u' suffix (or assign to a signed type)"
-    },
-    {
-      "file": "firmware/nordic_dongle/include/protocol.h",
-      "line": 76,
-      "rule": "misc.unsigned_suffix",
-      "message": "Unsigned constant '2' should have 'U' or 'u' suffix (or assign to a signed type)"
-    },
-    {
-      "file": "firmware/nordic_dongle/include/protocol.h",
-      "line": 103,
-      "rule": "misc.unsigned_suffix",
-      "message": "Unsigned constant '1' should have 'U' or 'u' suffix (or assign to a signed type)"
-    },
-    {
-      "file": "firmware/nordic_dongle/include/protocol.h",
-      "line": 104,
-      "rule": "misc.unsigned_suffix",
-      "message": "Unsigned constant '2' should have 'U' or 'u' suffix (or assign to a signed type)"
-    },
-    {
-      "file": "firmware/nordic_dongle/include/protocol.h",
-      "line": 105,
-      "rule": "misc.unsigned_suffix",
-      "message": "Unsigned constant '3' should have 'U' or 'u' suffix (or assign to a signed type)"
-    },
-    {
-      "file": "firmware/nordic_dongle/include/protocol.h",
-      "line": 106,
-      "rule": "misc.unsigned_suffix",
-      "message": "Unsigned constant '4' should have 'U' or 'u' suffix (or assign to a signed type)"
-    },
-    {
-      "file": "firmware/nordic_dongle/include/protocol.h",
-      "line": 107,
-      "rule": "misc.unsigned_suffix",
       "message": "Unsigned constant '5' should have 'U' or 'u' suffix (or assign to a signed type)"
     },
     {
       "file": "firmware/nordic_dongle/include/protocol.h",
-      "line": 108,
+      "line": 77,
       "rule": "misc.unsigned_suffix",
-      "message": "Unsigned constant '6' should have 'U' or 'u' suffix (or assign to a signed type)"
+      "message": "Unsigned constant '1' should have 'U' or 'u' suffix (or assign to a signed type)"
     },
     {
       "file": "firmware/nordic_dongle/include/protocol.h",
-      "line": 109,
+      "line": 77,
       "rule": "misc.unsigned_suffix",
-      "message": "Unsigned constant '7' should have 'U' or 'u' suffix (or assign to a signed type)"
+      "message": "Unsigned constant '1' should have 'U' or 'u' suffix (or assign to a signed type)"
+    },
+    {
+      "file": "firmware/nordic_dongle/include/protocol.h",
+      "line": 79,
+      "rule": "misc.unsigned_suffix",
+      "message": "Unsigned constant '2' should have 'U' or 'u' suffix (or assign to a signed type)"
+    },
+    {
+      "file": "firmware/nordic_dongle/include/protocol.h",
+      "line": 81,
+      "rule": "misc.unsigned_suffix",
+      "message": "Unsigned constant '1' should have 'U' or 'u' suffix (or assign to a signed type)"
+    },
+    {
+      "file": "firmware/nordic_dongle/include/protocol.h",
+      "line": 81,
+      "rule": "misc.unsigned_suffix",
+      "message": "Unsigned constant '1' should have 'U' or 'u' suffix (or assign to a signed type)"
+    },
+    {
+      "file": "firmware/nordic_dongle/include/protocol.h",
+      "line": 82,
+      "rule": "misc.unsigned_suffix",
+      "message": "Unsigned constant '1' should have 'U' or 'u' suffix (or assign to a signed type)"
+    },
+    {
+      "file": "firmware/nordic_dongle/include/protocol.h",
+      "line": 82,
+      "rule": "misc.unsigned_suffix",
+      "message": "Unsigned constant '1' should have 'U' or 'u' suffix (or assign to a signed type)"
+    },
+    {
+      "file": "firmware/nordic_dongle/include/protocol.h",
+      "line": 83,
+      "rule": "misc.unsigned_suffix",
+      "message": "Unsigned constant '1' should have 'U' or 'u' suffix (or assign to a signed type)"
+    },
+    {
+      "file": "firmware/nordic_dongle/include/protocol.h",
+      "line": 83,
+      "rule": "misc.unsigned_suffix",
+      "message": "Unsigned constant '2' should have 'U' or 'u' suffix (or assign to a signed type)"
     },
     {
       "file": "firmware/nordic_dongle/include/protocol.h",
       "line": 110,
       "rule": "misc.unsigned_suffix",
-      "message": "Unsigned constant '8' should have 'U' or 'u' suffix (or assign to a signed type)"
+      "message": "Unsigned constant '1' should have 'U' or 'u' suffix (or assign to a signed type)"
     },
     {
       "file": "firmware/nordic_dongle/include/protocol.h",
       "line": 111,
       "rule": "misc.unsigned_suffix",
-      "message": "Unsigned constant '9' should have 'U' or 'u' suffix (or assign to a signed type)"
+      "message": "Unsigned constant '2' should have 'U' or 'u' suffix (or assign to a signed type)"
     },
     {
       "file": "firmware/nordic_dongle/include/protocol.h",
       "line": 112,
+      "rule": "misc.unsigned_suffix",
+      "message": "Unsigned constant '3' should have 'U' or 'u' suffix (or assign to a signed type)"
+    },
+    {
+      "file": "firmware/nordic_dongle/include/protocol.h",
+      "line": 113,
+      "rule": "misc.unsigned_suffix",
+      "message": "Unsigned constant '4' should have 'U' or 'u' suffix (or assign to a signed type)"
+    },
+    {
+      "file": "firmware/nordic_dongle/include/protocol.h",
+      "line": 114,
+      "rule": "misc.unsigned_suffix",
+      "message": "Unsigned constant '5' should have 'U' or 'u' suffix (or assign to a signed type)"
+    },
+    {
+      "file": "firmware/nordic_dongle/include/protocol.h",
+      "line": 115,
+      "rule": "misc.unsigned_suffix",
+      "message": "Unsigned constant '6' should have 'U' or 'u' suffix (or assign to a signed type)"
+    },
+    {
+      "file": "firmware/nordic_dongle/include/protocol.h",
+      "line": 116,
+      "rule": "misc.unsigned_suffix",
+      "message": "Unsigned constant '7' should have 'U' or 'u' suffix (or assign to a signed type)"
+    },
+    {
+      "file": "firmware/nordic_dongle/include/protocol.h",
+      "line": 117,
+      "rule": "misc.unsigned_suffix",
+      "message": "Unsigned constant '8' should have 'U' or 'u' suffix (or assign to a signed type)"
+    },
+    {
+      "file": "firmware/nordic_dongle/include/protocol.h",
+      "line": 118,
+      "rule": "misc.unsigned_suffix",
+      "message": "Unsigned constant '9' should have 'U' or 'u' suffix (or assign to a signed type)"
+    },
+    {
+      "file": "firmware/nordic_dongle/include/protocol.h",
+      "line": 119,
       "rule": "misc.unsigned_suffix",
       "message": "Unsigned constant '10' should have 'U' or 'u' suffix (or assign to a signed type)"
     }

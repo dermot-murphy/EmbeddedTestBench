@@ -47,7 +47,7 @@ class TestConnection:
         # it speaks: the build is what decides what a measurement means.
         assert identity.firmware.startswith(SimulatedDongle.DEFAULT_FIRMWARE_VERSION)
         assert SimulatedDongle.DEFAULT_FIRMWARE_BUILT in identity.firmware
-        assert dongle.protocol_version == "1.1"
+        assert dongle.protocol_version == "1.2"
 
     def test_it_is_an_instrument_but_not_scpi(self, dongle):
         """The runner drives it through the same contract as every other
@@ -266,6 +266,35 @@ class TestLink:
         simulator.sensors[0].connect_outcome = "ready"
         scanned.open_link()
         assert scanned.is_linked is True
+
+    def test_the_connect_window_is_sent_to_the_dongle(self, simulator, scanned):
+        """A sensor advertising every 9 s needs a window longer than that (#39)."""
+        scanned.open_link()
+        assert simulator.last_connect_timeout_ms == 15_000
+        scanned.close_link()
+        scanned.open_link(connect_timeout=30.0)
+        assert simulator.last_connect_timeout_ms == 30_000
+
+    def test_an_out_of_range_connect_window_is_refused_before_sending(self, simulator, scanned):
+        with pytest.raises(ConfigurationError, match="connect_timeout"):
+            scanned.open_link(connect_timeout=0.5)
+        with pytest.raises(ConfigurationError, match="connect_timeout"):
+            scanned.open_link(connect_timeout=61.0)
+        assert simulator.last_connect_timeout_ms is None
+
+    def test_an_older_dongle_is_sent_no_window(self, simulator):
+        """Protocol 1.1 firmware reads any second argument as an address."""
+        simulator.protocol = "1.1"
+        instrument = NordicDongle(MockTransport(responder=simulator), timeout=5.0)
+        instrument.initialise()
+        try:
+            instrument.scan(1.0)
+            instrument.select(SENSOR_NAME)
+            instrument.open_link()
+            assert simulator.last_connect_timeout_ms == 15_000   # the simulator's default
+            assert instrument.is_linked is True
+        finally:
+            instrument.close()
 
     def test_writing_without_a_link_is_reported(self, scanned):
         with pytest.raises(DongleCommandError, match="not connected"):

@@ -35,7 +35,7 @@ class TestSubcommands:
         status, payload, _ = run(capsys, *SIM, "info")
         assert status == 0
         assert payload["manufacturer"] == "Nordic"
-        assert payload["protocol"] == "1.1"
+        assert payload["protocol"] == "1.2"
         assert payload["firmware"] == SimulatedDongle.DEFAULT_FIRMWARE_VERSION
         assert payload["built"] == SimulatedDongle.DEFAULT_FIRMWARE_BUILT
 
@@ -144,7 +144,7 @@ class TestFirmwareCommand:
     def manifest(self, directory, version, built):
         directory.mkdir(parents=True, exist_ok=True)
         (directory / "firmware_manifest.json").write_text(json.dumps({
-            "version": version, "built": built, "protocol": "1.1",
+            "version": version, "built": built, "protocol": "1.2",
             "model": "PCA10059", "hex": "f.hex", "package": "f.zip",
         }))
         (directory / "f.zip").write_bytes(b"not really a zip")

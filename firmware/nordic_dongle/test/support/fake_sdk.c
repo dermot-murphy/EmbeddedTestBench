@@ -387,14 +387,18 @@ static uint32_t		m_connect_result;
 static uint32_t		m_disconnect_count;
 static uint16_t		m_disconnect_handle;
 
+static ble_gap_scan_params_t	m_connect_scan_params;
+
+const ble_gap_scan_params_t * fake_gap_connect_scan_params(void)	{ return &m_connect_scan_params; }
+
 uint32_t sd_ble_gap_connect(const ble_gap_addr_t *	p_peer_addr,
 			    const ble_gap_scan_params_t *	p_scan_params,
 			    const ble_gap_conn_params_t *	p_conn_params,
 			    uint8_t				conn_cfg_tag)
 {
-	(void)p_scan_params;
 	(void)p_conn_params;
 	(void)conn_cfg_tag;
+	m_connect_scan_params = *p_scan_params;
 	if (m_connect_result != NRF_SUCCESS)
 	{
 		return m_connect_result;

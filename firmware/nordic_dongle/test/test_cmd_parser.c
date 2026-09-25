@@ -422,6 +422,46 @@ static void test_connect_to_a_given_address(void)
 	TEST_ASSERT_TRUE(reply_has("addr=AA:BB:CC:DD:EE:FF"));
 }
 
+static void test_connect_listens_for_fifteen_seconds_by_default(void)
+{
+	handle("connect AA:BB:CC:DD:EE:FF");
+	TEST_ASSERT_EQUAL_UINT32(15000U, fake_nus_client_connect_timeout_ms());
+	TEST_ASSERT_TRUE(reply_has("timeout_ms=15000"));
+}
+
+static void test_connect_takes_a_timeout_before_or_after_the_address(void)
+{
+	handle("connect AA:BB:CC:DD:EE:FF timeout=20000");
+	TEST_ASSERT_EQUAL_UINT32(20000U, fake_nus_client_connect_timeout_ms());
+	TEST_ASSERT_TRUE(reply_has("addr=AA:BB:CC:DD:EE:FF"));
+
+	fake_nus_client_set_connected(false);
+	handle("connect timeout=2000 AA:BB:CC:DD:EE:FF");
+	TEST_ASSERT_EQUAL_UINT32(2000U, fake_nus_client_connect_timeout_ms());
+}
+
+static void test_connect_uses_the_selection_with_only_a_timeout(void)
+{
+	fake_scanner_add("E4:1C:7B:02:9A:11", 1, "SENS-01", -62);
+	handle("select 0");
+	handle("connect timeout=30000");
+	TEST_ASSERT_EQUAL_UINT32(30000U, fake_nus_client_connect_timeout_ms());
+	TEST_ASSERT_TRUE(reply_has("addr=E4:1C:7B:02:9A:11"));
+}
+
+static void test_connect_refuses_a_bad_timeout(void)
+{
+	handle("connect AA:BB:CC:DD:EE:FF timeout=999");
+	TEST_ASSERT_EQUAL_STRING("err 3 bad argument value", reply());
+	handle("connect AA:BB:CC:DD:EE:FF timeout=60001");
+	TEST_ASSERT_EQUAL_STRING("err 3 bad argument value", reply());
+	handle("connect AA:BB:CC:DD:EE:FF timeout=ten");
+	TEST_ASSERT_EQUAL_STRING("err 3 bad argument value", reply());
+	handle("connect AA:BB:CC:DD:EE:FF 11:22:33:44:55:66");
+	TEST_ASSERT_EQUAL_STRING("err 3 bad argument value", reply());
+	TEST_ASSERT_EQUAL_UINT32(0U, fake_nus_client_connects());
+}
+
 static void test_a_refused_connection_is_reported(void)
 {
 	handle("connect AA:BB:CC:DD:EE:FF");
@@ -621,6 +661,10 @@ int main(void)
 	RUN_TEST(test_connect_stops_scanning_first);
 	RUN_TEST(test_connecting_twice_is_refused);
 	RUN_TEST(test_connect_to_a_given_address);
+	RUN_TEST(test_connect_listens_for_fifteen_seconds_by_default);
+	RUN_TEST(test_connect_takes_a_timeout_before_or_after_the_address);
+	RUN_TEST(test_connect_uses_the_selection_with_only_a_timeout);
+	RUN_TEST(test_connect_refuses_a_bad_timeout);
 	RUN_TEST(test_a_refused_connection_is_reported);
 	RUN_TEST(test_disconnect_without_a_link);
 	RUN_TEST(test_disconnect);

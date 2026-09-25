@@ -66,7 +66,7 @@ Every event carries `t=`, microseconds on the dongle's clock.
 | `list` | one `+sensor` event per device found, then `ok sensors=<n>` |
 | `select <index\|addr[/type]>` | choose the sensor for later commands |
 | `selected` | report the selection |
-| `connect [<addr[/type]>]` | connect to the selection, or to an address |
+| `connect [<addr[/type]>] [timeout=<ms>]` | connect to the selection, or to an address, listening for it for up to `timeout` ms (1000-60000, default 15000; protocol 1.2). Protocol 1.1 listens for a fixed 5 s at half duty, which misses sensors advertising every 9 s |
 | `disconnect` | disconnect |
 | `uart <hex>` | write to the sensor's UART service, no reply awaited |
 | `cmd <hex>` | write, await the reply, report both timestamps and the round trip |

@@ -135,9 +135,9 @@ class SimulatedDongle:
 
     #: The build the simulated dongle is running. A test that exercises the
     #: update path changes these, as flashing a real dongle would.
-    DEFAULT_FIRMWARE_VERSION = "1.1.0"
+    DEFAULT_FIRMWARE_VERSION = "1.2.0"
     DEFAULT_FIRMWARE_BUILT = "2026-09-13T12:00:00Z"
-    DEFAULT_PROTOCOL = "1.1"
+    DEFAULT_PROTOCOL = "1.2"
 
     def __init__(
         self,
@@ -161,6 +161,8 @@ class SimulatedDongle:
         self.firmware_version = self.DEFAULT_FIRMWARE_VERSION
         self.firmware_built = self.DEFAULT_FIRMWARE_BUILT
         self.protocol = self.DEFAULT_PROTOCOL
+        #: The window the last ``connect`` asked for, in milliseconds.
+        self.last_connect_timeout_ms: Optional[int] = None
         #: True once ``dfu`` has been accepted: the dongle is in its bootloader
         #: and answers nothing until it is flashed and restarted.
         self.in_bootloader = False
@@ -457,8 +459,23 @@ class SimulatedDongle:
 
     def _cmd_connect(self, arguments: List[str]) -> List[str]:
         sensor = self._selected
-        if arguments:
-            wanted = arguments[0].upper().split("/")[0]
+        timeout_ms = 15_000
+        addresses = []
+        for argument in arguments:
+            if argument.startswith("timeout="):
+                try:
+                    timeout_ms = int(argument[len("timeout="):])
+                except ValueError:
+                    return [self._error(DongleError.VALUE, "bad argument value")]
+                if not 1_000 <= timeout_ms <= 60_000:
+                    return [self._error(DongleError.VALUE, "bad argument value")]
+            else:
+                addresses.append(argument)
+        if len(addresses) > 1:
+            return [self._error(DongleError.VALUE, "bad argument value")]
+        self.last_connect_timeout_ms = timeout_ms
+        if addresses:
+            wanted = addresses[0].upper().split("/")[0]
             sensor = next(
                 (item for item in self.sensors if item.address.upper() == wanted), None
             )
@@ -474,7 +491,7 @@ class SimulatedDongle:
             # The connect window closes without hearing the sensor.
             self.clock_us += 5_000_000
             self._queue.append("+disc t=%d reason=timeout" % self.clock_us)
-            return ["ok connecting=1 addr=%s" % sensor.address]
+            return ["ok connecting=1 addr=%s timeout_ms=%d" % (sensor.address, timeout_ms)]
 
         self._connected = sensor
         self.clock_us += 30_000
@@ -487,7 +504,7 @@ class SimulatedDongle:
             self._queue.append(
                 "+conn t=%d state=ready interval_us=30000" % self.clock_us
             )
-        return ["ok connecting=1 addr=%s" % sensor.address]
+        return ["ok connecting=1 addr=%s timeout_ms=%d" % (sensor.address, timeout_ms)]
 
     def _cmd_disconnect(self, arguments: List[str]) -> List[str]:
         if self._connected is None:

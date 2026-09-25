@@ -74,9 +74,22 @@ static void test_connecting_asks_the_stack_for_the_right_address(void)
 	ble_gap_addr_t target;
 
 	(void)scanner_parse_address("E4:1C:7B:02:9A:11", &target);
-	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, nus_client_connect(&target));
+	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, nus_client_connect(&target, 15000U));
 	TEST_ASSERT_EQUAL_UINT32(1U, fake_gap_connect_count());
 	TEST_ASSERT_EQUAL_MEMORY(target.addr, fake_gap_connect_address()->addr, BLE_GAP_ADDR_LEN);
+}
+
+static void test_connecting_listens_continuously_for_the_time_asked(void)
+{
+	/* A sensor advertising every 9 s was missed by a 5 s window listening
+	 * half the time (#39). */
+	ble_gap_addr_t target;
+
+	(void)scanner_parse_address("E4:1C:7B:02:9A:11", &target);
+	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, nus_client_connect(&target, 20000U));
+	TEST_ASSERT_EQUAL_UINT16(fake_gap_connect_scan_params()->interval,
+				 fake_gap_connect_scan_params()->window);
+	TEST_ASSERT_EQUAL_UINT16(2000U, fake_gap_connect_scan_params()->timeout);
 }
 
 static void test_a_connection_reports_the_interval(void)
@@ -145,7 +158,7 @@ static void test_connecting_while_connected_is_refused(void)
 
 	establish_link();
 	(void)scanner_parse_address("AA:BB:CC:DD:EE:FF", &target);
-	TEST_ASSERT_EQUAL_UINT32(NRF_ERROR_INVALID_STATE, nus_client_connect(&target));
+	TEST_ASSERT_EQUAL_UINT32(NRF_ERROR_INVALID_STATE, nus_client_connect(&target, 15000U));
 }
 
 static void test_disconnecting_without_a_link(void)
@@ -326,6 +339,7 @@ int main(void)
 	UNITY_BEGIN();
 	RUN_TEST(test_nothing_is_ready_before_a_connection);
 	RUN_TEST(test_connecting_asks_the_stack_for_the_right_address);
+	RUN_TEST(test_connecting_listens_continuously_for_the_time_asked);
 	RUN_TEST(test_a_connection_reports_the_interval);
 	RUN_TEST(test_discovery_makes_the_link_usable_and_says_so);
 	RUN_TEST(test_a_connection_starts_discovery_on_that_link);

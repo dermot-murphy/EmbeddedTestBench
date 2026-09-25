@@ -42,9 +42,12 @@ uint32_t nus_client_init(nrf_ble_gq_t * p_gatt_queue, ble_db_discovery_t * p_db_
 	return 0U;
 }
 
-uint32_t nus_client_connect(const ble_gap_addr_t * p_address)
+static uint32_t	m_connect_timeout_ms;
+
+uint32_t nus_client_connect(const ble_gap_addr_t * p_address, uint32_t timeout_ms)
 {
 	(void)p_address;
+	m_connect_timeout_ms = timeout_ms;
 	if (m_connect_result != 0U)
 	{
 		return m_connect_result;
@@ -132,6 +135,7 @@ uint32_t fake_nus_client_commands(void)			{ return m_commands; }
 const uint8_t * fake_nus_client_last_payload(void)	{ return m_payload; }
 uint16_t fake_nus_client_last_length(void)		{ return m_payload_length; }
 uint32_t fake_nus_client_connects(void)			{ return m_connects; }
+uint32_t fake_nus_client_connect_timeout_ms(void)	{ return m_connect_timeout_ms; }
 uint32_t fake_nus_client_disconnects(void)		{ return m_disconnects; }
 void     fake_nus_client_set_connect_result(uint32_t result)	{ m_connect_result = result; }
 
@@ -139,6 +143,7 @@ void fake_nus_client_reset(void)
 {
 	m_ready          = false;
 	m_connected      = false;
+	m_connect_timeout_ms = 0U;
 	m_interval_us    = 0U;
 	m_reply[0]       = '\0';
 	m_round_trip_us  = 0U;

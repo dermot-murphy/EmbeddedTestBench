@@ -44,7 +44,7 @@ def write_manifest(directory, version=INSTALLED_VERSION, built=INSTALLED_BUILT,
     (directory / MANIFEST_NAME).write_text(json.dumps({
         "version": version,
         "built": built,
-        "protocol": "1.1",
+        "protocol": "1.2",
         "model": "PCA10059",
         "hex": "nordic_dongle_pca10059.hex",
         "package": package,
@@ -202,7 +202,7 @@ class TestTheDongleReportsItsBuild:
         assert "fw=" in identity.raw
 
     def test_the_protocol_is_reported_separately(self, dongle):
-        assert dongle.protocol_version == "1.1"
+        assert dongle.protocol_version == "1.2"
         assert dongle.protocol_is_compatible is True
 
 

@@ -87,7 +87,7 @@ true, which is that no tag exists yet.
 
 | Item | Version | Notes |
 |---|---|---|
-| Nordic dongle application | 1.1.0 | `firmware/nordic_dongle/include/firmware_version.h`; host protocol 1.1 |
+| Nordic dongle application | 1.2.0 | `firmware/nordic_dongle/include/firmware_version.h`; host protocol 1.2 |
 | Target | nRF52840, board PCA10059 | |
 | Platform | nRF5 SDK 17.1.0, S140 SoftDevice 7.2.0 | Vendor-supplied, not redistributed |
 | Flash and RAM usage | Recorded by each CI build | TB-SWE4-002 §4.6 |
@@ -142,7 +142,7 @@ recorded on TB-TMPL-001, because no such review has been held.
 | `scripts/lint.py` | The pylint runner and baseline comparison |
 | `benches/simulated_bench.yaml` | The fully simulated bench |
 | `benches/simulated/sensor/firmware_manifest.json` | Simulated sensor image, version 1.4.2 |
-| `benches/simulated/dongle/firmware_manifest.json` | Simulated dongle image, version 1.1.0, protocol 1.1 |
+| `benches/simulated/dongle/firmware_manifest.json` | Simulated dongle image, version 1.2.0, protocol 1.2 |
 | `specs/sensor_bringup.yaml` | The bring-up scenario QS-01 |
 | `specs/sensor_commands.md` | The BLE command set, and the test of it |
 | `specs/sensor_commands.yaml` | The suite that runs that document |

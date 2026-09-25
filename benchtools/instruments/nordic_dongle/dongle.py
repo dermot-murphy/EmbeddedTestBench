@@ -48,7 +48,10 @@ from .constants import (
     DEFAULT_BAUDRATE,
     DEFAULT_COMMAND_TIMEOUT,
     DEFAULT_SCAN_MS,
+    CONNECT_TIMEOUT_RANGE,
+    DEFAULT_CONNECT_TIMEOUT,
     DISCONNECT_EVENT_TIMEOUT,
+    SERVICE_DISCOVERY_TIMEOUT,
     DONGLE_LIMITS,
     PROTOCOL_VERSION,
     AddressType,
@@ -337,6 +340,14 @@ class NordicDongle(Instrument):
         """The protocol version the dongle reported."""
         return self._firmware_protocol
 
+    def _protocol_at_least(self, major: int, minor: int) -> bool:
+        """True when the dongle reported protocol *major*.*minor* or later."""
+        try:
+            reported = tuple(int(part) for part in self._firmware_protocol.split(".")[:2])
+        except (AttributeError, ValueError):
+            return False
+        return reported >= (major, minor)
+
     @property
     def protocol_is_compatible(self) -> bool:
         """True when the dongle's protocol major version matches the driver's."""
@@ -346,7 +357,7 @@ class NordicDongle(Instrument):
 
     @property
     def firmware_version(self) -> str:
-        """The firmware version the dongle reported, e.g. ``"1.1.0"``.
+        """The firmware version the dongle reported, e.g. ``"1.2.0"``.
 
         Empty for firmware older than protocol 1.1, which did not report one -
         which is itself an answer: that dongle needs updating.
@@ -739,21 +750,49 @@ class NordicDongle(Instrument):
     # ------------------------------------------------------------------
     # Connection to the sensor
     # ------------------------------------------------------------------
-    def open_link(self, timeout: float = 10.0) -> Sensor:
+    def open_link(
+        self,
+        timeout: Optional[float] = None,
+        connect_timeout: float = DEFAULT_CONNECT_TIMEOUT,
+    ) -> Sensor:
         """Connect to the selected sensor and wait for its UART service.
 
         On any failure the dongle is told to disconnect before this raises, so
         a half-open link cannot refuse the next attempt.
 
+        :param timeout: Longest to wait overall. Defaults to the connect window
+            plus time for the UART service to be found.
+        :param connect_timeout: How long the dongle listens for the sensor.
+            Needs protocol 1.2; an older dongle keeps its own 5 s window, and
+            that is logged. A sensor that advertises rarely needs longer than
+            its advertising interval.
+        :raises ConfigurationError: if *connect_timeout* is out of range.
         :raises InstrumentError: if the sensor does not link, or links but
             does not become ready, in time. The message says which.
         """
         sensor = self._require_selected()
+        low, high = CONNECT_TIMEOUT_RANGE
+        if not low <= connect_timeout <= high:
+            raise ConfigurationError(
+                "connect_timeout must be between %.0f and %.0f s, not %r"
+                % (low, high, connect_timeout)
+            )
+        if timeout is None:
+            timeout = connect_timeout + SERVICE_DISCOVERY_TIMEOUT
+
         # Stale link events from an earlier attempt must not be read as this
         # attempt's outcome.
         self._session.take_events("conn")
         self._session.take_events("disc")
-        self._session.execute("connect")
+        if self._protocol_at_least(1, 2):
+            self._session.execute("connect", "timeout=%d" % round(connect_timeout * 1000.0))
+        else:
+            _LOG.warning(
+                "the dongle speaks protocol %s, which has a fixed 5 s connect "
+                "window; update its firmware to set one",
+                self._firmware_protocol or "unknown",
+            )
+            self._session.execute("connect")
 
         deadline = time.monotonic() + timeout
         linked = False
