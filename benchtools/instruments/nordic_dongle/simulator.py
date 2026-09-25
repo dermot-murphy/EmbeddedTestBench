@@ -42,6 +42,10 @@ class SimulatedSensor:
         sensor that skips beacons. 0 for a sensor that never misses.
     :param responses: Replies to UART commands, as text.
     :param latency_us: Round trip from write to notification.
+    :param connect_outcome: What a connection attempt does. ``"ready"`` links
+        and finds the UART service; ``"timeout"`` never links, as a sensor that
+        advertises too rarely for the connect window does; ``"no_service"``
+        links but never becomes ready.
     """
 
     address: str
@@ -59,6 +63,7 @@ class SimulatedSensor:
     #: latency figure is about the firmware rather than about the link.
     latency_overrides: Dict[str, int] = field(default_factory=dict)
     connectable: bool = True
+    connect_outcome: str = "ready"
 
     def advertising_payload(self) -> bytes:
         """The advertising data, with the local name appended when there is one."""
@@ -465,16 +470,23 @@ class SimulatedDongle:
             return [self._error(DongleError.BLE, "the BLE stack refused the request")]
 
         self._scanning = False
+        if sensor.connect_outcome == "timeout":
+            # The connect window closes without hearing the sensor.
+            self.clock_us += 5_000_000
+            self._queue.append("+disc t=%d reason=timeout" % self.clock_us)
+            return ["ok connecting=1 addr=%s" % sensor.address]
+
         self._connected = sensor
         self.clock_us += 30_000
         self._queue.append(
             "+conn t=%d addr=%s state=linked interval_us=30000"
             % (self.clock_us, sensor.address)
         )
-        self.clock_us += 5_000
-        self._queue.append(
-            "+conn t=%d state=ready interval_us=30000" % self.clock_us
-        )
+        if sensor.connect_outcome == "ready":
+            self.clock_us += 5_000
+            self._queue.append(
+                "+conn t=%d state=ready interval_us=30000" % self.clock_us
+            )
         return ["ok connecting=1 addr=%s" % sensor.address]
 
     def _cmd_disconnect(self, arguments: List[str]) -> List[str]:

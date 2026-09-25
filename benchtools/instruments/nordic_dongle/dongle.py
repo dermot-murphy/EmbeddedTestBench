@@ -48,6 +48,7 @@ from .constants import (
     DEFAULT_BAUDRATE,
     DEFAULT_COMMAND_TIMEOUT,
     DEFAULT_SCAN_MS,
+    DISCONNECT_EVENT_TIMEOUT,
     DONGLE_LIMITS,
     PROTOCOL_VERSION,
     AddressType,
@@ -741,22 +742,62 @@ class NordicDongle(Instrument):
     def open_link(self, timeout: float = 10.0) -> Sensor:
         """Connect to the selected sensor and wait for its UART service.
 
-        :raises InstrumentError: if the sensor does not become ready in time.
+        On any failure the dongle is told to disconnect before this raises, so
+        a half-open link cannot refuse the next attempt.
+
+        :raises InstrumentError: if the sensor does not link, or links but
+            does not become ready, in time. The message says which.
         """
         sensor = self._require_selected()
+        # Stale link events from an earlier attempt must not be read as this
+        # attempt's outcome.
+        self._session.take_events("conn")
+        self._session.take_events("disc")
         self._session.execute("connect")
+
+        deadline = time.monotonic() + timeout
+        linked = False
         try:
-            ready = self._session.wait_for_event(
-                "conn",
-                timeout=timeout,
-                match=lambda event: event.get("state") == "ready",
-            )
+            while True:
+                event = self._session.wait_for_event(
+                    ("conn", "disc"), timeout=max(deadline - time.monotonic(), 0.0)
+                )
+                state = event.get("state")
+                if event.name == "disc":
+                    raise InstrumentError(
+                        "could not connect to %s: the dongle reported %s%s. "
+                        "A sensor that advertises rarely can fall outside the "
+                        "connect window; try again, or check it is in range and "
+                        "not connected to something else."
+                        % (
+                            sensor.address,
+                            "the connection lost" if linked else "no connection",
+                            " (reason %s)" % event.get("reason") if event.get("reason") else "",
+                        )
+                    )
+                if state == "linked":
+                    linked = True
+                elif state == "failed":
+                    raise InstrumentError(
+                        "linked to %s but the dongle could not start looking for "
+                        "its UART service (error %s)." % (sensor.address, event.get("error"))
+                    )
+                elif state == "ready":
+                    ready = event
+                    break
         except BenchToolsError as exc:
+            self._disconnect()
+            if isinstance(exc, InstrumentError):
+                raise
+            if linked:
+                raise InstrumentError(
+                    "linked to %s but its UART service did not become ready "
+                    "within %.1f s. Check the sensor offers Nordic's UART service."
+                    % (sensor.address, timeout)
+                ) from exc
             raise InstrumentError(
-                "connected to %s but its UART service did not become ready "
-                "within %.1f s. Check the sensor advertises Nordic's UART "
-                "service and is not already connected to something else."
-                % (sensor.address, timeout)
+                "could not connect to %s within %.1f s: the dongle reported "
+                "neither a link nor a failure." % (sensor.address, timeout)
             ) from exc
         self._connected = True
         # The connection interval comes from the event, not from a later query:
@@ -772,11 +813,25 @@ class NordicDongle(Instrument):
 
     def close_link(self) -> None:
         """Disconnect from the sensor. Idempotent."""
-        reply = self._session.execute("disconnect", allow_error=True)
+        reply = self._disconnect()
         self._connected = False
         self._connection_interval_us = 0
         if not reply.ok and reply.error is not None and reply.error.name != "NOT_CONNECTED":
             raise DongleCommandError("disconnect", reply.error, reply.text)
+
+    def _disconnect(self):
+        """Send ``disconnect`` and, if accepted, consume the ``+disc`` it causes.
+
+        The event arrives after the reply. Left queued, it would be read by the
+        next :meth:`open_link` as that attempt's own failure.
+        """
+        reply = self._session.execute("disconnect", allow_error=True)
+        if reply.ok:
+            try:
+                self._session.wait_for_event("disc", timeout=DISCONNECT_EVENT_TIMEOUT)
+            except BenchToolsError:
+                _LOG.warning("no '+disc' followed an accepted disconnect")
+        return reply
 
     @property
     def is_linked(self) -> bool:

@@ -23,7 +23,7 @@ from __future__ import annotations
 import logging
 import time
 from collections import deque
-from typing import Callable, Deque, List, Optional
+from typing import Callable, Deque, List, Optional, Tuple, Union
 
 from ...core.errors import (
     ConnectionFailedError,
@@ -238,30 +238,34 @@ class DongleSession:
 
     def wait_for_event(
         self,
-        name: str,
+        name: Union[str, Tuple[str, ...]],
         timeout: Optional[float] = None,
         match: Optional[Callable[[Event], bool]] = None,
     ) -> Event:
-        """Wait for the next event called *name*.
+        """Wait for the next event called *name*, or any of several names.
 
         An event already queued satisfies the wait, so a caller that asks a
         moment after the event arrived is not made to wait for a second one.
 
+        :param name: An event name, or a tuple of them to wait for whichever
+            comes first - a success and the failure that rules it out, say.
         :param match: Further condition the event must satisfy.
         :raises TransportTimeoutError: if none arrives in time.
         """
+        names = (name,) if isinstance(name, str) else tuple(name)
         limit = timeout if timeout is not None else self._timeout
         deadline = time.monotonic() + limit
 
         while True:
             for index, event in enumerate(self._events):
-                if event.name == name and (match is None or match(event)):
+                if event.name in names and (match is None or match(event)):
                     del self._events[index]
                     return event
             remaining = deadline - time.monotonic()
             if remaining <= 0.0:
                 raise TransportTimeoutError(
-                    "no '+%s' event from the dongle within %.3f s" % (name, limit)
+                    "no '+%s' event from the dongle within %.3f s"
+                    % ("' or '+".join(names), limit)
                 )
             self._read_line(min(remaining, 0.25))
 
