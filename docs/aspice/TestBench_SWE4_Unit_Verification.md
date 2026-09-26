@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE4-001 | **Version** | 0.2 |
+| **Document ID** | TB-SWE4-001 | **Version** | 0.4 |
 | **Project** | TestBench | **Date** | 2026-09-23 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -25,6 +25,7 @@
 | 0.1 | 2026-09-19 | Claude | Initial |
 | 0.2 | 2026-09-23 | Claude | Test groups added for the TTi 1604: SWE4-UT-DMMPROTO, SWE4-UT-DMM, SWE4-UT-DMMSIM, SWE4-UT-DMMCLI. |
 | 0.3 | 2026-09-25 | Claude | SWE4-UT-BLESCRIPT extended to the new command-document behaviour (BLE-FR-109…116); firmware unit cases now 148 (#46, #48). |
+| 0.4 | 2026-09-26 | Claude | SWE4-UT-PSUPANEL added for the GPD-3303D front-panel check (#67). Header version brought into line with this history. |
 
 ---
 
@@ -258,6 +259,7 @@ module's imports:
 | SWE4-UT-PSU | `instruments/gpd3303d/test_psu.py` | The supply driver: identity, setting and its range refusals, measurement, constant-current detection, per-channel output emulation and what it does not promise, the refusal to program a channel the supply is slaving to another, status decoding, error reporting, command pacing and the safe state | PSU-FR-001 .. -043 |
 | SWE4-UT-PSUSIM | `instruments/gpd3303d/test_simulator.py` | Self-checks on the simulated supply: Ohm's law, the constant-current fallback, the single output switch, silent refusals, the three tracking modes and the setpoint a tracking supply discards, and the rejection of an out-of-range setting as the hardware rejects it | PSU-FR-006, PSU-FR-050 |
 | SWE4-UT-PSUCLI | `instruments/gpd3303d/test_cli.py` | Every supply sub-command end to end; JSON output; the current-limit and tracking warnings; that `set` does not energise a rail | PSU-FR-060 |
+| SWE4-UT-PSUPANEL | `instruments/gpd3303d/test_front_panel_check.py` | The front-panel check (`examples/10_psu_front_panel_check.py`) against the simulator: every step taken and logged with the driver's read-back, and the supply left with its output off and its original settings, after a completed run and after a failure part-way | PSU-FR-030, PSU-FR-040, PSU-FR-043 |
 | SWE4-UT-DMMPROTO | `instruments/tti1604/test_protocol.py` | Frame decoding: the segment bitmap and the relationship that identifies it, the decimal point, an unrecognised pattern marked rather than dropped, decoding refused from the wrong offset, frames and echoes separated by structure, a digit byte that equals a key character, SI scaling including the kilohm display on every ohms range, overrange as not-a-number, and a held display | DMM-FR-010 .. -026 |
 | SWE4-UT-DMM | `instruments/tti1604/test_dmm.py` | The driver: the handshake lines driven for a serial port, a bare port name as a port, remote mode entered on connecting, Operate left alone, the driver's own identity, key presses and the resend of a dropped one, the mute meter reported with its likely cause, and the silence that names both states that produce it | DMM-FR-001 .. -009, -023 .. -026 |
 | SWE4-UT-DMMSIM | `instruments/tti1604/test_simulator.py` | Self-checks on the simulated meter: silence in local mode and with Operate off, every command echoed, Operate toggling rather than switching on, ranges bounded, and values round-tripping through the segment encoding to the decoder | DMM-FR-040 .. -052 |

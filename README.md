@@ -641,6 +641,7 @@ configurations can name it. New link types (serial, USBTMC, HTTP) register with
 | [`examples/07_supply_rails.py`](examples/07_supply_rails.py) | Bringing up two rails, and catching one that is in current limit |
 | [`examples/08_s2lp_radio.py`](examples/08_s2lp_radio.py) | Dumping an S2-LP's registers, transmitting, and capturing to a packet log |
 | [`examples/09_sensor_version.py`](examples/09_sensor_version.py) | Finding a sensor by part of its name, in any case, and reading its version over BLE UART |
+| [`examples/10_psu_front_panel_check.py`](examples/10_psu_front_panel_check.py) | Stepping a GPD-3303D through ten states while an operator checks the front panel; the answers are logged as TB-SIT-03 evidence |
 
 Each takes an address (or bench file) and defaults to simulation:
 
