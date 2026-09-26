@@ -22,7 +22,7 @@
 
 | Version | Date | Author | Description of Change |
 |---|---|---|---|
-| 0.1 | 2026-09-26 | Claude | Initial. Written from a command-by-command capture of a real supply (#61, #64, #63). Front-panel observations from a timed run added to §9.2, §10.3 and §12. |
+| 0.1 | 2026-09-26 | Claude | Initial. Written from a command-by-command capture of a real supply (#61, #64, #63). Front-panel observations from a timed run added to §9.2, §10.3 and §12; every step of that run confirmed by the operator. |
 
 ---
 
@@ -326,7 +326,9 @@ The front panel shows the same figures as the remote read-back: `3.2V` for a
 [O]. The shortfall is therefore in the supply's own measurement or output, not
 in the serial reply. Whether the measurement truncates or the output genuinely
 sits just below its setpoint still cannot be told without an independent
-meter [U]. Either way a host comparing a
+meter [U]. With the output off, the panel showed the programmed settings
+(5.00 V / 0.500 A, 12.00 V / 1.000 A, and each later change) as the driver
+read them back, confirmed by the operator step by step [O]. Either way a host comparing a
 measurement with a setpoint must allow at least one read-back step. TestBench
 allows 1.5 steps or 1 %, whichever is larger (`ChannelReading.regulated`).
 

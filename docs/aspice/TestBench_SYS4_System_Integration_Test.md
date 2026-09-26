@@ -23,7 +23,7 @@
 | Version | Date | Author | Description of Change |
 |---|---|---|---|
 | 0.1 | 2026-09-19 | Claude | Initial |
-| 0.2 | 2026-09-26 | Claude | TB-SIT-03 and -04: informal bench evidence recorded against each; neither is yet executed on TB-TMPL-002 (#63). |
+| 0.2 | 2026-09-26 | Claude | TB-SIT-03 and -04: informal bench evidence recorded against each; neither is yet executed on TB-TMPL-002 (#63). TB-SIT-03: operator confirmed all ten front-panel steps. |
 
 ---
 
@@ -88,7 +88,7 @@ there. The table states what must be shown; it does not state that it has been.
 |---|---|---|---|
 | TB-SIT-01 | TB-SIF-01 | The scope answers the portmapper and accepts a VXI-11 link; its identity string is read; a configuration command takes effect on the front panel | **Not performed** |
 | TB-SIT-02 | TB-SIF-01 | A capture retrieved over VXI-11 matches what the instrument displays, in scale and in record length | **Not performed** |
-| TB-SIT-03 | TB-SIF-02 | The supply answers on its serial port at the configured rate, reports its identity, and accepts a setpoint that the front panel then shows | **Not performed** formally. Informal evidence 2026-09-26: answers at 9600, identity read, setpoints read back (TB-IF-001 Annex A). Front panel observed during a timed run of `examples/10_psu_front_panel_check.py` for CH1: output voltages matched the remote read-back (3.2 V, 1.7 V), and a parked channel fell to 0 V in 2–3 s. The display of setpoints with the output off was not reported. |
+| TB-SIT-03 | TB-SIF-02 | The supply answers on its serial port at the configured rate, reports its identity, and accepts a setpoint that the front panel then shows | **Not performed** formally. Informal evidence 2026-09-26: answers at 9600, identity read, setpoints read back (TB-IF-001 Annex A). Front panel observed during a timed run of `examples/10_psu_front_panel_check.py` for CH1: output voltages matched the remote read-back (3.2 V, 1.7 V), and a parked channel fell to 0 V in 2–3 s. The operator confirmed every other step as expected, including the settings shown with the output off, the OUTPUT indicator, and the reset to 0 V. |
 | TB-SIT-04 | TB-SIF-02 | The `STATUS?` reply decodes as the driver expects — bit order and tracking bits (PSU-OPEN-01, PSU-OPEN-06) | **Not performed** formally. Informal evidence 2026-09-26: bit order and independent tracking confirmed, after the decode was corrected (#61); series and parallel not observed |
 | TB-SIT-05 | TB-SIF-02, TB-SIF-09 | With the supply tracking, a per-channel write is refused by the driver, and the supply's own behaviour on such a write is observed and recorded (PSU-OPEN-05) | **Not performed** |
 | TB-SIT-06 | TB-SIF-03 | The J-Link GDB server accepts a connection and the driver's MI exchanges behave as parsed against a real server version (JLINK-OPEN-01, JLINK-OPEN-02) | **Not performed** |
