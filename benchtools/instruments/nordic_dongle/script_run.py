@@ -319,7 +319,6 @@ def run_script(  # pylint: disable=too-many-arguments,too-many-positional-argume
     log = events or EventLog()
     run = ScriptRun(source=script.source, sensor=_sensor_name(dongle),
                     variables=dict(script.variables))
-    opened = False
     link = _LinkWatch(dongle, log)
     try:
         for test in script.tests:
@@ -332,7 +331,7 @@ def run_script(  # pylint: disable=too-many-arguments,too-many-positional-argume
                 if step.action == CONNECT:
                     link.restored()
                     result = _run_connect(dongle, step, scan_s, connect_attempts, log)
-                    opened = opened or result.result != ERROR
+                    link.opened = link.opened or result.result != ERROR
                     run.sensor = _sensor_name(dongle) or run.sensor
                 elif step.action == DISCONNECT:
                     result = _run_disconnect(dongle, step, log)
@@ -351,7 +350,7 @@ def run_script(  # pylint: disable=too-many-arguments,too-many-positional-argume
                     log.event("ERROR", step, result.reason, ERROR)
                 run.results.append(result)
     finally:
-        if opened and getattr(dongle, "is_linked", False):
+        if link.opened and getattr(dongle, "is_linked", False):
             dongle.close_link()
     run.events = list(log.lines)
     return run
@@ -371,6 +370,8 @@ class _LinkWatch:
         self._log = log
         self._previous: Optional[ScriptStep] = None
         self._lost = ""                 # why the link is gone, until a connect restores it
+        #: Whether the document opened a link of its own, to close when it ends.
+        self.opened = False
 
     def before(self, step: ScriptStep) -> str:
         """Check for a drop since the last step; why the link is gone, or empty."""
