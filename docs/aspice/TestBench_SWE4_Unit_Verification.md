@@ -24,6 +24,7 @@
 |---|---|---|---|
 | 0.1 | 2026-09-19 | Claude | Initial |
 | 0.2 | 2026-09-23 | Claude | Test groups added for the TTi 1604: SWE4-UT-DMMPROTO, SWE4-UT-DMM, SWE4-UT-DMMSIM, SWE4-UT-DMMCLI. |
+| 0.3 | 2026-09-25 | Claude | SWE4-UT-BLESCRIPT extended to the new command-document behaviour (BLE-FR-109…116); firmware unit cases now 148 (#46, #48). |
 
 ---
 
@@ -233,11 +234,11 @@ module's imports:
 | SWE4-UT-SERIAL | `core/transport/test_serial.py` | Serial transport: port and rate parsing, a TCP port not mistaken for a line rate, scheme registration, framing over `loop://`, a write the far end will not take | CORE-FR-017, CORE-NFR-003, -006 |
 | SWE4-UT-BLE | `instruments/nordic_dongle/test_dongle.py` | The dongle driver: identity and protocol check, scanning and filtering, selection, connection, UART, response timing, advertising profile, logging | BLE-FR-002 .. -062 |
 | SWE4-UT-BLEPROTO | `instruments/nordic_dongle/test_protocol.py` | The line protocol: replies, errors, events, empty and `=`-bearing values, non-protocol lines, hex, addresses and their types | BLE-FR-001, -002 |
-| SWE4-UT-FWUNIT | `firmware/nordic_dongle/test/*.c` | **Firmware unit tests** (Unity, CMake, CTest, 131 cases): the command dispatcher and every reply shape; the host link's line assembly, bounded queue and drop counting; the sensor table, filters and advertising reports; the UART client's link, writes and round-trip timing; the microsecond clock and its 32-bit wrap | BLE-FR-002 .. -004, -010, -020 .. -030, -040 .. -051, BLE-NFR-001, -002 |
+| SWE4-UT-FWUNIT | `firmware/nordic_dongle/test/*.c` | **Firmware unit tests** (Unity, CMake, CTest, 148 cases): the command dispatcher and every reply shape; the host link's line assembly, bounded queue and drop counting; the sensor table, filters and advertising reports; the UART client's link, writes and round-trip timing; the microsecond clock and its 32-bit wrap | BLE-FR-002 .. -004, -010, -020 .. -030, -040 .. -051, BLE-NFR-001, -002 |
 | SWE4-UT-BLEFW | `instruments/nordic_dongle/test_firmware_protocol.py` | Firmware and driver agreement: commands, argument bounds, handlers attached, events, error codes, size limits, protocol version; and firmware hygiene: traces, no dynamic allocation, indentation | BLE-FR-001, -080, -090, BLE-NFR-001, -003 |
 | SWE4-UT-BLESESSION | `instruments/nordic_dongle/test_session.py` | Command/reply with events interleaved, early-stopping collection, waiting for an event, drop notices, and session logging | BLE-FR-002, -004, -060 .. -062 |
 | SWE4-UT-BLEPROFILE | `instruments/nordic_dongle/test_profile.py` | Advertising statistics: channel coalescing, advDelay, missed events, duty cycle, completeness, exactly nominal intervals | BLE-FR-030 .. -036 |
-| SWE4-UT-BLESCRIPT | `instruments/nordic_dongle/test_script.py` | Command documents: the shapes accepted and every shape refused, exact and pattern matching, the three step kinds, a sensor that does not answer, the times and the clock behind them, the report's columns, and the shipped document run against the simulated sensor | BLE-FR-100 .. -108 |
+| SWE4-UT-BLESCRIPT | `instruments/nordic_dongle/test_script.py` | Command documents: the shapes accepted and every shape refused, exact and pattern matching, variables, connect and disconnect steps, the Timeout and Note columns, results in the order error, skip, fail, pass, `<disconnect>`, the event log, a sensor that does not answer, the times and the clock behind them, the report's columns, the template, and the shipped document run | BLE-FR-100 .. -116 |
 | SWE4-UT-BLELATENCY | `instruments/nordic_dongle/test_latency.py` | Round-trip statistics, which clock, resolution, the connection-interval floor, empty samples | BLE-FR-050 .. -054, BLE-NFR-005 |
 | SWE4-UT-BLESIM | `instruments/nordic_dongle/test_simulator.py` | Self-checks on the simulated dongle: exact intervals, skipped beacons, channel rotation, refusals, drop counters | BLE-FR-080 |
 | SWE4-UT-BLECLI | `instruments/nordic_dongle/test_cli.py` | Every dongle sub-command end to end; JSON output; the incomplete-capture and unresolvable-latency warnings; `firmware` check, mismatch exit status and `--update` | BLE-FR-012 .. -014, BLE-FR-070 |

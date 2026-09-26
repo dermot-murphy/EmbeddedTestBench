@@ -24,6 +24,7 @@
 |---|---|---|---|
 | 0.1 | 2026-09-19 | Claude | Initial |
 | 0.2 | 2026-09-23 | Claude | Design units added for the TTi 1604: DMM-DD-CONST, DMM-DD-PROTO, DMM-DD-DMM, DMM-DD-SIM, DMM-DD-CLI. |
+| 0.3 | 2026-09-25 | Claude | BLE-DD-SCRIPT narrowed to reading, with variables, connect, timeouts and `<disconnect>`; BLE-DD-SCRIPTRUN added for running, results in priority order and the event log; BLE-DD-CMD gains the connect and reply timeouts, and BLE-DD-CMDARGS is added (#46, #48). |
 
 ---
 
@@ -762,9 +763,9 @@ representation rather than by behaviour (defect D-15).
 
 #### BLE-DD-SCRIPT — `script.py`
 
-`CommandScript`, `ScriptTest`, `ScriptStep`; `ScriptRun`, `StepResult`;
-`parse_script`, `load_script`, `run_script`. The document that specifies the
-sensor's command set, read and run as the test of it (AD-23).
+`CommandScript`, `ScriptTest`, `ScriptStep`; `parse_script`, `load_script`.
+The document that specifies the sensor's command set, read as the test of it
+(AD-23). Running it is BLE-DD-SCRIPTRUN.
 
 Design points:
 
@@ -772,26 +773,50 @@ Design points:
   be read, a step number used twice in one test, a delay that is not a positive
   duration: each is refused. These documents are maintained by hand, and a row
   skipped quietly is a command nobody tested and nobody missed.
-- **Three kinds of step, and only one of them can fail.** A command with an
-  expected response passes or fails. A delay is skipped - waiting is not a claim
-  about the sensor. A command the document gives no expected response for is
-  sent, whatever arrives within a bounded window is recorded, and the step is
-  skipped: the document made no claim to check, and what the board said is worth
-  seeing anyway.
-- **A skipped step must never read as one that passed.** `ScriptRun` reports
-  passed, failed *and* skipped, and `CommandScript.checks` says how many rows
-  make a claim at all - a document of delays and fire-and-forget commands passes
-  while checking nothing, and the report has to say so.
-- **The time is the dongle's, quoted at 10 ms and kept at microseconds.**
-  `RESOLUTION_S` is what the report shows; `StepResult.elapsed_s` is what was
-  measured and `clock` is which clock measured it, because a figure without its
-  clock is not a measurement (BLE-NFR-005).
-- **`run_script` never raises for a step.** A step's outcome *is* its result:
-  an exception from one command would abandon the rest of a document, and the
-  rows after it would be unreported rather than untested.
+- **What a row is, is decided by its cells.** `delay <ms>`, `connect <sensor>`
+  and `disconnect` act on the dongle; any other command goes to the sensor. An
+  expected response of `<disconnect>` says the sensor will drop the link. The
+  Timeout and Note columns are optional, and a table naming none of the step
+  columns is prose.
+- **Variables are substituted as the rows are read**, from a `| Variable |
+  Default |` table that must come before the first step, overridden by the values
+  given for the run. An undeclared name, a value for one, or a required variable
+  left unset is refused naming the line, so a misspelt `--var` cannot leave a
+  default silently in force. The syntax is Robot Framework's, `${NAME}`.
+- **The reader is split from the runner** because together they passed the
+  1000-line limit; `_Reader` holds the state of one document being read, so each
+  kind of row has one place.
 - **Outcomes are plain strings**, not the runner's `Status`: an instrument may
   not import the runner (CORE-NFR-009), and these strings end up in a document
   a person reads.
+
+#### BLE-DD-SCRIPTRUN — `script_run.py`
+
+`run_script`, `StepResult`, `ScriptRun`, `EventLog`. Runs a document read by
+BLE-DD-SCRIPT, one step at a time.
+
+- **One result per step, the first that applies.** ERROR when the system
+  returned a failure code (a `BenchToolsError` from the dongle, including no
+  reply where one was expected); SKIP when nothing was expected; FAIL when the
+  reply differs; PASS when it matches. Silence where nothing was expected stays
+  a SKIP, so a command that never answers can still be sent. A run is ERROR,
+  else FAIL, else PASS.
+- **A skipped step must never read as one that passed.** `ScriptRun` reports
+  passed, failed, errored *and* skipped, and `CommandScript.checks` says how many
+  rows make a claim at all.
+- **The time is the dongle's, quoted at 10 ms and kept at microseconds.**
+  `RESOLUTION_S` is what the report shows; `StepResult.elapsed_s` is what was
+  measured and `clock` is which clock measured it (BLE-NFR-005). For a
+  `<disconnect>` step it is the write to the `+disc`; a reason of `0x08` means a
+  supervision timeout, so the figure includes the dongle's 4 s wait.
+- **A step never raises.** Its outcome *is* its result: an exception from one
+  command would abandon the rest of a document. The handlers catch
+  `BenchToolsError` only, so a bug still surfaces.
+- **A link the document opened is closed** in a `finally`, pass or fail.
+- **The event log is written as it happens**, one tab-separated line per event,
+  flushed per line so an interrupted run still leaves it, and kept on the
+  `ScriptRun` as well. Its time is the host's to the millisecond; the dongle's
+  measurement travels in the RX line's data.
 
 #### BLE-DD-LATENCY — `latency.py`
 
@@ -1080,6 +1105,19 @@ documented command has one - a command documented with no implementation would
 otherwise answer "unknown command" at a bench. A timeout waiting for a sensor is
 reported as an error, not as a round trip of the timeout's length, which would
 enter the log as a measurement.
+
+`connect` and, from protocol 1.3, `cmd` take an optional `timeout=<ms>`; the
+connect window defaults to 15 s and the reply wait to 2 s. Reading those
+arguments is BLE-DD-CMDARGS, kept apart so `cmd_parser.c` stays under the
+800-line limit.
+
+#### BLE-DD-CMDARGS — `firmware/src/cmd_args.c`
+
+`cmd_args_timeout` reads one `timeout=<ms>` token against the bounds its caller
+gives - `PROTOCOL_CONNECT_*` or `PROTOCOL_CMD_*` - and says separately whether
+the token was a timeout and whether its value was good, so a malformed one is
+refused rather than read as an address. `cmd_args_connect` reads `connect`'s
+address and timeout in either order.
 
 #### BLE-DD-MAIN — `firmware/src/main.c`
 
