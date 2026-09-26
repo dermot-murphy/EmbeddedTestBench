@@ -25,18 +25,22 @@ piece of wiring.
 
 ## 1. Four things this supply does that will mislead a test
 
-### 1.1 It clamps a setting it cannot deliver
+### 1.1 It rejects a setting it cannot deliver, silently
 
-Ask for 35 V and the supply accepts the command, outputs 30 V, and answers
-`VSET1?` with `30.000`. Nothing anywhere says it refused. A test that set 35 V
-and then measured would pass, against a condition it never applied.
+Ask for 35 V and the supply sends nothing back and keeps whatever it was set to
+before: `VSET1:5.000`, `VSET1:35.000`, `VSET1?` answers `5.0V`. The only trace
+is `Data out of range.` from the next `ERR?`, which the driver does not poll by
+default. A test that set 35 V and then measured would be measuring the previous
+setting. (Observed 2026-09-26 on a V1.09 supply. An earlier version of these
+notes said the supply clamps to 30 V; it does not.)
 
 The driver refuses out-of-range settings **before** they are sent:
 
 ```python
 psu.set_voltage(1, 35.0)
 # ConfigurationError: a voltage of 35 V is outside what a GPD-3303D can
-# deliver (0 to 30 V); the supply would clamp it silently
+# deliver (0 to 30 V); the supply would reject it, keep its previous
+# setting, and say so only through ERR?
 ```
 
 ### 1.2 A channel in current limit is not at the voltage it was set to

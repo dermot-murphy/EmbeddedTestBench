@@ -545,7 +545,7 @@ with Gpd3303D.connect("/dev/ttyUSB0") as psu:      # COM4 on Windows
 
 | | |
 |---|---|
-| **It clamps what it cannot deliver.** Ask for 35 V and it outputs 30 V and reports 30 V, with no error | The driver refuses an out-of-range setting *before* sending it, so a test cannot pass against a condition it never applied |
+| **It rejects what it cannot deliver, silently.** Ask for 35 V and it keeps its previous setting, sends no reply, and says so only through `ERR?` | The driver refuses an out-of-range setting *before* sending it, so a test cannot run at a setting it never asked for |
 | **A channel in current limit is not at the voltage it was set to.** A 3.3 V rail with a 500 mA limit into a 1.5 A load reads 1.0 V — a real, plausible number describing a circuit nobody asked for | `ChannelReading` carries the CV/CC mode with the numbers, and `regulated` is the single line a specification should assert on |
 | **One output switch, two channels.** There is no per-channel output command in the instrument | Per-channel control is emulated by parking a channel at 0 V, and every place a caller meets it says so. `output_off(1)` is **not** isolation and **not** an interlock; `all_outputs_off()` opens the real switch |
 | **In series or parallel tracking, channel 2 is not a channel.** The supply drives it from channel 1 and *accepts and discards* anything sent to it — no error, and `VSET2?` answering with channel 1's setting | The driver reads the mode at the moment of the write and refuses, naming it. Channel 1, the global switch and `reset()` keep working in every mode, because a safe state must never be unreachable |

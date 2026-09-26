@@ -143,29 +143,45 @@ class TestCommands:
         ask(simulator, "OUT1")
         assert status_bits(simulator)[6] == "1"
 
-    def test_the_supply_clamps_rather_than_refusing(self):
-        """Which is exactly what the driver's range check protects against."""
+    def test_an_out_of_range_setting_is_rejected_and_the_setpoint_kept(self):
+        """As a real supply does: no reply, no change, and only ERR? says so.
+        Which is exactly what the driver's range check protects against."""
         simulator = SimulatedGpd()
-        ask(simulator, "VSET1:35.000")
+        ask(simulator, "VSET1:5.000")
+        assert ask(simulator, "VSET1:35.000") is None
+        assert ask(simulator, "VSET1?") == "5.0V"
+        assert ask(simulator, "ERR?") == "Data out of range."
+
+    def test_the_top_of_the_range_is_accepted(self):
+        simulator = SimulatedGpd()
+        ask(simulator, "VSET1:30.000")
         assert ask(simulator, "VSET1?") == "30.0V"
-        assert "Range" in simulator.last_error
+        assert simulator.last_error == ""
+
+    def test_a_negative_setting_is_an_invalid_character(self):
+        simulator = SimulatedGpd()
+        ask(simulator, "VSET1:5.000")
+        ask(simulator, "VSET1:-1")
+        assert ask(simulator, "VSET1?") == "5.0V"
+        assert simulator.last_error == "Invalid Character."
 
     def test_an_unknown_command_is_met_with_silence(self):
         """As the hardware does: a misspelled command reads as a timeout."""
         simulator = SimulatedGpd()
         assert ask(simulator, "VOLTAGE 3.3") is None
-        assert "VOLTAGE" in simulator.last_error
+        assert simulator.last_error == "Undefined Header."
 
     def test_a_channel_that_does_not_exist_is_refused(self):
         simulator = SimulatedGpd()
         assert ask(simulator, "VSET3:1.000") is None
+        assert simulator.last_error == "Invalid Character."
         assert ask(simulator, "VOUT9?") is None
-        assert "channel" in simulator.last_error
+        assert simulator.last_error == "Undefined Header."
 
     def test_err_reports_then_clears(self):
         simulator = SimulatedGpd()
         ask(simulator, "NONSENSE")
-        assert "NONSENSE" in ask(simulator, "ERR?")
+        assert ask(simulator, "ERR?") == "Undefined Header."
         assert ask(simulator, "ERR?") == "No Error."
 
     def test_an_empty_line_is_ignored(self):

@@ -94,7 +94,7 @@ All ASPICE work products live in [`aspice/`](aspice/). Every one is at version
 | [J-Link Integration Notes](jlink/JLink_Integration_Notes.md) | Why the GDB Server rather than the DLL, running it on Windows and in Docker, choosing a timing method, and the probe's bench confirmation items |
 | [BLE Dongle Notes](ble/BLE_Dongle_Notes.md) | Why the dongle needs firmware of its own, the line protocol, building and flashing it, how to read an advertising profile and a response time, and the firmware's bench confirmation items |
 | [S2-LP Devkit Notes](s2lp/S2LP_Devkit_Notes.md) | The ST S2-LP kit: why the vendor's firmware is used unchanged and what that decision costs, its CLI protocol and the two reply traps in it, the register map and what may be kept of it, and the kit's bench confirmation items |
-| [GPD-3303D Notes](psu/GPD3303D_Notes.md) | The GW Instek bench supply: why it clamps, why constant current matters to every other measurement on the bench, why per-channel output is emulated and what that does not promise, why a channel it is slaving to another is refused rather than reported, and its bench confirmation items |
+| [GPD-3303D Notes](psu/GPD3303D_Notes.md) | The GW Instek bench supply: why it rejects an out-of-range setting silently, why constant current matters to every other measurement on the bench, why per-channel output is emulated and what that does not promise, why a channel it is slaving to another is refused rather than reported, and its bench confirmation items |
 
 ## Adding an instrument
 

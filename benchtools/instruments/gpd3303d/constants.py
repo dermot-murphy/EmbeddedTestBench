@@ -2,8 +2,9 @@
 
 The numbers here are the supply's published limits, not the driver's policy.
 They exist so that an out-of-range setting is refused *before* it is sent:
-the supply clamps silently, and a test that asked for 35 V, got 30 V and was
-never told would report a pass against a condition it never applied.
+the supply rejects it, keeps whatever it was set to before, and says so only
+through ``ERR?``. A test that asked for 35 V would run at the previous setting
+and never be told.
 
 Traces to: PSU-FR-001 .. PSU-FR-032, PSU-DD-CONST.
 """

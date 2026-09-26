@@ -499,7 +499,8 @@ of wiring.
 
 The requirements below are shaped by four properties of this particular
 instrument, each of which is a way a test can record a number that is not true:
-it **clamps** a setting it cannot deliver instead of refusing it, it leaves
+it **rejects** a setting it cannot deliver without replying, keeping the
+previous one and reporting it only through `ERR?`, it leaves
 **constant-current** operation visible only in a status word, it has **one
 output switch for two channels**, and in **series or parallel tracking** it
 accepts and discards anything sent to channel 2.
@@ -509,8 +510,8 @@ accepts and discards anything sent to channel 2.
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
 | PSU-FR-001 | The driver shall set and read back each channel's output voltage and current limit, in volts and amps. | STK-13 | Test |
-| PSU-FR-002 | A setting outside what the supply can deliver shall be refused before it is sent. The supply clamps silently, so a test that asked for 35 V would otherwise record a pass for a condition it never applied. | STK-13 | Test |
-| PSU-FR-003 | A setpoint shall be rounded to the supply's programming resolution before it is sent, so that a value read back compares equal to the value written. | STK-13 | Test |
+| PSU-FR-002 | A setting outside what the supply can deliver shall be refused before it is sent. The supply rejects it without replying and keeps its previous setting, reporting the rejection only through `ERR?`, so a test that asked for 35 V would otherwise run at a setting it never asked for. | STK-13 | Test |
+| PSU-FR-003 | A setpoint shall be rounded to the supply's programming resolution before it is sent, so that the value the driver returns is the value the supply applies. A value read back agrees with it to the supply's read-back resolution (0.1 V, 0.01 A on firmware V1.09), not exactly. | STK-13 | Test |
 | PSU-FR-004 | A channel number the supply does not have shall be refused, naming the channels it does have. | STK-13 | Test |
 | PSU-FR-005 | Setting a channel's voltage and current limit together shall set the limit first, so that a channel is never briefly protected by a previous setting. | STK-13 | Test |
 | PSU-FR-006 | A setpoint or per-channel output change addressed to a channel the supply is slaving to another shall be refused, naming the tracking mode and what to do instead. In series and parallel tracking the supply accepts such a command and discards it, reporting nothing; the driver shall not be the component that turns that silence into a setpoint a test believes in. A tracking mode the status word does not decode shall be warned about and allowed, so that one unconfirmed status bit cannot disable setting altogether. The supply's own output switch and the safe state shall remain operable in every mode. | STK-13, STK-17 | Test |

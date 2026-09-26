@@ -66,10 +66,10 @@ class TestSubcommands:
         assert payload["is_on"] is True
         assert payload["voltage"] == pytest.approx(3.3)
 
-    def test_a_value_the_supply_would_clamp_is_refused(self, capsys):
+    def test_a_value_the_supply_would_reject_is_refused(self, capsys):
         status, _, stderr = run(capsys, *SIM, "set", "1", "-V", "35")
         assert status == 1
-        assert "clamp" in stderr
+        assert "reject" in stderr
 
     def test_off_for_one_channel_says_what_it_did_not_do(self, capsys):
         """A single channel is parked at 0 V, not disconnected, and anyone
