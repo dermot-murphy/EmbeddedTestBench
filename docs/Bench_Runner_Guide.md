@@ -359,6 +359,12 @@ to copy.
   run's default (`--timeout-s`, 3 s). Some commands take longer than others;
   waits over 2 s need dongle firmware 1.3 (`cmd <hex> timeout=<ms>`).
 - A **Note** column is carried into the report beside the result.
+- A **Save** column names a variable to keep the step's reply in; later steps
+  use it as `${NAME}`, so a value read before an action can be compared with the
+  one after it. A pattern's first named group - `(?P<value>...)` - saves just
+  that part. Only a reply that passed its check, or had nothing expected of it,
+  is saved; a step using a value that was never saved is an error. Inside a
+  pattern the saved value is matched literally.
 - Tables that name none of the step columns - a legend, a conversion table -
   are prose and are left alone.
 
