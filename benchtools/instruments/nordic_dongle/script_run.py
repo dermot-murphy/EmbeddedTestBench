@@ -315,11 +315,17 @@ def run_script(  # pylint: disable=too-many-arguments,too-many-positional-argume
     run = ScriptRun(source=script.source, sensor=_sensor_name(dongle),
                     variables=dict(script.variables))
     opened = False
+    link = _LinkWatch(dongle, log)
     try:
         for test in script.tests:
             _note(dongle, "script: %s" % test.name)
             for step in test.steps:
+                if link.blocks(step):
+                    run.results.append(_result(step, ERROR, link.lost, command=step.command,
+                                               expected=step.expected))
+                    continue
                 if step.action == CONNECT:
+                    link.restored()
                     result = _run_connect(dongle, step, scan_s, connect_attempts, log)
                     opened = opened or result.result != ERROR
                     run.sensor = _sensor_name(dongle) or run.sensor
@@ -343,6 +349,51 @@ def _result(step: ScriptStep, result: str, reason: str = "", **fields) -> StepRe
     """A step's result, carrying the document's own note."""
     return StepResult(test=step.test, number=step.number, result=result,
                       reason=reason, note=step.note, **fields)
+
+
+class _LinkWatch:
+    """Whether the link has dropped unasked, checked before each step."""
+
+    def __init__(self, dongle, log: EventLog) -> None:
+        self._dongle = dongle
+        self._log = log
+        self._previous: Optional[ScriptStep] = None
+        self._lost = ""                 # why the link is gone, until a connect restores it
+
+    def before(self, step: ScriptStep) -> str:
+        """Check for a drop since the last step; why the link is gone, or empty."""
+        self._lost = _link_lost(self._dongle, self._previous, self._log) or self._lost
+        self._previous = step
+        return self._lost
+
+    def blocks(self, step: ScriptStep) -> bool:
+        """Whether *step* talks to the sensor over a link that has been lost."""
+        lost = self.before(step)
+        return bool(lost) and step.action not in (CONNECT, DISCONNECT) and not step.is_delay
+
+    @property
+    def lost(self) -> str:
+        """Why the link is gone, or empty while it is up."""
+        return self._lost
+
+    def restored(self) -> None:
+        """A connect is being made: the loss no longer applies."""
+        self._lost = ""
+
+
+def _link_lost(dongle, previous: Optional[ScriptStep], log: EventLog) -> str:
+    """Why the link dropped since the last step, logged once; empty if it did not."""
+    check = getattr(dongle, "check_link", None)
+    event = check() if callable(check) else None
+    if event is None:
+        return ""
+    where = "%s/%s" % (previous.test, previous.number) if previous else "the start"
+    reason = event.get("reason") or "?"
+    text = "link lost during or after %s (reason %s%s, dongle time %.6f s)" % (
+        where, reason, ", supervision timeout: the sensor went silent" if reason == "0x08" else "",
+        event.integer("t", 0) / 1.0e6)
+    log.event("DISCONNECT", previous, text, ERROR)
+    return "not sent: " + text
 
 
 def _first_sentence(exc: Exception) -> str:

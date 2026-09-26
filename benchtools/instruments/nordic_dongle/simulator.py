@@ -67,6 +67,9 @@ class SimulatedSensor:
     #: Commands after which the sensor drops the link, and how long after, in
     #: microseconds - a reset, say.
     disconnect_on: Dict[str, int] = field(default_factory=dict)
+    #: Commands after which the sensor crashes: it answers, then goes silent
+    #: and the link is lost this many microseconds later (reason 0x08).
+    crash_on: Dict[str, int] = field(default_factory=dict)
 
     def advertising_payload(self) -> bytes:
         """The advertising data, with the local name appended when there is one."""
@@ -581,6 +584,11 @@ class SimulatedDongle:
         self._queue.append(
             "+rx t=%d len=%d data=%s" % (received_us, len(encoded), encoded.hex())
         )
+        if request in sensor.crash_on:
+            self._connected = None
+            self._queue.append(
+                "+disc t=%d reason=0x08" % (received_us + sensor.crash_on[request])
+            )
         return [
             "ok t_tx=%d t_rx=%d dt_us=%d interval_us=30000 len=%d data=%s"
             % (

@@ -288,6 +288,26 @@ class DongleSession:
         return count
 
     # ------------------------------------------------------------------
+    def poll(self, limit: int = 100) -> None:
+        """Read what the dongle has sent without being asked, queueing its events.
+
+        Sends nothing. An unsolicited ``+disc``, say, is otherwise only read
+        when the next command waits for its reply. Each read waits at most
+        10 ms, so polling a quiet link costs that; *limit* bounds the lines read,
+        so a dongle streaming events cannot hold the caller here.
+        """
+        for _ in range(limit):
+            try:
+                parsed = self._read_line(0.01)
+            except TransportError:
+                return
+            if parsed is None:
+                try:
+                    if not self._transport.has_buffered_data:
+                        return
+                except TransportError:              # pragma: no cover - defensive
+                    return
+
     def _drain(self) -> None:
         """Take whatever has already arrived, so it is not read as a reply."""
         while True:

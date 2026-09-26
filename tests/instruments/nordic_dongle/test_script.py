@@ -865,3 +865,60 @@ class TestEscapedPipes:
         assert run.results[0].result == PASS
         row = [line for line in run.markdown().splitlines() if line.startswith("| A test |")][0]
         assert "/^1\\.4\\.2$\\|^x$/" in row
+
+
+class TestALinkThatDrops:
+    """A sensor that crashes mid-run is one event, not one error per step (#51)."""
+
+    DOCUMENT = document(
+        "| 1 | connect SENS-0A1B2C | |\n"
+        "| 2 | rd eol start | |\n"
+        "| 3 | delay 10 | |\n"
+        "| 4 | rd version | 1.4.2 |\n"
+        "| 5 | temp | 23.5 |\n"
+        "| 6 | connect SENS-0A1B2C | |\n"
+        "| 7 | rd version | 1.4.2 |\n")
+
+    @staticmethod
+    def crashing():
+        simulator = SimulatedDongle()
+        simulator.sensors[0].responses["rd eol start"] = "ACK RD EOL = RF Testing Started"
+        simulator.sensors[0].crash_on = {"rd eol start": 34_000_000}
+        instrument = NordicDongle(MockTransport(responder=simulator))
+        instrument.initialise()
+        return instrument
+
+    def test_the_drop_is_logged_once_where_it_happened(self):
+        instrument = self.crashing()
+        try:
+            run = run_script(instrument, parse_script(self.DOCUMENT), sleep=no_wait, scan_s=0.2)
+        finally:
+            instrument.close()
+        drops = [line.split("\t") for line in run.events if "\tDISCONNECT\t" in line]
+        assert len(drops) == 1
+        # The simulator's clock does not move during a delay, so the crash is
+        # found straight after the command that caused it.
+        assert drops[0][2] == "A test/2" and drops[0][4] == "ERROR"
+        assert "reason 0x08" in drops[0][3] and "supervision timeout" in drops[0][3]
+        assert "dongle time" in drops[0][3]
+
+    def test_the_steps_after_it_are_not_sent_and_say_why(self):
+        instrument = self.crashing()
+        try:
+            run = run_script(instrument, parse_script(self.DOCUMENT), sleep=no_wait, scan_s=0.2)
+        finally:
+            instrument.close()
+        results = [item.result for item in run.results]
+        assert results == [SKIP, SKIP, SKIP, ERROR, ERROR, SKIP, PASS]
+        assert run.results[3].reason.startswith("not sent: link lost during or after A test/2")
+        tx = [line.split("\t")[2] for line in run.events if "\tTX\t" in line]
+        assert "A test/4" not in tx and "A test/5" not in tx
+
+    def test_a_connect_recovers_and_the_run_goes_on(self):
+        instrument = self.crashing()
+        try:
+            run = run_script(instrument, parse_script(self.DOCUMENT), sleep=no_wait, scan_s=0.2)
+        finally:
+            instrument.close()
+        assert run.results[-1].result == PASS
+        assert run.result == ERROR and run.errors == 2
