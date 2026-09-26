@@ -126,6 +126,18 @@ the step's response time. Connect again to carry on.
 | 2    | connect ${SENSOR_ID} |                   | 30000         | It must advertise again after the reset |
 | 3    | rd version           | /^ACK rd version/ |               | And answer |
 
+## A value that must not change
+
+A **Save** column keeps a step's reply for later steps to use as `${NAME}`: read
+a value, do something that should leave it alone, read it again. A pattern's
+named group saves just that part of the reply.
+
+| Step | Command    | Expected response                          | Save    | Note |
+|------|------------|--------------------------------------------|---------|------|
+| 1    | rd version | /^ACK rd version = (?P<value>V[0-9.]+)$/   | BUILD   | Saves the version alone |
+| 2    | rd id      | /^ACK rd id = 0x/                          |         | Something in between |
+| 3    | rd version | ACK rd version = ${BUILD}                  |         | Must be unchanged |
+
 ## Disconnect
 
 | Step | Command    | Expected response | Timeout (ms) | Note |
@@ -145,6 +157,7 @@ variables written as they are here:
 | `rd version` \| (empty) | `Send Command    rd version` |
 | `wr mode normal` \| `<disconnect>` | `Send Command And Expect Disconnect    wr mode normal` |
 | a Timeout cell of 30000 | `...    timeout=30 s` on the same keyword |
+| a Save cell of `BUILD` | `${BUILD}=    Send Command    rd version` |
 | `delay 250` | `Sleep    250 ms` |
 | `disconnect` | `Disconnect` |
 
