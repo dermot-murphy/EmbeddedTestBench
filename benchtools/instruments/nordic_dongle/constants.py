@@ -42,7 +42,7 @@ __all__ = [
 #: commands the other does not - reported, and survivable, because the missing
 #: ones fail individually with "unknown command". A differing *major* version
 #: means a command means something different, which is not survivable.
-PROTOCOL_VERSION = "1.3"
+PROTOCOL_VERSION = "1.4"
 
 #: Commands the firmware accepts, with the argument bounds it enforces.
 COMMANDS: Dict[str, Tuple[int, int]] = {
@@ -183,7 +183,7 @@ class ScanFilter:
 
 
 @dataclass
-class DongleLimits:
+class DongleLimits:  # pylint: disable=too-many-instance-attributes
     """The firmware's capability envelope, as data rather than in code.
 
     These mirror the ``PROTO_MAX_*`` figures in ``protocol.h``. Held here so the
@@ -193,9 +193,10 @@ class DongleLimits:
 
     model: str = "PCA10059"
     max_sensors: int = 16
-    max_payload_bytes: int = 96
+    max_payload_bytes: int = 244
     max_name_length: int = 24
-    max_line_bytes: int = 256
+    max_line_bytes: int = 512
+    max_event_bytes: int = 640
     #: One microsecond, the resolution of the dongle's timestamp clock.
     timestamp_resolution_s: float = 1.0e-6
     #: What the host clock resolves, for the cross-check figures. USB polling

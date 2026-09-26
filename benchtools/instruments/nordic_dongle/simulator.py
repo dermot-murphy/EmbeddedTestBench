@@ -141,9 +141,9 @@ class SimulatedDongle:
 
     #: The build the simulated dongle is running. A test that exercises the
     #: update path changes these, as flashing a real dongle would.
-    DEFAULT_FIRMWARE_VERSION = "1.3.0"
+    DEFAULT_FIRMWARE_VERSION = "1.4.0"
     DEFAULT_FIRMWARE_BUILT = "2026-09-13T12:00:00Z"
-    DEFAULT_PROTOCOL = "1.3"
+    DEFAULT_PROTOCOL = "1.4"
 
     def __init__(
         self,
