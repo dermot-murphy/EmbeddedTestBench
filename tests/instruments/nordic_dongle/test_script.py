@@ -895,3 +895,44 @@ class TestSavingAReply:
             parse_script(saving("| 1 | delay 10 | | V |\n"))
         with pytest.raises(ConfigurationError, match="only a command's reply"):
             parse_script(saving("| 1 | wr reset | <disconnect> | V |\n"))
+
+class TestEscapedPipes:
+    """``\\|`` is a pipe inside a cell, as the row-width error has always said (#50)."""
+
+    def test_a_pattern_can_use_alternation(self):
+        script = parse_script(document(
+            "| 1 | rd fast | /^ACK = (ENABLED\\|DISABLED)$/ |\n"))
+        step = script.steps[0]
+        assert step.expected == "/^ACK = (ENABLED|DISABLED)$/"
+        assert step.matches("ACK = ENABLED") and step.matches("ACK = DISABLED")
+        assert not step.matches("ACK = ABLED")
+
+    def test_a_command_can_contain_a_pipe(self):
+        script = parse_script(document("| 1 | wr sep a\\|b | ok |\n"))
+        assert script.steps[0].command == "wr sep a|b"
+
+    def test_a_backslash_before_anything_else_is_kept(self):
+        script = parse_script(document("| 1 | rd v | /^V[0-9]+\\.[0-9]+\\b/ |\n"))
+        assert script.steps[0].expected == "/^V[0-9]+\\.[0-9]+\\b/"
+
+    def test_an_escaped_pipe_at_the_end_of_a_row_is_not_its_closing_pipe(self):
+        script = parse_script(
+            "## A test\n\n| Step | Command | Expected response |\n|---|---|---|\n"
+            "| 1 | rd v | /a\\|b\\|/\n")
+        assert script.steps[0].expected == "/a|b|/"
+
+    def test_an_unescaped_pipe_still_splits_and_is_still_refused(self):
+        with pytest.raises(ConfigurationError, match="needs escaping"):
+            parse_script(document("| 1 | rd v | /a|b/ |\n"))
+
+    def test_the_report_escapes_what_the_reader_unescapes(self):
+        """A reply with a pipe in it survives into the report's table intact."""
+        instrument, _ = linked()
+        try:
+            run = run_script(instrument, parse_script(document(
+                "| 1 | rd version | /^1\\.4\\.2$\\|^x$/ |\n")), sleep=no_wait)
+        finally:
+            instrument.close()
+        assert run.results[0].result == PASS
+        row = [line for line in run.markdown().splitlines() if line.startswith("| A test |")][0]
+        assert "/^1\\.4\\.2$\\|^x$/" in row
