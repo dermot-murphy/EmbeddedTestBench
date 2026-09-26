@@ -32,6 +32,7 @@ from .script import (
 __all__ = [
     "CONNECT_ATTEMPTS",
     "CONNECT_SCAN_S",
+    "FRAME_WINDOW_S",
     "EventLog",
     "ScriptRun",
     "StepResult",
@@ -229,6 +230,10 @@ def _cell(text: str) -> str:
 #: Seconds a ``connect`` step scans before choosing: long enough to hear a
 #: sensor that advertises every 9 s at least once.
 CONNECT_SCAN_S = 10.0
+
+#: Seconds a step with a Frames cell goes on listening after the reply, to
+#: catch a second notification.
+FRAME_WINDOW_S = 0.5
 
 #: Connection attempts a ``connect`` step makes. A sensor that advertises rarely
 #: can fall outside a connect window; each failure is in the session log.
@@ -458,12 +463,14 @@ def _run_step(dongle, step: ScriptStep, waits, sleep, log: EventLog) -> StepResu
                        command="delay %g ms" % (step.delay_s * 1000.0),
                        elapsed_s=step.delay_s, clock="requested")
 
-    wanted = step.timeout_s or (waits[0] if step.expects_response else waits[1])
+    expects = step.expects_response or step.frames is not None
+    wanted = step.timeout_s or (waits[0] if expects else waits[1])
     log.event("TX", step, "%s (timeout %g ms)" % (step.command, wanted * 1000.0))
     try:
-        sample = dongle.command(step.command, timeout=wanted)
+        sample = dongle.command(step.command, timeout=wanted,
+                                **({"frame_window": FRAME_WINDOW_S} if step.frames else {}))
     except BenchToolsError as exc:            # reported, not raised
-        if not step.expects_response and _is_no_reply(exc):
+        if not expects and _is_no_reply(exc):
             log.event("RX", step, "(no reply within %.2f s)" % wanted, SKIP)
             return _result(step, SKIP,
                            "no reply within %.2f s, and the document expected none" % wanted,
@@ -476,6 +483,8 @@ def _run_step(dongle, step: ScriptStep, waits, sleep, log: EventLog) -> StepResu
     elapsed, clock = _elapsed(sample)
     response = sample.text.strip()
     rx = "%s (%.3f ms, %s clock)" % (response, elapsed * 1000.0, clock)
+    if step.frames is not None:
+        return _frames_result(step, sample, response, (elapsed, clock, rx), log)
     if not step.expects_response:
         log.event("RX", step, rx, SKIP)
         return _result(step, SKIP, "the document gives no expected response",
@@ -486,6 +495,28 @@ def _run_step(dongle, step: ScriptStep, waits, sleep, log: EventLog) -> StepResu
     log.event("RX", step, rx, PASS if matched else FAIL)
     return _result(step, PASS if matched else FAIL,
                    "" if matched else "the reply does not match the expected response",
+                   command=step.command, response=response, expected=step.expected,
+                   elapsed_s=elapsed, clock=clock)
+
+
+def _frames_result(step: ScriptStep, sample, response: str, timing,
+                   log: EventLog) -> StepResult:
+    """A step with a Frames cell: the count must match, and the reply too if one is expected."""
+    elapsed, clock, rx = timing
+    extra = [frame.decode("utf-8", "replace").strip() for frame in sample.extra_frames]
+    counted = sample.frames == step.frames
+    matched = step.matches(response) if step.expects_response else True
+    result = PASS if counted and matched else FAIL
+    log.event("RX", step, rx, result)
+    for index, frame in enumerate(extra, start=2):
+        log.event("RX", step, "frame %d: %s" % (index, frame), result)
+    reasons = []
+    if not counted:
+        reasons.append("%d reply frame(s), expected %d%s" % (
+            sample.frames, step.frames, (": then " + " / ".join(extra)) if extra else ""))
+    if not matched:
+        reasons.append("the reply does not match the expected response")
+    return _result(step, result, "; ".join(reasons) or "%d reply frame(s)" % sample.frames,
                    command=step.command, response=response, expected=step.expected,
                    elapsed_s=elapsed, clock=clock)
 

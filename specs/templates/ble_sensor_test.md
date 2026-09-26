@@ -45,6 +45,10 @@ closes it when the document ends.
 An empty Timeout cell uses the run's default. Some commands take longer than
 others; give those a timeout of their own.
 
+Add a **Frames** column to require a number of reply frames - usually `1` - for
+a command that must answer exactly once. A sensor that answers twice leaves
+every later command a reply behind; the extra frames are named in the result.
+
 **Every step gets one result**, the first of these that applies:
 
 | Result | When |
@@ -145,6 +149,7 @@ variables written as they are here:
 | `rd version` \| (empty) | `Send Command    rd version` |
 | `wr mode normal` \| `<disconnect>` | `Send Command And Expect Disconnect    wr mode normal` |
 | a Timeout cell of 30000 | `...    timeout=30 s` on the same keyword |
+| a Frames cell of 1 | `Reply Frames Should Be    1` after the command |
 | `delay 250` | `Sleep    250 ms` |
 | `disconnect` | `Disconnect` |
 
