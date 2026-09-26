@@ -407,6 +407,13 @@ A `<disconnect>` whose reason is `0x08` was a supervision timeout: the sensor
 went silent, and the measured time includes the dongle's 4 s wait to decide
 the link had gone.
 
+A link that drops without being asked - a sensor that crashes or resets -
+is found before the next step, even when it happened during a delay. It is
+logged once as a `DISCONNECT` event, with the reason and the dongle's time,
+against the step during or after which it happened. Every step after it, up to
+the next `connect`, is **ERROR** with that reason and is not sent; a `connect`
+recovers and the run goes on.
+
 The template's *Build identity* test reads the sensor's `rd id`, `rd sha`
 (the firmware's git commit), `rd compiler` and `rd pcb`, and checks the ID
 against `${SENSOR_ID}`. A pattern starting `(?i)` ignores case.

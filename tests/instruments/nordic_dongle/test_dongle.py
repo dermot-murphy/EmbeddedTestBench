@@ -562,6 +562,25 @@ class TestExpectingADisconnect:
         assert linked.is_linked is True
 
 
+class TestTheLinkDropping:
+    """A link lost without being asked is noticed, and the driver says so (#51)."""
+
+    def test_nothing_is_reported_while_the_link_is_up(self, linked):
+        assert linked.check_link() is None
+        assert linked.is_linked is True
+
+    def test_a_crash_is_reported_with_its_reason_and_the_link_marked_down(self, simulator, linked):
+        simulator.sensors[0].crash_on = {"rd version": 5_000_000}
+        linked.command("rd version")
+        event = linked.check_link()
+        assert event is not None and event.get("reason") == "0x08"
+        assert linked.is_linked is False
+        assert linked.check_link() is None      # reported once
+
+    def test_nothing_to_report_with_no_link(self, scanned):
+        assert scanned.check_link() is None
+
+
 class TestReplyFrames:
     """Notifications after the reply, counted when asked (#53)."""
 

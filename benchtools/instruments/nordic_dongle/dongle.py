@@ -910,6 +910,26 @@ class NordicDongle(Instrument):
         if not reply.ok and reply.error is not None and reply.error.name != "NOT_CONNECTED":
             raise DongleCommandError("disconnect", reply.error, reply.text)
 
+    def check_link(self):
+        """Whether the link has dropped without being asked to, and how.
+
+        Reads what the dongle has already reported and sends nothing. A drop
+        found here marks the link down, so :attr:`is_linked` is true only while
+        it is.
+
+        :returns: The ``+disc`` event, with the dongle's time and the reason,
+            or None while the link is up or when none was open.
+        """
+        if not self._connected:
+            return None
+        self._session.poll()
+        dropped = self._session.take_events("disc")
+        if not dropped:
+            return None
+        self._connected = False
+        self._connection_interval_us = 0
+        return dropped[-1]
+
     def _disconnect(self):
         """Send ``disconnect`` and, if accepted, consume the ``+disc`` it causes.
 
