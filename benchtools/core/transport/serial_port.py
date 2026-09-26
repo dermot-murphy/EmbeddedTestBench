@@ -224,7 +224,12 @@ class SerialTransport(Transport):
         if self._serial is None:
             raise TransportError("%s is not open" % self.description)
         try:
-            self._serial.timeout = self._timeout
+            # Only when it has changed. pyserial reconfigures the port on every
+            # assignment, and on Windows that loses bytes: a GPD-3303D on an
+            # FTDI adapter dropped about one reply in five until this was
+            # guarded.
+            if self._serial.timeout != self._timeout:
+                self._serial.timeout = self._timeout
             first = self._serial.read(1)
             if not first:
                 raise TransportTimeoutError(

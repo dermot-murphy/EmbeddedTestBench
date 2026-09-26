@@ -106,8 +106,8 @@ psu.set_voltage(2, 3.3)
 
 The mode is read from the supply at each setting rather than cached, because it
 is a switch on the front panel: it can move between one command and the next.
-A mode the status word does not decode is **warned about and allowed** - the bit
-order is itself a confirmation item (PSU-OPEN-01, PSU-OPEN-06), and one
+A mode the status word does not decode is **warned about and allowed**: series
+and parallel have not yet been seen on a real supply (PSU-OPEN-06), and one
 unconfirmed bit should not leave the driver unable to set anything.
 
 ---
@@ -119,32 +119,51 @@ Not SCPI. The supply answers `*IDN?` and nothing else from IEEE 488.2 - no
 
 | Command | Meaning |
 |---|---|
-| `*IDN?` | `GW INSTEK,GPD-3303D,SN:EW000000,V2.00` |
-| `VSET<n>:<volts>` / `VSET<n>?` | set and read a channel's voltage setpoint |
-| `ISET<n>:<amps>` / `ISET<n>?` | set and read a channel's current limit |
-| `VOUT<n>?` / `IOUT<n>?` | measure output voltage and current; the reply may carry its unit (`3.300V`) |
+| `*IDN?` | `GW INSTEK,GPD-3303D,SN:GER916893,V1.09` |
+| `VSET<n>:<volts>` / `VSET<n>?` | set and read a channel's voltage setpoint. Set to 1 mV, read back to 0.1 V (`3.6V`) |
+| `ISET<n>:<amps>` / `ISET<n>?` | set and read a channel's current limit. Read back to 0.01 A (`0.80A`) |
+| `VOUT<n>?` / `IOUT<n>?` | measure output voltage and current, to 0.1 V and 0.01 A, with the unit (`3.5V`, `0.00A`) |
 | `OUT1` / `OUT0` | close and open the one output switch |
-| `STATUS?` | eight characters, `0` or `1` — see below |
-| `ERR?` | the last complaint, cleared by reading it |
+| `STATUS?` | eight fields and two lines of legend — see below |
+| `ERR?` | the last complaint, cleared by reading it: `No Error.`, `Invalid Character.`, `Undefined Header.` |
 | `TRACK<n>` | `0` independent, `1` series, `2` parallel. Read through `STATUS?`, never sent: which rails are tied together is a wiring decision, and a driver that changed it remotely could energise a board at twice the voltage the operator set up |
 | `BEEP0` / `BEEP1`, `SAV<n>` / `RCL<n>`, `BAUD<n>` | not used by this driver |
 
-Commands are terminated with a line feed; replies come back CR LF.
+Commands are terminated with a line feed. Replies end in a **carriage return
+alone** - no line feed - so the driver reads to `\r` (`Transport.read_terminator`).
+A reader waiting for a line feed sees nothing at all.
+
+The read-back resolution is coarser than the programming resolution. A channel
+set to 3.250 V reads back `3.3V`; an unloaded channel set to 3.600 V measures
+`3.5V`. `ChannelReading.regulated` allows one and a half read-back steps for
+this, and a specification comparing a reading with a setpoint should too.
 
 ### 2.1 The status word
 
+Firmware V1.09 answers with eight space-separated fields, then two more lines
+that describe them:
+
+```text
+0 0 0 1 0 X 0 X
+bit0:(CH1)0=CC,1=CV;bit1:(CH2)0=CC,1=CV;bit23=(TRACK)01=INDEP,11=SER,10=PAR;
+bit4:(BEEP)0=OFF,1=ON;bit6:(OUT)0=OFF,1=ON;
+```
+
 | Bit | Meaning |
 |---|---|
-| 0 | channel 1: `1` = CV, `0` = CC |
-| 1 | channel 2: `1` = CV, `0` = CC |
-| 2, 3 | tracking: `01` independent, `11` series, `10` parallel |
+| 0 | channel 1: `1` = CV, `0` = CC. Reported as CC while the output is off |
+| 1 | channel 2: the same |
+| 2, 3 | tracking, bit 2 written first: `01` independent, `11` series, `10` parallel |
 | 4 | beeper |
-| 5 | output switch |
-| 6, 7 | line rate: `00` 115200, `01` 57600, `10` 9600 |
+| 5 | `X` |
+| 6 | output switch |
+| 7 | `X` |
 
-`SupplyStatus` decodes all of it and keeps the raw reply, because the **order**
-of those characters is the one thing that cannot be settled without the
-instrument (PSU-OPEN-01).
+The supply does not report its line rate. The driver reads the two legend
+lines rather than leaving them in the port, where they would be taken as the
+replies to the next two queries. It also accepts the eight bits with no spaces
+and no legend, as the programming manual prints them. `SupplyStatus.raw` keeps
+the first line as the supply sent it.
 
 ---
 
@@ -211,7 +230,7 @@ session: every other measurement is taken on a board this supply is powering.
 | | |
 |---|---|
 | Default rate | 9600 baud, 8N1, no flow control |
-| Other rates | 57600 and 115200, selected on the supply's front panel (Utility > Baud) and reported by `STATUS?` |
+| Other rates | 57600 and 115200, selected on the supply's front panel (Utility > Baud). Not reported by `STATUS?` |
 | Resource forms | `/dev/ttyUSB0`, `COM4`, `serial://COM4:57600`, `socket://terminal-server:4002`, `sim://` |
 
 **Pacing.** The supply has a small input buffer and no flow control. Commands
@@ -224,21 +243,28 @@ If `STATUS?` comes back the wrong length, the line rate is almost certainly
 wrong; the driver says so rather than decoding four characters into a confident
 wrong answer.
 
+**Replies dropped on Windows.** Until 2026-09-26 the serial transport assigned
+pyserial's `timeout` before every read. pyserial reconfigures the port on each
+assignment, and on Windows, through an FTDI adapter, that lost about one reply
+in five from this supply. The transport now assigns it only when it changes.
+
 ---
 
 ## 5. Bench confirmation items
 
 Everything below needs the instrument. None of it blocks using the driver; each
-is a specific, short check.
+is a specific, short check. Items 01 and 02 were discharged on 2026-09-26
+against a GPD-3303D, serial GER916893, firmware V1.09, on COM11 through an FTDI
+adapter at 9600 baud, with nothing connected to the outputs.
 
 | ID | Item | How to discharge it |
 |---|---|---|
-| PSU-OPEN-01 | The **bit order** of `STATUS?`. The decode follows the programming manual, first character as bit 0 | Connect, `python -m benchtools psu -r <port> status`, note `raw`; switch the output on and repeat. The character that changes is bit 5. If it is the third from the end rather than the third from the start, the reply is bit 7 first and `Gpd3303D.status` needs its string reversed |
-| PSU-OPEN-02 | The wording and behaviour of `ERR?` | Send a deliberately bad command (`VSET3:1.000`), then `ERR?` twice. Confirm the text, and that the second read is clean. The driver carries the text verbatim either way |
+| PSU-OPEN-01 | The **bit order** of `STATUS?` | **Closed 2026-09-26.** First field is bit 0: `BEEP1` changes the fifth field, `OUT1` the seventh (`0 0 0 1 0 X 0 X` to `1 1 0 1 0 X 1 X`). The output is bit 6, not bit 5 as first assumed, and bits 5 and 7 are `X`. See §2.1 |
+| PSU-OPEN-02 | The wording and behaviour of `ERR?` | **Closed 2026-09-26.** `No Error.` when clean; `Invalid Character.` after `VSET3:1.000`, and the next read is `No Error.` again |
 | PSU-OPEN-03 | The command interval a real supply needs | Run a long sweep at 50 ms, confirm no setpoint is missed, then bisect downward. 50 ms is a conservative default, not a measured one |
 | PSU-OPEN-04 | Settling time after a setpoint change | Step 0 V to 5 V and watch on the oscilloscope already on this bench. The driver does not wait; a specification that measures immediately after `set_voltage` should state its own `sleep` |
 | PSU-OPEN-05 | Whether the supply discards a setpoint sent to the slaved channel **silently**, as modelled here | Front panel to series, then `VSET1:5.000`, `VSET2:1.000`, `VSET2?`, `ERR?`. The expectation is `5.000` and no error. The driver refuses the command either way, so only the sentence describing the supply is at stake |
-| PSU-OPEN-06 | Whether the tracking bits are ordered as decoded (bit 2 then bit 3; `01` independent, `11` series, `10` parallel) | The same check as PSU-OPEN-01: move the front-panel switch through its three positions and watch characters 3 and 4 of `raw` |
+| PSU-OPEN-06 | Whether the tracking bits are ordered as decoded (bit 2 then bit 3; `01` independent, `11` series, `10` parallel) | **Independent confirmed 2026-09-26:** bit 2 `0`, bit 3 `1`, matching the supply's legend. The first decode had these bits reversed and read independent as parallel. Series and parallel not yet seen: move the front-panel switch through both and watch fields 3 and 4 of `raw` |
 
 ## 6. What this driver does not do
 
