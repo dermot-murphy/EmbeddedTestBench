@@ -10,14 +10,16 @@ Traces to: BLE-FR-100 .. BLE-FR-108, BLE-DD-SCRIPT.
 
 from __future__ import annotations
 
+import re
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Dict, List, Mapping, Optional
 
 from ...core.errors import BenchToolsError, TransportTimeoutError
 from .constants import DongleError
 from .script import (
     _ADDRESS,
+    _VARIABLE,
     CONNECT,
     DISCONNECT,
     ERROR,
@@ -101,6 +103,8 @@ class ScriptRun:
     source: str = ""
     sensor: str = ""
     variables: Mapping[str, str] = field(default_factory=dict)
+    #: Replies steps saved, by the name their Save cell gave.
+    saved: Dict[str, str] = field(default_factory=dict)
     #: The event log's lines, header first.
     events: List[str] = field(default_factory=list)
 
@@ -151,6 +155,7 @@ class ScriptRun:
             "source": self.source,
             "sensor": self.sensor,
             "variables": dict(self.variables),
+            "saved": dict(self.saved),
             "result": self.result,
             "passed": self.passed,
             "failed": self.failed,
@@ -333,7 +338,14 @@ def run_script(  # pylint: disable=too-many-arguments,too-many-positional-argume
                 elif step.expects_disconnect:
                     result = _run_expect_disconnect(dongle, step, step.timeout_s or timeout, log)
                 else:
-                    result = _run_step(dongle, step, (timeout, listen), sleep, log)
+                    filled = _fill_saved(step, run.saved)
+                    if filled is None:
+                        result = _result(step, ERROR, "a reply it uses was not saved: the step "
+                                         "that saves it errored or failed",
+                                         command=step.command, expected=step.expected)
+                    else:
+                        result = _run_step(dongle, filled, (timeout, listen), sleep, log)
+                        _keep_saved(filled, result, run.saved)
                 if result.result == ERROR:
                     log.event("ERROR", step, result.reason, ERROR)
                 run.results.append(result)
@@ -444,6 +456,49 @@ def _run_expect_disconnect(dongle, step: ScriptStep, timeout: float,
                                        else ""), PASS)
     return _result(step, PASS, "", command=step.command, expected=step.expected,
                    response="<disconnect>", elapsed_s=elapsed, clock=clock)
+
+
+def _fill_saved(step: ScriptStep, saved: Mapping[str, str]) -> Optional[ScriptStep]:
+    """*step* with the replies earlier steps saved filled in; None if one is missing.
+
+    In an expected response written as a pattern the value is escaped, so a
+    saved ``V11.00`` matches itself and not ``V11x00``.
+    """
+    missing = []
+
+    def value_of(match, escape: bool) -> str:
+        name = match.group("name")
+        if name not in saved:
+            missing.append(name)
+            return match.group(0)
+        return re.escape(saved[name]) if escape else saved[name]
+
+    command = _VARIABLE.sub(lambda match: value_of(match, False), step.command)
+    expected = _VARIABLE.sub(lambda match: value_of(match, step.pattern is not None),
+                             step.expected)
+    note = _VARIABLE.sub(lambda match: value_of(match, False), step.note)
+    if missing:
+        return None
+    return replace(step, command=command, expected=expected, note=note)
+
+
+def _saved_value(step: ScriptStep, response: str) -> str:
+    """What a Save cell keeps: a pattern's first named group if it has one, else the reply."""
+    if step.pattern is not None:
+        match = re.search(step.pattern, response)
+        if match is not None:
+            for value in match.groupdict().values():
+                if value is not None:
+                    return value
+    return response
+
+
+def _keep_saved(step: ScriptStep, result: StepResult, saved: Dict[str, str]) -> None:
+    """Keep the reply in *saved* if the step's Save cell asks and the reply earned it."""
+    if step.save and result.result in (PASS, SKIP) and result.response:
+        saved[step.save] = _saved_value(step, result.response)
+        result.reason = " - ".join(part for part in (
+            result.reason, "saved %s = %s" % (step.save, saved[step.save])) if part)
 
 
 def _run_step(dongle, step: ScriptStep, waits, sleep, log: EventLog) -> StepResult:

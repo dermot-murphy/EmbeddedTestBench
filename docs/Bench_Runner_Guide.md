@@ -364,6 +364,12 @@ to copy.
   command reading the previous one's reply. The step listens 0.5 s after the
   reply, fails on a different count naming the extra frames, and logs each as
   an `RX` event. A Frames cell is a claim even with no expected response.
+- A **Save** column names a variable to keep the step's reply in; later steps
+  use it as `${NAME}`, so a value read before an action can be compared with the
+  one after it. A pattern's first named group - `(?P<value>...)` - saves just
+  that part. Only a reply that passed its check, or had nothing expected of it,
+  is saved; a step using a value that was never saved is an error. Inside a
+  pattern the saved value is matched literally.
 - Tables that name none of the step columns - a legend, a conversion table -
   are prose and are left alone.
 
