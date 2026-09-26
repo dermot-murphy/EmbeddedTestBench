@@ -367,8 +367,8 @@ where the firmware implements the requirement.
 | Requirement | Architecture | Design unit | Source | Verifying test(s) |
 |---|---|---|---|---|
 | PSU-FR-001 | PSU-ARC-001 | PSU-DD-PSU | `set_voltage`, `set_current_limit`, `voltage_setpoint`, `current_limit` | `TestSetting` (8) |
-| PSU-FR-002 | PSU-ARC-001 | PSU-DD-PSU, PSU-DD-CONST | `_check_range` | `test_an_impossible_voltage_is_refused_before_it_is_sent` (3), `test_an_impossible_current_limit_is_refused` (2), `test_the_supply_clamps_rather_than_refusing` |
-| PSU-FR-003 | PSU-ARC-001 | PSU-DD-PSU | `_quantise` | `test_the_setpoint_read_back_equals_the_one_sent`, `test_a_value_between_steps_is_rounded_as_the_supply_rounds_it` |
+| PSU-FR-002 | PSU-ARC-001 | PSU-DD-PSU, PSU-DD-CONST | `_check_range` | `test_an_impossible_voltage_is_refused_before_it_is_sent` (3), `test_an_impossible_current_limit_is_refused` (2), `test_an_out_of_range_setting_is_rejected_and_the_setpoint_kept` |
+| PSU-FR-003 | PSU-ARC-001 | PSU-DD-PSU | `_quantise` | `test_the_setpoint_read_back_agrees_to_the_read_back_resolution`, `test_a_value_between_steps_is_rounded_as_the_supply_rounds_it` |
 | PSU-FR-004 | PSU-ARC-001 | PSU-DD-PSU | `_check_channel` | `test_a_channel_that_does_not_exist_is_named` (4), `test_a_channel_that_does_not_exist_is_refused` |
 | PSU-FR-005 | PSU-ARC-001 | PSU-DD-PSU | `configure_channel` | `test_configure_sets_the_limit_before_the_voltage` |
 | PSU-FR-006 | PSU-ARC-001, AD-21 | PSU-DD-PSU | `_check_tracking`, called from `set_voltage`, `set_current_limit`, `output_on`, `output_off`; `SimulatedGpd._set` and `_follow` model the supply's silence | `TestTracking` (14 in `test_psu.py`), `TestTracking` (10 in `test_simulator.py`) |

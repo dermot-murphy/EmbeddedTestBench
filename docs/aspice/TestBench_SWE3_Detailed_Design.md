@@ -1371,9 +1371,9 @@ there is nothing about it a driver could set or measure.
 
 Ratings, programming resolution, line rates, the status-word tables and the
 CV/CC and tracking vocabularies. They are here so an out-of-range setting can be
-refused *before* it is sent: this supply clamps rather than refusing, and a test
-that asked for 35 V, was given 30 V and never told would report a pass against a
-condition it never applied.
+refused *before* it is sent: this supply rejects it without replying, keeps
+its previous setting and reports it only through `ERR?`, so a test that asked
+for 35 V would run at the previous setting and never be told.
 
 #### DMM-DD-CONST — `constants.py`
 
@@ -1510,8 +1510,9 @@ then a current source at that limit with the voltage left to the load.
 It is not built on CORE-DD-SIM: that class splits messages on `;` and on a
 space, which is SCPI's grammar and not this supply's - `VSET1:3.300` is one
 command, not a header and a sub-system. It models the single output switch, and
-it **clamps** an out-of-range setting exactly as the hardware does, which is the
-behaviour PSU-FR-002 exists to protect a test from. An unrecognised command is
+it **rejects** an out-of-range setting exactly as the hardware does - setpoint
+unchanged, `Data out of range.` for `ERR?` - which is the behaviour PSU-FR-002
+exists to protect a test from. An unrecognised command is
 met with silence, as the hardware meets it, so a driver that misspells one sees
 a timeout in a test rather than only on the bench.
 

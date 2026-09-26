@@ -8,7 +8,8 @@ CC/CV mode fails a test here rather than on the rig.
 
 What is modelled: the command grammar and its replies, per-channel setpoints,
 the single global output switch, a resistive load per channel, constant-current
-fallback, the status word, the supply's refusal of an out-of-range value, and
+fallback, the status word, the supply's rejection of an out-of-range value
+(setpoint unchanged, ``Data out of range.`` for ``ERR?``), its error texts, and
 the three tracking modes - including the part that matters, which is that a
 setpoint sent to the slaved channel is **accepted and discarded**.
 
@@ -192,7 +193,7 @@ class SimulatedGpd:
             return self._refuse(text)
         return handler(channel, argument)
 
-    def _refuse(self, text: str) -> Optional[str]:
+    def _refuse(self, _text: str) -> Optional[str]:
         """Record a rejected command.
 
         The supply does not answer a command it did not understand, which is
@@ -200,7 +201,7 @@ class SimulatedGpd:
         Recording it here lets a test assert on the thing the hardware only
         reveals through ``ERR?``.
         """
-        self.last_error = 'Command Error, "%s"' % text
+        self.last_error = "Undefined Header."
         return None
 
     # ------------------------------------------------------------------
@@ -237,8 +238,11 @@ class SimulatedGpd:
         slaved.current_limit = master.current_limit
 
     def _set(self, channel, argument, attribute: str, limit: float) -> None:
+        # Error texts are the supply's own, captured from a V1.09 unit:
+        # VSET3:1.000 and VSET1:-1 are "Invalid Character.", VSET1:35.000 is
+        # "Data out of range.", and in each case the setpoint does not move.
         if channel not in self.channels:
-            self.last_error = "Command Error, no channel %s" % channel
+            self.last_error = "Invalid Character."
             return
         if channel == TRACKED_CHANNEL and self.tracking != TrackingMode.INDEPENDENT:
             # The behaviour the driver refuses to depend on: the supply takes
@@ -246,25 +250,24 @@ class SimulatedGpd:
             # recorded here because the hardware records none - that silence
             # is the whole point.
             return
-        try:
-            value = float(argument)
-        except ValueError:
-            self.last_error = 'Data Error, "%s"' % argument
+        if not argument or any(character not in "0123456789." for character in argument):
+            self.last_error = "Invalid Character."
             return
-        # The supply clamps rather than refusing, which is exactly why the
-        # driver range-checks before sending: this is the behaviour it is
-        # protecting a test from.
-        clamped = min(max(value, 0.0), limit)
-        if clamped != value:
-            self.last_error = "Data Out of Range"
-        setattr(self.channels[channel], attribute, clamped)
+        value = float(argument)
+        # Rejected, not clamped: the setpoint stays where it was, and nothing
+        # but ERR? says so. The driver range-checks before sending for exactly
+        # this reason.
+        if round(value, 2) > limit:
+            self.last_error = "Data out of range."
+            return
+        setattr(self.channels[channel], attribute, min(value, limit))
         if self.tracking != TrackingMode.INDEPENDENT:
             self._follow()
 
     def _reading(self, channel, quantity: str) -> Optional[float]:
         """One channel's figure, or ``None`` for a channel that does not exist."""
         if channel not in self.channels:
-            self.last_error = "Command Error, no channel %s" % channel
+            self.last_error = "Undefined Header."
             return None
         return self.channels[channel].output(self.output)[quantity]
 

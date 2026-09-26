@@ -470,17 +470,19 @@ class Gpd3303D(ScpiInstrument):
 
     @staticmethod
     def _check_range(value: float, limit: float, quantity: str, unit: str) -> float:
-        """Refuse a setting the supply would silently clamp.
+        """Refuse a setting the supply would reject.
 
-        Clamping is the dangerous case: the supply accepts 35 V, outputs 30 V,
-        reports 30 V when asked, and the test records a pass for a condition it
-        never applied.
+        The supply sends no reply to a setting it rejects: it keeps the
+        previous setpoint and records ``Data out of range.`` for ``ERR?``,
+        which the driver does not poll by default. A test that asked for 35 V
+        would carry on at whatever the channel was set to before.
         """
         number = float(value)
         if number < 0.0 or number > limit:
             raise ConfigurationError(
                 "%s of %g %s is outside what a %s can deliver (0 to %g %s); "
-                "the supply would clamp it silently"
+                "the supply would reject it, keep its previous setting, and "
+                "say so only through ERR?"
                 % (quantity, number, unit, MODEL, limit, unit)
             )
         return number

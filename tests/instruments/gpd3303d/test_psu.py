@@ -1,7 +1,7 @@
 """The GPD-3303D driver.
 
 The tests are organised around the four ways this supply can make a test lie:
-a value it clamps silently, a channel in current limit that is not at the
+a value it rejects silently, a channel in current limit that is not at the
 voltage it was asked for, an output switch that is global while the API looks
 per-channel, and a tracking mode in which channel 2 is not its own channel at
 all.
@@ -117,10 +117,10 @@ class TestSetting:
 
     @pytest.mark.parametrize("volts", [-0.1, MAX_VOLTAGE + 0.001, 35.0])
     def test_an_impossible_voltage_is_refused_before_it_is_sent(self, psu, volts):
-        """The supply clamps silently, which is the dangerous case: it would
-        accept 35 V, output 30 V, report 30 V, and the test would record a pass
-        for a condition it never applied."""
-        with pytest.raises(ConfigurationError, match="clamp"):
+        """The supply rejects it silently, which is the dangerous case: no
+        reply, the previous setpoint kept, and only ERR? - which is not polled
+        by default - saying so."""
+        with pytest.raises(ConfigurationError, match="reject"):
             psu.set_voltage(1, volts)
         assert not any(
             line.startswith("VSET") and ":" in line
@@ -129,7 +129,7 @@ class TestSetting:
 
     @pytest.mark.parametrize("amps", [-0.5, MAX_CURRENT + 0.001])
     def test_an_impossible_current_limit_is_refused(self, psu, amps):
-        with pytest.raises(ConfigurationError, match="clamp"):
+        with pytest.raises(ConfigurationError, match="reject"):
             psu.set_current_limit(1, amps)
 
     @pytest.mark.parametrize("channel", [0, 3, -1, "one"])
