@@ -33,7 +33,10 @@ dependencies are two executables it launches or connects to.
 
 Install the SEGGER J-Link Software and Documentation Pack, and an
 `arm-none-eabi-gdb` (the Arm GNU Toolchain, or the one shipped with a vendor SDK).
-Both need to be on `PATH`, or passed explicitly.
+Each is found on `PATH` or in its installer's default directory
+(`Program Files/SEGGER/JLink*`, `Program Files (x86)/Arm GNU Toolchain
+arm-none-eabi/*/bin`), newest release first; anywhere else, pass `--server` or
+`--gdb`. A plain `gdb` is used only if it can debug ARM: MinGW's cannot.
 
 ```
 python -m benchtools jlink --resource jlink:// --device nRF52840_xxAA --elf build/app.elf info
@@ -42,10 +45,18 @@ python -m benchtools jlink --resource jlink:// --device nRF52840_xxAA --elf buil
 Options naming the probe come before the sub-command, as they do for the
 oscilloscope: `jlink --resource … <sub-command> [arguments]`.
 
-The driver starts `JLinkGDBServerCL.exe` with `-nogui -silent -singlerun -strict`.
-`-nogui` matters: without it the server opens a window and waits, which hangs an
-unattended run. If a server is already listening on 2331 — started by hand, or by
+The driver starts `JLinkGDBServerCL.exe` with `-nogui -strict`, and stops it when
+the probe is closed. `-nogui` matters: without it the server opens a window and
+waits, which hangs an unattended run. `-singlerun` must not be added: the server
+then exits when the driver's readiness check disconnects, before GDB attaches
+(issue #69). If a server is already listening on 2331 — started by hand, or by
 a service — it is used as it stands and left running afterwards.
+
+The GDB Server halts the core when GDB attaches, and does not resume it on
+detach. The driver sends `monitor go` before detaching, so every sub-command
+except `halt`, `reset` (without `--run`) and `run --until` leaves the target
+running. Before this, a `read` or `verify` left a sensor halted and silent on
+BLE until it was reset (issue #69).
 
 Nothing in the driver uses a POSIX-only facility. In particular the process
 transport uses reader threads rather than `select`, because `select` does not

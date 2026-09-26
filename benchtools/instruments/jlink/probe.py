@@ -285,6 +285,10 @@ class JLinkProbe(Instrument):
         self._halted = True
         self._cycle_counter_ready = False
         self._itm = ItmDecoder()
+        #: Leave the core halted when the link closes. Off by default: the GDB
+        #: Server halts the core on attach and does not resume it on detach, so
+        #: without a resume every read or verify leaves the target stopped.
+        self.leave_halted = False
 
     # ------------------------------------------------------------------
     # Construction
@@ -424,10 +428,16 @@ class JLinkProbe(Instrument):
             except Exception:  # noqa: BLE001 - closing must not raise
                 _LOG.debug("RTT did not stop cleanly", exc_info=True)
         try:
+            if self._attached and not self.leave_halted:
+                # Observed on nRF52840 with J-Link V9.42: after -target-detach
+                # alone the core stays halted (DHCSR 0x00030003) and a sensor
+                # stops advertising until it is reset.
+                self._session.execute_console("monitor go", allow_error=True, timeout=5.0)
+                self._halted = False
             if self._attached:
                 self._session.execute("-target-detach", allow_error=True, timeout=5.0)
         except Exception:  # noqa: BLE001
-            _LOG.debug("detach failed", exc_info=True)
+            _LOG.debug("resume or detach failed", exc_info=True)
         finally:
             self._attached = False
         try:
@@ -512,6 +522,23 @@ class JLinkProbe(Instrument):
         firmware_match = re.search(r"(V\d+\.\d+\w*)", output)
         if firmware_match:
             firmware = firmware_match.group(1)
+        if not output.strip() and self._server is not None:
+            # J-Link GDB Server V9 rejects "monitor version" ('Unsupported remote
+            # command'). The banner of a server this driver started still says
+            # which probe it opened.
+            banner = self._server.probe_identity()
+            serial = banner.get("serial_number", "")
+            firmware = banner.get("firmware", "")
+            if banner:
+                output = ", ".join(
+                    "%s: %s" % (label, banner[key])
+                    for key, label in (
+                        ("firmware", "Firmware"),
+                        ("hardware", "Hardware"),
+                        ("serial_number", "S/N"),
+                    )
+                    if key in banner
+                )
         return InstrumentIdentity(
             raw=output.strip() or "J-Link (no version reported)",
             manufacturer="SEGGER",

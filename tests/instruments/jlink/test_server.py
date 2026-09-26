@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import socket
 import subprocess
+from types import SimpleNamespace
 
 import pytest
 
@@ -26,7 +27,9 @@ def listening():
     """A socket listening on an ephemeral port, standing in for a server."""
     sock = socket.socket()
     sock.bind(("127.0.0.1", 0))
-    sock.listen(1)
+    # A backlog of one fills on Windows with the readiness check's own
+    # connection, which is never accepted, so a second check would fail.
+    sock.listen(8)
     yield sock.getsockname()[1]
     sock.close()
 
@@ -41,6 +44,12 @@ def closed_port():
     return port
 
 
+@pytest.fixture
+def nothing_installed(monkeypatch):
+    """No install directory holds anything: only PATH is searched."""
+    monkeypatch.setattr(server_module, "_installed", lambda patterns, names: [])
+
+
 class TestDiscovery:
     def test_an_explicit_path_is_returned_unchanged(self):
         """A caller must always be able to override the search."""
@@ -48,6 +57,7 @@ class TestDiscovery:
             "/opt/jlink/JLinkGDBServer"
         assert server_module.find_gdb("/usr/bin/my-gdb") == "/usr/bin/my-gdb"
 
+    @pytest.mark.usefixtures("nothing_installed")
     def test_windows_names_are_searched_first(self, monkeypatch):
         """The first deployment is a Windows PC, so its names come first."""
         asked = []
@@ -68,8 +78,9 @@ class TestDiscovery:
         )
         assert server_module.find_gdb_server() == "C:\\SEGGER\\JLinkGDBServerCL.exe"
 
+    @pytest.mark.usefixtures("nothing_installed")
     def test_gdb_search_prefers_a_cross_debugger(self, monkeypatch):
-        """A host ``gdb`` cannot debug an ARM target, so it is the last resort."""
+        """A host ``gdb`` is the last resort, and only if it can debug ARM."""
         asked = []
 
         def fake_which(name):
@@ -77,9 +88,73 @@ class TestDiscovery:
             return "/usr/bin/" + name if name == "gdb" else None
 
         monkeypatch.setattr(server_module.shutil, "which", fake_which)
+        monkeypatch.setattr(server_module, "gdb_debugs_arm", lambda executable: True)
         assert server_module.find_gdb() == "/usr/bin/gdb"
         assert asked[0] == "arm-none-eabi-gdb"
 
+    @pytest.mark.usefixtures("nothing_installed")
+    def test_a_host_gdb_that_cannot_debug_arm_is_refused(self, monkeypatch):
+        """MinGW's gdb 7.6.1 is i386-only; picking it fails later, obscurely."""
+        monkeypatch.setattr(
+            server_module.shutil, "which",
+            lambda name: r"C:\mingw\bin\gdb.exe" if name == "gdb" else None,
+        )
+        monkeypatch.setattr(server_module, "gdb_debugs_arm", lambda executable: False)
+        assert server_module.find_gdb() is None
+
+    def test_the_architecture_question_is_answered_by_gdb(self, monkeypatch):
+        answers = {
+            "host-gdb": SimpleNamespace(returncode=0, stdout=b'Undefined item: "arm".\n'),
+            "arm-gdb": SimpleNamespace(
+                returncode=0, stdout=b'The target architecture is set to "arm".\n'
+            ),
+        }
+        monkeypatch.setattr(
+            server_module.subprocess, "run", lambda arguments, **kwargs: answers[arguments[0]]
+        )
+        assert server_module.gdb_debugs_arm("host-gdb") is False
+        assert server_module.gdb_debugs_arm("arm-gdb") is True
+
+    def test_a_gdb_that_will_not_start_does_not_debug_arm(self, monkeypatch):
+        def refuse(*args, **kwargs):
+            raise OSError(2, "No such file")
+
+        monkeypatch.setattr(server_module.subprocess, "run", refuse)
+        assert server_module.gdb_debugs_arm("missing-gdb") is False
+
+    def test_install_directories_are_searched_after_path(self, monkeypatch, tmp_path):
+        """A standard SEGGER install works without naming the server."""
+        for release in ("JLink_V924a", "JLink_V942", "JLink"):
+            folder = tmp_path / "SEGGER" / release
+            folder.mkdir(parents=True)
+            (folder / "JLinkGDBServerCL.exe").write_text("")
+        monkeypatch.setattr(server_module.shutil, "which", lambda name: None)
+        monkeypatch.setattr(
+            server_module, "_SERVER_DIRECTORIES", (str(tmp_path / "SEGGER" / "JLink*"),)
+        )
+        found = server_module.find_gdb_server()
+        assert found == str(tmp_path / "SEGGER" / "JLink_V942" / "JLinkGDBServerCL.exe")
+
+    def test_the_newest_toolchain_release_wins(self, monkeypatch, tmp_path):
+        for release in ("13.3 rel1", "14.2 rel1"):
+            folder = tmp_path / "Arm" / release / "bin"
+            folder.mkdir(parents=True)
+            (folder / "arm-none-eabi-gdb.exe").write_text("")
+        monkeypatch.setattr(server_module.shutil, "which", lambda name: None)
+        monkeypatch.setattr(
+            server_module, "_GDB_DIRECTORIES", (str(tmp_path / "Arm" / "*" / "bin"),)
+        )
+        assert "14.2 rel1" in server_module.find_gdb()
+
+    @pytest.mark.parametrize(
+        "directory, release",
+        [("C:/SEGGER/JLink_V942", (942,)), ("C:/SEGGER/JLink", ()),
+         ("C:/Arm/14.2 rel1/bin", (14, 2, 1))],
+    )
+    def test_release_numbers(self, directory, release):
+        assert server_module._release(directory) == release
+
+    @pytest.mark.usefixtures("nothing_installed")
     def test_nothing_installed_returns_none(self, monkeypatch):
         monkeypatch.setattr(server_module.shutil, "which", lambda name: None)
         assert server_module.find_gdb_server() is None
@@ -112,8 +187,17 @@ class TestCommandLine:
 
     def test_unattended_flags_are_present(self, server):
         """Without -nogui the server opens a window and waits, hanging a run."""
-        for flag in ("-nogui", "-silent", "-singlerun", "-strict"):
+        for flag in ("-nogui", "-strict"):
             assert flag in server.command_line()
+
+    def test_the_server_is_not_single_run(self, server):
+        """-singlerun made the server exit when start()'s readiness check
+        disconnected, so GDB found nothing listening (issue #69)."""
+        assert "-singlerun" not in server.command_line()
+
+    def test_the_banner_is_not_silenced(self, server):
+        """The start-up banner is where the probe's serial number appears."""
+        assert "-silent" not in server.command_line()
 
     def test_every_port_is_passed(self, server):
         arguments = server.command_line()
@@ -282,3 +366,53 @@ class TestStartAndStop:
         with pytest.raises(ConnectionFailedError):
             server.start()
         assert killed == [True]
+
+
+class _Stream:
+    """A server's stdout, delivered in pieces that split lines."""
+
+    def __init__(self, data: bytes, piece: int = 7):
+        self._pieces = [data[i : i + piece] for i in range(0, len(data), piece)]
+
+    def read(self, _size):
+        return self._pieces.pop(0) if self._pieces else b""
+
+    def close(self):
+        pass
+
+
+#: The banner J-Link GDB Server V9.42 printed for the bench probe (issue #69).
+_BANNER = (
+    b"SEGGER J-Link GDB Server V9.42 Command Line Version\r\n"
+    b"Connecting to J-Link...\r\n"
+    b"J-Link is connected.\r\n"
+    b"Firmware: J-Link ARM V8 compiled Nov 28 2014 13:44:46\r\n"
+    b"Hardware: V8.00\r\n"
+    b"S/N: 682395790\r\n"
+    b"Feature(s): RDI,FlashDL,FlashBP,JFlash,GDB\r\n"
+    b"Listening on TCP/IP port 2331\r\n"
+)
+
+
+class TestServerOutput:
+    @pytest.fixture
+    def drained(self):
+        server = GdbServer(device="d")
+        server._process = SimpleNamespace(stdout=_Stream(_BANNER))
+        server._drain()
+        return server
+
+    def test_output_is_drained_into_whole_lines(self, drained):
+        """An undrained pipe fills and the server blocks mid-download."""
+        assert "S/N: 682395790" in drained.output
+        assert all("\r" not in line for line in drained.output)
+
+    def test_the_banner_identifies_the_probe(self, drained):
+        assert drained.probe_identity() == {
+            "serial_number": "682395790",
+            "firmware": "J-Link ARM V8 compiled Nov 28 2014 13:44:46",
+            "hardware": "V8.00",
+        }
+
+    def test_a_server_not_started_here_identifies_nothing(self):
+        assert not GdbServer(device="d").probe_identity()

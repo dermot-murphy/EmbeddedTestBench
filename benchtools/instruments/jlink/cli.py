@@ -76,7 +76,14 @@ def _cmd_verify(probe: JLinkProbe, args) -> int:
     return _EXIT_OK if result.matched else _EXIT_ERROR
 
 
+def _cmd_erase(probe: JLinkProbe, args) -> int:
+    output = probe.erase()
+    _emit({"erased": True, "output": output.strip()}, args.json)
+    return _EXIT_OK
+
+
 def _cmd_reset(probe: JLinkProbe, args) -> int:
+    probe.leave_halted = not args.run
     probe.reset(halt=not args.run)
     _emit({"reset": True, "halted": probe.is_halted}, args.json)
     return _EXIT_OK
@@ -84,6 +91,7 @@ def _cmd_reset(probe: JLinkProbe, args) -> int:
 
 def _cmd_run(probe: JLinkProbe, args) -> int:
     if args.until:
+        probe.leave_halted = True
         info = probe.run_to(args.until, timeout=args.timeout)
         _emit(
             {
@@ -99,6 +107,7 @@ def _cmd_run(probe: JLinkProbe, args) -> int:
 
 
 def _cmd_halt(probe: JLinkProbe, args) -> int:
+    probe.leave_halted = True
     info = probe.halt()
     _emit(
         {
@@ -271,6 +280,11 @@ def build_parser() -> argparse.ArgumentParser:
     verify = subparsers.add_parser("verify", help="compare the target against an image")
     verify.add_argument("image", nargs="?", help="image to compare; the --elf file when omitted")
     verify.set_defaults(handler=_cmd_verify)
+
+    erase = subparsers.add_parser(
+        "erase", help="erase the target's flash (on an nRF52, UICR too: back up the ID first)"
+    )
+    erase.set_defaults(handler=_cmd_erase)
 
     reset = subparsers.add_parser("reset", help="reset the target")
     reset.add_argument("--run", action="store_true", help="let it run instead of halting")

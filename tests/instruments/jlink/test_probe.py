@@ -6,6 +6,7 @@ Traces to: JLINK-FR-003 .. JLINK-FR-045, SWE4-UT-JLINK.
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 
 import pytest
 
@@ -79,6 +80,63 @@ class TestConnection:
         probe.close()
         probe.close()
         assert not probe.is_open
+
+    def test_closing_leaves_the_target_running(self):
+        """The GDB Server halts the core on attach and does not resume it on
+        detach; a sensor left that way stopped advertising (issue #69)."""
+        simulator = SimulatedJLink()
+        probe = JLinkProbe(
+            session=GdbMiSession(MockTransport(responder=simulator), timeout=5.0),
+            elf="firmware.elf", target_address="simulated",
+        )
+        probe.initialise()
+        probe.halt()
+        probe.close()
+        assert simulator.monitor_log[-1] == "go"
+        assert simulator.halted is False
+
+    def test_closing_can_leave_the_target_halted(self):
+        simulator = SimulatedJLink()
+        probe = JLinkProbe(
+            session=GdbMiSession(MockTransport(responder=simulator), timeout=5.0),
+            elf="firmware.elf", target_address="simulated",
+        )
+        probe.initialise()
+        probe.halt()
+        probe.leave_halted = True
+        probe.close()
+        assert "go" not in simulator.monitor_log
+        assert simulator.halted is True
+
+    def test_identity_falls_back_to_the_server_banner(self, monkeypatch):
+        """J-Link GDB Server V9 rejects 'monitor version'; the banner of the
+        server the driver started still names the probe."""
+
+        class Server:
+            def probe_identity(self):
+                return {"serial_number": "682395790", "hardware": "V8.00",
+                        "firmware": "J-Link ARM V8 compiled Nov 28 2014 13:44:46"}
+
+            def stop(self):
+                pass
+
+        probe = probe_for()
+        probe._server = Server()
+        real = probe._session.execute_console
+
+        def console(command, **kwargs):
+            if command == "monitor version":
+                return SimpleNamespace(text="")
+            return real(command, **kwargs)
+
+        monkeypatch.setattr(probe._session, "execute_console", console)
+        try:
+            identity = probe._read_identity()
+        finally:
+            probe.close()
+        assert identity.serial_number == "682395790"
+        assert identity.firmware.startswith("J-Link ARM V8")
+        assert "S/N: 682395790" in identity.raw
 
     @pytest.mark.parametrize(
         "resource,expected",
