@@ -22,7 +22,7 @@
 
 | Version | Date | Author | Description of Change |
 |---|---|---|---|
-| 0.1 | 2026-09-26 | Claude | Initial. Written from a command-by-command capture of a real supply (#61, #64, #63). |
+| 0.1 | 2026-09-26 | Claude | Initial. Written from a command-by-command capture of a real supply (#61, #64, #63). Front-panel observations from a timed run added to §9.2, §10.3 and §12. |
 
 ---
 
@@ -321,8 +321,12 @@ was seen.
 | `VOUT<n>?` | 0.1 V | Unloaded, it reads 0.1 V below the read-back setpoint on every sample: 3.6 → `3.5V`, 5.0 → `4.9V`, 3.3 → `3.2V`, 3.25 → `3.2V` | [O] |
 | `IOUT<n>?` | 0.01 A | Only `0.00A` seen: no load was connected | [O] |
 
-Whether `VOUT` truncates or the output genuinely sits just below its setpoint
-cannot be told without an independent meter [U]. Either way a host comparing a
+The front panel shows the same figures as the remote read-back: `3.2V` for a
+3.3 V setting and `1.7V` for 1.8 V, observed by the operator during a timed run
+[O]. The shortfall is therefore in the supply's own measurement or output, not
+in the serial reply. Whether the measurement truncates or the output genuinely
+sits just below its setpoint still cannot be told without an independent
+meter [U]. Either way a host comparing a
 measurement with a setpoint must allow at least one read-back step. TestBench
 allows 1.5 steps or 1 %, whichever is larger (`ChannelReading.regulated`).
 
@@ -366,6 +370,12 @@ otherwise (PSU-OPEN-03).
 Settling time after a setpoint change has not been measured (PSU-OPEN-04). The
 supply does not signal when an output has settled.
 
+**Fall with no load.** With nothing connected, a channel programmed from 3.3 V
+to 0 V while the output is on took about 2–3 seconds to reach 0 V on the front
+panel. `VOUT1?` read `0.2V` 1.5 s after the command [O]. A test that parks a
+channel and then measures it must wait, or expect a residual voltage. The
+fall time into a real load will be shorter, and it has not been measured.
+
 ---
 
 ## 11. Interface Requirements on a Host
@@ -397,7 +407,7 @@ These follow from §§5–10 and are the constraints the TestBench driver meets.
 | PSU-OPEN-05 | Whether a setting sent to the slaved channel leaves an error | Open — needs the front panel in series |
 | PSU-OPEN-06 | Tracking bit pattern | Independent confirmed; series and parallel open |
 | IF-OPEN-07 | Current programming resolution: 1 mA or 10 mA | Open — needs a load and a meter (§9.1) |
-| IF-OPEN-08 | Whether `VOUT` truncates or the output sits below setpoint | Open — needs an independent meter (§9.2) |
+| IF-OPEN-08 | Whether `VOUT` truncates or the output sits below setpoint | Narrowed: the front panel shows the same 0.1 V shortfall, so the serial read-back is not the cause. The rest needs an independent meter (§9.2). |
 | IF-OPEN-09 | Behaviour of other firmware versions | Open — only V1.09 has been seen. The driver accepts both `STATUS?` forms. |
 
 ---
