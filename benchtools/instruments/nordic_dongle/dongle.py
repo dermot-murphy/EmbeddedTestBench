@@ -399,7 +399,7 @@ class NordicDongle(Instrument):
 
     @property
     def firmware_version(self) -> str:
-        """The firmware version the dongle reported, e.g. ``"1.3.0"``.
+        """The firmware version the dongle reported, e.g. ``"1.4.0"``.
 
         Empty for firmware older than protocol 1.1, which did not report one -
         which is itself an answer: that dongle needs updating.

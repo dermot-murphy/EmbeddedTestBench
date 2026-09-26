@@ -47,7 +47,7 @@ class TestConnection:
         # it speaks: the build is what decides what a measurement means.
         assert identity.firmware.startswith(SimulatedDongle.DEFAULT_FIRMWARE_VERSION)
         assert SimulatedDongle.DEFAULT_FIRMWARE_BUILT in identity.firmware
-        assert dongle.protocol_version == "1.3"
+        assert dongle.protocol_version == "1.4"
 
     def test_it_is_an_instrument_but_not_scpi(self, dongle):
         """The runner drives it through the same contract as every other
@@ -350,8 +350,12 @@ class TestUart:
         assert linked.write(b"\x00\x01\x02") == 3
 
     def test_an_over_long_payload_is_refused_before_sending(self, linked):
-        with pytest.raises(ConfigurationError, match="the firmware accepts at most"):
-            linked.write("x" * 200)
+        with pytest.raises(ConfigurationError, match="the firmware accepts at most 244"):
+            linked.write("x" * 245)
+
+    def test_the_longest_payload_one_write_carries_is_accepted(self, linked):
+        """244 bytes: the ATT MTU of 247 less the write header (#52)."""
+        assert linked.write("x" * 244) == 244
 
 
 class TestResponseTiming:

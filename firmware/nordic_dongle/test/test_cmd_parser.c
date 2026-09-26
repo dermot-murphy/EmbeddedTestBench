@@ -566,6 +566,39 @@ static void test_cmd_refuses_a_bad_timeout(void)
 	TEST_ASSERT_EQUAL_UINT32(0U, fake_nus_client_commands());
 }
 
+static void test_cmd_carries_a_full_payload_both_ways(void)
+{
+	/* 244 bytes out - the ATT MTU less the write header - and a long reply
+	 * back whole: at 192 characters the reply line cut off anything over about
+	 * 60 bytes (#52). */
+	char		command[PROTO_MAX_LINE];
+	char		text[241];
+	char		expected[(240U * 2U) + 8U];
+	uint32_t	index;
+
+	(void)memset(text, 'A', 240U);
+	text[240] = '\0';
+	(void)strcpy(command, "cmd ");
+	for (index = 0U; index < PROTO_MAX_PAYLOAD; index++)
+	{
+		(void)strcat(command, "42");
+	}
+	(void)strcpy(expected, "data=");
+	for (index = 0U; index < 240U; index++)
+	{
+		(void)strcat(expected, "41");
+	}
+
+	fake_nus_client_set_ready(true);
+	fake_nus_client_set_reply(text, 12500U);
+	handle(command);
+
+	TEST_ASSERT_EQUAL_UINT32(1U, fake_nus_client_commands());
+	TEST_ASSERT_EQUAL_HEX8(0x42U, fake_nus_client_last_payload()[PROTO_MAX_PAYLOAD - 1U]);
+	TEST_ASSERT_TRUE(reply_has("len=240"));
+	TEST_ASSERT_TRUE(reply_has(expected));
+}
+
 static void test_a_sensor_that_does_not_reply_is_a_timeout_not_a_measurement(void)
 {
 	/* Reporting the timeout as a round trip would put a fiction in the log. */
@@ -704,6 +737,7 @@ int main(void)
 	RUN_TEST(test_odd_length_hex_is_refused);
 	RUN_TEST(test_non_hex_is_refused);
 	RUN_TEST(test_cmd_reports_both_timestamps_and_the_round_trip);
+	RUN_TEST(test_cmd_carries_a_full_payload_both_ways);
 	RUN_TEST(test_cmd_waits_two_seconds_by_default);
 	RUN_TEST(test_cmd_takes_a_timeout_for_a_slow_command);
 	RUN_TEST(test_cmd_refuses_a_bad_timeout);
