@@ -294,7 +294,9 @@ only the first can fail:
 
 An expected response is matched exactly after trimming; written `/like this/` it
 is a regular expression, for a reply carrying a value that varies. Anchor it
-with `^` and `$` to require the whole reply.
+with `^` and `$` to require the whole reply. A pipe inside any cell is written
+`\|` - `/^ACK = (ENABLED\|DISABLED)$/` - as in GitHub's markdown; an unescaped
+one ends the cell.
 
 The specification that runs the document holds no commands at all:
 
