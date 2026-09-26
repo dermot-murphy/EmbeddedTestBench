@@ -295,13 +295,38 @@ class CommandScript:
 # Reading the document
 # ----------------------------------------------------------------------
 def _cells(row: str) -> List[str]:
-    """The cells of a markdown table row, without the outer pipes."""
-    stripped = row.strip()
-    if stripped.startswith("|"):
-        stripped = stripped[1:]
-    if stripped.endswith("|"):
-        stripped = stripped[:-1]
-    return [cell.strip() for cell in stripped.split("|")]
+    """The cells of a markdown table row, without the outer pipes.
+
+    A cell is split only at an unescaped pipe. ``\\|`` is a literal pipe in the
+    cell's text - a regular expression's alternation, say - as in GitHub's
+    markdown; a backslash before anything else is kept as written, so ``\\.``
+    and ``\\b`` in a pattern are untouched.
+    """
+    text = row.strip()
+    if text.startswith("|"):
+        text = text[1:]
+    cells: List[str] = []
+    current: List[str] = []
+    escaped = False
+    closed = False                         # the row ended on an unescaped pipe
+    for character in text:
+        closed = False
+        if escaped:
+            current.append(character if character == "|" else "\\" + character)
+            escaped = False
+        elif character == "\\":
+            escaped = True
+        elif character == "|":
+            cells.append("".join(current))
+            current = []
+            closed = True
+        else:
+            current.append(character)
+    if escaped:
+        current.append("\\")
+    if not closed:
+        cells.append("".join(current))
+    return [cell.strip() for cell in cells]
 
 
 def _column_index(headings: Sequence[str], where: str) -> Dict[str, int]:
