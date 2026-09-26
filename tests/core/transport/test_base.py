@@ -95,6 +95,20 @@ class TestWriteBehaviour:
         link.write(b"SECOND?")            # should clear it
         assert link.read_message() == b"fresh"
 
+    def test_replies_can_end_differently_from_commands(self):
+        """A GPD-3303D takes commands ending in LF and ends its replies in CR."""
+        link = ScriptedTransport([(b"3.6V\rbit0\r", True)], read_terminator=b"\r").open()
+        link.write(b"VSET1?")
+        assert link.sent == [b"VSET1?\n"]
+        assert link.read_message() == b"3.6V"
+        assert link.read_message() == b"bit0"
+
+    def test_the_read_terminator_defaults_to_the_write_terminator(self):
+        link = ScriptedTransport([], terminator=b"\r\n")
+        assert link.read_terminator == b"\r\n"
+        link.read_terminator = b"\r"
+        assert link.read_terminator == b"\r"
+
     def test_str_command_is_encoded(self):
         link = ScriptedTransport([]).open()
         link.write("*RST")

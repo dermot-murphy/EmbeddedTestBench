@@ -39,7 +39,7 @@ class TestSubcommands:
     def test_status(self, capsys):
         status, payload, _ = run(capsys, *SIM, "status")
         assert status == 0
-        assert len(payload["raw"]) == 8
+        assert len(payload["raw"].split()) == 8
 
     def test_read_covers_every_channel_by_default(self, capsys):
         status, payload, _ = run(capsys, *SIM, "read")
