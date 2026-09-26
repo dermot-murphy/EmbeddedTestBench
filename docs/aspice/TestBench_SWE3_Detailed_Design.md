@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE3-001 | **Version** | 0.2 |
+| **Document ID** | TB-SWE3-001 | **Version** | 0.4 |
 | **Project** | TestBench | **Date** | 2026-09-23 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -25,6 +25,7 @@
 | 0.1 | 2026-09-19 | Claude | Initial |
 | 0.2 | 2026-09-23 | Claude | Design units added for the TTi 1604: DMM-DD-CONST, DMM-DD-PROTO, DMM-DD-DMM, DMM-DD-SIM, DMM-DD-CLI. |
 | 0.3 | 2026-09-25 | Claude | BLE-DD-SCRIPT narrowed to reading, with variables, connect, timeouts and `<disconnect>`; BLE-DD-SCRIPTRUN added for running, results in priority order and the event log; BLE-DD-CMD gains the connect and reply timeouts, and BLE-DD-CMDARGS is added (#46, #48). |
+| 0.4 | 2026-09-26 | Claude | CORE-DD-TRANSPORT gains the separate read terminator and CORE-DD-SERIAL the timeout guard (#61). PSU-DD-CONST, -PSU and -SIM describe the protocol as captured from a real supply, and the rejection of out-of-range settings (#61, #64). References TB-IF-001 and TB-SWE3-002 (#63). Header version brought into line with this history. |
 
 ---
 
@@ -46,8 +47,10 @@ Design and Unit Construction**.
 |---|---|---|
 | TB-SWE1-001 | TestBench Software Requirements Specification | 0.1 |
 | TB-SWE2-001 | TestBench Software Architecture Description | 0.1 |
-| TB-SWE4-001 | TestBench Software Unit Verification Specification | 0.1 |
-| TB-RTM-001 | TestBench Requirements Traceability Matrix | 0.1 |
+| TB-SWE4-001 | TestBench Software Unit Verification Specification | 0.2 |
+| TB-RTM-001 | TestBench Requirements Traceability Matrix | 0.6 |
+| TB-IF-001 | GPD-3303D Remote Control Interface Specification | 0.1 |
+| TB-SWE3-002 | GPD-3303D Driver Design and Lessons Learned | 0.1 |
 
 ### 3.3 Unit Identification
 
@@ -146,7 +149,7 @@ Abstract link providing buffered framing. Subclasses implement `_open_link`,
 
 | Method | Framing rule | Used for |
 |---|---|---|
-| `read_message()` | To the terminator, or to end-of-message | Ordinary SCPI query responses |
+| `read_message()` | To the read terminator, or to end-of-message | Ordinary SCPI query responses |
 | `read_exactly(n)` | Exactly *n* bytes, terminator-transparent | IEEE 488.2 block payloads |
 | `read_raw()` | Everything to end-of-message | Images and other unframed transfers |
 
@@ -159,6 +162,10 @@ Design points:
   so an already-buffered response costs no extra round trip.
 - `MAX_RESPONSE_BYTES` (64 MiB) bounds a runaway read if an instrument never
   asserts end-of-message.
+- The terminator appended to commands and the one that ends a response are
+  separate (`read_terminator`, defaulting to the same bytes). The GPD-3303D
+  takes LF and replies with CR alone (TB-IF-001 §5), and an instrument driver
+  that knows its instrument sets the read terminator itself.
 - Context-manager support guarantees the link is released on an exception path.
 
 #### CORE-DD-VXI11 — `transport/vxi11.py`
@@ -260,6 +267,10 @@ Design points:
   connection failure. The port is fine; flow control is asserted or the device
   stopped reading, and saying "connection failed" sends the reader to look at
   the cable.
+- **pyserial's timeout is assigned only when it has changed.** pyserial
+  reconfigures the port on every assignment, and on Windows that loses bytes
+  in flight: assigning it before every read lost about one GPD-3303D reply in
+  five (TB-IF-001 §10.2, TB-SWE3-002 LL-07).
 
 #### CORE-DD-MOCK — `transport/mock.py`
 
@@ -1369,8 +1380,9 @@ there is nothing about it a driver could set or measure.
 
 #### PSU-DD-CONST — `constants.py`
 
-Ratings, programming resolution, line rates, the status-word tables and the
-CV/CC and tracking vocabularies. They are here so an out-of-range setting can be
+Ratings, programming and read-back resolution, the reply terminator, the
+status-word layout, line rates, and the CV/CC and tracking vocabularies. Each
+value that describes the instrument's behaviour is taken from TB-IF-001. They are here so an out-of-range setting can be
 refused *before* it is sent: this supply rejects it without replying, keeps
 its previous setting and reports it only through `ERR?`, so a test that asked
 for 35 V would run at the previous setting and never be told.
@@ -1494,8 +1506,13 @@ Design points:
   status, and stops.
 - **Error checking is off by default.** At 9600 baud a poll after every command
   doubles the time of a sweep, and the range checking that matters is done in
-  the driver. `read_event_queue` uses `ERR?` and carries its text verbatim,
-  because the exact wording is a bench confirmation item (PSU-OPEN-02).
+  the driver. `read_event_queue` uses `ERR?` and carries its text verbatim.
+- **The protocol is the instrument's, not the manual's** (TB-IF-001). Replies
+  are read to CR; `status()` accepts the spaced V1.09 form and the manual's
+  compact form, reads the two-line legend the V1.09 sends, takes the output
+  from bit 6 and the tracking pair bit 2 first; `in_current_limit` requires
+  the channel to be on; `regulated` allows 1.5 read-back steps. The component
+  view, the decisions and the lessons behind them are in TB-SWE3-002.
 
 #### PSU-DD-SIM — `simulator.py`
 
@@ -1515,6 +1532,11 @@ unchanged, `Data out of range.` for `ERR?` - which is the behaviour PSU-FR-002
 exists to protect a test from. An unrecognised command is
 met with silence, as the hardware meets it, so a driver that misspells one sees
 a timeout in a test rather than only on the bench.
+
+Its replies are copied from captures of a real supply (TB-IF-001 Annex A): CR
+terminator, read-back formats, the `STATUS?` legend, and the supply's own error
+texts. It does not reproduce the 0.1 V shortfall `VOUT` shows on the bench, or
+reply timing.
 
 #### PSU-DD-CLI — `cli.py`
 

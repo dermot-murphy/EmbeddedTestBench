@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SYS4-001 | **Version** | 0.1 |
+| **Document ID** | TB-SYS4-001 | **Version** | 0.2 |
 | **Project** | TestBench | **Date** | 2026-09-19 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -23,6 +23,7 @@
 | Version | Date | Author | Description of Change |
 |---|---|---|---|
 | 0.1 | 2026-09-19 | Claude | Initial |
+| 0.2 | 2026-09-26 | Claude | TB-SIT-03 and -04: informal bench evidence recorded against each; neither is yet executed on TB-TMPL-002 (#63). |
 
 ---
 
@@ -87,8 +88,8 @@ there. The table states what must be shown; it does not state that it has been.
 |---|---|---|---|
 | TB-SIT-01 | TB-SIF-01 | The scope answers the portmapper and accepts a VXI-11 link; its identity string is read; a configuration command takes effect on the front panel | **Not performed** |
 | TB-SIT-02 | TB-SIF-01 | A capture retrieved over VXI-11 matches what the instrument displays, in scale and in record length | **Not performed** |
-| TB-SIT-03 | TB-SIF-02 | The supply answers on its serial port at the configured rate, reports its identity, and accepts a setpoint that the front panel then shows | **Not performed** |
-| TB-SIT-04 | TB-SIF-02 | The `STATUS?` reply decodes as the driver expects — bit order and tracking bits (PSU-OPEN-01, PSU-OPEN-06) | **Not performed** |
+| TB-SIT-03 | TB-SIF-02 | The supply answers on its serial port at the configured rate, reports its identity, and accepts a setpoint that the front panel then shows | **Not performed** formally. Informal evidence 2026-09-26: answers at 9600, identity read, setpoints read back (TB-IF-001 Annex A); front-panel display not observed |
+| TB-SIT-04 | TB-SIF-02 | The `STATUS?` reply decodes as the driver expects — bit order and tracking bits (PSU-OPEN-01, PSU-OPEN-06) | **Not performed** formally. Informal evidence 2026-09-26: bit order and independent tracking confirmed, after the decode was corrected (#61); series and parallel not observed |
 | TB-SIT-05 | TB-SIF-02, TB-SIF-09 | With the supply tracking, a per-channel write is refused by the driver, and the supply's own behaviour on such a write is observed and recorded (PSU-OPEN-05) | **Not performed** |
 | TB-SIT-06 | TB-SIF-03 | The J-Link GDB server accepts a connection and the driver's MI exchanges behave as parsed against a real server version (JLINK-OPEN-01, JLINK-OPEN-02) | **Not performed** |
 | TB-SIT-07 | TB-SIF-03, TB-SIF-08 | An image is programmed and verifies; run, halt, breakpoint and step behave as specified | **Not performed** |

@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE4-002 | **Version** | 0.1 |
+| **Document ID** | TB-SWE4-002 | **Version** | 0.2 |
 | **Project** | TestBench | **Date** | 2026-09-19 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -23,6 +23,7 @@
 | Version | Date | Author | Description of Change |
 |---|---|---|---|
 | 0.1 | 2026-09-19 | Claude | Initial |
+| 0.2 | 2026-09-26 | Claude | §13.4: PSU-OPEN-01 and -02 closed and PSU-OPEN-06 partly confirmed on a real supply (#61, #63). |
 
 ---
 
@@ -790,12 +791,12 @@ driver could only repeat what it had been told about it.
 
 | Item | Why |
 |---|---|
-| PSU-OPEN-01 | The bit **order** of the `STATUS?` reply. The decode follows the programming manual; whether the supply sends bit 0 first is a one-minute check on hardware (switch the output on and see which character changes). The raw reply is retained in `SupplyStatus.raw` so a mis-order is visible rather than silently decoded. |
-| PSU-OPEN-02 | The exact text and behaviour of `ERR?`. Anything not recognisably "no error" is carried verbatim rather than parsed, so the driver is correct either way; what is unproven is whether the supply clears the error on reading it. |
+| PSU-OPEN-01 | **Closed 2026-09-26** (TB-IF-001 §7). Bit 0 is sent first; the output is bit 6, not bit 5 as the manual-based decode assumed; the V1.09 reply is spaced and followed by a legend. The driver was corrected in #61. |
+| PSU-OPEN-02 | **Closed 2026-09-26** (TB-IF-001 §8). `No Error.`, `Invalid Character.`, `Data out of range.`, `Undefined Header.`; one error held, cleared by reading it. |
 | PSU-OPEN-03 | The command interval a real GPD-3303D needs. 50 ms is a conservative default taken from the supply having no flow control; the figure to confirm is the smallest interval at which a long sweep loses nothing. |
 | PSU-OPEN-04 | Settling time after a setpoint change. The driver does not wait; a specification that measures immediately after `set_voltage` should state its own `sleep`. |
 | PSU-OPEN-05 | Whether a real GPD-3303D discards a setpoint sent to the slaved channel **silently**, as modelled here, or records something in `ERR?`. The driver refuses the command either way, so the refusal is right in both cases; what is unconfirmed is the sentence that says the supply reports nothing. Send `VSET2:1.000` in series tracking, then `ERR?`. |
-| PSU-OPEN-06 | Whether the supply's own manual numbers the `STATUS?` tracking bits as this driver decodes them (bit 2 then bit 3, `01` independent, `11` series, `10` parallel). Related to PSU-OPEN-01 and confirmed by the same one-minute check: move the front-panel switch and watch which characters change. |
+| PSU-OPEN-06 | Independent **confirmed 2026-09-26**: bit 2 `0`, bit 3 `1`, read bit 2 first. The original decode read that as parallel (#61). Series and parallel still need the front-panel switch moved. |
 
 ## 14. Runner verification results
 

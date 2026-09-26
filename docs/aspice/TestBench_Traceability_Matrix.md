@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-RTM-001 | **Version** | 0.4 |
+| **Document ID** | TB-RTM-001 | **Version** | 0.6 |
 | **Project** | TestBench | **Date** | 2026-09-24 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -27,6 +27,7 @@
 | 0.3 | 2026-09-23 | Claude | Rows added for BLE-FR-025 and DMM-FR-045. |
 | 0.4 | 2026-09-24 | Claude | Rows added for RUN-FR-054…057. |
 | 0.5 | 2026-09-25 | Claude | Rows added for BLE-FR-026, -046…049 and -109…116; BLE-FR-102, -106 and -107 re-traced to the revised requirements and the split into BLE-DD-SCRIPT and BLE-DD-SCRIPTRUN (#46, #48). |
+| 0.6 | 2026-09-26 | Claude | PSU-FR-002 and -003 rows name the renamed tests (#64). OPEN-08 now points to TB-IF-001 §12. TB-IF-001 and TB-SWE3-002 added to the referenced documents (#63). Header version brought into line with this history. |
 
 ---
 
@@ -45,8 +46,10 @@ It is checked mechanically by `tests/test_traceability.py` on every run of the s
 | TB-SYS2-001 | TestBench System Requirements Specification | 0.1 |
 | TB-SWE1-001 | TestBench Software Requirements Specification | 0.1 |
 | TB-SWE2-001 | TestBench Software Architecture Description | 0.1 |
-| TB-SWE3-001 | TestBench Software Detailed Design | 0.1 |
-| TB-RTM-001 | TestBench Requirements Traceability Matrix | 0.1 |
+| TB-SWE3-001 | TestBench Software Detailed Design | 0.4 |
+| TB-SWE3-002 | GPD-3303D Driver Design and Lessons Learned | 0.1 |
+| TB-IF-001 | GPD-3303D Remote Control Interface Specification | 0.1 |
+| TB-RTM-001 | TestBench Requirements Traceability Matrix | 0.6 |
 
 ---
 
@@ -524,7 +527,7 @@ where the firmware implements the requirement.
 | OPEN-06 | The dongle firmware builds, links, fits and packages against nRF5 SDK 17.1.0 in CI, but has not been flashed or run (CON-07) | **Narrowed**: BLE-OPEN-01 is discharged — `.github/workflows/firmware.yml` run 12 on `f66a248`, 51 652 bytes of flash and 12 636 of static RAM (BENCHTOOLS-SWE4-002 §4.6). What remains is to flash the DFU package and work through `docs/ble/BLE_Dongle_Notes.md` §5.3 (BLE-OPEN-02 to BLE-OPEN-04). |
 | OPEN-04 | **Narrowed.** Tests written as a markdown document are implemented for the BLE command set: `BLE-FR-100 … -116`, AD-23, `specs/sensor_commands.md`, and the template `specs/templates/ble_sensor_test.md`, whose rows each map to one Robot Framework keyword and whose `${NAME}` variables are Robot's own syntax. What remains undecided is Robot Framework itself (STK-12, CON-06) - a general keyword layer over every instrument, rather than one document format for one element | Decide whether to adopt Robot Framework. If adopted, add a `ROBOT-` element in front of the existing runner; AD-15 has kept the driver boundary suitable for it, and AD-23 is evidence that a document-driven test needs no framework to be useful. |
 | OPEN-07 | S2-LP kit bench confirmation items — `docs/s2lp/S2LP_Devkit_Notes.md` §7: the firmware's exact reply text and error codes, the board name it reports, the meaning of `S2LPGetNBytesBatch`'s reference-timer argument, and the link budget in practice | Discharge on first use with a kit. Tracked there as S2LP-OPEN-01 to S2LP-OPEN-05. Nothing in them blocks use of the driver: the parser reads tags by name and keeps every line, so an unexpected reply is visible rather than fatal. |
-| OPEN-08 | PSU bench confirmation items — `docs/psu/GPD3303D_Notes.md` §5: the bit order of `STATUS?`, the behaviour of `ERR?`, the command interval a real supply needs, and settling time | Discharge on first use with a supply. Tracked there as PSU-OPEN-01 to PSU-OPEN-04. |
+| OPEN-08 | PSU bench confirmation items — TB-IF-001 §12: the command interval a real supply needs, settling time, the slaved-channel behaviour, series and parallel tracking bits, current programming resolution, and `VOUT` read-back | PSU-OPEN-01 and -02 closed 2026-09-26; PSU-OPEN-06 partly. The rest open, tracked in TB-IF-001 §12. |
 | OPEN-05 | J-Link bench confirmation items (CON-04, CON-05) — `docs/jlink/JLink_Integration_Notes.md` §4: Windows execution, real MI version behaviour, SWO timestamp scaling, RTT control-block discovery, flash timing | Discharge on first use with a probe and a target. Tracked there as JLINK-OPEN-01 to JLINK-OPEN-04. |
 
 ---

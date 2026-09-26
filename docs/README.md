@@ -41,6 +41,8 @@ All ASPICE work products live in [`aspice/`](aspice/). Every one is at version
 | [SWE.1 Software Requirements](aspice/TestBench_SWE1_SW_Requirements.md) | What the tooling must do, per element |
 | [SWE.2 Software Architecture](aspice/TestBench_SWE2_SW_Architecture.md) | Layering, elements, and the architectural decisions |
 | [SWE.3 Detailed Design](aspice/TestBench_SWE3_Detailed_Design.md) | Per-module design units |
+| [SWE.3 GPD-3303D Driver Design](aspice/TestBench_SWE3_002_GPD3303D_Driver_Design.md) | The supply's driver as one component: structure, decisions, and the lessons learned bringing it up on hardware |
+| [GPD-3303D Remote Control Interface](aspice/TestBench_IF001_GPD3303D_Remote_Control_Interface.md) | The supply's protocol as the instrument implements it, command by command, with captured replies |
 | [SWE.4 Unit Verification](aspice/TestBench_SWE4_Unit_Verification.md) | Verification strategy, test groups, pass criteria |
 | [SWE.4 Unit Verification Report](aspice/TestBench_SWE4_Unit_Verification_Report.md) | Results, coverage, measured accuracy, defects found |
 | [SWE.5 Integration & Integration Test](aspice/TestBench_SWE5_SW_Integration_Test.md) | How the units are joined, and the interface properties no unit test can show |
