@@ -121,6 +121,12 @@ unconfirmed bit should not leave the driver unable to set anything.
 Not SCPI. The supply answers `*IDN?` and nothing else from IEEE 488.2 - no
 `*RST`, no `*CLS`, no `SYSTem:ERRor?`.
 
+This section is a summary. The controlled specification, with every reply
+captured from a real supply, is TB-IF-001
+([`GPD-3303D Remote Control Interface`](../aspice/TestBench_IF001_GPD3303D_Remote_Control_Interface.md)).
+The driver's design and the lessons from bringing it up are in TB-SWE3-002
+([`GPD-3303D Driver Design`](../aspice/TestBench_SWE3_002_GPD3303D_Driver_Design.md)).
+
 | Command | Meaning |
 |---|---|
 | `*IDN?` | `GW INSTEK,GPD-3303D,SN:GER916893,V1.09` |

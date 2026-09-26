@@ -60,6 +60,8 @@ class TestWorkProductsExist:
         "path",
         [REQUIREMENTS_DOC, ARCHITECTURE_DOC, DESIGN_DOC, TEST_SPEC_DOC, MATRIX_DOC,
          DOCS / "TestBench_SWE4_Unit_Verification_Report.md",
+         DOCS / "TestBench_IF001_GPD3303D_Remote_Control_Interface.md",
+         DOCS / "TestBench_SWE3_002_GPD3303D_Driver_Design.md",
          ROOT / "docs" / "tek3014b" / "VISA_Determination_Report.md"],
         ids=lambda p: p.name,
     )

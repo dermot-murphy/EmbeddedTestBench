@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE1-001 | **Version** | 0.4 |
+| **Document ID** | TB-SWE1-001 | **Version** | 0.6 |
 | **Project** | TestBench | **Date** | 2026-09-24 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -27,6 +27,7 @@
 | 0.3 | 2026-09-23 | Claude | BLE-FR-025 (choose the strongest advertiser) and DMM-FR-045 (the bench states what the simulated meter reads) added; RUN subsection numbering corrected after the section 14 insertion. |
 | 0.4 | 2026-09-24 | Claude | RUN-FR-054…057 added: a specification's safety warning, printed before the bench is opened, and the acknowledgement that gates a warned run on real hardware. |
 | 0.5 | 2026-09-25 | Claude | BLE-FR-026 (select by name fragment) and BLE-FR-046…049 (connect window, per-command reply wait, a command the sensor disconnects after, failed links closed) added. BLE-FR-102, -105, -106 and -107 revised and BLE-FR-109…116 added for command documents: results in the order error, skip, fail, pass; variables; connect and disconnect steps; per-step timeouts; `<disconnect>`; notes; the event log; the standalone runner (#46, #48). |
+| 0.6 | 2026-09-26 | Claude | PSU-FR-002 rationale corrected: the supply rejects an out-of-range setting, it does not clamp it (#64). PSU-FR-003 no longer promises an exact read-back (#64). PSU-FR-021 and -022 describe the status word as the supply sends it, without a line rate (#63). Header version brought into line with this history. |
 
 ---
 
@@ -524,8 +525,8 @@ accepts and discards anything sent to channel 2.
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
 | PSU-FR-020 | The driver shall report whether each channel is in constant voltage or constant current. A channel in constant current is not delivering the voltage that was set, and no voltage reading alone says so. | STK-13, STK-17 | Test |
-| PSU-FR-021 | The driver shall decode the supply's status word - per-channel mode, tracking, beeper, output state and line rate - and shall retain the raw reply beside the decoded values. | STK-13 | Test |
-| PSU-FR-022 | A status reply that is not the documented length shall be reported as such, naming the line rate as the likely cause, rather than decoded. | STK-13 | Test |
+| PSU-FR-021 | The driver shall decode the supply's status word - per-channel mode, tracking, beeper and output state - in the form the supply sends it (TB-IF-001 §7), and shall retain the raw reply beside the decoded values. The supply does not report its line rate. | STK-13 | Test |
+| PSU-FR-022 | A status reply that does not carry eight bits shall be reported as such, naming the line rate as the likely cause, rather than decoded. | STK-13 | Test |
 | PSU-FR-023 | The driver shall report whether a channel is *regulated*: energised, in constant voltage, and at its setpoint. | STK-13, STK-17 | Test |
 | PSU-FR-024 | The driver shall be able to read and clear whatever the supply reports about a rejected command, carrying its text verbatim. | STK-13 | Test |
 

@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SYS3-001 | **Version** | 0.1 |
+| **Document ID** | TB-SYS3-001 | **Version** | 0.2 |
 | **Project** | TestBench | **Date** | 2026-09-19 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -23,6 +23,7 @@
 | Version | Date | Author | Description of Change |
 |---|---|---|---|
 | 0.1 | 2026-09-19 | Claude | Initial |
+| 0.2 | 2026-09-26 | Claude | TB-SIF-02 refers to its interface specification, TB-IF-001 (#63). |
 
 ---
 
@@ -112,7 +113,7 @@ observes rather than defines.
 | ID | Between | Medium | Protocol | Notes |
 |---|---|---|---|---|
 | TB-SIF-01 | SE-HOST ↔ SE-SCOPE | Ethernet | VXI-11 / SCPI | Implemented directly; no VISA runtime required (TB-SWE2-001 AD-01) |
-| TB-SIF-02 | SE-HOST ↔ SE-PSU | USB serial | GW Instek command set | Not SCPI; terminator and status byte encoding are instrument-specific |
+| TB-SIF-02 | SE-HOST ↔ SE-PSU | USB serial | GW Instek command set | Not SCPI; LF out, CR back; status word spaced and followed by a legend. Specified in TB-IF-001 |
 | TB-SIF-03 | SE-HOST ↔ SE-PROBE (control) | TCP | GDB/MI to the J-Link GDB server | Network link, so this element containerises |
 | TB-SIF-04 | SE-HOST ↔ SE-PROBE (RTT) | TCP | J-Link RTT telnet channel | As above |
 | TB-SIF-05 | SE-HOST ↔ SE-DONGLE | USB serial | TestBench dongle protocol — this project's own | Carries dongle-side timestamps (TB-SYS2-043) |
