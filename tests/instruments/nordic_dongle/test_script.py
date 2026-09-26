@@ -823,3 +823,75 @@ class TestTheEventLog:
         finally:
             instrument.close()
         assert [line.split("\t")[1] for line in run.events[1:]] == ["TX", "RX"]
+
+
+def saving(body: str) -> str:
+    """One test whose table has a Save column."""
+    return ("## Saving\n\n| Step | Command | Expected response | Save |\n|---|---|---|---|\n"
+            + body)
+
+
+class TestSavingAReply:
+    """A reply saved in one step is compared in a later one (#54)."""
+
+    def test_a_saved_reply_is_compared_later(self):
+        instrument, _ = linked()
+        try:
+            run = run_script(instrument, parse_script(saving(
+                "| 1 | rd version | | BEFORE |\n"
+                "| 2 | temp | 23.5 | |\n"
+                "| 3 | rd version | ${BEFORE} | |\n")), sleep=no_wait)
+        finally:
+            instrument.close()
+        assert [item.result for item in run.results] == [SKIP, PASS, PASS]
+        assert run.saved == {"BEFORE": "1.4.2"}
+        assert "saved BEFORE = 1.4.2" in run.results[0].reason
+
+    def test_a_named_group_saves_just_that_part(self):
+        instrument, _ = linked()
+        try:
+            run = run_script(instrument, parse_script(saving(
+                "| 1 | rd id | /^SENS-(?P<code>[0-9A-F]+)$/ | CODE |\n"
+                "| 2 | rd id | SENS-${CODE} | |\n")), sleep=no_wait)
+        finally:
+            instrument.close()
+        assert run.saved == {"CODE": "0A1B2C"}
+        assert run.results[1].result == PASS
+
+    def test_a_saved_value_is_escaped_inside_a_pattern(self):
+        """A saved 1.4.2 must not match 1x4x2."""
+        instrument, _ = linked()
+        try:
+            run = run_script(instrument, parse_script(saving(
+                "| 1 | rd version | | V |\n| 2 | rd version | /^${V}$/ | |\n")),
+                sleep=no_wait)
+        finally:
+            instrument.close()
+        assert run.results[1].expected == "/^1\\.4\\.2$/"
+        assert run.results[1].result == PASS
+
+    def test_a_reply_that_failed_its_check_is_not_saved(self):
+        instrument, _ = linked()
+        try:
+            run = run_script(instrument, parse_script(saving(
+                "| 1 | rd version | 9.9.9 | V |\n| 2 | rd version | ${V} | |\n")),
+                sleep=no_wait)
+        finally:
+            instrument.close()
+        assert [item.result for item in run.results] == [FAIL, ERROR]
+        assert "was not saved" in run.results[1].reason
+
+    def test_a_saved_name_is_usable_only_after_the_row_that_saves_it(self):
+        with pytest.raises(ConfigurationError, match=r"\$\{V\} is not declared"):
+            parse_script(saving("| 1 | rd version | ${V} | |\n| 2 | rd version | | V |\n"))
+
+    def test_a_saved_name_cannot_shadow_a_declared_variable(self):
+        text = "| Variable | Default |\n|---|---|\n| V | 1 |\n\n"
+        with pytest.raises(ConfigurationError, match="needs a name of its own"):
+            parse_script(text + saving("| 1 | rd version | | V |\n"))
+
+    def test_only_a_command_reply_can_be_saved(self):
+        with pytest.raises(ConfigurationError, match="only a command's reply"):
+            parse_script(saving("| 1 | delay 10 | | V |\n"))
+        with pytest.raises(ConfigurationError, match="only a command's reply"):
+            parse_script(saving("| 1 | wr reset | <disconnect> | V |\n"))

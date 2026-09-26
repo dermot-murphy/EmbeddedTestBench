@@ -59,6 +59,12 @@ reply, and the time from sending it to the disconnection is measured on the
 dongle's clock. **Pass** if the link drops within the step's timeout, **fail**
 if it does not.
 
+A ``Save`` column names a variable to keep the step's reply in, for later
+steps to use as ``${NAME}`` - a value read before an action, compared with the
+one read after it. A pattern with a named group saves just that part of the
+reply. A reply is saved when it passed its check, or when nothing was expected
+of it; a later step whose saved value was never captured is an error.
+
 A ``Timeout`` column, in milliseconds, sets how long a step waits: for the reply
 to a command, for the listening window of a command that expects none, for the
 link to drop, or for a ``connect`` to find its sensor. Empty means the run's
@@ -173,6 +179,7 @@ _COLUMNS = {
     "expected": ("expected", "expected response", "expected reply", "response"),
     "note": ("note", "notes", "comment", "comments"),
     "timeout": ("timeout", "timeout (ms)", "timeout ms", "timeout_ms"),
+    "save": ("save", "save as", "save to"),
 }
 
 #: Column headings of the variables table.
@@ -207,6 +214,7 @@ class ScriptStep:
     target: str = ""
     note: str = ""
     timeout_s: Optional[float] = None
+    save: str = ""
 
     @property
     def is_delay(self) -> bool:
@@ -347,14 +355,20 @@ def _variable_columns(headings: Sequence[str]) -> Optional[Dict[str, int]]:
     return found if "variable" in found else None
 
 
-def _substitute(text: str, values: Mapping[str, Optional[str]], where: str) -> str:
+def _substitute(text: str, values: Mapping[str, Optional[str]], where: str,
+                deferred: Sequence[str] = ()) -> str:
     """Replace every ``${NAME}`` in *text*.
+
+    Names in *deferred* - replies an earlier row saves - are left in place for
+    the run to fill in when it reaches the step.
 
     :raises ConfigurationError: for a name the document does not declare, or
         one declared without a default and not given a value.
     """
     def value_of(match) -> str:
         name = match.group("name")
+        if name in deferred:
+            return match.group(0)
         if name not in values:
             raise ConfigurationError(
                 "%s: ${%s} is not declared. Add it to the | Variable | Default | "
@@ -394,6 +408,7 @@ class _Reader:  # pylint: disable=too-many-instance-attributes
         self.overrides = dict(overrides)
         self.declared: Dict[str, Optional[str]] = {}
         self.bound = False
+        self.saved: List[str] = []          # names earlier rows save replies in
         self.tests: List[ScriptTest] = []
         self.heading: Optional[str] = None
         self.steps: List[ScriptStep] = []
@@ -497,12 +512,33 @@ class _Reader:  # pylint: disable=too-many-instance-attributes
         default = cells[column].strip("`").strip() if column is not None else ""
         self.declared[name] = default if default else None
 
+    def save_name(self, cell: str, step: ScriptStep, where: str) -> str:
+        """Check a Save cell, and make its name usable by the rows after it."""
+        name = cell.strip("`").strip()
+        if not _VARIABLE_NAME.match(name):
+            raise ConfigurationError(
+                "%s: %r is not a variable name to save a reply in." % (where, name)
+            )
+        if name in self.declared:
+            raise ConfigurationError(
+                "%s: %s is declared in the Variables table; a saved reply needs a "
+                "name of its own." % (where, name)
+            )
+        if step.action != COMMAND or step.expects_disconnect:
+            raise ConfigurationError(
+                "%s: only a command's reply can be saved, not a %s step's."
+                % (where, "<disconnect>" if step.expects_disconnect else step.action)
+            )
+        if name not in self.saved:
+            self.saved.append(name)
+        return name
+
     def step_row(self, cells: List[str], where: str, number: int) -> None:
         """Read one step, with the variables substituted."""
         self.bind(where)
         step_number = cells[self.columns["step"]]
-        command = _substitute(cells[self.columns["command"]], self.declared, where)
-        expected = _substitute(cells[self.columns["expected"]], self.declared, where)
+        command = _substitute(cells[self.columns["command"]], self.declared, where, self.saved)
+        expected = _substitute(cells[self.columns["expected"]], self.declared, where, self.saved)
 
         if not step_number:
             raise ConfigurationError(
@@ -519,8 +555,10 @@ class _Reader:  # pylint: disable=too-many-instance-attributes
         step = _interpret(ScriptStep(test=self.heading, number=step_number, command=command,
                                      expected=expected, line=number), where)
         if "note" in self.columns:
-            note = _substitute(cells[self.columns["note"]], self.declared, where)
+            note = _substitute(cells[self.columns["note"]], self.declared, where, self.saved)
             step = replace(step, note=note)
+        if "save" in self.columns and cells[self.columns["save"]]:
+            step = replace(step, save=self.save_name(cells[self.columns["save"]], step, where))
         if "timeout" in self.columns:
             text = _substitute(cells[self.columns["timeout"]], self.declared, where)
             step = replace(step, timeout_s=_parse_timeout(text, step, where))
