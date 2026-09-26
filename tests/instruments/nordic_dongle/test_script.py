@@ -936,3 +936,65 @@ class TestEscapedPipes:
         assert run.results[0].result == PASS
         row = [line for line in run.markdown().splitlines() if line.startswith("| A test |")][0]
         assert "/^1\\.4\\.2$\\|^x$/" in row
+
+
+def framed(body: str) -> str:
+    """One test whose table has a Frames column."""
+    return ("## Framed\n\n| Step | Command | Expected response | Frames |\n|---|---|---|---|\n"
+            + body)
+
+
+class TestCountingReplyFrames:
+    """A sensor that answers twice leaves every later command a reply behind (#53)."""
+
+    def test_one_frame_passes(self):
+        instrument, _ = linked()
+        try:
+            run = run_script(instrument, parse_script(framed("| 1 | rd version | 1.4.2 | 1 |\n")),
+                             sleep=no_wait)
+        finally:
+            instrument.close()
+        assert run.results[0].result == PASS
+
+    def test_a_second_frame_fails_and_says_what_it_was(self):
+        instrument, _ = linked(extra_frames={"rd version": ("1.4.2",)})
+        try:
+            run = run_script(instrument, parse_script(framed("| 1 | rd version | 1.4.2 | 1 |\n")),
+                             sleep=no_wait)
+        finally:
+            instrument.close()
+        result = run.results[0]
+        assert result.result == FAIL
+        assert "2 reply frame(s), expected 1: then 1.4.2" in result.reason
+        rx = [line.split("\t") for line in run.events if "\tRX\t" in line]
+        assert [row[3] for row in rx][1] == "frame 2: 1.4.2"
+
+    def test_a_frame_count_is_a_claim_even_with_no_expected_response(self):
+        script = parse_script(framed("| 1 | rd version | | 1 |\n"))
+        assert script.checks == 1
+        instrument, _ = linked()
+        try:
+            run = run_script(instrument, script, sleep=no_wait)
+        finally:
+            instrument.close()
+        assert run.results[0].result == PASS
+
+    def test_a_right_count_with_a_wrong_reply_still_fails(self):
+        instrument, _ = linked()
+        try:
+            run = run_script(instrument, parse_script(framed("| 1 | rd version | 9.9.9 | 1 |\n")),
+                             sleep=no_wait)
+        finally:
+            instrument.close()
+        assert run.results[0].result == FAIL
+        assert "does not match" in run.results[0].reason
+
+    def test_a_frame_count_must_be_a_whole_number_from_one(self):
+        with pytest.raises(ConfigurationError, match="whole number from 1"):
+            parse_script(framed("| 1 | rd version | 1.4.2 | 0 |\n"))
+        with pytest.raises(ConfigurationError, match="whole number from 1"):
+            parse_script(framed("| 1 | rd version | 1.4.2 | one |\n"))
+
+    def test_only_a_command_has_frames_to_count(self):
+        with pytest.raises(ConfigurationError, match="only a command's reply frames"):
+            parse_script(framed("| 1 | delay 10 | | 1 |\n"))

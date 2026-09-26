@@ -359,6 +359,11 @@ to copy.
   run's default (`--timeout-s`, 3 s). Some commands take longer than others;
   waits over 2 s need dongle firmware 1.3 (`cmd <hex> timeout=<ms>`).
 - A **Note** column is carried into the report beside the result.
+- A **Frames** column says how many reply frames - notifications - a command
+  must produce, usually `1`: a sensor that answers twice leaves every later
+  command reading the previous one's reply. The step listens 0.5 s after the
+  reply, fails on a different count naming the extra frames, and logs each as
+  an `RX` event. A Frames cell is a claim even with no expected response.
 - A **Save** column names a variable to keep the step's reply in; later steps
   use it as `${NAME}`, so a value read before an action can be compared with the
   one after it. A pattern's first named group - `(?P<value>...)` - saves just

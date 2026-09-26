@@ -67,6 +67,9 @@ class SimulatedSensor:
     #: Commands after which the sensor drops the link, and how long after, in
     #: microseconds - a reset, say.
     disconnect_on: Dict[str, int] = field(default_factory=dict)
+    #: Commands answered with more than one notification, and what the extra
+    #: ones say - the defect of a sensor replying twice.
+    extra_frames: Dict[str, Tuple[str, ...]] = field(default_factory=dict)
 
     def advertising_payload(self) -> bytes:
         """The advertising data, with the local name appended when there is one."""
@@ -581,6 +584,13 @@ class SimulatedDongle:
         self._queue.append(
             "+rx t=%d len=%d data=%s" % (received_us, len(encoded), encoded.hex())
         )
+        for index, extra in enumerate(sensor.extra_frames.get(request, ()), start=1):
+            data = extra.encode("utf-8")
+            self._queue.append(
+                "+rx t=%d len=%d data=%s" % (received_us + index * 20_000, len(data), data.hex())
+            )
+            # The clock moves on past what it reported, as a real one would.
+            self.clock_us = max(self.clock_us, received_us + index * 20_000)
         return [
             "ok t_tx=%d t_rx=%d dt_us=%d interval_us=30000 len=%d data=%s"
             % (

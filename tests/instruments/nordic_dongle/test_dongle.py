@@ -556,3 +556,24 @@ class TestExpectingADisconnect:
         sample = linked.command_expecting_disconnect("rd version", timeout=0.2)
         assert sample.disconnected is False
         assert linked.is_linked is True
+
+
+class TestReplyFrames:
+    """Notifications after the reply, counted when asked (#53)."""
+
+    def test_no_window_looks_for_no_extra_frames(self, simulator, linked):
+        simulator.sensors[0].extra_frames = {"rd version": ("again",)}
+        sample = linked.command("rd version")
+        assert sample.frames == 1 and sample.extra_frames == ()
+
+    def test_a_window_counts_the_frames_after_the_reply(self, simulator, linked):
+        simulator.sensors[0].extra_frames = {"rd version": ("again", "and again")}
+        sample = linked.command("rd version", frame_window=0.2)
+        assert sample.text == "1.4.2"
+        assert sample.frames == 3
+        assert sample.extra_frames == (b"again", b"and again")
+
+    def test_a_frame_left_from_an_earlier_command_is_not_counted(self, simulator, linked):
+        simulator.sensors[0].extra_frames = {"temp": ("stale",)}
+        linked.command("temp")                  # its extra frame is left queued
+        assert linked.command("rd version", frame_window=0.2).frames == 1
