@@ -24,7 +24,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass
-from typing import Callable, Dict, List, Optional, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 from ...core.errors import (
     BenchToolsError,
@@ -1013,6 +1013,7 @@ class NordicDongle(Instrument):
         self,
         request: Union[str, bytes],
         timeout: float = DEFAULT_COMMAND_TIMEOUT,
+        frame_window: float = 0.0,
     ) -> ResponseSample:
         """Send a command and wait for the sensor's reply, timing both.
 
@@ -1021,6 +1022,10 @@ class NordicDongle(Instrument):
         two are kept separately because quoting the second as the first would
         report a millisecond of host scheduling as sensor latency.
 
+        :param frame_window: Seconds to go on listening after the reply, to count
+            the notifications the command produced. A sensor that answers twice
+            leaves every later command reading the previous one's reply; with no
+            window, a surplus notification is not looked for.
         :param timeout: Seconds the dongle waits for the reply, 0.1 to 60. Sent
             to a protocol 1.3 dongle; an older one waits its own fixed 2 s,
             and a longer wait asked of it is logged as not honoured.
@@ -1045,8 +1050,8 @@ class NordicDongle(Instrument):
         started = time.perf_counter()
         reply = self._session.execute("cmd", *arguments, timeout=timeout + 1.0)
         elapsed = time.perf_counter() - started
-
-        self._session.take_events("rx")         # the reply is in the ok line
+        received_us = int(reply.fields["t_rx"]) if "t_rx" in reply.fields else None
+        extra = self._extra_frames(received_us, frame_window)
         interval = reply.fields.get("interval_us")
         if interval:
             self._connection_interval_us = int(interval)
@@ -1057,8 +1062,29 @@ class NordicDongle(Instrument):
             dongle_us=int(reply.fields["dt_us"]) if "dt_us" in reply.fields else None,
             host_s=elapsed,
             transmitted_us=int(reply.fields["t_tx"]) if "t_tx" in reply.fields else None,
-            received_us=int(reply.fields["t_rx"]) if "t_rx" in reply.fields else None,
+            received_us=received_us,
+            extra_frames=extra,
         )
+
+    def _extra_frames(self, received_us: Optional[int], window: float) -> Tuple[bytes, ...]:
+        """Notifications after the reply, listening for *window* seconds.
+
+        The firmware reports every notification as ``+rx``, the reply's own
+        stamped at exactly ``t_rx``: the extra ones are those after it. Older
+        ones, left from an earlier command, are before it and are dropped.
+        """
+        deadline = time.monotonic() + window
+        while window > 0.0 and time.monotonic() < deadline:
+            try:
+                self._session.wait_for_event("rx", timeout=max(deadline - time.monotonic(), 0.0),
+                                             match=lambda event: False)
+            except BenchToolsError:
+                break
+        events = self._session.take_events("rx")
+        if received_us is None:
+            return ()
+        return tuple(from_hex(event.get("data") or "") for event in events
+                     if event.integer("t", 0) > received_us)
 
     def run_script(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,

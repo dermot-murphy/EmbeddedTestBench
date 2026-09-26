@@ -59,6 +59,11 @@ reply, and the time from sending it to the disconnection is measured on the
 dongle's clock. **Pass** if the link drops within the step's timeout, **fail**
 if it does not.
 
+A ``Frames`` column says how many reply frames - notifications - a command must
+produce, usually 1: a sensor that answers twice leaves every later command
+reading the previous one's reply. A step with a Frames cell makes a claim even
+with no expected response. The extra frames are logged.
+
 A ``Save`` column names a variable to keep the step's reply in, for later
 steps to use as ``${NAME}`` - a value read before an action, compared with the
 one read after it. A pattern with a named group saves just that part of the
@@ -179,6 +184,7 @@ _COLUMNS = {
     "expected": ("expected", "expected response", "expected reply", "response"),
     "note": ("note", "notes", "comment", "comments"),
     "timeout": ("timeout", "timeout (ms)", "timeout ms", "timeout_ms"),
+    "frames": ("frames", "reply frames", "frame count"),
     "save": ("save", "save as", "save to"),
 }
 
@@ -214,6 +220,7 @@ class ScriptStep:
     target: str = ""
     note: str = ""
     timeout_s: Optional[float] = None
+    frames: Optional[int] = None
     save: str = ""
 
     @property
@@ -233,8 +240,8 @@ class ScriptStep:
 
     @property
     def makes_claim(self) -> bool:
-        """Whether this step can pass or fail: it has an expected response."""
-        return self.expects_response or self.expects_disconnect
+        """Whether this step can pass or fail: it expects a response, a frame count, or a drop."""
+        return self.expects_response or self.expects_disconnect or self.frames is not None
 
     @property
     def pattern(self) -> Optional[str]:
@@ -587,6 +594,8 @@ class _Reader:  # pylint: disable=too-many-instance-attributes
         if "timeout" in self.columns:
             text = _substitute(cells[self.columns["timeout"]], self.declared, where)
             step = replace(step, timeout_s=_parse_timeout(text, step, where))
+        if "frames" in self.columns and cells[self.columns["frames"]]:
+            step = replace(step, frames=_parse_frames(cells[self.columns["frames"]], step, where))
         self.steps.append(step)
 
 
@@ -613,6 +622,21 @@ def _parse_timeout(text: str, step: ScriptStep, where: str) -> Optional[float]:
             % (where, low * 1000.0, high * 1000.0, step.action, text)
         )
     return seconds
+
+
+def _parse_frames(text: str, step: ScriptStep, where: str) -> int:
+    """The number of reply frames a Frames cell requires."""
+    if step.action != COMMAND or step.expects_disconnect:
+        raise ConfigurationError(
+            "%s: only a command's reply frames can be counted, not a %s step's."
+            % (where, "<disconnect>" if step.expects_disconnect else step.action)
+        )
+    if not text.strip().isdigit() or int(text) < 1:
+        raise ConfigurationError(
+            "%s: a Frames cell is how many reply frames the command must produce, "
+            "a whole number from 1, not %r." % (where, text)
+        )
+    return int(text)
 
 
 def _interpret(row: ScriptStep, where: str) -> ScriptStep:
