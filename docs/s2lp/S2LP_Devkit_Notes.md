@@ -370,9 +370,23 @@ three of 5C314E's repeats earlier the same day. So:
 5C314E reports RF_CAP 4 (V10 firmware). Its ALIVE frames decode, with a warning
 that the layouts are for RF_CAP 6.
 
-`kepler.py` decodes every frame type in the sensor's table. Only ALIVE has been
-seen on the air so far; the rest are tested against frames built from the
-reference layouts.
+**Frame types seen on the air (#85)**, all from 5C1712 on 2026-09-27, all
+decoded without error:
+
+| Type | How it was provoked | What it showed |
+|---|---|---|
+| ALIVE | periodic, every 10 minutes | as above |
+| VERSION | BLE `ECURESET HARD`; arrived about 8 s after the ACK | `V11.00.0000`, SHA `bc97874`, reset reason 4 (RESETREAS.SREQ, a software reset), ticks 1 |
+| CONFIG | follows a reset: 12 packets 45 s apart (mux 0 to 11), ahead of TWF | distance permutation; mux in order |
+| TWF | BLE `WR TRIGGER`; started after the CONFIG cycle had finished | one packet every 45 s, packet count 256 (about 3.2 hours for a waveform). PARAM's SI type stepped 0, 1, 2, 3, 4 from packet to packet. The SI acceleration in packet 0 (145, 84, 93) agrees with the ALIVE RMS acceleration a minute later (147, 87, 95) |
+
+Over a 15-minute polled stream, every one of 22 packets arrived at least once,
+but only 14 arrived with all three repeats: 58 of 66 repeats in total. The
+missed repeats were mostly the middle one, following the first too closely
+(#84).
+
+FFT, FFT2, CMD and RESPONSE have not been seen on the air. They are tested
+against frames built from the reference layouts.
 
 ---
 
