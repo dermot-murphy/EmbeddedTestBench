@@ -304,7 +304,7 @@ it is commanded, and it yields measurements — so it implements the generic bas
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
-| JLINK-FR-020 | The driver shall programme the target from an ELF or Intel HEX file and report the sections written, their addresses, their sizes and the elapsed time. | STK-09 | Test |
+| JLINK-FR-020 | The driver shall programme the target from an ELF or Intel HEX file and report the sections written, their addresses, their sizes and the elapsed time. It shall keep caller-named address ranges across the programming, writing them back and checking they read back, because programming an image that holds part of a page erases the rest of that page (issue #69). | STK-09 | Test |
 | JLINK-FR-021 | The driver shall verify the target's memory against the binary section by section, and shall report per-section verdicts, not merely an overall result. | STK-09 | Test |
 | JLINK-FR-022 | A verification mismatch shall raise, naming the sections that differ. A verification over an empty section list shall be reported as not matched, never as a pass. | STK-09 | Test |
 | JLINK-FR-023 | The driver shall erase the target's non-volatile memory, from reset with the core halted, and shall confirm the erasure by reading the flash back rather than trusting the server's report, raising if it did not happen. | STK-09 | Test |
@@ -327,7 +327,7 @@ it is commanded, and it yields measurements — so it implements the generic bas
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
 | JLINK-FR-040 | The driver shall read and write target memory of arbitrary length, splitting transfers to the probe's maximum transfer size, and shall provide byte, half-word and word accessors. | STK-09 | Test |
-| JLINK-FR-041 | The driver shall read and write a variable by name, returning integers, floating-point values and strings as the debug information describes them, and shall report a variable's address and size. | STK-09 | Test |
+| JLINK-FR-041 | The driver shall read and write a variable by name, returning integers, floating-point values, booleans, strings and structures (as a field-by-field mapping, nested as the type nests) as the debug information describes them, and shall report a variable's address and size. | STK-09 | Test |
 | JLINK-FR-042 | The driver shall evaluate an arbitrary expression in the target's context. | STK-09 | Test |
 | JLINK-FR-043 | The driver shall read a field of one to eight bytes as an integer in a byte order the caller states, because the byte order and width of a record programmed into a part are properties of that record and not of the core that loads it. A width or byte order outside what is supported shall be refused, since a misspelling would otherwise read a plausible and entirely wrong number. | STK-09 | Test |
 | JLINK-FR-045 | The driver shall read the call stack, reporting for each frame its level, function, source file and line, and the frame address. | STK-09 | Test |

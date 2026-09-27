@@ -196,7 +196,7 @@ It is checked mechanically by `tests/test_traceability.py` on every run of the s
 | JLINK-FR-006 | JLINK-ARC-001 | JLINK-DD-PROBE, JLINK-DD-CLI | `JLinkProbe._close`, `leave_halted` | `test_closing_leaves_the_target_running`, `test_closing_can_leave_the_target_halted`, `test_the_target_is_left_running_unless_asked` (7) |
 | JLINK-FR-010 | JLINK-ARC-001 | JLINK-DD-CONST | `jlink/constants.py` | `test_limits_are_data_driven`, `test_hardware_breakpoint_limit_is_enforced`, `test_channel_beyond_the_limit_is_rejected` |
 | JLINK-FR-011 | JLINK-ARC-001 | JLINK-DD-PROBE | `JLinkProbe.load_symbols` | `test_symbols_are_loaded`, `test_missing_elf_is_reported`, `test_missing_symbols_are_mentioned_in_the_error` |
-| JLINK-FR-020 | JLINK-ARC-001 | JLINK-DD-PROBE | `JLinkProbe.flash` | `test_flash_reports_what_was_written`, `test_flash_resets_first_by_default`, `test_a_named_image_is_loaded_before_it_is_read`, `test_flash_result_serialises` |
+| JLINK-FR-020 | JLINK-ARC-001 | JLINK-DD-PROBE | `JLinkProbe.flash` | `test_flash_reports_what_was_written`, `test_flash_resets_first_by_default`, `test_a_named_image_is_loaded_before_it_is_read`, `test_preserved_ranges_survive_the_flash`, `test_a_preserved_range_that_will_not_stick_raises`, `test_flash_result_serialises` |
 | JLINK-FR-021 | JLINK-ARC-001 | JLINK-DD-PROBE | `JLinkProbe.verify`, `SectionVerdict` | `test_verify_alone_reports_mismatched_sections`, `test_verify_result_serialises` |
 | JLINK-FR-022 | JLINK-ARC-001 | JLINK-DD-PROBE | `VerifyResult.matched` | `test_verification_failure_raises`, `test_an_empty_comparison_is_not_a_pass`, `test_flash_without_an_image_is_rejected` |
 | JLINK-FR-023 | JLINK-ARC-001 | JLINK-DD-PROBE | `JLinkProbe.erase` | `test_erase_resets_first_and_leaves_flash_blank`, `test_an_erase_that_did_not_happen_raises`, `test_the_blank_check_can_be_skipped`, `test_erase` (CLI), `test_monitor_passthrough`, `TestExecutionModel` |
@@ -209,7 +209,7 @@ It is checked mechanically by `tests/test_traceability.py` on every run of the s
 | JLINK-FR-035 | JLINK-ARC-001 | JLINK-DD-PROBE | `set_watchpoint` | `test_watchpoints` |
 | JLINK-FR-036 | JLINK-ARC-001 | JLINK-DD-PROBE | `run_to` | `test_run_to_a_location`, `test_unreachable_location_is_reported` |
 | JLINK-FR-040 | JLINK-ARC-001 | JLINK-DD-PROBE | `read_memory`, `write_memory`, `read_word`, `read_u8`, `read_u16` | `TestMemory` (7), notably `test_large_transfers_are_split`, `test_negative_size_is_rejected` |
-| JLINK-FR-041 | JLINK-ARC-001 | JLINK-DD-PROBE | `read_variable`, `write_variable`, `variable_address`, `variable_size` | `TestVariables` (9), notably `test_read_string`, `test_memory_agrees_with_the_variable`, `test_value_parsing` |
+| JLINK-FR-041 | JLINK-ARC-001 | JLINK-DD-PROBE | `read_variable`, `write_variable`, `variable_address`, `variable_size` | `TestVariables` (19), notably `test_a_structure_holding_a_string_is_a_structure`, `test_read_string`, `test_memory_agrees_with_the_variable`, `test_value_parsing` |
 | JLINK-FR-042 | JLINK-ARC-001 | JLINK-DD-PROBE | `evaluate` | `test_evaluate_expression`, `test_unknown_variable_is_reported` |
 | JLINK-FR-043 | JLINK-ARC-001 | JLINK-DD-PROBE | `read_integer` | `TestByteOrderedReads` (6), `test_the_identifier_comes_from_the_part` |
 | JLINK-FR-045 | JLINK-ARC-001 | JLINK-DD-PROBE, JLINK-DD-GDBMI | `call_stack`, `StackFrame` | `TestCallStack` (6), notably `test_frames_innermost_first`, `test_frames_carry_source_positions` |

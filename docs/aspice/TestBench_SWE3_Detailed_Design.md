@@ -716,6 +716,15 @@ Design points:
   an Intel HEX file on a mapped drive ("has changed; re-reading symbols");
   `load <file>` first did not. ELF and Intel HEX both work, and HEX images are
   verified section by section like ELF ones.
+- **`flash(preserve=...)` keeps named ranges.** Flashing an nRF52840 image whose
+  HEX holds a UICR record erased the whole UICR page, including a sensor ID at
+  `0x10001080` the image did not contain. Each preserved range is read after the
+  reset, written back after programming and verification if it changed, and
+  read again; a range that will not stick raises.
+- **Structures are parsed before strings.** `_parse_gdb_value` recognises
+  `{name = value, ...}` first and splits it at top-level commas outside quotes and
+  nested braces (`_split_fields`); before, a structure holding a `char *` came
+  back as that pointer's string.
 - **`erase` resets and halts first, then checks.** On an nRF52840 running its
   firmware, `monitor flash erase` reported "Flash erase: O.K." and erased
   nothing; from reset with the core halted it erased flash and UICR. The word at

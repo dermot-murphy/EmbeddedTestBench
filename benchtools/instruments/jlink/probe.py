@@ -26,7 +26,7 @@ import os
 import re
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 from ...core.errors import (
     BenchToolsError,
@@ -213,6 +213,8 @@ class FlashResult:
     output: str = ""
     seconds: float = 0.0
     verify: Optional[VerifyResult] = None
+    #: Ranges kept across the flash, as ``address -> hex bytes`` written back.
+    preserved: Dict[int, str] = field(default_factory=dict)
 
     @property
     def bytes_written(self) -> int:
@@ -235,6 +237,10 @@ class FlashResult:
         }
         if self.verify is not None:
             summary["verify"] = self.verify.as_dict()
+        if self.preserved:
+            summary["preserved"] = {
+                "0x%08x" % address: data for address, data in self.preserved.items()
+            }
         return summary
 
 
@@ -602,6 +608,7 @@ class JLinkProbe(Instrument):
         verify: bool = True,
         reset: bool = True,
         timeout: float = 180.0,
+        preserve: Sequence[Tuple[int, int]] = (),
     ) -> FlashResult:
         """Program an image onto the target.
 
@@ -613,7 +620,12 @@ class JLinkProbe(Instrument):
         :param reset: Reset and halt before programming. On by default, because
             programming a running target corrupts whatever it was doing.
         :param timeout: Seconds to allow; flashing a large image is slow.
-        :raises BenchToolsError: if verification was requested and failed.
+        :param preserve: ``(address, size)`` ranges read before programming and
+            written back afterwards. Flashing an nRF52840 image that holds a
+            UICR record erased the whole UICR page, and with it a sensor ID at
+            ``0x10001080`` that the image did not contain (issue #69).
+        :raises BenchToolsError: if verification was requested and failed, or a
+            preserved range does not read back as it was.
         """
         if path:
             self._check_image(path)
@@ -623,6 +635,7 @@ class JLinkProbe(Instrument):
             )
         if reset:
             self.reset(halt=True)
+        kept = [(address, self.read_memory(address, size)) for address, size in preserve]
 
         # The file is named to "load" and read as the executable only afterwards.
         # GDB 15.2 on Windows, given an Intel HEX file on a mapped drive by
@@ -659,8 +672,23 @@ class JLinkProbe(Instrument):
                     "flash verification failed: section(s) %s do not match %s"
                     % (", ".join(result.verify.mismatched) or "none reported", self._elf)
                 )
+        result.preserved = self._restore(kept)
         self._cycle_counter_ready = False
         return result
+
+    def _restore(self, kept: Sequence[Tuple[int, bytes]]) -> Dict[int, str]:
+        """Write back ranges read before a flash, checking each one sticks."""
+        restored: Dict[int, str] = {}
+        for address, data in kept:
+            if self.read_memory(address, len(data)) != data:
+                self.write_memory(address, data)
+                if self.read_memory(address, len(data)) != data:
+                    raise BenchToolsError(
+                        "could not restore %d preserved byte(s) at 0x%08x"
+                        % (len(data), address)
+                    )
+            restored[address] = data.hex()
+        return restored
 
     def image_build(self, path: Optional[str] = None) -> FirmwareBuild:
         """What the build system said about the image on the target.
@@ -1175,6 +1203,18 @@ class JLinkProbe(Instrument):
         value = text.strip()
         if not value:
             return None
+        # A structure: "{a = 1, b = 2}". First, because a field may hold a quoted
+        # string, and the string rule below would then return that string as the
+        # whole structure (seen on hardware with a struct holding a char pointer).
+        if value.startswith("{") and value.endswith("}"):
+            fields: Dict[str, Any] = {}
+            for part in JLinkProbe._split_fields(value[1:-1]):
+                key, equals, item = part.partition("=")
+                if equals:
+                    fields[key.strip()] = JLinkProbe._parse_gdb_value(item)
+            if fields:
+                return fields
+            return value
         # A pointer or a cast: "(uint32_t *) 0x20000104".
         pointer = re.match(r"^\([^)]*\)\s*(0x[0-9a-fA-F]+)", value)
         if pointer:
@@ -1192,17 +1232,35 @@ class JLinkProbe(Instrument):
             return float(value)
         except ValueError:
             pass
-        # A structure: "{a = 1, b = 2}".
-        if value.startswith("{") and value.endswith("}"):
-            fields: Dict[str, Any] = {}
-            for part in re.split(r",(?![^{]*\})", value[1:-1]):
-                if "=" not in part:
-                    continue
-                key, _, item = part.partition("=")
-                fields[key.strip()] = JLinkProbe._parse_gdb_value(item)
-            if fields:
-                return fields
+        if value in ("true", "false"):
+            return value == "true"
         return value
+
+    @staticmethod
+    def _split_fields(body: str) -> List[str]:
+        """Split a structure's body at top-level commas, not inside a nested
+        structure or a quoted string or character."""
+        parts: List[str] = []
+        depth, start, quote, escaped = 0, 0, "", False
+        for index, char in enumerate(body):
+            if quote:
+                if escaped:
+                    escaped = False
+                elif char == "\\":
+                    escaped = True
+                elif char == quote:
+                    quote = ""
+            elif char in "\"'":
+                quote = char
+            elif char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+            elif char == "," and depth == 0:
+                parts.append(body[start:index])
+                start = index + 1
+        parts.append(body[start:])
+        return parts
 
     # ------------------------------------------------------------------
     # Call stack

@@ -43,6 +43,14 @@ def _number(text: str) -> int:
     return int(text, 0)
 
 
+def _range(text: str) -> tuple:
+    """Parse ``ADDRESS:SIZE``, each decimal or 0x-prefixed."""
+    address, separator, size = text.partition(":")
+    if not separator:
+        raise argparse.ArgumentTypeError("expected ADDRESS:SIZE, e.g. 0x10001080:4")
+    return int(address, 0), int(size, 0)
+
+
 # ---------------------------------------------------------------------------
 def _cmd_info(probe: JLinkProbe, args) -> int:
     identity = probe.identify()
@@ -65,7 +73,10 @@ def _cmd_info(probe: JLinkProbe, args) -> int:
 
 
 def _cmd_flash(probe: JLinkProbe, args) -> int:
-    result = probe.flash(args.image, verify=not args.no_verify, reset=not args.no_reset)
+    result = probe.flash(
+        args.image, verify=not args.no_verify, reset=not args.no_reset,
+        preserve=args.preserve or (),
+    )
     _emit(result.as_dict(), args.json)
     return _EXIT_OK
 
@@ -275,6 +286,11 @@ def build_parser() -> argparse.ArgumentParser:
     flash.add_argument("image", nargs="?", help="image to flash; the --elf file when omitted")
     flash.add_argument("--no-verify", action="store_true", help="skip verification (not advised)")
     flash.add_argument("--no-reset", action="store_true", help="do not reset before programming")
+    flash.add_argument(
+        "--preserve", metavar="ADDRESS:SIZE", type=_range, action="append",
+        help="keep this range across the flash, e.g. a sensor ID in UICR "
+             "(0x10001080:4); repeat for several",
+    )
     flash.set_defaults(handler=_cmd_flash)
 
     verify = subparsers.add_parser("verify", help="compare the target against an image")
