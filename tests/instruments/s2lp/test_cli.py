@@ -6,6 +6,7 @@ Traces to: S2LP-FR-060, SWE4-UT-S2LPCLI.
 from __future__ import annotations
 
 import json
+import pathlib
 
 import pytest
 
@@ -24,14 +25,26 @@ def run(capsys, *argv):
 
 SIM = ("--resource", "sim://")
 
+#: The shipped register file, which sets the packet handler up so the radio
+#: sends its FIFO rather than the power-on PN9 test pattern.
+SETUP = ("--setup", str(pathlib.Path(__file__).resolve().parents[3]
+                        / "configs" / "s2lp_915_38k4_basic.regs"))
+
 
 class TestSubcommands:
     def test_info(self, capsys):
         status, payload, _ = run(capsys, *SIM, "info")
         assert status == 0
-        assert payload["board"] == "STEVAL-FKI915V1"
-        assert payload["xtal_hz"] == 50_000_000
+        assert payload["board"] is None
+        assert payload["band_hz"] is None
+        assert payload["xtal_hz"] == 49_999_561
+        assert payload["library"] == "1.3.5"
         assert payload["radio"]["frequency_hz"]
+
+    def test_info_with_a_named_board(self, capsys):
+        _, payload, _ = run(capsys, *SIM, "--board", "STEVAL-FKI433V2", "info")
+        assert payload["board"] == "STEVAL-FKI433V2"
+        assert payload["band_hz"] == [430_000_000, 440_000_000]
 
     def test_registers_dumps_the_whole_map(self, capsys):
         status, payload, _ = run(capsys, *SIM, "registers")
@@ -80,22 +93,39 @@ class TestSubcommands:
         assert payload["modulation_name"] == "2-fsk"
 
     def test_a_frequency_the_board_cannot_reach_is_refused(self, capsys):
-        status, _, stderr = run(capsys, *SIM, "radio", "--frequency", "868000000")
+        status, _, stderr = run(capsys, *SIM, "--board", "STEVAL-FKI915V1",
+                                "radio", "--frequency", "868000000")
         assert status == 1
         assert "outside the" in stderr
 
+    def test_a_frequency_no_s2lp_can_tune_is_refused(self, capsys):
+        status, _, stderr = run(capsys, *SIM, "radio", "--frequency", "600000000")
+        assert status == 1
+        assert "synthesiser" in stderr
+
     def test_tx(self, capsys):
-        status, payload, _ = run(capsys, *SIM, "tx", "ping")
+        status, payload, _ = run(capsys, *SIM, *SETUP, "tx", "ping")
         assert status == 0
         assert payload["sent"] == 1
         assert payload["packets"][0]["hex"] == b"ping".hex()
 
     def test_tx_takes_hex(self, capsys):
-        _, payload, _ = run(capsys, *SIM, "tx", "0x0102ff")
+        _, payload, _ = run(capsys, *SIM, *SETUP, "tx", "0x0102ff")
         assert payload["packets"][0]["hex"] == "0102ff"
 
+    def test_tx_without_a_packet_setup_is_refused(self, capsys):
+        status, _, stderr = run(capsys, *SIM, "tx", "ping")
+        assert status == 1
+        assert "PN9" in stderr
+
+    def test_packets_shows_and_sets_the_handler(self, capsys):
+        _, payload, _ = run(capsys, *SIM, "packets")
+        assert payload["tx_source"] == 3
+        _, payload, _ = run(capsys, *SIM, "packets", "--sync", "0xB19C0CA7", "--crc", "16-8005")
+        assert payload["tx_source"] == 0
+
     def test_tx_repeat_runs_a_batch(self, capsys):
-        _, payload, _ = run(capsys, *SIM, "tx", "ping", "--repeat", "3", "--interval", "1")
+        _, payload, _ = run(capsys, *SIM, *SETUP, "tx", "ping", "--repeat", "3", "--interval", "1")
         assert payload["sent"] == 3
 
     def test_rx_with_nothing_on_the_air_exits_one_and_explains(self, capsys):
@@ -196,7 +226,7 @@ class TestLogs:
         session = tmp_path / "s.log"
         packets = tmp_path / "p.jsonl"
         status, _, _ = run(capsys, *SIM, "--log", str(session),
-                           "--packet-log", str(packets), "tx", "ping")
+                           "--packet-log", str(packets), *SETUP, "tx", "ping")
         assert status == 0
         assert "S2LPSendNBytes" in session.read_text()
         records = PacketLog.read(str(packets))
@@ -206,7 +236,7 @@ class TestLogs:
     def test_the_json_result_can_be_written_to_a_file(self, capsys, tmp_path):
         path = tmp_path / "result.json"
         run(capsys, *SIM, "--json", str(path), "info")
-        assert json.loads(path.read_text())["board"]
+        assert json.loads(path.read_text())["library"] == "1.3.5"
 
 
 class TestUsage:
@@ -229,7 +259,7 @@ class TestDispatch:
     @pytest.mark.parametrize("name", ["s2lp", "s2-lp", "radio"])
     def test_the_top_level_command_dispatches(self, name, capsys):
         assert top_level_main([name, "--resource", "sim://", "info"]) == 0
-        assert "STEVAL" in capsys.readouterr().out
+        assert "S2-LP DK" in capsys.readouterr().out
 
     def test_the_usage_lists_the_kit(self, capsys):
         top_level_main([])

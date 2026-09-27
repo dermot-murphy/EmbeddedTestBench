@@ -28,15 +28,68 @@ import statistics
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional
 
-__all__ = ["Packet", "Capture", "PacketLog"]
+__all__ = [
+    "BoardClock",
+    "Packet",
+    "Capture",
+    "PacketLog",
+    "REPORT_ALL_TAGS",
+    "packet_from_reply",
+    "rssi_dbm_from_register",
+    "rssi_register_from_dbm",
+]
+
+#: Tags ``S2LPGetNBytesReportAll`` adds to a batch report, all in hex.
+REPORT_ALL_TAGS = ("seq_num", "nack_rx", "source_addr", "dest_addr",
+                   "agc_word", "crc", "packet_len")
+
+
+def rssi_dbm_from_register(value: int) -> float:
+    """RSSI_LEVEL to dBm, by the datasheet's conversion: dBm = value/2 - 146."""
+    return (int(value) / 2.0) - 146.0
+
+
+def rssi_register_from_dbm(dbm: float) -> int:
+    """dBm back to a RSSI_LEVEL value, for a threshold setting."""
+    return max(0, min(255, int(round((float(dbm) + 146.0) * 2.0))))
 
 
 def _now() -> str:
     return datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="microseconds")
 
 
+class BoardClock:
+    """The motherboard's 32-bit microsecond timer, unwrapped.
+
+    The counter wraps every 71.6 minutes. Each reading is compared with the
+    last, and a smaller one counts as one wrap. That is right as long as
+    readings are less than 71.6 minutes apart, which a capture satisfies; a
+    session idle for longer than that cannot tell one wrap from two, and nothing
+    on this link could.
+    """
+
+    WRAP = 1 << 32
+
+    def __init__(self) -> None:
+        self._last: Optional[int] = None
+        self._wraps = 0
+
+    def unwrap(self, raw: int) -> int:
+        """Microseconds since the board started, for a raw timer reading."""
+        value = int(raw) & (self.WRAP - 1)
+        if self._last is not None and value < self._last:
+            self._wraps += 1
+        self._last = value
+        return value + self._wraps * self.WRAP
+
+    @property
+    def wraps(self) -> int:
+        """How many times the counter has wrapped so far."""
+        return self._wraps
+
+
 @dataclass
-class Packet:
+class Packet:  # pylint: disable=too-many-instance-attributes
     """One packet, sent or received.
 
     :param direction: ``"tx"`` or ``"rx"``.
@@ -44,20 +97,25 @@ class Packet:
     :param rssi_dbm: Signal strength, for a received packet. ``None`` for a
         transmitted one, and for a received one the firmware did not report.
     :param host_time: When the host recorded it, ISO 8601 UTC.
-    :param board_time_ms: The board's own millisecond timer at the event. It is
-        the better clock of the two for intervals, and it is *milliseconds*: it
-        cannot resolve anything shorter, and this package does not pretend
-        otherwise.
+    :param board_time_us: The board's own timer when it reported the packet, in
+        microseconds, unwrapped by :class:`BoardClock`. It is the better clock
+        of the two for intervals. It is read when the firmware *prints* the
+        report, after the packet has been read out of the radio, so it orders
+        packets and times a sequence; it is not the moment the packet arrived.
+        ``None`` for a transmission, whose acknowledgement carries no timer.
     :param error: The firmware's error code, 0 when it reported none.
+    :param extra: Further fields the firmware reported with the packet, by the
+        firmware's own tag names (``seq_num``, ``agc_word``, ``crc``, ...).
     """
 
     direction: str
     data: bytes
     rssi_dbm: Optional[float] = None
     host_time: str = field(default_factory=_now)
-    board_time_ms: Optional[int] = None
+    board_time_us: Optional[int] = None
     error: int = 0
     note: str = ""
+    extra: Dict[str, Any] = field(default_factory=dict)
 
     @property
     def length(self) -> int:
@@ -87,13 +145,14 @@ class Packet:
         return {
             "direction": self.direction,
             "host_time": self.host_time,
-            "board_time_ms": self.board_time_ms,
+            "board_time_us": self.board_time_us,
             "length": self.length,
             "hex": self.hex,
             "text": self.text,
             "rssi_dbm": self.rssi_dbm,
             "error": self.error,
             "note": self.note,
+            "extra": dict(self.extra),
         }
 
     def __str__(self) -> str:
@@ -110,20 +169,27 @@ class Packet:
 class Capture:
     """What one receive session produced, and how it was taken.
 
-    :param packets: The packets that arrived, in order.
+    :param packets: The packets that arrived intact, in order.
+    :param rejected: Receptions the firmware reported with an error code (CRC,
+        address filter, ...), in order. They are receptions, so they are kept -
+        a CRC failure rate is a measurement - but they are not packets.
     :param requested: How many the capture asked for.
     :param duration_s: Wall-clock seconds the capture ran.
-    :param gaps: Number of times the radio was re-armed between packets. Each
-        one is an interval during which nothing could have been received, so a
-        capture with gaps cannot be quoted as a complete record of the air.
+    :param gaps: Number of times the radio was re-armed during the capture.
+        Each re-arm is an interval in which nothing could be received.
+    :param rearm: Who re-armed the radio: ``"firmware"`` (ST's batch loop, which
+        re-arms in the board's own loop) or ``"host"`` (one command per packet,
+        so each gap includes a USB round trip and the host's own latency).
     :param stopped_early: True when the host ended the capture rather than the
         board finishing it.
     """
 
     packets: List[Packet] = field(default_factory=list)
+    rejected: List[Packet] = field(default_factory=list)
     requested: int = 0
     duration_s: float = 0.0
     gaps: int = 0
+    rearm: str = "firmware"
     stopped_early: bool = False
 
     @property
@@ -132,11 +198,14 @@ class Capture:
 
     @property
     def is_continuous(self) -> bool:
-        """True when the radio listened without being re-armed mid-capture.
+        """True when the radio was never re-armed during the capture.
 
-        Only a batch capture can be continuous. A capture that is not cannot be
-        used to say a packet was *absent* - only that none was seen while
-        listening.
+        No capture of more than one packet is, on this firmware: even its batch
+        loop re-arms the radio after reading each packet out. So this is only
+        true of a capture that received at most one reception, and a capture
+        that is not continuous cannot be used to say a packet was *absent* -
+        only that none was seen while listening. :attr:`rearm` says how long
+        the gaps were likely to be.
         """
         return self.gaps == 0
 
@@ -147,7 +216,8 @@ class Capture:
 
     @property
     def errors(self) -> int:
-        return sum(1 for packet in self.packets if not packet.ok)
+        """Receptions the firmware rejected (CRC, address filter, ...)."""
+        return len(self.rejected)
 
     @property
     def bytes_received(self) -> int:
@@ -159,9 +229,10 @@ class Capture:
         if self.mean_rssi_dbm is not None:
             text += ", mean RSSI %.1f dBm" % self.mean_rssi_dbm
         if self.errors:
-            text += ", %d with errors" % self.errors
+            text += ", %d rejected" % self.errors
         if not self.is_continuous:
-            text += " (%d re-arm gap(s): not a complete record of the air)" % self.gaps
+            text += (" (%d %s re-arm gap(s): not a complete record of the air)"
+                     % (self.gaps, self.rearm))
         if self.stopped_early:
             text += " (stopped by the host)"
         return text
@@ -172,13 +243,38 @@ class Capture:
             "requested": self.requested,
             "duration_s": round(self.duration_s, 6),
             "gaps": self.gaps,
+            "rearm": self.rearm,
             "is_continuous": self.is_continuous,
             "stopped_early": self.stopped_early,
             "errors": self.errors,
             "bytes_received": self.bytes_received,
             "mean_rssi_dbm": self.mean_rssi_dbm,
             "packets": [packet.as_dict() for packet in self.packets],
+            "rejected": [packet.as_dict() for packet in self.rejected],
         }
+
+
+def packet_from_reply(reply, clock: BoardClock) -> Optional[Packet]:
+    """One ``S2LPGetNBytes`` report as a packet, or ``None`` if it is not one.
+
+    A report with a non-zero error is still a reception - the firmware heard
+    something and rejected it (1 timeout, 2 CRC, 3 and 4 address filters, 6,
+    per ST's source) - so it becomes a packet with its error set and no data,
+    and the caller decides what to do with it.
+    """
+    if reply.command != "S2LPGetNBytes" and not reply.has("bytes"):
+        return None
+    error = reply.hex_number("error", 0)
+    timer = reply.hex_number("timer", -1)
+    return Packet(
+        direction="rx",
+        data=bytes(reply.numbers("bytes")) if not error else b"",
+        rssi_dbm=(rssi_dbm_from_register(reply.hex_number("rssi"))
+                  if reply.has("rssi") else None),
+        board_time_us=clock.unwrap(timer) if timer >= 0 else None,
+        error=error,
+        extra={tag: reply.hex_number(tag) for tag in REPORT_ALL_TAGS if reply.has(tag)},
+    )
 
 
 class PacketLog:

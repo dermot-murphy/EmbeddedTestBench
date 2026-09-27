@@ -95,6 +95,15 @@ class TestWriteBehaviour:
         link.write(b"SECOND?")            # should clear it
         assert link.read_message() == b"fresh"
 
+    def test_a_write_can_keep_a_reply_already_arriving(self):
+        """The S2-LP's stop character interrupts a stream still being read;
+        what already arrived is the start of a reply, not a stale one."""
+        link = ScriptedTransport([(b"part", False), (b"ial\n", True)]).open()
+        link.write(b"GO")
+        link._fill()                      # half a line has arrived
+        link.write(b"S", append_terminator=False, keep_buffer=True)
+        assert link.read_message() == b"partial"
+
     def test_replies_can_end_differently_from_commands(self):
         """A GPD-3303D takes commands ending in LF and ends its replies in CR."""
         link = ScriptedTransport([(b"3.6V\rbit0\r", True)], read_terminator=b"\r").open()

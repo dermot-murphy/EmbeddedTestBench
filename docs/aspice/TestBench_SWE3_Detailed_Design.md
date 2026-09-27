@@ -70,7 +70,7 @@ not declare.
 | 5.3 | INST | `benchtools.instruments` | 5 |
 | 5.4 | JLINK | `benchtools.instruments.jlink` | 10 |
 | 5.5 | BLE | `benchtools.instruments.nordic_dongle` and `firmware/nordic_dongle` | 20 |
-| 5.6 | S2LP | `benchtools.instruments.s2lp` | 9 |
+| 5.6 | S2LP | `benchtools.instruments.s2lp` | 10 |
 | 5.7 | PSU | `benchtools.instruments.gpd3303d` | 4 |
 | 5.8 | RUN | `benchtools.runner` | 8 |
 | | **Total** | | **74** |
@@ -1313,18 +1313,24 @@ line and parses a reply, and knows nothing about radios.
 
 `format_command` checks arguments against the types the firmware declares, so an
 out-of-range value is caught naming the command rather than producing a terse
-firmware error. `parse_reply` collects the reply's brace-delimited tags -
-`regs_list`, `bytes`, `rssi`, `error`, `timer` - and keeps every line verbatim.
+firmware error. `parse_reply` collects the reply's brace-delimited tags and keeps
+every line verbatim. The reply shapes are the ones a kit sent (2026-09-27, #76):
+the command named in parentheses, `{{(Name)} API call...`, and most getters
+answering in a tag called `value`.
 
-Two details that bite:
+Details that bite:
 
-- **`Reply.hex_number` exists because the firmware writes some tags with `%x`**,
-  which emits bare hex. Read as decimal, an RSSI of `D4` is 4 - a plausible
-  figure that is wrong by 104 dB. The tags the firmware writes in hex are read in
-  hex, explicitly.
-- **The number pattern accepts a minus sign.** `S2LPQiGetRssidBm` answers in dBm,
-  and dropping the sign turns -110 dBm into +110 dBm: not merely wrong but
-  impossible, and nothing downstream would question it.
+- **How a value is written depends on the command, not on the value.** ST's
+  `&tx`/`&t2x`/`&t4x` print bare hex, `&td` signed decimal, and one command a
+  `%.1f` float. The caller chooses `Reply.hex_number`, `Reply.number` or
+  `Reply.real`, because `{value:70}` is 0x70 from one command and seventy from
+  another. Read as decimal, an RSSI register of `D4` is 4 - wrong by 104 dB.
+- **Signs are kept.** `S2LPQiGetRssidBm` answers `-116.0`; dropping the sign
+  gives an impossible +116 dBm that nothing downstream would question. The
+  power setting is signed too, although ST's table declares it `w`, so this
+  module adds its own letter `i` for a signed argument.
+- **`FIRMWARE_ERRORS`** lists the interpreter's own error lines (`no such
+  command`, `wrong number of arguments`, ...), sent instead of a reply.
 
 #### S2LP-DD-SESSION — `session.py`
 
@@ -1332,10 +1338,24 @@ Commands out, replies in, every line logged.
 
 - **Where a reply ends** is decided by counting braces, because the firmware
   closes some replies on the first line and others five lines later. Waiting for
-  a fixed number of lines would truncate half the command set.
+  a fixed number of lines would truncate half the command set. The command's
+  echo and the `>` prompt are not part of a reply; an echo that ran into the
+  reply on one line (seen with `SdkEvalRfboardIdentification`) is split off at
+  the reply's `{{`.
+- **An interpreter error fails at once**, as a `ProtocolError` naming the
+  command, rather than as a timeout.
+- **`execute` takes only its own command's reply.** A send interrupted by a stop
+  acknowledges *after* the stop does; that stale reply is skipped and kept in
+  `unclaimed` rather than taken as the next command's answer.
+- **The port timeout is set once**, to `READ_POLL`, and never changed per read.
+  Changing it reconfigures a serial port, and on Windows that lost bytes from
+  replies - the same fault as #61 on the GPD-3303D.
 - **`stop()` sends a single `S`**, with no terminator: ST's firmware polls the
-  port for that character inside its capture loops, and it is the only way to end
-  a long capture without resetting the board.
+  port for that character inside its loops. Sent to an idle board it sits in
+  the command buffer and spoils the next command, so `stop()` waits for the
+  `StopCmd` acknowledgement and, when none comes, ends the line and swallows the
+  `no such command` it produces. The write keeps any half-read reply in the
+  transport buffer (`Transport.write(keep_buffer=True)`).
 - `collect()` yields replies as they arrive, so a caller can log each packet as
   it lands; a batch cut short returns what arrived rather than raising, because
   a truncated capture is a fact the caller needs.
@@ -1344,16 +1364,22 @@ Commands out, replies in, every line logged.
 
 #### S2LP-DD-PACKETS — `packets.py`
 
-`Packet` (direction, payload, RSSI, both clocks, error), `Capture` (the packets
-plus how they were taken) and `PacketLog` (JSON Lines, one object per line).
+`Packet` (direction, payload, RSSI, both clocks, error, the firmware's extra
+fields), `Capture` (the packets, the rejected receptions, and how they were
+taken), `PacketLog` (JSON Lines, one object per line), `BoardClock`, and
+`packet_from_reply`, which turns one receive report into a packet.
 
-The design point is `Capture.gaps`. ST's firmware receives when asked: each
-polled receive arms the radio, waits, and returns, and a packet arriving between
-calls is not lost so much as *invisible*. A capture therefore records how many
-times it re-armed, and `is_continuous` is false when it did - so "nothing was
-transmitted" and "we were not listening" stay distinguishable. A count of what
-was missed is not available from this hardware path, and this package does not
-invent one.
+The design point is `Capture.gaps`. The radio is re-armed after every packet -
+by the host in a polled capture, and by ST's own loop in a batch capture - and a
+packet arriving while it is re-armed is not lost so much as *invisible*. A
+capture records how many times it re-armed and who did it (`rearm`), and
+`is_continuous` is true only when it never did, so "nothing was transmitted" and
+"we were not listening" stay distinguishable. A count of what was missed is not
+available from this hardware path, and this package does not invent one.
+
+**Board time is in microseconds** (measured: 2,041,139 counts in 2,043 ms), and
+the 32-bit counter wraps every 71.6 minutes; `BoardClock` unwraps it by counting
+a smaller reading as one wrap.
 
 JSON Lines rather than one JSON document, so a capture interrupted half way
 through is still a readable file - which is the usual case, since a capture is
@@ -1368,29 +1394,56 @@ transport.
 |---|---|
 | Lifecycle | `connect`, `_normalise_resource`, `_post_open`, `_read_identity`, `reset` |
 | Registers | `read_register(s)`, `write_register(s)`, `read_all_registers`, `dump_registers`, `registers_differing_from_reset`, `read_field`, `write_field`, `strobe`, `restore_defaults` |
-| Radio | `configure_radio`, `radio_info`, `frequency_hz`, `set_frequency`, `modulation`, `set_modulation`, `power_dbm`, `set_power_dbm`, `rssi_dbm`, `payload_length`, `set_payload_length` |
-| Traffic | `transmit`, `transmit_batch`, `receive`, `capture`, `stop` |
+| Radio | `configure_radio`, `radio_info`, `frequency_hz`, `set_frequency`, `modulation`, `set_modulation`, `power_dbm`, `power_level_dbm`, `set_power_dbm`, `rssi_dbm`, `configure_packets`, `packet_info`, `payload_length`, `set_payload_length` |
+| Traffic | from S2LP-DD-TRAFFIC: `prepare_traffic`, `transmit`, `transmit_batch`, `receive`, `capture`, `stop` |
 | Logging | `start_log`, `start_packet_log`, `log_note`, `log_path`, `packet_log_path` |
 
 Design points:
 
 - **`_post_open` identifies and configures nothing.** Connecting must not retune
   a radio somebody left set up.
-- **The band comes from the board**, not from configuration, and a frequency
-  outside it is refused: the radio would accept it, report it faithfully, and
-  transmit into a filter and matching network that do not pass it.
+- **The board is the caller's to name.** ST's firmware never reports it
+  (`SdkEvalRfboardIdentification` answers with no tags), so no board is
+  assumed. A named board's band is enforced: the radio would accept a frequency
+  outside it and transmit into a filter and matching network that do not pass
+  it. Without a board, only the synthesiser's own ranges are checked.
+- **Reset checks cover writable registers only.** Status registers are never at
+  a "reset value" on a live radio. A power reset through ST's firmware lands at
+  the defaults with ten registers set (`AFTER_SHUTDOWN_EXIT`), and is checked
+  against that.
 - **`write_field` reads, modifies and writes**, so the other fields of the
   register keep their values. Writing a field's value to the whole register is
   the mistake this method exists to prevent.
 - **A register read is checked against the addresses that came back.** The
   firmware interleaves address and value; if the addresses are not the ones asked
   for, neither are the values.
-- **`capture(continuous=True)` keeps the board in its own loop** and has no gaps.
-  The polled path is bounded by an attempt count as well as by time, because an
-  arm that finds nothing returns immediately and an unbounded loop would spend
-  the whole timeout re-arming and call the result a capture.
 - **Verification is `radio_info()` after configuration**, not the values that
   were sent. The two differ whenever a setting is not reachable.
+
+#### S2LP-DD-TRAFFIC — `traffic.py`
+
+`TrafficMixin`: send, receive and capture, split from S2LP-DD-S2LP so that each
+can be read on its own. It relies on the driver's session, clock, packet log and
+register access. Three facts found on a kit (#76) shape it:
+
+- **The radio's interrupt has to be routed.** ST's send and receive wait for an
+  interrupt that, out of reset, reaches nothing. `prepare_traffic` puts nIRQ on
+  S2-LP GPIO3 (GPIO_MODE 2, output; the CLI's help numbers the modes one lower,
+  which makes the pin an input), unmasks the interrupts the firmware waits for,
+  enables the board's input, and confirms the board reads the line high. It
+  runs once per session, on the first send or receive, not on connecting.
+- **The TX source has to be the FIFO.** PCKTCTRL1.TXSOURCE powers up as 3, a PN9
+  test pattern that the radio sends indefinitely. A send is refused until it is
+  0 (`configure_packets`, or a register file).
+- **PCKTLEN has to match the payload.** Given fewer bytes the radio waits in TX
+  for the rest, so a send sets the length first when it differs.
+
+Every wait is the host's, because the firmware's are unbounded: a receive that
+times out is stopped on the board, and a send that never completes is stopped
+and the radio aborted before the error is raised. A batch capture switches
+`S2LPGetNBytesReportAll` on, so ST's loop re-arms the radio before printing each
+report rather than after, and keeps rejected receptions (CRC, address filter)
+apart from packets.
 
 #### S2LP-DD-SIM — `simulator.py`
 
@@ -1399,19 +1452,24 @@ Writing PCKTCTRL3 changes what the packet-format query answers; a strobe flushes
 a FIFO; a packet queued on the simulated air is delivered to exactly one receive
 and is then gone.
 
-Two behaviours are modelled because they are the ones that mislead: a receive
-that finds nothing answers with an error after its timeout rather than an empty
-packet, and a packet arriving while the radio is not armed is counted and lost.
-A write to a read-only register is accepted and discarded, as the hardware
-discards it - which is what the driver's refusal (S2LP-FR-013) protects a test
-from.
+Its replies are the shapes a kit sent (#76), echo and prompt included. The
+behaviours modelled are the ones that mislead: a receive with nothing on the air
+sends nothing until stopped; a stop sent to an idle board spoils the next
+command; a stopped send acknowledges after the stop; send and receive never
+finish until the interrupt is routed; the power-on TX source is PN9; a payload
+shorter than PCKTLEN never goes; and a packet arriving while the radio is not
+armed is counted and lost. A write to a read-only register is accepted and
+discarded, as the hardware discards it - which is what the driver's refusal
+(S2LP-FR-013) protects a test from.
 
 #### S2LP-DD-CLI — `cli.py`
 
-Sub-commands `info`, `registers`, `radio`, `tx`, `rx`, `capture`, `strobe`,
-emitting JSON (AD-15). `--log` and `--packet-log` open both logs at once. `rx`
-with nothing on the air exits 1 and says why that is not the same as the air
-being quiet; `capture` adds a warning when the capture was not continuous.
+Sub-commands `info`, `registers`, `radio`, `config`, `packets`, `tx`, `rx`,
+`capture`, `strobe`, emitting JSON (AD-15). `--log` and `--packet-log` open both
+logs at once; `--board` names the kit board; `--setup` applies a register file
+straight after connecting. `rx` with nothing on the air exits 1 and says why
+that is not the same as the air being quiet; `capture` adds a warning when the
+capture was not continuous.
 
 ---
 

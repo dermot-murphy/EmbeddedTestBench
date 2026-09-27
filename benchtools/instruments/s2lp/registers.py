@@ -291,7 +291,7 @@ _TABLE: Tuple[tuple, ...] = (
     (0xAB, "RX_ADDRE_FIELD0", 0x00, RO, ((7, 0, "RX_ADDRE_FIELD0"),)),
     (0xEF, "RSSI_LEVEL_RUN", 0x00, RO, ((7, 0, "RSSI_LEVEL_RUN"),)),
     (0xF0, "DEVICE_INFO1", 0x00, RO, ((7, 0, "PARTNUM"),)),
-    (0xF1, "DEVICE_INFO0", 0x41, RO, ((7, 0, "RSSI_LEVEL"),)),
+    (0xF1, "DEVICE_INFO0", 0x41, RO, ((7, 0, "VERSION"),)),
     (0xFA, "IRQ_STATUS3", 0x00, RO, ((7, 0, "INT_LEVEL"),)),
     (0xFB, "IRQ_STATUS2", 0x09, RO, ((7, 0, "INT_LEVEL"),)),
     (0xFC, "IRQ_STATUS1", 0x05, RO, ((7, 0, "INT_LEVEL"),)),

@@ -10,9 +10,10 @@ from __future__ import annotations
 
 import pytest
 
-from benchtools.core.errors import TransportTimeoutError
+from benchtools.core.errors import ProtocolError, TransportTimeoutError
 from benchtools.core.transport.mock import MockTransport
 from benchtools.instruments.s2lp import S2lpSession
+from benchtools.instruments.s2lp.session import READ_POLL, UNCLAIMED_LIMIT
 
 
 class Scripted:
@@ -60,7 +61,8 @@ class TestFraming:
     def test_output_before_the_reply_is_kept_not_swallowed(self):
         """A line nobody expected is evidence, not noise."""
         transport = MockTransport(
-            responder=Scripted("boot banner\r\n{{X} a...{timer:00000001}}\r\n")
+            responder=Scripted(
+                "boot banner\r\n{{(SdkEvalGetVersion)} API call... {version:80}}\r\n")
         )
         session = S2lpSession(transport, timeout=1.0)
         session.start()
@@ -68,9 +70,22 @@ class TestFraming:
         assert "boot banner" in session.unclaimed
         session.close()
 
+    def test_a_stale_reply_from_another_command_is_skipped(self):
+        """Seen on a kit: a send interrupted by a stop acknowledges after the
+        stop does, ahead of whatever is sent next."""
+        transport = MockTransport(responder=Scripted(
+            "{{(S2LPSendNBytes)} API call...}\r\n>S2LPGetVersion\r\n"
+            "{{(S2LPGetVersion)} API call...{value:03C1}}\r\n>"))
+        session = S2lpSession(transport, timeout=1.0)
+        session.start()
+        assert session.execute("S2LPGetVersion").text("value") == "03C1"
+        assert any("S2LPSendNBytes" in line for line in session.unclaimed)
+        session.close()
+
     def test_nested_braces_do_not_end_the_reply_early(self, session):
         transport = MockTransport(
-            responder=Scripted("{{X} a...\r\n{tag: {inner}}\r\n{timer:1}\r\n}\r\n")
+            responder=Scripted(
+                "{{(SdkEvalGetVersion)} a...\r\n{tag: {inner}}\r\n{timer:1}\r\n}\r\n")
         )
         local = S2lpSession(transport, timeout=1.0)
         local.start()
@@ -85,8 +100,28 @@ class TestStopping:
         transport = MockTransport(responder=simulator)
         session = S2lpSession(transport, timeout=1.0)
         session.start()
+        session.send("S2LPGetNBytes", 4)
         session.stop()
         assert simulator.stopped is True
+        session.close()
+
+    def test_a_stop_to_an_idle_board_does_not_spoil_the_next_command(self, simulator):
+        """Seen on a kit: an ``S`` with nothing running sits in the command
+        buffer. The session ends that line, so the next command is clean."""
+        session = S2lpSession(MockTransport(responder=simulator), timeout=1.0)
+        session.start()
+        assert not session.stop(wait=0.2)
+        assert session.execute("S2LPGetVersion").text("value") == "03C1"
+        session.close()
+
+    def test_a_reply_that_arrived_before_the_stop_is_kept(self, routed):
+        session = S2lpSession(MockTransport(responder=routed), timeout=1.0)
+        session.start()
+        session.send("S2LPGetNBytesBatch", 0, 3)
+        routed.queue_packet(b"\x01")
+        routed.queue_packet(b"\x02")
+        first = session.read_reply()
+        assert first.command == "S2LPGetNBytes"
         session.close()
 
     def test_stopping_is_logged(self, session, tmp_path):
@@ -96,10 +131,10 @@ class TestStopping:
 
 
 class TestCollecting:
-    def test_it_yields_each_reply_as_it_arrives(self, simulator):
+    def test_it_yields_each_reply_as_it_arrives(self, routed):
         for index in range(3):
-            simulator.queue_packet(bytes([index]))
-        session = S2lpSession(MockTransport(responder=simulator), timeout=2.0)
+            routed.queue_packet(bytes([index]))
+        session = S2lpSession(MockTransport(responder=routed), timeout=2.0)
         session.start()
         session.send("S2LPGetNBytesBatch", 0, 3)
         replies = list(session.collect(3, timeout=2.0))
@@ -107,11 +142,11 @@ class TestCollecting:
         assert replies[0].numbers("bytes") == [0]
         session.close()
 
-    def test_a_batch_cut_short_returns_what_arrived(self, simulator):
+    def test_a_batch_cut_short_returns_what_arrived(self, routed):
         """A capture that was cut short is a fact the caller needs, not an
         exception to handle."""
-        simulator.queue_packet(b"\x01")
-        session = S2lpSession(MockTransport(responder=simulator), timeout=0.3)
+        routed.queue_packet(b"\x01")
+        session = S2lpSession(MockTransport(responder=routed), timeout=0.3)
         session.start()
         session.send("S2LPGetNBytesBatch", 0, 5)
         assert len(list(session.collect(5, timeout=0.3))) <= 5
@@ -148,3 +183,55 @@ class TestLogging:
         session.stop_log()
         session.stop_log()
         assert session.log_path is None
+
+
+class TestWhatAKitActuallySends:
+    """Behaviours seen on a kit on 2026-09-27 that ST's source does not show."""
+
+    def test_an_interpreter_error_fails_at_once(self):
+        """Waiting would only turn a named error into a timeout."""
+        transport = MockTransport(responder=Scripted("S2LPGetVersion\r\nno such command\r\n>"))
+        session = S2lpSession(transport, timeout=5.0)
+        session.start()
+        with pytest.raises(ProtocolError, match="rejected S2LPGetVersion: no such command"):
+            session.execute("S2LPGetVersion")
+
+    def test_an_echo_that_ran_into_the_reply_is_split_off(self):
+        """SdkEvalRfboardIdentification's echo arrives cut short and without
+        its line end, so the reply starts part-way along the line."""
+        transport = MockTransport(responder=Scripted(
+            "SdkEvalRfboardIdo{{(SdkEvalRfboardIdentification)} API call...}\r\n>"))
+        session = S2lpSession(transport, timeout=1.0)
+        session.start()
+        reply = session.execute("SdkEvalRfboardIdentification", 0)
+        assert reply.command == "SdkEvalRfboardIdentification"
+        assert "SdkEvalRfboardIdo" in session.unclaimed
+
+    def test_the_prompt_is_not_kept_as_an_unexpected_line(self, session):
+        session.execute("S2LPGetVersion")
+        session.execute("S2LPGetVersion")
+        assert ">" not in session.unclaimed
+
+    def test_unclaimed_lines_are_bounded(self, session):
+        for _ in range(UNCLAIMED_LIMIT + 10):
+            session.unclaimed.append("echo")
+        assert len(session.unclaimed) == UNCLAIMED_LIMIT
+
+    def test_the_port_timeout_is_set_once(self, simulator, monkeypatch):
+        """Changing it per read reconfigures a serial port, and on Windows that
+        lost bytes from the kit's replies."""
+        assignments = []
+
+        def record(transport, value):
+            assignments.append(value)
+            transport._timeout = float(value)
+
+        monkeypatch.setattr(MockTransport, "timeout",
+                            property(lambda transport: transport._timeout, record))
+        transport = MockTransport(responder=simulator)
+        assignments.clear()
+        session = S2lpSession(transport, timeout=1.0)
+        session.start()
+        for _ in range(5):
+            session.execute("S2LPGetVersion")
+        assert assignments == [READ_POLL]

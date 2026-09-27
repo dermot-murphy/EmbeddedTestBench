@@ -14,6 +14,7 @@ import pytest
 from benchtools.core.errors import ProtocolError
 from benchtools.instruments.s2lp.constants import COMMANDS
 from benchtools.instruments.s2lp.protocol import (
+    firmware_error,
     format_bytes,
     format_command,
     parse_pairs,
@@ -81,7 +82,7 @@ class TestFormattingCommands:
 
     def test_every_command_in_the_table_has_a_usable_type_string(self):
         for name, letters in COMMANDS.items():
-            assert set(letters) <= set("uvwsb"), name
+            assert set(letters) <= set("uvwsbi"), name
 
 
 class TestParsingReplies:
@@ -155,3 +156,51 @@ class TestNumbers:
     )
     def test_parse_pairs(self, text, expected):
         assert parse_pairs(text) == expected
+
+
+class TestRepliesRecordedFromAKit:
+    """Lines exactly as a NUCLEO-L053R8 kit sent them on 2026-09-27."""
+
+    def test_the_command_name_in_parentheses(self):
+        reply = parse_reply(["{{(S2LPRadioGetFrequencyBase)} API call...{value:31BF1BAD}}"])
+        assert reply.command == "S2LPRadioGetFrequencyBase"
+        assert reply.hex_number("value") == 834_608_045
+
+    def test_named_fields_on_one_line(self):
+        reply = parse_reply([
+            "{{(S2LPRadioGetInfo)} API call...{Frequency_base:31BF1BAD}{Modulation:70}"
+            "{Data_rate:0000903A}{Frequency_deviation:00004B10}"
+            "{Channel_filter_bandwidth:00017979}{XTAL_frequency:02FAEEC9}}"])
+        assert reply.hex_number("Data_rate") == 36_922
+        assert reply.hex_number("XTAL_frequency") == 49_999_561
+
+    def test_a_decimal_value_with_a_fraction_and_a_sign(self):
+        reply = parse_reply(["{{(S2LPQiGetRssidBm)} API call...{value:-116.0}}"])
+        assert reply.real("value") == -116.0
+
+    def test_a_signed_decimal_in_tenths(self):
+        reply = parse_reply(["{{(S2LPRadioGetPALeveldBm)} API call...{value:120}}"])
+        assert reply.number("value") == 120
+
+    def test_a_value_that_is_not_a_decimal_is_reported(self):
+        with pytest.raises(ProtocolError, match="decimal"):
+            parse_reply(["{{(X)} API call...{value:abc}}"]).real("value")
+
+
+class TestFirmwareErrors:
+    @pytest.mark.parametrize("line", ["no such command", "wrong number of arguments",
+                                      "  integer argument out of range  "])
+    def test_the_interpreter_s_errors_are_recognised(self, line):
+        assert firmware_error(line) == line.strip()
+
+    def test_anything_else_is_not_one(self):
+        assert firmware_error("S2LPGetVersion") is None
+
+
+class TestSignedArguments:
+    def test_a_negative_power_is_formatted_with_its_sign(self):
+        assert format_command("S2LPRadioSetPALeveldBm", -10, 7) == "S2LPRadioSetPALeveldBm -10 7"
+
+    def test_a_signed_argument_beyond_32_bits_is_refused(self):
+        with pytest.raises(ProtocolError, match="signed 32-bit"):
+            format_command("S2LPRadioSetPALeveldBm", -(1 << 31) - 1, 7)
