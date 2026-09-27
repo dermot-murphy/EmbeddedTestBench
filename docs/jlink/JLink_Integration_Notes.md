@@ -169,6 +169,35 @@ sections, including UICR). A write to UICR through `write` was programmed and
 read back identically with `nrfjprog`. The erase also cleared UICR, so the
 sensor ID has to be backed up and written back afterwards.
 
+Flashing the V11 image (whose HEX includes a UICR record) over a part whose
+UICR already held the sensor ID erased the ID too, and the sensor came up as
+`KAPPA_FFFFFF_V11.00.00`. `flash --preserve 0x10001080:4` keeps it: the range is
+read first, written back after programming and checked.
+
+The debug operations were then run against the V11 debug build's ELF:
+
+| Operation | Result |
+|---|---|
+| `flash` of the ELF | 295 592 bytes, 13/13 sections verified, 10.1 s; the bootloader started the new application |
+| `var` / `read_variable` | Scalars and the firmware's stack monitor structure (`api_stack_data`), field by field |
+| Maximum stack depth | 1 400 of 12 000 bytes, from the firmware's 0xA5 stack paint read over the probe; the firmware's own `bytes_used` agreed |
+| Breakpoint at an event, `stack` | Halted at `API_Battery_PowerOnInit`; four frames back to `main` |
+| RAM read and write at that event | Written by address and by name, read back both ways |
+| `time` (cycle counter) | `HAL_Manager_PowerOnInit` to `API_Log_PowerOnInit`: 11 263 cycles, 176 µs |
+| Call stack on a crash | Breakpoints on the fault handlers; `RD EOL START 60 30` over BLE stopped in `app_error_handler_bare` with error code 8, fourteen frames back through `HAL_SPI_Radio_Init` to `main` |
+
+**Halting a target that runs a SoftDevice.** The GDB Server halts the core when
+GDB attaches. A short halt while the SoftDevice idled (PC in the SoftDevice's
+wait loop) was survived, and `info` and `rtt` left the sensor running. A halt
+at a breakpoint, a step, or a long halt is not: resume from one with a reset
+(`reset --run`), not `run`. Timing and breakpoints were therefore run from reset,
+on code that executes before the SoftDevice starts, and every such session ended
+with a reset. Once, after a UICR write and a `reset --run`, the sensor restarted
+by watchdog and logged "Fatal error"; it has not recurred and is not explained
+(the firmware configures the watchdog to pause while halted). Check a sensor
+with a non-halting RTT reader such as `JLinkRTTLogger` after using the driver
+on it.
+
 ## 5. What this driver does not do
 
 | Not supported | Reason |
