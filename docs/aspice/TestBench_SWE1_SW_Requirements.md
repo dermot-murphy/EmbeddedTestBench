@@ -304,10 +304,10 @@ it is commanded, and it yields measurements — so it implements the generic bas
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
-| JLINK-FR-020 | The driver shall programme the target from an ELF file and report the sections written, their addresses, their sizes and the elapsed time. | STK-09 | Test |
+| JLINK-FR-020 | The driver shall programme the target from an ELF or Intel HEX file and report the sections written, their addresses, their sizes and the elapsed time. | STK-09 | Test |
 | JLINK-FR-021 | The driver shall verify the target's memory against the binary section by section, and shall report per-section verdicts, not merely an overall result. | STK-09 | Test |
 | JLINK-FR-022 | A verification mismatch shall raise, naming the sections that differ. A verification over an empty section list shall be reported as not matched, never as a pass. | STK-09 | Test |
-| JLINK-FR-023 | The driver shall erase the target's non-volatile memory. | STK-09 | Test |
+| JLINK-FR-023 | The driver shall erase the target's non-volatile memory, from reset with the core halted, and shall confirm the erasure by reading the flash back rather than trusting the server's report, raising if it did not happen. | STK-09 | Test |
 | JLINK-FR-024 | The driver shall report what the build system recorded about the image it programmed - the version and the build date - from the manifest beside that image, so a test can state the version it put on a part rather than repeating one into a specification where it would go stale. | STK-09, STK-16 | Test |
 
 ### 10.4 Execution control

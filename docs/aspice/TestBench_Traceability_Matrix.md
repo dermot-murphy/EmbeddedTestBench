@@ -196,10 +196,10 @@ It is checked mechanically by `tests/test_traceability.py` on every run of the s
 | JLINK-FR-006 | JLINK-ARC-001 | JLINK-DD-PROBE, JLINK-DD-CLI | `JLinkProbe._close`, `leave_halted` | `test_closing_leaves_the_target_running`, `test_closing_can_leave_the_target_halted`, `test_the_target_is_left_running_unless_asked` (7) |
 | JLINK-FR-010 | JLINK-ARC-001 | JLINK-DD-CONST | `jlink/constants.py` | `test_limits_are_data_driven`, `test_hardware_breakpoint_limit_is_enforced`, `test_channel_beyond_the_limit_is_rejected` |
 | JLINK-FR-011 | JLINK-ARC-001 | JLINK-DD-PROBE | `JLinkProbe.load_symbols` | `test_symbols_are_loaded`, `test_missing_elf_is_reported`, `test_missing_symbols_are_mentioned_in_the_error` |
-| JLINK-FR-020 | JLINK-ARC-001 | JLINK-DD-PROBE | `JLinkProbe.flash` | `test_flash_reports_what_was_written`, `test_flash_resets_first_by_default`, `test_flash_result_serialises` |
+| JLINK-FR-020 | JLINK-ARC-001 | JLINK-DD-PROBE | `JLinkProbe.flash` | `test_flash_reports_what_was_written`, `test_flash_resets_first_by_default`, `test_a_named_image_is_loaded_before_it_is_read`, `test_flash_result_serialises` |
 | JLINK-FR-021 | JLINK-ARC-001 | JLINK-DD-PROBE | `JLinkProbe.verify`, `SectionVerdict` | `test_verify_alone_reports_mismatched_sections`, `test_verify_result_serialises` |
 | JLINK-FR-022 | JLINK-ARC-001 | JLINK-DD-PROBE | `VerifyResult.matched` | `test_verification_failure_raises`, `test_an_empty_comparison_is_not_a_pass`, `test_flash_without_an_image_is_rejected` |
-| JLINK-FR-023 | JLINK-ARC-001 | JLINK-DD-PROBE | `JLinkProbe.erase` | `test_monitor_passthrough` (erase issues `monitor` commands), `TestExecutionModel` |
+| JLINK-FR-023 | JLINK-ARC-001 | JLINK-DD-PROBE | `JLinkProbe.erase` | `test_erase_resets_first_and_leaves_flash_blank`, `test_an_erase_that_did_not_happen_raises`, `test_the_blank_check_can_be_skipped`, `test_erase` (CLI), `test_monitor_passthrough`, `TestExecutionModel` |
 | JLINK-FR-024 | JLINK-ARC-001 | JLINK-DD-PROBE | `JLinkProbe.image_build`, over CORE-DD-FIRMWARE | `TestWhatWasFlashed` (5), `test_the_reported_version_is_recorded_as_text` |
 | JLINK-FR-030 | JLINK-ARC-001 | JLINK-DD-PROBE | `reset`, `run`, `halt`, `step` | `test_reset_halts_by_default`, `test_reset_can_leave_it_running`, `test_step`, `test_run_to_a_location` |
 | JLINK-FR-031 | JLINK-ARC-001 | JLINK-DD-PROBE | `is_halted`, `program_counter`, `registers` | `test_program_counter_and_registers`, `test_halt_reports_where` |

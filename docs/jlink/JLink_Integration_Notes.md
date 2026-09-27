@@ -143,6 +143,32 @@ driver is verified against a simulated probe (CON-04).
 JLINK-OPEN-03 is the one that could change a reported number. The other three
 would show up as an outright failure, not a wrong figure.
 
+### 4.1 First run on hardware (issue #69)
+
+On 2026-09-26 and -27 the driver ran against a real bench: Windows 10, J-Link
+OB-SAM3U128-V2-NordicSem (S/N 682395790, firmware of 2014), J-Link software
+V9.42, Arm GNU Toolchain 14.2.Rel1 GDB 15.2, and a Kappa X sensor on an
+nRF52840. It carried out erase, flash of an Intel HEX image (SoftDevice and
+application), a write of the sensor ID to UICR `0x10001080`, reset, RTT capture
+and a BLE check, for V10.01.2000 and then V11.00.0000. What that run found, and
+what the driver now does about it:
+
+| Observed | Driver behaviour |
+|---|---|
+| `-singlerun` made the spawned server exit on the readiness check | Flag removed; `stop()` ends the server |
+| The server halts the core on attach and leaves it halted on detach | `close()` sends `monitor go` unless `leave_halted` |
+| `monitor version` is unsupported | Identity read from the server's start-up banner |
+| `monitor flash erase` said O.K. and erased nothing while the firmware ran | Reset and halt first; blank-check afterwards |
+| GDB exited on `file` then `load` of a HEX file on a mapped drive | `load <file>` first, then read it for verify |
+| `+download,{...}` is not valid MI | Parser accepts the unnamed tuple |
+| `monitor rtt start` is unsupported; RTT is served unasked | Command sent, error ignored |
+
+Figures from that run, for JLINK-OPEN-04: flashing and verifying took 14.2 s
+for V10 (416 664 bytes, 9 sections) and 16.2 s for V11 (473 518 bytes, 12
+sections, including UICR). A write to UICR through `write` was programmed and
+read back identically with `nrfjprog`. The erase also cleared UICR, so the
+sensor ID has to be backed up and written back afterwards.
+
 ## 5. What this driver does not do
 
 | Not supported | Reason |
@@ -151,4 +177,4 @@ would show up as an outright failure, not a wrong figure.
 | Unlimited software breakpoints in flash | The probe's envelope is four hardware breakpoints; software breakpoints in RAM are GDB's business |
 | Semihosting | Not required; RTT serves the same purpose without halting |
 | Multi-core or multi-target sessions | One target per connection. Two probes are two instruments in the bench configuration |
-| Flashing a raw binary or hex file | The ELF is needed anyway for symbols, so it is the single input. `monitor loadbin` is reachable through `monitor()` if a raw image is ever required |
+| Flashing a raw binary | An ELF or Intel HEX image is flashed and verified (issue #69); a raw binary has no addresses. `monitor loadbin` is reachable through `monitor()` if one is ever required |

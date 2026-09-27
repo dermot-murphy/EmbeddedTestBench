@@ -310,6 +310,16 @@ def _parse_results(cursor: _Cursor) -> Dict[str, Any]:
         if cursor.peek() == ",":
             cursor.take()
             continue
+        if cursor.peek() in '{["':
+            # GDB's own "load" progress breaks the grammar with an unnamed
+            # tuple: +download,{section=".sec1",section-size="2584",...}.
+            # Its fields are kept as if they had been results.
+            value = _parse_value(cursor)
+            if isinstance(value, dict):
+                results.update(value)
+            else:
+                results.setdefault("value", value)
+            continue
         name, value = _parse_result(cursor)
         if name in results:
             # Repeated top-level name: keep every occurrence.

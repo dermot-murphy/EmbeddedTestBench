@@ -179,6 +179,32 @@ class TestFlashAndVerify:
         probe.flash(verify=False)
         assert any("reset" in entry for entry in probe.session.transport.responder.monitor_log)
 
+    def test_a_named_image_is_loaded_before_it_is_read(self, probe):
+        """GDB 15.2 exited when a HEX file on a mapped drive was read with
+        'file' and then loaded (issue #69); 'load <file>' first did not."""
+        probe.flash("C:\\images\\app.hex", verify=False)
+        log = probe.session.transport.responder.command_log
+        load = next(i for i, c in enumerate(log) if 'load \\"C:/images/app.hex\\"' in c)
+        read = max(i for i, c in enumerate(log) if c.startswith("-file-exec-and-symbols"))
+        assert load < read
+        assert probe.elf_path == "C:\\images\\app.hex"
+
+    def test_erase_resets_first_and_leaves_flash_blank(self, probe):
+        probe.erase()
+        responder = probe.session.transport.responder
+        assert responder.monitor_log.index("reset") < responder.monitor_log.index("flash erase")
+        assert probe.read_word(0) == 0xFFFFFFFF
+
+    def test_an_erase_that_did_not_happen_raises(self, probe, monkeypatch):
+        """The server said 'Flash erase: O.K.' and erased nothing (issue #69)."""
+        monkeypatch.setattr(probe, "read_word", lambda address: 0x20000400)
+        with pytest.raises(BenchToolsError, match="still reads 0x20000400"):
+            probe.erase()
+
+    def test_the_blank_check_can_be_skipped(self, probe, monkeypatch):
+        monkeypatch.setattr(probe, "read_word", lambda address: 0)
+        assert "O.K." in probe.erase(blank_check_address=None)
+
     def test_verification_failure_raises(self):
         probe = probe_for(flash_matches=False)
         try:

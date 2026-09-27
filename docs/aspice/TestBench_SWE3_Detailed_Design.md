@@ -521,6 +521,9 @@ Parsing points that matter:
   one-element dict that silently loses two. This is the defect this module exists to
   prevent; `test_gdbmi.py` pins it.
 - Repeated result names at the top level accumulate into a list for the same reason.
+- An unnamed tuple among the results is accepted and its fields merged in. GDB's
+  own `load` emits one - `+download,{section=".sec1",...}` - and rejecting it
+  abandoned a flash half-way (issue #69).
 - `unescape_cstring` is separate and separately tested: MI strings carry `\n`,
   `\"`, `\\` and octal escapes, and a mis-unescaped path is a wrong file name.
 
@@ -708,6 +711,19 @@ Design points:
   observed on an nRF52840 with J-Link V9.42 as DHCSR `0x00030003` and a sensor
   that stopped advertising until reset. `close` therefore sends `monitor go`
   before detaching.
+- **`flash(path)` loads the file by name, then reads it as the executable** for
+  `verify`. GDB 15.2 on Windows exited with status 3 after `file` then `load` of
+  an Intel HEX file on a mapped drive ("has changed; re-reading symbols");
+  `load <file>` first did not. ELF and Intel HEX both work, and HEX images are
+  verified section by section like ELF ones.
+- **`erase` resets and halts first, then checks.** On an nRF52840 running its
+  firmware, `monitor flash erase` reported "Flash erase: O.K." and erased
+  nothing; from reset with the core halted it erased flash and UICR. The word at
+  `blank_check_address` (default 0) must then read `0xFFFFFFFF`, or `erase`
+  raises.
+- **`rtt_start` does not require `monitor rtt start`.** J-Link GDB Server V9.42
+  rejects it and serves RTT channel 0 on its RTT port unasked, so the command is
+  sent but an error is ignored.
 - **Identity falls back to the server banner.** J-Link GDB Server V9 answers
   `monitor version` with "Unsupported remote command"; when that yields nothing,
   `_read_identity` uses `GdbServer.probe_identity()` of a server the driver

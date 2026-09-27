@@ -555,10 +555,14 @@ class JLinkProbe(Instrument):
 
         Required for variables by name, source-line breakpoints and call stacks.
         """
-        if not os.path.exists(elf) and self._target_address != "simulated":
-            raise ConfigurationError("no such ELF file: %s" % elf)
+        self._check_image(elf)
         self._session.execute('-file-exec-and-symbols "%s"' % elf.replace("\\", "/"))
         self._elf = elf
+
+    def _check_image(self, path: str) -> None:
+        """Refuse a missing file before GDB is asked to read it."""
+        if not os.path.exists(path) and self._target_address != "simulated":
+            raise ConfigurationError("no such ELF file: %s" % path)
 
     def attach(self) -> None:
         """Attach GDB to the target through the GDB Server."""
@@ -601,7 +605,8 @@ class JLinkProbe(Instrument):
     ) -> FlashResult:
         """Program an image onto the target.
 
-        :param path: Image to program; the loaded ELF when omitted.
+        :param path: Image to program - an ELF or an Intel HEX file; the loaded
+            ELF when omitted.
         :param verify: Compare the target against the file afterwards. On by
             default: programming that silently half-succeeded is the failure this
             catches, and it is cheap next to the write.
@@ -611,17 +616,24 @@ class JLinkProbe(Instrument):
         :raises BenchToolsError: if verification was requested and failed.
         """
         if path:
-            self.load_symbols(path)
-        if not self._elf:
+            self._check_image(path)
+        elif not self._elf:
             raise ConfigurationError(
                 "no image to flash: pass path=... or construct the probe with elf=..."
             )
         if reset:
             self.reset(halt=True)
 
+        # The file is named to "load" and read as the executable only afterwards.
+        # GDB 15.2 on Windows, given an Intel HEX file on a mapped drive by
+        # "file" and then "load", reported "has changed; re-reading symbols" and
+        # exited with status 3 (issue #69). "load <file>" alone did not.
+        command = 'load "%s"' % path.replace("\\", "/") if path else "load"
         started = time.monotonic()
-        console = self._session.execute_console("load", timeout=timeout)
+        console = self._session.execute_console(command, timeout=timeout)
         elapsed = time.monotonic() - started
+        if path:
+            self.load_symbols(path)
 
         sections: Dict[str, Tuple[int, int]] = {}
         for match in _LOAD_RE.finditer(console.text):
@@ -713,9 +725,29 @@ class JLinkProbe(Instrument):
         ]
         return VerifyResult(sections=sections, output=console.text)
 
-    def erase(self, timeout: float = 120.0) -> str:
-        """Erase the target's flash."""
-        return self.monitor("flash erase", timeout=timeout)
+    def erase(self, timeout: float = 120.0, blank_check_address: Optional[int] = 0) -> str:
+        """Erase the target's flash, and check that it did.
+
+        The core is reset and halted first. On an nRF52840 running its
+        firmware, "monitor flash erase" answered "Flash erase: O.K." and erased
+        nothing; after a reset and halt it erased flash and UICR (issue #69).
+        That is why the result is checked rather than taken from the server.
+
+        :param blank_check_address: A flash word that must read erased
+            (``0xFFFFFFFF``) afterwards; ``None`` skips the check, for a part
+            whose flash is not at address 0.
+        :raises BenchToolsError: if that word is not erased.
+        """
+        self.reset(halt=True, timeout=timeout)
+        output = self.monitor("flash erase", timeout=timeout)
+        if blank_check_address is not None:
+            word = self.read_word(blank_check_address)
+            if word != 0xFFFFFFFF:
+                raise BenchToolsError(
+                    "flash erase reported %r but 0x%08x still reads 0x%08x"
+                    % (output.strip(), blank_check_address, word)
+                )
+        return output
 
     # ------------------------------------------------------------------
     # Run control
@@ -1224,7 +1256,10 @@ class JLinkProbe(Instrument):
                 "channel %d is beyond the %d configured RTT channels"
                 % (channel, self._limits.max_rtt_channels)
             )
-        self.monitor("rtt start", timeout=10.0)
+        # J-Link GDB Server V9.42 answers "Target does not support this
+        # command": it finds the RTT control block itself and serves channel 0
+        # on its RTT port unasked (issue #69). Older servers want the command.
+        self._session.execute_console("monitor rtt start", allow_error=True, timeout=10.0)
         self.rtt.start(log_path=log_path)
 
     def rtt_stop(self) -> None:
