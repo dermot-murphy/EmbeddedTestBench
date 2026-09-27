@@ -869,6 +869,18 @@ class SimulatedJLink:
     def _stream(self, lines: List[str]) -> List[str]:
         return ['~"%s\\n"' % self._quote(line) for line in lines]
 
+    def _erase_flash(self) -> None:
+        """Make flash read erased: the image's flash sections, and the vector
+        table at address 0, which the default part aliases to flash as an STM32
+        does at boot. RAM sections keep their contents."""
+        for address, size in self.firmware.sections.values():
+            if address < 0x20000000:
+                for offset in range(size):
+                    self.memory[address + offset] = 0xFF
+        for offset in range(4):
+            self.memory[offset] = 0xFF
+        self.flashed = False
+
     def _monitor(self, command: str, token: str) -> List[str]:
         self.monitor_log.append(command)
         lower = command.lower()
@@ -894,6 +906,10 @@ class SimulatedJLink:
         if lower in ("go", "g"):
             self.halted = False
             return self._ok(token)
+        if lower == "flash erase":
+            self._erase_flash()
+            return self._stream(["Erasing flash (may take a while)...",
+                                 "Flash erase: O.K."]) + self._ok(token)
         if lower.startswith("semihosting"):
             return self._ok(token)
         if lower.startswith("swo"):

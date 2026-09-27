@@ -6,6 +6,7 @@ Traces to: JLINK-FR-003 .. JLINK-FR-045, SWE4-UT-JLINK.
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 
 import pytest
 
@@ -80,6 +81,63 @@ class TestConnection:
         probe.close()
         assert not probe.is_open
 
+    def test_closing_leaves_the_target_running(self):
+        """The GDB Server halts the core on attach and does not resume it on
+        detach; a sensor left that way stopped advertising (issue #69)."""
+        simulator = SimulatedJLink()
+        probe = JLinkProbe(
+            session=GdbMiSession(MockTransport(responder=simulator), timeout=5.0),
+            elf="firmware.elf", target_address="simulated",
+        )
+        probe.initialise()
+        probe.halt()
+        probe.close()
+        assert simulator.monitor_log[-1] == "go"
+        assert simulator.halted is False
+
+    def test_closing_can_leave_the_target_halted(self):
+        simulator = SimulatedJLink()
+        probe = JLinkProbe(
+            session=GdbMiSession(MockTransport(responder=simulator), timeout=5.0),
+            elf="firmware.elf", target_address="simulated",
+        )
+        probe.initialise()
+        probe.halt()
+        probe.leave_halted = True
+        probe.close()
+        assert "go" not in simulator.monitor_log
+        assert simulator.halted is True
+
+    def test_identity_falls_back_to_the_server_banner(self, monkeypatch):
+        """J-Link GDB Server V9 rejects 'monitor version'; the banner of the
+        server the driver started still names the probe."""
+
+        class Server:
+            def probe_identity(self):
+                return {"serial_number": "682395790", "hardware": "V8.00",
+                        "firmware": "J-Link ARM V8 compiled Nov 28 2014 13:44:46"}
+
+            def stop(self):
+                pass
+
+        probe = probe_for()
+        probe._server = Server()
+        real = probe._session.execute_console
+
+        def console(command, **kwargs):
+            if command == "monitor version":
+                return SimpleNamespace(text="")
+            return real(command, **kwargs)
+
+        monkeypatch.setattr(probe._session, "execute_console", console)
+        try:
+            identity = probe._read_identity()
+        finally:
+            probe.close()
+        assert identity.serial_number == "682395790"
+        assert identity.firmware.startswith("J-Link ARM V8")
+        assert "S/N: 682395790" in identity.raw
+
     @pytest.mark.parametrize(
         "resource,expected",
         [
@@ -120,6 +178,32 @@ class TestFlashAndVerify:
         """Programming a running target corrupts whatever it was doing."""
         probe.flash(verify=False)
         assert any("reset" in entry for entry in probe.session.transport.responder.monitor_log)
+
+    def test_a_named_image_is_loaded_before_it_is_read(self, probe):
+        """GDB 15.2 exited when a HEX file on a mapped drive was read with
+        'file' and then loaded (issue #69); 'load <file>' first did not."""
+        probe.flash("C:\\images\\app.hex", verify=False)
+        log = probe.session.transport.responder.command_log
+        load = next(i for i, c in enumerate(log) if 'load \\"C:/images/app.hex\\"' in c)
+        read = max(i for i, c in enumerate(log) if c.startswith("-file-exec-and-symbols"))
+        assert load < read
+        assert probe.elf_path == "C:\\images\\app.hex"
+
+    def test_erase_resets_first_and_leaves_flash_blank(self, probe):
+        probe.erase()
+        responder = probe.session.transport.responder
+        assert responder.monitor_log.index("reset") < responder.monitor_log.index("flash erase")
+        assert probe.read_word(0) == 0xFFFFFFFF
+
+    def test_an_erase_that_did_not_happen_raises(self, probe, monkeypatch):
+        """The server said 'Flash erase: O.K.' and erased nothing (issue #69)."""
+        monkeypatch.setattr(probe, "read_word", lambda address: 0x20000400)
+        with pytest.raises(BenchToolsError, match="still reads 0x20000400"):
+            probe.erase()
+
+    def test_the_blank_check_can_be_skipped(self, probe, monkeypatch):
+        monkeypatch.setattr(probe, "read_word", lambda address: 0)
+        assert "O.K." in probe.erase(blank_check_address=None)
 
     def test_verification_failure_raises(self):
         probe = probe_for(flash_matches=False)

@@ -521,6 +521,9 @@ Parsing points that matter:
   one-element dict that silently loses two. This is the defect this module exists to
   prevent; `test_gdbmi.py` pins it.
 - Repeated result names at the top level accumulate into a list for the same reason.
+- An unnamed tuple among the results is accepted and its fields merged in. GDB's
+  own `load` emits one - `+download,{section=".sec1",...}` - and rejecting it
+  abandoned a flash half-way (issue #69).
 - `unescape_cstring` is separate and separately tested: MI strings carry `\n`,
   `\"`, `\\` and octal escapes, and a mis-unescaped path is a wrong file name.
 
@@ -548,8 +551,13 @@ Parsing points that matter:
 Discovery and lifetime of the J-Link GDB Server and GDB.
 
 - `find_gdb_server` searches the Windows executable names first
-  (`JLinkGDBServerCL.exe`, `JLinkGDBServer.exe`) then the Unix ones, and the
-  diagnostic names the tool and where SEGGER installs it.
+  (`JLinkGDBServerCL.exe`, `JLinkGDBServer.exe`) then the Unix ones, on `PATH`
+  and then in the SEGGER install directories (`SEGGER/JLink*`), newest release
+  first; the diagnostic names the tool and where SEGGER installs it.
+- `find_gdb` accepts `arm-none-eabi-gdb` or `gdb-multiarch` on `PATH`, then one in
+  the Arm GNU Toolchain install directories, and a plain `gdb` only if
+  `gdb_debugs_arm` says it can: MinGW's `gdb` is i386-only, and picking it failed
+  later at attach with an error that did not name the cause (issue #69).
 - `port_is_open` is checked **before** spawning: a server already listening is used,
   never duplicated — a second server on the same probe fails in a way that reads
   like a hardware fault.
@@ -557,9 +565,16 @@ Discovery and lifetime of the J-Link GDB Server and GDB.
   attaches and says so.
 - `was_spawned` gates `stop()`: a server the driver did not start is a server it must
   not kill (JLINK-FR-005).
-- Flags: `-nogui -silent -singlerun -strict`. `-singlerun` so the server exits with
-  the session; `-strict` so a bad device name fails at start rather than producing a
-  half-working link.
+- Flags: `-nogui -strict`. `-strict` so a bad device name fails at start rather
+  than producing a half-working link. `-singlerun` was used, and removed: it makes
+  the server exit when its first client disconnects, and the first client is
+  `start()`'s own readiness check, so GDB found nothing listening (issue #69).
+  `stop()` ends the server instead. `-silent` was removed too, so the start-up
+  banner is printed.
+- The server's output is drained by a reader thread, keeping the last lines for a
+  start-up diagnostic and the banner for `probe_identity()`, which returns the
+  probe's serial number, firmware and hardware. An undrained pipe fills and blocks
+  the server on its next write.
 
 #### JLINK-DD-RTT — `jlink/rtt.py`
 
@@ -691,6 +706,29 @@ Design points:
   silence reads as a failed test (RUN-FR-031).
 - Memory transfers are chunked to `ProbeLimits.max_transfer_bytes`; a 1 MB read is
   not one MI command.
+- **`close` resumes the core unless `leave_halted` is set** (JLINK-FR-006). The
+  GDB Server halts the core on attach, and `-target-detach` leaves it halted:
+  observed on an nRF52840 with J-Link V9.42 as DHCSR `0x00030003` and a sensor
+  that stopped advertising until reset. `close` therefore sends `monitor go`
+  before detaching.
+- **`flash(path)` loads the file by name, then reads it as the executable** for
+  `verify`. GDB 15.2 on Windows exited with status 3 after `file` then `load` of
+  an Intel HEX file on a mapped drive ("has changed; re-reading symbols");
+  `load <file>` first did not. ELF and Intel HEX both work, and HEX images are
+  verified section by section like ELF ones.
+- **`erase` resets and halts first, then checks.** On an nRF52840 running its
+  firmware, `monitor flash erase` reported "Flash erase: O.K." and erased
+  nothing; from reset with the core halted it erased flash and UICR. The word at
+  `blank_check_address` (default 0) must then read `0xFFFFFFFF`, or `erase`
+  raises.
+- **`rtt_start` does not require `monitor rtt start`.** J-Link GDB Server V9.42
+  rejects it and serves RTT channel 0 on its RTT port unasked, so the command is
+  sent but an error is ignored.
+- **Identity falls back to the server banner.** J-Link GDB Server V9 answers
+  `monitor version` with "Unsupported remote command"; when that yields nothing,
+  `_read_identity` uses `GdbServer.probe_identity()` of a server the driver
+  started. For a server it only attached to, the identity says no version was
+  reported rather than guessing.
 - `_counter_delta` handles the cycle counter's 32-bit wrap; over a 64 MHz core that
   is every 67 s, well inside a plausible measurement.
 - `measure_time_between` dispatches on `TimingMethod` to `_run_to_breakpoint`,
@@ -705,8 +743,10 @@ Design points:
 
 #### JLINK-DD-CLI — `jlink/cli.py`
 
-Sub-commands `info`, `flash`, `verify`, `reset`, `run`, `halt`, `read`, `write`,
-`var`, `stack`, `rtt`, `time`, emitting JSON (AD-15). The `time` sub-command adds a
+Sub-commands `info`, `flash`, `verify`, `erase`, `reset`, `run`, `halt`, `read`,
+`write`, `var`, `stack`, `rtt`, `time`, emitting JSON (AD-15). `halt`, `reset`
+without `--run`, and `run --until` set `leave_halted`, since a halted core is their
+purpose; every other sub-command leaves the target running (JLINK-FR-006). The `time` sub-command adds a
 `warning` key when the result is not trustworthy, so a figure quoted from a shell
 script carries the same caveat the API gives.
 

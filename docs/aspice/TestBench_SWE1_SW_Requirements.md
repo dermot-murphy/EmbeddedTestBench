@@ -288,9 +288,10 @@ it is commanded, and it yields measurements — so it implements the generic bas
 |---|---|---|---|
 | JLINK-FR-001 | The driver shall communicate with the target through the GDB machine interface (GDB/MI), parsing result, asynchronous, stream and prompt records, including nested tuples and lists, C-string escapes, and repeated result names. | STK-09 | Test |
 | JLINK-FR-002 | The driver shall issue MI commands with a sequence token and correlate each reply to its command, shall surface an MI error as a typed exception naming the command and the reason, and shall drain asynchronous records that arrive between commands rather than discarding them. | STK-09 | Test |
-| JLINK-FR-003 | The driver shall locate and launch the SEGGER J-Link GDB Server and a GDB for the target architecture, searching the executable names used on Windows first, and shall report a clear diagnostic naming the missing tool and where it is normally installed. | STK-09, STK-11 | Test |
+| JLINK-FR-003 | The driver shall locate and launch the SEGGER J-Link GDB Server and a GDB for the target architecture, searching the executable names used on Windows first, on `PATH` and then in the directories the SEGGER and Arm installers use, shall accept a GDB only if it can debug an ARM target, and shall report a clear diagnostic naming the missing tool and where it is normally installed. | STK-09, STK-11 | Test |
 | JLINK-FR-004 | The driver shall attach to a GDB server already listening, whether started by the user or running on another host, and shall not attempt to spawn a server on a host that is not the local one. | STK-09, STK-11 | Test |
 | JLINK-FR-005 | The driver shall close the link and stop only the server it started itself, leaving a server it merely attached to running. | STK-09 | Test |
+| JLINK-FR-006 | When the link closes, the driver shall leave the target's core running unless the caller asked for it to stay halted. The GDB Server halts the core on attach and does not resume it on detach, so a read or a verification would otherwise stop the firmware it was looking at (issue #69). | STK-09 | Test |
 
 ### 10.2 Target configuration
 
@@ -303,10 +304,10 @@ it is commanded, and it yields measurements — so it implements the generic bas
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
-| JLINK-FR-020 | The driver shall programme the target from an ELF file and report the sections written, their addresses, their sizes and the elapsed time. | STK-09 | Test |
+| JLINK-FR-020 | The driver shall programme the target from an ELF or Intel HEX file and report the sections written, their addresses, their sizes and the elapsed time. | STK-09 | Test |
 | JLINK-FR-021 | The driver shall verify the target's memory against the binary section by section, and shall report per-section verdicts, not merely an overall result. | STK-09 | Test |
 | JLINK-FR-022 | A verification mismatch shall raise, naming the sections that differ. A verification over an empty section list shall be reported as not matched, never as a pass. | STK-09 | Test |
-| JLINK-FR-023 | The driver shall erase the target's non-volatile memory. | STK-09 | Test |
+| JLINK-FR-023 | The driver shall erase the target's non-volatile memory, from reset with the core halted, and shall confirm the erasure by reading the flash back rather than trusting the server's report, raising if it did not happen. | STK-09 | Test |
 | JLINK-FR-024 | The driver shall report what the build system recorded about the image it programmed - the version and the build date - from the manifest beside that image, so a test can state the version it put on a part rather than repeating one into a specification where it would go stale. | STK-09, STK-16 | Test |
 
 ### 10.4 Execution control
@@ -362,7 +363,7 @@ it is commanded, and it yields measurements — so it implements the generic bas
 | JLINK-FR-080 | The probe shall be registered as a bench driver, so a bench configuration and a test specification reference it by name like any instrument. | STK-10 | Test |
 | JLINK-FR-081 | Every probe operation usable as a test step shall return a value or a record of plain types, so a declarative specification can assert on it without driver-specific code. | STK-10, STK-12 | Test |
 | JLINK-FR-090 | A simulated probe shall answer the GDB/MI dialogue the driver uses, with a deterministic firmware model — symbols, memory, call stacks, RTT traffic, ITM events and a known interval between two locations — so the driver is fully verifiable without a probe or a target. | STK-09 | Test |
-| JLINK-FR-100 | A command-line interface shall expose identification, flashing, verification, reset, run, halt, memory and variable access, the call stack, RTT and timing, emitting JSON so results are usable from a script. | STK-09, STK-12 | Test |
+| JLINK-FR-100 | A command-line interface shall expose identification, flashing, verification, erasure, reset, run, halt, memory and variable access, the call stack, RTT and timing, emitting JSON so results are usable from a script. | STK-09, STK-12 | Test |
 
 ### 10.9 JLINK non-functional
 
