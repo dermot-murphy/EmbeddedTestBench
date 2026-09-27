@@ -204,11 +204,18 @@ class Transport(abc.ABC):
                 "response exceeded %d bytes without end-of-message" % MAX_RESPONSE_BYTES
             )
 
-    def write(self, data: bytes, append_terminator: bool = True) -> None:
+    def write(
+        self, data: bytes, append_terminator: bool = True, keep_buffer: bool = False
+    ) -> None:
         """Send *data* to the instrument.
 
         Any unread bytes from a previous response are discarded first: a stale
         response would otherwise be mistaken for the answer to this command.
+
+        :param keep_buffer: Keep them instead. For a write that interrupts a
+            stream the caller is still reading, such as the character that stops
+            a capture: what already arrived is the start of a reply, not a stale
+            one.
         """
         self._require_open()
         if isinstance(data, str):
@@ -216,9 +223,10 @@ class Transport(abc.ABC):
         payload = bytes(data)
         if append_terminator and self._terminator and not payload.endswith(self._terminator):
             payload += self._terminator
-        if self._buffer:
-            _LOG.debug("discarding %d stale bytes before write", len(self._buffer))
-        self._reset_buffer()
+        if not keep_buffer:
+            if self._buffer:
+                _LOG.debug("discarding %d stale bytes before write", len(self._buffer))
+            self._reset_buffer()
         self._send(payload)
 
     def read_message(self, strip_terminator: bool = True) -> bytes:

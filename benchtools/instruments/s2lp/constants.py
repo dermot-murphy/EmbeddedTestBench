@@ -21,12 +21,16 @@ __all__ = [
     "MODEL",
     "BOARDS",
     "DEFAULT_BOARD",
+    "SYNTH_BANDS",
+    "TIMER_HZ",
+    "AFTER_SHUTDOWN_EXIT",
     "Band",
     "DEFAULT_BAUDRATE",
     "DEFAULT_TIMEOUT",
     "STOP_CHARACTER",
     "Strobe",
     "Modulation",
+    "CRC_MODES",
     "PacketFormat",
     "COMMANDS",
     "FIFO_SIZE",
@@ -50,8 +54,42 @@ BOARDS: Dict[str, Tuple[int, int]] = {
     "X-NUCLEO-S2868A2": (860_000_000, 870_000_000),
 }
 
-#: The kit this driver was written against.
+#: The kit the simulator models by default. The driver does **not** fall back
+#: to it: ST's firmware never reports which board it is on (its
+#: ``SdkEvalRfboardIdentification`` answers with no tags, observed on a kit), so
+#: the board is whatever the caller says it is, or unknown.
 DEFAULT_BOARD = "STEVAL-FKI915V1"
+
+#: Where the S2-LP's synthesiser can tune, from its datasheet. When the board is
+#: unknown this is the only range a frequency can be checked against, and it
+#: says nothing about what the board's filter and matching network pass.
+SYNTH_BANDS: Tuple[Tuple[int, int], ...] = (
+    (413_000_000, 527_000_000),
+    (826_000_000, 958_000_000),
+)
+
+#: Registers ST's firmware leaves away from their datasheet reset value after
+#: taking the radio out of shutdown (``SdkEvalSdn 0``). Its library writes them
+#: on the way out, so a power reset through this firmware lands here, not at
+#: the datasheet defaults. Read from a kit on 2026-09-27, S2-LP library 1.3.5,
+#: silicon 0xC1; the same values were there before and after the reset.
+AFTER_SHUTDOWN_EXIT: Dict[str, int] = {
+    "SYNT3": 0x82,
+    "CLOCKREC1": 0xC0,
+    "FIFO_CONFIG3": 0x40,
+    "FIFO_CONFIG2": 0x40,
+    "FIFO_CONFIG1": 0x40,
+    "FIFO_CONFIG0": 0x40,
+    "CSMA_CONF3": 0xFF,
+    "FAST_RX_TIMER": 0x28,
+    "VCO_CONFIG": 0x03,
+    "XO_RCO_CONF1": 0x45,
+}
+
+#: The motherboard timer's rate. Measured on a NUCLEO-L053R8 kit: 2,041,139
+#: counts over 2,043 ms of host time, so microseconds. It is 32 bits wide and
+#: wraps every 71.6 minutes.
+TIMER_HZ = 1_000_000
 
 
 class Band:
@@ -146,6 +184,13 @@ class Modulation:
         return "0x%02X" % code
 
 
+#: CRC settings by name, as ``S2LPPktBasicInit`` takes them (PCKTCTRL1 bits
+#: 7:5, in place). The names give the width and, for 16 bits, the polynomial.
+CRC_MODES: Dict[str, int] = {
+    "none": 0x00, "8": 0x20, "16-8005": 0x40, "16-1021": 0x60, "24": 0x80, "32": 0xA0,
+}
+
+
 class PacketFormat:
     """Packet handler formats, as PCKTCTRL3.PCKT_FRMT encodes them."""
 
@@ -178,12 +223,16 @@ COMMANDS: Dict[str, str] = {
     "S2LPRadioGetFrequencyBase": "",
     "S2LPRadioSetModulation": "u",
     "S2LPRadioGetModulation": "",
-    "S2LPRadioSetPALeveldBm": "wu",
+    # ST declares the level ``w``; the handler reads it signed, in dBm. ``i``
+    # is this package's letter for a signed argument (see protocol.py).
+    "S2LPRadioSetPALeveldBm": "iu",
     "S2LPRadioGetPALeveldBm": "u",
     "S2LPRadioGetXtalFrequency": "",
     "S2LPQiGetRssidBm": "",
     "S2LPGetVersion": "",
     "S2LPGetLibVersion": "",
+    "S2LPGetRcoFrequency": "",
+    "CliGetTimer": "",
     # The packet handler.
     "S2LPPktBasicInit": "vuwuuuuuu",
     "S2LPPktBasicGetInfo": "",
@@ -200,4 +249,8 @@ COMMANDS: Dict[str, str] = {
     "S2LPTimerGetRxTimeout": "",
     "S2LPIrq": "wu",
     "S2LPIrqGetStatus": "",
+    # Routing the radio's interrupt to the board.
+    "S2LPGpioInit": "uuu",
+    "S2MGpioIrqConfiguration": "uu",
+    "S2MGpioGetValue": "u",
 }

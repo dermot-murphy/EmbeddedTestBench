@@ -18,7 +18,9 @@
 # --- packet handler ---------------------------------------------------
 PCKTCTRL3   0x20        # PCKT_FRMT=0 basic, RX_MODE=0 normal
 PCKTCTRL2   0x00        # fixed length, no Manchester, no M-BUS
-PCKTCTRL1   0x2C        # CRC mode, whitening and FEC as the link needs
+PCKTCTRL1   0x20        # CRC_MODE=1 (8 bit), no whitening, no FEC, TXSOURCE=0 (the FIFO).
+                        # Not 0x2C, the reset value: its TXSOURCE=3 sends a PN9 test
+                        # pattern forever and never the payload.
 
 # --- modulation -------------------------------------------------------
 MOD2        0x27        # MOD_TYPE=2 (2-GFSK BT=1), datarate exponent

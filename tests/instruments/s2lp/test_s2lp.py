@@ -17,24 +17,58 @@ from benchtools.instruments.s2lp import (
     SimulatedS2lp,
     registers as reg,
 )
-from benchtools.instruments.s2lp.s2lp import rssi_dbm_from_register, rssi_register_from_dbm
+from benchtools.instruments.s2lp.constants import AFTER_SHUTDOWN_EXIT
+from benchtools.instruments.s2lp.packets import REPORT_ALL_TAGS, BoardClock
+from benchtools.instruments.s2lp.packets import rssi_dbm_from_register, rssi_register_from_dbm
 
 from .conftest import PAYLOAD
+
+
+@pytest.fixture
+def radio915(simulator) -> S2lpDevkit:
+    """A kit whose board the caller named, so its band is known."""
+    instrument = S2lpDevkit(MockTransport(responder=simulator), board="STEVAL-FKI915V1")
+    instrument.initialise()
+    yield instrument
+    instrument.close()
 
 
 class TestConnection:
     def test_identity(self, radio):
         identity = radio.identify()
         assert identity.manufacturer == "STMicroelectronics"
-        assert identity.model == "STEVAL-FKI915V1"
-        assert identity.firmware == SimulatedS2lp.BOARD_VERSION
+        assert identity.model == "S2-LP DK"
+        assert identity.firmware == "80"
+        assert "library 1.3.5" in identity.raw
+        assert "S2-LP 0xC1" in identity.raw
 
-    def test_it_learns_the_board_and_its_band(self, radio):
-        assert radio.board == "STEVAL-FKI915V1"
-        assert radio.band == (902_000_000, 928_000_000)
+    def test_the_board_is_not_invented(self, radio):
+        """The firmware never says which board it is on. Reporting a default
+        board, and checking frequencies against its band, would present a
+        guess as a measurement."""
+        assert radio.board == ""
+        assert radio.band is None
 
-    def test_it_reads_the_crystal_the_firmware_detected(self, radio):
-        assert radio.xtal_hz == 50_000_000
+    def test_a_named_board_brings_its_band(self, radio915):
+        assert radio915.board == "STEVAL-FKI915V1"
+        assert radio915.band == (902_000_000, 928_000_000)
+
+    def test_an_unknown_board_name_is_refused(self, simulator):
+        with pytest.raises(ConfigurationError, match="STEVAL-FKI433V2"):
+            S2lpDevkit(MockTransport(responder=simulator), board="STEVAL-FKI999")
+
+    def test_it_reads_the_crystal_the_firmware_uses(self, radio):
+        assert radio.xtal_hz == SimulatedS2lp.XTAL_HZ
+
+    def test_it_reads_the_library_and_silicon_versions(self, radio):
+        assert radio.library_version == "1.3.5"
+        assert radio.silicon_version == 0xC1
+
+    def test_a_radio_that_is_not_an_s2lp_is_refused(self, simulator):
+        simulator.PART_NUMBER = 0x02
+        instrument = S2lpDevkit(MockTransport(responder=simulator))
+        with pytest.raises(Exception, match="part number 0x02"):
+            instrument.initialise()
 
     def test_connecting_configures_nothing(self, simulator):
         """A radio somebody left set up must not be retuned by a driver
@@ -62,7 +96,7 @@ class TestConnection:
 
     def test_connect_through_the_factory(self):
         with S2lpDevkit.connect("sim://") as radio:
-            assert radio.board
+            assert radio.silicon_version == 0xC1
 
     def test_it_is_an_instrument_but_not_scpi(self, radio):
         from benchtools.core.instrument import Instrument
@@ -110,7 +144,7 @@ class TestRegisters:
         match what was asked for, the values are not what was asked for
         either."""
         simulator._cmd_sdkevalspireadregisters = lambda arguments: (
-            "{{SdkEvalSpiReadRegisters} API callback...\r\n"
+            "{{(SdkEvalSpiReadRegisters)} API callback...\r\n"
             "{regs_list: 0x99,0x11}\r\n{timer:00000001}\r\n}\r\n"
         )
         with pytest.raises(ProtocolError, match="0x99"):
@@ -118,7 +152,7 @@ class TestRegisters:
 
     def test_a_short_reply_is_caught(self, radio, simulator):
         simulator._cmd_sdkevalspireadregisters = lambda arguments: (
-            "{{SdkEvalSpiReadRegisters} API callback...\r\n"
+            "{{(SdkEvalSpiReadRegisters)} API callback...\r\n"
             "{regs_list: 0x00,0x11}\r\n{timer:00000001}\r\n}\r\n"
         )
         with pytest.raises(ProtocolError, match="asked for 4"):
@@ -137,7 +171,14 @@ class TestRegisters:
 
     def test_a_fresh_radio_reads_back_its_reset_values(self, radio):
         values = radio.read_all_registers()
-        assert all(values[r.address] == r.reset for r in reg.REGISTERS)
+        assert all(values[r.address] == r.reset for r in reg.REGISTERS if r.writable)
+
+    def test_status_registers_do_not_count_as_changes(self, radio, simulator):
+        """RSSI, interrupt flags and the silicon version are never at a
+        "reset value" on a live radio. Counting them made every reset check
+        fail on a kit."""
+        simulator.registers[0xA2] = 0x55
+        assert radio.registers_differing_from_reset() == {}
 
     def test_what_has_been_changed_is_the_short_answer(self, radio):
         radio.write_register("PCKTCTRL3", 0xC0)
@@ -196,12 +237,17 @@ class TestStrobes:
         radio.reset(settle=0.0)
         assert radio.read_register("PCKTCTRL3") == 0xC0
 
-    def test_a_power_cycle_does(self, radio):
-        """Shutdown and back is a power-on reset, and the only thing here that
-        returns every register to its default."""
+    def test_a_power_cycle_clears_what_was_written(self, radio):
         radio.write_register("PCKTCTRL3", 0xC0)
         radio.power_cycle(settle=0.0)
-        assert radio.registers_differing_from_reset() == {}
+        assert "PCKTCTRL3" not in radio.registers_differing_from_reset()
+
+    def test_a_power_cycle_lands_where_st_s_firmware_leaves_it(self, radio):
+        """ST's firmware writes ten registers on the way out of shutdown, so a
+        power reset through it is not the datasheet's reset."""
+        radio.power_cycle(settle=0.0)
+        assert radio.registers_differing_from_reset(expected=AFTER_SHUTDOWN_EXIT) == {}
+        assert set(radio.registers_differing_from_reset()) == set(AFTER_SHUTDOWN_EXIT)
 
     def test_a_power_cycle_goes_through_shutdown(self, radio, simulator):
         radio.power_cycle(settle=0.0)
@@ -228,15 +274,30 @@ class TestRadioConfiguration:
         assert radio.frequency_hz == 902_500_000
 
     @pytest.mark.parametrize("hertz", [868_000_000, 433_000_000, 1_000_000_000])
-    def test_a_frequency_outside_the_board_s_band_is_refused(self, radio, hertz):
+    def test_a_frequency_outside_the_board_s_band_is_refused(self, radio915, hertz):
         """The radio would accept it and transmit into a filter and matching
         network that do not pass it."""
         with pytest.raises(ConfigurationError, match="outside the"):
+            radio915.set_frequency(hertz)
+
+    def test_the_band_comes_from_the_named_board(self, radio915):
+        with pytest.raises(ConfigurationError, match="STEVAL-FKI915V1"):
+            radio915.set_frequency(868_000_000)
+
+    @pytest.mark.parametrize("hertz", [433_425_000, 868_000_000, 915_000_000])
+    def test_an_unknown_board_is_checked_against_the_synthesiser(self, radio, hertz):
+        assert radio.set_frequency(hertz) == hertz
+
+    @pytest.mark.parametrize("hertz", [300_000_000, 600_000_000, 1_000_000_000])
+    def test_a_frequency_no_s2lp_can_tune_is_refused(self, radio, hertz):
+        with pytest.raises(ConfigurationError, match="synthesiser"):
             radio.set_frequency(hertz)
 
-    def test_the_band_comes_from_the_board_not_from_configuration(self, radio):
-        with pytest.raises(ConfigurationError, match="STEVAL-FKI915V1"):
-            radio.set_frequency(868_000_000)
+    def test_a_radio_init_the_radio_refuses_is_an_error(self, radio, simulator):
+        simulator._cmd_s2lpradioinit = lambda arguments: simulator._call(
+            "S2LPRadioInit", "{error:01}")
+        with pytest.raises(ConfigurationError, match="error 0x01"):
+            radio.configure_radio(frequency_hz=915_000_000)
 
     def test_modulation_by_name(self, radio):
         assert radio.set_modulation("ook") == "ook"
@@ -248,6 +309,15 @@ class TestRadioConfiguration:
     def test_power(self, radio):
         assert radio.set_power_dbm(12) == 12.0
 
+    def test_power_is_read_in_tenths(self, radio, simulator):
+        simulator.power_tenths[3] = -105
+        assert radio.power_level_dbm(3) == -10.5
+
+    def test_a_negative_power_is_sent_signed(self, radio, simulator):
+        """ST's table says ``w`` but the handler reads a signed number."""
+        radio.set_power_dbm(-10, index=2)
+        assert "S2LPRadioSetPALeveldBm -10 2" in simulator.command_log
+
     def test_payload_length_round_trip(self, radio):
         assert radio.set_payload_length(32) == 32
         assert radio.payload_length == 32
@@ -258,7 +328,11 @@ class TestRadioConfiguration:
             radio.set_payload_length(length)
 
     def test_rssi_is_read_in_dbm(self, radio):
-        assert -160.0 < radio.rssi_dbm < 10.0
+        assert radio.rssi_dbm == -146.0
+
+    def test_rssi_keeps_its_sign_and_fraction(self, radio, simulator):
+        simulator.queue_packet(PAYLOAD, rssi_dbm=-72.5)
+        assert radio.rssi_dbm == -72.5
 
 
 class TestRssiConversion:
@@ -305,6 +379,67 @@ class TestTransmit:
         assert loopback.transmitted == [PAYLOAD] * 4
 
 
+class TestTheInterrupt:
+    def test_the_first_send_routes_the_interrupt(self, linked, loopback):
+        """ST's firmware waits for an interrupt nothing routes by default."""
+        linked.transmit(PAYLOAD)
+        assert loopback.irq_reaches_board(0x04)
+        assert "S2MGpioIrqConfiguration 3 1" in loopback.command_log
+
+    def test_it_is_routed_once_per_session(self, linked, loopback):
+        linked.transmit(PAYLOAD)
+        linked.transmit(PAYLOAD)
+        assert loopback.command_log.count("S2MGpioIrqConfiguration 3 1") == 1
+
+    def test_connecting_does_not_route_it(self, radio, simulator):
+        assert radio.is_open
+        assert not simulator.irq_reaches_board(0x04)
+
+    def test_the_packet_length_follows_the_payload(self, linked, loopback):
+        """The radio sends exactly PCKTLEN bytes, and waits in TX for more if
+        given fewer."""
+        linked.transmit(b"abc")
+        assert loopback.transmitted == [b"abc"]
+        assert linked.payload_length == 3
+
+    def test_routing_is_confirmed_at_the_board(self, linked, loopback):
+        """The board's pin must read high: nIRQ idles high."""
+        loopback._cmd_s2mgpiogetvalue = lambda arguments: loopback._value(
+            "S2MGpioGetValue", "00")
+        with pytest.raises(Exception, match="reads 0 at the board"):
+            linked.transmit(PAYLOAD)
+
+    def test_the_gpio_is_made_an_output_not_an_input(self, linked, loopback):
+        linked.prepare_traffic()
+        assert "S2LPGpioInit 3 2 0" in loopback.command_log
+
+    def test_a_send_is_refused_while_the_tx_source_is_pn9(self, radio, simulator):
+        """The radio's power-on TX source: it would send PN9 forever."""
+        with pytest.raises(ConfigurationError, match="PN9"):
+            radio.transmit(PAYLOAD)
+        assert simulator.transmitted == []
+
+    def test_configure_packets_reads_back_what_it_set(self, radio):
+        info = radio.configure_packets(preamble=64, sync_bits=32, sync_word=0xB19C0CA7,
+                                       crc="16-8005")
+        assert info["preamble_length"] == 16          # the simulator reports a fixed setup
+        assert radio.read_field("PCKTCTRL1", "TXSOURCE") == 0
+        assert radio.read_field("PCKTCTRL1", "CRC_MODE") == 2
+
+    def test_an_unknown_crc_mode_lists_the_real_ones(self, radio):
+        with pytest.raises(ConfigurationError, match="16-8005"):
+            radio.configure_packets(crc="16")
+
+    def test_a_send_that_never_completes_is_stopped_and_aborted(self, linked, loopback):
+        linked.prepare_traffic()
+        loopback.board_irq_lines.clear()            # the interrupt is lost
+        with pytest.raises(Exception, match="did not report the packet sent"):
+            linked.transmit(PAYLOAD, timeout=0.2)
+        assert loopback.stopped
+        assert "SdkEvalSpiCommandStrobes 103" in loopback.command_log
+        assert linked.payload_length == len(PAYLOAD)
+
+
 class TestReceive:
     def test_a_packet_that_was_transmitted_comes_back(self, linked):
         linked.transmit(PAYLOAD)
@@ -319,46 +454,110 @@ class TestReceive:
 
     def test_nothing_on_the_air_returns_none_not_an_empty_packet(self, linked):
         """An empty packet and no packet are different facts."""
-        assert linked.receive() is None
+        assert linked.receive(timeout=0.2) is None
+
+    def test_a_receive_that_times_out_is_stopped_on_the_board(self, linked, loopback):
+        """ST's receive waits with no limit of its own. Leaving it running would
+        lose every later command to a board still listening."""
+        linked.receive(timeout=0.2)
+        assert loopback.stopped
+        assert linked.payload_length == len(PAYLOAD)
+
+    def test_a_rejected_reception_is_logged_but_not_returned(self, linked, loopback, tmp_path):
+        path = str(tmp_path / "packets.jsonl")
+        linked.start_packet_log(path)
+        loopback.queue_packet(PAYLOAD, error=2)
+        assert linked.receive(timeout=0.2) is None
+        record = PacketLog.read(path)[0]
+        assert record["error"] == 2 and record["hex"] == ""
+
+    def test_board_time_is_in_microseconds(self, linked, loopback):
+        loopback.timer_us = 1_000_000
+        loopback.queue_packet(PAYLOAD)
+        assert linked.receive().board_time_us == 1_000_000 + 2_000
 
     def test_a_queued_packet_is_delivered_once(self, linked, loopback):
         loopback.queue_packet(PAYLOAD)
         assert linked.receive() is not None
-        assert linked.receive() is None
+        assert linked.receive(timeout=0.2) is None
+
+
+class TestBoardClock:
+    def test_it_passes_readings_through_until_a_wrap(self):
+        clock = BoardClock()
+        assert clock.unwrap(10) == 10
+        assert clock.unwrap(20) == 20
+
+    def test_a_smaller_reading_is_one_wrap(self):
+        """The 32-bit microsecond counter wraps every 71.6 minutes."""
+        clock = BoardClock()
+        clock.unwrap(0xFFFFFF00)
+        assert clock.unwrap(0x10) == (1 << 32) + 0x10
 
 
 class TestCapture:
-    def test_a_continuous_capture_has_no_gaps(self, linked, loopback):
+    def test_a_batch_capture_is_not_gap_free(self, linked, loopback):
+        """ST's batch loop re-arms the radio after each packet. Calling that
+        continuous, as this driver once did, claimed a complete record of the
+        air that the firmware does not give."""
         for index in range(3):
             loopback.queue_packet(bytes([index]) * 3)
         capture = linked.capture(count=3, timeout=5.0)
         assert capture.count == 3
-        assert capture.is_continuous
-        assert capture.gaps == 0
+        assert capture.gaps == 2
+        assert capture.rearm == "firmware"
+        assert not capture.is_continuous
+
+    def test_a_batch_capture_asks_for_the_early_re_arm(self, linked, loopback):
+        """With ReportAll on, ST's loop re-arms before printing the report."""
+        loopback.queue_packet(PAYLOAD)
+        linked.capture(count=1, timeout=5.0)
+        assert "S2LPGetNBytesReportAll 1" in loopback.command_log
+
+    def test_a_batch_capture_carries_the_firmware_s_extra_fields(self, linked, loopback):
+        loopback.queue_packet(PAYLOAD)
+        packet = linked.capture(count=1, timeout=5.0).packets[0]
+        assert packet.extra["packet_len"] == len(PAYLOAD) + 1
+        assert set(packet.extra) == set(REPORT_ALL_TAGS)
+
+    def test_a_single_reception_is_continuous(self, linked, loopback):
+        loopback.queue_packet(PAYLOAD)
+        assert linked.capture(count=1, timeout=5.0).is_continuous
+
+    def test_rejected_receptions_are_kept_apart(self, linked, loopback):
+        loopback.queue_packet(PAYLOAD)
+        loopback.queue_packet(PAYLOAD, error=2)
+        loopback.queue_packet(PAYLOAD)
+        capture = linked.capture(count=3, timeout=5.0)
+        assert capture.count == 2
+        assert [packet.error for packet in capture.rejected] == [2]
+        assert "1 rejected" in capture.describe()
 
     def test_a_polled_capture_reports_its_gaps(self, linked, loopback):
         """Each re-arm is an interval in which nothing could have been heard,
         and a capture that does not say so invites a wrong conclusion."""
         loopback.queue_packet(PAYLOAD)
-        capture = linked.capture(count=1, timeout=5.0, continuous=False)
-        assert capture.count == 1
-        assert capture.is_continuous is True or capture.gaps >= 0
-        capture = linked.capture(count=2, timeout=2.0, continuous=False)
-        assert capture.gaps > 0
-        assert not capture.is_continuous
+        loopback.queue_packet(PAYLOAD)
+        capture = linked.capture(count=2, timeout=5.0, continuous=False)
+        assert capture.count == 2
+        assert capture.gaps == 1
+        assert capture.rearm == "host"
+        assert "host re-arm" in capture.describe()
         assert "not a complete record of the air" in capture.describe()
 
-    def test_a_polled_capture_is_bounded_by_attempts(self, linked):
-        """An arm that finds nothing returns at once; without a bound the
-        capture would spend its timeout re-arming and call that a result."""
-        capture = linked.capture(count=2, timeout=5.0, continuous=False, attempts=5)
-        assert capture.gaps == 4
+    def test_a_polled_capture_with_nothing_on_the_air_stops_the_board(self, linked, loopback):
+        capture = linked.capture(count=2, timeout=0.3, continuous=False)
+        assert capture.count == 0
         assert capture.stopped_early
+        assert loopback.stopped
+        assert linked.payload_length == len(PAYLOAD)
 
-    def test_a_capture_that_gets_nothing_says_so_rather_than_failing(self, linked):
+    def test_a_capture_that_gets_nothing_says_so_rather_than_failing(self, linked, loopback):
         capture = linked.capture(count=2, timeout=0.5)
         assert capture.count == 0
         assert capture.stopped_early
+        assert loopback.stopped
+        assert linked.payload_length == len(PAYLOAD)
 
     def test_the_summary_carries_the_signal_level(self, linked, loopback):
         loopback.queue_packet(PAYLOAD, rssi_dbm=-60.0)
@@ -372,7 +571,7 @@ class TestLogs:
     def test_the_session_log_carries_both_directions(self, linked, tmp_path):
         path = linked.start_log(str(tmp_path / "session.log"))
         linked.transmit(PAYLOAD)
-        linked.receive()
+        linked.receive(timeout=0.5)
         text = open(path, encoding="utf-8").read()
         assert " > S2LPSendNBytes" in text
         assert " < {" in text

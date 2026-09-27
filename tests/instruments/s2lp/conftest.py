@@ -22,6 +22,17 @@ def simulator() -> SimulatedS2lp:
 
 
 @pytest.fixture
+def routed() -> SimulatedS2lp:
+    """A kit whose interrupt is already routed, for tests that drive the
+    simulator directly rather than through the driver."""
+    kit = SimulatedS2lp()
+    kit.route_interrupt()
+    kit.respond(b"S2LPPktBasicInit 64 32 2290649224 0 0 32 0 0 0")
+    kit.command_log.clear()
+    return kit
+
+
+@pytest.fixture
 def loopback() -> SimulatedS2lp:
     """A kit that hears everything it transmits, so one board tests both ways."""
     return SimulatedS2lp(loopback=True)
@@ -40,6 +51,7 @@ def linked(loopback) -> S2lpDevkit:
     """A connected kit in loopback, with a known payload length."""
     instrument = S2lpDevkit(MockTransport(responder=loopback))
     instrument.initialise()
+    instrument.configure_packets()
     instrument.set_payload_length(len(PAYLOAD))
     yield instrument
     instrument.close()

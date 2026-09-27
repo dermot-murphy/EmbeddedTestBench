@@ -72,12 +72,15 @@ instruments:
 
   # ST S2-LP development kit, running ST's own CLI firmware (the firmware the
   # S2-LP DK GUI drives). Nothing of ours runs on the board, so there is nothing
-  # to flash before a session. The band comes from the board's own
-  # identification, not from here.
+  # to flash before a session. The firmware does not report which board it is
+  # on, so name it here to have frequencies checked against the board's band;
+  # without it only the S2-LP synthesiser's own range is checked.
   s2lp:
     driver: s2lp
     resource: /dev/ttyACM1        # COM7 on Windows
     timeout: 5.0
+    # options:
+    #   board: STEVAL-FKI433V2
 
   # The bench multimeter, on a USB-to-RS-232 converter. The driver asserts
   # DTR and clears RTS: they power the meter's opto-isolated interface, and

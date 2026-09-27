@@ -14,11 +14,11 @@ from .configuration import (
     load_register_file,
     parse_register_file,
 )
-from .constants import BOARDS, DEFAULT_BOARD, MODEL, Modulation, PacketFormat, Strobe
-from .packets import Capture, Packet, PacketLog
+from .constants import BOARDS, CRC_MODES, DEFAULT_BOARD, MODEL, Modulation, PacketFormat, Strobe
+from .packets import Capture, Packet, PacketLog, rssi_dbm_from_register, rssi_register_from_dbm
 from .protocol import Reply, format_command, parse_reply
 from .registers import BY_ADDRESS, BY_NAME, REGISTERS, Field, Register, lookup
-from .s2lp import S2lpDevkit, rssi_dbm_from_register, rssi_register_from_dbm
+from .s2lp import S2lpDevkit
 from .session import S2lpSession
 from .simulator import SimulatedS2lp
 
@@ -46,6 +46,7 @@ __all__ = [
     "lookup",
     "Modulation",
     "PacketFormat",
+    "CRC_MODES",
     "Strobe",
     "BOARDS",
     "DEFAULT_BOARD",
