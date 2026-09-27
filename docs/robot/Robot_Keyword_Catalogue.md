@@ -1,8 +1,8 @@
-# Robot Framework Keyword Catalogue — Dongle, J-Link, GPD-3303D
+# Robot Framework Keyword Catalogue — Dongle, J-Link, GPD-3303D, S2-LP
 
 | | |
 |---|---|
-| Scope | Keywords a Robot Framework library would offer over three drivers: the Nordic BLE dongle (`benchtools.instruments.nordic_dongle`), the SEGGER J-Link (`benchtools.instruments.jlink`) and the GW Instek GPD-3303D supply (`benchtools.instruments.gpd3303d`) |
+| Scope | Keywords a Robot Framework library would offer over three drivers: the Nordic BLE dongle (`benchtools.instruments.nordic_dongle`), the SEGGER J-Link (`benchtools.instruments.jlink`) the GW Instek GPD-3303D supply (`benchtools.instruments.gpd3303d`), and the ST S2-LP kit (`benchtools.instruments.s2lp`, added for #77) |
 | Status | **Proposal.** No keyword library exists, and no Robot Framework dependency is taken. Robot Framework itself is still undecided (STK-12, CON-06, OPEN-04) |
 | Sources | The drivers as they stand on `develop` at `f7ca43f`; the BLE command-document work (#38–#59); the GPD-3303D bring-up (#61–#67); the J-Link bring-up (#69) |
 | Issue | #74 |
@@ -70,7 +70,7 @@ driver record has no `as_dict()`, the library converts it:
 | `bytes` from `read_memory` | Hex text |
 
 These four conversions are the places where the J-Link driver does not yet meet
-AD-15 / JLINK-FR-081 (§6).
+AD-15 / JLINK-FR-081 (§7).
 
 ### 1.4 Failure
 
@@ -471,7 +471,55 @@ These are not provided, deliberately:
 
 ---
 
-## 5. The three together
+## 5. ST S2-LP kit — library `S2lpLibrary`
+
+The kit on the bench:
+
+| Item | Value |
+|---|---|
+| Board | NUCLEO-L053R8 with the 433 MHz S2-LP board (STEVAL-FKI433V2) |
+| Firmware | ST's CLI test application, unchanged; S2-LP library 1.3.5, silicon 0xC1 |
+| Port | COM4 (ST-LINK virtual COM port), 115200 baud |
+| Role | Receives the Kepler sensor's sub-GHz frames; can also transmit |
+
+### 5.1 Setup
+
+| Keyword | Arguments | Action | Returns / fails |
+|---|---|---|---|
+| `Open Radio` | `resource`, `board=STEVAL-FKI433V2`, `setup=None` | `S2lpDevkit.connect(board=...)`; applies the register file *setup* when given. Changes no radio setting otherwise | Identity dictionary |
+| `Close Radio` | — | `close()` | — |
+| `Configure For Kepler` | `setup=configs/s2lp_kepler_433_rx.regs` | `apply_configuration(setup, reset="defaults")`, then verifies it | Check dictionary. **Fails** on any register that did not take |
+| `Configure Radio` | `frequency_hz`, `data_rate_bps`, `modulation`, `deviation_hz`, `bandwidth_hz` | `configure_radio()` | What the radio reads back. **Fails** outside the named board's band |
+| `Configure Packets` | `preamble`, `sync_word`, `variable_length`, `crc`, `address` | `configure_packets()`. Also moves the TX source off the power-on PN9 pattern | Packet settings as read back |
+| `Write Radio Register` / `Read Radio Register` | `name`, `value` | `write_register()` / `read_register()` | The value read. **Fails** on a read-only register |
+
+### 5.2 Traffic
+
+| Keyword | Arguments | Action | Returns / fails |
+|---|---|---|---|
+| `Transmit` | `payload`, `repeat=1`, `interval=100 ms` | `transmit()` or `transmit_batch()` | Packets sent. **Fails** while the TX source is PN9, or when the radio never reports the packet sent (the radio is aborted first) |
+| `Receive Frames` | `count=None`, `timeout`, `registers=AFC_CORR,LINK_QUALIF2,LINK_QUALIF1,RSSI_LEVEL`, `decode=kepler` | `stream()`: one reception at a time, the registers read straight after each, each payload decoded, raw and decoded logged together | List of frame dictionaries. **Fails** only on a driver error; an empty list is a result |
+| `Wait For Kepler Frame` | `sensor_id`, `type=None`, `timeout` | *Library logic*. `stream()` until a decoded frame from *sensor_id* (and of *type*) arrives | That frame. **Fails** at the timeout, saying how many other frames arrived |
+| `Frame Should Have Link Quality` | `frame`, `min_rssi_dbm=None`, `min_pqi=None`, `min_sqi=None` | Compares the frame's registers | **Fails** below any limit given |
+| `Stop Radio` | — | `stop()`. Safe with nothing running | — |
+
+### 5.3 What the S2-LP work taught (#76, #77)
+
+- **The board is not reported by the firmware**, so `Open Radio` takes it as an
+  argument, and the frequency check depends on it.
+- **Traffic needs three things set up.** These are the radio's interrupt routed
+  to GPIO3, a TX source other than the power-on PN9 pattern, and PCKTLEN
+  matching the payload. The driver does the first and third itself, and refuses
+  to send without the second.
+- **Every wait is the host's.** ST's receive waits indefinitely, so every
+  receive keyword takes a timeout and stops the board when the timeout expires.
+- **The radio is deaf while it is re-armed.** `Receive Frames` re-arms from the
+  host after each frame. It is not evidence that a frame was *not* sent; a
+  keyword asserting absence would need a statement of that gap.
+- **Kepler sends each packet three times.** The frame count distinguishes them
+  (repeat 0, 1, 2). A keyword counting packets should count repeat 0.
+
+## 6. The first three together
 
 The suite below powers the sensor, flashes it with its ID preserved, and checks
 over BLE that it answers with the flashed version.
@@ -530,7 +578,7 @@ This example carries decisions that are easy to get wrong:
 
 ---
 
-## 6. Open points
+## 7. Open points
 
 1. **Whether to adopt Robot Framework** (OPEN-04). This catalogue does not decide
    that question.

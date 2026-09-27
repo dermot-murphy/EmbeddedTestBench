@@ -307,6 +307,75 @@ usually interrupted on purpose. `radio.log_note(...)` writes into both.
 
 ---
 
+### 3.6 Receiving the Kepler sensor
+
+The Kepler (Kappa X) sensor transmits plaintext frames at 433.425 MHz. The bench
+kit is the 433 MHz board (STEVAL-FKI433V2). `configs/s2lp_kepler_433_rx.regs`
+holds the receive setup, captured from the kit after it was set up to the
+sensor firmware's settings:
+
+| | Value | Where the sensor sets it |
+|---|---|---|
+| Carrier | 433.425 MHz | `api_radio_transport_cfg.h` |
+| Modulation | 2-FSK, 100 kbps, 20 kHz deviation, 150 kHz filter | same |
+| Packet | basic; 32 bit-pairs of preamble (`S2LPPktBasicInit` argument 32); 32-bit sync `0xB19C0CA7`; variable length, one byte; one address byte; CRC-16 poly 0x8005 | same, and `api_radio_mac.c` |
+
+```python
+from benchtools.instruments.s2lp import S2lpDevkit
+from benchtools.instruments.s2lp.kepler import decode_kepler_frame
+
+with S2lpDevkit.connect("COM4", board="STEVAL-FKI433V2",
+                        packet_log="kepler.jsonl") as radio:
+    radio.apply_configuration("configs/s2lp_kepler_433_rx.regs", reset="defaults")
+    for frame in radio.stream(decoder=decode_kepler_frame, timeout=900):
+        print(frame)            # RX  35 bytes  -94.5 dBm  PQI 0 SQI 32  ALIVE  5c1712... (as seen)
+```
+
+```bash
+python -m benchtools s2lp -r COM4 --board STEVAL-FKI433V2 --setup configs/s2lp_kepler_433_rx.regs stream --decode kepler --timeout 900 > frames.jsonl
+```
+
+`stream()` receives one frame at a time and reads registers straight after
+each one: AFC correction, PQI, carrier sense with SQI, and RSSI by default, or
+any set given with `registers=`. ST's firmware does not report PQI or SQI, so
+reading them afterwards is the only way to get them. The cost is that the radio
+is deaf while it is re-armed (§4.1). Each record in the packet log carries the
+raw payload, the registers, the firmware's fields and the decode together.
+
+**What the kit received on 2026-09-27.** Sensor 5C1712 sent ALIVE frames, each
+packet three times (frame count repeat 0, 1 and 2), 33 ms and 130 ms apart, at
+−94.5 dBm on the bench. The decode was coherent: 24.4 °C, 2540 mV, and SI-updated
+set on the first repeat only, which matches the firmware clearing it once loaded.
+
+Two points from the reference firmware were settled on the air:
+
+* The payload in the FIFO starts at SENSOR_ID. The radio consumes the address
+  byte and reports it separately.
+* The address byte the sensor sends is **0xA7**. The reference project's own
+  documents disagreed about this; it is the low byte of the secondary sync word
+  sitting in PCKT_FLT_GOALS3.
+
+**The polled stream's gap costs frames.** An 11-minute `stream` on the same
+day received 5C1712's packet as all three repeats, 190 ms and 170 ms apart. For
+5C314E it received repeats 0 and 1 only: repeat 2 fell in the re-arm gap. The
+sensor spaces its repeats randomly, with gaps from 20 ms to 220 ms
+(`api_radio_llc_cfg.h`). A 20 ms gap is shorter than the stream's register read
+plus a command round trip, whereas ST's batch loop (`capture()`) caught all
+three of 5C314E's repeats earlier the same day. So:
+
+* use `stream()` when the per-frame registers matter;
+* use `capture()` when missing a repeat matters more;
+* in either case, count packets by repeat 0 or by any repeat, not by frames.
+
+5C314E reports RF_CAP 4 (V10 firmware). Its ALIVE frames decode, with a warning
+that the layouts are for RF_CAP 6.
+
+`kepler.py` decodes every frame type in the sensor's table. Only ALIVE has been
+seen on the air so far; the rest are tested against frames built from the
+reference layouts.
+
+---
+
 ## 4. What this firmware cannot do, and what the driver does about it
 
 ### 4.1 The radio is deaf while it is re-armed
@@ -460,8 +529,9 @@ one. This matters for what may be kept here:
 | S2LP-OPEN-02 | The **error codes** `S2LPGetNBytes` returns | **Partly closed.** ST's source gives 1 RX timeout, 2 CRC, 3 and 4 address filters, 6, and 0xFF for a stop. With nothing on the air the receive does not time out at all; it waits until stopped. The codes for a corrupted packet still need a transmitter |
 | S2LP-OPEN-03 | Whether `SdkEvalRfboardIdentification` reports the **board name** | **Closed: it does not.** It answers with no tags. The board is now the caller's to name (`board=`, `--board`), and no default is assumed |
 | S2LP-OPEN-04 | **`S2LPGetNBytesBatch`'s first argument** | Open. ST's source uses it as a reference timer in ms, with 0 meaning none; the driver passes 0. Needs traffic to confirm |
-| S2LP-OPEN-05 | The **link budget in practice**: RSSI against a known transmitter, and the smallest re-arm gap | Open. Needs a transmitter; the Kepler sensor is to be that transmitter (#77). A register read takes 14–17 ms on this link, which bounds a polled gap from below |
-| S2LP-OPEN-06 | **Which board this kit is.** Kepler transmits at 433.425 MHz, which an 868 or 915 MHz board will not receive usefully | Open. Read the board's label |
+| S2LP-OPEN-05 | The **link budget in practice**: RSSI against a known transmitter, and the smallest re-arm gap | Partly closed, #77. The Kepler sensor on the bench arrives at −94.5 dBm, and ST's batch loop caught three repeats 33 ms apart. A register read takes 14–17 ms, which bounds a polled stream's gap from below. The gap of a polled stream has not been measured against a known sequence |
+| S2LP-OPEN-07 | **PQI reads 0.** On 2026-09-27 a polled stream read LINK_QUALIF2 = 0 after each of three frames from 5C1712. The same frames gave SQI 32 (a full 32-bit sync match), RSSI_LEVEL 103 (-94.5 dBm) and AFC_CORR -12. It is not established whether PQI must be enabled or thresholded (QI register), or is not held after the packet the way RSSI is | Open. Check the datasheet's PQI definition, then read the QI register and PQI with a known preamble from the kit's own transmitter |
+| S2LP-OPEN-06 | **Which board this kit is** | **Closed**, 2026-09-27: the 433 MHz board (STEVAL-FKI433V2), from its label. Recorded in `benches/lab1.yaml`. Reading it from the board is #80 |
 
 ---
 

@@ -26,7 +26,7 @@ from __future__ import annotations
 import logging
 import time
 from collections import deque
-from typing import Deque, Iterator, List, Optional
+from typing import Callable, Deque, Iterator, List, Optional
 
 from ...core.errors import (
     ConnectionFailedError,
@@ -55,7 +55,15 @@ REPLY_START = "{{"
 #: The command name the firmware acknowledges a stop with.
 STOP_ACK = "StopCmd"
 
-__all__ = ["S2lpSession"]
+__all__ = ["S2lpSession", "ReadCancelled"]
+
+
+class ReadCancelled(TransportTimeoutError):
+    """A wait for a reply ended because the caller asked it to.
+
+    A kind of timeout, so code that already stops the board on a timeout does
+    the same on a cancel.
+    """
 
 _LOG = logging.getLogger(__name__)
 
@@ -166,7 +174,8 @@ class S2lpSession:
         return self.read_reply(timeout=timeout, command=name, expect=name)
 
     def read_reply(
-        self, timeout: Optional[float] = None, command: str = "", expect: str = ""
+        self, timeout: Optional[float] = None, command: str = "", expect: str = "",
+        cancel: Optional[Callable[[], bool]] = None,
     ) -> Reply:
         """Read the next reply, and parse it.
 
@@ -175,6 +184,8 @@ class S2lpSession:
             :attr:`unclaimed`. On a kit, a send interrupted by a stop printed
             its own acknowledgement *after* the stop's, which would otherwise
             have been taken as the answer to whatever was sent next.
+        :param cancel: Checked between reads, every :data:`READ_POLL` seconds;
+            when it returns true the wait ends with :class:`ReadCancelled`.
         :raises ProtocolError: at once, when the command interpreter rejects the
             command (``no such command``, ``wrong number of arguments``, ...).
             It sends that line instead of a reply, so waiting would only turn a
@@ -183,20 +194,23 @@ class S2lpSession:
         limit = self._timeout if timeout is None else float(timeout)
         deadline = time.monotonic() + limit
         while True:
-            reply = self._read_one_reply(deadline, limit, command)
+            reply = self._read_one_reply(deadline, limit, command, cancel)
             if not expect or not reply.command or reply.command == expect:
                 return reply
             _LOG.debug("skipping a stale reply from %s", reply.command)
             self._write_log("#", "stale reply from %s skipped" % reply.command)
             self.unclaimed.append(reply.raw)
 
-    def _read_one_reply(self, deadline: float, limit: float, command: str) -> Reply:
+    def _read_one_reply(self, deadline: float, limit: float, command: str,
+                        cancel: Optional[Callable[[], bool]] = None) -> Reply:
         """Read lines until the braces balance, and parse them."""
         lines: List[str] = []
         depth = 0
         started = False
 
         while True:
+            if cancel is not None and not lines and cancel():
+                raise ReadCancelled("the wait for %s was cancelled" % (command or "a reply"))
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 raise TransportTimeoutError(

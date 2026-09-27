@@ -18,6 +18,7 @@ from benchtools.instruments.s2lp import (
     registers as reg,
 )
 from benchtools.instruments.s2lp.constants import AFTER_SHUTDOWN_EXIT
+from benchtools.instruments.s2lp.kepler import decode_kepler_frame
 from benchtools.instruments.s2lp.packets import REPORT_ALL_TAGS, BoardClock
 from benchtools.instruments.s2lp.packets import rssi_dbm_from_register, rssi_register_from_dbm
 
@@ -480,6 +481,78 @@ class TestReceive:
         loopback.queue_packet(PAYLOAD)
         assert linked.receive() is not None
         assert linked.receive(timeout=0.2) is None
+
+
+#: An ALIVE frame sensor 5C1712 sent on 2026-09-27.
+KEPLER_ALIVE = bytes.fromhex(
+    "5c171203060c04031300f47f018400008a0056005a00db0051007f02ed0233025c0005")
+
+
+class TestStream:
+    def test_each_frame_carries_the_registers_read_after_it(self, linked, loopback):
+        loopback.queue_packet(PAYLOAD, rssi_dbm=-80.0, pqi=33, sqi=17)
+        packet = next(linked.stream(count=1))
+        assert packet.registers["LINK_QUALIF2"] == 33
+        assert packet.extra["pqi"] == 33 and packet.extra["sqi"] == 17
+        assert packet.rssi_dbm == -80.0
+
+    def test_frames_of_any_length(self, linked, loopback):
+        """ST's receive ends on data-ready when asked for 0xFFFF bytes."""
+        loopback.queue_packet(b"\x01" * 35)
+        loopback.queue_packet(b"\x02" * 83)
+        lengths = [packet.length for packet in linked.stream(count=2)]
+        assert lengths == [35, 83]
+        assert "S2LPGetNBytes 65535" in loopback.command_log
+
+    def test_frames_are_decoded(self, linked, loopback):
+        loopback.queue_packet(KEPLER_ALIVE)
+        packet = next(linked.stream(count=1, decoder=decode_kepler_frame))
+        assert packet.decoded["type"] == "ALIVE"
+        assert packet.decoded["sensor_id"] == "5C1712"
+
+    def test_a_frame_that_will_not_decode_keeps_its_bytes(self, linked, loopback):
+        loopback.queue_packet(b"\x00\x01")
+        packet = next(linked.stream(count=1, decoder=decode_kepler_frame))
+        assert packet.decoded is None
+        assert "8-byte header" in packet.decode_error
+        assert packet.data == b"\x00\x01"
+
+    def test_a_rejected_reception_is_yielded_with_its_error(self, linked, loopback):
+        loopback.queue_packet(PAYLOAD, error=2)
+        packet = next(linked.stream(count=1, decoder=decode_kepler_frame))
+        assert packet.error == 2 and packet.decoded is None and packet.decode_error == ""
+
+    def test_raw_and_decoded_are_one_record(self, linked, loopback, tmp_path):
+        path = str(tmp_path / "frames.jsonl")
+        linked.start_packet_log(path)
+        loopback.queue_packet(KEPLER_ALIVE, pqi=40)
+        list(linked.stream(count=1, decoder=decode_kepler_frame))
+        record = PacketLog.read(path)[0]
+        assert record["hex"] == KEPLER_ALIVE.hex()
+        assert record["decoded"]["type"] == "ALIVE"
+        assert record["registers"]["LINK_QUALIF2"] == 40
+        assert record["extra"]["pqi"] == 40
+
+    def test_a_timeout_ends_the_stream_and_stops_the_board(self, linked, loopback):
+        assert not list(linked.stream(timeout=0.3))
+        assert loopback.stopped
+        assert linked.payload_length == len(PAYLOAD)
+
+    def test_until_ends_a_stream_that_is_waiting(self, linked, loopback):
+        calls = []
+
+        def until():
+            calls.append(1)
+            return len(calls) > 3
+
+        assert not list(linked.stream(until=until))
+        assert loopback.stopped
+
+    def test_the_registers_to_read_can_be_chosen(self, linked, loopback):
+        loopback.queue_packet(PAYLOAD)
+        packet = next(linked.stream(registers=("RSSI_LEVEL",), count=1))
+        assert list(packet.registers) == ["RSSI_LEVEL"]
+        assert "pqi" not in packet.extra
 
 
 class TestBoardClock:

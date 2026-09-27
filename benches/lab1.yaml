@@ -77,10 +77,10 @@ instruments:
   # without it only the S2-LP synthesiser's own range is checked.
   s2lp:
     driver: s2lp
-    resource: /dev/ttyACM1        # COM7 on Windows
+    resource: /dev/ttyACM1        # COM4 on the Windows bench PC
     timeout: 5.0
-    # options:
-    #   board: STEVAL-FKI433V2
+    options:
+      board: STEVAL-FKI433V2      # from the label, 2026-09-27 (#80)
 
   # The bench multimeter, on a USB-to-RS-232 converter. The driver asserts
   # DTR and clears RTS: they power the meter's opto-isolated interface, and

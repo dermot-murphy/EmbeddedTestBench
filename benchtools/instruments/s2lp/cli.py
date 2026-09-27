@@ -23,7 +23,9 @@ from ... import __version__
 from ...core.errors import BenchToolsError
 from . import registers as reg
 from .constants import BOARDS, CRC_MODES, DEFAULT_BAUDRATE, MODEL, Modulation, Strobe
+from .kepler import decode_kepler_frame
 from .s2lp import S2lpDevkit
+from .traffic import FRAME_REGISTERS
 
 __all__ = ["main", "build_parser"]
 
@@ -216,6 +218,29 @@ def _cmd_packets(radio: S2lpDevkit, args) -> int:
     return _EXIT_OK
 
 
+def _cmd_stream(radio: S2lpDevkit, args) -> int:
+    """Receive frames until stopped, one JSON line each, raw and decoded."""
+    decoder = decode_kepler_frame if args.decode == "kepler" else None
+    registers = tuple(args.registers.split(",")) if args.registers else FRAME_REGISTERS
+    frames = rejected = undecoded = 0
+    try:
+        for packet in radio.stream(registers=registers, decoder=decoder,
+                                   count=args.count, timeout=args.timeout):
+            print(json.dumps(packet.as_dict(), sort_keys=True), flush=True)
+            if not packet.ok:
+                rejected += 1
+            elif decoder is not None and packet.decoded is None:
+                undecoded += 1
+            frames += 1
+    except KeyboardInterrupt:
+        radio.stop()
+    summary = {"frames": frames, "rejected": rejected, "undecoded": undecoded}
+    print(json.dumps({"summary": summary}), file=sys.stderr)
+    if args.json:
+        _emit(summary, args.json)
+    return _EXIT_OK if frames else _EXIT_ERROR
+
+
 def _cmd_strobe(radio: S2lpDevkit, args) -> int:
     radio.strobe(args.name)
     _emit({"strobe": args.name, "sent": True}, args.json)
@@ -240,7 +265,8 @@ def build_parser() -> argparse.ArgumentParser:
                              "and without it only the synthesiser's range is checked")
     parser.add_argument("--timeout", type=float, default=5.0, help="reply timeout in seconds")
     parser.add_argument("--setup", metavar="REGS",
-                        help="apply this register file right after connecting, e.g. to "
+                        help="reset the radio to its register defaults and apply this "
+                             "register file right after connecting, e.g. to "
                              "set up the packet handler before tx or rx")
     parser.add_argument("--log", metavar="PATH", help="raw session log: every line, both ways")
     parser.add_argument("--packet-log", metavar="PATH", help="structured packet log (JSON Lines)")
@@ -316,6 +342,16 @@ def build_parser() -> argparse.ArgumentParser:
     packets.add_argument("--crc", choices=sorted(CRC_MODES), help="CRC mode")
     packets.set_defaults(handler=_cmd_packets)
 
+    stream = subparsers.add_parser(
+        "stream", help="receive frames until stopped: one JSON line each, with registers")
+    stream.add_argument("--count", type=int, help="stop after this many frames")
+    stream.add_argument("--timeout", type=float, help="stop after this many seconds")
+    stream.add_argument("--registers", metavar="NAMES",
+                        help="comma-separated registers to read after each frame "
+                             "(default %s)" % ",".join(FRAME_REGISTERS))
+    stream.add_argument("--decode", choices=["kepler"], help="decode each payload")
+    stream.set_defaults(handler=_cmd_stream)
+
     strobe = subparsers.add_parser("strobe", help="send a command strobe")
     strobe.add_argument("name", choices=sorted(Strobe.BY_NAME))
     strobe.set_defaults(handler=_cmd_strobe)
@@ -350,7 +386,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     try:
         if args.setup:
-            radio.apply_configuration(args.setup)
+            radio.apply_configuration(args.setup, reset="defaults")
         return args.handler(radio, args)
     except BenchToolsError as exc:
         print("error: %s" % exc, file=sys.stderr)

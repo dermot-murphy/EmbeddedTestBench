@@ -70,7 +70,7 @@ not declare.
 | 5.3 | INST | `benchtools.instruments` | 5 |
 | 5.4 | JLINK | `benchtools.instruments.jlink` | 10 |
 | 5.5 | BLE | `benchtools.instruments.nordic_dongle` and `firmware/nordic_dongle` | 20 |
-| 5.6 | S2LP | `benchtools.instruments.s2lp` | 10 |
+| 5.6 | S2LP | `benchtools.instruments.s2lp` | 11 |
 | 5.7 | PSU | `benchtools.instruments.gpd3303d` | 4 |
 | 5.8 | RUN | `benchtools.runner` | 8 |
 | | **Total** | | **74** |
@@ -1445,6 +1445,26 @@ and the radio aborted before the error is raised. A batch capture switches
 report rather than after, and keeps rejected receptions (CRC, address filter)
 apart from packets.
 
+**Streaming** (`stream`) receives one frame at a time with `S2LPGetNBytes`
+asking for 0xFFFF bytes, which ST's firmware takes as "one packet, whatever its
+length", then reads the chosen registers in one command (by default 0x9E-0xA2:
+AFC correction, PQI, carrier sense with SQI, RSSI), runs the decoder, writes one
+record and yields it. The host re-arms after each frame, so the capture's gap
+accounting applies; an `until` callable ends a stream from another thread, by
+cancelling the wait in the session (`ReadCancelled`) and stopping the board.
+
+#### S2LP-DD-KEPLER — `kepler.py`
+
+`decode_kepler_frame` turns a Kepler sensor payload into a dictionary: the
+common header, then the fields of its PL_TYPE (VERSION, ALIVE and
+INSTALL_ASSIST, TWF, CONFIG, FFT, FFT2, CMD, RESPONSE). Offsets and encodings are
+the sensor firmware's (`api_radio_transport_cfg.h`, `api_radio_field.c`).
+Units are converted only where the firmware defines them - temperature in
+0.1 °C, battery in 20 mV steps - and permuted contents are reported as sent. A
+payload too short for its type, or of an unknown type, raises
+`KeplerFrameError`; a longer one, or one with another RF_CAP, is decoded with a
+warning. Checked against frames from sensor 5C1712 received on the kit.
+
 #### S2LP-DD-SIM — `simulator.py`
 
 A register file with a radio attached, satisfying `Responder` (CORE-DD-MOCK).
@@ -1465,7 +1485,8 @@ discarded, as the hardware discards it - which is what the driver's refusal
 #### S2LP-DD-CLI — `cli.py`
 
 Sub-commands `info`, `registers`, `radio`, `config`, `packets`, `tx`, `rx`,
-`capture`, `strobe`, emitting JSON (AD-15). `--log` and `--packet-log` open both
+`capture`, `stream`, `strobe`, emitting JSON (AD-15); `stream` prints one JSON
+line per frame, with `--decode kepler` and `--registers`. `--log` and `--packet-log` open both
 logs at once; `--board` names the kit board; `--setup` applies a register file
 straight after connecting. `rx` with nothing on the air exits 1 and says why
 that is not the same as the air being quiet; `capture` adds a warning when the
