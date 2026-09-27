@@ -371,3 +371,21 @@ class TestTheShippedConfiguration:
         configuration = load_register_file(str(root / "configs" / "s2lp_915_38k4_basic.regs"))
         assert len(configuration) >= 5
         assert "PCKTCTRL3" in configuration.names
+
+    def test_the_kepler_receive_file_holds_the_sensor_s_settings(self, radio):
+        """Captured from the kit; checked here against the sensor firmware's
+        values: sync 0xB19C0CA7 stored least significant byte first, variable
+        length, one address byte, CRC-16 0x8005, TX source the FIFO."""
+        import pathlib
+
+        root = pathlib.Path(__file__).resolve().parents[3]
+        path = str(root / "configs" / "s2lp_kepler_433_rx.regs")
+        values = load_register_file(path).as_map()
+        by_name = {reg.BY_ADDRESS[address].name: value for address, value in values.items()}
+        assert [by_name[name] for name in ("SYNC3", "SYNC2", "SYNC1", "SYNC0")] == [
+            0xA7, 0x0C, 0x9C, 0xB1]
+        assert by_name["PCKTCTRL2"] & 0x01 == 1          # variable length
+        assert by_name["PCKTCTRL4"] == 0x08              # one address byte
+        assert by_name["PCKTCTRL1"] == 0x40              # CRC-16 0x8005, TXSOURCE 0
+        radio.apply_configuration(path, reset="defaults")
+        assert radio.read_field("PCKTCTRL1", "TXSOURCE") == 0

@@ -24,14 +24,23 @@ Traces to: S2LP-FR-040 .. S2LP-FR-046, S2LP-DD-TRAFFIC.
 from __future__ import annotations
 
 import time
-from typing import List, Optional, Union
+from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Union
 
 from ...core.errors import ConfigurationError, InstrumentError, TransportTimeoutError
 from .constants import MAX_PAYLOAD, Strobe
-from .packets import Capture, Packet, packet_from_reply
+from . import registers as reg
+from .packets import Capture, Packet, packet_from_reply, rssi_dbm_from_register
 from .session import STOP_ACK
 
-__all__ = ["TrafficMixin", "IRQ_GPIO", "TRAFFIC_IRQS"]
+__all__ = ["TrafficMixin", "IRQ_GPIO", "TRAFFIC_IRQS", "FRAME_REGISTERS", "ANY_LENGTH"]
+
+#: Registers a stream reads after each frame by default: AFC correction, PQI,
+#: carrier sense with SQI, and the RSSI level. They are read in one command.
+FRAME_REGISTERS = ("AFC_CORR", "LINK_QUALIF2", "LINK_QUALIF1", "RSSI_LEVEL")
+
+#: ``S2LPGetNBytes`` length that means "one packet, whatever its length": ST's
+#: receive takes the packet-by-packet path, ending on data-ready, for 0xFFFF.
+ANY_LENGTH = 0xFFFF
 
 #: The S2-LP GPIO the board takes its interrupt from. GPIO3 worked on a
 #: NUCLEO-L053R8 kit on 2026-09-27. GPIO0 did not, but the radio was stuck in
@@ -211,6 +220,84 @@ class TrafficMixin:
             return None
         self._record(packet)
         return packet if packet.ok else None
+
+    def stream(  # pylint: disable=too-many-arguments
+        self,
+        registers: Sequence[str] = FRAME_REGISTERS,
+        decoder: Optional[Callable[[bytes], Dict[str, Any]]] = None,
+        count: Optional[int] = None,
+        timeout: Optional[float] = None,
+        until: Optional[Callable[[], bool]] = None,
+    ) -> Iterator[Packet]:
+        """Receive frames one at a time, for as long as asked, and yield each.
+
+        Each frame is received on its own (``S2LPGetNBytes``, any length), then
+        *registers* are read straight after it - PQI and SQI among them by
+        default, which ST's firmware does not report - then *decoder* is run on
+        the payload, and the whole record is written to the packet log before
+        it is yielded. A rejected reception (CRC, filter) is yielded too, with
+        its error code; a payload the decoder cannot read is yielded with
+        ``decode_error`` set and its raw bytes intact.
+
+        The radio is re-armed by the host after every frame, so it is deaf for
+        the register read and one command round trip each time (a register
+        read measured 14-17 ms on the kit). What that costs, and that the
+        stream says so, is the point of :attr:`Capture.rearm` = ``"host"``.
+
+        :param count: Stop after this many receptions.
+        :param timeout: Stop after this many seconds.
+        :param until: Stop when this returns true; it is checked while waiting,
+            so a stream can be ended from another thread.
+        """
+        addresses = sorted(reg.lookup(name).address for name in registers)
+        started = time.monotonic()
+        received = 0
+        self._ready_for_traffic()
+        while count is None or received < count:
+            remaining = None if timeout is None else timeout - (time.monotonic() - started)
+            if (remaining is not None and remaining <= 0) or (until is not None and until()):
+                return
+            self._session.send("S2LPGetNBytes", ANY_LENGTH)
+            try:
+                reply = self._session.read_reply(
+                    timeout=remaining if remaining is not None else 365 * 86400.0,
+                    command="S2LPGetNBytes", cancel=until)
+            except TransportTimeoutError:
+                replies = self._session.stop()
+                reply = next((r for r in replies if r.command == "S2LPGetNBytes"), None)
+                if reply is None:
+                    return
+            packet = packet_from_reply(reply, self._clock)
+            if packet is None:
+                continue
+            received += 1
+            self._annotate(packet, addresses, decoder)
+            yield self._record(packet)
+
+    def _annotate(self, packet: Packet, addresses: List[int],
+                  decoder: Optional[Callable[[bytes], Dict[str, Any]]]) -> None:
+        """Add the registers read after *packet*, and its decode."""
+        if addresses:
+            start = addresses[0]
+            values = self.read_registers(start, addresses[-1] - start + 1)
+            for address in addresses:
+                packet.registers[reg.BY_ADDRESS[address].name] = values[address - start]
+            regs = packet.registers
+            if "RSSI_LEVEL" in regs:
+                packet.rssi_dbm = rssi_dbm_from_register(regs["RSSI_LEVEL"])
+            if "LINK_QUALIF2" in regs:
+                packet.extra["pqi"] = regs["LINK_QUALIF2"]
+            if "LINK_QUALIF1" in regs:
+                packet.extra["sqi"] = regs["LINK_QUALIF1"] & 0x7F
+                packet.extra["carrier_sense"] = regs["LINK_QUALIF1"] >> 7
+            if "AFC_CORR" in regs:
+                value = regs["AFC_CORR"]
+                packet.extra["afc_corr"] = value - 256 if value & 0x80 else value
+        if decoder is not None and packet.ok:
+            try:
+                packet.decoded = decoder(packet.data)
+            except Exception as exc:  # pylint: disable=broad-except
+                packet.decode_error = str(exc) or type(exc).__name__
 
     def capture(
         self,

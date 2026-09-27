@@ -344,16 +344,20 @@ where the firmware implements the requirement.
 | S2LP-FR-020 | S2LP-ARC-001 | S2LP-DD-CONFIG, -S2LP | `format_register_file`, `save_configuration` | `TestWritingAFileBack` (4), `TestCapturingFromARadio` (3) |
 | S2LP-FR-030 | S2LP-ARC-001 | S2LP-DD-S2LP | `configure_radio` and the radio properties | `TestRadioConfiguration` (12) |
 | S2LP-FR-031 | S2LP-ARC-001 | S2LP-DD-S2LP | `configure_radio` returns `radio_info()` | `test_configure_returns_what_the_radio_says_afterwards` |
-| S2LP-FR-032 | S2LP-ARC-001 | S2LP-DD-S2LP, -CONST | `_check_frequency`, `BOARDS` | `test_a_frequency_outside_the_board_s_band_is_refused` (3) |
-| S2LP-FR-033 | S2LP-ARC-001 | S2LP-DD-S2LP | `_post_open`, `_read_identity`, `band` | `test_connecting_configures_nothing`, `test_it_learns_the_board_and_its_band`, `test_the_band_comes_from_the_board_not_from_configuration` |
+| S2LP-FR-032 | S2LP-ARC-001 | S2LP-DD-S2LP, -CONST | `_check_frequency`, `BOARDS`, `SYNTH_BANDS` | `test_a_frequency_outside_the_board_s_band_is_refused` (3), `test_a_frequency_no_s2lp_can_tune_is_refused` (3) |
+| S2LP-FR-033 | S2LP-ARC-001 | S2LP-DD-S2LP | `_post_open`, `_read_identity`, `board`, `band` | `test_connecting_configures_nothing`, `test_the_board_is_not_invented`, `test_a_named_board_brings_its_band`, `test_the_band_comes_from_the_named_board` |
 | S2LP-FR-034 | S2LP-ARC-001 | S2LP-DD-S2LP | `rssi_dbm_from_register` | `TestRssiConversion` (3), `test_the_rssi_is_encoded_as_the_register_encodes_it` |
-| S2LP-FR-040 | S2LP-ARC-001 | S2LP-DD-S2LP, -PACKETS | `transmit`, `transmit_batch` | `TestTransmit` (5) |
-| S2LP-FR-041 | S2LP-ARC-001 | S2LP-DD-S2LP, -PACKETS | `receive`, `Packet` | `TestReceive` (4), notably `test_nothing_on_the_air_returns_none_not_an_empty_packet` |
-| S2LP-FR-042 | S2LP-ARC-001 | S2LP-DD-S2LP | `capture(continuous=True)` | `test_a_continuous_capture_has_no_gaps` |
-| S2LP-FR-043 | S2LP-ARC-001, AD-20 | S2LP-DD-PACKETS | `Capture.gaps`, `is_continuous` | `test_a_polled_capture_reports_its_gaps`, `test_a_polled_capture_is_bounded_by_attempts` |
+| S2LP-FR-040 | S2LP-ARC-001 | S2LP-DD-TRAFFIC, -PACKETS | `transmit`, `transmit_batch` | `TestTransmit` (5) |
+| S2LP-FR-041 | S2LP-ARC-001 | S2LP-DD-TRAFFIC, -PACKETS | `receive`, `Packet` | `TestReceive` (4), notably `test_nothing_on_the_air_returns_none_not_an_empty_packet` |
+| S2LP-FR-042 | S2LP-ARC-001 | S2LP-DD-TRAFFIC | `capture(continuous=True)`, `_capture_batch` | `test_a_batch_capture_is_not_gap_free`, `test_a_batch_capture_asks_for_the_early_re_arm` |
+| S2LP-FR-043 | S2LP-ARC-001, AD-20 | S2LP-DD-PACKETS | `Capture.gaps`, `rearm`, `is_continuous` | `test_a_polled_capture_reports_its_gaps`, `test_a_single_reception_is_continuous` |
 | S2LP-FR-044 | S2LP-ARC-001 | S2LP-DD-PACKETS | `Capture.stopped_early` | `test_a_capture_that_gets_nothing_says_so_rather_than_failing` |
 | S2LP-FR-045 | S2LP-ARC-001 | S2LP-DD-SESSION | `S2lpSession.log_to` | `TestLogging` (5 session), `test_the_session_log_carries_both_directions` |
 | S2LP-FR-046 | S2LP-ARC-001 | S2LP-DD-PACKETS | `PacketLog` | `TestLogs` (6), notably `test_a_truncated_packet_log_still_reads` |
+| S2LP-FR-047 | S2LP-ARC-001 | S2LP-DD-TRAFFIC | `stream`, `_annotate`, `FRAME_REGISTERS` | `TestStream` (9), notably `test_each_frame_carries_the_registers_read_after_it` and `test_a_timeout_ends_the_stream_and_stops_the_board` |
+| S2LP-FR-048 | S2LP-ARC-001 | S2LP-DD-TRAFFIC | `prepare_traffic`, `_check_tx_source` | `TestTheInterrupt` (8) |
+| S2LP-FR-070 | S2LP-ARC-001 | S2LP-DD-KEPLER | `decode_kepler_frame` | `SWE4-UT-S2LPKEPLER` (20) |
+| S2LP-FR-071 | S2LP-ARC-001 | S2LP-DD-PACKETS, -TRAFFIC | `Packet.registers`, `decoded`, `decode_error` | `test_raw_and_decoded_are_one_record`, `test_a_frame_that_will_not_decode_keeps_its_bytes` |
 | S2LP-FR-050 | S2LP-ARC-001 | S2LP-DD-SIM | `simulator.py`, `register_driver("s2lp", …)` | `SWE4-UT-S2LPSIM` (25), `test_correct_driver_per_alias` |
 | S2LP-FR-060 | S2LP-ARC-001 | S2LP-DD-CLI | `cli.py` | `SWE4-UT-S2LPCLI` (25) |
 
@@ -363,7 +367,7 @@ where the firmware implements the requirement.
 |---|---|
 | S2LP-NFR-001 | `test_no_mandatory_third_party_imports`; the kit reaches its port through CORE-DD-SERIAL, whose pyserial import is inside `_open_link`. |
 | S2LP-NFR-002 | No file in this repository is derived from ST source by copying: the register map holds addresses, reset values, field names and bit positions, and no vendor prose. `docs/s2lp/S2LP_Devkit_Notes.md` §6 records how it was cross-checked and under what terms. |
-| S2LP-NFR-003 | `Packet.board_time_ms` is named for its unit and its clock; `Capture.gaps` states how a capture was taken. The millisecond limit is stated in `packets.py`, in SWE.3 and in the notes. |
+| S2LP-NFR-003 | `Packet.board_time_us` is named for its unit and its clock, measured on a kit as microseconds (#76); `Capture.gaps` and `rearm` state how a capture was taken. The timer's resolution and its 71.6-minute wrap are stated in `packets.py`, in SWE.3 and in the notes. |
 | S2LP-NFR-004 | `test_connecting_configures_nothing`; transmission is only `transmit`/`transmit_batch`, each an explicit call. |
 
 ## 11. PSU requirements to design, code and test

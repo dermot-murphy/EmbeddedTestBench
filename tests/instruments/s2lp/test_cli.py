@@ -221,6 +221,17 @@ class TestConfigFiles:
         assert run(capsys, *SIM, "config", example, "--apply")[0] == 0
 
 
+class TestStreaming:
+    def test_stream_with_nothing_on_the_air_exits_one(self, capsys):
+        status, _, stderr = run(capsys, *SIM, "stream", "--timeout", "0.3")
+        assert status == 1
+        assert '"frames": 0' in stderr
+
+    def test_the_parser_offers_the_kepler_decoder(self):
+        args = build_parser().parse_args(["stream", "--decode", "kepler", "--count", "2"])
+        assert (args.decode, args.count) == ("kepler", 2)
+
+
 class TestLogs:
     def test_both_logs_are_written(self, capsys, tmp_path):
         session = tmp_path / "s.log"

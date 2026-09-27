@@ -610,7 +610,7 @@ timestamp. And the radio will accept a frequency the board cannot radiate.
 | S2LP-FR-030 | The driver shall set and read the carrier frequency, modulation, data rate, frequency deviation, channel filter bandwidth and output power. | STK-19 | Test |
 | S2LP-FR-031 | A configuration operation shall report what the radio says it is set to afterwards, not what it was asked for. | STK-19 | Test |
 | S2LP-FR-032 | A frequency outside the band the attached board is built for shall be refused, because the radio would accept it and transmit into a filter and matching network that do not pass it. | STK-19 | Test |
-| S2LP-FR-033 | The board shall be identified at connection, and its band taken from what it reports rather than from configuration. Connecting shall change no radio setting. | STK-19 | Test |
+| S2LP-FR-033 | The firmware, the radio and its crystal shall be identified at connection. The board, which the firmware does not report, shall be taken from the caller and never assumed; without it only the synthesiser's range is checked. Connecting shall change no radio setting. | STK-19 | Test |
 | S2LP-FR-034 | Signal strength shall be reported in dBm, converted by the device's documented scale. | STK-19 | Test |
 
 ### 13.4 Transmitting, receiving and logging
@@ -619,10 +619,12 @@ timestamp. And the radio will accept a frequency the board cannot radiate.
 |---|---|---|---|
 | S2LP-FR-040 | The driver shall transmit a payload given as bytes or as text, and shall transmit one repeatedly at an interval timed by the board rather than by the host. | STK-19 | Test |
 | S2LP-FR-041 | The driver shall receive a packet, reporting its payload, its signal strength and the board's timestamp. Receiving nothing shall be reported as nothing received, and shall be distinguishable from receiving an empty packet. | STK-19 | Test |
-| S2LP-FR-042 | The driver shall capture a number of packets, keeping the radio armed for the whole capture where the firmware allows it. | STK-19 | Test |
+| S2LP-FR-042 | The driver shall capture a number of packets, letting the firmware's own loop re-arm the radio where it can, so that no host round trip falls in a gap. | STK-19 | Test |
 | S2LP-FR-043 | A capture shall record how many times the radio was re-armed during it, so that a capture with gaps cannot be quoted as a complete record of the air. | STK-19 | Test |
 | S2LP-FR-044 | A capture that is cut short, by time or by the host, shall say so in its result rather than raise. | STK-19 | Test |
 | S2LP-FR-045 | Every line exchanged with the board shall be loggable to a text file, host-timestamped and flushed per line, including lines the driver did not understand. | STK-19 | Test |
+| S2LP-FR-047 | The driver shall stream received frames one at a time until a count, a time or the caller ends it, reading a caller-chosen set of radio registers straight after each frame (by default AFC correction, PQI, SQI with carrier sense, and RSSI), and shall stop the board when the stream ends. | STK-19 | Test |
+| S2LP-FR-048 | Before the first send or receive, the driver shall route the radio's interrupt to the board and confirm the board reads it; a send shall be refused while the radio's TX source is not its FIFO. | STK-19 | Test |
 | S2LP-FR-046 | Every packet, sent and received, shall be loggable as one structured record per line, readable after an interrupted capture. Both logs shall be available at once, and a note shall be writable into both. | STK-19 | Test |
 
 ### 13.5 Bench use
@@ -630,6 +632,8 @@ timestamp. And the radio will accept a frequency the board cannot radiate.
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
 | S2LP-FR-050 | The kit shall be registered as a bench driver, and a simulated kit shall answer the same firmware command set with a register file and a modelled air interface, so that every operation is verifiable without hardware. | STK-08, STK-19 | Test |
+| S2LP-FR-070 | Received frames shall be decodable as the Kepler sensor's frames, by the layouts in its firmware. A payload that cannot be decoded shall keep its raw bytes and state why. | STK-19 | Test |
+| S2LP-FR-071 | A frame's raw payload, the registers read after it and its decode shall be logged together, as one record. | STK-19 | Test |
 | S2LP-FR-060 | A command-line interface shall expose identification, register dump and access, radio configuration, transmit, receive, capture and strobes, emitting JSON, and shall warn when a capture was not continuous. | STK-19 | Test |
 
 ### 13.6 S2LP non-functional

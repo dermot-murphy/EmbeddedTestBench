@@ -106,6 +106,12 @@ class Packet:  # pylint: disable=too-many-instance-attributes
     :param error: The firmware's error code, 0 when it reported none.
     :param extra: Further fields the firmware reported with the packet, by the
         firmware's own tag names (``seq_num``, ``agc_word``, ``crc``, ...).
+    :param registers: Radio registers read straight after the packet, by name,
+        as a stream reads them - PQI, SQI and the like, which the firmware does
+        not report itself.
+    :param decoded: What a frame decoder made of the payload, or ``None``.
+    :param decode_error: Why the decoder could not, when it could not. The raw
+        payload is kept either way.
     """
 
     direction: str
@@ -116,6 +122,9 @@ class Packet:  # pylint: disable=too-many-instance-attributes
     error: int = 0
     note: str = ""
     extra: Dict[str, Any] = field(default_factory=dict)
+    registers: Dict[str, int] = field(default_factory=dict)
+    decoded: Optional[Dict[str, Any]] = None
+    decode_error: str = ""
 
     @property
     def length(self) -> int:
@@ -153,14 +162,23 @@ class Packet:  # pylint: disable=too-many-instance-attributes
             "error": self.error,
             "note": self.note,
             "extra": dict(self.extra),
+            "registers": dict(self.registers),
+            "decoded": self.decoded,
+            "decode_error": self.decode_error,
         }
 
     def __str__(self) -> str:
         parts = ["%s %3d bytes" % (self.direction.upper(), self.length)]
         if self.rssi_dbm is not None:
             parts.append("%.1f dBm" % self.rssi_dbm)
+        if "pqi" in self.extra:
+            parts.append("PQI %d SQI %d" % (self.extra["pqi"], self.extra.get("sqi", 0)))
         if not self.ok:
             parts.append("error 0x%02X" % self.error)
+        if self.decoded:
+            parts.append(str(self.decoded.get("type", "decoded")))
+        elif self.decode_error:
+            parts.append("undecoded: %s" % self.decode_error)
         parts.append(self.hex[:48] + ("..." if len(self.hex) > 48 else ""))
         return "  ".join(parts)
 

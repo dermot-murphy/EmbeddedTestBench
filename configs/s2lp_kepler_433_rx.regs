@@ -1,0 +1,26 @@
+# Kepler sensor receive: 433.425 MHz, 2-FSK 100 kbps, 20 kHz dev, 150 kHz filter; basic packets, sync 0xB19C0CA7, variable length, address byte, CRC-16 0x8005. Captured from the STEVAL-FKI433V2 kit on 2026-09-27 after setting it up to the sensor firmware's values; applied with reset=defaults
+# register  value   (values are hexadecimal)
+SYNT3                  0x72   # PLL_CP_ISEL=3 BS=1 SYNT_27_24=2
+SYNT2                  0x2A   # SYNT=42
+SYNT1                  0xC9   # SYNT=201
+SYNT0                  0xF3   # SYNT=243
+IF_OFFSET_ANA          0x2F   # IF_OFFSET_ANA=47
+IF_OFFSET_DIG          0xC2   # IF_OFFSET_DIG=194
+MOD4                   0x06   # DATARATE_M=6
+MOD3                   0x25   # DATARATE_M=37
+MOD2                   0x09   # DATARATE_E=9
+MOD0                   0xA3   # FDEV_M=163
+CHFLT                  0x62   # CHFLT_M=6 CHFLT_E=2
+PCKTCTRL5              0x20   # PREAMBLE_LEN=32
+PCKTCTRL4              0x08   # ADDRESS_LEN=1
+PCKTCTRL3              0x00
+PCKTCTRL2              0x01   # FIX_VAR_LEN=1
+PCKTCTRL1              0x40   # CRC_MODE=2
+SYNC3                  0xA7   # SYNC3=167
+SYNC2                  0x0C   # SYNC2=12
+SYNC1                  0x9C   # SYNC1=156
+SYNC0                  0xB1   # SYNC0=177
+PROTOCOL1              0x01   # AUTO_PCKT_FLT=1
+PCKT_FLT_OPTIONS       0x41   # RX_TIMEOUT_AND_OR_SEL=1 CRC_FLT=1
+PA_CONFIG1             0x01
+PA_CONFIG0             0x8B
