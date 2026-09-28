@@ -184,6 +184,7 @@ Extends §6.2 with the SCPI and IEEE 488.2 vocabulary.
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
 | CORE-FR-050 | A build's manifest - the version and build date its build system recorded beside the image - shall be readable by any element that needs it, and the diagnostic for a missing one shall name every path searched and take from the caller the sentence saying how that particular build produces one. | STK-07, STK-16 | Test |
+| CORE-FR-060 | Every instrument's and the runner's log records shall be writable, while a run is in progress, to one event log of one JSON object per line, each naming the part of the bench it came from (supply, BLE, J-Link, S2-LP radio, runner, ...), so that another program can follow the run as it happens. | STK-19 | Test |
 
 ### 6.6 Simulation
 

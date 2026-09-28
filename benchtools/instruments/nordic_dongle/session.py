@@ -157,6 +157,7 @@ class DongleSession:
         self._write_log("#", text)
 
     def _write_log(self, direction: str, text: str) -> None:
+        _LOG.debug("%s %s", direction, text)
         if self._log is None:
             return
         self._log.write("%.6f %s %s\n" % (time.time(), direction, text))
