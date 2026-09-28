@@ -35,6 +35,8 @@ python tools/test_bench/test_bench.py --simulate
 python tools/test_bench/test_bench.py --log rf_log.txt
 """
 
+from __future__ import annotations
+
 import argparse
 import os
 import pathlib
