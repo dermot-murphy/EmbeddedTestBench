@@ -227,6 +227,7 @@ Extends §6.2 with the SCPI and IEEE 488.2 vocabulary.
 | ANA-FR-017 | Analysis shall measure pulse widths and transition times. | STK-05 | Test |
 | ANA-FR-020 | Analysis shall render records to an image file host-side. | STK-04 | Test |
 | ANA-FR-021 | A rendered plot shall be annotatable with each channel's measured edge and the resulting spread. | STK-05 | Test |
+| ANA-FR-022 | Analysis shall hold repeated readings of one quantity, each with what it was read from and when, and report how many were taken against how many were asked for, the lowest, highest and mean, and the spread between the lowest and highest. A set that got fewer readings than asked for shall keep those it got. | STK-05 | Test |
 
 ---
 
@@ -364,6 +365,8 @@ it is commanded, and it yields measurements — so it implements the generic bas
 | JLINK-FR-081 | Every probe operation usable as a test step shall return a value or a record of plain types, so a declarative specification can assert on it without driver-specific code. | STK-10, STK-12 | Test |
 | JLINK-FR-090 | A simulated probe shall answer the GDB/MI dialogue the driver uses, with a deterministic firmware model — symbols, memory, call stacks, RTT traffic, ITM events and a known interval between two locations — so the driver is fully verifiable without a probe or a target. | STK-09 | Test |
 | JLINK-FR-100 | A command-line interface shall expose identification, flashing, verification, erasure, reset, run, halt, memory and variable access, the call stack, RTT and timing, emitting JSON so results are usable from a script. | STK-09, STK-12 | Test |
+| JLINK-FR-101 | The driver shall be able to read RTT without ever stopping the target: the GDB Server started with `-nohalt` and GDB never attached. A bench shall be able to offer this as a distinct driver, so a specification that requires it is refused a probe that would attach. | STK-09, STK-10 | Test |
+| JLINK-FR-102 | The driver shall take a number from each of the next N RTT lines matching a pattern, counting only lines that arrive after it is asked, and return what it got when fewer arrive in time. | STK-09, STK-10 | Test |
 
 ### 10.9 JLINK non-functional
 
@@ -471,6 +474,7 @@ implements them; §11.6 says which.
 | BLE-FR-114 | A document shall be able to carry a note per step, which the report shows beside the step's result. | STK-12 | Test |
 | BLE-FR-115 | A run shall be able to write an event log: one line per event, with the time it happened, the event - TX, RX, DELAY, CONNECT, DISCONNECT or ERROR - the step, the data and the result; each RX line shall carry the dongle's own measurement of the exchange at full resolution. | STK-12, STK-17 | Test |
 | BLE-FR-116 | A document shall be runnable on its own from the command line, with variable values, a report and an event log, emitting the run as JSON and exiting 0 only when it passed. | STK-12, STK-15 | Test |
+| BLE-FR-117 | The driver shall send one command a given number of times at a given interval, take a number from each reply by a pattern and scale it, and refuse, naming the reply, one that carries no number. | STK-12 | Test |
 | BLE-FR-090 | The firmware shall build as a SEGGER Embedded Studio project against nRF5 SDK 17 for the PCA10059 dongle, and shall be packageable as a DFU image for the dongle's factory bootloader. | STK-16 | Inspection |
 
 ### 11.7 BLE non-functional
@@ -636,6 +640,7 @@ timestamp. And the radio will accept a frequency the board cannot radiate.
 | S2LP-FR-050 | The kit shall be registered as a bench driver, and a simulated kit shall answer the same firmware command set with a register file and a modelled air interface, so that every operation is verifiable without hardware. | STK-08, STK-19 | Test |
 | S2LP-FR-070 | Received frames shall be decodable as the Kepler sensor's frames, by the layouts in its firmware. A payload that cannot be decoded shall keep its raw bytes and state why. | STK-19 | Test |
 | S2LP-FR-071 | A frame's raw payload, the registers read after it and its decode shall be logged together, as one record. | STK-19 | Test |
+| S2LP-FR-072 | The driver shall take a decoded field from the next N Kepler transmissions from a given sensor and of a given frame type, counting each transmission once however many copies of it are received. | STK-19 | Test |
 | S2LP-FR-060 | A command-line interface shall expose identification, register dump and access, radio configuration, transmit, receive, capture and strobes, emitting JSON, and shall warn when a capture was not continuous. | STK-19 | Test |
 
 ### 13.6 S2LP non-functional
@@ -793,6 +798,7 @@ review, in which case the reading is real but is not now.
 | RUN-FR-055 | The warning shall be written to the error stream, so that a run whose output is redirected still puts it in front of the operator. | STK-08 | Test |
 | RUN-FR-056 | On a bench that is not simulated, a warned specification shall not start until the operator acknowledges the warning, either by an explicit option or by answering a prompt at a terminal. Confirmation shall be exact: nothing but the full word shall count. A warning a script can step over by not reading it is not a control, and what it protects cannot be recovered afterwards. | STK-08, STK-17 | Test |
 | RUN-FR-057 | A simulated run shall not be gated, because nothing is energised and an unattended run has nobody to ask. Refusal to start shall be reported with its own exit status, distinct from a test failure. | STK-08 | Test |
+| RUN-FR-058 | A specification shall be able to name values once, in a `parameters` block at its top, and use them anywhere below - an argument, a bound, a tolerance, or rendered into text. An undefined name shall be refused, and the values a run used shall appear in its record and report. | STK-08 | Test |
 
 ---
 

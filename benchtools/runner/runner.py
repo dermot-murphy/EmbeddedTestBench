@@ -322,6 +322,7 @@ class BenchRunner:
             bench=self.bench.config.name,
             requirements=tuple(spec.requirements),
             spec_source=spec.source,
+            parameters=dict(spec.parameters),
             simulated=self.bench.is_simulated,
             started=_now(),
         )

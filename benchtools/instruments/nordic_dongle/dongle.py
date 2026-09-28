@@ -26,10 +26,12 @@ import time
 from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
+from ...analysis.samples import NUMBER, SampleSet, extract_number
 from ...core.errors import (
     BenchToolsError,
     ConfigurationError,
     InstrumentError,
+    MeasurementError,
 )
 from ...core.instrument import Instrument, InstrumentIdentity
 from ...core.transport.base import Transport
@@ -1085,6 +1087,49 @@ class NordicDongle(Instrument):
             return ()
         return tuple(from_hex(event.get("data") or "") for event in events
                      if event.integer("t", 0) > received_us)
+
+    def sample_command(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+        self,
+        request: str,
+        pattern: str = NUMBER,
+        count: int = 5,
+        interval: float = 1.0,
+        scale: float = 1.0,
+        unit: str = "",
+        timeout: float = DEFAULT_COMMAND_TIMEOUT,
+    ) -> SampleSet:
+        """Send the same command *count* times, *interval* seconds apart, and
+        take a number from each reply.
+
+        For a reading repeated to see how steady it is - ``RD TEMPERATURE``
+        five times a second apart - and to compare with another source.
+
+        :param pattern: Regular expression whose first group is the number,
+            e.g. ``= (-?[0-9]+)mC``. The default takes the first number.
+        :param interval: Seconds from the start of one command to the start of
+            the next; a reply slower than that is followed at once.
+        :param scale: Multiplies each number, e.g. ``0.001`` for mC to degrees C.
+        :param unit: The unit after scaling, for the report.
+        :raises MeasurementError: naming the reply, when one carries no number -
+            a ``NACK`` is not a reading to average in.
+
+        Traces to: BLE-FR-117.
+        """
+        samples = SampleSet(name=request, unit=unit, requested=int(count))
+        started = time.monotonic()
+        for index in range(int(count)):
+            due = started + index * float(interval)
+            wait = due - time.monotonic()
+            if wait > 0:
+                time.sleep(wait)
+            text = self.command(request, timeout=timeout).text
+            value = extract_number(text, pattern)
+            if value is None:
+                raise MeasurementError(
+                    "reply %d of %d to %r was %r, which %r finds no number in"
+                    % (index + 1, count, request, text, pattern))
+            samples.add(value * float(scale), source=text, at=time.monotonic() - started)
+        return samples
 
     def run_script(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,

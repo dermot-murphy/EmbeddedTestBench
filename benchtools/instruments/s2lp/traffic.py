@@ -26,7 +26,13 @@ from __future__ import annotations
 import time
 from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Union
 
-from ...core.errors import ConfigurationError, InstrumentError, TransportTimeoutError
+from ...analysis.samples import SampleSet
+from ...core.errors import (
+    ConfigurationError,
+    InstrumentError,
+    MeasurementError,
+    TransportTimeoutError,
+)
 from .constants import MAX_PAYLOAD, Strobe
 from . import registers as reg
 from .kepler import decode_kepler_frame
@@ -464,6 +470,70 @@ class TrafficMixin:
             if count is not None and frames >= count:
                 break
         return results
+
+    def kepler_samples(  # pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals
+        self,
+        field: str,
+        source: Optional[str] = None,
+        frame_type: Optional[str] = None,
+        count: int = 5,
+        timeout: float = 60.0,
+        scale: float = 1.0,
+        unit: str = "",
+        decoder: Callable[[bytes], Dict[str, Any]] = decode_kepler_frame,
+    ) -> SampleSet:
+        """Take *field* from the next *count* frames *source* sends.
+
+        A Kepler sensor sends each frame several times, and each reading here
+        is one transmission, not one copy of it. The copies are told apart by
+        their repeat number, which the decoder reads from wherever the frame
+        type keeps it (byte 8, or byte 9 behind TWF's and CONFIG's permute
+        control byte). A copy starts a new transmission when its repeat number
+        is not higher than the last one's. The bytes cannot be compared
+        instead: 5C1712 clears ALIVE_STATUS's "SI updated" bit after the first
+        copy, so the copies of one ALIVE differ (#95). One case is counted as
+        one transmission when it was two: only an early copy of one heard, then
+        only later copies of the next.
+
+        :param field: A key of the decoded frame, e.g. ``temperature_c``.
+        :param source: Only frames from this sensor, e.g. ``"5C1712"``.
+        :param frame_type: Only frames of this type, e.g. ``"ALIVE"``.
+        :param timeout: Seconds to wait for all *count*. Fewer is returned
+            rather than raised, with ``count`` saying how many came.
+        :param scale: Multiplies each value.
+        :raises MeasurementError: if a matching frame has no *field*, which is
+            a specification naming the wrong field rather than a result.
+
+        Traces to: S2LP-FR-072.
+        """
+        samples = SampleSet(name=field, unit=unit, requested=int(count))
+        started = time.monotonic()
+        last_repeat: Optional[int] = None
+        for packet in self.stream(decoder=decoder, timeout=timeout,
+                                  until=lambda: samples.count >= samples.requested):
+            decoded = packet.decoded or {}
+            if not packet.ok or not decoded:
+                continue
+            if source is not None and str(decoded.get("sensor_id")) != source:
+                continue
+            if frame_type is not None and decoded.get("type") != frame_type:
+                continue
+            repeat = (decoded.get("frame") or {}).get("repeat")
+            same = repeat is not None and last_repeat is not None and repeat > last_repeat
+            last_repeat = repeat
+            if same:
+                continue
+            if field not in decoded:
+                raise MeasurementError(
+                    "a %s frame from %s has no field %r; it has %s"
+                    % (decoded.get("type"), decoded.get("sensor_id"), field,
+                       ", ".join(sorted(decoded))))
+            samples.add(float(decoded[field]) * float(scale),
+                        source=bytes(packet.data).hex(" ").upper(),
+                        at=time.monotonic() - started)
+            if samples.complete:
+                break
+        return samples
 
     def check_preamble(self, expected_pairs: int, source: str, count: Optional[int] = None,
                        timeout: float = 120.0, tolerance_pairs: int = 2) -> Dict[str, Any]:

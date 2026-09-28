@@ -66,7 +66,7 @@ not declare.
 | # | Element | Package | Design units |
 |---|---|---|---|
 | 5.1 | CORE | `benchtools.core` | 15 |
-| 5.2 | ANA | `benchtools.analysis` | 3 |
+| 5.2 | ANA | `benchtools.analysis` | 4 |
 | 5.3 | INST | `benchtools.instruments` | 5 |
 | 5.4 | JLINK | `benchtools.instruments.jlink` | 10 |
 | 5.5 | BLE | `benchtools.instruments.nordic_dongle` and `firmware/nordic_dongle` | 20 |
@@ -427,6 +427,18 @@ front panel; the time axis auto-scales to an engineering prefix. Given a
 `SpreadResult`, each channel's crossing is marked and the spread annotated — which
 is what turns a skew number into reviewable evidence.
 
+#### ANA-DD-SAMPLES — `samples.py`
+
+`SampleSet` holds repeated readings of one quantity - the values, what each
+was read from (a reply, a log line, a frame) and when - with `count`,
+`complete`, `minimum`, `maximum`, `mean` and `spread` as properties, so a
+specification can bound the spread and compare one source's mean with
+another's. A set that got fewer readings than it asked for is returned, not
+raised: a sensor that went quiet is a result, and `count` is the limit that
+fails. Statistics are `None` only for an empty set. `extract_number` takes the
+number from a pattern's first group and refuses a pattern with no group. The
+dongle, the probe and the S2-LP each fill one (#95).
+
 ---
 
 ### 5.3 INST — `benchtools.instruments`
@@ -749,6 +761,15 @@ Design points:
 - The RTT client is attached automatically when the transport's responder is a
   simulated probe, so a simulated bench exercises the RTT paths rather than skipping
   them.
+- `connect(attach=False)` reads RTT without ever stopping the target: the GDB
+  Server is started with `-nohalt`, `_post_open` does not attach, and `rtt_start`
+  sends no `monitor rtt start` (V9.42 serves RTT unasked). A GDB attach halts the
+  core even with `-nohalt`; on 5C1712 that dropped the BLE link and the
+  SoftDevice then faulted (#95). `JLinkRttReader` is the same class with
+  `attach=False` forced, registered as driver `jlink-rtt`, so a specification
+  that needs it is refused a bench offering an ordinary `jlink`.
+- `rtt_samples` takes a number from each of the next N matching RTT lines,
+  discarding lines already buffered - they were logged before the test asked.
 
 #### JLINK-DD-CLI — `jlink/cli.py`
 
@@ -944,6 +965,9 @@ Design points:
   ends the capture.
 - The connection interval is taken from the `+conn` event rather than a later
   query, because it is the floor under every latency measured on that link.
+- `sample_command` sends one command N times, each start an interval after the
+  last, and takes a number from each reply into a `SampleSet`. A reply without
+  a number raises, naming it: a `NACK` is not a reading to average in.
 
 #### BLE-DD-FIRMWARE — `firmware.py`
 
@@ -1468,6 +1492,14 @@ loop's closing reply is read before the last frame is handed over, so a caller
 that stops there leaves nothing running. An `until` callable ends a stream
 from another thread, by cancelling the wait in the session (`ReadCancelled`).
 
+`kepler_samples` takes a decoded field from the next N Kepler transmissions of
+a given sensor and frame type. Copies of one transmission are recognised by
+their repeat number, which the decoder reads from wherever the type keeps it -
+byte 8, or byte 9 in TWF and CONFIG, whose permute control byte is at 8 - and a
+copy whose repeat number is not higher than the last one's starts a new
+transmission. Bytes cannot be compared instead: 5C1712 clears ALIVE_STATUS's
+"SI updated" bit after the first copy (#95).
+
 #### S2LP-DD-EEPROM — `eeprom.py`
 
 The RF board's identification EEPROM (#80), read through ST's
@@ -1735,6 +1767,13 @@ standard library and YAML when `pyyaml` is present. `TestSpec.instruments_used`
 collects the aliases referenced anywhere, so the runner can verify the bench
 before starting. `TestSpec` and `TestCase` set `__test__ = False`: their names
 would otherwise make pytest try to collect them.
+
+A `parameters` block is applied first, on the raw mapping: `substitute_parameters`
+replaces every `{param: name}` with the value, or with the value rendered
+through `format` (`{param: period, format: "WR ALIVE-PERIOD {}"}`), so a
+parameter can stand wherever a literal could and is validated by the same
+rules. An undefined name is refused with the list of those defined.
+`TestSpec.parameters` carries the values into the run record and report (#95).
 
 #### RUN-DD-LIMITS — `limits.py`
 

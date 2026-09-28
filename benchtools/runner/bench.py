@@ -32,7 +32,7 @@ from typing import Any, Dict, Iterator, Type
 from ..core.errors import BenchConfigError, BenchToolsError
 from ..core.instrument import Instrument
 from ..instruments.generic import GenericScpiInstrument
-from ..instruments.jlink import JLinkProbe
+from ..instruments.jlink import JLinkProbe, JLinkRttReader
 from ..instruments.gpd3303d import Gpd3303D
 from ..instruments.nordic_dongle import NordicDongle
 from ..instruments.s2lp import S2lpDevkit
@@ -69,6 +69,7 @@ register_driver("generic", GenericScpiInstrument)
 register_driver("scpi", GenericScpiInstrument)
 register_driver("jlink", JLinkProbe)
 register_driver("segger", JLinkProbe)
+register_driver("jlink-rtt", JLinkRttReader)
 register_driver("ble-dongle", NordicDongle)
 register_driver("nordic", NordicDongle)
 register_driver("gpd3303d", Gpd3303D)
