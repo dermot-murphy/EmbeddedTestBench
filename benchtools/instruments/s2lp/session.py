@@ -46,6 +46,10 @@ UNCLAIMED_LIMIT = 200
 #: Fixed, so the port is configured once rather than on every read.
 READ_POLL = 0.05
 
+#: Seconds to wait when a link reports at once that nothing is pending (the
+#: simulated kit), so a long receive does not spin.
+IDLE_SLEEP = 0.01
+
 #: The prompt the firmware prints after each reply.
 PROMPT = ">"
 
@@ -345,6 +349,9 @@ class S2lpSession:
         except ConnectionFailedError:
             raise
         except TransportError:
+            # A link with nothing pending that says so at once - the simulated
+            # kit - rather than waiting out READ_POLL.
+            time.sleep(IDLE_SLEEP)
             return None
 
         text = raw.decode("ascii", errors="replace").strip()

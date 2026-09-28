@@ -1,33 +1,43 @@
 """
-kepler_packet_monitor.py
+test_bench.py
 
-Kepler Packet Monitor
-=====================
+Test Bench
+==========
 
-Features
---------
-- Real-time RF packet monitor
-- Reads continuously updating RF log file
-- Latest packet decode
-- Environment trending
-- Short Interval trending
-- Config frame decode with units
-- Sensor filtering
-- Raw packet highlighting
-- VERSION frame decoding
-- Identification panel
+Based on the Kepler reference project's rf_monitor (v1.1.0, 2026-09-15),
+copied unchanged in the first commit of #82 so every change since is visible.
+
+What changed from rf_monitor
+----------------------------
+- The S2-LP kit is read directly through the benchtools driver (--port),
+  receiving with the firmware's own loop as ST's GUI does, instead of from a
+  log file written by ST's GUI. A log file can still be read (--log).
+- "ST GUI" page: each packet as ST's GUI shows it - time, bytes, RSSI, hex.
+- "Events" page: the run's events from every part of the bench - ST RF, PSU,
+  BLE, J-Link and the test runner - each source in its own colour, followed
+  live from a bench event log (--event-log; `benchtools run --event-log`).
+- Every other page is rf_monitor's, fed the same decoded frames.
+
+Features (from rf_monitor)
+--------------------------
+- Latest packet decode, environment and short-interval trending, TWF,
+  CONFIG decode with units, sensor filtering, raw packet highlighting,
+  VERSION decoding, identification panel, diagnostics, sync, reports
 
 Dependencies
 ------------
-pip install matplotlib numpy
+pip install matplotlib numpy pyserial
 
 Run
 ---
-python kepler_packet_monitor.py --log rf_log.txt
+python tools/test_bench/test_bench.py --port COM4 --event-log events.jsonl
+python tools/test_bench/test_bench.py --simulate
+python tools/test_bench/test_bench.py --log rf_log.txt
 """
 
 import argparse
 import os
+import pathlib
 import re
 import sys
 import time
@@ -43,16 +53,36 @@ from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
 from matplotlib.transforms import blended_transform_factory
 
+# benchtools lives two directories up; sources.py beside this file.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2]))
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+
+from sources import (  # noqa: E402  pylint: disable=wrong-import-position
+    SOURCE_ORDER,
+    SOURCE_STYLES,
+    JlinkPanel,
+    LiveRadio,
+    PsuPanel,
+    SimulatedAir,
+    event_row,
+    register_rows,
+    regs_text,
+    rf_event,
+    rf_setup_rows,
+    spirit_line,
+    st_gui_row,
+)
+
 
 # =============================================================================
 # APPLICATION VERSION
 # =============================================================================
 
-APP_TITLE = "Kepler Packet Monitor"
+APP_TITLE = "Test Bench"
 
-APP_VERSION = "1.1.0"
+APP_VERSION = "2.0.0"
 
-APP_DATE = "2026-09-15"
+APP_DATE = "2026-09-28"
 
 
 # =============================================================================
@@ -60,6 +90,13 @@ APP_DATE = "2026-09-15"
 # =============================================================================
 
 POLL_INTERVAL_MS = 1000
+
+# Live radio and event-log polling, and how much each new page keeps.
+RADIO_POLL_MS = 200
+EVENT_POLL_MS = 500
+ST_GUI_MAX_ROWS = 5000
+EVENTS_MAX = 20000
+LIVE_HISTORY_MAX = 200000
 
 MAX_POINTS = 1000
 
@@ -493,12 +530,21 @@ def print_help():
 
     print("")
     print("Usage:")
-    print("  python kepler_packet_monitor.py --log <logfile>")
+    print("  python test_bench.py --port COM4 [--event-log events.jsonl]")
+    print("  python test_bench.py --simulate")
+    print("  python test_bench.py --log <logfile>")
     print("")
     print("Options:")
-    print("  --help       Display help information")
-    print("  --version    Display program version")
-    print("  --log FILE   RF log file to monitor")
+    print("  --help             Display help information")
+    print("  --version          Display program version")
+    print("  --port PORT        Read the S2-LP kit directly (e.g. COM4)")
+    print("  --board NAME       Kit board name (optional; the EEPROM is read anyway)")
+    print("  --setup REGS       Register file to receive with")
+    print("                     (default configs/s2lp_kepler_433_rx.regs)")
+    print("  --packet-log PATH  Also write every packet, raw and decoded, as JSON Lines")
+    print("  --event-log PATH   Follow a bench event log on the Events page")
+    print("  --simulate         A simulated kit with a sensor on the air")
+    print("  --log FILE         An RF log file written by ST's GUI, as rf_monitor read")
     print("")
 
 
@@ -1458,13 +1504,28 @@ def _decode_response(frame):
 # MAIN APPLICATION
 # =============================================================================
 
-class KeplerMonitor:
+class TestBenchMonitor:
 
-    def __init__(self, root, logfile, initial_sensor_id: str | None = None):
+    def __init__(self, root, logfile=None, initial_sensor_id: str | None = None,
+                 radio=None, event_log=None, air=None):
 
         self.root = root
 
         self.logfile = logfile
+
+        # The S2-LP kit, read directly (sources.LiveRadio), or None for a log.
+        self.radio = radio
+
+        # A simulated sensor on the air, when running without hardware.
+        self.air = air
+
+        # Every packet received live, as the log line ST's GUI would write, so
+        # a change of sensor filter can replay them as rf_monitor replays a log.
+        self._live_lines = deque(maxlen=LIVE_HISTORY_MAX)
+
+        # The bench event log followed by the Events page, if any.
+        from benchtools.core.events import EventTail
+        self.event_tail = EventTail(event_log) if event_log else None
 
         self.root.title(APP_TITLE)
 
@@ -1676,7 +1737,18 @@ class KeplerMonitor:
 
         self.notebook.pack(fill=tk.BOTH, expand=True)
 
+        self.psu_panel = PsuPanel()
+        self.jlink_panel = JlinkPanel()
+
         self.create_latest_tab()
+
+        self.create_st_gui_tab()
+
+        self.create_events_tab()
+
+        self.create_psu_tab()
+
+        self.create_jlink_tab()
 
         self.create_environment_tab()
 
@@ -1714,6 +1786,9 @@ class KeplerMonitor:
 
         # Status bar clock — fires every second regardless of data arrival
         self.root.after(1000, self._tick_status_bar)
+
+        if self.event_tail is not None:
+            self.root.after(EVENT_POLL_MS, self.poll_events)
 
     # =========================================================================
     # SETTINGS
@@ -2091,7 +2166,7 @@ class KeplerMonitor:
         """Re-read the entire log file from scratch using the current sensor filter,
         then refresh every tab.  Called on filter change."""
 
-        if not os.path.exists(self.logfile):
+        if self.radio is None and (not self.logfile or not os.path.exists(self.logfile)):
             self._refresh_all_tabs()
             return
 
@@ -2100,13 +2175,20 @@ class KeplerMonitor:
         self._history_tail.clear()
 
         try:
-            with open(self.logfile, "r") as f:
-                f.readline()           # skip the opening header line
-                for line in f:
+            if self.radio is not None:
+                # Live from the kit: replay what has been received so far.
+                for line in list(self._live_lines):
                     frame = parse_packet_line(line)
                     if frame:
                         self.process_frame(frame)
-                self.file_position = f.tell()
+            else:
+                with open(self.logfile, "r") as f:
+                    f.readline()           # skip the opening header line
+                    for line in f:
+                        frame = parse_packet_line(line)
+                        if frame:
+                            self.process_frame(frame)
+                    self.file_position = f.tell()
         finally:
             self._loading_history = False
 
@@ -2131,9 +2213,10 @@ class KeplerMonitor:
     # ── Sensor-ID persistence ─────────────────────────────────────────────────
 
     def _sensor_id_file(self) -> str:
-        """Path to the sensor-ID list file (same directory as the log file)."""
-        return os.path.join(os.path.dirname(os.path.abspath(self.logfile)),
-                            "sensor_ids.txt")
+        """Path to the sensor-ID list file: beside the log file, or in the
+        current directory when reading the kit directly."""
+        base = os.path.dirname(os.path.abspath(self.logfile)) if self.logfile else os.getcwd()
+        return os.path.join(base, "sensor_ids.txt")
 
     def _load_sensor_ids(self, initial_filter: str | None = None):
         """Load sensor IDs from file and populate the combobox.
@@ -2177,8 +2260,12 @@ class KeplerMonitor:
             pass
 
     def _on_close(self):
-        """Save sensor IDs then destroy the window."""
+        """Save sensor IDs, stop the radio, then destroy the window."""
         self._save_sensor_ids()
+        if self.air is not None:
+            self.air.stop()
+        if self.radio is not None:
+            self.radio.close()
         self.root.destroy()
 
     def _register_sensor_id(self, sid: str):
@@ -4281,7 +4368,15 @@ pre  { background:#13162a; color:#dce1f0; padding:12px;
     def _start_history_load(self):
         """Show a progress splash and begin replaying existing log data."""
 
-        if not os.path.exists(self.logfile):
+        if self.radio is not None:
+            # Live from the kit: there is no history to replay.
+            self._loading_history = False
+            self.latest_text.insert(tk.END, "Receiving from %s\n\n" % self.radio.description)
+            self._st_read_setup()
+            self.root.after(RADIO_POLL_MS, self.poll_radio)
+            return
+
+        if not self.logfile or not os.path.exists(self.logfile):
             self._loading_history = False
             self.root.after(POLL_INTERVAL_MS, self.poll_log)
             return
@@ -4387,7 +4482,7 @@ pre  { background:#13162a; color:#dce1f0; padding:12px;
 
         try:
 
-            if os.path.exists(self.logfile):
+            if self.logfile and os.path.exists(self.logfile):
 
                 with open(self.logfile, "r") as f:
 
@@ -4412,6 +4507,515 @@ pre  { background:#13162a; color:#dce1f0; padding:12px;
             print(e)
 
         self.root.after(POLL_INTERVAL_MS, self.poll_log)
+
+    # =========================================================================
+    # RADIO POLL  (live from the kit through the benchtools driver)
+    # =========================================================================
+
+    def poll_radio(self):
+        """Take the packets the radio thread received and feed every page."""
+
+        packets = self.radio.drain()
+
+        for packet in packets:
+
+            self._st_gui_add(packet)
+
+            decoded = None
+
+            if packet.ok:
+                line = spirit_line(packet)
+                self._live_lines.append(line)
+                frame = parse_packet_line(line)
+                if frame:
+                    self.process_frame(frame)
+                    decoded = {"sensor_id": frame.sensor_id, "type": frame.frame_name,
+                               "frame_of": (frame.frame_num, frame.total_frames)}
+
+            self._events_add(rf_event(packet, decoded))
+
+        if packets:
+            self.update_diagnostics_tab()
+
+        if self.radio.error:
+            self._events_add({"t": time.time(), "source": "rf", "level": "ERROR",
+                              "text": "radio stopped: %s" % self.radio.error})
+            self.radio.error = None
+            return
+
+        self.root.after(RADIO_POLL_MS, self.poll_radio)
+
+    # =========================================================================
+    # ST GUI TAB  (packets as ST's S2-LP DK GUI shows them)
+    # =========================================================================
+
+    def create_st_gui_tab(self):
+        """ST's S2-LP DK GUI as it is laid out: the RF setup top left, the
+        registers table on the right, received frames in hex bottom left."""
+
+        tab = ttk.Frame(self.notebook)
+        self.notebook.add(tab, text="ST GUI")
+
+        outer = ttk.PanedWindow(tab, orient=tk.HORIZONTAL)
+        outer.pack(fill=tk.BOTH, expand=True, padx=4, pady=4)
+        left = ttk.PanedWindow(outer, orient=tk.VERTICAL)
+        outer.add(left, weight=3)
+
+        # -- RF setup (top left) -----------------------------------------------
+        setup = ttk.LabelFrame(left, text="RF setup")
+        left.add(setup, weight=2)
+        self.st_setup_var = tk.StringVar(
+            value="Not connected to a kit" if self.radio is None else "Not read yet")
+        ttk.Label(setup, textvariable=self.st_setup_var).pack(anchor=tk.W, padx=6, pady=(2, 4))
+        self.st_setup = ttk.Treeview(setup, columns=("value",), show="tree headings", height=12)
+        self.st_setup.heading("#0", text="Setting")
+        self.st_setup.heading("value", text="Value")
+        self.st_setup.column("#0", width=220, stretch=False)
+        self.st_setup.column("value", width=320, stretch=True)
+        vsb = ttk.Scrollbar(setup, orient=tk.VERTICAL, command=self.st_setup.yview)
+        self.st_setup.configure(yscrollcommand=vsb.set)
+        vsb.pack(side=tk.RIGHT, fill=tk.Y)
+        self.st_setup.pack(fill=tk.BOTH, expand=True)
+
+        # -- Received frames (bottom left) -------------------------------------
+        frames = ttk.LabelFrame(left, text="Received frames")
+        left.add(frames, weight=3)
+        bar = ttk.Frame(frames)
+        bar.pack(fill=tk.X, pady=(2, 4))
+        self.st_count_var = tk.StringVar(value="Packets: 0")
+        ttk.Label(bar, textvariable=self.st_count_var).pack(side=tk.LEFT, padx=8)
+        self.st_paused = tk.BooleanVar(value=False)
+        ttk.Checkbutton(bar, text="Pause", variable=self.st_paused).pack(side=tk.LEFT, padx=8)
+        self.st_follow = tk.BooleanVar(value=True)
+        ttk.Checkbutton(bar, text="Follow", variable=self.st_follow).pack(side=tk.LEFT, padx=8)
+        ttk.Button(bar, text="Clear", command=self._st_gui_clear).pack(side=tk.LEFT, padx=8)
+
+        grid = ttk.Frame(frames)
+        grid.pack(fill=tk.BOTH, expand=True)
+        columns = ("time", "bytes", "rssi", "data")
+        self.st_tree = ttk.Treeview(grid, columns=columns, show="headings")
+        for column, heading, width, anchor in (
+            ("time", "Timestamp", 100, tk.W),
+            ("bytes", "Bytes", 55, tk.E),
+            ("rssi", "RSSI (dBm)", 80, tk.E),
+            ("data", "Data (hex)", 500, tk.W),
+        ):
+            self.st_tree.heading(column, text=heading)
+            self.st_tree.column(column, width=width, anchor=anchor, stretch=column == "data")
+        self.st_tree.tag_configure("lost", foreground="#ef5350")
+        vsb = ttk.Scrollbar(grid, orient=tk.VERTICAL, command=self.st_tree.yview)
+        hsb = ttk.Scrollbar(grid, orient=tk.HORIZONTAL, command=self.st_tree.xview)
+        self.st_tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+        self.st_tree.grid(row=0, column=0, sticky="nsew")
+        vsb.grid(row=0, column=1, sticky="ns")
+        hsb.grid(row=1, column=0, sticky="ew")
+        grid.grid_rowconfigure(0, weight=1)
+        grid.grid_columnconfigure(0, weight=1)
+
+        # -- Registers table (right) -------------------------------------------
+        regs = ttk.LabelFrame(outer, text="Registers table")
+        outer.add(regs, weight=2)
+        grid = ttk.Frame(regs)
+        grid.pack(fill=tk.BOTH, expand=True)
+        self.st_regs = ttk.Treeview(grid, columns=("register", "value", "default"),
+                                    show="tree headings")
+        self.st_regs.heading("#0", text="Address")
+        self.st_regs.column("#0", width=90, stretch=False)
+        for column, heading, width in (("register", "Register", 170), ("value", "Value", 70),
+                                       ("default", "Default", 70)):
+            self.st_regs.heading(column, text=heading)
+            self.st_regs.column(column, width=width, anchor=tk.W, stretch=column == "register")
+        self.st_regs.tag_configure("changed", foreground="#ef5350")
+        vsb = ttk.Scrollbar(grid, orient=tk.VERTICAL, command=self.st_regs.yview)
+        self.st_regs.configure(yscrollcommand=vsb.set)
+        self.st_regs.grid(row=0, column=0, sticky="nsew")
+        vsb.grid(row=0, column=1, sticky="ns")
+        grid.grid_rowconfigure(0, weight=1)
+        grid.grid_columnconfigure(0, weight=1)
+
+        bar = ttk.Frame(regs)
+        bar.pack(fill=tk.X, pady=4)
+        self.st_refresh_btn = ttk.Button(bar, text="Refresh", command=self._st_read_setup)
+        self.st_refresh_btn.pack(side=tk.LEFT, padx=4)
+        ttk.Button(bar, text="Expand", command=lambda: self._st_expand(True)).pack(
+            side=tk.LEFT, padx=4)
+        ttk.Button(bar, text="Collapse", command=lambda: self._st_expand(False)).pack(
+            side=tk.LEFT, padx=4)
+        self.st_export_btn = ttk.Button(bar, text="Export", command=self._st_export)
+        self.st_export_btn.pack(side=tk.RIGHT, padx=4)
+        if self.radio is None:
+            self.st_refresh_btn.state(["disabled"])
+        self.st_export_btn.state(["disabled"])
+
+        # Registers get about 40 % of the width, as in ST's GUI, once it is known.
+        def place_sash(_event=None):
+            outer.unbind("<Map>")
+            outer.after(50, lambda: outer.sashpos(0, int(outer.winfo_width() * 0.6)))
+        outer.bind("<Map>", place_sash)
+
+        self.st_packets = 0
+        self._st_snapshot = None
+        self._st_snapshot_result = None
+
+    def _st_read_setup(self):
+        """Read the RF setup and registers on a worker thread. Reception pauses
+        while they are read: the receive loop and the read share the kit's port."""
+        if self.radio is None:
+            return
+        import threading
+
+        self.st_refresh_btn.state(["disabled"])
+        self.st_setup_var.set("Reading... (reception paused)")
+
+        def work():
+            try:
+                self._st_snapshot_result = ("ok", self.radio.snapshot())
+            except Exception as error:                  # pylint: disable=broad-except
+                self._st_snapshot_result = ("error", "%s: %s" % (type(error).__name__, error))
+
+        threading.Thread(target=work, name="st-gui-read", daemon=True).start()
+        self.root.after(100, self._st_wait_setup)
+
+    def _st_wait_setup(self):
+        if self._st_snapshot_result is None:
+            self.root.after(100, self._st_wait_setup)
+            return
+        status, result = self._st_snapshot_result
+        self._st_snapshot_result = None
+        self.st_refresh_btn.state(["!disabled"])
+        if status != "ok":
+            self.st_setup_var.set("Read failed: %s" % result)
+            self._events_add({"t": time.time(), "source": "rf", "level": "ERROR",
+                              "text": "Reading the RF setup failed: %s" % result})
+            return
+        self._st_snapshot = result
+        self.st_export_btn.state(["!disabled"])
+        self.st_setup_var.set("Read at %s (reception paused %.1f s)"
+                              % (time.strftime("%H:%M:%S"), result["paused_s"]))
+        self._events_add({"t": time.time(), "source": "rf", "level": "INFO",
+                          "text": "RF setup and registers read; reception paused %.1f s"
+                                  % result["paused_s"]})
+
+        self.st_setup.delete(*self.st_setup.get_children())
+        sections = {}
+        for section, label, value in rf_setup_rows(result):
+            if section not in sections:
+                sections[section] = self.st_setup.insert("", tk.END, text=section, open=True)
+            self.st_setup.insert(sections[section], tk.END, text=label, values=(value,))
+
+        self.st_regs.delete(*self.st_regs.get_children())
+        for addr, name, value, default, fields, changed in register_rows(result["registers"]):
+            tags = ("changed",) if changed else ()
+            row = self.st_regs.insert("", tk.END, text=addr, values=(name, value, default),
+                                      tags=tags)
+            for field, field_value in fields:
+                self.st_regs.insert(row, tk.END, text="", values=(field, field_value, ""),
+                                    tags=tags)
+
+    def _st_expand(self, open_):
+        for row in self.st_regs.get_children():
+            self.st_regs.item(row, open=open_)
+
+    def _st_export(self):
+        """Save the registers read as a register file the driver's --setup reads."""
+        if not self._st_snapshot:
+            return
+        from tkinter import filedialog
+
+        path = filedialog.asksaveasfilename(
+            title="Export registers", defaultextension=".regs",
+            filetypes=[("Register files", "*.regs"), ("All files", "*.*")])
+        if path:
+            with open(path, "w", encoding="utf-8") as handle:
+                handle.write(regs_text(self._st_snapshot["registers"]))
+            self.st_setup_var.set("Registers exported to %s" % path)
+
+    def _st_gui_add(self, packet):
+        self.st_packets += 1
+        self.st_count_var.set("Packets: %d" % self.st_packets)
+        if self.st_paused.get():
+            return
+        row = st_gui_row(packet)
+        self.st_tree.insert("", tk.END, values=row, tags=("lost",) if not packet.ok else ())
+        children = self.st_tree.get_children()
+        if len(children) > ST_GUI_MAX_ROWS:
+            self.st_tree.delete(*children[:len(children) - ST_GUI_MAX_ROWS])
+        if self.st_follow.get():
+            self.st_tree.yview_moveto(1.0)
+
+    def _st_gui_clear(self):
+        self.st_tree.delete(*self.st_tree.get_children())
+        self.st_packets = 0
+        self.st_count_var.set("Packets: 0")
+
+    # =========================================================================
+    # EVENTS TAB  (the whole bench, one colour per source)
+    # =========================================================================
+
+    def create_events_tab(self):
+        """Events from every part of the bench, each source in its own colour."""
+
+        tab = ttk.Frame(self.notebook)
+        self.notebook.add(tab, text="Events")
+
+        bar = tk.Frame(tab, bg=DARK_BG)
+        bar.pack(fill=tk.X, pady=5)
+
+        self.event_show = {}
+        for source in SOURCE_ORDER:
+            label, colour = SOURCE_STYLES[source]
+            variable = tk.BooleanVar(value=True)
+            self.event_show[source] = variable
+            tk.Checkbutton(
+                bar, text=label, variable=variable, command=self._events_redraw,
+                bg=DARK_BG, fg=colour, selectcolor=PANEL_BG, activebackground=DARK_BG,
+                activeforeground=colour, font=("Segoe UI", 10, "bold"),
+            ).pack(side=tk.LEFT, padx=6)
+
+        self.events_paused = tk.BooleanVar(value=False)
+        ttk.Checkbutton(bar, text="Pause", variable=self.events_paused).pack(side=tk.LEFT, padx=12)
+        ttk.Button(bar, text="Clear", command=self._events_clear).pack(side=tk.LEFT, padx=6)
+
+        self.events_count_var = tk.StringVar(
+            value="No event log" if self.event_tail is None else "Events: 0")
+        ttk.Label(bar, textvariable=self.events_count_var).pack(side=tk.RIGHT, padx=8)
+
+        frame = ttk.Frame(tab)
+        frame.pack(fill=tk.BOTH, expand=True)
+        self.events_text = tk.Text(
+            frame, font=("Consolas", 10), wrap=tk.NONE, bg=PLOT_BG, fg=TEXT_MAIN,
+            insertbackground=TEXT_MAIN, selectbackground=ACCENT_BLUE, relief="flat",
+            borderwidth=0,
+        )
+        vsb = ttk.Scrollbar(frame, orient=tk.VERTICAL, command=self.events_text.yview)
+        self.events_text.configure(yscrollcommand=vsb.set)
+        self.events_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        vsb.pack(side=tk.RIGHT, fill=tk.Y)
+        for source, (_label, colour) in SOURCE_STYLES.items():
+            self.events_text.tag_configure(source, foreground=colour)
+        self.events_text.tag_configure("error", background="#4a1a1a")
+        self.events_text.configure(state=tk.DISABLED)
+
+        self.events = deque(maxlen=EVENTS_MAX)
+
+    def _events_line(self, record):
+        when, source, label, text = event_row(record)
+        tags = (source, "error") if record.get("level") in ("ERROR", "CRITICAL") else (source,)
+        return "%-12s %-7s %s\n" % (when, label, text), tags, source
+
+    def _events_add(self, record):
+        self.events.append(record)
+        self.events_count_var.set("Events: %d" % len(self.events))
+        if self.events_paused.get():
+            return
+        line, tags, source = self._events_line(record)
+        if not self.event_show[source].get():
+            return
+        self.events_text.configure(state=tk.NORMAL)
+        self.events_text.insert(tk.END, line, tags)
+        if int(self.events_text.index("end-1c").split(".")[0]) > EVENTS_MAX:
+            self.events_text.delete("1.0", "2.0")
+        self.events_text.configure(state=tk.DISABLED)
+        self.events_text.see(tk.END)
+
+    def _events_redraw(self):
+        self.events_text.configure(state=tk.NORMAL)
+        self.events_text.delete("1.0", tk.END)
+        for record in self.events:
+            line, tags, source = self._events_line(record)
+            if self.event_show[source].get():
+                self.events_text.insert(tk.END, line, tags)
+        self.events_text.configure(state=tk.DISABLED)
+        self.events_text.see(tk.END)
+
+    def _events_clear(self):
+        self.events.clear()
+        self.events_count_var.set("Events: 0")
+        self._events_redraw()
+
+    # =========================================================================
+    # PSU AND J-LINK TABS  (their panels, rebuilt from the event log)
+    # =========================================================================
+
+    def create_psu_tab(self):
+        """The supply's front panel on top, its last ten commands below."""
+
+        tab = ttk.Frame(self.notebook)
+        self.notebook.add(tab, text="PSU")
+        colour = SOURCE_STYLES["psu"][1]
+
+        panel = ttk.LabelFrame(tab, text="GPD-3303D")
+        panel.pack(fill=tk.BOTH, expand=True, padx=6, pady=(6, 3))
+        self.psu_ident_var = tk.StringVar(value="Nothing from the supply yet")
+        ttk.Label(panel, textvariable=self.psu_ident_var).pack(anchor=tk.W, padx=8, pady=(4, 8))
+
+        channels = ttk.Frame(panel)
+        channels.pack(fill=tk.BOTH, expand=True)
+        self.psu_vars = {}
+        for column, channel in enumerate((1, 2)):
+            box = tk.Frame(channels, bg=PANEL_BG, highlightthickness=1,
+                           highlightbackground=BORDER_COL)
+            box.grid(row=0, column=column, sticky="nsew", padx=8, pady=4)
+            channels.grid_columnconfigure(column, weight=1)
+            tk.Label(box, text="CH%d" % channel, bg=PANEL_BG, fg=colour,
+                     font=("Segoe UI", 14, "bold")).grid(row=0, column=0, columnspan=2,
+                                                         sticky=tk.W, padx=10, pady=(6, 0))
+            mode = tk.StringVar(value="--")
+            tk.Label(box, textvariable=mode, bg=PANEL_BG, fg=ACCENT_CYAN,
+                     font=("Segoe UI", 14, "bold")).grid(row=0, column=2, sticky=tk.E, padx=10)
+            vout, iout = tk.StringVar(value="--.--- V"), tk.StringVar(value="-.---- A")
+            for row, var in ((1, vout), (2, iout)):
+                tk.Label(box, textvariable=var, bg=PANEL_BG, fg=TEXT_MAIN,
+                         font=("Consolas", 30, "bold")).grid(row=row, column=0, columnspan=3,
+                                                             sticky=tk.E, padx=10)
+            vset, iset = tk.StringVar(value="set -"), tk.StringVar(value="limit -")
+            tk.Label(box, textvariable=vset, bg=PANEL_BG, fg=TEXT_DIM).grid(
+                row=3, column=0, sticky=tk.W, padx=10, pady=(0, 8))
+            tk.Label(box, textvariable=iset, bg=PANEL_BG, fg=TEXT_DIM).grid(
+                row=3, column=2, sticky=tk.E, padx=10, pady=(0, 8))
+            box.grid_columnconfigure(1, weight=1)
+            self.psu_vars[channel] = {"mode": mode, "vout": vout, "iout": iout,
+                                      "vset": vset, "iset": iset}
+
+        state = ttk.Frame(panel)
+        state.pack(fill=tk.X, padx=8, pady=6)
+        self.psu_output_label = tk.Label(state, text="OUTPUT --", bg=PANEL_BG, fg=TEXT_DIM,
+                                         font=("Segoe UI", 12, "bold"), padx=12, pady=4)
+        self.psu_output_label.pack(side=tk.LEFT)
+        self.psu_state_var = tk.StringVar(value="")
+        ttk.Label(state, textvariable=self.psu_state_var).pack(side=tk.LEFT, padx=12)
+
+        recent = ttk.LabelFrame(tab, text="Last %d commands" % PsuPanel.RECENT)
+        recent.pack(fill=tk.BOTH, expand=True, padx=6, pady=(3, 6))
+        self.psu_tree = ttk.Treeview(recent, columns=("time", "command", "reply"),
+                                     show="headings", height=PsuPanel.RECENT)
+        for column, heading, width in (("time", "Time", 110), ("command", "Command", 260),
+                                       ("reply", "Reply", 600)):
+            self.psu_tree.heading(column, text=heading)
+            self.psu_tree.column(column, width=width, anchor=tk.W, stretch=column == "reply")
+        self.psu_tree.tag_configure("psu", foreground=colour)
+        self.psu_tree.pack(fill=tk.BOTH, expand=True)
+
+    def _psu_redraw(self):
+        panel = self.psu_panel
+
+        def number(value, unit, digits):
+            return "--" if value is None else "%.*f %s" % (digits, value, unit)
+
+        self.psu_ident_var.set(panel.identity or "Supply not identified yet")
+        for channel, var in self.psu_vars.items():
+            values = panel.channels[channel]
+            var["mode"].set(values["mode"] or "--")
+            var["vout"].set(number(values["vout"], "V", 3))
+            var["iout"].set(number(values["iout"], "A", 4))
+            var["vset"].set("set %s" % number(values["vset"], "V", 3))
+            var["iset"].set("limit %s" % number(values["iset"], "A", 3))
+        if panel.output is None:
+            self.psu_output_label.configure(text="OUTPUT --", fg=TEXT_DIM, bg=PANEL_BG)
+        elif panel.output:
+            self.psu_output_label.configure(text="OUTPUT ON", fg="#101418", bg="#81c784")
+        else:
+            self.psu_output_label.configure(text="OUTPUT OFF", fg=TEXT_MAIN, bg="#5d4037")
+        parts = []
+        if panel.tracking:
+            parts.append("Tracking: %s" % panel.tracking)
+        if panel.beep is not None:
+            parts.append("Beep: %s" % ("on" if panel.beep else "off"))
+        if panel.status_raw:
+            parts.append("STATUS? %s" % panel.status_raw)
+        if panel.problem:
+            parts.append("Last problem: %s" % panel.problem)
+        self.psu_state_var.set("    ".join(parts))
+        self.psu_tree.delete(*self.psu_tree.get_children())
+        for when, command, reply in panel.recent:
+            self.psu_tree.insert("", tk.END, values=(event_row({"t": when})[0], command, reply),
+                                 tags=("psu",))
+
+    def create_jlink_tab(self):
+        """The probe's state on top, its latest traffic and log below."""
+
+        tab = ttk.Frame(self.notebook)
+        self.notebook.add(tab, text="J-Link")
+
+        panes = ttk.PanedWindow(tab, orient=tk.VERTICAL)
+        panes.pack(fill=tk.BOTH, expand=True, padx=6, pady=6)
+
+        state = ttk.LabelFrame(panes, text="J-Link state")
+        panes.add(state, weight=1)
+        self.jlink_state = ttk.Treeview(state, columns=("value",), show="tree", height=13)
+        self.jlink_state.column("#0", width=180, stretch=False)
+        self.jlink_state.column("value", width=900, stretch=True)
+        self.jlink_state.tag_configure("problem", foreground="#ef5350")
+        self.jlink_state.pack(fill=tk.BOTH, expand=True)
+
+        log = ttk.LabelFrame(panes, text="Comms and log")
+        panes.add(log, weight=1)
+        bar = ttk.Frame(log)
+        bar.pack(fill=tk.X, pady=(2, 4))
+        self.jlink_follow = tk.BooleanVar(value=True)
+        ttk.Checkbutton(bar, text="Follow", variable=self.jlink_follow).pack(side=tk.LEFT, padx=8)
+        ttk.Label(bar, text="commands >>, console, async, RTT, probe reports").pack(
+            side=tk.LEFT, padx=8)
+        frame = ttk.Frame(log)
+        frame.pack(fill=tk.BOTH, expand=True)
+        self.jlink_text = tk.Text(frame, bg=DARK_BG, fg=TEXT_MAIN, font=("Consolas", 10),
+                                  wrap=tk.NONE, state=tk.DISABLED, borderwidth=0)
+        for kind, colour in (("command", SOURCE_STYLES["jlink"][1]), ("console", TEXT_MAIN),
+                             ("async", ACCENT_CYAN), ("rtt", "#fff176"),
+                             ("info", TEXT_DIM), ("problem", "#ef5350")):
+            self.jlink_text.tag_configure(kind, foreground=colour)
+        vsb = ttk.Scrollbar(frame, orient=tk.VERTICAL, command=self.jlink_text.yview)
+        self.jlink_text.configure(yscrollcommand=vsb.set)
+        vsb.pack(side=tk.RIGHT, fill=tk.Y)
+        self.jlink_text.pack(fill=tk.BOTH, expand=True)
+        self._jlink_shown = 0
+
+    def _jlink_redraw(self, new_records):
+        self.jlink_state.delete(*self.jlink_state.get_children())
+        for label, value in self.jlink_panel.rows():
+            tags = ("problem",) if label == "Last problem" and value != "-" else ()
+            if label == "Verify" and value.startswith("MISMATCH"):
+                tags = ("problem",)
+            self.jlink_state.insert("", tk.END, text=label, values=(value,), tags=tags)
+        if not new_records:
+            return
+        self.jlink_text.configure(state=tk.NORMAL)
+        for when, kind, text in new_records:
+            self.jlink_text.insert(tk.END, "%s  %s\n" % (event_row({"t": when})[0], text), kind)
+        excess = int(self.jlink_text.index("end-1c").split(".")[0]) - JlinkPanel.RECENT
+        if excess > 0:
+            self.jlink_text.delete("1.0", "%d.0" % (excess + 1))
+        self.jlink_text.configure(state=tk.DISABLED)
+        if self.jlink_follow.get():
+            self.jlink_text.see(tk.END)
+
+    def _panels_feed(self, records):
+        """Give the event log's supply and probe records to their panels."""
+        psu = jlink = False
+        new_jlink = []
+        for record in records:
+            if self.psu_panel.feed(record):
+                psu = True
+            elif self.jlink_panel.feed(record):
+                jlink = True
+                new_jlink.append(self.jlink_panel.recent[-1])
+        if psu:
+            self._psu_redraw()
+        if jlink:
+            self._jlink_redraw(new_jlink[-JlinkPanel.RECENT:])
+
+    def poll_events(self):
+        """Follow the bench event log."""
+        try:
+            records = self.event_tail.read()
+            for record in records:
+                # The radio this monitor owns reports its frames itself; the
+                # log's S2-LP lines are the command traffic, kept as RF too.
+                self._events_add(record)
+            self._panels_feed(records)
+        except OSError as error:
+            print(error)
+        self.root.after(EVENT_POLL_MS, self.poll_events)
 
     # =========================================================================
     # PROCESS FRAME
@@ -5955,12 +6559,23 @@ def main():
 
     parser = argparse.ArgumentParser(add_help=False)
 
-    parser.add_argument(
-        "--log",
-        required=True,
-        help="RF log file to monitor"
-    )
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--port", help="read the S2-LP kit directly, e.g. COM4")
+    source.add_argument("--simulate", action="store_true",
+                        help="a simulated kit with a sensor on the air")
+    source.add_argument("--log", help="RF log file written by ST's GUI, as rf_monitor read")
 
+    parser.add_argument("--board", default="", help="kit board name (optional)")
+    parser.add_argument(
+        "--setup",
+        default=str(pathlib.Path(__file__).resolve().parents[2]
+                    / "configs" / "s2lp_kepler_433_rx.regs"),
+        help="register file to receive with",
+    )
+    parser.add_argument("--packet-log", default=None,
+                        help="also write every packet, raw and decoded, as JSON Lines")
+    parser.add_argument("--event-log", default=None,
+                        help="bench event log to follow on the Events page")
     parser.add_argument(
         "--sensor-id",
         default=None,
@@ -5973,9 +6588,22 @@ def main():
 
     args = parser.parse_args()
 
+    radio = None
+    air = None
+    if args.port or args.simulate:
+        from benchtools.instruments.s2lp.kepler import decode_kepler_frame
+        radio = LiveRadio("sim://" if args.simulate else args.port, board=args.board,
+                          setup=args.setup, packet_log=args.packet_log,
+                          decoder=decode_kepler_frame)
+        if args.simulate:
+            air = SimulatedAir(radio.radio)
+            air.start()
+        radio.start()
+
     root = tk.Tk()
 
-    app = KeplerMonitor(root, args.log, initial_sensor_id=args.sensor_id)
+    TestBenchMonitor(root, args.log, initial_sensor_id=args.sensor_id,
+                     radio=radio, event_log=args.event_log, air=air)
 
     root.mainloop()
 

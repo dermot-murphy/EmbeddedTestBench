@@ -337,6 +337,7 @@ class RttClient:
                 self._partial = self._partial[index + 1 :]
                 self._pending.append(line)
                 self._history.append(line)
+                _LOG.debug("rtt: %s", line)
 
     # ------------------------------------------------------------------
     def read(self) -> str:

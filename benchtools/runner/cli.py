@@ -21,6 +21,7 @@ from typing import List, Optional, Sequence
 
 from .. import __version__
 from ..core.errors import BenchToolsError
+from ..core.events import start_event_log
 from .bench import BenchConfig, load_bench, registered_drivers
 from .report import summary_line, write_json, write_junit, write_markdown
 from .results import RunRecord, Status
@@ -56,6 +57,10 @@ def build_parser() -> argparse.ArgumentParser:
                              "does not declare (default: %(default)s)")
     parser.add_argument("--json", metavar="PATH", help="write the full result record as JSON")
     parser.add_argument("--markdown", metavar="PATH", help="write a markdown report")
+    parser.add_argument("--event-log", metavar="PATH",
+                        help="write every instrument's and the runner's log records to "
+                             "PATH as JSON Lines while the run goes - what the Test "
+                             "Bench monitor's Events page follows")
     parser.add_argument("--junit", metavar="PATH", help="write a JUnit XML report for CI")
     parser.add_argument("--stop-on-error", action="store_true",
                         help="abandon the remaining tests after the first error")
@@ -163,7 +168,17 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     elif args.verbose >= 2:
         level = logging.DEBUG
     logging.basicConfig(level=level, format="%(levelname)-8s %(name)s: %(message)s")
+    event_log = start_event_log(args.event_log) if args.event_log else None
+    try:
+        return _run(args)
+    finally:
+        if event_log is not None:
+            logging.getLogger("benchtools").removeHandler(event_log)
+            event_log.close()
 
+
+def _run(args) -> int:
+    """The run itself, once logging is set up."""
     try:
         specs = [load_spec(path) for path in args.specs]
     except BenchToolsError as exc:
