@@ -356,6 +356,7 @@ where the firmware implements the requirement.
 | S2LP-FR-046 | S2LP-ARC-001 | S2LP-DD-PACKETS | `PacketLog` | `TestLogs` (6), notably `test_a_truncated_packet_log_still_reads` |
 | S2LP-FR-047 | S2LP-ARC-001 | S2LP-DD-TRAFFIC | `stream`, `_stream_batch`, `_stream_polled`, `_annotate`, `FRAME_REGISTERS` | `TestBatchStream` (9), notably `test_it_is_the_default_and_starts_the_loop_once` and `test_a_caller_that_stops_iterating_stops_the_board`; `TestStream` (9), notably `test_each_frame_carries_the_registers_read_after_it` |
 | S2LP-FR-048 | S2LP-ARC-001 | S2LP-DD-TRAFFIC | `prepare_traffic`, `_check_tx_source` | `TestTheInterrupt` (8) |
+| S2LP-FR-049 | S2LP-ARC-001 | S2LP-DD-PREAMBLE, -TRAFFIC | `preamble.py`, `_enable_pqi`, `measure_preamble`, `check_preamble`; `specs/kepler_preamble.yaml` | `SWE4-UT-S2LPPREAMBLE` (15), `TestPreamble` (7), `TestPreambleCommand` (3) |
 | S2LP-FR-070 | S2LP-ARC-001 | S2LP-DD-KEPLER | `decode_kepler_frame` | `SWE4-UT-S2LPKEPLER` (26) |
 | S2LP-FR-071 | S2LP-ARC-001 | S2LP-DD-PACKETS, -TRAFFIC | `Packet.registers`, `decoded`, `decode_error` | `test_raw_and_decoded_are_one_record`, `test_a_frame_that_will_not_decode_keeps_its_bytes` |
 | S2LP-FR-050 | S2LP-ARC-001 | S2LP-DD-SIM | `simulator.py`, `register_driver("s2lp", …)` | `SWE4-UT-S2LPSIM` (25), `test_correct_driver_per_alias` |

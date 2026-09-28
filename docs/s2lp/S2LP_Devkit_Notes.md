@@ -392,12 +392,26 @@ the reset value, it reads 0. The measurements, in polled mode with PQI_TH = 1:
 | Sensor | `RD PREAMBLE-LENGTH` | Preamble on the air | PQI after each frame |
 |---|---|---|---|
 | 5C1712 | 32 pairs (default) | 64 bits | 30-63, mostly 63 |
+| 5C1712 | 48 pairs (#89) | 96 bits | best **95** of 15 frames (lowest 70) |
+| 5C1712 | 100 pairs (#89) | 200 bits | best **199** of 15 frames (lowest 180) |
 | 5C1712 | 128 pairs (`WR PREAMBLE-LENGTH 128`, then `ECURESET HARD`) | 256 bits | 220-255, mostly 255 |
 | 5C314E, in the same run | 32 pairs | 64 bits | 46, 63 |
 
-PQI rose with the preamble and stopped at 63 for 64 bits and at 255 (the
-register's full scale) for 256 bits. It therefore distinguishes preamble
-lengths up to about 127 pairs; longer ones read 255. Readings below the
+PQI is **2 x pairs - 1** exactly for the best frame, at 32, 48 and 100 pairs,
+up to the register's full scale of 255. It therefore distinguishes preamble
+lengths up to 127 pairs; longer ones read 255.
+
+The driver does this for you (#89):
+
+* Asking for LINK_QUALIF2 in a polled stream switches the PQI check on and puts
+  it back afterwards.
+* `measure_preamble()` gives each sensor's best PQI and the preamble it
+  implies.
+* `check_preamble(pairs, source)` returns pass, fail or unmeasurable.
+* `benchtools s2lp preamble --source 5C1712 --expect-pairs 48` does the same
+  from the command line.
+* `specs/kepler_preamble.yaml` sets the sensor's preamble over BLE, checks it
+  on the air, and restores the default. Readings below the
 maximum are frames whose preamble was caught part-way, for example straight
 after a polled re-arm. PQI is read per frame, so it needs `mode="polled"`.
 5C1712 was set back to 32 pairs afterwards and read back as 32; PQI returned to

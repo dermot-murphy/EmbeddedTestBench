@@ -1,0 +1,82 @@
+# The Kepler sensor sends the preamble it is configured for.
+#
+# PQI, read after each frame with the PQI check on, counts the preamble the
+# S2-LP heard: 2 x pairs - 1 for a preamble of *pairs* bit-pairs, up to 255
+# (#89). This suite sets the sensor's preamble over BLE, resets it so the radio
+# takes the setting, measures PQI on the air, and puts the default back.
+#
+# Against hardware (5C1712 is the sensor approved for configuration changes):
+#   python -m benchtools run specs/kepler_preamble.yaml --bench benches/lab1.yaml
+#
+# The simulated bench has no sensor on the air, so this suite needs hardware.
+#
+# Limits:
+#   * PQI tops out at 255, so only preambles up to 127 pairs can be checked.
+#     A check at 128 pairs or more reports "unmeasurable", which fails here.
+#   * A frame caught part-way reads low; the check uses the best frame, and
+#     allows it to fall short by tolerance_pairs.
+#   * The setting is stored in the sensor's NVM and applied when its radio
+#     initialises, so every change is followed by ECURESET HARD. The reset drops
+#     the BLE link, which is reopened before the next command.
+
+name: Kepler preamble length
+description: >
+  Set the sensor's preamble length, measure it on the air from PQI, and restore
+  the default.
+requirements: [S2LP-FR-049]
+
+instruments:
+  dongle: ble-dongle
+  s2lp: s2lp
+
+setup:
+  - do: s2lp.apply_configuration
+    with: {source: configs/s2lp_kepler_433_rx.regs, reset: defaults}
+  - do: dongle.scan
+    with: {duration: 5.0}
+  - do: dongle.select
+    with: {sensor: "D1:8D:3B:4C:19:96"}
+
+tests:
+  - name: A 48-pair preamble is heard as 48 pairs
+    requirement: S2LP-FR-049
+    steps:
+      - do: dongle.open_link
+      - do: dongle.command
+        with: {request: "WR PREAMBLE-LENGTH 48", timeout: 45.0}
+      - do: dongle.command
+        with: {request: "ECURESET HARD", timeout: 45.0}
+      - do: dongle.close_link
+      - do: s2lp.check_preamble
+        with: {expected_pairs: 48, source: "5C1712", count: 6, timeout: 180.0}
+        expect:
+          - name: preamble_as_set
+            measure: passed
+            equals: 1
+          - name: best_pqi
+            measure: max_pqi
+            minimum: 91
+            maximum: 95
+
+  - name: The default 32-pair preamble is restored and heard as 32 pairs
+    requirement: S2LP-FR-049
+    steps:
+      - do: dongle.open_link
+      - do: dongle.command
+        with: {request: "WR PREAMBLE-LENGTH 32", timeout: 45.0}
+      - do: dongle.command
+        with: {request: "ECURESET HARD", timeout: 45.0}
+      - do: dongle.close_link
+      - do: s2lp.check_preamble
+        with: {expected_pairs: 32, source: "5C1712", count: 6, timeout: 180.0}
+        expect:
+          - name: preamble_as_set
+            measure: passed
+            equals: 1
+          - name: best_pqi
+            measure: max_pqi
+            minimum: 59
+            maximum: 63
+
+teardown:
+  - do: dongle.close_link

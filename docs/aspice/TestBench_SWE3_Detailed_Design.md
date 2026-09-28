@@ -70,7 +70,7 @@ not declare.
 | 5.3 | INST | `benchtools.instruments` | 5 |
 | 5.4 | JLINK | `benchtools.instruments.jlink` | 10 |
 | 5.5 | BLE | `benchtools.instruments.nordic_dongle` and `firmware/nordic_dongle` | 20 |
-| 5.6 | S2LP | `benchtools.instruments.s2lp` | 11 |
+| 5.6 | S2LP | `benchtools.instruments.s2lp` | 12 |
 | 5.7 | PSU | `benchtools.instruments.gpd3303d` | 4 |
 | 5.8 | RUN | `benchtools.runner` | 8 |
 | | **Total** | | **74** |
@@ -1468,6 +1468,24 @@ loop's closing reply is read before the last frame is handed over, so a caller
 that stops there leaves nothing running. An `until` callable ends a stream
 from another thread, by cancelling the wait in the session (`ReadCancelled`).
 
+#### S2LP-DD-PREAMBLE — `preamble.py`
+
+A transmitter's preamble length, measured from PQI (#89). PQI (LINK_QUALIF2)
+reads 0 unless the radio's PQI check is on (QI.PQI_TH > 0). With the check on
+it counts the preamble heard: 2 x pairs - 1, up to the 8-bit ceiling of 255.
+Measured on the kit against sensor 5C1712 at 32, 48 and 128 pairs.
+
+`PreambleMeasurement` holds one source's PQI readings; the measurement is the
+maximum, because a frame caught part-way reads low. `check_preamble` compares
+it with a configured length and returns `pass`, `fail` (longer than set, or
+shorter beyond the tolerance) or `unmeasurable` (no frame, or an expected
+value at or past the ceiling, where every longer preamble reads the same).
+
+In S2LP-DD-TRAFFIC, a polled stream that reads PQI switches the PQI check on
+if it is off and puts QI back when the stream ends (`_enable_pqi`), so a 0
+cannot pass for a result. `measure_preamble` and `check_preamble` receive in
+polled mode and attribute frames by the decoder's sensor ID.
+
 #### S2LP-DD-KEPLER — `kepler.py`
 
 `decode_kepler_frame` turns a Kepler sensor payload into a dictionary: the
@@ -1500,7 +1518,7 @@ discarded, as the hardware discards it - which is what the driver's refusal
 #### S2LP-DD-CLI — `cli.py`
 
 Sub-commands `info`, `registers`, `radio`, `config`, `packets`, `tx`, `rx`,
-`capture`, `stream`, `strobe`, emitting JSON (AD-15); `stream` prints one JSON
+`capture`, `stream`, `preamble`, `strobe`, emitting JSON (AD-15); `stream` prints one JSON
 line per frame, with `--decode kepler` and `--registers`. `--log` and `--packet-log` open both
 logs at once; `--board` names the kit board; `--setup` applies a register file
 straight after connecting. `rx` with nothing on the air exits 1 and says why

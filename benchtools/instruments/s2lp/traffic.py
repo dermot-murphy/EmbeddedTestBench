@@ -29,7 +29,9 @@ from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Unio
 from ...core.errors import ConfigurationError, InstrumentError, TransportTimeoutError
 from .constants import MAX_PAYLOAD, Strobe
 from . import registers as reg
+from .kepler import decode_kepler_frame
 from .packets import Capture, Packet, packet_from_reply, rssi_dbm_from_register
+from .preamble import PreambleMeasurement, check_preamble
 from .session import STOP_ACK
 
 __all__ = ["TrafficMixin", "IRQ_GPIO", "TRAFFIC_IRQS", "FRAME_REGISTERS", "ANY_LENGTH"]
@@ -41,6 +43,13 @@ FRAME_REGISTERS = ("AFC_CORR", "LINK_QUALIF2", "LINK_QUALIF1", "RSSI_LEVEL")
 #: ``S2LPGetNBytes`` length that means "one packet, whatever its length": ST's
 #: receive takes the packet-by-packet path, ending on data-ready, for 0xFFFF.
 ANY_LENGTH = 0xFFFF
+
+#: PQI's register. Reading it needs the PQI check on (QI.PQI_TH > 0): with the
+#: check off it reads 0 whatever was sent (#89).
+PQI_REGISTER = "LINK_QUALIF2"
+
+#: The PQI threshold set when PQI is wanted and the check is off.
+PQI_THRESHOLD = 1
 
 #: ``S2LPGetNBytesBatch`` count for "until stopped", as ST's GUI sends it.
 BATCH_FOREVER = 0xFFFFFFFF
@@ -382,30 +391,91 @@ class TrafficMixin:
         return [packet for packet in frames if packet is not None]
 
     def _stream_polled(self, decoder, count, timeout, until, registers) -> Iterator[Packet]:
-        """One receive per frame, with registers read after each."""
+        """One receive per frame, with registers read after each.
+
+        When PQI is among the registers and the radio's PQI check is off, the
+        check is switched on for the stream and QI put back afterwards: with it
+        off PQI reads 0, which would look like a result.
+        """
         addresses = sorted(reg.lookup(name).address for name in registers)
+        restore_qi = self._enable_pqi() if reg.lookup(PQI_REGISTER).address in addresses else None
         started = time.monotonic()
         received = 0
-        while count is None or received < count:
-            remaining = self._remaining(started, timeout)
-            if (remaining is not None and remaining <= 0) or (until is not None and until()):
-                return
-            self._session.send("S2LPGetNBytes", ANY_LENGTH)
-            try:
-                reply = self._session.read_reply(
-                    timeout=remaining if remaining is not None else FOREVER_S,
-                    command="S2LPGetNBytes", cancel=until)
-            except TransportTimeoutError:
-                replies = self._session.stop()
-                reply = next((r for r in replies if r.command == "S2LPGetNBytes"), None)
-                if reply is None:
+        try:
+            while count is None or received < count:
+                remaining = self._remaining(started, timeout)
+                if (remaining is not None and remaining <= 0) or (until is not None and until()):
                     return
-            packet = packet_from_reply(reply, self._clock)
-            if packet is None:
+                self._session.send("S2LPGetNBytes", ANY_LENGTH)
+                try:
+                    reply = self._session.read_reply(
+                        timeout=remaining if remaining is not None else FOREVER_S,
+                        command="S2LPGetNBytes", cancel=until)
+                except TransportTimeoutError:
+                    replies = self._session.stop()
+                    reply = next((r for r in replies if r.command == "S2LPGetNBytes"), None)
+                    if reply is None:
+                        return
+                packet = packet_from_reply(reply, self._clock)
+                if packet is None:
+                    continue
+                received += 1
+                self._annotate(packet, addresses, decoder)
+                yield self._record(packet)
+        finally:
+            if restore_qi is not None:
+                self.write_register("QI", restore_qi)
+
+    def _enable_pqi(self) -> Optional[int]:
+        """Switch the PQI check on if it is off; return QI to restore, or None."""
+        qi = self.read_register("QI")
+        if reg.lookup("QI").field("PQI_TH").extract(qi):
+            return None
+        self.write_field("QI", "PQI_TH", PQI_THRESHOLD)
+        return qi
+
+    def measure_preamble(
+        self,
+        source: Optional[str] = None,
+        count: Optional[int] = None,
+        timeout: float = 120.0,
+        decoder: Callable[[bytes], Dict[str, Any]] = decode_kepler_frame,
+    ) -> Dict[str, PreambleMeasurement]:
+        """Measure transmitters' preamble lengths from PQI, per source.
+
+        Receives in polled mode - PQI is read after each frame - with the PQI
+        check on. Frames are attributed by the decoder's ``sensor_id``.
+
+        :param source: Only count frames from this source, e.g. ``"5C1712"``.
+        :param count: Stop after this many frames from *source* (or from anyone).
+        :returns: Source to its :class:`~.preamble.PreambleMeasurement`.
+        """
+        results: Dict[str, PreambleMeasurement] = {}
+        frames = 0
+        for packet in self.stream(decoder=decoder, timeout=timeout, mode="polled",
+                                  registers=(PQI_REGISTER, "LINK_QUALIF1", "RSSI_LEVEL")):
+            if not packet.ok:
                 continue
-            received += 1
-            self._annotate(packet, addresses, decoder)
-            yield self._record(packet)
+            who = str((packet.decoded or {}).get("sensor_id", "unknown"))
+            if source is not None and who != source:
+                continue
+            results.setdefault(who, PreambleMeasurement(who)).pqi.append(packet.extra["pqi"])
+            frames += 1
+            if count is not None and frames >= count:
+                break
+        return results
+
+    def check_preamble(self, expected_pairs: int, source: str, count: Optional[int] = None,
+                       timeout: float = 120.0, tolerance_pairs: int = 2) -> Dict[str, Any]:
+        """Measure *source*'s preamble and compare it with *expected_pairs*.
+
+        :returns: The check as a dictionary: ``verdict`` (pass, fail or
+            unmeasurable), ``passed``, ``max_pqi``, ``expected_pqi``,
+            ``preamble_bits`` and the reason.
+        """
+        measured = self.measure_preamble(source=source, count=count, timeout=timeout)
+        measurement = measured.get(source, PreambleMeasurement(source))
+        return check_preamble(measurement, expected_pairs, tolerance_pairs).as_dict()
 
     def _annotate(self, packet: Packet, addresses: List[int],
                   decoder: Optional[Callable[[bytes], Dict[str, Any]]]) -> None:

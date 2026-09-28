@@ -241,6 +241,22 @@ class TestStreaming:
         assert (args.decode, args.count) == ("kepler", 2)
 
 
+class TestPreambleCommand:
+    def test_nothing_heard_exits_one(self, capsys):
+        status, _, _ = run(capsys, *SIM, "preamble", "--timeout", "0.3")
+        assert status == 1
+
+    def test_a_check_needs_a_source(self, capsys):
+        status, _, stderr = run(capsys, *SIM, "preamble", "--expect-pairs", "32",
+                                "--timeout", "0.3")
+        assert status == 1 and "--source" in stderr
+
+    def test_the_parser(self):
+        args = build_parser().parse_args(["preamble", "--source", "5C1712",
+                                          "--expect-pairs", "48", "--tolerance", "3"])
+        assert (args.source, args.expect_pairs, args.tolerance) == ("5C1712", 48, 3)
+
+
 class TestLogs:
     def test_both_logs_are_written(self, capsys, tmp_path):
         session = tmp_path / "s.log"
