@@ -370,9 +370,65 @@ three of 5C314E's repeats earlier the same day. So:
 5C314E reports RF_CAP 4 (V10 firmware). Its ALIVE frames decode, with a warning
 that the layouts are for RF_CAP 6.
 
-`kepler.py` decodes every frame type in the sensor's table. Only ALIVE has been
-seen on the air so far; the rest are tested against frames built from the
-reference layouts.
+**Frame types seen on the air (#85)**, all from 5C1712 on 2026-09-27, all
+decoded without error:
+
+| Type | How it was provoked | What it showed |
+|---|---|---|
+| ALIVE | periodic, every 10 minutes | as above |
+| VERSION | BLE `ECURESET HARD`; arrived about 8 s after the ACK | `V11.00.0000`, SHA `bc97874`, reset reason 4 (RESETREAS.SREQ, a software reset), ticks 1 |
+| CONFIG | follows a reset: 12 packets 45 s apart (mux 0 to 11), ahead of TWF | distance permutation; mux in order |
+| TWF | BLE `WR TRIGGER`; started after the CONFIG cycle had finished | one packet every 45 s, packet count 256 (about 3.2 hours for a waveform). PARAM's SI type stepped 0, 1, 2, 3, 4 from packet to packet. The SI acceleration in packet 0 (145, 84, 93) agrees with the ALIVE RMS acceleration a minute later (147, 87, 95) |
+
+Over a 15-minute polled stream, every one of 22 packets arrived at least once,
+but only 14 arrived with all three repeats: 58 of 66 repeats in total. The
+missed repeats were mostly the middle one, following the first too closely
+(#84).
+
+**Why rf_monitor misses so few frames (2026-09-28).** rf_monitor reads the log
+written by ST's S2-LP DK GUI (`C:\Program Files\S2-LP_DK 1.3.5\GUI\S2-LP_DK.exe`).
+The GUI's code is packed, so what it sends was read from the kit instead. The
+firmware's input ring buffer was dumped from RAM over SWD
+(`STM32_Programmer_CLI -c port=SWD mode=HOTPLUG -u 0x20000000 0x2000`), which
+does not touch the COM port, while the GUI was receiving.
+
+To start reception the GUI sends the following (reconstructed from the ring,
+so the order is approximate):
+
+```
+S2LPPktBasicSetPayloadLength 20
+S2LPTimerSetRxTimeoutUs 0            # no RX timeout
+S2LPGetBatchLP 0                     # low-power receive off
+SdkEvalLedHandler 3 1
+S2LPGpioInit 3 3 0x00                # nIRQ on GPIO3, GPIO_MODE 3 (output, high power)
+S2MGpioIrqConfiguration 3 1          # the board's interrupt on that line
+S2LPIrq 0x00000001 1                 # RX data ready
+S2LPIrq 0x00000002 1                 # RX data discarded
+SdkEvalSpiWriteRegisters 0x18 {28}   # RSSI_TH, its reset value
+S2LPGetNBytesBatch 0 4294967295      # ST's receive loop, effectively forever
+```
+
+After that it sends nothing: three RAM reads over 30 s found no new command.
+The board re-arms the radio itself after every packet, and the only dead time
+is the board printing its report (the GUI does not enable
+`S2LPGetNBytesReportAll`, so the loop re-arms after printing).
+
+| | Who re-arms | In each gap | Repeats received on the bench |
+|---|---|---|---|
+| GUI, feeding rf_monitor | the firmware loop | printing the report | "very few missed" (user) |
+| `capture()` | the firmware loop, with ReportAll | less than the GUI: re-arms before printing | all, down to a 32 ms gap |
+| `stream()` | the host, once per frame | report, a 14-17 ms register read, a new command | 58 of 66; shortest gap received 108 ms |
+
+The losses come from `stream()` choosing per-frame PQI/SQI over the firmware
+loop, not from the decoding. #87 bases `stream()` on the loop by default, and
+#84 would give both through interrupt-driven firmware.
+
+The GUI's setup also confirms two things this driver found independently:
+nIRQ goes on GPIO3 with the register's own GPIO_MODE encoding, and the board's
+interrupt is enabled on line 3.
+
+FFT, FFT2, CMD and RESPONSE have not been seen on the air. They are tested
+against frames built from the reference layouts.
 
 ---
 

@@ -1,9 +1,11 @@
 """Decoding the Kepler sensor's frames.
 
-The ALIVE frames are the ones sensor 5C1712 sent on 2026-09-27, received by the
-S2-LP kit. The other types have not been seen on the air yet, so they are built
-here from the reference firmware's layouts - which checks the decoder against
-the table it was written from, not against a sensor.
+The ALIVE, VERSION, CONFIG and TWF frames are ones sensor 5C1712 sent on
+2026-09-27, received by the S2-LP kit: VERSION after ``ECURESET HARD``, CONFIG
+in the cycle that follows a reset, TWF after ``WR TRIGGER``. The other types
+have not been seen on the air yet, so they are built here from the reference
+firmware's layouts - which checks the decoder against the table it was written
+from, not against a sensor.
 
 Traces to: S2LP-FR-070, SWE4-UT-S2LPKEPLER.
 """
@@ -25,6 +27,26 @@ ALIVE_REPEATS = [
     "5c171203060c04031300f47f018400008a0056005a00db0051007f02ed0233025c0005",
     "5c171203060c04032300f47f018400008a0056005a00db0051007f02ed0233025c0004",
     "5c171203060c04033300f47f018400008a0056005a00db0051007f02ed0233025c0004",
+]
+
+
+#: Received from sensor 5C1712 after ECURESET HARD.
+VERSION_FRAME = (
+    "5c171203060c040213626339373837345631312e30302e303030300000000000000000000000"
+    "0000000000000000000000000000000000000000000000000000000000000000000000000000"
+    "047f0301060001")
+
+#: Received from sensor 5C1712: CONFIG mux 4, the post-reset cycle.
+CONFIG_FRAME = "5c171203060c0405001304002d0190000102580000"
+
+#: Received from sensor 5C1712 after WR TRIGGER: TWF packets 0 and 1 of 256.
+TWF_FRAMES = [
+    "5c171203060c0404001301077f0001640000000100000f00910054005dfe39fd98fce701cd01"
+    "9e005aff15fd57012400000094fd0efc8801f4fd5bffd1001afb71ff98fe55ffb201a2fc7dff"
+    "6afd25fc5afe2afc87ff96fcd7fe1cfcfe00099df401750b",
+    "5c171203060c0404001301067f0021640000010100001100890046009a0029fdf900a7ff7800"
+    "6afbf4fe480082007efd9efcb3fd3a01ad01480144ff58fbb9fcf1fdd8fe0400a1fd51feb2fd"
+    "ed008401580185fe1ffe50028701b5fff800099df401750b",
 ]
 
 
@@ -67,6 +89,56 @@ class TestAFrameFromTheAir:
 
     def test_a_current_frame_has_no_warnings(self):
         assert "warnings" not in decode_kepler_frame(bytes.fromhex(ALIVE_REPEATS[0]))
+
+
+class TestOtherFramesFromTheAir:
+    def test_version_after_a_reset(self):
+        decoded = decode_kepler_frame(bytes.fromhex(VERSION_FRAME))
+        assert decoded["type"] == "VERSION"
+        assert (decoded["version"], decoded["sha"]) == ("V11.00.0000", "bc97874")
+        assert decoded["reset_reason"] == 4          # RESETREAS.SREQ: a software reset
+        assert decoded["battery_loaded_mv"] == 2540
+        assert decoded["pcb_version"] == 3
+        assert decoded["temperature_c"] == 26.2
+        assert decoded["ticks"] == 1                 # just booted
+        assert "warnings" not in decoded
+
+    def test_config(self):
+        decoded = decode_kepler_frame(bytes.fromhex(CONFIG_FRAME))
+        assert decoded["type"] == "CONFIG"
+        assert decoded["permute_method"] == "distance"
+        assert decoded["frame"] == {"repeat": 0, "frames_per_packet": 3}
+        assert decoded["mux"] == 4
+        assert decoded["values"] == [45, 400, 1, 600, 0]
+
+    def test_twf_packets_count_up(self):
+        first, second = (decode_kepler_frame(bytes.fromhex(h)) for h in TWF_FRAMES)
+        assert (first["packet_number"], second["packet_number"]) == (0, 1)
+        assert first["packet_count"] == second["packet_count"] == 256
+        assert (first["ticks"], second["ticks"]) == (15, 17)
+
+    def test_twf_param_steps_the_si_type(self):
+        """The SI figures at bytes 23-27 change meaning with PARAM's SI type;
+        on the air it stepped 0, 1, 2, ... from packet to packet."""
+        types = [decode_kepler_frame(bytes.fromhex(h))["param"]["si_type"] for h in TWF_FRAMES]
+        assert types == [0, 1]
+
+    def test_twf_si_acceleration_agrees_with_alive(self):
+        """SI type 0 is acceleration. Packet 0 carried 145, 84, 93; an ALIVE
+        frame a minute later reported RMS acceleration 147, 87, 95. Offsets
+        23-27 read the same quantity the ALIVE frame does."""
+        assert decode_kepler_frame(bytes.fromhex(TWF_FRAMES[0]))["si"] == [145, 84, 93]
+
+    def test_twf_fields(self):
+        decoded = decode_kepler_frame(bytes.fromhex(TWF_FRAMES[0]))
+        assert decoded["permute_method"] == "distance"
+        assert decoded["param"]["permute"] == 0
+        assert decoded["temperature_c"] == 26.3 and decoded["battery_mv"] == 2540
+        assert decoded["freq_code"] == 25600
+        assert decoded["time_taken_us"] == 630260
+        assert decoded["group_id"] == 1
+        assert len(decoded["samples"]) == 32
+        assert "warnings" not in decoded
 
 
 class TestLayoutsFromTheReference:
