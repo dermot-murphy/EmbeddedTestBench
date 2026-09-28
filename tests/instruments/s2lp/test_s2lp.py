@@ -491,7 +491,7 @@ KEPLER_ALIVE = bytes.fromhex(
 class TestStream:
     def test_each_frame_carries_the_registers_read_after_it(self, linked, loopback):
         loopback.queue_packet(PAYLOAD, rssi_dbm=-80.0, pqi=33, sqi=17)
-        packet = next(linked.stream(count=1))
+        packet = next(linked.stream(count=1, mode="polled"))
         assert packet.registers["LINK_QUALIF2"] == 33
         assert packet.extra["pqi"] == 33 and packet.extra["sqi"] == 17
         assert packet.rssi_dbm == -80.0
@@ -500,7 +500,7 @@ class TestStream:
         """ST's receive ends on data-ready when asked for 0xFFFF bytes."""
         loopback.queue_packet(b"\x01" * 35)
         loopback.queue_packet(b"\x02" * 83)
-        lengths = [packet.length for packet in linked.stream(count=2)]
+        lengths = [packet.length for packet in linked.stream(count=2, mode="polled")]
         assert lengths == [35, 83]
         assert "S2LPGetNBytes 65535" in loopback.command_log
 
@@ -526,7 +526,7 @@ class TestStream:
         path = str(tmp_path / "frames.jsonl")
         linked.start_packet_log(path)
         loopback.queue_packet(KEPLER_ALIVE, pqi=40)
-        list(linked.stream(count=1, decoder=decode_kepler_frame))
+        list(linked.stream(count=1, decoder=decode_kepler_frame, mode="polled"))
         record = PacketLog.read(path)[0]
         assert record["hex"] == KEPLER_ALIVE.hex()
         assert record["decoded"]["type"] == "ALIVE"
@@ -550,9 +550,83 @@ class TestStream:
 
     def test_the_registers_to_read_can_be_chosen(self, linked, loopback):
         loopback.queue_packet(PAYLOAD)
-        packet = next(linked.stream(registers=("RSSI_LEVEL",), count=1))
+        packet = next(linked.stream(registers=("RSSI_LEVEL",), count=1, mode="polled"))
         assert list(packet.registers) == ["RSSI_LEVEL"]
         assert "pqi" not in packet.extra
+
+
+class TestBatchStream:
+    """The default: ST's receive loop, as ST's GUI starts it (#87)."""
+
+    def test_it_is_the_default_and_starts_the_loop_once(self, linked, loopback):
+        for index in range(3):
+            loopback.queue_packet(bytes([index]) * 3)
+        packets = list(linked.stream(count=3))
+        assert [packet.data[0] for packet in packets] == [0, 1, 2]
+        assert loopback.command_log.count("S2LPGetNBytesBatch 0 3") == 1
+        assert "S2LPGetNBytes 65535" not in loopback.command_log
+
+    def test_receiving_is_set_up_as_st_s_gui_does(self, linked, loopback):
+        """Read from the kit while the GUI received: infinite RX timeout,
+        low-power receive off. Once per session."""
+        loopback.queue_packet(PAYLOAD)
+        loopback.queue_packet(PAYLOAD)
+        list(linked.stream(count=1))
+        list(linked.stream(count=1))
+        assert loopback.command_log.count("S2LPTimerSetRxTimeoutUs 0") == 1
+        assert loopback.command_log.count("S2LPGetBatchLP 0") == 1
+        assert linked.read_register("TIMERS5") == 0
+
+    def test_the_board_re_arms_before_printing(self, linked, loopback):
+        loopback.queue_packet(PAYLOAD)
+        list(linked.stream(count=1))
+        assert "S2LPGetNBytesReportAll 1" in loopback.command_log
+
+    def test_without_a_count_it_runs_until_stopped(self, linked, loopback):
+        loopback.queue_packet(PAYLOAD)
+        assert len(list(linked.stream(timeout=0.3))) == 1
+        assert "S2LPGetNBytesBatch 0 4294967295" in loopback.command_log
+        assert loopback.stopped
+        assert linked.payload_length == len(PAYLOAD)
+
+    def test_frames_carry_the_firmware_s_fields_and_no_registers(self, linked, loopback):
+        loopback.queue_packet(KEPLER_ALIVE, rssi_dbm=-90.0)
+        packet = next(linked.stream(count=1, decoder=decode_kepler_frame))
+        assert packet.rssi_dbm == -90.0
+        assert packet.extra["packet_len"] == len(KEPLER_ALIVE) + 1
+        assert packet.registers == {}
+        assert packet.decoded["type"] == "ALIVE"
+
+    def test_registers_are_refused_in_batch_mode(self, linked):
+        with pytest.raises(ConfigurationError, match="polled"):
+            linked.stream(registers=("RSSI_LEVEL",))
+
+    def test_an_unknown_mode_is_refused(self, linked):
+        with pytest.raises(ConfigurationError, match="batch, polled"):
+            linked.stream(mode="interrupt")
+
+    def test_a_caller_that_stops_iterating_stops_the_board(self, linked, loopback):
+        loopback.queue_packet(PAYLOAD)
+        loopback.queue_packet(PAYLOAD)
+        frames = linked.stream()
+        next(frames)
+        frames.close()
+        assert loopback.stopped
+        assert linked.payload_length == len(PAYLOAD)
+
+    def test_until_ends_it(self, linked, loopback):
+        calls = []
+
+        def until():
+            calls.append(1)
+            return len(calls) > 3
+
+        assert not list(linked.stream(until=until))
+        assert loopback.stopped
+
+    def test_rejections_are_yielded(self, linked, loopback):
+        loopback.queue_packet(PAYLOAD, error=2)
+        assert next(linked.stream(count=1)).error == 2
 
 
 class TestBoardClock:

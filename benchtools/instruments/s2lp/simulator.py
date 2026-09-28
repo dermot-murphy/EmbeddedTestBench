@@ -503,12 +503,17 @@ class SimulatedS2lp:
         register = self.registers.get(0x2E, 0)
         return self._value("S2LPGetPktFrmt", "%02X" % ((register >> 6) & 0x03))
 
-    def _cmd_s2lptimersetrxtimeoutus(self, _arguments: List[str]) -> str:
+    def _cmd_s2lptimersetrxtimeoutus(self, arguments: List[str]) -> str:
+        if self._number(arguments[0]) == 0:
+            self.registers[0x46] = 0         # SET_INFINITE_RX_TIMEOUT: TIMERS5 = 0
         return self._call("S2LPTimerSetRxTimeoutUs")
 
     def _cmd_s2lptimergetrxtimeout(self, _arguments: List[str]) -> str:
         return self._call("S2LPTimerGetRxTimeout",
                           "{period:00000030}{counter:01}{prescaler:00}")
+
+    def _cmd_s2lpgetbatchlp(self, _arguments: List[str]) -> str:
+        return self._call("S2LPGetBatchLP")
 
     def _cmd_s2lpirq(self, arguments: List[str]) -> str:
         mask = self._irq_mask()

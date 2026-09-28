@@ -246,6 +246,7 @@ COMMANDS: Dict[str, str] = {
     "S2LPGetNBytesBatch": "ww",
     "S2LPGetNBytesReportAll": "u",
     "S2LPTimerSetRxTimeoutUs": "w",
+    "S2LPGetBatchLP": "u",
     "S2LPTimerGetRxTimeout": "",
     "S2LPIrq": "wu",
     "S2LPIrqGetStatus": "",

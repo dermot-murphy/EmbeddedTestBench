@@ -227,6 +227,15 @@ class TestStreaming:
         assert status == 1
         assert '"frames": 0' in stderr
 
+    def test_the_mode_defaults_to_batch(self):
+        assert build_parser().parse_args(["stream"]).mode == "batch"
+
+    def test_registers_need_the_polled_mode(self, capsys):
+        status, _, stderr = run(capsys, *SIM, "stream", "--registers", "RSSI_LEVEL",
+                                "--timeout", "0.2")
+        assert status == 1
+        assert "polled" in stderr
+
     def test_the_parser_offers_the_kepler_decoder(self):
         args = build_parser().parse_args(["stream", "--decode", "kepler", "--count", "2"])
         assert (args.decode, args.count) == ("kepler", 2)
