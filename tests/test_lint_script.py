@@ -3,6 +3,8 @@
 A finding is keyed by file and rule. pylint reports paths with the host's
 separator and the baseline records forward slashes, so on Windows every
 baselined finding used to count as new (#81).
+
+Traces to: SWE4-UT-LINT.
 """
 
 from __future__ import annotations
