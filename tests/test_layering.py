@@ -260,20 +260,29 @@ def _is_standard_library(name):
 
 
 def _lives_in_the_standard_library(origin):
-    """Is this file inside the standard library directory?"""
+    """Is this file inside one of the standard library's directories?
+
+    Not only ``stdlib``: extension modules live in ``platstdlib``, which on
+    Windows is not under ``Lib`` at all but in ``DLLs`` beside it. ``select``
+    is ``DLLs/select.pyd`` there, and checking ``Lib`` alone called it
+    third-party (#79).
+    """
     import os
     import sysconfig
 
-    stdlib = sysconfig.get_paths().get("stdlib")
-    if not stdlib:
-        return False
+    paths = sysconfig.get_paths()
+    roots = {paths.get("stdlib"), paths.get("platstdlib"),
+             os.path.join(sys.base_prefix, "DLLs")}
     origin = os.path.realpath(origin)
-    stdlib = os.path.realpath(stdlib)
-    # site-packages sits under the stdlib directory on some layouts, and what
-    # is installed there is exactly what this test is looking for.
-    if origin.startswith(os.path.join(stdlib, "site-packages") + os.sep):
-        return False
-    return origin.startswith(stdlib + os.sep)
+    for root in filter(None, roots):
+        root = os.path.realpath(root)
+        # site-packages sits under the stdlib directory on some layouts, and
+        # what is installed there is exactly what this test is looking for.
+        if origin.startswith(os.path.join(root, "site-packages") + os.sep):
+            return False
+        if origin.startswith(root + os.sep):
+            return True
+    return False
 
 
 def test_standard_library_detection_without_stdlib_module_names(monkeypatch):
