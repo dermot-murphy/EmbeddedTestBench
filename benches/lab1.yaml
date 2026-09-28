@@ -72,9 +72,9 @@ instruments:
 
   # ST S2-LP development kit, running ST's own CLI firmware (the firmware the
   # S2-LP DK GUI drives). Nothing of ours runs on the board, so there is nothing
-  # to flash before a session. The firmware does not report which board it is
-  # on, so name it here to have frequencies checked against the board's band;
-  # without it only the S2-LP synthesiser's own range is checked.
+  # to flash before a session. The driver reads the board's band from its
+  # EEPROM at connection (#80); naming the board here as well makes a mismatch
+  # fail at connect.
   s2lp:
     driver: s2lp
     resource: /dev/ttyACM1        # COM4 on the Windows bench PC
