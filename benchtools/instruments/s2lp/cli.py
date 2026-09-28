@@ -62,6 +62,7 @@ def _cmd_info(radio: S2lpDevkit, args) -> int:
             "silicon_version": "0x%02X" % radio.silicon_version,
             "xtal_hz": radio.xtal_hz,
             "band_hz": list(radio.band) if radio.band else None,
+            "eeprom": radio.eeprom.as_dict() if radio.eeprom else None,
             "radio": radio.radio_info(),
             "log": radio.log_path,
             "packet_log": radio.packet_log_path,

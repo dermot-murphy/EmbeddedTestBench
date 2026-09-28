@@ -70,7 +70,7 @@ not declare.
 | 5.3 | INST | `benchtools.instruments` | 5 |
 | 5.4 | JLINK | `benchtools.instruments.jlink` | 10 |
 | 5.5 | BLE | `benchtools.instruments.nordic_dongle` and `firmware/nordic_dongle` | 20 |
-| 5.6 | S2LP | `benchtools.instruments.s2lp` | 12 |
+| 5.6 | S2LP | `benchtools.instruments.s2lp` | 13 |
 | 5.7 | PSU | `benchtools.instruments.gpd3303d` | 4 |
 | 5.8 | RUN | `benchtools.runner` | 8 |
 | | **Total** | | **74** |
@@ -1467,6 +1467,20 @@ caller stops iterating (the batch generator's `finally`). With a count, the
 loop's closing reply is read before the last frame is handed over, so a caller
 that stops there leaves nothing running. An `until` callable ends a stream
 from another thread, by cancelling the wait in the session (`ReadCancelled`).
+
+#### S2LP-DD-EEPROM — `eeprom.py`
+
+The RF board's identification EEPROM (#80), read through ST's
+`EepromReadPage`, which its CLI's `help` hides. Page 0 holds, per ST's
+middleware: byte 0 programmed (not 0x00/0xFF), byte 1 the crystal code, byte
+3 the band code (0 169, 1 315, 2 433, 3 868, 4 915, 5 450 MHz). The bench kit
+reads `03 04 09 02 ...`: a 50 MHz crystal and the 433 MHz band.
+
+In S2LP-DD-S2LP, `_read_identity` reads page 0 at connection (a read; nothing
+is configured). `band` is the named board's range, or else the EEPROM's; a
+named board whose range differs from the EEPROM's band is refused with a
+`ConfigurationError`, so a bench file naming the wrong board fails at connect
+rather than tuning into a filter that does not pass it.
 
 #### S2LP-DD-PREAMBLE — `preamble.py`
 
