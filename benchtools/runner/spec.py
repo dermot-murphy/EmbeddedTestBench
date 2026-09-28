@@ -40,7 +40,21 @@ JSON is accepted with the same structure, so a specification can be written and
 loaded with no third-party package. YAML needs ``pyyaml``, which is an optional
 extra.
 
-Traces to: RUN-FR-010 .. RUN-FR-016, RUN-DD-SPEC.
+A ``parameters`` block names the values a reader may want to change -
+a tolerance, a count - once, at the top, and ``{param: <name>}`` stands for
+one anywhere below: an argument, a bound, a tolerance::
+
+    parameters:
+      tolerance_c: 5.0
+    tests:
+      - name: Within tolerance
+        steps:
+          - do: probe.rtt_samples
+            expect:
+              - {name: mean, measure: mean, equals: {from: ble.mean},
+                 tolerance: {param: tolerance_c}}
+
+Traces to: RUN-FR-010 .. RUN-FR-016, RUN-FR-058, RUN-DD-SPEC.
 """
 
 from __future__ import annotations
@@ -105,6 +119,43 @@ def _optional_number(value, what: str) -> Optional[float]:
         return float(value)
     except (TypeError, ValueError) as exc:
         raise SpecError("%s has a non-numeric tolerance %r" % (what, value)) from exc
+
+
+def _is_parameter(value) -> bool:
+    return isinstance(value, dict) and "param" in value and set(value) <= {"param", "format"}
+
+
+def substitute_parameters(data, parameters: Dict[str, Any]):
+    """*data* with every ``{param: <name>}`` replaced by that parameter's value,
+    or with ``{param: <name>, format: "WR X {}"}`` by the value rendered into
+    that text, for a command that carries it.
+
+    Done on the raw mapping, before anything is parsed, so a parameter can
+    stand anywhere a literal could and is checked by the same rules.
+
+    :raises SpecError: naming the parameter and those defined, for a name the
+        ``parameters`` block does not define.
+    """
+    if _is_parameter(data):
+        name = str(data["param"])
+        if name not in parameters:
+            raise SpecError(
+                "{param: %s} names no parameter; the parameters block defines %s"
+                % (name, ", ".join(sorted(parameters)) or "none"))
+        value = parameters[name]
+        if "format" in data:
+            try:
+                return str(data["format"]).format(value)
+            except (IndexError, KeyError, ValueError) as exc:
+                raise SpecError(
+                    "{param: %s} has a format %r that cannot take %r: %s"
+                    % (name, data["format"], value, exc)) from exc
+        return value
+    if isinstance(data, dict):
+        return {key: substitute_parameters(value, parameters) for key, value in data.items()}
+    if isinstance(data, list):
+        return [substitute_parameters(item, parameters) for item in data]
+    return data
 
 
 def _require_sequence(value, what: str) -> list:
@@ -363,10 +414,23 @@ class TestSpec:
     teardown: Sequence[Step] = ()
     instrument_drivers: Dict[str, str] = field(default_factory=dict)
     source: str = ""
+    #: The values the ``parameters`` block set, as used; for the record.
+    parameters: Dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def from_mapping(cls, data, source: str = "") -> "TestSpec":
         data = _require_mapping(data, "specification")
+        parameters = data.get("parameters", {}) or {}
+        if not isinstance(parameters, dict):
+            raise SpecError(
+                "'parameters' must be a mapping of name to value, got %s"
+                % type(parameters).__name__)
+        for key, value in parameters.items():
+            if isinstance(value, (dict, list)):
+                raise SpecError("parameter %r must be a single value, got %r" % (key, value))
+        parameters = {str(key): value for key, value in parameters.items()}
+        data = substitute_parameters(
+            {key: value for key, value in data.items() if key != "parameters"}, parameters)
         name = data.get("name")
         if not name:
             raise SpecError("specification has no name")
@@ -400,6 +464,7 @@ class TestSpec:
             ),
             tests=tuple(TestCase.from_mapping(item, i) for i, item in enumerate(tests)),
             source=source,
+            parameters=parameters,
         )
 
     @property

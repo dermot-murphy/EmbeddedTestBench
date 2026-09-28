@@ -198,6 +198,27 @@ by watchdog and logged "Fatal error"; it has not recurred and is not explained
 with a non-halting RTT reader such as `JLinkRTTLogger` after using the driver
 on it.
 
+### 4.2 Reading RTT without stopping the target (issue #95)
+
+Verified on 5C1712 (nRF52840, s140, J-Link OB V8, GDB Server V9.42), 2026-09-28,
+with a BLE link to the sensor open throughout:
+
+| Set-up | Core | RTT | BLE link |
+|---|---|---|---|
+| GDB Server with `-nohalt`, no GDB client | running | served on the RTT port | stayed up |
+| The same, then GDB `target extended-remote` | **halted** (PC unchanged over 6 s) | silent | **dropped** |
+
+`-nohalt` stops the *server* halting the core; GDB's attach halts it anyway.
+After the detach the SoftDevice logged `<error> app: Fatal error` and the sensor
+stopped advertising until `nrfjprog --reset`.
+
+So a test that reads a Nordic target's log while it talks to it over BLE uses
+`connect(attach=False)`, which starts the server with `-nohalt` and never
+attaches, or declares its probe as driver `jlink-rtt`, which always does. Only
+RTT works on such a link; anything else needs the attach. A bench file offers
+both as separate aliases (`benches/lab1.yaml`: `probe` and `rtt`), on separate
+ports, since only one can hold the J-Link at a time.
+
 ## 5. What this driver does not do
 
 | Not supported | Reason |

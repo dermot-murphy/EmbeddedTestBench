@@ -28,6 +28,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
+from ...analysis.samples import SampleSet, extract_number
 from ...core.errors import (
     BenchToolsError,
     ConfigurationError,
@@ -295,6 +296,9 @@ class JLinkProbe(Instrument):
         #: Server halts the core on attach and does not resume it on detach, so
         #: without a resume every read or verify leaves the target stopped.
         self.leave_halted = False
+        #: Attach to the target when the link opens. ``False`` is RTT only;
+        #: see :meth:`connect`.
+        self.attach_on_open = True
 
     # ------------------------------------------------------------------
     # Construction
@@ -318,6 +322,7 @@ class JLinkProbe(Instrument):
         auto_check_errors: bool = True,
         initialise: bool = True,
         start_server: bool = True,
+        attach: bool = True,
         **_ignored,
     ) -> "JLinkProbe":
         """Open a link to a target through a J-Link.
@@ -338,6 +343,14 @@ class JLinkProbe(Instrument):
         :param core_clock_hz: Core clock, for converting cycles to time. Defaults
             to the value in *limits*.
         :param start_server: Spawn a local GDB Server if none is listening.
+        :param attach: ``False`` reads RTT and nothing else, without ever
+            stopping the target: the GDB Server is started with ``-nohalt`` and
+            GDB never attaches. A GDB attach halts the core even with
+            ``-nohalt``, and a Nordic SoftDevice halted during a BLE link drops
+            the link and then faults (seen on 5C1712, #95), so a test that
+            talks to the target over BLE while reading its log needs this.
+            Anything but RTT needs the attach, and fails with GDB's own
+            "no target" error.
         """
         text = (resource or "sim://").strip()
         if core_clock_hz is not None:
@@ -365,6 +378,7 @@ class JLinkProbe(Instrument):
                 rtt_port=rtt_port,
                 serial_number=serial_number,
                 executable=server_executable,
+                extra_arguments=None if attach else ["-nohalt"],
             )
             if start_server:
                 server.start()
@@ -392,6 +406,7 @@ class JLinkProbe(Instrument):
             target_address=address,
             auto_check_errors=auto_check_errors,
         )
+        probe.attach_on_open = bool(attach)
         try:
             if initialise:
                 probe.initialise()
@@ -474,9 +489,10 @@ class JLinkProbe(Instrument):
 
         if self._elf:
             self.load_symbols(self._elf)
-        if self._target_address and self._target_address != "simulated":
-            self.attach()
-        elif self._target_address == "simulated":
+        if not self.attach_on_open:
+            _LOG.info("RTT only: not attaching, so the target is never halted")
+            self._halted = False
+        elif self._target_address:
             self.attach()
 
     # ------------------------------------------------------------------
@@ -1317,7 +1333,10 @@ class JLinkProbe(Instrument):
         # J-Link GDB Server V9.42 answers "Target does not support this
         # command": it finds the RTT control block itself and serves channel 0
         # on its RTT port unasked (issue #69). Older servers want the command.
-        self._session.execute_console("monitor rtt start", allow_error=True, timeout=10.0)
+        # Without an attach there is no target to send it to, and V9.42 does
+        # not need it (#95).
+        if self._attached:
+            self._session.execute_console("monitor rtt start", allow_error=True, timeout=10.0)
         self.rtt.start(log_path=log_path)
 
     def rtt_stop(self) -> None:
@@ -1336,6 +1355,41 @@ class JLinkProbe(Instrument):
     def rtt_expect(self, pattern: str, timeout: float = 5.0):
         """Wait for an RTT line matching *pattern* and return the match."""
         return self.rtt.expect(pattern, timeout=timeout)
+
+    def rtt_samples(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+        self,
+        pattern: str,
+        count: int = 5,
+        timeout: float = 30.0,
+        scale: float = 1.0,
+        unit: str = "",
+        name: str = "",
+    ) -> SampleSet:
+        """Take a number from each of the next *count* RTT lines that match.
+
+        Only lines that arrive after the call count: a line already waiting
+        was logged before the test asked, and would be yesterday's reading.
+
+        :param pattern: Regular expression whose first group is the number,
+            e.g. ``MCU Temperature:\\s*(-?[0-9]+)mC``.
+        :param timeout: Seconds to wait for all *count*. Fewer is returned
+            rather than raised, with ``count`` saying how many came: a target
+            that went quiet is a failed test, not a broken bench.
+        :param scale: Multiplies each number, e.g. ``0.001`` for mC to degrees C.
+
+        Traces to: JLINK-FR-102.
+        """
+        samples = SampleSet(name=name or pattern, unit=unit, requested=int(count))
+        self.rtt.read_lines()
+        started = time.monotonic()
+        while samples.count < samples.requested and time.monotonic() - started < timeout:
+            for line in self.rtt.read_lines():
+                value = extract_number(line, pattern)
+                if value is not None and samples.count < samples.requested:
+                    samples.add(value * float(scale), source=line.strip(),
+                                at=time.monotonic() - started)
+            time.sleep(0.05)
+        return samples
 
     def rtt_lines_within(self, timeout: float = 2.0) -> int:
         """Count the RTT lines the target emits within *timeout* seconds.
@@ -1617,3 +1671,22 @@ class JLinkProbe(Instrument):
             return stream.collect(port=port, count=repeat * 2, timeout=timeout)
         finally:
             stream.close()
+
+
+class JLinkRttReader(JLinkProbe):
+    """A J-Link that reads RTT and never stops the target.
+
+    :meth:`JLinkProbe.connect` with ``attach=False``, always. A specification
+    that talks to the target over BLE while it reads the target's log declares
+    its probe as ``jlink-rtt``; a bench that offers an ordinary ``jlink`` is
+    then refused before anything connects, rather than trusted to have set
+    the option - an attach halts a SoftDevice mid-link, and 5C1712 faulted
+    after it (#95).
+
+    Traces to: JLINK-FR-101.
+    """
+
+    @classmethod
+    def connect(cls, *args, **kwargs) -> "JLinkProbe":
+        kwargs["attach"] = False
+        return super().connect(*args, **kwargs)

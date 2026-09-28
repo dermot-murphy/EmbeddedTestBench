@@ -477,6 +477,57 @@ specification itself.
 off the part, finds that board over the air by it, and compares what the board
 reports with what was flashed onto it.
 
+### 3.7 Parameters: values named once, at the top
+
+The values a reader is most likely to want to change - a tolerance, how many
+readings, which sensor - belong where they can be found, not scattered through
+the steps. A `parameters` block names them, and `{param: <name>}` stands for one
+anywhere below: an argument, a bound, a tolerance.
+
+```yaml
+parameters:
+  readings: 5
+  mcu_vs_machine_c: 5.0
+  alive_period_s: 10
+
+setup:
+  - do: dongle.command
+    with:
+      request: {param: alive_period_s, format: "WR ALIVE-PERIOD {}"}   # -> "WR ALIVE-PERIOD 10"
+
+tests:
+  - name: The MCU temperature agrees with the machine temperature
+    steps:
+      - do: rtt.rtt_samples
+        with: {pattern: 'MCU Temperature:\s*(-?\d+)mC', count: {param: readings}, scale: 0.001}
+        expect:
+          - name: mcu_highest_from_machine
+            measure: maximum
+            equals: {from: ble.mean}
+            tolerance: {param: mcu_vs_machine_c}
+```
+
+`format` renders the value into text, for a command that carries it. A name the
+block does not define is refused, and the message lists those it does. The
+values a run used are in its JSON record and at the top of its report, so a
+result can always be read against the limits that produced it.
+`specs/kepler_temperature.yaml` is the worked example.
+
+### 3.8 Repeated readings
+
+`dongle.sample_command`, `probe.rtt_samples` and `s2lp.kepler_samples` each take
+N readings of one quantity - a reply, a log line, a decoded frame field - and
+return them with their statistics. A limit then applies to the set:
+
+| `measure` | Meaning |
+|---|---|
+| `count` | readings taken; compare with how many were asked for, since a quiet source returns fewer rather than raising |
+| `minimum`, `maximum`, `mean` | as named |
+| `spread` | highest less lowest: how far the readings moved |
+
+Bounding `minimum` and `maximum` against another source's `mean` puts every
+reading inside the window, not just their average.
+
 ---
 
 ## 4. Limits
@@ -594,6 +645,7 @@ wins.
 |---|---|---|
 | `read_variable`, `read_word`, `read_u8`, `variable_address`, `evaluate` | a scalar | *(omit `measure`)* |
 | `read_integer` | a scalar, `size` bytes in the `byteorder` given | *(omit `measure`)* — for a record whose width and byte order are its own, not the core's |
+| `rtt_samples` | `SampleSet` | `count`, `minimum`, `maximum`, `mean`, `spread` (§3.8) |
 | `measure_time_between` | `TimingResult` | `microseconds`, `milliseconds`, `cycles`, `spread`, `standard_deviation`, `minimum`, `maximum`, `count`, `is_trustworthy`, `halts_target`, `resolution_seconds` |
 | `flash` | `FlashResult` | `bytes_written`, `verify.matched`, `seconds`, `sections` |
 | `verify` | `VerifyResult` | `matched`, `mismatched`, `sections` |
