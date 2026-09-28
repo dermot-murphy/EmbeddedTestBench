@@ -65,7 +65,7 @@ not declare.
 
 | # | Element | Package | Design units |
 |---|---|---|---|
-| 5.1 | CORE | `benchtools.core` | 15 |
+| 5.1 | CORE | `benchtools.core` | 16 |
 | 5.2 | ANA | `benchtools.analysis` | 4 |
 | 5.3 | INST | `benchtools.instruments` | 5 |
 | 5.4 | JLINK | `benchtools.instruments.jlink` | 10 |
@@ -367,6 +367,22 @@ base, which records the header in the event queue exactly as an instrument does 
 so a driver that misspells a command fails a test rather than passing silently.
 The base class is concrete and usable on its own, which is what makes a bare
 `sim://` resource meaningful.
+
+#### CORE-DD-EVENTS — `events.py`
+
+One event log for a run, followed live by the Test Bench monitor (#82). Every
+driver already reports its I/O and the runner its steps through `logging`;
+`EventLogHandler` writes each `benchtools` record as one JSON object per line -
+host time, source, level, logger, text - flushed per record. `source_of`
+decides the source from the logger name (`gpd3303d` is `psu`, `nordic_dongle`
+`ble`, `jlink` `jlink`, `s2lp` `rf`, the runner `test`, anything else `bench`).
+`start_event_log` attaches it, and first pins any console handler to the root
+level, so lowering the package's level for the log does not flood the console.
+`EventTail` follows a growing log, leaving a partial last line for the next
+read. So that each instrument is identifiable, `ScpiInstrument` logs its I/O
+under the instrument's own module (`_io_log`), the BLE session logs each line,
+and RTT logs each line; the runner logs each test's result. `benchtools run
+--event-log PATH` writes the log for a run.
 
 ---
 

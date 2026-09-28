@@ -355,6 +355,8 @@ class BenchRunner:
                 _LOG.info("running test %r", case.name)
                 record = self.run_case(case)
                 run.cases.append(record)
+                _LOG.info("test %r: %s%s", case.name, record.status.value,
+                          (" - " + record.error) if record.error else "")
                 if record.status is Status.ERROR and self.stop_on_error:
                     _LOG.warning("stopping after an error in %r", case.name)
                     break

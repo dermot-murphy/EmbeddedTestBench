@@ -112,6 +112,7 @@ It is checked mechanically by `tests/test_traceability.py` on every run of the s
 | CORE-FR-031 | ARC-005 | CORE-DD-VALIDATE | `core/validation.py` | `TestValidateRange` (6), `TestValidateChannels` (6), `TestValidateChoice` (2) |
 | CORE-FR-040 | ARC-004 | CORE-DD-SIM | `core/simulator.py` | `TestBaseSimulator` (12), `TestSubclassing` (3) |
 | CORE-FR-050 | ARC-004 | CORE-DD-FIRMWARE | `FirmwareBuild.from_path`, `load`, `built_at`; the `hint` each caller supplies | `TestReading` (6), `TestDiagnostics` (4), `TestBuildDates` (3), `test_a_missing_manifest_says_how_to_produce_one` |
+| CORE-FR-060 | ARC-004 | CORE-DD-EVENTS | `EventLogHandler`, `start_event_log`, `EventTail`, `source_of`; `benchtools run --event-log`; `ScpiInstrument._io_log` | `SWE4-UT-EVENTS` (17) |
 | CORE-FR-041 | ARC-004 | CORE-DD-SIM | `_unknown_command` | `test_unknown_header_is_recorded_not_ignored`, `test_unknown_query_still_answers` |
 
 ### CORE non-functional

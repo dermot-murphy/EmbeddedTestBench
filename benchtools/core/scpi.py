@@ -193,17 +193,26 @@ class ScpiInstrument(Instrument):
     # ------------------------------------------------------------------
     # Primitive I/O
     # ------------------------------------------------------------------
+    @property
+    def _io_log(self) -> logging.Logger:
+        """The logger this instrument's I/O is recorded under: its own module's.
+
+        So a line sent to a supply is logged as the supply's, not as the shared
+        SCPI layer's, and an event log can say which instrument it came from.
+        """
+        return logging.getLogger(type(self).__module__)
+
     def _write(self, command: str) -> None:
         """Send *command*, expecting no response."""
-        _LOG.debug(">> %s", command)
+        self._io_log.debug(">> %s", command)
         self._transport.write(command.encode("ascii"))
 
     def _query(self, command: str) -> str:
         """Send *command* and return the response with whitespace stripped."""
-        _LOG.debug(">> %s", command)
+        self._io_log.debug(">> %s", command)
         self._transport.write(command.encode("ascii"))
         response = self._transport.read_message().decode("ascii", errors="replace").strip()
-        _LOG.debug("<< %s", response)
+        self._io_log.debug("<< %s", response)
         return response
 
     def _query_float(self, command: str) -> float:
