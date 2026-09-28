@@ -346,6 +346,7 @@ where the firmware implements the requirement.
 | S2LP-FR-031 | S2LP-ARC-001 | S2LP-DD-S2LP | `configure_radio` returns `radio_info()` | `test_configure_returns_what_the_radio_says_afterwards` |
 | S2LP-FR-032 | S2LP-ARC-001 | S2LP-DD-S2LP, -CONST | `_check_frequency`, `BOARDS`, `SYNTH_BANDS` | `test_a_frequency_outside_the_board_s_band_is_refused` (3), `test_a_frequency_no_s2lp_can_tune_is_refused` (3) |
 | S2LP-FR-033 | S2LP-ARC-001 | S2LP-DD-S2LP | `_post_open`, `_read_identity`, `board`, `band` | `test_connecting_configures_nothing`, `test_the_board_is_not_invented`, `test_a_named_board_brings_its_band`, `test_the_band_comes_from_the_named_board` |
+| S2LP-FR-035 | S2LP-ARC-001 | S2LP-DD-EEPROM, -S2LP | `eeprom.py`, `_read_eeprom`, `_check_board_against_eeprom`, `band` | `SWE4-UT-S2LPEEPROM` (13) |
 | S2LP-FR-034 | S2LP-ARC-001 | S2LP-DD-S2LP | `rssi_dbm_from_register` | `TestRssiConversion` (3), `test_the_rssi_is_encoded_as_the_register_encodes_it` |
 | S2LP-FR-040 | S2LP-ARC-001 | S2LP-DD-TRAFFIC, -PACKETS | `transmit`, `transmit_batch` | `TestTransmit` (5) |
 | S2LP-FR-041 | S2LP-ARC-001 | S2LP-DD-TRAFFIC, -PACKETS | `receive`, `Packet` | `TestReceive` (4), notably `test_nothing_on_the_air_returns_none_not_an_empty_packet` |

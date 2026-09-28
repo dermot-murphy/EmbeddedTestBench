@@ -102,9 +102,18 @@ class SimulatedS2lp:
     S2LP_VERSION = 0xC1
     XTAL_HZ = 49_999_561
 
-    def __init__(self, board: str = DEFAULT_BOARD, loopback: bool = False) -> None:
+    #: Page 0 of the bench kit's EEPROM, read on 2026-09-28: programmed, a
+    #: 50 MHz crystal, the 433 MHz band.
+    KIT_433_EEPROM = bytes.fromhex(
+        "030409020200000001680000461900ffffffffc232322dffffffffffffffff00")
+
+    def __init__(self, board: str = DEFAULT_BOARD, loopback: bool = False,
+                 eeprom: bytes = b"") -> None:
         self.board = board
         self.loopback = bool(loopback)
+        #: The board's EEPROM, 32 bytes a page. Blank (all 0xFF) unless given,
+        #: which is how ST's middleware sees a board it cannot identify.
+        self.eeprom = bytearray(eeprom) + bytearray(b"\xff" * max(0, 256 - len(eeprom)))
         self.command_log: List[str] = []
         self.registers: Dict[int, int] = {}
         self.transmitted: List[bytes] = []
@@ -401,6 +410,16 @@ class SimulatedS2lp:
 
     def _cmd_sdkevalledhandler(self, _arguments: List[str]) -> str:
         return self._timer("SdkEvalLedHandler")
+
+    def _cmd_eepromreadpage(self, arguments: List[str]) -> str:
+        page, offset, count = (self._number(a) for a in arguments[:3])
+        count = min(count, 32 - offset)
+        start = page * 32 + offset
+        data = self.eeprom[start:start + count]
+        return "{{(EepromReadPage)} API callback...\r\n{Data: %s}}\r\n" % _list(data)
+
+    def _cmd_eepromstatus(self, _arguments: List[str]) -> str:
+        return self._call("EepromStatus", " {value:80}")
 
     def _cmd_cligettimer(self, _arguments: List[str]) -> str:
         return self._timer("CliGetTimer")

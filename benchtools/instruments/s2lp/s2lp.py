@@ -34,7 +34,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 from ...core.errors import ConfigurationError, InstrumentError, ProtocolError
 from ...core.instrument import Instrument, InstrumentIdentity
@@ -61,6 +61,7 @@ from .constants import (
     Strobe,
     SYNTH_BANDS,
 )
+from .eeprom import BoardEeprom, parse_page0
 from .packets import (
     BoardClock,
     Packet,
@@ -119,8 +120,9 @@ class S2lpDevkit(TrafficMixin, Instrument):
         self._session = S2lpSession(transport, timeout=timeout)
         self._board = board
         #: What identification read: ST's library version text, the radio's
-        #: version byte and the crystal frequency in hertz.
-        self._versions: Tuple[str, int, int] = ("", 0, 0)
+        #: version byte, the crystal frequency in hertz, and the board EEPROM.
+        self._facts: Dict[str, Any] = {"library": "", "silicon": 0, "xtal_hz": 0,
+                                       "eeprom": None}
         self._clock = BoardClock()
         self._packet_log: Optional[PacketLog] = None
         self._payload_length = 0
@@ -200,10 +202,11 @@ class S2lpDevkit(TrafficMixin, Instrument):
         self.identify()
 
     def _read_identity(self) -> InstrumentIdentity:
-        """Identify the firmware, the radio and its crystal - but not the board.
+        """Identify the firmware, the radio, its crystal and the board's band.
 
         ``SdkEvalRfboardIdentification`` sets up the firmware's crystal
-        detection, and answers with no tags: it never says which board it found.
+        detection, and answers with no tags. The band comes from the board's
+        EEPROM instead (#80), and a board named by the caller must agree with it.
         """
         self._session.execute("SdkEvalRfboardIdentification", DEFAULT_XTAL_HZ)
         xtal_hz = self._session.execute("S2LPRadioGetXtalFrequency").hex_number("value")
@@ -212,7 +215,9 @@ class S2lpDevkit(TrafficMixin, Instrument):
         library_text = "%d.%d.%d" % ((library >> 16) & 0xFF, (library >> 8) & 0xFF,
                                      library & 0xFF)
         silicon = self._session.execute("S2LPGetVersion").hex_number("value")
-        self._versions = (library_text, silicon & 0xFF, xtal_hz)
+        self._facts.update(library=library_text, silicon=silicon & 0xFF, xtal_hz=xtal_hz,
+                           eeprom=self._read_eeprom())
+        self._check_board_against_eeprom()
         if (silicon >> 8) & 0xFF != 0x03:
             raise InstrumentError(
                 "the radio reports part number 0x%02X; an S2-LP is 0x03"
@@ -226,7 +231,7 @@ class S2lpDevkit(TrafficMixin, Instrument):
             _LOG.debug("the board did not report a motherboard version")
 
         raw = "%s,%s,S2-LP 0x%02X,library %s,board %s,XTAL %d Hz" % (
-            MANUFACTURER, self._board or MODEL, self._versions[1], self._versions[0],
+            MANUFACTURER, self._board or MODEL, self._facts["silicon"], self._facts["library"],
             firmware or "?", xtal_hz)
         return InstrumentIdentity(
             raw=raw,
@@ -235,6 +240,29 @@ class S2lpDevkit(TrafficMixin, Instrument):
             serial_number="",
             firmware=firmware,
         )
+
+    def _read_eeprom(self) -> Optional[BoardEeprom]:
+        """Page 0 of the board's EEPROM, or ``None`` where it cannot be read."""
+        try:
+            reply = self._session.execute("EepromReadPage", 0, 0, 32)
+        except (ProtocolError, InstrumentError):         # a build without the command
+            _LOG.debug("the board's EEPROM could not be read")
+            return None
+        return parse_page0(reply.numbers("Data"))
+
+    def _check_board_against_eeprom(self) -> None:
+        eeprom = self._facts["eeprom"]
+        if self._board and eeprom is not None and not eeprom.matches(self._board):
+            raise ConfigurationError(
+                "%s is a %.0f to %.0f MHz board, but this kit's EEPROM says it was "
+                "built for %.0f MHz. Name the board that is attached, or none."
+                % (self._board, BOARDS[self._board][0] / 1e6, BOARDS[self._board][1] / 1e6,
+                   eeprom.band_hz / 1e6))
+
+    @property
+    def eeprom(self) -> Optional[BoardEeprom]:
+        """What the board's EEPROM said at connection, or ``None``."""
+        return self._facts["eeprom"]
 
     def reset(self, settle: float = 0.2) -> None:
         """Reset the radio's digital section (the ``SRES`` strobe).
@@ -286,23 +314,29 @@ class S2lpDevkit(TrafficMixin, Instrument):
 
     @property
     def band(self) -> Optional[Tuple[int, int]]:
-        """The board's usable frequency range in hertz, or ``None`` if unknown."""
-        return BOARDS.get(self._board) if self._board else None
+        """The board's usable frequency range in hertz, or ``None`` if unknown.
+
+        From the board the caller named, or else from the board's EEPROM.
+        """
+        if self._board:
+            return BOARDS.get(self._board)
+        eeprom = self._facts["eeprom"]
+        return eeprom.band_range_hz if eeprom is not None else None
 
     @property
     def xtal_hz(self) -> int:
         """The crystal frequency the firmware uses, in hertz."""
-        return self._versions[2]
+        return self._facts["xtal_hz"]
 
     @property
     def library_version(self) -> str:
         """ST's S2-LP library version in the firmware, e.g. ``"1.3.5"``."""
-        return self._versions[0]
+        return self._facts["library"]
 
     @property
     def silicon_version(self) -> int:
         """The radio's DEVICE_INFO0 version byte, e.g. ``0xC1``."""
-        return self._versions[1]
+        return self._facts["silicon"]
 
     @property
     def log_path(self) -> Optional[str]:

@@ -254,4 +254,8 @@ COMMANDS: Dict[str, str] = {
     "S2LPGpioInit": "uuu",
     "S2MGpioIrqConfiguration": "uu",
     "S2MGpioGetValue": "u",
+    # The RF board's identification EEPROM. Hidden from ST's help, present in
+    # its command table (SDK_CLI_commands.h).
+    "EepromStatus": "",
+    "EepromReadPage": "vuu",
 }

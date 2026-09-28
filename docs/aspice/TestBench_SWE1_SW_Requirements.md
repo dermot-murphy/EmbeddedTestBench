@@ -611,6 +611,7 @@ timestamp. And the radio will accept a frequency the board cannot radiate.
 | S2LP-FR-031 | A configuration operation shall report what the radio says it is set to afterwards, not what it was asked for. | STK-19 | Test |
 | S2LP-FR-032 | A frequency outside the band the attached board is built for shall be refused, because the radio would accept it and transmit into a filter and matching network that do not pass it. | STK-19 | Test |
 | S2LP-FR-033 | The firmware, the radio and its crystal shall be identified at connection. The board, which the firmware does not report, shall be taken from the caller and never assumed; without it only the synthesiser's range is checked. Connecting shall change no radio setting. | STK-19 | Test |
+| S2LP-FR-035 | The board's band shall be read from the RF board's identification EEPROM at connection, read-only. It shall bound frequency settings when the caller names no board, and a named board whose band disagrees with the EEPROM shall be refused. A blank or unreadable EEPROM shall leave the band unknown. | STK-19 | Test |
 | S2LP-FR-034 | Signal strength shall be reported in dBm, converted by the device's documented scale. | STK-19 | Test |
 
 ### 13.4 Transmitting, receiving and logging

@@ -547,9 +547,21 @@ timing. For timing at that level, the J-Link driver's four methods
 ### 4.3 A frequency the board cannot radiate is accepted by the radio
 
 The S2-LP will tune anywhere in its range and report exactly what it was told,
-while the board's filter and matching network pass only its own band. **The
-firmware does not say which board it is on** (`SdkEvalRfboardIdentification`
-answers with no tags), so the driver takes the board from the caller:
+while the board's filter and matching network pass only its own band.
+`SdkEvalRfboardIdentification` answers with no tags, but **the board's
+identification EEPROM names its band** (#80). ST's firmware reads it with
+`EepromReadPage`, which its `help` hides. The driver reads page 0 at
+connection:
+
+| Byte | Bench kit | Meaning (ST's middleware) |
+|---|---|---|
+| 0 | 0x03 | programmed (0x00 or 0xFF would mean blank) |
+| 1 | 0x04 | 50 MHz crystal |
+| 3 | 0x02 | 433 MHz band (0 169, 1 315, 2 433, 3 868, 4 915, 5 450) |
+
+With no board named, the band comes from the EEPROM. A named board that
+disagrees is refused at connection. A blank or unreadable EEPROM leaves the
+band unknown. A named board:
 
 ```python
 radio = S2lpDevkit.connect("COM4", board="STEVAL-FKI915V1")
@@ -558,9 +570,9 @@ radio.set_frequency(868_000_000)
 # is built for (902.0 to 928.0 MHz). ...
 ```
 
-Without a board, only the synthesiser's own ranges (413–527 and 826–958 MHz)
-are checked. The driver used to report `STEVAL-FKI915V1` for any kit that did
-not say otherwise, which none does.
+With neither a named board nor a readable EEPROM, only the synthesiser's own
+ranges (413-527 and 826-958 MHz) are checked. The driver used to report
+`STEVAL-FKI915V1` for any kit that did not say otherwise (#76).
 
 ### 4.4 Sending and receiving need three things set up first
 
@@ -659,7 +671,7 @@ one. This matters for what may be kept here:
 | S2LP-OPEN-04 | **`S2LPGetNBytesBatch`'s first argument** | Open. ST's source uses it as a reference timer in ms, with 0 meaning none; the driver passes 0. Needs traffic to confirm |
 | S2LP-OPEN-05 | The **link budget in practice**: RSSI against a known transmitter, and the smallest re-arm gap | Partly closed, #77. The Kepler sensor on the bench arrives at −94.5 dBm, and ST's batch loop caught three repeats 33 ms apart. A register read takes 14–17 ms, which bounds a polled stream's gap from below. The gap of a polled stream has not been measured against a known sequence |
 | S2LP-OPEN-07 | **PQI reads 0** | **Closed**, 2026-09-28. PQI is computed only while the PQI check is enabled: with QI.PQI_TH = 0 (the reset value) LINK_QUALIF2 read 0 on every frame; with PQI_TH = 1 it read 30-255. See "Measuring the preamble" in §3.6 |
-| S2LP-OPEN-06 | **Which board this kit is** | **Closed**, 2026-09-27: the 433 MHz board (STEVAL-FKI433V2), from its label. Recorded in `benches/lab1.yaml`. Reading it from the board is #80 |
+| S2LP-OPEN-06 | **Which board this kit is** | **Closed**, 2026-09-27/28: the 433 MHz board (STEVAL-FKI433V2), from its label and now from its EEPROM (#80): the driver reads it at connection |
 
 ---
 
