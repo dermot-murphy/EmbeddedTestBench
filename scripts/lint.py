@@ -19,7 +19,7 @@ import collections
 import json
 import subprocess
 import sys
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 ROOT = Path(__file__).resolve().parent.parent
 BASELINE = ROOT / ".pylint-baseline.json"
@@ -83,8 +83,17 @@ def key_of(message):
     arbitrary third file as its location, and reports different pairs
     depending on the order files are walked in. It is disabled in
     pyproject.toml for that reason rather than keyed around.
+
+    The path is written with forward slashes whatever the platform. pylint
+    reports the host's separator, and the baseline records forward slashes,
+    so on Windows every baselined finding used to count as new (#81).
     """
-    return (message["path"], message["symbol"])
+    return (posix_path(message["path"]), message["symbol"])
+
+
+def posix_path(path):
+    """*path* with forward slashes, as the baseline records it."""
+    return PureWindowsPath(path).as_posix()
 
 
 def tally(messages):
@@ -101,7 +110,7 @@ def load_baseline():
         return collections.Counter()
     recorded = json.loads(BASELINE.read_text())
     return collections.Counter(
-        {(entry["path"], entry["symbol"]): entry["count"]
+        {(posix_path(entry["path"]), entry["symbol"]): entry["count"]
          for entry in recorded["findings"]}
     )
 
