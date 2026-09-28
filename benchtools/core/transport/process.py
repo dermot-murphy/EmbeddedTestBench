@@ -49,6 +49,9 @@ class ProcessTransport(Transport):
         ``process://`` resource string.
     :param timeout: Default I/O timeout in seconds.
     :param terminator: Line terminator; the default suits line-oriented tools.
+        With the default, a line ending in CR LF is returned without the CR:
+        a child on Windows writing text ends its lines that way, and a message
+        of ``b"done\\r"`` is not the ``b"done"`` it sent (#79).
     :param cwd: Working directory for the child.
     :param env: Extra environment variables for the child.
     :param ready_timeout: Seconds to allow for the process to still be alive
@@ -114,6 +117,13 @@ class ProcessTransport(Transport):
         return self._returncode
 
     # ------------------------------------------------------------------
+    def read_message(self, strip_terminator: bool = True) -> bytes:
+        """Read one line; with the default LF terminator, CR LF counts as one too."""
+        message = super().read_message(strip_terminator=strip_terminator)
+        if strip_terminator and self._read_terminator == b"\n" and message.endswith(b"\r"):
+            message = message[:-1]
+        return message
+
     def _open_link(self) -> None:
         environment = None
         if self._env:
