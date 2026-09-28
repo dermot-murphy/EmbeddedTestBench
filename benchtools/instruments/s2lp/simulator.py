@@ -179,7 +179,10 @@ class SimulatedS2lp:
             return None
         self.inbound.pop(0)
         arrival = self._arrivals.pop(0)
-        self.registers[_PQI] = arrival.pqi & 0xFF
+        # PQI is computed only while the PQI check is on (QI.PQI_TH > 0);
+        # with it off the register reads 0, as seen on the kit (#89).
+        pqi_check_on = (self.registers.get(0x37, 0) >> 1) & 0x0F
+        self.registers[_PQI] = (arrival.pqi & 0xFF) if pqi_check_on else 0
         self.registers[_SQI] = arrival.sqi & 0x7F
         self.registers[_RSSI_LEVEL] = _rssi_byte(arrival.rssi_dbm)
         self.registers[_RX_LEN1] = (len(arrival.data) >> 8) & 0xFF

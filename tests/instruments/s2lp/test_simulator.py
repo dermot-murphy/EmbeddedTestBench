@@ -139,6 +139,7 @@ class TestTheAir:
         assert "{error:02}" in reply and "bytes" not in reply
 
     def test_a_reception_sets_the_link_quality_registers(self, routed):
+        ask(routed, "SdkEvalSpiWriteRegisters 0x37 {03}")      # PQI check on
         routed.queue_packet(b"\x07", rssi_dbm=-40.0, pqi=33, sqi=17)
         ask(routed, "S2LPGetNBytes 1")
         assert "0x9F,0x21,0xA0,0x11,0xA1,0x00,0xA2,0xD4" in ask(
@@ -187,6 +188,20 @@ class TestTheAir:
         assert "{{" not in ask(routed, "S2LPGetNBytes 1")
 
 
+
+
+class TestPqi:
+    def test_pqi_reads_zero_while_the_pqi_check_is_off(self, routed):
+        """QI.PQI_TH is 0 out of reset, and then PQI is not computed (#89)."""
+        routed.queue_packet(b"\x07", pqi=63)
+        ask(routed, "S2LPGetNBytes 1")
+        assert "0x9F,0x00" in ask(routed, "SdkEvalSpiReadRegisters 0x9F 1")
+
+    def test_pqi_is_reported_once_the_check_is_on(self, routed):
+        ask(routed, "SdkEvalSpiWriteRegisters 0x37 {03}")
+        routed.queue_packet(b"\x07", pqi=63)
+        ask(routed, "S2LPGetNBytes 1")
+        assert "0x9F,0x3F" in ask(routed, "SdkEvalSpiReadRegisters 0x9F 1")
 
 
 class TestTheInterruptLine:

@@ -241,6 +241,21 @@ def _cmd_stream(radio: S2lpDevkit, args) -> int:
     return _EXIT_OK if frames else _EXIT_ERROR
 
 
+def _cmd_preamble(radio: S2lpDevkit, args) -> int:
+    """Measure preamble length from PQI; with --expect-pairs, check it."""
+    if args.expect_pairs is not None:
+        if not args.source:
+            print("error: --expect-pairs needs --source", file=sys.stderr)
+            return _EXIT_ERROR
+        check = radio.check_preamble(args.expect_pairs, source=args.source, count=args.count,
+                                     timeout=args.timeout, tolerance_pairs=args.tolerance)
+        _emit(check, args.json)
+        return _EXIT_OK if check["passed"] else _EXIT_ERROR
+    measured = radio.measure_preamble(source=args.source, count=args.count, timeout=args.timeout)
+    _emit({source: m.as_dict() for source, m in measured.items()}, args.json)
+    return _EXIT_OK if measured else _EXIT_ERROR
+
+
 def _cmd_strobe(radio: S2lpDevkit, args) -> int:
     radio.strobe(args.name)
     _emit({"strobe": args.name, "sent": True}, args.json)
@@ -355,6 +370,18 @@ def build_parser() -> argparse.ArgumentParser:
                              "frame (default %s)" % ",".join(FRAME_REGISTERS))
     stream.add_argument("--decode", choices=["kepler"], help="decode each payload")
     stream.set_defaults(handler=_cmd_stream)
+
+    preamble = subparsers.add_parser(
+        "preamble", help="measure transmitters' preamble length from PQI, or check one")
+    preamble.add_argument("--source", help="only this sensor, e.g. 5C1712")
+    preamble.add_argument("--expect-pairs", type=int,
+                          help="check against this preamble length in bit-pairs "
+                               "(expected PQI = 2 x pairs - 1, at most 255)")
+    preamble.add_argument("--tolerance", type=int, default=2,
+                          help="bit-pairs the best frame may fall short by (default 2)")
+    preamble.add_argument("--count", type=int, help="stop after this many frames")
+    preamble.add_argument("--timeout", type=float, default=120.0, help="seconds to listen")
+    preamble.set_defaults(handler=_cmd_preamble)
 
     strobe = subparsers.add_parser("strobe", help="send a command strobe")
     strobe.add_argument("name", choices=sorted(Strobe.BY_NAME))

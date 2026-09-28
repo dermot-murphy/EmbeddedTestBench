@@ -555,6 +555,56 @@ class TestStream:
         assert "pqi" not in packet.extra
 
 
+class TestPreamble:
+    """PQI as a test of a transmitter's preamble length (#89)."""
+
+    def test_asking_for_pqi_switches_the_pqi_check_on(self, linked, loopback):
+        loopback.queue_packet(PAYLOAD, pqi=63)
+        packet = next(linked.stream(count=1, mode="polled"))
+        assert packet.extra["pqi"] == 63
+
+    def test_the_pqi_check_is_put_back_afterwards(self, linked, loopback):
+        before = linked.read_register("QI")
+        loopback.queue_packet(PAYLOAD, pqi=63)
+        list(linked.stream(count=1, mode="polled"))
+        assert linked.read_register("QI") == before
+
+    def test_a_pqi_check_already_on_is_left_alone(self, linked, loopback):
+        linked.write_field("QI", "PQI_TH", 4)
+        loopback.queue_packet(PAYLOAD, pqi=63)
+        list(linked.stream(count=1, mode="polled"))
+        assert linked.read_field("QI", "PQI_TH") == 4
+
+    def test_without_pqi_the_check_is_not_touched(self, linked, loopback):
+        loopback.queue_packet(PAYLOAD)
+        before = len(loopback.command_log)
+        list(linked.stream(count=1, mode="polled", registers=("RSSI_LEVEL",)))
+        assert not any(line.startswith("SdkEvalSpiWriteRegisters 0x37")
+                       or line.startswith("SdkEvalSpiWriteRegisters 55")
+                       for line in loopback.command_log[before:])
+
+    def test_measure_preamble_takes_the_best_frame_per_sensor(self, linked, loopback):
+        other = KEPLER_ALIVE.replace(bytes.fromhex("5c1712"), bytes.fromhex("5c314e"), 1)
+        for pqi in (40, 63, 55):
+            loopback.queue_packet(KEPLER_ALIVE, pqi=pqi)
+        loopback.queue_packet(other, pqi=62)
+        measured = linked.measure_preamble(count=4, timeout=5.0)
+        assert measured["5C1712"].pqi == [40, 63, 55]
+        assert measured["5C1712"].max_pqi == 63
+        assert measured["5C1712"].preamble_bits == 64
+        assert measured["5C314E"].max_pqi == 62
+
+    def test_check_preamble_passes_a_matching_sensor(self, linked, loopback):
+        loopback.queue_packet(KEPLER_ALIVE, pqi=63)
+        check = linked.check_preamble(32, source="5C1712", count=1, timeout=5.0)
+        assert check["verdict"] == "pass" and check["expected_pqi"] == 63
+
+    def test_check_preamble_fails_a_longer_preamble(self, linked, loopback):
+        loopback.queue_packet(KEPLER_ALIVE, pqi=95)
+        check = linked.check_preamble(32, source="5C1712", count=1, timeout=5.0)
+        assert check["verdict"] == "fail" and "longer" in check["reason"]
+
+
 class TestBatchStream:
     """The default: ST's receive loop, as ST's GUI starts it (#87)."""
 
