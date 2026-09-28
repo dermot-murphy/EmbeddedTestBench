@@ -1445,13 +1445,28 @@ and the radio aborted before the error is raised. A batch capture switches
 report rather than after, and keeps rejected receptions (CRC, address filter)
 apart from packets.
 
-**Streaming** (`stream`) receives one frame at a time with `S2LPGetNBytes`
-asking for 0xFFFF bytes, which ST's firmware takes as "one packet, whatever its
-length", then reads the chosen registers in one command (by default 0x9E-0xA2:
-AFC correction, PQI, carrier sense with SQI, RSSI), runs the decoder, writes one
-record and yields it. The host re-arms after each frame, so the capture's gap
-accounting applies; an `until` callable ends a stream from another thread, by
-cancelling the wait in the session (`ReadCancelled`) and stopping the board.
+**Streaming** (`stream`) has two modes (#87).
+
+* **`batch`, the default.** It starts ST's receive loop once
+  (`S2LPGetNBytesBatch 0 <count or 0xFFFFFFFF>`), as ST's own GUI does, with
+  `S2LPGetNBytesReportAll` on so the board re-arms before printing each
+  report. It then decodes, records and yields each report as it arrives. No
+  host round trip falls between frames.
+* **`polled`.** It receives one frame at a time with `S2LPGetNBytes` asking for
+  0xFFFF bytes, which ST's firmware takes as "one packet, whatever its length".
+  It then reads the chosen registers in one command (by default 0x9E-0xA2:
+  AFC correction, PQI, carrier sense with SQI, RSSI). The host re-arms after
+  each frame, and gaps under about 105 ms were missed on the bench.
+
+Before the first receive of a session, `prepare_receive` sets receiving up as
+ST's GUI does - an infinite RX timeout (`S2LPTimerSetRxTimeoutUs 0`) and
+low-power receive off - read from the kit while the GUI was receiving.
+Asking for registers in batch mode is refused, because the loop cannot read
+them. Both modes stop the board however the stream ends, including when the
+caller stops iterating (the batch generator's `finally`). With a count, the
+loop's closing reply is read before the last frame is handed over, so a caller
+that stops there leaves nothing running. An `until` callable ends a stream
+from another thread, by cancelling the wait in the session (`ReadCancelled`).
 
 #### S2LP-DD-KEPLER — `kepler.py`
 

@@ -221,11 +221,11 @@ def _cmd_packets(radio: S2lpDevkit, args) -> int:
 def _cmd_stream(radio: S2lpDevkit, args) -> int:
     """Receive frames until stopped, one JSON line each, raw and decoded."""
     decoder = decode_kepler_frame if args.decode == "kepler" else None
-    registers = tuple(args.registers.split(",")) if args.registers else FRAME_REGISTERS
+    registers = tuple(args.registers.split(",")) if args.registers else None
     frames = rejected = undecoded = 0
     try:
-        for packet in radio.stream(registers=registers, decoder=decoder,
-                                   count=args.count, timeout=args.timeout):
+        for packet in radio.stream(decoder=decoder, count=args.count, timeout=args.timeout,
+                                   mode=args.mode, registers=registers):
             print(json.dumps(packet.as_dict(), sort_keys=True), flush=True)
             if not packet.ok:
                 rejected += 1
@@ -346,9 +346,13 @@ def build_parser() -> argparse.ArgumentParser:
         "stream", help="receive frames until stopped: one JSON line each, with registers")
     stream.add_argument("--count", type=int, help="stop after this many frames")
     stream.add_argument("--timeout", type=float, help="stop after this many seconds")
+    stream.add_argument("--mode", choices=["batch", "polled"], default="batch",
+                        help="batch (default): ST's receive loop, as its GUI uses, which "
+                             "misses the fewest frames; polled: one receive per frame, "
+                             "with registers read after each, which misses close frames")
     stream.add_argument("--registers", metavar="NAMES",
-                        help="comma-separated registers to read after each frame "
-                             "(default %s)" % ",".join(FRAME_REGISTERS))
+                        help="polled mode: comma-separated registers to read after each "
+                             "frame (default %s)" % ",".join(FRAME_REGISTERS))
     stream.add_argument("--decode", choices=["kepler"], help="decode each payload")
     stream.set_defaults(handler=_cmd_stream)
 

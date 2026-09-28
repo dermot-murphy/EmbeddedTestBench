@@ -318,7 +318,8 @@ sensor firmware's settings:
 |---|---|---|
 | Carrier | 433.425 MHz | `api_radio_transport_cfg.h` |
 | Modulation | 2-FSK, 100 kbps, 20 kHz deviation, 150 kHz filter | same |
-| Packet | basic; 32 bit-pairs of preamble (`S2LPPktBasicInit` argument 32); 32-bit sync `0xB19C0CA7`; variable length, one byte; one address byte; CRC-16 poly 0x8005 | same, and `api_radio_mac.c` |
+| Packet | basic; 32 bit-pairs of preamble (`S2LPPktBasicInit` argument 32); variable length, one byte; one address byte; CRC-16 poly 0x8005 | same, and `api_radio_mac.c` |
+| Sync | 32 bits, both directions: primary `0x4E63F358` (gateway to sensor) in SYNC3..0, secondary `0xB19C0CA7` (sensor to gateway) in PCKT_FLT_GOALS3..0, with PCKTCTRL1.SECOND_SYNC_SEL set. This is the S2-LP DK GUI setup rf_monitor captures with (#87) | the sensor switches between them (`api_radio_mac.c`) |
 
 ```python
 from benchtools.instruments.s2lp import S2lpDevkit
@@ -328,19 +329,31 @@ with S2lpDevkit.connect("COM4", board="STEVAL-FKI433V2",
                         packet_log="kepler.jsonl") as radio:
     radio.apply_configuration("configs/s2lp_kepler_433_rx.regs", reset="defaults")
     for frame in radio.stream(decoder=decode_kepler_frame, timeout=900):
-        print(frame)            # RX  35 bytes  -94.5 dBm  PQI 0 SQI 32  ALIVE  5c1712... (as seen)
+        print(frame)            # RX  35 bytes  -94.5 dBm  ALIVE  5c1712...
 ```
 
 ```bash
 python -m benchtools s2lp -r COM4 --board STEVAL-FKI433V2 --setup configs/s2lp_kepler_433_rx.regs stream --decode kepler --timeout 900 > frames.jsonl
 ```
 
-`stream()` receives one frame at a time and reads registers straight after
-each one: AFC correction, PQI, carrier sense with SQI, and RSSI by default, or
-any set given with `registers=`. ST's firmware does not report PQI or SQI, so
-reading them afterwards is the only way to get them. The cost is that the radio
-is deaf while it is re-armed (§4.1). Each record in the packet log carries the
-raw payload, the registers, the firmware's fields and the decode together.
+`stream()` has two modes (#87):
+
+* **`mode="batch"`, the default.** It uses ST's own receive loop, started once,
+  as ST's GUI does, so it misses the fewest frames. Each frame carries RSSI,
+  AGC word, CRC, addresses, sequence number and length.
+* **`mode="polled"`.** It receives one frame at a time and reads registers
+  straight after each: AFC correction, PQI, carrier sense with SQI, and RSSI by
+  default, or any set given with `registers=`. ST's firmware does not report
+  PQI or SQI, so this is the only way to get them. The cost is that the radio
+  is deaf while the host re-arms it (§4.1), and close repeats are lost.
+
+```bash
+python -m benchtools s2lp ... stream --decode kepler                          # batch
+python -m benchtools s2lp ... stream --decode kepler --mode polled --registers LINK_QUALIF2,RSSI_LEVEL
+```
+
+Each record in the packet log carries the raw payload, the registers (polled
+mode), the firmware's fields and the decode together.
 
 **What the kit received on 2026-09-27.** Sensor 5C1712 sent ALIVE frames, each
 packet three times (frame count repeat 0, 1 and 2), 33 ms and 130 ms apart, at
@@ -353,7 +366,9 @@ Two points from the reference firmware were settled on the air:
   byte and reports it separately.
 * The address byte the sensor sends is **0xA7**. The reference project's own
   documents disagreed about this; it is the low byte of the secondary sync word
-  sitting in PCKT_FLT_GOALS3.
+  sitting in PCKT_FLT_GOALS3. The GUI setup rf_monitor uses writes the
+  secondary sync word to 0x42-0x45, which settles the reference project's
+  question of whether it lives at 0x41-0x44 or 0x42-0x45.
 
 **The polled stream's gap costs frames.** An 11-minute `stream` on the same
 day received 5C1712's packet as all three repeats, 190 ms and 170 ms apart. For
@@ -369,6 +384,29 @@ three of 5C314E's repeats earlier the same day. So:
 
 5C314E reports RF_CAP 4 (V10 firmware). Its ALIVE frames decode, with a warning
 that the layouts are for RF_CAP 6.
+
+**Measuring the preamble (2026-09-28).** PQI (LINK_QUALIF2) tracks how much
+preamble the receiver saw. It must be switched on first: with QI.PQI_TH = 0,
+the reset value, it reads 0. The measurements, in polled mode with PQI_TH = 1:
+
+| Sensor | `RD PREAMBLE-LENGTH` | Preamble on the air | PQI after each frame |
+|---|---|---|---|
+| 5C1712 | 32 pairs (default) | 64 bits | 30-63, mostly 63 |
+| 5C1712 | 128 pairs (`WR PREAMBLE-LENGTH 128`, then `ECURESET HARD`) | 256 bits | 220-255, mostly 255 |
+| 5C314E, in the same run | 32 pairs | 64 bits | 46, 63 |
+
+PQI rose with the preamble and stopped at 63 for 64 bits and at 255 (the
+register's full scale) for 256 bits. It therefore distinguishes preamble
+lengths up to about 127 pairs; longer ones read 255. Readings below the
+maximum are frames whose preamble was caught part-way, for example straight
+after a polled re-arm. PQI is read per frame, so it needs `mode="polled"`.
+5C1712 was set back to 32 pairs afterwards and read back as 32; PQI returned to
+63.
+
+(The sensor's preamble setting is in bit-pairs, stored in NVM, and applied
+only when the radio initialises, so it needs `ECURESET HARD`.)
+
+SQI read 32 with a single sync word and 96 with the dual-sync setup.
 
 **Frame types seen on the air (#85)**, all from 5C1712 on 2026-09-27, all
 decoded without error:
@@ -420,8 +458,28 @@ is the board printing its report (the GUI does not enable
 | `stream()` | the host, once per frame | report, a 14-17 ms register read, a new command | 58 of 66; shortest gap received 108 ms |
 
 The losses come from `stream()` choosing per-frame PQI/SQI over the firmware
-loop, not from the decoding. #87 bases `stream()` on the loop by default, and
+loop, not from the decoding.
+
+**After #87 (2026-09-28).** A 15-minute default (`batch`) stream, with 5C1712
+sending TWF every 45 s after `WR TRIGGER`, received **63 of 63 repeats**: all 21
+packets were complete (12 TWF, 7 CONFIG, and an ALIVE from each sensor), with
+nothing rejected or undecoded. The polled stream had received 58 of 66. #87 bases `stream()` on the loop by default, and
 #84 would give both through interrupt-driven firmware.
+
+**The GUI's setup compared with the driver's** (its `.dat` file and the
+manual steps in the reference project's setup guide, plus the commands read
+from RAM):
+
+| Setting | GUI | Driver |
+|---|---|---|
+| RF (433.425 MHz, 2-FSK, 100 kbps, 19.979 kHz deviation, 156.153 kHz filter) | same | same |
+| Packet (sync `0xB19C0CA7`, CRC-16 0x8005, variable length, address byte, no FEC or whitening) | same | same |
+| Preamble | 32 bits | PREAMBLE_LEN 32, the sensor firmware's value; this only matters when transmitting |
+| RX timeout | infinite (`S2LPTimerSetRxTimeoutUs 0`) | **now the same**, set by `prepare_receive()` on the first receive (#87). Out of reset TIMERS5 is 1, a finite timer |
+| Low-power receive | `S2LPGetBatchLP 0` | now the same |
+| nIRQ on GPIO3 | GPIO_MODE 3 (high power) | GPIO_MODE 2 (low power); drive strength only |
+| IRQ mask | RX ready, RX discarded | those, plus TX sent, CRC error, valid sync, RX timeout |
+| Sync words | primary `0x4E63F358` from `st_eval/Spirit_GUI_Configuration.dat`, secondary `0xB19C0CA7` written by hand to 0x42-0x45, with SECOND_SYNC_SEL | **now the same** in `configs/s2lp_kepler_433_rx.regs`; before #87 it held `0xB19C0CA7` only and did not hear the gateway |
 
 The GUI's setup also confirms two things this driver found independently:
 nIRQ goes on GPIO3 with the register's own GPIO_MODE encoding, and the board's
@@ -586,7 +644,7 @@ one. This matters for what may be kept here:
 | S2LP-OPEN-03 | Whether `SdkEvalRfboardIdentification` reports the **board name** | **Closed: it does not.** It answers with no tags. The board is now the caller's to name (`board=`, `--board`), and no default is assumed |
 | S2LP-OPEN-04 | **`S2LPGetNBytesBatch`'s first argument** | Open. ST's source uses it as a reference timer in ms, with 0 meaning none; the driver passes 0. Needs traffic to confirm |
 | S2LP-OPEN-05 | The **link budget in practice**: RSSI against a known transmitter, and the smallest re-arm gap | Partly closed, #77. The Kepler sensor on the bench arrives at −94.5 dBm, and ST's batch loop caught three repeats 33 ms apart. A register read takes 14–17 ms, which bounds a polled stream's gap from below. The gap of a polled stream has not been measured against a known sequence |
-| S2LP-OPEN-07 | **PQI reads 0.** On 2026-09-27 a polled stream read LINK_QUALIF2 = 0 after each of three frames from 5C1712. The same frames gave SQI 32 (a full 32-bit sync match), RSSI_LEVEL 103 (-94.5 dBm) and AFC_CORR -12. It is not established whether PQI must be enabled or thresholded (QI register), or is not held after the packet the way RSSI is | Open. Check the datasheet's PQI definition, then read the QI register and PQI with a known preamble from the kit's own transmitter |
+| S2LP-OPEN-07 | **PQI reads 0** | **Closed**, 2026-09-28. PQI is computed only while the PQI check is enabled: with QI.PQI_TH = 0 (the reset value) LINK_QUALIF2 read 0 on every frame; with PQI_TH = 1 it read 30-255. See "Measuring the preamble" in §3.6 |
 | S2LP-OPEN-06 | **Which board this kit is** | **Closed**, 2026-09-27: the 433 MHz board (STEVAL-FKI433V2), from its label. Recorded in `benches/lab1.yaml`. Reading it from the board is #80 |
 
 ---

@@ -374,8 +374,10 @@ class TestTheShippedConfiguration:
 
     def test_the_kepler_receive_file_holds_the_sensor_s_settings(self, radio):
         """Captured from the kit; checked here against the sensor firmware's
-        values: sync 0xB19C0CA7 stored least significant byte first, variable
-        length, one address byte, CRC-16 0x8005, TX source the FIFO."""
+        values and the S2-LP DK GUI setup rf_monitor uses: primary sync
+        0x4E63F358 and secondary 0xB19C0CA7, each least significant byte first,
+        with SECOND_SYNC_SEL on; variable length, one address byte, CRC-16
+        0x8005, TX source the FIFO."""
         import pathlib
 
         root = pathlib.Path(__file__).resolve().parents[3]
@@ -383,9 +385,11 @@ class TestTheShippedConfiguration:
         values = load_register_file(path).as_map()
         by_name = {reg.BY_ADDRESS[address].name: value for address, value in values.items()}
         assert [by_name[name] for name in ("SYNC3", "SYNC2", "SYNC1", "SYNC0")] == [
+            0x58, 0xF3, 0x63, 0x4E]
+        assert [by_name["PCKT_FLT_GOALS%d" % index] for index in (3, 2, 1, 0)] == [
             0xA7, 0x0C, 0x9C, 0xB1]
         assert by_name["PCKTCTRL2"] & 0x01 == 1          # variable length
         assert by_name["PCKTCTRL4"] == 0x08              # one address byte
-        assert by_name["PCKTCTRL1"] == 0x40              # CRC-16 0x8005, TXSOURCE 0
+        assert by_name["PCKTCTRL1"] == 0x42              # CRC-16 0x8005, dual sync, TXSOURCE 0
         radio.apply_configuration(path, reset="defaults")
         assert radio.read_field("PCKTCTRL1", "TXSOURCE") == 0

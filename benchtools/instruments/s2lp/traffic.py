@@ -42,6 +42,12 @@ FRAME_REGISTERS = ("AFC_CORR", "LINK_QUALIF2", "LINK_QUALIF1", "RSSI_LEVEL")
 #: receive takes the packet-by-packet path, ending on data-ready, for 0xFFFF.
 ANY_LENGTH = 0xFFFF
 
+#: ``S2LPGetNBytesBatch`` count for "until stopped", as ST's GUI sends it.
+BATCH_FOREVER = 0xFFFFFFFF
+
+#: A wait with no timeout, in seconds: a year.
+FOREVER_S = 365 * 86400.0
+
 #: The S2-LP GPIO the board takes its interrupt from. GPIO3 worked on a
 #: NUCLEO-L053R8 kit on 2026-09-27. GPIO0 did not, but the radio was stuck in
 #: TX at the time, so whether GPIO0 is wired is not established.
@@ -69,6 +75,7 @@ class TrafficMixin:
     """Transmit, receive and capture. See the module docstring."""
 
     _traffic_ready = False
+    _receive_ready = False
 
     def prepare_traffic(self, gpio: int = IRQ_GPIO) -> None:
         """Route the radio's interrupt to the board, so traffic can complete.
@@ -112,6 +119,24 @@ class TrafficMixin:
     def _ready_for_traffic(self) -> None:
         if not self._traffic_ready:
             self.prepare_traffic()
+
+    def prepare_receive(self) -> None:
+        """Set up receiving the way ST's S2-LP DK GUI does before it listens.
+
+        Read from the kit while the GUI was receiving (#87): it makes the RX
+        timeout infinite (``S2LPTimerSetRxTimeoutUs 0``, which ST's firmware
+        implements as ``SET_INFINITE_RX_TIMEOUT``) and turns the low-power
+        receive off (``S2LPGetBatchLP 0``). Out of reset TIMERS5 is 1, a finite
+        RX timer. Done once per session, on the first receive.
+        """
+        self._ready_for_traffic()
+        self._session.execute("S2LPTimerSetRxTimeoutUs", 0)
+        self._session.execute("S2LPGetBatchLP", 0)
+        self._receive_ready = True
+
+    def _ready_for_receive(self) -> None:
+        if not self._receive_ready:
+            self.prepare_receive()
 
     def transmit(self, data: Union[bytes, str], note: str = "",
                  timeout: Optional[float] = None) -> Packet:
@@ -203,7 +228,7 @@ class TrafficMixin:
             was heard *while listening*, not that the air was quiet.
         """
         wanted = int(length or self._payload_length or self.payload_length)
-        self._ready_for_traffic()
+        self._ready_for_receive()
         self._session.send("S2LPGetNBytes", wanted)
         try:
             reply = self._session.read_reply(
@@ -221,46 +246,154 @@ class TrafficMixin:
         self._record(packet)
         return packet if packet.ok else None
 
+    #: How :meth:`stream` can receive.
+    STREAM_MODES = ("batch", "polled")
+
     def stream(  # pylint: disable=too-many-arguments
         self,
-        registers: Sequence[str] = FRAME_REGISTERS,
         decoder: Optional[Callable[[bytes], Dict[str, Any]]] = None,
+        *,
         count: Optional[int] = None,
         timeout: Optional[float] = None,
         until: Optional[Callable[[], bool]] = None,
+        mode: str = "batch",
+        registers: Optional[Sequence[str]] = None,
     ) -> Iterator[Packet]:
-        """Receive frames one at a time, for as long as asked, and yield each.
+        """Receive frames for as long as asked, and yield each as it arrives.
 
-        Each frame is received on its own (``S2LPGetNBytes``, any length), then
-        *registers* are read straight after it - PQI and SQI among them by
-        default, which ST's firmware does not report - then *decoder* is run on
-        the payload, and the whole record is written to the packet log before
-        it is yielded. A rejected reception (CRC, filter) is yielded too, with
-        its error code; a payload the decoder cannot read is yielded with
-        ``decode_error`` set and its raw bytes intact.
+        Each frame is decoded with *decoder* when one is given, written to the
+        packet log, and then yielded. A rejected reception (CRC, filter) is
+        yielded too, with its error code; a payload the decoder cannot read is
+        yielded with ``decode_error`` set and its raw bytes intact. However the
+        stream ends - count, time, *until*, or the caller simply stopping
+        iterating - the board is stopped.
 
-        The radio is re-armed by the host after every frame, so it is deaf for
-        the register read and one command round trip each time (a register
-        read measured 14-17 ms on the kit). What that costs, and that the
-        stream says so, is the point of :attr:`Capture.rearm` = ``"host"``.
+        :param mode: How to receive.
 
+            * ``"batch"`` (the default) - start ST's receive loop once
+              (``S2LPGetNBytesBatch``), as ST's own GUI does, with
+              ``S2LPGetNBytesReportAll`` on so the board re-arms the radio
+              before printing each report. No host round trip falls in a gap,
+              so close repeats are caught. Each frame carries the firmware's
+              fields: RSSI, AGC word, CRC, addresses, sequence number, length.
+              Registers cannot be read per frame while the loop runs.
+            * ``"polled"`` - one ``S2LPGetNBytes`` per frame, then *registers*
+              read straight after it (by default AFC correction, PQI, SQI with
+              carrier sense, and RSSI, which the firmware does not report). The
+              radio is deaf for the register read and a command round trip
+              after every frame: on the bench, gaps under about 105 ms were
+              missed.
+        :param registers: Polled mode only: the registers to read after each
+            frame.
         :param count: Stop after this many receptions.
         :param timeout: Stop after this many seconds.
         :param until: Stop when this returns true; it is checked while waiting,
             so a stream can be ended from another thread.
+        :raises ConfigurationError: for an unknown mode, or registers asked
+            for in batch mode.
         """
+        if mode not in self.STREAM_MODES:
+            raise ConfigurationError(
+                "%r is not a stream mode; they are %s" % (mode, ", ".join(self.STREAM_MODES)))
+        if mode == "batch" and registers:
+            raise ConfigurationError(
+                "registers cannot be read per frame while ST's receive loop runs; "
+                "use mode=\"polled\" for them, at the cost of missing close frames")
+        self._ready_for_receive()
+        if mode == "batch":
+            return self._stream_batch(decoder, count, timeout, until)
+        return self._stream_polled(decoder, count, timeout, until,
+                                   FRAME_REGISTERS if registers is None else registers)
+
+    @staticmethod
+    def _remaining(started: float, timeout: Optional[float]) -> Optional[float]:
+        return None if timeout is None else timeout - (time.monotonic() - started)
+
+    def _stream_batch(self, decoder, count, timeout, until) -> Iterator[Packet]:
+        """ST's receive loop, reports read as they arrive."""
+        started = time.monotonic()
+        self._session.execute("S2LPGetNBytesReportAll", 1)
+        self._session.send("S2LPGetNBytesBatch", 0, int(count) if count else BATCH_FOREVER)
+        running = True
+        received = 0
+        try:
+            while True:
+                reply = self._next_batch_reply(started, timeout, until)
+                if reply is None:
+                    break                           # time is up, or until() said so
+                if reply.command == "S2LPGetNBytesBatch":
+                    running = False                 # the board ended the loop
+                    return
+                packet = self._frame_from(reply, decoder)
+                if packet is None:
+                    continue
+                received += 1
+                if count and received >= count:
+                    running = not self._read_loop_end()
+                yield self._record(packet)
+                if not running:
+                    return
+            # Ended by the host: stop the board, and yield what arrived meanwhile.
+            running = False
+            for packet in self._stop_and_collect(decoder):
+                yield self._record(packet)
+        finally:
+            if running:
+                # The caller stopped iterating. Stop the board; anything that
+                # arrived meanwhile still goes to the packet log.
+                for packet in self._stop_and_collect(decoder):
+                    self._record(packet)
+
+    def _next_batch_reply(self, started: float, timeout: Optional[float],
+                          until: Optional[Callable[[], bool]]):
+        """The loop's next reply, or ``None`` when the host should end it."""
+        remaining = self._remaining(started, timeout)
+        if (remaining is not None and remaining <= 0) or (until is not None and until()):
+            return None
+        try:
+            return self._session.read_reply(
+                timeout=remaining if remaining is not None else FOREVER_S,
+                command="S2LPGetNBytesBatch", cancel=until)
+        except TransportTimeoutError:
+            return None
+
+    def _read_loop_end(self) -> bool:
+        """Read the loop's closing reply after its last counted frame.
+
+        Read before that frame is handed over, so a caller that stops there
+        leaves nothing running and nothing unread.
+        """
+        try:
+            self._session.read_reply(timeout=2.0, expect="S2LPGetNBytesBatch",
+                                     command="S2LPGetNBytesBatch")
+            return True
+        except TransportTimeoutError:
+            return False
+
+    def _frame_from(self, reply, decoder) -> Optional[Packet]:
+        packet = packet_from_reply(reply, self._clock)
+        if packet is not None:
+            self._annotate(packet, [], decoder)
+        return packet
+
+    def _stop_and_collect(self, decoder) -> List[Packet]:
+        """Stop the board, and turn the reports that came with the stop into frames."""
+        frames = (self._frame_from(reply, decoder) for reply in self._session.stop())
+        return [packet for packet in frames if packet is not None]
+
+    def _stream_polled(self, decoder, count, timeout, until, registers) -> Iterator[Packet]:
+        """One receive per frame, with registers read after each."""
         addresses = sorted(reg.lookup(name).address for name in registers)
         started = time.monotonic()
         received = 0
-        self._ready_for_traffic()
         while count is None or received < count:
-            remaining = None if timeout is None else timeout - (time.monotonic() - started)
+            remaining = self._remaining(started, timeout)
             if (remaining is not None and remaining <= 0) or (until is not None and until()):
                 return
             self._session.send("S2LPGetNBytes", ANY_LENGTH)
             try:
                 reply = self._session.read_reply(
-                    timeout=remaining if remaining is not None else 365 * 86400.0,
+                    timeout=remaining if remaining is not None else FOREVER_S,
                     command="S2LPGetNBytes", cancel=until)
             except TransportTimeoutError:
                 replies = self._session.stop()
@@ -329,7 +462,7 @@ class TrafficMixin:
 
     def _capture_batch(self, capture: Capture, started: float, timeout: float) -> None:
         """Let ST's batch loop receive, and read its reports as they come."""
-        self._ready_for_traffic()
+        self._ready_for_receive()
         self._session.execute("S2LPGetNBytesReportAll", 1)
         self._session.send("S2LPGetNBytesBatch", 0, capture.requested)
         finished = False

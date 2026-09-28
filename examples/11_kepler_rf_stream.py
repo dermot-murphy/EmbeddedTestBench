@@ -5,10 +5,11 @@
     python examples/11_kepler_rf_stream.py COM4 900        # a real kit, 15 minutes
 
 The kit (the 433 MHz S2-LP board) is put into the sensor's receive settings
-from ``configs/s2lp_kepler_433_rx.regs``, then frames are received one at a
-time. After each one the radio's link-quality registers are read - PQI and SQI,
-which ST's firmware does not report - and the payload is decoded. The packet
-log gets one record per frame with the raw bytes, the registers and the decode
+from ``configs/s2lp_kepler_433_rx.regs``. Frames are received by ST's own
+receive loop - the way ST's GUI receives, which misses the fewest - and each
+payload is decoded. The packet log gets one record per frame with the raw
+bytes, the firmware's fields and the decode together. For PQI and SQI per
+frame, pass ``mode="polled"`` to ``stream()``; it misses frames that come close
 together.
 
 A sensor sends each packet three times; the ``repeat`` in the decode tells them
