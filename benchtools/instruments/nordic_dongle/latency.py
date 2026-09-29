@@ -76,6 +76,20 @@ class ResponseSample:
         return self.response.decode("utf-8", errors="replace")
 
     @property
+    def value(self) -> str:
+        """What the reply reports: the text after its first ``" = "``, stripped.
+
+        ``ACK RD SHA = a8e37e892`` reports ``a8e37e892``. For comparing it with
+        the same value from elsewhere, where the rest of the reply is not
+        carried - a VERSION frame's SHA (#102). Empty when the reply has no
+        ``" = "``, such as a ``NACK``.
+
+        Traces to: BLE-FR-118.
+        """
+        _, separator, rest = self.text.partition(" = ")
+        return rest.strip() if separator else ""
+
+    @property
     def seconds(self) -> float:
         """The dongle's figure in seconds, falling back to the host's."""
         if self.dongle_us is not None:
