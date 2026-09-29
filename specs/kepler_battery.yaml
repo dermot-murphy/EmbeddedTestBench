@@ -4,7 +4,7 @@
 # Channel 2 of the GPD-3303D stands in for the battery. It is stepped down from
 # 3.3 V to 2.8 V in 100 mV steps, and at each step:
 #   * the supply's own readback confirms channel 2 is regulated, i.e. energised,
-#     in constant voltage and at the setting;
+#     in constant voltage and at the setting, and that channel 1 is still at 0 V;
 #   * RD BATTERY is read over BLE. It answers "ACK RD BATTERY = <n>mV", from a
 #     fresh at-rest ADC sample taken when the command arrives, not a cached one
 #     (app_param.c, API_PARAM_BATTERY_VOLTAGE). Every reading must be within
@@ -19,6 +19,12 @@
 # The setting is the reference, not the supply's VOUT2? readback: firmware V1.09
 # reads back to 0.1 V, too coarse for a 50 mV window. A DMM at the sensor's
 # terminals would be the better reference; this bench does not wire one there.
+#
+# Only channel 2 is connected to the sensor. Channel 1 is kept off for the whole
+# run: setup switches it off before the output is switched on, and every step
+# reads it back at 0 V. The GPD-3303D has one output switch for both channels,
+# so "off" for channel 1 means programmed to 0 V (the driver's output_off), not
+# open circuit. Teardown leaves it there.
 #
 # The firmware has no low-battery behaviour to trip on the way down (SR-083 is
 # unimplemented), and 2.8 V is far above the nRF52840's brown-out, so the sensor
@@ -42,8 +48,9 @@ description: >
 requirements: [PSU-FR-023, BLE-FR-117, S2LP-FR-072]
 
 warning: |
-  THIS TEST CHANGES THE VOLTAGE ON THE GPD-3303D'S CHANNEL 2, DOWN TO 2.8 V.
-  Channel 2 must power the sensor's battery input and nothing else, and the
+  THIS TEST CHANGES THE VOLTAGE ON THE GPD-3303D'S CHANNEL 2, DOWN TO 2.8 V,
+  AND SWITCHES THE SUPPLY'S OUTPUT ON. Channel 2 must power the sensor's
+  battery input and nothing else; channel 1 is held at 0 V throughout. The
   supply must be in INDEPENDENT tracking.
 
 # Change these here, not in the steps below.
@@ -52,6 +59,8 @@ parameters:
   sensor_id: "5C1712"
   supply_channel: 2
   supply_normal_v: 3.3                  # where channel 2 is left afterwards
+  off_channel: 1                        # not connected; held at 0 V throughout
+  off_max_v: 0.05                       # read back to 0.1 V, so it must read 0.0 V
   settle_s: 5.0                         # after each change; TC-BATT-002 waits 5 s
   ble_readings: 3                       # RD BATTERY at each step
   alive_readings: 3                     # ALIVE transmissions at each step
@@ -67,14 +76,23 @@ instruments:
   s2lp: s2lp
 
 setup:
+  # Channel 1 off first, so that switching the output on never energises it.
+  - do: psu.output_off
+    with: {channel: {param: off_channel}}
   - do: psu.set_voltage
     with: {channel: {param: supply_channel}, volts: {param: supply_normal_v}}
+  - do: psu.output_on
+    with: {channel: {param: supply_channel}}
   - do: sleep
     with: {seconds: {param: settle_s}}
   - do: psu.read_channel
     with: {channel: {param: supply_channel}}
     expect:
       - {name: supply_regulated, measure: regulated, equals: 1}
+  - do: psu.read_channel
+    with: {channel: {param: off_channel}}
+    expect:
+      - {name: channel_1_off, measure: voltage, unit: V, max: {param: off_max_v}}
   - do: s2lp.apply_configuration
     with: {source: configs/s2lp_kepler_433_rx.regs, reset: defaults}
   - do: dongle.scan
@@ -103,6 +121,10 @@ tests:
         with: {channel: {param: supply_channel}}
         expect:
           - {name: supply_regulated, measure: regulated, equals: 1}
+      - do: psu.read_channel
+        with: {channel: {param: off_channel}}
+        expect:
+          - {name: channel_1_off, measure: voltage, unit: V, max: {param: off_max_v}}
       - do: dongle.sample_command
         with:
           request: RD BATTERY
@@ -150,6 +172,10 @@ tests:
         with: {channel: {param: supply_channel}}
         expect:
           - {name: supply_regulated, measure: regulated, equals: 1}
+      - do: psu.read_channel
+        with: {channel: {param: off_channel}}
+        expect:
+          - {name: channel_1_off, measure: voltage, unit: V, max: {param: off_max_v}}
       - do: dongle.sample_command
         with:
           request: RD BATTERY
@@ -197,6 +223,10 @@ tests:
         with: {channel: {param: supply_channel}}
         expect:
           - {name: supply_regulated, measure: regulated, equals: 1}
+      - do: psu.read_channel
+        with: {channel: {param: off_channel}}
+        expect:
+          - {name: channel_1_off, measure: voltage, unit: V, max: {param: off_max_v}}
       - do: dongle.sample_command
         with:
           request: RD BATTERY
@@ -244,6 +274,10 @@ tests:
         with: {channel: {param: supply_channel}}
         expect:
           - {name: supply_regulated, measure: regulated, equals: 1}
+      - do: psu.read_channel
+        with: {channel: {param: off_channel}}
+        expect:
+          - {name: channel_1_off, measure: voltage, unit: V, max: {param: off_max_v}}
       - do: dongle.sample_command
         with:
           request: RD BATTERY
@@ -291,6 +325,10 @@ tests:
         with: {channel: {param: supply_channel}}
         expect:
           - {name: supply_regulated, measure: regulated, equals: 1}
+      - do: psu.read_channel
+        with: {channel: {param: off_channel}}
+        expect:
+          - {name: channel_1_off, measure: voltage, unit: V, max: {param: off_max_v}}
       - do: dongle.sample_command
         with:
           request: RD BATTERY
@@ -338,6 +376,10 @@ tests:
         with: {channel: {param: supply_channel}}
         expect:
           - {name: supply_regulated, measure: regulated, equals: 1}
+      - do: psu.read_channel
+        with: {channel: {param: off_channel}}
+        expect:
+          - {name: channel_1_off, measure: voltage, unit: V, max: {param: off_max_v}}
       - do: dongle.sample_command
         with:
           request: RD BATTERY
@@ -376,7 +418,7 @@ tests:
 
 teardown:
   # The supply first: the sensor should be at its normal voltage for whatever
-  # follows, even if the BLE link has gone.
+  # follows, even if the BLE link has gone. Channel 1 stays off.
   - do: psu.set_voltage
     with: {channel: {param: supply_channel}, volts: {param: supply_normal_v}}
   - do: dongle.command
