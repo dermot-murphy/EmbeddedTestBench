@@ -247,6 +247,22 @@ class TestTheInterruptLine:
     def test_a_routed_line_idles_high_at_the_board(self, routed):
         assert "{value:01}" in ask(routed, "S2MGpioGetValue 3")
 
+    def test_a_stopped_receive_leaves_the_line_asserted(self, routed):
+        """Seen on the kit (#99): after a stop IRQ_STATUS held 09607003, GPIO3
+        read low, and the next receive heard nothing."""
+        ask(routed, "S2LPGetNBytesBatch 0 5")
+        ask(routed, "S")
+        assert "{value:00}" in ask(routed, "S2MGpioGetValue 3")
+        routed.queue_packet(b"")
+        assert "{{" not in ask(routed, "S2LPGetNBytes 1")
+
+    def test_reading_the_status_clears_it_and_releases_the_line(self, routed):
+        ask(routed, "S2LPGetNBytes 1")
+        ask(routed, "S")
+        assert "{value:09607003}" in ask(routed, "S2LPIrqGetStatus")
+        assert "{value:00000000}" in ask(routed, "S2LPIrqGetStatus")
+        assert "{value:01}" in ask(routed, "S2MGpioGetValue 3")
+
     def test_the_power_on_tx_source_is_pn9_and_a_send_never_ends(self, simulator):
         simulator.route_interrupt()
         ask(simulator, "S2LPPktBasicSetPayloadLength 1")

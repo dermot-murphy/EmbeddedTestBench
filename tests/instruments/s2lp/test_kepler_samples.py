@@ -77,6 +77,18 @@ def test_too_few_frames_returns_what_came(radio, simulator):
     assert samples.count == 1 and not samples.complete
 
 
+def test_a_reading_after_a_stopped_one_still_hears_the_sensor(radio, simulator):
+    """The first reading stops the board part-way, which leaves nIRQ asserted.
+    Uncleared, every later reading heard nothing from any sensor: the bench
+    run of kepler_battery.yaml on 2026-09-29 (#99)."""
+    send(simulator, 0x84)
+    first = radio.kepler_samples("battery_mv", source="5C1712", count=1, timeout=1.5)
+    assert simulator.stopped
+    send(simulator, 0x85)
+    second = radio.kepler_samples("battery_mv", source="5C1712", count=1, timeout=1.5)
+    assert (first.count, second.count) == (1, 1)
+
+
 def test_a_field_the_frame_does_not_have_is_an_error(radio, simulator):
     send(simulator, 0x84)
     with pytest.raises(MeasurementError, match="no field 'rpm'"):

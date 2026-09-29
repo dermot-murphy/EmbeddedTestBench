@@ -111,14 +111,33 @@ class TrafficMixin:
         self._session.execute("S2LPIrq", TRAFFIC_IRQS, 1)
         self._session.execute("S2LPIrqGetStatus")          # reading clears it
         self._session.execute("S2MGpioIrqConfiguration", int(gpio), 1)
+        self._check_interrupt_line(gpio, "after routing")
+        self._traffic_ready = True
+
+    def clear_interrupt(self, gpio: int = IRQ_GPIO) -> None:
+        """Clear the radio's pending interrupts, and confirm its line is high again.
+
+        Stopping a receive part-way leaves interrupts pending in IRQ_STATUS,
+        and while they are pending nIRQ stays asserted. The next send or
+        receive then waits for an edge that never comes, and hears nothing
+        (seen on the kit, #99: IRQ_STATUS ``09607003`` after a stop). Reading
+        IRQ_STATUS clears it. Done before every send and receive after the
+        first; the first is covered by :meth:`prepare_traffic`.
+
+        :raises InstrumentError: if the line still reads low.
+        """
+        self._session.execute("S2LPIrqGetStatus")          # reading clears it
+        self._check_interrupt_line(gpio, "after clearing IRQ_STATUS")
+
+    def _check_interrupt_line(self, gpio: int, when: str) -> None:
+        """Raise unless the board reads the radio's nIRQ line high."""
         level = self._session.execute("S2MGpioGetValue", int(gpio)).hex_number("value")
         if level != 1:
             raise InstrumentError(
-                "the radio's interrupt line (GPIO%d) reads %d at the board after "
-                "routing; it should idle high. Traffic would wait forever for an "
-                "interrupt that cannot arrive." % (gpio, level)
+                "the radio's interrupt line (GPIO%d) reads %d at the board %s; "
+                "it should idle high. Traffic would wait forever for an "
+                "interrupt that cannot arrive." % (gpio, level, when)
             )
-        self._traffic_ready = True
 
     def _check_tx_source(self) -> None:
         """Refuse to send while the radio's TX source is not its FIFO."""
@@ -134,6 +153,8 @@ class TrafficMixin:
     def _ready_for_traffic(self) -> None:
         if not self._traffic_ready:
             self.prepare_traffic()
+        else:
+            self.clear_interrupt()
 
     def prepare_receive(self) -> None:
         """Set up receiving the way ST's S2-LP DK GUI does before it listens.
@@ -152,6 +173,8 @@ class TrafficMixin:
     def _ready_for_receive(self) -> None:
         if not self._receive_ready:
             self.prepare_receive()
+        else:
+            self.clear_interrupt()
 
     def transmit(self, data: Union[bytes, str], note: str = "",
                  timeout: Optional[float] = None) -> Packet:

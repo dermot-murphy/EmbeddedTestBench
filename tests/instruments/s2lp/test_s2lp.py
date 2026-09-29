@@ -410,6 +410,19 @@ class TestTheInterrupt:
         with pytest.raises(Exception, match="reads 0 at the board"):
             linked.transmit(PAYLOAD)
 
+    def test_every_send_after_the_first_clears_pending_interrupts(self, linked, loopback):
+        """A stopped receive leaves nIRQ asserted until IRQ_STATUS is read (#99)."""
+        linked.transmit(PAYLOAD)
+        linked.transmit(PAYLOAD)
+        assert loopback.command_log.count("S2LPIrqGetStatus") == 2
+
+    def test_a_line_still_low_after_clearing_is_an_error(self, linked, loopback):
+        linked.transmit(PAYLOAD)
+        loopback._cmd_s2mgpiogetvalue = lambda arguments: loopback._value(
+            "S2MGpioGetValue", "00")
+        with pytest.raises(Exception, match="after clearing IRQ_STATUS"):
+            linked.transmit(PAYLOAD)
+
     def test_the_gpio_is_made_an_output_not_an_input(self, linked, loopback):
         linked.prepare_traffic()
         assert "S2LPGpioInit 3 2 0" in loopback.command_log
