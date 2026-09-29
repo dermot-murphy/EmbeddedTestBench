@@ -920,6 +920,11 @@ BLE-DD-SCRIPT, one step at a time.
 `ResponseSample` and `ResponseTiming`: the result type for a command/response
 round trip, with no measuring in it.
 
+`ResponseSample.value` is what a reply reports: the text after its first
+` = `, trimmed (#102). A specification compares it with the same value from
+elsewhere - a VERSION frame's SHA against `RD SHA` - where the rest of the
+reply is not carried.
+
 Two clocks are carried: the dongle's (the measurement) and the host's (the
 cross-check). `resolution_s` is 1 us for the first and 1 ms for the second - not
 the microsecond `perf_counter` will print, because the figure carries USB
@@ -1515,6 +1520,12 @@ byte 8, or byte 9 in TWF and CONFIG, whose permute control byte is at 8 - and a
 copy whose repeat number is not higher than the last one's starts a new
 transmission. Bytes cannot be compared instead: 5C1712 clears ALIVE_STATUS's
 "SI updated" bit after the first copy (#95).
+
+`kepler_frame` returns the whole decode of the next frame of a given type from
+a given sensor, with its payload as `raw`, for a frame whose fields are text or
+are compared with each other (#102). The first copy heard is taken: the copies
+of one transmission carry the same fields. No frame within the timeout raises
+`MeasurementError`, since the specification waiting on it has nothing to check.
 
 #### S2LP-DD-EEPROM — `eeprom.py`
 

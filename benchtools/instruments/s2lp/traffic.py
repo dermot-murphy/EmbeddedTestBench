@@ -558,6 +558,41 @@ class TrafficMixin:
                 break
         return samples
 
+    def kepler_frame(
+        self,
+        frame_type: str,
+        source: Optional[str] = None,
+        timeout: float = 60.0,
+        decoder: Callable[[bytes], Dict[str, Any]] = decode_kepler_frame,
+    ) -> Dict[str, Any]:
+        """The decode of the next *frame_type* frame *source* sends, whole.
+
+        For a frame whose fields are compared with each other or with text -
+        a VERSION frame's version string and SHA against ``RD VERSION`` and
+        ``RD SHA`` (#102) - where :meth:`kepler_samples`, which takes one
+        number from each of several frames, does not fit. The first copy heard
+        is returned; the copies of one transmission carry the same fields.
+
+        :param frame_type: The type, e.g. ``"VERSION"``.
+        :param source: Only frames from this sensor, e.g. ``"5C1712"``.
+        :returns: The decoded fields, plus ``raw``: the payload in hex.
+        :raises MeasurementError: if no such frame arrives within *timeout*.
+
+        Traces to: S2LP-FR-073.
+        """
+        for packet in self.stream(decoder=decoder, timeout=timeout):
+            decoded = packet.decoded or {}
+            if not packet.ok or decoded.get("type") != frame_type:
+                continue
+            if source is not None and str(decoded.get("sensor_id")) != source:
+                continue
+            frame = dict(decoded)
+            frame["raw"] = bytes(packet.data).hex(" ").upper()
+            return frame
+        raise MeasurementError(
+            "no %s frame%s in %g s"
+            % (frame_type, "" if source is None else " from %s" % source, timeout))
+
     def check_preamble(self, expected_pairs: int, source: str, count: Optional[int] = None,
                        timeout: float = 120.0, tolerance_pairs: int = 2) -> Dict[str, Any]:
         """Measure *source*'s preamble and compare it with *expected_pairs*.

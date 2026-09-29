@@ -476,6 +476,7 @@ implements them; §11.6 says which.
 | BLE-FR-115 | A run shall be able to write an event log: one line per event, with the time it happened, the event - TX, RX, DELAY, CONNECT, DISCONNECT or ERROR - the step, the data and the result; each RX line shall carry the dongle's own measurement of the exchange at full resolution. | STK-12, STK-17 | Test |
 | BLE-FR-116 | A document shall be runnable on its own from the command line, with variable values, a report and an event log, emitting the run as JSON and exiting 0 only when it passed. | STK-12, STK-15 | Test |
 | BLE-FR-117 | The driver shall send one command a given number of times at a given interval, take a number from each reply by a pattern and scale it, and refuse, naming the reply, one that carries no number. | STK-12 | Test |
+| BLE-FR-118 | A command's result shall give the value its reply reports - the text after the reply's first ` = `, trimmed, or nothing when there is none - so that it can be compared with the same value from another source, where the rest of the reply is not carried. | STK-12 | Test |
 | BLE-FR-090 | The firmware shall build as a SEGGER Embedded Studio project against nRF5 SDK 17 for the PCA10059 dongle, and shall be packageable as a DFU image for the dongle's factory bootloader. | STK-16 | Inspection |
 
 ### 11.7 BLE non-functional
@@ -642,6 +643,7 @@ timestamp. And the radio will accept a frequency the board cannot radiate.
 | S2LP-FR-070 | Received frames shall be decodable as the Kepler sensor's frames, by the layouts in its firmware. A payload that cannot be decoded shall keep its raw bytes and state why. | STK-19 | Test |
 | S2LP-FR-071 | A frame's raw payload, the registers read after it and its decode shall be logged together, as one record. | STK-19 | Test |
 | S2LP-FR-072 | The driver shall take a decoded field from the next N Kepler transmissions from a given sensor and of a given frame type, counting each transmission once however many copies of it are received. | STK-19 | Test |
+| S2LP-FR-073 | The driver shall return the whole decode of the next Kepler frame of a given type from a given sensor, with its raw payload, and shall raise, naming the type and sensor, when none arrives in time. | STK-19 | Test |
 | S2LP-FR-060 | A command-line interface shall expose identification, register dump and access, radio configuration, transmit, receive, capture and strobes, emitting JSON, and shall warn when a capture was not continuous. | STK-19 | Test |
 
 ### 13.6 S2LP non-functional
