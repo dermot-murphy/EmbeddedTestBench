@@ -61,6 +61,10 @@ IRQ_GPIO = 3
 TX_DATA_SENT = 0x00000004
 RX_DATA_READY = 0x00000001
 
+#: IRQ_STATUS as read from the kit after a receive was stopped part-way (#99).
+#: A stop leaves these pending, and nIRQ asserted, until IRQ_STATUS is read.
+STOPPED_RECEIVE_IRQ = 0x09607003
+
 #: Registers the receive path updates, by address.
 _PQI, _SQI, _RSSI_LEVEL, _RX_LEN1, _RX_LEN0 = 0x9F, 0xA0, 0xA2, 0xA4, 0xA5
 
@@ -238,6 +242,8 @@ class SimulatedS2lp:
         if self._busy is None:
             self.stray_stop = True
             return b"S"
+        if self._busy in ("get", "batch"):
+            self.irq_status |= STOPPED_RECEIVE_IRQ
         self._busy = None
         self.stopped = True
         self._batch_left = 0
@@ -265,7 +271,13 @@ class SimulatedS2lp:
         """Whether interrupt *irq* would reach the board's firmware."""
         conf = self.registers.get(IRQ_GPIO, 0)
         routed = (conf & 0xF8) == 0x00 and (conf & 0x03) in (2, 3)     # nIRQ, an output
-        return routed and IRQ_GPIO in self.board_irq_lines and bool(self._irq_mask() & irq)
+        # A line already held low by a pending interrupt gives no new edge.
+        return (routed and IRQ_GPIO in self.board_irq_lines and bool(self._irq_mask() & irq)
+                and not self.irq_asserted())
+
+    def irq_asserted(self) -> bool:
+        """Whether an unmasked interrupt is pending, holding nIRQ low."""
+        return bool(self.irq_status & self._irq_mask())
 
     def _pin_level(self, gpio: int) -> int:
         """What the board reads on the line from radio GPIO *gpio*."""
@@ -273,7 +285,9 @@ class SimulatedS2lp:
         if (conf & 0x03) not in (2, 3):
             return 0                         # not driven: an input, or analogue
         signal = conf & 0xF8
-        return 0 if signal == 0xA0 else 1    # GND reads low; nIRQ idles high
+        if signal == 0x00:
+            return 0 if self.irq_asserted() else 1     # nIRQ: active low
+        return 0 if signal == 0xA0 else 1    # GND reads low
 
     def _cmd_s2mgpiogetvalue(self, arguments: List[str]) -> str:
         return self._value("S2MGpioGetValue", "%02X" % self._pin_level(self._number(arguments[0])))
@@ -546,7 +560,8 @@ class SimulatedS2lp:
         return self._call("S2LPIrq")
 
     def _cmd_s2lpirqgetstatus(self, _arguments: List[str]) -> str:
-        return self._value("S2LPIrqGetStatus", "%08X" % self.irq_status)
+        status, self.irq_status = self.irq_status, 0     # reading clears it
+        return self._value("S2LPIrqGetStatus", "%08X" % status)
 
     def _cmd_s2lpgetnbytesreportall(self, arguments: List[str]) -> str:
         self.report_all = bool(self._number(arguments[0]))
