@@ -2,7 +2,7 @@
 # both over BLE and in its ALIVE frame (#97).
 #
 # Channel 2 of the GPD-3303D stands in for the battery. It is stepped down from
-# 3.3 V to 2.8 V in 100 mV steps, and at each step:
+# 3.3 V to 3.0 V in 100 mV steps, and at each step:
 #   * the supply's own readback confirms channel 2 is regulated, i.e. energised,
 #     in constant voltage and at the setting, and that channel 1 is still at 0 V;
 #   * RD BATTERY is read over BLE. It answers "ACK RD BATTERY = <n>mV", from a
@@ -26,8 +26,16 @@
 # so "off" for channel 1 means programmed to 0 V (the driver's output_off), not
 # open circuit. Teardown leaves it there.
 #
+# The J-Link may stay connected to the sensor, and the range stops at 3.0 V
+# because of it. Below 3.0 V the J-Link V8 holds the sensor's rail up: on
+# 5C1712 (2026-09-29), with the J-Link connected, a 2.8 V setting read 2.870 V
+# (with it disconnected, 2.767 V), and 2.9 V read 2.929 V (2.866 V). From 3.3 V
+# to 3.0 V the J-Link raised the readings by only 12-32 mV, and the suite passed
+# both with and without it. To test lower, disconnect the J-Link first and add
+# the steps.
+#
 # The firmware has no low-battery behaviour to trip on the way down (SR-083 is
-# unimplemented), and 2.8 V is far above the nRF52840's brown-out, so the sensor
+# unimplemented), and 3.0 V is far above the nRF52840's brown-out, so the sensor
 # is expected to keep its BLE link throughout.
 #
 # The voltages are the tests themselves, so they are written into each test
@@ -42,13 +50,13 @@
 
 name: Kepler battery voltage
 description: >
-  From 3.3 V down to 2.8 V on the supply's channel 2, the battery voltage the
+  From 3.3 V down to 3.0 V on the supply's channel 2, the battery voltage the
   sensor reads over BLE follows the supply, and the ALIVE frame carries the
   voltage read over BLE.
 requirements: [PSU-FR-023, BLE-FR-117, S2LP-FR-072]
 
 warning: |
-  THIS TEST CHANGES THE VOLTAGE ON THE GPD-3303D'S CHANNEL 2, DOWN TO 2.8 V,
+  THIS TEST CHANGES THE VOLTAGE ON THE GPD-3303D'S CHANNEL 2, DOWN TO 3.0 V,
   AND SWITCHES THE SUPPLY'S OUTPUT ON. Channel 2 must power the sensor's
   battery input and nothing else; channel 1 is held at 0 V throughout. The
   supply must be in INDEPENDENT tracking.
@@ -292,108 +300,6 @@ tests:
           - {name: ble_readings, measure: count, equals: {param: ble_readings}}
           - {name: ble_lowest, measure: minimum, unit: V, nominal: 3.0, tolerance: {param: ble_vs_supply_v}}
           - {name: ble_highest, measure: maximum, unit: V, nominal: 3.0, tolerance: {param: ble_vs_supply_v}}
-      - do: s2lp.kepler_samples
-        with:
-          field: battery_mv
-          source: {param: sensor_id}
-          frame_type: ALIVE
-          count: {param: alive_readings}
-          timeout: 60.0
-          scale: 0.001
-          unit: V
-        expect:
-          - {name: alive_frames, measure: count, equals: {param: alive_readings}}
-          - name: alive_lowest_from_ble
-            measure: minimum
-            unit: V
-            equals: {from: ble.mean}
-            tolerance: {param: alive_vs_ble_v}
-          - name: alive_highest_from_ble
-            measure: maximum
-            unit: V
-            equals: {from: ble.mean}
-            tolerance: {param: alive_vs_ble_v}
-
-  - name: At 2.9 V the sensor reads the supply, and the ALIVE frame carries it
-    requirement: PSU-FR-023, BLE-FR-117, S2LP-FR-072
-    steps:
-      - do: psu.set_voltage
-        with: {channel: {param: supply_channel}, volts: 2.9}
-      - do: sleep
-        with: {seconds: {param: settle_s}}
-      - do: psu.read_channel
-        with: {channel: {param: supply_channel}}
-        expect:
-          - {name: supply_regulated, measure: regulated, equals: 1}
-      - do: psu.read_channel
-        with: {channel: {param: off_channel}}
-        expect:
-          - {name: channel_1_off, measure: voltage, unit: V, max: {param: off_max_v}}
-      - do: dongle.sample_command
-        with:
-          request: RD BATTERY
-          pattern: '= (\d+)mV'
-          count: {param: ble_readings}
-          interval: {param: interval_s}
-          scale: 0.001
-          unit: V
-          timeout: 45.0
-        save: ble
-        expect:
-          - {name: ble_readings, measure: count, equals: {param: ble_readings}}
-          - {name: ble_lowest, measure: minimum, unit: V, nominal: 2.9, tolerance: {param: ble_vs_supply_v}}
-          - {name: ble_highest, measure: maximum, unit: V, nominal: 2.9, tolerance: {param: ble_vs_supply_v}}
-      - do: s2lp.kepler_samples
-        with:
-          field: battery_mv
-          source: {param: sensor_id}
-          frame_type: ALIVE
-          count: {param: alive_readings}
-          timeout: 60.0
-          scale: 0.001
-          unit: V
-        expect:
-          - {name: alive_frames, measure: count, equals: {param: alive_readings}}
-          - name: alive_lowest_from_ble
-            measure: minimum
-            unit: V
-            equals: {from: ble.mean}
-            tolerance: {param: alive_vs_ble_v}
-          - name: alive_highest_from_ble
-            measure: maximum
-            unit: V
-            equals: {from: ble.mean}
-            tolerance: {param: alive_vs_ble_v}
-
-  - name: At 2.8 V the sensor reads the supply, and the ALIVE frame carries it
-    requirement: PSU-FR-023, BLE-FR-117, S2LP-FR-072
-    steps:
-      - do: psu.set_voltage
-        with: {channel: {param: supply_channel}, volts: 2.8}
-      - do: sleep
-        with: {seconds: {param: settle_s}}
-      - do: psu.read_channel
-        with: {channel: {param: supply_channel}}
-        expect:
-          - {name: supply_regulated, measure: regulated, equals: 1}
-      - do: psu.read_channel
-        with: {channel: {param: off_channel}}
-        expect:
-          - {name: channel_1_off, measure: voltage, unit: V, max: {param: off_max_v}}
-      - do: dongle.sample_command
-        with:
-          request: RD BATTERY
-          pattern: '= (\d+)mV'
-          count: {param: ble_readings}
-          interval: {param: interval_s}
-          scale: 0.001
-          unit: V
-          timeout: 45.0
-        save: ble
-        expect:
-          - {name: ble_readings, measure: count, equals: {param: ble_readings}}
-          - {name: ble_lowest, measure: minimum, unit: V, nominal: 2.8, tolerance: {param: ble_vs_supply_v}}
-          - {name: ble_highest, measure: maximum, unit: V, nominal: 2.8, tolerance: {param: ble_vs_supply_v}}
       - do: s2lp.kepler_samples
         with:
           field: battery_mv
