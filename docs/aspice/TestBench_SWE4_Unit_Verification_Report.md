@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE4-002 | **Version** | 0.2 |
+| **Document ID** | TB-SWE4-002 | **Version** | 0.3 |
 | **Project** | TestBench | **Date** | 2026-09-19 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -24,6 +24,7 @@
 |---|---|---|---|
 | 0.1 | 2026-09-19 | Claude | Initial |
 | 0.2 | 2026-09-26 | Claude | §13.4: PSU-OPEN-01 and -02 closed and PSU-OPEN-06 partly confirmed on a real supply (#61, #63). |
+| 0.3 | 2026-09-30 | Claude | §15: D-42 added and closed — `RttClient` polled its backend outside its lock, so the reader thread and a caller's read could poll at once. (D-41 is used on `main` by #106.) |
 
 ---
 
@@ -958,6 +959,8 @@ SDK to provide it transitively.
 | D-39 | The simulated target modelled **reset-and-run as reset-and-halt**: `monitor reset 0` left the core halted and silent. Writing the bring-up specification is what found it - the board was started and never said anything | **Major in the model** (the class of D-31 and D-35): the simulator contradicted the thing it stands for, so "start the firmware and check it is running" could not be demonstrated, and any test of it would have been measuring the simulator | **Closed** — a reset with the run argument resets and then runs, emitting whatever the firmware emits along its flow, exactly as a resume does | `test_a_running_target_produces_lines`, `test_a_halted_target_produces_none`, `TestItPasses` |
 
 | D-40 | `DEFAULT_SENSORS` is a module-level tuple of dataclasses holding mutable dicts, and every `SimulatedDongle` shared them. A test that changed one sensor's replies changed them for every simulator built afterwards | **Major in the test double**, and of the worst kind to diagnose: the tests it broke were in other files, and the failures described the sensor rather than the test that had altered it. Found by writing a test that silenced a sensor and watching six unrelated tests fail | **Closed** — a simulated dongle deep-copies the sensors it is given, so one simulator cannot poison another. The test that found it now models silence with a stub instead, which is the honest way to model a sensor the simulator does not have | `test_the_default_population_is_not_shared_between_simulators`, `TestASensorThatDoesNotAnswer` (4) |
+
+| D-42 | `RttClient._pump()` runs on the background reader thread and on the caller's thread (from `read()` and `read_lines()`), and it called `self._backend.rtt_poll()` **before** taking `self._lock`. Two pumps could therefore poll at once. The simulator's drain is check-then-pop, and on Python 3.9 CI it raised `IndexError: pop from an empty deque` in `test_a_line_already_waiting_is_not_a_reading` (PR #105, run 36668656206) | **Minor on hardware**, where two polls at once could split one RTT line between two callers; **major as a test-suite fault**, because it failed an unrelated PR's CI intermittently and looked like a flake. Found by reading that failure to its cause instead of re-running it | **Closed** — the poll is now taken under the client's lock with the rest of the pump. A deterministic test replaces the scheduler's luck: a backend that detects overlapping polls, driven from four threads; it counted 99 overlaps before the fix and 0 after | `TestConcurrency.test_the_backend_is_never_polled_twice_at_once` |
 
 No open defects.
 
