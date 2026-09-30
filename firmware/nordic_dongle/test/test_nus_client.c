@@ -18,7 +18,7 @@ static nrf_ble_gq_t m_queue;
 static ble_db_discovery_t m_db_discovery;
 
 /** Bring the link up the way the stack does: connect, discover, ready. */
-static void establish_link(void)
+static void test_establish_link(void)
 {
 	ble_evt_t event;
 
@@ -95,7 +95,7 @@ static void test_connecting_listens_continuously_for_the_time_asked(void)
 static void test_a_connection_reports_the_interval(void)
 {
 	/* It is the floor under every latency measured on this link. */
-	establish_link();
+	test_establish_link();
 	TEST_ASSERT_TRUE(nus_client_is_connected());
 	TEST_ASSERT_EQUAL_UINT32(30000U, nus_client_interval_us());
 	TEST_ASSERT_TRUE(fake_line_seen("+conn "));
@@ -105,7 +105,7 @@ static void test_a_connection_reports_the_interval(void)
 
 static void test_discovery_makes_the_link_usable_and_says_so(void)
 {
-	establish_link();
+	test_establish_link();
 	TEST_ASSERT_TRUE(nus_client_is_ready());
 	TEST_ASSERT_TRUE(fake_nus_notifications_enabled());
 	TEST_ASSERT_TRUE(fake_line_seen("+conn "));
@@ -128,7 +128,7 @@ static void test_a_connection_starts_discovery_on_that_link(void)
 	TEST_ASSERT_FALSE(nus_client_is_ready());
 }
 
-static void test_a_discovery_that_cannot_start_drops_the_link_and_says_so(void)
+static void test_a_failed_discovery_start_drops_the_link_and_says_so(void)
 {
 	/* A host waiting for "ready" would otherwise wait until it timed out. */
 	ble_evt_t event;
@@ -148,7 +148,7 @@ static void test_stack_events_are_not_forwarded_to_the_nus_client_twice(void)
 {
 	/* BLE_NUS_C_DEF registers its own observer. Forwarding by hand as well
 	 * delivered every event twice and repeated discovery on a real sensor. */
-	establish_link();
+	test_establish_link();
 	TEST_ASSERT_EQUAL_UINT32(0U, fake_nus_forwarded_events());
 }
 
@@ -156,7 +156,7 @@ static void test_connecting_while_connected_is_refused(void)
 {
 	ble_gap_addr_t target;
 
-	establish_link();
+	test_establish_link();
 	(void)scanner_parse_address("AA:BB:CC:DD:EE:FF", &target);
 	TEST_ASSERT_EQUAL_UINT32(NRF_ERROR_INVALID_STATE, nus_client_connect(&target, 15000U));
 }
@@ -168,7 +168,7 @@ static void test_disconnecting_without_a_link(void)
 
 static void test_disconnecting(void)
 {
-	establish_link();
+	test_establish_link();
 	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, nus_client_disconnect());
 	TEST_ASSERT_EQUAL_UINT32(1U, fake_gap_disconnect_count());
 }
@@ -177,7 +177,7 @@ static void test_a_dropped_link_is_reported_with_its_reason(void)
 {
 	ble_evt_t event;
 
-	establish_link();
+	test_establish_link();
 	fake_lines_reset();
 
 	(void)memset(&event, 0, sizeof(event));
@@ -208,7 +208,7 @@ static void test_a_renegotiated_interval_is_taken_up(void)
 {
 	ble_evt_t event;
 
-	establish_link();
+	test_establish_link();
 	(void)memset(&event, 0, sizeof(event));
 	event.header.evt_id = BLE_GAP_EVT_CONN_PARAM_UPDATE;
 	event.evt.gap_evt.params.conn_param_update.conn_params.max_conn_interval = 8U;  /* 10 ms */
@@ -227,7 +227,7 @@ static void test_writing_before_the_service_is_ready(void)
 
 static void test_writing(void)
 {
-	establish_link();
+	test_establish_link();
 	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, nus_client_write((const uint8_t *)"version", 7U));
 	TEST_ASSERT_EQUAL_UINT16(7U, fake_nus_sent_length());
 	TEST_ASSERT_EQUAL_MEMORY("version", fake_nus_sent(), 7U);
@@ -237,7 +237,7 @@ static void test_an_over_long_payload_is_refused(void)
 {
 	uint8_t payload[PROTO_MAX_PAYLOAD + 8U];
 
-	establish_link();
+	test_establish_link();
 	(void)memset(payload, 'x', sizeof(payload));
 	TEST_ASSERT_EQUAL_UINT32(NRF_ERROR_DATA_SIZE,
 				 nus_client_write(payload, (uint16_t)sizeof(payload)));
@@ -245,7 +245,7 @@ static void test_an_over_long_payload_is_refused(void)
 
 static void test_a_refused_write_is_passed_up(void)
 {
-	establish_link();
+	test_establish_link();
 	fake_nus_set_send_result(NRF_ERROR_RESOURCES);
 	TEST_ASSERT_EQUAL_UINT32(NRF_ERROR_RESOURCES, nus_client_write((const uint8_t *)"x", 1U));
 	fake_nus_set_send_result(NRF_SUCCESS);
@@ -257,7 +257,7 @@ static void test_a_refused_write_is_passed_up(void)
 
 static void test_a_notification_is_reported_to_the_host(void)
 {
-	establish_link();
+	test_establish_link();
 	fake_lines_reset();
 	fake_clock_set(2000000U);
 	fake_nus_fire(BLE_NUS_C_EVT_NUS_TX_EVT, (const uint8_t *)"1.4.2", 5U);
@@ -272,7 +272,7 @@ static void test_a_command_times_the_round_trip_on_the_dongle_clock(void)
 {
 	nus_response_t response;
 
-	establish_link();
+	test_establish_link();
 	fake_clock_set(1000000U);
 	/* Each read of the clock advances it, so the wait loop reaches the reply
 	 * with time having passed, as it would on the target. */
@@ -291,7 +291,7 @@ static void test_a_reply_completes_the_command(void)
 {
 	nus_response_t response;
 
-	establish_link();
+	test_establish_link();
 	fake_clock_set(1000000U);
 
 	/* Deliver the notification before the command is issued is impossible on
@@ -320,7 +320,7 @@ static void test_a_refused_send_ends_the_command(void)
 {
 	nus_response_t response;
 
-	establish_link();
+	test_establish_link();
 	fake_nus_set_send_result(NRF_ERROR_RESOURCES);
 	TEST_ASSERT_EQUAL_UINT32(NRF_ERROR_RESOURCES,
 				 nus_client_command((const uint8_t *)"x", 1U, 10U, &response));
@@ -329,7 +329,7 @@ static void test_a_refused_send_ends_the_command(void)
 
 static void test_a_disconnection_during_discovery_leaves_it_unready(void)
 {
-	establish_link();
+	test_establish_link();
 	fake_nus_fire(BLE_NUS_C_EVT_DISCONNECTED, NULL, 0U);
 	TEST_ASSERT_FALSE(nus_client_is_ready());
 }
@@ -343,7 +343,7 @@ int main(void)
 	RUN_TEST(test_a_connection_reports_the_interval);
 	RUN_TEST(test_discovery_makes_the_link_usable_and_says_so);
 	RUN_TEST(test_a_connection_starts_discovery_on_that_link);
-	RUN_TEST(test_a_discovery_that_cannot_start_drops_the_link_and_says_so);
+	RUN_TEST(test_a_failed_discovery_start_drops_the_link_and_says_so);
 	RUN_TEST(test_stack_events_are_not_forwarded_to_the_nus_client_twice);
 	RUN_TEST(test_connecting_while_connected_is_refused);
 	RUN_TEST(test_disconnecting_without_a_link);

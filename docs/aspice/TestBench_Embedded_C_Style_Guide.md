@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-STY-001 | **Version** | 0.1 |
+| **Document ID** | TB-STY-001 | **Version** | 0.2 |
 | **Project** | TestBench | **Date** | 2026-09-19 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -26,6 +26,7 @@
 | Version | Date | Author | Description of Change |
 |---|---|---|---|
 | 0.1 | 2026-09-19 | Claude | Initial |
+| 0.2 | 2026-09-30 | Claude | Scope names the dongle firmware's host unit tests, `firmware/nordic_dongle/test/` (#111). |
 
 ---
 
@@ -109,7 +110,8 @@ rather than how it was typed.
 This guide applies to:
 
 - all `.c` and `.h` files owned by this project — in practice
-  `firmware/nordic_dongle/src/` and its headers;
+  `firmware/nordic_dongle/src/` and its headers, and the firmware's host unit
+  tests in `firmware/nordic_dongle/test/`;
 - all new C files added to this project;
 - existing files undergoing a modification that touches more than 20% of their
   lines.

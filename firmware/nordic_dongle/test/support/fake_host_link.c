@@ -27,7 +27,7 @@ static uint32_t	m_line_count;
 static bool	m_lines_full;
 static uint32_t	m_dropped;
 
-static bool record(const char * line)
+static bool fake_record(const char * line)
 {
 	if (m_lines_full)
 	{
@@ -45,7 +45,7 @@ static bool record(const char * line)
 
 bool cdc_acm_send_line(const char * line)
 {
-	return record(line);
+	return fake_record(line);
 }
 
 bool cdc_acm_send_format(const char * format, ...)
@@ -57,7 +57,7 @@ bool cdc_acm_send_format(const char * format, ...)
 	(void)vsnprintf(line, sizeof(line), format, arguments);
 	va_end(arguments);
 
-	return record(line);
+	return fake_record(line);
 }
 
 uint32_t cdc_acm_init(void)				{ return 0U; }

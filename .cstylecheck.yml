@@ -5,7 +5,9 @@
 # Standard) and TB-STY-001 (Embedded C Style Guide) over the firmware this
 # project owns. Run by .github/workflows/style.yml against
 # firmware/nordic_dongle, with .cstylecheck-baseline.json so the job fails on
-# new violations rather than on the 113 that existed when it was introduced.
+# new violations rather than on the 113 that existed when it was introduced,
+# and in a second step against the firmware's host unit tests, with their own
+# aliases and exclusions and no baseline (#111).
 #
 # Derived from the CStyleCheck default rule set, with four project decisions
 # applied. Each is recorded in TB-STY-001, not only here:

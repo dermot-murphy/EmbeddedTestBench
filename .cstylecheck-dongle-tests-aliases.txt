@@ -1,0 +1,24 @@
+# CStyleCheck module aliases for firmware/nordic_dongle/test (#111).
+#
+# Used only by the dongle-tests step of .github/workflows/style.yml, so these
+# pairs cannot relax the check on the firmware itself. Each lets a file use the
+# prefix of the module it tests or stands in for, rather than its own stem:
+#
+#   test_*.c         Unity test files name their functions test_*
+#   fake_scanner.c   stands in for ble_scanner.c, whose API is scanner_*
+#   fake_host_link.c stands in for cdc_acm.c, whose API is cdc_acm_*
+#   fake_*.c, fakes.h the controls a test drives a fake with are fake_*
+test_ble_scanner       test
+test_cdc_acm           test
+test_cmd_parser        test
+test_firmware_version  test
+test_nus_client        test
+test_timestamp         test
+fake_scanner           scanner
+fake_scanner           fake
+fake_host_link         cdc_acm
+fake_host_link         fake
+fake_nus_client        nus_client
+fake_nus_client        fake
+fake_sdk               fake
+fakes                  fake

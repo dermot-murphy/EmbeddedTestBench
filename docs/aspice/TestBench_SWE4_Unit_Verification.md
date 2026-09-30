@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE4-001 | **Version** | 0.4 |
+| **Document ID** | TB-SWE4-001 | **Version** | 0.5 |
 | **Project** | TestBench | **Date** | 2026-09-23 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -26,6 +26,7 @@
 | 0.2 | 2026-09-23 | Claude | Test groups added for the TTi 1604: SWE4-UT-DMMPROTO, SWE4-UT-DMM, SWE4-UT-DMMSIM, SWE4-UT-DMMCLI. |
 | 0.3 | 2026-09-25 | Claude | SWE4-UT-BLESCRIPT extended to the new command-document behaviour (BLE-FR-109…116); firmware unit cases now 148 (#46, #48). |
 | 0.4 | 2026-09-26 | Claude | SWE4-UT-PSUPANEL added for the GPD-3303D front-panel check (#67). Header version brought into line with this history. |
+| 0.5 | 2026-09-30 | Claude | §1.4a: the firmware unit tests are themselves checked against the C coding standard (#111). SWE4-UT-FWUNIT case count corrected to 149, the number the suite runs. |
 
 ---
 
@@ -136,6 +137,9 @@ The dongle firmware is verified three ways, none of which needs a dongle:
 1. **Unit tests on the host** (`SWE4-UT-FWUNIT`). The firmware's sources are
    compiled unchanged against fake SDK headers, so the logic under test is the
    logic that runs on the part. This is where behaviour is checked.
+   The test sources are themselves held to the C coding standard: CStyleCheck
+   checks them in their own step of `.github/workflows/style.yml`, with no
+   baseline, and fails on any finding (#111).
 2. **Agreement with the host driver** (`SWE4-UT-BLEFW`). The protocol header is
    parsed and compared against the driver's constants.
 3. **Cross-compilation** (`compile_check.sh`). The whole firmware is compiled for
@@ -239,7 +243,7 @@ module's imports:
 | SWE4-UT-BLE | `instruments/nordic_dongle/test_dongle.py` | The dongle driver: identity and protocol check, scanning and filtering, selection, connection, UART, response timing, advertising profile, logging | BLE-FR-002 .. -062 |
 | SWE4-UT-BLESAMPLE | `instruments/nordic_dongle/test_sampling.py` | One command repeated at an interval, a number from each reply, scaling, and a reply without a number refused | BLE-FR-117 |
 | SWE4-UT-BLEPROTO | `instruments/nordic_dongle/test_protocol.py` | The line protocol: replies, errors, events, empty and `=`-bearing values, non-protocol lines, hex, addresses and their types | BLE-FR-001, -002 |
-| SWE4-UT-FWUNIT | `firmware/nordic_dongle/test/*.c` | **Firmware unit tests** (Unity, CMake, CTest, 148 cases): the command dispatcher and every reply shape; the host link's line assembly, bounded queue and drop counting; the sensor table, filters and advertising reports; the UART client's link, writes and round-trip timing; the microsecond clock and its 32-bit wrap | BLE-FR-002 .. -004, -010, -020 .. -030, -040 .. -051, BLE-NFR-001, -002 |
+| SWE4-UT-FWUNIT | `firmware/nordic_dongle/test/*.c` | **Firmware unit tests** (Unity, CMake, CTest, 149 cases; the test sources themselves pass CStyleCheck with no baseline): the command dispatcher and every reply shape; the host link's line assembly, bounded queue and drop counting; the sensor table, filters and advertising reports; the UART client's link, writes and round-trip timing; the microsecond clock and its 32-bit wrap | BLE-FR-002 .. -004, -010, -020 .. -030, -040 .. -051, BLE-NFR-001, -002 |
 | SWE4-UT-BLEFW | `instruments/nordic_dongle/test_firmware_protocol.py` | Firmware and driver agreement: commands, argument bounds, handlers attached, events, error codes, size limits, protocol version; and firmware hygiene: traces, no dynamic allocation, indentation | BLE-FR-001, -080, -090, BLE-NFR-001, -003 |
 | SWE4-UT-BLESESSION | `instruments/nordic_dongle/test_session.py` | Command/reply with events interleaved, early-stopping collection, waiting for an event, drop notices, and session logging | BLE-FR-002, -004, -060 .. -062 |
 | SWE4-UT-BLEPROFILE | `instruments/nordic_dongle/test_profile.py` | Advertising statistics: channel coalescing, advDelay, missed events, duty cycle, completeness, exactly nominal intervals | BLE-FR-030 .. -036 |

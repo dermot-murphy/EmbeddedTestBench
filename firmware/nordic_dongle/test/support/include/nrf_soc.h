@@ -11,7 +11,7 @@
 #include "nrf_error.h"
 
 /** Times NVIC_SystemReset was called. */
-extern uint32_t fake_system_resets;
+extern uint32_t fake_g_system_resets;
 
 void NVIC_SystemReset(void);
 

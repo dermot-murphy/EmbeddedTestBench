@@ -14,7 +14,7 @@
 #include "nrf_ble_scan.h"
 
 /** Build an advertising report event the way the stack delivers one. */
-static ble_evt_t make_report(const char * address, int8_t rssi, uint8_t channel,
+static ble_evt_t test_make_report(const char * address, int8_t rssi, uint8_t channel,
 			     uint8_t * payload, uint16_t length)
 {
 	ble_evt_t event;
@@ -31,7 +31,7 @@ static ble_evt_t make_report(const char * address, int8_t rssi, uint8_t channel,
 }
 
 /** Flags, then a complete local name - the usual shape of a sensor's payload. */
-static uint16_t make_payload(uint8_t * buffer, const char * name)
+static uint16_t test_make_payload(uint8_t * buffer, const char * name)
 {
 	uint16_t length = 0U;
 
@@ -51,11 +51,11 @@ static uint16_t make_payload(uint8_t * buffer, const char * name)
 	return length;
 }
 
-static void report(const char * address, int8_t rssi, const char * name)
+static void test_report(const char * address, int8_t rssi, const char * name)
 {
 	uint8_t		payload[31];
-	uint16_t	length = make_payload(payload, name);
-	ble_evt_t	event  = make_report(address, rssi, 37U, payload, length);
+	uint16_t	length = test_make_payload(payload, name);
+	ble_evt_t	event  = test_make_report(address, rssi, 37U, payload, length);
 
 	scanner_on_ble_evt(&event);
 }
@@ -215,9 +215,9 @@ static void test_a_scan_timeout_is_reported(void)
 
 static void test_a_sensor_is_recorded_once_however_often_it_advertises(void)
 {
-	report("E4:1C:7B:02:9A:11", -62, "SENS-01");
-	report("E4:1C:7B:02:9A:11", -64, "SENS-01");
-	report("E4:1C:7B:02:9A:11", -60, "SENS-01");
+	test_report("E4:1C:7B:02:9A:11", -62, "SENS-01");
+	test_report("E4:1C:7B:02:9A:11", -64, "SENS-01");
+	test_report("E4:1C:7B:02:9A:11", -60, "SENS-01");
 
 	TEST_ASSERT_EQUAL_UINT32(1U, scanner_count());
 	TEST_ASSERT_EQUAL_UINT32(3U, scanner_get(0U)->seen);
@@ -226,13 +226,13 @@ static void test_a_sensor_is_recorded_once_however_often_it_advertises(void)
 
 static void test_the_name_is_taken_from_the_payload(void)
 {
-	report("E4:1C:7B:02:9A:11", -62, "SENS-01");
+	test_report("E4:1C:7B:02:9A:11", -62, "SENS-01");
 	TEST_ASSERT_EQUAL_STRING("SENS-01", scanner_get(0U)->name);
 }
 
 static void test_a_sensor_that_advertises_no_name_is_still_recorded(void)
 {
-	report("F1:22:33:44:55:66", -91, "");
+	test_report("F1:22:33:44:55:66", -91, "");
 	TEST_ASSERT_EQUAL_UINT32(1U, scanner_count());
 	TEST_ASSERT_EQUAL_STRING("", scanner_get(0U)->name);
 }
@@ -241,15 +241,15 @@ static void test_a_name_once_seen_is_kept(void)
 {
 	/* A sensor that advertises its name only in a scan response must not
 	 * appear to lose it on the next report. */
-	report("E4:1C:7B:02:9A:11", -62, "SENS-01");
-	report("E4:1C:7B:02:9A:11", -62, "");
+	test_report("E4:1C:7B:02:9A:11", -62, "SENS-01");
+	test_report("E4:1C:7B:02:9A:11", -62, "");
 	TEST_ASSERT_EQUAL_STRING("SENS-01", scanner_get(0U)->name);
 }
 
 static void test_several_sensors_are_kept_apart(void)
 {
-	report("E4:1C:7B:02:9A:11", -62, "SENS-01");
-	report("C9:3A:51:0F:22:04", -78, "SENS-02");
+	test_report("E4:1C:7B:02:9A:11", -62, "SENS-01");
+	test_report("C9:3A:51:0F:22:04", -78, "SENS-02");
 	TEST_ASSERT_EQUAL_UINT32(2U, scanner_count());
 	TEST_ASSERT_EQUAL_STRING("SENS-02", scanner_get(1U)->name);
 }
@@ -264,7 +264,7 @@ static void test_the_table_is_bounded_and_does_not_evict(void)
 	for (index = 0U; index < (PROTO_MAX_SENSORS + 4U); index++)
 	{
 		(void)sprintf(address, "AA:BB:CC:DD:EE:%02X", (unsigned)index);
-		report(address, -70, "X");
+		test_report(address, -70, "X");
 	}
 	TEST_ASSERT_EQUAL_UINT32(PROTO_MAX_SENSORS, scanner_count());
 	TEST_ASSERT_EQUAL_STRING("AA:BB:CC:DD:EE:00", (scanner_format_address(&scanner_get(0U)->address, address), address));
@@ -274,7 +274,7 @@ static void test_finding_by_address(void)
 {
 	ble_gap_addr_t wanted;
 
-	report("E4:1C:7B:02:9A:11", -62, "SENS-01");
+	test_report("E4:1C:7B:02:9A:11", -62, "SENS-01");
 	(void)scanner_parse_address("E4:1C:7B:02:9A:11", &wanted);
 	TEST_ASSERT_EQUAL_UINT32(0U, scanner_find(&wanted));
 
@@ -284,7 +284,7 @@ static void test_finding_by_address(void)
 
 static void test_clearing(void)
 {
-	report("E4:1C:7B:02:9A:11", -62, "SENS-01");
+	test_report("E4:1C:7B:02:9A:11", -62, "SENS-01");
 	scanner_clear();
 	TEST_ASSERT_EQUAL_UINT32(0U, scanner_count());
 	TEST_ASSERT_NULL(scanner_get(0U));
@@ -303,8 +303,8 @@ static void test_filtering_by_name(void)
 	(void)strcpy(filter.name, "SENS");
 	(void)scanner_start(&filter, 0U);
 
-	report("E4:1C:7B:02:9A:11", -62, "SENS-01");
-	report("F1:22:33:44:55:66", -70, "OTHER");
+	test_report("E4:1C:7B:02:9A:11", -62, "SENS-01");
+	test_report("F1:22:33:44:55:66", -70, "OTHER");
 	TEST_ASSERT_EQUAL_UINT32(1U, scanner_count());
 }
 
@@ -317,8 +317,8 @@ static void test_filtering_by_address(void)
 	(void)scanner_parse_address("E4:1C:7B:02:9A:11", &filter.address);
 	(void)scanner_start(&filter, 0U);
 
-	report("E4:1C:7B:02:9A:11", -62, "SENS-01");
-	report("C9:3A:51:0F:22:04", -78, "SENS-02");
+	test_report("E4:1C:7B:02:9A:11", -62, "SENS-01");
+	test_report("C9:3A:51:0F:22:04", -78, "SENS-02");
 	TEST_ASSERT_EQUAL_UINT32(1U, scanner_count());
 }
 
@@ -330,8 +330,8 @@ static void test_filtering_by_signal_strength(void)
 	filter.min_rssi = -80;
 	(void)scanner_start(&filter, 0U);
 
-	report("E4:1C:7B:02:9A:11", -62, "SENS-01");
-	report("F1:22:33:44:55:66", -91, "FAR");
+	test_report("E4:1C:7B:02:9A:11", -62, "SENS-01");
+	test_report("F1:22:33:44:55:66", -91, "FAR");
 	TEST_ASSERT_EQUAL_UINT32(1U, scanner_count());
 }
 
@@ -341,7 +341,7 @@ static void test_filtering_by_signal_strength(void)
 
 static void test_no_advertising_events_until_profiling_starts(void)
 {
-	report("E4:1C:7B:02:9A:11", -62, "SENS-01");
+	test_report("E4:1C:7B:02:9A:11", -62, "SENS-01");
 	TEST_ASSERT_FALSE(fake_line_seen("+adv "));
 }
 
@@ -349,8 +349,8 @@ static void test_an_advertising_event_carries_what_the_host_needs(void)
 {
 	ble_gap_addr_t	target;
 	uint8_t		payload[31];
-	uint16_t	length = make_payload(payload, "SENS-01");
-	ble_evt_t	event  = make_report("E4:1C:7B:02:9A:11", -62, 38U, payload, length);
+	uint16_t	length = test_make_payload(payload, "SENS-01");
+	ble_evt_t	event  = test_make_report("E4:1C:7B:02:9A:11", -62, 38U, payload, length);
 
 	(void)scanner_parse_address("E4:1C:7B:02:9A:11", &target);
 	scanner_profile_start(&target);
@@ -374,17 +374,17 @@ static void test_only_the_profiled_address_is_reported(void)
 	(void)scanner_parse_address("E4:1C:7B:02:9A:11", &target);
 	scanner_profile_start(&target);
 
-	report("C9:3A:51:0F:22:04", -78, "SENS-02");
+	test_report("C9:3A:51:0F:22:04", -78, "SENS-02");
 	TEST_ASSERT_FALSE(fake_line_seen("+adv "));
 
-	report("E4:1C:7B:02:9A:11", -62, "SENS-01");
+	test_report("E4:1C:7B:02:9A:11", -62, "SENS-01");
 	TEST_ASSERT_TRUE(fake_line_seen("+adv "));
 }
 
 static void test_profiling_every_address(void)
 {
 	scanner_profile_start(NULL);
-	report("C9:3A:51:0F:22:04", -78, "SENS-02");
+	test_report("C9:3A:51:0F:22:04", -78, "SENS-02");
 	TEST_ASSERT_TRUE(fake_line_seen("+adv "));
 }
 
@@ -396,8 +396,8 @@ static void test_the_counters_reconcile_what_was_seen_and_sent(void)
 
 	(void)scanner_parse_address("E4:1C:7B:02:9A:11", &target);
 	scanner_profile_start(&target);
-	report("E4:1C:7B:02:9A:11", -62, "SENS-01");
-	report("E4:1C:7B:02:9A:11", -62, "SENS-01");
+	test_report("E4:1C:7B:02:9A:11", -62, "SENS-01");
+	test_report("E4:1C:7B:02:9A:11", -62, "SENS-01");
 
 	scanner_profile_counters(&received, &reported);
 	TEST_ASSERT_EQUAL_UINT32(2U, received);
@@ -414,7 +414,7 @@ static void test_a_dropped_line_is_counted_as_not_reported(void)
 	(void)scanner_parse_address("E4:1C:7B:02:9A:11", &target);
 	scanner_profile_start(&target);
 	fake_lines_set_full(true);
-	report("E4:1C:7B:02:9A:11", -62, "SENS-01");
+	test_report("E4:1C:7B:02:9A:11", -62, "SENS-01");
 
 	scanner_profile_counters(&received, &reported);
 	TEST_ASSERT_EQUAL_UINT32(1U, received);
@@ -428,7 +428,7 @@ static void test_stopping_profiling(void)
 	TEST_ASSERT_TRUE(scanner_profile_is_active());
 	scanner_profile_stop();
 	TEST_ASSERT_FALSE(scanner_profile_is_active());
-	report("E4:1C:7B:02:9A:11", -62, "SENS-01");
+	test_report("E4:1C:7B:02:9A:11", -62, "SENS-01");
 	TEST_ASSERT_FALSE(fake_line_seen("+adv "));
 }
 
