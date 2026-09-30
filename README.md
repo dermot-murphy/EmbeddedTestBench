@@ -30,7 +30,6 @@ benchtools/
 │   ├── jlink/       SEGGER J-Link debug probe (flash, RTT, breakpoints, timing)
 │   ├── nordic_dongle/  Nordic BLE dongle (scan, UART over BLE, advertising profile)
 │   ├── gpd3303d/    GW Instek GPD-3303D bench power supply
-│   ├── tti1604/     TTi 1604 bench multimeter over RS-232
 │   ├── s2lp/        ST S2-LP sub-1 GHz development kit (registers, TX, RX, logs)
 │   └── generic.py   anything answering *IDN?
 └── runner/        declarative bench test runner
@@ -566,49 +565,6 @@ status word, and the six bench confirmation items that need the instrument.
 
 ---
 
-## Multimeter — TTi 1604
-
-A 40,000-count bench meter on the 9-way RS-232 port at its back, through a USB
-converter: DC and AC volts, DC and AC current on the mA (400 mA) and 10 A
-sockets, resistance and frequency. It measures the sensor board's current
-(STK-18).
-
-```python
-from benchtools.instruments.tti1604 import Tti1604
-
-with Tti1604.connect("/dev/ttyUSB1") as dmm:        # COM6 on Windows
-    amps = dmm.measure_dc_current()                  # mA socket, autoranged
-    print("%.4f mA on the %s range" % (amps * 1e3, dmm.last_reading.range_label))
-    log = dmm.read_many(25)                          # ten seconds, 2.5 per second
-```
-
-### Three things this meter will otherwise lie to you about
-
-| | |
-|---|---|
-| **It is driven by pretending to press its keys**, and some keys toggle. A key whose echo was lost may have been acted on, and resending it undoes it | The echo is used only to pace keys. Every function and range change is confirmed from the readings, which carry the meter's whole state, and raises if they do not show it |
-| **It streams whether or not anyone is reading.** The operating system keeps what nobody read, and the next reading on the line can be minutes old | A reading on request discards everything waiting - the operating system's buffer included - and the frame after, and returns the next one |
-| **A reading is a picture of the display.** Hold, Min/Max recall and Null look like numbers; OFL does not; kilohms is an annunciator the frame leaves out | Every annunciator is decoded. `measure()` refuses overload, held and recalled readings, and Null unless asked; the resistance multiplier is derived from the manual's resolution and refused if it does not fit |
-
-The meter's interface is powered by the PC's DTR and RTS lines; the driver sets
-them. It never selects a current function unless one is named: that puts the
-meter's shunt across its input.
-
-```bash
-python -m benchtools dmm -r /dev/ttyUSB1 measure dc_milliamps
-python -m benchtools dmm -r /dev/ttyUSB1 log -n 25 --json current.json
-python -m benchtools dmm -r sim:// info            # no meter needed
-```
-
-With the meter attached, `BENCHTOOLS_TTI1604=/dev/ttyUSB1 pytest tests/bench/tti1604`
-exercises the driver against it and writes a findings record; it is outside the
-default test run. See [TTi 1604 Notes](docs/dmm/TTi1604_Notes.md) for the wiring, the key
-characters and frame format, the bench test, and seven bench confirmation items. The
-manufacturer's datasheet, manual and remote-control note are in
-`docs/dmm/reference/`.
-
----
-
 ## Addressing an instrument
 
 | Resource string | Transport |
@@ -684,7 +640,6 @@ configurations can name it. New link types (serial, USBTMC, HTTP) register with
 | [`examples/06_ble_sensor.py`](examples/06_ble_sensor.py) | Scan, select, advertising profile, and command/response timing through a BLE dongle |
 | [`examples/07_supply_rails.py`](examples/07_supply_rails.py) | Bringing up two rails, and catching one that is in current limit |
 | [`examples/08_s2lp_radio.py`](examples/08_s2lp_radio.py) | Dumping an S2-LP's registers, transmitting, and capturing to a packet log |
-| [`examples/09_dmm_current.py`](examples/09_dmm_current.py) | Measuring a board's current with a TTi 1604, locking the range, and logging it |
 
 Each takes an address (or bench file) and defaults to simulation:
 
@@ -734,12 +689,11 @@ source carries its trace and allocates nothing dynamically.
 | [BLE Dongle Notes](docs/ble/BLE_Dongle_Notes.md) | Why the dongle needs firmware, the line protocol, building and flashing, reading a profile, and what is unproven |
 | [S2-LP Devkit Notes](docs/s2lp/S2LP_Devkit_Notes.md) | Why ST's firmware is used unchanged, its CLI protocol, the register map, what a polled capture can and cannot be quoted as, and the licence position |
 | [GPD-3303D Notes](docs/psu/GPD3303D_Notes.md) | The four ways this supply will mislead a test, its command set and status word, and the bench confirmation items |
-| [TTi 1604 Notes](docs/dmm/TTi1604_Notes.md) | The three ways this meter will mislead a test, its wiring, key characters and reading frame, and the bench confirmation items |
-| [SWE.1 Requirements](docs/SWE1_Software_Requirements_Specification.md) | 282 functional and 29 non-functional requirements |
-| [SWE.2 Architecture](docs/SWE2_Software_Architecture.md) | Layering, elements, twenty-five architectural decisions |
+| [SWE.1 Requirements](docs/SWE1_Software_Requirements_Specification.md) | 177 functional and 18 non-functional requirements |
+| [SWE.2 Architecture](docs/SWE2_Software_Architecture.md) | Layering, elements, eighteen architectural decisions |
 | [SWE.3 Detailed Design](docs/SWE3_Software_Detailed_Design.md) | Per-module design units |
 | [SWE.4 Test Specification](docs/SWE4_Unit_Test_Specification.md) | Strategy, test groups, pass criteria |
-| [SWE.4 Test Report](docs/SWE4_Unit_Test_Report.md) | Results, coverage, measured accuracy, forty-one defects found |
+| [SWE.4 Test Report](docs/SWE4_Unit_Test_Report.md) | Results, coverage, measured accuracy, forty defects found |
 | [Traceability Matrix](docs/Traceability_Matrix.md) | Bidirectional trace, stakeholder need to test |
 
 Work products follow Automotive SPICE V4.0 SWE.1–SWE.4. This is a test tool: it is
@@ -803,6 +757,8 @@ What remains is flashing it and running it: see
 [BLE Dongle Notes §5](docs/ble/BLE_Dongle_Notes.md#5-bench-confirmation-items).
 The host driver is fully verified against a simulated dongle.
 
-Under consideration: translating tests authored in Markdown to Robot
-Framework. The driver boundary returns plain types with that last one in
+Planned next, with no drivers yet: a programmable PSU for the sensor supply, a
+multimeter for current over RS-232 (the serial transport it needs now exists),
+and — under consideration — authoring tests in Markdown and translating them to
+Robot Framework. The driver boundary returns plain types with that last one in
 mind, but no translator exists.

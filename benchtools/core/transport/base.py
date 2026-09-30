@@ -19,7 +19,7 @@ The base class builds buffered message framing on top of those, so higher
 layers can ask for "a whole response", "exactly N bytes" or "up to the
 terminator" without caring which transport is underneath.
 
-Traces to: CORE-FR-005, CORE-FR-019, CORE-ARC-002, CORE-DD-TRANSPORT.
+Traces to: CORE-FR-005, CORE-ARC-002, CORE-DD-TRANSPORT.
 """
 
 from __future__ import annotations
@@ -241,40 +241,6 @@ class Transport(abc.ABC):
         data = bytes(self._buffer[:count])
         del self._buffer[:count]
         return data
-
-    def read_available(self) -> bytes:
-        """Return every byte that has arrived, waiting for at least one.
-
-        For an instrument that streams bytes without message framing - a meter
-        sending a reading after every measurement, interleaved with the echo
-        of whatever it was last sent - there is no "whole response" to wait
-        for. This returns what is there, and waits up to the timeout only when
-        nothing is (CORE-FR-019).
-
-        :raises TransportTimeoutError: if nothing arrives within the timeout.
-        """
-        self._require_open()
-        if not self._buffer:
-            # A previous end-of-message says nothing about the next byte of a
-            # stream; clear it so the link is asked again.
-            self._buffer_end = False
-            self._fill()
-        data = bytes(self._buffer)
-        self._reset_buffer()
-        return data
-
-    def discard_input(self) -> int:
-        """Drop every byte received and not yet read, and return how many.
-
-        :meth:`write` already does this for SCPI's sake. An instrument that
-        streams without being asked needs it *without* writing: the bytes
-        waiting are readings taken before the caller asked for one. Transports
-        with a buffer below this one - a serial port's operating-system
-        buffer - extend it to empty that too (CORE-FR-019).
-        """
-        dropped = len(self._buffer)
-        self._reset_buffer()
-        return dropped
 
     def read_raw(self) -> bytes:
         """Read the remainder of the current response, including terminators.

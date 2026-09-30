@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-SWE4-002 |
-| Version | 4.4 |
-| Date | 2026-09-30 |
+| Version | 4.2 |
+| Date | 2026-09-13 |
 | Specification | BENCHTOOLS-SWE4-001 |
 | Item under verification | `benchtools` 4.0.0 and `firmware/nordic_dongle` |
 | Verdict | **PASS** |
@@ -13,13 +13,13 @@
 
 | Metric | Result |
 |---|---|
-| Tests executed | **2 069** |
-| Passed | **2 069** |
+| Tests executed | **1 878** |
+| Passed | **1 878** |
 | Failed | 0 |
 | Errors | 0 |
 | Skipped | 0 |
-| Statement coverage | **95%** (11 217 statements, 589 missed) |
-| Execution time | 49.8 s with coverage instrumentation, 31.8 s without |
+| Statement coverage | **94%** (10 374 statements, 575 missed) |
+| Execution time | 43.6 s with coverage instrumentation, 30.6 s without |
 | Runtime | CPython 3.11.15, Linux |
 | Framework | pytest 9.1.1, pytest-cov |
 
@@ -29,24 +29,22 @@ Command:
 python3 -m pytest tests/ --cov=benchtools --cov-report=term
 ```
 
-No test was skipped. The `matplotlib`, `pyvisa`, `pyyaml` and `pyserial`
-optional extras were installed for this run, so their tests executed.
+No test was skipped. The `matplotlib`, `pyvisa` and `pyyaml` optional extras were
+installed for this run, so their tests executed.
 
 The suite was also run with all extras blocked - `matplotlib`, `pyvisa`,
 `pyyaml` and `pyserial` - to confirm the claim that the package works
-without them: **1 994 passed, 44 skipped, 0 failed**. They were blocked by a
+without them: **1 807 passed, 40 skipped, 0 failed**. They were blocked by a
 `sitecustomize` that raises `ModuleNotFoundError` for those four names, which
 is closer to a machine that never had them than uninstalling is. (The totals
 differ from the figure above because the runner command-line module is skipped as a whole
 rather than test by test — the shipped specifications are YAML, so without
 `pyyaml` there is nothing in that module to run. Its JSON equivalents are covered
 in `test_spec.py`.) The whole J-Link driver runs in that configuration, which is
-the evidence for JLINK-NFR-001. The TTi 1604 driver likewise runs in full
-against its simulator in that configuration, which is the evidence for
-DMM-NFR-001; only its one pyserial `loop://` test skips.
+the evidence for JLINK-NFR-001.
 
-No J-Link probe, target board, GDB, GDB Server, BLE dongle, BLE sensor or TTi
-1604 multimeter was present for this run, and no test needs one (PC-8): the probe is substituted at
+No J-Link probe, target board, GDB, GDB Server, BLE dongle or BLE sensor was
+present for this run, and no test needs one (PC-8): the probe is substituted at
 the GDB/MI boundary, the RTT and SWO sockets by a loopback server, the dongle at
 its line protocol, and the serial port by pyserial's own `loop://` handler.
 
@@ -71,23 +69,19 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | SWE4-UT-S2LPSESSION | `instruments/s2lp/test_session.py` | 14 | Pass |
 | SWE4-UT-PSU | `instruments/gpd3303d/test_psu.py` | 102 | Pass |
 | SWE4-UT-BLE | `instruments/nordic_dongle/test_dongle.py` | 64 | Pass |
-| SWE4-UT-BLEFIRMWARE | `instruments/nordic_dongle/test_firmware.py` | 50 | Pass |
+| SWE4-UT-BLEFIRMWARE | `instruments/nordic_dongle/test_firmware.py` | 49 | Pass |
 | SWE4-UT-BLEPROTO | `instruments/nordic_dongle/test_protocol.py` | 34 | Pass |
 | SWE4-UT-BLEPROFILE | `instruments/nordic_dongle/test_profile.py` | 30 | Pass |
 | SWE4-UT-BLESIM | `instruments/nordic_dongle/test_simulator.py` | 30 | Pass |
 | SWE4-UT-PSUSIM | `instruments/gpd3303d/test_simulator.py` | 35 | Pass |
 | SWE4-UT-PSUCLI | `instruments/gpd3303d/test_cli.py` | 23 | Pass |
-| SWE4-UT-DMM | `instruments/tti1604/test_dmm.py` | 75 | Pass |
-| SWE4-UT-DMMFRAME | `instruments/tti1604/test_frame.py` | 50 | Pass |
-| SWE4-UT-DMMSIM | `instruments/tti1604/test_simulator.py` | 34 | Pass |
-| SWE4-UT-DMMCLI | `instruments/tti1604/test_cli.py` | 14 | Pass |
-| SWE4-UT-SERIAL | `core/transport/test_serial.py` | 30 | Pass |
+| SWE4-UT-SERIAL | `core/transport/test_serial.py` | 25 | Pass |
 | SWE4-UT-BLESESSION | `instruments/nordic_dongle/test_session.py` | 23 | Pass |
 | SWE4-UT-BLECLI | `instruments/nordic_dongle/test_cli.py` | 25 | Pass |
 | SWE4-UT-BLESCRIPT | `instruments/nordic_dongle/test_script.py` | 58 | Pass |
 | SWE4-UT-BLELATENCY | `instruments/nordic_dongle/test_latency.py` | 20 | Pass |
 | SWE4-UT-BLEFW | `instruments/nordic_dongle/test_firmware_protocol.py` | 17 | Pass |
-| SWE4-UT-LAYERING | `test_layering.py` | 89 | Pass |
+| SWE4-UT-LAYERING | `test_layering.py` | 81 | Pass |
 | SWE4-UT-GDBMI | `instruments/jlink/test_gdbmi.py` | 37 | Pass |
 | SWE4-UT-BENCH | `runner/test_bench.py` | 41 | Pass |
 | SWE4-UT-MEASURE | `analysis/test_measure.py` | 35 | Pass |
@@ -113,7 +107,7 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | SWE4-UT-VXI11 | `core/transport/test_vxi11.py` | 22 | Pass |
 | SWE4-UT-CLI | `instruments/tek3014b/test_cli.py` | 20 | Pass |
 | SWE4-UT-REPORT | `runner/test_report.py` | 24 | Pass |
-| SWE4-UT-TRANSPORT | `core/transport/test_base.py` | 26 | Pass |
+| SWE4-UT-TRANSPORT | `core/transport/test_base.py` | 19 | Pass |
 | SWE4-UT-ENV | `instruments/tek3014b/test_simulator.py` | 19 | Pass |
 | SWE4-UT-PLOT | `analysis/test_plotting.py` | 15 | Pass |
 | SWE4-UT-RUNCLI | `runner/test_cli.py` | 15 | Pass |
@@ -122,17 +116,17 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | SWE4-UT-COREFW | `core/test_firmware.py` | 13 | Pass |
 | SWE4-UT-SOCKET | `core/transport/test_socket.py` | 12 | Pass |
 | SWE4-UT-VISA | `core/transport/test_visa.py` | 6 | Pass |
-| **Total** | | **2 069** | **Pass** |
+| **Total** | | **1 878** | **Pass** |
 
 ## 3. Coverage detail
 
 | Element | Module | Statements | Missed | Coverage |
 |---|---|---|---|---|
 | S2LP | `instruments/s2lp/registers.py` | 95 | 0 | 100% |
-| S2LP | `instruments/s2lp/constants.py` | 57 | 1 | 98% |
 | S2LP | `instruments/s2lp/configuration.py` | 130 | 4 | 97% |
-| S2LP | `instruments/s2lp/s2lp.py` | 386 | 15 | 96% |
+| S2LP | `instruments/s2lp/constants.py` | 57 | 1 | 98% |
 | S2LP | `instruments/s2lp/protocol.py` | 97 | 4 | 96% |
+| S2LP | `instruments/s2lp/s2lp.py` | 386 | 15 | 96% |
 | S2LP | `instruments/s2lp/cli.py` | 171 | 9 | 95% |
 | S2LP | `instruments/s2lp/session.py` | 123 | 9 | 93% |
 | S2LP | `instruments/s2lp/simulator.py` | 231 | 26 | 89% |
@@ -141,66 +135,60 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | PSU | `instruments/gpd3303d/psu.py` | 253 | 5 | 98% |
 | PSU | `instruments/gpd3303d/simulator.py` | 140 | 7 | 95% |
 | PSU | `instruments/gpd3303d/cli.py` | 113 | 6 | 95% |
-| DMM | `instruments/tti1604/frame.py` | 120 | 0 | 100% |
-| DMM | `instruments/tti1604/constants.py` | 73 | 1 | 99% |
-| DMM | `instruments/tti1604/simulator.py` | 175 | 3 | 98% |
-| DMM | `instruments/tti1604/cli.py` | 100 | 2 | 98% |
-| DMM | `instruments/tti1604/dmm.py` | 324 | 8 | 98% |
 | CORE | `core/enums.py` | 20 | 0 | 100% |
+| CORE | `core/firmware.py` | 80 | 3 | 96% |
 | CORE | `core/errors.py` | 20 | 0 | 100% |
 | CORE | `core/transport/constants.py` | 8 | 0 | 100% |
 | CORE | `core/validation.py` | 33 | 0 | 100% |
 | CORE | `core/instrument.py` | 82 | 2 | 98% |
-| CORE | `core/firmware.py` | 80 | 3 | 96% |
-| CORE | `core/transport/base.py` | 151 | 7 | 95% |
-| CORE | `core/transport/factory.py` | 107 | 5 | 95% |
 | CORE | `core/simulator.py` | 96 | 5 | 95% |
-| CORE | `core/transport/serial_port.py` | 107 | 6 | 94% |
-| CORE | `core/transport/mock.py` | 68 | 4 | 94% |
-| CORE | `core/scpi.py` | 127 | 12 | 91% |
+| CORE | `core/transport/base.py` | 139 | 7 | 95% |
+| CORE | `core/transport/factory.py` | 107 | 5 | 95% |
+| CORE | `core/transport/mock.py` | 60 | 4 | 93% |
+| CORE | `core/transport/serial_port.py` | 87 | 6 | 93% |
+| CORE | `core/scpi.py` | 127 | 11 | 91% |
 | CORE | `core/transport/process.py` | 131 | 14 | 89% |
-| CORE | `core/transport/vxi11.py` | 318 | 37 | 88% |
 | CORE | `core/transport/socket_raw.py` | 77 | 9 | 88% |
+| CORE | `core/transport/vxi11.py` | 318 | 37 | 88% |
 | CORE | `core/transport/visa_backend.py` | 75 | 17 | 77% |
 | ANA | `analysis/waveform.py` | 164 | 4 | 98% |
 | ANA | `analysis/measure.py` | 235 | 10 | 96% |
 | ANA | `analysis/plotting.py` | 70 | 3 | 96% |
 | INST | `instruments/generic.py` | 7 | 0 | 100% |
 | SCOPE | `instruments/tek3014b/constants.py` | 121 | 0 | 100% |
-| SCOPE | `instruments/tek3014b/scope.py` | 326 | 18 | 94% |
+| SCOPE | `instruments/tek3014b/scope.py` | 326 | 17 | 95% |
 | SCOPE | `instruments/tek3014b/cli.py` | 213 | 14 | 93% |
 | SCOPE | `instruments/tek3014b/simulator.py` | 442 | 35 | 92% |
 | JLINK | `instruments/jlink/gdbmi.py` | 215 | 3 | 99% |
 | JLINK | `instruments/jlink/constants.py` | 65 | 1 | 98% |
 | JLINK | `instruments/jlink/server.py` | 121 | 4 | 97% |
-| JLINK | `instruments/jlink/timing.py` | 81 | 3 | 96% |
 | JLINK | `instruments/jlink/rtt.py` | 233 | 9 | 96% |
 | JLINK | `instruments/jlink/swo.py` | 214 | 9 | 96% |
-| JLINK | `instruments/jlink/probe.py` | 666 | 60 | 91% |
+| JLINK | `instruments/jlink/timing.py` | 81 | 3 | 96% |
 | JLINK | `instruments/jlink/cli.py` | 191 | 18 | 91% |
-| JLINK | `instruments/jlink/simulator.py` | 486 | 46 | 91% |
+| JLINK | `instruments/jlink/probe.py` | 640 | 61 | 90% |
 | JLINK | `instruments/jlink/session.py` | 159 | 16 | 90% |
-| BLE | `instruments/nordic_dongle/script.py` | 243 | 4 | 98% |
+| JLINK | `instruments/jlink/simulator.py` | 473 | 46 | 90% |
 | BLE | `instruments/nordic_dongle/profile.py` | 152 | 3 | 98% |
-| BLE | `instruments/nordic_dongle/cli.py` | 167 | 4 | 98% |
-| BLE | `instruments/nordic_dongle/protocol.py` | 95 | 3 | 97% |
+| BLE | `instruments/nordic_dongle/cli.py` | 147 | 4 | 97% |
 | BLE | `instruments/nordic_dongle/latency.py` | 93 | 3 | 97% |
+| BLE | `instruments/nordic_dongle/script.py` | 243 | 4 | 98% |
+| BLE | `instruments/nordic_dongle/protocol.py` | 95 | 3 | 97% |
 | BLE | `instruments/nordic_dongle/constants.py` | 72 | 3 | 96% |
-| BLE | `instruments/nordic_dongle/firmware.py` | 70 | 3 | 96% |
-| BLE | `instruments/nordic_dongle/dongle.py` | 409 | 18 | 96% |
+| BLE | `instruments/nordic_dongle/dongle.py` | 285 | 13 | 95% |
 | BLE | `instruments/nordic_dongle/session.py` | 165 | 9 | 95% |
-| BLE | `instruments/nordic_dongle/simulator.py` | 296 | 18 | 94% |
-| RUN | `runner/resolve.py` | 92 | 0 | 100% |
-| RUN | `runner/results.py` | 110 | 0 | 100% |
+| BLE | `instruments/nordic_dongle/simulator.py` | 276 | 17 | 94% |
 | RUN | `runner/limits.py` | 98 | 1 | 99% |
-| RUN | `runner/bench.py` | 155 | 2 | 99% |
-| RUN | `runner/report.py` | 152 | 2 | 99% |
+| RUN | `runner/results.py` | 106 | 0 | 100% |
+| RUN | `runner/bench.py` | 134 | 2 | 99% |
+| RUN | `runner/report.py` | 138 | 1 | 99% |
+| RUN | `runner/spec.py` | 188 | 7 | 96% |
 | RUN | `runner/cli.py` | 94 | 3 | 97% |
-| RUN | `runner/spec.py` | 197 | 7 | 96% |
-| RUN | `runner/runner.py` | 182 | 9 | 95% |
-| — | `cli.py` | 51 | 0 | 100% |
+| RUN | `runner/runner.py` | 139 | 5 | 96% |
+| RUN | `runner/resolve.py` | 92 | 0 | 100% |
+| — | `cli.py` | 42 | 0 | 100% |
 | — | `__main__.py` | 4 | 4 | 0% |
-| **TOTAL** | | **11 217** | **589** | **95%** |
+| **TOTAL** | | **7 604** | **444** | **94%** |
 
 The `__init__.py` files are omitted for brevity; `__main__.py` is discussed below.
 
@@ -221,7 +209,6 @@ The `__init__.py` files are omitted for brevity; `__main__.py` is discussed belo
 | `instruments/jlink/cli.py`, `nordic_dongle/cli.py` | Argument-error branches of sub-commands whose happy path is covered | Thin `argparse` plumbing; each is one `return 2`. |
 | `core/transport/serial_port.py` | Buffer-reset and `in_waiting` fallbacks for URL handlers that do not implement them | Reached only with a pyserial URL handler that lacks the call; the guards exist so an exotic handler degrades instead of raising. |
 | `instruments/nordic_dongle/session.py`, `dongle.py` | Transport-error branches and best-effort cleanup | The principal failures (timeout, refusal, protocol mismatch) are covered; the remainder translate a dead link. |
-| `instruments/tti1604/dmm.py` | A display that stays non-numeric past the settling time, the front panel changed between selecting a function and reading it, the final confirmation after the bounded range loop, and a debug log line | Each needs a meter misbehaving in a way the simulator does not model; each raises with a diagnostic rather than returning a value. |
 
 Coverage meets PC-2 (≥ 90%) at package level and at every module level except the
 four justified above.
@@ -232,7 +219,7 @@ four justified above.
 
 | Check | Result |
 |---|---|
-| All 314 requirements declared in SWE.1 appear in the traceability matrix | Pass |
+| All 195 requirements declared in SWE.1 appear in the traceability matrix | Pass |
 | The matrix contains no requirement SWE.1 does not define | Pass |
 | Every requirement cited in a docstring is defined in SWE.1 | Pass |
 | Every design unit cited in a docstring is a section of SWE.3 | Pass |
@@ -250,7 +237,7 @@ does not catch.
 
 | Check | Result |
 |---|---|
-| Every module's imports respect the layering (parametrised over all 84 sources) | Pass |
+| Every module's imports respect the layering (parametrised over all 58 sources) | Pass |
 | `benchtools.core` references no instrument, checked over code identifiers | Pass |
 | `benchtools.core` imports in a fresh interpreter with no other element loaded | Pass |
 | `benchtools.analysis` imports without instruments or the runner | Pass |
@@ -772,78 +759,7 @@ driver could only repeat what it had been told about it.
 | PSU-OPEN-05 | Whether a real GPD-3303D discards a setpoint sent to the slaved channel **silently**, as modelled here, or records something in `ERR?`. The driver refuses the command either way, so the refusal is right in both cases; what is unconfirmed is the sentence that says the supply reports nothing. Send `VSET2:1.000` in series tracking, then `ERR?`. |
 | PSU-OPEN-06 | Whether the supply's own manual numbers the `STATUS?` tracking bits as this driver decodes them (bit 2 then bit 3, `01` independent, `11` series, `10` parallel). Related to PSU-OPEN-01 and confirmed by the same one-minute check: move the front-panel switch and watch which characters change. |
 
-## 11. Multimeter verification results
-
-No TTi 1604 was present (PC-8). The driver is verified two ways that do not
-share code: its frame decoder against frames assembled byte by byte from the
-manufacturer's published data format (SWE4-UT-DMMFRAME), and the whole driver
-against a simulated meter that auto-ranges onto an input a test sets and
-encodes its display into seven-segment patterns (SWE4-UT-DMM, -DMMSIM).
-
-### 11.1 The published example, and values through the full driver
-
-| Case | Frame or input | Decoded |
-|---|---|---|
-| The note's own example | display bytes `96 219 242 102 182`, 40 V range | `12.345` V |
-| Same, minus bit set | char 3 = `0x02` | `-12.345` V |
-| 4 kohm range, displayed `1.2345` | resolution 0.1 ohm, 4 decimals: x1 000 | 1 234.5 ohm |
-| 4 kohm range, displayed `123.45` | 0.1 / 0.01 fits no multiplier | **refused** (DMM-OPEN-02) |
-| 12.345 mA on the input, auto | 400 mA range, 10 uA resolution | 0.01235 A |
-| 1.2345 mA on the input, auto | 4 mA range, 0.1 uA resolution | 0.0012345 A |
-| 4.7 kohm on the input, auto | 40 kohm range, displayed `4.700` | 4 700 ohm |
-| Nothing connected, ohms | `0FL` | **MeasurementError**, not infinity |
-
-The resistance rows are the ones to note: the frame does not say kilohms, and a
-driver that assumed a table of multipliers would be right only if the table
-were. Deriving it from the manual's resolution makes the reading right whichever
-convention the meter uses, and refuses the ones it cannot be.
-
-### 11.2 Keys are confirmed from the readings
-
-| Condition | Result |
-|---|---|
-| Two keys lost | Echo on the third send; 0.3 s of virtual time per resend |
-| Five keys lost | `ProtocolError` naming the cable, mains, and DTR/RTS levels |
-| Key lost while every frame carries `0x66`, the Volts key's character | Resent: the echo is never taken from inside a frame |
-| Key echoed but not acted on | `ConfigurationError` naming what the readings show |
-| `select_function` on the function already shown | Nothing pressed |
-| `measure_resistance`, frequency and AC volts selected | No current function selected at any point (DMM-NFR-002) |
-
-### 11.3 A reading on request is a fresh one
-
-With 1.0 V waiting in the stream and 2.0 V applied before the request,
-`read()` returns 2.0 V, two frames after the request: one discarded because it
-may have straddled the request, one returned. A stream joined three bytes into
-a frame, a frame delivered three bytes at a time, and a NUL after every frame
-all decode correctly.
-
-### 11.4 The bench test, dry-run
-
-SWE4-UT-DMMBENCH (`tests/bench/tti1604`, SWE4-001 §1.6a) is the test to run
-with a meter attached. It is outside the default run and is not counted above.
-It was dry-run against the simulator (`BENCHTOOLS_TTI1604=sim://`) to show the
-test itself is sound - **not** as evidence about a meter:
-
-| Configuration | Result |
-|---|---|
-| No meter named | 14 skipped, naming the variable to set |
-| Input open (no reference) | 10 passed, 4 skipped (the reference tests); findings record written and marked as a dry run |
-| Each reference in turn - DC volts, resistance, frequency, DC current on the mA socket, DC current on the 10 A socket | 10 passed, 4 skipped: the named reference's test runs, and the open-input OFL test steps aside |
-
-Writing it found D-41 (§13): its frequency-gate test could not pass on a real
-meter, and the simulator had been hiding why.
-
-### 11.5 What could not be verified without the instrument
-
-DMM-OPEN-01 to -07, in `docs/dmm/TTi1604_Notes.md` §5: the frame terminator,
-the resistance display convention, the AC current range labels, the frequency
-gate times, the SHIFT combinations and remote-mode key behaviour, whether an
-echo can fall inside a frame, and whether the bench's USB converter drives DTR
-and RTS far enough to power the meter's interface. None blocks use: each is
-either accepted both ways, refused rather than guessed, or confined to a
-function the driver does not select.
-
-## 12. Runner verification results
+## 11. Runner verification results
 
 | Check | Result |
 |---|---|
@@ -863,7 +779,7 @@ function the driver does not select.
 | A limit stated as text compares as text, and the report shows the text | Pass |
 | A value reported through a format reads as the part does, and the number stays in the record | Pass |
 
-### 12.1 A chained test, run end to end
+### 11.1 A chained test, run end to end
 
 `specs/sensor_bringup.yaml` is the first test of a bench session and the first
 shipped specification that is a **chain** rather than a list: what one step
@@ -903,7 +819,7 @@ three tests assert they say what the simulators say - otherwise a simulated run
 would fail for reasons that are about the fixture rather than about the
 specification.
 
-### 12.2 A command set tested against its own document
+### 11.2 A command set tested against its own document
 
 `specs/sensor_commands.md` is the sensor's command set written as a document -
 a heading per test, a row per step - and `specs/sensor_commands.yaml` runs it.
@@ -938,7 +854,7 @@ get quietly wrong:
 - **The time must carry its clock.** The dongle's microsecond figure is what is
   measured and 10 ms is what is quoted; both are in the record (BLE-NFR-005).
 
-## 13. Defects found, and their disposition
+## 12. Defects found, and their disposition
 
 | ID | Severity | Status | Regression test |
 |---|---|---|---|
@@ -1003,7 +919,6 @@ SDK to provide it transitively.
 | D-39 | The simulated target modelled **reset-and-run as reset-and-halt**: `monitor reset 0` left the core halted and silent. Writing the bring-up specification is what found it - the board was started and never said anything | **Major in the model** (the class of D-31 and D-35): the simulator contradicted the thing it stands for, so "start the firmware and check it is running" could not be demonstrated, and any test of it would have been measuring the simulator | **Closed** — a reset with the run argument resets and then runs, emitting whatever the firmware emits along its flow, exactly as a resume does | `test_a_running_target_produces_lines`, `test_a_halted_target_produces_none`, `TestItPasses` |
 
 | D-40 | `DEFAULT_SENSORS` is a module-level tuple of dataclasses holding mutable dicts, and every `SimulatedDongle` shared them. A test that changed one sensor's replies changed them for every simulator built afterwards | **Major in the test double**, and of the worst kind to diagnose: the tests it broke were in other files, and the failures described the sensor rather than the test that had altered it. Found by writing a test that silenced a sensor and watching six unrelated tests fail | **Closed** — a simulated dongle deep-copies the sensors it is given, so one simulator cannot poison another. The test that found it now models silence with a stub instead, which is the honest way to model a sensor the simulator does not have | `test_the_default_population_is_not_shared_between_simulators`, `TestASensorThatDoesNotAnswer` (4) |
-| D-41 | In the frequency function the 1604 reads once per gate - 1 s, or 10 s on the 4 kHz range - but every wait in the driver was sized for 2.5 readings a second (4 s). `set_range(4000)` would have timed out on every real meter, and a meter left on the 10 s gate would have been reported as in standby on connecting. The simulator hid it twice over: it sent a reading every 0.4 s whatever the gate, and the mock transport handed a virtual-clock simulator's next reading to the driver however long after the driver's timeout it was due | **Major** - a function unusable on hardware, with every simulated test passing. Found by writing the bench test (SWE4-UT-DMMBENCH), whose gate test had to allow for a 10 s reading and so asked how the driver did | **Closed** - the driver waits one settle time plus two gate times whenever a frequency reading may be due (DMM-FR-070). The simulator schedules readings at the meter's real cadence, and a streaming simulator is now given the transport's timeout (`poll_within`, CORE-FR-042), so a wait that is too short fails here as it would on the bench. The regression test fails on the unfixed driver | `test_the_ten_second_gate_is_waited_for`, `test_frequency_is_read_once_per_gate`, `test_a_read_shorter_than_the_measurement_times_out`, `test_a_virtual_clock_simulator_is_given_the_read_timeout` |
 
 No open defects.
 
@@ -1069,12 +984,12 @@ Notes on process effectiveness:
   (they check identifiers, not test names), so this one was a manual cross-check;
   it is worth repeating per release.
 
-## 14. Verdict against the pass criteria
+## 13. Verdict against the pass criteria
 
 | ID | Criterion | Result |
 |---|---|---|
-| PC-1 | All tests pass | **Pass** — 2 069/2 069 |
-| PC-2 | Statement coverage ≥ 90% | **Pass** — 95% |
+| PC-1 | All tests pass | **Pass** — 1 878/1 878 |
+| PC-2 | Statement coverage ≥ 90% | **Pass** — 94% |
 | PC-3 | Every requirement covered | **Pass** — see BENCHTOOLS-TRACE-001 |
 | PC-4 | Injected skews recovered to < 0.1 sample interval | **Pass** — worst case 0.055 |
 | PC-5 | Layering constraints hold | **Pass** |
@@ -1100,10 +1015,9 @@ discharged without physical hardware:
   verdict covers the host driver, the protocol agreement, the firmware's
   source-level rules, its compilation and its link. It does not cover behaviour
   on silicon: nothing here has run on a dongle, which BLE-OPEN-02 to -04 exist
-  to establish;
-- `docs/dmm/TTi1604_Notes.md` §5, for the multimeter (DMM-OPEN-01 to -07).
+  to establish.
 
-## 15. Supplementary checks performed
+## 14. Supplementary checks performed
 
 | Check | Result |
 |---|---|
@@ -1124,10 +1038,7 @@ discharged without physical hardware:
 | `benchtools` sub-commands `run`, `scope`, `drivers`, `backends` | All run |
 | `python -m benchtools` | Runs |
 | `benchtools` console script after `pip install -e .` | Installs and runs |
-| Full suite with `matplotlib`, `pyvisa`, `pyyaml` and `pyserial` blocked | 1 994 passed, 44 skipped, 0 failed |
-| `examples/09_dmm_current.py` | Runs against the simulated meter; measures 12.34 mA on the 400 mA range, locks it, logs ten readings |
-| `benchtools dmm --resource sim://` with every sub-command | All run; JSON on stdout |
-| `BENCHTOOLS_TTI1604=sim:// pytest tests/bench/tti1604` | Dry run of the bench test: 10 passed, 4 skipped; findings record written (§11.4) |
+| Full suite with `matplotlib`, `pyvisa`, `pyyaml` and `pyserial` blocked | 1 807 passed, 40 skipped, 0 failed |
 | `firmware/nordic_dongle/scripts/compile_check.sh` in `canembed/canembed-arm` | All six firmware units compile, 0 warnings, apart from four listed SDK 17-only lines (§4.5) |
 | `ctest --test-dir build/firmware-tests` | 5 binaries, 131 cases, all pass in 0.01 s |
 | `make SDK_ROOT=…` against SDK 15.2 | Drives a real build to the compile stage; stops only on files SDK 15.2 places elsewhere or lacks, which is the expected result for an SDK 17 project |

@@ -14,7 +14,6 @@ keywords = [
     "vxi11", "scpi", "lxi", "instrument-control", "test-automation",
     "jlink", "segger", "gdb", "rtt", "swo", "itm", "cortex-m", "embedded",
     "bluetooth", "ble", "nordic", "nrf52840", "advertising", "nus", "serial",
-    "multimeter", "dmm", "tti", "rs232",
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -62,8 +61,4 @@ include = ["benchtools*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
-# tests/bench exercises real instruments and is run only when named:
-#     BENCHTOOLS_TTI1604=/dev/ttyUSB1 pytest tests/bench/tti1604
-norecursedirs = ["*.egg", ".*", "_darcs", "build", "CVS", "dist", "node_modules", "venv", "{arch}", "bench"]
-markers = ["bench: needs a real instrument attached, named by an environment variable"]
 filterwarnings = ["ignore::UserWarning:pyvisa_py.*"]
