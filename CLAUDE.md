@@ -24,12 +24,33 @@ asked to work on.
 2. Branch from `develop`.
 3. Commit, with the issue number in the message.
 4. Push with `git push -u origin <branch-name>`.
-5. Open the pull request **only if asked**, based on `develop`.
+5. Open the pull request **only if asked**, based on `develop`. See
+   [A pull request targets `develop`](#a-pull-request-targets-develop).
 6. Update the ticket with what was done.
 7. Close the ticket once CI is green — or, if no workflow applies to the change,
    say so explicitly rather than implying checks passed.
 
+## A pull request targets `develop`
+
+**Never open a pull request into any branch other than `develop` unless
+explicitly told to** — for that pull request, by the repository owner. This
+covers `main`, a predecessor's branch in a stack, and any other branch alike.
+Being asked to open a pull request is not an instruction about its base; the
+base is `develop`.
+
+An instructed exception is stated in the pull request's description, so a
+reviewer can see why it does not target `develop`. Example: #110 reverts #106
+on `main`, on explicit instruction, because `main` is where #106 landed (#109).
+
+Background: #106 was merged into `main` although work merges to `develop` first,
+and had to be reverted (#109, #110). This rule was added by #113.
+
 ## Stacked pull requests
+
+A stack is built **only when explicitly told to**, because each pull request in
+it is based on its predecessor's branch rather than on `develop` (see above).
+Without that instruction, each ticket's branch is taken from `develop` and its
+pull request targets `develop`.
 
 When one body of work splits into several tickets that build on each other, each
 branch is based on its predecessor so that each pull request's diff shows only its
