@@ -3,23 +3,23 @@
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-SWE4-002 |
-| Version | 4.2 |
-| Date | 2026-09-13 |
+| Version | 4.3 |
+| Date | 2026-09-30 |
 | Specification | BENCHTOOLS-SWE4-001 |
-| Item under verification | `benchtools` 4.0.0 and `firmware/nordic_dongle` |
+| Item under verification | `benchtools` 4.0.0, `firmware/nordic_dongle` and `firmware/pico_sht30` |
 | Verdict | **PASS** |
 
 ## 1. Execution summary
 
 | Metric | Result |
 |---|---|
-| Tests executed | **1 878** |
-| Passed | **1 878** |
+| Tests executed | **1 956** |
+| Passed | **1 956** |
 | Failed | 0 |
 | Errors | 0 |
 | Skipped | 0 |
-| Statement coverage | **94%** (10 374 statements, 575 missed) |
-| Execution time | 43.6 s with coverage instrumentation, 30.6 s without |
+| Statement coverage | **95%** (10 764 statements, 588 missed) |
+| Execution time | 35.4 s without coverage instrumentation |
 | Runtime | CPython 3.11.15, Linux |
 | Framework | pytest 9.1.1, pytest-cov |
 
@@ -48,6 +48,15 @@ present for this run, and no test needs one (PC-8): the probe is substituted at
 the GDB/MI boundary, the RTT and SWO sockets by a loopback server, the dongle at
 its line protocol, and the serial port by pyserial's own `loop://` handler.
 
+**The Pico 2 thermometer firmware is built but not executed** (CON-09): no
+Pico 2 or SHT30-D module is available. Its 61 host unit tests pass, it agrees
+with its driver, and it cross-compiles to a UF2 image (§10A).
+
+This revision (4.3) re-ran the whole suite after adding the `PICO-` element:
+73 new host-side tests, and two pre-existing rows corrected to the counts
+actually collected (`SWE4-UT-BLEFIRMWARE` 49 → 50, `SWE4-UT-LAYERING` 81 → 88;
+the latter grows with every module added, the four new ones included).
+
 **The dongle firmware is built but not executed** (CON-07): no dongle is
 available. It is verified against the driver it must agree with, against the
 hygiene rules of §4.3, by its own unit tests (§4.4), and by a real
@@ -69,7 +78,7 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | SWE4-UT-S2LPSESSION | `instruments/s2lp/test_session.py` | 14 | Pass |
 | SWE4-UT-PSU | `instruments/gpd3303d/test_psu.py` | 102 | Pass |
 | SWE4-UT-BLE | `instruments/nordic_dongle/test_dongle.py` | 64 | Pass |
-| SWE4-UT-BLEFIRMWARE | `instruments/nordic_dongle/test_firmware.py` | 49 | Pass |
+| SWE4-UT-BLEFIRMWARE | `instruments/nordic_dongle/test_firmware.py` | 50 | Pass |
 | SWE4-UT-BLEPROTO | `instruments/nordic_dongle/test_protocol.py` | 34 | Pass |
 | SWE4-UT-BLEPROFILE | `instruments/nordic_dongle/test_profile.py` | 30 | Pass |
 | SWE4-UT-BLESIM | `instruments/nordic_dongle/test_simulator.py` | 30 | Pass |
@@ -81,7 +90,7 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | SWE4-UT-BLESCRIPT | `instruments/nordic_dongle/test_script.py` | 58 | Pass |
 | SWE4-UT-BLELATENCY | `instruments/nordic_dongle/test_latency.py` | 20 | Pass |
 | SWE4-UT-BLEFW | `instruments/nordic_dongle/test_firmware_protocol.py` | 17 | Pass |
-| SWE4-UT-LAYERING | `test_layering.py` | 81 | Pass |
+| SWE4-UT-LAYERING | `test_layering.py` | 88 | Pass |
 | SWE4-UT-GDBMI | `instruments/jlink/test_gdbmi.py` | 37 | Pass |
 | SWE4-UT-BENCH | `runner/test_bench.py` | 41 | Pass |
 | SWE4-UT-MEASURE | `analysis/test_measure.py` | 35 | Pass |
@@ -116,7 +125,14 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | SWE4-UT-COREFW | `core/test_firmware.py` | 13 | Pass |
 | SWE4-UT-SOCKET | `core/transport/test_socket.py` | 12 | Pass |
 | SWE4-UT-VISA | `core/transport/test_visa.py` | 6 | Pass |
-| **Total** | | **1 878** | **Pass** |
+| SWE4-UT-PICO | `instruments/pico_sht30/test_thermometer.py` | 40 | Pass |
+| SWE4-UT-PICOSIM | `instruments/pico_sht30/test_simulator.py` | 15 | Pass |
+| SWE4-UT-PICOCLI | `instruments/pico_sht30/test_cli.py` | 9 | Pass |
+| SWE4-UT-PICOFWPROTO | `instruments/pico_sht30/test_firmware_protocol.py` | 9 | Pass |
+| **Total** | | **1 956** | **Pass** |
+
+The thermometer firmware's own unit tests (`SWE4-UT-PICOFW`, 61 cases) run
+under CTest, not pytest, and are reported in §10A.
 
 ## 3. Coverage detail
 
@@ -759,6 +775,62 @@ driver could only repeat what it had been told about it.
 | PSU-OPEN-05 | Whether a real GPD-3303D discards a setpoint sent to the slaved channel **silently**, as modelled here, or records something in `ERR?`. The driver refuses the command either way, so the refusal is right in both cases; what is unconfirmed is the sentence that says the supply reports nothing. Send `VSET2:1.000` in series tracking, then `ERR?`. |
 | PSU-OPEN-06 | Whether the supply's own manual numbers the `STATUS?` tracking bits as this driver decodes them (bit 2 then bit 3, `01` independent, `11` series, `10` parallel). Related to PSU-OPEN-01 and confirmed by the same one-minute check: move the front-panel switch and watch which characters change. |
 
+## 10A. Pico 2 thermometer verification results
+
+### 10A.1 Firmware unit tests (`SWE4-UT-PICOFW`)
+
+Host build: GCC, C11, `-Wall -Wextra -Wconversion -Wshadow -Wstrict-prototypes
+-Werror`, `-fsanitize=address,undefined -fno-sanitize-recover=all`, Unity v2.6.0.
+
+| Suite | File | Cases | Result |
+|---|---|---|---|
+| text | `test/test_text.c` | 10 | Pass |
+| sht30 | `test/test_sht30.c` | 22 | Pass |
+| cmd_parser | `test/test_cmd_parser.c` | 29 | Pass |
+| **Total** | | **61** | **Pass**, no warnings, no sanitizer reports |
+
+### 10A.2 Target build (PICO-FR-031, PICO-NFR-003)
+
+| Item | Result |
+|---|---|
+| SDK | Raspberry Pi Pico C SDK 2.1.1, TinyUSB submodule, picotool 2.1.1 built from source |
+| Toolchain | xPack Arm GNU `arm-none-eabi-gcc` 14.2.1-1.1 |
+| Board / platform | `pico2` / `rp2350-arm-s` (Cortex-M33, secure) |
+| Warnings on the firmware's own sources | **0** (`-Werror`) |
+| Image | `pico_sht30.uf2`, 60 928 bytes |
+| Size (`arm-none-eabi-size`) | text 29 996 B, data 0 B, bss 3 884 B |
+
+### 10A.3 Conversion reference vectors (AD-24)
+
+The same vectors are asserted in C (`test_sht30.c`) and in Python
+(`test_matches_the_firmware_vectors`):
+
+| Raw word | Temperature | Raw word | Humidity |
+|---|---|---|---|
+| 0x0000 | −45.000 °C | 0x0000 | 0.000 % |
+| 0x0001 | −44.997 °C (rounded, not truncated) | 0x6666 | 40.000 % |
+| 0x4000 | −1.249 °C | 0x8000 | 50.001 % |
+| 0x6666 | 25.000 °C | 0xFFFF | 100.000 % |
+| 0xFFFF | 130.000 °C | | |
+
+CRC-8 check value CRC(0xBE, 0xEF) = 0x92, as the datasheet gives it.
+
+### 10A.4 Static analysis
+
+No MISRA checker (for example cppcheck's MISRA addon, PC-lint, Helix QAC) was
+available in the build environment. MISRA C:2012 conformance is therefore by
+construction and review (`docs/pico_sht30/Pico_SHT30_Notes.md` §6) plus the
+mechanical checks of `SWE4-UT-PICOFWPROTO`; a tool run is PICO-OPEN-04.
+
+### 10A.5 Bench confirmation items
+
+| ID | Item |
+|---|---|
+| PICO-OPEN-01 | Flash `pico_sht30.uf2`, confirm USB enumeration, and confirm `ver` returns the title, version and board ID. |
+| PICO-OPEN-02 | Confirm `temp` with the DollaTek module on GP4/GP5 at 0x44, and that removing the module gives `err 4` rather than a value. |
+| PICO-OPEN-03 | Compare against a reference thermometer: expect agreement within ±0.2 °C typical between 0 and 65 °C, allowing for self-heating of the Pico. |
+| PICO-OPEN-04 | The reference PDFs (Pico 2 datasheet and schematic, RP2350 datasheet, SDK guide, Sensirion SHT3x-DIS datasheet) could not be fetched in the build environment; run `docs/pico_sht30/fetch_datasheets.sh` and commit them. Run a MISRA C:2012 checker over `firmware/pico_sht30/src`. |
+
 ## 11. Runner verification results
 
 | Check | Result |
@@ -988,8 +1060,8 @@ Notes on process effectiveness:
 
 | ID | Criterion | Result |
 |---|---|---|
-| PC-1 | All tests pass | **Pass** — 1 878/1 878 |
-| PC-2 | Statement coverage ≥ 90% | **Pass** — 94% |
+| PC-1 | All tests pass | **Pass** — 1 956/1 956, and 61/61 thermometer firmware cases (§10A.1) |
+| PC-2 | Statement coverage ≥ 90% | **Pass** — 95% |
 | PC-3 | Every requirement covered | **Pass** — see BENCHTOOLS-TRACE-001 |
 | PC-4 | Injected skews recovered to < 0.1 sample interval | **Pass** — worst case 0.055 |
 | PC-5 | Layering constraints hold | **Pass** |

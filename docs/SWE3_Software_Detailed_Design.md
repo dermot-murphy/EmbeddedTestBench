@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-SWE3-001 |
-| Version | 4.2 |
-| Date | 2026-09-13 |
+| Version | 4.3 |
+| Date | 2026-09-30 |
 | Process reference | Automotive SPICE V4.0, SWE.3 Software Detailed Design and Unit Construction |
 
 Each section is a design unit, named `<ELEMENT>-DD-<NAME>` and referenced from the
@@ -1326,6 +1326,172 @@ Sub-commands `info`, `read`, `set`, `on`, `off`, `status`, emitting JSON
 explicitly), and `off` with a channel number reports in its output that the
 channel is parked at zero volts rather than disconnected. `read` adds a
 `warning` key when a channel it read is in current limit.
+
+---
+
+# PICO — `benchtools.instruments.pico_sht30` and `firmware/pico_sht30`
+
+## PICO-DD-PROTOCOL — `firmware/pico_sht30/include/protocol.h`
+
+The single definition of the host link. Two X-macro tables: `PROTO_COMMAND_TABLE`
+(`name, min_args, max_args, help`) generates the firmware's dispatch table and
+handler prototypes; `PROTO_ERROR_TABLE` (`symbol, code, text`) generates
+`proto_error_t` and the error texts. `PROTO_VERSION` is `1.0`. Limits:
+`PROTO_MAX_LINE` 64 (command, terminator included), `PROTO_MAX_REPLY` 192,
+`PROTO_MAX_TOKENS` 4.
+
+| Command | Reply |
+|---|---|
+| `ver` | `ok title=<t> fw=<v> built=<iso> proto=<p> board=pico2 serial=<16 hex> sensor=SHT30-DIS addr=0x44 uptime_s=<n>` |
+| `temp` | `ok t=<°C, 3 dp> rh=<%RH, 3 dp> raw_t=0x<hhhh> raw_rh=0x<hhhh>` |
+| `status` | `ok status=0x<hhhh>` |
+| `sreset`, `reset`, `bootsel` | `ok` (the reboot follows the reply) |
+| `help` | one `# <name> - <help>` line per command, then `ok` |
+
+| Code | Symbol | Meaning |
+|---|---|---|
+| 1 | `PROTO_ERR_UNKNOWN` | unknown command |
+| 2 | `PROTO_ERR_ARGS` | wrong number of arguments |
+| 3 | `PROTO_ERR_TOO_LONG` | line too long |
+| 4 | `PROTO_ERR_NO_SENSOR` | the sensor did not acknowledge |
+| 5 | `PROTO_ERR_CRC` | the sensor checksum did not match |
+| 6 | `PROTO_ERR_BUS` | I2C bus timeout |
+
+## PICO-DD-VERSION — `firmware/pico_sht30/include/firmware_version.h`, `src/firmware_version.c`
+
+`FIRMWARE_TITLE` (`Pico2-SHT30-Thermometer`, one token) and `FIRMWARE_VERSION`
+(`1.0.0`) are edited here and nowhere else. `FIRMWARE_BUILD_DATE` is injected
+by CMake as `string(TIMESTAMP ... UTC)`; a build that does not inject it falls
+back to `"local:" __DATE__ "T" __TIME__`, whose spaces `text_token()` replaces
+with `_` on the wire. The strings are defined once, in `firmware_version.c`.
+
+## PICO-DD-BOARD — `firmware/pico_sht30/include/board_config.h`
+
+Wiring constants, each overridable with `-D`: `BOARD_I2C_INSTANCE` 0,
+`BOARD_I2C_SDA_PIN` 4, `BOARD_I2C_SCL_PIN` 5, `BOARD_I2C_BAUD_HZ` 100000,
+`BOARD_I2C_TIMEOUT_US` 10000 (ten times a six-byte transfer at 100 kHz),
+`BOARD_SHT30_ADDRESS` 0x44.
+
+## PICO-DD-HAL — `firmware/pico_sht30/include/hal.h`, `src/hal_pico.c`
+
+The only seam between portable code and the board (PICO-NFR-001): I2C write
+and read with STOP, returning `HAL_OK`, `HAL_ERR_NACK` or `HAL_ERR_TIMEOUT`;
+millisecond delay; line output (the HAL appends LF); board unique ID; uptime;
+reboot; reboot to bootloader. `hal_pico.c` implements it on the Pico SDK -
+`i2c_write_timeout_us`/`i2c_read_timeout_us` (a short count or
+`PICO_ERROR_GENERIC` is a NACK, `PICO_ERROR_TIMEOUT` a timeout),
+`stdio_puts_raw` for output (no CRLF translation), `pico_get_unique_board_id_string`,
+`watchdog_reboot` and `reset_usb_boot`. Both reboots flush stdio and wait 50 ms
+first so the `ok` reaches the host. It is the only file that includes SDK
+headers, and it holds the two MISRA deviations (Rule 21.6 for the SDK's own
+output routine, Dir 4.6 for SDK prototypes).
+
+## PICO-DD-SHT30 — `firmware/pico_sht30/src/sht30.c`
+
+* `sht30_crc8`: bitwise CRC-8, polynomial 0x31, initial 0xFF, no reflection, no
+  final XOR; check value CRC(0xBE 0xEF) = 0x92 (datasheet).
+* Conversion: `T_mC = round(175000 · S / 65535) − 45000`,
+  `RH_m% = round(100000 · S / 65535)`, in 64-bit intermediate arithmetic
+  because 175000 · 65535 exceeds 32 bits. Results fit `int32_t` exactly.
+* `sht30_decode`: checks both CRCs before writing anything to the caller's
+  reading (PICO-FR-026).
+* `sht30_measure`: write `0x2400` (single shot, high repeatability, no clock
+  stretching), `hal_delay_ms(16)` (datasheet max 15 ms), read six bytes, decode.
+* `sht30_read_status`: write `0xF32D`, read three bytes, CRC-check.
+* `sht30_soft_reset`: write `0x30A2`, wait 2 ms (datasheet max 1.5 ms) only if
+  it was acknowledged.
+
+HAL errors map to `SHT30_ERR_NACK` / `SHT30_ERR_TIMEOUT`; a NULL pointer is
+`SHT30_ERR_PARAM`.
+
+## PICO-DD-TEXT — `firmware/pico_sht30/src/text.c`
+
+A bounded line builder in place of `snprintf` (MISRA Rules 21.6, 17.1).
+`text_t` holds the caller's buffer, its capacity, the length and an `overflow`
+flag; every append is bounded and sets the flag rather than writing past the
+end. Formats: string, token (spaces to `_`), unsigned decimal, milli-units to
+three places with the sign on the whole value (negation done in unsigned
+arithmetic so `INT32_MIN` is defined), and fixed-width upper-case hex (8 and
+16 bit).
+
+## PICO-DD-PARSER — `firmware/pico_sht30/src/cmd_parser.c`
+
+*Line assembly* (`cmd_line_push`): CR ignored; LF completes the line; a line
+that reaches `PROTO_MAX_LINE − 1` characters switches to discarding until the
+next LF, which then returns `CMD_LINE_OVERFLOW` so that no part of it runs
+(PICO-FR-004).
+
+*Dispatch* (`cmd_execute`): tokenise in place on space and tab, counting tokens
+past `PROTO_MAX_TOKENS` without storing them so an over-long command fails its
+argument check rather than being truncated; look the first token up
+(case-sensitive); check the argument count; run the handler, which appends its
+body to an `ok` reply. A handler returning an error sends `err <code> <text>`
+instead. A reply that overflowed is replaced by `err 3`, never sent truncated.
+`reset` and `bootsel` set a pending action that runs only *after* the `ok` has
+been written (PICO-FR-030). Sensor status maps: CRC → 5, timeout → 6,
+NACK/parameter → 4.
+
+## PICO-DD-MAIN — `firmware/pico_sht30/src/main.c`
+
+`stdio_init_all`, `hal_init`, soft-reset the sensor (a failure is ignored so
+that `ver` still answers, PICO-FR-005), then for ever: `getchar_timeout_us(1000)`,
+accept 0–0x7F, push into the line, execute on READY, report on OVERFLOW.
+
+## PICO-DD-BUILD — `firmware/pico_sht30/CMakeLists.txt`, `pico_sdk_import.cmake`
+
+`PICO_BOARD=pico2`, `PICO_PLATFORM=rp2350-arm-s`, C11 (the SDK requires
+`static_assert`; MISRA C:2012 Amendment 3 covers C11). The firmware's own
+sources, and only those, compile with `-Wall -Wextra -Wconversion -Wshadow
+-Wstrict-prototypes -Werror`. Links `pico_stdlib`, `pico_unique_id`,
+`pico_bootrom`, `hardware_i2c`, `hardware_watchdog`; stdio on USB, not UART;
+`pico_add_extra_outputs` produces the `.uf2`. The SDK is found from
+`PICO_SDK_PATH`, or fetched at tag 2.1.1 with `-DPICO_SDK_FETCH_FROM_GIT=ON`.
+
+## PICO-DD-TEST — `firmware/pico_sht30/test/`
+
+Host build (CMake + Unity v2.6.0 + CTest) of `cmd_parser.c`, `sht30.c`,
+`text.c` and `firmware_version.c`, unchanged, against `support/fake_hal.c`.
+The fake records every I2C write, answers reads from a queue (an empty queue is
+a NACK - an absent sensor), accumulates delays, captures output lines, and
+records how many lines had been sent when a reboot was requested. Built with the
+target's warning set as errors plus `-fsanitize=address,undefined`.
+
+## PICO-DD-CONST — `benchtools/instruments/pico_sht30/constants.py`
+
+The command and error tables, title, protocol version, sensor, default address,
+status bits and datasheet accuracy, mirrored from the firmware headers and
+checked against them by `SWE4-UT-PICOFWPROTO`. `raw_to_celsius` and
+`raw_to_percent` repeat the firmware's integer arithmetic exactly (AD-24).
+
+## PICO-DD-DRIVER — `benchtools/instruments/pico_sht30/thermometer.py`
+
+`PicoSht30` subclasses CORE-DD-SCPI for its transport and lifecycle and
+replaces the SCPI parts: `_post_open` sends `ver` (not `*CLS`) and refuses a
+different protocol major revision; `_read_identity` builds the identity from
+`ver`; `read_event_queue` is empty. `execute()` writes a line, reads lines
+skipping `#` lines, returns the `key=value` fields of an `ok` reply, raises
+`SensorError(code, text)` for `err`, and `ProtocolError` for anything else.
+`read()` parses `temp`, recomputes both values from their raw words and raises
+if either differs by more than 0.0015 (AD-24). `FirmwareInfo`, `Reading` and
+`SensorStatus` are frozen dataclasses with `as_dict()` for JSON reports.
+`connect()` takes a bare port name as a serial port.
+
+## PICO-DD-SIM — `benchtools/instruments/pico_sht30/simulator.py`
+
+`SimulatedPicoSht30` answers the firmware's command set with its exact reply
+text. The ambient temperature and humidity are quantised to raw words and the
+reported values are computed from those words with `raw_to_celsius` /
+`raw_to_percent`, so the simulator is held to the same arithmetic as the
+firmware. Faults: `sensor_present = False` → `err 4`, `corrupt_next` → one
+`err 5`, `bus_timeout` → `err 6`. It counts measurements, reboots and
+bootloader requests.
+
+## PICO-DD-CLI — `benchtools/instruments/pico_sht30/cli.py`
+
+`benchtools thermo` with sub-commands `ver`, `temp [--count N --interval S]`,
+`status`, `sreset` and `bootsel`, emitting JSON (AD-15), `--json PATH` to also
+write it to a file. Exit status 0 on success, 1 on a connection or instrument
+error.
 
 ---
 

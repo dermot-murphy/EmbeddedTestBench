@@ -4,17 +4,22 @@
 # suite, the build files - or when this workflow itself changes. The host-side
 # Python driver has its own suite and is unaffected by a firmware edit.
 #
-# Two jobs, in order:
+# Two jobs per firmware, in order:
 #
 #   unit-tests  Unity + CTest on the host, with fake SDK headers at the SDK
 #               boundary. No SDK, no toolchain, no hardware; runs in seconds.
 #   firmware    The real cross-compile against nRF5 SDK 17.1.0, producing the
 #               hex, elf and map, plus a DFU package for the dongle.
 #
+#   pico-unit-tests  The Pico 2 thermometer's portable code on the host, against
+#                    a fake HAL, under ASan and UBSan.
+#   pico-firmware    The real build against Pico SDK 2.1.1: elf, map and .uf2.
+#
 # The firmware job downloads the SDK from Nordic and caches it; the first run on
 # a new cache key takes a few minutes, later runs seconds.
 #
-# Traces to: BLE-FR-090, BLE-NFR-003, SWE4-UT-FWUNIT.
+# Traces to: BLE-FR-090, BLE-NFR-003, SWE4-UT-FWUNIT; the pico-* jobs trace
+# to PICO-FR-031, PICO-NFR-003, SWE4-UT-PICOFW.
 
 name: firmware
 
@@ -164,3 +169,83 @@ jobs:
           path: firmware/nordic_dongle/_build/**
           if-no-files-found: ignore
           retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # Pico 2 + SHT30-D thermometer (firmware/pico_sht30).
+  # Traces to: PICO-FR-031, PICO-NFR-003, SWE4-UT-PICOFW.
+  pico-unit-tests:
+    name: Pico thermometer unit tests (Unity + CTest, ASan/UBSan)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S firmware/pico_sht30/test -B build/pico-tests -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build
+        run: cmake --build build/pico-tests --parallel
+
+      - name: Test
+        run: >
+          ctest --test-dir build/pico-tests
+          --output-on-failure
+          --output-junit ${{ github.workspace }}/build/pico-tests/results.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pico-unit-test-results
+          path: build/pico-tests/results.xml
+          if-no-files-found: warn
+          retention-days: 30
+
+  pico-firmware:
+    name: Build Pico thermometer firmware (UF2)
+    runs-on: ubuntu-latest
+    needs: pico-unit-tests
+    env:
+      PICO_SDK_TAG: '2.1.1'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the Arm toolchain
+        uses: carlosperate/arm-none-eabi-gcc-action@v1
+        with:
+          release: '14.2.Rel1'
+
+      - name: Cache the Pico SDK
+        id: pico-sdk-cache
+        uses: actions/cache@v4
+        with:
+          path: pico-sdk
+          key: pico-sdk-${{ env.PICO_SDK_TAG }}
+
+      - name: Fetch the Pico SDK
+        if: steps.pico-sdk-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch "$PICO_SDK_TAG" https://github.com/raspberrypi/pico-sdk
+          git -C pico-sdk submodule update --init --depth 1 lib/tinyusb
+
+      # The SDK builds picotool from source on first use; it needs a host C++
+      # compiler, which the runner has.
+      - name: Build
+        run: |
+          set -euo pipefail
+          cmake -S firmware/pico_sht30 -B build/pico_sht30 -DPICO_SDK_PATH="$GITHUB_WORKSPACE/pico-sdk"
+          cmake --build build/pico_sht30 --parallel
+
+      - name: Report the size
+        run: arm-none-eabi-size build/pico_sht30/pico_sht30.elf
+
+      - name: Upload the firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: pico-sht30-firmware-${{ github.sha }}
+          path: |
+            build/pico_sht30/pico_sht30.uf2
+            build/pico_sht30/pico_sht30.elf
+            build/pico_sht30/pico_sht30.elf.map
+          if-no-files-found: error
+          retention-days: 90

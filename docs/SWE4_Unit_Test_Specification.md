@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-SWE4-001 |
-| Version | 4.2 |
-| Date | 2026-09-13 |
+| Version | 4.3 |
+| Date | 2026-09-30 |
 | Process reference | Automotive SPICE V4.0, SWE.4 Software Unit Verification |
 
 ## 1. Verification strategy
@@ -105,6 +105,34 @@ The dongle firmware is verified three ways, none of which needs a dongle:
 Between them these catch behaviour, interface drift, compilation and the link.
 What no amount of them establishes is that the firmware *runs*: see the report's
 §4.6 and BLE-OPEN-02 to -04.
+
+### 1.4b Thermometer firmware verification
+
+The Pico 2 thermometer firmware (`firmware/pico_sht30`) is verified the same
+way, and none of it needs a Pico:
+
+1. **Unit tests on the host** (`SWE4-UT-PICOFW`). `cmd_parser.c`, `sht30.c`,
+   `text.c` and `firmware_version.c` are compiled unchanged against a scripted
+   fake of `hal.h`, with the target's warnings as errors and under
+   AddressSanitizer and UndefinedBehaviorSanitizer:
+
+   ```
+   cmake -S firmware/pico_sht30/test -B build/pico-tests
+   cmake --build build/pico-tests && ctest --test-dir build/pico-tests --output-on-failure
+   ```
+
+2. **Agreement with the host driver** (`SWE4-UT-PICOFWPROTO`). `protocol.h`,
+   `firmware_version.h` and `board_config.h` are parsed and compared with the
+   driver's constants; tab indentation and the absence of printf-family calls
+   are checked on every firmware source.
+3. **The real build** (PICO-FR-031). The firmware is compiled and linked
+   against Pico SDK 2.1.1 with the Arm GNU toolchain, and `pico_sht30.uf2` is
+   produced.
+
+Conversion reference vectors are shared: `test_sht30.c` and
+`test_simulator.py` assert the same raw-word-to-value pairs, so the C and Python
+conversions (AD-24) cannot drift apart silently. What none of this establishes
+is behaviour on silicon with a sensor attached: PICO-OPEN-01 to -04.
 
 ### 1.5 Architectural verification
 
@@ -216,6 +244,11 @@ module's imports:
 | SWE4-UT-PSU | `instruments/gpd3303d/test_psu.py` | The supply driver: identity, setting and its range refusals, measurement, constant-current detection, per-channel output emulation and what it does not promise, the refusal to program a channel the supply is slaving to another, status decoding, error reporting, command pacing and the safe state | PSU-FR-001 .. -043 |
 | SWE4-UT-PSUSIM | `instruments/gpd3303d/test_simulator.py` | Self-checks on the simulated supply: Ohm's law, the constant-current fallback, the single output switch, silent refusals, the three tracking modes and the setpoint a tracking supply discards, and clamping as the hardware clamps | PSU-FR-006, PSU-FR-050 |
 | SWE4-UT-PSUCLI | `instruments/gpd3303d/test_cli.py` | Every supply sub-command end to end; JSON output; the current-limit and tracking warnings; that `set` does not energise a rail | PSU-FR-060 |
+| SWE4-UT-PICO | `instruments/pico_sht30/test_thermometer.py` | The thermometer driver: title, version and identity from `ver`; protocol revision check; readings with raw words; every `err` code raised, never a stale value; values that disagree with their raw words refused; status decoding, sensor reset, reboot and bootloader; resource forms | PICO-FR-040 .. -046 |
+| SWE4-UT-PICOSIM | `instruments/pico_sht30/test_simulator.py` | The simulated thermometer answers with the firmware's reply text; conversion vectors shared with the firmware tests; fault injection | PICO-FR-050, PICO-FR-022 |
+| SWE4-UT-PICOCLI | `instruments/pico_sht30/test_cli.py` | Every `benchtools thermo` sub-command end to end; JSON output and file; a failed connection; dispatch from the top-level command | PICO-FR-060 |
+| SWE4-UT-PICOFWPROTO | `instruments/pico_sht30/test_firmware_protocol.py` | Firmware and driver agreement: commands, argument bounds, error codes, protocol version, sensor, title, version form, default address; firmware hygiene: tab indentation, no printf family | PICO-FR-001, -002, PICO-NFR-002, -004 |
+| SWE4-UT-PICOFW | `firmware/pico_sht30/test/*.c` | **Firmware unit tests** (Unity, CMake, CTest, 61 cases): the text builder and its overflow; CRC-8 against the datasheet check value; conversion end points, mid-scale, negative values and rounding; frame decoding that never half-writes; measure, status and reset command bytes, waits and every failure path; line assembly, CR handling and over-length lines; every command's reply text, argument refusal, and reboot only after `ok` | PICO-FR-001 .. -005, -020 .. -026, -030, PICO-NFR-001, -003 |
 | SWE4-UT-BENCH | `runner/test_bench.py` | Bench configuration, lazy connection, driver registry, simulation detection, instrument identity recorded per run | RUN-FR-001 .. -006, RUN-FR-037 |
 | SWE4-UT-ENGINE | `runner/test_runner.py` | Execution, failure versus error, setup abort, skips, roll-up, property steps, instruments in the record | RUN-FR-030 .. -037 |
 | SWE4-UT-REPORT | `runner/test_report.py` | JSON, markdown and JUnit output; the instruments table and its identity-failure row | RUN-FR-037, RUN-FR-040 .. -043 |
@@ -281,3 +314,4 @@ in the VISA determination report §5.1:
 | Exact SCPI command spellings against the programmer manual | The manual was unreachable from the build environment (CON-02) |
 | Analogue accuracy, bandwidth and noise behaviour | Instrument specification, not software |
 | Behaviour of instrument families named for future work | No drivers exist yet (CON-03) |
+| Pico 2 thermometer on silicon: USB enumeration, I2C timing with the module's pull-ups, measured accuracy against a reference | No Pico 2 or SHT30-D module was available (CON-09); `docs/pico_sht30/Pico_SHT30_Notes.md` §7, PICO-OPEN-01 … -04 |
