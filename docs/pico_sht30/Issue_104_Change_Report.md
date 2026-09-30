@@ -36,7 +36,7 @@ updated to match.
 | Host tests | `tests/instruments/pico_sht30/{conftest,test_thermometer,test_simulator,test_cli,test_firmware_protocol}.py`; `PICO` prefix registered in `tests/test_traceability.py` |
 | Example | `examples/11_pico_thermometer.py` |
 | CI | `.github/workflows/firmware.yml` — jobs `pico-unit-tests` and `pico-firmware` (uploads the `.uf2`) |
-| ASPICE (`docs/aspice/`, after merging `develop`) | TB-SWE1-001 v0.7 (§15 PICO, STK-21/22, CON-09, ASM-10), TB-SWE2-001 v0.4 (PICO-ARC-001, AD-24, interfaces), TB-SWE3-001 v0.5 (§5.8, 14 design units), TB-SWE4-001 v0.5 (§1.4b, five groups), TB-SWE4-002 v0.3 (§13A, totals), TB-RTM-001 v0.7 (§13, STK rows, OPEN-09); each with a revision-history row |
+| ASPICE (`docs/aspice/`, after merging `develop`) | TB-SWE1-001 v0.7 (§15 PICO, STK-21/22, CON-09, ASM-10), TB-SWE2-001 v0.4 (PICO-ARC-001, AD-24, interfaces), TB-SWE3-001 v0.5 (§5.8, 14 design units), TB-SWE4-001 v0.5 (§1.4b, five groups), TB-SWE4-002 v0.4 (§13A, totals), TB-RTM-001 v0.7 (§13, STK rows, OPEN-09); each with a revision-history row |
 | Other docs | `docs/pico_sht30/{Pico_SHT30_Notes,References}.md`, `fetch_datasheets.sh`, `datasheets/pico-2-r4-pinout.svg`; `README.md`, `docs/README.md` |
 
 ## 4. Verification
@@ -45,7 +45,7 @@ updated to match.
 |---|---|
 | Firmware target build (Pico SDK 2.1.1, Arm GNU 14.2.1, `pico2`) | **Pass**, 0 warnings with `-Werror`. `pico_sht30.uf2` 60 928 B; text 29 996 B, bss 3 884 B |
 | Firmware unit tests (Unity, ASan + UBSan) | **61 / 61 pass** (text 10, sht30 22, cmd_parser 29) |
-| Python suite (merged with `develop`) | **2 496 pass, 1 skipped** (a `develop` GUI test needing `tkinter`), 73 of them new; 95% statement coverage |
+| Python suite (merged with `develop`) | **2 497 pass, 1 skipped** (a `develop` GUI test needing `tkinter`), 73 of them new; 95% statement coverage |
 | pylint against `.pylint-baseline.json` (`scripts/lint.py`) | **0 new findings** |
 | CStyleCheck v1.5.1 over all Pico C code, tests included (PICO-NFR-006) | **0 errors, 0 warnings, 0 info**, with no baseline. The first run found 210, which were fixed in code or covered by a documented alias or exclusion |
 | Traceability and layering tests | **Pass** |

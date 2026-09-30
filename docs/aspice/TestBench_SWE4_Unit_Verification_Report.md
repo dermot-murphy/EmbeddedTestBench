@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE4-002 | **Version** | 0.3 |
+| **Document ID** | TB-SWE4-002 | **Version** | 0.4 |
 | **Project** | TestBench | **Date** | 2026-09-19 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -24,7 +24,8 @@
 |---|---|---|---|
 | 0.1 | 2026-09-19 | Claude | Initial |
 | 0.2 | 2026-09-26 | Claude | §13.4: PSU-OPEN-01 and -02 closed and PSU-OPEN-06 partly confirmed on a real supply (#61, #63). |
-| 0.3 | 2026-09-30 | Claude | Execution summary re-run after adding the `PICO-` element; test groups SWE4-UT-PICO, -PICOSIM, -PICOCLI and -PICOFWPROTO added to §5; §13A added for the Pico 2 thermometer firmware and driver (#104). |
+| 0.3 | 2026-09-30 | Claude | §15: D-42 added and closed — `RttClient` polled its backend outside its lock, so the reader thread and a caller's read could poll at once. (D-41 is used on `main` by #106.) |
+| 0.4 | 2026-09-30 | Claude | Execution summary re-run after adding the `PICO-` element; test groups SWE4-UT-PICO, -PICOSIM, -PICOCLI and -PICOFWPROTO added to §5; §13A added for the Pico 2 thermometer firmware and driver (#104). |
 
 ---
 
@@ -53,13 +54,13 @@ It is deliberately a separate work product from the specification. A specificati
 
 | Metric | Result |
 |---|---|
-| Tests executed | **2 497** |
-| Passed | **2 496** |
+| Tests executed | **2 498** |
+| Passed | **2 497** |
 | Failed | 0 |
 | Errors | 0 |
 | Skipped | 1 |
 | Statement coverage | **95%** (13 143 statements, 667 missed) |
-| Execution time | 133.7 s with coverage instrumentation |
+| Execution time | 136.5 s with coverage instrumentation |
 | Runtime | CPython 3.11.15, Linux |
 | Framework | pytest 9.1.1, pytest-cov |
 
@@ -88,8 +89,8 @@ present for this run, and no test needs one (PC-8): the probe is substituted at
 the GDB/MI boundary, the RTT and SWO sockets by a loopback server, the dongle at
 its line protocol, and the serial port by pyserial's own `loop://` handler.
 
-Revision 0.3 re-ran the whole suite on the merge of `develop` with the `PICO-`
-element (#104); the figures above are that run. The per-group table in §5 has
+Revision 0.4 re-ran the whole suite on the merge of `develop` - including
+D-42's regression test (#107) - with the `PICO-` element (#104); the figures above are that run. The per-group table in §5 has
 not been regenerated for the groups `develop` added since revision 0.1, so its
 rows do not sum to the total: the total is the collected count.
 
@@ -169,7 +170,7 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | SWE4-UT-PICOSIM | `instruments/pico_sht30/test_simulator.py` | 15 | Pass |
 | SWE4-UT-PICOCLI | `instruments/pico_sht30/test_cli.py` | 9 | Pass |
 | SWE4-UT-PICOFWPROTO | `instruments/pico_sht30/test_firmware_protocol.py` | 9 | Pass |
-| **Total** | | **2 497** (2 496 passed, 1 skipped) | **Pass** |
+| **Total** | | **2 498** (2 497 passed, 1 skipped) | **Pass** |
 
 The thermometer firmware's own unit tests (`SWE4-UT-PICOFW`, 61 cases) run
 under CTest, not pytest, and are reported in §13A.
@@ -1041,6 +1042,8 @@ SDK to provide it transitively.
 
 | D-40 | `DEFAULT_SENSORS` is a module-level tuple of dataclasses holding mutable dicts, and every `SimulatedDongle` shared them. A test that changed one sensor's replies changed them for every simulator built afterwards | **Major in the test double**, and of the worst kind to diagnose: the tests it broke were in other files, and the failures described the sensor rather than the test that had altered it. Found by writing a test that silenced a sensor and watching six unrelated tests fail | **Closed** — a simulated dongle deep-copies the sensors it is given, so one simulator cannot poison another. The test that found it now models silence with a stub instead, which is the honest way to model a sensor the simulator does not have | `test_the_default_population_is_not_shared_between_simulators`, `TestASensorThatDoesNotAnswer` (4) |
 
+| D-42 | `RttClient._pump()` runs on the background reader thread and on the caller's thread (from `read()` and `read_lines()`), and it called `self._backend.rtt_poll()` **before** taking `self._lock`. Two pumps could therefore poll at once. The simulator's drain is check-then-pop, and on Python 3.9 CI it raised `IndexError: pop from an empty deque` in `test_a_line_already_waiting_is_not_a_reading` (PR #105, run 36668656206) | **Minor on hardware**, where two polls at once could split one RTT line between two callers; **major as a test-suite fault**, because it failed an unrelated PR's CI intermittently and looked like a flake. Found by reading that failure to its cause instead of re-running it | **Closed** — the poll is now taken under the client's lock with the rest of the pump. A deterministic test replaces the scheduler's luck: a backend that detects overlapping polls, driven from four threads; it counted 99 overlaps before the fix and 0 after | `TestConcurrency.test_the_backend_is_never_polled_twice_at_once` |
+
 No open defects.
 
 Notes on process effectiveness:
@@ -1109,7 +1112,7 @@ Notes on process effectiveness:
 
 | ID | Criterion | Result |
 |---|---|---|
-| PC-1 | All tests pass | **Pass** — 2 496/2 496 run (1 skipped: `tests/tools/test_test_bench.py` needs `tkinter`, absent in the build environment), and 61/61 thermometer firmware cases (§13A.1) |
+| PC-1 | All tests pass | **Pass** — 2 497/2 497 run (1 skipped: `tests/tools/test_test_bench.py` needs `tkinter`, absent in the build environment), and 61/61 thermometer firmware cases (§13A.1) |
 | PC-2 | Statement coverage ≥ 90% | **Pass** — 95% |
 | PC-3 | Every requirement covered | **Pass** — see BENCHTOOLS-TRACE-001 |
 | PC-4 | Injected skews recovered to < 0.1 sample interval | **Pass** — worst case 0.055 |

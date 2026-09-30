@@ -694,7 +694,7 @@ python examples/02_channel_spread.py            # simulator
 python -m pytest tests/ --cov=benchtools --cov-report=term
 ```
 
-**2 497 tests (2 496 pass, 1 skipped without `tkinter`), 95% statement coverage, no hardware required** — no oscilloscope,
+**2 498 tests (2 497 pass, 1 skipped without `tkinter`), 95% statement coverage, no hardware required** — no oscilloscope,
 no probe, no target, no GDB, no dongle, no BLE sensor, no power supply, no
 sub-1 GHz kit, no Pico. The Pico firmware's own 61 unit tests run under CTest
 (`firmware/pico_sht30/test`). With

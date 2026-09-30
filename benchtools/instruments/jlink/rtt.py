@@ -318,12 +318,18 @@ class RttClient:
             self._stop.wait(_POLL_INTERVAL)
 
     def _pump(self) -> None:
-        """Move whatever is available from the backend into the buffers."""
-        data = self._backend.rtt_poll()
-        if not data:
-            return
-        text = data.decode(self._encoding, errors="replace")
+        """Move whatever is available from the backend into the buffers.
+
+        Runs on the background reader thread and on the caller's thread (from
+        :meth:`read` and :meth:`read_lines`), so the poll is taken under the
+        lock too: two polls at once can race inside a backend - the simulator's
+        drain is check-then-pop - and could split a line between two callers.
+        """
         with self._lock:
+            data = self._backend.rtt_poll()
+            if not data:
+                return
+            text = data.decode(self._encoding, errors="replace")
             self._all_text.append(text)
             if self._log_handle is not None:
                 self._log_handle.write(text)
