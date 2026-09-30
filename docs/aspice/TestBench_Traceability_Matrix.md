@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-RTM-001 | **Version** | 0.6 |
+| **Document ID** | TB-RTM-001 | **Version** | 0.7 |
 | **Project** | TestBench | **Date** | 2026-09-24 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -28,6 +28,7 @@
 | 0.4 | 2026-09-24 | Claude | Rows added for RUN-FR-054…057. |
 | 0.5 | 2026-09-25 | Claude | Rows added for BLE-FR-026, -046…049 and -109…116; BLE-FR-102, -106 and -107 re-traced to the revised requirements and the split into BLE-DD-SCRIPT and BLE-DD-SCRIPTRUN (#46, #48). |
 | 0.6 | 2026-09-26 | Claude | PSU-FR-002 and -003 rows name the renamed tests (#64). OPEN-08 now points to TB-IF-001 §12. TB-IF-001 and TB-SWE3-002 added to the referenced documents (#63). Header version brought into line with this history. |
+| 0.7 | 2026-09-30 | Claude | Section 13 added: PICO requirements to design, code and test. STK-21 and STK-22 decomposed; PICO-ARC-001 rows; AD-24 traced; OPEN-09 added. Sections 14 to 18 renumbered (#104). |
 
 ---
 
@@ -76,6 +77,8 @@ It is checked mechanically by `tests/test_traceability.py` on every run of the s
 | STK-13 — programmable supply for the sensor | PSU-FR-001 … -060; PSU-NFR-001 … -003; CORE-FR-017 |
 | STK-19 — S2-LP kit: registers, transmit, receive, log | S2LP-FR-001 … -060; S2LP-NFR-001 … -004; CORE-FR-017 |
 | STK-20 — use ST's firmware if it is fit for purpose | AD-20; S2LP-FR-001, -002; S2LP-NFR-002. The firmware was examined before any was written: BENCHTOOLS-SWE4-002 §10, `docs/s2lp/S2LP_Devkit_Notes.md` §1 |
+| STK-21 — local temperature with a Pico 2 and a DollaTek SHT30-D | PICO-FR-001, -003 … -005, -010, -020 … -026, -030, -031, -040, -042 … -046, -050, -060; PICO-NFR-001 … -006; AD-24 |
+| STK-22 — firmware reports its title and version | PICO-FR-002, -005, -040, -041, -060 |
 | STK-18 — RS-232 multimeter | DMM-FR-001 … -026; DMM-NFR-001 … -004; CORE-FR-017. Implemented for the TTi 1604. No behaviour confirmed against a physical meter: `docs/dmm/TTi1604_Notes.md` §5. |
 
 ## 5. CORE requirements to design, code and test
@@ -455,7 +458,50 @@ where the firmware implements the requirement.
 | DMM-NFR-003 | DMM-ARC-001 | DMM-DD-CONST | module docstring cites each source; open items listed | Inspection: `docs/dmm/TTi1604_Notes.md` §1, §5 |
 | DMM-NFR-004 | DMM-ARC-001 | DMM-DD-CONST | facts recorded in this project's form; licence and authorship cited | Inspection: `docs/dmm/TTi1604_Notes.md` §1 |
 
-## 13. RUN requirements to design, code and test
+## 13. PICO requirements to design, code and test
+
+Firmware tests are in `firmware/pico_sht30/test/` (`SWE4-UT-PICOFW`); Python
+tests in `tests/instruments/pico_sht30/`.
+
+| Requirement | Architecture | Design unit | Source | Verifying test(s) |
+|---|---|---|---|---|
+| PICO-FR-001 | PICO-ARC-001 | PICO-DD-PROTOCOL, PICO-DD-PARSER | `cmd_line_push`, `cmd_execute` | `test_a_line_is_ready_at_lf`, `test_cr_is_ignored`, `test_a_blank_line_has_no_reply` (C); `test_commands_agree`, `test_errors_agree` |
+| PICO-FR-002 | PICO-ARC-001 | PICO-DD-VERSION, PICO-DD-PARSER | `cmd_ver`, `firmware_version.c`, `text_token` | `test_ver_reports_title_and_version`, `test_ver_reports_the_rest_of_the_identity`, `test_ver_has_no_spaces_inside_values`, `test_a_token_has_no_spaces` (C); `test_title_agrees`, `test_version_is_semantic` |
+| PICO-FR-003 | PICO-ARC-001 | PICO-DD-PARSER | `cmd_execute` lookup and argument check | `test_an_unknown_command_is_refused`, `test_commands_are_case_sensitive`, `test_an_unexpected_argument_is_refused`, `test_more_tokens_than_are_stored_is_still_refused`, `test_a_refused_reset_does_not_reboot` (C) |
+| PICO-FR-004 | PICO-ARC-001 | PICO-DD-PARSER | `cmd_line_push` discard state, `cmd_report_overflow` | `test_an_over_length_line_is_dropped_whole`, `test_the_line_after_an_overflow_is_accepted`, `test_the_longest_line_that_fits_is_ready`, `test_an_overflow_is_reported` (C) |
+| PICO-FR-005 | PICO-ARC-001 | PICO-DD-PARSER, PICO-DD-MAIN | `cmd_ver`, `main` | `test_ver_does_not_touch_the_sensor` (C); `test_identity_survives_a_missing_sensor` |
+| PICO-FR-010 | PICO-ARC-001 | PICO-DD-BOARD, PICO-DD-HAL | `board_config.h`, `hal_init` | `test_default_address_agrees`; inspection of `board_config.h`; the target build |
+| PICO-FR-020 | PICO-ARC-001 | PICO-DD-SHT30 | `sht30_measure` | `test_measure_sends_the_high_repeatability_command`, `test_measure_waits_out_the_conversion_then_reads_six_bytes` (C) |
+| PICO-FR-021 | PICO-ARC-001, AD-24 | PICO-DD-SHT30 | `sht30_crc8`, `sht30_take_word` | `test_crc_matches_the_datasheet_check_value`, `test_measure_reports_a_corrupted_frame`, `test_temp_with_a_corrupted_frame`, `test_read_status_checks_the_crc` (C); `test_crc_failure` |
+| PICO-FR-022 | PICO-ARC-001, AD-24 | PICO-DD-SHT30, PICO-DD-TEXT | `sht30_ticks_to_millicelsius`, `sht30_ticks_to_millipercent`, `text_milli`, `cmd_temp` | `test_temperature_end_points`, `test_temperature_mid_scale`, `test_temperature_rounds_to_nearest`, `test_humidity_end_points_and_mid_scale`, `test_temp_reports_temperature_and_humidity`, `test_temp_below_zero`, `test_negative_milli_units_carry_the_sign` (C); `test_matches_the_firmware_vectors` (5) |
+| PICO-FR-023 | PICO-ARC-001 | PICO-DD-SHT30, PICO-DD-PARSER | `sht30_from_hal`, `cmd_from_sht30` | `test_measure_reports_an_absent_sensor`, `test_measure_reports_a_bus_timeout`, `test_measure_reports_a_nack_on_the_read`, `test_temp_with_no_sensor`, `test_temp_with_a_bus_timeout` (C) |
+| PICO-FR-024 | PICO-ARC-001 | PICO-DD-SHT30, PICO-DD-PARSER | `sht30_read_status`, `cmd_status` | `test_read_status`, `test_status_reports_the_register`, `test_status_with_no_sensor` (C) |
+| PICO-FR-025 | PICO-ARC-001 | PICO-DD-SHT30, PICO-DD-MAIN | `sht30_soft_reset`, `cmd_sreset`, `main` | `test_soft_reset_sends_the_command_and_waits`, `test_soft_reset_of_an_absent_sensor_does_not_wait`, `test_sreset` (C); inspection of `main.c` |
+| PICO-FR-026 | PICO-ARC-001 | PICO-DD-SHT30 | `sht30_decode` | `test_a_bad_temperature_crc_leaves_the_reading_untouched`, `test_a_bad_humidity_crc_leaves_the_reading_untouched`, `test_read_status_checks_the_crc` (C) |
+| PICO-FR-030 | PICO-ARC-001 | PICO-DD-PARSER, PICO-DD-HAL | `cmd_after`, `hal_reboot`, `hal_reboot_to_bootloader` | `test_reset_replies_before_rebooting`, `test_bootsel_replies_before_rebooting` (C) |
+| PICO-FR-031 | PICO-ARC-001 | PICO-DD-BUILD | `CMakeLists.txt`, `pico_sdk_import.cmake` | Target build: `pico_sht30.uf2`, 29 996 B text, 3 884 B bss (TB-SWE4-002 §13A) |
+| PICO-FR-040 | PICO-ARC-001 | PICO-DD-DRIVER | `_post_open` | `test_an_incompatible_protocol_is_refused`, `test_connecting_sends_no_scpi`, `test_connect_through_the_factory` |
+| PICO-FR-041 | PICO-ARC-001 | PICO-DD-DRIVER | `firmware_info`, `title`, `version`, `_read_identity` | `TestIdentity` (9) |
+| PICO-FR-042 | PICO-ARC-001 | PICO-DD-DRIVER | `read`, `Reading` | `TestReading` (6) |
+| PICO-FR-043 | PICO-ARC-001, AD-24 | PICO-DD-DRIVER | `execute`, `SensorError` | `test_no_sensor`, `test_crc_failure`, `test_bus_timeout`, `test_a_sensor_error_is_an_instrument_error` |
+| PICO-FR-044 | PICO-ARC-001, AD-24 | PICO-DD-DRIVER, PICO-DD-CONST | `read` cross-check, `raw_to_celsius`, `raw_to_percent` | `test_a_value_that_disagrees_with_its_raw_word_is_refused`, `test_a_humidity_that_disagrees_is_refused`, `test_raw_words_travel_with_the_values` |
+| PICO-FR-045 | PICO-ARC-001 | PICO-DD-DRIVER | `_normalise_resource` | `test_resource_forms` (6) |
+| PICO-FR-046 | PICO-ARC-001 | PICO-DD-DRIVER | `status`, `SensorStatus`, `soft_reset_sensor`, `reset`, `enter_bootloader` | `TestStatusAndControl` (6) |
+| PICO-FR-050 | PICO-ARC-001 | PICO-DD-SIM | `simulator.py`, `register_driver("pico-sht30", …)` | `SWE4-UT-PICOSIM` (15), `test_faults` |
+| PICO-FR-060 | PICO-ARC-001 | PICO-DD-CLI | `cli.py`, `benchtools/cli.py` | `SWE4-UT-PICOCLI` (9) |
+
+### PICO non-functional
+
+| Requirement | Evidence |
+|---|---|
+| PICO-NFR-001 | `hal.h` is the only seam; `hal_pico.c` is the only file including SDK headers and is excluded from the host test build, which compiles the other sources unchanged (`SWE4-UT-PICOFW`, 61 cases). |
+| PICO-NFR-002 | `test_firmware_uses_no_stdio_formatting`, `test_firmware_sources_use_tabs`; review against MISRA C:2012 in `docs/pico_sht30/Pico_SHT30_Notes.md` §6, with deviations recorded there and in `hal_pico.c`. No `malloc`, no recursion, fixed-width types throughout. |
+| PICO-NFR-003 | Target build and host test build both pass with `-Wall -Wextra -Wconversion -Wshadow -Wstrict-prototypes -Werror`; host tests pass under ASan and UBSan (TB-SWE4-002 §13A). |
+| PICO-NFR-004 | `SWE4-UT-PICOFWPROTO` (9): `test_commands_agree`, `test_errors_agree`, `test_protocol_version_agrees`, `test_sensor_agrees`, `test_title_agrees`, `test_default_address_agrees`. |
+| PICO-NFR-005 | `test_no_mandatory_third_party_imports`; the port is reached through CORE-DD-SERIAL, whose pyserial import is deferred. |
+| PICO-NFR-006 | `.github/workflows/style.yml` step "Run CStyleCheck (Pico thermometer)", `fail-on: info`, no baseline; `.cstylecheck-pico-aliases.txt`, `.cstylecheck-pico-exclusions.yml`. Local run with CStyleCheck v1.5.1: 18 files, 0 errors, 0 warnings, 0 info. |
+
+## 14. RUN requirements to design, code and test
 
 | Requirement | Architecture | Design unit | Source | Verifying test(s) |
 |---|---|---|---|---|
@@ -490,7 +536,9 @@ where the firmware implements the requirement.
 | RUN-FR-041 | ARC-001 | RUN-DD-REPORT | `write_json` | `TestJson` (3) |
 | RUN-FR-042 | ARC-001 | RUN-DD-REPORT | `format_markdown` | `TestMarkdown` (8) |
 | RUN-FR-043 | ARC-001 | RUN-DD-REPORT | `write_junit` | `TestJunit` (6) |
-| RUN-FR-054 | RUN-ARC-001 | RUN-DD-SPEC, RUN-DD-RUNCLI | `TestSpec.warning`, `_warnings_of`, `_announce_warnings` | `test_the_warning_is_printed_before_anything_runs` |
+| RUN-FR-054 | PICO-ARC-001 | PICO-DD-DRIVER, -CONST, -SIM, -CLI | `instruments/pico_sht30/{thermometer,constants,simulator,cli}.py` |
+| PICO-ARC-001 | PICO-DD-PROTOCOL, -VERSION, -BOARD, -HAL, -SHT30, -TEXT, -PARSER, -MAIN, -BUILD, -TEST | `firmware/pico_sht30/{include,src,test}/*`, `CMakeLists.txt`, `pico_sdk_import.cmake` |
+| RUN-ARC-001 | RUN-DD-SPEC, RUN-DD-RUNCLI | `TestSpec.warning`, `_warnings_of`, `_announce_warnings` | `test_the_warning_is_printed_before_anything_runs` |
 | RUN-FR-055 | RUN-ARC-001 | RUN-DD-RUNCLI | `_announce_warnings` (stderr) | `test_the_warning_is_printed_before_anything_runs` |
 | RUN-FR-056 | RUN-ARC-001 | RUN-DD-RUNCLI | `_acknowledged`, `--acknowledge` | `test_hardware_without_a_terminal_refuses_to_start`, `test_a_terminal_is_asked_and_yes_proceeds`, `test_anything_but_yes_stops_the_run` (4) |
 | RUN-FR-057 | RUN-ARC-001 | RUN-DD-RUNCLI | `_acknowledged`, `_EXIT_NOT_ACKNOWLEDGED` | `test_a_simulated_run_is_not_gated`, `test_a_specification_with_no_warning_is_never_gated` |
@@ -500,7 +548,7 @@ where the firmware implements the requirement.
 | RUN-FR-052 | ARC-001 | RUN-DD-CLI | report path suffixing | `test_several_specs_get_suffixed_reports` |
 | RUN-FR-053 | ARC-001 | RUN-DD-CLI | `benchtools/cli.py` | `TestTopLevelDispatch` (7) |
 
-## 14. Architecture to design to source
+## 15. Architecture to design to source
 
 | Architectural element | Design unit | Source |
 |---|---|---|
@@ -522,18 +570,18 @@ where the firmware implements the requirement.
 | PSU-ARC-001 | PSU-DD-PSU, -CONST, -SIM, -CLI | `instruments/gpd3303d/{psu,constants,simulator,cli}.py` |
 | RUN-ARC-001 | RUN-DD-SPEC, -LIMITS, -RESOLVE, -BENCH, -RESULTS, -RUNNER, -REPORT, -CLI | `runner/*.py`, `cli.py` |
 
-## 15. Coverage analysis
+## 16. Coverage analysis
 
 | Question | Answer |
 |---|---|
-| Requirements with no verifying test | **None.** All 177 functional and 18 non-functional requirements trace to at least one test, or to a recorded inspection where a test is not the appropriate method (CORE-NFR-002, BLE-FR-090, BLE-NFR-002, and part of CORE-NFR-001). The firmware requirements are verified against the artefact the firmware is built from, not against a running dongle: see CON-07. |
+| Requirements with no verifying test | **None.** All 343 functional and 36 non-functional requirements trace to at least one test, or to a recorded inspection where a test is not the appropriate method (CORE-NFR-002, BLE-FR-090, BLE-NFR-002, and part of CORE-NFR-001). The firmware requirements are verified against the artefact the firmware is built from, not against a running dongle: see CON-07. |
 | Tests not tracing to a requirement | **None.** Every test file names its requirements in its module docstring. |
 | Source modules with no design unit | **None.** Every module names its design unit in its docstring - firmware sources included, checked by `test_every_source_declares_its_trace` in `SWE4-UT-BLEFW`; `__main__.py` is covered by RUN-DD-CLI. |
 | Design units with no source | **None.** |
 | Stakeholder requirements not decomposed | **None of those in scope.** STK-01 to STK-11 and STK-14 to STK-17 trace downward; STK-06 additionally produces BENCHTOOLS-VISA-001 as its work product. STK-12 is partly addressed (AD-15 constrains the driver boundary for it, and AD-23 reads a markdown command document as a test) and Robot Framework itself is deferred: CON-06, OPEN-04. STK-13 is decomposed into `PSU-` and verified; STK-19 and STK-20 into `S2LP-` and AD-20. STK-18 is decomposed into `DMM-` and verified against a simulator; no behaviour is confirmed on a physical meter (DMM-OPEN-01…05). |
-| Architectural decisions without a verifying test | **None.** AD-01 → `test_full_driver_over_the_socket`; AD-02 → `test_layering.py`; AD-03 → `TestDriverRegistry`; AD-04 → `TestFraming`; AD-05 → `test_payload_containing_a_hash_byte_is_not_re_parsed`; AD-06 → `TestChannelSpread`; AD-07 → `test_busy_is_polled_until_clear`; AD-08 → `TestSpecParsing`; AD-09 → `TestFailureVersusError`; AD-10 → `test_all_sim_resources_count_as_simulated`; AD-11 → `test_the_probe_is_an_instrument_but_not_scpi`, `test_scpi_instrument_is_an_instrument`; AD-12 → `SWE4-UT-GDBMI`, `SWE4-UT-GDBSESSION`, `test_connect_to_the_simulator`; AD-13 → `test_resource_parsing`, `test_a_remote_server_is_never_spawned`; AD-14 → `SWE4-UT-TIMING`, `test_a_short_interval_is_flagged_untrustworthy`; AD-15 → `test_serialises_for_a_report`, `test_shipped_specifications_are_valid`; AD-16 → `SWE4-UT-BLEFW`; AD-17 → `test_both_clocks_are_recorded`, `test_the_host_clock_resolves_a_millisecond`; AD-18 → `test_a_lossy_link_is_declared_rather_than_averaged`, `test_a_dropping_dongle_says_so`; AD-19 → `TestOutputSwitching` (11), notably `test_the_last_channel_off_opens_the_real_switch` and `test_setting_a_voltage_on_a_parked_channel_does_not_energise_it`; AD-20 → `SWE4-UT-S2LPPROTO` and `SWE4-UT-S2LPSESSION` verify the driver against ST's declared command set, and `test_a_polled_capture_reports_its_gaps` verifies the honesty the decision requires; AD-21 → `TestTracking` in `test_psu.py` (14), with `TestTracking` in `test_simulator.py` (10) establishing that the supply really does discard what the driver refuses to send; AD-22 → `TestReferences` (9) and `TestLimitsTakenFromAnEarlierStep` (6) for the mechanism, and `SWE4-UT-BRINGUP` (12) for what it is for - the shipped chained specification, with each fact it establishes broken in turn to confirm it would fail; AD-23 → `SWE4-UT-BLESCRIPT` (58), including `TestTheShippedDocument`, which runs `specs/sensor_commands.md` against the simulated sensor so the worked example cannot rot. |
+| Architectural decisions without a verifying test | **None.** AD-01 → `test_full_driver_over_the_socket`; AD-02 → `test_layering.py`; AD-03 → `TestDriverRegistry`; AD-04 → `TestFraming`; AD-05 → `test_payload_containing_a_hash_byte_is_not_re_parsed`; AD-06 → `TestChannelSpread`; AD-07 → `test_busy_is_polled_until_clear`; AD-08 → `TestSpecParsing`; AD-09 → `TestFailureVersusError`; AD-10 → `test_all_sim_resources_count_as_simulated`; AD-11 → `test_the_probe_is_an_instrument_but_not_scpi`, `test_scpi_instrument_is_an_instrument`; AD-12 → `SWE4-UT-GDBMI`, `SWE4-UT-GDBSESSION`, `test_connect_to_the_simulator`; AD-13 → `test_resource_parsing`, `test_a_remote_server_is_never_spawned`; AD-14 → `SWE4-UT-TIMING`, `test_a_short_interval_is_flagged_untrustworthy`; AD-15 → `test_serialises_for_a_report`, `test_shipped_specifications_are_valid`; AD-16 → `SWE4-UT-BLEFW`; AD-17 → `test_both_clocks_are_recorded`, `test_the_host_clock_resolves_a_millisecond`; AD-18 → `test_a_lossy_link_is_declared_rather_than_averaged`, `test_a_dropping_dongle_says_so`; AD-19 → `TestOutputSwitching` (11), notably `test_the_last_channel_off_opens_the_real_switch` and `test_setting_a_voltage_on_a_parked_channel_does_not_energise_it`; AD-20 → `SWE4-UT-S2LPPROTO` and `SWE4-UT-S2LPSESSION` verify the driver against ST's declared command set, and `test_a_polled_capture_reports_its_gaps` verifies the honesty the decision requires; AD-21 → `TestTracking` in `test_psu.py` (14), with `TestTracking` in `test_simulator.py` (10) establishing that the supply really does discard what the driver refuses to send; AD-22 → `TestReferences` (9) and `TestLimitsTakenFromAnEarlierStep` (6) for the mechanism, and `SWE4-UT-BRINGUP` (12) for what it is for - the shipped chained specification, with each fact it establishes broken in turn to confirm it would fail; AD-23 → `SWE4-UT-BLESCRIPT` (58), including `TestTheShippedDocument`, which runs `specs/sensor_commands.md` against the simulated sensor so the worked example cannot rot.; AD-24 → `test_a_value_that_disagrees_with_its_raw_word_is_refused`, `test_a_humidity_that_disagrees_is_refused`, and the shared conversion vectors in `test_sht30.c` and `test_matches_the_firmware_vectors`. |
 
-## 16. Open items
+## 17. Open items
 
 | ID | Item | Owner action |
 |---|---|---|
@@ -545,10 +593,11 @@ where the firmware implements the requirement.
 | OPEN-07 | S2-LP kit bench confirmation items — `docs/s2lp/S2LP_Devkit_Notes.md` §7: the firmware's exact reply text and error codes, the board name it reports, the meaning of `S2LPGetNBytesBatch`'s reference-timer argument, and the link budget in practice | Discharge on first use with a kit. Tracked there as S2LP-OPEN-01 to S2LP-OPEN-05. Nothing in them blocks use of the driver: the parser reads tags by name and keeps every line, so an unexpected reply is visible rather than fatal. |
 | OPEN-08 | PSU bench confirmation items — TB-IF-001 §12: the command interval a real supply needs, settling time, the slaved-channel behaviour, series and parallel tracking bits, current programming resolution, and `VOUT` read-back | PSU-OPEN-01 and -02 closed 2026-09-26; PSU-OPEN-06 partly. The rest open, tracked in TB-IF-001 §12. |
 | OPEN-05 | J-Link bench confirmation items (CON-04, CON-05) — `docs/jlink/JLink_Integration_Notes.md` §4: Windows execution, real MI version behaviour, SWO timestamp scaling, RTT control-block discovery, flash timing | Discharge on first use with a probe and a target. Tracked there as JLINK-OPEN-01 to JLINK-OPEN-04. |
+| OPEN-09 | Pico 2 thermometer bench confirmation items (CON-09) — `docs/pico_sht30/Pico_SHT30_Notes.md` §7: USB enumeration and the first `ver`, I2C with the module's pull-ups, accuracy against a reference thermometer, and the reference PDFs that could not be fetched in the build environment | Discharge on first use with a Pico 2 and an SHT30-D module. Tracked there as PICO-OPEN-01 to PICO-OPEN-04. |
 
 ---
 
-## 17. Review & Approval
+## 18. Review & Approval
 
 | Role | Name | Signature / Electronic Approval | Date |
 |---|---|---|---|

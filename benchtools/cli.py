@@ -28,6 +28,7 @@ Commands:
   ble         scan, drive and profile a BLE sensor through a Nordic dongle
   psu         control a GW Instek GPD-3303D bench power supply
   s2lp        drive an ST S2-LP sub-1 GHz development kit
+  thermo      read a Pico 2 + SHT30-D thermometer: identity and temperature
   drivers     list the instrument drivers a bench configuration can name
   backends    list the transport backends a resource string can select
 
@@ -39,6 +40,7 @@ Examples:
   benchtools ble -r sim:// profile --select SENS-0A1B2C --duration 30 --interval 0.1
   benchtools psu -r sim:// set 1 -V 3.3 -I 0.5 --on
   benchtools s2lp -r sim:// registers --plain
+  benchtools thermo -r /dev/ttyACM0 temp --count 10 --interval 1
   benchtools run tests/clock_skew.yaml --simulate --markdown report.md
   benchtools run tests/*.yaml --bench benches/lab1.yaml --junit results.xml
 
@@ -89,6 +91,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     module = _tool_for(command)
     if module is not None:
         return import_module(module).main(rest)
+
+    if command in ("thermo", "pico-sht30", "sht30"):
+        from .instruments.pico_sht30.cli import main as thermo_main
+
+        return thermo_main(rest)
 
     if command == "drivers":
         from .runner.bench import registered_drivers

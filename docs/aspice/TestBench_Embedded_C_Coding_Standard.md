@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-STD-002 | **Version** | 0.1 |
+| **Document ID** | TB-STD-002 | **Version** | 0.2 |
 | **Project** | TestBench | **Date** | 2026-09-19 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -26,6 +26,7 @@
 | Version | Date | Author | Description of Change |
 |---|---|---|---|
 | 0.1 | 2026-09-19 | Claude | Initial |
+| 0.2 | 2026-09-30 | Claude | §1.2: scope names `firmware/pico_sht30` - sources, headers and host unit tests - alongside the dongle firmware; §1.3: the Pico SDK is out of scope as vendor code; §7.4: CStyleCheck runs on the Pico firmware in its own step, clean and without a baseline (#104). |
 
 ---
 
@@ -135,7 +136,8 @@ This standard exists to:
 This standard applies to:
 
 - all `.c` and `.h` files owned by this project — in practice
-  `firmware/nordic_dongle/src/` and its headers;
+  `firmware/nordic_dongle/src/` and its headers, and all of
+  `firmware/pico_sht30/` (sources, headers and host unit tests);
 - all new C files added to this project;
 - existing files undergoing a modification that touches more than 20% of their
   lines.
@@ -144,6 +146,7 @@ This standard applies to:
 
 | Excluded | Why |
 |---|---|
+| Raspberry Pi Pico C SDK sources, including TinyUSB | Vendor-supplied; fetched at build time and not modified by this project |
 | Nordic nRF5 SDK sources and the S140 SoftDevice | Vendor-supplied; not modified by this project, and its licence governs it (TB-ACQ4-001 §4) |
 | `config/sdk_config.h` | A vendor configuration artefact whose keys and layout are the SDK's, not this project's |
 | Linker scripts, startup code and assembly (`.s`, `.S`) | Vendor-supplied or toolchain-generated |
@@ -289,8 +292,12 @@ an image stops fitting.
 
 ### 7.4 Static Analysis
 
-CStyleCheck runs on every push against `firmware/nordic_dongle`
-(`.github/workflows/style.yml`). It enforces the mechanically checkable subset
+CStyleCheck runs on every push against `firmware/nordic_dongle`, against
+`.cstylecheck-baseline.json`, and against all of `firmware/pico_sht30` in a
+separate step with no baseline that fails on any finding
+(`.github/workflows/style.yml`). The Pico step's module aliases
+(`.cstylecheck-pico-aliases.txt`) and its narrow, justified exclusions
+(`.cstylecheck-pico-exclusions.yml`) apply to that step only. It enforces the mechanically checkable subset
 of this standard and of TB-STY-001; the rest is enforced at review
 (TB-TMPL-001 §6.5).
 
