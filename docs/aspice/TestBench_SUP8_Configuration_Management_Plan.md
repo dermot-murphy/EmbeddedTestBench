@@ -8,8 +8,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SUP8-001 | **Version** | 0.2 |
-| **Project** | TestBench | **Date** | 2026-09-20 |
+| **Document ID** | TB-SUP8-001 | **Version** | 0.3 |
+| **Project** | TestBench | **Date** | 2026-09-30 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SUP.8 |
@@ -24,6 +24,7 @@
 |---|---|---|---|
 | 0.1 | 2026-09-19 | Claude | Initial |
 | 0.2 | 2026-09-20 | Claude | Section 5 rewritten: `develop` recorded as the integration branch, stacked pull request procedure and the 2026-09-20 retargeting observation added, section 9 corrected to match |
+| 0.3 | 2026-09-30 | Claude | §5.1: a pull request targets `develop`; any other base only on explicit instruction for that pull request. §5.2: a stack is built only on instruction. Changed together with `CLAUDE.md` (#113). |
 
 ---
 
@@ -100,6 +101,14 @@ rather than to the model name (TB-RISK-002).
 | Ticket | Every change starts from an issue, referenced in the commit message |
 | History | Never rewritten on a branch someone else may have checked out |
 
+**A pull request targets `develop`.** Any other base — `main`, a predecessor's
+branch in a stack, or any other branch — is used only when the repository owner
+explicitly instructs it for that pull request, and the pull request's
+description says so. Being asked to open a pull request is not an instruction
+about its base. Example of an instructed exception: #110, which reverts #106 on
+`main` because that is where #106 landed (#109). #106 itself, merged into `main`
+without passing through `develop`, is the failure this rule prevents (#113).
+
 A pull request is merged only when CI is green. A red build is fixed or the
 change is withdrawn; it is not merged with a note to fix it afterwards. Where no
 workflow applies to a change, that is stated explicitly rather than implied by
@@ -107,8 +116,11 @@ the absence of a failure.
 
 ### 5.2 Stacked Pull Requests
 
-When one body of work splits into several tickets that build on each other, each
-branch is based on its predecessor, so that each pull request's diff shows only
+A stack is built **only on explicit instruction** (§5.1), because each pull
+request in it is based on its predecessor's branch rather than on `develop`.
+
+When so instructed and one body of work splits into several tickets that build
+on each other, each branch is based on its predecessor, so that each pull request's diff shows only
 its own work and review stays honest.
 
 A stack is merged in dependency order, and each pull request is **retargeted to
