@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-SWE3-001 |
-| Version | 4.4 |
-| Date | 2026-09-30 |
+| Version | 4.2 |
+| Date | 2026-09-13 |
 | Process reference | Automotive SPICE V4.0, SWE.3 Software Detailed Design and Unit Construction |
 
 Each section is a design unit, named `<ELEMENT>-DD-<NAME>` and referenced from the
@@ -68,8 +68,6 @@ Abstract link providing buffered framing. Subclasses implement `_open_link`,
 | `read_message()` | To the terminator, or to end-of-message | Ordinary SCPI query responses |
 | `read_exactly(n)` | Exactly *n* bytes, terminator-transparent | IEEE 488.2 block payloads |
 | `read_raw()` | Everything to end-of-message | Images and other unframed transfers |
-| `read_available()` | Whatever has arrived; waits only if nothing has | Instruments that stream without being asked (CORE-FR-019) |
-| `discard_input()` | Drops everything received and unread, and counts it | A fresh reading from a streaming instrument (CORE-FR-019) |
 
 Design points:
 
@@ -80,13 +78,6 @@ Design points:
   so an already-buffered response costs no extra round trip.
 - `MAX_RESPONSE_BYTES` (64 MiB) bounds a runaway read if an instrument never
   asserts end-of-message.
-- `read_available()` clears a previous end-of-message before asking the link
-  again. A message-oriented transport reports end-of-message per reply; for a
-  stream that says nothing about whether another byte is coming, and without
-  this a mock link that ended one reply would never be read again.
-- `discard_input()` is the base of a chain: the base empties its buffer, the
-  serial transport also empties the operating system's, the mock transport also
-  drops its pending reply. Each returns how many bytes it dropped, for logging.
 - Context-manager support guarantees the link is released on an exception path.
 
 ## CORE-DD-VXI11 — `transport/vxi11.py`
@@ -188,14 +179,6 @@ Design points:
   connection failure. The port is fine; flow control is asserted or the device
   stopped reading, and saying "connection failed" sends the reader to look at
   the cable.
-- **`dtr` and `rts` are set before the port opens** (CORE-FR-018), so an
-  instrument powered from them - the TTi 1604's isolated interface - sees the
-  lines come up once at the right levels rather than at the default and then
-  change. `None`, the default, leaves the port's own behaviour alone for every
-  other instrument.
-- `discard_input()` extends the base with `reset_input_buffer()`, because the
-  bytes a streaming instrument sent while nobody was reading are in the
-  operating system, not in the transport.
 
 ## CORE-DD-MOCK — `transport/mock.py`
 
@@ -204,14 +187,6 @@ Loopback transport accepting any `Responder` — anything with
 simulated. Responses are returned in small chunks so that framing and
 reassembly are exercised rather than bypassed. The description is derived from
 the responder's `*IDN?` model field, so it is meaningful for any instrument.
-`discard_input()` also drops the pending reply, so a streaming simulator's
-next `poll()` is what the driver reads after a discard, as on a real port.
-A simulator that implements `poll_within(timeout)` is called with this
-transport's timeout instead of `poll()` (CORE-FR-042): output due later than
-the read would wait is a `TransportTimeoutError`, and the simulator's clock
-moves on by the timeout, as time does on a real port. Without this a
-simulator on a virtual clock delivers data a driver would have given up on,
-and a wait that is too short passes every test (D-41).
 
 ## CORE-DD-FACTORY — `transport/factory.py`
 
@@ -1351,158 +1326,6 @@ Sub-commands `info`, `read`, `set`, `on`, `off`, `status`, emitting JSON
 explicitly), and `off` with a channel number reports in its output that the
 channel is parked at zero volts rather than disconnected. `read` adds a
 `warning` key when a channel it read is in current limit.
-
----
-
-# DMM — `benchtools.instruments.tti1604`
-
-A TTi 1604 40,000-count bench multimeter on its rear RS-232 port. It is neither
-SCPI nor command/response: keys are sent as characters and echoed, readings
-stream as ten-character pictures of the display, and there is no identification
-query. So the element subclasses CORE-DD-INSTRUMENT directly, as the J-Link and
-BLE dongle drivers do, and uses the transport's stream operations
-(CORE-DD-TRANSPORT). The manufacturer's documents are in `docs/dmm/reference/`.
-
-## DMM-DD-CONST — `constants.py`
-
-Everything transcribed from the manufacturer's documents, and nothing else: the
-link settings and the DTR/RTS levels, the 300 ms echo timeout, the reading
-rate, the key characters, the units codes, the seven-segment table, and the
-ranges per function with their full scale and resolution from the manual's
-specification tables. `MeterRange.overload` is the full scale unless the manual
-gives another figure (1024 V and 768 V on the top voltage ranges).
-
-Where the two documents disagree, the choice is stated beside the value and
-listed as a bench confirmation item: the AC current range labels
-(DMM-OPEN-03), the frequency gate times (DMM-OPEN-04). `SELECTABLE_FUNCTIONS`
-and `CURRENT_FUNCTIONS` are data rather than logic, so DMM-NFR-002 is checkable
-by inspection.
-
-## DMM-DD-FRAME — `frame.py`
-
-`decode_frame(data, received_at) -> Reading`, and the frozen `Reading` record.
-
-Design points:
-
-- **Validation is the resynchronisation mechanism** (DMM-FR-011). Every display
-  character must be a listed pattern, the units code must be defined, and there
-  may be at most one decimal point. A carriage return that begins something
-  failing those checks is not a frame start, and the caller drops it and looks
-  again. Bit 0 of every listed pattern is clear, which is what lets the decimal
-  point live there.
-- **The value is taken from the display text through `Decimal`**, then scaled,
-  so that `12.345 mA` is `0.012345 A` and not `0.012345000000000001`. A limit
-  comparison at the last digit should not depend on binary rounding.
-- **The resistance multiplier is derived, not assumed** (DMM-FR-012). The frame
-  says which resistance range is selected but not whether the display is in
-  ohms, kilohms or megohms. The manual's resolution for the range, divided by
-  the value of the last displayed digit, must be 1, 1 000 or 1 000 000; any
-  other ratio raises `ProtocolError` citing DMM-OPEN-02. This holds whichever
-  display convention the meter uses, which is why it was chosen over a table of
-  assumed multipliers.
-- **Nothing that is not a live number is a number.** OFL decodes to a signed
-  infinity with `overload` set; a blank or lettered display to `nan` with
-  `numeric` clear; Hold, T-Hold and Min/Max recall set `frozen`. `is_live` is
-  the conjunction a caller wants. Null sets `relative` but is live - it is a
-  measurement, offset.
-- An unlisted range code on a function that does not need the range to scale
-  its value (volts, amps) is reported as `code N`, not refused: refusing would
-  make one unconfirmed table entry stop the meter being read at all.
-
-## DMM-DD-DMM — `dmm.py`
-
-`Tti1604`, subclassing CORE-DD-INSTRUMENT.
-
-| Group | Members |
-|---|---|
-| Lifecycle | `connect`, `_normalise_resource`, `_open`, `_post_open`, `_read_identity`, `_close`, `local`, `remote` |
-| Stream | `_drain_transport`, `_receive`, `_parse`, `_next_event`, `_next_frame`, `_discard_input` |
-| Keys | `press`, `_press` |
-| State | `current_state`, `last_reading`, `_await`, `function`, `in_current_function` |
-| Function and range | `select_function`, `_select`, `set_auto_range`, `set_range` |
-| Measuring | `read`, `read_many`, `measure`, `measure_dc_voltage`, `measure_ac_voltage`, `measure_dc_current`, `measure_ac_current`, `measure_resistance`, `measure_frequency` |
-
-Design points:
-
-- **One parser for echoes and frames** (DMM-FR-003). `_parse` takes events from
-  the front of the received bytes: at a carriage return it waits for ten bytes
-  and tries to decode them; anywhere else a byte is an out-of-frame byte - an
-  echo, a NUL terminator (dropped) or noise. The echo is matched only against
-  out-of-frame bytes. Searching the raw stream would find it inside frames: the
-  digit 4 is `0x66`, the Volts key.
-- **`_press` resends on silence, bounded** (DMM-FR-002): up to `attempts` sends,
-  each followed by `echo_timeout` of listening. Frames arriving meanwhile update
-  `last_reading`. Before each send, bytes the transport has already buffered are
-  moved into the parser, because `Transport.write()` discards buffered input and
-  those bytes may be half a frame.
-- **Closed loop** (AD-24, DMM-FR-020, -022). `select_function`, `set_range` and
-  `set_auto_range` read the current state first (nothing is pressed for a state
-  already shown), press, then `_await` a frame satisfying a predicate within
-  `settle_timeout`. On timeout the error names the function and range the
-  readings show. `set_range` moves one step per pass - Up or Down towards the
-  target, or Auto/Man to lock the present range - and confirms each step, with
-  the passes bounded by the number of ranges.
-- **Fresh readings** (AD-25, DMM-FR-030). `read(fresh=True)` calls
-  `_discard_input` - the transport's chain plus the parser's own pending bytes -
-  then discards one complete frame and returns the next. `read_many` is one
-  fresh reading followed by the frames that follow it.
-- **`measure` hands back only live numbers** (DMM-FR-031). It lets a reading
-  that is still ranging (neither numeric nor overload) settle for a few frames,
-  then raises `MeasurementError` for OFL, for a frozen display and for a
-  non-numeric one, and `ConfigurationError` for Null without `allow_relative`.
-  Returning infinity for OFL would pass every lower limit.
-- **Current functions only by name** (DMM-NFR-002). The only path to a current
-  function is a caller naming one; `measure_frequency` keeps an AC current
-  source the caller already selected but never chooses one.
-- **Waits allow for the gate** (DMM-FR-070, D-41). `_patience()` is the
-  settle timeout plus two gate times when the last reading was a frequency
-  one; `current_state`, `_await`, `read`, `read_many` and `measure` default to
-  it, and the frequency paths name the gate they are moving to, since the last
-  reading describes the gate being left. Connecting allows for a meter left on
-  the 10 s gate.
-- **Time is injectable.** Every deadline is measured on `_clock`, which is
-  `time.monotonic` on a real link and the simulator's virtual clock on a
-  simulated one. The simulator advances its clock one reading interval per read,
-  so a 4 s settling timeout is exercised in microseconds.
-- **`_post_open` presses Remote and waits for a reading**, and presses nothing
-  else (DMM-FR-004). An echo without a reading is diagnosed as standby.
-  `_close` presses Local with two attempts and swallows the failure
-  (DMM-FR-006).
-- **The identity is asserted** (DMM-FR-005): `THURLBY THANDAR,1604,,`, with an
-  empty serial number and firmware field rather than invented ones.
-
-## DMM-DD-SIM — `simulator.py`
-
-A meter with an input a test sets (`set_input("dc_amps", 0.012)`), satisfying
-`Streamer` (CORE-DD-MOCK): `respond()` acts on and echoes key characters,
-`poll_within(timeout)` returns the next frame if it is due in time. Readings
-are scheduled: the next is due one measurement time after the last (0.4 s, or
-the 1 s or 10 s gate measuring frequency), and a key that changes the
-function, range, gate or mode restarts the measurement. The simulator auto-ranges onto the input,
-formats the display at the range's resolution, applies OFL above the range's
-overload figure, and encodes the display into seven-segment patterns. The
-driver's decoder must therefore work back from patterns to the input, which is
-the path a real reading takes.
-
-It is not built on CORE-DD-SIM, whose grammar is SCPI's. It models the key
-rules the manual states - changing function sets auto-ranging and leaves Hz; Hz
-is refused on a DC range; Up and Down lock the range; AC/DC does nothing on
-resistance - and standby (Operate), in which the interface echoes and sends no
-readings. `poll()` in local mode or standby raises `TransportTimeoutError`, as
-a silent line does, after advancing the clock.
-
-Fault injection: `drop_keys` (lost before the meter sees them), `ignore_keys`
-(echoed, not acted on), `garbage` (a stream joined part-way through a frame),
-`nul_terminated`, and `panel_function_bits` / `panel_status_bits` for the
-annunciators of functions behind SHIFT, which the published note does not map
-to keys.
-
-## DMM-DD-CLI — `cli.py`
-
-Sub-commands `info`, `read`, `measure`, `log`, `function`, `range`, emitting
-JSON (AD-15). No sub-command selects a current function unless it is named
-(`measure dc_milliamps`), for the reason DMM-NFR-002 exists. `read` adds a
-`warning` key when the reading it reports is not live.
 
 ---
 

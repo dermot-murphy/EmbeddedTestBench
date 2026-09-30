@@ -5,7 +5,7 @@ the framing and lifecycle are exercised rather than mocked. Tests needing it
 skip when the optional extra is absent, which is the correct behaviour for an
 optional extra; the resource parsing and registration are checked either way.
 
-Traces to: CORE-FR-017, CORE-FR-018, CORE-FR-019, SWE4-UT-SERIAL.
+Traces to: CORE-FR-017, SWE4-UT-SERIAL.
 """
 
 from __future__ import annotations
@@ -55,15 +55,6 @@ class TestResourceParsing:
 
     def test_the_description_names_the_port(self):
         assert "COM5" in SerialTransport("COM5").description
-
-    def test_modem_lines_default_to_the_port_default(self):
-        transport = SerialTransport("COM5")
-        assert transport.dtr is None and transport.rts is None
-
-    def test_modem_line_levels_are_kept(self):
-        """The TTi 1604 is powered from DTR asserted and RTS negated."""
-        transport = SerialTransport("COM5", dtr=True, rts=False)
-        assert transport.dtr is True and transport.rts is False
 
     def test_the_backend_is_registered(self):
         assert "serial" in registered_backends()
@@ -148,29 +139,3 @@ class TestLoopback:
         transport.close()
         with pytest.raises(TransportError):
             transport.read_message()
-
-    def test_modem_lines_are_set_as_the_port_opens(self):
-        pytest.importorskip("serial")
-        transport = SerialTransport("loop://", timeout=1.0, dtr=True, rts=False)
-        transport.open()
-        try:
-            assert transport._serial.dtr is True
-            assert transport._serial.rts is False
-        finally:
-            transport.close()
-
-    def test_discard_input_empties_the_port_as_well_as_the_buffer(self, transport):
-        """A streaming meter fills the OS buffer while nobody reads it."""
-        transport.write(b"stale one")
-        transport.write(b"stale two")
-        assert transport.read_available()[:5] == b"stale"
-        transport.write(b"stale three")
-        import time
-        time.sleep(0.05)
-        assert transport.discard_input() > 0
-        transport.write(b"fresh")
-        assert transport.read_message() == b"fresh"
-
-    def test_read_available_returns_bytes_without_framing(self, transport):
-        transport.write(b"\r\x01\x02", append_terminator=False)
-        assert transport.read_available() == b"\r\x01\x02"

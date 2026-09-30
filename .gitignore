@@ -13,6 +13,3 @@ htmlcov/
 # Firmware build output
 firmware/**/_build/
 build/
-
-# Bench test records (tests/bench), kept with the bench confirmation items
-*_bench_findings.md

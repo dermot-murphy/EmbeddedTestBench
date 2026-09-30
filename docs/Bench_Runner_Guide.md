@@ -46,8 +46,8 @@ instruments:
       baudrate: 9600            # must match the supply's front-panel setting
 
   dmm:
-    driver: tti1604             # TTi 1604 multimeter, rear RS-232 via a USB converter
-    resource: /dev/ttyUSB1      # COM6 on Windows; 9600 baud, DTR/RTS set by the driver
+    driver: generic             # no dedicated driver yet: identify and raw SCPI
+    resource: 192.168.1.60
 
   probe:
     driver: jlink               # a debug probe is a bench instrument too

@@ -27,11 +27,6 @@ instruments:
     resource: sim://
     timeout: 5.0
 
-  dmm:
-    driver: tti1604
-    resource: sim://
-    timeout: 5.0
-
   probe:
     driver: jlink
     resource: sim://
