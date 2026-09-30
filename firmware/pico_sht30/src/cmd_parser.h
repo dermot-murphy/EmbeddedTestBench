@@ -25,9 +25,9 @@ extern "C" {
 /** What a character did to the line being assembled. */
 typedef enum
 {
-	CMD_LINE_PENDING = 0,	/**< More characters needed. */
-	CMD_LINE_READY,		/**< A complete line is in @c text. */
-	CMD_LINE_OVERFLOW	/**< A line ended that was too long; it was dropped. */
+	CMD_LINE_RESULT_PENDING = 0,	/**< More characters needed. */
+	CMD_LINE_RESULT_READY,		/**< A complete line is in @c text. */
+	CMD_LINE_RESULT_OVERFLOW	/**< A line ended that was too long; it was dropped. */
 } cmd_line_result_t;
 
 /** A line being assembled. */
@@ -48,7 +48,7 @@ void cmd_line_init(cmd_line_t *line);
  *
  * CR is ignored, so CRLF and LF both end a line. A line longer than
  * PROTO_MAX_LINE - 1 characters is discarded whole - never executed in part -
- * and reported as CMD_LINE_OVERFLOW when its LF arrives.
+ * and reported as CMD_LINE_RESULT_OVERFLOW when its LF arrives.
  */
 cmd_line_result_t cmd_line_push(cmd_line_t *line, char ch);
 

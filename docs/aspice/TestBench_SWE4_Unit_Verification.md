@@ -169,7 +169,10 @@ way, and none of it needs a Pico:
    `firmware_version.h` and `board_config.h` are parsed and compared with the
    driver's constants; tab indentation and the absence of printf-family calls
    are checked on every firmware source.
-3. **The real build** (PICO-FR-031). The firmware is compiled and linked
+3. **The C coding standard** (PICO-NFR-006). CStyleCheck runs over all of
+   `firmware/pico_sht30`, tests included, with no baseline, and fails on any
+   finding (`.github/workflows/style.yml`).
+4. **The real build** (PICO-FR-031). The firmware is compiled and linked
    against Pico SDK 2.1.1 with the Arm GNU toolchain, and `pico_sht30.uf2` is
    produced.
 

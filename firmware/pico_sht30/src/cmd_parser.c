@@ -37,11 +37,16 @@ typedef struct
 	cmd_handler_t	handler;
 } cmd_entry_t;
 
-/* Handler prototypes, one per row of the command table. */
-#define X(name, min_args, max_args, help) \
-	static proto_error_t cmd_##name(uint32_t argc, char *argv[], text_t *reply);
-PROTO_COMMAND_TABLE
-#undef X
+/* Handler prototypes, one per row of PROTO_COMMAND_TABLE. Written out rather
+ * than generated: a macro ending in ';' is CERT PRE11-C. A row with no handler
+ * still fails to build, because the table below takes each one's address. */
+static proto_error_t cmd_help(uint32_t argc, char *argv[], text_t *reply);
+static proto_error_t cmd_ver(uint32_t argc, char *argv[], text_t *reply);
+static proto_error_t cmd_temp(uint32_t argc, char *argv[], text_t *reply);
+static proto_error_t cmd_status(uint32_t argc, char *argv[], text_t *reply);
+static proto_error_t cmd_sreset(uint32_t argc, char *argv[], text_t *reply);
+static proto_error_t cmd_reset(uint32_t argc, char *argv[], text_t *reply);
+static proto_error_t cmd_bootsel(uint32_t argc, char *argv[], text_t *reply);
 
 static const cmd_entry_t	cmd_table[] =
 {
@@ -51,7 +56,7 @@ static const cmd_entry_t	cmd_table[] =
 #undef X
 };
 
-#define CMD_TABLE_LENGTH	((uint32_t)(sizeof(cmd_table) / sizeof(cmd_table[0])))
+#define CMD_PARSER_TABLE_LENGTH	((uint32_t)(sizeof(cmd_table) / sizeof(cmd_table[0])))
 
 #define X(symbol, code, text)	(text),
 static const char * const	cmd_error_text[] =
@@ -80,17 +85,17 @@ static proto_error_t cmd_from_sht30(sht30_status_t status)
 
 	switch (status)
 	{
-	case SHT30_OK:
+	case SHT30_STATUS_OK:
 		result = PROTO_ERR_NONE;
 		break;
-	case SHT30_ERR_CRC:
+	case SHT30_STATUS_ERR_CRC:
 		result = PROTO_ERR_CRC;
 		break;
-	case SHT30_ERR_TIMEOUT:
+	case SHT30_STATUS_ERR_TIMEOUT:
 		result = PROTO_ERR_BUS;
 		break;
-	case SHT30_ERR_NACK:
-	case SHT30_ERR_PARAM:
+	case SHT30_STATUS_ERR_NACK:
+	case SHT30_STATUS_ERR_PARAM:
 	default:
 		result = PROTO_ERR_NO_SENSOR;
 		break;
@@ -122,7 +127,7 @@ static proto_error_t cmd_help(uint32_t argc, char *argv[], text_t *reply)
 	(void)argc;
 	(void)argv;
 	(void)reply;
-	for (index = 0U; index < CMD_TABLE_LENGTH; index++)
+	for (index = 0U; index < CMD_PARSER_TABLE_LENGTH; index++)
 	{
 		char	buffer[PROTO_MAX_REPLY];
 		text_t	line;
@@ -142,11 +147,11 @@ static proto_error_t cmd_ver(uint32_t argc, char *argv[], text_t *reply)
 	(void)argc;
 	(void)argv;
 	text_str(reply, " title=");
-	text_token(reply, firmware_title_string);
+	text_token(reply, firmware_g_title);
 	text_str(reply, " fw=");
-	text_token(reply, firmware_version_string);
+	text_token(reply, firmware_g_version);
 	text_str(reply, " built=");
-	text_token(reply, firmware_build_date_string);
+	text_token(reply, firmware_g_build_date);
 	text_str(reply, " proto=");
 	text_str(reply, PROTO_VERSION);
 	text_str(reply, " board=");
@@ -239,7 +244,7 @@ void cmd_line_init(cmd_line_t *line)
 
 cmd_line_result_t cmd_line_push(cmd_line_t *line, char ch)
 {
-	cmd_line_result_t	result = CMD_LINE_PENDING;
+	cmd_line_result_t	result = CMD_LINE_RESULT_PENDING;
 
 	if (line == NULL)
 	{
@@ -253,12 +258,12 @@ cmd_line_result_t cmd_line_push(cmd_line_t *line, char ch)
 	{
 		if (line->discarding)
 		{
-			result = CMD_LINE_OVERFLOW;
+			result = CMD_LINE_RESULT_OVERFLOW;
 			line->text[0] = '\0';
 		}
 		else
 		{
-			result = CMD_LINE_READY;
+			result = CMD_LINE_RESULT_READY;
 			line->text[line->length] = '\0';
 		}
 		line->length = 0U;
@@ -314,37 +319,28 @@ static uint32_t cmd_tokenise(char *line, char *tokens[])
 	return count;
 }
 
-void cmd_execute(char *line)
+/* The table entry named @p name, or NULL. */
+static const cmd_entry_t *cmd_lookup(const char *name)
 {
-	char		*tokens[PROTO_MAX_TOKENS] = { NULL };
-	char		buffer[PROTO_MAX_REPLY];
-	text_t		reply;
-	uint32_t	count;
-	uint32_t	index;
 	const cmd_entry_t	*entry = NULL;
-	proto_error_t	result = PROTO_ERR_UNKNOWN;
+	uint32_t		index;
 
-	if (line == NULL)
+	for (index = 0U; (index < CMD_PARSER_TABLE_LENGTH) && (entry == NULL); index++)
 	{
-		return;
-	}
-	count = cmd_tokenise(line, tokens);
-	if (count == 0U)
-	{
-		return;
-	}
-
-	for (index = 0U; (index < CMD_TABLE_LENGTH) && (entry == NULL); index++)
-	{
-		if (strcmp(tokens[0], cmd_table[index].name) == 0)
+		if (strcmp(name, cmd_table[index].name) == 0)
 		{
 			entry = &cmd_table[index];
 		}
 	}
+	return entry;
+}
 
-	cmd_after = CMD_AFTER_NOTHING;
-	text_init(&reply, buffer, PROTO_MAX_REPLY);
-	text_str(&reply, "ok");
+/* Check the argument count and run the handler for @p entry, which may be
+ * NULL for an unknown command. The handler appends to @p reply. */
+static proto_error_t cmd_run(const cmd_entry_t *entry, uint32_t count, char *tokens[],
+			     text_t *reply)
+{
+	proto_error_t	result;
 
 	if (entry == NULL)
 	{
@@ -356,20 +352,25 @@ void cmd_execute(char *line)
 	}
 	else
 	{
-		result = entry->handler(count - 1U, &tokens[1], &reply);
+		result = entry->handler(count - 1U, &tokens[1], reply);
 	}
 
-	if ((result == PROTO_ERR_NONE) && reply.overflow)
+	if ((result == PROTO_ERR_NONE) && reply->overflow)
 	{
 		/* Sized so that this cannot happen (unit tested); if it ever does,
 		 * a truncated reply must not reach the host as a valid one. */
 		result = PROTO_ERR_TOO_LONG;
-		cmd_after = CMD_AFTER_NOTHING;
 	}
+	return result;
+}
 
+/* Send the reply, then carry out any reboot the command asked for: the host
+ * must see the "ok" before the link goes away. */
+static void cmd_finish(proto_error_t result, const char *reply_text)
+{
 	if (result == PROTO_ERR_NONE)
 	{
-		hal_write_line(buffer);
+		hal_write_line(reply_text);
 		if (cmd_after == CMD_AFTER_REBOOT)
 		{
 			hal_reboot();
@@ -388,6 +389,26 @@ void cmd_execute(char *line)
 		cmd_send_error(result);
 	}
 	cmd_after = CMD_AFTER_NOTHING;
+}
+
+void cmd_execute(char *line)
+{
+	char		*tokens[PROTO_MAX_TOKENS] = { NULL };
+	char		buffer[PROTO_MAX_REPLY];
+	text_t		reply;
+	uint32_t	count = 0U;
+
+	if (line != NULL)
+	{
+		count = cmd_tokenise(line, tokens);
+	}
+	if (count > 0U)
+	{
+		cmd_after = CMD_AFTER_NOTHING;
+		text_init(&reply, buffer, PROTO_MAX_REPLY);
+		text_str(&reply, "ok");
+		cmd_finish(cmd_run(cmd_lookup(tokens[0]), count, tokens, &reply), buffer);
+	}
 }
 
 void cmd_report_overflow(void)

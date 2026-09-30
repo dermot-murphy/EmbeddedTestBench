@@ -18,7 +18,7 @@
 #include "fake_hal.h"
 #include "sht30.h"
 
-#define ADDRESS		0x44U
+#define TEST_ADDRESS		0x44U
 
 void setUp(void)
 {
@@ -77,7 +77,7 @@ static void test_decode_a_good_frame(void)
 	sht30_reading_t	reading;
 
 	frame[5] = sht30_crc8(&frame[3], 2U);
-	TEST_ASSERT_EQUAL(SHT30_OK, sht30_decode(frame, &reading));
+	TEST_ASSERT_EQUAL(SHT30_STATUS_OK, sht30_decode(frame, &reading));
 	TEST_ASSERT_EQUAL_INT32(25000, reading.temperature_mc);
 	TEST_ASSERT_EQUAL_INT32(50001, reading.humidity_mpct);
 	TEST_ASSERT_EQUAL_HEX16(0x6666U, reading.raw_temperature);
@@ -89,7 +89,7 @@ static void test_a_bad_temperature_crc_leaves_the_reading_untouched(void)
 	uint8_t		frame[6] = { 0x66U, 0x66U, 0x00U, 0x66U, 0x66U, 0x93U };
 	sht30_reading_t	reading = { 1, 2, 3U, 4U };
 
-	TEST_ASSERT_EQUAL(SHT30_ERR_CRC, sht30_decode(frame, &reading));
+	TEST_ASSERT_EQUAL(SHT30_STATUS_ERR_CRC, sht30_decode(frame, &reading));
 	TEST_ASSERT_EQUAL_INT32(1, reading.temperature_mc);
 	TEST_ASSERT_EQUAL_INT32(2, reading.humidity_mpct);
 }
@@ -100,7 +100,7 @@ static void test_a_bad_humidity_crc_leaves_the_reading_untouched(void)
 	uint8_t		frame[6] = { 0x66U, 0x66U, 0x93U, 0x66U, 0x66U, 0x00U };
 	sht30_reading_t	reading = { 1, 2, 3U, 4U };
 
-	TEST_ASSERT_EQUAL(SHT30_ERR_CRC, sht30_decode(frame, &reading));
+	TEST_ASSERT_EQUAL(SHT30_STATUS_ERR_CRC, sht30_decode(frame, &reading));
 	TEST_ASSERT_EQUAL_INT32(1, reading.temperature_mc);
 	TEST_ASSERT_EQUAL_HEX16(3U, reading.raw_temperature);
 }
@@ -110,8 +110,8 @@ static void test_decode_refuses_null(void)
 	uint8_t		frame[6] = { 0U };
 	sht30_reading_t	reading;
 
-	TEST_ASSERT_EQUAL(SHT30_ERR_PARAM, sht30_decode(NULL, &reading));
-	TEST_ASSERT_EQUAL(SHT30_ERR_PARAM, sht30_decode(frame, NULL));
+	TEST_ASSERT_EQUAL(SHT30_STATUS_ERR_PARAM, sht30_decode(NULL, &reading));
+	TEST_ASSERT_EQUAL(SHT30_STATUS_ERR_PARAM, sht30_decode(frame, NULL));
 }
 
 /* --- measure ------------------------------------------------------------ */
@@ -120,10 +120,10 @@ static void test_measure_sends_the_high_repeatability_command(void)
 	sht30_reading_t	reading;
 
 	fake_hal_queue_measurement(0x6666U, 0x6666U);
-	TEST_ASSERT_EQUAL(SHT30_OK, sht30_measure(ADDRESS, &reading));
+	TEST_ASSERT_EQUAL(SHT30_STATUS_OK, sht30_measure(TEST_ADDRESS, &reading));
 
 	TEST_ASSERT_EQUAL_UINT32(1U, fake_hal_write_count());
-	TEST_ASSERT_EQUAL_HEX8(ADDRESS, fake_hal_write_address(0U));
+	TEST_ASSERT_EQUAL_HEX8(TEST_ADDRESS, fake_hal_write_address(0U));
 	TEST_ASSERT_EQUAL_UINT32(2U, fake_hal_write_length(0U));
 	TEST_ASSERT_EQUAL_HEX8(0x24U, fake_hal_write_bytes(0U)[0]);
 	TEST_ASSERT_EQUAL_HEX8(0x00U, fake_hal_write_bytes(0U)[1]);
@@ -134,11 +134,11 @@ static void test_measure_waits_out_the_conversion_then_reads_six_bytes(void)
 	sht30_reading_t	reading;
 
 	fake_hal_queue_measurement(0x6666U, 0x6666U);
-	(void)sht30_measure(ADDRESS, &reading);
+	(void)sht30_measure(TEST_ADDRESS, &reading);
 
 	TEST_ASSERT_GREATER_OR_EQUAL_UINT32(15U, fake_hal_delay_total_ms());
 	TEST_ASSERT_EQUAL_UINT32(1U, fake_hal_read_count());
-	TEST_ASSERT_EQUAL_HEX8(ADDRESS, fake_hal_read_address(0U));
+	TEST_ASSERT_EQUAL_HEX8(TEST_ADDRESS, fake_hal_read_address(0U));
 	TEST_ASSERT_EQUAL_UINT32(6U, fake_hal_read_length(0U));
 	TEST_ASSERT_EQUAL_INT32(25000, reading.temperature_mc);
 	TEST_ASSERT_EQUAL_INT32(40000, reading.humidity_mpct);
@@ -148,8 +148,8 @@ static void test_measure_reports_an_absent_sensor(void)
 {
 	sht30_reading_t	reading;
 
-	fake_hal_fail_next_write(HAL_ERR_NACK);
-	TEST_ASSERT_EQUAL(SHT30_ERR_NACK, sht30_measure(ADDRESS, &reading));
+	fake_hal_fail_next_write(HAL_STATUS_ERR_NACK);
+	TEST_ASSERT_EQUAL(SHT30_STATUS_ERR_NACK, sht30_measure(TEST_ADDRESS, &reading));
 	TEST_ASSERT_EQUAL_UINT32(0U, fake_hal_read_count());
 }
 
@@ -157,8 +157,8 @@ static void test_measure_reports_a_bus_timeout(void)
 {
 	sht30_reading_t	reading;
 
-	fake_hal_fail_next_write(HAL_ERR_TIMEOUT);
-	TEST_ASSERT_EQUAL(SHT30_ERR_TIMEOUT, sht30_measure(ADDRESS, &reading));
+	fake_hal_fail_next_write(HAL_STATUS_ERR_TIMEOUT);
+	TEST_ASSERT_EQUAL(SHT30_STATUS_ERR_TIMEOUT, sht30_measure(TEST_ADDRESS, &reading));
 }
 
 static void test_measure_reports_a_nack_on_the_read(void)
@@ -166,7 +166,7 @@ static void test_measure_reports_a_nack_on_the_read(void)
 	sht30_reading_t	reading;
 
 	/* Nothing queued: the sensor NACKs the read header. */
-	TEST_ASSERT_EQUAL(SHT30_ERR_NACK, sht30_measure(ADDRESS, &reading));
+	TEST_ASSERT_EQUAL(SHT30_STATUS_ERR_NACK, sht30_measure(TEST_ADDRESS, &reading));
 }
 
 static void test_measure_reports_a_corrupted_frame(void)
@@ -174,13 +174,13 @@ static void test_measure_reports_a_corrupted_frame(void)
 	static const uint8_t	frame[6] = { 0x66U, 0x66U, 0x00U, 0x66U, 0x66U, 0x93U };
 	sht30_reading_t		reading;
 
-	fake_hal_queue_read(frame, 6U, HAL_OK);
-	TEST_ASSERT_EQUAL(SHT30_ERR_CRC, sht30_measure(ADDRESS, &reading));
+	fake_hal_queue_read(frame, 6U, HAL_STATUS_OK);
+	TEST_ASSERT_EQUAL(SHT30_STATUS_ERR_CRC, sht30_measure(TEST_ADDRESS, &reading));
 }
 
 static void test_measure_refuses_null(void)
 {
-	TEST_ASSERT_EQUAL(SHT30_ERR_PARAM, sht30_measure(ADDRESS, NULL));
+	TEST_ASSERT_EQUAL(SHT30_STATUS_ERR_PARAM, sht30_measure(TEST_ADDRESS, NULL));
 	TEST_ASSERT_EQUAL_UINT32(0U, fake_hal_write_count());
 }
 
@@ -191,8 +191,8 @@ static void test_read_status(void)
 	uint16_t	status = 0U;
 
 	word[2] = sht30_crc8(word, 2U);
-	fake_hal_queue_read(word, 3U, HAL_OK);
-	TEST_ASSERT_EQUAL(SHT30_OK, sht30_read_status(ADDRESS, &status));
+	fake_hal_queue_read(word, 3U, HAL_STATUS_OK);
+	TEST_ASSERT_EQUAL(SHT30_STATUS_OK, sht30_read_status(TEST_ADDRESS, &status));
 	TEST_ASSERT_EQUAL_HEX16(0x8010U, status);
 	TEST_ASSERT_EQUAL_HEX8(0xF3U, fake_hal_write_bytes(0U)[0]);
 	TEST_ASSERT_EQUAL_HEX8(0x2DU, fake_hal_write_bytes(0U)[1]);
@@ -204,19 +204,19 @@ static void test_read_status_checks_the_crc(void)
 	static const uint8_t	word[3] = { 0x80U, 0x10U, 0x00U };
 	uint16_t		status = 0x1234U;
 
-	fake_hal_queue_read(word, 3U, HAL_OK);
-	TEST_ASSERT_EQUAL(SHT30_ERR_CRC, sht30_read_status(ADDRESS, &status));
+	fake_hal_queue_read(word, 3U, HAL_STATUS_OK);
+	TEST_ASSERT_EQUAL(SHT30_STATUS_ERR_CRC, sht30_read_status(TEST_ADDRESS, &status));
 	TEST_ASSERT_EQUAL_HEX16(0x1234U, status);
 }
 
 static void test_read_status_refuses_null(void)
 {
-	TEST_ASSERT_EQUAL(SHT30_ERR_PARAM, sht30_read_status(ADDRESS, NULL));
+	TEST_ASSERT_EQUAL(SHT30_STATUS_ERR_PARAM, sht30_read_status(TEST_ADDRESS, NULL));
 }
 
 static void test_soft_reset_sends_the_command_and_waits(void)
 {
-	TEST_ASSERT_EQUAL(SHT30_OK, sht30_soft_reset(ADDRESS));
+	TEST_ASSERT_EQUAL(SHT30_STATUS_OK, sht30_soft_reset(TEST_ADDRESS));
 	TEST_ASSERT_EQUAL_HEX8(0x30U, fake_hal_write_bytes(0U)[0]);
 	TEST_ASSERT_EQUAL_HEX8(0xA2U, fake_hal_write_bytes(0U)[1]);
 	TEST_ASSERT_GREATER_OR_EQUAL_UINT32(2U, fake_hal_delay_total_ms());
@@ -224,8 +224,8 @@ static void test_soft_reset_sends_the_command_and_waits(void)
 
 static void test_soft_reset_of_an_absent_sensor_does_not_wait(void)
 {
-	fake_hal_fail_next_write(HAL_ERR_NACK);
-	TEST_ASSERT_EQUAL(SHT30_ERR_NACK, sht30_soft_reset(ADDRESS));
+	fake_hal_fail_next_write(HAL_STATUS_ERR_NACK);
+	TEST_ASSERT_EQUAL(SHT30_STATUS_ERR_NACK, sht30_soft_reset(TEST_ADDRESS));
 	TEST_ASSERT_EQUAL_UINT32(0U, fake_hal_delay_total_ms());
 }
 

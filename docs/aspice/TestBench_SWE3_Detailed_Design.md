@@ -26,7 +26,7 @@
 | 0.2 | 2026-09-23 | Claude | Design units added for the TTi 1604: DMM-DD-CONST, DMM-DD-PROTO, DMM-DD-DMM, DMM-DD-SIM, DMM-DD-CLI. |
 | 0.3 | 2026-09-25 | Claude | BLE-DD-SCRIPT narrowed to reading, with variables, connect, timeouts and `<disconnect>`; BLE-DD-SCRIPTRUN added for running, results in priority order and the event log; BLE-DD-CMD gains the connect and reply timeouts, and BLE-DD-CMDARGS is added (#46, #48). |
 | 0.4 | 2026-09-26 | Claude | CORE-DD-TRANSPORT gains the separate read terminator and CORE-DD-SERIAL the timeout guard (#61). PSU-DD-CONST, -PSU and -SIM describe the protocol as captured from a real supply, and the rejection of out-of-range settings (#61, #64). References TB-IF-001 and TB-SWE3-002 (#63). Header version brought into line with this history. |
-| 0.5 | 2026-09-30 | Claude | Section 5.8 added: 14 PICO design units for the Pico 2 + SHT30-D thermometer and its firmware; RUN renumbered 5.9 (#104). |
+| 0.5 | 2026-09-30 | Claude | Section 5.8 added: 14 PICO design units for the Pico 2 + SHT30-D thermometer and its firmware; RUN renumbered 5.9. Identifiers follow TB-STY-001 as checked by CStyleCheck (#104). |
 
 ---
 
@@ -1836,7 +1836,7 @@ Wiring constants, each overridable with `-D`: `BOARD_I2C_INSTANCE` 0,
 #### PICO-DD-HAL — `firmware/pico_sht30/include/hal.h`, `src/hal_pico.c`
 
 The only seam between portable code and the board (PICO-NFR-001): I2C write
-and read with STOP, returning `HAL_OK`, `HAL_ERR_NACK` or `HAL_ERR_TIMEOUT`;
+and read with STOP, returning `HAL_STATUS_OK`, `HAL_STATUS_ERR_NACK` or `HAL_STATUS_ERR_TIMEOUT`;
 millisecond delay; line output (the HAL appends LF); board unique ID; uptime;
 reboot; reboot to bootloader. `hal_pico.c` implements it on the Pico SDK -
 `i2c_write_timeout_us`/`i2c_read_timeout_us` (a short count or
@@ -1862,8 +1862,8 @@ output routine, Dir 4.6 for SDK prototypes).
 * `sht30_soft_reset`: write `0x30A2`, wait 2 ms (datasheet max 1.5 ms) only if
   it was acknowledged.
 
-HAL errors map to `SHT30_ERR_NACK` / `SHT30_ERR_TIMEOUT`; a NULL pointer is
-`SHT30_ERR_PARAM`.
+HAL errors map to `SHT30_STATUS_ERR_NACK` / `SHT30_STATUS_ERR_TIMEOUT`; a NULL
+pointer is `SHT30_STATUS_ERR_PARAM`. Status-register bits are `SHT30_STATREG_*`.
 
 #### PICO-DD-TEXT — `firmware/pico_sht30/src/text.c`
 
@@ -1879,10 +1879,12 @@ arithmetic so `INT32_MIN` is defined), and fixed-width upper-case hex (8 and
 
 *Line assembly* (`cmd_line_push`): CR ignored; LF completes the line; a line
 that reaches `PROTO_MAX_LINE − 1` characters switches to discarding until the
-next LF, which then returns `CMD_LINE_OVERFLOW` so that no part of it runs
+next LF, which then returns `CMD_LINE_RESULT_OVERFLOW` so that no part of it runs
 (PICO-FR-004).
 
-*Dispatch* (`cmd_execute`): tokenise in place on space and tab, counting tokens
+*Dispatch* (`cmd_execute`, split into `cmd_lookup`, `cmd_run` and
+`cmd_finish` to stay within the 60-line function limit, with a single return
+each): tokenise in place on space and tab, counting tokens
 past `PROTO_MAX_TOKENS` without storing them so an over-long command fails its
 argument check rather than being truncated; look the first token up
 (case-sensitive); check the argument count; run the handler, which appends its

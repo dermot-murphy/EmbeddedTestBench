@@ -1,0 +1,36 @@
+# CStyleCheck exclusions for firmware/pico_sht30 (PICO-NFR-006).
+#
+# Each suppression is as narrow as the tool allows and says why. Anything not
+# listed here is checked in full, with no baseline: the Pico firmware entered
+# the check clean.
+
+# X-macro idiom: PROTO_COMMAND_TABLE and PROTO_ERROR_TABLE are expanded by
+# redefining X at each use, so the protocol is written once (PICO-NFR-004).
+# The same construct is the recorded MISRA C:2012 Rule 20.10 deviation in
+# docs/pico_sht30/Pico_SHT30_Notes.md section 6.
+"protocol.h":
+  identifiers:
+    X:
+      disabled_rules:
+        - macro.prefix
+"cmd_parser.c":
+  identifiers:
+    X:
+      disabled_rules:
+        - macro.prefix
+
+# Unity calls setUp() and tearDown() by those exact names. The expected values
+# in the tests are the datasheet's reference vectors: naming each one would
+# hide the number the test exists to check, and they are signed int32 values
+# that the unsigned-suffix rule cannot see through Unity's macros.
+"test_*.c":
+  disabled_rules:
+    - misc.magic_number
+    - misc.unsigned_suffix
+  identifiers:
+    setUp:
+      disabled_rules:
+        - function.prefix
+    tearDown:
+      disabled_rules:
+        - function.prefix

@@ -27,7 +27,7 @@
 /** Forget everything: no writes, no lines, no scripted reads. */
 void fake_hal_reset(void);
 
-/** Make the next write return @p status instead of HAL_OK. */
+/** Make the next write return @p status instead of HAL_STATUS_OK. */
 void fake_hal_fail_next_write(hal_status_t status);
 
 /** Queue a read reply of @p length bytes, returned with @p status. */

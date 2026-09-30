@@ -39,11 +39,11 @@ int main(void)
 		{
 			cmd_line_result_t	result = cmd_line_push(&line, (char)received);
 
-			if (result == CMD_LINE_READY)
+			if (result == CMD_LINE_RESULT_READY)
 			{
 				cmd_execute(line.text);
 			}
-			else if (result == CMD_LINE_OVERFLOW)
+			else if (result == CMD_LINE_RESULT_OVERFLOW)
 			{
 				cmd_report_overflow();
 			}

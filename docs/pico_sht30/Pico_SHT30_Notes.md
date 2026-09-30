@@ -154,8 +154,7 @@ C11). Measures taken:
   (Rule 7.2), explicit casts on every narrowing (Rule 10.x), and 64-bit
   intermediate arithmetic where 32 bits would overflow.
 * Every `if … else if` chain ends in `else`, every `switch` has `default`
-  (Rules 15.7, 16.4); one exit per function except the two guard returns in
-  `cmd_execute` (Rule 15.5, advisory — see below).
+  (Rules 15.7, 16.4); one exit per function (Rule 15.5).
 * Pointer parameters are checked for NULL; outputs are written only on success.
 
 Recorded deviations:
@@ -165,8 +164,14 @@ Recorded deviations:
 | 21.6 (required) | `hal_pico.c` | `stdio_puts_raw` and `stdio_flush` are the Pico SDK's USB CDC output path; no formatting function is used. |
 | Dir 4.6 (advisory) | `hal_pico.c` | Pico SDK prototypes use `uint` and `int`; values are cast at the boundary. |
 | 20.10 (advisory) | `cmd_parser.c` | `#` and `##` in the X-macros that build the dispatch table from `protocol.h`, so the protocol is defined once (PICO-NFR-004). |
-| 15.5 (advisory) | `cmd_parser.c`, `cmd_execute` | Early return for a NULL or blank line, before any state is touched. |
 | 2.2 / Dir 4.1 | `main.c` | `for (;;)` without exit is the intended behaviour of an embedded main loop. |
+
+All of the firmware's C code, host unit tests included, also passes the
+project's C coding standard (TB-STD-002, TB-STY-001) as checked by CStyleCheck
+in CI, with no baseline (PICO-NFR-006). The Pico step uses its own module alias
+map (`.cstylecheck-pico-aliases.txt`) and a short, justified exclusion list
+(`.cstylecheck-pico-exclusions.yml`): the `X` of the X-macro idiom, Unity's
+`setUp`/`tearDown`, and literal reference vectors in the tests.
 
 No MISRA checker was available in the build environment; a checker run is
 PICO-OPEN-04.

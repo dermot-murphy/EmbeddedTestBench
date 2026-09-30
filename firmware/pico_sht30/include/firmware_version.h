@@ -33,12 +33,12 @@
 #endif
 
 /** The title this image was built with. */
-extern const char	firmware_title_string[];
+extern const char	firmware_g_title[];
 
 /** The version this image was built as, e.g. "1.0.0". */
-extern const char	firmware_version_string[];
+extern const char	firmware_g_version[];
 
 /** When this image was built. */
-extern const char	firmware_build_date_string[];
+extern const char	firmware_g_build_date[];
 
 #endif /* FIRMWARE_VERSION_H__ */

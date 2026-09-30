@@ -12,7 +12,7 @@
 /** Digits in the largest uint32_t, 4294967295. */
 #define TEXT_U32_DIGITS		10U
 
-static const char	text_hex_digits[] = "0123456789ABCDEF";
+static const char	m_hex_digits[] = "0123456789ABCDEF";
 
 void text_init(text_t *text, char *buffer, uint32_t capacity)
 {
@@ -126,7 +126,7 @@ static void text_hex(text_t *text, uint32_t value, uint32_t bits)
 	while (shift > 0U)
 	{
 		shift -= 4U;
-		text_char(text, text_hex_digits[(value >> shift) & 0x0FU]);
+		text_char(text, m_hex_digits[(value >> shift) & 0x0FU]);
 	}
 }
 

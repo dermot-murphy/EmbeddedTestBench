@@ -857,10 +857,19 @@ CRC-8 check value CRC(0xBE, 0xEF) = 0x92, as the datasheet gives it.
 
 ### 13A.4 Static analysis
 
+**CStyleCheck v1.5.1** (TB-STD-002 and TB-STY-001), over all 18 C files of
+`firmware/pico_sht30` - sources, headers and host unit tests - with
+`.cstylecheck.yml`, the Pico alias map and the Pico exclusions: **0 errors,
+0 warnings, 0 info**, with no baseline (PICO-NFR-006). The first run found 210;
+they were fixed in the code (enum member prefixes, `m_` statics, `g_` globals,
+`U` suffixes, one non-ASCII character, and `cmd_execute` split under the
+60-line limit) or covered by a documented alias or exclusion.
+
 No MISRA checker (for example cppcheck's MISRA addon, PC-lint, Helix QAC) was
 available in the build environment. MISRA C:2012 conformance is therefore by
 construction and review (`docs/pico_sht30/Pico_SHT30_Notes.md` §6) plus the
-mechanical checks of `SWE4-UT-PICOFWPROTO`; a tool run is PICO-OPEN-04.
+mechanical checks of `SWE4-UT-PICOFWPROTO` and CStyleCheck; a MISRA tool run is
+PICO-OPEN-04.
 
 ### 13A.5 Bench confirmation items
 

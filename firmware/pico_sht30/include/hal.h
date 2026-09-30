@@ -23,9 +23,9 @@ extern "C" {
 /** Outcome of a bus transfer. */
 typedef enum
 {
-	HAL_OK = 0,		/**< Every byte transferred and acknowledged. */
-	HAL_ERR_NACK,		/**< The address or a data byte was not acknowledged. */
-	HAL_ERR_TIMEOUT		/**< The transfer did not finish in time. */
+	HAL_STATUS_OK = 0,		/**< Every byte transferred and acknowledged. */
+	HAL_STATUS_ERR_NACK,		/**< The address or a data byte was not acknowledged. */
+	HAL_STATUS_ERR_TIMEOUT		/**< The transfer did not finish in time. */
 } hal_status_t;
 
 /** Length of the board identifier, including the terminator. */

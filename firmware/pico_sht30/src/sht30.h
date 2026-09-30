@@ -59,22 +59,22 @@ extern "C" {
 #define SHT30_WORD_LENGTH		3U
 
 /** Status register bits (datasheet Table 17). */
-#define SHT30_STATUS_ALERT_PENDING	0x8000U
-#define SHT30_STATUS_HEATER_ON		0x2000U
-#define SHT30_STATUS_RH_ALERT		0x0800U
-#define SHT30_STATUS_T_ALERT		0x0400U
-#define SHT30_STATUS_RESET_DETECTED	0x0010U
-#define SHT30_STATUS_COMMAND_FAILED	0x0002U
-#define SHT30_STATUS_WRITE_CRC_FAILED	0x0001U
+#define SHT30_STATREG_ALERT_PENDING	0x8000U
+#define SHT30_STATREG_HEATER_ON		0x2000U
+#define SHT30_STATREG_RH_ALERT		0x0800U
+#define SHT30_STATREG_T_ALERT		0x0400U
+#define SHT30_STATREG_RESET_DETECTED	0x0010U
+#define SHT30_STATREG_COMMAND_FAILED	0x0002U
+#define SHT30_STATREG_WRITE_CRC_FAILED	0x0001U
 
 /** Outcome of a driver call. */
 typedef enum
 {
-	SHT30_OK = 0,		/**< Success. */
-	SHT30_ERR_NACK,		/**< The sensor did not acknowledge. */
-	SHT30_ERR_TIMEOUT,	/**< The bus transfer timed out. */
-	SHT30_ERR_CRC,		/**< A received word failed its checksum. */
-	SHT30_ERR_PARAM		/**< A NULL pointer was passed. */
+	SHT30_STATUS_OK = 0,		/**< Success. */
+	SHT30_STATUS_ERR_NACK,		/**< The sensor did not acknowledge. */
+	SHT30_STATUS_ERR_TIMEOUT,	/**< The bus transfer timed out. */
+	SHT30_STATUS_ERR_CRC,		/**< A received word failed its checksum. */
+	SHT30_STATUS_ERR_PARAM		/**< A NULL pointer was passed. */
 } sht30_status_t;
 
 /** One measurement. */

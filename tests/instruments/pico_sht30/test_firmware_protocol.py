@@ -51,7 +51,7 @@ def test_commands_agree():
 def test_errors_agree():
     firmware = {
         int(code): symbol
-        for symbol, code in re.findall(r"X\((\w+),\s*(\d+),", _table("PROTO_ERROR_TABLE"))
+        for symbol, code in re.findall(r"X\((\w+),\s*(\d+)U?,", _table("PROTO_ERROR_TABLE"))
     }
     assert firmware == constants.ERRORS
 

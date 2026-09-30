@@ -28,7 +28,7 @@
 | 0.4 | 2026-09-24 | Claude | RUN-FR-054…057 added: a specification's safety warning, printed before the bench is opened, and the acknowledgement that gates a warned run on real hardware. |
 | 0.5 | 2026-09-25 | Claude | BLE-FR-026 (select by name fragment) and BLE-FR-046…049 (connect window, per-command reply wait, a command the sensor disconnects after, failed links closed) added. BLE-FR-102, -105, -106 and -107 revised and BLE-FR-109…116 added for command documents: results in the order error, skip, fail, pass; variables; connect and disconnect steps; per-step timeouts; `<disconnect>`; notes; the event log; the standalone runner (#46, #48). |
 | 0.6 | 2026-09-26 | Claude | PSU-FR-002 rationale corrected: the supply rejects an out-of-range setting, it does not clamp it (#64). PSU-FR-003 no longer promises an exact read-back (#64). PSU-FR-021 and -022 describe the status word as the supply sends it, without a line rate (#63). Header version brought into line with this history. |
-| 0.7 | 2026-09-30 | Claude | STK-21 and STK-22 added. Section 15 added: `PICO-` requirements for the Pico 2 + SHT30-D thermometer and its firmware (PICO-FR-001…060, PICO-NFR-001…005); CON-09 and ASM-10 added. Sections 16 to 19 renumbered (#104). |
+| 0.7 | 2026-09-30 | Claude | STK-21 and STK-22 added. Section 15 added: `PICO-` requirements for the Pico 2 + SHT30-D thermometer and its firmware (PICO-FR-001…060, PICO-NFR-001…006); CON-09 and ASM-10 added. Sections 16 to 19 renumbered (#104). |
 
 ---
 
@@ -806,6 +806,7 @@ last good one. Reference documents and wiring: `docs/pico_sht30/`.
 | PICO-NFR-003 | The firmware's own sources shall compile with `-Wall -Wextra -Wconversion -Wshadow -Wstrict-prototypes` as errors, in both the target and the host test builds; the host tests shall run under AddressSanitizer and UndefinedBehaviorSanitizer. | Test |
 | PICO-NFR-004 | The protocol shall be defined once, in `firmware/pico_sht30/include/protocol.h`, and the host driver's constants shall be checked against it by a test. | Test |
 | PICO-NFR-005 | The host driver shall add no mandatory third-party dependency; the serial library shall be an optional extra. | Inspection, Test |
+| PICO-NFR-006 | All of the firmware's C code - sources, headers and host unit tests - shall conform to TB-STD-002 and TB-STY-001 as checked by CStyleCheck, with no baseline: any finding at any severity fails the build. Module aliases and rule exclusions shall be confined to the Pico step and justified where they are declared. | Test |
 
 ---
 

@@ -27,15 +27,15 @@ static sht30_status_t sht30_from_hal(hal_status_t status)
 
 	switch (status)
 	{
-	case HAL_OK:
-		result = SHT30_OK;
+	case HAL_STATUS_OK:
+		result = SHT30_STATUS_OK;
 		break;
-	case HAL_ERR_TIMEOUT:
-		result = SHT30_ERR_TIMEOUT;
+	case HAL_STATUS_ERR_TIMEOUT:
+		result = SHT30_STATUS_ERR_TIMEOUT;
 		break;
-	case HAL_ERR_NACK:
+	case HAL_STATUS_ERR_NACK:
 	default:
-		result = SHT30_ERR_NACK;
+		result = SHT30_STATUS_ERR_NACK;
 		break;
 	}
 	return result;
@@ -45,7 +45,7 @@ static sht30_status_t sht30_send_command(uint8_t address, uint16_t command)
 {
 	uint8_t	bytes[2];
 
-	bytes[0] = (uint8_t)(command >> 8);
+	bytes[0] = (uint8_t)(command >> 8U);
 	bytes[1] = (uint8_t)(command & 0xFFU);
 	return sht30_from_hal(hal_i2c_write(address, bytes, 2U));
 }
@@ -54,12 +54,12 @@ static sht30_status_t sht30_send_command(uint8_t address, uint16_t command)
  * return it in @p word. */
 static sht30_status_t sht30_take_word(const uint8_t *bytes, uint16_t *word)
 {
-	sht30_status_t	result = SHT30_ERR_CRC;
+	sht30_status_t	result = SHT30_STATUS_ERR_CRC;
 
 	if (sht30_crc8(bytes, 2U) == bytes[2])
 	{
-		*word = (uint16_t)(((uint16_t)bytes[0] << 8) | (uint16_t)bytes[1]);
-		result = SHT30_OK;
+		*word = (uint16_t)(((uint16_t)bytes[0] << 8U) | (uint16_t)bytes[1]);
+		result = SHT30_STATUS_OK;
 	}
 	return result;
 }
@@ -88,11 +88,11 @@ uint8_t sht30_crc8(const uint8_t *data, uint32_t length)
 			{
 				if ((crc & 0x80U) != 0U)
 				{
-					crc = (uint8_t)((uint8_t)(crc << 1) ^ (uint8_t)SHT30_CRC_POLYNOMIAL);
+					crc = (uint8_t)((uint8_t)(crc << 1U) ^ (uint8_t)SHT30_CRC_POLYNOMIAL);
 				}
 				else
 				{
-					crc = (uint8_t)(crc << 1);
+					crc = (uint8_t)(crc << 1U);
 				}
 			}
 		}
@@ -113,18 +113,18 @@ int32_t sht30_ticks_to_millipercent(uint16_t ticks)
 
 sht30_status_t sht30_decode(const uint8_t *frame, sht30_reading_t *reading)
 {
-	sht30_status_t	result = SHT30_ERR_PARAM;
+	sht30_status_t	result = SHT30_STATUS_ERR_PARAM;
 	uint16_t	raw_t = 0U;
 	uint16_t	raw_rh = 0U;
 
 	if ((frame != NULL) && (reading != NULL))
 	{
 		result = sht30_take_word(&frame[0], &raw_t);
-		if (result == SHT30_OK)
+		if (result == SHT30_STATUS_OK)
 		{
 			result = sht30_take_word(&frame[3], &raw_rh);
 		}
-		if (result == SHT30_OK)
+		if (result == SHT30_STATUS_OK)
 		{
 			reading->raw_temperature = raw_t;
 			reading->raw_humidity = raw_rh;
@@ -137,18 +137,18 @@ sht30_status_t sht30_decode(const uint8_t *frame, sht30_reading_t *reading)
 
 sht30_status_t sht30_measure(uint8_t address, sht30_reading_t *reading)
 {
-	sht30_status_t	result = SHT30_ERR_PARAM;
+	sht30_status_t	result = SHT30_STATUS_ERR_PARAM;
 	uint8_t		frame[SHT30_FRAME_LENGTH] = { 0U };
 
 	if (reading != NULL)
 	{
 		result = sht30_send_command(address, (uint16_t)SHT30_CMD_MEASURE_HIGH);
-		if (result == SHT30_OK)
+		if (result == SHT30_STATUS_OK)
 		{
 			hal_delay_ms(SHT30_MEASURE_WAIT_MS);
 			result = sht30_from_hal(hal_i2c_read(address, frame, SHT30_FRAME_LENGTH));
 		}
-		if (result == SHT30_OK)
+		if (result == SHT30_STATUS_OK)
 		{
 			result = sht30_decode(frame, reading);
 		}
@@ -158,17 +158,17 @@ sht30_status_t sht30_measure(uint8_t address, sht30_reading_t *reading)
 
 sht30_status_t sht30_read_status(uint8_t address, uint16_t *status)
 {
-	sht30_status_t	result = SHT30_ERR_PARAM;
+	sht30_status_t	result = SHT30_STATUS_ERR_PARAM;
 	uint8_t		word[SHT30_WORD_LENGTH] = { 0U };
 
 	if (status != NULL)
 	{
 		result = sht30_send_command(address, (uint16_t)SHT30_CMD_READ_STATUS);
-		if (result == SHT30_OK)
+		if (result == SHT30_STATUS_OK)
 		{
 			result = sht30_from_hal(hal_i2c_read(address, word, SHT30_WORD_LENGTH));
 		}
-		if (result == SHT30_OK)
+		if (result == SHT30_STATUS_OK)
 		{
 			result = sht30_take_word(word, status);
 		}
@@ -180,7 +180,7 @@ sht30_status_t sht30_soft_reset(uint8_t address)
 {
 	sht30_status_t	result = sht30_send_command(address, (uint16_t)SHT30_CMD_SOFT_RESET);
 
-	if (result == SHT30_OK)
+	if (result == SHT30_STATUS_OK)
 	{
 		hal_delay_ms(SHT30_RESET_WAIT_MS);
 	}

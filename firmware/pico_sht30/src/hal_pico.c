@@ -6,7 +6,7 @@
  * into the host unit tests: test/support/fake_hal.c stands in for it there.
  *
  * MISRA C:2012 deviations confined to this file (docs/pico_sht30/
- * Pico_SHT30_Notes.md §MISRA):
+ * Pico_SHT30_Notes.md section 6, MISRA):
  *
  * * Rule 21.6 - the SDK's stdio_puts_raw() is the USB CDC output path.
  *   It is the SDK's own routine, not <stdio.h> formatting; no printf family
@@ -36,7 +36,7 @@
 /** Time allowed for the reply to leave over USB before a reboot drops it. */
 #define HAL_REBOOT_DRAIN_MS	50U
 
-static char	hal_board_id_text[HAL_BOARD_ID_LENGTH];
+static char	m_board_id_text[HAL_BOARD_ID_LENGTH];
 
 static hal_status_t hal_from_sdk(int result, uint32_t expected)
 {
@@ -44,15 +44,15 @@ static hal_status_t hal_from_sdk(int result, uint32_t expected)
 
 	if (result == PICO_ERROR_TIMEOUT)
 	{
-		status = HAL_ERR_TIMEOUT;
+		status = HAL_STATUS_ERR_TIMEOUT;
 	}
 	else if ((result < 0) || ((uint32_t)result != expected))
 	{
-		status = HAL_ERR_NACK;
+		status = HAL_STATUS_ERR_NACK;
 	}
 	else
 	{
-		status = HAL_OK;
+		status = HAL_STATUS_OK;
 	}
 	return status;
 }
@@ -67,7 +67,7 @@ void hal_init(void)
 	gpio_pull_up((uint)BOARD_I2C_SDA_PIN);
 	gpio_pull_up((uint)BOARD_I2C_SCL_PIN);
 
-	pico_get_unique_board_id_string(hal_board_id_text, (uint)HAL_BOARD_ID_LENGTH);
+	pico_get_unique_board_id_string(m_board_id_text, (uint)HAL_BOARD_ID_LENGTH);
 }
 
 hal_status_t hal_i2c_write(uint8_t address, const uint8_t *data, uint32_t length)
@@ -99,7 +99,7 @@ void hal_write_line(const char *line)
 
 const char *hal_board_id(void)
 {
-	return hal_board_id_text;
+	return m_board_id_text;
 }
 
 uint64_t hal_uptime_us(void)

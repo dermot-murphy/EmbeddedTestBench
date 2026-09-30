@@ -72,13 +72,13 @@ extern "C" {
  * person reading a terminal.
  */
 #define PROTO_ERROR_TABLE \
-	X(PROTO_ERR_NONE,	0, "ok") \
-	X(PROTO_ERR_UNKNOWN,	1, "unknown command") \
-	X(PROTO_ERR_ARGS,	2, "wrong number of arguments") \
-	X(PROTO_ERR_TOO_LONG,	3, "line too long") \
-	X(PROTO_ERR_NO_SENSOR,	4, "the sensor did not acknowledge") \
-	X(PROTO_ERR_CRC,	5, "the sensor checksum did not match") \
-	X(PROTO_ERR_BUS,	6, "I2C bus timeout")
+	X(PROTO_ERR_NONE,	0U, "ok") \
+	X(PROTO_ERR_UNKNOWN,	1U, "unknown command") \
+	X(PROTO_ERR_ARGS,	2U, "wrong number of arguments") \
+	X(PROTO_ERR_TOO_LONG,	3U, "line too long") \
+	X(PROTO_ERR_NO_SENSOR,	4U, "the sensor did not acknowledge") \
+	X(PROTO_ERR_CRC,	5U, "the sensor checksum did not match") \
+	X(PROTO_ERR_BUS,	6U, "I2C bus timeout")
 
 /** Error codes, generated from the table above. */
 #define X(symbol, code, text)	symbol = (code),

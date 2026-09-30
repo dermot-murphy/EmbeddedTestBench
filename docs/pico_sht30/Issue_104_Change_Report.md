@@ -47,6 +47,7 @@ updated to match.
 | Firmware unit tests (Unity, ASan + UBSan) | **61 / 61 pass** (text 10, sht30 22, cmd_parser 29) |
 | Python suite (merged with `develop`) | **2 496 pass, 1 skipped** (a `develop` GUI test needing `tkinter`), 73 of them new; 95% statement coverage |
 | pylint against `.pylint-baseline.json` (`scripts/lint.py`) | **0 new findings** |
+| CStyleCheck v1.5.1 over all Pico C code, tests included (PICO-NFR-006) | **0 errors, 0 warnings, 0 info**, with no baseline. The first run found 210, which were fixed in code or covered by a documented alias or exclusion |
 | Traceability and layering tests | **Pass** |
 | Simulator smoke test | `benchtools thermo ver` / `temp` / `status`, and `examples/11_pico_thermometer.py` |
 | On hardware | **Not done.** No Pico 2 or module was available (CON-09, PICO-OPEN-01 … -03) |

@@ -77,7 +77,7 @@ It is checked mechanically by `tests/test_traceability.py` on every run of the s
 | STK-13 — programmable supply for the sensor | PSU-FR-001 … -060; PSU-NFR-001 … -003; CORE-FR-017 |
 | STK-19 — S2-LP kit: registers, transmit, receive, log | S2LP-FR-001 … -060; S2LP-NFR-001 … -004; CORE-FR-017 |
 | STK-20 — use ST's firmware if it is fit for purpose | AD-20; S2LP-FR-001, -002; S2LP-NFR-002. The firmware was examined before any was written: BENCHTOOLS-SWE4-002 §10, `docs/s2lp/S2LP_Devkit_Notes.md` §1 |
-| STK-21 — local temperature with a Pico 2 and a DollaTek SHT30-D | PICO-FR-001, -003 … -005, -010, -020 … -026, -030, -031, -040, -042 … -046, -050, -060; PICO-NFR-001 … -005; AD-24 |
+| STK-21 — local temperature with a Pico 2 and a DollaTek SHT30-D | PICO-FR-001, -003 … -005, -010, -020 … -026, -030, -031, -040, -042 … -046, -050, -060; PICO-NFR-001 … -006; AD-24 |
 | STK-22 — firmware reports its title and version | PICO-FR-002, -005, -040, -041, -060 |
 | STK-18 — RS-232 multimeter | DMM-FR-001 … -026; DMM-NFR-001 … -004; CORE-FR-017. Implemented for the TTi 1604. No behaviour confirmed against a physical meter: `docs/dmm/TTi1604_Notes.md` §5. |
 
@@ -499,6 +499,7 @@ tests in `tests/instruments/pico_sht30/`.
 | PICO-NFR-003 | Target build and host test build both pass with `-Wall -Wextra -Wconversion -Wshadow -Wstrict-prototypes -Werror`; host tests pass under ASan and UBSan (TB-SWE4-002 §13A). |
 | PICO-NFR-004 | `SWE4-UT-PICOFWPROTO` (9): `test_commands_agree`, `test_errors_agree`, `test_protocol_version_agrees`, `test_sensor_agrees`, `test_title_agrees`, `test_default_address_agrees`. |
 | PICO-NFR-005 | `test_no_mandatory_third_party_imports`; the port is reached through CORE-DD-SERIAL, whose pyserial import is deferred. |
+| PICO-NFR-006 | `.github/workflows/style.yml` step "Run CStyleCheck (Pico thermometer)", `fail-on: info`, no baseline; `.cstylecheck-pico-aliases.txt`, `.cstylecheck-pico-exclusions.yml`. Local run with CStyleCheck v1.5.1: 18 files, 0 errors, 0 warnings, 0 info. |
 
 ## 14. RUN requirements to design, code and test
 
@@ -573,7 +574,7 @@ tests in `tests/instruments/pico_sht30/`.
 
 | Question | Answer |
 |---|---|
-| Requirements with no verifying test | **None.** All 343 functional and 35 non-functional requirements trace to at least one test, or to a recorded inspection where a test is not the appropriate method (CORE-NFR-002, BLE-FR-090, BLE-NFR-002, and part of CORE-NFR-001). The firmware requirements are verified against the artefact the firmware is built from, not against a running dongle: see CON-07. |
+| Requirements with no verifying test | **None.** All 343 functional and 36 non-functional requirements trace to at least one test, or to a recorded inspection where a test is not the appropriate method (CORE-NFR-002, BLE-FR-090, BLE-NFR-002, and part of CORE-NFR-001). The firmware requirements are verified against the artefact the firmware is built from, not against a running dongle: see CON-07. |
 | Tests not tracing to a requirement | **None.** Every test file names its requirements in its module docstring. |
 | Source modules with no design unit | **None.** Every module names its design unit in its docstring - firmware sources included, checked by `test_every_source_declares_its_trace` in `SWE4-UT-BLEFW`; `__main__.py` is covered by RUN-DD-CLI. |
 | Design units with no source | **None.** |
