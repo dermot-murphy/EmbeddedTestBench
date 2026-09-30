@@ -79,8 +79,10 @@ instruments:
     resource: /dev/ttyACM1        # COM7 on Windows
     timeout: 5.0
 
-  # Any instrument without a dedicated driver yet can still be addressed,
-  # identified and sent raw SCPI through the generic driver.
+  # TTi 1604 multimeter on its rear 9-way RS-232 port, through a USB
+  # converter. The line settings are fixed by the meter and set by the driver,
+  # including DTR and RTS, which power the meter's isolated interface.
   dmm:
-    driver: generic
-    resource: 192.168.1.60
+    driver: tti1604
+    resource: /dev/ttyUSB1        # COM6 on Windows
+    timeout: 5.0

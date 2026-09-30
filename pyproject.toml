@@ -14,6 +14,7 @@ keywords = [
     "vxi11", "scpi", "lxi", "instrument-control", "test-automation",
     "jlink", "segger", "gdb", "rtt", "swo", "itm", "cortex-m", "embedded",
     "bluetooth", "ble", "nordic", "nrf52840", "advertising", "nus", "serial",
+    "multimeter", "dmm", "tti", "rs232",
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",

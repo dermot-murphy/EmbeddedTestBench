@@ -37,6 +37,7 @@ from ..instruments.gpd3303d import Gpd3303D
 from ..instruments.nordic_dongle import NordicDongle
 from ..instruments.s2lp import S2lpDevkit
 from ..instruments.tek3014b import Tek3014B
+from ..instruments.tti1604 import Tti1604
 
 __all__ = [
     "InstrumentConfig",
@@ -74,6 +75,8 @@ register_driver("gpd3303d", Gpd3303D)
 register_driver("gwinstek-psu", Gpd3303D)
 register_driver("s2lp", S2lpDevkit)
 register_driver("s2lp-devkit", S2lpDevkit)
+register_driver("tti1604", Tti1604)
+register_driver("dmm1604", Tti1604)
 
 
 @dataclass(frozen=True)

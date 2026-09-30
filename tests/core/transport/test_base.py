@@ -1,6 +1,6 @@
 """Message framing and buffering in the transport base class.
 
-Traces to: SWE1-NFR-005, SWE4-UT-TRANSPORT.
+Traces to: SWE1-NFR-005, CORE-FR-019, SWE4-UT-TRANSPORT.
 """
 
 from __future__ import annotations
@@ -148,3 +148,45 @@ class TestLifecycle:
         link = ScriptedTransport([(b"oops\n", True)]).open()
         with pytest.raises(ProtocolError):
             link.read_stb()
+
+
+class TestStreamReading:
+    """For instruments that speak without being asked (CORE-FR-019)."""
+
+    def test_read_available_returns_what_has_arrived(self):
+        link = ScriptedTransport([(b"\rab", False), (b"cd", False)])
+        link.open()
+        assert link.read_available() == b"\rab"
+        assert link.read_available() == b"cd"
+
+    def test_read_available_is_not_stopped_by_an_earlier_end_of_message(self):
+        """A stream has no end: the next byte is always worth asking for."""
+        link = ScriptedTransport([(b"one", True), (b"two", True)])
+        link.open()
+        assert link.read_available() == b"one"
+        assert link.read_available() == b"two"
+
+    def test_read_available_returns_buffered_bytes_first(self):
+        link = ScriptedTransport([(b"x\nrest", False)])
+        link.open()
+        assert link.read_message() == b"x"
+        assert link.read_available() == b"rest"
+
+    def test_read_available_times_out_on_a_silent_link(self):
+        link = ScriptedTransport([(b"", False)])
+        link.open()
+        with pytest.raises(TransportTimeoutError):
+            link.read_available()
+
+    def test_discard_input_drops_unread_bytes_and_counts_them(self):
+        link = ScriptedTransport([(b"a\nbcd", False), (b"new\n", False)])
+        link.open()
+        assert link.read_message() == b"a"
+        assert link.discard_input() == 3
+        assert not link.has_buffered_data
+        assert link.read_message() == b"new"
+
+    def test_discard_input_on_an_empty_link_drops_nothing(self):
+        link = ScriptedTransport([])
+        link.open()
+        assert link.discard_input() == 0

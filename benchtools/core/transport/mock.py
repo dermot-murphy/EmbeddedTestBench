@@ -17,7 +17,7 @@ A simulator that also implements ``poll() -> bytes`` (see
 to, which is what an instrument that streams events needs: the transport calls
 ``poll()`` when the driver reads and no reply is outstanding.
 
-Traces to: CORE-FR-004, CORE-FR-041, CORE-DD-MOCK.
+Traces to: CORE-FR-004, CORE-FR-019, CORE-FR-041, CORE-DD-MOCK.
 """
 
 from __future__ import annotations
@@ -113,6 +113,13 @@ class MockTransport(Transport):
             return b""
         produced = poll()
         return bytes(produced or b"")
+
+    def discard_input(self) -> int:
+        """Drop the pending reply as well as the receive buffer."""
+        dropped = super().discard_input() + len(self._pending)
+        self._pending = bytearray()
+        self._has_reply = False
+        return dropped
 
     def clear(self) -> None:
         """Discard any pending simulated response."""

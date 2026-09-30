@@ -2,7 +2,7 @@
 
 Three quite different instruments arrive through this one door: a USB CDC
 device that enumerates as a serial port (the BLE dongle), a real RS-232
-instrument behind a USB converter (the multimeter to come), and a serial port
+instrument behind a USB converter (the TTi 1604 multimeter), and a serial port
 published over TCP by a terminal server. They differ only in the resource
 string, which is why this transport delegates to ``pyserial``'s URL handler
 rather than opening a device node itself::
@@ -18,11 +18,18 @@ when this module is imported, so the package still installs and runs without it
 and a missing install produces a diagnostic naming the extra rather than an
 ``ImportError`` from an unrelated import (CORE-NFR-003).
 
+**Modem-control lines.** Some RS-232 instruments take power for their
+interface from the host: the TTi 1604's opto-isolated output is powered by
+DTR and RTS, and it says nothing at all until both are at the levels its
+manual asks for. ``dtr`` and ``rts`` set those lines as the port opens;
+left at ``None``, the port's own default stands, which is what every other
+instrument here wants.
+
 **Why not a reader thread.** Unlike a pipe, a serial port on Windows *can* be
 read with a timeout, and pyserial's ``read`` already blocks only as long as it
 is told to. A thread would add a hand-off and buy nothing.
 
-Traces to: CORE-FR-017, CORE-ARC-003, CORE-DD-SERIAL.
+Traces to: CORE-FR-017, CORE-FR-018, CORE-FR-019, CORE-ARC-003, CORE-DD-SERIAL.
 """
 
 from __future__ import annotations
@@ -59,6 +66,9 @@ class SerialTransport(Transport):
     :param rtscts: Hardware flow control.
     :param xonxoff: Software flow control.
     :param dsrdtr: DSR/DTR flow control.
+    :param dtr: Level to hold DTR at once open: ``True`` asserted (positive
+        on the wire), ``False`` negated, ``None`` the port's default.
+    :param rts: Level to hold RTS at, as for *dtr*.
     """
 
     def __init__(
@@ -74,6 +84,8 @@ class SerialTransport(Transport):
         rtscts: bool = False,
         xonxoff: bool = False,
         dsrdtr: bool = False,
+        dtr: Optional[bool] = None,
+        rts: Optional[bool] = None,
     ) -> None:
         super().__init__(timeout=timeout, terminator=terminator)
         target = port if port is not None else resource
@@ -86,6 +98,8 @@ class SerialTransport(Transport):
         self._rtscts = bool(rtscts)
         self._xonxoff = bool(xonxoff)
         self._dsrdtr = bool(dsrdtr)
+        self._dtr = None if dtr is None else bool(dtr)
+        self._rts = None if rts is None else bool(rts)
         self._serial = None
 
     # ------------------------------------------------------------------
@@ -143,6 +157,13 @@ class SerialTransport(Transport):
                 write_timeout=self._timeout,
                 do_not_open=True,
             )
+            # Set before opening, so the lines come up at these levels rather
+            # than at the default and then change: an instrument powered from
+            # them sees one clean edge.
+            if self._dtr is not None:
+                self._serial.dtr = self._dtr
+            if self._rts is not None:
+                self._serial.rts = self._rts
             self._serial.open()
         except Exception as exc:                        # serial.SerialException et al
             self._serial = None
@@ -160,6 +181,36 @@ class SerialTransport(Transport):
             self._serial.reset_output_buffer()
         except Exception:                               # pragma: no cover - URL handlers
             pass
+
+    @property
+    def dtr(self) -> Optional[bool]:
+        """The level DTR is held at, or ``None`` for the port's default."""
+        return self._dtr
+
+    @property
+    def rts(self) -> Optional[bool]:
+        """The level RTS is held at, or ``None`` for the port's default."""
+        return self._rts
+
+    def discard_input(self) -> int:
+        """Drop everything received and not yet read, including the OS buffer.
+
+        An instrument that streams readings fills the operating system's
+        receive buffer while nobody is reading; without this, the next read
+        returns a reading that may be minutes old.
+        """
+        dropped = super().discard_input()
+        if self._serial is not None:
+            try:
+                dropped += int(self._serial.in_waiting or 0)
+            except Exception:                           # pragma: no cover - URL handlers
+                pass
+            try:
+                self._serial.reset_input_buffer()
+            except Exception:                           # pragma: no cover - URL handlers
+                _LOG.debug("could not reset the input buffer of %s", self._port,
+                           exc_info=True)
+        return dropped
 
     def _close_link(self) -> None:
         port, self._serial = self._serial, None

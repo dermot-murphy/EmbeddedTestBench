@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-TRACE-001 |
-| Version | 4.3 |
+| Version | 4.4 |
 | Date | 2026-09-30 |
 | Process reference | Automotive SPICE V4.0, SWE.1 BP6 / SWE.2 BP7 / SWE.3 BP5 / SWE.4 BP6 |
 | Item | `benchtools` 4.0.0 + `firmware/nordic_dongle` |
@@ -36,7 +36,7 @@ docstring, so the link is carried in the artefact and not only in this table.
 | STK-13 — programmable supply for the sensor | PSU-FR-001 … -060; PSU-NFR-001 … -003; CORE-FR-017 |
 | STK-19 — S2-LP kit: registers, transmit, receive, log | S2LP-FR-001 … -060; S2LP-NFR-001 … -004; CORE-FR-017 |
 | STK-20 — use ST's firmware if it is fit for purpose | AD-20; S2LP-FR-001, -002; S2LP-NFR-002. The firmware was examined before any was written: BENCHTOOLS-SWE4-002 §10, `docs/s2lp/S2LP_Devkit_Notes.md` §1 |
-| STK-18 — RS-232 multimeter (TTi 1604) | No requirements in this revision (CON-03, OPEN-03). `Instrument` (CORE-FR-012 … -016) and the serial transport (CORE-FR-017) are the seams it will use. |
+| STK-18 — RS-232 multimeter (TTi 1604) | DMM-FR-001 … -060; DMM-NFR-001 … -003; CORE-FR-017, -018, -019; AD-24, AD-25 |
 
 ## 2. CORE requirements to design, code and test
 
@@ -51,7 +51,9 @@ docstring, so the link is carried in the artefact and not only in this table.
 | CORE-FR-007 | ARC-002, ARC-003 | CORE-DD-TRANSPORT, -VXI11 | `base.py`, `Vxi11Transport._send` | `test_large_transfer_is_reassembled`, `test_write_is_chunked_to_max_recv_size` |
 | CORE-FR-008 | ARC-003 | CORE-DD-VXI11 | `Vxi11Transport._open_link` | `test_device_names_are_probed_in_order`, `test_link_reports_the_accepted_device_name`, `test_unknown_device_name_raises` |
 | CORE-FR-009 | ARC-003 | CORE-DD-PROCESS | `core/transport/process.py` | `TestRoundTrip` (5), `TestFailures` (6), `TestLifecycle` (4), `TestBackendRegistration` (2); notably `test_a_program_that_exits_at_once_reports_its_stderr`, `test_stderr_is_drained_so_the_child_cannot_block` |
-| CORE-FR-017 | ARC-003 | CORE-DD-SERIAL | `core/transport/serial_port.py` | `TestResourceParsing` (13), `TestLoopback` (6), `test_a_write_the_far_end_will_not_take_is_a_timeout` |
+| CORE-FR-017 | ARC-003 | CORE-DD-SERIAL | `core/transport/serial_port.py` | `TestResourceParsing` (17), `TestLoopback` (10), `test_a_write_the_far_end_will_not_take_is_a_timeout` |
+| CORE-FR-018 | ARC-003 | CORE-DD-SERIAL | `SerialTransport(dtr=, rts=)`, `_open_link` | `test_modem_lines_default_to_the_port_default`, `test_modem_line_levels_are_kept`, `test_modem_lines_are_set_as_the_port_opens`, `test_the_line_settings_are_the_meters` |
+| CORE-FR-019 | ARC-002, ARC-003, ARC-004 | CORE-DD-TRANSPORT, -SERIAL, -MOCK | `Transport.read_available`, `discard_input` and their serial and mock extensions | `TestStreamReading` (6), `test_discard_input_empties_the_port_as_well_as_the_buffer`, `test_read_available_returns_bytes_without_framing`, `test_a_fresh_reading_skips_what_was_already_waiting` |
 | CORE-FR-010 | ARC-003 | CORE-DD-FACTORY | `core/transport/factory.py` | `TestDriverRegistry.test_a_new_driver_can_be_registered`, `test_backends_listing` |
 | CORE-FR-011 | ARC-003 | CORE-DD-FACTORY | `parse_resource` | `TestParseResource` (17), `TestOpenTransport` (2) |
 | CORE-FR-012 | ARC-006 | CORE-DD-INSTRUMENT | `core/instrument.py` | `test_initialise_opens_then_runs_the_hook`, `test_context_manager_initialises_once`, `test_context_manager_closes_on_an_exception`, `test_close_releases` |
@@ -350,6 +352,41 @@ where the firmware implements the requirement.
 | PSU-NFR-002 | `test_set_does_not_switch_the_output_on`, `test_setting_a_voltage_on_a_parked_channel_does_not_energise_it`, `test_connecting_changes_nothing`. Energising is always an explicit call. |
 | PSU-NFR-003 | Volts, amps and watts throughout; `ChannelReading` carries `mode`, and `read` on the command line warns when a channel is in current limit. |
 
+## 8a. DMM requirements to design, code and test
+
+| Requirement | Architecture | Design unit | Source | Verifying test(s) |
+|---|---|---|---|---|
+| DMM-FR-001 | DMM-ARC-001 | DMM-DD-DMM, DMM-DD-CONST | `connect`, `_normalise_resource`; `BAUDRATE`, `DTR_LEVEL`, `RTS_LEVEL` | `TestTheLink` (6) |
+| DMM-FR-002 | DMM-ARC-001 | DMM-DD-DMM | `press`, `_press` | `test_a_key_is_acknowledged_by_its_echo`, `test_a_lost_key_is_resent`, `test_a_key_is_resent_after_300_ms_not_sooner`, `test_a_meter_that_never_echoes_is_diagnosed` |
+| DMM-FR-003 | DMM-ARC-001 | DMM-DD-DMM | `_parse` | `test_an_echo_is_not_found_inside_a_frame` |
+| DMM-FR-004 | DMM-ARC-001 | DMM-DD-DMM | `_post_open` | `test_connecting_puts_the_meter_in_remote_mode`, `test_connecting_changes_nothing_on_the_front_panel`, `test_a_meter_in_standby_is_diagnosed` |
+| DMM-FR-005 | DMM-ARC-001 | DMM-DD-DMM | `_read_identity` | `test_the_identity_is_asserted_and_invents_nothing` |
+| DMM-FR-006 | DMM-ARC-001 | DMM-DD-DMM | `_close` | `test_closing_hands_the_meter_back_to_its_front_panel`, `test_closing_a_meter_that_has_gone_silent_does_not_raise` |
+| DMM-FR-010 | DMM-ARC-001 | DMM-DD-FRAME | `decode_frame`, `Reading` | `TestThePublishedExample` (2), `TestUnitsAndSign` (11) |
+| DMM-FR-011 | DMM-ARC-001 | DMM-DD-FRAME, DMM-DD-DMM | `_display`, `is_frame_candidate`, `_parse` | `TestValidation` (7), `test_a_stream_joined_part_way_through_a_frame_resynchronises`, `test_a_nul_after_each_frame_is_ignored` |
+| DMM-FR-012 | DMM-ARC-001 | DMM-DD-FRAME | `_resistance_multiplier` | `TestResistance` (9) |
+| DMM-FR-013 | DMM-ARC-001 | DMM-DD-FRAME | `Reading.frozen`, `is_live`, flag decoding | `TestFlags` (16) |
+| DMM-FR-014 | DMM-ARC-001 | DMM-DD-FRAME | overload branch of `decode_frame` | `TestOverload` (3) |
+| DMM-FR-015 | DMM-ARC-001 | DMM-DD-FRAME, DMM-DD-CONST | `FREQUENCY_RANGES`, Hz branch of `decode_frame` | `TestFrequency` (2) |
+| DMM-FR-020 | DMM-ARC-001, AD-24 | DMM-DD-DMM | `select_function`, `_select`, `_await` | `test_each_function_is_selected_and_confirmed` (8), `test_nothing_is_pressed_for_the_function_already_selected`, `test_a_key_the_meter_ignores_is_caught_from_the_readings` |
+| DMM-FR-021 | DMM-ARC-001 | DMM-DD-DMM, DMM-DD-CONST | `SELECTABLE_FUNCTIONS` check in `select_function` | `test_continuity_is_not_selectable` |
+| DMM-FR-022 | DMM-ARC-001, AD-24 | DMM-DD-DMM | `set_range`, `set_auto_range` | `TestRanges` (10) |
+| DMM-FR-023 | DMM-ARC-001 | DMM-DD-DMM | `measure_frequency`, frequency branch of `set_range` | `test_frequency_is_selected_from_ac_volts`, `test_frequency_keeps_an_ac_current_source`, `test_the_frequency_range_is_the_gate_time`, `test_frequency`, `test_frequency_needs_an_ac_source` |
+| DMM-FR-030 | DMM-ARC-001, AD-25 | DMM-DD-DMM | `read`, `_discard_input` | `test_a_fresh_reading_skips_what_was_already_waiting`, `test_a_silent_meter_times_out` |
+| DMM-FR-031 | DMM-ARC-001 | DMM-DD-DMM | `measure` | `test_a_manual_range_overloads`, `test_resistance_with_nothing_connected_is_an_overload`, `test_a_held_reading_is_refused`, `test_a_recalled_minimum_is_refused`, `test_a_relative_reading_needs_consent` |
+| DMM-FR-032 | DMM-ARC-001, AD-25 | DMM-DD-DMM | `read_many` | `test_a_data_log_is_consecutive`, `test_a_data_log_needs_a_count` |
+| DMM-FR-033 | DMM-ARC-001 | DMM-DD-DMM | `measure_dc_voltage`, `measure_ac_voltage`, `measure_dc_current`, `measure_ac_current`, `measure_resistance`, `measure_frequency` | `TestMeasuring` (18) |
+| DMM-FR-050 | DMM-ARC-001 | DMM-DD-SIM | `simulator.py`, `register_driver("tti1604", …)` | `SWE4-UT-DMMSIM` (31), `TestBenchUse` (2) |
+| DMM-FR-060 | DMM-ARC-001 | DMM-DD-CLI | `cli.py` | `SWE4-UT-DMMCLI` (14) |
+
+### DMM non-functional
+
+| Requirement | Evidence |
+|---|---|
+| DMM-NFR-001 | `test_no_mandatory_third_party_imports`; the meter reaches its port through CORE-DD-SERIAL, whose pyserial import is inside `_open_link`. |
+| DMM-NFR-002 | `test_no_current_function_is_selected_unless_named` (4); by inspection, `CURRENT_FUNCTIONS` are reached only from `select_function` with a caller-named function and from `measure_dc_current` / `measure_ac_current`. |
+| DMM-NFR-003 | `TestUnitsAndSign` (11): volts and amps whatever the display unit; `Reading` carries every annunciator, and `read` on the command line warns when a reading is not live. |
+
 ## 9. RUN requirements to design, code and test
 
 | Requirement | Architecture | Design unit | Source | Verifying test(s) |
@@ -410,18 +447,19 @@ where the firmware implements the requirement.
 | BLE-ARC-001 | BLE-DD-CDC, -TIMESTAMP, -SCANNER, -NUS, -CMD, -MAIN, -BUILD, -TEST | `firmware/nordic_dongle/{src,include,config,ses,gcc,scripts,test}/*` |
 | S2LP-ARC-001 | S2LP-DD-S2LP, -REGS, -CONFIG, -PROTOCOL, -SESSION, -PACKETS, -SIM, -CLI, -CONST | `instruments/s2lp/{s2lp,registers,configuration,protocol,session,packets,simulator,cli,constants}.py` |
 | PSU-ARC-001 | PSU-DD-PSU, -CONST, -SIM, -CLI | `instruments/gpd3303d/{psu,constants,simulator,cli}.py` |
+| DMM-ARC-001 | DMM-DD-DMM, -FRAME, -CONST, -SIM, -CLI | `instruments/tti1604/{dmm,frame,constants,simulator,cli}.py` |
 | RUN-ARC-001 | RUN-DD-SPEC, -LIMITS, -RESOLVE, -BENCH, -RESULTS, -RUNNER, -REPORT, -CLI | `runner/*.py`, `cli.py` |
 
 ## 11. Coverage analysis
 
 | Question | Answer |
 |---|---|
-| Requirements with no verifying test | **None.** All 177 functional and 18 non-functional requirements trace to at least one test, or to a recorded inspection where a test is not the appropriate method (CORE-NFR-002, BLE-FR-090, BLE-NFR-002, and part of CORE-NFR-001). The firmware requirements are verified against the artefact the firmware is built from, not against a running dongle: see CON-07. |
+| Requirements with no verifying test | **None.** All 282 functional and 29 non-functional requirements trace to at least one test, or to a recorded inspection where a test is not the appropriate method (CORE-NFR-002, BLE-FR-090, BLE-NFR-002, and part of CORE-NFR-001). The firmware requirements are verified against the artefact the firmware is built from, not against a running dongle: see CON-07. |
 | Tests not tracing to a requirement | **None.** Every test file names its requirements in its module docstring. |
 | Source modules with no design unit | **None.** Every module names its design unit in its docstring - firmware sources included, checked by `test_every_source_declares_its_trace` in `SWE4-UT-BLEFW`; `__main__.py` is covered by RUN-DD-CLI. |
 | Design units with no source | **None.** |
-| Stakeholder requirements not decomposed | **None of those in scope.** STK-01 to STK-11 and STK-14 to STK-17 trace downward; STK-06 additionally produces BENCHTOOLS-VISA-001 as its work product. STK-12 is partly addressed (AD-15 constrains the driver boundary for it, and AD-23 reads a markdown command document as a test) and Robot Framework itself is deferred: CON-06, OPEN-04. STK-13 is decomposed into `PSU-` and verified; STK-19 and STK-20 into `S2LP-` and AD-20. STK-18 remains future work with no requirements in this revision: CON-03, OPEN-03. |
-| Architectural decisions without a verifying test | **None.** AD-01 → `test_full_driver_over_the_socket`; AD-02 → `test_layering.py`; AD-03 → `TestDriverRegistry`; AD-04 → `TestFraming`; AD-05 → `test_payload_containing_a_hash_byte_is_not_re_parsed`; AD-06 → `TestChannelSpread`; AD-07 → `test_busy_is_polled_until_clear`; AD-08 → `TestSpecParsing`; AD-09 → `TestFailureVersusError`; AD-10 → `test_all_sim_resources_count_as_simulated`; AD-11 → `test_the_probe_is_an_instrument_but_not_scpi`, `test_scpi_instrument_is_an_instrument`; AD-12 → `SWE4-UT-GDBMI`, `SWE4-UT-GDBSESSION`, `test_connect_to_the_simulator`; AD-13 → `test_resource_parsing`, `test_a_remote_server_is_never_spawned`; AD-14 → `SWE4-UT-TIMING`, `test_a_short_interval_is_flagged_untrustworthy`; AD-15 → `test_serialises_for_a_report`, `test_shipped_specifications_are_valid`; AD-16 → `SWE4-UT-BLEFW`; AD-17 → `test_both_clocks_are_recorded`, `test_the_host_clock_resolves_a_millisecond`; AD-18 → `test_a_lossy_link_is_declared_rather_than_averaged`, `test_a_dropping_dongle_says_so`; AD-19 → `TestOutputSwitching` (11), notably `test_the_last_channel_off_opens_the_real_switch` and `test_setting_a_voltage_on_a_parked_channel_does_not_energise_it`; AD-20 → `SWE4-UT-S2LPPROTO` and `SWE4-UT-S2LPSESSION` verify the driver against ST's declared command set, and `test_a_polled_capture_reports_its_gaps` verifies the honesty the decision requires; AD-21 → `TestTracking` in `test_psu.py` (14), with `TestTracking` in `test_simulator.py` (10) establishing that the supply really does discard what the driver refuses to send; AD-22 → `TestReferences` (9) and `TestLimitsTakenFromAnEarlierStep` (6) for the mechanism, and `SWE4-UT-BRINGUP` (12) for what it is for - the shipped chained specification, with each fact it establishes broken in turn to confirm it would fail; AD-23 → `SWE4-UT-BLESCRIPT` (58), including `TestTheShippedDocument`, which runs `specs/sensor_commands.md` against the simulated sensor so the worked example cannot rot. |
+| Stakeholder requirements not decomposed | **None of those in scope.** STK-01 to STK-11 and STK-14 to STK-17 trace downward; STK-06 additionally produces BENCHTOOLS-VISA-001 as its work product. STK-12 is partly addressed (AD-15 constrains the driver boundary for it, and AD-23 reads a markdown command document as a test) and Robot Framework itself is deferred: CON-06, OPEN-04. STK-13 is decomposed into `PSU-` and verified; STK-18 into `DMM-`, CORE-FR-018/-019, AD-24 and AD-25, and verified against a simulated meter (CON-09); STK-19 and STK-20 into `S2LP-` and AD-20. |
+| Architectural decisions without a verifying test | **None.** AD-01 → `test_full_driver_over_the_socket`; AD-02 → `test_layering.py`; AD-03 → `TestDriverRegistry`; AD-04 → `TestFraming`; AD-05 → `test_payload_containing_a_hash_byte_is_not_re_parsed`; AD-06 → `TestChannelSpread`; AD-07 → `test_busy_is_polled_until_clear`; AD-08 → `TestSpecParsing`; AD-09 → `TestFailureVersusError`; AD-10 → `test_all_sim_resources_count_as_simulated`; AD-11 → `test_the_probe_is_an_instrument_but_not_scpi`, `test_scpi_instrument_is_an_instrument`; AD-12 → `SWE4-UT-GDBMI`, `SWE4-UT-GDBSESSION`, `test_connect_to_the_simulator`; AD-13 → `test_resource_parsing`, `test_a_remote_server_is_never_spawned`; AD-14 → `SWE4-UT-TIMING`, `test_a_short_interval_is_flagged_untrustworthy`; AD-15 → `test_serialises_for_a_report`, `test_shipped_specifications_are_valid`; AD-16 → `SWE4-UT-BLEFW`; AD-17 → `test_both_clocks_are_recorded`, `test_the_host_clock_resolves_a_millisecond`; AD-18 → `test_a_lossy_link_is_declared_rather_than_averaged`, `test_a_dropping_dongle_says_so`; AD-19 → `TestOutputSwitching` (11), notably `test_the_last_channel_off_opens_the_real_switch` and `test_setting_a_voltage_on_a_parked_channel_does_not_energise_it`; AD-20 → `SWE4-UT-S2LPPROTO` and `SWE4-UT-S2LPSESSION` verify the driver against ST's declared command set, and `test_a_polled_capture_reports_its_gaps` verifies the honesty the decision requires; AD-21 → `TestTracking` in `test_psu.py` (14), with `TestTracking` in `test_simulator.py` (10) establishing that the supply really does discard what the driver refuses to send; AD-22 → `TestReferences` (9) and `TestLimitsTakenFromAnEarlierStep` (6) for the mechanism, and `SWE4-UT-BRINGUP` (12) for what it is for - the shipped chained specification, with each fact it establishes broken in turn to confirm it would fail; AD-23 → `SWE4-UT-BLESCRIPT` (58), including `TestTheShippedDocument`, which runs `specs/sensor_commands.md` against the simulated sensor so the worked example cannot rot; AD-24 → `test_a_key_the_meter_ignores_is_caught_from_the_readings`, `test_an_echo_is_not_found_inside_a_frame`, `TestRanges` (10); AD-25 → `test_a_fresh_reading_skips_what_was_already_waiting`, `test_discard_input_empties_the_port_as_well_as_the_buffer`. |
 
 ## 12. Open items
 
@@ -429,9 +467,10 @@ where the firmware implements the requirement.
 |---|---|---|
 | OPEN-01 | Bench confirmation items in BENCHTOOLS-VISA-001 §5.1 (device name, portmapper transport, hardcopy format, measurement settling, record lengths) | Discharge on first use with physical hardware. |
 | OPEN-02 | TDS3000 SCPI command spellings not transcribed from the programmer manual (CON-02) | Spot-check against Tektronix 071-0381-03 on first bench use. |
-| OPEN-03 | No requirements yet for the instruments still named for future work (CON-03): the RS-232 multimeter (TTi 1604, STK-18), and the families named earlier — loads, signal sources, logic and protocol analysers. STK-13 and STK-19/STK-20 are **closed**: the GPD-3303D supply (PSU-FR-001 … -060) and the S2-LP kit (S2LP-FR-001 … -060) are each specified, designed, implemented and tested | Add a prefixed requirements section, design unit, test group and matrix rows per instrument as each driver is written, as was done for `PSU-`. |
+| OPEN-03 | No requirements yet for the instrument families still named for future work (CON-03): loads, signal sources, logic and protocol analysers. STK-13, STK-18 and STK-19/STK-20 are **closed**: the GPD-3303D supply (PSU-FR-001 … -060), the TTi 1604 multimeter (DMM-FR-001 … -060) and the S2-LP kit (S2LP-FR-001 … -060) are each specified, designed, implemented and tested | Add a prefixed requirements section, design unit, test group and matrix rows per instrument as each driver is written, as was done for `PSU-`. |
 | OPEN-06 | The dongle firmware builds, links, fits and packages against nRF5 SDK 17.1.0 in CI, but has not been flashed or run (CON-07) | **Narrowed**: BLE-OPEN-01 is discharged — `.github/workflows/firmware.yml` run 12 on `f66a248`, 51 652 bytes of flash and 12 636 of static RAM (BENCHTOOLS-SWE4-002 §4.6). What remains is to flash the DFU package and work through `docs/ble/BLE_Dongle_Notes.md` §5.3 (BLE-OPEN-02 to BLE-OPEN-04). |
 | OPEN-04 | **Narrowed.** Tests written as a markdown document are implemented for the BLE command set: `BLE-FR-100 … -108`, AD-23, `specs/sensor_commands.md`. What remains undecided is Robot Framework itself (STK-12, CON-06) - a general keyword layer over every instrument, rather than one document format for one element | Decide whether to adopt Robot Framework. If adopted, add a `ROBOT-` element in front of the existing runner; AD-15 has kept the driver boundary suitable for it, and AD-23 is evidence that a document-driven test needs no framework to be useful. |
 | OPEN-07 | S2-LP kit bench confirmation items — `docs/s2lp/S2LP_Devkit_Notes.md` §7: the firmware's exact reply text and error codes, the board name it reports, the meaning of `S2LPGetNBytesBatch`'s reference-timer argument, and the link budget in practice | Discharge on first use with a kit. Tracked there as S2LP-OPEN-01 to S2LP-OPEN-05. Nothing in them blocks use of the driver: the parser reads tags by name and keeps every line, so an unexpected reply is visible rather than fatal. |
 | OPEN-08 | PSU bench confirmation items — `docs/psu/GPD3303D_Notes.md` §5: the bit order of `STATUS?`, the behaviour of `ERR?`, the command interval a real supply needs, and settling time | Discharge on first use with a supply. Tracked there as PSU-OPEN-01 to PSU-OPEN-04. |
+| OPEN-09 | TTi 1604 bench confirmation items — `docs/dmm/TTi1604_Notes.md` §5: the frame terminator, the resistance display convention, AC current range labels, frequency gate times, where the echo falls in the stream, key behaviour in remote mode, and whether the bench's USB converter drives DTR and RTS far enough (CON-09) | Discharge on first use with the meter. Tracked there as DMM-OPEN-01 to DMM-OPEN-07. The first two are guarded in the driver: a NUL is ignored if present, and a resistance display that fits no multiplier is refused rather than scaled. |
 | OPEN-05 | J-Link bench confirmation items (CON-04, CON-05) — `docs/jlink/JLink_Integration_Notes.md` §4: Windows execution, real MI version behaviour, SWO timestamp scaling, RTT control-block discovery, flash timing | Discharge on first use with a probe and a target. Tracked there as JLINK-OPEN-01 to JLINK-OPEN-04. |
