@@ -26,6 +26,7 @@ Commands:
   jlink       control a target through a SEGGER J-Link debug probe
   ble         scan, drive and profile a BLE sensor through a Nordic dongle
   psu         control a GW Instek GPD-3303D bench power supply
+  dmm         read a TTi 1604 bench multimeter over RS-232
   s2lp        drive an ST S2-LP sub-1 GHz development kit
   drivers     list the instrument drivers a bench configuration can name
   backends    list the transport backends a resource string can select
@@ -37,6 +38,7 @@ Examples:
   benchtools jlink -r sim:// -e build/app.elf time sensor.c:40 sensor.c:75
   benchtools ble -r sim:// profile --select SENS-0A1B2C --duration 30 --interval 0.1
   benchtools psu -r sim:// set 1 -V 3.3 -I 0.5 --on
+  benchtools dmm -r sim:// measure dc_milliamps
   benchtools s2lp -r sim:// registers --plain
   benchtools run tests/clock_skew.yaml --simulate --markdown report.md
   benchtools run tests/*.yaml --bench benches/lab1.yaml --junit results.xml
@@ -83,6 +85,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         from .instruments.gpd3303d.cli import main as psu_main
 
         return psu_main(rest)
+
+    if command in ("dmm", "tti1604", "meter"):
+        from .instruments.tti1604.cli import main as dmm_main
+
+        return dmm_main(rest)
 
     if command in ("s2lp", "s2-lp", "radio"):
         from .instruments.s2lp.cli import main as s2lp_main

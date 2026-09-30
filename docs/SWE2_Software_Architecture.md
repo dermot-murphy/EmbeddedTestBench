@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-SWE2-001 |
-| Version | 4.0 |
-| Date | 2026-09-13 |
+| Version | 4.2 |
+| Date | 2026-09-30 |
 | Process reference | Automotive SPICE V4.0, SWE.2 Software Architectural Design |
 
 ## 1. Architectural drivers
@@ -39,6 +39,7 @@
    |            timing, constants, simulator, cli)                |
    |  nordic_dongle (dongle, protocol, session, profile,          |
    |            latency, constants, simulator, cli)               |
+   |  tti1604  (dmm, frame, constants, simulator, cli)            |
    |  generic  (anything answering *IDN?)                         |
    +--------------------------------------------------------------+
               |                                    |
@@ -76,7 +77,7 @@ instrument, and to be importable without importing any other element.
 |---|---|---|---|
 | CORE-ARC-006 | `core.instrument.Instrument` | The instrument lifecycle, independent of command language: open, initialise, close, context manager, cached identity, declared simulator class, overridable event queue. The runner depends on this and on nothing below it. | `connect`, `initialise`, `close`, `identify`, `read_event_queue`, `check_errors`, `SIMULATOR_CLASS` |
 | CORE-ARC-001 | `core.scpi.ScpiInstrument` | Extends CORE-ARC-006 with SCPI: command and query primitives, `*IDN?` parsing, IEEE 488.2 operations, `SYSTem:ERRor?` polling, 488.2 block codec. Every SCPI driver subclasses it. | `_command`, `_query`, `_query_float`, `reset`, `parse_ieee_block` |
-| CORE-ARC-002 | `core.transport.Transport` | Abstract instrument link with buffered message framing built on three subclass primitives. | `write`, `read_message`, `read_exactly`, `read_raw`, `query`, `clear` |
+| CORE-ARC-002 | `core.transport.Transport` | Abstract instrument link with buffered message framing built on three subclass primitives, and stream access for instruments that send without being asked. | `write`, `read_message`, `read_exactly`, `read_raw`, `read_available`, `discard_input`, `query`, `clear` |
 | CORE-ARC-003 | Concrete transports and the factory | Four interchangeable transports selected by resource string, held in a registry so a new link type registers itself. | `open_transport`, `parse_resource`, `register_backend` |
 | CORE-ARC-004 | `core.simulator.SimulatedInstrument` | Shared simulator harness: dispatch, compound messages, 488.2 queries, event queue, binary replies. `Responder` is the protocol the mock transport accepts. | `respond`, `handle`, `_cmd_*`, `push_event` |
 | CORE-ARC-007 | `core.firmware` | What a build system recorded about an image, read from the manifest beside it. Here rather than in an instrument because two need it and neither may import the other (AD-22): the dongle reads one to decide whether to refresh itself, the debug probe to say what it just flashed. | `FirmwareBuild`, `MANIFEST_NAME`, `parse_build_date` |
@@ -89,6 +90,7 @@ instrument, and to be importable without importing any other element.
 | JLINK-ARC-001 | `instruments.jlink` | The debug probe driver. `JLinkProbe` is the façade over seven collaborators, each independently testable: MI record parsing (`gdbmi`), the command/response session (`session`), server discovery and lifetime (`server`), RTT (`rtt`), ITM/SWO decoding (`swo`), timing results (`timing`), and the probe and target envelope (`constants`). Its simulator answers the MI dialogue. | `JLinkProbe`, `GdbMiSession`, `RttClient`, `ItmDecoder`, `TimingResult`, `GdbServer` |
 | S2LP-ARC-001 | `instruments.s2lp` | The ST S2-LP development kit, host side only: ST's firmware runs on the board (AD-20). The line protocol (`protocol`), the command/reply session with its raw log (`session`), the device's register map (`registers`), packet records and their structured log (`packets`), the driver façade (`s2lp`) and a simulated kit with a register file and a modelled air interface. | `S2lpDevkit`, `S2lpSession`, `Register`, `Packet`, `Capture`, `SimulatedS2lp` |
 | PSU-ARC-001 | `instruments.gpd3303d` | The GW Instek bench supply, programmable channels 1 and 2; its fixed rail is a front-panel switch and is outside the element. Not a SCPI instrument: it takes the transport and lifecycle from `ScpiInstrument` and replaces the SCPI-specific parts (`*CLS`, `*RST`, `SYSTem:ERRor?`) with its own. Its own command grammar, a load-modelling simulator, and a command line. | `Gpd3303D`, `ChannelReading`, `SupplyStatus`, `SimulatedGpd` |
+| DMM-ARC-001 | `instruments.tti1604` | The TTi 1604 bench multimeter. Neither SCPI nor command/response, so it subclasses `Instrument` directly (AD-11). The reading frame and its decoding (`frame`), the meter's published figures (`constants`), the driver façade with its stream parser and closed-loop control (`dmm`, AD-24, AD-25), a simulated meter with a settable input and a virtual clock, and a command line. | `Tti1604`, `Reading`, `decode_frame`, `SimulatedTti1604` |
 | RUN-ARC-001 | `runner` | Specification model, bench resolution, execution engine, result records, report writers, command line. | `load_spec`, `BenchConfig`, `BenchRunner`, `write_*` |
 
 ## 4. Key architectural decisions
@@ -192,7 +194,7 @@ runner's driver registry is typed on `Instrument`.
 
 **Consequences.** A debug probe is a bench instrument without pretending to speak
 SCPI — no stub `*IDN?`, no empty error queue implementation. The BLE dongle and the
-RS-232 multimeter to come will need exactly the same seam. The cost is one more
+RS-232 multimeter (TTi 1604, STK-18, AD-24) uses exactly the same seam. The cost is one more
 class in the hierarchy, and identity parsing moving to the SCPI layer where it
 belongs: `InstrumentIdentity.from_idn()` is IEEE 488.2, so it is not in the generic
 constructor, and a non-SCPI driver populates the fields itself.
@@ -499,6 +501,57 @@ the three step kinds must stay distinguishable in the report: a step that was
 skipped must never read as one that passed, which is why a run states how many
 steps it checked as well as how many passed.
 
+### AD-24 — Confirm a key press from the readings, never from its echo
+
+**Context.** The TTi 1604 is controlled by sending the characters of its
+front-panel keys. Each is echoed, and the manual tells the host to resend a key
+whose echo does not arrive within 300 ms. Several keys toggle - Auto/Man, and
+Hz on some firmware - and the echo can be lost after the meter has acted on
+the key, so resending is not idempotent. Some keys are also refused with a
+beep (Hz on a DC range) and echoed all the same.
+
+**Decision.** The echo is used for flow control only: it says the meter heard
+a character. Whether the meter *did* what was asked is taken from the readings
+it streams, which carry the function, range, coupling and annunciators. Every
+operation that changes the meter's state - function, range, auto-ranging -
+presses its keys and then waits, within a bounded settling time, for a frame
+showing the state it asked for. If none arrives it raises, naming what the
+readings show instead. Nothing is pressed for a state the readings already show.
+
+**Alternatives.** Trusting the echo would be simpler and wrong in exactly the
+cases that matter: a toggle resent after a lost echo, a refused key, a front
+panel changed by hand. Reading the state back through a query is not
+available; the meter has none.
+
+**Consequences.** A function change costs one to two seconds, most of it the
+meter's own. The driver never reports a state the meter is not in. The frame is
+decoded before anything else is done with it, so the decoder (`frame`) carries
+the burden of being right and is tested against frames built from the published
+format rather than from the simulator.
+
+### AD-25 — A reading is fresh by discarding the stream, not by trusting its order
+
+**Context.** In remote mode the 1604 sends a reading 2.5 times a second whether
+or not anyone is reading. The operating system buffers what nobody reads, so
+the next frame on the line may have been measured seconds or minutes ago. The
+frames carry no timestamp or sequence number.
+
+**Decision.** A reading taken on request discards everything received so far -
+the transport's buffer *and* the operating system's (CORE-FR-019) - then
+discards the first complete frame as well, because it may have been measured
+partly before the request, and returns the next. A caller that wants speed
+over provenance can ask for the next frame instead. A data log is a fresh
+reading followed by the frames that follow it, unbroken.
+
+**Alternatives.** A reader thread keeping only the latest frame would make a
+reading instant, and would put a thread in every process that opens a meter
+for a benefit of 0.4 s per reading. Timestamping on arrival does not help: a
+frame that sat in the operating system's buffer arrives late and looks new.
+
+**Consequences.** A fresh reading costs between one and two reading intervals
+(0.4 - 0.8 s). The core gains two transport operations, stream reading and
+input discarding, which any instrument that speaks without being asked can use.
+
 ## 5. Dynamic behaviour — a runner invocation
 
 ```
@@ -537,6 +590,7 @@ CLI            BenchRunner        Bench           Tek3014B        Transport
 | Advertising reports per second, one sensor | 3 channels at the advertising rate; at 20 ms that is up to 150 lines/s, about 20 kB/s over USB. |
 | Dongle event queue | 32 lines. Above that, lines are dropped and counted rather than truncated. |
 | Host event backlog | 4096 events, bounded so an unattended session cannot grow without limit. |
+| TTi 1604 reading stream | 2.5 frames/s of 10 bytes, about 25 B/s at 9600 baud. A fresh reading costs 0.4 - 0.8 s; a function or range change 1 - 2 s. A lost key costs 0.3 s per resend, five at most. |
 | Cost of a halting timing measurement | Two breakpoint stops per repetition; the target is stopped for the duration, which is why JLINK-FR-064 exists. |
 
 ## 7. Interfaces to external elements
@@ -555,5 +609,6 @@ CLI            BenchRunner        Bench           Tek3014B        Transport
 | SWD / JTAG | bidirectional | Probe to target, below the GDB Server; not visible to this software. |
 | USB CDC (serial) | bidirectional | The BLE dongle's line protocol. May be a local port or one published over TCP by a terminal server, which is how a container reaches a dongle on another machine. |
 | Bluetooth Low Energy | bidirectional | Dongle to sensor: advertising reports in, UART service both ways. Below the dongle firmware; not visible to the host driver except as events. |
+| RS-232 (9-way D-type) | bidirectional | The TTi 1604's opto-isolated interface, through a USB converter: key characters out, echoes and reading frames in, at 9600 baud. The host's DTR and RTS lines power it. |
 | `pyserial` | bidirectional | Optional; the serial transport. |
 | nRF5 SDK 17.1.0 + S140 | in | Builds the dongle firmware. Not needed to run the host driver or the tests. |

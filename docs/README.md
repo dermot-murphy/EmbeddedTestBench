@@ -17,6 +17,9 @@ instruments are added:
 | `SCOPE-` | Tektronix TDS3014B driver | `benchtools.instruments.tek3014b` |
 | `JLINK-` | SEGGER J-Link debug probe driver | `benchtools.instruments.jlink` |
 | `BLE-` | Nordic BLE bench dongle: host driver **and** dongle firmware | `benchtools.instruments.nordic_dongle`, `firmware/nordic_dongle` |
+| `PSU-` | GW Instek GPD-3303D bench supply | `benchtools.instruments.gpd3303d` |
+| `DMM-` | TTi 1604 bench multimeter | `benchtools.instruments.tti1604` |
+| `S2LP-` | ST S2-LP development kit | `benchtools.instruments.s2lp` |
 | `RUN-` | Bench test runner | `benchtools.runner` |
 
 ## Documents
@@ -40,6 +43,7 @@ instruments are added:
 | [BLE Dongle Notes](ble/BLE_Dongle_Notes.md) | Why the dongle needs firmware of its own, the line protocol, building and flashing it, how to read an advertising profile and a response time, and the firmware's bench confirmation items |
 | [S2-LP Devkit Notes](s2lp/S2LP_Devkit_Notes.md) | The ST S2-LP kit: why the vendor's firmware is used unchanged and what that decision costs, its CLI protocol and the two reply traps in it, the register map and what may be kept of it, and the kit's bench confirmation items |
 | [GPD-3303D Notes](psu/GPD3303D_Notes.md) | The GW Instek bench supply: why it clamps, why constant current matters to every other measurement on the bench, why per-channel output is emulated and what that does not promise, why a channel it is slaving to another is refused rather than reported, and its bench confirmation items |
+| [TTi 1604 Notes](dmm/TTi1604_Notes.md) | The TTi 1604 bench multimeter: why a key press is confirmed from the readings and never from its echo, why a reading is fresh only after the stream is discarded, what a picture of a display hides, its wiring and frame format, and its bench confirmation items. The manufacturer's documents are in `dmm/reference/` |
 
 ## Adding an instrument
 
@@ -57,7 +61,7 @@ AD-16 - rather than a separate `FW-` element with its own document set.
 
 The J-Link is the worked example of a driver that is **not** a SCPI instrument: it
 implements `core.instrument.Instrument` rather than `ScpiInstrument`, which is the
-same seam the BLE dongle uses and the RS-232 multimeter (STK-18) will. The
+same seam the BLE dongle and the TTi 1604 multimeter (STK-18) use. The
 GPD-3303D supply is the intermediate case: it answers `*IDN?` and nothing else
 from IEEE 488.2, so it takes the transport and lifecycle from `ScpiInstrument`
 and replaces the SCPI-specific parts explicitly. Adding one should not require touching `benchtools.core`; if it does,
