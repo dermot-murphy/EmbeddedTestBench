@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-TRACE-001 |
-| Version | 4.2 |
-| Date | 2026-09-13 |
+| Version | 4.3 |
+| Date | 2026-09-30 |
 | Process reference | Automotive SPICE V4.0, SWE.1 BP6 / SWE.2 BP7 / SWE.3 BP5 / SWE.4 BP6 |
 | Item | `benchtools` 4.0.0 + `firmware/nordic_dongle` |
 
@@ -36,7 +36,7 @@ docstring, so the link is carried in the artefact and not only in this table.
 | STK-13 — programmable supply for the sensor | PSU-FR-001 … -060; PSU-NFR-001 … -003; CORE-FR-017 |
 | STK-19 — S2-LP kit: registers, transmit, receive, log | S2LP-FR-001 … -060; S2LP-NFR-001 … -004; CORE-FR-017 |
 | STK-20 — use ST's firmware if it is fit for purpose | AD-20; S2LP-FR-001, -002; S2LP-NFR-002. The firmware was examined before any was written: BENCHTOOLS-SWE4-002 §10, `docs/s2lp/S2LP_Devkit_Notes.md` §1 |
-| STK-18 — RS-232 multimeter | No requirements in this revision (CON-03, OPEN-03). `Instrument` (CORE-FR-012 … -016) and the serial transport (CORE-FR-017) are the seams it will use. |
+| STK-18 — RS-232 multimeter (TTi 1604) | No requirements in this revision (CON-03, OPEN-03). `Instrument` (CORE-FR-012 … -016) and the serial transport (CORE-FR-017) are the seams it will use. |
 
 ## 2. CORE requirements to design, code and test
 
@@ -429,7 +429,7 @@ where the firmware implements the requirement.
 |---|---|---|
 | OPEN-01 | Bench confirmation items in BENCHTOOLS-VISA-001 §5.1 (device name, portmapper transport, hardcopy format, measurement settling, record lengths) | Discharge on first use with physical hardware. |
 | OPEN-02 | TDS3000 SCPI command spellings not transcribed from the programmer manual (CON-02) | Spot-check against Tektronix 071-0381-03 on first bench use. |
-| OPEN-03 | No requirements yet for the instruments still named for future work (CON-03): the RS-232 multimeter (STK-18), and the families named earlier — loads, signal sources, logic and protocol analysers. STK-13 and STK-19/STK-20 are **closed**: the GPD-3303D supply (PSU-FR-001 … -060) and the S2-LP kit (S2LP-FR-001 … -060) are each specified, designed, implemented and tested | Add a prefixed requirements section, design unit, test group and matrix rows per instrument as each driver is written, as was done for `PSU-`. |
+| OPEN-03 | No requirements yet for the instruments still named for future work (CON-03): the RS-232 multimeter (TTi 1604, STK-18), and the families named earlier — loads, signal sources, logic and protocol analysers. STK-13 and STK-19/STK-20 are **closed**: the GPD-3303D supply (PSU-FR-001 … -060) and the S2-LP kit (S2LP-FR-001 … -060) are each specified, designed, implemented and tested | Add a prefixed requirements section, design unit, test group and matrix rows per instrument as each driver is written, as was done for `PSU-`. |
 | OPEN-06 | The dongle firmware builds, links, fits and packages against nRF5 SDK 17.1.0 in CI, but has not been flashed or run (CON-07) | **Narrowed**: BLE-OPEN-01 is discharged — `.github/workflows/firmware.yml` run 12 on `f66a248`, 51 652 bytes of flash and 12 636 of static RAM (BENCHTOOLS-SWE4-002 §4.6). What remains is to flash the DFU package and work through `docs/ble/BLE_Dongle_Notes.md` §5.3 (BLE-OPEN-02 to BLE-OPEN-04). |
 | OPEN-04 | **Narrowed.** Tests written as a markdown document are implemented for the BLE command set: `BLE-FR-100 … -108`, AD-23, `specs/sensor_commands.md`. What remains undecided is Robot Framework itself (STK-12, CON-06) - a general keyword layer over every instrument, rather than one document format for one element | Decide whether to adopt Robot Framework. If adopted, add a `ROBOT-` element in front of the existing runner; AD-15 has kept the driver boundary suitable for it, and AD-23 is evidence that a document-driven test needs no framework to be useful. |
 | OPEN-07 | S2-LP kit bench confirmation items — `docs/s2lp/S2LP_Devkit_Notes.md` §7: the firmware's exact reply text and error codes, the board name it reports, the meaning of `S2LPGetNBytesBatch`'s reference-timer argument, and the link budget in practice | Discharge on first use with a kit. Tracked there as S2LP-OPEN-01 to S2LP-OPEN-05. Nothing in them blocks use of the driver: the parser reads tags by name and keeps every line, so an unexpected reply is visible rather than fatal. |

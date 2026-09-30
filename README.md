@@ -758,7 +758,7 @@ What remains is flashing it and running it: see
 The host driver is fully verified against a simulated dongle.
 
 Planned next, with no drivers yet: a programmable PSU for the sensor supply, a
-multimeter for current over RS-232 (the serial transport it needs now exists),
+multimeter (TTi 1604) for current over RS-232 (the serial transport it needs now exists),
 and — under consideration — authoring tests in Markdown and translating them to
 Robot Framework. The driver boundary returns plain types with that last one in
 mind, but no translator exists.

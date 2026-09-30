@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-SWE1-001 |
-| Version | 4.2 |
-| Date | 2026-09-13 |
+| Version | 4.3 |
+| Date | 2026-09-30 |
 | Process reference | Automotive SPICE V4.0, SWE.1 Software Requirements Analysis |
 | Item | **BenchTools** — bench test tooling (`benchtools` 4.0.0) |
 
@@ -49,7 +49,7 @@ USB link. It is specified, designed and traced here like the rest of the item.
 | STK-15 | Scan for BLE sensors, select one, and measure its advertising profile. |
 | STK-16 | Provide the dongle's embedded firmware, built with SEGGER Embedded Studio against nRF5 SDK 17. |
 | STK-17 | Log the BLE session to a text file. |
-| STK-18 | Measure current with a multimeter over RS-232 through a USB converter. *(future)* |
+| STK-18 | Measure current with a multimeter — the TTi 1604 — over RS-232 through a USB converter. *(future)* |
 | STK-19 | Evaluate a sub-1 GHz radio with an ST S2-LP development kit over USB: program and read every register, transmit, receive, and log all data to a file. |
 | STK-20 | Use the kit's existing ST firmware if it is fit for purpose, rather than writing firmware for it. |
 
@@ -658,7 +658,7 @@ timestamp. And the radio will accept a frequency the board cannot radiate.
 | ASM-09 | Advertising is on the primary channels (37, 38, 39) at 1 Mbit/s; extended advertising and coded PHY are not scanned for in this revision. |
 | CON-07 | The dongle firmware targets nRF5 SDK 17.1.0. It **compiles** against real SDK headers (SDK 15.2.0, in the `canembed/canembed-arm` image) with zero warnings, apart from four lines using SDK 17-only API; it has **not** been linked, flashed or run, and SDK 17.1.0 itself could not be obtained in the build environment. See `docs/ble/BLE_Dongle_Notes.md` §5. |
 | CON-08 | Only RTT-free, connection-oriented UART is supported; the dongle connects to one sensor at a time. |
-| CON-03 | Instrument families named for future work (STK-13 and STK-18: power supplies and a multimeter over RS-232) have no requirements in this revision. The core is designed for them but not validated against them. |
+| CON-03 | Instrument families named for future work (STK-13 and STK-18: power supplies and the TTi 1604 multimeter over RS-232) have no requirements in this revision. The core is designed for them but not validated against them. |
 | CON-04 | The J-Link driver is verified against a simulated probe and a simulated target, not against physical hardware. Bench confirmation items are listed in `docs/jlink/JLink_Integration_Notes.md` §4. |
 | CON-05 | The scaling of SWO/ITM local timestamps to core cycles depends on the trace prescaler configured by the GDB server and the firmware. It is implemented from the ARMv7-M architecture reference manual and requires confirmation against a part before SWO timing figures are quoted (JLINK-OPEN-03). |
 | CON-06 | Markdown-to-Robot-Framework translation (STK-12) is not implemented in this revision. The driver's return types are constrained by JLINK-FR-081 so that it can be added without changing the driver. |

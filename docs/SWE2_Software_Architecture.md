@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-SWE2-001 |
-| Version | 4.0 |
-| Date | 2026-09-13 |
+| Version | 4.1 |
+| Date | 2026-09-30 |
 | Process reference | Automotive SPICE V4.0, SWE.2 Software Architectural Design |
 
 ## 1. Architectural drivers
@@ -192,7 +192,7 @@ runner's driver registry is typed on `Instrument`.
 
 **Consequences.** A debug probe is a bench instrument without pretending to speak
 SCPI — no stub `*IDN?`, no empty error queue implementation. The BLE dongle and the
-RS-232 multimeter to come will need exactly the same seam. The cost is one more
+RS-232 multimeter to come (TTi 1604, STK-18) will need exactly the same seam. The cost is one more
 class in the hierarchy, and identity parsing moving to the SCPI layer where it
 belongs: `InstrumentIdentity.from_idn()` is IEEE 488.2, so it is not in the generic
 constructor, and a non-SCPI driver populates the fields itself.
