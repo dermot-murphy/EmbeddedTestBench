@@ -5,6 +5,9 @@ Traces to: JLINK-FR-050 .. JLINK-FR-055, SWE4-UT-RTT.
 
 from __future__ import annotations
 
+import threading
+import time
+
 import pytest
 
 from benchtools.core.errors import ConfigurationError
@@ -152,6 +155,57 @@ class TestLifecycle:
             assert instance.read_lines()
         finally:
             instance.stop()
+
+
+class _OverlapDetectingBackend:
+    """A backend whose poll is slow enough to overlap, and notices when it does.
+
+    Stands in for any backend whose poll is not safe to enter twice - the
+    simulator's drain is check-then-pop - without depending on the scheduler to
+    produce the race by chance (D-42).
+    """
+
+    def __init__(self) -> None:
+        self.inside = 0
+        self.overlaps = 0
+        self._count_lock = threading.Lock()
+
+    def rtt_open(self, *args, **kwargs) -> None:
+        """Nothing to open."""
+
+    def rtt_close(self) -> None:
+        """Nothing to close."""
+
+    def rtt_poll(self) -> bytes:
+        with self._count_lock:
+            self.inside += 1
+            if self.inside > 1:
+                self.overlaps += 1
+        time.sleep(0.002)
+        with self._count_lock:
+            self.inside -= 1
+        return b"line\n"
+
+
+class TestConcurrency:  # pylint: disable=too-few-public-methods
+    def test_the_backend_is_never_polled_twice_at_once(self):
+        """The reader thread and a caller's read both pump; only one may poll.
+
+        Before D-42 the poll was taken outside the client's lock, and on
+        Python 3.9 CI the simulator's drain raised ``IndexError: pop from an
+        empty deque`` when the two met.
+        """
+        backend = _OverlapDetectingBackend()
+        instance = RttClient(backend)
+        workers = [
+            threading.Thread(target=lambda: [instance.read_lines() for _ in range(25)])
+            for _ in range(4)
+        ]
+        for worker in workers:
+            worker.start()
+        for worker in workers:
+            worker.join()
+        assert backend.overlaps == 0
 
 
 class TestThroughTheProbe:
