@@ -39,6 +39,7 @@ from .probe import (
     FlashResult,
     HaltInfo,
     JLinkProbe,
+    JLinkRttReader,
     SectionVerdict,
     StackFrame,
     VerifyResult,
@@ -53,6 +54,7 @@ from .timing import TimingResult, TimingSample
 
 __all__ = [
     "JLinkProbe",
+    "JLinkRttReader",
     "Breakpoint",
     "Watchpoint",
     "StackFrame",

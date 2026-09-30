@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Identify a Pico 2 + SHT30-D thermometer, then log the temperature.
 
-    python examples/09_pico_thermometer.py                    # simulated
-    python examples/09_pico_thermometer.py /dev/ttyACM0       # a real Pico 2
-    python examples/09_pico_thermometer.py COM5 --count 60
+    python examples/11_pico_thermometer.py                    # simulated
+    python examples/11_pico_thermometer.py /dev/ttyACM0       # a real Pico 2
+    python examples/11_pico_thermometer.py COM5 --count 60
 
 The first thing printed is what the firmware says it is: its title and version.
 A bench log that does not record which firmware produced its numbers cannot be

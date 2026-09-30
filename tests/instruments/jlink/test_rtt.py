@@ -8,7 +8,7 @@ from __future__ import annotations
 import pytest
 
 from benchtools.core.errors import ConfigurationError
-from benchtools.instruments.jlink import ProbeLimits, RttTimeout, SimulatedJLink
+from benchtools.instruments.jlink import ProbeLimits, RttTimeout
 from benchtools.instruments.jlink.rtt import RttClient, SimulatedRttBackend
 
 from .conftest import END_LOCATION

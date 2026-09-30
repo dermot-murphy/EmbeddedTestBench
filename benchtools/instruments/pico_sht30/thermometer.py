@@ -83,7 +83,7 @@ class SensorError(InstrumentError):
 
 
 @dataclass(frozen=True)
-class FirmwareInfo:
+class FirmwareInfo:  # pylint: disable=too-many-instance-attributes
     """Everything ``ver`` reports."""
 
     title: str
@@ -102,6 +102,7 @@ class FirmwareInfo:
         return not self.built.startswith("local:")
 
     def as_dict(self) -> Dict[str, object]:
+        """The identity as a JSON-ready dictionary."""
         return {
             "title": self.title,
             "version": self.version,
@@ -126,6 +127,7 @@ class Reading:
     timestamp: float
 
     def as_dict(self) -> Dict[str, object]:
+        """The reading as a JSON-ready dictionary."""
         return {
             "temperature_c": self.temperature,
             "humidity_pct": self.humidity,
@@ -142,9 +144,11 @@ class SensorStatus:
     raw: int
 
     def flag(self, name: str) -> bool:
+        """``True`` if status bit *name* (a key of ``STATUS_BITS``) is set."""
         return bool(self.raw & STATUS_BITS[name])
 
     def as_dict(self) -> Dict[str, object]:
+        """The raw word and every decoded flag, JSON-ready."""
         payload: Dict[str, object] = {"raw": "0x%04X" % self.raw}
         payload.update({name: self.flag(name) for name in STATUS_BITS})
         return payload
@@ -193,7 +197,7 @@ class PicoSht30(ScpiInstrument):
     # Lifecycle
     # ------------------------------------------------------------------
     @classmethod
-    def connect(
+    def connect(  # pylint: disable=arguments-differ
         cls,
         resource: str = "sim://",
         timeout: float = 2.0,
@@ -242,7 +246,7 @@ class PicoSht30(ScpiInstrument):
         this driver was written for is refused rather than half-understood.
         """
         info = self.firmware_info(refresh=True)
-        if info.protocol.split(".")[0] != PROTOCOL_VERSION.split(".")[0]:
+        if info.protocol.split(".", maxsplit=1)[0] != PROTOCOL_VERSION.split(".", maxsplit=1)[0]:
             raise ProtocolError(
                 "thermometer speaks protocol %s; this driver speaks %s"
                 % (info.protocol, PROTOCOL_VERSION)

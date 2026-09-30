@@ -123,6 +123,21 @@ class TestEventsAndErrors:
 
 
 class TestEnvelope:
+    def test_the_longest_command_line_fits(self):
+        """A full payload in hex, with a timeout, is a command the firmware reads whole."""
+        limits = constants.DONGLE_LIMITS
+        line = "cmd " + "ff" * limits.max_payload_bytes + " timeout=60000"
+        assert len(line) + 1 <= limits.max_line_bytes
+
+    def test_the_longest_reply_line_fits(self):
+        """At 192 characters a reply over ~60 bytes was cut short (#52)."""
+        limits = constants.DONGLE_LIMITS
+        top = 18446744073709551615              # the widest 64-bit timestamp
+        line = "ok t_tx=%d t_rx=%d dt_us=%d interval_us=%d len=%d data=%s" % (
+            top, top, 4294967295, 4294967295, limits.max_payload_bytes,
+            "ff" * limits.max_payload_bytes)
+        assert len(line) + 1 <= limits.max_event_bytes
+
     @pytest.mark.parametrize(
         "macro,attribute",
         [
@@ -130,6 +145,7 @@ class TestEnvelope:
             ("PROTO_MAX_PAYLOAD", "max_payload_bytes"),
             ("PROTO_MAX_NAME", "max_name_length"),
             ("PROTO_MAX_LINE", "max_line_bytes"),
+            ("PROTO_MAX_EVENT", "max_event_bytes"),
         ],
     )
     def test_limits_agree(self, macro, attribute):

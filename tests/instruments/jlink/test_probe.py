@@ -6,6 +6,7 @@ Traces to: JLINK-FR-003 .. JLINK-FR-045, SWE4-UT-JLINK.
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 
 import pytest
 
@@ -80,6 +81,63 @@ class TestConnection:
         probe.close()
         assert not probe.is_open
 
+    def test_closing_leaves_the_target_running(self):
+        """The GDB Server halts the core on attach and does not resume it on
+        detach; a sensor left that way stopped advertising (issue #69)."""
+        simulator = SimulatedJLink()
+        probe = JLinkProbe(
+            session=GdbMiSession(MockTransport(responder=simulator), timeout=5.0),
+            elf="firmware.elf", target_address="simulated",
+        )
+        probe.initialise()
+        probe.halt()
+        probe.close()
+        assert simulator.monitor_log[-1] == "go"
+        assert simulator.halted is False
+
+    def test_closing_can_leave_the_target_halted(self):
+        simulator = SimulatedJLink()
+        probe = JLinkProbe(
+            session=GdbMiSession(MockTransport(responder=simulator), timeout=5.0),
+            elf="firmware.elf", target_address="simulated",
+        )
+        probe.initialise()
+        probe.halt()
+        probe.leave_halted = True
+        probe.close()
+        assert "go" not in simulator.monitor_log
+        assert simulator.halted is True
+
+    def test_identity_falls_back_to_the_server_banner(self, monkeypatch):
+        """J-Link GDB Server V9 rejects 'monitor version'; the banner of the
+        server the driver started still names the probe."""
+
+        class Server:
+            def probe_identity(self):
+                return {"serial_number": "682395790", "hardware": "V8.00",
+                        "firmware": "J-Link ARM V8 compiled Nov 28 2014 13:44:46"}
+
+            def stop(self):
+                pass
+
+        probe = probe_for()
+        probe._server = Server()
+        real = probe._session.execute_console
+
+        def console(command, **kwargs):
+            if command == "monitor version":
+                return SimpleNamespace(text="")
+            return real(command, **kwargs)
+
+        monkeypatch.setattr(probe._session, "execute_console", console)
+        try:
+            identity = probe._read_identity()
+        finally:
+            probe.close()
+        assert identity.serial_number == "682395790"
+        assert identity.firmware.startswith("J-Link ARM V8")
+        assert "S/N: 682395790" in identity.raw
+
     @pytest.mark.parametrize(
         "resource,expected",
         [
@@ -120,6 +178,62 @@ class TestFlashAndVerify:
         """Programming a running target corrupts whatever it was doing."""
         probe.flash(verify=False)
         assert any("reset" in entry for entry in probe.session.transport.responder.monitor_log)
+
+    def test_a_named_image_is_loaded_before_it_is_read(self, probe):
+        """GDB 15.2 exited when a HEX file on a mapped drive was read with
+        'file' and then loaded (issue #69); 'load <file>' first did not."""
+        probe.flash("C:\\images\\app.hex", verify=False)
+        log = probe.session.transport.responder.command_log
+        load = next(i for i, c in enumerate(log) if 'load \\"C:/images/app.hex\\"' in c)
+        read = max(i for i, c in enumerate(log) if c.startswith("-file-exec-and-symbols"))
+        assert load < read
+        assert probe.elf_path == "C:\\images\\app.hex"
+
+    def test_preserved_ranges_survive_the_flash(self, probe, monkeypatch):
+        """Flashing an image holding a UICR record erased the sensor ID beside
+        it (issue #69); a preserved range is written back and checked."""
+        simulator = probe.session.transport.responder
+        simulator.write_memory(0x10001080, bytes.fromhex("005c1712"))
+        real = probe.session.execute_console
+
+        def load_that_erases(command, **kwargs):
+            if command.startswith("load"):
+                simulator.write_memory(0x10001080, b"\xff" * 4)
+            return real(command, **kwargs)
+
+        monkeypatch.setattr(probe.session, "execute_console", load_that_erases)
+        result = probe.flash(verify=False, preserve=[(0x10001080, 4)])
+        assert probe.read_memory(0x10001080, 4).hex() == "005c1712"
+        assert result.as_dict()["preserved"] == {"0x10001080": "005c1712"}
+
+    def test_a_preserved_range_that_will_not_stick_raises(self, probe, monkeypatch):
+        monkeypatch.setattr(probe, "write_memory", lambda address, data: None)
+        real_read = probe.read_memory
+        reads = []
+
+        def read(address, size):
+            reads.append(address)
+            return real_read(address, size) if len(reads) == 1 else b"\xff" * size
+
+        monkeypatch.setattr(probe, "read_memory", read)
+        with pytest.raises(BenchToolsError, match="could not restore 4 preserved"):
+            probe.flash(verify=False, preserve=[(0x10001080, 4)])
+
+    def test_erase_resets_first_and_leaves_flash_blank(self, probe):
+        probe.erase()
+        responder = probe.session.transport.responder
+        assert responder.monitor_log.index("reset") < responder.monitor_log.index("flash erase")
+        assert probe.read_word(0) == 0xFFFFFFFF
+
+    def test_an_erase_that_did_not_happen_raises(self, probe, monkeypatch):
+        """The server said 'Flash erase: O.K.' and erased nothing (issue #69)."""
+        monkeypatch.setattr(probe, "read_word", lambda address: 0x20000400)
+        with pytest.raises(BenchToolsError, match="still reads 0x20000400"):
+            probe.erase()
+
+    def test_the_blank_check_can_be_skipped(self, probe, monkeypatch):
+        monkeypatch.setattr(probe, "read_word", lambda address: 0)
+        assert "O.K." in probe.erase(blank_check_address=None)
 
     def test_verification_failure_raises(self):
         probe = probe_for(flash_matches=False)
@@ -308,6 +422,31 @@ class TestMemory:
 
 
 class TestVariables:
+    #: GDB 15.2's rendering of the Kappa X stack monitor, read on hardware
+    #: (issue #69). The quoted string in the last field was returned as the
+    #: whole structure.
+    STACK_MONITOR = (
+        "{bytes_allocated = 12000, bytes_unused = 10600, bytes_used = 1400, "
+        "percentage_used = 12, check_failed = false, tests_run = 5, "
+        "ptr_end_of_stack = 0x2003d120 '\\245' <repeats 200 times>..., "
+        'ptr_last_add_checked = 0x2003fa88 "\\377\\377, \\001"}'
+    )
+
+    def test_a_structure_holding_a_string_is_a_structure(self):
+        fields = JLinkProbe._parse_gdb_value(self.STACK_MONITOR)
+        assert fields["bytes_used"] == 1400
+        assert fields["percentage_used"] == 12
+        assert fields["check_failed"] is False
+        assert fields["tests_run"] == 5
+        assert set(fields) == {
+            "bytes_allocated", "bytes_unused", "bytes_used", "percentage_used",
+            "check_failed", "tests_run", "ptr_end_of_stack", "ptr_last_add_checked",
+        }
+
+    def test_nested_structures(self):
+        assert JLinkProbe._parse_gdb_value("{a = 1, b = {c = 2, d = 3}}") == \
+            {"a": 1, "b": {"c": 2, "d": 3}}
+
     def test_read_integer(self, probe):
         assert probe.read_variable("sensor_mv") == 1234
 

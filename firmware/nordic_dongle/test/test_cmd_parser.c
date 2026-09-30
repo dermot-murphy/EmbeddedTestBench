@@ -20,9 +20,12 @@
 #include "ble_scanner.h"
 #include "fakes.h"
 #include "firmware_version.h"
+#include "nrf_delay.h"
+#include "nrf_gpio.h"
 #include "nrf_soc.h"
 #include "nus_client.h"
 #include "protocol.h"
+#include "timestamp.h"
 
 /** Run a command line through the parser, as the main loop would. */
 static void handle(const char * line)
@@ -168,14 +171,59 @@ static void test_dfu_answers_before_it_resets(void)
 	 * the bootloader from one that has crashed. */
 	fake_retained_register_reset();
 	fake_system_resets = 0U;
+	fake_clock_set_step(1000U);
 
 	handle("dfu");
 
 	TEST_ASSERT_TRUE(reply_has("dfu=1"));
 	TEST_ASSERT_TRUE(reply_has("fw=" FIRMWARE_VERSION));
-	TEST_ASSERT_EQUAL_UINT32(1U, fake_system_resets);
 	TEST_ASSERT_EQUAL_HEX32(0xB1U, fake_retained_register());
 
+	fake_system_resets = 0U;
+	fake_retained_register_reset();
+}
+
+static void test_dfu_keeps_servicing_usb_after_its_reply_has_left(void)
+{
+	/* Observed on a PCA10059 under Windows: resetting as soon as the transmit
+	 * queue emptied still lost the reply. The command keeps the link up for a
+	 * grace period after that - and gives up at a limit rather than waiting
+	 * for ever on a host that has stopped reading. */
+	uint64_t	before;
+	uint64_t	waited;
+
+	fake_clock_set_step(1000U);
+	before = timestamp_now_us();
+
+	handle("dfu");
+
+	waited = timestamp_now_us() - before;
+	TEST_ASSERT_TRUE_MESSAGE(waited >= 50000U, "the grace period was cut short");
+	TEST_ASSERT_TRUE_MESSAGE(waited <= 260000U, "the wait is not bounded");
+
+	fake_system_resets = 0U;
+	fake_retained_register_reset();
+	fake_gpio_reset();
+}
+
+static void test_dfu_pulls_the_dongles_own_reset_pin(void)
+{
+	/* The PCA10059 open bootloader enters DFU only after a pin reset; a soft
+	 * reset brings the application straight back. P0.19 is wired to nRESET. */
+	fake_gpio_reset();
+	fake_system_resets = 0U;
+	fake_clock_set_step(1000U);
+
+	handle("dfu");
+
+	TEST_ASSERT_EQUAL_UINT32(19U, fake_gpio_output_pin());
+	TEST_ASSERT_EQUAL_UINT32(19U, fake_gpio_cleared_pin());
+	TEST_ASSERT_TRUE(fake_delay_total_ms() > 0U);
+	/* The soft reset is the fallback for a board where the pin is not wired;
+	 * on the fake nothing resets, so it is reached. */
+	TEST_ASSERT_EQUAL_UINT32(1U, fake_system_resets);
+
+	fake_gpio_reset();
 	fake_system_resets = 0U;
 	fake_retained_register_reset();
 }
@@ -374,6 +422,46 @@ static void test_connect_to_a_given_address(void)
 	TEST_ASSERT_TRUE(reply_has("addr=AA:BB:CC:DD:EE:FF"));
 }
 
+static void test_connect_listens_for_fifteen_seconds_by_default(void)
+{
+	handle("connect AA:BB:CC:DD:EE:FF");
+	TEST_ASSERT_EQUAL_UINT32(15000U, fake_nus_client_connect_timeout_ms());
+	TEST_ASSERT_TRUE(reply_has("timeout_ms=15000"));
+}
+
+static void test_connect_takes_a_timeout_before_or_after_the_address(void)
+{
+	handle("connect AA:BB:CC:DD:EE:FF timeout=20000");
+	TEST_ASSERT_EQUAL_UINT32(20000U, fake_nus_client_connect_timeout_ms());
+	TEST_ASSERT_TRUE(reply_has("addr=AA:BB:CC:DD:EE:FF"));
+
+	fake_nus_client_set_connected(false);
+	handle("connect timeout=2000 AA:BB:CC:DD:EE:FF");
+	TEST_ASSERT_EQUAL_UINT32(2000U, fake_nus_client_connect_timeout_ms());
+}
+
+static void test_connect_uses_the_selection_with_only_a_timeout(void)
+{
+	fake_scanner_add("E4:1C:7B:02:9A:11", 1, "SENS-01", -62);
+	handle("select 0");
+	handle("connect timeout=30000");
+	TEST_ASSERT_EQUAL_UINT32(30000U, fake_nus_client_connect_timeout_ms());
+	TEST_ASSERT_TRUE(reply_has("addr=E4:1C:7B:02:9A:11"));
+}
+
+static void test_connect_refuses_a_bad_timeout(void)
+{
+	handle("connect AA:BB:CC:DD:EE:FF timeout=999");
+	TEST_ASSERT_EQUAL_STRING("err 3 bad argument value", reply());
+	handle("connect AA:BB:CC:DD:EE:FF timeout=60001");
+	TEST_ASSERT_EQUAL_STRING("err 3 bad argument value", reply());
+	handle("connect AA:BB:CC:DD:EE:FF timeout=ten");
+	TEST_ASSERT_EQUAL_STRING("err 3 bad argument value", reply());
+	handle("connect AA:BB:CC:DD:EE:FF 11:22:33:44:55:66");
+	TEST_ASSERT_EQUAL_STRING("err 3 bad argument value", reply());
+	TEST_ASSERT_EQUAL_UINT32(0U, fake_nus_client_connects());
+}
+
 static void test_a_refused_connection_is_reported(void)
 {
 	handle("connect AA:BB:CC:DD:EE:FF");
@@ -446,6 +534,69 @@ static void test_cmd_reports_both_timestamps_and_the_round_trip(void)
 	TEST_ASSERT_TRUE(reply_has("interval_us=30000"));
 	TEST_ASSERT_TRUE(reply_has("len=5"));
 	TEST_ASSERT_TRUE(reply_has("data=312e342e32"));      /* "1.4.2" */
+}
+
+static void test_cmd_waits_two_seconds_by_default(void)
+{
+	fake_nus_client_set_ready(true);
+	fake_nus_client_set_reply("1.4.2", 12500U);
+	handle("cmd 00");
+	TEST_ASSERT_EQUAL_UINT32(2000U, fake_nus_client_command_timeout_ms());
+}
+
+static void test_cmd_takes_a_timeout_for_a_slow_command(void)
+{
+	/* Some commands take longer than others (#46). */
+	fake_nus_client_set_ready(true);
+	fake_nus_client_set_reply("1.4.2", 12500U);
+	handle("cmd 00 timeout=15000");
+	TEST_ASSERT_EQUAL_UINT32(15000U, fake_nus_client_command_timeout_ms());
+	TEST_ASSERT_TRUE(reply_has("dt_us=12500"));
+}
+
+static void test_cmd_refuses_a_bad_timeout(void)
+{
+	fake_nus_client_set_ready(true);
+	handle("cmd 00 timeout=99");
+	TEST_ASSERT_EQUAL_STRING("err 3 bad argument value", reply());
+	handle("cmd 00 timeout=60001");
+	TEST_ASSERT_EQUAL_STRING("err 3 bad argument value", reply());
+	handle("cmd 00 wait=5");
+	TEST_ASSERT_EQUAL_STRING("err 3 bad argument value", reply());
+	TEST_ASSERT_EQUAL_UINT32(0U, fake_nus_client_commands());
+}
+
+static void test_cmd_carries_a_full_payload_both_ways(void)
+{
+	/* 244 bytes out - the ATT MTU less the write header - and a long reply
+	 * back whole: at 192 characters the reply line cut off anything over about
+	 * 60 bytes (#52). */
+	char		command[PROTO_MAX_LINE];
+	char		text[241];
+	char		expected[(240U * 2U) + 8U];
+	uint32_t	index;
+
+	(void)memset(text, 'A', 240U);
+	text[240] = '\0';
+	(void)strcpy(command, "cmd ");
+	for (index = 0U; index < PROTO_MAX_PAYLOAD; index++)
+	{
+		(void)strcat(command, "42");
+	}
+	(void)strcpy(expected, "data=");
+	for (index = 0U; index < 240U; index++)
+	{
+		(void)strcat(expected, "41");
+	}
+
+	fake_nus_client_set_ready(true);
+	fake_nus_client_set_reply(text, 12500U);
+	handle(command);
+
+	TEST_ASSERT_EQUAL_UINT32(1U, fake_nus_client_commands());
+	TEST_ASSERT_EQUAL_HEX8(0x42U, fake_nus_client_last_payload()[PROTO_MAX_PAYLOAD - 1U]);
+	TEST_ASSERT_TRUE(reply_has("len=240"));
+	TEST_ASSERT_TRUE(reply_has(expected));
 }
 
 static void test_a_sensor_that_does_not_reply_is_a_timeout_not_a_measurement(void)
@@ -546,6 +697,8 @@ int main(void)
 	RUN_TEST(test_ver_reports_which_build_is_on_the_dongle);
 	RUN_TEST(test_the_build_date_carries_no_spaces);
 	RUN_TEST(test_dfu_answers_before_it_resets);
+	RUN_TEST(test_dfu_keeps_servicing_usb_after_its_reply_has_left);
+	RUN_TEST(test_dfu_pulls_the_dongles_own_reset_pin);
 	RUN_TEST(test_time_reports_the_clock_and_its_rate);
 
 	RUN_TEST(test_scan_start_clears_the_table_first);
@@ -571,6 +724,10 @@ int main(void)
 	RUN_TEST(test_connect_stops_scanning_first);
 	RUN_TEST(test_connecting_twice_is_refused);
 	RUN_TEST(test_connect_to_a_given_address);
+	RUN_TEST(test_connect_listens_for_fifteen_seconds_by_default);
+	RUN_TEST(test_connect_takes_a_timeout_before_or_after_the_address);
+	RUN_TEST(test_connect_uses_the_selection_with_only_a_timeout);
+	RUN_TEST(test_connect_refuses_a_bad_timeout);
 	RUN_TEST(test_a_refused_connection_is_reported);
 	RUN_TEST(test_disconnect_without_a_link);
 	RUN_TEST(test_disconnect);
@@ -580,6 +737,10 @@ int main(void)
 	RUN_TEST(test_odd_length_hex_is_refused);
 	RUN_TEST(test_non_hex_is_refused);
 	RUN_TEST(test_cmd_reports_both_timestamps_and_the_round_trip);
+	RUN_TEST(test_cmd_carries_a_full_payload_both_ways);
+	RUN_TEST(test_cmd_waits_two_seconds_by_default);
+	RUN_TEST(test_cmd_takes_a_timeout_for_a_slow_command);
+	RUN_TEST(test_cmd_refuses_a_bad_timeout);
 	RUN_TEST(test_a_sensor_that_does_not_reply_is_a_timeout_not_a_measurement);
 	RUN_TEST(test_cmd_without_a_link);
 

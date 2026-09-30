@@ -129,6 +129,7 @@ teardown:                    # once, after all tests, whatever the outcome
 |---|---|---|
 | `name` | yes | Suite name; appears in every report |
 | `description` | no | Free text |
+| `warning` | no | A hazard, printed before anything is energised; gates the run on real hardware |
 | `requirements` | no | Requirements the suite as a whole addresses |
 | `instruments` | no | Alias to driver name, declaring what kind of instrument each alias must be |
 | `setup` | no | Steps run once before the tests |
@@ -137,6 +138,37 @@ teardown:                    # once, after all tests, whatever the outcome
 
 **A setup failure aborts the suite.** Every measurement taken after an unknown
 setup would be meaningless, so none are attempted.
+
+#### `warning`: a hazard the operator must see first
+
+Some suites are dangerous to run with the bench in its normal state — they
+energise outputs, put a meter on a current range, or drive a line that
+something is connected to. `warning` says so, and the runner prints it
+**before the bench is opened**, on the error stream so that redirecting the
+output does not hide it:
+
+```yaml
+warning: |
+  DISCONNECT EVERYTHING FROM THE INSTRUMENTS BEFORE RUNNING THIS TEST.
+  This test energises the supply output.
+```
+
+On a bench that is not simulated the run then stops until the warning is
+acknowledged:
+
+* `--acknowledge` confirms it up front, which is how an unattended hardware run
+  is done.
+* At a terminal, the runner asks. Only the full word `yes` counts — `y` is not
+  confirmation of a warning about damaging equipment.
+* Refusing exits **3**, distinct from a test failure, and no instrument is
+  opened.
+
+A **simulated** run is never gated: nothing is energised, and there is nobody
+to ask. That is what keeps a warned specification runnable in CI.
+
+The reason the gate exists rather than a printed line alone is that the
+consequence of ignoring this particular warning is silent — something wired to
+the bench is damaged, and no report says so.
 
 The `instruments` block states what each alias has to be:
 
@@ -167,6 +199,7 @@ answer.
 | `name` | yes | Test name |
 | `requirement` | no | Requirement verified; may be a list |
 | `description` | no | Free text |
+| `warning` | no | A hazard, printed before anything is energised; gates the run on real hardware |
 | `steps` | yes | Steps executed in order |
 | `skip` / `skip_reason` | no | Mark the test unrun, with a reason |
 
@@ -179,6 +212,7 @@ answer.
 | `expect` | no | Measurements to extract and check |
 | `save` | no | Keep the result under this name |
 | `description` | no | Free text |
+| `warning` | no | A hazard, printed before anything is energised; gates the run on real hardware |
 
 `do` names a **public** method of a bench instrument. Private names are refused: a
 specification is data, possibly written by someone who is not reviewing the
@@ -260,7 +294,9 @@ only the first can fail:
 
 An expected response is matched exactly after trimming; written `/like this/` it
 is a regular expression, for a reply carrying a value that varies. Anchor it
-with `^` and `$` to require the whole reply.
+with `^` and `$` to require the whole reply. A pipe inside any cell is written
+`\|` - `/^ACK = (ENABLED\|DISABLED)$/` - as in GitHub's markdown; an unescaped
+one ends the cell.
 
 The specification that runs the document holds no commands at all:
 
@@ -283,6 +319,108 @@ response at 10 ms resolution, and the result — and the session log
 `specs/sensor_commands.md` and `specs/sensor_commands.yaml` are the worked
 example; a document that would not parse, or would not pass against the
 simulated sensor, fails the suite's own tests.
+
+#### Variables, connecting, and running a document on its own
+
+A document can take parameters and open its own link, so one file tests any
+sensor it is pointed at. `specs/templates/ble_sensor_test.md` is the template
+to copy.
+
+```markdown
+| Variable  | Default | Notes |
+|-----------|---------|-------|
+| SENSOR_ID |         | Required |
+| SETTLE_MS | 500     |       |
+
+## Connect and identify
+
+| Step | Command              | Expected response      |
+|------|----------------------|------------------------|
+| 1    | connect ${SENSOR_ID} |                        |
+| 2    | delay ${SETTLE_MS}   |                        |
+| 3    | rd version           | /^ACK rd version = V11/ |
+| 4    | disconnect           |                        |
+```
+
+- **Variables** are declared in a `| Variable | Default |` table before the first
+  step and used as `${NAME}` in any command, expected response or delay. One
+  with no default must be given a value. Using an undeclared variable, or
+  giving a value for one, is an error naming the line.
+- **`connect <sensor>`** scans for 10 s, selects the sensor by address or by a
+  fragment of its advertised name (any case, strongest match), and opens the
+  link, trying up to three times. A link the document opened is closed when
+  the run ends, pass or fail.
+- **`disconnect`** closes the link.
+- **`<disconnect>`** as the expected response says the sensor will drop the
+  link after the command - a reset. The command is sent without waiting for a
+  reply, and the time to the disconnection is measured on the dongle's clock.
+- A **Timeout** column, in milliseconds, sets how long a step waits: for a
+  reply, a listening window, the link to drop, or a connect. Empty uses the
+  run's default (`--timeout-s`, 3 s). Some commands take longer than others;
+  waits over 2 s need dongle firmware 1.3 (`cmd <hex> timeout=<ms>`).
+- A **Note** column is carried into the report beside the result.
+- A **Frames** column says how many reply frames - notifications - a command
+  must produce, usually `1`: a sensor that answers twice leaves every later
+  command reading the previous one's reply. The step listens 0.5 s after the
+  reply, fails on a different count naming the extra frames, and logs each as
+  an `RX` event. A Frames cell is a claim even with no expected response.
+- A **Save** column names a variable to keep the step's reply in; later steps
+  use it as `${NAME}`, so a value read before an action can be compared with the
+  one after it. A pattern's first named group - `(?P<value>...)` - saves just
+  that part. Only a reply that passed its check, or had nothing expected of it,
+  is saved; a step using a value that was never saved is an error. Inside a
+  pattern the saved value is matched literally.
+- Tables that name none of the step columns - a legend, a conversion table -
+  are prose and are left alone.
+
+Every step gets one result, the first of these that applies:
+
+| Result | When |
+|---|---|
+| **ERROR** | The system returned a failure code: the dongle refused the command, a connect or disconnect failed, or no reply came where one was expected |
+| **SKIP** | The expected cell is empty - a delay, a connect or disconnect that worked, or a command nothing was promised for |
+| **FAIL** | The reply differs from the expected one, or the link stayed up after a `<disconnect>` step |
+| **PASS** | The reply matches, or the link dropped as expected |
+
+The run is **ERROR** if any step errored, else **FAIL** if any failed, else
+**PASS**. The report has a row per step: command, expected, actual, response
+time (to 10 ms), result and note.
+
+A document that connects runs on its own:
+
+```
+benchtools ble --resource COM10 script specs/templates/ble_sensor_test.md \
+    --var SENSOR_ID=5C1712 --report results.md --events events.log
+```
+
+It prints the run as JSON and exits 0 when every checked step passed, 1 when one
+failed or errored, or the run could not start. `--events` writes the event
+log: one tab-separated line per event - `time`, `event`, `step`, `data`,
+`result` - where the events are `TX`, `RX`, `DELAY`, `CONNECT`, `DISCONNECT` and
+`ERROR`. The time is the host's, to the millisecond; each `RX` line carries the
+dongle's own measurement of the exchange, to the microsecond. From a
+specification, pass the values with `variables` and the log with `events`:
+`{do: dongle.run_script, with: {source: ..., variables: {SENSOR_ID: 5C1712},
+events: events.log}}`.
+
+A `<disconnect>` whose reason is `0x08` was a supervision timeout: the sensor
+went silent, and the measured time includes the dongle's 4 s wait to decide
+the link had gone.
+
+A link that drops without being asked - a sensor that crashes or resets -
+is found before the next step, even when it happened during a delay. It is
+logged once as a `DISCONNECT` event, with the reason and the dongle's time,
+against the step during or after which it happened. Every step after it, up to
+the next `connect`, is **ERROR** with that reason and is not sent; a `connect`
+recovers and the run goes on.
+
+The template's *Build identity* test reads the sensor's `rd id`, `rd sha`
+(the firmware's git commit), `rd compiler` and `rd pcb`, and checks the ID
+against `${SENSOR_ID}`. A pattern starting `(?i)` ignores case.
+
+`${NAME}` is Robot Framework's variable syntax, and each row is one keyword
+call; the template ends with the mapping, for when these documents move to
+Robot Framework.
 
 ### 3.6 Values a later step takes from an earlier one
 
@@ -338,6 +476,57 @@ specification itself.
 `specs/sensor_bringup.yaml` is the worked example: it reads a board's identifier
 off the part, finds that board over the air by it, and compares what the board
 reports with what was flashed onto it.
+
+### 3.7 Parameters: values named once, at the top
+
+The values a reader is most likely to want to change - a tolerance, how many
+readings, which sensor - belong where they can be found, not scattered through
+the steps. A `parameters` block names them, and `{param: <name>}` stands for one
+anywhere below: an argument, a bound, a tolerance.
+
+```yaml
+parameters:
+  readings: 5
+  mcu_vs_machine_c: 5.0
+  alive_period_s: 10
+
+setup:
+  - do: dongle.command
+    with:
+      request: {param: alive_period_s, format: "WR ALIVE-PERIOD {}"}   # -> "WR ALIVE-PERIOD 10"
+
+tests:
+  - name: The MCU temperature agrees with the machine temperature
+    steps:
+      - do: rtt.rtt_samples
+        with: {pattern: 'MCU Temperature:\s*(-?\d+)mC', count: {param: readings}, scale: 0.001}
+        expect:
+          - name: mcu_highest_from_machine
+            measure: maximum
+            equals: {from: ble.mean}
+            tolerance: {param: mcu_vs_machine_c}
+```
+
+`format` renders the value into text, for a command that carries it. A name the
+block does not define is refused, and the message lists those it does. The
+values a run used are in its JSON record and at the top of its report, so a
+result can always be read against the limits that produced it.
+`specs/kepler_temperature.yaml` is the worked example.
+
+### 3.8 Repeated readings
+
+`dongle.sample_command`, `probe.rtt_samples` and `s2lp.kepler_samples` each take
+N readings of one quantity - a reply, a log line, a decoded frame field - and
+return them with their statistics. A limit then applies to the set:
+
+| `measure` | Meaning |
+|---|---|
+| `count` | readings taken; compare with how many were asked for, since a quiet source returns fewer rather than raising |
+| `minimum`, `maximum`, `mean` | as named |
+| `spread` | highest less lowest: how far the readings moved |
+
+Bounding `minimum` and `maximum` against another source's `mean` puts every
+reading inside the window, not just their average.
 
 ---
 
@@ -456,6 +645,7 @@ wins.
 |---|---|---|
 | `read_variable`, `read_word`, `read_u8`, `variable_address`, `evaluate` | a scalar | *(omit `measure`)* |
 | `read_integer` | a scalar, `size` bytes in the `byteorder` given | *(omit `measure`)* — for a record whose width and byte order are its own, not the core's |
+| `rtt_samples` | `SampleSet` | `count`, `minimum`, `maximum`, `mean`, `spread` (§3.8) |
 | `measure_time_between` | `TimingResult` | `microseconds`, `milliseconds`, `cycles`, `spread`, `standard_deviation`, `minimum`, `maximum`, `count`, `is_trustworthy`, `halts_target`, `resolution_seconds` |
 | `flash` | `FlashResult` | `bytes_written`, `verify.matched`, `seconds`, `sections` |
 | `verify` | `VerifyResult` | `matched`, `mismatched`, `sections` |

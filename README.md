@@ -53,7 +53,7 @@ GDB/MI, and the runner treats it like any other instrument.
 | `benches/` | Example bench configurations |
 | `configs/` | Instrument register configurations a test can require |
 | `examples/` | Runnable Python examples |
-| `docs/` | ASPICE V4 SWE.1–SWE.4 work products |
+| `docs/` | ASPICE V4 CL2 work products: SYS.2–SYS.5, SWE.1–SWE.6, the management and support plans, and the C coding standards |
 
 ---
 
@@ -546,7 +546,7 @@ with Gpd3303D.connect("/dev/ttyUSB0") as psu:      # COM4 on Windows
 
 | | |
 |---|---|
-| **It clamps what it cannot deliver.** Ask for 35 V and it outputs 30 V and reports 30 V, with no error | The driver refuses an out-of-range setting *before* sending it, so a test cannot pass against a condition it never applied |
+| **It rejects what it cannot deliver, silently.** Ask for 35 V and it keeps its previous setting, sends no reply, and says so only through `ERR?` | The driver refuses an out-of-range setting *before* sending it, so a test cannot run at a setting it never asked for |
 | **A channel in current limit is not at the voltage it was set to.** A 3.3 V rail with a 500 mA limit into a 1.5 A load reads 1.0 V — a real, plausible number describing a circuit nobody asked for | `ChannelReading` carries the CV/CC mode with the numbers, and `regulated` is the single line a specification should assert on |
 | **One output switch, two channels.** There is no per-channel output command in the instrument | Per-channel control is emulated by parking a channel at 0 V, and every place a caller meets it says so. `output_off(1)` is **not** isolation and **not** an interlock; `all_outputs_off()` opens the real switch |
 | **In series or parallel tracking, channel 2 is not a channel.** The supply drives it from channel 1 and *accepts and discards* anything sent to it — no error, and `VSET2?` answering with channel 1's setting | The driver reads the mode at the moment of the write and refuses, naming it. Channel 1, the global switch and `reset()` keep working in every mode, because a safe state must never be unreachable |
@@ -675,7 +675,9 @@ configurations can name it. New link types (serial, USBTMC, HTTP) register with
 | [`examples/06_ble_sensor.py`](examples/06_ble_sensor.py) | Scan, select, advertising profile, and command/response timing through a BLE dongle |
 | [`examples/07_supply_rails.py`](examples/07_supply_rails.py) | Bringing up two rails, and catching one that is in current limit |
 | [`examples/08_s2lp_radio.py`](examples/08_s2lp_radio.py) | Dumping an S2-LP's registers, transmitting, and capturing to a packet log |
-| [`examples/09_pico_thermometer.py`](examples/09_pico_thermometer.py) | Identifying a Pico 2 thermometer by title and version, and logging temperature |
+| [`examples/09_sensor_version.py`](examples/09_sensor_version.py) | Finding a sensor by part of its name, in any case, and reading its version over BLE UART |
+| [`examples/10_psu_front_panel_check.py`](examples/10_psu_front_panel_check.py) | Stepping a GPD-3303D through ten states while an operator checks the front panel; the answers are logged as TB-SIT-03 evidence |
+| [`examples/11_pico_thermometer.py`](examples/11_pico_thermometer.py) | Identifying a Pico 2 thermometer by title and version, and logging temperature |
 
 Each takes an address (or bench file) and defaults to simulation:
 
@@ -692,7 +694,7 @@ python examples/02_channel_spread.py            # simulator
 python -m pytest tests/ --cov=benchtools --cov-report=term
 ```
 
-**1 956 tests, 95% statement coverage, no hardware required** — no oscilloscope,
+**2 497 tests (2 496 pass, 1 skipped without `tkinter`), 95% statement coverage, no hardware required** — no oscilloscope,
 no probe, no target, no GDB, no dongle, no BLE sensor, no power supply, no
 sub-1 GHz kit, no Pico. The Pico firmware's own 61 unit tests run under CTest
 (`firmware/pico_sht30/test`). With
@@ -715,6 +717,65 @@ source carries its trace and allocates nothing dynamically.
 
 ---
 
+## Continuous integration
+
+Three workflows run in `.github/workflows/`:
+
+| Workflow | What it does |
+|---|---|
+| `tests.yml` | The Python suite on 3.8, 3.9 and 3.12, with coverage gated at 90% |
+| `lint.yml` | `pylint` over `benchtools/`, `tests/` and `scripts/`, against a recorded baseline |
+| `firmware.yml` | The dongle firmware's own Unity/CTest unit tests, then the real cross-compile against nRF5 SDK 17.1.0 and a DFU package |
+| `style.yml` | `dermot-murphy/CStyleCheck@v1.5.1` over `firmware/nordic_dongle`, against `.cstylecheck.yml` and a baseline |
+| `bench.yml` | The bench specifications, run through this repository's own action against the simulated bench |
+
+`tests.yml` is the one that makes the others mean something: the traceability
+check and the layering test live in the suite, so they now run where they can
+block a merge rather than only on a developer's machine.
+
+Both linters run against a **baseline** — the findings present when the check
+was introduced — so a job fails on new findings rather than on existing debt.
+What is in each baseline, and what closing it involves, is in the
+[analysis report](docs/aspice/TestBench_Analysis_Report.md) §6.12 and §6.13.
+
+### Using the bench runner as an action
+
+This repository publishes a composite action, so another project can run its
+bench specifications in CI:
+
+```yaml
+- uses: dermot-murphy/TestTools@v1
+  id: bench
+  with:
+    specs: |
+      specs/sensor_bringup.yaml
+      specs/sensor_commands.yaml
+    bench:    benches/lab1.yaml   # or benches/simulated_bench.yaml
+    simulate: 'false'
+    junit:    results/bench.xml
+    markdown: results/bench.md
+
+- run: echo "${{ steps.bench.outputs.passed }} passed, ${{ steps.bench.outputs.failed }} failed"
+```
+
+It annotates each failed case inline with the measurement that missed and the
+limit it missed by, writes a job summary listing every instrument's identity,
+and publishes JUnit XML. Failure and error stay apart all the way to the exit
+code — `fail-on: error` gates on the bench being able to measure, rather than on
+the target passing — and a run with any simulated instrument says so in the
+annotations, the summary and every report file.
+
+`simulate: 'true'` also swaps in the simulators, but it supplies no bench
+options, so a specification that checks firmware against a manifest needs
+`benches/simulated_bench.yaml` instead — a manifest is a file whether the
+instrument is real or not. With several specifications, `benchtools` numbers the
+result files and the action reads all of them, reporting one summary per suite
+and a combined total.
+
+Full input and output reference: [`action.yml`](action.yml).
+
+---
+
 ## Documentation
 
 | Document | Contents |
@@ -727,15 +788,25 @@ source carries its trace and allocates nothing dynamically.
 | [S2-LP Devkit Notes](docs/s2lp/S2LP_Devkit_Notes.md) | Why ST's firmware is used unchanged, its CLI protocol, the register map, what a polled capture can and cannot be quoted as, and the licence position |
 | [GPD-3303D Notes](docs/psu/GPD3303D_Notes.md) | The four ways this supply will mislead a test, its command set and status word, and the bench confirmation items |
 | [Pico 2 + SHT30-D Notes](docs/pico_sht30/Pico_SHT30_Notes.md) | Wiring, building and flashing the thermometer firmware, datasheet facts, MISRA position, bench confirmation items; [reference documents](docs/pico_sht30/References.md) |
-| [SWE.1 Requirements](docs/SWE1_Software_Requirements_Specification.md) | 282 functional and 31 non-functional requirements |
-| [SWE.2 Architecture](docs/SWE2_Software_Architecture.md) | Layering, elements, twenty-four architectural decisions |
-| [SWE.3 Detailed Design](docs/SWE3_Software_Detailed_Design.md) | Per-module design units |
-| [SWE.4 Test Specification](docs/SWE4_Unit_Test_Specification.md) | Strategy, test groups, pass criteria |
-| [SWE.4 Test Report](docs/SWE4_Unit_Test_Report.md) | Results, coverage, measured accuracy, forty defects found |
-| [Traceability Matrix](docs/Traceability_Matrix.md) | Bidirectional trace, stakeholder need to test |
+| [SWE.1 Requirements](docs/aspice/TestBench_SWE1_SW_Requirements.md) | 177 functional and 18 non-functional requirements |
+| [SWE.2 Architecture](docs/aspice/TestBench_SWE2_SW_Architecture.md) | Layering, elements, eighteen architectural decisions |
+| [SWE.3 Detailed Design](docs/aspice/TestBench_SWE3_Detailed_Design.md) | Per-module design units |
+| [SWE.4 Test Specification](docs/aspice/TestBench_SWE4_Unit_Verification.md) | Strategy, test groups, pass criteria |
+| [SWE.4 Test Report](docs/aspice/TestBench_SWE4_Unit_Verification_Report.md) | Results, coverage, measured accuracy, forty defects found |
+| [Traceability Matrix](docs/aspice/TestBench_Traceability_Matrix.md) | Bidirectional trace, stakeholder need to test |
+| [System Requirements & Architecture](docs/aspice/TestBench_SYS2_System_Requirements.md) | What the whole bench must do, and the elements and interfaces that do it |
+| [System Qualification](docs/aspice/TestBench_SYS5_System_Qualification_Test.md) | Eight scenarios, simulated and on hardware, and the gap between the two columns |
+| [Repository Analysis Report](docs/aspice/TestBench_Analysis_Report.md) | What is measured here, what the checks do not reach, and what to do first |
+| [Process Capability Records](docs/aspice/TestBench_PA2_Capability_Records.md) | Level 2 generic practices, rated against the evidence that exists |
 
-Work products follow Automotive SPICE V4.0 SWE.1–SWE.4. This is a test tool: it is
-not delivered vehicle software and carries no ASIL classification.
+The full index is [docs/README.md](docs/README.md).
+
+Work products follow Automotive SPICE V4.0 at Capability Level 2 - SYS.2 to
+SYS.5, SWE.1 to SWE.6, the management and support plans, and the C coding
+standards. This is a test tool: it is not delivered vehicle software and carries
+no ASIL classification. Capability Level 2 is **not** achieved, and
+[TB-PA2-001](docs/aspice/TestBench_PA2_Capability_Records.md) says which three
+practices fall short and why.
 
 ---
 

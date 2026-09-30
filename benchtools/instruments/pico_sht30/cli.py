@@ -70,6 +70,7 @@ def _cmd_bootsel(thermometer: PicoSht30, args) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """The argument parser for ``benchtools thermo``."""
     parser = argparse.ArgumentParser(
         prog="benchtools thermo",
         description="Read a Raspberry Pi Pico 2 + SHT30-D thermometer.",

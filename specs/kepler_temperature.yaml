@@ -1,0 +1,143 @@
+# The Kepler sensor's temperatures agree with each other, and it broadcasts
+# what it measures (#95).
+#
+# Three sources, each read five times a second apart:
+#   * the machine temperature (TMP144), over BLE: RD TEMPERATURE, in mC;
+#   * the MCU (nRF52840 die) temperature, from the firmware's RTT log through
+#     the J-Link - the firmware has no BLE command for it. It logs
+#     "Machine Temperature: <n>mC" and "MCU Temperature: <n>mC" each time it
+#     samples for a frame that carries a temperature;
+#   * the ALIVE frame on the S2-LP, which carries the machine temperature from
+#     that same sample, rounded to 0.1 C.
+#
+# WR ALIVE-PERIOD shortens the ALIVE period for the run. It is stored in the
+# sensor's NVM, so teardown puts the normal period back; if a run is cut short,
+# send "WR ALIVE-PERIOD 600" by hand. While a BLE link is open the sensor wakes
+# every second and sends ALIVE (and logs its temperatures) on each wake-up
+# (seen on 5C1712 with ALIVE-PERIOD 10, 2026-09-28), which is what makes one
+# reading a second possible from all three sources.
+#
+# The probe is declared jlink-rtt: RTT through the GDB Server with -nohalt and
+# no GDB attach. An attach halts the core even with -nohalt; a SoftDevice halted
+# during a BLE link drops the link and then faults (5C1712, #95). A bench whose
+# probe is a plain jlink is refused before anything connects.
+#
+# Against hardware (5C1712 is the sensor approved for configuration changes):
+#   python -m benchtools run specs/kepler_temperature.yaml --bench benches/lab1.yaml
+#
+# The simulated bench has no sensor on the air, so this suite needs hardware.
+
+name: Kepler temperature
+description: >
+  The machine temperature is steady, the MCU temperature agrees with it, and
+  the ALIVE frame carries the temperature read over BLE.
+requirements: [BLE-FR-117, JLINK-FR-102, S2LP-FR-072]
+
+# Change these here, not in the steps below.
+parameters:
+  sensor_address: "D1:8D:3B:4C:19:96"   # 5C1712
+  sensor_id: "5C1712"
+  readings: 5                           # of each source
+  interval_s: 1.0                       # between BLE readings
+  alive_period_s: 10                    # for the run; 10 is the sensor's minimum
+  normal_alive_period_s: 600            # put back afterwards; the firmware default
+  stability_c: 2.0                      # machine temperature: highest less lowest
+  mcu_vs_machine_c: 5.0                 # every MCU reading from the BLE mean
+  alive_vs_ble_c: 0.5                   # every ALIVE reading from the BLE mean
+
+instruments:
+  dongle: ble-dongle
+  s2lp: s2lp
+  rtt: jlink-rtt
+
+setup:
+  - do: s2lp.apply_configuration
+    with: {source: configs/s2lp_kepler_433_rx.regs, reset: defaults}
+  - do: rtt.rtt_start
+  - do: dongle.scan
+    with: {duration: 5.0}
+  - do: dongle.select
+    with: {sensor: {param: sensor_address}}
+  - do: dongle.open_link
+  - do: dongle.command
+    with:
+      request: {param: alive_period_s, format: "WR ALIVE-PERIOD {}"}
+      timeout: 45.0
+    expect:
+      - name: alive_period_set
+        measure: text
+        equals: {param: alive_period_s, format: "ACK WR ALIVE-PERIOD {} Secs"}
+
+tests:
+  - name: The machine temperature read over BLE is steady
+    requirement: BLE-FR-117
+    steps:
+      - do: dongle.sample_command
+        with:
+          request: RD TEMPERATURE
+          pattern: '= (-?\d+)mC'
+          count: {param: readings}
+          interval: {param: interval_s}
+          scale: 0.001
+          unit: C
+          timeout: 45.0
+        save: ble
+        expect:
+          - {name: readings, measure: count, equals: {param: readings}}
+          - {name: machine_spread, measure: spread, unit: C, max: {param: stability_c}}
+
+  - name: The MCU temperature agrees with the machine temperature
+    requirement: JLINK-FR-102
+    steps:
+      - do: rtt.rtt_samples
+        with:
+          pattern: 'MCU Temperature:\s*(-?\d+)mC'
+          count: {param: readings}
+          timeout: 60.0                 # the 1 s cadence can take ~30 s to start after linking
+          scale: 0.001
+          unit: C
+          name: MCU temperature
+        expect:
+          - {name: readings, measure: count, equals: {param: readings}}
+          - name: mcu_lowest_from_machine
+            measure: minimum
+            unit: C
+            equals: {from: ble.mean}
+            tolerance: {param: mcu_vs_machine_c}
+          - name: mcu_highest_from_machine
+            measure: maximum
+            unit: C
+            equals: {from: ble.mean}
+            tolerance: {param: mcu_vs_machine_c}
+
+  - name: The ALIVE frame carries the temperature read over BLE
+    requirement: S2LP-FR-072
+    steps:
+      - do: s2lp.kepler_samples
+        with:
+          field: temperature_c
+          source: {param: sensor_id}
+          frame_type: ALIVE
+          count: {param: readings}
+          timeout: 60.0
+          unit: C
+        expect:
+          - {name: frames, measure: count, equals: {param: readings}}
+          - name: alive_lowest_from_ble
+            measure: minimum
+            unit: C
+            equals: {from: ble.mean}
+            tolerance: {param: alive_vs_ble_c}
+          - name: alive_highest_from_ble
+            measure: maximum
+            unit: C
+            equals: {from: ble.mean}
+            tolerance: {param: alive_vs_ble_c}
+
+teardown:
+  - do: dongle.command
+    with:
+      request: {param: normal_alive_period_s, format: "WR ALIVE-PERIOD {}"}
+      timeout: 45.0
+  - do: dongle.close_link
+  - do: rtt.rtt_stop

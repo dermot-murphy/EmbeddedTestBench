@@ -1,0 +1,104 @@
+# The Kepler sensor's VERSION frame carries what the sensor reports over BLE
+# (#102). The reference project's bench test OT-E-20, "VERSION frame content",
+# less its boot-CMD half (that needs WR LISTEN-ENABLE and a power cycle).
+#
+# As in OT-E-20, the sensor is read over BLE first and then reset: RD VERSION,
+# RD SHA and RD BATTERY-LOADED, then ECURESET HARD, an MCU reset that stands in
+# for OT-E-20's power cycle. The sensor sends a VERSION frame after every
+# reset; on 5C1712 it arrived about 8 s after the ACK (#85), so the S2-LP is
+# receiving well before it. The frame must carry:
+#   * the version string RD VERSION reported, whole. A development build's is
+#     git describe's, e.g. V11.00.0000-31-ga8e37e892; that suffix is the build's
+#     name, not the separately appended SHA OT-E-20 rules out;
+#   * the first seven characters of the SHA RD SHA reported. The frame has 7
+#     bytes for it (the decoder's sha field), and SCM_SHA_SHORT can be longer:
+#     on 2026-09-29 RD SHA answered a8e37e892 and the frame carried a8e37e8.
+#     OT-E-20 asks for a match with the start of RD SHA, which this is, stated
+#     exactly;
+#   * a loaded battery voltage within battery_tolerance_mv of RD BATTERY-LOADED
+#     (20 mV steps on the air, OT-E-20's 20 mV window). The two are separate
+#     loaded measurements, the frame's taken at boot;
+#   * the sensor ID, reset reason 4 (RESETREAS.SREQ, a software reset) and PCB
+#     byte 3 (V4X; V10.01.2000 sent 4).
+#
+# Against hardware (5C1712 is the sensor approved for configuration changes):
+#   python -m benchtools run specs/kepler_version.yaml --bench benches/lab1.yaml
+#
+# The simulated bench has no sensor on the air, so this suite needs hardware.
+
+name: Kepler VERSION frame
+description: >
+  After a reset the sensor sends a VERSION frame, and its version, SHA and
+  loaded battery voltage agree with what the sensor reported over BLE.
+requirements: [S2LP-FR-073, BLE-FR-118]
+
+# Change these here, not in the steps below.
+parameters:
+  sensor_address: "D1:8D:3B:4C:19:96"   # 5C1712
+  sensor_id: "5C1712"
+  pcb_code: 3                           # V4X, as the frame carries it
+  reset_reason: 4                       # RESETREAS.SREQ, after ECURESET HARD
+  frame_timeout_s: 60.0
+  battery_tolerance_mv: 20
+
+instruments:
+  dongle: ble-dongle
+  s2lp: s2lp
+
+setup:
+  - do: s2lp.apply_configuration
+    with: {source: configs/s2lp_kepler_433_rx.regs, reset: defaults}
+  - do: dongle.scan
+    with: {duration: 5.0}
+  - do: dongle.select
+    with: {sensor: {param: sensor_address}}
+
+tests:
+  - name: After a reset the VERSION frame carries what the sensor reported over BLE
+    requirement: S2LP-FR-073, BLE-FR-118
+    steps:
+      - do: dongle.open_link
+      - do: dongle.command
+        with: {request: RD VERSION, timeout: 45.0}
+        save: ble_version
+      - do: dongle.command
+        with: {request: RD SHA, timeout: 45.0}
+        save: ble_sha
+      - do: dongle.sample_command
+        with:
+          request: RD BATTERY-LOADED
+          pattern: '= (\d+)mV'
+          count: 1
+          unit: mV
+          timeout: 45.0
+        save: ble_battery
+        expect:
+          - {name: battery_loaded_read, measure: count, equals: 1}
+      - do: dongle.command
+        with: {request: "ECURESET HARD", timeout: 45.0}
+        expect:
+          - {name: reset_acknowledged, measure: text, equals: "ACK ECURESET HARD"}
+      - do: dongle.close_link
+      - do: s2lp.kepler_frame
+        with:
+          frame_type: VERSION
+          source: {param: sensor_id}
+          timeout: {param: frame_timeout_s}
+        expect:
+          - {name: sensor_id, measure: sensor_id, equals: {param: sensor_id}}
+          - {name: reset_reason, measure: reset_reason, equals: {param: reset_reason}}
+          - {name: pcb_version, measure: pcb_version, equals: {param: pcb_code}}
+          - name: version_as_rd_version
+            measure: version
+            equals: {from: ble_version.value}
+          - name: sha_as_start_of_rd_sha
+            measure: sha
+            equals: {from: ble_sha.value, format: "{:.7}"}
+          - name: battery_loaded_as_rd_battery_loaded
+            measure: battery_loaded_mv
+            unit: mV
+            equals: {from: ble_battery.mean}
+            tolerance: {param: battery_tolerance_mv}
+
+teardown:
+  - do: dongle.close_link

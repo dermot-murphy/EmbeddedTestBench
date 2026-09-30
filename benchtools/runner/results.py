@@ -142,6 +142,8 @@ class RunRecord:
     setup_error: str = ""
     spec_source: str = ""
     simulated: bool = False
+    #: The specification's parameters, as this run used them.
+    parameters: Dict[str, Any] = field(default_factory=dict)
     #: Alias to what the instrument said it was: driver, model, firmware,
     #: resource. Recorded because a measurement without the instrument that
     #: made it is not evidence - and firmware version in particular decides
@@ -211,6 +213,7 @@ class RunRecord:
             "suite": self.suite,
             "bench": self.bench,
             "spec_source": self.spec_source,
+            "parameters": dict(self.parameters),
             "simulated": self.simulated,
             "status": self.status.value,
             "started": self.started,

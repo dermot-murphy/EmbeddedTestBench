@@ -11,7 +11,7 @@ The supply's **third** output - the fixed 2.5 / 3.3 / 5 V rail - is not driven
 from here. It is selected by a front-panel switch, so a driver could neither
 set it nor read back what it is set to; see :data:`.constants.CHANNELS`.
 
-Four things about this supply shape the driver, and each of them is a way a
+Five things about this supply shape the driver, and each of them is a way a
 naive implementation reports a number that is not true:
 
 **The output switch is global.** ``OUT1`` and ``OUT0`` switch *both* channels;
@@ -30,6 +30,11 @@ no flow control, so the driver paces commands (see ``command_interval``). A
 dropped command at 9600 baud is silent: the supply answers the next query
 perfectly well, and the rail is not where the test believes it is.
 
+**It reads back coarser than it programs.** Setpoints go in to 1 mV and come
+back to 0.1 V; currents go in to 1 mA and come back to 10 mA (firmware V1.09,
+see :data:`.constants.VOLTAGE_READBACK_RESOLUTION`). Anything comparing a
+reading with a setpoint allows for that, or it fails a rail that is fine.
+
 **In series or parallel tracking, CH2 is not its own channel.** The supply
 drives it from CH1 and discards setpoints sent to it - without an error, and
 without anything in ``STATUS?`` to say it did. The driver refuses to send them
@@ -44,9 +49,9 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Tuple
 
-from ...core.errors import ConfigurationError, InstrumentError, ProtocolError
+from ...core.errors import ConfigurationError, ProtocolError, TransportTimeoutError
 from ...core.instrument import InstrumentIdentity
 from ...core.scpi import ScpiInstrument
 from ...core.transport.base import Transport
@@ -56,14 +61,17 @@ from .constants import (
     CURRENT_RESOLUTION,
     DEFAULT_BAUDRATE,
     DEFAULT_COMMAND_INTERVAL,
-    MANUFACTURER,
     MAX_CURRENT,
     MAX_VOLTAGE,
     MODEL,
-    STATUS_BAUDRATES,
+    REPLY_TERMINATOR,
+    STATUS_BIT_BEEP,
+    STATUS_BIT_OUTPUT,
+    STATUS_LEGEND_LINES,
     STATUS_LENGTH,
     TRACKED_CHANNEL,
     TRACKING_MODES,
+    VOLTAGE_READBACK_RESOLUTION,
     VOLTAGE_RESOLUTION,
     ChannelMode,
     TrackingMode,
@@ -108,8 +116,13 @@ class ChannelReading:
 
     @property
     def in_current_limit(self) -> bool:
-        """``True`` when the channel is in CC, so the rail is below setpoint."""
-        return self.mode == ChannelMode.CONSTANT_CURRENT
+        """``True`` when the channel is on and in CC, so the rail is below setpoint.
+
+        Only an energised channel can be limiting. A real supply reports CC for
+        both channels while its output switch is open, and that is not a board
+        drawing too much current.
+        """
+        return self.is_on and self.mode == ChannelMode.CONSTANT_CURRENT
 
     @property
     def regulated(self) -> bool:
@@ -117,12 +130,17 @@ class ChannelReading:
 
         This is the question a test usually means when it asks whether the
         supply is "on": energised, in constant voltage, and within the
-        programming resolution of its setpoint.
+        read-back resolution of its setpoint.
+
+        The tolerance is one and a half read-back steps, or 1 %, whichever is
+        larger: the setpoint comes back rounded to 0.1 V and the measurement
+        truncated to it, so a channel set to 3.600 V and delivering it reads
+        ``3.5V`` against a setpoint of ``3.6V``.
         """
         if not self.is_on or self.in_current_limit:
             return False
         return abs(self.voltage - self.voltage_setpoint) <= max(
-            0.05, self.voltage_setpoint * 0.01
+            1.5 * VOLTAGE_READBACK_RESOLUTION, self.voltage_setpoint * 0.01
         )
 
     def as_dict(self) -> Dict[str, object]:
@@ -144,10 +162,12 @@ class ChannelReading:
 class SupplyStatus:
     """The decoded ``STATUS?`` word, with the raw reply kept beside it.
 
-    The raw string is retained because the bit *order* of the reply is the one
-    thing about this command that cannot be settled without the instrument in
-    front of you (PSU-OPEN-01). Everything decoded here follows the programming
-    manual; ``raw`` is what the supply actually said.
+    The decode follows what a V1.09 supply says about itself in the legend it
+    sends after the bits, confirmed on the bench (PSU-OPEN-01): bit 0 first,
+    output at bit 6. ``raw`` is what the supply actually said, kept so that a
+    supply with other firmware can be checked against it.
+
+    The supply does not report its line rate, so there is no field for it.
     """
 
     raw: str
@@ -155,7 +175,6 @@ class SupplyStatus:
     tracking: str
     beep: bool
     output: bool
-    baudrate: int = 0
 
     def mode(self, channel: int) -> str:
         """CV or CC for *channel*."""
@@ -168,7 +187,6 @@ class SupplyStatus:
             "tracking": self.tracking,
             "beep": self.beep,
             "output": self.output,
-            "baudrate": self.baudrate,
         }
 
 
@@ -211,6 +229,9 @@ class Gpd3303D(ScpiInstrument):
             auto_check_errors=auto_check_errors,
             owns_transport=owns_transport,
         )
+        # Commands go out ending in a line feed, which the supply accepts; its
+        # replies end in a carriage return alone.
+        transport.read_terminator = REPLY_TERMINATOR
         if command_interval is None:
             command_interval = self._default_command_interval(transport.description)
         self._command_interval = max(0.0, float(command_interval))
@@ -440,25 +461,28 @@ class Gpd3303D(ScpiInstrument):
     def _quantise(value: float, resolution: float) -> float:
         """Round to the supply's programming step, as the supply itself will.
 
-        Done here so that a setpoint read back compares equal to the one that
-        was sent: a test asserting ``voltage_setpoint(1) == 3.3`` should not
-        fail on the supply's 1 mV grid, nor on the float noise of applying it.
+        Done here so that the value returned from a setter is the one the
+        supply applies, free of the float noise of the arithmetic. It is not
+        what the supply reads back: that is coarser - see
+        :data:`~.constants.VOLTAGE_READBACK_RESOLUTION`.
         """
         return round(round(value / resolution) * resolution, 6)
 
     @staticmethod
     def _check_range(value: float, limit: float, quantity: str, unit: str) -> float:
-        """Refuse a setting the supply would silently clamp.
+        """Refuse a setting the supply would reject.
 
-        Clamping is the dangerous case: the supply accepts 35 V, outputs 30 V,
-        reports 30 V when asked, and the test records a pass for a condition it
-        never applied.
+        The supply sends no reply to a setting it rejects: it keeps the
+        previous setpoint and records ``Data out of range.`` for ``ERR?``,
+        which the driver does not poll by default. A test that asked for 35 V
+        would carry on at whatever the channel was set to before.
         """
         number = float(value)
         if number < 0.0 or number > limit:
             raise ConfigurationError(
                 "%s of %g %s is outside what a %s can deliver (0 to %g %s); "
-                "the supply would clamp it silently"
+                "the supply would reject it, keep its previous setting, and "
+                "say so only through ERR?"
                 % (quantity, number, unit, MODEL, limit, unit)
             )
         return number
@@ -540,6 +564,9 @@ class Gpd3303D(ScpiInstrument):
         For a channel switched off this is the remembered setpoint - what the
         channel will deliver when it is switched on - not the zero currently
         programmed. The distinction is the whole point of the emulation.
+
+        Read from the supply, it comes back to 0.1 V: a channel set to
+        3.250 V reports 3.3 V.
         """
         channel = self._check_channel(channel)
         if channel in self._parked:
@@ -600,32 +627,64 @@ class Gpd3303D(ScpiInstrument):
     def status(self) -> SupplyStatus:
         """Decode ``STATUS?``.
 
-        :raises ProtocolError: if the reply is not the documented eight
-            characters - which usually means the line rate is wrong, and is
-            worth saying plainly rather than decoding into nonsense.
+        Accepts the reply in both forms: eight characters with nothing between
+        them, as the programming manual prints it, and eight space-separated
+        fields followed by two lines of legend, as firmware V1.09 sends it.
+        Bits the supply reports as ``X`` are not used.
+
+        :raises ProtocolError: if the reply is not eight bits - which usually
+            means the line rate is wrong, and is worth saying plainly rather
+            than decoding into nonsense.
         """
         raw = self._query("STATUS?").strip()
-        bits = "".join(character for character in raw if character in "01")
-        if len(bits) != STATUS_LENGTH:
+        spaced = " " in raw
+        if spaced:
+            self._read_status_legend()
+        fields = raw.split() if spaced else list(raw)
+        if len(fields) != STATUS_LENGTH or any(
+            field.upper() not in ("0", "1", "X") for field in fields
+        ):
             raise ProtocolError(
                 "expected %d status bits from STATUS?, got %r. Check the line "
                 "rate matches the supply's own setting (Utility > Baud)."
                 % (STATUS_LENGTH, raw)
             )
-        flags = [character == "1" for character in bits]
+        flags = [field == "1" for field in fields]
         modes = tuple(
             ChannelMode.CONSTANT_VOLTAGE if flags[index] else ChannelMode.CONSTANT_CURRENT
             for index in range(len(CHANNELS))
         )
-        tracking = (flags[3] << 1) | flags[2]
+        # Bit 2 is the left digit, as the supply's own legend writes it.
+        tracking = (flags[2] << 1) | flags[3]
         return SupplyStatus(
             raw=raw,
             modes=modes,
             tracking=TRACKING_MODES.get(tracking, TrackingMode.UNKNOWN),
-            beep=flags[4],
-            output=flags[5],
-            baudrate=STATUS_BAUDRATES.get((flags[6] << 1) | flags[7], 0),
+            beep=flags[STATUS_BIT_BEEP],
+            output=flags[STATUS_BIT_OUTPUT],
         )
+
+    def _read_status_legend(self) -> None:
+        """Read the legend a V1.09 supply sends after its ``STATUS?`` bits.
+
+        It has to be read rather than discarded: at 9600 baud it is still
+        arriving when the next command goes out, and it would be taken as the
+        reply to that command and the one after. A supply that sends spaced
+        bits and no legend is tolerated, at the cost of one timeout.
+        """
+        for _ in range(STATUS_LEGEND_LINES):
+            try:
+                line = self._transport.read_message()
+            except TransportTimeoutError:
+                _LOG.warning("the supply sent no legend after STATUS?; "
+                             "expected %d lines", STATUS_LEGEND_LINES)
+                return
+            text = line.decode("ascii", errors="replace").strip()
+            if not text.lower().startswith("bit"):
+                raise ProtocolError(
+                    "expected the STATUS? legend after the status bits, got %r"
+                    % text
+                )
 
     def read_event_queue(self) -> List[Tuple[int, str]]:
         """Ask the supply whether it rejected anything.

@@ -15,6 +15,7 @@
 #include "nus_client.h"
 
 static nrf_ble_gq_t m_queue;
+static ble_db_discovery_t m_db_discovery;
 
 /** Bring the link up the way the stack does: connect, discover, ready. */
 static void establish_link(void)
@@ -41,7 +42,8 @@ void setUp(void)
 	fake_clock_set_step(500U);
 	fake_nus_reset();
 	fake_gap_reset();
-	(void)nus_client_init(&m_queue);
+	fake_db_discovery_reset();
+	(void)nus_client_init(&m_queue, &m_db_discovery);
 }
 
 void tearDown(void)
@@ -72,9 +74,22 @@ static void test_connecting_asks_the_stack_for_the_right_address(void)
 	ble_gap_addr_t target;
 
 	(void)scanner_parse_address("E4:1C:7B:02:9A:11", &target);
-	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, nus_client_connect(&target));
+	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, nus_client_connect(&target, 15000U));
 	TEST_ASSERT_EQUAL_UINT32(1U, fake_gap_connect_count());
 	TEST_ASSERT_EQUAL_MEMORY(target.addr, fake_gap_connect_address()->addr, BLE_GAP_ADDR_LEN);
+}
+
+static void test_connecting_listens_continuously_for_the_time_asked(void)
+{
+	/* A sensor advertising every 9 s was missed by a 5 s window listening
+	 * half the time (#39). */
+	ble_gap_addr_t target;
+
+	(void)scanner_parse_address("E4:1C:7B:02:9A:11", &target);
+	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, nus_client_connect(&target, 20000U));
+	TEST_ASSERT_EQUAL_UINT16(fake_gap_connect_scan_params()->interval,
+				 fake_gap_connect_scan_params()->window);
+	TEST_ASSERT_EQUAL_UINT16(2000U, fake_gap_connect_scan_params()->timeout);
 }
 
 static void test_a_connection_reports_the_interval(void)
@@ -97,13 +112,53 @@ static void test_discovery_makes_the_link_usable_and_says_so(void)
 	TEST_ASSERT_TRUE(strstr(fake_last_line(), "state=ready") != NULL);
 }
 
+static void test_a_connection_starts_discovery_on_that_link(void)
+{
+	/* Nothing else starts it. Without this a real sensor links and is never
+	 * ready: observed on a PCA10059 against a KAPPA sensor (#38). */
+	ble_evt_t event;
+
+	(void)memset(&event, 0, sizeof(event));
+	event.header.evt_id = BLE_GAP_EVT_CONNECTED;
+	event.evt.gap_evt.conn_handle = 7U;
+	nus_client_on_ble_evt(&event);
+
+	TEST_ASSERT_EQUAL_UINT32(1U, fake_db_discovery_starts());
+	TEST_ASSERT_EQUAL_UINT16(7U, fake_db_discovery_conn_handle());
+	TEST_ASSERT_FALSE(nus_client_is_ready());
+}
+
+static void test_a_discovery_that_cannot_start_drops_the_link_and_says_so(void)
+{
+	/* A host waiting for "ready" would otherwise wait until it timed out. */
+	ble_evt_t event;
+
+	fake_db_discovery_set_start_result(NRF_ERROR_BUSY);
+	(void)memset(&event, 0, sizeof(event));
+	event.header.evt_id = BLE_GAP_EVT_CONNECTED;
+	event.evt.gap_evt.conn_handle = 3U;
+	nus_client_on_ble_evt(&event);
+
+	TEST_ASSERT_TRUE(strstr(fake_last_line(), "state=failed") != NULL);
+	TEST_ASSERT_EQUAL_UINT32(1U, fake_gap_disconnect_count());
+	TEST_ASSERT_FALSE(nus_client_is_ready());
+}
+
+static void test_stack_events_are_not_forwarded_to_the_nus_client_twice(void)
+{
+	/* BLE_NUS_C_DEF registers its own observer. Forwarding by hand as well
+	 * delivered every event twice and repeated discovery on a real sensor. */
+	establish_link();
+	TEST_ASSERT_EQUAL_UINT32(0U, fake_nus_forwarded_events());
+}
+
 static void test_connecting_while_connected_is_refused(void)
 {
 	ble_gap_addr_t target;
 
 	establish_link();
 	(void)scanner_parse_address("AA:BB:CC:DD:EE:FF", &target);
-	TEST_ASSERT_EQUAL_UINT32(NRF_ERROR_INVALID_STATE, nus_client_connect(&target));
+	TEST_ASSERT_EQUAL_UINT32(NRF_ERROR_INVALID_STATE, nus_client_connect(&target, 15000U));
 }
 
 static void test_disconnecting_without_a_link(void)
@@ -284,8 +339,12 @@ int main(void)
 	UNITY_BEGIN();
 	RUN_TEST(test_nothing_is_ready_before_a_connection);
 	RUN_TEST(test_connecting_asks_the_stack_for_the_right_address);
+	RUN_TEST(test_connecting_listens_continuously_for_the_time_asked);
 	RUN_TEST(test_a_connection_reports_the_interval);
 	RUN_TEST(test_discovery_makes_the_link_usable_and_says_so);
+	RUN_TEST(test_a_connection_starts_discovery_on_that_link);
+	RUN_TEST(test_a_discovery_that_cannot_start_drops_the_link_and_says_so);
+	RUN_TEST(test_stack_events_are_not_forwarded_to_the_nus_client_twice);
 	RUN_TEST(test_connecting_while_connected_is_refused);
 	RUN_TEST(test_disconnecting_without_a_link);
 	RUN_TEST(test_disconnecting);

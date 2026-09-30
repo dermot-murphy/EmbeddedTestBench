@@ -19,12 +19,12 @@ if not exist "%HEX%" (
 	exit /b 1
 )
 
-rem 0xCA is S140 7.2.0, shipped with nRF5 SDK 17.1.0 and on the dongle from the
-rem factory. If a DFU is rejected as incompatible, run
+rem 0x100 is S140 7.2.0, the SoftDevice nRF5 SDK 17.1.0 ships and this firmware
+rem is linked against (0xCA is 7.0.1). If a DFU is rejected as incompatible, run
 rem   nrfutil pkg generate --help
 rem and use the identifier matching the SoftDevice actually on the dongle.
 nrfutil pkg generate --hw-version 52 --application-version 1 ^
-	--application "%HEX%" --sd-req 0xCA "%PACKAGE%"
+	--application "%HEX%" --sd-req 0x100 "%PACKAGE%"
 if errorlevel 1 exit /b 1
 echo packaged %PACKAGE%
 

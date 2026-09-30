@@ -14,7 +14,7 @@ Traces to: SWE1-FR-004, SWE2-ARC-003, SWE3-DD-VISA.
 from __future__ import annotations
 
 import logging
-from typing import Optional, Tuple
+from typing import Tuple
 
 from ..errors import ConnectionFailedError, OptionalDependencyError, TransportError, TransportTimeoutError
 from .base import Transport
@@ -27,7 +27,7 @@ _LOG = logging.getLogger(__name__)
 def pyvisa_available() -> bool:
     """Return ``True`` when ``pyvisa`` can be imported."""
     try:
-        import pyvisa  # noqa: F401
+        import pyvisa  # noqa: F401  # pylint: disable=unused-import
     except ImportError:
         return False
     return True

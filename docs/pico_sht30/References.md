@@ -26,7 +26,7 @@ Cross-checks used during development, both reachable from the build environment:
   https://github.com/Sensirion/embedded-i2c-sht3x. It confirms the command codes,
   CRC parameters and conversion.
 * Pico SDK 2.1.1 source: https://github.com/raspberrypi/pico-sdk. The firmware
-  was built against it (BENCHTOOLS-SWE4-002 §10A).
+  was built against it (TB-SWE4-002 §13A).
 
 Licensing: Raspberry Pi's documentation is CC BY-SA 4.0. The PDFs are freely
 downloadable from the publishers and are stored here unmodified, as reference

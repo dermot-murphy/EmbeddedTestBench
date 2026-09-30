@@ -65,6 +65,16 @@ class TestAsyncRecords:
         assert parse_line('=thread-group-added,id="i1"').kind is RecordKind.NOTIFY
         assert parse_line('+download,section=".text"').kind is RecordKind.STATUS
 
+    def test_the_download_progress_tuple_is_accepted(self):
+        """GDB 15.2's own 'load' progress has an unnamed tuple; rejecting it
+        abandoned a flash half-way (issue #69)."""
+        record = parse_line(
+            '+download,{section=".sec1",section-size="2584",total-size="416664"}'
+        )
+        assert record.kind is RecordKind.STATUS
+        assert record.results["section"] == ".sec1"
+        assert record.results["total-size"] == "416664"
+
 
 class TestStreamRecords:
     @pytest.mark.parametrize(

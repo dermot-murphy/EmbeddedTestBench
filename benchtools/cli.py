@@ -9,6 +9,7 @@ Traces to: RUN-FR-050, SCOPE-FR-100.
 from __future__ import annotations
 
 import sys
+from importlib import import_module
 from typing import Optional, Sequence
 
 from . import __version__
@@ -48,6 +49,32 @@ transport.
 """
 
 
+#: Command aliases to the module holding that tool's ``main``.
+#:
+#: A table rather than a chain of ``if`` statements, for the same reason the
+#: transport backends and the instrument drivers are registries: adding a tool
+#: should be a new row, not a new branch in a function that grows without
+#: limit. The import stays inside :func:`main` so that running one tool does
+#: not import the others.
+_TOOLS = {
+    ("run",): "benchtools.runner.cli",
+    ("scope", "tek3014b"): "benchtools.instruments.tek3014b.cli",
+    ("jlink", "segger", "probe"): "benchtools.instruments.jlink.cli",
+    ("ble", "dongle", "nordic"): "benchtools.instruments.nordic_dongle.cli",
+    ("psu", "gpd3303d", "supply"): "benchtools.instruments.gpd3303d.cli",
+    ("dmm", "tti1604", "multimeter"): "benchtools.instruments.tti1604.cli",
+    ("s2lp", "s2-lp", "radio"): "benchtools.instruments.s2lp.cli",
+}
+
+
+def _tool_for(command: str) -> Optional[str]:
+    """The module implementing *command*, or ``None``."""
+    for aliases, module in _TOOLS.items():
+        if command in aliases:
+            return module
+    return None
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     """Entry point. Returns a process exit status."""
     arguments = list(sys.argv[1:] if argv is None else argv)
@@ -61,35 +88,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     command, rest = arguments[0], arguments[1:]
 
-    if command == "run":
-        from .runner.cli import main as runner_main
-
-        return runner_main(rest)
-
-    if command in ("scope", "tek3014b"):
-        from .instruments.tek3014b.cli import main as scope_main
-
-        return scope_main(rest)
-
-    if command in ("jlink", "segger", "probe"):
-        from .instruments.jlink.cli import main as jlink_main
-
-        return jlink_main(rest)
-
-    if command in ("ble", "dongle", "nordic"):
-        from .instruments.nordic_dongle.cli import main as ble_main
-
-        return ble_main(rest)
-
-    if command in ("psu", "gpd3303d", "supply"):
-        from .instruments.gpd3303d.cli import main as psu_main
-
-        return psu_main(rest)
-
-    if command in ("s2lp", "s2-lp", "radio"):
-        from .instruments.s2lp.cli import main as s2lp_main
-
-        return s2lp_main(rest)
+    module = _tool_for(command)
+    if module is not None:
+        return import_module(module).main(rest)
 
     if command in ("thermo", "pico-sht30", "sht30"):
         from .instruments.pico_sht30.cli import main as thermo_main

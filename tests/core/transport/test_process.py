@@ -122,6 +122,31 @@ class TestLifecycle:
             assert link.read_message() == b"done"
             assert "noise" in link.stderr_text
 
+    def test_a_crlf_line_is_read_without_its_cr(self):
+        """A Windows child writing text ends its lines CR LF (#79). Written as
+        bytes here so the test asks the same question on every platform."""
+        link = ProcessTransport(
+            [sys.executable, "-c",
+             "import sys, time\n"
+             "sys.stdout.buffer.write(b'first\\r\\nsecond\\n')\n"
+             "sys.stdout.flush(); time.sleep(5)\n"],
+            timeout=5.0,
+        )
+        with link:
+            assert link.read_message() == b"first"
+            assert link.read_message() == b"second"
+
+    def test_a_cr_is_kept_when_the_caller_keeps_the_terminator(self):
+        link = ProcessTransport(
+            [sys.executable, "-c",
+             "import sys, time\n"
+             "sys.stdout.buffer.write(b'first\\r\\n')\n"
+             "sys.stdout.flush(); time.sleep(5)\n"],
+            timeout=5.0,
+        )
+        with link:
+            assert link.read_message(strip_terminator=False) == b"first\r\n"
+
     def test_description_names_the_program(self):
         assert "cat" in ProcessTransport(["cat"]).description
 

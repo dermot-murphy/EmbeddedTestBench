@@ -38,7 +38,7 @@ def test_temp_series(capsys):
     assert len(json.loads(out.out)["readings"]) == 3
 
 
-def test_count_must_be_positive(capsys):
+def test_count_must_be_positive():
     with pytest.raises(SystemExit):
         main(["temp", "--count", "0"])
 
@@ -54,7 +54,7 @@ def test_sreset_and_bootsel(capsys):
     assert json.loads(_run(capsys, "bootsel")[1].out)["bootloader"] is True
 
 
-def test_json_file(tmp_path, capsys):
+def test_json_file(tmp_path):
     path = tmp_path / "ver.json"
     assert main(["--json", str(path), "ver"]) == 0
     assert json.loads(path.read_text())["title"] == "Pico2-SHT30-Thermometer"

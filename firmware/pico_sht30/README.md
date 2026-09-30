@@ -22,4 +22,4 @@ produces `build/pico_sht30.uf2`. Hold BOOTSEL, plug the Pico in, and copy the
 `.uf2` onto the RP2350 drive.
 
 For wiring, building, flashing, the MISRA position and the bench confirmation
-items, see `docs/pico_sht30/Pico_SHT30_Notes.md`. Requirements: SWE.1 §12.
+items, see `docs/pico_sht30/Pico_SHT30_Notes.md`. Requirements: TB-SWE1-001 §15.

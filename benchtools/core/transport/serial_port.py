@@ -59,6 +59,13 @@ class SerialTransport(Transport):
     :param rtscts: Hardware flow control.
     :param xonxoff: Software flow control.
     :param dsrdtr: DSR/DTR flow control.
+    :param dtr: Drive the DTR line to this state after opening, or leave it
+        alone when ``None``. Some instruments take their interface power from
+        the handshake lines rather than using them for flow control; the TTi
+        1604's opto-isolated interface is one, and is simply absent until DTR
+        is asserted.
+    :param rts: Drive the RTS line to this state after opening, or leave it
+        alone when ``None``.
     """
 
     def __init__(
@@ -74,6 +81,8 @@ class SerialTransport(Transport):
         rtscts: bool = False,
         xonxoff: bool = False,
         dsrdtr: bool = False,
+        dtr: Optional[bool] = None,
+        rts: Optional[bool] = None,
     ) -> None:
         super().__init__(timeout=timeout, terminator=terminator)
         target = port if port is not None else resource
@@ -86,6 +95,8 @@ class SerialTransport(Transport):
         self._rtscts = bool(rtscts)
         self._xonxoff = bool(xonxoff)
         self._dsrdtr = bool(dsrdtr)
+        self._dtr = dtr
+        self._rts = rts
         self._serial = None
 
     # ------------------------------------------------------------------
@@ -153,6 +164,20 @@ class SerialTransport(Transport):
                 % (self._port, exc)
             ) from exc
 
+        # Set the handshake lines before anything is read. Where they power an
+        # opto-isolated interface rather than carrying flow control, the device
+        # is mute until they are right, and that presents as a dead port.
+        for line, state in (("dtr", self._dtr), ("rts", self._rts)):
+            if state is None:
+                continue
+            try:
+                setattr(self._serial, line, bool(state))
+            except (AttributeError, OSError, ValueError):  # pragma: no cover - URL handlers
+                # Not every pyserial URL handler exposes the modem lines.
+                # serial.SerialException is an OSError, so this covers a real
+                # port refusing the change as well as a handler without it.
+                _LOG.debug("cannot set %s on %s", line, self._port, exc_info=True)
+
         # Discard whatever the device said before anyone was listening: a boot
         # banner read as the answer to the first command is a confusing failure.
         try:
@@ -199,7 +224,12 @@ class SerialTransport(Transport):
         if self._serial is None:
             raise TransportError("%s is not open" % self.description)
         try:
-            self._serial.timeout = self._timeout
+            # Only when it has changed. pyserial reconfigures the port on every
+            # assignment, and on Windows that loses bytes: a GPD-3303D on an
+            # FTDI adapter dropped about one reply in five until this was
+            # guarded.
+            if self._serial.timeout != self._timeout:
+                self._serial.timeout = self._timeout
             first = self._serial.read(1)
             if not first:
                 raise TransportTimeoutError(

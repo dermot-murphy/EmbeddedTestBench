@@ -11,7 +11,7 @@ Traces to: BLE-FR-001, BLE-FR-070, BLE-DD-CONST.
 from __future__ import annotations
 
 import enum
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict, Optional, Tuple
 
 __all__ = [
@@ -26,6 +26,12 @@ __all__ = [
     "DEFAULT_BAUDRATE",
     "DEFAULT_SCAN_MS",
     "DEFAULT_COMMAND_TIMEOUT",
+    "DISCONNECT_EVENT_TIMEOUT",
+    "DEFAULT_CONNECT_TIMEOUT",
+    "CONNECT_TIMEOUT_RANGE",
+    "SERVICE_DISCOVERY_TIMEOUT",
+    "FIRMWARE_COMMAND_TIMEOUT",
+    "COMMAND_TIMEOUT_RANGE",
 ]
 
 #: Protocol revision this driver speaks. Checked against the dongle's reply to
@@ -36,7 +42,7 @@ __all__ = [
 #: commands the other does not - reported, and survivable, because the missing
 #: ones fail individually with "unknown command". A differing *major* version
 #: means a command means something different, which is not survivable.
-PROTOCOL_VERSION = "1.1"
+PROTOCOL_VERSION = "1.4"
 
 #: Commands the firmware accepts, with the argument bounds it enforces.
 COMMANDS: Dict[str, Tuple[int, int]] = {
@@ -45,10 +51,10 @@ COMMANDS: Dict[str, Tuple[int, int]] = {
     "list": (0, 0),
     "select": (1, 1),
     "selected": (0, 0),
-    "connect": (0, 1),
+    "connect": (0, 2),
     "disconnect": (0, 0),
     "uart": (1, 1),
-    "cmd": (1, 1),
+    "cmd": (1, 2),
     "adv": (1, 2),
     "time": (0, 0),
     "reset": (0, 0),
@@ -69,6 +75,25 @@ DEFAULT_SCAN_MS = 3000
 #: than the firmware's own 2 s timeout, so the dongle's more informative
 #: "the sensor did not reply" wins over a host-side timeout.
 DEFAULT_COMMAND_TIMEOUT = 3.0
+
+#: How long a connection attempt listens for the sensor, in seconds: the
+#: firmware's default, and the range it accepts (``connect timeout=<ms>``,
+#: protocol 1.2). A sensor advertising every 9 s was missed by the 5 s window
+#: of protocol 1.1 more often than not.
+DEFAULT_CONNECT_TIMEOUT = 15.0
+CONNECT_TIMEOUT_RANGE = (1.0, 60.0)
+
+#: How long the dongle waits for a sensor's reply, and the range it accepts
+#: (``cmd <hex> timeout=<ms>``, protocol 1.3). Older firmware waits a fixed 2 s.
+FIRMWARE_COMMAND_TIMEOUT = 2.0
+COMMAND_TIMEOUT_RANGE = (0.1, 60.0)
+
+#: Time allowed after the link comes up for the UART service to be found.
+SERVICE_DISCOVERY_TIMEOUT = 10.0
+
+#: Seconds to wait for the ``+disc`` that follows an accepted ``disconnect``.
+#: The link drops within a few connection intervals; this is generous.
+DISCONNECT_EVENT_TIMEOUT = 2.0
 
 
 class DongleError(enum.IntEnum):
@@ -158,7 +183,7 @@ class ScanFilter:
 
 
 @dataclass
-class DongleLimits:
+class DongleLimits:  # pylint: disable=too-many-instance-attributes
     """The firmware's capability envelope, as data rather than in code.
 
     These mirror the ``PROTO_MAX_*`` figures in ``protocol.h``. Held here so the
@@ -168,9 +193,10 @@ class DongleLimits:
 
     model: str = "PCA10059"
     max_sensors: int = 16
-    max_payload_bytes: int = 96
+    max_payload_bytes: int = 244
     max_name_length: int = 24
-    max_line_bytes: int = 256
+    max_line_bytes: int = 512
+    max_event_bytes: int = 640
     #: One microsecond, the resolution of the dongle's timestamp clock.
     timestamp_resolution_s: float = 1.0e-6
     #: What the host clock resolves, for the cross-check figures. USB polling

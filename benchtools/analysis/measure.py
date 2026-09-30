@@ -22,8 +22,8 @@ from __future__ import annotations
 
 import logging
 import statistics
-from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
+from dataclasses import dataclass
+from typing import Dict, List, Mapping, Optional, Tuple
 
 from ..core.enums import EdgeDirection
 from ..core.errors import MeasurementError

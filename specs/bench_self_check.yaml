@@ -1,0 +1,184 @@
+# Is this bench working? Ask before the session, not during it.
+#
+# Every other specification assumes the instruments are reachable and behaving.
+# When one is not, the failure surfaces inside whatever test happened to run
+# first, dressed up as a result about the board. This one asks the question
+# directly: can each instrument be reached, does it identify itself, and does
+# it respond to being driven.
+#
+#     python -m benchtools run specs/bench_self_check.yaml \
+#            --bench benches/lab1.yaml --acknowledge
+#
+# Against simulators, unattended and ungated:
+#     python -m benchtools run specs/bench_self_check.yaml \
+#            --bench benches/simulated_bench.yaml
+#
+# NOTHING IS CONNECTED WHEN THIS RUNS. That is what the warning below is for,
+# and it is why no test here asserts anything about a board: with nothing
+# attached there is no board to assert about. The supply drives an open
+# circuit, the meter's leads are open, the scope probes nothing, and the probe
+# has no target. Each instrument is exercised against its own readback instead.
+#
+# The voltage is deliberately the lowest the supply will usefully hold, and the
+# current limit the lowest it will set. If the warning is ignored and something
+# is still wired up, 1 V at 100 mA is the least this test can do to it.
+
+name: Bench self-check
+description: >
+  Confirm every instrument on the bench can be reached and identified, and
+  exercise each one against its own readback, with nothing connected to any of
+  them.
+warning: |
+  DISCONNECT EVERYTHING FROM THE INSTRUMENTS BEFORE RUNNING THIS TEST.
+
+  Remove every sensor, board and lead from the supply, the multimeter, the
+  oscilloscope and the debug probe. This test energises the supply output and
+  drives the instruments' controls; anything still wired to them is at risk,
+  and the meter is put on a current range, which is a near short circuit
+  across whatever it is connected to.
+
+  The supply is driven to 1 V with a 100 mA limit - the gentlest setting it
+  has - but that is a mitigation, not a substitute for disconnecting.
+requirements: [SYS-REQ-001, SYS-REQ-010, SYS-REQ-020]
+
+instruments:
+  psu: gpd3303d
+  dmm: tti1604
+  scope: tek3014b
+  probe: jlink
+  dongle: ble-dongle
+
+teardown:
+  # The supply goes off however the run ended, including when a later test
+  # errored. This opens the supply's own output switch rather than parking a
+  # channel at zero volts.
+  - do: psu.all_outputs_off
+
+tests:
+  - name: The supply is reachable and regulates into an open circuit
+    requirement: SYS-REQ-010
+    description: >
+      Set the gentlest output the supply has and read it back. Into an open
+      circuit a working supply sits in constant voltage drawing nothing; in
+      constant current it would be telling us something is connected, which
+      is precisely what this test is run to rule out.
+    steps:
+      # The limit before the voltage, as everywhere else in this repository.
+      - do: psu.configure_channel
+        with: {channel: 1, volts: 1.0, current_limit: 0.1, output: true}
+
+      - do: psu.read_channel
+        with: {channel: 1}
+        save: rail
+        expect:
+          - name: supply_voltage
+            measure: voltage
+            unit: V
+            nominal: 1.0
+            tolerance: 0.1
+
+          # Constant voltage into an open circuit. Constant current here means
+          # current is flowing, which means something is still connected -
+          # the exact condition the warning asks the operator to remove.
+          - name: supply_regulating
+            measure: regulated
+            equals: 1
+
+          # Nothing attached, so nothing should be drawn. A real supply reads
+          # a few milliamps of its own measurement noise, hence the allowance
+          # rather than an equality.
+          - name: supply_current_into_open_circuit
+            measure: current
+            unit: A
+            maximum: 0.01
+
+      - do: psu.output_off
+        with: {channel: 1}
+
+  - name: The multimeter is reachable and streaming measurements
+    requirement: SYS-REQ-020
+    description: >
+      The 1604 streams nothing at all until it is in remote mode, and a
+      reading arriving is the only evidence that it is. What the reading says
+      is not checked: with the leads open it is whatever the meter makes of an
+      open circuit, and that is not a fact about the bench.
+    steps:
+      - do: dmm.select_milliamps
+      - do: dmm.select_dc
+
+      - do: dmm.measure
+        save: meter
+        expect:
+          # A frozen display means Hold or Min-Max was left on at the front
+          # panel. The reading would be real but stale, and every later test
+          # in the session would inherit that.
+          - name: meter_display_is_live
+            measure: held
+            equals: 0
+
+  - name: The oscilloscope is reachable and takes its settings
+    requirement: SYS-REQ-001
+    description: >
+      Configured and then read back. A scope that accepts a setting and does
+      not apply it produces captures that describe a timebase nobody asked
+      for, and nothing downstream would notice.
+    steps:
+      - do: scope.configure_channel
+        with: {channel: 1, enabled: true, volts_per_div: 0.5, coupling: DC}
+
+      - do: scope.get_volts_per_div
+        with: {channel: 1}
+        expect:
+          - name: scope_volts_per_div
+            unit: V
+            nominal: 0.5
+            tolerance: 0.001
+
+      - do: scope.set_time_per_div
+        with: {seconds_per_div: 0.001}
+
+      - do: scope.get_time_per_div
+        expect:
+          - name: scope_time_per_div
+            unit: s
+            nominal: 0.001
+            tolerance: 1.0e-6
+
+      - do: scope.is_channel_enabled
+        with: {channel: 1}
+        expect:
+          - name: scope_channel_enabled
+            equals: 1
+
+  - name: The debug probe is reachable
+    requirement: SYS-REQ-001
+    description: >
+      Only that the link to the probe is open. With no target attached there
+      is nothing to halt, read or program, and a self-check that demanded a
+      target would fail on a bench that is in exactly the state this test asks
+      for. The probe's identity is recorded by the bench at connection and
+      appears in the report regardless.
+    steps:
+      - do: probe.is_open
+        expect:
+          - name: probe_link_open
+            equals: 1
+
+  - name: The BLE dongle is reachable and its radio runs
+    requirement: SYS-REQ-001
+    description: >
+      The dongle is a measuring instrument in its own right, so its firmware
+      is part of the bench. A scan is run to prove the radio works; what it
+      hears is not checked, because what else is transmitting nearby is not a
+      property of this bench.
+    steps:
+      - do: dongle.protocol_is_compatible
+        expect:
+          - name: dongle_protocol_compatible
+            equals: 1
+
+      # Recorded, not judged: whatever else is advertising in the room is not
+      # this bench's business. That the scan completes is the evidence.
+      - do: dongle.scan
+        with: {duration: 1.0}
+        save: heard

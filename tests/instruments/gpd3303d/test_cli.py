@@ -39,7 +39,7 @@ class TestSubcommands:
     def test_status(self, capsys):
         status, payload, _ = run(capsys, *SIM, "status")
         assert status == 0
-        assert len(payload["raw"]) == 8
+        assert len(payload["raw"].split()) == 8
 
     def test_read_covers_every_channel_by_default(self, capsys):
         status, payload, _ = run(capsys, *SIM, "read")
@@ -47,7 +47,7 @@ class TestSubcommands:
         assert [row["channel"] for row in payload["channels"]] == [1, 2]
 
     def test_read_one_channel(self, capsys):
-        status, payload, _ = run(capsys, *SIM, "read", "1")
+        _status, payload, _ = run(capsys, *SIM, "read", "1")
         assert [row["channel"] for row in payload["channels"]] == [1]
 
     def test_set_programs_the_channel(self, capsys):
@@ -58,18 +58,18 @@ class TestSubcommands:
 
     def test_set_does_not_switch_the_output_on(self, capsys):
         """Energising a rail is a separate decision from programming one."""
-        status, payload, _ = run(capsys, *SIM, "set", "1", "-V", "3.3", "-I", "0.5")
+        _status, payload, _ = run(capsys, *SIM, "set", "1", "-V", "3.3", "-I", "0.5")
         assert payload["is_on"] is False
 
     def test_set_with_on_does(self, capsys):
-        status, payload, _ = run(capsys, *SIM, "set", "1", "-V", "3.3", "-I", "0.5", "--on")
+        _status, payload, _ = run(capsys, *SIM, "set", "1", "-V", "3.3", "-I", "0.5", "--on")
         assert payload["is_on"] is True
         assert payload["voltage"] == pytest.approx(3.3)
 
-    def test_a_value_the_supply_would_clamp_is_refused(self, capsys):
+    def test_a_value_the_supply_would_reject_is_refused(self, capsys):
         status, _, stderr = run(capsys, *SIM, "set", "1", "-V", "35")
         assert status == 1
-        assert "clamp" in stderr
+        assert "reject" in stderr
 
     def test_off_for_one_channel_says_what_it_did_not_do(self, capsys):
         """A single channel is parked at 0 V, not disconnected, and anyone
@@ -79,7 +79,7 @@ class TestSubcommands:
         assert "not a safety interlock" in payload["note"]
 
     def test_off_with_no_channel_opens_the_real_switch(self, capsys):
-        status, payload, _ = run(capsys, *SIM, "off")
+        _status, payload, _ = run(capsys, *SIM, "off")
         assert payload["output"] is False
         assert "note" not in payload
 

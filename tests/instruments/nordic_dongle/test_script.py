@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import pytest
 
-from benchtools.core.errors import ConfigurationError, InstrumentError
+from benchtools.core.errors import ConfigurationError, InstrumentError, TransportTimeoutError
 from benchtools.core.transport.mock import MockTransport
 from benchtools.instruments.nordic_dongle import (
     NordicDongle,
@@ -23,12 +23,13 @@ from benchtools.instruments.nordic_dongle import (
     parse_script,
 )
 from benchtools.instruments.nordic_dongle.script import (
+    ERROR,
     FAIL,
     PASS,
     RESOLUTION_S,
     SKIP,
-    run_script,
 )
+from benchtools.instruments.nordic_dongle.script_run import run_script
 
 DOCUMENT = """# Sensor commands
 
@@ -311,7 +312,7 @@ class TestASensorThatDoesNotAnswer:
         selected = None
 
         def command(self, request, timeout=0.0):
-            raise InstrumentError("the sensor did not reply within %.2f s" % timeout)
+            raise TransportTimeoutError("the sensor did not reply within %.2f s" % timeout)
 
     def run(self, body: str, **arguments):
         return run_script(
@@ -319,10 +320,10 @@ class TestASensorThatDoesNotAnswer:
             **arguments
         )
 
-    def test_a_step_that_expected_a_reply_fails(self):
+    def test_a_step_that_expected_a_reply_is_an_error(self):
         run = self.run("| 1 | temp | 23.5 |\n", timeout=0.05)
         step = run.results[0]
-        assert step.result == FAIL and run.result == FAIL
+        assert step.result == ERROR and run.result == ERROR
         assert "no reply within 0.05 s" in step.reason
 
     def test_a_step_that_expected_none_is_still_only_skipped(self):
@@ -376,7 +377,7 @@ class TestTheReport:
 
     def test_failures_are_listed_separately_with_both_values(self, run):
         text = run.markdown()
-        assert "## Failures" in text
+        assert "## Errors and failures" in text
         assert "expected `0.0`, got `23.5`" in text
 
     def test_the_document_and_the_sensor_are_named(self, run):
@@ -384,7 +385,7 @@ class TestTheReport:
         assert "commands.md" in text and "SENS-0A1B2C" in text
 
     def test_it_says_what_a_skip_means(self, run):
-        assert "made no claim" in run.markdown()
+        assert "SKIP when nothing was expected" in run.markdown()
 
     def test_it_is_written_where_asked(self, run, tmp_path):
         path = run.write(str(tmp_path / "results.md"))
@@ -457,3 +458,481 @@ class TestTheShippedDocument:
             instrument.close()
         assert run.result == PASS, [item.as_dict() for item in run.failures]
         assert run.skipped == 3, "the delay and the two commands promising nothing"
+
+
+
+# ----------------------------------------------------------------------
+# Variables, connect and disconnect (#46)
+# ----------------------------------------------------------------------
+VARIABLES = """# Parameterised
+
+| Variable  | Default | Notes |
+|-----------|---------|-------|
+| SENSOR_ID |         | required |
+| SETTLE_MS | 100     |       |
+| VERSION   | 1.4     |       |
+
+## Identity
+
+| Step | Command              | Expected response  |
+|------|----------------------|--------------------|
+| 1    | connect ${SENSOR_ID} |                    |
+| 2    | delay ${SETTLE_MS}   |                    |
+| 3    | rd version           | /^${VERSION}/      |
+| 4    | disconnect           |                    |
+"""
+
+
+def no_wait(seconds):
+    """Stand-in for time.sleep: the tests must not wait in real time."""
+    del seconds
+
+
+class TestVariables:
+    """``${NAME}`` is Robot Framework's syntax, so a row converts as written."""
+
+    def test_defaults_and_values_are_substituted(self):
+        script = parse_script(VARIABLES, variables={"SENSOR_ID": "sens"})
+        steps = script.steps
+        assert steps[0].target == "sens"
+        assert steps[1].delay_s == pytest.approx(0.100)
+        assert steps[2].expected == "/^1.4/"
+        assert script.variables == {"SENSOR_ID": "sens", "SETTLE_MS": "100", "VERSION": "1.4"}
+
+    def test_a_value_overrides_a_default(self):
+        script = parse_script(VARIABLES, variables={"SENSOR_ID": "s", "SETTLE_MS": "250"})
+        assert script.steps[1].delay_s == pytest.approx(0.250)
+
+    def test_a_variable_with_no_default_must_be_given(self):
+        with pytest.raises(ConfigurationError, match="--var SENSOR_ID="):
+            parse_script(VARIABLES)
+
+    def test_an_undeclared_variable_is_refused(self):
+        with pytest.raises(ConfigurationError, match=r"\$\{NOPE\} is not declared"):
+            parse_script(document("| 1 | rd ${NOPE} | 1 |\n"))
+
+    def test_a_value_for_an_undeclared_variable_is_refused(self):
+        """A misspelt --var would otherwise leave the default silently in force."""
+        with pytest.raises(ConfigurationError, match="SENSOR_IDD"):
+            parse_script(VARIABLES, variables={"SENSOR_ID": "s", "SENSOR_IDD": "x"})
+
+    def test_a_variable_declared_twice_is_refused(self):
+        text = "| Variable | Default |\n|---|---|\n| A | 1 |\n| A | 2 |\n\n"
+        with pytest.raises(ConfigurationError, match="declared twice"):
+            parse_script(text + document("| 1 | x | 1 |\n"))
+
+    def test_a_bad_variable_name_is_refused(self):
+        text = "| Variable | Default |\n|---|---|\n| 2FAST | 1 |\n\n"
+        with pytest.raises(ConfigurationError, match="not a variable name"):
+            parse_script(text + document("| 1 | x | 1 |\n"))
+
+    def test_variables_are_declared_before_the_first_step(self):
+        text = document("| 1 | x | 1 |\n") + "\n| Variable | Default |\n|---|---|\n| A | 1 |\n"
+        with pytest.raises(ConfigurationError, match="after the first step"):
+            parse_script(text)
+
+    def test_a_table_that_is_not_steps_is_prose(self):
+        """A legend or a conversion table sits beside the steps unread."""
+        legend = "## Legend\n\n| Row | Robot Framework |\n|---|---|\n| a | b |\n\n"
+        script = parse_script(legend + document("| 1 | temp | 23.5 |\n"))
+        assert [test.name for test in script.tests] == ["A test"]
+
+
+def unlinked():
+    """A dongle over the simulator, with no sensor selected and no link."""
+    instrument = NordicDongle(MockTransport(responder=SimulatedDongle()))
+    instrument.initialise()
+    return instrument
+
+
+class TestConnectAndDisconnect:
+    def test_connect_and_disconnect_are_steps_for_the_dongle(self):
+        script = parse_script(document("| 1 | connect SENS | |\n| 2 | disconnect | |\n"))
+        assert [step.action for step in script.steps] == ["connect", "disconnect"]
+        assert script.connects is True
+        assert script.checks == 0           # neither has an expected response
+
+    def test_connect_names_a_sensor(self):
+        with pytest.raises(ConfigurationError, match="names no sensor"):
+            parse_script(document("| 1 | connect | |\n"))
+
+    def test_connect_has_no_expected_response(self):
+        with pytest.raises(ConfigurationError, match="cannot have an expected response"):
+            parse_script(document("| 1 | connect SENS | ok |\n"))
+
+    def test_a_document_that_connects_needs_no_link_opened_for_it(self):
+        instrument = unlinked()
+        try:
+            script = parse_script(VARIABLES, variables={"SENSOR_ID": "sens-0a1b"})
+            run = run_script(instrument, script, sleep=no_wait, scan_s=0.2)
+            assert [item.result for item in run.results] == [SKIP, SKIP, PASS, SKIP]
+            assert "SENS-0A1B2C" in run.sensor
+            assert run.variables["SENSOR_ID"] == "sens-0a1b"
+            assert instrument.is_linked is False
+        finally:
+            instrument.close()
+
+    def test_a_link_the_document_opened_is_closed_when_it_ends(self):
+        instrument = unlinked()
+        try:
+            script = parse_script(document("| 1 | connect SENS-0A1B2C | |\n"))
+            run_script(instrument, script, sleep=no_wait, scan_s=0.2)
+            assert instrument.is_linked is False
+        finally:
+            instrument.close()
+
+    def test_a_sensor_that_cannot_be_found_fails_the_connect_and_what_follows(self):
+        instrument = unlinked()
+        try:
+            script = parse_script(document("| 1 | connect kappa | |\n| 2 | rd version | 1.4.2 |\n"))
+            run = run_script(instrument, script, sleep=no_wait, scan_s=0.2, connect_attempts=1)
+            assert [item.result for item in run.results] == [ERROR, ERROR]
+            assert "kappa" in run.results[0].reason
+        finally:
+            instrument.close()
+
+    def test_connect_takes_an_address(self):
+        instrument = unlinked()
+        try:
+            script = parse_script(document("| 1 | connect E4:1C:7B:02:9A:11 | |\n"))
+            run = run_script(instrument, script, sleep=no_wait, scan_s=0.2)
+            assert run.results[0].result == SKIP
+        finally:
+            instrument.close()
+
+    def test_the_driver_runs_a_document_that_connects_with_no_link_open(self, tmp_path):
+        source = tmp_path / "test.md"
+        source.write_text(VARIABLES)
+        instrument = unlinked()
+        try:
+            run = instrument.run_script(str(source), variables={"SENSOR_ID": "SENS-0A1B2C"})
+        finally:
+            instrument.close()
+        assert run.result == PASS
+
+
+class TestTheTemplate:
+    """`specs/templates/ble_sensor_test.md` is what people copy. It must parse,
+    must demand a sensor, and must start by connecting to it."""
+
+    import pathlib
+
+    SOURCE = (pathlib.Path(__file__).resolve().parents[3]
+              / "specs" / "templates" / "ble_sensor_test.md")
+
+    def test_it_parses_with_a_sensor_given(self):
+        script = load_script(str(self.SOURCE), variables={"SENSOR_ID": "kappa"})
+        assert script.steps[0].action == "connect"
+        assert script.steps[0].target == "kappa"
+        assert script.connects is True
+        assert any(step.is_delay for step in script.steps)
+        assert script.checks >= 2
+
+    def test_it_will_not_run_without_a_sensor(self):
+        with pytest.raises(ConfigurationError, match="SENSOR_ID"):
+            load_script(str(self.SOURCE))
+
+
+# ----------------------------------------------------------------------
+# Results in priority order, Timeout and Note columns, <disconnect>, and the
+# event log (#46)
+# ----------------------------------------------------------------------
+def timed(body: str) -> str:
+    """One test whose table has Timeout and Note columns."""
+    return ("## Timed\n\n| Step | Command | Expected response | Timeout (ms) | Note |\n"
+            "|---|---|---|---|---|\n" + body)
+
+
+def linked(**sensor_fields):
+    """A dongle linked to the simulated sensor, with fields of it changed."""
+    simulator = SimulatedDongle()
+    for name, value in sensor_fields.items():
+        setattr(simulator.sensors[0], name, value)
+    instrument = NordicDongle(MockTransport(responder=simulator))
+    instrument.initialise()
+    instrument.scan(duration=0.2)
+    instrument.select("SENS-0A1B2C")
+    instrument.open_link()
+    return instrument, simulator
+
+
+class TestTheTimeoutColumn:
+    def test_a_timeout_is_read_in_milliseconds(self):
+        script = parse_script(timed("| 1 | rd version | 1.4.2 | 5000 | |\n"))
+        assert script.steps[0].timeout_s == pytest.approx(5.0)
+
+    def test_an_empty_timeout_leaves_the_default(self):
+        script = parse_script(timed("| 1 | rd version | 1.4.2 | | |\n"))
+        assert script.steps[0].timeout_s is None
+
+    def test_a_timeout_can_be_a_variable(self):
+        text = "| Variable | Default |\n|---|---|\n| SLOW | 12000 |\n\n"
+        script = parse_script(text + timed("| 1 | routine x | /^ACK/ | ${SLOW} | |\n"))
+        assert script.steps[0].timeout_s == pytest.approx(12.0)
+
+    def test_a_delay_cannot_have_a_timeout(self):
+        with pytest.raises(ConfigurationError, match="cannot have a timeout"):
+            parse_script(timed("| 1 | delay 100 | | 500 | |\n"))
+
+    def test_a_timeout_out_of_range_is_refused(self):
+        with pytest.raises(ConfigurationError, match="milliseconds from 100 to 60000"):
+            parse_script(timed("| 1 | rd version | 1.4.2 | 99 | |\n"))
+        with pytest.raises(ConfigurationError, match="milliseconds from 1000 to 60000"):
+            parse_script(timed("| 1 | connect SENS | | 500 | |\n"))
+
+    def test_the_step_timeout_reaches_the_dongle(self):
+        instrument, simulator = linked()
+        try:
+            run_script(instrument, parse_script(timed("| 1 | rd version | 1.4.2 | 7000 | |\n")),
+                       sleep=no_wait)
+            assert simulator.last_command_timeout_ms == 7000
+        finally:
+            instrument.close()
+
+    def test_a_slow_command_errors_by_default_and_passes_with_its_own_timeout(self):
+        """Some commands take longer than others."""
+        instrument, _ = linked(latency_overrides={"rd version": 4_000_000})
+        try:
+            run = run_script(instrument, parse_script(timed(
+                "| 1 | rd version | 1.4.2 | | |\n| 2 | rd version | 1.4.2 | 6000 | |\n")),
+                timeout=2.0, sleep=no_wait)
+            assert [item.result for item in run.results] == [ERROR, PASS]
+        finally:
+            instrument.close()
+
+
+class TestResultsInPriorityOrder:
+    """ERROR, then SKIP, then FAIL, then PASS: the first that applies wins."""
+
+    def test_a_refused_command_is_an_error_even_with_nothing_expected(self):
+        instrument = unlinked()                  # no link: the dongle refuses
+        try:
+            script = parse_script(document("| 1 | connect nobody | |\n| 2 | log start | |\n"))
+            run = run_script(instrument, script, sleep=no_wait, scan_s=0.2, connect_attempts=1)
+            assert [item.result for item in run.results] == [ERROR, ERROR]
+        finally:
+            instrument.close()
+
+    def test_a_wrong_reply_fails_and_a_right_one_passes(self):
+        instrument, _ = linked()
+        try:
+            run = run_script(instrument, parse_script(document(
+                "| 1 | rd version | 9.9.9 |\n| 2 | rd version | 1.4.2 |\n")), sleep=no_wait)
+            assert [item.result for item in run.results] == [FAIL, PASS]
+            assert run.result == FAIL
+        finally:
+            instrument.close()
+
+    def test_an_error_outranks_a_failure_in_the_verdict(self):
+        run = run_script(TestASensorThatDoesNotAnswer.Silent(),
+                         parse_script(document("| 1 | temp | 23.5 |\n")),
+                         sleep=no_wait, timeout=0.05)
+        assert run.result == ERROR and run.errors == 1
+
+    def test_the_note_column_is_carried_to_the_result(self):
+        instrument, _ = linked()
+        try:
+            run = run_script(instrument, parse_script(timed(
+                "| 1 | rd version | 9.9.9 | | the build decides |\n")), sleep=no_wait)
+            assert run.results[0].note == "the build decides"
+            assert "the build decides" in run.results[0].notes
+            assert "the reply does not match" in run.results[0].notes
+        finally:
+            instrument.close()
+
+    def test_the_report_has_response_time_result_and_note_columns(self):
+        instrument, _ = linked()
+        try:
+            run = run_script(instrument, parse_script(document("| 1 | rd version | 1.4.2 |\n")),
+                             sleep=no_wait)
+        finally:
+            instrument.close()
+        text = run.markdown()
+        assert "| Expected | Actual | Response time (ms) | Result | Note |" in text
+        assert "| A test | 1 | rd version | 1.4.2 | 1.4.2 | 10 | PASS |" in text
+
+
+class TestExpectingADisconnect:
+    """`<disconnect>`: the sensor drops the link after the command - a reset."""
+
+    def test_it_is_a_claim_that_can_pass_or_fail(self):
+        script = parse_script(document("| 1 | wr mode normal | <disconnect> |\n"))
+        step = script.steps[0]
+        assert step.expects_disconnect and not step.expects_response
+        assert script.checks == 1
+
+    def test_the_drop_passes_and_is_timed_on_the_dongle_clock(self):
+        instrument, _ = linked(disconnect_on={"wr mode normal": 350_000})
+        try:
+            run = run_script(instrument, parse_script(document(
+                "| 1 | wr mode normal | <disconnect> |\n")), sleep=no_wait)
+            result = run.results[0]
+            assert result.result == PASS
+            assert result.clock == "dongle"
+            assert result.elapsed_s == pytest.approx(0.350)
+            assert instrument.is_linked is False
+        finally:
+            instrument.close()
+
+    def test_a_sensor_that_stays_connected_fails(self):
+        instrument, _ = linked()
+        try:
+            run = run_script(instrument, parse_script(timed(
+                "| 1 | wr mode normal | <disconnect> | 200 | |\n")), sleep=no_wait)
+            assert run.results[0].result == FAIL
+            assert "still connected" in run.results[0].reason
+        finally:
+            instrument.close()
+
+
+class TestTheEventLog:
+    def test_every_kind_of_event_is_logged_with_its_step_and_result(self, tmp_path):
+        source = tmp_path / "test.md"
+        source.write_text(
+            "## Events\n\n| Step | Command | Expected response |\n|---|---|---|\n"
+            "| 1 | connect SENS-0A1B2C | |\n| 2 | delay 10 | |\n| 3 | rd version | 1.4.2 |\n"
+            "| 4 | wr mode normal | <disconnect> |\n| 5 | rd version | 1.4.2 |\n"
+            "| 6 | disconnect | |\n")
+        path = tmp_path / "events.log"
+        simulator = SimulatedDongle()
+        simulator.sensors[0].disconnect_on = {"wr mode normal": 100_000}
+        instrument = NordicDongle(MockTransport(responder=simulator))
+        instrument.initialise()
+        try:
+            run = instrument.run_script(str(source), events=str(path))
+        finally:
+            instrument.close()
+
+        lines = path.read_text(encoding="utf-8").splitlines()
+        assert lines[0] == "time\tevent\tstep\tdata\tresult"
+        rows = [line.split("\t") for line in lines[1:]]
+        assert all(len(row) == 5 for row in rows)
+        assert [row[1] for row in rows] == [
+            "CONNECT", "DELAY", "TX", "RX", "TX", "DISCONNECT", "TX", "ERROR", "DISCONNECT"]
+        assert rows[3][2] == "Events/3" and rows[3][4] == "PASS"
+        assert "1.4.2" in rows[3][3] and "dongle clock" in rows[3][3]
+        assert rows[5][4] == "PASS"                       # the sensor dropped the link
+        assert rows[7][4] == "ERROR"                      # no link for step 5
+        assert run.events == lines
+
+    def test_with_no_file_the_lines_are_still_kept_on_the_run(self):
+        instrument, _ = linked()
+        try:
+            run = run_script(instrument, parse_script(document("| 1 | rd version | 1.4.2 |\n")),
+                             sleep=no_wait)
+        finally:
+            instrument.close()
+        assert [line.split("\t")[1] for line in run.events[1:]] == ["TX", "RX"]
+
+
+def saving(body: str) -> str:
+    """One test whose table has a Save column."""
+    return ("## Saving\n\n| Step | Command | Expected response | Save |\n|---|---|---|---|\n"
+            + body)
+
+
+class TestSavingAReply:
+    """A reply saved in one step is compared in a later one (#54)."""
+
+    def test_a_saved_reply_is_compared_later(self):
+        instrument, _ = linked()
+        try:
+            run = run_script(instrument, parse_script(saving(
+                "| 1 | rd version | | BEFORE |\n"
+                "| 2 | temp | 23.5 | |\n"
+                "| 3 | rd version | ${BEFORE} | |\n")), sleep=no_wait)
+        finally:
+            instrument.close()
+        assert [item.result for item in run.results] == [SKIP, PASS, PASS]
+        assert run.saved == {"BEFORE": "1.4.2"}
+        assert "saved BEFORE = 1.4.2" in run.results[0].reason
+
+    def test_a_named_group_saves_just_that_part(self):
+        instrument, _ = linked()
+        try:
+            run = run_script(instrument, parse_script(saving(
+                "| 1 | rd id | /^SENS-(?P<code>[0-9A-F]+)$/ | CODE |\n"
+                "| 2 | rd id | SENS-${CODE} | |\n")), sleep=no_wait)
+        finally:
+            instrument.close()
+        assert run.saved == {"CODE": "0A1B2C"}
+        assert run.results[1].result == PASS
+
+    def test_a_saved_value_is_escaped_inside_a_pattern(self):
+        """A saved 1.4.2 must not match 1x4x2."""
+        instrument, _ = linked()
+        try:
+            run = run_script(instrument, parse_script(saving(
+                "| 1 | rd version | | V |\n| 2 | rd version | /^${V}$/ | |\n")),
+                sleep=no_wait)
+        finally:
+            instrument.close()
+        assert run.results[1].expected == "/^1\\.4\\.2$/"
+        assert run.results[1].result == PASS
+
+    def test_a_reply_that_failed_its_check_is_not_saved(self):
+        instrument, _ = linked()
+        try:
+            run = run_script(instrument, parse_script(saving(
+                "| 1 | rd version | 9.9.9 | V |\n| 2 | rd version | ${V} | |\n")),
+                sleep=no_wait)
+        finally:
+            instrument.close()
+        assert [item.result for item in run.results] == [FAIL, ERROR]
+        assert "was not saved" in run.results[1].reason
+
+    def test_a_saved_name_is_usable_only_after_the_row_that_saves_it(self):
+        with pytest.raises(ConfigurationError, match=r"\$\{V\} is not declared"):
+            parse_script(saving("| 1 | rd version | ${V} | |\n| 2 | rd version | | V |\n"))
+
+    def test_a_saved_name_cannot_shadow_a_declared_variable(self):
+        text = "| Variable | Default |\n|---|---|\n| V | 1 |\n\n"
+        with pytest.raises(ConfigurationError, match="needs a name of its own"):
+            parse_script(text + saving("| 1 | rd version | | V |\n"))
+
+    def test_only_a_command_reply_can_be_saved(self):
+        with pytest.raises(ConfigurationError, match="only a command's reply"):
+            parse_script(saving("| 1 | delay 10 | | V |\n"))
+        with pytest.raises(ConfigurationError, match="only a command's reply"):
+            parse_script(saving("| 1 | wr reset | <disconnect> | V |\n"))
+
+class TestEscapedPipes:
+    """``\\|`` is a pipe inside a cell, as the row-width error has always said (#50)."""
+
+    def test_a_pattern_can_use_alternation(self):
+        script = parse_script(document(
+            "| 1 | rd fast | /^ACK = (ENABLED\\|DISABLED)$/ |\n"))
+        step = script.steps[0]
+        assert step.expected == "/^ACK = (ENABLED|DISABLED)$/"
+        assert step.matches("ACK = ENABLED") and step.matches("ACK = DISABLED")
+        assert not step.matches("ACK = ABLED")
+
+    def test_a_command_can_contain_a_pipe(self):
+        script = parse_script(document("| 1 | wr sep a\\|b | ok |\n"))
+        assert script.steps[0].command == "wr sep a|b"
+
+    def test_a_backslash_before_anything_else_is_kept(self):
+        script = parse_script(document("| 1 | rd v | /^V[0-9]+\\.[0-9]+\\b/ |\n"))
+        assert script.steps[0].expected == "/^V[0-9]+\\.[0-9]+\\b/"
+
+    def test_an_escaped_pipe_at_the_end_of_a_row_is_not_its_closing_pipe(self):
+        script = parse_script(
+            "## A test\n\n| Step | Command | Expected response |\n|---|---|---|\n"
+            "| 1 | rd v | /a\\|b\\|/\n")
+        assert script.steps[0].expected == "/a|b|/"
+
+    def test_an_unescaped_pipe_still_splits_and_is_still_refused(self):
+        with pytest.raises(ConfigurationError, match="needs escaping"):
+            parse_script(document("| 1 | rd v | /a|b/ |\n"))
+
+    def test_the_report_escapes_what_the_reader_unescapes(self):
+        """A reply with a pipe in it survives into the report's table intact."""
+        instrument, _ = linked()
+        try:
+            run = run_script(instrument, parse_script(document(
+                "| 1 | rd version | /^1\\.4\\.2$\\|^x$/ |\n")), sleep=no_wait)
+        finally:
+            instrument.close()
+        assert run.results[0].result == PASS
+        row = [line for line in run.markdown().splitlines() if line.startswith("| A test |")][0]
+        assert "/^1\\.4\\.2$\\|^x$/" in row

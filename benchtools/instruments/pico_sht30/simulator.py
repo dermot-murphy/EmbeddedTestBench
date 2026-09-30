@@ -68,7 +68,7 @@ def percent_to_raw(percent: float) -> int:
     return max(0, min(65535, int(raw)))
 
 
-class SimulatedPicoSht30:
+class SimulatedPicoSht30:  # pylint: disable=too-many-instance-attributes,too-few-public-methods
     """A Pico 2 running the thermometer firmware, with an SHT30 attached.
 
     Satisfies :class:`~benchtools.core.simulator.Responder`.

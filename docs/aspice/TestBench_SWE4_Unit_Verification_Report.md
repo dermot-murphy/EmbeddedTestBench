@@ -1,25 +1,65 @@
-# SWE.4 — Software Unit Verification Report
+# Software Unit Verification Report
 
-| Field | Value |
-|---|---|
-| Document ID | BENCHTOOLS-SWE4-002 |
-| Version | 4.3 |
-| Date | 2026-09-30 |
-| Specification | BENCHTOOLS-SWE4-001 |
-| Item under verification | `benchtools` 4.0.0, `firmware/nordic_dongle` and `firmware/pico_sht30` |
-| Verdict | **PASS** |
+*Automotive SPICE® PAM v4.0 | SWE.4 Software Unit Verification*
 
-## 1. Execution summary
+---
+
+## 1. Document Identification & Control
+
+| Field | Value | Field | Value |
+|---|---|---|---|
+| **Document ID** | TB-SWE4-002 | **Version** | 0.3 |
+| **Project** | TestBench | **Date** | 2026-09-19 |
+| **Status** | Draft | **Classification** | Internal |
+| **Author** | Claude | **Reviewer** | Dermot Murphy |
+| **Approver** | Dermot Murphy | **Related Process** | SWE.4 |
+
+> **Note — Reviewer independence (TB-DEV-002):** The Reviewer and Approver are the same person (Dermot Murphy). This is accepted under deviation record **TB-DEV-002** (`docs/aspice/TestBench_DEV002_Independent_Review_Deviation.md`) on the basis that TestBench has a single human team member.
+
+---
+
+## 2. Revision History
+
+| Version | Date | Author | Description of Change |
+|---|---|---|---|
+| 0.1 | 2026-09-19 | Claude | Initial |
+| 0.2 | 2026-09-26 | Claude | §13.4: PSU-OPEN-01 and -02 closed and PSU-OPEN-06 partly confirmed on a real supply (#61, #63). |
+| 0.3 | 2026-09-30 | Claude | Execution summary re-run after adding the `PICO-` element; test groups SWE4-UT-PICO, -PICOSIM, -PICOCLI and -PICOFWPROTO added to §5; §13A added for the Pico 2 thermometer firmware and driver (#104). |
+
+---
+
+## 3. Purpose & Scope
+
+### 3.1 Purpose
+
+This document records what the verification of TB-SWE4-001 actually produced: the run, its coverage, the measured accuracy of every quantitative claim, the defects it found and their disposition, and the verdict against the pass criteria.
+
+It is deliberately a separate work product from the specification. A specification and its results in one file can be edited into agreement; kept apart, a claim that stopped being true has to be changed where a reader can see it.
+
+### 3.2 Referenced Documents
+
+| Document ID | Title | Version |
+|---|---|---|
+| TB-SYS2-001 | TestBench System Requirements Specification | 0.1 |
+| TB-SWE1-001 | TestBench Software Requirements Specification | 0.1 |
+| TB-SWE2-001 | TestBench Software Architecture Description | 0.1 |
+| TB-SWE3-001 | TestBench Software Detailed Design | 0.1 |
+| TB-RTM-001 | TestBench Requirements Traceability Matrix | 0.1 |
+| TB-SWE4-001 | TestBench Software Unit Verification Specification | 0.1 |
+
+---
+
+## 4. Execution summary
 
 | Metric | Result |
 |---|---|
-| Tests executed | **1 956** |
-| Passed | **1 956** |
+| Tests executed | **2 497** |
+| Passed | **2 496** |
 | Failed | 0 |
 | Errors | 0 |
-| Skipped | 0 |
-| Statement coverage | **95%** (10 764 statements, 588 missed) |
-| Execution time | 35.4 s without coverage instrumentation |
+| Skipped | 1 |
+| Statement coverage | **95%** (13 143 statements, 667 missed) |
+| Execution time | 133.7 s with coverage instrumentation |
 | Runtime | CPython 3.11.15, Linux |
 | Framework | pytest 9.1.1, pytest-cov |
 
@@ -48,14 +88,14 @@ present for this run, and no test needs one (PC-8): the probe is substituted at
 the GDB/MI boundary, the RTT and SWO sockets by a loopback server, the dongle at
 its line protocol, and the serial port by pyserial's own `loop://` handler.
 
+Revision 0.3 re-ran the whole suite on the merge of `develop` with the `PICO-`
+element (#104); the figures above are that run. The per-group table in §5 has
+not been regenerated for the groups `develop` added since revision 0.1, so its
+rows do not sum to the total: the total is the collected count.
+
 **The Pico 2 thermometer firmware is built but not executed** (CON-09): no
 Pico 2 or SHT30-D module is available. Its 61 host unit tests pass, it agrees
-with its driver, and it cross-compiles to a UF2 image (§10A).
-
-This revision (4.3) re-ran the whole suite after adding the `PICO-` element:
-73 new host-side tests, and two pre-existing rows corrected to the counts
-actually collected (`SWE4-UT-BLEFIRMWARE` 49 → 50, `SWE4-UT-LAYERING` 81 → 88;
-the latter grows with every module added, the four new ones included).
+with its driver, and it cross-compiles to a UF2 image (§13A).
 
 **The dongle firmware is built but not executed** (CON-07): no dongle is
 available. It is verified against the driver it must agree with, against the
@@ -63,7 +103,7 @@ hygiene rules of §4.3, by its own unit tests (§4.4), and by a real
 cross-compile, link and DFU package against nRF5 SDK 17.1.0 in CI (§4.6).
 Behaviour on silicon remains BLE-OPEN-02 to -04.
 
-## 2. Results by test group
+## 5. Results by test group
 
 | Test group | File | Tests | Result |
 |---|---|---|---|
@@ -78,7 +118,7 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | SWE4-UT-S2LPSESSION | `instruments/s2lp/test_session.py` | 14 | Pass |
 | SWE4-UT-PSU | `instruments/gpd3303d/test_psu.py` | 102 | Pass |
 | SWE4-UT-BLE | `instruments/nordic_dongle/test_dongle.py` | 64 | Pass |
-| SWE4-UT-BLEFIRMWARE | `instruments/nordic_dongle/test_firmware.py` | 50 | Pass |
+| SWE4-UT-BLEFIRMWARE | `instruments/nordic_dongle/test_firmware.py` | 49 | Pass |
 | SWE4-UT-BLEPROTO | `instruments/nordic_dongle/test_protocol.py` | 34 | Pass |
 | SWE4-UT-BLEPROFILE | `instruments/nordic_dongle/test_profile.py` | 30 | Pass |
 | SWE4-UT-BLESIM | `instruments/nordic_dongle/test_simulator.py` | 30 | Pass |
@@ -90,7 +130,7 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | SWE4-UT-BLESCRIPT | `instruments/nordic_dongle/test_script.py` | 58 | Pass |
 | SWE4-UT-BLELATENCY | `instruments/nordic_dongle/test_latency.py` | 20 | Pass |
 | SWE4-UT-BLEFW | `instruments/nordic_dongle/test_firmware_protocol.py` | 17 | Pass |
-| SWE4-UT-LAYERING | `test_layering.py` | 88 | Pass |
+| SWE4-UT-LAYERING | `test_layering.py` | 81 | Pass |
 | SWE4-UT-GDBMI | `instruments/jlink/test_gdbmi.py` | 37 | Pass |
 | SWE4-UT-BENCH | `runner/test_bench.py` | 41 | Pass |
 | SWE4-UT-MEASURE | `analysis/test_measure.py` | 35 | Pass |
@@ -129,12 +169,12 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | SWE4-UT-PICOSIM | `instruments/pico_sht30/test_simulator.py` | 15 | Pass |
 | SWE4-UT-PICOCLI | `instruments/pico_sht30/test_cli.py` | 9 | Pass |
 | SWE4-UT-PICOFWPROTO | `instruments/pico_sht30/test_firmware_protocol.py` | 9 | Pass |
-| **Total** | | **1 956** | **Pass** |
+| **Total** | | **2 497** (2 496 passed, 1 skipped) | **Pass** |
 
 The thermometer firmware's own unit tests (`SWE4-UT-PICOFW`, 61 cases) run
-under CTest, not pytest, and are reported in §10A.
+under CTest, not pytest, and are reported in §13A.
 
-## 3. Coverage detail
+## 6. Coverage detail
 
 | Element | Module | Statements | Missed | Coverage |
 |---|---|---|---|---|
@@ -208,7 +248,7 @@ under CTest, not pytest, and are reported in §10A.
 
 The `__init__.py` files are omitted for brevity; `__main__.py` is discussed below.
 
-### 3.1 Justification for uncovered code
+### 6.1 Justification for uncovered code
 
 | Module | Uncovered code | Justification |
 |---|---|---|
@@ -229,9 +269,9 @@ The `__init__.py` files are omitted for brevity; `__main__.py` is discussed belo
 Coverage meets PC-2 (≥ 90%) at package level and at every module level except the
 four justified above.
 
-## 4. Work-product and architectural verification results
+## 7. Work-product and architectural verification results
 
-### 4.1 Traceability consistency
+### 7.1 Traceability consistency
 
 | Check | Result |
 |---|---|
@@ -249,7 +289,7 @@ module citing an undeclared group, and a fixture citing a group that had been
 renamed — both fixed. That is the point: they are the failure mode that review
 does not catch.
 
-### 4.2 Architectural verification
+### 7.2 Architectural verification
 
 | Check | Result |
 |---|---|
@@ -260,7 +300,7 @@ does not catch.
 | No module imports a third-party package at module level (CORE-NFR-001, JLINK-NFR-001) | Pass |
 | Source discovery guard (the suite cannot pass on an empty file list) | Pass |
 
-### 4.3 Firmware verification without a compiler
+### 7.3 Firmware verification without a compiler
 
 The dongle firmware cannot be built here, so it is verified against the two
 things that do not need a toolchain: the artefact it shares with the driver, and
@@ -282,7 +322,7 @@ the rules it is written to.
 
 PC-10 is met.
 
-### 4.4 Firmware unit tests
+### 7.4 Firmware unit tests
 
 The firmware now has unit tests of its own: Unity, built by CMake, run by CTest,
 with fake SDK headers at the SDK boundary so the firmware's sources compile
@@ -311,7 +351,7 @@ from both sides rather than one side being assumed.
 The suite found two defects immediately (D-27, D-28), both of the kind that
 compile cleanly and behave wrongly.
 
-### 4.5 Firmware compilation against real SDK headers
+### 7.5 Firmware compilation against real SDK headers
 
 Since the first issue of this report, the firmware has been **compiled**, in the
 `canembed/canembed-arm` container image, which carries `arm-none-eabi-gcc`
@@ -348,7 +388,7 @@ no amount of reading had caught.
 PC-12 is met: every firmware unit test passes, and the firmware still compiles
 for the target after the fixes they prompted.
 
-### 4.6 First build against nRF5 SDK 17.1.0, linked and packaged
+### 7.6 First build against nRF5 SDK 17.1.0, linked and packaged
 
 The `firmware` workflow builds against the real SDK: it downloads nRF5 SDK
 17.1.0, cross-compiles with `arm-none-eabi-gcc` 10.3-2021.10, links, reports the
@@ -407,12 +447,12 @@ been verified by inspection and by the extras-blocked run; neither would catch a
 module-level `import yaml` added to a module no test imports in that
 configuration. It is now parsed for, over every module.
 
-## 5. Quantitative verification of timing accuracy
+## 8. Quantitative verification of timing accuracy
 
 PC-4 requires injected skews to be recovered to better than one tenth of a sample
 interval.
 
-### 5.1 Against synthesised waveforms
+### 8.1 Against synthesised waveforms
 
 Stimulus: 1 MHz, 3.3 V, 2 ns rise time, 100 ps sample interval.
 
@@ -427,7 +467,7 @@ Stimulus: 1 MHz, 3.3 V, 2 ns rise time, 100 ps sample interval.
 Sub-sample resolution is verified separately: a deliberate 0.35-sample (35 ps)
 offset is recovered to within 0.5 ps, i.e. 0.005 of a sample interval.
 
-### 5.2 Through the full driver, against the simulated instrument
+### 8.2 Through the full driver, against the simulated instrument
 
 Stimulus: four channels at 1 MHz / 3.3 V with skews 0, 12, 25 and 5 ns;
 200 ns/div, 10 000 points, giving a 200 ps sample interval.
@@ -441,7 +481,7 @@ Stimulus: four channels at 1 MHz / 3.3 V with skews 0, 12, 25 and 5 ns;
 
 PC-4 is met.
 
-### 5.3 Period measurement
+### 8.3 Period measurement
 
 | Quantity | Result |
 |---|---|
@@ -451,9 +491,9 @@ PC-4 is met.
 | Instrument-side period | 1.000000 µs |
 | Agreement between the two | within 0.1% |
 
-## 6. Debug probe verification results
+## 9. Debug probe verification results
 
-### 6.1 Timing between two lines of code
+### 9.1 Timing between two lines of code
 
 The simulated firmware places `sensor.c:40` and `sensor.c:75` exactly 64 000 core
 cycles apart, which at the simulated 64 MHz core is exactly 1.000 ms. Five
@@ -480,7 +520,7 @@ specification (`specs/firmware_timing.yaml`) alongside the limit itself.
 `SWO_ITM` recovers the interval with `halts_target` false: the measurement does not
 stop the core, which is the only method usable on firmware that must keep running.
 
-### 6.2 Probe operations against the simulated target
+### 9.2 Probe operations against the simulated target
 
 | Check | Result |
 |---|---|
@@ -503,9 +543,9 @@ stop the core, which is the only method usable on firmware that must keep runnin
 | GDB Server: already-listening port reused, remote never spawned | Pass |
 | GDB Server that exits during start-up | Reported with the server's own output |
 
-## 7. BLE dongle verification results
+## 10. BLE dongle verification results
 
-### 7.1 Advertising profile
+### 10.1 Advertising profile
 
 The simulated sensor advertises at 100 ms with advertising delays of 0, 3, 7 and
 10 ms in rotation - the specification's 0-10 ms advDelay, made deterministic. A
@@ -532,7 +572,7 @@ away. With `drop_every` set on the dongle, `is_complete` goes false and the CLI
 adds its warning - the case where missed beacons must *not* be blamed on the
 sensor.
 
-### 7.2 Command and response
+### 10.2 Command and response
 
 | Check | Result |
 |---|---|
@@ -550,14 +590,14 @@ The trustworthiness rule is the one worth stating: with a 30 ms connection
 interval, a 12.5 ms round trip says where the write landed in the interval, not
 what the sensor's firmware did. The tooling refuses to present it as the latter.
 
-### 7.3 Session log
+### 10.3 Session log
 
 A profile capture logged to a text file contains the commands sent, the replies,
 every `+adv` event with both timestamps, and any comment the caller wrote -
 flushed per line, so a session that then hangs still has a complete log. Verified
 by `TestLogging` in both `SWE4-UT-BLESESSION` and `SWE4-UT-BLE`.
 
-## 8. Protocol interoperability results
+## 11. Protocol interoperability results
 
 | Check | Result |
 |---|---|
@@ -578,14 +618,14 @@ environment: correctness against real GDB is a bench confirmation item
 (JLINK-OPEN-02). What is verified here is that the parser handles the grammar as
 documented, including the constructs a naive parser gets wrong — see D-09.
 
-## 9. S2-LP kit verification results
+## 12. S2-LP kit verification results
 
 No S2-LP kit was present (PC-8). The driver is verified against a simulated kit
 that models a **register file with a radio attached**: writing a register changes
 what the queries that read it answer, and a packet queued on the simulated air is
 delivered to exactly one receive.
 
-### 9.1 The vendor firmware was examined before any was written
+### 12.1 The vendor firmware was examined before any was written
 
 STK-20 asked whether ST's firmware is fit for purpose. It was read, not assumed
 about: the source of the CLI application ST's S2-LP DK GUI drives is published at
@@ -612,7 +652,7 @@ into the design rather than hidden:
 | Timestamps are the **motherboard's millisecond timer** | Good enough to order packets and time a sequence, not to characterise protocol timing. The field is named `board_time_ms`, and the limit is stated wherever it is reported |
 | ST's package is under **SLA0072**, a limited licence | The protocol is interoperated with; no ST source is vendored. The register map holds facts about the silicon, not vendor prose (S2LP-NFR-002) |
 
-### 9.2 The register map
+### 12.2 The register map
 
 123 registers, each with its address, reset value, access and named bit fields.
 The map is data, so it is verified as data: unique addresses, unique names, no
@@ -631,7 +671,7 @@ does not. A dump renders as:
 which is the point of holding the map at all: 123 hex bytes say nothing about
 how a radio was configured, and this says it.
 
-### 9.3 Register values from a file
+### 12.3 Register values from a file
 
 The values a test requires are read from a file of register names and hex
 values, applied, and checked back. The check has two modes, and the difference
@@ -663,7 +703,7 @@ register set twice, a line that is not a setting, and an empty file. Applying
 verifies by read-back, because this radio's writes are acknowledged by the
 firmware rather than by the radio.
 
-### 9.4 A configuration is applied to a known radio
+### 12.4 A configuration is applied to a known radio
 
 A file that names some registers says nothing about the others, so what a
 partial file produces depends on what ran before it. `reset` settles that, and
@@ -688,7 +728,7 @@ GPIO0_CONF = 0x55 (default 0x0A). The configuration was not applied, because it
 would have been written on top of a state nobody established.
 ```
 
-### 9.5 A capture states how it was taken
+### 12.5 A capture states how it was taken
 
 | Capture | Packets | Gaps | `is_continuous` | What it may be quoted as |
 |---|---|---|---|---|
@@ -698,13 +738,13 @@ would have been written on top of a state nobody established.
 The second row is the one that matters. Both captures are honest; only the first
 supports a statement about what was *not* transmitted.
 
-## 10. Power supply verification results
+## 13. Power supply verification results
 
 No GPD-3303D was present (PC-8). The driver is verified against a simulated
 supply that models a **load**, which is what makes the interesting condition
 reachable: a channel whose load draws more than its limit.
 
-### 10.1 Constant current is detected, not averaged over
+### 13.1 Constant current is detected, not averaged over
 
 Channel 2 with 2 Ω across it, set to 3.3 V with a 500 mA limit:
 
@@ -720,7 +760,7 @@ The figure to note is 1.000 V. A driver that reported only the voltage would
 hand a test a plausible number describing a circuit nobody asked for, and the
 test would fail somewhere else entirely - or, worse, pass.
 
-### 10.2 The emulated per-channel switch behaves as documented
+### 13.2 The emulated per-channel switch behaves as documented
 
 | Action | Channel 1 | Channel 2 | Supply's own switch |
 |---|---|---|---|
@@ -734,7 +774,7 @@ Row three is the property that matters: programming a parked channel does not
 energise it. Row five is the other: once every channel is off, the supply's real
 switch is opened, so "all off" is not two rails sitting at zero volts.
 
-### 10.3 Channel 2 while the supply is tracking
+### 13.3 Channel 2 while the supply is tracking
 
 The element was retargeted from the GPD-2303S to the GPD-3303D. The two
 supplies share a command set, and the driver's behaviour is unchanged except
@@ -764,20 +804,20 @@ The supply's third output, the fixed 2.5 / 3.3 / 5 V rail, is outside the
 element. It is selected by a front-panel switch that no command reaches, so a
 driver could only repeat what it had been told about it.
 
-### 10.4 What could not be verified without the instrument
+### 13.4 What could not be verified without the instrument
 
 | Item | Why |
 |---|---|
-| PSU-OPEN-01 | The bit **order** of the `STATUS?` reply. The decode follows the programming manual; whether the supply sends bit 0 first is a one-minute check on hardware (switch the output on and see which character changes). The raw reply is retained in `SupplyStatus.raw` so a mis-order is visible rather than silently decoded. |
-| PSU-OPEN-02 | The exact text and behaviour of `ERR?`. Anything not recognisably "no error" is carried verbatim rather than parsed, so the driver is correct either way; what is unproven is whether the supply clears the error on reading it. |
+| PSU-OPEN-01 | **Closed 2026-09-26** (TB-IF-001 §7). Bit 0 is sent first; the output is bit 6, not bit 5 as the manual-based decode assumed; the V1.09 reply is spaced and followed by a legend. The driver was corrected in #61. |
+| PSU-OPEN-02 | **Closed 2026-09-26** (TB-IF-001 §8). `No Error.`, `Invalid Character.`, `Data out of range.`, `Undefined Header.`; one error held, cleared by reading it. |
 | PSU-OPEN-03 | The command interval a real GPD-3303D needs. 50 ms is a conservative default taken from the supply having no flow control; the figure to confirm is the smallest interval at which a long sweep loses nothing. |
 | PSU-OPEN-04 | Settling time after a setpoint change. The driver does not wait; a specification that measures immediately after `set_voltage` should state its own `sleep`. |
 | PSU-OPEN-05 | Whether a real GPD-3303D discards a setpoint sent to the slaved channel **silently**, as modelled here, or records something in `ERR?`. The driver refuses the command either way, so the refusal is right in both cases; what is unconfirmed is the sentence that says the supply reports nothing. Send `VSET2:1.000` in series tracking, then `ERR?`. |
-| PSU-OPEN-06 | Whether the supply's own manual numbers the `STATUS?` tracking bits as this driver decodes them (bit 2 then bit 3, `01` independent, `11` series, `10` parallel). Related to PSU-OPEN-01 and confirmed by the same one-minute check: move the front-panel switch and watch which characters change. |
+| PSU-OPEN-06 | Independent **confirmed 2026-09-26**: bit 2 `0`, bit 3 `1`, read bit 2 first. The original decode read that as parallel (#61). Series and parallel still need the front-panel switch moved. |
 
-## 10A. Pico 2 thermometer verification results
+## 13A. Pico 2 thermometer verification results
 
-### 10A.1 Firmware unit tests (`SWE4-UT-PICOFW`)
+### 13A.1 Firmware unit tests (`SWE4-UT-PICOFW`)
 
 Host build: GCC, C11, `-Wall -Wextra -Wconversion -Wshadow -Wstrict-prototypes
 -Werror`, `-fsanitize=address,undefined -fno-sanitize-recover=all`, Unity v2.6.0.
@@ -789,7 +829,7 @@ Host build: GCC, C11, `-Wall -Wextra -Wconversion -Wshadow -Wstrict-prototypes
 | cmd_parser | `test/test_cmd_parser.c` | 29 | Pass |
 | **Total** | | **61** | **Pass**, no warnings, no sanitizer reports |
 
-### 10A.2 Target build (PICO-FR-031, PICO-NFR-003)
+### 13A.2 Target build (PICO-FR-031, PICO-NFR-003)
 
 | Item | Result |
 |---|---|
@@ -800,7 +840,7 @@ Host build: GCC, C11, `-Wall -Wextra -Wconversion -Wshadow -Wstrict-prototypes
 | Image | `pico_sht30.uf2`, 60 928 bytes |
 | Size (`arm-none-eabi-size`) | text 29 996 B, data 0 B, bss 3 884 B |
 
-### 10A.3 Conversion reference vectors (AD-24)
+### 13A.3 Conversion reference vectors (AD-24)
 
 The same vectors are asserted in C (`test_sht30.c`) and in Python
 (`test_matches_the_firmware_vectors`):
@@ -815,14 +855,14 @@ The same vectors are asserted in C (`test_sht30.c`) and in Python
 
 CRC-8 check value CRC(0xBE, 0xEF) = 0x92, as the datasheet gives it.
 
-### 10A.4 Static analysis
+### 13A.4 Static analysis
 
 No MISRA checker (for example cppcheck's MISRA addon, PC-lint, Helix QAC) was
 available in the build environment. MISRA C:2012 conformance is therefore by
 construction and review (`docs/pico_sht30/Pico_SHT30_Notes.md` §6) plus the
 mechanical checks of `SWE4-UT-PICOFWPROTO`; a tool run is PICO-OPEN-04.
 
-### 10A.5 Bench confirmation items
+### 13A.5 Bench confirmation items
 
 | ID | Item |
 |---|---|
@@ -831,7 +871,7 @@ mechanical checks of `SWE4-UT-PICOFWPROTO`; a tool run is PICO-OPEN-04.
 | PICO-OPEN-03 | Compare against a reference thermometer: expect agreement within ±0.2 °C typical between 0 and 65 °C, allowing for self-heating of the Pico. |
 | PICO-OPEN-04 | The reference PDFs (Pico 2 datasheet and schematic, RP2350 datasheet, SDK guide, Sensirion SHT3x-DIS datasheet) could not be fetched in the build environment; run `docs/pico_sht30/fetch_datasheets.sh` and commit them. Run a MISRA C:2012 checker over `firmware/pico_sht30/src`. |
 
-## 11. Runner verification results
+## 14. Runner verification results
 
 | Check | Result |
 |---|---|
@@ -851,7 +891,7 @@ mechanical checks of `SWE4-UT-PICOFWPROTO`; a tool run is PICO-OPEN-04.
 | A limit stated as text compares as text, and the report shows the text | Pass |
 | A value reported through a format reads as the part does, and the number stays in the record | Pass |
 
-### 11.1 A chained test, run end to end
+### 14.1 A chained test, run end to end
 
 `specs/sensor_bringup.yaml` is the first test of a bench session and the first
 shipped specification that is a **chain** rather than a list: what one step
@@ -891,7 +931,7 @@ three tests assert they say what the simulators say - otherwise a simulated run
 would fail for reasons that are about the fixture rather than about the
 specification.
 
-### 11.2 A command set tested against its own document
+### 14.2 A command set tested against its own document
 
 `specs/sensor_commands.md` is the sensor's command set written as a document -
 a heading per test, a row per step - and `specs/sensor_commands.yaml` runs it.
@@ -926,7 +966,7 @@ get quietly wrong:
 - **The time must carry its clock.** The dongle's microsecond figure is what is
   measured and 10 ms is what is quoted; both are in the record (BLE-NFR-005).
 
-## 12. Defects found, and their disposition
+## 15. Defects found, and their disposition
 
 | ID | Severity | Status | Regression test |
 |---|---|---|---|
@@ -1056,11 +1096,11 @@ Notes on process effectiveness:
   (they check identifiers, not test names), so this one was a manual cross-check;
   it is worth repeating per release.
 
-## 13. Verdict against the pass criteria
+## 16. Verdict against the pass criteria
 
 | ID | Criterion | Result |
 |---|---|---|
-| PC-1 | All tests pass | **Pass** — 1 956/1 956, and 61/61 thermometer firmware cases (§10A.1) |
+| PC-1 | All tests pass | **Pass** — 2 496/2 496 run (1 skipped: `tests/tools/test_test_bench.py` needs `tkinter`, absent in the build environment), and 61/61 thermometer firmware cases (§13A.1) |
 | PC-2 | Statement coverage ≥ 90% | **Pass** — 95% |
 | PC-3 | Every requirement covered | **Pass** — see BENCHTOOLS-TRACE-001 |
 | PC-4 | Injected skews recovered to < 0.1 sample interval | **Pass** — worst case 0.055 |
@@ -1089,7 +1129,7 @@ discharged without physical hardware:
   on silicon: nothing here has run on a dongle, which BLE-OPEN-02 to -04 exist
   to establish.
 
-## 14. Supplementary checks performed
+## 17. Supplementary checks performed
 
 | Check | Result |
 |---|---|
@@ -1115,3 +1155,16 @@ discharged without physical hardware:
 | `ctest --test-dir build/firmware-tests` | 5 binaries, 131 cases, all pass in 0.01 s |
 | `make SDK_ROOT=…` against SDK 15.2 | Drives a real build to the compile stage; stops only on files SDK 15.2 places elsewhere or lacks, which is the expected result for an SDK 17 project |
 | Import with those extras blocked | Package imports; only the plot, VISA and YAML paths raise, each naming its extra |
+
+---
+
+## 18. Review & Approval
+
+| Role | Name | Signature / Electronic Approval | Date |
+|---|---|---|---|
+| Author | Claude | Approved | 2026-09-19 |
+| Technical Reviewer | Dermot Murphy | — | *pending* |
+| Quality Assurance | Dermot Murphy | — | *pending* |
+| Approver | Dermot Murphy | — | *pending* |
+
+> **Note:** This document is under configuration management (SUP.8). Post-approval changes require a change request (SUP.10) and a new document version.

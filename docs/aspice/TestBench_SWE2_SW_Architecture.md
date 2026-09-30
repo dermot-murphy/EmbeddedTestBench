@@ -1,13 +1,55 @@
-# SWE.2 — Software Architectural Design
+# Software Architecture Description
 
-| Field | Value |
-|---|---|
-| Document ID | BENCHTOOLS-SWE2-001 |
-| Version | 4.1 |
-| Date | 2026-09-30 |
-| Process reference | Automotive SPICE V4.0, SWE.2 Software Architectural Design |
+*Automotive SPICE® PAM v4.0 | SWE.2 Software Architectural Design*
 
-## 1. Architectural drivers
+---
+
+## 1. Document Identification & Control
+
+| Field | Value | Field | Value |
+|---|---|---|---|
+| **Document ID** | TB-SWE2-001 | **Version** | 0.4 |
+| **Project** | TestBench | **Date** | 2026-09-23 |
+| **Status** | Draft | **Classification** | Internal |
+| **Author** | Claude | **Reviewer** | Dermot Murphy |
+| **Approver** | Dermot Murphy | **Related Process** | SWE.2 |
+
+> **Note — Reviewer independence (TB-DEV-002):** The Reviewer and Approver are the same person (Dermot Murphy). This is accepted under deviation record **TB-DEV-002** (`docs/aspice/TestBench_DEV002_Independent_Review_Deviation.md`) on the basis that TestBench has a single human team member.
+
+---
+
+## 2. Revision History
+
+| Version | Date | Author | Description of Change |
+|---|---|---|---|
+| 0.1 | 2026-09-19 | Claude | Initial |
+| 0.2 | 2026-09-23 | Claude | DMM-ARC-001 added: the TTi 1604 multimeter element. |
+| 0.3 | 2026-09-25 | Claude | AD-23 brought up to date: command documents take variables, connect, timeouts, notes and `<disconnect>`, results are error, skip, fail or pass, and running moved to `script_run.py` (BLE-DD-SCRIPTRUN) (#46, #48). |
+| 0.4 | 2026-09-30 | Claude | PICO-ARC-001 added: the Pico 2 + SHT30-D thermometer and its firmware. AD-24 added. Thermometer interfaces added. Header version brought into line with this history (#104). |
+
+---
+
+## 3. Purpose & Scope
+
+### 3.1 Purpose
+
+This document describes the software architecture of **TestBench**: the elements it is decomposed into, the dependencies permitted between them, and the decisions that shaped both. It refines TB-SWE1-001 and is the direct input to detailed design (TB-SWE3-001).
+
+This document satisfies **Automotive SPICE® PAM v4.0, SWE.2 — Software Architectural Design**.
+
+### 3.2 Referenced Documents
+
+| Document ID | Title | Version |
+|---|---|---|
+| TB-SYS2-001 | TestBench System Requirements Specification | 0.1 |
+| TB-SWE1-001 | TestBench Software Requirements Specification | 0.1 |
+| TB-SWE2-001 | TestBench Software Architecture Description | 0.1 |
+| TB-SWE3-001 | TestBench Software Detailed Design | 0.1 |
+| TB-RTM-001 | TestBench Requirements Traceability Matrix | 0.1 |
+
+---
+
+## 4. Architectural drivers
 
 | # | Driver | Consequence |
 |---|---|---|
@@ -24,7 +66,7 @@
 | D9 | Tests may later be authored in Markdown and run under Robot Framework (STK-12) | The driver boundary returns plain types and dataclasses of plain types, never objects a keyword layer would have to unwrap. Test intent already lives in data (D3), so a translator becomes a front end to the existing runner rather than a second execution engine. |
 | D6 | An invalid setting must not half-configure an instrument (CORE-NFR-004) | Validation precedes transmission; a complete setup is sent as one compound message. |
 
-## 2. Layering
+## 5. Layering
 
 ```
    +--------------------------------------------------------------+
@@ -71,7 +113,7 @@ runner**. This is not merely a convention — it is enforced by
 on a violation. The core is additionally checked to contain no reference to any
 instrument, and to be importable without importing any other element.
 
-## 3. Architectural elements
+## 6. Architectural elements
 
 | ID | Element | Responsibility | Key interfaces |
 |---|---|---|---|
@@ -90,10 +132,11 @@ instrument, and to be importable without importing any other element.
 | JLINK-ARC-001 | `instruments.jlink` | The debug probe driver. `JLinkProbe` is the façade over seven collaborators, each independently testable: MI record parsing (`gdbmi`), the command/response session (`session`), server discovery and lifetime (`server`), RTT (`rtt`), ITM/SWO decoding (`swo`), timing results (`timing`), and the probe and target envelope (`constants`). Its simulator answers the MI dialogue. | `JLinkProbe`, `GdbMiSession`, `RttClient`, `ItmDecoder`, `TimingResult`, `GdbServer` |
 | S2LP-ARC-001 | `instruments.s2lp` | The ST S2-LP development kit, host side only: ST's firmware runs on the board (AD-20). The line protocol (`protocol`), the command/reply session with its raw log (`session`), the device's register map (`registers`), packet records and their structured log (`packets`), the driver façade (`s2lp`) and a simulated kit with a register file and a modelled air interface. | `S2lpDevkit`, `S2lpSession`, `Register`, `Packet`, `Capture`, `SimulatedS2lp` |
 | PSU-ARC-001 | `instruments.gpd3303d` | The GW Instek bench supply, programmable channels 1 and 2; its fixed rail is a front-panel switch and is outside the element. Not a SCPI instrument: it takes the transport and lifecycle from `ScpiInstrument` and replaces the SCPI-specific parts (`*CLS`, `*RST`, `SYSTem:ERRor?`) with its own. Its own command grammar, a load-modelling simulator, and a command line. | `Gpd3303D`, `ChannelReading`, `SupplyStatus`, `SimulatedGpd` |
+| DMM-ARC-001 | `instruments.tti1604` | The TTi 1604 bench multimeter, on an opto-isolated RS-232 link. Not a SCPI instrument and not close to one: no command language, no query, no `*IDN?`, no error queue. The link carries single characters standing for key presses, and the meter streams a ten-byte binary frame per measurement. Frame decoding (`protocol`) is pure and separate from the link, because decoding is where a wrong number comes from and it should be testable without a meter. The instrument envelope and protocol facts (`constants`), the driver façade (`dmm`), a behavioural simulator and a command line. | `Tti1604`, `Reading`, `FrameAssembler`, `decode`, `SimulatedTti1604` |
 | PICO-ARC-001 | `instruments.pico_sht30` **and** `firmware/pico_sht30` | The Pico 2 + SHT30-D bench thermometer, as one element across two languages. Host side: the driver (`thermometer`), which takes the transport and lifecycle from `ScpiInstrument` and replaces the SCPI-specific parts with the firmware's `ver`; the protocol tables (`constants`); a simulated thermometer that answers with the firmware's reply text; and a command line. Pico side: line assembly and dispatch (`cmd_parser`), the SHT30 driver (`sht30`), a bounded text builder in place of stdio (`text`), and a HAL seam (`hal.h`) implemented on the Pico SDK by `hal_pico.c` and by a fake in the host tests. `include/protocol.h` is the interface both sides are built from. | `PicoSht30`, `FirmwareInfo`, `Reading`, `SensorError`, `SimulatedPicoSht30`; `cmd_execute`, `sht30_measure`, `hal_i2c_write` |
 | RUN-ARC-001 | `runner` | Specification model, bench resolution, execution engine, result records, report writers, command line. | `load_spec`, `BenchConfig`, `BenchRunner`, `write_*` |
 
-## 4. Key architectural decisions
+## 7. Key architectural decisions
 
 ### AD-01 — Implement VXI-11 rather than depend on VISA
 *Decision:* implement the ONC-RPC/VXI-11 core channel on the standard library.
@@ -481,10 +524,13 @@ that come from a markdown document; CON-06 deferred the general question of
 adopting Robot Framework for it.
 
 **Decision.** The driver reads the document directly
-(BLE-DD-SCRIPT, BLE-FR-100 … -108): a heading per test, a table of step number,
-command and expected response. Running it produces a result per row - what was
-sent, what came back, what was expected, how long the exchange took and whether
-it passed - and a run passes when no step failed. The specification that runs
+(BLE-DD-SCRIPT, BLE-DD-SCRIPTRUN, BLE-FR-100 … -116): a heading per test, a
+table of step number, command and expected response, with optional timeout and
+note columns and variables. Running it produces a result per row - what was
+sent, what came back, what was expected, how long the exchange took, the result
+and a note - and an event log; a run is in error when a step errored, fails when
+a step failed, and passes otherwise. Reading lives in `script.py` and running in
+`script_run.py`, so each stays a size one person can read. The specification that runs
 it is four lines, and holds no commands at all.
 
 **Alternatives.** A new construct in the specification language - a step that
@@ -528,7 +574,7 @@ must agree bit for bit; the simulator and both test suites use the same
 reference vectors so that a change to one side fails a test on the other. The
 reply is 20 characters longer than it needs to be.
 
-## 5. Dynamic behaviour — a runner invocation
+## 8. Dynamic behaviour — a runner invocation
 
 ```
 CLI            BenchRunner        Bench           Tek3014B        Transport
@@ -552,7 +598,7 @@ CLI            BenchRunner        Bench           Tek3014B        Transport
  |- write_json / write_markdown / write_junit          |                |
 ```
 
-## 6. Resource and performance characteristics
+## 9. Resource and performance characteristics
 
 | Aspect | Value |
 |---|---|
@@ -568,7 +614,7 @@ CLI            BenchRunner        Bench           Tek3014B        Transport
 | Host event backlog | 4096 events, bounded so an unattended session cannot grow without limit. |
 | Cost of a halting timing measurement | Two breakpoint stops per repetition; the target is stopped for the duration, which is why JLINK-FR-064 exists. |
 
-## 7. Interfaces to external elements
+## 10. Interfaces to external elements
 
 | Interface | Direction | Description |
 |---|---|---|
@@ -589,3 +635,16 @@ CLI            BenchRunner        Bench           Tek3014B        Transport
 | USB CDC (serial) — thermometer | bidirectional | The Pico 2 thermometer's line protocol (`firmware/pico_sht30/include/protocol.h`). |
 | I2C | bidirectional | Pico 2 to SHT30-DIS, 100 kHz, address 0x44. Below the thermometer firmware; not visible to the host driver except as `err 4`/`err 6`. |
 | Raspberry Pi Pico C SDK 2.1.1 + Arm GNU toolchain | in | Builds the thermometer firmware into a UF2 image. Not needed to run the host driver or the tests. |
+
+---
+
+## 11. Review & Approval
+
+| Role | Name | Signature / Electronic Approval | Date |
+|---|---|---|---|
+| Author | Claude | Approved | 2026-09-19 |
+| Technical Reviewer | Dermot Murphy | — | *pending* |
+| Quality Assurance | Dermot Murphy | — | *pending* |
+| Approver | Dermot Murphy | — | *pending* |
+
+> **Note:** This document is under configuration management (SUP.8). Post-approval changes require a change request (SUP.10) and a new document version.

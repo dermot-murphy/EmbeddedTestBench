@@ -22,7 +22,7 @@ from __future__ import annotations
 import json
 import os
 import xml.etree.ElementTree as ElementTree
-from typing import List, Optional, Union
+from typing import List, Union
 
 from .results import CaseRecord, RunRecord, Status
 
@@ -89,6 +89,9 @@ def format_markdown(run: RunRecord) -> str:
     out.append("| Result | **%s** |" % run.status.value)
     out.append("| Bench | %s%s |" % (run.bench, " (simulated)" if run.simulated else ""))
     out.append("| Specification | %s |" % (run.spec_source or "-"))
+    if run.parameters:
+        out.append("| Parameters | %s |" % ", ".join(
+            "%s = %s" % (name, value) for name, value in sorted(run.parameters.items())))
     out.append("| Started | %s |" % run.started)
     out.append("| Duration | %.2f s |" % run.duration_s)
     out.append("| Tests | %d passed, %d failed, %d errored, %d skipped (of %d) |" % (
@@ -229,7 +232,8 @@ def write_junit(run: RunRecord, path: str) -> str:
         ("bench", run.bench),
         ("simulated", str(run.simulated).lower()),
         ("specification", run.spec_source or ""),
-    ):
+    ) + tuple(("parameter %s" % name, str(value))
+              for name, value in sorted(run.parameters.items())):
         ElementTree.SubElement(properties, "property", {"name": name, "value": value})
 
     if run.setup_error:

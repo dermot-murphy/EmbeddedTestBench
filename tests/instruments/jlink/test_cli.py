@@ -52,6 +52,42 @@ class TestSubcommands:
         status, payload, _ = run(capsys, "reset")
         assert status == 0 and payload["halted"] is True
 
+    def test_erase(self, capsys):
+        """Erase is the first step of a reflash-and-restore-ID sequence."""
+        status, payload, _ = run(capsys, "erase")
+        assert status == 0 and payload["erased"] is True
+
+    @pytest.mark.parametrize(
+        "arguments, left_halted",
+        [
+            (["info"], False),
+            (["read", "0x20000104", "4"], False),
+            (["verify"], False),
+            (["reset", "--run"], False),
+            (["halt"], True),
+            (["reset"], True),
+            (["run", "--until", "sensor.c:75"], True),
+        ],
+    )
+    def test_the_target_is_left_running_unless_asked(
+        self, capsys, monkeypatch, arguments, left_halted
+    ):
+        """Only a command whose purpose is a halted core leaves one (issue #69)."""
+        from benchtools.instruments.jlink import JLinkProbe
+
+        opened = []
+        connect = JLinkProbe.connect
+
+        def remember(*args, **kwargs):
+            probe = connect(*args, **kwargs)
+            opened.append(probe.session.transport.responder)
+            return probe
+
+        monkeypatch.setattr(JLinkProbe, "connect", remember)
+        status, _, _ = run(capsys, *arguments)
+        assert status == 0
+        assert opened[0].halted is left_halted
+
     def test_run_until(self, capsys):
         status, payload, _ = run(capsys, "run", "--until", "sensor.c:75")
         assert status == 0

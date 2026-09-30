@@ -135,7 +135,51 @@ class TestLoopback:
         with pytest.raises(TransportTimeoutError, match="no data"):
             transport.read_message()
 
+    def test_the_port_is_not_reconfigured_on_every_read(self, transport, monkeypatch):
+        """pyserial reconfigures the port whenever its timeout is assigned,
+        and on Windows that loses bytes in flight."""
+        port = transport._serial
+        calls = []
+        original = port._reconfigure_port
+        monkeypatch.setattr(port, "_reconfigure_port",
+                            lambda *a, **k: (calls.append(1), original(*a, **k)))
+        for text in (b"one", b"two", b"three"):
+            transport.write(text)
+            assert transport.read_message() == text
+        assert not calls, "the timeout was reassigned on a read"
+
+    def test_a_changed_timeout_still_reaches_the_port(self, transport):
+        from benchtools.core.errors import TransportTimeoutError
+
+        transport.timeout = 0.1
+        with pytest.raises(TransportTimeoutError):
+            transport.read_message()
+        assert transport._serial.timeout == 0.1
+
     def test_closing_then_reading_is_rejected(self, transport):
         transport.close()
         with pytest.raises(TransportError):
             transport.read_message()
+
+
+class TestHandshakeLines:
+    """DTR and RTS are interface power on some instruments, not flow control.
+
+    The TTi 1604's opto-isolated interface draws its power from them: with DTR
+    unasserted the meter is mute, which presents as a dead port rather than as
+    a configuration mistake.
+    """
+
+    def test_the_lines_are_left_alone_by_default(self):
+        transport = SerialTransport(port="loop://")
+        assert transport._dtr is None
+        assert transport._rts is None
+
+    def test_requested_states_are_applied_after_opening(self):
+        transport = SerialTransport(port="loop://", dtr=True, rts=False)
+        transport.open()
+        try:
+            assert transport._serial.dtr is True
+            assert transport._serial.rts is False
+        finally:
+            transport.close()

@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Document ID | BENCHTOOLS-PICO-001 |
+| Document ID | TB-PICO-001 |
 | Version | 1.0 |
 | Date | 2026-09-30 |
 | Element | `PICO-` — `benchtools.instruments.pico_sht30` and `firmware/pico_sht30` |

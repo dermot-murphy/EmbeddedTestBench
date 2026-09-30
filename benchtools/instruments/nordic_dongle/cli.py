@@ -20,10 +20,9 @@ import sys
 from typing import Optional, Sequence
 
 from ... import __version__
-from ...core.errors import BenchToolsError
+from ...core.errors import BenchToolsError, ConfigurationError
 from .constants import DEFAULT_BAUDRATE, DEFAULT_COMMAND_TIMEOUT
 from .dongle import NordicDongle
-from .firmware import FirmwareBuild
 from .latency import LatencySource
 
 __all__ = ["main", "build_parser"]
@@ -166,6 +165,35 @@ def _cmd_cmd(dongle: NordicDongle, args) -> int:
     return _EXIT_OK
 
 
+def _parse_variables(pairs: Sequence[str]) -> dict:
+    """``NAME=VALUE`` pairs from ``--var``, as a mapping."""
+    values = {}
+    for pair in pairs or ():
+        name, separator, value = pair.partition("=")
+        if not separator or not name.strip():
+            raise ConfigurationError("--var takes NAME=VALUE, not %r" % pair)
+        values[name.strip()] = value
+    return values
+
+
+def _cmd_script(dongle: NordicDongle, args) -> int:
+    """Run a command document: connect, send, check, report. Exit 1 on a fail."""
+    run = dongle.run_script(
+        args.document,
+        report=args.report,
+        timeout=args.timeout_s,
+        listen=args.listen,
+        variables=_parse_variables(args.var),
+        events=args.events,
+    )
+    payload = run.as_dict()
+    payload["report"] = args.report
+    payload["events"] = args.events
+    payload["log"] = dongle.log_path
+    _emit(payload, args.json)
+    return _EXIT_OK if run.is_pass else _EXIT_ERROR
+
+
 def _cmd_monitor(dongle: NordicDongle, args) -> int:
     """Stream events to the log and to the terminal."""
     _select(dongle, args)
@@ -178,7 +206,7 @@ def _cmd_monitor(dongle: NordicDongle, args) -> int:
 
     seen = 0
     try:
-        for event in dongle.session.collect(args.duration, on_event=lambda item: print(item.raw)):
+        for _event in dongle.session.collect(args.duration, on_event=lambda item: print(item.raw)):
             seen += 1
     finally:
         dongle.session.execute("adv", "stop", allow_error=True)
@@ -272,6 +300,26 @@ def build_parser() -> argparse.ArgumentParser:
     command.add_argument("--host-clock", action="store_true",
                          help="report the host's round trip instead of the dongle's")
     command.set_defaults(handler=_cmd_cmd)
+
+    script = subparsers.add_parser(
+        "script",
+        help="run a command document: connect, send commands, check replies",
+        description="Run a markdown command document against a sensor. Exit status "
+        "0 when every checked step passed, 1 when one failed or the run could not "
+        "start. See specs/templates/ble_sensor_test.md.",
+    )
+    script.add_argument("document", help="the markdown command document")
+    script.add_argument("--var", action="append", metavar="NAME=VALUE",
+                        help="value for a ${NAME} the document declares; repeatable")
+    script.add_argument("--report", metavar="PATH", help="write the markdown report here")
+    script.add_argument("--events", metavar="PATH",
+                        help="write the event log here: time, event, step, data, result")
+    script.add_argument("--timeout-s", type=float, default=DEFAULT_COMMAND_TIMEOUT,
+                        help="default seconds to wait for a reply; a step's Timeout "
+                        "cell overrides it")
+    script.add_argument("--listen", type=float, default=0.5,
+                        help="seconds to listen after a command with no expected reply")
+    script.set_defaults(handler=_cmd_script)
 
     monitor = subparsers.add_parser("monitor", help="stream events to the terminal and the log")
     monitor.add_argument("--duration", type=float, default=10.0, help="seconds to listen")

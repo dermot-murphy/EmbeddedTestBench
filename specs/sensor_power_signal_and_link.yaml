@@ -1,0 +1,235 @@
+# One pass over a sensor board with every instrument on the bench.
+#
+# Power it, program it, measure what it draws, look at the LED it drives, then
+# find it over the air and ask it what it is running. Each instrument answers a
+# question the others cannot: the supply says what the rail is, the meter says
+# what the board takes from it, the scope says what the board is doing with it,
+# and the radio says what the board believes about itself.
+#
+# Against hardware:
+#   python -m benchtools run specs/sensor_power_signal_and_link.yaml \
+#          --bench benches/lab1.yaml --markdown report.md
+# Without it:
+#   python -m benchtools run specs/sensor_power_signal_and_link.yaml \
+#          --bench benches/simulated_bench.yaml
+#
+# How the meter is wired matters, and this specification cannot check it. The
+# 1604 measures current, so it is in *series* with the sensor's supply on the
+# mA jack: supply positive, meter mA in, meter COM to the board. Put it across
+# the rail instead and it is a short across the supply - which the supply will
+# survive, in current limit, while every reading below looks like a board that
+# draws exactly its limit. The rail check in the first test is what catches
+# that, which is why it comes first.
+#
+# The LED rate is deliberately not asserted. It is a property of the
+# application build, not of this bench, and a specification that pinned it
+# would fail the day someone changed a blink pattern - reporting a broken board
+# where there is a changed one. What is asserted is that the LED is being
+# driven at all, and the rate is recorded beside it as evidence.
+
+name: Sensor power, signal and link
+description: >
+  Bring up a sensor board on a 3.2 V rail, program the application, measure the
+  current it draws, confirm the LED line is being driven, then find the board
+  over the air by signal strength, connect to it and record the version it
+  reports.
+requirements: [SYS-REQ-010, SYS-REQ-012, SYS-REQ-020, SYS-REQ-042]
+
+instruments:
+  psu: gpd3303d
+  dmm: tti1604
+  probe: jlink
+  scope: tek3014b
+  dongle: ble-dongle
+
+setup:
+  # The limit before the voltage, always: a rail coming up at a new voltage
+  # must never be protected by the previous test's limit, even for a moment.
+  - do: psu.configure_channel
+    with: {channel: 1, volts: 3.2, current_limit: 0.5, output: true}
+
+  # The meter measures current, so it is put in the mA range on DC before
+  # anything reads it. A meter left in volts would answer every question below
+  # with a plausible number in the wrong unit.
+  - do: dmm.select_milliamps
+  - do: dmm.select_dc
+
+  # The LED line. Ten volts of range for a 3.2 V logic signal leaves headroom
+  # for the overshoot a real LED drive has, and the trigger sits at half the
+  # rail so it catches the edge rather than the noise either side of it.
+  - do: scope.configure_channel
+    with: {channel: 1, enabled: true, volts_per_div: 1.0, coupling: DC}
+  - do: scope.configure_edge_trigger
+    with: {source: 1, level: 1.6, slope: RISE, mode: NORMAL}
+
+  # Everything the session says over the air, kept with the run.
+  - do: dongle.start_log
+    with: {path: sensor_link.log}
+
+teardown:
+  # Off at the end however the run went, and in the order that leaves nothing
+  # energised: link first, then the debugger, then the rail.
+  - do: dongle.close_link
+  - do: dongle.stop_log
+  - do: probe.rtt_stop
+  - do: psu.all_outputs_off
+
+tests:
+  - name: The board is powered at 3.2 V and is not in current limit
+    requirement: SYS-REQ-010
+    description: >
+      Nothing downstream means anything until this passes. A board in current
+      limit sits below its setpoint, and every measurement after it describes a
+      browning-out board rather than this one.
+    steps:
+      - do: psu.read_channel
+        with: {channel: 1}
+        save: rail
+        expect:
+          - name: rail_voltage
+            measure: voltage
+            unit: V
+            nominal: 3.2
+            tolerance: 0.05
+          - name: rail_regulated
+            measure: regulated
+            equals: 1
+
+  - name: The application is programmed and verified
+    requirement: SYS-REQ-012
+    steps:
+      # Which image is the bench's business, not this specification's.
+      # Verification is the part that matters: programming that half-succeeded
+      # is exactly what this catches.
+      - do: probe.flash
+        save: flashed
+        expect:
+          - name: image_verified
+            measure: verify.matched
+            equals: 1
+
+      # What the build system said about that image, for comparison with what
+      # the board says about itself once it is on the air.
+      - do: probe.image_build
+        save: build
+
+      - do: probe.rtt_start
+      - do: probe.reset
+        with: {halt: false}
+
+      # Output arriving at all is the evidence it started. A count can be
+      # bounded; a timeout can only raise.
+      - do: probe.rtt_lines_within
+        with: {timeout: 3.0}
+        expect:
+          - name: rtt_lines
+            minimum: 1
+
+  - name: The sensor draws the current it should
+    requirement: SYS-REQ-020
+    description: >
+      Measured at the meter, in series with the rail, rather than taken from
+      the supply's own reading. The supply measures what it delivers to
+      everything on the rail; the meter measures what this board takes.
+    steps:
+      # One reading is discarded first: after a range or function change the
+      # meter emits a measurement taken under the previous setting, and
+      # attributing that to the new one is the cheapest mistake to avoid.
+      - do: dmm.measure
+        save: current
+        expect:
+          # The band is the board's, not the meter's. Below it the board is
+          # not running; above it something is drawing that should not be.
+          - name: sensor_current
+            measure: value
+            unit: A
+            minimum: 0.005
+            maximum: 0.050
+
+          # An overrange is not a number. Without this, a meter left on too
+          # sensitive a range reports a reading of None and the limit above
+          # has nothing to judge.
+          - name: current_in_range
+            measure: overrange
+            equals: 0
+
+          # A frozen display is a real measurement of a moment that has passed.
+          # If Hold or Min-Max was left on at the front panel, this is what
+          # stops the run recording history as the present.
+          - name: current_is_live
+            measure: held
+            equals: 0
+
+  - name: The sensor is driving its LED
+    requirement: SYS-REQ-042
+    description: >
+      That the line is being driven, not what pattern it is driving. The
+      pattern belongs to the application build; asserting it here would report
+      a broken board the day someone changed a blink rate.
+    steps:
+      - do: scope.run
+        with: {continuous: true}
+
+      - do: scope.measure_amplitude
+        with: {channel: 1}
+        save: led_amplitude
+        expect:
+          - name: led_amplitude
+            unit: V
+            minimum: 1.5
+
+      # Recorded, not judged. The rate is evidence about the build that was
+      # flashed two tests ago, and it belongs in the report next to it.
+      - do: scope.measure_frequency
+        with: {channel: 1}
+        save: led_rate
+
+  - name: The board is found over the air and reports its version
+    requirement: SYS-REQ-012
+    description: >
+      Chosen by signal strength rather than by address, so that the
+      specification carries no board identity in it and runs against whichever
+      board is on this bench.
+    steps:
+      # Long enough to hear a board advertising at a typical interval several
+      # times over, so that one missed advertisement does not decide which
+      # board is strongest.
+      - do: dongle.scan
+        with: {duration: 3.0}
+        save: found
+        expect:
+          - name: boards_heard
+            measure: length
+            minimum: 1
+
+      # "Strongest" is received power at the dongle: a statement about this
+      # link at this moment, not about which board is nearest. With one board
+      # on the bench that is the board; with two it is the near one, and the
+      # address recorded below says which was chosen.
+      - do: dongle.strongest
+        save: target
+        expect:
+          - name: target_signal_dbm
+            measure: rssi
+            maximum: 0
+
+      - do: dongle.select
+        with: {sensor: {from: target.address}}
+
+      - do: dongle.open_link
+        expect:
+          - name: linked_board
+            measure: address
+            equals: {from: target.address}
+
+      # The two ends of the test: what the build produced, read from its
+      # manifest four steps ago, and what the board says over a link this bench
+      # had to establish to ask. Nothing in between could make them agree by
+      # accident.
+      - do: dongle.command
+        with: {request: "rd version"}
+        save: reported
+        expect:
+          - name: reported_version
+            measure: text
+            equals: {from: build.version}

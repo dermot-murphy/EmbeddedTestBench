@@ -83,5 +83,7 @@ bool            fake_nus_notifications_enabled(void);
 /** Deliver an event to the handler the firmware registered. */
 void            fake_nus_fire(ble_nus_c_evt_type_t type, const uint8_t * data, uint16_t length);
 void            fake_nus_reset(void);
+/** Times a BLE event was handed to ble_nus_c_on_ble_evt() by hand. */
+uint32_t        fake_nus_forwarded_events(void);
 
 #endif /* BLE_NUS_C_H__ */

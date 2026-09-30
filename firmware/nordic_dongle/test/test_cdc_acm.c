@@ -81,6 +81,23 @@ static void test_writes_are_serialised_one_at_a_time(void)
 	TEST_ASSERT_EQUAL_STRING("first\nsecond\n", fake_cdc_written());
 }
 
+static void test_idle_only_once_every_line_has_been_handed_over(void)
+{
+	/* The dfu command waits on this before resetting; a reset with a line
+	 * still queued or in flight loses it. */
+	TEST_ASSERT_TRUE(cdc_acm_tx_idle());
+
+	cdc_acm_send_line("first");
+	cdc_acm_send_line("second");
+	TEST_ASSERT_FALSE(cdc_acm_tx_idle());
+
+	fake_cdc_complete_write();
+	TEST_ASSERT_FALSE(cdc_acm_tx_idle());
+
+	fake_cdc_complete_write();
+	TEST_ASSERT_TRUE(cdc_acm_tx_idle());
+}
+
 static void test_the_queue_drains_in_order(void)
 {
 	uint32_t index;
@@ -281,6 +298,7 @@ int main(void)
 	RUN_TEST(test_formatting);
 	RUN_TEST(test_a_null_line_is_refused_rather_than_dereferenced);
 	RUN_TEST(test_writes_are_serialised_one_at_a_time);
+	RUN_TEST(test_idle_only_once_every_line_has_been_handed_over);
 	RUN_TEST(test_the_queue_drains_in_order);
 	RUN_TEST(test_a_full_queue_drops_whole_lines_and_counts_them);
 	RUN_TEST(test_an_over_long_line_is_truncated_not_overrun);

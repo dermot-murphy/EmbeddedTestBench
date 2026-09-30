@@ -21,6 +21,8 @@
 /* --- SoftDevice GAP ------------------------------------------------ */
 const ble_gap_addr_t *	fake_gap_connect_address(void);
 uint32_t		fake_gap_connect_count(void);
+/** The scan parameters the last connection attempt was made with. */
+const ble_gap_scan_params_t *	fake_gap_connect_scan_params(void);
 uint32_t		fake_gap_disconnect_count(void);
 void			fake_gap_set_connect_result(uint32_t result);
 void			fake_gap_reset(void);
@@ -74,6 +76,8 @@ uint32_t	fake_nus_client_commands(void);
 const uint8_t *	fake_nus_client_last_payload(void);
 uint16_t	fake_nus_client_last_length(void);
 uint32_t	fake_nus_client_connects(void);
+uint32_t	fake_nus_client_connect_timeout_ms(void);
+uint32_t	fake_nus_client_command_timeout_ms(void);
 uint32_t	fake_nus_client_disconnects(void);
 void		fake_nus_client_set_connect_result(uint32_t result);
 void		fake_nus_client_reset(void);

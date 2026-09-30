@@ -41,7 +41,9 @@ def _define(path: pathlib.Path, name: str) -> str:
 def test_commands_agree():
     firmware = {
         name: (int(low), int(high))
-        for name, low, high in re.findall(r"X\((\w+),\s*(\d+),\s*(\d+),", _table("PROTO_COMMAND_TABLE"))
+        for name, low, high in re.findall(
+            r"X\((\w+),\s*(\d+),\s*(\d+),", _table("PROTO_COMMAND_TABLE")
+        )
     }
     assert firmware == constants.COMMANDS
 

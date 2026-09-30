@@ -21,14 +21,14 @@ import re
 import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-DOCS = ROOT / "docs"
+DOCS = ROOT / "docs" / "aspice"
 SOURCE_DIRS = (ROOT / "benchtools", ROOT / "tests")
 
-REQUIREMENTS_DOC = DOCS / "SWE1_Software_Requirements_Specification.md"
-ARCHITECTURE_DOC = DOCS / "SWE2_Software_Architecture.md"
-DESIGN_DOC = DOCS / "SWE3_Software_Detailed_Design.md"
-TEST_SPEC_DOC = DOCS / "SWE4_Unit_Test_Specification.md"
-MATRIX_DOC = DOCS / "Traceability_Matrix.md"
+REQUIREMENTS_DOC = DOCS / "TestBench_SWE1_SW_Requirements.md"
+ARCHITECTURE_DOC = DOCS / "TestBench_SWE2_SW_Architecture.md"
+DESIGN_DOC = DOCS / "TestBench_SWE3_Detailed_Design.md"
+TEST_SPEC_DOC = DOCS / "TestBench_SWE4_Unit_Verification.md"
+MATRIX_DOC = DOCS / "TestBench_Traceability_Matrix.md"
 
 #: Requirement identifier, e.g. CORE-FR-001, JLINK-FR-060 or CORE-NFR-007.
 #: One prefix per element of SWE.1 §3; a new element is registered here.
@@ -59,8 +59,10 @@ class TestWorkProductsExist:
     @pytest.mark.parametrize(
         "path",
         [REQUIREMENTS_DOC, ARCHITECTURE_DOC, DESIGN_DOC, TEST_SPEC_DOC, MATRIX_DOC,
-         DOCS / "SWE4_Unit_Test_Report.md",
-         DOCS / "tek3014b" / "VISA_Determination_Report.md"],
+         DOCS / "TestBench_SWE4_Unit_Verification_Report.md",
+         DOCS / "TestBench_IF001_GPD3303D_Remote_Control_Interface.md",
+         DOCS / "TestBench_SWE3_002_GPD3303D_Driver_Design.md",
+         ROOT / "docs" / "tek3014b" / "VISA_Determination_Report.md"],
         ids=lambda p: p.name,
     )
     def test_present(self, path):

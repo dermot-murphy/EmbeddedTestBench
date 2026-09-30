@@ -27,7 +27,7 @@ from benchtools.instruments.pico_sht30 import (
 from benchtools.instruments.pico_sht30.thermometer import parse_fields
 
 
-class _Scripted:
+class _Scripted:  # pylint: disable=too-few-public-methods
     """A responder that answers every command with the same fixed line."""
 
     def __init__(self, ver: str, reply: str) -> None:
@@ -71,14 +71,14 @@ class TestIdentity:
         assert identity.firmware.startswith("1.0.0 (built ")
 
     def test_a_different_version_is_reported_as_it_is(self):
-        with PicoSht30(MockTransport(responder=SimulatedPicoSht30(version="1.2.3"))) as t:
-            assert t.version == "1.2.3"
+        with PicoSht30(MockTransport(responder=SimulatedPicoSht30(version="1.2.3"))) as device:
+            assert device.version == "1.2.3"
 
     def test_a_local_build_date_is_flagged(self):
         simulator = SimulatedPicoSht30()
         simulator.built = "local:Sep_30_2026T12:00:00"
-        with PicoSht30(MockTransport(responder=simulator)) as t:
-            assert not t.firmware_info().build_date_is_utc
+        with PicoSht30(MockTransport(responder=simulator)) as device:
+            assert not device.firmware_info().build_date_is_utc
 
     def test_an_incompatible_protocol_is_refused(self):
         ver = _VER.replace("proto=1.0", "proto=2.0")
@@ -89,7 +89,7 @@ class TestIdentity:
         with pytest.raises(ProtocolError, match="title"):
             _scripted("ok", ver="ok fw=1.0.0 proto=1.0")
 
-    def test_connecting_sends_no_scpi(self, simulator, thermometer):
+    def test_connecting_sends_no_scpi(self, simulator, thermometer):  # pylint: disable=unused-argument
         """*CLS would be answered with err 1 by this firmware."""
         assert all(not command.startswith("*") for command in simulator.command_log)
 
@@ -158,8 +158,8 @@ class TestFailedReadings:
     def test_identity_survives_a_missing_sensor(self):
         simulator = SimulatedPicoSht30()
         simulator.sensor_present = False
-        with PicoSht30(MockTransport(responder=simulator)) as t:
-            assert t.title == TITLE
+        with PicoSht30(MockTransport(responder=simulator)) as device:
+            assert device.title == TITLE
 
     def test_a_value_that_disagrees_with_its_raw_word_is_refused(self):
         thermometer = _scripted("ok t=25.500 rh=40.000 raw_t=0x6666 raw_rh=0x6666")
@@ -217,7 +217,7 @@ class TestStatusAndControl:
         thermometer.enter_bootloader()
         assert simulator.bootloader_requests == 1
 
-    def test_help_lines_are_skipped(self, simulator, thermometer):
+    def test_help_lines_are_skipped(self, thermometer):
         assert thermometer.execute("help") == {}
         assert thermometer.title == TITLE
 
@@ -239,4 +239,4 @@ class TestResources:
 
 def test_parse_fields():
     assert parse_fields("ok a=1 b=0x2 c=") == {"a": "1", "b": "0x2", "c": ""}
-    assert parse_fields("ok") == {}
+    assert not parse_fields("ok")

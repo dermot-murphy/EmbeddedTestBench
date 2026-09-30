@@ -31,6 +31,21 @@ instruments:
       # someone rebuilt the firmware. Defaults to beside the elf above.
       firmware: build
 
+  # The same J-Link, for reading RTT only: the GDB Server is started with
+  # -nohalt and GDB never attaches, so the target keeps running. A suite that
+  # talks to the target over BLE while it reads its log declares this driver
+  # (specs/kepler_temperature.yaml): halting a Nordic SoftDevice during a BLE
+  # link drops the link and then faults the firmware (#95). Only one of probe
+  # and rtt can hold the J-Link at a time; a suite uses one or the other.
+  rtt:
+    driver: jlink-rtt
+    resource: jlink://127.0.0.1:2341   # its own ports, so it never meets probe's server
+    timeout: 30.0
+    options:
+      device: nRF52840_xxAA
+      speed_khz: 4000
+      rtt_port: 19031
+
   # Nordic BLE dongle running firmware/nordic_dongle. A bare port name is read
   # as a serial port, so 'COM5' and '/dev/ttyACM0' both work; a port published
   # over TCP lets a containerised bench reach a dongle on another machine:
@@ -72,15 +87,20 @@ instruments:
 
   # ST S2-LP development kit, running ST's own CLI firmware (the firmware the
   # S2-LP DK GUI drives). Nothing of ours runs on the board, so there is nothing
-  # to flash before a session. The band comes from the board's own
-  # identification, not from here.
+  # to flash before a session. The driver reads the board's band from its
+  # EEPROM at connection (#80); naming the board here as well makes a mismatch
+  # fail at connect.
   s2lp:
     driver: s2lp
-    resource: /dev/ttyACM1        # COM7 on Windows
+    resource: /dev/ttyACM1        # COM4 on the Windows bench PC
     timeout: 5.0
+    options:
+      board: STEVAL-FKI433V2      # from the label, 2026-09-27 (#80)
 
-  # Any instrument without a dedicated driver yet can still be addressed,
-  # identified and sent raw SCPI through the generic driver.
+  # The bench multimeter, on a USB-to-RS-232 converter. The driver asserts
+  # DTR and clears RTS: they power the meter's opto-isolated interface, and
+  # without them it is simply mute. See docs/dmm/TTi1604_Notes.md.
   dmm:
-    driver: generic
-    resource: 192.168.1.60
+    driver: tti1604
+    resource: /dev/ttyUSB1        # COM5 on Windows
+    timeout: 5.0

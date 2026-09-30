@@ -27,6 +27,11 @@ def ask(simulator, command):
     return None if reply is None else reply.decode("ascii").strip()
 
 
+def status_bits(simulator):
+    """The eight ``STATUS?`` fields, without the legend that follows them."""
+    return "".join(ask(simulator, "STATUS?").split("\r")[0].split())
+
+
 class TestChannelModel:
     def test_an_unloaded_channel_delivers_its_setpoint_and_no_current(self):
         channel = SimulatedChannel()
@@ -62,6 +67,12 @@ class TestChannelModel:
         channel.current_limit = 1.0
         assert channel.output(False)["voltage"] == 0.0
 
+    def test_a_de_energised_channel_reports_constant_current(self):
+        """As a real supply does with its output switch open."""
+        channel = SimulatedChannel()
+        channel.voltage_setpoint = 5.0
+        assert channel.output(False)["mode"] == ChannelMode.CONSTANT_CURRENT
+
 
 class TestCommands:
     def test_idn(self, ):
@@ -70,9 +81,17 @@ class TestCommands:
     def test_setting_and_reading_back(self):
         simulator = SimulatedGpd()
         assert ask(simulator, "VSET1:3.300") is None
-        assert ask(simulator, "VSET1?") == "3.300"
+        assert ask(simulator, "VSET1?") == "3.3V"
         assert ask(simulator, "ISET1:0.500") is None
-        assert ask(simulator, "ISET1?") == "0.500"
+        assert ask(simulator, "ISET1?") == "0.50A"
+
+    def test_read_back_is_coarser_than_programming(self):
+        """0.1 V and 0.01 A, as firmware V1.09 answers."""
+        simulator = SimulatedGpd()
+        ask(simulator, "VSET1:3.250")
+        ask(simulator, "ISET1:0.123")
+        assert ask(simulator, "VSET1?") in ("3.2V", "3.3V")
+        assert ask(simulator, "ISET1?") == "0.12A"
 
     def test_measurements_carry_their_unit(self):
         """As the instrument's do, which is what the driver has to strip."""
@@ -80,8 +99,8 @@ class TestCommands:
         ask(simulator, "VSET1:3.300")
         ask(simulator, "ISET1:1.000")
         ask(simulator, "OUT1")
-        assert ask(simulator, "VOUT1?") == "3.300V"
-        assert ask(simulator, "IOUT1?") == "0.330A"
+        assert ask(simulator, "VOUT1?") == "3.3V"
+        assert ask(simulator, "IOUT1?") == "0.33A"
 
     def test_the_output_switch_is_one_switch(self):
         """Which is the whole reason the driver emulates per-channel control."""
@@ -89,11 +108,11 @@ class TestCommands:
         ask(simulator, "VSET1:1.000")
         ask(simulator, "VSET2:2.000")
         ask(simulator, "OUT1")
-        assert ask(simulator, "VOUT1?") == "1.000V"
-        assert ask(simulator, "VOUT2?") == "2.000V"
+        assert ask(simulator, "VOUT1?") == "1.0V"
+        assert ask(simulator, "VOUT2?") == "2.0V"
         ask(simulator, "OUT0")
-        assert ask(simulator, "VOUT1?") == "0.000V"
-        assert ask(simulator, "VOUT2?") == "0.000V"
+        assert ask(simulator, "VOUT1?") == "0.0V"
+        assert ask(simulator, "VOUT2?") == "0.0V"
 
     def test_out0_is_understood(self):
         """It shares its digit position with a channel number, and an earlier
@@ -105,42 +124,75 @@ class TestCommands:
         assert simulator.output is False
         assert simulator.last_error == ""
 
-    def test_status_is_eight_bits(self):
-        assert set(ask(SimulatedGpd(), "STATUS?")) <= {"0", "1"}
-        assert len(ask(SimulatedGpd(), "STATUS?")) == 8
+    def test_status_is_eight_fields_then_the_legend(self):
+        """As firmware V1.09 answers: spaced fields, ``X`` for bits 5 and 7,
+        then two lines of legend, every line ending in a carriage return."""
+        reply = SimulatedGpd().respond(b"STATUS?").decode("ascii")
+        lines = reply.split("\r")
+        assert lines[-1] == ""
+        fields = lines[0].split(" ")
+        assert len(fields) == 8
+        assert set(fields) <= {"0", "1", "X"}
+        assert fields[5] == fields[7] == "X"
+        assert [line[:4] for line in lines[1:-1]] == ["bit0", "bit4"]
 
-    def test_the_supply_clamps_rather_than_refusing(self):
-        """Which is exactly what the driver's range check protects against."""
+    def test_the_output_is_bit_6(self):
+        """Confirmed on a real supply by switching its output."""
         simulator = SimulatedGpd()
-        ask(simulator, "VSET1:35.000")
-        assert ask(simulator, "VSET1?") == "30.000"
-        assert "Range" in simulator.last_error
+        assert status_bits(simulator)[6] == "0"
+        ask(simulator, "OUT1")
+        assert status_bits(simulator)[6] == "1"
+
+    def test_an_out_of_range_setting_is_rejected_and_the_setpoint_kept(self):
+        """As a real supply does: no reply, no change, and only ERR? says so.
+        Which is exactly what the driver's range check protects against."""
+        simulator = SimulatedGpd()
+        ask(simulator, "VSET1:5.000")
+        assert ask(simulator, "VSET1:35.000") is None
+        assert ask(simulator, "VSET1?") == "5.0V"
+        assert ask(simulator, "ERR?") == "Data out of range."
+
+    def test_the_top_of_the_range_is_accepted(self):
+        simulator = SimulatedGpd()
+        ask(simulator, "VSET1:30.000")
+        assert ask(simulator, "VSET1?") == "30.0V"
+        assert simulator.last_error == ""
+
+    def test_a_negative_setting_is_an_invalid_character(self):
+        simulator = SimulatedGpd()
+        ask(simulator, "VSET1:5.000")
+        ask(simulator, "VSET1:-1")
+        assert ask(simulator, "VSET1?") == "5.0V"
+        assert simulator.last_error == "Invalid Character."
 
     def test_an_unknown_command_is_met_with_silence(self):
         """As the hardware does: a misspelled command reads as a timeout."""
         simulator = SimulatedGpd()
         assert ask(simulator, "VOLTAGE 3.3") is None
-        assert "VOLTAGE" in simulator.last_error
+        assert simulator.last_error == "Undefined Header."
 
     def test_a_channel_that_does_not_exist_is_refused(self):
         simulator = SimulatedGpd()
         assert ask(simulator, "VSET3:1.000") is None
+        assert simulator.last_error == "Invalid Character."
         assert ask(simulator, "VOUT9?") is None
-        assert "channel" in simulator.last_error
+        assert simulator.last_error == "Undefined Header."
 
     def test_err_reports_then_clears(self):
         simulator = SimulatedGpd()
         ask(simulator, "NONSENSE")
-        assert "NONSENSE" in ask(simulator, "ERR?")
+        assert ask(simulator, "ERR?") == "Undefined Header."
         assert ask(simulator, "ERR?") == "No Error."
 
     def test_an_empty_line_is_ignored(self):
         assert ask(SimulatedGpd(), "") is None
 
     def test_replies_end_as_the_instrument_ends_them(self):
-        """CR LF, not bare LF: a driver that assumes otherwise leaves a stray
-        byte in the buffer and reads it as the head of the next reply."""
-        assert SimulatedGpd().respond(b"*IDN?").endswith(b"\r\n")
+        """A carriage return alone, as a real supply ends them: a driver
+        waiting for a line feed never sees one."""
+        reply = SimulatedGpd().respond(b"*IDN?")
+        assert reply.endswith(b"\r")
+        assert b"\n" not in reply
 
     def test_a_load_can_be_attached_after_construction(self):
         simulator = SimulatedGpd()
@@ -148,7 +200,7 @@ class TestCommands:
         ask(simulator, "VSET1:5.000")
         ask(simulator, "ISET1:3.000")
         ask(simulator, "OUT1")
-        assert ask(simulator, "IOUT1?") == "1.000A"
+        assert ask(simulator, "IOUT1?") == "1.00A"
 
     def test_reset_returns_it_to_power_on(self):
         simulator = SimulatedGpd()
@@ -156,7 +208,7 @@ class TestCommands:
         ask(simulator, "OUT1")
         simulator.reset()
         assert simulator.output is False
-        assert ask(simulator, "VSET1?") == "0.000"
+        assert ask(simulator, "VSET1?") == "0.0V"
 
     def test_every_command_is_logged(self):
         simulator = SimulatedGpd()
@@ -200,7 +252,7 @@ class TestTracking:
         simulator = SimulatedGpd(tracking=mode)
         ask(simulator, "VSET1:5.000")
         assert ask(simulator, "VSET%d:1.000" % TRACKED_CHANNEL) is None
-        assert ask(simulator, "VSET%d?" % TRACKED_CHANNEL) == "5.000"
+        assert ask(simulator, "VSET%d?" % TRACKED_CHANNEL) == "5.0V"
         assert simulator.last_error == ""
 
     @pytest.mark.parametrize("mode", [TrackingMode.SERIES, TrackingMode.PARALLEL])
@@ -208,35 +260,36 @@ class TestTracking:
         simulator = SimulatedGpd(tracking=mode)
         ask(simulator, "VSET1:5.000")
         ask(simulator, "ISET1:0.500")
-        assert ask(simulator, "VSET%d?" % TRACKED_CHANNEL) == "5.000"
-        assert ask(simulator, "ISET%d?" % TRACKED_CHANNEL) == "0.500"
+        assert ask(simulator, "VSET%d?" % TRACKED_CHANNEL) == "5.0V"
+        assert ask(simulator, "ISET%d?" % TRACKED_CHANNEL) == "0.50A"
 
     def test_switching_to_tracking_brings_the_slaved_channel_with_it(self):
         simulator = SimulatedGpd()
         ask(simulator, "VSET1:5.000")
         ask(simulator, "VSET2:1.000")
         ask(simulator, "TRACK1")
-        assert ask(simulator, "VSET%d?" % TRACKED_CHANNEL) == "5.000"
+        assert ask(simulator, "VSET%d?" % TRACKED_CHANNEL) == "5.0V"
 
     @pytest.mark.parametrize(
         "mode,bits",
         [
-            (TrackingMode.INDEPENDENT, "10"),
+            (TrackingMode.INDEPENDENT, "01"),
             (TrackingMode.SERIES, "11"),
-            (TrackingMode.PARALLEL, "01"),
+            (TrackingMode.PARALLEL, "10"),
         ],
     )
     def test_the_status_word_carries_the_mode(self, mode, bits):
-        """Bits 2 and 3, least significant first, as the manual numbers them."""
+        """Bits 2 and 3, bit 2 first, as the supply's own legend writes them:
+        a real supply in independent reports bit 2 clear and bit 3 set."""
         simulator = SimulatedGpd(tracking=mode)
-        assert ask(simulator, "STATUS?")[2:4] == bits
+        assert status_bits(simulator)[2:4] == bits
 
     def test_an_unmodelled_mode_reports_an_undocumented_pattern(self):
         """Not a comfortable default: a state the model cannot describe must
         look undescribable to the driver, or the driver's handling of one is
         never exercised."""
         simulator = SimulatedGpd(tracking="something else entirely")
-        assert ask(simulator, "STATUS?")[2:4] == "00"
+        assert status_bits(simulator)[2:4] == "00"
 
     def test_a_reset_does_not_move_the_switch(self):
         """On the supply the mode is a front-panel switch; a power cycle does

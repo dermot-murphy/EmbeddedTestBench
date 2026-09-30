@@ -27,17 +27,18 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterator, Optional, Type
+from typing import Any, Dict, Iterator, Type
 
 from ..core.errors import BenchConfigError, BenchToolsError
 from ..core.instrument import Instrument
 from ..instruments.generic import GenericScpiInstrument
-from ..instruments.jlink import JLinkProbe
+from ..instruments.jlink import JLinkProbe, JLinkRttReader
 from ..instruments.gpd3303d import Gpd3303D
 from ..instruments.pico_sht30 import PicoSht30
 from ..instruments.nordic_dongle import NordicDongle
 from ..instruments.s2lp import S2lpDevkit
 from ..instruments.tek3014b import Tek3014B
+from ..instruments.tti1604 import Tti1604
 
 __all__ = [
     "InstrumentConfig",
@@ -69,12 +70,15 @@ register_driver("generic", GenericScpiInstrument)
 register_driver("scpi", GenericScpiInstrument)
 register_driver("jlink", JLinkProbe)
 register_driver("segger", JLinkProbe)
+register_driver("jlink-rtt", JLinkRttReader)
 register_driver("ble-dongle", NordicDongle)
 register_driver("nordic", NordicDongle)
 register_driver("gpd3303d", Gpd3303D)
 register_driver("gwinstek-psu", Gpd3303D)
 register_driver("s2lp", S2lpDevkit)
 register_driver("s2lp-devkit", S2lpDevkit)
+register_driver("tti1604", Tti1604)
+register_driver("dmm", Tti1604)
 register_driver("pico-sht30", PicoSht30)
 register_driver("thermometer", PicoSht30)
 

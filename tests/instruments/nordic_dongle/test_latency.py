@@ -1,6 +1,6 @@
 """Round-trip timing, and the honesty rules around it.
 
-Traces to: BLE-FR-050 .. BLE-FR-053, SWE4-UT-BLELATENCY.
+Traces to: BLE-FR-050 .. BLE-FR-053, BLE-FR-118, SWE4-UT-BLELATENCY.
 """
 
 from __future__ import annotations
@@ -130,3 +130,14 @@ class TestSerialisation:
 
     def test_repr_survives_no_samples(self):
         assert "no samples" in repr(ResponseTiming(samples=[], request="version"))
+
+
+@pytest.mark.parametrize("reply, value", [
+    (b"ACK RD SHA = a8e37e892", "a8e37e892"),
+    (b"ACK RD VERSION = V11.00.0000-31-ga8e37e892\r\n", "V11.00.0000-31-ga8e37e892"),
+    (b"ACK X = a = b", "a = b"),                 # only the first " = " separates
+    (b"NACK Invalid Command", ""),
+])
+def test_the_value_a_reply_reports(reply, value):
+    """#102: RD SHA's value is compared with a VERSION frame's SHA."""
+    assert ResponseSample(request="RD", response=reply).value == value

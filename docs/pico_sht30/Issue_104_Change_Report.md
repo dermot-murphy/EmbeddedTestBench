@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Document ID | BENCHTOOLS-CR-104 |
+| Document ID | TB-CR-104 |
 | Date | 2026-09-30 |
 | Issue | [#104](https://github.com/dermot-murphy/TestTools/issues/104) — read the local temperature with a Raspberry Pi Pico 2 and a DollaTek SHT30-D |
 | Branch | `ccr-dd8136a2-4ayd75` |
@@ -34,9 +34,9 @@ updated to match.
 | Firmware tests | `firmware/pico_sht30/test/` — `test_{text,sht30,cmd_parser}.c`, `support/fake_hal.{c,h}`, `CMakeLists.txt` |
 | Host driver | `benchtools/instruments/pico_sht30/{__init__,constants,thermometer,simulator,cli}.py`; registered in `runner/bench.py` as `pico-sht30` / `thermometer`, and as `benchtools thermo` in `cli.py` |
 | Host tests | `tests/instruments/pico_sht30/{conftest,test_thermometer,test_simulator,test_cli,test_firmware_protocol}.py`; `PICO` prefix registered in `tests/test_traceability.py` |
-| Example | `examples/09_pico_thermometer.py` |
+| Example | `examples/11_pico_thermometer.py` |
 | CI | `.github/workflows/firmware.yml` — jobs `pico-unit-tests` and `pico-firmware` (uploads the `.uf2`) |
-| ASPICE | SWE.1 v4.3 (§12, STK-21/22, CON-09, ASM-10), SWE.2 v4.1 (PICO-ARC-001, AD-24, interfaces), SWE.3 v4.3 (14 design units), SWE.4 spec v4.3 (§1.4b, five groups), SWE.4 report v4.3 (§10A, totals), Traceability Matrix v4.3 (§9, STK rows, OPEN-09) |
+| ASPICE (`docs/aspice/`, after merging `develop`) | TB-SWE1-001 v0.7 (§15 PICO, STK-21/22, CON-09, ASM-10), TB-SWE2-001 v0.4 (PICO-ARC-001, AD-24, interfaces), TB-SWE3-001 v0.5 (§5.8, 14 design units), TB-SWE4-001 v0.5 (§1.4b, five groups), TB-SWE4-002 v0.3 (§13A, totals), TB-RTM-001 v0.7 (§13, STK rows, OPEN-09); each with a revision-history row |
 | Other docs | `docs/pico_sht30/{Pico_SHT30_Notes,References}.md`, `fetch_datasheets.sh`, `datasheets/pico-2-r4-pinout.svg`; `README.md`, `docs/README.md` |
 
 ## 4. Verification
@@ -45,9 +45,10 @@ updated to match.
 |---|---|
 | Firmware target build (Pico SDK 2.1.1, Arm GNU 14.2.1, `pico2`) | **Pass**, 0 warnings with `-Werror`. `pico_sht30.uf2` 60 928 B; text 29 996 B, bss 3 884 B |
 | Firmware unit tests (Unity, ASan + UBSan) | **61 / 61 pass** (text 10, sht30 22, cmd_parser 29) |
-| Python suite | **1 956 / 1 956 pass**, 73 of them new; 95% statement coverage |
+| Python suite (merged with `develop`) | **2 496 pass, 1 skipped** (a `develop` GUI test needing `tkinter`), 73 of them new; 95% statement coverage |
+| pylint against `.pylint-baseline.json` (`scripts/lint.py`) | **0 new findings** |
 | Traceability and layering tests | **Pass** |
-| Simulator smoke test | `benchtools thermo ver` / `temp` / `status`, and `examples/09_pico_thermometer.py` |
+| Simulator smoke test | `benchtools thermo ver` / `temp` / `status`, and `examples/11_pico_thermometer.py` |
 | On hardware | **Not done.** No Pico 2 or module was available (CON-09, PICO-OPEN-01 … -03) |
 | MISRA checker run | **Not done.** No checker was available (PICO-OPEN-04). Conformance is by construction and review; deviations are listed in the notes, §6 |
 
@@ -65,16 +66,21 @@ SHT3x-DIS datasheet is the authority for everything the firmware does. The
 command codes and CRC were cross-checked against Sensirion's own open-source
 driver.
 
-## 6. Corrections made to existing documents along the way
+## 6. Target branch and corrections
 
-* The Traceability Matrix §12 said 177 functional and 18 non-functional
-  requirements; SWE.1 already declared 258 and 26. It now states the actual
-  282 and 31.
-* In the SWE.4 report §2, two rows no longer matched the collected counts:
-  `SWE4-UT-BLEFIRMWARE` (49 → 50) and `SWE4-UT-LAYERING` (81 → 88). Both are
-  corrected. The report's §3 coverage-detail table (7 604 statements) also
-  predates this change and was **not** regenerated.
-* `README.md` said "eighteen architectural decisions"; there are 24.
+The PR targets `develop`. `develop` had moved the ASPICE documents to
+`docs/aspice/TestBench_*.md`, with new headers, revision histories and a DMM
+element. The PICO additions were re-applied to that structure: sections were
+inserted before RUN and the later ones renumbered, as `develop` did for DMM. The
+example was renumbered to `examples/11_pico_thermometer.py` because `develop`
+already uses 09 and 10.
+
+Corrections made along the way:
+
+* The matrix coverage analysis said 177 functional and 18 non-functional
+  requirements. It now states the declared totals: 343 and 35.
+* The SWE.4 report's execution summary now shows this run. Its per-group table
+  was not regenerated for groups `develop` added earlier, and the report says so.
 
 ## 7. Open items
 

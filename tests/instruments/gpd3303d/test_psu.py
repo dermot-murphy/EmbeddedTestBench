@@ -1,7 +1,7 @@
 """The GPD-3303D driver.
 
 The tests are organised around the four ways this supply can make a test lie:
-a value it clamps silently, a channel in current limit that is not at the
+a value it rejects silently, a channel in current limit that is not at the
 voltage it was asked for, an output switch that is global while the API looks
 per-channel, and a tracking mode in which channel 2 is not its own channel at
 all.
@@ -10,6 +10,8 @@ Traces to: PSU-FR-001 .. PSU-FR-050, SWE4-UT-PSU.
 """
 
 from __future__ import annotations
+
+import dataclasses
 
 import pytest
 
@@ -21,10 +23,12 @@ from benchtools.instruments.gpd3303d import (
     MAX_VOLTAGE,
     TRACKED_CHANNEL,
     ChannelMode,
+    ChannelReading,
     Gpd3303D,
     SimulatedGpd,
     TrackingMode,
 )
+from benchtools.instruments.gpd3303d.constants import VOLTAGE_READBACK_RESOLUTION
 
 from .conftest import HEAVY_LOAD_OHMS, LIGHT_LOAD_OHMS
 
@@ -34,7 +38,7 @@ class TestConnection:
         identity = psu.identify()
         assert identity.manufacturer == "GW INSTEK"
         assert identity.model == "GPD-3303D"
-        assert identity.firmware == "V2.00"
+        assert identity.firmware == "V1.09"
 
     def test_the_serial_number_loses_its_label(self, psu):
         """The instrument sends "SN:EW000000"; the number is the number."""
@@ -100,11 +104,12 @@ class TestSetting:
         assert psu.set_current_limit(2, 0.25) == 0.25
         assert psu.current_limit(2) == 0.25
 
-    def test_the_setpoint_read_back_equals_the_one_sent(self, psu):
-        """A test asserting on its own setpoint should not fail on the
-        supply's 1 mV grid, nor on float arithmetic applying it."""
+    def test_the_setpoint_read_back_agrees_to_the_read_back_resolution(self, psu):
+        """The supply programs to 1 mV and reads back to 0.1 V, so a setpoint
+        read back agrees with the one sent only to that resolution."""
         for wanted in (0.0, 1.234, 3.3, 12.5, MAX_VOLTAGE):
-            assert psu.set_voltage(1, wanted) == psu.voltage_setpoint(1)
+            assert psu.set_voltage(1, wanted) == pytest.approx(
+                psu.voltage_setpoint(1), abs=VOLTAGE_READBACK_RESOLUTION / 2 + 1e-9)
 
     def test_a_value_between_steps_is_rounded_as_the_supply_rounds_it(self, psu):
         assert psu.set_voltage(1, 3.30049) == 3.3
@@ -112,10 +117,10 @@ class TestSetting:
 
     @pytest.mark.parametrize("volts", [-0.1, MAX_VOLTAGE + 0.001, 35.0])
     def test_an_impossible_voltage_is_refused_before_it_is_sent(self, psu, volts):
-        """The supply clamps silently, which is the dangerous case: it would
-        accept 35 V, output 30 V, report 30 V, and the test would record a pass
-        for a condition it never applied."""
-        with pytest.raises(ConfigurationError, match="clamp"):
+        """The supply rejects it silently, which is the dangerous case: no
+        reply, the previous setpoint kept, and only ERR? - which is not polled
+        by default - saying so."""
+        with pytest.raises(ConfigurationError, match="reject"):
             psu.set_voltage(1, volts)
         assert not any(
             line.startswith("VSET") and ":" in line
@@ -124,7 +129,7 @@ class TestSetting:
 
     @pytest.mark.parametrize("amps", [-0.5, MAX_CURRENT + 0.001])
     def test_an_impossible_current_limit_is_refused(self, psu, amps):
-        with pytest.raises(ConfigurationError, match="clamp"):
+        with pytest.raises(ConfigurationError, match="reject"):
             psu.set_current_limit(1, amps)
 
     @pytest.mark.parametrize("channel", [0, 3, -1, "one"])
@@ -220,6 +225,22 @@ class TestCurrentLimit:
         loaded.all_outputs_on()
         assert loaded.read_channel(1).regulated is True
         assert loaded.read_channel(2).regulated is False
+
+    def test_a_channel_that_is_off_is_not_in_current_limit(self, psu):
+        """A real supply reports CC for both channels while its output is
+        off. That is not a board drawing too much current."""
+        reading = psu.read_channel(1)
+        assert reading.mode == ChannelMode.CONSTANT_CURRENT
+        assert reading.in_current_limit is False
+
+    def test_regulated_allows_for_the_read_back_resolution(self):
+        """Seen on a real supply: set to 3.600 V, unloaded, it reads back a
+        setpoint of 3.6 V and measures 3.5 V. That channel is regulating."""
+        reading = ChannelReading(
+            channel=1, voltage=3.5, current=0.0, mode=ChannelMode.CONSTANT_VOLTAGE,
+            is_on=True, voltage_setpoint=3.6, current_limit=0.8)
+        assert reading.regulated is True
+        assert dataclasses.replace(reading, voltage=3.3).regulated is False
 
     def test_raising_the_limit_restores_constant_voltage(self, loaded):
         loaded.configure_channel(2, volts=3.3, current_limit=0.5, output=True)
@@ -325,7 +346,6 @@ class TestStatus:
     def test_it_decodes_the_documented_bits(self, psu):
         status = psu.status()
         assert status.tracking == TrackingMode.INDEPENDENT
-        assert status.baudrate == 9600
         assert status.beep is True
         assert status.output is False
 
@@ -333,8 +353,36 @@ class TestStatus:
         """The bit order is the one thing that cannot be settled without the
         instrument in front of you (PSU-OPEN-01), so the evidence is kept."""
         status = psu.status()
-        assert len(status.raw) == 8
-        assert set(status.raw) <= {"0", "1"}
+        assert status.raw == "0 0 0 1 1 X 0 X"
+
+    def test_a_real_supply_s_reply_decodes(self, simulator):
+        """Captured from a GPD-3303D, firmware V1.09, in independent tracking
+        with its output switched on and nothing connected."""
+        instrument = Gpd3303D(MockTransport(responder=simulator), command_interval=0.0)
+        instrument.initialise()
+        simulator._cmd_status_q = lambda *_: "\r".join(
+            ("1 1 0 1 0 X 1 X",) + SimulatedGpd.STATUS_LEGEND)
+        status = instrument.status()
+        assert status.modes == (ChannelMode.CONSTANT_VOLTAGE,) * 2
+        assert status.tracking == TrackingMode.INDEPENDENT
+        assert status.beep is False
+        assert status.output is True
+        instrument.close()
+
+    def test_the_legend_is_not_taken_as_the_next_reply(self, psu):
+        psu.status()
+        assert psu.identify().model == "GPD-3303D"
+
+    def test_the_compact_form_is_accepted_too(self, simulator):
+        """Eight characters with nothing between them, as the manual prints
+        the reply: no legend follows, and none is waited for."""
+        instrument = Gpd3303D(MockTransport(responder=simulator), command_interval=0.0)
+        instrument.initialise()
+        simulator._cmd_status_q = lambda *_: "11010X1X"
+        status = instrument.status()
+        assert status.tracking == TrackingMode.INDEPENDENT
+        assert status.output is True
+        instrument.close()
 
     def test_the_output_bit_follows_the_output(self, psu):
         assert psu.status().output is False
@@ -360,8 +408,11 @@ class TestStatus:
         instrument.close()
 
     def test_as_dict_is_assertable_by_a_specification(self, psu):
+        psu.all_outputs_on()
         summary = psu.status().as_dict()
         assert summary["modes"][1] == ChannelMode.CONSTANT_VOLTAGE
+        psu.all_outputs_off()
+        summary = psu.status().as_dict()
         assert summary["output"] is False
 
 

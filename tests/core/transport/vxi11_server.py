@@ -184,8 +184,10 @@ class FakeVxi11Server:
         reader.uint()  # prog
         reader.uint()  # vers
         procedure = reader.uint()
-        reader.uint(); reader.opaque()  # credentials
-        reader.uint(); reader.opaque()  # verifier
+        reader.uint()  # credentials
+        reader.opaque()
+        reader.uint()  # verifier
+        reader.opaque()
 
         body = self._handle(procedure, reader)
         header = struct.pack(
@@ -216,7 +218,8 @@ class FakeVxi11Server:
 
         if procedure == DEVICE_WRITE:
             link = reader.int()
-            reader.uint(); reader.uint()
+            reader.uint()
+            reader.uint()
             flags = reader.int()
             data = reader.opaque()
             if link not in self._links:
