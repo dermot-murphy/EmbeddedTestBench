@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE2-001 | **Version** | 0.2 |
+| **Document ID** | TB-SWE2-001 | **Version** | 0.4 |
 | **Project** | TestBench | **Date** | 2026-09-23 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -25,6 +25,7 @@
 | 0.1 | 2026-09-19 | Claude | Initial |
 | 0.2 | 2026-09-23 | Claude | DMM-ARC-001 added: the TTi 1604 multimeter element. |
 | 0.3 | 2026-09-25 | Claude | AD-23 brought up to date: command documents take variables, connect, timeouts, notes and `<disconnect>`, results are error, skip, fail or pass, and running moved to `script_run.py` (BLE-DD-SCRIPTRUN) (#46, #48). |
+| 0.4 | 2026-09-30 | Claude | PICO-ARC-001 added: the Pico 2 + SHT30-D thermometer and its firmware. AD-24 added. Thermometer interfaces added. Header version brought into line with this history (#104). |
 
 ---
 
@@ -80,6 +81,7 @@ This document satisfies **Automotive SPICE® PAM v4.0, SWE.2 — Software Archit
    |            timing, constants, simulator, cli)                |
    |  nordic_dongle (dongle, protocol, session, profile,          |
    |            latency, constants, simulator, cli)               |
+   |  pico_sht30 (thermometer, constants, simulator, cli)         |
    |  generic  (anything answering *IDN?)                         |
    +--------------------------------------------------------------+
               |                                    |
@@ -131,6 +133,7 @@ instrument, and to be importable without importing any other element.
 | S2LP-ARC-001 | `instruments.s2lp` | The ST S2-LP development kit, host side only: ST's firmware runs on the board (AD-20). The line protocol (`protocol`), the command/reply session with its raw log (`session`), the device's register map (`registers`), packet records and their structured log (`packets`), the driver façade (`s2lp`) and a simulated kit with a register file and a modelled air interface. | `S2lpDevkit`, `S2lpSession`, `Register`, `Packet`, `Capture`, `SimulatedS2lp` |
 | PSU-ARC-001 | `instruments.gpd3303d` | The GW Instek bench supply, programmable channels 1 and 2; its fixed rail is a front-panel switch and is outside the element. Not a SCPI instrument: it takes the transport and lifecycle from `ScpiInstrument` and replaces the SCPI-specific parts (`*CLS`, `*RST`, `SYSTem:ERRor?`) with its own. Its own command grammar, a load-modelling simulator, and a command line. | `Gpd3303D`, `ChannelReading`, `SupplyStatus`, `SimulatedGpd` |
 | DMM-ARC-001 | `instruments.tti1604` | The TTi 1604 bench multimeter, on an opto-isolated RS-232 link. Not a SCPI instrument and not close to one: no command language, no query, no `*IDN?`, no error queue. The link carries single characters standing for key presses, and the meter streams a ten-byte binary frame per measurement. Frame decoding (`protocol`) is pure and separate from the link, because decoding is where a wrong number comes from and it should be testable without a meter. The instrument envelope and protocol facts (`constants`), the driver façade (`dmm`), a behavioural simulator and a command line. | `Tti1604`, `Reading`, `FrameAssembler`, `decode`, `SimulatedTti1604` |
+| PICO-ARC-001 | `instruments.pico_sht30` **and** `firmware/pico_sht30` | The Pico 2 + SHT30-D bench thermometer, as one element across two languages. Host side: the driver (`thermometer`), which takes the transport and lifecycle from `ScpiInstrument` and replaces the SCPI-specific parts with the firmware's `ver`; the protocol tables (`constants`); a simulated thermometer that answers with the firmware's reply text; and a command line. Pico side: line assembly and dispatch (`cmd_parser`), the SHT30 driver (`sht30`), a bounded text builder in place of stdio (`text`), and a HAL seam (`hal.h`) implemented on the Pico SDK by `hal_pico.c` and by a fake in the host tests. `include/protocol.h` is the interface both sides are built from. | `PicoSht30`, `FirmwareInfo`, `Reading`, `SensorError`, `SimulatedPicoSht30`; `cmd_execute`, `sht30_measure`, `hal_i2c_write` |
 | RUN-ARC-001 | `runner` | Specification model, bench resolution, execution engine, result records, report writers, command line. | `load_spec`, `BenchConfig`, `BenchRunner`, `write_*` |
 
 ## 7. Key architectural decisions
@@ -544,6 +547,33 @@ the three step kinds must stay distinguishable in the report: a step that was
 skipped must never read as one that passed, which is why a run states how many
 steps it checked as well as how many passed.
 
+### AD-24 — A reading travels with the raw word it came from
+
+**Context.** The thermometer's value crosses two conversions and a USB link:
+the sensor's 16-bit word becomes milli-degrees in the firmware, text on the
+wire, and a float on the host. A defect in any of them - an overflowed
+multiplication, a sign lost in formatting, a corrupted line - produces a number
+that is plausible, and a plausible temperature is the hardest kind of wrong
+value to notice.
+
+**Decision.** `temp` reports the raw words beside the converted values
+(PICO-FR-022). The host driver recomputes each value from its word with the
+firmware's own integer arithmetic (`constants.raw_to_celsius`) and refuses a
+reply in which they disagree (PICO-FR-044). A reading that fails on the sensor
+side is an `err` reply with a code, never a value (PICO-FR-021, -023), and the
+driver raises for it (PICO-FR-043).
+
+**Alternatives.** Reporting the converted values alone is shorter on the wire,
+and leaves the host unable to tell a conversion defect from a warm room.
+Reporting only raw words and converting on the host was rejected because the
+firmware's own reply would then not be readable in a terminal, which is how the
+board is first brought up.
+
+**Consequences.** The conversion is specified twice, in C and in Python, and
+must agree bit for bit; the simulator and both test suites use the same
+reference vectors so that a change to one side fails a test on the other. The
+reply is 20 characters longer than it needs to be.
+
 ## 8. Dynamic behaviour — a runner invocation
 
 ```
@@ -602,6 +632,9 @@ CLI            BenchRunner        Bench           Tek3014B        Transport
 | Bluetooth Low Energy | bidirectional | Dongle to sensor: advertising reports in, UART service both ways. Below the dongle firmware; not visible to the host driver except as events. |
 | `pyserial` | bidirectional | Optional; the serial transport. |
 | nRF5 SDK 17.1.0 + S140 | in | Builds the dongle firmware. Not needed to run the host driver or the tests. |
+| USB CDC (serial) — thermometer | bidirectional | The Pico 2 thermometer's line protocol (`firmware/pico_sht30/include/protocol.h`). |
+| I2C | bidirectional | Pico 2 to SHT30-DIS, 100 kHz, address 0x44. Below the thermometer firmware; not visible to the host driver except as `err 4`/`err 6`. |
+| Raspberry Pi Pico C SDK 2.1.1 + Arm GNU toolchain | in | Builds the thermometer firmware into a UF2 image. Not needed to run the host driver or the tests. |
 
 ---
 

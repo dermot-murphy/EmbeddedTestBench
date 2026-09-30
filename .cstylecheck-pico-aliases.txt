@@ -1,0 +1,22 @@
+# CStyleCheck module aliases for firmware/pico_sht30 (TB-STY-001 module prefixes).
+#
+# Used only by the Pico step of .github/workflows/style.yml, so that these
+# pairs cannot relax the check on any other firmware. Each pair lets a file
+# use the prefix of the module it belongs to rather than its own file stem:
+#
+#   hal_pico.c implements hal.h, and fake_hal.c implements it for the tests
+#   protocol.h is the host-link contract, prefixed PROTO_ like the dongle's
+#   firmware_version.h / .c carry FIRMWARE_ and firmware_ identifiers
+#   board_config.h carries BOARD_ wiring constants
+#   the Unity test files name their functions test_*
+#
+# Traces to: PICO-NFR-006.
+hal_pico          hal
+fake_hal          hal
+fake_hal          fake
+protocol          proto
+firmware_version  firmware
+board_config      board
+test_text         test
+test_sht30        test
+test_cmd_parser   test

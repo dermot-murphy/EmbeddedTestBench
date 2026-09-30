@@ -31,6 +31,7 @@ benchtools/
 │   ├── nordic_dongle/  Nordic BLE dongle (scan, UART over BLE, advertising profile)
 │   ├── gpd3303d/    GW Instek GPD-3303D bench power supply
 │   ├── s2lp/        ST S2-LP sub-1 GHz development kit (registers, TX, RX, logs)
+│   ├── pico_sht30/  Raspberry Pi Pico 2 + SHT30-D thermometer, with its own firmware
 │   └── generic.py   anything answering *IDN?
 └── runner/        declarative bench test runner
 ```
@@ -565,6 +566,40 @@ status word, and the six bench confirmation items that need the instrument.
 
 ---
 
+## Thermometer — Raspberry Pi Pico 2 + DollaTek SHT30-D
+
+A Pico 2 reads the local temperature and humidity from a Sensirion SHT30-DIS,
+carried on a DollaTek SHT30-D module, over I2C (GP4/GP5, address 0x44). It
+reports them over USB, together with the firmware's title and version. The
+firmware lives in [`firmware/pico_sht30`](firmware/pico_sht30): it is C for
+the Pico SDK, written to MISRA C:2012, and builds to a `.uf2` you copy onto the
+board in BOOTSEL mode.
+
+```python
+from benchtools.instruments.pico_sht30 import PicoSht30
+
+with PicoSht30.connect("/dev/ttyACM0") as thermometer:     # COM5 on Windows
+    print(thermometer.title, thermometer.version)          # Pico2-SHT30-Thermometer 1.0.0
+    print("%.2f °C" % thermometer.temperature())
+```
+
+```bash
+python -m benchtools thermo -r /dev/ttyACM0 ver
+python -m benchtools thermo -r /dev/ttyACM0 temp --count 10 --interval 1
+python -m benchtools thermo -r sim:// temp          # no hardware needed
+```
+
+A reading that fails raises an error; it never returns the previous value. The
+cases are an absent sensor (`err 4`), a frame with a bad CRC (`err 5`) and a
+bus timeout (`err 6`). Every reading also carries the raw sensor word, and the
+driver recomputes the value from it and refuses a reply where the two disagree.
+
+See [Pico 2 + SHT30-D Notes](docs/pico_sht30/Pico_SHT30_Notes.md) for wiring,
+building and flashing, the datasheet facts, the MISRA position and the bench
+confirmation items.
+
+---
+
 ## Addressing an instrument
 
 | Resource string | Transport |
@@ -642,6 +677,7 @@ configurations can name it. New link types (serial, USBTMC, HTTP) register with
 | [`examples/08_s2lp_radio.py`](examples/08_s2lp_radio.py) | Dumping an S2-LP's registers, transmitting, and capturing to a packet log |
 | [`examples/09_sensor_version.py`](examples/09_sensor_version.py) | Finding a sensor by part of its name, in any case, and reading its version over BLE UART |
 | [`examples/10_psu_front_panel_check.py`](examples/10_psu_front_panel_check.py) | Stepping a GPD-3303D through ten states while an operator checks the front panel; the answers are logged as TB-SIT-03 evidence |
+| [`examples/11_pico_thermometer.py`](examples/11_pico_thermometer.py) | Identifying a Pico 2 thermometer by title and version, and logging temperature |
 
 Each takes an address (or bench file) and defaults to simulation:
 
@@ -658,9 +694,10 @@ python examples/02_channel_spread.py            # simulator
 python -m pytest tests/ --cov=benchtools --cov-report=term
 ```
 
-**1 878 tests, 94% statement coverage, no hardware required** — no oscilloscope,
+**2 498 tests (2 497 pass, 1 skipped without `tkinter`), 95% statement coverage, no hardware required** — no oscilloscope,
 no probe, no target, no GDB, no dongle, no BLE sensor, no power supply, no
-sub-1 GHz kit. With
+sub-1 GHz kit, no Pico. The Pico firmware's own 61 unit tests run under CTest
+(`firmware/pico_sht30/test`). With
 every optional extra removed: 1 807 pass, 40 skip, 0 fail.
 
 The suite includes an independently implemented VXI-11 RPC server, a SCPI socket
@@ -750,6 +787,7 @@ Full input and output reference: [`action.yml`](action.yml).
 | [BLE Dongle Notes](docs/ble/BLE_Dongle_Notes.md) | Why the dongle needs firmware, the line protocol, building and flashing, reading a profile, and what is unproven |
 | [S2-LP Devkit Notes](docs/s2lp/S2LP_Devkit_Notes.md) | Why ST's firmware is used unchanged, its CLI protocol, the register map, what a polled capture can and cannot be quoted as, and the licence position |
 | [GPD-3303D Notes](docs/psu/GPD3303D_Notes.md) | The four ways this supply will mislead a test, its command set and status word, and the bench confirmation items |
+| [Pico 2 + SHT30-D Notes](docs/pico_sht30/Pico_SHT30_Notes.md) | Wiring, building and flashing the thermometer firmware, datasheet facts, MISRA position, bench confirmation items; [reference documents](docs/pico_sht30/References.md) |
 | [SWE.1 Requirements](docs/aspice/TestBench_SWE1_SW_Requirements.md) | 177 functional and 18 non-functional requirements |
 | [SWE.2 Architecture](docs/aspice/TestBench_SWE2_SW_Architecture.md) | Layering, elements, eighteen architectural decisions |
 | [SWE.3 Detailed Design](docs/aspice/TestBench_SWE3_Detailed_Design.md) | Per-module design units |

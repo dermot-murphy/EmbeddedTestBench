@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-STD-002 | **Version** | 0.2 |
+| **Document ID** | TB-STD-002 | **Version** | 0.3 |
 | **Project** | TestBench | **Date** | 2026-09-19 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -26,7 +26,8 @@
 | Version | Date | Author | Description of Change |
 |---|---|---|---|
 | 0.1 | 2026-09-19 | Claude | Initial |
-| 0.2 | 2026-09-30 | Claude | §1.2: scope names the dongle firmware's host unit tests, `firmware/nordic_dongle/test/`; §1.3: the tests' stand-ins for nRF5 SDK headers are vendor API; §7.4: CStyleCheck runs on the tests in their own step, clean and without a baseline (#111). |
+| 0.2 | 2026-09-30 | Claude | §1.2: scope names `firmware/pico_sht30` - sources, headers and host unit tests - alongside the dongle firmware; §1.3: the Pico SDK is out of scope as vendor code; §7.4: CStyleCheck runs on the Pico firmware in its own step, clean and without a baseline (#104). |
+| 0.3 | 2026-09-30 | Claude | §1.2: scope names the dongle firmware's host unit tests, `firmware/nordic_dongle/test/`; §1.3: the tests' stand-ins for nRF5 SDK headers are vendor API; §7.4: CStyleCheck runs on the tests in their own step, clean and without a baseline (#111). |
 
 ---
 
@@ -136,8 +137,9 @@ This standard exists to:
 This standard applies to:
 
 - all `.c` and `.h` files owned by this project — in practice
-  `firmware/nordic_dongle/src/` and its headers, and the firmware's host unit
-  tests in `firmware/nordic_dongle/test/`;
+  `firmware/nordic_dongle/src/` and its headers, the firmware's host unit
+  tests in `firmware/nordic_dongle/test/`, and all of `firmware/pico_sht30/`
+  (sources, headers and host unit tests);
 - all new C files added to this project;
 - existing files undergoing a modification that touches more than 20% of their
   lines.
@@ -146,6 +148,7 @@ This standard applies to:
 
 | Excluded | Why |
 |---|---|
+| Raspberry Pi Pico C SDK sources, including TinyUSB | Vendor-supplied; fetched at build time and not modified by this project |
 | Stand-ins for nRF5 SDK headers and functions in `firmware/nordic_dongle/test/support/` (`include/*.h`, and the SDK functions in `fake_sdk.c`) | They must reproduce the SDK's own names to stand in for it; the project's own `fake_*` controls in the same files remain in scope |
 | Nordic nRF5 SDK sources and the S140 SoftDevice | Vendor-supplied; not modified by this project, and its licence governs it (TB-ACQ4-001 §4) |
 | `config/sdk_config.h` | A vendor configuration artefact whose keys and layout are the SDK's, not this project's |
@@ -293,11 +296,12 @@ an image stops fitting.
 ### 7.4 Static Analysis
 
 CStyleCheck runs on every push against `firmware/nordic_dongle`, against
-`.cstylecheck-baseline.json`, and against the firmware's host unit tests in a
-separate step with no baseline that fails on any finding
-(`.github/workflows/style.yml`). The test step's module aliases
-(`.cstylecheck-dongle-tests-aliases.txt`) and its narrow, justified exclusions
-(`.cstylecheck-dongle-tests-exclusions.yml`) apply to that step only. It enforces the mechanically checkable subset
+`.cstylecheck-baseline.json`; against all of `firmware/pico_sht30`; and
+against the dongle firmware's host unit tests. The last two are separate
+steps with no baseline that fail on any finding
+(`.github/workflows/style.yml`). Each has its own module aliases and narrow,
+justified exclusions (`.cstylecheck-pico-*`, `.cstylecheck-dongle-tests-*`),
+which apply to that step only. It enforces the mechanically checkable subset
 of this standard and of TB-STY-001; the rest is enforced at review
 (TB-TMPL-001 §6.5).
 

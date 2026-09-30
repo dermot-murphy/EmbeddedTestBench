@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE4-002 | **Version** | 0.2 |
+| **Document ID** | TB-SWE4-002 | **Version** | 0.4 |
 | **Project** | TestBench | **Date** | 2026-09-19 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -24,6 +24,8 @@
 |---|---|---|---|
 | 0.1 | 2026-09-19 | Claude | Initial |
 | 0.2 | 2026-09-26 | Claude | §13.4: PSU-OPEN-01 and -02 closed and PSU-OPEN-06 partly confirmed on a real supply (#61, #63). |
+| 0.3 | 2026-09-30 | Claude | §15: D-42 added and closed — `RttClient` polled its backend outside its lock, so the reader thread and a caller's read could poll at once. (D-41 is used on `main` by #106.) |
+| 0.4 | 2026-09-30 | Claude | Execution summary re-run after adding the `PICO-` element; test groups SWE4-UT-PICO, -PICOSIM, -PICOCLI and -PICOFWPROTO added to §5; §13A added for the Pico 2 thermometer firmware and driver (#104). |
 
 ---
 
@@ -52,13 +54,13 @@ It is deliberately a separate work product from the specification. A specificati
 
 | Metric | Result |
 |---|---|
-| Tests executed | **1 878** |
-| Passed | **1 878** |
+| Tests executed | **2 498** |
+| Passed | **2 497** |
 | Failed | 0 |
 | Errors | 0 |
-| Skipped | 0 |
-| Statement coverage | **94%** (10 374 statements, 575 missed) |
-| Execution time | 43.6 s with coverage instrumentation, 30.6 s without |
+| Skipped | 1 |
+| Statement coverage | **95%** (13 143 statements, 667 missed) |
+| Execution time | 136.5 s with coverage instrumentation |
 | Runtime | CPython 3.11.15, Linux |
 | Framework | pytest 9.1.1, pytest-cov |
 
@@ -86,6 +88,15 @@ No J-Link probe, target board, GDB, GDB Server, BLE dongle or BLE sensor was
 present for this run, and no test needs one (PC-8): the probe is substituted at
 the GDB/MI boundary, the RTT and SWO sockets by a loopback server, the dongle at
 its line protocol, and the serial port by pyserial's own `loop://` handler.
+
+Revision 0.4 re-ran the whole suite on the merge of `develop` - including
+D-42's regression test (#107) - with the `PICO-` element (#104); the figures above are that run. The per-group table in §5 has
+not been regenerated for the groups `develop` added since revision 0.1, so its
+rows do not sum to the total: the total is the collected count.
+
+**The Pico 2 thermometer firmware is built but not executed** (CON-09): no
+Pico 2 or SHT30-D module is available. Its 61 host unit tests pass, it agrees
+with its driver, and it cross-compiles to a UF2 image (§13A).
 
 **The dongle firmware is built but not executed** (CON-07): no dongle is
 available. It is verified against the driver it must agree with, against the
@@ -155,7 +166,14 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | SWE4-UT-COREFW | `core/test_firmware.py` | 13 | Pass |
 | SWE4-UT-SOCKET | `core/transport/test_socket.py` | 12 | Pass |
 | SWE4-UT-VISA | `core/transport/test_visa.py` | 6 | Pass |
-| **Total** | | **1 878** | **Pass** |
+| SWE4-UT-PICO | `instruments/pico_sht30/test_thermometer.py` | 40 | Pass |
+| SWE4-UT-PICOSIM | `instruments/pico_sht30/test_simulator.py` | 15 | Pass |
+| SWE4-UT-PICOCLI | `instruments/pico_sht30/test_cli.py` | 9 | Pass |
+| SWE4-UT-PICOFWPROTO | `instruments/pico_sht30/test_firmware_protocol.py` | 9 | Pass |
+| **Total** | | **2 498** (2 497 passed, 1 skipped) | **Pass** |
+
+The thermometer firmware's own unit tests (`SWE4-UT-PICOFW`, 61 cases) run
+under CTest, not pytest, and are reported in §13A.
 
 ## 6. Coverage detail
 
@@ -798,6 +816,71 @@ driver could only repeat what it had been told about it.
 | PSU-OPEN-05 | Whether a real GPD-3303D discards a setpoint sent to the slaved channel **silently**, as modelled here, or records something in `ERR?`. The driver refuses the command either way, so the refusal is right in both cases; what is unconfirmed is the sentence that says the supply reports nothing. Send `VSET2:1.000` in series tracking, then `ERR?`. |
 | PSU-OPEN-06 | Independent **confirmed 2026-09-26**: bit 2 `0`, bit 3 `1`, read bit 2 first. The original decode read that as parallel (#61). Series and parallel still need the front-panel switch moved. |
 
+## 13A. Pico 2 thermometer verification results
+
+### 13A.1 Firmware unit tests (`SWE4-UT-PICOFW`)
+
+Host build: GCC, C11, `-Wall -Wextra -Wconversion -Wshadow -Wstrict-prototypes
+-Werror`, `-fsanitize=address,undefined -fno-sanitize-recover=all`, Unity v2.6.0.
+
+| Suite | File | Cases | Result |
+|---|---|---|---|
+| text | `test/test_text.c` | 10 | Pass |
+| sht30 | `test/test_sht30.c` | 22 | Pass |
+| cmd_parser | `test/test_cmd_parser.c` | 29 | Pass |
+| **Total** | | **61** | **Pass**, no warnings, no sanitizer reports |
+
+### 13A.2 Target build (PICO-FR-031, PICO-NFR-003)
+
+| Item | Result |
+|---|---|
+| SDK | Raspberry Pi Pico C SDK 2.1.1, TinyUSB submodule, picotool 2.1.1 built from source |
+| Toolchain | xPack Arm GNU `arm-none-eabi-gcc` 14.2.1-1.1 |
+| Board / platform | `pico2` / `rp2350-arm-s` (Cortex-M33, secure) |
+| Warnings on the firmware's own sources | **0** (`-Werror`) |
+| Image | `pico_sht30.uf2`, 60 928 bytes |
+| Size (`arm-none-eabi-size`) | text 29 996 B, data 0 B, bss 3 884 B |
+
+### 13A.3 Conversion reference vectors (AD-24)
+
+The same vectors are asserted in C (`test_sht30.c`) and in Python
+(`test_matches_the_firmware_vectors`):
+
+| Raw word | Temperature | Raw word | Humidity |
+|---|---|---|---|
+| 0x0000 | −45.000 °C | 0x0000 | 0.000 % |
+| 0x0001 | −44.997 °C (rounded, not truncated) | 0x6666 | 40.000 % |
+| 0x4000 | −1.249 °C | 0x8000 | 50.001 % |
+| 0x6666 | 25.000 °C | 0xFFFF | 100.000 % |
+| 0xFFFF | 130.000 °C | | |
+
+CRC-8 check value CRC(0xBE, 0xEF) = 0x92, as the datasheet gives it.
+
+### 13A.4 Static analysis
+
+**CStyleCheck v1.5.1** (TB-STD-002 and TB-STY-001), over all 18 C files of
+`firmware/pico_sht30` - sources, headers and host unit tests - with
+`.cstylecheck.yml`, the Pico alias map and the Pico exclusions: **0 errors,
+0 warnings, 0 info**, with no baseline (PICO-NFR-006). The first run found 210;
+they were fixed in the code (enum member prefixes, `m_` statics, `g_` globals,
+`U` suffixes, one non-ASCII character, and `cmd_execute` split under the
+60-line limit) or covered by a documented alias or exclusion.
+
+No MISRA checker (for example cppcheck's MISRA addon, PC-lint, Helix QAC) was
+available in the build environment. MISRA C:2012 conformance is therefore by
+construction and review (`docs/pico_sht30/Pico_SHT30_Notes.md` §6) plus the
+mechanical checks of `SWE4-UT-PICOFWPROTO` and CStyleCheck; a MISRA tool run is
+PICO-OPEN-04.
+
+### 13A.5 Bench confirmation items
+
+| ID | Item |
+|---|---|
+| PICO-OPEN-01 | Flash `pico_sht30.uf2`, confirm USB enumeration, and confirm `ver` returns the title, version and board ID. |
+| PICO-OPEN-02 | Confirm `temp` with the DollaTek module on GP4/GP5 at 0x44, and that removing the module gives `err 4` rather than a value. |
+| PICO-OPEN-03 | Compare against a reference thermometer: expect agreement within ±0.2 °C typical between 0 and 65 °C, allowing for self-heating of the Pico. |
+| PICO-OPEN-04 | The reference PDFs (Pico 2 datasheet and schematic, RP2350 datasheet, SDK guide, Sensirion SHT3x-DIS datasheet) could not be fetched in the build environment; run `docs/pico_sht30/fetch_datasheets.sh` and commit them. Run a MISRA C:2012 checker over `firmware/pico_sht30/src`. |
+
 ## 14. Runner verification results
 
 | Check | Result |
@@ -959,6 +1042,8 @@ SDK to provide it transitively.
 
 | D-40 | `DEFAULT_SENSORS` is a module-level tuple of dataclasses holding mutable dicts, and every `SimulatedDongle` shared them. A test that changed one sensor's replies changed them for every simulator built afterwards | **Major in the test double**, and of the worst kind to diagnose: the tests it broke were in other files, and the failures described the sensor rather than the test that had altered it. Found by writing a test that silenced a sensor and watching six unrelated tests fail | **Closed** — a simulated dongle deep-copies the sensors it is given, so one simulator cannot poison another. The test that found it now models silence with a stub instead, which is the honest way to model a sensor the simulator does not have | `test_the_default_population_is_not_shared_between_simulators`, `TestASensorThatDoesNotAnswer` (4) |
 
+| D-42 | `RttClient._pump()` runs on the background reader thread and on the caller's thread (from `read()` and `read_lines()`), and it called `self._backend.rtt_poll()` **before** taking `self._lock`. Two pumps could therefore poll at once. The simulator's drain is check-then-pop, and on Python 3.9 CI it raised `IndexError: pop from an empty deque` in `test_a_line_already_waiting_is_not_a_reading` (PR #105, run 36668656206) | **Minor on hardware**, where two polls at once could split one RTT line between two callers; **major as a test-suite fault**, because it failed an unrelated PR's CI intermittently and looked like a flake. Found by reading that failure to its cause instead of re-running it | **Closed** — the poll is now taken under the client's lock with the rest of the pump. A deterministic test replaces the scheduler's luck: a backend that detects overlapping polls, driven from four threads; it counted 99 overlaps before the fix and 0 after | `TestConcurrency.test_the_backend_is_never_polled_twice_at_once` |
+
 No open defects.
 
 Notes on process effectiveness:
@@ -1027,8 +1112,8 @@ Notes on process effectiveness:
 
 | ID | Criterion | Result |
 |---|---|---|
-| PC-1 | All tests pass | **Pass** — 1 878/1 878 |
-| PC-2 | Statement coverage ≥ 90% | **Pass** — 94% |
+| PC-1 | All tests pass | **Pass** — 2 497/2 497 run (1 skipped: `tests/tools/test_test_bench.py` needs `tkinter`, absent in the build environment), and 61/61 thermometer firmware cases (§13A.1) |
+| PC-2 | Statement coverage ≥ 90% | **Pass** — 95% |
 | PC-3 | Every requirement covered | **Pass** — see BENCHTOOLS-TRACE-001 |
 | PC-4 | Injected skews recovered to < 0.1 sample interval | **Pass** — worst case 0.055 |
 | PC-5 | Layering constraints hold | **Pass** |

@@ -34,6 +34,7 @@ from ..core.instrument import Instrument
 from ..instruments.generic import GenericScpiInstrument
 from ..instruments.jlink import JLinkProbe, JLinkRttReader
 from ..instruments.gpd3303d import Gpd3303D
+from ..instruments.pico_sht30 import PicoSht30
 from ..instruments.nordic_dongle import NordicDongle
 from ..instruments.s2lp import S2lpDevkit
 from ..instruments.tek3014b import Tek3014B
@@ -78,6 +79,8 @@ register_driver("s2lp", S2lpDevkit)
 register_driver("s2lp-devkit", S2lpDevkit)
 register_driver("tti1604", Tti1604)
 register_driver("dmm", Tti1604)
+register_driver("pico-sht30", PicoSht30)
+register_driver("thermometer", PicoSht30)
 
 
 @dataclass(frozen=True)

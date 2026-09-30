@@ -8,8 +8,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE1-001 | **Version** | 0.6 |
-| **Project** | TestBench | **Date** | 2026-09-24 |
+| **Document ID** | TB-SWE1-001 | **Version** | 0.7 |
+| **Project** | TestBench | **Date** | 2026-09-30 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.1 |
@@ -28,6 +28,7 @@
 | 0.4 | 2026-09-24 | Claude | RUN-FR-054…057 added: a specification's safety warning, printed before the bench is opened, and the acknowledgement that gates a warned run on real hardware. |
 | 0.5 | 2026-09-25 | Claude | BLE-FR-026 (select by name fragment) and BLE-FR-046…049 (connect window, per-command reply wait, a command the sensor disconnects after, failed links closed) added. BLE-FR-102, -105, -106 and -107 revised and BLE-FR-109…116 added for command documents: results in the order error, skip, fail, pass; variables; connect and disconnect steps; per-step timeouts; `<disconnect>`; notes; the event log; the standalone runner (#46, #48). |
 | 0.6 | 2026-09-26 | Claude | PSU-FR-002 rationale corrected: the supply rejects an out-of-range setting, it does not clamp it (#64). PSU-FR-003 no longer promises an exact read-back (#64). PSU-FR-021 and -022 describe the status word as the supply sends it, without a line rate (#63). Header version brought into line with this history. |
+| 0.7 | 2026-09-30 | Claude | STK-21 and STK-22 added. Section 15 added: `PICO-` requirements for the Pico 2 + SHT30-D thermometer and its firmware (PICO-FR-001…060, PICO-NFR-001…006); CON-09 and ASM-10 added. Sections 16 to 19 renumbered (#104). |
 
 ---
 
@@ -102,6 +103,8 @@ USB link. It is specified, designed and traced here like the rest of the item.
 | STK-18 | Measure current with a multimeter over RS-232 through a USB converter. *(future)* |
 | STK-19 | Evaluate a sub-1 GHz radio with an ST S2-LP development kit over USB: program and read every register, transmit, receive, and log all data to a file. |
 | STK-20 | Use the kit's existing ST firmware if it is fit for purpose, rather than writing firmware for it. |
+| STK-21 | Read the local temperature using a Raspberry Pi Pico 2 and a DollaTek SHT30-D temperature sensor (issue #104). |
+| STK-22 | The firmware downloaded to the Pico shall report its title and version number. |
 
 ## 5. Element structure
 
@@ -118,6 +121,7 @@ prefixes are per element so they stay unique as instruments are added.
 | `BLE-` | `benchtools.instruments.nordic_dongle` **and** `firmware/nordic_dongle` | The BLE bench dongle: host driver and the dongle's own firmware. One element, because the protocol between them is one design decision and splitting it across two elements would let the halves drift apart. |
 | `S2LP-` | `benchtools.instruments.s2lp` | The ST S2-LP development kit. Unlike the BLE dongle, the firmware is **ST's own** (STK-20), so this element is a host driver only and the firmware's command set is an external interface rather than something this project controls. |
 | `PSU-` | `benchtools.instruments.gpd3303d` | The GW Instek GPD-3303D bench supply. Separate from `INST-` because its command set is neither SCPI nor shared with any other instrument here, and its single output switch is a hardware constraint that shapes its whole interface. |
+| `PICO-` | `benchtools.instruments.pico_sht30` **and** `firmware/pico_sht30` | The Pico 2 + SHT30-D bench thermometer: host driver and the Pico's own firmware. One element for the same reason as `BLE-`: the line protocol between them is one design decision. |
 | `RUN-` | `benchtools.runner` | The bench test runner. |
 
 ---
@@ -736,9 +740,79 @@ review, in which case the reading is real but is not now.
 
 ---
 
-## 15. RUN — bench test runner
+## 15. PICO — Pico 2 + SHT30-D bench thermometer and its firmware
 
-### 15.1 Bench configuration
+A Raspberry Pi Pico 2 (RP2350) reads a Sensirion SHT30-DIS, carried on a
+DollaTek SHT30-D breakout module, over I2C, and reports temperature and
+humidity to the host over USB CDC. It is the local-temperature measurement of
+STK-21; STK-22 asks that the firmware say what it is.
+
+The requirements are shaped by one property of the measurement: **a failed
+reading must never look like a reading**. The sensor can be absent, a frame can
+be corrupted on the bus, and the bus can hang; in each case the firmware says
+so and reports no value, and the host driver raises rather than returning the
+last good one. Reference documents and wiring: `docs/pico_sht30/`.
+
+### 15.1 Firmware: host link and identity
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| PICO-FR-001 | The firmware shall accept one command per LF-terminated line over USB CDC ACM, ignoring CR, and shall send exactly one reply per command, beginning `ok` or `err <code> <text>`. | STK-21 | Test |
+| PICO-FR-002 | `ver` shall report the product title and the firmware version, together with the build date (ISO 8601 UTC when injected by the build, tagged `local:` otherwise), protocol revision, board, board unique identifier, sensor part, sensor I2C address and uptime, each as one `key=value` token with no space inside a value. | STK-22 | Test |
+| PICO-FR-003 | An unknown command, or a command with the wrong number of arguments, shall be refused with an `err` reply and shall have no effect. | STK-21 | Test |
+| PICO-FR-004 | A command line longer than the line buffer shall be discarded whole and refused; it shall never be executed in part. | STK-21 | Test |
+| PICO-FR-005 | `ver` shall answer whether or not the sensor is present, so that "no sensor" is distinguishable from "no Pico". | STK-21, STK-22 | Test |
+
+### 15.2 Firmware: the sensor
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| PICO-FR-010 | The firmware shall reach the SHT30 on I2C0 at 100 kHz, SDA on GP4 and SCL on GP5, at address 0x44, each overridable at build time without a source edit. | STK-21 | Inspection, Test (build) |
+| PICO-FR-020 | `temp` shall take one single-shot, high-repeatability measurement with clock stretching disabled, waiting at least the datasheet's maximum conversion time before reading the result. | STK-21 | Test |
+| PICO-FR-021 | Every word received from the sensor shall be checked against its CRC-8 (polynomial 0x31, initial value 0xFF). A mismatch shall be reported as `err 5` and no value shall be reported. | STK-21 | Test |
+| PICO-FR-022 | Temperature and humidity shall be converted with the datasheet formulas in integer arithmetic, rounded to the nearest thousandth, and reported in degrees Celsius and percent RH to three decimals, together with the raw words they came from. | STK-21 | Test |
+| PICO-FR-023 | A sensor that does not acknowledge shall be reported as `err 4`, and a bus transfer that does not complete within its timeout as `err 6`. In neither case shall a value be reported. | STK-21 | Test |
+| PICO-FR-024 | `status` shall report the sensor's status register, CRC-checked. | STK-21 | Test |
+| PICO-FR-025 | The firmware shall soft-reset the sensor at start-up, and on `sreset`. | STK-21 | Test, Inspection |
+| PICO-FR-026 | A failed check shall leave no partially updated reading behind for a caller to report. | STK-21 | Test |
+
+### 15.3 Firmware: maintenance and build
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| PICO-FR-030 | `reset` shall reboot the Pico, and `bootsel` shall reboot it into the ROM's USB bootloader ready for a UF2 image. In both cases the `ok` reply shall be sent before the reboot. | STK-21 | Test |
+| PICO-FR-031 | The firmware shall build with the Raspberry Pi Pico C SDK for the Pico 2 (RP2350, Arm Cortex-M33) into a UF2 image that can be copied onto the board. | STK-21 | Test (build) |
+
+### 15.4 Host driver and bench use
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| PICO-FR-040 | Connecting shall identify the thermometer with `ver`, and shall refuse a firmware whose protocol major revision differs from the driver's. It shall send nothing the firmware does not define. | STK-21, STK-22 | Test |
+| PICO-FR-041 | The driver shall expose the title and version, and the rest of `ver`, as typed values. | STK-22 | Test |
+| PICO-FR-042 | The driver shall return temperature and humidity together with their raw words and a host timestamp. | STK-21 | Test |
+| PICO-FR-043 | An `err` reply shall raise an error carrying the firmware's code; no reading shall be returned. | STK-21 | Test |
+| PICO-FR-044 | The driver shall recompute each value from its raw word with the firmware's arithmetic, and shall refuse a reply in which they disagree. | STK-21 | Test |
+| PICO-FR-045 | A bare port name shall be taken as a serial port rather than a network host. | STK-21 | Test |
+| PICO-FR-046 | The driver shall decode the sensor status register, and shall provide sensor soft reset, Pico reboot and bootloader entry. | STK-21 | Test |
+| PICO-FR-050 | The thermometer shall be registered as a bench driver, and a simulated thermometer shall answer the same command set with the same reply text, with injectable faults: sensor absent, CRC failure and bus timeout. | STK-08, STK-21 | Test |
+| PICO-FR-060 | A command-line interface shall expose `ver`, `temp` (one reading or a series), `status`, `sreset` and `bootsel`, emitting JSON. | STK-21, STK-22 | Test |
+
+### 15.5 PICO non-functional
+
+| ID | Requirement | Verification |
+|---|---|---|
+| PICO-NFR-001 | The firmware's logic shall be separated from the hardware by a single HAL seam, so that it is unit tested on the host unchanged. | Inspection, Test |
+| PICO-NFR-002 | The firmware shall be written to MISRA C:2012: no `<stdio.h>` formatting, no dynamic memory, no recursion, fixed-width types, and every deviation recorded where it occurs and in `docs/pico_sht30/Pico_SHT30_Notes.md`. | Inspection, Test |
+| PICO-NFR-003 | The firmware's own sources shall compile with `-Wall -Wextra -Wconversion -Wshadow -Wstrict-prototypes` as errors, in both the target and the host test builds; the host tests shall run under AddressSanitizer and UndefinedBehaviorSanitizer. | Test |
+| PICO-NFR-004 | The protocol shall be defined once, in `firmware/pico_sht30/include/protocol.h`, and the host driver's constants shall be checked against it by a test. | Test |
+| PICO-NFR-005 | The host driver shall add no mandatory third-party dependency; the serial library shall be an optional extra. | Inspection, Test |
+| PICO-NFR-006 | All of the firmware's C code - sources, headers and host unit tests - shall conform to TB-STD-002 and TB-STY-001 as checked by CStyleCheck, with no baseline: any finding at any severity fails the build. Module aliases and rule exclusions shall be confined to the Pico step and justified where they are declared. | Test |
+
+---
+
+## 16. RUN — bench test runner
+
+### 16.1 Bench configuration
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -749,7 +823,7 @@ review, in which case the reading is real but is not now.
 | RUN-FR-005 | The runner shall support replacing every instrument with its simulator, so a specification can be exercised without hardware. | STK-08 | Test |
 | RUN-FR-006 | A run shall be recorded as simulated whenever no instrument on the bench is real hardware, so simulated results cannot be mistaken for measurements. | STK-08 | Test |
 
-### 15.2 Test specification
+### 16.2 Test specification
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -761,7 +835,7 @@ review, in which case the reading is real but is not now.
 | RUN-FR-015 | A test shall be markable as skipped, with a reason. | STK-08 | Test |
 | RUN-FR-016 | A step shall be able to save its result under a name, and any later step shall be able to use that saved value - or a value addressed inside it - as an argument or as a limit, optionally rendered through a format template. A reference to a name nothing has saved shall be refused, naming what has been saved. Without this a chained test would have to write down what an earlier step established, which makes the test assert its own input. | STK-08, STK-16 | Test |
 
-### 15.3 Limits
+### 16.3 Limits
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -772,7 +846,7 @@ review, in which case the reading is real but is not now.
 | RUN-FR-025 | A measurement shall be reportable through a format template, so a value whose meaning is not decimal - an identifier, an address, a mask - reads in the record as it reads on the part. The template shall not affect the check, which remains against the number; the number shall be retained in the result record; and the limit's own bounds shall be rendered the same way, since a hexadecimal value beside decimal bounds is less legible than either alone. A template that cannot be applied shall be an error, not a silent fall back to the number. | STK-08, STK-16 | Test |
 | RUN-FR-024 | A limit shall support exact comparison against text - a version, a device name - reported as the text itself rather than as a number. Matching shall be exact on the stripped value: a looser rule would pass 1.4.20 for 1.4.2, which is the failure such a limit exists to catch. | STK-08, STK-16 | Test |
 
-### 15.4 Execution
+### 16.4 Execution
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -785,7 +859,7 @@ review, in which case the reading is real but is not now.
 | RUN-FR-036 | A step shall be able to name a driver property as well as a method. A property shall be read when the step executes and shall take no arguments. | STK-08 | Test |
 | RUN-FR-037 | The run record and every report shall identify each instrument the run used - driver, model, serial number, resource and, where the instrument reports one, the firmware build - recorded after the run rather than before. An instrument that would not identify shall be recorded as such rather than omitted. | STK-08, STK-16, STK-17 | Test |
 
-### 15.5 Reporting
+### 16.5 Reporting
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -805,7 +879,7 @@ review, in which case the reading is real but is not now.
 
 ---
 
-## 16. Assumptions and constraints
+## 17. Assumptions and constraints
 
 | ID | Statement |
 |---|---|
@@ -825,11 +899,13 @@ review, in which case the reading is real but is not now.
 | CON-03 | Instrument families named for future work (STK-13 and STK-18: power supplies and a multimeter over RS-232) have no requirements in this revision. The core is designed for them but not validated against them. |
 | CON-04 | The J-Link driver is verified against a simulated probe and a simulated target, not against physical hardware. Bench confirmation items are listed in `docs/jlink/JLink_Integration_Notes.md` §4. |
 | CON-05 | The scaling of SWO/ITM local timestamps to core cycles depends on the trace prescaler configured by the GDB server and the firmware. It is implemented from the ARMv7-M architecture reference manual and requires confirmation against a part before SWO timing figures are quoted (JLINK-OPEN-03). |
+| CON-09 | The Pico 2 thermometer firmware **builds** (Pico SDK 2.1.1, Arm GNU 14.2.1, UF2 produced) and its portable logic passes its host unit tests; it has **not** yet been run on a Pico 2 with a sensor attached. Bench confirmation items are in `docs/pico_sht30/Pico_SHT30_Notes.md` §7 (PICO-OPEN-01 … -04). |
+| ASM-10 | The SHT30-D module is powered from the Pico's 3V3(OUT) and carries its own I2C pull-ups; its ADDR pin is tied low (0x44). |
 | CON-06 | Markdown-to-Robot-Framework translation (STK-12) is not implemented in this revision. The driver's return types are constrained by JLINK-FR-081 so that it can be added without changing the driver. |
 
 ---
 
-## 17. Requirements Traceability
+## 18. Requirements Traceability
 
 The consolidated trace - stakeholder requirement to software requirement to
 architecture element to design unit to source to test - is maintained as a
@@ -845,7 +921,7 @@ property the suite enforces rather than a table someone maintains by hand.
 
 ---
 
-## 18. Review & Approval
+## 19. Review & Approval
 
 | Role | Name | Signature / Electronic Approval | Date |
 |---|---|---|---|
