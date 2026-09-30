@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-SWE4-001 |
-| Version | 4.3 |
+| Version | 4.4 |
 | Date | 2026-09-30 |
 | Process reference | Automotive SPICE V4.0, SWE.4 Software Unit Verification |
 
@@ -146,6 +146,24 @@ module's imports:
 | Protocol grammar testing | GDB/MI records: nesting, repeated names, uniformly named lists, escapes, non-MI lines (`SWE4-UT-GDBMI`) |
 | Resource-limit testing | Hardware breakpoint and watchpoint envelopes, memory chunk boundaries, the 32-bit cycle-counter wrap |
 
+### 1.6a Bench tests (opt-in)
+
+`tests/bench/` holds tests that exercise a real instrument. They are **not**
+unit verification and are not part of the default run: the directory is
+excluded from collection (`norecursedirs`), and each test skips unless the
+operator names the instrument in the environment. They are run by hand at the
+bench, and write a markdown record of what the instrument did, which is the
+evidence that discharges bench confirmation items.
+
+Each can also be run against the driver's simulator (`sim://`) as a dry run of
+the test itself, with any reference the operator names applied to the
+simulated input. A dry run shows that the bench test is sound; it is never
+evidence about an instrument, and its record says so on the first line.
+
+| Test ID | File | Purpose | Requirements verified |
+|---|---|---|---|
+| SWE4-UT-DMMBENCH | `bench/tti1604/test_bench.py` | A real TTi 1604 named by `BENCHTOOLS_TTI1604`: the link and remote mode, key echo, the raw stream and reading rate, every frame decoding, a tour of the functions that are safe on an open or low-voltage input, every DC voltage range, the frequency gate, handing back to local; against a wired reference, DC volts, resistance, frequency and - only when a current reference is named - DC current; OFL on an open input | DMM-FR-001 .. -033, -070, -080, DMM-NFR-002 |
+
 ### 1.7 Pass criteria
 
 | ID | Criterion |
@@ -174,7 +192,7 @@ module's imports:
 | SWE4-UT-PROCESS | `core/transport/test_process.py` | `ProcessTransport`: pipe framing, reader threads, bounded stderr retention, a child that exits immediately, retained exit status | CORE-FR-009, CORE-NFR-005, -006 |
 | SWE4-UT-SIMBASE | `core/test_simulator.py` | Shared simulator harness: dispatch, compound messages, event queue, binary replies, subclassing | CORE-FR-040, -041 |
 | SWE4-UT-VALIDATE | `core/test_validation.py` | Range, channel and choice validation; the enumeration base | CORE-FR-030, -031, CORE-NFR-004 |
-| SWE4-UT-TRANSPORT | `core/transport/test_base.py` | Message framing, buffering, stale-response discard, lifecycle, timeouts; stream reading past an end-of-message and discarding unread input | CORE-FR-005, -007, -019, CORE-NFR-005, -006 |
+| SWE4-UT-TRANSPORT | `core/transport/test_base.py` | Message framing, buffering, stale-response discard, lifecycle, timeouts; stream reading past an end-of-message and discarding unread input; a virtual-clock simulator given the read timeout | CORE-FR-005, -007, -019, -042, CORE-NFR-005, -006 |
 | SWE4-UT-VXI11 | `core/transport/test_vxi11.py` | VXI-11 client at wire level against an independent RPC server | CORE-FR-001, -002, -007, -008 |
 | SWE4-UT-SOCKET | `core/transport/test_socket.py` | Raw socket transport; length-bounded and idle-bounded reads | CORE-FR-003 |
 | SWE4-UT-VISA | `core/transport/test_visa.py` | PyVISA transport against the same RPC server | CORE-FR-006, CORE-NFR-003 |
@@ -223,8 +241,8 @@ module's imports:
 | SWE4-UT-PSUSIM | `instruments/gpd3303d/test_simulator.py` | Self-checks on the simulated supply: Ohm's law, the constant-current fallback, the single output switch, silent refusals, the three tracking modes and the setpoint a tracking supply discards, and clamping as the hardware clamps | PSU-FR-006, PSU-FR-050 |
 | SWE4-UT-PSUCLI | `instruments/gpd3303d/test_cli.py` | Every supply sub-command end to end; JSON output; the current-limit and tracking warnings; that `set` does not energise a rail | PSU-FR-060 |
 | SWE4-UT-DMMFRAME | `instruments/tti1604/test_frame.py` | The reading frame, built by hand from the published format: the note's worked example, every units code and coupling, the sign, the derived resistance multiplier on every range and its refusal, OFL, a blank display, every annunciator bit, frequency and its gate, and every malformed frame | DMM-FR-010 .. -015, DMM-NFR-003 |
-| SWE4-UT-DMM | `instruments/tti1604/test_dmm.py` | The meter driver: the line settings, remote mode and the unchanged front panel, standby, the asserted identity, local on close; key echo, resend after 300 ms, the bounded give-up and its diagnostic, an echo never found inside a frame; resynchronisation and the NUL terminator; fresh readings; every function, confirmed from the readings, and a key the meter ignores; ranging by full scale, auto, and the frequency gate; every named measurement; refusal of OFL, held, recalled and relative readings; data logging; bench registration | DMM-FR-001 .. -006, -020 .. -033, -050, DMM-NFR-002 |
-| SWE4-UT-DMMSIM | `instruments/tti1604/test_simulator.py` | Self-checks on the simulated meter against the manual: power-on state, echo and fault injection, the key rules, the display and range at each resolution, the 1024 V overload figure, open-circuit OFL, the virtual clock, panel annunciators | DMM-FR-050 |
+| SWE4-UT-DMM | `instruments/tti1604/test_dmm.py` | The meter driver - including the 10 s frequency gate waited for (D-41): the line settings, remote mode and the unchanged front panel, standby, the asserted identity, local on close; key echo, resend after 300 ms, the bounded give-up and its diagnostic, an echo never found inside a frame; resynchronisation and the NUL terminator; fresh readings; every function, confirmed from the readings, and a key the meter ignores; ranging by full scale, auto, and the frequency gate; every named measurement; refusal of OFL, held, recalled and relative readings; data logging; bench registration | DMM-FR-001 .. -006, -020 .. -033, -050, -070, DMM-NFR-002 |
+| SWE4-UT-DMMSIM | `instruments/tti1604/test_simulator.py` | Self-checks on the simulated meter against the manual: power-on state, echo and fault injection, the key rules, the display and range at each resolution, the 1024 V overload figure, open-circuit OFL, the virtual clock, a reading per gate measuring frequency, a read shorter than the measurement timing out, panel annunciators | DMM-FR-050, -070, CORE-FR-042 |
 | SWE4-UT-DMMCLI | `instruments/tti1604/test_cli.py` | Every meter sub-command end to end; JSON output; the not-live warning; ranging errors; an unopenable port; top-level dispatch | DMM-FR-060 |
 | SWE4-UT-BENCH | `runner/test_bench.py` | Bench configuration, lazy connection, driver registry, simulation detection, instrument identity recorded per run | RUN-FR-001 .. -006, RUN-FR-037 |
 | SWE4-UT-ENGINE | `runner/test_runner.py` | Execution, failure versus error, setup abort, skips, roll-up, property steps, instruments in the record | RUN-FR-030 .. -037 |
@@ -295,4 +313,4 @@ in the VISA determination report §5.1:
 | Exact SCPI command spellings against the programmer manual | The manual was unreachable from the build environment (CON-02) |
 | Analogue accuracy, bandwidth and noise behaviour | Instrument specification, not software |
 | Behaviour of instrument families named for future work | No drivers exist yet (CON-03) |
-| TTi 1604: the frame terminator, the resistance display convention, AC current range labels, frequency gate times, echo timing within the stream, key behaviour in remote mode, and a USB converter's DTR/RTS levels | Hardware-dependent; DMM-OPEN-01 … -07 in `docs/dmm/TTi1604_Notes.md` §5 (CON-09) |
+| TTi 1604: the frame terminator, the resistance display convention, AC current range labels, frequency gate times, echo timing within the stream, key behaviour in remote mode, and a USB converter's DTR/RTS levels | Hardware-dependent; DMM-OPEN-01 … -07 in `docs/dmm/TTi1604_Notes.md` §5 (CON-09). Exercised by the bench test SWE4-UT-DMMBENCH (§1.6a) when a meter is attached |

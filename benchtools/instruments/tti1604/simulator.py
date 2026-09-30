@@ -9,7 +9,7 @@ real reading takes.
 
 What is modelled: the key characters and their echo, remote and local mode,
 function and AC/DC selection, auto and manual ranging, overload (OFL), the Hz
-function and its gate time, Operate (standby: the interface stays up and the
+function and its gate time - a reading per gate, not per 0.4 s - Operate (standby: the interface stays up and the
 readings stop), and a reading every 0.4 s on a virtual clock. Fault injection:
 keys lost before the meter sees them, and a stream joined part-way through a
 frame.
@@ -20,10 +20,13 @@ sets their flags directly, as an operator would from the front panel;
 accuracy and noise; and the meter's analogue settling.
 
 **Time.** A reading every 0.4 s would make a test suite wait for the meter. The
-simulator keeps its own clock, advanced by one reading interval each time the
-link is read, and the driver waits on that clock when it is talking to the
-simulator. A test that waits 4 s for a range change takes microseconds and
-still exercises every timeout in the driver.
+simulator keeps its own clock and a schedule: the next reading is due one
+measurement after the last - 0.4 s, or the gate time (1 s or 10 s) measuring
+frequency - and a key that changes what is measured restarts the measurement.
+The mock transport asks for what is due within its timeout (``poll_within``),
+so a driver that waits less than the meter takes gets a timeout, exactly as
+it would from a serial port. The driver waits on the same clock when talking
+to the simulator, so a 24 s wait takes microseconds.
 
 Traces to: DMM-FR-050, DMM-DD-SIM.
 """
@@ -143,6 +146,8 @@ class SimulatedTti1604:
         self.hertz = False
         self.gate_10s = False
         self.frames_sent = 0
+        #: Virtual time at which the next reading is sent.
+        self.next_reading_at = self.clock + READING_INTERVAL
 
     def set_input(self, quantity: str, value: float) -> None:
         """Apply *value* to the input: ``dc_volts``, ``ac_amps``, ``ohms``..."""
@@ -166,21 +171,44 @@ class SimulatedTti1604:
                 continue
             self.key_log.append(character)
             if not self.ignore_keys:
+                before = (self.remote, self.function, self.hertz, self.gate_10s,
+                          self.range_code, self.auto_range)
                 self._press(character)
+                after = (self.remote, self.function, self.hertz, self.gate_10s,
+                         self.range_code, self.auto_range)
+                if after != before:
+                    # A new function, range or gate starts a new measurement.
+                    self.next_reading_at = self.clock + self.measurement_time
             echoed.append(value)
         return bytes(echoed) if echoed else None
 
-    def poll(self) -> bytes:
-        """The next reading, one reading interval later.
+    @property
+    def measurement_time(self) -> float:
+        """Seconds per reading: 0.4, or the gate time measuring frequency."""
+        if self.hertz:
+            return 10.0 if self.gate_10s else 1.0
+        return READING_INTERVAL
 
-        :raises TransportTimeoutError: when the meter has nothing to say - in
-            local mode, or in standby - exactly as a silent serial line times
-            out. The clock still advances, so a driver waiting for an echo that
-            will never come reaches its deadline.
+    def poll(self) -> bytes:
+        """The next reading, however long it takes to come."""
+        return self.poll_within(math.inf)
+
+    def poll_within(self, timeout: float) -> bytes:
+        """The next reading, if it is due within *timeout* seconds.
+
+        :raises TransportTimeoutError: when nothing is due in time - including
+            in local mode or standby, when nothing is ever due - exactly as a
+            serial read with that timeout would. The clock advances by the
+            time waited, so a driver waiting for something that will not come
+            reaches its deadline.
         """
-        self.clock += READING_INTERVAL
-        if not (self.remote and self.operating):
-            raise TransportTimeoutError("the simulated 1604 is not sending readings")
+        sending = self.remote and self.operating
+        if not sending or self.next_reading_at - self.clock > timeout:
+            self.clock += timeout if math.isfinite(timeout) else READING_INTERVAL
+            raise TransportTimeoutError("the simulated 1604 sent nothing within %.3f s"
+                                        % timeout)
+        self.clock = max(self.clock, self.next_reading_at)
+        self.next_reading_at = self.clock + self.measurement_time
         frame = self.garbage + self.frame() + (b"\x00" if self.nul_terminated else b"")
         self.garbage = b""
         self.frames_sent += 1

@@ -600,8 +600,10 @@ python -m benchtools dmm -r /dev/ttyUSB1 log -n 25 --json current.json
 python -m benchtools dmm -r sim:// info            # no meter needed
 ```
 
-See [TTi 1604 Notes](docs/dmm/TTi1604_Notes.md) for the wiring, the key
-characters and frame format, and seven bench confirmation items. The
+With the meter attached, `BENCHTOOLS_TTI1604=/dev/ttyUSB1 pytest tests/bench/tti1604`
+exercises the driver against it and writes a findings record; it is outside the
+default test run. See [TTi 1604 Notes](docs/dmm/TTi1604_Notes.md) for the wiring, the key
+characters and frame format, the bench test, and seven bench confirmation items. The
 manufacturer's datasheet, manual and remote-control note are in
 `docs/dmm/reference/`.
 
@@ -737,7 +739,7 @@ source carries its trace and allocates nothing dynamically.
 | [SWE.2 Architecture](docs/SWE2_Software_Architecture.md) | Layering, elements, twenty-five architectural decisions |
 | [SWE.3 Detailed Design](docs/SWE3_Software_Detailed_Design.md) | Per-module design units |
 | [SWE.4 Test Specification](docs/SWE4_Unit_Test_Specification.md) | Strategy, test groups, pass criteria |
-| [SWE.4 Test Report](docs/SWE4_Unit_Test_Report.md) | Results, coverage, measured accuracy, forty defects found |
+| [SWE.4 Test Report](docs/SWE4_Unit_Test_Report.md) | Results, coverage, measured accuracy, forty-one defects found |
 | [Traceability Matrix](docs/Traceability_Matrix.md) | Bidirectional trace, stakeholder need to test |
 
 Work products follow Automotive SPICE V4.0 SWE.1–SWE.4. This is a test tool: it is

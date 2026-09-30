@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-SWE1-001 |
-| Version | 4.4 |
+| Version | 4.5 |
 | Date | 2026-09-30 |
 | Process reference | Automotive SPICE V4.0, SWE.1 Software Requirements Analysis |
 | Item | **BenchTools** — bench test tooling (`benchtools` 4.0.0) |
@@ -144,6 +144,7 @@ Extends §4.2 with the SCPI and IEEE 488.2 vocabulary.
 |---|---|---|---|
 | CORE-FR-040 | A shared simulator harness shall provide SCPI message dispatch, compound-message splitting, the IEEE 488.2 mandated queries, an event queue and binary replies, so each instrument's simulator implements only its own behaviour. | STK-07 | Test |
 | CORE-FR-041 | An unrecognised command shall be recorded in the simulated event queue rather than ignored, so that a driver which misspells a command fails a test instead of passing silently. | STK-07 | Test |
+| CORE-FR-042 | A simulated instrument that streams on a virtual clock shall be told how long the driver is prepared to wait, so that output due later than that is a timeout, as it is on a real link, rather than data the driver would never have received. | STK-07, STK-18 | Test |
 
 ### 4.6 CORE non-functional
 
@@ -561,6 +562,8 @@ number unless its annunciators are decoded with it.
 |---|---|---|---|
 | DMM-FR-050 | The meter shall be registered as a bench driver, and a simulated meter shall answer the same key characters and stream the same frames from an input a test sets, auto-ranging onto it, so that the driver is verifiable without hardware. | STK-08, STK-18 | Test |
 | DMM-FR-060 | A command-line interface shall expose identification, reading, measuring, data logging, function selection and ranging, emitting JSON, and shall warn when a reading it reports is not live. | STK-18 | Test |
+| DMM-FR-070 | Every wait for a reading shall allow for the meter's reading rate in the state it is in: 0.4 s per reading on most functions, one gate time - 1 s or 10 s - measuring frequency. | STK-18 | Test |
+| DMM-FR-080 | An opt-in bench test shall exercise the driver against a real meter named by the operator - link, stream, functions, ranges, frequency gate and, where the operator names a wired reference, measurement against it - selecting a current function only when a current reference is named, and shall write a record of what the meter did for the bench confirmation items. It shall be excluded from the default test run. | STK-18 | Test |
 
 ### 11.6 DMM non-functional
 

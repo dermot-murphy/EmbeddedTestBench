@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-TRACE-001 |
-| Version | 4.4 |
+| Version | 4.5 |
 | Date | 2026-09-30 |
 | Process reference | Automotive SPICE V4.0, SWE.1 BP6 / SWE.2 BP7 / SWE.3 BP5 / SWE.4 BP6 |
 | Item | `benchtools` 4.0.0 + `firmware/nordic_dongle` |
@@ -36,7 +36,7 @@ docstring, so the link is carried in the artefact and not only in this table.
 | STK-13 — programmable supply for the sensor | PSU-FR-001 … -060; PSU-NFR-001 … -003; CORE-FR-017 |
 | STK-19 — S2-LP kit: registers, transmit, receive, log | S2LP-FR-001 … -060; S2LP-NFR-001 … -004; CORE-FR-017 |
 | STK-20 — use ST's firmware if it is fit for purpose | AD-20; S2LP-FR-001, -002; S2LP-NFR-002. The firmware was examined before any was written: BENCHTOOLS-SWE4-002 §10, `docs/s2lp/S2LP_Devkit_Notes.md` §1 |
-| STK-18 — RS-232 multimeter (TTi 1604) | DMM-FR-001 … -060; DMM-NFR-001 … -003; CORE-FR-017, -018, -019; AD-24, AD-25 |
+| STK-18 — RS-232 multimeter (TTi 1604) | DMM-FR-001 … -080; DMM-NFR-001 … -003; CORE-FR-017, -018, -019, -042; AD-24, AD-25 |
 
 ## 2. CORE requirements to design, code and test
 
@@ -75,6 +75,7 @@ docstring, so the link is carried in the artefact and not only in this table.
 | CORE-FR-040 | ARC-004 | CORE-DD-SIM | `core/simulator.py` | `TestBaseSimulator` (12), `TestSubclassing` (3) |
 | CORE-FR-050 | ARC-004 | CORE-DD-FIRMWARE | `FirmwareBuild.from_path`, `load`, `built_at`; the `hint` each caller supplies | `TestReading` (6), `TestDiagnostics` (4), `TestBuildDates` (3), `test_a_missing_manifest_says_how_to_produce_one` |
 | CORE-FR-041 | ARC-004 | CORE-DD-SIM | `_unknown_command` | `test_unknown_header_is_recorded_not_ignored`, `test_unknown_query_still_answers` |
+| CORE-FR-042 | ARC-004 | CORE-DD-SIM, CORE-DD-MOCK | `Streamer.poll_within`, `MockTransport._poll_responder` | `test_a_virtual_clock_simulator_is_given_the_read_timeout`, `test_a_read_shorter_than_the_measurement_times_out` |
 
 ### CORE non-functional
 
@@ -378,6 +379,8 @@ where the firmware implements the requirement.
 | DMM-FR-033 | DMM-ARC-001 | DMM-DD-DMM | `measure_dc_voltage`, `measure_ac_voltage`, `measure_dc_current`, `measure_ac_current`, `measure_resistance`, `measure_frequency` | `TestMeasuring` (18) |
 | DMM-FR-050 | DMM-ARC-001 | DMM-DD-SIM | `simulator.py`, `register_driver("tti1604", …)` | `SWE4-UT-DMMSIM` (31), `TestBenchUse` (2) |
 | DMM-FR-060 | DMM-ARC-001 | DMM-DD-CLI | `cli.py` | `SWE4-UT-DMMCLI` (14) |
+| DMM-FR-070 | DMM-ARC-001 | DMM-DD-DMM, DMM-DD-SIM | `_patience`; `SimulatedTti1604.measurement_time`, `poll_within` | `test_the_ten_second_gate_is_waited_for`, `test_the_frequency_range_is_the_gate_time`, `test_frequency_is_read_once_per_gate`; on hardware, `test_the_frequency_gate` |
+| DMM-FR-080 | DMM-ARC-001 | — (a test artefact, SWE.4 §1.6a) | `tests/bench/tti1604/` | `SWE4-UT-DMMBENCH` (14), dry-run against the simulator; on hardware when a meter is attached |
 
 ### DMM non-functional
 
@@ -454,7 +457,7 @@ where the firmware implements the requirement.
 
 | Question | Answer |
 |---|---|
-| Requirements with no verifying test | **None.** All 282 functional and 29 non-functional requirements trace to at least one test, or to a recorded inspection where a test is not the appropriate method (CORE-NFR-002, BLE-FR-090, BLE-NFR-002, and part of CORE-NFR-001). The firmware requirements are verified against the artefact the firmware is built from, not against a running dongle: see CON-07. |
+| Requirements with no verifying test | **None.** All 285 functional and 29 non-functional requirements trace to at least one test, or to a recorded inspection where a test is not the appropriate method (CORE-NFR-002, BLE-FR-090, BLE-NFR-002, and part of CORE-NFR-001). The firmware requirements are verified against the artefact the firmware is built from, not against a running dongle: see CON-07. |
 | Tests not tracing to a requirement | **None.** Every test file names its requirements in its module docstring. |
 | Source modules with no design unit | **None.** Every module names its design unit in its docstring - firmware sources included, checked by `test_every_source_declares_its_trace` in `SWE4-UT-BLEFW`; `__main__.py` is covered by RUN-DD-CLI. |
 | Design units with no source | **None.** |
@@ -472,5 +475,5 @@ where the firmware implements the requirement.
 | OPEN-04 | **Narrowed.** Tests written as a markdown document are implemented for the BLE command set: `BLE-FR-100 … -108`, AD-23, `specs/sensor_commands.md`. What remains undecided is Robot Framework itself (STK-12, CON-06) - a general keyword layer over every instrument, rather than one document format for one element | Decide whether to adopt Robot Framework. If adopted, add a `ROBOT-` element in front of the existing runner; AD-15 has kept the driver boundary suitable for it, and AD-23 is evidence that a document-driven test needs no framework to be useful. |
 | OPEN-07 | S2-LP kit bench confirmation items — `docs/s2lp/S2LP_Devkit_Notes.md` §7: the firmware's exact reply text and error codes, the board name it reports, the meaning of `S2LPGetNBytesBatch`'s reference-timer argument, and the link budget in practice | Discharge on first use with a kit. Tracked there as S2LP-OPEN-01 to S2LP-OPEN-05. Nothing in them blocks use of the driver: the parser reads tags by name and keeps every line, so an unexpected reply is visible rather than fatal. |
 | OPEN-08 | PSU bench confirmation items — `docs/psu/GPD3303D_Notes.md` §5: the bit order of `STATUS?`, the behaviour of `ERR?`, the command interval a real supply needs, and settling time | Discharge on first use with a supply. Tracked there as PSU-OPEN-01 to PSU-OPEN-04. |
-| OPEN-09 | TTi 1604 bench confirmation items — `docs/dmm/TTi1604_Notes.md` §5: the frame terminator, the resistance display convention, AC current range labels, frequency gate times, where the echo falls in the stream, key behaviour in remote mode, and whether the bench's USB converter drives DTR and RTS far enough (CON-09) | Discharge on first use with the meter. Tracked there as DMM-OPEN-01 to DMM-OPEN-07. The first two are guarded in the driver: a NUL is ignored if present, and a resistance display that fits no multiplier is refused rather than scaled. |
+| OPEN-09 | TTi 1604 bench confirmation items (run `tests/bench/tti1604`, SWE4-UT-DMMBENCH, and keep its findings record) — `docs/dmm/TTi1604_Notes.md` §5: the frame terminator, the resistance display convention, AC current range labels, frequency gate times, where the echo falls in the stream, key behaviour in remote mode, and whether the bench's USB converter drives DTR and RTS far enough (CON-09) | Discharge on first use with the meter. Tracked there as DMM-OPEN-01 to DMM-OPEN-07. The first two are guarded in the driver: a NUL is ignored if present, and a resistance display that fits no multiplier is refused rather than scaled. |
 | OPEN-05 | J-Link bench confirmation items (CON-04, CON-05) — `docs/jlink/JLink_Integration_Notes.md` §4: Windows execution, real MI version behaviour, SWO timestamp scaling, RTT control-block discovery, flash timing | Discharge on first use with a probe and a target. Tracked there as JLINK-OPEN-01 to JLINK-OPEN-04. |

@@ -17,7 +17,7 @@ A simulator that also implements ``poll() -> bytes`` (see
 to, which is what an instrument that streams events needs: the transport calls
 ``poll()`` when the driver reads and no reply is outstanding.
 
-Traces to: CORE-FR-004, CORE-FR-019, CORE-FR-041, CORE-DD-MOCK.
+Traces to: CORE-FR-004, CORE-FR-019, CORE-FR-041, CORE-FR-042, CORE-DD-MOCK.
 """
 
 from __future__ import annotations
@@ -107,7 +107,14 @@ class MockTransport(Transport):
         return chunk, end
 
     def _poll_responder(self) -> bytes:
-        """Ask a streaming simulator for unsolicited output."""
+        """Ask a streaming simulator for unsolicited output.
+
+        A simulator that keeps virtual time is asked for what is due within
+        this transport's timeout, as a real read would be (CORE-FR-042).
+        """
+        poll_within = getattr(self.responder, "poll_within", None)
+        if poll_within is not None:
+            return bytes(poll_within(self._timeout) or b"")
         poll = getattr(self.responder, "poll", None)
         if poll is None:
             return b""

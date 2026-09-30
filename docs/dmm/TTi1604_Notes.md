@@ -182,9 +182,12 @@ instruments:
 | A fresh reading (`read()`, `measure()`) | 0.4 - 0.8 s |
 | A key press | One echo round trip; 0.3 s per resend, five sends at most |
 | A function or range change | 1 - 2 s, most of it the meter's own |
-| A frequency reading | 1 s gate on the 40 kHz range, 10 s on the 4 kHz range |
+| A frequency reading | 1 s gate on the 40 kHz range, 10 s on the 4 kHz range. Every wait in the driver allows two gate times (DMM-FR-070) |
 
 ## 5. Bench confirmation items
+
+The bench test (§7) settles DMM-OPEN-01, -02, -04, -06 and -07 in one sitting
+and writes the evidence down; -03 and -05 need an operator at the front panel.
 
 None of these block use of the driver. Each is either guarded - the driver
 accepts both possibilities, or refuses rather than guesses - or affects only a
@@ -214,3 +217,27 @@ function the driver does not select.
 * **Thermal settling after 10 A.** The manual asks for ten minutes before a
   sensitive DC measurement after heavy current. That is a test-procedure
   matter, not a driver one.
+
+## 7. Bench test
+
+`tests/bench/tti1604` exercises the driver against the real meter
+(SWE4-UT-DMMBENCH, DMM-FR-080). It is not part of the default test run, and
+skips unless the meter is named:
+
+```
+BENCHTOOLS_TTI1604=/dev/ttyUSB1 pytest tests/bench/tti1604 -v
+```
+
+With the inputs open it checks the link, key echo, the raw stream and reading
+rate, every frame decoding, a tour of the functions safe on an open input,
+every DC voltage range, the frequency gate, OFL on open-circuit ohms and
+handing the meter back. Naming a wired reference - one at a time - adds a
+measurement against it: `BENCHTOOLS_TTI1604_DCV`, `_OHMS`, `_HZ`, and `_DCI`,
+the only one that selects a current function. See
+`tests/bench/tti1604/README.md` for the wiring of each.
+
+It writes `tti1604_bench_findings.md` - the raw bytes on the line, the reading
+rate, how long each key and range change took, what the resistance display
+showed - which is the record to attach when closing DMM-OPEN items.
+`BENCHTOOLS_TTI1604=sim://` dry-runs it against the simulator; that record is
+marked as a dry run.

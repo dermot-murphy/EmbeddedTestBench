@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-SWE3-001 |
-| Version | 4.3 |
+| Version | 4.4 |
 | Date | 2026-09-30 |
 | Process reference | Automotive SPICE V4.0, SWE.3 Software Detailed Design and Unit Construction |
 
@@ -206,6 +206,12 @@ reassembly are exercised rather than bypassed. The description is derived from
 the responder's `*IDN?` model field, so it is meaningful for any instrument.
 `discard_input()` also drops the pending reply, so a streaming simulator's
 next `poll()` is what the driver reads after a discard, as on a real port.
+A simulator that implements `poll_within(timeout)` is called with this
+transport's timeout instead of `poll()` (CORE-FR-042): output due later than
+the read would wait is a `TransportTimeoutError`, and the simulator's clock
+moves on by the timeout, as time does on a real port. Without this a
+simulator on a virtual clock delivers data a driver would have given up on,
+and a wait that is too short passes every test (D-41).
 
 ## CORE-DD-FACTORY — `transport/factory.py`
 
@@ -1448,6 +1454,12 @@ Design points:
 - **Current functions only by name** (DMM-NFR-002). The only path to a current
   function is a caller naming one; `measure_frequency` keeps an AC current
   source the caller already selected but never chooses one.
+- **Waits allow for the gate** (DMM-FR-070, D-41). `_patience()` is the
+  settle timeout plus two gate times when the last reading was a frequency
+  one; `current_state`, `_await`, `read`, `read_many` and `measure` default to
+  it, and the frequency paths name the gate they are moving to, since the last
+  reading describes the gate being left. Connecting allows for a meter left on
+  the 10 s gate.
 - **Time is injectable.** Every deadline is measured on `_clock`, which is
   `time.monotonic` on a real link and the simulator's virtual clock on a
   simulated one. The simulator advances its clock one reading interval per read,
@@ -1463,7 +1475,10 @@ Design points:
 
 A meter with an input a test sets (`set_input("dc_amps", 0.012)`), satisfying
 `Streamer` (CORE-DD-MOCK): `respond()` acts on and echoes key characters,
-`poll()` returns the next frame. The simulator auto-ranges onto the input,
+`poll_within(timeout)` returns the next frame if it is due in time. Readings
+are scheduled: the next is due one measurement time after the last (0.4 s, or
+the 1 s or 10 s gate measuring frequency), and a key that changes the
+function, range, gate or mode restarts the measurement. The simulator auto-ranges onto the input,
 formats the display at the range's resolution, applies OFL above the range's
 overload figure, and encodes the display into seven-segment patterns. The
 driver's decoder must therefore work back from patterns to the input, which is

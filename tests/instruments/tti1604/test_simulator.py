@@ -3,7 +3,7 @@
 The driver tests rely on this model being right, so it is checked on its own
 against the manual: ranges, resolutions, overload and the key rules.
 
-Traces to: DMM-FR-050, SWE4-UT-DMMSIM.
+Traces to: DMM-FR-050, DMM-FR-070, CORE-FR-042, SWE4-UT-DMMSIM.
 """
 
 from __future__ import annotations
@@ -135,6 +135,33 @@ class TestDisplay:
         reading = decode_frame(meter.poll())
         assert reading.function == Function.FREQUENCY
         assert reading.value == 1234.0
+
+    def test_frequency_is_read_once_per_gate(self, meter):
+        meter.respond(b"flj")
+        meter.poll()
+        before = meter.clock
+        meter.poll()
+        assert meter.clock - before == pytest.approx(1.0)
+        meter.respond(b"b")                           # 4 kHz range, 10 s gate
+        before = meter.clock
+        meter.poll()
+        assert meter.clock - before == pytest.approx(10.0)
+
+    def test_a_read_shorter_than_the_measurement_times_out(self, meter):
+        """As a serial read with that timeout would: the clock moves on by it."""
+        meter.respond(b"flj")
+        before = meter.clock
+        with pytest.raises(TransportTimeoutError):
+            meter.poll_within(0.5)
+        assert meter.clock - before == pytest.approx(0.5)
+        assert meter.poll_within(0.6)[0] == 0x0D
+
+    def test_a_new_function_restarts_the_measurement(self, meter):
+        meter.poll()
+        meter.clock += 0.3
+        meter.respond(b"i")
+        with pytest.raises(TransportTimeoutError):
+            meter.poll_within(0.2)
 
     def test_each_reading_advances_the_clock(self, meter):
         before = meter.clock

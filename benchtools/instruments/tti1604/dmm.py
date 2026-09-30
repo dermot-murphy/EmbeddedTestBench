@@ -268,13 +268,16 @@ class Tti1604(Instrument):
         powered: a meter in standby echoes keys and measures nothing.
         """
         self._press(Key.REMOTE)
+        # The meter may have been left on the 10 s frequency gate, when its
+        # next reading can be ten seconds away.
+        wait = self._patience(gate_10s=True)
         try:
-            self._last = self._next_frame(self._settle_timeout)
+            self._last = self._next_frame(wait)
         except MeasurementError as exc:
             raise InstrumentError(
                 "the 1604 acknowledged remote mode but sent no reading within "
                 "%.1f s. It is probably in standby: press Operate on the front "
-                "panel." % self._settle_timeout
+                "panel." % wait
             ) from exc
         self._identity = self._read_identity()
 
@@ -435,14 +438,37 @@ class Tti1604(Instrument):
         """The most recent frame received, whenever that was."""
         return self._last
 
+    def _patience(self, gate_10s: Optional[bool] = None) -> float:
+        """Seconds to wait for a frame, allowing for the frequency gate.
+
+        On most functions the meter reads 2.5 times a second. Measuring
+        frequency it reads once per gate - 1 s, or 10 s on the 4 kHz range - so
+        a wait sized for the first would give up on the second. *gate_10s*
+        names the gate to allow for; ``None`` takes it from the last reading.
+
+        Traces to: DMM-FR-070.
+        """
+        if gate_10s is None:
+            last = self._last
+            if last is None or last.function != Function.FREQUENCY:
+                return self._settle_timeout
+            gate_10s = last.gate_10s
+        return self._settle_timeout + 2 * (10.0 if gate_10s else 1.0)
+
     def current_state(self) -> Reading:
         """A frame received now: what the meter is set to, and showing."""
         self._discard_input()
-        return self._next_frame(self._settle_timeout)
+        return self._next_frame(self._patience())
 
-    def _await(self, description: str, condition: Callable[[Reading], bool]) -> Reading:
+    def _await(
+        self,
+        description: str,
+        condition: Callable[[Reading], bool],
+        timeout: Optional[float] = None,
+    ) -> Reading:
         """Wait for a frame satisfying *condition*, or say what the meter shows."""
-        deadline = self._clock() + self._settle_timeout
+        allowed = self._patience() if timeout is None else float(timeout)
+        deadline = self._clock() + allowed
         latest = self._last
         while True:
             remaining = deadline - self._clock()
@@ -460,7 +486,7 @@ class Tti1604(Instrument):
         raise ConfigurationError(
             "asked the 1604 for %s, but within %.1f s its readings show %s. A key "
             "may have been rejected (the meter beeps), or the front panel may be "
-            "in use." % (description, self._settle_timeout, shown)
+            "in use." % (description, allowed, shown)
         )
 
     # ------------------------------------------------------------------
@@ -501,6 +527,7 @@ class Tti1604(Instrument):
             return self._await(
                 "frequency",
                 lambda reading: reading.function == Function.FREQUENCY,
+                timeout=self._patience(gate_10s=False),
             )
         return self._select(function)
 
@@ -554,6 +581,7 @@ class Tti1604(Instrument):
             return self._await(
                 "the %s frequency range" % target.label,
                 lambda reading: reading.gate_10s == want_gate,
+                timeout=self._patience(gate_10s=True),
             )
         order = [item.code for item in choices]
         wanted = order.index(target.code)
@@ -599,7 +627,7 @@ class Tti1604(Instrument):
             one interval old.
         :param timeout: Seconds to wait; defaults to the settle timeout.
         """
-        wait = self._settle_timeout if timeout is None else float(timeout)
+        wait = self._patience() if timeout is None else float(timeout)
         if fresh:
             self._discard_input()
             self._next_frame(wait)
@@ -610,7 +638,7 @@ class Tti1604(Instrument):
         if count < 1:
             raise ConfigurationError("count must be at least 1, got %r" % (count,))
         readings = [self.read(fresh=True, timeout=timeout)]
-        wait = self._settle_timeout if timeout is None else float(timeout)
+        wait = self._patience() if timeout is None else float(timeout)
         while len(readings) < count:
             readings.append(self._next_frame(wait))
         return readings
@@ -637,7 +665,7 @@ class Tti1604(Instrument):
         """
         if function is not None:
             self.select_function(function)
-        wait = self._settle_timeout if timeout is None else float(timeout)
+        wait = self._patience() if timeout is None else float(timeout)
         reading = self.read(fresh=True, timeout=wait)
         deadline = self._clock() + wait
         # A reading taken while the meter is still ranging is neither overload
@@ -697,7 +725,7 @@ class Tti1604(Instrument):
 
         The manual asks for an input of at least 2,000 counts on the chosen AC
         range, so choose the source to suit the signal. Takes one or ten
-        seconds per reading, by gate time.
+        seconds per reading, by gate time; every wait allows for it.
         """
         if source not in _FREQUENCY_SOURCES:
             raise ConfigurationError(
@@ -709,9 +737,9 @@ class Tti1604(Instrument):
             if state.function != source:
                 self._select(source)
             self._press(Key.HERTZ)
-            self._await("frequency", lambda reading: reading.function == Function.FREQUENCY)
-        gate = 10.0 if (self._last is not None and self._last.gate_10s) else 1.0
-        return self.measure(timeout=max(self._settle_timeout, 3 * gate))
+            self._await("frequency", lambda reading: reading.function == Function.FREQUENCY,
+                        timeout=self._patience(gate_10s=False))
+        return self.measure()
 
     @staticmethod
     def _current_function(socket: str, ac: bool) -> str:
@@ -743,7 +771,7 @@ class Tti1604(Instrument):
     def remote(self) -> None:
         """Resume remote mode, and with it the readings."""
         self._press(Key.REMOTE)
-        self._next_frame(self._settle_timeout)
+        self._next_frame(self._patience(gate_10s=True))
 
     def __repr__(self) -> str:  # pragma: no cover - diagnostic only
         return "<Tti1604 %s>" % self._transport.description

@@ -1,6 +1,6 @@
 """The TTi 1604 driver against its simulator.
 
-Traces to: DMM-FR-001 .. DMM-FR-050, DMM-NFR-002, SWE4-UT-DMM.
+Traces to: DMM-FR-001 .. DMM-FR-050, DMM-FR-070, DMM-NFR-002, SWE4-UT-DMM.
 """
 
 from __future__ import annotations
@@ -115,7 +115,7 @@ class TestKeys:
         simulator.drop_keys = 1
         before = simulator.clock
         dmm.press(Key.AUTO)
-        assert simulator.clock - before >= ECHO_TIMEOUT
+        assert simulator.clock - before >= ECHO_TIMEOUT - 1e-9
 
     def test_a_meter_that_never_echoes_is_diagnosed(self, dmm, simulator):
         simulator.drop_keys = SEND_ATTEMPTS
@@ -284,6 +284,17 @@ class TestRanges:
         assert reading.gate_10s is True
         assert dmm.measure() == pytest.approx(1234.5)
         assert dmm.set_range(40000).gate_10s is False
+
+    def test_the_ten_second_gate_is_waited_for(self, dmm, simulator):
+        """D-41: on the 4 kHz range the meter reads once every 10 s. A wait
+        sized for 2.5 readings a second gave up before the first arrived."""
+        simulator.set_input("frequency", 50.0)
+        dmm.select_function(Function.FREQUENCY)
+        before = simulator.clock
+        assert dmm.set_range(4000).gate_10s is True
+        assert simulator.clock - before >= 10.0
+        assert dmm.measure() == pytest.approx(50.0)
+        assert dmm.select_function(Function.DC_VOLTS).function == Function.DC_VOLTS
 
     def test_frequency_has_no_auto_range(self, dmm):
         dmm.select_function(Function.FREQUENCY)

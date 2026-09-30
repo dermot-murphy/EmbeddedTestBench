@@ -77,6 +77,15 @@ class Streamer(Protocol):
     now, or ``b""``. A simulator whose events are on a virtual clock advances
     that clock here, which is what lets a test capture a minute of advertising
     in a few milliseconds and still assert on exact intervals.
+
+    A simulator on a virtual clock may also implement ``poll_within(timeout)``,
+    which the mock transport then calls instead, passing its own timeout. It
+    returns output due within *timeout* seconds of virtual time, advancing the
+    clock to it, or raises
+    :class:`~benchtools.core.errors.TransportTimeoutError` having advanced the
+    clock by *timeout*. That is what a real link does with a read that has a
+    timeout, and without it a simulator hands a driver data the driver would
+    have given up waiting for (CORE-FR-042).
     """
 
     def respond(self, message: bytes) -> Optional[bytes]:

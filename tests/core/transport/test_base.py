@@ -1,6 +1,6 @@
 """Message framing and buffering in the transport base class.
 
-Traces to: SWE1-NFR-005, CORE-FR-019, SWE4-UT-TRANSPORT.
+Traces to: SWE1-NFR-005, CORE-FR-019, CORE-FR-042, SWE4-UT-TRANSPORT.
 """
 
 from __future__ import annotations
@@ -185,6 +185,32 @@ class TestStreamReading:
         assert link.discard_input() == 3
         assert not link.has_buffered_data
         assert link.read_message() == b"new"
+
+    def test_a_virtual_clock_simulator_is_given_the_read_timeout(self):
+        """CORE-FR-042: what is due later than the timeout is not delivered."""
+        from benchtools.core.transport.mock import MockTransport
+
+        class Clocked:
+            def __init__(self):
+                self.asked = []
+
+            def respond(self, message):
+                return None
+
+            def poll_within(self, timeout):
+                self.asked.append(timeout)
+                if timeout < 1.0:
+                    raise TransportTimeoutError("nothing due")
+                return b"tick"
+
+        responder = Clocked()
+        link = MockTransport(responder=responder, timeout=0.5)
+        link.open()
+        with pytest.raises(TransportTimeoutError):
+            link.read_available()
+        link.timeout = 2.0
+        assert link.read_available() == b"tick"
+        assert responder.asked == [0.5, 2.0]
 
     def test_discard_input_on_an_empty_link_drops_nothing(self):
         link = ScriptedTransport([])
