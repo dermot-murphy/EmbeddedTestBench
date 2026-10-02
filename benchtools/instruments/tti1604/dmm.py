@@ -53,7 +53,6 @@ Traces to: DMM-FR-001 .. DMM-FR-033, DMM-FR-045, DMM-ARC-001, DMM-DD-DMM.
 
 from __future__ import annotations
 
-import logging
 import math
 import time
 from typing import Callable, List, Optional, Tuple
@@ -90,7 +89,6 @@ from .simulator import SimulatedTti1604
 
 __all__ = ["Tti1604"]
 
-_LOG = logging.getLogger(__name__)
 
 #: Measurement type selected by each ``select_*`` key, by key name.
 _TYPE_OF_KEY = {"millivolts": 1, "volts": 2, "milliamps": 3, "amps": 4, "ohms": 5}
@@ -117,6 +115,7 @@ class Tti1604(ScpiInstrument):  # pylint: disable=too-many-public-methods,too-ma
 
     SIMULATOR_CLASS = SimulatedTti1604
     MODEL_NAME = MODEL
+    EVENT_SOURCE = "DMM"
 
     def __init__(
         self,
@@ -306,7 +305,7 @@ class Tti1604(ScpiInstrument):  # pylint: disable=too-many-public-methods,too-ma
         self._ready.clear()
         self._echoes.clear()
         if dropped:
-            _LOG.debug("discarded %d byte(s) of stale readings", dropped)
+            self._logger.debug("discarded %d byte(s) of stale readings", dropped)
 
     def _patience(self, gate_ten_seconds: Optional[bool] = None) -> float:
         """Seconds to wait for a reading, allowing for the frequency gate.
@@ -361,11 +360,11 @@ class Tti1604(ScpiInstrument):  # pylint: disable=too-many-public-methods,too-ma
                 if wanted in self._echoes:
                     del self._echoes[: self._echoes.index(wanted) + 1]
                     if attempt:
-                        _LOG.info("1604 echoed %r on attempt %d", character, attempt + 1)
+                        self._logger.info("1604 echoed %r on attempt %d", character, attempt + 1)
                     return
                 if not self._receive(deadline) and self._clock() >= deadline:
                     break
-            _LOG.debug("1604 did not echo %r (attempt %d)", character, attempt + 1)
+            self._logger.debug("1604 did not echo %r (attempt %d)", character, attempt + 1)
         raise InstrumentError(
             "the 1604 did not echo %r after %d attempts. The meter is not "
             "taking commands: check that DTR is asserted and RTS is not, since "

@@ -28,7 +28,6 @@ Traces to: SCOPE-FR-010 .. SCOPE-FR-081, SCOPE-ARC-001, SCOPE-DD-SCOPE.
 
 from __future__ import annotations
 
-import logging
 import os
 import time
 from dataclasses import dataclass
@@ -73,7 +72,6 @@ from .constants import (
 
 __all__ = ["Tek3014B", "ChannelSetup"]
 
-_LOG = logging.getLogger(__name__)
 
 #: Fields fetched from the ``WFMPre`` subsystem, in the order they are queried.
 _PREAMBLE_FIELDS = ("XINCR", "XZERO", "PT_OFF", "YMULT", "YZERO", "YOFF", "NR_PT")
@@ -127,6 +125,7 @@ class Tek3014B(ScpiInstrument):
     SIMULATOR_CLASS = SimulatedTDS3014B
 
     MODEL_NAME = "TDS3014B"
+    EVENT_SOURCE = "SCOPE"
 
     def __init__(
         self,
@@ -651,13 +650,13 @@ class Tek3014B(ScpiInstrument):
                 )
             record = results[channel]
             if record.is_clipped:
-                _LOG.warning(
+                self._logger.warning(
                     "%s is clipped: %d of %d samples are at the digitiser rail. "
                     "Increase volts/div or move the channel position, otherwise "
                     "amplitude and threshold-based timing results will be wrong.",
                     source, record.clipped_sample_count, len(record),
                 )
-            _LOG.debug("captured %d points from %s", len(record), source)
+            self._logger.debug("captured %d points from %s", len(record), source)
 
         if self.auto_check_errors:
             self.check_errors()
@@ -808,7 +807,7 @@ class Tek3014B(ScpiInstrument):
             try:
                 summary[kind.value.lower()] = self.measure(kind, source1=channel)
             except (MeasurementError, ProtocolError):
-                _LOG.debug("instrument could not measure %s on CH%d", kind.value, channel)
+                self._logger.debug("instrument could not measure %s on CH%d", kind.value, channel)
         return summary
 
     # ------------------------------------------------------------------
@@ -922,7 +921,7 @@ class Tek3014B(ScpiInstrument):
         if verify_format:
             actual = self._query("HARDCOPY:FORMAT?").strip().upper()
             if actual != chosen.value.upper():
-                _LOG.warning(
+                self._logger.warning(
                     "instrument did not accept hardcopy format %s (reports %s); "
                     "falling back to BMPCOLOR",
                     chosen.value, actual or "nothing",
@@ -952,7 +951,8 @@ class Tek3014B(ScpiInstrument):
             os.makedirs(directory, exist_ok=True)
         with open(destination, "wb") as handle:
             handle.write(image)
-        _LOG.info("wrote %d bytes of %s hardcopy to %s", len(image), chosen.value, destination)
+        self._logger.info("wrote %d bytes of %s hardcopy to %s",
+                          len(image), chosen.value, destination)
         return destination
 
     # ------------------------------------------------------------------

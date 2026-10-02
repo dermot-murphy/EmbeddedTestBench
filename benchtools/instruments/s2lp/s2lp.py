@@ -32,7 +32,6 @@ Traces to: S2LP-FR-001 .. S2LP-FR-060, S2LP-ARC-001, S2LP-DD-S2LP, S2LP-DD-CONFI
 
 from __future__ import annotations
 
-import logging
 import time
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
@@ -74,7 +73,6 @@ from .traffic import TrafficMixin
 
 __all__ = ["S2lpDevkit"]
 
-_LOG = logging.getLogger(__name__)
 
 
 class S2lpDevkit(TrafficMixin, Instrument):
@@ -103,6 +101,7 @@ class S2lpDevkit(TrafficMixin, Instrument):
 
     SIMULATOR_CLASS = SimulatedS2lp
     MODEL_NAME = MODEL
+    EVENT_SOURCE = "RF"
 
     def __init__(
         self,
@@ -119,6 +118,7 @@ class S2lpDevkit(TrafficMixin, Instrument):
             )
         self._transport = transport
         self._session = S2lpSession(transport, timeout=timeout)
+        self._adopt(transport, self._session)
         self._board = board
         #: What identification read: ST's library version text, the radio's
         #: version byte, the crystal frequency in hertz, and the board EEPROM.
@@ -229,7 +229,7 @@ class S2lpDevkit(TrafficMixin, Instrument):
         try:
             firmware = "%02X" % self._session.execute("SdkEvalGetVersion").hex_number("version")
         except (ProtocolError, InstrumentError):      # an older CLI build
-            _LOG.debug("the board did not report a motherboard version")
+            self._logger.debug("the board did not report a motherboard version")
 
         raw = "%s,%s,S2-LP 0x%02X,library %s,board %s,XTAL %d Hz" % (
             MANUFACTURER, self._board or MODEL, self._facts["silicon"], self._facts["library"],
@@ -247,7 +247,7 @@ class S2lpDevkit(TrafficMixin, Instrument):
         try:
             reply = self._session.execute("EepromReadPage", 0, 0, 32)
         except (ProtocolError, InstrumentError):         # a build without the command
-            _LOG.debug("the board's EEPROM could not be read")
+            self._logger.debug("the board's EEPROM could not be read")
             return None
         return parse_page0(reply.numbers("Data"))
 

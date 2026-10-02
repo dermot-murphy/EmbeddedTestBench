@@ -5,7 +5,7 @@ How to write a test specification and a bench configuration, and how to run them
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-GUIDE-001 |
-| Version | 3.1 |
+| Version | 3.2 |
 | Date | 2026-10-02 |
 | Applies to | `benchtools` 4.0.0 |
 
@@ -83,6 +83,7 @@ instruments:
 | `resource` | Address or resource string. Defaults to `sim://`. |
 | `timeout` | I/O timeout in seconds. Defaults to 10. |
 | `options` | Extra keyword arguments passed to the driver's `connect`. |
+| `event` | The instrument's short name in the event log, e.g. `TEMP`. A specification's name for it wins. See [§6.3](#63-event-log-names-which-instrument-said-what). |
 
 Instruments connect on **first use**, so a suite that only touches the scope does
 not need the PSU powered up.
@@ -180,6 +181,10 @@ instruments:
 
 It does two things. It makes `--simulate` work for a suite that spans more than one
 kind of instrument — without it, every alias would be simulated as the same driver.
+An entry can also name the instrument in the event log, as a mapping
+(`temp: {driver: pico-sht30, event: TEMP}`), see
+[§6.3](#63-event-log-names-which-instrument-said-what).
+
 And it is checked against the bench before the first step runs, so pointing a suite
 at the wrong rig is reported as
 
@@ -793,6 +798,41 @@ firmware repository leaves its logs there.
 A file beside the specification wins over one of the same name in the working
 directory. To use a different register file from a shipped specification, copy
 the specification, or give an absolute path.
+
+
+### 6.3 Event-log names: which instrument said what
+
+`--event-log PATH` writes every line each instrument sends and receives, and
+each step the runner takes, as one JSON object per line. Each record's `source`
+is the short name of the instrument it came from, so a supply's lines and a
+thermometer's never look alike (#126):
+
+```json
+{"t": 1790600000.12, "source": "TEMP", "level": "DEBUG", "logger": "benchtools.instruments.pico_sht30.thermometer", "text": ">> temp"}
+```
+
+The name is allocated in the setup:
+
+| Where | How | Wins |
+|---|---|---|
+| Specification | `instruments:` entry as a mapping: `temp: {driver: pico-sht30, event: TEMP}` | Always |
+| Bench | `event: TEMP` on the instrument | When the specification gives none |
+| Driver default | `PSU`, `BLE`, `JLINK`, `RF`, `SCOPE`, `DMM`, `TEMP` (Pico 2 + SHT30-D) | When neither does |
+
+The runner's own records are `TEST`; anything not from an instrument is `BENCH`.
+
+- A name is 1 to 8 characters: an upper-case letter, then `A`-`Z`, `0`-`9` or
+  `_` (`TEMP`, `PSU2`, `RTT`).
+- Two instruments a run uses may not share a name, **defaults included**: a
+  specification using `probe` (jlink) and `rtt` (jlink-rtt) must name one of
+  them. The shipped benches name `rtt` `RTT`. The run is refused before
+  anything connects, naming the clash.
+- Every line an instrument causes carries its name, including its transport's,
+  from the moment it starts connecting.
+- The report's Instruments table and the JSON record show each instrument's
+  name, so a line in the log can be traced to the instrument that made it.
+- Logs written before #126 use lower-case names (`psu`, `rf`); the Test Bench
+  monitor reads both.
 
 ---
 

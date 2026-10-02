@@ -21,7 +21,6 @@ Traces to: JLINK-FR-001 .. JLINK-FR-100, JLINK-ARC-001, JLINK-DD-PROBE.
 
 from __future__ import annotations
 
-import logging
 import os
 import re
 import time
@@ -76,7 +75,6 @@ __all__ = [
     "SectionVerdict",
 ]
 
-_LOG = logging.getLogger(__name__)
 
 #: Matches "Loading section .text, size 0x1234 lma 0x08000000".
 _LOAD_RE = re.compile(
@@ -262,6 +260,7 @@ class JLinkProbe(Instrument):
 
     SIMULATOR_CLASS = SimulatedJLink
     MODEL_NAME = "J-Link"
+    EVENT_SOURCE = "JLINK"
 
     def __init__(
         self,
@@ -293,6 +292,7 @@ class JLinkProbe(Instrument):
         self._halted = True
         self._cycle_counter_ready = False
         self._itm = ItmDecoder()
+        self._adopt(session, session.transport, server, rtt, self._itm)
         #: Leave the core halted when the link closes. Off by default: the GDB
         #: Server halts the core on attach and does not resume it on detach, so
         #: without a resume every read or verify leaves the target stopped.
@@ -449,7 +449,7 @@ class JLinkProbe(Instrument):
             try:
                 self._rtt.stop()
             except Exception:  # noqa: BLE001 - closing must not raise
-                _LOG.debug("RTT did not stop cleanly", exc_info=True)
+                self._logger.debug("RTT did not stop cleanly", exc_info=True)
         try:
             if self._attached and not self.leave_halted:
                 # Observed on nRF52840 with J-Link V9.42: after -target-detach
@@ -460,7 +460,7 @@ class JLinkProbe(Instrument):
             if self._attached:
                 self._session.execute("-target-detach", allow_error=True, timeout=5.0)
         except Exception:  # noqa: BLE001
-            _LOG.debug("resume or detach failed", exc_info=True)
+            self._logger.debug("resume or detach failed", exc_info=True)
         finally:
             self._attached = False
         try:
@@ -492,7 +492,7 @@ class JLinkProbe(Instrument):
         if self._elf:
             self.load_symbols(self._elf)
         if not self.attach_on_open:
-            _LOG.info("RTT only: not attaching, so the target is never halted")
+            self._logger.info("RTT only: not attaching, so the target is never halted")
             self._halted = False
         elif self._target_address:
             self.attach()
@@ -680,7 +680,7 @@ class JLinkProbe(Instrument):
                 "GDB said:\n%s" % (console.text or "(no output)")
             )
         result = FlashResult(sections=sections, output=console.text, seconds=elapsed)
-        _LOG.info(
+        self._logger.info(
             "flashed %d bytes in %d section(s) in %.2f s",
             result.bytes_written, len(sections), elapsed,
         )
@@ -1417,7 +1417,7 @@ class JLinkProbe(Instrument):
         while seen == 0 and time.monotonic() < deadline:
             time.sleep(min(0.05, max(0.0, deadline - time.monotonic())))
             seen += len(self.rtt_read_lines())
-        _LOG.info("%d RTT line(s) within %.2f s", seen, timeout)
+        self._logger.info("%d RTT line(s) within %.2f s", seen, timeout)
         return seen
 
     def rtt_command(self, text: str, pattern: str = ".+", timeout: float = 5.0):
@@ -1518,7 +1518,7 @@ class JLinkProbe(Instrument):
                 try:
                     self.delete_breakpoint(breakpoint_.number)
                 except BenchToolsError:  # pragma: no cover - best effort cleanup
-                    _LOG.debug("could not delete breakpoint %d", breakpoint_.number)
+                    self._logger.debug("could not delete breakpoint %d", breakpoint_.number)
 
         return TimingResult(
             method=chosen,
@@ -1609,6 +1609,7 @@ class JLinkProbe(Instrument):
     def _measure_swo(self, start, end, repeat, port, prescaler, timeout) -> TimingResult:
         """Measure from ITM timestamps, without halting the target."""
         decoder = ItmDecoder(prescaler=prescaler)
+        self._adopt(decoder)
         events = self._collect_itm(decoder, port, repeat, timeout)
         if len(events) < 2:
             raise MeasurementError(

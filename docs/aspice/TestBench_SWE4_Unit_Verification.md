@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE4-001 | **Version** | 1.0 |
+| **Document ID** | TB-SWE4-001 | **Version** | 1.1 |
 | **Project** | TestBench | **Date** | 2026-10-02 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -32,6 +32,7 @@
 | 0.8 | 2026-10-02 | Claude | #116: SWE4-UT-PATHS added (70 cases): the input-path search order and its error, the per-driver declarations, and every shipped specification run from outside the checkout. |
 | 0.9 | 2026-10-02 | Claude | #120: SWE4-UT-BENCH also covers `runner/test_shipped_benches.py`, which now checks that the simulated bench provides every instrument and driver each shipped specification uses (RUN-FR-035). |
 | 1.0 | 2026-10-02 | Claude | #124: SWE4-UT-BLECLI covers choosing a sensor on the command line (16 cases, BLE-FR-071). |
+| 1.1 | 2026-10-02 | Claude | #126: SWE4-UT-EVENTNAMES added (21 cases); SWE4-UT-EVENTS covers per-instrument names (54 cases); SWE4-UT-TESTBENCH covers declared names and lower-case logs in the monitor. |
 
 ---
 
@@ -321,8 +322,9 @@ against the simulator in the default run (SWE4-UT-PSUPANEL, SWE4-UT-DMMPANEL).
 | SWE4-UT-LIMITS | `runner/test_limits.py` | Every limit form, construction validation, rendering; exact comparison against text and against a value an earlier step saved | RUN-FR-016, RUN-FR-020 .. -024 |
 | SWE4-UT-RESOLVE | `runner/test_resolve.py` | Result path resolution and its failure messages; how many, for a step returning a collection; references to a value an earlier step saved, their formatting and their failures | RUN-FR-013, RUN-FR-016 |
 | SWE4-UT-BRINGUP | `runner/test_sensor_bringup.py` | The shipped sensor bring-up specification run end to end on the simulated bench, and each fact it claims to establish broken in turn to confirm it would fail: a firmware reporting another version, a part with no identifier programmed, a board that says nothing on RTT | RUN-FR-016, RUN-FR-024, RUN-FR-030 .. -037 |
-| SWE4-UT-EVENTS | `core/test_events.py` | The bench event log: sources by logger name, one JSON line per record, the console level left alone, following a growing file including a partial last line, and the supply's, the runner's and the radio's records arriving in it | CORE-FR-060 |
-| SWE4-UT-TESTBENCH | `tools/test_test_bench.py` | The Test Bench monitor's sources: a live packet as the log line rf_monitor's parser reads, the ST GUI page's RF setup, register table and register-file export, reading the setup while receiving and resuming, the PSU and J-Link panels rebuilt from event-log records, event formatting and colours, and live reception from a simulated kit | CORE-FR-060 |
+| SWE4-UT-EVENTS | `core/test_events.py` | The bench event log: sources by logger name, one JSON line per record, the console level left alone, following a growing file including a partial last line, and the supply's, the runner's and the radio's records arriving in it; the name rule, each driver's default including `TEMP`, a bound logger, a rename reaching loggers already bound, two instruments of one driver told apart, a transport's lines under its instrument's name, and an instrument named from construction | CORE-FR-060, CORE-FR-063 |
+| SWE4-UT-TESTBENCH | `tools/test_test_bench.py` | The Test Bench monitor's sources: a live packet as the log line rf_monitor's parser reads, the ST GUI page's RF setup, register table and register-file export, reading the setup while receiving and resuming, the PSU and J-Link panels rebuilt from event-log records, event formatting and colours, and live reception from a simulated kit; event sources upper case, a log written in lower case before #126 read the same, any declared name shown as itself in a colour of its own | CORE-FR-060 |
+| SWE4-UT-EVENTNAMES | `runner/test_event_names.py` | Event-log names allocated in the specification and attached on the bench (21 cases): the entry forms, an invalid or shared name refused in either, the specification's name winning, the bench's and the driver's in turn, a clash of defaults refused before anything connects, an open instrument renamed, the shipped benches naming `temp` and `rtt`, a run whose records carry only the declared names, and the name in the record and the report | RUN-FR-008, CORE-FR-063 |
 | SWE4-UT-COREFW | `core/test_firmware.py` | Reading a build manifest: by name, by directory, by build subdirectory; the diagnostics, including that the caller supplies how to produce one; build-date parsing and the date a build did not inject | CORE-FR-050 |
 | SWE4-UT-SPEC | `runner/test_spec.py` | Specification parsing and every malformed form | RUN-FR-010 .. -016 |
 | SWE4-UT-PARAMS | `runner/test_parameters.py` | Parameters as an argument, a bound and a tolerance, rendered into text, an undefined name refused, and the values used in the record and report | RUN-FR-058 |

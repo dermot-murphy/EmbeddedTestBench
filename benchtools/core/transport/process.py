@@ -21,7 +21,6 @@ Traces to: CORE-FR-009, CORE-ARC-003, CORE-DD-PROCESS.
 
 from __future__ import annotations
 
-import logging
 import os
 import queue
 import shlex
@@ -35,7 +34,6 @@ from .base import Transport
 
 __all__ = ["ProcessTransport"]
 
-_LOG = logging.getLogger(__name__)
 
 #: Lines of stderr retained for diagnostics.
 _STDERR_LINES = 200
@@ -196,7 +194,7 @@ class ProcessTransport(Transport):
             for line in iter(stream.readline, b""):
                 text = line.decode("utf-8", errors="replace")
                 self._stderr_lines.append(text)
-                _LOG.debug("stderr: %s", text.rstrip())
+                self._logger.debug("stderr: %s", text.rstrip())
         except (OSError, ValueError):  # pragma: no cover - pipe closed
             pass
 
@@ -220,7 +218,7 @@ class ProcessTransport(Transport):
                 try:
                     process.wait(timeout=2.0)
                 except subprocess.TimeoutExpired:
-                    _LOG.warning("%s did not exit after kill", self.description)
+                    self._logger.warning("%s did not exit after kill", self.description)
         for reader in self._readers:
             reader.join(timeout=1.0)
         self._readers = []

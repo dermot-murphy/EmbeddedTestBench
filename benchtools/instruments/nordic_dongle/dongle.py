@@ -21,7 +21,6 @@ Traces to: BLE-FR-001 .. BLE-FR-062, BLE-ARC-001, BLE-DD-DONGLE, BLE-DD-FIRMWARE
 
 from __future__ import annotations
 
-import logging
 import time
 from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional, Tuple, Union
@@ -78,7 +77,6 @@ from .simulator import SimulatedDongle
 
 __all__ = ["DisconnectSample", "NordicDongle", "Sensor"]
 
-_LOG = logging.getLogger(__name__)
 
 
 @dataclass
@@ -147,6 +145,7 @@ class NordicDongle(Instrument):
 
     SIMULATOR_CLASS = SimulatedDongle
     MODEL_NAME = "Nordic dongle"
+    EVENT_SOURCE = "BLE"
 
     def __init__(
         self,
@@ -159,6 +158,7 @@ class NordicDongle(Instrument):
         self._transport = transport
         self._limits = limits if limits is not None else DONGLE_LIMITS
         self._session = DongleSession(transport, timeout=timeout)
+        self._adopt(transport, self._session)
         self._sensors: List[Sensor] = []
         self._selected: Optional[Sensor] = None
         self._connected = False
@@ -267,7 +267,7 @@ class NordicDongle(Instrument):
             if self._connected:
                 self._session.execute("disconnect", allow_error=True, timeout=1.0)
         except BenchToolsError:                 # pragma: no cover - best effort
-            _LOG.debug("could not disconnect cleanly", exc_info=True)
+            self._logger.debug("could not disconnect cleanly", exc_info=True)
         self._session.close()
         self.transport.close()
 
@@ -307,7 +307,7 @@ class NordicDongle(Instrument):
         )
         if theirs != ours:
             if self._allow_incompatible_protocol:
-                _LOG.warning(
+                self._logger.warning(
                     "the dongle speaks protocol %s and this driver speaks %s; "
                     "continuing because an update was requested",
                     reported, PROTOCOL_VERSION,
@@ -318,7 +318,7 @@ class NordicDongle(Instrument):
                 "which are not compatible. %s" % (reported, PROTOCOL_VERSION, advice)
             )
 
-        _LOG.warning(
+        self._logger.warning(
             "the dongle speaks protocol %s and this driver speaks %s: commands "
             "one side lacks will be refused individually. %s",
             reported, PROTOCOL_VERSION, advice,
@@ -379,7 +379,7 @@ class NordicDongle(Instrument):
         if self._protocol_at_least(1, 2):
             self._session.execute("connect", "timeout=%d" % round(connect_timeout * 1000.0))
             return
-        _LOG.warning(
+        self._logger.warning(
             "the dongle speaks protocol %s, which has a fixed 5 s connect "
             "window; update its firmware to set one",
             self._firmware_protocol or "unknown",
@@ -555,7 +555,7 @@ class NordicDongle(Instrument):
 
         run = flasher if flasher is not None else run_nrfutil
         output = run(package, str(target_port))
-        _LOG.info("nrfutil: %s", str(output).strip()[:400])
+        self._logger.info("nrfutil: %s", str(output).strip()[:400])
 
         time.sleep(settle)
         self._reopen()
@@ -949,7 +949,7 @@ class NordicDongle(Instrument):
             try:
                 self._session.wait_for_event("disc", timeout=DISCONNECT_EVENT_TIMEOUT)
             except BenchToolsError:
-                _LOG.warning("no '+disc' followed an accepted disconnect")
+                self._logger.warning("no '+disc' followed an accepted disconnect")
         return reply
 
     @property
@@ -1050,7 +1050,7 @@ class NordicDongle(Instrument):
         if self._protocol_at_least(1, 3):
             arguments.append("timeout=%d" % round(timeout * 1000.0))
         elif timeout > FIRMWARE_COMMAND_TIMEOUT:
-            _LOG.warning(
+            self._logger.warning(
                 "the dongle speaks protocol %s and waits %.0f s for a reply, not "
                 "the %.1f s asked; update its firmware to set one",
                 self._firmware_protocol or "unknown", FIRMWARE_COMMAND_TIMEOUT, timeout,
@@ -1202,7 +1202,7 @@ class NordicDongle(Instrument):
             log.close()
         if report:
             run.write(report)
-            _LOG.info("command document results written to %s", report)
+            self._logger.info("command document results written to %s", report)
         return run
 
     def measure_response_time(

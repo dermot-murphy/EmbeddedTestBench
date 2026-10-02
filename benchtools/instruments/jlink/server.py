@@ -27,6 +27,7 @@ import time
 from collections import deque
 from typing import Deque, Iterable, List, Optional
 
+from ...core.events import SourceLogger
 from ...core.errors import ConnectionFailedError
 from .constants import (
     DEFAULT_GDB_PORT,
@@ -38,7 +39,6 @@ from .constants import (
 
 __all__ = ["GdbServer", "find_gdb_server", "find_gdb", "gdb_debugs_arm", "port_is_open"]
 
-_LOG = logging.getLogger(__name__)
 
 #: Server output kept for a diagnostic: enough to show why it stopped.
 _OUTPUT_LINES = 200
@@ -218,6 +218,8 @@ class GdbServer:
         extra_arguments: Optional[List[str]] = None,
         start_timeout: float = 15.0,
     ) -> None:
+        #: Bound to the owning instrument's event-log name (#126).
+        self._logger = SourceLogger(logging.getLogger(__name__))
         self.device = device
         self.interface = DebugInterface.coerce(interface)
         self.speed_khz = int(speed_khz)
@@ -304,7 +306,7 @@ class GdbServer:
         being claimed.
         """
         if port_is_open(self.host or "127.0.0.1", self.port):
-            _LOG.info("using the GDB Server already listening on %s", self.address)
+            self._logger.info("using the GDB Server already listening on %s", self.address)
             return
         if not self.is_local:
             raise ConnectionFailedError(
@@ -314,7 +316,7 @@ class GdbServer:
             )
 
         arguments = self.command_line()
-        _LOG.info("starting %s", " ".join(arguments))
+        self._logger.info("starting %s", " ".join(arguments))
         try:
             self._process = subprocess.Popen(
                 arguments,
@@ -337,7 +339,7 @@ class GdbServer:
         deadline = time.monotonic() + self.start_timeout
         while time.monotonic() < deadline:
             if port_is_open(self.host or "127.0.0.1", self.port):
-                _LOG.info("GDB Server listening on %s", self.address)
+                self._logger.info("GDB Server listening on %s", self.address)
                 return
             if self._process.poll() is not None:
                 output = self._read_output()

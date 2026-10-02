@@ -24,7 +24,6 @@ Traces to: PICO-FR-040 .. PICO-FR-046, PICO-ARC-001, PICO-DD-DRIVER.
 
 from __future__ import annotations
 
-import logging
 import time
 from dataclasses import dataclass
 from typing import Dict, List, Tuple
@@ -48,7 +47,6 @@ from .simulator import SimulatedPicoSht30
 
 __all__ = ["PicoSht30", "FirmwareInfo", "Reading", "SensorStatus", "SensorError"]
 
-_LOG = logging.getLogger(__name__)
 
 #: Largest disagreement tolerated between a reported value and the value
 #: recomputed from its raw word. The firmware prints three decimals of an exact
@@ -179,6 +177,7 @@ class PicoSht30(ScpiInstrument):
 
     SIMULATOR_CLASS = SimulatedPicoSht30
     MODEL_NAME = "%s SHT30-D thermometer" % MODEL
+    EVENT_SOURCE = "TEMP"
 
     def __init__(
         self,
@@ -260,7 +259,7 @@ class PicoSht30(ScpiInstrument):
         """Read lines until the reply to *command*, skipping ``#`` lines."""
         for _ in range(_MAX_SKIPPED_LINES):
             line = self._transport.read_message().decode("ascii", errors="replace").strip()
-            _LOG.debug("<< %s", line)
+            self._logger.debug("<< %s", line)
             if not line or line.startswith(_INFO_PREFIX):
                 continue
             return line
@@ -272,7 +271,7 @@ class PicoSht30(ScpiInstrument):
         :raises SensorError: if the firmware answered ``err``.
         :raises ProtocolError: if it answered neither ``ok`` nor ``err``.
         """
-        _LOG.debug(">> %s", command)
+        self._logger.debug(">> %s", command)
         self._transport.write(command.encode("ascii"))
         reply = self._read_reply(command)
         if reply == "ok" or reply.startswith("ok "):

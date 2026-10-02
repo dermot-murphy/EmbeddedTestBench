@@ -21,7 +21,6 @@ Traces to: SWE1-FR-003, SWE2-ARC-003, SWE3-DD-SOCKET.
 
 from __future__ import annotations
 
-import logging
 import socket
 from typing import Optional, Tuple
 
@@ -31,7 +30,6 @@ from .base import Transport
 
 __all__ = ["SocketTransport"]
 
-_LOG = logging.getLogger(__name__)
 
 
 class SocketTransport(Transport):
@@ -146,5 +144,5 @@ class SocketTransport(Transport):
                 self._sock.settimeout(self._idle_gap)
         finally:
             self._sock.settimeout(previous_timeout)
-        _LOG.debug("read %d unframed bytes from %s", len(collected), self.description)
+        self._logger.debug("read %d unframed bytes from %s", len(collected), self.description)
         return bytes(collected)

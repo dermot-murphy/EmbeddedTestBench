@@ -63,6 +63,7 @@ instruments:
     driver: jlink-rtt
     resource: sim://
     timeout: 30.0
+    event: RTT
     options:
       device: nRF52840_xxAA
 
@@ -70,6 +71,13 @@ instruments:
     driver: s2lp
     resource: sim://
     timeout: 5.0
+
+  # The bench thermometer: Pico 2 + SHT30-D, simulated. Event-log name TEMP.
+  temp:
+    driver: pico-sht30
+    resource: sim://
+    timeout: 5.0
+    event: TEMP
 
   dongle:
     driver: ble-dongle

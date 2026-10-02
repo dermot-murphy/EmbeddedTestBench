@@ -25,6 +25,7 @@ import time
 from collections import deque
 from typing import Any, Deque, Dict, List, Optional
 
+from ...core.events import SourceLogger
 from ...core.errors import (
     BenchToolsError,
     ConnectionFailedError,
@@ -44,7 +45,6 @@ from .gdbmi import (
 
 __all__ = ["GdbMiSession", "GdbError", "ConsoleResult"]
 
-_LOG = logging.getLogger(__name__)
 
 #: Records kept for diagnostics when nothing consumes them.
 _HISTORY = 400
@@ -100,6 +100,8 @@ class GdbMiSession:
     """
 
     def __init__(self, transport: Transport, timeout: float = 20.0) -> None:
+        #: Bound to the owning instrument's event-log name (#126).
+        self._logger = SourceLogger(logging.getLogger(__name__))
         self._transport = transport
         self._timeout = float(timeout)
         self._token = 0
@@ -146,7 +148,7 @@ class GdbMiSession:
             if self._transport.is_open:
                 self._transport.write(b"-gdb-exit")
         except Exception:  # noqa: BLE001 - closing must not raise
-            _LOG.debug("could not send -gdb-exit", exc_info=True)
+            self._logger.debug("could not send -gdb-exit", exc_info=True)
         finally:
             self._transport.close()
 
@@ -157,14 +159,14 @@ class GdbMiSession:
         """Put a non-result record where it belongs."""
         if isinstance(record, AsyncRecord):
             self._async.append(record)
-            _LOG.debug("async %s%s", record.message, record.results or "")
+            self._logger.debug("async %s%s", record.message, record.results or "")
         elif isinstance(record, StreamRecord):
             text = record.text.rstrip("\r\n")
             if record.kind is RecordKind.LOG:
                 self._log.append(text)
             elif text:
                 self._console.append(text)
-                _LOG.debug("console %s", text)
+                self._logger.debug("console %s", text)
 
     def _read_record(self, deadline: float) -> Optional[Record]:
         """Read and parse one record, or return ``None`` on timeout."""
@@ -233,7 +235,7 @@ class GdbMiSession:
         self._drain()
         self._token += 1
         token = self._token
-        _LOG.debug(">> %d%s", token, command)
+        self._logger.debug(">> %d%s", token, command)
         self._transport.write(("%d%s" % (token, command)).encode("utf-8"))
 
         deadline = time.monotonic() + (timeout if timeout is not None else self._timeout)

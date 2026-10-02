@@ -54,7 +54,7 @@ one anywhere below: an argument, a bound, a tolerance::
               - {name: mean, measure: mean, equals: {from: ble.mean},
                  tolerance: {param: tolerance_c}}
 
-Traces to: RUN-FR-010 .. RUN-FR-016, RUN-FR-058, RUN-DD-SPEC.
+Traces to: RUN-FR-008, RUN-FR-010 .. RUN-FR-016, RUN-FR-058, RUN-DD-SPEC.
 """
 
 from __future__ import annotations
@@ -62,9 +62,10 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
-from ..core.errors import OptionalDependencyError, SpecError
+from ..core.errors import ConfigurationError, OptionalDependencyError, SpecError
+from ..core.events import validate_source_name
 from .limits import Limit, TextLimit
 from .resolve import Reference, parse_references
 
@@ -383,6 +384,48 @@ class TestCase:
         )
 
 
+def _parse_instruments(declared) -> Tuple[Dict[str, str], Dict[str, str]]:
+    """Split ``instruments:`` into alias-to-driver and alias-to-event-name.
+
+    An entry is a driver name (``temp: pico-sht30``) or a mapping
+    (``temp: {driver: pico-sht30, event: TEMP}``) in which either key may be
+    left out. An event name is checked here, and two aliases may not share one.
+    """
+    if not isinstance(declared, dict):
+        raise SpecError(
+            "'instruments' must be a mapping of alias to driver name, got %s"
+            % type(declared).__name__
+        )
+    drivers: Dict[str, str] = {}
+    events: Dict[str, str] = {}
+    for alias, entry in declared.items():
+        alias = str(alias)
+        if isinstance(entry, dict):
+            unknown = sorted(set(entry) - {"driver", "event"})
+            if unknown:
+                raise SpecError(
+                    "instrument %r: unknown key(s) %s; an entry takes 'driver' and 'event'"
+                    % (alias, ", ".join(unknown)))
+            if entry.get("driver"):
+                drivers[alias] = str(entry["driver"])
+            if entry.get("event") is not None:
+                try:
+                    events[alias] = validate_source_name(
+                        entry["event"], "instrument %r event name" % alias)
+                except ConfigurationError as exc:
+                    raise SpecError(str(exc)) from exc
+        else:
+            drivers[alias] = str(entry)
+    seen: Dict[str, str] = {}
+    for alias, event in sorted(events.items()):
+        if event in seen:
+            raise SpecError(
+                "instruments %r and %r are both given event name %r; each "
+                "instrument's records need a name of their own" % (seen[event], alias, event))
+        seen[event] = alias
+    return drivers, events
+
+
 @dataclass(frozen=True)
 class TestSpec:
     """A suite of tests, with shared setup and teardown.
@@ -395,6 +438,9 @@ class TestSpec:
         stand up the right simulator for each alias without a bench file, and the
         runner can reject a bench that provides the wrong *kind* of instrument
         rather than failing later on a missing method.
+    :param instrument_events: Optional mapping of alias to the short name its
+        event-log records carry (``TEMP``). It overrides any name the bench
+        gives the instrument (RUN-FR-008, #126).
     """
 
     # Not a pytest test class, despite the name.
@@ -413,6 +459,7 @@ class TestSpec:
     setup: Sequence[Step] = ()
     teardown: Sequence[Step] = ()
     instrument_drivers: Dict[str, str] = field(default_factory=dict)
+    instrument_events: Dict[str, str] = field(default_factory=dict)
     source: str = ""
     #: The values the ``parameters`` block set, as used; for the record.
     parameters: Dict[str, Any] = field(default_factory=dict)
@@ -440,16 +487,10 @@ class TestSpec:
         requirements = data.get("requirements", []) or []
         if isinstance(requirements, str):
             requirements = [requirements]
-        declared = data.get("instruments", {}) or {}
-        if not isinstance(declared, dict):
-            raise SpecError(
-                "'instruments' must be a mapping of alias to driver name, got %s"
-                % type(declared).__name__
-            )
+        drivers, events = _parse_instruments(data.get("instruments", {}) or {})
         return cls(
-            instrument_drivers={
-                str(alias): str(driver) for alias, driver in declared.items()
-            },
+            instrument_drivers=drivers,
+            instrument_events=events,
             name=str(name),
             description=str(data.get("description", "")),
             warning=str(data.get("warning", "")).strip(),

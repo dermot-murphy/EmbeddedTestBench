@@ -33,9 +33,10 @@ import logging
 from dataclasses import dataclass
 from typing import List, Optional
 
+from ...core.events import SourceLogger
+
 __all__ = ["ItmEvent", "ItmDecoder", "SwoStream"]
 
-_LOG = logging.getLogger(__name__)
 
 #: Overflow packet header.
 _OVERFLOW = 0x70
@@ -63,7 +64,7 @@ class ItmEvent:
     after_overflow: bool = False
 
 
-class ItmDecoder:
+class ItmDecoder:  # pylint: disable=too-many-instance-attributes
     """Incremental decoder for an SWO byte stream.
 
     Fed bytes as they arrive; emits :class:`ItmEvent` objects for software
@@ -75,6 +76,8 @@ class ItmDecoder:
     """
 
     def __init__(self, prescaler: int = 1) -> None:
+        #: Bound to the owning instrument's event-log name (#126).
+        self._logger = SourceLogger(logging.getLogger(__name__))
         if prescaler < 1:
             raise ValueError("prescaler must be at least 1, got %r" % (prescaler,))
         self.prescaler = int(prescaler)
@@ -153,7 +156,7 @@ class ItmDecoder:
             del self._buffer[:1]
             self.overflows += 1
             self._pending_overflow = True
-            _LOG.warning("ITM overflow: trace data was lost")
+            self._logger.warning("ITM overflow: trace data was lost")
             return 1, None
 
         # A packet is a source packet when the 2-bit size field, header[1:0], is
@@ -226,7 +229,7 @@ class ItmDecoder:
         # Unrecognised protocol packet: drop one byte and keep going rather than
         # abandoning the stream. A single bad byte should not end a trace.
         del self._buffer[:1]
-        _LOG.debug("skipping unrecognised ITM protocol header 0x%02X", header)
+        self._logger.debug("skipping unrecognised ITM protocol header 0x%02X", header)
         return 1, None
 
     def _decode_source(self, header: int):

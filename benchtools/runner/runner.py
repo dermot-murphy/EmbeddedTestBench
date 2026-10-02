@@ -17,7 +17,7 @@ useful if they mean something:
 
 Conflating them turns a broken rig into a pile of apparent product defects.
 
-Traces to: RUN-FR-010 .. RUN-FR-037, RUN-ARC-001, RUN-DD-RUNNER.
+Traces to: RUN-FR-008, RUN-FR-010 .. RUN-FR-037, RUN-ARC-001, RUN-DD-RUNNER.
 """
 
 from __future__ import annotations
@@ -348,6 +348,10 @@ class BenchRunner:
         try:
             self.bench.require(spec.instruments_used)
             self.bench.check_drivers(spec.instrument_drivers)
+            # Before anything connects: names are given at construction, and a
+            # clash is refused rather than discovered in the log (#126).
+            self.bench.name_events(spec.instrument_events)
+            self.bench.check_event_sources(spec.instruments_used)
         except BenchToolsError as exc:
             run.setup_error = str(exc)
             run.instruments = self.bench.describe_instruments()

@@ -41,6 +41,9 @@ instruments:
     driver: jlink-rtt
     resource: jlink://127.0.0.1:2341   # its own ports, so it never meets probe's server
     timeout: 30.0
+    # Its own name in the event log, so its records are not mistaken for probe's
+    # (both drivers default to JLINK).
+    event: RTT
     options:
       device: nRF52840_xxAA
       speed_khz: 4000
@@ -104,3 +107,11 @@ instruments:
     driver: tti1604
     resource: /dev/ttyUSB1        # COM5 on Windows
     timeout: 5.0
+
+  # Bench temperature: a Raspberry Pi Pico 2 reading a DollaTek SHT30-D over
+  # I2C (firmware/pico_sht30). Its records in the event log are TEMP (#126).
+  temp:
+    driver: pico-sht30
+    resource: /dev/ttyACM2        # site-specific: the Pico's own USB serial port
+    timeout: 5.0
+    event: TEMP
