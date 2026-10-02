@@ -56,6 +56,16 @@ instruments:
     options:
       simulated_value: 0.0214
 
+  # The same simulated J-Link, read through RTT only, as benches/lab1.yaml
+  # declares it for specs/kepler_temperature.yaml (#120). In simulation the two
+  # aliases do not contend for one probe.
+  rtt:
+    driver: jlink-rtt
+    resource: sim://
+    timeout: 30.0
+    options:
+      device: nRF52840_xxAA
+
   s2lp:
     driver: s2lp
     resource: sim://

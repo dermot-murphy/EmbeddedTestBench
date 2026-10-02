@@ -18,7 +18,8 @@ import pytest
 # pylint: disable=wrong-import-position
 pytest.importorskip("yaml", reason="pyyaml is not installed (it is an optional extra)")
 
-from benchtools.runner.bench import load_bench, registered_drivers
+from benchtools.runner.bench import Bench, load_bench, registered_drivers
+from benchtools.runner.spec import load_spec
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 BENCHES = sorted(ROOT.glob("benches/*.yaml"))
@@ -59,3 +60,23 @@ class TestEveryShippedBench:
                 % (path.name, seen[resource], alias, instrument.resource)
             )
             seen[resource] = alias
+
+
+SPECS = sorted(ROOT.glob("specs/*.yaml"))
+SIMULATED_BENCH = ROOT / "benches" / "simulated_bench.yaml"
+
+
+@pytest.mark.parametrize("spec_path", SPECS, ids=[path.name for path in SPECS])
+def test_the_simulated_bench_provides_every_shipped_specification(spec_path):
+    """The bench's own header promises ``specs/*.yaml`` runs against it.
+
+    A specification that gains an alias the bench lacks is refused before
+    setup, which looked like a failure of the specification rather than of
+    the bench (#120). Checked without connecting anything.
+
+    Traces to: RUN-FR-035.
+    """
+    spec = load_spec(str(spec_path))
+    bench = Bench(load_bench(str(SIMULATED_BENCH)), simulate=True)
+    bench.require(spec.instruments_used)
+    bench.check_drivers(spec.instrument_drivers)
