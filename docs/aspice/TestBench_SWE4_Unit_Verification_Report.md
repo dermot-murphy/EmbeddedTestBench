@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE4-002 | **Version** | 0.5 |
+| **Document ID** | TB-SWE4-002 | **Version** | 0.6 |
 | **Project** | TestBench | **Date** | 2026-10-02 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -27,6 +27,7 @@
 | 0.3 | 2026-09-30 | Claude | §15: D-42 added and closed — `RttClient` polled its backend outside its lock, so the reader thread and a caller's read could poll at once. (D-41 is used on `main` by #106.) |
 | 0.4 | 2026-09-30 | Claude | Execution summary re-run after adding the `PICO-` element; test groups SWE4-UT-PICO, -PICOSIM, -PICOCLI and -PICOFWPROTO added to §5; §13A added for the Pico 2 thermometer firmware and driver (#104). |
 | 0.5 | 2026-10-02 | Claude | #115: execution summary re-run; §13B added for the TTi 1604 (the serial read defect, confirmation, ranges, the frequency gate, the bench test and front-panel check); D-43 and D-44 added and closed; DMM rows added to §5 and §6.1. |
+| 0.6 | 2026-10-02 | Claude | #116: execution summary re-run; SWE4-UT-PATHS added to §5; §14.3 added - every shipped specification run from outside the checkout, before and after; D-45 added and closed. |
 
 ---
 
@@ -55,13 +56,13 @@ It is deliberately a separate work product from the specification. A specificati
 
 | Metric | Result |
 |---|---|
-| Tests executed | **2 559** |
-| Passed | **2 558** |
+| Tests executed | **2 630** |
+| Passed | **2 629** |
 | Failed | 0 |
 | Errors | 0 |
 | Skipped | 1 |
-| Statement coverage | **95%** (13 473 statements, 679 missed) |
-| Execution time | 114.1 s with coverage instrumentation |
+| Statement coverage | **95%** (13 554 statements, 677 missed) |
+| Execution time | 132.7 s with coverage instrumentation |
 | Runtime | CPython 3.11.15, Linux |
 | Framework | pytest 9.1.1, pytest-cov |
 
@@ -90,8 +91,12 @@ No J-Link probe, target board, GDB, GDB Server, BLE dongle, BLE sensor or TTi
 the GDB/MI boundary, the RTT and SWO sockets by a loopback server, the dongle at
 its line protocol, and the serial port by pyserial's own `loop://` handler.
 
+Revision 0.6 re-ran the whole suite with #116's input-path resolution; the
+figures above are that run. The run with every optional extra blocked was not
+repeated for 0.6: the change adds no import of an optional package, and
+`test_input_paths.py` skips its one YAML-dependent test when `pyyaml` is absent.
 Revision 0.5 re-ran the whole suite with #115's changes to the TTi 1604 driver
-and the core transport; the figures above are that run. Revision 0.4 re-ran the whole suite on the merge of `develop` - including
+and the core transport. Revision 0.4 re-ran the whole suite on the merge of `develop` - including
 D-42's regression test (#107) - with the `PICO-` element (#104). The per-group table in §5 has
 not been regenerated for the groups `develop` added since revision 0.1, so its
 rows do not sum to the total: the total is the collected count.
@@ -163,6 +168,7 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | SWE4-UT-ENV | `instruments/tek3014b/test_simulator.py` | 19 | Pass |
 | SWE4-UT-PLOT | `analysis/test_plotting.py` | 15 | Pass |
 | SWE4-UT-RUNCLI | `runner/test_cli.py` | 15 | Pass |
+| SWE4-UT-PATHS | `core/test_paths.py`, `runner/test_input_paths.py` | 70 | Pass |
 | SWE4-UT-RESOLVE | `runner/test_resolve.py` | 27 | Pass |
 | SWE4-UT-BRINGUP | `runner/test_sensor_bringup.py` | 18 | Pass |
 | SWE4-UT-COREFW | `core/test_firmware.py` | 13 | Pass |
@@ -1042,6 +1048,44 @@ get quietly wrong:
 - **The time must carry its clock.** The dongle's microsecond figure is what is
   measured and 10 ms is what is quoted; both are in the record (BLE-NFR-005).
 
+### 14.3 Every shipped specification, from outside the checkout (#116)
+
+Each of the 14 specifications in `specs/` was run with `benchtools run` from the
+checkout and from an empty directory outside it, with `--simulate` and with
+`--bench benches/simulated_bench.yaml --simulate`: 56 runs. Reproduced on
+`develop` @ `69d76d7` before the fix (D-45):
+
+| Specification | Mode | Inside, before and after | Outside, before | Outside, after |
+|---|---|---|---|---|
+| `radio_link.yaml` | `--simulate` | PASS 7 | ERROR: register file not found | PASS 7 |
+| `sensor_commands.yaml` | `--simulate` | PASS 2 | ERROR: `specs/sensor_commands.md` not found | PASS 2 |
+| `bench_self_check.yaml` | simulated bench | PASS 5 | ERROR 1 of 5: dongle build not found | PASS 5 |
+| `dongle_firmware.yaml` | simulated bench | PASS 3 | ERROR 3 of 3: dongle build not found | PASS 3 |
+| `radio_link.yaml` | simulated bench | PASS 7 | ERROR: register file not found | PASS 7 |
+| `sensor_ble.yaml` | simulated bench | PASS 4 | ERROR: dongle build not found | PASS 4 |
+| `sensor_bringup.yaml` | simulated bench | PASS 7 | ERROR 4 of 7: sensor and dongle builds not found | PASS 7 |
+| `sensor_commands.yaml` | simulated bench | PASS 2 | ERROR: dongle build not found | PASS 2 |
+| `sensor_power_signal_and_link.yaml` | simulated bench | PASS 5 | ERROR: dongle build not found | PASS 5 |
+| `kepler_*.yaml` (4) | both | ERROR: `dongle.select` refused by the simulated dongle; `kepler_temperature.yaml` on the simulated bench: the bench has no `rtt` instrument | ERROR: register file not found (7 of 8 runs; the eighth as inside) | ERROR, as inside |
+| the other 18 runs | both | unchanged | same as inside | same as inside |
+
+After the fix all 56 runs give the same outcome inside and outside the
+checkout, and no run inside it changed. The four Kepler specifications error in
+both places on `dongle.select`, because the simulated dongle does not model a
+Kepler sensor, and `kepler_temperature.yaml` cannot run on the simulated bench,
+which defines no `rtt` instrument. Neither is a path fault, and both are outside
+#116. Before the fix they
+errored outside the checkout one step earlier, on the register file, and that
+step now succeeds. `--simulate` without a bench gives the dongle and probe no
+firmware build, so `dongle_firmware.yaml`, `sensor_bringup.yaml` and
+`sensor_power_signal_and_link.yaml` fail or error in that mode from either
+directory, as before.
+
+The comparison is held in the suite as
+`test_a_shipped_specification_runs_the_same_from_outside_the_checkout`, one case
+per specification on the simulated bench. Without the fix in `runner/` it fails
+for 10 of the 14, along with 6 of the 7 other `test_input_paths.py` tests.
+
 ## 15. Defects found, and their disposition
 
 | ID | Severity | Status | Regression test |
@@ -1111,6 +1155,7 @@ SDK to provide it transitively.
 | D-42 | `RttClient._pump()` runs on the background reader thread and on the caller's thread (from `read()` and `read_lines()`), and it called `self._backend.rtt_poll()` **before** taking `self._lock`. Two pumps could therefore poll at once. The simulator's drain is check-then-pop, and on Python 3.9 CI it raised `IndexError: pop from an empty deque` in `test_a_line_already_waiting_is_not_a_reading` (PR #105, run 36668656206) | **Minor on hardware**, where two polls at once could split one RTT line between two callers; **major as a test-suite fault**, because it failed an unrelated PR's CI intermittently and looked like a flake. Found by reading that failure to its cause instead of re-running it | **Closed** — the poll is now taken under the client's lock with the rest of the pump. A deterministic test replaces the scheduler's luck: a backend that detects overlapping polls, driven from four threads; it counted 99 overlaps before the fix and 0 after | `TestConcurrency.test_the_backend_is_never_polled_twice_at_once` |
 | D-43 | The TTi 1604 driver read the link with `Transport.read_raw()`, which waits for an end-of-message that a serial port never signals. On a real port every read timed out with the received bytes left in the transport's buffer, so connecting always failed - and the error blamed DTR and RTS. The unit tests passed because the mock transport signals end-of-message after every reply | **Critical** - the driver could not talk to any real meter. Found by comparing it with the reverted #106 driver and reproduced over pyserial's `loop://` (#115) | **Closed** - `Transport.read_available()` and `discard_input()` (CORE-FR-061); the driver reads with a fixed short poll it never varies (LL-07) and loops to its own deadline. A virtual-clock simulator is now given the read timeout (CORE-FR-062), and the simulator keeps the meter's reading rate, so a wait shorter than the meter's fails in the tests. The frequency gate, which the old 2 s settling time could not wait for, is allowed for (DMM-FR-032) | `TestTheSerialLink` (2), `TestStreamReading` (7), `test_the_ten_second_gate_is_waited_for`, `test_a_read_shorter_than_the_measurement_times_out` |
 | D-44 | Two annunciator bits were at the wrong positions: Touch-Hold at bit 0 of the function byte and auto-range-set at bit 2 of the status byte, from a summary, where the manufacturer's note gives bit 1 for both. A Touch-Hold display was not reported as held | **Major** - a frozen reading could pass as live. Found by reading the manufacturer's note, now in `docs/dmm/reference/` | **Closed** - both moved to bit 1 | `TestTheManufacturersNote` (4) |
+| D-45 | Every driver opened an input file named by a relative path - an S2-LP register file, a command document, a firmware build, an ELF image - relative to the working directory, and nothing resolved it against the specification or bench file that named it. Started outside the TestTools checkout, the normal case, 12 of 28 specification runs on the simulated bench errored before measuring anything (§14.3) | **Major** - a test errored for a reason unrelated to the thing under test, and only in the directory it is meant to be used from. Every test passed because each was run from the checkout | **Closed** - drivers declare their input files; the runner and bench resolve them beside the declaring file, then the working directory, then the checkout (AD-27, #116) | `test_a_shipped_specification_runs_the_same_from_outside_the_checkout` (14), `TestStepArguments` (3), `TestBenchOptions` (4) |
 
 No open defects.
 

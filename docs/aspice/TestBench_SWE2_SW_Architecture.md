@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE2-001 | **Version** | 0.5 |
+| **Document ID** | TB-SWE2-001 | **Version** | 0.6 |
 | **Project** | TestBench | **Date** | 2026-10-02 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -27,6 +27,7 @@
 | 0.3 | 2026-09-25 | Claude | AD-23 brought up to date: command documents take variables, connect, timeouts, notes and `<disconnect>`, results are error, skip, fail or pass, and running moved to `script_run.py` (BLE-DD-SCRIPTRUN) (#46, #48). |
 | 0.4 | 2026-09-30 | Claude | PICO-ARC-001 added: the Pico 2 + SHT30-D thermometer and its firmware. AD-24 added. Thermometer interfaces added. Header version brought into line with this history (#104). |
 | 0.5 | 2026-10-02 | Claude | #115: AD-25 (a key press on the 1604 is confirmed from the readings) and AD-26 (the 1604 is read as a stream, and a measurement is fresh). CORE-ARC-002 gains the stream operations; DMM-ARC-001 updated. |
+| 0.6 | 2026-10-02 | Claude | #116: AD-27 (a driver declares which arguments are input files; the runner finds them beside the file that names them). |
 
 ---
 
@@ -630,6 +631,37 @@ operating system's buffer arrives late and looks new.
 **Consequences.** A measurement costs 0.4 - 0.8 s, and a frequency measurement
 on the 4 kHz range up to 20 s. Any instrument that speaks without being asked
 can use the two transport operations.
+
+### AD-27 — A driver declares its input files; the runner finds them
+
+**Context.** Specifications and bench files name the files a driver reads - an
+S2-LP register file, a command document, a firmware build, an ELF image - by a
+relative path, and every driver opened it as given, so relative to the working
+directory. The runner is normally started in the repository of the firmware
+under test, and from there the Kepler, radio-link, BLE and bring-up
+specifications all errored before measuring anything (#116).
+
+**Decision.** A driver marks the arguments of its methods that name a file to
+be read with `@input_paths(...)` (CORE-DD-PATHS). Before calling a method, the
+runner resolves the marked arguments of a step against the specification's
+directory (RUN-FR-017); before connecting an instrument, the bench resolves the
+marked options of `connect` against the bench file's directory (RUN-FR-007).
+Each searches the declaring file's directory, then the working directory, then
+the TestTools checkout. The mark lives in the core so every element can apply it
+without importing the runner.
+
+**Alternatives.** Resolving every string argument that happens to name an
+existing file would rewrite an output path, or a channel called `CH1`, whenever
+a file of that name was lying beside the specification. A per-driver base
+directory parameter, as first proposed for the S2-LP, would fix one driver and
+leave the dongle and probe broken. Changing the working directory to the
+specification's would move every output file.
+
+**Consequences.** Any shipped specification gives the same result from any
+directory. A driver that adds a file argument must mark it, and
+`TestEveryDriverDeclaresItsInputFiles` pins the current set. A file beside a
+specification takes precedence over one of the same name in the working
+directory.
 
 ## 8. Dynamic behaviour — a runner invocation
 

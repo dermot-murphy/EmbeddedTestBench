@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE4-001 | **Version** | 0.7 |
+| **Document ID** | TB-SWE4-001 | **Version** | 0.8 |
 | **Project** | TestBench | **Date** | 2026-10-02 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -29,6 +29,7 @@
 | 0.5 | 2026-09-30 | Claude | Thermometer firmware verification strategy (§1.4b) and test groups SWE4-UT-PICO, -PICOSIM, -PICOCLI, -PICOFWPROTO and -PICOFW added; item not covered on silicon added (#104). |
 | 0.6 | 2026-10-02 | Claude | #115: SWE4-UT-DMMPANEL (the 1604 front-panel check) and SWE4-UT-DMMBENCH (the opt-in bench test, §4.6a) added; SWE4-UT-DMM, -DMMPROTO, -DMMSIM, -TRANSPORT and -SERIAL extended. Oracle independence item added for frames built from the manufacturer's note. |
 | 0.7 | 2026-10-02 | Claude | §1.4a: the firmware unit tests are themselves checked against the C coding standard (#111). SWE4-UT-FWUNIT case count corrected to 149, the number the suite runs. Renumbered from 0.6 on merging `develop`, where #115 took 0.6. |
+| 0.8 | 2026-10-02 | Claude | #116: SWE4-UT-PATHS added (70 cases): the input-path search order and its error, the per-driver declarations, and every shipped specification run from outside the checkout. |
 
 ---
 
@@ -353,6 +354,7 @@ against the simulator in the default run (SWE4-UT-PSUPANEL, SWE4-UT-DMMPANEL).
 | SWE4-UT-ENGINE | `runner/test_runner.py` | Execution, failure versus error, setup abort, skips, roll-up, property steps, instruments in the record | RUN-FR-030 .. -037 |
 | SWE4-UT-REPORT | `runner/test_report.py` | JSON, markdown and JUnit output; the instruments table and its identity-failure row | RUN-FR-037, RUN-FR-040 .. -043 |
 | SWE4-UT-RUNCLI | `runner/test_cli.py` | Runner command line and top-level dispatch | RUN-FR-050 .. -053 |
+| SWE4-UT-PATHS | `core/test_paths.py`, `runner/test_input_paths.py` | Input files named by a relative path (70 cases): search order - declaring file's directory, working directory, checkout - an absolute path and a non-path passed through, the error naming every location; which driver arguments are declared as input files and that outputs and channels are not; step arguments and bench options found from another directory; every shipped specification giving the same outcome on the simulated bench from outside the checkout as from inside it | RUN-FR-007, RUN-FR-017 |
 
 ## 6. Notable individual test cases
 
@@ -382,6 +384,7 @@ against the simulator in the default run (SWE4-UT-PSUPANEL, SWE4-UT-DMMPANEL).
 | `test_all_sim_resources_count_as_simulated` | A report discloses simulation even without `--simulate`. |
 | `test_a_mixed_bench_is_not_simulated` | One real instrument makes it a hardware run. |
 | `test_shipped_specification_is_valid` / `test_shipped_bench_files_are_valid` | The examples in `specs/` and `benches/` stay loadable as the API changes. |
+| `test_a_shipped_specification_runs_the_same_from_outside_the_checkout` | Regression for #116: every specification in `specs/` gives the same outcome when the runner is started outside the checkout. |
 | `test_clear_error_when_matplotlib_is_absent` | A missing optional extra produces a named diagnostic, not `ImportError`. |
 
 ## 7. Defects found by this verification

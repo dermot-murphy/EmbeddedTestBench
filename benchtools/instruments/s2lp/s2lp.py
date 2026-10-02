@@ -38,6 +38,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 from ...core.errors import ConfigurationError, InstrumentError, ProtocolError
 from ...core.instrument import Instrument, InstrumentIdentity
+from ...core.paths import input_paths
 from ...core.transport.base import Transport
 from ...core.transport.factory import open_transport
 from . import registers as reg
@@ -536,6 +537,7 @@ class S2lpDevkit(TrafficMixin, Instrument):
     # Register values from a file
     # ------------------------------------------------------------------
     @staticmethod
+    @input_paths("source")
     def load_configuration(
         source: Union[str, RegisterConfiguration]
     ) -> RegisterConfiguration:
@@ -552,6 +554,7 @@ class S2lpDevkit(TrafficMixin, Instrument):
     #: What ``apply_configuration`` may do before it writes anything.
     RESET_MODES = ("none", "defaults", "power")
 
+    @input_paths("source")
     def apply_configuration(
         self,
         source: Union[str, RegisterConfiguration],
@@ -658,6 +661,7 @@ class S2lpDevkit(TrafficMixin, Instrument):
                 runs.append((setting.address, [setting.value]))
         return runs
 
+    @input_paths("source")
     def verify_configuration(
         self, source: Union[str, RegisterConfiguration], strict: bool = False
     ) -> ConfigurationCheck:

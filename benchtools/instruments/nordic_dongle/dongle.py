@@ -34,6 +34,7 @@ from ...core.errors import (
     MeasurementError,
 )
 from ...core.instrument import Instrument, InstrumentIdentity
+from ...core.paths import input_paths
 from ...core.transport.base import Transport
 from ...core.transport.factory import open_transport
 from .script import CommandScript, load_script
@@ -172,6 +173,7 @@ class NordicDongle(Instrument):
     # Connection
     # ------------------------------------------------------------------
     @classmethod
+    @input_paths("firmware")
     def connect(
         cls,
         resource: str = "sim://",
@@ -427,6 +429,7 @@ class NordicDongle(Instrument):
         """The build this dongle is expected to be running, if one was given."""
         return self._expected_firmware
 
+    @input_paths("firmware")
     def expect_firmware(self, firmware: Union[str, FirmwareBuild]) -> FirmwareBuild:
         """Set the build to compare against, after connecting.
 
@@ -441,6 +444,7 @@ class NordicDongle(Instrument):
     # ------------------------------------------------------------------
     # Firmware identity and refresh
     # ------------------------------------------------------------------
+    @input_paths("firmware")
     def check_firmware(
         self,
         firmware: Union[str, FirmwareBuild, None] = None,
@@ -502,6 +506,7 @@ class NordicDongle(Instrument):
                 pass
         return acknowledged
 
+    @input_paths("firmware")
     def update_firmware(
         self,
         firmware: Union[str, FirmwareBuild, None] = None,
@@ -571,6 +576,7 @@ class NordicDongle(Instrument):
         self._session.note("firmware updated to %s" % build)
         return status
 
+    @input_paths("firmware")
     def ensure_firmware(
         self,
         firmware: Union[str, FirmwareBuild, None] = None,
@@ -1131,6 +1137,7 @@ class NordicDongle(Instrument):
             samples.add(value * float(scale), source=text, at=time.monotonic() - started)
         return samples
 
+    @input_paths("source")
     def run_script(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
         source,
