@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-RTM-001 | **Version** | 1.0 |
+| **Document ID** | TB-RTM-001 | **Version** | 1.1 |
 | **Project** | TestBench | **Date** | 2026-10-02 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -31,7 +31,8 @@
 | 0.7 | 2026-09-30 | Claude | Section 13 added: PICO requirements to design, code and test. STK-21 and STK-22 decomposed; PICO-ARC-001 rows; AD-24 traced; OPEN-09 added. Sections 14 to 18 renumbered (#104). |
 | 0.8 | 2026-10-02 | Claude | #115: rows for CORE-FR-061, -062 and DMM-FR-027 … -033, -046, -070, -080, -081; DMM-FR-016 and -021 rows name their new tests. AD-25 and AD-26 traced. STK-18 row and OPEN-03 extended; OPEN-10 added. The `DMM-` prefix is now checked by `tests/test_traceability.py`, which it was not before. Requirement count corrected to 356. |
 | 0.9 | 2026-10-02 | Claude | #116: rows for RUN-FR-007 and RUN-FR-017; AD-27 traced. |
-| 1.0 | 2026-10-02 | Claude | #124: row for BLE-FR-071. |
+| 1.0 | 2026-10-02 | Claude | #120: RUN-FR-035 row names `test_the_simulated_bench_provides_every_shipped_specification`. |
+| 1.1 | 2026-10-02 | Claude | #124: row for BLE-FR-071. |
 
 ---
 
@@ -548,7 +549,7 @@ tests in `tests/instruments/pico_sht30/`.
 | RUN-FR-032 | ARC-001 | RUN-DD-RUNNER | setup abort, teardown `finally` | `test_setup_failure_aborts_the_suite`, `test_teardown_runs_even_after_a_failure` |
 | RUN-FR-033 | ARC-001 | RUN-DD-RUNNER | `stop_on_error` | `test_a_failure_does_not_stop_later_tests`, `test_stop_on_error_abandons_the_rest` |
 | RUN-FR-034 | ARC-001 | RUN-DD-RUNNER | `_resolve_action` | `test_private_methods_are_unreachable` |
-| RUN-FR-035 | ARC-001 | RUN-DD-BENCH | `Bench.require` | `test_missing_instrument_is_reported_before_anything_runs`, `test_require_reports_everything_missing` |
+| RUN-FR-035 | ARC-001 | RUN-DD-BENCH | `Bench.require` | `test_missing_instrument_is_reported_before_anything_runs`, `test_require_reports_everything_missing`, `test_the_simulated_bench_provides_every_shipped_specification` (14) |
 | RUN-FR-036 | ARC-001 | RUN-DD-RUNNER | `_resolve_action` property branch | `TestPropertySteps` (6), notably `test_the_value_is_the_one_at_the_time_of_the_step` |
 | RUN-FR-037 | ARC-001 | RUN-DD-BENCH, RUN-DD-RESULTS, RUN-DD-REPORT | `Bench.describe_instruments`, `RunRecord.instruments`, the report's Instruments table | `TestDescribingInstruments` (4), `TestInstrumentsInTheRecord` (2), `TestInstrumentsSection` (4) |
 | RUN-FR-040 | ARC-001 | RUN-DD-RESULTS | `requirements_verified` | `test_requirement_roll_up`, `test_requirement_takes_the_worst_of_its_tests`, `test_requirements_table` |

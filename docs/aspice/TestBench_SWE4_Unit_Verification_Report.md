@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE4-002 | **Version** | 0.7 |
+| **Document ID** | TB-SWE4-002 | **Version** | 0.8 |
 | **Project** | TestBench | **Date** | 2026-10-02 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -28,7 +28,8 @@
 | 0.4 | 2026-09-30 | Claude | Execution summary re-run after adding the `PICO-` element; test groups SWE4-UT-PICO, -PICOSIM, -PICOCLI and -PICOFWPROTO added to §5; §13A added for the Pico 2 thermometer firmware and driver (#104). |
 | 0.5 | 2026-10-02 | Claude | #115: execution summary re-run; §13B added for the TTi 1604 (the serial read defect, confirmation, ranges, the frequency gate, the bench test and front-panel check); D-43 and D-44 added and closed; DMM rows added to §5 and §6.1. |
 | 0.6 | 2026-10-02 | Claude | #116: execution summary re-run; SWE4-UT-PATHS added to §5; §14.3 added - every shipped specification run from outside the checkout, before and after; D-45 added and closed. |
-| 0.7 | 2026-10-02 | Claude | #124: execution summary re-run; SWE4-UT-BLECLI count updated; D-46 added and closed. |
+| 0.7 | 2026-10-02 | Claude | #120: execution summary re-run; §14.3 notes that the simulated bench now defines `rtt`, so `kepler_temperature.yaml` reaches `dongle.select` like the other Kepler specifications. |
+| 0.8 | 2026-10-02 | Claude | #124: execution summary re-run; SWE4-UT-BLECLI count updated; D-46 added and closed. |
 
 ---
 
@@ -57,13 +58,13 @@ It is deliberately a separate work product from the specification. A specificati
 
 | Metric | Result |
 |---|---|
-| Tests executed | **2 646** |
-| Passed | **2 645** |
+| Tests executed | **2 660** |
+| Passed | **2 659** |
 | Failed | 0 |
 | Errors | 0 |
 | Skipped | 1 |
-| Statement coverage | **95%** (13 568 statements, 677 missed) |
-| Execution time | 147.4 s with coverage instrumentation |
+| Statement coverage | **95%** (13 568 statements, 675 missed) |
+| Execution time | 149.8 s with coverage instrumentation |
 | Runtime | CPython 3.11.15, Linux |
 | Framework | pytest 9.1.1, pytest-cov |
 
@@ -92,9 +93,10 @@ No J-Link probe, target board, GDB, GDB Server, BLE dongle, BLE sensor or TTi
 the GDB/MI boundary, the RTT and SWO sockets by a loopback server, the dongle at
 its line protocol, and the serial port by pyserial's own `loop://` handler.
 
-Revision 0.7 re-ran the whole suite with #124's change to choosing a sensor on
-the BLE command line; the figures above are that run. Revision 0.6 re-ran the
-whole suite with #116's input-path resolution. The run with every optional extra blocked was not
+Revision 0.8 re-ran the whole suite with #124's change to choosing a sensor on
+the BLE command line, merged with #120; the figures above are that run.
+Revision 0.7 re-ran it with #120's `rtt` entry on the simulated bench.
+Revision 0.6 re-ran the whole suite with #116's input-path resolution. The run with every optional extra blocked was not
 repeated for 0.6: the change adds no import of an optional package, and
 `test_input_paths.py` skips its one YAML-dependent test when `pyyaml` is absent.
 Revision 0.5 re-ran the whole suite with #115's changes to the TTi 1604 driver
@@ -1076,7 +1078,9 @@ checkout, and no run inside it changed. The four Kepler specifications error in
 both places on `dongle.select`, because the simulated dongle does not model a
 Kepler sensor, and `kepler_temperature.yaml` cannot run on the simulated bench,
 which defines no `rtt` instrument. Neither is a path fault, and both are outside
-#116. Before the fix they
+#116. The second was fixed by #120: the simulated bench now defines `rtt`, and
+`kepler_temperature.yaml` gets past `rtt.rtt_start` and stops at `dongle.select`
+as the other three do. The simulated Kepler sensor is #121 and #122. Before the fix they
 errored outside the checkout one step earlier, on the register file, and that
 step now succeeds. `--simulate` without a bench gives the dongle and probe no
 firmware build, so `dongle_firmware.yaml`, `sensor_bringup.yaml` and

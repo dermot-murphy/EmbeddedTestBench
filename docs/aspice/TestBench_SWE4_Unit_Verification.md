@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE4-001 | **Version** | 0.9 |
+| **Document ID** | TB-SWE4-001 | **Version** | 1.0 |
 | **Project** | TestBench | **Date** | 2026-10-02 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -30,7 +30,8 @@
 | 0.6 | 2026-10-02 | Claude | #115: SWE4-UT-DMMPANEL (the 1604 front-panel check) and SWE4-UT-DMMBENCH (the opt-in bench test, §4.6a) added; SWE4-UT-DMM, -DMMPROTO, -DMMSIM, -TRANSPORT and -SERIAL extended. Oracle independence item added for frames built from the manufacturer's note. |
 | 0.7 | 2026-10-02 | Claude | §1.4a: the firmware unit tests are themselves checked against the C coding standard (#111). SWE4-UT-FWUNIT case count corrected to 149, the number the suite runs. Renumbered from 0.6 on merging `develop`, where #115 took 0.6. |
 | 0.8 | 2026-10-02 | Claude | #116: SWE4-UT-PATHS added (70 cases): the input-path search order and its error, the per-driver declarations, and every shipped specification run from outside the checkout. |
-| 0.9 | 2026-10-02 | Claude | #124: SWE4-UT-BLECLI covers choosing a sensor on the command line (16 cases, BLE-FR-071). |
+| 0.9 | 2026-10-02 | Claude | #120: SWE4-UT-BENCH also covers `runner/test_shipped_benches.py`, which now checks that the simulated bench provides every instrument and driver each shipped specification uses (RUN-FR-035). |
+| 1.0 | 2026-10-02 | Claude | #124: SWE4-UT-BLECLI covers choosing a sensor on the command line (16 cases, BLE-FR-071). |
 
 ---
 
@@ -351,7 +352,7 @@ against the simulator in the default run (SWE4-UT-PSUPANEL, SWE4-UT-DMMPANEL).
 | SWE4-UT-PICOCLI | `instruments/pico_sht30/test_cli.py` | Every `benchtools thermo` sub-command end to end; JSON output and file; a failed connection; dispatch from the top-level command | PICO-FR-060 |
 | SWE4-UT-PICOFWPROTO | `instruments/pico_sht30/test_firmware_protocol.py` | Firmware and driver agreement: commands, argument bounds, error codes, protocol version, sensor, title, version form, default address; firmware hygiene: tab indentation, no printf family | PICO-FR-001, -002, PICO-NFR-002, -004 |
 | SWE4-UT-PICOFW | `firmware/pico_sht30/test/*.c` | **Firmware unit tests** (Unity, CMake, CTest, 61 cases): the text builder and its overflow; CRC-8 against the datasheet check value; conversion end points, mid-scale, negative values and rounding; frame decoding that never half-writes; measure, status and reset command bytes, waits and every failure path; line assembly, CR handling and over-length lines; every command's reply text, argument refusal, and reboot only after `ok` | PICO-FR-001 .. -005, -020 .. -026, -030, PICO-NFR-001, -003 |
-| SWE4-UT-BENCH | `runner/test_bench.py` | Bench configuration, lazy connection, driver registry, simulation detection, instrument identity recorded per run | RUN-FR-001 .. -006, RUN-FR-037 |
+| SWE4-UT-BENCH | `runner/test_bench.py`, `runner/test_shipped_benches.py` | Bench configuration, lazy connection, driver registry, simulation detection, instrument identity recorded per run; every shipped bench file loads with registered drivers and no shared port; the simulated bench provides every instrument and driver each shipped specification uses | RUN-FR-001 .. -006, RUN-FR-035, RUN-FR-037 |
 | SWE4-UT-ENGINE | `runner/test_runner.py` | Execution, failure versus error, setup abort, skips, roll-up, property steps, instruments in the record | RUN-FR-030 .. -037 |
 | SWE4-UT-REPORT | `runner/test_report.py` | JSON, markdown and JUnit output; the instruments table and its identity-failure row | RUN-FR-037, RUN-FR-040 .. -043 |
 | SWE4-UT-RUNCLI | `runner/test_cli.py` | Runner command line and top-level dispatch | RUN-FR-050 .. -053 |
