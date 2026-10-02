@@ -5,7 +5,7 @@ interface left unpowered by the handshake lines, a meter that was never put
 into remote mode, a dropped keystroke that leaves it measuring something else,
 and a reading taken from a frozen display.
 
-Traces to: DMM-FR-001 .. DMM-FR-060, SWE4-UT-DMM.
+Traces to: DMM-FR-001 .. DMM-FR-033, DMM-FR-045, SWE4-UT-DMM.
 """
 
 from __future__ import annotations
@@ -185,3 +185,163 @@ class TestReading:
         simulator.status["hold"] = True
         with driver(simulator) as dmm:
             assert dmm.read().held is True
+
+
+class TestTheSerialLink:
+    """#115: the driver must read a real serial port, which never ends a message."""
+
+    @pytest.fixture
+    def loop(self):
+        pytest.importorskip("serial")
+        from benchtools.core.transport.serial_port import SerialTransport
+
+        transport = SerialTransport("loop://", timeout=0.5, dtr=True, rts=False)
+        yield transport
+        transport.close()
+
+    def test_connecting_over_a_serial_port_sees_the_echo(self, loop):
+        # pyserial's loopback echoes what is written, exactly as the meter
+        # echoes a key. Before #115 this raised "did not echo 'u'".
+        dmm = Tti1604(loop)
+        dmm.initialise()
+        assert dmm.is_remote is True
+
+    def test_a_frame_on_a_serial_port_is_decoded(self, loop):
+        dmm = Tti1604(loop)
+        dmm.initialise()
+        frame = SimulatedTti1604(value=2.5).frame()
+        loop.write(frame + frame, append_terminator=False)
+        reading = dmm.read(timeout=1.0)
+        assert reading.value == pytest.approx(2.5)
+
+
+class TestTheStream:
+    def test_a_stream_joined_part_way_through_a_frame_resynchronises(self):
+        simulator = SimulatedTti1604(value=1.5)
+        with driver(simulator) as dmm:
+            simulator.garbage = b"\x0d\x21\x40"          # the tail of a frame, and a CR
+            dmm._discard_input()
+            assert dmm.read().value == pytest.approx(1.5)
+            assert dmm.resynchronised_bytes >= 1
+
+    def test_an_echo_is_not_found_inside_a_frame(self):
+        # With 3.4444 V on the input every frame carries 0x66, the pattern for
+        # 4, which is also 'f', the Volts key. A lost Volts key must still be
+        # resent rather than "confirmed" from a digit.
+        simulator = SimulatedTti1604(value=3.4444)
+        with driver(simulator) as dmm:
+            assert 0x66 in simulator.frame()
+            simulator.drop_keys = 1
+            dmm.select_volts()
+        assert simulator.received.count("f") == 1
+
+    def test_a_measurement_is_taken_after_the_call(self):
+        # DMM-FR-031: what was waiting is discarded, then one more frame.
+        simulator = SimulatedTti1604(value=1.0)
+        with driver(simulator) as dmm:
+            dmm.read()
+            simulator.set_value(2.0)
+            sent = simulator.frames_sent
+            assert dmm.measure().value == pytest.approx(2.0)
+            assert simulator.frames_sent - sent == 2
+
+
+class TestConfirmation:
+    """DMM-FR-029: a key press is confirmed from the readings, not the echo."""
+
+    def test_each_selection_returns_the_reading_that_confirms_it(self):
+        simulator = SimulatedTti1604(value=0.0214)
+        with driver(simulator) as dmm:
+            assert dmm.select_milliamps().function == "dc_milliamps"
+            assert dmm.select_ac().function == "ac_milliamps"
+            assert dmm.select_volts().function == "ac_volts"
+            assert dmm.select_dc().function == "dc_volts"
+            assert dmm.select_ohms().function == "ohms"
+            assert dmm.select_millivolts().function == "dc_millivolts"
+            assert dmm.select_amps().function == "dc_amps"
+
+    def test_a_key_the_meter_ignores_is_reported_with_what_it_shows(self):
+        simulator = SimulatedTti1604()
+        with driver(simulator) as dmm:
+            simulator.ignore_keys = True
+            with pytest.raises(InstrumentError, match="readings show dc_volts"):
+                dmm.select_ohms()
+
+    def test_ac_or_dc_on_resistance_is_refused_before_pressing(self):
+        simulator = SimulatedTti1604()
+        with driver(simulator) as dmm:
+            dmm.select_ohms()
+            with pytest.raises(InstrumentError, match="no AC or DC"):
+                dmm.select_ac()
+        assert "l" not in simulator.received
+
+
+class TestRanges:
+    """DMM-FR-030: ranges by full scale, and an auto range that does not toggle."""
+
+    def test_a_range_is_locked_by_its_full_scale(self):
+        simulator = SimulatedTti1604(value=3.3)
+        with driver(simulator) as dmm:
+            reading = dmm.set_range(400)
+            assert reading.range_label == "400 V"
+            assert reading.flags["auto_range"] is False
+            assert dmm.measure().value == pytest.approx(3.3)
+
+    def test_the_present_range_is_locked_with_auto_man(self):
+        simulator = SimulatedTti1604(value=3.3)
+        with driver(simulator) as dmm:
+            assert dmm.set_range(4).range_label == "4 V"
+        assert simulator.received[-1] == "c"
+
+    def test_milliamp_ranges_skip_the_codes_milliamps_do_not_have(self):
+        simulator = SimulatedTti1604(value=0.001)
+        with driver(simulator) as dmm:
+            dmm.select_milliamps()
+            assert dmm.set_range(0.4).range_label == "400 mA"
+            assert dmm.set_range(4e-3).range_label == "4 mA"
+
+    def test_a_range_the_function_lacks_is_refused_with_the_list(self):
+        with driver() as dmm:
+            with pytest.raises(InstrumentError, match="4 V .4.*40 V"):
+                dmm.set_range(30)
+
+    def test_auto_range_is_idempotent(self):
+        simulator = SimulatedTti1604()
+        with driver(simulator) as dmm:
+            dmm.select_auto_range()
+            assert "c" not in simulator.received        # already auto: nothing pressed
+            dmm.set_range(40)
+            assert dmm.select_auto_range().flags["auto_range"] is True
+            assert dmm.select_auto_range().flags["auto_range"] is True
+
+    def test_a_manual_range_overranges(self):
+        simulator = SimulatedTti1604(value=1.0)
+        with driver(simulator) as dmm:
+            dmm.set_range(4)
+            simulator.set_value(12.0)
+            reading = dmm.measure()
+        assert reading.overrange is True
+        assert reading.is_live is False
+
+
+class TestFrequency:
+    """DMM-FR-032, -033: frequency is read once per gate, and waited for."""
+
+    def test_hertz_needs_an_ac_range(self):
+        with driver() as dmm:
+            with pytest.raises(InstrumentError, match="AC volts or AC current"):
+                dmm.select_hertz()
+
+    def test_the_ten_second_gate_is_waited_for(self):
+        # The 4 kHz range reads once every 10 s. Waits sized for 2.5 readings
+        # a second gave up before the first arrived (#115).
+        simulator = SimulatedTti1604(value=50.0, ac=True)
+        with driver(simulator) as dmm:
+            assert dmm.select_hertz().function == "frequency"
+            before = simulator.clock
+            reading = dmm.set_range(4000)
+            assert reading.status["gate_ten_seconds"] is True
+            assert simulator.clock - before >= 10.0
+            assert dmm.measure().value == pytest.approx(50.0)
+            assert dmm.set_range(40000).status["gate_ten_seconds"] is False
+            assert dmm.select_volts().function == "ac_volts"

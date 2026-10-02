@@ -22,7 +22,7 @@ and a missing install produces a diagnostic naming the extra rather than an
 read with a timeout, and pyserial's ``read`` already blocks only as long as it
 is told to. A thread would add a hand-off and buy nothing.
 
-Traces to: CORE-FR-017, CORE-ARC-003, CORE-DD-SERIAL.
+Traces to: CORE-FR-017, CORE-FR-061, CORE-ARC-003, CORE-DD-SERIAL.
 """
 
 from __future__ import annotations
@@ -185,6 +185,26 @@ class SerialTransport(Transport):
             self._serial.reset_output_buffer()
         except Exception:                               # pragma: no cover - URL handlers
             pass
+
+    def discard_input(self) -> int:
+        """Drop everything received and not yet read, including the OS buffer.
+
+        An instrument that streams readings fills the operating system's
+        receive buffer while nobody is reading; without this, the next read
+        returns a reading that may be minutes old (CORE-FR-061).
+        """
+        dropped = super().discard_input()
+        if self._serial is not None:
+            try:
+                dropped += int(self._serial.in_waiting or 0)
+            except Exception:  # pylint: disable=broad-exception-caught  # pragma: no cover
+                pass
+            try:
+                self._serial.reset_input_buffer()
+            except Exception:  # pylint: disable=broad-exception-caught  # pragma: no cover
+                _LOG.debug("could not reset the input buffer of %s", self._port,
+                           exc_info=True)
+        return dropped
 
     def _close_link(self) -> None:
         port, self._serial = self._serial, None

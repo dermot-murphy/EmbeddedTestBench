@@ -5,7 +5,7 @@ the framing and lifecycle are exercised rather than mocked. Tests needing it
 skip when the optional extra is absent, which is the correct behaviour for an
 optional extra; the resource parsing and registration are checked either way.
 
-Traces to: CORE-FR-017, SWE4-UT-SERIAL.
+Traces to: CORE-FR-017, CORE-FR-061, SWE4-UT-SERIAL.
 """
 
 from __future__ import annotations
@@ -160,6 +160,32 @@ class TestLoopback:
         transport.close()
         with pytest.raises(TransportError):
             transport.read_message()
+
+
+class TestStreaming:
+    """CORE-FR-061, against pyserial's own loopback."""
+
+    @pytest.fixture
+    def transport(self):
+        pytest.importorskip("serial")
+        instance = SerialTransport("loop://", timeout=0.5)
+        instance.open()
+        yield instance
+        instance.close()
+
+    def test_read_available_returns_bytes_without_framing(self, transport):
+        transport.write(b"\r\x01\x02u", append_terminator=False)
+        assert transport.read_available() == b"\r\x01\x02u"
+
+    def test_discard_input_empties_the_port_as_well_as_the_buffer(self, transport):
+        """A streaming meter fills the OS buffer while nobody reads it."""
+        import time
+
+        transport.write(b"stale one", append_terminator=False)
+        time.sleep(0.05)
+        assert transport.discard_input() > 0
+        transport.write(b"fresh", append_terminator=False)
+        assert transport.read_available() == b"fresh"
 
 
 class TestHandshakeLines:
