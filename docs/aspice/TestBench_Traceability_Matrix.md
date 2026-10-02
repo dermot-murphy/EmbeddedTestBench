@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-RTM-001 | **Version** | 0.9 |
+| **Document ID** | TB-RTM-001 | **Version** | 1.0 |
 | **Project** | TestBench | **Date** | 2026-10-02 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -31,6 +31,7 @@
 | 0.7 | 2026-09-30 | Claude | Section 13 added: PICO requirements to design, code and test. STK-21 and STK-22 decomposed; PICO-ARC-001 rows; AD-24 traced; OPEN-09 added. Sections 14 to 18 renumbered (#104). |
 | 0.8 | 2026-10-02 | Claude | #115: rows for CORE-FR-061, -062 and DMM-FR-027 … -033, -046, -070, -080, -081; DMM-FR-016 and -021 rows name their new tests. AD-25 and AD-26 traced. STK-18 row and OPEN-03 extended; OPEN-10 added. The `DMM-` prefix is now checked by `tests/test_traceability.py`, which it was not before. Requirement count corrected to 356. |
 | 0.9 | 2026-10-02 | Claude | #116: rows for RUN-FR-007 and RUN-FR-017; AD-27 traced. |
+| 1.0 | 2026-10-02 | Claude | #124: row for BLE-FR-071. |
 
 ---
 
@@ -301,6 +302,7 @@ where the firmware implements the requirement.
 | BLE-FR-061 | BLE-ARC-001 | BLE-DD-SESSION | `_read_line`, `_write_log` | `test_non_protocol_lines_are_ignored`, `test_events_reach_the_log_too` |
 | BLE-FR-062 | BLE-ARC-001 | BLE-DD-SESSION | `note`, `log_note` | `test_a_note_can_be_written`, `test_a_note_lands_in_the_log` |
 | BLE-FR-070 | BLE-ARC-001 | BLE-DD-CLI | `nordic_dongle/cli.py` | `SWE4-UT-BLECLI` (18) |
+| BLE-FR-071 | BLE-ARC-001 | BLE-DD-CLI | `_choose`, `_select`, `_cmd_cmd`, the `--addr`/`--select` exclusive groups in `nordic_dongle/cli.py` | `TestChoosingASensor` (16) |
 | BLE-FR-080 | BLE-ARC-001, RUN-ARC-001 | BLE-DD-SIM, RUN-DD-BENCH | `simulator.py`, `register_driver("ble-dongle", …)` | `SWE4-UT-BLESIM` (27), `test_the_top_level_command_dispatches` |
 | BLE-FR-100 | BLE-ARC-001, AD-23 | BLE-DD-SCRIPT | `parse_script`, `load_script`, `CommandScript` | `TestReadingTheDocument` (11), `TestTheShippedDocument` (2) |
 | BLE-FR-101 | BLE-ARC-001, AD-23 | BLE-DD-SCRIPT | `ScriptStep.matches`, `ScriptStep.pattern` | `TestMatching` (6), `test_a_matching_reply_passes`, `test_a_reply_that_does_not_match_fails_and_shows_both` |

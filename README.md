@@ -414,9 +414,14 @@ trustworthy — it says where the write landed, not what the firmware did.
 ```bash
 python -m benchtools ble -r sim:// scan --duration 5
 python -m benchtools ble -r COM5 --log ble.log profile --select SENS-0A1B2C --duration 30 --interval 0.1
-python -m benchtools ble -r COM5 cmd measure --select SENS-0A1B2C --repeat 10
+python -m benchtools ble -r COM5 cmd measure --select 0a1b2c --repeat 10       # part of the name, any case
+python -m benchtools ble -r COM5 cmd measure --addr E4:1C:7B:02:9A:11
 python -m benchtools ble -r COM5 monitor --duration 60        # stream events to the log
 ```
+
+`--select` takes an address, a name, or part of a name in any case, and chooses
+the strongest sensor that matches; `--addr` takes an address. Give one or the
+other, not both.
 
 `--log` writes every line in both directions with host timestamps, flushed per
 line. That file is the evidence; the JSON is the summary.
