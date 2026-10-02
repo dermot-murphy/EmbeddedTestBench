@@ -30,6 +30,7 @@ benchtools/
 │   ├── jlink/       SEGGER J-Link debug probe (flash, RTT, breakpoints, timing)
 │   ├── nordic_dongle/  Nordic BLE dongle (scan, UART over BLE, advertising profile)
 │   ├── gpd3303d/    GW Instek GPD-3303D bench power supply
+│   ├── tti1604/     TTi 1604 bench multimeter over RS-232
 │   ├── s2lp/        ST S2-LP sub-1 GHz development kit (registers, TX, RX, logs)
 │   ├── pico_sht30/  Raspberry Pi Pico 2 + SHT30-D thermometer, with its own firmware
 │   └── generic.py   anything answering *IDN?
@@ -566,6 +567,45 @@ status word, and the six bench confirmation items that need the instrument.
 
 ---
 
+## Multimeter — TTi 1604
+
+A 40,000-count bench meter on the 9-way RS-232 port at its back, through a USB
+converter: DC and AC volts, DC and AC current on the mA and 10 A sockets,
+resistance and frequency. It measures the sensor board's current (STK-18).
+
+```python
+from benchtools.instruments.tti1604 import Tti1604
+
+with Tti1604.connect("/dev/ttyUSB0") as dmm:        # COM6 on Windows
+    dmm.select_milliamps()                          # confirmed from the readings
+    dmm.select_dc()
+    reading = dmm.measure()                         # measured after this call
+    print(reading.value, reading.unit, reading.range_label, reading.is_live)
+```
+
+### Four things this meter will otherwise lie to you about
+
+| | |
+|---|---|
+| **The PC powers its interface.** DTR must be asserted and RTS not; at a serial library's defaults the meter is mute | The driver sets both as the port opens, and a meter that never echoes is reported with the handshake lines and the converter's levels named |
+| **It streams, and never ends a message.** It sends a reading 2.5 times a second whether anyone reads or not, and the operating system keeps what nobody read | The driver reads whatever has arrived rather than waiting for an end-of-message (#115), and `measure()` discards everything waiting before it takes a reading |
+| **A key press is not evidence.** Some keys toggle, and an echo can be lost after the meter acted, so a resend undoes it | Every function and range change is confirmed from the readings, which carry the meter's state, and raises naming what they show if it did not happen |
+| **A reading is a picture of the display.** Hold, Min/Max recall and Null look like numbers; OFL does not; the kilohm annunciator is not in the frame | Every annunciator is decoded, `is_live` says whether the number is now, and the resistance multiplier is derived from the manual's resolution rather than assumed |
+
+```bash
+python -m benchtools dmm -r /dev/ttyUSB0 read -n 5 --reject-held
+python examples/12_dmm_front_panel_check.py /dev/ttyUSB0        # operator confirms the panel
+BENCHTOOLS_TTI1604=/dev/ttyUSB0 python -m pytest tests/bench/tti1604 -v
+```
+
+The last line is the bench test: outside the default run, it exercises the
+driver against the real meter and writes a findings record. See
+[TTi 1604 Notes](docs/dmm/TTi1604_Notes.md) for the wiring, the protocol, the
+eight bench confirmation items, and the manufacturer's documents in
+`docs/dmm/reference/`.
+
+---
+
 ## Thermometer — Raspberry Pi Pico 2 + DollaTek SHT30-D
 
 A Pico 2 reads the local temperature and humidity from a Sensirion SHT30-DIS,
@@ -678,6 +718,7 @@ configurations can name it. New link types (serial, USBTMC, HTTP) register with
 | [`examples/09_sensor_version.py`](examples/09_sensor_version.py) | Finding a sensor by part of its name, in any case, and reading its version over BLE UART |
 | [`examples/10_psu_front_panel_check.py`](examples/10_psu_front_panel_check.py) | Stepping a GPD-3303D through ten states while an operator checks the front panel; the answers are logged as TB-SIT-03 evidence |
 | [`examples/11_pico_thermometer.py`](examples/11_pico_thermometer.py) | Identifying a Pico 2 thermometer by title and version, and logging temperature |
+| [`examples/12_dmm_front_panel_check.py`](examples/12_dmm_front_panel_check.py) | Stepping a TTi 1604 through twelve states while an operator checks the front panel; the answers are logged |
 
 Each takes an address (or bench file) and defaults to simulation:
 
@@ -787,6 +828,7 @@ Full input and output reference: [`action.yml`](action.yml).
 | [BLE Dongle Notes](docs/ble/BLE_Dongle_Notes.md) | Why the dongle needs firmware, the line protocol, building and flashing, reading a profile, and what is unproven |
 | [S2-LP Devkit Notes](docs/s2lp/S2LP_Devkit_Notes.md) | Why ST's firmware is used unchanged, its CLI protocol, the register map, what a polled capture can and cannot be quoted as, and the licence position |
 | [GPD-3303D Notes](docs/psu/GPD3303D_Notes.md) | The four ways this supply will mislead a test, its command set and status word, and the bench confirmation items |
+| [TTi 1604 Notes](docs/dmm/TTi1604_Notes.md) | The multimeter's interface and protocol, why a key press is confirmed from the readings, the stream read, the derived resistance multiplier, the bench test and front-panel check, and the bench confirmation items; the manufacturer's documents in `docs/dmm/reference/` |
 | [Pico 2 + SHT30-D Notes](docs/pico_sht30/Pico_SHT30_Notes.md) | Wiring, building and flashing the thermometer firmware, datasheet facts, MISRA position, bench confirmation items; [reference documents](docs/pico_sht30/References.md) |
 | [SWE.1 Requirements](docs/aspice/TestBench_SWE1_SW_Requirements.md) | 177 functional and 18 non-functional requirements |
 | [SWE.2 Architecture](docs/aspice/TestBench_SWE2_SW_Architecture.md) | Layering, elements, eighteen architectural decisions |

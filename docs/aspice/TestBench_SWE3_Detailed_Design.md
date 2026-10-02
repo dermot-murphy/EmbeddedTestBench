@@ -8,8 +8,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE3-001 | **Version** | 0.5 |
-| **Project** | TestBench | **Date** | 2026-09-23 |
+| **Document ID** | TB-SWE3-001 | **Version** | 0.6 |
+| **Project** | TestBench | **Date** | 2026-10-02 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.3 |
@@ -27,6 +27,7 @@
 | 0.3 | 2026-09-25 | Claude | BLE-DD-SCRIPT narrowed to reading, with variables, connect, timeouts and `<disconnect>`; BLE-DD-SCRIPTRUN added for running, results in priority order and the event log; BLE-DD-CMD gains the connect and reply timeouts, and BLE-DD-CMDARGS is added (#46, #48). |
 | 0.4 | 2026-09-26 | Claude | CORE-DD-TRANSPORT gains the separate read terminator and CORE-DD-SERIAL the timeout guard (#61). PSU-DD-CONST, -PSU and -SIM describe the protocol as captured from a real supply, and the rejection of out-of-range settings (#61, #64). References TB-IF-001 and TB-SWE3-002 (#63). Header version brought into line with this history. |
 | 0.5 | 2026-09-30 | Claude | Section 5.8 added: 14 PICO design units for the Pico 2 + SHT30-D thermometer and its firmware; RUN renumbered 5.9. Identifiers follow TB-STY-001 as checked by CStyleCheck (#104). |
+| 0.6 | 2026-10-02 | Claude | #115: CORE-DD-TRANSPORT gains `read_available` and `discard_input`; CORE-DD-SERIAL and CORE-DD-MOCK extend `discard_input`, and the mock transport gives a virtual-clock simulator its timeout. DMM-DD-CONST, -PROTO, -DMM and -SIM revised for the stream read, frame validation, the derived resistance multiplier, confirmation from the readings, ranges, fresh measurement, the frequency gate and the simulator's reading rate. |
 
 ---
 
@@ -154,6 +155,8 @@ Abstract link providing buffered framing. Subclasses implement `_open_link`,
 | `read_message()` | To the read terminator, or to end-of-message | Ordinary SCPI query responses |
 | `read_exactly(n)` | Exactly *n* bytes, terminator-transparent | IEEE 488.2 block payloads |
 | `read_raw()` | Everything to end-of-message | Images and other unframed transfers |
+| `read_available()` | Whatever has arrived; waits only if nothing has | Instruments that stream without being asked (CORE-FR-061) |
+| `discard_input()` | Drops everything received and unread, and counts it | A fresh reading from a streaming instrument (CORE-FR-061) |
 
 Design points:
 
@@ -169,6 +172,14 @@ Design points:
   takes LF and replies with CR alone (TB-IF-001 §5), and an instrument driver
   that knows its instrument sets the read terminator itself.
 - Context-manager support guarantees the link is released on an exception path.
+- `read_raw()` reads until end-of-message, which a serial port never signals: on
+  one it can only time out, leaving what did arrive in the buffer. That is
+  #115. `read_available()` is the stream primitive instead; it clears a previous
+  end-of-message before asking the link again, because for a stream that says
+  nothing about whether another byte is coming.
+- `discard_input()` is the base of a chain: the base empties its buffer, the
+  serial transport also empties the operating system's, the mock transport
+  also drops its pending reply. Each returns how many bytes it dropped.
 
 #### CORE-DD-VXI11 — `transport/vxi11.py`
 
@@ -273,6 +284,9 @@ Design points:
   reconfigures the port on every assignment, and on Windows that loses bytes
   in flight: assigning it before every read lost about one GPD-3303D reply in
   five (TB-IF-001 §10.2, TB-SWE3-002 LL-07).
+- `discard_input()` extends the base with `reset_input_buffer()`, because the
+  bytes a streaming instrument sent while nobody was reading are in the
+  operating system, not in the transport.
 
 #### CORE-DD-MOCK — `transport/mock.py`
 
@@ -281,6 +295,13 @@ Loopback transport accepting any `Responder` — anything with
 simulated. Responses are returned in small chunks so that framing and
 reassembly are exercised rather than bypassed. The description is derived from
 the responder's `*IDN?` model field, so it is meaningful for any instrument.
+
+A responder that implements `poll_within(timeout)` is called with this
+transport's timeout instead of `poll()` (CORE-FR-062): output due later than the
+read would wait is a `TransportTimeoutError`, and the simulator's clock moves on
+by the timeout, as time does on a real port. Without it a simulator on a
+virtual clock delivers data a driver would have given up on, and a wait that is
+too short passes every test. `discard_input()` also drops the pending reply.
 
 #### CORE-DD-FACTORY — `transport/factory.py`
 
@@ -1635,6 +1656,14 @@ code, and the identifying relationship is that `8` is every segment (`0xFE`)
 and `0` is that less the middle (`0xFC`). That relationship is what fixes bit 1
 as the middle segment and bit 0 as the decimal point rather than a segment.
 
+`RANGES` holds each range's full scale and resolution from the instruction
+manual, keyed by measurement type and coupling, in the order Up steps through
+them; `FREQUENCY_RANGES` the two frequency ranges, chosen by the gate flag.
+`GATE_TIME`, `CONFIRM_TIMEOUT` and `READ_POLL` are the timing the driver's waits
+are built from. The two annunciator bits the manufacturer's note places
+differently from the summary first used - Touch-Hold and auto-range-set, both
+bit 1 - follow the note (#115).
+
 #### DMM-DD-PROTO — `protocol.py`
 
 Pure decoding: ten bytes to a `Reading`. It knows nothing about serial ports,
@@ -1643,9 +1672,9 @@ testable without a meter, a port, or a simulator.
 
 | Group | Members |
 |---|---|
-| Decoding | `decode`, `digits_text`, `unit_and_scale`, `find_frame_start` |
-| Framing | `FrameAssembler.feed`, `.frames`, `.residue`, `.pending` |
-| Result | `Reading`, `Reading.held` |
+| Decoding | `decode`, `digits_text`, `unit_and_scale`, `resistance_scale`, `find_frame_start` |
+| Framing | `frame_problem`, `FrameAssembler.feed`, `.frames`, `.residue`, `.pending`, `.clear` |
+| Result | `Reading`, `Reading.held`, `Reading.is_live`, `Reading.function` |
 
 `FrameAssembler` exists because frames and command echoes share one direction
 of one link. It separates them **by structure rather than by value**: complete
@@ -1659,6 +1688,21 @@ Hold, Touch-Hold, and the Min-Max review. A caller should not have to know
 which of the three froze the display in order to know that the number is not
 this moment's.
 
+**Validation is how the assembler resynchronises** (DMM-FR-028).
+`frame_problem` requires every display byte to be a listed pattern, the units
+field to name a measurement and at most one decimal point. A carriage return
+that begins a candidate failing those checks is moved to the residue and the
+search resumes one byte later, so a stream joined part-way through a frame
+yields the next real frame rather than a plausible wrong number.
+
+**The resistance multiplier is derived** (DMM-FR-016). The frame says which
+resistance range is selected but not whether the display is in ohms, kilohms
+or megohms. `resistance_scale` divides the range's resolution by the value of
+the last displayed digit; the ratio must be 1, 1 000 or 1 000 000, or the
+reading carries no value and `Reading.problem` says why (DMM-OPEN-08). This is
+right whichever display convention the meter uses, which is why it replaced
+the assumed factor of 1 000.
+
 #### DMM-DD-DMM — `dmm.py`
 
 `Tti1604`, the driver façade.
@@ -1666,14 +1710,50 @@ this moment's.
 | Group | Members |
 |---|---|
 | Lifecycle | `connect`, `_normalise_resource`, `_post_open`, `_read_identity`, `check_errors` |
-| Keys | `press`, `_send_character`, `_await_echo`, `select_*` |
+| Stream | `_receive`, `_drain`, `_next_frame`, `_discard_input`, `_patience` |
+| Keys | `press`, `_send_character` |
+| Confirmation | `current_state`, `_await`, `last_reading` |
+| Function | `select_volts`, `select_millivolts`, `select_amps`, `select_milliamps`, `select_ohms`, `select_ac`, `select_dc`, `select_hertz` |
+| Range | `select_auto_range`, `set_range` |
 | Mode | `remote`, `local`, `is_remote` |
-| Reading | `read`, `read_many`, `measure`, `_drain` |
+| Reading | `read`, `read_many`, `measure` |
 
 `check_errors` is a documented no-op: the meter has no error queue, and a
 driver that pretended otherwise would be inventing a clean bill of health.
 `_post_open` enters remote mode and does nothing else — in particular it does
 not press Operate, which toggles.
+
+Design points added by #115:
+
+- **The link is read as a stream** (DMM-FR-027). `_receive` calls
+  `Transport.read_available()` with the transport's timeout fixed at
+  `READ_POLL` and loops to its own deadline. It never varies that timeout per
+  read, because pyserial reconfigures the port on every change and on Windows
+  loses bytes in flight (TB-SWE3-002 LL-07). Before #115, `_drain` used
+  `read_raw()`, which on a serial port only ever times out.
+- **Every deadline is on `_clock`**: `time.monotonic` on a port, and a
+  simulated meter's virtual clock when talking to one, so the 20 s allowed for
+  a 10 s gate costs a test nothing.
+- **Selections are confirmed from the readings** (DMM-FR-029). Each `select_*`
+  presses its key, then `_await`s a reading whose measurement type, coupling or
+  Hz flag shows the change, within `CONFIRM_TIMEOUT` (more for frequency). The
+  failure names the function and range the readings show. AC/DC on resistance
+  is refused before any key is sent. With remote mode declined there are no
+  readings to confirm by, and the key is pressed unconfirmed.
+- **Ranges** (DMM-FR-030). `set_range` moves one step per pass - Up or Down
+  towards the target, or Auto/Man to lock the present range - and confirms
+  each, the passes bounded by the number of ranges. `select_auto_range` presses
+  nothing when the meter is already auto-ranging; it used to toggle.
+- **`measure` is fresh** (DMM-FR-031): `_discard_input` empties the transport,
+  the operating system's buffer and the assembler, one complete frame is
+  discarded, and the next returned.
+- **Waits allow for the gate** (DMM-FR-032). `_patience` is the settling time,
+  plus two gate times when the last reading was a frequency one; the frequency
+  paths name the gate they are moving to, since the last reading describes the
+  gate being left.
+- **Echoes** are matched only among the bytes left once frames are extracted,
+  and the echo buffer is cleared before each key is sent, since nothing
+  received before the write can be its echo.
 
 #### DMM-DD-SIM — `simulator.py`
 
@@ -1682,6 +1762,15 @@ and frame encoding built from the same segment table the decoder reads, so the
 two cannot disagree. It reproduces the two states in which a real meter is
 silent — local mode, and Operate off — because both look like a dead link from
 the far end and neither is a fault.
+
+Since #115 it also draws the display at each range's resolution from
+`RANGES`, auto-ranges after a change of function (`range_index=None`, the
+default), shows OFL beyond a range, refuses Hz on DC and AC/DC on resistance,
+and keeps a schedule on a virtual clock: a reading every 0.4 s, or once per
+gate measuring frequency, restarted by a key that changes what is measured.
+`poll_within(timeout)` delivers only what is due in time (CORE-FR-062), so a
+driver wait shorter than the meter's fails here. Fault injection:
+`drop_keys`, `ignore_keys`, `garbage`.
 
 #### DMM-DD-CLI — `cli.py`
 

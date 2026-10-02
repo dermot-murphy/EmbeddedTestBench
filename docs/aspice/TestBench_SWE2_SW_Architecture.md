@@ -8,8 +8,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE2-001 | **Version** | 0.4 |
-| **Project** | TestBench | **Date** | 2026-09-23 |
+| **Document ID** | TB-SWE2-001 | **Version** | 0.5 |
+| **Project** | TestBench | **Date** | 2026-10-02 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.2 |
@@ -26,6 +26,7 @@
 | 0.2 | 2026-09-23 | Claude | DMM-ARC-001 added: the TTi 1604 multimeter element. |
 | 0.3 | 2026-09-25 | Claude | AD-23 brought up to date: command documents take variables, connect, timeouts, notes and `<disconnect>`, results are error, skip, fail or pass, and running moved to `script_run.py` (BLE-DD-SCRIPTRUN) (#46, #48). |
 | 0.4 | 2026-09-30 | Claude | PICO-ARC-001 added: the Pico 2 + SHT30-D thermometer and its firmware. AD-24 added. Thermometer interfaces added. Header version brought into line with this history (#104). |
+| 0.5 | 2026-10-02 | Claude | #115: AD-25 (a key press on the 1604 is confirmed from the readings) and AD-26 (the 1604 is read as a stream, and a measurement is fresh). CORE-ARC-002 gains the stream operations; DMM-ARC-001 updated. |
 
 ---
 
@@ -119,7 +120,7 @@ instrument, and to be importable without importing any other element.
 |---|---|---|---|
 | CORE-ARC-006 | `core.instrument.Instrument` | The instrument lifecycle, independent of command language: open, initialise, close, context manager, cached identity, declared simulator class, overridable event queue. The runner depends on this and on nothing below it. | `connect`, `initialise`, `close`, `identify`, `read_event_queue`, `check_errors`, `SIMULATOR_CLASS` |
 | CORE-ARC-001 | `core.scpi.ScpiInstrument` | Extends CORE-ARC-006 with SCPI: command and query primitives, `*IDN?` parsing, IEEE 488.2 operations, `SYSTem:ERRor?` polling, 488.2 block codec. Every SCPI driver subclasses it. | `_command`, `_query`, `_query_float`, `reset`, `parse_ieee_block` |
-| CORE-ARC-002 | `core.transport.Transport` | Abstract instrument link with buffered message framing built on three subclass primitives. | `write`, `read_message`, `read_exactly`, `read_raw`, `query`, `clear` |
+| CORE-ARC-002 | `core.transport.Transport` | Abstract instrument link with buffered message framing built on three subclass primitives, and stream access for instruments that send without being asked (AD-26). | `write`, `read_message`, `read_exactly`, `read_raw`, `read_available`, `discard_input`, `query`, `clear` |
 | CORE-ARC-003 | Concrete transports and the factory | Four interchangeable transports selected by resource string, held in a registry so a new link type registers itself. | `open_transport`, `parse_resource`, `register_backend` |
 | CORE-ARC-004 | `core.simulator.SimulatedInstrument` | Shared simulator harness: dispatch, compound messages, 488.2 queries, event queue, binary replies. `Responder` is the protocol the mock transport accepts. | `respond`, `handle`, `_cmd_*`, `push_event` |
 | CORE-ARC-007 | `core.firmware` | What a build system recorded about an image, read from the manifest beside it. Here rather than in an instrument because two need it and neither may import the other (AD-22): the dongle reads one to decide whether to refresh itself, the debug probe to say what it just flashed. | `FirmwareBuild`, `MANIFEST_NAME`, `parse_build_date` |
@@ -132,7 +133,7 @@ instrument, and to be importable without importing any other element.
 | JLINK-ARC-001 | `instruments.jlink` | The debug probe driver. `JLinkProbe` is the façade over seven collaborators, each independently testable: MI record parsing (`gdbmi`), the command/response session (`session`), server discovery and lifetime (`server`), RTT (`rtt`), ITM/SWO decoding (`swo`), timing results (`timing`), and the probe and target envelope (`constants`). Its simulator answers the MI dialogue. | `JLinkProbe`, `GdbMiSession`, `RttClient`, `ItmDecoder`, `TimingResult`, `GdbServer` |
 | S2LP-ARC-001 | `instruments.s2lp` | The ST S2-LP development kit, host side only: ST's firmware runs on the board (AD-20). The line protocol (`protocol`), the command/reply session with its raw log (`session`), the device's register map (`registers`), packet records and their structured log (`packets`), the driver façade (`s2lp`) and a simulated kit with a register file and a modelled air interface. | `S2lpDevkit`, `S2lpSession`, `Register`, `Packet`, `Capture`, `SimulatedS2lp` |
 | PSU-ARC-001 | `instruments.gpd3303d` | The GW Instek bench supply, programmable channels 1 and 2; its fixed rail is a front-panel switch and is outside the element. Not a SCPI instrument: it takes the transport and lifecycle from `ScpiInstrument` and replaces the SCPI-specific parts (`*CLS`, `*RST`, `SYSTem:ERRor?`) with its own. Its own command grammar, a load-modelling simulator, and a command line. | `Gpd3303D`, `ChannelReading`, `SupplyStatus`, `SimulatedGpd` |
-| DMM-ARC-001 | `instruments.tti1604` | The TTi 1604 bench multimeter, on an opto-isolated RS-232 link. Not a SCPI instrument and not close to one: no command language, no query, no `*IDN?`, no error queue. The link carries single characters standing for key presses, and the meter streams a ten-byte binary frame per measurement. Frame decoding (`protocol`) is pure and separate from the link, because decoding is where a wrong number comes from and it should be testable without a meter. The instrument envelope and protocol facts (`constants`), the driver façade (`dmm`), a behavioural simulator and a command line. | `Tti1604`, `Reading`, `FrameAssembler`, `decode`, `SimulatedTti1604` |
+| DMM-ARC-001 | `instruments.tti1604` | The TTi 1604 bench multimeter, on an opto-isolated RS-232 link. Not a SCPI instrument and not close to one: no command language, no query, no `*IDN?`, no error queue. The link carries single characters standing for key presses, and the meter streams a ten-byte binary frame per measurement. Frame decoding (`protocol`) is pure and separate from the link, because decoding is where a wrong number comes from and it should be testable without a meter. The instrument envelope and protocol facts (`constants`), the driver façade (`dmm`) - which reads the link as a stream (AD-26) and confirms every key press from the readings (AD-25) - a behavioural simulator with the meter's resolution and reading rate on a virtual clock, a command line, an opt-in bench test and a front-panel check. | `Tti1604`, `Reading`, `FrameAssembler`, `decode`, `frame_problem`, `SimulatedTti1604` |
 | PICO-ARC-001 | `instruments.pico_sht30` **and** `firmware/pico_sht30` | The Pico 2 + SHT30-D bench thermometer, as one element across two languages. Host side: the driver (`thermometer`), which takes the transport and lifecycle from `ScpiInstrument` and replaces the SCPI-specific parts with the firmware's `ver`; the protocol tables (`constants`); a simulated thermometer that answers with the firmware's reply text; and a command line. Pico side: line assembly and dispatch (`cmd_parser`), the SHT30 driver (`sht30`), a bounded text builder in place of stdio (`text`), and a HAL seam (`hal.h`) implemented on the Pico SDK by `hal_pico.c` and by a fake in the host tests. `include/protocol.h` is the interface both sides are built from. | `PicoSht30`, `FirmwareInfo`, `Reading`, `SensorError`, `SimulatedPicoSht30`; `cmd_execute`, `sht30_measure`, `hal_i2c_write` |
 | RUN-ARC-001 | `runner` | Specification model, bench resolution, execution engine, result records, report writers, command line. | `load_spec`, `BenchConfig`, `BenchRunner`, `write_*` |
 
@@ -573,6 +574,62 @@ board is first brought up.
 must agree bit for bit; the simulator and both test suites use the same
 reference vectors so that a change to one side fails a test on the other. The
 reply is 20 characters longer than it needs to be.
+
+### AD-25 — A key press on the 1604 is confirmed from the readings, never from its echo
+
+**Context.** The TTi 1604 is controlled by sending the characters of its
+front-panel keys. Each is echoed, and the host must resend a key whose echo does
+not arrive within 300 ms. Some keys toggle - Auto/Man for certain - and an echo
+can be lost after the meter acted on the key, so resending is not idempotent. A
+key the meter refuses with a beep (Hz on a DC range) is echoed all the same.
+
+**Decision.** The echo is used to pace keys: it says the meter heard a
+character. Whether the meter *did* what was asked is taken from the readings it
+streams, which carry the function, range, coupling and annunciators. Every
+`select_*` and range operation presses its keys and then waits, within a
+bounded time, for a reading showing the state asked for, and raises naming what
+the readings show if none does (DMM-FR-029, -030). Nothing is pressed for a
+state the readings already show, so auto-ranging is set, not toggled.
+
+**Alternatives.** Trusting the echo is simpler and wrong in exactly the cases
+that matter: a toggle resent after a lost echo, a refused key, a front panel
+changed by hand. The meter has no query to read its state back any other way.
+
+**Consequences.** A function change costs one to two seconds, most of it the
+meter's own, and the frame decoder carries the burden of being right - it is
+tested against frames built from the manufacturer's note, not only from the
+simulator. With remote mode declined there are no readings, and keys are
+pressed unconfirmed.
+
+### AD-26 — The 1604 is read as a stream, and a measurement is fresh
+
+**Context.** In remote mode the 1604 sends a frame after every measurement,
+2.5 times a second, whether or not anyone is reading; nothing it sends ends a
+message. The driver read with `Transport.read_raw()`, which waits for an
+end-of-message a serial port never signals: on a real port every read timed
+out with the bytes left unread, and connecting always failed (#115). Separately,
+the operating system keeps what nobody read, so the next frame on the line can
+be minutes old, and frames carry no timestamp.
+
+**Decision.** The core gains a stream read, `read_available()`, which returns
+whatever has arrived and waits only when nothing has, and `discard_input()`,
+which empties the transport's buffer and the operating system's (CORE-FR-061).
+The driver reads with a fixed short timeout that it never varies, because
+pyserial on Windows loses bytes whenever the timeout changes (LL-07), and loops
+to its own deadline. A measurement discards everything received, then one more
+frame, and returns the next (DMM-FR-031). Waits allow for the meter's reading
+rate in its present state, including the 10 s frequency gate (DMM-FR-032). A
+simulator on a virtual clock is given the read timeout (CORE-FR-062), so a wait
+shorter than the meter's fails in the tests.
+
+**Alternatives.** A reader thread keeping the latest frame would make a
+reading instant, and put a thread in every process that opens a meter for a
+saving of 0.4 s. Timestamping on arrival does not help: a frame that sat in the
+operating system's buffer arrives late and looks new.
+
+**Consequences.** A measurement costs 0.4 - 0.8 s, and a frequency measurement
+on the 4 kHz range up to 20 s. Any instrument that speaks without being asked
+can use the two transport operations.
 
 ## 8. Dynamic behaviour — a runner invocation
 

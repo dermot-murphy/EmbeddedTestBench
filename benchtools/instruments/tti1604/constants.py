@@ -34,18 +34,24 @@ Sources
   rate, 40 000 counts, OFL. Read directly.
 * *TTi 1604 Serial Control* - key characters, frame layout, field bit
   positions, as supplied by the project owner.
+* *1604 Remote Control Commands and Logging Data Format*, V.1 23.04.98,
+  amended 03.08.01 (Thurlby Thandar) - the manufacturer's own note, kept in
+  ``docs/dmm/reference/``. Where it and the summary above disagree on a bit
+  position, the manufacturer's note is followed (#115).
+* *1604 Instruction Manual* specification tables - the full scale and
+  resolution of every range, in :data:`RANGES`.
 * ``ddland/pythoncode`` ``tti1604/tti1604.py`` (MIT, Copyright (c) 2022 Derek
   Land) - a working implementation, used here to corroborate the segment
   patterns, the field bit positions and the DTR/RTS requirement. No code from
   it is reproduced; the protocol facts it demonstrates are recorded below in
   this project's own form.
 
-Traces to: DMM-FR-001 .. DMM-FR-030, DMM-DD-CONST.
+Traces to: DMM-FR-001 .. DMM-FR-033, DMM-DD-CONST.
 """
 
 from __future__ import annotations
 
-from typing import Dict, Tuple
+from typing import Dict, NamedTuple, Optional, Tuple
 
 __all__ = [
     "MODEL",
@@ -80,6 +86,13 @@ __all__ = [
     "STATUS_BITS",
     "SIGN_BIT",
     "OVERRANGE_TEXT",
+    "CONFIRM_TIMEOUT",
+    "READ_POLL",
+    "GATE_TIME",
+    "MeterRange",
+    "RANGES",
+    "FREQUENCY_RANGES",
+    "find_range",
 ]
 
 MODEL = "1604"
@@ -127,6 +140,22 @@ ECHO_TIMEOUT = 0.3
 
 #: How long the meter takes to act on a key press and settle, worst case.
 SETTLING_TIME = 2.0
+
+#: How long one read of the link waits before the driver checks its own
+#: deadline again. Fixed, and set on the transport once: pyserial reconfigures
+#: the port on every change of timeout, and on Windows that loses bytes in
+#: flight (TB-SWE3-002 LL-07), so the driver never varies it per read.
+READ_POLL = 0.05
+
+#: How long a function or range change may take to show in the readings. The
+#: manufacturer's note says a key typically takes 1 - 2 s to act; this allows
+#: twice that before the driver reports that the meter did not follow.
+CONFIRM_TIMEOUT = 4.0
+
+#: Seconds per reading when measuring frequency, by the 10 s gate flag. The
+#: meter reads once per gate, not 2.5 times a second, so every wait for a
+#: frequency reading must allow for it (#115).
+GATE_TIME: Dict[bool, float] = {False: 1.0, True: 10.0}
 
 # --- key presses ----------------------------------------------------------
 
@@ -220,8 +249,11 @@ AC_BIT = 0x08
 # --- the function and status bytes ---------------------------------------
 
 #: Bit positions in the function byte (byte 2).
+#:
+#: T-Hold is bit 1, as the manufacturer's note gives it. It was bit 0 here
+#: until #115; bit 0 is not used by the meter.
 FUNCTION_BITS: Dict[str, int] = {
-    "touch_hold": 0,
+    "touch_hold": 1,
     "min_max": 2,
     "hertz": 4,
     "null": 5,
@@ -229,9 +261,12 @@ FUNCTION_BITS: Dict[str, int] = {
 }
 
 #: Bit positions in the status byte (byte 9).
+#:
+#: Auto-range-set is bit 1, as the manufacturer's note gives it. It was bit 2
+#: here until #115; bit 2 is not used by the meter.
 STATUS_BITS: Dict[str, int] = {
     "double_beep": 0,
-    "auto_range_set": 2,
+    "auto_range_set": 1,
     "continuity_buzzer": 3,
     "showing_minimum": 4,
     "showing_maximum": 5,
@@ -254,3 +289,92 @@ UNIT_SCALE: Dict[int, Tuple[str, float]] = {
     4: ("A", 1.0),
     7: ("V", 1.0),
 }
+
+
+# --- ranges ---------------------------------------------------------------
+
+class MeterRange(NamedTuple):
+    """One measurement range, from the instruction manual's specification.
+
+    :param code: The range field of the range byte, 0 to 5.
+    :param label: As the manual names it.
+    :param full_scale: The range's span, in SI units.
+    :param resolution: The value of one count, in SI units.
+    :param limit: The magnitude above which the meter shows OFL, where the
+        manual gives one other than the full scale.
+    """
+
+    code: int
+    label: str
+    full_scale: float
+    resolution: float
+    limit: Optional[float] = None
+
+    @property
+    def overload(self) -> float:
+        """The magnitude above which this range reads OFL."""
+        return self.limit if self.limit is not None else self.full_scale
+
+
+#: Ranges per (measurement type, AC), in the order Up steps through them.
+#:
+#: The range codes are the remote-control note's. Its labels for the AC
+#: current ranges (1 mA, 100 mA) disagree with the manual's specification
+#: (4 mA, 400 mA); the manual's figures are used, and the value is scaled from
+#: the display rather than the label, so readings are unaffected.
+RANGES: Dict[Tuple[int, bool], Tuple[MeterRange, ...]] = {
+    (2, False): (
+        MeterRange(1, "4 V", 4.0, 1e-4),
+        MeterRange(2, "40 V", 40.0, 1e-3),
+        MeterRange(3, "400 V", 400.0, 1e-2),
+        MeterRange(4, "1000 V", 1000.0, 1e-1, 1024.0),
+    ),
+    (2, True): (
+        MeterRange(1, "4 V", 4.0, 1e-3),
+        MeterRange(2, "40 V", 40.0, 1e-2),
+        MeterRange(3, "400 V", 400.0, 1e-1),
+        MeterRange(4, "750 V", 750.0, 1.0, 768.0),
+    ),
+    (1, False): (MeterRange(3, "400 mV", 0.4, 1e-5),),
+    (1, True): (MeterRange(3, "400 mV", 0.4, 1e-4),),
+    (3, False): (
+        MeterRange(1, "4 mA", 4e-3, 1e-7),
+        MeterRange(3, "400 mA", 0.4, 1e-5),
+    ),
+    (3, True): (
+        MeterRange(1, "4 mA", 4e-3, 1e-6),
+        MeterRange(3, "400 mA", 0.4, 1e-4),
+    ),
+    (4, False): (MeterRange(2, "10 A", 10.0, 1e-3),),
+    (4, True): (MeterRange(2, "10 A", 10.0, 1e-2),),
+    (5, False): (
+        MeterRange(0, "400 ohm", 400.0, 1e-2),
+        MeterRange(1, "4 kohm", 4e3, 1e-1),
+        MeterRange(2, "40 kohm", 4e4, 1.0),
+        MeterRange(3, "400 kohm", 4e5, 10.0),
+        MeterRange(4, "4 Mohm", 4e6, 100.0),
+        MeterRange(5, "40 Mohm", 4e7, 1e3),
+    ),
+}
+
+#: Frequency ranges, chosen by the 10 s gate flag rather than the range code.
+#: The manual's text gives the 4 kHz range the 10 s gate and 0.1 Hz
+#: resolution; its specification table has the gate times the other way
+#: round. The text is followed (DMM-OPEN-06).
+FREQUENCY_RANGES: Dict[bool, MeterRange] = {
+    False: MeterRange(0, "40 kHz", 4e4, 1.0),
+    True: MeterRange(0, "4 kHz", 4e3, 0.1),
+}
+
+
+def find_range(measurement_type: int, ac: bool, code: int) -> Optional[MeterRange]:
+    """The range *code* means for a measurement, or ``None`` if none is listed.
+
+    Resistance is the same range whichever coupling the frame reports.
+    """
+    if measurement_type == 5:
+        ac = False
+    for candidate in RANGES.get((measurement_type, bool(ac)), ()):
+        if candidate.code == code:
+            return candidate
+    return None

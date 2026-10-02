@@ -5,7 +5,7 @@ frame decoded from the wrong offset, a digit pattern read as the wrong figure,
 an ohms reading off by a factor of a thousand, a held display recorded as a
 live measurement, and an overrange treated as a number.
 
-Traces to: DMM-FR-010 .. DMM-FR-032, SWE4-UT-DMM.
+Traces to: DMM-FR-010 .. DMM-FR-028, SWE4-UT-DMM.
 """
 
 from __future__ import annotations
@@ -177,3 +177,103 @@ class TestReadingSemantics:
     def test_the_raw_frame_is_kept_as_evidence(self):
         frame = frame_for(value=1.0)
         assert decode(frame).raw == frame
+
+
+#: Seven-segment patterns, for building frames by hand from the published
+#: format rather than from the simulator.
+_P = {"0": 0xFC, "1": 0x60, "2": 0xDA, "3": 0xF2, "4": 0x66, "5": 0xB6, " ": 0x00}
+
+
+def hand_frame(units, range_code, text, function=0x40, status=0x02, sign=0):  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    """A frame built byte by byte: *text* is five glyphs with at most one point."""
+    digits = []
+    for glyph in text:
+        if glyph == ".":
+            digits[-1] |= 1
+        else:
+            digits.append(_P[glyph])
+    assert len(digits) == 5
+    return bytes([FRAME_START, units | (range_code << 4), function, sign] + digits + [status])
+
+
+class TestTheManufacturersNote:
+    """#115: bit positions as the 1604 remote-control note gives them."""
+
+    def test_the_note_s_worked_example(self):
+        # "if the display reads 12.345, characters 4 through 8 will be
+        # 96 219 242 102 182"
+        frame = bytes([FRAME_START, 2 | (2 << 4), 0x40, 0, 96, 219, 242, 102, 182, 0])
+        assert decode(frame).value == pytest.approx(12.345)
+
+    def test_touch_hold_is_bit_one_of_the_function_byte(self):
+        reading = decode(hand_frame(2, 1, "1.2345", function=0x02))
+        assert reading.flags["touch_hold"] is True
+        assert reading.held is True
+
+    def test_bit_zero_of_the_function_byte_is_not_touch_hold(self):
+        assert decode(hand_frame(2, 1, "1.2345", function=0x01)).flags["touch_hold"] is False
+
+    def test_auto_range_set_is_bit_one_of_the_status_byte(self):
+        assert decode(hand_frame(2, 1, "1.2345", status=0x02)).status["auto_range_set"] is True
+        assert decode(hand_frame(2, 1, "1.2345", status=0x04)).status["auto_range_set"] is False
+
+
+class TestResistanceIsDerived:
+    """DMM-FR-016: the k or M the frame does not carry, worked out from the range."""
+
+    @pytest.mark.parametrize(
+        "code,text,ohms",
+        [
+            (0, "123.45", 123.45),        # 400 ohm range, displayed in ohms
+            (1, "1.2345", 1234.5),        # 4 k range, displayed in kilohms
+            (1, "1234.5", 1234.5),        # the same range displayed in ohms
+            (4, "1.2345", 1234500.0),     # 4 M range displayed in megohms
+            (4, "1234.5", 1234500.0),     # ... or in kilohms
+            (5, "12345", 12345000.0),     # 40 M range in kilohms, as develop assumed
+            (5, "12.345", 12345000.0),    # ... or in megohms
+        ],
+    )
+    def test_either_display_convention_reads_right(self, code, text, ohms):
+        reading = decode(hand_frame(5, code, text))
+        assert reading.value == pytest.approx(ohms)
+
+    def test_a_display_that_fits_no_multiplier_is_not_a_number(self):
+        # Two decimals on the 4 k range would be 10 mohm per count.
+        reading = decode(hand_frame(5, 1, "123.45"))
+        assert reading.value is None
+        assert "DMM-OPEN-08" in reading.problem
+
+
+class TestFrameValidation:
+    """DMM-FR-028: a carriage return is not enough to make a frame."""
+
+    def test_a_valid_frame_has_no_problem(self):
+        from benchtools.instruments.tti1604.protocol import frame_problem
+
+        assert frame_problem(hand_frame(2, 1, "1.2345")) == ""
+
+    @pytest.mark.parametrize(
+        "mutate,why",
+        [
+            (lambda f: f[:1] + bytes([0x00]) + f[2:], "names no measurement"),
+            (lambda f: f[:8] + bytes([0x44]) + f[9:], "not a pattern"),
+            (lambda f: f[:4] + bytes([f[4] | 1, f[5] | 1]) + f[6:], "decimal points"),
+        ],
+    )
+    def test_what_is_not_a_frame(self, mutate, why):
+        from benchtools.instruments.tti1604.protocol import frame_problem
+
+        assert why in frame_problem(mutate(hand_frame(2, 1, "1.2345")))
+
+    def test_the_assembler_resynchronises_past_a_false_start(self):
+        good = hand_frame(2, 1, "1.2345")
+        assembler = FrameAssembler()
+        assembler.feed(b"\x0d\x21\x40" + good)
+        assert assembler.frames() == [good]
+        assert assembler.resynchronised == 1
+
+    def test_the_reading_names_its_function_and_range(self):
+        reading = decode(hand_frame(2, 2, "12.345"))
+        assert reading.function == "dc_volts"
+        assert reading.range_label == "40 V"
+        assert reading.is_live is True

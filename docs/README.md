@@ -102,6 +102,7 @@ All ASPICE work products live in [`aspice/`](aspice/). Every one is at version
 | [S2-LP Devkit Notes](s2lp/S2LP_Devkit_Notes.md) | The ST S2-LP kit: why the vendor's firmware is used unchanged and what that decision costs, its CLI protocol and the two reply traps in it, the register map and what may be kept of it, and the kit's bench confirmation items |
 | [Pico 2 + SHT30-D Notes](pico_sht30/Pico_SHT30_Notes.md) | The Pico 2 thermometer: wiring, building and flashing the firmware, the SHT30 datasheet facts it depends on, its MISRA C position, and bench confirmation items. [References](pico_sht30/References.md) lists the official datasheets, schematics and user guides, with `fetch_datasheets.sh` |
 | [GPD-3303D Notes](psu/GPD3303D_Notes.md) | The GW Instek bench supply: why it rejects an out-of-range setting silently, why constant current matters to every other measurement on the bench, why per-channel output is emulated and what that does not promise, why a channel it is slaving to another is refused rather than reported, and its bench confirmation items |
+| [TTi 1604 Notes](dmm/TTi1604_Notes.md) | The TTi 1604 multimeter: its interface and protocol, the stream read and why a key press is confirmed from the readings, the derived resistance multiplier, the bench test and front-panel check, and its bench confirmation items. The manufacturer's documents are in `dmm/reference/` |
 
 ## Adding an instrument
 

@@ -4,7 +4,7 @@ The meter has no command language: the link carries single characters standing
 for front-panel key presses, and in remote mode it streams a ten-byte binary
 frame after every measurement.
 
-Traces to: DMM-FR-001 .. DMM-FR-060, DMM-ARC-001.
+Traces to: DMM-FR-001 .. DMM-FR-033, DMM-ARC-001.
 """
 
 from .constants import (

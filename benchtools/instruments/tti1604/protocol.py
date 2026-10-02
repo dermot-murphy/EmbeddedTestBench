@@ -5,7 +5,7 @@ nothing about serial ports. That separation is deliberate - frame decoding is
 where a wrong number comes from, and it should be testable without a meter,
 a port, or a simulator.
 
-Traces to: DMM-FR-010 .. DMM-FR-026, DMM-DD-PROTO.
+Traces to: DMM-FR-010 .. DMM-FR-028, DMM-DD-PROTO.
 """
 
 from __future__ import annotations
@@ -20,6 +20,7 @@ from .constants import (
     DIGIT_COUNT,
     FRAME_LENGTH,
     FRAME_START,
+    FREQUENCY_RANGES,
     FUNCTION_BITS,
     INDEX_FIRST_DIGIT,
     INDEX_FUNCTION,
@@ -33,6 +34,7 @@ from .constants import (
     SIGN_BIT,
     STATUS_BITS,
     UNIT_SCALE,
+    find_range,
 )
 
 __all__ = [
@@ -40,6 +42,8 @@ __all__ = [
     "FrameAssembler",
     "decode",
     "find_frame_start",
+    "frame_problem",
+    "resistance_scale",
     "digits_text",
     "unit_and_scale",
 ]
@@ -81,6 +85,27 @@ class Reading:  # pylint: disable=too-many-instance-attributes
     flags: Dict[str, bool] = field(default_factory=dict)
     status: Dict[str, bool] = field(default_factory=dict)
     raw: bytes = b""
+    problem: str = ""
+    range_label: str = ""
+
+    @property
+    def function(self) -> str:
+        """What the meter is measuring, as one word a test can name.
+
+        ``dc_volts``, ``ac_milliamps``, ``ohms``, ``frequency`` and so on. This
+        is what the driver checks after a key press to confirm the meter
+        followed it (DMM-FR-029).
+        """
+        if self.flags.get("hertz"):
+            return "frequency"
+        if self.measurement in ("ohms", "continuity", "diode"):
+            return self.measurement
+        return "%s_%s" % ("ac" if self.ac else "dc", self.measurement)
+
+    @property
+    def is_live(self) -> bool:
+        """A number that is the input's value now: not overrange, not held."""
+        return self.value is not None and not self.held
 
     @property
     def held(self) -> bool:
@@ -136,6 +161,57 @@ def digits_text(frame: bytes) -> str:
     return "".join(out)
 
 
+def frame_problem(frame: bytes) -> str:
+    """Why *frame* is not one the meter would send, or ``""`` if it is.
+
+    Length and a leading carriage return are not enough. The meter streams
+    without gaps, so a reader that joins part-way through a frame can find a
+    carriage return that is not a frame start - and the ten bytes after it
+    decode to a plausible wrong number. Every display byte must also be a
+    pattern the meter draws, the units field must name a measurement, and the
+    display can carry at most one decimal point. A candidate that fails is not
+    a frame, and :class:`FrameAssembler` looks again from the next byte
+    (DMM-FR-028).
+    """
+    if len(frame) != FRAME_LENGTH:
+        return "a frame is %d bytes, got %d" % (FRAME_LENGTH, len(frame))
+    if frame[0] != FRAME_START:
+        return "a frame starts with 0x%02X, got 0x%02X" % (FRAME_START, frame[0])
+    if (frame[INDEX_RANGE] & 0x07) not in MEASUREMENT_TYPES:
+        return "range byte 0x%02X names no measurement" % frame[INDEX_RANGE]
+    points = 0
+    for offset in range(DIGIT_COUNT):
+        byte = frame[INDEX_FIRST_DIGIT + offset]
+        if (byte & ~DECIMAL_POINT_BIT & 0xFF) not in SEGMENT_PATTERNS:
+            return "display byte %d is 0x%02X, not a pattern the meter draws" % (offset, byte)
+        points += byte & DECIMAL_POINT_BIT
+    if points > 1:
+        return "the display has %d decimal points" % points
+    return ""
+
+
+def resistance_scale(range_index: int, text: str) -> Optional[float]:
+    """Ohms per displayed unit, derived rather than assumed, or ``None``.
+
+    The frame does not carry the k or M annunciator. The manual gives each
+    range's resolution in ohms, and the display's last digit is worth
+    ``10**-decimals`` displayed units, so their ratio is the multiplier. It
+    must come out at 1, 1 000 or 1 000 000; anything else means the display
+    does not fit the range, and no number is better than a guessed one
+    (DMM-FR-016).
+    """
+    meter_range = find_range(5, False, range_index)
+    if meter_range is None:
+        return None
+    _whole, point, fraction = text.lstrip("-").partition(".")
+    decimals = len(fraction) if point else 0
+    ratio = meter_range.resolution / (10.0 ** -decimals)
+    for multiplier in (1.0, 1e3, 1e6):
+        if abs(ratio / multiplier - 1.0) < 1e-6:
+            return multiplier
+    return None
+
+
 def unit_and_scale(measurement_type: int, range_index: int, hertz: bool) -> Tuple[str, float]:
     """SI unit and the factor from displayed number to that unit.
 
@@ -157,7 +233,7 @@ def unit_and_scale(measurement_type: int, range_index: int, hertz: bool) -> Tupl
     return unit, scale
 
 
-def decode(frame: bytes) -> Reading:
+def decode(frame: bytes) -> Reading:  # pylint: disable=too-many-locals
     """Turn one ten-byte frame into a :class:`Reading`.
 
     :raises ProtocolError: The frame is the wrong length or does not start
@@ -191,13 +267,29 @@ def decode(frame: bytes) -> Reading:
 
     overrange = OVERRANGE_TEXT in text.upper().replace(".", "")
     unit, scale = unit_and_scale(measurement_type, range_index, flags["hertz"])
+    problem = ""
+    if measurement_type == 5 and not flags["hertz"] and not overrange:
+        derived = resistance_scale(range_index, text)
+        if derived is None:
+            problem = (
+                "the resistance display %r does not fit the %s range's resolution, "
+                "so its multiplier cannot be derived (DMM-OPEN-08)"
+                % (text, RANGE_DESCRIPTIONS.get(range_index, "unknown"))
+            )
+        else:
+            scale = derived
 
     value = None  # type: Optional[float]
-    if not overrange:
+    if not overrange and not problem:
         try:
             value = float(text) * scale
         except ValueError:
             value = None
+
+    if flags["hertz"]:
+        meter_range = FREQUENCY_RANGES[status["gate_ten_seconds"]]
+    else:
+        meter_range = find_range(measurement_type, ac, range_index)
 
     return Reading(
         value=value,
@@ -211,6 +303,8 @@ def decode(frame: bytes) -> Reading:
         flags=flags,
         status=status,
         raw=bytes(frame),
+        problem=problem,
+        range_label=meter_range.label if meter_range is not None else "",
     )
 
 
@@ -231,12 +325,15 @@ class FrameAssembler:
     carriage return - and whatever is left over is echo. That way the two are
     told apart by structure rather than by value.
 
-    Traces to: DMM-FR-027 .. DMM-FR-032, DMM-DD-PROTO.
+    Traces to: DMM-FR-026, DMM-FR-028, DMM-DD-PROTO.
     """
 
     def __init__(self) -> None:
         self._buffer = bytearray()
         self._residue = bytearray()
+        #: Carriage returns passed over because the ten bytes after them were
+        #: not a frame - a count for diagnosing a noisy link.
+        self.resynchronised = 0
 
     def feed(self, data: bytes) -> None:
         """Add newly received bytes."""
@@ -260,7 +357,16 @@ class FrameAssembler:
                 del self._buffer[:start]
             if len(self._buffer) < FRAME_LENGTH:
                 break                      # a frame in progress; wait for the rest
-            found.append(bytes(self._buffer[:FRAME_LENGTH]))
+            candidate = bytes(self._buffer[:FRAME_LENGTH])
+            if frame_problem(candidate):
+                # A carriage return that does not start a frame: the stream
+                # was joined part-way through one. Look again from the next
+                # byte rather than decode garbage.
+                self._residue.append(self._buffer[0])
+                del self._buffer[0]
+                self.resynchronised += 1
+                continue
+            found.append(candidate)
             del self._buffer[:FRAME_LENGTH]
         return found
 
@@ -274,6 +380,11 @@ class FrameAssembler:
         out = bytes(self._residue)
         self._residue.clear()
         return out
+
+    def clear(self) -> None:
+        """Forget everything held: a fresh start after discarding input."""
+        self._buffer.clear()
+        self._residue.clear()
 
     def pending(self) -> int:
         """How many bytes of an incomplete frame are held."""
