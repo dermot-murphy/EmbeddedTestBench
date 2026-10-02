@@ -8,8 +8,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE4-001 | **Version** | 0.5 |
-| **Project** | TestBench | **Date** | 2026-09-23 |
+| **Document ID** | TB-SWE4-001 | **Version** | 0.6 |
+| **Project** | TestBench | **Date** | 2026-10-02 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.4 |
@@ -27,6 +27,7 @@
 | 0.3 | 2026-09-25 | Claude | SWE4-UT-BLESCRIPT extended to the new command-document behaviour (BLE-FR-109…116); firmware unit cases now 148 (#46, #48). |
 | 0.4 | 2026-09-26 | Claude | SWE4-UT-PSUPANEL added for the GPD-3303D front-panel check (#67). Header version brought into line with this history. |
 | 0.5 | 2026-09-30 | Claude | Thermometer firmware verification strategy (§1.4b) and test groups SWE4-UT-PICO, -PICOSIM, -PICOCLI, -PICOFWPROTO and -PICOFW added; item not covered on silicon added (#104). |
+| 0.6 | 2026-10-02 | Claude | #115: SWE4-UT-DMMPANEL (the 1604 front-panel check) and SWE4-UT-DMMBENCH (the opt-in bench test, §4.6a) added; SWE4-UT-DMM, -DMMPROTO, -DMMSIM, -TRANSPORT and -SERIAL extended. Oracle independence item added for frames built from the manufacturer's note. |
 
 ---
 
@@ -111,6 +112,13 @@ Three measures ensure tests do not merely confirm the code agrees with itself:
    (`test_spread_skews_match_the_instrument_delay_measurement`), and the built-in
    VXI-11 transport is compared against PyVISA's independent implementation over
    the same server.
+7. **The 1604's frames are built from the manufacturer's note, and its driver is
+   run over a real serial object.** `test_protocol.py` assembles frames byte by
+   byte from the published format - starting with the note's own worked example,
+   12.345 as `96 219 242 102 182` - rather than only from the simulator's
+   encoder. `TestTheSerialLink` runs the driver over pyserial's `loop://`, which
+   never signals end-of-message, so a reader that depends on one (#115) fails
+   there as it fails on hardware.
 
 ### 4.4 Work-product verification
 
@@ -215,6 +223,29 @@ module's imports:
 | Protocol grammar testing | GDB/MI records: nesting, repeated names, uniformly named lists, escapes, non-MI lines (`SWE4-UT-GDBMI`) |
 | Resource-limit testing | Hardware breakpoint and watchpoint envelopes, memory chunk boundaries, the 32-bit cycle-counter wrap |
 
+### 4.6a Bench tests (opt-in)
+
+`tests/bench/` holds tests that exercise a real instrument. They are **not**
+unit verification and are not part of the default run: the directory is
+excluded from collection (`norecursedirs` in `pyproject.toml`), and each test
+skips unless the operator names the instrument in the environment. They are run
+by hand at the bench, and write a markdown record of what the instrument did,
+which is the evidence that discharges bench confirmation items.
+
+Each can also be run against the driver's simulator (`sim://`) as a dry run of
+the test itself, with the reference the operator names applied to the
+simulated input. A dry run shows the bench test is sound; it is never evidence
+about an instrument, and its record says so on its first lines.
+
+| Test ID | File | Purpose | Requirements verified |
+|---|---|---|---|
+| SWE4-UT-DMMBENCH | `bench/tti1604/test_bench.py` | A real TTi 1604 named by `BENCHTOOLS_TTI1604`: the link and remote mode, key echo, the raw stream and reading rate, every frame decoding, a tour of the functions safe on an open input, every DC voltage range, the frequency gate, local and remote; against a wired reference, DC volts, resistance, frequency and - only when a current reference is named - DC current; OFL on an open input | DMM-FR-001 .. -033, -080 |
+
+The front-panel checks (`examples/10_psu_front_panel_check.py`,
+`examples/12_dmm_front_panel_check.py`) are the interactive counterpart: the
+operator confirms each step on the instrument's own display. They are tested
+against the simulator in the default run (SWE4-UT-PSUPANEL, SWE4-UT-DMMPANEL).
+
 ### 4.7 Pass criteria
 
 | ID | Criterion |
@@ -244,7 +275,7 @@ module's imports:
 | SWE4-UT-PROCESS | `core/transport/test_process.py` | `ProcessTransport`: pipe framing, reader threads, bounded stderr retention, a child that exits immediately, retained exit status | CORE-FR-009, CORE-NFR-005, -006 |
 | SWE4-UT-SIMBASE | `core/test_simulator.py` | Shared simulator harness: dispatch, compound messages, event queue, binary replies, subclassing | CORE-FR-040, -041 |
 | SWE4-UT-VALIDATE | `core/test_validation.py` | Range, channel and choice validation; the enumeration base | CORE-FR-030, -031, CORE-NFR-004 |
-| SWE4-UT-TRANSPORT | `core/transport/test_base.py` | Message framing, buffering, stale-response discard, lifecycle, timeouts | CORE-FR-005, -007, CORE-NFR-005, -006 |
+| SWE4-UT-TRANSPORT | `core/transport/test_base.py` | Message framing, buffering, stale-response discard, lifecycle, timeouts; stream reading past an end-of-message, the `read_raw` failure that motivated it, discarding unread input, and a virtual-clock simulator given the read timeout | CORE-FR-005, -007, -061, -062, CORE-NFR-005, -006 |
 | SWE4-UT-VXI11 | `core/transport/test_vxi11.py` | VXI-11 client at wire level against an independent RPC server | CORE-FR-001, -002, -007, -008 |
 | SWE4-UT-SOCKET | `core/transport/test_socket.py` | Raw socket transport; length-bounded and idle-bounded reads | CORE-FR-003 |
 | SWE4-UT-VISA | `core/transport/test_visa.py` | PyVISA transport against the same RPC server | CORE-FR-006, CORE-NFR-003 |
@@ -267,7 +298,7 @@ module's imports:
 | SWE4-UT-JLINKSIM | `instruments/jlink/test_simulator.py` | Self-checks on the simulated probe and target: the MI dialogue, the exact 64 000-cycle interval, symbols, stacks, RTT, sections, the hardware-breakpoint type | JLINK-FR-090 |
 | SWE4-UT-JLINKCLI | `instruments/jlink/test_cli.py` | Every probe sub-command end to end, including erase; JSON output; the untrustworthy-measurement warning; exit statuses; which sub-commands leave the target halted | JLINK-FR-006, JLINK-FR-100 |
 | SWE4-UT-JLINKRTTONLY | `instruments/jlink/test_rtt_only.py` | Numbers from matching RTT lines, lines already waiting ignored, a quiet target; opening without attaching, and the GDB Server told `-nohalt` only when asked | JLINK-FR-101, JLINK-FR-102 |
-| SWE4-UT-SERIAL | `core/transport/test_serial.py` | Serial transport: port and rate parsing, a TCP port not mistaken for a line rate, scheme registration, framing over `loop://`, a write the far end will not take | CORE-FR-017, CORE-NFR-003, -006 |
+| SWE4-UT-SERIAL | `core/transport/test_serial.py` | Serial transport: port and rate parsing, a TCP port not mistaken for a line rate, scheme registration, framing over `loop://`, a write the far end will not take; reading a stream without framing, and discarding what the port holds | CORE-FR-017, -061, CORE-NFR-003, -006 |
 | SWE4-UT-BLE | `instruments/nordic_dongle/test_dongle.py` | The dongle driver: identity and protocol check, scanning and filtering, selection, connection, UART, response timing, advertising profile, logging | BLE-FR-002 .. -062 |
 | SWE4-UT-BLESAMPLE | `instruments/nordic_dongle/test_sampling.py` | One command repeated at an interval, a number from each reply, scaling, and a reply without a number refused | BLE-FR-117 |
 | SWE4-UT-BLEPROTO | `instruments/nordic_dongle/test_protocol.py` | The line protocol: replies, errors, events, empty and `=`-bearing values, non-protocol lines, hex, addresses and their types | BLE-FR-001, -002 |
@@ -304,9 +335,10 @@ module's imports:
 | SWE4-UT-PSUSIM | `instruments/gpd3303d/test_simulator.py` | Self-checks on the simulated supply: Ohm's law, the constant-current fallback, the single output switch, silent refusals, the three tracking modes and the setpoint a tracking supply discards, and the rejection of an out-of-range setting as the hardware rejects it | PSU-FR-006, PSU-FR-050 |
 | SWE4-UT-PSUCLI | `instruments/gpd3303d/test_cli.py` | Every supply sub-command end to end; JSON output; the current-limit and tracking warnings; that `set` does not energise a rail | PSU-FR-060 |
 | SWE4-UT-PSUPANEL | `instruments/gpd3303d/test_front_panel_check.py` | The front-panel check (`examples/10_psu_front_panel_check.py`) against the simulator: every step taken and logged with the driver's read-back, and the supply left with its output off and its original settings, after a completed run and after a failure part-way | PSU-FR-030, PSU-FR-040, PSU-FR-043 |
-| SWE4-UT-DMMPROTO | `instruments/tti1604/test_protocol.py` | Frame decoding: the segment bitmap and the relationship that identifies it, the decimal point, an unrecognised pattern marked rather than dropped, decoding refused from the wrong offset, frames and echoes separated by structure, a digit byte that equals a key character, SI scaling including the kilohm display on every ohms range, overrange as not-a-number, and a held display | DMM-FR-010 .. -026 |
-| SWE4-UT-DMM | `instruments/tti1604/test_dmm.py` | The driver: the handshake lines driven for a serial port, a bare port name as a port, remote mode entered on connecting, Operate left alone, the driver's own identity, key presses and the resend of a dropped one, the mute meter reported with its likely cause, and the silence that names both states that produce it | DMM-FR-001 .. -009, -023 .. -026 |
-| SWE4-UT-DMMSIM | `instruments/tti1604/test_simulator.py` | Self-checks on the simulated meter: silence in local mode and with Operate off, every command echoed, Operate toggling rather than switching on, ranges bounded, and values round-tripping through the segment encoding to the decoder | DMM-FR-040 .. -052 |
+| SWE4-UT-DMMPROTO | `instruments/tti1604/test_protocol.py` | Frame decoding: the segment bitmap and the relationship that identifies it, the decimal point, an unrecognised pattern marked rather than dropped, decoding refused from the wrong offset, frames and echoes separated by structure, a digit byte that equals a key character, SI scaling, overrange as not-a-number, and a held display; the manufacturer's worked example and bit positions; the resistance multiplier derived on every range and under either display convention, and refused when it does not fit; frame validation and resynchronisation past a false start | DMM-FR-010 .. -028 |
+| SWE4-UT-DMM | `instruments/tti1604/test_dmm.py` | The driver: the handshake lines driven for a serial port, a bare port name as a port, remote mode entered on connecting, Operate left alone, the driver's own identity, key presses and the resend of a dropped one, the mute meter reported with its likely cause, and the silence that names both states that produce it; connecting and reading over pyserial's `loop://` (#115); resynchronisation; an echo never taken from inside a frame; a measurement taken after the call; every selection confirmed from the readings, and a key the meter ignores reported; ranges by full scale and an idempotent auto range; Hz on AC only, and the 10 s gate waited for | DMM-FR-001 .. -009, -023 .. -033, -045 |
+| SWE4-UT-DMMSIM | `instruments/tti1604/test_simulator.py` | Self-checks on the simulated meter: silence in local mode and with Operate off, every command echoed, Operate toggling rather than switching on, ranges bounded, and values round-tripping through the segment encoding to the decoder; the display at each range's resolution; auto-ranging after a change of function; Hz refused on DC; a reading every 0.4 s, and once per gate measuring frequency; a read shorter than the measurement timing out; dropped and ignored keys | DMM-FR-045, -046, CORE-FR-062 |
+| SWE4-UT-DMMPANEL | `instruments/tti1604/test_front_panel_check.py` | The front-panel check (`examples/12_dmm_front_panel_check.py`) against the simulator: every step taken and logged with the driver's read-back, the operator's answers and a mismatch recorded, `q` stopping early, and the meter left on DC volts, auto-ranging, in local mode after a completed, stopped or failed run | DMM-FR-029, -030, -033, -081 |
 | SWE4-UT-DMMCLI | `instruments/tti1604/test_cli.py` | Every meter sub-command end to end; JSON output; the display text reported beside the value; an unknown key name failing without a traceback | DMM-FR-070 |
 | SWE4-UT-PICO | `instruments/pico_sht30/test_thermometer.py` | The thermometer driver: title, version and identity from `ver`; protocol revision check; readings with raw words; every `err` code raised, never a stale value; values that disagree with their raw words refused; status decoding, sensor reset, reboot and bootloader; resource forms | PICO-FR-040 .. -046 |
 | SWE4-UT-PICOSIM | `instruments/pico_sht30/test_simulator.py` | The simulated thermometer answers with the firmware's reply text; conversion vectors shared with the firmware tests; fault injection | PICO-FR-050, PICO-FR-022 |
@@ -378,6 +410,7 @@ in the VISA determination report §5.1:
 | Exact SCPI command spellings against the programmer manual | The manual was unreachable from the build environment (CON-02) |
 | Analogue accuracy, bandwidth and noise behaviour | Instrument specification, not software |
 | Pico 2 thermometer on silicon: USB enumeration, I2C timing with the module's pull-ups, measured accuracy against a reference | No Pico 2 or SHT30-D module was available (CON-09); `docs/pico_sht30/Pico_SHT30_Notes.md` §7, PICO-OPEN-01 … -04 |
+| TTi 1604 against a physical meter: the frame terminator, the echo's place in the stream, the frequency gate times, key behaviour in remote mode, a USB converter's DTR/RTS levels, the resistance display convention | No meter was attached to the build environment (CON-10); `docs/dmm/TTi1604_Notes.md` §5, DMM-OPEN-01 … -08. Exercised by SWE4-UT-DMMBENCH (§4.6a) and the front-panel check when a meter is attached |
 | Behaviour of instrument families named for future work | No drivers exist yet (CON-03) |
 
 ---

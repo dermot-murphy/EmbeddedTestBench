@@ -98,7 +98,10 @@ class TestItWouldFail:
         # A short across the rail, a wrongly wired meter, or a board with a
         # fault all look like this. It must fail here and not contaminate the
         # other four tests.
-        record = run(dmm={"simulated_value": 1.0})
+        # 200 mA: above the board's band, inside the meter's 400 mA range. The
+        # simulated meter shows OFL above that range, as a real 1604 does, so
+        # 1 A here would be an overrange rather than a reading (#115).
+        record = run(dmm={"simulated_value": 0.2})
         assert record.status is Status.FAIL
         assert case(record, "draws the current").status is Status.FAIL
         assert case(record, "powered at 3.2 V").status is Status.PASS

@@ -1,6 +1,6 @@
 """Message framing and buffering in the transport base class.
 
-Traces to: SWE1-NFR-005, SWE4-UT-TRANSPORT.
+Traces to: SWE1-NFR-005, CORE-FR-061, CORE-FR-062, SWE4-UT-TRANSPORT.
 """
 
 from __future__ import annotations
@@ -171,3 +171,74 @@ class TestLifecycle:
         link = ScriptedTransport([(b"oops\n", True)]).open()
         with pytest.raises(ProtocolError):
             link.read_stb()
+
+
+class TestStreamReading:
+    """For instruments that speak without being asked (CORE-FR-061, #115)."""
+
+    def test_read_available_returns_what_has_arrived(self):
+        link = ScriptedTransport([(b"\rab", False), (b"cd", False)])
+        link.open()
+        assert link.read_available() == b"\rab"
+        assert link.read_available() == b"cd"
+
+    def test_read_available_is_not_stopped_by_an_earlier_end_of_message(self):
+        """A stream has no end: the next byte is always worth asking for."""
+        link = ScriptedTransport([(b"one", True), (b"two", True)])
+        link.open()
+        assert link.read_available() == b"one"
+        assert link.read_available() == b"two"
+
+    def test_read_available_returns_buffered_bytes_first(self):
+        link = ScriptedTransport([(b"x\nrest", False)])
+        link.open()
+        assert link.read_message() == b"x"
+        assert link.read_available() == b"rest"
+
+    def test_read_available_times_out_on_a_silent_link(self):
+        link = ScriptedTransport([(b"", False)])
+        link.open()
+        with pytest.raises(TransportTimeoutError):
+            link.read_available()
+
+    def test_read_raw_never_returns_on_a_link_without_end_of_message(self):
+        """Why read_available exists: this is the #115 failure, in miniature."""
+        link = ScriptedTransport([(b"\r\x21", False), (b"", False)])
+        link.open()
+        with pytest.raises(TransportTimeoutError):
+            link.read_raw()
+
+    def test_discard_input_drops_unread_bytes_and_counts_them(self):
+        link = ScriptedTransport([(b"a\nbcd", False), (b"new\n", False)])
+        link.open()
+        assert link.read_message() == b"a"
+        assert link.discard_input() == 3
+        assert not link.has_buffered_data
+        assert link.read_message() == b"new"
+
+    def test_a_virtual_clock_simulator_is_given_the_read_timeout(self):
+        """CORE-FR-062: what is due later than the timeout is not delivered."""
+        from benchtools.core.transport.mock import MockTransport
+
+        class Clocked:
+            def __init__(self):
+                self.asked = []
+
+            def respond(self, _message):
+                return None
+
+            def poll_within(self, timeout):
+                self.asked.append(timeout)
+                if timeout < 1.0:
+                    raise TransportTimeoutError("nothing due")
+                return b"tick"
+
+        responder = Clocked()
+        link = MockTransport(responder=responder, timeout=0.5)
+        link.open()
+        with pytest.raises(TransportTimeoutError):
+            link.read_available()
+        link.timeout = 2.0
+        assert link.read_available() == b"tick"
+        assert responder.asked == [0.5, 2.0]
+        assert link.discard_input() == 0

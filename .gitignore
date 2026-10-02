@@ -34,3 +34,6 @@ build/
 /benchtools_result*.json
 /bench_*.json
 results/
+
+# Bench test records (tests/bench), kept with the bench confirmation items
+*_bench_findings.md

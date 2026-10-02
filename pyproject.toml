@@ -61,6 +61,10 @@ include = ["benchtools*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+# tests/bench exercises real instruments and runs only when named:
+#     BENCHTOOLS_TTI1604=/dev/ttyUSB0 python -m pytest tests/bench/tti1604 -v
+norecursedirs = ["*.egg", ".*", "_darcs", "build", "CVS", "dist", "node_modules", "venv", "{arch}", "bench"]
+markers = ["bench: needs a real instrument attached, named by an environment variable"]
 filterwarnings = ["ignore::UserWarning:pyvisa_py.*"]
 
 # ---------------------------------------------------------------------------

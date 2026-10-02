@@ -8,8 +8,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE1-001 | **Version** | 0.7 |
-| **Project** | TestBench | **Date** | 2026-09-30 |
+| **Document ID** | TB-SWE1-001 | **Version** | 0.8 |
+| **Project** | TestBench | **Date** | 2026-10-02 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.1 |
@@ -29,6 +29,7 @@
 | 0.5 | 2026-09-25 | Claude | BLE-FR-026 (select by name fragment) and BLE-FR-046…049 (connect window, per-command reply wait, a command the sensor disconnects after, failed links closed) added. BLE-FR-102, -105, -106 and -107 revised and BLE-FR-109…116 added for command documents: results in the order error, skip, fail, pass; variables; connect and disconnect steps; per-step timeouts; `<disconnect>`; notes; the event log; the standalone runner (#46, #48). |
 | 0.6 | 2026-09-26 | Claude | PSU-FR-002 rationale corrected: the supply rejects an out-of-range setting, it does not clamp it (#64). PSU-FR-003 no longer promises an exact read-back (#64). PSU-FR-021 and -022 describe the status word as the supply sends it, without a line rate (#63). Header version brought into line with this history. |
 | 0.7 | 2026-09-30 | Claude | STK-21 and STK-22 added. Section 15 added: `PICO-` requirements for the Pico 2 + SHT30-D thermometer and its firmware (PICO-FR-001…060, PICO-NFR-001…006); CON-09 and ASM-10 added. Sections 16 to 19 renumbered (#104). |
+| 0.8 | 2026-10-02 | Claude | #115: CORE-FR-061 (read a stream as it arrives; discard unread input, the operating system's included) and CORE-FR-062 (a virtual-clock simulator is given the read timeout). DMM-FR-016 revised: the resistance multiplier is derived from the range resolution, not assumed. DMM-FR-021 revised: annunciator bit positions follow the manufacturer's note. DMM-FR-027 … -033 (stream reading, frame validation, confirmation from the readings, ranges, fresh measurement, the frequency gate, Hz on AC only), DMM-FR-046 (a simulator with the meter's resolution and reading rate), DMM-FR-070 (command line, already implemented, now declared), DMM-FR-080 and -081 (bench and panel tests). CON-03 corrected; CON-10 added. |
 
 ---
 
@@ -188,6 +189,8 @@ Extends §6.2 with the SCPI and IEEE 488.2 vocabulary.
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
 | CORE-FR-050 | A build's manifest - the version and build date its build system recorded beside the image - shall be readable by any element that needs it, and the diagnostic for a missing one shall name every path searched and take from the caller the sentence saying how that particular build produces one. | STK-07, STK-16 | Test |
+| CORE-FR-061 | The link layer shall support instruments that send without being asked: reading whatever bytes have arrived without waiting for an end-of-message - which a serial port never signals - and discarding everything received but not yet read, including input held by the operating system, so that a reading taken on request is not one that was waiting in a buffer. | STK-18 | Test |
+| CORE-FR-062 | A simulated instrument that streams on a virtual clock shall be told how long the driver is prepared to wait, so that output due later than that is a timeout, as it is on a real link, rather than data the driver would never have received. | STK-07, STK-18 | Test |
 | CORE-FR-060 | Every instrument's and the runner's log records shall be writable, while a run is in progress, to one event log of one JSON object per line, each naming the part of the bench it came from (supply, BLE, J-Link, S2-LP radio, runner, ...), so that another program can follow the run as it happens. | STK-19 | Test |
 
 ### 6.6 Simulation
@@ -706,12 +709,14 @@ review, in which case the reading is real but is not now.
 | DMM-FR-013 | A segment pattern the driver does not recognise shall be marked in the decoded text rather than dropped. Dropping it turns 1.234 into 1234. | STK-18 | Test |
 | DMM-FR-014 | The driver shall decode the measurement type, AC or DC, and the range from the range byte. | STK-18 | Test |
 | DMM-FR-015 | The driver shall report every value in SI units — volts, amps, ohms or hertz — whatever the display shows. | STK-18 | Test |
-| DMM-FR-016 | Resistance shall be scaled for the meter's kilohm display on every range but the 400 ohm one, including the top range, where 40 Mohm is displayed as 40 000 kohm. | STK-18 | Test |
+| DMM-FR-016 | Resistance shall be scaled by a multiplier derived from the range's resolution in the instruction manual and the position of the displayed decimal point, since the frame does not carry the k or M annunciator. A display that fits no multiplier of 1, 1 000 or 1 000 000 shall carry no value and shall say why. (Revised by #115: the multiplier was assumed to be 1 000 on every range above 400 ohm.) | STK-18 | Test |
 | DMM-FR-017 | With Hz selected the reading shall be reported as a frequency, whichever input the measurement type names. | STK-18 | Test |
 | DMM-FR-018 | An overrange display shall be reported as an overrange and shall not carry a numeric value. | STK-18 | Test |
 | DMM-FR-019 | The displayed text shall be reported alongside the value, as the evidence for it. | STK-18, STK-17 | Test |
 | DMM-FR-020 | A reading taken while the display is frozen — Hold, Touch-Hold, or a Min-Max review — shall be marked as held. The value is a real measurement but is not the present one, and a test that records it as live is measuring the past. | STK-18, STK-17 | Test |
-| DMM-FR-021 | The function and status annunciators shall be decoded and reported. | STK-18 | Test |
+| DMM-FR-021 | The function and status annunciators shall be decoded and reported, at the bit positions the manufacturer's remote-control note gives: Touch-Hold is bit 1 of the function byte and auto-range-set bit 1 of the status byte. (Revised by #115, which corrected both from bits 0 and 2.) | STK-18 | Test |
+| DMM-FR-027 | The driver shall read whatever bytes the meter has sent, as they arrive, and shall not wait for an end-of-message the link never signals. Until #115 it did, and on a real serial port every read timed out with the received bytes left unread, so connecting always failed. | STK-18 | Test |
+| DMM-FR-028 | A frame shall be accepted only if every display byte is a pattern the meter draws, its units field names a measurement and it carries at most one decimal point. A carriage return that does not begin such a frame shall be passed over and the search resumed, so that a stream joined part-way through a frame resynchronises instead of decoding garbage. | STK-18 | Test |
 | DMM-FR-022 | The raw frame shall be retained with the decoded reading. | STK-18 | Test |
 
 ### 14.4 Key presses
@@ -721,6 +726,11 @@ review, in which case the reading is real but is not now.
 | DMM-FR-023 | The driver shall send front-panel key presses by name, and shall refuse a name the meter has no key for, listing the keys it has. | STK-18 | Test |
 | DMM-FR-024 | The driver shall confirm each key press against the meter's echo and shall resend a command that was not echoed. At 9600 baud with no flow control on the data path a lost keystroke is silent, and the meter is then measuring something other than what the test asked for. | STK-18 | Test |
 | DMM-FR-025 | A command that is never echoed shall be reported with the handshake lines named as the likely cause. | STK-18 | Test |
+| DMM-FR-029 | Selecting a function or a coupling shall be confirmed from the readings, which carry the meter's state, and not from the echo: some keys toggle, a resend after a lost echo undoes the first press, and a refused key is echoed all the same. A change the readings do not show within the confirmation time shall be reported, naming what the readings show. AC or DC shall be refused on resistance before any key is sent. | STK-18 | Test |
+| DMM-FR-030 | The driver shall lock a range named by its full scale in SI units, stepping one range at a time and confirming each step from the readings, and shall turn auto-ranging on without toggling it. A full scale the function does not have shall be refused, naming the ones it has. | STK-18 | Test |
+| DMM-FR-031 | A measurement taken on request shall have been measured wholly after the request: everything already received, the operating system's buffer included, shall be discarded, and then the next complete frame. | STK-18, STK-17 | Test |
+| DMM-FR-032 | Every wait for a reading shall allow for the meter's reading rate in the state it is in: 0.4 s per reading on most functions, one gate time - 1 s, or 10 s on the 4 kHz range - when measuring frequency. | STK-18 | Test |
+| DMM-FR-033 | Frequency shall be selectable only from an AC voltage or current function, which is the only state in which the meter accepts the Hz key, and its range shall be selectable by full scale. | STK-18 | Test |
 | DMM-FR-026 | The echo shall be identified as the bytes left over once complete frames have been removed from the stream, not by searching the stream for the echoed character. Seven-segment digit patterns collide with the key characters exactly: `0x61` is both the Up key and the pattern for a `1` with its decimal point, so a scan for the character finds one inside an ordinary reading. | STK-18 | Test |
 
 ### 14.5 Simulation
@@ -728,8 +738,17 @@ review, in which case the reading is real but is not now.
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
 | DMM-FR-045 | The bench configuration shall be able to state what the simulated meter reads, so that a specification carrying real limits can be exercised with no hardware. The limits shall remain the specification's and the value the bench's. | STK-18, STK-16 | Test |
+| DMM-FR-046 | The simulated meter shall draw its display at each range's resolution, auto-range after a change of function, show OFL beyond a range, refuse Hz on DC and AC/DC on resistance, and send readings at the meter's rate - one per gate measuring frequency - on a virtual clock, so that a driver wait shorter than the meter's is a failure in the tests and not first on the bench. | STK-18 | Test |
 
-### 14.6 DMM non-functional
+### 14.6 Command line and bench use
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| DMM-FR-070 | A command-line interface shall identify the meter, report readings with their display text and annunciators as JSON, press keys by name and list them. | STK-18 | Test |
+| DMM-FR-080 | An opt-in bench test shall exercise the driver against a real meter named by the operator - link, stream, reading rate, functions, ranges, frequency gate, local and remote, and, where the operator names a wired reference, measurement against it - selecting a current function only when a current reference is named. It shall write a record of what the meter did for the bench confirmation items and shall be excluded from the default test run. | STK-18 | Test |
+| DMM-FR-081 | An interactive front-panel check shall change the meter through the driver step by step and ask the operator to confirm each change on the front panel - annunciators, range and displayed value - recording the driver's read-back, each answer, and what the panel showed instead, in a log; and shall leave the meter on DC volts, auto-ranging, in local mode however the run ends. | STK-18 | Test |
+
+### 14.7 DMM non-functional
 
 | ID | Requirement | Verification |
 |---|---|---|
@@ -896,7 +915,8 @@ last good one. Reference documents and wiring: `docs/pico_sht30/`.
 | ASM-09 | Advertising is on the primary channels (37, 38, 39) at 1 Mbit/s; extended advertising and coded PHY are not scanned for in this revision. |
 | CON-07 | The dongle firmware targets nRF5 SDK 17.1.0. It **builds, links, fits and packages** against that SDK in CI (`.github/workflows/firmware.yml`), and also compiles against SDK 15.2.0 headers in the `canembed/canembed-arm` image. It has **not** been flashed or run on a dongle. See `docs/ble/BLE_Dongle_Notes.md` §5. |
 | CON-08 | Only RTT-free, connection-oriented UART is supported; the dongle connects to one sensor at a time. |
-| CON-03 | Instrument families named for future work (STK-13 and STK-18: power supplies and a multimeter over RS-232) have no requirements in this revision. The core is designed for them but not validated against them. |
+| CON-03 | Instrument families named for future work - loads, signal sources, logic and protocol analysers - have no requirements in this revision. The core is designed for them but not validated against them. STK-13 (the GPD-3303D supply) and STK-18 (the TTi 1604 multimeter) are specified in §12 and §14. |
+| CON-10 | The TTi 1604 driver is verified against a simulated meter and over a serial loopback, not yet against a physical meter. The opt-in bench and panel tests (DMM-FR-080, -081) exist to do so; bench confirmation items are in `docs/dmm/TTi1604_Notes.md` (DMM-OPEN-01 … -08). |
 | CON-04 | The J-Link driver is verified against a simulated probe and a simulated target, not against physical hardware. Bench confirmation items are listed in `docs/jlink/JLink_Integration_Notes.md` §4. |
 | CON-05 | The scaling of SWO/ITM local timestamps to core cycles depends on the trace prescaler configured by the GDB server and the firmware. It is implemented from the ARMv7-M architecture reference manual and requires confirmation against a part before SWO timing figures are quoted (JLINK-OPEN-03). |
 | CON-09 | The Pico 2 thermometer firmware **builds** (Pico SDK 2.1.1, Arm GNU 14.2.1, UF2 produced) and its portable logic passes its host unit tests; it has **not** yet been run on a Pico 2 with a sensor attached. Bench confirmation items are in `docs/pico_sht30/Pico_SHT30_Notes.md` §7 (PICO-OPEN-01 … -04). |

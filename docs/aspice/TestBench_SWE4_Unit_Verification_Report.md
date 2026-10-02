@@ -8,8 +8,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE4-002 | **Version** | 0.4 |
-| **Project** | TestBench | **Date** | 2026-09-19 |
+| **Document ID** | TB-SWE4-002 | **Version** | 0.5 |
+| **Project** | TestBench | **Date** | 2026-10-02 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.4 |
@@ -26,6 +26,7 @@
 | 0.2 | 2026-09-26 | Claude | §13.4: PSU-OPEN-01 and -02 closed and PSU-OPEN-06 partly confirmed on a real supply (#61, #63). |
 | 0.3 | 2026-09-30 | Claude | §15: D-42 added and closed — `RttClient` polled its backend outside its lock, so the reader thread and a caller's read could poll at once. (D-41 is used on `main` by #106.) |
 | 0.4 | 2026-09-30 | Claude | Execution summary re-run after adding the `PICO-` element; test groups SWE4-UT-PICO, -PICOSIM, -PICOCLI and -PICOFWPROTO added to §5; §13A added for the Pico 2 thermometer firmware and driver (#104). |
+| 0.5 | 2026-10-02 | Claude | #115: execution summary re-run; §13B added for the TTi 1604 (the serial read defect, confirmation, ranges, the frequency gate, the bench test and front-panel check); D-43 and D-44 added and closed; DMM rows added to §5 and §6.1. |
 
 ---
 
@@ -54,13 +55,13 @@ It is deliberately a separate work product from the specification. A specificati
 
 | Metric | Result |
 |---|---|
-| Tests executed | **2 498** |
-| Passed | **2 497** |
+| Tests executed | **2 559** |
+| Passed | **2 558** |
 | Failed | 0 |
 | Errors | 0 |
 | Skipped | 1 |
-| Statement coverage | **95%** (13 143 statements, 667 missed) |
-| Execution time | 136.5 s with coverage instrumentation |
+| Statement coverage | **95%** (13 473 statements, 679 missed) |
+| Execution time | 114.1 s with coverage instrumentation |
 | Runtime | CPython 3.11.15, Linux |
 | Framework | pytest 9.1.1, pytest-cov |
 
@@ -75,7 +76,7 @@ installed for this run, so their tests executed.
 
 The suite was also run with all extras blocked - `matplotlib`, `pyvisa`,
 `pyyaml` and `pyserial` - to confirm the claim that the package works
-without them: **1 807 passed, 40 skipped, 0 failed**. They were blocked by a
+without them: **2 444 passed, 51 skipped, 2 failed. The two failures are on `develop` already and are not this change's: `test_events.py::TestWhatFeedsIt::test_the_runner_reports_each_test_s_result` and `test_serial.py::TestHandshakeLines::test_requested_states_are_applied_after_opening` both need pyserial and do not skip without it** (revision 0.5). They were blocked by a
 `sitecustomize` that raises `ModuleNotFoundError` for those four names, which
 is closer to a machine that never had them than uninstalling is. (The totals
 differ from the figure above because the runner command-line module is skipped as a whole
@@ -84,13 +85,14 @@ rather than test by test — the shipped specifications are YAML, so without
 in `test_spec.py`.) The whole J-Link driver runs in that configuration, which is
 the evidence for JLINK-NFR-001.
 
-No J-Link probe, target board, GDB, GDB Server, BLE dongle or BLE sensor was
-present for this run, and no test needs one (PC-8): the probe is substituted at
+No J-Link probe, target board, GDB, GDB Server, BLE dongle, BLE sensor or TTi
+1604 multimeter was present for this run, and no test needs one (PC-8): the probe is substituted at
 the GDB/MI boundary, the RTT and SWO sockets by a loopback server, the dongle at
 its line protocol, and the serial port by pyserial's own `loop://` handler.
 
-Revision 0.4 re-ran the whole suite on the merge of `develop` - including
-D-42's regression test (#107) - with the `PICO-` element (#104); the figures above are that run. The per-group table in §5 has
+Revision 0.5 re-ran the whole suite with #115's changes to the TTi 1604 driver
+and the core transport; the figures above are that run. Revision 0.4 re-ran the whole suite on the merge of `develop` - including
+D-42's regression test (#107) - with the `PICO-` element (#104). The per-group table in §5 has
 not been regenerated for the groups `develop` added since revision 0.1, so its
 rows do not sum to the total: the total is the collected count.
 
@@ -125,7 +127,7 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | SWE4-UT-BLESIM | `instruments/nordic_dongle/test_simulator.py` | 30 | Pass |
 | SWE4-UT-PSUSIM | `instruments/gpd3303d/test_simulator.py` | 35 | Pass |
 | SWE4-UT-PSUCLI | `instruments/gpd3303d/test_cli.py` | 23 | Pass |
-| SWE4-UT-SERIAL | `core/transport/test_serial.py` | 25 | Pass |
+| SWE4-UT-SERIAL | `core/transport/test_serial.py` | 31 | Pass |
 | SWE4-UT-BLESESSION | `instruments/nordic_dongle/test_session.py` | 23 | Pass |
 | SWE4-UT-BLECLI | `instruments/nordic_dongle/test_cli.py` | 25 | Pass |
 | SWE4-UT-BLESCRIPT | `instruments/nordic_dongle/test_script.py` | 58 | Pass |
@@ -157,7 +159,7 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | SWE4-UT-VXI11 | `core/transport/test_vxi11.py` | 22 | Pass |
 | SWE4-UT-CLI | `instruments/tek3014b/test_cli.py` | 20 | Pass |
 | SWE4-UT-REPORT | `runner/test_report.py` | 24 | Pass |
-| SWE4-UT-TRANSPORT | `core/transport/test_base.py` | 19 | Pass |
+| SWE4-UT-TRANSPORT | `core/transport/test_base.py` | 29 | Pass |
 | SWE4-UT-ENV | `instruments/tek3014b/test_simulator.py` | 19 | Pass |
 | SWE4-UT-PLOT | `analysis/test_plotting.py` | 15 | Pass |
 | SWE4-UT-RUNCLI | `runner/test_cli.py` | 15 | Pass |
@@ -167,10 +169,15 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | SWE4-UT-SOCKET | `core/transport/test_socket.py` | 12 | Pass |
 | SWE4-UT-VISA | `core/transport/test_visa.py` | 6 | Pass |
 | SWE4-UT-PICO | `instruments/pico_sht30/test_thermometer.py` | 40 | Pass |
+| SWE4-UT-DMM | `instruments/tti1604/test_dmm.py` | 34 | Pass |
+| SWE4-UT-DMMPROTO | `instruments/tti1604/test_protocol.py` | 56 | Pass |
+| SWE4-UT-DMMSIM | `instruments/tti1604/test_simulator.py` | 28 | Pass |
+| SWE4-UT-DMMCLI | `instruments/tti1604/test_cli.py` | 8 | Pass |
+| SWE4-UT-DMMPANEL | `instruments/tti1604/test_front_panel_check.py` | 7 | Pass |
 | SWE4-UT-PICOSIM | `instruments/pico_sht30/test_simulator.py` | 15 | Pass |
 | SWE4-UT-PICOCLI | `instruments/pico_sht30/test_cli.py` | 9 | Pass |
 | SWE4-UT-PICOFWPROTO | `instruments/pico_sht30/test_firmware_protocol.py` | 9 | Pass |
-| **Total** | | **2 498** (2 497 passed, 1 skipped) | **Pass** |
+| **Total** | | **2 559** (2 558 passed, 1 skipped) | **Pass** |
 
 The thermometer firmware's own unit tests (`SWE4-UT-PICOFW`, 61 cases) run
 under CTest, not pytest, and are reported in §13A.
@@ -264,6 +271,7 @@ The `__init__.py` files are omitted for brevity; `__main__.py` is discussed belo
 | `instruments/jlink/session.py`, `rtt.py`, `swo.py` | Socket and transport error branches | The happy path and the principal failures (unreachable port, dead GDB, timeout) are covered against a loopback server; the remainder are `OSError` translations. |
 | `instruments/jlink/simulator.py` | MI commands the driver does not currently issue | Same rationale as the oscilloscope simulator: it models more of GDB than the driver uses, so extending the driver does not begin with extending the simulator. |
 | `instruments/jlink/cli.py`, `nordic_dongle/cli.py` | Argument-error branches of sub-commands whose happy path is covered | Thin `argparse` plumbing; each is one `return 2`. |
+| `instruments/tti1604/cli.py` | `--json` file output, `--reject-held` and the connect-error branch (89%; unchanged by #115) | Thin `argparse` plumbing whose happy path is covered; the decoding it reports is covered in full by SWE4-UT-DMMPROTO. |
 | `core/transport/serial_port.py` | Buffer-reset and `in_waiting` fallbacks for URL handlers that do not implement them | Reached only with a pyserial URL handler that lacks the call; the guards exist so an exotic handler degrades instead of raising. |
 | `instruments/nordic_dongle/session.py`, `dongle.py` | Transport-error branches and best-effort cleanup | The principal failures (timeout, refusal, protocol mismatch) are covered; the remainder translate a dead link. |
 
@@ -881,6 +889,64 @@ PICO-OPEN-04.
 | PICO-OPEN-03 | Compare against a reference thermometer: expect agreement within ±0.2 °C typical between 0 and 65 °C, allowing for self-heating of the Pico. |
 | PICO-OPEN-04 | The reference PDFs (Pico 2 datasheet and schematic, RP2350 datasheet, SDK guide, Sensirion SHT3x-DIS datasheet) could not be fetched in the build environment; run `docs/pico_sht30/fetch_datasheets.sh` and commit them. Run a MISRA C:2012 checker over `firmware/pico_sht30/src`. |
 
+## 13B. TTi 1604 multimeter verification results (#115)
+
+No TTi 1604 was attached to the build environment (CON-10). The driver was
+verified against its simulator, over pyserial's `loop://` - a real serial
+object, which never signals end-of-message - and against frames built from the
+manufacturer's remote-control note.
+
+### 13B.1 The driver could not read a real serial port
+
+Reproduced on `develop` @ `337ad10` before the fix, and fixed (D-43):
+
+| Step, `develop` before #115 | Result |
+|---|---|
+| `SerialTransport("loop://").read_raw()` with 11 bytes waiting | `TransportTimeoutError` after the timeout; all 11 bytes left in the buffer |
+| `Tti1604(SerialTransport("loop://")).initialise()` | `InstrumentError: the 1604 did not echo 'u' after 3 attempts … check that DTR is asserted` |
+| The same, after #115 | Remote mode acknowledged; frames written to the port decode (`TestTheSerialLink`) |
+
+The unit tests had passed throughout, because the mock transport signals
+end-of-message after every reply and a serial port never does.
+
+### 13B.2 What a key press now has to prove
+
+| Condition | Result |
+|---|---|
+| Every `select_*`, through the simulator | Returns the reading that shows the change |
+| A key the meter echoes but does not act on | `InstrumentError` naming the function and range the readings show |
+| A key lost while every frame carries `0x66`, the Volts key's character | Resent; the echo is never taken from inside a frame |
+| AC or DC on resistance | Refused before any key is sent |
+| `select_auto_range` on a meter already auto-ranging | Nothing pressed (it used to toggle) |
+| `set_range(400)`, `set_range(4e-3)` | Each step confirmed; a full scale the function lacks is refused with the list |
+| `set_range(4000)` measuring frequency | Waits for the 10 s gate (≥ 10 s of virtual time) and confirms it |
+
+### 13B.3 Decoding against the manufacturer's note
+
+The note's worked example, `96 219 242 102 182` = `12.345`, decodes exactly.
+Touch-Hold at bit 1 of the function byte and auto-range-set at bit 1 of the
+status byte decode as the note gives them (D-44). The resistance multiplier is
+derived, and reads 1 234.5 Ω from both `1.2345` and `1234.5` on the 4 kΩ range
+and 1.2345 MΩ from both `1.2345` and `1234.5` on the 4 MΩ range; a display that
+fits no multiplier carries no value.
+
+### 13B.4 The bench test and the front-panel check
+
+`tests/bench/tti1604` (SWE4-UT-DMMBENCH, outside the default run) was dry-run
+against the simulator: 10 passed and 4 skipped (the reference tests) with no
+reference, and with each of DC volts, resistance, DC current on each socket and
+frequency named in turn the reference test ran and passed and the open-input
+test stood aside. The front-panel check, `examples/12_dmm_front_panel_check.py`,
+runs all twelve steps against the simulator and is itself unit-tested
+(SWE4-UT-DMMPANEL). Neither has yet been run against a meter: that is
+DMM-OPEN-01 … -08.
+
+### 13B.5 Bench confirmation items
+
+DMM-OPEN-01 … -08, `docs/dmm/TTi1604_Notes.md` §5. None blocks use of the
+driver: each is accepted either way, refused rather than guessed, or confined
+to a function the driver does not select.
+
 ## 14. Runner verification results
 
 | Check | Result |
@@ -1043,6 +1109,8 @@ SDK to provide it transitively.
 | D-40 | `DEFAULT_SENSORS` is a module-level tuple of dataclasses holding mutable dicts, and every `SimulatedDongle` shared them. A test that changed one sensor's replies changed them for every simulator built afterwards | **Major in the test double**, and of the worst kind to diagnose: the tests it broke were in other files, and the failures described the sensor rather than the test that had altered it. Found by writing a test that silenced a sensor and watching six unrelated tests fail | **Closed** — a simulated dongle deep-copies the sensors it is given, so one simulator cannot poison another. The test that found it now models silence with a stub instead, which is the honest way to model a sensor the simulator does not have | `test_the_default_population_is_not_shared_between_simulators`, `TestASensorThatDoesNotAnswer` (4) |
 
 | D-42 | `RttClient._pump()` runs on the background reader thread and on the caller's thread (from `read()` and `read_lines()`), and it called `self._backend.rtt_poll()` **before** taking `self._lock`. Two pumps could therefore poll at once. The simulator's drain is check-then-pop, and on Python 3.9 CI it raised `IndexError: pop from an empty deque` in `test_a_line_already_waiting_is_not_a_reading` (PR #105, run 36668656206) | **Minor on hardware**, where two polls at once could split one RTT line between two callers; **major as a test-suite fault**, because it failed an unrelated PR's CI intermittently and looked like a flake. Found by reading that failure to its cause instead of re-running it | **Closed** — the poll is now taken under the client's lock with the rest of the pump. A deterministic test replaces the scheduler's luck: a backend that detects overlapping polls, driven from four threads; it counted 99 overlaps before the fix and 0 after | `TestConcurrency.test_the_backend_is_never_polled_twice_at_once` |
+| D-43 | The TTi 1604 driver read the link with `Transport.read_raw()`, which waits for an end-of-message that a serial port never signals. On a real port every read timed out with the received bytes left in the transport's buffer, so connecting always failed - and the error blamed DTR and RTS. The unit tests passed because the mock transport signals end-of-message after every reply | **Critical** - the driver could not talk to any real meter. Found by comparing it with the reverted #106 driver and reproduced over pyserial's `loop://` (#115) | **Closed** - `Transport.read_available()` and `discard_input()` (CORE-FR-061); the driver reads with a fixed short poll it never varies (LL-07) and loops to its own deadline. A virtual-clock simulator is now given the read timeout (CORE-FR-062), and the simulator keeps the meter's reading rate, so a wait shorter than the meter's fails in the tests. The frequency gate, which the old 2 s settling time could not wait for, is allowed for (DMM-FR-032) | `TestTheSerialLink` (2), `TestStreamReading` (7), `test_the_ten_second_gate_is_waited_for`, `test_a_read_shorter_than_the_measurement_times_out` |
+| D-44 | Two annunciator bits were at the wrong positions: Touch-Hold at bit 0 of the function byte and auto-range-set at bit 2 of the status byte, from a summary, where the manufacturer's note gives bit 1 for both. A Touch-Hold display was not reported as held | **Major** - a frozen reading could pass as live. Found by reading the manufacturer's note, now in `docs/dmm/reference/` | **Closed** - both moved to bit 1 | `TestTheManufacturersNote` (4) |
 
 No open defects.
 
@@ -1112,7 +1180,7 @@ Notes on process effectiveness:
 
 | ID | Criterion | Result |
 |---|---|---|
-| PC-1 | All tests pass | **Pass** — 2 497/2 497 run (1 skipped: `tests/tools/test_test_bench.py` needs `tkinter`, absent in the build environment), and 61/61 thermometer firmware cases (§13A.1) |
+| PC-1 | All tests pass | **Pass** — 2 558/2 558 run (1 skipped: `tests/tools/test_test_bench.py` needs `tkinter`, absent in the build environment), and 61/61 thermometer firmware cases (§13A.1) |
 | PC-2 | Statement coverage ≥ 90% | **Pass** — 95% |
 | PC-3 | Every requirement covered | **Pass** — see BENCHTOOLS-TRACE-001 |
 | PC-4 | Injected skews recovered to < 0.1 sample interval | **Pass** — worst case 0.055 |
@@ -1132,6 +1200,8 @@ discharged without physical hardware:
 - `docs/jlink/JLink_Integration_Notes.md` §4, for the probe (JLINK-OPEN-01 to
   -04, of which the SWO timestamp scaling is the one that could change a
   reported figure);
+- `docs/dmm/TTi1604_Notes.md` §5, for the multimeter (DMM-OPEN-01 … -08), by
+  running `tests/bench/tti1604` and the front-panel check with a meter attached;
 - `docs/ble/BLE_Dongle_Notes.md` §5, for the dongle. The firmware now has unit
   tests (§4.4), **compiles** against real SDK headers (§4.5) and **builds,
   links and packages** against nRF5 SDK 17.1.0 in CI (§4.6), which is a
