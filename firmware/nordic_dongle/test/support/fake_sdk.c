@@ -33,10 +33,10 @@
 #include "nrf_soc.h"
 #include "nrfx_timer.h"
 
-uint32_t	fake_last_checked_error;
-int		fake_critical_nesting;
-int		fake_critical_depth_max;
-uint32_t	fake_system_resets;
+uint32_t	fake_g_last_checked_error;
+int		fake_g_critical_nesting;
+int		fake_g_critical_depth_max;
+uint32_t	fake_g_system_resets;
 
 /* ------------------------------------------------------------------ */
 /* TIMER                                                               */
@@ -486,7 +486,7 @@ void ble_db_discovery_on_ble_evt(ble_evt_t const * p_ble_evt, void * p_context)
 
 void NVIC_SystemReset(void)
 {
-	fake_system_resets++;
+	fake_g_system_resets++;
 }
 
 /* --- GPIO and delay, recorded rather than performed ------------------ */

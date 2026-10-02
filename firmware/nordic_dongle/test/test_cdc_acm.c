@@ -35,15 +35,15 @@ void setUp(void)
 
 	fake_cdc_reset();
 	fake_usbd_reset();
-	fake_critical_nesting   = 0;
-	fake_critical_depth_max = 0;
+	fake_g_critical_nesting   = 0;
+	fake_g_critical_depth_max = 0;
 	fake_cdc_open_port();
 }
 
 void tearDown(void)
 {
 	/* Every test is also a check that no path leaves a critical region open. */
-	TEST_ASSERT_EQUAL_INT_MESSAGE(0, fake_critical_nesting,
+	TEST_ASSERT_EQUAL_INT_MESSAGE(0, fake_g_critical_nesting,
 				      "a critical region was left open");
 }
 
@@ -285,10 +285,10 @@ static void test_sending_enters_and_leaves_a_critical_region(void)
 {
 	/* The queue is touched from a radio event handler, so the indices must be
 	 * updated inside one - and defect D-23 was an early return from inside it. */
-	fake_critical_depth_max = 0;
+	fake_g_critical_depth_max = 0;
 	cdc_acm_send_line("ok");
-	TEST_ASSERT_GREATER_THAN_INT(0, fake_critical_depth_max);
-	TEST_ASSERT_EQUAL_INT(0, fake_critical_nesting);
+	TEST_ASSERT_GREATER_THAN_INT(0, fake_g_critical_depth_max);
+	TEST_ASSERT_EQUAL_INT(0, fake_g_critical_nesting);
 }
 
 int main(void)
