@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE3-001 | **Version** | 0.7 |
+| **Document ID** | TB-SWE3-001 | **Version** | 0.8 |
 | **Project** | TestBench | **Date** | 2026-10-02 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -29,6 +29,7 @@
 | 0.5 | 2026-09-30 | Claude | Section 5.8 added: 14 PICO design units for the Pico 2 + SHT30-D thermometer and its firmware; RUN renumbered 5.9. Identifiers follow TB-STY-001 as checked by CStyleCheck (#104). |
 | 0.6 | 2026-10-02 | Claude | #115: CORE-DD-TRANSPORT gains `read_available` and `discard_input`; CORE-DD-SERIAL and CORE-DD-MOCK extend `discard_input`, and the mock transport gives a virtual-clock simulator its timeout. DMM-DD-CONST, -PROTO, -DMM and -SIM revised for the stream read, frame validation, the derived resistance multiplier, confirmation from the readings, ranges, fresh measurement, the frequency gate and the simulator's reading rate. |
 | 0.7 | 2026-10-02 | Claude | #116: CORE-DD-PATHS added - drivers declare which arguments are input files, and a relative one is found beside the file that names it, then in the working directory, then in the checkout. RUN-DD-BENCH resolves declared bench options; RUN-DD-RUNNER resolves declared step arguments. CORE count 16 → 17. |
+| 0.8 | 2026-10-02 | Claude | #124: BLE-DD-CLI - `--select` resolves an address, a name or part of one through `select_by_name`, with an unfiltered rescan when the case-sensitive firmware filter hears nothing; `cmd --addr` selects; `--addr` and `--select` are mutually exclusive. |
 
 ---
 
@@ -1173,6 +1174,17 @@ that file is the evidence, the JSON is the summary. `profile` and `cmd` add a
 quoted from a shell script carries the same caveat the API gives. `firmware`
 exits 1 on a mismatch, so a build step stops rather than publishing numbers
 taken with the wrong image; `--update` refreshes the dongle instead.
+
+`select` and `--select` go through one helper, `_choose` (BLE-FR-071). An
+address is selected as given. Anything else is a name or part of one: a scan
+with the firmware's name filter first, then - if that heard no name containing
+the target, ignoring case, because the filter is case-sensitive - an unfiltered
+scan, and `select_by_name` chooses the strongest match (BLE-FR-026). The
+driver's `select()` is unchanged: it matches a name exactly, and a
+specification names its sensor by address. `--addr` and `--select` are an
+argparse mutually exclusive group on `profile`, `cmd` and `monitor`, so giving
+both exits 2; `cmd --addr` selects the address before connecting, where it was
+previously ignored (#124).
 
 ---
 

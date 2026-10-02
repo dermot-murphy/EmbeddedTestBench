@@ -1,6 +1,6 @@
 """The ``benchtools ble`` command line.
 
-Traces to: BLE-FR-070, SWE4-UT-BLECLI.
+Traces to: BLE-FR-070, BLE-FR-071, SWE4-UT-BLECLI.
 """
 
 from __future__ import annotations
@@ -111,6 +111,74 @@ class TestSubcommands:
         path = tmp_path / "result.json"
         run(capsys, *SIM, "--json", str(path), "info")
         assert json.loads(path.read_text())["model"] == "PCA10059"
+
+
+
+class TestChoosingASensor:
+    """``--select`` takes what an operator types; ``--addr`` is honoured (#124).
+
+    The simulated dongle hears SENS-0A1B2C at -62 dBm and SENS-0B2C3D at -78.
+    """
+
+    A1B2C = "E4:1C:7B:02:9A:11"
+
+    @pytest.mark.parametrize("target", [
+        "E4:1C:7B:02:9A:11",        # an address
+        "SENS-0A1B2C",              # the whole name
+        "0A1B2C",                   # part of it
+        "sens-0a1b2c",              # in another case
+        "0a1b",                     # part of it, in another case
+    ])
+    def test_select_takes_an_address_a_name_or_part_of_one(self, capsys, target):
+        status, payload, stderr = run(capsys, *SIM, "select", target, "--scan-seconds", "1")
+        assert status == 0, stderr
+        assert payload["address"] == self.A1B2C
+
+    def test_the_strongest_of_several_matches_is_chosen(self, capsys):
+        status, payload, _ = run(capsys, *SIM, "select", "SENS-", "--scan-seconds", "1")
+        assert status == 0
+        assert payload["address"] == self.A1B2C
+
+    def test_a_name_in_the_right_case_needs_one_scan(self, capsys, tmp_path):
+        log = tmp_path / "ble.log"
+        run(capsys, *SIM, "--log", str(log), "select", "0A1B2C", "--scan-seconds", "1")
+        assert log.read_text().count("> scan start") == 1
+
+    def test_a_name_in_another_case_is_found_by_an_unfiltered_scan(self, capsys, tmp_path):
+        # The firmware's name filter is case-sensitive, so the first scan hears
+        # nothing; the second has no filter and the host matches ignoring case.
+        log = tmp_path / "ble.log"
+        status, _, _ = run(capsys, *SIM, "--log", str(log), "select", "0a1b2c",
+                           "--scan-seconds", "1")
+        assert status == 0
+        assert log.read_text().count("> scan start") == 2
+
+    def test_no_match_names_the_sensors_heard(self, capsys):
+        status, _, stderr = run(capsys, *SIM, "select", "KAPPA", "--scan-seconds", "1")
+        assert status == 1
+        assert "SENS-0A1B2C" in stderr and "SENS-0B2C3D" in stderr
+
+    @pytest.mark.parametrize("sub", [
+        ("cmd", "measure"),
+        ("profile", "--duration", "1"),
+        ("monitor", "--duration", "1"),
+    ], ids=lambda sub: sub[0])
+    def test_every_subcommand_takes_part_of_a_name(self, capsys, sub):
+        status, _, stderr = run(capsys, *SIM, *sub, "--select", "0a1b", "--scan-seconds", "1")
+        assert status == 0, stderr
+
+    def test_cmd_connects_to_the_address_it_is_given(self, capsys):
+        status, payload, stderr = run(capsys, *SIM, "cmd", "measure", "--addr", self.A1B2C)
+        assert status == 0, stderr
+        assert payload["responses"] == ["OK 1024"]
+
+    @pytest.mark.parametrize("sub", ["cmd", "profile", "monitor"])
+    def test_addr_and_select_together_are_a_usage_error(self, capsys, sub):
+        argv = [*SIM, sub] + (["measure"] if sub == "cmd" else [])
+        with pytest.raises(SystemExit) as caught:
+            main(argv + ["--addr", self.A1B2C, "--select", "0A1B2C"])
+        assert caught.value.code == 2
+        assert "not allowed with" in capsys.readouterr().err
 
 
 class TestFailures:

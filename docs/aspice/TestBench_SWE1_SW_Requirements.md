@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE1-001 | **Version** | 0.9 |
+| **Document ID** | TB-SWE1-001 | **Version** | 1.0 |
 | **Project** | TestBench | **Date** | 2026-10-02 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -31,6 +31,7 @@
 | 0.7 | 2026-09-30 | Claude | STK-21 and STK-22 added. Section 15 added: `PICO-` requirements for the Pico 2 + SHT30-D thermometer and its firmware (PICO-FR-001…060, PICO-NFR-001…006); CON-09 and ASM-10 added. Sections 16 to 19 renumbered (#104). |
 | 0.8 | 2026-10-02 | Claude | #115: CORE-FR-061 (read a stream as it arrives; discard unread input, the operating system's included) and CORE-FR-062 (a virtual-clock simulator is given the read timeout). DMM-FR-016 revised: the resistance multiplier is derived from the range resolution, not assumed. DMM-FR-021 revised: annunciator bit positions follow the manufacturer's note. DMM-FR-027 … -033 (stream reading, frame validation, confirmation from the readings, ranges, fresh measurement, the frequency gate, Hz on AC only), DMM-FR-046 (a simulator with the meter's resolution and reading rate), DMM-FR-070 (command line, already implemented, now declared), DMM-FR-080 and -081 (bench and panel tests). CON-03 corrected; CON-10 added. |
 | 0.9 | 2026-10-02 | Claude | #116: RUN-FR-007 (a relative input path in a bench file is found beside the bench file) and RUN-FR-017 (a relative input path in a step is found beside the specification) added, so a run started outside the TestTools checkout behaves as one started inside it. |
+| 1.0 | 2026-10-02 | Claude | #124: BLE-FR-071 added - on the command line, `--select` takes an address, a name or part of a name, and `cmd --addr` connects to the address given. |
 
 ---
 
@@ -465,6 +466,7 @@ implements them; §11.6 says which.
 | BLE-FR-061 | The log shall include lines the driver ignored, since a log that omits what the tooling discarded cannot explain why it discarded it. | STK-17 | Test |
 | BLE-FR-062 | Comments shall be writable into the log, so a measurement can be annotated with what it was verifying. | STK-17 | Test |
 | BLE-FR-070 | A command-line interface shall expose identification, scanning, selection, advertising profile, command/response timing and event monitoring, emitting JSON. | STK-14, STK-15 | Test |
+| BLE-FR-071 | On the command line, `select` and every sub-command's `--select` shall accept an address, an exact name, or part of a name in any case, choosing as BLE-FR-026 does; `cmd --addr` shall connect to the address given; and `--addr` with `--select` shall be refused as a usage error rather than one silently winning. An operator types part of a name, because the advertised name carries the firmware version and changes on every reflash (#124). | STK-14, STK-15 | Test |
 | BLE-FR-080 | The dongle shall be registered as a bench driver, and a simulated dongle shall answer the same protocol with a deterministic sensor population, so every operation is verifiable without a dongle, a sensor or a radio. | STK-08, STK-15 | Test |
 | BLE-FR-100 | The driver shall read a command and response test from a markdown document: a heading per test, and a table of step number, command and expected response. The document that specifies the command set is then the test of it, rather than a second copy of it that can disagree. | STK-12, STK-15 | Test |
 | BLE-FR-101 | A step with an expected response shall pass when the reply equals it after trimming, and fail otherwise. An expected response written `/…/` shall be matched as a regular expression, for a reply carrying a value that varies. | STK-12, STK-15 | Test |

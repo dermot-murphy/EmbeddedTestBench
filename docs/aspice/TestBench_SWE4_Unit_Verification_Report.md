@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE4-002 | **Version** | 0.7 |
+| **Document ID** | TB-SWE4-002 | **Version** | 0.8 |
 | **Project** | TestBench | **Date** | 2026-10-02 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -29,6 +29,7 @@
 | 0.5 | 2026-10-02 | Claude | #115: execution summary re-run; §13B added for the TTi 1604 (the serial read defect, confirmation, ranges, the frequency gate, the bench test and front-panel check); D-43 and D-44 added and closed; DMM rows added to §5 and §6.1. |
 | 0.6 | 2026-10-02 | Claude | #116: execution summary re-run; SWE4-UT-PATHS added to §5; §14.3 added - every shipped specification run from outside the checkout, before and after; D-45 added and closed. |
 | 0.7 | 2026-10-02 | Claude | #120: execution summary re-run; §14.3 notes that the simulated bench now defines `rtt`, so `kepler_temperature.yaml` reaches `dongle.select` like the other Kepler specifications. |
+| 0.8 | 2026-10-02 | Claude | #124: execution summary re-run; SWE4-UT-BLECLI count updated; D-46 added and closed. |
 
 ---
 
@@ -57,13 +58,13 @@ It is deliberately a separate work product from the specification. A specificati
 
 | Metric | Result |
 |---|---|
-| Tests executed | **2 644** |
-| Passed | **2 643** |
+| Tests executed | **2 660** |
+| Passed | **2 659** |
 | Failed | 0 |
 | Errors | 0 |
 | Skipped | 1 |
-| Statement coverage | **95%** (13 554 statements, 675 missed) |
-| Execution time | 135.1 s with coverage instrumentation |
+| Statement coverage | **95%** (13 568 statements, 675 missed) |
+| Execution time | 149.8 s with coverage instrumentation |
 | Runtime | CPython 3.11.15, Linux |
 | Framework | pytest 9.1.1, pytest-cov |
 
@@ -92,8 +93,10 @@ No J-Link probe, target board, GDB, GDB Server, BLE dongle, BLE sensor or TTi
 the GDB/MI boundary, the RTT and SWO sockets by a loopback server, the dongle at
 its line protocol, and the serial port by pyserial's own `loop://` handler.
 
-Revision 0.7 re-ran the whole suite with #120's `rtt` entry on the simulated
-bench; the figures above are that run. Revision 0.6 re-ran the whole suite with #116's input-path resolution. The run with every optional extra blocked was not
+Revision 0.8 re-ran the whole suite with #124's change to choosing a sensor on
+the BLE command line, merged with #120; the figures above are that run.
+Revision 0.7 re-ran it with #120's `rtt` entry on the simulated bench.
+Revision 0.6 re-ran the whole suite with #116's input-path resolution. The run with every optional extra blocked was not
 repeated for 0.6: the change adds no import of an optional package, and
 `test_input_paths.py` skips its one YAML-dependent test when `pyyaml` is absent.
 Revision 0.5 re-ran the whole suite with #115's changes to the TTi 1604 driver
@@ -135,7 +138,7 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | SWE4-UT-PSUCLI | `instruments/gpd3303d/test_cli.py` | 23 | Pass |
 | SWE4-UT-SERIAL | `core/transport/test_serial.py` | 31 | Pass |
 | SWE4-UT-BLESESSION | `instruments/nordic_dongle/test_session.py` | 23 | Pass |
-| SWE4-UT-BLECLI | `instruments/nordic_dongle/test_cli.py` | 25 | Pass |
+| SWE4-UT-BLECLI | `instruments/nordic_dongle/test_cli.py` | 46 | Pass |
 | SWE4-UT-BLESCRIPT | `instruments/nordic_dongle/test_script.py` | 58 | Pass |
 | SWE4-UT-BLELATENCY | `instruments/nordic_dongle/test_latency.py` | 20 | Pass |
 | SWE4-UT-BLEFW | `instruments/nordic_dongle/test_firmware_protocol.py` | 17 | Pass |
@@ -1159,6 +1162,7 @@ SDK to provide it transitively.
 | D-43 | The TTi 1604 driver read the link with `Transport.read_raw()`, which waits for an end-of-message that a serial port never signals. On a real port every read timed out with the received bytes left in the transport's buffer, so connecting always failed - and the error blamed DTR and RTS. The unit tests passed because the mock transport signals end-of-message after every reply | **Critical** - the driver could not talk to any real meter. Found by comparing it with the reverted #106 driver and reproduced over pyserial's `loop://` (#115) | **Closed** - `Transport.read_available()` and `discard_input()` (CORE-FR-061); the driver reads with a fixed short poll it never varies (LL-07) and loops to its own deadline. A virtual-clock simulator is now given the read timeout (CORE-FR-062), and the simulator keeps the meter's reading rate, so a wait shorter than the meter's fails in the tests. The frequency gate, which the old 2 s settling time could not wait for, is allowed for (DMM-FR-032) | `TestTheSerialLink` (2), `TestStreamReading` (7), `test_the_ten_second_gate_is_waited_for`, `test_a_read_shorter_than_the_measurement_times_out` |
 | D-44 | Two annunciator bits were at the wrong positions: Touch-Hold at bit 0 of the function byte and auto-range-set at bit 2 of the status byte, from a summary, where the manufacturer's note gives bit 1 for both. A Touch-Hold display was not reported as held | **Major** - a frozen reading could pass as live. Found by reading the manufacturer's note, now in `docs/dmm/reference/` | **Closed** - both moved to bit 1 | `TestTheManufacturersNote` (4) |
 | D-45 | Every driver opened an input file named by a relative path - an S2-LP register file, a command document, a firmware build, an ELF image - relative to the working directory, and nothing resolved it against the specification or bench file that named it. Started outside the TestTools checkout, the normal case, 12 of 28 specification runs on the simulated bench errored before measuring anything (§14.3) | **Major** - a test errored for a reason unrelated to the thing under test, and only in the directory it is meant to be used from. Every test passed because each was run from the checkout | **Closed** - drivers declare their input files; the runner and bench resolve them beside the declaring file, then the working directory, then the checkout (AD-27, #116) | `test_a_shipped_specification_runs_the_same_from_outside_the_checkout` (14), `TestStepArguments` (3), `TestBenchOptions` (4) |
+| D-46 | On the BLE command line, `--select` with anything but the exact advertised name failed: the scan's firmware filter matched by containment, then `select()` matched the name exactly, found nothing and parsed the text as an address - "not a BLE address". `cmd --addr` was accepted and never read. Found on hardware with sensor 5C1712 during #73, ticketed as #124 | **Major** - the advertised name carries the firmware version, so the name an operator knows never matched; the only working form was an address | **Closed** - `select` and `--select` resolve an address, a name or part of one through `select_by_name`, with an unfiltered rescan for another case; `cmd --addr` selects; `--addr` with `--select` exits 2 | `TestChoosingASensor` (16; 13 fail before the fix) |
 
 No open defects.
 
