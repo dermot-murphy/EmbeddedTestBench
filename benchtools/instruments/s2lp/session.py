@@ -28,6 +28,7 @@ import time
 from collections import deque
 from typing import Callable, Deque, Iterator, List, Optional
 
+from ...core.events import SourceLogger
 from ...core.errors import (
     ConnectionFailedError,
     ProtocolError,
@@ -69,7 +70,6 @@ class ReadCancelled(TransportTimeoutError):
     the same on a cancel.
     """
 
-_LOG = logging.getLogger(__name__)
 
 
 class S2lpSession:
@@ -80,6 +80,8 @@ class S2lpSession:
     """
 
     def __init__(self, transport: Transport, timeout: float = DEFAULT_TIMEOUT) -> None:
+        #: Bound to the owning instrument's event-log name (#126).
+        self._logger = SourceLogger(logging.getLogger(__name__))
         self._transport = transport
         self._timeout = float(timeout)
         self._log = None
@@ -162,7 +164,7 @@ class S2lpSession:
     def send(self, name: str, *arguments) -> str:
         """Format and send one command, without waiting for its reply."""
         line = format_command(name, *arguments)
-        _LOG.debug(">> %s", line)
+        self._logger.debug(">> %s", line)
         self._write_log(">", line)
         self._transport.write(line.encode("ascii"))
         return line
@@ -201,7 +203,7 @@ class S2lpSession:
             reply = self._read_one_reply(deadline, limit, command, cancel)
             if not expect or not reply.command or reply.command == expect:
                 return reply
-            _LOG.debug("skipping a stale reply from %s", reply.command)
+            self._logger.debug("skipping a stale reply from %s", reply.command)
             self._write_log("#", "stale reply from %s skipped" % reply.command)
             self.unclaimed.append(reply.raw)
 
@@ -298,7 +300,7 @@ class S2lpSession:
         :returns: Replies that arrived before the acknowledgement - a packet
             that landed while the stop was on its way is still a packet.
         """
-        _LOG.debug(">> (stop)")
+        self._logger.debug(">> (stop)")
         self._write_log(">", "(stop)")
         self._transport.write(STOP_CHARACTER, append_terminator=False, keep_buffer=True)
         if wait <= 0:
@@ -325,7 +327,7 @@ class S2lpSession:
         except ProtocolError:
             pass                        # "no such command": the expected answer
         except TransportTimeoutError:
-            _LOG.debug("no answer to the line ended after a stop")
+            self._logger.debug("no answer to the line ended after a stop")
         return arrived
 
     # ------------------------------------------------------------------
@@ -357,7 +359,7 @@ class S2lpSession:
         text = raw.decode("ascii", errors="replace").strip()
         if not text:
             return None
-        _LOG.debug("<< %s", text)
+        self._logger.debug("<< %s", text)
         self._write_log("<", text)
         return text
 

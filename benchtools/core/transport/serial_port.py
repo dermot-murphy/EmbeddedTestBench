@@ -27,7 +27,6 @@ Traces to: CORE-FR-017, CORE-FR-061, CORE-ARC-003, CORE-DD-SERIAL.
 
 from __future__ import annotations
 
-import logging
 from typing import Optional, Tuple
 
 from ..errors import ConnectionFailedError, TransportError, TransportTimeoutError
@@ -35,7 +34,6 @@ from .base import Transport
 
 __all__ = ["SerialTransport", "DEFAULT_BAUDRATE"]
 
-_LOG = logging.getLogger(__name__)
 
 #: Line rate used when the resource does not name one. A USB CDC port ignores
 #: it entirely; a real RS-232 instrument does not, and 115200 is the usual
@@ -176,7 +174,7 @@ class SerialTransport(Transport):
                 # Not every pyserial URL handler exposes the modem lines.
                 # serial.SerialException is an OSError, so this covers a real
                 # port refusing the change as well as a handler without it.
-                _LOG.debug("cannot set %s on %s", line, self._port, exc_info=True)
+                self._logger.debug("cannot set %s on %s", line, self._port, exc_info=True)
 
         # Discard whatever the device said before anyone was listening: a boot
         # banner read as the answer to the first command is a confusing failure.
@@ -202,7 +200,7 @@ class SerialTransport(Transport):
             try:
                 self._serial.reset_input_buffer()
             except Exception:  # pylint: disable=broad-exception-caught  # pragma: no cover
-                _LOG.debug("could not reset the input buffer of %s", self._port,
+                self._logger.debug("could not reset the input buffer of %s", self._port,
                            exc_info=True)
         return dropped
 
@@ -213,7 +211,7 @@ class SerialTransport(Transport):
         try:
             port.close()
         except Exception:                               # pragma: no cover - defensive
-            _LOG.debug("error closing %s", self._port, exc_info=True)
+            self._logger.debug("error closing %s", self._port, exc_info=True)
 
     def _send(self, data: bytes) -> None:
         if self._serial is None:

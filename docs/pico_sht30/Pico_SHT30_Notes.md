@@ -3,8 +3,8 @@
 | Field | Value |
 |---|---|
 | Document ID | TB-PICO-001 |
-| Version | 1.0 |
-| Date | 2026-09-30 |
+| Version | 1.1 |
+| Date | 2026-10-02 |
 | Element | `PICO-` — `benchtools.instruments.pico_sht30` and `firmware/pico_sht30` |
 | Issue | #104 |
 
@@ -121,6 +121,24 @@ In a bench configuration the driver is named `pico-sht30` (alias
 | `err 4 the sensor did not acknowledge` | NACK at 0x44 | Wiring, power, ADDR strap (0x45?) |
 | `err 5 the sensor checksum did not match` | Corrupted frame | Wire length, pull-ups, noise |
 | `err 6 I2C bus timeout` | Transfer did not complete | SDA/SCL swapped, a line held low |
+
+### 4.1 On a bench
+
+Both shipped benches carry the thermometer as `temp`, named `TEMP` in the event
+log (#126):
+
+```yaml
+temp:
+  driver: pico-sht30
+  resource: /dev/ttyACM2        # site-specific; sim:// in benches/simulated_bench.yaml
+  timeout: 5.0
+  event: TEMP
+```
+
+A specification uses it as `temp.read`, and can give it another name in the
+event log, e.g. `temp: {driver: pico-sht30, event: ROOM}` - see the
+[Bench Runner Guide §6.3](../Bench_Runner_Guide.md#63-event-log-names-which-instrument-said-what).
+`TEMP` is also the driver's default, so it applies on any bench that names none.
 
 ## 5. Facts taken from the reference documents
 

@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE1-001 | **Version** | 1.0 |
+| **Document ID** | TB-SWE1-001 | **Version** | 1.1 |
 | **Project** | TestBench | **Date** | 2026-10-02 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -32,6 +32,7 @@
 | 0.8 | 2026-10-02 | Claude | #115: CORE-FR-061 (read a stream as it arrives; discard unread input, the operating system's included) and CORE-FR-062 (a virtual-clock simulator is given the read timeout). DMM-FR-016 revised: the resistance multiplier is derived from the range resolution, not assumed. DMM-FR-021 revised: annunciator bit positions follow the manufacturer's note. DMM-FR-027 … -033 (stream reading, frame validation, confirmation from the readings, ranges, fresh measurement, the frequency gate, Hz on AC only), DMM-FR-046 (a simulator with the meter's resolution and reading rate), DMM-FR-070 (command line, already implemented, now declared), DMM-FR-080 and -081 (bench and panel tests). CON-03 corrected; CON-10 added. |
 | 0.9 | 2026-10-02 | Claude | #116: RUN-FR-007 (a relative input path in a bench file is found beside the bench file) and RUN-FR-017 (a relative input path in a step is found beside the specification) added, so a run started outside the TestTools checkout behaves as one started inside it. |
 | 1.0 | 2026-10-02 | Claude | #124: BLE-FR-071 added - on the command line, `--select` takes an address, a name or part of a name, and `cmd --addr` connects to the address given. |
+| 1.1 | 2026-10-02 | Claude | #126: CORE-FR-060 revised - each record carries the short name of the instrument it came from; CORE-FR-063 (each instrument's records carry its own name, set from construction, with a default per driver) and RUN-FR-008 (the specification allocates names, the bench attaches them, the specification wins, no two share one) added. |
 
 ---
 
@@ -193,7 +194,8 @@ Extends §6.2 with the SCPI and IEEE 488.2 vocabulary.
 | CORE-FR-050 | A build's manifest - the version and build date its build system recorded beside the image - shall be readable by any element that needs it, and the diagnostic for a missing one shall name every path searched and take from the caller the sentence saying how that particular build produces one. | STK-07, STK-16 | Test |
 | CORE-FR-061 | The link layer shall support instruments that send without being asked: reading whatever bytes have arrived without waiting for an end-of-message - which a serial port never signals - and discarding everything received but not yet read, including input held by the operating system, so that a reading taken on request is not one that was waiting in a buffer. | STK-18 | Test |
 | CORE-FR-062 | A simulated instrument that streams on a virtual clock shall be told how long the driver is prepared to wait, so that output due later than that is a timeout, as it is on a real link, rather than data the driver would never have received. | STK-07, STK-18 | Test |
-| CORE-FR-060 | Every instrument's and the runner's log records shall be writable, while a run is in progress, to one event log of one JSON object per line, each naming the part of the bench it came from (supply, BLE, J-Link, S2-LP radio, runner, ...), so that another program can follow the run as it happens. | STK-19 | Test |
+| CORE-FR-063 | Each instrument shall carry a short event-log name - 1 to 8 characters, an upper-case letter then A-Z, 0-9 or _ - and every record logged by the instrument or by anything it owns (its transport, its sessions) shall carry that name, from the instrument's construction on, so two instruments of one driver are told apart. Without a name given, it shall be the driver's default: `PSU`, `BLE`, `JLINK`, `RF`, `SCOPE`, `DMM`, `TEMP` (Pico 2 + SHT30-D thermometer); a record from nothing named shall be `BENCH` (#126). | STK-19 | Test |
+| CORE-FR-060 | Every instrument's and the runner's log records shall be writable, while a run is in progress, to one event log of one JSON object per line, each carrying the short upper-case name of the instrument it came from (`PSU`, `BLE`, `RF`, `TEMP`, ...) or `TEST` for the runner, so that another program can follow the run as it happens and tell its sources apart. | STK-19 | Test |
 
 ### 6.6 Simulation
 
@@ -845,6 +847,7 @@ last good one. Reference documents and wiring: `docs/pico_sht30/`.
 | RUN-FR-005 | The runner shall support replacing every instrument with its simulator, so a specification can be exercised without hardware. | STK-08 | Test |
 | RUN-FR-006 | A run shall be recorded as simulated whenever no instrument on the bench is real hardware, so simulated results cannot be mistaken for measurements. | STK-08 | Test |
 | RUN-FR-007 | A bench option that a driver declares as an input file, given as a relative path, shall be looked for in the bench file's directory, then the working directory, then the TestTools checkout, and the first that exists used. One found in none shall be passed to the driver unchanged and the locations searched logged, since a simulator may not read it. The runner is normally started in the repository of the firmware under test, not in this one (#116). | STK-08 | Test |
+| RUN-FR-008 | A specification shall be able to allocate an event-log name to each instrument it uses, and a bench to attach one to each actual instrument. The specification's name shall win, the bench's apply where the specification gives none, and the driver's default where neither does. An invalid name, or two instruments given one name in a specification or a bench, shall be refused at load; two instruments a run uses that would share a name, defaults included, shall be refused before any instrument connects. Each instrument's name shall appear in the run record and the report (#126). | STK-08, STK-19 | Test |
 
 ### 16.2 Test specification
 

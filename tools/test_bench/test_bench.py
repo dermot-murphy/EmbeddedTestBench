@@ -62,6 +62,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 from sources import (  # noqa: E402  pylint: disable=wrong-import-position
     SOURCE_ORDER,
     SOURCE_STYLES,
+    style_of,
     JlinkPanel,
     LiveRadio,
     PsuPanel,
@@ -4540,7 +4541,7 @@ pre  { background:#13162a; color:#dce1f0; padding:12px;
             self.update_diagnostics_tab()
 
         if self.radio.error:
-            self._events_add({"t": time.time(), "source": "rf", "level": "ERROR",
+            self._events_add({"t": time.time(), "source": "RF", "level": "ERROR",
                               "text": "radio stopped: %s" % self.radio.error})
             self.radio.error = None
             return
@@ -4687,14 +4688,14 @@ pre  { background:#13162a; color:#dce1f0; padding:12px;
         self.st_refresh_btn.state(["!disabled"])
         if status != "ok":
             self.st_setup_var.set("Read failed: %s" % result)
-            self._events_add({"t": time.time(), "source": "rf", "level": "ERROR",
+            self._events_add({"t": time.time(), "source": "RF", "level": "ERROR",
                               "text": "Reading the RF setup failed: %s" % result})
             return
         self._st_snapshot = result
         self.st_export_btn.state(["!disabled"])
         self.st_setup_var.set("Read at %s (reception paused %.1f s)"
                               % (time.strftime("%H:%M:%S"), result["paused_s"]))
-        self._events_add({"t": time.time(), "source": "rf", "level": "INFO",
+        self._events_add({"t": time.time(), "source": "RF", "level": "INFO",
                           "text": "RF setup and registers read; reception paused %.1f s"
                                   % result["paused_s"]})
 
@@ -4763,20 +4764,16 @@ pre  { background:#13162a; color:#dce1f0; padding:12px;
         bar = tk.Frame(tab, bg=DARK_BG)
         bar.pack(fill=tk.X, pady=5)
 
+        self.events_paused = tk.BooleanVar(value=False)
+        ttk.Checkbutton(bar, text="Pause", variable=self.events_paused).pack(side=tk.RIGHT, padx=12)
+        ttk.Button(bar, text="Clear", command=self._events_clear).pack(side=tk.RIGHT, padx=6)
+
+        # One check box per source: the defaults now, and any other name a
+        # specification or bench declared as it first appears (#126).
+        self.events_bar = bar
         self.event_show = {}
         for source in SOURCE_ORDER:
-            label, colour = SOURCE_STYLES[source]
-            variable = tk.BooleanVar(value=True)
-            self.event_show[source] = variable
-            tk.Checkbutton(
-                bar, text=label, variable=variable, command=self._events_redraw,
-                bg=DARK_BG, fg=colour, selectcolor=PANEL_BG, activebackground=DARK_BG,
-                activeforeground=colour, font=("Segoe UI", 10, "bold"),
-            ).pack(side=tk.LEFT, padx=6)
-
-        self.events_paused = tk.BooleanVar(value=False)
-        ttk.Checkbutton(bar, text="Pause", variable=self.events_paused).pack(side=tk.LEFT, padx=12)
-        ttk.Button(bar, text="Clear", command=self._events_clear).pack(side=tk.LEFT, padx=6)
+            self._events_add_source(source)
 
         self.events_count_var = tk.StringVar(
             value="No event log" if self.event_tail is None else "Events: 0")
@@ -4793,12 +4790,25 @@ pre  { background:#13162a; color:#dce1f0; padding:12px;
         self.events_text.configure(yscrollcommand=vsb.set)
         self.events_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         vsb.pack(side=tk.RIGHT, fill=tk.Y)
-        for source, (_label, colour) in SOURCE_STYLES.items():
-            self.events_text.tag_configure(source, foreground=colour)
+        for source in self.event_show:
+            self.events_text.tag_configure(source, foreground=style_of(source)[1])
         self.events_text.tag_configure("error", background="#4a1a1a")
         self.events_text.configure(state=tk.DISABLED)
 
         self.events = deque(maxlen=EVENTS_MAX)
+
+    def _events_add_source(self, source):
+        """A check box for *source*, and its colour in the text once there is one."""
+        label, colour = style_of(source)
+        variable = tk.BooleanVar(value=True)
+        self.event_show[source] = variable
+        tk.Checkbutton(
+            self.events_bar, text=label, variable=variable, command=self._events_redraw,
+            bg=DARK_BG, fg=colour, selectcolor=PANEL_BG, activebackground=DARK_BG,
+            activeforeground=colour, font=("Segoe UI", 10, "bold"),
+        ).pack(side=tk.LEFT, padx=6)
+        if getattr(self, "events_text", None) is not None:
+            self.events_text.tag_configure(source, foreground=colour)
 
     def _events_line(self, record):
         when, source, label, text = event_row(record)
@@ -4811,6 +4821,8 @@ pre  { background:#13162a; color:#dce1f0; padding:12px;
         if self.events_paused.get():
             return
         line, tags, source = self._events_line(record)
+        if source not in self.event_show:
+            self._events_add_source(source)
         if not self.event_show[source].get():
             return
         self.events_text.configure(state=tk.NORMAL)
@@ -4825,6 +4837,8 @@ pre  { background:#13162a; color:#dce1f0; padding:12px;
         self.events_text.delete("1.0", tk.END)
         for record in self.events:
             line, tags, source = self._events_line(record)
+            if source not in self.event_show:
+                self._events_add_source(source)
             if self.event_show[source].get():
                 self.events_text.insert(tk.END, line, tags)
         self.events_text.configure(state=tk.DISABLED)
@@ -4844,7 +4858,7 @@ pre  { background:#13162a; color:#dce1f0; padding:12px;
 
         tab = ttk.Frame(self.notebook)
         self.notebook.add(tab, text="PSU")
-        colour = SOURCE_STYLES["psu"][1]
+        colour = SOURCE_STYLES["PSU"][1]
 
         panel = ttk.LabelFrame(tab, text="GPD-3303D")
         panel.pack(fill=tk.BOTH, expand=True, padx=6, pady=(6, 3))
@@ -4962,7 +4976,7 @@ pre  { background:#13162a; color:#dce1f0; padding:12px;
         frame.pack(fill=tk.BOTH, expand=True)
         self.jlink_text = tk.Text(frame, bg=DARK_BG, fg=TEXT_MAIN, font=("Consolas", 10),
                                   wrap=tk.NONE, state=tk.DISABLED, borderwidth=0)
-        for kind, colour in (("command", SOURCE_STYLES["jlink"][1]), ("console", TEXT_MAIN),
+        for kind, colour in (("command", SOURCE_STYLES["JLINK"][1]), ("console", TEXT_MAIN),
                              ("async", ACCENT_CYAN), ("rtt", "#fff176"),
                              ("info", TEXT_DIM), ("problem", "#ef5350")):
             self.jlink_text.tag_configure(kind, foreground=colour)

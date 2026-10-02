@@ -11,8 +11,11 @@
 * :func:`st_gui_row` is a packet as ST's GUI displays it: time, byte count,
   RSSI, data in hex.
 * :func:`event_row` formats a record from a bench event log
-  (:mod:`benchtools.core.events`) or from the radio, and :data:`SOURCE_STYLES`
-  gives each source its colour.
+  (:mod:`benchtools.core.events`) or from the radio, and :func:`style_of`
+  gives each source its label and colour: the defaults from
+  :data:`SOURCE_STYLES`, and any other name a specification or bench declared
+  (#126) a colour of its own. Names are upper case; a log written before #126
+  carries them in lower case, and reads the same.
 
 Traces to: SWE4-UT-TESTBENCH.
 """
@@ -24,23 +27,46 @@ import queue
 import re
 import threading
 import time
+import zlib
 from collections import deque
 from typing import Any, Dict, List, Optional, Tuple
 
-#: Each event source's label and colour on the Events page.
+#: Each default event source's label and colour on the Events page.
 SOURCE_STYLES: Dict[str, Tuple[str, str]] = {
-    "rf":    ("ST RF",  "#26c6da"),
-    "psu":   ("PSU",    "#ffb74d"),
-    "ble":   ("BLE",    "#64b5f6"),
-    "jlink": ("J-Link", "#81c784"),
-    "test":  ("TEST",   "#fff176"),
-    "scope": ("SCOPE",  "#ce93d8"),
-    "dmm":   ("DMM",    "#f48fb1"),
-    "bench": ("BENCH",  "#7a8a9e"),
+    "RF":    ("ST RF",  "#26c6da"),
+    "PSU":   ("PSU",    "#ffb74d"),
+    "BLE":   ("BLE",    "#64b5f6"),
+    "JLINK": ("J-Link", "#81c784"),
+    "TEST":  ("TEST",   "#fff176"),
+    "SCOPE": ("SCOPE",  "#ce93d8"),
+    "DMM":   ("DMM",    "#f48fb1"),
+    "TEMP":  ("TEMP",   "#ff8a65"),
+    "BENCH": ("BENCH",  "#7a8a9e"),
 }
 
-#: The order sources are offered in, on the Events page.
-SOURCE_ORDER = ("rf", "psu", "ble", "jlink", "test", "scope", "dmm", "bench")
+#: The order the default sources are offered in, on the Events page. Any other
+#: name is added after them as it first appears.
+SOURCE_ORDER = ("RF", "PSU", "BLE", "JLINK", "TEST", "SCOPE", "DMM", "TEMP", "BENCH")
+
+#: Colours for a declared name that is not a default, chosen by the name so
+#: one name keeps its colour from run to run.
+_EXTRA_COLOURS = ("#4db6ac", "#aed581", "#ffd54f", "#9575cd", "#4fc3f7", "#e57373",
+                  "#a1887f", "#90a4ae")
+
+
+def source_key(source: Any) -> str:
+    """The upper-case name a record's source is filed under; ``BENCH`` if it has none."""
+    text = str(source or "").strip().upper()
+    return text or "BENCH"
+
+
+def style_of(source: str) -> Tuple[str, str]:
+    """(label, colour) for a source key: a default's own, otherwise the name
+    itself in a colour derived from it."""
+    if source in SOURCE_STYLES:
+        return SOURCE_STYLES[source]
+    index = zlib.crc32(source.encode("ascii", "replace")) % len(_EXTRA_COLOURS)
+    return source, _EXTRA_COLOURS[index]
 
 
 def _local_time(packet) -> datetime.datetime:
@@ -97,18 +123,16 @@ def rf_event(packet, decoded: Optional[Dict[str, Any]] = None) -> Dict[str, Any]
         text = "%d bytes %s" % (packet.length, packet.hex[:24])
     if packet.rssi_dbm is not None:
         text += ", %.1f dBm" % packet.rssi_dbm
-    return {"t": moment.timestamp(), "source": "rf", "level": "INFO", "text": text}
+    return {"t": moment.timestamp(), "source": "RF", "level": "INFO", "text": text}
 
 
 def event_row(record: Dict[str, Any]) -> Tuple[str, str, str, str]:
     """(time, source key, source label, text) for one event record."""
-    source = record.get("source") or "bench"
-    if source not in SOURCE_STYLES:
-        source = "bench"
+    source = source_key(record.get("source"))
     stamp = record.get("t")
     when = (_clock(datetime.datetime.fromtimestamp(stamp))
             if isinstance(stamp, (int, float)) else "")
-    return when, source, SOURCE_STYLES[source][0], str(record.get("text", ""))
+    return when, source, style_of(source)[0], str(record.get("text", ""))
 
 
 class LiveRadio:

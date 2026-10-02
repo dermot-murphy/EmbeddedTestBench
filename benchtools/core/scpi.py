@@ -33,7 +33,6 @@ from .transport.factory import open_transport
 
 __all__ = ["ScpiInstrument", "InstrumentIdentity", "parse_ieee_block", "format_ieee_block"]
 
-_LOG = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -116,6 +115,7 @@ class ScpiInstrument(Instrument):
         super().__init__(auto_check_errors=auto_check_errors)
         self._transport = transport
         self._owns_transport = bool(owns_transport)
+        self._adopt(transport)
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -194,13 +194,13 @@ class ScpiInstrument(Instrument):
     # Primitive I/O
     # ------------------------------------------------------------------
     @property
-    def _io_log(self) -> logging.Logger:
+    def _io_log(self) -> logging.LoggerAdapter:
         """The logger this instrument's I/O is recorded under: its own module's.
 
         So a line sent to a supply is logged as the supply's, not as the shared
-        SCPI layer's, and an event log can say which instrument it came from.
+        SCPI layer's, and carries the instrument's event-log name (#126).
         """
-        return logging.getLogger(type(self).__module__)
+        return self._logger
 
     def _write(self, command: str) -> None:
         """Send *command*, expecting no response."""

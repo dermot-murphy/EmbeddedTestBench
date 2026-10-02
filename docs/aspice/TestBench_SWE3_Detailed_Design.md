@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE3-001 | **Version** | 0.8 |
+| **Document ID** | TB-SWE3-001 | **Version** | 0.9 |
 | **Project** | TestBench | **Date** | 2026-10-02 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -30,6 +30,7 @@
 | 0.6 | 2026-10-02 | Claude | #115: CORE-DD-TRANSPORT gains `read_available` and `discard_input`; CORE-DD-SERIAL and CORE-DD-MOCK extend `discard_input`, and the mock transport gives a virtual-clock simulator its timeout. DMM-DD-CONST, -PROTO, -DMM and -SIM revised for the stream read, frame validation, the derived resistance multiplier, confirmation from the readings, ranges, fresh measurement, the frequency gate and the simulator's reading rate. |
 | 0.7 | 2026-10-02 | Claude | #116: CORE-DD-PATHS added - drivers declare which arguments are input files, and a relative one is found beside the file that names it, then in the working directory, then in the checkout. RUN-DD-BENCH resolves declared bench options; RUN-DD-RUNNER resolves declared step arguments. CORE count 16 → 17. |
 | 0.8 | 2026-10-02 | Claude | #124: BLE-DD-CLI - `--select` resolves an address, a name or part of one through `select_by_name`, with an unfiltered rescan when the case-sensitive firmware filter hears nothing; `cmd --addr` selects; `--addr` and `--select` are mutually exclusive. |
+| 0.9 | 2026-10-02 | Claude | #126: CORE-DD-EVENTS - event names per instrument (`EventSource`, `SourceLogger`, `connecting_as`, `validate_source_name`), upper-case defaults with `TEMP`; CORE-DD-INSTRUMENT - `EVENT_SOURCE`, `event_source`, `_adopt`; RUN-DD-SPEC, RUN-DD-BENCH and RUN-DD-REPORT - names from the specification and the bench. |
 
 ---
 
@@ -394,6 +395,16 @@ Design points:
   error queue is the normal case outside SCPI. `check_errors` is therefore a no-op
   by default rather than a forced override.
 
+`EVENT_SOURCE` is each driver's default event-log name, and `event_source` the
+instrument's current one, held in an `EventSource` created at construction -
+from `connecting_as` if the bench is connecting it, else from `EVENT_SOURCE`.
+`_logger` is the instrument's `SourceLogger`, under its own module's logger;
+`_adopt(*owned)` binds what it owns - transport, session, RTT client, GDB
+Server, ITM decoder - to the same name (CORE-FR-063). `Transport` gives every
+link a `_logger` under its own module, and `ScpiInstrument` adopts its transport
+and logs its I/O through `_io_log`, which is now that logger.
+
+
 #### CORE-DD-SCPI — `scpi.py`
 
 `ScpiInstrument`, the base every driver subclasses.
@@ -444,16 +455,28 @@ The base class is concrete and usable on its own, which is what makes a bare
 One event log for a run, followed live by the Test Bench monitor (#82). Every
 driver already reports its I/O and the runner its steps through `logging`;
 `EventLogHandler` writes each `benchtools` record as one JSON object per line -
-host time, source, level, logger, text - flushed per record. `source_of`
-decides the source from the logger name (`gpd3303d` is `psu`, `nordic_dongle`
-`ble`, `jlink` `jlink`, `s2lp` `rf`, the runner `test`, anything else `bench`).
-`start_event_log` attaches it, and first pins any console handler to the root
-level, so lowering the package's level for the log does not flood the console.
-`EventTail` follows a growing log, leaving a partial last line for the next
-read. So that each instrument is identifiable, `ScpiInstrument` logs its I/O
-under the instrument's own module (`_io_log`), the BLE session logs each line,
-and RTT logs each line; the runner logs each test's result. `benchtools run
+host time, source, level, logger, text - flushed per record. `start_event_log`
+attaches it, and first pins any console handler to the root level, so lowering
+the package's level for the log does not flood the console. `EventTail` follows
+a growing log, leaving a partial last line for the next read. `benchtools run
 --event-log PATH` writes the log for a run.
+
+The **source** is the short upper-case name of the instrument a record came
+from (CORE-FR-060, CORE-FR-063, AD-28, #126):
+
+- `EventSource` holds one instrument's name; `validate_source_name` enforces
+  1-8 characters, `[A-Z][A-Z0-9_]*`. It is mutable, so a rename reaches every
+  logger already bound to it.
+- `SourceLogger`, a `LoggerAdapter`, adds the bound name to each record as
+  `event_source`. An instrument and everything it owns log through one.
+- `connecting_as(name)` sets a per-thread pending name while the bench builds an
+  instrument. An `Instrument` or `SourceLogger` created inside it takes the name
+  from the start, and the handler gives it to records logged meanwhile by
+  module-level code (the transport factory), so connecting is named too.
+- The handler's order: the record's `event_source`, else the pending name, else
+  `source_of` the logger name - the driver defaults `PSU`, `BLE`, `JLINK`, `RF`,
+  `SCOPE`, `DMM`, `TEMP` (`pico_sht30`), `TEST` (the runner), and `BENCH` for
+  anything else.
 
 ---
 
@@ -2125,6 +2148,12 @@ parameter can stand wherever a literal could and is validated by the same
 rules. An undefined name is refused with the list of those defined.
 `TestSpec.parameters` carries the values into the run record and report (#95).
 
+An `instruments:` entry is a driver name or a mapping with `driver` and
+`event`; `_parse_instruments` splits them into `instrument_drivers` and
+`instrument_events`, validating each name and refusing two aliases one name
+(RUN-FR-008).
+
+
 #### RUN-DD-LIMITS — `limits.py`
 
 `Limit` supports `minimum`, `maximum`, `equals` with `tolerance` or
@@ -2171,6 +2200,15 @@ measurements. It never opens an instrument to describe it: doing so would change
 what the run did. An instrument that will not identify is recorded with an
 `identity_error` rather than dropped, because silence about the bench is worse
 than a recorded failure.
+
+Event-log names (RUN-FR-008, AD-28): `InstrumentConfig.event` is the bench's
+name for an instrument, validated and unique within the bench. `name_events`
+takes the specification's, renaming any instrument already open;
+`event_source_for` resolves specification, then bench, then the driver's
+`EVENT_SOURCE`; `check_event_sources` refuses two instruments a run uses that
+would share a name, defaults included. `get` connects inside `connecting_as`,
+and `describe_instruments` records each instrument's `event`.
+
 
 #### RUN-DD-RESULTS — `results.py`
 
@@ -2220,6 +2258,10 @@ firmware, resource - from `RunRecord.instruments`, omitted when the run recorded
 none. It sits with the verdict rather than in an appendix: whoever reads the
 numbers needs to know, on the same page, which dongle and which firmware build
 produced them.
+
+The Instruments table carries each instrument's event-log name, so a line in
+the event log can be traced to the instrument in the report (RUN-FR-008).
+
 
 #### RUN-DD-CLI — `cli.py` and `benchtools/cli.py`
 

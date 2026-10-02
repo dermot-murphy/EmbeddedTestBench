@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE2-001 | **Version** | 0.6 |
+| **Document ID** | TB-SWE2-001 | **Version** | 0.7 |
 | **Project** | TestBench | **Date** | 2026-10-02 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -28,6 +28,7 @@
 | 0.4 | 2026-09-30 | Claude | PICO-ARC-001 added: the Pico 2 + SHT30-D thermometer and its firmware. AD-24 added. Thermometer interfaces added. Header version brought into line with this history (#104). |
 | 0.5 | 2026-10-02 | Claude | #115: AD-25 (a key press on the 1604 is confirmed from the readings) and AD-26 (the 1604 is read as a stream, and a measurement is fresh). CORE-ARC-002 gains the stream operations; DMM-ARC-001 updated. |
 | 0.6 | 2026-10-02 | Claude | #116: AD-27 (a driver declares which arguments are input files; the runner finds them beside the file that names them). |
+| 0.7 | 2026-10-02 | Claude | #126: AD-28 (an event source is an instrument, named by the specification and the bench, not a driver package). |
 
 ---
 
@@ -662,6 +663,38 @@ directory. A driver that adds a file argument must mark it, and
 `TestEveryDriverDeclaresItsInputFiles` pins the current set. A file beside a
 specification takes precedence over one of the same name in the working
 directory.
+
+### AD-28 — An event source is an instrument, named in the setup, not a driver package
+
+**Context.** The event log labelled each record from a fixed table of driver
+packages: `gpd3303d` was `psu`, `jlink` was `jlink`, anything else `bench`. The
+Pico 2 thermometer was not in the table, so its records read `bench`; two
+instruments of one driver - `probe` and `rtt`, or two supplies - could not be
+told apart; and the shared transports' lines were `bench` whatever instrument
+they carried. The name was a property of the code, not of the bench (#126).
+
+**Decision.** A record carries the short upper-case name of the *instrument* it
+came from. A specification allocates it to an instrument role
+(`temp: {driver: pico-sht30, event: TEMP}`), a bench attaches it to an actual
+instrument (`event: TEMP`), and the specification's wins; with neither, the
+driver's default (`Instrument.EVENT_SOURCE`) applies. Each instrument holds its
+name in one `EventSource`, and binds everything it owns - transport, sessions,
+RTT client, GDB Server - to it through a `SourceLogger`, so a rename reaches all
+of them. The bench builds the instrument inside `connecting_as(name)`, so
+opening the link and identifying are named too. Two instruments a run uses may
+not share a name, defaults included.
+
+**Alternatives.** Keeping the driver table and appending the alias would still
+leave the transports unlabelled and give no control over the name. A name taken
+from the alias alone would change every log whenever a specification renamed a
+role. Inspecting the call stack for the owning instrument would need no driver
+change, and would be fragile across threads and invisible to a reader.
+
+**Consequences.** Every driver logs through `self._logger` rather than a module
+logger; a new driver gets this from `Instrument`. Names are upper case: a log
+written before #126 is lower case, and the monitor reads both. A specification
+that uses `probe` and `rtt` together must name one of them, which the shipped
+benches do (`event: RTT`).
 
 ## 8. Dynamic behaviour — a runner invocation
 

@@ -25,6 +25,7 @@ import time
 from collections import deque
 from typing import Callable, Deque, List, Optional, Tuple, Union
 
+from ...core.events import SourceLogger
 from ...core.errors import (
     ConnectionFailedError,
     InstrumentError,
@@ -37,7 +38,6 @@ from .protocol import Event, Reply, parse_line
 
 __all__ = ["DongleSession", "DongleCommandError"]
 
-_LOG = logging.getLogger(__name__)
 
 #: Events retained when nobody is consuming them. Large enough for a minute of
 #: advertising at 20 ms, bounded so an unattended session cannot grow without
@@ -70,6 +70,8 @@ class DongleSession:
     """
 
     def __init__(self, transport: Transport, timeout: float = 5.0) -> None:
+        #: Bound to the owning instrument's event-log name (#126).
+        self._logger = SourceLogger(logging.getLogger(__name__))
         self._transport = transport
         self._timeout = float(timeout)
         self._events: Deque[Event] = deque(maxlen=_EVENT_BACKLOG)
@@ -157,7 +159,7 @@ class DongleSession:
         self._write_log("#", text)
 
     def _write_log(self, direction: str, text: str) -> None:
-        _LOG.debug("%s %s", direction, text)
+        self._logger.debug("%s %s", direction, text)
         if self._log is None:
             return
         self._log.write("%.6f %s %s\n" % (time.time(), direction, text))
@@ -346,7 +348,7 @@ class DongleSession:
         self._write_log("<", text)
         parsed = parse_line(text)
         if parsed is None:
-            _LOG.debug("ignoring non-protocol line from the dongle: %r", text)
+            self._logger.debug("ignoring non-protocol line from the dongle: %r", text)
             return None
         if isinstance(parsed, Event):
             parsed.host_time = time.time()

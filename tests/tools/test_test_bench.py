@@ -68,7 +68,7 @@ class TestEvents:
     def test_an_rf_frame(self):
         record = sources.rf_event(packet(), {"sensor_id": "5C1712", "type": "ALIVE",
                                              "frame_of": (1, 3)})
-        assert record["source"] == "rf"
+        assert record["source"] == "RF"
         assert record["text"] == "5C1712 ALIVE frame 1 of 3, 35 bytes, -94.5 dBm"
 
     def test_a_decoder_frame_counts_from_one(self):
@@ -86,12 +86,28 @@ class TestEvents:
 
     def test_an_event_row(self):
         when, source, label, text = sources.event_row(
-            {"t": 1790600000.5, "source": "psu", "text": ">> VSET1:3.300"})
-        assert (source, label, text) == ("psu", "PSU", ">> VSET1:3.300")
+            {"t": 1790600000.5, "source": "PSU", "text": ">> VSET1:3.300"})
+        assert (source, label, text) == ("PSU", "PSU", ">> VSET1:3.300")
         assert len(when) == 11
 
-    def test_an_unknown_source_is_shown_as_bench(self):
-        assert sources.event_row({"source": "mystery", "text": "x"})[1] == "bench"
+    def test_a_log_from_before_126_reads_the_same(self):
+        # Lower-case names were written before #126.
+        assert sources.event_row({"source": "psu", "text": "x"})[1:3] == ("PSU", "PSU")
+        assert sources.event_row({"source": "rf", "text": "x"})[1:3] == ("RF", "ST RF")
+
+    def test_a_declared_name_is_shown_as_itself(self):
+        _, source, label, _ = sources.event_row({"source": "RTT", "text": "x"})
+        assert (source, label) == ("RTT", "RTT")
+
+    def test_a_declared_name_keeps_its_colour(self):
+        assert sources.style_of("PSU2") == sources.style_of("PSU2")
+        assert sources.style_of("PSU2")[1].startswith("#")
+
+    def test_a_record_with_no_source_is_bench(self):
+        assert sources.event_row({"text": "x"})[1] == "BENCH"
+
+    def test_the_thermometer_has_a_style_of_its_own(self):
+        assert sources.style_of("TEMP") == sources.SOURCE_STYLES["TEMP"]
 
 
 def test_a_live_radio_receives_from_a_simulated_kit_and_stops_the_board():

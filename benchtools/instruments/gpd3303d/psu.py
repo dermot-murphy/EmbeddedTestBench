@@ -46,7 +46,6 @@ Traces to: PSU-FR-001 .. PSU-FR-043, PSU-ARC-001, PSU-DD-PSU.
 
 from __future__ import annotations
 
-import logging
 import time
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
@@ -80,7 +79,6 @@ from .simulator import SimulatedGpd
 
 __all__ = ["Gpd3303D", "ChannelReading", "SupplyStatus"]
 
-_LOG = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -216,6 +214,7 @@ class Gpd3303D(ScpiInstrument):
 
     SIMULATOR_CLASS = SimulatedGpd
     MODEL_NAME = MODEL
+    EVENT_SOURCE = "PSU"
 
     def __init__(
         self,
@@ -442,7 +441,7 @@ class Gpd3303D(ScpiInstrument):
         if mode == TrackingMode.INDEPENDENT:
             return
         if mode == TrackingMode.UNKNOWN:
-            _LOG.warning(
+            self._logger.warning(
                 "the supply's tracking mode did not decode, so whether channel "
                 "%d is slaved to channel 1 is unknown; the setting is being "
                 "sent anyway and may be discarded by the supply",
@@ -511,7 +510,7 @@ class Gpd3303D(ScpiInstrument):
         self._check_tracking(channel)
         if channel in self._parked:
             self._parked[channel] = wanted
-            _LOG.debug("channel %d is parked; %.3f V held until it is switched on",
+            self._logger.debug("channel %d is parked; %.3f V held until it is switched on",
                        channel, wanted)
             return wanted
         self._write("VSET%d:%.3f" % (channel, wanted))
@@ -676,7 +675,7 @@ class Gpd3303D(ScpiInstrument):
             try:
                 line = self._transport.read_message()
             except TransportTimeoutError:
-                _LOG.warning("the supply sent no legend after STATUS?; "
+                self._logger.warning("the supply sent no legend after STATUS?; "
                              "expected %d lines", STATUS_LEGEND_LINES)
                 return
             text = line.decode("ascii", errors="replace").strip()

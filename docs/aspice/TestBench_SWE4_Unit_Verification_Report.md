@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE4-002 | **Version** | 0.8 |
+| **Document ID** | TB-SWE4-002 | **Version** | 0.9 |
 | **Project** | TestBench | **Date** | 2026-10-02 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -30,6 +30,7 @@
 | 0.6 | 2026-10-02 | Claude | #116: execution summary re-run; SWE4-UT-PATHS added to §5; §14.3 added - every shipped specification run from outside the checkout, before and after; D-45 added and closed. |
 | 0.7 | 2026-10-02 | Claude | #120: execution summary re-run; §14.3 notes that the simulated bench now defines `rtt`, so `kepler_temperature.yaml` reaches `dongle.select` like the other Kepler specifications. |
 | 0.8 | 2026-10-02 | Claude | #124: execution summary re-run; SWE4-UT-BLECLI count updated; D-46 added and closed. |
+| 0.9 | 2026-10-02 | Claude | #126: execution summary re-run; SWE4-UT-EVENTNAMES added to §5; D-47 added and closed. |
 
 ---
 
@@ -58,13 +59,13 @@ It is deliberately a separate work product from the specification. A specificati
 
 | Metric | Result |
 |---|---|
-| Tests executed | **2 660** |
-| Passed | **2 659** |
+| Tests executed | **2 721** |
+| Passed | **2 720** |
 | Failed | 0 |
 | Errors | 0 |
 | Skipped | 1 |
-| Statement coverage | **95%** (13 568 statements, 675 missed) |
-| Execution time | 149.8 s with coverage instrumentation |
+| Statement coverage | **95%** (13 695 statements, 679 missed) |
+| Execution time | 149.7 s with coverage instrumentation |
 | Runtime | CPython 3.11.15, Linux |
 | Framework | pytest 9.1.1, pytest-cov |
 
@@ -93,8 +94,12 @@ No J-Link probe, target board, GDB, GDB Server, BLE dongle, BLE sensor or TTi
 the GDB/MI boundary, the RTT and SWO sockets by a loopback server, the dongle at
 its line protocol, and the serial port by pyserial's own `loop://` handler.
 
-Revision 0.8 re-ran the whole suite with #124's change to choosing a sensor on
-the BLE command line, merged with #120; the figures above are that run.
+Revision 0.9 re-ran the whole suite with #126's per-instrument event-log names;
+the figures above are that run. Its change to the Test Bench monitor's Events
+page was also driven headless (Xvfb, Python 3.12 with Tk): declared names get a
+check box and colour of their own, and a lower-case log reads the same.
+Revision 0.8 re-ran it with #124's change to choosing a sensor on the BLE
+command line, merged with #120.
 Revision 0.7 re-ran it with #120's `rtt` entry on the simulated bench.
 Revision 0.6 re-ran the whole suite with #116's input-path resolution. The run with every optional extra blocked was not
 repeated for 0.6: the change adds no import of an optional package, and
@@ -173,6 +178,7 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | SWE4-UT-PLOT | `analysis/test_plotting.py` | 15 | Pass |
 | SWE4-UT-RUNCLI | `runner/test_cli.py` | 15 | Pass |
 | SWE4-UT-PATHS | `core/test_paths.py`, `runner/test_input_paths.py` | 70 | Pass |
+| SWE4-UT-EVENTNAMES | `runner/test_event_names.py` | 21 | Pass |
 | SWE4-UT-RESOLVE | `runner/test_resolve.py` | 27 | Pass |
 | SWE4-UT-BRINGUP | `runner/test_sensor_bringup.py` | 18 | Pass |
 | SWE4-UT-COREFW | `core/test_firmware.py` | 13 | Pass |
@@ -1163,6 +1169,7 @@ SDK to provide it transitively.
 | D-44 | Two annunciator bits were at the wrong positions: Touch-Hold at bit 0 of the function byte and auto-range-set at bit 2 of the status byte, from a summary, where the manufacturer's note gives bit 1 for both. A Touch-Hold display was not reported as held | **Major** - a frozen reading could pass as live. Found by reading the manufacturer's note, now in `docs/dmm/reference/` | **Closed** - both moved to bit 1 | `TestTheManufacturersNote` (4) |
 | D-45 | Every driver opened an input file named by a relative path - an S2-LP register file, a command document, a firmware build, an ELF image - relative to the working directory, and nothing resolved it against the specification or bench file that named it. Started outside the TestTools checkout, the normal case, 12 of 28 specification runs on the simulated bench errored before measuring anything (§14.3) | **Major** - a test errored for a reason unrelated to the thing under test, and only in the directory it is meant to be used from. Every test passed because each was run from the checkout | **Closed** - drivers declare their input files; the runner and bench resolve them beside the declaring file, then the working directory, then the checkout (AD-27, #116) | `test_a_shipped_specification_runs_the_same_from_outside_the_checkout` (14), `TestStepArguments` (3), `TestBenchOptions` (4) |
 | D-46 | On the BLE command line, `--select` with anything but the exact advertised name failed: the scan's firmware filter matched by containment, then `select()` matched the name exactly, found nothing and parsed the text as an address - "not a BLE address". `cmd --addr` was accepted and never read. Found on hardware with sensor 5C1712 during #73, ticketed as #124 | **Major** - the advertised name carries the firmware version, so the name an operator knows never matched; the only working form was an address | **Closed** - `select` and `--select` resolve an address, a name or part of one through `select_by_name`, with an unfiltered rescan for another case; `cmd --addr` selects; `--addr` with `--select` exits 2 | `TestChoosingASensor` (16; 13 fail before the fix) |
+| D-47 | The event log named a record's source from a fixed table of driver packages. The Pico 2 thermometer was not in it, so its records read `bench`; the shared transports' lines read `bench` whatever instrument they carried; and two instruments of one driver - `probe` and `rtt` - were indistinguishable. Found in #126 | **Major** for a log whose purpose is to say which part of the bench did what: a supply's and a thermometer's lines could not be told apart, nor two J-Link links | **Closed** - each instrument carries a name, allocated by the specification and the bench, the specification winning, defaults per driver including `TEMP`; everything an instrument owns logs under it; clashes refused before connecting (AD-28) | `SWE4-UT-EVENTNAMES` (21), `TestPerInstrumentNames` (15), `TestSourceNames` (18) |
 
 No open defects.
 

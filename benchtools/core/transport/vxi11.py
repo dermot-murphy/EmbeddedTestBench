@@ -466,7 +466,7 @@ class Vxi11Transport(Transport):
                 self._device_name = name
                 # Leave headroom for the RPC envelope, and never trust a zero.
                 self._max_recv_size = max(min(max_recv, 1024 * 1024), 512) if max_recv else 4096
-                _LOG.info("VXI-11 link established to %s as %r", self._host, name)
+                self._logger.info("VXI-11 link established to %s as %r", self._host, name)
                 return
             failures.append("%s: error %d (%s)" % (name, error, _VXI11_ERRORS.get(error, "unknown")))
 
@@ -483,7 +483,8 @@ class Vxi11Transport(Transport):
                 try:
                     self._call(_DESTROY_LINK, _Packer().int(self._link_id).bytes())
                 except (TransportError, OSError):
-                    _LOG.debug("destroy_link failed; closing the socket anyway", exc_info=True)
+                    self._logger.debug("destroy_link failed; closing the socket anyway",
+                                       exc_info=True)
             try:
                 self._sock.close()
             finally:

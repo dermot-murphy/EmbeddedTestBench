@@ -29,11 +29,11 @@ import logging
 from typing import Optional, Tuple
 
 from ..errors import ProtocolError, TransportError, TransportTimeoutError
+from ..events import SourceLogger
 from .constants import DEFAULT_TERMINATOR, MAX_RESPONSE_BYTES
 
 __all__ = ["Transport", "DEFAULT_TERMINATOR", "MAX_RESPONSE_BYTES"]
 
-_LOG = logging.getLogger(__name__)
 
 
 class Transport(abc.ABC):
@@ -68,6 +68,8 @@ class Transport(abc.ABC):
         self._buffer = bytearray()
         self._buffer_end = False
         self._is_open = False
+        #: Bound to the owning instrument's name by ``Instrument._adopt`` (#126).
+        self._logger = SourceLogger(logging.getLogger(type(self).__module__))
 
     # ------------------------------------------------------------------
     # Properties
@@ -153,7 +155,7 @@ class Transport(abc.ABC):
             self._open_link()
             self._is_open = True
             self._reset_buffer()
-            _LOG.debug("opened %s", self.description)
+            self._logger.debug("opened %s", self.description)
         return self
 
     def close(self) -> None:
@@ -162,11 +164,11 @@ class Transport(abc.ABC):
             try:
                 self._close_link()
             except Exception:  # pragma: no cover - defensive
-                _LOG.warning("error while closing %s", self.description, exc_info=True)
+                self._logger.warning("error while closing %s", self.description, exc_info=True)
             finally:
                 self._is_open = False
                 self._reset_buffer()
-                _LOG.debug("closed %s", self.description)
+                self._logger.debug("closed %s", self.description)
 
     def __enter__(self) -> "Transport":
         return self.open()
@@ -225,7 +227,7 @@ class Transport(abc.ABC):
             payload += self._terminator
         if not keep_buffer:
             if self._buffer:
-                _LOG.debug("discarding %d stale bytes before write", len(self._buffer))
+                self._logger.debug("discarding %d stale bytes before write", len(self._buffer))
             self._reset_buffer()
         self._send(payload)
 

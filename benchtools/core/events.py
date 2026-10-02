@@ -9,48 +9,161 @@ tell the supply from the radio at a glance.
 
 A record is::
 
-    {"t": 1790600000.123456, "source": "psu", "level": "DEBUG",
+    {"t": 1790600000.123456, "source": "PSU", "level": "DEBUG",
      "logger": "benchtools.instruments.gpd3303d.psu", "text": ">> VSET1:3.300"}
 
-``t`` is host time in seconds since the epoch. ``source`` is one of
-:data:`SOURCES`, decided from the logger's name by :func:`source_of`.
+``t`` is host time in seconds since the epoch. ``source`` is the short name of
+the instrument the record came from (#126). A specification allocates it to an
+instrument role, a bench attaches it to an actual instrument, and the
+specification's wins; with neither, it is the driver's default (:data:`SOURCES`).
+An instrument carries its name in an :class:`EventSource`, and everything it
+owns - its transport, its sessions - logs through a :class:`SourceLogger` bound
+to it, so two instruments of one driver are told apart. A record logged by
+nothing bound to an instrument falls back to :func:`source_of` its logger name.
 
 JSON Lines rather than one document, flushed per record, so a reader can
 follow the file while it is written and a run that dies leaves a readable log.
 
-Traces to: CORE-FR-060, CORE-DD-EVENTS.
+Traces to: CORE-FR-060, CORE-FR-063, CORE-DD-EVENTS.
 """
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import os
-from typing import Any, Dict, List, Optional
+import re
+import threading
+from typing import Any, Dict, Iterator, List, MutableMapping, Optional, Tuple
 
-__all__ = ["SOURCES", "source_of", "EventLogHandler", "start_event_log", "EventTail"]
+from .errors import ConfigurationError
 
-#: Where an event came from, by the start of its logger's name. First match wins.
+__all__ = [
+    "SOURCES",
+    "DEFAULT_SOURCE",
+    "EventSource",
+    "SourceLogger",
+    "connecting_as",
+    "pending_source",
+    "source_of",
+    "validate_source_name",
+    "EventLogHandler",
+    "start_event_log",
+    "EventTail",
+]
+
+#: A driver's default name, by the start of its logger's name. First match wins.
 _SOURCE_PREFIXES = (
-    ("benchtools.instruments.gpd3303d", "psu"),
-    ("benchtools.instruments.nordic_dongle", "ble"),
-    ("benchtools.instruments.jlink", "jlink"),
-    ("benchtools.instruments.s2lp", "rf"),
-    ("benchtools.instruments.tek3014b", "scope"),
-    ("benchtools.instruments.tti1604", "dmm"),
-    ("benchtools.runner", "test"),
+    ("benchtools.instruments.gpd3303d", "PSU"),
+    ("benchtools.instruments.nordic_dongle", "BLE"),
+    ("benchtools.instruments.jlink", "JLINK"),
+    ("benchtools.instruments.s2lp", "RF"),
+    ("benchtools.instruments.tek3014b", "SCOPE"),
+    ("benchtools.instruments.tti1604", "DMM"),
+    ("benchtools.instruments.pico_sht30", "TEMP"),
+    ("benchtools.runner", "TEST"),
 )
 
-#: Every source a record can carry.
-SOURCES = tuple(source for _prefix, source in _SOURCE_PREFIXES) + ("bench",)
+#: What a record belongs to when nothing else says.
+DEFAULT_SOURCE = "BENCH"
+
+#: Every default name. A specification or bench may declare others.
+SOURCES = tuple(source for _prefix, source in _SOURCE_PREFIXES) + (DEFAULT_SOURCE,)
+
+#: A source name: an upper-case letter, then up to seven of A-Z, 0-9 and _.
+_NAME = re.compile(r"[A-Z][A-Z0-9_]{0,7}")
+
+
+def validate_source_name(name: Any, where: str = "event source name") -> str:
+    """Return *name* if it is a valid source name.
+
+    :raises ConfigurationError: naming *where* and the rule, otherwise.
+    """
+    if not isinstance(name, str) or _NAME.fullmatch(name) is None:
+        raise ConfigurationError(
+            "%s %r is not valid: 1 to 8 characters, an upper-case letter "
+            "followed by A-Z, 0-9 or _, e.g. TEMP or PSU2" % (where, name)
+        )
+    return name
 
 
 def source_of(logger_name: str) -> str:
-    """The bench source a logger belongs to; ``"bench"`` for anything else."""
+    """The default source for a logger's name; :data:`DEFAULT_SOURCE` for anything else."""
     for prefix, source in _SOURCE_PREFIXES:
         if logger_name == prefix or logger_name.startswith(prefix + "."):
             return source
-    return "bench"
+    return DEFAULT_SOURCE
+
+
+class EventSource:
+    """The name one instrument's records carry, shared by everything it owns.
+
+    Mutable, so a name given after construction reaches every logger already
+    bound to it.
+    """
+
+    def __init__(self, name: str) -> None:
+        self._name = validate_source_name(name)
+
+    @property
+    def name(self) -> str:
+        """The current name."""
+        return self._name
+
+    @name.setter
+    def name(self, value: str) -> None:
+        self._name = validate_source_name(value)
+
+    def __repr__(self) -> str:
+        return "EventSource(%r)" % self._name
+
+
+class SourceLogger(logging.LoggerAdapter):
+    """A logger whose records carry the name of the instrument it is bound to.
+
+    Unbound (``source`` is ``None``), a record falls back to :func:`source_of`
+    its logger's name, as before #126.
+    """
+
+    def __init__(self, logger: logging.Logger, source: Optional[EventSource] = None) -> None:
+        super().__init__(logger, {})
+        if source is None and pending_source() is not None:
+            # Built while the bench connects an instrument: its name already.
+            source = EventSource(pending_source())
+        self.source = source
+
+    def process(
+        self, msg: Any, kwargs: MutableMapping[str, Any]
+    ) -> Tuple[Any, MutableMapping[str, Any]]:
+        if self.source is not None:
+            extra = dict(kwargs.get("extra") or {})
+            extra["event_source"] = self.source.name
+            kwargs["extra"] = extra
+        return msg, kwargs
+
+
+_PENDING = threading.local()
+
+
+@contextlib.contextmanager
+def connecting_as(name: Optional[str]) -> Iterator[None]:
+    """While an instrument is built in this thread, give it *name* from the start.
+
+    Without this an instrument's first records - opening the link, identifying -
+    would carry its driver's default before the bench could rename it.
+    """
+    previous = getattr(_PENDING, "name", None)
+    _PENDING.name = None if name is None else validate_source_name(name)
+    try:
+        yield
+    finally:
+        _PENDING.name = previous
+
+
+def pending_source() -> Optional[str]:
+    """The name :func:`connecting_as` set for this thread, if any."""
+    return getattr(_PENDING, "name", None)
 
 
 class EventLogHandler(logging.Handler):
@@ -68,7 +181,8 @@ class EventLogHandler(logging.Handler):
         try:
             line = json.dumps({
                 "t": round(record.created, 6),
-                "source": source_of(record.name),
+                "source": (getattr(record, "event_source", None) or pending_source()
+                           or source_of(record.name)),
                 "level": record.levelname,
                 "logger": record.name,
                 "text": record.getMessage(),
@@ -110,7 +224,7 @@ class EventTail:
     """Follow an event log as it grows, returning the records added since the last read.
 
     A partial last line - the writer mid-record - is left for the next read.
-    Lines that are not JSON are returned as ``bench`` records carrying the raw
+    Lines that are not JSON are returned as ``BENCH`` records carrying the raw
     text, rather than dropped.
     """
 
@@ -147,5 +261,6 @@ class EventTail:
         try:
             record = json.loads(line)
         except ValueError:
-            return {"t": None, "source": "bench", "level": "INFO", "logger": "", "text": line}
+            return {"t": None, "source": DEFAULT_SOURCE, "level": "INFO", "logger": "",
+                    "text": line}
         return record if isinstance(record, dict) else None
