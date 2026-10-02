@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE1-001 | **Version** | 0.8 |
+| **Document ID** | TB-SWE1-001 | **Version** | 0.9 |
 | **Project** | TestBench | **Date** | 2026-10-02 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -30,6 +30,7 @@
 | 0.6 | 2026-09-26 | Claude | PSU-FR-002 rationale corrected: the supply rejects an out-of-range setting, it does not clamp it (#64). PSU-FR-003 no longer promises an exact read-back (#64). PSU-FR-021 and -022 describe the status word as the supply sends it, without a line rate (#63). Header version brought into line with this history. |
 | 0.7 | 2026-09-30 | Claude | STK-21 and STK-22 added. Section 15 added: `PICO-` requirements for the Pico 2 + SHT30-D thermometer and its firmware (PICO-FR-001…060, PICO-NFR-001…006); CON-09 and ASM-10 added. Sections 16 to 19 renumbered (#104). |
 | 0.8 | 2026-10-02 | Claude | #115: CORE-FR-061 (read a stream as it arrives; discard unread input, the operating system's included) and CORE-FR-062 (a virtual-clock simulator is given the read timeout). DMM-FR-016 revised: the resistance multiplier is derived from the range resolution, not assumed. DMM-FR-021 revised: annunciator bit positions follow the manufacturer's note. DMM-FR-027 … -033 (stream reading, frame validation, confirmation from the readings, ranges, fresh measurement, the frequency gate, Hz on AC only), DMM-FR-046 (a simulator with the meter's resolution and reading rate), DMM-FR-070 (command line, already implemented, now declared), DMM-FR-080 and -081 (bench and panel tests). CON-03 corrected; CON-10 added. |
+| 0.9 | 2026-10-02 | Claude | #116: RUN-FR-007 (a relative input path in a bench file is found beside the bench file) and RUN-FR-017 (a relative input path in a step is found beside the specification) added, so a run started outside the TestTools checkout behaves as one started inside it. |
 
 ---
 
@@ -841,6 +842,7 @@ last good one. Reference documents and wiring: `docs/pico_sht30/`.
 | RUN-FR-004 | Instruments shall connect on first use, and whatever was opened shall be closed on exit, including after a failure. | STK-08 | Test |
 | RUN-FR-005 | The runner shall support replacing every instrument with its simulator, so a specification can be exercised without hardware. | STK-08 | Test |
 | RUN-FR-006 | A run shall be recorded as simulated whenever no instrument on the bench is real hardware, so simulated results cannot be mistaken for measurements. | STK-08 | Test |
+| RUN-FR-007 | A bench option that a driver declares as an input file, given as a relative path, shall be looked for in the bench file's directory, then the working directory, then the TestTools checkout, and the first that exists used. One found in none shall be passed to the driver unchanged and the locations searched logged, since a simulator may not read it. The runner is normally started in the repository of the firmware under test, not in this one (#116). | STK-08 | Test |
 
 ### 16.2 Test specification
 
@@ -853,6 +855,7 @@ last good one. Reference documents and wiring: `docs/pico_sht30/`.
 | RUN-FR-014 | A malformed specification shall be rejected with a message identifying what to fix. | STK-08 | Test |
 | RUN-FR-015 | A test shall be markable as skipped, with a reason. | STK-08 | Test |
 | RUN-FR-016 | A step shall be able to save its result under a name, and any later step shall be able to use that saved value - or a value addressed inside it - as an argument or as a limit, optionally rendered through a format template. A reference to a name nothing has saved shall be refused, naming what has been saved. Without this a chained test would have to write down what an earlier step established, which makes the test assert its own input. | STK-08, STK-16 | Test |
+| RUN-FR-017 | A step argument that the driver declares as an input file, given as a relative path, shall be looked for in the specification's directory, then the working directory, then the TestTools checkout, and the first that exists used. One found in none shall be an execution error naming the argument and every location searched. An output path shall be written relative to the working directory, as before. A specification shall mean the same thing wherever the runner is started from (#116). | STK-08 | Test |
 
 ### 16.3 Limits
 

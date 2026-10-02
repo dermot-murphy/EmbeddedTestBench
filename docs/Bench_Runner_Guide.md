@@ -5,8 +5,8 @@ How to write a test specification and a bench configuration, and how to run them
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-GUIDE-001 |
-| Version | 3.0 |
-| Date | 2026-09-13 |
+| Version | 3.1 |
+| Date | 2026-10-02 |
 | Applies to | `benchtools` 4.0.0 |
 
 ---
@@ -257,8 +257,9 @@ tests:
 
 This keeps two things that change at different rates apart: the settings, worked
 out by whoever characterised the radio, and the test, written by whoever decides
-what must be proven. Paths are relative to where the runner is invoked, as bench
-paths are.
+what must be proven. A relative path is found beside the specification first,
+so the file means the same thing wherever the runner is started from - see
+[§6.2](#62-relative-paths-and-where-the-runner-is-started).
 
 `configs/` holds the shipped examples. See
 [S2-LP Devkit Notes §3.3](../docs/s2lp/S2LP_Devkit_Notes.md) for the file format
@@ -749,6 +750,50 @@ benchtools run specs/*.yaml --bench benches/lab1.yaml \
 
 So the command is usable directly as a CI step.
 
+### 6.2 Relative paths, and where the runner is started
+
+The runner is normally started in the repository of the firmware under test, not
+in this one, so a specification or bench file cannot rely on the working
+directory to find what it names (#116):
+
+```bash
+cd ~/firmware-under-test
+benchtools run ~/TestTools/specs/radio_link.yaml --simulate     # finds configs/ in TestTools
+benchtools run ~/TestTools/specs/sensor_bringup.yaml \
+    --bench ~/TestTools/benches/lab1.yaml                        # finds ./build here
+```
+
+**Input files** - a file a driver reads - given as a relative path are looked for
+in this order, and the first that exists is used:
+
+1. the directory of the file that names it: the specification for a step
+   argument, the bench file for a bench option;
+2. the working directory;
+3. the TestTools checkout (where `configs/`, `specs/` and `benches/simulated/`
+   live).
+
+An absolute path is used as given. A step argument found nowhere is an **error**
+that lists every location searched. A bench option found nowhere is passed to the
+driver unchanged, with the locations logged as a warning, because a simulator may
+never read it; the driver that does read it reports what is missing.
+
+Which arguments are input files is declared by each driver, not guessed:
+
+| Driver | Input-file arguments |
+|---|---|
+| `s2lp` | `source` of `load_configuration`, `apply_configuration`, `verify_configuration` |
+| `ble-dongle` | bench option `firmware`; `firmware` of `expect_firmware`, `check_firmware`, `update_firmware`, `ensure_firmware`; `source` of `run_script` |
+| `jlink`, `jlink-rtt` | bench options `elf`, `firmware`; `elf` of `load_symbols`; `path` of `flash`, `image_build`, `verify` |
+| `gpd3303d`, `tti1604`, `tek3014b`, `pico-sht30` | none |
+
+**Output files** - logs, reports, screenshots, `--json`/`--markdown`/`--junit` -
+are written relative to the working directory, as before. A run started in the
+firmware repository leaves its logs there.
+
+A file beside the specification wins over one of the same name in the working
+directory. To use a different register file from a shipped specification, copy
+the specification, or give an absolute path.
+
 ---
 
 ## 7. Failure versus error — read this before interpreting a report
@@ -837,3 +882,20 @@ What the runner requires of a driver is only this: a `connect` classmethod, the
 context-manager lifecycle, `identify`, and public methods that return plain values
 or objects a dotted `measure` path can walk. Anything meeting that is a bench
 instrument, whatever it speaks on the wire.
+
+An argument that names a file the driver reads must be declared, so the runner
+finds it from wherever it is started ([§6.2](#62-relative-paths-and-where-the-runner-is-started)):
+
+```python
+from benchtools.core.paths import input_paths
+
+class PowerSupply(Instrument):
+    @classmethod
+    @input_paths("profile")          # beneath @classmethod / @staticmethod
+    def connect(cls, resource, profile=None, **options): ...
+
+    @input_paths("source")
+    def load_sequence(self, source): ...
+```
+
+Do not declare an output path: it is written relative to the working directory.

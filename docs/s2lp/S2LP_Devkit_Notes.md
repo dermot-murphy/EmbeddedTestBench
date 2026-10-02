@@ -272,8 +272,10 @@ tests:
         expect: [{name: configured, measure: matches, equals: 1}]
 ```
 
-`specs/radio_link.yaml` runs exactly that. Paths are relative to where the
-runner is invoked, as bench paths are.
+`specs/radio_link.yaml` runs exactly that. A relative `source` is looked for
+beside the specification, then in the working directory, then in the TestTools
+checkout, so the shipped configurations are found wherever the runner is
+started from (#116; [Bench Runner Guide §6.2](../Bench_Runner_Guide.md#62-relative-paths-and-where-the-runner-is-started)).
 
 ### 3.4 From the command line
 

@@ -38,6 +38,7 @@ from ...core.errors import (
 )
 from ...core.firmware import MANIFEST_NAME, FirmwareBuild
 from ...core.instrument import Instrument, InstrumentIdentity
+from ...core.paths import input_paths
 from ...core.transport.base import Transport
 from ...core.transport.mock import MockTransport
 from ...core.transport.process import ProcessTransport
@@ -304,6 +305,7 @@ class JLinkProbe(Instrument):
     # Construction
     # ------------------------------------------------------------------
     @classmethod
+    @input_paths("elf", "firmware")
     def connect(
         cls,
         resource: str = "sim://",
@@ -572,6 +574,7 @@ class JLinkProbe(Instrument):
     # ------------------------------------------------------------------
     # Symbols and attachment
     # ------------------------------------------------------------------
+    @input_paths("elf")
     def load_symbols(self, elf: str) -> None:
         """Load debug symbols from an ELF file.
 
@@ -618,6 +621,7 @@ class JLinkProbe(Instrument):
     # ------------------------------------------------------------------
     # Flash and verify
     # ------------------------------------------------------------------
+    @input_paths("path")
     def flash(
         self,
         path: Optional[str] = None,
@@ -706,6 +710,7 @@ class JLinkProbe(Instrument):
             restored[address] = data.hex()
         return restored
 
+    @input_paths("path")
     def image_build(self, path: Optional[str] = None) -> FirmwareBuild:
         """What the build system said about the image on the target.
 
@@ -749,6 +754,7 @@ class JLinkProbe(Instrument):
             ),
         )
 
+    @input_paths("path")
     def verify(self, path: Optional[str] = None, timeout: float = 180.0) -> VerifyResult:
         """Compare the target's memory against an image file.
 
@@ -1687,6 +1693,7 @@ class JLinkRttReader(JLinkProbe):
     """
 
     @classmethod
+    @input_paths("elf", "firmware")
     def connect(cls, *args, **kwargs) -> "JLinkProbe":
         kwargs["attach"] = False
         return super().connect(*args, **kwargs)

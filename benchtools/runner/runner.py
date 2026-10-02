@@ -24,10 +24,12 @@ from __future__ import annotations
 
 import datetime
 import logging
+import os
 import time
-from typing import Any, Callable, Dict, List, Sequence
+from typing import Any, Callable, Dict, List, Optional, Sequence
 
 from ..core.errors import BenchToolsError, SpecError
+from ..core.paths import input_path_names, resolve_arguments
 from .bench import Bench, BenchConfig
 from .limits import Limit, TextLimit
 from .resolve import resolve_path, resolve_references
@@ -68,6 +70,9 @@ class BenchRunner:
         self.bench = bench
         self.stop_on_error = bool(stop_on_error)
         self._saved: Dict[str, Any] = {}
+        #: Directory of the specification being run: where a relative input
+        #: path in one of its steps is looked for first.
+        self._spec_directory: Optional[str] = None
 
     # ------------------------------------------------------------------
     @classmethod
@@ -244,6 +249,14 @@ class BenchRunner:
             # here rather than at load time is the point: the value does not
             # exist until that step has run.
             arguments = resolve_references(step.arguments, self._saved)
+            # A file the driver will read is found beside the specification
+            # that names it, not wherever the runner happened to be started.
+            arguments = resolve_arguments(
+                arguments,
+                input_path_names(method),
+                self._spec_directory,
+                what=step.action,
+            )
             _LOG.info("step %s(%s)", step.action, ", ".join(
                 "%s=%r" % item for item in sorted(arguments.items())
             ))
@@ -328,6 +341,9 @@ class BenchRunner:
         )
         started = time.monotonic()
         self._saved = {}
+        self._spec_directory = (
+            os.path.dirname(os.path.abspath(spec.source)) if spec.source else None
+        )
 
         try:
             self.bench.require(spec.instruments_used)

@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE3-001 | **Version** | 0.6 |
+| **Document ID** | TB-SWE3-001 | **Version** | 0.7 |
 | **Project** | TestBench | **Date** | 2026-10-02 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -28,6 +28,7 @@
 | 0.4 | 2026-09-26 | Claude | CORE-DD-TRANSPORT gains the separate read terminator and CORE-DD-SERIAL the timeout guard (#61). PSU-DD-CONST, -PSU and -SIM describe the protocol as captured from a real supply, and the rejection of out-of-range settings (#61, #64). References TB-IF-001 and TB-SWE3-002 (#63). Header version brought into line with this history. |
 | 0.5 | 2026-09-30 | Claude | Section 5.8 added: 14 PICO design units for the Pico 2 + SHT30-D thermometer and its firmware; RUN renumbered 5.9. Identifiers follow TB-STY-001 as checked by CStyleCheck (#104). |
 | 0.6 | 2026-10-02 | Claude | #115: CORE-DD-TRANSPORT gains `read_available` and `discard_input`; CORE-DD-SERIAL and CORE-DD-MOCK extend `discard_input`, and the mock transport gives a virtual-clock simulator its timeout. DMM-DD-CONST, -PROTO, -DMM and -SIM revised for the stream read, frame validation, the derived resistance multiplier, confirmation from the readings, ranges, fresh measurement, the frequency gate and the simulator's reading rate. |
+| 0.7 | 2026-10-02 | Claude | #116: CORE-DD-PATHS added - drivers declare which arguments are input files, and a relative one is found beside the file that names it, then in the working directory, then in the checkout. RUN-DD-BENCH resolves declared bench options; RUN-DD-RUNNER resolves declared step arguments. CORE count 16 → 17. |
 
 ---
 
@@ -67,7 +68,7 @@ not declare.
 
 | # | Element | Package | Design units |
 |---|---|---|---|
-| 5.1 | CORE | `benchtools.core` | 16 |
+| 5.1 | CORE | `benchtools.core` | 17 |
 | 5.2 | ANA | `benchtools.analysis` | 4 |
 | 5.3 | INST | `benchtools.instruments` | 5 |
 | 5.4 | JLINK | `benchtools.instruments.jlink` | 10 |
@@ -76,7 +77,7 @@ not declare.
 | 5.7 | PSU | `benchtools.instruments.gpd3303d` | 4 |
 | 5.8 | PICO | `benchtools.instruments.pico_sht30` and `firmware/pico_sht30` | 14 |
 | 5.9 | RUN | `benchtools.runner` | 8 |
-| | **Total** | | **74** |
+| | **Total** | | **75** |
 
 ### 4.1 Package Structure
 
@@ -236,6 +237,52 @@ Design points:
   marks the compiler's own macros - local time, no zone - and `built_at` returns
   `None` for it rather than a wrong instant. Two dongles built in different
   timezones would otherwise compare wrongly.
+
+#### CORE-DD-PATHS — `paths.py`
+
+`input_paths`, `input_path_names`, `resolve_input_path`, `resolve_arguments`,
+`search_locations`, `TESTTOOLS_ROOT`. How an input file named by a relative path
+is found wherever the tools are started from (RUN-FR-007, RUN-FR-017, #116).
+
+Design points:
+
+- **The driver declares; the runner resolves.** `@input_paths("source")` marks
+  the arguments of a driver method that name a file the driver will read. Only
+  the driver knows that `source` on the S2-LP is a register file while `source`
+  on the oscilloscope is a channel, so guessing from an argument's name or value
+  would be wrong somewhere. Only the runner knows which file named the path, so
+  the search is the runner's. The mark is a function attribute, applied beneath
+  `@classmethod`/`@staticmethod`, and is read through bound and class access
+  alike.
+- **Search order: the declaring file's directory, the working directory, the
+  checkout.** The declaring file comes first so a specification or bench file
+  means the same thing wherever it is run from. The working directory comes
+  before the checkout so a bench file naming the firmware repository's own
+  `build/` (`benches/lab1.yaml`) keeps finding it there; the checkout comes last
+  so the shipped `configs/` and `benches/simulated/` are found from anywhere.
+  This differs from the order first proposed in #116 (checkout before working
+  directory) for that reason. Duplicate locations are searched once.
+- **An absolute path, and anything not a string, is passed through.** An
+  absolute path already means one thing, and whether it exists is the driver's
+  to report. A `RegisterConfiguration`, `CommandScript` or `FirmwareBuild` handed
+  over from Python is not a path at all.
+- **Not found: an error naming every location, or the driver's call.** With
+  `required=True` (step arguments) a `ConfigurationError` lists each location
+  searched. With `required=False` (bench options) the value is passed on
+  unchanged, because a simulator may never read it - the simulated probe skips
+  its ELF check - and the driver that does read it reports what is missing.
+- **Output paths are not declared.** A log, a report or a screenshot is written
+  relative to the working directory, as before.
+- **`TESTTOOLS_ROOT` is the directory above the package.** Installed as a package
+  rather than run from a checkout, nothing is found there and the search simply
+  ends with the working directory.
+
+Drivers that declare input files: `JLinkProbe.connect` (`elf`, `firmware`),
+`load_symbols`, `flash`, `image_build`, `verify`; `JLinkRttReader.connect`;
+`NordicDongle.connect`, `expect_firmware`, `check_firmware`, `update_firmware`,
+`ensure_firmware` (`firmware`), `run_script` (`source`); `S2lpDevkit.load_configuration`,
+`apply_configuration`, `verify_configuration` (`source`). The GPD-3303D, the
+TTi 1604, the TDS3014B and the Pico SHT30 read no input file.
 
 #### CORE-DD-PROCESS — `transport/process.py`
 
@@ -2096,6 +2143,14 @@ fast when the bench lacks an alias the specification uses. `is_simulated` is tru
 when `--simulate` was given *or* every configured resource is a simulator, which
 is what lets every report disclose it.
 
+Before an instrument connects, each option its driver's `connect` declares as an
+input file (CORE-DD-PATHS) is resolved against `BenchConfig.directory`, the bench
+file's own directory (RUN-FR-007). A file found nowhere is passed on unchanged and
+the locations searched are logged as a warning, since a simulator may never read
+it and the driver that does says what is missing. A bench built in code
+(`BenchConfig.simulated`) has no directory, and the search starts at the working
+directory.
+
 `describe_instruments()` asks every instrument the run actually opened what it
 is - driver, model, serial number, resource, and the firmware build where the
 instrument reports one - and is called *after* the run rather than before, so an
@@ -2133,6 +2188,12 @@ runs, and rejects `with:` arguments (RUN-FR-036). Refusing properties would
 force a driver to wrap `firmware_version` in a `get_firmware_version()` for the
 runner's benefit, which is the tail wagging the dog; reading it at resolution
 time would report the value from before the step rather than at it.
+
+After references are resolved, each argument the bound method declares as an
+input file (CORE-DD-PATHS) is resolved against the directory of the
+specification being run (RUN-FR-017). A file found nowhere is a
+`ConfigurationError` naming the action, the argument and every location
+searched, and so a step **error**.
 
 #### RUN-DD-REPORT — `report.py`
 

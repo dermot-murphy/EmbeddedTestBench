@@ -20,17 +20,19 @@ Example (YAML)::
 Drivers are named, not imported by the specification, so a test file cannot
 reach arbitrary code. New drivers are added with :func:`register_driver`.
 
-Traces to: RUN-FR-001 .. RUN-FR-005, RUN-FR-037, RUN-DD-BENCH.
+Traces to: RUN-FR-001 .. RUN-FR-005, RUN-FR-007, RUN-FR-037, RUN-DD-BENCH.
 """
 
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterator, Type
+from typing import Any, Dict, Iterator, Optional, Type
 
 from ..core.errors import BenchConfigError, BenchToolsError
 from ..core.instrument import Instrument
+from ..core.paths import input_path_names, resolve_input_path, search_locations
 from ..instruments.generic import GenericScpiInstrument
 from ..instruments.jlink import JLinkProbe, JLinkRttReader
 from ..instruments.gpd3303d import Gpd3303D
@@ -145,6 +147,11 @@ class BenchConfig:
     instruments: Dict[str, InstrumentConfig]
     description: str = ""
     source: str = ""
+
+    @property
+    def directory(self) -> Optional[str]:
+        """Directory of the bench file, or ``None`` for a bench built in code."""
+        return os.path.dirname(os.path.abspath(self.source)) if self.source else None
 
     @classmethod
     def from_mapping(cls, data, source: str = "") -> "BenchConfig":
@@ -281,13 +288,39 @@ class Bench:
         driver = _DRIVERS[definition.driver]
         resource = "sim://" if self.simulate else definition.resource
         _LOG.info("connecting %s (%s) at %s", alias, definition.driver, resource)
+        options = self._resolve_options(alias, driver, definition.options)
         instrument = driver.connect(
             resource,
             timeout=definition.timeout,
-            **definition.options,
+            **options,
         )
         self._open[alias] = instrument
         return instrument
+
+    def _resolve_options(self, alias: str, driver, options: Dict[str, Any]) -> Dict[str, Any]:
+        """Return *options* with each input file the driver declares found.
+
+        A relative path is looked for beside the bench file first, so a bench
+        file means the same thing wherever the runner is started from. A file
+        found nowhere is passed on unchanged rather than refused: a simulator
+        may never read it, and the driver that does read it says what is
+        missing better than the bench can. Where it was looked for is logged so
+        that message can be followed.
+        """
+        resolved = dict(options)
+        for name in input_path_names(driver.connect):
+            if name not in resolved:
+                continue
+            value = resolved[name]
+            found = resolve_input_path(value, self.config.directory, required=False)
+            if found is value and isinstance(value, str) and value and not os.path.isabs(value):
+                _LOG.warning(
+                    "%s option %s=%r not found; looked in %s",
+                    alias, name, value,
+                    ", ".join(search_locations(value, self.config.directory)),
+                )
+            resolved[name] = found
+        return resolved
 
     @property
     def is_simulated(self) -> bool:
