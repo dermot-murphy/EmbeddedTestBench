@@ -8,8 +8,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE4-001 | **Version** | 1.1 |
-| **Project** | TestBench | **Date** | 2026-10-02 |
+| **Document ID** | TB-SWE4-001 | **Version** | 1.2 |
+| **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.4 |
@@ -33,6 +33,7 @@
 | 0.9 | 2026-10-02 | Claude | #120: SWE4-UT-BENCH also covers `runner/test_shipped_benches.py`, which now checks that the simulated bench provides every instrument and driver each shipped specification uses (RUN-FR-035). |
 | 1.0 | 2026-10-02 | Claude | #124: SWE4-UT-BLECLI covers choosing a sensor on the command line (16 cases, BLE-FR-071). |
 | 1.1 | 2026-10-02 | Claude | #126: SWE4-UT-EVENTNAMES added (21 cases); SWE4-UT-EVENTS covers per-instrument names (54 cases); SWE4-UT-TESTBENCH covers declared names and lower-case logs in the monitor. |
+| 1.2 | 2026-10-03 | Claude | #127: SWE4-UT-PICOFLASH added (34 cases, including two for an error from the 1200-baud reset kept as a note) for reflashing the Pico 2 thermometer with no BOOTSEL press (PICO-FR-070 … -076); §1.4b and the item not covered on silicon extended to PICO-OPEN-05, then narrowed after PICO-OPEN-01 and -05 were confirmed on a real Pico 2 on Windows. |
 
 ---
 
@@ -195,7 +196,18 @@ way, and none of it needs a Pico:
 Conversion reference vectors are shared: `test_sht30.c` and
 `test_simulator.py` assert the same raw-word-to-value pairs, so the C and Python
 conversions (AD-24) cannot drift apart silently. What none of this establishes
-is behaviour on silicon with a sensor attached: PICO-OPEN-01 to -04.
+is behaviour on silicon with a sensor attached: PICO-OPEN-02 to -04.
+USB enumeration and identity on a real Pico 2 (PICO-OPEN-01) were confirmed on
+2026-10-03.
+
+The host-side `flash` command (PICO-FR-070 … -076, `SWE4-UT-PICOFLASH`) is
+verified the same way: every operating-system interaction - drive discovery,
+the copy, the 1200-baud reset, opening the port, the clock - is a seam, and a
+simulated board stands in for the Pico. That a real Pico 2 reboots into its
+bootloader on `bootsel` and on the 1200-baud reset, takes the image, and comes
+back reporting the copied build was confirmed on Windows on 2026-10-03
+(PICO-OPEN-05, closed); drive discovery on Linux and macOS is untested on
+hardware.
 
 ### 4.5 Architectural verification
 
@@ -352,6 +364,7 @@ against the simulator in the default run (SWE4-UT-PSUPANEL, SWE4-UT-DMMPANEL).
 | SWE4-UT-PICO | `instruments/pico_sht30/test_thermometer.py` | The thermometer driver: title, version and identity from `ver`; protocol revision check; readings with raw words; every `err` code raised, never a stale value; values that disagree with their raw words refused; status decoding, sensor reset, reboot and bootloader; resource forms | PICO-FR-040 .. -046 |
 | SWE4-UT-PICOSIM | `instruments/pico_sht30/test_simulator.py` | The simulated thermometer answers with the firmware's reply text; conversion vectors shared with the firmware tests; fault injection | PICO-FR-050, PICO-FR-022 |
 | SWE4-UT-PICOCLI | `instruments/pico_sht30/test_cli.py` | Every `benchtools thermo` sub-command end to end; JSON output and file; a failed connection; dispatch from the top-level command | PICO-FR-060 |
+| SWE4-UT-PICOFLASH | `instruments/pico_sht30/test_flash.py` | Reflashing with no BOOTSEL press (34 cases), against the simulated board and stand-in seams: UF2 parsing, bad magic, a file that is not whole blocks, a missing file, an RP2040 image refused, a non-thermometer image refused without `--any-image`, an ambiguous build date not compared; success from running firmware and from a board already in its bootloader; version and build mismatches reported, not raised; the 1200-baud fallback, and an error from the 1200-baud reset kept as a note rather than raised; bootloader timeout, no drive and no port, two drives, copy failure, a drive that never goes, a port that never comes back; the port taken from the port search when none is given; `--no-verify`; the drive recognised by its info file; drive search roots on Windows, Linux and macOS, and an unsupported system; the copy and its tolerated close error; the `flash` command's JSON and exit status | PICO-FR-070 .. -076 |
 | SWE4-UT-PICOFWPROTO | `instruments/pico_sht30/test_firmware_protocol.py` | Firmware and driver agreement: commands, argument bounds, error codes, protocol version, sensor, title, version form, default address; firmware hygiene: tab indentation, no printf family | PICO-FR-001, -002, PICO-NFR-002, -004 |
 | SWE4-UT-PICOFW | `firmware/pico_sht30/test/*.c` | **Firmware unit tests** (Unity, CMake, CTest, 61 cases): the text builder and its overflow; CRC-8 against the datasheet check value; conversion end points, mid-scale, negative values and rounding; frame decoding that never half-writes; measure, status and reset command bytes, waits and every failure path; line assembly, CR handling and over-length lines; every command's reply text, argument refusal, and reboot only after `ok` | PICO-FR-001 .. -005, -020 .. -026, -030, PICO-NFR-001, -003 |
 | SWE4-UT-BENCH | `runner/test_bench.py`, `runner/test_shipped_benches.py` | Bench configuration, lazy connection, driver registry, simulation detection, instrument identity recorded per run; every shipped bench file loads with registered drivers and no shared port; the simulated bench provides every instrument and driver each shipped specification uses | RUN-FR-001 .. -006, RUN-FR-035, RUN-FR-037 |
@@ -420,7 +433,7 @@ in the VISA determination report §5.1:
 | Measurement engine settling time | Firmware- and timebase-dependent |
 | Exact SCPI command spellings against the programmer manual | The manual was unreachable from the build environment (CON-02) |
 | Analogue accuracy, bandwidth and noise behaviour | Instrument specification, not software |
-| Pico 2 thermometer on silicon: USB enumeration, I2C timing with the module's pull-ups, measured accuracy against a reference | No Pico 2 or SHT30-D module was available (CON-09); `docs/pico_sht30/Pico_SHT30_Notes.md` §7, PICO-OPEN-01 … -04 |
+| Pico 2 thermometer on silicon: I2C timing with the module's pull-ups, measured accuracy against a reference; drive discovery for `benchtools thermo flash` on Linux and macOS | The SHT30-D module is not yet connected to the Pico (CON-09), and the bench PC runs Windows. USB enumeration (PICO-OPEN-01) and reflashing on Windows (PICO-OPEN-05) were confirmed on a real Pico 2 on 2026-10-03; `docs/pico_sht30/Pico_SHT30_Notes.md` §7, PICO-OPEN-02 … -04 |
 | TTi 1604 against a physical meter: the frame terminator, the echo's place in the stream, the frequency gate times, key behaviour in remote mode, a USB converter's DTR/RTS levels, the resistance display convention | No meter was attached to the build environment (CON-10); `docs/dmm/TTi1604_Notes.md` §5, DMM-OPEN-01 … -08. Exercised by SWE4-UT-DMMBENCH (§4.6a) and the front-panel check when a meter is attached |
 | Behaviour of instrument families named for future work | No drivers exist yet (CON-03) |
 

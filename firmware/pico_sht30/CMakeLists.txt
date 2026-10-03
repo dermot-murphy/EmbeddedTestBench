@@ -4,9 +4,13 @@
 #   cmake -S firmware/pico_sht30 -B build/pico_sht30
 #   cmake --build build/pico_sht30 -j
 #
-# produces build/pico_sht30/pico_sht30.uf2. Hold BOOTSEL while plugging the
-# Pico 2 in (or send "bootsel" to a running image) and copy the .uf2 to the
-# RP2350 drive that appears.
+# produces build/pico_sht30/pico_sht30.uf2. Flash it with
+#
+#   benchtools thermo -r <port> flash build/pico_sht30/pico_sht30.uf2
+#
+# which needs no button press. If the firmware has crashed or the Pico does
+# not appear on USB, hold BOOTSEL while plugging the Pico 2 in and copy the
+# .uf2 to the RP2350 drive that appears.
 #
 # Without PICO_SDK_PATH, configure with -DPICO_SDK_FETCH_FROM_GIT=ON to fetch
 # the pinned SDK release.

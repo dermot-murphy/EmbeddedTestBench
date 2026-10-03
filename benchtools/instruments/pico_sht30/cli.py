@@ -1,10 +1,11 @@
 """Command line for the Pico 2 + SHT30-D thermometer.
 
-``benchtools thermo --help``. Results are printed as JSON so the tool composes
+``benchtools thermo --help``. ``flash`` reflashes the Pico with no BOOTSEL
+press; see :mod:`.flash`. Results are printed as JSON so the tool composes
 into a larger harness, and ``--resource sim://`` runs every sub-command with no
 Pico attached.
 
-Traces to: PICO-FR-060, PICO-DD-CLI.
+Traces to: PICO-FR-060, PICO-FR-075, PICO-DD-CLI.
 """
 
 from __future__ import annotations
@@ -69,6 +70,28 @@ def _cmd_bootsel(thermometer: PicoSht30, args) -> int:
     return _EXIT_OK
 
 
+def _cmd_flash(args) -> int:
+    """Reflash with no BOOTSEL press; exit 1 if the result does not match."""
+    from .flash import SimulatedRp2350, PicoFlasher
+
+    timeouts = {"bootloader_timeout": args.bootloader_timeout,
+                "port_timeout": args.port_timeout}
+    board = None
+    if args.resource.startswith(("sim", "mock")):
+        board = SimulatedRp2350()
+        flasher = board.flasher(**timeouts)
+    else:
+        flasher = PicoFlasher(port=args.resource or None, drive=args.drive, **timeouts)
+    try:
+        result = flasher.flash(args.uf2, expect_version=args.expect_version,
+                               any_image=args.any_image, verify=not args.no_verify)
+    finally:
+        if board is not None:
+            board.close()
+    _emit(result.as_dict(), args.json)
+    return _EXIT_OK if result.ok else _EXIT_ERROR
+
+
 def build_parser() -> argparse.ArgumentParser:
     """The argument parser for ``benchtools thermo``."""
     parser = argparse.ArgumentParser(
@@ -106,6 +129,28 @@ def build_parser() -> argparse.ArgumentParser:
 
     bootsel = subparsers.add_parser("bootsel", help="reboot into the USB bootloader")
     bootsel.set_defaults(handler=_cmd_bootsel)
+
+    flash = subparsers.add_parser(
+        "flash", help="reflash from a .uf2 with no BOOTSEL press, then check the build",
+        description="Reboot the Pico into its USB bootloader (the 'bootsel' command, or "
+                    "a 1200-baud reset), copy the UF2 onto the RP2350 drive, and check "
+                    "'ver' afterwards against the image. A Pico already in its "
+                    "bootloader is flashed as it is. With -r '' the port is found by "
+                    "USB vendor ID afterwards.",
+    )
+    flash.add_argument("uf2", help="the image, e.g. build/pico_sht30/pico_sht30.uf2")
+    flash.add_argument("--expect-version", metavar="X.Y.Z",
+                       help="the fw= the new image must report")
+    flash.add_argument("--drive", help="the RP2350 drive, if it cannot be found, e.g. E:")
+    flash.add_argument("--any-image", action="store_true",
+                       help="allow an image that is not the thermometer firmware")
+    flash.add_argument("--no-verify", action="store_true",
+                       help="do not read 'ver' afterwards")
+    flash.add_argument("--bootloader-timeout", type=float, default=15.0,
+                       help="seconds to wait for the RP2350 drive (default 15)")
+    flash.add_argument("--port-timeout", type=float, default=20.0,
+                       help="seconds to wait for the port to come back (default 20)")
+    flash.set_defaults(handler=_cmd_flash, standalone=True)
     return parser
 
 
@@ -122,6 +167,15 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     elif args.verbose >= 2:
         level = logging.DEBUG
     logging.basicConfig(level=level, format="%(levelname)-8s %(name)s: %(message)s")
+
+    if getattr(args, "standalone", False):
+        # flash opens the port itself: the Pico may be in its bootloader, with
+        # no port to open.
+        try:
+            return args.handler(args)
+        except BenchToolsError as exc:
+            print("error: %s" % exc, file=sys.stderr)
+            return _EXIT_ERROR
 
     try:
         thermometer = PicoSht30.connect(args.resource, baudrate=args.baudrate,

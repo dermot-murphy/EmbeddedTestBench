@@ -16,7 +16,7 @@ Traces to: PICO-FR-050, PICO-DD-SIM.
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Callable, List, Optional
 
 from .constants import (
     DEFAULT_ADDRESS,
@@ -109,6 +109,9 @@ class SimulatedPicoSht30:  # pylint: disable=too-many-instance-attributes,too-fe
         self.reboots = 0
         self.bootloader_requests = 0
         self.measurements = 0
+        #: Called after ``bootsel`` is answered: the board model in
+        #: :mod:`.flash` uses it to present the bootloader drive.
+        self.on_bootloader: Optional[Callable[[], None]] = None
 
     # ------------------------------------------------------------------
     def respond(self, message: bytes) -> Optional[bytes]:
@@ -192,4 +195,6 @@ class SimulatedPicoSht30:  # pylint: disable=too-many-instance-attributes,too-fe
 
     def _cmd_bootsel(self) -> List[str]:
         self.bootloader_requests += 1
+        if self.on_bootloader is not None:
+            self.on_bootloader()
         return ["ok"]

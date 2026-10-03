@@ -8,8 +8,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE1-001 | **Version** | 1.1 |
-| **Project** | TestBench | **Date** | 2026-10-02 |
+| **Document ID** | TB-SWE1-001 | **Version** | 1.2 |
+| **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.1 |
@@ -33,6 +33,7 @@
 | 0.9 | 2026-10-02 | Claude | #116: RUN-FR-007 (a relative input path in a bench file is found beside the bench file) and RUN-FR-017 (a relative input path in a step is found beside the specification) added, so a run started outside the TestTools checkout behaves as one started inside it. |
 | 1.0 | 2026-10-02 | Claude | #124: BLE-FR-071 added - on the command line, `--select` takes an address, a name or part of a name, and `cmd --addr` connects to the address given. |
 | 1.1 | 2026-10-02 | Claude | #126: CORE-FR-060 revised - each record carries the short name of the instrument it came from; CORE-FR-063 (each instrument's records carry its own name, set from construction, with a default per driver) and RUN-FR-008 (the specification allocates names, the bench attaches them, the specification wins, no two share one) added. |
+| 1.2 | 2026-10-03 | Claude | #127: §15.5 added - PICO-FR-070 … -076, reflashing the Pico 2 thermometer with no BOOTSEL press: reaching the bootloader (an already-mounted drive, `bootsel`, or the 1200-baud reset), checking the UF2, the copy and reboot, confirming the build afterwards, bounded waits and named errors, the `flash` command, and the simulated board. PICO non-functional renumbered 15.6. CON-09 extended to PICO-OPEN-05. §15.5 note and CON-09 updated for the hardware confirmation on a real Pico 2 on 2026-10-03: PICO-OPEN-01 and -05 closed on Windows; PICO-OPEN-02 not yet tested, as no sensor is connected. |
 
 ---
 
@@ -821,7 +822,30 @@ last good one. Reference documents and wiring: `docs/pico_sht30/`.
 | PICO-FR-050 | The thermometer shall be registered as a bench driver, and a simulated thermometer shall answer the same command set with the same reply text, with injectable faults: sensor absent, CRC failure and bus timeout. | STK-08, STK-21 | Test |
 | PICO-FR-060 | A command-line interface shall expose `ver`, `temp` (one reading or a series), `status`, `sreset` and `bootsel`, emitting JSON. | STK-21, STK-22 | Test |
 
-### 15.5 PICO non-functional
+### 15.5 Host: reflashing without BOOTSEL
+
+Reflashing used to take three manual steps: send `bootsel`, wait for the
+`RP2350` drive, and copy the UF2 onto it. Nothing checked afterwards that the
+build now running was the one copied. These requirements make it one command
+that ends by confirming the result (#127).
+
+What they cannot do is reach a Pico whose firmware has crashed or never appears
+on USB: that still needs the BOOTSEL button or an SWD probe. They have been
+verified against a simulated board, and on a real Pico 2 on Windows on
+2026-10-03 by all three routes into the bootloader (PICO-OPEN-05, closed).
+Drive discovery on Linux and macOS has not been tried on hardware.
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| PICO-FR-070 | The host shall bring the Pico into its USB bootloader without a button press. If an `RP2350` bootloader drive is already mounted - a blank board, or one already in its bootloader - that drive shall be used as it is. Otherwise the running thermometer shall be sent `bootsel`; if the port does not answer the protocol, the host shall open and close it at 1200 baud, the Pico SDK's USB-stdio request to reboot into the bootloader. A drive shall be recognised as the bootloader by its `INFO_UF2.TXT` naming `Board-ID: RP2350`, searched for on Windows (drive letters C: to Z:), Linux (`/media`, `/run/media`, `/mnt`) and macOS (`/Volumes`); a drive may also be named explicitly. | STK-21 | Test |
+| PICO-FR-071 | Before anything is sent to the Pico, the image shall be checked: every 512-byte block shall carry the UF2 magic numbers and a payload that fits; every block shall be for the RP2350 (the Arm secure, Arm non-secure and RISC-V families, and the absolute and data families an SDK 2.x build may add); an RP2040 image shall be refused. An image that does not carry the thermometer firmware's title shall be refused unless the user says it is intended. | STK-21 | Test |
+| PICO-FR-072 | The image shall be written to the bootloader drive, and the copy shall be complete only when the drive has gone away, i.e. the Pico has rebooted into the new image. An error on closing the file shall be ignored if the drive has already gone, since the Pico reboots as the last block lands; while the drive remains, it shall be a failure. | STK-21 | Test |
+| PICO-FR-073 | After the copy, the host shall find the thermometer's port again (the one given, or the only serial port with the Raspberry Pi USB vendor ID 0x2E8A), wait until it answers `ver`, and compare the title with the thermometer's, the version with the one expected if one was given, and the build date with the single ISO 8601 build date stored in the image. A mismatch shall be reported in the result, not raised, and an image with no single build date shall be noted as not compared. Verification may be switched off, and is not attempted for an image that is not the thermometer firmware. | STK-21, STK-22 | Test |
+| PICO-FR-074 | Every wait - for the bootloader drive, for the drive to go after the copy, and for the port and the thermometer to come back - shall be bounded by a timeout, and shall end in an error that names what was being waited for. It shall also be an error, naming the remedy, to find more than one bootloader drive or Raspberry Pi port, to have neither a drive nor a port to start from, or to need drive discovery on an operating system it does not support. | STK-21 | Test |
+| PICO-FR-075 | `benchtools thermo -r <port> flash <uf2>` shall perform PICO-FR-070 to -074, with `--expect-version`, `--drive`, `--any-image`, `--no-verify`, `--bootloader-timeout` and `--port-timeout`. It shall print the result as JSON - the image, the drive, how the bootloader was reached, the firmware before and after, each check and any notes - and exit 0 only if every check passed; a mismatch or an error shall exit 1. | STK-21, STK-22 | Test |
+| PICO-FR-076 | With `-r sim://`, `flash` shall run against a simulated Pico 2 that presents a bootloader drive on `bootsel` or a 1200-baud reset, takes a copied image, reboots, and then reports the image's build date (and, for an image that is not the thermometer, a different title), so that every path can be exercised with no Pico attached. | STK-08, STK-21 | Test |
+
+### 15.6 PICO non-functional
 
 | ID | Requirement | Verification |
 |---|---|---|
@@ -927,7 +951,7 @@ last good one. Reference documents and wiring: `docs/pico_sht30/`.
 | CON-10 | The TTi 1604 driver is verified against a simulated meter and over a serial loopback, not yet against a physical meter. The opt-in bench and panel tests (DMM-FR-080, -081) exist to do so; bench confirmation items are in `docs/dmm/TTi1604_Notes.md` (DMM-OPEN-01 … -08). |
 | CON-04 | The J-Link driver is verified against a simulated probe and a simulated target, not against physical hardware. Bench confirmation items are listed in `docs/jlink/JLink_Integration_Notes.md` §4. |
 | CON-05 | The scaling of SWO/ITM local timestamps to core cycles depends on the trace prescaler configured by the GDB server and the firmware. It is implemented from the ARMv7-M architecture reference manual and requires confirmation against a part before SWO timing figures are quoted (JLINK-OPEN-03). |
-| CON-09 | The Pico 2 thermometer firmware **builds** (Pico SDK 2.1.1, Arm GNU 14.2.1, UF2 produced) and its portable logic passes its host unit tests; it has **not** yet been run on a Pico 2 with a sensor attached. Bench confirmation items are in `docs/pico_sht30/Pico_SHT30_Notes.md` §7 (PICO-OPEN-01 … -04). |
+| CON-09 | The Pico 2 thermometer firmware **builds** (Pico SDK 2.1.1, Arm GNU 14.2.1, UF2 produced) and its portable logic passes its host unit tests. On 2026-10-03 it **ran on a real Pico 2** (Windows 10 bench PC): it enumerated on USB and `ver` reported the expected identity (PICO-OPEN-01, closed), and the `flash` command (PICO-FR-070 … -076) reflashed it by all three routes into the bootloader (PICO-OPEN-05, closed). It has **not** yet been run with a sensor attached: the SHT30-D module is not yet connected (PICO-OPEN-02, -03). Drive discovery on Linux and macOS is untested on hardware. Bench confirmation items are in `docs/pico_sht30/Pico_SHT30_Notes.md` §7. |
 | ASM-10 | The SHT30-D module is powered from the Pico's 3V3(OUT) and carries its own I2C pull-ups; its ADDR pin is tied low (0x44). |
 | CON-06 | Markdown-to-Robot-Framework translation (STK-12) is not implemented in this revision. The driver's return types are constrained by JLINK-FR-081 so that it can be added without changing the driver. |
 

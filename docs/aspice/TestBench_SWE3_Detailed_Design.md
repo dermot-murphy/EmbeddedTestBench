@@ -8,8 +8,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE3-001 | **Version** | 0.9 |
-| **Project** | TestBench | **Date** | 2026-10-02 |
+| **Document ID** | TB-SWE3-001 | **Version** | 1.0 |
+| **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.3 |
@@ -31,6 +31,7 @@
 | 0.7 | 2026-10-02 | Claude | #116: CORE-DD-PATHS added - drivers declare which arguments are input files, and a relative one is found beside the file that names it, then in the working directory, then in the checkout. RUN-DD-BENCH resolves declared bench options; RUN-DD-RUNNER resolves declared step arguments. CORE count 16 → 17. |
 | 0.8 | 2026-10-02 | Claude | #124: BLE-DD-CLI - `--select` resolves an address, a name or part of one through `select_by_name`, with an unfiltered rescan when the case-sensitive firmware filter hears nothing; `cmd --addr` selects; `--addr` and `--select` are mutually exclusive. |
 | 0.9 | 2026-10-02 | Claude | #126: CORE-DD-EVENTS - event names per instrument (`EventSource`, `SourceLogger`, `connecting_as`, `validate_source_name`), upper-case defaults with `TEMP`; CORE-DD-INSTRUMENT - `EVENT_SOURCE`, `event_source`, `_adopt`; RUN-DD-SPEC, RUN-DD-BENCH and RUN-DD-REPORT - names from the specification and the bench. |
+| 1.0 | 2026-10-03 | Claude | #127: PICO-DD-FLASH added - `Uf2Image`, the operating-system seams (drive discovery per system, the 1200-baud touch, the copy), `PicoFlasher` and the simulated board `SimulatedRp2350`. PICO-DD-CLI gains the `flash` sub-command, run without connecting first; PICO-DD-SIM gains the `on_bootloader` hook. PICO count 14 → 15. PICO-DD-FLASH: `touch_1200()` returns an error from the port as a note instead of raising, found on a real Pico 2 on Windows, and the 1200-baud reset is recorded as confirmed on hardware (PICO-OPEN-05). |
 
 ---
 
@@ -77,9 +78,9 @@ not declare.
 | 5.5 | BLE | `benchtools.instruments.nordic_dongle` and `firmware/nordic_dongle` | 20 |
 | 5.6 | S2LP | `benchtools.instruments.s2lp` | 13 |
 | 5.7 | PSU | `benchtools.instruments.gpd3303d` | 4 |
-| 5.8 | PICO | `benchtools.instruments.pico_sht30` and `firmware/pico_sht30` | 14 |
+| 5.8 | PICO | `benchtools.instruments.pico_sht30` and `firmware/pico_sht30` | 15 |
 | 5.9 | RUN | `benchtools.runner` | 8 |
-| | **Total** | | **75** |
+| | **Total** | | **76** |
 
 ### 4.1 Package Structure
 
@@ -2118,14 +2119,103 @@ reported values are computed from those words with `raw_to_celsius` /
 `raw_to_percent`, so the simulator is held to the same arithmetic as the
 firmware. Faults: `sensor_present = False` → `err 4`, `corrupt_next` → one
 `err 5`, `bus_timeout` → `err 6`. It counts measurements, reboots and
-bootloader requests.
+bootloader requests. An optional `on_bootloader` callable is invoked after
+`bootsel` has been answered; PICO-DD-FLASH's simulated board uses it to present
+its bootloader drive.
 
 #### PICO-DD-CLI — `benchtools/instruments/pico_sht30/cli.py`
 
 `benchtools thermo` with sub-commands `ver`, `temp [--count N --interval S]`,
-`status`, `sreset` and `bootsel`, emitting JSON (AD-15), `--json PATH` to also
-write it to a file. Exit status 0 on success, 1 on a connection or instrument
-error.
+`status`, `sreset`, `bootsel` and `flash`, emitting JSON (AD-15), `--json PATH`
+to also write it to a file. Exit status 0 on success, 1 on a connection or
+instrument error.
+
+`flash <uf2> [--expect-version X.Y.Z] [--drive D] [--any-image] [--no-verify]
+[--bootloader-timeout S] [--port-timeout S]` is marked `standalone`: `main`
+does not connect to the thermometer first, because the Pico may already be in
+its bootloader with no port to open. Its handler builds a `PicoFlasher` - or,
+for a `sim`/`mock` resource, a `SimulatedRp2350` and the flasher wired to it -
+prints `FlashResult.as_dict()`, and exits 1 if any check failed. A
+`FlashError` (or any `BenchToolsError`) is printed as `error: ...` on stderr and
+exits 1 (PICO-FR-075).
+
+#### PICO-DD-FLASH — `benchtools/instruments/pico_sht30/flash.py`
+
+Reflashing with no BOOTSEL press (PICO-FR-070 … -076). The RP2350 boot ROM's
+UF2 drive was chosen over `picotool load -x`: it needs no extra tool on the
+bench PC, and the boot ROM checks what it is given. The module has four parts.
+
+- **`Uf2Image`** (frozen dataclass). `load()` reads the file and `parse()`
+  checks it: a whole number of 512-byte blocks, each with the three magic
+  numbers (`0x0A324655`, `0x9E5D5157`, `0x0AB16F30`) and a payload of at most
+  476 bytes. It collects the family IDs of blocks that carry one, and the
+  payload of every main-flash block. `for_rp2350` is true when every family is
+  one an RP2350 accepts - `rp2350-arm-s`, `rp2350-arm-ns`, `rp2350-riscv`, and
+  the `absolute` and `data` families an SDK 2.x build may place ahead of the
+  image; `rp2040` is not among them. `is_thermometer` looks for the title
+  `Pico2-SHT30-Thermometer` followed by a NUL in the payload. `built` is the
+  build date, found as an ISO 8601 UTC string (`YYYY-MM-DDTHH:MM:SSZ`) followed
+  by a NUL, and is empty unless exactly one distinct such string is present.
+- **Operating-system seams**, each a plain function. `candidate_roots()` lists
+  the mount points to search: `C:\` to `Z:\` on Windows (A: and B: are skipped,
+  since probing an empty floppy drive can stall), `/media/*/*`,
+  `/run/media/*/*`, `/media/*` and `/mnt/*` on Linux, `/Volumes/*` on macOS;
+  any other system raises `FlashError` asking for `--drive`.
+  `find_bootloader_drives()` keeps the roots whose `INFO_UF2.TXT` has a
+  `Board-ID: RP2350` line. `find_pico_ports()` lists serial ports with USB
+  vendor ID 0x2E8A through pyserial. `touch_1200()` opens the port at 1200 baud
+  and closes it. A `SerialException` or `OSError` from that open or close is
+  returned as a note, not raised: on Windows the Pico reboots while pyserial is
+  still configuring the port, which raises `PermissionError(13, 'A device
+  attached to the system is not functioning.')` even though the reset worked.
+  Whether it worked is decided by the bootloader drive appearing; if it does
+  not, the wait for the drive times out. It returns `None` when the port opened
+  and closed cleanly. `copy_image()` writes the file to the drive and `fsync`s it;
+  an `OSError` is raised as `FlashError` only if the drive is still there.
+- **`PicoFlasher`** takes every seam, plus a clock and a sleep, as constructor
+  arguments, so tests and the simulated board replace any of them.
+  `flash(path, expect_version, any_image, verify)` runs in order:
+  1. Load and check the image; refuse a non-RP2350 image, and a
+     non-thermometer image unless `any_image`.
+  2. `_enter_bootloader`: if exactly one bootloader drive is present (or the one
+     named by `drive`), use it - method `already-in-bootloader`. Otherwise
+     open the port: if it answers, record `ver` as `before`, send `bootsel` -
+     method `bootsel`; if opening raises a `BenchToolsError`, note it and call
+     the 1200-baud touch, adding any note it returns - method `1200-baud`.
+     Then poll for the drive.
+     With neither a drive nor a port, raise.
+  3. Copy, then poll until the drive is no longer listed.
+  4. Unless `verify` is off or the image is not the thermometer (each recorded
+     as a note), `_verify`: take the port given, or poll for exactly one
+     Raspberry Pi port; poll until the thermometer opens; read `ver` as
+     `after`; record checks `title`, `version` (if expected) and `built` (if
+     the image carries one), each `{expected, actual, ok}`.
+
+  Every poll goes through `_wait_for(condition, timeout, what)`, which checks
+  every 0.25 s and raises `FlashError("timed out after N s waiting for <what>")`.
+  The timeouts default to 15 s for the drive to appear, 15 s for it to go, and
+  20 s for the port. More than one drive or port raises, naming them. A
+  mismatch is not raised: it is in the `FlashResult`, whose `ok` is true only if
+  every check passed and whose `as_dict()` is the JSON the command line prints.
+- **`SimulatedRp2350`** is the board for `sim://` (PICO-FR-076). It holds a
+  `SimulatedPicoSht30` whose `on_bootloader` makes a temporary directory
+  appear as the drive, with an `INFO_UF2.TXT` naming `RP2350`; a 1200-baud
+  touch does the same. Its `copy` writes the image with `copy_image`, removes
+  the drive, leaves the bootloader, and takes the image's build date (and the
+  title `unknown` for a non-thermometer image), so verification sees what a
+  real board would report. While in the bootloader it has no serial port.
+  `flasher(**kwargs)` returns a `PicoFlasher` wired to it; `close()` removes
+  the temporary directory.
+
+What this unit cannot do is reach a Pico whose firmware has crashed or does
+not enumerate on USB: that still needs BOOTSEL or an SWD probe. The 1200-baud
+reset relies on `PICO_STDIO_USB_ENABLE_RESET_VIA_BAUD_RATE`, which Pico SDK
+2.1.1's `stdio_usb.h` turns on by default when the application does not use
+TinyUSB directly, as this firmware does not; this was read from the SDK source
+on 2026-10-03 and confirmed the same day on a real Pico 2 running this
+firmware, on Windows, where `flash` reached the bootloader by each of its three
+methods (PICO-OPEN-05, closed). Drive discovery on Linux and macOS has not been
+tried on hardware.
 
 ---
 
