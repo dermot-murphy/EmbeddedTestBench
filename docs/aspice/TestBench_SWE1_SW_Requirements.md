@@ -33,7 +33,7 @@
 | 0.9 | 2026-10-02 | Claude | #116: RUN-FR-007 (a relative input path in a bench file is found beside the bench file) and RUN-FR-017 (a relative input path in a step is found beside the specification) added, so a run started outside the TestTools checkout behaves as one started inside it. |
 | 1.0 | 2026-10-02 | Claude | #124: BLE-FR-071 added - on the command line, `--select` takes an address, a name or part of a name, and `cmd --addr` connects to the address given. |
 | 1.1 | 2026-10-02 | Claude | #126: CORE-FR-060 revised - each record carries the short name of the instrument it came from; CORE-FR-063 (each instrument's records carry its own name, set from construction, with a default per driver) and RUN-FR-008 (the specification allocates names, the bench attaches them, the specification wins, no two share one) added. |
-| 1.2 | 2026-10-03 | Claude | #127: §15.5 added - PICO-FR-070 … -076, reflashing the Pico 2 thermometer with no BOOTSEL press: reaching the bootloader (an already-mounted drive, `bootsel`, or the 1200-baud reset), checking the UF2, the copy and reboot, confirming the build afterwards, bounded waits and named errors, the `flash` command, and the simulated board. PICO non-functional renumbered 15.6. CON-09 extended to PICO-OPEN-05. |
+| 1.2 | 2026-10-03 | Claude | #127: §15.5 added - PICO-FR-070 … -076, reflashing the Pico 2 thermometer with no BOOTSEL press: reaching the bootloader (an already-mounted drive, `bootsel`, or the 1200-baud reset), checking the UF2, the copy and reboot, confirming the build afterwards, bounded waits and named errors, the `flash` command, and the simulated board. PICO non-functional renumbered 15.6. CON-09 extended to PICO-OPEN-05. §15.5 note and CON-09 updated for the hardware confirmation on a real Pico 2 on 2026-10-03: PICO-OPEN-01 and -05 closed on Windows; PICO-OPEN-02 not yet tested, as no sensor is connected. |
 
 ---
 
@@ -831,7 +831,9 @@ that ends by confirming the result (#127).
 
 What they cannot do is reach a Pico whose firmware has crashed or never appears
 on USB: that still needs the BOOTSEL button or an SWD probe. They have been
-verified against a simulated board, not yet on a real Pico 2 (PICO-OPEN-05).
+verified against a simulated board, and on a real Pico 2 on Windows on
+2026-10-03 by all three routes into the bootloader (PICO-OPEN-05, closed).
+Drive discovery on Linux and macOS has not been tried on hardware.
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -949,7 +951,7 @@ verified against a simulated board, not yet on a real Pico 2 (PICO-OPEN-05).
 | CON-10 | The TTi 1604 driver is verified against a simulated meter and over a serial loopback, not yet against a physical meter. The opt-in bench and panel tests (DMM-FR-080, -081) exist to do so; bench confirmation items are in `docs/dmm/TTi1604_Notes.md` (DMM-OPEN-01 … -08). |
 | CON-04 | The J-Link driver is verified against a simulated probe and a simulated target, not against physical hardware. Bench confirmation items are listed in `docs/jlink/JLink_Integration_Notes.md` §4. |
 | CON-05 | The scaling of SWO/ITM local timestamps to core cycles depends on the trace prescaler configured by the GDB server and the firmware. It is implemented from the ARMv7-M architecture reference manual and requires confirmation against a part before SWO timing figures are quoted (JLINK-OPEN-03). |
-| CON-09 | The Pico 2 thermometer firmware **builds** (Pico SDK 2.1.1, Arm GNU 14.2.1, UF2 produced) and its portable logic passes its host unit tests; it has **not** yet been run on a Pico 2 with a sensor attached. Bench confirmation items are in `docs/pico_sht30/Pico_SHT30_Notes.md` §7 (PICO-OPEN-01 … -05). The `flash` command (PICO-FR-070 … -076) is verified against a simulated board only; flashing a real Pico 2 with it is PICO-OPEN-05. |
+| CON-09 | The Pico 2 thermometer firmware **builds** (Pico SDK 2.1.1, Arm GNU 14.2.1, UF2 produced) and its portable logic passes its host unit tests. On 2026-10-03 it **ran on a real Pico 2** (Windows 10 bench PC): it enumerated on USB and `ver` reported the expected identity (PICO-OPEN-01, closed), and the `flash` command (PICO-FR-070 … -076) reflashed it by all three routes into the bootloader (PICO-OPEN-05, closed). It has **not** yet been run with a sensor attached: the SHT30-D module is not yet connected (PICO-OPEN-02, -03). Drive discovery on Linux and macOS is untested on hardware. Bench confirmation items are in `docs/pico_sht30/Pico_SHT30_Notes.md` §7. |
 | ASM-10 | The SHT30-D module is powered from the Pico's 3V3(OUT) and carries its own I2C pull-ups; its ADDR pin is tied low (0x44). |
 | CON-06 | Markdown-to-Robot-Framework translation (STK-12) is not implemented in this revision. The driver's return types are constrained by JLINK-FR-081 so that it can be added without changing the driver. |
 

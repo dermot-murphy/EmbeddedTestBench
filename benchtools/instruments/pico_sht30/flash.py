@@ -283,8 +283,15 @@ def find_pico_ports() -> List[str]:
     return sorted(p.device for p in list_ports.comports() if p.vid == RASPBERRY_PI_VID)
 
 
-def touch_1200(port: str) -> None:
-    """Open *port* at 1200 baud and close it: the SDK's reboot-to-bootloader."""
+def touch_1200(port: str) -> Optional[str]:
+    """Open *port* at 1200 baud and close it: the SDK's reboot-to-bootloader.
+
+    The Pico reboots the moment it sees the line rate, often while the host is
+    still configuring the port, and Windows then reports "a device attached to
+    the system is not functioning". That is the reset working, so an error here
+    is returned as a note rather than raised; whether the reset worked is
+    decided by the bootloader drive appearing, or not, afterwards.
+    """
     try:
         import serial
     except ImportError as exc:
@@ -293,7 +300,8 @@ def touch_1200(port: str) -> None:
         link = serial.Serial(port, baudrate=MAGIC_BAUD_RATE)
         link.close()
     except (serial.SerialException, OSError) as exc:
-        raise FlashError("1200-baud reset on %s failed: %s" % (port, exc)) from exc
+        return "the 1200-baud reset on %s reported: %s" % (port, exc)
+    return None
 
 
 def copy_image(image: Uf2Image, drive: str) -> str:
@@ -375,7 +383,7 @@ class PicoFlasher:  # pylint: disable=too-many-instance-attributes,too-few-publi
         find_drives: Callable[[], List[str]] = find_bootloader_drives,
         find_ports: Callable[[], List[str]] = find_pico_ports,
         open_thermometer: Callable[[str], PicoSht30] = _open_thermometer,
-        touch: Callable[[str], None] = touch_1200,
+        touch: Callable[[str], Optional[str]] = touch_1200,
         copy: Callable[[Uf2Image, str], str] = copy_image,
         clock: Callable[[], float] = time.monotonic,
         sleep: Callable[[float], None] = time.sleep,
@@ -469,7 +477,9 @@ class PicoFlasher:  # pylint: disable=too-many-instance-attributes,too-few-publi
         except BenchToolsError as exc:
             result.notes.append("%s did not answer the protocol (%s); used the 1200-baud reset"
                                 % (self.port, exc))
-            self._touch(self.port)
+            note = self._touch(self.port)
+            if note:
+                result.notes.append(note)
             result.method = "1200-baud"
         else:
             try:
@@ -566,9 +576,10 @@ class SimulatedRp2350:
         thermometer.initialise()
         return thermometer
 
-    def touch(self, _port: str) -> None:
+    def touch(self, _port: str) -> Optional[str]:
         """The 1200-baud reset."""
         self._enter_bootloader()
+        return None
 
     def copy(self, image: Uf2Image, drive: str) -> str:
         """Take the image, then reboot into it."""

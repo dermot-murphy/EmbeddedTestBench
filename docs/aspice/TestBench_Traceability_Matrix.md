@@ -34,7 +34,7 @@
 | 1.0 | 2026-10-02 | Claude | #120: RUN-FR-035 row names `test_the_simulated_bench_provides_every_shipped_specification`. |
 | 1.1 | 2026-10-02 | Claude | #124: row for BLE-FR-071. |
 | 1.2 | 2026-10-02 | Claude | #126: CORE-FR-060 row updated; rows for CORE-FR-063 and RUN-FR-008; AD-28 traced. |
-| 1.3 | 2026-10-03 | Claude | #127: rows for PICO-FR-070 … -076 (reflashing with no BOOTSEL press); STK-21 and STK-22 rows extended; PICO-DD-FLASH added to the PICO architecture row; OPEN-09 extended to PICO-OPEN-05. Requirement count corrected to 368 functional. |
+| 1.3 | 2026-10-03 | Claude | #127: rows for PICO-FR-070 … -076 (reflashing with no BOOTSEL press); STK-21 and STK-22 rows extended; PICO-DD-FLASH added to the PICO architecture row; OPEN-09 extended to PICO-OPEN-05, then updated for PICO-OPEN-01 and -05 closed on a real Pico 2; PICO-FR-070 row gains the two `touch_1200` note tests. Requirement count corrected to 368 functional. |
 
 ---
 
@@ -510,7 +510,7 @@ tests in `tests/instruments/pico_sht30/`.
 | PICO-FR-046 | PICO-ARC-001 | PICO-DD-DRIVER | `status`, `SensorStatus`, `soft_reset_sensor`, `reset`, `enter_bootloader` | `TestStatusAndControl` (6) |
 | PICO-FR-050 | PICO-ARC-001 | PICO-DD-SIM | `simulator.py`, `register_driver("pico-sht30", …)` | `SWE4-UT-PICOSIM` (15), `test_faults` |
 | PICO-FR-060 | PICO-ARC-001 | PICO-DD-CLI | `cli.py`, `benchtools/cli.py` | `SWE4-UT-PICOCLI` (9) |
-| PICO-FR-070 | PICO-ARC-001 | PICO-DD-FLASH | `PicoFlasher._enter_bootloader`, `find_bootloader_drives`, `candidate_roots`, `touch_1200` | `test_success_from_running_firmware`, `test_success_from_bootloader`, `test_falls_back_to_1200_baud_when_the_protocol_does_not_answer`, `test_drive_is_recognised_by_its_info_file`, `test_windows_roots`, `test_linux_roots`, `test_macos_roots` |
+| PICO-FR-070 | PICO-ARC-001 | PICO-DD-FLASH | `PicoFlasher._enter_bootloader`, `find_bootloader_drives`, `candidate_roots`, `touch_1200` | `test_success_from_running_firmware`, `test_success_from_bootloader`, `test_falls_back_to_1200_baud_when_the_protocol_does_not_answer`, `test_touch_1200_error_is_a_note_not_a_failure`, `test_touch_1200_note_reaches_the_result`, `test_drive_is_recognised_by_its_info_file`, `test_windows_roots`, `test_linux_roots`, `test_macos_roots` |
 | PICO-FR-071 | PICO-ARC-001 | PICO-DD-FLASH | `Uf2Image.parse`, `for_rp2350`, `is_thermometer`, `built` | `test_image_is_parsed`, `test_not_a_whole_number_of_blocks`, `test_bad_magic`, `test_missing_file`, `test_rp2040_image_is_refused`, `test_other_firmware_needs_any_image` |
 | PICO-FR-072 | PICO-ARC-001 | PICO-DD-FLASH | `copy_image`, `PicoFlasher.flash` | `test_copy_image_writes_the_file`, `test_copy_error_while_drive_remains`, `test_copy_error_after_the_drive_went_is_not_an_error`, `test_copy_failure` |
 | PICO-FR-073 | PICO-ARC-001 | PICO-DD-FLASH | `PicoFlasher._verify`, `_port_after`, `find_pico_ports`, `FlashResult` | `test_version_mismatch_is_reported_not_raised`, `test_build_mismatch_is_reported`, `test_ambiguous_build_date_is_not_compared`, `test_port_found_by_vendor_id`, `test_no_verify` |
@@ -625,7 +625,7 @@ tests in `tests/instruments/pico_sht30/`.
 | OPEN-08 | PSU bench confirmation items — TB-IF-001 §12: the command interval a real supply needs, settling time, the slaved-channel behaviour, series and parallel tracking bits, current programming resolution, and `VOUT` read-back | PSU-OPEN-01 and -02 closed 2026-09-26; PSU-OPEN-06 partly. The rest open, tracked in TB-IF-001 §12. |
 | OPEN-05 | J-Link bench confirmation items (CON-04, CON-05) — `docs/jlink/JLink_Integration_Notes.md` §4: Windows execution, real MI version behaviour, SWO timestamp scaling, RTT control-block discovery, flash timing | Discharge on first use with a probe and a target. Tracked there as JLINK-OPEN-01 to JLINK-OPEN-04. |
 | OPEN-10 | TTi 1604 bench confirmation items (CON-10) — `docs/dmm/TTi1604_Notes.md` §5: DMM-OPEN-01 … -08 | Run `tests/bench/tti1604` (SWE4-UT-DMMBENCH) and the panel test with the meter attached, and keep the findings record. A meter is connected to the owner's bench PC. |
-| OPEN-09 | Pico 2 thermometer bench confirmation items (CON-09) — `docs/pico_sht30/Pico_SHT30_Notes.md` §7: USB enumeration and the first `ver`, I2C with the module's pull-ups, accuracy against a reference thermometer, the reference PDFs that could not be fetched in the build environment, and reflashing a real Pico 2 with `benchtools thermo flash` | Discharge on first use with a Pico 2 and an SHT30-D module. Tracked there as PICO-OPEN-01 to PICO-OPEN-05. |
+| OPEN-09 | Pico 2 thermometer bench confirmation items (CON-09) — `docs/pico_sht30/Pico_SHT30_Notes.md` §7: USB enumeration and the first `ver`, I2C with the module's pull-ups, accuracy against a reference thermometer, the reference PDFs that could not be fetched in the build environment, and reflashing a real Pico 2 with `benchtools thermo flash` | Discharge on first use with a Pico 2 and an SHT30-D module. Tracked there as PICO-OPEN-01 to PICO-OPEN-05. PICO-OPEN-01 (USB enumeration and `ver`) and PICO-OPEN-05 (reflashing, all three methods, on Windows) were closed on a real Pico 2 on 2026-10-03. PICO-OPEN-02 is not yet tested: the SHT30-D module is not yet connected. Open: PICO-OPEN-02, -03 and -04, and drive discovery on Linux and macOS. |
 
 ---
 

@@ -339,3 +339,32 @@ def test_simulated_drive_is_removed(board):
     assert os.path.isdir(board.drive)
     board.close()
     assert not os.path.isdir(board.drive)
+
+
+def test_touch_1200_error_is_a_note_not_a_failure(monkeypatch):
+    """On Windows the Pico reboots while the port is being configured."""
+    import serial
+
+    def vanishing(*_args, **_kwargs):
+        raise serial.SerialException("A device attached to the system is not functioning.")
+
+    monkeypatch.setattr(serial, "Serial", vanishing)
+    assert "not functioning" in flash_module.touch_1200("COM14")
+
+
+def test_touch_1200_note_reaches_the_result(uf2, board):
+    def mute(_port):
+        raise flash_module.InstrumentError("no reply")
+
+    def touch(port):
+        board.touch(port)
+        return "the 1200-baud reset on sim:// reported: gone"
+
+    opens = iter([mute, board.open_thermometer])
+
+    def open_thermometer(port):
+        return next(opens)(port)
+
+    result = board.flasher(**instant(open_thermometer=open_thermometer, touch=touch)).flash(uf2)
+    assert result.ok
+    assert "reported: gone" in result.notes[-1]

@@ -31,7 +31,7 @@
 | 0.7 | 2026-10-02 | Claude | #116: CORE-DD-PATHS added - drivers declare which arguments are input files, and a relative one is found beside the file that names it, then in the working directory, then in the checkout. RUN-DD-BENCH resolves declared bench options; RUN-DD-RUNNER resolves declared step arguments. CORE count 16 → 17. |
 | 0.8 | 2026-10-02 | Claude | #124: BLE-DD-CLI - `--select` resolves an address, a name or part of one through `select_by_name`, with an unfiltered rescan when the case-sensitive firmware filter hears nothing; `cmd --addr` selects; `--addr` and `--select` are mutually exclusive. |
 | 0.9 | 2026-10-02 | Claude | #126: CORE-DD-EVENTS - event names per instrument (`EventSource`, `SourceLogger`, `connecting_as`, `validate_source_name`), upper-case defaults with `TEMP`; CORE-DD-INSTRUMENT - `EVENT_SOURCE`, `event_source`, `_adopt`; RUN-DD-SPEC, RUN-DD-BENCH and RUN-DD-REPORT - names from the specification and the bench. |
-| 1.0 | 2026-10-03 | Claude | #127: PICO-DD-FLASH added - `Uf2Image`, the operating-system seams (drive discovery per system, the 1200-baud touch, the copy), `PicoFlasher` and the simulated board `SimulatedRp2350`. PICO-DD-CLI gains the `flash` sub-command, run without connecting first; PICO-DD-SIM gains the `on_bootloader` hook. PICO count 14 → 15. |
+| 1.0 | 2026-10-03 | Claude | #127: PICO-DD-FLASH added - `Uf2Image`, the operating-system seams (drive discovery per system, the 1200-baud touch, the copy), `PicoFlasher` and the simulated board `SimulatedRp2350`. PICO-DD-CLI gains the `flash` sub-command, run without connecting first; PICO-DD-SIM gains the `on_bootloader` hook. PICO count 14 → 15. PICO-DD-FLASH: `touch_1200()` returns an error from the port as a note instead of raising, found on a real Pico 2 on Windows, and the 1200-baud reset is recorded as confirmed on hardware (PICO-OPEN-05). |
 
 ---
 
@@ -2164,7 +2164,13 @@ bench PC, and the boot ROM checks what it is given. The module has four parts.
   `find_bootloader_drives()` keeps the roots whose `INFO_UF2.TXT` has a
   `Board-ID: RP2350` line. `find_pico_ports()` lists serial ports with USB
   vendor ID 0x2E8A through pyserial. `touch_1200()` opens the port at 1200 baud
-  and closes it. `copy_image()` writes the file to the drive and `fsync`s it;
+  and closes it. A `SerialException` or `OSError` from that open or close is
+  returned as a note, not raised: on Windows the Pico reboots while pyserial is
+  still configuring the port, which raises `PermissionError(13, 'A device
+  attached to the system is not functioning.')` even though the reset worked.
+  Whether it worked is decided by the bootloader drive appearing; if it does
+  not, the wait for the drive times out. It returns `None` when the port opened
+  and closed cleanly. `copy_image()` writes the file to the drive and `fsync`s it;
   an `OSError` is raised as `FlashError` only if the drive is still there.
 - **`PicoFlasher`** takes every seam, plus a clock and a sleep, as constructor
   arguments, so tests and the simulated board replace any of them.
@@ -2175,7 +2181,8 @@ bench PC, and the boot ROM checks what it is given. The module has four parts.
      named by `drive`), use it - method `already-in-bootloader`. Otherwise
      open the port: if it answers, record `ver` as `before`, send `bootsel` -
      method `bootsel`; if opening raises a `BenchToolsError`, note it and call
-     the 1200-baud touch - method `1200-baud`. Then poll for the drive.
+     the 1200-baud touch, adding any note it returns - method `1200-baud`.
+     Then poll for the drive.
      With neither a drive nor a port, raise.
   3. Copy, then poll until the drive is no longer listed.
   4. Unless `verify` is off or the image is not the thermometer (each recorded
@@ -2205,7 +2212,10 @@ not enumerate on USB: that still needs BOOTSEL or an SWD probe. The 1200-baud
 reset relies on `PICO_STDIO_USB_ENABLE_RESET_VIA_BAUD_RATE`, which Pico SDK
 2.1.1's `stdio_usb.h` turns on by default when the application does not use
 TinyUSB directly, as this firmware does not; this was read from the SDK source
-on 2026-10-03 and has not yet been seen to work on a board (PICO-OPEN-05).
+on 2026-10-03 and confirmed the same day on a real Pico 2 running this
+firmware, on Windows, where `flash` reached the bootloader by each of its three
+methods (PICO-OPEN-05, closed). Drive discovery on Linux and macOS has not been
+tried on hardware.
 
 ---
 

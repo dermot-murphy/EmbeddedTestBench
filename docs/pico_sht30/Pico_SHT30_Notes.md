@@ -86,8 +86,12 @@ It does what used to be three manual steps, and then checks the result:
    bootloader. Otherwise the running thermometer is sent `bootsel`. If the port
    does not answer the protocol - another image is running, for instance - it
    is opened and closed at 1200 baud instead, which the Pico SDK's USB serial
-   takes as a request to reboot into the bootloader. The command then waits
-   for the drive (15 s, `--bootloader-timeout`).
+   takes as a request to reboot into the bootloader. On Windows the Pico
+   often reboots while the port is still being opened, and Windows then
+   reports "a device attached to the system is not functioning". That is the
+   reset working, so it is kept as a note in the result rather than treated as
+   a failure. The command then waits for the drive (15 s,
+   `--bootloader-timeout`); the drive appearing is what shows the reset worked.
 2. **Copy.** The UF2 is checked first: every block must be well formed and for
    an RP2350, and the image must carry the thermometer's title (pass
    `--any-image` to flash something else). It is then copied onto the drive.
@@ -122,8 +126,14 @@ which always works:
 
 An SWD probe on the Pico's debug header is the other way in.
 
-`flash` has so far been run only against the simulated board: it has not yet
-been used on a real Pico 2 (PICO-OPEN-05).
+`flash` was confirmed on a real Pico 2 (USB serial AC5483CD0798FB0B, COM14)
+on the bench PC (Windows 10) on 2026-10-03, by all three routes into the
+bootloader: a board already in its bootloader, the running thermometer
+(`bootsel`) and the 1200-baud reset. Each exited 0 with every check passing,
+the drive (D:) was found without `--drive`, and with `-r ""` the port was
+found by vendor ID. The image was built on the bench PC with Pico SDK 2.1.1,
+Arm GNU Toolchain 14.2.Rel1 and picotool 2.1.1. Drive discovery on Linux and
+macOS has not been tried on hardware. See PICO-OPEN-05 in §7.
 
 Host unit tests for the firmware, no Pico needed:
 
@@ -246,8 +256,8 @@ PICO-OPEN-04.
 
 | ID | Item | How |
 |---|---|---|
-| PICO-OPEN-01 | USB enumeration and identity | Flash the UF2; `benchtools thermo -r <port> ver` must show the title `Pico2-SHT30-Thermometer` and version `1.0.0`. |
-| PICO-OPEN-02 | Sensor on the bus, and a missing sensor reported | `temp` must answer `ok`; with SDA disconnected it must answer `err 4`, never a value. |
+| PICO-OPEN-01 | USB enumeration and identity | Flash the UF2; `benchtools thermo -r <port> ver` must show the title `Pico2-SHT30-Thermometer` and version `1.0.0`. **Closed 2026-10-03.** After `flash`, the Pico 2 enumerated as COM14 (found by the Raspberry Pi vendor ID) and `ver` answered title `Pico2-SHT30-Thermometer`, firmware `1.0.0`, built `2026-10-03T12:06:39Z` (the image's own build date), protocol `1.0`, board `pico2`, serial `AC5483CD0798FB0B`, sensor `SHT30-DIS`, address `0x44`. |
+| PICO-OPEN-02 | Sensor on the bus, and a missing sensor reported | `temp` must answer `ok`; with SDA disconnected it must answer `err 4`, never a value. **Not yet tested** (2026-10-03): the SHT30-D module is not yet connected to the Pico. `temp` answered `err 4 the sensor did not acknowledge`, which is the expected answer with no sensor. |
 | PICO-OPEN-03 | Accuracy | Beside a calibrated reference thermometer, away from the Pico, after 10 minutes: agreement within ±0.2 °C typical (0–65 °C) plus the reference's own uncertainty. |
 | PICO-OPEN-04 | Reference PDFs and MISRA tool run | The hosts serving the PDFs were blocked in the build environment; run `fetch_datasheets.sh` and commit the files. Run a MISRA C:2012 checker over `firmware/pico_sht30/src`. |
-| PICO-OPEN-05 | Reflashing with `benchtools thermo flash` (#127) | Not yet confirmed on a real Pico 2: no Arm toolchain was available on the bench PC to build a UF2. With a built image, run `flash` three ways and check that each exits 0 with every check passing: from the running thermometer (method `bootsel`); from a board started with BOOTSEL held (method `already-in-bootloader`); and from a board running other USB-serial firmware built with the Pico SDK (method `1200-baud`), which also confirms that the SDK's 1200-baud reset is enabled in such a build. Confirm that the drive is found on the bench PC's operating system without `--drive`. |
+| PICO-OPEN-05 | Reflashing with `benchtools thermo flash` (#127) | Run `flash` three ways and check that each exits 0 with every check passing: from the running thermometer (method `bootsel`); from a board started with BOOTSEL held (method `already-in-bootloader`); and from a board running other USB-serial firmware built with the Pico SDK (method `1200-baud`), which also confirms that the SDK's 1200-baud reset is enabled in such a build. Confirm that the drive is found on the bench PC's operating system without `--drive`. **Closed 2026-10-03** on Windows 10, with a 60 416-byte UF2 (118 blocks, families `absolute` and `rp2350-arm-s`) built on the bench PC with Pico SDK 2.1.1, Arm GNU Toolchain 14.2.Rel1 and picotool 2.1.1. (1) The board arrived in its bootloader as drive D:; `flash` with `-r ""` gave method `already-in-bootloader`, found the port as COM14 by vendor ID, and passed every check in about 2.5 s. (2) After a rebuild, `flash -r COM14` from the running thermometer gave method `bootsel`; the build date changed from `12:06:39Z` to `12:07:19Z` and the title, version and build checks passed. (3) With the protocol open made to fail once, `flash -r COM14` gave method `1200-baud` and the title and build checks passed. The reset was tried on the thermometer firmware, which is itself an SDK USB-serial build, not on other firmware. On Windows the Pico reboots while pyserial is still opening the port, so the open raises "A device attached to the system is not functioning"; `touch_1200` now keeps that as a note, and the drive appearing decides success. The drive was found without `--drive` on Windows; Linux and macOS have not been tried on hardware. |
