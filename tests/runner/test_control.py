@@ -275,6 +275,12 @@ class TestServer:
             assert server._server.server_address[0] == "127.0.0.1"
             assert server.port > 0
 
+    def test_closing_a_server_never_started_releases_its_port(self):
+        server = ControlServer(RunControl())
+        server.close()
+        with pytest.raises(OSError):
+            socket.create_connection((HOST, server.port), timeout=1).close()
+
     def test_requests_and_replies_are_json_lines(self):
         control = RunControl()
         control.begin("x", lambda case, step: None)

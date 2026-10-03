@@ -287,8 +287,9 @@ class ControlServer:
         return self
 
     def close(self) -> None:
-        """Stop answering and release the port."""
-        self._server.shutdown()
+        """Stop answering and release the port; harmless if never started."""
+        if self._thread.is_alive():
+            self._server.shutdown()
         self._server.server_close()
 
     def __enter__(self) -> "ControlServer":
