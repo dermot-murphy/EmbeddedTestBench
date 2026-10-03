@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE1-001 | **Version** | 1.6 |
+| **Document ID** | TB-SWE1-001 | **Version** | 1.7 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -38,6 +38,7 @@
 | 1.4 | 2026-10-03 | Claude | #134: RUN-FR-059 added - running a selected subset of a specification's test cases, those not selected recorded as skipped, "not selected". |
 | 1.5 | 2026-10-03 | Claude | #135: CORE-FR-064 (an event record's `kind` and `data`) and RUN-FR-060 (the runner's structured run, test case and step records) added. |
 | 1.6 | 2026-10-03 | Claude | #136: RUN-FR-061 … -065 added - the run control channel: 127.0.0.1 only, between steps only, pause and resume, abort with teardown, restart with saved values kept, refusals, and every request in the event log. |
+| 1.7 | 2026-10-03 | Claude | #137: STK-23 (watch and control a run, issue #130); element `VIEW-`; §16.6 VIEW-FR-001 … -009 - the test run viewer: 127.0.0.1 and nothing from another site, request guards, the run rebuilt from the event log, the Run page, live events, control, starting a run, the safety warning, attaching and the Event log page. |
 
 ---
 
@@ -114,6 +115,7 @@ USB link. It is specified, designed and traced here like the rest of the item.
 | STK-20 | Use the kit's existing ST firmware if it is fit for purpose, rather than writing firmware for it. |
 | STK-21 | Read the local temperature using a Raspberry Pi Pico 2 and a DollaTek SHT30-D temperature sensor (issue #104). |
 | STK-22 | The firmware downloaded to the Pico shall report its title and version number. |
+| STK-23 | Watch a bench test run while it goes, and control it: start one or attach to one, pause, restart from a chosen step, or abort, and see each test case, step and instrument's commands and responses (issue #130). |
 
 ## 5. Element structure
 
@@ -132,6 +134,7 @@ prefixes are per element so they stay unique as instruments are added.
 | `PSU-` | `benchtools.instruments.gpd3303d` | The GW Instek GPD-3303D bench supply. Separate from `INST-` because its command set is neither SCPI nor shared with any other instrument here, and its single output switch is a hardware constraint that shapes its whole interface. |
 | `PICO-` | `benchtools.instruments.pico_sht30` **and** `firmware/pico_sht30` | The Pico 2 + SHT30-D bench thermometer: host driver and the Pico's own firmware. One element for the same reason as `BLE-`: the line protocol between them is one design decision. |
 | `RUN-` | `benchtools.runner` | The bench test runner. |
+| `VIEW-` | `benchtools.viewer` | The test run viewer: a browser page onto a run. Separate from `RUN-` because it is a client of the runner - of its event log and control channel - and sits above it in the layering, so the runner never depends on it. |
 
 ---
 
@@ -953,6 +956,22 @@ Drive discovery on Linux and macOS has not been tried on hardware.
 | RUN-FR-065 | Teardown shall not be interruptible: abort and restart during it, and any request during setup but pause, resume and abort, shall be refused with the reason. Every request, accepted or refused, and every action the runner takes on one, shall be written to the event log, so the evidence shows the operator's intervention. | STK-08, STK-19 | Test |
 
 ---
+
+### 16.6 VIEW — test run viewer
+
+A browser page onto a bench run (#130, #137), served by `benchtools view`. It is a client of the runner: it reads the event log (RUN-FR-060) and drives the control channel (RUN-FR-061 … -065).
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| VIEW-FR-001 | `benchtools view` shall serve a page and a JSON API on 127.0.0.1 only, built on the standard library with no new dependency. The page shall be plain HTML, JavaScript and CSS served by the viewer, loading nothing from another site, so it works on a bench PC with no internet connection. | STK-23 | Test |
+| VIEW-FR-002 | A request that changes anything - start, attach, control - shall carry the header `X-Benchtools: 1`, and every request's `Host` shall name this machine (`127.0.0.1`, `localhost`, `::1`); anything else shall be refused. A page from another site open in the same browser shall not be able to start, steer or abort a run. | STK-23 | Test |
+| VIEW-FR-003 | The viewer shall follow a run's event log and rebuild the run from its structured records alone (RUN-FR-060): the same picture whether the viewer started the run, attached part-way through, or opened the log after it finished. A log holding several runs shall show the latest. | STK-23 | Test |
+| VIEW-FR-004 | The Run page shall show the test specification, then setup, each test case and teardown, each with its steps; each step in words ("PSU set voltage: channel 2, volts 3.3", or the specification's own description), with its live status, duration, result or saved value, measurements against their limits, and error. Test cases not selected shall be shown as such, and the verdict when the run ends. | STK-23 | Test |
+| VIEW-FR-005 | Changes shall reach the page as they happen, as Server-Sent Events: the event-log records and the run's state. A page that connects later shall be sent what it missed, and no record shall be lost between two reads. | STK-23 | Test |
+| VIEW-FR-006 | The Run page shall offer pause, resume, abort (asking for confirmation, and saying that teardown still runs), restart of the current test case, and restart from any step, passed to the runner's control channel (RUN-FR-061 … -065). A button that does not apply shall be disabled, a refusal shall be shown with its reason, and a run without a control channel shall say so. | STK-23 | Test |
+| VIEW-FR-007 | The viewer shall start a run: a test specification chosen from the directories it was given, a bench from its bench directories or a simulated bench, and the test cases ticked (RUN-FR-059). It shall run `benchtools run` as a separate process with an event log, a control channel, and JSON and markdown reports written to its runs directory, and follow it. Anything not offered shall be refused, and only one run started from the viewer shall be in progress at a time. | STK-23 | Test |
+| VIEW-FR-008 | A test specification carrying a safety warning shall show it before a run is started; on a bench that is not simulated the run shall be refused unless the operator acknowledges it on the page, which is then passed as `--acknowledge` (RUN-FR-056). | STK-23 | Test |
+| VIEW-FR-009 | The viewer shall attach to a run given its event log, taking the control port from the log (`control_listening`) unless one is given. An Event log page shall list every record - time, source, text - with each source shown or hidden by a checkbox. | STK-23 | Test |
 
 ## 17. Assumptions and constraints
 

@@ -23,6 +23,7 @@ Bench test tooling: instrument drivers, analysis and a declarative test runner.
 
 Commands:
   run         run bench test specifications against a bench
+  view        watch and control test runs in a browser (127.0.0.1 only)
   scope       control a Tektronix TDS3014B oscilloscope
   jlink       control a target through a SEGGER J-Link debug probe
   ble         scan, drive and profile a BLE sensor through a Nordic dongle
@@ -58,6 +59,7 @@ transport.
 #: not import the others.
 _TOOLS = {
     ("run",): "benchtools.runner.cli",
+    ("view", "viewer"): "benchtools.viewer.server",
     ("scope", "tek3014b"): "benchtools.instruments.tek3014b.cli",
     ("jlink", "segger", "probe"): "benchtools.instruments.jlink.cli",
     ("ble", "dongle", "nordic"): "benchtools.instruments.nordic_dongle.cli",

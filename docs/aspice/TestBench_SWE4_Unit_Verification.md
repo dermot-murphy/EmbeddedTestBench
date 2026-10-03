@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE4-001 | **Version** | 1.6 |
+| **Document ID** | TB-SWE4-001 | **Version** | 1.7 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -38,6 +38,7 @@
 | 1.4 | 2026-10-03 | Claude | #134: SWE4-UT-SELECT added (14 cases) for running a selected subset of test cases (RUN-FR-059). |
 | 1.5 | 2026-10-03 | Claude | #135: SWE4-UT-RUNEVENTS added (21 cases) for the structured event-log records (CORE-FR-064, RUN-FR-060). |
 | 1.6 | 2026-10-03 | Claude | #136: SWE4-UT-CONTROL added (33 cases) for the run control channel (RUN-FR-061 … -065). |
+| 1.7 | 2026-10-03 | Claude | #137: SWE4-UT-VIEWSTATE (14 cases) and SWE4-UT-VIEWSERVER (25 cases) added for the test run viewer (VIEW-FR-001 … -009); SWE4-UT-LAYERING includes the viewer layer. |
 
 ---
 
@@ -305,7 +306,7 @@ against the simulator in the default run (SWE4-UT-PSUPANEL, SWE4-UT-DMMPANEL).
 
 | Test ID | File | Purpose | Requirements verified |
 |---|---|---|---|
-| SWE4-UT-LAYERING | `test_layering.py` | Import graph and element isolation | CORE-NFR-001, -008, -009 |
+| SWE4-UT-LAYERING | `test_layering.py` | Import graph and element isolation, the viewer above the runner | CORE-NFR-001, -008, -009 |
 | SWE4-UT-LINT | `test_lint_script.py` | The pylint baseline gate (`scripts/lint.py`): a finding keyed by file and rule matches its baseline entry whatever path separator pylint reports | — |
 | SWE4-UT-TRACE | `test_traceability.py` | Consistency between the code and the SWE.1 to SWE.4 work products: every requirement traced, no orphan rows, every cited identifier defined, every module carrying its own trace | All (traceability base practices) |
 | SWE4-UT-SCPI | `core/test_scpi.py` | `ScpiInstrument`: lifecycle, primitives, identity, error queue, 488.2 blocks, simulator injection | CORE-FR-020 .. -028, INST-FR-001, -002 |
@@ -361,6 +362,8 @@ against the simulator in the default run (SWE4-UT-PSUPANEL, SWE4-UT-DMMPANEL).
 | SWE4-UT-SELECT | `runner/test_selection.py` | A selected subset of test cases run, the rest recorded as skipped "not selected" in specification order, setup and teardown still run, the selection in the record, markdown and JUnit, an unknown name refused before the bench opens, and `--test` on the command line | RUN-FR-059 |
 | SWE4-UT-RUNEVENTS | `runner/test_run_events.py` | The runner's structured records (21 cases): the sequence of kinds, standard JSON on every line, the plan in `run_start`, the tree and every result rebuilt from the log alone, resolved arguments, result, measurements and error in `step_end`, setup and teardown marked, the verdict in `run_end`, a test case not selected, a refused bench; `jsonable` and `log_event` | CORE-FR-064, RUN-FR-060 |
 | SWE4-UT-CONTROL | `runner/test_control.py` | The run control channel (33 cases): abort after the current step with teardown run, in setup, and with test cases not selected; restart of the test case, back to an earlier test case, forward over test cases, from a step using a value saved earlier, refused for a value never saved, a missing or unselected target and during setup; refusals in teardown, with no run, for malformed and unknown requests, a second pause or abort; pause holding the run until resumed or aborted, and ended by a restart; status; requests and actions in the event log; the server on 127.0.0.1 with JSON lines and a run aborted over TCP, a server closed before it started; `--control` on the command line | RUN-FR-061 .. RUN-FR-065 |
+| SWE4-UT-VIEWSTATE | `viewer/test_state.py` | The viewer's run state (14 cases): steps in words, the whole tree rebuilt from a run's log and matching its record, saved values, test cases not selected, a run part-way through, a second run in the same log, records without a kind, the control port, pause, resume and refusals, a restart, and the snapshot a copy | VIEW-FR-003, VIEW-FR-004 |
+| SWE4-UT-VIEWSERVER | `viewer/test_server.py` | The viewer's server (25 cases): the page and its files, nothing outside them, nothing from another site, 127.0.0.1; the header and Host guards; attaching to a finished log, the event stream replaying it, no record lost between reads; control passed to a runner, refused without a channel, a runner that does not answer; the catalogue with test cases and warnings; a simulated run started with a selection, requests for anything not offered and an unacknowledged warning refused; the command line | VIEW-FR-001 .. VIEW-FR-009 |
 | SWE4-UT-S2LP | `instruments/s2lp/test_s2lp.py` | The S2-LP driver: identification without an invented board, the band of a named board and the synthesiser's range otherwise, register and bit-field access, read-only refusals, mis-framed replies, strobes, both resets and the state each leaves, radio and packet configuration and their read-back, RSSI conversion, routing the interrupt, the PN9 TX-source refusal, transmit and its recovery, receive and its stop on timeout, capture with its re-arm count and rejected receptions, streaming with registers read after each frame and decoding, the microsecond board clock, and both logs | S2LP-FR-001 .. -036 |
 | SWE4-UT-S2LPREG | `instruments/s2lp/test_registers.py` | The register map as data: unique addresses and names, non-overlapping fields inside their byte, reset values, read-only status registers, field extraction and insertion, lookup and its failures, contiguous runs, and the rendering of a dump | S2LP-FR-010 .. -014 |
 | SWE4-UT-S2LPCONFIG | `instruments/s2lp/test_configuration.py` | Register values from a file: the punctuation such files are written with, hexadecimal values, every refusal and the line it names, applying with read-back, the loose and strict checks, and capturing a radio's settings back out; and the reset that makes a partial file deterministic, including that the reset strobe does not do it | S2LP-FR-017 .. -021 |

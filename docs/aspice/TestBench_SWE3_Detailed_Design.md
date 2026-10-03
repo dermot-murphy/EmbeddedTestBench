@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE3-001 | **Version** | 1.4 |
+| **Document ID** | TB-SWE3-001 | **Version** | 1.5 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -36,6 +36,7 @@
 | 1.2 | 2026-10-03 | Claude | #134: RUN-DD-RUNNER - `run(spec, selection)`, `NOT_SELECTED` and `check_selection`; RUN-DD-RESULTS `RunRecord.selection`; RUN-DD-CLI `--test`. |
 | 1.3 | 2026-10-03 | Claude | #135: CORE-DD-EVENTS - `log_event`, `jsonable`, `MAX_ITEMS`, and the `kind` and `data` fields; RUN-DD-RUNNER - the structured run, test case and step records. |
 | 1.4 | 2026-10-03 | Claude | #136: RUN-DD-CONTROL added - `RunControl`, `Command`, `ControlServer`; RUN-DD-RUNNER obeys it between steps (`_run_tests`, `_restart`, `_restart_refusal`, `_Interrupted`); RUN-DD-CLI `--control`. |
+| 1.5 | 2026-10-03 | Claude | #137: §5.10 VIEW added - VIEW-DD-STATE, VIEW-DD-SERVER and VIEW-DD-PAGE, the test run viewer. |
 
 ---
 
@@ -2507,6 +2508,68 @@ rather than nesting argparse parsers, so each tool keeps its own complete
 `--help`.
 
 ---
+
+### 5.10 VIEW — `benchtools.viewer`
+
+#### VIEW-DD-STATE — `state.py`
+
+`RunState.apply(record)` dispatches on the record's `kind` to `_on_<kind>`;
+a record without one changes nothing (VIEW-FR-003). `run_start` resets the
+state and builds the tree from the plan - setup, test cases (PENDING, or NOT
+SELECTED), teardown - each step described by `describe_step`, which writes the
+instrument alias upper case, the method in words and each argument as `name
+value`, a saved-value reference as `<name>`, or uses the step's description.
+`step_start`/`step_end` and `case_start`/`case_end` update the step or test
+case they name by phase and index; a step beyond the plan is added, for a log
+attached without its `run_start`. `case_start` with `first_step` returns the
+steps from there to PENDING. `control_listening` records the control port;
+`control_applied` records the position and pause, and a restart returns later
+test cases to PENDING. `snapshot()` is a deep copy, so a server thread can
+serialise it outside the lock.
+
+#### VIEW-DD-SERVER — `server.py`
+
+`Hub` follows one event log with `EventTail`, on a thread polling every 0.2 s.
+Under one condition it appends each record with a sequence number (the last
+`KEEP_RECORDS`, 5 000, are kept), applies it to `RunState` and notifies
+waiters. `follow(path, port)` starts afresh on another log and bumps the
+generation. `since(sequence, generation)` returns, under the same lock, the
+current sequence and generation, the records after *sequence* (all when the
+generation changed) and the state, so a record is never counted seen without
+being returned (VIEW-FR-005).
+
+`ViewerServer` is a `ThreadingHTTPServer` on `HOST`. `_Handler` refuses any
+request whose `Host` is not `127.0.0.1`, `localhost` or `::1`, and any POST
+without `X-Benchtools: 1` (VIEW-FR-002). `GET /` and `/static/<file>` serve the
+page from `static/`, refusing a path resolving outside it. `/api/events` writes
+`reset`, `record` and `state` events, then waits on the hub, with a keep-alive
+comment every 15 s. `/api/control` sends the request with `send_control` to the
+control port - given on attach, else announced in the log - and returns the
+runner's reply, 409 without a port and 502 when the runner does not answer.
+`/api/attach` follows another log. `Catalogue` lists specification files
+(`.yaml`, `.yml`, `.json`) with their test cases and warning, or why one will
+not load, and bench files. `Launcher.start` checks the request against the
+catalogue - specification, bench, test cases, the warning acknowledged on
+hardware - refuses a second run while one it started is in progress, and runs
+`python -m benchtools run` with `--event-log`, `--control 0`, `--json`,
+`--markdown`, `--test` for each test case ticked and `--acknowledge` when
+acknowledged, its console to a file beside them (VIEW-FR-007, -008).
+
+#### VIEW-DD-PAGE — `static/index.html`, `app.js`, `app.css`
+
+One page, three tabs: Run, Event log, Start / attach. `app.js` opens an
+`EventSource` on `/api/events`, keeps the latest state and up to 3 000 records,
+and redraws on the next animation frame. The Run page draws each group's
+status dot, name, requirement and reason, and each step's text, duration,
+result or saved value, measurements and error; a ↻ on each test step restarts
+from it. Buttons are enabled from the state: pause when running and not paused,
+resume when paused, restart test case in a test case, none in teardown or
+without a control port. Abort asks for confirmation. The Event log page shows
+time, source and text, with a checkbox per source. The start form fills from
+`/api/catalogue`, shows a specification's warning, and sends the ticked test
+cases, or none when all are ticked. Colours are CSS variables with a dark set
+under `prefers-color-scheme`; the layout narrows to a phone's width without
+scrolling sideways.
 
 ## 6. Review & Approval
 

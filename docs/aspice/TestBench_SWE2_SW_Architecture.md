@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE2-001 | **Version** | 0.9 |
+| **Document ID** | TB-SWE2-001 | **Version** | 0.10 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -31,6 +31,7 @@
 | 0.7 | 2026-10-02 | Claude | #126: AD-28 (an event source is an instrument, named by the specification and the bench, not a driver package). |
 | 0.8 | 2026-10-03 | Claude | #131: AD-24 (a reading travels with the raw word it came from) marked superseded - the `rd temperature` reply carries no raw word. PICO-ARC-001 updated for the `rd` command set, `ecureset` and the driver's new errors. |
 | 0.9 | 2026-10-03 | Claude | #136: RUN-ARC-001 includes the run control channel, bound to 127.0.0.1 only. |
+| 0.10 | 2026-10-03 | Claude | #137: VIEW-ARC-001 added - the test run viewer, the top layer above the runner; §5 layering diagram and rule extended to it. |
 
 ---
 
@@ -75,6 +76,10 @@ This document satisfies **Automotive SPICE® PAM v4.0, SWE.2 — Software Archit
 
 ```
    +--------------------------------------------------------------+
+   |  benchtools.viewer   state  server  static/ (page)           |
+   +--------------------------------------------------------------+
+                        |  event log, control channel
+   +--------------------------------------------------------------+
    |  benchtools.runner                                           |
    |  spec -> bench -> runner -> results -> report   +  cli       |
    +--------------------------------------------------------------+
@@ -113,7 +118,7 @@ This document satisfies **Automotive SPICE® PAM v4.0, SWE.2 — Software Archit
 ```
 
 Dependencies point one way only: **core, then analysis, then instruments, then
-runner**. This is not merely a convention — it is enforced by
+runner, then viewer**. This is not merely a convention — it is enforced by
 `tests/test_layering.py`, which parses every module's imports and fails the build
 on a violation. The core is additionally checked to contain no reference to any
 instrument, and to be importable without importing any other element.
@@ -140,6 +145,7 @@ instrument, and to be importable without importing any other element.
 | DMM-ARC-001 | `instruments.tti1604` | The TTi 1604 bench multimeter, on an opto-isolated RS-232 link. Not a SCPI instrument and not close to one: no command language, no query, no `*IDN?`, no error queue. The link carries single characters standing for key presses, and the meter streams a ten-byte binary frame per measurement. Frame decoding (`protocol`) is pure and separate from the link, because decoding is where a wrong number comes from and it should be testable without a meter. The instrument envelope and protocol facts (`constants`), the driver façade (`dmm`) - which reads the link as a stream (AD-26) and confirms every key press from the readings (AD-25) - a behavioural simulator with the meter's resolution and reading rate on a virtual clock, a command line, an opt-in bench test and a front-panel check. | `Tti1604`, `Reading`, `FrameAssembler`, `decode`, `frame_problem`, `SimulatedTti1604` |
 | PICO-ARC-001 | `instruments.pico_sht30` **and** `firmware/pico_sht30` | The Pico 2 + SHT30-D bench thermometer, as one element across two languages. Host side: the driver (`thermometer`), which takes the transport and lifecycle from `ScpiInstrument` and replaces the SCPI-specific parts with the firmware's `rd` command set (`rd name`, `copyright`, `version`, `sha` and `temperature`, answered `ACK rd <option> = <value>` or `NAK`, #131); the protocol tables (`constants`); a simulated thermometer that answers with the firmware's reply text; and a command line. Pico side: line assembly and dispatch (`cmd_parser`), the SHT30 driver (`sht30`), a bounded text builder in place of stdio (`text`), and a HAL seam (`hal.h`) implemented on the Pico SDK by `hal_pico.c` and by a fake in the host tests. `include/protocol.h` is the interface both sides are built from. | `PicoSht30`, `FirmwareInfo`, `Reading`, `SensorError`, `NoReadingError`, `RdRefusedError`, `SimulatedPicoSht30`; `cmd_execute`, `sht30_measure`, `hal_i2c_write` |
 | RUN-ARC-001 | `runner` | Specification model, bench resolution, execution engine, result records, report writers, command line, and the run control channel (127.0.0.1 only). | `load_spec`, `BenchConfig`, `BenchRunner`, `write_*` |
+| VIEW-ARC-001 | `viewer` | The test run viewer: follows a run's event log, rebuilds the run's state from its structured records, serves a page and JSON API with Server-Sent Events on 127.0.0.1, passes control requests to the runner's control channel, and starts runs as separate processes. The top layer: it may import from every other, and nothing imports from it. | `RunState`, `Hub`, `ViewerServer`, `Launcher`, `Catalogue`, `benchtools view` |
 
 ## 7. Key architectural decisions
 

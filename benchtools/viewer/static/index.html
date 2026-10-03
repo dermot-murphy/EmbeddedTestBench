@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Test Run Viewer</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<header class="bar">
+  <div class="brand">benchtools <span>test run viewer</span></div>
+  <nav id="tabs" role="tablist">
+    <button role="tab" data-page="run" aria-selected="true">Run</button>
+    <button role="tab" data-page="events" aria-selected="false">Event log</button>
+    <button role="tab" data-page="start" aria-selected="false">Start / attach</button>
+  </nav>
+  <div id="link" class="link" title="Connection to the viewer server">connecting</div>
+</header>
+
+<main>
+  <section id="page-run" class="page">
+    <div class="summary">
+      <div>
+        <div class="label">Test specification</div>
+        <div id="suite" class="suite">No run yet</div>
+        <div id="meta" class="meta"></div>
+      </div>
+      <div id="verdict" class="badge">WAITING</div>
+    </div>
+    <div class="controls" id="controls">
+      <button data-cmd="pause">Pause</button>
+      <button data-cmd="resume">Resume</button>
+      <button data-cmd="restart_test">Restart test case</button>
+      <button data-cmd="abort" class="danger">Abort</button>
+      <span id="control-note" class="note"></span>
+    </div>
+    <div id="tree" class="tree"></div>
+  </section>
+
+  <section id="page-events" class="page" hidden>
+    <div class="filters" id="filters"></div>
+    <div class="events-head"><span>time</span><span>source</span><span>text</span></div>
+    <div id="events" class="events"></div>
+  </section>
+
+  <section id="page-start" class="page" hidden>
+    <div class="cards">
+      <form id="start-form" class="card">
+        <h2>Start a run</h2>
+        <label>Test specification <select id="spec"></select></label>
+        <div id="spec-warning" class="warning" hidden></div>
+        <fieldset id="tests"><legend>Test cases to run</legend></fieldset>
+        <label>Bench <select id="bench"></select></label>
+        <label class="inline"><input type="checkbox" id="acknowledge"> I have acted on the safety warning</label>
+        <button type="submit">Start</button>
+        <div id="start-note" class="note"></div>
+      </form>
+      <form id="attach-form" class="card">
+        <h2>Attach to a run</h2>
+        <label>Event log <input id="attach-log" placeholder="runs/events.jsonl"></label>
+        <label>Control port (if the log does not say) <input id="attach-port" inputmode="numeric"></label>
+        <button type="submit">Attach</button>
+        <div id="attach-note" class="note"></div>
+      </form>
+    </div>
+  </section>
+</main>
+<script src="/static/app.js"></script>
+</body>
+</html>

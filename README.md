@@ -34,10 +34,11 @@ benchtools/
 │   ├── s2lp/        ST S2-LP sub-1 GHz development kit (registers, TX, RX, logs)
 │   ├── pico_sht30/  Raspberry Pi Pico 2 + SHT30-D thermometer, with its own firmware
 │   └── generic.py   anything answering *IDN?
-└── runner/        declarative bench test runner
+├── runner/        declarative bench test runner
+└── viewer/        test run viewer: watch and control a run in a browser
 ```
 
-Dependencies point one way only — **core → analysis → instruments → runner** — and
+Dependencies point one way only — **core → analysis → instruments → runner → viewer** — and
 that is enforced by a test, not a convention. `benchtools.core` contains no
 reference to any instrument and imports on its own, which is what keeps it
 reusable as instruments are added.
@@ -192,6 +193,27 @@ A run against simulators is disclosed in every report — whether `--simulate` w
 passed or every configured resource simply happens to be a simulator.
 
 Full guide: [docs/Bench_Runner_Guide.md](docs/Bench_Runner_Guide.md).
+
+### Watching and controlling a run: the test run viewer
+
+```bash
+benchtools view                                  # then open http://127.0.0.1:8130/
+benchtools view --event-log runs/events.jsonl    # follow a run started elsewhere
+```
+
+A browser page onto a run (#130). It shows the test specification, each test
+case and each step in words with its live status, result and measurements, and
+lets you pause, resume, abort, restart the current test case or restart from any
+step. It can start a run - a specification, a bench or a simulated one, and the
+test cases to run - or attach to one started with `benchtools run --event-log
+PATH --control 0`. The Event log page lists every instrument's traffic, filtered
+by source.
+
+It listens on 127.0.0.1 only, needs nothing beyond the standard library, and
+loads nothing from the internet. A run started from it writes its event log and
+reports to `runs/`. Requests that change anything must carry a header that a
+page from another site cannot add, so another site open in the same browser
+cannot steer the bench.
 
 ---
 
