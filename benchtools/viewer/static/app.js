@@ -162,6 +162,7 @@ function stickToBottom(id, draw) {
 }
 
 async function loadRadio() {
+  if (typeof rfView !== "undefined" && rfView !== "frames") return;
   const chosen = $("rf-sensor").value;
   const reply = await (await fetch("/api/radio?sensor=" + encodeURIComponent(chosen))).json();
   const select = $("rf-sensor");
