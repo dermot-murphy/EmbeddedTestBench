@@ -14,6 +14,7 @@
     <button role="tab" data-page="instruments" aria-selected="false">Instruments</button>
     <button role="tab" data-page="rf" aria-selected="false">RF</button>
     <button role="tab" data-page="ble" aria-selected="false">BLE</button>
+    <button role="tab" data-page="graphs" aria-selected="false">Graphs</button>
     <button role="tab" data-page="events" aria-selected="false">Event log</button>
     <button role="tab" data-page="start" aria-selected="false">Start / attach</button>
   </nav>
@@ -68,6 +69,16 @@
     <div id="ble-exchanges" class="exchanges"></div>
   </section>
 
+  <section id="page-graphs" class="page" hidden>
+    <div class="toolbar">
+      <label>BLE device <select id="graph-ble"></select></label>
+      <label>Expected advertising period (ms) <input id="graph-period" inputmode="decimal" size="6" placeholder="median"></label>
+      <span id="graph-period-note" class="note"></span>
+      <span class="note">Vertical lines mark where each step started.</span>
+    </div>
+    <div id="graphs" class="graphs"></div>
+  </section>
+
   <section id="page-events" class="page" hidden>
     <div class="filters" id="filters"></div>
     <div class="events-head"><span>time</span><span>source</span><span>text</span></div>
@@ -97,5 +108,6 @@
   </section>
 </main>
 <script src="/static/app.js"></script>
+<script src="/static/graphs.js"></script>
 </body>
 </html>

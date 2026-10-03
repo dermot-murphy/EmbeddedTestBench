@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE3-001 | **Version** | 1.7 |
+| **Document ID** | TB-SWE3-001 | **Version** | 1.8 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -39,6 +39,7 @@
 | 1.5 | 2026-10-03 | Claude | #137: §5.10 VIEW added - VIEW-DD-STATE, VIEW-DD-SERVER and VIEW-DD-PAGE, the test run viewer. |
 | 1.6 | 2026-10-03 | Claude | #138: VIEW-DD-TRAFFIC added - `classify`, `Traffic`, `PsuPanel`, `JlinkPanel`, `panel_for`, `Hub.instruments`, `/api/instruments`; VIEW-DD-PAGE gains the Instruments tab and a step's traffic. |
 | 1.7 | 2026-10-03 | Claude | #139: S2LP-DD-S2LP `_record` logs `rf_packet`; VIEW-DD-RADIO added (`RfFrames`, `BleAir`, `parse_fields`, `/api/radio`, `/api/ble`); VIEW-DD-PAGE gains the RF and BLE tabs. |
+| 1.8 | 2026-10-03 | Claude | #140: CORE-DD-EVENTS `log_reading`; PSU-DD-PSU, PICO-DD-DRIVER and DMM-DD-DMM log readings; VIEW-DD-GRAPHS added (`Readings`, `advertising`, `step_markers`, `/api/graphs`, `graphs.js`); the GET API is a table of handlers (`_GET_API`). |
 
 ---
 
@@ -495,6 +496,8 @@ as text (a browser's `JSON.parse` refuses `NaN`), a sequence longer than
 (CORE-FR-064, #135). A console handler sees only the text.
 
 ---
+
+`log_reading(logger, quantity, value, unit, **detail)` logs a `reading` record through `log_event` at DEBUG, with the detail - channel, AC, display text - beside quantity, value and unit (CORE-FR-065, #140).
 
 ### 5.2 ANA — `benchtools.analysis`
 
@@ -1853,6 +1856,8 @@ Design points added by #115:
   and the echo buffer is cleared before each key is sent, since nothing
   received before the write can be its echo.
 
+`read` logs each measurement with `log_reading`: its measurement as the quantity, value, unit, AC, display text and over range; a reading with no value (over range) is not logged as a number (DMM-FR-034).
+
 #### DMM-DD-SIM — `simulator.py`
 
 A behavioural model rather than canned frames: front-panel state, key handling,
@@ -1936,6 +1941,8 @@ Design points:
   from bit 6 and the tracking pair bit 2 first; `in_current_limit` requires
   the channel to be on; `regulated` allows 1.5 read-back steps. The component
   view, the decisions and the lessons behind them are in TB-SWE3-002.
+
+`measure_voltage` and `measure_current` log each value with `log_reading`, with its channel; `read_channel` measures through them, so its readings are logged too (PSU-FR-044).
 
 #### PSU-DD-SIM — `simulator.py`
 
@@ -2188,6 +2195,8 @@ line and reads lines skipping `#` lines.
 timestamp) and `SensorStatus` are frozen dataclasses with `as_dict()` for JSON
 reports. `NoReadingError` and `RdRefusedError` are `InstrumentError`s.
 `connect()` takes a bare port name as a serial port.
+
+`read` logs the temperature with `log_reading` in degC, with the firmware's text (PICO-FR-048).
 
 #### PICO-DD-SIM — `benchtools/instruments/pico_sht30/simulator.py`
 
@@ -2598,9 +2607,35 @@ device's mean interval as the board-time span over the adverts less one
 dongle's exchanges from VIEW-DD-TRAFFIC, at `/api/radio?sensor=` and
 `/api/ble`.
 
+#### VIEW-DD-GRAPHS — `graphs.py`, `static/graphs.js`
+
+`Readings.feed` keeps every `reading` record with a numeric value and a time,
+keyed `<source> <quantity>[ ch<n>]`, `KEEP_POINTS` (5 000) per series;
+`charts()` groups them one chart per unit, titled from `UNIT_NAMES`
+(VIEW-FR-016). `advertising(adverts, address, expected_ms)` picks the device
+heard most unless one is named, takes its adverts with a board time, and gives
+three charts with `x: "dongle"`: the interval between consecutive adverts in
+ms, the interval less the expected period or the median, and RSSI - each at
+seconds on the dongle's clock from its first advert, because the dongle reports
+adverts in batches and the host's times bunch together (VIEW-FR-017).
+`step_markers(state)` lists each started step's start time and name. `Hub.graphs`
+serves all three at `/api/graphs?ble=&expected_ms=`, the latter refused unless a
+finite number.
+
+`graphs.js` draws each chart as SVG with no library: `niceTicks` gives round
+y-ticks covering the data (and zero for a delta chart), x-ticks on the host's
+clock to the places the step needs, or seconds on the dongle's; 2 px lines in
+the categorical palette's fixed order, points when there are few, a legend
+above when there are several series and the series named in the title when one;
+dashed step markers with their name as a tooltip, on charts of the host's
+clock only; a crosshair and tooltip with each series' nearest value. The
+palette (`--series-1` … `-8`, light and dark) passed the dataviz palette
+validator on both surfaces; its light-mode contrast warning is answered by the
+legend and the hover values (VIEW-FR-018).
+
 #### VIEW-DD-PAGE — `static/index.html`, `app.js`, `app.css`
 
-One page, six tabs: Run, Instruments, RF, BLE, Event log, Start / attach. RF shows a sensor selector, the sensor table and the frames, a frame's decode on selecting it; BLE the device table, events and the dongle's exchanges; both polled every second while shown. The Instruments tab shows the front panels, a button per source with its count, and that source's exchanges - time, sent, replies, milliseconds - polled every second while shown; a step's text on the Run page, once it has started, opens its traffic below it. `app.js` opens an
+One page, seven tabs: Run, Instruments, RF, BLE, Graphs, Event log, Start / attach. RF shows a sensor selector, the sensor table and the frames, a frame's decode on selecting it; BLE the device table, events and the dongle's exchanges; both polled every second while shown. The Instruments tab shows the front panels, a button per source with its count, and that source's exchanges - time, sent, replies, milliseconds - polled every second while shown; a step's text on the Run page, once it has started, opens its traffic below it. `app.js` opens an
 `EventSource` on `/api/events`, keeps the latest state and up to 3 000 records,
 and redraws on the next animation frame. The Run page draws each group's
 status dot, name, requirement and reason, and each step's text, duration,

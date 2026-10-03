@@ -41,7 +41,7 @@ without anything in ``STATUS?`` to say it did. The driver refuses to send them
 (:meth:`_check_tracking`), because the alternative is a test that configures a
 rail, reads back the value it sent, and never learns that the supply ignored it.
 
-Traces to: PSU-FR-001 .. PSU-FR-043, PSU-ARC-001, PSU-DD-PSU.
+Traces to: PSU-FR-001 .. PSU-FR-043, PSU-FR-044, PSU-ARC-001, PSU-DD-PSU.
 """
 
 from __future__ import annotations
@@ -51,6 +51,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
 from ...core.errors import ConfigurationError, ProtocolError, TransportTimeoutError
+from ...core.events import log_reading
 from ...core.instrument import InstrumentIdentity
 from ...core.scpi import ScpiInstrument
 from ...core.transport.base import Transport
@@ -578,11 +579,15 @@ class Gpd3303D(ScpiInstrument):
 
     def measure_voltage(self, channel: int) -> float:
         """Measure the channel's output voltage, in volts."""
-        return self._query_reading("VOUT%d?" % self._check_channel(channel))
+        value = self._query_reading("VOUT%d?" % self._check_channel(channel))
+        log_reading(self._logger, "voltage", value, "V", channel=channel)
+        return value
 
     def measure_current(self, channel: int) -> float:
         """Measure the channel's output current, in amps."""
-        return self._query_reading("IOUT%d?" % self._check_channel(channel))
+        value = self._query_reading("IOUT%d?" % self._check_channel(channel))
+        log_reading(self._logger, "current", value, "A", channel=channel)
+        return value
 
     def measure_power(self, channel: int) -> float:
         """Output power in watts, derived from the two readings.

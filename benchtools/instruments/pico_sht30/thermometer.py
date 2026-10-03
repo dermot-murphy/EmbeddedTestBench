@@ -16,7 +16,7 @@ times out - ``rd temperature`` answers ``Error``, and the driver raises
 :class:`NoReadingError`, so that a test cannot mistake "no reading" for "same
 as last time".
 
-Traces to: PICO-FR-040 .. PICO-FR-047, PICO-ARC-001, PICO-DD-DRIVER.
+Traces to: PICO-FR-040 .. PICO-FR-048, PICO-ARC-001, PICO-DD-DRIVER.
 """
 
 from __future__ import annotations
@@ -27,6 +27,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Tuple
 
 from ...core.errors import InstrumentError, ProtocolError
+from ...core.events import log_reading
 from ...core.instrument import InstrumentIdentity
 from ...core.scpi import ScpiInstrument
 from ...core.transport.base import Transport
@@ -360,6 +361,7 @@ class PicoSht30(ScpiInstrument):
             raise NoReadingError("rd temperature: the sensor could not be read")
         if not _TEMPERATURE.match(text):
             raise ProtocolError("rd temperature: %r is not degrees to two places" % text)
+        log_reading(self._logger, "temperature", float(text), "degC", text=text)
         return Reading(float(text), text, time.time())
 
     def temperature(self) -> float:

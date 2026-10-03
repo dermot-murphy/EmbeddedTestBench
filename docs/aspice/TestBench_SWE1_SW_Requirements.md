@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE1-001 | **Version** | 1.9 |
+| **Document ID** | TB-SWE1-001 | **Version** | 1.10 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -41,6 +41,7 @@
 | 1.7 | 2026-10-03 | Claude | #137: STK-23 (watch and control a run, issue #130); element `VIEW-`; §16.6 VIEW-FR-001 … -009 - the test run viewer: 127.0.0.1 and nothing from another site, request guards, the run rebuilt from the event log, the Run page, live events, control, starting a run, the safety warning, attaching and the Event log page. |
 | 1.8 | 2026-10-03 | Claude | #138: VIEW-FR-010 … -012 added - each instrument's commands paired with their replies, the supply's and probe's front panels, and a step's own traffic. |
 | 1.9 | 2026-10-03 | Claude | #139: S2LP-FR-080 (every packet as a structured `rf_packet` record) and VIEW-FR-013 … -015 (the RF and BLE pages) added. The dongle was checked: it already logs every advertising report as `< +adv t=<board us> addr= type= rssi= pdu= ch= name= data=`, so it needed no change. |
+| 1.10 | 2026-10-03 | Claude | #140: CORE-FR-065 (`reading` records), PSU-FR-044, PICO-FR-048, DMM-FR-034 (each driver logs its readings) and VIEW-FR-016 … -018 (the Graphs page) added. |
 
 ---
 
@@ -207,6 +208,7 @@ Extends §6.2 with the SCPI and IEEE 488.2 vocabulary.
 | CORE-FR-063 | Each instrument shall carry a short event-log name - 1 to 8 characters, an upper-case letter then A-Z, 0-9 or _ - and every record logged by the instrument or by anything it owns (its transport, its sessions) shall carry that name, from the instrument's construction on, so two instruments of one driver are told apart. Without a name given, it shall be the driver's default: `PSU`, `BLE`, `JLINK`, `RF`, `SCOPE`, `DMM`, `TEMP` (Pico 2 + SHT30-D thermometer); a record from nothing named shall be `BENCH` (#126). | STK-19 | Test |
 | CORE-FR-060 | Every instrument's and the runner's log records shall be writable, while a run is in progress, to one event log of one JSON object per line, each carrying the short upper-case name of the instrument it came from (`PSU`, `BLE`, `RF`, `TEMP`, ...) or `TEST` for the runner, so that another program can follow the run as it happens and tell its sources apart. | STK-19 | Test |
 | CORE-FR-064 | A record in the event log shall be able to carry, beside its text, a `kind` naming what happened and a `data` object with its details, so that a reader can follow the run without parsing text. `data` shall be standard JSON - a value that is not finite written as text, bytes as hex, a long sequence cut short and saying so - and a reader that ignores the two fields shall be unaffected. | STK-19 | Test |
+| CORE-FR-065 | A driver shall be able to log a measured value as a `reading` record - quantity, value, unit, and details such as the channel - where it has the value in hand, so a reader of the event log can graph it without parsing the instrument's reply. | STK-23 | Test |
 
 ### 6.6 Simulation
 
@@ -579,6 +581,7 @@ accepts and discards anything sent to channel 2.
 | PSU-FR-041 | Commands shall be paced on a real link. The supply has a small input buffer and no flow control, and a command it drops is silent. | STK-13 | Test |
 | PSU-FR-042 | A bare port name shall be taken as a serial port rather than a network host. | STK-13 | Test |
 | PSU-FR-043 | The driver shall provide a safe state - outputs off and rails at zero - without altering current limits, which are the protection set for whatever is connected. | STK-13, STK-17 | Test |
+| PSU-FR-044 | Each measured output voltage and current shall be logged as a `reading` record (CORE-FR-065) with its channel. | STK-13, STK-23 | Test |
 | PSU-FR-050 | The supply shall be registered as a bench driver, and a simulated supply shall answer the same command set with a load model, so that constant-current operation is verifiable without hardware. | STK-08, STK-13 | Test |
 | PSU-FR-060 | A command-line interface shall expose identification, status, measurement, setting and output switching, emitting JSON, and shall warn when a channel it read is in current limit or is being slaved to another by the supply's tracking mode. | STK-13 | Test |
 
@@ -748,6 +751,7 @@ review, in which case the reading is real but is not now.
 | DMM-FR-031 | A measurement taken on request shall have been measured wholly after the request: everything already received, the operating system's buffer included, shall be discarded, and then the next complete frame. | STK-18, STK-17 | Test |
 | DMM-FR-032 | Every wait for a reading shall allow for the meter's reading rate in the state it is in: 0.4 s per reading on most functions, one gate time - 1 s, or 10 s on the 4 kHz range - when measuring frequency. | STK-18 | Test |
 | DMM-FR-033 | Frequency shall be selectable only from an AC voltage or current function, which is the only state in which the meter accepts the Hz key, and its range shall be selectable by full scale. | STK-18 | Test |
+| DMM-FR-034 | Each measurement read shall be logged as a `reading` record (CORE-FR-065): its measurement, value and unit, AC or DC, the display's text and whether it was over range. | STK-18, STK-23 | Test |
 | DMM-FR-026 | The echo shall be identified as the bytes left over once complete frames have been removed from the stream, not by searching the stream for the echoed character. Seven-segment digit patterns collide with the key characters exactly: `0x61` is both the Up key and the pattern for a `1` with its decimal point, so a scan for the character finds one inside an ordinary reading. | STK-18 | Test |
 
 ### 14.5 Simulation
@@ -839,6 +843,7 @@ that its identifier is never reused for something else.
 | PICO-FR-045 | A bare port name shall be taken as a serial port rather than a network host. | STK-21 | Test |
 | PICO-FR-046 | The driver shall decode the sensor status register, and shall provide sensor soft reset, Pico reboot (`ecureset`) and bootloader entry. | STK-21 | Test |
 | PICO-FR-047 | The driver shall send `rd <option>` and return the value of its `ACK`. A `NAK` shall raise `RdRefusedError`, an `err` reply `SensorError`, and a reply for another option, or one that is neither `ACK` nor `NAK`, `ProtocolError`. A temperature of `Error` shall raise `NoReadingError` - never a stale value - and a temperature that is not a number to exactly two decimal places shall be refused with `ProtocolError` (#131). | STK-21 | Test |
+| PICO-FR-048 | Each temperature read shall be logged as a `reading` record (CORE-FR-065) in degC, with the text the firmware sent. | STK-21, STK-23 | Test |
 | PICO-FR-050 | The thermometer shall be registered as a bench driver, and a simulated thermometer shall answer the same command set with the same reply text, `rd` included, with injectable faults - sensor absent, CRC failure and bus timeout - each of which makes `rd temperature` answer `Error`. | STK-08, STK-21 | Test |
 | PICO-FR-060 | A command-line interface shall expose `temp` (one reading or a series, each by `rd temperature`), `status`, `sreset` and `bootsel`, emitting JSON. *(Revised by #131: `ver` is replaced by PICO-FR-061.)* | STK-21, STK-22 | Test |
 | PICO-FR-061 | The command-line interface shall also expose `info` (name, copyright, version and commit SHA), `rd <option>` for exactly the five options of PICO-FR-006 and -027, refusing any other before anything is sent, and `ecureset`, emitting JSON (#131). | STK-21, STK-22 | Test |
@@ -981,6 +986,9 @@ A browser page onto a bench run (#130, #137), served by `benchtools view`. It is
 | VIEW-FR-013 | An RF page shall list the Kepler frames received - time, sensor, frame type, length, RSSI and what the frame says - decoding with the Kepler decoder any frame the driver did not, and stating why a frame could not be decoded or was rejected by the radio. Selecting a frame shall show its payload and whole decode. | STK-23 | Test |
 | VIEW-FR-014 | The RF page shall show, per sensor, the frames heard, when last heard, the RSSI and the latest frame of each type, and shall be filterable to one sensor or all. | STK-23 | Test |
 | VIEW-FR-015 | A BLE page shall show the devices the dongle has heard - address, name, advertising reports counted, mean advertising interval from the dongle's own clock, latest and mean RSSI, when last heard - the dongle's other events (scan, sensor, connection), and its commands paired with their replies. | STK-23 | Test |
+| VIEW-FR-016 | A Graphs page shall plot every instrument's readings (CORE-FR-065) against time - supply current and voltage per channel, the thermometer's temperature, the multimeter's readings - one chart per unit, so no chart has two y-axes, each instrument, quantity and channel a series of its own. | STK-23 | Test |
+| VIEW-FR-017 | For a chosen BLE device - by default the one heard most - the Graphs page shall plot, on the dongle's own clock, the interval between consecutive adverts, each interval's difference from the expected period the operator gives or else the median interval, and each advert's RSSI. | STK-23 | Test |
+| VIEW-FR-018 | The charts of readings shall mark when each step started, naming it, so a change can be tied to the step that caused it; hovering a chart shall give the time and each series' nearest value. | STK-23 | Test |
 
 ## 17. Assumptions and constraints
 
