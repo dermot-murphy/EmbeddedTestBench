@@ -140,6 +140,9 @@ h2.section { font-size: 13px; margin: 14px 0 6px; color: var(--muted); font-weig
               border-radius: 6px; padding: 4px 8px; font-size: 12px; white-space: pre; pointer-events: none;
               box-shadow: 0 2px 6px rgba(0, 0, 0, .12); }
 .chart .empty { padding: 12px 0; }
+.filter-row { display: flex; gap: 8px; align-items: baseline; margin-bottom: 6px; flex-wrap: wrap; }
+.filter-row .label { font-size: 12px; color: var(--muted); min-width: 80px; }
+#events-pause[aria-pressed="true"] { border-color: var(--warn); color: var(--warn); }
 .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px;
         display: flex; flex-direction: column; gap: 10px; }

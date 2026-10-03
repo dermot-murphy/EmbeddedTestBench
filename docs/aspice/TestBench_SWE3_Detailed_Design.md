@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE3-001 | **Version** | 1.8 |
+| **Document ID** | TB-SWE3-001 | **Version** | 1.9 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -40,6 +40,7 @@
 | 1.6 | 2026-10-03 | Claude | #138: VIEW-DD-TRAFFIC added - `classify`, `Traffic`, `PsuPanel`, `JlinkPanel`, `panel_for`, `Hub.instruments`, `/api/instruments`; VIEW-DD-PAGE gains the Instruments tab and a step's traffic. |
 | 1.7 | 2026-10-03 | Claude | #139: S2LP-DD-S2LP `_record` logs `rf_packet`; VIEW-DD-RADIO added (`RfFrames`, `BleAir`, `parse_fields`, `/api/radio`, `/api/ble`); VIEW-DD-PAGE gains the RF and BLE tabs. |
 | 1.8 | 2026-10-03 | Claude | #140: CORE-DD-EVENTS `log_reading`; PSU-DD-PSU, PICO-DD-DRIVER and DMM-DD-DMM log readings; VIEW-DD-GRAPHS added (`Readings`, `advertising`, `step_markers`, `/api/graphs`, `graphs.js`); the GET API is a table of handlers (`_GET_API`). |
+| 1.9 | 2026-10-03 | Claude | #148: VIEW-DD-TAGS added (`Tagger`, `sensor_of`); VIEW-DD-PAGE's Event log tab gains pause and resume and its filters. |
 
 ---
 
@@ -2633,9 +2634,23 @@ palette (`--series-1` … `-8`, light and dark) passed the dataviz palette
 validator on both surfaces; its light-mode contrast warning is answered by the
 legend and the hover values (VIEW-FR-018).
 
+#### VIEW-DD-TAGS — `tags.py`
+
+`Tagger.tag(record)` gives every record, as the hub reads it and before
+anything else sees it, `record["tags"]` (VIEW-FR-020, -021): `kinds` -
+`rf_rx`/`rf_tx` for `rf_packet` by direction, `reading`, `runner` for
+`run_`/`case_`/`step_` records, `control`, `ble_adv` for a dongle's `< +adv` line;
+`sensor` from `sensor_of` - a frame's decoded sensor ID, decoding the payload
+if the driver did not, or the six hex digits after the dash in a BLE line's
+`name=`; and `test`, the run and test case in progress, `"<run>. <suite> >
+<test case>"` with `setup` and `teardown`, moved on by `run_start`,
+`case_start` and a teardown `step_start`, cleared after `run_end`. A test case
+not selected tags its own `case_end`. `Tagger.tests` lists every label in
+order, and the state snapshot carries it as `tests`.
+
 #### VIEW-DD-PAGE — `static/index.html`, `app.js`, `app.css`
 
-One page, seven tabs: Run, Instruments, RF, BLE, Graphs, Event log, Start / attach. RF shows a sensor selector, the sensor table and the frames, a frame's decode on selecting it; BLE the device table, events and the dongle's exchanges; both polled every second while shown. The Instruments tab shows the front panels, a button per source with its count, and that source's exchanges - time, sent, replies, milliseconds - polled every second while shown; a step's text on the Run page, once it has started, opens its traffic below it. `app.js` opens an
+The Event log tab has Pause/Resume - records arriving while paused are held in `heldBack` and counted, and added on resume - a checkbox per instrument, "Show only" checkboxes per kind (any checked restricts to those), a sensor selector of the sensors seen, and a test selector shown when there are two or more; `shown(record)` applies all of them. One page, seven tabs: Run, Instruments, RF, BLE, Graphs, Event log, Start / attach. RF shows a sensor selector, the sensor table and the frames, a frame's decode on selecting it; BLE the device table, events and the dongle's exchanges; both polled every second while shown. The Instruments tab shows the front panels, a button per source with its count, and that source's exchanges - time, sent, replies, milliseconds - polled every second while shown; a step's text on the Run page, once it has started, opens its traffic below it. `app.js` opens an
 `EventSource` on `/api/events`, keeps the latest state and up to 3 000 records,
 and redraws on the next animation frame. The Run page draws each group's
 status dot, name, requirement and reason, and each step's text, duration,

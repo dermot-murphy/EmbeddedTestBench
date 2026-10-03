@@ -32,7 +32,7 @@ browser first asking this server, which never agrees, so another site open in
 the same browser cannot start or abort a run. The ``Host`` header must name
 this machine, which stops a DNS-rebinding page reaching the API by name.
 
-Traces to: VIEW-FR-001 .. VIEW-FR-018, VIEW-DD-SERVER.
+Traces to: VIEW-FR-001 .. VIEW-FR-021, VIEW-DD-SERVER.
 """
 
 from __future__ import annotations
@@ -61,6 +61,7 @@ from ..runner.spec import load_spec
 from .graphs import Readings, advertising, step_markers
 from .radio import BleAir, RfFrames
 from .state import RunState
+from .tags import Tagger
 from .traffic import Traffic, panel_for
 
 __all__ = ["Hub", "Catalogue", "Launcher", "ViewerServer", "send_control", "main"]
@@ -103,6 +104,7 @@ class Hub:  # pylint: disable=too-many-instance-attributes
         self.rf = RfFrames()
         self.ble = BleAir()
         self.readings = Readings()
+        self.tagger = Tagger()
         self.records: List[Tuple[int, Dict[str, Any]]] = []
         self.sequence = 0
         self.generation = 0
@@ -131,6 +133,7 @@ class Hub:  # pylint: disable=too-many-instance-attributes
             self.rf = RfFrames()
             self.ble = BleAir()
             self.readings = Readings()
+            self.tagger = Tagger()
             self.records = []
             self._override_port = control_port
             self.generation += 1
@@ -165,6 +168,7 @@ class Hub:  # pylint: disable=too-many-instance-attributes
 
     def _apply(self, record: Dict[str, Any]) -> None:
         """One record into the run's state, the traffic and the front panels."""
+        self.tagger.tag(record)
         if record.get("kind") == "run_start":
             self.traffic.clear()
             self.panels = {}
@@ -238,7 +242,7 @@ class Hub:  # pylint: disable=too-many-instance-attributes
             records = [item for item in self.records if replaced or item[0] > sequence]
             snapshot = self.state.snapshot()
             snapshot.update(event_log=self.path, control_port=self._override_port
-                            or self.state.control_port)
+                            or self.state.control_port, tests=self.tagger.labels())
             return {"generation": self.generation, "sequence": self.sequence,
                     "replaced": replaced, "records": records, "state": snapshot}
 
