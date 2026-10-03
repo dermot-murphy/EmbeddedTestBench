@@ -21,17 +21,25 @@ owns - its transport, its sessions - logs through a :class:`SourceLogger` bound
 to it, so two instruments of one driver are told apart. A record logged by
 nothing bound to an instrument falls back to :func:`source_of` its logger name.
 
+A record logged through :func:`log_event` also carries ``kind`` and ``data``:
+what happened, as a name, and its details as JSON, so a reader can follow a
+run - which test case and step is running, what it returned - without parsing
+``text`` (#135). Readers that ignore the two fields are unaffected.
+
 JSON Lines rather than one document, flushed per record, so a reader can
 follow the file while it is written and a run that dies leaves a readable log.
 
-Traces to: CORE-FR-060, CORE-FR-063, CORE-DD-EVENTS.
+Traces to: CORE-FR-060, CORE-FR-063, CORE-FR-064, CORE-DD-EVENTS.
 """
 
 from __future__ import annotations
 
 import contextlib
+import dataclasses
+import enum
 import json
 import logging
+import math
 import os
 import re
 import threading
@@ -51,6 +59,8 @@ __all__ = [
     "EventLogHandler",
     "start_event_log",
     "EventTail",
+    "jsonable",
+    "log_event",
 ]
 
 #: A driver's default name, by the start of its logger's name. First match wins.
@@ -166,6 +176,53 @@ def pending_source() -> Optional[str]:
     return getattr(_PENDING, "name", None)
 
 
+#: Longest sequence :func:`jsonable` copies; a waveform is summarised, not logged.
+MAX_ITEMS = 256
+
+
+def jsonable(value: Any, depth: int = 0) -> Any:  # pylint: disable=too-many-return-statements
+    """*value* as something :func:`json.dumps` writes as standard JSON.
+
+    Numbers, text, booleans and None pass through; mappings, sequences and
+    dataclasses are converted item by item; bytes become hex; an enum its value.
+    A float that is not finite becomes text, because ``NaN`` is not JSON and a
+    browser refuses the whole line for it. A sequence longer than
+    :data:`MAX_ITEMS` is cut short and says so. Anything else is its ``repr``.
+    """
+    if depth > 8:
+        return repr(value)
+    if value is None or isinstance(value, (bool, int, str)):
+        return value
+    if isinstance(value, float):
+        return value if math.isfinite(value) else repr(value)
+    if isinstance(value, enum.Enum):
+        return jsonable(value.value, depth + 1)
+    if isinstance(value, (bytes, bytearray)):
+        return bytes(value).hex()
+    if dataclasses.is_dataclass(value) and not isinstance(value, type):
+        return {field.name: jsonable(getattr(value, field.name), depth + 1)
+                for field in dataclasses.fields(value)}
+    if isinstance(value, dict):
+        return {str(key): jsonable(item, depth + 1) for key, item in value.items()}
+    if isinstance(value, (list, tuple, set, frozenset)):
+        items = list(value)
+        converted = [jsonable(item, depth + 1) for item in items[:MAX_ITEMS]]
+        if len(items) > MAX_ITEMS:
+            converted.append("... %d more" % (len(items) - MAX_ITEMS))
+        return converted
+    return repr(value)
+
+
+def log_event(logger: Any, kind: str, text: str, data: Dict[str, Any],
+              level: int = logging.INFO) -> None:
+    """Log *text* as usual, carrying a structured *kind* and *data* for the event log.
+
+    A console handler shows the text; :class:`EventLogHandler` also writes
+    ``kind`` and ``data``, so a reader can follow a run without parsing text.
+    """
+    logger.log(level, "%s", text, extra={"event_kind": kind, "event_data": data})
+
+
 class EventLogHandler(logging.Handler):
     """A logging handler that writes each record as one JSON line, flushed."""
 
@@ -179,14 +236,19 @@ class EventLogHandler(logging.Handler):
 
     def emit(self, record: logging.LogRecord) -> None:
         try:
-            line = json.dumps({
+            fields = {
                 "t": round(record.created, 6),
                 "source": (getattr(record, "event_source", None) or pending_source()
                            or source_of(record.name)),
                 "level": record.levelname,
                 "logger": record.name,
                 "text": record.getMessage(),
-            })
+            }
+            kind = getattr(record, "event_kind", None)
+            if kind:
+                fields["kind"] = kind
+                fields["data"] = jsonable(getattr(record, "event_data", None) or {})
+            line = json.dumps(fields)
             self._file.write(line + "\n")
             self._file.flush()
         except Exception:                           # pylint: disable=broad-except

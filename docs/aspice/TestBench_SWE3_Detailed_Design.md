@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE3-001 | **Version** | 1.2 |
+| **Document ID** | TB-SWE3-001 | **Version** | 1.3 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -34,6 +34,7 @@
 | 1.0 | 2026-10-03 | Claude | #127: PICO-DD-FLASH added - `Uf2Image`, the operating-system seams (drive discovery per system, the 1200-baud touch, the copy), `PicoFlasher` and the simulated board `SimulatedRp2350`. PICO-DD-CLI gains the `flash` sub-command, run without connecting first; PICO-DD-SIM gains the `on_bootloader` hook. PICO count 14 → 15. PICO-DD-FLASH: `touch_1200()` returns an error from the port as a note instead of raising, found on a real Pico 2 on Windows, and the 1200-baud reset is recorded as confirmed on hardware (PICO-OPEN-05). |
 | 1.1 | 2026-10-03 | Claude | #131: the Pico thermometer's `rd` command set. PICO-DD-PROTOCOL (`rd` replies, `ecureset`, `PROTO_VERSION` 2.0), PICO-DD-VERSION (name, copyright, `V1.00.0000`, the injected commit SHA), PICO-DD-TEXT (`text_centi`), PICO-DD-PARSER (`cmd_rd`, handlers write the whole reply), PICO-DD-MAIN, PICO-DD-BUILD (SHA injection and re-configure on a new commit), PICO-DD-TEST, PICO-DD-CONST, PICO-DD-DRIVER (`rd`, `NoReadingError`, `RdRefusedError`; the raw-word cross-check removed), PICO-DD-SIM and PICO-DD-CLI (`info`, `rd`, `ecureset`) revised. With #127 merged, PICO-DD-FLASH revised to confirm the new build by `rd`: `Uf2Image` reads the firmware name, the version and the commit SHA from the image in place of the title and the build date, the checks are `name`, `version` and `sha`, `--expect-version` takes `VX.YY.ZZZZ`, and `SimulatedRp2350` takes the image's version and SHA. |
 | 1.2 | 2026-10-03 | Claude | #134: RUN-DD-RUNNER - `run(spec, selection)`, `NOT_SELECTED` and `check_selection`; RUN-DD-RESULTS `RunRecord.selection`; RUN-DD-CLI `--test`. |
+| 1.3 | 2026-10-03 | Claude | #135: CORE-DD-EVENTS - `log_event`, `jsonable`, `MAX_ITEMS`, and the `kind` and `data` fields; RUN-DD-RUNNER - the structured run, test case and step records. |
 
 ---
 
@@ -480,6 +481,14 @@ from (CORE-FR-060, CORE-FR-063, AD-28, #126):
   `source_of` the logger name - the driver defaults `PSU`, `BLE`, `JLINK`, `RF`,
   `SCOPE`, `DMM`, `TEMP` (`pico_sht30`), `TEST` (the runner), and `BENCH` for
   anything else.
+
+`log_event(logger, kind, text, data)` logs *text* as usual and attaches `kind`
+and `data` to the record; the handler writes them as two more fields, after
+`jsonable` has made `data` standard JSON: dataclasses, mappings and sequences
+converted item by item, bytes as hex, an enum as its value, a non-finite float
+as text (a browser's `JSON.parse` refuses `NaN`), a sequence longer than
+`MAX_ITEMS` (256) cut short with a note, anything else as its `repr`
+(CORE-FR-064, #135). A console handler sees only the text.
 
 ---
 
@@ -2416,6 +2425,16 @@ input file (CORE-DD-PATHS) is resolved against the directory of the
 specification being run (RUN-FR-017). A file found nowhere is a
 `ConfigurationError` naming the action, the argument and every location
 searched, and so a step **error**.
+
+The runner writes its progress as structured records through `log_event`
+(RUN-FR-060, #135): `run_start` with the plan from `_plan` - the whole tree,
+each test case marked selected or not - then `case_start`/`case_end` per test
+case (a test case not selected has only `case_end`), `step_start`/`step_end`
+per step with `phase` (`PHASE_SETUP`, `PHASE_TEST`, `PHASE_TEARDOWN`), `case`
+and `step` indices, and `run_end` with the verdict, in a `finally`, so a run
+refused before setup still starts and ends in the log. Step records are DEBUG,
+the rest INFO. `_execute_step` returns the record with the resolved arguments
+and the result, which `run_step` puts in `step_end`.
 
 `run(spec, selection)` runs only the test cases named in `selection`; empty
 runs them all (RUN-FR-059). A test case left out gets a `CaseRecord` with

@@ -26,9 +26,10 @@ import datetime
 import logging
 import os
 import time
-from typing import Any, Callable, Dict, List, Optional, Sequence
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from ..core.errors import BenchToolsError, SpecError
+from ..core.events import log_event
 from ..core.paths import input_path_names, resolve_arguments
 from .bench import Bench, BenchConfig
 from .limits import Limit, TextLimit
@@ -42,6 +43,11 @@ _LOG = logging.getLogger(__name__)
 
 #: The rationale recorded for a test case the run was not asked for (#134).
 NOT_SELECTED = "not selected"
+
+#: Where a step sits, as the event log names it (#135).
+PHASE_SETUP = "setup"
+PHASE_TEST = "test"
+PHASE_TEARDOWN = "teardown"
 
 
 def check_selection(specs: Sequence[TestSpec], selection: Sequence[str]) -> None:
@@ -259,14 +265,42 @@ class BenchRunner:
             parts.append("<= %s" % render(template, limit.maximum))
         return ", ".join(parts)
 
-    def run_step(self, step: Step) -> StepRecord:
-        """Execute one step and check its expectations."""
+    def run_step(self, step: Step, phase: str = PHASE_TEST,
+                 case_index: Optional[int] = None,
+                 step_index: Optional[int] = None) -> StepRecord:
+        """Execute one step and check its expectations.
+
+        The step's start and end go to the event log as ``step_start`` and
+        ``step_end`` (#135). *phase*, *case_index* and *step_index* say where
+        it sits - ``setup``, ``test`` or ``teardown``, which test case, which
+        step - so a reader can place it without counting.
+        """
+        where = {"phase": phase, "case": case_index, "step": step_index}
+        log_event(_LOG, "step_start", "step %s starting" % step.action, dict(
+            where, action=step.action, arguments=step.arguments,
+            description=step.description, save=step.save,
+        ), level=logging.DEBUG)
+        record, arguments, result = self._execute_step(step)
+        log_event(_LOG, "step_end", "step %s: %s%s" % (
+            step.action, record.status.value, (" - " + record.error) if record.error else "",
+        ), dict(
+            where, action=step.action, arguments=arguments, result=result,
+            save=step.save if record.status is not Status.ERROR else None,
+            status=record.status.value, error=record.error,
+            duration_s=round(record.duration_s, 6),
+            measurements=[m.as_dict() for m in record.measurements],
+        ), level=logging.DEBUG)
+        return record
+
+    def _execute_step(self, step: Step) -> Tuple[StepRecord, Any, Any]:
+        """Run *step*: its record, the arguments it was called with, and its result."""
         started = time.monotonic()
         record = StepRecord(
             action=step.action,
             status=Status.PASS,
             description=step.description,
         )
+        arguments: Any = step.arguments
         try:
             method = self._resolve_action(step.action)
             # Any argument may name a value an earlier step saved. Resolving
@@ -289,18 +323,18 @@ class BenchRunner:
             record.status = Status.ERROR
             record.error = "%s: %s" % (type(exc).__name__, exc)
             record.duration_s = time.monotonic() - started
-            return record
+            return record, arguments, None
         except TypeError as exc:
             # Almost always a specification error: wrong or missing arguments.
             record.status = Status.ERROR
             record.error = "%s could not be called as specified: %s" % (step.action, exc)
             record.duration_s = time.monotonic() - started
-            return record
+            return record, arguments, None
         except Exception as exc:  # noqa: BLE001 - a driver may raise anything
             record.status = Status.ERROR
             record.error = "%s raised %s: %s" % (step.action, type(exc).__name__, exc)
             record.duration_s = time.monotonic() - started
-            return record
+            return record, arguments, None
 
         if step.save:
             self._saved[step.save] = result
@@ -309,13 +343,14 @@ class BenchRunner:
             record.measurements.append(self._check_expectation(result, expectation))
         record.status = Status.worst([m.status for m in record.measurements])
         record.duration_s = time.monotonic() - started
-        return record
+        return record, arguments, result
 
-    def run_steps(self, steps: Sequence[Step]) -> List[StepRecord]:
+    def run_steps(self, steps: Sequence[Step], phase: str = PHASE_TEST,
+                  case_index: Optional[int] = None) -> List[StepRecord]:
         """Execute *steps* in order, stopping at the first step that errors."""
         records: List[StepRecord] = []
-        for step in steps:
-            record = self.run_step(step)
+        for index, step in enumerate(steps):
+            record = self.run_step(step, phase, case_index, index)
             records.append(record)
             if record.status is Status.ERROR:
                 break
@@ -324,8 +359,16 @@ class BenchRunner:
     # ------------------------------------------------------------------
     # Case and suite execution
     # ------------------------------------------------------------------
-    def run_case(self, case) -> CaseRecord:
-        """Execute one test case."""
+    def run_case(self, case, index: Optional[int] = None) -> CaseRecord:
+        """Execute one test case; *index* is its position in the specification."""
+        log_event(_LOG, "case_start", "running test %r" % case.name, {
+            "case": index, "name": case.name, "requirement": case.requirement,
+        })
+        record = self._execute_case(case, index)
+        self._log_case_end(record, index)
+        return record
+
+    def _execute_case(self, case, index: Optional[int]) -> CaseRecord:
         if case.skip:
             return CaseRecord(
                 name=case.name,
@@ -334,7 +377,7 @@ class BenchRunner:
                 skip_reason=case.skip_reason or "marked skip in the specification",
             )
         started = time.monotonic()
-        steps = self.run_steps(case.steps)
+        steps = self.run_steps(case.steps, PHASE_TEST, index)
         record = CaseRecord(
             name=case.name,
             status=Status.worst([step.status for step in steps]),
@@ -348,6 +391,46 @@ class BenchRunner:
             )
         return record
 
+    @staticmethod
+    def _log_case_end(record: CaseRecord, index: Optional[int]) -> None:
+        reason = record.error or record.skip_reason
+        log_event(_LOG, "case_end", "test %r: %s%s" % (
+            record.name, record.status.value, (" - " + reason) if reason else "",
+        ), {
+            "case": index, "name": record.name, "status": record.status.value,
+            "error": record.error, "skip_reason": record.skip_reason,
+            "duration_s": round(record.duration_s, 6),
+        })
+
+    @staticmethod
+    def _plan(spec: TestSpec, selection: Sequence[str]) -> Dict[str, Any]:
+        """Everything the run will do, for ``run_start``.
+
+        A reader can draw the whole tree before the first step, and one that
+        attaches part-way through still can.
+        """
+
+        def steps(sequence):
+            return [{"step": index, "action": step.action, "arguments": step.arguments,
+                     "description": step.description, "save": step.save}
+                    for index, step in enumerate(sequence)]
+
+        return {
+            "suite": spec.name,
+            "spec_source": spec.source,
+            "requirements": list(spec.requirements),
+            "parameters": dict(spec.parameters),
+            "selection": list(selection),
+            "setup": steps(spec.setup),
+            "teardown": steps(spec.teardown),
+            "tests": [{
+                "case": index, "name": case.name, "requirement": case.requirement,
+                "description": case.description,
+                "selected": not selection or case.name in selection,
+                "skip": case.skip, "steps": steps(case.steps),
+            } for index, case in enumerate(spec.tests)],
+        }
+
     def run(self, spec: TestSpec, selection: Sequence[str] = ()) -> RunRecord:
         """Run a whole specification and return its result record.
 
@@ -357,6 +440,9 @@ class BenchRunner:
         :param selection: Names of the test cases to run; empty runs them all.
             A test case left out is recorded as skipped, "not selected", so
             the record says what was not executed and why (#134).
+
+        The run's start and end go to the event log as ``run_start``, carrying
+        the whole plan, and ``run_end``, carrying the verdict (#135).
         """
         run = RunRecord(
             suite=spec.name,
@@ -373,7 +459,23 @@ class BenchRunner:
         self._spec_directory = (
             os.path.dirname(os.path.abspath(spec.source)) if spec.source else None
         )
+        plan = self._plan(spec, selection)
+        plan.update(bench=run.bench, simulated=run.simulated)
+        log_event(_LOG, "run_start", "running %r" % spec.name, plan)
+        try:
+            self._run_body(spec, selection, run, started)
+        finally:
+            log_event(_LOG, "run_end", "%r: %s" % (spec.name, run.status.value), {
+                "suite": spec.name, "status": run.status.value,
+                "setup_error": run.setup_error,
+                "duration_s": round(run.duration_s, 6),
+                "totals": {"total": run.total, "passed": run.passed, "failed": run.failed,
+                           "errored": run.errored, "skipped": run.skipped},
+            })
+        return run
 
+    def _run_body(self, spec: TestSpec, selection: Sequence[str], run: RunRecord,
+                  started: float) -> None:
         try:
             self.bench.require(spec.instruments_used)
             self.bench.check_drivers(spec.instrument_drivers)
@@ -386,50 +488,46 @@ class BenchRunner:
             run.instruments = self.bench.describe_instruments()
             run.finished = _now()
             run.duration_s = time.monotonic() - started
-            return run
+            return
 
         try:
             if spec.setup:
                 _LOG.info("running suite setup (%d step(s))", len(spec.setup))
-                setup_records = self.run_steps(spec.setup)
+                setup_records = self.run_steps(spec.setup, PHASE_SETUP)
                 broken = [record for record in setup_records if record.status is not Status.PASS]
                 if broken:
                     run.setup_error = "setup step %r: %s" % (
                         broken[0].action,
                         broken[0].error or "an expectation was not met",
                     )
-                    return run
+                    return
 
-            for case in spec.tests:
+            for index, case in enumerate(spec.tests):
                 if selection and case.name not in selection:
-                    _LOG.info("test %r: not selected", case.name)
-                    run.cases.append(CaseRecord(
+                    record = CaseRecord(
                         name=case.name,
                         status=Status.SKIP,
                         requirement=case.requirement,
                         skip_reason=NOT_SELECTED,
-                    ))
+                    )
+                    self._log_case_end(record, index)
+                    run.cases.append(record)
                     continue
-                _LOG.info("running test %r", case.name)
-                record = self.run_case(case)
+                record = self.run_case(case, index)
                 run.cases.append(record)
-                _LOG.info("test %r: %s%s", case.name, record.status.value,
-                          (" - " + record.error) if record.error else "")
                 if record.status is Status.ERROR and self.stop_on_error:
                     _LOG.warning("stopping after an error in %r", case.name)
                     break
         finally:
             if spec.teardown:
                 _LOG.info("running suite teardown (%d step(s))", len(spec.teardown))
-                self.run_steps(spec.teardown)
+                self.run_steps(spec.teardown, PHASE_TEARDOWN)
             # Recorded before closing, and after the run rather than before, so
             # an instrument the suite updated - a dongle reflashed in setup -
             # is recorded as what actually produced the measurements.
             run.instruments = self.bench.describe_instruments()
             run.finished = _now()
             run.duration_s = time.monotonic() - started
-
-        return run
 
     def close(self) -> None:
         """Close every instrument the run opened."""
