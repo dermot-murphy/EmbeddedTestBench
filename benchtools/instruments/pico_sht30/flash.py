@@ -296,12 +296,13 @@ def touch_1200(port: str) -> Optional[str]:
         import serial
     except ImportError as exc:
         raise FlashError("the 1200-baud reset needs pyserial") from exc
+    note = None
     try:
         link = serial.Serial(port, baudrate=MAGIC_BAUD_RATE)
         link.close()
     except (serial.SerialException, OSError) as exc:
-        return "the 1200-baud reset on %s reported: %s" % (port, exc)
-    return None
+        note = "the 1200-baud reset on %s reported: %s" % (port, exc)
+    return note
 
 
 def copy_image(image: Uf2Image, drive: str) -> str:
@@ -576,10 +577,9 @@ class SimulatedRp2350:
         thermometer.initialise()
         return thermometer
 
-    def touch(self, _port: str) -> Optional[str]:
-        """The 1200-baud reset."""
+    def touch(self, _port: str) -> None:
+        """The 1200-baud reset; the simulated board reports nothing."""
         self._enter_bootloader()
-        return None
 
     def copy(self, image: Uf2Image, drive: str) -> str:
         """Take the image, then reboot into it."""
