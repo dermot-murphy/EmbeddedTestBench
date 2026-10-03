@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE3-001 | **Version** | 1.0 |
+| **Document ID** | TB-SWE3-001 | **Version** | 1.1 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -32,6 +32,7 @@
 | 0.8 | 2026-10-02 | Claude | #124: BLE-DD-CLI - `--select` resolves an address, a name or part of one through `select_by_name`, with an unfiltered rescan when the case-sensitive firmware filter hears nothing; `cmd --addr` selects; `--addr` and `--select` are mutually exclusive. |
 | 0.9 | 2026-10-02 | Claude | #126: CORE-DD-EVENTS - event names per instrument (`EventSource`, `SourceLogger`, `connecting_as`, `validate_source_name`), upper-case defaults with `TEMP`; CORE-DD-INSTRUMENT - `EVENT_SOURCE`, `event_source`, `_adopt`; RUN-DD-SPEC, RUN-DD-BENCH and RUN-DD-REPORT - names from the specification and the bench. |
 | 1.0 | 2026-10-03 | Claude | #127: PICO-DD-FLASH added - `Uf2Image`, the operating-system seams (drive discovery per system, the 1200-baud touch, the copy), `PicoFlasher` and the simulated board `SimulatedRp2350`. PICO-DD-CLI gains the `flash` sub-command, run without connecting first; PICO-DD-SIM gains the `on_bootloader` hook. PICO count 14 → 15. PICO-DD-FLASH: `touch_1200()` returns an error from the port as a note instead of raising, found on a real Pico 2 on Windows, and the 1200-baud reset is recorded as confirmed on hardware (PICO-OPEN-05). |
+| 1.1 | 2026-10-03 | Claude | #131: the Pico thermometer's `rd` command set. PICO-DD-PROTOCOL (`rd` replies, `ecureset`, `PROTO_VERSION` 2.0), PICO-DD-VERSION (name, copyright, `V1.00.0000`, the injected commit SHA), PICO-DD-TEXT (`text_centi`), PICO-DD-PARSER (`cmd_rd`, handlers write the whole reply), PICO-DD-MAIN, PICO-DD-BUILD (SHA injection and re-configure on a new commit), PICO-DD-TEST, PICO-DD-CONST, PICO-DD-DRIVER (`rd`, `NoReadingError`, `RdRefusedError`; the raw-word cross-check removed), PICO-DD-SIM and PICO-DD-CLI (`info`, `rd`, `ecureset`) revised. With #127 merged, PICO-DD-FLASH revised to confirm the new build by `rd`: `Uf2Image` reads the firmware name, the version and the commit SHA from the image in place of the title and the build date, the checks are `name`, `version` and `sha`, `--expect-version` takes `VX.YY.ZZZZ`, and `SimulatedRp2350` takes the image's version and SHA. |
 
 ---
 
@@ -1960,8 +1961,8 @@ channel is parked at zero volts rather than disconnected. `read` adds a
 ### 5.8 PICO — `benchtools.instruments.pico_sht30` and `firmware/pico_sht30`
 
 A Raspberry Pi Pico 2 reads a Sensirion SHT30-DIS on a DollaTek SHT30-D module
-over I2C and reports temperature and humidity, with its title and version, over
-USB CDC. One element across two languages, like BLE: `include/protocol.h` is
+over I2C and reports the temperature, with its name, copyright, version and
+commit, over USB CDC. One element across two languages, like BLE: `include/protocol.h` is
 the interface both halves are built from.
 
 #### PICO-DD-PROTOCOL — `firmware/pico_sht30/include/protocol.h`
@@ -1969,17 +1970,29 @@ the interface both halves are built from.
 The single definition of the host link. Two X-macro tables: `PROTO_COMMAND_TABLE`
 (`name, min_args, max_args, help`) generates the firmware's dispatch table and
 handler prototypes; `PROTO_ERROR_TABLE` (`symbol, code, text`) generates
-`proto_error_t` and the error texts. `PROTO_VERSION` is `1.0`. Limits:
+`proto_error_t` and the error texts. `PROTO_VERSION` is `2.0` (#131: `rd`
+replaces `ver` and `temp`, and `reset` is renamed `ecureset`); the firmware
+does not report it, and the host checks it only against the header. Limits:
 `PROTO_MAX_LINE` 64 (command, terminator included), `PROTO_MAX_REPLY` 192,
 `PROTO_MAX_TOKENS` 4.
 
 | Command | Reply |
 |---|---|
-| `ver` | `ok title=<t> fw=<v> built=<iso> proto=<p> board=pico2 serial=<16 hex> sensor=SHT30-DIS addr=0x44 uptime_s=<n>` |
-| `temp` | `ok t=<°C, 3 dp> rh=<%RH, 3 dp> raw_t=0x<hhhh> raw_rh=0x<hhhh>` |
+| `rd name` | `ACK rd name = Pico 2 SHT30 Temperature Sensor` |
+| `rd copyright` | `ACK rd copyright = (c) 2026 Dermot Murphy` |
+| `rd version` | `ACK rd version = V1.00.0000` |
+| `rd sha` | `ACK rd sha = <7 hex digits, or unknown>` |
+| `rd temperature` | `ACK rd temperature = <°C, 2 dp>`, or `ACK rd temperature = Error` when no reading could be made |
+| `rd <other>` | `NAK rd <other> = Error` |
+| `rd`, `rd a b` | `err 2 wrong number of arguments` |
 | `status` | `ok status=0x<hhhh>` |
-| `sreset`, `reset`, `bootsel` | `ok` (the reboot follows the reply) |
+| `sreset` | `ok` |
+| `ecureset`, `bootsel` | `ok` (the reboot follows the reply) |
 | `help` | one `# <name> - <help>` line per command, then `ok` |
+| `ver`, `temp`, `reset` | `err 1 unknown command` since 2.0 |
+
+An `rd` reply is a whole line with no `ok` in front, in the `ACK`/`NAK` form the
+other bench devices use; everything after `= ` is the value, spaces included.
 
 | Code | Symbol | Meaning |
 |---|---|---|
@@ -1992,11 +2005,16 @@ handler prototypes; `PROTO_ERROR_TABLE` (`symbol, code, text`) generates
 
 #### PICO-DD-VERSION — `firmware/pico_sht30/include/firmware_version.h`, `src/firmware_version.c`
 
-`FIRMWARE_TITLE` (`Pico2-SHT30-Thermometer`, one token) and `FIRMWARE_VERSION`
-(`1.0.0`) are edited here and nowhere else. `FIRMWARE_BUILD_DATE` is injected
-by CMake as `string(TIMESTAMP ... UTC)`; a build that does not inject it falls
-back to `"local:" __DATE__ "T" __TIME__`, whose spaces `text_token()` replaces
-with `_` on the wire. The strings are defined once, in `firmware_version.c`.
+`FIRMWARE_NAME` (`Pico 2 SHT30 Temperature Sensor`), `FIRMWARE_COPYRIGHT`
+(`(c) 2026 Dermot Murphy`) and `FIRMWARE_VERSION` (`V1.00.0000`) are edited here
+and nowhere else, each as a single quoted string so that
+`SWE4-UT-PICOFWPROTO` can read it as text. The version is
+`V<major>.<minor, 2 digits>.<patch, 4 digits>`, semantic, and bumped with every
+change to the firmware or its host driver (PICO-FR-002). `FIRMWARE_GIT_SHA` is
+injected by CMake (PICO-DD-BUILD); a build that does not inject it gets
+`unknown`. The strings are defined once, in `firmware_version.c`, as
+`firmware_g_name`, `firmware_g_copyright`, `firmware_g_version` and
+`firmware_g_sha`. The build date and `FIRMWARE_TITLE` are gone (#131).
 
 #### PICO-DD-BOARD — `firmware/pico_sht30/include/board_config.h`
 
@@ -2045,7 +2063,10 @@ flag; every append is bounded and sets the flag rather than writing past the
 end. Formats: string, token (spaces to `_`), unsigned decimal, milli-units to
 three places with the sign on the whole value (negation done in unsigned
 arithmetic so `INT32_MIN` is defined), and fixed-width upper-case hex (8 and
-16 bit).
+16 bit). `text_centi` (#131, PICO-FR-027) writes milli-units to two places:
+it rounds the magnitude half away from zero (`(|m| + 5) / 10`, in unsigned
+arithmetic, which holds for `INT32_MIN`), then adds the sign only if the
+rounded value is not zero, so that −0.004 is `0.00` and never `-0.00`.
 
 #### PICO-DD-PARSER — `firmware/pico_sht30/src/cmd_parser.c`
 
@@ -2059,17 +2080,30 @@ next LF, which then returns `CMD_LINE_RESULT_OVERFLOW` so that no part of it run
 each): tokenise in place on space and tab, counting tokens
 past `PROTO_MAX_TOKENS` without storing them so an over-long command fails its
 argument check rather than being truncated; look the first token up
-(case-sensitive); check the argument count; run the handler, which appends its
-body to an `ok` reply. A handler returning an error sends `err <code> <text>`
-instead. A reply that overflowed is replaced by `err 3`, never sent truncated.
-`reset` and `bootsel` set a pending action that runs only *after* the `ok` has
-been written (PICO-FR-030). Sensor status maps: CRC → 5, timeout → 6,
-NACK/parameter → 4.
+(case-sensitive); check the argument count; run the handler, which writes its
+whole reply line - `ok …`, or for `rd`, `ACK …` or `NAK …` - into an empty
+buffer. A handler returning an error sends `err <code> <text>` instead, and
+whatever it wrote is discarded. A reply that overflowed is replaced by `err 3`,
+never sent truncated. `ecureset` and `bootsel` set a pending action that runs
+only *after* the reply has been written (PICO-FR-030). Sensor status maps, for
+`status` and `sreset`: CRC → 5, timeout → 6, NACK/parameter → 4.
+
+*`rd`* (`cmd_rd`, #131): the single option is matched exactly against
+`cmd_rd_fields` - `name`, `copyright`, `version`, `sha`, each bound to its
+`firmware_g_*` string - and answered `ACK rd <option> = <value>` without
+touching the sensor (PICO-FR-005, -006). `temperature` is not in that table,
+because it is measured: `cmd_rd_temperature` calls `sht30_measure` and writes
+`text_centi` of the milli-degrees, or `Error` on any sensor failure, still as an
+`ACK` - the command was understood, and it is the reading that failed
+(PICO-FR-027). Any other option is answered `NAK rd <option> = Error`, the option
+echoed as received (PICO-FR-007). `rd` always returns `PROTO_ERR_NONE`; an
+option count other than one is refused by the generic argument check with
+`err 2`.
 
 #### PICO-DD-MAIN — `firmware/pico_sht30/src/main.c`
 
 `stdio_init_all`, `hal_init`, soft-reset the sensor (a failure is ignored so
-that `ver` still answers, PICO-FR-005), then for ever: `getchar_timeout_us(1000)`,
+that `rd name` still answers, PICO-FR-005), then for ever: `getchar_timeout_us(1000)`,
 accept 0–0x7F, push into the line, execute on READY, report on OVERFLOW.
 
 #### PICO-DD-BUILD — `firmware/pico_sht30/CMakeLists.txt`, `pico_sdk_import.cmake`
@@ -2081,6 +2115,17 @@ sources, and only those, compile with `-Wall -Wextra -Wconversion -Wshadow
 `pico_bootrom`, `hardware_i2c`, `hardware_watchdog`; stdio on USB, not UART;
 `pico_add_extra_outputs` produces the `.uf2`. The SDK is found from
 `PICO_SDK_PATH`, or fetched at tag 2.1.1 with `-DPICO_SDK_FETCH_FROM_GIT=ON`.
+The program name is `Pico 2 SHT30 Temperature Sensor`.
+
+The commit SHA (#131, PICO-FR-002): at configure time
+`git rev-parse --short=7 HEAD` is run in the source directory and passed as
+`FIRMWARE_GIT_SHA`; without git, or outside a checkout, the value is `unknown`.
+So that a new commit re-configures the build, the files that hold HEAD are added
+to `CMAKE_CONFIGURE_DEPENDS`: `HEAD` and `logs/HEAD`, and, when a branch is
+checked out, its ref and `packed-refs`. Each is resolved with
+`git rev-parse --git-path`, which finds it in a worktree too (where `.git` is a
+file), and a file that does not exist is skipped. The SHA is printed as a
+configure-time status message.
 
 #### PICO-DD-TEST — `firmware/pico_sht30/test/`
 
@@ -2090,47 +2135,71 @@ The fake records every I2C write, answers reads from a queue (an empty queue is
 a NACK - an absent sensor), accumulates delays, captures output lines, and
 records how many lines had been sent when a reboot was requested. Built with the
 target's warning set as errors plus `-fsanitize=address,undefined`.
+`FIRMWARE_GIT_SHA` is fixed at `0123abc`, so that the tests exercise the
+injected path.
 
 #### PICO-DD-CONST — `benchtools/instruments/pico_sht30/constants.py`
 
-The command and error tables, title, protocol version, sensor, default address,
-status bits and datasheet accuracy, mirrored from the firmware headers and
-checked against them by `SWE4-UT-PICOFWPROTO`. `raw_to_celsius` and
-`raw_to_percent` repeat the firmware's integer arithmetic exactly (AD-24).
+The command and error tables, `NAME`, `COPYRIGHT`, protocol version (`2.0`),
+sensor, default address, status bits and datasheet accuracy, mirrored from the
+firmware headers and checked against them by `SWE4-UT-PICOFWPROTO`.
+`RD_OPTIONS` lists the five `rd` options and `RD_ERROR` is `Error`.
+`raw_to_celsius` and `raw_to_percent` repeat the firmware's integer arithmetic
+exactly, and `milli_to_centi_text` repeats `text_centi`; the simulator uses all
+three, so that its readings are ones the firmware could produce.
 
 #### PICO-DD-DRIVER — `benchtools/instruments/pico_sht30/thermometer.py`
 
 `PicoSht30` subclasses CORE-DD-SCPI for its transport and lifecycle and
-replaces the SCPI parts: `_post_open` sends `ver` (not `*CLS`) and refuses a
-different protocol major revision; `_read_identity` builds the identity from
-`ver`; `read_event_queue` is empty. `execute()` writes a line, reads lines
-skipping `#` lines, returns the `key=value` fields of an `ok` reply, raises
-`SensorError(code, text)` for `err`, and `ProtocolError` for anything else.
-`read()` parses `temp`, recomputes both values from their raw words and raises
-if either differs by more than 0.0015 (AD-24). `FirmwareInfo`, `Reading` and
-`SensorStatus` are frozen dataclasses with `as_dict()` for JSON reports.
+replaces the SCPI parts: `_post_open` reads the identity (not `*CLS`) and
+refuses a device whose `rd name` is not `NAME`; `_read_identity` builds the
+identity from it (firmware `<version> (<sha>)`, no serial number);
+`read_event_queue` is empty. Both command forms share `_send`, which writes a
+line and reads lines skipping `#` lines.
+
+* `execute()` is for the control commands: it returns the `key=value` fields of
+  an `ok` reply, raises `SensorError(code, text)` for `err`, and
+  `ProtocolError` for anything else.
+* `rd(option)` matches `^(ACK|NAK) rd (\S+) = (.*)$`, refuses a reply for
+  another option with `ProtocolError`, raises `RdRefusedError` for `NAK` and
+  `SensorError` for `err`, and returns the value of an `ACK` (PICO-FR-047).
+* `firmware_info()` is four `rd` reads - name, copyright, version, sha - cached
+  until `refresh` or a reboot; `name`, `version` and `sha` are properties.
+* `read()` is `rd temperature`: `Error` raises `NoReadingError`, and a value not
+  matching `^-?\d+\.\d{2}$` raises `ProtocolError`. The raw-word cross-check
+  and the humidity are gone (#131): the reply carries neither.
+* `reset()` sends `ecureset` and forgets the cached identity.
+
+`FirmwareInfo` (name, copyright, version, sha), `Reading` (temperature, text,
+timestamp) and `SensorStatus` are frozen dataclasses with `as_dict()` for JSON
+reports. `NoReadingError` and `RdRefusedError` are `InstrumentError`s.
 `connect()` takes a bare port name as a serial port.
 
 #### PICO-DD-SIM — `benchtools/instruments/pico_sht30/simulator.py`
 
 `SimulatedPicoSht30` answers the firmware's command set with its exact reply
-text. The ambient temperature and humidity are quantised to raw words and the
-reported values are computed from those words with `raw_to_celsius` /
-`raw_to_percent`, so the simulator is held to the same arithmetic as the
-firmware. Faults: `sensor_present = False` → `err 4`, `corrupt_next` → one
-`err 5`, `bus_timeout` → `err 6`. It counts measurements, reboots and
-bootloader requests. An optional `on_bootloader` callable is invoked after
-`bootsel` has been answered; PICO-DD-FLASH's simulated board uses it to present
-its bootloader drive.
+text, checking argument counts against `COMMANDS`. The ambient temperature is
+quantised to a raw word, converted to milli-degrees with the firmware's integer
+arithmetic and formatted with `milli_to_centi_text`, so the simulator is held
+to the same arithmetic and rounding as the firmware. `rd` answers name,
+copyright, `version` (default `V1.00.0000`) and `sha` (default `0c0ffee`), and
+`NAK` for any other option. Faults: `sensor_present = False`, `corrupt_next`
+(one reading) and `bus_timeout` each make `rd temperature` answer `Error`, and
+`status` and `sreset` answer `err 4`, `err 5` and `err 6` respectively. It
+counts measurements, reboots (`ecureset`) and bootloader requests. An optional
+`on_bootloader` callable is invoked after `bootsel` has been answered;
+PICO-DD-FLASH's simulated board uses it to present its bootloader drive.
 
 #### PICO-DD-CLI — `benchtools/instruments/pico_sht30/cli.py`
 
-`benchtools thermo` with sub-commands `ver`, `temp [--count N --interval S]`,
-`status`, `sreset`, `bootsel` and `flash`, emitting JSON (AD-15), `--json PATH`
+`benchtools thermo` with sub-commands `info` (name, copyright, version, sha),
+`rd <option>` (argparse `choices` from `RD_OPTIONS`, so an unknown option is
+refused before anything is sent), `temp [--count N --interval S]`, `status`,
+`sreset`, `ecureset`, `bootsel` and `flash`, emitting JSON (AD-15), `--json PATH`
 to also write it to a file. Exit status 0 on success, 1 on a connection or
 instrument error.
 
-`flash <uf2> [--expect-version X.Y.Z] [--drive D] [--any-image] [--no-verify]
+`flash <uf2> [--expect-version VX.YY.ZZZZ] [--drive D] [--any-image] [--no-verify]
 [--bootloader-timeout S] [--port-timeout S]` is marked `standalone`: `main`
 does not connect to the thermometer first, because the Pico may already be in
 its bootloader with no port to open. Its handler builds a `PicoFlasher` - or,
@@ -2152,10 +2221,13 @@ bench PC, and the boot ROM checks what it is given. The module has four parts.
   payload of every main-flash block. `for_rp2350` is true when every family is
   one an RP2350 accepts - `rp2350-arm-s`, `rp2350-arm-ns`, `rp2350-riscv`, and
   the `absolute` and `data` families an SDK 2.x build may place ahead of the
-  image; `rp2040` is not among them. `is_thermometer` looks for the title
-  `Pico2-SHT30-Thermometer` followed by a NUL in the payload. `built` is the
-  build date, found as an ISO 8601 UTC string (`YYYY-MM-DDTHH:MM:SSZ`) followed
-  by a NUL, and is empty unless exactly one distinct such string is present.
+  image; `rp2040` is not among them. `is_thermometer` looks for the firmware name
+  `Pico 2 SHT30 Temperature Sensor` (`NAME` in PICO-DD-CONST) followed by a NUL
+  in the payload. `version` is the version string, matched as
+  `V\d+\.\d{2}\.\d{4}` followed by a NUL, and `sha` the 7-character
+  lower-case hexadecimal commit SHA followed by a NUL; each is empty unless
+  exactly one distinct such string is present. *(Revised by #131: was the title
+  `Pico2-SHT30-Thermometer` and an ISO 8601 build date, `built`.)*
 - **Operating-system seams**, each a plain function. `candidate_roots()` lists
   the mount points to search: `C:\` to `Z:\` on Windows (A: and B: are skipped,
   since probing an empty floppy drive can stall), `/media/*/*`,
@@ -2179,7 +2251,8 @@ bench PC, and the boot ROM checks what it is given. The module has four parts.
      non-thermometer image unless `any_image`.
   2. `_enter_bootloader`: if exactly one bootloader drive is present (or the one
      named by `drive`), use it - method `already-in-bootloader`. Otherwise
-     open the port: if it answers, record `ver` as `before`, send `bootsel` -
+     open the port: if it answers, record its `firmware_info()` (`rd name`,
+     `copyright`, `version`, `sha`) as `before`, send `bootsel` -
      method `bootsel`; if opening raises a `BenchToolsError`, note it and call
      the 1200-baud touch, adding any note it returns - method `1200-baud`.
      Then poll for the drive.
@@ -2187,9 +2260,14 @@ bench PC, and the boot ROM checks what it is given. The module has four parts.
   3. Copy, then poll until the drive is no longer listed.
   4. Unless `verify` is off or the image is not the thermometer (each recorded
      as a note), `_verify`: take the port given, or poll for exactly one
-     Raspberry Pi port; poll until the thermometer opens; read `ver` as
-     `after`; record checks `title`, `version` (if expected) and `built` (if
-     the image carries one), each `{expected, actual, ok}`.
+     Raspberry Pi port; poll until the thermometer opens (connecting checks
+     `rd name`, PICO-DD-DRIVER); read `firmware_info()` as `after`; record the
+     checks, each `{expected, actual, ok}`: `name` against `NAME`; `version`
+     against `expect_version` if given, otherwise against the image's
+     `version` - or, if the image has no single version, a note that the
+     version was not compared; and `sha` against the image's `sha` - or, if it
+     has no single SHA, a note. *(Revised by #131: was `ver`, with checks
+     `title`, `version` (only if expected) and `built`.)*
 
   Every poll goes through `_wait_for(condition, timeout, what)`, which checks
   every 0.25 s and raises `FlashError("timed out after N s waiting for <what>")`.
@@ -2201,9 +2279,10 @@ bench PC, and the boot ROM checks what it is given. The module has four parts.
   `SimulatedPicoSht30` whose `on_bootloader` makes a temporary directory
   appear as the drive, with an `INFO_UF2.TXT` naming `RP2350`; a 1200-baud
   touch does the same. Its `copy` writes the image with `copy_image`, removes
-  the drive, leaves the bootloader, and takes the image's build date (and the
-  title `unknown` for a non-thermometer image), so verification sees what a
-  real board would report. While in the bootloader it has no serial port.
+  the drive, leaves the bootloader, and sets the simulated firmware's version
+  and SHA to the image's (keeping its own where the image has none, and the
+  name `unknown` for a non-thermometer image), so verification by `rd` sees
+  what a real board would report. While in the bootloader it has no serial port.
   `flasher(**kwargs)` returns a `PicoFlasher` wired to it; `close()` removes
   the temporary directory.
 
@@ -2214,8 +2293,10 @@ reset relies on `PICO_STDIO_USB_ENABLE_RESET_VIA_BAUD_RATE`, which Pico SDK
 TinyUSB directly, as this firmware does not; this was read from the SDK source
 on 2026-10-03 and confirmed the same day on a real Pico 2 running this
 firmware, on Windows, where `flash` reached the bootloader by each of its three
-methods (PICO-OPEN-05, closed). Drive discovery on Linux and macOS has not been
-tried on hardware.
+methods (PICO-OPEN-05, closed). Also on 2026-10-03, `flash` installed the `rd`
+firmware of #131 (built from commit `5c80ae7`) by `bootsel` and its checks
+`name`, `version` (`V1.00.0000`) and `sha` (`5c80ae7`) all passed. Drive
+discovery on Linux and macOS has not been tried on hardware.
 
 ---
 

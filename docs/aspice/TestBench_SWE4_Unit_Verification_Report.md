@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE4-002 | **Version** | 1.0 |
+| **Document ID** | TB-SWE4-002 | **Version** | 1.1 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -32,6 +32,7 @@
 | 0.8 | 2026-10-02 | Claude | #124: execution summary re-run; SWE4-UT-BLECLI count updated; D-46 added and closed. |
 | 0.9 | 2026-10-02 | Claude | #126: execution summary re-run; SWE4-UT-EVENTNAMES added to §5; D-47 added and closed. |
 | 1.0 | 2026-10-03 | Claude | #127: execution summary re-run on the bench PC (Windows, without coverage); SWE4-UT-PICOFLASH added to §5; §13A.6 added for reflashing the Pico 2 with no BOOTSEL press; PICO-OPEN-05 added to §13A.5. Then, after hardware confirmation on a real Pico 2 on 2026-10-03: execution summary re-run (2 756 executed, two `touch_1200` cases added); SWE4-UT-PICOFLASH 32 → 34; §4 CON-09 paragraph, §13A.5 (PICO-OPEN-01 and -05 closed, PICO-OPEN-02 not yet tested) and §13A.6 (the three methods on hardware and the Windows 1200-baud finding) updated. |
+| 1.1 | 2026-10-03 | Claude | #131: whole suite re-run on Windows (§4); SWE4-UT-PICO, -PICOSIM, -PICOCLI and -PICOFWPROTO counts updated in §5; §13A re-run for the `rd` command set - 83 firmware unit cases, built with clang 21 on Windows; two-place rounding vectors added to §13A.3; §13A.2 target build repeated for #131 on the bench PC (Arm GNU 14.2.1, 0 warnings, new size figures); §13A.4 records what was not repeated; PICO-OPEN-01 and -02 restated for `rd`, PICO-OPEN-06 added; §13A.7 records the first run on a real Pico 2 - PICO-OPEN-01 closed, -02 and -06 confirmed except a reading with the sensor attached. With #127 merged: §13A.6 revised for `flash` confirming the build by `rd` (name, version and commit SHA read from the image in place of the title and build date), SWE4-UT-PICOFLASH 34 → 35, the Pico directory re-run after the merge (140 cases), and the `rd` firmware flashed and confirmed by `flash` on the real Pico 2; the first-run section is §13A.7, after #127's §13A.6. |
 
 ---
 
@@ -99,6 +100,14 @@ its line protocol, and the serial port by pyserial's own `loop://` handler.
 
 Revision 1.0 re-ran the whole suite with #127's `flash` command on the bench
 PC; the figures above are that run.
+Revision 1.1 re-ran the whole suite with #131's `rd` command set on the same
+Windows bench PC, before #127 was merged into it: **2 753 tests, 2 747 passed,
+0 failed, 0 errors, 6 skipped**, in 189.6 s, CPython 3.14.7 on Windows 10,
+pytest 9.1.1 (`python -m pytest`, JUnit XML for the counts). The six skips are
+`test_visa.py`, because `pyvisa` is not installed on that machine, and
+`pytest-cov` is not installed there either, so coverage was not measured. After
+the merge of #127, only the Pico directory and the traceability check were
+re-run (§5, §13A.6); the whole suite has not been re-run on the merged code.
 Revision 0.9 re-ran the whole suite with #126's per-instrument event-log names
 (CPython 3.11.15 on Linux, with coverage: 2 721 executed, 2 720 passed, 1
 skipped). Its change to the Test Bench monitor's Events
@@ -116,12 +125,15 @@ D-42's regression test (#107) - with the `PICO-` element (#104). The per-group t
 not been regenerated for the groups `develop` added since revision 0.1, so its
 rows do not sum to the total: the total is the collected count.
 
-**The Pico 2 thermometer firmware has run on a real Pico 2, but not with a
-sensor** (CON-09): the SHT30-D module is not yet connected. Its 61 host unit
-tests pass, it agrees with its driver, and it cross-compiles to a UF2 image
-(§13A). On 2026-10-03 it enumerated on USB and answered `ver` correctly
-(PICO-OPEN-01), and the host's `flash` command reflashed it on Windows by all
-three routes into the bootloader (PICO-OPEN-05, §13A.6).
+**The Pico 2 thermometer firmware has run on a real Pico 2, but not yet with
+a sensor attached** (CON-09). Its 83 host unit tests pass and it agrees with its
+driver (§13A). On 2026-10-03 the host's `flash` command reflashed it on Windows
+by all three routes into the bootloader (PICO-OPEN-05, §13A.6). The #131
+firmware, with the `rd` command set, was cross-compiled on the bench PC and
+flashed to the same Pico 2 the same day, and `flash` confirmed its name,
+version and commit SHA by `rd`; every reply that does not need the SHT30-D
+module was confirmed there (§13A.7). A real temperature value waits for the
+module (PICO-OPEN-02).
 
 **The dongle firmware is built but not executed** (CON-07): no dongle is
 available. It is verified against the driver it must agree with, against the
@@ -193,20 +205,23 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | SWE4-UT-COREFW | `core/test_firmware.py` | 13 | Pass |
 | SWE4-UT-SOCKET | `core/transport/test_socket.py` | 12 | Pass |
 | SWE4-UT-VISA | `core/transport/test_visa.py` | 6 | Pass |
-| SWE4-UT-PICO | `instruments/pico_sht30/test_thermometer.py` | 40 | Pass |
+| SWE4-UT-PICO | `instruments/pico_sht30/test_thermometer.py` | 44 | Pass |
 | SWE4-UT-DMM | `instruments/tti1604/test_dmm.py` | 34 | Pass |
 | SWE4-UT-DMMPROTO | `instruments/tti1604/test_protocol.py` | 56 | Pass |
 | SWE4-UT-DMMSIM | `instruments/tti1604/test_simulator.py` | 28 | Pass |
 | SWE4-UT-DMMCLI | `instruments/tti1604/test_cli.py` | 8 | Pass |
 | SWE4-UT-DMMPANEL | `instruments/tti1604/test_front_panel_check.py` | 7 | Pass |
-| SWE4-UT-PICOSIM | `instruments/pico_sht30/test_simulator.py` | 15 | Pass |
-| SWE4-UT-PICOCLI | `instruments/pico_sht30/test_cli.py` | 9 | Pass |
-| SWE4-UT-PICOFLASH | `instruments/pico_sht30/test_flash.py` | 34 | Pass |
+| SWE4-UT-PICOSIM | `instruments/pico_sht30/test_simulator.py` | 36 | Pass |
+| SWE4-UT-PICOCLI | `instruments/pico_sht30/test_cli.py` | 16 | Pass |
+| SWE4-UT-PICOFLASH | `instruments/pico_sht30/test_flash.py` | 35 | Pass |
 | SWE4-UT-PICOFWPROTO | `instruments/pico_sht30/test_firmware_protocol.py` | 9 | Pass |
 | **Total** | | **2 591** (2 590 passed, 1 skipped) | **Pass** |
 
-The thermometer firmware's own unit tests (`SWE4-UT-PICOFW`, 61 cases) run
-under CTest, not pytest, and are reported in §13A.
+The thermometer firmware's own unit tests (`SWE4-UT-PICOFW`, 83 cases) run
+under CTest, not pytest, and are reported in §13A. The five `PICO` rows above
+are the counts after #127 was merged into #131 (140 in all, from
+`python -m pytest tests/instruments/pico_sht30 -q`); the total row is still the
+revision 0.4 figure, as explained in §4.
 
 ## 6. Coverage detail
 
@@ -854,31 +869,54 @@ driver could only repeat what it had been told about it.
 
 ### 13A.1 Firmware unit tests (`SWE4-UT-PICOFW`)
 
-Host build: GCC, C11, `-Wall -Wextra -Wconversion -Wshadow -Wstrict-prototypes
--Werror`, `-fsanitize=address,undefined -fno-sanitize-recover=all`, Unity v2.6.0.
+Host build for #131: clang 21.1.0 on Windows 10 (Ninja, CMake 3.27), C11,
+`-Wall -Wextra -Wconversion -Wshadow -Wstrict-prototypes -Werror`,
+`-fsanitize=address,undefined -fno-sanitize-recover=all`, Unity v2.6.0, with
+`-D_CRT_SECURE_NO_WARNINGS` and the AddressSanitizer runtime on `PATH`
+(TB-SWE4-001 §1.4b). The bench PC's MinGW GCC 6.3 cannot be used: it stops with
+an internal compiler error on `-fsanitize=address`, which it did before #131
+too. The #104 run, 61 cases, was with GCC on Linux.
 
 | Suite | File | Cases | Result |
 |---|---|---|---|
-| text | `test/test_text.c` | 10 | Pass |
+| text | `test/test_text.c` | 15 | Pass |
 | sht30 | `test/test_sht30.c` | 22 | Pass |
-| cmd_parser | `test/test_cmd_parser.c` | 29 | Pass |
-| **Total** | | **61** | **Pass**, no warnings, no sanitizer reports |
+| cmd_parser | `test/test_cmd_parser.c` | 46 | Pass |
+| **Total** | | **83** | **Pass**, no warnings, no sanitizer reports |
+
+Against #104's 61 cases, `text` gains five for `text_centi` (two places,
+rounding half away from zero, the sign, no `-0.00`, the extremes), and
+`cmd_parser`'s `ver` and `temp` cases are replaced by cases for every `rd`
+option, the injected SHA, identity without touching the sensor, `NAK` for an
+unknown, partial or wrongly cased option and the longest option echoed whole,
+`err 2` for no option or two, the temperature's places, rounding and sign, one
+measurement per `rd temperature`, `Error` for each sensor failure (no sensor, a
+NACK on the read, a corrupted frame, a bus timeout on either transfer), `ver`,
+`temp` and `reset` refused, and `ecureset` replying before it reboots.
 
 ### 13A.2 Target build (PICO-FR-031, PICO-NFR-003)
 
-| Item | Result |
+The figures below are for the #131 firmware, built from commit `5c80ae7` on
+the Windows 10 bench PC on 2026-10-03. The #104 firmware, built on Linux, was
+60 928 bytes as a UF2, with text 29 996 B and bss 3 884 B; the `rd` firmware is
+smaller because the humidity and raw-word replies are gone.
+
+| Item | #131 result |
 |---|---|
-| SDK | Raspberry Pi Pico C SDK 2.1.1, TinyUSB submodule, picotool 2.1.1 built from source |
-| Toolchain | xPack Arm GNU `arm-none-eabi-gcc` 14.2.1-1.1 |
+| SDK | Raspberry Pi Pico C SDK 2.1.1, TinyUSB submodule, prebuilt picotool 2.1.1 |
+| Toolchain | Arm GNU Toolchain 14.2.Rel1 (`arm-none-eabi-gcc` 14.2.1) |
 | Board / platform | `pico2` / `rp2350-arm-s` (Cortex-M33, secure) |
 | Warnings on the firmware's own sources | **0** (`-Werror`) |
-| Image | `pico_sht30.uf2`, 60 928 bytes |
-| Size (`arm-none-eabi-size`) | text 29 996 B, data 0 B, bss 3 884 B |
+| Image | `pico_sht30.uf2`, 58 368 bytes |
+| Size (`arm-none-eabi-size`) | text 28 764 B, data 0 B, bss 3 476 B |
+| Commit SHA injected | Configure printed `FIRMWARE_GIT_SHA=b6213cc` before the #131 commit was made; after the commit the next build re-configured itself and injected `5c80ae7`, which `rd sha` then reported on the Pico (§13A.6) |
 
-### 13A.3 Conversion reference vectors (AD-24)
+### 13A.3 Conversion reference vectors
 
 The same vectors are asserted in C (`test_sht30.c`) and in Python
-(`test_matches_the_firmware_vectors`):
+(`test_matches_the_firmware_vectors`). Since #131 only the temperature is
+reported, and the raw word no longer travels with it; the humidity vectors
+still hold for the firmware's conversion:
 
 | Raw word | Temperature | Raw word | Humidity |
 |---|---|---|---|
@@ -890,6 +928,19 @@ The same vectors are asserted in C (`test_sht30.c`) and in Python
 
 CRC-8 check value CRC(0xBE, 0xEF) = 0x92, as the datasheet gives it.
 
+The two-place rounding of `rd temperature` (PICO-FR-027) is asserted the same
+way, in C (`test_text.c`, `test_cmd_parser.c`) and in Python
+(`test_two_places_half_away_from_zero`, 12 vectors):
+
+| Thousandths | Reported | Thousandths | Reported |
+|---|---|---|---|
+| 22 848 | `22.85` | −1 234 | `-1.23` |
+| 22 844 | `22.84` | −1 235 | `-1.24` |
+| 25 000 | `25.00` | −5 | `-0.01` |
+| 5 | `0.01` | −4 | `0.00` (never `-0.00`) |
+| 4 | `0.00` | −45 000 | `-45.00` |
+| 0 | `0.00` | 130 000 | `130.00` |
+
 ### 13A.4 Static analysis
 
 **CStyleCheck v1.5.1** (TB-STD-002 and TB-STY-001), over all 18 C files of
@@ -898,7 +949,9 @@ CRC-8 check value CRC(0xBE, 0xEF) = 0x92, as the datasheet gives it.
 0 warnings, 0 info**, with no baseline (PICO-NFR-006). The first run found 210;
 they were fixed in the code (enum member prefixes, `m_` statics, `g_` globals,
 `U` suffixes, one non-ASCII character, and `cmd_execute` split under the
-60-line limit) or covered by a documented alias or exclusion.
+60-line limit) or covered by a documented alias or exclusion. That run was for
+#104. CStyleCheck is not installed on the bench PC, so for #131 it has not been
+run locally; the result is the CI job's (`.github/workflows/style.yml`).
 
 No MISRA checker (for example cppcheck's MISRA addon, PC-lint, Helix QAC) was
 available in the build environment. MISRA C:2012 conformance is therefore by
@@ -910,29 +963,37 @@ PICO-OPEN-04.
 
 | ID | Item |
 |---|---|
-| PICO-OPEN-01 | Flash `pico_sht30.uf2`, confirm USB enumeration, and confirm `ver` returns the title, version and board ID. **Closed 2026-10-03**: the Pico 2 (serial AC5483CD0798FB0B) enumerated as COM14, and `ver` returned title `Pico2-SHT30-Thermometer`, firmware `1.0.0`, board `pico2`, sensor `SHT30-DIS` at `0x44`, and the build date of the image just flashed. |
-| PICO-OPEN-02 | Confirm `temp` with the DollaTek module on GP4/GP5 at 0x44, and that removing the module gives `err 4` rather than a value. **Not yet tested**: the SHT30-D module is not yet connected. `temp` answered `err 4 the sensor did not acknowledge`, the expected answer with no sensor. |
+| PICO-OPEN-01 | **Closed 2026-10-03** (§13A.7). Flash `pico_sht30.uf2`, confirm USB enumeration, and confirm `rd name`, `rd copyright`, `rd version` and `rd sha` return the name, copyright, `V1.00.0000` and the SHA the build injected. |
+| PICO-OPEN-02 | **Confirmed in part 2026-10-03** (§13A.7): with no module connected, `rd temperature` answers `ACK rd temperature = Error` and `status` answers `err 4`. Still open: a value to two places with the DollaTek module on GP4/GP5 at 0x44. |
 | PICO-OPEN-03 | Compare against a reference thermometer: expect agreement within ±0.2 °C typical between 0 and 65 °C, allowing for self-heating of the Pico. |
 | PICO-OPEN-04 | The reference PDFs (Pico 2 datasheet and schematic, RP2350 datasheet, SDK guide, Sensirion SHT3x-DIS datasheet) could not be fetched in the build environment; run `docs/pico_sht30/fetch_datasheets.sh` and commit them. Run a MISRA C:2012 checker over `firmware/pico_sht30/src`. |
-| PICO-OPEN-05 | Reflash a real Pico 2 with `benchtools thermo flash`: from the running thermometer (`bootsel`), from a board already in its bootloader, and through the 1200-baud reset; confirm the drive is found without `--drive`. **Closed 2026-10-03** on Windows 10: all three methods exited 0 with every check passing (§13A.6). Drive discovery on Linux and macOS is untested on hardware. |
+| PICO-OPEN-05 | Reflash a real Pico 2 with `benchtools thermo flash`: from the running thermometer (`bootsel`), from a board already in its bootloader, and through the 1200-baud reset; confirm the drive is found without `--drive`. **Closed 2026-10-03** on Windows 10: all three methods exited 0 with every check passing (§13A.7). Drive discovery on Linux and macOS is untested on hardware. With the `rd` firmware of #131, `flash -r COM14` (method `bootsel`) passed its `name`, `version` and `sha` checks (§13A.7). |
+| PICO-OPEN-06 | **Confirmed in part 2026-10-03** (§13A.2, §13A.7): the `rd` command set (#131) on a real Pico 2. The #131 firmware was cross-compiled with no warnings, its size recorded, the SHA injected, and it was flashed; every `rd` option, the `NAK`, the `err` replies and `ecureset` behaved as specified. Still open: `rd temperature` with a real value to two places, which needs the SHT30-D module connected (PICO-OPEN-02). |
 
 ### 13A.6 Reflashing without BOOTSEL (`SWE4-UT-PICOFLASH`, #127)
 
-`instruments/pico_sht30/test_flash.py`: **34 cases, all pass** (0.4 s). The
-whole Pico SHT30 directory, `tests/instruments/pico_sht30`, is 107 cases, all
-passing. No Pico, drive or serial port is involved: every operating-system
+`instruments/pico_sht30/test_flash.py`: **35 cases, all pass**. The whole Pico
+SHT30 directory, `tests/instruments/pico_sht30`, is 140 cases, all passing, re-run
+after #127 was merged into #131 (`python -m pytest tests/instruments/pico_sht30
+-q`). Since that merge `flash` confirms the build by the `rd` command set
+instead of `ver`: the image is recognised by the firmware's name, and its
+version and commit SHA are read from it to compare with `rd version` and
+`rd sha`. The ambiguous build-date case was replaced by an ambiguous-SHA case,
+and a missing-version case was added. No Pico, drive or serial port is involved: every operating-system
 interaction is a seam of `PicoFlasher`, and `SimulatedRp2350` plays the board.
 
 | Area | What the cases establish |
 |---|---|
-| The image | A UF2 laid out as an SDK 2.x RP2350 build lays it out (an `absolute` block ahead of `rp2350-arm-s` blocks) is accepted; bad magic numbers, a length that is not whole blocks and a missing file are refused; an RP2040 image is refused; an image without the thermometer's title is refused unless `--any-image`; an image with more than one build date is flashed but its build is not compared, and the result says so. |
+| The image | A UF2 laid out as an SDK 2.x RP2350 build lays it out (an `absolute` block ahead of `rp2350-arm-s` blocks) is accepted; bad magic numbers, a length that is not whole blocks and a missing file are refused; an RP2040 image is refused; an image without the thermometer's name (`Pico 2 SHT30 Temperature Sensor`) is refused unless `--any-image`; an image with more than one commit SHA, or with no version string, is flashed but that point is not compared, and the result says so in a note. |
 | Reaching the bootloader | From the running firmware (`bootsel`); from a board already in its bootloader, with no `bootsel` sent; and, when the port does not answer the protocol, through the 1200-baud reset. An error from the port during that reset is kept as a note in the result, not raised. |
-| Confirming the result | A version that differs from `--expect-version`, and a build date that differs from the image's, each give `ok: false` without raising; when no port was given, the one the port search returns is used (the search is simulated here: the USB vendor-ID filter itself runs only through pyserial, untested without a Pico); `--no-verify` is honoured. |
+| Confirming the result | The checks are `name`, `version` and `sha`, read by `rd`; the version is the image's unless `--expect-version` is given. A version that differs from `--expect-version`, and a commit SHA that differs from the image's (the old image still running), each give `ok: false` without raising; when no port was given, the one the port search returns is used (the search is simulated here: the USB vendor-ID filter itself runs only through pyserial, untested without a Pico); `--no-verify` is honoured. |
 | Failures | Bootloader timeout; no drive and no port; two drives; a copy that fails while the drive remains; a drive that never goes away; a port that never comes back - each raises an error naming what happened. A close error after the drive has gone is not a failure. |
 | Drive discovery | A drive is recognised by `INFO_UF2.TXT` naming `RP2350`; the search roots on Windows (the drive-letter list), Linux and macOS (with `glob` patched); any other system is refused with a request for `--drive`. Discovery has not been run against a real mounted RP2350 drive on any system. |
 | Command line | `benchtools thermo -r sim:// flash` prints the JSON result and exits 0; a mismatch exits 1 with the JSON result; an error exits 1 with an `error:` message on stderr. |
 
-**Confirmed on hardware on 2026-10-03** (PICO-OPEN-05, closed), on the bench
+**Confirmed on hardware on 2026-10-03** (PICO-OPEN-05, closed), with the
+firmware of the time, which answered `ver`; the checks were then `title`,
+`version` and `built`, on the bench
 PC (Windows 10) with a real Pico 2, USB serial AC5483CD0798FB0B, enumerating
 as COM14. The image was built on the bench PC from this branch with Pico SDK
 2.1.1, Arm GNU Toolchain 14.2.Rel1 (14.2.1 20241119) and the prebuilt picotool
@@ -944,6 +1005,7 @@ as COM14. The image was built on the bench PC from this branch with Pico SDK
 | Already in the bootloader | The board arrived in its bootloader as drive D: (`INFO_UF2.TXT` naming `Board-ID: RP2350`); `benchtools thermo -r "" flash pico_sht30.uf2 --expect-version 1.0.0` | `ok: true`, method `already-in-bootloader`; the port found by vendor ID as COM14; about 2.5 s end to end. `ver` afterwards matched the image's build date `2026-10-03T12:06:39Z`. |
 | From the running thermometer | Rebuilt for a new build date, then `flash -r COM14 ... --expect-version 1.0.0` | `ok: true`, method `bootsel`; build date `12:06:39Z` → `12:07:19Z`; title, version and build checks all passed. |
 | 1200-baud reset | The protocol open made to fail once, so that `flash -r COM14` falls back | `ok: true`, method `1200-baud`; title and build checks passed. |
+| From the running thermometer, `rd` firmware (#131, after the merge) | `benchtools thermo -r COM14 flash pico_sht30.uf2`, image built from commit `5c80ae7` | `ok: true`, method `bootsel`; checks `name`, `version` (`V1.00.0000`, from the image) and `sha` (`5c80ae7`) all passed. |
 
 The 1200-baud run found a fault, fixed in this branch. On Windows the Pico
 reboots while pyserial is still configuring the port at 1200 baud, and pyserial
@@ -960,6 +1022,35 @@ confirmed on Windows and port discovery by vendor ID through pyserial; drive
 discovery on Linux and macOS has not been tried on hardware. A Pico whose
 firmware has crashed, or which does not enumerate on USB, still needs BOOTSEL
 or an SWD probe.
+
+### 13A.7 First run on a real Pico 2 (2026-10-03)
+
+Bench PC on Windows 10, a Raspberry Pi Pico 2 with USB serial number
+`AC5483CD0798FB0B` on COM14, and **no SHT30-D module connected**. The firmware
+of §13A.2 was flashed with `benchtools thermo flash` (the `bootsel` method of
+#127, §13A.6), with no button pressed. The raw replies on COM14 were:
+
+| Sent | Reply | Expected? |
+|---|---|---|
+| `rd name` | `ACK rd name = Pico 2 SHT30 Temperature Sensor` | Yes |
+| `rd copyright` | `ACK rd copyright = (c) 2026 Dermot Murphy` | Yes |
+| `rd version` | `ACK rd version = V1.00.0000` | Yes |
+| `rd sha` | `ACK rd sha = 5c80ae7` | Yes, the commit built |
+| `rd temperature` | `ACK rd temperature = Error` | Yes, no sensor is connected |
+| `rd colour` | `NAK rd colour = Error` | Yes |
+| `rd` | `err 2 wrong number of arguments` | Yes |
+| `ver`, `temp`, `reset` | `err 1 unknown command` | Yes, removed by #131 |
+| `status` | `err 4 the sensor did not acknowledge` | Yes, no sensor is connected |
+
+`benchtools thermo -r COM14 info`, and each `rd <option>` through the driver's
+command line, returned the same values. `ecureset` through the driver rebooted
+the Pico, and it came back answering `rd sha = 5c80ae7`. The raw `ok` reply to
+`ecureset` was not captured separately.
+
+After #127 was merged into this branch, `flash` confirms the build by `rd`
+(§13A.6). `benchtools thermo -r COM14 flash pico_sht30.uf2`, with the same
+image, reported `ok`, method `bootsel`, and its checks `name`, `version`
+(`V1.00.0000`) and `sha` (`5c80ae7`) all passed.
 
 ## 13B. TTi 1604 multimeter verification results (#115)
 

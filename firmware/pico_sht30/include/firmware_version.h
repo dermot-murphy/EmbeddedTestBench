@@ -3,42 +3,59 @@
  * @brief What this build of the thermometer firmware is, so the host can tell
  *        builds apart.
  *
- * Three facts are reported by @c ver:
+ * Four facts are reported by the @c rd command:
  *
- * * **The title** names the product. It is one token with no spaces, so it
- *   survives the protocol's @c key=value form without quoting.
- * * **The version** is what a person changes deliberately when behaviour
- *   changes. It is edited here, and nowhere else.
- * * **The build date** distinguishes two builds of the *same* version. The
- *   build system injects it as an ISO 8601 UTC instant; a build that does not
- *   falls back to the compiler's macros and is tagged @c local: so that the
- *   host does not read it as UTC.
+ * * **The name** (@c rd @c name) names the product.
+ * * **The copyright** (@c rd @c copyright) names the owner.
+ * * **The version** (@c rd @c version) is what a person changes deliberately
+ *   when behaviour changes. It is edited here, and nowhere else.
+ * * **The commit** (@c rd @c sha) is the short SHA of the commit the image was
+ *   built from. The build system injects it; a build that does not reports
+ *   @c unknown.
  *
- * Traces to: PICO-FR-002, PICO-DD-VERSION.
+ * The version has the form V<major>.<minor>.<patch>, with the minor number as
+ * two digits and the patch number as four, e.g. V1.00.0000. It follows
+ * semantic versioning and is bumped with every change to the firmware or to
+ * its host driver:
+ *
+ * * major - a breaking change to the protocol;
+ * * minor - an added command or feature;
+ * * patch - a fix.
+ *
+ * Each value is a single quoted string, because the host driver's test suite
+ * reads them from this file as text.
+ *
+ * Traces to: PICO-FR-006, PICO-DD-VERSION.
  */
 
 #ifndef FIRMWARE_VERSION_H__
 #define FIRMWARE_VERSION_H__
 
-/** Product title reported by @c ver. One token: no spaces. */
-#define FIRMWARE_TITLE			"Pico2-SHT30-Thermometer"
+/** Product name reported by @c rd @c name. */
+#define FIRMWARE_NAME			"Pico 2 SHT30 Temperature Sensor"
 
-/** Firmware version. Change it when behaviour changes; the host compares it. */
-#define FIRMWARE_VERSION		"1.0.0"
+/** Copyright notice reported by @c rd @c copyright. */
+#define FIRMWARE_COPYRIGHT		"(c) 2026 Dermot Murphy"
 
-#ifndef FIRMWARE_BUILD_DATE
-/* Not injected: fall back to the compiler's macros. The spaces in __DATE__ are
- * replaced when the value is sent, so it still arrives as one token. */
-#define FIRMWARE_BUILD_DATE		"local:" __DATE__ "T" __TIME__
+/** Firmware version reported by @c rd @c version. Bump it with every change;
+ *  the host compares it. */
+#define FIRMWARE_VERSION		"V1.00.0000"
+
+#ifndef FIRMWARE_GIT_SHA
+/* Not injected by the build: say so rather than guess. */
+#define FIRMWARE_GIT_SHA		"unknown"
 #endif
 
-/** The title this image was built with. */
-extern const char	firmware_g_title[];
+/** The name this image was built with. */
+extern const char	firmware_g_name[];
 
-/** The version this image was built as, e.g. "1.0.0". */
+/** The copyright notice this image was built with. */
+extern const char	firmware_g_copyright[];
+
+/** The version this image was built as, e.g. "V1.00.0000". */
 extern const char	firmware_g_version[];
 
-/** When this image was built. */
-extern const char	firmware_g_build_date[];
+/** The short SHA of the commit this image was built from, or "unknown". */
+extern const char	firmware_g_sha[];
 
 #endif /* FIRMWARE_VERSION_H__ */

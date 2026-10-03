@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE1-001 | **Version** | 1.2 |
+| **Document ID** | TB-SWE1-001 | **Version** | 1.3 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -34,6 +34,7 @@
 | 1.0 | 2026-10-02 | Claude | #124: BLE-FR-071 added - on the command line, `--select` takes an address, a name or part of a name, and `cmd --addr` connects to the address given. |
 | 1.1 | 2026-10-02 | Claude | #126: CORE-FR-060 revised - each record carries the short name of the instrument it came from; CORE-FR-063 (each instrument's records carry its own name, set from construction, with a default per driver) and RUN-FR-008 (the specification allocates names, the bench attaches them, the specification wins, no two share one) added. |
 | 1.2 | 2026-10-03 | Claude | #127: §15.5 added - PICO-FR-070 … -076, reflashing the Pico 2 thermometer with no BOOTSEL press: reaching the bootloader (an already-mounted drive, `bootsel`, or the 1200-baud reset), checking the UF2, the copy and reboot, confirming the build afterwards, bounded waits and named errors, the `flash` command, and the simulated board. PICO non-functional renumbered 15.6. CON-09 extended to PICO-OPEN-05. §15.5 note and CON-09 updated for the hardware confirmation on a real Pico 2 on 2026-10-03: PICO-OPEN-01 and -05 closed on Windows; PICO-OPEN-02 not yet tested, as no sensor is connected. |
+| 1.3 | 2026-10-03 | Claude | #131: the Pico thermometer answers an `rd` command set in place of `ver` and `temp`, and `reset` is renamed `ecureset`. PICO-FR-006 (`rd name`, `copyright`, `version`, `sha`), PICO-FR-007 (`NAK` for an unknown option), PICO-FR-027 (`rd temperature` to two places, or `Error`), PICO-FR-047 (the driver's `rd` and `NoReadingError`) and PICO-FR-061 (`info`, `rd` and `ecureset` on the command line) added. PICO-FR-001, -002 (now the version scheme and the injected commit), -003, -005, -020 … -023, -030, -040 … -042, -046, -050 and -060 revised. PICO-FR-044 (the raw-word cross-check) withdrawn: the reply no longer carries raw words. The convention for a withdrawn requirement is stated in §15. With #127 merged, `flash` confirms the new build by the `rd` command set: PICO-FR-071, -073 and -076 revised, so the image is recognised by the firmware's name and checked by `rd name`, `rd version` and `rd sha` against the version and commit SHA stored in it, in place of `ver`, the title and the build date; the §15.5 note records the `rd` firmware flashed and confirmed on a real Pico 2 on 2026-10-03. CON-09 records that the change has been built and run on a real Pico 2 (2026-10-03), but not yet with the SHT30-D module connected. |
 
 ---
 
@@ -768,9 +769,10 @@ review, in which case the reading is real but is not now.
 ## 15. PICO — Pico 2 + SHT30-D bench thermometer and its firmware
 
 A Raspberry Pi Pico 2 (RP2350) reads a Sensirion SHT30-DIS, carried on a
-DollaTek SHT30-D breakout module, over I2C, and reports temperature and
-humidity to the host over USB CDC. It is the local-temperature measurement of
-STK-21; STK-22 asks that the firmware say what it is.
+DollaTek SHT30-D breakout module, over I2C, and reports the temperature to the
+host over USB CDC. It is the local-temperature measurement of STK-21; STK-22
+asks that the firmware say what it is, which it does through the `rd` command
+set (#131).
 
 The requirements are shaped by one property of the measurement: **a failed
 reading must never look like a reading**. The sensor can be absent, a frame can
@@ -778,49 +780,58 @@ be corrupted on the bus, and the bus can hang; in each case the firmware says
 so and reports no value, and the host driver raises rather than returning the
 last good one. Reference documents and wiring: `docs/pico_sht30/`.
 
+No requirement here is renumbered when it changes. One that no longer applies
+stays in its table, marked **Withdrawn** with the issue that withdrew it, so
+that its identifier is never reused for something else.
+
 ### 15.1 Firmware: host link and identity
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
-| PICO-FR-001 | The firmware shall accept one command per LF-terminated line over USB CDC ACM, ignoring CR, and shall send exactly one reply per command, beginning `ok` or `err <code> <text>`. | STK-21 | Test |
-| PICO-FR-002 | `ver` shall report the product title and the firmware version, together with the build date (ISO 8601 UTC when injected by the build, tagged `local:` otherwise), protocol revision, board, board unique identifier, sensor part, sensor I2C address and uptime, each as one `key=value` token with no space inside a value. | STK-22 | Test |
-| PICO-FR-003 | An unknown command, or a command with the wrong number of arguments, shall be refused with an `err` reply and shall have no effect. | STK-21 | Test |
+| PICO-FR-001 | The firmware shall accept one command per LF-terminated line over USB CDC ACM, ignoring CR, and shall send exactly one reply per command: for `rd`, a line beginning `ACK` or `NAK` (PICO-FR-006, -007, -027); for every other command, a line beginning `ok` or `err <code> <text>`. | STK-21 | Test |
+| PICO-FR-002 | The product name, copyright notice and firmware version shall be defined once, in `firmware_version.h`. The version shall have the form `V<major>.<minor>.<patch>`, the minor number as two digits and the patch number as four (baseline `V1.00.0000`), and shall follow semantic versioning: it shall be bumped with every change to the firmware or its host driver - major for a breaking protocol change, minor for an added command or feature, patch for a fix. The build shall inject the short (7-character) SHA of the commit the image is built from; a build that does not shall report `unknown`. *(Revised by #131: this requirement was the `ver` reply, which is withdrawn.)* | STK-22 | Test, Inspection |
+| PICO-FR-003 | An unknown command, or a command with the wrong number of arguments, shall be refused with an `err` reply and shall have no effect: `err 1` for an unknown command - `ver`, `temp` and `reset` included since #131 - and `err 2` for the wrong number of arguments, including `rd` with no option or more than one. | STK-21 | Test |
 | PICO-FR-004 | A command line longer than the line buffer shall be discarded whole and refused; it shall never be executed in part. | STK-21 | Test |
-| PICO-FR-005 | `ver` shall answer whether or not the sensor is present, so that "no sensor" is distinguishable from "no Pico". | STK-21, STK-22 | Test |
+| PICO-FR-005 | `rd name`, `rd copyright`, `rd version` and `rd sha` shall answer whether or not the sensor is present, and shall not touch the sensor, so that "no sensor" is distinguishable from "no Pico". | STK-21, STK-22 | Test |
+| PICO-FR-006 | `rd name`, `rd copyright`, `rd version` and `rd sha` shall each answer `ACK rd <option> = <value>`, the value being, respectively, `Pico 2 SHT30 Temperature Sensor`, `(c) 2026 Dermot Murphy`, the firmware version and the commit SHA of PICO-FR-002. The value may contain spaces and runs to the end of the line (#131). | STK-22 | Test |
+| PICO-FR-007 | `rd` with any other option shall answer `NAK rd <option> = Error`, echoing the option as received, and shall have no other effect. Options shall be matched exactly, case included (#131). | STK-21, STK-22 | Test |
 
 ### 15.2 Firmware: the sensor
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
 | PICO-FR-010 | The firmware shall reach the SHT30 on I2C0 at 100 kHz, SDA on GP4 and SCL on GP5, at address 0x44, each overridable at build time without a source edit. | STK-21 | Inspection, Test (build) |
-| PICO-FR-020 | `temp` shall take one single-shot, high-repeatability measurement with clock stretching disabled, waiting at least the datasheet's maximum conversion time before reading the result. | STK-21 | Test |
-| PICO-FR-021 | Every word received from the sensor shall be checked against its CRC-8 (polynomial 0x31, initial value 0xFF). A mismatch shall be reported as `err 5` and no value shall be reported. | STK-21 | Test |
-| PICO-FR-022 | Temperature and humidity shall be converted with the datasheet formulas in integer arithmetic, rounded to the nearest thousandth, and reported in degrees Celsius and percent RH to three decimals, together with the raw words they came from. | STK-21 | Test |
-| PICO-FR-023 | A sensor that does not acknowledge shall be reported as `err 4`, and a bus transfer that does not complete within its timeout as `err 6`. In neither case shall a value be reported. | STK-21 | Test |
+| PICO-FR-020 | Each `rd temperature` shall take one new single-shot, high-repeatability measurement with clock stretching disabled, waiting at least the datasheet's maximum conversion time before reading the result. | STK-21 | Test |
+| PICO-FR-021 | Every word received from the sensor shall be checked against its CRC-8 (polynomial 0x31, initial value 0xFF). A mismatch shall be reported - by `rd temperature` as `Error` (PICO-FR-027), by `status` as `err 5` - and no value shall be reported. | STK-21 | Test |
+| PICO-FR-022 | The temperature shall be converted from its raw word with the datasheet formula in integer arithmetic, rounded to the nearest thousandth of a degree Celsius, before it is formatted for reporting (PICO-FR-027). *(Revised by #131: humidity and the raw words are no longer reported.)* | STK-21 | Test |
+| PICO-FR-023 | A sensor that does not acknowledge, and a bus transfer that does not complete within its timeout, shall be reported - by `rd temperature` as `Error` (PICO-FR-027), by `status` and `sreset` as `err 4` and `err 6` respectively. In neither case shall a value be reported. | STK-21 | Test |
 | PICO-FR-024 | `status` shall report the sensor's status register, CRC-checked. | STK-21 | Test |
 | PICO-FR-025 | The firmware shall soft-reset the sensor at start-up, and on `sreset`. | STK-21 | Test, Inspection |
 | PICO-FR-026 | A failed check shall leave no partially updated reading behind for a caller to report. | STK-21 | Test |
+| PICO-FR-027 | `rd temperature` shall answer `ACK rd temperature = <value>`, the value in degrees Celsius to exactly two decimal places, rounded half away from zero from the thousandths of PICO-FR-022 (`22.848` → `22.85`, `-1.235` → `-1.24`), and never written `-0.00`. When no reading can be made - the sensor is absent, a frame fails its CRC, or the bus times out - the value shall be `Error`, never a previous reading (#131). | STK-21 | Test |
 
 ### 15.3 Firmware: maintenance and build
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
-| PICO-FR-030 | `reset` shall reboot the Pico, and `bootsel` shall reboot it into the ROM's USB bootloader ready for a UF2 image. In both cases the `ok` reply shall be sent before the reboot. | STK-21 | Test |
+| PICO-FR-030 | `ecureset` (named `reset` before #131) shall reboot the Pico, and `bootsel` shall reboot it into the ROM's USB bootloader ready for a UF2 image. In both cases the `ok` reply shall be sent before the reboot, and a refused command shall not reboot. | STK-21 | Test |
 | PICO-FR-031 | The firmware shall build with the Raspberry Pi Pico C SDK for the Pico 2 (RP2350, Arm Cortex-M33) into a UF2 image that can be copied onto the board. | STK-21 | Test (build) |
 
 ### 15.4 Host driver and bench use
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
-| PICO-FR-040 | Connecting shall identify the thermometer with `ver`, and shall refuse a firmware whose protocol major revision differs from the driver's. It shall send nothing the firmware does not define. | STK-21, STK-22 | Test |
-| PICO-FR-041 | The driver shall expose the title and version, and the rest of `ver`, as typed values. | STK-22 | Test |
-| PICO-FR-042 | The driver shall return temperature and humidity together with their raw words and a host timestamp. | STK-21 | Test |
+| PICO-FR-040 | Connecting shall identify the thermometer with `rd name`, `rd copyright`, `rd version` and `rd sha`, and shall refuse a device whose `rd name` is not `Pico 2 SHT30 Temperature Sensor`. It shall send nothing the firmware does not define. *(Revised by #131: the firmware no longer reports a protocol revision for the driver to compare.)* | STK-21, STK-22 | Test |
+| PICO-FR-041 | The driver shall expose the name, copyright, version and commit SHA as typed values, and shall report the version as the firmware gives it rather than refuse one it does not expect. | STK-22 | Test |
+| PICO-FR-042 | The driver shall return the temperature as a number, together with the text the firmware sent and a host timestamp; each reading shall be a new measurement. *(Revised by #131: no humidity and no raw words.)* | STK-21 | Test |
 | PICO-FR-043 | An `err` reply shall raise an error carrying the firmware's code; no reading shall be returned. | STK-21 | Test |
-| PICO-FR-044 | The driver shall recompute each value from its raw word with the firmware's arithmetic, and shall refuse a reply in which they disagree. | STK-21 | Test |
+| PICO-FR-044 | **Withdrawn** (#131). Was: the driver shall recompute each value from its raw word with the firmware's arithmetic, and shall refuse a reply in which they disagree. `rd temperature` carries no raw word; the check that replaces it is the format check of PICO-FR-047. | STK-21 | — |
 | PICO-FR-045 | A bare port name shall be taken as a serial port rather than a network host. | STK-21 | Test |
-| PICO-FR-046 | The driver shall decode the sensor status register, and shall provide sensor soft reset, Pico reboot and bootloader entry. | STK-21 | Test |
-| PICO-FR-050 | The thermometer shall be registered as a bench driver, and a simulated thermometer shall answer the same command set with the same reply text, with injectable faults: sensor absent, CRC failure and bus timeout. | STK-08, STK-21 | Test |
-| PICO-FR-060 | A command-line interface shall expose `ver`, `temp` (one reading or a series), `status`, `sreset` and `bootsel`, emitting JSON. | STK-21, STK-22 | Test |
+| PICO-FR-046 | The driver shall decode the sensor status register, and shall provide sensor soft reset, Pico reboot (`ecureset`) and bootloader entry. | STK-21 | Test |
+| PICO-FR-047 | The driver shall send `rd <option>` and return the value of its `ACK`. A `NAK` shall raise `RdRefusedError`, an `err` reply `SensorError`, and a reply for another option, or one that is neither `ACK` nor `NAK`, `ProtocolError`. A temperature of `Error` shall raise `NoReadingError` - never a stale value - and a temperature that is not a number to exactly two decimal places shall be refused with `ProtocolError` (#131). | STK-21 | Test |
+| PICO-FR-050 | The thermometer shall be registered as a bench driver, and a simulated thermometer shall answer the same command set with the same reply text, `rd` included, with injectable faults - sensor absent, CRC failure and bus timeout - each of which makes `rd temperature` answer `Error`. | STK-08, STK-21 | Test |
+| PICO-FR-060 | A command-line interface shall expose `temp` (one reading or a series, each by `rd temperature`), `status`, `sreset` and `bootsel`, emitting JSON. *(Revised by #131: `ver` is replaced by PICO-FR-061.)* | STK-21, STK-22 | Test |
+| PICO-FR-061 | The command-line interface shall also expose `info` (name, copyright, version and commit SHA), `rd <option>` for exactly the five options of PICO-FR-006 and -027, refusing any other before anything is sent, and `ecureset`, emitting JSON (#131). | STK-21, STK-22 | Test |
 
 ### 15.5 Host: reflashing without BOOTSEL
 
@@ -833,17 +844,19 @@ What they cannot do is reach a Pico whose firmware has crashed or never appears
 on USB: that still needs the BOOTSEL button or an SWD probe. They have been
 verified against a simulated board, and on a real Pico 2 on Windows on
 2026-10-03 by all three routes into the bootloader (PICO-OPEN-05, closed).
+The same day, with the `rd` firmware of #131, `flash` reflashed the board by
+`bootsel` and confirmed its name, version `V1.00.0000` and commit SHA.
 Drive discovery on Linux and macOS has not been tried on hardware.
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
 | PICO-FR-070 | The host shall bring the Pico into its USB bootloader without a button press. If an `RP2350` bootloader drive is already mounted - a blank board, or one already in its bootloader - that drive shall be used as it is. Otherwise the running thermometer shall be sent `bootsel`; if the port does not answer the protocol, the host shall open and close it at 1200 baud, the Pico SDK's USB-stdio request to reboot into the bootloader. A drive shall be recognised as the bootloader by its `INFO_UF2.TXT` naming `Board-ID: RP2350`, searched for on Windows (drive letters C: to Z:), Linux (`/media`, `/run/media`, `/mnt`) and macOS (`/Volumes`); a drive may also be named explicitly. | STK-21 | Test |
-| PICO-FR-071 | Before anything is sent to the Pico, the image shall be checked: every 512-byte block shall carry the UF2 magic numbers and a payload that fits; every block shall be for the RP2350 (the Arm secure, Arm non-secure and RISC-V families, and the absolute and data families an SDK 2.x build may add); an RP2040 image shall be refused. An image that does not carry the thermometer firmware's title shall be refused unless the user says it is intended. | STK-21 | Test |
+| PICO-FR-071 | Before anything is sent to the Pico, the image shall be checked: every 512-byte block shall carry the UF2 magic numbers and a payload that fits; every block shall be for the RP2350 (the Arm secure, Arm non-secure and RISC-V families, and the absolute and data families an SDK 2.x build may add); an RP2040 image shall be refused. An image that does not carry the thermometer firmware's name (`Pico 2 SHT30 Temperature Sensor`, NUL-terminated) shall be refused unless the user says it is intended. *(Revised by #131: was the title `Pico2-SHT30-Thermometer`.)* | STK-21 | Test |
 | PICO-FR-072 | The image shall be written to the bootloader drive, and the copy shall be complete only when the drive has gone away, i.e. the Pico has rebooted into the new image. An error on closing the file shall be ignored if the drive has already gone, since the Pico reboots as the last block lands; while the drive remains, it shall be a failure. | STK-21 | Test |
-| PICO-FR-073 | After the copy, the host shall find the thermometer's port again (the one given, or the only serial port with the Raspberry Pi USB vendor ID 0x2E8A), wait until it answers `ver`, and compare the title with the thermometer's, the version with the one expected if one was given, and the build date with the single ISO 8601 build date stored in the image. A mismatch shall be reported in the result, not raised, and an image with no single build date shall be noted as not compared. Verification may be switched off, and is not attempted for an image that is not the thermometer firmware. | STK-21, STK-22 | Test |
+| PICO-FR-073 | After the copy, the host shall find the thermometer's port again (the one given, or the only serial port with the Raspberry Pi USB vendor ID 0x2E8A), wait until it answers the `rd` command set, and compare `rd name` with the thermometer's name, `rd version` with the version expected if one was given and otherwise with the single version (`V<major>.<minor>.<patch>`, PICO-FR-002) stored in the image, and `rd sha` with the single 7-character commit SHA stored in the image. A mismatch shall be reported in the result, not raised, and an image with no single version or no single commit SHA shall be noted as not compared on that point. *(Revised by #131: was `ver`, the title and the ISO 8601 build date.)* Verification may be switched off, and is not attempted for an image that is not the thermometer firmware. | STK-21, STK-22 | Test |
 | PICO-FR-074 | Every wait - for the bootloader drive, for the drive to go after the copy, and for the port and the thermometer to come back - shall be bounded by a timeout, and shall end in an error that names what was being waited for. It shall also be an error, naming the remedy, to find more than one bootloader drive or Raspberry Pi port, to have neither a drive nor a port to start from, or to need drive discovery on an operating system it does not support. | STK-21 | Test |
 | PICO-FR-075 | `benchtools thermo -r <port> flash <uf2>` shall perform PICO-FR-070 to -074, with `--expect-version`, `--drive`, `--any-image`, `--no-verify`, `--bootloader-timeout` and `--port-timeout`. It shall print the result as JSON - the image, the drive, how the bootloader was reached, the firmware before and after, each check and any notes - and exit 0 only if every check passed; a mismatch or an error shall exit 1. | STK-21, STK-22 | Test |
-| PICO-FR-076 | With `-r sim://`, `flash` shall run against a simulated Pico 2 that presents a bootloader drive on `bootsel` or a 1200-baud reset, takes a copied image, reboots, and then reports the image's build date (and, for an image that is not the thermometer, a different title), so that every path can be exercised with no Pico attached. | STK-08, STK-21 | Test |
+| PICO-FR-076 | With `-r sim://`, `flash` shall run against a simulated Pico 2 that presents a bootloader drive on `bootsel` or a 1200-baud reset, takes a copied image, reboots, and then reports the image's version and commit SHA through `rd` (and, for an image that is not the thermometer, a different name), so that every path can be exercised with no Pico attached. | STK-08, STK-21 | Test |
 
 ### 15.6 PICO non-functional
 
@@ -951,7 +964,7 @@ Drive discovery on Linux and macOS has not been tried on hardware.
 | CON-10 | The TTi 1604 driver is verified against a simulated meter and over a serial loopback, not yet against a physical meter. The opt-in bench and panel tests (DMM-FR-080, -081) exist to do so; bench confirmation items are in `docs/dmm/TTi1604_Notes.md` (DMM-OPEN-01 … -08). |
 | CON-04 | The J-Link driver is verified against a simulated probe and a simulated target, not against physical hardware. Bench confirmation items are listed in `docs/jlink/JLink_Integration_Notes.md` §4. |
 | CON-05 | The scaling of SWO/ITM local timestamps to core cycles depends on the trace prescaler configured by the GDB server and the firmware. It is implemented from the ARMv7-M architecture reference manual and requires confirmation against a part before SWO timing figures are quoted (JLINK-OPEN-03). |
-| CON-09 | The Pico 2 thermometer firmware **builds** (Pico SDK 2.1.1, Arm GNU 14.2.1, UF2 produced) and its portable logic passes its host unit tests. On 2026-10-03 it **ran on a real Pico 2** (Windows 10 bench PC): it enumerated on USB and `ver` reported the expected identity (PICO-OPEN-01, closed), and the `flash` command (PICO-FR-070 … -076) reflashed it by all three routes into the bootloader (PICO-OPEN-05, closed). It has **not** yet been run with a sensor attached: the SHT30-D module is not yet connected (PICO-OPEN-02, -03). Drive discovery on Linux and macOS is untested on hardware. Bench confirmation items are in `docs/pico_sht30/Pico_SHT30_Notes.md` §7. |
+| CON-09 | The Pico 2 thermometer firmware **builds** (Pico SDK 2.1.1, Arm GNU 14.2.1, UF2 produced) and its portable logic passes its host unit tests. On 2026-10-03 it **ran on a real Pico 2** (Windows 10 bench PC): it enumerated on USB and reported the expected identity (PICO-OPEN-01, closed), and the `flash` command (PICO-FR-070 … -076) reflashed it by all three routes into the bootloader (PICO-OPEN-05, closed). The `rd` command set (#131) was cross-compiled on the bench PC and run on the same Pico 2 the same day, with no SHT30-D module connected: identity, `NAK`, the `err` replies, `Error` for the missing sensor and `ecureset` all behaved as specified, and `flash` installed it and confirmed its name, version and commit SHA by `rd`. It has **not** yet been run with a sensor attached, so a real temperature value is unconfirmed (PICO-OPEN-02, -03, -06). Drive discovery on Linux and macOS is untested on hardware. Bench confirmation items are in `docs/pico_sht30/Pico_SHT30_Notes.md` §7 (PICO-OPEN-01 … -06). |
 | ASM-10 | The SHT30-D module is powered from the Pico's 3V3(OUT) and carries its own I2C pull-ups; its ADDR pin is tied low (0x44). |
 | CON-06 | Markdown-to-Robot-Framework translation (STK-12) is not implemented in this revision. The driver's return types are constrained by JLINK-FR-081 so that it can be added without changing the driver. |
 

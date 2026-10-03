@@ -2,8 +2,9 @@
  * @file cmd_parser.c
  * @brief Line assembly and command dispatch. See cmd_parser.h.
  *
- * Traces to: PICO-FR-001 .. PICO-FR-005, PICO-FR-020, PICO-FR-024,
- *            PICO-FR-030, PICO-DD-PARSER.
+ * Traces to: PICO-FR-001, PICO-FR-003, PICO-FR-004, PICO-FR-005,
+ *            PICO-FR-006, PICO-FR-007, PICO-FR-020, PICO-FR-024,
+ *            PICO-FR-027, PICO-FR-030, PICO-DD-PARSER.
  */
 
 #include "cmd_parser.h"
@@ -17,7 +18,14 @@
 #include "sht30.h"
 #include "text.h"
 
-/** What to do once the reply has been sent. A reboot must follow the "ok",
+/** The value an @c rd reply carries when there is no value to give: an
+ *  unknown option, or a temperature that could not be measured. */
+#define CMD_PARSER_RD_ERROR		"Error"
+
+/** The @c rd option that is measured rather than looked up. */
+#define CMD_PARSER_RD_TEMPERATURE	"temperature"
+
+/** What to do once the reply has been sent. A reboot must follow the reply,
  *  or the host never learns that the command was accepted. */
 typedef enum
 {
@@ -41,11 +49,10 @@ typedef struct
  * than generated: a macro ending in ';' is CERT PRE11-C. A row with no handler
  * still fails to build, because the table below takes each one's address. */
 static proto_error_t cmd_help(uint32_t argc, char *argv[], text_t *reply);
-static proto_error_t cmd_ver(uint32_t argc, char *argv[], text_t *reply);
-static proto_error_t cmd_temp(uint32_t argc, char *argv[], text_t *reply);
+static proto_error_t cmd_rd(uint32_t argc, char *argv[], text_t *reply);
 static proto_error_t cmd_status(uint32_t argc, char *argv[], text_t *reply);
 static proto_error_t cmd_sreset(uint32_t argc, char *argv[], text_t *reply);
-static proto_error_t cmd_reset(uint32_t argc, char *argv[], text_t *reply);
+static proto_error_t cmd_ecureset(uint32_t argc, char *argv[], text_t *reply);
 static proto_error_t cmd_bootsel(uint32_t argc, char *argv[], text_t *reply);
 
 static const cmd_entry_t	cmd_table[] =
@@ -57,6 +64,24 @@ static const cmd_entry_t	cmd_table[] =
 };
 
 #define CMD_PARSER_TABLE_LENGTH	((uint32_t)(sizeof(cmd_table) / sizeof(cmd_table[0])))
+
+/** An @c rd option whose value is a fixed string. The temperature is not in
+ *  this table: it is measured, so it is handled on its own. */
+typedef struct
+{
+	const char	*option;
+	const char	*value;
+} cmd_rd_field_t;
+
+static const cmd_rd_field_t	cmd_rd_fields[] =
+{
+	{ "name",	firmware_g_name },
+	{ "copyright",	firmware_g_copyright },
+	{ "version",	firmware_g_version },
+	{ "sha",	firmware_g_sha }
+};
+
+#define CMD_PARSER_RD_FIELD_COUNT	((uint32_t)(sizeof(cmd_rd_fields) / sizeof(cmd_rd_fields[0])))
 
 #define X(symbol, code, text)	(text),
 static const char * const	cmd_error_text[] =
@@ -117,8 +142,9 @@ static void cmd_send_error(proto_error_t error)
 }
 
 /* ------------------------------------------------------------------------ */
-/* Handlers. Each appends its reply body - without the leading "ok" - to
- * @p reply, and returns PROTO_ERR_NONE or the error to send instead. */
+/* Handlers. Each writes its whole reply line - "ok ...", or for rd "ACK ..."
+ * or "NAK ..." - to the empty @p reply, and returns PROTO_ERR_NONE, or the
+ * error to send instead. On an error, whatever was written is discarded. */
 
 static proto_error_t cmd_help(uint32_t argc, char *argv[], text_t *reply)
 {
@@ -126,7 +152,6 @@ static proto_error_t cmd_help(uint32_t argc, char *argv[], text_t *reply)
 
 	(void)argc;
 	(void)argv;
-	(void)reply;
 	for (index = 0U; index < CMD_PARSER_TABLE_LENGTH; index++)
 	{
 		char	buffer[PROTO_MAX_REPLY];
@@ -139,54 +164,72 @@ static proto_error_t cmd_help(uint32_t argc, char *argv[], text_t *reply)
 		text_str(&line, cmd_table[index].help);
 		hal_write_line(buffer);
 	}
+	text_str(reply, "ok");
 	return PROTO_ERR_NONE;
 }
 
-static proto_error_t cmd_ver(uint32_t argc, char *argv[], text_t *reply)
+/* "<ACK|NAK> rd <option> = " - the part every rd reply shares. */
+static void cmd_rd_begin(text_t *reply, const char *verdict, const char *option)
 {
-	(void)argc;
-	(void)argv;
-	text_str(reply, " title=");
-	text_token(reply, firmware_g_title);
-	text_str(reply, " fw=");
-	text_token(reply, firmware_g_version);
-	text_str(reply, " built=");
-	text_token(reply, firmware_g_build_date);
-	text_str(reply, " proto=");
-	text_str(reply, PROTO_VERSION);
-	text_str(reply, " board=");
-	text_str(reply, BOARD_NAME);
-	text_str(reply, " serial=");
-	text_token(reply, hal_board_id());
-	text_str(reply, " sensor=");
-	text_str(reply, PROTO_SENSOR);
-	text_str(reply, " addr=");
-	text_hex8(reply, (uint8_t)BOARD_SHT30_ADDRESS);
-	text_str(reply, " uptime_s=");
-	text_u32(reply, (uint32_t)(hal_uptime_us() / 1000000ULL));
-	return PROTO_ERR_NONE;
+	text_str(reply, verdict);
+	text_str(reply, " rd ");
+	text_str(reply, option);
+	text_str(reply, " = ");
 }
 
-static proto_error_t cmd_temp(uint32_t argc, char *argv[], text_t *reply)
+/* rd temperature: one measurement, in degrees Celsius to two places. Any
+ * failure - no acknowledge, a bad checksum, a bus timeout - is reported as
+ * the value "Error" in an ACK, not as an err reply: the command was
+ * understood, and the reading is what failed (PICO-FR-027). */
+static void cmd_rd_temperature(text_t *reply)
 {
 	sht30_reading_t	reading;
-	proto_error_t	result;
+
+	cmd_rd_begin(reply, "ACK", CMD_PARSER_RD_TEMPERATURE);
+	if (sht30_measure((uint8_t)BOARD_SHT30_ADDRESS, &reading) == SHT30_STATUS_OK)
+	{
+		text_centi(reply, reading.temperature_mc);
+	}
+	else
+	{
+		text_str(reply, CMD_PARSER_RD_ERROR);
+	}
+}
+
+/* rd <option>. The option is matched exactly, case included. The identity
+ * options never touch the sensor, so a Pico with no sensor still says what it
+ * is (PICO-FR-005, PICO-FR-006). An unknown option is answered with a NAK
+ * that echoes it as received (PICO-FR-007). */
+static proto_error_t cmd_rd(uint32_t argc, char *argv[], text_t *reply)
+{
+	const char	*option = argv[0];
+	const char	*value = NULL;
+	uint32_t	index;
 
 	(void)argc;
-	(void)argv;
-	result = cmd_from_sht30(sht30_measure((uint8_t)BOARD_SHT30_ADDRESS, &reading));
-	if (result == PROTO_ERR_NONE)
+	for (index = 0U; (index < CMD_PARSER_RD_FIELD_COUNT) && (value == NULL); index++)
 	{
-		text_str(reply, " t=");
-		text_milli(reply, reading.temperature_mc);
-		text_str(reply, " rh=");
-		text_milli(reply, reading.humidity_mpct);
-		text_str(reply, " raw_t=");
-		text_hex16(reply, reading.raw_temperature);
-		text_str(reply, " raw_rh=");
-		text_hex16(reply, reading.raw_humidity);
+		if (strcmp(option, cmd_rd_fields[index].option) == 0)
+		{
+			value = cmd_rd_fields[index].value;
+		}
 	}
-	return result;
+
+	if (value != NULL)
+	{
+		cmd_rd_begin(reply, "ACK", option);
+		text_str(reply, value);
+	}
+	else if (strcmp(option, CMD_PARSER_RD_TEMPERATURE) == 0)
+	{
+		cmd_rd_temperature(reply);
+	}
+	else
+	{
+		cmd_rd_begin(reply, "NAK", option);
+		text_str(reply, CMD_PARSER_RD_ERROR);
+	}
+	return PROTO_ERR_NONE;
 }
 
 static proto_error_t cmd_status(uint32_t argc, char *argv[], text_t *reply)
@@ -199,7 +242,7 @@ static proto_error_t cmd_status(uint32_t argc, char *argv[], text_t *reply)
 	result = cmd_from_sht30(sht30_read_status((uint8_t)BOARD_SHT30_ADDRESS, &status));
 	if (result == PROTO_ERR_NONE)
 	{
-		text_str(reply, " status=");
+		text_str(reply, "ok status=");
 		text_hex16(reply, status);
 	}
 	return result;
@@ -207,17 +250,23 @@ static proto_error_t cmd_status(uint32_t argc, char *argv[], text_t *reply)
 
 static proto_error_t cmd_sreset(uint32_t argc, char *argv[], text_t *reply)
 {
+	proto_error_t	result;
+
 	(void)argc;
 	(void)argv;
-	(void)reply;
-	return cmd_from_sht30(sht30_soft_reset((uint8_t)BOARD_SHT30_ADDRESS));
+	result = cmd_from_sht30(sht30_soft_reset((uint8_t)BOARD_SHT30_ADDRESS));
+	if (result == PROTO_ERR_NONE)
+	{
+		text_str(reply, "ok");
+	}
+	return result;
 }
 
-static proto_error_t cmd_reset(uint32_t argc, char *argv[], text_t *reply)
+static proto_error_t cmd_ecureset(uint32_t argc, char *argv[], text_t *reply)
 {
 	(void)argc;
 	(void)argv;
-	(void)reply;
+	text_str(reply, "ok");
 	cmd_after = CMD_AFTER_REBOOT;
 	return PROTO_ERR_NONE;
 }
@@ -226,7 +275,7 @@ static proto_error_t cmd_bootsel(uint32_t argc, char *argv[], text_t *reply)
 {
 	(void)argc;
 	(void)argv;
-	(void)reply;
+	text_str(reply, "ok");
 	cmd_after = CMD_AFTER_BOOTLOADER;
 	return PROTO_ERR_NONE;
 }
@@ -336,7 +385,7 @@ static const cmd_entry_t *cmd_lookup(const char *name)
 }
 
 /* Check the argument count and run the handler for @p entry, which may be
- * NULL for an unknown command. The handler appends to @p reply. */
+ * NULL for an unknown command. The handler writes to @p reply. */
 static proto_error_t cmd_run(const cmd_entry_t *entry, uint32_t count, char *tokens[],
 			     text_t *reply)
 {
@@ -365,7 +414,7 @@ static proto_error_t cmd_run(const cmd_entry_t *entry, uint32_t count, char *tok
 }
 
 /* Send the reply, then carry out any reboot the command asked for: the host
- * must see the "ok" before the link goes away. */
+ * must see the reply before the link goes away. */
 static void cmd_finish(proto_error_t result, const char *reply_text)
 {
 	if (result == PROTO_ERR_NONE)
@@ -406,7 +455,6 @@ void cmd_execute(char *line)
 	{
 		cmd_after = CMD_AFTER_NOTHING;
 		text_init(&reply, buffer, PROTO_MAX_REPLY);
-		text_str(&reply, "ok");
 		cmd_finish(cmd_run(cmd_lookup(tokens[0]), count, tokens, &reply), buffer);
 	}
 }

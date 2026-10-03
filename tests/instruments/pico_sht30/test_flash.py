@@ -23,8 +23,10 @@ from benchtools.instruments.pico_sht30 import (
 from benchtools.instruments.pico_sht30 import flash as flash_module
 from benchtools.instruments.pico_sht30.cli import main
 
-BUILT = "2026-10-03T09:15:00Z"
-THERMOMETER = b"Pico2-SHT30-Thermometer\x001.0.0\x00" + BUILT.encode() + b"\x00"
+VERSION = "V1.00.0002"
+SHA = "abc1234"
+THERMOMETER = (b"Pico 2 SHT30 Temperature Sensor\x00(c) 2026 Dermot Murphy\x00"
+               + VERSION.encode() + b"\x00" + SHA.encode() + b"\x00")
 
 
 def make_uf2(payload: bytes = THERMOMETER, family: int = flash_module.RP2350_ARM_S_FAMILY_ID,
@@ -80,7 +82,8 @@ def test_image_is_parsed(uf2):
     assert image.family_names == ["absolute", "rp2350-arm-s"]
     assert image.for_rp2350
     assert image.is_thermometer
-    assert image.built == BUILT
+    assert image.version == VERSION
+    assert image.sha == SHA
 
 
 def test_not_a_whole_number_of_blocks():
@@ -120,28 +123,38 @@ def test_other_firmware_needs_any_image(tmp_path, board):
     assert "not the thermometer" in result.notes[0]
 
 
-def test_ambiguous_build_date_is_not_compared(tmp_path, board):
-    path = tmp_path / "two_dates.uf2"
-    path.write_bytes(make_uf2(THERMOMETER + b"2025-01-01T00:00:00Z\x00"))
-    assert Uf2Image.load(str(path)).built == ""
+def test_ambiguous_sha_is_not_compared(tmp_path, board):
+    path = tmp_path / "two_shas.uf2"
+    path.write_bytes(make_uf2(THERMOMETER + b"\x00deadbee\x00"))
+    assert Uf2Image.load(str(path)).sha == ""
     result = board.flasher(**instant()).flash(str(path))
     assert result.ok
-    assert "built" not in result.checks
-    assert any("build date" in note for note in result.notes)
+    assert "sha" not in result.checks
+    assert any("commit SHA" in note for note in result.notes)
+
+
+def test_missing_version_is_not_compared(tmp_path, board):
+    path = tmp_path / "no_version.uf2"
+    path.write_bytes(make_uf2(b"Pico 2 SHT30 Temperature Sensor\x00" + SHA.encode() + b"\x00"))
+    result = board.flasher(**instant()).flash(str(path))
+    assert result.ok
+    assert "version" not in result.checks
+    assert any("version string" in note for note in result.notes)
 
 
 # ---------------------------------------------------------------------------
 # The whole flash, against the simulated board
 # ---------------------------------------------------------------------------
 def test_success_from_running_firmware(uf2, board):
-    result = board.flasher(**instant()).flash(uf2, expect_version="1.0.0")
+    result = board.flasher(**instant()).flash(uf2)
     assert result.ok
     assert result.method == "bootsel"
     assert board.firmware.bootloader_requests == 1
     assert board.flashes == 1
-    assert result.before.built == board.firmware.DEFAULT_BUILT
-    assert result.after.built == BUILT
-    assert set(result.checks) == {"title", "version", "built"}
+    assert result.before.sha == board.firmware.DEFAULT_SHA
+    assert result.after.sha == SHA
+    assert result.after.version == VERSION
+    assert set(result.checks) == {"name", "version", "sha"}
     assert not board.in_bootloader
 
 
@@ -158,20 +171,21 @@ def test_success_from_bootloader(uf2):
 
 
 def test_version_mismatch_is_reported_not_raised(uf2, board):
-    result = board.flasher(**instant()).flash(uf2, expect_version="2.0.0")
+    result = board.flasher(**instant()).flash(uf2, expect_version="V2.00.0000")
     assert not result.ok
-    assert result.checks["version"] == {"expected": "2.0.0", "actual": "1.0.0", "ok": False}
+    assert result.checks["version"] == {"expected": "V2.00.0000", "actual": VERSION,
+                                        "ok": False}
 
 
 def test_build_mismatch_is_reported(uf2, board):
     def stale_copy(image, drive):
         target = board.copy(image, drive)
-        board.firmware.built = "2026-01-01T00:00:00Z"   # the old image kept running
+        board.firmware.sha = "0ld0ld0"   # the old image kept running
         return target
 
     result = board.flasher(**instant(copy=stale_copy)).flash(uf2)
     assert not result.ok
-    assert result.checks["built"]["actual"] == "2026-01-01T00:00:00Z"
+    assert result.checks["sha"]["actual"] == "0ld0ld0"
 
 
 def test_falls_back_to_1200_baud_when_the_protocol_does_not_answer(uf2, board):
@@ -316,16 +330,16 @@ def test_copy_error_after_the_drive_went_is_not_an_error(tmp_path, uf2):
 # The command line
 # ---------------------------------------------------------------------------
 def test_cli_flash(capsys, uf2):
-    status = main(["-r", "sim://", "flash", uf2, "--expect-version", "1.0.0"])
+    status = main(["-r", "sim://", "flash", uf2, "--expect-version", VERSION])
     payload = json.loads(capsys.readouterr().out)
     assert status == 0
     assert payload["ok"] is True
     assert payload["method"] == "bootsel"
-    assert payload["after"]["built"] == BUILT
+    assert payload["after"]["sha"] == SHA
 
 
 def test_cli_flash_mismatch_exits_1(capsys, uf2):
-    assert main(["flash", uf2, "--expect-version", "9.9.9"]) == 1
+    assert main(["flash", uf2, "--expect-version", "V9.99.9999"]) == 1
     assert json.loads(capsys.readouterr().out)["checks"]["version"]["ok"] is False
 
 

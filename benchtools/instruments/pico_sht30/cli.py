@@ -5,7 +5,7 @@ press; see :mod:`.flash`. Results are printed as JSON so the tool composes
 into a larger harness, and ``--resource sim://`` runs every sub-command with no
 Pico attached.
 
-Traces to: PICO-FR-060, PICO-FR-075, PICO-DD-CLI.
+Traces to: PICO-FR-060, PICO-FR-061, PICO-FR-075, PICO-DD-CLI.
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from typing import Optional, Sequence
 
 from ... import __version__
 from ...core.errors import BenchToolsError
-from .constants import DEFAULT_BAUDRATE
+from .constants import DEFAULT_BAUDRATE, RD_OPTIONS
 from .thermometer import PicoSht30
 
 __all__ = ["main", "build_parser"]
@@ -36,8 +36,13 @@ def _emit(payload: dict, path: Optional[str]) -> None:
             handle.write(text + "\n")
 
 
-def _cmd_ver(thermometer: PicoSht30, args) -> int:
+def _cmd_info(thermometer: PicoSht30, args) -> int:
     _emit(thermometer.firmware_info().as_dict(), args.json)
+    return _EXIT_OK
+
+
+def _cmd_rd(thermometer: PicoSht30, args) -> int:
+    _emit({"option": args.option, "value": thermometer.rd(args.option)}, args.json)
     return _EXIT_OK
 
 
@@ -60,6 +65,12 @@ def _cmd_status(thermometer: PicoSht30, args) -> int:
 def _cmd_sreset(thermometer: PicoSht30, args) -> int:
     thermometer.soft_reset_sensor()
     _emit({"sensor_reset": True}, args.json)
+    return _EXIT_OK
+
+
+def _cmd_ecureset(thermometer: PicoSht30, args) -> int:
+    thermometer.reset()
+    _emit({"rebooted": True}, args.json)
     return _EXIT_OK
 
 
@@ -112,10 +123,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    ver = subparsers.add_parser("ver", help="title, firmware version and identity")
-    ver.set_defaults(handler=_cmd_ver)
+    info = subparsers.add_parser("info", help="name, copyright, version and commit SHA")
+    info.set_defaults(handler=_cmd_info)
 
-    temp = subparsers.add_parser("temp", help="read temperature and humidity")
+    rd = subparsers.add_parser("rd", help="send one 'rd' command and print its value")
+    rd.add_argument("option", choices=RD_OPTIONS)
+    rd.set_defaults(handler=_cmd_rd)
+
+    temp = subparsers.add_parser("temp", help="read the temperature (rd temperature)")
     temp.add_argument("--count", "-n", type=int, default=1, help="readings to take")
     temp.add_argument("--interval", "-i", type=float, default=1.0,
                       help="seconds between readings")
@@ -127,6 +142,9 @@ def build_parser() -> argparse.ArgumentParser:
     sreset = subparsers.add_parser("sreset", help="soft-reset the sensor")
     sreset.set_defaults(handler=_cmd_sreset)
 
+    ecureset = subparsers.add_parser("ecureset", help="reboot the Pico")
+    ecureset.set_defaults(handler=_cmd_ecureset)
+
     bootsel = subparsers.add_parser("bootsel", help="reboot into the USB bootloader")
     bootsel.set_defaults(handler=_cmd_bootsel)
 
@@ -134,18 +152,20 @@ def build_parser() -> argparse.ArgumentParser:
         "flash", help="reflash from a .uf2 with no BOOTSEL press, then check the build",
         description="Reboot the Pico into its USB bootloader (the 'bootsel' command, or "
                     "a 1200-baud reset), copy the UF2 onto the RP2350 drive, and check "
-                    "'ver' afterwards against the image. A Pico already in its "
+                    "'rd name', 'rd version' and 'rd sha' afterwards against the image. "
+                    "A Pico already in its "
                     "bootloader is flashed as it is. With -r '' the port is found by "
                     "USB vendor ID afterwards.",
     )
     flash.add_argument("uf2", help="the image, e.g. build/pico_sht30/pico_sht30.uf2")
-    flash.add_argument("--expect-version", metavar="X.Y.Z",
-                       help="the fw= the new image must report")
+    flash.add_argument("--expect-version", metavar="VX.YY.ZZZZ",
+                       help="the rd version the new image must report "
+                            "(default: the version stored in the image)")
     flash.add_argument("--drive", help="the RP2350 drive, if it cannot be found, e.g. E:")
     flash.add_argument("--any-image", action="store_true",
                        help="allow an image that is not the thermometer firmware")
     flash.add_argument("--no-verify", action="store_true",
-                       help="do not read 'ver' afterwards")
+                       help="do not read 'rd' afterwards")
     flash.add_argument("--bootloader-timeout", type=float, default=15.0,
                        help="seconds to wait for the RP2350 drive (default 15)")
     flash.add_argument("--port-timeout", type=float, default=20.0,

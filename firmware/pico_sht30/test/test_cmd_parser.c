@@ -2,7 +2,9 @@
  * @file test_cmd_parser.c
  * @brief Line assembly and the command set, end to end through the fake HAL.
  *
- * Traces to: PICO-FR-001 .. PICO-FR-005, PICO-FR-020, PICO-FR-024,
+ * Traces to: PICO-FR-001, PICO-FR-003, PICO-FR-004, PICO-FR-005,
+ *            PICO-FR-006, PICO-FR-007, PICO-FR-020, PICO-FR-021,
+ *            PICO-FR-023, PICO-FR-024, PICO-FR-025, PICO-FR-027,
  *            PICO-FR-030, PICO-DD-PARSER, SWE4-UT-PICOFW.
  */
 
@@ -68,11 +70,10 @@ static void test_expect_in(const char *needle, const char *haystack)
 /* --- line assembly ------------------------------------------------------ */
 static void test_a_line_is_ready_at_lf(void)
 {
-	TEST_ASSERT_EQUAL(CMD_LINE_RESULT_PENDING, cmd_line_push(&line, 'v'));
-	TEST_ASSERT_EQUAL(CMD_LINE_RESULT_PENDING, cmd_line_push(&line, 'e'));
 	TEST_ASSERT_EQUAL(CMD_LINE_RESULT_PENDING, cmd_line_push(&line, 'r'));
+	TEST_ASSERT_EQUAL(CMD_LINE_RESULT_PENDING, cmd_line_push(&line, 'd'));
 	TEST_ASSERT_EQUAL(CMD_LINE_RESULT_READY, cmd_line_push(&line, '\n'));
-	TEST_ASSERT_EQUAL_STRING("ver", line.text);
+	TEST_ASSERT_EQUAL_STRING("rd", line.text);
 }
 
 static void test_cr_is_ignored(void)
@@ -148,28 +149,28 @@ static void test_an_unknown_command_is_refused(void)
 
 static void test_commands_are_case_sensitive(void)
 {
-	test_feed("VER\n");
+	test_feed("RD name\n");
 	TEST_ASSERT_EQUAL_STRING("err 1 unknown command", fake_hal_last_line());
 }
 
 static void test_an_unexpected_argument_is_refused(void)
 {
-	test_feed("temp now\n");
+	test_feed("status now\n");
 	TEST_ASSERT_EQUAL_STRING("err 2 wrong number of arguments", fake_hal_last_line());
 	TEST_ASSERT_EQUAL_UINT32(0U, fake_hal_write_count());
 }
 
 static void test_more_tokens_than_are_stored_is_still_refused(void)
 {
-	test_feed("temp a b c d e f\n");
+	test_feed("rd a b c d e f\n");
 	TEST_ASSERT_EQUAL_STRING("err 2 wrong number of arguments", fake_hal_last_line());
 }
 
 static void test_surrounding_whitespace_is_ignored(void)
 {
 	fake_hal_queue_measurement(0x6666U, 0x6666U);
-	test_feed("  \ttemp  \r\n");
-	test_expect_in("ok t=25.000", fake_hal_last_line());
+	test_feed("  \trd  temperature \r\n");
+	TEST_ASSERT_EQUAL_STRING("ACK rd temperature = 25.00", fake_hal_last_line());
 }
 
 static void test_error_text_out_of_range(void)
@@ -178,92 +179,207 @@ static void test_error_text_out_of_range(void)
 	TEST_ASSERT_EQUAL_STRING("ok", proto_error_text(PROTO_ERR_NONE));
 }
 
-/* --- ver ---------------------------------------------------------------- */
-static void test_ver_reports_title_and_version(void)
+/* --- commands removed in protocol 2.0 ------------------------------------ */
+static void test_ver_temp_and_reset_are_no_longer_commands(void)
 {
+	/* Replaced by rd version, rd temperature and ecureset (#131). */
 	test_feed("ver\n");
+	TEST_ASSERT_EQUAL_STRING("err 1 unknown command", fake_hal_last_line());
+	test_feed("temp\n");
+	TEST_ASSERT_EQUAL_STRING("err 1 unknown command", fake_hal_last_line());
+	test_feed("reset\n");
+	TEST_ASSERT_EQUAL_STRING("err 1 unknown command", fake_hal_last_line());
+	TEST_ASSERT_EQUAL_UINT32(3U, fake_hal_line_count());
+	TEST_ASSERT_EQUAL_UINT32(0U, fake_hal_reboot_count());
+	TEST_ASSERT_EQUAL_UINT32(0U, fake_hal_write_count());
+}
+
+/* --- rd: identity (PICO-FR-006) ------------------------------------------ */
+static void test_rd_name(void)
+{
+	test_feed("rd name\n");
 	TEST_ASSERT_EQUAL_UINT32(1U, fake_hal_line_count());
-	TEST_ASSERT_EQUAL_STRING_LEN("ok title=", fake_hal_last_line(), 9U);
-	test_expect_in("title=" FIRMWARE_TITLE " ", fake_hal_last_line());
-	test_expect_in(" fw=" FIRMWARE_VERSION " ", fake_hal_last_line());
+	TEST_ASSERT_EQUAL_STRING("ACK rd name = Pico 2 SHT30 Temperature Sensor",
+				 fake_hal_last_line());
 }
 
-static void test_ver_reports_the_rest_of_the_identity(void)
+static void test_rd_copyright(void)
 {
-	fake_hal_set_uptime_us(90500000ULL);
-	test_feed("ver\n");
-	test_expect_in(" built=", fake_hal_last_line());
-	test_expect_in(" proto=" PROTO_VERSION " ", fake_hal_last_line());
-	test_expect_in(" board=pico2 ", fake_hal_last_line());
-	test_expect_in(" serial=" FAKE_BOARD_ID " ", fake_hal_last_line());
-	test_expect_in(" sensor=SHT30-DIS ", fake_hal_last_line());
-	test_expect_in(" addr=0x44 ", fake_hal_last_line());
-	test_expect_in(" uptime_s=90", fake_hal_last_line());
+	test_feed("rd copyright\n");
+	TEST_ASSERT_EQUAL_STRING("ACK rd copyright = (c) 2026 Dermot Murphy", fake_hal_last_line());
 }
 
-static void test_ver_does_not_touch_the_sensor(void)
+static void test_rd_version(void)
 {
-	/* A Pico with no sensor must still say what it is. */
-	test_feed("ver\n");
+	test_feed("rd version\n");
+	TEST_ASSERT_EQUAL_STRING("ACK rd version = V1.00.0000", fake_hal_last_line());
+}
+
+static void test_rd_sha_reports_the_injected_commit(void)
+{
+	/* The test build injects "0123abc", as the target build injects the
+	 * output of git rev-parse --short=7 HEAD. */
+	test_feed("rd sha\n");
+	TEST_ASSERT_EQUAL_STRING("ACK rd sha = 0123abc", fake_hal_last_line());
+	TEST_ASSERT_EQUAL_STRING(FIRMWARE_GIT_SHA, firmware_g_sha);
+}
+
+static void test_rd_identity_matches_the_header(void)
+{
+	TEST_ASSERT_EQUAL_STRING(FIRMWARE_NAME, firmware_g_name);
+	TEST_ASSERT_EQUAL_STRING(FIRMWARE_COPYRIGHT, firmware_g_copyright);
+	TEST_ASSERT_EQUAL_STRING(FIRMWARE_VERSION, firmware_g_version);
+}
+
+static void test_rd_identity_does_not_touch_the_sensor(void)
+{
+	/* A Pico with no sensor must still say what it is (PICO-FR-005). */
+	test_feed("rd name\nrd copyright\nrd version\nrd sha\n");
+	TEST_ASSERT_EQUAL_UINT32(4U, fake_hal_line_count());
 	TEST_ASSERT_EQUAL_UINT32(0U, fake_hal_write_count());
 	TEST_ASSERT_EQUAL_UINT32(0U, fake_hal_read_count());
 }
 
-static void test_ver_has_no_spaces_inside_values(void)
+/* --- rd: arguments and unknown options (PICO-FR-003, PICO-FR-007) -------- */
+static void test_rd_without_an_option_is_refused(void)
 {
-	const char	*reply;
-	uint32_t	equals = 0U;
-	uint32_t	spaces = 0U;
-
-	test_feed("ver\n");
-	reply = fake_hal_last_line();
-	for (; *reply != '\0'; reply++)
-	{
-		equals += (*reply == '=') ? 1U : 0U;
-		spaces += (*reply == ' ') ? 1U : 0U;
-	}
-	/* "ok" then one space before each key=value token. */
-	TEST_ASSERT_EQUAL_UINT32(equals, spaces);
+	test_feed("rd\n");
+	TEST_ASSERT_EQUAL_STRING("err 2 wrong number of arguments", fake_hal_last_line());
 }
 
-/* --- temp --------------------------------------------------------------- */
-static void test_temp_reports_temperature_and_humidity(void)
+static void test_rd_with_two_options_is_refused(void)
+{
+	test_feed("rd name version\n");
+	TEST_ASSERT_EQUAL_STRING("err 2 wrong number of arguments", fake_hal_last_line());
+	TEST_ASSERT_EQUAL_UINT32(1U, fake_hal_line_count());
+}
+
+static void test_rd_unknown_option_is_a_nak(void)
+{
+	test_feed("rd humidity\n");
+	TEST_ASSERT_EQUAL_STRING("NAK rd humidity = Error", fake_hal_last_line());
+	TEST_ASSERT_EQUAL_UINT32(0U, fake_hal_write_count());
+}
+
+static void test_rd_options_are_case_sensitive(void)
+{
+	/* The NAK echoes the option exactly as it was received. */
+	test_feed("rd Name\n");
+	TEST_ASSERT_EQUAL_STRING("NAK rd Name = Error", fake_hal_last_line());
+	test_feed("rd TEMPERATURE\n");
+	TEST_ASSERT_EQUAL_STRING("NAK rd TEMPERATURE = Error", fake_hal_last_line());
+	TEST_ASSERT_EQUAL_UINT32(0U, fake_hal_write_count());
+}
+
+static void test_rd_a_partial_option_is_a_nak(void)
+{
+	test_feed("rd temp\n");
+	TEST_ASSERT_EQUAL_STRING("NAK rd temp = Error", fake_hal_last_line());
+	test_feed("rd names\n");
+	TEST_ASSERT_EQUAL_STRING("NAK rd names = Error", fake_hal_last_line());
+}
+
+static void test_rd_the_longest_option_is_echoed_whole(void)
+{
+	char		command[PROTO_MAX_LINE + 1U];
+	char		expected[PROTO_MAX_REPLY];
+	uint32_t	index;
+
+	/* The longest line that fits: "rd " and an option filling the rest. */
+	(void)strcpy(command, "rd ");
+	for (index = 3U; index < (PROTO_MAX_LINE - 1U); index++)
+	{
+		command[index] = 'q';
+	}
+	command[PROTO_MAX_LINE - 1U] = '\n';
+	command[PROTO_MAX_LINE] = '\0';
+	(void)strcpy(expected, "NAK ");
+	(void)strncat(expected, command, PROTO_MAX_LINE - 1U);
+	(void)strcat(expected, " = Error");
+
+	test_feed(command);
+	TEST_ASSERT_EQUAL_STRING(expected, fake_hal_last_line());
+}
+
+/* --- rd temperature (PICO-FR-020, PICO-FR-027) --------------------------- */
+static void test_rd_temperature_has_two_places(void)
 {
 	fake_hal_queue_measurement(0x6666U, 0x8000U);
-	test_feed("temp\n");
-	TEST_ASSERT_EQUAL_STRING("ok t=25.000 rh=50.001 raw_t=0x6666 raw_rh=0x8000",
-				 fake_hal_last_line());
+	test_feed("rd temperature\n");
+	TEST_ASSERT_EQUAL_STRING("ACK rd temperature = 25.00", fake_hal_last_line());
 }
 
-static void test_temp_below_zero(void)
+static void test_rd_temperature_is_rounded(void)
 {
-	fake_hal_queue_measurement(0x4000U, 0x0000U);
-	test_feed("temp\n");
-	TEST_ASSERT_EQUAL_STRING("ok t=-1.249 rh=0.000 raw_t=0x4000 raw_rh=0x0000",
-				 fake_hal_last_line());
+	/* 0x6340 converts to 22.848 degrees. */
+	fake_hal_queue_measurement(0x6340U, 0x72F9U);
+	test_feed("rd temperature\n");
+	TEST_ASSERT_EQUAL_STRING("ACK rd temperature = 22.85", fake_hal_last_line());
 }
 
-static void test_temp_with_no_sensor(void)
+static void test_rd_temperature_below_zero(void)
+{
+	/* 0x4000 converts to -1.249 degrees. */
+	fake_hal_queue_measurement(0x4000U, 0x0000U);
+	test_feed("rd temperature\n");
+	TEST_ASSERT_EQUAL_STRING("ACK rd temperature = -1.25", fake_hal_last_line());
+}
+
+static void test_rd_temperature_just_below_zero_has_no_sign(void)
+{
+	/* 16851 ticks converts to -0.002 degrees, which rounds to zero. */
+	fake_hal_queue_measurement(16851U, 0x0000U);
+	test_feed("rd temperature\n");
+	TEST_ASSERT_EQUAL_STRING("ACK rd temperature = 0.00", fake_hal_last_line());
+}
+
+static void test_rd_temperature_takes_one_measurement(void)
+{
+	fake_hal_queue_measurement(0x6666U, 0x8000U);
+	test_feed("rd temperature\n");
+	TEST_ASSERT_EQUAL_UINT32(1U, fake_hal_write_count());
+	TEST_ASSERT_EQUAL_UINT32(1U, fake_hal_read_count());
+}
+
+static void test_rd_temperature_with_no_sensor(void)
 {
 	fake_hal_fail_next_write(HAL_STATUS_ERR_NACK);
-	test_feed("temp\n");
-	TEST_ASSERT_EQUAL_STRING("err 4 the sensor did not acknowledge", fake_hal_last_line());
+	test_feed("rd temperature\n");
+	TEST_ASSERT_EQUAL_STRING("ACK rd temperature = Error", fake_hal_last_line());
+	TEST_ASSERT_EQUAL_UINT32(1U, fake_hal_line_count());
 }
 
-static void test_temp_with_a_corrupted_frame(void)
+static void test_rd_temperature_with_no_answer_to_the_read(void)
+{
+	/* The command is acknowledged but the read is not: nothing is queued. */
+	test_feed("rd temperature\n");
+	TEST_ASSERT_EQUAL_STRING("ACK rd temperature = Error", fake_hal_last_line());
+	TEST_ASSERT_EQUAL_UINT32(1U, fake_hal_read_count());
+}
+
+static void test_rd_temperature_with_a_corrupted_frame(void)
 {
 	static const uint8_t	frame[6] = { 0x66U, 0x66U, 0x00U, 0x66U, 0x66U, 0x93U };
 
 	fake_hal_queue_read(frame, 6U, HAL_STATUS_OK);
-	test_feed("temp\n");
-	TEST_ASSERT_EQUAL_STRING("err 5 the sensor checksum did not match", fake_hal_last_line());
+	test_feed("rd temperature\n");
+	TEST_ASSERT_EQUAL_STRING("ACK rd temperature = Error", fake_hal_last_line());
 }
 
-static void test_temp_with_a_bus_timeout(void)
+static void test_rd_temperature_with_a_bus_timeout(void)
 {
 	fake_hal_fail_next_write(HAL_STATUS_ERR_TIMEOUT);
-	test_feed("temp\n");
-	TEST_ASSERT_EQUAL_STRING("err 6 I2C bus timeout", fake_hal_last_line());
+	test_feed("rd temperature\n");
+	TEST_ASSERT_EQUAL_STRING("ACK rd temperature = Error", fake_hal_last_line());
+}
+
+static void test_rd_temperature_with_a_bus_timeout_on_the_read(void)
+{
+	static const uint8_t	frame[6] = { 0U };
+
+	fake_hal_queue_read(frame, 6U, HAL_STATUS_ERR_TIMEOUT);
+	test_feed("rd temperature\n");
+	TEST_ASSERT_EQUAL_STRING("ACK rd temperature = Error", fake_hal_last_line());
 }
 
 /* --- status and sreset -------------------------------------------------- */
@@ -284,6 +400,22 @@ static void test_status_with_no_sensor(void)
 	TEST_ASSERT_EQUAL_STRING("err 4 the sensor did not acknowledge", fake_hal_last_line());
 }
 
+static void test_status_with_a_corrupted_word(void)
+{
+	static const uint8_t	word[3] = { 0x80U, 0x10U, 0x00U };
+
+	fake_hal_queue_read(word, 3U, HAL_STATUS_OK);
+	test_feed("status\n");
+	TEST_ASSERT_EQUAL_STRING("err 5 the sensor checksum did not match", fake_hal_last_line());
+}
+
+static void test_status_with_a_bus_timeout(void)
+{
+	fake_hal_fail_next_write(HAL_STATUS_ERR_TIMEOUT);
+	test_feed("status\n");
+	TEST_ASSERT_EQUAL_STRING("err 6 I2C bus timeout", fake_hal_last_line());
+}
+
 static void test_sreset(void)
 {
 	test_feed("sreset\n");
@@ -292,10 +424,18 @@ static void test_sreset(void)
 	TEST_ASSERT_EQUAL_HEX8(0xA2U, fake_hal_write_bytes(0U)[1]);
 }
 
-/* --- reset and bootsel -------------------------------------------------- */
-static void test_reset_replies_before_rebooting(void)
+static void test_sreset_with_no_sensor(void)
 {
-	test_feed("reset\n");
+	fake_hal_fail_next_write(HAL_STATUS_ERR_NACK);
+	test_feed("sreset\n");
+	TEST_ASSERT_EQUAL_STRING("err 4 the sensor did not acknowledge", fake_hal_last_line());
+	TEST_ASSERT_EQUAL_UINT32(1U, fake_hal_line_count());
+}
+
+/* --- ecureset and bootsel (PICO-FR-030) ---------------------------------- */
+static void test_ecureset_replies_before_rebooting(void)
+{
+	test_feed("ecureset\n");
 	TEST_ASSERT_EQUAL_STRING("ok", fake_hal_last_line());
 	TEST_ASSERT_EQUAL_UINT32(1U, fake_hal_reboot_count());
 	TEST_ASSERT_EQUAL_UINT32(1U, fake_hal_lines_at_reboot());
@@ -311,11 +451,12 @@ static void test_bootsel_replies_before_rebooting(void)
 	TEST_ASSERT_EQUAL_UINT32(0U, fake_hal_reboot_count());
 }
 
-static void test_a_refused_reset_does_not_reboot(void)
+static void test_a_refused_ecureset_does_not_reboot(void)
 {
-	test_feed("reset now\n");
+	test_feed("ecureset now\n");
+	TEST_ASSERT_EQUAL_STRING("err 2 wrong number of arguments", fake_hal_last_line());
 	TEST_ASSERT_EQUAL_UINT32(0U, fake_hal_reboot_count());
-	test_feed("ver\n");
+	test_feed("rd version\n");
 	TEST_ASSERT_EQUAL_UINT32(0U, fake_hal_reboot_count());
 }
 
@@ -323,11 +464,13 @@ static void test_a_refused_reset_does_not_reboot(void)
 static void test_help_lists_every_command_then_ok(void)
 {
 	test_feed("help\n");
-	TEST_ASSERT_EQUAL_UINT32(8U, fake_hal_line_count());
+	TEST_ASSERT_EQUAL_UINT32(7U, fake_hal_line_count());
 	TEST_ASSERT_EQUAL_STRING_LEN("# help - ", fake_hal_line(0U), 9U);
-	test_expect_in("# ver - ", fake_hal_line(1U));
-	test_expect_in("# temp - ", fake_hal_line(2U));
-	test_expect_in("# bootsel - ", fake_hal_line(6U));
+	test_expect_in("# rd - ", fake_hal_line(1U));
+	test_expect_in("# status - ", fake_hal_line(2U));
+	test_expect_in("# sreset - ", fake_hal_line(3U));
+	test_expect_in("# ecureset - ", fake_hal_line(4U));
+	test_expect_in("# bootsel - ", fake_hal_line(5U));
 	TEST_ASSERT_EQUAL_STRING("ok", fake_hal_last_line());
 }
 
@@ -347,21 +490,38 @@ int main(void)
 	RUN_TEST(test_more_tokens_than_are_stored_is_still_refused);
 	RUN_TEST(test_surrounding_whitespace_is_ignored);
 	RUN_TEST(test_error_text_out_of_range);
-	RUN_TEST(test_ver_reports_title_and_version);
-	RUN_TEST(test_ver_reports_the_rest_of_the_identity);
-	RUN_TEST(test_ver_does_not_touch_the_sensor);
-	RUN_TEST(test_ver_has_no_spaces_inside_values);
-	RUN_TEST(test_temp_reports_temperature_and_humidity);
-	RUN_TEST(test_temp_below_zero);
-	RUN_TEST(test_temp_with_no_sensor);
-	RUN_TEST(test_temp_with_a_corrupted_frame);
-	RUN_TEST(test_temp_with_a_bus_timeout);
+	RUN_TEST(test_ver_temp_and_reset_are_no_longer_commands);
+	RUN_TEST(test_rd_name);
+	RUN_TEST(test_rd_copyright);
+	RUN_TEST(test_rd_version);
+	RUN_TEST(test_rd_sha_reports_the_injected_commit);
+	RUN_TEST(test_rd_identity_matches_the_header);
+	RUN_TEST(test_rd_identity_does_not_touch_the_sensor);
+	RUN_TEST(test_rd_without_an_option_is_refused);
+	RUN_TEST(test_rd_with_two_options_is_refused);
+	RUN_TEST(test_rd_unknown_option_is_a_nak);
+	RUN_TEST(test_rd_options_are_case_sensitive);
+	RUN_TEST(test_rd_a_partial_option_is_a_nak);
+	RUN_TEST(test_rd_the_longest_option_is_echoed_whole);
+	RUN_TEST(test_rd_temperature_has_two_places);
+	RUN_TEST(test_rd_temperature_is_rounded);
+	RUN_TEST(test_rd_temperature_below_zero);
+	RUN_TEST(test_rd_temperature_just_below_zero_has_no_sign);
+	RUN_TEST(test_rd_temperature_takes_one_measurement);
+	RUN_TEST(test_rd_temperature_with_no_sensor);
+	RUN_TEST(test_rd_temperature_with_no_answer_to_the_read);
+	RUN_TEST(test_rd_temperature_with_a_corrupted_frame);
+	RUN_TEST(test_rd_temperature_with_a_bus_timeout);
+	RUN_TEST(test_rd_temperature_with_a_bus_timeout_on_the_read);
 	RUN_TEST(test_status_reports_the_register);
 	RUN_TEST(test_status_with_no_sensor);
+	RUN_TEST(test_status_with_a_corrupted_word);
+	RUN_TEST(test_status_with_a_bus_timeout);
 	RUN_TEST(test_sreset);
-	RUN_TEST(test_reset_replies_before_rebooting);
+	RUN_TEST(test_sreset_with_no_sensor);
+	RUN_TEST(test_ecureset_replies_before_rebooting);
 	RUN_TEST(test_bootsel_replies_before_rebooting);
-	RUN_TEST(test_a_refused_reset_does_not_reboot);
+	RUN_TEST(test_a_refused_ecureset_does_not_reboot);
 	RUN_TEST(test_help_lists_every_command_then_ok);
 	return UNITY_END();
 }

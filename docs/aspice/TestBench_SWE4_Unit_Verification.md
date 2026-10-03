@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE4-001 | **Version** | 1.2 |
+| **Document ID** | TB-SWE4-001 | **Version** | 1.3 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -34,6 +34,7 @@
 | 1.0 | 2026-10-02 | Claude | #124: SWE4-UT-BLECLI covers choosing a sensor on the command line (16 cases, BLE-FR-071). |
 | 1.1 | 2026-10-02 | Claude | #126: SWE4-UT-EVENTNAMES added (21 cases); SWE4-UT-EVENTS covers per-instrument names (54 cases); SWE4-UT-TESTBENCH covers declared names and lower-case logs in the monitor. |
 | 1.2 | 2026-10-03 | Claude | #127: SWE4-UT-PICOFLASH added (34 cases, including two for an error from the 1200-baud reset kept as a note) for reflashing the Pico 2 thermometer with no BOOTSEL press (PICO-FR-070 … -076); §1.4b and the item not covered on silicon extended to PICO-OPEN-05, then narrowed after PICO-OPEN-01 and -05 were confirmed on a real Pico 2 on Windows. |
+| 1.3 | 2026-10-03 | Claude | #131: SWE4-UT-PICO, -PICOSIM, -PICOCLI, -PICOFWPROTO and -PICOFW rewritten for the `rd` command set, `ecureset`, `NoReadingError` and the two-place temperature (PICO-FR-006, -007, -027, -047, -061); the raw-word cross-check is no longer tested (PICO-FR-044 withdrawn). Firmware unit cases now 83. §1.4b: the shared vectors now include the two-place rounding, and the host unit tests are run with clang on Windows. §8: the Pico 2 not-covered row narrowed to what still needs the SHT30-D module, after the first run on a real Pico 2 (TB-SWE4-002 §13A.7). With #127 merged, SWE4-UT-PICOFLASH revised for `flash` confirming the build by `rd` (name, version and commit SHA read from the image in place of the title and build date): now 35 cases, the ambiguous build-date case replaced by an ambiguous-SHA case and a missing-version case added. |
 
 ---
 
@@ -182,6 +183,18 @@ way, and none of it needs a Pico:
    cmake --build build/pico-tests && ctest --test-dir build/pico-tests --output-on-failure
    ```
 
+   On the Windows bench PC, configure with clang: the MinGW GCC 6.3 there
+   fails with an internal compiler error on `-fsanitize=address`, a fault of
+   that compiler that predates #131. With clang the Microsoft C runtime's
+   deprecation of `strncpy` (used by the fake HAL) must be silenced, and the
+   AddressSanitizer runtime DLL must be on `PATH` when CTest runs:
+
+   ```
+   cmake -S firmware/pico_sht30/test -B build/pico-tests -G Ninja -DCMAKE_C_COMPILER=clang -DCMAKE_C_FLAGS=-D_CRT_SECURE_NO_WARNINGS
+   cmake --build build/pico-tests
+   PATH="<llvm>/lib/clang/<version>/lib/windows:$PATH" ctest --test-dir build/pico-tests --output-on-failure
+   ```
+
 2. **Agreement with the host driver** (`SWE4-UT-PICOFWPROTO`). `protocol.h`,
    `firmware_version.h` and `board_config.h` are parsed and compared with the
    driver's constants; tab indentation and the absence of printf-family calls
@@ -193,10 +206,11 @@ way, and none of it needs a Pico:
    against Pico SDK 2.1.1 with the Arm GNU toolchain, and `pico_sht30.uf2` is
    produced.
 
-Conversion reference vectors are shared: `test_sht30.c` and
-`test_simulator.py` assert the same raw-word-to-value pairs, so the C and Python
-conversions (AD-24) cannot drift apart silently. What none of this establishes
-is behaviour on silicon with a sensor attached: PICO-OPEN-02 to -04.
+Reference vectors are shared: `test_sht30.c` and `test_simulator.py` assert
+the same raw-word-to-value pairs, and `test_text.c` and `test_simulator.py` the
+same milli-degree-to-two-places pairs (`text_centi` and `milli_to_centi_text`,
+PICO-FR-027), so the C and Python conversions cannot drift apart silently. What none of this establishes
+is behaviour on silicon with a sensor attached: PICO-OPEN-02 to -04 and -06.
 USB enumeration and identity on a real Pico 2 (PICO-OPEN-01) were confirmed on
 2026-10-03.
 
@@ -206,8 +220,9 @@ the copy, the 1200-baud reset, opening the port, the clock - is a seam, and a
 simulated board stands in for the Pico. That a real Pico 2 reboots into its
 bootloader on `bootsel` and on the 1200-baud reset, takes the image, and comes
 back reporting the copied build was confirmed on Windows on 2026-10-03
-(PICO-OPEN-05, closed); drive discovery on Linux and macOS is untested on
-hardware.
+(PICO-OPEN-05, closed), and again the same day for the `rd` firmware of #131,
+whose name, version and commit SHA `flash` confirmed by `rd`; drive discovery
+on Linux and macOS is untested on hardware.
 
 ### 4.5 Architectural verification
 
@@ -361,12 +376,12 @@ against the simulator in the default run (SWE4-UT-PSUPANEL, SWE4-UT-DMMPANEL).
 | SWE4-UT-DMMSIM | `instruments/tti1604/test_simulator.py` | Self-checks on the simulated meter: silence in local mode and with Operate off, every command echoed, Operate toggling rather than switching on, ranges bounded, and values round-tripping through the segment encoding to the decoder; the display at each range's resolution; auto-ranging after a change of function; Hz refused on DC; a reading every 0.4 s, and once per gate measuring frequency; a read shorter than the measurement timing out; dropped and ignored keys | DMM-FR-045, -046, CORE-FR-062 |
 | SWE4-UT-DMMPANEL | `instruments/tti1604/test_front_panel_check.py` | The front-panel check (`examples/12_dmm_front_panel_check.py`) against the simulator: every step taken and logged with the driver's read-back, the operator's answers and a mismatch recorded, `q` stopping early, and the meter left on DC volts, auto-ranging, in local mode after a completed, stopped or failed run | DMM-FR-029, -030, -033, -081 |
 | SWE4-UT-DMMCLI | `instruments/tti1604/test_cli.py` | Every meter sub-command end to end; JSON output; the display text reported beside the value; an unknown key name failing without a traceback | DMM-FR-070 |
-| SWE4-UT-PICO | `instruments/pico_sht30/test_thermometer.py` | The thermometer driver: title, version and identity from `ver`; protocol revision check; readings with raw words; every `err` code raised, never a stale value; values that disagree with their raw words refused; status decoding, sensor reset, reboot and bootloader; resource forms | PICO-FR-040 .. -046 |
-| SWE4-UT-PICOSIM | `instruments/pico_sht30/test_simulator.py` | The simulated thermometer answers with the firmware's reply text; conversion vectors shared with the firmware tests; fault injection | PICO-FR-050, PICO-FR-022 |
-| SWE4-UT-PICOCLI | `instruments/pico_sht30/test_cli.py` | Every `benchtools thermo` sub-command end to end; JSON output and file; a failed connection; dispatch from the top-level command | PICO-FR-060 |
-| SWE4-UT-PICOFLASH | `instruments/pico_sht30/test_flash.py` | Reflashing with no BOOTSEL press (34 cases), against the simulated board and stand-in seams: UF2 parsing, bad magic, a file that is not whole blocks, a missing file, an RP2040 image refused, a non-thermometer image refused without `--any-image`, an ambiguous build date not compared; success from running firmware and from a board already in its bootloader; version and build mismatches reported, not raised; the 1200-baud fallback, and an error from the 1200-baud reset kept as a note rather than raised; bootloader timeout, no drive and no port, two drives, copy failure, a drive that never goes, a port that never comes back; the port taken from the port search when none is given; `--no-verify`; the drive recognised by its info file; drive search roots on Windows, Linux and macOS, and an unsupported system; the copy and its tolerated close error; the `flash` command's JSON and exit status | PICO-FR-070 .. -076 |
-| SWE4-UT-PICOFWPROTO | `instruments/pico_sht30/test_firmware_protocol.py` | Firmware and driver agreement: commands, argument bounds, error codes, protocol version, sensor, title, version form, default address; firmware hygiene: tab indentation, no printf family | PICO-FR-001, -002, PICO-NFR-002, -004 |
-| SWE4-UT-PICOFW | `firmware/pico_sht30/test/*.c` | **Firmware unit tests** (Unity, CMake, CTest, 61 cases): the text builder and its overflow; CRC-8 against the datasheet check value; conversion end points, mid-scale, negative values and rounding; frame decoding that never half-writes; measure, status and reset command bytes, waits and every failure path; line assembly, CR handling and over-length lines; every command's reply text, argument refusal, and reboot only after `ok` | PICO-FR-001 .. -005, -020 .. -026, -030, PICO-NFR-001, -003 |
+| SWE4-UT-PICO | `instruments/pico_sht30/test_thermometer.py` | The thermometer driver: name, copyright, version and SHA from `rd`; another device refused; a reply for another option refused; connecting sends only `rd`; `NAK` raised as `RdRefusedError`, `err` as `SensorError`; readings to two places, below zero, each a new measurement; a value not to two places refused; `Error` from each fault raised as `NoReadingError`, never a stale value; identity with no sensor; status decoding, sensor reset, `ecureset`, bootloader; resource forms | PICO-FR-040 .. -043, -045 .. -047 |
+| SWE4-UT-PICOSIM | `instruments/pico_sht30/test_simulator.py` | The simulated thermometer answers with the firmware's reply text: every `rd` option, `NAK`, `rd` with no option or two, `ver`/`temp`/`reset` unknown, `ecureset`, `bootsel`; conversion and two-place rounding vectors shared with the firmware tests; fault injection | PICO-FR-050, PICO-FR-022, PICO-FR-027 |
+| SWE4-UT-PICOCLI | `instruments/pico_sht30/test_cli.py` | Every `benchtools thermo` sub-command end to end - `info`, `rd` for each option, an unknown option refused, `temp` and a series, `status`, `sreset`, `ecureset`, `bootsel`; JSON output and file; a failed connection; dispatch from the top-level command | PICO-FR-060, PICO-FR-061 |
+| SWE4-UT-PICOFLASH | `instruments/pico_sht30/test_flash.py` | Reflashing with no BOOTSEL press (35 cases), against the simulated board and stand-in seams: UF2 parsing, bad magic, a file that is not whole blocks, a missing file, an RP2040 image refused, an image without the thermometer's name refused without `--any-image`, an image with two commit SHAs or with no version string not compared on that point and noted; success from running firmware and from a board already in its bootloader; the checks `name`, `version` and `sha` by `rd`, the version taken from the image or from `--expect-version`; a version mismatch and a commit SHA mismatch (the old image still running) reported, not raised; the 1200-baud fallback, and an error from the 1200-baud reset kept as a note rather than raised; bootloader timeout, no drive and no port, two drives, copy failure, a drive that never goes, a port that never comes back; the port taken from the port search when none is given; `--no-verify`; the drive recognised by its info file; drive search roots on Windows, Linux and macOS, and an unsupported system; the copy and its tolerated close error; the `flash` command's JSON and exit status | PICO-FR-070 .. -076 |
+| SWE4-UT-PICOFWPROTO | `instruments/pico_sht30/test_firmware_protocol.py` | Firmware and driver agreement: commands, argument bounds, error codes, protocol version, sensor, name and copyright, version form `V<n>.<nn>.<nnnn>`, default address; firmware hygiene: tab indentation, no printf family | PICO-FR-001, -002, PICO-NFR-002, -004 |
+| SWE4-UT-PICOFW | `firmware/pico_sht30/test/*.c` | **Firmware unit tests** (Unity, CMake, CTest, 83 cases): the text builder and its overflow, including two places rounded half away from zero, no `-0.00` and the `INT32_MIN` extreme; CRC-8 against the datasheet check value; conversion end points, mid-scale, negative values and rounding; frame decoding that never half-writes; measure, status and reset command bytes, waits and every failure path; line assembly, CR handling and over-length lines; every `rd` option, the injected SHA, identity without touching the sensor, `NAK` for unknown, partial and wrongly cased options, `err 2` for no option or two, `rd temperature` rounding and `Error` for an absent sensor, a NACK on the read, a corrupted frame and a bus timeout on either transfer; `ver`, `temp` and `reset` unknown; every other command's reply text, argument refusal, and reboot only after the reply | PICO-FR-001 .. -007, -020 .. -027, -030, PICO-NFR-001, -003 |
 | SWE4-UT-BENCH | `runner/test_bench.py`, `runner/test_shipped_benches.py` | Bench configuration, lazy connection, driver registry, simulation detection, instrument identity recorded per run; every shipped bench file loads with registered drivers and no shared port; the simulated bench provides every instrument and driver each shipped specification uses | RUN-FR-001 .. -006, RUN-FR-035, RUN-FR-037 |
 | SWE4-UT-ENGINE | `runner/test_runner.py` | Execution, failure versus error, setup abort, skips, roll-up, property steps, instruments in the record | RUN-FR-030 .. -037 |
 | SWE4-UT-REPORT | `runner/test_report.py` | JSON, markdown and JUnit output; the instruments table and its identity-failure row | RUN-FR-037, RUN-FR-040 .. -043 |
@@ -433,7 +448,8 @@ in the VISA determination report §5.1:
 | Measurement engine settling time | Firmware- and timebase-dependent |
 | Exact SCPI command spellings against the programmer manual | The manual was unreachable from the build environment (CON-02) |
 | Analogue accuracy, bandwidth and noise behaviour | Instrument specification, not software |
-| Pico 2 thermometer on silicon: I2C timing with the module's pull-ups, measured accuracy against a reference; drive discovery for `benchtools thermo flash` on Linux and macOS | The SHT30-D module is not yet connected to the Pico (CON-09), and the bench PC runs Windows. USB enumeration (PICO-OPEN-01) and reflashing on Windows (PICO-OPEN-05) were confirmed on a real Pico 2 on 2026-10-03; `docs/pico_sht30/Pico_SHT30_Notes.md` §7, PICO-OPEN-02 … -04 |
+| Pico 2 thermometer with a sensor attached: a real `rd temperature` value to two places, I2C timing with the module's pull-ups, measured accuracy against a reference | No SHT30-D module was connected (CON-09). The firmware has run on a real Pico 2 without one: USB enumeration, every `rd` option, the `NAK`, the `err` replies and `ecureset` were confirmed on 2026-10-03 (TB-SWE4-002 §13A.7). `docs/pico_sht30/Pico_SHT30_Notes.md` §7, PICO-OPEN-02 … -04 and -06 |
+| Drive discovery for `benchtools thermo flash` on Linux and macOS | The bench PC runs Windows. Reflashing on Windows was confirmed on a real Pico 2 on 2026-10-03 (PICO-OPEN-05, closed), including with the `rd` firmware of #131; `docs/pico_sht30/Pico_SHT30_Notes.md` §7 |
 | TTi 1604 against a physical meter: the frame terminator, the echo's place in the stream, the frequency gate times, key behaviour in remote mode, a USB converter's DTR/RTS levels, the resistance display convention | No meter was attached to the build environment (CON-10); `docs/dmm/TTi1604_Notes.md` §5, DMM-OPEN-01 … -08. Exercised by SWE4-UT-DMMBENCH (§4.6a) and the front-panel check when a meter is attached |
 | Behaviour of instrument families named for future work | No drivers exist yet (CON-03) |
 

@@ -4,14 +4,14 @@
  *
  * MISRA C:2012 Rule 21.6 excludes <stdio.h> from production code, and
  * snprintf's variadic interface (Rule 17.1) is the usual reason. Replies here
- * need only strings, unsigned decimals, fixed-point milli-units and 16-bit hex,
- * so those four are provided and nothing else.
+ * need only strings, unsigned decimals, fixed-point decimals and hex, so those
+ * are provided and nothing else.
  *
  * Every append is bounded by the buffer. Text that does not fit is dropped and
  * the builder remembers that it overflowed, so a caller can refuse to send a
  * truncated reply rather than send a plausible-looking wrong one.
  *
- * Traces to: PICO-NFR-002, PICO-DD-TEXT.
+ * Traces to: PICO-NFR-002, PICO-FR-027, PICO-DD-TEXT.
  */
 
 #ifndef TEXT_H__
@@ -51,6 +51,11 @@ void text_u32(text_t *text, uint32_t value);
 /** Append a signed value in thousandths as a decimal with three places,
  *  e.g. -1234 -> "-1.234", 5 -> "0.005". */
 void text_milli(text_t *text, int32_t value);
+
+/** Append a signed value in thousandths as a decimal with two places,
+ *  rounded half away from zero, e.g. 22848 -> "22.85", -1234 -> "-1.23",
+ *  -4 -> "0.00". A value that rounds to zero is never given a minus sign. */
+void text_centi(text_t *text, int32_t milli);
 
 /** Append "0x" and two upper-case hex digits. */
 void text_hex8(text_t *text, uint8_t value);

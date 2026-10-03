@@ -1,29 +1,27 @@
 """Driver for the Raspberry Pi Pico 2 + DollaTek SHT30-D bench thermometer.
 
 The Pico runs ``firmware/pico_sht30`` and appears as a USB CDC serial port.
-It speaks a line protocol: one command per line, one ``ok ...`` or
-``err <code> <text>`` reply per command, values as ``key=value`` tokens.
+It speaks a line protocol, one command per line and one reply per command, in
+two forms:
 
-Two things shape this driver, and both are about not reporting a number that
-is not true:
+* ``rd <option>`` reads one value and is answered ``ACK rd <option> = <value>``,
+  or ``NAK rd <option> = Error`` for an option the firmware does not know. The
+  options are ``name``, ``copyright``, ``version``, ``sha`` and ``temperature``.
+* The control commands (``status``, ``sreset``, ``ecureset``, ``bootsel``) are
+  answered ``ok ...`` or ``err <code> <text>``, values as ``key=value`` tokens.
 
-**A failed reading is an error, never a stale value.** The firmware answers
-``err`` when the sensor does not acknowledge, when a frame fails its CRC, or
-when the bus times out. The driver raises :class:`SensorError` for each, with
-the firmware's code, so a test cannot mistake "no reading" for "same as last
-time".
+**A failed reading is an error, never a stale value.** When the firmware cannot
+read the sensor - it does not acknowledge, a frame fails its CRC, or the bus
+times out - ``rd temperature`` answers ``Error``, and the driver raises
+:class:`NoReadingError`, so that a test cannot mistake "no reading" for "same
+as last time".
 
-**The reported value is checked against the raw word.** ``temp`` carries both
-the converted temperature and the 16-bit word it came from. The driver
-recomputes one from the other with the firmware's own integer arithmetic and
-refuses a reply in which they disagree - which is what a corrupted USB line or
-a firmware conversion defect would look like.
-
-Traces to: PICO-FR-040 .. PICO-FR-046, PICO-ARC-001, PICO-DD-DRIVER.
+Traces to: PICO-FR-040 .. PICO-FR-047, PICO-ARC-001, PICO-DD-DRIVER.
 """
 
 from __future__ import annotations
 
+import re
 import time
 from dataclasses import dataclass
 from typing import Dict, List, Tuple
@@ -38,26 +36,33 @@ from .constants import (
     ERRORS,
     MANUFACTURER,
     MODEL,
-    PROTOCOL_VERSION,
+    NAME,
+    RD_ERROR,
     STATUS_BITS,
-    raw_to_celsius,
-    raw_to_percent,
 )
 from .simulator import SimulatedPicoSht30
 
-__all__ = ["PicoSht30", "FirmwareInfo", "Reading", "SensorStatus", "SensorError"]
-
-
-#: Largest disagreement tolerated between a reported value and the value
-#: recomputed from its raw word. The firmware prints three decimals of an exact
-#: thousandth, so anything beyond rounding noise is a real disagreement.
-_CROSS_CHECK_TOLERANCE = 0.0015
+__all__ = [
+    "PicoSht30",
+    "FirmwareInfo",
+    "Reading",
+    "SensorStatus",
+    "SensorError",
+    "NoReadingError",
+    "RdRefusedError",
+]
 
 #: Informational lines (``help`` only) are skipped when looking for a reply.
 _INFO_PREFIX = "#"
 
 #: Lines read while looking for a reply before giving up.
 _MAX_SKIPPED_LINES = 32
+
+#: ``ACK rd temperature = 22.85``: the verdict, the option and the value.
+_RD_REPLY = re.compile(r"^(ACK|NAK) rd (\S+) = (.*)$")
+
+#: What ``rd temperature`` reports when it has a reading: two decimal places.
+_TEMPERATURE = re.compile(r"^-?\d+\.\d{2}$")
 
 
 class SensorError(InstrumentError):
@@ -80,57 +85,46 @@ class SensorError(InstrumentError):
         return ERRORS.get(self.code, "unknown")
 
 
+class NoReadingError(InstrumentError):
+    """``rd temperature`` answered ``Error``: the sensor could not be read."""
+
+
+class RdRefusedError(InstrumentError):
+    """The firmware answered ``NAK``: it does not know the ``rd`` option."""
+
+
 @dataclass(frozen=True)
-class FirmwareInfo:  # pylint: disable=too-many-instance-attributes
-    """Everything ``ver`` reports."""
+class FirmwareInfo:
+    """What ``rd name``, ``rd copyright``, ``rd version`` and ``rd sha`` report."""
 
-    title: str
+    name: str
+    copyright: str
     version: str
-    built: str
-    protocol: str
-    board: str
-    serial: str
-    sensor: str
-    address: int
-    uptime_s: int
-
-    @property
-    def build_date_is_utc(self) -> bool:
-        """``False`` for an IDE build whose date is the compiler's local time."""
-        return not self.built.startswith("local:")
+    sha: str
 
     def as_dict(self) -> Dict[str, object]:
         """The identity as a JSON-ready dictionary."""
         return {
-            "title": self.title,
+            "name": self.name,
+            "copyright": self.copyright,
             "version": self.version,
-            "built": self.built,
-            "protocol": self.protocol,
-            "board": self.board,
-            "serial": self.serial,
-            "sensor": self.sensor,
-            "address": "0x%02X" % self.address,
-            "uptime_s": self.uptime_s,
+            "sha": self.sha,
         }
 
 
 @dataclass(frozen=True)
 class Reading:
-    """One measurement, with the raw words it came from."""
+    """One temperature measurement, as ``rd temperature`` reported it."""
 
     temperature: float
-    humidity: float
-    raw_temperature: int
-    raw_humidity: int
+    text: str
     timestamp: float
 
     def as_dict(self) -> Dict[str, object]:
         """The reading as a JSON-ready dictionary."""
         return {
             "temperature_c": self.temperature,
-            "humidity_pct": self.humidity,
-            "raw_temperature": "0x%04X" % self.raw_temperature,
-            "raw_humidity": "0x%04X" % self.raw_humidity,
+            "text": self.text,
             "timestamp": self.timestamp,
         }
 
@@ -171,7 +165,7 @@ class PicoSht30(ScpiInstrument):
 
         with PicoSht30.connect("/dev/ttyACM0") as thermometer:
             info = thermometer.firmware_info()
-            print(info.title, info.version)
+            print(info.name, info.version, info.sha)
             print("%.2f C" % thermometer.temperature())
     """
 
@@ -238,18 +232,15 @@ class PicoSht30(ScpiInstrument):
         return "serial://%s" % text
 
     def _post_open(self) -> None:
-        """Identify the thermometer, and check it speaks this protocol.
+        """Identify the thermometer, and check that it is this firmware.
 
         No ``*CLS``: the firmware is not SCPI, and would answer it with
-        ``err 1``. A protocol revision whose major number differs from the one
-        this driver was written for is refused rather than half-understood.
+        ``err 1``. A device that answers ``rd name`` with another name is
+        refused rather than half-understood.
         """
         info = self.firmware_info(refresh=True)
-        if info.protocol.split(".", maxsplit=1)[0] != PROTOCOL_VERSION.split(".", maxsplit=1)[0]:
-            raise ProtocolError(
-                "thermometer speaks protocol %s; this driver speaks %s"
-                % (info.protocol, PROTOCOL_VERSION)
-            )
+        if info.name != NAME:
+            raise ProtocolError("device reports name %r, not %r" % (info.name, NAME))
         self.identify(refresh=True)
 
     # ------------------------------------------------------------------
@@ -265,15 +256,18 @@ class PicoSht30(ScpiInstrument):
             return line
         raise ProtocolError("no reply to %r among %d lines" % (command, _MAX_SKIPPED_LINES))
 
+    def _send(self, command: str) -> str:
+        self._logger.debug(">> %s", command)
+        self._transport.write(command.encode("ascii"))
+        return self._read_reply(command)
+
     def execute(self, command: str) -> Dict[str, str]:
-        """Send *command* and return the fields of its ``ok`` reply.
+        """Send a control *command* and return the fields of its ``ok`` reply.
 
         :raises SensorError: if the firmware answered ``err``.
         :raises ProtocolError: if it answered neither ``ok`` nor ``err``.
         """
-        self._logger.debug(">> %s", command)
-        self._transport.write(command.encode("ascii"))
-        reply = self._read_reply(command)
+        reply = self._send(command)
         if reply == "ok" or reply.startswith("ok "):
             return parse_fields(reply)
         if reply.startswith("err "):
@@ -285,53 +279,67 @@ class PicoSht30(ScpiInstrument):
             raise SensorError(code, parts[2] if len(parts) > 2 else "", command)
         raise ProtocolError("unexpected reply to %r: %r" % (command, reply))
 
-    @staticmethod
-    def _field(fields: Dict[str, str], key: str, command: str) -> str:
-        if key not in fields:
-            raise ProtocolError("%r reply has no %r field: %r" % (command, key, fields))
-        return fields[key]
+    def rd(self, option: str) -> str:  # pylint: disable=invalid-name
+        """Send ``rd <option>`` and return the value of its ``ACK``.
+
+        :raises RdRefusedError: if the firmware answered ``NAK``.
+        :raises SensorError: if it answered ``err`` (a malformed command).
+        :raises ProtocolError: if the reply is for another option, or is
+            neither ``ACK`` nor ``NAK``.
+        """
+        command = "rd %s" % option
+        reply = self._send(command)
+        match = _RD_REPLY.match(reply)
+        if match is None:
+            if reply.startswith("err "):
+                parts = reply.split(" ", 2)
+                raise SensorError(int(parts[1]) if parts[1].isdigit() else -1,
+                                  parts[2] if len(parts) > 2 else "", command)
+            raise ProtocolError("unexpected reply to %r: %r" % (command, reply))
+        verdict, echoed, value = match.groups()
+        if echoed != option:
+            raise ProtocolError("reply to %r is for %r: %r" % (command, echoed, reply))
+        if verdict == "NAK":
+            raise RdRefusedError("%r refused: %s" % (command, reply))
+        return value
 
     # ------------------------------------------------------------------
     # Identity
     # ------------------------------------------------------------------
     def firmware_info(self, refresh: bool = False) -> FirmwareInfo:
-        """The title, version and the rest of what ``ver`` reports."""
+        """The name, copyright, version and commit SHA of the firmware."""
         if self._info is None or refresh:
-            fields = self.execute("ver")
-            try:
-                self._info = FirmwareInfo(
-                    title=self._field(fields, "title", "ver"),
-                    version=self._field(fields, "fw", "ver"),
-                    built=fields.get("built", ""),
-                    protocol=self._field(fields, "proto", "ver"),
-                    board=fields.get("board", ""),
-                    serial=fields.get("serial", ""),
-                    sensor=fields.get("sensor", ""),
-                    address=int(fields.get("addr", "0x0"), 16),
-                    uptime_s=int(fields.get("uptime_s", "0")),
-                )
-            except ValueError as exc:
-                raise ProtocolError("malformed 'ver' reply: %r" % fields) from exc
+            self._info = FirmwareInfo(
+                name=self.rd("name"),
+                copyright=self.rd("copyright"),
+                version=self.rd("version"),
+                sha=self.rd("sha"),
+            )
         return self._info
 
     @property
-    def title(self) -> str:
-        """The product title the firmware reports."""
-        return self.firmware_info().title
+    def name(self) -> str:
+        """What ``rd name`` reports."""
+        return self.firmware_info().name
 
     @property
     def version(self) -> str:
-        """The firmware version, e.g. ``1.0.0``."""
+        """The firmware version, e.g. ``V1.00.0000``."""
         return self.firmware_info().version
+
+    @property
+    def sha(self) -> str:
+        """The commit the firmware was built from, seven hex digits."""
+        return self.firmware_info().sha
 
     def _read_identity(self) -> InstrumentIdentity:
         info = self.firmware_info()
         return InstrumentIdentity(
-            raw="%s %s (built %s)" % (info.title, info.version, info.built),
+            raw="%s %s (%s)" % (info.name, info.version, info.sha),
             manufacturer=MANUFACTURER,
-            model="%s/%s" % (MODEL, info.sensor or "SHT30"),
-            serial_number=info.serial,
-            firmware="%s (built %s)" % (info.version, info.built) if info.built else info.version,
+            model="%s/SHT30" % MODEL,
+            serial_number="",
+            firmware="%s (%s)" % (info.version, info.sha),
         )
 
     def read_event_queue(self) -> List[Tuple[int, str]]:
@@ -342,40 +350,21 @@ class PicoSht30(ScpiInstrument):
     # Measurement
     # ------------------------------------------------------------------
     def read(self) -> Reading:
-        """Take one measurement: temperature and humidity.
+        """Take one measurement with ``rd temperature``.
 
-        :raises SensorError: if the sensor is absent, the frame failed its
-            CRC, or the bus timed out.
-        :raises ProtocolError: if the reported values disagree with their raw
-            words.
+        :raises NoReadingError: if the firmware answered ``Error``.
+        :raises ProtocolError: if the value is not a number to two places.
         """
-        fields = self.execute("temp")
-        try:
-            temperature = float(self._field(fields, "t", "temp"))
-            humidity = float(self._field(fields, "rh", "temp"))
-            raw_t = int(self._field(fields, "raw_t", "temp"), 16)
-            raw_rh = int(self._field(fields, "raw_rh", "temp"), 16)
-        except ValueError as exc:
-            raise ProtocolError("malformed 'temp' reply: %r" % fields) from exc
-
-        for label, reported, expected in (
-            ("temperature", temperature, raw_to_celsius(raw_t)),
-            ("humidity", humidity, raw_to_percent(raw_rh)),
-        ):
-            if abs(reported - expected) > _CROSS_CHECK_TOLERANCE:
-                raise ProtocolError(
-                    "%s %.3f does not match its raw word (which gives %.3f)"
-                    % (label, reported, expected)
-                )
-        return Reading(temperature, humidity, raw_t, raw_rh, time.time())
+        text = self.rd("temperature")
+        if text == RD_ERROR:
+            raise NoReadingError("rd temperature: the sensor could not be read")
+        if not _TEMPERATURE.match(text):
+            raise ProtocolError("rd temperature: %r is not degrees to two places" % text)
+        return Reading(float(text), text, time.time())
 
     def temperature(self) -> float:
         """The temperature now, in degrees Celsius."""
         return self.read().temperature
-
-    def humidity(self) -> float:
-        """The relative humidity now, in percent."""
-        return self.read().humidity
 
     def status(self) -> SensorStatus:
         """The sensor's status register."""
@@ -385,6 +374,12 @@ class PicoSht30(ScpiInstrument):
         except ValueError as exc:
             raise ProtocolError("malformed 'status' reply: %r" % fields) from exc
 
+    @staticmethod
+    def _field(fields: Dict[str, str], key: str, command: str) -> str:
+        if key not in fields:
+            raise ProtocolError("%r reply has no %r field: %r" % (command, key, fields))
+        return fields[key]
+
     # ------------------------------------------------------------------
     # Control
     # ------------------------------------------------------------------
@@ -393,8 +388,8 @@ class PicoSht30(ScpiInstrument):
         self.execute("sreset")
 
     def reset(self, settle: float = 0.0) -> None:  # type: ignore[override]
-        """Reboot the Pico. The USB port re-enumerates; reconnect afterwards."""
-        self.execute("reset")
+        """Reboot the Pico (``ecureset``). The port re-enumerates; reconnect afterwards."""
+        self.execute("ecureset")
         self._info = None
         if settle > 0:
             time.sleep(settle)

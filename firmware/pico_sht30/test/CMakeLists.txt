@@ -54,7 +54,9 @@ target_include_directories(firmware PUBLIC
 	${FIRMWARE_DIR}/src
 	${SUPPORT_DIR}
 )
-target_compile_definitions(firmware PUBLIC FIRMWARE_BUILD_DATE="2026-01-01T00:00:00Z")
+# A fixed SHA stands in for the one the target build injects, so that the
+# tests see the injected path; firmware_version.h's "unknown" covers the rest.
+target_compile_definitions(firmware PUBLIC FIRMWARE_GIT_SHA="0123abc")
 target_compile_options(firmware PRIVATE
 	-Wall -Wextra -Wconversion -Wshadow -Wstrict-prototypes -Werror
 )

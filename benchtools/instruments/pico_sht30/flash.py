@@ -16,11 +16,11 @@ build now running is the one that was copied:
 2. **Copy.** The UF2 is checked first - its blocks, and that it is built for an
    RP2350 - and then written to the drive. The Pico reboots when the last block
    lands, and the drive goes away.
-3. **Verify.** The serial port comes back, ``ver`` is read, and its title,
-   version and build date are compared with the image. The build date is taken
-   from the image itself: the firmware stores it as an ISO 8601 string, so a
-   matching ``built=`` proves that the running image is the copied one, not an
-   older build of the same version.
+3. **Verify.** The serial port comes back, and ``rd name``, ``rd version``
+   and ``rd sha`` are compared with the image. The version and the commit SHA
+   are read out of the image itself: the firmware stores each as a
+   NUL-terminated string, so a matching ``rd sha`` shows that the running image
+   is the copied one, not an older build of the same version.
 
 What this cannot do: reach a Pico whose firmware has crashed, or never
 enumerates on USB. That still needs the BOOTSEL button or an SWD probe.
@@ -49,7 +49,7 @@ from typing import Callable, Dict, List, Optional, Sequence
 
 from ...core.errors import BenchToolsError, InstrumentError
 from ...core.transport.mock import MockTransport
-from .constants import TITLE
+from .constants import NAME
 from .simulator import SimulatedPicoSht30
 from .thermometer import FirmwareInfo, PicoSht30
 
@@ -109,9 +109,11 @@ RASPBERRY_PI_VID = 0x2E8A
 #: The line rate that the SDK's USB stdio takes as "reboot into the bootloader".
 MAGIC_BAUD_RATE = 1200
 
-#: ``firmware_version.h`` injects the build date as ISO 8601 UTC, and the image
-#: stores it as a NUL-terminated string.
-_BUILD_DATE = re.compile(rb"(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)\x00")
+#: ``firmware_version.h`` holds the version as ``V<major>.<minor>.<patch>``, and
+#: the build injects the 7-character commit SHA; the image stores each as a
+#: NUL-terminated string.
+_VERSION = re.compile(rb"(?<![\w.])(V\d+\.\d{2}\.\d{4})\x00")
+_SHA = re.compile(rb"(?<![0-9a-f])([0-9a-f]{7})\x00")
 
 #: Seconds allowed for each wait, by default.
 DEFAULT_BOOTLOADER_TIMEOUT = 15.0
@@ -149,7 +151,7 @@ class Uf2Image:
 
     :ivar families: The family IDs its blocks carry.
     :ivar payload: The bytes of every main-flash block, in file order; searched
-        for the title and build date.
+        for the name, version and commit SHA.
     """
 
     path: str
@@ -204,14 +206,22 @@ class Uf2Image:
 
     @property
     def is_thermometer(self) -> bool:
-        """``True`` if the image carries the thermometer firmware's title."""
-        return TITLE.encode("ascii") + b"\x00" in self.payload
+        """``True`` if the image carries the thermometer firmware's name."""
+        return NAME.encode("ascii") + b"\x00" in self.payload
+
+    def _unique(self, pattern) -> str:
+        found = set(pattern.findall(self.payload))
+        return found.pop().decode("ascii") if len(found) == 1 else ""
 
     @property
-    def built(self) -> str:
-        """The build date stored in the image, or ``""`` if not exactly one."""
-        found = set(_BUILD_DATE.findall(self.payload))
-        return found.pop().decode("ascii") if len(found) == 1 else ""
+    def version(self) -> str:
+        """The version stored in the image, or ``""`` if not exactly one."""
+        return self._unique(_VERSION)
+
+    @property
+    def sha(self) -> str:
+        """The commit SHA stored in the image, or ``""`` if not exactly one."""
+        return self._unique(_SHA)
 
     def as_dict(self) -> Dict[str, object]:
         """What the image is, JSON-ready."""
@@ -221,7 +231,8 @@ class Uf2Image:
             "blocks": self.blocks,
             "families": self.family_names,
             "thermometer": self.is_thermometer,
-            "built": self.built,
+            "version": self.version,
+            "sha": self.sha,
         }
 
 
@@ -412,10 +423,11 @@ class PicoFlasher:  # pylint: disable=too-many-instance-attributes,too-few-publi
     ) -> FlashResult:
         """Flash the UF2 at *path* and confirm what is running afterwards.
 
-        :param expect_version: The ``fw=`` the new image must report.
+        :param expect_version: The ``rd version`` the new image must report;
+            by default, the version stored in the image.
         :param any_image: Allow an image that is not the thermometer firmware.
             Nothing can then be confirmed afterwards beyond the reboot.
-        :param verify: Read ``ver`` afterwards and compare.
+        :param verify: Read ``rd`` afterwards and compare.
         :raises FlashError: if the image is unsuitable, the bootloader or the
             port does not appear in time, or the copy fails. A mismatch after a
             successful copy is not raised: it is in the result's ``checks``.
@@ -428,8 +440,8 @@ class PicoFlasher:  # pylint: disable=too-many-instance-attributes,too-few-publi
             )
         if not image.is_thermometer and not any_image:
             raise FlashError(
-                "%s does not carry the title %r, so it is not the thermometer firmware; "
-                "pass --any-image to flash it anyway" % (path, TITLE)
+                "%s does not carry the name %r, so it is not the thermometer firmware; "
+                "pass --any-image to flash it anyway" % (path, NAME)
             )
         result = FlashResult(image=image)
 
@@ -520,16 +532,20 @@ class PicoFlasher:  # pylint: disable=too-many-instance-attributes,too-few-publi
             thermometer.close()
         result.after = info
 
-        result.checks["title"] = {"expected": TITLE, "actual": info.title,
-                                  "ok": info.title == TITLE}
-        if expect_version:
-            result.checks["version"] = {"expected": expect_version, "actual": info.version,
-                                        "ok": info.version == expect_version}
-        if image.built:
-            result.checks["built"] = {"expected": image.built, "actual": info.built,
-                                      "ok": info.built == image.built}
+        result.checks["name"] = {"expected": NAME, "actual": info.name,
+                                 "ok": info.name == NAME}
+        version = expect_version or image.version
+        if version:
+            result.checks["version"] = {"expected": version, "actual": info.version,
+                                        "ok": info.version == version}
         else:
-            result.notes.append("the image carries no single ISO build date, "
+            result.notes.append("the image carries no single version string, "
+                                "so the version was not compared")
+        if image.sha:
+            result.checks["sha"] = {"expected": image.sha, "actual": info.sha,
+                                    "ok": info.sha == image.sha}
+        else:
+            result.notes.append("the image carries no single commit SHA, "
                                 "so the build was not compared")
 
 
@@ -539,8 +555,9 @@ class SimulatedRp2350:
 
     ``bootsel`` (or a 1200-baud touch) makes a temporary directory appear as
     the ``RP2350`` drive. A UF2 copied there "boots": the drive goes, and the
-    simulated firmware takes the image's build date - and title, if it is not
-    the thermometer - so that verification sees what it would on a real board.
+    simulated firmware takes the image's version and commit SHA - and another
+    name, if it is not the thermometer - so that verification sees what it
+    would on a real board.
     """
 
     PORT = "sim://"
@@ -585,9 +602,10 @@ class SimulatedRp2350:
         """Take the image, then reboot into it."""
         target = copy_image(image, drive)
         self.flashes += 1
-        self.firmware.built = image.built or self.firmware.built
+        self.firmware.version = image.version or self.firmware.version
+        self.firmware.sha = image.sha or self.firmware.sha
         if not image.is_thermometer:
-            self.firmware.title = "unknown"
+            self.firmware.name = "unknown"
         shutil.rmtree(self.drive, ignore_errors=True)
         self.in_bootloader = False
         return target

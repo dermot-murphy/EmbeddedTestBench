@@ -2,14 +2,17 @@
 
 The model is the *firmware*, not the sensor alone. It answers the same command
 lines with the same reply shapes, and it takes its numbers the same way: the
-ambient temperature is quantised to a raw 16-bit word, and the reported value is
-computed from that word with the firmware's integer arithmetic. A driver that
-checked the reported value against the raw word would therefore pass here only
-if it did the conversion the way the firmware does.
+ambient temperature is quantised to a raw 16-bit word, converted to
+milli-degrees with the firmware's integer arithmetic, and reported by
+``rd temperature`` to two places, rounded half away from zero. A driver that
+assumed any other rounding would disagree with the simulator, as it would with
+the firmware.
 
 Fault injection covers the three ways a real reading fails: no sensor on the
-bus, a corrupted frame, and a bus that times out. Each makes ``temp`` answer
-``err``, never a stale value, which is the firmware's contract.
+bus, a corrupted frame, and a bus that times out. Each makes ``rd temperature``
+answer ``Error``, never a stale value, which is the firmware's contract; the
+commands that keep the ``ok``/``err`` form (``status``, ``sreset``) answer
+``err`` with the firmware's code.
 
 Traces to: PICO-FR-050, PICO-DD-SIM.
 """
@@ -19,16 +22,15 @@ from __future__ import annotations
 from typing import Callable, List, Optional
 
 from .constants import (
-    DEFAULT_ADDRESS,
+    COMMANDS,
+    COPYRIGHT,
     ERROR_BUS,
     ERROR_CRC,
     ERROR_NO_SENSOR,
-    PROTOCOL_VERSION,
-    SENSOR,
+    NAME,
+    RD_ERROR,
     STATUS_BITS,
-    TITLE,
-    raw_to_celsius,
-    raw_to_percent,
+    milli_to_centi_text,
 )
 
 __all__ = ["SimulatedPicoSht30"]
@@ -44,11 +46,10 @@ _ERROR_TEXT = {
 
 _HELP = (
     ("help", "list the commands"),
-    ("ver", "identity: title, firmware version, build date, protocol, board id"),
-    ("temp", "single-shot high-repeatability measurement: temperature and humidity"),
+    ("rd", "read one value: name, copyright, version, sha, temperature"),
     ("status", "the SHT30 status register"),
     ("sreset", "soft-reset the SHT30"),
-    ("reset", "reboot the Pico"),
+    ("ecureset", "reboot the Pico"),
     ("bootsel", "reboot into the USB bootloader, to accept a UF2"),
 )
 
@@ -62,10 +63,9 @@ def celsius_to_raw(celsius: float) -> int:
     return max(0, min(65535, int(raw)))
 
 
-def percent_to_raw(percent: float) -> int:
-    """The raw word the sensor would send for *percent* RH, clamped to range."""
-    raw = round(float(percent) * 65535.0 / 100.0)
-    return max(0, min(65535, int(raw)))
+def raw_to_milli(raw: int) -> int:
+    """Milli-degrees from a raw word, with the firmware's integer arithmetic."""
+    return (175000 * int(raw) + 65535 // 2) // 65535 - 45000
 
 
 class SimulatedPicoSht30:  # pylint: disable=too-many-instance-attributes,too-few-public-methods
@@ -74,31 +74,28 @@ class SimulatedPicoSht30:  # pylint: disable=too-many-instance-attributes,too-fe
     Satisfies :class:`~benchtools.core.simulator.Responder`.
 
     :param temperature: Ambient temperature, degrees Celsius.
-    :param humidity: Relative humidity, percent.
-    :param version: Firmware version reported by ``ver``.
+    :param version: What ``rd version`` reports.
+    :param sha: What ``rd sha`` reports: the commit the image was built from.
     """
 
-    DEFAULT_SERIAL = "E6614C311B7F2A21"
-    DEFAULT_BUILT = "2026-09-30T00:00:00Z"
+    DEFAULT_VERSION = "V1.00.0000"
+    DEFAULT_SHA = "0c0ffee"
 
     def __init__(
         self,
         temperature: float = 22.5,
-        humidity: float = 45.0,
-        version: str = "1.0.0",
-        title: str = TITLE,
-        serial: Optional[str] = None,
+        version: str = DEFAULT_VERSION,
+        sha: str = DEFAULT_SHA,
+        name: str = NAME,
     ) -> None:
         self.temperature = float(temperature)
-        self.humidity = float(humidity)
         self.version = version
-        self.title = title
-        self.serial = serial or self.DEFAULT_SERIAL
-        self.built = self.DEFAULT_BUILT
-        self.uptime_s = 0
+        self.sha = sha
+        self.name = name
+        self.copyright = COPYRIGHT
         #: Fault injection. ``sensor_present`` False makes every sensor command
-        #: answer "err 4"; ``corrupt_next`` makes the next one answer "err 5";
-        #: ``bus_timeout`` makes every one answer "err 6".
+        #: fail as "the sensor did not acknowledge"; ``corrupt_next`` makes the
+        #: next one fail its CRC; ``bus_timeout`` makes every one time out.
         self.sensor_present = True
         self.corrupt_next = False
         self.bus_timeout = False
@@ -135,62 +132,60 @@ class SimulatedPicoSht30:  # pylint: disable=too-many-instance-attributes,too-fe
     def _dispatch(self, tokens: List[str]) -> List[str]:
         name, arguments = tokens[0], tokens[1:]
         handler = getattr(self, "_cmd_%s" % name, None)
-        if handler is None:
+        if handler is None or name not in COMMANDS:
             return [self._error(1)]
-        if arguments:
+        low, high = COMMANDS[name]
+        if not low <= len(arguments) <= high:
             return [self._error(2)]
-        return handler()
+        return handler(*arguments)
 
-    def _sensor_fault(self) -> Optional[str]:
+    def _sensor_fault(self) -> Optional[int]:
         if self.bus_timeout:
-            return self._error(ERROR_BUS)
+            return ERROR_BUS
         if not self.sensor_present:
-            return self._error(ERROR_NO_SENSOR)
+            return ERROR_NO_SENSOR
         if self.corrupt_next:
             self.corrupt_next = False
-            return self._error(ERROR_CRC)
+            return ERROR_CRC
         return None
 
     # ------------------------------------------------------------------
     def _cmd_help(self) -> List[str]:
         return ["# %s - %s" % item for item in _HELP] + ["ok"]
 
-    def _cmd_ver(self) -> List[str]:
-        return [
-            "ok title=%s fw=%s built=%s proto=%s board=pico2 serial=%s "
-            "sensor=%s addr=0x%02X uptime_s=%d"
-            % (self.title, self.version, self.built, PROTOCOL_VERSION, self.serial,
-               SENSOR, DEFAULT_ADDRESS, self.uptime_s)
-        ]
+    def _cmd_rd(self, option: str) -> List[str]:
+        values = {
+            "name": lambda: self.name,
+            "copyright": lambda: self.copyright,
+            "version": lambda: self.version,
+            "sha": lambda: self.sha,
+            "temperature": self._temperature_text,
+        }
+        if option not in values:
+            return ["NAK rd %s = %s" % (option, RD_ERROR)]
+        return ["ACK rd %s = %s" % (option, values[option]())]
 
-    def _cmd_temp(self) -> List[str]:
-        fault = self._sensor_fault()
-        if fault:
-            return [fault]
+    def _temperature_text(self) -> str:
+        if self._sensor_fault() is not None:
+            return RD_ERROR
         self.measurements += 1
-        raw_t = celsius_to_raw(self.temperature)
-        raw_rh = percent_to_raw(self.humidity)
-        return [
-            "ok t=%.3f rh=%.3f raw_t=0x%04X raw_rh=0x%04X"
-            % (raw_to_celsius(raw_t), raw_to_percent(raw_rh), raw_t, raw_rh)
-        ]
+        return milli_to_centi_text(raw_to_milli(celsius_to_raw(self.temperature)))
 
     def _cmd_status(self) -> List[str]:
         fault = self._sensor_fault()
         if fault:
-            return [fault]
+            return [self._error(fault)]
         return ["ok status=0x%04X" % self.status_word]
 
     def _cmd_sreset(self) -> List[str]:
         fault = self._sensor_fault()
         if fault:
-            return [fault]
+            return [self._error(fault)]
         self.status_word = STATUS_BITS["reset_detected"]
         return ["ok"]
 
-    def _cmd_reset(self) -> List[str]:
+    def _cmd_ecureset(self) -> List[str]:
         self.reboots += 1
-        self.uptime_s = 0
         return ["ok"]
 
     def _cmd_bootsel(self) -> List[str]:

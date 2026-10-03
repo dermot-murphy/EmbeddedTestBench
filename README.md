@@ -613,9 +613,11 @@ eight bench confirmation items, and the manufacturer's documents in
 
 ## Thermometer — Raspberry Pi Pico 2 + DollaTek SHT30-D
 
-A Pico 2 reads the local temperature and humidity from a Sensirion SHT30-DIS,
-carried on a DollaTek SHT30-D module, over I2C (GP4/GP5, address 0x44). It
-reports them over USB, together with the firmware's title and version. The
+A Pico 2 reads the local temperature from a Sensirion SHT30-DIS, carried on a
+DollaTek SHT30-D module, over I2C (GP4/GP5, address 0x44). It answers
+`rd name`, `rd copyright`, `rd version`, `rd sha` and `rd temperature` over USB,
+each as `ACK rd <option> = <value>`; an unknown option gets
+`NAK rd <option> = Error`. The
 firmware lives in [`firmware/pico_sht30`](firmware/pico_sht30): it is C for
 the Pico SDK, written to MISRA C:2012, and builds to a `.uf2` you copy onto the
 board in BOOTSEL mode.
@@ -624,20 +626,21 @@ board in BOOTSEL mode.
 from benchtools.instruments.pico_sht30 import PicoSht30
 
 with PicoSht30.connect("/dev/ttyACM0") as thermometer:     # COM5 on Windows
-    print(thermometer.title, thermometer.version)          # Pico2-SHT30-Thermometer 1.0.0
+    print(thermometer.name, thermometer.version)           # Pico 2 SHT30 Temperature Sensor V1.00.0000
     print("%.2f °C" % thermometer.temperature())
 ```
 
 ```bash
-python -m benchtools thermo -r /dev/ttyACM0 ver
+python -m benchtools thermo -r /dev/ttyACM0 info
+python -m benchtools thermo -r /dev/ttyACM0 rd sha
 python -m benchtools thermo -r /dev/ttyACM0 temp --count 10 --interval 1
 python -m benchtools thermo -r sim:// temp          # no hardware needed
 ```
 
-A reading that fails raises an error; it never returns the previous value. The
-cases are an absent sensor (`err 4`), a frame with a bad CRC (`err 5`) and a
-bus timeout (`err 6`). Every reading also carries the raw sensor word, and the
-driver recomputes the value from it and refuses a reply where the two disagree.
+A reading that fails raises an error; it never returns the previous value. When
+the sensor is absent, a frame fails its CRC or the bus times out, the firmware
+answers `ACK rd temperature = Error` and the driver raises `NoReadingError`.
+A value that is not degrees to two decimal places is refused.
 
 See [Pico 2 + SHT30-D Notes](docs/pico_sht30/Pico_SHT30_Notes.md) for wiring,
 building and flashing, the datasheet facts, the MISRA position and the bench

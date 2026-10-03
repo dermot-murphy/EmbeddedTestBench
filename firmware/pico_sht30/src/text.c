@@ -2,7 +2,7 @@
  * @file text.c
  * @brief A bounded line builder. See text.h.
  *
- * Traces to: PICO-NFR-002, PICO-DD-TEXT.
+ * Traces to: PICO-NFR-002, PICO-FR-027, PICO-DD-TEXT.
  */
 
 #include "text.h"
@@ -115,6 +115,27 @@ void text_milli(text_t *text, int32_t value)
 	text_char(text, (char)('0' + (char)(fraction / 100U)));
 	text_char(text, (char)('0' + (char)((fraction / 10U) % 10U)));
 	text_char(text, (char)('0' + (char)(fraction % 10U)));
+}
+
+void text_centi(text_t *text, int32_t milli)
+{
+	uint32_t	magnitude;
+	uint32_t	centi;
+
+	/* Round the magnitude, then decide the sign, so that -0.004 is "0.00"
+	 * and not "-0.00". Negated in unsigned arithmetic: well defined for
+	 * INT32_MIN, and 2147483648 + 5 still fits in a uint32_t. */
+	magnitude = (milli < 0) ? (0U - (uint32_t)milli) : (uint32_t)milli;
+	centi = (magnitude + 5U) / 10U;
+
+	if ((milli < 0) && (centi > 0U))
+	{
+		text_char(text, '-');
+	}
+	text_u32(text, centi / 100U);
+	text_char(text, '.');
+	text_char(text, (char)('0' + (char)((centi / 10U) % 10U)));
+	text_char(text, (char)('0' + (char)(centi % 10U)));
 }
 
 /* "0x" then the low @p bits of @p value, most significant nibble first. */

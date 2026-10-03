@@ -4,8 +4,8 @@
  *
  * Brings up USB CDC and the I2C bus, soft-resets the sensor so that it starts
  * from a known state, then assembles command lines from USB and executes them
- * for ever. A sensor that is absent at boot is not fatal: @c ver must still
- * answer, so that the host can tell "no sensor" from "no Pico".
+ * for ever. A sensor that is absent at boot is not fatal: @c rd @c name must
+ * still answer, so that the host can tell "no sensor" from "no Pico".
  *
  * Traces to: PICO-FR-001, PICO-FR-025, PICO-DD-MAIN.
  */
