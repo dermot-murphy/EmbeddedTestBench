@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE4-002 | **Version** | 1.9 |
+| **Document ID** | TB-SWE4-002 | **Version** | 1.10 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -41,6 +41,7 @@
 | 1.7 | 2026-10-03 | Claude | #139: SWE4-UT-VIEWRADIO (14) added to §5, pass. The RF and BLE pages were exercised in a browser on the same simulated log. |
 | 1.8 | 2026-10-03 | Claude | #140: SWE4-UT-VIEWGRAPHS (16) added to §5, pass. The Graphs page was exercised in a browser on a simulated run with supply, thermometer, meter and dongle. |
 | 1.9 | 2026-10-03 | Claude | #148: SWE4-UT-VIEWTAGS (19) added to §5, pass. The Event log page's pause, resume and filters were exercised in a browser on a log of two runs, two sensors and BLE, with records appended while paused. |
+| 1.10 | 2026-10-03 | Claude | #149: SWE4-UT-VIEWSTATUS (10) added to §5, pass. The status bar was exercised in a browser during a simulated run and on a finished log. |
 
 ---
 
@@ -215,6 +216,7 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | SWE4-UT-VIEWRADIO | `viewer/test_radio.py` | 14 | Pass |
 | SWE4-UT-VIEWGRAPHS | `viewer/test_graphs.py` | 16 | Pass |
 | SWE4-UT-VIEWTAGS | `viewer/test_tags.py` | 19 | Pass |
+| SWE4-UT-VIEWSTATUS | `viewer/test_status.py` | 10 | Pass |
 | SWE4-UT-PATHS | `core/test_paths.py`, `runner/test_input_paths.py` | 70 | Pass |
 | SWE4-UT-EVENTNAMES | `runner/test_event_names.py` | 21 | Pass |
 | SWE4-UT-RESOLVE | `runner/test_resolve.py` | 27 | Pass |

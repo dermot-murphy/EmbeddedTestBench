@@ -20,6 +20,7 @@ The API:
 ``GET /api/ble``          BLE devices, events and the dongle's exchanges (#139)
 ``GET /api/graphs``       readings, BLE advertising and step markers;
                           ``?ble=&expected_ms=`` (#140)
+``GET /api/status``       the status bar: run, progress, time left, instruments
 ``GET /api/catalogue``    test specifications and benches the viewer can start
 ``POST /api/control``     a control request, passed to the runner
 ``POST /api/start``       start a run as a subprocess and follow it
@@ -32,7 +33,7 @@ browser first asking this server, which never agrees, so another site open in
 the same browser cannot start or abort a run. The ``Host`` header must name
 this machine, which stops a DNS-rebinding page reaching the API by name.
 
-Traces to: VIEW-FR-001 .. VIEW-FR-021, VIEW-DD-SERVER.
+Traces to: VIEW-FR-001 .. VIEW-FR-024, VIEW-DD-SERVER.
 """
 
 from __future__ import annotations
@@ -48,6 +49,7 @@ import socket
 import subprocess
 import sys
 import threading
+import time
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Dict, List, Optional, Sequence, Tuple
@@ -61,6 +63,7 @@ from ..runner.spec import load_spec
 from .graphs import Readings, advertising, step_markers
 from .radio import BleAir, RfFrames
 from .state import RunState
+from .status import InstrumentStatus, progress
 from .tags import Tagger
 from .traffic import Traffic, panel_for
 
@@ -105,6 +108,7 @@ class Hub:  # pylint: disable=too-many-instance-attributes
         self.ble = BleAir()
         self.readings = Readings()
         self.tagger = Tagger()
+        self.links = InstrumentStatus()
         self.records: List[Tuple[int, Dict[str, Any]]] = []
         self.sequence = 0
         self.generation = 0
@@ -134,6 +138,7 @@ class Hub:  # pylint: disable=too-many-instance-attributes
             self.ble = BleAir()
             self.readings = Readings()
             self.tagger = Tagger()
+            self.links = InstrumentStatus()
             self.records = []
             self._override_port = control_port
             self.generation += 1
@@ -176,6 +181,7 @@ class Hub:  # pylint: disable=too-many-instance-attributes
         self.rf.feed(record)
         self.ble.feed(record)
         self.readings.feed(record)
+        self.links.feed(record)
         if self.traffic.feed(record):
             source = record["source"]
             if self.panels.get(source) is None:
@@ -214,6 +220,15 @@ class Hub:  # pylint: disable=too-many-instance-attributes
             return {"charts": self.readings.charts(),
                     "ble": advertising(list(self.ble.adverts), address, expected_ms),
                     "markers": step_markers(self.state.snapshot())}
+
+    def status(self, now: Optional[float] = None) -> Dict[str, Any]:
+        """The status bar: the run, its progress and time left, each instrument (#149)."""
+        now = time.time() if now is None else now
+        with self._condition:
+            state = self.state.snapshot()
+            return {"run": state["status"], "paused": state["paused"], "suite": state["suite"],
+                    "progress": progress(state), "instruments": self.links.view(now),
+                    "now": now}
 
     def _loop(self) -> None:
         while not self._stop.is_set():
@@ -361,6 +376,7 @@ _GET_API = {
     "/api/ble": "_get_ble",
     "/api/graphs": "_get_graphs",
     "/api/catalogue": "_get_catalogue",
+    "/api/status": "_get_status",
     "/api/events": "_get_events",
 }
 
@@ -448,6 +464,9 @@ class _Handler(BaseHTTPRequestHandler):
         self._json({"specs": self.server.catalogue.specs(),
                     "benches": self.server.catalogue.benches(),
                     "running": self.server.launcher.running})
+
+    def _get_status(self) -> None:
+        self._json(self.server.hub.status())
 
     def _get_events(self) -> None:
         self._events()

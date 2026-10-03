@@ -1,4 +1,5 @@
 :root {
+  --st-good: #0ca30c; --st-warning: #fab219; --st-serious: #ec835a; --st-critical: #d03b3b;
   --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --series-4: #eda100;
   --series-5: #e87ba4; --series-6: #008300; --series-7: #4a3aa7; --series-8: #e34948;
   --grid: #e1e0d9; --axis: #c3c2b7; --tick: #898781;
@@ -30,7 +31,24 @@ nav button[aria-selected="true"] { background: var(--bg); color: var(--text); }
 .link { margin-left: auto; font-size: 12px; color: var(--muted); }
 .link.up::before { content: "\25CF "; color: var(--pass); }
 .link.down::before { content: "\25CF "; color: var(--fail); }
-main { padding: 16px; max-width: 1100px; margin: 0 auto; }
+main { padding: 16px 16px 72px; max-width: 1100px; margin: 0 auto; }
+.statusbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; display: flex; flex-wrap: wrap;
+             gap: 6px 16px; align-items: center; justify-content: space-between; padding: 6px 16px;
+             background: var(--panel); border-top: 1px solid var(--line); font-size: 12px; }
+.statusbar .run { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; min-width: 0; }
+.statusbar .cell { color: var(--muted); overflow-wrap: anywhere; }
+.statusbar .cell b { color: var(--text); font-weight: 600; }
+.statusbar .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.statusbar .chip { display: inline-flex; gap: 5px; align-items: center; padding: 2px 8px;
+                   border: 1px solid var(--line); border-radius: 999px; font-weight: 600; }
+.statusbar .chip small { font-weight: 400; color: var(--muted); }
+.statusbar .led { width: 8px; height: 8px; border-radius: 50%; background: var(--pending); }
+.statusbar .st-ok .led { background: var(--st-good); }
+.statusbar .st-silent .led { background: var(--st-warning); }
+.statusbar .st-warning .led { background: var(--st-warning); }
+.statusbar .st-error .led { background: var(--st-critical); }
+.statusbar .st-error { border-color: var(--st-critical); }
+.statusbar .st-closed .led { background: transparent; border: 1px solid var(--muted); }
 .summary { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
 .label { font-size: 12px; color: var(--muted); }
 .suite { font-size: 20px; font-weight: 600; }
