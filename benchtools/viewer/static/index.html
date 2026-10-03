@@ -58,6 +58,9 @@
       <button data-view="latest" aria-selected="false">Latest Data</button>
       <button data-view="config" aria-selected="false">Config</button>
       <button data-view="identification" aria-selected="false">Identification</button>
+      <button data-view="environment" aria-selected="false">Environment</button>
+      <button data-view="short" aria-selected="false">Short Interval</button>
+      <button data-view="ticks" aria-selected="false">Ticks</button>
     </div>
     <div id="rf-frames-view">
       <h2 class="section">Sensors</h2>
@@ -78,6 +81,20 @@
     </div>
     <div id="rf-identification-view" hidden>
       <div id="rf-identification" class="panel"></div>
+    </div>
+    <div id="rf-graphs-view" hidden>
+      <div class="toolbar">
+        <span id="rf-axis-box" hidden>Axis
+          <label><input type="radio" name="rf-axis" value="X"> X</label>
+          <label><input type="radio" name="rf-axis" value="Y"> Y</label>
+          <label><input type="radio" name="rf-axis" value="Z" checked> Z</label>
+        </span>
+        <button type="button" id="rf-zoom-in">Zoom in</button>
+        <button type="button" id="rf-zoom-out">Zoom out</button>
+        <button type="button" id="rf-zoom-reset">Reset</button>
+        <span class="note">Hover a chart for the values at a time; zoom centres on the last point hovered.</span>
+      </div>
+      <div id="rf-graphs" class="graphs"></div>
     </div>
   </section>
 

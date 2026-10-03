@@ -15,6 +15,10 @@ for (const button of document.querySelectorAll("#rf-views button")) {
     for (const view of ["frames", "latest", "config", "identification"]) {
       $("rf-" + view + "-view").hidden = view !== rfView;
     }
+    const graphs = ["environment", "short", "ticks"].includes(rfView);
+    $("rf-graphs-view").hidden = !graphs;
+    $("rf-axis-box").hidden = rfView !== "short";
+    zoomSpan = null;
     loadKepler();
   });
 }
@@ -87,8 +91,43 @@ function renderIdentification(reply) {
   ]));
 }
 
+// rf_monitor's Environment, Short Interval and Ticks (#153), on the shared chart.
+let zoomSpan = null;
+let lastSpan = null;
+
+async function loadSensorGraphs() {
+  const axis = document.querySelector("input[name=rf-axis]:checked").value;
+  const reply = await (await fetch("/api/sensor?sensor=" + encodeURIComponent($("rf-sensor").value) +
+                                   "&axis=" + axis)).json();
+  const charts = rfView === "environment" ? reply.environment
+    : rfView === "short" ? reply.short_interval : reply.ticks;
+  const times = charts.flatMap((c) => c.series.flatMap((s) => s.points.map((p) => p[0])));
+  lastSpan = times.length ? [Math.min(...times), Math.max(...times)] : [0, 1];
+  const span = zoomSpan || lastSpan;
+  const box = $("rf-graphs");
+  box.replaceChildren(...(reply.sensor ? charts.map((c) => lineChart(c, span, [], box))
+    : [el("div", {class: "note"}, "No ALIVE, TWF or VERSION frames yet.")]));
+}
+
+function zoom(factor) {
+  const span = zoomSpan || lastSpan;
+  if (!span) return;
+  const centre = hoverTime != null && hoverTime >= span[0] && hoverTime <= span[1]
+    ? hoverTime : span[1];
+  const half = Math.max((span[1] - span[0]) * factor / 2, 0.5);
+  zoomSpan = [centre - half, centre + half];
+  loadSensorGraphs();
+}
+$("rf-zoom-in").addEventListener("click", () => zoom(0.5));
+$("rf-zoom-out").addEventListener("click", () => zoom(2));
+$("rf-zoom-reset").addEventListener("click", () => { zoomSpan = null; loadSensorGraphs(); });
+for (const radio of document.querySelectorAll("input[name=rf-axis]")) {
+  radio.addEventListener("change", loadSensorGraphs);
+}
+
 async function loadKepler() {
   if (rfView === "frames") return;
+  if (["environment", "short", "ticks"].includes(rfView)) { loadSensorGraphs(); return; }
   const sensor = $("rf-sensor").value;
   const reply = await (await fetch("/api/kepler?sensor=" + encodeURIComponent(sensor))).json();
   if (rfView === "latest") {

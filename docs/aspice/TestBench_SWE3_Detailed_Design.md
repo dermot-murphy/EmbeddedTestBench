@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE3-001 | **Version** | 1.13 |
+| **Document ID** | TB-SWE3-001 | **Version** | 1.14 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -45,6 +45,7 @@
 | 1.11 | 2026-10-03 | Claude | #141: VIEW-DD-SERVER - access token, sign-in cookie, read-only, HTTPS, `_POST_API`. |
 | 1.12 | 2026-10-03 | Claude | #151: S2LP-DD-KEPLER - the decoder checked against the sensor firmware point by point; RESPONSE corrected; `kepler_tables.py` added. |
 | 1.13 | 2026-10-03 | Claude | #152: VIEW-DD-KEPLER added (`KeplerView`, `byte_roles`, `header_rows`, `payload_rows`, `CONFIG_GROUPS`, `/api/kepler`, `kepler.js`). |
+| 1.14 | 2026-10-03 | Claude | #153: VIEW-DD-SENSOR added (`SensorSeries`, `to_mg`, `to_mm_s`, `/api/sensor`); `lineChart` takes its container and shows raw counts; RF sub-tabs Environment, Short Interval and Ticks. |
 
 ---
 
@@ -2726,6 +2727,27 @@ product out.
 `kepler.js` adds sub-tabs to the RF page - Frames, Latest Data, Config,
 Identification - polling `/api/kepler` every second while one is shown;
 Latest Data has its own pause, holding the newest reply until resumed.
+
+#### VIEW-DD-SENSOR — `sensor_series.py`
+
+`SensorSeries.feed` takes each frame `RfFrames` adds (as `KeplerView` does) and
+keeps, per sensor, `KEEP_POINTS` (1 000) per series. A copy is plotted only if
+it is the first heard of its frame: repeat 0, or a later repeat more than
+`REPEAT_WINDOW_S` (1 s) after the last plotted frame of its type (and, for TWF,
+packet) - so a lost first copy is replaced by the next, and no frame is
+plotted twice, where rf_monitor plotted every copy. Temperature and battery
+(VERSION's loaded battery) from ALIVE, TWF and VERSION; from ALIVE, per axis,
+acceleration RMS and peak to peak through `to_mg` and velocity through
+`to_mm_s` - full scale `8 << si_scale` g, `32767 / full scale` counts per g,
+mg `raw * 1000 / cpg`, mm/s `raw * 10 / cpg` - each point keeping its raw
+count, and the ticks; from TWF, its three SI values by SI type (0 acceleration,
+1 velocity, 2 peak to peak, 3 magnetometer frequency, 4 amplitude, both
+counts). `view(sensor, axis)` gives the Environment, Short Interval and Ticks
+charts, the tick delta `max(0, next - this)` (VIEW-FR-031 … -033).
+`/api/sensor?sensor=&axis=` serves it. The RF page's Environment, Short
+Interval (with an X/Y/Z selector) and Ticks sub-tabs draw them with
+`lineChart`, whose tooltip adds a point's raw count; Zoom in and out halve or
+double the span about the time last hovered, and Reset restores it.
 
 #### VIEW-DD-PAGE — `static/index.html`, `app.js`, `app.css`
 

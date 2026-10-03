@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE1-001 | **Version** | 1.15 |
+| **Document ID** | TB-SWE1-001 | **Version** | 1.16 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -47,6 +47,7 @@
 | 1.13 | 2026-10-03 | Claude | #141: VIEW-FR-025 … -027 added - the viewer from another PC: access token, read-only, HTTPS, the control channel still on 127.0.0.1. |
 | 1.14 | 2026-10-03 | Claude | #151: S2LP-FR-081 … -083 added - CONFIG parameters named, waveform sample order and ODR, and frames decoded as the firmware builds them (RESPONSE layout corrected). |
 | 1.15 | 2026-10-03 | Claude | #152: VIEW-FR-028 … -030 added - rf_monitor's Latest Data, Config and Identification screens. |
+| 1.16 | 2026-10-03 | Claude | #153: VIEW-FR-031 … -033 added - rf_monitor's Environment, Short Interval and Ticks graphs. |
 
 ---
 
@@ -1009,6 +1010,9 @@ A browser page onto a bench run (#130, #137), served by `benchtools view`. It is
 | VIEW-FR-028 | The RF page shall show rf_monitor's Latest Data: each received frame, newest first, of one sensor or all - its time, sensor, type and RSSI; its raw bytes coloured by role (header, type, permute control, frame counter, payload); its packet header (sensor, product, capabilities, permute control, frame counter n of m); and its payload, each field with its unit and CONFIG values by parameter name - with a pause. | STK-23 | Test |
 | VIEW-FR-029 | The RF page shall show rf_monitor's Config: for a sensor, each of the 60 configuration parameters - block, number, name, latest value as its enumeration names it, unit, when last received - disabled parameters and parameters not yet received shown as such, and rf_monitor's summary groups (operation timings, trigger settings, sampling, sync, FFT, other). | STK-23 | Test |
 | VIEW-FR-030 | The RF page shall show rf_monitor's Identification: from a sensor's last VERSION frame, when it was received, the sensor and product, firmware version and SHA, capabilities and PCB, temperature and loaded battery, ticks and the reset reason by name, or that no VERSION frame has arrived. | STK-23 | Test |
+| VIEW-FR-031 | The RF page shall plot rf_monitor's Environment for a sensor: temperature (°C) and battery (V) against time, from its ALIVE, TWF and VERSION frames, each frame once however many copies the sensor sent. | STK-23 | Test |
+| VIEW-FR-032 | The RF page shall plot rf_monitor's Short Interval for a sensor and a chosen axis: acceleration RMS and peak to peak in mg and velocity RMS in mm/s, from ALIVE frames and TWF frames by their SI type, at the sensor's full scale (8 << si_scale g, 32767 counts), the raw count given on hovering, one y-axis per chart; and the magnetometer's frequency and amplitude in counts. | STK-23 | Test |
+| VIEW-FR-033 | The RF page shall plot rf_monitor's Ticks for a sensor: the tick counter from its ALIVE frames and the change from one frame to the next, a fall shown as 0; and its graphs shall zoom in and out about the time last hovered, and reset. | STK-23 | Test |
 
 ## 17. Assumptions and constraints
 
