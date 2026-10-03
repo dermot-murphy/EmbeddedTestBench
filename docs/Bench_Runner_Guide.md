@@ -835,6 +835,28 @@ The runner's own records are `TEST`; anything not from an instrument is `BENCH`.
 - Logs written before #126 use lower-case names (`psu`, `rf`); the Test Bench
   monitor reads both.
 
+### 6.4 The runner's structured records
+
+The runner's `TEST` records also carry a `kind` and a `data` object, so a
+program can follow a run without parsing text (#135):
+
+| `kind` | `data` |
+|---|---|
+| `run_start` | The whole plan: suite, bench, simulated, selection, parameters, setup and teardown steps, and every test case with its steps and whether it is selected |
+| `case_start` | `case` (index), `name`, `requirement` |
+| `step_start` | `phase` (`setup`, `test`, `teardown`), `case`, `step` (indices), `action`, `arguments` as written, `save` |
+| `step_end` | As `step_start`, with the resolved `arguments`, `result`, `status`, `error`, `measurements` and `duration_s` |
+| `case_end` | `case`, `name`, `status`, `error`, `skip_reason`, `duration_s`. A test case not selected has a `case_end` and no `case_start` |
+| `run_end` | `status`, `setup_error`, `duration_s`, `totals` |
+
+```json
+{"t": 1790600001.5, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner.runner", "text": "step temp.read: PASS", "kind": "step_end", "data": {"phase": "test", "case": 0, "step": 2, "action": "temp.read", "result": 22.41, "status": "PASS", "...": "..."}}
+```
+
+`data` is always standard JSON: a value that is not finite is written as text,
+bytes as hex, and a sequence longer than 256 items is cut short with a note.
+Step records are at DEBUG level, which the event log always records.
+
 ---
 
 ## 7. Failure versus error — read this before interpreting a report

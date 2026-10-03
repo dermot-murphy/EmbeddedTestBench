@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE1-001 | **Version** | 1.4 |
+| **Document ID** | TB-SWE1-001 | **Version** | 1.5 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -36,6 +36,7 @@
 | 1.2 | 2026-10-03 | Claude | #127: §15.5 added - PICO-FR-070 … -076, reflashing the Pico 2 thermometer with no BOOTSEL press: reaching the bootloader (an already-mounted drive, `bootsel`, or the 1200-baud reset), checking the UF2, the copy and reboot, confirming the build afterwards, bounded waits and named errors, the `flash` command, and the simulated board. PICO non-functional renumbered 15.6. CON-09 extended to PICO-OPEN-05. §15.5 note and CON-09 updated for the hardware confirmation on a real Pico 2 on 2026-10-03: PICO-OPEN-01 and -05 closed on Windows; PICO-OPEN-02 not yet tested, as no sensor is connected. |
 | 1.3 | 2026-10-03 | Claude | #131: the Pico thermometer answers an `rd` command set in place of `ver` and `temp`, and `reset` is renamed `ecureset`. PICO-FR-006 (`rd name`, `copyright`, `version`, `sha`), PICO-FR-007 (`NAK` for an unknown option), PICO-FR-027 (`rd temperature` to two places, or `Error`), PICO-FR-047 (the driver's `rd` and `NoReadingError`) and PICO-FR-061 (`info`, `rd` and `ecureset` on the command line) added. PICO-FR-001, -002 (now the version scheme and the injected commit), -003, -005, -020 … -023, -030, -040 … -042, -046, -050 and -060 revised. PICO-FR-044 (the raw-word cross-check) withdrawn: the reply no longer carries raw words. The convention for a withdrawn requirement is stated in §15. With #127 merged, `flash` confirms the new build by the `rd` command set: PICO-FR-071, -073 and -076 revised, so the image is recognised by the firmware's name and checked by `rd name`, `rd version` and `rd sha` against the version and commit SHA stored in it, in place of `ver`, the title and the build date; the §15.5 note records the `rd` firmware flashed and confirmed on a real Pico 2 on 2026-10-03. CON-09 records that the change has been built and run on a real Pico 2 (2026-10-03), but not yet with the SHT30-D module connected. |
 | 1.4 | 2026-10-03 | Claude | #134: RUN-FR-059 added - running a selected subset of a specification's test cases, those not selected recorded as skipped, "not selected". |
+| 1.5 | 2026-10-03 | Claude | #135: CORE-FR-064 (an event record's `kind` and `data`) and RUN-FR-060 (the runner's structured run, test case and step records) added. |
 
 ---
 
@@ -199,6 +200,7 @@ Extends §6.2 with the SCPI and IEEE 488.2 vocabulary.
 | CORE-FR-062 | A simulated instrument that streams on a virtual clock shall be told how long the driver is prepared to wait, so that output due later than that is a timeout, as it is on a real link, rather than data the driver would never have received. | STK-07, STK-18 | Test |
 | CORE-FR-063 | Each instrument shall carry a short event-log name - 1 to 8 characters, an upper-case letter then A-Z, 0-9 or _ - and every record logged by the instrument or by anything it owns (its transport, its sessions) shall carry that name, from the instrument's construction on, so two instruments of one driver are told apart. Without a name given, it shall be the driver's default: `PSU`, `BLE`, `JLINK`, `RF`, `SCOPE`, `DMM`, `TEMP` (Pico 2 + SHT30-D thermometer); a record from nothing named shall be `BENCH` (#126). | STK-19 | Test |
 | CORE-FR-060 | Every instrument's and the runner's log records shall be writable, while a run is in progress, to one event log of one JSON object per line, each carrying the short upper-case name of the instrument it came from (`PSU`, `BLE`, `RF`, `TEMP`, ...) or `TEST` for the runner, so that another program can follow the run as it happens and tell its sources apart. | STK-19 | Test |
+| CORE-FR-064 | A record in the event log shall be able to carry, beside its text, a `kind` naming what happened and a `data` object with its details, so that a reader can follow the run without parsing text. `data` shall be standard JSON - a value that is not finite written as text, bytes as hex, a long sequence cut short and saying so - and a reader that ignores the two fields shall be unaffected. | STK-19 | Test |
 
 ### 6.6 Simulation
 
@@ -942,6 +944,7 @@ Drive discovery on Linux and macOS has not been tried on hardware.
 | RUN-FR-057 | A simulated run shall not be gated, because nothing is energised and an unattended run has nobody to ask. Refusal to start shall be reported with its own exit status, distinct from a test failure. | STK-08 | Test |
 | RUN-FR-058 | A specification shall be able to name values once, in a `parameters` block at its top, and use them anywhere below - an argument, a bound, a tolerance, or rendered into text. An undefined name shall be refused, and the values a run used shall appear in its record and report. | STK-08 | Test |
 | RUN-FR-059 | A run shall be able to execute a chosen subset of a specification's test cases, named on the command line. A test case not chosen shall be recorded as skipped with the rationale "not selected", setup and teardown shall still run, the selection shall appear in the run record and every report, and a name matching no test case shall be refused before the bench is opened. (ASPICE 4.0: verification measure selection set, 08-58; verification measure not executed with a rationale, 13-25.) | STK-08 | Test |
+| RUN-FR-060 | The runner shall write structured records to the event log: `run_start` carrying the whole plan (setup, every test case with its steps and whether it is selected, teardown), `case_start` and `case_end`, `step_start` and `step_end` (phase, test case and step index, action, resolved arguments, result, saved value, status, error, measurements, duration), and `run_end` carrying the verdict and totals, so that the tree of a run and every result can be rebuilt from the log alone, including by a reader that starts part-way through. | STK-19 | Test |
 
 ---
 
