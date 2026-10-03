@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-RTM-001 | **Version** | 1.10 |
+| **Document ID** | TB-RTM-001 | **Version** | 1.11 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -42,6 +42,7 @@
 | 1.8 | 2026-10-03 | Claude | #137: STK-23 row; rows for VIEW-FR-001 … -009 (the test run viewer); VIEW-ARC-001 row; §16 requirement count 390 functional declared, 389 in force. |
 | 1.9 | 2026-10-03 | Claude | #138: rows for VIEW-FR-010 … -012 (instrument traffic, front panels, a step's traffic); VIEW-DD-TRAFFIC in VIEW-ARC-001; §16 count 393 declared, 392 in force. |
 | 1.10 | 2026-10-03 | Claude | #139: rows for S2LP-FR-080 and VIEW-FR-013 … -015 (RF and BLE pages); VIEW-DD-RADIO in VIEW-ARC-001; §16 count 397 declared, 396 in force. |
+| 1.11 | 2026-10-03 | Claude | #140: rows for CORE-FR-065, PSU-FR-044, PICO-FR-048, DMM-FR-034 and VIEW-FR-016 … -018 (readings and graphs); VIEW-DD-GRAPHS in VIEW-ARC-001; §16 count 404 declared, 403 in force. |
 
 ---
 
@@ -92,7 +93,7 @@ It is checked mechanically by `tests/test_traceability.py` on every run of the s
 | STK-20 — use ST's firmware if it is fit for purpose | AD-20; S2LP-FR-001, -002; S2LP-NFR-002. The firmware was examined before any was written: BENCHTOOLS-SWE4-002 §10, `docs/s2lp/S2LP_Devkit_Notes.md` §1 |
 | STK-21 — local temperature with a Pico 2 and a DollaTek SHT30-D | PICO-FR-001, -003 … -005, -007, -010, -020 … -027, -030, -031, -040, -042, -043, -045 … -047, -050, -060, -061, -070 … -076; PICO-NFR-001 … -006; AD-24 (superseded by #131, see §16). PICO-FR-044 withdrawn (#131). |
 | STK-22 — firmware reports its title and version | PICO-FR-002, -005 … -007, -040, -041, -060, -061, -073, -075. Since #131 the "title" is the name reported by `rd name`, beside `rd copyright`, `rd version` and `rd sha`; `flash` checks the name, version and commit SHA of the image it installed (PICO-FR-073). |
-| STK-23 — watch and control a run (#130) | VIEW-FR-001 … -015; S2LP-FR-080; RUN-FR-059 … -065; CORE-FR-064 |
+| STK-23 — watch and control a run (#130) | VIEW-FR-001 … -018; S2LP-FR-080; CORE-FR-065; PSU-FR-044; PICO-FR-048; DMM-FR-034; RUN-FR-059 … -065; CORE-FR-064 |
 | STK-18 — RS-232 multimeter | DMM-FR-001 … -033, -045, -046, -070, -080, -081; DMM-NFR-001 … -004; CORE-FR-017, -061, -062. Implemented for the TTi 1604. No behaviour confirmed against a physical meter: `docs/dmm/TTi1604_Notes.md` §5. |
 
 ## 5. CORE requirements to design, code and test
@@ -134,6 +135,7 @@ It is checked mechanically by `tests/test_traceability.py` on every run of the s
 | CORE-FR-063 | ARC-004, AD-28 | CORE-DD-EVENTS, CORE-DD-INSTRUMENT | `EventSource`, `SourceLogger`, `connecting_as`, `validate_source_name`; `Instrument.EVENT_SOURCE`, `event_source`, `_adopt`; `Transport._logger`; each driver's `self._logger` | `TestSourceNames` (18), `TestPerInstrumentNames` (15), `SWE4-UT-EVENTNAMES` (21) |
 | CORE-FR-060 | ARC-004, AD-28 | CORE-DD-EVENTS | `EventLogHandler`, `start_event_log`, `EventTail`, `source_of`; `benchtools run --event-log`; `ScpiInstrument._io_log`; the monitor's `source_key`, `style_of` | `SWE4-UT-EVENTS` (54), `SWE4-UT-TESTBENCH` (32) |
 | CORE-FR-064 | ARC-004 | CORE-DD-EVENTS | `log_event`, `jsonable`, `MAX_ITEMS`; `EventLogHandler.emit` (`kind`, `data`) | `SWE4-UT-RUNEVENTS` (21) |
+| CORE-FR-065 | ARC-004 | CORE-DD-EVENTS | `log_reading` | `test_log_reading_is_ordinary_text_on_a_console`, `TestDriversLogReadings` (5) |
 | CORE-FR-041 | ARC-004 | CORE-DD-SIM | `_unknown_command` | `test_unknown_header_is_recorded_not_ignored`, `test_unknown_query_still_answers` |
 
 ### CORE non-functional
@@ -431,6 +433,7 @@ where the firmware implements the requirement.
 | PSU-FR-041 | PSU-ARC-001 | PSU-DD-PSU, PSU-DD-CONST | `_pace`, `_default_command_interval` | `TestPacing` (7) |
 | PSU-FR-042 | PSU-ARC-001 | PSU-DD-PSU | `_normalise_resource` | `test_a_bare_port_name_is_a_serial_port`, `test_resource_forms` (5) |
 | PSU-FR-043 | PSU-ARC-001 | PSU-DD-PSU | `reset` | `TestReset` (3) |
+| PSU-FR-044 | PSU-ARC-001 | PSU-DD-PSU | `measure_voltage`, `measure_current` | `test_the_supply_s_voltage_and_current`, `test_a_channel_reading_logs_both` |
 | PSU-FR-050 | PSU-ARC-001 | PSU-DD-SIM | `simulator.py`, `register_driver("gpd3303d", …)` | `SWE4-UT-PSUSIM` (20), `test_correct_driver_per_alias` |
 | PSU-FR-060 | PSU-ARC-001 | PSU-DD-CLI | `cli.py`, including the current-limit and tracking notes in `_cmd_read` | `SWE4-UT-PSUCLI` (23), notably `TestTrackingIsVisibleWhenReading` (3) |
 
@@ -479,6 +482,7 @@ where the firmware implements the requirement.
 | DMM-FR-031 | DMM-ARC-001 | DMM-DD-DMM | `measure`, `_discard_input` | `test_a_measurement_is_taken_after_the_call` |
 | DMM-FR-032 | DMM-ARC-001 | DMM-DD-DMM, DMM-DD-CONST | `_patience`, `GATE_TIME` | `test_the_ten_second_gate_is_waited_for`; on hardware `test_the_frequency_gate` |
 | DMM-FR-033 | DMM-ARC-001 | DMM-DD-DMM | `select_hertz`, frequency branch of `set_range` | `test_hertz_needs_an_ac_range`, `test_the_ten_second_gate_is_waited_for` |
+| DMM-FR-034 | DMM-ARC-001 | DMM-DD-DMM | `Tti1604.read` | `test_the_meter_s_reading` |
 | DMM-FR-045 | DMM-ARC-001 | DMM-DD-DMM, DMM-DD-SIM | `connect(simulated_value=...)` | `test_the_bench_can_say_what_the_simulated_meter_reads`; `specs/sensor_power_signal_and_link.yaml` against `benches/simulated_bench.yaml` |
 | DMM-FR-046 | DMM-ARC-001 | DMM-DD-SIM | `SimulatedTti1604`: `frame`, `_digit_bytes`, `_auto_range_code`, `poll_within`, `measurement_time` | `TestTheMeterAsTheManualDescribesIt` (11) |
 | DMM-FR-070 | DMM-ARC-001 | DMM-DD-CLI | `cli.py` | `test_cli.py` (8) |
@@ -522,6 +526,7 @@ tests in `tests/instruments/pico_sht30/`.
 | PICO-FR-045 | PICO-ARC-001 | PICO-DD-DRIVER | `_normalise_resource` | `test_resource_forms` (6) |
 | PICO-FR-046 | PICO-ARC-001 | PICO-DD-DRIVER | `status`, `SensorStatus`, `soft_reset_sensor`, `reset` (`ecureset`), `enter_bootloader` | `TestStatusAndControl` (9), notably `test_reboot_is_ecureset` |
 | PICO-FR-047 | PICO-ARC-001 | PICO-DD-DRIVER | `rd`, `read`, `NoReadingError`, `RdRefusedError` | `TestRd` (4): `test_other_options`, `test_nak`, `test_err_reply`, `test_a_reply_that_is_neither_ack_nor_nak`; `test_a_reply_for_another_option_is_refused`; `test_a_value_not_to_two_places_is_refused` (5); `TestFailedReadings`: `test_error` (3), `test_no_reading_is_an_instrument_error` |
+| PICO-FR-048 | PICO-ARC-001 | PICO-DD-DRIVER | `PicoSht30.read` | `test_the_thermometer_s_temperature` |
 | PICO-FR-050 | PICO-ARC-001 | PICO-DD-SIM | `simulator.py`, `register_driver("pico-sht30", …)` | `SWE4-UT-PICOSIM` (36), `test_faults` |
 | PICO-FR-060 | PICO-ARC-001 | PICO-DD-CLI | `cli.py`, `benchtools/cli.py` | `test_temp`, `test_temp_series`, `test_count_must_be_positive`, `test_status`, `test_sreset_and_bootsel`, `test_json_file`, `test_connection_failure_is_reported`, `test_reachable_from_the_top_level` |
 | PICO-FR-061 | PICO-ARC-001 | PICO-DD-CLI | `_cmd_info`, `_cmd_rd`, `_cmd_ecureset` | `test_info`, `test_rd` (5), `test_rd_rejects_an_unknown_option`, `test_ecureset` |
@@ -585,7 +590,7 @@ tests in `tests/instruments/pico_sht30/`.
 | RUN-FR-054 | PICO-ARC-001 | PICO-DD-DRIVER, -CONST, -SIM, -CLI, -FLASH | `instruments/pico_sht30/{thermometer,constants,simulator,cli,flash}.py` |
 | PICO-ARC-001 | PICO-DD-PROTOCOL, -VERSION, -BOARD, -HAL, -SHT30, -TEXT, -PARSER, -MAIN, -BUILD, -TEST | `firmware/pico_sht30/{include,src,test}/*`, `CMakeLists.txt`, `pico_sdk_import.cmake` |
 | RUN-ARC-001 | RUN-DD-SPEC, RUN-DD-RUNCLI | `TestSpec.warning`, `_warnings_of`, `_announce_warnings` | `test_the_warning_is_printed_before_anything_runs` |
-| VIEW-ARC-001 | VIEW-DD-STATE, -SERVER, -TRAFFIC, -RADIO, -PAGE | `viewer/*.py`, `viewer/static/*` |
+| VIEW-ARC-001 | VIEW-DD-STATE, -SERVER, -TRAFFIC, -RADIO, -GRAPHS, -PAGE | `viewer/*.py`, `viewer/static/*` |
 | RUN-FR-055 | RUN-ARC-001 | RUN-DD-RUNCLI | `_announce_warnings` (stderr) | `test_the_warning_is_printed_before_anything_runs` |
 | RUN-FR-056 | RUN-ARC-001 | RUN-DD-RUNCLI | `_acknowledged`, `--acknowledge` | `test_hardware_without_a_terminal_refuses_to_start`, `test_a_terminal_is_asked_and_yes_proceeds`, `test_anything_but_yes_stops_the_run` (4) |
 | RUN-FR-057 | RUN-ARC-001 | RUN-DD-RUNCLI | `_acknowledged`, `_EXIT_NOT_ACKNOWLEDGED` | `test_a_simulated_run_is_not_gated`, `test_a_specification_with_no_warning_is_never_gated` |
@@ -612,6 +617,9 @@ tests in `tests/instruments/pico_sht30/`.
 | VIEW-FR-013 | VIEW-ARC-001 | VIEW-DD-RADIO, VIEW-DD-PAGE | `RfFrames`, `loadRadio` | `TestFrames` (6) |
 | VIEW-FR-014 | VIEW-ARC-001 | VIEW-DD-RADIO, VIEW-DD-SERVER | `RfFrames.view(sensor)`, `/api/radio` | `test_each_sensor_s_latest_frame_of_each_type`, `test_one_sensor_only` |
 | VIEW-FR-015 | VIEW-ARC-001 | VIEW-DD-RADIO, VIEW-DD-SERVER, VIEW-DD-PAGE | `BleAir`, `parse_fields`, `Hub.bluetooth`, `/api/ble`, `loadBle` | `TestBle` (6) |
+| VIEW-FR-016 | VIEW-ARC-001 | VIEW-DD-GRAPHS | `Readings`, `lineChart` | `TestReadings` (5), `test_the_hub_serves_graphs` |
+| VIEW-FR-017 | VIEW-ARC-001 | VIEW-DD-GRAPHS | `advertising`, `_intervals` | `TestAdvertising` (4) |
+| VIEW-FR-018 | VIEW-ARC-001 | VIEW-DD-GRAPHS, VIEW-DD-SERVER | `step_markers`, `Hub.graphs`, `/api/graphs`, `lineChart` | `test_step_markers_in_time_order` |
 | RUN-FR-050 | ARC-001 | RUN-DD-CLI | `runner/cli.py` | `TestRunCommand` (8) |
 | RUN-FR-051 | ARC-001 | RUN-DD-CLI | exit statuses | `test_simulated_run_passes`, `test_failure_exits_nonzero`, `test_no_bench_and_no_simulate_is_a_usage_error` |
 | RUN-FR-052 | ARC-001 | RUN-DD-CLI | report path suffixing | `test_several_specs_get_suffixed_reports` |
@@ -643,7 +651,7 @@ tests in `tests/instruments/pico_sht30/`.
 
 | Question | Answer |
 |---|---|
-| Requirements with no verifying test | **None.** All 396 functional requirements in force (397 declared; PICO-FR-044 is withdrawn) and 36 non-functional requirements trace to at least one test, or to a recorded inspection where a test is not the appropriate method (CORE-NFR-002, BLE-FR-090, BLE-NFR-002, and part of CORE-NFR-001). The firmware requirements are verified against the artefact the firmware is built from, not against a running dongle: see CON-07. |
+| Requirements with no verifying test | **None.** All 403 functional requirements in force (404 declared; PICO-FR-044 is withdrawn) and 36 non-functional requirements trace to at least one test, or to a recorded inspection where a test is not the appropriate method (CORE-NFR-002, BLE-FR-090, BLE-NFR-002, and part of CORE-NFR-001). The firmware requirements are verified against the artefact the firmware is built from, not against a running dongle: see CON-07. |
 | Tests not tracing to a requirement | **None.** Every test file names its requirements in its module docstring. |
 | Source modules with no design unit | **None.** Every module names its design unit in its docstring - firmware sources included, checked by `test_every_source_declares_its_trace` in `SWE4-UT-BLEFW`; `__main__.py` is covered by RUN-DD-CLI. |
 | Design units with no source | **None.** |

@@ -18,6 +18,8 @@ The API:
 ``GET /api/radio``        received Kepler frames and each sensor's latest;
                           ``?sensor=`` for one sensor (#139)
 ``GET /api/ble``          BLE devices, events and the dongle's exchanges (#139)
+``GET /api/graphs``       readings, BLE advertising and step markers;
+                          ``?ble=&expected_ms=`` (#140)
 ``GET /api/catalogue``    test specifications and benches the viewer can start
 ``POST /api/control``     a control request, passed to the runner
 ``POST /api/start``       start a run as a subprocess and follow it
@@ -30,7 +32,7 @@ browser first asking this server, which never agrees, so another site open in
 the same browser cannot start or abort a run. The ``Host`` header must name
 this machine, which stops a DNS-rebinding page reaching the API by name.
 
-Traces to: VIEW-FR-001 .. VIEW-FR-015, VIEW-DD-SERVER.
+Traces to: VIEW-FR-001 .. VIEW-FR-018, VIEW-DD-SERVER.
 """
 
 from __future__ import annotations
@@ -56,6 +58,7 @@ from ..core.errors import BenchToolsError
 from ..core.events import EventTail
 from ..runner.control import HOST
 from ..runner.spec import load_spec
+from .graphs import Readings, advertising, step_markers
 from .radio import BleAir, RfFrames
 from .state import RunState
 from .traffic import Traffic, panel_for
@@ -99,6 +102,7 @@ class Hub:  # pylint: disable=too-many-instance-attributes
         self.panels: Dict[str, Any] = {}
         self.rf = RfFrames()
         self.ble = BleAir()
+        self.readings = Readings()
         self.records: List[Tuple[int, Dict[str, Any]]] = []
         self.sequence = 0
         self.generation = 0
@@ -126,6 +130,7 @@ class Hub:  # pylint: disable=too-many-instance-attributes
             self.panels = {}
             self.rf = RfFrames()
             self.ble = BleAir()
+            self.readings = Readings()
             self.records = []
             self._override_port = control_port
             self.generation += 1
@@ -166,6 +171,7 @@ class Hub:  # pylint: disable=too-many-instance-attributes
         self.state.apply(record)
         self.rf.feed(record)
         self.ble.feed(record)
+        self.readings.feed(record)
         if self.traffic.feed(record):
             source = record["source"]
             if self.panels.get(source) is None:
@@ -197,6 +203,13 @@ class Hub:  # pylint: disable=too-many-instance-attributes
             view["exchanges"] = {source: listed for source, listed in traffic.items()
                                  if listed["driver"] == "nordic_dongle"}
             return view
+
+    def graphs(self, address: str = "", expected_ms: Optional[float] = None) -> Dict[str, Any]:
+        """Readings charts, BLE advertising charts and step markers (#140)."""
+        with self._condition:
+            return {"charts": self.readings.charts(),
+                    "ble": advertising(list(self.ble.adverts), address, expected_ms),
+                    "markers": step_markers(self.state.snapshot())}
 
     def _loop(self) -> None:
         while not self._stop.is_set():
@@ -336,6 +349,18 @@ class Launcher:
         return {"ok": True, "event_log": base + ".events.jsonl", "pid": self.process.pid}
 
 
+#: The read-only API: path to the handler method serving it.
+_GET_API = {
+    "/api/state": "_get_state",
+    "/api/instruments": "_get_instruments",
+    "/api/radio": "_get_radio",
+    "/api/ble": "_get_ble",
+    "/api/graphs": "_get_graphs",
+    "/api/catalogue": "_get_catalogue",
+    "/api/events": "_get_events",
+}
+
+
 class _Handler(BaseHTTPRequestHandler):
     server: "ViewerServer"
     protocol_version = "HTTP/1.1"
@@ -381,29 +406,47 @@ class _Handler(BaseHTTPRequestHandler):
             self._static("index.html")
         elif path.startswith("/static/"):
             self._static(path[len("/static/"):])
-        elif path == "/api/state":
-            hub = self.server.hub
-            self._json(hub.since(hub.sequence, hub.generation)["state"])
-        elif path == "/api/instruments":
+        elif path in _GET_API:
             try:
-                t0, t1 = (_number(self._query(name)) for name in ("t0", "t1"))
-            except ValueError:
-                self._json({"ok": False, "error": "t0 and t1 are numbers"},
-                           HTTPStatus.BAD_REQUEST)
-                return
-            self._json(self.server.hub.instruments(t0, t1))
-        elif path == "/api/radio":
-            self._json(self.server.hub.radio((self._query("sensor") or "").upper()))
-        elif path == "/api/ble":
-            self._json(self.server.hub.bluetooth())
-        elif path == "/api/catalogue":
-            self._json({"specs": self.server.catalogue.specs(),
-                        "benches": self.server.catalogue.benches(),
-                        "running": self.server.launcher.running})
-        elif path == "/api/events":
-            self._events()
+                getattr(self, _GET_API[path])()
+            except ValueError as exc:
+                self._json({"ok": False, "error": str(exc)}, HTTPStatus.BAD_REQUEST)
         else:
             self._json({"ok": False, "error": "not found"}, HTTPStatus.NOT_FOUND)
+
+    # The read-only API, one method per path (_GET_API). A ValueError is a
+    # bad request, its message the reason.
+    def _get_state(self) -> None:
+        hub = self.server.hub
+        self._json(hub.since(hub.sequence, hub.generation)["state"])
+
+    def _get_instruments(self) -> None:
+        try:
+            t0, t1 = (_number(self._query(name)) for name in ("t0", "t1"))
+        except ValueError as exc:
+            raise ValueError("t0 and t1 are numbers") from exc
+        self._json(self.server.hub.instruments(t0, t1))
+
+    def _get_radio(self) -> None:
+        self._json(self.server.hub.radio((self._query("sensor") or "").upper()))
+
+    def _get_ble(self) -> None:
+        self._json(self.server.hub.bluetooth())
+
+    def _get_graphs(self) -> None:
+        try:
+            expected = _number(self._query("expected_ms"))
+        except ValueError as exc:
+            raise ValueError("expected_ms is a number") from exc
+        self._json(self.server.hub.graphs(self._query("ble") or "", expected))
+
+    def _get_catalogue(self) -> None:
+        self._json({"specs": self.server.catalogue.specs(),
+                    "benches": self.server.catalogue.benches(),
+                    "running": self.server.launcher.running})
+
+    def _get_events(self) -> None:
+        self._events()
 
     def _query(self, name: str) -> Optional[str]:
         values = parse_qs(urlsplit(self.path).query).get(name)

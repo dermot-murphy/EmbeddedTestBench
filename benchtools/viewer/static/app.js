@@ -43,6 +43,7 @@ for (const tab of document.querySelectorAll("#tabs button")) {
     if (tab.dataset.page === "start") loadCatalogue();
     if (tab.dataset.page === "instruments") loadInstruments();
     if (tab.dataset.page === "rf") loadRadio();
+    if (tab.dataset.page === "graphs") loadGraphs();
     if (tab.dataset.page === "ble") loadBle();
   });
 }

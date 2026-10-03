@@ -48,7 +48,7 @@ while nobody reads and the operating system keeps what it sends, so
 :meth:`measure` discards everything waiting before it takes a reading
 (DMM-FR-031).
 
-Traces to: DMM-FR-001 .. DMM-FR-033, DMM-FR-045, DMM-ARC-001, DMM-DD-DMM.
+Traces to: DMM-FR-001 .. DMM-FR-034, DMM-FR-045, DMM-ARC-001, DMM-DD-DMM.
 """
 
 from __future__ import annotations
@@ -62,6 +62,7 @@ from ...core.errors import (
     InstrumentError,
     TransportError,
 )
+from ...core.events import log_reading
 from ...core.instrument import InstrumentIdentity
 from ...core.scpi import ScpiInstrument
 from ...core.transport.base import Transport
@@ -633,6 +634,9 @@ class Tti1604(ScpiInstrument):  # pylint: disable=too-many-public-methods,too-ma
         reading = self._next_frame(limit)
         if reading is None:
             raise self._silence(limit)
+        if reading.value is not None:
+            log_reading(self._logger, reading.measurement, reading.value, reading.unit,
+                        ac=reading.ac, text=reading.text, overrange=reading.overrange)
         return reading
 
     def read_many(self, count: int, timeout: Optional[float] = None) -> List[Reading]:

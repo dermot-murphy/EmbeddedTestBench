@@ -29,7 +29,7 @@ run - which test case and step is running, what it returned - without parsing
 JSON Lines rather than one document, flushed per record, so a reader can
 follow the file while it is written and a run that dies leaves a readable log.
 
-Traces to: CORE-FR-060, CORE-FR-063, CORE-FR-064, CORE-DD-EVENTS.
+Traces to: CORE-FR-060, CORE-FR-063 .. CORE-FR-065, CORE-DD-EVENTS.
 """
 
 from __future__ import annotations
@@ -61,6 +61,7 @@ __all__ = [
     "EventTail",
     "jsonable",
     "log_event",
+    "log_reading",
 ]
 
 #: A driver's default name, by the start of its logger's name. First match wins.
@@ -221,6 +222,18 @@ def log_event(logger: Any, kind: str, text: str, data: Dict[str, Any],
     ``kind`` and ``data``, so a reader can follow a run without parsing text.
     """
     logger.log(level, "%s", text, extra={"event_kind": kind, "event_data": data})
+
+
+def log_reading(logger: Any, quantity: str, value: float, unit: str, **detail: Any) -> None:
+    """Log one measured value as a ``reading`` record (CORE-FR-065, #140).
+
+    A driver calls this where it has a measurement in hand, so a reader of the
+    event log - the test run viewer's graphs - has the number and its unit
+    without parsing the line the instrument sent. *detail* says more: the
+    channel, AC or DC, the text on the instrument's display.
+    """
+    log_event(logger, "reading", "reading %s %s %s" % (quantity, value, unit),
+              dict(detail, quantity=quantity, value=value, unit=unit), level=logging.DEBUG)
 
 
 class EventLogHandler(logging.Handler):
