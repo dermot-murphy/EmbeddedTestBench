@@ -15,8 +15,11 @@ from typing import Dict, Tuple
 __all__ = [
     "MANUFACTURER",
     "MODEL",
-    "TITLE",
+    "NAME",
+    "COPYRIGHT",
     "PROTOCOL_VERSION",
+    "RD_OPTIONS",
+    "RD_ERROR",
     "SENSOR",
     "DEFAULT_ADDRESS",
     "DEFAULT_BAUDRATE",
@@ -31,16 +34,26 @@ __all__ = [
     "HUMIDITY_ACCURACY",
     "raw_to_celsius",
     "raw_to_percent",
+    "milli_to_centi_text",
 ]
 
 MANUFACTURER = "Raspberry Pi"
 MODEL = "Pico 2"
 
-#: The title the firmware reports in ``ver``; ``firmware_version.h``.
-TITLE = "Pico2-SHT30-Thermometer"
+#: What ``rd name`` and ``rd copyright`` report; ``firmware_version.h``.
+NAME = "Pico 2 SHT30 Temperature Sensor"
+COPYRIGHT = "(c) 2026 Dermot Murphy"
 
-#: Protocol revision this driver speaks; ``PROTO_VERSION`` in protocol.h.
-PROTOCOL_VERSION = "1.0"
+#: Protocol revision this driver speaks; ``PROTO_VERSION`` in protocol.h. The
+#: firmware does not report it: ``rd name`` identifies the firmware instead.
+PROTOCOL_VERSION = "2.0"
+
+#: The options ``rd`` answers, in the order ``rd`` documents them.
+RD_OPTIONS = ("name", "copyright", "version", "sha", "temperature")
+
+#: The value ``rd temperature`` reports when there is no reading, and that a
+#: ``NAK`` carries.
+RD_ERROR = "Error"
 
 #: Sensor part on the DollaTek SHT30-D module.
 SENSOR = "SHT30-DIS"
@@ -54,11 +67,10 @@ DEFAULT_BAUDRATE = 115200
 #: ``{command: (min_args, max_args)}`` from PROTO_COMMAND_TABLE.
 COMMANDS: Dict[str, Tuple[int, int]] = {
     "help": (0, 0),
-    "ver": (0, 0),
-    "temp": (0, 0),
+    "rd": (1, 1),
     "status": (0, 0),
     "sreset": (0, 0),
-    "reset": (0, 0),
+    "ecureset": (0, 0),
     "bootsel": (0, 0),
 }
 
@@ -101,8 +113,8 @@ _FULL_SCALE = 65535
 def raw_to_celsius(raw: int) -> float:
     """Convert a raw temperature word exactly as the firmware does.
 
-    Integer arithmetic, rounded to the nearest milli-degree, so that the host's
-    cross-check (:meth:`.PicoSht30.read`) compares like with like.
+    Integer arithmetic, rounded to the nearest milli-degree; the simulator uses
+    it so that its readings are ones the firmware could produce.
     """
     return ((175000 * int(raw) + _FULL_SCALE // 2) // _FULL_SCALE - 45000) / 1000.0
 
@@ -110,3 +122,13 @@ def raw_to_celsius(raw: int) -> float:
 def raw_to_percent(raw: int) -> float:
     """Convert a raw humidity word exactly as the firmware does."""
     return ((100000 * int(raw) + _FULL_SCALE // 2) // _FULL_SCALE) / 1000.0
+
+
+def milli_to_centi_text(milli: int) -> str:
+    """Format milli-degrees as ``rd temperature`` does: two places, half away from zero.
+
+    ``22848`` -> ``"22.85"``, ``-1235`` -> ``"-1.24"``, ``-4`` -> ``"0.00"``.
+    """
+    magnitude = (abs(int(milli)) + 5) // 10
+    sign = "-" if milli < 0 and magnitude else ""
+    return "%s%d.%02d" % (sign, magnitude // 100, magnitude % 100)

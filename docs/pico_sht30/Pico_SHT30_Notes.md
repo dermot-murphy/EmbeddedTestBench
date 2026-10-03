@@ -3,13 +3,14 @@
 | Field | Value |
 |---|---|
 | Document ID | TB-PICO-001 |
-| Version | 1.1 |
-| Date | 2026-10-02 |
+| Version | 1.2 |
+| Date | 2026-10-03 |
 | Element | `PICO-` — `benchtools.instruments.pico_sht30` and `firmware/pico_sht30` |
-| Issue | #104 |
+| Issue | #104; `rd` command set #131 |
 
 A Raspberry Pi Pico 2 reads the local temperature from a DollaTek SHT30-D
-module and reports it, with the firmware's title and version, over USB. This
+module and reports it over USB, together with the firmware's name, copyright,
+version and the commit it was built from. This
 note covers the hardware, the wiring, how to build and flash the firmware, how
 to read it from the host, the facts taken from the reference documents, the
 MISRA C position, and what remains to confirm on a bench.
@@ -69,7 +70,13 @@ cmake -S firmware/pico_sht30 -B build/pico_sht30
 cmake --build build/pico_sht30 -j
 ```
 
-This produces `build/pico_sht30/pico_sht30.uf2`. To download it to the Pico 2:
+This produces `build/pico_sht30/pico_sht30.uf2`. The configure step reads the
+short SHA of the commit being built (`git rev-parse --short=7 HEAD`), prints it
+as `pico_sht30: FIRMWARE_GIT_SHA=<sha>`, and builds it into the image, where
+`rd sha` reports it. Outside a git checkout it is `unknown`. A new commit makes
+the next build re-configure, so the image never carries a stale SHA.
+
+To download it to the Pico 2:
 
 1. Hold **BOOTSEL** and plug the Pico into USB (or send `bootsel` to a running
    image: `benchtools thermo -r /dev/ttyACM0 bootsel`).
@@ -84,43 +91,101 @@ cmake -S firmware/pico_sht30/test -B build/pico-tests
 cmake --build build/pico-tests && ctest --test-dir build/pico-tests --output-on-failure
 ```
 
+On Windows, use clang rather than MinGW GCC 6.3, which stops with an internal
+compiler error on `-fsanitize=address`; TB-SWE4-001 §1.4b gives the commands.
+
+### 3.1 The version number
+
+The version is `V<major>.<minor>.<patch>`, the minor number as two digits and
+the patch number as four: `V1.00.0000` is the baseline set by #131. It follows
+semantic versioning and is bumped with **every** change to the firmware or its
+host driver:
+
+| Change | Bump | Example |
+|---|---|---|
+| A breaking change to the protocol | major | `V1.00.0000` → `V2.00.0000` |
+| An added command or feature | minor | `V1.00.0000` → `V1.01.0000` |
+| A fix | patch | `V1.00.0000` → `V1.00.0001` |
+
+It is edited in `firmware/pico_sht30/include/firmware_version.h` and nowhere
+else (PICO-FR-002). The name and copyright are defined there too.
+
 ## 4. Using it
 
 In a terminal (any serial program, 115200 8N1, although USB ignores the rate):
 
 ```
-ver
-ok title=Pico2-SHT30-Thermometer fw=1.0.0 built=2026-09-30T03:21:10Z proto=1.0 board=pico2 serial=E6614C311B7F2A21 sensor=SHT30-DIS addr=0x44 uptime_s=12
-temp
-ok t=22.848 rh=44.912 raw_t=0x6340 raw_rh=0x72F9
+rd name
+ACK rd name = Pico 2 SHT30 Temperature Sensor
+rd copyright
+ACK rd copyright = (c) 2026 Dermot Murphy
+rd version
+ACK rd version = V1.00.0000
+rd sha
+ACK rd sha = 1a2b3c4
+rd temperature
+ACK rd temperature = 22.85
+rd humidity
+NAK rd humidity = Error
 status
 ok status=0x0010
 ```
 
+The commands (protocol 2.0, `firmware/pico_sht30/include/protocol.h`):
+
+| Command | Reply |
+|---|---|
+| `rd name` | `ACK rd name = Pico 2 SHT30 Temperature Sensor` |
+| `rd copyright` | `ACK rd copyright = (c) 2026 Dermot Murphy` |
+| `rd version` | `ACK rd version = V1.00.0000` |
+| `rd sha` | `ACK rd sha = <7-character commit SHA, or unknown>` |
+| `rd temperature` | `ACK rd temperature = <°C to 2 places>`, e.g. `22.85`, `-1.24`; `ACK rd temperature = Error` when the sensor could not be read |
+| `rd <anything else>` | `NAK rd <option> = Error` |
+| `rd` with no option, or two | `err 2 wrong number of arguments` |
+| `status` | `ok status=0x<hhhh>` - the sensor's status register |
+| `sreset` | `ok` - soft-reset the sensor |
+| `ecureset` | `ok`, then the Pico reboots (this was `reset` before #131) |
+| `bootsel` | `ok`, then the Pico reboots into its USB bootloader |
+| `help` | one `# <command> - <help>` line per command, then `ok` |
+
+`ver`, `temp` and `reset` were removed by #131 and now answer
+`err 1 unknown command`. The temperature is rounded half away from zero from
+the sensor's thousandths of a degree (22.848 → `22.85`, −1.235 → `-1.24`), and
+a value that rounds to zero is `0.00`, never `-0.00`. Humidity is measured with
+every reading but is not reported.
+
 From the host:
 
 ```
-benchtools thermo -r /dev/ttyACM0 ver
+benchtools thermo -r /dev/ttyACM0 info        # name, copyright, version, sha
+benchtools thermo -r /dev/ttyACM0 rd sha
 benchtools thermo -r /dev/ttyACM0 temp --count 10 --interval 1
-benchtools thermo -r sim:// temp          # no hardware
+benchtools thermo -r /dev/ttyACM0 ecureset
+benchtools thermo -r sim:// temp              # no hardware
 ```
 
 ```python
-from benchtools.instruments.pico_sht30 import PicoSht30
+from benchtools.instruments.pico_sht30 import NoReadingError, PicoSht30
 
 with PicoSht30.connect("/dev/ttyACM0") as thermometer:     # COM5 on Windows
-    print(thermometer.title, thermometer.version)
-    print("%.2f °C" % thermometer.temperature())
+    print(thermometer.name, thermometer.version, thermometer.sha)
+    try:
+        print("%.2f °C" % thermometer.temperature())
+    except NoReadingError:
+        print("the sensor could not be read")
 ```
 
-In a bench configuration the driver is named `pico-sht30` (alias
-`thermometer`).
+Connecting reads the four identity values and refuses a device whose `rd name`
+is not `Pico 2 SHT30 Temperature Sensor`. In a bench configuration the driver is
+named `pico-sht30` (alias `thermometer`).
 
 | Reply | Meaning | What to check |
 |---|---|---|
-| `err 4 the sensor did not acknowledge` | NACK at 0x44 | Wiring, power, ADDR strap (0x45?) |
-| `err 5 the sensor checksum did not match` | Corrupted frame | Wire length, pull-ups, noise |
-| `err 6 I2C bus timeout` | Transfer did not complete | SDA/SCL swapped, a line held low |
+| `ACK rd temperature = Error` | No reading: the sensor did not acknowledge, a frame failed its CRC, or the bus timed out. The driver raises `NoReadingError`. | Use `status` to see which: the codes below |
+| `err 4 the sensor did not acknowledge` | NACK at 0x44 (`status`, `sreset`) | Wiring, power, ADDR strap (0x45?) |
+| `err 5 the sensor checksum did not match` | Corrupted frame (`status`) | Wire length, pull-ups, noise |
+| `err 6 I2C bus timeout` | Transfer did not complete (`status`, `sreset`) | SDA/SCL swapped, a line held low |
+| `NAK rd <option> = Error` | An option the firmware does not know. The driver raises `RdRefusedError`. | Spelling and case: options are lower case |
 
 ### 4.1 On a bench
 
@@ -135,7 +200,8 @@ temp:
   event: TEMP
 ```
 
-A specification uses it as `temp.read`, and can give it another name in the
+A specification uses it as `temp.read`, which sends `rd temperature`, and can
+give it another name in the
 event log, e.g. `temp: {driver: pico-sht30, event: ROOM}` - see the
 [Bench Runner Guide §6.3](../Bench_Runner_Guide.md#63-event-log-names-which-instrument-said-what).
 `TEMP` is also the driver's default, so it applies on any bench that names none.
@@ -198,7 +264,8 @@ PICO-OPEN-04.
 
 | ID | Item | How |
 |---|---|---|
-| PICO-OPEN-01 | USB enumeration and identity | Flash the UF2; `benchtools thermo -r <port> ver` must show the title `Pico2-SHT30-Thermometer` and version `1.0.0`. |
-| PICO-OPEN-02 | Sensor on the bus, and a missing sensor reported | `temp` must answer `ok`; with SDA disconnected it must answer `err 4`, never a value. |
+| PICO-OPEN-01 | USB enumeration and identity | Flash the UF2; `benchtools thermo -r <port> info` must show the name `Pico 2 SHT30 Temperature Sensor`, copyright `(c) 2026 Dermot Murphy`, version `V1.00.0000`, and the SHA the configure step printed. `rd colour` must answer `NAK rd colour = Error`; `ver` must answer `err 1`. |
+| PICO-OPEN-02 | Sensor on the bus, and a missing sensor reported | `rd temperature` must answer a value to two places; with SDA disconnected it must answer `ACK rd temperature = Error`, never a value, and `status` must answer `err 4`. |
 | PICO-OPEN-03 | Accuracy | Beside a calibrated reference thermometer, away from the Pico, after 10 minutes: agreement within ±0.2 °C typical (0–65 °C) plus the reference's own uncertainty. |
 | PICO-OPEN-04 | Reference PDFs and MISRA tool run | The hosts serving the PDFs were blocked in the build environment; run `fetch_datasheets.sh` and commit the files. Run a MISRA C:2012 checker over `firmware/pico_sht30/src`. |
+| PICO-OPEN-06 | The `rd` command set (#131) on a real Pico 2 | **Not yet confirmed.** The #131 firmware passes its 83 host unit tests and agrees with its driver, but it has not been cross-compiled or flashed: the bench PC has no Arm toolchain. Install one, build, flash, confirm that the build injects the SHA, then work through PICO-OPEN-01 and -02. `ecureset` must answer `ok` and re-enumerate the port. |

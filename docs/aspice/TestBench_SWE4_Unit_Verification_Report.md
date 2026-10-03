@@ -8,8 +8,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE4-002 | **Version** | 0.9 |
-| **Project** | TestBench | **Date** | 2026-10-02 |
+| **Document ID** | TB-SWE4-002 | **Version** | 1.0 |
+| **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.4 |
@@ -31,6 +31,7 @@
 | 0.7 | 2026-10-02 | Claude | #120: execution summary re-run; §14.3 notes that the simulated bench now defines `rtt`, so `kepler_temperature.yaml` reaches `dongle.select` like the other Kepler specifications. |
 | 0.8 | 2026-10-02 | Claude | #124: execution summary re-run; SWE4-UT-BLECLI count updated; D-46 added and closed. |
 | 0.9 | 2026-10-02 | Claude | #126: execution summary re-run; SWE4-UT-EVENTNAMES added to §5; D-47 added and closed. |
+| 1.0 | 2026-10-03 | Claude | #131: whole suite re-run on Windows (§4); SWE4-UT-PICO, -PICOSIM, -PICOCLI and -PICOFWPROTO counts updated in §5; §13A re-run for the `rd` command set - 83 firmware unit cases, built with clang 21 on Windows; two-place rounding vectors added to §13A.3; §13A.2 and §13A.4 record what was not repeated; PICO-OPEN-01 and -02 restated for `rd`, PICO-OPEN-06 added. |
 
 ---
 
@@ -94,6 +95,13 @@ No J-Link probe, target board, GDB, GDB Server, BLE dongle, BLE sensor or TTi
 the GDB/MI boundary, the RTT and SWO sockets by a loopback server, the dongle at
 its line protocol, and the serial port by pyserial's own `loop://` handler.
 
+Revision 1.0 re-ran the whole suite with #131's `rd` command set, on the
+Windows bench PC rather than the Linux machine of the table above: **2 753
+tests, 2 747 passed, 0 failed, 0 errors, 6 skipped**, in 189.6 s, CPython
+3.14.7 on Windows 10, pytest 9.1.1 (`python -m pytest`, JUnit XML for the counts).
+The six skips are `test_visa.py`, because `pyvisa` is not installed on that
+machine. `pytest-cov` is not installed there either, so coverage was not
+measured for 1.0; the table above remains revision 0.9's run.
 Revision 0.9 re-ran the whole suite with #126's per-instrument event-log names;
 the figures above are that run. Its change to the Test Bench monitor's Events
 page was also driven headless (Xvfb, Python 3.12 with Tk): declared names get a
@@ -111,8 +119,10 @@ not been regenerated for the groups `develop` added since revision 0.1, so its
 rows do not sum to the total: the total is the collected count.
 
 **The Pico 2 thermometer firmware is built but not executed** (CON-09): no
-Pico 2 or SHT30-D module is available. Its 61 host unit tests pass, it agrees
-with its driver, and it cross-compiles to a UF2 image (§13A).
+Pico 2 or SHT30-D module is available. Its 83 host unit tests pass and it agrees
+with its driver (§13A). The #104 firmware cross-compiled to a UF2 image; the
+#131 firmware, with the `rd` command set, has **not** been cross-compiled,
+because the bench PC has no Arm toolchain (PICO-OPEN-06).
 
 **The dongle firmware is built but not executed** (CON-07): no dongle is
 available. It is verified against the driver it must agree with, against the
@@ -184,19 +194,22 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | SWE4-UT-COREFW | `core/test_firmware.py` | 13 | Pass |
 | SWE4-UT-SOCKET | `core/transport/test_socket.py` | 12 | Pass |
 | SWE4-UT-VISA | `core/transport/test_visa.py` | 6 | Pass |
-| SWE4-UT-PICO | `instruments/pico_sht30/test_thermometer.py` | 40 | Pass |
+| SWE4-UT-PICO | `instruments/pico_sht30/test_thermometer.py` | 44 | Pass |
 | SWE4-UT-DMM | `instruments/tti1604/test_dmm.py` | 34 | Pass |
 | SWE4-UT-DMMPROTO | `instruments/tti1604/test_protocol.py` | 56 | Pass |
 | SWE4-UT-DMMSIM | `instruments/tti1604/test_simulator.py` | 28 | Pass |
 | SWE4-UT-DMMCLI | `instruments/tti1604/test_cli.py` | 8 | Pass |
 | SWE4-UT-DMMPANEL | `instruments/tti1604/test_front_panel_check.py` | 7 | Pass |
-| SWE4-UT-PICOSIM | `instruments/pico_sht30/test_simulator.py` | 15 | Pass |
-| SWE4-UT-PICOCLI | `instruments/pico_sht30/test_cli.py` | 9 | Pass |
+| SWE4-UT-PICOSIM | `instruments/pico_sht30/test_simulator.py` | 36 | Pass |
+| SWE4-UT-PICOCLI | `instruments/pico_sht30/test_cli.py` | 16 | Pass |
 | SWE4-UT-PICOFWPROTO | `instruments/pico_sht30/test_firmware_protocol.py` | 9 | Pass |
 | **Total** | | **2 559** (2 558 passed, 1 skipped) | **Pass** |
 
-The thermometer firmware's own unit tests (`SWE4-UT-PICOFW`, 61 cases) run
-under CTest, not pytest, and are reported in §13A.
+The thermometer firmware's own unit tests (`SWE4-UT-PICOFW`, 83 cases) run
+under CTest, not pytest, and are reported in §13A. The four `PICO` rows above
+are the #131 counts (105 in all, from
+`python -m pytest tests/instruments/pico_sht30 -q`); the total row is still the
+revision 0.4 figure, as explained in §4.
 
 ## 6. Coverage detail
 
@@ -844,17 +857,37 @@ driver could only repeat what it had been told about it.
 
 ### 13A.1 Firmware unit tests (`SWE4-UT-PICOFW`)
 
-Host build: GCC, C11, `-Wall -Wextra -Wconversion -Wshadow -Wstrict-prototypes
--Werror`, `-fsanitize=address,undefined -fno-sanitize-recover=all`, Unity v2.6.0.
+Host build for #131: clang 21.1.0 on Windows 10 (Ninja, CMake 3.27), C11,
+`-Wall -Wextra -Wconversion -Wshadow -Wstrict-prototypes -Werror`,
+`-fsanitize=address,undefined -fno-sanitize-recover=all`, Unity v2.6.0, with
+`-D_CRT_SECURE_NO_WARNINGS` and the AddressSanitizer runtime on `PATH`
+(TB-SWE4-001 §1.4b). The bench PC's MinGW GCC 6.3 cannot be used: it stops with
+an internal compiler error on `-fsanitize=address`, which it did before #131
+too. The #104 run, 61 cases, was with GCC on Linux.
 
 | Suite | File | Cases | Result |
 |---|---|---|---|
-| text | `test/test_text.c` | 10 | Pass |
+| text | `test/test_text.c` | 15 | Pass |
 | sht30 | `test/test_sht30.c` | 22 | Pass |
-| cmd_parser | `test/test_cmd_parser.c` | 29 | Pass |
-| **Total** | | **61** | **Pass**, no warnings, no sanitizer reports |
+| cmd_parser | `test/test_cmd_parser.c` | 46 | Pass |
+| **Total** | | **83** | **Pass**, no warnings, no sanitizer reports |
+
+Against #104's 61 cases, `text` gains five for `text_centi` (two places,
+rounding half away from zero, the sign, no `-0.00`, the extremes), and
+`cmd_parser`'s `ver` and `temp` cases are replaced by cases for every `rd`
+option, the injected SHA, identity without touching the sensor, `NAK` for an
+unknown, partial or wrongly cased option and the longest option echoed whole,
+`err 2` for no option or two, the temperature's places, rounding and sign, one
+measurement per `rd temperature`, `Error` for each sensor failure (no sensor, a
+NACK on the read, a corrupted frame, a bus timeout on either transfer), `ver`,
+`temp` and `reset` refused, and `ecureset` replying before it reboots.
 
 ### 13A.2 Target build (PICO-FR-031, PICO-NFR-003)
+
+The figures below are for the #104 firmware. The build was **not repeated** for
+#131: the bench PC has no Arm toolchain. The `rd` firmware's size, its warnings
+under the target compiler, and the SHA injection on a real configure are
+unverified (PICO-OPEN-06).
 
 | Item | Result |
 |---|---|
@@ -865,10 +898,12 @@ Host build: GCC, C11, `-Wall -Wextra -Wconversion -Wshadow -Wstrict-prototypes
 | Image | `pico_sht30.uf2`, 60 928 bytes |
 | Size (`arm-none-eabi-size`) | text 29 996 B, data 0 B, bss 3 884 B |
 
-### 13A.3 Conversion reference vectors (AD-24)
+### 13A.3 Conversion reference vectors
 
 The same vectors are asserted in C (`test_sht30.c`) and in Python
-(`test_matches_the_firmware_vectors`):
+(`test_matches_the_firmware_vectors`). Since #131 only the temperature is
+reported, and the raw word no longer travels with it; the humidity vectors
+still hold for the firmware's conversion:
 
 | Raw word | Temperature | Raw word | Humidity |
 |---|---|---|---|
@@ -880,6 +915,19 @@ The same vectors are asserted in C (`test_sht30.c`) and in Python
 
 CRC-8 check value CRC(0xBE, 0xEF) = 0x92, as the datasheet gives it.
 
+The two-place rounding of `rd temperature` (PICO-FR-027) is asserted the same
+way, in C (`test_text.c`, `test_cmd_parser.c`) and in Python
+(`test_two_places_half_away_from_zero`, 12 vectors):
+
+| Thousandths | Reported | Thousandths | Reported |
+|---|---|---|---|
+| 22 848 | `22.85` | −1 234 | `-1.23` |
+| 22 844 | `22.84` | −1 235 | `-1.24` |
+| 25 000 | `25.00` | −5 | `-0.01` |
+| 5 | `0.01` | −4 | `0.00` (never `-0.00`) |
+| 4 | `0.00` | −45 000 | `-45.00` |
+| 0 | `0.00` | 130 000 | `130.00` |
+
 ### 13A.4 Static analysis
 
 **CStyleCheck v1.5.1** (TB-STD-002 and TB-STY-001), over all 18 C files of
@@ -888,7 +936,9 @@ CRC-8 check value CRC(0xBE, 0xEF) = 0x92, as the datasheet gives it.
 0 warnings, 0 info**, with no baseline (PICO-NFR-006). The first run found 210;
 they were fixed in the code (enum member prefixes, `m_` statics, `g_` globals,
 `U` suffixes, one non-ASCII character, and `cmd_execute` split under the
-60-line limit) or covered by a documented alias or exclusion.
+60-line limit) or covered by a documented alias or exclusion. That run was for
+#104. CStyleCheck is not installed on the bench PC, so for #131 it has not been
+run locally; the result is the CI job's (`.github/workflows/style.yml`).
 
 No MISRA checker (for example cppcheck's MISRA addon, PC-lint, Helix QAC) was
 available in the build environment. MISRA C:2012 conformance is therefore by
@@ -900,10 +950,11 @@ PICO-OPEN-04.
 
 | ID | Item |
 |---|---|
-| PICO-OPEN-01 | Flash `pico_sht30.uf2`, confirm USB enumeration, and confirm `ver` returns the title, version and board ID. |
-| PICO-OPEN-02 | Confirm `temp` with the DollaTek module on GP4/GP5 at 0x44, and that removing the module gives `err 4` rather than a value. |
+| PICO-OPEN-01 | Flash `pico_sht30.uf2`, confirm USB enumeration, and confirm `rd name`, `rd copyright`, `rd version` and `rd sha` return the name, copyright, `V1.00.0000` and the SHA the build injected. |
+| PICO-OPEN-02 | Confirm `rd temperature` with the DollaTek module on GP4/GP5 at 0x44, and that removing the module gives `ACK rd temperature = Error` rather than a value. |
 | PICO-OPEN-03 | Compare against a reference thermometer: expect agreement within ±0.2 °C typical between 0 and 65 °C, allowing for self-heating of the Pico. |
 | PICO-OPEN-04 | The reference PDFs (Pico 2 datasheet and schematic, RP2350 datasheet, SDK guide, Sensirion SHT3x-DIS datasheet) could not be fetched in the build environment; run `docs/pico_sht30/fetch_datasheets.sh` and commit them. Run a MISRA C:2012 checker over `firmware/pico_sht30/src`. |
+| PICO-OPEN-06 | **Not yet confirmed:** the `rd` command set (#131) on a real Pico 2. Cross-compile the #131 firmware (the bench PC has no Arm toolchain), record its size, flash it and work through PICO-OPEN-01 and -02; `ecureset` must answer `ok` and re-enumerate the port. |
 
 ## 13B. TTi 1604 multimeter verification results (#115)
 

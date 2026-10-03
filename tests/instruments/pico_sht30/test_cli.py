@@ -1,6 +1,6 @@
 """``benchtools thermo`` against the simulator.
 
-Traces to: PICO-FR-060, SWE4-UT-PICOCLI.
+Traces to: PICO-FR-060, PICO-FR-061, SWE4-UT-PICOCLI.
 """
 
 from __future__ import annotations
@@ -18,18 +18,38 @@ def _run(capsys, *argv):
     return status, capsys.readouterr()
 
 
-def test_ver(capsys):
-    status, out = _run(capsys, "-r", "sim://", "ver")
+def test_info(capsys):
+    status, out = _run(capsys, "-r", "sim://", "info")
     assert status == 0
     payload = json.loads(out.out)
-    assert payload["title"] == "Pico2-SHT30-Thermometer"
-    assert payload["version"] == "1.0.0"
+    assert payload["name"] == "Pico 2 SHT30 Temperature Sensor"
+    assert payload["version"] == "V1.00.0000"
+    assert payload["copyright"] == "(c) 2026 Dermot Murphy"
+    assert len(payload["sha"]) == 7
+
+
+@pytest.mark.parametrize("option", ["name", "copyright", "version", "sha", "temperature"])
+def test_rd(capsys, option):
+    status, out = _run(capsys, "rd", option)
+    assert status == 0
+    assert json.loads(out.out)["option"] == option
+
+
+def test_rd_rejects_an_unknown_option():
+    with pytest.raises(SystemExit):
+        main(["rd", "colour"])
+
+
+def test_ecureset(capsys):
+    status, out = _run(capsys, "ecureset")
+    assert status == 0
+    assert json.loads(out.out) == {"rebooted": True}
 
 
 def test_temp(capsys):
     status, out = _run(capsys, "-r", "sim://", "temp")
     assert status == 0
-    assert json.loads(out.out)["temperature_c"] == pytest.approx(22.5, abs=0.003)
+    assert json.loads(out.out)["text"] == "22.50"
 
 
 def test_temp_series(capsys):
@@ -55,17 +75,17 @@ def test_sreset_and_bootsel(capsys):
 
 
 def test_json_file(tmp_path):
-    path = tmp_path / "ver.json"
-    assert main(["--json", str(path), "ver"]) == 0
-    assert json.loads(path.read_text())["title"] == "Pico2-SHT30-Thermometer"
+    path = tmp_path / "info.json"
+    assert main(["--json", str(path), "info"]) == 0
+    assert json.loads(path.read_text())["name"] == "Pico 2 SHT30 Temperature Sensor"
 
 
 def test_connection_failure_is_reported(capsys):
-    status, out = _run(capsys, "-r", "serial:///dev/does-not-exist", "ver")
+    status, out = _run(capsys, "-r", "serial:///dev/does-not-exist", "info")
     assert status == 1
     assert "could not connect" in out.err
 
 
 def test_reachable_from_the_top_level(capsys):
-    assert top_level_main(["thermo", "ver"]) == 0
-    assert "Pico2-SHT30-Thermometer" in capsys.readouterr().out
+    assert top_level_main(["thermo", "info"]) == 0
+    assert "Pico 2 SHT30 Temperature Sensor" in capsys.readouterr().out

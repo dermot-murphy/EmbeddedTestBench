@@ -64,13 +64,14 @@ def test_sensor_agrees():
     assert _define(PROTOCOL_H, "PROTO_SENSOR") == constants.SENSOR
 
 
-def test_title_agrees():
-    assert _define(VERSION_H, "FIRMWARE_TITLE") == constants.TITLE
-    assert " " not in constants.TITLE, "the title must be one token"
+def test_name_and_copyright_agree():
+    assert _define(VERSION_H, "FIRMWARE_NAME") == constants.NAME
+    assert _define(VERSION_H, "FIRMWARE_COPYRIGHT") == constants.COPYRIGHT
 
 
 def test_version_is_semantic():
-    assert re.fullmatch(r"\d+\.\d+\.\d+", _define(VERSION_H, "FIRMWARE_VERSION"))
+    """V<major>.<minor, 2 digits>.<patch, 4 digits>, e.g. V1.00.0000."""
+    assert re.fullmatch(r"V\d+\.\d{2}\.\d{4}", _define(VERSION_H, "FIRMWARE_VERSION"))
 
 
 def test_default_address_agrees():

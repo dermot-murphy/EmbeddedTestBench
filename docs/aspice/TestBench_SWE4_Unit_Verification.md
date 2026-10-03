@@ -8,8 +8,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE4-001 | **Version** | 1.1 |
-| **Project** | TestBench | **Date** | 2026-10-02 |
+| **Document ID** | TB-SWE4-001 | **Version** | 1.2 |
+| **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.4 |
@@ -33,6 +33,7 @@
 | 0.9 | 2026-10-02 | Claude | #120: SWE4-UT-BENCH also covers `runner/test_shipped_benches.py`, which now checks that the simulated bench provides every instrument and driver each shipped specification uses (RUN-FR-035). |
 | 1.0 | 2026-10-02 | Claude | #124: SWE4-UT-BLECLI covers choosing a sensor on the command line (16 cases, BLE-FR-071). |
 | 1.1 | 2026-10-02 | Claude | #126: SWE4-UT-EVENTNAMES added (21 cases); SWE4-UT-EVENTS covers per-instrument names (54 cases); SWE4-UT-TESTBENCH covers declared names and lower-case logs in the monitor. |
+| 1.2 | 2026-10-03 | Claude | #131: SWE4-UT-PICO, -PICOSIM, -PICOCLI, -PICOFWPROTO and -PICOFW rewritten for the `rd` command set, `ecureset`, `NoReadingError` and the two-place temperature (PICO-FR-006, -007, -027, -047, -061); the raw-word cross-check is no longer tested (PICO-FR-044 withdrawn). Firmware unit cases now 83. §1.4b: the shared vectors now include the two-place rounding, and the host unit tests are run with clang on Windows. |
 
 ---
 
@@ -181,6 +182,18 @@ way, and none of it needs a Pico:
    cmake --build build/pico-tests && ctest --test-dir build/pico-tests --output-on-failure
    ```
 
+   On the Windows bench PC, configure with clang: the MinGW GCC 6.3 there
+   fails with an internal compiler error on `-fsanitize=address`, a fault of
+   that compiler that predates #131. With clang the Microsoft C runtime's
+   deprecation of `strncpy` (used by the fake HAL) must be silenced, and the
+   AddressSanitizer runtime DLL must be on `PATH` when CTest runs:
+
+   ```
+   cmake -S firmware/pico_sht30/test -B build/pico-tests -G Ninja -DCMAKE_C_COMPILER=clang -DCMAKE_C_FLAGS=-D_CRT_SECURE_NO_WARNINGS
+   cmake --build build/pico-tests
+   PATH="<llvm>/lib/clang/<version>/lib/windows:$PATH" ctest --test-dir build/pico-tests --output-on-failure
+   ```
+
 2. **Agreement with the host driver** (`SWE4-UT-PICOFWPROTO`). `protocol.h`,
    `firmware_version.h` and `board_config.h` are parsed and compared with the
    driver's constants; tab indentation and the absence of printf-family calls
@@ -192,9 +205,10 @@ way, and none of it needs a Pico:
    against Pico SDK 2.1.1 with the Arm GNU toolchain, and `pico_sht30.uf2` is
    produced.
 
-Conversion reference vectors are shared: `test_sht30.c` and
-`test_simulator.py` assert the same raw-word-to-value pairs, so the C and Python
-conversions (AD-24) cannot drift apart silently. What none of this establishes
+Reference vectors are shared: `test_sht30.c` and `test_simulator.py` assert
+the same raw-word-to-value pairs, and `test_text.c` and `test_simulator.py` the
+same milli-degree-to-two-places pairs (`text_centi` and `milli_to_centi_text`,
+PICO-FR-027), so the C and Python conversions cannot drift apart silently. What none of this establishes
 is behaviour on silicon with a sensor attached: PICO-OPEN-01 to -04.
 
 ### 4.5 Architectural verification
@@ -349,11 +363,11 @@ against the simulator in the default run (SWE4-UT-PSUPANEL, SWE4-UT-DMMPANEL).
 | SWE4-UT-DMMSIM | `instruments/tti1604/test_simulator.py` | Self-checks on the simulated meter: silence in local mode and with Operate off, every command echoed, Operate toggling rather than switching on, ranges bounded, and values round-tripping through the segment encoding to the decoder; the display at each range's resolution; auto-ranging after a change of function; Hz refused on DC; a reading every 0.4 s, and once per gate measuring frequency; a read shorter than the measurement timing out; dropped and ignored keys | DMM-FR-045, -046, CORE-FR-062 |
 | SWE4-UT-DMMPANEL | `instruments/tti1604/test_front_panel_check.py` | The front-panel check (`examples/12_dmm_front_panel_check.py`) against the simulator: every step taken and logged with the driver's read-back, the operator's answers and a mismatch recorded, `q` stopping early, and the meter left on DC volts, auto-ranging, in local mode after a completed, stopped or failed run | DMM-FR-029, -030, -033, -081 |
 | SWE4-UT-DMMCLI | `instruments/tti1604/test_cli.py` | Every meter sub-command end to end; JSON output; the display text reported beside the value; an unknown key name failing without a traceback | DMM-FR-070 |
-| SWE4-UT-PICO | `instruments/pico_sht30/test_thermometer.py` | The thermometer driver: title, version and identity from `ver`; protocol revision check; readings with raw words; every `err` code raised, never a stale value; values that disagree with their raw words refused; status decoding, sensor reset, reboot and bootloader; resource forms | PICO-FR-040 .. -046 |
-| SWE4-UT-PICOSIM | `instruments/pico_sht30/test_simulator.py` | The simulated thermometer answers with the firmware's reply text; conversion vectors shared with the firmware tests; fault injection | PICO-FR-050, PICO-FR-022 |
-| SWE4-UT-PICOCLI | `instruments/pico_sht30/test_cli.py` | Every `benchtools thermo` sub-command end to end; JSON output and file; a failed connection; dispatch from the top-level command | PICO-FR-060 |
-| SWE4-UT-PICOFWPROTO | `instruments/pico_sht30/test_firmware_protocol.py` | Firmware and driver agreement: commands, argument bounds, error codes, protocol version, sensor, title, version form, default address; firmware hygiene: tab indentation, no printf family | PICO-FR-001, -002, PICO-NFR-002, -004 |
-| SWE4-UT-PICOFW | `firmware/pico_sht30/test/*.c` | **Firmware unit tests** (Unity, CMake, CTest, 61 cases): the text builder and its overflow; CRC-8 against the datasheet check value; conversion end points, mid-scale, negative values and rounding; frame decoding that never half-writes; measure, status and reset command bytes, waits and every failure path; line assembly, CR handling and over-length lines; every command's reply text, argument refusal, and reboot only after `ok` | PICO-FR-001 .. -005, -020 .. -026, -030, PICO-NFR-001, -003 |
+| SWE4-UT-PICO | `instruments/pico_sht30/test_thermometer.py` | The thermometer driver: name, copyright, version and SHA from `rd`; another device refused; a reply for another option refused; connecting sends only `rd`; `NAK` raised as `RdRefusedError`, `err` as `SensorError`; readings to two places, below zero, each a new measurement; a value not to two places refused; `Error` from each fault raised as `NoReadingError`, never a stale value; identity with no sensor; status decoding, sensor reset, `ecureset`, bootloader; resource forms | PICO-FR-040 .. -043, -045 .. -047 |
+| SWE4-UT-PICOSIM | `instruments/pico_sht30/test_simulator.py` | The simulated thermometer answers with the firmware's reply text: every `rd` option, `NAK`, `rd` with no option or two, `ver`/`temp`/`reset` unknown, `ecureset`, `bootsel`; conversion and two-place rounding vectors shared with the firmware tests; fault injection | PICO-FR-050, PICO-FR-022, PICO-FR-027 |
+| SWE4-UT-PICOCLI | `instruments/pico_sht30/test_cli.py` | Every `benchtools thermo` sub-command end to end - `info`, `rd` for each option, an unknown option refused, `temp` and a series, `status`, `sreset`, `ecureset`, `bootsel`; JSON output and file; a failed connection; dispatch from the top-level command | PICO-FR-060, PICO-FR-061 |
+| SWE4-UT-PICOFWPROTO | `instruments/pico_sht30/test_firmware_protocol.py` | Firmware and driver agreement: commands, argument bounds, error codes, protocol version, sensor, name and copyright, version form `V<n>.<nn>.<nnnn>`, default address; firmware hygiene: tab indentation, no printf family | PICO-FR-001, -002, PICO-NFR-002, -004 |
+| SWE4-UT-PICOFW | `firmware/pico_sht30/test/*.c` | **Firmware unit tests** (Unity, CMake, CTest, 83 cases): the text builder and its overflow, including two places rounded half away from zero, no `-0.00` and the `INT32_MIN` extreme; CRC-8 against the datasheet check value; conversion end points, mid-scale, negative values and rounding; frame decoding that never half-writes; measure, status and reset command bytes, waits and every failure path; line assembly, CR handling and over-length lines; every `rd` option, the injected SHA, identity without touching the sensor, `NAK` for unknown, partial and wrongly cased options, `err 2` for no option or two, `rd temperature` rounding and `Error` for an absent sensor, a NACK on the read, a corrupted frame and a bus timeout on either transfer; `ver`, `temp` and `reset` unknown; every other command's reply text, argument refusal, and reboot only after the reply | PICO-FR-001 .. -007, -020 .. -027, -030, PICO-NFR-001, -003 |
 | SWE4-UT-BENCH | `runner/test_bench.py`, `runner/test_shipped_benches.py` | Bench configuration, lazy connection, driver registry, simulation detection, instrument identity recorded per run; every shipped bench file loads with registered drivers and no shared port; the simulated bench provides every instrument and driver each shipped specification uses | RUN-FR-001 .. -006, RUN-FR-035, RUN-FR-037 |
 | SWE4-UT-ENGINE | `runner/test_runner.py` | Execution, failure versus error, setup abort, skips, roll-up, property steps, instruments in the record | RUN-FR-030 .. -037 |
 | SWE4-UT-REPORT | `runner/test_report.py` | JSON, markdown and JUnit output; the instruments table and its identity-failure row | RUN-FR-037, RUN-FR-040 .. -043 |

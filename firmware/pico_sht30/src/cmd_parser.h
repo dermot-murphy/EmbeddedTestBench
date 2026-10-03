@@ -5,9 +5,11 @@
  * Characters arrive one at a time from USB. cmd_line_push() assembles them
  * into a line; cmd_execute() splits a complete line into tokens, looks the
  * first one up in PROTO_COMMAND_TABLE, checks the argument count, runs the
- * handler and sends exactly one "ok ..." or "err ..." reply.
+ * handler and sends exactly one reply: "ok ..." or "err ...", or for @c rd
+ * "ACK ..." or "NAK ...".
  *
- * Traces to: PICO-FR-001, PICO-FR-003, PICO-FR-004, PICO-DD-PARSER.
+ * Traces to: PICO-FR-001, PICO-FR-003, PICO-FR-004, PICO-FR-006,
+ *            PICO-FR-007, PICO-DD-PARSER.
  */
 
 #ifndef CMD_PARSER_H__

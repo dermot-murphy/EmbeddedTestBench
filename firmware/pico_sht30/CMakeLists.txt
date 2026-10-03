@@ -11,7 +11,7 @@
 # Without PICO_SDK_PATH, configure with -DPICO_SDK_FETCH_FROM_GIT=ON to fetch
 # the pinned SDK release.
 #
-# Traces to: PICO-NFR-003, PICO-DD-BUILD.
+# Traces to: PICO-NFR-003, PICO-FR-006, PICO-DD-BUILD.
 
 cmake_minimum_required(VERSION 3.13)
 
@@ -26,9 +26,68 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 
 pico_sdk_init()
 
-# The build date is injected as an ISO 8601 UTC instant, so that two builds of
-# the same version can be told apart and the value sorts correctly.
-string(TIMESTAMP FIRMWARE_BUILD_DATE "%Y-%m-%dT%H:%M:%SZ" UTC)
+# The commit the image is built from is injected as its short SHA, reported by
+# "rd sha". Outside a git checkout, or without git, it is "unknown".
+#
+# The SHA is read at configure time, so CMake is told which files hold HEAD:
+# when a commit, checkout or reset moves HEAD, the next build re-configures and
+# the image carries the new SHA. "git rev-parse --git-path" resolves each file
+# to where it really is, which in a worktree (where .git is a file, not a
+# directory) is not under the source tree's .git. A branch ref may live in its
+# own file or in packed-refs, so both are watched, and so is HEAD's reflog,
+# which git appends to on every commit even when the ref is only packed.
+set(FIRMWARE_GIT_SHA "unknown")
+find_package(Git QUIET)
+if(GIT_FOUND)
+	execute_process(
+		COMMAND ${GIT_EXECUTABLE} rev-parse --short=7 HEAD
+		WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+		RESULT_VARIABLE FIRMWARE_GIT_RESULT
+		OUTPUT_VARIABLE FIRMWARE_GIT_OUTPUT
+		OUTPUT_STRIP_TRAILING_WHITESPACE
+		ERROR_QUIET
+	)
+	if(FIRMWARE_GIT_RESULT EQUAL 0 AND NOT FIRMWARE_GIT_OUTPUT STREQUAL "")
+		set(FIRMWARE_GIT_SHA "${FIRMWARE_GIT_OUTPUT}")
+
+		# HEAD and its reflog, and the ref HEAD points at when a branch
+		# is checked out (nothing more when HEAD is detached).
+		set(FIRMWARE_GIT_WATCH HEAD logs/HEAD)
+		execute_process(
+			COMMAND ${GIT_EXECUTABLE} symbolic-ref -q HEAD
+			WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+			RESULT_VARIABLE FIRMWARE_GIT_RESULT
+			OUTPUT_VARIABLE FIRMWARE_GIT_REF
+			OUTPUT_STRIP_TRAILING_WHITESPACE
+			ERROR_QUIET
+		)
+		if(FIRMWARE_GIT_RESULT EQUAL 0 AND NOT FIRMWARE_GIT_REF STREQUAL "")
+			list(APPEND FIRMWARE_GIT_WATCH ${FIRMWARE_GIT_REF} packed-refs)
+		endif()
+
+		foreach(FIRMWARE_GIT_NAME IN LISTS FIRMWARE_GIT_WATCH)
+			execute_process(
+				COMMAND ${GIT_EXECUTABLE} rev-parse --git-path ${FIRMWARE_GIT_NAME}
+				WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+				RESULT_VARIABLE FIRMWARE_GIT_RESULT
+				OUTPUT_VARIABLE FIRMWARE_GIT_PATH
+				OUTPUT_STRIP_TRAILING_WHITESPACE
+				ERROR_QUIET
+			)
+			# The path is relative to the working directory in a plain
+			# checkout and absolute in a worktree. A file that does not
+			# exist (a branch with no loose ref, a repository never
+			# packed) cannot be watched; the others still are.
+			get_filename_component(FIRMWARE_GIT_PATH "${FIRMWARE_GIT_PATH}"
+				ABSOLUTE BASE_DIR ${CMAKE_CURRENT_LIST_DIR})
+			if(FIRMWARE_GIT_RESULT EQUAL 0 AND EXISTS "${FIRMWARE_GIT_PATH}")
+				set_property(DIRECTORY APPEND PROPERTY
+					CMAKE_CONFIGURE_DEPENDS "${FIRMWARE_GIT_PATH}")
+			endif()
+		endforeach()
+	endif()
+endif()
+message(STATUS "pico_sht30: FIRMWARE_GIT_SHA=${FIRMWARE_GIT_SHA}")
 
 set(FIRMWARE_SOURCES
 	${CMAKE_CURRENT_LIST_DIR}/src/cmd_parser.c
@@ -47,7 +106,7 @@ target_include_directories(pico_sht30 PRIVATE
 )
 
 target_compile_definitions(pico_sht30 PRIVATE
-	FIRMWARE_BUILD_DATE="${FIRMWARE_BUILD_DATE}"
+	FIRMWARE_GIT_SHA="${FIRMWARE_GIT_SHA}"
 )
 
 # Warnings as errors for this firmware's own sources only: the SDK's sources
@@ -68,7 +127,7 @@ target_link_libraries(pico_sht30
 pico_enable_stdio_usb(pico_sht30 1)
 pico_enable_stdio_uart(pico_sht30 0)
 
-pico_set_program_name(pico_sht30 "Pico2-SHT30-Thermometer")
+pico_set_program_name(pico_sht30 "Pico 2 SHT30 Temperature Sensor")
 pico_set_program_description(pico_sht30 "SHT30-D temperature over USB CDC")
 
 pico_add_extra_outputs(pico_sht30)

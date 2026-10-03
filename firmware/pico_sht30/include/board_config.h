@@ -52,7 +52,7 @@
 #define BOARD_SHT30_ADDRESS		0x44U
 #endif
 
-/** Board name reported by @c ver. */
+/** Board name. Not reported on the link since protocol 2.0. */
 #define BOARD_NAME			"pico2"
 
 #endif /* BOARD_CONFIG_H__ */
