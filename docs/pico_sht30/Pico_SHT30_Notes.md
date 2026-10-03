@@ -3,10 +3,10 @@
 | Field | Value |
 |---|---|
 | Document ID | TB-PICO-001 |
-| Version | 1.1 |
-| Date | 2026-10-02 |
+| Version | 1.2 |
+| Date | 2026-10-03 |
 | Element | `PICO-` — `benchtools.instruments.pico_sht30` and `firmware/pico_sht30` |
-| Issue | #104 |
+| Issue | #104, #127 |
 
 A Raspberry Pi Pico 2 reads the local temperature from a DollaTek SHT30-D
 module and reports it, with the firmware's title and version, over USB. This
@@ -69,13 +69,61 @@ cmake -S firmware/pico_sht30 -B build/pico_sht30
 cmake --build build/pico_sht30 -j
 ```
 
-This produces `build/pico_sht30/pico_sht30.uf2`. To download it to the Pico 2:
+This produces `build/pico_sht30/pico_sht30.uf2`. To download it to the Pico 2,
+use one command (#127):
 
-1. Hold **BOOTSEL** and plug the Pico into USB (or send `bootsel` to a running
-   image: `benchtools thermo -r /dev/ttyACM0 bootsel`).
+```
+benchtools thermo -r /dev/ttyACM0 flash build/pico_sht30/pico_sht30.uf2 --expect-version 1.0.0
+benchtools thermo -r COM5 flash build\pico_sht30\pico_sht30.uf2          # Windows
+benchtools thermo -r '' flash build/pico_sht30/pico_sht30.uf2           # blank board; port found afterwards
+```
+
+It does what used to be three manual steps, and then checks the result:
+
+1. **Into the bootloader.** If a drive named **RP2350** is already mounted, the
+   Pico is in its bootloader already and that drive is used. This is how the
+   first flash of a blank Pico 2 works: a board with no image starts in its
+   bootloader. Otherwise the running thermometer is sent `bootsel`. If the port
+   does not answer the protocol - another image is running, for instance - it
+   is opened and closed at 1200 baud instead, which the Pico SDK's USB serial
+   takes as a request to reboot into the bootloader. The command then waits
+   for the drive (15 s, `--bootloader-timeout`).
+2. **Copy.** The UF2 is checked first: every block must be well formed and for
+   an RP2350, and the image must carry the thermometer's title (pass
+   `--any-image` to flash something else). It is then copied onto the drive.
+   The Pico reboots as the last block lands, and the drive goes away.
+3. **Check.** The serial port comes back (20 s, `--port-timeout`; with `-r ''`
+   it is found by the Raspberry Pi USB vendor ID), `ver` is read, and the title,
+   the version (with `--expect-version`) and the build date are compared with
+   the image. The build date is read from the image itself, so a match shows
+   that the image just copied is the one running, not an older build of the
+   same version.
+
+The result is printed as JSON: the image, the drive, how the bootloader was
+reached (`already-in-bootloader`, `bootsel` or `1200-baud`), `ver` before and
+after, and each check with what was expected and what was found. The command
+exits 0 only if every check passed; a mismatch, a timeout or a failed copy
+exits 1. `--no-verify` skips the check, and `--drive E:` (or a mount point)
+names the drive if it cannot be found. Drives are searched for on Windows
+(drive letters), Linux (`/media`, `/run/media`, `/mnt`) and macOS (`/Volumes`);
+on any other system, pass `--drive`. `-r sim://` runs the whole sequence
+against a simulated board.
+
+**When `flash` cannot help.** If the firmware has crashed, or the Pico does not
+appear on USB at all, nothing on the host can reach it. Then use the button,
+which always works:
+
+1. Hold **BOOTSEL** and plug the Pico into USB.
 2. A drive named **RP2350** appears.
-3. Copy `pico_sht30.uf2` onto it. The Pico reboots into the thermometer and
-   enumerates as a USB serial port (`/dev/ttyACM0` on Linux, `COMn` on Windows).
+3. Either copy `pico_sht30.uf2` onto it by hand, or run `flash` as above,
+   which finds the drive already present. The Pico reboots into the
+   thermometer and enumerates as a USB serial port (`/dev/ttyACM0` on Linux,
+   `COMn` on Windows).
+
+An SWD probe on the Pico's debug header is the other way in.
+
+`flash` has so far been run only against the simulated board: it has not yet
+been used on a real Pico 2 (PICO-OPEN-05).
 
 Host unit tests for the firmware, no Pico needed:
 
@@ -202,3 +250,4 @@ PICO-OPEN-04.
 | PICO-OPEN-02 | Sensor on the bus, and a missing sensor reported | `temp` must answer `ok`; with SDA disconnected it must answer `err 4`, never a value. |
 | PICO-OPEN-03 | Accuracy | Beside a calibrated reference thermometer, away from the Pico, after 10 minutes: agreement within ±0.2 °C typical (0–65 °C) plus the reference's own uncertainty. |
 | PICO-OPEN-04 | Reference PDFs and MISRA tool run | The hosts serving the PDFs were blocked in the build environment; run `fetch_datasheets.sh` and commit the files. Run a MISRA C:2012 checker over `firmware/pico_sht30/src`. |
+| PICO-OPEN-05 | Reflashing with `benchtools thermo flash` (#127) | Not yet confirmed on a real Pico 2: no Arm toolchain was available on the bench PC to build a UF2. With a built image, run `flash` three ways and check that each exits 0 with every check passing: from the running thermometer (method `bootsel`); from a board started with BOOTSEL held (method `already-in-bootloader`); and from a board running other USB-serial firmware built with the Pico SDK (method `1200-baud`), which also confirms that the SDK's 1200-baud reset is enabled in such a build. Confirm that the drive is found on the bench PC's operating system without `--drive`. |

@@ -8,8 +8,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE4-002 | **Version** | 0.9 |
-| **Project** | TestBench | **Date** | 2026-10-02 |
+| **Document ID** | TB-SWE4-002 | **Version** | 1.0 |
+| **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.4 |
@@ -31,6 +31,7 @@
 | 0.7 | 2026-10-02 | Claude | #120: execution summary re-run; §14.3 notes that the simulated bench now defines `rtt`, so `kepler_temperature.yaml` reaches `dongle.select` like the other Kepler specifications. |
 | 0.8 | 2026-10-02 | Claude | #124: execution summary re-run; SWE4-UT-BLECLI count updated; D-46 added and closed. |
 | 0.9 | 2026-10-02 | Claude | #126: execution summary re-run; SWE4-UT-EVENTNAMES added to §5; D-47 added and closed. |
+| 1.0 | 2026-10-03 | Claude | #127: execution summary re-run on the bench PC (Windows, without coverage); SWE4-UT-PICOFLASH added to §5; §13A.6 added for reflashing the Pico 2 with no BOOTSEL press; PICO-OPEN-05 added to §13A.5. |
 
 ---
 
@@ -59,24 +60,26 @@ It is deliberately a separate work product from the specification. A specificati
 
 | Metric | Result |
 |---|---|
-| Tests executed | **2 721** |
-| Passed | **2 720** |
+| Tests executed | **2 754** |
+| Passed | **2 748** |
 | Failed | 0 |
 | Errors | 0 |
-| Skipped | 1 |
-| Statement coverage | **95%** (13 695 statements, 679 missed) |
-| Execution time | 149.7 s with coverage instrumentation |
-| Runtime | CPython 3.11.15, Linux |
-| Framework | pytest 9.1.1, pytest-cov |
+| Skipped | 6 |
+| Statement coverage | Not measured for revision 1.0: `pytest-cov` is not installed on the bench PC. Revision 0.9 measured **95%** (13 695 statements, 679 missed). |
+| Execution time | 188.9 s, without coverage instrumentation |
+| Runtime | CPython 3.14.7, Windows 10 (10.0.19045) |
+| Framework | pytest 9.1.1 |
 
 Command:
 
 ```
-python3 -m pytest tests/ --cov=benchtools --cov-report=term
+python -m pytest -q -x
 ```
 
-No test was skipped. The `matplotlib`, `pyvisa` and `pyyaml` optional extras were
-installed for this run, so their tests executed.
+The six skipped tests are in `core/transport/test_visa.py`: the `pyvisa`
+optional extra is not installed on the bench PC, and those tests skip without
+it, as designed. The `matplotlib`, `pyyaml` and `pyserial` extras were
+installed, so their tests executed.
 
 The suite was also run with all extras blocked - `matplotlib`, `pyvisa`,
 `pyyaml` and `pyserial` - to confirm the claim that the package works
@@ -94,8 +97,11 @@ No J-Link probe, target board, GDB, GDB Server, BLE dongle, BLE sensor or TTi
 the GDB/MI boundary, the RTT and SWO sockets by a loopback server, the dongle at
 its line protocol, and the serial port by pyserial's own `loop://` handler.
 
-Revision 0.9 re-ran the whole suite with #126's per-instrument event-log names;
-the figures above are that run. Its change to the Test Bench monitor's Events
+Revision 1.0 re-ran the whole suite with #127's `flash` command on the bench
+PC; the figures above are that run.
+Revision 0.9 re-ran the whole suite with #126's per-instrument event-log names
+(CPython 3.11.15 on Linux, with coverage: 2 721 executed, 2 720 passed, 1
+skipped). Its change to the Test Bench monitor's Events
 page was also driven headless (Xvfb, Python 3.12 with Tk): declared names get a
 check box and colour of their own, and a lower-case log reads the same.
 Revision 0.8 re-ran it with #124's change to choosing a sensor on the BLE
@@ -112,7 +118,8 @@ rows do not sum to the total: the total is the collected count.
 
 **The Pico 2 thermometer firmware is built but not executed** (CON-09): no
 Pico 2 or SHT30-D module is available. Its 61 host unit tests pass, it agrees
-with its driver, and it cross-compiles to a UF2 image (§13A).
+with its driver, and it cross-compiles to a UF2 image (§13A). The host's
+`flash` command is verified against a simulated board only (§13A.6).
 
 **The dongle firmware is built but not executed** (CON-07): no dongle is
 available. It is verified against the driver it must agree with, against the
@@ -192,8 +199,9 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | SWE4-UT-DMMPANEL | `instruments/tti1604/test_front_panel_check.py` | 7 | Pass |
 | SWE4-UT-PICOSIM | `instruments/pico_sht30/test_simulator.py` | 15 | Pass |
 | SWE4-UT-PICOCLI | `instruments/pico_sht30/test_cli.py` | 9 | Pass |
+| SWE4-UT-PICOFLASH | `instruments/pico_sht30/test_flash.py` | 32 | Pass |
 | SWE4-UT-PICOFWPROTO | `instruments/pico_sht30/test_firmware_protocol.py` | 9 | Pass |
-| **Total** | | **2 559** (2 558 passed, 1 skipped) | **Pass** |
+| **Total** | | **2 591** (2 590 passed, 1 skipped) | **Pass** |
 
 The thermometer firmware's own unit tests (`SWE4-UT-PICOFW`, 61 cases) run
 under CTest, not pytest, and are reported in §13A.
@@ -904,6 +912,30 @@ PICO-OPEN-04.
 | PICO-OPEN-02 | Confirm `temp` with the DollaTek module on GP4/GP5 at 0x44, and that removing the module gives `err 4` rather than a value. |
 | PICO-OPEN-03 | Compare against a reference thermometer: expect agreement within ±0.2 °C typical between 0 and 65 °C, allowing for self-heating of the Pico. |
 | PICO-OPEN-04 | The reference PDFs (Pico 2 datasheet and schematic, RP2350 datasheet, SDK guide, Sensirion SHT3x-DIS datasheet) could not be fetched in the build environment; run `docs/pico_sht30/fetch_datasheets.sh` and commit them. Run a MISRA C:2012 checker over `firmware/pico_sht30/src`. |
+| PICO-OPEN-05 | Reflash a real Pico 2 with `benchtools thermo flash`: from the running thermometer (`bootsel`), from a board already in its bootloader, and through the 1200-baud reset; confirm the drive is found without `--drive`. Not yet done: no Arm toolchain was available on the bench PC to build the UF2. |
+
+### 13A.6 Reflashing without BOOTSEL (`SWE4-UT-PICOFLASH`, #127)
+
+`instruments/pico_sht30/test_flash.py`: **32 cases, all pass** (0.4 s). The
+whole Pico SHT30 directory, `tests/instruments/pico_sht30`, is 105 cases, all
+passing. No Pico, drive or serial port is involved: every operating-system
+interaction is a seam of `PicoFlasher`, and `SimulatedRp2350` plays the board.
+
+| Area | What the cases establish |
+|---|---|
+| The image | A UF2 laid out as an SDK 2.x RP2350 build lays it out (an `absolute` block ahead of `rp2350-arm-s` blocks) is accepted; bad magic numbers, a length that is not whole blocks and a missing file are refused; an RP2040 image is refused; an image without the thermometer's title is refused unless `--any-image`; an image with more than one build date is flashed but its build is not compared, and the result says so. |
+| Reaching the bootloader | From the running firmware (`bootsel`); from a board already in its bootloader, with no `bootsel` sent; and, when the port does not answer the protocol, through the 1200-baud reset. |
+| Confirming the result | A version that differs from `--expect-version`, and a build date that differs from the image's, each give `ok: false` without raising; when no port was given, the one the port search returns is used (the search is simulated here: the USB vendor-ID filter itself runs only through pyserial, untested without a Pico); `--no-verify` is honoured. |
+| Failures | Bootloader timeout; no drive and no port; two drives; a copy that fails while the drive remains; a drive that never goes away; a port that never comes back - each raises an error naming what happened. A close error after the drive has gone is not a failure. |
+| Drive discovery | A drive is recognised by `INFO_UF2.TXT` naming `RP2350`; the search roots on Windows (the drive-letter list), Linux and macOS (with `glob` patched); any other system is refused with a request for `--drive`. Discovery has not been run against a real mounted RP2350 drive on any system. |
+| Command line | `benchtools thermo -r sim:// flash` prints the JSON result and exits 0; a mismatch exits 1 with the JSON result; an error exits 1 with an `error:` message on stderr. |
+
+**Not yet confirmed on hardware** (PICO-OPEN-05). The 1200-baud reset relies on
+`PICO_STDIO_USB_ENABLE_RESET_VIA_BAUD_RATE`, which Pico SDK 2.1.1's
+`stdio_usb.h` enables by default when the application does not use TinyUSB
+directly; that was read from the SDK source on 2026-10-03, not observed on a
+board. A Pico whose firmware has crashed, or which does not enumerate on USB,
+still needs BOOTSEL or an SWD probe.
 
 ## 13B. TTi 1604 multimeter verification results (#115)
 
