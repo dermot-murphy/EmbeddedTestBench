@@ -8,7 +8,7 @@ by reading the source rather than trusting review.
 
 The rule is that dependencies point one way only::
 
-    runner  ->  instruments  ->  analysis  ->  core
+    viewer  ->  runner  ->  instruments  ->  analysis  ->  core
 
 Traces to: CORE-NFR-001, CORE-ARC-001, ANA-ARC-001, SWE4-UT-LAYERING.
 """
@@ -29,6 +29,7 @@ ALLOWED = {
     "analysis": {"core", "analysis"},
     "instruments": {"core", "analysis", "instruments"},
     "runner": {"core", "analysis", "instruments", "runner"},
+    "viewer": {"core", "analysis", "instruments", "runner", "viewer"},
 }
 
 
@@ -97,7 +98,7 @@ def test_layer_dependencies_point_one_way(path):
         assert imported in permitted, (
             "%s (layer %r) imports from layer %r, which is not allowed. "
             "Permitted: %s. Dependencies must point core <- analysis <- "
-            "instruments <- runner."
+            "instruments <- runner <- viewer."
             % (path.relative_to(ROOT), layer, imported, ", ".join(sorted(permitted)))
         )
 

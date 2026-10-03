@@ -37,3 +37,6 @@ results/
 
 # Bench test records (tests/bench), kept with the bench confirmation items
 *_bench_findings.md
+
+# Event logs and reports written by runs started from the test run viewer (#137).
+/runs/

@@ -58,6 +58,10 @@ benchtools = "benchtools.cli:main"
 [tool.setuptools.packages.find]
 include = ["benchtools*"]
 
+# The test run viewer's page (#137): HTML, JavaScript and CSS served as files.
+[tool.setuptools.package-data]
+"benchtools.viewer" = ["static/*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
