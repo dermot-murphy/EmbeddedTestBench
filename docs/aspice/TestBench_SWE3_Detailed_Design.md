@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE3-001 | **Version** | 1.14 |
+| **Document ID** | TB-SWE3-001 | **Version** | 1.15 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -46,6 +46,7 @@
 | 1.12 | 2026-10-03 | Claude | #151: S2LP-DD-KEPLER - the decoder checked against the sensor firmware point by point; RESPONSE corrected; `kepler_tables.py` added. |
 | 1.13 | 2026-10-03 | Claude | #152: VIEW-DD-KEPLER added (`KeplerView`, `byte_roles`, `header_rows`, `payload_rows`, `CONFIG_GROUPS`, `/api/kepler`, `kepler.js`). |
 | 1.14 | 2026-10-03 | Claude | #153: VIEW-DD-SENSOR added (`SensorSeries`, `to_mg`, `to_mm_s`, `/api/sensor`); `lineChart` takes its container and shows raw counts; RF sub-tabs Environment, Short Interval and Ticks. |
+| 1.15 | 2026-10-03 | Claude | #154: VIEW-DD-TWF added (`TwfAssembler`, `spectrum`, `fill_gaps`, `/api/twf`); `lineChart` breaks at nulls, clips to its span, and labels ms or Hz. |
 
 ---
 
@@ -2748,6 +2749,32 @@ charts, the tick delta `max(0, next - this)` (VIEW-FR-031 … -033).
 Interval (with an X/Y/Z selector) and Ticks sub-tabs draw them with
 `lineChart`, whose tooltip adds a point's raw count; Zoom in and out halve or
 double the span about the time last hovered, and Reset restores it.
+
+#### VIEW-DD-TWF — `twf.py`
+
+`TwfAssembler.feed` keys a TWF frame by sensor, buffer - B when the param's
+`twfb` bits are set - and axis, and keeps a `_Capture` per key: packet count,
+permutation, TWF scale, ODR (`odr_hz`), and the samples per `(packet,
+version)` - the version being the repeat under the polynomial, 0 otherwise,
+where copies are the same. A different packet count or permutation, or packet
+0 after the capture completed, starts a new one; a completed capture is kept
+as `complete`. `_Capture.waveform` places each sample at `twf_sample(method,
+packet, slot, N, version)` in mg at `(8 << twf_scale) * 1000 / 32767` per
+count, `None` where unheard (VIEW-FR-034). `spectrum` fills gaps with
+`fill_gaps`, applies a Hann window, and gives `|X(k)| * 2 / N` per bin -
+NumPy's `rfft`, else `_fft` (radix 2) or a direct transform for a length that
+is not a power of two (VIEW-FR-035). `view(sensor, buffer, axis)` falls back to
+the other buffer and gives the waveform with its gaps as nulls, the spectrum
+and the reception figures, signal Excellent ≥ 99 %, Good ≥ 95, Fair ≥ 80,
+else Poor. `/api/twf?sensor=&buffer=&axis=` serves it.
+
+Three choices differ from rf_monitor, each from the firmware (#151): the
+buffer is the frame's, not guessed by alternation; the scale is the TWF scale,
+param bits 13:12, not the SI scale; the ODR is decoded from its code. The RF
+page's TWF sub-tab draws the waveform and spectrum with `lineChart`, which now
+breaks its line at a null, draws only what is inside its span (clipped), and
+labels a numeric x-axis in its unit; Zoom in/out/Reset act on the waveform
+within the capture (VIEW-FR-036).
 
 #### VIEW-DD-PAGE — `static/index.html`, `app.js`, `app.css`
 

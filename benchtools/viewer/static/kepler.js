@@ -15,6 +15,7 @@ for (const button of document.querySelectorAll("#rf-views button")) {
     for (const view of ["frames", "latest", "config", "identification"]) {
       $("rf-" + view + "-view").hidden = view !== rfView;
     }
+    $("rf-twf-view").hidden = rfView !== "twf";
     const graphs = ["environment", "short", "ticks"].includes(rfView);
     $("rf-graphs-view").hidden = !graphs;
     $("rf-axis-box").hidden = rfView !== "short";
@@ -125,8 +126,63 @@ for (const radio of document.querySelectorAll("input[name=rf-axis]")) {
   radio.addEventListener("change", loadSensorGraphs);
 }
 
+// rf_monitor's TWF screen (#154): the waveform and its spectrum.
+async function loadTwf() {
+  const buffer = document.querySelector("input[name=twf-buffer]:checked").value;
+  const axis = document.querySelector("input[name=twf-axis]:checked").value;
+  const reply = await (await fetch("/api/twf?sensor=" + encodeURIComponent($("rf-sensor").value) +
+                                   "&buffer=" + buffer + "&axis=" + axis)).json();
+  const box = $("twf-graphs");
+  const c = reply.capture;
+  if (!c) {
+    $("twf-status").textContent = "No TWF frames for this sensor, buffer and axis yet.";
+    $("twf-diagnostics").textContent = "";
+    box.replaceChildren();
+    return;
+  }
+  const name = "TWF" + reply.buffer + "  " + reply.axis + "-axis";
+  $("twf-status").textContent = c.complete
+    ? name + " complete   ODR " + c.odr_hz + " Hz   ±" + c.full_scale_mg + " mg   " + c.samples +
+      " samples   " + c.duration_ms.toFixed(1) + " ms   permutation " + c.method
+    : "Receiving " + name + "   ODR " + c.odr_hz + " Hz   packets " + c.packets + " / " +
+      c.total_packets + " (" + c.percent + "%)";
+  $("twf-diagnostics").textContent = (c.complete ? "Complete" : "Partial") + "  |  received " +
+    c.packets + " / " + c.total_packets + " (" + c.percent + "%)  |  missed " + c.missed +
+    "  |  signal " + c.signal;
+  const wave = {id: "twf", title: name + " waveform (mg)", unit: "mg", xunit: "ms",
+                series: [{key: "twf", label: reply.sensor, points: reply.waveform}]};
+  const fft = {id: "fft", title: "Spectrum (mg)  ·  resolution " + c.resolution_hz + " Hz/bin",
+               unit: "mg", xunit: "Hz", zero: true,
+               series: [{key: "fft", label: reply.sensor, points: reply.spectrum}]};
+  const span = (points) => points.length ? [points[0][0], points[points.length - 1][0]] : [0, 1];
+  twfFull = span(reply.waveform);
+  box.replaceChildren(lineChart(wave, twfZoom || twfFull, [], box),
+                      lineChart(fft, span(reply.spectrum), [], box));
+}
+
+// Zoom on the waveform: halve or double the span about the time last hovered,
+// kept within the capture, never narrower than a millisecond - as rf_monitor.
+let twfZoom = null;
+let twfFull = null;
+function zoomTwf(factor) {
+  const span = twfZoom || twfFull;
+  if (!span) return;
+  const centre = hoverTime != null && hoverTime >= span[0] && hoverTime <= span[1]
+    ? hoverTime : (span[0] + span[1]) / 2;
+  const half = Math.max((span[1] - span[0]) * factor / 2, 0.5);
+  twfZoom = [Math.max(twfFull[0], centre - half), Math.min(twfFull[1], centre + half)];
+  loadTwf();
+}
+$("twf-zoom-in").addEventListener("click", () => zoomTwf(0.5));
+$("twf-zoom-out").addEventListener("click", () => zoomTwf(2));
+$("twf-zoom-reset").addEventListener("click", () => { twfZoom = null; loadTwf(); });
+for (const radio of document.querySelectorAll("input[name=twf-buffer], input[name=twf-axis]")) {
+  radio.addEventListener("change", loadTwf);
+}
+
 async function loadKepler() {
   if (rfView === "frames") return;
+  if (rfView === "twf") { loadTwf(); return; }
   if (["environment", "short", "ticks"].includes(rfView)) { loadSensorGraphs(); return; }
   const sensor = $("rf-sensor").value;
   const reply = await (await fetch("/api/kepler?sensor=" + encodeURIComponent(sensor))).json();

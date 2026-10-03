@@ -61,6 +61,7 @@
       <button data-view="environment" aria-selected="false">Environment</button>
       <button data-view="short" aria-selected="false">Short Interval</button>
       <button data-view="ticks" aria-selected="false">Ticks</button>
+      <button data-view="twf" aria-selected="false">TWF</button>
     </div>
     <div id="rf-frames-view">
       <h2 class="section">Sensors</h2>
@@ -81,6 +82,23 @@
     </div>
     <div id="rf-identification-view" hidden>
       <div id="rf-identification" class="panel"></div>
+    </div>
+    <div id="rf-twf-view" hidden>
+      <div class="toolbar">
+        <span>Buffer
+          <label><input type="radio" name="twf-buffer" value="A" checked> TWFA</label>
+          <label><input type="radio" name="twf-buffer" value="B"> TWFB</label></span>
+        <span>Axis
+          <label><input type="radio" name="twf-axis" value="X" checked> X</label>
+          <label><input type="radio" name="twf-axis" value="Y"> Y</label>
+          <label><input type="radio" name="twf-axis" value="Z"> Z</label></span>
+        <button type="button" id="twf-zoom-in">Zoom in</button>
+        <button type="button" id="twf-zoom-out">Zoom out</button>
+        <button type="button" id="twf-zoom-reset">Reset</button>
+      </div>
+      <div id="twf-status" class="note"></div>
+      <div id="twf-diagnostics" class="note"></div>
+      <div id="twf-graphs" class="graphs"></div>
     </div>
     <div id="rf-graphs-view" hidden>
       <div class="toolbar">
