@@ -31,7 +31,7 @@
 | 0.7 | 2026-10-02 | Claude | #120: execution summary re-run; §14.3 notes that the simulated bench now defines `rtt`, so `kepler_temperature.yaml` reaches `dongle.select` like the other Kepler specifications. |
 | 0.8 | 2026-10-02 | Claude | #124: execution summary re-run; SWE4-UT-BLECLI count updated; D-46 added and closed. |
 | 0.9 | 2026-10-02 | Claude | #126: execution summary re-run; SWE4-UT-EVENTNAMES added to §5; D-47 added and closed. |
-| 1.0 | 2026-10-03 | Claude | #131: whole suite re-run on Windows (§4); SWE4-UT-PICO, -PICOSIM, -PICOCLI and -PICOFWPROTO counts updated in §5; §13A re-run for the `rd` command set - 83 firmware unit cases, built with clang 21 on Windows; two-place rounding vectors added to §13A.3; §13A.2 and §13A.4 record what was not repeated; PICO-OPEN-01 and -02 restated for `rd`, PICO-OPEN-06 added. |
+| 1.0 | 2026-10-03 | Claude | #131: whole suite re-run on Windows (§4); SWE4-UT-PICO, -PICOSIM, -PICOCLI and -PICOFWPROTO counts updated in §5; §13A re-run for the `rd` command set - 83 firmware unit cases, built with clang 21 on Windows; two-place rounding vectors added to §13A.3; §13A.2 target build repeated for #131 on the bench PC (Arm GNU 14.2.1, 0 warnings, new size figures); §13A.4 records what was not repeated; PICO-OPEN-01 and -02 restated for `rd`, PICO-OPEN-06 added; §13A.6 records the first run on a real Pico 2 - PICO-OPEN-01 closed, -02 and -06 confirmed except a reading with the sensor attached. |
 
 ---
 
@@ -118,11 +118,12 @@ D-42's regression test (#107) - with the `PICO-` element (#104). The per-group t
 not been regenerated for the groups `develop` added since revision 0.1, so its
 rows do not sum to the total: the total is the collected count.
 
-**The Pico 2 thermometer firmware is built but not executed** (CON-09): no
-Pico 2 or SHT30-D module is available. Its 83 host unit tests pass and it agrees
-with its driver (§13A). The #104 firmware cross-compiled to a UF2 image; the
-#131 firmware, with the `rd` command set, has **not** been cross-compiled,
-because the bench PC has no Arm toolchain (PICO-OPEN-06).
+**The Pico 2 thermometer firmware has run on a real Pico 2, but not yet with
+a sensor attached** (CON-09). Its 83 host unit tests pass and it agrees with its
+driver (§13A). The #131 firmware, with the `rd` command set, was cross-compiled
+on the bench PC and flashed to a Pico 2 on 2026-10-03; every reply that does not
+need the SHT30-D module was confirmed there (§13A.6). A real temperature value
+waits for the module (PICO-OPEN-02).
 
 **The dongle firmware is built but not executed** (CON-07): no dongle is
 available. It is verified against the driver it must agree with, against the
@@ -884,19 +885,20 @@ NACK on the read, a corrupted frame, a bus timeout on either transfer), `ver`,
 
 ### 13A.2 Target build (PICO-FR-031, PICO-NFR-003)
 
-The figures below are for the #104 firmware. The build was **not repeated** for
-#131: the bench PC has no Arm toolchain. The `rd` firmware's size, its warnings
-under the target compiler, and the SHA injection on a real configure are
-unverified (PICO-OPEN-06).
+The figures below are for the #131 firmware, built from commit `5c80ae7` on
+the Windows 10 bench PC on 2026-10-03. The #104 firmware, built on Linux, was
+60 928 bytes as a UF2, with text 29 996 B and bss 3 884 B; the `rd` firmware is
+smaller because the humidity and raw-word replies are gone.
 
-| Item | Result |
+| Item | #131 result |
 |---|---|
-| SDK | Raspberry Pi Pico C SDK 2.1.1, TinyUSB submodule, picotool 2.1.1 built from source |
-| Toolchain | xPack Arm GNU `arm-none-eabi-gcc` 14.2.1-1.1 |
+| SDK | Raspberry Pi Pico C SDK 2.1.1, TinyUSB submodule, prebuilt picotool 2.1.1 |
+| Toolchain | Arm GNU Toolchain 14.2.Rel1 (`arm-none-eabi-gcc` 14.2.1) |
 | Board / platform | `pico2` / `rp2350-arm-s` (Cortex-M33, secure) |
 | Warnings on the firmware's own sources | **0** (`-Werror`) |
-| Image | `pico_sht30.uf2`, 60 928 bytes |
-| Size (`arm-none-eabi-size`) | text 29 996 B, data 0 B, bss 3 884 B |
+| Image | `pico_sht30.uf2`, 58 368 bytes |
+| Size (`arm-none-eabi-size`) | text 28 764 B, data 0 B, bss 3 476 B |
+| Commit SHA injected | Configure printed `FIRMWARE_GIT_SHA=b6213cc` before the #131 commit was made; after the commit the next build re-configured itself and injected `5c80ae7`, which `rd sha` then reported on the Pico (§13A.6) |
 
 ### 13A.3 Conversion reference vectors
 
@@ -950,11 +952,35 @@ PICO-OPEN-04.
 
 | ID | Item |
 |---|---|
-| PICO-OPEN-01 | Flash `pico_sht30.uf2`, confirm USB enumeration, and confirm `rd name`, `rd copyright`, `rd version` and `rd sha` return the name, copyright, `V1.00.0000` and the SHA the build injected. |
-| PICO-OPEN-02 | Confirm `rd temperature` with the DollaTek module on GP4/GP5 at 0x44, and that removing the module gives `ACK rd temperature = Error` rather than a value. |
+| PICO-OPEN-01 | **Closed 2026-10-03** (§13A.6). Flash `pico_sht30.uf2`, confirm USB enumeration, and confirm `rd name`, `rd copyright`, `rd version` and `rd sha` return the name, copyright, `V1.00.0000` and the SHA the build injected. |
+| PICO-OPEN-02 | **Confirmed in part 2026-10-03** (§13A.6): with no module connected, `rd temperature` answers `ACK rd temperature = Error` and `status` answers `err 4`. Still open: a value to two places with the DollaTek module on GP4/GP5 at 0x44. |
 | PICO-OPEN-03 | Compare against a reference thermometer: expect agreement within ±0.2 °C typical between 0 and 65 °C, allowing for self-heating of the Pico. |
 | PICO-OPEN-04 | The reference PDFs (Pico 2 datasheet and schematic, RP2350 datasheet, SDK guide, Sensirion SHT3x-DIS datasheet) could not be fetched in the build environment; run `docs/pico_sht30/fetch_datasheets.sh` and commit them. Run a MISRA C:2012 checker over `firmware/pico_sht30/src`. |
-| PICO-OPEN-06 | **Not yet confirmed:** the `rd` command set (#131) on a real Pico 2. Cross-compile the #131 firmware (the bench PC has no Arm toolchain), record its size, flash it and work through PICO-OPEN-01 and -02; `ecureset` must answer `ok` and re-enumerate the port. |
+| PICO-OPEN-06 | **Confirmed in part 2026-10-03** (§13A.2, §13A.6): the `rd` command set (#131) on a real Pico 2. The #131 firmware was cross-compiled with no warnings, its size recorded, the SHA injected, and it was flashed; every `rd` option, the `NAK`, the `err` replies and `ecureset` behaved as specified. Still open: `rd temperature` with a real value to two places, which needs the SHT30-D module connected (PICO-OPEN-02). |
+
+### 13A.6 First run on a real Pico 2 (2026-10-03)
+
+Bench PC on Windows 10, a Raspberry Pi Pico 2 with USB serial number
+`AC5483CD0798FB0B` on COM14, and **no SHT30-D module connected**. The firmware
+of §13A.2 was flashed with `benchtools thermo flash` (the `bootsel` method from
+#127's branch), with no button pressed. The raw replies on COM14 were:
+
+| Sent | Reply | Expected? |
+|---|---|---|
+| `rd name` | `ACK rd name = Pico 2 SHT30 Temperature Sensor` | Yes |
+| `rd copyright` | `ACK rd copyright = (c) 2026 Dermot Murphy` | Yes |
+| `rd version` | `ACK rd version = V1.00.0000` | Yes |
+| `rd sha` | `ACK rd sha = 5c80ae7` | Yes, the commit built |
+| `rd temperature` | `ACK rd temperature = Error` | Yes, no sensor is connected |
+| `rd colour` | `NAK rd colour = Error` | Yes |
+| `rd` | `err 2 wrong number of arguments` | Yes |
+| `ver`, `temp`, `reset` | `err 1 unknown command` | Yes, removed by #131 |
+| `status` | `err 4 the sensor did not acknowledge` | Yes, no sensor is connected |
+
+`benchtools thermo -r COM14 info`, and each `rd <option>` through the driver's
+command line, returned the same values. `ecureset` through the driver rebooted
+the Pico, and it came back answering `rd sha = 5c80ae7`. The raw `ok` reply to
+`ecureset` was not captured separately.
 
 ## 13B. TTi 1604 multimeter verification results (#115)
 

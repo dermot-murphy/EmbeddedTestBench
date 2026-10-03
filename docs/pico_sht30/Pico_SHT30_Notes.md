@@ -264,8 +264,41 @@ PICO-OPEN-04.
 
 | ID | Item | How |
 |---|---|---|
-| PICO-OPEN-01 | USB enumeration and identity | Flash the UF2; `benchtools thermo -r <port> info` must show the name `Pico 2 SHT30 Temperature Sensor`, copyright `(c) 2026 Dermot Murphy`, version `V1.00.0000`, and the SHA the configure step printed. `rd colour` must answer `NAK rd colour = Error`; `ver` must answer `err 1`. |
-| PICO-OPEN-02 | Sensor on the bus, and a missing sensor reported | `rd temperature` must answer a value to two places; with SDA disconnected it must answer `ACK rd temperature = Error`, never a value, and `status` must answer `err 4`. |
+| PICO-OPEN-01 | USB enumeration and identity | **Closed 2026-10-03** (§7.1). Flash the UF2; `benchtools thermo -r <port> info` must show the name `Pico 2 SHT30 Temperature Sensor`, copyright `(c) 2026 Dermot Murphy`, version `V1.00.0000`, and the SHA the configure step printed. `rd colour` must answer `NAK rd colour = Error`; `ver` must answer `err 1`. |
+| PICO-OPEN-02 | Sensor on the bus, and a missing sensor reported | `rd temperature` must answer a value to two places; with SDA disconnected it must answer `ACK rd temperature = Error`, never a value, and `status` must answer `err 4`. **Confirmed in part 2026-10-03** (§7.1): with no module connected, `Error` and `err 4` are answered as specified. Still open: a value to two places with the module connected. |
 | PICO-OPEN-03 | Accuracy | Beside a calibrated reference thermometer, away from the Pico, after 10 minutes: agreement within ±0.2 °C typical (0–65 °C) plus the reference's own uncertainty. |
 | PICO-OPEN-04 | Reference PDFs and MISRA tool run | The hosts serving the PDFs were blocked in the build environment; run `fetch_datasheets.sh` and commit the files. Run a MISRA C:2012 checker over `firmware/pico_sht30/src`. |
-| PICO-OPEN-06 | The `rd` command set (#131) on a real Pico 2 | **Not yet confirmed.** The #131 firmware passes its 83 host unit tests and agrees with its driver, but it has not been cross-compiled or flashed: the bench PC has no Arm toolchain. Install one, build, flash, confirm that the build injects the SHA, then work through PICO-OPEN-01 and -02. `ecureset` must answer `ok` and re-enumerate the port. |
+| PICO-OPEN-06 | The `rd` command set (#131) on a real Pico 2 | **Confirmed in part 2026-10-03** (§7.1). The #131 firmware was cross-compiled on the bench PC with no warnings, the build injected the SHA, and it was flashed to a Pico 2. Every `rd` option, the `NAK`, the `err` replies and `ecureset` behaved as specified. Still open: `rd temperature` with a real value to two places, which needs the SHT30-D module connected (PICO-OPEN-02). |
+
+### 7.1 First run on a real Pico 2 (2026-10-03)
+
+The bench PC runs Windows 10. The Pico 2 has USB serial number
+`AC5483CD0798FB0B` and appeared as COM14. **No SHT30-D module was connected.**
+
+The firmware was built from commit `5c80ae7` with Pico SDK 2.1.1, Arm GNU
+Toolchain 14.2.Rel1 (`arm-none-eabi-gcc` 14.2.1) and a prebuilt picotool 2.1.1.
+There were no warnings under `-Werror`. The UF2 is 58 368 bytes; text is
+28 764 B, data 0 B and bss 3 476 B. Before the commit was made, the configure
+step printed `FIRMWARE_GIT_SHA=b6213cc`; after it, the next build re-configured
+itself and injected `5c80ae7`. So a new commit does reach the image.
+
+The image was flashed with `benchtools thermo flash`, which uses the `bootsel`
+command (from #127's branch), so no button was pressed. The raw replies on
+COM14 were:
+
+| Sent | Reply |
+|---|---|
+| `rd name` | `ACK rd name = Pico 2 SHT30 Temperature Sensor` |
+| `rd copyright` | `ACK rd copyright = (c) 2026 Dermot Murphy` |
+| `rd version` | `ACK rd version = V1.00.0000` |
+| `rd sha` | `ACK rd sha = 5c80ae7` |
+| `rd temperature` | `ACK rd temperature = Error` (expected: no sensor) |
+| `rd colour` | `NAK rd colour = Error` |
+| `rd` | `err 2 wrong number of arguments` |
+| `ver`, `temp`, `reset` | `err 1 unknown command` |
+| `status` | `err 4 the sensor did not acknowledge` (expected: no sensor) |
+
+`benchtools thermo -r COM14 info`, and each `rd <option>` through the driver,
+returned the same values. `ecureset` rebooted the Pico, and it came back
+answering `rd sha = 5c80ae7`. The raw `ok` reply to `ecureset` was not
+captured on its own.

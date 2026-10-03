@@ -33,7 +33,7 @@
 | 0.9 | 2026-10-02 | Claude | #120: SWE4-UT-BENCH also covers `runner/test_shipped_benches.py`, which now checks that the simulated bench provides every instrument and driver each shipped specification uses (RUN-FR-035). |
 | 1.0 | 2026-10-02 | Claude | #124: SWE4-UT-BLECLI covers choosing a sensor on the command line (16 cases, BLE-FR-071). |
 | 1.1 | 2026-10-02 | Claude | #126: SWE4-UT-EVENTNAMES added (21 cases); SWE4-UT-EVENTS covers per-instrument names (54 cases); SWE4-UT-TESTBENCH covers declared names and lower-case logs in the monitor. |
-| 1.2 | 2026-10-03 | Claude | #131: SWE4-UT-PICO, -PICOSIM, -PICOCLI, -PICOFWPROTO and -PICOFW rewritten for the `rd` command set, `ecureset`, `NoReadingError` and the two-place temperature (PICO-FR-006, -007, -027, -047, -061); the raw-word cross-check is no longer tested (PICO-FR-044 withdrawn). Firmware unit cases now 83. §1.4b: the shared vectors now include the two-place rounding, and the host unit tests are run with clang on Windows. |
+| 1.2 | 2026-10-03 | Claude | #131: SWE4-UT-PICO, -PICOSIM, -PICOCLI, -PICOFWPROTO and -PICOFW rewritten for the `rd` command set, `ecureset`, `NoReadingError` and the two-place temperature (PICO-FR-006, -007, -027, -047, -061); the raw-word cross-check is no longer tested (PICO-FR-044 withdrawn). Firmware unit cases now 83. §1.4b: the shared vectors now include the two-place rounding, and the host unit tests are run with clang on Windows. §8: the Pico 2 not-covered row narrowed to what still needs the SHT30-D module, after the first run on a real Pico 2 (TB-SWE4-002 §13A.6). |
 
 ---
 
@@ -209,7 +209,7 @@ Reference vectors are shared: `test_sht30.c` and `test_simulator.py` assert
 the same raw-word-to-value pairs, and `test_text.c` and `test_simulator.py` the
 same milli-degree-to-two-places pairs (`text_centi` and `milli_to_centi_text`,
 PICO-FR-027), so the C and Python conversions cannot drift apart silently. What none of this establishes
-is behaviour on silicon with a sensor attached: PICO-OPEN-01 to -04.
+is behaviour on silicon with a sensor attached: PICO-OPEN-02 to -04 and -06.
 
 ### 4.5 Architectural verification
 
@@ -434,7 +434,7 @@ in the VISA determination report §5.1:
 | Measurement engine settling time | Firmware- and timebase-dependent |
 | Exact SCPI command spellings against the programmer manual | The manual was unreachable from the build environment (CON-02) |
 | Analogue accuracy, bandwidth and noise behaviour | Instrument specification, not software |
-| Pico 2 thermometer on silicon: USB enumeration, I2C timing with the module's pull-ups, measured accuracy against a reference | No Pico 2 or SHT30-D module was available (CON-09); `docs/pico_sht30/Pico_SHT30_Notes.md` §7, PICO-OPEN-01 … -04 |
+| Pico 2 thermometer with a sensor attached: a real `rd temperature` value to two places, I2C timing with the module's pull-ups, measured accuracy against a reference | No SHT30-D module was connected (CON-09). The firmware has run on a real Pico 2 without one: USB enumeration, every `rd` option, the `NAK`, the `err` replies and `ecureset` were confirmed on 2026-10-03 (TB-SWE4-002 §13A.6). `docs/pico_sht30/Pico_SHT30_Notes.md` §7, PICO-OPEN-02 … -04 and -06 |
 | TTi 1604 against a physical meter: the frame terminator, the echo's place in the stream, the frequency gate times, key behaviour in remote mode, a USB converter's DTR/RTS levels, the resistance display convention | No meter was attached to the build environment (CON-10); `docs/dmm/TTi1604_Notes.md` §5, DMM-OPEN-01 … -08. Exercised by SWE4-UT-DMMBENCH (§4.6a) and the front-panel check when a meter is attached |
 | Behaviour of instrument families named for future work | No drivers exist yet (CON-03) |
 
