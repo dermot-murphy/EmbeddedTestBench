@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE3-001 | **Version** | 1.15 |
+| **Document ID** | TB-SWE3-001 | **Version** | 1.16 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -47,6 +47,7 @@
 | 1.13 | 2026-10-03 | Claude | #152: VIEW-DD-KEPLER added (`KeplerView`, `byte_roles`, `header_rows`, `payload_rows`, `CONFIG_GROUPS`, `/api/kepler`, `kepler.js`). |
 | 1.14 | 2026-10-03 | Claude | #153: VIEW-DD-SENSOR added (`SensorSeries`, `to_mg`, `to_mm_s`, `/api/sensor`); `lineChart` takes its container and shows raw counts; RF sub-tabs Environment, Short Interval and Ticks. |
 | 1.15 | 2026-10-03 | Claude | #154: VIEW-DD-TWF added (`TwfAssembler`, `spectrum`, `fill_gaps`, `/api/twf`); `lineChart` breaks at nulls, clips to its span, and labels ms or Hz. |
+| 1.16 | 2026-10-03 | Claude | #155: VIEW-DD-DIAG added (`Diagnostics`, `SyncTracker`, `/api/diagnostics`, `/api/diagnostics/reset`). |
 
 ---
 
@@ -2775,6 +2776,31 @@ page's TWF sub-tab draws the waveform and spectrum with `lineChart`, which now
 breaks its line at a null, draws only what is inside its span (clipped), and
 labels a numeric x-axis in its unit; Zoom in/out/Reset act on the waveform
 within the capture (VIEW-FR-036).
+
+#### VIEW-DD-DIAG — `diagnostics.py`
+
+`Diagnostics.feed` keeps, per sensor and frame type (`UNKNOWN` when the type
+is missing), a `_TypeStats`: packets; frame times - a copy starts a frame when
+it is copy 1, or more than `BURST_GAP_S` (1 s) after the last frame - and the
+last ten with their deltas; and the burst - the copies heard and the total the
+counter states. A burst closes at the next copy 1, when every copy is in, or
+when `BURST_GAP_S` passes with none, adding the total to `expected` and the
+copies missing to `dropped`; one still arriving is not counted yet. `view`
+closes a quiet burst at "now", the latest frame time, and gives the gaps'
+mean, population standard deviation, and the shortest and longest with the
+times either side (VIEW-FR-037, -038). `reset(sensor)` clears.
+
+`SyncTracker.feed` takes CMD frames by the sensor's ID - REQ_LORES starts
+afresh; each parameter names a phase - and RESPONSE frames by the echoed
+sensor ID: LORES sets a deadline `t + timer/1000`, HIRES `t + timer/1e6`, with
+the slot. `view` gives each sensor heard within `SYNC_IDLE_S` (1 200 s) of
+"now" its remaining times and a state - `nack`, `hires` or `fired`
+(VIEW-FR-039). Both are timed by the frames, not the viewer's clock: rf_monitor
+anchored them to when it processed a frame, so a replayed log's countdowns
+meant nothing. `/api/diagnostics?sensor=` serves both, and `POST
+/api/diagnostics/reset` resets. The RF page's Diagnostics sub-tab draws the
+period table (a row's tooltip naming the frames either side of its extremes),
+Reset, Auto/Hold and the last ten; Sync the table with its states coloured.
 
 #### VIEW-DD-PAGE — `static/index.html`, `app.js`, `app.css`
 

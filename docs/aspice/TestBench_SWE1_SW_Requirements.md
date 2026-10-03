@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE1-001 | **Version** | 1.17 |
+| **Document ID** | TB-SWE1-001 | **Version** | 1.18 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -49,6 +49,7 @@
 | 1.15 | 2026-10-03 | Claude | #152: VIEW-FR-028 … -030 added - rf_monitor's Latest Data, Config and Identification screens. |
 | 1.16 | 2026-10-03 | Claude | #153: VIEW-FR-031 … -033 added - rf_monitor's Environment, Short Interval and Ticks graphs. |
 | 1.17 | 2026-10-03 | Claude | #154: VIEW-FR-034 … -036 added - rf_monitor's TWF screen: reassembly, waveform and spectrum. |
+| 1.18 | 2026-10-03 | Claude | #155: VIEW-FR-037 … -039 added - rf_monitor's Diagnostics and Sync screens. |
 
 ---
 
@@ -1017,6 +1018,9 @@ A browser page onto a bench run (#130, #137), served by `benchtools view`. It is
 | VIEW-FR-034 | The RF page shall reassemble a sensor's time waveforms from its TWF frames, per buffer (TWFA or TWFB, as the frame's param says) and axis: every sample placed where the frame's permutation (S2LP-FR-082) says, each polynomial repeat contributing its own samples, scaled to mg by the TWF scale (8 << twf_scale g), timed by the decoded ODR; a sample no frame carried left as a gap. A packet 0 after a complete waveform, or a change of packet count or permutation, starts the next. | STK-23 | Test |
 | VIEW-FR-035 | The RF page shall show rf_monitor's TWF screen: the waveform (mg against ms) with gaps where samples are missing; its spectrum - gaps filled by straight lines, a Hann window, |X(k)| * 2 / N in mg at k * ODR / N Hz - the same with or without NumPy; a status line (receiving, or complete with ODR, scale, samples, duration, permutation); and the packets received and missed, as a percentage and a signal grade. | STK-23 | Test |
 | VIEW-FR-036 | The TWF screen shall select buffer and axis, show the other buffer when the one chosen has nothing, and zoom the waveform in and out about the time last hovered within the capture, and reset. | STK-23 | Test |
+| VIEW-FR-037 | The RF page shall show rf_monitor's Diagnostics for a sensor, per frame type: frames (each once), packets (every copy), copies expected and dropped and the success percentage - a burst of copies ending at the next frame's first copy, when all its copies are in, or after 1 s with none - and the period between frames: mean, population standard deviation, shortest and longest with the frames either side; the overall success; and a reset. | STK-23 | Test |
+| VIEW-FR-038 | Diagnostics shall show the last ten frames of a type, newest first, with the time since the one before - following the type last received, or held on a type chosen. A frame of an unknown type shall be counted, not an error. | STK-23 | Test |
+| VIEW-FR-039 | The RF page shall show rf_monitor's Sync for every sensor, unfiltered: from CMD and RESPONSE frames, the phase, retry, slot, and the LORES and HIRES countdowns - timed from the frames' own times, so a replayed log counts down as it did live - a NACK, a HIRES countdown and a fired HIRES each marked, and a sensor idle for 20 minutes dropped. | STK-23 | Test |
 
 ## 17. Assumptions and constraints
 

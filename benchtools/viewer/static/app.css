@@ -186,6 +186,11 @@ table.kv td { font-family: var(--mono); overflow-wrap: anywhere; }
 .table.config { max-height: none; }
 .table tr.disabled td { color: var(--muted); }
 .table tr.unknown td { color: var(--muted); font-style: italic; }
+.table tr.st-nack td { color: var(--st-critical); }
+.table tr.st-hires td { color: var(--series-3); }
+.table tr.st-fired td { color: var(--st-good); font-weight: 600; }
+.table tr.chosen td { background: var(--bg); }
+#diag-hold[aria-pressed="true"] { border-color: var(--warn); color: var(--warn); }
 .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px;
         display: flex; flex-direction: column; gap: 10px; }
