@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE1-001 | **Version** | 1.16 |
+| **Document ID** | TB-SWE1-001 | **Version** | 1.17 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -48,6 +48,7 @@
 | 1.14 | 2026-10-03 | Claude | #151: S2LP-FR-081 … -083 added - CONFIG parameters named, waveform sample order and ODR, and frames decoded as the firmware builds them (RESPONSE layout corrected). |
 | 1.15 | 2026-10-03 | Claude | #152: VIEW-FR-028 … -030 added - rf_monitor's Latest Data, Config and Identification screens. |
 | 1.16 | 2026-10-03 | Claude | #153: VIEW-FR-031 … -033 added - rf_monitor's Environment, Short Interval and Ticks graphs. |
+| 1.17 | 2026-10-03 | Claude | #154: VIEW-FR-034 … -036 added - rf_monitor's TWF screen: reassembly, waveform and spectrum. |
 
 ---
 
@@ -1013,6 +1014,9 @@ A browser page onto a bench run (#130, #137), served by `benchtools view`. It is
 | VIEW-FR-031 | The RF page shall plot rf_monitor's Environment for a sensor: temperature (°C) and battery (V) against time, from its ALIVE, TWF and VERSION frames, each frame once however many copies the sensor sent. | STK-23 | Test |
 | VIEW-FR-032 | The RF page shall plot rf_monitor's Short Interval for a sensor and a chosen axis: acceleration RMS and peak to peak in mg and velocity RMS in mm/s, from ALIVE frames and TWF frames by their SI type, at the sensor's full scale (8 << si_scale g, 32767 counts), the raw count given on hovering, one y-axis per chart; and the magnetometer's frequency and amplitude in counts. | STK-23 | Test |
 | VIEW-FR-033 | The RF page shall plot rf_monitor's Ticks for a sensor: the tick counter from its ALIVE frames and the change from one frame to the next, a fall shown as 0; and its graphs shall zoom in and out about the time last hovered, and reset. | STK-23 | Test |
+| VIEW-FR-034 | The RF page shall reassemble a sensor's time waveforms from its TWF frames, per buffer (TWFA or TWFB, as the frame's param says) and axis: every sample placed where the frame's permutation (S2LP-FR-082) says, each polynomial repeat contributing its own samples, scaled to mg by the TWF scale (8 << twf_scale g), timed by the decoded ODR; a sample no frame carried left as a gap. A packet 0 after a complete waveform, or a change of packet count or permutation, starts the next. | STK-23 | Test |
+| VIEW-FR-035 | The RF page shall show rf_monitor's TWF screen: the waveform (mg against ms) with gaps where samples are missing; its spectrum - gaps filled by straight lines, a Hann window, |X(k)| * 2 / N in mg at k * ODR / N Hz - the same with or without NumPy; a status line (receiving, or complete with ODR, scale, samples, duration, permutation); and the packets received and missed, as a percentage and a signal grade. | STK-23 | Test |
+| VIEW-FR-036 | The TWF screen shall select buffer and axis, show the other buffer when the one chosen has nothing, and zoom the waveform in and out about the time last hovered within the capture, and reset. | STK-23 | Test |
 
 ## 17. Assumptions and constraints
 

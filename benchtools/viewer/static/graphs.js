@@ -42,7 +42,9 @@ function clock(t, step) {
 // One chart: {id, title, unit, zero?, series: [{key, label, points: [[t, v]]}]}
 // The x-axis label of a chart: a time of day, or seconds on the dongle's clock.
 function xLabel(chart, t, step) {
-  return chart.x === "dongle" ? Number(t.toFixed(3)) + " s" : clock(t, step);
+  if (chart.x === "dongle") return Number(t.toFixed(3)) + " s";
+  if (chart.xunit) return Number(t.toPrecision(6)) + " " + chart.xunit;
+  return clock(t, step);
 }
 
 // Where the operator last hovered, in the time units of the charts: zoom centres there.
@@ -50,7 +52,12 @@ let hoverTime = null;
 
 function lineChart(chart, span, markers, container) {
   const box = el("figure", {class: "chart"});
-  const points = chart.series.flatMap((s) => s.points);
+  // A point whose value is null is a gap: the line breaks there. Only points
+  // within the span set the y range, so a zoomed chart fills its height.
+  const x0 = span[0];
+  const x1 = span[1] > span[0] ? span[1] : span[0] + 1;
+  const points = chart.series.flatMap((s) => s.points)
+    .filter((p) => p[1] != null && p[0] >= x0 && p[0] <= x1);
   const many = chart.series.length > 1;
   box.append(el("figcaption", {}, chart.title + (!many && chart.series[0] ? "  ·  " + chart.series[0].label : "") +
                                   (chart.x === "dongle" ? "  ·  time on the dongle's clock" : "")));
@@ -69,13 +76,14 @@ function lineChart(chart, span, markers, container) {
   let hi = Math.max(...points.map((p) => p[1]));
   if (chart.zero) { lo = Math.min(lo, 0); hi = Math.max(hi, 0); }
   const y = niceTicks(lo, hi, 4);
-  const x0 = span[0];
-  const x1 = span[1] > span[0] ? span[1] : span[0] + 1;
   const sx = (t) => m.left + (t - x0) / (x1 - x0) * plotW;
   const sy = (v) => m.top + (1 - (v - y.lo) / (y.hi - y.lo)) * plotH;
 
   const plot = svg("svg", {viewBox: "0 0 " + width + " " + height, width: width, height: height,
                            role: "img", "aria-label": chart.title});
+  const clip = "clip-" + chart.id + "-" + Math.random().toString(36).slice(2, 8);
+  plot.append(svg("clipPath", {id: clip}, svg("rect", {x: m.left, y: m.top - 4, width: plotW,
+                                                       height: plotH + 8})));
   for (const v of y.ticks) {
     plot.append(svg("line", {x1: m.left, x2: width - m.right, y1: sy(v), y2: sy(v),
                              class: v === 0 && chart.zero ? "baseline" : "grid"}));
@@ -94,10 +102,17 @@ function lineChart(chart, span, markers, container) {
   }
   chart.series.forEach((s, i) => {
     if (!s.points.length) return;
-    const d = s.points.map((p, k) => (k ? "L" : "M") + sx(p[0]).toFixed(1) + " " + sy(p[1]).toFixed(1)).join(" ");
-    plot.append(svg("path", {d, class: "line", stroke: "var(--series-" + (i % 8 + 1) + ")"}));
+    let pen = "M";
+    const d = s.points.map((p) => {
+      if (p[1] == null) { pen = "M"; return ""; }
+      const step = pen + sx(p[0]).toFixed(1) + " " + sy(p[1]).toFixed(1);
+      pen = "L";
+      return step;
+    }).join(" ");
+    plot.append(svg("path", {d, class: "line", stroke: "var(--series-" + (i % 8 + 1) + ")",
+                             "clip-path": "url(#" + clip + ")"}));
     if (s.points.length <= 60) {
-      for (const p of s.points) {
+      for (const p of s.points.filter((q) => q[1] != null && q[0] >= x0 && q[0] <= x1)) {
         plot.append(svg("circle", {cx: sx(p[0]), cy: sy(p[1]), r: 3, class: "point",
                                    fill: "var(--series-" + (i % 8 + 1) + ")"}));
       }
@@ -118,7 +133,9 @@ function lineChart(chart, span, markers, container) {
     const lines = [xLabel(chart, t, 0.001)];
     chart.series.forEach((s) => {
       if (!s.points.length) return;
-      const near = s.points.reduce((a, b) => (Math.abs(b[0] - t) < Math.abs(a[0] - t) ? b : a));
+      const real = s.points.filter((p) => p[1] != null);
+      if (!real.length) return;
+      const near = real.reduce((a, b) => (Math.abs(b[0] - t) < Math.abs(a[0] - t) ? b : a));
       lines.push(s.label + ": " + Number(near[1].toPrecision(6)) + " " + chart.unit.replace("degC", "°C") +
                  (near.length > 2 ? "  (raw " + near[2] + ")" : ""));
     });
