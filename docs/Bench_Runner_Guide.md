@@ -743,6 +743,7 @@ benchtools run specs/*.yaml --bench benches/lab1.yaml \
 | `--simulate` | Replace every instrument with its simulator |
 | `--json`, `--markdown`, `--junit` | Write reports (paths are suffixed per suite when several are given) |
 | `--test NAME` | Run only the test case with this exact name; repeat for several. The rest are reported as skipped, "not selected"; setup and teardown still run. An unknown name is a usage error |
+| `--control PORT` | Serve a control channel on 127.0.0.1:PORT (0 picks a free port) to pause, resume, abort or restart the run between steps; see §6.5 |
 | `--stop-on-error` | Abandon the remaining tests after the first error |
 | `-v`, `-vv` | Log each step, then full debug including SCPI traffic |
 
@@ -856,6 +857,35 @@ program can follow a run without parsing text (#135):
 `data` is always standard JSON: a value that is not finite is written as text,
 bytes as hex, and a sequence longer than 256 items is cut short with a note.
 Step records are at DEBUG level, which the event log always records.
+
+### 6.5 Controlling a run: pause, resume, abort, restart
+
+`--control PORT` lets another program - the test run viewer (#130) - steer a
+run while it goes (#136). The channel listens on **127.0.0.1 only**: a run
+drives the bench's supply, so it is never reachable from another machine. The
+port in use is printed (`control channel on 127.0.0.1:PORT`) and written to the
+event log as `control_listening`.
+
+One JSON request per line, one JSON reply per line:
+
+| Request | Effect |
+|---|---|
+| `{"cmd": "status"}` | `state` (`running`, `paused`, `idle`), `suite`, `phase`, `case`, `step` |
+| `{"cmd": "pause"}` | Hold the run before its next step |
+| `{"cmd": "resume"}` | Carry on |
+| `{"cmd": "abort"}` | Stop after the current step. Teardown still runs. The interrupted test case is an error, "aborted by operator"; the rest are skipped with that rationale |
+| `{"cmd": "restart_test"}` | Run the current test case again from its first step |
+| `{"cmd": "restart_from", "case": 1, "step": 2}` | Carry on from that test case and step (both counted from 0), in order |
+
+- Requests take effect **between steps**. A step in progress is never interrupted.
+- **Teardown cannot be interrupted**, and a restart is refused during setup.
+- A restart keeps the values saved so far, and does not reset any instrument.
+  It is refused if a step from the target on uses a value that no step has
+  saved; restart from the step that saves it. Test cases jumped over going
+  forward are skipped, "skipped by operator".
+- A refused request replies `{"ok": false, "error": "..."}` with the reason.
+- Every request, and every action the runner takes on one, is in the event log
+  (`control`, `control_applied`), so the evidence shows the intervention.
 
 ---
 

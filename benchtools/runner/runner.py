@@ -22,6 +22,7 @@ Traces to: RUN-FR-008, RUN-FR-010 .. RUN-FR-037, RUN-ARC-001, RUN-DD-RUNNER.
 
 from __future__ import annotations
 
+import dataclasses
 import datetime
 import logging
 import os
@@ -33,7 +34,8 @@ from ..core.events import log_event
 from ..core.paths import input_path_names, resolve_arguments
 from .bench import Bench, BenchConfig
 from .limits import Limit, TextLimit
-from .resolve import resolve_path, resolve_references
+from .control import ABORT, Command, RunControl
+from .resolve import Reference, resolve_path, resolve_references
 from .results import CaseRecord, MeasurementRecord, RunRecord, Status, StepRecord
 from .spec import Expectation, Step, TestSpec, render
 
@@ -43,6 +45,38 @@ _LOG = logging.getLogger(__name__)
 
 #: The rationale recorded for a test case the run was not asked for (#134).
 NOT_SELECTED = "not selected"
+
+#: The rationale for test cases an operator's abort left unrun, and the error of
+#: the one it interrupted (#136).
+ABORTED = "aborted by operator"
+
+#: The rationale for test cases an operator's restart jumped over (#136).
+SKIPPED_BY_OPERATOR = "skipped by operator"
+
+
+class _Interrupted(Exception):
+    """An abort or restart, raised at a checkpoint between steps."""
+
+    def __init__(self, command: Command, records: List[StepRecord]) -> None:
+        super().__init__(command.kind)
+        self.command = command
+        self.records = records
+        self.case_record: Optional[CaseRecord] = None
+
+
+def _references_in(value: Any) -> List[str]:
+    """The saved names *value* refers to, wherever they sit inside it."""
+    if isinstance(value, Reference):
+        return [value.path.partition(".")[0]]
+    if isinstance(value, dict):
+        return [name for item in value.values() for name in _references_in(item)]
+    if isinstance(value, (list, tuple)):
+        return [name for item in value for name in _references_in(item)]
+    if dataclasses.is_dataclass(value) and not isinstance(value, type):
+        return [name for field in dataclasses.fields(value)
+                for name in _references_in(getattr(value, field.name))]
+    return []
+
 
 #: Where a step sits, as the event log names it (#135).
 PHASE_SETUP = "setup"
@@ -96,9 +130,12 @@ class BenchRunner:
         that is out of limit in one pass.
     """
 
-    def __init__(self, bench: Bench, stop_on_error: bool = False) -> None:
+    def __init__(self, bench: Bench, stop_on_error: bool = False,
+                 control: Optional[RunControl] = None) -> None:
         self.bench = bench
         self.stop_on_error = bool(stop_on_error)
+        #: What an operator has asked of the run, obeyed between steps (#136).
+        self.control = control
         self._saved: Dict[str, Any] = {}
         #: Directory of the specification being run: where a relative input
         #: path in one of its steps is looked for first.
@@ -111,9 +148,11 @@ class BenchRunner:
         config: BenchConfig,
         simulate: bool = False,
         stop_on_error: bool = False,
+        control: Optional[RunControl] = None,
     ) -> "BenchRunner":
         """Build a runner for *config*."""
-        return cls(Bench(config, simulate=simulate), stop_on_error=stop_on_error)
+        return cls(Bench(config, simulate=simulate), stop_on_error=stop_on_error,
+                   control=control)
 
     # ------------------------------------------------------------------
     # Action resolution
@@ -346,10 +385,23 @@ class BenchRunner:
         return record, arguments, result
 
     def run_steps(self, steps: Sequence[Step], phase: str = PHASE_TEST,
-                  case_index: Optional[int] = None) -> List[StepRecord]:
-        """Execute *steps* in order, stopping at the first step that errors."""
+                  case_index: Optional[int] = None, first: int = 0) -> List[StepRecord]:
+        """Execute *steps* in order, stopping at the first step that errors.
+
+        *first* is the index of ``steps[0]`` in its sequence, for a test case
+        restarted part-way through. With a :attr:`control`, it is consulted
+        before each step: a pause waits there, and an abort or restart raises
+        :class:`_Interrupted` carrying the steps done so far (#136). Teardown is
+        never interrupted.
+        """
         records: List[StepRecord] = []
-        for index, step in enumerate(steps):
+        for offset, step in enumerate(steps):
+            index = first + offset
+            if self.control is not None:
+                command = self.control.checkpoint(phase, case_index, index,
+                                                  interruptible=phase != PHASE_TEARDOWN)
+                if command is not None:
+                    raise _Interrupted(command, records)
             record = self.run_step(step, phase, case_index, index)
             records.append(record)
             if record.status is Status.ERROR:
@@ -359,16 +411,26 @@ class BenchRunner:
     # ------------------------------------------------------------------
     # Case and suite execution
     # ------------------------------------------------------------------
-    def run_case(self, case, index: Optional[int] = None) -> CaseRecord:
-        """Execute one test case; *index* is its position in the specification."""
+    def run_case(self, case, index: Optional[int] = None, first: int = 0,
+                 kept: Sequence[StepRecord] = ()) -> CaseRecord:
+        """Execute one test case; *index* is its position in the specification.
+
+        *first* and *kept* restart it part-way: steps before *first* are not
+        run again, and *kept* are their records from the earlier pass.
+
+        :raises _Interrupted: when an operator aborts or restarts mid-case,
+            carrying the record of what was done.
+        """
         log_event(_LOG, "case_start", "running test %r" % case.name, {
             "case": index, "name": case.name, "requirement": case.requirement,
+            "first_step": first,
         })
-        record = self._execute_case(case, index)
+        record = self._execute_case(case, index, first, kept)
         self._log_case_end(record, index)
         return record
 
-    def _execute_case(self, case, index: Optional[int]) -> CaseRecord:
+    def _execute_case(self, case, index: Optional[int], first: int = 0,
+                      kept: Sequence[StepRecord] = ()) -> CaseRecord:
         if case.skip:
             return CaseRecord(
                 name=case.name,
@@ -377,7 +439,17 @@ class BenchRunner:
                 skip_reason=case.skip_reason or "marked skip in the specification",
             )
         started = time.monotonic()
-        steps = self.run_steps(case.steps, PHASE_TEST, index)
+        try:
+            steps = list(kept) + self.run_steps(case.steps[first:], PHASE_TEST, index, first)
+        except _Interrupted as stop:
+            stop.case_record = CaseRecord(
+                name=case.name,
+                status=Status.worst([step.status for step in list(kept) + stop.records]),
+                requirement=case.requirement,
+                steps=list(kept) + stop.records,
+                duration_s=time.monotonic() - started,
+            )
+            raise
         record = CaseRecord(
             name=case.name,
             status=Status.worst([step.status for step in steps]),
@@ -491,6 +563,9 @@ class BenchRunner:
             return
 
         try:
+            if self.control is not None:
+                self.control.begin(spec.name, lambda case, step: self._restart_refusal(
+                    spec, selection, case, step))
             if spec.setup:
                 _LOG.info("running suite setup (%d step(s))", len(spec.setup))
                 setup_records = self.run_steps(spec.setup, PHASE_SETUP)
@@ -502,22 +577,10 @@ class BenchRunner:
                     )
                     return
 
-            for index, case in enumerate(spec.tests):
-                if selection and case.name not in selection:
-                    record = CaseRecord(
-                        name=case.name,
-                        status=Status.SKIP,
-                        requirement=case.requirement,
-                        skip_reason=NOT_SELECTED,
-                    )
-                    self._log_case_end(record, index)
-                    run.cases.append(record)
-                    continue
-                record = self.run_case(case, index)
-                run.cases.append(record)
-                if record.status is Status.ERROR and self.stop_on_error:
-                    _LOG.warning("stopping after an error in %r", case.name)
-                    break
+            run.cases.extend(self._run_tests(spec, selection))
+        except _Interrupted:
+            # Only an abort reaches here: during setup, before any test case.
+            run.setup_error = ABORTED
         finally:
             if spec.teardown:
                 _LOG.info("running suite teardown (%d step(s))", len(spec.teardown))
@@ -525,9 +588,121 @@ class BenchRunner:
             # Recorded before closing, and after the run rather than before, so
             # an instrument the suite updated - a dongle reflashed in setup -
             # is recorded as what actually produced the measurements.
+            if self.control is not None:
+                self.control.finish()
             run.instruments = self.bench.describe_instruments()
             run.finished = _now()
             run.duration_s = time.monotonic() - started
+
+    def _run_tests(self, spec: TestSpec, selection: Sequence[str]) -> List[CaseRecord]:
+        """The test cases, in order, obeying any abort or restart (#136).
+
+        A restart goes back - or forward - to a test case and step and carries
+        on from there in order. Records of test cases at or after the target are
+        replaced as they run again; steps before the target step keep their
+        records from the earlier pass, as values saved in the run are kept.
+        Test cases jumped over going forward are skipped, "skipped by
+        operator"; after an abort the rest are skipped, "aborted by operator".
+        """
+        tests = spec.tests
+        records: Dict[int, CaseRecord] = {}
+        index, first = 0, 0
+        while True:
+            if index >= len(tests):
+                # A restart asked for during the last step is still honoured.
+                command = (self.control.checkpoint(PHASE_TEST, None, None)
+                           if self.control is not None else None)
+                if command is None or command.kind == ABORT:
+                    break
+                index, first = self._restart(records, index, command, tests)
+                continue
+            case = tests[index]
+            if selection and case.name not in selection:
+                records[index] = self._unrun(case, index, NOT_SELECTED)
+                index, first = index + 1, 0
+                continue
+            kept = records[index].steps[:first] if index in records else []
+            try:
+                record = self.run_case(case, index, first, kept)
+            except _Interrupted as stop:
+                assert stop.case_record is not None
+                if stop.command.kind == ABORT:
+                    record = stop.case_record
+                    record.status = Status.ERROR
+                    record.error = ABORTED
+                    self._log_case_end(record, index)
+                    records[index] = record
+                    for later in range(index + 1, len(tests)):
+                        records[later] = self._unrun(
+                            tests[later], later,
+                            NOT_SELECTED if selection and tests[later].name not in selection
+                            else ABORTED)
+                    break
+                records[index] = stop.case_record
+                index, first = self._restart(records, index, stop.command, tests)
+                continue
+            records[index] = record
+            if record.status is Status.ERROR and self.stop_on_error:
+                _LOG.warning("stopping after an error in %r", case.name)
+                break
+            index, first = index + 1, 0
+        return [records[i] for i in sorted(records)]
+
+    def _restart(self, records: Dict[int, CaseRecord], current: int, command: Command,
+                 tests) -> Tuple[int, int]:
+        """Apply a restart: drop what will run again, skip what is jumped over."""
+        target_case, target_step = command.case, command.step or 0
+        for later in [i for i in records if i > target_case]:
+            del records[later]
+        for jumped in range(current, target_case):
+            if jumped in records and records[jumped].skip_reason:
+                continue
+            partial = records.get(jumped)
+            record = self._unrun(tests[jumped], jumped, SKIPPED_BY_OPERATOR)
+            if partial is not None:
+                record.steps = partial.steps
+            records[jumped] = record
+        return target_case, target_step
+
+    def _unrun(self, case, index: int, reason: str) -> CaseRecord:
+        """The record of a test case not executed, logged as its end."""
+        record = CaseRecord(name=case.name, status=Status.SKIP,
+                            requirement=case.requirement, skip_reason=reason)
+        self._log_case_end(record, index)
+        return record
+
+    def _restart_refusal(self, spec: TestSpec, selection: Sequence[str],
+                         case: int, step: int) -> Optional[str]:
+        """Why a restart at *case*, *step* is refused; ``None`` when it may go ahead.
+
+        Values saved earlier in the run are kept, so a step may use one saved by
+        a step that will not run again. It is refused only if a step from the
+        target on needs a value that no step has saved and none before it from
+        the target on will save.
+        """
+        tests = spec.tests
+        if not 0 <= case < len(tests):
+            return "there is no test case %d; the specification has %d" % (case, len(tests))
+        if selection and tests[case].name not in selection:
+            return "test case %r is not selected in this run" % tests[case].name
+        if tests[case].skip:
+            return "test case %r is marked skip in the specification" % tests[case].name
+        if not 0 <= step < len(tests[case].steps):
+            return "test case %r has no step %d; it has %d" % (
+                tests[case].name, step, len(tests[case].steps))
+        available = set(list(self._saved))
+        sequence = list(tests[case].steps[step:])
+        for later in tests[case + 1:]:
+            if not later.skip and (not selection or later.name in selection):
+                sequence.extend(later.steps)
+        for item in sequence:
+            for name in _references_in(item):
+                if name not in available:
+                    return ("a later step (%s) needs %r, which no step has saved; restart "
+                            "from the step that saves it" % (item.action, name))
+            if item.save:
+                available.add(item.save)
+        return None
 
     def close(self) -> None:
         """Close every instrument the run opened."""

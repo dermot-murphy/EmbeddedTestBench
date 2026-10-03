@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE4-001 | **Version** | 1.5 |
+| **Document ID** | TB-SWE4-001 | **Version** | 1.6 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -37,6 +37,7 @@
 | 1.3 | 2026-10-03 | Claude | #131: SWE4-UT-PICO, -PICOSIM, -PICOCLI, -PICOFWPROTO and -PICOFW rewritten for the `rd` command set, `ecureset`, `NoReadingError` and the two-place temperature (PICO-FR-006, -007, -027, -047, -061); the raw-word cross-check is no longer tested (PICO-FR-044 withdrawn). Firmware unit cases now 83. §1.4b: the shared vectors now include the two-place rounding, and the host unit tests are run with clang on Windows. §8: the Pico 2 not-covered row narrowed to what still needs the SHT30-D module, after the first run on a real Pico 2 (TB-SWE4-002 §13A.7). With #127 merged, SWE4-UT-PICOFLASH revised for `flash` confirming the build by `rd` (name, version and commit SHA read from the image in place of the title and build date): now 35 cases, the ambiguous build-date case replaced by an ambiguous-SHA case and a missing-version case added. |
 | 1.4 | 2026-10-03 | Claude | #134: SWE4-UT-SELECT added (14 cases) for running a selected subset of test cases (RUN-FR-059). |
 | 1.5 | 2026-10-03 | Claude | #135: SWE4-UT-RUNEVENTS added (21 cases) for the structured event-log records (CORE-FR-064, RUN-FR-060). |
+| 1.6 | 2026-10-03 | Claude | #136: SWE4-UT-CONTROL added (31 cases) for the run control channel (RUN-FR-061 … -065). |
 
 ---
 
@@ -359,6 +360,7 @@ against the simulator in the default run (SWE4-UT-PSUPANEL, SWE4-UT-DMMPANEL).
 | SWE4-UT-PARAMS | `runner/test_parameters.py` | Parameters as an argument, a bound and a tolerance, rendered into text, an undefined name refused, and the values used in the record and report | RUN-FR-058 |
 | SWE4-UT-SELECT | `runner/test_selection.py` | A selected subset of test cases run, the rest recorded as skipped "not selected" in specification order, setup and teardown still run, the selection in the record, markdown and JUnit, an unknown name refused before the bench opens, and `--test` on the command line | RUN-FR-059 |
 | SWE4-UT-RUNEVENTS | `runner/test_run_events.py` | The runner's structured records (21 cases): the sequence of kinds, standard JSON on every line, the plan in `run_start`, the tree and every result rebuilt from the log alone, resolved arguments, result, measurements and error in `step_end`, setup and teardown marked, the verdict in `run_end`, a test case not selected, a refused bench; `jsonable` and `log_event` | CORE-FR-064, RUN-FR-060 |
+| SWE4-UT-CONTROL | `runner/test_control.py` | The run control channel (31 cases): abort after the current step with teardown run, in setup, and with test cases not selected; restart of the test case, back to an earlier test case, forward over test cases, from a step using a value saved earlier, refused for a value never saved, a missing or unselected target and during setup; refusals in teardown, with no run, for malformed and unknown requests, a second pause or abort; pause holding the run until resumed or aborted; status; requests and actions in the event log; the server on 127.0.0.1 with JSON lines and a run aborted over TCP; `--control` on the command line | RUN-FR-061 .. RUN-FR-065 |
 | SWE4-UT-S2LP | `instruments/s2lp/test_s2lp.py` | The S2-LP driver: identification without an invented board, the band of a named board and the synthesiser's range otherwise, register and bit-field access, read-only refusals, mis-framed replies, strobes, both resets and the state each leaves, radio and packet configuration and their read-back, RSSI conversion, routing the interrupt, the PN9 TX-source refusal, transmit and its recovery, receive and its stop on timeout, capture with its re-arm count and rejected receptions, streaming with registers read after each frame and decoding, the microsecond board clock, and both logs | S2LP-FR-001 .. -036 |
 | SWE4-UT-S2LPREG | `instruments/s2lp/test_registers.py` | The register map as data: unique addresses and names, non-overlapping fields inside their byte, reset values, read-only status registers, field extraction and insertion, lookup and its failures, contiguous runs, and the rendering of a dump | S2LP-FR-010 .. -014 |
 | SWE4-UT-S2LPCONFIG | `instruments/s2lp/test_configuration.py` | Register values from a file: the punctuation such files are written with, hexadecimal values, every refusal and the line it names, applying with read-back, the loose and strict checks, and capturing a radio's settings back out; and the reset that makes a partial file deterministic, including that the reset strobe does not do it | S2LP-FR-017 .. -021 |

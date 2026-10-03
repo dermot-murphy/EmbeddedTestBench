@@ -25,6 +25,7 @@ from ..core.events import start_event_log
 from .bench import BenchConfig, load_bench, registered_drivers
 from .report import summary_line, write_json, write_junit, write_markdown
 from .results import RunRecord, Status
+from .control import HOST, ControlServer, RunControl
 from .runner import BenchRunner, check_selection
 from .spec import load_spec
 
@@ -66,6 +67,10 @@ def build_parser() -> argparse.ArgumentParser:
                         help="run only the test case with this exact name; repeat to run "
                              "several. Those left out are reported as skipped, 'not "
                              "selected'. Suite setup and teardown still run")
+    parser.add_argument("--control", type=int, metavar="PORT",
+                        help="serve a control channel on 127.0.0.1:PORT (0 picks a free "
+                             "port) so the test run viewer can pause, resume, abort or "
+                             "restart the run between steps")
     parser.add_argument("--stop-on-error", action="store_true",
                         help="abandon the remaining tests after the first error")
     parser.add_argument("--acknowledge", action="store_true",
@@ -210,9 +215,28 @@ def _run(args) -> int:
     warned = _warnings_of(specs)
     _announce_warnings(warned)
 
+    control = RunControl() if args.control is not None else None
+    server = None
+    if control is not None:
+        try:
+            server = ControlServer(control, args.control).start()
+        except OSError as exc:
+            print("error: cannot serve the control channel on %s:%d: %s"
+                  % (HOST, args.control, exc), file=sys.stderr)
+            return _EXIT_USAGE
+        print("control channel on %s:%d" % (HOST, server.port), file=sys.stderr)
+    try:
+        return _run_specs(args, specs, config, warned, control)
+    finally:
+        if server is not None:
+            server.close()
+
+
+def _run_specs(args, specs, config, warned, control) -> int:
+    """Run each specification in turn on one bench."""
     runs: List[RunRecord] = []
     with BenchRunner.from_config(
-        config, simulate=args.simulate, stop_on_error=args.stop_on_error
+        config, simulate=args.simulate, stop_on_error=args.stop_on_error, control=control
     ) as runner:
         if not _acknowledged(warned, args.acknowledge, runner.bench.is_simulated):
             return _EXIT_NOT_ACKNOWLEDGED
