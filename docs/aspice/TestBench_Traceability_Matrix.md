@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-RTM-001 | **Version** | 1.14 |
+| **Document ID** | TB-RTM-001 | **Version** | 1.15 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -46,6 +46,7 @@
 | 1.12 | 2026-10-03 | Claude | #148: rows for VIEW-FR-019 … -021 (Event log pause and filters); VIEW-DD-TAGS in VIEW-ARC-001; §16 count 407 declared, 406 in force. |
 | 1.13 | 2026-10-03 | Claude | #149: rows for VIEW-FR-022 … -024 (the status bar); VIEW-DD-STATUS in VIEW-ARC-001; §16 count 410 declared, 409 in force. |
 | 1.14 | 2026-10-03 | Claude | #141: rows for VIEW-FR-025 … -027 (the viewer from another PC); §16 count 413 declared, 412 in force. |
+| 1.15 | 2026-10-03 | Claude | #151: rows for S2LP-FR-081 … -083; S2LP-FR-070's test count 26 → 29; §16 count 416 declared, 415 in force. |
 
 ---
 
@@ -96,7 +97,7 @@ It is checked mechanically by `tests/test_traceability.py` on every run of the s
 | STK-20 — use ST's firmware if it is fit for purpose | AD-20; S2LP-FR-001, -002; S2LP-NFR-002. The firmware was examined before any was written: BENCHTOOLS-SWE4-002 §10, `docs/s2lp/S2LP_Devkit_Notes.md` §1 |
 | STK-21 — local temperature with a Pico 2 and a DollaTek SHT30-D | PICO-FR-001, -003 … -005, -007, -010, -020 … -027, -030, -031, -040, -042, -043, -045 … -047, -050, -060, -061, -070 … -076; PICO-NFR-001 … -006; AD-24 (superseded by #131, see §16). PICO-FR-044 withdrawn (#131). |
 | STK-22 — firmware reports its title and version | PICO-FR-002, -005 … -007, -040, -041, -060, -061, -073, -075. Since #131 the "title" is the name reported by `rd name`, beside `rd copyright`, `rd version` and `rd sha`; `flash` checks the name, version and commit SHA of the image it installed (PICO-FR-073). |
-| STK-23 — watch and control a run (#130) | VIEW-FR-001 … -027; S2LP-FR-080; CORE-FR-065; PSU-FR-044; PICO-FR-048; DMM-FR-034; RUN-FR-059 … -065; CORE-FR-064 |
+| STK-23 — watch and control a run (#130) | VIEW-FR-001 … -027; S2LP-FR-080 … -083; CORE-FR-065; PSU-FR-044; PICO-FR-048; DMM-FR-034; RUN-FR-059 … -065; CORE-FR-064 |
 | STK-18 — RS-232 multimeter | DMM-FR-001 … -033, -045, -046, -070, -080, -081; DMM-NFR-001 … -004; CORE-FR-017, -061, -062. Implemented for the TTi 1604. No behaviour confirmed against a physical meter: `docs/dmm/TTi1604_Notes.md` §5. |
 
 ## 5. CORE requirements to design, code and test
@@ -391,11 +392,14 @@ where the firmware implements the requirement.
 | S2LP-FR-047 | S2LP-ARC-001 | S2LP-DD-TRAFFIC | `stream`, `_stream_batch`, `_stream_polled`, `_annotate`, `FRAME_REGISTERS` | `TestBatchStream` (9), notably `test_it_is_the_default_and_starts_the_loop_once` and `test_a_caller_that_stops_iterating_stops_the_board`; `TestStream` (9), notably `test_each_frame_carries_the_registers_read_after_it` |
 | S2LP-FR-048 | S2LP-ARC-001 | S2LP-DD-TRAFFIC | `prepare_traffic`, `_check_tx_source` | `TestTheInterrupt` (8) |
 | S2LP-FR-049 | S2LP-ARC-001 | S2LP-DD-PREAMBLE, -TRAFFIC | `preamble.py`, `_enable_pqi`, `measure_preamble`, `check_preamble`; `specs/kepler_preamble.yaml` | `SWE4-UT-S2LPPREAMBLE` (15), `TestPreamble` (7), `TestPreambleCommand` (3) |
-| S2LP-FR-070 | S2LP-ARC-001 | S2LP-DD-KEPLER | `decode_kepler_frame` | `SWE4-UT-S2LPKEPLER` (26) |
+| S2LP-FR-070 | S2LP-ARC-001 | S2LP-DD-KEPLER | `decode_kepler_frame` | `SWE4-UT-S2LPKEPLER` (29) |
 | S2LP-FR-071 | S2LP-ARC-001 | S2LP-DD-PACKETS, -TRAFFIC | `Packet.registers`, `decoded`, `decode_error` | `test_raw_and_decoded_are_one_record`, `test_a_frame_that_will_not_decode_keeps_its_bytes` |
 | S2LP-FR-072 | S2LP-ARC-001 | S2LP-DD-TRAFFIC | `S2lpDevkit.kepler_samples` | `SWE4-UT-S2LPSAMPLES` (6) |
 | S2LP-FR-073 | S2LP-ARC-001 | S2LP-DD-TRAFFIC | `S2lpDevkit.kepler_frame` | `SWE4-UT-S2LPFRAME` (3) |
 | S2LP-FR-080 | S2LP-ARC-001 | S2LP-DD-S2LP | `S2lpDevkit._record`, `log_event` | `TestDriverRecords` (2) |
+| S2LP-FR-081 | S2LP-ARC-001 | S2LP-DD-KEPLER | `CONFIG_PARAMETERS`, `config_parameter`, `name_config`, `permute_poly_any_size` | `TestParameters` (10), `test_a_config_frame_names_its_parameters` |
+| S2LP-FR-082 | S2LP-ARC-001 | S2LP-DD-KEPLER | `twf_sample`, `permute_poly`, `odr_hz` | `TestPolynomial` (2), `TestWaveform` (2), `test_odr_codes` |
+| S2LP-FR-083 | S2LP-ARC-001 | S2LP-DD-KEPLER | `_response`, `reset_reasons`, `PCB_VERSIONS`, `SENSOR_PHASES`, `PRODUCTS` | `test_response`, `test_a_hires_response_times_in_microseconds`, `test_a_config_response_carries_id_value_pairs`, `test_an_empty_config_response_is_fourteen_bytes`, `test_reset_reasons`, `test_version_names_its_reset_reason_and_pcb`, `test_alive_names_its_phase` |
 | S2LP-FR-050 | S2LP-ARC-001 | S2LP-DD-SIM | `simulator.py`, `register_driver("s2lp", …)` | `SWE4-UT-S2LPSIM` (25), `test_correct_driver_per_alias` |
 | S2LP-FR-060 | S2LP-ARC-001 | S2LP-DD-CLI | `cli.py` | `SWE4-UT-S2LPCLI` (25) |
 
@@ -663,7 +667,7 @@ tests in `tests/instruments/pico_sht30/`.
 
 | Question | Answer |
 |---|---|
-| Requirements with no verifying test | **None.** All 412 functional requirements in force (413 declared; PICO-FR-044 is withdrawn) and 36 non-functional requirements trace to at least one test, or to a recorded inspection where a test is not the appropriate method (CORE-NFR-002, BLE-FR-090, BLE-NFR-002, and part of CORE-NFR-001). The firmware requirements are verified against the artefact the firmware is built from, not against a running dongle: see CON-07. |
+| Requirements with no verifying test | **None.** All 415 functional requirements in force (416 declared; PICO-FR-044 is withdrawn) and 36 non-functional requirements trace to at least one test, or to a recorded inspection where a test is not the appropriate method (CORE-NFR-002, BLE-FR-090, BLE-NFR-002, and part of CORE-NFR-001). The firmware requirements are verified against the artefact the firmware is built from, not against a running dongle: see CON-07. |
 | Tests not tracing to a requirement | **None.** Every test file names its requirements in its module docstring. |
 | Source modules with no design unit | **None.** Every module names its design unit in its docstring - firmware sources included, checked by `test_every_source_declares_its_trace` in `SWE4-UT-BLEFW`; `__main__.py` is covered by RUN-DD-CLI. |
 | Design units with no source | **None.** |

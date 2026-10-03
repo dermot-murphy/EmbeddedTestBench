@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE1-001 | **Version** | 1.13 |
+| **Document ID** | TB-SWE1-001 | **Version** | 1.14 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -45,6 +45,7 @@
 | 1.11 | 2026-10-03 | Claude | #148: VIEW-FR-019 … -021 added - the Event log page's pause and resume, and its filters by instrument, kind of event, sensor and test. |
 | 1.12 | 2026-10-03 | Claude | #149: VIEW-FR-022 … -024 added - the status bar: run state and instruments, test case and steps, and the estimated time left. |
 | 1.13 | 2026-10-03 | Claude | #141: VIEW-FR-025 … -027 added - the viewer from another PC: access token, read-only, HTTPS, the control channel still on 127.0.0.1. |
+| 1.14 | 2026-10-03 | Claude | #151: S2LP-FR-081 … -083 added - CONFIG parameters named, waveform sample order and ODR, and frames decoded as the firmware builds them (RESPONSE layout corrected). |
 
 ---
 
@@ -674,6 +675,9 @@ timestamp. And the radio will accept a frequency the board cannot radiate.
 | S2LP-FR-072 | The driver shall take a decoded field from the next N Kepler transmissions from a given sensor and of a given frame type, counting each transmission once however many copies of it are received. | STK-19 | Test |
 | S2LP-FR-073 | The driver shall return the whole decode of the next Kepler frame of a given type from a given sensor, with its raw payload, and shall raise, naming the type and sensor, when none arrives in time. | STK-19 | Test |
 | S2LP-FR-080 | Every packet the driver sends or receives shall be written to the event log as a structured `rf_packet` record (CORE-FR-064) carrying the packet's direction, payload in hex, length, RSSI, board time, error, extra fields, registers and decode, so a reader of the log has every frame without the driver's packet log. | STK-19, STK-23 | Test |
+| S2LP-FR-081 | A decoded CONFIG frame shall name each of its five values - parameter number, name, unit, and the value as its enumeration names it - by the sensor firmware's parameter order and the frame's permutation method: none, distance, or the polynomial with the frame's repeat number as its version. | STK-19, STK-23 | Test |
+| S2LP-FR-082 | The waveform sample a TWF slot carries shall be computable under each permutation method, and a TWF frame's frequency code shall be decoded to its output data rate (a code with bit 15 set is a tenth of the rate). | STK-19, STK-23 | Test |
+| S2LP-FR-083 | Frames shall be decoded as the sensor firmware builds them: a RESPONSE frame's parameter as 16 bits at 12-13, followed by a 32-bit timer (ms for LORES, us for HIRES) and a slot, or up to ten {id, value} pairs, from a minimum of 14 bytes; a VERSION frame's reset reason as the names of its bits and its PCB code by name; an ALIVE frame's phase by name; the product by name. | STK-19, STK-23 | Test |
 | S2LP-FR-060 | A command-line interface shall expose identification, register dump and access, radio configuration, transmit, receive, capture and strobes, emitting JSON, and shall warn when a capture was not continuous. | STK-19 | Test |
 
 ### 13.6 S2LP non-functional

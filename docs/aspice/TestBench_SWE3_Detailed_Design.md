@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE3-001 | **Version** | 1.11 |
+| **Document ID** | TB-SWE3-001 | **Version** | 1.12 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -43,6 +43,7 @@
 | 1.9 | 2026-10-03 | Claude | #148: VIEW-DD-TAGS added (`Tagger`, `sensor_of`); VIEW-DD-PAGE's Event log tab gains pause and resume and its filters. |
 | 1.10 | 2026-10-03 | Claude | #149: VIEW-DD-STATUS added (`InstrumentStatus`, `progress`, `_expected`, `/api/status`, `status.js`). |
 | 1.11 | 2026-10-03 | Claude | #141: VIEW-DD-SERVER - access token, sign-in cookie, read-only, HTTPS, `_POST_API`. |
+| 1.12 | 2026-10-03 | Claude | #151: S2LP-DD-KEPLER - the decoder checked against the sensor firmware point by point; RESPONSE corrected; `kepler_tables.py` added. |
 
 ---
 
@@ -1697,6 +1698,37 @@ Units are converted only where the firmware defines them - temperature in
 payload too short for its type, or of an unknown type, raises
 `KeplerFrameError`; a longer one, or one with another RF_CAP, is decoded with a
 warning. Checked against frames from sensor 5C1712 received on the kit.
+
+**Checked against the firmware (#151).** The Kepler project's rf_monitor and
+this decoder disagreed; the sensor firmware at V11.00.0000-96-g25a54b97a
+(`software/source` of the reference project) settled each point:
+
+| Point | Firmware | This decoder | rf_monitor |
+|---|---|---|---|
+| Frame counter | high nibble the repeat, 1-based (`API_Radio_LLC_FrameCountLoad`, llc.c:118); on VERSION, ALIVE and CMD at 8, TWF and CONFIG at 9; none on FFT, FFT2, RESPONSE | Right | Right bits, but read on frames that have none |
+| Permute Control at 8 | TWF and CONFIG only (transport.c:554) | Right | Right |
+| ALIVE RMS, velocity, peak-to-peak | unsigned 16-bit (field.c:153-155) | Right | Signed - wrong |
+| ALIVE status | phase bits 5:2, install assist bit 7 (field.c:1627) | Right | `(s>>2)&0x3F` folds install assist into the state - wrong |
+| VERSION | version 53 bytes at 16; ticks u16 at 81; 83 bytes (cfg.h:479, 281) | Right | 57-byte version; ticks u32 needing 85 bytes, so never decoded - wrong |
+| CONFIG | mux at 10, values at 11; 60 parameters by `APP_Normal_ParamsSaveToRadio` | Right offsets, unnamed until now | Right, and named; parameters 5 and 6 mislabelled |
+| TWF | layout to 100 bytes with time taken, group and sync attribute; FREQ a compressed ODR code | Right | Right offsets, no trailing fields; FREQ called Hz |
+| FFT, FFT2 | no counter; temperature at 8 | Right | Byte 8 called a counter - wrong |
+| RESPONSE | parameter u16 at 12-13, payload at 14, minimum 14 bytes (transport.c:2003-2168, app_sync.c:1258) | Wrong until now: one byte at 12 | Right |
+| STARTUP (type 0) | never sent | Rejected - right | Named |
+
+The decoder now reads RESPONSE as the firmware builds it, and adds the names
+the screens need: `kepler_tables.py` (S2LP-FR-081 … -083) holds the 60
+configuration parameters in the firmware's order with their units and
+enumerations - "Transit Max Time" and "Transit Wait Time" for parameters 5
+and 6, as the firmware sends them, where rf_monitor said "Transit Wait Time"
+and "Transit Wake Time" - `config_parameter` (none `mux*5 + slot`, distance
+`mux + slot*12`, polynomial `permute_poly_any_size(60, mux*5 + slot, repeat)`),
+`permute_poly` with the firmware's constants, `twf_sample` (none
+`packet*32 + slot`, distance `packet + slot*(N/32)`, polynomial
+`permute_poly(N, packet*32 + slot, repeat)`), `odr_hz`, `reset_reasons`, and
+the PCB, product and phase names. CONFIG frames carry `parameters`, TWF
+`odr_hz` and `axis`, VERSION `reset_reasons`, `pcb`, ALIVE `phase_name`, every
+frame `product`.
 
 #### S2LP-DD-SIM — `simulator.py`
 
