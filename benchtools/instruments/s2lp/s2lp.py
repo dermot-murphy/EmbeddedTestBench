@@ -27,15 +27,17 @@ report exactly what it was told - while almost nothing comes out of the antenna.
 The firmware does not say which board it is on, so the band is checked only
 when the caller names the board; otherwise only the synthesiser's own range is.
 
-Traces to: S2LP-FR-001 .. S2LP-FR-060, S2LP-ARC-001, S2LP-DD-S2LP, S2LP-DD-CONFIG.
+Traces to: S2LP-FR-001 .. S2LP-FR-060, S2LP-FR-080, S2LP-ARC-001, S2LP-DD-S2LP, S2LP-DD-CONFIG.
 """
 
 from __future__ import annotations
 
+import logging
 import time
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 from ...core.errors import ConfigurationError, InstrumentError, ProtocolError
+from ...core.events import log_event
 from ...core.instrument import Instrument, InstrumentIdentity
 from ...core.paths import input_paths
 from ...core.transport.base import Transport
@@ -377,6 +379,11 @@ class S2lpDevkit(TrafficMixin, Instrument):
     def _record(self, packet: Packet) -> Packet:
         if self._packet_log is not None:
             self._packet_log.write(packet)
+        # Every packet sent or received, as a structured event-log record, so
+        # a test run viewer can decode and list the frames without the
+        # driver's packet log (#139). Raw lines alone do not carry the decode.
+        log_event(self._logger, "rf_packet", "packet %s" % packet, packet.as_dict(),
+                  level=logging.DEBUG)
         return packet
 
     # ------------------------------------------------------------------

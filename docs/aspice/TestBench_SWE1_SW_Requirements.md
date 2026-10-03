@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE1-001 | **Version** | 1.8 |
+| **Document ID** | TB-SWE1-001 | **Version** | 1.9 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -40,6 +40,7 @@
 | 1.6 | 2026-10-03 | Claude | #136: RUN-FR-061 … -065 added - the run control channel: 127.0.0.1 only, between steps only, pause and resume, abort with teardown, restart with saved values kept, refusals, and every request in the event log. |
 | 1.7 | 2026-10-03 | Claude | #137: STK-23 (watch and control a run, issue #130); element `VIEW-`; §16.6 VIEW-FR-001 … -009 - the test run viewer: 127.0.0.1 and nothing from another site, request guards, the run rebuilt from the event log, the Run page, live events, control, starting a run, the safety warning, attaching and the Event log page. |
 | 1.8 | 2026-10-03 | Claude | #138: VIEW-FR-010 … -012 added - each instrument's commands paired with their replies, the supply's and probe's front panels, and a step's own traffic. |
+| 1.9 | 2026-10-03 | Claude | #139: S2LP-FR-080 (every packet as a structured `rf_packet` record) and VIEW-FR-013 … -015 (the RF and BLE pages) added. The dongle was checked: it already logs every advertising report as `< +adv t=<board us> addr= type= rssi= pdu= ch= name= data=`, so it needed no change. |
 
 ---
 
@@ -666,6 +667,7 @@ timestamp. And the radio will accept a frequency the board cannot radiate.
 | S2LP-FR-071 | A frame's raw payload, the registers read after it and its decode shall be logged together, as one record. | STK-19 | Test |
 | S2LP-FR-072 | The driver shall take a decoded field from the next N Kepler transmissions from a given sensor and of a given frame type, counting each transmission once however many copies of it are received. | STK-19 | Test |
 | S2LP-FR-073 | The driver shall return the whole decode of the next Kepler frame of a given type from a given sensor, with its raw payload, and shall raise, naming the type and sensor, when none arrives in time. | STK-19 | Test |
+| S2LP-FR-080 | Every packet the driver sends or receives shall be written to the event log as a structured `rf_packet` record (CORE-FR-064) carrying the packet's direction, payload in hex, length, RSSI, board time, error, extra fields, registers and decode, so a reader of the log has every frame without the driver's packet log. | STK-19, STK-23 | Test |
 | S2LP-FR-060 | A command-line interface shall expose identification, register dump and access, radio configuration, transmit, receive, capture and strobes, emitting JSON, and shall warn when a capture was not continuous. | STK-19 | Test |
 
 ### 13.6 S2LP non-functional
@@ -976,6 +978,9 @@ A browser page onto a bench run (#130, #137), served by `benchtools view`. It is
 | VIEW-FR-010 | An Instruments page shall show each instrument's traffic, per event-log source: each command paired with the replies that followed it and the milliseconds to the first, lines an instrument sends unasked (a BLE scan report, the probe stopping, an RTT line) as events that do not end the command whose reply is still to come, a reply with no command before it as unasked, and the driver's other lines as notes. | STK-23 | Test |
 | VIEW-FR-011 | The Instruments page shall show the GPD-3303D's front panel - identity, each channel's readings, set voltage, current limit and CV or CC, the output and tracking - and the J-Link's state - probe, target, firmware, core running or halted and where, last flash and verify, breakpoints, RTT - rebuilt from their traffic; a value the log has not given shall show as a dash. | STK-23 | Test |
 | VIEW-FR-012 | Selecting a step on the Run page shall show every instrument's traffic sent between that step's start and end, in time order, naming each instrument. | STK-23 | Test |
+| VIEW-FR-013 | An RF page shall list the Kepler frames received - time, sensor, frame type, length, RSSI and what the frame says - decoding with the Kepler decoder any frame the driver did not, and stating why a frame could not be decoded or was rejected by the radio. Selecting a frame shall show its payload and whole decode. | STK-23 | Test |
+| VIEW-FR-014 | The RF page shall show, per sensor, the frames heard, when last heard, the RSSI and the latest frame of each type, and shall be filterable to one sensor or all. | STK-23 | Test |
+| VIEW-FR-015 | A BLE page shall show the devices the dongle has heard - address, name, advertising reports counted, mean advertising interval from the dongle's own clock, latest and mean RSSI, when last heard - the dongle's other events (scan, sensor, connection), and its commands paired with their replies. | STK-23 | Test |
 
 ## 17. Assumptions and constraints
 

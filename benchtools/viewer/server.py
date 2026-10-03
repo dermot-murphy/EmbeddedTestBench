@@ -15,6 +15,9 @@ The API:
                           ``record`` for every event-log record
 ``GET /api/instruments``  each instrument's commands and replies, and front
                           panels; ``?t0=&t1=`` for a step's window (#138)
+``GET /api/radio``        received Kepler frames and each sensor's latest;
+                          ``?sensor=`` for one sensor (#139)
+``GET /api/ble``          BLE devices, events and the dongle's exchanges (#139)
 ``GET /api/catalogue``    test specifications and benches the viewer can start
 ``POST /api/control``     a control request, passed to the runner
 ``POST /api/start``       start a run as a subprocess and follow it
@@ -27,7 +30,7 @@ browser first asking this server, which never agrees, so another site open in
 the same browser cannot start or abort a run. The ``Host`` header must name
 this machine, which stops a DNS-rebinding page reaching the API by name.
 
-Traces to: VIEW-FR-001 .. VIEW-FR-012, VIEW-DD-SERVER.
+Traces to: VIEW-FR-001 .. VIEW-FR-015, VIEW-DD-SERVER.
 """
 
 from __future__ import annotations
@@ -53,6 +56,7 @@ from ..core.errors import BenchToolsError
 from ..core.events import EventTail
 from ..runner.control import HOST
 from ..runner.spec import load_spec
+from .radio import BleAir, RfFrames
 from .state import RunState
 from .traffic import Traffic, panel_for
 
@@ -93,6 +97,8 @@ class Hub:  # pylint: disable=too-many-instance-attributes
         self.state = RunState()
         self.traffic = Traffic()
         self.panels: Dict[str, Any] = {}
+        self.rf = RfFrames()
+        self.ble = BleAir()
         self.records: List[Tuple[int, Dict[str, Any]]] = []
         self.sequence = 0
         self.generation = 0
@@ -118,6 +124,8 @@ class Hub:  # pylint: disable=too-many-instance-attributes
             self.state = RunState()
             self.traffic = Traffic()
             self.panels = {}
+            self.rf = RfFrames()
+            self.ble = BleAir()
             self.records = []
             self._override_port = control_port
             self.generation += 1
@@ -156,6 +164,8 @@ class Hub:  # pylint: disable=too-many-instance-attributes
             self.traffic.clear()
             self.panels = {}
         self.state.apply(record)
+        self.rf.feed(record)
+        self.ble.feed(record)
         if self.traffic.feed(record):
             source = record["source"]
             if self.panels.get(source) is None:
@@ -173,6 +183,20 @@ class Hub:  # pylint: disable=too-many-instance-attributes
                 "panels": {source: {"kind": panel.kind, "rows": panel.rows()}
                            for source, panel in self.panels.items() if panel is not None},
             }
+
+    def radio(self, sensor: str = "") -> Dict[str, Any]:
+        """Received Kepler frames - of one sensor, or all - and the sensor table."""
+        with self._condition:
+            return self.rf.view(sensor)
+
+    def bluetooth(self) -> Dict[str, Any]:
+        """BLE devices and events, and every dongle's commands and replies."""
+        with self._condition:
+            view = self.ble.view()
+            traffic = self.traffic.view()
+            view["exchanges"] = {source: listed for source, listed in traffic.items()
+                                 if listed["driver"] == "nordic_dongle"}
+            return view
 
     def _loop(self) -> None:
         while not self._stop.is_set():
@@ -368,6 +392,10 @@ class _Handler(BaseHTTPRequestHandler):
                            HTTPStatus.BAD_REQUEST)
                 return
             self._json(self.server.hub.instruments(t0, t1))
+        elif path == "/api/radio":
+            self._json(self.server.hub.radio((self._query("sensor") or "").upper()))
+        elif path == "/api/ble":
+            self._json(self.server.hub.bluetooth())
         elif path == "/api/catalogue":
             self._json({"specs": self.server.catalogue.specs(),
                         "benches": self.server.catalogue.benches(),

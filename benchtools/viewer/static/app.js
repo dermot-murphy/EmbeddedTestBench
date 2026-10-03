@@ -42,6 +42,8 @@ for (const tab of document.querySelectorAll("#tabs button")) {
     }
     if (tab.dataset.page === "start") loadCatalogue();
     if (tab.dataset.page === "instruments") loadInstruments();
+    if (tab.dataset.page === "rf") loadRadio();
+    if (tab.dataset.page === "ble") loadBle();
   });
 }
 
@@ -133,6 +135,101 @@ async function loadInstruments() {
 }
 
 setInterval(() => { if (!$("page-instruments").hidden) loadInstruments(); }, 1000);
+
+// ---------------------------------------------------------------- tables, RF and BLE pages
+function table(columns, rows, onclick) {
+  const head = el("tr", {}, ...columns.map((c) => el("th", {}, c.label)));
+  const body = rows.map((row) => {
+    const tr = el("tr", onclick ? {class: "clickable"} : {},
+      ...columns.map((c) => el("td", {class: c.class || ""}, format(c.value(row)))));
+    if (onclick) tr.addEventListener("click", () => onclick(row));
+    return tr;
+  });
+  return el("table", {}, el("thead", {}, head), el("tbody", {}, ...body));
+}
+
+function fill(id, columns, rows, empty, onclick) {
+  $(id).replaceChildren(rows.length ? table(columns, rows, onclick)
+    : el("div", {class: "note", style: "padding: 8px"}, empty));
+}
+
+function stickToBottom(id, draw) {
+  const box = $(id);
+  const atBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 20;
+  draw();
+  if (atBottom) box.scrollTop = box.scrollHeight;
+}
+
+async function loadRadio() {
+  const chosen = $("rf-sensor").value;
+  const reply = await (await fetch("/api/radio?sensor=" + encodeURIComponent(chosen))).json();
+  const select = $("rf-sensor");
+  const ids = reply.sensors.map((s) => s.sensor_id);
+  if (select.dataset.ids !== ids.join(",")) {
+    select.dataset.ids = ids.join(",");
+    select.replaceChildren(el("option", {value: ""}, "All sensors"),
+      ...ids.map((id) => el("option", {value: id}, id)));
+    select.value = ids.includes(chosen) ? chosen : "";
+  }
+  $("rf-counts").textContent = reply.received + " received, " + reply.failed +
+    " with a radio error, " + reply.sent + " sent";
+  const sensors = reply.sensors.filter((s) => !chosen || s.sensor_id === chosen);
+  fill("rf-sensors", [
+    {label: "Sensor", value: (s) => s.sensor_id, class: "mono id"},
+    {label: "Frames", value: (s) => s.frames, class: "num"},
+    {label: "Last heard", value: (s) => time(s.last_t)},
+    {label: "RSSI dBm", value: (s) => s.rssi_dbm, class: "num"},
+    {label: "Latest by type", value: (s) => Object.entries(s.latest).map(
+      ([type, f]) => type + ": " + f.summary).join("  |  ")},
+  ], sensors, "No Kepler frames received yet.");
+  stickToBottom("rf-frames", () => fill("rf-frames", [
+    {label: "Time", value: (f) => time(f.t)},
+    {label: "Sensor", value: (f) => f.sensor_id, class: "mono id"},
+    {label: "Type", value: (f) => f.type || (f.error ? "error" : "?")},
+    {label: "Bytes", value: (f) => f.length, class: "num"},
+    {label: "RSSI dBm", value: (f) => f.rssi_dbm, class: "num"},
+    {label: "Content", value: (f) => f.summary},
+  ], reply.frames, "No frames.", (frame) => {
+    const box = $("rf-detail");
+    box.hidden = false;
+    box.textContent = JSON.stringify({hex: frame.hex, decoded: frame.decoded, problem: frame.problem}, null, 2);
+  }));
+}
+$("rf-sensor").addEventListener("change", loadRadio);
+
+async function loadBle() {
+  const reply = await (await fetch("/api/ble")).json();
+  fill("ble-devices", [
+    {label: "Address", value: (d) => d.addr, class: "mono id"},
+    {label: "Name", value: (d) => d.name},
+    {label: "Adverts", value: (d) => d.adverts, class: "num"},
+    {label: "Interval ms", value: (d) => d.interval_ms, class: "num"},
+    {label: "RSSI dBm", value: (d) => d.rssi, class: "num"},
+    {label: "Mean RSSI", value: (d) => d.rssi_mean, class: "num"},
+    {label: "Last heard", value: (d) => time(d.last_t)},
+  ], reply.devices, "No BLE devices heard yet.");
+  stickToBottom("ble-events", () => fill("ble-events", [
+    {label: "Time", value: (e) => time(e.t)},
+    {label: "Event", value: (e) => e.event},
+    {label: "Details", value: (e) => Object.entries(e.fields).map(([k, v]) => k + "=" + v).join(" "),
+     class: "mono"},
+  ], reply.events, "No BLE events yet."));
+  const rows = [];
+  for (const [source, listed] of Object.entries(reply.exchanges)) {
+    for (const entry of listed.entries) {
+      if (entry.kind === "exchange") rows.push([entry.t, exchangeRow(source, entry)]);
+    }
+  }
+  rows.sort((a, b) => a[0] - b[0]);
+  stickToBottom("ble-exchanges", () => $("ble-exchanges").replaceChildren(...(rows.length
+    ? rows.map((r) => r[1])
+    : [el("div", {class: "exchange note"}, el("span"), el("span", {class: "sent"}, "No dongle commands yet."))])));
+}
+
+setInterval(() => {
+  if (!$("page-rf").hidden) loadRadio();
+  if (!$("page-ble").hidden) loadBle();
+}, 1000);
 
 function group(title, extra, status, reason, steps, where) {
   return el("div", {class: "group"},
