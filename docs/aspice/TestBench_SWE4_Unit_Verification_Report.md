@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE4-002 | **Version** | 1.5 |
+| **Document ID** | TB-SWE4-002 | **Version** | 1.6 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -37,6 +37,7 @@
 | 1.3 | 2026-10-03 | Claude | #135: SWE4-UT-RUNEVENTS added to §5 (21 cases, pass). |
 | 1.4 | 2026-10-03 | Claude | #136: SWE4-UT-CONTROL added to §5 (33 cases, pass). |
 | 1.5 | 2026-10-03 | Claude | #137: SWE4-UT-VIEWSTATE (14) and SWE4-UT-VIEWSERVER (25) added to §5, pass. The page was also exercised in a browser against a simulated run: start, live tree, pause, restart while paused, the Event log page, and a phone-width layout. |
+| 1.6 | 2026-10-03 | Claude | #138: SWE4-UT-VIEWTRAFFIC (26) added to §5 and SWE4-UT-VIEWSERVER 25 → 29, pass. The Instruments page was exercised in a browser against a simulated run of five instruments. |
 
 ---
 
@@ -206,7 +207,8 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | SWE4-UT-RUNEVENTS | `runner/test_run_events.py` | 21 | Pass |
 | SWE4-UT-CONTROL | `runner/test_control.py` | 33 | Pass |
 | SWE4-UT-VIEWSTATE | `viewer/test_state.py` | 14 | Pass |
-| SWE4-UT-VIEWSERVER | `viewer/test_server.py` | 25 | Pass |
+| SWE4-UT-VIEWSERVER | `viewer/test_server.py` | 29 | Pass |
+| SWE4-UT-VIEWTRAFFIC | `viewer/test_traffic.py` | 26 | Pass |
 | SWE4-UT-PATHS | `core/test_paths.py`, `runner/test_input_paths.py` | 70 | Pass |
 | SWE4-UT-EVENTNAMES | `runner/test_event_names.py` | 21 | Pass |
 | SWE4-UT-RESOLVE | `runner/test_resolve.py` | 27 | Pass |

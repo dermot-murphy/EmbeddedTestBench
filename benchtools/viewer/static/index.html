@@ -11,6 +11,7 @@
   <div class="brand">benchtools <span>test run viewer</span></div>
   <nav id="tabs" role="tablist">
     <button role="tab" data-page="run" aria-selected="true">Run</button>
+    <button role="tab" data-page="instruments" aria-selected="false">Instruments</button>
     <button role="tab" data-page="events" aria-selected="false">Event log</button>
     <button role="tab" data-page="start" aria-selected="false">Start / attach</button>
   </nav>
@@ -35,6 +36,13 @@
       <span id="control-note" class="note"></span>
     </div>
     <div id="tree" class="tree"></div>
+  </section>
+
+  <section id="page-instruments" class="page" hidden>
+    <div id="panels" class="panels"></div>
+    <div class="filters" id="instrument-tabs" role="tablist"></div>
+    <div class="exchanges-head"><span>time</span><span>sent</span><span>reply</span><span>ms</span></div>
+    <div id="exchanges" class="exchanges"></div>
   </section>
 
   <section id="page-events" class="page" hidden>

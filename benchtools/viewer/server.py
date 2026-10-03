@@ -13,6 +13,8 @@ The API:
 ``GET /api/state``        the run's state as JSON
 ``GET /api/events``       Server-Sent Events: ``state`` on every change, and
                           ``record`` for every event-log record
+``GET /api/instruments``  each instrument's commands and replies, and front
+                          panels; ``?t0=&t1=`` for a step's window (#138)
 ``GET /api/catalogue``    test specifications and benches the viewer can start
 ``POST /api/control``     a control request, passed to the runner
 ``POST /api/start``       start a run as a subprocess and follow it
@@ -25,7 +27,7 @@ browser first asking this server, which never agrees, so another site open in
 the same browser cannot start or abort a run. The ``Host`` header must name
 this machine, which stops a DNS-rebinding page reaching the API by name.
 
-Traces to: VIEW-FR-001 .. VIEW-FR-009, VIEW-DD-SERVER.
+Traces to: VIEW-FR-001 .. VIEW-FR-012, VIEW-DD-SERVER.
 """
 
 from __future__ import annotations
@@ -34,6 +36,7 @@ import argparse
 import datetime
 import json
 import logging
+import math
 import os
 import pathlib
 import socket
@@ -43,6 +46,7 @@ import threading
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Dict, List, Optional, Sequence, Tuple
+from urllib.parse import parse_qs, urlsplit
 
 from .. import __version__
 from ..core.errors import BenchToolsError
@@ -50,6 +54,7 @@ from ..core.events import EventTail
 from ..runner.control import HOST
 from ..runner.spec import load_spec
 from .state import RunState
+from .traffic import Traffic, panel_for
 
 __all__ = ["Hub", "Catalogue", "Launcher", "ViewerServer", "send_control", "main"]
 
@@ -86,6 +91,8 @@ class Hub:  # pylint: disable=too-many-instance-attributes
         self._tail: Optional[EventTail] = None
         self.path: Optional[str] = None
         self.state = RunState()
+        self.traffic = Traffic()
+        self.panels: Dict[str, Any] = {}
         self.records: List[Tuple[int, Dict[str, Any]]] = []
         self.sequence = 0
         self.generation = 0
@@ -109,6 +116,8 @@ class Hub:  # pylint: disable=too-many-instance-attributes
             self.path = path
             self._tail = EventTail(path) if path else None
             self.state = RunState()
+            self.traffic = Traffic()
+            self.panels = {}
             self.records = []
             self._override_port = control_port
             self.generation += 1
@@ -136,10 +145,34 @@ class Hub:  # pylint: disable=too-many-instance-attributes
             for record in added:
                 self.sequence += 1
                 self.records.append((self.sequence, record))
-                self.state.apply(record)
+                self._apply(record)
             del self.records[:-KEEP_RECORDS]
             self._condition.notify_all()
         return len(added)
+
+    def _apply(self, record: Dict[str, Any]) -> None:
+        """One record into the run's state, the traffic and the front panels."""
+        if record.get("kind") == "run_start":
+            self.traffic.clear()
+            self.panels = {}
+        self.state.apply(record)
+        if self.traffic.feed(record):
+            source = record["source"]
+            if self.panels.get(source) is None:
+                # The first lines may be the transport's; the driver's say which.
+                self.panels[source] = panel_for(str(record.get("logger", "")))
+            if self.panels[source] is not None:
+                self.panels[source].feed(record)
+
+    def instruments(self, t0: Optional[float] = None, t1: Optional[float] = None
+                    ) -> Dict[str, Any]:
+        """Each instrument's exchanges - the latest, or those in a window - and panels."""
+        with self._condition:
+            return {
+                "sources": self.traffic.view(t0, t1),
+                "panels": {source: {"kind": panel.kind, "rows": panel.rows()}
+                           for source, panel in self.panels.items() if panel is not None},
+            }
 
     def _loop(self) -> None:
         while not self._stop.is_set():
@@ -327,6 +360,14 @@ class _Handler(BaseHTTPRequestHandler):
         elif path == "/api/state":
             hub = self.server.hub
             self._json(hub.since(hub.sequence, hub.generation)["state"])
+        elif path == "/api/instruments":
+            try:
+                t0, t1 = (_number(self._query(name)) for name in ("t0", "t1"))
+            except ValueError:
+                self._json({"ok": False, "error": "t0 and t1 are numbers"},
+                           HTTPStatus.BAD_REQUEST)
+                return
+            self._json(self.server.hub.instruments(t0, t1))
         elif path == "/api/catalogue":
             self._json({"specs": self.server.catalogue.specs(),
                         "benches": self.server.catalogue.benches(),
@@ -335,6 +376,10 @@ class _Handler(BaseHTTPRequestHandler):
             self._events()
         else:
             self._json({"ok": False, "error": "not found"}, HTTPStatus.NOT_FOUND)
+
+    def _query(self, name: str) -> Optional[str]:
+        values = parse_qs(urlsplit(self.path).query).get(name)
+        return values[0] if values else None
 
     def _static(self, name: str) -> None:
         target = (STATIC / name).resolve()
@@ -423,6 +468,16 @@ class _Handler(BaseHTTPRequestHandler):
                        HTTPStatus.BAD_GATEWAY)
             return
         self._json(reply)
+
+
+def _number(text: Optional[str]) -> Optional[float]:
+    """*text* as a number, or ``None`` for nothing; ValueError for anything else."""
+    if text is None or text == "":
+        return None
+    value = float(text)
+    if not math.isfinite(value):
+        raise ValueError(text)
+    return value
 
 
 class ViewerServer(ThreadingHTTPServer):

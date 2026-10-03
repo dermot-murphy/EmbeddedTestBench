@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE1-001 | **Version** | 1.7 |
+| **Document ID** | TB-SWE1-001 | **Version** | 1.8 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -39,6 +39,7 @@
 | 1.5 | 2026-10-03 | Claude | #135: CORE-FR-064 (an event record's `kind` and `data`) and RUN-FR-060 (the runner's structured run, test case and step records) added. |
 | 1.6 | 2026-10-03 | Claude | #136: RUN-FR-061 … -065 added - the run control channel: 127.0.0.1 only, between steps only, pause and resume, abort with teardown, restart with saved values kept, refusals, and every request in the event log. |
 | 1.7 | 2026-10-03 | Claude | #137: STK-23 (watch and control a run, issue #130); element `VIEW-`; §16.6 VIEW-FR-001 … -009 - the test run viewer: 127.0.0.1 and nothing from another site, request guards, the run rebuilt from the event log, the Run page, live events, control, starting a run, the safety warning, attaching and the Event log page. |
+| 1.8 | 2026-10-03 | Claude | #138: VIEW-FR-010 … -012 added - each instrument's commands paired with their replies, the supply's and probe's front panels, and a step's own traffic. |
 
 ---
 
@@ -972,6 +973,9 @@ A browser page onto a bench run (#130, #137), served by `benchtools view`. It is
 | VIEW-FR-007 | The viewer shall start a run: a test specification chosen from the directories it was given, a bench from its bench directories or a simulated bench, and the test cases ticked (RUN-FR-059). It shall run `benchtools run` as a separate process with an event log, a control channel, and JSON and markdown reports written to its runs directory, and follow it. Anything not offered shall be refused, and only one run started from the viewer shall be in progress at a time. | STK-23 | Test |
 | VIEW-FR-008 | A test specification carrying a safety warning shall show it before a run is started; on a bench that is not simulated the run shall be refused unless the operator acknowledges it on the page, which is then passed as `--acknowledge` (RUN-FR-056). | STK-23 | Test |
 | VIEW-FR-009 | The viewer shall attach to a run given its event log, taking the control port from the log (`control_listening`) unless one is given. An Event log page shall list every record - time, source, text - with each source shown or hidden by a checkbox. | STK-23 | Test |
+| VIEW-FR-010 | An Instruments page shall show each instrument's traffic, per event-log source: each command paired with the replies that followed it and the milliseconds to the first, lines an instrument sends unasked (a BLE scan report, the probe stopping, an RTT line) as events that do not end the command whose reply is still to come, a reply with no command before it as unasked, and the driver's other lines as notes. | STK-23 | Test |
+| VIEW-FR-011 | The Instruments page shall show the GPD-3303D's front panel - identity, each channel's readings, set voltage, current limit and CV or CC, the output and tracking - and the J-Link's state - probe, target, firmware, core running or halted and where, last flash and verify, breakpoints, RTT - rebuilt from their traffic; a value the log has not given shall show as a dash. | STK-23 | Test |
+| VIEW-FR-012 | Selecting a step on the Run page shall show every instrument's traffic sent between that step's start and end, in time order, naming each instrument. | STK-23 | Test |
 
 ## 17. Assumptions and constraints
 

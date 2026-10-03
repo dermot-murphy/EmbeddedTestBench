@@ -75,6 +75,26 @@ button.danger { color: var(--fail); }
 .event { padding: 2px 8px; border-top: 1px solid var(--line); }
 .event .src { font-weight: 600; }
 .event .txt { white-space: pre-wrap; overflow-wrap: anywhere; }
+.panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px;
+          margin-bottom: 12px; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.panel h3 { margin: 0 0 6px; font-size: 13px; }
+.panel dl { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; margin: 0;
+            font-size: 12px; }
+.panel dt { color: var(--muted); } .panel dd { margin: 0; overflow-wrap: anywhere; }
+.filters button[aria-selected="true"] { border-color: var(--accent); color: var(--accent); }
+.exchanges-head, .exchange { display: grid; grid-template-columns: 100px minmax(0, 1fr) minmax(0, 1.4fr) 64px;
+                             gap: 8px; }
+.exchanges-head { color: var(--muted); font-size: 12px; padding: 0 8px; }
+.exchanges { background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+             max-height: 65vh; overflow: auto; font-family: var(--mono); font-size: 12px; }
+.exchange { padding: 2px 8px; border-top: 1px solid var(--line); }
+.exchange > span { overflow-wrap: anywhere; white-space: pre-wrap; }
+.exchange .ms { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+.exchange.event .sent, .exchange.note .sent { color: var(--muted); font-style: italic; }
+.exchange .src { font-weight: 600; margin-right: 6px; }
+.step .text.clickable { cursor: pointer; text-decoration: underline dotted var(--muted); }
+.step .traffic { grid-column: 2 / -1; border: 1px solid var(--line); border-radius: 6px; }
 .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px;
         display: flex; flex-direction: column; gap: 10px; }
@@ -92,4 +112,6 @@ fieldset label { flex-direction: row !important; align-items: center; color: var
   .step { grid-template-columns: 18px 1fr; }
   .step .time, .step .again { grid-column: 2; justify-self: start; }
   .events-head, .event { grid-template-columns: 70px 52px 1fr; }
+  .exchanges-head, .exchange { grid-template-columns: 70px minmax(0, 1fr) minmax(0, 1fr); }
+  .exchange .ms, .exchanges-head span:last-child { display: none; }
 }
