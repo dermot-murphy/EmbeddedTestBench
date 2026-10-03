@@ -42,7 +42,7 @@ def test_commands_agree():
     firmware = {
         name: (int(low), int(high))
         for name, low, high in re.findall(
-            r"X\((\w+),\s*(\d+),\s*(\d+),", _table("PROTO_COMMAND_TABLE")
+            r"X\((\w+),\s*(\d+)U?,\s*(\d+)U?,", _table("PROTO_COMMAND_TABLE")
         )
     }
     assert firmware == constants.COMMANDS

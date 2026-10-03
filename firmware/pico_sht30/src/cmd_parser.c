@@ -20,10 +20,10 @@
 
 /** The value an @c rd reply carries when there is no value to give: an
  *  unknown option, or a temperature that could not be measured. */
-#define CMD_RD_ERROR		"Error"
+#define CMD_PARSER_RD_ERROR		"Error"
 
 /** The @c rd option that is measured rather than looked up. */
-#define CMD_RD_TEMPERATURE	"temperature"
+#define CMD_PARSER_RD_TEMPERATURE	"temperature"
 
 /** What to do once the reply has been sent. A reboot must follow the reply,
  *  or the host never learns that the command was accepted. */
@@ -81,7 +81,7 @@ static const cmd_rd_field_t	cmd_rd_fields[] =
 	{ "sha",	firmware_g_sha }
 };
 
-#define CMD_RD_FIELD_COUNT	((uint32_t)(sizeof(cmd_rd_fields) / sizeof(cmd_rd_fields[0])))
+#define CMD_PARSER_RD_FIELD_COUNT	((uint32_t)(sizeof(cmd_rd_fields) / sizeof(cmd_rd_fields[0])))
 
 #define X(symbol, code, text)	(text),
 static const char * const	cmd_error_text[] =
@@ -185,14 +185,14 @@ static void cmd_rd_temperature(text_t *reply)
 {
 	sht30_reading_t	reading;
 
-	cmd_rd_begin(reply, "ACK", CMD_RD_TEMPERATURE);
+	cmd_rd_begin(reply, "ACK", CMD_PARSER_RD_TEMPERATURE);
 	if (sht30_measure((uint8_t)BOARD_SHT30_ADDRESS, &reading) == SHT30_STATUS_OK)
 	{
 		text_centi(reply, reading.temperature_mc);
 	}
 	else
 	{
-		text_str(reply, CMD_RD_ERROR);
+		text_str(reply, CMD_PARSER_RD_ERROR);
 	}
 }
 
@@ -207,7 +207,7 @@ static proto_error_t cmd_rd(uint32_t argc, char *argv[], text_t *reply)
 	uint32_t	index;
 
 	(void)argc;
-	for (index = 0U; (index < CMD_RD_FIELD_COUNT) && (value == NULL); index++)
+	for (index = 0U; (index < CMD_PARSER_RD_FIELD_COUNT) && (value == NULL); index++)
 	{
 		if (strcmp(option, cmd_rd_fields[index].option) == 0)
 		{
@@ -220,14 +220,14 @@ static proto_error_t cmd_rd(uint32_t argc, char *argv[], text_t *reply)
 		cmd_rd_begin(reply, "ACK", option);
 		text_str(reply, value);
 	}
-	else if (strcmp(option, CMD_RD_TEMPERATURE) == 0)
+	else if (strcmp(option, CMD_PARSER_RD_TEMPERATURE) == 0)
 	{
 		cmd_rd_temperature(reply);
 	}
 	else
 	{
 		cmd_rd_begin(reply, "NAK", option);
-		text_str(reply, CMD_RD_ERROR);
+		text_str(reply, CMD_PARSER_RD_ERROR);
 	}
 	return PROTO_ERR_NONE;
 }

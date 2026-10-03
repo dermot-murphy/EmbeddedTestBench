@@ -77,7 +77,7 @@ extern "C" {
  */
 #define PROTO_COMMAND_TABLE \
 	X(help,		0, 0, "list the commands") \
-	X(rd,		1, 1, "read a value: name, copyright, version, sha or temperature") \
+	X(rd,		1U, 1U, "read a value: name, copyright, version, sha or temperature") \
 	X(status,	0, 0, "the SHT30 status register") \
 	X(sreset,	0, 0, "soft-reset the SHT30") \
 	X(ecureset,	0, 0, "reboot the Pico") \
