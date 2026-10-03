@@ -27,6 +27,7 @@ The API:
                           ``?sensor=&axis=`` (#153)
 ``GET /api/twf``          rf_monitor's TWF: waveform and spectrum;
                           ``?sensor=&buffer=&axis=`` (#154)
+``GET /api/diagnostics``  rf_monitor's Diagnostics and Sync; ``?sensor=`` (#155)
 ``GET /api/catalogue``    test specifications and benches the viewer can start
 ``POST /api/control``     a control request, passed to the runner
 ``POST /api/start``       start a run as a subprocess and follow it
@@ -49,7 +50,7 @@ browser first asking this server, which never agrees, so another site open in
 the same browser cannot start or abort a run. The ``Host`` header must name
 this machine, which stops a DNS-rebinding page reaching the API by name.
 
-Traces to: VIEW-FR-001 .. VIEW-FR-036, VIEW-DD-SERVER.
+Traces to: VIEW-FR-001 .. VIEW-FR-039, VIEW-DD-SERVER.
 """
 
 from __future__ import annotations
@@ -81,6 +82,7 @@ from ..core.events import EventTail
 from ..runner.control import HOST
 from ..runner.spec import load_spec
 from .graphs import Readings, advertising, step_markers
+from .diagnostics import Diagnostics, SyncTracker
 from .kepler_view import KeplerView
 from .radio import BleAir, RfFrames
 from .sensor_series import SensorSeries
@@ -135,6 +137,8 @@ class Hub:  # pylint: disable=too-many-instance-attributes
         self.kepler = KeplerView()
         self.sensor_series = SensorSeries()
         self.twf = TwfAssembler()
+        self.diagnostics = Diagnostics()
+        self.sync = SyncTracker()
         self.records: List[Tuple[int, Dict[str, Any]]] = []
         self.sequence = 0
         self.generation = 0
@@ -168,6 +172,8 @@ class Hub:  # pylint: disable=too-many-instance-attributes
             self.kepler = KeplerView()
             self.sensor_series = SensorSeries()
             self.twf = TwfAssembler()
+            self.diagnostics = Diagnostics()
+            self.sync = SyncTracker()
             self.records = []
             self._override_port = control_port
             self.generation += 1
@@ -213,6 +219,8 @@ class Hub:  # pylint: disable=too-many-instance-attributes
             self.kepler.feed(self.rf.last_frame)
             self.sensor_series.feed(self.rf.last_frame)
             self.twf.feed(self.rf.last_frame)
+            self.diagnostics.feed(self.rf.last_frame)
+            self.sync.feed(self.rf.last_frame)
         self.ble.feed(record)
         self.readings.feed(record)
         self.links.feed(record)
@@ -278,6 +286,16 @@ class Hub:  # pylint: disable=too-many-instance-attributes
         """rf_monitor's TWF screen: a waveform and its spectrum (#154)."""
         with self._condition:
             return self.twf.view(sensor, buffer, axis)
+
+    def diagnostic_screens(self, sensor: str = "") -> Dict[str, Any]:
+        """rf_monitor's Diagnostics (for one sensor) and Sync (all sensors) (#155)."""
+        with self._condition:
+            return {"diagnostics": self.diagnostics.view(sensor), "sync": self.sync.view()}
+
+    def reset_diagnostics(self, sensor: str = "") -> None:
+        """Start the Diagnostics statistics again."""
+        with self._condition:
+            self.diagnostics.reset(sensor)
 
     def _loop(self) -> None:
         while not self._stop.is_set():
@@ -429,6 +447,7 @@ _GET_API = {
     "/api/kepler": "_get_kepler",
     "/api/sensor": "_get_sensor",
     "/api/twf": "_get_twf",
+    "/api/diagnostics": "_get_diagnostics",
     "/api/events": "_get_events",
 }
 
@@ -437,6 +456,7 @@ _POST_API = {
     "/api/control": "_post_control",
     "/api/start": "_post_start",
     "/api/attach": "_post_attach",
+    "/api/diagnostics/reset": "_post_diagnostics_reset",
 }
 
 
@@ -580,6 +600,9 @@ class _Handler(BaseHTTPRequestHandler):
                                             self._query("buffer") or "A",
                                             self._query("axis") or "X"))
 
+    def _get_diagnostics(self) -> None:
+        self._json(self.server.hub.diagnostic_screens((self._query("sensor") or "").upper()))
+
     def _get_status(self) -> None:
         self._json(self.server.hub.status())
 
@@ -667,6 +690,10 @@ class _Handler(BaseHTTPRequestHandler):
             raise ValueError(str(exc)) from exc
         self.server.hub.follow(reply["event_log"])
         self._json(reply)
+
+    def _post_diagnostics_reset(self, body: Dict[str, Any]) -> None:
+        self.server.hub.reset_diagnostics(str(body.get("sensor") or "").upper())
+        self._json({"ok": True})
 
     def _post_attach(self, body: Dict[str, Any]) -> None:
         log = body.get("event_log")

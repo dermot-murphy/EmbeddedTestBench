@@ -62,6 +62,8 @@
       <button data-view="short" aria-selected="false">Short Interval</button>
       <button data-view="ticks" aria-selected="false">Ticks</button>
       <button data-view="twf" aria-selected="false">TWF</button>
+      <button data-view="diagnostics" aria-selected="false">Diagnostics</button>
+      <button data-view="sync" aria-selected="false">Sync</button>
     </div>
     <div id="rf-frames-view">
       <h2 class="section">Sensors</h2>
@@ -99,6 +101,21 @@
       <div id="twf-status" class="note"></div>
       <div id="twf-diagnostics" class="note"></div>
       <div id="twf-graphs" class="graphs"></div>
+    </div>
+    <div id="rf-diagnostics-view" hidden>
+      <div class="toolbar">
+        <span id="diag-overall" class="note"></span>
+        <button type="button" id="diag-reset">Reset</button>
+        <button type="button" id="diag-hold" aria-pressed="false">Auto</button>
+      </div>
+      <h2 class="section">Period statistics</h2>
+      <div id="diag-table" class="table"></div>
+      <h2 class="section" id="diag-detail-title">Last 10 frames</h2>
+      <div id="diag-detail" class="table"></div>
+    </div>
+    <div id="rf-sync-view" hidden>
+      <div class="note">Every sensor's sync with the gateway, from CMD and RESPONSE frames; not filtered to a sensor.</div>
+      <div id="sync-table" class="table"></div>
     </div>
     <div id="rf-graphs-view" hidden>
       <div class="toolbar">

@@ -16,6 +16,8 @@ for (const button of document.querySelectorAll("#rf-views button")) {
       $("rf-" + view + "-view").hidden = view !== rfView;
     }
     $("rf-twf-view").hidden = rfView !== "twf";
+    $("rf-diagnostics-view").hidden = rfView !== "diagnostics";
+    $("rf-sync-view").hidden = rfView !== "sync";
     const graphs = ["environment", "short", "ticks"].includes(rfView);
     $("rf-graphs-view").hidden = !graphs;
     $("rf-axis-box").hidden = rfView !== "short";
@@ -180,8 +182,89 @@ for (const radio of document.querySelectorAll("input[name=twf-buffer], input[nam
   radio.addEventListener("change", loadTwf);
 }
 
+// rf_monitor's Diagnostics and Sync (#155).
+let diagType = null;
+let diagHold = false;
+
+function seconds(value) {
+  return value == null ? "-" : Number(value).toFixed(3);
+}
+
+async function loadDiagnostics() {
+  const reply = await (await fetch("/api/diagnostics?sensor=" +
+                                   encodeURIComponent($("rf-sensor").value))).json();
+  const d = reply.diagnostics;
+  const o = d.overall;
+  $("diag-overall").textContent = (d.sensor ? "Sensor 0x" + d.sensor + ".  " : "") +
+    "Overall success " + (o.success_pct == null ? "-" : o.success_pct + "%") +
+    "  (" + o.received + " / " + o.expected + " copies, dropped " + o.dropped + ")";
+  if (rfView === "diagnostics") {
+    if (!diagHold || !d.types.some((t) => t.type === diagType)) {
+      const latest = d.types.slice().sort((a, b) => (b.last_seen || 0) - (a.last_seen || 0))[0];
+      if (!diagHold) diagType = latest ? latest.type : null;
+    }
+    fill("diag-table", [
+      {label: "Frame type", value: (t) => t.type},
+      {label: "Frames", value: (t) => t.frames, class: "num"},
+      {label: "Packets", value: (t) => t.packets, class: "num"},
+      {label: "Dropped", value: (t) => (t.expected ? t.dropped : "-"), class: "num"},
+      {label: "Success %", value: (t) => (t.success_pct == null ? "-" : t.success_pct), class: "num"},
+      {label: "Mean s", value: (t) => seconds(t.mean_s), class: "num"},
+      {label: "Std dev s", value: (t) => seconds(t.std_s), class: "num"},
+      {label: "Min s", value: (t) => seconds(t.min_s), class: "num"},
+      {label: "Max s", value: (t) => seconds(t.max_s), class: "num"},
+      {label: "Last seen", value: (t) => time(t.last_seen)},
+    ], d.types, "No frames from this sensor yet.", (row) => {
+      diagType = row.type; diagHold = true; updateHold(); loadDiagnostics();
+    });
+    const rowsShown = $("diag-table").querySelectorAll("tbody tr");
+    d.types.forEach((t, i) => {
+      if (rowsShown[i] && t.type === diagType) rowsShown[i].classList.add("chosen");
+      if (rowsShown[i] && t.min_between) {
+        rowsShown[i].title = "Shortest period between " + time(t.min_between[0]) + " and " +
+          time(t.min_between[1]) + "; longest between " + time(t.max_between[0]) + " and " +
+          time(t.max_between[1]);
+      }
+    });
+    const chosen = d.types.find((t) => t.type === diagType);
+    $("diag-detail-title").textContent = "Last 10 frames" + (diagType ? " - " + diagType : "") +
+      (diagHold ? " [hold]" : "");
+    fill("diag-detail", [
+      {label: "Time", value: (r) => time(r.t)},
+      {label: "Delta s", value: (r) => seconds(r.delta_s), class: "num"},
+    ], chosen ? chosen.recent : [], "None.");
+  } else {
+    const rows = reply.sync.sensors;
+    fill("sync-table", [
+      {label: "Sensor ID", value: (r) => "0x" + r.sensor_id, class: "mono id"},
+      {label: "Slot", value: (r) => (r.slot == null ? "-" : r.slot), class: "num"},
+      {label: "Phase", value: (r) => r.phase},
+      {label: "Retry", value: (r) => (r.retry == null ? "-" : r.retry), class: "num"},
+      {label: "LORES remaining", value: (r) => r.lores_remaining_s == null ? "-"
+        : r.lores_remaining_s <= 0 ? "0:00 (expired)"
+        : Math.floor(r.lores_remaining_s / 60) + ":" + String(Math.floor(r.lores_remaining_s % 60)).padStart(2, "0")},
+      {label: "HIRES remaining", value: (r) => r.hires_remaining_s == null ? "-"
+        : r.hires_remaining_s <= 0 ? "0.000 s (fired)" : r.hires_remaining_s.toFixed(3) + " s"},
+      {label: "Last seen", value: (r) => time(r.last_seen)},
+    ], rows, "No CMD or RESPONSE frames yet.");
+    const shown = $("sync-table").querySelectorAll("tbody tr");
+    rows.forEach((r, i) => { if (shown[i] && r.state) shown[i].classList.add("st-" + r.state); });
+  }
+}
+
+function updateHold() {
+  $("diag-hold").textContent = diagHold ? "Hold" : "Auto";
+  $("diag-hold").setAttribute("aria-pressed", String(diagHold));
+}
+$("diag-hold").addEventListener("click", () => { diagHold = !diagHold; updateHold(); loadDiagnostics(); });
+$("diag-reset").addEventListener("click", async () => {
+  await post("/api/diagnostics/reset", {sensor: $("rf-sensor").value});
+  loadDiagnostics();
+});
+
 async function loadKepler() {
   if (rfView === "frames") return;
+  if (rfView === "diagnostics" || rfView === "sync") { loadDiagnostics(); return; }
   if (rfView === "twf") { loadTwf(); return; }
   if (["environment", "short", "ticks"].includes(rfView)) { loadSensorGraphs(); return; }
   const sensor = $("rf-sensor").value;
