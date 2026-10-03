@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE3-001 | **Version** | 1.1 |
+| **Document ID** | TB-SWE3-001 | **Version** | 1.2 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -33,6 +33,7 @@
 | 0.9 | 2026-10-02 | Claude | #126: CORE-DD-EVENTS - event names per instrument (`EventSource`, `SourceLogger`, `connecting_as`, `validate_source_name`), upper-case defaults with `TEMP`; CORE-DD-INSTRUMENT - `EVENT_SOURCE`, `event_source`, `_adopt`; RUN-DD-SPEC, RUN-DD-BENCH and RUN-DD-REPORT - names from the specification and the bench. |
 | 1.0 | 2026-10-03 | Claude | #127: PICO-DD-FLASH added - `Uf2Image`, the operating-system seams (drive discovery per system, the 1200-baud touch, the copy), `PicoFlasher` and the simulated board `SimulatedRp2350`. PICO-DD-CLI gains the `flash` sub-command, run without connecting first; PICO-DD-SIM gains the `on_bootloader` hook. PICO count 14 → 15. PICO-DD-FLASH: `touch_1200()` returns an error from the port as a note instead of raising, found on a real Pico 2 on Windows, and the 1200-baud reset is recorded as confirmed on hardware (PICO-OPEN-05). |
 | 1.1 | 2026-10-03 | Claude | #131: the Pico thermometer's `rd` command set. PICO-DD-PROTOCOL (`rd` replies, `ecureset`, `PROTO_VERSION` 2.0), PICO-DD-VERSION (name, copyright, `V1.00.0000`, the injected commit SHA), PICO-DD-TEXT (`text_centi`), PICO-DD-PARSER (`cmd_rd`, handlers write the whole reply), PICO-DD-MAIN, PICO-DD-BUILD (SHA injection and re-configure on a new commit), PICO-DD-TEST, PICO-DD-CONST, PICO-DD-DRIVER (`rd`, `NoReadingError`, `RdRefusedError`; the raw-word cross-check removed), PICO-DD-SIM and PICO-DD-CLI (`info`, `rd`, `ecureset`) revised. With #127 merged, PICO-DD-FLASH revised to confirm the new build by `rd`: `Uf2Image` reads the firmware name, the version and the commit SHA from the image in place of the title and the build date, the checks are `name`, `version` and `sha`, `--expect-version` takes `VX.YY.ZZZZ`, and `SimulatedRp2350` takes the image's version and SHA. |
+| 1.2 | 2026-10-03 | Claude | #134: RUN-DD-RUNNER - `run(spec, selection)`, `NOT_SELECTED` and `check_selection`; RUN-DD-RESULTS `RunRecord.selection`; RUN-DD-CLI `--test`. |
 
 ---
 
@@ -2415,6 +2416,15 @@ input file (CORE-DD-PATHS) is resolved against the directory of the
 specification being run (RUN-FR-017). A file found nowhere is a
 `ConfigurationError` naming the action, the argument and every location
 searched, and so a step **error**.
+
+`run(spec, selection)` runs only the test cases named in `selection`; empty
+runs them all (RUN-FR-059). A test case left out gets a `CaseRecord` with
+status SKIP and `skip_reason` `NOT_SELECTED` ("not selected"), so the record
+lists every test case and says why one was not executed. Setup and teardown run
+regardless. `check_selection(specs, selection)` raises `SpecError` for a name no
+specification contains, naming the test cases there are; the command line calls
+it before the bench is opened. `RunRecord.selection` carries the selection into
+the JSON record, the markdown header and the JUnit properties.
 
 #### RUN-DD-REPORT — `report.py`
 

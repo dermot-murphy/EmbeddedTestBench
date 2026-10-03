@@ -742,6 +742,7 @@ benchtools run specs/*.yaml --bench benches/lab1.yaml \
 | `--bench PATH` | Bench configuration |
 | `--simulate` | Replace every instrument with its simulator |
 | `--json`, `--markdown`, `--junit` | Write reports (paths are suffixed per suite when several are given) |
+| `--test NAME` | Run only the test case with this exact name; repeat for several. The rest are reported as skipped, "not selected"; setup and teardown still run. An unknown name is a usage error |
 | `--stop-on-error` | Abandon the remaining tests after the first error |
 | `-v`, `-vv` | Log each step, then full debug including SCPI traffic |
 
