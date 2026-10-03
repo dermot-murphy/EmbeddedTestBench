@@ -27,8 +27,14 @@ rd <other>      -> NAK rd <other> = Error
 
 Build: `PICO_SDK_PATH=... cmake -S . -B build && cmake --build build`, which
 produces `build/pico_sht30.uf2`, with the short SHA of the commit it was built
-from injected for `rd sha` (`unknown` outside a git checkout). Hold BOOTSEL, plug the Pico in, and copy the
-`.uf2` onto the RP2350 drive.
+from injected for `rd sha` (`unknown` outside a git checkout). To flash it, run
+`benchtools thermo -r <port> flash build/pico_sht30.uf2`: it reboots the Pico
+into its bootloader with no button press (or uses the RP2350 drive if one is
+already mounted, as on a blank board), copies the image, and checks afterwards
+that `rd name`, `rd version` and `rd sha` match the name, version and commit
+SHA stored in the image. If the firmware has crashed or the Pico does not
+appear on USB, hold BOOTSEL while plugging it in and copy the `.uf2` onto the
+RP2350 drive.
 
 For wiring, building, flashing, the MISRA position and the bench confirmation
 items, see `docs/pico_sht30/Pico_SHT30_Notes.md`. Requirements: TB-SWE1-001 §15.

@@ -106,8 +106,8 @@ class SimulatedPicoSht30:  # pylint: disable=too-many-instance-attributes,too-fe
         self.reboots = 0
         self.bootloader_requests = 0
         self.measurements = 0
-        #: Called after ``bootsel`` is answered, for a board model that
-        #: presents the bootloader drive.
+        #: Called after ``bootsel`` is answered: the board model in
+        #: :mod:`.flash` uses it to present the bootloader drive.
         self.on_bootloader: Optional[Callable[[], None]] = None
 
     # ------------------------------------------------------------------

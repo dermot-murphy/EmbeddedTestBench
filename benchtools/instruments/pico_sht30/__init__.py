@@ -3,8 +3,9 @@
 A Pico 2 running ``firmware/pico_sht30`` reads the Sensirion SHT30-DIS on a
 DollaTek SHT30-D module over I2C and answers ``rd name``, ``rd copyright``,
 ``rd version``, ``rd sha`` and ``rd temperature`` over USB CDC.
+:mod:`.flash` reflashes it with no BOOTSEL press.
 
-Traces to: PICO-FR-040 .. PICO-FR-060, PICO-ARC-001.
+Traces to: PICO-FR-040 .. PICO-FR-076, PICO-ARC-001.
 """
 
 from .constants import (
@@ -27,6 +28,7 @@ from .thermometer import (
     SensorError,
     SensorStatus,
 )
+from .flash import FlashError, FlashResult, PicoFlasher, SimulatedRp2350, Uf2Image
 
 __all__ = [
     "PicoSht30",
@@ -37,6 +39,11 @@ __all__ = [
     "NoReadingError",
     "RdRefusedError",
     "SimulatedPicoSht30",
+    "PicoFlasher",
+    "FlashError",
+    "FlashResult",
+    "SimulatedRp2350",
+    "Uf2Image",
     "DEFAULT_ADDRESS",
     "MANUFACTURER",
     "MODEL",
