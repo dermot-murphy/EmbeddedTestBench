@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE1-001 | **Version** | 1.18 |
+| **Document ID** | TB-SWE1-001 | **Version** | 1.19 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -50,6 +50,7 @@
 | 1.16 | 2026-10-03 | Claude | #153: VIEW-FR-031 … -033 added - rf_monitor's Environment, Short Interval and Ticks graphs. |
 | 1.17 | 2026-10-03 | Claude | #154: VIEW-FR-034 … -036 added - rf_monitor's TWF screen: reassembly, waveform and spectrum. |
 | 1.18 | 2026-10-03 | Claude | #155: VIEW-FR-037 … -039 added - rf_monitor's Diagnostics and Sync screens. |
+| 1.19 | 2026-10-03 | Claude | #156: VIEW-FR-040 … -042 added - notes saved with the run, and the report export as HTML, printable to PDF. |
 
 ---
 
@@ -1021,6 +1022,9 @@ A browser page onto a bench run (#130, #137), served by `benchtools view`. It is
 | VIEW-FR-037 | The RF page shall show rf_monitor's Diagnostics for a sensor, per frame type: frames (each once), packets (every copy), copies expected and dropped and the success percentage - a burst of copies ending at the next frame's first copy, when all its copies are in, or after 1 s with none - and the period between frames: mean, population standard deviation, shortest and longest with the frames either side; the overall success; and a reset. | STK-23 | Test |
 | VIEW-FR-038 | Diagnostics shall show the last ten frames of a type, newest first, with the time since the one before - following the type last received, or held on a type chosen. A frame of an unknown type shall be counted, not an error. | STK-23 | Test |
 | VIEW-FR-039 | The RF page shall show rf_monitor's Sync for every sensor, unfiltered: from CMD and RESPONSE frames, the phase, retry, slot, and the LORES and HIRES countdowns - timed from the frames' own times, so a replayed log counts down as it did live - a NACK, a HIRES countdown and a fired HIRES each marked, and a sensor idle for 20 minutes dropped. | STK-23 | Test |
+| VIEW-FR-040 | The viewer shall keep rf_monitor's Fault Description and Findings notes for a run, saved beside its event log so they outlive the viewer, refused while no event log is followed and in a read-only viewer. | STK-23 | Test |
+| VIEW-FR-041 | The viewer shall export the run as one self-contained HTML report - no script, nothing fetched - holding the notes, the run and its test cases, and for a sensor its identification, Environment, Short Interval, Ticks and TWF graphs as inline SVG, its configuration, its Diagnostics period statistics and its latest frames. | STK-23 | Test |
+| VIEW-FR-042 | The report shall be printable to PDF from the browser, laid out so that a chart or table is not split across pages, needing no PDF library. | STK-23 | Test |
 
 ## 17. Assumptions and constraints
 

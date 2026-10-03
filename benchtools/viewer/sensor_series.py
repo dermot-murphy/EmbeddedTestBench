@@ -136,12 +136,13 @@ class SensorSeries:
         data = self.sensors.get(chosen, {})
 
         def chart(chart_id, title, unit, name):
+            # In time order, whatever order the frames were read in.
             points = [[when, value[0], value[1]] if isinstance(value, tuple) else [when, value]
-                      for when, value in data.get(name, ())]
+                      for when, value in sorted(data.get(name, ()), key=lambda p: p[0])]
             return {"id": chart_id, "title": title, "unit": unit,
                     "series": [{"key": name, "label": chosen, "points": points}]}
 
-        ticks = list(data.get("ticks", ()))
+        ticks = sorted(data.get("ticks", ()), key=lambda point: point[0])
         deltas = [[ticks[k + 1][0], max(0, ticks[k + 1][1] - ticks[k][1])]
                   for k in range(len(ticks) - 1)]
         tick_delta = {"id": "tick-delta", "title": "Tick delta (frame to frame)", "unit": "ticks",
