@@ -80,7 +80,14 @@
   </section>
 
   <section id="page-events" class="page" hidden>
-    <div class="filters" id="filters"></div>
+    <div class="toolbar">
+      <button id="events-pause" type="button">Pause</button>
+      <span id="events-count" class="note"></span>
+      <label>Sensor <select id="events-sensor"><option value="">No filter</option></select></label>
+      <label id="events-test-box" hidden>Test <select id="events-test"><option value="">All tests</option></select></label>
+    </div>
+    <div class="filter-row"><span class="label">Instruments</span><div class="filters" id="filters"></div></div>
+    <div class="filter-row"><span class="label">Show only</span><div class="filters" id="kinds"></div></div>
     <div class="events-head"><span>time</span><span>source</span><span>text</span></div>
     <div id="events" class="events"></div>
   </section>

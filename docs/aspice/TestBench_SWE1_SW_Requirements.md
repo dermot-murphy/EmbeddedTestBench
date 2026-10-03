@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE1-001 | **Version** | 1.10 |
+| **Document ID** | TB-SWE1-001 | **Version** | 1.11 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -42,6 +42,7 @@
 | 1.8 | 2026-10-03 | Claude | #138: VIEW-FR-010 … -012 added - each instrument's commands paired with their replies, the supply's and probe's front panels, and a step's own traffic. |
 | 1.9 | 2026-10-03 | Claude | #139: S2LP-FR-080 (every packet as a structured `rf_packet` record) and VIEW-FR-013 … -015 (the RF and BLE pages) added. The dongle was checked: it already logs every advertising report as `< +adv t=<board us> addr= type= rssi= pdu= ch= name= data=`, so it needed no change. |
 | 1.10 | 2026-10-03 | Claude | #140: CORE-FR-065 (`reading` records), PSU-FR-044, PICO-FR-048, DMM-FR-034 (each driver logs its readings) and VIEW-FR-016 … -018 (the Graphs page) added. |
+| 1.11 | 2026-10-03 | Claude | #148: VIEW-FR-019 … -021 added - the Event log page's pause and resume, and its filters by instrument, kind of event, sensor and test. |
 
 ---
 
@@ -989,6 +990,9 @@ A browser page onto a bench run (#130, #137), served by `benchtools view`. It is
 | VIEW-FR-016 | A Graphs page shall plot every instrument's readings (CORE-FR-065) against time - supply current and voltage per channel, the thermometer's temperature, the multimeter's readings - one chart per unit, so no chart has two y-axes, each instrument, quantity and channel a series of its own. | STK-23 | Test |
 | VIEW-FR-017 | For a chosen BLE device - by default the one heard most - the Graphs page shall plot, on the dongle's own clock, the interval between consecutive adverts, each interval's difference from the expected period the operator gives or else the median interval, and each advert's RSSI. | STK-23 | Test |
 | VIEW-FR-018 | The charts of readings shall mark when each step started, naming it, so a change can be tied to the step that caused it; hovering a chart shall give the time and each series' nearest value. | STK-23 | Test |
+| VIEW-FR-019 | The Event log page shall pause and resume its list: while paused, records that arrive are held and counted, not added, and resuming adds every one of them. This is the display only; the run's own pause is the Run page's (VIEW-FR-006). | STK-23 | Test |
+| VIEW-FR-020 | The Event log page shall filter by instrument - each event-log source shown or hidden - and to chosen kinds of event that cut across instruments: RF frames received, RF frames sent, BLE adverts, readings, the runner's records and control. | STK-23 | Test |
+| VIEW-FR-021 | The Event log page shall filter to one sensor, or none - a record matching when it names that sensor (a frame's Kepler sensor ID, the ID in a BLE device's name) or its text contains it - and, when the log holds more than one test, to one run and test case, each record tagged with the run and test case in progress when it was logged. | STK-23 | Test |
 
 ## 17. Assumptions and constraints
 

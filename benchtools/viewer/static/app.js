@@ -338,34 +338,108 @@ function eventRow(record) {
     el("span", {class: "txt"}, record.text));
 }
 
+// The Event log page's filters (#148): instruments, kinds of event, a sensor, a test.
+const KINDS = [["rf_rx", "RF frames received"], ["rf_tx", "RF frames sent"],
+               ["ble_adv", "BLE adverts"], ["reading", "Readings"], ["runner", "Runner"],
+               ["control", "Control"]];
+const onlyKinds = new Set();
+let eventsPaused = false;
+let heldBack = [];
+
+function tagsOf(record) { return record.tags || {kinds: [], sensor: null, test: null}; }
+
+function shown(record) {
+  if (hidden.has(record.source)) return false;
+  const tags = tagsOf(record);
+  if (onlyKinds.size && !tags.kinds.some((kind) => onlyKinds.has(kind))) return false;
+  const sensor = $("events-sensor").value;
+  if (sensor && tags.sensor !== sensor &&
+      !String(record.text || "").toUpperCase().includes(sensor)) return false;
+  const test = $("events-test").value;
+  if (test && tags.test !== test) return false;
+  return true;
+}
+
+function checkbox(label, checked, onchange) {
+  const input = el("input", {type: "checkbox"});
+  input.checked = checked;
+  input.addEventListener("change", () => onchange(input.checked));
+  return el("label", {}, input, label);
+}
+
 function renderFilters() {
   const sources = [...new Set(records.map((r) => r.source))].sort();
   const box = $("filters");
-  if (box.dataset.sources === sources.join(",")) return;
-  box.dataset.sources = sources.join(",");
-  box.replaceChildren(...sources.map((source) => {
-    const input = el("input", {type: "checkbox"});
-    input.checked = !hidden.has(source);
-    input.addEventListener("change", () => {
-      if (input.checked) hidden.delete(source); else hidden.add(source);
+  if (box.dataset.sources !== sources.join(",")) {
+    box.dataset.sources = sources.join(",");
+    box.replaceChildren(...sources.map((source) => checkbox(source, !hidden.has(source), (on) => {
+      if (on) hidden.delete(source); else hidden.add(source);
       renderEvents(true);
-    });
-    return el("label", {}, input, source);
-  }));
+    })));
+  }
+  const kinds = $("kinds");
+  if (!kinds.childElementCount) {
+    kinds.replaceChildren(...KINDS.map(([kind, label]) => checkbox(label, false, (on) => {
+      if (on) onlyKinds.add(kind); else onlyKinds.delete(kind);
+      renderEvents(true);
+    })));
+  }
+  const sensors = [...new Set(records.map((r) => tagsOf(r).sensor).filter(Boolean))].sort();
+  const select = $("events-sensor");
+  if (select.dataset.ids !== sensors.join(",")) {
+    const chosen = select.value;
+    select.dataset.ids = sensors.join(",");
+    select.replaceChildren(el("option", {value: ""}, "No filter"),
+      ...sensors.map((id) => el("option", {value: id}, id)));
+    select.value = sensors.includes(chosen) ? chosen : "";
+  }
+  const tests = (state && state.tests) || [];
+  $("events-test-box").hidden = tests.length < 2;
+  const testSelect = $("events-test");
+  if (testSelect.dataset.ids !== tests.join("|")) {
+    const chosen = testSelect.value;
+    testSelect.dataset.ids = tests.join("|");
+    testSelect.replaceChildren(el("option", {value: ""}, "All tests"),
+      ...tests.map((test) => el("option", {value: test}, test)));
+    testSelect.value = tests.includes(chosen) ? chosen : "";
+  }
+}
+
+function renderCount() {
+  const showing = $("events").childElementCount;
+  $("events-count").textContent = records.length + " record(s), " + showing + " shown" +
+    (eventsPaused ? "; paused, " + heldBack.length + " new held back" : "");
+  $("events-pause").textContent = eventsPaused ? "Resume" : "Pause";
+  $("events-pause").setAttribute("aria-pressed", String(eventsPaused));
 }
 
 function renderEvents(full, added) {
   const box = $("events");
   const atBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 20;
   if (full) {
-    box.replaceChildren(...records.filter((r) => !hidden.has(r.source)).map(eventRow));
+    box.replaceChildren(...records.filter(shown).map(eventRow));
   } else {
-    for (const record of added) if (!hidden.has(record.source)) box.append(eventRow(record));
+    for (const record of added) if (shown(record)) box.append(eventRow(record));
     while (box.childElementCount > MAX_EVENTS) box.firstElementChild.remove();
   }
-  if (atBottom) box.scrollTop = box.scrollHeight;
+  if (atBottom && !eventsPaused) box.scrollTop = box.scrollHeight;
   renderFilters();
+  renderCount();
 }
+
+$("events-pause").addEventListener("click", () => {
+  eventsPaused = !eventsPaused;
+  if (!eventsPaused && heldBack.length) {
+    const released = heldBack;
+    heldBack = [];
+    records.push(...released);
+    if (records.length > MAX_EVENTS) records = records.slice(-MAX_EVENTS);
+    renderEvents(false, released);
+  }
+  renderCount();
+});
+$("events-sensor").addEventListener("change", () => renderEvents(true));
+$("events-test").addEventListener("change", () => renderEvents(true));
 
 // ---------------------------------------------------------------- live stream
 let pending = [];
@@ -373,7 +447,12 @@ let scheduled = false;
 function flush() {
   scheduled = false;
   renderRun();
-  if (pending.length) {
+  if (pending.length && eventsPaused) {
+    // Held, not lost: the list stays still while the operator reads it.
+    heldBack.push(...pending);
+    pending = [];
+    renderCount();
+  } else if (pending.length) {
     records.push(...pending);
     if (records.length > MAX_EVENTS) records = records.slice(-MAX_EVENTS);
     renderEvents(false, pending);
@@ -388,7 +467,9 @@ function connect() {
   const source = new EventSource("/api/events");
   source.addEventListener("open", () => { $("link").textContent = "live"; $("link").className = "link up"; });
   source.addEventListener("error", () => { $("link").textContent = "reconnecting"; $("link").className = "link down"; });
-  source.addEventListener("reset", () => { records = []; pending = []; $("events").replaceChildren(); });
+  source.addEventListener("reset", () => {
+    records = []; pending = []; heldBack = []; $("events").replaceChildren(); renderCount();
+  });
   source.addEventListener("record", (event) => { pending.push(JSON.parse(event.data)); schedule(); });
   source.addEventListener("state", (event) => { state = JSON.parse(event.data); schedule(); });
 }
