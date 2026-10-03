@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE3-001 | **Version** | 1.3 |
+| **Document ID** | TB-SWE3-001 | **Version** | 1.4 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -35,6 +35,7 @@
 | 1.1 | 2026-10-03 | Claude | #131: the Pico thermometer's `rd` command set. PICO-DD-PROTOCOL (`rd` replies, `ecureset`, `PROTO_VERSION` 2.0), PICO-DD-VERSION (name, copyright, `V1.00.0000`, the injected commit SHA), PICO-DD-TEXT (`text_centi`), PICO-DD-PARSER (`cmd_rd`, handlers write the whole reply), PICO-DD-MAIN, PICO-DD-BUILD (SHA injection and re-configure on a new commit), PICO-DD-TEST, PICO-DD-CONST, PICO-DD-DRIVER (`rd`, `NoReadingError`, `RdRefusedError`; the raw-word cross-check removed), PICO-DD-SIM and PICO-DD-CLI (`info`, `rd`, `ecureset`) revised. With #127 merged, PICO-DD-FLASH revised to confirm the new build by `rd`: `Uf2Image` reads the firmware name, the version and the commit SHA from the image in place of the title and the build date, the checks are `name`, `version` and `sha`, `--expect-version` takes `VX.YY.ZZZZ`, and `SimulatedRp2350` takes the image's version and SHA. |
 | 1.2 | 2026-10-03 | Claude | #134: RUN-DD-RUNNER - `run(spec, selection)`, `NOT_SELECTED` and `check_selection`; RUN-DD-RESULTS `RunRecord.selection`; RUN-DD-CLI `--test`. |
 | 1.3 | 2026-10-03 | Claude | #135: CORE-DD-EVENTS - `log_event`, `jsonable`, `MAX_ITEMS`, and the `kind` and `data` fields; RUN-DD-RUNNER - the structured run, test case and step records. |
+| 1.4 | 2026-10-03 | Claude | #136: RUN-DD-CONTROL added - `RunControl`, `Command`, `ControlServer`; RUN-DD-RUNNER obeys it between steps (`_run_tests`, `_restart`, `_restart_refusal`, `_Interrupted`); RUN-DD-CLI `--control`. |
 
 ---
 
@@ -2444,6 +2445,39 @@ regardless. `check_selection(specs, selection)` raises `SpecError` for a name no
 specification contains, naming the test cases there are; the command line calls
 it before the bench is opened. `RunRecord.selection` carries the selection into
 the JSON record, the markdown header and the JUnit properties.
+
+#### RUN-DD-CONTROL — `control.py`
+
+`RunControl` holds what an operator has asked of a run and where the run is,
+under one `threading.Condition` (RUN-FR-061 … -065, #136). The runner calls
+`begin(suite, validator)`, `checkpoint(phase, case, step)` before every step,
+and `finish()`; the server's threads call `request(message)`.
+
+- `checkpoint` records the position, then waits while paused and nothing is
+  pending, and returns the pending `Command` - `ABORT`, or `RESTART_FROM` with a
+  target - or `None`. In teardown (`interruptible=False`) it only records.
+- `request` validates and accepts: an unknown command, no run, anything but
+  status in teardown, a restart in setup, pause when paused, resume when not, and
+  a second abort are refused with the reason. `restart_test` becomes
+  `RESTART_FROM` the current test case, step 0. A restart target is checked by
+  the runner's validator. Every request is logged as `control`, and every action
+  the runner takes as `control_applied`.
+- `ControlServer` is a `socketserver.ThreadingTCPServer` bound to `HOST`
+  (127.0.0.1) only, one JSON request and reply per line, requests longer than
+  4 KiB refused. Port 0 binds a free port; `start` logs `control_listening`.
+
+In the runner, `run_steps` calls `checkpoint` before each step and raises
+`_Interrupted` with the steps done for a command. `_run_tests` replaces the
+plain loop over test cases with one that obeys it: on abort the interrupted
+test case is an ERROR, `ABORTED`, and the rest SKIP with that rationale; on a
+restart `_restart` drops the records at or after the target that will run again,
+marks test cases jumped over `SKIPPED_BY_OPERATOR`, and `run_case(case, index,
+first, kept)` resumes at the target step with the earlier steps' records kept.
+After the last test case it checks once more, so a restart asked during the last
+step is honoured and a pause holds the run before teardown. `_restart_refusal`
+walks the steps from the target on, with `_references_in` finding each saved
+name a step's arguments and expectations use, and refuses a name neither saved
+nor saved earlier in that walk. An abort in setup becomes the setup error.
 
 #### RUN-DD-REPORT — `report.py`
 

@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE2-001 | **Version** | 0.8 |
+| **Document ID** | TB-SWE2-001 | **Version** | 0.9 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -30,6 +30,7 @@
 | 0.6 | 2026-10-02 | Claude | #116: AD-27 (a driver declares which arguments are input files; the runner finds them beside the file that names them). |
 | 0.7 | 2026-10-02 | Claude | #126: AD-28 (an event source is an instrument, named by the specification and the bench, not a driver package). |
 | 0.8 | 2026-10-03 | Claude | #131: AD-24 (a reading travels with the raw word it came from) marked superseded - the `rd temperature` reply carries no raw word. PICO-ARC-001 updated for the `rd` command set, `ecureset` and the driver's new errors. |
+| 0.9 | 2026-10-03 | Claude | #136: RUN-ARC-001 includes the run control channel, bound to 127.0.0.1 only. |
 
 ---
 
@@ -138,7 +139,7 @@ instrument, and to be importable without importing any other element.
 | PSU-ARC-001 | `instruments.gpd3303d` | The GW Instek bench supply, programmable channels 1 and 2; its fixed rail is a front-panel switch and is outside the element. Not a SCPI instrument: it takes the transport and lifecycle from `ScpiInstrument` and replaces the SCPI-specific parts (`*CLS`, `*RST`, `SYSTem:ERRor?`) with its own. Its own command grammar, a load-modelling simulator, and a command line. | `Gpd3303D`, `ChannelReading`, `SupplyStatus`, `SimulatedGpd` |
 | DMM-ARC-001 | `instruments.tti1604` | The TTi 1604 bench multimeter, on an opto-isolated RS-232 link. Not a SCPI instrument and not close to one: no command language, no query, no `*IDN?`, no error queue. The link carries single characters standing for key presses, and the meter streams a ten-byte binary frame per measurement. Frame decoding (`protocol`) is pure and separate from the link, because decoding is where a wrong number comes from and it should be testable without a meter. The instrument envelope and protocol facts (`constants`), the driver façade (`dmm`) - which reads the link as a stream (AD-26) and confirms every key press from the readings (AD-25) - a behavioural simulator with the meter's resolution and reading rate on a virtual clock, a command line, an opt-in bench test and a front-panel check. | `Tti1604`, `Reading`, `FrameAssembler`, `decode`, `frame_problem`, `SimulatedTti1604` |
 | PICO-ARC-001 | `instruments.pico_sht30` **and** `firmware/pico_sht30` | The Pico 2 + SHT30-D bench thermometer, as one element across two languages. Host side: the driver (`thermometer`), which takes the transport and lifecycle from `ScpiInstrument` and replaces the SCPI-specific parts with the firmware's `rd` command set (`rd name`, `copyright`, `version`, `sha` and `temperature`, answered `ACK rd <option> = <value>` or `NAK`, #131); the protocol tables (`constants`); a simulated thermometer that answers with the firmware's reply text; and a command line. Pico side: line assembly and dispatch (`cmd_parser`), the SHT30 driver (`sht30`), a bounded text builder in place of stdio (`text`), and a HAL seam (`hal.h`) implemented on the Pico SDK by `hal_pico.c` and by a fake in the host tests. `include/protocol.h` is the interface both sides are built from. | `PicoSht30`, `FirmwareInfo`, `Reading`, `SensorError`, `NoReadingError`, `RdRefusedError`, `SimulatedPicoSht30`; `cmd_execute`, `sht30_measure`, `hal_i2c_write` |
-| RUN-ARC-001 | `runner` | Specification model, bench resolution, execution engine, result records, report writers, command line. | `load_spec`, `BenchConfig`, `BenchRunner`, `write_*` |
+| RUN-ARC-001 | `runner` | Specification model, bench resolution, execution engine, result records, report writers, command line, and the run control channel (127.0.0.1 only). | `load_spec`, `BenchConfig`, `BenchRunner`, `write_*` |
 
 ## 7. Key architectural decisions
 

@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE4-002 | **Version** | 1.3 |
+| **Document ID** | TB-SWE4-002 | **Version** | 1.4 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -35,6 +35,7 @@
 | 1.1 | 2026-10-03 | Claude | #131: whole suite re-run on Windows (§4); SWE4-UT-PICO, -PICOSIM, -PICOCLI and -PICOFWPROTO counts updated in §5; §13A re-run for the `rd` command set - 83 firmware unit cases, built with clang 21 on Windows; two-place rounding vectors added to §13A.3; §13A.2 target build repeated for #131 on the bench PC (Arm GNU 14.2.1, 0 warnings, new size figures); §13A.4 records what was not repeated; PICO-OPEN-01 and -02 restated for `rd`, PICO-OPEN-06 added; §13A.7 records the first run on a real Pico 2 - PICO-OPEN-01 closed, -02 and -06 confirmed except a reading with the sensor attached. With #127 merged: §13A.6 revised for `flash` confirming the build by `rd` (name, version and commit SHA read from the image in place of the title and build date), SWE4-UT-PICOFLASH 34 → 35, the Pico directory re-run after the merge (140 cases), and the `rd` firmware flashed and confirmed by `flash` on the real Pico 2; the first-run section is §13A.7, after #127's §13A.6. |
 | 1.2 | 2026-10-03 | Claude | #134: SWE4-UT-SELECT added to §5 (14 cases, pass). |
 | 1.3 | 2026-10-03 | Claude | #135: SWE4-UT-RUNEVENTS added to §5 (21 cases, pass). |
+| 1.4 | 2026-10-03 | Claude | #136: SWE4-UT-CONTROL added to §5 (33 cases, pass). |
 
 ---
 
@@ -202,6 +203,7 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | SWE4-UT-RUNCLI | `runner/test_cli.py` | 15 | Pass |
 | SWE4-UT-SELECT | `runner/test_selection.py` | 14 | Pass |
 | SWE4-UT-RUNEVENTS | `runner/test_run_events.py` | 21 | Pass |
+| SWE4-UT-CONTROL | `runner/test_control.py` | 33 | Pass |
 | SWE4-UT-PATHS | `core/test_paths.py`, `runner/test_input_paths.py` | 70 | Pass |
 | SWE4-UT-EVENTNAMES | `runner/test_event_names.py` | 21 | Pass |
 | SWE4-UT-RESOLVE | `runner/test_resolve.py` | 27 | Pass |

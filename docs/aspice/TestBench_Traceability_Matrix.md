@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-RTM-001 | **Version** | 1.6 |
+| **Document ID** | TB-RTM-001 | **Version** | 1.7 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -38,6 +38,7 @@
 | 1.4 | 2026-10-03 | Claude | #131: rows for PICO-FR-006, -007, -027, -047 and -061; PICO-FR-001 … -005, -020 … -025, -030, -040 … -043, -046, -050 and -060 re-traced to the `rd` command set and its tests; PICO-FR-044 marked withdrawn. STK-21 and STK-22 rows updated. AD-24's verifying tests corrected: the raw-word tests no longer exist; AD-24 recorded as superseded in TB-SWE2-001 0.8. OPEN-09 extended to the `rd` command set and the target build, then narrowed after the first run on a real Pico 2 (2026-10-03): PICO-FR-031 carries the #131 target-build figures. §16 requirement count corrected to the number SWE.1 declares (366 functional, one of them withdrawn; it had read 356 since #116). With #127 merged: STK-21 and STK-22 rows carry both changes; PICO-FR-071, -073 and -076 re-traced to `flash` confirming the build by `rd` (the image's name, version and commit SHA; the ambiguous-SHA and missing-version tests); OPEN-09 restated for PICO-OPEN-01 … -06; §16 requirement count recomputed from SWE.1 as 373 functional declared, 372 in force. |
 | 1.5 | 2026-10-03 | Claude | #134: row for RUN-FR-059 (running a selected subset of test cases); §16 requirement count 374 functional declared, 373 in force. |
 | 1.6 | 2026-10-03 | Claude | #135: rows for CORE-FR-064 and RUN-FR-060 (structured event-log records); §16 requirement count 376 functional declared, 375 in force. |
+| 1.7 | 2026-10-03 | Claude | #136: rows for RUN-FR-061 … -065 (the run control channel); RUN-DD-CONTROL added to RUN-ARC-001; §16 requirement count 381 functional declared, 380 in force. |
 
 ---
 
@@ -585,6 +586,11 @@ tests in `tests/instruments/pico_sht30/`.
 | RUN-FR-058 | RUN-ARC-001 | RUN-DD-SPEC, RUN-DD-RESULTS, RUN-DD-REPORT | `substitute_parameters`, `TestSpec.parameters`, `RunRecord.parameters` | `SWE4-UT-PARAMS` (7) |
 | RUN-FR-059 | RUN-ARC-001 | RUN-DD-RUNNER, RUN-DD-RESULTS, RUN-DD-REPORT, RUN-DD-CLI | `BenchRunner.run(selection)`, `check_selection`, `NOT_SELECTED`, `RunRecord.selection`, `--test` | `SWE4-UT-SELECT` (14) |
 | RUN-FR-060 | RUN-ARC-001 | RUN-DD-RUNNER | `BenchRunner.run`, `_plan`, `run_case`, `_log_case_end`, `run_step`, `_execute_step`, `PHASE_*` | `SWE4-UT-RUNEVENTS` (21) |
+| RUN-FR-061 | RUN-ARC-001 | RUN-DD-CONTROL, RUN-DD-RUNNER, RUN-DD-CLI | `ControlServer`, `HOST`, `--control` | `SWE4-UT-CONTROL` (33) |
+| RUN-FR-062 | RUN-ARC-001 | RUN-DD-CONTROL, RUN-DD-RUNNER, RUN-DD-CLI | `RunControl.checkpoint`, `request`, `status`; `run_steps` | `SWE4-UT-CONTROL` (33) |
+| RUN-FR-063 | RUN-ARC-001 | RUN-DD-CONTROL, RUN-DD-RUNNER, RUN-DD-CLI | `ABORT`, `ABORTED`, `_run_tests`, `_Interrupted` | `SWE4-UT-CONTROL` (33) |
+| RUN-FR-064 | RUN-ARC-001 | RUN-DD-CONTROL, RUN-DD-RUNNER, RUN-DD-CLI | `RESTART_FROM`, `_restart`, `_restart_refusal`, `_references_in`, `run_case(first, kept)`, `SKIPPED_BY_OPERATOR` | `SWE4-UT-CONTROL` (33) |
+| RUN-FR-065 | RUN-ARC-001 | RUN-DD-CONTROL, RUN-DD-RUNNER, RUN-DD-CLI | `RunControl._refusal`, `control` and `control_applied` records | `SWE4-UT-CONTROL` (33) |
 | RUN-FR-050 | ARC-001 | RUN-DD-CLI | `runner/cli.py` | `TestRunCommand` (8) |
 | RUN-FR-051 | ARC-001 | RUN-DD-CLI | exit statuses | `test_simulated_run_passes`, `test_failure_exits_nonzero`, `test_no_bench_and_no_simulate_is_a_usage_error` |
 | RUN-FR-052 | ARC-001 | RUN-DD-CLI | report path suffixing | `test_several_specs_get_suffixed_reports` |
@@ -610,13 +616,13 @@ tests in `tests/instruments/pico_sht30/`.
 | BLE-ARC-001 | BLE-DD-CDC, -TIMESTAMP, -SCANNER, -NUS, -CMD, -MAIN, -BUILD, -TEST | `firmware/nordic_dongle/{src,include,config,ses,gcc,scripts,test}/*` |
 | S2LP-ARC-001 | S2LP-DD-S2LP, -REGS, -CONFIG, -PROTOCOL, -SESSION, -PACKETS, -SIM, -CLI, -CONST | `instruments/s2lp/{s2lp,registers,configuration,protocol,session,packets,simulator,cli,constants}.py` |
 | PSU-ARC-001 | PSU-DD-PSU, -CONST, -SIM, -CLI | `instruments/gpd3303d/{psu,constants,simulator,cli}.py` |
-| RUN-ARC-001 | RUN-DD-SPEC, -LIMITS, -RESOLVE, -BENCH, -RESULTS, -RUNNER, -REPORT, -CLI | `runner/*.py`, `cli.py` |
+| RUN-ARC-001 | RUN-DD-SPEC, -LIMITS, -RESOLVE, -BENCH, -RESULTS, -RUNNER, -CONTROL, -REPORT, -CLI | `runner/*.py`, `cli.py` |
 
 ## 16. Coverage analysis
 
 | Question | Answer |
 |---|---|
-| Requirements with no verifying test | **None.** All 375 functional requirements in force (376 declared; PICO-FR-044 is withdrawn) and 36 non-functional requirements trace to at least one test, or to a recorded inspection where a test is not the appropriate method (CORE-NFR-002, BLE-FR-090, BLE-NFR-002, and part of CORE-NFR-001). The firmware requirements are verified against the artefact the firmware is built from, not against a running dongle: see CON-07. |
+| Requirements with no verifying test | **None.** All 380 functional requirements in force (381 declared; PICO-FR-044 is withdrawn) and 36 non-functional requirements trace to at least one test, or to a recorded inspection where a test is not the appropriate method (CORE-NFR-002, BLE-FR-090, BLE-NFR-002, and part of CORE-NFR-001). The firmware requirements are verified against the artefact the firmware is built from, not against a running dongle: see CON-07. |
 | Tests not tracing to a requirement | **None.** Every test file names its requirements in its module docstring. |
 | Source modules with no design unit | **None.** Every module names its design unit in its docstring - firmware sources included, checked by `test_every_source_declares_its_trace` in `SWE4-UT-BLEFW`; `__main__.py` is covered by RUN-DD-CLI. |
 | Design units with no source | **None.** |
