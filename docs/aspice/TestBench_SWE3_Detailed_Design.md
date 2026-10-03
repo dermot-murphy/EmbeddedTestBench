@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE3-001 | **Version** | 1.9 |
+| **Document ID** | TB-SWE3-001 | **Version** | 1.10 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -41,6 +41,7 @@
 | 1.7 | 2026-10-03 | Claude | #139: S2LP-DD-S2LP `_record` logs `rf_packet`; VIEW-DD-RADIO added (`RfFrames`, `BleAir`, `parse_fields`, `/api/radio`, `/api/ble`); VIEW-DD-PAGE gains the RF and BLE tabs. |
 | 1.8 | 2026-10-03 | Claude | #140: CORE-DD-EVENTS `log_reading`; PSU-DD-PSU, PICO-DD-DRIVER and DMM-DD-DMM log readings; VIEW-DD-GRAPHS added (`Readings`, `advertising`, `step_markers`, `/api/graphs`, `graphs.js`); the GET API is a table of handlers (`_GET_API`). |
 | 1.9 | 2026-10-03 | Claude | #148: VIEW-DD-TAGS added (`Tagger`, `sensor_of`); VIEW-DD-PAGE's Event log tab gains pause and resume and its filters. |
+| 1.10 | 2026-10-03 | Claude | #149: VIEW-DD-STATUS added (`InstrumentStatus`, `progress`, `_expected`, `/api/status`, `status.js`). |
 
 ---
 
@@ -2647,6 +2648,27 @@ if the driver did not, or the six hex digits after the dash in a BLE line's
 `case_start` and a teardown `step_start`, cleared after `run_end`. A test case
 not selected tags its own `case_end`. `Tagger.tests` lists every label in
 order, and the state snapshot carries it as `tests`.
+
+#### VIEW-DD-STATUS — `status.py`, `static/status.js`
+
+`InstrumentStatus.feed` keeps per source (not `TEST`, `BENCH` or the runner's
+records) whether the link is open - from the transport's `opened`/`closed`
+lines, open if first seen otherwise - the time, level and text of its last
+record; `view(now)` gives each a state: `closed`, `error` or `warning` by the
+last level, `silent` after `SILENT_AFTER_S` (30 s), else `ok` (VIEW-FR-022).
+`progress(state)` counts, from the run's state, the steps to run - setup, the
+steps of test cases neither not selected nor skipped, without the unrun steps
+of a test case already ended, and teardown - and those done; names the test
+case at the position, or the phase; and, while running and once
+`MIN_STEPS_FOR_ESTIMATE` (3) have a duration, sums `_expected` over the
+remaining steps: the last duration of the same action with the same arguments,
+else the action's mean, else the mean of all (VIEW-FR-023, -024).
+`Hub.status(now)` serves both at `/api/status`.
+
+`status.js` polls it every second and draws the fixed footer on every page:
+the state badge, the test case, "Steps n / m", "About … left" or "Time left:
+estimating", and a chip per instrument with a status-palette dot, its name and
+"ok"-time or its state in words, its last line as the tooltip.
 
 #### VIEW-DD-PAGE — `static/index.html`, `app.js`, `app.css`
 

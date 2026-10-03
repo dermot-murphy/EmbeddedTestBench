@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE4-001 | **Version** | 1.11 |
+| **Document ID** | TB-SWE4-001 | **Version** | 1.12 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -43,6 +43,7 @@
 | 1.9 | 2026-10-03 | Claude | #139: SWE4-UT-VIEWRADIO added (14 cases; S2LP-FR-080, VIEW-FR-013 … -015). |
 | 1.10 | 2026-10-03 | Claude | #140: SWE4-UT-VIEWGRAPHS added (16 cases). |
 | 1.11 | 2026-10-03 | Claude | #148: SWE4-UT-VIEWTAGS added (19 cases). |
+| 1.12 | 2026-10-03 | Claude | #149: SWE4-UT-VIEWSTATUS added (10 cases). |
 
 ---
 
@@ -372,6 +373,7 @@ against the simulator in the default run (SWE4-UT-PSUPANEL, SWE4-UT-DMMPANEL).
 | SWE4-UT-VIEWRADIO | `viewer/test_radio.py`, `viewer/radio_log.py` | RF and BLE (14 cases), on a log from a simulated S2-LP kit with two sensors' frames and a bad one, and a simulated dongle's scan and advertising profile: every packet a structured record, a transmitted one counted as sent, frames decoded and listed, each sensor's latest of each type, one sensor only, decoding what the driver did not, a radio error, other records ignored; event fields, devices with advert count, interval and RSSI, other events, the dongle's exchanges, only the dongle's lines, a device heard once | S2LP-FR-080, VIEW-FR-013 .. VIEW-FR-015 |
 | SWE4-UT-VIEWGRAPHS | `viewer/test_graphs.py` | Readings and graphs (16 cases): the supply's voltage and current, a channel reading, the thermometer's temperature and the meter's reading each logged as a `reading` record, and `log_reading` as console text; one chart per unit and one series per instrument, quantity and channel, and what is not a reading ignored; advertising interval, delta and RSSI on the dongle's clock, an expected period, the device heard most or the one chosen, nothing heard; step markers in order; the hub serving graphs | CORE-FR-065, PSU-FR-044, PICO-FR-048, DMM-FR-034, VIEW-FR-016 .. VIEW-FR-018 |
 | SWE4-UT-VIEWTAGS | `viewer/test_tags.py` | Event-log tags (19 cases): a frame's sensor decoded or not, frames naming none, a BLE name's sensor, other lines; each kind, the tags put on the record; every record of two runs of two test cases tagged with its run and test case, setup and teardown, the list of tests; a test case not selected; nothing before a run; the hub tagging a log of runs, two sensors' frames and BLE | VIEW-FR-019 .. VIEW-FR-021 |
+| SWE4-UT-VIEWSTATUS | `viewer/test_status.py` | The status bar (10 cases): open, closed, silent, warning and error instruments with the time since each was heard, one attached after it opened, the runner not an instrument; steps run of total part way through with the test case named, a test case that ended early, test cases not selected, the estimate from the same step, its action and all steps, a restart counting steps again, setup named; the hub serving it | VIEW-FR-022 .. VIEW-FR-024 |
 | SWE4-UT-S2LP | `instruments/s2lp/test_s2lp.py` | The S2-LP driver: identification without an invented board, the band of a named board and the synthesiser's range otherwise, register and bit-field access, read-only refusals, mis-framed replies, strobes, both resets and the state each leaves, radio and packet configuration and their read-back, RSSI conversion, routing the interrupt, the PN9 TX-source refusal, transmit and its recovery, receive and its stop on timeout, capture with its re-arm count and rejected receptions, streaming with registers read after each frame and decoding, the microsecond board clock, and both logs | S2LP-FR-001 .. -036 |
 | SWE4-UT-S2LPREG | `instruments/s2lp/test_registers.py` | The register map as data: unique addresses and names, non-overlapping fields inside their byte, reset values, read-only status registers, field extraction and insertion, lookup and its failures, contiguous runs, and the rendering of a dump | S2LP-FR-010 .. -014 |
 | SWE4-UT-S2LPCONFIG | `instruments/s2lp/test_configuration.py` | Register values from a file: the punctuation such files are written with, hexadecimal values, every refusal and the line it names, applying with read-back, the loose and strict checks, and capturing a radio's settings back out; and the reset that makes a partial file deterministic, including that the reset strobe does not do it | S2LP-FR-017 .. -021 |
