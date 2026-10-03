@@ -45,7 +45,10 @@ function xLabel(chart, t, step) {
   return chart.x === "dongle" ? Number(t.toFixed(3)) + " s" : clock(t, step);
 }
 
-function lineChart(chart, span, markers) {
+// Where the operator last hovered, in the time units of the charts: zoom centres there.
+let hoverTime = null;
+
+function lineChart(chart, span, markers, container) {
   const box = el("figure", {class: "chart"});
   const points = chart.series.flatMap((s) => s.points);
   const many = chart.series.length > 1;
@@ -57,7 +60,7 @@ function lineChart(chart, span, markers) {
   }
   if (!points.length) { box.append(el("div", {class: "note empty"}, "No data yet.")); return box; }
 
-  const width = Math.max(320, ($("graphs").clientWidth || 800) - 2);
+  const width = Math.max(320, ((container || $("graphs")).clientWidth || 800) - 2);
   const height = 220;
   const m = {left: 56, right: 12, top: 10, bottom: 26};
   const plotW = width - m.left - m.right;
@@ -110,12 +113,14 @@ function lineChart(chart, span, markers) {
     const px = (event.clientX - rect.left) * width / rect.width;
     if (px < m.left || px > width - m.right) { cross.setAttribute("visibility", "hidden"); tip.hidden = true; return; }
     const t = x0 + (px - m.left) / plotW * (x1 - x0);
+    hoverTime = t;
     cross.setAttribute("x1", px); cross.setAttribute("x2", px); cross.setAttribute("visibility", "visible");
     const lines = [xLabel(chart, t, 0.001)];
     chart.series.forEach((s) => {
       if (!s.points.length) return;
       const near = s.points.reduce((a, b) => (Math.abs(b[0] - t) < Math.abs(a[0] - t) ? b : a));
-      lines.push(s.label + ": " + Number(near[1].toPrecision(6)) + " " + chart.unit.replace("degC", "°C"));
+      lines.push(s.label + ": " + Number(near[1].toPrecision(6)) + " " + chart.unit.replace("degC", "°C") +
+                 (near.length > 2 ? "  (raw " + near[2] + ")" : ""));
     });
     tip.textContent = lines.join("\n");
     tip.hidden = false;

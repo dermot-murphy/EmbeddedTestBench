@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE4-002 | **Version** | 1.13 |
+| **Document ID** | TB-SWE4-002 | **Version** | 1.14 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -45,6 +45,7 @@
 | 1.11 | 2026-10-03 | Claude | #141: SWE4-UT-VIEWREMOTE (22) added to §5, pass, including the viewer bound to the bench PC's LAN address and refusing a request without the token. |
 | 1.12 | 2026-10-03 | Claude | #151: SWE4-UT-S2LPTABLES (19) added to §5, pass; SWE4-UT-S2LPKEPLER now 29. |
 | 1.13 | 2026-10-03 | Claude | #152: SWE4-UT-VIEWKEPLER (12) added to §5, pass. Latest Data, Config and Identification were exercised in a browser on a simulated sensor's ALIVE, VERSION and twelve CONFIG frames. |
+| 1.14 | 2026-10-03 | Claude | #153: SWE4-UT-VIEWSENSOR (16) added to §5, pass. The three graphs and zoom were exercised in a browser on an hour of a sensor's ALIVE frames, three copies each, with a tick reset. |
 
 ---
 
@@ -223,6 +224,7 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | SWE4-UT-VIEWREMOTE | `viewer/test_remote.py` | 22 | Pass |
 | SWE4-UT-S2LPTABLES | `instruments/s2lp/test_kepler_tables.py` | 19 | Pass |
 | SWE4-UT-VIEWKEPLER | `viewer/test_kepler_view.py` | 12 | Pass |
+| SWE4-UT-VIEWSENSOR | `viewer/test_sensor_series.py` | 16 | Pass |
 | SWE4-UT-PATHS | `core/test_paths.py`, `runner/test_input_paths.py` | 70 | Pass |
 | SWE4-UT-EVENTNAMES | `runner/test_event_names.py` | 21 | Pass |
 | SWE4-UT-RESOLVE | `runner/test_resolve.py` | 27 | Pass |
