@@ -237,6 +237,15 @@ class TestPause:
         worker.join(2)
         assert returned[0].kind == ABORT
 
+    def test_a_restart_ends_a_pause(self):
+        control = RunControl()
+        control.begin("x", lambda case, step: None)
+        control.checkpoint("test", 1, 0)
+        control.request({"cmd": PAUSE})
+        assert control.request({"cmd": "restart_test"})["state"] == "running"
+        assert control.checkpoint("test", 1, 1).kind == RESTART_FROM
+        assert control.checkpoint("test", 1, 0) is None     # not held: no longer paused
+
     def test_status_says_where_the_run_is(self):
         control = RunControl()
         assert control.status()["state"] == "idle"

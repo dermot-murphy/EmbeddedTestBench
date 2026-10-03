@@ -219,10 +219,14 @@ class RunControl:
             self._paused = False
             log_event(_LOG, "control_applied", "resumed", dict(self._position, command=RESUME))
         elif kind == ABORT:
+            # An abort or a restart ends a pause: the operator has decided.
+            self._paused = False
             self._pending = Command(ABORT)
         elif kind == RESTART_TEST:
+            self._paused = False
             self._pending = Command(RESTART_FROM, self._position["case"], 0)
         else:
+            self._paused = False
             self._pending = Command(RESTART_FROM, message["case"], message.get("step", 0))
 
 
