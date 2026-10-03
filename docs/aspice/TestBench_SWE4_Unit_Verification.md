@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE4-001 | **Version** | 1.8 |
+| **Document ID** | TB-SWE4-001 | **Version** | 1.9 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -40,6 +40,7 @@
 | 1.6 | 2026-10-03 | Claude | #136: SWE4-UT-CONTROL added (33 cases) for the run control channel (RUN-FR-061 … -065). |
 | 1.7 | 2026-10-03 | Claude | #137: SWE4-UT-VIEWSTATE (14 cases) and SWE4-UT-VIEWSERVER (25 cases) added for the test run viewer (VIEW-FR-001 … -009); SWE4-UT-LAYERING includes the viewer layer. |
 | 1.8 | 2026-10-03 | Claude | #138: SWE4-UT-VIEWTRAFFIC added (26 cases); SWE4-UT-VIEWSERVER 25 → 29 for `/api/instruments` (VIEW-FR-010 … -012). |
+| 1.9 | 2026-10-03 | Claude | #139: SWE4-UT-VIEWRADIO added (14 cases; S2LP-FR-080, VIEW-FR-013 … -015). |
 
 ---
 
@@ -366,6 +367,7 @@ against the simulator in the default run (SWE4-UT-PSUPANEL, SWE4-UT-DMMPANEL).
 | SWE4-UT-VIEWSTATE | `viewer/test_state.py` | The viewer's run state (14 cases): steps in words, the whole tree rebuilt from a run's log and matching its record, saved values, test cases not selected, a run part-way through, a second run in the same log, records without a kind, the control port, pause, resume and refusals, a restart, and the snapshot a copy | VIEW-FR-003, VIEW-FR-004 |
 | SWE4-UT-VIEWSERVER | `viewer/test_server.py` | The viewer's server (29 cases): `/api/instruments` with and without a window and a window that is not numbers refused; the page and its files, nothing outside them, nothing from another site, 127.0.0.1; the header and Host guards; attaching to a finished log, the event stream replaying it, no record lost between reads; control passed to a runner, refused without a channel, a runner that does not answer; the catalogue with test cases and warnings; a simulated run started with a selection, requests for anything not offered and an unacknowledged warning refused; the command line | VIEW-FR-001 .. VIEW-FR-009 |
 | SWE4-UT-VIEWTRAFFIC | `viewer/test_traffic.py` | Instrument traffic (26 cases): each kind of line classified; a query and its reply with the time between, a command with no reply, events before a reply, a reply with nothing asked, sources kept apart, a time window, the view a copy; the supply's and the probe's panels and choosing one by driver; a simulated run's own log with every supply query and dongle command answered, a step's window holding only its own traffic, the panels built, and a new run starting afresh | VIEW-FR-010 .. VIEW-FR-012 |
+| SWE4-UT-VIEWRADIO | `viewer/test_radio.py`, `viewer/radio_log.py` | RF and BLE (14 cases), on a log from a simulated S2-LP kit with two sensors' frames and a bad one, and a simulated dongle's scan and advertising profile: every packet a structured record, a transmitted one counted as sent, frames decoded and listed, each sensor's latest of each type, one sensor only, decoding what the driver did not, a radio error, other records ignored; event fields, devices with advert count, interval and RSSI, other events, the dongle's exchanges, only the dongle's lines, a device heard once | S2LP-FR-080, VIEW-FR-013 .. VIEW-FR-015 |
 | SWE4-UT-S2LP | `instruments/s2lp/test_s2lp.py` | The S2-LP driver: identification without an invented board, the band of a named board and the synthesiser's range otherwise, register and bit-field access, read-only refusals, mis-framed replies, strobes, both resets and the state each leaves, radio and packet configuration and their read-back, RSSI conversion, routing the interrupt, the PN9 TX-source refusal, transmit and its recovery, receive and its stop on timeout, capture with its re-arm count and rejected receptions, streaming with registers read after each frame and decoding, the microsecond board clock, and both logs | S2LP-FR-001 .. -036 |
 | SWE4-UT-S2LPREG | `instruments/s2lp/test_registers.py` | The register map as data: unique addresses and names, non-overlapping fields inside their byte, reset values, read-only status registers, field extraction and insertion, lookup and its failures, contiguous runs, and the rendering of a dump | S2LP-FR-010 .. -014 |
 | SWE4-UT-S2LPCONFIG | `instruments/s2lp/test_configuration.py` | Register values from a file: the punctuation such files are written with, hexadecimal values, every refusal and the line it names, applying with read-back, the loose and strict checks, and capturing a radio's settings back out; and the reset that makes a partial file deterministic, including that the reset strobe does not do it | S2LP-FR-017 .. -021 |

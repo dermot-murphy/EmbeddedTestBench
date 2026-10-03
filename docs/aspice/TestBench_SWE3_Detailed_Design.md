@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE3-001 | **Version** | 1.6 |
+| **Document ID** | TB-SWE3-001 | **Version** | 1.7 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -38,6 +38,7 @@
 | 1.4 | 2026-10-03 | Claude | #136: RUN-DD-CONTROL added - `RunControl`, `Command`, `ControlServer`; RUN-DD-RUNNER obeys it between steps (`_run_tests`, `_restart`, `_restart_refusal`, `_Interrupted`); RUN-DD-CLI `--control`. |
 | 1.5 | 2026-10-03 | Claude | #137: §5.10 VIEW added - VIEW-DD-STATE, VIEW-DD-SERVER and VIEW-DD-PAGE, the test run viewer. |
 | 1.6 | 2026-10-03 | Claude | #138: VIEW-DD-TRAFFIC added - `classify`, `Traffic`, `PsuPanel`, `JlinkPanel`, `panel_for`, `Hub.instruments`, `/api/instruments`; VIEW-DD-PAGE gains the Instruments tab and a step's traffic. |
+| 1.7 | 2026-10-03 | Claude | #139: S2LP-DD-S2LP `_record` logs `rf_packet`; VIEW-DD-RADIO added (`RfFrames`, `BleAir`, `parse_fields`, `/api/radio`, `/api/ble`); VIEW-DD-PAGE gains the RF and BLE tabs. |
 
 ---
 
@@ -1561,7 +1562,7 @@ transport.
 | Registers | `read_register(s)`, `write_register(s)`, `read_all_registers`, `dump_registers`, `registers_differing_from_reset`, `read_field`, `write_field`, `strobe`, `restore_defaults` |
 | Radio | `configure_radio`, `radio_info`, `frequency_hz`, `set_frequency`, `modulation`, `set_modulation`, `power_dbm`, `power_level_dbm`, `set_power_dbm`, `rssi_dbm`, `configure_packets`, `packet_info`, `payload_length`, `set_payload_length` |
 | Traffic | from S2LP-DD-TRAFFIC: `prepare_traffic`, `transmit`, `transmit_batch`, `receive`, `capture`, `stop` |
-| Logging | `start_log`, `start_packet_log`, `log_note`, `log_path`, `packet_log_path` |
+| Logging | `start_log`, `start_packet_log`, `log_note`, `log_path`, `packet_log_path`; `_record` writes every packet as an `rf_packet` event record (S2LP-FR-080) |
 
 Design points:
 
@@ -2577,9 +2578,29 @@ first may be the transport's - and starts traffic and panels afresh on
 `run_start`. `Hub.instruments(t0, t1)` returns both; `GET /api/instruments`
 serves it, `?t0=&t1=` refused unless finite numbers (VIEW-FR-012).
 
+#### VIEW-DD-RADIO — `radio.py`
+
+`RfFrames.feed` takes `rf_packet` records (S2LP-FR-080): a transmitted packet
+is counted as sent; a received one is decoded with `decode_kepler_frame` if the
+driver did not, its problem stated when the radio rejected it or it would not
+decode, and appended to a deque of `KEEP_FRAMES` (1 000) with a one-line
+summary of its fields. Per sensor it keeps the frames heard, last time, RSSI and
+the latest frame of each type with the `SUMMARY_FIELDS` it carries.
+`view(sensor)` filters to one sensor (VIEW-FR-013, -014).
+
+`BleAir.feed` takes the dongle session's `< +event key=value ...` lines,
+parsed by `parse_fields` (integers as numbers): `adv` and `sensor` update a
+device table by address - name, adverts, RSSI latest and mean, first and last
+board time in microseconds - and `adv` reports go to their own deque; other
+events (`scan`, `conn`, `disc`, ...) to the event list. `view()` gives each
+device's mean interval as the board-time span over the adverts less one
+(VIEW-FR-015). `Hub.radio` and `Hub.bluetooth` serve them, the latter with the
+dongle's exchanges from VIEW-DD-TRAFFIC, at `/api/radio?sensor=` and
+`/api/ble`.
+
 #### VIEW-DD-PAGE — `static/index.html`, `app.js`, `app.css`
 
-One page, four tabs: Run, Instruments, Event log, Start / attach. The Instruments tab shows the front panels, a button per source with its count, and that source's exchanges - time, sent, replies, milliseconds - polled every second while shown; a step's text on the Run page, once it has started, opens its traffic below it. `app.js` opens an
+One page, six tabs: Run, Instruments, RF, BLE, Event log, Start / attach. RF shows a sensor selector, the sensor table and the frames, a frame's decode on selecting it; BLE the device table, events and the dongle's exchanges; both polled every second while shown. The Instruments tab shows the front panels, a button per source with its count, and that source's exchanges - time, sent, replies, milliseconds - polled every second while shown; a step's text on the Run page, once it has started, opens its traffic below it. `app.js` opens an
 `EventSource` on `/api/events`, keeps the latest state and up to 3 000 records,
 and redraws on the next animation frame. The Run page draws each group's
 status dot, name, requirement and reason, and each step's text, duration,

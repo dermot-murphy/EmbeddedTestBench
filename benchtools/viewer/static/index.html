@@ -12,6 +12,8 @@
   <nav id="tabs" role="tablist">
     <button role="tab" data-page="run" aria-selected="true">Run</button>
     <button role="tab" data-page="instruments" aria-selected="false">Instruments</button>
+    <button role="tab" data-page="rf" aria-selected="false">RF</button>
+    <button role="tab" data-page="ble" aria-selected="false">BLE</button>
     <button role="tab" data-page="events" aria-selected="false">Event log</button>
     <button role="tab" data-page="start" aria-selected="false">Start / attach</button>
   </nav>
@@ -43,6 +45,27 @@
     <div class="filters" id="instrument-tabs" role="tablist"></div>
     <div class="exchanges-head"><span>time</span><span>sent</span><span>reply</span><span>ms</span></div>
     <div id="exchanges" class="exchanges"></div>
+  </section>
+
+  <section id="page-rf" class="page" hidden>
+    <div class="toolbar">
+      <label>Sensor <select id="rf-sensor"><option value="">All sensors</option></select></label>
+      <span id="rf-counts" class="note"></span>
+    </div>
+    <h2 class="section">Sensors</h2>
+    <div id="rf-sensors" class="table"></div>
+    <h2 class="section">Frames received</h2>
+    <div id="rf-frames" class="table frames"></div>
+    <pre id="rf-detail" class="detail-box" hidden></pre>
+  </section>
+
+  <section id="page-ble" class="page" hidden>
+    <h2 class="section">Devices</h2>
+    <div id="ble-devices" class="table"></div>
+    <h2 class="section">Events</h2>
+    <div id="ble-events" class="table"></div>
+    <h2 class="section">Commands and replies</h2>
+    <div id="ble-exchanges" class="exchanges"></div>
   </section>
 
   <section id="page-events" class="page" hidden>

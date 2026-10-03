@@ -95,6 +95,23 @@ button.danger { color: var(--fail); }
 .exchange .src { font-weight: 600; margin-right: 6px; }
 .step .text.clickable { cursor: pointer; text-decoration: underline dotted var(--muted); }
 .step .traffic { grid-column: 2 / -1; border: 1px solid var(--line); border-radius: 6px; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 8px; }
+.toolbar label { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); }
+h2.section { font-size: 13px; margin: 14px 0 6px; color: var(--muted); font-weight: 600; }
+.table { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: auto;
+         max-height: 50vh; }
+.table table { border-collapse: collapse; width: 100%; font-size: 12px; }
+.table th, .table td { text-align: left; padding: 3px 8px; border-top: 1px solid var(--line);
+                       vertical-align: top; }
+.table th { position: sticky; top: 0; background: var(--panel); color: var(--muted); font-weight: 500;
+            border-top: 0; }
+.table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.table td.mono { font-family: var(--mono); overflow-wrap: anywhere; }
+.table td.id, .table th { white-space: nowrap; }
+.table tr.clickable { cursor: pointer; }
+.table tr.clickable:hover td { background: var(--bg); }
+.detail-box { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px;
+              font-size: 12px; max-height: 40vh; overflow: auto; white-space: pre-wrap; }
 .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px;
         display: flex; flex-direction: column; gap: 10px; }
