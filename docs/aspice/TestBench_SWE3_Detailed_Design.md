@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE3-001 | **Version** | 1.5 |
+| **Document ID** | TB-SWE3-001 | **Version** | 1.6 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -37,6 +37,7 @@
 | 1.3 | 2026-10-03 | Claude | #135: CORE-DD-EVENTS - `log_event`, `jsonable`, `MAX_ITEMS`, and the `kind` and `data` fields; RUN-DD-RUNNER - the structured run, test case and step records. |
 | 1.4 | 2026-10-03 | Claude | #136: RUN-DD-CONTROL added - `RunControl`, `Command`, `ControlServer`; RUN-DD-RUNNER obeys it between steps (`_run_tests`, `_restart`, `_restart_refusal`, `_Interrupted`); RUN-DD-CLI `--control`. |
 | 1.5 | 2026-10-03 | Claude | #137: §5.10 VIEW added - VIEW-DD-STATE, VIEW-DD-SERVER and VIEW-DD-PAGE, the test run viewer. |
+| 1.6 | 2026-10-03 | Claude | #138: VIEW-DD-TRAFFIC added - `classify`, `Traffic`, `PsuPanel`, `JlinkPanel`, `panel_for`, `Hub.instruments`, `/api/instruments`; VIEW-DD-PAGE gains the Instruments tab and a step's traffic. |
 
 ---
 
@@ -2555,9 +2556,30 @@ hardware - refuses a second run while one it started is in progress, and runs
 `--markdown`, `--test` for each test case ticked and `--acknowledge` when
 acknowledged, its console to a file beside them (VIEW-FR-007, -008).
 
+#### VIEW-DD-TRAFFIC — `traffic.py`
+
+`classify(text)` names a line `sent` (`>> `, `> `; a GDB/MI token stripped),
+`received` (`<< `, `< `, `console `), `event` (`< +`, `async `, `rtt: `) or a
+`note` (VIEW-FR-010). `Traffic.feed(record)` skips the runner and structured
+records, notes each source's driver from its logger, and keeps per source a
+deque of the last `KEEP_EXCHANGES` (2 000) entries. A sent line opens an
+exchange and becomes the source's open one; a received line joins the open
+exchange - setting `reply_t` and `ms` on the first - however many events came
+between; with none open it is `unasked`. `view(t0, t1, limit)` copies, per
+source, the entries whose command was sent within the window, or the latest
+*limit*. `PsuPanel` and `JlinkPanel`, ported from the Test Bench monitor's
+`sources.py` (#82), rebuild the front panels from the same lines and give
+`rows()`; `panel_for(logger)` picks one by driver (VIEW-FR-011).
+
+`Hub._apply` feeds every record to the state, the traffic and the source's
+panel - created from the first line whose logger names a driver, since the
+first may be the transport's - and starts traffic and panels afresh on
+`run_start`. `Hub.instruments(t0, t1)` returns both; `GET /api/instruments`
+serves it, `?t0=&t1=` refused unless finite numbers (VIEW-FR-012).
+
 #### VIEW-DD-PAGE — `static/index.html`, `app.js`, `app.css`
 
-One page, three tabs: Run, Event log, Start / attach. `app.js` opens an
+One page, four tabs: Run, Instruments, Event log, Start / attach. The Instruments tab shows the front panels, a button per source with its count, and that source's exchanges - time, sent, replies, milliseconds - polled every second while shown; a step's text on the Run page, once it has started, opens its traffic below it. `app.js` opens an
 `EventSource` on `/api/events`, keeps the latest state and up to 3 000 records,
 and redraws on the next animation frame. The Run page draws each group's
 status dot, name, requirement and reason, and each step's text, duration,

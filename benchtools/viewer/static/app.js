@@ -41,6 +41,7 @@ for (const tab of document.querySelectorAll("#tabs button")) {
       $("page-" + other.dataset.page).hidden = other !== tab;
     }
     if (tab.dataset.page === "start") loadCatalogue();
+    if (tab.dataset.page === "instruments") loadInstruments();
   });
 }
 
@@ -62,15 +63,76 @@ function stepRow(step, where) {
   }
   const canRestart = where.phase === "test" && state && state.status === "RUNNING" &&
                      state.position.phase !== "teardown";
+  const key = where.phase + ":" + where.case + ":" + step.step;
+  const text = el("span", {class: "text" + (step.started ? " clickable" : ""),
+                           title: step.started ? "Show the instrument traffic of this step" : ""},
+                  step.text);
+  if (step.started) text.addEventListener("click", () => toggleTraffic(key, step));
+  const traffic = openTraffic.has(key) ? openTraffic.get(key) : null;
   return el("div", {class: "step"},
     el("span", {class: "dot " + statusClass(step.status), title: step.status}),
-    el("span", {class: "text"}, step.text),
+    text,
     el("span", {class: "time"}, step.duration_s != null ? step.duration_s.toFixed(3) + " s" : ""),
     canRestart ? el("button", {class: "again", title: "Restart from this step",
       onclick: () => control({cmd: "restart_from", case: where.case, step: step.step})}, "↻") : el("span"),
     step.error ? el("div", {class: "detail error"}, step.error) : null,
-    pieces.length ? el("div", {class: "detail"}, pieces.join("   ")) : null);
+    pieces.length ? el("div", {class: "detail"}, pieces.join("   ")) : null,
+    traffic);
 }
+
+// ---------------------------------------------------------------- instrument traffic
+const openTraffic = new Map();      // step key -> its traffic element, while shown
+
+function exchangeRow(source, entry) {
+  const replies = entry.kind === "exchange" ? (entry.replies || []).join("\n") : "";
+  const label = {event: "event: ", note: "", unasked: "unasked: "}[entry.kind];
+  return el("div", {class: "exchange " + entry.kind},
+    el("span", {}, time(entry.t)),
+    el("span", {class: "sent"}, source ? el("span", {class: "src"}, source) : null,
+       (label || "") + entry.text),
+    el("span", {class: "reply"}, replies),
+    el("span", {class: "ms"}, entry.ms != null ? entry.ms.toFixed(1) : ""));
+}
+
+async function toggleTraffic(key, step) {
+  if (openTraffic.has(key)) { openTraffic.delete(key); renderRun(); return; }
+  const t1 = step.ended || Date.now() / 1000;
+  const reply = await (await fetch("/api/instruments?t0=" + step.started + "&t1=" + t1)).json();
+  const rows = [];
+  for (const [source, listed] of Object.entries(reply.sources)) {
+    for (const entry of listed.entries) rows.push([entry.t, exchangeRow(source, entry)]);
+  }
+  rows.sort((a, b) => a[0] - b[0]);
+  openTraffic.set(key, el("div", {class: "traffic exchanges"},
+    ...(rows.length ? rows.map((row) => row[1])
+                    : [el("div", {class: "exchange note"}, el("span"), el("span", {class: "sent"},
+                       "No instrument traffic during this step."))])));
+  renderRun();
+}
+
+let instrument = null;
+async function loadInstruments() {
+  const reply = await (await fetch("/api/instruments")).json();
+  const panels = $("panels");
+  panels.replaceChildren(...Object.entries(reply.panels).map(([source, panel]) =>
+    el("div", {class: "panel"}, el("h3", {}, source + " - " +
+       (panel.kind === "psu" ? "power supply" : "debug probe")),
+       el("dl", {}, ...panel.rows.flatMap(([label, value]) => [el("dt", {}, label), el("dd", {}, value)])))));
+  const sources = Object.keys(reply.sources).sort();
+  if (!sources.includes(instrument)) instrument = sources[0] || null;
+  $("instrument-tabs").replaceChildren(...sources.map((source) => el("button", {
+    role: "tab", "aria-selected": String(source === instrument),
+    onclick: () => { instrument = source; loadInstruments(); }},
+    source + " (" + reply.sources[source].count + ")")));
+  const box = $("exchanges");
+  const atBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 20;
+  const entries = instrument ? reply.sources[instrument].entries : [];
+  box.replaceChildren(...(entries.length ? entries.map((entry) => exchangeRow(null, entry))
+    : [el("div", {class: "exchange note"}, el("span"), el("span", {class: "sent"}, "No instrument traffic yet."))]));
+  if (atBottom) box.scrollTop = box.scrollHeight;
+}
+
+setInterval(() => { if (!$("page-instruments").hidden) loadInstruments(); }, 1000);
 
 function group(title, extra, status, reason, steps, where) {
   return el("div", {class: "group"},

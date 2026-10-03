@@ -175,6 +175,30 @@ class TestFollowing:
         assert [r["kind"] for _n, r in later["records"] if "kind" in r][0] == "run_start"
 
 
+class TestInstruments:
+    def test_instruments_api(self, viewer, tmp_path):
+        log = tmp_path / "events.jsonl"
+        log.write_text("".join(json.dumps(r) + "\n" for r in (
+            {"t": 1.0, "source": "PSU", "level": "DEBUG",
+             "logger": "benchtools.instruments.gpd3303d.psu", "text": ">> *IDN?"},
+            {"t": 1.1, "source": "PSU", "level": "DEBUG",
+             "logger": "benchtools.instruments.gpd3303d.psu", "text": "<< GW INSTEK"},
+            {"t": 5.0, "source": "PSU", "level": "DEBUG",
+             "logger": "benchtools.instruments.gpd3303d.psu", "text": ">> OUT1"})))
+        viewer.hub.follow(str(log))
+        assert _wait(lambda: viewer.hub.traffic.counts.get("PSU") == 2)
+        status, reply = _json(viewer, "GET", "/api/instruments")
+        assert status == 200
+        assert [e["text"] for e in reply["sources"]["PSU"]["entries"]] == ["*IDN?", "OUT1"]
+        assert reply["panels"]["PSU"]["kind"] == "psu"
+        status, reply = _json(viewer, "GET", "/api/instruments?t0=0&t1=2")
+        assert [e["text"] for e in reply["sources"]["PSU"]["entries"]] == ["*IDN?"]
+
+    @pytest.mark.parametrize("query", ["t0=x", "t1=nan", "t0=inf"])
+    def test_a_window_that_is_not_numbers_is_refused(self, viewer, query):
+        assert _json(viewer, "GET", "/api/instruments?" + query)[0] == 400
+
+
 class TestControl:
     def test_control_without_a_channel_is_refused(self, viewer):
         status, reply = _json(viewer, "POST", "/api/control", {"cmd": "pause"})
