@@ -30,6 +30,10 @@ from __future__ import annotations
 import struct
 from typing import Any, Callable, Dict, List
 
+from .kepler_tables import (
+    PCB_VERSIONS, PRODUCTS, SENSOR_PHASES, name_config, odr_hz, reset_reasons,
+)
+
 __all__ = ["decode_kepler_frame", "KeplerFrameError", "FRAME_TYPES", "RF_CAPABILITY"]
 
 #: The frame layout this module decodes.
@@ -45,7 +49,7 @@ FRAME_TYPES: Dict[int, tuple] = {
     6: ("FFT", 97),
     7: ("FFT2", 105),
     8: ("CMD", 15),
-    9: ("RESPONSE", 13),
+    9: ("RESPONSE", 14),
 }
 
 #: CMD_PARAM values, from the sensor's configuration header.
@@ -107,8 +111,11 @@ def _version(data: bytes) -> Dict[str, Any]:
               "sha": _text(data, 9, 7),
               "version": _text(data, 16, 53),
               "reset_reason": _u32(data, 73),
+              "reset_reasons": reset_reasons(_u32(data, 73)),
               "battery_loaded_mv": data[77] * 20,
               "pcb_version": data[78],
+              "pcb": PCB_VERSIONS.get(data[78], "unknown (%d)" % data[78])
+                     if data[3] == 3 else "unknown (%d)" % data[78],
               "temperature_c": _s16(data, 79) / 10.0,
               "ticks": _u16(data, 81)}
     return fields
@@ -126,7 +133,9 @@ def _alive(data: bytes) -> Dict[str, Any]:
         "peak_to_peak": _xyz(data, 27),
         "ble_connected": data[33],
         "status": {"si_updated": bool(status & 0x01), "live": bool(status & 0x02),
-                   "phase": (status >> 2) & 0x0F, "install_assist": bool(status & 0x80)},
+                   "phase": (status >> 2) & 0x0F,
+                   "phase_name": SENSOR_PHASES.get((status >> 2) & 0x0F, "unknown"),
+                   "install_assist": bool(status & 0x80)},
     })
     if status & 0x80:
         fields["apdu"] = "INSTALL_ASSIST"
@@ -144,6 +153,8 @@ def _twf(data: bytes) -> Dict[str, Any]:
                   "si_type": (param >> 5) & 7, "permute": (param >> 2) & 3,
                   "rescale": param & 3},
         "freq_code": _u16(data, 15),
+        "odr_hz": odr_hz(_u16(data, 15)),
+        "axis": "XYZ"[param >> 14] if param >> 14 < 3 else "?",
         "packet_number": _u16(data, 17),
         "packet_count": _u16(data, 19),
         "ticks": _u16(data, 21),
@@ -160,6 +171,11 @@ def _config(data: bytes) -> Dict[str, Any]:
     fields = {"frame": _frame_count(data[9])}
     fields.update(_permute(data[8]))
     fields.update({"mux": data[10], "values": [_u16(data, 11 + 2 * slot) for slot in range(5)]})
+    # Which parameter each slot carries depends on the permutation, and under
+    # the polynomial on the frame's repeat number (kepler_tables, #151).
+    fields["parameters"] = name_config(fields["mux"], fields["values"],
+                                       str(fields["permute_method"]),
+                                       max(0, fields["frame"]["repeat"]))
     return fields
 
 
@@ -186,10 +202,23 @@ def _cmd(data: bytes) -> Dict[str, Any]:
 
 
 def _response(data: bytes) -> Dict[str, Any]:
-    param = data[12]
-    return {"gateway_id": data[0:3].hex().upper(), "for_sensor": data[9:12].hex().upper(),
-            "response_param": param, "response": RESPONSE_PARAMS.get(param, param),
-            "body": data[13:].hex()}
+    """Gateway to sensor. The parameter is 16 bits at 12-13 and the payload
+    starts at 14: a timer (ms for LORES, us for HIRES) and a slot, or up to ten
+    {id u16, value u32} pairs for CONFIG (api_radio_transport.c, #151)."""
+    param = _u16(data, 12)
+    fields: Dict[str, Any] = {
+        "gateway_id": data[0:3].hex().upper(), "for_sensor": data[9:12].hex().upper(),
+        "response_param": param, "response": RESPONSE_PARAMS.get(param, "0x%04X" % param),
+        "body": data[14:].hex()}
+    if param in (1, 2) and len(data) >= 19:
+        fields["timer"] = _u32(data, 14)
+        fields["timer_unit"] = "ms" if param == 1 else "us"
+        fields["slot"] = data[18]
+    elif param == 3:
+        pairs = (len(data) - 14) // 6
+        fields["config"] = [{"id": _u16(data, 14 + 6 * pair), "value": _u32(data, 16 + 6 * pair)}
+                            for pair in range(min(pairs, 10))]
+    return fields
 
 
 _DECODERS: Dict[int, Callable[[bytes], Dict[str, Any]]] = {
@@ -220,6 +249,7 @@ def decode_kepler_frame(payload: bytes) -> Dict[str, Any]:
         "pl_type": pl_type,
         "sensor_id": data[0:3].hex().upper(),
         "product_id": data[3],
+        "product": PRODUCTS.get(data[3], "unknown (%d)" % data[3]),
         "rf_capability": data[4],
         "type_capability": data[5] >> 3,
         "hw_capability": data[5] & 0x07,

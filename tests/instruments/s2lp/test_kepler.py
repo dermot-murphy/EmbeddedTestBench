@@ -210,11 +210,39 @@ class TestLayoutsFromTheReference:
         assert (decoded["cmd"], decoded["retry"], decoded["for_sensor"]) == ("GENERAL", 2, "5C1712")
 
     def test_response(self):
+        # The parameter is 16 bits at 12-13, then a 32-bit timer and a slot
+        # (api_radio_transport.c, #151).
         frame = header(9, 19, type_cap=0)
         frame[0:3] = bytes.fromhex("F00000")
-        frame[12] = 1
+        frame[9:12] = bytes.fromhex("5C1712")
+        frame[12:14] = struct.pack(">H", 0x0001)
+        frame[14:18] = struct.pack(">I", 2500)
+        frame[18] = 7
         decoded = decode_kepler_frame(bytes(frame))
-        assert (decoded["gateway_id"], decoded["response"]) == ("F00000", "SYNC_LORES")
+        assert (decoded["gateway_id"], decoded["for_sensor"], decoded["response"]) == (
+            "F00000", "5C1712", "SYNC_LORES")
+        assert (decoded["timer"], decoded["timer_unit"], decoded["slot"]) == (2500, "ms", 7)
+
+    def test_a_hires_response_times_in_microseconds(self):
+        frame = header(9, 19, type_cap=0)
+        frame[12:14] = struct.pack(">H", 0x0002)
+        frame[14:18] = struct.pack(">I", 123456)
+        decoded = decode_kepler_frame(bytes(frame))
+        assert (decoded["response"], decoded["timer"], decoded["timer_unit"]) == (
+            "SYNC_HIRES", 123456, "us")
+
+    def test_a_config_response_carries_id_value_pairs(self):
+        frame = header(9, 14 + 12, type_cap=0)
+        frame[12:14] = struct.pack(">H", 0x0003)
+        frame[14:20] = struct.pack(">HI", 40, 600)
+        frame[20:26] = struct.pack(">HI", 49, 64)
+        decoded = decode_kepler_frame(bytes(frame))
+        assert decoded["config"] == [{"id": 40, "value": 600}, {"id": 49, "value": 64}]
+
+    def test_an_empty_config_response_is_fourteen_bytes(self):
+        frame = header(9, 14, type_cap=0)
+        frame[12:14] = struct.pack(">H", 0x0003)
+        assert decode_kepler_frame(bytes(frame))["config"] == []
 
     def test_every_type_has_a_decoder(self):
         for pl_type, (_name, size) in FRAME_TYPES.items():
