@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE3-001 | **Version** | 1.16 |
+| **Document ID** | TB-SWE3-001 | **Version** | 1.17 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -48,6 +48,7 @@
 | 1.14 | 2026-10-03 | Claude | #153: VIEW-DD-SENSOR added (`SensorSeries`, `to_mg`, `to_mm_s`, `/api/sensor`); `lineChart` takes its container and shows raw counts; RF sub-tabs Environment, Short Interval and Ticks. |
 | 1.15 | 2026-10-03 | Claude | #154: VIEW-DD-TWF added (`TwfAssembler`, `spectrum`, `fill_gaps`, `/api/twf`); `lineChart` breaks at nulls, clips to its span, and labels ms or Hz. |
 | 1.16 | 2026-10-03 | Claude | #155: VIEW-DD-DIAG added (`Diagnostics`, `SyncTracker`, `/api/diagnostics`, `/api/diagnostics/reset`). |
+| 1.17 | 2026-10-03 | Claude | #156: VIEW-DD-REPORT added (`NotesStore`, `build_report`, `svg_chart`, `/api/notes`, `/api/report`, `notes.js`); VIEW-DD-SENSOR sorts its points by time. |
 
 ---
 
@@ -2801,6 +2802,31 @@ meant nothing. `/api/diagnostics?sensor=` serves both, and `POST
 /api/diagnostics/reset` resets. The RF page's Diagnostics sub-tab draws the
 period table (a row's tooltip naming the frames either side of its extremes),
 Reset, Auto/Hold and the last ten; Sync the table with its states coloured.
+
+#### VIEW-DD-REPORT — `report.py`, `static/notes.js`
+
+`NotesStore(event_log)` reads and writes `<event log>.notes.json` - fault,
+findings, when saved - each note text of at most `MAX_NOTE` characters; with no
+event log `save` refuses, and a damaged file reads as empty (VIEW-FR-040).
+`GET /api/notes` reads them; `POST /api/notes` saves them, guarded like every
+change and so refused by a read-only viewer.
+
+`build_report(hub, sensor)` writes one HTML document with its CSS inline and no
+script: when made, from which log, which sensor; the notes, escaped; the run
+and its test cases; and from the hub's own views (`kepler_screens`,
+`sensor_graphs`, `waveform`, `diagnostic_screens`) the identification, the
+Environment, Short Interval (Z) and Ticks charts, each TWF buffer and axis
+with its waveform and spectrum, the configuration parameters received, the
+period statistics and the latest frames as text (VIEW-FR-041). `svg_chart`
+draws a chart as SVG without a script - gridlines, round ticks, the time or a
+unit on the x-axis, a line per series broken at a gap. Print CSS keeps charts
+and tables whole (VIEW-FR-042). `GET /api/report?sensor=&download=1` serves it,
+as an attachment when asked. The page's Notes & report tab saves the notes on
+change and offers Download and Print / save as PDF, which opens the report and
+the browser's print dialogue.
+
+The sensor graphs are now in time order whatever order their frames were read
+in, which a report from a log stitched together showed was needed.
 
 #### VIEW-DD-PAGE — `static/index.html`, `app.js`, `app.css`
 

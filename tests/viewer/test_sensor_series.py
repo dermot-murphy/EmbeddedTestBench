@@ -145,3 +145,10 @@ def test_frames_without_a_sensor_or_time_are_ignored():
     assert not series.feed({"t": None, "sensor_id": "5C1712",
                             "decoded": decode_kepler_frame(_alive())})
     assert not series.feed(_frame(bytes.fromhex("5c171203060c0405") + bytes(13), 1.0))
+
+
+def test_points_are_in_time_order_whatever_order_they_were_read():
+    view = _feed(_frame(_alive(ticks=12), 120.0), _frame(_alive(ticks=10), 0.0),
+                 _frame(_alive(ticks=11), 60.0)).view()
+    assert [p[0] for p in _points(view, "ticks", "ticks")] == [0.0, 60.0, 120.0]
+    assert [p[1] for p in _points(view, "ticks", "tick-delta")] == [1, 1]

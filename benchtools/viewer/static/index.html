@@ -16,6 +16,7 @@
     <button role="tab" data-page="ble" aria-selected="false">BLE</button>
     <button role="tab" data-page="graphs" aria-selected="false">Graphs</button>
     <button role="tab" data-page="events" aria-selected="false">Event log</button>
+    <button role="tab" data-page="notes" aria-selected="false">Notes &amp; report</button>
     <button role="tab" data-page="start" aria-selected="false">Start / attach</button>
   </nav>
   <div id="link" class="link" title="Connection to the viewer server">connecting</div>
@@ -165,6 +166,29 @@
     <div id="events" class="events"></div>
   </section>
 
+  <section id="page-notes" class="page" hidden>
+    <div class="cards">
+      <div class="card">
+        <h2>Fault description</h2>
+        <textarea id="notes-fault" rows="8"></textarea>
+        <h2>Findings</h2>
+        <textarea id="notes-findings" rows="8"></textarea>
+        <div class="toolbar"><button type="button" id="notes-save">Save</button>
+          <span id="notes-note" class="note"></span></div>
+      </div>
+      <div class="card">
+        <h2>Report</h2>
+        <p class="note">One HTML file with the notes, the run and its test cases, and for the
+          sensor chosen on the RF page its identification, Environment, Short Interval, Ticks and
+          TWF graphs, configuration, diagnostics and latest frames. It needs nothing else to open.</p>
+        <div class="toolbar">
+          <button type="button" id="report-download">Download report (HTML)</button>
+          <button type="button" id="report-print">Print / save as PDF</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section id="page-start" class="page" hidden>
     <div class="cards">
       <form id="start-form" class="card">
@@ -192,5 +216,6 @@
 <script src="/static/graphs.js"></script>
 <script src="/static/status.js"></script>
 <script src="/static/kepler.js"></script>
+<script src="/static/notes.js"></script>
 </body>
 </html>

@@ -191,6 +191,8 @@ table.kv td { font-family: var(--mono); overflow-wrap: anywhere; }
 .table tr.st-fired td { color: var(--st-good); font-weight: 600; }
 .table tr.chosen td { background: var(--bg); }
 #diag-hold[aria-pressed="true"] { border-color: var(--warn); color: var(--warn); }
+textarea { font: inherit; padding: 6px; border: 1px solid var(--line); border-radius: 6px;
+           background: var(--bg); color: var(--text); width: 100%; resize: vertical; }
 .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px;
         display: flex; flex-direction: column; gap: 10px; }

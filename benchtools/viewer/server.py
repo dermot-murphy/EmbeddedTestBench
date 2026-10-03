@@ -28,6 +28,8 @@ The API:
 ``GET /api/twf``          rf_monitor's TWF: waveform and spectrum;
                           ``?sensor=&buffer=&axis=`` (#154)
 ``GET /api/diagnostics``  rf_monitor's Diagnostics and Sync; ``?sensor=`` (#155)
+``GET /api/notes``        the run's notes; ``POST`` saves them (#156)
+``GET /api/report``       the run as one HTML report; ``?sensor=&download=1``
 ``GET /api/catalogue``    test specifications and benches the viewer can start
 ``POST /api/control``     a control request, passed to the runner
 ``POST /api/start``       start a run as a subprocess and follow it
@@ -50,7 +52,7 @@ browser first asking this server, which never agrees, so another site open in
 the same browser cannot start or abort a run. The ``Host`` header must name
 this machine, which stops a DNS-rebinding page reaching the API by name.
 
-Traces to: VIEW-FR-001 .. VIEW-FR-039, VIEW-DD-SERVER.
+Traces to: VIEW-FR-001 .. VIEW-FR-042, VIEW-DD-SERVER.
 """
 
 from __future__ import annotations
@@ -85,6 +87,7 @@ from .graphs import Readings, advertising, step_markers
 from .diagnostics import Diagnostics, SyncTracker
 from .kepler_view import KeplerView
 from .radio import BleAir, RfFrames
+from .report import NotesStore, build_report
 from .sensor_series import SensorSeries
 from .state import RunState
 from .status import InstrumentStatus, progress
@@ -448,6 +451,8 @@ _GET_API = {
     "/api/sensor": "_get_sensor",
     "/api/twf": "_get_twf",
     "/api/diagnostics": "_get_diagnostics",
+    "/api/notes": "_get_notes",
+    "/api/report": "_get_report",
     "/api/events": "_get_events",
 }
 
@@ -457,6 +462,7 @@ _POST_API = {
     "/api/start": "_post_start",
     "/api/attach": "_post_attach",
     "/api/diagnostics/reset": "_post_diagnostics_reset",
+    "/api/notes": "_post_notes",
 }
 
 
@@ -603,6 +609,22 @@ class _Handler(BaseHTTPRequestHandler):
     def _get_diagnostics(self) -> None:
         self._json(self.server.hub.diagnostic_screens((self._query("sensor") or "").upper()))
 
+    def _get_notes(self) -> None:
+        self._json(NotesStore(self.server.hub.path).load())
+
+    def _get_report(self) -> None:
+        body = build_report(self.server.hub, (self._query("sensor") or "").upper()).encode()
+        stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        if self._query("download"):
+            self.send_header("Content-Disposition",
+                             'attachment; filename="bench-report-%s.html"' % stamp)
+        self.end_headers()
+        self.wfile.write(body)
+
     def _get_status(self) -> None:
         self._json(self.server.hub.status())
 
@@ -694,6 +716,10 @@ class _Handler(BaseHTTPRequestHandler):
     def _post_diagnostics_reset(self, body: Dict[str, Any]) -> None:
         self.server.hub.reset_diagnostics(str(body.get("sensor") or "").upper())
         self._json({"ok": True})
+
+    def _post_notes(self, body: Dict[str, Any]) -> None:
+        self._json(dict(NotesStore(self.server.hub.path).save(
+            body.get("fault", ""), body.get("findings", "")), ok=True))
 
     def _post_attach(self, body: Dict[str, Any]) -> None:
         log = body.get("event_log")
