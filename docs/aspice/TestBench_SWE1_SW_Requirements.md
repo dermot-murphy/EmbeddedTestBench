@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE1-001 | **Version** | 1.19 |
+| **Document ID** | TB-SWE1-001 | **Version** | 1.20 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -51,6 +51,7 @@
 | 1.17 | 2026-10-03 | Claude | #154: VIEW-FR-034 … -036 added - rf_monitor's TWF screen: reassembly, waveform and spectrum. |
 | 1.18 | 2026-10-03 | Claude | #155: VIEW-FR-037 … -039 added - rf_monitor's Diagnostics and Sync screens. |
 | 1.19 | 2026-10-03 | Claude | #156: VIEW-FR-040 … -042 added - notes saved with the run, and the report export as HTML, printable to PDF. |
+| 1.20 | 2026-10-03 | Claude | #157: S2LP-FR-084 (`read_setup`), RUN-FR-066 (`read_setup` over the control channel) and VIEW-FR-043 … -045 (the ST GUI page) added. |
 
 ---
 
@@ -683,6 +684,7 @@ timestamp. And the radio will accept a frequency the board cannot radiate.
 | S2LP-FR-081 | A decoded CONFIG frame shall name each of its five values - parameter number, name, unit, and the value as its enumeration names it - by the sensor firmware's parameter order and the frame's permutation method: none, distance, or the polynomial with the frame's repeat number as its version. | STK-19, STK-23 | Test |
 | S2LP-FR-082 | The waveform sample a TWF slot carries shall be computable under each permutation method, and a TWF frame's frequency code shall be decoded to its output data rate (a code with bit 15 set is a tenth of the rate). | STK-19, STK-23 | Test |
 | S2LP-FR-083 | Frames shall be decoded as the sensor firmware builds them: a RESPONSE frame's parameter as 16 bits at 12-13, followed by a 32-bit timer (ms for LORES, us for HIRES) and a slot, or up to ten {id, value} pairs, from a minimum of 14 bytes; a VERSION frame's reset reason as the names of its bits and its PCB code by name; an ALIVE frame's phase by name; the product by name. | STK-19, STK-23 | Test |
+| S2LP-FR-084 | `read_setup` shall read the kit's RF setup - the radio's settings, every register, the output power and the board's EEPROM - return it, and log it as one `rf_setup` record, so a reader of the event log has it without the kit's port. | STK-19, STK-23 | Test |
 | S2LP-FR-060 | A command-line interface shall expose identification, register dump and access, radio configuration, transmit, receive, capture and strobes, emitting JSON, and shall warn when a capture was not continuous. | STK-19 | Test |
 
 ### 13.6 S2LP non-functional
@@ -974,6 +976,7 @@ Drive discovery on Linux and macOS has not been tried on hardware.
 | RUN-FR-063 | `abort` shall stop the run after the current step. Teardown shall still run. The interrupted test case shall be recorded as an error, "aborted by operator", with the steps it ran, and every test case after it as not executed with the same rationale (one not selected stays "not selected"). An abort during setup shall be recorded as the setup error. | STK-08, STK-19 | Test |
 | RUN-FR-064 | `restart_test` shall run the current test case again from its first step, and `restart_from` from a given test case and step, continuing in order from there. Values saved earlier in the run shall be kept; a restart shall be refused, naming the value, if a step from the target on needs a value no step has saved and none from the target on will save. Instrument state shall not be reset. Records of what runs again shall be replaced; steps before the target step keep their earlier records; test cases jumped over going forward shall be recorded as not executed, "skipped by operator". A target that does not exist, is not selected or is marked skip shall be refused. | STK-08, STK-19 | Test |
 | RUN-FR-065 | Teardown shall not be interruptible: abort and restart during it, and any request during setup but pause, resume and abort, shall be refused with the reason. Every request, accepted or refused, and every action the runner takes on one, shall be written to the event log, so the evidence shows the operator's intervention. | STK-08, STK-19 | Test |
+| RUN-FR-066 | The control channel shall take `read_setup`: at the next step every open instrument that can read its setup shall, without interrupting the run - the step runs as it would have, and a reader's failure is logged, never a step's error. It shall be refused in teardown and with no run. | STK-23 | Test |
 
 ---
 
@@ -1025,6 +1028,9 @@ A browser page onto a bench run (#130, #137), served by `benchtools view`. It is
 | VIEW-FR-040 | The viewer shall keep rf_monitor's Fault Description and Findings notes for a run, saved beside its event log so they outlive the viewer, refused while no event log is followed and in a read-only viewer. | STK-23 | Test |
 | VIEW-FR-041 | The viewer shall export the run as one self-contained HTML report - no script, nothing fetched - holding the notes, the run and its test cases, and for a sensor its identification, Environment, Short Interval, Ticks and TWF graphs as inline SVG, its configuration, its Diagnostics period statistics and its latest frames. | STK-23 | Test |
 | VIEW-FR-042 | The report shall be printable to PDF from the browser, laid out so that a chart or table is not split across pages, needing no PDF library. | STK-23 | Test |
+| VIEW-FR-043 | The RF page shall show the Test Bench monitor's ST GUI page from the latest `rf_setup` record: the RF setup - board band and crystal; frequency, modulation, data rate, deviation, channel filter, output power; and the packet settings decoded from the registers - and when it was read. | STK-23 | Test |
+| VIEW-FR-044 | The ST GUI page shall list every register - address, name, value, reset default - a writable register changed from its default marked, each expanding to its fields, with expand and collapse all, and export them as a register file the driver's `--setup` applies. | STK-23 | Test |
+| VIEW-FR-045 | The ST GUI page shall list the frames received as ST's GUI does - timestamp, bytes, RSSI, data, a CRC failure as "Packet lost" - with a count, pause, follow and clear; and Refresh shall ask the runner to read the setup (RUN-FR-066), never opening the kit's port from the viewer. | STK-23 | Test |
 
 ## 17. Assumptions and constraints
 

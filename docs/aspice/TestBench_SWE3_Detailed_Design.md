@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE3-001 | **Version** | 1.17 |
+| **Document ID** | TB-SWE3-001 | **Version** | 1.18 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -49,6 +49,7 @@
 | 1.15 | 2026-10-03 | Claude | #154: VIEW-DD-TWF added (`TwfAssembler`, `spectrum`, `fill_gaps`, `/api/twf`); `lineChart` breaks at nulls, clips to its span, and labels ms or Hz. |
 | 1.16 | 2026-10-03 | Claude | #155: VIEW-DD-DIAG added (`Diagnostics`, `SyncTracker`, `/api/diagnostics`, `/api/diagnostics/reset`). |
 | 1.17 | 2026-10-03 | Claude | #156: VIEW-DD-REPORT added (`NotesStore`, `build_report`, `svg_chart`, `/api/notes`, `/api/report`, `notes.js`); VIEW-DD-SENSOR sorts its points by time. |
+| 1.18 | 2026-10-03 | Claude | #157: S2LP-DD-S2LP `read_setup`; RUN-DD-CONTROL `READ_SETUP`; VIEW-DD-STGUI added (`StGui`, `rf_setup_rows`, `register_rows`, `regs_text`, `st_row`). |
 
 ---
 
@@ -1574,7 +1575,7 @@ transport.
 | Registers | `read_register(s)`, `write_register(s)`, `read_all_registers`, `dump_registers`, `registers_differing_from_reset`, `read_field`, `write_field`, `strobe`, `restore_defaults` |
 | Radio | `configure_radio`, `radio_info`, `frequency_hz`, `set_frequency`, `modulation`, `set_modulation`, `power_dbm`, `power_level_dbm`, `set_power_dbm`, `rssi_dbm`, `configure_packets`, `packet_info`, `payload_length`, `set_payload_length` |
 | Traffic | from S2LP-DD-TRAFFIC: `prepare_traffic`, `transmit`, `transmit_batch`, `receive`, `capture`, `stop` |
-| Logging | `start_log`, `start_packet_log`, `log_note`, `log_path`, `packet_log_path`; `_record` writes every packet as an `rf_packet` event record (S2LP-FR-080) |
+| Logging | `start_log`, `start_packet_log`, `log_note`, `log_path`, `packet_log_path`; `_record` writes every packet as an `rf_packet` event record (S2LP-FR-080); `read_setup` reads `radio_info`, `read_all_registers`, the power at `PA_LEVEL_MAX_IDX` and the EEPROM and logs them as one `rf_setup` record (S2LP-FR-084) |
 
 Design points:
 
@@ -2531,6 +2532,8 @@ walks the steps from the target on, with `_references_in` finding each saved
 name a step's arguments and expectations use, and refuses a name neither saved
 nor saved earlier in that walk. An abort in setup becomes the setup error.
 
+`READ_SETUP` (#157): `request` sets a flag, not a pending command, so it neither ends a pause nor competes with an abort. `checkpoint` returns it when nothing else is pending; the runner calls `_read_setups` - `read_setup` on every connected instrument that has one, a failure logged as a warning - then checks the checkpoint again and runs the step. After the last test case it does the same and carries on. Refused in teardown and with no run (RUN-FR-066).
+
 #### RUN-DD-REPORT — `report.py`
 
 `write_json` (lossless), `format_markdown`/`write_markdown` (verdict, then
@@ -2827,6 +2830,21 @@ the browser's print dialogue.
 
 The sensor graphs are now in time order whatever order their frames were read
 in, which a report from a log stitched together showed was needed.
+
+#### VIEW-DD-STGUI — `st_gui.py`, `static/stgui.js`
+
+`StGui.feed` keeps the latest `rf_setup` record per source, its register keys
+back to addresses. `rf_setup_rows`, `register_rows` and `regs_text` are ported
+from the Test Bench monitor's `sources.py`: the RF setup in sections, the
+registers with fields and a `changed` flag for a writable register off its
+reset value, and the register file of every changed writable register.
+`st_row` lists a frame as ST's GUI does, a CRC failure (error 2) as "Packet
+lost. CRC error". `Hub.st_gui_screen` and `Hub.registers_file` serve
+`/api/stgui` and `/api/stgui/regs` (400 before any setup is read); `POST
+/api/stgui/refresh` sends `read_setup` to the runner's control channel, so the
+port stays with the run (VIEW-FR-043 … -045). The RF page's ST GUI sub-tab
+lays them out as ST's GUI does: setup and frames on the left, registers on the
+right, each register row expanding to its fields.
 
 #### VIEW-DD-PAGE — `static/index.html`, `app.js`, `app.css`
 

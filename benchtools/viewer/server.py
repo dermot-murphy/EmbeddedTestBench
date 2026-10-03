@@ -30,6 +30,9 @@ The API:
 ``GET /api/diagnostics``  rf_monitor's Diagnostics and Sync; ``?sensor=`` (#155)
 ``GET /api/notes``        the run's notes; ``POST`` saves them (#156)
 ``GET /api/report``       the run as one HTML report; ``?sensor=&download=1``
+``GET /api/stgui``        the ST GUI page: RF setup, registers, frames (#157);
+                          ``/api/stgui/regs`` the register file; ``POST
+                          /api/stgui/refresh`` asks the runner to read it
 ``GET /api/catalogue``    test specifications and benches the viewer can start
 ``POST /api/control``     a control request, passed to the runner
 ``POST /api/start``       start a run as a subprocess and follow it
@@ -52,7 +55,7 @@ browser first asking this server, which never agrees, so another site open in
 the same browser cannot start or abort a run. The ``Host`` header must name
 this machine, which stops a DNS-rebinding page reaching the API by name.
 
-Traces to: VIEW-FR-001 .. VIEW-FR-042, VIEW-DD-SERVER.
+Traces to: VIEW-FR-001 .. VIEW-FR-045, VIEW-DD-SERVER.
 """
 
 from __future__ import annotations
@@ -90,6 +93,7 @@ from .radio import BleAir, RfFrames
 from .report import NotesStore, build_report
 from .sensor_series import SensorSeries
 from .state import RunState
+from .st_gui import StGui, regs_text
 from .status import InstrumentStatus, progress
 from .tags import Tagger
 from .twf import TwfAssembler
@@ -142,6 +146,7 @@ class Hub:  # pylint: disable=too-many-instance-attributes
         self.twf = TwfAssembler()
         self.diagnostics = Diagnostics()
         self.sync = SyncTracker()
+        self.st_gui = StGui()
         self.records: List[Tuple[int, Dict[str, Any]]] = []
         self.sequence = 0
         self.generation = 0
@@ -177,6 +182,7 @@ class Hub:  # pylint: disable=too-many-instance-attributes
             self.twf = TwfAssembler()
             self.diagnostics = Diagnostics()
             self.sync = SyncTracker()
+            self.st_gui = StGui()
             self.records = []
             self._override_port = control_port
             self.generation += 1
@@ -227,6 +233,7 @@ class Hub:  # pylint: disable=too-many-instance-attributes
         self.ble.feed(record)
         self.readings.feed(record)
         self.links.feed(record)
+        self.st_gui.feed(record)
         if self.traffic.feed(record):
             source = record["source"]
             if self.panels.get(source) is None:
@@ -299,6 +306,18 @@ class Hub:  # pylint: disable=too-many-instance-attributes
         """Start the Diagnostics statistics again."""
         with self._condition:
             self.diagnostics.reset(sensor)
+
+    def st_gui_screen(self) -> Dict[str, Any]:
+        """The ST GUI page: the kit's latest setup, its registers, its frames (#157)."""
+        with self._condition:
+            frames = [dict(frame, error=frame.get("error")) for frame in self.rf.frames][-500:]
+            return self.st_gui.view(frames)
+
+    def registers_file(self) -> Optional[str]:
+        """The latest setup's registers as a register file, or ``None``."""
+        with self._condition:
+            setup = self.st_gui.setup()
+            return regs_text(setup["registers"]) if setup else None
 
     def _loop(self) -> None:
         while not self._stop.is_set():
@@ -453,6 +472,8 @@ _GET_API = {
     "/api/diagnostics": "_get_diagnostics",
     "/api/notes": "_get_notes",
     "/api/report": "_get_report",
+    "/api/stgui": "_get_stgui",
+    "/api/stgui/regs": "_get_stgui_regs",
     "/api/events": "_get_events",
 }
 
@@ -463,6 +484,7 @@ _POST_API = {
     "/api/attach": "_post_attach",
     "/api/diagnostics/reset": "_post_diagnostics_reset",
     "/api/notes": "_post_notes",
+    "/api/stgui/refresh": "_post_stgui_refresh",
 }
 
 
@@ -625,6 +647,21 @@ class _Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _get_stgui(self) -> None:
+        self._json(self.server.hub.st_gui_screen())
+
+    def _get_stgui_regs(self) -> None:
+        text = self.server.hub.registers_file()
+        if text is None:
+            raise ValueError("no RF setup has been read yet: refresh it first")
+        body = text.encode("utf-8")
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Content-Disposition", 'attachment; filename="s2lp_setup.regs"')
+        self.end_headers()
+        self.wfile.write(body)
+
     def _get_status(self) -> None:
         self._json(self.server.hub.status())
 
@@ -716,6 +753,10 @@ class _Handler(BaseHTTPRequestHandler):
     def _post_diagnostics_reset(self, body: Dict[str, Any]) -> None:
         self.server.hub.reset_diagnostics(str(body.get("sensor") or "").upper())
         self._json({"ok": True})
+
+    def _post_stgui_refresh(self, _body: Dict[str, Any]) -> None:
+        """Ask the runner to read the kit's setup between steps (RUN-FR-066)."""
+        self._control({"cmd": "read_setup"})
 
     def _post_notes(self, body: Dict[str, Any]) -> None:
         self._json(dict(NotesStore(self.server.hub.path).save(

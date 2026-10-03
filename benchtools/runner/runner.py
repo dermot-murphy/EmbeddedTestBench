@@ -34,7 +34,7 @@ from ..core.events import log_event
 from ..core.paths import input_path_names, resolve_arguments
 from .bench import Bench, BenchConfig
 from .limits import Limit, TextLimit
-from .control import ABORT, Command, RunControl
+from .control import ABORT, READ_SETUP, Command, RunControl
 from .resolve import Reference, resolve_path, resolve_references
 from .results import CaseRecord, MeasurementRecord, RunRecord, Status, StepRecord
 from .spec import Expectation, Step, TestSpec, render
@@ -400,6 +400,10 @@ class BenchRunner:
             if self.control is not None:
                 command = self.control.checkpoint(phase, case_index, index,
                                                   interruptible=phase != PHASE_TEARDOWN)
+                if command is not None and command.kind == READ_SETUP:
+                    self._read_setups()
+                    command = self.control.checkpoint(phase, case_index, index,
+                                                      interruptible=phase != PHASE_TEARDOWN)
                 if command is not None:
                     raise _Interrupted(command, records)
             record = self.run_step(step, phase, case_index, index)
@@ -612,6 +616,9 @@ class BenchRunner:
                 # A restart asked for during the last step is still honoured.
                 command = (self.control.checkpoint(PHASE_TEST, None, None)
                            if self.control is not None else None)
+                if command is not None and command.kind == READ_SETUP:
+                    self._read_setups()
+                    continue
                 if command is None or command.kind == ABORT:
                     break
                 index, first = self._restart(records, index, command, tests)
@@ -647,6 +654,21 @@ class BenchRunner:
                 break
             index, first = index + 1, 0
         return [records[i] for i in sorted(records)]
+
+    def _read_setups(self) -> None:
+        """Have every open instrument that can read and log its setup (#157).
+
+        An operator asked for it through the control channel. A failure is
+        logged, never a step's error: the run carries on as it would have.
+        """
+        for alias, instrument in sorted(self.bench.connected.items()):
+            reader = getattr(instrument, "read_setup", None)
+            if not callable(reader):
+                continue
+            try:
+                reader()
+            except Exception as exc:  # pylint: disable=broad-exception-caught
+                _LOG.warning("%s: reading its setup failed: %s", alias, exc)
 
     def _restart(self, records: Dict[int, CaseRecord], current: int, command: Command,
                  tests) -> Tuple[int, int]:

@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE4-002 | **Version** | 1.17 |
+| **Document ID** | TB-SWE4-002 | **Version** | 1.18 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -49,6 +49,7 @@
 | 1.15 | 2026-10-03 | Claude | #154: SWE4-UT-VIEWTWF (15) added to §5, pass. The TWF screen was exercised in a browser on a 2048-sample polynomial-permuted waveform, three repeats, one packet lost: 50 and 120 Hz peaks, zoom. |
 | 1.16 | 2026-10-03 | Claude | #155: SWE4-UT-VIEWDIAG (14) added to §5, pass. Diagnostics and Sync were exercised in a browser on ALIVE bursts with copies lost and a LORES-HIRES handshake. |
 | 1.17 | 2026-10-03 | Claude | #156: SWE4-UT-VIEWREPORT (10) added to §5, pass; SWE4-UT-VIEWSENSOR 17. Notes and the report were exercised in a browser on a run combined with Kepler, ALIVE, TWF and sync frames. |
+| 1.18 | 2026-10-03 | Claude | #157: SWE4-UT-VIEWSTGUI (11) added to §5, pass. Refresh was exercised in a browser during a simulated run using the S2-LP: the run read its setup between steps and passed. |
 
 ---
 
@@ -231,6 +232,7 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | SWE4-UT-VIEWTWF | `viewer/test_twf.py` | 15 | Pass |
 | SWE4-UT-VIEWDIAG | `viewer/test_diagnostics.py` | 14 | Pass |
 | SWE4-UT-VIEWREPORT | `viewer/test_report.py` | 10 | Pass |
+| SWE4-UT-VIEWSTGUI | `viewer/test_st_gui.py` | 11 | Pass |
 | SWE4-UT-PATHS | `core/test_paths.py`, `runner/test_input_paths.py` | 70 | Pass |
 | SWE4-UT-EVENTNAMES | `runner/test_event_names.py` | 21 | Pass |
 | SWE4-UT-RESOLVE | `runner/test_resolve.py` | 27 | Pass |

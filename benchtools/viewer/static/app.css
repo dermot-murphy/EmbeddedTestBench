@@ -193,6 +193,14 @@ table.kv td { font-family: var(--mono); overflow-wrap: anywhere; }
 #diag-hold[aria-pressed="true"] { border-color: var(--warn); color: var(--warn); }
 textarea { font: inherit; padding: 6px; border: 1px solid var(--line); border-radius: 6px;
            background: var(--bg); color: var(--text); width: 100%; resize: vertical; }
+.stgui { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 12px; }
+.stgui .table { max-height: 42vh; }
+.stgui .registers { max-height: 80vh; }
+.table tr.changed td { color: var(--fail); }
+.table tr.field td { color: var(--muted); font-size: 11px; }
+.table tr.field td:first-child { padding-left: 20px; }
+.table tr.lost td { color: var(--fail); }
+@media (max-width: 800px) { .stgui { grid-template-columns: 1fr; } }
 .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px;
         display: flex; flex-direction: column; gap: 10px; }

@@ -18,6 +18,7 @@ for (const button of document.querySelectorAll("#rf-views button")) {
     $("rf-twf-view").hidden = rfView !== "twf";
     $("rf-diagnostics-view").hidden = rfView !== "diagnostics";
     $("rf-sync-view").hidden = rfView !== "sync";
+    $("rf-stgui-view").hidden = rfView !== "stgui";
     const graphs = ["environment", "short", "ticks"].includes(rfView);
     $("rf-graphs-view").hidden = !graphs;
     $("rf-axis-box").hidden = rfView !== "short";
@@ -264,6 +265,7 @@ $("diag-reset").addEventListener("click", async () => {
 
 async function loadKepler() {
   if (rfView === "frames") return;
+  if (rfView === "stgui") { loadStGui(); return; }
   if (rfView === "diagnostics" || rfView === "sync") { loadDiagnostics(); return; }
   if (rfView === "twf") { loadTwf(); return; }
   if (["environment", "short", "ticks"].includes(rfView)) { loadSensorGraphs(); return; }

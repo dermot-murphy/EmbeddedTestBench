@@ -27,7 +27,8 @@ report exactly what it was told - while almost nothing comes out of the antenna.
 The firmware does not say which board it is on, so the band is checked only
 when the caller names the board; otherwise only the synthesiser's own range is.
 
-Traces to: S2LP-FR-001 .. S2LP-FR-060, S2LP-FR-080, S2LP-ARC-001, S2LP-DD-S2LP, S2LP-DD-CONFIG.
+Traces to: S2LP-FR-001 .. S2LP-FR-060, S2LP-FR-080, S2LP-FR-084, S2LP-ARC-001, S2LP-DD-S2LP,
+S2LP-DD-CONFIG.
 """
 
 from __future__ import annotations
@@ -435,6 +436,28 @@ class S2lpDevkit(TrafficMixin, Instrument):
     def write_register(self, which: Union[int, str], value: int) -> None:
         """One register, by name or address."""
         self.write_registers(which, [value])
+
+    def read_setup(self) -> Dict[str, Any]:
+        """The kit's RF setup and every register, also logged as an ``rf_setup`` record.
+
+        What ST's GUI shows on its first screen: the radio's settings, each
+        register, the output power and the board's EEPROM. Logged so a reader of
+        the event log - the test run viewer's ST GUI page (#157) - has it
+        without the kit's port, which belongs to the run.
+        """
+        max_index = self.read_field("PA_POWER0", "PA_LEVEL_MAX_IDX")
+        board = self.eeprom
+        setup = {
+            "radio": self.radio_info(),
+            "registers": self.read_all_registers(),
+            "power_dbm": self.power_level_dbm(max_index),
+            "eeprom": board.as_dict() if board is not None else None,
+        }
+        log_event(self._logger, "rf_setup", "RF setup read: %d registers"
+                  % len(setup["registers"]),
+                  dict(setup, registers={"%d" % address: value for address, value
+                                         in setup["registers"].items()}))
+        return setup
 
     def read_all_registers(self) -> Dict[int, int]:
         """Every documented register, as address to value.
