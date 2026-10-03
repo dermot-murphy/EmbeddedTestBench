@@ -586,11 +586,11 @@ tests in `tests/instruments/pico_sht30/`.
 | RUN-FR-058 | RUN-ARC-001 | RUN-DD-SPEC, RUN-DD-RESULTS, RUN-DD-REPORT | `substitute_parameters`, `TestSpec.parameters`, `RunRecord.parameters` | `SWE4-UT-PARAMS` (7) |
 | RUN-FR-059 | RUN-ARC-001 | RUN-DD-RUNNER, RUN-DD-RESULTS, RUN-DD-REPORT, RUN-DD-CLI | `BenchRunner.run(selection)`, `check_selection`, `NOT_SELECTED`, `RunRecord.selection`, `--test` | `SWE4-UT-SELECT` (14) |
 | RUN-FR-060 | RUN-ARC-001 | RUN-DD-RUNNER | `BenchRunner.run`, `_plan`, `run_case`, `_log_case_end`, `run_step`, `_execute_step`, `PHASE_*` | `SWE4-UT-RUNEVENTS` (21) |
-| RUN-FR-061 | RUN-ARC-001 | RUN-DD-CONTROL, RUN-DD-RUNNER, RUN-DD-CLI | `ControlServer`, `HOST`, `--control` | `SWE4-UT-CONTROL` (31) |
-| RUN-FR-062 | RUN-ARC-001 | RUN-DD-CONTROL, RUN-DD-RUNNER, RUN-DD-CLI | `RunControl.checkpoint`, `request`, `status`; `run_steps` | `SWE4-UT-CONTROL` (31) |
-| RUN-FR-063 | RUN-ARC-001 | RUN-DD-CONTROL, RUN-DD-RUNNER, RUN-DD-CLI | `ABORT`, `ABORTED`, `_run_tests`, `_Interrupted` | `SWE4-UT-CONTROL` (31) |
-| RUN-FR-064 | RUN-ARC-001 | RUN-DD-CONTROL, RUN-DD-RUNNER, RUN-DD-CLI | `RESTART_FROM`, `_restart`, `_restart_refusal`, `_references_in`, `run_case(first, kept)`, `SKIPPED_BY_OPERATOR` | `SWE4-UT-CONTROL` (31) |
-| RUN-FR-065 | RUN-ARC-001 | RUN-DD-CONTROL, RUN-DD-RUNNER, RUN-DD-CLI | `RunControl._refusal`, `control` and `control_applied` records | `SWE4-UT-CONTROL` (31) |
+| RUN-FR-061 | RUN-ARC-001 | RUN-DD-CONTROL, RUN-DD-RUNNER, RUN-DD-CLI | `ControlServer`, `HOST`, `--control` | `SWE4-UT-CONTROL` (32) |
+| RUN-FR-062 | RUN-ARC-001 | RUN-DD-CONTROL, RUN-DD-RUNNER, RUN-DD-CLI | `RunControl.checkpoint`, `request`, `status`; `run_steps` | `SWE4-UT-CONTROL` (32) |
+| RUN-FR-063 | RUN-ARC-001 | RUN-DD-CONTROL, RUN-DD-RUNNER, RUN-DD-CLI | `ABORT`, `ABORTED`, `_run_tests`, `_Interrupted` | `SWE4-UT-CONTROL` (32) |
+| RUN-FR-064 | RUN-ARC-001 | RUN-DD-CONTROL, RUN-DD-RUNNER, RUN-DD-CLI | `RESTART_FROM`, `_restart`, `_restart_refusal`, `_references_in`, `run_case(first, kept)`, `SKIPPED_BY_OPERATOR` | `SWE4-UT-CONTROL` (32) |
+| RUN-FR-065 | RUN-ARC-001 | RUN-DD-CONTROL, RUN-DD-RUNNER, RUN-DD-CLI | `RunControl._refusal`, `control` and `control_applied` records | `SWE4-UT-CONTROL` (32) |
 | RUN-FR-050 | ARC-001 | RUN-DD-CLI | `runner/cli.py` | `TestRunCommand` (8) |
 | RUN-FR-051 | ARC-001 | RUN-DD-CLI | exit statuses | `test_simulated_run_passes`, `test_failure_exits_nonzero`, `test_no_bench_and_no_simulate_is_a_usage_error` |
 | RUN-FR-052 | ARC-001 | RUN-DD-CLI | report path suffixing | `test_several_specs_get_suffixed_reports` |
