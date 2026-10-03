@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE3-001 | **Version** | 1.12 |
+| **Document ID** | TB-SWE3-001 | **Version** | 1.13 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -44,6 +44,7 @@
 | 1.10 | 2026-10-03 | Claude | #149: VIEW-DD-STATUS added (`InstrumentStatus`, `progress`, `_expected`, `/api/status`, `status.js`). |
 | 1.11 | 2026-10-03 | Claude | #141: VIEW-DD-SERVER - access token, sign-in cookie, read-only, HTTPS, `_POST_API`. |
 | 1.12 | 2026-10-03 | Claude | #151: S2LP-DD-KEPLER - the decoder checked against the sensor firmware point by point; RESPONSE corrected; `kepler_tables.py` added. |
+| 1.13 | 2026-10-03 | Claude | #152: VIEW-DD-KEPLER added (`KeplerView`, `byte_roles`, `header_rows`, `payload_rows`, `CONFIG_GROUPS`, `/api/kepler`, `kepler.js`). |
 
 ---
 
@@ -2704,6 +2705,27 @@ else the action's mean, else the mean of all (VIEW-FR-023, -024).
 the state badge, the test case, "Steps n / m", "About … left" or "Time left:
 estimating", and a chip per instrument with a status-palette dot, its name and
 "ok"-time or its state in words, its last line as the tooltip.
+
+#### VIEW-DD-KEPLER — `kepler_view.py`, `static/kepler.js`
+
+`RfFrames` now remembers the frame its last `feed` added (`last_frame`), and
+the hub hands it to `KeplerView.feed`, which keeps the last `KEEP_LATEST` (500)
+frames with `byte_roles` (bytes 0-6 header, 7 type, 8 permute control when the
+frame has one, the counter at 8 or 9, the rest payload), `header_rows` and
+`payload_rows` - every decoded field not the header's, ticks also as
+DD:HH:MM:SS, a CONFIG frame's parameters by name with their units; per sensor,
+each configuration parameter's latest value, keyed by the parameter the
+firmware's mapping says the slot carries (S2LP-FR-081); and per sensor its last
+VERSION frame. `view(sensor)` gives the latest 50 frames, the 60-row
+configuration table with block, unit, time, and `disabled` for an enable set
+to 0, the `CONFIG_GROUPS` summaries, and the identification - of the sensor
+chosen, or the first heard (VIEW-FR-028 … -030). `/api/kepler?sensor=` serves
+it. The frames list's summary names a CONFIG frame's parameters and leaves the
+product out.
+
+`kepler.js` adds sub-tabs to the RF page - Frames, Latest Data, Config,
+Identification - polling `/api/kepler` every second while one is shown;
+Latest Data has its own pause, holding the newest reply until resumed.
 
 #### VIEW-DD-PAGE — `static/index.html`, `app.js`, `app.css`
 

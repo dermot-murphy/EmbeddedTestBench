@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE4-001 | **Version** | 1.14 |
+| **Document ID** | TB-SWE4-001 | **Version** | 1.15 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -46,6 +46,7 @@
 | 1.12 | 2026-10-03 | Claude | #149: SWE4-UT-VIEWSTATUS added (10 cases). |
 | 1.13 | 2026-10-03 | Claude | #141: SWE4-UT-VIEWREMOTE added (22 cases). |
 | 1.14 | 2026-10-03 | Claude | #151: SWE4-UT-S2LPTABLES added (19 cases); SWE4-UT-S2LPKEPLER's RESPONSE case rewritten to the firmware's layout and three added. |
+| 1.15 | 2026-10-03 | Claude | #152: SWE4-UT-VIEWKEPLER added (12 cases). |
 
 ---
 
@@ -377,6 +378,7 @@ against the simulator in the default run (SWE4-UT-PSUPANEL, SWE4-UT-DMMPANEL).
 | SWE4-UT-VIEWTAGS | `viewer/test_tags.py` | Event-log tags (19 cases): a frame's sensor decoded or not, frames naming none, a BLE name's sensor, other lines; each kind, the tags put on the record; every record of two runs of two test cases tagged with its run and test case, setup and teardown, the list of tests; a test case not selected; nothing before a run; the hub tagging a log of runs, two sensors' frames and BLE | VIEW-FR-019 .. VIEW-FR-021 |
 | SWE4-UT-VIEWSTATUS | `viewer/test_status.py` | The status bar (10 cases): open, closed, silent, warning and error instruments with the time since each was heard, one attached after it opened, the runner not an instrument; steps run of total part way through with the test case named, a test case that ended early, test cases not selected, the estimate from the same step, its action and all steps, a restart counting steps again, setup named; the hub serving it | VIEW-FR-022 .. VIEW-FR-024 |
 | SWE4-UT-VIEWREMOTE | `viewer/test_remote.py` | The viewer from another PC (22 cases): nothing answered without the token, a bearer token whatever the host name, the printed address setting the cookie, wrong tokens refused, a POST needing the token and the guard header; read-only refusing changes but still needing the token; loopback addresses, another address refused without a token, tokens long and fresh, the options, reached through this machine's own LAN address; HTTPS with a Secure cookie | VIEW-FR-025 .. VIEW-FR-027 |
+| SWE4-UT-VIEWKEPLER | `viewer/test_kepler_view.py` | rf_monitor's screens (12 cases): byte roles, header rows, payload rows naming CONFIG parameters and ticks, the latest frames of one sensor, an undecodable frame listed; every parameter's latest value, a later frame replacing one and unseen ones unknown, a polynomial frame placed by its repeat, the summary groups; identification from the last VERSION frame or none; the frames list naming CONFIG parameters | VIEW-FR-028 .. VIEW-FR-030 |
 | SWE4-UT-S2LP | `instruments/s2lp/test_s2lp.py` | The S2-LP driver: identification without an invented board, the band of a named board and the synthesiser's range otherwise, register and bit-field access, read-only refusals, mis-framed replies, strobes, both resets and the state each leaves, radio and packet configuration and their read-back, RSSI conversion, routing the interrupt, the PN9 TX-source refusal, transmit and its recovery, receive and its stop on timeout, capture with its re-arm count and rejected receptions, streaming with registers read after each frame and decoding, the microsecond board clock, and both logs | S2LP-FR-001 .. -036 |
 | SWE4-UT-S2LPREG | `instruments/s2lp/test_registers.py` | The register map as data: unique addresses and names, non-overlapping fields inside their byte, reset values, read-only status registers, field extraction and insertion, lookup and its failures, contiguous runs, and the rendering of a dump | S2LP-FR-010 .. -014 |
 | SWE4-UT-S2LPCONFIG | `instruments/s2lp/test_configuration.py` | Register values from a file: the punctuation such files are written with, hexadecimal values, every refusal and the line it names, applying with read-back, the loose and strict checks, and capturing a radio's settings back out; and the reset that makes a partial file deterministic, including that the reset strobe does not do it | S2LP-FR-017 .. -021 |

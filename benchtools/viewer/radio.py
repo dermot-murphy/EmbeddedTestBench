@@ -51,9 +51,10 @@ def parse_fields(text: str) -> Dict[str, Any]:
 
 def _summary(decoded: Dict[str, Any]) -> str:
     """One line of what a decoded frame says."""
-    parts = []
+    parts = ["%s %s%s" % (item["name"], item["shown"], " " + item["unit"] if item["unit"] else "")
+             for item in decoded.get("parameters") or [] if item.get("name")]
     for key, value in decoded.items():
-        if key in ("type", "pl_type", "sensor_id", "product_id", "rf_capability",
+        if key in ("type", "pl_type", "sensor_id", "product_id", "product", "rf_capability",
                    "type_capability", "hw_capability", "fw_capability", "warnings"):
             continue
         if isinstance(value, (dict, list)):
@@ -71,6 +72,8 @@ class RfFrames:
         self.received = 0
         self.failed = 0
         self.sent = 0
+        #: The frame the last call to :meth:`feed` added, for other views of it.
+        self.last_frame: Optional[Dict[str, Any]] = None
 
     def feed(self, record: Dict[str, Any]) -> bool:
         """Take one record; ``True`` if it was a packet."""
@@ -107,6 +110,7 @@ class RfFrames:
             "problem": problem,
         }
         self.frames.append(frame)
+        self.last_frame = frame
         if sensor:
             entry = self.sensors.setdefault(sensor, {"sensor_id": sensor, "frames": 0,
                                                      "latest": {}, "first_t": frame["t"]})

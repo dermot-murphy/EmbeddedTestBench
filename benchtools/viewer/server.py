@@ -21,6 +21,8 @@ The API:
 ``GET /api/graphs``       readings, BLE advertising and step markers;
                           ``?ble=&expected_ms=`` (#140)
 ``GET /api/status``       the status bar: run, progress, time left, instruments
+``GET /api/kepler``       rf_monitor's Latest Data, Config, Identification;
+                          ``?sensor=`` (#152)
 ``GET /api/catalogue``    test specifications and benches the viewer can start
 ``POST /api/control``     a control request, passed to the runner
 ``POST /api/start``       start a run as a subprocess and follow it
@@ -43,7 +45,7 @@ browser first asking this server, which never agrees, so another site open in
 the same browser cannot start or abort a run. The ``Host`` header must name
 this machine, which stops a DNS-rebinding page reaching the API by name.
 
-Traces to: VIEW-FR-001 .. VIEW-FR-024, VIEW-DD-SERVER.
+Traces to: VIEW-FR-001 .. VIEW-FR-030, VIEW-DD-SERVER.
 """
 
 from __future__ import annotations
@@ -75,6 +77,7 @@ from ..core.events import EventTail
 from ..runner.control import HOST
 from ..runner.spec import load_spec
 from .graphs import Readings, advertising, step_markers
+from .kepler_view import KeplerView
 from .radio import BleAir, RfFrames
 from .state import RunState
 from .status import InstrumentStatus, progress
@@ -123,6 +126,7 @@ class Hub:  # pylint: disable=too-many-instance-attributes
         self.readings = Readings()
         self.tagger = Tagger()
         self.links = InstrumentStatus()
+        self.kepler = KeplerView()
         self.records: List[Tuple[int, Dict[str, Any]]] = []
         self.sequence = 0
         self.generation = 0
@@ -153,6 +157,7 @@ class Hub:  # pylint: disable=too-many-instance-attributes
             self.readings = Readings()
             self.tagger = Tagger()
             self.links = InstrumentStatus()
+            self.kepler = KeplerView()
             self.records = []
             self._override_port = control_port
             self.generation += 1
@@ -192,7 +197,10 @@ class Hub:  # pylint: disable=too-many-instance-attributes
             self.traffic.clear()
             self.panels = {}
         self.state.apply(record)
+        self.rf.last_frame = None
         self.rf.feed(record)
+        if self.rf.last_frame is not None:
+            self.kepler.feed(self.rf.last_frame)
         self.ble.feed(record)
         self.readings.feed(record)
         self.links.feed(record)
@@ -243,6 +251,11 @@ class Hub:  # pylint: disable=too-many-instance-attributes
             return {"run": state["status"], "paused": state["paused"], "suite": state["suite"],
                     "progress": progress(state), "instruments": self.links.view(now),
                     "now": now}
+
+    def kepler_screens(self, sensor: str = "") -> Dict[str, Any]:
+        """rf_monitor's Latest Data, Config and Identification (#152)."""
+        with self._condition:
+            return self.kepler.view(sensor)
 
     def _loop(self) -> None:
         while not self._stop.is_set():
@@ -391,6 +404,7 @@ _GET_API = {
     "/api/graphs": "_get_graphs",
     "/api/catalogue": "_get_catalogue",
     "/api/status": "_get_status",
+    "/api/kepler": "_get_kepler",
     "/api/events": "_get_events",
 }
 
@@ -529,6 +543,9 @@ class _Handler(BaseHTTPRequestHandler):
         self._json({"specs": self.server.catalogue.specs(),
                     "benches": self.server.catalogue.benches(),
                     "running": self.server.launcher.running})
+
+    def _get_kepler(self) -> None:
+        self._json(self.server.hub.kepler_screens((self._query("sensor") or "").upper()))
 
     def _get_status(self) -> None:
         self._json(self.server.hub.status())

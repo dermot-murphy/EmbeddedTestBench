@@ -53,11 +53,32 @@
       <label>Sensor <select id="rf-sensor"><option value="">All sensors</option></select></label>
       <span id="rf-counts" class="note"></span>
     </div>
-    <h2 class="section">Sensors</h2>
-    <div id="rf-sensors" class="table"></div>
-    <h2 class="section">Frames received</h2>
-    <div id="rf-frames" class="table frames"></div>
-    <pre id="rf-detail" class="detail-box" hidden></pre>
+    <div class="filters subtabs" id="rf-views" role="tablist">
+      <button data-view="frames" aria-selected="true">Frames</button>
+      <button data-view="latest" aria-selected="false">Latest Data</button>
+      <button data-view="config" aria-selected="false">Config</button>
+      <button data-view="identification" aria-selected="false">Identification</button>
+    </div>
+    <div id="rf-frames-view">
+      <h2 class="section">Sensors</h2>
+      <div id="rf-sensors" class="table"></div>
+      <h2 class="section">Frames received</h2>
+      <div id="rf-frames" class="table frames"></div>
+      <pre id="rf-detail" class="detail-box" hidden></pre>
+    </div>
+    <div id="rf-latest-view" hidden>
+      <div class="toolbar"><button id="rf-latest-pause" type="button">Pause</button>
+        <span class="note">Newest first; the last 50 frames of the sensor chosen above.</span></div>
+      <div id="rf-latest" class="latest"></div>
+    </div>
+    <div id="rf-config-view" hidden>
+      <div class="note" id="rf-config-sensor"></div>
+      <div id="rf-config-groups" class="panels"></div>
+      <div id="rf-config" class="table config"></div>
+    </div>
+    <div id="rf-identification-view" hidden>
+      <div id="rf-identification" class="panel"></div>
+    </div>
   </section>
 
   <section id="page-ble" class="page" hidden>
@@ -118,5 +139,6 @@
 <script src="/static/app.js"></script>
 <script src="/static/graphs.js"></script>
 <script src="/static/status.js"></script>
+<script src="/static/kepler.js"></script>
 </body>
 </html>

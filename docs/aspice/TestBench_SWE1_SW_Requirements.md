@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE1-001 | **Version** | 1.14 |
+| **Document ID** | TB-SWE1-001 | **Version** | 1.15 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -46,6 +46,7 @@
 | 1.12 | 2026-10-03 | Claude | #149: VIEW-FR-022 … -024 added - the status bar: run state and instruments, test case and steps, and the estimated time left. |
 | 1.13 | 2026-10-03 | Claude | #141: VIEW-FR-025 … -027 added - the viewer from another PC: access token, read-only, HTTPS, the control channel still on 127.0.0.1. |
 | 1.14 | 2026-10-03 | Claude | #151: S2LP-FR-081 … -083 added - CONFIG parameters named, waveform sample order and ODR, and frames decoded as the firmware builds them (RESPONSE layout corrected). |
+| 1.15 | 2026-10-03 | Claude | #152: VIEW-FR-028 … -030 added - rf_monitor's Latest Data, Config and Identification screens. |
 
 ---
 
@@ -1005,6 +1006,9 @@ A browser page onto a bench run (#130, #137), served by `benchtools view`. It is
 | VIEW-FR-025 | `benchtools view --bind ADDRESS` shall listen on an address other than this machine's own only with an access token, generated at start and printed with the address to open: every request without it - page, files and API alike - shall be refused. Opening the printed address shall keep the token as an HttpOnly, SameSite cookie; a program may send it as `Authorization: Bearer`. Without `--bind` nothing shall be reachable from another machine. | STK-23 | Test |
 | VIEW-FR-026 | `--read-only` shall refuse every request that changes anything - start, attach, control - so a run can be watched from another PC without being steered. | STK-23 | Test |
 | VIEW-FR-027 | `--tls-cert` and `--tls-key` shall serve the viewer over HTTPS, the cookie then marked Secure; served over plain HTTP to another machine, the viewer shall say that the token crosses the network in clear. The runner's control channel shall stay on 127.0.0.1 whatever the viewer listens on. | STK-23 | Test |
+| VIEW-FR-028 | The RF page shall show rf_monitor's Latest Data: each received frame, newest first, of one sensor or all - its time, sensor, type and RSSI; its raw bytes coloured by role (header, type, permute control, frame counter, payload); its packet header (sensor, product, capabilities, permute control, frame counter n of m); and its payload, each field with its unit and CONFIG values by parameter name - with a pause. | STK-23 | Test |
+| VIEW-FR-029 | The RF page shall show rf_monitor's Config: for a sensor, each of the 60 configuration parameters - block, number, name, latest value as its enumeration names it, unit, when last received - disabled parameters and parameters not yet received shown as such, and rf_monitor's summary groups (operation timings, trigger settings, sampling, sync, FFT, other). | STK-23 | Test |
+| VIEW-FR-030 | The RF page shall show rf_monitor's Identification: from a sensor's last VERSION frame, when it was received, the sensor and product, firmware version and SHA, capabilities and PCB, temperature and loaded battery, ticks and the reset reason by name, or that no VERSION frame has arrived. | STK-23 | Test |
 
 ## 17. Assumptions and constraints
 
