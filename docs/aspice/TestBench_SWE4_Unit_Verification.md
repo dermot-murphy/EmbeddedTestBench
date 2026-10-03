@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE4-001 | **Version** | 1.3 |
+| **Document ID** | TB-SWE4-001 | **Version** | 1.4 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -35,6 +35,7 @@
 | 1.1 | 2026-10-02 | Claude | #126: SWE4-UT-EVENTNAMES added (21 cases); SWE4-UT-EVENTS covers per-instrument names (54 cases); SWE4-UT-TESTBENCH covers declared names and lower-case logs in the monitor. |
 | 1.2 | 2026-10-03 | Claude | #127: SWE4-UT-PICOFLASH added (34 cases, including two for an error from the 1200-baud reset kept as a note) for reflashing the Pico 2 thermometer with no BOOTSEL press (PICO-FR-070 … -076); §1.4b and the item not covered on silicon extended to PICO-OPEN-05, then narrowed after PICO-OPEN-01 and -05 were confirmed on a real Pico 2 on Windows. |
 | 1.3 | 2026-10-03 | Claude | #131: SWE4-UT-PICO, -PICOSIM, -PICOCLI, -PICOFWPROTO and -PICOFW rewritten for the `rd` command set, `ecureset`, `NoReadingError` and the two-place temperature (PICO-FR-006, -007, -027, -047, -061); the raw-word cross-check is no longer tested (PICO-FR-044 withdrawn). Firmware unit cases now 83. §1.4b: the shared vectors now include the two-place rounding, and the host unit tests are run with clang on Windows. §8: the Pico 2 not-covered row narrowed to what still needs the SHT30-D module, after the first run on a real Pico 2 (TB-SWE4-002 §13A.7). With #127 merged, SWE4-UT-PICOFLASH revised for `flash` confirming the build by `rd` (name, version and commit SHA read from the image in place of the title and build date): now 35 cases, the ambiguous build-date case replaced by an ambiguous-SHA case and a missing-version case added. |
+| 1.4 | 2026-10-03 | Claude | #134: SWE4-UT-SELECT added (14 cases) for running a selected subset of test cases (RUN-FR-059). |
 
 ---
 
@@ -355,6 +356,7 @@ against the simulator in the default run (SWE4-UT-PSUPANEL, SWE4-UT-DMMPANEL).
 | SWE4-UT-COREFW | `core/test_firmware.py` | Reading a build manifest: by name, by directory, by build subdirectory; the diagnostics, including that the caller supplies how to produce one; build-date parsing and the date a build did not inject | CORE-FR-050 |
 | SWE4-UT-SPEC | `runner/test_spec.py` | Specification parsing and every malformed form | RUN-FR-010 .. -016 |
 | SWE4-UT-PARAMS | `runner/test_parameters.py` | Parameters as an argument, a bound and a tolerance, rendered into text, an undefined name refused, and the values used in the record and report | RUN-FR-058 |
+| SWE4-UT-SELECT | `runner/test_selection.py` | A selected subset of test cases run, the rest recorded as skipped "not selected" in specification order, setup and teardown still run, the selection in the record, markdown and JUnit, an unknown name refused before the bench opens, and `--test` on the command line | RUN-FR-059 |
 | SWE4-UT-S2LP | `instruments/s2lp/test_s2lp.py` | The S2-LP driver: identification without an invented board, the band of a named board and the synthesiser's range otherwise, register and bit-field access, read-only refusals, mis-framed replies, strobes, both resets and the state each leaves, radio and packet configuration and their read-back, RSSI conversion, routing the interrupt, the PN9 TX-source refusal, transmit and its recovery, receive and its stop on timeout, capture with its re-arm count and rejected receptions, streaming with registers read after each frame and decoding, the microsecond board clock, and both logs | S2LP-FR-001 .. -036 |
 | SWE4-UT-S2LPREG | `instruments/s2lp/test_registers.py` | The register map as data: unique addresses and names, non-overlapping fields inside their byte, reset values, read-only status registers, field extraction and insertion, lookup and its failures, contiguous runs, and the rendering of a dump | S2LP-FR-010 .. -014 |
 | SWE4-UT-S2LPCONFIG | `instruments/s2lp/test_configuration.py` | Register values from a file: the punctuation such files are written with, hexadecimal values, every refusal and the line it names, applying with read-back, the loose and strict checks, and capturing a radio's settings back out; and the reset that makes a partial file deterministic, including that the reset strobe does not do it | S2LP-FR-017 .. -021 |

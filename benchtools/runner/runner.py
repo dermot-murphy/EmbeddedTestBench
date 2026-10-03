@@ -36,9 +36,33 @@ from .resolve import resolve_path, resolve_references
 from .results import CaseRecord, MeasurementRecord, RunRecord, Status, StepRecord
 from .spec import Expectation, Step, TestSpec, render
 
-__all__ = ["BenchRunner", "BUILTIN_ACTIONS"]
+__all__ = ["BenchRunner", "BUILTIN_ACTIONS", "NOT_SELECTED", "check_selection"]
 
 _LOG = logging.getLogger(__name__)
+
+#: The rationale recorded for a test case the run was not asked for (#134).
+NOT_SELECTED = "not selected"
+
+
+def check_selection(specs: Sequence[TestSpec], selection: Sequence[str]) -> None:
+    """Refuse a selection naming a test case that none of *specs* contains.
+
+    Checked before the bench opens: a misspelt name would otherwise run
+    nothing and report every test case as not selected.
+
+    :raises SpecError: naming each unknown test case and the ones there are.
+    """
+    known = [case.name for spec in specs for case in spec.tests]
+    unknown = [name for name in selection if name not in known]
+    if unknown:
+        raise SpecError(
+            "no test case named %s; the specification%s contain%s: %s" % (
+                ", ".join(repr(name) for name in unknown),
+                "s" if len(specs) > 1 else "",
+                "" if len(specs) > 1 else "s",
+                ", ".join(repr(name) for name in known) or "none",
+            )
+        )
 
 
 def _action_sleep(seconds: float = 0.1) -> float:
@@ -324,11 +348,15 @@ class BenchRunner:
             )
         return record
 
-    def run(self, spec: TestSpec) -> RunRecord:
+    def run(self, spec: TestSpec, selection: Sequence[str] = ()) -> RunRecord:
         """Run a whole specification and return its result record.
 
         Setup failures abort the suite: every test after an unknown setup would
         report a number that means nothing. Teardown always runs.
+
+        :param selection: Names of the test cases to run; empty runs them all.
+            A test case left out is recorded as skipped, "not selected", so
+            the record says what was not executed and why (#134).
         """
         run = RunRecord(
             suite=spec.name,
@@ -338,6 +366,7 @@ class BenchRunner:
             parameters=dict(spec.parameters),
             simulated=self.bench.is_simulated,
             started=_now(),
+            selection=tuple(selection),
         )
         started = time.monotonic()
         self._saved = {}
@@ -372,6 +401,15 @@ class BenchRunner:
                     return run
 
             for case in spec.tests:
+                if selection and case.name not in selection:
+                    _LOG.info("test %r: not selected", case.name)
+                    run.cases.append(CaseRecord(
+                        name=case.name,
+                        status=Status.SKIP,
+                        requirement=case.requirement,
+                        skip_reason=NOT_SELECTED,
+                    ))
+                    continue
                 _LOG.info("running test %r", case.name)
                 record = self.run_case(case)
                 run.cases.append(record)

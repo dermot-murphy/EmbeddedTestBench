@@ -92,6 +92,8 @@ def format_markdown(run: RunRecord) -> str:
     if run.parameters:
         out.append("| Parameters | %s |" % ", ".join(
             "%s = %s" % (name, value) for name, value in sorted(run.parameters.items())))
+    if run.selection:
+        out.append("| Selected tests | %s |" % ", ".join(run.selection))
     out.append("| Started | %s |" % run.started)
     out.append("| Duration | %.2f s |" % run.duration_s)
     out.append("| Tests | %d passed, %d failed, %d errored, %d skipped (of %d) |" % (
@@ -234,7 +236,8 @@ def write_junit(run: RunRecord, path: str) -> str:
         ("simulated", str(run.simulated).lower()),
         ("specification", run.spec_source or ""),
     ) + tuple(("parameter %s" % name, str(value))
-              for name, value in sorted(run.parameters.items())):
+              for name, value in sorted(run.parameters.items())) + tuple(
+                  ("selected test", name) for name in run.selection):
         ElementTree.SubElement(properties, "property", {"name": name, "value": value})
 
     if run.setup_error:

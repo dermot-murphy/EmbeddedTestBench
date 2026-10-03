@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-RTM-001 | **Version** | 1.4 |
+| **Document ID** | TB-RTM-001 | **Version** | 1.5 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -36,6 +36,7 @@
 | 1.2 | 2026-10-02 | Claude | #126: CORE-FR-060 row updated; rows for CORE-FR-063 and RUN-FR-008; AD-28 traced. |
 | 1.3 | 2026-10-03 | Claude | #127: rows for PICO-FR-070 … -076 (reflashing with no BOOTSEL press); STK-21 and STK-22 rows extended; PICO-DD-FLASH added to the PICO architecture row; OPEN-09 extended to PICO-OPEN-05, then updated for PICO-OPEN-01 and -05 closed on a real Pico 2; PICO-FR-070 row gains the two `touch_1200` note tests. Requirement count corrected to 368 functional. |
 | 1.4 | 2026-10-03 | Claude | #131: rows for PICO-FR-006, -007, -027, -047 and -061; PICO-FR-001 … -005, -020 … -025, -030, -040 … -043, -046, -050 and -060 re-traced to the `rd` command set and its tests; PICO-FR-044 marked withdrawn. STK-21 and STK-22 rows updated. AD-24's verifying tests corrected: the raw-word tests no longer exist; AD-24 recorded as superseded in TB-SWE2-001 0.8. OPEN-09 extended to the `rd` command set and the target build, then narrowed after the first run on a real Pico 2 (2026-10-03): PICO-FR-031 carries the #131 target-build figures. §16 requirement count corrected to the number SWE.1 declares (366 functional, one of them withdrawn; it had read 356 since #116). With #127 merged: STK-21 and STK-22 rows carry both changes; PICO-FR-071, -073 and -076 re-traced to `flash` confirming the build by `rd` (the image's name, version and commit SHA; the ambiguous-SHA and missing-version tests); OPEN-09 restated for PICO-OPEN-01 … -06; §16 requirement count recomputed from SWE.1 as 373 functional declared, 372 in force. |
+| 1.5 | 2026-10-03 | Claude | #134: row for RUN-FR-059 (running a selected subset of test cases); §16 requirement count 374 functional declared, 373 in force. |
 
 ---
 
@@ -580,6 +581,7 @@ tests in `tests/instruments/pico_sht30/`.
 | RUN-FR-056 | RUN-ARC-001 | RUN-DD-RUNCLI | `_acknowledged`, `--acknowledge` | `test_hardware_without_a_terminal_refuses_to_start`, `test_a_terminal_is_asked_and_yes_proceeds`, `test_anything_but_yes_stops_the_run` (4) |
 | RUN-FR-057 | RUN-ARC-001 | RUN-DD-RUNCLI | `_acknowledged`, `_EXIT_NOT_ACKNOWLEDGED` | `test_a_simulated_run_is_not_gated`, `test_a_specification_with_no_warning_is_never_gated` |
 | RUN-FR-058 | RUN-ARC-001 | RUN-DD-SPEC, RUN-DD-RESULTS, RUN-DD-REPORT | `substitute_parameters`, `TestSpec.parameters`, `RunRecord.parameters` | `SWE4-UT-PARAMS` (7) |
+| RUN-FR-059 | RUN-ARC-001 | RUN-DD-RUNNER, RUN-DD-RESULTS, RUN-DD-REPORT, RUN-DD-CLI | `BenchRunner.run(selection)`, `check_selection`, `NOT_SELECTED`, `RunRecord.selection`, `--test` | `SWE4-UT-SELECT` (14) |
 | RUN-FR-050 | ARC-001 | RUN-DD-CLI | `runner/cli.py` | `TestRunCommand` (8) |
 | RUN-FR-051 | ARC-001 | RUN-DD-CLI | exit statuses | `test_simulated_run_passes`, `test_failure_exits_nonzero`, `test_no_bench_and_no_simulate_is_a_usage_error` |
 | RUN-FR-052 | ARC-001 | RUN-DD-CLI | report path suffixing | `test_several_specs_get_suffixed_reports` |
@@ -611,7 +613,7 @@ tests in `tests/instruments/pico_sht30/`.
 
 | Question | Answer |
 |---|---|
-| Requirements with no verifying test | **None.** All 372 functional requirements in force (373 declared; PICO-FR-044 is withdrawn) and 36 non-functional requirements trace to at least one test, or to a recorded inspection where a test is not the appropriate method (CORE-NFR-002, BLE-FR-090, BLE-NFR-002, and part of CORE-NFR-001). The firmware requirements are verified against the artefact the firmware is built from, not against a running dongle: see CON-07. |
+| Requirements with no verifying test | **None.** All 373 functional requirements in force (374 declared; PICO-FR-044 is withdrawn) and 36 non-functional requirements trace to at least one test, or to a recorded inspection where a test is not the appropriate method (CORE-NFR-002, BLE-FR-090, BLE-NFR-002, and part of CORE-NFR-001). The firmware requirements are verified against the artefact the firmware is built from, not against a running dongle: see CON-07. |
 | Tests not tracing to a requirement | **None.** Every test file names its requirements in its module docstring. |
 | Source modules with no design unit | **None.** Every module names its design unit in its docstring - firmware sources included, checked by `test_every_source_declares_its_trace` in `SWE4-UT-BLEFW`; `__main__.py` is covered by RUN-DD-CLI. |
 | Design units with no source | **None.** |

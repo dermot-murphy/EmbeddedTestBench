@@ -25,7 +25,7 @@ from ..core.events import start_event_log
 from .bench import BenchConfig, load_bench, registered_drivers
 from .report import summary_line, write_json, write_junit, write_markdown
 from .results import RunRecord, Status
-from .runner import BenchRunner
+from .runner import BenchRunner, check_selection
 from .spec import load_spec
 
 __all__ = ["main", "build_parser"]
@@ -62,6 +62,10 @@ def build_parser() -> argparse.ArgumentParser:
                              "PATH as JSON Lines while the run goes - what the Test "
                              "Bench monitor's Events page follows")
     parser.add_argument("--junit", metavar="PATH", help="write a JUnit XML report for CI")
+    parser.add_argument("--test", action="append", default=[], metavar="NAME",
+                        help="run only the test case with this exact name; repeat to run "
+                             "several. Those left out are reported as skipped, 'not "
+                             "selected'. Suite setup and teardown still run")
     parser.add_argument("--stop-on-error", action="store_true",
                         help="abandon the remaining tests after the first error")
     parser.add_argument("--acknowledge", action="store_true",
@@ -181,6 +185,7 @@ def _run(args) -> int:
     """The run itself, once logging is set up."""
     try:
         specs = [load_spec(path) for path in args.specs]
+        check_selection(specs, args.test)
     except BenchToolsError as exc:
         print("error: %s" % exc, file=sys.stderr)
         return _EXIT_USAGE
@@ -212,7 +217,7 @@ def _run(args) -> int:
         if not _acknowledged(warned, args.acknowledge, runner.bench.is_simulated):
             return _EXIT_NOT_ACKNOWLEDGED
         for index, spec in enumerate(specs):
-            run = runner.run(spec)
+            run = runner.run(spec, args.test)
             runs.append(run)
             print(summary_line(run))
             if run.setup_error:
