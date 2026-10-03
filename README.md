@@ -209,11 +209,22 @@ test cases to run - or attach to one started with `benchtools run --event-log
 PATH --control 0`. The Event log page lists every instrument's traffic, filtered
 by source.
 
-It listens on 127.0.0.1 only, needs nothing beyond the standard library, and
-loads nothing from the internet. A run started from it writes its event log and
-reports to `runs/`. Requests that change anything must carry a header that a
+It listens on 127.0.0.1 by default, needs nothing beyond the standard library,
+and loads nothing from the internet. A run started from it writes its event log
+and reports to `runs/`. Requests that change anything must carry a header that a
 page from another site cannot add, so another site open in the same browser
 cannot steer the bench.
+
+To watch from another PC, bind it to the bench PC's address. It then prints an
+address with an access token, and refuses anything without it:
+
+```bash
+benchtools view --bind 0.0.0.0 --read-only    # watch only; drop --read-only to control
+```
+
+Add `--tls-cert cert.pem --tls-key key.pem` on a network you do not trust, so the
+token is not sent in clear. The runner's control channel stays on 127.0.0.1
+either way; only the viewer is exposed.
 
 ---
 

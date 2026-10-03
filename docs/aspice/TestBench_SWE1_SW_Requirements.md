@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE1-001 | **Version** | 1.12 |
+| **Document ID** | TB-SWE1-001 | **Version** | 1.13 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -44,6 +44,7 @@
 | 1.10 | 2026-10-03 | Claude | #140: CORE-FR-065 (`reading` records), PSU-FR-044, PICO-FR-048, DMM-FR-034 (each driver logs its readings) and VIEW-FR-016 … -018 (the Graphs page) added. |
 | 1.11 | 2026-10-03 | Claude | #148: VIEW-FR-019 … -021 added - the Event log page's pause and resume, and its filters by instrument, kind of event, sensor and test. |
 | 1.12 | 2026-10-03 | Claude | #149: VIEW-FR-022 … -024 added - the status bar: run state and instruments, test case and steps, and the estimated time left. |
+| 1.13 | 2026-10-03 | Claude | #141: VIEW-FR-025 … -027 added - the viewer from another PC: access token, read-only, HTTPS, the control channel still on 127.0.0.1. |
 
 ---
 
@@ -997,6 +998,9 @@ A browser page onto a bench run (#130, #137), served by `benchtools view`. It is
 | VIEW-FR-022 | A status bar shall be visible on every page of the viewer, at any width, showing the run's state - running, paused, its verdict, or waiting - and each instrument by its event-log name: open or closed, the time since it last sent or received, and whether its last record was a warning or an error, each state named in words as well as by colour, the instrument's last line given on hovering. | STK-23 | Test |
 | VIEW-FR-023 | The status bar shall show the test case running - its number of the test cases, name and requirement - or setup or teardown, and the steps run of the steps the run will execute: setup, teardown and the steps of selected test cases not marked skip, less those a test case that ended early will not run, counting again any a restart returns to pending. | STK-23 | Test |
 | VIEW-FR-024 | The status bar shall estimate the time left, stated as an estimate: each remaining step expected to take what the same step with the same arguments last took, else its action's mean, else the mean of all steps run; unknown until three steps have run; built from step durations so that a pause does not inflate it. | STK-23 | Test |
+| VIEW-FR-025 | `benchtools view --bind ADDRESS` shall listen on an address other than this machine's own only with an access token, generated at start and printed with the address to open: every request without it - page, files and API alike - shall be refused. Opening the printed address shall keep the token as an HttpOnly, SameSite cookie; a program may send it as `Authorization: Bearer`. Without `--bind` nothing shall be reachable from another machine. | STK-23 | Test |
+| VIEW-FR-026 | `--read-only` shall refuse every request that changes anything - start, attach, control - so a run can be watched from another PC without being steered. | STK-23 | Test |
+| VIEW-FR-027 | `--tls-cert` and `--tls-key` shall serve the viewer over HTTPS, the cookie then marked Secure; served over plain HTTP to another machine, the viewer shall say that the token crosses the network in clear. The runner's control channel shall stay on 127.0.0.1 whatever the viewer listens on. | STK-23 | Test |
 
 ## 17. Assumptions and constraints
 

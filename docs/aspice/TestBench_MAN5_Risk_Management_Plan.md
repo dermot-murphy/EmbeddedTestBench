@@ -8,8 +8,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-MAN5-001 | **Version** | 0.1 |
-| **Project** | TestBench | **Date** | 2026-09-19 |
+| **Document ID** | TB-MAN5-001 | **Version** | 0.2 |
+| **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | MAN.5 |
@@ -23,6 +23,7 @@
 | Version | Date | Author | Description of Change |
 |---|---|---|---|
 | 0.1 | 2026-09-19 | Claude | Initial |
+| 0.2 | 2026-10-03 | Claude | #141: TB-RISK-013 added - the test run viewer opened to the network. |
 
 ---
 
@@ -115,6 +116,7 @@ tracked there; the risk entry records which problem it became.
 | TB-RISK-010 | The single J-Link, dongle or supply is unavailable, blocking all hardware confirmation | P2 | I2 | 4 | **Accept and monitor.** Every capability can be exercised against the simulated bench, so work continues; only confirmation is blocked | An instrument is unavailable for longer than a milestone | Open |
 | TB-RISK-011 | The coding-standard checker is an external repository that may change or become unavailable | P2 | I1 | 2 | **Accept and monitor.** The workflow pins `dermot-murphy/CStyleCheck@v1.5.1`; a failure blocks the style job only, not the build | The style workflow fails for a reason unrelated to the firmware source | **Trigger fired** — v1.6.0's action could not parse its own output; pinned to v1.5.1 (TB-ACQ4-001 §7) |
 | TB-RISK-012 | One person holds all project knowledge and all roles | P2 | I2 | 4 | **Mitigate.** Everything of record is in the repository (TB-MAN3-001 §11); reviewer independence is recorded as a deviation rather than assumed away (TB-DEV-002) | A question about the project cannot be answered from the repository | Open |
+| TB-RISK-013 | The test run viewer, opened to the network so a run can be watched from another PC (#141), lets someone else on that network watch or steer a run that drives the bench's supply | P2 | I3 | 6 | **Mitigate.** The viewer listens on 127.0.0.1 unless told otherwise; another address needs an access token, generated at start, compared in constant time, on every request; `--read-only` removes control altogether; `--tls-cert`/`--tls-key` keep the token off the wire in clear, and the viewer warns when they are not used; the runner's control channel never leaves 127.0.0.1, and teardown cannot be interrupted (VIEW-FR-025 … -027, RUN-FR-061, -065) | The viewer is run with `--bind` on a network the bench does not trust, or the printed address is shared | Open |
 
 ---
 

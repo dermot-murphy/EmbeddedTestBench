@@ -27,6 +27,16 @@ The API:
 ``POST /api/attach``      follow another event log, and its control port
 ========================  ====================================================
 
+**From another PC** (#141). ``--bind ADDRESS`` listens beyond 127.0.0.1, and
+then every request must carry the access token printed when the viewer starts:
+opening the printed address once sets it as a cookie, and a program may send it
+as ``Authorization: Bearer <token>``. A request without it is refused, and so
+the Host check below is not needed and not made. ``--read-only`` refuses every
+request that changes anything, so a run can be watched without being steered.
+``--tls-cert`` and ``--tls-key`` serve HTTPS, so the token does not cross the
+network in clear. The runner's control channel stays on 127.0.0.1 regardless:
+only the viewer is ever exposed.
+
 A request that changes anything must carry the header ``X-Benchtools: 1``. A
 web page from another site cannot add that header to a request without the
 browser first asking this server, which never agrees, so another site open in
@@ -40,12 +50,16 @@ from __future__ import annotations
 
 import argparse
 import datetime
+import hmac
+import ipaddress
 import json
 import logging
 import math
 import os
 import pathlib
+import secrets
 import socket
+import ssl
 import subprocess
 import sys
 import threading
@@ -380,6 +394,13 @@ _GET_API = {
     "/api/events": "_get_events",
 }
 
+#: Requests that change something: path to the handler method serving it.
+_POST_API = {
+    "/api/control": "_post_control",
+    "/api/start": "_post_start",
+    "/api/attach": "_post_attach",
+}
+
 
 class _Handler(BaseHTTPRequestHandler):
     server: "ViewerServer"
@@ -403,8 +424,47 @@ class _Handler(BaseHTTPRequestHandler):
         self._send(status, json.dumps(value).encode("utf-8"), "application/json")
 
     def _host_allowed(self) -> bool:
+        if self.server.token is not None:
+            return True                     # the token is the guard (_authorised)
         host = (self.headers.get("Host") or "").rsplit(":", 1)[0].strip("[]").lower()
         return host in self.server.allowed_hosts
+
+    def _presented_token(self) -> str:
+        header = self.headers.get("Authorization") or ""
+        if header.startswith("Bearer "):
+            return header[len("Bearer "):].strip()
+        for part in (self.headers.get("Cookie") or "").split(";"):
+            name, _, value = part.strip().partition("=")
+            if name == TOKEN_COOKIE:
+                return value
+        return ""
+
+    def _authorised(self) -> bool:
+        """Whether the request may be answered at all (VIEW-FR-025)."""
+        token = self.server.token
+        if token is None:
+            return True
+        return hmac.compare_digest(self._presented_token().encode(), token.encode())
+
+    def _sign_in(self) -> bool:
+        """``/?token=...`` with the right token: set it as a cookie, go to the page."""
+        offered = self._query("token")
+        token = self.server.token
+        if token is None or offered is None:
+            return False
+        if not hmac.compare_digest(offered.encode(), token.encode()):
+            return False
+        self.send_response(HTTPStatus.SEE_OTHER)
+        self.send_header("Set-Cookie", "%s=%s; Path=/; HttpOnly; SameSite=Strict%s"
+                         % (TOKEN_COOKIE, token, "; Secure" if self.server.tls else ""))
+        self.send_header("Location", "/")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+        return True
+
+    def _refuse_unauthorised(self) -> None:
+        self._json({"ok": False, "error": "this viewer needs its access token: open the "
+                    "address it printed when it started"}, HTTPStatus.UNAUTHORIZED)
 
     def _body(self) -> Dict[str, Any]:
         length = int(self.headers.get("Content-Length") or 0)
@@ -418,6 +478,11 @@ class _Handler(BaseHTTPRequestHandler):
     # ------------------------------------------------------------------
     def do_GET(self) -> None:  # pylint: disable=invalid-name
         """Serve the page, its files, and the read-only API."""
+        if self.path.split("?", 1)[0] in ("/", "/index.html") and self._sign_in():
+            return
+        if not self._authorised():
+            self._refuse_unauthorised()
+            return
         if not self._host_allowed():
             self._json({"ok": False, "error": "unexpected Host"}, HTTPStatus.FORBIDDEN)
             return
@@ -513,41 +578,55 @@ class _Handler(BaseHTTPRequestHandler):
         self.wfile.flush()
 
     def do_POST(self) -> None:  # pylint: disable=invalid-name
-        """Start, attach and control: each guarded (VIEW-FR-002)."""
-        if not self._host_allowed() or self.headers.get(GUARD_HEADER) != "1":
-            self._json({"ok": False, "error": "refused: missing %s header or unexpected Host"
-                        % GUARD_HEADER}, HTTPStatus.FORBIDDEN)
-            return
-        try:
-            body = self._body()
-        except ValueError as exc:
-            self._json({"ok": False, "error": str(exc)}, HTTPStatus.BAD_REQUEST)
+        """Start, attach and control: each guarded (VIEW-FR-002, VIEW-FR-025, -026)."""
+        refusal = self._post_refusal()
+        if refusal is not None:
+            self._json({"ok": False, "error": refusal[1]}, refusal[0])
             return
         path = self.path.split("?", 1)[0]
-        if path == "/api/control":
-            self._control(body)
-        elif path == "/api/start":
-            try:
-                reply = self.server.launcher.start(body)
-            except (ValueError, OSError) as exc:
-                self._json({"ok": False, "error": str(exc)}, HTTPStatus.BAD_REQUEST)
-                return
-            self.server.hub.follow(reply["event_log"])
-            self._json(reply)
-        elif path == "/api/attach":
-            log = body.get("event_log")
-            port = body.get("control_port")
-            if not isinstance(log, str) or not log:
-                self._json({"ok": False, "error": "name an event log"}, HTTPStatus.BAD_REQUEST)
-                return
-            if port is not None and not isinstance(port, int):
-                self._json({"ok": False, "error": "the control port is a number"},
-                           HTTPStatus.BAD_REQUEST)
-                return
-            self.server.hub.follow(log, port)
-            self._json({"ok": True, "event_log": log, "control_port": port})
-        else:
+        if path not in _POST_API:
             self._json({"ok": False, "error": "not found"}, HTTPStatus.NOT_FOUND)
+            return
+        try:
+            getattr(self, _POST_API[path])(self._body())
+        except ValueError as exc:
+            self._json({"ok": False, "error": str(exc)}, HTTPStatus.BAD_REQUEST)
+
+    def _post_refusal(self) -> Optional[Tuple[int, str]]:
+        """Why a request that changes something is refused, with its status; else None."""
+        if not self._authorised():
+            return (HTTPStatus.UNAUTHORIZED, "this viewer needs its access token: open the "
+                    "address it printed when it started")
+        if self.server.read_only:
+            return (HTTPStatus.FORBIDDEN, "this viewer is read-only: it shows the run but "
+                    "cannot start, attach or control one")
+        if not self._host_allowed() or self.headers.get(GUARD_HEADER) != "1":
+            return (HTTPStatus.FORBIDDEN, "refused: missing %s header or unexpected Host"
+                    % GUARD_HEADER)
+        return None
+
+    # Requests that change something, one method per path (_POST_API), each
+    # given the request's JSON body. A ValueError is a bad request.
+    def _post_control(self, body: Dict[str, Any]) -> None:
+        self._control(body)
+
+    def _post_start(self, body: Dict[str, Any]) -> None:
+        try:
+            reply = self.server.launcher.start(body)
+        except OSError as exc:
+            raise ValueError(str(exc)) from exc
+        self.server.hub.follow(reply["event_log"])
+        self._json(reply)
+
+    def _post_attach(self, body: Dict[str, Any]) -> None:
+        log = body.get("event_log")
+        port = body.get("control_port")
+        if not isinstance(log, str) or not log:
+            raise ValueError("name an event log")
+        if port is not None and not isinstance(port, int):
+            raise ValueError("the control port is a number")
+        self.server.hub.follow(log, port)
+        self._json({"ok": True, "event_log": log, "control_port": port})
 
     def _control(self, body: Dict[str, Any]) -> None:
         port = self.server.hub.control_port
@@ -574,19 +653,48 @@ def _number(text: Optional[str]) -> Optional[float]:
     return value
 
 
-class ViewerServer(ThreadingHTTPServer):
+#: The cookie the access token is kept in once the printed address is opened.
+TOKEN_COOKIE = "benchtools_view"
+
+
+def is_loopback(host: str) -> bool:
+    """Whether *host* is this machine only: 127.0.0.0/8, ::1 or ``localhost``."""
+    if host == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+def new_token() -> str:
+    """A fresh access token: 32 random bytes, URL-safe."""
+    return secrets.token_urlsafe(32)
+
+
+class ViewerServer(ThreadingHTTPServer):  # pylint: disable=too-many-instance-attributes
     """The viewer's HTTP server, on 127.0.0.1 unless told otherwise."""
 
     daemon_threads = True
 
-    def __init__(self, hub: Hub, catalogue: Catalogue, launcher: Launcher,
-                 port: int = 0, host: str = HOST) -> None:
+    def __init__(  # pylint: disable=too-many-arguments
+            self, hub: Hub, catalogue: Catalogue, launcher: Launcher,
+            port: int = 0, host: str = HOST, *, token: Optional[str] = None,
+            read_only: bool = False, tls: Optional[ssl.SSLContext] = None) -> None:
+        """*token* is required when *host* is not a loopback address (VIEW-FR-025)."""
+        if not is_loopback(host) and not token:
+            raise ValueError("listening on %s needs an access token" % host)
         self.hub = hub
         self.catalogue = catalogue
         self.launcher = launcher
+        self.token = token
+        self.read_only = bool(read_only)
+        self.tls = tls
         self.stopping = threading.Event()
         self.allowed_hosts = {"127.0.0.1", "localhost", "::1"}
         super().__init__((host, int(port)), _Handler)
+        if tls is not None:
+            self.socket = tls.wrap_socket(self.socket, server_side=True)
 
     @property
     def port(self) -> int:
@@ -603,12 +711,20 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="benchtools view",
         description="Watch and control bench test runs in a browser.",
-        epilog="Open the address it prints. It listens on 127.0.0.1 only.",
+        epilog="Open the address it prints. It listens on 127.0.0.1 unless --bind is given, "
+               "and then only with the access token it prints.",
     )
     parser.add_argument("--event-log", metavar="PATH",
                         help="follow this run's event log from the start")
     parser.add_argument("--control", type=int, metavar="PORT",
                         help="the run's control port, if the event log does not say")
+    parser.add_argument("--bind", default=HOST, metavar="ADDRESS",
+                        help="address to listen on (default: %(default)s). Anything but this "
+                             "machine's own needs the access token printed at start")
+    parser.add_argument("--read-only", action="store_true",
+                        help="refuse to start, attach or control a run: watching only")
+    parser.add_argument("--tls-cert", metavar="PEM", help="serve HTTPS with this certificate")
+    parser.add_argument("--tls-key", metavar="PEM", help="the certificate's private key")
     parser.add_argument("--port", type=int, default=8130,
                         help="port to serve the page on (default: %(default)s; 0 picks one)")
     parser.add_argument("--specs", action="append", metavar="DIR",
@@ -630,12 +746,32 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     hub = Hub().start()
     if args.event_log:
         hub.follow(args.event_log, args.control)
+    remote = not is_loopback(args.bind)
+    token = new_token() if remote else None
+    tls = None
+    if args.tls_cert:
+        tls = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        tls.load_cert_chain(args.tls_cert, args.tls_key)
     try:
-        server = ViewerServer(hub, catalogue, Launcher(catalogue, args.runs), args.port)
-    except OSError as exc:
-        print("error: cannot serve on %s:%d: %s" % (HOST, args.port, exc), file=sys.stderr)
+        server = ViewerServer(hub, catalogue, Launcher(catalogue, args.runs), args.port,
+                              args.bind, token=token, read_only=args.read_only, tls=tls)
+    except (OSError, ssl.SSLError) as exc:
+        print("error: cannot serve on %s:%d: %s" % (args.bind, args.port, exc), file=sys.stderr)
+        hub.stop()
         return 2
-    print("benchtools view: http://%s:%d/  (Ctrl+C to stop)" % (HOST, server.port))
+    scheme = "https" if tls else "http"
+    shown = socket.gethostname() if args.bind in ("0.0.0.0", "::") else args.bind
+    if token:
+        print("benchtools view: %s://%s:%d/?token=%s" % (scheme, shown, server.port, token),
+              flush=True)
+        print("  Anyone with this address can %s the bench. Keep it to yourself."
+              % ("watch" if args.read_only else "watch and control"), flush=True)
+        if not tls:
+            print("  Served over plain HTTP: the token crosses the network in clear. "
+                  "Use --tls-cert and --tls-key on a network you do not trust.", flush=True)
+    else:
+        print("benchtools view: %s://%s:%d/  (Ctrl+C to stop)" % (scheme, HOST, server.port),
+              flush=True)
     try:
         server.serve_forever(poll_interval=0.2)
     except KeyboardInterrupt:

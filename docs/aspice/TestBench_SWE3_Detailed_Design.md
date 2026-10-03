@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE3-001 | **Version** | 1.10 |
+| **Document ID** | TB-SWE3-001 | **Version** | 1.11 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -42,6 +42,7 @@
 | 1.8 | 2026-10-03 | Claude | #140: CORE-DD-EVENTS `log_reading`; PSU-DD-PSU, PICO-DD-DRIVER and DMM-DD-DMM log readings; VIEW-DD-GRAPHS added (`Readings`, `advertising`, `step_markers`, `/api/graphs`, `graphs.js`); the GET API is a table of handlers (`_GET_API`). |
 | 1.9 | 2026-10-03 | Claude | #148: VIEW-DD-TAGS added (`Tagger`, `sensor_of`); VIEW-DD-PAGE's Event log tab gains pause and resume and its filters. |
 | 1.10 | 2026-10-03 | Claude | #149: VIEW-DD-STATUS added (`InstrumentStatus`, `progress`, `_expected`, `/api/status`, `status.js`). |
+| 1.11 | 2026-10-03 | Claude | #141: VIEW-DD-SERVER - access token, sign-in cookie, read-only, HTTPS, `_POST_API`. |
 
 ---
 
@@ -2567,6 +2568,8 @@ hardware - refuses a second run while one it started is in progress, and runs
 `python -m benchtools run` with `--event-log`, `--control 0`, `--json`,
 `--markdown`, `--test` for each test case ticked and `--acknowledge` when
 acknowledged, its console to a file beside them (VIEW-FR-007, -008).
+
+**From another PC (#141).** `ViewerServer` takes `token`, `read_only` and `tls`, and refuses a non-loopback host (`is_loopback`) without a token. With a token, `_authorised` compares the presented token - `Authorization: Bearer`, else the `benchtools_view` cookie - with `hmac.compare_digest`, and refuses with 401; the Host check is then skipped, the token being the guard. `GET /?token=` with the right token (`_sign_in`) sets the cookie (HttpOnly, SameSite=Strict, Secure under TLS) and redirects to `/`. `_post_refusal` refuses, in order, a missing token, a read-only viewer, and a missing guard header or wrong Host. `tls` wraps the listening socket. `main` makes a token with `new_token` (32 random bytes) for a non-loopback `--bind`, prints the address with it, flushed, and warns when it is plain HTTP. The POST API is a table of handlers (`_POST_API`) like the GET API (VIEW-FR-025 … -027).
 
 #### VIEW-DD-TRAFFIC — `traffic.py`
 
