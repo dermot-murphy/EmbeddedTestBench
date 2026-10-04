@@ -9,6 +9,8 @@ htmlcov/
 *.csv
 *.png
 !docs/**/*.png
+# Brand artwork is rendered from SVG and committed for use without a browser.
+!assets/**/*.png
 
 # Firmware build output
 firmware/**/_build/
