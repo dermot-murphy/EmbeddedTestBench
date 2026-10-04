@@ -2,21 +2,28 @@
 
 The EmbeddedTestBench logo, app icons, favicon and instrument icons (#172).
 
-- **`svg/`** holds the masters, as the designer supplied them. Use an SVG
-  directly wherever SVG is accepted (web pages, GitHub Markdown, documents);
-  it scales without loss. `svg/README.md` is the designer's own note.
+- **`svg/`** holds the masters. Use an SVG directly wherever SVG is accepted
+  (web pages, GitHub Markdown, documents); it scales without loss. All text in
+  them has been converted to outlines, so they look the same on every machine
+  and need no font. `svg/README.md` is the designer's own note.
+- **`svg-source/`** holds the editable versions of the SVGs that contain text,
+  with the text still live. Change wording here, never in `svg/`.
 - **`png/`** holds raster renders of the SVGs at the sizes listed below, for
   places that need a bitmap: app manifests, `favicon.ico`, slide decks, and
   anything that does not render SVG.
+- **`fonts/`** holds Inter, the brand typeface, and its licence.
 
-Regenerate the PNGs after changing an SVG, rather than editing a PNG:
+After changing a file in `svg-source/`, outline it and re-render:
 
 ```sh
+python scripts/outline_brand_text.py
 python scripts/render_brand_assets.py
 ```
 
-The script renders with headless Microsoft Edge or Google Chrome, and needs
-Pillow, installed with the `test` extra.
+After changing an SVG with no text, only the second command is needed. The
+outlining script needs fontTools and the render script needs Pillow, both
+installed with the `test` extra. Rendering uses headless Microsoft Edge or
+Google Chrome.
 
 ## Masters — `svg/`
 
@@ -61,11 +68,16 @@ are for high-density screens.
 
 ## Notes
 
-- **Wordmark typography depends on the rendering machine.** The wordmarks are
-  SVG text in `Inter, Segoe UI, Arial, sans-serif`. A browser showing an SVG
-  uses the first of those it has. The PNGs here were rendered on Windows
-  without Inter, so they use Segoe UI. The designer's note recommends
-  converting the text to paths for exact typography everywhere; the supplied
-  files have not been converted.
+- **Typeface.** All text is Inter (`fonts/InterVariable.ttf`, SIL Open Font
+  License 1.1, `fonts/LICENSE.txt`), at the weight each source file asks for:
+  750 for the wordmarks. The designer set the instrument icons' labels in
+  Arial; they are outlined in Inter instead, to keep to one brand typeface
+  whose licence allows it.
+- **Outlining is a close match, not a copy, of a browser's text layout.**
+  Compared with the same source drawn by a browser with Inter loaded, the
+  wordmarks differ in under 0.01 % of pixels, all at anti-aliased edges. One
+  visible difference: a browser raises the "+" in "C / C++" (GitHub header) to
+  cap height through Inter's contextual alternates, which the outliner does
+  not apply.
 - **Dark artwork on a transparent background disappears on a dark page.** Use
   the dark app icon, the social icon or the GitHub header there.

@@ -1,20 +1,20 @@
 """Render the brand SVGs to PNG at the sizes each use needs (#172).
 
-The brand artwork is maintained as SVG under ``assets/brand/svg/``, as the
-designer supplied it. This script renders each SVG to the PNG sizes listed in
+The brand artwork is maintained as SVG under ``assets/brand/svg/``.
+This script renders each SVG to the PNG sizes listed in
 ``RENDERS`` under ``assets/brand/png/``, plus a multi-size ``favicon.ico``::
 
     python scripts/render_brand_assets.py
 
 Rendering uses a headless Chromium browser (Microsoft Edge or Google Chrome),
-because the SVGs use text, rounded caps and Bezier strokes that only a full
+because the SVGs use rounded caps, joins and Bezier strokes that only a full
 SVG renderer draws correctly, and a browser is already on every development
 machine. Pass ``--browser`` if neither is found in its usual place.
 
-The wordmarks are SVG ``<text>`` in ``Inter, Segoe UI, Arial, sans-serif``.
-A PNG therefore uses the first of those installed where it was rendered:
-Segoe UI on Windows without Inter. Converting the text to paths in a vector
-editor would fix the typography everywhere; the supplied files have not.
+The SVGs in ``assets/brand/svg/`` have their text converted to outlines by
+``scripts/outline_brand_text.py``, so the renders do not depend on the fonts
+installed where they are made. Run that script first after changing a file in
+``assets/brand/svg-source/``.
 
 Requires Pillow, installed with the ``test`` extra (through matplotlib).
 """
