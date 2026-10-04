@@ -1,88 +1,71 @@
 # Brand assets
 
-The product's logo, icons and instrument icons, each as its own file at the size
-its purpose calls for (#172).
+The EmbeddedTestBench logo, app icons, favicon and instrument icons (#172).
 
-All of them are cut from one composite sheet, [`source/brand_sheet.png`](source/brand_sheet.png),
-by [`scripts/split_brand_sheet.py`](../../scripts/split_brand_sheet.py). Regenerate
-them with that script rather than editing a file by hand:
+- **`svg/`** holds the masters, as the designer supplied them. Use an SVG
+  directly wherever SVG is accepted (web pages, GitHub Markdown, documents);
+  it scales without loss. `svg/README.md` is the designer's own note.
+- **`png/`** holds raster renders of the SVGs at the sizes listed below, for
+  places that need a bitmap: app manifests, `favicon.ico`, slide decks, and
+  anything that does not render SVG.
+
+Regenerate the PNGs after changing an SVG, rather than editing a PNG:
 
 ```sh
-python scripts/split_brand_sheet.py
+python scripts/render_brand_assets.py
 ```
 
-It needs Pillow and numpy, both installed with the `test` extra.
+The script renders with headless Microsoft Edge or Google Chrome, and needs
+Pillow, installed with the `test` extra.
 
-## Files
+## Masters — `svg/`
 
-Sizes are in pixels. "Transparent" means the sheet's background has been
-removed; "on a tile" means the image carries its own rounded background.
-
-### Logos — `logo/`
-
-| File | Size | Purpose |
-| --- | --- | --- |
-| `logo_horizontal.png` | 718 × 356 | Main logo: mark above the wordmark. Transparent, for light backgrounds. |
-| `header_horizontal.png` | 453 × 105 | Website or page header: mark beside the wordmark. Transparent, for light backgrounds. |
-| `logo_monochrome.png` | 396 × 101 | Single colour, for print and documents. Transparent, for light backgrounds. |
-| `logo_monochrome_dark.png` | 305 × 101 | Light logo on its own dark panel, for dark surfaces. |
-
-### App icons — `app_icon/`
-
-| File | Size | Purpose |
-| --- | --- | --- |
-| `app_icon_1024.png` | 1024 × 1024 | Application icon, store and installer size. On a blue tile. |
-| `app_icon_512.png` | 512 × 512 | Application icon; web app manifest large icon. |
-| `app_icon_192.png` | 192 × 192 | Web app manifest icon. |
-| `apple_touch_icon_180.png` | 180 × 180 | `apple-touch-icon` for iOS home screens. |
-| `app_icon_light_256.png` | 256 × 256 | Icon on a white tile, for light interfaces. |
-| `app_icon_dark_256.png` | 256 × 256 | Icon on a dark tile, for dark interfaces. |
-
-The tiles keep the sheet's rounded corners, with transparent pixels outside
-them. Platforms that apply their own mask (iOS, Android adaptive icons) expect a
-full-bleed square instead; one cannot be made from the sheet without redrawing
-the corners.
-
-### Favicon — `favicon/`
-
-| File | Size | Purpose |
-| --- | --- | --- |
-| `favicon.ico` | 16, 32, 48 | Browser favicon, all three sizes in one file. |
-| `favicon_16.png` | 16 × 16 | Browser tab. |
-| `favicon_32.png` | 32 × 32 | Browser tab on high-density screens; bookmarks. |
-| `favicon_48.png` | 48 × 48 | Windows site icons. |
-
-### Mark without wordmark — `icon/`
-
-| File | Size | Purpose |
-| --- | --- | --- |
-| `glyph.png` | 150 × 106 | The mark alone, with the orbit. Transparent. |
-| `simplified_16.png` … `simplified_64.png` | 16, 24, 32, 64 | The mark without the orbit, for small sizes where the orbit would not resolve. Transparent. |
-
-### Instrument icons — `instruments/`
-
-One icon per bench instrument, each at 64 × 64 and 128 × 128, transparent. White
-enclosed by an icon (an instrument's face) is kept, so they read on a dark page
-too.
-
-| Files | Instrument |
+| File | Purpose |
 | --- | --- |
-| `psu_64.png`, `psu_128.png` | Power supply (GPD-3303D) |
-| `jlink_64.png`, `jlink_128.png` | J-Link debug probe |
-| `oscilloscope_64.png`, `oscilloscope_128.png` | Oscilloscope |
-| `dmm_64.png`, `dmm_128.png` | Digital multimeter (TTi 1604) |
-| `ble_64.png`, `ble_128.png` | BLE dongle |
-| `rf_64.png`, `rf_128.png` | Sub-GHz RF (S2-LP kit) |
-| `temperature_64.png`, `temperature_128.png` | Temperature (Pico 2 SHT30) |
+| `logos/embeddedtestbench-logo-horizontal.svg` | Main logo: mark beside the wordmark. For light backgrounds. |
+| `logos/embeddedtestbench-logo-compact.svg` | Smaller lock-up for tight spaces such as a navigation bar. |
+| `logos/embeddedtestbench-logo-monochrome.svg` | Single colour, for print and documents. |
+| `headers/embeddedtestbench-github-header.svg` | Repository banner: logo, tagline and technology badges on dark. |
+| `headers/embeddedtestbench-website-header.svg` | Website header on a transparent background. |
+| `icons/embeddedtestbench-app-blue.svg` | Application icon, primary. |
+| `icons/embeddedtestbench-app-light.svg` | Application icon for light interfaces. |
+| `icons/embeddedtestbench-app-dark.svg` | Application icon for dark interfaces. |
+| `icons/embeddedtestbench-social-circle.svg` | Circular avatar for social and chat profiles. |
+| `icons/embeddedtestbench-favicon.svg` | Favicon. Modern browsers accept it directly. |
+| `icons/embeddedtestbench-glyph.svg` | The mark alone, without the orbit, for small sizes. |
+| `icons/embeddedtestbench-glyph-monochrome.svg` | The mark alone, single colour. |
+| `instrument-icons/embeddedtestbench-<instrument>.svg` | One icon per bench instrument: `psu`, `jlink`, `oscilloscope`, `dmm`, `ble`, `rf`, `temperature`. |
 
-## Limitations
+## Renders — `png/`
 
-- **The sheet is the only source, and it is a raster image.** Any size larger
-  than the area an image covers on the sheet is upscaled and is softer for it.
-  The app icon covers 375 px of the sheet, so `app_icon_1024.png` and
-  `app_icon_512.png` are upscaled, as are the light and dark tiles at 256 px
-  and the instrument icons at 128 px. Vector masters would remove this
-  limitation; none exist yet.
+Every PNG has a transparent background unless the SVG draws one. `@2x` files
+are for high-density screens.
+
+| Files | Sizes | From |
+| --- | --- | --- |
+| `logos/logo_horizontal.png`, `@2x` | 900 × 220, 1800 × 440 | horizontal logo |
+| `logos/logo_compact.png`, `@2x` | 420 × 90, 840 × 180 | compact logo |
+| `logos/logo_monochrome.png`, `@2x` | 900 × 220, 1800 × 440 | monochrome logo |
+| `headers/github_header.png`, `@2x` | 1200 × 260, 2400 × 520 | GitHub header |
+| `headers/website_header.png`, `@2x` | 1200 × 180, 2400 × 360 | website header |
+| `icons/app_icon_1024.png`, `_512`, `_192` | 1024, 512, 192 | blue app icon: store, installer and web app manifest sizes |
+| `icons/apple_touch_icon.png` | 180 × 180 | blue app icon, as a full-bleed square: iOS applies its own corner mask and shows transparency as black |
+| `icons/app_icon_light_512.png`, `_256` | 512, 256 | light app icon |
+| `icons/app_icon_dark_512.png`, `_256` | 512, 256 | dark app icon |
+| `icons/social_circle_512.png`, `_400` | 512, 400 | social icon; 400 px is the common avatar upload size |
+| `icons/glyph_512.png`, `_64`, `_32`, `_24`, `_16` | 512 … 16 | glyph, including the small sizes it exists for |
+| `icons/glyph_monochrome_512.png`, `_64` | 512, 64 | monochrome glyph |
+| `favicon/favicon_16.png`, `_32`, `_48` | 16, 32, 48 | favicon |
+| `favicon/favicon.ico` | 16, 32, 48 in one file | favicon; each size is its own render, not a downscale |
+| `instruments/<instrument>_64.png`, `_128`, `_256` | 64, 128, 256 | instrument icons |
+
+## Notes
+
+- **Wordmark typography depends on the rendering machine.** The wordmarks are
+  SVG text in `Inter, Segoe UI, Arial, sans-serif`. A browser showing an SVG
+  uses the first of those it has. The PNGs here were rendered on Windows
+  without Inter, so they use Segoe UI. The designer's note recommends
+  converting the text to paths for exact typography everywhere; the supplied
+  files have not been converted.
 - **Dark artwork on a transparent background disappears on a dark page.** Use
-  `logo_monochrome_dark.png` or `app_icon_dark_256.png` there.
-- **The wordmark reads "EmbeddedTest"**, as supplied, not "EmbeddedTestBench".
+  the dark app icon, the social icon or the GitHub header there.

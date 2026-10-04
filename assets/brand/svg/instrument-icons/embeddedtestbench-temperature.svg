@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100" role="img" aria-labelledby="title desc">
+<title id="title">EmbeddedTestBench temperature instrument icon</title>
+<desc id="desc">EmbeddedTestBench vector brand asset</desc>
+<path d="M43 22a10 10 0 0 1 20 0v36a18 18 0 1 1-20 0z" fill="none" stroke="#10233F" stroke-width="4"/>
+<path d="M53 39v28" stroke="#F15B5A" stroke-width="6" stroke-linecap="round"/><circle cx="53" cy="72" r="8" fill="#F15B5A"/>
+<text x="70" y="30" font-family="Arial,sans-serif" font-size="13" font-weight="700" fill="#10233F">°C</text>
+</svg>
