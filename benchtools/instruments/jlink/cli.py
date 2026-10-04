@@ -43,6 +43,14 @@ def _number(text: str) -> int:
     return int(text, 0)
 
 
+def _range(text: str) -> tuple:
+    """Parse ``ADDRESS:SIZE``, each decimal or 0x-prefixed."""
+    address, separator, size = text.partition(":")
+    if not separator:
+        raise argparse.ArgumentTypeError("expected ADDRESS:SIZE, e.g. 0x10001080:4")
+    return int(address, 0), int(size, 0)
+
+
 # ---------------------------------------------------------------------------
 def _cmd_info(probe: JLinkProbe, args) -> int:
     identity = probe.identify()
@@ -65,7 +73,10 @@ def _cmd_info(probe: JLinkProbe, args) -> int:
 
 
 def _cmd_flash(probe: JLinkProbe, args) -> int:
-    result = probe.flash(args.image, verify=not args.no_verify, reset=not args.no_reset)
+    result = probe.flash(
+        args.image, verify=not args.no_verify, reset=not args.no_reset,
+        preserve=args.preserve or (),
+    )
     _emit(result.as_dict(), args.json)
     return _EXIT_OK
 
@@ -76,7 +87,14 @@ def _cmd_verify(probe: JLinkProbe, args) -> int:
     return _EXIT_OK if result.matched else _EXIT_ERROR
 
 
+def _cmd_erase(probe: JLinkProbe, args) -> int:
+    output = probe.erase()
+    _emit({"erased": True, "output": output.strip()}, args.json)
+    return _EXIT_OK
+
+
 def _cmd_reset(probe: JLinkProbe, args) -> int:
+    probe.leave_halted = not args.run
     probe.reset(halt=not args.run)
     _emit({"reset": True, "halted": probe.is_halted}, args.json)
     return _EXIT_OK
@@ -84,6 +102,7 @@ def _cmd_reset(probe: JLinkProbe, args) -> int:
 
 def _cmd_run(probe: JLinkProbe, args) -> int:
     if args.until:
+        probe.leave_halted = True
         info = probe.run_to(args.until, timeout=args.timeout)
         _emit(
             {
@@ -99,6 +118,7 @@ def _cmd_run(probe: JLinkProbe, args) -> int:
 
 
 def _cmd_halt(probe: JLinkProbe, args) -> int:
+    probe.leave_halted = True
     info = probe.halt()
     _emit(
         {
@@ -266,11 +286,21 @@ def build_parser() -> argparse.ArgumentParser:
     flash.add_argument("image", nargs="?", help="image to flash; the --elf file when omitted")
     flash.add_argument("--no-verify", action="store_true", help="skip verification (not advised)")
     flash.add_argument("--no-reset", action="store_true", help="do not reset before programming")
+    flash.add_argument(
+        "--preserve", metavar="ADDRESS:SIZE", type=_range, action="append",
+        help="keep this range across the flash, e.g. a sensor ID in UICR "
+             "(0x10001080:4); repeat for several",
+    )
     flash.set_defaults(handler=_cmd_flash)
 
     verify = subparsers.add_parser("verify", help="compare the target against an image")
     verify.add_argument("image", nargs="?", help="image to compare; the --elf file when omitted")
     verify.set_defaults(handler=_cmd_verify)
+
+    erase = subparsers.add_parser(
+        "erase", help="erase the target's flash (on an nRF52, UICR too: back up the ID first)"
+    )
+    erase.set_defaults(handler=_cmd_erase)
 
     reset = subparsers.add_parser("reset", help="reset the target")
     reset.add_argument("--run", action="store_true", help="let it run instead of halting")

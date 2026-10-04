@@ -18,7 +18,7 @@ instrument does. That matters more than it sounds: it means a driver that
 misspells a command fails a test with an ``InstrumentError`` rather than
 silently having the command ignored, which is what real hardware does.
 
-Traces to: CORE-FR-040, CORE-FR-041, CORE-DD-SIM.
+Traces to: CORE-FR-040, CORE-FR-041, CORE-FR-062, CORE-DD-SIM.
 """
 
 from __future__ import annotations
@@ -86,6 +86,15 @@ class Streamer(Protocol):
     def poll(self) -> bytes:
         """Return unsolicited output, or ``b""`` if there is none."""
         ...
+
+    # A simulator on a virtual clock may also implement
+    # ``poll_within(timeout)``, which the mock transport then calls instead,
+    # passing its own timeout. It returns output due within *timeout* seconds
+    # of virtual time, advancing the clock to it, or raises
+    # TransportTimeoutError having advanced the clock by *timeout* - which is
+    # what a real link does with a read that has a timeout. Without it a
+    # simulator hands a driver data the driver would have given up waiting
+    # for (CORE-FR-062).
 
 
 def scpi_slug(head: str) -> str:

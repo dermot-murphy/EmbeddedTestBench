@@ -1,0 +1,169 @@
+# Problem Resolution Management Plan
+
+*Automotive SPICE® PAM v4.0 | SUP.9 — Problem Resolution Management*
+
+---
+
+## 1. Document Identification & Control
+
+| Field | Value | Field | Value |
+|---|---|---|---|
+| **Document ID** | TB-SUP9-001 | **Version** | 0.1 |
+| **Project** | TestBench | **Date** | 2026-09-19 |
+| **Status** | Draft | **Classification** | Internal |
+| **Author** | Claude | **Reviewer** | Dermot Murphy |
+| **Approver** | Dermot Murphy | **Related Process** | SUP.9 |
+
+> Reviewer and Approver are the same person; see TB-DEV-002.
+
+---
+
+## 2. Revision History
+
+| Version | Date | Author | Description of Change |
+|---|---|---|---|
+| 0.1 | 2026-09-19 | Claude | Initial |
+
+---
+
+## 3. Purpose & Scope
+
+### 3.1 Purpose
+
+This plan says what counts as a problem in TestBench, how problems are recorded,
+classified, resolved and closed, and what may never be done to make one go away.
+
+### 3.2 Referenced Documents
+
+| Document ID | Title | Version |
+|---|---|---|
+| TB-SUP1-001 | TestBench Quality Assurance Plan | 0.1 |
+| TB-SUP8-001 | TestBench Configuration Management Plan | 0.1 |
+| TB-SUP10-001 | TestBench Change Request Management Plan | 0.1 |
+| TB-MAN5-001 | TestBench Risk Management Plan | 0.1 |
+| TB-TMPL-001 | TestBench Work Product Review Record — Template | 0.1 |
+
+### 3.3 Scope
+
+Problems found anywhere: in the code, the firmware, the documents, the bench
+specifications, the CI workflows, or in an instrument's behaviour that TestBench
+must accommodate.
+
+---
+
+## 4. What Is a Problem
+
+A problem is any observed difference between what TestBench does and what its
+documents say it does, or any observation that a TestBench result cannot be
+trusted. Specifically:
+
+| Kind | Examples |
+|---|---|
+| Functional defect | A driver returns a wrong value; a limit compares the wrong way round |
+| Evidence defect | A report omits an instrument identity; a simulated run is not labelled as such |
+| Document defect | A requirement contradicts another; the design describes an interface that does not exist |
+| Process defect | A change merged with a red build; a document not updated with its code |
+| External behaviour | An instrument does something its documentation does not describe |
+| Test defect | A test passes when the thing it tests is broken; a test asserts the simulator |
+
+A **failing test is a problem**, always. It is never an infrastructure flake
+until that has been shown, and showing it means identifying what failed and why
+it was unrelated to the change.
+
+---
+
+## 5. Classification
+
+| Severity | Meaning | Response |
+|---|---|---|
+| S1 Critical | A measurement produced by TestBench could be wrong and be believed | Stop other work; fix before anything else is merged |
+| S2 Major | A documented capability does not work, or evidence is missing from a result | Fix before the affected capability is used or released |
+| S3 Minor | Incorrect but not misleading; a workaround exists | Scheduled against a milestone |
+| S4 Cosmetic | Wording, formatting, a broken link | Fixed opportunistically |
+
+| Priority | Meaning |
+|---|---|
+| P1 | Blocking work now |
+| P2 | Needed for the next milestone |
+| P3 | Whenever convenient |
+
+Severity is about consequence and is not negotiable. Priority is about order of
+work and is the project lead's call.
+
+---
+
+## 6. Problem Record
+
+Problems are recorded as repository issues, and problems found during a review
+are additionally listed in that review record (TB-TMPL-001 §7). A problem
+record carries:
+
+| Field | Content |
+|---|---|
+| **Problem ID** | TB-PR-nnn |
+| **Raised by / date** | |
+| **Found in** | Revision, document ID and version, or bench run |
+| **Severity / Priority** | Per §5 |
+| **Observed** | What happened, verbatim where possible — output, failing assertion, instrument reply |
+| **Expected** | What should have happened, and which requirement says so |
+| **Reproduction** | The exact steps or command; "intermittent" is recorded as such with the frequency observed |
+| **Analysis** | The cause, once known — not the symptom |
+| **Resolution** | The change made, by revision |
+| **Verification** | The test that now fails without the fix |
+| **Related** | Risk ID if it materialised a risk; change request ID if one was needed |
+
+---
+
+## 7. Lifecycle
+
+| State | Meaning | Exit |
+|---|---|---|
+| Open | Recorded, not yet analysed | Analysis complete |
+| Analysed | Cause identified, severity confirmed | Resolution agreed |
+| In progress | Being fixed | Change ready |
+| Resolved | Change merged, with a test that fails without it | Verified on the affected configuration |
+| Closed | Verified; documents updated | — |
+| Rejected | Not a problem, with the reason recorded | — |
+| Deferred | Real, not being fixed now, with the reason and the milestone recorded | Reopened at that milestone |
+
+A problem is closed only when there is a test that would catch it again. A fix
+without such a test leaves the problem free to return unnoticed, which is the
+same as not having fixed it.
+
+---
+
+## 8. Prohibited Resolutions
+
+None of the following closes a problem:
+
+1. Skipping, `xfail`-ing, deleting or weakening the test that found it.
+2. Re-running CI until it passes, without identifying why it failed.
+3. Widening a tolerance so a measurement fits, unless the wider tolerance is
+   justified against the instrument's specification and the requirement is
+   changed to match, through TB-SUP10-001.
+4. Recording an unexplained failure as a flake.
+5. Changing the document to match the code when the code is what is wrong.
+
+Item 5 has a legitimate mirror image: when the *document* is wrong, changing it
+is the correct fix — and it goes through the same record, so the decision about
+which was wrong is visible.
+
+---
+
+## 9. Trend Analysis
+
+At each milestone the open and closed problems are looked at together for
+patterns: repeated problems in one element, repeated problems of one kind,
+problems found late that earlier checks should have caught. A pattern is treated
+as a defect in the process and raised against this plan or TB-SUP1-001, not as a
+run of bad luck.
+
+---
+
+## 10. Review & Approval
+
+| Role | Name | Signature / Electronic Approval | Date |
+|---|---|---|---|
+| Author | Claude | Approved | 2026-09-19 |
+| Reviewer | Dermot Murphy | — | *pending* |
+| Approver | Dermot Murphy | — | *pending* |

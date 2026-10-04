@@ -33,10 +33,10 @@
 #include "nrf_soc.h"
 #include "nrfx_timer.h"
 
-uint32_t	fake_last_checked_error;
-int		fake_critical_nesting;
-int		fake_critical_depth_max;
-uint32_t	fake_system_resets;
+uint32_t	fake_g_last_checked_error;
+int		fake_g_critical_nesting;
+int		fake_g_critical_depth_max;
+uint32_t	fake_g_system_resets;
 
 /* ------------------------------------------------------------------ */
 /* TIMER                                                               */
@@ -387,14 +387,18 @@ static uint32_t		m_connect_result;
 static uint32_t		m_disconnect_count;
 static uint16_t		m_disconnect_handle;
 
+static ble_gap_scan_params_t	m_connect_scan_params;
+
+const ble_gap_scan_params_t * fake_gap_connect_scan_params(void)	{ return &m_connect_scan_params; }
+
 uint32_t sd_ble_gap_connect(const ble_gap_addr_t *	p_peer_addr,
 			    const ble_gap_scan_params_t *	p_scan_params,
 			    const ble_gap_conn_params_t *	p_conn_params,
 			    uint8_t				conn_cfg_tag)
 {
-	(void)p_scan_params;
 	(void)p_conn_params;
 	(void)conn_cfg_tag;
+	m_connect_scan_params = *p_scan_params;
 	if (m_connect_result != NRF_SUCCESS)
 	{
 		return m_connect_result;
@@ -448,6 +452,32 @@ uint32_t ble_db_discovery_init(const ble_db_discovery_init_t * p_init)
 	return NRF_SUCCESS;
 }
 
+static uint32_t	m_db_discovery_starts;
+static uint16_t	m_db_discovery_conn_handle = 0xFFFFU;
+static uint32_t	m_db_discovery_start_result = NRF_SUCCESS;
+
+uint32_t ble_db_discovery_start(ble_db_discovery_t * p_db_discovery, uint16_t conn_handle)
+{
+	if (p_db_discovery == NULL)
+	{
+		return NRF_ERROR_NULL;
+	}
+	m_db_discovery_starts++;
+	m_db_discovery_conn_handle = conn_handle;
+	return m_db_discovery_start_result;
+}
+
+uint32_t fake_db_discovery_starts(void)				{ return m_db_discovery_starts; }
+uint16_t fake_db_discovery_conn_handle(void)			{ return m_db_discovery_conn_handle; }
+void     fake_db_discovery_set_start_result(uint32_t result)	{ m_db_discovery_start_result = result; }
+
+void fake_db_discovery_reset(void)
+{
+	m_db_discovery_starts       = 0U;
+	m_db_discovery_conn_handle  = 0xFFFFU;
+	m_db_discovery_start_result = NRF_SUCCESS;
+}
+
 void ble_db_discovery_on_ble_evt(ble_evt_t const * p_ble_evt, void * p_context)
 {
 	(void)p_ble_evt;
@@ -456,8 +486,29 @@ void ble_db_discovery_on_ble_evt(ble_evt_t const * p_ble_evt, void * p_context)
 
 void NVIC_SystemReset(void)
 {
-	fake_system_resets++;
+	fake_g_system_resets++;
 }
+
+/* --- GPIO and delay, recorded rather than performed ------------------ */
+
+static uint32_t	m_gpio_output_pin  = UINT32_MAX;
+static uint32_t	m_gpio_cleared_pin = UINT32_MAX;
+static uint32_t	m_delay_total_ms;
+
+void nrf_gpio_cfg_output(uint32_t pin_number)	{ m_gpio_output_pin = pin_number; }
+void nrf_gpio_pin_clear(uint32_t pin_number)	{ m_gpio_cleared_pin = pin_number; }
+uint32_t fake_gpio_output_pin(void)		{ return m_gpio_output_pin; }
+uint32_t fake_gpio_cleared_pin(void)		{ return m_gpio_cleared_pin; }
+
+void fake_gpio_reset(void)
+{
+	m_gpio_output_pin  = UINT32_MAX;
+	m_gpio_cleared_pin = UINT32_MAX;
+	m_delay_total_ms   = 0U;
+}
+
+void nrf_delay_ms(uint32_t ms_time)		{ m_delay_total_ms += ms_time; }
+uint32_t fake_delay_total_ms(void)		{ return m_delay_total_ms; }
 
 /* --- the retained register, which survives a reset on the target ---- */
 
@@ -532,11 +583,16 @@ uint32_t ble_nus_c_string_send(ble_nus_c_t * p_nus_c, uint8_t * p_string, uint16
 	return NRF_SUCCESS;
 }
 
+static uint32_t	m_nus_forwarded;
+
 void ble_nus_c_on_ble_evt(ble_evt_t const * p_ble_evt, void * p_context)
 {
 	(void)p_ble_evt;
 	(void)p_context;
+	m_nus_forwarded++;
 }
+
+uint32_t fake_nus_forwarded_events(void)	{ return m_nus_forwarded; }
 
 void ble_nus_c_on_db_disc_evt(ble_nus_c_t * p_nus_c, void * p_evt)
 {
@@ -571,4 +627,5 @@ void fake_nus_reset(void)
 	m_nus_send_count    = 0U;
 	m_nus_send_result   = NRF_SUCCESS;
 	m_nus_notifications = false;
+	m_nus_forwarded     = 0U;
 }

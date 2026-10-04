@@ -22,12 +22,11 @@ and a missing install produces a diagnostic naming the extra rather than an
 read with a timeout, and pyserial's ``read`` already blocks only as long as it
 is told to. A thread would add a hand-off and buy nothing.
 
-Traces to: CORE-FR-017, CORE-ARC-003, CORE-DD-SERIAL.
+Traces to: CORE-FR-017, CORE-FR-061, CORE-ARC-003, CORE-DD-SERIAL.
 """
 
 from __future__ import annotations
 
-import logging
 from typing import Optional, Tuple
 
 from ..errors import ConnectionFailedError, TransportError, TransportTimeoutError
@@ -35,7 +34,6 @@ from .base import Transport
 
 __all__ = ["SerialTransport", "DEFAULT_BAUDRATE"]
 
-_LOG = logging.getLogger(__name__)
 
 #: Line rate used when the resource does not name one. A USB CDC port ignores
 #: it entirely; a real RS-232 instrument does not, and 115200 is the usual
@@ -59,6 +57,13 @@ class SerialTransport(Transport):
     :param rtscts: Hardware flow control.
     :param xonxoff: Software flow control.
     :param dsrdtr: DSR/DTR flow control.
+    :param dtr: Drive the DTR line to this state after opening, or leave it
+        alone when ``None``. Some instruments take their interface power from
+        the handshake lines rather than using them for flow control; the TTi
+        1604's opto-isolated interface is one, and is simply absent until DTR
+        is asserted.
+    :param rts: Drive the RTS line to this state after opening, or leave it
+        alone when ``None``.
     """
 
     def __init__(
@@ -74,6 +79,8 @@ class SerialTransport(Transport):
         rtscts: bool = False,
         xonxoff: bool = False,
         dsrdtr: bool = False,
+        dtr: Optional[bool] = None,
+        rts: Optional[bool] = None,
     ) -> None:
         super().__init__(timeout=timeout, terminator=terminator)
         target = port if port is not None else resource
@@ -86,6 +93,8 @@ class SerialTransport(Transport):
         self._rtscts = bool(rtscts)
         self._xonxoff = bool(xonxoff)
         self._dsrdtr = bool(dsrdtr)
+        self._dtr = dtr
+        self._rts = rts
         self._serial = None
 
     # ------------------------------------------------------------------
@@ -153,6 +162,20 @@ class SerialTransport(Transport):
                 % (self._port, exc)
             ) from exc
 
+        # Set the handshake lines before anything is read. Where they power an
+        # opto-isolated interface rather than carrying flow control, the device
+        # is mute until they are right, and that presents as a dead port.
+        for line, state in (("dtr", self._dtr), ("rts", self._rts)):
+            if state is None:
+                continue
+            try:
+                setattr(self._serial, line, bool(state))
+            except (AttributeError, OSError, ValueError):  # pragma: no cover - URL handlers
+                # Not every pyserial URL handler exposes the modem lines.
+                # serial.SerialException is an OSError, so this covers a real
+                # port refusing the change as well as a handler without it.
+                self._logger.debug("cannot set %s on %s", line, self._port, exc_info=True)
+
         # Discard whatever the device said before anyone was listening: a boot
         # banner read as the answer to the first command is a confusing failure.
         try:
@@ -161,6 +184,26 @@ class SerialTransport(Transport):
         except Exception:                               # pragma: no cover - URL handlers
             pass
 
+    def discard_input(self) -> int:
+        """Drop everything received and not yet read, including the OS buffer.
+
+        An instrument that streams readings fills the operating system's
+        receive buffer while nobody is reading; without this, the next read
+        returns a reading that may be minutes old (CORE-FR-061).
+        """
+        dropped = super().discard_input()
+        if self._serial is not None:
+            try:
+                dropped += int(self._serial.in_waiting or 0)
+            except Exception:  # pylint: disable=broad-exception-caught  # pragma: no cover
+                pass
+            try:
+                self._serial.reset_input_buffer()
+            except Exception:  # pylint: disable=broad-exception-caught  # pragma: no cover
+                self._logger.debug("could not reset the input buffer of %s", self._port,
+                           exc_info=True)
+        return dropped
+
     def _close_link(self) -> None:
         port, self._serial = self._serial, None
         if port is None:
@@ -168,7 +211,7 @@ class SerialTransport(Transport):
         try:
             port.close()
         except Exception:                               # pragma: no cover - defensive
-            _LOG.debug("error closing %s", self._port, exc_info=True)
+            self._logger.debug("error closing %s", self._port, exc_info=True)
 
     def _send(self, data: bytes) -> None:
         if self._serial is None:
@@ -199,7 +242,12 @@ class SerialTransport(Transport):
         if self._serial is None:
             raise TransportError("%s is not open" % self.description)
         try:
-            self._serial.timeout = self._timeout
+            # Only when it has changed. pyserial reconfigures the port on every
+            # assignment, and on Windows that loses bytes: a GPD-3303D on an
+            # FTDI adapter dropped about one reply in five until this was
+            # guarded.
+            if self._serial.timeout != self._timeout:
+                self._serial.timeout = self._timeout
             first = self._serial.read(1)
             if not first:
                 raise TransportTimeoutError(

@@ -21,22 +21,19 @@ Traces to: CORE-FR-009, CORE-ARC-003, CORE-DD-PROCESS.
 
 from __future__ import annotations
 
-import logging
 import os
 import queue
 import shlex
-import signal
 import subprocess
 import threading
 from collections import deque
-from typing import Deque, List, Optional, Sequence, Tuple
+from typing import Deque, List, Optional, Tuple
 
 from ..errors import ConnectionFailedError, TransportError, TransportTimeoutError
 from .base import Transport
 
 __all__ = ["ProcessTransport"]
 
-_LOG = logging.getLogger(__name__)
 
 #: Lines of stderr retained for diagnostics.
 _STDERR_LINES = 200
@@ -50,6 +47,9 @@ class ProcessTransport(Transport):
         ``process://`` resource string.
     :param timeout: Default I/O timeout in seconds.
     :param terminator: Line terminator; the default suits line-oriented tools.
+        With the default, a line ending in CR LF is returned without the CR:
+        a child on Windows writing text ends its lines that way, and a message
+        of ``b"done\\r"`` is not the ``b"done"`` it sent (#79).
     :param cwd: Working directory for the child.
     :param env: Extra environment variables for the child.
     :param ready_timeout: Seconds to allow for the process to still be alive
@@ -115,6 +115,13 @@ class ProcessTransport(Transport):
         return self._returncode
 
     # ------------------------------------------------------------------
+    def read_message(self, strip_terminator: bool = True) -> bytes:
+        """Read one line; with the default LF terminator, CR LF counts as one too."""
+        message = super().read_message(strip_terminator=strip_terminator)
+        if strip_terminator and self._read_terminator == b"\n" and message.endswith(b"\r"):
+            message = message[:-1]
+        return message
+
     def _open_link(self) -> None:
         environment = None
         if self._env:
@@ -187,7 +194,7 @@ class ProcessTransport(Transport):
             for line in iter(stream.readline, b""):
                 text = line.decode("utf-8", errors="replace")
                 self._stderr_lines.append(text)
-                _LOG.debug("stderr: %s", text.rstrip())
+                self._logger.debug("stderr: %s", text.rstrip())
         except (OSError, ValueError):  # pragma: no cover - pipe closed
             pass
 
@@ -211,7 +218,7 @@ class ProcessTransport(Transport):
                 try:
                     process.wait(timeout=2.0)
                 except subprocess.TimeoutExpired:
-                    _LOG.warning("%s did not exit after kill", self.description)
+                    self._logger.warning("%s did not exit after kill", self.description)
         for reader in self._readers:
             reader.join(timeout=1.0)
         self._readers = []

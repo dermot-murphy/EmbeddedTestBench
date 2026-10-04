@@ -44,7 +44,7 @@ def write_manifest(directory, version=INSTALLED_VERSION, built=INSTALLED_BUILT,
     (directory / MANIFEST_NAME).write_text(json.dumps({
         "version": version,
         "built": built,
-        "protocol": "1.1",
+        "protocol": "1.4",
         "model": "PCA10059",
         "hex": "nordic_dongle_pca10059.hex",
         "package": package,
@@ -202,7 +202,7 @@ class TestTheDongleReportsItsBuild:
         assert "fw=" in identity.raw
 
     def test_the_protocol_is_reported_separately(self, dongle):
-        assert dongle.protocol_version == "1.1"
+        assert dongle.protocol_version == "1.4"
         assert dongle.protocol_is_compatible is True
 
 
@@ -241,7 +241,7 @@ class TestChecking:
         assert status.compared is True
 
     def test_against_a_newer_build(self, dongle, tmp_path):
-        write_manifest(tmp_path, version="1.2.0", built="2026-10-01T09:00:00Z")
+        write_manifest(tmp_path, version="1.5.0", built="2026-10-01T09:00:00Z")
         status = dongle.check_firmware(str(tmp_path))
         assert status.matches is False
         assert status.is_older is True
@@ -290,7 +290,7 @@ class TestUpdating:
         return flash
 
     def test_an_out_of_date_dongle_is_refreshed(self, dongle, simulator, tmp_path):
-        write_manifest(tmp_path, version="1.2.0", built="2026-10-01T09:00:00Z")
+        write_manifest(tmp_path, version="1.5.0", built="2026-10-01T09:00:00Z")
         build = FirmwareBuild.from_path(str(tmp_path))
         flash = self.flasher_for(simulator, build)
 
@@ -298,12 +298,12 @@ class TestUpdating:
 
         assert status.matches is True
         assert status.updated is True
-        assert dongle.firmware_version == "1.2.0"
+        assert dongle.firmware_version == "1.5.0"
         assert len(flash.calls) == 1
         assert flash.calls[0][0].endswith("nordic_dongle_dfu.zip")
 
     def test_the_dongle_is_asked_into_its_bootloader_first(self, dongle, simulator, tmp_path):
-        write_manifest(tmp_path, version="1.2.0", built="2026-10-01T09:00:00Z")
+        write_manifest(tmp_path, version="1.5.0", built="2026-10-01T09:00:00Z")
         build = FirmwareBuild.from_path(str(tmp_path))
         dongle.update_firmware(build, settle=0.0, flasher=self.flasher_for(simulator, build))
         assert simulator.dfu_requests == 1
@@ -320,7 +320,7 @@ class TestUpdating:
 
     def test_a_flash_that_does_not_take_is_reported(self, dongle, simulator, tmp_path):
         """"The tool said success" is not the same fact as "the dongle runs it"."""
-        write_manifest(tmp_path, version="1.2.0", built="2026-10-01T09:00:00Z")
+        write_manifest(tmp_path, version="1.5.0", built="2026-10-01T09:00:00Z")
         build = FirmwareBuild.from_path(str(tmp_path))
 
         def useless(package, port):
@@ -333,7 +333,7 @@ class TestUpdating:
             dongle.update_firmware(build, settle=0.0, flasher=useless)
 
     def test_updating_without_a_package(self, dongle, tmp_path):
-        write_manifest(tmp_path, version="1.2.0", make_package=False)
+        write_manifest(tmp_path, version="1.5.0", make_package=False)
         with pytest.raises(ConfigurationError, match="make dfu"):
             dongle.update_firmware(str(tmp_path), settle=0.0, flasher=lambda p, q: "")
 
@@ -342,7 +342,7 @@ class TestUpdating:
             dongle.update_firmware(settle=0.0, flasher=lambda p, q: "")
 
     def test_ensure_can_refuse_to_update(self, dongle, tmp_path):
-        write_manifest(tmp_path, version="1.2.0", built="2026-10-01T09:00:00Z")
+        write_manifest(tmp_path, version="1.5.0", built="2026-10-01T09:00:00Z")
         with pytest.raises(InstrumentError, match="updating was not permitted"):
             dongle.ensure_firmware(str(tmp_path), update=False)
 
@@ -352,13 +352,13 @@ class TestUpdating:
         assert status.updated is False
 
     def test_the_update_is_noted_in_the_session_log(self, dongle, simulator, tmp_path):
-        write_manifest(tmp_path, version="1.2.0", built="2026-10-01T09:00:00Z")
+        write_manifest(tmp_path, version="1.5.0", built="2026-10-01T09:00:00Z")
         build = FirmwareBuild.from_path(str(tmp_path))
         log = tmp_path / "session.log"
         dongle.start_log(str(log))
         dongle.update_firmware(build, settle=0.0, flasher=self.flasher_for(simulator, build))
         text = log.read_text()
-        assert "updating firmware to 1.2.0" in text
+        assert "updating firmware to 1.5.0" in text
         assert "firmware updated" in text
 
 

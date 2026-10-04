@@ -6,7 +6,7 @@
 | Link | The kit's USB port, as a virtual COM port, 115200 8N1 |
 | Firmware | **ST's own**, unchanged — the firmware the S2-LP DK GUI drives. Nothing from this repository runs on the board |
 | Driver | `benchtools.instruments.s2lp.S2lpDevkit`, bench driver name `s2lp` |
-| Status | Verified against a simulated kit with a register file and a modelled air interface (SWE.4 §9). **No kit has been attached**: five bench confirmation items remain, §7 |
+| Status | Run against a kit on 2026-09-27 (#76): NUCLEO-L053R8, ST-LINK V2J47M34, ST's CLI firmware with S2-LP library 1.3.5, silicon 0xC1. Identification, every getter, register read and write, both resets, transmit and batch transmit (433.425 MHz, −10 dBm), and a receive or capture with nothing on the air were exercised. Reception of a real packet is still open (§7) |
 
 ---
 
@@ -56,31 +56,74 @@ S2LPSendNBytes "Hello"
 
 Integers are decimal or `0x`-prefixed. A byte string is `{ 08 A1 F2 }` in hex or
 `"text"` in ASCII. ST's argument letters, which this driver checks every command
-against, are `u` (one byte), `v` (two), `w` (four) and `b` (a string).
+against, are `u` (one byte), `v` (two), `w` (four) and `b` (a string). The power
+level is read signed although ST declares it `w`, so the driver sends it with
+its own letter `i`.
 
-Replies are brace-delimited tags:
+### 2.1 Replies, as a kit sends them
+
+Recorded on 2026-09-27. The firmware echoes the command, answers, and prints a
+`>` prompt with no line end:
 
 ```
-{{SdkEvalSpiReadRegisters} API callback...
-{regs_list: 0x00,0x0A,0x01,0xA2}
-{timer:000004D2}
+S2LPRadioGetFrequencyBase
+{{(S2LPRadioGetFrequencyBase)} API call...{value:31BF1BAD}}
+>
+```
+
+A few replies run over several lines:
+
+```
+{{(SdkEvalSpiReadRegisters)} API callback...
+{regs_list: 0x2E,0x20,0x2F,0x00}
+{timer:055E5BB1}
 }
 ```
 
-Three things about replies are worth knowing, because two of them caused defects
-here (D-32, D-33):
+What the driver relies on, each one learned from the kit or from a defect:
 
 1. **A reply ends when the braces balance**, not after a fixed number of lines.
-   Some commands answer on one line, some over six.
-2. **Some tags are bare hex.** The firmware writes `{rssi:D4}` with a `%x`
-   specifier and no `0x`. Read as decimal, `D4` is 4 — an RSSI wrong by 104 dB,
-   and entirely plausible-looking.
-3. **Some values are negative.** `S2LPQiGetRssidBm` answers in dBm, so `-110`
-   arrives with its sign, and dropping it gives +110 dBm — impossible, and
-   nothing downstream would question it.
+2. **Most getters answer in a tag called `value`.** A few name their fields, for
+   example `S2LPRadioGetInfo` answers `{Frequency_base:…}{Modulation:…}{Data_rate:…}`.
+   The tag names the driver was first written with (`frequency`, `board`,
+   `xtal`, ...) came from reading ST's source, and were wrong.
+3. **How a value is written depends on the command.** ST's `&tx`, `&t2x` and
+   `&t4x` print 2, 4 and 8 hex digits with no `0x`. `&td` prints signed decimal,
+   for example the PA level in **tenths** of a dBm (`{value:120}` is 12.0 dBm).
+   `S2LPQiGetRssidBm` prints a float with its sign (`{value:-116.0}`). The
+   driver picks the matching reader per command, because `{value:70}` is 0x70
+   from one command and seventy from another.
+4. **An interpreter error comes instead of a reply**, on one line:
+   `no such command`, `wrong number of arguments`, `integer argument out of
+   range`, `argument syntax error`, `string too long`, `invalid argument type`.
+   The session fails at once, naming the command.
+5. **The echo can run into the reply.** `SdkEvalRfboardIdentification`'s echo
+   arrives cut short and without its line end, as in
+   `SdkEvalRfboardIdo{{(SdkEvalRfboardIdentification)} API call...}`. The
+   session splits the line at the reply's `{{`.
+6. **The board timer is in microseconds.** It advanced 2,041,139 counts in
+   2,043 ms of host time. It is 32 bits wide and wraps every 71.6 minutes.
+
+One host-side fault looked like the firmware dropping characters. A stop's
+acknowledgement arrived as `{{)} Acall...}`, and the next reply lost its opening
+braces. The same exchange over a port left alone came back clean in 800 of 800
+tries. The cause was the session setting the port's timeout on every read, which
+reconfigures a serial port each time; on Windows that loses bytes, as it did for
+the GPD-3303D in #61. The session now sets it once.
+
+### 2.2 Stopping
 
 A long-running command is stopped by sending the single character **`S`**, with
-no terminator: the firmware polls the port for it inside its capture loops.
+no terminator: the firmware polls the port for it inside its loops, and answers
+`{{(StopCmd)} API call...}`. Two things about it were found on the kit:
+
+* **An `S` sent to an idle board is not harmless.** It stays in the command
+  buffer and turns the next command into `no such command`. The session waits
+  for `StopCmd`; if none comes, it ends the line and swallows the error.
+* **A stopped send acknowledges after the stop does:**
+  `{{(StopCmd)} API call...}` then `{{(S2LPSendNBytes)} API call...}`. The
+  session takes only the reply to the command it sent, and keeps any other as
+  unclaimed.
 
 ---
 
@@ -92,11 +135,15 @@ no terminator: the firmware polls the port for it inside its capture loops.
 from benchtools.instruments.s2lp import S2lpDevkit
 
 with S2lpDevkit.connect("/dev/ttyACM0",
+                        board="STEVAL-FKI433V2",         # the firmware does not say
                         log_path="s2lp_session.log",
                         packet_log="s2lp_packets.jsonl") as radio:
-    radio.configure_radio(frequency_hz=915_000_000, data_rate_bps=38_400,
-                          modulation="2-gfsk-bt1")
-    radio.set_payload_length(16)
+    radio.configure_radio(frequency_hz=433_425_000, data_rate_bps=100_000,
+                          modulation="2-fsk", deviation_hz=20_000,
+                          bandwidth_hz=150_000)
+    radio.set_power_dbm(-10)
+    radio.configure_packets(preamble=64, sync_word=0xB19C0CA7, crc="16-8005",
+                            variable_length=True)
 
     radio.transmit(b"ping")
 
@@ -106,8 +153,10 @@ with S2lpDevkit.connect("/dev/ttyACM0",
         print(packet)
 ```
 
-Connecting identifies the board and **changes no radio setting**: a kit somebody
-left configured is not retuned by a driver attaching to it.
+Connecting identifies the firmware, the radio and its crystal, and **changes no
+radio setting**: a kit somebody left configured is not retuned by a driver
+attaching to it. The first send or receive routes the radio's interrupt (§4.4),
+which does write two registers.
 
 ### 3.2 Registers
 
@@ -178,8 +227,9 @@ is written on top of the second one.
 > **The `SRES` strobe does not do this.** ST's command header calls it a "reset
 > of all digital part, except SPI registers", so `radio.reset()` leaves the
 > radio configured exactly as it was. `restore_defaults()` writes the defaults;
-> `power_cycle()` goes through shutdown, which is the only thing that genuinely
-> returns every register - including bits a write cannot reach. This caught a
+> `power_cycle()` goes through shutdown, which is the only thing that reaches
+> bits a write cannot - though ST's firmware then sets ten registers on the way
+> out (§4.5). This caught a
 > defect in the simulator here (D-35), where SRES was modelled as a register
 > reset and the tests agreed with it.
 
@@ -222,8 +272,10 @@ tests:
         expect: [{name: configured, measure: matches, equals: 1}]
 ```
 
-`specs/radio_link.yaml` runs exactly that. Paths are relative to where the
-runner is invoked, as bench paths are.
+`specs/radio_link.yaml` runs exactly that. A relative `source` is looked for
+beside the specification, then in the working directory, then in the EmbeddedTestBench
+checkout, so the shipped configurations are found wherever the runner is
+started from (#116; [Bench Runner Guide §6.2](../Bench_Runner_Guide.md#62-relative-paths-and-where-the-runner-is-started)).
 
 ### 3.4 From the command line
 
@@ -234,7 +286,10 @@ python -m benchtools s2lp -r /dev/ttyACM0 registers PCKTCTRL3
 python -m benchtools s2lp -r /dev/ttyACM0 registers PCKTCTRL3 --write 0xC0
 python -m benchtools s2lp -r /dev/ttyACM0 config configs/s2lp_915_38k4_basic.regs --apply
 python -m benchtools s2lp -r /dev/ttyACM0 radio --frequency 915000000 --rate 38400
+python -m benchtools s2lp -r /dev/ttyACM0 packets --sync 0xB19C0CA7 --crc 16-8005 --variable
 python -m benchtools s2lp -r /dev/ttyACM0 tx 0x0102ff
+python -m benchtools s2lp -r /dev/ttyACM0 --setup configs/s2lp_915_38k4_basic.regs tx ping
+python -m benchtools s2lp -r /dev/ttyACM0 --board STEVAL-FKI433V2 info
 python -m benchtools s2lp -r /dev/ttyACM0 --packet-log rx.jsonl capture --count 50
 python -m benchtools s2lp -r sim:// registers                        # no kit needed
 ```
@@ -246,7 +301,7 @@ They answer different questions, so both are kept.
 | File | Contents | Question it answers |
 |---|---|---|
 | `--log` | Every line, both directions, host-timestamped, flushed per line — including lines the driver did not understand | What did the tooling actually do? |
-| `--packet-log` | One JSON object per packet: direction, both clocks, length, hex, text, RSSI, error | What did the radio carry? |
+| `--packet-log` | One JSON object per packet: direction, host time, board time in µs, length, hex, text, RSSI, error, and the firmware's extra fields | What did the radio carry? |
 
 The packet log is JSON Lines rather than one document, so a capture interrupted
 half way through is still readable — which is the usual case, since a capture is
@@ -254,51 +309,319 @@ usually interrupted on purpose. `radio.log_note(...)` writes into both.
 
 ---
 
+### 3.6 Receiving the Kepler sensor
+
+The Kepler (Kappa X) sensor transmits plaintext frames at 433.425 MHz. The bench
+kit is the 433 MHz board (STEVAL-FKI433V2). `configs/s2lp_kepler_433_rx.regs`
+holds the receive setup, captured from the kit after it was set up to the
+sensor firmware's settings:
+
+| | Value | Where the sensor sets it |
+|---|---|---|
+| Carrier | 433.425 MHz | `api_radio_transport_cfg.h` |
+| Modulation | 2-FSK, 100 kbps, 20 kHz deviation, 150 kHz filter | same |
+| Packet | basic; 32 bit-pairs of preamble (`S2LPPktBasicInit` argument 32); variable length, one byte; one address byte; CRC-16 poly 0x8005 | same, and `api_radio_mac.c` |
+| Sync | 32 bits, both directions: primary `0x4E63F358` (gateway to sensor) in SYNC3..0, secondary `0xB19C0CA7` (sensor to gateway) in PCKT_FLT_GOALS3..0, with PCKTCTRL1.SECOND_SYNC_SEL set. This is the S2-LP DK GUI setup rf_monitor captures with (#87) | the sensor switches between them (`api_radio_mac.c`) |
+
+```python
+from benchtools.instruments.s2lp import S2lpDevkit
+from benchtools.instruments.s2lp.kepler import decode_kepler_frame
+
+with S2lpDevkit.connect("COM4", board="STEVAL-FKI433V2",
+                        packet_log="kepler.jsonl") as radio:
+    radio.apply_configuration("configs/s2lp_kepler_433_rx.regs", reset="defaults")
+    for frame in radio.stream(decoder=decode_kepler_frame, timeout=900):
+        print(frame)            # RX  35 bytes  -94.5 dBm  ALIVE  5c1712...
+```
+
+```bash
+python -m benchtools s2lp -r COM4 --board STEVAL-FKI433V2 --setup configs/s2lp_kepler_433_rx.regs stream --decode kepler --timeout 900 > frames.jsonl
+```
+
+`stream()` has two modes (#87):
+
+* **`mode="batch"`, the default.** It uses ST's own receive loop, started once,
+  as ST's GUI does, so it misses the fewest frames. Each frame carries RSSI,
+  AGC word, CRC, addresses, sequence number and length.
+* **`mode="polled"`.** It receives one frame at a time and reads registers
+  straight after each: AFC correction, PQI, carrier sense with SQI, and RSSI by
+  default, or any set given with `registers=`. ST's firmware does not report
+  PQI or SQI, so this is the only way to get them. The cost is that the radio
+  is deaf while the host re-arms it (§4.1), and close repeats are lost.
+
+```bash
+python -m benchtools s2lp ... stream --decode kepler                          # batch
+python -m benchtools s2lp ... stream --decode kepler --mode polled --registers LINK_QUALIF2,RSSI_LEVEL
+```
+
+Each record in the packet log carries the raw payload, the registers (polled
+mode), the firmware's fields and the decode together.
+
+**What the kit received on 2026-09-27.** Sensor 5C1712 sent ALIVE frames, each
+packet three times (frame count repeat 0, 1 and 2), 33 ms and 130 ms apart, at
+−94.5 dBm on the bench. The decode was coherent: 24.4 °C, 2540 mV, and SI-updated
+set on the first repeat only, which matches the firmware clearing it once loaded.
+
+Two points from the reference firmware were settled on the air:
+
+* The payload in the FIFO starts at SENSOR_ID. The radio consumes the address
+  byte and reports it separately.
+* The address byte the sensor sends is **0xA7**. The reference project's own
+  documents disagreed about this; it is the low byte of the secondary sync word
+  sitting in PCKT_FLT_GOALS3. The GUI setup rf_monitor uses writes the
+  secondary sync word to 0x42-0x45, which settles the reference project's
+  question of whether it lives at 0x41-0x44 or 0x42-0x45.
+
+**The polled stream's gap costs frames.** An 11-minute `stream` on the same
+day received 5C1712's packet as all three repeats, 190 ms and 170 ms apart. For
+5C314E it received repeats 0 and 1 only: repeat 2 fell in the re-arm gap. The
+sensor spaces its repeats randomly, with gaps from 20 ms to 220 ms
+(`api_radio_llc_cfg.h`). A 20 ms gap is shorter than the stream's register read
+plus a command round trip, whereas ST's batch loop (`capture()`) caught all
+three of 5C314E's repeats earlier the same day. So:
+
+* use `stream()` when the per-frame registers matter;
+* use `capture()` when missing a repeat matters more;
+* in either case, count packets by repeat 0 or by any repeat, not by frames.
+
+5C314E reports RF_CAP 4 (V10 firmware). Its ALIVE frames decode, with a warning
+that the layouts are for RF_CAP 6.
+
+**Measuring the preamble (2026-09-28).** PQI (LINK_QUALIF2) tracks how much
+preamble the receiver saw. It must be switched on first: with QI.PQI_TH = 0,
+the reset value, it reads 0. The measurements, in polled mode with PQI_TH = 1:
+
+| Sensor | `RD PREAMBLE-LENGTH` | Preamble on the air | PQI after each frame |
+|---|---|---|---|
+| 5C1712 | 32 pairs (default) | 64 bits | 30-63, mostly 63 |
+| 5C1712 | 48 pairs (#89) | 96 bits | best **95** of 15 frames (lowest 70) |
+| 5C1712 | 100 pairs (#89) | 200 bits | best **199** of 15 frames (lowest 180) |
+| 5C1712 | 128 pairs (`WR PREAMBLE-LENGTH 128`, then `ECURESET HARD`) | 256 bits | 220-255, mostly 255 |
+| 5C314E, in the same run | 32 pairs | 64 bits | 46, 63 |
+
+PQI is **2 x pairs - 1** exactly for the best frame, at 32, 48 and 100 pairs,
+up to the register's full scale of 255. It therefore distinguishes preamble
+lengths up to 127 pairs; longer ones read 255.
+
+The driver does this for you (#89):
+
+* Asking for LINK_QUALIF2 in a polled stream switches the PQI check on and puts
+  it back afterwards.
+* `measure_preamble()` gives each sensor's best PQI and the preamble it
+  implies.
+* `check_preamble(pairs, source)` returns pass, fail or unmeasurable.
+* `benchtools s2lp preamble --source 5C1712 --expect-pairs 48` does the same
+  from the command line.
+* `specs/kepler_preamble.yaml` sets the sensor's preamble over BLE, checks it
+  on the air, and restores the default. Readings below the
+maximum are frames whose preamble was caught part-way, for example straight
+after a polled re-arm. PQI is read per frame, so it needs `mode="polled"`.
+5C1712 was set back to 32 pairs afterwards and read back as 32; PQI returned to
+63.
+
+(The sensor's preamble setting is in bit-pairs, stored in NVM, and applied
+only when the radio initialises, so it needs `ECURESET HARD`.)
+
+SQI read 32 with a single sync word and 96 with the dual-sync setup.
+
+**Frame types seen on the air (#85)**, all from 5C1712 on 2026-09-27, all
+decoded without error:
+
+| Type | How it was provoked | What it showed |
+|---|---|---|
+| ALIVE | periodic, every 10 minutes | as above |
+| VERSION | BLE `ECURESET HARD`; arrived about 8 s after the ACK | `V11.00.0000`, SHA `bc97874`, reset reason 4 (RESETREAS.SREQ, a software reset), ticks 1 |
+| CONFIG | follows a reset: 12 packets 45 s apart (mux 0 to 11), ahead of TWF | distance permutation; mux in order |
+| TWF | BLE `WR TRIGGER`; started after the CONFIG cycle had finished | one packet every 45 s, packet count 256 (about 3.2 hours for a waveform). PARAM's SI type stepped 0, 1, 2, 3, 4 from packet to packet. The SI acceleration in packet 0 (145, 84, 93) agrees with the ALIVE RMS acceleration a minute later (147, 87, 95) |
+
+Over a 15-minute polled stream, every one of 22 packets arrived at least once,
+but only 14 arrived with all three repeats: 58 of 66 repeats in total. The
+missed repeats were mostly the middle one, following the first too closely
+(#84).
+
+**Why rf_monitor misses so few frames (2026-09-28).** rf_monitor reads the log
+written by ST's S2-LP DK GUI (`C:\Program Files\S2-LP_DK 1.3.5\GUI\S2-LP_DK.exe`).
+The GUI's code is packed, so what it sends was read from the kit instead. The
+firmware's input ring buffer was dumped from RAM over SWD
+(`STM32_Programmer_CLI -c port=SWD mode=HOTPLUG -u 0x20000000 0x2000`), which
+does not touch the COM port, while the GUI was receiving.
+
+To start reception the GUI sends the following (reconstructed from the ring,
+so the order is approximate):
+
+```
+S2LPPktBasicSetPayloadLength 20
+S2LPTimerSetRxTimeoutUs 0            # no RX timeout
+S2LPGetBatchLP 0                     # low-power receive off
+SdkEvalLedHandler 3 1
+S2LPGpioInit 3 3 0x00                # nIRQ on GPIO3, GPIO_MODE 3 (output, high power)
+S2MGpioIrqConfiguration 3 1          # the board's interrupt on that line
+S2LPIrq 0x00000001 1                 # RX data ready
+S2LPIrq 0x00000002 1                 # RX data discarded
+SdkEvalSpiWriteRegisters 0x18 {28}   # RSSI_TH, its reset value
+S2LPGetNBytesBatch 0 4294967295      # ST's receive loop, effectively forever
+```
+
+After that it sends nothing: three RAM reads over 30 s found no new command.
+The board re-arms the radio itself after every packet, and the only dead time
+is the board printing its report (the GUI does not enable
+`S2LPGetNBytesReportAll`, so the loop re-arms after printing).
+
+| | Who re-arms | In each gap | Repeats received on the bench |
+|---|---|---|---|
+| GUI, feeding rf_monitor | the firmware loop | printing the report | "very few missed" (user) |
+| `capture()` | the firmware loop, with ReportAll | less than the GUI: re-arms before printing | all, down to a 32 ms gap |
+| `stream()` | the host, once per frame | report, a 14-17 ms register read, a new command | 58 of 66; shortest gap received 108 ms |
+
+The losses come from `stream()` choosing per-frame PQI/SQI over the firmware
+loop, not from the decoding.
+
+**After #87 (2026-09-28).** A 15-minute default (`batch`) stream, with 5C1712
+sending TWF every 45 s after `WR TRIGGER`, received **63 of 63 repeats**: all 21
+packets were complete (12 TWF, 7 CONFIG, and an ALIVE from each sensor), with
+nothing rejected or undecoded. The polled stream had received 58 of 66. #87 bases `stream()` on the loop by default, and
+#84 would give both through interrupt-driven firmware.
+
+**The GUI's setup compared with the driver's** (its `.dat` file and the
+manual steps in the reference project's setup guide, plus the commands read
+from RAM):
+
+| Setting | GUI | Driver |
+|---|---|---|
+| RF (433.425 MHz, 2-FSK, 100 kbps, 19.979 kHz deviation, 156.153 kHz filter) | same | same |
+| Packet (sync `0xB19C0CA7`, CRC-16 0x8005, variable length, address byte, no FEC or whitening) | same | same |
+| Preamble | 32 bits | PREAMBLE_LEN 32, the sensor firmware's value; this only matters when transmitting |
+| RX timeout | infinite (`S2LPTimerSetRxTimeoutUs 0`) | **now the same**, set by `prepare_receive()` on the first receive (#87). Out of reset TIMERS5 is 1, a finite timer |
+| Low-power receive | `S2LPGetBatchLP 0` | now the same |
+| nIRQ on GPIO3 | GPIO_MODE 3 (high power) | GPIO_MODE 2 (low power); drive strength only |
+| IRQ mask | RX ready, RX discarded | those, plus TX sent, CRC error, valid sync, RX timeout |
+| Sync words | primary `0x4E63F358` from `st_eval/Spirit_GUI_Configuration.dat`, secondary `0xB19C0CA7` written by hand to 0x42-0x45, with SECOND_SYNC_SEL | **now the same** in `configs/s2lp_kepler_433_rx.regs`; before #87 it held `0xB19C0CA7` only and did not hear the gateway |
+
+The GUI's setup also confirms two things this driver found independently:
+nIRQ goes on GPIO3 with the register's own GPIO_MODE encoding, and the board's
+interrupt is enabled on line 3.
+
+FFT, FFT2, CMD and RESPONSE have not been seen on the air. They are tested
+against frames built from the reference layouts.
+
+---
+
 ## 4. What this firmware cannot do, and what the driver does about it
 
-### 4.1 Reception is polled, so the radio is deaf between calls
+### 4.1 The radio is deaf while it is re-armed
 
 `S2LPGetNBytes` arms the radio, waits, and returns. Between one call and the next
 nothing is listening, and a packet arriving then is not merely lost — **nothing
 anywhere records that it happened**.
 
-So a capture records how it was taken:
+ST's batch receive (`S2LPGetNBytesBatch`) is better but not gap-free: its loop
+re-arms the radio after reading each packet out. The driver was first written
+to call it continuous, and ST's source shows it is not. With
+`S2LPGetNBytesReportAll 1`, which the driver turns on, the loop re-arms *before*
+printing each report rather than after, so the gap no longer includes the time
+the report takes to send.
+
+So a capture records how often it re-armed, and who did it:
 
 ```python
-capture = radio.capture(count=20, timeout=60.0)          # board-side loop
-capture.is_continuous      # True: no re-arms during the capture
-capture.gaps               # 0
+capture = radio.capture(count=20, timeout=60.0)          # ST's batch loop
+capture.rearm              # "firmware"
+capture.gaps               # one fewer than the receptions
+capture.rejected           # CRC and address-filter rejections, kept apart
 
 polled = radio.capture(count=20, timeout=60.0, continuous=False)
-polled.is_continuous       # False
-polled.describe()          # "... (19 re-arm gap(s): not a complete record of the air)"
+polled.rearm               # "host": each gap includes a USB round trip
+polled.describe()          # "... (19 host re-arm gap(s): not a complete record of the air)"
 ```
 
-Only a continuous capture supports a statement about what was *not* transmitted.
-A polled one supports "nothing was heard while listening", and nothing more.
-Prefer `continuous=True`; it is the default.
+`is_continuous` is true only for a capture that never re-armed. A capture that
+did supports "nothing was heard while listening", and nothing more.
 
-### 4.2 Timestamps are milliseconds, from the motherboard
+### 4.2 Timestamps are microseconds, from the motherboard
 
-`Packet.board_time_ms` is the kit MCU's own timer, not a radio timestamp. It
-orders packets and times a sequence. It does not characterise a protocol's
-timing, and the field is named for its unit so that nobody quotes it as if it
-did. For timing at that level, the J-Link driver's four methods
+`Packet.board_time_us` is the kit MCU's own timer, not a radio timestamp. It is
+read when the firmware prints the report, after the packet has been read out of
+the radio. It orders packets and times a sequence, and it is unwrapped across
+the 32-bit counter's 71.6-minute wrap. It does not characterise a protocol's
+timing. For timing at that level, the J-Link driver's four methods
 (`docs/jlink/`) measure on the target instead.
 
 ### 4.3 A frequency the board cannot radiate is accepted by the radio
 
-The S2-LP will tune anywhere in its range and report exactly what it was told —
-while the board's filter and matching network pass only its own band. The driver
-refuses a frequency outside the band the **board reported**, rather than one
-named in configuration:
+The S2-LP will tune anywhere in its range and report exactly what it was told,
+while the board's filter and matching network pass only its own band.
+`SdkEvalRfboardIdentification` answers with no tags, but **the board's
+identification EEPROM names its band** (#80). ST's firmware reads it with
+`EepromReadPage`, which its `help` hides. The driver reads page 0 at
+connection:
+
+| Byte | Bench kit | Meaning (ST's middleware) |
+|---|---|---|
+| 0 | 0x03 | programmed (0x00 or 0xFF would mean blank) |
+| 1 | 0x04 | 50 MHz crystal |
+| 3 | 0x02 | 433 MHz band (0 169, 1 315, 2 433, 3 868, 4 915, 5 450) |
+
+With no board named, the band comes from the EEPROM. A named board that
+disagrees is refused at connection. A blank or unreadable EEPROM leaves the
+band unknown. A named board:
 
 ```python
+radio = S2lpDevkit.connect("COM4", board="STEVAL-FKI915V1")
 radio.set_frequency(868_000_000)
 # ConfigurationError: 868.000 MHz is outside the STEVAL-FKI915V1 band this board
-# is built for (902.0 to 928.0 MHz). The radio would accept it and transmit into
-# a filter and matching network that do not pass it.
+# is built for (902.0 to 928.0 MHz). ...
 ```
+
+With neither a named board nor a readable EEPROM, only the synthesiser's own
+ranges (413-527 and 826-958 MHz) are checked. The driver used to report
+`STEVAL-FKI915V1` for any kit that did not say otherwise (#76).
+
+### 4.4 Sending and receiving need three things set up first
+
+Each of these was found on the kit (#76). Each one on its own made a send wait
+indefinitely.
+
+1. **The radio's interrupt has to reach the board.** ST's send and receive wait
+   for it, and out of reset nothing routes it. `prepare_traffic()` does so on the
+   first send or receive:
+   * it puts nIRQ on S2-LP GPIO3;
+   * it unmasks the interrupts the firmware waits for;
+   * it enables the board's input on that line (`S2MGpioIrqConfiguration 3 1`);
+   * it checks that the board reads the line high.
+
+   The GPIO mode is the register's own encoding, **2** for output. The CLI's help
+   text numbers the modes one lower. Following the help made GPIO3 an input,
+   which read back as `GPIO3_CONF = 0x01`, and no interrupt ever arrived. All
+   four S2-LP GPIOs were confirmed to reach the board's pins one to one, by
+   driving each high in turn and reading `S2MGpioGetValue`.
+2. **The TX source has to be the FIFO.** PCKTCTRL1 powers up as 0x2C, with
+   TXSOURCE = 3: a PN9 test pattern, which the radio sends for as long as it is
+   left in TX, ignoring the FIFO. `configure_packets()` (ST's
+   `S2LPPktBasicInit`) or a register file sets it to 0. Until then `transmit()`
+   refuses. The shipped `configs/s2lp_915_38k4_basic.regs` set PCKTCTRL1 to
+   0x2C, so it could never have transmitted; it now sets 0x20.
+3. **PCKTLEN has to match the payload.** Given fewer bytes, the radio waits in
+   TX for the rest. `transmit()` sets the length first when it differs.
+
+A send that still never completes is stopped, the radio is aborted and its TX
+FIFO flushed, and then the error is raised. The board is left usable.
+
+Measured with all three in place, at 433.425 MHz, 100 kbps 2-FSK, −10 dBm:
+five 8-byte sends at 24–33 ms each, host round trip included, and a batch of
+five at 100 ms intervals in 0.53 s.
+
+### 4.5 A power reset is not the datasheet's reset
+
+`SdkEvalSdn 1` then `0` returns the radio's registers to power-on values, and
+then ST's firmware writes ten of them on the way out of shutdown. On the kit
+these were SYNT3, CLOCKREC1, FIFO_CONFIG3..0, CSMA_CONF3, FAST_RX_TIMER,
+VCO_CONFIG and XO_RCO_CONF1 (`constants.AFTER_SHUTDOWN_EXIT`).
+`apply_configuration(reset="power")` checks against that state.
+`reset="defaults"` writes the datasheet values, including over those ten.
+
+Reset checks look at writable registers only. RSSI, the interrupt flags and the
+silicon version are never at a "reset value" on a live radio, and counting
+them made every reset check fail on the kit.
 
 ---
 
@@ -342,15 +665,15 @@ one. This matters for what may be kept here:
 
 ## 7. Bench confirmation items
 
-Everything below needs a kit. None blocks using the driver.
-
-| ID | Item | How to discharge it |
+| ID | Item | Status |
 |---|---|---|
-| S2LP-OPEN-01 | The **exact reply text** of each command on real firmware. The parser reads tags by name and keeps every line, so an extra or renamed tag is visible rather than fatal — but the tag names used here (`regs_list`, `bytes`, `rssi`, `error`, `timer`, `board`, `xtal`) come from ST's source, not from a board | Connect and run `python -m benchtools s2lp -r <port> -v -v info`, then compare the logged lines against `protocol.py`'s expectations |
-| S2LP-OPEN-02 | The **error codes** `S2LPGetNBytes` returns. The driver treats any non-zero code as "nothing received" and records the code | Run a receive with no transmitter, and one with a deliberately corrupted packet; record both codes |
-| S2LP-OPEN-03 | Whether `SdkEvalRfboardIdentification` reports the **board name** this driver expects. If it answers differently, `constants.BOARDS` needs that string — the band check depends on it | `python -m benchtools s2lp -r <port> info` and read `board` |
-| S2LP-OPEN-04 | **`S2LPGetNBytesBatch`'s first argument.** ST's source takes it as a reference timer in ms, used by the low-power modes; this driver passes 0. Confirm 0 means "no reference timer" on hardware | Capture with 0, then with a value, and compare what arrives |
-| S2LP-OPEN-05 | The **link budget in practice**: RSSI against a known transmitter, and the smallest re-arm gap a polled capture really has | Two kits, or one kit and a signal generator |
+| S2LP-OPEN-01 | The **exact reply text** of each command on real firmware | **Closed**, 2026-09-27. Every getter, register read and write, strobe, identification, send, batch send, stop and interpreter error was recorded from the kit (§2). The simulator now answers with those shapes |
+| S2LP-OPEN-02 | The **error codes** `S2LPGetNBytes` returns | **Partly closed.** ST's source gives 1 RX timeout, 2 CRC, 3 and 4 address filters, 6, and 0xFF for a stop. With nothing on the air the receive does not time out at all; it waits until stopped. The codes for a corrupted packet still need a transmitter |
+| S2LP-OPEN-03 | Whether `SdkEvalRfboardIdentification` reports the **board name** | **Closed: it does not.** It answers with no tags. The board is now the caller's to name (`board=`, `--board`), and no default is assumed |
+| S2LP-OPEN-04 | **`S2LPGetNBytesBatch`'s first argument** | Open. ST's source uses it as a reference timer in ms, with 0 meaning none; the driver passes 0. Needs traffic to confirm |
+| S2LP-OPEN-05 | The **link budget in practice**: RSSI against a known transmitter, and the smallest re-arm gap | Partly closed, #77. The Kepler sensor on the bench arrives at −94.5 dBm, and ST's batch loop caught three repeats 33 ms apart. A register read takes 14–17 ms, which bounds a polled stream's gap from below. The gap of a polled stream has not been measured against a known sequence |
+| S2LP-OPEN-07 | **PQI reads 0** | **Closed**, 2026-09-28. PQI is computed only while the PQI check is enabled: with QI.PQI_TH = 0 (the reset value) LINK_QUALIF2 read 0 on every frame; with PQI_TH = 1 it read 30-255. See "Measuring the preamble" in §3.6 |
+| S2LP-OPEN-06 | **Which board this kit is** | **Closed**, 2026-09-27/28: the 433 MHz board (STEVAL-FKI433V2), from its label and now from its EEPROM (#80): the driver reads it at connection |
 
 ---
 

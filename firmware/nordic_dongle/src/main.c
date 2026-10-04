@@ -64,7 +64,10 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
 
 	scanner_on_ble_evt(p_ble_evt);
 	nus_client_on_ble_evt(p_ble_evt);
-	ble_db_discovery_on_ble_evt(p_ble_evt, &m_db_discovery);
+	/* Not ble_db_discovery_on_ble_evt(): BLE_DB_DISCOVERY_DEF registers its
+	 * own observer, and delivering each event twice corrupted discovery on a
+	 * real sensor (#38). The same holds for BLE_NUS_C_DEF, NRF_BLE_SCAN_DEF,
+	 * NRF_BLE_GATT_DEF and NRF_BLE_GQ_DEF. */
 }
 
 NRF_SDH_BLE_OBSERVER(m_ble_observer, APP_BLE_OBSERVER_PRIO, ble_evt_handler, NULL);
@@ -147,7 +150,7 @@ int main(void)
 	gatt_init();
 	db_discovery_init();
 	APP_ERROR_CHECK(scanner_init());
-	APP_ERROR_CHECK(nus_client_init(&m_gatt_queue));
+	APP_ERROR_CHECK(nus_client_init(&m_gatt_queue, &m_db_discovery));
 
 	if (!cmd_parser_init())
 	{

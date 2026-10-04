@@ -10,9 +10,9 @@ there is nothing to flash before running this.
 
 Two things here are worth reading rather than skimming. The register dump is
 filtered to what differs from reset, which is the answer to "what has this radio
-been configured to do?". And the capture reports whether it was continuous:
-a capture with re-arm gaps cannot be quoted as evidence that nothing was
-transmitted, only that nothing was heard while listening.
+been configured to do?". And the capture reports how often the radio was
+re-armed: a capture with re-arm gaps cannot be quoted as evidence that nothing
+was transmitted, only that nothing was heard while listening.
 """
 
 import sys
@@ -27,18 +27,27 @@ def main(resource: str = "sim://", session_log: str = "s2lp_session.log",
         identity = radio.identify()
         print("Kit      : %s (%s), crystal %.1f MHz"
               % (identity.model, identity.manufacturer, radio.xtal_hz / 1e6))
-        low, high = radio.band
-        print("Band     : %.1f to %.1f MHz" % (low / 1e6, high / 1e6))
+        # The firmware does not say which board it is on. Name it with
+        # connect(board=...) to have frequencies checked against its band.
+        if radio.band:
+            low, high = radio.band
+            print("Band     : %.1f to %.1f MHz (%s)" % (low / 1e6, high / 1e6, radio.board))
+            centre = (low + high) // 2
+        else:
+            print("Band     : board not named; only the synthesiser range is checked")
+            centre = 915_000_000
 
         # --- configure -------------------------------------------------
         # The band check refuses a frequency this board cannot radiate: the
         # radio itself would accept it and report it back perfectly happily.
-        centre = (low + high) // 2
         info = radio.configure_radio(frequency_hz=centre, data_rate_bps=38_400,
                                      modulation="2-gfsk-bt1")
         print("\nRadio    : %.3f MHz  %s  %d bps  dev %d Hz  bw %d Hz"
               % (info["frequency_hz"] / 1e6, info["modulation_name"],
                  info["data_rate_bps"], info["deviation_hz"], info["bandwidth_hz"]))
+        # Out of reset the radio sends a PN9 test pattern, not its FIFO: set up
+        # the packet handler before transmitting.
+        radio.configure_packets()
         radio.set_payload_length(16)
         radio.log_note("configured for the example at %.3f MHz" % (centre / 1e6))
 
@@ -64,8 +73,9 @@ def main(resource: str = "sim://", session_log: str = "s2lp_session.log",
             print("  %s" % packet)
 
         # --- capture ---------------------------------------------------
-        # continuous=True keeps the board in its own loop, so the radio is armed
-        # for the whole capture. That is what makes the result quotable.
+        # continuous=True keeps the board in its own loop, so the radio is
+        # re-armed by the firmware rather than after a USB round trip. It is
+        # still re-armed after every packet, and the capture says so.
         print("\nCapturing up to 5 packets for 10 s:")
         capture = radio.capture(count=5, timeout=10.0)
         for packet in capture.packets:

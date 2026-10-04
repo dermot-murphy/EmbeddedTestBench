@@ -1,0 +1,75 @@
+# The Python suite.
+#
+# This is the workflow that makes every other check in this repository mean
+# something on a pull request: the traceability check that binds the documents
+# to the code, the layering test that enforces the architecture's dependency
+# direction, and the driver, runner and analysis tests all live here. Until it
+# existed they ran only when someone remembered to run them (TB-ANA-001 §6.1).
+#
+# No hardware is required. Every instrument has a simulator, so the whole suite
+# runs on a hosted runner - which is the point of TB-SYS2-012.
+#
+# Coverage gates at the TB-QA-002 target of 90%.
+
+name: tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    name: pytest (${{ matrix.python-version }})
+    runs-on: ${{ matrix.runs-on }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # The floor `pyproject.toml` declares, the version after it, and a
+        # current release. Testing the floor is not decoration here: benchtools
+        # has no mandatory runtime dependencies precisely so that a driver runs
+        # on a bare Python install (CORE-NFR-001), and the bench PC that design
+        # serves is the one least likely to have been rebuilt lately.
+        #
+        # 3.8 runs on ubuntu-22.04 because it is end-of-life and is not in the
+        # tool cache for ubuntu-24.04, which is what ubuntu-latest now means.
+        # The day 3.8 stops being supportable the honest move is to raise
+        # requires-python, not to drop this leg and leave the claim standing.
+        include:
+          - python-version: '3.8'
+            runs-on: ubuntu-22.04
+          - python-version: '3.9'
+            runs-on: ubuntu-latest
+          - python-version: '3.12'
+            runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install
+        run: pip install --quiet -e .[test]
+
+      - name: Run the suite
+        run: >
+          python -m pytest
+          --cov=benchtools --cov-report=term-missing --cov-fail-under=90
+          --junitxml=results/pytest.xml
+
+      - name: Upload the JUnit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-${{ matrix.python-version }}
+          path: results/
+          if-no-files-found: warn

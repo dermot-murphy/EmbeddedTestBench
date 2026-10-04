@@ -8,12 +8,20 @@ CC/CV mode fails a test here rather than on the rig.
 
 What is modelled: the command grammar and its replies, per-channel setpoints,
 the single global output switch, a resistive load per channel, constant-current
-fallback, the status word, the supply's refusal of an out-of-range value, and
+fallback, the status word, the supply's rejection of an out-of-range value
+(setpoint unchanged, ``Data out of range.`` for ``ERR?``), its error texts, and
 the three tracking modes - including the part that matters, which is that a
 setpoint sent to the slaved channel is **accepted and discarded**.
 
+The replies are shaped like a real supply's (firmware V1.09, checked on the
+bench): each ends in a carriage return alone, readings come back to 0.1 V and
+0.01 A, and ``STATUS?`` is eight space-separated fields followed by two lines
+of legend.
+
 What is not: the fixed 2.5 / 3.3 / 5 V rail, which no command reaches; the
-front panel; and the timing of the supply's own regulation loop.
+front panel; the timing of the supply's own regulation loop; and the read-back
+truncation that makes a real unloaded 3.600 V channel measure ``3.5V`` - this
+model rounds.
 
 Traces to: PSU-FR-006, PSU-FR-050, PSU-DD-SIM.
 """
@@ -28,6 +36,10 @@ from .constants import (
     MAX_CURRENT,
     MAX_VOLTAGE,
     MODEL,
+    REPLY_TERMINATOR,
+    STATUS_BIT_BEEP,
+    STATUS_BIT_OUTPUT,
+    STATUS_LENGTH,
     TRACKED_CHANNEL,
     TRACKING_MODES,
     ChannelMode,
@@ -58,7 +70,11 @@ class SimulatedChannel:
         limit, and the voltage is whatever the load makes of it. That is the
         whole of constant-current operation, and it is two lines here.
         """
-        if not energised or self.voltage_setpoint <= 0.0:
+        if not energised:
+            # A real supply reports CC for both channels while its output
+            # switch is open.
+            return {"voltage": 0.0, "current": 0.0, "mode": ChannelMode.CONSTANT_CURRENT}
+        if self.voltage_setpoint <= 0.0:
             return {"voltage": 0.0, "current": 0.0, "mode": ChannelMode.CONSTANT_VOLTAGE}
         if not self.load_ohms:
             return {
@@ -92,13 +108,18 @@ class SimulatedGpd:
     :param load_ohms: Load on each channel, by channel number.
     """
 
-    DEFAULT_IDN = "GW INSTEK,%s,SN:SIM00000,V2.00" % MODEL
+    DEFAULT_IDN = "GW INSTEK,%s,SN:SIM00000,V1.09" % MODEL
 
-    #: ``STATUS?`` bits that are not per-channel: beeper on and 9600 baud,
-    #: which is how a supply leaves the factory. Tracking is per instance,
-    #: because a test changes it.
+    #: The beeper, on as a supply leaves the factory. Tracking is per
+    #: instance, because a test changes it.
     BEEP = True
-    BAUD_BITS = "10"
+
+    #: What a V1.09 supply sends after the eight ``STATUS?`` fields, verbatim.
+    STATUS_LEGEND = (
+        "bit0:(CH1)0=CC,1=CV;bit1:(CH2)0=CC,1=CV;"
+        "bit23=(TRACK)01=INDEP,11=SER,10=PAR;",
+        "bit4:(BEEP)0=OFF,1=ON;bit6:(OUT)0=OFF,1=ON;",
+    )
 
     #: The two status bits for each tracking mode, bit 2 first, from
     #: :data:`.constants.TRACKING_MODES` so that the simulator and the driver
@@ -154,7 +175,7 @@ class SimulatedGpd:
             return None
         self.command_log.append(text)
         reply = self._dispatch(text)
-        return None if reply is None else reply.encode("ascii") + b"\r\n"
+        return None if reply is None else reply.encode("ascii") + REPLY_TERMINATOR
 
     # ------------------------------------------------------------------
     def _dispatch(self, text: str) -> Optional[str]:
@@ -172,7 +193,7 @@ class SimulatedGpd:
             return self._refuse(text)
         return handler(channel, argument)
 
-    def _refuse(self, text: str) -> Optional[str]:
+    def _refuse(self, _text: str) -> Optional[str]:
         """Record a rejected command.
 
         The supply does not answer a command it did not understand, which is
@@ -180,7 +201,7 @@ class SimulatedGpd:
         Recording it here lets a test assert on the thing the hardware only
         reveals through ``ERR?``.
         """
-        self.last_error = 'Command Error, "%s"' % text
+        self.last_error = "Undefined Header."
         return None
 
     # ------------------------------------------------------------------
@@ -217,8 +238,11 @@ class SimulatedGpd:
         slaved.current_limit = master.current_limit
 
     def _set(self, channel, argument, attribute: str, limit: float) -> None:
+        # Error texts are the supply's own, captured from a V1.09 unit:
+        # VSET3:1.000 and VSET1:-1 are "Invalid Character.", VSET1:35.000 is
+        # "Data out of range.", and in each case the setpoint does not move.
         if channel not in self.channels:
-            self.last_error = "Command Error, no channel %s" % channel
+            self.last_error = "Invalid Character."
             return
         if channel == TRACKED_CHANNEL and self.tracking != TrackingMode.INDEPENDENT:
             # The behaviour the driver refuses to depend on: the supply takes
@@ -226,45 +250,44 @@ class SimulatedGpd:
             # recorded here because the hardware records none - that silence
             # is the whole point.
             return
-        try:
-            value = float(argument)
-        except ValueError:
-            self.last_error = 'Data Error, "%s"' % argument
+        if not argument or any(character not in "0123456789." for character in argument):
+            self.last_error = "Invalid Character."
             return
-        # The supply clamps rather than refusing, which is exactly why the
-        # driver range-checks before sending: this is the behaviour it is
-        # protecting a test from.
-        clamped = min(max(value, 0.0), limit)
-        if clamped != value:
-            self.last_error = "Data Out of Range"
-        setattr(self.channels[channel], attribute, clamped)
+        value = float(argument)
+        # Rejected, not clamped: the setpoint stays where it was, and nothing
+        # but ERR? says so. The driver range-checks before sending for exactly
+        # this reason.
+        if round(value, 2) > limit:
+            self.last_error = "Data out of range."
+            return
+        setattr(self.channels[channel], attribute, min(value, limit))
         if self.tracking != TrackingMode.INDEPENDENT:
             self._follow()
 
     def _reading(self, channel, quantity: str) -> Optional[float]:
         """One channel's figure, or ``None`` for a channel that does not exist."""
         if channel not in self.channels:
-            self.last_error = "Command Error, no channel %s" % channel
+            self.last_error = "Undefined Header."
             return None
         return self.channels[channel].output(self.output)[quantity]
 
     def _cmd_vset_q(self, channel, _argument) -> Optional[str]:
         if channel not in self.channels:
             return self._refuse("VSET%s?" % channel)
-        return "%.3f" % self.channels[channel].voltage_setpoint
+        return "%.1fV" % self.channels[channel].voltage_setpoint
 
     def _cmd_iset_q(self, channel, _argument) -> Optional[str]:
         if channel not in self.channels:
             return self._refuse("ISET%s?" % channel)
-        return "%.3f" % self.channels[channel].current_limit
+        return "%.2fA" % self.channels[channel].current_limit
 
     def _cmd_vout_q(self, channel, _argument) -> Optional[str]:
         value = self._reading(channel, "voltage")
-        return None if value is None else "%.3fV" % value
+        return None if value is None else "%.1fV" % value
 
     def _cmd_iout_q(self, channel, _argument) -> Optional[str]:
         value = self._reading(channel, "current")
-        return None if value is None else "%.3fA" % value
+        return None if value is None else "%.2fA" % value
 
     def _cmd_out(self, channel, _argument) -> None:
         """``OUT1`` and ``OUT0``: one switch for both channels."""
@@ -272,7 +295,10 @@ class SimulatedGpd:
         return None
 
     def _cmd_status_q(self, _channel, _argument) -> str:
-        """Eight characters, bit 0 first, as the programming manual defines."""
+        """Eight fields, bit 0 first, then the legend - as V1.09 answers.
+
+        Bits 5 and 7 are reported as ``X``, as the supply reports them.
+        """
         bits = [
             "1" if self.channels[number].output(self.output)["mode"]
             == ChannelMode.CONSTANT_VOLTAGE else "0"
@@ -283,11 +309,12 @@ class SimulatedGpd:
         # state the model does not know about should see the driver's handling
         # of an undecodable status word, not a comfortable default.
         pattern = self._TRACKING_BITS.get(self.tracking, 0b00)
-        bits += [str(pattern & 0b1), str((pattern >> 1) & 0b1)]
-        bits += ["1" if self.BEEP else "0"]
-        bits += ["1" if self.output else "0"]
-        bits += list(self.BAUD_BITS)
-        return "".join(bits)
+        bits += [str((pattern >> 1) & 0b1), str(pattern & 0b1)]
+        bits += ["X"] * (STATUS_LENGTH - len(bits))
+        bits[STATUS_BIT_BEEP] = "1" if self.BEEP else "0"
+        bits[STATUS_BIT_OUTPUT] = "1" if self.output else "0"
+        terminator = REPLY_TERMINATOR.decode("ascii")
+        return terminator.join((" ".join(bits),) + self.STATUS_LEGEND)
 
     def _cmd_err_q(self, _channel, _argument) -> str:
         message = self.last_error or "No Error."

@@ -22,6 +22,7 @@
 #include <stdint.h>
 
 #include "ble.h"
+#include "ble_db_discovery.h"
 #include "ble_gap.h"
 #include "nrf_ble_gq.h"
 #include "protocol.h"
@@ -47,13 +48,19 @@ typedef struct
  * @param[in] p_gatt_queue  Queue the client submits its GATT operations to.
  *     Owned by the caller, because database discovery uses the same one: two
  *     queues would let a discovery and a write race for the same link.
+ * @param[in] p_db_discovery  The discovery instance the caller initialised and
+ *     forwards BLE events to. The client starts it on every connection: the
+ *     link is not usable until it has found the UART service.
  */
-uint32_t nus_client_init(nrf_ble_gq_t * p_gatt_queue);
+uint32_t nus_client_init(nrf_ble_gq_t * p_gatt_queue, ble_db_discovery_t * p_db_discovery);
 
 /**
- * @brief Connect to @p p_address.
+ * @brief Connect to @p p_address, listening for it for up to @p timeout_ms.
+ *
+ * The attempt listens continuously: nothing else needs the radio while it
+ * runs, and a sensor that advertises rarely is easy to miss otherwise.
  */
-uint32_t nus_client_connect(const ble_gap_addr_t * p_address);
+uint32_t nus_client_connect(const ble_gap_addr_t * p_address, uint32_t timeout_ms);
 
 /**
  * @brief Disconnect, if connected.

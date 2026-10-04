@@ -13,19 +13,42 @@ checks a command's arguments against them before sending, because the firmware's
 answer to a malformed line is a terse error that does not say which argument was
 wrong.
 
-**Replies** are ASCII, brace-delimited, produced by ST's ``responsePrintf``:
+**Replies** are ASCII, brace-delimited, produced by ST's ``responsePrintf``.
+Recorded from a kit (ST CLI, S2-LP library 1.3.5), most are one line:
 
 .. code-block:: text
 
-    {{SdkEvalSpiReadRegisters} API callback...
-    {regs_list: 0x00,0x0A,0x01,0xA2}
-    {timer:000004D2}
+    S2LPRadioGetFrequencyBase
+    {{(S2LPRadioGetFrequencyBase)} API call...{value:31BF1BAD}}
+    >
+
+and a few are several:
+
+.. code-block:: text
+
+    {{(SdkEvalSpiReadRegisters)} API callback...
+    {regs_list: 0x2E,0x20,0x2F,0x00}
+    {timer:055E5BB1}
     }
 
-So a reply is a set of **tags**: ``regs_list``, ``timer``, ``error``, ``rssi``,
-``bytes``. The parser collects them by name and leaves interpretation to the
-caller. Tag text that is not understood is *kept*, not discarded: a log that
-omits what the tooling did not recognise cannot explain why it ignored it.
+The firmware echoes the command line first and prints a ``>`` prompt after the
+reply; neither is part of the reply. So a reply is a set of **tags**. Most
+getters answer in a tag called ``value``; a few name their fields
+(``Frequency_base``, ``regs_list``, ``bytes``, ``rssi``). The parser collects
+them by name and leaves interpretation to the caller. Tag text that is not
+understood is *kept*, not discarded: a log that omits what the tooling did not
+recognise cannot explain why it ignored it.
+
+**How a value is written depends on the command, not on the value.** ST's
+``&tx``, ``&t2x`` and ``&t4x`` print 2, 4 and 8 hex digits with no ``0x``;
+``&td`` prints signed decimal; one command prints a float with ``%.1f``. The
+caller picks the matching accessor (:meth:`Reply.hex_number`,
+:meth:`Reply.number`, :meth:`Reply.real`), because the characters alone cannot
+say which: ``{value:70}`` is 0x70 from one command and seventy from another.
+
+**A command the interpreter rejects** gets one line and no braces, for example
+``no such command`` or ``wrong number of arguments``. :data:`FIRMWARE_ERRORS`
+lists them, so the session can fail at once instead of waiting out its timeout.
 
 Traces to: S2LP-FR-001 .. S2LP-FR-004, S2LP-DD-PROTOCOL.
 """
@@ -34,22 +57,49 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Sequence, Union
 
 from ...core.errors import ProtocolError
 from .constants import COMMANDS
 
-__all__ = ["Reply", "format_command", "format_bytes", "parse_reply", "parse_pairs"]
+__all__ = [
+    "FIRMWARE_ERRORS",
+    "Reply",
+    "firmware_error",
+    "format_command",
+    "format_bytes",
+    "parse_reply",
+    "parse_pairs",
+]
+
+#: The command interpreter's own error lines, from ST's ``command-interpreter2``.
+#: Each arrives on its own line in place of a reply.
+FIRMWARE_ERRORS = (
+    "serial port error",
+    "no such command",
+    "wrong number of arguments",
+    "integer argument out of range",
+    "argument syntax error",
+    "string too long",
+    "invalid argument type",
+)
 
 #: Widths ST's argument letters accept, as unsigned integers.
 _LIMITS = {"u": 0xFF, "v": 0xFFFF, "w": 0xFFFFFFFF, "s": 0x7F}
+
+#: Letters for arguments the firmware reads with ``signedCommandArgument``. ST's
+#: table declares them ``w``, but the handler reads a leading ``-``, and a power
+#: level of -10 dBm cannot be sent as an unsigned number. ``i`` is this module's
+#: letter for that, not ST's; the line sent is the same.
+_SIGNED_LIMITS = {"i": (-0x80000000, 0x7FFFFFFF)}
 
 #: ``{tag: value}`` or ``{tag:value}``. The name is letters, digits and
 #: underscores; the value is everything to the closing brace.
 _TAG = re.compile(r"\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*:\s*([^{}]*?)\s*\}")
 
-#: A lone ``{name}`` with no colon - how ST's ``&N`` renders a command name.
-_NAME = re.compile(r"\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}")
+#: A lone ``{name}`` or ``{(name)}`` with no colon - how ST's ``&N`` renders a
+#: command name. The firmware on the kit writes the parentheses.
+_NAME = re.compile(r"\{\s*\(?\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)?\s*\}")
 
 #: ``0x1F`` or ``31`` or ``-110``, as the firmware writes values. The sign
 #: matters: RSSI in dBm arrives from ``S2LPQiGetRssidBm`` as a negative decimal,
@@ -80,6 +130,14 @@ def _format_argument(value, letter: str, command: str, index: int) -> str:
         return format_bytes(value)
 
     number = int(value)
+    if letter in _SIGNED_LIMITS:
+        low, high = _SIGNED_LIMITS[letter]
+        if not low <= number <= high:
+            raise ProtocolError(
+                "%s argument %d is %d, outside the signed 32-bit range the "
+                "firmware reads it as" % (command, index + 1, number)
+            )
+        return str(number)
     limit = _LIMITS.get(letter)
     if limit is None:
         raise ProtocolError("%s: unknown argument type %r" % (command, letter))
@@ -117,6 +175,15 @@ def format_command(name: str, *arguments) -> str:
     for index, (value, letter) in enumerate(zip(arguments, letters)):
         parts.append(_format_argument(value, letter, name, index))
     return " ".join(parts)
+
+
+def firmware_error(line: str) -> Optional[str]:
+    """The interpreter error *line* reports, or ``None`` if it is not one."""
+    text = line.strip().lower()
+    for error in FIRMWARE_ERRORS:
+        if text == error:
+            return error
+    return None
 
 
 def parse_pairs(text: str) -> List[int]:
@@ -200,6 +267,22 @@ class Reply:
         except ValueError:
             raise ProtocolError(
                 "expected a hexadecimal value in %r, got %r" % (tag, text)
+            ) from None
+
+    def real(self, tag: str, default: Optional[float] = None) -> float:
+        """One tag as a signed decimal that may have a fraction.
+
+        ``S2LPQiGetRssidBm`` answers ``{value:-116.0}``. :meth:`number` would
+        read that as two numbers, -116 and 0, and refuse it.
+        """
+        if tag not in self.tags and default is not None:
+            return default
+        text = self.text(tag).strip()
+        try:
+            return float(text)
+        except ValueError:
+            raise ProtocolError(
+                "expected a decimal value in %r, got %r" % (tag, text)
             ) from None
 
     def numbers(self, tag: str) -> List[int]:

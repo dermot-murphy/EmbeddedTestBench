@@ -2,8 +2,9 @@
 
 The numbers here are the supply's published limits, not the driver's policy.
 They exist so that an out-of-range setting is refused *before* it is sent:
-the supply clamps silently, and a test that asked for 35 V, got 30 V and was
-never told would report a pass against a condition it never applied.
+the supply rejects it, keeps whatever it was set to before, and says so only
+through ``ERR?``. A test that asked for 35 V would run at the previous setting
+and never be told.
 
 Traces to: PSU-FR-001 .. PSU-FR-032, PSU-DD-CONST.
 """
@@ -21,10 +22,16 @@ __all__ = [
     "MAX_CURRENT",
     "VOLTAGE_RESOLUTION",
     "CURRENT_RESOLUTION",
+    "VOLTAGE_READBACK_RESOLUTION",
+    "CURRENT_READBACK_RESOLUTION",
     "DEFAULT_BAUDRATE",
     "SUPPORTED_BAUDRATES",
     "DEFAULT_COMMAND_INTERVAL",
+    "REPLY_TERMINATOR",
     "STATUS_LENGTH",
+    "STATUS_LEGEND_LINES",
+    "STATUS_BIT_BEEP",
+    "STATUS_BIT_OUTPUT",
     "TRACKING_MODES",
     "ChannelMode",
     "TrackingMode",
@@ -60,6 +67,16 @@ TRACKED_CHANNEL = 2
 VOLTAGE_RESOLUTION = 0.001
 CURRENT_RESOLUTION = 0.001
 
+#: Read-back resolution, which is coarser than the programming resolution.
+#:
+#: Firmware V1.09 answers ``VSET1?`` and ``VOUT1?`` to 0.1 V and ``ISET1?`` and
+#: ``IOUT1?`` to 0.01 A: ``VSET1:3.250`` reads back as ``3.3V``, and an
+#: unloaded channel set to 3.600 V measures ``3.5V``. A setpoint read back
+#: therefore agrees with the one sent only to this resolution, and a
+#: comparison between a measurement and a setpoint must allow for it.
+VOLTAGE_READBACK_RESOLUTION = 0.1
+CURRENT_READBACK_RESOLUTION = 0.01
+
 #: Factory line rate. The front panel can select others (Utility > Baud).
 DEFAULT_BAUDRATE = 9600
 SUPPORTED_BAUDRATES: Tuple[int, ...] = (9600, 57600, 115200)
@@ -73,8 +90,31 @@ SUPPORTED_BAUDRATES: Tuple[int, ...] = (9600, 57600, 115200)
 #: link sets this to zero - there is no buffer to overrun.
 DEFAULT_COMMAND_INTERVAL = 0.05
 
-#: Characters in a ``STATUS?`` reply.
+#: The byte that ends every reply. Commands are sent ending in a line feed,
+#: which the supply accepts; its answers end in a carriage return alone, so a
+#: reader waiting for a line feed never sees one.
+REPLY_TERMINATOR = b"\r"
+
+#: Fields in a ``STATUS?`` reply, one per bit, bit 0 first.
+#:
+#: Firmware V1.09 separates them with spaces, reports bits 5 and 7 as ``X``,
+#: and follows the eight fields with its own legend on two further lines -
+#: see :data:`STATUS_LEGEND_LINES`.
 STATUS_LENGTH = 8
+
+#: Lines of legend a V1.09 supply sends after a spaced ``STATUS?`` reply::
+#:
+#:     bit0:(CH1)0=CC,1=CV;bit1:(CH2)0=CC,1=CV;bit23=(TRACK)01=INDEP,...;
+#:     bit4:(BEEP)0=OFF,1=ON;bit6:(OUT)0=OFF,1=ON;
+#:
+#: They must be read, not left in the port: unread, they are taken as the
+#: replies to the next two queries.
+STATUS_LEGEND_LINES = 2
+
+#: ``STATUS?`` bit positions, as the V1.09 legend gives them and as switching
+#: the beeper and the output on a real supply confirms.
+STATUS_BIT_BEEP = 4
+STATUS_BIT_OUTPUT = 6
 
 
 class ChannelMode:
@@ -106,16 +146,11 @@ class TrackingMode:
     UNKNOWN = "unknown"
 
 
-#: Bits 2 and 3 of ``STATUS?``, as the programming manual defines them.
+#: Bits 2 and 3 of ``STATUS?``, written as the supply's legend writes them:
+#: bit 2 is the **left** digit. ``01`` - bit 2 clear, bit 3 set - is
+#: independent, which is what a real supply in independent reports.
 TRACKING_MODES: Dict[int, str] = {
     0b01: TrackingMode.INDEPENDENT,
     0b11: TrackingMode.SERIES,
     0b10: TrackingMode.PARALLEL,
-}
-
-#: Line rates encoded in bits 6 and 7 of ``STATUS?``.
-STATUS_BAUDRATES: Dict[int, int] = {
-    0b00: 115200,
-    0b01: 57600,
-    0b10: 9600,
 }

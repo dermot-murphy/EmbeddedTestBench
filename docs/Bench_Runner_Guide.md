@@ -5,8 +5,8 @@ How to write a test specification and a bench configuration, and how to run them
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-GUIDE-001 |
-| Version | 3.0 |
-| Date | 2026-09-13 |
+| Version | 3.2 |
+| Date | 2026-10-02 |
 | Applies to | `benchtools` 4.0.0 |
 
 ---
@@ -83,6 +83,7 @@ instruments:
 | `resource` | Address or resource string. Defaults to `sim://`. |
 | `timeout` | I/O timeout in seconds. Defaults to 10. |
 | `options` | Extra keyword arguments passed to the driver's `connect`. |
+| `event` | The instrument's short name in the event log, e.g. `TEMP`. A specification's name for it wins. See [§6.3](#63-event-log-names-which-instrument-said-what). |
 
 Instruments connect on **first use**, so a suite that only touches the scope does
 not need the PSU powered up.
@@ -129,6 +130,7 @@ teardown:                    # once, after all tests, whatever the outcome
 |---|---|---|
 | `name` | yes | Suite name; appears in every report |
 | `description` | no | Free text |
+| `warning` | no | A hazard, printed before anything is energised; gates the run on real hardware |
 | `requirements` | no | Requirements the suite as a whole addresses |
 | `instruments` | no | Alias to driver name, declaring what kind of instrument each alias must be |
 | `setup` | no | Steps run once before the tests |
@@ -137,6 +139,37 @@ teardown:                    # once, after all tests, whatever the outcome
 
 **A setup failure aborts the suite.** Every measurement taken after an unknown
 setup would be meaningless, so none are attempted.
+
+#### `warning`: a hazard the operator must see first
+
+Some suites are dangerous to run with the bench in its normal state — they
+energise outputs, put a meter on a current range, or drive a line that
+something is connected to. `warning` says so, and the runner prints it
+**before the bench is opened**, on the error stream so that redirecting the
+output does not hide it:
+
+```yaml
+warning: |
+  DISCONNECT EVERYTHING FROM THE INSTRUMENTS BEFORE RUNNING THIS TEST.
+  This test energises the supply output.
+```
+
+On a bench that is not simulated the run then stops until the warning is
+acknowledged:
+
+* `--acknowledge` confirms it up front, which is how an unattended hardware run
+  is done.
+* At a terminal, the runner asks. Only the full word `yes` counts — `y` is not
+  confirmation of a warning about damaging equipment.
+* Refusing exits **3**, distinct from a test failure, and no instrument is
+  opened.
+
+A **simulated** run is never gated: nothing is energised, and there is nobody
+to ask. That is what keeps a warned specification runnable in CI.
+
+The reason the gate exists rather than a printed line alone is that the
+consequence of ignoring this particular warning is silent — something wired to
+the bench is damaged, and no report says so.
 
 The `instruments` block states what each alias has to be:
 
@@ -148,6 +181,10 @@ instruments:
 
 It does two things. It makes `--simulate` work for a suite that spans more than one
 kind of instrument — without it, every alias would be simulated as the same driver.
+An entry can also name the instrument in the event log, as a mapping
+(`temp: {driver: pico-sht30, event: TEMP}`), see
+[§6.3](#63-event-log-names-which-instrument-said-what).
+
 And it is checked against the bench before the first step runs, so pointing a suite
 at the wrong rig is reported as
 
@@ -167,6 +204,7 @@ answer.
 | `name` | yes | Test name |
 | `requirement` | no | Requirement verified; may be a list |
 | `description` | no | Free text |
+| `warning` | no | A hazard, printed before anything is energised; gates the run on real hardware |
 | `steps` | yes | Steps executed in order |
 | `skip` / `skip_reason` | no | Mark the test unrun, with a reason |
 
@@ -179,6 +217,7 @@ answer.
 | `expect` | no | Measurements to extract and check |
 | `save` | no | Keep the result under this name |
 | `description` | no | Free text |
+| `warning` | no | A hazard, printed before anything is energised; gates the run on real hardware |
 
 `do` names a **public** method of a bench instrument. Private names are refused: a
 specification is data, possibly written by someone who is not reviewing the
@@ -223,8 +262,9 @@ tests:
 
 This keeps two things that change at different rates apart: the settings, worked
 out by whoever characterised the radio, and the test, written by whoever decides
-what must be proven. Paths are relative to where the runner is invoked, as bench
-paths are.
+what must be proven. A relative path is found beside the specification first,
+so the file means the same thing wherever the runner is started from - see
+[§6.2](#62-relative-paths-and-where-the-runner-is-started).
 
 `configs/` holds the shipped examples. See
 [S2-LP Devkit Notes §3.3](../docs/s2lp/S2LP_Devkit_Notes.md) for the file format
@@ -260,7 +300,9 @@ only the first can fail:
 
 An expected response is matched exactly after trimming; written `/like this/` it
 is a regular expression, for a reply carrying a value that varies. Anchor it
-with `^` and `$` to require the whole reply.
+with `^` and `$` to require the whole reply. A pipe inside any cell is written
+`\|` - `/^ACK = (ENABLED\|DISABLED)$/` - as in GitHub's markdown; an unescaped
+one ends the cell.
 
 The specification that runs the document holds no commands at all:
 
@@ -283,6 +325,108 @@ response at 10 ms resolution, and the result — and the session log
 `specs/sensor_commands.md` and `specs/sensor_commands.yaml` are the worked
 example; a document that would not parse, or would not pass against the
 simulated sensor, fails the suite's own tests.
+
+#### Variables, connecting, and running a document on its own
+
+A document can take parameters and open its own link, so one file tests any
+sensor it is pointed at. `specs/templates/ble_sensor_test.md` is the template
+to copy.
+
+```markdown
+| Variable  | Default | Notes |
+|-----------|---------|-------|
+| SENSOR_ID |         | Required |
+| SETTLE_MS | 500     |       |
+
+## Connect and identify
+
+| Step | Command              | Expected response      |
+|------|----------------------|------------------------|
+| 1    | connect ${SENSOR_ID} |                        |
+| 2    | delay ${SETTLE_MS}   |                        |
+| 3    | rd version           | /^ACK rd version = V11/ |
+| 4    | disconnect           |                        |
+```
+
+- **Variables** are declared in a `| Variable | Default |` table before the first
+  step and used as `${NAME}` in any command, expected response or delay. One
+  with no default must be given a value. Using an undeclared variable, or
+  giving a value for one, is an error naming the line.
+- **`connect <sensor>`** scans for 10 s, selects the sensor by address or by a
+  fragment of its advertised name (any case, strongest match), and opens the
+  link, trying up to three times. A link the document opened is closed when
+  the run ends, pass or fail.
+- **`disconnect`** closes the link.
+- **`<disconnect>`** as the expected response says the sensor will drop the
+  link after the command - a reset. The command is sent without waiting for a
+  reply, and the time to the disconnection is measured on the dongle's clock.
+- A **Timeout** column, in milliseconds, sets how long a step waits: for a
+  reply, a listening window, the link to drop, or a connect. Empty uses the
+  run's default (`--timeout-s`, 3 s). Some commands take longer than others;
+  waits over 2 s need dongle firmware 1.3 (`cmd <hex> timeout=<ms>`).
+- A **Note** column is carried into the report beside the result.
+- A **Frames** column says how many reply frames - notifications - a command
+  must produce, usually `1`: a sensor that answers twice leaves every later
+  command reading the previous one's reply. The step listens 0.5 s after the
+  reply, fails on a different count naming the extra frames, and logs each as
+  an `RX` event. A Frames cell is a claim even with no expected response.
+- A **Save** column names a variable to keep the step's reply in; later steps
+  use it as `${NAME}`, so a value read before an action can be compared with the
+  one after it. A pattern's first named group - `(?P<value>...)` - saves just
+  that part. Only a reply that passed its check, or had nothing expected of it,
+  is saved; a step using a value that was never saved is an error. Inside a
+  pattern the saved value is matched literally.
+- Tables that name none of the step columns - a legend, a conversion table -
+  are prose and are left alone.
+
+Every step gets one result, the first of these that applies:
+
+| Result | When |
+|---|---|
+| **ERROR** | The system returned a failure code: the dongle refused the command, a connect or disconnect failed, or no reply came where one was expected |
+| **SKIP** | The expected cell is empty - a delay, a connect or disconnect that worked, or a command nothing was promised for |
+| **FAIL** | The reply differs from the expected one, or the link stayed up after a `<disconnect>` step |
+| **PASS** | The reply matches, or the link dropped as expected |
+
+The run is **ERROR** if any step errored, else **FAIL** if any failed, else
+**PASS**. The report has a row per step: command, expected, actual, response
+time (to 10 ms), result and note.
+
+A document that connects runs on its own:
+
+```
+benchtools ble --resource COM10 script specs/templates/ble_sensor_test.md \
+    --var SENSOR_ID=5C1712 --report results.md --events events.log
+```
+
+It prints the run as JSON and exits 0 when every checked step passed, 1 when one
+failed or errored, or the run could not start. `--events` writes the event
+log: one tab-separated line per event - `time`, `event`, `step`, `data`,
+`result` - where the events are `TX`, `RX`, `DELAY`, `CONNECT`, `DISCONNECT` and
+`ERROR`. The time is the host's, to the millisecond; each `RX` line carries the
+dongle's own measurement of the exchange, to the microsecond. From a
+specification, pass the values with `variables` and the log with `events`:
+`{do: dongle.run_script, with: {source: ..., variables: {SENSOR_ID: 5C1712},
+events: events.log}}`.
+
+A `<disconnect>` whose reason is `0x08` was a supervision timeout: the sensor
+went silent, and the measured time includes the dongle's 4 s wait to decide
+the link had gone.
+
+A link that drops without being asked - a sensor that crashes or resets -
+is found before the next step, even when it happened during a delay. It is
+logged once as a `DISCONNECT` event, with the reason and the dongle's time,
+against the step during or after which it happened. Every step after it, up to
+the next `connect`, is **ERROR** with that reason and is not sent; a `connect`
+recovers and the run goes on.
+
+The template's *Build identity* test reads the sensor's `rd id`, `rd sha`
+(the firmware's git commit), `rd compiler` and `rd pcb`, and checks the ID
+against `${SENSOR_ID}`. A pattern starting `(?i)` ignores case.
+
+`${NAME}` is Robot Framework's variable syntax, and each row is one keyword
+call; the template ends with the mapping, for when these documents move to
+Robot Framework.
 
 ### 3.6 Values a later step takes from an earlier one
 
@@ -338,6 +482,57 @@ specification itself.
 `specs/sensor_bringup.yaml` is the worked example: it reads a board's identifier
 off the part, finds that board over the air by it, and compares what the board
 reports with what was flashed onto it.
+
+### 3.7 Parameters: values named once, at the top
+
+The values a reader is most likely to want to change - a tolerance, how many
+readings, which sensor - belong where they can be found, not scattered through
+the steps. A `parameters` block names them, and `{param: <name>}` stands for one
+anywhere below: an argument, a bound, a tolerance.
+
+```yaml
+parameters:
+  readings: 5
+  mcu_vs_machine_c: 5.0
+  alive_period_s: 10
+
+setup:
+  - do: dongle.command
+    with:
+      request: {param: alive_period_s, format: "WR ALIVE-PERIOD {}"}   # -> "WR ALIVE-PERIOD 10"
+
+tests:
+  - name: The MCU temperature agrees with the machine temperature
+    steps:
+      - do: rtt.rtt_samples
+        with: {pattern: 'MCU Temperature:\s*(-?\d+)mC', count: {param: readings}, scale: 0.001}
+        expect:
+          - name: mcu_highest_from_machine
+            measure: maximum
+            equals: {from: ble.mean}
+            tolerance: {param: mcu_vs_machine_c}
+```
+
+`format` renders the value into text, for a command that carries it. A name the
+block does not define is refused, and the message lists those it does. The
+values a run used are in its JSON record and at the top of its report, so a
+result can always be read against the limits that produced it.
+`specs/kepler_temperature.yaml` is the worked example.
+
+### 3.8 Repeated readings
+
+`dongle.sample_command`, `probe.rtt_samples` and `s2lp.kepler_samples` each take
+N readings of one quantity - a reply, a log line, a decoded frame field - and
+return them with their statistics. A limit then applies to the set:
+
+| `measure` | Meaning |
+|---|---|
+| `count` | readings taken; compare with how many were asked for, since a quiet source returns fewer rather than raising |
+| `minimum`, `maximum`, `mean` | as named |
+| `spread` | highest less lowest: how far the readings moved |
+
+Bounding `minimum` and `maximum` against another source's `mean` puts every
+reading inside the window, not just their average.
 
 ---
 
@@ -456,6 +651,7 @@ wins.
 |---|---|---|
 | `read_variable`, `read_word`, `read_u8`, `variable_address`, `evaluate` | a scalar | *(omit `measure`)* |
 | `read_integer` | a scalar, `size` bytes in the `byteorder` given | *(omit `measure`)* — for a record whose width and byte order are its own, not the core's |
+| `rtt_samples` | `SampleSet` | `count`, `minimum`, `maximum`, `mean`, `spread` (§3.8) |
 | `measure_time_between` | `TimingResult` | `microseconds`, `milliseconds`, `cycles`, `spread`, `standard_deviation`, `minimum`, `maximum`, `count`, `is_trustworthy`, `halts_target`, `resolution_seconds` |
 | `flash` | `FlashResult` | `bytes_written`, `verify.matched`, `seconds`, `sections` |
 | `verify` | `VerifyResult` | `matched`, `mismatched`, `sections` |
@@ -546,6 +742,8 @@ benchtools run specs/*.yaml --bench benches/lab1.yaml \
 | `--bench PATH` | Bench configuration |
 | `--simulate` | Replace every instrument with its simulator |
 | `--json`, `--markdown`, `--junit` | Write reports (paths are suffixed per suite when several are given) |
+| `--test NAME` | Run only the test case with this exact name; repeat for several. The rest are reported as skipped, "not selected"; setup and teardown still run. An unknown name is a usage error |
+| `--control PORT` | Serve a control channel on 127.0.0.1:PORT (0 picks a free port) to pause, resume, abort or restart the run between steps; see §6.5 |
 | `--stop-on-error` | Abandon the remaining tests after the first error |
 | `-v`, `-vv` | Log each step, then full debug including SCPI traffic |
 
@@ -558,6 +756,136 @@ benchtools run specs/*.yaml --bench benches/lab1.yaml \
 | 2 | Usage or specification error |
 
 So the command is usable directly as a CI step.
+
+### 6.2 Relative paths, and where the runner is started
+
+The runner is normally started in the repository of the firmware under test, not
+in this one, so a specification or bench file cannot rely on the working
+directory to find what it names (#116):
+
+```bash
+cd ~/firmware-under-test
+benchtools run ~/EmbeddedTestBench/specs/radio_link.yaml --simulate     # finds configs/ in EmbeddedTestBench
+benchtools run ~/EmbeddedTestBench/specs/sensor_bringup.yaml \
+    --bench ~/EmbeddedTestBench/benches/lab1.yaml                       # finds ./build here
+```
+
+**Input files** - a file a driver reads - given as a relative path are looked for
+in this order, and the first that exists is used:
+
+1. the directory of the file that names it: the specification for a step
+   argument, the bench file for a bench option;
+2. the working directory;
+3. the EmbeddedTestBench checkout (where `configs/`, `specs/` and `benches/simulated/`
+   live).
+
+An absolute path is used as given. A step argument found nowhere is an **error**
+that lists every location searched. A bench option found nowhere is passed to the
+driver unchanged, with the locations logged as a warning, because a simulator may
+never read it; the driver that does read it reports what is missing.
+
+Which arguments are input files is declared by each driver, not guessed:
+
+| Driver | Input-file arguments |
+|---|---|
+| `s2lp` | `source` of `load_configuration`, `apply_configuration`, `verify_configuration` |
+| `ble-dongle` | bench option `firmware`; `firmware` of `expect_firmware`, `check_firmware`, `update_firmware`, `ensure_firmware`; `source` of `run_script` |
+| `jlink`, `jlink-rtt` | bench options `elf`, `firmware`; `elf` of `load_symbols`; `path` of `flash`, `image_build`, `verify` |
+| `gpd3303d`, `tti1604`, `tek3014b`, `pico-sht30` | none |
+
+**Output files** - logs, reports, screenshots, `--json`/`--markdown`/`--junit` -
+are written relative to the working directory, as before. A run started in the
+firmware repository leaves its logs there.
+
+A file beside the specification wins over one of the same name in the working
+directory. To use a different register file from a shipped specification, copy
+the specification, or give an absolute path.
+
+
+### 6.3 Event-log names: which instrument said what
+
+`--event-log PATH` writes every line each instrument sends and receives, and
+each step the runner takes, as one JSON object per line. Each record's `source`
+is the short name of the instrument it came from, so a supply's lines and a
+thermometer's never look alike (#126):
+
+```json
+{"t": 1790600000.12, "source": "TEMP", "level": "DEBUG", "logger": "benchtools.instruments.pico_sht30.thermometer", "text": ">> temp"}
+```
+
+The name is allocated in the setup:
+
+| Where | How | Wins |
+|---|---|---|
+| Specification | `instruments:` entry as a mapping: `temp: {driver: pico-sht30, event: TEMP}` | Always |
+| Bench | `event: TEMP` on the instrument | When the specification gives none |
+| Driver default | `PSU`, `BLE`, `JLINK`, `RF`, `SCOPE`, `DMM`, `TEMP` (Pico 2 + SHT30-D) | When neither does |
+
+The runner's own records are `TEST`; anything not from an instrument is `BENCH`.
+
+- A name is 1 to 8 characters: an upper-case letter, then `A`-`Z`, `0`-`9` or
+  `_` (`TEMP`, `PSU2`, `RTT`).
+- Two instruments a run uses may not share a name, **defaults included**: a
+  specification using `probe` (jlink) and `rtt` (jlink-rtt) must name one of
+  them. The shipped benches name `rtt` `RTT`. The run is refused before
+  anything connects, naming the clash.
+- Every line an instrument causes carries its name, including its transport's,
+  from the moment it starts connecting.
+- The report's Instruments table and the JSON record show each instrument's
+  name, so a line in the log can be traced to the instrument that made it.
+- Logs written before #126 use lower-case names (`psu`, `rf`); the Test Bench
+  monitor reads both.
+
+### 6.4 The runner's structured records
+
+The runner's `TEST` records also carry a `kind` and a `data` object, so a
+program can follow a run without parsing text (#135):
+
+| `kind` | `data` |
+|---|---|
+| `run_start` | The whole plan: suite, bench, simulated, selection, parameters, setup and teardown steps, and every test case with its steps and whether it is selected |
+| `case_start` | `case` (index), `name`, `requirement` |
+| `step_start` | `phase` (`setup`, `test`, `teardown`), `case`, `step` (indices), `action`, `arguments` as written, `save` |
+| `step_end` | As `step_start`, with the resolved `arguments`, `result`, `status`, `error`, `measurements` and `duration_s` |
+| `case_end` | `case`, `name`, `status`, `error`, `skip_reason`, `duration_s`. A test case not selected has a `case_end` and no `case_start` |
+| `run_end` | `status`, `setup_error`, `duration_s`, `totals` |
+
+```json
+{"t": 1790600001.5, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner.runner", "text": "step temp.read: PASS", "kind": "step_end", "data": {"phase": "test", "case": 0, "step": 2, "action": "temp.read", "result": 22.41, "status": "PASS", "...": "..."}}
+```
+
+`data` is always standard JSON: a value that is not finite is written as text,
+bytes as hex, and a sequence longer than 256 items is cut short with a note.
+Step records are at DEBUG level, which the event log always records.
+
+### 6.5 Controlling a run: pause, resume, abort, restart
+
+`--control PORT` lets another program - the test run viewer (#130) - steer a
+run while it goes (#136). The channel listens on **127.0.0.1 only**: a run
+drives the bench's supply, so it is never reachable from another machine. The
+port in use is printed (`control channel on 127.0.0.1:PORT`) and written to the
+event log as `control_listening`.
+
+One JSON request per line, one JSON reply per line:
+
+| Request | Effect |
+|---|---|
+| `{"cmd": "status"}` | `state` (`running`, `paused`, `idle`), `suite`, `phase`, `case`, `step` |
+| `{"cmd": "pause"}` | Hold the run before its next step |
+| `{"cmd": "resume"}` | Carry on |
+| `{"cmd": "abort"}` | Stop after the current step. Teardown still runs. The interrupted test case is an error, "aborted by operator"; the rest are skipped with that rationale |
+| `{"cmd": "restart_test"}` | Run the current test case again from its first step |
+| `{"cmd": "restart_from", "case": 1, "step": 2}` | Carry on from that test case and step (both counted from 0), in order |
+
+- Requests take effect **between steps**. A step in progress is never interrupted.
+- **Teardown cannot be interrupted**, and a restart is refused during setup.
+- A restart keeps the values saved so far, and does not reset any instrument.
+  It is refused if a step from the target on uses a value that no step has
+  saved; restart from the step that saves it. Test cases jumped over going
+  forward are skipped, "skipped by operator".
+- A refused request replies `{"ok": false, "error": "..."}` with the reason.
+- Every request, and every action the runner takes on one, is in the event log
+  (`control`, `control_applied`), so the evidence shows the intervention.
 
 ---
 
@@ -647,3 +975,20 @@ What the runner requires of a driver is only this: a `connect` classmethod, the
 context-manager lifecycle, `identify`, and public methods that return plain values
 or objects a dotted `measure` path can walk. Anything meeting that is a bench
 instrument, whatever it speaks on the wire.
+
+An argument that names a file the driver reads must be declared, so the runner
+finds it from wherever it is started ([§6.2](#62-relative-paths-and-where-the-runner-is-started)):
+
+```python
+from benchtools.core.paths import input_paths
+
+class PowerSupply(Instrument):
+    @classmethod
+    @input_paths("profile")          # beneath @classmethod / @staticmethod
+    def connect(cls, resource, profile=None, **options): ...
+
+    @input_paths("source")
+    def load_sequence(self, source): ...
+```
+
+Do not declare an output path: it is written relative to the working directory.

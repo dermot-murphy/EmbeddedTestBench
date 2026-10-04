@@ -23,14 +23,13 @@
 #define FIRMWARE_VERSION_H__
 
 /** Firmware version. Change it when behaviour changes; the host compares it. */
-#define FIRMWARE_VERSION		"1.1.0"
+#define FIRMWARE_VERSION		"1.4.0"
 
-#ifndef FIRMWARE_BUILD_DATE
-/* Not injected: fall back to the compiler's macros. "Sep 13 2026 14:22:31" is
- * local time and not sortable, so it is tagged to keep it from being read as an
- * ISO instant. */
-#define FIRMWARE_BUILD_DATE		"local:" __DATE__ " " __TIME__
-#endif
+/* FIRMWARE_BUILD_DATE is injected by the build system, and deliberately not
+ * defaulted here. Without it, firmware_version.c falls back to the compiler's
+ * macros, rearranged as "local:Sep-13-2026T14:22:31": local time and not
+ * sortable, so tagged to keep it from being read as an ISO instant, and free of
+ * spaces because the link protocol splits fields on them. */
 
 /** The version this image was built as, e.g. "1.1.0". */
 extern const char	firmware_version_string[];
@@ -39,9 +38,11 @@ extern const char	firmware_version_string[];
  * @brief When this image was built.
  *
  * ISO 8601 UTC when the build system injected one, otherwise the compiler's own
- * macros prefixed with "local:". Read this rather than the macro: see
+ * macros as "local:Sep-13-2026T14:22:31". Read this rather than the macro: see
  * firmware_version.c for why the distinction matters.
+ *
+ * @return A string with no spaces, valid for the life of the program.
  */
-extern const char	firmware_build_date_string[];
+const char * firmware_build_date(void);
 
 #endif /* FIRMWARE_VERSION_H__ */

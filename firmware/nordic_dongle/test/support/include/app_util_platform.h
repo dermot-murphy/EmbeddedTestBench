@@ -27,20 +27,20 @@
 #endif
 
 /** Nesting depth, so a test can prove a region was left. */
-extern int fake_critical_nesting;
+extern int fake_g_critical_nesting;
 /** Deepest nesting reached, so a test can prove one was entered at all. */
-extern int fake_critical_depth_max;
+extern int fake_g_critical_depth_max;
 
 #define CRITICAL_REGION_ENTER()				\
 	{						\
-		fake_critical_nesting++;		\
-		if (fake_critical_nesting > fake_critical_depth_max)	\
+		fake_g_critical_nesting++;		\
+		if (fake_g_critical_nesting > fake_g_critical_depth_max)	\
 		{					\
-			fake_critical_depth_max = fake_critical_nesting;	\
+			fake_g_critical_depth_max = fake_g_critical_nesting;	\
 		}
 
 #define CRITICAL_REGION_EXIT()				\
-		fake_critical_nesting--;		\
+		fake_g_critical_nesting--;		\
 	}
 
 #endif /* APP_UTIL_PLATFORM_H__ */

@@ -265,7 +265,7 @@ class TestStartingFromAKnownState:
         original = simulator._cmd_sdkevalsdn
         simulator._cmd_sdkevalsdn = lambda arguments: original(["0"])   # never shuts down
         radio.write_register("GPIO0_CONF", 0x55)
-        with pytest.raises(InstrumentError, match="not at its register defaults"):
+        with pytest.raises(InstrumentError, match="not in the state a power reset leaves"):
             radio.apply_configuration(write(tmp_path, BASIC), reset="power")
         assert radio.read_register("PCKTCTRL3") == reg.BY_NAME["PCKTCTRL3"].reset
 
@@ -273,7 +273,7 @@ class TestStartingFromAKnownState:
         original = simulator._cmd_sdkevalsdn
         simulator._cmd_sdkevalsdn = lambda arguments: original(["0"])
         radio.write_register("GPIO0_CONF", 0x55)
-        with pytest.raises(InstrumentError, match=r"GPIO0_CONF = 0x55 \(default 0x0A\)"):
+        with pytest.raises(InstrumentError, match=r"GPIO0_CONF = 0x55 \(expected 0x0A\)"):
             radio.apply_configuration(write(tmp_path, BASIC), reset="power")
 
 
@@ -359,7 +359,7 @@ class TestCapturingFromARadio:
     def test_it_records_where_it_came_from(self, radio, tmp_path):
         radio.write_register("PCKTCTRL3", 0xC0)
         path = radio.save_configuration(str(tmp_path / "captured.regs"))
-        assert "STEVAL-FKI915V1" in open(path, encoding="utf-8").read()
+        assert "captured from S2-LP DK on simulated" in open(path, encoding="utf-8").read()
 
 
 class TestTheShippedConfiguration:
@@ -371,3 +371,25 @@ class TestTheShippedConfiguration:
         configuration = load_register_file(str(root / "configs" / "s2lp_915_38k4_basic.regs"))
         assert len(configuration) >= 5
         assert "PCKTCTRL3" in configuration.names
+
+    def test_the_kepler_receive_file_holds_the_sensor_s_settings(self, radio):
+        """Captured from the kit; checked here against the sensor firmware's
+        values and the S2-LP DK GUI setup rf_monitor uses: primary sync
+        0x4E63F358 and secondary 0xB19C0CA7, each least significant byte first,
+        with SECOND_SYNC_SEL on; variable length, one address byte, CRC-16
+        0x8005, TX source the FIFO."""
+        import pathlib
+
+        root = pathlib.Path(__file__).resolve().parents[3]
+        path = str(root / "configs" / "s2lp_kepler_433_rx.regs")
+        values = load_register_file(path).as_map()
+        by_name = {reg.BY_ADDRESS[address].name: value for address, value in values.items()}
+        assert [by_name[name] for name in ("SYNC3", "SYNC2", "SYNC1", "SYNC0")] == [
+            0x58, 0xF3, 0x63, 0x4E]
+        assert [by_name["PCKT_FLT_GOALS%d" % index] for index in (3, 2, 1, 0)] == [
+            0xA7, 0x0C, 0x9C, 0xB1]
+        assert by_name["PCKTCTRL2"] & 0x01 == 1          # variable length
+        assert by_name["PCKTCTRL4"] == 0x08              # one address byte
+        assert by_name["PCKTCTRL1"] == 0x42              # CRC-16 0x8005, dual sync, TXSOURCE 0
+        radio.apply_configuration(path, reset="defaults")
+        assert radio.read_field("PCKTCTRL1", "TXSOURCE") == 0

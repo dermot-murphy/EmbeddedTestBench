@@ -20,13 +20,13 @@
 
 #include "ble_scanner.h"
 #include "bootloader.h"
+#include "cmd_args.h"
 #include "cdc_acm.h"
 #include "firmware_version.h"
 #include "nus_client.h"
 #include "timestamp.h"
 
 /** Default time to wait for a sensor's reply to @c cmd. */
-#define CMD_DEFAULT_TIMEOUT_MS		2000U
 
 /** The sensor chosen by @c select, if any. */
 static ble_gap_addr_t	m_selected;
@@ -181,7 +181,7 @@ static void command_ver(char * tokens[], uint32_t count)
 		 PROTO_MANUFACTURER,
 		 PROTO_MODEL,
 		 firmware_version_string,
-		 firmware_build_date_string,
+		 firmware_build_date(),
 		 PROTO_VERSION,
 		 (unsigned long long)timestamp_now_us(),
 		 (unsigned long)cdc_acm_dropped());
@@ -377,25 +377,24 @@ static void command_selected(char * tokens[], uint32_t count)
 static void command_connect(char * tokens[], uint32_t count)
 {
 	ble_gap_addr_t	target;
+	bool		have_target;
+	uint32_t	timeout_ms;
 	uint32_t	error;
 	char		address[18];
 
-	if (count > 1U)
+	if (!cmd_args_connect(tokens, count, &target, &have_target, &timeout_ms))
 	{
-		if (!scanner_parse_address(tokens[1], &target))
+		reply_error(PROTO_ERR_VALUE);
+		return;
+	}
+	if (!have_target)
+	{
+		if (!m_have_selected)
 		{
-			reply_error(PROTO_ERR_VALUE);
+			reply_error(PROTO_ERR_NO_SENSOR);
 			return;
 		}
-	}
-	else if (m_have_selected)
-	{
 		target = m_selected;
-	}
-	else
-	{
-		reply_error(PROTO_ERR_NO_SENSOR);
-		return;
 	}
 
 	if (nus_client_is_connected())
@@ -408,7 +407,7 @@ static void command_connect(char * tokens[], uint32_t count)
 	 * connection attempt is not refused for a reason the host cannot see. */
 	(void)scanner_stop();
 
-	error = nus_client_connect(&target);
+	error = nus_client_connect(&target, timeout_ms);
 	if (error != NRF_SUCCESS)
 	{
 		reply_error(PROTO_ERR_BLE);
@@ -416,7 +415,7 @@ static void command_connect(char * tokens[], uint32_t count)
 	}
 
 	scanner_format_address(&target, address);
-	reply_ok("connecting=1 addr=%s", address);
+	reply_ok("connecting=1 addr=%s timeout_ms=%lu", address, (unsigned long)timeout_ms);
 }
 
 static void command_disconnect(char * tokens[], uint32_t count)
@@ -476,8 +475,16 @@ static void command_cmd(char * tokens[], uint32_t count)
 	nus_response_t	response;
 	int32_t		length;
 	uint32_t	error;
+	uint32_t	timeout_ms = PROTOCOL_CMD_DEFAULT_MS;
+	bool		valid = false;
 
-	UNUSED_PARAMETER(count);
+	/* cmd <hex> [timeout=<ms>]: some commands take longer than others. */
+	if ((count > 2U) && (!cmd_args_timeout(tokens[2], PROTOCOL_CMD_MIN_MS,
+						       PROTOCOL_CMD_MAX_MS, &timeout_ms, &valid) || !valid))
+	{
+		reply_error(PROTO_ERR_VALUE);
+		return;
+	}
 
 	length = decode_hex(argument, payload, sizeof(payload));
 	if (length < 0)
@@ -487,7 +494,7 @@ static void command_cmd(char * tokens[], uint32_t count)
 	}
 
 	error = nus_client_command(payload, (uint16_t)length,
-				   CMD_DEFAULT_TIMEOUT_MS, &response);
+				   timeout_ms, &response);
 	if (error == NRF_ERROR_INVALID_STATE)
 	{
 		reply_error(PROTO_ERR_NOT_CONN);
@@ -581,16 +588,41 @@ static void command_time(char * tokens[], uint32_t count)
 		 (unsigned long)TIMESTAMP_HZ);
 }
 
+/** Longest the dfu command waits for its reply to leave, before resetting. */
+#define CMD_PARSER_DFU_REPLY_TIMEOUT_US		250000U
+
+/**
+ * How long the dfu command keeps servicing USB after its reply has left the
+ * transmit queue. A transfer is complete for the dongle once the USB peripheral
+ * has it, which is not the same as the host having read it: on a PCA10059
+ * under Windows, resetting as soon as the queue emptied still lost the reply.
+ */
+#define CMD_PARSER_DFU_REPLY_GRACE_US		50000U
+
 static void command_dfu(char * tokens[], uint32_t count)
 {
 	UNUSED_PARAMETER(tokens);
 	UNUSED_PARAMETER(count);
 
+	uint64_t	start;
+	uint64_t	elapsed;
+
 	reply_ok("dfu=1 fw=%s", firmware_version_string);
 	/* Let the reply reach the host: after this the USB link goes down and
 	 * comes back as the bootloader's, and a host waiting for a reply it will
-	 * never get cannot tell that from a dongle that has crashed. */
-	cdc_acm_process();
+	 * never get cannot tell that from a dongle that has crashed. One pass of
+	 * cdc_acm_process() only starts the transfer - observed on a PCA10059,
+	 * the reply was lost every time - so keep servicing USB until the queue
+	 * is empty and the grace period has passed, but not for ever: a host that
+	 * has stopped reading must not keep the dongle out of its bootloader. */
+	start = timestamp_now_us();
+	do
+	{
+		cdc_acm_process();
+		elapsed = timestamp_elapsed_us(start, timestamp_now_us());
+	} while ((!cdc_acm_tx_idle() || (elapsed < CMD_PARSER_DFU_REPLY_GRACE_US)) &&
+		 (elapsed < CMD_PARSER_DFU_REPLY_TIMEOUT_US));
+
 	bootloader_enter_dfu();
 }
 

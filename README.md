@@ -1,4 +1,4 @@
-# TestTools — `benchtools`
+# EmbeddedTestBench — `benchtools`
 
 Bench test tooling: instrument drivers, a debug probe driver, a BLE dongle with
 its own firmware, analysis of captured records, and a declarative test runner
@@ -30,12 +30,15 @@ benchtools/
 │   ├── jlink/       SEGGER J-Link debug probe (flash, RTT, breakpoints, timing)
 │   ├── nordic_dongle/  Nordic BLE dongle (scan, UART over BLE, advertising profile)
 │   ├── gpd3303d/    GW Instek GPD-3303D bench power supply
+│   ├── tti1604/     TTi 1604 bench multimeter over RS-232
 │   ├── s2lp/        ST S2-LP sub-1 GHz development kit (registers, TX, RX, logs)
+│   ├── pico_sht30/  Raspberry Pi Pico 2 + SHT30-D thermometer, with its own firmware
 │   └── generic.py   anything answering *IDN?
-└── runner/        declarative bench test runner
+├── runner/        declarative bench test runner
+└── viewer/        test run viewer: watch and control a run in a browser
 ```
 
-Dependencies point one way only — **core → analysis → instruments → runner** — and
+Dependencies point one way only — **core → analysis → instruments → runner → viewer** — and
 that is enforced by a test, not a convention. `benchtools.core` contains no
 reference to any instrument and imports on its own, which is what keeps it
 reusable as instruments are added.
@@ -52,7 +55,7 @@ GDB/MI, and the runner treats it like any other instrument.
 | `benches/` | Example bench configurations |
 | `configs/` | Instrument register configurations a test can require |
 | `examples/` | Runnable Python examples |
-| `docs/` | ASPICE V4 SWE.1–SWE.4 work products |
+| `docs/` | ASPICE V4 CL2 work products: SYS.2–SYS.5, SWE.1–SWE.6, the management and support plans, and the C coding standards |
 
 ---
 
@@ -190,6 +193,38 @@ A run against simulators is disclosed in every report — whether `--simulate` w
 passed or every configured resource simply happens to be a simulator.
 
 Full guide: [docs/Bench_Runner_Guide.md](docs/Bench_Runner_Guide.md).
+
+### Watching and controlling a run: the test run viewer
+
+```bash
+benchtools view                                  # then open http://127.0.0.1:8130/
+benchtools view --event-log runs/events.jsonl    # follow a run started elsewhere
+```
+
+A browser page onto a run (#130). It shows the test specification, each test
+case and each step in words with its live status, result and measurements, and
+lets you pause, resume, abort, restart the current test case or restart from any
+step. It can start a run - a specification, a bench or a simulated one, and the
+test cases to run - or attach to one started with `benchtools run --event-log
+PATH --control 0`. The Event log page lists every instrument's traffic, filtered
+by source.
+
+It listens on 127.0.0.1 by default, needs nothing beyond the standard library,
+and loads nothing from the internet. A run started from it writes its event log
+and reports to `runs/`. Requests that change anything must carry a header that a
+page from another site cannot add, so another site open in the same browser
+cannot steer the bench.
+
+To watch from another PC, bind it to the bench PC's address. It then prints an
+address with an access token, and refuses anything without it:
+
+```bash
+benchtools view --bind 0.0.0.0 --read-only    # watch only; drop --read-only to control
+```
+
+Add `--tls-cert cert.pem --tls-key key.pem` on a network you do not trust, so the
+token is not sent in clear. The runner's control channel stays on 127.0.0.1
+either way; only the viewer is exposed.
 
 ---
 
@@ -412,9 +447,14 @@ trustworthy — it says where the write landed, not what the firmware did.
 ```bash
 python -m benchtools ble -r sim:// scan --duration 5
 python -m benchtools ble -r COM5 --log ble.log profile --select SENS-0A1B2C --duration 30 --interval 0.1
-python -m benchtools ble -r COM5 cmd measure --select SENS-0A1B2C --repeat 10
+python -m benchtools ble -r COM5 cmd measure --select 0a1b2c --repeat 10       # part of the name, any case
+python -m benchtools ble -r COM5 cmd measure --addr E4:1C:7B:02:9A:11
 python -m benchtools ble -r COM5 monitor --duration 60        # stream events to the log
 ```
+
+`--select` takes an address, a name, or part of a name in any case, and chooses
+the strongest sensor that matches; `--addr` takes an address. Give one or the
+other, not both.
 
 `--log` writes every line in both directions with host timestamps, flushed per
 line. That file is the evidence; the JSON is the summary.
@@ -545,7 +585,7 @@ with Gpd3303D.connect("/dev/ttyUSB0") as psu:      # COM4 on Windows
 
 | | |
 |---|---|
-| **It clamps what it cannot deliver.** Ask for 35 V and it outputs 30 V and reports 30 V, with no error | The driver refuses an out-of-range setting *before* sending it, so a test cannot pass against a condition it never applied |
+| **It rejects what it cannot deliver, silently.** Ask for 35 V and it keeps its previous setting, sends no reply, and says so only through `ERR?` | The driver refuses an out-of-range setting *before* sending it, so a test cannot run at a setting it never asked for |
 | **A channel in current limit is not at the voltage it was set to.** A 3.3 V rail with a 500 mA limit into a 1.5 A load reads 1.0 V — a real, plausible number describing a circuit nobody asked for | `ChannelReading` carries the CV/CC mode with the numbers, and `regulated` is the single line a specification should assert on |
 | **One output switch, two channels.** There is no per-channel output command in the instrument | Per-channel control is emulated by parking a channel at 0 V, and every place a caller meets it says so. `output_off(1)` is **not** isolation and **not** an interlock; `all_outputs_off()` opens the real switch |
 | **In series or parallel tracking, channel 2 is not a channel.** The supply drives it from channel 1 and *accepts and discards* anything sent to it — no error, and `VSET2?` answering with channel 1's setting | The driver reads the mode at the moment of the write and refuses, naming it. Channel 1, the global switch and `reset()` keep working in every mode, because a safe state must never be unreachable |
@@ -562,6 +602,82 @@ supply is powering.
 
 See [GPD-3303D Notes](docs/psu/GPD3303D_Notes.md) for the command set, the
 status word, and the six bench confirmation items that need the instrument.
+
+---
+
+## Multimeter — TTi 1604
+
+A 40,000-count bench meter on the 9-way RS-232 port at its back, through a USB
+converter: DC and AC volts, DC and AC current on the mA and 10 A sockets,
+resistance and frequency. It measures the sensor board's current (STK-18).
+
+```python
+from benchtools.instruments.tti1604 import Tti1604
+
+with Tti1604.connect("/dev/ttyUSB0") as dmm:        # COM6 on Windows
+    dmm.select_milliamps()                          # confirmed from the readings
+    dmm.select_dc()
+    reading = dmm.measure()                         # measured after this call
+    print(reading.value, reading.unit, reading.range_label, reading.is_live)
+```
+
+### Four things this meter will otherwise lie to you about
+
+| | |
+|---|---|
+| **The PC powers its interface.** DTR must be asserted and RTS not; at a serial library's defaults the meter is mute | The driver sets both as the port opens, and a meter that never echoes is reported with the handshake lines and the converter's levels named |
+| **It streams, and never ends a message.** It sends a reading 2.5 times a second whether anyone reads or not, and the operating system keeps what nobody read | The driver reads whatever has arrived rather than waiting for an end-of-message (#115), and `measure()` discards everything waiting before it takes a reading |
+| **A key press is not evidence.** Some keys toggle, and an echo can be lost after the meter acted, so a resend undoes it | Every function and range change is confirmed from the readings, which carry the meter's state, and raises naming what they show if it did not happen |
+| **A reading is a picture of the display.** Hold, Min/Max recall and Null look like numbers; OFL does not; the kilohm annunciator is not in the frame | Every annunciator is decoded, `is_live` says whether the number is now, and the resistance multiplier is derived from the manual's resolution rather than assumed |
+
+```bash
+python -m benchtools dmm -r /dev/ttyUSB0 read -n 5 --reject-held
+python examples/12_dmm_front_panel_check.py /dev/ttyUSB0        # operator confirms the panel
+BENCHTOOLS_TTI1604=/dev/ttyUSB0 python -m pytest tests/bench/tti1604 -v
+```
+
+The last line is the bench test: outside the default run, it exercises the
+driver against the real meter and writes a findings record. See
+[TTi 1604 Notes](docs/dmm/TTi1604_Notes.md) for the wiring, the protocol, the
+eight bench confirmation items, and the manufacturer's documents in
+`docs/dmm/reference/`.
+
+---
+
+## Thermometer — Raspberry Pi Pico 2 + DollaTek SHT30-D
+
+A Pico 2 reads the local temperature from a Sensirion SHT30-DIS, carried on a
+DollaTek SHT30-D module, over I2C (GP4/GP5, address 0x44). It answers
+`rd name`, `rd copyright`, `rd version`, `rd sha` and `rd temperature` over USB,
+each as `ACK rd <option> = <value>`; an unknown option gets
+`NAK rd <option> = Error`. The
+firmware lives in [`firmware/pico_sht30`](firmware/pico_sht30): it is C for
+the Pico SDK, written to MISRA C:2012, and builds to a `.uf2` you copy onto the
+board in BOOTSEL mode.
+
+```python
+from benchtools.instruments.pico_sht30 import PicoSht30
+
+with PicoSht30.connect("/dev/ttyACM0") as thermometer:     # COM5 on Windows
+    print(thermometer.name, thermometer.version)           # Pico 2 SHT30 Temperature Sensor V1.00.0000
+    print("%.2f °C" % thermometer.temperature())
+```
+
+```bash
+python -m benchtools thermo -r /dev/ttyACM0 info
+python -m benchtools thermo -r /dev/ttyACM0 rd sha
+python -m benchtools thermo -r /dev/ttyACM0 temp --count 10 --interval 1
+python -m benchtools thermo -r sim:// temp          # no hardware needed
+```
+
+A reading that fails raises an error; it never returns the previous value. When
+the sensor is absent, a frame fails its CRC or the bus times out, the firmware
+answers `ACK rd temperature = Error` and the driver raises `NoReadingError`.
+A value that is not degrees to two decimal places is refused.
+
+See [Pico 2 + SHT30-D Notes](docs/pico_sht30/Pico_SHT30_Notes.md) for wiring,
+building and flashing, the datasheet facts, the MISRA position and the bench
+confirmation items.
 
 ---
 
@@ -640,6 +756,10 @@ configurations can name it. New link types (serial, USBTMC, HTTP) register with
 | [`examples/06_ble_sensor.py`](examples/06_ble_sensor.py) | Scan, select, advertising profile, and command/response timing through a BLE dongle |
 | [`examples/07_supply_rails.py`](examples/07_supply_rails.py) | Bringing up two rails, and catching one that is in current limit |
 | [`examples/08_s2lp_radio.py`](examples/08_s2lp_radio.py) | Dumping an S2-LP's registers, transmitting, and capturing to a packet log |
+| [`examples/09_sensor_version.py`](examples/09_sensor_version.py) | Finding a sensor by part of its name, in any case, and reading its version over BLE UART |
+| [`examples/10_psu_front_panel_check.py`](examples/10_psu_front_panel_check.py) | Stepping a GPD-3303D through ten states while an operator checks the front panel; the answers are logged as TB-SIT-03 evidence |
+| [`examples/11_pico_thermometer.py`](examples/11_pico_thermometer.py) | Identifying a Pico 2 thermometer by title and version, and logging temperature |
+| [`examples/12_dmm_front_panel_check.py`](examples/12_dmm_front_panel_check.py) | Stepping a TTi 1604 through twelve states while an operator checks the front panel; the answers are logged |
 
 Each takes an address (or bench file) and defaults to simulation:
 
@@ -656,9 +776,10 @@ python examples/02_channel_spread.py            # simulator
 python -m pytest tests/ --cov=benchtools --cov-report=term
 ```
 
-**1 878 tests, 94% statement coverage, no hardware required** — no oscilloscope,
+**2 498 tests (2 497 pass, 1 skipped without `tkinter`), 95% statement coverage, no hardware required** — no oscilloscope,
 no probe, no target, no GDB, no dongle, no BLE sensor, no power supply, no
-sub-1 GHz kit. With
+sub-1 GHz kit, no Pico. The Pico firmware's own 61 unit tests run under CTest
+(`firmware/pico_sht30/test`). With
 every optional extra removed: 1 807 pass, 40 skip, 0 fail.
 
 The suite includes an independently implemented VXI-11 RPC server, a SCPI socket
@@ -678,6 +799,65 @@ source carries its trace and allocates nothing dynamically.
 
 ---
 
+## Continuous integration
+
+Three workflows run in `.github/workflows/`:
+
+| Workflow | What it does |
+|---|---|
+| `tests.yml` | The Python suite on 3.8, 3.9 and 3.12, with coverage gated at 90% |
+| `lint.yml` | `pylint` over `benchtools/`, `tests/` and `scripts/`, against a recorded baseline |
+| `firmware.yml` | The dongle firmware's own Unity/CTest unit tests, then the real cross-compile against nRF5 SDK 17.1.0 and a DFU package |
+| `style.yml` | `dermot-murphy/CStyleCheck@v1.5.1` over `firmware/nordic_dongle`, against `.cstylecheck.yml` and a baseline |
+| `bench.yml` | The bench specifications, run through this repository's own action against the simulated bench |
+
+`tests.yml` is the one that makes the others mean something: the traceability
+check and the layering test live in the suite, so they now run where they can
+block a merge rather than only on a developer's machine.
+
+Both linters run against a **baseline** — the findings present when the check
+was introduced — so a job fails on new findings rather than on existing debt.
+What is in each baseline, and what closing it involves, is in the
+[analysis report](docs/aspice/TestBench_Analysis_Report.md) §6.12 and §6.13.
+
+### Using the bench runner as an action
+
+This repository publishes a composite action, so another project can run its
+bench specifications in CI:
+
+```yaml
+- uses: dermot-murphy/EmbeddedTestBench@v1
+  id: bench
+  with:
+    specs: |
+      specs/sensor_bringup.yaml
+      specs/sensor_commands.yaml
+    bench:    benches/lab1.yaml   # or benches/simulated_bench.yaml
+    simulate: 'false'
+    junit:    results/bench.xml
+    markdown: results/bench.md
+
+- run: echo "${{ steps.bench.outputs.passed }} passed, ${{ steps.bench.outputs.failed }} failed"
+```
+
+It annotates each failed case inline with the measurement that missed and the
+limit it missed by, writes a job summary listing every instrument's identity,
+and publishes JUnit XML. Failure and error stay apart all the way to the exit
+code — `fail-on: error` gates on the bench being able to measure, rather than on
+the target passing — and a run with any simulated instrument says so in the
+annotations, the summary and every report file.
+
+`simulate: 'true'` also swaps in the simulators, but it supplies no bench
+options, so a specification that checks firmware against a manifest needs
+`benches/simulated_bench.yaml` instead — a manifest is a file whether the
+instrument is real or not. With several specifications, `benchtools` numbers the
+result files and the action reads all of them, reporting one summary per suite
+and a combined total.
+
+Full input and output reference: [`action.yml`](action.yml).
+
+---
+
 ## Documentation
 
 | Document | Contents |
@@ -689,15 +869,27 @@ source carries its trace and allocates nothing dynamically.
 | [BLE Dongle Notes](docs/ble/BLE_Dongle_Notes.md) | Why the dongle needs firmware, the line protocol, building and flashing, reading a profile, and what is unproven |
 | [S2-LP Devkit Notes](docs/s2lp/S2LP_Devkit_Notes.md) | Why ST's firmware is used unchanged, its CLI protocol, the register map, what a polled capture can and cannot be quoted as, and the licence position |
 | [GPD-3303D Notes](docs/psu/GPD3303D_Notes.md) | The four ways this supply will mislead a test, its command set and status word, and the bench confirmation items |
-| [SWE.1 Requirements](docs/SWE1_Software_Requirements_Specification.md) | 177 functional and 18 non-functional requirements |
-| [SWE.2 Architecture](docs/SWE2_Software_Architecture.md) | Layering, elements, eighteen architectural decisions |
-| [SWE.3 Detailed Design](docs/SWE3_Software_Detailed_Design.md) | Per-module design units |
-| [SWE.4 Test Specification](docs/SWE4_Unit_Test_Specification.md) | Strategy, test groups, pass criteria |
-| [SWE.4 Test Report](docs/SWE4_Unit_Test_Report.md) | Results, coverage, measured accuracy, forty defects found |
-| [Traceability Matrix](docs/Traceability_Matrix.md) | Bidirectional trace, stakeholder need to test |
+| [TTi 1604 Notes](docs/dmm/TTi1604_Notes.md) | The multimeter's interface and protocol, why a key press is confirmed from the readings, the stream read, the derived resistance multiplier, the bench test and front-panel check, and the bench confirmation items; the manufacturer's documents in `docs/dmm/reference/` |
+| [Pico 2 + SHT30-D Notes](docs/pico_sht30/Pico_SHT30_Notes.md) | Wiring, building and flashing the thermometer firmware, datasheet facts, MISRA position, bench confirmation items; [reference documents](docs/pico_sht30/References.md) |
+| [SWE.1 Requirements](docs/aspice/TestBench_SWE1_SW_Requirements.md) | 177 functional and 18 non-functional requirements |
+| [SWE.2 Architecture](docs/aspice/TestBench_SWE2_SW_Architecture.md) | Layering, elements, eighteen architectural decisions |
+| [SWE.3 Detailed Design](docs/aspice/TestBench_SWE3_Detailed_Design.md) | Per-module design units |
+| [SWE.4 Test Specification](docs/aspice/TestBench_SWE4_Unit_Verification.md) | Strategy, test groups, pass criteria |
+| [SWE.4 Test Report](docs/aspice/TestBench_SWE4_Unit_Verification_Report.md) | Results, coverage, measured accuracy, forty defects found |
+| [Traceability Matrix](docs/aspice/TestBench_Traceability_Matrix.md) | Bidirectional trace, stakeholder need to test |
+| [System Requirements & Architecture](docs/aspice/TestBench_SYS2_System_Requirements.md) | What the whole bench must do, and the elements and interfaces that do it |
+| [System Qualification](docs/aspice/TestBench_SYS5_System_Qualification_Test.md) | Eight scenarios, simulated and on hardware, and the gap between the two columns |
+| [Repository Analysis Report](docs/aspice/TestBench_Analysis_Report.md) | What is measured here, what the checks do not reach, and what to do first |
+| [Process Capability Records](docs/aspice/TestBench_PA2_Capability_Records.md) | Level 2 generic practices, rated against the evidence that exists |
 
-Work products follow Automotive SPICE V4.0 SWE.1–SWE.4. This is a test tool: it is
-not delivered vehicle software and carries no ASIL classification.
+The full index is [docs/README.md](docs/README.md).
+
+Work products follow Automotive SPICE V4.0 at Capability Level 2 - SYS.2 to
+SYS.5, SWE.1 to SWE.6, the management and support plans, and the C coding
+standards. This is a test tool: it is not delivered vehicle software and carries
+no ASIL classification. Capability Level 2 is **not** achieved, and
+[TB-PA2-001](docs/aspice/TestBench_PA2_Capability_Records.md) says which three
+practices fall short and why.
 
 ---
 

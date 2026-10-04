@@ -16,25 +16,31 @@ puts that in the result, so "nothing was transmitted" and "we were not
 listening" stay distinguishable. :meth:`capture` with ``continuous=True`` keeps
 the board in its own loop and has no gaps at all; prefer it.
 
-**Timestamps are the board's millisecond timer**, not a radio timestamp. Good
-enough to order packets and to time a sequence; not good enough to characterise
-a protocol's timing, and this driver never presents it as if it were.
+**Timestamps are the board's microsecond timer**, read when the firmware prints
+a report - not a radio timestamp. Good enough to order packets and to time a
+sequence; not good enough to characterise a protocol's timing, and this driver
+never presents it as if it were.
 
 **A frequency the band cannot reach is refused.** The radio will accept a
 setting outside the board's filter and matching network, transmit into it, and
 report exactly what it was told - while almost nothing comes out of the antenna.
+The firmware does not say which board it is on, so the band is checked only
+when the caller names the board; otherwise only the synthesiser's own range is.
 
-Traces to: S2LP-FR-001 .. S2LP-FR-060, S2LP-ARC-001, S2LP-DD-S2LP, S2LP-DD-CONFIG.
+Traces to: S2LP-FR-001 .. S2LP-FR-060, S2LP-FR-080, S2LP-FR-084, S2LP-ARC-001, S2LP-DD-S2LP,
+S2LP-DD-CONFIG.
 """
 
 from __future__ import annotations
 
 import logging
 import time
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 from ...core.errors import ConfigurationError, InstrumentError, ProtocolError
+from ...core.events import log_event
 from ...core.instrument import Instrument, InstrumentIdentity
+from ...core.paths import input_paths
 from ...core.transport.base import Transport
 from ...core.transport.factory import open_transport
 from . import registers as reg
@@ -45,41 +51,40 @@ from .configuration import (
     load_register_file,
 )
 from .constants import (
+    AFTER_SHUTDOWN_EXIT,
     BOARDS,
     DEFAULT_BAUDRATE,
-    DEFAULT_BOARD,
     DEFAULT_TIMEOUT,
     DEFAULT_XTAL_HZ,
     MANUFACTURER,
     MAX_PAYLOAD,
     MODEL,
+    CRC_MODES,
     Modulation,
     Strobe,
+    SYNTH_BANDS,
 )
-from .packets import Capture, Packet, PacketLog
+from .eeprom import BoardEeprom, parse_page0
+from .packets import (
+    BoardClock,
+    Packet,
+    PacketLog,
+)
 from .session import S2lpSession
 from .simulator import SimulatedS2lp
+from .traffic import TrafficMixin
 
-__all__ = ["S2lpDevkit", "rssi_dbm_from_register", "rssi_register_from_dbm"]
-
-_LOG = logging.getLogger(__name__)
-
-
-def rssi_dbm_from_register(value: int) -> float:
-    """RSSI_LEVEL to dBm, by the datasheet's conversion: dBm = value/2 - 146."""
-    return (int(value) / 2.0) - 146.0
+__all__ = ["S2lpDevkit"]
 
 
-def rssi_register_from_dbm(dbm: float) -> int:
-    """dBm back to a RSSI_LEVEL value, for a threshold setting."""
-    return max(0, min(255, int(round((float(dbm) + 146.0) * 2.0))))
 
-
-class S2lpDevkit(Instrument):
+class S2lpDevkit(TrafficMixin, Instrument):
     """An S2-LP development kit running ST's CLI firmware.
 
     :param transport: The link to the board, usually its USB serial port.
-    :param board: Which kit this is. Read from the board when it will say.
+    :param board: Which kit this is, one of :data:`~.constants.BOARDS`. The
+        firmware does not report it, so it is the caller's to give; without it
+        the board is unknown and only the synthesiser's range is checked.
     :param timeout: Seconds to wait for a reply.
 
     Example::
@@ -99,6 +104,7 @@ class S2lpDevkit(Instrument):
 
     SIMULATOR_CLASS = SimulatedS2lp
     MODEL_NAME = MODEL
+    EVENT_SOURCE = "RF"
 
     def __init__(
         self,
@@ -107,10 +113,21 @@ class S2lpDevkit(Instrument):
         timeout: float = DEFAULT_TIMEOUT,
     ) -> None:
         super().__init__(auto_check_errors=False)
+        board = (board or "").strip()
+        if board and board not in BOARDS:
+            raise ConfigurationError(
+                "%r is not a kit board this driver knows; they are %s"
+                % (board, ", ".join(sorted(BOARDS)))
+            )
         self._transport = transport
         self._session = S2lpSession(transport, timeout=timeout)
+        self._adopt(transport, self._session)
         self._board = board
-        self._xtal_hz = 0
+        #: What identification read: ST's library version text, the radio's
+        #: version byte, the crystal frequency in hertz, and the board EEPROM.
+        self._facts: Dict[str, Any] = {"library": "", "silicon": 0, "xtal_hz": 0,
+                                       "eeprom": None}
+        self._clock = BoardClock()
         self._packet_log: Optional[PacketLog] = None
         self._payload_length = 0
 
@@ -189,21 +206,37 @@ class S2lpDevkit(Instrument):
         self.identify()
 
     def _read_identity(self) -> InstrumentIdentity:
-        """Identify the board through the firmware's own identification call."""
-        reply = self._session.execute("SdkEvalRfboardIdentification", DEFAULT_XTAL_HZ)
-        board = reply.text("board", "").strip()
-        if board:
-            self._board = board
-        self._xtal_hz = reply.number("xtal", 0)
+        """Identify the firmware, the radio, its crystal and the board's band.
+
+        ``SdkEvalRfboardIdentification`` sets up the firmware's crystal
+        detection, and answers with no tags. The band comes from the board's
+        EEPROM instead (#80), and a board named by the caller must agree with it.
+        """
+        self._session.execute("SdkEvalRfboardIdentification", DEFAULT_XTAL_HZ)
+        xtal_hz = self._session.execute("S2LPRadioGetXtalFrequency").hex_number("value")
+
+        library = self._session.execute("S2LPGetLibVersion").hex_number("value")
+        library_text = "%d.%d.%d" % ((library >> 16) & 0xFF, (library >> 8) & 0xFF,
+                                     library & 0xFF)
+        silicon = self._session.execute("S2LPGetVersion").hex_number("value")
+        self._facts.update(library=library_text, silicon=silicon & 0xFF, xtal_hz=xtal_hz,
+                           eeprom=self._read_eeprom())
+        self._check_board_against_eeprom()
+        if (silicon >> 8) & 0xFF != 0x03:
+            raise InstrumentError(
+                "the radio reports part number 0x%02X; an S2-LP is 0x03"
+                % ((silicon >> 8) & 0xFF)
+            )
 
         firmware = ""
         try:
-            firmware = self._session.execute("SdkEvalGetVersion").text("version", "")
+            firmware = "%02X" % self._session.execute("SdkEvalGetVersion").hex_number("version")
         except (ProtocolError, InstrumentError):      # an older CLI build
-            _LOG.debug("the board did not report a motherboard version")
+            self._logger.debug("the board did not report a motherboard version")
 
-        raw = "%s,%s,XTAL %d Hz,%s" % (MANUFACTURER, self._board or MODEL,
-                                       self._xtal_hz, firmware)
+        raw = "%s,%s,S2-LP 0x%02X,library %s,board %s,XTAL %d Hz" % (
+            MANUFACTURER, self._board or MODEL, self._facts["silicon"], self._facts["library"],
+            firmware or "?", xtal_hz)
         return InstrumentIdentity(
             raw=raw,
             manufacturer=MANUFACTURER,
@@ -211,6 +244,29 @@ class S2lpDevkit(Instrument):
             serial_number="",
             firmware=firmware,
         )
+
+    def _read_eeprom(self) -> Optional[BoardEeprom]:
+        """Page 0 of the board's EEPROM, or ``None`` where it cannot be read."""
+        try:
+            reply = self._session.execute("EepromReadPage", 0, 0, 32)
+        except (ProtocolError, InstrumentError):         # a build without the command
+            self._logger.debug("the board's EEPROM could not be read")
+            return None
+        return parse_page0(reply.numbers("Data"))
+
+    def _check_board_against_eeprom(self) -> None:
+        eeprom = self._facts["eeprom"]
+        if self._board and eeprom is not None and not eeprom.matches(self._board):
+            raise ConfigurationError(
+                "%s is a %.0f to %.0f MHz board, but this kit's EEPROM says it was "
+                "built for %.0f MHz. Name the board that is attached, or none."
+                % (self._board, BOARDS[self._board][0] / 1e6, BOARDS[self._board][1] / 1e6,
+                   eeprom.band_hz / 1e6))
+
+    @property
+    def eeprom(self) -> Optional[BoardEeprom]:
+        """What the board's EEPROM said at connection, or ``None``."""
+        return self._facts["eeprom"]
 
     def reset(self, settle: float = 0.2) -> None:
         """Reset the radio's digital section (the ``SRES`` strobe).
@@ -228,14 +284,14 @@ class S2lpDevkit(Instrument):
     def power_cycle(self, settle: float = 0.1) -> None:
         """Take the radio through shutdown and back: a power-on reset.
 
-        This is the only operation that genuinely returns **every** register to
-        its documented default, including the bits a register write cannot
-        reach. It is also the most disruptive: the radio comes back with its
-        crystal restarting and nothing configured.
+        This is the only operation that returns the bits a register write
+        cannot reach. It is also the most disruptive: the radio comes back with
+        its crystal restarting.
 
-        Use :meth:`restore_defaults` instead when the radio must stay powered -
-        it writes the same values, and is deterministic, but can only restore
-        what is writable.
+        **It does not leave every register at its datasheet default.** ST's
+        firmware writes some on the way out of shutdown; on a kit, the ten in
+        :data:`~.constants.AFTER_SHUTDOWN_EXIT` came back set. Use
+        :meth:`restore_defaults` when datasheet defaults are what is wanted.
         """
         self._session.execute("SdkEvalSdn", 1)
         if settle > 0:
@@ -257,18 +313,34 @@ class S2lpDevkit(Instrument):
 
     @property
     def board(self) -> str:
-        """Which kit board this is, as it identified itself."""
-        return self._board or DEFAULT_BOARD
+        """Which kit board this is, as the caller named it; ``""`` if unknown."""
+        return self._board
 
     @property
-    def band(self) -> Tuple[int, int]:
-        """The board's usable frequency range, in hertz."""
-        return BOARDS.get(self.board, BOARDS[DEFAULT_BOARD])
+    def band(self) -> Optional[Tuple[int, int]]:
+        """The board's usable frequency range in hertz, or ``None`` if unknown.
+
+        From the board the caller named, or else from the board's EEPROM.
+        """
+        if self._board:
+            return BOARDS.get(self._board)
+        eeprom = self._facts["eeprom"]
+        return eeprom.band_range_hz if eeprom is not None else None
 
     @property
     def xtal_hz(self) -> int:
-        """The crystal the firmware detected, in hertz."""
-        return self._xtal_hz
+        """The crystal frequency the firmware uses, in hertz."""
+        return self._facts["xtal_hz"]
+
+    @property
+    def library_version(self) -> str:
+        """ST's S2-LP library version in the firmware, e.g. ``"1.3.5"``."""
+        return self._facts["library"]
+
+    @property
+    def silicon_version(self) -> int:
+        """The radio's DEVICE_INFO0 version byte, e.g. ``0xC1``."""
+        return self._facts["silicon"]
 
     @property
     def log_path(self) -> Optional[str]:
@@ -308,6 +380,11 @@ class S2lpDevkit(Instrument):
     def _record(self, packet: Packet) -> Packet:
         if self._packet_log is not None:
             self._packet_log.write(packet)
+        # Every packet sent or received, as a structured event-log record, so
+        # a test run viewer can decode and list the frames without the
+        # driver's packet log (#139). Raw lines alone do not carry the decode.
+        log_event(self._logger, "rf_packet", "packet %s" % packet, packet.as_dict(),
+                  level=logging.DEBUG)
         return packet
 
     # ------------------------------------------------------------------
@@ -360,6 +437,28 @@ class S2lpDevkit(Instrument):
         """One register, by name or address."""
         self.write_registers(which, [value])
 
+    def read_setup(self) -> Dict[str, Any]:
+        """The kit's RF setup and every register, also logged as an ``rf_setup`` record.
+
+        What ST's GUI shows on its first screen: the radio's settings, each
+        register, the output power and the board's EEPROM. Logged so a reader of
+        the event log - the test run viewer's ST GUI page (#157) - has it
+        without the kit's port, which belongs to the run.
+        """
+        max_index = self.read_field("PA_POWER0", "PA_LEVEL_MAX_IDX")
+        board = self.eeprom
+        setup = {
+            "radio": self.radio_info(),
+            "registers": self.read_all_registers(),
+            "power_dbm": self.power_level_dbm(max_index),
+            "eeprom": board.as_dict() if board is not None else None,
+        }
+        log_event(self._logger, "rf_setup", "RF setup read: %d registers"
+                  % len(setup["registers"]),
+                  dict(setup, registers={"%d" % address: value for address, value
+                                         in setup["registers"].items()}))
+        return setup
+
     def read_all_registers(self) -> Dict[int, int]:
         """Every documented register, as address to value.
 
@@ -385,19 +484,31 @@ class S2lpDevkit(Instrument):
         return "\n".join(reg.describe(values))
 
     def registers_differing_from_reset(
-        self, values: Optional[Dict[int, int]] = None
+        self,
+        values: Optional[Dict[int, int]] = None,
+        expected: Optional[Dict[str, int]] = None,
     ) -> Dict[str, Tuple[int, int]]:
-        """Registers that are not at their reset value: name to (reset, value).
+        """Writable registers not at their reset value: name to (reset, value).
 
         The short answer to "what has this radio been configured to do?".
+        Read-only registers are left out. They hold status - RSSI, interrupt
+        flags, the silicon version - which a live radio never holds at a
+        "reset value", so including them made every reset check fail on a kit.
+
+        :param expected: Register name to the value to compare against instead
+            of its reset value, for a state that is not the datasheet's.
         """
         if values is None:
             values = self.read_all_registers()
+        overrides = expected or {}
         differing = {}
         for address, value in sorted(values.items()):
             register = reg.BY_ADDRESS.get(address)
-            if register is not None and value != register.reset:
-                differing[register.name] = (register.reset, value)
+            if register is None or not register.writable:
+                continue
+            wanted = overrides.get(register.name, register.reset)
+            if value != wanted:
+                differing[register.name] = (wanted, value)
         return differing
 
     def read_field(self, register: Union[int, str], field: str) -> int:
@@ -456,6 +567,7 @@ class S2lpDevkit(Instrument):
     # Register values from a file
     # ------------------------------------------------------------------
     @staticmethod
+    @input_paths("source")
     def load_configuration(
         source: Union[str, RegisterConfiguration]
     ) -> RegisterConfiguration:
@@ -472,6 +584,7 @@ class S2lpDevkit(Instrument):
     #: What ``apply_configuration`` may do before it writes anything.
     RESET_MODES = ("none", "defaults", "power")
 
+    @input_paths("source")
     def apply_configuration(
         self,
         source: Union[str, RegisterConfiguration],
@@ -496,11 +609,14 @@ class S2lpDevkit(Instrument):
               deterministic, and what makes a strict check afterwards mean
               something.
             * ``"power"`` - take the radio through shutdown and back, a real
-              power-on reset, before writing. The truest reset, and the most
-              disruptive.
+              power-on reset, before writing. The most disruptive. ST's
+              firmware sets ten registers on the way out of shutdown
+              (:data:`~.constants.AFTER_SHUTDOWN_EXIT`), so the radio is then at
+              the defaults with those ten set, not at the datasheet defaults.
 
             Either reset is **confirmed** before the file is applied: the
-            registers are read back and must actually be at their defaults.
+            registers are read back and must actually be in the state the
+            reset promises.
             "The reset was commanded" and "the radio is at defaults" are
             different facts, and the second is the one the file is written on
             top of.
@@ -546,19 +662,21 @@ class S2lpDevkit(Instrument):
         """Put the radio at its defaults, and confirm that it is."""
         if mode == "none":
             return
+        expected: Dict[str, int] = {}
         if mode == "power":
             self.power_cycle()
+            expected = AFTER_SHUTDOWN_EXIT
         else:
             self.restore_defaults()
 
-        remaining = self.registers_differing_from_reset()
+        remaining = self.registers_differing_from_reset(expected=expected)
         if remaining:
             raise InstrumentError(
-                "the radio is not at its register defaults after a %s reset: %s. "
+                "the radio is not in the state a %s reset leaves it in: %s. "
                 "The configuration was not applied, because it would have been "
                 "written on top of a state nobody established."
                 % (mode, ", ".join(
-                    "%s = 0x%02X (default 0x%02X)" % (name, value, default)
+                    "%s = 0x%02X (expected 0x%02X)" % (name, value, default)
                     for name, (default, value) in sorted(remaining.items())))
             )
 
@@ -573,6 +691,7 @@ class S2lpDevkit(Instrument):
                 runs.append((setting.address, [setting.value]))
         return runs
 
+    @input_paths("source")
     def verify_configuration(
         self, source: Union[str, RegisterConfiguration], strict: bool = False
     ) -> ConfigurationCheck:
@@ -625,7 +744,8 @@ class S2lpDevkit(Instrument):
         values = self.read_all_registers()
         text = format_register_file(
             values,
-            title=title or "captured from %s on %s" % (self.board, self._transport.description),
+            title=title or "captured from %s on %s" % (self._board or MODEL,
+                                                       self._transport.description),
             only_changed=only_changed,
         )
         with open(path, "w", encoding="utf-8") as handle:
@@ -636,8 +756,17 @@ class S2lpDevkit(Instrument):
     # Radio configuration
     # ------------------------------------------------------------------
     def _check_frequency(self, hertz: int) -> int:
-        low, high = self.band
         value = int(hertz)
+        if self.band is None:
+            if not any(low <= value <= high for low, high in SYNTH_BANDS):
+                raise ConfigurationError(
+                    "%.3f MHz is outside every range the S2-LP synthesiser "
+                    "tunes (%s)" % (value / 1e6, ", ".join(
+                        "%.0f to %.0f MHz" % (low / 1e6, high / 1e6)
+                        for low, high in SYNTH_BANDS))
+                )
+            return value
+        low, high = self.band
         if not low <= value <= high:
             raise ConfigurationError(
                 "%.3f MHz is outside the %s band this board is built for "
@@ -663,7 +792,7 @@ class S2lpDevkit(Instrument):
             the read-back is the one worth recording.
         """
         code = self._modulation_code(modulation)
-        self._session.execute(
+        reply = self._session.execute(
             "S2LPRadioInit",
             self._check_frequency(frequency_hz),
             code,
@@ -672,6 +801,14 @@ class S2lpDevkit(Instrument):
             int(bandwidth_hz),
             int(xtal_hz),
         )
+        error = reply.hex_number("error", 0)
+        if error:
+            raise ConfigurationError(
+                "the radio refused these settings (S2LPRadioInit error 0x%02X): "
+                "%.3f MHz, modulation 0x%02X, %d bps, %d Hz deviation, %d Hz "
+                "bandwidth" % (error, frequency_hz / 1e6, code, data_rate_bps,
+                               deviation_hz, bandwidth_hz)
+            )
         return self.radio_info()
 
     @staticmethod
@@ -687,22 +824,26 @@ class S2lpDevkit(Instrument):
         return int(modulation)
 
     def radio_info(self) -> Dict[str, int]:
-        """Frequency, modulation, data rate, deviation and bandwidth."""
+        """Frequency, modulation, data rate, deviation, bandwidth and crystal.
+
+        Every field is written in hex by the firmware, with no ``0x``.
+        """
         reply = self._session.execute("S2LPRadioGetInfo")
-        code = reply.number("modulation", 0)
+        code = reply.hex_number("Modulation")
         return {
-            "frequency_hz": reply.number("frequency", 0),
+            "frequency_hz": reply.hex_number("Frequency_base"),
             "modulation": code,
             "modulation_name": Modulation.name_of(code),
-            "data_rate_bps": reply.number("datarate", 0),
-            "deviation_hz": reply.number("fdev", 0),
-            "bandwidth_hz": reply.number("bandwidth", 0),
+            "data_rate_bps": reply.hex_number("Data_rate"),
+            "deviation_hz": reply.hex_number("Frequency_deviation"),
+            "bandwidth_hz": reply.hex_number("Channel_filter_bandwidth"),
+            "xtal_hz": reply.hex_number("XTAL_frequency"),
         }
 
     @property
     def frequency_hz(self) -> int:
         """The carrier the radio is tuned to, in hertz."""
-        return self._session.execute("S2LPRadioGetFrequencyBase").number("frequency")
+        return self._session.execute("S2LPRadioGetFrequencyBase").hex_number("value")
 
     def set_frequency(self, hertz: int) -> int:
         """Tune the radio. Refuses a frequency this board cannot reach."""
@@ -712,7 +853,7 @@ class S2lpDevkit(Instrument):
     @property
     def modulation(self) -> str:
         """The modulation in use, by name."""
-        code = self._session.execute("S2LPRadioGetModulation").number("modulation")
+        code = self._session.execute("S2LPRadioGetModulation").hex_number("value")
         return Modulation.name_of(code)
 
     def set_modulation(self, modulation: Union[int, str]) -> str:
@@ -721,25 +862,80 @@ class S2lpDevkit(Instrument):
 
     @property
     def power_dbm(self) -> float:
-        """Output power, in dBm."""
-        return float(self._session.execute("S2LPRadioGetPALeveldBm", 0).number("power"))
+        """Output power of PA slot 0, in dBm."""
+        return self.power_level_dbm(0)
+
+    def power_level_dbm(self, index: int) -> float:
+        """Output power of one PA slot (0 to 7), in dBm.
+
+        The firmware answers in tenths of a dBm, as signed decimal.
+        """
+        reply = self._session.execute("S2LPRadioGetPALeveldBm", int(index))
+        return reply.number("value") / 10.0
 
     def set_power_dbm(self, dbm: float, index: int = 7) -> float:
-        """Set the output power. The index is the PA ramp step ST's API takes."""
+        """Set the output power, in whole dBm, which is all the command takes.
+
+        :param index: The PA slot to set and use as the maximum, 0 to 7.
+        :returns: The power the radio reports for that slot afterwards.
+        """
         self._session.execute("S2LPRadioSetPALeveldBm", int(round(dbm)), int(index))
-        return self.power_dbm
+        return self.power_level_dbm(index)
 
     @property
     def rssi_dbm(self) -> float:
         """Signal strength now, in dBm - the channel, not a packet."""
-        return float(self._session.execute("S2LPQiGetRssidBm").number("rssi"))
+        return self._session.execute("S2LPQiGetRssidBm").real("value")
 
     @property
     def payload_length(self) -> int:
         """Payload length the packet handler expects, in bytes."""
-        value = self._session.execute("S2LPPktBasicGetPayloadLength").number("payload_length")
+        value = self._session.execute("S2LPPktBasicGetPayloadLength").hex_number("value")
         self._payload_length = value
         return value
+
+    def configure_packets(  # pylint: disable=too-many-arguments
+        self,
+        preamble: int = 64,
+        sync_bits: int = 32,
+        sync_word: int = 0x88888888,
+        *,
+        variable_length: bool = False,
+        crc: Union[int, str] = "8",
+        address: bool = False,
+        fec: bool = False,
+        whitening: bool = False,
+    ) -> Dict[str, int]:
+        """Set up the basic packet handler (``S2LPPktBasicInit``).
+
+        This is also what sets the radio's TX source to its FIFO; until it, or
+        a register file, has done so, the radio sends a PN9 test pattern.
+
+        :param preamble: Written to PREAMBLE_LEN as given; the read-back
+            reports the same number.
+        :param sync_bits: Sync word length in bits.
+        :param variable_length: A length byte after the sync word, rather
+            than the fixed PCKTLEN.
+        :param crc: A :data:`~.constants.CRC_MODES` name, or its code.
+        :returns: What :meth:`packet_info` reads back.
+        """
+        if isinstance(crc, str):
+            if crc not in CRC_MODES:
+                raise ConfigurationError(
+                    "%r is not a CRC mode; they are %s" % (crc, ", ".join(CRC_MODES)))
+            crc = CRC_MODES[crc]
+        self._session.execute(
+            "S2LPPktBasicInit", int(preamble), int(sync_bits), int(sync_word),
+            int(bool(variable_length)), 0, int(crc), int(bool(address)),
+            int(bool(fec)), int(bool(whitening)))
+        return self.packet_info()
+
+    def packet_info(self) -> Dict[str, int]:
+        """The basic packet handler's settings, as the firmware reports them."""
+        reply = self._session.execute("S2LPPktBasicGetInfo")
+        return {tag: reply.hex_number(tag) for tag in (
+            "preamble_length", "sync_length", "sync_word", "length_mode",
+            "length_size", "crc_mode", "address", "fec", "whitening")}
 
     def set_payload_length(self, length: int) -> int:
         if not 0 < int(length) <= MAX_PAYLOAD:
@@ -750,135 +946,3 @@ class S2lpDevkit(Instrument):
         self._session.execute("S2LPPktBasicSetPayloadLength", int(length))
         self._payload_length = int(length)
         return self._payload_length
-
-    # ------------------------------------------------------------------
-    # Traffic
-    # ------------------------------------------------------------------
-    def transmit(self, data: Union[bytes, str], note: str = "") -> Packet:
-        """Send one packet, and record it."""
-        payload = data.encode("utf-8") if isinstance(data, str) else bytes(data)
-        if not payload:
-            raise ConfigurationError("there is no such thing as an empty transmission")
-        if len(payload) > MAX_PAYLOAD:
-            raise ConfigurationError(
-                "%d bytes is more than the firmware's command carries (%d). "
-                "Send it in parts." % (len(payload), MAX_PAYLOAD)
-            )
-        started = time.monotonic()
-        self._session.execute("S2LPSendNBytes", payload)
-        return self._record(
-            Packet(direction="tx", data=payload, note=note,
-                   board_time_ms=int((time.monotonic() - started) * 1000))
-        )
-
-    def transmit_batch(
-        self, data: Union[bytes, str], count: int, interval_ms: int = 100
-    ) -> List[Packet]:
-        """Send the same packet *count* times, *interval_ms* apart.
-
-        The timing is the board's, not the host's: the loop runs in the firmware,
-        so the interval is not at the mercy of the USB link.
-        """
-        payload = data.encode("utf-8") if isinstance(data, str) else bytes(data)
-        self._session.execute(
-            "S2LPSendNBytesBatch", int(interval_ms), int(count), payload,
-            timeout=max(self._session.timeout, count * interval_ms / 1000.0 + 5.0),
-        )
-        return [self._record(Packet(direction="tx", data=payload,
-                                    note="batch %d of %d" % (index + 1, count)))
-                for index in range(count)]
-
-    def receive(self, length: Optional[int] = None, timeout: Optional[float] = None) -> Optional[Packet]:
-        """Arm the radio and wait for one packet.
-
-        :returns: The packet, or ``None`` if none arrived before the radio's
-            own timeout. ``None`` means nothing was heard *while listening* - it
-            does not mean the air was quiet.
-        """
-        wanted = int(length or self._payload_length or self.payload_length)
-        reply = self._session.execute(
-            "S2LPGetNBytes", wanted,
-            timeout=timeout if timeout is not None else max(self._session.timeout, 2.0),
-        )
-        error = reply.hex_number("error", 0)
-        if error:
-            return None
-        data = bytes(reply.numbers("bytes"))
-        return self._record(
-            Packet(
-                direction="rx",
-                data=data,
-                rssi_dbm=rssi_dbm_from_register(reply.hex_number("rssi", 0)),
-                board_time_ms=reply.hex_number("timer", 0),
-                error=error,
-            )
-        )
-
-    def capture(
-        self,
-        count: int = 10,
-        timeout: float = 30.0,
-        length: Optional[int] = None,
-        continuous: bool = True,
-        attempts: Optional[int] = None,
-    ) -> Capture:
-        """Receive up to *count* packets, and record every one.
-
-        :param continuous: Keep the board in its own capture loop, so the radio
-            is armed for the whole capture. This is the honest way to capture:
-            with ``continuous=False`` the host re-arms between packets and
-            anything arriving in those gaps is never seen by anything.
-        :param attempts: Polled capture only: how many times to arm the radio
-            before giving up. Bounded because an arm that finds nothing can
-            return immediately, and an unbounded loop would spend the timeout
-            re-arming thousands of times and call the result a capture.
-        """
-        wanted = int(length or self._payload_length or self.payload_length)
-        started = time.monotonic()
-        capture = Capture(requested=int(count))
-
-        if continuous:
-            self._session.send("S2LPGetNBytesBatch", 0, int(count))
-            for reply in self._session.collect(int(count), timeout=timeout,
-                                               per_reply_timeout=timeout):
-                packet = self._packet_from(reply)
-                if packet is not None:
-                    capture.packets.append(self._record(packet))
-                if time.monotonic() - started > timeout:
-                    break
-            if capture.count < count:
-                self._session.stop()
-                capture.stopped_early = True
-        else:
-            limit = int(attempts) if attempts else max(2 * int(count), int(count) + 8)
-            listens = 0
-            while (capture.count < count and listens < limit
-                   and time.monotonic() - started < timeout):
-                packet = self.receive(length=wanted, timeout=timeout)
-                listens += 1
-                if packet is not None:
-                    capture.packets.append(packet)
-            # Every arm after the first is preceded by an interval in which the
-            # radio was not listening. That is what a gap is.
-            capture.gaps = max(0, listens - 1)
-            capture.stopped_early = capture.count < count
-
-        capture.duration_s = time.monotonic() - started
-        return capture
-
-    def _packet_from(self, reply) -> Optional[Packet]:
-        """One reply from a capture loop, as a packet - or ``None`` for a miss."""
-        if not reply.has("bytes"):
-            return None
-        if reply.hex_number("error", 0):
-            return None
-        return Packet(
-            direction="rx",
-            data=bytes(reply.numbers("bytes")),
-            rssi_dbm=rssi_dbm_from_register(reply.hex_number("rssi", 0)),
-            board_time_ms=reply.hex_number("timer", 0),
-        )
-
-    def stop(self) -> None:
-        """End a capture or a batch transmission early."""
-        self._session.stop()

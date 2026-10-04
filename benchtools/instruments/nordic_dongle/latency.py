@@ -27,7 +27,7 @@ from __future__ import annotations
 import statistics
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from ...core.errors import MeasurementError
 
@@ -53,6 +53,8 @@ class ResponseSample:
     :param host_s: Round trip measured by the host, in seconds.
     :param transmitted_us: Dongle timestamp when the request was handed over.
     :param received_us: Dongle timestamp when the reply arrived.
+    :param extra_frames: Notifications after the reply, when they were listened
+        for: a sensor that answers once sends none.
     """
 
     request: str = ""
@@ -61,11 +63,31 @@ class ResponseSample:
     host_s: float = 0.0
     transmitted_us: Optional[int] = None
     received_us: Optional[int] = None
+    extra_frames: Tuple[bytes, ...] = ()
+
+    @property
+    def frames(self) -> int:
+        """How many notifications the command produced: the reply, and any after it."""
+        return 1 + len(self.extra_frames)
 
     @property
     def text(self) -> str:
         """The reply decoded as text, for a console-style sensor."""
         return self.response.decode("utf-8", errors="replace")
+
+    @property
+    def value(self) -> str:
+        """What the reply reports: the text after its first ``" = "``, stripped.
+
+        ``ACK RD SHA = a8e37e892`` reports ``a8e37e892``. For comparing it with
+        the same value from elsewhere, where the rest of the reply is not
+        carried - a VERSION frame's SHA (#102). Empty when the reply has no
+        ``" = "``, such as a ``NACK``.
+
+        Traces to: BLE-FR-118.
+        """
+        _, separator, rest = self.text.partition(" = ")
+        return rest.strip() if separator else ""
 
     @property
     def seconds(self) -> float:

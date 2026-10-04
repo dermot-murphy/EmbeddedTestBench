@@ -12,8 +12,8 @@ from __future__ import annotations
 import pytest
 
 from benchtools.core import MockTransport
-from benchtools.instruments.tek3014b import ChannelSignal, SimulatedTDS3014B, Tek3014B, TriggerState
-from benchtools.instruments.tek3014b.constants import Coupling, ImageFormat, MeasurementType
+from benchtools.instruments.tek3014b import Tek3014B, TriggerState
+from benchtools.instruments.tek3014b.constants import Coupling, MeasurementType
 from benchtools.core.errors import (
     AcquisitionTimeoutError,
     ConfigurationError,

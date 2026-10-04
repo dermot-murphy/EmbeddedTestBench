@@ -23,10 +23,10 @@ from __future__ import annotations
 import logging
 import time
 from collections import deque
-from typing import Callable, Deque, Iterable, List, Optional
+from typing import Callable, Deque, List, Optional, Tuple, Union
 
+from ...core.events import SourceLogger
 from ...core.errors import (
-    BenchToolsError,
     ConnectionFailedError,
     InstrumentError,
     TransportError,
@@ -38,7 +38,6 @@ from .protocol import Event, Reply, parse_line
 
 __all__ = ["DongleSession", "DongleCommandError"]
 
-_LOG = logging.getLogger(__name__)
 
 #: Events retained when nobody is consuming them. Large enough for a minute of
 #: advertising at 20 ms, bounded so an unattended session cannot grow without
@@ -71,6 +70,8 @@ class DongleSession:
     """
 
     def __init__(self, transport: Transport, timeout: float = 5.0) -> None:
+        #: Bound to the owning instrument's event-log name (#126).
+        self._logger = SourceLogger(logging.getLogger(__name__))
         self._transport = transport
         self._timeout = float(timeout)
         self._events: Deque[Event] = deque(maxlen=_EVENT_BACKLOG)
@@ -158,6 +159,7 @@ class DongleSession:
         self._write_log("#", text)
 
     def _write_log(self, direction: str, text: str) -> None:
+        self._logger.debug("%s %s", direction, text)
         if self._log is None:
             return
         self._log.write("%.6f %s %s\n" % (time.time(), direction, text))
@@ -239,30 +241,34 @@ class DongleSession:
 
     def wait_for_event(
         self,
-        name: str,
+        name: Union[str, Tuple[str, ...]],
         timeout: Optional[float] = None,
         match: Optional[Callable[[Event], bool]] = None,
     ) -> Event:
-        """Wait for the next event called *name*.
+        """Wait for the next event called *name*, or any of several names.
 
         An event already queued satisfies the wait, so a caller that asks a
         moment after the event arrived is not made to wait for a second one.
 
+        :param name: An event name, or a tuple of them to wait for whichever
+            comes first - a success and the failure that rules it out, say.
         :param match: Further condition the event must satisfy.
         :raises TransportTimeoutError: if none arrives in time.
         """
+        names = (name,) if isinstance(name, str) else tuple(name)
         limit = timeout if timeout is not None else self._timeout
         deadline = time.monotonic() + limit
 
         while True:
             for index, event in enumerate(self._events):
-                if event.name == name and (match is None or match(event)):
+                if event.name in names and (match is None or match(event)):
                     del self._events[index]
                     return event
             remaining = deadline - time.monotonic()
             if remaining <= 0.0:
                 raise TransportTimeoutError(
-                    "no '+%s' event from the dongle within %.3f s" % (name, limit)
+                    "no '+%s' event from the dongle within %.3f s"
+                    % ("' or '+".join(names), limit)
                 )
             self._read_line(min(remaining, 0.25))
 
@@ -285,6 +291,26 @@ class DongleSession:
         return count
 
     # ------------------------------------------------------------------
+    def poll(self, limit: int = 100) -> None:
+        """Read what the dongle has sent without being asked, queueing its events.
+
+        Sends nothing. An unsolicited ``+disc``, say, is otherwise only read
+        when the next command waits for its reply. Each read waits at most
+        10 ms, so polling a quiet link costs that; *limit* bounds the lines read,
+        so a dongle streaming events cannot hold the caller here.
+        """
+        for _ in range(limit):
+            try:
+                parsed = self._read_line(0.01)
+            except TransportError:
+                return
+            if parsed is None:
+                try:
+                    if not self._transport.has_buffered_data:
+                        return
+                except TransportError:              # pragma: no cover - defensive
+                    return
+
     def _drain(self) -> None:
         """Take whatever has already arrived, so it is not read as a reply."""
         while True:
@@ -322,7 +348,7 @@ class DongleSession:
         self._write_log("<", text)
         parsed = parse_line(text)
         if parsed is None:
-            _LOG.debug("ignoring non-protocol line from the dongle: %r", text)
+            self._logger.debug("ignoring non-protocol line from the dongle: %r", text)
             return None
         if isinstance(parsed, Event):
             parsed.host_time = time.time()

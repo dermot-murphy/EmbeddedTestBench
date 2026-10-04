@@ -19,7 +19,7 @@ The base class builds buffered message framing on top of those, so higher
 layers can ask for "a whole response", "exactly N bytes" or "up to the
 terminator" without caring which transport is underneath.
 
-Traces to: CORE-FR-005, CORE-ARC-002, CORE-DD-TRANSPORT.
+Traces to: CORE-FR-005, CORE-FR-061, CORE-ARC-002, CORE-DD-TRANSPORT.
 """
 
 from __future__ import annotations
@@ -29,11 +29,11 @@ import logging
 from typing import Optional, Tuple
 
 from ..errors import ProtocolError, TransportError, TransportTimeoutError
+from ..events import SourceLogger
 from .constants import DEFAULT_TERMINATOR, MAX_RESPONSE_BYTES
 
 __all__ = ["Transport", "DEFAULT_TERMINATOR", "MAX_RESPONSE_BYTES"]
 
-_LOG = logging.getLogger(__name__)
 
 
 class Transport(abc.ABC):
@@ -48,16 +48,28 @@ class Transport(abc.ABC):
     :param timeout: Default I/O timeout in seconds.
     :param terminator: Byte sequence appended to outgoing commands and used to
         delimit responses on stream transports.
+    :param read_terminator: Byte sequence that delimits responses, when it is
+        not the one commands are sent with. ``None`` uses *terminator* for both.
     """
 
-    def __init__(self, timeout: float = 10.0, terminator: bytes = DEFAULT_TERMINATOR) -> None:
+    def __init__(
+        self,
+        timeout: float = 10.0,
+        terminator: bytes = DEFAULT_TERMINATOR,
+        read_terminator: Optional[bytes] = None,
+    ) -> None:
         if timeout <= 0.0:
             raise ValueError("timeout must be positive, got %r" % (timeout,))
         self._timeout = float(timeout)
         self._terminator = bytes(terminator)
+        self._read_terminator = (
+            self._terminator if read_terminator is None else bytes(read_terminator)
+        )
         self._buffer = bytearray()
         self._buffer_end = False
         self._is_open = False
+        #: Bound to the owning instrument's name by ``Instrument._adopt`` (#126).
+        self._logger = SourceLogger(logging.getLogger(type(self).__module__))
 
     # ------------------------------------------------------------------
     # Properties
@@ -72,6 +84,22 @@ class Transport(abc.ABC):
         if value <= 0.0:
             raise ValueError("timeout must be positive, got %r" % (value,))
         self._timeout = float(value)
+
+    @property
+    def read_terminator(self) -> bytes:
+        """The byte sequence that ends a response.
+
+        Usually the same as the one commands are sent with, but not always: a
+        GW Instek GPD-3303D takes commands ending in a line feed and ends its
+        replies with a carriage return alone. An instrument driver that knows this sets it here,
+        because a reader waiting for the wrong byte sees a timeout, not a
+        reply.
+        """
+        return self._read_terminator
+
+    @read_terminator.setter
+    def read_terminator(self, value: bytes) -> None:
+        self._read_terminator = bytes(value)
 
     @property
     def is_open(self) -> bool:
@@ -127,7 +155,7 @@ class Transport(abc.ABC):
             self._open_link()
             self._is_open = True
             self._reset_buffer()
-            _LOG.debug("opened %s", self.description)
+            self._logger.debug("opened %s", self.description)
         return self
 
     def close(self) -> None:
@@ -136,11 +164,11 @@ class Transport(abc.ABC):
             try:
                 self._close_link()
             except Exception:  # pragma: no cover - defensive
-                _LOG.warning("error while closing %s", self.description, exc_info=True)
+                self._logger.warning("error while closing %s", self.description, exc_info=True)
             finally:
                 self._is_open = False
                 self._reset_buffer()
-                _LOG.debug("closed %s", self.description)
+                self._logger.debug("closed %s", self.description)
 
     def __enter__(self) -> "Transport":
         return self.open()
@@ -178,11 +206,18 @@ class Transport(abc.ABC):
                 "response exceeded %d bytes without end-of-message" % MAX_RESPONSE_BYTES
             )
 
-    def write(self, data: bytes, append_terminator: bool = True) -> None:
+    def write(
+        self, data: bytes, append_terminator: bool = True, keep_buffer: bool = False
+    ) -> None:
         """Send *data* to the instrument.
 
         Any unread bytes from a previous response are discarded first: a stale
         response would otherwise be mistaken for the answer to this command.
+
+        :param keep_buffer: Keep them instead. For a write that interrupts a
+            stream the caller is still reading, such as the character that stops
+            a capture: what already arrived is the start of a reply, not a stale
+            one.
         """
         self._require_open()
         if isinstance(data, str):
@@ -190,9 +225,10 @@ class Transport(abc.ABC):
         payload = bytes(data)
         if append_terminator and self._terminator and not payload.endswith(self._terminator):
             payload += self._terminator
-        if self._buffer:
-            _LOG.debug("discarding %d stale bytes before write", len(self._buffer))
-        self._reset_buffer()
+        if not keep_buffer:
+            if self._buffer:
+                self._logger.debug("discarding %d stale bytes before write", len(self._buffer))
+            self._reset_buffer()
         self._send(payload)
 
     def read_message(self, strip_terminator: bool = True) -> bytes:
@@ -202,24 +238,25 @@ class Transport(abc.ABC):
         reads until the terminator is seen.
         """
         self._require_open()
+        terminator = self._read_terminator
         while not self._buffer_end:
-            index = self._buffer.find(self._terminator) if self._terminator else -1
+            index = self._buffer.find(terminator) if terminator else -1
             if index >= 0:
                 break
             self._fill()
-        if self._terminator:
-            index = self._buffer.find(self._terminator)
+        if terminator:
+            index = self._buffer.find(terminator)
             if index >= 0:
-                end = index + len(self._terminator) if not strip_terminator else index
+                end = index + len(terminator) if not strip_terminator else index
                 message = bytes(self._buffer[:end])
-                del self._buffer[: index + len(self._terminator)]
+                del self._buffer[: index + len(terminator)]
                 if not self._buffer:
                     self._buffer_end = False
                 return message
         message = bytes(self._buffer)
         self._reset_buffer()
         if strip_terminator:
-            message = message.rstrip(self._terminator)
+            message = message.rstrip(terminator)
         return message
 
     def read_exactly(self, count: int) -> bytes:
@@ -241,6 +278,42 @@ class Transport(abc.ABC):
         data = bytes(self._buffer[:count])
         del self._buffer[:count]
         return data
+
+    def read_available(self) -> bytes:
+        """Return every byte that has arrived, waiting for at least one.
+
+        For an instrument that streams bytes without message framing - a meter
+        sending a reading after every measurement, interleaved with the echo
+        of whatever it was last sent - there is no "whole response" to wait
+        for. :meth:`read_raw` waits for an end-of-message that a serial port
+        never signals, so on such a link it only ever times out, leaving what
+        did arrive in the buffer. This returns what is there, and waits up to
+        the timeout only when nothing is (CORE-FR-061).
+
+        :raises TransportTimeoutError: if nothing arrives within the timeout.
+        """
+        self._require_open()
+        if not self._buffer:
+            # A previous end-of-message says nothing about the next byte of a
+            # stream; clear it so the link is asked again.
+            self._buffer_end = False
+            self._fill()
+        data = bytes(self._buffer)
+        self._reset_buffer()
+        return data
+
+    def discard_input(self) -> int:
+        """Drop every byte received and not yet read, and return how many.
+
+        :meth:`write` already does this for SCPI's sake. An instrument that
+        streams without being asked needs it *without* writing: the bytes
+        waiting are readings taken before the caller asked for one. Transports
+        with a buffer below this one - a serial port's operating-system
+        buffer - extend it to empty that too (CORE-FR-061).
+        """
+        dropped = len(self._buffer)
+        self._reset_buffer()
+        return dropped
 
     def read_raw(self) -> bytes:
         """Read the remainder of the current response, including terminators.

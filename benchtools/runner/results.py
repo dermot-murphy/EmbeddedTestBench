@@ -142,11 +142,16 @@ class RunRecord:
     setup_error: str = ""
     spec_source: str = ""
     simulated: bool = False
+    #: The specification's parameters, as this run used them.
+    parameters: Dict[str, Any] = field(default_factory=dict)
     #: Alias to what the instrument said it was: driver, model, firmware,
     #: resource. Recorded because a measurement without the instrument that
     #: made it is not evidence - and firmware version in particular decides
     #: whether a result means what it appears to mean.
     instruments: Dict[str, Dict[str, str]] = field(default_factory=dict)
+    #: The test cases the run was asked for, by name; empty means all of them.
+    #: ASPICE 4.0 calls this the verification measure selection set (08-58).
+    selection: Sequence[str] = ()
 
     # ------------------------------------------------------------------
     def count(self, status: Status) -> int:
@@ -211,6 +216,8 @@ class RunRecord:
             "suite": self.suite,
             "bench": self.bench,
             "spec_source": self.spec_source,
+            "parameters": dict(self.parameters),
+            "selection": list(self.selection),
             "simulated": self.simulated,
             "status": self.status.value,
             "started": self.started,

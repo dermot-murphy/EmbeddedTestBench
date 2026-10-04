@@ -47,7 +47,7 @@ class TestConnection:
         # it speaks: the build is what decides what a measurement means.
         assert identity.firmware.startswith(SimulatedDongle.DEFAULT_FIRMWARE_VERSION)
         assert SimulatedDongle.DEFAULT_FIRMWARE_BUILT in identity.firmware
-        assert dongle.protocol_version == "1.1"
+        assert dongle.protocol_version == "1.4"
 
     def test_it_is_an_instrument_but_not_scpi(self, dongle):
         """The runner drives it through the same contract as every other
@@ -144,6 +144,43 @@ class TestScanning:
         assert scanned.find_sensor("nothing here") is None
 
 
+class TestStrongest:
+    """Choosing by signal strength rather than by name.
+
+    Worth its own class because "strongest" is a statement about a link at a
+    moment, not about which board is nearest, and because the empty case has
+    to fail here rather than three steps later at the point of connecting.
+    """
+
+    def test_the_highest_rssi_wins(self, dongle):
+        dongle.scan(1.0)
+        found = dongle.sensors
+        assert len(found) > 1, "the fixture needs more than one sensor to choose between"
+        assert dongle.strongest().rssi == max(sensor.rssi for sensor in found)
+
+    def test_a_supplied_list_is_used_instead_of_the_last_scan(self, dongle):
+        near = Sensor(address="AA:BB:CC:DD:EE:01", name="NEAR", rssi=-40, index=1)
+        far = Sensor(address="AA:BB:CC:DD:EE:02", name="FAR", rssi=-90, index=0)
+        assert dongle.strongest([far, near]).name == "NEAR"
+
+    def test_a_tie_is_broken_by_scan_order(self, dongle):
+        # Repeating a scan over two boards at equal strength must select the
+        # same one, not alternate between them.
+        first = Sensor(address="AA:BB:CC:DD:EE:01", name="FIRST", rssi=-55, index=0)
+        second = Sensor(address="AA:BB:CC:DD:EE:02", name="SECOND", rssi=-55, index=1)
+        assert dongle.strongest([first, second]).name == "FIRST"
+        assert dongle.strongest([second, first]).name == "FIRST"
+
+    def test_an_empty_scan_is_refused_where_it_happened(self, dongle):
+        # Selecting from nothing would otherwise surface at connect time and
+        # read as a link problem rather than as an empty room.
+        with pytest.raises(InstrumentError) as excinfo:
+            dongle.strongest([])
+        message = str(excinfo.value)
+        assert "found nothing" in message
+        assert "advertising" in message
+
+
 class TestSelection:
     def test_select_by_name(self, dongle):
         dongle.scan(1.0)
@@ -172,6 +209,32 @@ class TestSelection:
         first would make every suite start with one."""
         dongle.scan(1.0)
         assert dongle.select(SENSOR_ADDRESS).address == SENSOR_ADDRESS
+
+    def test_a_name_fragment_selects_the_strongest_match(self, dongle):
+        """Both simulated sensors are named SENS-...; the stronger is chosen."""
+        dongle.scan(1.0)
+        assert dongle.select_by_name("SENS").address == SENSOR_ADDRESS
+        assert dongle.selected.address == SENSOR_ADDRESS
+
+    def test_a_name_fragment_ignores_case_by_default(self, dongle):
+        """The firmware's own name filter is case-sensitive; this is not."""
+        dongle.scan(1.0)
+        assert dongle.select_by_name("sens-0b2c").name == FLAKY_NAME
+
+    def test_case_can_be_made_to_matter(self, dongle):
+        dongle.scan(1.0)
+        with pytest.raises(InstrumentError, match="containing 'sens'"):
+            dongle.select_by_name("sens", ignore_case=False)
+
+    def test_a_fragment_nothing_matches_names_what_was_heard(self, dongle):
+        dongle.scan(1.0)
+        with pytest.raises(InstrumentError, match="SENS-0A1B2C"):
+            dongle.select_by_name("kappa")
+
+    def test_an_empty_fragment_is_refused(self, dongle):
+        dongle.scan(1.0)
+        with pytest.raises(ConfigurationError):
+            dongle.select_by_name("")
 
     def test_selecting_an_unknown_name_is_refused(self, dongle):
         dongle.scan(1.0)
@@ -204,6 +267,61 @@ class TestLink:
         with pytest.raises(DongleCommandError, match="refused"):
             dongle.open_link()
 
+    def test_a_sensor_that_never_links_is_reported_as_not_connected(self, simulator, scanned):
+        """Observed against a sensor advertising every 9 s: the dongle's connect
+        window closed with "+disc reason=timeout". That must not be reported as
+        a link that failed to become ready, and must not wait out the timeout."""
+        simulator.sensors[0].connect_outcome = "timeout"
+        with pytest.raises(InstrumentError, match="could not connect") as caught:
+            scanned.open_link(timeout=5.0)
+        assert "ready" not in str(caught.value)
+        assert scanned.is_linked is False
+
+    def test_a_link_that_never_becomes_ready_is_reported_as_linked(self, simulator, scanned):
+        simulator.sensors[0].connect_outcome = "no_service"
+        with pytest.raises(InstrumentError, match="linked to .* did not become ready"):
+            scanned.open_link(timeout=0.3)
+
+    def test_a_failed_link_is_closed_so_the_next_attempt_is_not_refused(self, simulator, scanned):
+        """Observed on hardware: a link left half-open refused every later
+        connect with "not valid in this state"."""
+        simulator.sensors[0].connect_outcome = "no_service"
+        with pytest.raises(InstrumentError):
+            scanned.open_link(timeout=0.3)
+
+        simulator.sensors[0].connect_outcome = "ready"
+        scanned.open_link()
+        assert scanned.is_linked is True
+
+    def test_the_connect_window_is_sent_to_the_dongle(self, simulator, scanned):
+        """A sensor advertising every 9 s needs a window longer than that (#39)."""
+        scanned.open_link()
+        assert simulator.last_connect_timeout_ms == 15_000
+        scanned.close_link()
+        scanned.open_link(connect_timeout=30.0)
+        assert simulator.last_connect_timeout_ms == 30_000
+
+    def test_an_out_of_range_connect_window_is_refused_before_sending(self, simulator, scanned):
+        with pytest.raises(ConfigurationError, match="connect_timeout"):
+            scanned.open_link(connect_timeout=0.5)
+        with pytest.raises(ConfigurationError, match="connect_timeout"):
+            scanned.open_link(connect_timeout=61.0)
+        assert simulator.last_connect_timeout_ms is None
+
+    def test_an_older_dongle_is_sent_no_window(self, simulator):
+        """Protocol 1.1 firmware reads any second argument as an address."""
+        simulator.protocol = "1.1"
+        instrument = NordicDongle(MockTransport(responder=simulator), timeout=5.0)
+        instrument.initialise()
+        try:
+            instrument.scan(1.0)
+            instrument.select(SENSOR_NAME)
+            instrument.open_link()
+            assert simulator.last_connect_timeout_ms == 15_000   # the simulator's default
+            assert instrument.is_linked is True
+        finally:
+            instrument.close()
+
     def test_writing_without_a_link_is_reported(self, scanned):
         with pytest.raises(DongleCommandError, match="not connected"):
             scanned.write("version")
@@ -232,8 +350,12 @@ class TestUart:
         assert linked.write(b"\x00\x01\x02") == 3
 
     def test_an_over_long_payload_is_refused_before_sending(self, linked):
-        with pytest.raises(ConfigurationError, match="the firmware accepts at most"):
-            linked.write("x" * 200)
+        with pytest.raises(ConfigurationError, match="the firmware accepts at most 244"):
+            linked.write("x" * 245)
+
+    def test_the_longest_payload_one_write_carries_is_accepted(self, linked):
+        """244 bytes: the ATT MTU of 247 less the write header (#52)."""
+        assert linked.write("x" * 244) == 244
 
 
 class TestResponseTiming:
@@ -389,3 +511,92 @@ class TestMiscellany:
         sensor = Sensor(address=SENSOR_ADDRESS, name=SENSOR_NAME, rssi=-62, index=0)
         assert "SENS-0A1B2C" in str(sensor)
         assert sensor.as_dict()["rssi"] == -62
+
+
+class TestCommandTimeout:
+    """Some commands take longer than others (#46)."""
+
+    def test_the_wait_is_sent_to_the_dongle(self, simulator, linked):
+        linked.command("rd version", timeout=9.0)
+        assert simulator.last_command_timeout_ms == 9000
+
+    def test_an_out_of_range_wait_is_refused_before_sending(self, linked):
+        with pytest.raises(ConfigurationError, match="command timeout"):
+            linked.command("rd version", timeout=0.05)
+        with pytest.raises(ConfigurationError, match="command timeout"):
+            linked.command("rd version", timeout=61.0)
+
+    def test_an_older_dongle_is_sent_no_wait(self, simulator):
+        """Protocol 1.2 firmware would refuse the extra argument."""
+        simulator.protocol = "1.2"
+        instrument = NordicDongle(MockTransport(responder=simulator), timeout=5.0)
+        instrument.initialise()
+        try:
+            instrument.scan(1.0)
+            instrument.select(SENSOR_NAME)
+            instrument.open_link()
+            assert instrument.command("rd version", timeout=1.0).text == "1.4.2"
+            assert simulator.last_command_timeout_ms == 2000     # the firmware's own
+        finally:
+            instrument.close()
+
+    def test_a_reply_slower_than_the_wait_is_a_timeout(self, simulator, linked):
+        simulator.sensors[0].latency_overrides["rd version"] = 3_000_000
+        with pytest.raises(InstrumentError, match="did not reply"):
+            linked.command("rd version", timeout=2.0)
+        assert linked.command("rd version", timeout=4.0).dongle_us == 3_000_000
+
+
+class TestExpectingADisconnect:
+    def test_the_drop_is_timed_from_the_write(self, simulator, linked):
+        simulator.sensors[0].disconnect_on = {"wr mode normal": 350_000}
+        sample = linked.command_expecting_disconnect("wr mode normal", timeout=2.0)
+        assert sample.disconnected is True
+        assert sample.dongle_us == 350_000
+        assert sample.reason == "0x13"
+        assert linked.is_linked is False
+
+    def test_a_sensor_that_stays_is_reported_not_raised(self, linked):
+        sample = linked.command_expecting_disconnect("rd version", timeout=0.2)
+        assert sample.disconnected is False
+        assert linked.is_linked is True
+
+
+class TestTheLinkDropping:
+    """A link lost without being asked is noticed, and the driver says so (#51)."""
+
+    def test_nothing_is_reported_while_the_link_is_up(self, linked):
+        assert linked.check_link() is None
+        assert linked.is_linked is True
+
+    def test_a_crash_is_reported_with_its_reason_and_the_link_marked_down(self, simulator, linked):
+        simulator.sensors[0].crash_on = {"rd version": 5_000_000}
+        linked.command("rd version")
+        event = linked.check_link()
+        assert event is not None and event.get("reason") == "0x08"
+        assert linked.is_linked is False
+        assert linked.check_link() is None      # reported once
+
+    def test_nothing_to_report_with_no_link(self, scanned):
+        assert scanned.check_link() is None
+
+
+class TestReplyFrames:
+    """Notifications after the reply, counted when asked (#53)."""
+
+    def test_no_window_looks_for_no_extra_frames(self, simulator, linked):
+        simulator.sensors[0].extra_frames = {"rd version": ("again",)}
+        sample = linked.command("rd version")
+        assert sample.frames == 1 and sample.extra_frames == ()
+
+    def test_a_window_counts_the_frames_after_the_reply(self, simulator, linked):
+        simulator.sensors[0].extra_frames = {"rd version": ("again", "and again")}
+        sample = linked.command("rd version", frame_window=0.2)
+        assert sample.text == "1.4.2"
+        assert sample.frames == 3
+        assert sample.extra_frames == (b"again", b"and again")
+
+    def test_a_frame_left_from_an_earlier_command_is_not_counted(self, simulator, linked):
+        simulator.sensors[0].extra_frames = {"temp": ("stale",)}
+        linked.command("temp")                  # its extra frame is left queued
+        assert linked.command("rd version", frame_window=0.2).frames == 1

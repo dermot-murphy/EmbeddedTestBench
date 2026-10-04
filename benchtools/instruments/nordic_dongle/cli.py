@@ -8,7 +8,7 @@ dongle and no sensor.
 timestamped - beside whatever the sub-command prints. That file is the evidence
 for a measurement; the JSON is the summary.
 
-Traces to: BLE-FR-070, BLE-DD-CLI.
+Traces to: BLE-FR-070, BLE-FR-071, BLE-DD-CLI.
 """
 
 from __future__ import annotations
@@ -20,11 +20,11 @@ import sys
 from typing import Optional, Sequence
 
 from ... import __version__
-from ...core.errors import BenchToolsError
+from ...core.errors import BenchToolsError, ConfigurationError
 from .constants import DEFAULT_BAUDRATE, DEFAULT_COMMAND_TIMEOUT
-from .dongle import NordicDongle
-from .firmware import FirmwareBuild
+from .dongle import NordicDongle, Sensor
 from .latency import LatencySource
+from .protocol import normalise_address
 
 __all__ = ["main", "build_parser"]
 
@@ -43,14 +43,36 @@ def _emit(payload: dict, path: Optional[str]) -> None:
             handle.write(text + "\n")
 
 
+def _is_address(text: str) -> bool:
+    try:
+        normalise_address(text)
+    except BenchToolsError:
+        return False
+    return True
+
+
+def _choose(dongle: NordicDongle, target: str, scan_seconds: float) -> Sensor:
+    """Select *target*: an address as given, otherwise a name or part of one.
+
+    A name is what an operator types, and usually only part of it: the
+    advertised name carries the firmware version and changes on every reflash.
+    The first scan uses the firmware's name filter, which is case-sensitive;
+    if that finds nothing, an unfiltered scan lets the host match ignoring
+    case. The strongest sensor whose name contains *target* is chosen (#124).
+    """
+    if _is_address(target):
+        return dongle.select(target)
+    dongle.scan(scan_seconds, name=target)
+    if not any(target.casefold() in (sensor.name or "").casefold() for sensor in dongle.sensors):
+        dongle.scan(scan_seconds)
+    return dongle.select_by_name(target)
+
+
 def _select(dongle: NordicDongle, args) -> None:
-    """Apply ``--select`` / ``--addr``, scanning first when a name was given."""
+    """Apply ``--select``: an address, a name, or part of a name."""
     target = getattr(args, "select", None)
-    if not target:
-        return
-    if dongle.find_sensor(target) is None and ":" not in target:
-        dongle.scan(args.scan_seconds, name=target)
-    dongle.select(target)
+    if target:
+        _choose(dongle, target, args.scan_seconds)
 
 
 # ---------------------------------------------------------------------------
@@ -137,6 +159,8 @@ def _cmd_profile(dongle: NordicDongle, args) -> int:
 
 def _cmd_cmd(dongle: NordicDongle, args) -> int:
     _select(dongle, args)
+    if args.addr:
+        dongle.select(args.addr)
     dongle.open_link()
     try:
         timing = dongle.measure_response_time(
@@ -166,6 +190,35 @@ def _cmd_cmd(dongle: NordicDongle, args) -> int:
     return _EXIT_OK
 
 
+def _parse_variables(pairs: Sequence[str]) -> dict:
+    """``NAME=VALUE`` pairs from ``--var``, as a mapping."""
+    values = {}
+    for pair in pairs or ():
+        name, separator, value = pair.partition("=")
+        if not separator or not name.strip():
+            raise ConfigurationError("--var takes NAME=VALUE, not %r" % pair)
+        values[name.strip()] = value
+    return values
+
+
+def _cmd_script(dongle: NordicDongle, args) -> int:
+    """Run a command document: connect, send, check, report. Exit 1 on a fail."""
+    run = dongle.run_script(
+        args.document,
+        report=args.report,
+        timeout=args.timeout_s,
+        listen=args.listen,
+        variables=_parse_variables(args.var),
+        events=args.events,
+    )
+    payload = run.as_dict()
+    payload["report"] = args.report
+    payload["events"] = args.events
+    payload["log"] = dongle.log_path
+    _emit(payload, args.json)
+    return _EXIT_OK if run.is_pass else _EXIT_ERROR
+
+
 def _cmd_monitor(dongle: NordicDongle, args) -> int:
     """Stream events to the log and to the terminal."""
     _select(dongle, args)
@@ -178,7 +231,7 @@ def _cmd_monitor(dongle: NordicDongle, args) -> int:
 
     seen = 0
     try:
-        for event in dongle.session.collect(args.duration, on_event=lambda item: print(item.raw)):
+        for _event in dongle.session.collect(args.duration, on_event=lambda item: print(item.raw)):
             seen += 1
     finally:
         dongle.session.execute("adv", "stop", allow_error=True)
@@ -189,9 +242,7 @@ def _cmd_monitor(dongle: NordicDongle, args) -> int:
 
 
 def _cmd_select(dongle: NordicDongle, args) -> int:
-    if dongle.find_sensor(args.target) is None and ":" not in args.target:
-        dongle.scan(args.scan_seconds, name=args.target)
-    sensor = dongle.select(args.target)
+    sensor = _choose(dongle, args.target, args.scan_seconds)
     _emit(sensor.as_dict(), args.json)
     return _EXIT_OK
 
@@ -247,15 +298,21 @@ def build_parser() -> argparse.ArgumentParser:
     scan.add_argument("--rssi", type=int, help="reject anything weaker, in dBm")
     scan.set_defaults(handler=_cmd_scan)
 
-    select = subparsers.add_parser("select", help="choose a sensor by address or name")
-    select.add_argument("target")
+    select = subparsers.add_parser(
+        "select", help="choose a sensor by address, name or part of a name")
+    select.add_argument("target", help="an address, or a name or part of one (any case); "
+                        "the strongest match is chosen")
     select.add_argument("--scan-seconds", type=float, default=3.0, help="scan first, for this long")
     select.set_defaults(handler=_cmd_select)
 
     profile = subparsers.add_parser("profile", help="measure the advertising profile")
     profile.add_argument("--duration", type=float, default=10.0, help="seconds to capture")
-    profile.add_argument("--addr", help="address to profile")
-    profile.add_argument("--select", help="scan for this name and profile it")
+    profile_target = profile.add_mutually_exclusive_group()
+    profile_target.add_argument("--addr", help="address to profile")
+    profile_target.add_argument(
+        "--select",
+        help="scan for this name and profile it; part of a name, any case, "
+             "chooses the strongest match")
     profile.add_argument("--scan-seconds", type=float, default=3.0)
     profile.add_argument("--interval", type=float, help="nominal advertising interval in seconds")
     profile.add_argument("--events", action="store_true", help="include every event in the output")
@@ -264,8 +321,12 @@ def build_parser() -> argparse.ArgumentParser:
     command = subparsers.add_parser("cmd", help="send a command over BLE UART and time the reply")
     command.add_argument("text", help="command text, as the sensor's console expects it")
     command.add_argument("--repeat", type=int, default=1, help="exchanges to perform")
-    command.add_argument("--addr", help="address to connect to")
-    command.add_argument("--select", help="scan for this name and connect to it")
+    command_target = command.add_mutually_exclusive_group()
+    command_target.add_argument("--addr", help="address to connect to")
+    command_target.add_argument(
+        "--select",
+        help="scan for this name and connect to it; part of a name, any case, "
+             "chooses the strongest match")
     command.add_argument("--scan-seconds", type=float, default=3.0)
     command.add_argument("--timeout-s", type=float, default=DEFAULT_COMMAND_TIMEOUT,
                          help="seconds to wait for the sensor's reply")
@@ -273,10 +334,34 @@ def build_parser() -> argparse.ArgumentParser:
                          help="report the host's round trip instead of the dongle's")
     command.set_defaults(handler=_cmd_cmd)
 
+    script = subparsers.add_parser(
+        "script",
+        help="run a command document: connect, send commands, check replies",
+        description="Run a markdown command document against a sensor. Exit status "
+        "0 when every checked step passed, 1 when one failed or the run could not "
+        "start. See specs/templates/ble_sensor_test.md.",
+    )
+    script.add_argument("document", help="the markdown command document")
+    script.add_argument("--var", action="append", metavar="NAME=VALUE",
+                        help="value for a ${NAME} the document declares; repeatable")
+    script.add_argument("--report", metavar="PATH", help="write the markdown report here")
+    script.add_argument("--events", metavar="PATH",
+                        help="write the event log here: time, event, step, data, result")
+    script.add_argument("--timeout-s", type=float, default=DEFAULT_COMMAND_TIMEOUT,
+                        help="default seconds to wait for a reply; a step's Timeout "
+                        "cell overrides it")
+    script.add_argument("--listen", type=float, default=0.5,
+                        help="seconds to listen after a command with no expected reply")
+    script.set_defaults(handler=_cmd_script)
+
     monitor = subparsers.add_parser("monitor", help="stream events to the terminal and the log")
     monitor.add_argument("--duration", type=float, default=10.0, help="seconds to listen")
-    monitor.add_argument("--addr", help="report only this address")
-    monitor.add_argument("--select", help="scan for this name and follow it")
+    monitor_target = monitor.add_mutually_exclusive_group()
+    monitor_target.add_argument("--addr", help="report only this address")
+    monitor_target.add_argument(
+        "--select",
+        help="scan for this name and follow it; part of a name, any case, "
+             "chooses the strongest match")
     monitor.add_argument("--scan-seconds", type=float, default=3.0)
     monitor.set_defaults(handler=_cmd_monitor)
 

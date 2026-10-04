@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Test Run Viewer</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<header class="bar">
+  <div class="brand">benchtools <span>test run viewer</span></div>
+  <nav id="tabs" role="tablist">
+    <button role="tab" data-page="run" aria-selected="true">Run</button>
+    <button role="tab" data-page="instruments" aria-selected="false">Instruments</button>
+    <button role="tab" data-page="rf" aria-selected="false">RF</button>
+    <button role="tab" data-page="ble" aria-selected="false">BLE</button>
+    <button role="tab" data-page="graphs" aria-selected="false">Graphs</button>
+    <button role="tab" data-page="events" aria-selected="false">Event log</button>
+    <button role="tab" data-page="notes" aria-selected="false">Notes &amp; report</button>
+    <button role="tab" data-page="start" aria-selected="false">Start / attach</button>
+  </nav>
+  <div id="link" class="link" title="Connection to the viewer server">connecting</div>
+</header>
+
+<main>
+  <section id="page-run" class="page">
+    <div class="summary">
+      <div>
+        <div class="label">Test specification</div>
+        <div id="suite" class="suite">No run yet</div>
+        <div id="meta" class="meta"></div>
+      </div>
+      <div id="verdict" class="badge">WAITING</div>
+    </div>
+    <div class="controls" id="controls">
+      <button data-cmd="pause">Pause</button>
+      <button data-cmd="resume">Resume</button>
+      <button data-cmd="restart_test">Restart test case</button>
+      <button data-cmd="abort" class="danger">Abort</button>
+      <span id="control-note" class="note"></span>
+    </div>
+    <div id="tree" class="tree"></div>
+  </section>
+
+  <section id="page-instruments" class="page" hidden>
+    <div id="panels" class="panels"></div>
+    <div class="filters" id="instrument-tabs" role="tablist"></div>
+    <div class="exchanges-head"><span>time</span><span>sent</span><span>reply</span><span>ms</span></div>
+    <div id="exchanges" class="exchanges"></div>
+  </section>
+
+  <section id="page-rf" class="page" hidden>
+    <div class="toolbar">
+      <label>Sensor <select id="rf-sensor"><option value="">All sensors</option></select></label>
+      <span id="rf-counts" class="note"></span>
+    </div>
+    <div class="filters subtabs" id="rf-views" role="tablist">
+      <button data-view="frames" aria-selected="true">Frames</button>
+      <button data-view="latest" aria-selected="false">Latest Data</button>
+      <button data-view="config" aria-selected="false">Config</button>
+      <button data-view="identification" aria-selected="false">Identification</button>
+      <button data-view="environment" aria-selected="false">Environment</button>
+      <button data-view="short" aria-selected="false">Short Interval</button>
+      <button data-view="ticks" aria-selected="false">Ticks</button>
+      <button data-view="twf" aria-selected="false">TWF</button>
+      <button data-view="diagnostics" aria-selected="false">Diagnostics</button>
+      <button data-view="sync" aria-selected="false">Sync</button>
+      <button data-view="stgui" aria-selected="false">ST GUI</button>
+    </div>
+    <div id="rf-frames-view">
+      <h2 class="section">Sensors</h2>
+      <div id="rf-sensors" class="table"></div>
+      <h2 class="section">Frames received</h2>
+      <div id="rf-frames" class="table frames"></div>
+      <pre id="rf-detail" class="detail-box" hidden></pre>
+    </div>
+    <div id="rf-latest-view" hidden>
+      <div class="toolbar"><button id="rf-latest-pause" type="button">Pause</button>
+        <span class="note">Newest first; the last 50 frames of the sensor chosen above.</span></div>
+      <div id="rf-latest" class="latest"></div>
+    </div>
+    <div id="rf-config-view" hidden>
+      <div class="note" id="rf-config-sensor"></div>
+      <div id="rf-config-groups" class="panels"></div>
+      <div id="rf-config" class="table config"></div>
+    </div>
+    <div id="rf-identification-view" hidden>
+      <div id="rf-identification" class="panel"></div>
+    </div>
+    <div id="rf-twf-view" hidden>
+      <div class="toolbar">
+        <span>Buffer
+          <label><input type="radio" name="twf-buffer" value="A" checked> TWFA</label>
+          <label><input type="radio" name="twf-buffer" value="B"> TWFB</label></span>
+        <span>Axis
+          <label><input type="radio" name="twf-axis" value="X" checked> X</label>
+          <label><input type="radio" name="twf-axis" value="Y"> Y</label>
+          <label><input type="radio" name="twf-axis" value="Z"> Z</label></span>
+        <button type="button" id="twf-zoom-in">Zoom in</button>
+        <button type="button" id="twf-zoom-out">Zoom out</button>
+        <button type="button" id="twf-zoom-reset">Reset</button>
+      </div>
+      <div id="twf-status" class="note"></div>
+      <div id="twf-diagnostics" class="note"></div>
+      <div id="twf-graphs" class="graphs"></div>
+    </div>
+    <div id="rf-diagnostics-view" hidden>
+      <div class="toolbar">
+        <span id="diag-overall" class="note"></span>
+        <button type="button" id="diag-reset">Reset</button>
+        <button type="button" id="diag-hold" aria-pressed="false">Auto</button>
+      </div>
+      <h2 class="section">Period statistics</h2>
+      <div id="diag-table" class="table"></div>
+      <h2 class="section" id="diag-detail-title">Last 10 frames</h2>
+      <div id="diag-detail" class="table"></div>
+    </div>
+    <div id="rf-sync-view" hidden>
+      <div class="note">Every sensor's sync with the gateway, from CMD and RESPONSE frames; not filtered to a sensor.</div>
+      <div id="sync-table" class="table"></div>
+    </div>
+    <div id="rf-stgui-view" hidden>
+      <div class="stgui">
+        <div class="stgui-left">
+          <div class="toolbar"><strong>RF setup</strong><span id="st-read" class="note"></span></div>
+          <div id="st-setup" class="table"></div>
+          <div class="toolbar">
+            <strong>Received frames</strong><span id="st-count" class="note"></span>
+            <label><input type="checkbox" id="st-pause"> Pause</label>
+            <label><input type="checkbox" id="st-follow" checked> Follow</label>
+            <button type="button" id="st-clear">Clear</button>
+          </div>
+          <div id="st-frames" class="table frames"></div>
+        </div>
+        <div class="stgui-right">
+          <div class="toolbar"><strong>Registers</strong>
+            <button type="button" id="st-refresh">Refresh</button>
+            <button type="button" id="st-expand">Expand all</button>
+            <button type="button" id="st-collapse">Collapse all</button>
+            <button type="button" id="st-export">Export .regs</button>
+          </div>
+          <div id="st-note" class="note"></div>
+          <div id="st-registers" class="table registers"></div>
+        </div>
+      </div>
+    </div>
+    <div id="rf-graphs-view" hidden>
+      <div class="toolbar">
+        <span id="rf-axis-box" hidden>Axis
+          <label><input type="radio" name="rf-axis" value="X"> X</label>
+          <label><input type="radio" name="rf-axis" value="Y"> Y</label>
+          <label><input type="radio" name="rf-axis" value="Z" checked> Z</label>
+        </span>
+        <button type="button" id="rf-zoom-in">Zoom in</button>
+        <button type="button" id="rf-zoom-out">Zoom out</button>
+        <button type="button" id="rf-zoom-reset">Reset</button>
+        <span class="note">Hover a chart for the values at a time; zoom centres on the last point hovered.</span>
+      </div>
+      <div id="rf-graphs" class="graphs"></div>
+    </div>
+  </section>
+
+  <section id="page-ble" class="page" hidden>
+    <h2 class="section">Devices</h2>
+    <div id="ble-devices" class="table"></div>
+    <h2 class="section">Events</h2>
+    <div id="ble-events" class="table"></div>
+    <h2 class="section">Commands and replies</h2>
+    <div id="ble-exchanges" class="exchanges"></div>
+  </section>
+
+  <section id="page-graphs" class="page" hidden>
+    <div class="toolbar">
+      <label>BLE device <select id="graph-ble"></select></label>
+      <label>Expected advertising period (ms) <input id="graph-period" inputmode="decimal" size="6" placeholder="median"></label>
+      <span id="graph-period-note" class="note"></span>
+      <span class="note">Vertical lines mark where each step started.</span>
+    </div>
+    <div id="graphs" class="graphs"></div>
+  </section>
+
+  <section id="page-events" class="page" hidden>
+    <div class="toolbar">
+      <button id="events-pause" type="button">Pause</button>
+      <span id="events-count" class="note"></span>
+      <label>Sensor <select id="events-sensor"><option value="">No filter</option></select></label>
+      <label id="events-test-box" hidden>Test <select id="events-test"><option value="">All tests</option></select></label>
+    </div>
+    <div class="filter-row"><span class="label">Instruments</span><div class="filters" id="filters"></div></div>
+    <div class="filter-row"><span class="label">Show only</span><div class="filters" id="kinds"></div></div>
+    <div class="events-head"><span>time</span><span>source</span><span>text</span></div>
+    <div id="events" class="events"></div>
+  </section>
+
+  <section id="page-notes" class="page" hidden>
+    <div class="cards">
+      <div class="card">
+        <h2>Fault description</h2>
+        <textarea id="notes-fault" rows="8"></textarea>
+        <h2>Findings</h2>
+        <textarea id="notes-findings" rows="8"></textarea>
+        <div class="toolbar"><button type="button" id="notes-save">Save</button>
+          <span id="notes-note" class="note"></span></div>
+      </div>
+      <div class="card">
+        <h2>Report</h2>
+        <p class="note">One HTML file with the notes, the run and its test cases, and for the
+          sensor chosen on the RF page its identification, Environment, Short Interval, Ticks and
+          TWF graphs, configuration, diagnostics and latest frames. It needs nothing else to open.</p>
+        <div class="toolbar">
+          <button type="button" id="report-download">Download report (HTML)</button>
+          <button type="button" id="report-print">Print / save as PDF</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="page-start" class="page" hidden>
+    <div class="cards">
+      <form id="start-form" class="card">
+        <h2>Start a run</h2>
+        <label>Test specification <select id="spec"></select></label>
+        <div id="spec-warning" class="warning" hidden></div>
+        <fieldset id="tests"><legend>Test cases to run</legend></fieldset>
+        <label>Bench <select id="bench"></select></label>
+        <label class="inline"><input type="checkbox" id="acknowledge"> I have acted on the safety warning</label>
+        <button type="submit">Start</button>
+        <div id="start-note" class="note"></div>
+      </form>
+      <form id="attach-form" class="card">
+        <h2>Attach to a run</h2>
+        <label>Event log <input id="attach-log" placeholder="runs/events.jsonl"></label>
+        <label>Control port (if the log does not say) <input id="attach-port" inputmode="numeric"></label>
+        <button type="submit">Attach</button>
+        <div id="attach-note" class="note"></div>
+      </form>
+    </div>
+  </section>
+</main>
+<footer id="statusbar" class="statusbar" aria-live="polite"></footer>
+<script src="/static/app.js"></script>
+<script src="/static/graphs.js"></script>
+<script src="/static/status.js"></script>
+<script src="/static/kepler.js"></script>
+<script src="/static/notes.js"></script>
+<script src="/static/stgui.js"></script>
+</body>
+</html>

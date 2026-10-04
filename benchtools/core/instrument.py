@@ -11,7 +11,7 @@ correctly as a context manager when something raises.
 something that is not SCPI subclasses :class:`Instrument` directly and is still
 usable by the bench runner, because the runner only relies on this contract.
 
-Traces to: CORE-FR-012 .. CORE-FR-016, CORE-ARC-006, CORE-DD-INSTRUMENT.
+Traces to: CORE-FR-012 .. CORE-FR-016, CORE-FR-063, CORE-ARC-006, CORE-DD-INSTRUMENT.
 """
 
 from __future__ import annotations
@@ -19,11 +19,11 @@ from __future__ import annotations
 import logging
 from typing import List, Optional, Tuple, Type
 
+from .events import EventSource, SourceLogger, pending_source
 from .simulator import Responder
 
 __all__ = ["Instrument", "InstrumentIdentity"]
 
-_LOG = logging.getLogger(__name__)
 
 
 class InstrumentIdentity:
@@ -94,10 +94,39 @@ class Instrument:
     #: Human-readable name used in messages before the model is known.
     MODEL_NAME = "instrument"
 
+    #: The name this driver's event-log records carry unless a specification
+    #: or bench names the instrument otherwise (#126).
+    EVENT_SOURCE = "BENCH"
+
     def __init__(self, auto_check_errors: bool = True) -> None:
         self.auto_check_errors = bool(auto_check_errors)
         self._identity: Optional[InstrumentIdentity] = None
         self._initialised = False
+        self._events = EventSource(pending_source() or self.EVENT_SOURCE)
+        self._logger = SourceLogger(logging.getLogger(type(self).__module__), self._events)
+
+    # ------------------------------------------------------------------
+    # Event-log name
+    # ------------------------------------------------------------------
+    @property
+    def event_source(self) -> str:
+        """The short name this instrument's event-log records carry, e.g. ``TEMP``."""
+        return self._events.name
+
+    @event_source.setter
+    def event_source(self, name: str) -> None:
+        self._events.name = name
+
+    def _adopt(self, *owned: object) -> None:
+        """Bind what this instrument owns - a transport, a session - to its name.
+
+        Anything without a :class:`~benchtools.core.events.SourceLogger` in
+        ``_logger`` is left alone, so a test double need not have one.
+        """
+        for item in owned:
+            logger = getattr(item, "_logger", None)
+            if isinstance(logger, SourceLogger):
+                logger.source = self._events
 
     # ------------------------------------------------------------------
     # Lifecycle, which subclasses implement
@@ -139,7 +168,7 @@ class Instrument:
         try:
             self._close()
         except Exception:  # pragma: no cover - defensive
-            _LOG.warning("error while closing %s", self.MODEL_NAME, exc_info=True)
+            self._logger.warning("error while closing %s", self.MODEL_NAME, exc_info=True)
         finally:
             self._initialised = False
 

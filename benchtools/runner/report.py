@@ -14,7 +14,7 @@ Three formats, for three audiences:
 Writers only read :mod:`benchtools.runner.results`, so adding a format needs no
 change to the execution engine.
 
-Traces to: RUN-FR-037, RUN-FR-040 .. RUN-FR-043, RUN-DD-REPORT.
+Traces to: RUN-FR-008, RUN-FR-037, RUN-FR-040 .. RUN-FR-043, RUN-DD-REPORT.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from __future__ import annotations
 import json
 import os
 import xml.etree.ElementTree as ElementTree
-from typing import List, Optional, Union
+from typing import List, Union
 
 from .results import CaseRecord, RunRecord, Status
 
@@ -89,6 +89,11 @@ def format_markdown(run: RunRecord) -> str:
     out.append("| Result | **%s** |" % run.status.value)
     out.append("| Bench | %s%s |" % (run.bench, " (simulated)" if run.simulated else ""))
     out.append("| Specification | %s |" % (run.spec_source or "-"))
+    if run.parameters:
+        out.append("| Parameters | %s |" % ", ".join(
+            "%s = %s" % (name, value) for name, value in sorted(run.parameters.items())))
+    if run.selection:
+        out.append("| Selected tests | %s |" % ", ".join(run.selection))
     out.append("| Started | %s |" % run.started)
     out.append("| Duration | %.2f s |" % run.duration_s)
     out.append("| Tests | %d passed, %d failed, %d errored, %d skipped (of %d) |" % (
@@ -106,19 +111,20 @@ def format_markdown(run: RunRecord) -> str:
         # appears to mean, so it belongs in the evidence rather than in a log.
         out.append("## Instruments")
         out.append("")
-        out.append("| Alias | Driver | Model | Firmware | Resource |")
-        out.append("|---|---|---|---|---|")
+        out.append("| Alias | Event | Driver | Model | Firmware | Resource |")
+        out.append("|---|---|---|---|---|---|")
         for alias in sorted(run.instruments):
             entry = run.instruments[alias]
-            out.append("| %s | %s | %s | %s | %s |" % (
+            out.append("| %s | %s | %s | %s | %s | %s |" % (
                 alias,
+                entry.get("event", "-") or "-",
                 entry.get("driver", "-"),
                 entry.get("model", "-") or "-",
                 entry.get("firmware", "-") or "-",
                 entry.get("resource", "-") or "-",
             ))
             if entry.get("identity_error"):
-                out.append("| | | | **would not identify** | %s |" % entry["identity_error"])
+                out.append("| | | | | **would not identify** | %s |" % entry["identity_error"])
         out.append("")
 
     if run.setup_error:
@@ -229,7 +235,9 @@ def write_junit(run: RunRecord, path: str) -> str:
         ("bench", run.bench),
         ("simulated", str(run.simulated).lower()),
         ("specification", run.spec_source or ""),
-    ):
+    ) + tuple(("parameter %s" % name, str(value))
+              for name, value in sorted(run.parameters.items())) + tuple(
+                  ("selected test", name) for name in run.selection):
         ElementTree.SubElement(properties, "property", {"name": name, "value": value})
 
     if run.setup_error:

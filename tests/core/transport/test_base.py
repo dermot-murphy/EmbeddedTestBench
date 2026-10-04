@@ -1,6 +1,6 @@
 """Message framing and buffering in the transport base class.
 
-Traces to: SWE1-NFR-005, SWE4-UT-TRANSPORT.
+Traces to: SWE1-NFR-005, CORE-FR-061, CORE-FR-062, SWE4-UT-TRANSPORT.
 """
 
 from __future__ import annotations
@@ -95,6 +95,29 @@ class TestWriteBehaviour:
         link.write(b"SECOND?")            # should clear it
         assert link.read_message() == b"fresh"
 
+    def test_a_write_can_keep_a_reply_already_arriving(self):
+        """The S2-LP's stop character interrupts a stream still being read;
+        what already arrived is the start of a reply, not a stale one."""
+        link = ScriptedTransport([(b"part", False), (b"ial\n", True)]).open()
+        link.write(b"GO")
+        link._fill()                      # half a line has arrived
+        link.write(b"S", append_terminator=False, keep_buffer=True)
+        assert link.read_message() == b"partial"
+
+    def test_replies_can_end_differently_from_commands(self):
+        """A GPD-3303D takes commands ending in LF and ends its replies in CR."""
+        link = ScriptedTransport([(b"3.6V\rbit0\r", True)], read_terminator=b"\r").open()
+        link.write(b"VSET1?")
+        assert link.sent == [b"VSET1?\n"]
+        assert link.read_message() == b"3.6V"
+        assert link.read_message() == b"bit0"
+
+    def test_the_read_terminator_defaults_to_the_write_terminator(self):
+        link = ScriptedTransport([], terminator=b"\r\n")
+        assert link.read_terminator == b"\r\n"
+        link.read_terminator = b"\r"
+        assert link.read_terminator == b"\r"
+
     def test_str_command_is_encoded(self):
         link = ScriptedTransport([]).open()
         link.write("*RST")
@@ -148,3 +171,74 @@ class TestLifecycle:
         link = ScriptedTransport([(b"oops\n", True)]).open()
         with pytest.raises(ProtocolError):
             link.read_stb()
+
+
+class TestStreamReading:
+    """For instruments that speak without being asked (CORE-FR-061, #115)."""
+
+    def test_read_available_returns_what_has_arrived(self):
+        link = ScriptedTransport([(b"\rab", False), (b"cd", False)])
+        link.open()
+        assert link.read_available() == b"\rab"
+        assert link.read_available() == b"cd"
+
+    def test_read_available_is_not_stopped_by_an_earlier_end_of_message(self):
+        """A stream has no end: the next byte is always worth asking for."""
+        link = ScriptedTransport([(b"one", True), (b"two", True)])
+        link.open()
+        assert link.read_available() == b"one"
+        assert link.read_available() == b"two"
+
+    def test_read_available_returns_buffered_bytes_first(self):
+        link = ScriptedTransport([(b"x\nrest", False)])
+        link.open()
+        assert link.read_message() == b"x"
+        assert link.read_available() == b"rest"
+
+    def test_read_available_times_out_on_a_silent_link(self):
+        link = ScriptedTransport([(b"", False)])
+        link.open()
+        with pytest.raises(TransportTimeoutError):
+            link.read_available()
+
+    def test_read_raw_never_returns_on_a_link_without_end_of_message(self):
+        """Why read_available exists: this is the #115 failure, in miniature."""
+        link = ScriptedTransport([(b"\r\x21", False), (b"", False)])
+        link.open()
+        with pytest.raises(TransportTimeoutError):
+            link.read_raw()
+
+    def test_discard_input_drops_unread_bytes_and_counts_them(self):
+        link = ScriptedTransport([(b"a\nbcd", False), (b"new\n", False)])
+        link.open()
+        assert link.read_message() == b"a"
+        assert link.discard_input() == 3
+        assert not link.has_buffered_data
+        assert link.read_message() == b"new"
+
+    def test_a_virtual_clock_simulator_is_given_the_read_timeout(self):
+        """CORE-FR-062: what is due later than the timeout is not delivered."""
+        from benchtools.core.transport.mock import MockTransport
+
+        class Clocked:
+            def __init__(self):
+                self.asked = []
+
+            def respond(self, _message):
+                return None
+
+            def poll_within(self, timeout):
+                self.asked.append(timeout)
+                if timeout < 1.0:
+                    raise TransportTimeoutError("nothing due")
+                return b"tick"
+
+        responder = Clocked()
+        link = MockTransport(responder=responder, timeout=0.5)
+        link.open()
+        with pytest.raises(TransportTimeoutError):
+            link.read_available()
+        link.timeout = 2.0
+        assert link.read_available() == b"tick"
+        assert responder.asked == [0.5, 2.0]
+        assert link.discard_input() == 0

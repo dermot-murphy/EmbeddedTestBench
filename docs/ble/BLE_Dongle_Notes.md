@@ -66,10 +66,10 @@ Every event carries `t=`, microseconds on the dongle's clock.
 | `list` | one `+sensor` event per device found, then `ok sensors=<n>` |
 | `select <index\|addr[/type]>` | choose the sensor for later commands |
 | `selected` | report the selection |
-| `connect [<addr[/type]>]` | connect to the selection, or to an address |
+| `connect [<addr[/type]>] [timeout=<ms>]` | connect to the selection, or to an address, listening for it for up to `timeout` ms (1000-60000, default 15000; protocol 1.2). Protocol 1.1 listens for a fixed 5 s at half duty, which misses sensors advertising every 9 s |
 | `disconnect` | disconnect |
 | `uart <hex>` | write to the sensor's UART service, no reply awaited |
-| `cmd <hex>` | write, await the reply, report both timestamps and the round trip |
+| `cmd <hex> [timeout=<ms>]` | write, await the reply for up to `timeout` ms (100-60000, default 2000; protocol 1.3), report both timestamps and the round trip |
 | `adv start [<addr>]` / `adv stop` / `adv stats` | advertising profile capture and its counters |
 | `time` | the dongle's timestamp now, and its rate |
 | `reset` | reset the dongle |
@@ -127,8 +127,32 @@ emBuild -config Release -D SDK_ROOT=/path/to/nRF5_SDK_17.1.0 \
         nordic_dongle_pca10059.emProject
 ```
 
+`SDK_ROOT` has no default in the project, so one of the two must be set. Point
+it at the folder that directly contains `components/` and `modules/`; the SDK
+zip unpacks into a folder of the same name, so check for an extra level.
+Verified on 2026-09-25 with SES 5.10 and SES 7.32a against SDK 17.1.0; the
+output lands in `ses/Output/Release/Exe/`.
+
 The project produces an application hex only. The SoftDevice and bootloader come
 from the factory, which is why the application is linked at 0x27000.
+
+A dongle that has had other firmware loaded, such as the nRF Sniffer, may no
+longer carry the SoftDevice. Package the SoftDevice with the application so the
+bootloader accepts it either way. S140 7.2.0 is `0x100` in
+`nrfutil nrf5sdk-tools pkg generate --help`:
+
+```
+nrfutil nrf5sdk-tools pkg generate --hw-version 52 --application-version 1 \
+    --application ses/Output/Release/Exe/nordic_dongle_pca10059.hex \
+    --softdevice $SDK_ROOT/components/softdevice/s140/hex/s140_nrf52_7.2.0_softdevice.hex \
+    --sd-req 0x00,0x100 --sd-id 0x100 dongle_dfu.zip
+```
+
+The dongle's bootloader presents a serial port (`nRF52 SDFU USB`), not a USB
+drive, so an image cannot be copied onto it; program it with
+`nrfutil device program --firmware dongle_dfu.zip` once it is in the
+bootloader. A dongle already running this firmware gets there with its `dfu`
+command; any other needs the RESET button.
 
 `make manifest` (which `dfu` runs for you) writes `_build/firmware_manifest.json`
 beside the image: version, build instant, protocol, model, hex, package and
@@ -149,8 +173,10 @@ and still fails a comparison, which is the honest answer.
 ### 3.2 Flash
 
 A PCA10059 has no onboard debugger: it is programmed over USB through its
-bootloader. Press the small RESET button on the side of the dongle — the red LED
-pulses — then:
+bootloader. A dongle running this firmware enters it on the `dfu` command
+(`NordicDongle.enter_dfu()`), which pulls the dongle's own reset pin. A dongle
+running anything else needs the small RESET button on the side pressed — the
+red LED pulses. Then:
 
 ```
 cd firmware/nordic_dongle/scripts
@@ -158,7 +184,7 @@ cd firmware/nordic_dongle/scripts
 ```
 
 The script wraps the hex with `nrfutil pkg generate` and flashes it with
-`nrfutil dfu usb-serial`. `--sd-req 0xCA` is S140 7.2.0; if a DFU is refused as
+`nrfutil dfu usb-serial`. `--sd-req 0x100` is S140 7.2.0 (`0xCA` is 7.0.1); if a DFU is refused as
 incompatible, list the identifiers with `nrfutil pkg generate --help` and use the
 one matching the SoftDevice on the dongle.
 

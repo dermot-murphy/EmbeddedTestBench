@@ -21,11 +21,11 @@ Traces to: BLE-FR-001 .. BLE-FR-062, BLE-ARC-001, BLE-DD-DONGLE, BLE-DD-FIRMWARE
 
 from __future__ import annotations
 
-import logging
 import time
 from dataclasses import dataclass
-from typing import Callable, Dict, List, Optional, Sequence, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
+from ...analysis.samples import NUMBER, SampleSet, extract_number
 from ...core.errors import (
     BenchToolsError,
     ConfigurationError,
@@ -33,9 +33,11 @@ from ...core.errors import (
     MeasurementError,
 )
 from ...core.instrument import Instrument, InstrumentIdentity
+from ...core.paths import input_paths
 from ...core.transport.base import Transport
 from ...core.transport.factory import open_transport
-from .script import CommandScript, ScriptRun, load_script, run_script
+from .script import CommandScript, load_script
+from .script_run import EventLog, ScriptRun, run_script
 from .firmware import (
     PACKAGE_HINT,
     FirmwareBuild,
@@ -49,6 +51,12 @@ from .constants import (
     DEFAULT_BAUDRATE,
     DEFAULT_COMMAND_TIMEOUT,
     DEFAULT_SCAN_MS,
+    COMMAND_TIMEOUT_RANGE,
+    CONNECT_TIMEOUT_RANGE,
+    DEFAULT_CONNECT_TIMEOUT,
+    DISCONNECT_EVENT_TIMEOUT,
+    FIRMWARE_COMMAND_TIMEOUT,
+    SERVICE_DISCOVERY_TIMEOUT,
     DONGLE_LIMITS,
     PROTOCOL_VERSION,
     AddressType,
@@ -59,7 +67,6 @@ from .latency import LatencySource, ResponseSample, ResponseTiming
 from .profile import AdvertisingEvent, AdvertisingProfile
 from .protocol import (
     Event,
-    address_type_of,
     encode_payload,
     format_address,
     from_hex,
@@ -68,9 +75,25 @@ from .protocol import (
 from .session import DongleCommandError, DongleSession
 from .simulator import SimulatedDongle
 
-__all__ = ["NordicDongle", "Sensor"]
+__all__ = ["DisconnectSample", "NordicDongle", "Sensor"]
 
-_LOG = logging.getLogger(__name__)
+
+
+@dataclass
+class DisconnectSample:
+    """A command after which the sensor was expected to drop the link.
+
+    :param dongle_us: Write to disconnection, on the dongle's clock.
+    :param host_s: The same, as the host saw it, including USB.
+    """
+
+    request: str
+    disconnected: bool
+    dongle_us: Optional[int] = None
+    host_s: float = 0.0
+    transmitted_us: Optional[int] = None
+    disconnected_us: Optional[int] = None
+    reason: str = ""
 
 
 @dataclass
@@ -122,6 +145,7 @@ class NordicDongle(Instrument):
 
     SIMULATOR_CLASS = SimulatedDongle
     MODEL_NAME = "Nordic dongle"
+    EVENT_SOURCE = "BLE"
 
     def __init__(
         self,
@@ -134,6 +158,7 @@ class NordicDongle(Instrument):
         self._transport = transport
         self._limits = limits if limits is not None else DONGLE_LIMITS
         self._session = DongleSession(transport, timeout=timeout)
+        self._adopt(transport, self._session)
         self._sensors: List[Sensor] = []
         self._selected: Optional[Sensor] = None
         self._connected = False
@@ -148,6 +173,7 @@ class NordicDongle(Instrument):
     # Connection
     # ------------------------------------------------------------------
     @classmethod
+    @input_paths("firmware")
     def connect(
         cls,
         resource: str = "sim://",
@@ -241,7 +267,7 @@ class NordicDongle(Instrument):
             if self._connected:
                 self._session.execute("disconnect", allow_error=True, timeout=1.0)
         except BenchToolsError:                 # pragma: no cover - best effort
-            _LOG.debug("could not disconnect cleanly", exc_info=True)
+            self._logger.debug("could not disconnect cleanly", exc_info=True)
         self._session.close()
         self.transport.close()
 
@@ -281,7 +307,7 @@ class NordicDongle(Instrument):
         )
         if theirs != ours:
             if self._allow_incompatible_protocol:
-                _LOG.warning(
+                self._logger.warning(
                     "the dongle speaks protocol %s and this driver speaks %s; "
                     "continuing because an update was requested",
                     reported, PROTOCOL_VERSION,
@@ -292,7 +318,7 @@ class NordicDongle(Instrument):
                 "which are not compatible. %s" % (reported, PROTOCOL_VERSION, advice)
             )
 
-        _LOG.warning(
+        self._logger.warning(
             "the dongle speaks protocol %s and this driver speaks %s: commands "
             "one side lacks will be refused individually. %s",
             reported, PROTOCOL_VERSION, advice,
@@ -338,6 +364,36 @@ class NordicDongle(Instrument):
         """The protocol version the dongle reported."""
         return self._firmware_protocol
 
+    def _start_connect(self, connect_timeout: float) -> None:
+        """Check the window, clear stale link events, and send ``connect``."""
+        low, high = CONNECT_TIMEOUT_RANGE
+        if not low <= connect_timeout <= high:
+            raise ConfigurationError(
+                "connect_timeout must be between %.0f and %.0f s, not %r"
+                % (low, high, connect_timeout)
+            )
+        # Stale link events from an earlier attempt must not be read as this
+        # attempt's outcome.
+        self._session.take_events("conn")
+        self._session.take_events("disc")
+        if self._protocol_at_least(1, 2):
+            self._session.execute("connect", "timeout=%d" % round(connect_timeout * 1000.0))
+            return
+        self._logger.warning(
+            "the dongle speaks protocol %s, which has a fixed 5 s connect "
+            "window; update its firmware to set one",
+            self._firmware_protocol or "unknown",
+        )
+        self._session.execute("connect")
+
+    def _protocol_at_least(self, major: int, minor: int) -> bool:
+        """True when the dongle reported protocol *major*.*minor* or later."""
+        try:
+            reported = tuple(int(part) for part in self._firmware_protocol.split(".")[:2])
+        except (AttributeError, ValueError):
+            return False
+        return reported >= (major, minor)
+
     @property
     def protocol_is_compatible(self) -> bool:
         """True when the dongle's protocol major version matches the driver's."""
@@ -347,7 +403,7 @@ class NordicDongle(Instrument):
 
     @property
     def firmware_version(self) -> str:
-        """The firmware version the dongle reported, e.g. ``"1.1.0"``.
+        """The firmware version the dongle reported, e.g. ``"1.4.0"``.
 
         Empty for firmware older than protocol 1.1, which did not report one -
         which is itself an answer: that dongle needs updating.
@@ -373,6 +429,7 @@ class NordicDongle(Instrument):
         """The build this dongle is expected to be running, if one was given."""
         return self._expected_firmware
 
+    @input_paths("firmware")
     def expect_firmware(self, firmware: Union[str, FirmwareBuild]) -> FirmwareBuild:
         """Set the build to compare against, after connecting.
 
@@ -387,6 +444,7 @@ class NordicDongle(Instrument):
     # ------------------------------------------------------------------
     # Firmware identity and refresh
     # ------------------------------------------------------------------
+    @input_paths("firmware")
     def check_firmware(
         self,
         firmware: Union[str, FirmwareBuild, None] = None,
@@ -448,6 +506,7 @@ class NordicDongle(Instrument):
                 pass
         return acknowledged
 
+    @input_paths("firmware")
     def update_firmware(
         self,
         firmware: Union[str, FirmwareBuild, None] = None,
@@ -496,7 +555,7 @@ class NordicDongle(Instrument):
 
         run = flasher if flasher is not None else run_nrfutil
         output = run(package, str(target_port))
-        _LOG.info("nrfutil: %s", str(output).strip()[:400])
+        self._logger.info("nrfutil: %s", str(output).strip()[:400])
 
         time.sleep(settle)
         self._reopen()
@@ -517,6 +576,7 @@ class NordicDongle(Instrument):
         self._session.note("firmware updated to %s" % build)
         return status
 
+    @input_paths("firmware")
     def ensure_firmware(
         self,
         firmware: Union[str, FirmwareBuild, None] = None,
@@ -661,6 +721,35 @@ class NordicDongle(Instrument):
                 return sensor
         return None
 
+    def strongest(self, sensors: Optional[List[Sensor]] = None) -> Sensor:
+        """The sensor heard most strongly in the last scan.
+
+        "Strongest" is the highest RSSI, which is received power at the
+        *dongle*. It is a statement about this link at this moment - antenna
+        orientation, what is between the two, and the board's own transmit
+        power all move it - and not about which board is nearest or which is
+        transmitting hardest. A test that needs a particular board should say
+        which board (:meth:`find_sensor`); this is for the case where the
+        bench holds one board and the strongest signal is the way to say so
+        without writing its address into the specification.
+
+        Ties are broken by scan index, so repeating a scan over two boards at
+        equal strength selects the same one rather than alternating.
+
+        :param sensors: Choose among these rather than the last scan's table.
+        :raises InstrumentError: Nothing was heard. Selecting from an empty
+            scan would otherwise fail later, at the point of connecting, and
+            look like a link problem rather than an empty room.
+        """
+        candidates = list(self._sensors if sensors is None else sensors)
+        if not candidates:
+            raise InstrumentError(
+                "no sensor to choose from: the last scan found nothing. Check "
+                "the board is powered and advertising, and that the scan was "
+                "long enough and not filtered to exclude it."
+            )
+        return max(candidates, key=lambda found: (found.rssi, -found.index))
+
     def select(self, sensor: Union[int, str, Sensor]) -> Sensor:
         """Choose the sensor later commands apply to.
 
@@ -695,6 +784,35 @@ class NordicDongle(Instrument):
         self._selected = chosen
         return chosen
 
+    def select_by_name(self, fragment: str, ignore_case: bool = True) -> Sensor:
+        """Choose the strongest sensor in the last scan whose name contains *fragment*.
+
+        The firmware's own name filter (``scan(name=...)``) is case-sensitive;
+        this matches on the host, so ``"kappa"`` finds ``KAPPA_5C1712``. Scan
+        first, and without a name filter if the case is not known.
+
+        :raises ConfigurationError: if *fragment* is empty.
+        :raises InstrumentError: if no sensor in the last scan matches.
+        """
+        if not fragment:
+            raise ConfigurationError("a name fragment is needed to select by name")
+        wanted = fragment.casefold() if ignore_case else fragment
+
+        def name_of(sensor: Sensor) -> str:
+            name = sensor.name or ""
+            return name.casefold() if ignore_case else name
+
+        matches = [sensor for sensor in self._sensors if wanted in name_of(sensor)]
+        if not matches:
+            heard = ", ".join(sensor.name for sensor in self._sensors if sensor.name) or "none"
+            raise InstrumentError(
+                "no sensor in the last scan has a name containing %r%s. Named "
+                "sensors heard: %s. A sensor that advertises rarely needs a scan "
+                "longer than its advertising interval."
+                % (fragment, " (ignoring case)" if ignore_case else "", heard)
+            )
+        return self.select(max(matches, key=lambda sensor: sensor.rssi))
+
     @property
     def selected(self) -> Optional[Sensor]:
         """The sensor chosen by :meth:`select`."""
@@ -711,25 +829,74 @@ class NordicDongle(Instrument):
     # ------------------------------------------------------------------
     # Connection to the sensor
     # ------------------------------------------------------------------
-    def open_link(self, timeout: float = 10.0) -> Sensor:
+    def open_link(
+        self,
+        timeout: Optional[float] = None,
+        connect_timeout: float = DEFAULT_CONNECT_TIMEOUT,
+    ) -> Sensor:
         """Connect to the selected sensor and wait for its UART service.
 
-        :raises InstrumentError: if the sensor does not become ready in time.
+        On any failure the dongle is told to disconnect before this raises, so
+        a half-open link cannot refuse the next attempt.
+
+        :param timeout: Longest to wait overall. Defaults to the connect window
+            plus time for the UART service to be found.
+        :param connect_timeout: How long the dongle listens for the sensor.
+            Needs protocol 1.2; an older dongle keeps its own 5 s window, and
+            that is logged. A sensor that advertises rarely needs longer than
+            its advertising interval.
+        :raises ConfigurationError: if *connect_timeout* is out of range.
+        :raises InstrumentError: if the sensor does not link, or links but
+            does not become ready, in time. The message says which.
         """
         sensor = self._require_selected()
-        self._session.execute("connect")
+        self._start_connect(connect_timeout)
+        if timeout is None:
+            timeout = connect_timeout + SERVICE_DISCOVERY_TIMEOUT
+
+        deadline = time.monotonic() + timeout
+        linked = False
         try:
-            ready = self._session.wait_for_event(
-                "conn",
-                timeout=timeout,
-                match=lambda event: event.get("state") == "ready",
-            )
+            while True:
+                event = self._session.wait_for_event(
+                    ("conn", "disc"), timeout=max(deadline - time.monotonic(), 0.0)
+                )
+                state = event.get("state")
+                if event.name == "disc":
+                    raise InstrumentError(
+                        "could not connect to %s: the dongle reported %s%s. "
+                        "A sensor that advertises rarely can fall outside the "
+                        "connect window; try again, or check it is in range and "
+                        "not connected to something else."
+                        % (
+                            sensor.address,
+                            "the connection lost" if linked else "no connection",
+                            " (reason %s)" % event.get("reason") if event.get("reason") else "",
+                        )
+                    )
+                if state == "linked":
+                    linked = True
+                elif state == "failed":
+                    raise InstrumentError(
+                        "linked to %s but the dongle could not start looking for "
+                        "its UART service (error %s)." % (sensor.address, event.get("error"))
+                    )
+                elif state == "ready":
+                    ready = event
+                    break
         except BenchToolsError as exc:
+            self._disconnect()
+            if isinstance(exc, InstrumentError):
+                raise
+            if linked:
+                raise InstrumentError(
+                    "linked to %s but its UART service did not become ready "
+                    "within %.1f s. Check the sensor offers Nordic's UART service."
+                    % (sensor.address, timeout)
+                ) from exc
             raise InstrumentError(
-                "connected to %s but its UART service did not become ready "
-                "within %.1f s. Check the sensor advertises Nordic's UART "
-                "service and is not already connected to something else."
-                % (sensor.address, timeout)
+                "could not connect to %s within %.1f s: the dongle reported "
+                "neither a link nor a failure." % (sensor.address, timeout)
             ) from exc
         self._connected = True
         # The connection interval comes from the event, not from a later query:
@@ -745,11 +912,45 @@ class NordicDongle(Instrument):
 
     def close_link(self) -> None:
         """Disconnect from the sensor. Idempotent."""
-        reply = self._session.execute("disconnect", allow_error=True)
+        reply = self._disconnect()
         self._connected = False
         self._connection_interval_us = 0
         if not reply.ok and reply.error is not None and reply.error.name != "NOT_CONNECTED":
             raise DongleCommandError("disconnect", reply.error, reply.text)
+
+    def check_link(self):
+        """Whether the link has dropped without being asked to, and how.
+
+        Reads what the dongle has already reported and sends nothing. A drop
+        found here marks the link down, so :attr:`is_linked` is true only while
+        it is.
+
+        :returns: The ``+disc`` event, with the dongle's time and the reason,
+            or None while the link is up or when none was open.
+        """
+        if not self._connected:
+            return None
+        self._session.poll()
+        dropped = self._session.take_events("disc")
+        if not dropped:
+            return None
+        self._connected = False
+        self._connection_interval_us = 0
+        return dropped[-1]
+
+    def _disconnect(self):
+        """Send ``disconnect`` and, if accepted, consume the ``+disc`` it causes.
+
+        The event arrives after the reply. Left queued, it would be read by the
+        next :meth:`open_link` as that attempt's own failure.
+        """
+        reply = self._session.execute("disconnect", allow_error=True)
+        if reply.ok:
+            try:
+                self._session.wait_for_event("disc", timeout=DISCONNECT_EVENT_TIMEOUT)
+            except BenchToolsError:
+                self._logger.warning("no '+disc' followed an accepted disconnect")
+        return reply
 
     @property
     def is_linked(self) -> bool:
@@ -764,6 +965,49 @@ class NordicDongle(Instrument):
     # ------------------------------------------------------------------
     # UART over BLE
     # ------------------------------------------------------------------
+    def command_expecting_disconnect(
+        self,
+        request: Union[str, bytes],
+        timeout: float = DEFAULT_COMMAND_TIMEOUT,
+    ) -> DisconnectSample:
+        """Send a command after which the sensor should drop the link, and time it.
+
+        The command is written without waiting for a reply - a sensor that is
+        resetting sends none - and the time to the ``+disc`` is taken on the
+        dongle's clock, from the write to the disconnection.
+
+        :param timeout: Seconds to wait for the link to drop.
+        :returns: Whether it dropped, and when. A sensor that stays connected is
+            a result, not an exception.
+        :raises InstrumentError: if the command could not be sent.
+        """
+        encoded = self._encode(request)
+        self._session.take_events("disc")
+        started = time.perf_counter()
+        reply = self._session.execute("uart", encoded)
+        transmitted_us = int(reply.fields.get("t", 0))
+        try:
+            event = self._session.wait_for_event("disc", timeout=timeout)
+        except BenchToolsError:
+            return DisconnectSample(
+                request=request if isinstance(request, str) else from_hex(encoded).hex(),
+                disconnected=False,
+                host_s=time.perf_counter() - started,
+                transmitted_us=transmitted_us,
+            )
+        self._connected = False
+        self._connection_interval_us = 0
+        disconnected_us = event.integer("t", 0)
+        return DisconnectSample(
+            request=request if isinstance(request, str) else from_hex(encoded).hex(),
+            disconnected=True,
+            dongle_us=(disconnected_us - transmitted_us) if transmitted_us else None,
+            host_s=time.perf_counter() - started,
+            transmitted_us=transmitted_us,
+            disconnected_us=disconnected_us,
+            reason=str(event.get("reason") or ""),
+        )
+
     def write(self, payload: Union[str, bytes]) -> int:
         """Send bytes to the sensor without waiting for a reply.
 
@@ -777,6 +1021,7 @@ class NordicDongle(Instrument):
         self,
         request: Union[str, bytes],
         timeout: float = DEFAULT_COMMAND_TIMEOUT,
+        frame_window: float = 0.0,
     ) -> ResponseSample:
         """Send a command and wait for the sensor's reply, timing both.
 
@@ -785,14 +1030,36 @@ class NordicDongle(Instrument):
         two are kept separately because quoting the second as the first would
         report a millisecond of host scheduling as sensor latency.
 
+        :param frame_window: Seconds to go on listening after the reply, to count
+            the notifications the command produced. A sensor that answers twice
+            leaves every later command reading the previous one's reply; with no
+            window, a surplus notification is not looked for.
+        :param timeout: Seconds the dongle waits for the reply, 0.1 to 60. Sent
+            to a protocol 1.3 dongle; an older one waits its own fixed 2 s,
+            and a longer wait asked of it is logged as not honoured.
+        :raises ConfigurationError: if *timeout* is out of range.
         :raises InstrumentError: if the sensor does not reply.
         """
         encoded = self._encode(request)
+        low, high = COMMAND_TIMEOUT_RANGE
+        if not low <= timeout <= high:
+            raise ConfigurationError(
+                "a command timeout must be between %g and %g s, not %r" % (low, high, timeout)
+            )
+        arguments = [encoded]
+        if self._protocol_at_least(1, 3):
+            arguments.append("timeout=%d" % round(timeout * 1000.0))
+        elif timeout > FIRMWARE_COMMAND_TIMEOUT:
+            self._logger.warning(
+                "the dongle speaks protocol %s and waits %.0f s for a reply, not "
+                "the %.1f s asked; update its firmware to set one",
+                self._firmware_protocol or "unknown", FIRMWARE_COMMAND_TIMEOUT, timeout,
+            )
         started = time.perf_counter()
-        reply = self._session.execute("cmd", encoded, timeout=timeout + 1.0)
+        reply = self._session.execute("cmd", *arguments, timeout=timeout + 1.0)
         elapsed = time.perf_counter() - started
-
-        self._session.take_events("rx")         # the reply is in the ok line
+        received_us = int(reply.fields["t_rx"]) if "t_rx" in reply.fields else None
+        extra = self._extra_frames(received_us, frame_window)
         interval = reply.fields.get("interval_us")
         if interval:
             self._connection_interval_us = int(interval)
@@ -803,15 +1070,82 @@ class NordicDongle(Instrument):
             dongle_us=int(reply.fields["dt_us"]) if "dt_us" in reply.fields else None,
             host_s=elapsed,
             transmitted_us=int(reply.fields["t_tx"]) if "t_tx" in reply.fields else None,
-            received_us=int(reply.fields["t_rx"]) if "t_rx" in reply.fields else None,
+            received_us=received_us,
+            extra_frames=extra,
         )
 
-    def run_script(
+    def _extra_frames(self, received_us: Optional[int], window: float) -> Tuple[bytes, ...]:
+        """Notifications after the reply, listening for *window* seconds.
+
+        The firmware reports every notification as ``+rx``, the reply's own
+        stamped at exactly ``t_rx``: the extra ones are those after it. Older
+        ones, left from an earlier command, are before it and are dropped.
+        """
+        deadline = time.monotonic() + window
+        while window > 0.0 and time.monotonic() < deadline:
+            try:
+                self._session.wait_for_event("rx", timeout=max(deadline - time.monotonic(), 0.0),
+                                             match=lambda event: False)
+            except BenchToolsError:
+                break
+        events = self._session.take_events("rx")
+        if received_us is None:
+            return ()
+        return tuple(from_hex(event.get("data") or "") for event in events
+                     if event.integer("t", 0) > received_us)
+
+    def sample_command(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+        self,
+        request: str,
+        pattern: str = NUMBER,
+        count: int = 5,
+        interval: float = 1.0,
+        scale: float = 1.0,
+        unit: str = "",
+        timeout: float = DEFAULT_COMMAND_TIMEOUT,
+    ) -> SampleSet:
+        """Send the same command *count* times, *interval* seconds apart, and
+        take a number from each reply.
+
+        For a reading repeated to see how steady it is - ``RD TEMPERATURE``
+        five times a second apart - and to compare with another source.
+
+        :param pattern: Regular expression whose first group is the number,
+            e.g. ``= (-?[0-9]+)mC``. The default takes the first number.
+        :param interval: Seconds from the start of one command to the start of
+            the next; a reply slower than that is followed at once.
+        :param scale: Multiplies each number, e.g. ``0.001`` for mC to degrees C.
+        :param unit: The unit after scaling, for the report.
+        :raises MeasurementError: naming the reply, when one carries no number -
+            a ``NACK`` is not a reading to average in.
+
+        Traces to: BLE-FR-117.
+        """
+        samples = SampleSet(name=request, unit=unit, requested=int(count))
+        started = time.monotonic()
+        for index in range(int(count)):
+            due = started + index * float(interval)
+            wait = due - time.monotonic()
+            if wait > 0:
+                time.sleep(wait)
+            text = self.command(request, timeout=timeout).text
+            value = extract_number(text, pattern)
+            if value is None:
+                raise MeasurementError(
+                    "reply %d of %d to %r was %r, which %r finds no number in"
+                    % (index + 1, count, request, text, pattern))
+            samples.add(value * float(scale), source=text, at=time.monotonic() - started)
+        return samples
+
+    @input_paths("source")
+    def run_script(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
         source,
         report: Optional[str] = None,
         timeout: float = DEFAULT_COMMAND_TIMEOUT,
         listen: float = 0.5,
+        variables: Optional[Dict[str, str]] = None,
+        events: Optional[str] = None,
     ) -> ScriptRun:
         """Run a command document against the connected sensor.
 
@@ -834,24 +1168,41 @@ class NordicDongle(Instrument):
         :param listen: Seconds to listen after a command the document expects
             no reply to. Whatever arrives is recorded; the step is still
             skipped, because the document made no claim to check.
-        :raises ConfigurationError: if the document cannot be read.
-        :raises InstrumentError: if no link is open. Every step would fail
-            identically for a reason that has nothing to do with the sensor.
+        :param variables: Values for the document's ``${NAME}`` variables,
+            overriding its defaults - ``{"SENSOR_ID": "kappa"}``, say.
+        :param events: Where to write the event log - one line per TX, RX,
+            delay, connect, disconnect and error, with the time it happened.
+        :raises ConfigurationError: if the document cannot be read, or a
+            variable it needs has no value.
+        :raises InstrumentError: if no link is open and the document does not
+            connect before its first command. Every step would fail identically
+            for a reason that has nothing to do with the sensor.
 
         Traces to: BLE-FR-100 .. BLE-FR-108.
         """
-        if not self.is_linked:
+        if isinstance(source, CommandScript):
+            if variables:
+                raise ConfigurationError(
+                    "variables apply when a document is read; this one is already parsed"
+                )
+            script = source
+        else:
+            script = load_script(str(source), variables=variables)
+        if not self.is_linked and not script.connects:
             raise InstrumentError(
-                "no link is open, so no command could reach a sensor. Select a "
-                "sensor and open_link() before running a command document; "
-                "otherwise every step would fail for the same reason and none "
-                "of the failures would be about the sensor."
+                "no link is open, so no command could reach a sensor. Start the "
+                "document with 'connect <sensor>', or select a sensor and "
+                "open_link() first; otherwise every step would fail for the same "
+                "reason and none of the failures would be about the sensor."
             )
-        script = source if isinstance(source, CommandScript) else load_script(str(source))
-        run = run_script(self, script, timeout=timeout, listen=listen)
+        log = EventLog(events)
+        try:
+            run = run_script(self, script, timeout=timeout, listen=listen, events=log)
+        finally:
+            log.close()
         if report:
             run.write(report)
-            _LOG.info("command document results written to %s", report)
+            self._logger.info("command document results written to %s", report)
         return run
 
     def measure_response_time(

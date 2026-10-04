@@ -90,8 +90,12 @@ add_firmware_test(test_ble_scanner
 add_firmware_test(test_nus_client
 	SOURCES ${FIRMWARE_DIR}/src/nus_client.c ${FAKE_SDK} ${FAKE_HOST_LINK} ${FAKE_SCANNER})
 
+# Compiled without FIRMWARE_BUILD_DATE, as an IDE build is, to see the fallback.
+add_firmware_test(test_firmware_version
+	SOURCES ${FIRMWARE_DIR}/src/firmware_version.c)
+
 add_firmware_test(test_cmd_parser
-	SOURCES ${FIRMWARE_DIR}/src/cmd_parser.c ${FIRMWARE_DIR}/src/bootloader.c
+	SOURCES ${FIRMWARE_DIR}/src/cmd_parser.c ${FIRMWARE_DIR}/src/cmd_args.c ${FIRMWARE_DIR}/src/bootloader.c
 	        ${FIRMWARE_DIR}/src/firmware_version.c
 	        ${FAKE_SDK} ${FAKE_HOST_LINK} ${FAKE_SCANNER} ${FAKE_NUS})
 

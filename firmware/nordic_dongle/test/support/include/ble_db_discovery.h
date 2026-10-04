@@ -19,5 +19,12 @@ typedef struct
 
 uint32_t ble_db_discovery_init(const ble_db_discovery_init_t * p_init);
 void     ble_db_discovery_on_ble_evt(ble_evt_t const * p_ble_evt, void * p_context);
+uint32_t ble_db_discovery_start(ble_db_discovery_t * p_db_discovery, uint16_t conn_handle);
+
+/** Times discovery was started, and on which link the last time. */
+uint32_t fake_db_discovery_starts(void);
+uint16_t fake_db_discovery_conn_handle(void);
+void     fake_db_discovery_set_start_result(uint32_t result);
+void     fake_db_discovery_reset(void);
 
 #endif

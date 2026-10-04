@@ -36,18 +36,33 @@ extern "C" {
  * 1.1 - ``ver`` reports the firmware version and build date; ``dfu`` added.
  * 1.0 - first release.
  */
-#define PROTO_VERSION			"1.1"
+#define PROTO_VERSION			"1.4"
+
+/** How long a connection attempt listens for the sensor, by default and at
+ *  most, in milliseconds. A sensor advertising every 9 s was missed by a
+ *  5 s window more often than not (#39). */
+#define PROTOCOL_CONNECT_DEFAULT_MS	15000U
+#define PROTOCOL_CONNECT_MIN_MS		1000U
+#define PROTOCOL_CONNECT_MAX_MS		60000U
+
+/** How long cmd waits for the sensor's reply, by default and within bounds, in
+ *  milliseconds (protocol 1.3). Some commands take longer than others. */
+#define PROTOCOL_CMD_DEFAULT_MS		2000U
+#define PROTOCOL_CMD_MIN_MS		100U
+#define PROTOCOL_CMD_MAX_MS		60000U
 
 /** Manufacturer and model reported by @c ver, in the host's identity fields. */
 #define PROTO_MANUFACTURER		"Nordic"
 #define PROTO_MODEL			"PCA10059"
 
-/** Longest command line accepted, including the terminator. */
-#define PROTO_MAX_LINE			256U
+/** Longest command line accepted, including the terminator: "cmd ", a
+ *  PROTO_MAX_PAYLOAD payload in hex, and " timeout=60000". */
+#define PROTO_MAX_LINE			512U
 
-/** Longest event line produced. Sized for a 31-byte advertising payload in hex
- *  plus the fixed fields, with room to spare. */
-#define PROTO_MAX_EVENT			192U
+/** Longest reply or event line produced. The longest is cmd's "ok t_tx= t_rx=
+ *  dt_us= interval_us= len= data=" with a PROTO_MAX_PAYLOAD reply in hex, about
+ *  600 characters; at 192 a reply over ~60 bytes was cut short. */
+#define PROTO_MAX_EVENT			640U
 
 /** Sensors retained by a scan. Bounded because the firmware allocates nothing. */
 #define PROTO_MAX_SENSORS		16U
@@ -55,8 +70,10 @@ extern "C" {
 /** Longest device name kept from an advertising payload. */
 #define PROTO_MAX_NAME			24U
 
-/** Longest UART payload in one direction, in bytes before hex encoding. */
-#define PROTO_MAX_PAYLOAD		96U
+/** Longest UART payload in one direction, in bytes before hex encoding: the
+ *  ATT MTU of 247 less the 3-byte write header, the most one NUS write carries
+ *  (#52). A sensor that negotiates a smaller MTU refuses a longer write. */
+#define PROTO_MAX_PAYLOAD		244U
 
 /**
  * Command table: X(name, min_args, max_args, help)
@@ -69,10 +86,10 @@ extern "C" {
 	X(list,		0, 0, "sensors seen by the last scan, one event per sensor") \
 	X(select,	1, 1, "select <index|addr> as the sensor for later commands") \
 	X(selected,	0, 0, "report the selected sensor") \
-	X(connect,	0, 1, "connect to the selected sensor, or to <addr>") \
+	X(connect,	0, 2, "connect to the selected sensor, or to <addr>; timeout=<ms> bounds the attempt") \
 	X(disconnect,	0, 0, "disconnect") \
 	X(uart,		1, 1, "uart <hex> - write raw bytes to the sensor's UART service") \
-	X(cmd,		1, 1, "cmd <hex> - write, await the reply, and report the round trip") \
+	X(cmd,		1, 2, "cmd <hex> [timeout=<ms>] - write, await the reply, and report the round trip") \
 	X(adv,		1, 2, "adv start [<addr>] | adv stop | adv stats") \
 	X(time,		0, 0, "the dongle's microsecond timestamp now") \
 	X(reset,	0, 0, "reset the dongle") \

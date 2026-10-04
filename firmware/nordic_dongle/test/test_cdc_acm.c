@@ -35,15 +35,15 @@ void setUp(void)
 
 	fake_cdc_reset();
 	fake_usbd_reset();
-	fake_critical_nesting   = 0;
-	fake_critical_depth_max = 0;
+	fake_g_critical_nesting   = 0;
+	fake_g_critical_depth_max = 0;
 	fake_cdc_open_port();
 }
 
 void tearDown(void)
 {
 	/* Every test is also a check that no path leaves a critical region open. */
-	TEST_ASSERT_EQUAL_INT_MESSAGE(0, fake_critical_nesting,
+	TEST_ASSERT_EQUAL_INT_MESSAGE(0, fake_g_critical_nesting,
 				      "a critical region was left open");
 }
 
@@ -79,6 +79,23 @@ static void test_writes_are_serialised_one_at_a_time(void)
 	fake_cdc_complete_write();
 	TEST_ASSERT_EQUAL_UINT32(2U, fake_cdc_write_count());
 	TEST_ASSERT_EQUAL_STRING("first\nsecond\n", fake_cdc_written());
+}
+
+static void test_idle_only_once_every_line_has_been_handed_over(void)
+{
+	/* The dfu command waits on this before resetting; a reset with a line
+	 * still queued or in flight loses it. */
+	TEST_ASSERT_TRUE(cdc_acm_tx_idle());
+
+	cdc_acm_send_line("first");
+	cdc_acm_send_line("second");
+	TEST_ASSERT_FALSE(cdc_acm_tx_idle());
+
+	fake_cdc_complete_write();
+	TEST_ASSERT_FALSE(cdc_acm_tx_idle());
+
+	fake_cdc_complete_write();
+	TEST_ASSERT_TRUE(cdc_acm_tx_idle());
 }
 
 static void test_the_queue_drains_in_order(void)
@@ -268,10 +285,10 @@ static void test_sending_enters_and_leaves_a_critical_region(void)
 {
 	/* The queue is touched from a radio event handler, so the indices must be
 	 * updated inside one - and defect D-23 was an early return from inside it. */
-	fake_critical_depth_max = 0;
+	fake_g_critical_depth_max = 0;
 	cdc_acm_send_line("ok");
-	TEST_ASSERT_GREATER_THAN_INT(0, fake_critical_depth_max);
-	TEST_ASSERT_EQUAL_INT(0, fake_critical_nesting);
+	TEST_ASSERT_GREATER_THAN_INT(0, fake_g_critical_depth_max);
+	TEST_ASSERT_EQUAL_INT(0, fake_g_critical_nesting);
 }
 
 int main(void)
@@ -281,6 +298,7 @@ int main(void)
 	RUN_TEST(test_formatting);
 	RUN_TEST(test_a_null_line_is_refused_rather_than_dereferenced);
 	RUN_TEST(test_writes_are_serialised_one_at_a_time);
+	RUN_TEST(test_idle_only_once_every_line_has_been_handed_over);
 	RUN_TEST(test_the_queue_drains_in_order);
 	RUN_TEST(test_a_full_queue_drops_whole_lines_and_counts_them);
 	RUN_TEST(test_an_over_long_line_is_truncated_not_overrun);

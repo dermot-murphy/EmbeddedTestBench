@@ -1,0 +1,34 @@
+# CStyleCheck exclusions for firmware/nordic_dongle/test (#111).
+#
+# Each suppression says why. test/support/include/ is not checked at all: it
+# holds stand-ins for nRF5 SDK headers that must reproduce the SDK's own names
+# to stand in for it, and vendor SDK code is outside TB-STD-002 (section 1.3).
+
+# fake_sdk.c defines nRF5 SDK functions (nrfx_timer_*, app_usbd_*,
+# ble_advdata_*, sd_*) under the SDK's names. The firmware links against those
+# names, so they cannot carry a project prefix.
+"fake_sdk.c":
+  disabled_rules:
+    - function.prefix
+
+# fake_scanner.c compares sscanf()'s int result with the field count. A U
+# suffix there would make the comparison mixed-sign (MISRA C:2012 Rule 10.4),
+# so this rule's advice is wrong for these two lines.
+"fake_scanner.c":
+  disabled_rules:
+    - misc.unsigned_suffix
+
+# Unity calls setUp() and tearDown() by those exact names. The expected values
+# in the tests are reference values - timestamps, advertising payloads, RSSI
+# figures - and naming each one would hide the number the test checks.
+"test_*.c":
+  disabled_rules:
+    - misc.magic_number
+    - misc.unsigned_suffix
+  identifiers:
+    setUp:
+      disabled_rules:
+        - function.prefix
+    tearDown:
+      disabled_rules:
+        - function.prefix

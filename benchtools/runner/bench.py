@@ -20,23 +20,28 @@ Example (YAML)::
 Drivers are named, not imported by the specification, so a test file cannot
 reach arbitrary code. New drivers are added with :func:`register_driver`.
 
-Traces to: RUN-FR-001 .. RUN-FR-005, RUN-FR-037, RUN-DD-BENCH.
+Traces to: RUN-FR-001 .. RUN-FR-005, RUN-FR-007, RUN-FR-008, RUN-FR-037, RUN-DD-BENCH.
 """
 
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterator, Optional, Type
+from typing import Any, Dict, Iterator, List, Optional, Type
 
-from ..core.errors import BenchConfigError, BenchToolsError
+from ..core.errors import BenchConfigError, BenchToolsError, ConfigurationError
+from ..core.events import connecting_as, validate_source_name
 from ..core.instrument import Instrument
+from ..core.paths import input_path_names, resolve_input_path, search_locations
 from ..instruments.generic import GenericScpiInstrument
-from ..instruments.jlink import JLinkProbe
+from ..instruments.jlink import JLinkProbe, JLinkRttReader
 from ..instruments.gpd3303d import Gpd3303D
+from ..instruments.pico_sht30 import PicoSht30
 from ..instruments.nordic_dongle import NordicDongle
 from ..instruments.s2lp import S2lpDevkit
 from ..instruments.tek3014b import Tek3014B
+from ..instruments.tti1604 import Tti1604
 
 __all__ = [
     "InstrumentConfig",
@@ -68,12 +73,17 @@ register_driver("generic", GenericScpiInstrument)
 register_driver("scpi", GenericScpiInstrument)
 register_driver("jlink", JLinkProbe)
 register_driver("segger", JLinkProbe)
+register_driver("jlink-rtt", JLinkRttReader)
 register_driver("ble-dongle", NordicDongle)
 register_driver("nordic", NordicDongle)
 register_driver("gpd3303d", Gpd3303D)
 register_driver("gwinstek-psu", Gpd3303D)
 register_driver("s2lp", S2lpDevkit)
 register_driver("s2lp-devkit", S2lpDevkit)
+register_driver("tti1604", Tti1604)
+register_driver("dmm", Tti1604)
+register_driver("pico-sht30", PicoSht30)
+register_driver("thermometer", PicoSht30)
 
 
 @dataclass(frozen=True)
@@ -85,6 +95,8 @@ class InstrumentConfig:
     :param resource: Address or resource string; ``sim://`` for a simulator.
     :param timeout: I/O timeout in seconds.
     :param options: Extra keyword arguments for the driver's ``connect``.
+    :param event: Short name this instrument's event-log records carry, e.g.
+        ``TEMP``. A specification that names the instrument overrides it.
     """
 
     alias: str
@@ -92,6 +104,7 @@ class InstrumentConfig:
     resource: str
     timeout: float = 10.0
     options: Dict[str, Any] = field(default_factory=dict)
+    event: Optional[str] = None
 
     @classmethod
     def from_mapping(cls, alias: str, data) -> "InstrumentConfig":
@@ -121,12 +134,19 @@ class InstrumentConfig:
             timeout = float(data.get("timeout", 10.0))
         except (TypeError, ValueError) as exc:
             raise BenchConfigError("instrument %r has a non-numeric timeout" % alias) from exc
+        event = data.get("event")
+        if event is not None:
+            try:
+                event = validate_source_name(event, "instrument %r event name" % alias)
+            except ConfigurationError as exc:
+                raise BenchConfigError(str(exc)) from exc
         return cls(
             alias=alias,
             driver=str(driver).lower(),
             resource=str(resource),
             timeout=timeout,
             options=options,
+            event=event,
         )
 
 
@@ -139,6 +159,11 @@ class BenchConfig:
     description: str = ""
     source: str = ""
 
+    @property
+    def directory(self) -> Optional[str]:
+        """Directory of the bench file, or ``None`` for a bench built in code."""
+        return os.path.dirname(os.path.abspath(self.source)) if self.source else None
+
     @classmethod
     def from_mapping(cls, data, source: str = "") -> "BenchConfig":
         if not isinstance(data, dict):
@@ -148,13 +173,24 @@ class BenchConfig:
             raise BenchConfigError("bench configuration lists no instruments")
         if not isinstance(instruments, dict):
             raise BenchConfigError("'instruments' must be a mapping of alias to definition")
+        configs = {
+            alias: InstrumentConfig.from_mapping(alias, definition)
+            for alias, definition in instruments.items()
+        }
+        seen: Dict[str, str] = {}
+        for alias, item in configs.items():
+            if item.event is None:
+                continue
+            if item.event in seen:
+                raise BenchConfigError(
+                    "instruments %r and %r are both given event name %r; each "
+                    "instrument's records need a name of their own"
+                    % (seen[item.event], alias, item.event))
+            seen[item.event] = alias
         return cls(
             name=str(data.get("name", "bench")),
             description=str(data.get("description", "")),
-            instruments={
-                alias: InstrumentConfig.from_mapping(alias, definition)
-                for alias, definition in instruments.items()
-            },
+            instruments=configs,
             source=source,
         )
 
@@ -215,6 +251,56 @@ class Bench:
         self.config = config
         self.simulate = bool(simulate)
         self._open: Dict[str, Instrument] = {}
+        #: Event names the specification gives, by alias; they win (#126).
+        self._spec_events: Dict[str, str] = {}
+
+    # ------------------------------------------------------------------
+    # Event-log names
+    # ------------------------------------------------------------------
+    def name_events(self, names) -> None:
+        """Take the event names a specification gives its instruments.
+
+        They override the bench's. An instrument already open is renamed at
+        once, so a second specification in one run labels its own records.
+        """
+        self._spec_events = dict(names or {})
+        for alias, instrument in self._open.items():
+            instrument.event_source = self.event_source_for(alias)
+
+    def event_source_for(self, alias: str) -> str:
+        """The name *alias*'s records carry: the specification's, else the
+        bench's, else the driver's default."""
+        if alias in self._spec_events:
+            return self._spec_events[alias]
+        definition = self.config.instruments.get(alias)
+        if definition is not None and definition.event:
+            return definition.event
+        driver = _DRIVERS.get(definition.driver) if definition is not None else None
+        return getattr(driver, "EVENT_SOURCE", "BENCH")
+
+    def check_event_sources(self, aliases) -> None:
+        """Raise if two instruments a run uses would log under one name.
+
+        Defaults count: ``probe`` and ``rtt`` are both ``JLINK`` unless one is
+        named, and a log that cannot tell them apart is the fault this exists
+        to prevent.
+        """
+        seen: Dict[str, str] = {}
+        clashes: List[str] = []
+        for alias in sorted(set(aliases)):
+            if alias not in self.config.instruments:
+                continue                      # require() reports a missing alias
+            name = self.event_source_for(alias)
+            if name in seen:
+                clashes.append("%r and %r are both %s" % (seen[name], alias, name))
+            else:
+                seen[name] = alias
+        if clashes:
+            raise BenchConfigError(
+                "instruments would share an event-log name: %s. Give each its "
+                "own with 'event:' in the specification's instruments, or on "
+                "the bench" % "; ".join(clashes)
+            )
 
     # ------------------------------------------------------------------
     def require(self, aliases) -> None:
@@ -274,13 +360,45 @@ class Bench:
         driver = _DRIVERS[definition.driver]
         resource = "sim://" if self.simulate else definition.resource
         _LOG.info("connecting %s (%s) at %s", alias, definition.driver, resource)
-        instrument = driver.connect(
-            resource,
-            timeout=definition.timeout,
-            **definition.options,
-        )
+        options = self._resolve_options(alias, driver, definition.options)
+        name = self.event_source_for(alias)
+        # Named from construction, so opening the link and identifying are
+        # logged under the name too, not only what follows.
+        with connecting_as(name):
+            instrument = driver.connect(
+                resource,
+                timeout=definition.timeout,
+                **options,
+            )
+        if hasattr(instrument, "event_source"):
+            instrument.event_source = name
         self._open[alias] = instrument
         return instrument
+
+    def _resolve_options(self, alias: str, driver, options: Dict[str, Any]) -> Dict[str, Any]:
+        """Return *options* with each input file the driver declares found.
+
+        A relative path is looked for beside the bench file first, so a bench
+        file means the same thing wherever the runner is started from. A file
+        found nowhere is passed on unchanged rather than refused: a simulator
+        may never read it, and the driver that does read it says what is
+        missing better than the bench can. Where it was looked for is logged so
+        that message can be followed.
+        """
+        resolved = dict(options)
+        for name in input_path_names(driver.connect):
+            if name not in resolved:
+                continue
+            value = resolved[name]
+            found = resolve_input_path(value, self.config.directory, required=False)
+            if found is value and isinstance(value, str) and value and not os.path.isabs(value):
+                _LOG.warning(
+                    "%s option %s=%r not found; looked in %s",
+                    alias, name, value,
+                    ", ".join(search_locations(value, self.config.directory)),
+                )
+            resolved[name] = found
+        return resolved
 
     @property
     def is_simulated(self) -> bool:
@@ -319,6 +437,7 @@ class Bench:
             entry = {
                 "driver": type(instrument).__name__,
                 "resource": configured.resource if configured else "",
+                "event": self.event_source_for(alias),
             }
             try:
                 identity = instrument.identify()

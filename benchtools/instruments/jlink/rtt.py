@@ -35,11 +35,11 @@ import time
 from collections import deque
 from typing import Deque, List, Optional, Pattern, Protocol, Union, runtime_checkable
 
+from ...core.events import SourceLogger
 from ...core.errors import BenchToolsError, ConnectionFailedError, TransportTimeoutError
 
 __all__ = ["RttClient", "RttTimeout", "RttSource", "SocketRttBackend", "SimulatedRttBackend"]
 
-_LOG = logging.getLogger(__name__)
 
 #: How often the reader thread polls the source.
 _POLL_INTERVAL = 0.01
@@ -187,6 +187,8 @@ class RttClient:
         channel: int = 0,
         encoding: str = "utf-8",
     ) -> None:
+        #: Bound to the owning instrument's event-log name (#126).
+        self._logger = SourceLogger(logging.getLogger(__name__))
         self._backend = backend
         self._channel = int(channel)
         self._encoding = encoding
@@ -313,17 +315,23 @@ class RttClient:
             try:
                 self._pump()
             except Exception:  # noqa: BLE001 - a reader thread must not die quietly
-                _LOG.warning("RTT reader failed", exc_info=True)
+                self._logger.warning("RTT reader failed", exc_info=True)
                 return
             self._stop.wait(_POLL_INTERVAL)
 
     def _pump(self) -> None:
-        """Move whatever is available from the backend into the buffers."""
-        data = self._backend.rtt_poll()
-        if not data:
-            return
-        text = data.decode(self._encoding, errors="replace")
+        """Move whatever is available from the backend into the buffers.
+
+        Runs on the background reader thread and on the caller's thread (from
+        :meth:`read` and :meth:`read_lines`), so the poll is taken under the
+        lock too: two polls at once can race inside a backend - the simulator's
+        drain is check-then-pop - and could split a line between two callers.
+        """
         with self._lock:
+            data = self._backend.rtt_poll()
+            if not data:
+                return
+            text = data.decode(self._encoding, errors="replace")
             self._all_text.append(text)
             if self._log_handle is not None:
                 self._log_handle.write(text)
@@ -337,6 +345,7 @@ class RttClient:
                 self._partial = self._partial[index + 1 :]
                 self._pending.append(line)
                 self._history.append(line)
+                self._logger.debug("rtt: %s", line)
 
     # ------------------------------------------------------------------
     def read(self) -> str:

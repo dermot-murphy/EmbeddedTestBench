@@ -21,13 +21,13 @@ Traces to: JLINK-FR-001 .. JLINK-FR-100, JLINK-ARC-001, JLINK-DD-PROBE.
 
 from __future__ import annotations
 
-import logging
 import os
 import re
 import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
+from ...analysis.samples import SampleSet, extract_number
 from ...core.errors import (
     BenchToolsError,
     ConfigurationError,
@@ -37,10 +37,10 @@ from ...core.errors import (
 )
 from ...core.firmware import MANIFEST_NAME, FirmwareBuild
 from ...core.instrument import Instrument, InstrumentIdentity
+from ...core.paths import input_paths
 from ...core.transport.base import Transport
 from ...core.transport.mock import MockTransport
 from ...core.transport.process import ProcessTransport
-from ...core.validation import validate_range
 from .constants import (
     DEFAULT_GDB_PORT,
     DEFAULT_RTT_PORT,
@@ -54,7 +54,6 @@ from .constants import (
     HaltReason,
     JLINK_LIMITS,
     ProbeLimits,
-    ResetType,
     TimingMethod,
     WatchpointKind,
 )
@@ -76,7 +75,6 @@ __all__ = [
     "SectionVerdict",
 ]
 
-_LOG = logging.getLogger(__name__)
 
 #: Matches "Loading section .text, size 0x1234 lma 0x08000000".
 _LOAD_RE = re.compile(
@@ -215,6 +213,8 @@ class FlashResult:
     output: str = ""
     seconds: float = 0.0
     verify: Optional[VerifyResult] = None
+    #: Ranges kept across the flash, as ``address -> hex bytes`` written back.
+    preserved: Dict[int, str] = field(default_factory=dict)
 
     @property
     def bytes_written(self) -> int:
@@ -237,6 +237,10 @@ class FlashResult:
         }
         if self.verify is not None:
             summary["verify"] = self.verify.as_dict()
+        if self.preserved:
+            summary["preserved"] = {
+                "0x%08x" % address: data for address, data in self.preserved.items()
+            }
         return summary
 
 
@@ -256,6 +260,7 @@ class JLinkProbe(Instrument):
 
     SIMULATOR_CLASS = SimulatedJLink
     MODEL_NAME = "J-Link"
+    EVENT_SOURCE = "JLINK"
 
     def __init__(
         self,
@@ -287,11 +292,20 @@ class JLinkProbe(Instrument):
         self._halted = True
         self._cycle_counter_ready = False
         self._itm = ItmDecoder()
+        self._adopt(session, session.transport, server, rtt, self._itm)
+        #: Leave the core halted when the link closes. Off by default: the GDB
+        #: Server halts the core on attach and does not resume it on detach, so
+        #: without a resume every read or verify leaves the target stopped.
+        self.leave_halted = False
+        #: Attach to the target when the link opens. ``False`` is RTT only;
+        #: see :meth:`connect`.
+        self.attach_on_open = True
 
     # ------------------------------------------------------------------
     # Construction
     # ------------------------------------------------------------------
     @classmethod
+    @input_paths("elf", "firmware")
     def connect(
         cls,
         resource: str = "sim://",
@@ -310,6 +324,7 @@ class JLinkProbe(Instrument):
         auto_check_errors: bool = True,
         initialise: bool = True,
         start_server: bool = True,
+        attach: bool = True,
         **_ignored,
     ) -> "JLinkProbe":
         """Open a link to a target through a J-Link.
@@ -330,6 +345,14 @@ class JLinkProbe(Instrument):
         :param core_clock_hz: Core clock, for converting cycles to time. Defaults
             to the value in *limits*.
         :param start_server: Spawn a local GDB Server if none is listening.
+        :param attach: ``False`` reads RTT and nothing else, without ever
+            stopping the target: the GDB Server is started with ``-nohalt`` and
+            GDB never attaches. A GDB attach halts the core even with
+            ``-nohalt``, and a Nordic SoftDevice halted during a BLE link drops
+            the link and then faults (seen on 5C1712, #95), so a test that
+            talks to the target over BLE while reading its log needs this.
+            Anything but RTT needs the attach, and fails with GDB's own
+            "no target" error.
         """
         text = (resource or "sim://").strip()
         if core_clock_hz is not None:
@@ -357,6 +380,7 @@ class JLinkProbe(Instrument):
                 rtt_port=rtt_port,
                 serial_number=serial_number,
                 executable=server_executable,
+                extra_arguments=None if attach else ["-nohalt"],
             )
             if start_server:
                 server.start()
@@ -384,6 +408,7 @@ class JLinkProbe(Instrument):
             target_address=address,
             auto_check_errors=auto_check_errors,
         )
+        probe.attach_on_open = bool(attach)
         try:
             if initialise:
                 probe.initialise()
@@ -407,8 +432,10 @@ class JLinkProbe(Instrument):
             host, _, port = text.rpartition(":")
             try:
                 return (host or "127.0.0.1"), int(port)
-            except ValueError:
-                raise ConfigurationError("invalid port in probe resource %r" % resource)
+            except ValueError as exc:
+                raise ConfigurationError(
+                    "invalid port in probe resource %r" % resource
+                ) from exc
         return text, DEFAULT_GDB_PORT
 
     # ------------------------------------------------------------------
@@ -422,12 +449,18 @@ class JLinkProbe(Instrument):
             try:
                 self._rtt.stop()
             except Exception:  # noqa: BLE001 - closing must not raise
-                _LOG.debug("RTT did not stop cleanly", exc_info=True)
+                self._logger.debug("RTT did not stop cleanly", exc_info=True)
         try:
+            if self._attached and not self.leave_halted:
+                # Observed on nRF52840 with J-Link V9.42: after -target-detach
+                # alone the core stays halted (DHCSR 0x00030003) and a sensor
+                # stops advertising until it is reset.
+                self._session.execute_console("monitor go", allow_error=True, timeout=5.0)
+                self._halted = False
             if self._attached:
                 self._session.execute("-target-detach", allow_error=True, timeout=5.0)
         except Exception:  # noqa: BLE001
-            _LOG.debug("detach failed", exc_info=True)
+            self._logger.debug("resume or detach failed", exc_info=True)
         finally:
             self._attached = False
         try:
@@ -458,9 +491,10 @@ class JLinkProbe(Instrument):
 
         if self._elf:
             self.load_symbols(self._elf)
-        if self._target_address and self._target_address != "simulated":
-            self.attach()
-        elif self._target_address == "simulated":
+        if not self.attach_on_open:
+            self._logger.info("RTT only: not attaching, so the target is never halted")
+            self._halted = False
+        elif self._target_address:
             self.attach()
 
     # ------------------------------------------------------------------
@@ -512,6 +546,23 @@ class JLinkProbe(Instrument):
         firmware_match = re.search(r"(V\d+\.\d+\w*)", output)
         if firmware_match:
             firmware = firmware_match.group(1)
+        if not output.strip() and self._server is not None:
+            # J-Link GDB Server V9 rejects "monitor version" ('Unsupported remote
+            # command'). The banner of a server this driver started still says
+            # which probe it opened.
+            banner = self._server.probe_identity()
+            serial = banner.get("serial_number", "")
+            firmware = banner.get("firmware", "")
+            if banner:
+                output = ", ".join(
+                    "%s: %s" % (label, banner[key])
+                    for key, label in (
+                        ("firmware", "Firmware"),
+                        ("hardware", "Hardware"),
+                        ("serial_number", "S/N"),
+                    )
+                    if key in banner
+                )
         return InstrumentIdentity(
             raw=output.strip() or "J-Link (no version reported)",
             manufacturer="SEGGER",
@@ -523,15 +574,20 @@ class JLinkProbe(Instrument):
     # ------------------------------------------------------------------
     # Symbols and attachment
     # ------------------------------------------------------------------
+    @input_paths("elf")
     def load_symbols(self, elf: str) -> None:
         """Load debug symbols from an ELF file.
 
         Required for variables by name, source-line breakpoints and call stacks.
         """
-        if not os.path.exists(elf) and self._target_address != "simulated":
-            raise ConfigurationError("no such ELF file: %s" % elf)
+        self._check_image(elf)
         self._session.execute('-file-exec-and-symbols "%s"' % elf.replace("\\", "/"))
         self._elf = elf
+
+    def _check_image(self, path: str) -> None:
+        """Refuse a missing file before GDB is asked to read it."""
+        if not os.path.exists(path) and self._target_address != "simulated":
+            raise ConfigurationError("no such ELF file: %s" % path)
 
     def attach(self) -> None:
         """Attach GDB to the target through the GDB Server."""
@@ -565,36 +621,52 @@ class JLinkProbe(Instrument):
     # ------------------------------------------------------------------
     # Flash and verify
     # ------------------------------------------------------------------
+    @input_paths("path")
     def flash(
         self,
         path: Optional[str] = None,
         verify: bool = True,
         reset: bool = True,
         timeout: float = 180.0,
+        preserve: Sequence[Tuple[int, int]] = (),
     ) -> FlashResult:
         """Program an image onto the target.
 
-        :param path: Image to program; the loaded ELF when omitted.
+        :param path: Image to program - an ELF or an Intel HEX file; the loaded
+            ELF when omitted.
         :param verify: Compare the target against the file afterwards. On by
             default: programming that silently half-succeeded is the failure this
             catches, and it is cheap next to the write.
         :param reset: Reset and halt before programming. On by default, because
             programming a running target corrupts whatever it was doing.
         :param timeout: Seconds to allow; flashing a large image is slow.
-        :raises BenchToolsError: if verification was requested and failed.
+        :param preserve: ``(address, size)`` ranges read before programming and
+            written back afterwards. Flashing an nRF52840 image that holds a
+            UICR record erased the whole UICR page, and with it a sensor ID at
+            ``0x10001080`` that the image did not contain (issue #69).
+        :raises BenchToolsError: if verification was requested and failed, or a
+            preserved range does not read back as it was.
         """
         if path:
-            self.load_symbols(path)
-        if not self._elf:
+            self._check_image(path)
+        elif not self._elf:
             raise ConfigurationError(
                 "no image to flash: pass path=... or construct the probe with elf=..."
             )
         if reset:
             self.reset(halt=True)
+        kept = [(address, self.read_memory(address, size)) for address, size in preserve]
 
+        # The file is named to "load" and read as the executable only afterwards.
+        # GDB 15.2 on Windows, given an Intel HEX file on a mapped drive by
+        # "file" and then "load", reported "has changed; re-reading symbols" and
+        # exited with status 3 (issue #69). "load <file>" alone did not.
+        command = 'load "%s"' % path.replace("\\", "/") if path else "load"
         started = time.monotonic()
-        console = self._session.execute_console("load", timeout=timeout)
+        console = self._session.execute_console(command, timeout=timeout)
         elapsed = time.monotonic() - started
+        if path:
+            self.load_symbols(path)
 
         sections: Dict[str, Tuple[int, int]] = {}
         for match in _LOAD_RE.finditer(console.text):
@@ -608,7 +680,7 @@ class JLinkProbe(Instrument):
                 "GDB said:\n%s" % (console.text or "(no output)")
             )
         result = FlashResult(sections=sections, output=console.text, seconds=elapsed)
-        _LOG.info(
+        self._logger.info(
             "flashed %d bytes in %d section(s) in %.2f s",
             result.bytes_written, len(sections), elapsed,
         )
@@ -620,9 +692,25 @@ class JLinkProbe(Instrument):
                     "flash verification failed: section(s) %s do not match %s"
                     % (", ".join(result.verify.mismatched) or "none reported", self._elf)
                 )
+        result.preserved = self._restore(kept)
         self._cycle_counter_ready = False
         return result
 
+    def _restore(self, kept: Sequence[Tuple[int, bytes]]) -> Dict[int, str]:
+        """Write back ranges read before a flash, checking each one sticks."""
+        restored: Dict[int, str] = {}
+        for address, data in kept:
+            if self.read_memory(address, len(data)) != data:
+                self.write_memory(address, data)
+                if self.read_memory(address, len(data)) != data:
+                    raise BenchToolsError(
+                        "could not restore %d preserved byte(s) at 0x%08x"
+                        % (len(data), address)
+                    )
+            restored[address] = data.hex()
+        return restored
+
+    @input_paths("path")
     def image_build(self, path: Optional[str] = None) -> FirmwareBuild:
         """What the build system said about the image on the target.
 
@@ -666,6 +754,7 @@ class JLinkProbe(Instrument):
             ),
         )
 
+    @input_paths("path")
     def verify(self, path: Optional[str] = None, timeout: float = 180.0) -> VerifyResult:
         """Compare the target's memory against an image file.
 
@@ -686,9 +775,29 @@ class JLinkProbe(Instrument):
         ]
         return VerifyResult(sections=sections, output=console.text)
 
-    def erase(self, timeout: float = 120.0) -> str:
-        """Erase the target's flash."""
-        return self.monitor("flash erase", timeout=timeout)
+    def erase(self, timeout: float = 120.0, blank_check_address: Optional[int] = 0) -> str:
+        """Erase the target's flash, and check that it did.
+
+        The core is reset and halted first. On an nRF52840 running its
+        firmware, "monitor flash erase" answered "Flash erase: O.K." and erased
+        nothing; after a reset and halt it erased flash and UICR (issue #69).
+        That is why the result is checked rather than taken from the server.
+
+        :param blank_check_address: A flash word that must read erased
+            (``0xFFFFFFFF``) afterwards; ``None`` skips the check, for a part
+            whose flash is not at address 0.
+        :raises BenchToolsError: if that word is not erased.
+        """
+        self.reset(halt=True, timeout=timeout)
+        output = self.monitor("flash erase", timeout=timeout)
+        if blank_check_address is not None:
+            word = self.read_word(blank_check_address)
+            if word != 0xFFFFFFFF:
+                raise BenchToolsError(
+                    "flash erase reported %r but 0x%08x still reads 0x%08x"
+                    % (output.strip(), blank_check_address, word)
+                )
+        return output
 
     # ------------------------------------------------------------------
     # Run control
@@ -1116,6 +1225,18 @@ class JLinkProbe(Instrument):
         value = text.strip()
         if not value:
             return None
+        # A structure: "{a = 1, b = 2}". First, because a field may hold a quoted
+        # string, and the string rule below would then return that string as the
+        # whole structure (seen on hardware with a struct holding a char pointer).
+        if value.startswith("{") and value.endswith("}"):
+            fields: Dict[str, Any] = {}
+            for part in JLinkProbe._split_fields(value[1:-1]):
+                key, equals, item = part.partition("=")
+                if equals:
+                    fields[key.strip()] = JLinkProbe._parse_gdb_value(item)
+            if fields:
+                return fields
+            return value
         # A pointer or a cast: "(uint32_t *) 0x20000104".
         pointer = re.match(r"^\([^)]*\)\s*(0x[0-9a-fA-F]+)", value)
         if pointer:
@@ -1133,17 +1254,35 @@ class JLinkProbe(Instrument):
             return float(value)
         except ValueError:
             pass
-        # A structure: "{a = 1, b = 2}".
-        if value.startswith("{") and value.endswith("}"):
-            fields: Dict[str, Any] = {}
-            for part in re.split(r",(?![^{]*\})", value[1:-1]):
-                if "=" not in part:
-                    continue
-                key, _, item = part.partition("=")
-                fields[key.strip()] = JLinkProbe._parse_gdb_value(item)
-            if fields:
-                return fields
+        if value in ("true", "false"):
+            return value == "true"
         return value
+
+    @staticmethod
+    def _split_fields(body: str) -> List[str]:
+        """Split a structure's body at top-level commas, not inside a nested
+        structure or a quoted string or character."""
+        parts: List[str] = []
+        depth, start, quote, escaped = 0, 0, "", False
+        for index, char in enumerate(body):
+            if quote:
+                if escaped:
+                    escaped = False
+                elif char == "\\":
+                    escaped = True
+                elif char == quote:
+                    quote = ""
+            elif char in "\"'":
+                quote = char
+            elif char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+            elif char == "," and depth == 0:
+                parts.append(body[start:index])
+                start = index + 1
+        parts.append(body[start:])
+        return parts
 
     # ------------------------------------------------------------------
     # Call stack
@@ -1197,7 +1336,13 @@ class JLinkProbe(Instrument):
                 "channel %d is beyond the %d configured RTT channels"
                 % (channel, self._limits.max_rtt_channels)
             )
-        self.monitor("rtt start", timeout=10.0)
+        # J-Link GDB Server V9.42 answers "Target does not support this
+        # command": it finds the RTT control block itself and serves channel 0
+        # on its RTT port unasked (issue #69). Older servers want the command.
+        # Without an attach there is no target to send it to, and V9.42 does
+        # not need it (#95).
+        if self._attached:
+            self._session.execute_console("monitor rtt start", allow_error=True, timeout=10.0)
         self.rtt.start(log_path=log_path)
 
     def rtt_stop(self) -> None:
@@ -1216,6 +1361,41 @@ class JLinkProbe(Instrument):
     def rtt_expect(self, pattern: str, timeout: float = 5.0):
         """Wait for an RTT line matching *pattern* and return the match."""
         return self.rtt.expect(pattern, timeout=timeout)
+
+    def rtt_samples(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+        self,
+        pattern: str,
+        count: int = 5,
+        timeout: float = 30.0,
+        scale: float = 1.0,
+        unit: str = "",
+        name: str = "",
+    ) -> SampleSet:
+        """Take a number from each of the next *count* RTT lines that match.
+
+        Only lines that arrive after the call count: a line already waiting
+        was logged before the test asked, and would be yesterday's reading.
+
+        :param pattern: Regular expression whose first group is the number,
+            e.g. ``MCU Temperature:\\s*(-?[0-9]+)mC``.
+        :param timeout: Seconds to wait for all *count*. Fewer is returned
+            rather than raised, with ``count`` saying how many came: a target
+            that went quiet is a failed test, not a broken bench.
+        :param scale: Multiplies each number, e.g. ``0.001`` for mC to degrees C.
+
+        Traces to: JLINK-FR-102.
+        """
+        samples = SampleSet(name=name or pattern, unit=unit, requested=int(count))
+        self.rtt.read_lines()
+        started = time.monotonic()
+        while samples.count < samples.requested and time.monotonic() - started < timeout:
+            for line in self.rtt.read_lines():
+                value = extract_number(line, pattern)
+                if value is not None and samples.count < samples.requested:
+                    samples.add(value * float(scale), source=line.strip(),
+                                at=time.monotonic() - started)
+            time.sleep(0.05)
+        return samples
 
     def rtt_lines_within(self, timeout: float = 2.0) -> int:
         """Count the RTT lines the target emits within *timeout* seconds.
@@ -1237,7 +1417,7 @@ class JLinkProbe(Instrument):
         while seen == 0 and time.monotonic() < deadline:
             time.sleep(min(0.05, max(0.0, deadline - time.monotonic())))
             seen += len(self.rtt_read_lines())
-        _LOG.info("%d RTT line(s) within %.2f s", seen, timeout)
+        self._logger.info("%d RTT line(s) within %.2f s", seen, timeout)
         return seen
 
     def rtt_command(self, text: str, pattern: str = ".+", timeout: float = 5.0):
@@ -1338,7 +1518,7 @@ class JLinkProbe(Instrument):
                 try:
                     self.delete_breakpoint(breakpoint_.number)
                 except BenchToolsError:  # pragma: no cover - best effort cleanup
-                    _LOG.debug("could not delete breakpoint %d", breakpoint_.number)
+                    self._logger.debug("could not delete breakpoint %d", breakpoint_.number)
 
         return TimingResult(
             method=chosen,
@@ -1429,6 +1609,7 @@ class JLinkProbe(Instrument):
     def _measure_swo(self, start, end, repeat, port, prescaler, timeout) -> TimingResult:
         """Measure from ITM timestamps, without halting the target."""
         decoder = ItmDecoder(prescaler=prescaler)
+        self._adopt(decoder)
         events = self._collect_itm(decoder, port, repeat, timeout)
         if len(events) < 2:
             raise MeasurementError(
@@ -1497,3 +1678,23 @@ class JLinkProbe(Instrument):
             return stream.collect(port=port, count=repeat * 2, timeout=timeout)
         finally:
             stream.close()
+
+
+class JLinkRttReader(JLinkProbe):
+    """A J-Link that reads RTT and never stops the target.
+
+    :meth:`JLinkProbe.connect` with ``attach=False``, always. A specification
+    that talks to the target over BLE while it reads the target's log declares
+    its probe as ``jlink-rtt``; a bench that offers an ordinary ``jlink`` is
+    then refused before anything connects, rather than trusted to have set
+    the option - an attach halts a SoftDevice mid-link, and 5C1712 faulted
+    after it (#95).
+
+    Traces to: JLINK-FR-101.
+    """
+
+    @classmethod
+    @input_paths("elf", "firmware")
+    def connect(cls, *args, **kwargs) -> "JLinkProbe":
+        kwargs["attach"] = False
+        return super().connect(*args, **kwargs)

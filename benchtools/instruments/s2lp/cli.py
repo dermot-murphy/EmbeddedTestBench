@@ -22,8 +22,10 @@ from typing import Optional, Sequence
 from ... import __version__
 from ...core.errors import BenchToolsError
 from . import registers as reg
-from .constants import DEFAULT_BAUDRATE, MODEL, Modulation, Strobe
+from .constants import BOARDS, CRC_MODES, DEFAULT_BAUDRATE, MODEL, Modulation, Strobe
+from .kepler import decode_kepler_frame
 from .s2lp import S2lpDevkit
+from .traffic import FRAME_REGISTERS
 
 __all__ = ["main", "build_parser"]
 
@@ -54,10 +56,13 @@ def _cmd_info(radio: S2lpDevkit, args) -> int:
         {
             "identity": identity.raw,
             "manufacturer": identity.manufacturer,
-            "board": radio.board,
+            "board": radio.board or None,
             "firmware": identity.firmware,
+            "library": radio.library_version,
+            "silicon_version": "0x%02X" % radio.silicon_version,
             "xtal_hz": radio.xtal_hz,
-            "band_hz": list(radio.band),
+            "band_hz": list(radio.band) if radio.band else None,
+            "eeprom": radio.eeprom.as_dict() if radio.eeprom else None,
             "radio": radio.radio_info(),
             "log": radio.log_path,
             "packet_log": radio.packet_log_path,
@@ -192,12 +197,64 @@ def _cmd_capture(radio: S2lpDevkit, args) -> int:
     payload["summary"] = capture.describe()
     if not capture.is_continuous:
         payload["warning"] = (
-            "the radio was re-armed %d time(s) during this capture, and heard "
-            "nothing in between. Absence of a packet here is not evidence it "
-            "was not transmitted." % capture.gaps
+            "the radio was re-armed %d time(s) during this capture, by the %s, "
+            "and heard nothing while being re-armed. Absence of a packet here "
+            "is not evidence it was not transmitted." % (capture.gaps, capture.rearm)
         )
     _emit(payload, args.json)
     return _EXIT_OK if capture.count else _EXIT_ERROR
+
+
+def _cmd_packets(radio: S2lpDevkit, args) -> int:
+    """Show the packet handler's setup, or set it."""
+    if args.sync is not None or args.crc or args.variable or args.preamble:
+        info = radio.configure_packets(
+            preamble=args.preamble or 64, sync_bits=args.sync_bits,
+            sync_word=int(args.sync, 0) if args.sync else 0x88888888,
+            variable_length=args.variable, crc=args.crc or "8")
+    else:
+        info = radio.packet_info()
+    info["tx_source"] = radio.read_field("PCKTCTRL1", "TXSOURCE")
+    _emit(info, args.json)
+    return _EXIT_OK
+
+
+def _cmd_stream(radio: S2lpDevkit, args) -> int:
+    """Receive frames until stopped, one JSON line each, raw and decoded."""
+    decoder = decode_kepler_frame if args.decode == "kepler" else None
+    registers = tuple(args.registers.split(",")) if args.registers else None
+    frames = rejected = undecoded = 0
+    try:
+        for packet in radio.stream(decoder=decoder, count=args.count, timeout=args.timeout,
+                                   mode=args.mode, registers=registers):
+            print(json.dumps(packet.as_dict(), sort_keys=True), flush=True)
+            if not packet.ok:
+                rejected += 1
+            elif decoder is not None and packet.decoded is None:
+                undecoded += 1
+            frames += 1
+    except KeyboardInterrupt:
+        radio.stop()
+    summary = {"frames": frames, "rejected": rejected, "undecoded": undecoded}
+    print(json.dumps({"summary": summary}), file=sys.stderr)
+    if args.json:
+        _emit(summary, args.json)
+    return _EXIT_OK if frames else _EXIT_ERROR
+
+
+def _cmd_preamble(radio: S2lpDevkit, args) -> int:
+    """Measure preamble length from PQI; with --expect-pairs, check it."""
+    if args.expect_pairs is not None:
+        if not args.source:
+            print("error: --expect-pairs needs --source", file=sys.stderr)
+            return _EXIT_ERROR
+        check = radio.check_preamble(args.expect_pairs, source=args.source, count=args.count,
+                                     timeout=args.timeout, tolerance_pairs=args.tolerance)
+        _emit(check, args.json)
+        return _EXIT_OK if check["passed"] else _EXIT_ERROR
+    measured = radio.measure_preamble(source=args.source, count=args.count, timeout=args.timeout)
+    _emit({source: m.as_dict() for source, m in measured.items()}, args.json)
+    return _EXIT_OK if measured else _EXIT_ERROR
 
 
 def _cmd_strobe(radio: S2lpDevkit, args) -> int:
@@ -219,7 +276,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--baudrate", type=int, default=DEFAULT_BAUDRATE,
                         help="line rate of ST's firmware (default %d)" % DEFAULT_BAUDRATE)
+    parser.add_argument("--board", choices=sorted(BOARDS),
+                        help="which kit board this is; the firmware does not say, "
+                             "and without it only the synthesiser's range is checked")
     parser.add_argument("--timeout", type=float, default=5.0, help="reply timeout in seconds")
+    parser.add_argument("--setup", metavar="REGS",
+                        help="reset the radio to its register defaults and apply this "
+                             "register file right after connecting, e.g. to "
+                             "set up the packet handler before tx or rx")
     parser.add_argument("--log", metavar="PATH", help="raw session log: every line, both ways")
     parser.add_argument("--packet-log", metavar="PATH", help="structured packet log (JSON Lines)")
     parser.add_argument("--json", metavar="PATH", help="also write the JSON result here")
@@ -285,6 +349,41 @@ def build_parser() -> argparse.ArgumentParser:
                               "(leaves gaps in which nothing is heard)")
     capture.set_defaults(handler=_cmd_capture)
 
+    packets = subparsers.add_parser(
+        "packets", help="show or set the basic packet handler (and TX source)")
+    packets.add_argument("--preamble", type=int, help="PREAMBLE_LEN value (default 64)")
+    packets.add_argument("--sync", metavar="WORD", help="sync word, e.g. 0xB19C0CA7")
+    packets.add_argument("--sync-bits", type=int, default=32, help="sync length in bits")
+    packets.add_argument("--variable", action="store_true", help="variable length (a length byte)")
+    packets.add_argument("--crc", choices=sorted(CRC_MODES), help="CRC mode")
+    packets.set_defaults(handler=_cmd_packets)
+
+    stream = subparsers.add_parser(
+        "stream", help="receive frames until stopped: one JSON line each, with registers")
+    stream.add_argument("--count", type=int, help="stop after this many frames")
+    stream.add_argument("--timeout", type=float, help="stop after this many seconds")
+    stream.add_argument("--mode", choices=["batch", "polled"], default="batch",
+                        help="batch (default): ST's receive loop, as its GUI uses, which "
+                             "misses the fewest frames; polled: one receive per frame, "
+                             "with registers read after each, which misses close frames")
+    stream.add_argument("--registers", metavar="NAMES",
+                        help="polled mode: comma-separated registers to read after each "
+                             "frame (default %s)" % ",".join(FRAME_REGISTERS))
+    stream.add_argument("--decode", choices=["kepler"], help="decode each payload")
+    stream.set_defaults(handler=_cmd_stream)
+
+    preamble = subparsers.add_parser(
+        "preamble", help="measure transmitters' preamble length from PQI, or check one")
+    preamble.add_argument("--source", help="only this sensor, e.g. 5C1712")
+    preamble.add_argument("--expect-pairs", type=int,
+                          help="check against this preamble length in bit-pairs "
+                               "(expected PQI = 2 x pairs - 1, at most 255)")
+    preamble.add_argument("--tolerance", type=int, default=2,
+                          help="bit-pairs the best frame may fall short by (default 2)")
+    preamble.add_argument("--count", type=int, help="stop after this many frames")
+    preamble.add_argument("--timeout", type=float, default=120.0, help="seconds to listen")
+    preamble.set_defaults(handler=_cmd_preamble)
+
     strobe = subparsers.add_parser("strobe", help="send a command strobe")
     strobe.add_argument("name", choices=sorted(Strobe.BY_NAME))
     strobe.set_defaults(handler=_cmd_strobe)
@@ -309,6 +408,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             args.resource,
             baudrate=args.baudrate,
             timeout=args.timeout,
+            board=args.board or "",
             log_path=args.log,
             packet_log=args.packet_log,
         )
@@ -317,6 +417,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return _EXIT_ERROR
 
     try:
+        if args.setup:
+            radio.apply_configuration(args.setup, reset="defaults")
         return args.handler(radio, args)
     except BenchToolsError as exc:
         print("error: %s" % exc, file=sys.stderr)
