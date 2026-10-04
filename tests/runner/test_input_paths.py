@@ -1,4 +1,4 @@
-"""Specifications and bench files run from outside the TestTools checkout.
+"""Specifications and bench files run from outside the EmbeddedTestBench checkout.
 
 The runner is normally started from the repository of the firmware under test,
 not from this one. Every input file a specification or a bench file names must

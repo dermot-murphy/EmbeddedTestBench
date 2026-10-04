@@ -3,7 +3,7 @@
 A specification and a bench file name the files a driver reads - a register
 file, a command document, a firmware build - by a path relative to something.
 Opened as given, that something is the current directory, so the same file is
-found when the runner is started in the TestTools checkout and is not found
+found when the runner is started in the EmbeddedTestBench checkout and is not found
 when it is started in the repository of the firmware under test, which is the
 normal case. The test then errors for a reason that has nothing to do with the
 thing under test (issue #116).
@@ -18,7 +18,7 @@ Two halves keep the knowledge where it belongs:
   because only the runner knows which file declared them.
 
 A relative path is looked for, in order, beside the file that names it, in the
-current directory, and in the TestTools checkout. The declaring file comes
+current directory, and in the EmbeddedTestBench checkout. The declaring file comes
 first so a specification means the same thing wherever it is run from; the
 current directory comes before the checkout so a bench file that names the
 firmware repository's own ``build/`` keeps finding it there. Output paths are

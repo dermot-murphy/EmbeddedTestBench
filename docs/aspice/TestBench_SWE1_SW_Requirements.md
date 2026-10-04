@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE1-001 | **Version** | 1.20 |
+| **Document ID** | TB-SWE1-001 | **Version** | 1.21 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -52,6 +52,7 @@
 | 1.18 | 2026-10-03 | Claude | #155: VIEW-FR-037 … -039 added - rf_monitor's Diagnostics and Sync screens. |
 | 1.19 | 2026-10-03 | Claude | #156: VIEW-FR-040 … -042 added - notes saved with the run, and the report export as HTML, printable to PDF. |
 | 1.20 | 2026-10-03 | Claude | #157: S2LP-FR-084 (`read_setup`), RUN-FR-066 (`read_setup` over the control channel) and VIEW-FR-043 … -045 (the ST GUI page) added. |
+| 1.21 | 2026-10-04 | Claude | #170: RUN-FR-007 and RUN-FR-017 say "the EmbeddedTestBench checkout" after the repository rename. The requirements are unchanged. |
 
 ---
 
@@ -912,7 +913,7 @@ Drive discovery on Linux and macOS has not been tried on hardware.
 | RUN-FR-004 | Instruments shall connect on first use, and whatever was opened shall be closed on exit, including after a failure. | STK-08 | Test |
 | RUN-FR-005 | The runner shall support replacing every instrument with its simulator, so a specification can be exercised without hardware. | STK-08 | Test |
 | RUN-FR-006 | A run shall be recorded as simulated whenever no instrument on the bench is real hardware, so simulated results cannot be mistaken for measurements. | STK-08 | Test |
-| RUN-FR-007 | A bench option that a driver declares as an input file, given as a relative path, shall be looked for in the bench file's directory, then the working directory, then the TestTools checkout, and the first that exists used. One found in none shall be passed to the driver unchanged and the locations searched logged, since a simulator may not read it. The runner is normally started in the repository of the firmware under test, not in this one (#116). | STK-08 | Test |
+| RUN-FR-007 | A bench option that a driver declares as an input file, given as a relative path, shall be looked for in the bench file's directory, then the working directory, then the EmbeddedTestBench checkout, and the first that exists used. One found in none shall be passed to the driver unchanged and the locations searched logged, since a simulator may not read it. The runner is normally started in the repository of the firmware under test, not in this one (#116). | STK-08 | Test |
 | RUN-FR-008 | A specification shall be able to allocate an event-log name to each instrument it uses, and a bench to attach one to each actual instrument. The specification's name shall win, the bench's apply where the specification gives none, and the driver's default where neither does. An invalid name, or two instruments given one name in a specification or a bench, shall be refused at load; two instruments a run uses that would share a name, defaults included, shall be refused before any instrument connects. Each instrument's name shall appear in the run record and the report (#126). | STK-08, STK-19 | Test |
 
 ### 16.2 Test specification
@@ -926,7 +927,7 @@ Drive discovery on Linux and macOS has not been tried on hardware.
 | RUN-FR-014 | A malformed specification shall be rejected with a message identifying what to fix. | STK-08 | Test |
 | RUN-FR-015 | A test shall be markable as skipped, with a reason. | STK-08 | Test |
 | RUN-FR-016 | A step shall be able to save its result under a name, and any later step shall be able to use that saved value - or a value addressed inside it - as an argument or as a limit, optionally rendered through a format template. A reference to a name nothing has saved shall be refused, naming what has been saved. Without this a chained test would have to write down what an earlier step established, which makes the test assert its own input. | STK-08, STK-16 | Test |
-| RUN-FR-017 | A step argument that the driver declares as an input file, given as a relative path, shall be looked for in the specification's directory, then the working directory, then the TestTools checkout, and the first that exists used. One found in none shall be an execution error naming the argument and every location searched. An output path shall be written relative to the working directory, as before. A specification shall mean the same thing wherever the runner is started from (#116). | STK-08 | Test |
+| RUN-FR-017 | A step argument that the driver declares as an input file, given as a relative path, shall be looked for in the specification's directory, then the working directory, then the EmbeddedTestBench checkout, and the first that exists used. One found in none shall be an execution error naming the argument and every location searched. An output path shall be written relative to the working directory, as before. A specification shall mean the same thing wherever the runner is started from (#116). | STK-08 | Test |
 
 ### 16.3 Limits
 

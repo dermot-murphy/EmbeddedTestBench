@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE2-001 | **Version** | 0.11 |
+| **Document ID** | TB-SWE2-001 | **Version** | 0.12 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -33,6 +33,7 @@
 | 0.9 | 2026-10-03 | Claude | #136: RUN-ARC-001 includes the run control channel, bound to 127.0.0.1 only. |
 | 0.10 | 2026-10-03 | Claude | #137: VIEW-ARC-001 added - the test run viewer, the top layer above the runner; §5 layering diagram and rule extended to it. |
 | 0.11 | 2026-10-03 | Claude | #141: VIEW-ARC-001 may listen beyond 127.0.0.1 with an access token; the runner's control channel stays on 127.0.0.1, so only the viewer is exposed. |
+| 0.12 | 2026-10-04 | Claude | #170: "the TestTools checkout" changed to "the EmbeddedTestBench checkout" after the repository rename. The architecture is unchanged. |
 
 ---
 
@@ -668,7 +669,7 @@ runner resolves the marked arguments of a step against the specification's
 directory (RUN-FR-017); before connecting an instrument, the bench resolves the
 marked options of `connect` against the bench file's directory (RUN-FR-007).
 Each searches the declaring file's directory, then the working directory, then
-the TestTools checkout. The mark lives in the core so every element can apply it
+the EmbeddedTestBench checkout. The mark lives in the core so every element can apply it
 without importing the runner.
 
 **Alternatives.** Resolving every string argument that happens to name an

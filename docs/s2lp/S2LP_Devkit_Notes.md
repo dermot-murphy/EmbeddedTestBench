@@ -273,7 +273,7 @@ tests:
 ```
 
 `specs/radio_link.yaml` runs exactly that. A relative `source` is looked for
-beside the specification, then in the working directory, then in the TestTools
+beside the specification, then in the working directory, then in the EmbeddedTestBench
 checkout, so the shipped configurations are found wherever the runner is
 started from (#116; [Bench Runner Guide §6.2](../Bench_Runner_Guide.md#62-relative-paths-and-where-the-runner-is-started)).
 

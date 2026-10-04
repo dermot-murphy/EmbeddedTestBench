@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SVD-001 | **Version** | 0.2 |
+| **Document ID** | TB-SVD-001 | **Version** | 0.3 |
 | **Project** | TestBench | **Date** | 2026-09-23 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -24,6 +24,7 @@
 |---|---|---|---|
 | 0.1 | 2026-09-19 | Claude | Initial |
 | 0.2 | 2026-09-23 | Claude | Known problem 6 restated: the multimeter is implemented but unconfirmed against hardware, rather than deferred. |
+| 0.3 | 2026-10-04 | Claude | #170: §4 repository identifier updated for the rename from `dermot-murphy/TestTools` to `dermot-murphy/EmbeddedTestBench`; the former name is kept beside it. |
 
 ---
 
@@ -59,7 +60,7 @@ not here.
 |---|---|
 | **Baseline** | Document baseline — the first TestBench ASPICE set |
 | **Status** | **Draft.** Not yet tagged; this SVD describes the state on the working branch |
-| **Repository** | `dermot-murphy/TestTools` |
+| **Repository** | `dermot-murphy/EmbeddedTestBench` (formerly `dermot-murphy/TestTools`) |
 | **Branch** | `claude/tek-3014b-scope-driver-b9ikvm` |
 | **Date** | 2026-09-19 |
 

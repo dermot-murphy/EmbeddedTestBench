@@ -765,9 +765,9 @@ directory to find what it names (#116):
 
 ```bash
 cd ~/firmware-under-test
-benchtools run ~/TestTools/specs/radio_link.yaml --simulate     # finds configs/ in TestTools
-benchtools run ~/TestTools/specs/sensor_bringup.yaml \
-    --bench ~/TestTools/benches/lab1.yaml                        # finds ./build here
+benchtools run ~/EmbeddedTestBench/specs/radio_link.yaml --simulate     # finds configs/ in EmbeddedTestBench
+benchtools run ~/EmbeddedTestBench/specs/sensor_bringup.yaml \
+    --bench ~/EmbeddedTestBench/benches/lab1.yaml                       # finds ./build here
 ```
 
 **Input files** - a file a driver reads - given as a relative path are looked for
@@ -776,7 +776,7 @@ in this order, and the first that exists is used:
 1. the directory of the file that names it: the specification for a step
    argument, the bench file for a bench option;
 2. the working directory;
-3. the TestTools checkout (where `configs/`, `specs/` and `benches/simulated/`
+3. the EmbeddedTestBench checkout (where `configs/`, `specs/` and `benches/simulated/`
    live).
 
 An absolute path is used as given. A step argument found nowhere is an **error**
