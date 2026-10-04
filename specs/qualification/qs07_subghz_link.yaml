@@ -1,9 +1,9 @@
-# QS-07 - Sub-GHz link, on hardware (TB-SYS5-001, #176).
+# QS-07 - Sub-GHz link, on hardware (ETB-SYS5-001, #176).
 #
 # Programme the S2-LP from a register file and read every register back; write
 # a register and read it back; transmit a packet; receive a frame from the
 # Kepler sensor after resetting it over BLE. All traffic is logged as rf_packet
-# records in the event log, which TB-SYS5-002 checks.
+# records in the event log, which ETB-SYS5-002 checks.
 #
 # Only the frame's identity is asserted - its type and the sensor that sent it.
 # What a Kepler frame carries is the sensor firmware's business and out of the
@@ -11,7 +11,7 @@
 #
 # There is one S2-LP kit on the bench, so a transmitted packet has no second
 # receiver here: the transmission is shown to complete and to be logged, not
-# to arrive (TB-SYS5-002 records this).
+# to arrive (ETB-SYS5-002 records this).
 #
 #   python -m benchtools run specs/qualification/qs07_subghz_link.yaml --bench benches/bench_pc.yaml
 
@@ -20,7 +20,7 @@ description: >
   Programme and read back the S2-LP's registers, write and read one back,
   transmit a packet, and receive a VERSION frame from sensor 5C1712 after an
   MCU reset over BLE.
-requirements: [TB-SYS2-046, TB-SYS2-047, TB-SYS2-084]
+requirements: [ETB-SYS2-046, ETB-SYS2-047, ETB-SYS2-084]
 
 parameters:
   receive_setup: configs/s2lp_kepler_433_rx.regs
@@ -36,7 +36,7 @@ teardown:
 
 tests:
   - name: A register file is programmed and every register it names reads back
-    requirement: TB-SYS2-046
+    requirement: ETB-SYS2-046
     steps:
       - do: s2lp.apply_configuration
         with: {source: {param: receive_setup}, reset: defaults, verify: true}
@@ -45,14 +45,14 @@ tests:
           - {name: registers_mismatched, measure: mismatches.length, equals: 0}
 
   - name: Every register can be read
-    requirement: TB-SYS2-046
+    requirement: ETB-SYS2-046
     steps:
       - do: s2lp.read_all_registers
         expect:
           - {name: registers_read, measure: length, minimum: 100}
 
   - name: A register is written and reads back, then is restored
-    requirement: TB-SYS2-046
+    requirement: ETB-SYS2-046
     steps:
       - do: s2lp.read_register
         with: {which: SYNC0}
@@ -73,16 +73,16 @@ tests:
           - {name: sync0_restored, format: "0x{:02X}", equals: {from: sync0}}
 
   - name: A packet is transmitted and recorded
-    requirement: TB-SYS2-046
+    requirement: ETB-SYS2-046
     steps:
       - do: s2lp.transmit
-        with: {data: "TB-SYS5-002 QS-07", note: "qualification transmit"}
+        with: {data: "ETB-SYS5-002 QS-07", note: "qualification transmit"}
         expect:
           - {name: bytes_sent, measure: length, equals: 17}
           - {name: firmware_error_code, measure: error, equals: 0}
 
   - name: A frame from the sensor is received after a reset over BLE
-    requirement: TB-SYS2-046
+    requirement: ETB-SYS2-046
     steps:
       # The receive setup again: the transmit set the packet length.
       - do: s2lp.apply_configuration

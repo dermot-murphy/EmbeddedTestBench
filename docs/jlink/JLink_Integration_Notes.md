@@ -135,10 +135,10 @@ driver is verified against a simulated probe (CON-04).
 
 | ID | Item | Why it is open | How to discharge |
 |---|---|---|---|
-| JLINK-OPEN-01 | Execution on a Windows host | **Closed 2026-10-04** (TB-SYS5-002 §6.1, §6.2). Every probe scenario of the hardware qualification ran on Windows 10, with GDB Server V9.42 and Arm GNU 14.2 GDB | — |
-| JLINK-OPEN-02 | GDB/MI output of the installed GDB | **Closed 2026-10-04** (TB-SYS5-002 §6.2). Info, call stack, a variable by name, a breakpoint on `main`, an instruction step and `compare-sections` were parsed from GDB 14.2 against nRF52840 sensor 5C1712. One defect was found in register reads after `monitor reset` (#178), not in the MI parsing | — |
+| JLINK-OPEN-01 | Execution on a Windows host | **Closed 2026-10-04** (ETB-SYS5-002 §6.1, §6.2). Every probe scenario of the hardware qualification ran on Windows 10, with GDB Server V9.42 and Arm GNU 14.2 GDB | — |
+| JLINK-OPEN-02 | GDB/MI output of the installed GDB | **Closed 2026-10-04** (ETB-SYS5-002 §6.2). Info, call stack, a variable by name, a breakpoint on `main`, an instruction step and `compare-sections` were parsed from GDB 14.2 against nRF52840 sensor 5C1712. One defect was found in register reads after `monitor reset` (#178), not in the MI parsing | — |
 | JLINK-OPEN-03 | **SWO/ITM local timestamp scaling** | The tick-to-cycle scaling depends on the trace prescaler configured by the server and the firmware. Implemented from the ARMv7-M architecture reference manual; unconfirmed | Measure a known interval with `CYCLE_COUNTER` and with `SWO_ITM` and compare. Until then, quote SWO figures as provisional (CON-05) |
-| JLINK-OPEN-04 | RTT control-block discovery and flash timing | **Figures recorded 2026-10-04** (TB-SYS5-002 §9): chip erase 0.6 s; flash and verify 14.7 s for a 1.17 MB HEX (V10 with SoftDevice) and 17.0 s for 1.34 MB (V11 with SoftDevice and bootloader); RTT output within 20 s of reset and run. The driver's 180 s flash timeout covers these | Set tighter timeouts only with more figures |
+| JLINK-OPEN-04 | RTT control-block discovery and flash timing | **Figures recorded 2026-10-04** (ETB-SYS5-002 §9): chip erase 0.6 s; flash and verify 14.7 s for a 1.17 MB HEX (V10 with SoftDevice) and 17.0 s for 1.34 MB (V11 with SoftDevice and bootloader); RTT output within 20 s of reset and run. The driver's 180 s flash timeout covers these | Set tighter timeouts only with more figures |
 
 JLINK-OPEN-03 is the one that could change a reported number. The other three
 would show up as an outright failure, not a wrong figure.

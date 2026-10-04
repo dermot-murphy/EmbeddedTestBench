@@ -1,11 +1,11 @@
 # QS-10 - The whole bench identifies itself, on hardware and simulated
-# (TB-SYS5-002, #176).
+# (ETB-SYS5-002, #176).
 #
 # One read-only step per instrument, so each is connected and its identity
-# recorded in the report (TB-SYS2-015). Run once against benches/bench_pc.yaml
+# recorded in the report (ETB-SYS2-015). Run once against benches/bench_pc.yaml
 # and once with --simulate: the same specification on two benches
-# (TB-SYS2-070), and a simulated run labelled as such in every report format
-# (TB-SYS2-016). Nothing changes a setting; the supply is only read.
+# (ETB-SYS2-070), and a simulated run labelled as such in every report format
+# (ETB-SYS2-016). Nothing changes a setting; the supply is only read.
 #
 # The J-Link is left out: connecting it halts the sensor, and QS-01 records
 # its identity.
@@ -17,8 +17,8 @@ name: QS-10 Bench identity
 description: >
   Read each instrument once, without changing anything, so the report records
   the model, serial number and firmware each one reports.
-requirements: [TB-SYS2-010, TB-SYS2-011, TB-SYS2-012, TB-SYS2-014, TB-SYS2-015,
-               TB-SYS2-016, TB-SYS2-070, TB-SYS2-078, TB-SYS2-079, TB-SYS2-084]
+requirements: [ETB-SYS2-010, ETB-SYS2-011, ETB-SYS2-012, ETB-SYS2-014, ETB-SYS2-015,
+               ETB-SYS2-016, ETB-SYS2-070, ETB-SYS2-078, ETB-SYS2-079, ETB-SYS2-084]
 
 instruments:
   psu: gpd3303d
@@ -29,7 +29,7 @@ instruments:
 
 tests:
   - name: Every instrument answers and is identified
-    requirement: TB-SYS2-015
+    requirement: ETB-SYS2-015
     steps:
       - do: psu.status
         expect:

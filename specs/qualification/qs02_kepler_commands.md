@@ -1,17 +1,17 @@
 # QS-02 - Kepler BLE command document (hardware qualification)
 
 This document is both a statement of part of the Kepler sensor's BLE command
-set and the test of it (TB-SYS2-073). It is QS-02 of TB-SYS5-001, run on the
+set and the test of it (ETB-SYS2-073). It is QS-02 of ETB-SYS5-001, run on the
 bench PC against sensor 5C1712 for #176, by `qs02_kepler_commands.yaml` and by
 `benchtools ble script`.
 
 It qualifies the **bench's** handling of a command document, not the sensor's
 firmware:
 - each row is a step;
-- a delay and a command with nothing expected are recorded as skipped (TB-SYS2-074);
-- a step can set its own timeout (TB-SYS2-082);
-- an expected disconnection is timed (TB-SYS2-083);
-- times are quoted to 10 ms with the dongle's microsecond figure kept (TB-SYS2-077).
+- a delay and a command with nothing expected are recorded as skipped (ETB-SYS2-074);
+- a step can set its own timeout (ETB-SYS2-082);
+- an expected disconnection is timed (ETB-SYS2-083);
+- times are quoted to 10 ms with the dongle's microsecond figure kept (ETB-SYS2-077).
 
 The patterns accept any value of the right shape, so a firmware change does
 not make this fail.

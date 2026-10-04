@@ -833,7 +833,7 @@ The runner's own records are `TEST`; anything not from an instrument is `BENCH`.
   from the moment it starts connecting.
 - The report's Instruments table and the JSON record show each instrument's
   name, so a line in the log can be traced to the instrument that made it.
-- Logs written before #126 use lower-case names (`psu`, `rf`); the Test Bench
+- Logs written before #126 use lower-case names (`psu`, `rf`); the Embedded Test Bench
   monitor reads both.
 
 ### 6.4 The runner's structured records

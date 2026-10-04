@@ -227,7 +227,7 @@ class Tti1604(ScpiInstrument):  # pylint: disable=too-many-public-methods,too-ma
         equivalent. The identity is therefore the model this driver was written
         for, and it carries no serial number or firmware revision because the
         instrument offers none. A report that needs to tie a result to a
-        particular meter must record that separately; see TB-RISK-002.
+        particular meter must record that separately; see ETB-RISK-002.
         """
         return InstrumentIdentity(
             manufacturer=MANUFACTURER,
@@ -251,7 +251,7 @@ class Tti1604(ScpiInstrument):  # pylint: disable=too-many-public-methods,too-ma
         :data:`.constants.READ_POLL`, and the caller loops to its own deadline.
         The transport's timeout is set to that once and then left alone: on
         Windows, pyserial loses bytes in flight whenever it is changed
-        (TB-SWE3-002 LL-07), so varying it per read would drop parts of frames.
+        (ETB-SWE3-002 LL-07), so varying it per read would drop parts of frames.
         """
         remaining = deadline - self._clock()
         if remaining <= 0.0:

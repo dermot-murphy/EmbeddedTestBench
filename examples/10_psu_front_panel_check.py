@@ -8,7 +8,7 @@
 Each step changes one thing, reads the supply back through the driver, and
 says what the front panel should now show. At the prompt, press Enter if the
 panel matches, or type what it shows instead. ``q`` stops early. The answers are
-written to a JSON log, which is the evidence for TB-SIT-03 ("accepts a setpoint
+written to a JSON log, which is the evidence for ETB-SIT-03 ("accepts a setpoint
 that the front panel then shows").
 
 **Nothing may be connected to either output.** The outputs are energised at up
@@ -19,7 +19,7 @@ Whatever happens, the supply is left with its output off and its original
 setpoints and current limits restored, as far as the 0.1 V / 0.01 A read-back
 lets them be known.
 
-Traces to: TB-SIT-03, PSU-FR-030, PSU-FR-040, PSU-FR-043.
+Traces to: ETB-SIT-03, PSU-FR-030, PSU-FR-040, PSU-FR-043.
 """
 
 from __future__ import annotations

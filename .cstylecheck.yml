@@ -1,8 +1,8 @@
 # ============================================================
-# TestBench — CStyleCheck rule configuration
+# Embedded Test Bench — CStyleCheck rule configuration
 # ============================================================
-# Enforces the mechanically checkable part of TB-STD-002 (Embedded C Coding
-# Standard) and TB-STY-001 (Embedded C Style Guide) over the firmware this
+# Enforces the mechanically checkable part of ETB-STD-002 (Embedded C Coding
+# Standard) and ETB-STY-001 (Embedded C Style Guide) over the firmware this
 # project owns. Run by .github/workflows/style.yml against
 # firmware/nordic_dongle, with .cstylecheck-baseline.json so the job fails on
 # new violations rather than on the 113 that existed when it was introduced,
@@ -10,18 +10,18 @@
 # aliases and exclusions and no baseline (#111).
 #
 # Derived from the CStyleCheck default rule set, with four project decisions
-# applied. Each is recorded in TB-STY-001, not only here:
+# applied. Each is recorded in ETB-STY-001, not only here:
 #
 #   functions.style: lower_snake        the firmware, the SDK beside it and the
 #                                       host driver are all lower snake case
 #   variables.static.s_prefix: "m_"     Nordic's convention for module statics
-#   variables.pointer_prefix: disabled  Barr-C 7.1.k not adopted - TB-STY-001 18.4
-#   misc.yoda_conditions: disabled      not adopted - TB-STY-001 49
-#   misc.file_length.max_lines: 800     see TB-STY-001 6.4
+#   variables.pointer_prefix: disabled  Barr-C 7.1.k not adopted - ETB-STY-001 18.4
+#   misc.yoda_conditions: disabled      not adopted - ETB-STY-001 49
+#   misc.file_length.max_lines: 800     see ETB-STY-001 6.4
 #
 # A rule the project has decided against is switched off here and said so in
 # the style guide. A rule the project accepts but does not yet meet stays on
-# and goes in the baseline, which is debt - see TB-ANA-001 6.12.
+# and goes in the baseline, which is debt - see ETB-ANA-001 6.12.
 #
 # The baseline is written by the pinned checker version and is not portable
 # across versions. If the pin in style.yml moves, regenerate it in the same

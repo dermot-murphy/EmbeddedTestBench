@@ -1,8 +1,8 @@
 """
 test_bench.py
 
-Test Bench
-==========
+Embedded Test Bench monitor
+===========================
 
 Based on the Kepler reference project's rf_monitor (v1.1.0, 2026-09-15),
 copied unchanged in the first commit of #82 so every change since is visible.
@@ -10,7 +10,7 @@ copied unchanged in the first commit of #82 so every change since is visible.
 FROZEN since 2026-10-04 (#142): the test run viewer, `benchtools view`,
 replaces this monitor. Change it only to fix a defect. What it still does that
 the viewer does not (--port, --log, --simulate, all without a test run) is
-listed in docs/test_bench/Test_Bench_Monitor.md.
+listed in docs/test_bench/Embedded_Test_Bench_Monitor.md.
 
 What changed from rf_monitor
 ----------------------------

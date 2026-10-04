@@ -1,7 +1,7 @@
-# QS-01b - Debug control and firmware state on hardware (TB-SYS5-002, #176).
+# QS-01b - Debug control and firmware state on hardware (ETB-SYS5-002, #176).
 #
-# TB-SYS5-001 names run control, variables, the call stack and timing in its
-# requirements (TB-SYS2-031, -033, -035) but QS-01 cannot show them: the V10
+# ETB-SYS5-001 names run control, variables, the call stack and timing in its
+# requirements (ETB-SYS2-031, -033, -035) but QS-01 cannot show them: the V10
 # image has no ELF, and without symbols there are no variables by name and no
 # source breakpoints. This scenario flashes the Kepler reference project's
 # V11.00.0000-96 release build - the full image, SoftDevice and bootloader
@@ -15,8 +15,8 @@ description: >
   record; halt, step, break at main, read the call stack and a named variable;
   time start-up from SystemInit to main on the core's cycle counter; then run
   the sensor and check the version it reports over BLE against the manifest.
-requirements: [TB-SYS2-002, TB-SYS2-030, TB-SYS2-031, TB-SYS2-033, TB-SYS2-035,
-               TB-SYS2-036, TB-SYS2-041]
+requirements: [ETB-SYS2-002, ETB-SYS2-030, ETB-SYS2-031, ETB-SYS2-033, ETB-SYS2-035,
+               ETB-SYS2-036, ETB-SYS2-041]
 
 parameters:
   image: U:/privatework/sensoteq/kepler/innovateuk-sensor/software/output/KAPPAX_APP_SDK17_PCB_V4X_RELEASE/package/KAPPAX_APP_SDK17_PCB_V4X_RELEASE-plus-bl-and-softdevice.hex
@@ -34,7 +34,7 @@ teardown:
 
 tests:
   - name: The image is programmed and verified, keeping the identity record
-    requirement: TB-SYS2-030, TB-SYS2-036
+    requirement: ETB-SYS2-030, ETB-SYS2-036
     steps:
       # Erased first: the part holds V10 (SoftDevice 6.1.0) after QS-01, and
       # its NVM pages and stack differ from V11's. The identity record is read
@@ -60,7 +60,7 @@ tests:
         save: build
 
   - name: The core halts, steps and stops at a breakpoint
-    requirement: TB-SYS2-031
+    requirement: ETB-SYS2-031
     steps:
       - do: probe.reset
         with: {halt: true}
@@ -78,7 +78,7 @@ tests:
       # A step moves on by one instruction: two or four bytes in the reset
       # handler's straight-line code. A specification cannot say "differs
       # from", so this bounds the move to 4 bytes and records both values;
-      # TB-SYS5-002 confirms from them that the PC moved.
+      # ETB-SYS5-002 confirms from them that the PC moved.
       - do: probe.program_counter
         save: pc_after_step
         expect:
@@ -93,7 +93,7 @@ tests:
           - {name: stopped_in, measure: function, equals: main}
 
   - name: Firmware state is read by name while halted
-    requirement: TB-SYS2-002, TB-SYS2-033
+    requirement: ETB-SYS2-002, ETB-SYS2-033
     steps:
       - do: probe.call_stack
         expect:
@@ -106,7 +106,7 @@ tests:
           - {name: SystemCoreClock, unit: Hz, equals: 64000000}
 
   - name: Start-up is timed on the cycle counter with its resolution stated
-    requirement: TB-SYS2-035
+    requirement: ETB-SYS2-035
     steps:
       - do: probe.reset
         with: {halt: true}
@@ -120,7 +120,7 @@ tests:
           - {name: resolution, measure: resolution_seconds, unit: s, minimum: 0.000000001, maximum: 0.000001}
 
   - name: The sensor runs and reports the version that was programmed
-    requirement: TB-SYS2-036, TB-SYS2-041
+    requirement: ETB-SYS2-036, ETB-SYS2-041
     steps:
       - do: probe.clear_breakpoints
       - do: probe.reset

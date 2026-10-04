@@ -4,7 +4,7 @@
 pylint has no baseline of its own, so this does what CStyleCheck does for the
 firmware's C: it records the findings that were present when the check was
 introduced, and fails only on findings beyond them. The baseline is debt, not
-absolution - TB-ANA-001 lists what is in it.
+absolution - ETB-ANA-001 lists what is in it.
 
     python scripts/lint.py                  check against the baseline
     python scripts/lint.py --write-baseline regenerate it

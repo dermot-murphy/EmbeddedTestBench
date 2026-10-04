@@ -113,7 +113,7 @@ not after.
 ## Verify, don't assert
 
 The retarget trap above is one instance of a general failure this project has
-recorded as **TB-RISK-004**: stating how a tool behaves from memory instead of
+recorded as **ETB-RISK-004**: stating how a tool behaves from memory instead of
 checking it.
 
 State platform behaviour only after verifying it in the current session, against
@@ -123,8 +123,8 @@ because it gets acted on.
 
 ## Related
 
-- `TB-SUP8-001 §5` — Configuration Management Plan. Carries this procedure in
+- `ETB-SUP8-001 §5` — Configuration Management Plan. Carries this procedure in
   ASPICE form, including the 2026-09-20 retargeting observation. That section and
   this file are one configuration item in two places: change them together,
   never one alone.
-- `TB-RISK-004` — the risk this file's last section mitigates.
+- `ETB-RISK-004` — the risk this file's last section mitigates.

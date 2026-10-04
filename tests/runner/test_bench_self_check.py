@@ -6,7 +6,7 @@ has something still wired to it must be *caught*, because that is the
 condition the specification's warning asks the operator to remove, and the
 whole point of the check is that it notices.
 
-Traces to: RUN-FR-016, RUN-FR-054 .. RUN-FR-057, TB-QT-05.
+Traces to: RUN-FR-016, RUN-FR-054 .. RUN-FR-057, ETB-QT-05.
 """
 
 from __future__ import annotations

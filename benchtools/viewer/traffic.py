@@ -23,8 +23,8 @@ anything else           note          opened, closed, resolved, ...
 ======================  ============  =======================================
 
 Panels (:class:`PsuPanel`, :class:`JlinkPanel`) rebuild a supply's and a
-probe's front panel from the same lines. They are ported from the Test Bench
-monitor (``tools/test_bench/sources.py``, #82), which is to be frozen once the
+probe's front panel from the same lines. They are ported from the Embedded
+Test Bench monitor (``tools/test_bench/sources.py``, #82), which is to be frozen once the
 viewer replaces it (#142).
 
 Traces to: VIEW-FR-010 .. VIEW-FR-012, VIEW-DD-TRAFFIC.

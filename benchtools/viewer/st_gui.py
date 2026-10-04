@@ -1,7 +1,7 @@
-"""The Test Bench monitor's ST GUI page: the S2-LP kit's RF setup and registers (#157).
+"""The Embedded Test Bench monitor's ST GUI page: the S2-LP kit's RF setup and registers (#157).
 
 ST's S2-LP DK GUI shows, on one screen, the kit's RF setup, its register table
-and the frames it receives. The Test Bench monitor (#82) copied that layout,
+and the frames it receives. The Embedded Test Bench monitor (#82) copied that layout,
 reading the kit itself. The viewer cannot: the run owns the kit's port. So the
 S2-LP driver logs what it reads as an ``rf_setup`` record (S2LP-FR-084), and
 :class:`StGui` keeps the latest one per source. A refresh is a request to the

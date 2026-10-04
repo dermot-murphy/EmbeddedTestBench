@@ -1,21 +1,21 @@
-# QS-01 - Sensor bring-up, end to end, on hardware (TB-SYS5-001, #176).
+# QS-01 - Sensor bring-up, end to end, on hardware (ETB-SYS5-001, #176).
 #
 # specs/sensor_bringup.yaml with three changes for the qualification bench,
-# each a decision recorded in TB-SYS5-002:
+# each a decision recorded in ETB-SYS5-002:
 #
 #   * No supply. The owner ruled on 2026-10-04 that no supply output is
 #     energised; the sensor runs from its own supply. The power step is a
-#     deviation, and TB-SYS2-020 is qualified by QS-03 instead.
+#     deviation, and ETB-SYS2-020 is qualified by QS-03 instead.
 #   * The image is the archived V10.01.2000 production build, chosen by the
 #     owner. It uses SoftDevice 6.1.0 where the running V11 uses 7.2.0, so the
 #     part is chip-erased first - which also erases the identity record. The
 #     record is read before the erase and written back after the flash, and
 #     the erased part is used to show an invalid record reads as one
-#     (TB-SYS2-049).
+#     (ETB-SYS2-049).
 #   * The dongle's firmware is not refreshed here; it is the bench's measuring
 #     instrument and QS-06 checks it against a manifest.
 #
-# One workaround is recorded in TB-SYS5-002: the sensor is reset halted and
+# One workaround is recorded in ETB-SYS5-002: the sensor is reset halted and
 # then run, because reset {halt: false} leaves it halted on a real J-Link
 # (#177).
 #
@@ -30,10 +30,10 @@ description: >
   the V10.01.2000 image, restore the identity record, start the sensor and see
   it run over RTT, find it over the air by the identifier read from its own
   memory, and check the version it reports against the image's manifest.
-requirements: [TB-SYS2-001, TB-SYS2-002, TB-SYS2-030, TB-SYS2-031, TB-SYS2-032, TB-SYS2-034,
-               TB-SYS2-036, TB-SYS2-040, TB-SYS2-041, TB-SYS2-045, TB-SYS2-048,
-               TB-SYS2-049, TB-SYS2-050, TB-SYS2-070, TB-SYS2-071, TB-SYS2-076,
-               TB-SYS2-078]
+requirements: [ETB-SYS2-001, ETB-SYS2-002, ETB-SYS2-030, ETB-SYS2-031, ETB-SYS2-032, ETB-SYS2-034,
+               ETB-SYS2-036, ETB-SYS2-040, ETB-SYS2-041, ETB-SYS2-045, ETB-SYS2-048,
+               ETB-SYS2-049, ETB-SYS2-050, ETB-SYS2-070, ETB-SYS2-071, ETB-SYS2-076,
+               ETB-SYS2-078]
 
 parameters:
   image: U:/PrivateWork/Sensoteq/archive/V10.01.2000_V4X/KAPPAX_PCB_V4X_Production_APP_PLUS_SD_V10.01.2000.hex
@@ -50,7 +50,7 @@ teardown:
 
 tests:
   - name: The identity record is read off the part before it is erased
-    requirement: TB-SYS2-048, TB-SYS2-050
+    requirement: ETB-SYS2-048, ETB-SYS2-050
     steps:
       - do: probe.read_u8
         with: {address: {param: identity_address}}
@@ -70,7 +70,7 @@ tests:
         save: identity_word
 
   - name: An erased part reads as an invalid identity record
-    requirement: TB-SYS2-049
+    requirement: ETB-SYS2-049
     steps:
       - do: probe.erase
       - do: probe.read_u8
@@ -80,7 +80,7 @@ tests:
           - {name: erased_validity_byte, equals: 255}
 
   - name: The image is programmed and verified
-    requirement: TB-SYS2-030, TB-SYS2-036
+    requirement: ETB-SYS2-030, ETB-SYS2-036
     steps:
       - do: probe.flash
         with: {path: {param: image}}
@@ -92,7 +92,7 @@ tests:
         save: build
 
   - name: The identity record is written back and reads as it did
-    requirement: TB-SYS2-032, TB-SYS2-048
+    requirement: ETB-SYS2-032, ETB-SYS2-048
     steps:
       - do: probe.write_word
         with: {address: {param: identity_address}, value: {from: identity_word}}
@@ -108,7 +108,7 @@ tests:
             equals: {from: sensor_id}
 
   - name: The sensor starts and is running
-    requirement: TB-SYS2-002, TB-SYS2-034
+    requirement: ETB-SYS2-002, ETB-SYS2-034
     steps:
       - do: probe.rtt_start
       # Reset halted, then run. reset {halt: false} leaves the core halted on
@@ -123,7 +123,7 @@ tests:
           - {name: rtt_lines, minimum: 1}
 
   - name: The sensor is found over the air by its own identifier
-    requirement: TB-SYS2-040, TB-SYS2-041, TB-SYS2-045
+    requirement: ETB-SYS2-040, ETB-SYS2-041, ETB-SYS2-045
     steps:
       # 60 s: the sensor can take up to 45 s to come up after a reset.
       - do: dongle.scan
@@ -140,7 +140,7 @@ tests:
           - {name: linked_board, measure: name, equals: {from: found.0.name}}
 
   - name: The sensor reports the version that was programmed
-    requirement: TB-SYS2-036, TB-SYS2-041
+    requirement: ETB-SYS2-036, ETB-SYS2-041
     steps:
       - do: dongle.command
         with: {request: RD VERSION, timeout: 45.0}

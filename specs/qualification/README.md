@@ -1,9 +1,9 @@
-# Hardware qualification — procedure (TB-SYS5-001, #176)
+# Hardware qualification — procedure (ETB-SYS5-001, #176)
 
-These specifications are the hardware configuration of TB-SYS5-001's
+These specifications are the hardware configuration of ETB-SYS5-001's
 qualification scenarios. They run against `benches/bench_pc.yaml`, the Windows
 bench PC. The results of the 2026-10-04 campaign and their evidence are in
-TB-SYS5-002 and `docs/aspice/qualification/2026-10-04/`.
+ETB-SYS5-002 and `docs/aspice/qualification/2026-10-04/`.
 
 ## Safety limits, set by the owner
 
@@ -81,7 +81,7 @@ nrfjprog -f NRF52 --reset
 
 Some tests are written to end in ERROR, because the requirement is that the
 bench refuses. Their names say "(expected ERROR)" or "(expected FAIL)", and
-TB-SYS5-002 reads such an outcome as the pass.
+ETB-SYS5-002 reads such an outcome as the pass.
 
 When a run ends otherwise, keep its evidence under `attempts/` with a numbered
-name, and record why in TB-SYS5-002. Never overwrite it.
+name, and record why in ETB-SYS5-002. Never overwrite it.
