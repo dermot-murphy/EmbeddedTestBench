@@ -1,0 +1,6 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuite name="QS-10 Bench identity" tests="1" failures="0" errors="0" skipped="0" time="0.156" timestamp="2026-10-04T18:55:58+00:00"><properties><property name="bench" value="Bench PC (Windows)" /><property name="simulated" value="true" /><property name="specification" value="specs/qualification/qs10_bench_identity.yaml" /></properties><testcase name="Every instrument answers and is identified" classname="QS-10 Bench identity.TB-SYS2-015" time="0.156"><system-out>psu_tracking = independent [limit = "independent"] PASS
+dmm_unit_is_si = V [limit = "V"] PASS
+dongle_scan_ran = 3 [limit &gt;= 0] PASS
+s2lp_registers_read = 123 [limit &gt;= 100] PASS
+thermometer_version = V1.00.0000 [limit = "V1.00.0000"] PASS</system-out></testcase></testsuite>

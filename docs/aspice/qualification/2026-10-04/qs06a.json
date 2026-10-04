@@ -1,0 +1,27 @@
+{
+  "suite": "QS-06a An instrument missing from the bench",
+  "bench": "Bench PC (Windows)",
+  "spec_source": "specs/qualification/qs06a_missing_instrument.yaml",
+  "parameters": {},
+  "selection": [],
+  "simulated": false,
+  "status": "ERROR",
+  "started": "2026-10-04T18:41:12+00:00",
+  "finished": "2026-10-04T18:41:12+00:00",
+  "duration_s": 0.0,
+  "totals": {
+    "total": 0,
+    "passed": 0,
+    "failed": 0,
+    "errored": 0,
+    "skipped": 0
+  },
+  "instruments": {},
+  "requirements": [
+    "TB-SYS2-011",
+    "TB-SYS2-094"
+  ],
+  "requirements_verified": {},
+  "setup_error": "the specification uses instrument(s) 'scope', which the bench 'Bench PC (Windows)' does not define; it provides dmm, dongle, probe, psu, rtt, s2lp, temp",
+  "cases": []
+}

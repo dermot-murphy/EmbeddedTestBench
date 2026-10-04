@@ -1,0 +1,6 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuite name="QS-10 Bench identity" tests="1" failures="0" errors="1" skipped="0" time="0.156" timestamp="2026-10-04T18:54:39+00:00"><properties><property name="bench" value="Bench PC (Windows)" /><property name="simulated" value="true" /><property name="specification" value="specs/qualification/qs10_bench_identity.yaml" /></properties><testcase name="Every instrument answers and is identified" classname="QS-10 Bench identity.TB-SYS2-015" time="0.156"><error message="a step failed to execute" type="StepError">psu_tracking = independent [limit = "independent"] PASS
+dmm_unit_is_si = V [limit = "V"] PASS
+dongle_scan_ran = 3 [limit &gt;= 0] PASS
+s2lp_band_hz = - [limit &gt;= 4.3e+08, &lt;= 4.4e+08] ERROR - path 'frequency_hz': cannot resolve 'frequency_hz' on a dict
+error: a step failed to execute</error></testcase></testsuite>

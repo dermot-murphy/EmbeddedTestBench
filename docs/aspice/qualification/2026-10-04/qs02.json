@@ -1,0 +1,123 @@
+{
+  "suite": "QS-02 BLE command document (hardware)",
+  "bench": "Bench PC (Windows)",
+  "spec_source": "specs/qualification/qs02_kepler_commands.yaml",
+  "parameters": {
+    "document": "specs/qualification/qs02_kepler_commands.md",
+    "document_report": "docs/aspice/qualification/2026-10-04/qs02_document_report.md"
+  },
+  "selection": [],
+  "simulated": false,
+  "status": "PASS",
+  "started": "2026-10-04T16:56:51+00:00",
+  "finished": "2026-10-04T16:57:21+00:00",
+  "duration_s": 30.406,
+  "totals": {
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "errored": 0,
+    "skipped": 0
+  },
+  "instruments": {
+    "dongle": {
+      "driver": "NordicDongle",
+      "resource": "COM10",
+      "event": "BLE",
+      "manufacturer": "Nordic",
+      "model": "PCA10059",
+      "serial_number": "",
+      "firmware": "1.4.0 (built local:Sep-29-2026T11:41:48)",
+      "identity": "Nordic PCA10059 fw=1.4.0 built=local:Sep-29-2026T11:41:48 proto=1.4 uptime_us=450691563665 dropped=0"
+    }
+  },
+  "requirements": [
+    "TB-SYS2-003",
+    "TB-SYS2-042",
+    "TB-SYS2-043",
+    "TB-SYS2-044",
+    "TB-SYS2-073",
+    "TB-SYS2-074",
+    "TB-SYS2-075",
+    "TB-SYS2-076",
+    "TB-SYS2-077",
+    "TB-SYS2-080",
+    "TB-SYS2-081",
+    "TB-SYS2-082",
+    "TB-SYS2-083",
+    "TB-SYS2-084"
+  ],
+  "requirements_verified": {
+    "TB-SYS2-073": "PASS",
+    "TB-SYS2-075": "PASS"
+  },
+  "setup_error": "",
+  "cases": [
+    {
+      "name": "The command document runs and every checked step passes",
+      "status": "PASS",
+      "requirement": "TB-SYS2-073, TB-SYS2-075",
+      "duration_s": 30.406,
+      "error": "",
+      "skip_reason": "",
+      "steps": [
+        {
+          "action": "dongle.run_script",
+          "status": "PASS",
+          "duration_s": 30.39,
+          "error": "",
+          "measurements": [
+            {
+              "name": "steps_failed",
+              "value": 0.0,
+              "unit": "",
+              "limit": "= 0",
+              "status": "PASS",
+              "reason": ""
+            },
+            {
+              "name": "steps_errored",
+              "value": 0.0,
+              "unit": "",
+              "limit": "= 0",
+              "status": "PASS",
+              "reason": ""
+            },
+            {
+              "name": "steps_passed",
+              "value": 8.0,
+              "unit": "",
+              "limit": ">= 8",
+              "status": "PASS",
+              "reason": ""
+            },
+            {
+              "name": "steps_skipped",
+              "value": 5.0,
+              "unit": "",
+              "limit": "= 5",
+              "status": "PASS",
+              "reason": ""
+            },
+            {
+              "name": "steps_passed_exactly",
+              "value": 8.0,
+              "unit": "",
+              "limit": "= 8",
+              "status": "PASS",
+              "reason": ""
+            },
+            {
+              "name": "document_result",
+              "value": "PASS",
+              "unit": "",
+              "limit": "= \"PASS\"",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

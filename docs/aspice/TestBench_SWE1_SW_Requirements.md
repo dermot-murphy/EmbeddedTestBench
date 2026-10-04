@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE1-001 | **Version** | 1.21 |
+| **Document ID** | TB-SWE1-001 | **Version** | 1.22 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -53,6 +53,7 @@
 | 1.19 | 2026-10-03 | Claude | #156: VIEW-FR-040 … -042 added - notes saved with the run, and the report export as HTML, printable to PDF. |
 | 1.20 | 2026-10-03 | Claude | #157: S2LP-FR-084 (`read_setup`), RUN-FR-066 (`read_setup` over the control channel) and VIEW-FR-043 … -045 (the ST GUI page) added. |
 | 1.21 | 2026-10-04 | Claude | #170: RUN-FR-007 and RUN-FR-017 say "the EmbeddedTestBench checkout" after the repository rename. The requirements are unchanged. |
+| 1.22 | 2026-10-04 | Claude | #176: CON-04 and CON-10 restated after the first hardware qualification campaign (TB-SYS5-002). The J-Link and the TTi 1604 have now run against physical hardware, with the defects found named. |
 
 ---
 
@@ -1051,8 +1052,8 @@ A browser page onto a bench run (#130, #137), served by `benchtools view`. It is
 | CON-07 | The dongle firmware targets nRF5 SDK 17.1.0. It **builds, links, fits and packages** against that SDK in CI (`.github/workflows/firmware.yml`), and also compiles against SDK 15.2.0 headers in the `canembed/canembed-arm` image. It has **not** been flashed or run on a dongle. See `docs/ble/BLE_Dongle_Notes.md` §5. |
 | CON-08 | Only RTT-free, connection-oriented UART is supported; the dongle connects to one sensor at a time. |
 | CON-03 | Instrument families named for future work - loads, signal sources, logic and protocol analysers - have no requirements in this revision. The core is designed for them but not validated against them. STK-13 (the GPD-3303D supply) and STK-18 (the TTi 1604 multimeter) are specified in §12 and §14. |
-| CON-10 | The TTi 1604 driver is verified against a simulated meter and over a serial loopback, not yet against a physical meter. The opt-in bench and panel tests (DMM-FR-080, -081) exist to do so; bench confirmation items are in `docs/dmm/TTi1604_Notes.md` (DMM-OPEN-01 … -08). |
-| CON-04 | The J-Link driver is verified against a simulated probe and a simulated target, not against physical hardware. Bench confirmation items are listed in `docs/jlink/JLink_Integration_Notes.md` §4. |
+| CON-10 | The TTi 1604 driver is verified against a simulated meter and over a serial loopback. Against the physical meter (TB-SYS5-002 §6.10, 2026-10-04) the link, key echo, reading rate, frame format and local/remote were confirmed; frequency selection and open-input overrange failed (#181). The remaining bench confirmation items are in `docs/dmm/TTi1604_Notes.md` (DMM-OPEN-01 … -08). |
+| CON-04 | The J-Link driver is verified against a simulated probe and target, and since 2026-10-04 against a physical J-Link on an nRF52840 (TB-SYS5-002 §6.1, §6.2): erase, flash and verify, memory, RTT, breakpoints, stepping, variables, the call stack and cycle-counter timing. Two defects found there are open: #177 (`reset(halt=False)` leaves the core halted) and #178 (registers stale just after a reset). The remaining bench confirmation item is JLINK-OPEN-03 in `docs/jlink/JLink_Integration_Notes.md` §4. |
 | CON-05 | The scaling of SWO/ITM local timestamps to core cycles depends on the trace prescaler configured by the GDB server and the firmware. It is implemented from the ARMv7-M architecture reference manual and requires confirmation against a part before SWO timing figures are quoted (JLINK-OPEN-03). |
 | CON-09 | The Pico 2 thermometer firmware **builds** (Pico SDK 2.1.1, Arm GNU 14.2.1, UF2 produced) and its portable logic passes its host unit tests. On 2026-10-03 it **ran on a real Pico 2** (Windows 10 bench PC): it enumerated on USB and reported the expected identity (PICO-OPEN-01, closed), and the `flash` command (PICO-FR-070 … -076) reflashed it by all three routes into the bootloader (PICO-OPEN-05, closed). The `rd` command set (#131) was cross-compiled on the bench PC and run on the same Pico 2 the same day, with no SHT30-D module connected: identity, `NAK`, the `err` replies, `Error` for the missing sensor and `ecureset` all behaved as specified, and `flash` installed it and confirmed its name, version and commit SHA by `rd`. It has **not** yet been run with a sensor attached, so a real temperature value is unconfirmed (PICO-OPEN-02, -03, -06). Drive discovery on Linux and macOS is untested on hardware. Bench confirmation items are in `docs/pico_sht30/Pico_SHT30_Notes.md` §7 (PICO-OPEN-01 … -06). |
 | ASM-10 | The SHT30-D module is powered from the Pico's 3V3(OUT) and carries its own I2C pull-ups; its ADDR pin is tied low (0x44). |

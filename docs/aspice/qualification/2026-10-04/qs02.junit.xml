@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuite name="QS-02 BLE command document (hardware)" tests="1" failures="0" errors="0" skipped="0" time="30.406" timestamp="2026-10-04T16:56:51+00:00"><properties><property name="bench" value="Bench PC (Windows)" /><property name="simulated" value="false" /><property name="specification" value="specs/qualification/qs02_kepler_commands.yaml" /><property name="parameter document" value="specs/qualification/qs02_kepler_commands.md" /><property name="parameter document_report" value="docs/aspice/qualification/2026-10-04/qs02_document_report.md" /></properties><testcase name="The command document runs and every checked step passes" classname="QS-02 BLE command document (hardware).TB-SYS2-073, TB-SYS2-075" time="30.406"><system-out>steps_failed = 0 [limit = 0] PASS
+steps_errored = 0 [limit = 0] PASS
+steps_passed = 8 [limit &gt;= 8] PASS
+steps_skipped = 5 [limit = 5] PASS
+steps_passed_exactly = 8 [limit = 8] PASS
+document_result = PASS [limit = "PASS"] PASS</system-out></testcase></testsuite>

@@ -1,0 +1,13 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuite name="QS-03 Supply refusals and safe state (hardware)" tests="8" failures="0" errors="0" skipped="6" time="3.735" timestamp="2026-10-04T17:05:39+00:00"><properties><property name="bench" value="Bench PC (Windows)" /><property name="simulated" value="false" /><property name="specification" value="specs/qualification/qs03_supply.yaml" /><property name="selected test" value="Independent: state, setpoints and readback" /><property name="selected test" value="Independent: safe state" /></properties><testcase name="Independent: state, setpoints and readback" classname="QS-03 Supply refusals and safe state (hardware).TB-SYS2-020, TB-SYS2-021, TB-SYS2-022" time="2.422"><system-out>tracking = independent [limit = "independent"] PASS
+output_off = 0 [limit = 0] PASS
+ch1_voltage_setpoint = 1.5 V [limit = 1.5 +/- 0.01] PASS
+ch1_current_setpoint = 0.1 A [limit = 0.1 +/- 0.001] PASS
+ch1_output_still_off = 0 [limit = 0] PASS
+ch2_voltage_setpoint = 2.5 V [limit = 2.5 +/- 0.01] PASS
+ch2_output_still_off = 0 [limit = 0] PASS
+ch1_output_voltage = 0 V [limit = 0 +/- 0.05] PASS
+ch1_output_current = 0 A [limit = 0 +/- 0.005] PASS</system-out></testcase><testcase name="Independent: safe state" classname="QS-03 Supply refusals and safe state (hardware).TB-SYS2-024" time="1.266"><system-out>ch1_setpoint_zero = 0 V [limit = 0 +/- 0.01] PASS
+ch1_off = 0 [limit = 0] PASS
+ch2_setpoint_zero = 0 V [limit = 0 +/- 0.01] PASS
+ch2_off = 0 [limit = 0] PASS</system-out></testcase><testcase name="Series: state" classname="QS-03 Supply refusals and safe state (hardware).TB-SYS2-022" time="0.000"><skipped message="not selected" /></testcase><testcase name="Series: a channel 2 setpoint is refused (expected ERROR)" classname="QS-03 Supply refusals and safe state (hardware).TB-SYS2-023" time="0.000"><skipped message="not selected" /></testcase><testcase name="Series: safe state" classname="QS-03 Supply refusals and safe state (hardware).TB-SYS2-024" time="0.000"><skipped message="not selected" /></testcase><testcase name="Parallel: state" classname="QS-03 Supply refusals and safe state (hardware).TB-SYS2-022" time="0.000"><skipped message="not selected" /></testcase><testcase name="Parallel: a channel 2 setpoint is refused (expected ERROR)" classname="QS-03 Supply refusals and safe state (hardware).TB-SYS2-023" time="0.000"><skipped message="not selected" /></testcase><testcase name="Parallel: safe state" classname="QS-03 Supply refusals and safe state (hardware).TB-SYS2-024" time="0.000"><skipped message="not selected" /></testcase></testsuite>

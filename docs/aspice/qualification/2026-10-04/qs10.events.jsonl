@@ -1,0 +1,212 @@
+{"t": 1791140150.326036, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.runner", "text": "running 'QS-10 Bench identity'", "kind": "run_start", "data": {"suite": "QS-10 Bench identity", "spec_source": "specs/qualification/qs10_bench_identity.yaml", "requirements": ["TB-SYS2-010", "TB-SYS2-011", "TB-SYS2-012", "TB-SYS2-014", "TB-SYS2-015", "TB-SYS2-016", "TB-SYS2-070", "TB-SYS2-078", "TB-SYS2-079", "TB-SYS2-084"], "parameters": {}, "selection": [], "setup": [], "teardown": [], "tests": [{"case": 0, "name": "Every instrument answers and is identified", "requirement": "TB-SYS2-015", "description": "", "selected": true, "skip": false, "steps": [{"step": 0, "action": "psu.status", "arguments": {}, "description": "", "save": null}, {"step": 1, "action": "dmm.measure", "arguments": {}, "description": "", "save": null}, {"step": 2, "action": "dongle.scan", "arguments": {"duration": 5.0}, "description": "", "save": null}, {"step": 3, "action": "s2lp.read_setup", "arguments": {}, "description": "", "save": null}, {"step": 4, "action": "temp.version", "arguments": {}, "description": "", "save": null}]}], "bench": "Bench PC (Windows)", "simulated": false}}
+{"t": 1791140150.327037, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.runner", "text": "running test 'Every instrument answers and is identified'", "kind": "case_start", "data": {"case": 0, "name": "Every instrument answers and is identified", "requirement": "TB-SYS2-015", "first_step": 0}}
+{"t": 1791140150.327037, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner.runner", "text": "step psu.status starting", "kind": "step_start", "data": {"phase": "test", "case": 0, "step": 0, "action": "psu.status", "arguments": {}, "description": "", "save": null}}
+{"t": 1791140150.327037, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.bench", "text": "connecting psu (gpd3303d) at COM11"}
+{"t": 1791140150.327037, "source": "PSU", "level": "DEBUG", "logger": "benchtools.core.transport.factory", "text": "resource 'serial://COM11' resolved to serial COM11"}
+{"t": 1791140150.346835, "source": "PSU", "level": "DEBUG", "logger": "benchtools.core.transport.serial_port", "text": "opened serial COM11"}
+{"t": 1791140150.346835, "source": "PSU", "level": "DEBUG", "logger": "benchtools.instruments.gpd3303d.psu", "text": ">> *IDN?"}
+{"t": 1791140150.408553, "source": "PSU", "level": "DEBUG", "logger": "benchtools.instruments.gpd3303d.psu", "text": "<< GW INSTEK,GPD-3303D,SN:GER916893,V1.09"}
+{"t": 1791140150.459741, "source": "PSU", "level": "DEBUG", "logger": "benchtools.instruments.gpd3303d.psu", "text": ">> STATUS?"}
+{"t": 1791140150.488179, "source": "PSU", "level": "DEBUG", "logger": "benchtools.instruments.gpd3303d.psu", "text": "<< 0 0 0 1 0 X 0 X"}
+{"t": 1791140150.632686, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.runner", "text": "step psu.status()"}
+{"t": 1791140150.632686, "source": "PSU", "level": "DEBUG", "logger": "benchtools.instruments.gpd3303d.psu", "text": ">> STATUS?"}
+{"t": 1791140150.664605, "source": "PSU", "level": "DEBUG", "logger": "benchtools.instruments.gpd3303d.psu", "text": "<< 0 0 0 1 0 X 0 X"}
+{"t": 1791140150.808192, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner.runner", "text": "step psu.status: PASS", "kind": "step_end", "data": {"phase": "test", "case": 0, "step": 0, "action": "psu.status", "arguments": {}, "result": {"raw": "0 0 0 1 0 X 0 X", "modes": ["CC", "CC"], "tracking": "independent", "beep": false, "output": false}, "save": null, "status": "PASS", "error": "", "duration_s": 0.484, "measurements": [{"name": "psu_tracking", "value": "independent", "unit": "", "limit": "= \"independent\"", "status": "PASS", "reason": ""}]}}
+{"t": 1791140150.808192, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner.runner", "text": "step dmm.measure starting", "kind": "step_start", "data": {"phase": "test", "case": 0, "step": 1, "action": "dmm.measure", "arguments": {}, "description": "", "save": null}}
+{"t": 1791140150.809217, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.bench", "text": "connecting dmm (tti1604) at COM13"}
+{"t": 1791140150.809217, "source": "DMM", "level": "DEBUG", "logger": "benchtools.core.transport.factory", "text": "resource 'serial://COM13' resolved to serial COM13"}
+{"t": 1791140150.819582, "source": "DMM", "level": "DEBUG", "logger": "benchtools.core.transport.serial_port", "text": "opened serial COM13"}
+{"t": 1791140150.836472, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.runner", "text": "step dmm.measure()"}
+{"t": 1791140151.700207, "source": "DMM", "level": "DEBUG", "logger": "benchtools.instruments.tti1604.dmm", "text": "reading volts 0.0001 V", "kind": "reading", "data": {"ac": false, "text": "0.0001", "overrange": false, "quantity": "volts", "value": 0.0001, "unit": "V"}}
+{"t": 1791140151.701206, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner.runner", "text": "step dmm.measure: PASS", "kind": "step_end", "data": {"phase": "test", "case": 0, "step": 1, "action": "dmm.measure", "arguments": {}, "result": {"value": 0.0001, "unit": "V", "text": "0.0001", "measurement": "volts", "ac": false, "range_index": 1, "range_description": "4 kohm / 4 V / 4 mA dc / 1 mA ac", "overrange": false, "flags": {"touch_hold": false, "min_max": false, "hertz": false, "null": false, "auto_range": true}, "status": {"double_beep": false, "auto_range_set": false, "continuity_buzzer": true, "showing_minimum": false, "showing_maximum": false, "hold": false, "gate_ten_seconds": false}, "raw": "0d12c810fdfcfcfc600c", "problem": "", "range_label": "4 V"}, "save": null, "status": "PASS", "error": "", "duration_s": 0.891, "measurements": [{"name": "dmm_unit_is_si", "value": "V", "unit": "", "limit": "= \"V\"", "status": "PASS", "reason": ""}]}}
+{"t": 1791140151.702206, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner.runner", "text": "step dongle.scan starting", "kind": "step_start", "data": {"phase": "test", "case": 0, "step": 2, "action": "dongle.scan", "arguments": {"duration": 5.0}, "description": "", "save": null}}
+{"t": 1791140151.702206, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.bench", "text": "connecting dongle (ble-dongle) at COM10"}
+{"t": 1791140151.703206, "source": "BLE", "level": "DEBUG", "logger": "benchtools.core.transport.factory", "text": "resource 'serial://COM10' resolved to serial COM10"}
+{"t": 1791140151.707839, "source": "BLE", "level": "DEBUG", "logger": "benchtools.core.transport.serial_port", "text": "opened serial COM10"}
+{"t": 1791140151.763344, "source": "BLE", "level": "DEBUG", "logger": "benchtools.instruments.nordic_dongle.session", "text": "> ver"}
+{"t": 1791140151.766713, "source": "BLE", "level": "DEBUG", "logger": "benchtools.instruments.nordic_dongle.session", "text": "< ok Nordic PCA10059 fw=1.4.0 built=local:Sep-29-2026T11:41:48 proto=1.4 uptime_us=457832215495 dropped=0"}
+{"t": 1791140151.766713, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.runner", "text": "step dongle.scan(duration=5.0)"}
+{"t": 1791140151.766713, "source": "BLE", "level": "DEBUG", "logger": "benchtools.instruments.nordic_dongle.session", "text": "> scan start 5000"}
+{"t": 1791140151.768128, "source": "BLE", "level": "DEBUG", "logger": "benchtools.instruments.nordic_dongle.session", "text": "< +scan t=457832219176 state=started"}
+{"t": 1791140151.768128, "source": "BLE", "level": "DEBUG", "logger": "benchtools.instruments.nordic_dongle.session", "text": "< ok scanning=1 ms=5000"}
+{"t": 1791140156.769266, "source": "BLE", "level": "DEBUG", "logger": "benchtools.instruments.nordic_dongle.session", "text": "< +scan t=457837221152 state=stopped"}
+{"t": 1791140156.769266, "source": "BLE", "level": "DEBUG", "logger": "benchtools.instruments.nordic_dongle.session", "text": "> scan stop"}
+{"t": 1791140156.772982, "source": "BLE", "level": "DEBUG", "logger": "benchtools.instruments.nordic_dongle.session", "text": "< ok scanning=0 sensors=5"}
+{"t": 1791140156.772982, "source": "BLE", "level": "DEBUG", "logger": "benchtools.instruments.nordic_dongle.session", "text": "> list"}
+{"t": 1791140156.773994, "source": "BLE", "level": "DEBUG", "logger": "benchtools.instruments.nordic_dongle.session", "text": "< +sensor t=457837225250 idx=0 addr=49:44:7D:23:CA:A9 type=2 rssi=-73 seen=15 name="}
+{"t": 1791140156.774994, "source": "BLE", "level": "DEBUG", "logger": "benchtools.instruments.nordic_dongle.session", "text": "< +sensor t=457837225250 idx=1 addr=3E:0F:6E:7C:A2:6C type=3 rssi=-64 seen=14 name="}
+{"t": 1791140156.774994, "source": "BLE", "level": "DEBUG", "logger": "benchtools.instruments.nordic_dongle.session", "text": "< +sensor t=457837225250 idx=2 addr=FE:1C:34:B2:58:90 type=1 rssi=-76 seen=2 name=SENS-G3-3045"}
+{"t": 1791140156.774994, "source": "BLE", "level": "DEBUG", "logger": "benchtools.instruments.nordic_dongle.session", "text": "< +sensor t=457837225250 idx=3 addr=5C:C1:D7:44:44:AF type=0 rssi=-77 seen=1 name="}
+{"t": 1791140156.774994, "source": "BLE", "level": "DEBUG", "logger": "benchtools.instruments.nordic_dongle.session", "text": "< +sensor t=457837225250 idx=4 addr=E4:69:B9:0F:6B:3C type=1 rssi=-58 seen=1 name=KAPPA_5C314E_V10.00.000"}
+{"t": 1791140156.774994, "source": "BLE", "level": "DEBUG", "logger": "benchtools.instruments.nordic_dongle.session", "text": "< ok sensors=5"}
+{"t": 1791140156.77598, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner.runner", "text": "step dongle.scan: PASS", "kind": "step_end", "data": {"phase": "test", "case": 0, "step": 2, "action": "dongle.scan", "arguments": {"duration": 5.0}, "result": [{"address": "49:44:7D:23:CA:A9", "name": "", "address_type": 2, "rssi": -73, "index": 0, "seen": 15}, {"address": "3E:0F:6E:7C:A2:6C", "name": "", "address_type": 3, "rssi": -64, "index": 1, "seen": 14}, {"address": "FE:1C:34:B2:58:90", "name": "SENS-G3-3045", "address_type": 1, "rssi": -76, "index": 2, "seen": 2}, {"address": "5C:C1:D7:44:44:AF", "name": "", "address_type": 0, "rssi": -77, "index": 3, "seen": 1}, {"address": "E4:69:B9:0F:6B:3C", "name": "KAPPA_5C314E_V10.00.000", "address_type": 1, "rssi": -58, "index": 4, "seen": 1}], "save": null, "status": "PASS", "error": "", "duration_s": 5.078, "measurements": [{"name": "dongle_scan_ran", "value": 5.0, "unit": "", "limit": ">= 0", "status": "PASS", "reason": ""}]}}
+{"t": 1791140156.77598, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner.runner", "text": "step s2lp.read_setup starting", "kind": "step_start", "data": {"phase": "test", "case": 0, "step": 3, "action": "s2lp.read_setup", "arguments": {}, "description": "", "save": null}}
+{"t": 1791140156.77598, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.bench", "text": "connecting s2lp (s2lp) at COM4"}
+{"t": 1791140156.77598, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.factory", "text": "resource 'serial://COM4' resolved to serial COM4"}
+{"t": 1791140156.778285, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.serial_port", "text": "opened serial COM4"}
+{"t": 1791140156.845048, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> SdkEvalRfboardIdentification 0"}
+{"t": 1791140156.849398, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< SdkEvalRfboardIdentification 0"}
+{"t": 1791140156.856375, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(SdkEvalRfboardIdentification)} API call...}"}
+{"t": 1791140156.856375, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> S2LPRadioGetXtalFrequency"}
+{"t": 1791140156.859776, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< >S2LPRadioGetXtalFrequency"}
+{"t": 1791140156.865476, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(S2LPRadioGetXtalFrequency)} API call...{value:02FAEEC9}}"}
+{"t": 1791140156.865476, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> S2LPGetLibVersion"}
+{"t": 1791140156.865476, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.serial_port", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140156.867842, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< S2LPGetLibVersion"}
+{"t": 1791140156.872856, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(S2LPGetLibVersion)} API call...{value:00010305}}"}
+{"t": 1791140156.872856, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> S2LPGetVersion"}
+{"t": 1791140156.872856, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.serial_port", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140156.876352, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< S2LPGetVersion"}
+{"t": 1791140156.880405, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(S2LPGetVersion)} API call...{value:03C1}}"}
+{"t": 1791140156.880405, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> EepromReadPage 0 0 32"}
+{"t": 1791140156.880405, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.serial_port", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140156.884409, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< EepromReadPage 0 0 32"}
+{"t": 1791140156.887503, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(EepromReadPage)} API callback..."}
+{"t": 1791140156.902363, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {Data: 0x03,0x04,0x09,0x02,0x02,0x00,0x00,0x00,0x01,0x68,0x00,0x00,0x46,0x19,0x00,0xFF,0xFF,0xFF,0xFF,0xC2,0x32,0x32,0x2D,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0x00}}"}
+{"t": 1791140156.902363, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> SdkEvalGetVersion"}
+{"t": 1791140156.902363, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.serial_port", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140156.905348, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< SdkEvalGetVersion"}
+{"t": 1791140156.909807, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(SdkEvalGetVersion)} API call... {version:80}}"}
+{"t": 1791140156.909807, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.runner", "text": "step s2lp.read_setup()"}
+{"t": 1791140156.909807, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> SdkEvalSpiReadRegisters 98 1"}
+{"t": 1791140156.909807, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.serial_port", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140156.914284, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< SdkEvalSpiReadRegisters 98 1"}
+{"t": 1791140156.9181, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(SdkEvalSpiReadRegisters)} API callback..."}
+{"t": 1791140156.921099, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {regs_list: 0x62,0x47}"}
+{"t": 1791140156.9221, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {timer:D4B65A80}"}
+{"t": 1791140156.9221, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< }"}
+{"t": 1791140156.9221, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> S2LPRadioGetInfo"}
+{"t": 1791140156.9221, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.serial_port", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140156.924883, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< S2LPRadioGetInfo"}
+{"t": 1791140156.941342, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(S2LPRadioGetInfo)} API call...{Frequency_base:31BF1BAD}{Modulation:70}{Data_rate:0000903A}{Frequency_deviation:00004B10}{Channel_filter_bandwidth:00017979}{XTAL_frequency:02FAEEC9}}"}
+{"t": 1791140156.941342, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> SdkEvalSpiReadRegisters 0 11"}
+{"t": 1791140156.945357, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< >SdkEvalSpiReadRegisters 0 11"}
+{"t": 1791140156.949712, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(SdkEvalSpiReadRegisters)} API callback..."}
+{"t": 1791140156.960352, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {regs_list: 0x00,0x0A,0x01,0xA2,0x02,0xA2,0x03,0xA2,0x04,0x00,0x05,0x82,0x06,0x16,0x07,0x27,0x08,0x62,0x09,0x2A,0x0A,0xB8}"}
+{"t": 1791140156.962354, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {timer:D4B6D87C}"}
+{"t": 1791140156.962354, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< }"}
+{"t": 1791140156.962354, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> SdkEvalSpiReadRegisters 12 13"}
+{"t": 1791140156.962354, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.serial_port", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140156.96635, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< SdkEvalSpiReadRegisters 12 13"}
+{"t": 1791140156.970735, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(SdkEvalSpiReadRegisters)} API callback..."}
+{"t": 1791140156.98271, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {regs_list: 0x0C,0x3F,0x0D,0x00,0x0E,0x83,0x0F,0x2B,0x10,0x77,0x11,0x03,0x12,0x93,0x13,0x23,0x14,0xC8,0x15,0x18,0x16,0x25,0x17,0xE3,0x18,0x28}"}
+{"t": 1791140156.984709, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {timer:D4B72BD7}"}
+{"t": 1791140156.984709, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< }"}
+{"t": 1791140156.985687, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> SdkEvalSpiReadRegisters 31 3"}
+{"t": 1791140156.985687, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.serial_port", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140156.988946, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< SdkEvalSpiReadRegisters 31 3"}
+{"t": 1791140156.992945, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(SdkEvalSpiReadRegisters)} API callback..."}
+{"t": 1791140156.99726, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {regs_list: 0x1F,0x45,0x20,0xC0,0x21,0x58}"}
+{"t": 1791140156.99927, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {timer:D4B78072}"}
+{"t": 1791140156.99927, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< }"}
+{"t": 1791140156.99927, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> SdkEvalSpiReadRegisters 43 42"}
+{"t": 1791140156.99927, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.serial_port", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140157.003344, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< SdkEvalSpiReadRegisters 43 42"}
+{"t": 1791140157.007386, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(SdkEvalSpiReadRegisters)} API callback..."}
+{"t": 1791140157.046701, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {regs_list: 0x2B,0x80,0x2C,0x10,0x2D,0x00,0x2E,0x20,0x2F,0x00,0x30,0x2C,0x31,0x00,0x32,0x14,0x33,0x88,0x34,0x88,0x35,0x88,0x36,0x88,0x37,0x01,0x38,0x00,0x39,0x40,0x3A,0x00,0x3B,0x08,0x3C,0x40,0x3D,0x40,0x3E,0x40,0x3F,0x40,0x40,0x40,0x41,0x00,0x42,0x00,0x43,0x00,0x44,0x00,0x45,0x00,0x46,0x01,0x47,0x00,0x48,0x01,0x49,0x00,0x4A,0x01,0x4B,0x00,0x4C,0xFF,0x4D,0x00,0x4E,0x04,0x4F,0x00,0x50,0x00,0x51,0x00,0x52,0x00,0x53,0x00,0x54,0x28}"}
+{"t": 1791140157.047023, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {timer:D4B7CE63}"}
+{"t": 1791140157.047023, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< }"}
+{"t": 1791140157.047723, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> SdkEvalSpiReadRegisters 90 12"}
+{"t": 1791140157.047723, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.serial_port", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140157.050712, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< SdkEvalSpiReadRegisters 90 12"}
+{"t": 1791140157.055912, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(SdkEvalSpiReadRegisters)} API callback..."}
+{"t": 1791140157.067493, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {regs_list: 0x5A,0x01,0x5B,0x0C,0x5C,0x18,0x5D,0x24,0x5E,0x30,0x5F,0x48,0x60,0x60,0x61,0x00,0x62,0x47,0x63,0x03,0x64,0x8A,0x65,0xD0}"}
+{"t": 1791140157.068782, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {timer:D4B876F6}"}
+{"t": 1791140157.069755, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< }"}
+{"t": 1791140157.069755, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> SdkEvalSpiReadRegisters 104 8"}
+{"t": 1791140157.069755, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.serial_port", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140157.073749, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< SdkEvalSpiReadRegisters 104 8"}
+{"t": 1791140157.078395, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(SdkEvalSpiReadRegisters)} API callback..."}
+{"t": 1791140157.0863, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {regs_list: 0x68,0x03,0x69,0x88,0x6A,0x40,0x6B,0x40,0x6C,0x45,0x6D,0x30,0x6E,0x70,0x6F,0x4D}"}
+{"t": 1791140157.088632, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {timer:D4B8CC2A}"}
+{"t": 1791140157.088632, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< }"}
+{"t": 1791140157.088632, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> SdkEvalSpiReadRegisters 117 5"}
+{"t": 1791140157.088632, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.serial_port", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140157.093631, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< SdkEvalSpiReadRegisters 117 5"}
+{"t": 1791140157.097045, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(SdkEvalSpiReadRegisters)} API callback..."}
+{"t": 1791140157.102395, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {regs_list: 0x75,0x17,0x76,0x20,0x77,0x00,0x78,0x39,0x79,0x42}"}
+{"t": 1791140157.104322, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {timer:D4B9150C}"}
+{"t": 1791140157.104322, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< }"}
+{"t": 1791140157.104322, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> SdkEvalSpiReadRegisters 141 4"}
+{"t": 1791140157.104322, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.serial_port", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140157.107702, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< SdkEvalSpiReadRegisters 141 4"}
+{"t": 1791140157.111729, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(SdkEvalSpiReadRegisters)} API callback..."}
+{"t": 1791140157.117075, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {regs_list: 0x8D,0x52,0x8E,0x01,0x8F,0x00,0x90,0x00}"}
+{"t": 1791140157.119091, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {timer:D4B951E3}"}
+{"t": 1791140157.119091, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< }"}
+{"t": 1791140157.119091, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> SdkEvalSpiReadRegisters 148 2"}
+{"t": 1791140157.119091, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.serial_port", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140157.123091, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< SdkEvalSpiReadRegisters 148 2"}
+{"t": 1791140157.127388, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(SdkEvalSpiReadRegisters)} API callback..."}
+{"t": 1791140157.129803, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {regs_list: 0x94,0x70,0x95,0x00}"}
+{"t": 1791140157.132258, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {timer:D4B98B5B}"}
+{"t": 1791140157.132258, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< }"}
+{"t": 1791140157.132258, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> SdkEvalSpiReadRegisters 153 2"}
+{"t": 1791140157.132258, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.serial_port", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140157.136454, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< SdkEvalSpiReadRegisters 153 2"}
+{"t": 1791140157.14089, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(SdkEvalSpiReadRegisters)} API callback..."}
+{"t": 1791140157.143889, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {regs_list: 0x99,0x00,0x9A,0x00}"}
+{"t": 1791140157.145872, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {timer:D4B9BED6}"}
+{"t": 1791140157.145872, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< }"}
+{"t": 1791140157.14692, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> SdkEvalSpiReadRegisters 156 5"}
+{"t": 1791140157.14692, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.serial_port", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140157.150225, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< SdkEvalSpiReadRegisters 156 5"}
+{"t": 1791140157.155454, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(SdkEvalSpiReadRegisters)} API callback..."}
+{"t": 1791140157.159699, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {regs_list: 0x9C,0x00,0x9D,0x00,0x9E,0x00,0x9F,0x00,0xA0,0x00}"}
+{"t": 1791140157.161698, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {timer:D4B9F763}"}
+{"t": 1791140157.1627, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< }"}
+{"t": 1791140157.1627, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> SdkEvalSpiReadRegisters 162 1"}
+{"t": 1791140157.1627, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.serial_port", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140157.165695, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< SdkEvalSpiReadRegisters 162 1"}
+{"t": 1791140157.171403, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(SdkEvalSpiReadRegisters)} API callback..."}
+{"t": 1791140157.173047, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {regs_list: 0xA2,0x00}"}
+{"t": 1791140157.174025, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {timer:D4BA33F5}"}
+{"t": 1791140157.175024, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< }"}
+{"t": 1791140157.175024, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> SdkEvalSpiReadRegisters 164 8"}
+{"t": 1791140157.175024, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.serial_port", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140157.179298, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< SdkEvalSpiReadRegisters 164 8"}
+{"t": 1791140157.183308, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(SdkEvalSpiReadRegisters)} API callback..."}
+{"t": 1791140157.192343, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {regs_list: 0xA4,0x00,0xA5,0x00,0xA6,0x00,0xA7,0x00,0xA8,0x00,0xA9,0x00,0xAA,0x00,0xAB,0x00}"}
+{"t": 1791140157.193362, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {timer:D4BA6855}"}
+{"t": 1791140157.193362, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< }"}
+{"t": 1791140157.193362, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> SdkEvalSpiReadRegisters 239 3"}
+{"t": 1791140157.193362, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.serial_port", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140157.197434, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< SdkEvalSpiReadRegisters 239 3"}
+{"t": 1791140157.201373, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(SdkEvalSpiReadRegisters)} API callback..."}
+{"t": 1791140157.205364, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {regs_list: 0xEF,0x00,0xF0,0x00,0xF1,0x00}"}
+{"t": 1791140157.207426, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {timer:D4BAAD27}"}
+{"t": 1791140157.207426, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< }"}
+{"t": 1791140157.207611, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> SdkEvalSpiReadRegisters 250 4"}
+{"t": 1791140157.207611, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.serial_port", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140157.21135, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< SdkEvalSpiReadRegisters 250 4"}
+{"t": 1791140157.215378, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(SdkEvalSpiReadRegisters)} API callback..."}
+{"t": 1791140157.220334, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {regs_list: 0xFA,0x00,0xFB,0x0D,0xFC,0x05,0xFD,0x00}"}
+{"t": 1791140157.222306, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {timer:D4BAE44A}"}
+{"t": 1791140157.222306, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< }"}
+{"t": 1791140157.222306, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> S2LPRadioGetPALeveldBm 7"}
+{"t": 1791140157.222306, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.serial_port", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140157.226333, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< S2LPRadioGetPALeveldBm 7"}
+{"t": 1791140157.230739, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(S2LPRadioGetPALeveldBm)} API call...{value:120}}"}
+{"t": 1791140157.231686, "source": "RF", "level": "INFO", "logger": "benchtools.instruments.s2lp.s2lp", "text": "RF setup read: 123 registers", "kind": "rf_setup", "data": {"radio": {"frequency_hz": 834608045, "modulation": 112, "modulation_name": "cw", "data_rate_bps": 36922, "deviation_hz": 19216, "bandwidth_hz": 96633, "xtal_hz": 49999561}, "registers": {"0": 10, "1": 162, "2": 162, "3": 162, "4": 0, "5": 130, "6": 22, "7": 39, "8": 98, "9": 42, "10": 184, "12": 63, "13": 0, "14": 131, "15": 43, "16": 119, "17": 3, "18": 147, "19": 35, "20": 200, "21": 24, "22": 37, "23": 227, "24": 40, "31": 69, "32": 192, "33": 88, "43": 128, "44": 16, "45": 0, "46": 32, "47": 0, "48": 44, "49": 0, "50": 20, "51": 136, "52": 136, "53": 136, "54": 136, "55": 1, "56": 0, "57": 64, "58": 0, "59": 8, "60": 64, "61": 64, "62": 64, "63": 64, "64": 64, "65": 0, "66": 0, "67": 0, "68": 0, "69": 0, "70": 1, "71": 0, "72": 1, "73": 0, "74": 1, "75": 0, "76": 255, "77": 0, "78": 4, "79": 0, "80": 0, "81": 0, "82": 0, "83": 0, "84": 40, "90": 1, "91": 12, "92": 24, "93": 36, "94": 48, "95": 72, "96": 96, "97": 0, "98": 71, "99": 3, "100": 138, "101": 208, "104": 3, "105": 136, "106": 64, "107": 64, "108": 69, "109": 48, "110": 112, "111": 77, "117": 23, "118": 32, "119": 0, "120": 57, "121": 66, "141": 82, "142": 1, "143": 0, "144": 0, "148": 112, "149": 0, "153": 0, "154": 0, "156": 0, "157": 0, "158": 0, "159": 0, "160": 0, "162": 0, "164": 0, "165": 0, "166": 0, "167": 0, "168": 0, "169": 0, "170": 0, "171": 0, "239": 0, "240": 0, "241": 0, "250": 0, "251": 13, "252": 5, "253": 0}, "power_dbm": 12.0, "eeprom": {"programmed": true, "band_code": 2, "band_hz": 433000000, "band_range_hz": [430000000, 440000000], "xtal_hz": 50000000, "page0": "030409020200000001680000461900ffffffffc232322dffffffffffffffff00"}}}
+{"t": 1791140157.231686, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner.runner", "text": "step s2lp.read_setup: PASS", "kind": "step_end", "data": {"phase": "test", "case": 0, "step": 3, "action": "s2lp.read_setup", "arguments": {}, "result": {"radio": {"frequency_hz": 834608045, "modulation": 112, "modulation_name": "cw", "data_rate_bps": 36922, "deviation_hz": 19216, "bandwidth_hz": 96633, "xtal_hz": 49999561}, "registers": {"0": 10, "1": 162, "2": 162, "3": 162, "4": 0, "5": 130, "6": 22, "7": 39, "8": 98, "9": 42, "10": 184, "12": 63, "13": 0, "14": 131, "15": 43, "16": 119, "17": 3, "18": 147, "19": 35, "20": 200, "21": 24, "22": 37, "23": 227, "24": 40, "31": 69, "32": 192, "33": 88, "43": 128, "44": 16, "45": 0, "46": 32, "47": 0, "48": 44, "49": 0, "50": 20, "51": 136, "52": 136, "53": 136, "54": 136, "55": 1, "56": 0, "57": 64, "58": 0, "59": 8, "60": 64, "61": 64, "62": 64, "63": 64, "64": 64, "65": 0, "66": 0, "67": 0, "68": 0, "69": 0, "70": 1, "71": 0, "72": 1, "73": 0, "74": 1, "75": 0, "76": 255, "77": 0, "78": 4, "79": 0, "80": 0, "81": 0, "82": 0, "83": 0, "84": 40, "90": 1, "91": 12, "92": 24, "93": 36, "94": 48, "95": 72, "96": 96, "97": 0, "98": 71, "99": 3, "100": 138, "101": 208, "104": 3, "105": 136, "106": 64, "107": 64, "108": 69, "109": 48, "110": 112, "111": 77, "117": 23, "118": 32, "119": 0, "120": 57, "121": 66, "141": 82, "142": 1, "143": 0, "144": 0, "148": 112, "149": 0, "153": 0, "154": 0, "156": 0, "157": 0, "158": 0, "159": 0, "160": 0, "162": 0, "164": 0, "165": 0, "166": 0, "167": 0, "168": 0, "169": 0, "170": 0, "171": 0, "239": 0, "240": 0, "241": 0, "250": 0, "251": 13, "252": 5, "253": 0}, "power_dbm": 12.0, "eeprom": {"programmed": true, "band_code": 2, "band_hz": 433000000, "band_range_hz": [430000000, 440000000], "xtal_hz": 50000000, "page0": "030409020200000001680000461900ffffffffc232322dffffffffffffffff00"}}, "save": null, "status": "PASS", "error": "", "duration_s": 0.453, "measurements": [{"name": "s2lp_registers_read", "value": 123.0, "unit": "", "limit": ">= 100", "status": "PASS", "reason": ""}]}}
+{"t": 1791140157.231686, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner.runner", "text": "step temp.version starting", "kind": "step_start", "data": {"phase": "test", "case": 0, "step": 4, "action": "temp.version", "arguments": {}, "description": "", "save": null}}
+{"t": 1791140157.231686, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.bench", "text": "connecting temp (pico-sht30) at COM14"}
+{"t": 1791140157.231686, "source": "TEMP", "level": "DEBUG", "logger": "benchtools.core.transport.factory", "text": "resource 'serial://COM14' resolved to serial COM14"}
+{"t": 1791140157.234202, "source": "TEMP", "level": "DEBUG", "logger": "benchtools.core.transport.serial_port", "text": "opened serial COM14"}
+{"t": 1791140157.235183, "source": "TEMP", "level": "DEBUG", "logger": "benchtools.instruments.pico_sht30.thermometer", "text": ">> rd name"}
+{"t": 1791140157.235183, "source": "TEMP", "level": "DEBUG", "logger": "benchtools.instruments.pico_sht30.thermometer", "text": "<< ACK rd name = Pico 2 SHT30 Temperature Sensor"}
+{"t": 1791140157.235183, "source": "TEMP", "level": "DEBUG", "logger": "benchtools.instruments.pico_sht30.thermometer", "text": ">> rd copyright"}
+{"t": 1791140157.236183, "source": "TEMP", "level": "DEBUG", "logger": "benchtools.instruments.pico_sht30.thermometer", "text": "<< ACK rd copyright = (c) 2026 Dermot Murphy"}
+{"t": 1791140157.236183, "source": "TEMP", "level": "DEBUG", "logger": "benchtools.instruments.pico_sht30.thermometer", "text": ">> rd version"}
+{"t": 1791140157.236183, "source": "TEMP", "level": "DEBUG", "logger": "benchtools.instruments.pico_sht30.thermometer", "text": "<< ACK rd version = V1.00.0000"}
+{"t": 1791140157.236183, "source": "TEMP", "level": "DEBUG", "logger": "benchtools.instruments.pico_sht30.thermometer", "text": ">> rd sha"}
+{"t": 1791140157.237345, "source": "TEMP", "level": "DEBUG", "logger": "benchtools.instruments.pico_sht30.thermometer", "text": "<< ACK rd sha = 5c80ae7"}
+{"t": 1791140157.237503, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.runner", "text": "step temp.version()"}
+{"t": 1791140157.237503, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner.runner", "text": "step temp.version: PASS", "kind": "step_end", "data": {"phase": "test", "case": 0, "step": 4, "action": "temp.version", "arguments": {}, "result": "V1.00.0000", "save": null, "status": "PASS", "error": "", "duration_s": 0.0, "measurements": [{"name": "thermometer_version", "value": "V1.00.0000", "unit": "", "limit": "= \"V1.00.0000\"", "status": "PASS", "reason": ""}]}}
+{"t": 1791140157.237503, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.runner", "text": "test 'Every instrument answers and is identified': PASS", "kind": "case_end", "data": {"case": 0, "name": "Every instrument answers and is identified", "status": "PASS", "error": "", "skip_reason": "", "duration_s": 6.906}}
+{"t": 1791140157.237503, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.runner", "text": "'QS-10 Bench identity': PASS", "kind": "run_end", "data": {"suite": "QS-10 Bench identity", "status": "PASS", "setup_error": "", "duration_s": 6.906, "totals": {"total": 1, "passed": 1, "failed": 0, "errored": 0, "skipped": 0}}}
+{"t": 1791140157.345821, "source": "PSU", "level": "DEBUG", "logger": "benchtools.core.transport.serial_port", "text": "closed serial COM11"}
+{"t": 1791140157.454807, "source": "DMM", "level": "DEBUG", "logger": "benchtools.core.transport.serial_port", "text": "closed serial COM13"}
+{"t": 1791140157.456381, "source": "BLE", "level": "DEBUG", "logger": "benchtools.core.transport.serial_port", "text": "closed serial COM10"}
+{"t": 1791140157.462106, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.serial_port", "text": "closed serial COM4"}
+{"t": 1791140157.467536, "source": "TEMP", "level": "DEBUG", "logger": "benchtools.core.transport.serial_port", "text": "closed serial COM14"}

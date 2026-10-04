@@ -38,5 +38,9 @@ results/
 # Bench test records (tests/bench), kept with the bench confirmation items
 *_bench_findings.md
 
+# Qualification evidence is committed on purpose: it is the record TB-SYS5-002
+# cites, kept with the campaign that produced it (#176).
+!docs/aspice/qualification/**
+
 # Event logs and reports written by runs started from the test run viewer (#137).
 /runs/

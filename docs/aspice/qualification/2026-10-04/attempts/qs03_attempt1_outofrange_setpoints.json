@@ -1,0 +1,286 @@
+{
+  "suite": "QS-03 Supply refusals and safe state (hardware)",
+  "bench": "Bench PC (Windows)",
+  "spec_source": "specs/qualification/qs03_supply.yaml",
+  "parameters": {},
+  "selection": [
+    "Independent: state, setpoints and readback",
+    "Independent: safe state"
+  ],
+  "simulated": false,
+  "status": "PASS",
+  "started": "2026-10-04T17:05:39+00:00",
+  "finished": "2026-10-04T17:05:43+00:00",
+  "duration_s": 3.735,
+  "totals": {
+    "total": 8,
+    "passed": 2,
+    "failed": 0,
+    "errored": 0,
+    "skipped": 6
+  },
+  "instruments": {
+    "psu": {
+      "driver": "Gpd3303D",
+      "resource": "COM11",
+      "event": "PSU",
+      "manufacturer": "GW INSTEK",
+      "model": "GPD-3303D",
+      "serial_number": "GER916893",
+      "firmware": "V1.09",
+      "identity": "GW INSTEK,GPD-3303D,SN:GER916893,V1.09"
+    }
+  },
+  "requirements": [
+    "TB-SYS2-015",
+    "TB-SYS2-020",
+    "TB-SYS2-021",
+    "TB-SYS2-022",
+    "TB-SYS2-023",
+    "TB-SYS2-024",
+    "TB-SYS2-025"
+  ],
+  "requirements_verified": {
+    "TB-SYS2-020": "PASS",
+    "TB-SYS2-021": "PASS",
+    "TB-SYS2-022": "SKIP",
+    "TB-SYS2-023": "SKIP",
+    "TB-SYS2-024": "SKIP"
+  },
+  "setup_error": "",
+  "cases": [
+    {
+      "name": "Independent: state, setpoints and readback",
+      "status": "PASS",
+      "requirement": "TB-SYS2-020, TB-SYS2-021, TB-SYS2-022",
+      "duration_s": 2.422,
+      "error": "",
+      "skip_reason": "",
+      "steps": [
+        {
+          "action": "psu.status",
+          "status": "PASS",
+          "duration_s": 0.485,
+          "error": "",
+          "measurements": [
+            {
+              "name": "tracking",
+              "value": "independent",
+              "unit": "",
+              "limit": "= \"independent\"",
+              "status": "PASS",
+              "reason": ""
+            },
+            {
+              "name": "output_off",
+              "value": 0.0,
+              "unit": "",
+              "limit": "= 0",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        },
+        {
+          "action": "psu.configure_channel",
+          "status": "PASS",
+          "duration_s": 0.531,
+          "error": "",
+          "measurements": [
+            {
+              "name": "ch1_voltage_setpoint",
+              "value": 1.5,
+              "unit": "V",
+              "limit": "= 1.5 +/- 0.01",
+              "status": "PASS",
+              "reason": ""
+            },
+            {
+              "name": "ch1_current_setpoint",
+              "value": 0.1,
+              "unit": "A",
+              "limit": "= 0.1 +/- 0.001",
+              "status": "PASS",
+              "reason": ""
+            },
+            {
+              "name": "ch1_output_still_off",
+              "value": 0.0,
+              "unit": "",
+              "limit": "= 0",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        },
+        {
+          "action": "psu.configure_channel",
+          "status": "PASS",
+          "duration_s": 0.922,
+          "error": "",
+          "measurements": [
+            {
+              "name": "ch2_voltage_setpoint",
+              "value": 2.5,
+              "unit": "V",
+              "limit": "= 2.5 +/- 0.01",
+              "status": "PASS",
+              "reason": ""
+            },
+            {
+              "name": "ch2_output_still_off",
+              "value": 0.0,
+              "unit": "",
+              "limit": "= 0",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        },
+        {
+          "action": "psu.read_channel",
+          "status": "PASS",
+          "duration_s": 0.484,
+          "error": "",
+          "measurements": [
+            {
+              "name": "ch1_output_voltage",
+              "value": 0.0,
+              "unit": "V",
+              "limit": "= 0 +/- 0.05",
+              "status": "PASS",
+              "reason": ""
+            },
+            {
+              "name": "ch1_output_current",
+              "value": 0.0,
+              "unit": "A",
+              "limit": "= 0 +/- 0.005",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Independent: safe state",
+      "status": "PASS",
+      "requirement": "TB-SYS2-024",
+      "duration_s": 1.266,
+      "error": "",
+      "skip_reason": "",
+      "steps": [
+        {
+          "action": "psu.reset",
+          "status": "PASS",
+          "duration_s": 0.36,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "psu.read_channel",
+          "status": "PASS",
+          "duration_s": 0.421,
+          "error": "",
+          "measurements": [
+            {
+              "name": "ch1_setpoint_zero",
+              "value": 0.0,
+              "unit": "V",
+              "limit": "= 0 +/- 0.01",
+              "status": "PASS",
+              "reason": ""
+            },
+            {
+              "name": "ch1_off",
+              "value": 0.0,
+              "unit": "",
+              "limit": "= 0",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        },
+        {
+          "action": "psu.read_channel",
+          "status": "PASS",
+          "duration_s": 0.485,
+          "error": "",
+          "measurements": [
+            {
+              "name": "ch2_setpoint_zero",
+              "value": 0.0,
+              "unit": "V",
+              "limit": "= 0 +/- 0.01",
+              "status": "PASS",
+              "reason": ""
+            },
+            {
+              "name": "ch2_off",
+              "value": 0.0,
+              "unit": "",
+              "limit": "= 0",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Series: state",
+      "status": "SKIP",
+      "requirement": "TB-SYS2-022",
+      "duration_s": 0.0,
+      "error": "",
+      "skip_reason": "not selected",
+      "steps": []
+    },
+    {
+      "name": "Series: a channel 2 setpoint is refused (expected ERROR)",
+      "status": "SKIP",
+      "requirement": "TB-SYS2-023",
+      "duration_s": 0.0,
+      "error": "",
+      "skip_reason": "not selected",
+      "steps": []
+    },
+    {
+      "name": "Series: safe state",
+      "status": "SKIP",
+      "requirement": "TB-SYS2-024",
+      "duration_s": 0.0,
+      "error": "",
+      "skip_reason": "not selected",
+      "steps": []
+    },
+    {
+      "name": "Parallel: state",
+      "status": "SKIP",
+      "requirement": "TB-SYS2-022",
+      "duration_s": 0.0,
+      "error": "",
+      "skip_reason": "not selected",
+      "steps": []
+    },
+    {
+      "name": "Parallel: a channel 2 setpoint is refused (expected ERROR)",
+      "status": "SKIP",
+      "requirement": "TB-SYS2-023",
+      "duration_s": 0.0,
+      "error": "",
+      "skip_reason": "not selected",
+      "steps": []
+    },
+    {
+      "name": "Parallel: safe state",
+      "status": "SKIP",
+      "requirement": "TB-SYS2-024",
+      "duration_s": 0.0,
+      "error": "",
+      "skip_reason": "not selected",
+      "steps": []
+    }
+  ]
+}

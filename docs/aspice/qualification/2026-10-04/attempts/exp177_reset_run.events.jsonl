@@ -1,0 +1,172 @@
+{"t": 1791132051.358297, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.runner", "text": "running 'Experiment - reset then run under the probe'", "kind": "run_start", "data": {"suite": "Experiment - reset then run under the probe", "spec_source": "U:/Temp/claude/U--GitHub-EmbeddedTestBench/d3a69c47-143b-466f-8dae-5b7fe4d00d6d/scratchpad/qual/exp_reset_run.yaml", "requirements": [], "parameters": {}, "selection": [], "setup": [], "teardown": [{"step": 0, "action": "probe.rtt_stop", "arguments": {}, "description": "", "save": null}], "tests": [{"case": 0, "name": "reset 0 only", "requirement": "", "description": "", "selected": true, "skip": false, "steps": [{"step": 0, "action": "probe.rtt_start", "arguments": {}, "description": "", "save": null}, {"step": 1, "action": "probe.reset", "arguments": {"halt": false}, "description": "", "save": null}, {"step": 2, "action": "probe.rtt_lines_within", "arguments": {"timeout": 20.0}, "description": "", "save": null}, {"step": 3, "action": "probe.halt", "arguments": {}, "description": "", "save": null}, {"step": 4, "action": "probe.reset", "arguments": {"halt": true}, "description": "", "save": null}, {"step": 5, "action": "probe.run", "arguments": {}, "description": "", "save": null}, {"step": 6, "action": "probe.rtt_lines_within", "arguments": {"timeout": 60.0}, "description": "", "save": null}, {"step": 7, "action": "dongle.scan", "arguments": {"duration": 60.0, "name": "5C1712"}, "description": "", "save": null}]}], "bench": "Bench PC (Windows)", "simulated": false}}
+{"t": 1791132051.359298, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.runner", "text": "running test 'reset 0 only'", "kind": "case_start", "data": {"case": 0, "name": "reset 0 only", "requirement": "", "first_step": 0}}
+{"t": 1791132051.359298, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner.runner", "text": "step probe.rtt_start starting", "kind": "step_start", "data": {"phase": "test", "case": 0, "step": 0, "action": "probe.rtt_start", "arguments": {}, "description": "", "save": null}}
+{"t": 1791132051.359298, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.bench", "text": "connecting probe (jlink) at jlink://"}
+{"t": 1791132052.000004, "source": "JLINK", "level": "INFO", "logger": "benchtools.instruments.jlink.server", "text": "starting C:\\Program Files\\SEGGER\\JLink_V942\\JLinkGDBServerCL.exe -device nRF52840_xxAA -if SWD -speed 4000 -port 2331 -swoport 2332 -telnetport 2333 -rtttelnetport 19021 -nogui -strict"}
+{"t": 1791132052.627095, "source": "JLINK", "level": "INFO", "logger": "benchtools.instruments.jlink.server", "text": "GDB Server listening on 127.0.0.1:2331"}
+{"t": 1791132053.147389, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.core.transport.process", "text": "opened process arm-none-eabi-gdb.exe"}
+{"t": 1791132053.14836, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.session", "text": "async thread-group-added{'id': 'i1'}"}
+{"t": 1791132053.149355, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.session", "text": ">> 1-gdb-set confirm off"}
+{"t": 1791132053.163, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.session", "text": ">> 2-gdb-set pagination off"}
+{"t": 1791132053.179515, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.session", "text": ">> 3-gdb-set print pretty off"}
+{"t": 1791132053.194734, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.session", "text": ">> 4-gdb-set mi-async on"}
+{"t": 1791132053.195737, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.session", "text": ">> 5-gdb-set mem inaccessible-by-default off"}
+{"t": 1791132053.196729, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.session", "text": ">> 6-target-select extended-remote 127.0.0.1:2331"}
+{"t": 1791132053.242515, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.session", "text": "async thread-group-started{'id': 'i1', 'pid': '42000'}"}
+{"t": 1791132053.24351, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.session", "text": "async thread-created{'id': '1', 'group-id': 'i1'}"}
+{"t": 1791132053.250525, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.session", "text": "console 0x00015f5a in ?? ()"}
+{"t": 1791132053.250525, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.session", "text": "async stopped{'frame': {'addr': '0x00015f5a', 'func': '??', 'args': [], 'arch': 'arm'}, 'thread-id': '1', 'stopped-threads': 'all'}"}
+{"t": 1791132053.250525, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.runner", "text": "step probe.rtt_start()"}
+{"t": 1791132053.25152, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.session", "text": ">> 7-interpreter-exec console \"monitor rtt start\""}
+{"t": 1791132053.274508, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner.runner", "text": "step probe.rtt_start: PASS", "kind": "step_end", "data": {"phase": "test", "case": 0, "step": 0, "action": "probe.rtt_start", "arguments": {}, "result": null, "save": null, "status": "PASS", "error": "", "duration_s": 1.907, "measurements": []}}
+{"t": 1791132053.274508, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner.runner", "text": "step probe.reset starting", "kind": "step_start", "data": {"phase": "test", "case": 0, "step": 1, "action": "probe.reset", "arguments": {"halt": false}, "description": "", "save": null}}
+{"t": 1791132053.275508, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.runner", "text": "step probe.reset(halt=False)"}
+{"t": 1791132053.275508, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.session", "text": ">> 8-interpreter-exec console \"monitor reset 0\""}
+{"t": 1791132053.275508, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: SEGGER J-Link V9.42 - Real time terminal output"}
+{"t": 1791132053.275508, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: SEGGER J-Link V8.0, SN=682395790"}
+{"t": 1791132053.275508, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: Process: JLinkGDBServerCL.exe"}
+{"t": 1791132053.364601, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.session", "text": "console Resetting target (0 = NORMAL: Resets core & peripherals via SYSRESETREQ & VECTRESET bit.)"}
+{"t": 1791132053.364601, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner.runner", "text": "step probe.reset: PASS", "kind": "step_end", "data": {"phase": "test", "case": 0, "step": 1, "action": "probe.reset", "arguments": {"halt": false}, "result": null, "save": null, "status": "PASS", "error": "", "duration_s": 0.093, "measurements": []}}
+{"t": 1791132053.364601, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner.runner", "text": "step probe.rtt_lines_within starting", "kind": "step_start", "data": {"phase": "test", "case": 0, "step": 2, "action": "probe.rtt_lines_within", "arguments": {"timeout": 20.0}, "description": "", "save": null}}
+{"t": 1791132053.365601, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.runner", "text": "step probe.rtt_lines_within(timeout=20.0)"}
+{"t": 1791132053.365601, "source": "JLINK", "level": "INFO", "logger": "benchtools.instruments.jlink.probe", "text": "3 RTT line(s) within 20.00 s"}
+{"t": 1791132053.365601, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner.runner", "text": "step probe.rtt_lines_within: PASS", "kind": "step_end", "data": {"phase": "test", "case": 0, "step": 2, "action": "probe.rtt_lines_within", "arguments": {"timeout": 20.0}, "result": 3, "save": null, "status": "PASS", "error": "", "duration_s": 0.0, "measurements": []}}
+{"t": 1791132053.365601, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner.runner", "text": "step probe.halt starting", "kind": "step_start", "data": {"phase": "test", "case": 0, "step": 3, "action": "probe.halt", "arguments": {}, "description": "", "save": null}}
+{"t": 1791132053.365601, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.runner", "text": "step probe.halt()"}
+{"t": 1791132053.365601, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.session", "text": ">> 9-exec-interrupt"}
+{"t": 1791132053.380744, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner.runner", "text": "step probe.halt: PASS", "kind": "step_end", "data": {"phase": "test", "case": 0, "step": 3, "action": "probe.halt", "arguments": {}, "result": {"reason": "unknown", "function": "??", "file": "", "line": 0, "address": 89946, "breakpoint_number": null, "signal": ""}, "save": null, "status": "PASS", "error": "", "duration_s": 0.016, "measurements": []}}
+{"t": 1791132053.380744, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner.runner", "text": "step probe.reset starting", "kind": "step_start", "data": {"phase": "test", "case": 0, "step": 4, "action": "probe.reset", "arguments": {"halt": true}, "description": "", "save": null}}
+{"t": 1791132053.380744, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.runner", "text": "step probe.reset(halt=True)"}
+{"t": 1791132053.381756, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.session", "text": ">> 10-interpreter-exec console \"monitor reset\""}
+{"t": 1791132053.476501, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.session", "text": "console Resetting target"}
+{"t": 1791132053.476501, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.session", "text": ">> 11-interpreter-exec console \"monitor halt\""}
+{"t": 1791132053.50897, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner.runner", "text": "step probe.reset: PASS", "kind": "step_end", "data": {"phase": "test", "case": 0, "step": 4, "action": "probe.reset", "arguments": {"halt": true}, "result": null, "save": null, "status": "PASS", "error": "", "duration_s": 0.125, "measurements": []}}
+{"t": 1791132053.50897, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner.runner", "text": "step probe.run starting", "kind": "step_start", "data": {"phase": "test", "case": 0, "step": 5, "action": "probe.run", "arguments": {}, "description": "", "save": null}}
+{"t": 1791132053.50897, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.runner", "text": "step probe.run()"}
+{"t": 1791132053.50897, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.session", "text": ">> 12-exec-continue"}
+{"t": 1791132053.521992, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner.runner", "text": "step probe.run: PASS", "kind": "step_end", "data": {"phase": "test", "case": 0, "step": 5, "action": "probe.run", "arguments": {}, "result": null, "save": null, "status": "PASS", "error": "", "duration_s": 0.016, "measurements": []}}
+{"t": 1791132053.521992, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner.runner", "text": "step probe.rtt_lines_within starting", "kind": "step_start", "data": {"phase": "test", "case": 0, "step": 6, "action": "probe.rtt_lines_within", "arguments": {"timeout": 60.0}, "description": "", "save": null}}
+{"t": 1791132053.522971, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.runner", "text": "step probe.rtt_lines_within(timeout=60.0)"}
+{"t": 1791132057.897227, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: "}
+{"t": 1791132057.897227, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Starting from reset in NORMAL mode"}
+{"t": 1791132057.897227, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: "}
+{"t": 1791132057.897227, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Sensor ID is:          0x5C1712"}
+{"t": 1791132057.897227, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: PRODUCT:               KAPPA"}
+{"t": 1791132057.898235, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: VERSION:               V10.01.2000 (08ba964c)"}
+{"t": 1791132057.898235, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Battery Percentage:        0mV"}
+{"t": 1791132057.898235, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: TARGET:                Production"}
+{"t": 1791132057.898235, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Compiler Version:      V9.03.01"}
+{"t": 1791132057.898235, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Reset reason:          4 (soft reset)"}
+{"t": 1791132057.898235, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: NVM Memory:            PASSED"}
+{"t": 1791132057.898235, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: First Assembly:        VE00-PP01-PCB4"}
+{"t": 1791132057.898235, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: RF Part ID:            0x03C1"}
+{"t": 1791132057.898235, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Accel Part ID is:      0x4B696F6E4601"}
+{"t": 1791132057.898235, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Magnetometer part num: 0x40"}
+{"t": 1791132057.898235, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: MCU Part ID:           0x00052840-AAD0"}
+{"t": 1791132057.898235, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: MCU ID:                0x409EB104-253F30AA"}
+{"t": 1791132057.898235, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Sleeping"}
+{"t": 1791132057.898235, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Waking 1"}
+{"t": 1791132057.898235, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: "}
+{"t": 1791132057.898235, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Wakeup (Periodic)"}
+{"t": 1791132057.898235, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Phase: INIT Counter 0 Tick 1"}
+{"t": 1791132057.898235, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Sleeping"}
+{"t": 1791132057.899234, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Waking 2"}
+{"t": 1791132057.899234, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: "}
+{"t": 1791132057.899234, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Wakeup (Periodic)"}
+{"t": 1791132057.899234, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Phase: INIT Counter 0 Tick 1"}
+{"t": 1791132057.899234, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: "}
+{"t": 1791132057.930211, "source": "JLINK", "level": "INFO", "logger": "benchtools.instruments.jlink.probe", "text": "28 RTT line(s) within 60.00 s"}
+{"t": 1791132057.930211, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner.runner", "text": "step probe.rtt_lines_within: PASS", "kind": "step_end", "data": {"phase": "test", "case": 0, "step": 6, "action": "probe.rtt_lines_within", "arguments": {"timeout": 60.0}, "result": 28, "save": null, "status": "PASS", "error": "", "duration_s": 4.406, "measurements": []}}
+{"t": 1791132057.930211, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner.runner", "text": "step dongle.scan starting", "kind": "step_start", "data": {"phase": "test", "case": 0, "step": 7, "action": "dongle.scan", "arguments": {"duration": 60.0, "name": "5C1712"}, "description": "", "save": null}}
+{"t": 1791132057.930211, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.bench", "text": "connecting dongle (ble-dongle) at COM10"}
+{"t": 1791132057.930211, "source": "BLE", "level": "DEBUG", "logger": "benchtools.core.transport.factory", "text": "resource 'serial://COM10' resolved to serial COM10"}
+{"t": 1791132057.943454, "source": "BLE", "level": "DEBUG", "logger": "benchtools.core.transport.serial_port", "text": "opened serial COM10"}
+{"t": 1791132058.005818, "source": "BLE", "level": "DEBUG", "logger": "benchtools.instruments.nordic_dongle.session", "text": "> ver"}
+{"t": 1791132058.008811, "source": "BLE", "level": "DEBUG", "logger": "benchtools.instruments.nordic_dongle.session", "text": "< ok Nordic PCA10059 fw=1.4.0 built=local:Sep-29-2026T11:41:48 proto=1.4 uptime_us=449738427175 dropped=0"}
+{"t": 1791132058.008811, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.runner", "text": "step dongle.scan(duration=60.0, name='5C1712')"}
+{"t": 1791132058.008811, "source": "BLE", "level": "DEBUG", "logger": "benchtools.instruments.nordic_dongle.session", "text": "> scan start 60000 name=5C1712"}
+{"t": 1791132058.009804, "source": "BLE", "level": "DEBUG", "logger": "benchtools.instruments.nordic_dongle.session", "text": "< +scan t=449738430430 state=started"}
+{"t": 1791132058.009804, "source": "BLE", "level": "DEBUG", "logger": "benchtools.instruments.nordic_dongle.session", "text": "< ok scanning=1 ms=60000"}
+{"t": 1791132058.692152, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: "}
+{"t": 1791132058.692152, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Wakeup (Periodic)"}
+{"t": 1791132058.692152, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Phase: INIT Counter 0 Tick 1"}
+{"t": 1791132058.692152, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Sleeping"}
+{"t": 1791132059.109258, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Waking 6"}
+{"t": 1791132059.109258, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Sleeping"}
+{"t": 1791132059.685648, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Waking 7"}
+{"t": 1791132059.685648, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: "}
+{"t": 1791132059.685648, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Wakeup (Periodic)"}
+{"t": 1791132059.685648, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: "}
+{"t": 1791132059.685648, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Ticks since reset:     1"}
+{"t": 1791132059.685648, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Sensor ID is:          0x5C1712"}
+{"t": 1791132060.552311, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Battery Percentage:        2798mV"}
+{"t": 1791132060.552311, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Machine Temperature:   21062mC"}
+{"t": 1791132060.552311, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: MCU Temperature:       23750mC"}
+{"t": 1791132060.567772, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Radio:                 Version"}
+{"t": 1791132060.893835, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Phase: DETECT Counter 20 Tick 45"}
+{"t": 1791132060.893835, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Sleeping"}
+{"t": 1791132060.893835, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Waking 8"}
+{"t": 1791132060.893835, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Sleeping"}
+{"t": 1791132068.112001, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Waking 9"}
+{"t": 1791132068.112001, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Sleeping"}
+{"t": 1791132073.272727, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Waking 10"}
+{"t": 1791132073.272727, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Sleeping"}
+{"t": 1791132082.292555, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Waking 11"}
+{"t": 1791132082.292555, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Sleeping"}
+{"t": 1791132087.459863, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Waking 12"}
+{"t": 1791132087.459863, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Sleeping"}
+{"t": 1791132096.454572, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Waking 13"}
+{"t": 1791132096.454572, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Sleeping"}
+{"t": 1791132101.62429, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Waking 14"}
+{"t": 1791132101.62429, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Sleeping"}
+{"t": 1791132104.689494, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Waking 15"}
+{"t": 1791132104.689494, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: "}
+{"t": 1791132104.689494, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Wakeup (Periodic)"}
+{"t": 1791132104.689494, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: "}
+{"t": 1791132104.689494, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Ticks since reset:     2"}
+{"t": 1791132104.689494, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Sensor ID is:          0x5C1712"}
+{"t": 1791132104.751463, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: RMS Sampling"}
+{"t": 1791132104.751463, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: RMS Scaling:           Enabled (trying 8g)"}
+{"t": 1791132104.751463, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Sample Profile:        Buffer:2, Samples:1024, Scale:8g, ODR:6400Hz"}
+{"t": 1791132104.923146, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Sample time:           157437 uSec"}
+{"t": 1791132104.985512, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: RMS Acceleration:      X    239 Y   4264 Z    953"}
+{"t": 1791132104.985512, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: RSS Velocity:          X    119 Y     65 Z     69"}
+{"t": 1791132104.985512, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: RMS Peak To Peak:      X    756 Y    536 Z    621"}
+{"t": 1791132104.985512, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Machine method:        ACC WAVES (Units: Integer)"}
+{"t": 1791132104.985512, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Machine AccWave Min Size:     1638"}
+{"t": 1791132104.985512, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Machine threshold:     20"}
+{"t": 1791132104.985512, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Machine detect max:    0"}
+{"t": 1791132104.985512, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Machine detect found:  0"}
+{"t": 1791132104.985512, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Machine state:         OFF"}
+{"t": 1791132105.031902, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Battery Sample:        2816mV"}
+{"t": 1791132105.031902, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Machine Temperature:   21062mC"}
+{"t": 1791132105.031902, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: MCU Temperature:       23750mC"}
+{"t": 1791132105.047235, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Radio:                 Alive"}
+{"t": 1791132105.374857, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Phase: DETECT Counter 19 Tick 45"}
+{"t": 1791132105.374857, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Sleeping"}
+{"t": 1791132105.374857, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Waking 16"}
+{"t": 1791132105.374857, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Sleeping"}
+{"t": 1791132110.639637, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Waking 17"}
+{"t": 1791132110.639637, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Sleeping"}
+{"t": 1791132115.788467, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Waking 18"}
+{"t": 1791132115.788467, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.rtt", "text": "rtt: <info> app: Sleeping"}
+{"t": 1791132118.009837, "source": "BLE", "level": "DEBUG", "logger": "benchtools.instruments.nordic_dongle.session", "text": "< +scan t=449798430496 state=stopped"}
+{"t": 1791132118.009837, "source": "BLE", "level": "DEBUG", "logger": "benchtools.instruments.nordic_dongle.session", "text": "> scan stop"}
+{"t": 1791132118.012834, "source": "BLE", "level": "DEBUG", "logger": "benchtools.instruments.nordic_dongle.session", "text": "< ok scanning=0 sensors=1"}
+{"t": 1791132118.012834, "source": "BLE", "level": "DEBUG", "logger": "benchtools.instruments.nordic_dongle.session", "text": "> list"}
+{"t": 1791132118.013847, "source": "BLE", "level": "DEBUG", "logger": "benchtools.instruments.nordic_dongle.session", "text": "< +sensor t=449798434402 idx=0 addr=D1:8D:3B:4C:19:96 type=1 rssi=-55 seen=24 name=KAPPA_5C1712_V10.01.200"}
+{"t": 1791132118.013847, "source": "BLE", "level": "DEBUG", "logger": "benchtools.instruments.nordic_dongle.session", "text": "< ok sensors=1"}
+{"t": 1791132118.013847, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner.runner", "text": "step dongle.scan: PASS", "kind": "step_end", "data": {"phase": "test", "case": 0, "step": 7, "action": "dongle.scan", "arguments": {"duration": 60.0, "name": "5C1712"}, "result": [{"address": "D1:8D:3B:4C:19:96", "name": "KAPPA_5C1712_V10.01.200", "address_type": 1, "rssi": -55, "index": 0, "seen": 24}], "save": null, "status": "PASS", "error": "", "duration_s": 60.094, "measurements": [{"name": "found", "value": 1.0, "unit": "", "limit": "= 1", "status": "PASS", "reason": ""}]}}
+{"t": 1791132118.013847, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.runner", "text": "test 'reset 0 only': PASS", "kind": "case_end", "data": {"case": 0, "name": "reset 0 only", "status": "PASS", "error": "", "skip_reason": "", "duration_s": 66.657}}
+{"t": 1791132118.013847, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.runner", "text": "running suite teardown (1 step(s))"}
+{"t": 1791132118.013847, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner.runner", "text": "step probe.rtt_stop starting", "kind": "step_start", "data": {"phase": "teardown", "case": null, "step": 0, "action": "probe.rtt_stop", "arguments": {}, "description": "", "save": null}}
+{"t": 1791132118.014833, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.runner", "text": "step probe.rtt_stop()"}
+{"t": 1791132118.014833, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner.runner", "text": "step probe.rtt_stop: PASS", "kind": "step_end", "data": {"phase": "teardown", "case": null, "step": 0, "action": "probe.rtt_stop", "arguments": {}, "result": null, "save": null, "status": "PASS", "error": "", "duration_s": 0.0, "measurements": []}}
+{"t": 1791132118.014833, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.session", "text": "async running{'thread-id': 'all'}"}
+{"t": 1791132118.014833, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.session", "text": ">> 13-interpreter-exec console \"monitor version\""}
+{"t": 1791132118.023835, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.runner", "text": "'Experiment - reset then run under the probe': PASS", "kind": "run_end", "data": {"suite": "Experiment - reset then run under the probe", "status": "PASS", "setup_error": "", "duration_s": 66.657, "totals": {"total": 1, "passed": 1, "failed": 0, "errored": 0, "skipped": 0}}}
+{"t": 1791132118.023835, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.session", "text": ">> 14-interpreter-exec console \"monitor go\""}
+{"t": 1791132118.038473, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.instruments.jlink.session", "text": ">> 15-target-detach"}
+{"t": 1791132118.05447, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.core.transport.process", "text": "discarding 8 stale bytes before write"}
+{"t": 1791132118.0731, "source": "JLINK", "level": "DEBUG", "logger": "benchtools.core.transport.process", "text": "closed process arm-none-eabi-gdb.exe"}
+{"t": 1791132118.082735, "source": "BLE", "level": "DEBUG", "logger": "benchtools.core.transport.serial_port", "text": "closed serial COM10"}
