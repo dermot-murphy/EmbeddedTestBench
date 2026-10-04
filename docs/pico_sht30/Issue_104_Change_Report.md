@@ -4,7 +4,7 @@
 |---|---|
 | Document ID | TB-CR-104 |
 | Date | 2026-09-30 |
-| Issue | [#104](https://github.com/dermot-murphy/TestTools/issues/104) — read the local temperature with a Raspberry Pi Pico 2 and a DollaTek SHT30-D |
+| Issue | [#104](https://github.com/dermot-murphy/EmbeddedTestBench/issues/104) — read the local temperature with a Raspberry Pi Pico 2 and a DollaTek SHT30-D |
 | Branch | `ccr-dd8136a2-4ayd75` |
 | Element | `PICO-` (new) |
 

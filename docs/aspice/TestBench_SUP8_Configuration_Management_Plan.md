@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SUP8-001 | **Version** | 0.3 |
+| **Document ID** | TB-SUP8-001 | **Version** | 0.4 |
 | **Project** | TestBench | **Date** | 2026-09-30 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -25,6 +25,7 @@
 | 0.1 | 2026-09-19 | Claude | Initial |
 | 0.2 | 2026-09-20 | Claude | Section 5 rewritten: `develop` recorded as the integration branch, stacked pull request procedure and the 2026-09-20 retargeting observation added, section 9 corrected to match |
 | 0.3 | 2026-09-30 | Claude | §5.1: a pull request targets `develop`; any other base only on explicit instruction for that pull request. §5.2: a stack is built only on instruction. Changed together with `CLAUDE.md` (#113). |
+| 0.4 | 2026-10-04 | Claude | #170: §5 repository identifier updated - the repository was renamed from `dermot-murphy/TestTools` to `dermot-murphy/EmbeddedTestBench`. The procedure is unchanged, and `CLAUDE.md` names no repository, so it needed no matching change. |
 
 ---
 
@@ -96,7 +97,7 @@ rather than to the model name (TB-RISK-002).
 
 | Item | Convention |
 |---|---|
-| Repository | `dermot-murphy/TestTools` |
+| Repository | `dermot-murphy/EmbeddedTestBench` |
 | Direct pushes to `main` or `develop` | Not made; changes arrive through pull requests |
 | Ticket | Every change starts from an issue, referenced in the commit message |
 | History | Never rewritten on a branch someone else may have checked out |

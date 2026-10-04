@@ -1,4 +1,4 @@
-# TestTools — `benchtools`
+# EmbeddedTestBench — `benchtools`
 
 Bench test tooling: instrument drivers, a debug probe driver, a BLE dongle with
 its own firmware, analysis of captured records, and a declarative test runner
@@ -826,7 +826,7 @@ This repository publishes a composite action, so another project can run its
 bench specifications in CI:
 
 ```yaml
-- uses: dermot-murphy/TestTools@v1
+- uses: dermot-murphy/EmbeddedTestBench@v1
   id: bench
   with:
     specs: |
