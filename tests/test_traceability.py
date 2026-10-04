@@ -179,3 +179,37 @@ class TestArchitectureTraceability:
         assert not missing, (
             "architectural decision(s) not traced in the matrix: %s" % ", ".join(missing)
         )
+
+
+class TestRevisionHistoryOrder:
+    """Every history table lists its entries oldest first (ETB-SUP8-001 §6.2)."""
+
+    _HEADING = re.compile(r"^#+ .*(?:revision|change) history", re.I)
+    _VERSION_ROW = re.compile(r"^\| *(\d+)\.(\d+) *\|")
+
+    def _history_tables(self):
+        for path in sorted((ROOT / "docs").rglob("*.md")):
+            lines = path.read_text(encoding="utf-8").splitlines()
+            for start, line in enumerate(lines):
+                if not self._HEADING.match(line):
+                    continue
+                versions = []
+                for row in lines[start + 1:]:
+                    if row.startswith("#"):
+                        break
+                    match = self._VERSION_ROW.match(row)
+                    if match:
+                        versions.append((int(match.group(1)), int(match.group(2))))
+                yield "%s:%d" % (path.relative_to(ROOT).as_posix(), start + 1), versions
+
+    def test_the_documents_have_revision_histories(self):
+        assert sum(1 for _, versions in self._history_tables() if versions) >= 30
+
+    def test_every_revision_history_is_oldest_first(self):
+        offenders = [
+            where for where, versions in self._history_tables()
+            if any(later < earlier for earlier, later in zip(versions, versions[1:]))
+        ]
+        assert not offenders, (
+            "revision history not listed oldest first:\n  " + "\n  ".join(offenders)
+        )

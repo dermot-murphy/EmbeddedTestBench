@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SUP8-001 | **Version** | 0.5 |
+| **Document ID** | ETB-SUP8-001 | **Version** | 0.6 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-04 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -27,6 +27,7 @@
 | 0.3 | 2026-09-30 | Claude | §5.1: a pull request targets `develop`; any other base only on explicit instruction for that pull request. §5.2: a stack is built only on instruction. Changed together with `CLAUDE.md` (#113). |
 | 0.4 | 2026-10-04 | Claude | #170: §5 repository identifier updated - the repository was renamed from `dermot-murphy/TestTools` to `dermot-murphy/EmbeddedTestBench`. The procedure is unchanged, and `CLAUDE.md` names no repository, so it needed no matching change. |
 | 0.5 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
+| 0.6 | 2026-10-04 | Claude | #187: §6.2 added - a revision history lists entries oldest first, a new entry is appended as the last row, and earlier rows are not edited. |
 
 ---
 
@@ -179,6 +180,17 @@ the manifest for the image that was flashed, so an image that is not what the
 report says it is fails the run rather than passing quietly (ETB-RISK-009).
 
 ---
+
+### 6.2 Revision History Order
+
+Every revision history, and every other change-history table in a document,
+lists its entries **oldest first**. A new entry is appended as the last row, so
+the most recent change is at the bottom of the table and the version in the
+last row is the version in the identification block. Earlier rows are not
+edited: they record what was true when they were written.
+
+The order is checked by `tests/test_traceability.py` (SWE4-UT-TRACE), which
+fails if a history table's version column decreases from one row to the next.
 
 ## 7. Baselines
 

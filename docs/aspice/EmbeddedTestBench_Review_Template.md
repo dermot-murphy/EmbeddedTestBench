@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-TMPL-001 | **Version** | 0.2 |
+| **Document ID** | ETB-TMPL-001 | **Version** | 0.3 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-04 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -24,6 +24,7 @@
 |---|---|---|---|
 | 0.1 | 2026-09-19 | Claude | Initial |
 | 0.2 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
+| 0.3 | 2026-10-04 | Claude | #187: C4 names the revision history order - oldest entry first (ETB-SUP8-001 §6.2). |
 
 ---
 
@@ -96,7 +97,7 @@ Tick, cross, or mark n/a. A cross needs a finding in §7.
 | C1 | Does it say what it is for, and for whom? | |
 | C2 | Is every claim in it checkable by someone who was not there? | |
 | C3 | Is each statement traceable up to what it satisfies and down to what satisfies it? | |
-| C4 | Are the identification block, revision history and status filled in and correct? | |
+| C4 | Are the identification block, revision history and status filled in and correct, with the revision history oldest entry first (ETB-SUP8-001 §6.2)? | |
 | C5 | Are referenced documents cited by ID and version? | |
 | C6 | Does it distinguish what has been confirmed on hardware from what has not? | |
 
