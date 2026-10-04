@@ -8,8 +8,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SYS5-001 | **Version** | 0.2 |
-| **Project** | TestBench | **Date** | 2026-09-23 |
+| **Document ID** | TB-SYS5-001 | **Version** | 0.3 |
+| **Project** | TestBench | **Date** | 2026-10-04 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SYS.5 |
@@ -24,6 +24,7 @@
 |---|---|---|---|
 | 0.1 | 2026-09-19 | Claude | Initial |
 | 0.2 | 2026-09-23 | Claude | The multimeter replaces the deferred row in the bench-confirmation table, with open items DMM-OPEN-01…05. |
+| 0.3 | 2026-10-04 | Claude | #176: first hardware campaign, reported in TB-SYS5-002. QS-01b, QS-09 and QS-10 added. §5.1 names the hardware specifications. §6 hardware column filled in. §7 and §8 updated from the results. |
 
 ---
 
@@ -45,6 +46,7 @@ requirements of TB-SYS2-001, and records what remains to be shown.
 | TB-SWE4-002 | TestBench Unit Verification Report | 0.1 |
 | TB-TMPL-002 | TestBench Test Case Specification — Template | 0.1 |
 | TB-RTM-001 | TestBench Traceability Matrix | 0.1 |
+| TB-SYS5-002 | TestBench System Qualification Test Report | 1.0 |
 
 ### 3.3 Scope
 
@@ -142,28 +144,68 @@ recorded, and the C source passes the coding-standard check.
 
 *Qualifies:* TB-SYS2-091, -092.
 
+### QS-01b — Debug control and firmware state
+
+Added in 0.3. QS-01's image may have no symbols, and without them there are no
+variables by name and no source breakpoints. This scenario programmes an image
+whose ELF is available, then:
+- halts, steps and breaks at `main`;
+- reads the call stack and a named variable;
+- times start-up from `SystemInit` to `main` on the cycle counter, stating the
+  resolution;
+- checks the reported version against the manifest.
+
+*Qualifies:* TB-SYS2-002, -030, -031, -033, -035, -036, -041.
+
+### QS-09 — Multimeter
+
+Added in 0.3; no earlier scenario covered the multimeter. Run the opt-in bench
+test `tests/bench/tti1604` (DMM-FR-080) against the real meter with its inputs
+open: the link and key echo, frame decoding, the reading rate, the function and
+range tour, the frequency gate, an open input on ohms as overrange, and local
+and remote. Wire the references the test names to cover DC volts, resistance,
+current and frequency against known values.
+
+*Qualifies:* TB-SYS2-051, -052, -053.
+
+### QS-10 — Bench identity
+
+Added in 0.3. Read every instrument once without changing anything, so one
+report records each instrument's model, serial number and firmware. Run the
+same specification again on the simulated bench.
+
+*Qualifies:* TB-SYS2-010, -011, -012, -014, -015, -016, -070, -078, -079, -084.
+
+### 5.1 Hardware specifications
+
+The hardware configuration of each scenario is in `specs/qualification/`, run
+against `benches/bench_pc.yaml`. `specs/qualification/README.md` is the
+procedure, including the owner's limits on the supply while a sensor is wired
+to it.
+
 ---
 
 ## 6. Results
 
-| Scenario | Simulated | Hardware |
+The hardware column is from the 2026-10-04 campaign; TB-SYS5-002 has the
+details and the evidence.
+
+| Scenario | Simulated | Hardware (TB-SYS5-002) |
 |---|---|---|
-| QS-01 Sensor bring-up | **Pass** | Not performed |
-| QS-02 BLE command document | **Pass** | Not performed |
-| QS-03 Supply refusals | **Pass** | Not performed |
-| QS-04 Scope measurement | **Pass** | Not performed |
-| QS-05 Evidence sufficiency | Not applicable — the check is about a hardware run | Not performed |
-| QS-06 Refuse rather than invent | **Pass** | Not performed |
-| QS-07 Sub-GHz link | **Pass** | Not performed |
-| QS-08 Build and standards | **Pass** — CI, both workflows green | **Pass** — the toolchain and the checker are the real ones |
+| QS-01 Sensor bring-up | **Pass** | **Pass**, with a workaround for #177 |
+| QS-01b Debug control | Expressible; the simulated target has no such symbols | **Fail**, 12 of 13 measurements: #178 |
+| QS-02 BLE command document | **Pass** | **Pass** |
+| QS-03 Supply | **Pass** | **Pass**, independent tracking only, outputs off (owner's limits) |
+| QS-04 Scope measurement | **Pass** | Out of scope: the scope is not yet live |
+| QS-05 Evidence sufficiency | Not applicable | Not performed: needs an engineer who was not present |
+| QS-06 Refuse rather than invent | **Pass** | **Pass** |
+| QS-07 Sub-GHz link | **Pass** | **Error**: receive after transmit (#179) |
+| QS-08 Build and standards | **Pass** | **Pass** |
+| QS-09 Multimeter | Dry run only | **Fail** (#181) |
+| QS-10 Bench identity | **Pass** | **Pass** |
 
-QS-08 is the one scenario whose hardware column is a genuine pass, because the
-thing it qualifies is a build rather than a measurement.
-
-**No system requirement in TB-SYS2-001 is yet qualified**, with the exception of
-TB-SYS2-091 and TB-SYS2-092 via QS-08. Everything else has been shown to work
-against instruments that TestBench itself implements — which is worth
-something, and is not this.
+**44 of the 64 system requirements are qualified** (TB-SYS5-002 §7). Before
+this campaign, only TB-SYS2-091 and -092 were.
 
 ---
 
@@ -177,8 +219,8 @@ here.
 | Group | Items | Held in | Touches |
 |---|---|---|---|
 | Oscilloscope | OPEN-01, OPEN-02 — VXI-11 device name, portmapper transport, hardcopy format, measurement settling, record length; SCPI spellings against the programmer manual | `docs/tek3014b/` VISA determination report §5.1 | TB-SYS2-060…064 |
-| J-Link | JLINK-OPEN-01…04 (OPEN-05) — Windows execution, real GDB server MI behaviour, timing method resolutions on silicon | `docs/jlink/JLink_Integration_Notes.md` §4 | TB-SYS2-030…036 |
-| BLE dongle | BLE-OPEN-02…04 (OPEN-06) — on-silicon behaviour; the firmware builds, links, fits and packages, which discharged BLE-OPEN-01 | TB-SWE4-002 §4.6 | TB-SYS2-040…045 |
+| J-Link | JLINK-OPEN-03 (OPEN-05) — SWO timestamp scaling. 01 and 02 closed and 04's figures recorded, 2026-10-04 (TB-SYS5-002 §9) | `docs/jlink/JLink_Integration_Notes.md` §4 | TB-SYS2-030…036 |
+| BLE dongle | BLE-OPEN-02, -03 (OPEN-06) — behaviour under load, timestamp offset. BLE-OPEN-04 closed 2026-10-04 | TB-SWE4-002 §4.6 | TB-SYS2-040…045 |
 | Power supply | PSU-OPEN-01…06 (OPEN-08) — `STATUS?` bit order and tracking bits, `ERR?` text, command interval, settling time, whether a slaved-channel setpoint is discarded silently | `docs/psu/GPD3303D_Notes.md` §5 | TB-SYS2-020…025 |
 | S2-LP | S2LP-OPEN-01…05 (OPEN-07) — the vendor firmware's reply text and error codes, board naming, register behaviour | `docs/s2lp/S2LP_Devkit_Notes.md` §7 | TB-SYS2-046, -047 |
 | Multimeter | DMM-OPEN-01…05 — the segment patterns beyond the ten digits, the continuity and diode reading formats, the echo's timing relative to the measurement stream, and whether a range change emits a frame taken under the previous setting | `docs/dmm/TTi1604_Notes.md` §5 | TB-SYS2-051…053, TB-SYS2-104 |
@@ -194,8 +236,8 @@ TB-SYS4-001 §5 performed and passed.
 
 | # | Criterion | State |
 |---|---|---|
-| X1 | Every scenario in §5 passes in the hardware configuration | Not met |
-| X2 | Every system requirement traces to a passing scenario | Not met — QS-08 only |
+| X1 | Every scenario in §5 passes in the hardware configuration | Not met. QS-01b, QS-07 and QS-09 fail on hardware; QS-04 is out of scope; QS-05 was not performed (TB-SYS5-002 §10) |
+| X2 | Every system requirement traces to a passing scenario | Not met. 44 of 64 qualified (TB-SYS5-002 §7) |
 | X3 | Every item in §7 is closed by a recorded run | Not met |
 | X4 | No open Critical or Major problem against a qualified requirement | Met |
 

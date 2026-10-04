@@ -1,0 +1,140 @@
+# QS-01b - Debug control and firmware state on hardware (TB-SYS5-002, #176).
+#
+# TB-SYS5-001 names run control, variables, the call stack and timing in its
+# requirements (TB-SYS2-031, -033, -035) but QS-01 cannot show them: the V10
+# image has no ELF, and without symbols there are no variables by name and no
+# source breakpoints. This scenario flashes the Kepler reference project's
+# V11.00.0000-96 release build - the full image, SoftDevice and bootloader
+# included - and loads the ELF the same build produced.
+#
+#   python -m benchtools run specs/qualification/qs01b_debug.yaml --bench benches/bench_pc.yaml
+
+name: QS-01b Debug control and firmware state (hardware)
+description: >
+  Programme the V11.00.0000-96 release image with its ELF, keeping the identity
+  record; halt, step, break at main, read the call stack and a named variable;
+  time start-up from SystemInit to main on the core's cycle counter; then run
+  the sensor and check the version it reports over BLE against the manifest.
+requirements: [TB-SYS2-002, TB-SYS2-030, TB-SYS2-031, TB-SYS2-033, TB-SYS2-035,
+               TB-SYS2-036, TB-SYS2-041]
+
+parameters:
+  image: U:/privatework/sensoteq/kepler/innovateuk-sensor/software/output/KAPPAX_APP_SDK17_PCB_V4X_RELEASE/package/KAPPAX_APP_SDK17_PCB_V4X_RELEASE-plus-bl-and-softdevice.hex
+  elf: U:/privatework/sensoteq/kepler/innovateuk-sensor/software/output/KAPPAX_APP_SDK17_PCB_V4X_RELEASE/exe/KAPPAX_APP_SDK17_PCB_V4X_RELEASE.elf
+  manifest: specs/qualification/firmware/v11.00.0000-96
+  sensor_address: "D1:8D:3B:4C:19:96"
+
+instruments:
+  probe: jlink
+  dongle: ble-dongle
+
+teardown:
+  - do: dongle.close_link
+  - do: probe.clear_breakpoints
+
+tests:
+  - name: The image is programmed and verified, keeping the identity record
+    requirement: TB-SYS2-030, TB-SYS2-036
+    steps:
+      # Erased first: the part holds V10 (SoftDevice 6.1.0) after QS-01, and
+      # its NVM pages and stack differ from V11's. The identity record is read
+      # before and written back after, as in QS-01.
+      - do: probe.read_word
+        with: {address: 0x10001080}
+        save: identity_word
+      - do: probe.erase
+      - do: probe.flash
+        with: {path: {param: image}}
+        expect:
+          - {name: image_verified, measure: verify.matched, equals: 1}
+      - do: probe.write_word
+        with: {address: 0x10001080, value: {from: identity_word}}
+      - do: probe.read_word
+        with: {address: 0x10001080}
+        expect:
+          - {name: identity_kept, equals: {from: identity_word}}
+      - do: probe.load_symbols
+        with: {elf: {param: elf}}
+      - do: probe.image_build
+        with: {path: {param: manifest}}
+        save: build
+
+  - name: The core halts, steps and stops at a breakpoint
+    requirement: TB-SYS2-031
+    steps:
+      - do: probe.reset
+        with: {halt: true}
+      # Recorded in hex. The limits only bound it to the nRF52840's flash; the
+      # point is the record, and the next PC is checked against this one.
+      - do: probe.program_counter
+        save: pc_at_reset
+        expect:
+          - {name: pc_at_reset, format: "0x{:08X}", minimum: 0, maximum: 0x000FFFFF}
+      # One machine instruction. The report records the PC before and after;
+      # the step's own halt record says where it stopped.
+      - do: probe.step
+        with: {instruction: true}
+        save: stepped
+      # A step moves on by one instruction: two or four bytes in the reset
+      # handler's straight-line code. A specification cannot say "differs
+      # from", so this bounds the move to 4 bytes and records both values;
+      # TB-SYS5-002 confirms from them that the PC moved.
+      - do: probe.program_counter
+        save: pc_after_step
+        expect:
+          - name: pc_after_step
+            format: "0x{:08X}"
+            equals: {from: pc_at_reset}
+            tolerance: 4
+      - do: probe.run_to
+        with: {location: main}
+        save: at_main
+        expect:
+          - {name: stopped_in, measure: function, equals: main}
+
+  - name: Firmware state is read by name while halted
+    requirement: TB-SYS2-002, TB-SYS2-033
+    steps:
+      - do: probe.call_stack
+        expect:
+          - {name: frames, measure: length, minimum: 1}
+          - {name: innermost_function, measure: 0.function, equals: main}
+      - do: probe.read_variable
+        with: {name: SystemCoreClock}
+        expect:
+          # CMSIS's core clock for the nRF52840: 64 MHz.
+          - {name: SystemCoreClock, unit: Hz, equals: 64000000}
+
+  - name: Start-up is timed on the cycle counter with its resolution stated
+    requirement: TB-SYS2-035
+    steps:
+      - do: probe.reset
+        with: {halt: true}
+      - do: probe.measure_time_between
+        with: {start: SystemInit, end: main, method: CYCLE_COUNTER}
+        save: startup
+        expect:
+          - {name: systeminit_to_main, measure: seconds, unit: s, minimum: 0.0000001, maximum: 1.0}
+          - {name: systeminit_to_main_cycles, measure: cycles, minimum: 1}
+          # One core cycle at 64 MHz is 15.6 ns.
+          - {name: resolution, measure: resolution_seconds, unit: s, minimum: 0.000000001, maximum: 0.000001}
+
+  - name: The sensor runs and reports the version that was programmed
+    requirement: TB-SYS2-036, TB-SYS2-041
+    steps:
+      - do: probe.clear_breakpoints
+      - do: probe.reset
+        with: {halt: true}
+      - do: probe.run
+      - do: dongle.scan
+        with: {duration: 60.0, name: 5C1712}
+        expect:
+          - {name: found, measure: length, equals: 1}
+      - do: dongle.select
+        with: {sensor: {param: sensor_address}}
+      - do: dongle.open_link
+      - do: dongle.command
+        with: {request: RD VERSION, timeout: 45.0}
+        expect:
+          - {name: reported_version, measure: value, equals: {from: build.version}}
+      - do: dongle.close_link

@@ -1,0 +1,6 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuite name="QS-10 Bench identity" tests="1" failures="1" errors="0" skipped="0" time="6.969" timestamp="2026-10-04T18:55:24+00:00"><properties><property name="bench" value="Bench PC (Windows)" /><property name="simulated" value="false" /><property name="specification" value="specs/qualification/qs10_bench_identity.yaml" /></properties><testcase name="Every instrument answers and is identified" classname="QS-10 Bench identity.TB-SYS2-015" time="6.969"><failure message="s2lp_band_hz: 8.34608e+08 is above the maximum 4.4e+08" type="LimitFailure">psu_tracking = independent [limit = "independent"] PASS
+dmm_unit_is_si = V [limit = "V"] PASS
+dongle_scan_ran = 5 [limit &gt;= 0] PASS
+s2lp_band_hz = 8.34608e+08 Hz [limit &gt;= 4.3e+08, &lt;= 4.4e+08] FAIL - 8.34608e+08 is above the maximum 4.4e+08
+thermometer_version = V1.00.0000 [limit = "V1.00.0000"] PASS</failure></testcase></testsuite>

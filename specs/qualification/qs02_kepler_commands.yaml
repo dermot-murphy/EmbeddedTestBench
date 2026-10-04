@@ -1,0 +1,46 @@
+# QS-02 - BLE command set as a document, on hardware (TB-SYS5-001, #176).
+#
+# Runs qs02_kepler_commands.md against sensor 5C1712 through the dongle and
+# checks the document's own result. The document holds the steps; this file
+# only runs it and states what a pass means.
+#
+#   python -m benchtools run specs/qualification/qs02_kepler_commands.yaml --bench benches/bench_pc.yaml
+
+name: QS-02 BLE command document (hardware)
+description: >
+  Run the Kepler command document against 5C1712: checked replies, a delay and
+  an unchecked command recorded as skipped, per-step timeouts, an unknown
+  command, and a reset whose disconnection is timed.
+requirements: [TB-SYS2-003, TB-SYS2-042, TB-SYS2-043, TB-SYS2-044, TB-SYS2-073,
+               TB-SYS2-074, TB-SYS2-075, TB-SYS2-076, TB-SYS2-077, TB-SYS2-080,
+               TB-SYS2-081, TB-SYS2-082, TB-SYS2-083, TB-SYS2-084]
+
+parameters:
+  document: specs/qualification/qs02_kepler_commands.md
+  document_report: docs/aspice/qualification/2026-10-04/qs02_document_report.md
+
+instruments:
+  dongle: ble-dongle
+
+teardown:
+  - do: dongle.close_link
+
+tests:
+  - name: The command document runs and every checked step passes
+    requirement: TB-SYS2-073, TB-SYS2-075
+    steps:
+      - do: dongle.run_script
+        with:
+          source: {param: document}
+          report: {param: document_report}
+          timeout: 45.0
+        save: commands
+        expect:
+          - {name: steps_failed, measure: failed, equals: 0}
+          - {name: steps_errored, measure: errors, equals: 0}
+          - {name: steps_passed, measure: passed, minimum: 8}
+          # One delay, two connects, one disconnect and one command with
+          # nothing expected: skipped, never passed (TB-SYS2-074).
+          - {name: steps_skipped, measure: skipped, equals: 5}
+          - {name: steps_passed_exactly, measure: passed, equals: 8}
+          - {name: document_result, measure: result, equals: PASS}

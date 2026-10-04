@@ -1,0 +1,401 @@
+{
+  "suite": "QS-01b Debug control and firmware state (hardware)",
+  "bench": "Bench PC (Windows)",
+  "spec_source": "specs/qualification/qs01b_debug.yaml",
+  "parameters": {
+    "image": "U:/privatework/sensoteq/kepler/innovateuk-sensor/software/output/KAPPAX_APP_SDK17_PCB_V4X_RELEASE/package/KAPPAX_APP_SDK17_PCB_V4X_RELEASE-plus-bl-and-softdevice.hex",
+    "elf": "U:/privatework/sensoteq/kepler/innovateuk-sensor/software/output/KAPPAX_APP_SDK17_PCB_V4X_RELEASE/exe/KAPPAX_APP_SDK17_PCB_V4X_RELEASE.elf",
+    "manifest": "specs/qualification/firmware/v11.00.0000-96",
+    "sensor_address": "D1:8D:3B:4C:19:96"
+  },
+  "selection": [],
+  "simulated": false,
+  "status": "FAIL",
+  "started": "2026-10-04T16:50:08+00:00",
+  "finished": "2026-10-04T16:51:32+00:00",
+  "duration_s": 84.578,
+  "totals": {
+    "total": 5,
+    "passed": 4,
+    "failed": 1,
+    "errored": 0,
+    "skipped": 0
+  },
+  "instruments": {
+    "probe": {
+      "driver": "JLinkProbe",
+      "resource": "jlink://",
+      "event": "JLINK",
+      "manufacturer": "SEGGER",
+      "model": "J-Link",
+      "serial_number": "682395790",
+      "firmware": "J-Link ARM V8 compiled Nov 28 2014 13:44:46",
+      "identity": "Firmware: J-Link ARM V8 compiled Nov 28 2014 13:44:46, Hardware: V8.00, S/N: 682395790"
+    },
+    "dongle": {
+      "driver": "NordicDongle",
+      "resource": "COM10",
+      "event": "BLE",
+      "manufacturer": "Nordic",
+      "model": "PCA10059",
+      "serial_number": "",
+      "firmware": "1.4.0 (built local:Sep-29-2026T11:41:48)",
+      "identity": "Nordic PCA10059 fw=1.4.0 built=local:Sep-29-2026T11:41:48 proto=1.4 uptime_us=450312394564 dropped=0"
+    }
+  },
+  "requirements": [
+    "TB-SYS2-002",
+    "TB-SYS2-030",
+    "TB-SYS2-031",
+    "TB-SYS2-033",
+    "TB-SYS2-035",
+    "TB-SYS2-036",
+    "TB-SYS2-041"
+  ],
+  "requirements_verified": {
+    "TB-SYS2-002": "PASS",
+    "TB-SYS2-030": "PASS",
+    "TB-SYS2-031": "FAIL",
+    "TB-SYS2-033": "PASS",
+    "TB-SYS2-035": "PASS",
+    "TB-SYS2-036": "PASS",
+    "TB-SYS2-041": "PASS"
+  },
+  "setup_error": "",
+  "cases": [
+    {
+      "name": "The image is programmed and verified, keeping the identity record",
+      "status": "PASS",
+      "requirement": "TB-SYS2-030, TB-SYS2-036",
+      "duration_s": 22.047,
+      "error": "",
+      "skip_reason": "",
+      "steps": [
+        {
+          "action": "probe.read_word",
+          "status": "PASS",
+          "duration_s": 1.859,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "probe.erase",
+          "status": "PASS",
+          "duration_s": 0.594,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "probe.flash",
+          "status": "PASS",
+          "duration_s": 16.984,
+          "error": "",
+          "measurements": [
+            {
+              "name": "image_verified",
+              "value": 1.0,
+              "unit": "",
+              "limit": "= 1",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        },
+        {
+          "action": "probe.write_word",
+          "status": "PASS",
+          "duration_s": 0.016,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "probe.read_word",
+          "status": "PASS",
+          "duration_s": 0.016,
+          "error": "",
+          "measurements": [
+            {
+              "name": "identity_kept",
+              "value": 303520768.0,
+              "unit": "",
+              "limit": "= 3.03521e+08",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        },
+        {
+          "action": "probe.load_symbols",
+          "status": "PASS",
+          "duration_s": 2.578,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "probe.image_build",
+          "status": "PASS",
+          "duration_s": 0.0,
+          "error": "",
+          "measurements": []
+        }
+      ]
+    },
+    {
+      "name": "The core halts, steps and stops at a breakpoint",
+      "status": "FAIL",
+      "requirement": "TB-SYS2-031",
+      "duration_s": 0.703,
+      "error": "",
+      "skip_reason": "",
+      "steps": [
+        {
+          "action": "probe.reset",
+          "status": "PASS",
+          "duration_s": 0.125,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "probe.program_counter",
+          "status": "PASS",
+          "duration_s": 0.015,
+          "error": "",
+          "measurements": [
+            {
+              "name": "pc_at_reset",
+              "value": "0x00000000",
+              "unit": "",
+              "limit": ">= 0x00000000, <= 0x000FFFFF",
+              "status": "PASS",
+              "reason": "",
+              "raw_value": 0.0
+            }
+          ]
+        },
+        {
+          "action": "probe.step",
+          "status": "PASS",
+          "duration_s": 0.032,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "probe.program_counter",
+          "status": "FAIL",
+          "duration_s": 0.015,
+          "error": "",
+          "measurements": [
+            {
+              "name": "pc_after_step",
+              "value": "0x00000A82",
+              "unit": "",
+              "limit": "= 0x00000000 +/- 0x00000004",
+              "status": "FAIL",
+              "reason": "2690 is 2690 from nominal 0, outside +/- 4",
+              "raw_value": 2690.0
+            }
+          ]
+        },
+        {
+          "action": "probe.run_to",
+          "status": "PASS",
+          "duration_s": 0.516,
+          "error": "",
+          "measurements": [
+            {
+              "name": "stopped_in",
+              "value": "main",
+              "unit": "",
+              "limit": "= \"main\"",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Firmware state is read by name while halted",
+      "status": "PASS",
+      "requirement": "TB-SYS2-002, TB-SYS2-033",
+      "duration_s": 0.031,
+      "error": "",
+      "skip_reason": "",
+      "steps": [
+        {
+          "action": "probe.call_stack",
+          "status": "PASS",
+          "duration_s": 0.015,
+          "error": "",
+          "measurements": [
+            {
+              "name": "frames",
+              "value": 1.0,
+              "unit": "",
+              "limit": ">= 1",
+              "status": "PASS",
+              "reason": ""
+            },
+            {
+              "name": "innermost_function",
+              "value": "main",
+              "unit": "",
+              "limit": "= \"main\"",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        },
+        {
+          "action": "probe.read_variable",
+          "status": "PASS",
+          "duration_s": 0.016,
+          "error": "",
+          "measurements": [
+            {
+              "name": "SystemCoreClock",
+              "value": 64000000.0,
+              "unit": "Hz",
+              "limit": "= 6.4e+07",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Start-up is timed on the cycle counter with its resolution stated",
+      "status": "PASS",
+      "requirement": "TB-SYS2-035",
+      "duration_s": 0.75,
+      "error": "",
+      "skip_reason": "",
+      "steps": [
+        {
+          "action": "probe.reset",
+          "status": "PASS",
+          "duration_s": 0.109,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "probe.measure_time_between",
+          "status": "PASS",
+          "duration_s": 0.641,
+          "error": "",
+          "measurements": [
+            {
+              "name": "systeminit_to_main",
+              "value": 0.02235928125,
+              "unit": "s",
+              "limit": ">= 1e-07, <= 1",
+              "status": "PASS",
+              "reason": ""
+            },
+            {
+              "name": "systeminit_to_main_cycles",
+              "value": 1430994.0,
+              "unit": "",
+              "limit": ">= 1",
+              "status": "PASS",
+              "reason": ""
+            },
+            {
+              "name": "resolution",
+              "value": 1.5625e-08,
+              "unit": "s",
+              "limit": ">= 1e-09, <= 1e-06",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "The sensor runs and reports the version that was programmed",
+      "status": "PASS",
+      "requirement": "TB-SYS2-036, TB-SYS2-041",
+      "duration_s": 61.031,
+      "error": "",
+      "skip_reason": "",
+      "steps": [
+        {
+          "action": "probe.clear_breakpoints",
+          "status": "PASS",
+          "duration_s": 0.016,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "probe.reset",
+          "status": "PASS",
+          "duration_s": 0.109,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "probe.run",
+          "status": "PASS",
+          "duration_s": 0.016,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "dongle.scan",
+          "status": "PASS",
+          "duration_s": 60.093,
+          "error": "",
+          "measurements": [
+            {
+              "name": "found",
+              "value": 1.0,
+              "unit": "",
+              "limit": "= 1",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        },
+        {
+          "action": "dongle.select",
+          "status": "PASS",
+          "duration_s": 0.0,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "dongle.open_link",
+          "status": "PASS",
+          "duration_s": 0.688,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "dongle.command",
+          "status": "PASS",
+          "duration_s": 0.062,
+          "error": "",
+          "measurements": [
+            {
+              "name": "reported_version",
+              "value": "V11.00.0000-96-g25a54b97a",
+              "unit": "",
+              "limit": "= \"V11.00.0000-96-g25a54b97a\"",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        },
+        {
+          "action": "dongle.close_link",
+          "status": "PASS",
+          "duration_s": 0.047,
+          "error": "",
+          "measurements": []
+        }
+      ]
+    }
+  ]
+}
