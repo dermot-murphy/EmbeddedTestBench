@@ -19,13 +19,19 @@ One request per line, one reply per line::
     {"cmd": "abort"}
     {"cmd": "restart_test"}
     {"cmd": "restart_from", "case": 1, "step": 2}
+    {"cmd": "read_setup"}
+
+``read_setup`` (#157) asks every open instrument that can to read and log its
+setup at the next checkpoint - the S2-LP kit's registers, for the viewer's ST
+GUI page - without interrupting the run: the step after it runs as it would
+have.
 
 Every reply carries ``ok``; a refusal carries ``error``, saying why.
 
 ASPICE 4.0 asks each verification measure to define its abort and re-start
 criteria (08-60); this is how an operator applies them.
 
-Traces to: RUN-FR-061 .. RUN-FR-065, RUN-DD-CONTROL.
+Traces to: RUN-FR-061 .. RUN-FR-066, RUN-DD-CONTROL.
 """
 
 from __future__ import annotations
@@ -40,7 +46,7 @@ from typing import Any, Callable, Dict, Optional, Tuple
 from ..core.events import log_event
 
 __all__ = [
-    "PAUSE", "RESUME", "ABORT", "RESTART_TEST", "RESTART_FROM", "STATUS",
+    "PAUSE", "RESUME", "ABORT", "RESTART_TEST", "RESTART_FROM", "STATUS", "READ_SETUP",
     "Command", "RunControl", "ControlServer", "HOST",
 ]
 
@@ -52,6 +58,7 @@ ABORT = "abort"
 RESTART_TEST = "restart_test"
 RESTART_FROM = "restart_from"
 STATUS = "status"
+READ_SETUP = "read_setup"
 
 #: The only address the control channel listens on.
 HOST = "127.0.0.1"
@@ -69,7 +76,7 @@ class Command:
     step: Optional[int] = None
 
 
-class RunControl:
+class RunControl:  # pylint: disable=too-many-instance-attributes
     """What an operator has asked of the run, and where the run is.
 
     The runner calls :meth:`begin`, :meth:`checkpoint` between steps, and
@@ -84,6 +91,7 @@ class RunControl:
         self._condition = threading.Condition()
         self._paused = False
         self._pending: Optional[Command] = None
+        self._read_setup = False
         self._active = False
         self._suite = ""
         self._position: Dict[str, Any] = {"phase": None, "case": None, "step": None}
@@ -99,6 +107,7 @@ class RunControl:
             self._suite = suite
             self._paused = False
             self._pending = None
+            self._read_setup = False
             self._validator = validator
             self._position = {"phase": None, "case": None, "step": None}
 
@@ -108,6 +117,7 @@ class RunControl:
             self._active = False
             self._paused = False
             self._pending = None
+            self._read_setup = False
             self._validator = None
             self._position = {"phase": None, "case": None, "step": None}
             self._condition.notify_all()
@@ -130,6 +140,10 @@ class RunControl:
             while self._paused and self._pending is None:
                 self._condition.wait()
             command, self._pending = self._pending, None
+            if command is None and self._read_setup:
+                # Not an interruption: the runner reads and carries on.
+                self._read_setup = False
+                command = Command(READ_SETUP)
             if command is not None:
                 log_event(_LOG, "control_applied", "%s applied" % command.kind, dict(
                     self._position, command=command.kind,
@@ -177,9 +191,9 @@ class RunControl:
     def _refusal(  # pylint: disable=too-many-return-statements
             self, kind: str, message: Dict[str, Any]) -> Optional[str]:
         """Why *kind* cannot be done now; ``None`` when it can."""
-        if kind not in (PAUSE, RESUME, ABORT, RESTART_TEST, RESTART_FROM):
+        if kind not in (PAUSE, RESUME, ABORT, RESTART_TEST, RESTART_FROM, READ_SETUP):
             return "unknown command %r; known: %s" % (kind, ", ".join(
-                (STATUS, PAUSE, RESUME, ABORT, RESTART_TEST, RESTART_FROM)))
+                (STATUS, PAUSE, RESUME, ABORT, RESTART_TEST, RESTART_FROM, READ_SETUP)))
         if not self._active:
             return "no run is in progress"
         phase = self._position["phase"]
@@ -218,6 +232,8 @@ class RunControl:
         elif kind == RESUME:
             self._paused = False
             log_event(_LOG, "control_applied", "resumed", dict(self._position, command=RESUME))
+        elif kind == READ_SETUP:
+            self._read_setup = True
         elif kind == ABORT:
             # An abort or a restart ends a pause: the operator has decided.
             self._paused = False

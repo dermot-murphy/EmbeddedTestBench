@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE4-001 | **Version** | 1.19 |
+| **Document ID** | TB-SWE4-001 | **Version** | 1.20 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -51,6 +51,7 @@
 | 1.17 | 2026-10-03 | Claude | #154: SWE4-UT-VIEWTWF added (15 cases). |
 | 1.18 | 2026-10-03 | Claude | #155: SWE4-UT-VIEWDIAG added (14 cases). |
 | 1.19 | 2026-10-03 | Claude | #156: SWE4-UT-VIEWREPORT added (10 cases); SWE4-UT-VIEWSENSOR 16 → 17. |
+| 1.20 | 2026-10-03 | Claude | #157: SWE4-UT-VIEWSTGUI added (11 cases). |
 
 ---
 
@@ -387,6 +388,7 @@ against the simulator in the default run (SWE4-UT-PSUPANEL, SWE4-UT-DMMPANEL).
 | SWE4-UT-VIEWTWF | `viewer/test_twf.py` | rf_monitor's TWF screen (15 cases): sample for sample under none, distance and the polynomial with one and three repeats; a missing packet a gap, and spread across the waveform under distance; the TWF scale and ODR code; buffer and axis from the frame and the fallback; a new capture after a complete one; other frames ignored; a sine's spectrum peak at its frequency and amplitude; gaps filled; the same numbers without NumPy; a length not a power of two; nothing to transform | VIEW-FR-034 .. VIEW-FR-036 |
 | SWE4-UT-VIEWDIAG | `viewer/test_diagnostics.py` | Diagnostics and Sync (14 cases): frames, packets and drops; periods with mean, deviation and extremes with their frames; a lost first copy, a burst closing after a gap, a burst still arriving; types without a counter; the last ten; one sensor at a time and reset; an unknown type counted; a LORES then HIRES handshake, countdowns from the frame's time firing, a NACK and a fresh request, an idle sensor dropped, other frames | VIEW-FR-037 .. VIEW-FR-039 |
 | SWE4-UT-VIEWREPORT | `viewer/test_report.py` | Notes and the report (10 cases): notes saved beside the event log and read back, nothing to save beside, text and bounded, a damaged file; an SVG chart with a gap and axes, nothing to draw; every section of a report of a run with frames, self-contained and escaped, without notes or frames; the API saving notes and serving the report as an attachment | VIEW-FR-040 .. VIEW-FR-042 |
+| SWE4-UT-VIEWSTGUI | `viewer/test_st_gui.py` | The ST GUI page (11 cases): `read_setup` returning what it logs and logging one record; read between steps without interrupting the run, refused in teardown and with no run, a failing reader not failing the run; the RF setup rows, a changed register marked with its fields, the register file round-tripping through `parse_register_file`, frames as ST lists them, the hub serving page and file, nothing read yet | S2LP-FR-084, RUN-FR-066, VIEW-FR-043 .. VIEW-FR-045 |
 | SWE4-UT-S2LP | `instruments/s2lp/test_s2lp.py` | The S2-LP driver: identification without an invented board, the band of a named board and the synthesiser's range otherwise, register and bit-field access, read-only refusals, mis-framed replies, strobes, both resets and the state each leaves, radio and packet configuration and their read-back, RSSI conversion, routing the interrupt, the PN9 TX-source refusal, transmit and its recovery, receive and its stop on timeout, capture with its re-arm count and rejected receptions, streaming with registers read after each frame and decoding, the microsecond board clock, and both logs | S2LP-FR-001 .. -036 |
 | SWE4-UT-S2LPREG | `instruments/s2lp/test_registers.py` | The register map as data: unique addresses and names, non-overlapping fields inside their byte, reset values, read-only status registers, field extraction and insertion, lookup and its failures, contiguous runs, and the rendering of a dump | S2LP-FR-010 .. -014 |
 | SWE4-UT-S2LPCONFIG | `instruments/s2lp/test_configuration.py` | Register values from a file: the punctuation such files are written with, hexadecimal values, every refusal and the line it names, applying with read-back, the loose and strict checks, and capturing a radio's settings back out; and the reset that makes a partial file deterministic, including that the reset strobe does not do it | S2LP-FR-017 .. -021 |
