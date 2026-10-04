@@ -5,6 +5,35 @@
 | Tool | `tools/test_bench/test_bench.py`, with `sources.py` beside it |
 | Based on | The Kepler reference project's `rf_monitor.py` v1.1.0, copied unchanged in the first commit of #82 so every change since is visible in the history |
 | Issue | #82 |
+| Status | **Frozen** since 2026-10-04 (#142). Replaced by the test run viewer, `benchtools view` |
+
+> **Frozen.** The test run viewer (`benchtools view`, #130) replaces this
+> monitor. It was tried on the real bench on 2026-10-04: its Run,
+> Instruments, RF, BLE and Graphs pages all worked against sensor 5C1712, the
+> S2-LP kit, the BLE dongle, the supply and the multimeter. From now on this
+> monitor changes only to fix a defect. Nothing has been removed, and it
+> still runs as described below.
+>
+> **What the viewer does not replace.** The viewer shows what a test run
+> records in its event log, so it has nothing to show without a run. Three of
+> the monitor's modes have no viewer equivalent, by design:
+>
+> - **`--port`**: receiving from the S2-LP kit with no test running, as a
+>   standalone radio monitor;
+> - **`--log`**: reading a log written by ST's S2-LP DK GUI, as rf_monitor did;
+> - **`--simulate`**: a simulated kit with a sensor on the air, with no run.
+>   The viewer's simulated benches simulate a run, not the air on its own.
+>
+> Every page has a viewer counterpart:
+>
+> | Monitor page | Viewer |
+> |---|---|
+> | Latest Data, Config, Environment, Short Interval, Ticks, TWF, Diagnostics, Sync, ST GUI | The RF page's tabs of the same names (#151 to #157), plus Identification |
+> | Events | Event log, with pause and filters by instrument, kind, sensor and test (#148) |
+> | PSU, J-Link | Instruments: each instrument's commands and replies, and the supply's and probe's front panels (#138) |
+> | Notes, report export | Notes & report (#156) |
+> | Settings (sensor filter) | The sensor filter on the RF and Event log pages (#148) |
+> | Status bar | The status bar on every page (#149) |
 
 rf_monitor decoded Kepler radio frames from the log ST's S2-LP DK GUI writes.
 The Test Bench monitor keeps all of its pages, and adds five things:

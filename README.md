@@ -209,6 +209,13 @@ test cases to run - or attach to one started with `benchtools run --event-log
 PATH --control 0`. The Event log page lists every instrument's traffic, filtered
 by source.
 
+It replaces the tkinter Test Bench monitor (`tools/test_bench`), which is
+**frozen** from 2026-10-04 and changes only to fix a defect (#142). The monitor
+is kept for the three things the viewer does not do, because each needs no test
+run: receiving from the S2-LP kit on its own (`--port`), reading a log written
+by ST's GUI (`--log`), and a simulated kit (`--simulate`). See
+[docs/test_bench/Test_Bench_Monitor.md](docs/test_bench/Test_Bench_Monitor.md).
+
 It listens on 127.0.0.1 by default, needs nothing beyond the standard library,
 and loads nothing from the internet. A run started from it writes its event log
 and reports to `runs/`. Requests that change anything must carry a header that a
