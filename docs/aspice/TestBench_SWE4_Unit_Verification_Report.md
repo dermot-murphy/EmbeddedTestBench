@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-SWE4-002 | **Version** | 1.18 |
+| **Document ID** | TB-SWE4-002 | **Version** | 1.19 |
 | **Project** | TestBench | **Date** | 2026-10-03 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -50,6 +50,7 @@
 | 1.16 | 2026-10-03 | Claude | #155: SWE4-UT-VIEWDIAG (14) added to §5, pass. Diagnostics and Sync were exercised in a browser on ALIVE bursts with copies lost and a LORES-HIRES handshake. |
 | 1.17 | 2026-10-03 | Claude | #156: SWE4-UT-VIEWREPORT (10) added to §5, pass; SWE4-UT-VIEWSENSOR 17. Notes and the report were exercised in a browser on a run combined with Kepler, ALIVE, TWF and sync frames. |
 | 1.18 | 2026-10-03 | Claude | #157: SWE4-UT-VIEWSTGUI (11) added to §5, pass. Refresh was exercised in a browser during a simulated run using the S2-LP: the run read its setup between steps and passed. |
+| 1.19 | 2026-10-04 | Claude | #129: §14A added - #124 (choosing a sensor by part of its name) and #126 (per-instrument event-log names) confirmed on the bench PC with sensor 5C1712, the PCA10059 dongle and a Pico 2 with no module connected; D-46 and D-47 note the confirmation. PICO-OPEN-02 stays open. |
 
 ---
 
@@ -1280,6 +1281,43 @@ The comparison is held in the suite as
 per specification on the simulated bench. Without the fix in `runner/` it fails
 for 10 of the 14, along with 6 of the 7 other `test_input_paths.py` tests.
 
+## 14A. Hardware confirmation of #124 and #126 (#129, 2026-10-04)
+
+#124 (choosing a sensor by part of its name, D-46) and #126 (per-instrument
+event-log names, D-47) were closed on simulator evidence. This section records
+the same behaviour on the bench PC: Windows 10, Python 3.11.
+
+**Hardware used:**
+- Nordic PCA10059 dongle, USB serial `D7FA0F34C85A`, on COM10. Firmware 1.4.0, built `local:Sep-29-2026T11:41:48`.
+- Sensor 5C1712, `D1:8D:3B:4C:19:96`. It advertised as `KAPPA_5C1712_V11.00.000` and answered `RD VERSION` with `V11.00.0000-95-gc051f3665`.
+- Raspberry Pi Pico 2, USB serial `AC5483CD0798FB0B`, on COM14. Firmware `V1.00.0000` (`5c80ae7`). **No SHT30-D module was connected.**
+
+### 14A.1 Choosing a sensor on the BLE command line (#124)
+
+Each command was `benchtools ble -r COM10 -t 45 --log <file> cmd "RD VERSION" <selection>`.
+
+| Selection | Exit | Reply | `> scan start` lines in the log | Expected? |
+|---|---|---|---|---|
+| `--select 5C1712` | 0 | `ACK RD VERSION = V11.00.0000-95-gc051f3665`, 58.8 ms | 1 | Yes |
+| `--select kappa_5c17` | 0 | The same, 58.9 ms | 2 | Yes. The filtered scan (`name=kappa_5c17`) found nothing in the advertised case, and the unfiltered rescan selected `D1:8D:3B:4C:19:96` |
+| `--addr D1:8D:3B:4C:19:96` | 0 | The same, 58.9 ms | 0 | Yes. No scan, connected directly |
+| `--addr D1:8D:3B:4C:19:96 --select 5C1712` | 2 | `argument --select: not allowed with argument --addr` | none | Yes |
+
+### 14A.2 Thermometer records in the event log (#126)
+
+`benches/lab1.yaml` now gives `temp` the Pico 2's real port, `COM14`. The
+`test_no_two_instruments_share_a_port` test passes with it. A three-step
+specification (`temp.name`, `temp.version`, `temp.read`) was run with
+`benchtools run <spec> --bench benches/lab1.yaml --event-log events.jsonl --markdown report.md`.
+
+- **27 records in total:**
+  - 13 `TEMP`: every line from the thermometer, from `resource 'serial://COM14' resolved to serial COM14` to `closed serial COM14`.
+  - 14 `TEST`: the runner's own records, including `connecting temp (pico-sht30) at COM14`.
+  - None `BENCH`.
+- **Report:** the Instruments table reads `temp | TEMP | PicoSht30 | Pico 2/SHT30 | V1.00.0000 (5c80ae7) | COM14`.
+- **Test Bench monitor:** given the log with `--event-log`, the Events page shows the `TEMP` records in their own colour (`#ff8a65`), with a `TEMP` filter.
+- **Step results:** `temp.name` and `temp.version` passed. `temp.read` errored with `NoReadingError` (`ACK rd temperature = Error`), as expected with no module connected. A real reading remains PICO-OPEN-02.
+
 ## 15. Defects found, and their disposition
 
 | ID | Severity | Status | Regression test |
@@ -1350,8 +1388,8 @@ SDK to provide it transitively.
 | D-43 | The TTi 1604 driver read the link with `Transport.read_raw()`, which waits for an end-of-message that a serial port never signals. On a real port every read timed out with the received bytes left in the transport's buffer, so connecting always failed - and the error blamed DTR and RTS. The unit tests passed because the mock transport signals end-of-message after every reply | **Critical** - the driver could not talk to any real meter. Found by comparing it with the reverted #106 driver and reproduced over pyserial's `loop://` (#115) | **Closed** - `Transport.read_available()` and `discard_input()` (CORE-FR-061); the driver reads with a fixed short poll it never varies (LL-07) and loops to its own deadline. A virtual-clock simulator is now given the read timeout (CORE-FR-062), and the simulator keeps the meter's reading rate, so a wait shorter than the meter's fails in the tests. The frequency gate, which the old 2 s settling time could not wait for, is allowed for (DMM-FR-032) | `TestTheSerialLink` (2), `TestStreamReading` (7), `test_the_ten_second_gate_is_waited_for`, `test_a_read_shorter_than_the_measurement_times_out` |
 | D-44 | Two annunciator bits were at the wrong positions: Touch-Hold at bit 0 of the function byte and auto-range-set at bit 2 of the status byte, from a summary, where the manufacturer's note gives bit 1 for both. A Touch-Hold display was not reported as held | **Major** - a frozen reading could pass as live. Found by reading the manufacturer's note, now in `docs/dmm/reference/` | **Closed** - both moved to bit 1 | `TestTheManufacturersNote` (4) |
 | D-45 | Every driver opened an input file named by a relative path - an S2-LP register file, a command document, a firmware build, an ELF image - relative to the working directory, and nothing resolved it against the specification or bench file that named it. Started outside the TestTools checkout, the normal case, 12 of 28 specification runs on the simulated bench errored before measuring anything (§14.3) | **Major** - a test errored for a reason unrelated to the thing under test, and only in the directory it is meant to be used from. Every test passed because each was run from the checkout | **Closed** - drivers declare their input files; the runner and bench resolve them beside the declaring file, then the working directory, then the checkout (AD-27, #116) | `test_a_shipped_specification_runs_the_same_from_outside_the_checkout` (14), `TestStepArguments` (3), `TestBenchOptions` (4) |
-| D-46 | On the BLE command line, `--select` with anything but the exact advertised name failed: the scan's firmware filter matched by containment, then `select()` matched the name exactly, found nothing and parsed the text as an address - "not a BLE address". `cmd --addr` was accepted and never read. Found on hardware with sensor 5C1712 during #73, ticketed as #124 | **Major** - the advertised name carries the firmware version, so the name an operator knows never matched; the only working form was an address | **Closed** - `select` and `--select` resolve an address, a name or part of one through `select_by_name`, with an unfiltered rescan for another case; `cmd --addr` selects; `--addr` with `--select` exits 2 | `TestChoosingASensor` (16; 13 fail before the fix) |
-| D-47 | The event log named a record's source from a fixed table of driver packages. The Pico 2 thermometer was not in it, so its records read `bench`; the shared transports' lines read `bench` whatever instrument they carried; and two instruments of one driver - `probe` and `rtt` - were indistinguishable. Found in #126 | **Major** for a log whose purpose is to say which part of the bench did what: a supply's and a thermometer's lines could not be told apart, nor two J-Link links | **Closed** - each instrument carries a name, allocated by the specification and the bench, the specification winning, defaults per driver including `TEMP`; everything an instrument owns logs under it; clashes refused before connecting (AD-28) | `SWE4-UT-EVENTNAMES` (21), `TestPerInstrumentNames` (15), `TestSourceNames` (18) |
+| D-46 | On the BLE command line, `--select` with anything but the exact advertised name failed: the scan's firmware filter matched by containment, then `select()` matched the name exactly, found nothing and parsed the text as an address - "not a BLE address". `cmd --addr` was accepted and never read. Found on hardware with sensor 5C1712 during #73, ticketed as #124 | **Major** - the advertised name carries the firmware version, so the name an operator knows never matched; the only working form was an address | **Closed** - `select` and `--select` resolve an address, a name or part of one through `select_by_name`, with an unfiltered rescan for another case; `cmd --addr` selects; `--addr` with `--select` exits 2 Confirmed on hardware 2026-10-04 (§14A, #129). | `TestChoosingASensor` (16; 13 fail before the fix) |
+| D-47 | The event log named a record's source from a fixed table of driver packages. The Pico 2 thermometer was not in it, so its records read `bench`; the shared transports' lines read `bench` whatever instrument they carried; and two instruments of one driver - `probe` and `rtt` - were indistinguishable. Found in #126 | **Major** for a log whose purpose is to say which part of the bench did what: a supply's and a thermometer's lines could not be told apart, nor two J-Link links | **Closed** - each instrument carries a name, allocated by the specification and the bench, the specification winning, defaults per driver including `TEMP`; everything an instrument owns logs under it; clashes refused before connecting (AD-28) Confirmed on hardware 2026-10-04 (§14A, #129). | `SWE4-UT-EVENTNAMES` (21), `TestPerInstrumentNames` (15), `TestSourceNames` (18) |
 
 No open defects.
 
