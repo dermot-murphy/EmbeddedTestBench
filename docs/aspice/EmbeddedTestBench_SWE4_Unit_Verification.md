@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE4-001 | **Version** | 1.23 |
+| **Document ID** | ETB-SWE4-001 | **Version** | 1.24 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -54,7 +54,8 @@
 | 1.20 | 2026-10-03 | Claude | #157: SWE4-UT-VIEWSTGUI added (11 cases). |
 | 1.21 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
 | 1.22 | 2026-10-04 | Claude | #187: SWE4-UT-TRACE also checks that every revision history in `docs/` lists entries oldest first. |
-| 1.23 | 2026-10-05 | Claude | #184: SWE4-UT-PUBLISH added - the wiki and home page generator (`scripts/publish_docs.py`). |
+| 1.23 | 2026-10-05 | Claude | #204: Review & Approval table points to the merge of the pull request that last changed the document, which is the review and approval (ETB-SUP8-001 §5.7); no per-change signatures or dates. |
+| 1.24 | 2026-10-05 | Claude | #184: SWE4-UT-PUBLISH added - the wiki and home page generator (`scripts/publish_docs.py`). |
 
 ---
 
@@ -324,7 +325,7 @@ against the simulator in the default run (SWE4-UT-PSUPANEL, SWE4-UT-DMMPANEL).
 |---|---|---|---|
 | SWE4-UT-LAYERING | `test_layering.py` | Import graph and element isolation, the viewer above the runner | CORE-NFR-001, -008, -009 |
 | SWE4-UT-LINT | `test_lint_script.py` | The pylint baseline gate (`scripts/lint.py`): a finding keyed by file and rule matches its baseline entry whatever path separator pylint reports | — |
-| SWE4-UT-PUBLISH | `test_publish_docs.py` | The wiki and home page generator (`scripts/publish_docs.py`, ETB-SUP8-001 §5.7): wiki page names, two documents refused on one page, relative links rewritten to wiki pages or to the file on the ref (fenced code, anchors and absolute links left alone), the sidebar reaching every published page, `--clean` removing stale pages, a second run over unchanged content producing identical files, and the home page's logo and links | — |
+| SWE4-UT-PUBLISH | `test_publish_docs.py` | The wiki and home page generator (`scripts/publish_docs.py`, ETB-SUP8-001 §5.8): wiki page names, two documents refused on one page, relative links rewritten to wiki pages or to the file on the ref (fenced code, anchors and absolute links left alone), the sidebar reaching every published page, `--clean` removing stale pages, a second run over unchanged content producing identical files, and the home page's logo and links | — |
 | SWE4-UT-TRACE | `test_traceability.py` | Consistency between the code and the SWE.1 to SWE.4 work products: every requirement traced, no orphan rows, every cited identifier defined, every module carrying its own trace, every revision history listed oldest first (ETB-SUP8-001 §6.2) | All (traceability base practices) |
 | SWE4-UT-SCPI | `core/test_scpi.py` | `ScpiInstrument`: lifecycle, primitives, identity, error queue, 488.2 blocks, simulator injection | CORE-FR-020 .. -028, INST-FR-001, -002 |
 | SWE4-UT-INSTRUMENT | `core/test_instrument.py` | `Instrument`: lifecycle template and hooks, identity caching, a close that cannot raise, simulator declaration, default empty event queue | CORE-FR-012 .. -016 |
@@ -496,11 +497,18 @@ in the VISA determination report §5.1:
 
 ## 9. Review & Approval
 
-| Role | Name | Signature / Electronic Approval | Date |
-|---|---|---|---|
-| Author | Claude | Approved | 2026-09-19 |
-| Technical Reviewer | Dermot Murphy | — | *pending* |
-| Quality Assurance | Dermot Murphy | — | *pending* |
-| Approver | Dermot Murphy | — | *pending* |
+Review and approval of this document are not entered in this table. They are
+given by the merge of the pull request that last changed the document, and that
+merge is the record (ETB-SUP8-001 §5.7). The evidence is the pull request, its
+CI result and its merge record: who merged it, when, and the merge commit. The
+last row of the revision history names the issue, and the issue links the pull
+request.
+
+| Role | Name | Recorded by |
+|---|---|---|
+| Author | Claude | The commits in the pull request |
+| Technical Reviewer | Dermot Murphy | The merge of the pull request that last changed this document |
+| Quality Assurance | Dermot Murphy | The merge of the pull request that last changed this document |
+| Approver | Dermot Murphy | The merge of the pull request that last changed this document |
 
 > **Note:** This document is under configuration management (SUP.8). Post-approval changes require a change request (SUP.10) and a new document version.

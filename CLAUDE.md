@@ -56,6 +56,40 @@ on `main`, on explicit instruction, because `main` is where #106 landed (#109).
 Background: #106 was merged into `main` although work merges to `develop` first,
 and had to be reverted (#109, #110). This rule was added by #113.
 
+## Review, approval and merging
+
+Dermot Murphy, the repository owner, is the only Reviewer and the only Approver
+(#204). **Merging a pull request is the review and the approval** of everything
+in it. The evidence is the pull request, its CI result and its merge record:
+who merged it, when, and the merge commit. See `ETB-SUP8-001 §5.7`.
+
+- **Claude never merges on its own initiative.** Finished work, green CI, or an
+  instruction given for a different pull request is not an instruction to merge.
+- A merge happens only on the owner's **explicit instruction for that pull
+  request**. That instruction, and the merge made on it, is the owner's review
+  and approval.
+- **When Claude merges on instruction, the merge commit says so.** Use a merge
+  commit with this body line, with the date of the merge:
+
+  ```sh
+  gh pr merge <n> --merge --body "Merged by Claude Code on the owner's instruction (2026-10-05)."
+  ```
+- **Claude never records an approval on the owner's behalf in any other way**:
+  no GitHub review approval, no entry in a document's Review & Approval table,
+  no comment, status or signature saying the change is approved.
+- Every required check must be green before the merge; the ruleset enforces it.
+- The Review & Approval table of each controlled document points to the merge
+  of the pull request that last changed the document. It is not filled in.
+
+Both ways of merging are allowed: the owner merges the pull request himself, or
+Claude merges it on his instruction with the note above. Claude works through
+the owner's GitHub account, so the merge record names `dermot-murphy` either
+way; the note is what tells them apart. **A merge commit without the note is
+the owner's own merge.** Either way, the merge is the Reviewer's and Approver's
+approval. `gh pr merge --help` describes `--body` as "Body text for the merge
+commit" (checked 2026-10-05); read the first such merge back to confirm the note
+is there.
+
 ## Releases and hotfixes
 
 A release is made only when the repository owner says so.
@@ -66,7 +100,8 @@ A release is made only when the repository owner says so.
    PEP 440 form (`0.1.0` for `0.01.0000`); that is expected.
 2. On that branch: the version bump, the Software Version Description
    (ETB-SVD-001) and other release documents, and fixes only. No new features.
-3. Open a pull request into `main`. Merge it with a merge commit once CI is green.
+3. Open a pull request into `main`. Merge it with a merge commit once CI is green,
+   on the owner's instruction (see [Review, approval and merging](#review-approval-and-merging)).
 4. Create the annotated tag `v<version>` on that merge commit in `main`.
 5. Open a pull request from `main` into `develop` (the back-merge) and merge it,
    so `develop` contains the release commits and the tagged history.
@@ -154,6 +189,8 @@ recorded in `ETB-SUP8-001 §5.5`:
   change reaches them only through a pull request whose required checks pass:
   `pytest (3.8)`, `pytest (3.9)`, `pytest (3.12)`, `pylint`,
   `Embedded C standard` and `Simulated bench`.
+- A pull request needs 0 approvals: the merge itself is the review and approval
+  (see [Review, approval and merging](#review-approval-and-merging)).
 - Merge commits are the only merge method. Squash and rebase are switched off.
 - Release tags `v*` cannot be deleted or moved once pushed (tag ruleset).
 - **Merging a pull request deletes its head branch automatically.** In a stack,
@@ -170,7 +207,7 @@ changed, change `ETB-SUP8-001 §5.5` with it.
 The GitHub wiki and the `gh-pages` branch (the home page served by GitHub
 Pages) are generated from the repository by `scripts/publish_docs.py` and
 published from `main` by `.github/workflows/wiki_publish.yml` and
-`pages_publish.yml` (`ETB-SUP8-001 §5.7`, #184).
+`pages_publish.yml` (`ETB-SUP8-001 §5.8`, #184).
 
 - **Never edit them by hand, and never push to them from a session.** The next
   run overwrites a hand edit, and anything pushed before a release describes
@@ -194,6 +231,12 @@ State platform behaviour only after verifying it in the current session, against
 the API or the live configuration. If something cannot be verified, say that it is
 unverified. A confident wrong answer about tooling costs more than an admitted gap,
 because it gets acted on.
+
+## Using the bench
+
+Read [`docs/User_Manual.md` §8](docs/User_Manual.md#8-for-claude-code-sessions)
+first. It says where the bench facts live and what must never be done on the
+real bench. It does not change the procedure in this file.
 
 ## Related
 

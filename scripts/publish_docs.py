@@ -17,12 +17,12 @@ the wiki, the latest release and the system qualification report.
 
 Both outputs are generated, never edited by hand, and published from ``main``
 by ``.github/workflows/wiki_publish.yml`` and ``pages_publish.yml``
-(ETB-SUP8-001 §5.7). The output depends only on the repository content and the
+(ETB-SUP8-001 §5.8). The output depends only on the repository content and the
 arguments - no timestamp - so a run with nothing changed changes nothing.
 
 Standard library only, Python 3.8 and later.
 
-Traces to: ETB-SUP8-001 §5.7, issue #184.
+Traces to: ETB-SUP8-001 §5.8, issue #184.
 """
 
 from __future__ import annotations
