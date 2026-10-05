@@ -8,8 +8,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE4-002 | **Version** | 1.20 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-04 |
+| **Document ID** | ETB-SWE4-002 | **Version** | 1.21 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.4 |
@@ -52,6 +52,7 @@
 | 1.18 | 2026-10-03 | Claude | #157: SWE4-UT-VIEWSTGUI (11) added to §5, pass. Refresh was exercised in a browser during a simulated run using the S2-LP: the run read its setup between steps and passed. |
 | 1.19 | 2026-10-04 | Claude | #129: §14A added - #124 (choosing a sensor by part of its name) and #126 (per-instrument event-log names) confirmed on the bench PC with sensor 5C1712, the PCA10059 dongle and a Pico 2 with no module connected; D-46 and D-47 note the confirmation. PICO-OPEN-02 stays open. |
 | 1.20 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
+| 1.21 | 2026-10-05 | Claude | #177: whole suite re-run (§4); SWE4-UT-JLINK re-counted 86 → 98 and SWE4-UT-JLINKSIM 23 → 25 in §5; §9.3 added - `reset(halt=False)` on the bench before and after the fix; D-48 added and closed, and D-39 notes that D-48 replaces its model. |
 
 ---
 
@@ -119,6 +120,16 @@ its line protocol, and the serial port by pyserial's own `loop://` handler.
 
 Revision 1.0 re-ran the whole suite with #127's `flash` command on the bench
 PC; the figures above are that run.
+Revision 1.21 re-ran the whole suite with #177's change to `reset` on the same
+bench PC: **3 132 tests, 3 126 passed, 0 failed, 0 errors, 6 skipped**, in
+212.4 s, CPython 3.11.1 on Windows 10, pytest 9.0.3
+(`python -m pytest -q -p no:cacheprovider`, JUnit XML for the counts). The six
+skips are `test_visa.py`, as above; coverage was not measured.
+A repeat of the run after the documents were updated failed one test,
+`test_sampling.py::test_readings_are_spaced_by_the_interval` (0.391 s measured
+against at least 0.4 s): a host-timing check in the BLE dongle driver, which
+this change does not touch. Run alone it failed once in three runs; it is
+intermittent on this PC and is not this change's.
 Revision 1.1 re-ran the whole suite with #131's `rd` command set on the same
 Windows bench PC, before #127 was merged into it: **2 753 tests, 2 747 passed,
 0 failed, 0 errors, 6 skipped**, in 189.6 s, CPython 3.14.7 on Windows 10,
@@ -165,7 +176,7 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | Test group | File | Tests | Result |
 |---|---|---|---|
 | SWE4-UT-SCOPE | `instruments/tek3014b/test_scope.py` | 87 | Pass |
-| SWE4-UT-JLINK | `instruments/jlink/test_probe.py` | 86 | Pass |
+| SWE4-UT-JLINK | `instruments/jlink/test_probe.py` | 98 | Pass |
 | SWE4-UT-S2LP | `instruments/s2lp/test_s2lp.py` | 75 | Pass |
 | SWE4-UT-S2LPREG | `instruments/s2lp/test_registers.py` | 34 | Pass |
 | SWE4-UT-S2LPPROTO | `instruments/s2lp/test_protocol.py` | 31 | Pass |
@@ -196,7 +207,7 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | SWE4-UT-JLINKSERVER | `instruments/jlink/test_server.py` | 32 | Pass |
 | SWE4-UT-SCPI | `core/test_scpi.py` | 28 | Pass |
 | SWE4-UT-TIMING | `instruments/jlink/test_timing.py` | 29 | Pass |
-| SWE4-UT-JLINKSIM | `instruments/jlink/test_simulator.py` | 23 | Pass |
+| SWE4-UT-JLINKSIM | `instruments/jlink/test_simulator.py` | 25 | Pass |
 | SWE4-UT-JLINKCLI | `instruments/jlink/test_cli.py` | 22 | Pass |
 | SWE4-UT-RTT | `instruments/jlink/test_rtt.py` | 21 | Pass |
 | SWE4-UT-SWO | `instruments/jlink/test_swo.py` | 20 | Pass |
@@ -629,6 +640,25 @@ stop the core, which is the only method usable on firmware that must keep runnin
 | SWO over a real TCP socket | Pass — events decoded, `collect` honours its timeout |
 | GDB Server: already-listening port reused, remote never spawned | Pass |
 | GDB Server that exits during start-up | Reported with the server's own output |
+
+### 9.3 Reset without halting, on the bench (#177)
+
+Run on 2026-10-05 on the bench PC: J-Link OB-SAM3U128-V2-NordicSem (S/N
+682395790), J-Link software V9.42, Arm GNU 14.2 GDB, sensor 5C1712 (nRF52840)
+running a V11.00.0000-95 debug build. A script connected `JLinkProbe`, started
+RTT, called `reset(halt=False)`, read DHCSR (`0xE000EDF0`) and the DWT PC sample
+register (`0xE000101C`, which reads `0xFFFFFFFF` while the core is halted),
+counted RTT lines for 20 s, and closed with `leave_halted` set, so that the
+driver's own `monitor go` on close could not hide a halted core. J-Link Commander
+then read DHCSR and the PC sample register; its connection does not halt the core.
+
+| Code | DHCSR after `reset(halt=False)` | PC sample | RTT in 20 s | After close |
+|---|---|---|---|---|
+| Before the fix | `0x00030003` (halted), three reads | `0xFFFFFFFF` | 26 lines, all delivered together 7.3 s after the reset and ending at `Waking 2`, then nothing for the remaining 13 s | Halted (`0x00030003`, PC sample `0xFFFFFFFF`) |
+| After the fix | Not readable through GDB: "Cannot execute this command while the target is running" | - | 87 lines: boot, `Waking 1` to `Waking 11`, `Ticks since reset` 1 then 2, battery and RMS readings | Running (`0x00050001`) |
+
+`nrfjprog --memrd` was not used to check whether the core ran: on this bench it
+halted a running core and left it halted.
 
 ## 10. BLE dongle verification results
 
@@ -1381,7 +1411,7 @@ SDK to provide it transitively.
 | D-37 | The Makefile's source list had never been exercised against a real SDK tree. It named `nrfx_power_clock.c`, which does not exist in nrfx 2.x, and omitted `nrf_section_iter.c`, `nrf_drv_power.c` and `utf.c`, which were on the include path but never compiled. Nordic's `Makefile.common` only **warns** about a source it cannot find | **Major**: the firmware could not be built as delivered — the first three faults are compile or link failures, and the warning meant the cause was in the middle of the output rather than at the end | **Closed** — the source list is corrected, and the Makefile now stops with the list of names it cannot find and what to check, rather than warning | The `firmware` workflow: a missing source is a hard error, so a recurrence cannot reach a green build |
 | D-38 | `sdk_config.h`, written by hand, was missing seven keys the SDK's own modules expand into static assertions (`NRF_SORTLIST_CONFIG_LOG_ENABLED` and `_LOG_LEVEL`, `POWER_CONFIG_SOC_OBSERVER_PRIO`, `POWER_CONFIG_STATE_OBSERVER_PRIO`, the `APP_USBD_STRING_ID_*` and string descriptors, `NRF_SDH_BLE_GAP_DATA_LENGTH`) | **Major** as a build fault, and awkward to diagnose: the error surfaces in an unrelated SDK file, and `nrf_sortlist.h` needs its logging key present even with logging off because it expands the name through a **ternary in C code**, not through the preprocessor | **Closed** — every key is present, each with the comment saying which module asserts on it and why | The `firmware` workflow, which compiles every unit against the real SDK headers |
 
-| D-39 | The simulated target modelled **reset-and-run as reset-and-halt**: `monitor reset 0` left the core halted and silent. Writing the bring-up specification is what found it - the board was started and never said anything | **Major in the model** (the class of D-31 and D-35): the simulator contradicted the thing it stands for, so "start the firmware and check it is running" could not be demonstrated, and any test of it would have been measuring the simulator | **Closed** — a reset with the run argument resets and then runs, emitting whatever the firmware emits along its flow, exactly as a resume does | `test_a_running_target_produces_lines`, `test_a_halted_target_produces_none`, `TestItPasses` |
+| D-39 | The simulated target modelled **reset-and-run as reset-and-halt**: `monitor reset 0` left the core halted and silent. Writing the bring-up specification is what found it - the board was started and never said anything | **Major in the model** (the class of D-31 and D-35): the simulator contradicted the thing it stands for, so "start the firmware and check it is running" could not be demonstrated, and any test of it would have been measuring the simulator | **Closed** — a reset with the run argument resets and then runs, emitting whatever the firmware emits along its flow, exactly as a resume does. **Replaced by D-48** (2026-10-05): on a real probe `monitor reset 0` leaves the core halted, so this model was itself wrong and hid a driver defect | `test_a_running_target_produces_lines`, `test_a_halted_target_produces_none`, `TestItPasses` |
 
 | D-40 | `DEFAULT_SENSORS` is a module-level tuple of dataclasses holding mutable dicts, and every `SimulatedDongle` shared them. A test that changed one sensor's replies changed them for every simulator built afterwards | **Major in the test double**, and of the worst kind to diagnose: the tests it broke were in other files, and the failures described the sensor rather than the test that had altered it. Found by writing a test that silenced a sensor and watching six unrelated tests fail | **Closed** — a simulated dongle deep-copies the sensors it is given, so one simulator cannot poison another. The test that found it now models silence with a stub instead, which is the honest way to model a sensor the simulator does not have | `test_the_default_population_is_not_shared_between_simulators`, `TestASensorThatDoesNotAnswer` (4) |
 
@@ -1391,6 +1421,7 @@ SDK to provide it transitively.
 | D-45 | Every driver opened an input file named by a relative path - an S2-LP register file, a command document, a firmware build, an ELF image - relative to the working directory, and nothing resolved it against the specification or bench file that named it. Started outside the TestTools checkout, the normal case, 12 of 28 specification runs on the simulated bench errored before measuring anything (§14.3) | **Major** - a test errored for a reason unrelated to the thing under test, and only in the directory it is meant to be used from. Every test passed because each was run from the checkout | **Closed** - drivers declare their input files; the runner and bench resolve them beside the declaring file, then the working directory, then the checkout (AD-27, #116) | `test_a_shipped_specification_runs_the_same_from_outside_the_checkout` (14), `TestStepArguments` (3), `TestBenchOptions` (4) |
 | D-46 | On the BLE command line, `--select` with anything but the exact advertised name failed: the scan's firmware filter matched by containment, then `select()` matched the name exactly, found nothing and parsed the text as an address - "not a BLE address". `cmd --addr` was accepted and never read. Found on hardware with sensor 5C1712 during #73, ticketed as #124 | **Major** - the advertised name carries the firmware version, so the name an operator knows never matched; the only working form was an address | **Closed** - `select` and `--select` resolve an address, a name or part of one through `select_by_name`, with an unfiltered rescan for another case; `cmd --addr` selects; `--addr` with `--select` exits 2 Confirmed on hardware 2026-10-04 (§14A, #129). | `TestChoosingASensor` (16; 13 fail before the fix) |
 | D-47 | The event log named a record's source from a fixed table of driver packages. The Pico 2 thermometer was not in it, so its records read `bench`; the shared transports' lines read `bench` whatever instrument they carried; and two instruments of one driver - `probe` and `rtt` - were indistinguishable. Found in #126 | **Major** for a log whose purpose is to say which part of the bench did what: a supply's and a thermometer's lines could not be told apart, nor two J-Link links | **Closed** - each instrument carries a name, allocated by the specification and the bench, the specification winning, defaults per driver including `TEMP`; everything an instrument owns logs under it; clashes refused before connecting (AD-28) Confirmed on hardware 2026-10-04 (§14A, #129). | `SWE4-UT-EVENTNAMES` (21), `TestPerInstrumentNames` (15), `TestSourceNames` (18) |
+| D-48 | `JLinkProbe.reset(halt=False)` sent `monitor reset 0` and recorded the target as running, but the J-Link GDB Server halts the core after `monitor reset` whatever the reset type, and nothing resumed it. Found on the bench in the hardware qualification (#176), ticketed as #177. The simulator hid it: D-39 had modelled `monitor reset 0` as reset-and-run | **Major**: a test that resets the target "running" and then talks to it finds a halted target, and the failure points at the radio, not the probe | **Closed** - `reset(halt=False)` resumes with `run()` (`-exec-continue`) after the reset; the simulator leaves the core halted after every reset type. Confirmed on hardware 2026-10-05 (§9.3) | `test_a_reset_without_halting_resumes_the_core`, `test_every_reset_type_leaves_the_core_halted` (2), `TestIsItRunning` |
 
 No open defects.
 

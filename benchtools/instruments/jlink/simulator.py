@@ -885,20 +885,15 @@ class SimulatedJLink:
         self.monitor_log.append(command)
         lower = command.lower()
         if lower.startswith("reset"):
-            # "reset 0" is reset *and run*, which is how a target is started
-            # without a debugger holding it. Modelling it as reset-and-halt
-            # would give a silent, stopped target to every test that starts the
-            # firmware and then asks whether it is running - and the answer
-            # would be about the simulator, not about anything the driver did.
-            running = lower[len("reset"):].strip() == "0"
+            # Every reset type leaves the core halted, as the J-Link GDB Server
+            # does: "monitor reset 0" on a real probe left the nRF52840 halted
+            # (DHCSR 0x00030003) until something resumed it (issue #177). An
+            # earlier model ran the target after "reset 0", which is why a
+            # driver that never resumed it passed here and failed on the bench.
             self.flow_index = 0
             self.location = self.firmware.flow[0] if self.firmware.flow else "main"
             self.cycles = 0
             self.halted = True
-            if running:
-                # Let it run, exactly as a resume does: execution walks the
-                # flow, emitting whatever the firmware emits along it.
-                self.resume()
             return self._stream(["Resetting target"]) + self._ok(token)
         if lower in ("halt", "h"):
             self.halted = True

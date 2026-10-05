@@ -96,6 +96,16 @@ class TestExecutionModel:
         assert simulator.cycles == 0
         assert simulator.location == simulator.firmware.flow[0]
 
+    @pytest.mark.parametrize("command", ["monitor reset", "monitor reset 0"])
+    def test_every_reset_type_leaves_the_core_halted(self, simulator, command):
+        """As the J-Link GDB Server does: after 'monitor reset 0' the nRF52840
+        on the bench stayed halted until something resumed it (issue #177)."""
+        simulator.connected = True
+        simulator.resume()
+        assert not simulator.halted
+        simulator.respond(('1-interpreter-exec console "%s"' % command).encode())
+        assert simulator.halted
+
     def test_running_with_no_breakpoint_does_not_hang(self, simulator):
         simulator.connected = True
         assert simulator.resume() == {}
