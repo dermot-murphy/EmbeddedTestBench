@@ -35,7 +35,7 @@ dependencies = []
 [project.optional-dependencies]
 # Human-authored YAML test specifications and bench configurations. JSON works
 # with no extra package.
-spec = ["pyyaml>=5.1"]
+spec = ["pyyaml>=6.0.3"]
 # Host-side plots.
 plot = ["matplotlib>=3.3"]
 # Route the instrument link through a VISA library instead of the built-in one.
@@ -45,7 +45,7 @@ serial = ["pyserial>=3.5"]
 test = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
-    "pyyaml>=5.1",
+    "pyyaml>=6.0.3",
     "matplotlib>=3.3",
     "pyvisa>=1.11",
     "pyvisa-py>=0.5",
