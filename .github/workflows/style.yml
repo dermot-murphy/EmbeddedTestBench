@@ -13,7 +13,8 @@
 #
 # Pinned to v1.5.1, not the newest v1.6.0: v1.6.0 writes its version banner into
 # the results file its own action then parses as JSON, so the action fails after
-# the check itself has passed. See ETB-ACQ4-001 §7. The baseline is written by
+# the check itself has passed. Re-checked for #203 on 2026-10-05: the v1.6.0 tag
+# is unchanged and still does this. See ETB-ACQ4-001 §7. The baseline is written by
 # the pinned version and must be regenerated if that pin moves.
 
 name: style
@@ -26,11 +27,11 @@ on:
 jobs:
   cstylecheck:
     name: Embedded C standard
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Check out
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Run CStyleCheck
         id: cstylecheck
