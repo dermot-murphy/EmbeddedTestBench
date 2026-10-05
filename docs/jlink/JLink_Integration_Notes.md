@@ -219,6 +219,22 @@ RTT works on such a link; anything else needs the attach. A bench file offers
 both as separate aliases (`benches/lab1.yaml`: `probe` and `rtt`), on separate
 ports, since only one can hold the J-Link at a time.
 
+### 4.3 Resetting into a running target (issue #177)
+
+Verified on 5C1712 (nRF52840, J-Link OB V8, GDB Server V9.42, GDB 15.2.90
+from Arm GNU Toolchain 14.2.Rel1),
+2026-10-05. The GDB Server halts the core after `monitor reset`, whatever the
+reset type: after `monitor reset 0` DHCSR read `0x00030003`, the DWT PC sample
+register `0xE000101C` read `0xFFFFFFFF`, and RTT stayed silent. `reset(halt=False)`
+therefore resumes the core with `-exec-continue` after the reset; the firmware
+then logged its periodic `Waking n` lines for the whole 20 s watched. The CLI's
+`reset --run` was never affected, because `close()` sends `monitor go`.
+
+Checking whether the core runs: J-Link Commander's `mem32 E000EDF0 1` does not
+halt the core on connecting, though ending its session resumed a halted one.
+`nrfjprog --memrd` halted a running core and left it halted, so it is not a
+check of whether a target is running.
+
 ## 5. What this driver does not do
 
 | Not supported | Reason |

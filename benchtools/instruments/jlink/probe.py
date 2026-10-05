@@ -808,14 +808,22 @@ class JLinkProbe(Instrument):
         :param halt: Hold the core halted after reset. On by default: resetting
             into a running target and then halting it races the start-up code, so
             a test would sometimes catch ``main`` and sometimes the reset handler.
+            ``False`` resets and then resumes the core.
+
+        The J-Link GDB Server halts the core after ``monitor reset`` whatever
+        the reset type, so a reset that is to leave the target running has to
+        resume it. Seen on 5C1712 with GDB Server V9.42 (issue #177): after
+        ``monitor reset 0`` alone DHCSR read 0x00030003 and the firmware stayed
+        silent. It is resumed with ``-exec-continue``, as :meth:`run` does,
+        rather than ``monitor go``, so that GDB knows the target is running.
         """
         self.monitor("reset" if halt else "reset 0", timeout=timeout)
+        self._cycle_counter_ready = False
         if halt:
             self.monitor("halt", timeout=timeout)
             self._halted = True
         else:
-            self._halted = False
-        self._cycle_counter_ready = False
+            self.run(timeout=timeout)
 
     def run(self, timeout: Optional[float] = None) -> None:
         """Let the target run. Returns as soon as it is running."""

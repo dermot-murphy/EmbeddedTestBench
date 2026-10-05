@@ -306,6 +306,17 @@ class TestRunControl:
         probe.reset(halt=False)
         assert not probe.is_halted
 
+    def test_a_reset_without_halting_resumes_the_core(self, probe):
+        """The GDB Server halts the core after any 'monitor reset', so the
+        driver has to resume it; recording it as running was not enough
+        (issue #177)."""
+        simulator = probe.session.transport.responder
+        probe.reset(halt=False)
+        assert simulator.halted is False
+        log = simulator.command_log
+        reset = max(i for i, c in enumerate(log) if "monitor reset" in c)
+        assert "-exec-continue" in log[reset + 1:]
+
     def test_program_counter_and_registers(self, probe):
         probe.run_to(END_LOCATION)
         assert probe.program_counter() == 0x080012C0
