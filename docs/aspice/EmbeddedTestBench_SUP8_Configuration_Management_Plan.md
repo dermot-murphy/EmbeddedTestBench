@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SUP8-001 | **Version** | 0.9 |
+| **Document ID** | ETB-SUP8-001 | **Version** | 0.10 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -31,6 +31,7 @@
 | 0.7 | 2026-10-05 | Claude | #185: §5.5 added - the repository settings baseline (ruleset, merge, security, actions), with the enforcement observed on 2026-10-05. Changed together with CLAUDE.md. |
 | 0.8 | 2026-10-05 | Claude | #190: gitflow adopted. §5.1 adds `release/` and `hotfix/` branches, and their pull requests into `main` and the back-merge into `develop` are allowed by procedure; §5.6 added - release and hotfix procedure, tag on the merge commit in `main`. Changed together with CLAUDE.md. |
 | 0.9 | 2026-10-05 | Claude | #188: §6 states the version and tag format (`0.01.0000`, tag `v0.01.0000`) and the PEP 440 normalisation of the packaged version; §5.5 adds the tag ruleset protecting `v*` tags. Changed together with CLAUDE.md. |
+| 0.10 | 2026-10-05 | Claude | #204: §5.7 added - Dermot Murphy is the only Reviewer and Approver, and the merge of a pull request is the review and approval of everything in it; the evidence is the pull request, its CI result and its merge record. Either the owner merges, or Claude merges on the owner's explicit instruction for that pull request with the merge commit note `Merged by Claude Code on the owner's instruction (<date>).`; a merge without the note is the owner's own. §5.5 gives this as the reason the ruleset requires 0 approvals. Decision recorded: Review & Approval tables point to the merge rather than being filled in from merge records. §11 points to the merge. Changed together with CLAUDE.md. |
 
 ---
 
@@ -183,13 +184,13 @@ against the API rather than assumed (ETB-RISK-004).
 | Ruleset | Name, enforcement, bypass | "Protect main and develop", active, no bypass actors |
 | Ruleset | Target branches | `refs/heads/main`, `refs/heads/develop` (two patterns) |
 | Ruleset | Deletion, force push | Both blocked |
-| Ruleset | Pull request | Required; 0 approvals (single maintainer, who cannot approve their own pull request); merge method **merge** only |
+| Ruleset | Pull request | Required; 0 approvals, because review and approval are given by the merge itself (§5.7) and the single maintainer cannot approve their own pull request; merge method **merge** only |
 | Ruleset | Required status checks | `pytest (3.8)`, `pytest (3.9)`, `pytest (3.12)`, `pylint`, `Embedded C standard`, `Simulated bench`; branch need not be up to date |
 | Ruleset | Linear history | Not required: it would block the merge commits §5.2 requires |
 | Tag ruleset | "Protect release tags" | Active, no bypass actors, on `refs/tags/v*`: deletion and update blocked, so a published release tag cannot be moved (#188) |
 | Merge | Merge commits / squash / rebase | On / off / off |
 | Merge | Automatically delete head branches | On (see below) |
-| Merge | Auto-merge | Off: a pull request is merged on instruction |
+| Merge | Auto-merge | Off: a pull request is merged by the owner or on the owner's instruction, and that merge is the review and approval (§5.7) |
 | Security | Secret scanning, push protection | On |
 | Security | Dependabot alerts, security updates | On |
 | Actions | Allowed actions | GitHub-owned, plus `carlosperate/arm-none-eabi-gcc-action@*` and `dermot-murphy/*` |
@@ -242,6 +243,63 @@ Head branches are deleted automatically on merge (§5.5). That is intended for
 `develop`, the ruleset blocks the deletion. This is checked after each such merge
 rather than assumed.
 
+### 5.7 Review and Approval
+
+**Decision (repository owner, 2026-10-05, #204).** Dermot Murphy is the only
+Reviewer and the only Approver of every work product. There is no second
+reviewer, and no bot or machine account gives approvals.
+
+**Merging the pull request is the act of review and approval.** A merge into
+`develop` or `main` is the Reviewer's approval and the Approver's approval of
+everything in that pull request. The owner merges the pull request, or
+explicitly instructs the merge of that pull request, after examining the change
+and its CI result. Every required status check (§5.5) being green is a
+precondition of the merge, and the ruleset enforces it.
+
+| Item | Arrangement |
+|---|---|
+| Reviewer and Approver | Dermot Murphy, both roles (ETB-DEV-002) |
+| Act of review and approval | The merge of the pull request, into `develop` or `main` |
+| Checks applied before merging | ETB-TMPL-001 §6.1, checks C1 to C6 (ETB-SUP1-001 §6.5) |
+| Precondition | Every required status check green (§5.5) |
+| Evidence | The pull request, its CI result, and its merge record: who merged it, when, and the merge commit, whose body carries the note when Claude merged on instruction |
+| Required approvals in the ruleset | 0. The only collaborator opens every pull request, including Claude's work, and cannot approve their own, so a GitHub review approval is not available; the merge carries the approval instead |
+| Who merges | The owner, or Claude on the owner's explicit instruction for that pull request; either merge is the review and approval (see below) |
+| Merges by Claude | Never on Claude's own initiative. Only on the owner's explicit instruction for that pull request, with the merge commit note below. Claude never records an approval on the owner's behalf in any other way (`CLAUDE.md`) |
+
+**Two ways of merging are allowed (owner's decision, 2026-10-05).**
+
+1. The owner merges the pull request himself.
+2. The owner instructs Claude to merge that pull request, and Claude merges it
+   with a merge commit whose body contains the line
+   `Merged by Claude Code on the owner's instruction (<date>).`, for example:
+   `gh pr merge <n> --merge --body "Merged by Claude Code on the owner's instruction (2026-10-05)."`
+
+Claude works through the owner's GitHub account (checked with `gh api user` on
+2026-10-05), so the merge record names `dermot-murphy` in both cases. The note
+is what tells them apart: **a merge commit without that note is the owner's own
+merge.** Either way, the merge is the Reviewer's and the Approver's approval.
+That `--body` sets the merge commit body was checked against
+`gh pr merge --help` on 2026-10-05 ("Body text for the merge commit"); it has
+not yet been observed on a merge in this repository, so the first such merge
+is read back to confirm the note is present.
+
+**Review & Approval tables point to the merge.** Two ways of showing approval
+in the documents were considered in #204: each document's Review & Approval
+table points to the merge of the pull request that last changed the document,
+or the tables are filled in from the merge records at each release. The owner
+chose the first. Every controlled document's Review & Approval table states
+that review and approval are recorded by that merge, and carries no per-change
+signature or date. The merge record exists for every change without anyone
+transcribing it, and on `main` and `develop` the merge commit cannot be
+rewritten because force pushes are blocked (§5.5); a copy in the table could
+only fall out of step with it. The pull request is found from the issue named
+in the document's last revision history row.
+
+ETB-SVD-001 is not changed by this: it describes the released baseline
+`v0.01.0000`, and a baseline is not edited (§7). Its table is brought into line
+when the SVD is next revised for a new baseline.
+
 ---
 
 ## 6. Versioning
@@ -292,7 +350,8 @@ SVD, and the reason is recorded in the SVD's revision history.
 ## 8. Change Control
 
 Changes to a baselined item follow ETB-SUP10-001. Changes to items not yet
-baselined follow ordinary development: branch, change, test, review, merge.
+baselined follow ordinary development: branch, change, test, then review and
+approval by the merge of the pull request (§5.7).
 
 Every change, baselined or not, satisfies ETB-SUP1-001 §6.1 — the documents move
 with the code.
@@ -325,8 +384,15 @@ kept with that run's records, because the run cannot otherwise be reproduced.
 
 ## 11. Review & Approval
 
-| Role | Name | Signature / Electronic Approval | Date |
-|---|---|---|---|
-| Author | Claude | Approved | 2026-09-19 |
-| Reviewer | Dermot Murphy | — | *pending* |
-| Approver | Dermot Murphy | — | *pending* |
+Review and approval of this document are not entered in this table. They are
+given by the merge of the pull request that last changed the document, and that
+merge is the record (ETB-SUP8-001 §5.7). The evidence is the pull request, its
+CI result and its merge record: who merged it, when, and the merge commit. The
+last row of the revision history names the issue, and the issue links the pull
+request.
+
+| Role | Name | Recorded by |
+|---|---|---|
+| Author | Claude | The commits in the pull request |
+| Reviewer | Dermot Murphy | The merge of the pull request that last changed this document |
+| Approver | Dermot Murphy | The merge of the pull request that last changed this document |
