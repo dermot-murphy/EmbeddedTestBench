@@ -1,4 +1,4 @@
-// benchtools test run viewer: the Test Bench monitor's ST GUI page (#157).
+// benchtools test run viewer: the Embedded Test Bench monitor's ST GUI page (#157).
 // Uses el, $, post and table helpers from app.js, loaded before this file.
 "use strict";
 

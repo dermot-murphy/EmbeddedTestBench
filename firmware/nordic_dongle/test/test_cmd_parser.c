@@ -682,7 +682,7 @@ static void test_reset_answers_before_resetting(void)
 }
 
 /* The runner, in two halves so that no function exceeds the 60-line limit
- * (TB-STD-002, JPL Power of Ten Rule 4). Order is unchanged. */
+ * (ETB-STD-002, JPL Power of Ten Rule 4). Order is unchanged. */
 static void test_run_first_half(void)
 {
 	RUN_TEST(test_every_command_answers_exactly_once);

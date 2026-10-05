@@ -1,0 +1,198 @@
+{"t": 1791140079.206289, "source": "TEST", "level": "INFO", "logger": "benchtools.runner", "text": "--simulate: ignoring configured resources in benches/bench_pc.yaml"}
+{"t": 1791140079.206289, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.runner", "text": "running 'QS-10 Bench identity'", "kind": "run_start", "data": {"suite": "QS-10 Bench identity", "spec_source": "specs/qualification/qs10_bench_identity.yaml", "requirements": ["TB-SYS2-010", "TB-SYS2-011", "TB-SYS2-012", "TB-SYS2-014", "TB-SYS2-015", "TB-SYS2-016", "TB-SYS2-070", "TB-SYS2-078", "TB-SYS2-079", "TB-SYS2-084"], "parameters": {}, "selection": [], "setup": [], "teardown": [], "tests": [{"case": 0, "name": "Every instrument answers and is identified", "requirement": "TB-SYS2-015", "description": "", "selected": true, "skip": false, "steps": [{"step": 0, "action": "psu.status", "arguments": {}, "description": "", "save": null}, {"step": 1, "action": "dmm.measure", "arguments": {}, "description": "", "save": null}, {"step": 2, "action": "dongle.scan", "arguments": {"duration": 5.0}, "description": "", "save": null}, {"step": 3, "action": "s2lp.read_setup", "arguments": {}, "description": "", "save": null}, {"step": 4, "action": "temp.version", "arguments": {}, "description": "", "save": null}]}], "bench": "Bench PC (Windows)", "simulated": true}}
+{"t": 1791140079.207382, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.runner", "text": "running test 'Every instrument answers and is identified'", "kind": "case_start", "data": {"case": 0, "name": "Every instrument answers and is identified", "requirement": "TB-SYS2-015", "first_step": 0}}
+{"t": 1791140079.207382, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner.runner", "text": "step psu.status starting", "kind": "step_start", "data": {"phase": "test", "case": 0, "step": 0, "action": "psu.status", "arguments": {}, "description": "", "save": null}}
+{"t": 1791140079.207598, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.bench", "text": "connecting psu (gpd3303d) at sim://"}
+{"t": 1791140079.207598, "source": "PSU", "level": "DEBUG", "logger": "benchtools.core.transport.factory", "text": "resource 'sim://' resolved to simulated GPD-3303D"}
+{"t": 1791140079.207598, "source": "PSU", "level": "DEBUG", "logger": "benchtools.core.transport.mock", "text": "opened simulated GPD-3303D"}
+{"t": 1791140079.207598, "source": "PSU", "level": "DEBUG", "logger": "benchtools.instruments.gpd3303d.psu", "text": ">> *IDN?"}
+{"t": 1791140079.207598, "source": "PSU", "level": "DEBUG", "logger": "benchtools.instruments.gpd3303d.psu", "text": "<< GW INSTEK,GPD-3303D,SN:SIM00000,V1.09"}
+{"t": 1791140079.258346, "source": "PSU", "level": "DEBUG", "logger": "benchtools.instruments.gpd3303d.psu", "text": ">> STATUS?"}
+{"t": 1791140079.258346, "source": "PSU", "level": "DEBUG", "logger": "benchtools.instruments.gpd3303d.psu", "text": "<< 0 0 0 1 1 X 0 X"}
+{"t": 1791140079.258346, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.runner", "text": "step psu.status()"}
+{"t": 1791140079.308991, "source": "PSU", "level": "DEBUG", "logger": "benchtools.instruments.gpd3303d.psu", "text": ">> STATUS?"}
+{"t": 1791140079.308991, "source": "PSU", "level": "DEBUG", "logger": "benchtools.instruments.gpd3303d.psu", "text": "<< 0 0 0 1 1 X 0 X"}
+{"t": 1791140079.309948, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner.runner", "text": "step psu.status: PASS", "kind": "step_end", "data": {"phase": "test", "case": 0, "step": 0, "action": "psu.status", "arguments": {}, "result": {"raw": "0 0 0 1 1 X 0 X", "modes": ["CC", "CC"], "tracking": "independent", "beep": true, "output": false}, "save": null, "status": "PASS", "error": "", "duration_s": 0.109, "measurements": [{"name": "psu_tracking", "value": "independent", "unit": "", "limit": "= \"independent\"", "status": "PASS", "reason": ""}]}}
+{"t": 1791140079.309948, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner.runner", "text": "step dmm.measure starting", "kind": "step_start", "data": {"phase": "test", "case": 0, "step": 1, "action": "dmm.measure", "arguments": {}, "description": "", "save": null}}
+{"t": 1791140079.309948, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.bench", "text": "connecting dmm (tti1604) at sim://"}
+{"t": 1791140079.311003, "source": "DMM", "level": "DEBUG", "logger": "benchtools.core.transport.factory", "text": "resource 'sim://' resolved to simulated 1604"}
+{"t": 1791140079.311003, "source": "DMM", "level": "DEBUG", "logger": "benchtools.core.transport.mock", "text": "opened simulated 1604"}
+{"t": 1791140079.312003, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.runner", "text": "step dmm.measure()"}
+{"t": 1791140079.312003, "source": "DMM", "level": "DEBUG", "logger": "benchtools.instruments.tti1604.dmm", "text": "reading volts 1.0 V", "kind": "reading", "data": {"ac": false, "text": "1.0000", "overrange": false, "quantity": "volts", "value": 1.0, "unit": "V"}}
+{"t": 1791140079.313003, "source": "DMM", "level": "DEBUG", "logger": "benchtools.instruments.tti1604.dmm", "text": "reading volts 1.0 V", "kind": "reading", "data": {"ac": false, "text": "1.0000", "overrange": false, "quantity": "volts", "value": 1.0, "unit": "V"}}
+{"t": 1791140079.313003, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner.runner", "text": "step dmm.measure: PASS", "kind": "step_end", "data": {"phase": "test", "case": 0, "step": 1, "action": "dmm.measure", "arguments": {}, "result": {"value": 1.0, "unit": "V", "text": "1.0000", "measurement": "volts", "ac": false, "range_index": 1, "range_description": "4 kohm / 4 V / 4 mA dc / 1 mA ac", "overrange": false, "flags": {"touch_hold": false, "min_max": false, "hertz": false, "null": false, "auto_range": true}, "status": {"double_beep": false, "auto_range_set": true, "continuity_buzzer": false, "showing_minimum": false, "showing_maximum": false, "hold": false, "gate_ten_seconds": false}, "raw": "0d12400061fcfcfcfc02", "problem": "", "range_label": "4 V"}, "save": null, "status": "PASS", "error": "", "duration_s": 0.0, "measurements": [{"name": "dmm_unit_is_si", "value": "V", "unit": "", "limit": "= \"V\"", "status": "PASS", "reason": ""}]}}
+{"t": 1791140079.314003, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner.runner", "text": "step dongle.scan starting", "kind": "step_start", "data": {"phase": "test", "case": 0, "step": 2, "action": "dongle.scan", "arguments": {"duration": 5.0}, "description": "", "save": null}}
+{"t": 1791140079.314003, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.bench", "text": "connecting dongle (ble-dongle) at sim://"}
+{"t": 1791140079.315003, "source": "BLE", "level": "DEBUG", "logger": "benchtools.core.transport.factory", "text": "resource 'sim://' resolved to simulated instrument"}
+{"t": 1791140079.315003, "source": "BLE", "level": "DEBUG", "logger": "benchtools.core.transport.mock", "text": "opened simulated instrument"}
+{"t": 1791140079.315003, "source": "BLE", "level": "DEBUG", "logger": "benchtools.instruments.nordic_dongle.session", "text": "> ver"}
+{"t": 1791140079.315003, "source": "BLE", "level": "DEBUG", "logger": "benchtools.instruments.nordic_dongle.session", "text": "< ok Nordic PCA10059 fw=1.4.0 built=2026-09-13T12:00:00Z proto=1.4 uptime_us=1000000 dropped=0"}
+{"t": 1791140079.316003, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.runner", "text": "step dongle.scan(duration=5.0)"}
+{"t": 1791140079.316003, "source": "BLE", "level": "DEBUG", "logger": "benchtools.instruments.nordic_dongle.session", "text": "> scan start 5000"}
+{"t": 1791140079.316003, "source": "BLE", "level": "DEBUG", "logger": "benchtools.instruments.nordic_dongle.session", "text": "< ok scanning=1 ms=5000"}
+{"t": 1791140079.318681, "source": "BLE", "level": "DEBUG", "logger": "benchtools.instruments.nordic_dongle.session", "text": "< +scan t=6000000 state=stopped"}
+{"t": 1791140079.318681, "source": "BLE", "level": "DEBUG", "logger": "benchtools.instruments.nordic_dongle.session", "text": "> scan stop"}
+{"t": 1791140079.318681, "source": "BLE", "level": "DEBUG", "logger": "benchtools.instruments.nordic_dongle.session", "text": "< ok scanning=0 sensors=3"}
+{"t": 1791140079.319725, "source": "BLE", "level": "DEBUG", "logger": "benchtools.instruments.nordic_dongle.session", "text": "> list"}
+{"t": 1791140079.319725, "source": "BLE", "level": "DEBUG", "logger": "benchtools.instruments.nordic_dongle.session", "text": "< +sensor t=6000000 idx=0 addr=E4:1C:7B:02:9A:11 type=1 rssi=-62 seen=1 name=SENS-0A1B2C"}
+{"t": 1791140079.320725, "source": "BLE", "level": "DEBUG", "logger": "benchtools.instruments.nordic_dongle.session", "text": "< +sensor t=6000000 idx=1 addr=C9:3A:51:0F:22:04 type=1 rssi=-78 seen=1 name=SENS-0B2C3D"}
+{"t": 1791140079.320725, "source": "BLE", "level": "DEBUG", "logger": "benchtools.instruments.nordic_dongle.session", "text": "< +sensor t=6000000 idx=2 addr=F1:22:33:44:55:66 type=1 rssi=-91 seen=1 name="}
+{"t": 1791140079.321685, "source": "BLE", "level": "DEBUG", "logger": "benchtools.instruments.nordic_dongle.session", "text": "< ok sensors=3"}
+{"t": 1791140079.321685, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner.runner", "text": "step dongle.scan: PASS", "kind": "step_end", "data": {"phase": "test", "case": 0, "step": 2, "action": "dongle.scan", "arguments": {"duration": 5.0}, "result": [{"address": "E4:1C:7B:02:9A:11", "name": "SENS-0A1B2C", "address_type": 1, "rssi": -62, "index": 0, "seen": 1}, {"address": "C9:3A:51:0F:22:04", "name": "SENS-0B2C3D", "address_type": 1, "rssi": -78, "index": 1, "seen": 1}, {"address": "F1:22:33:44:55:66", "name": "", "address_type": 1, "rssi": -91, "index": 2, "seen": 1}], "save": null, "status": "PASS", "error": "", "duration_s": 0.0, "measurements": [{"name": "dongle_scan_ran", "value": 3.0, "unit": "", "limit": ">= 0", "status": "PASS", "reason": ""}]}}
+{"t": 1791140079.322727, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner.runner", "text": "step s2lp.read_setup starting", "kind": "step_start", "data": {"phase": "test", "case": 0, "step": 3, "action": "s2lp.read_setup", "arguments": {}, "description": "", "save": null}}
+{"t": 1791140079.322727, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.bench", "text": "connecting s2lp (s2lp) at sim://"}
+{"t": 1791140079.32368, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.factory", "text": "resource 'sim://' resolved to simulated instrument"}
+{"t": 1791140079.32368, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.mock", "text": "opened simulated instrument"}
+{"t": 1791140079.335517, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> SdkEvalRfboardIdentification 0"}
+{"t": 1791140079.336517, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< SdkEvalRfboardIdentification 0"}
+{"t": 1791140079.336517, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(SdkEvalRfboardIdentification)} API call...}"}
+{"t": 1791140079.337639, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> S2LPRadioGetXtalFrequency"}
+{"t": 1791140079.337639, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.mock", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140079.33819, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< S2LPRadioGetXtalFrequency"}
+{"t": 1791140079.33819, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(S2LPRadioGetXtalFrequency)} API call...{value:02FAEEC9}}"}
+{"t": 1791140079.33819, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> S2LPGetLibVersion"}
+{"t": 1791140079.339228, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.mock", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140079.339228, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< S2LPGetLibVersion"}
+{"t": 1791140079.339228, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(S2LPGetLibVersion)} API call...{value:00010305}}"}
+{"t": 1791140079.340229, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> S2LPGetVersion"}
+{"t": 1791140079.340229, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.mock", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140079.340229, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< S2LPGetVersion"}
+{"t": 1791140079.341228, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(S2LPGetVersion)} API call...{value:03C1}}"}
+{"t": 1791140079.341228, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> EepromReadPage 0 0 32"}
+{"t": 1791140079.341228, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.mock", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140079.342228, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< EepromReadPage 0 0 32"}
+{"t": 1791140079.342228, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(EepromReadPage)} API callback..."}
+{"t": 1791140079.342228, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {Data: 0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF}}"}
+{"t": 1791140079.343228, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> SdkEvalGetVersion"}
+{"t": 1791140079.343228, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.mock", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140079.343228, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< SdkEvalGetVersion"}
+{"t": 1791140079.344228, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(SdkEvalGetVersion)} API call... {version:80}}"}
+{"t": 1791140079.344228, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.runner", "text": "step s2lp.read_setup()"}
+{"t": 1791140079.344228, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> SdkEvalSpiReadRegisters 98 1"}
+{"t": 1791140079.345229, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.mock", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140079.345229, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< SdkEvalSpiReadRegisters 98 1"}
+{"t": 1791140079.345229, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(SdkEvalSpiReadRegisters)} API callback..."}
+{"t": 1791140079.346198, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {regs_list: 0x62,0x47}"}
+{"t": 1791140079.346198, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {timer:000003E8}"}
+{"t": 1791140079.346198, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< }"}
+{"t": 1791140079.34719, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> S2LPRadioGetInfo"}
+{"t": 1791140079.347368, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.mock", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140079.347769, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< S2LPRadioGetInfo"}
+{"t": 1791140079.347769, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(S2LPRadioGetInfo)} API call...{Frequency_base:31BF1BAD}{Modulation:70}{Data_rate:0000903A}{Frequency_deviation:00004B10}{Channel_filter_bandwidth:00017979}{XTAL_frequency:02FAEEC9}}"}
+{"t": 1791140079.348819, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> SdkEvalSpiReadRegisters 0 11"}
+{"t": 1791140079.348819, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.mock", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140079.34938, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< SdkEvalSpiReadRegisters 0 11"}
+{"t": 1791140079.349442, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(SdkEvalSpiReadRegisters)} API callback..."}
+{"t": 1791140079.349442, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {regs_list: 0x00,0x0A,0x01,0xA2,0x02,0xA2,0x03,0xA2,0x04,0x00,0x05,0x42,0x06,0x16,0x07,0x27,0x08,0x62,0x09,0x2A,0x0A,0xB8}"}
+{"t": 1791140079.349442, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {timer:000007D0}"}
+{"t": 1791140079.349442, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< }"}
+{"t": 1791140079.349442, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> SdkEvalSpiReadRegisters 12 13"}
+{"t": 1791140079.349442, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.mock", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140079.350397, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< SdkEvalSpiReadRegisters 12 13"}
+{"t": 1791140079.350397, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(SdkEvalSpiReadRegisters)} API callback..."}
+{"t": 1791140079.350397, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {regs_list: 0x0C,0x3F,0x0D,0x00,0x0E,0x83,0x0F,0x2B,0x10,0x77,0x11,0x03,0x12,0x93,0x13,0x23,0x14,0xC8,0x15,0x18,0x16,0x25,0x17,0xE3,0x18,0x28}"}
+{"t": 1791140079.350397, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {timer:00000BB8}"}
+{"t": 1791140079.350397, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< }"}
+{"t": 1791140079.350397, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> SdkEvalSpiReadRegisters 31 3"}
+{"t": 1791140079.350397, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.mock", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140079.351398, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< SdkEvalSpiReadRegisters 31 3"}
+{"t": 1791140079.351398, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(SdkEvalSpiReadRegisters)} API callback..."}
+{"t": 1791140079.351398, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {regs_list: 0x1F,0x45,0x20,0x00,0x21,0x58}"}
+{"t": 1791140079.351398, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {timer:00000FA0}"}
+{"t": 1791140079.35199, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< }"}
+{"t": 1791140079.352046, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> SdkEvalSpiReadRegisters 43 42"}
+{"t": 1791140079.352046, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.mock", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140079.352046, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< SdkEvalSpiReadRegisters 43 42"}
+{"t": 1791140079.352046, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(SdkEvalSpiReadRegisters)} API callback..."}
+{"t": 1791140079.353033, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {regs_list: 0x2B,0x80,0x2C,0x10,0x2D,0x00,0x2E,0x20,0x2F,0x00,0x30,0x2C,0x31,0x00,0x32,0x14,0x33,0x88,0x34,0x88,0x35,0x88,0x36,0x88,0x37,0x01,0x38,0x00,0x39,0x40,0x3A,0x00,0x3B,0x08,0x3C,0x30,0x3D,0x30,0x3E,0x30,0x3F,0x30,0x40,0x40,0x41,0x00,0x42,0x00,0x43,0x00,0x44,0x00,0x45,0x00,0x46,0x01,0x47,0x00,0x48,0x01,0x49,0x00,0x4A,0x01,0x4B,0x00,0x4C,0x4C,0x4D,0x00,0x4E,0x04,0x4F,0x00,0x50,0x00,0x51,0x00,0x52,0x00,0x53,0x00,0x54,0x00}"}
+{"t": 1791140079.353033, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {timer:00001388}"}
+{"t": 1791140079.353033, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< }"}
+{"t": 1791140079.353033, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> SdkEvalSpiReadRegisters 90 12"}
+{"t": 1791140079.353033, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.mock", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140079.354033, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< SdkEvalSpiReadRegisters 90 12"}
+{"t": 1791140079.354033, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(SdkEvalSpiReadRegisters)} API callback..."}
+{"t": 1791140079.354033, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {regs_list: 0x5A,0x01,0x5B,0x0C,0x5C,0x18,0x5D,0x24,0x5E,0x30,0x5F,0x48,0x60,0x60,0x61,0x00,0x62,0x47,0x63,0x03,0x64,0x8A,0x65,0xD0}"}
+{"t": 1791140079.354033, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {timer:00001770}"}
+{"t": 1791140079.354033, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< }"}
+{"t": 1791140079.354033, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> SdkEvalSpiReadRegisters 104 8"}
+{"t": 1791140079.354033, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.mock", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140079.355032, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< SdkEvalSpiReadRegisters 104 8"}
+{"t": 1791140079.355032, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(SdkEvalSpiReadRegisters)} API callback..."}
+{"t": 1791140079.355032, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {regs_list: 0x68,0x02,0x69,0x88,0x6A,0x40,0x6B,0x40,0x6C,0x6C,0x6D,0x30,0x6E,0x70,0x6F,0x4D}"}
+{"t": 1791140079.355032, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {timer:00001B58}"}
+{"t": 1791140079.355032, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< }"}
+{"t": 1791140079.355032, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> SdkEvalSpiReadRegisters 117 5"}
+{"t": 1791140079.355032, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.mock", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140079.356034, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< SdkEvalSpiReadRegisters 117 5"}
+{"t": 1791140079.356034, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(SdkEvalSpiReadRegisters)} API callback..."}
+{"t": 1791140079.356034, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {regs_list: 0x75,0x17,0x76,0x20,0x77,0x00,0x78,0x39,0x79,0x42}"}
+{"t": 1791140079.356034, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {timer:00001F40}"}
+{"t": 1791140079.356034, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< }"}
+{"t": 1791140079.356034, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> SdkEvalSpiReadRegisters 141 4"}
+{"t": 1791140079.356034, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.mock", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140079.357032, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< SdkEvalSpiReadRegisters 141 4"}
+{"t": 1791140079.357032, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(SdkEvalSpiReadRegisters)} API callback..."}
+{"t": 1791140079.357032, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {regs_list: 0x8D,0x52,0x8E,0x07,0x8F,0x00,0x90,0x00}"}
+{"t": 1791140079.357032, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {timer:00002328}"}
+{"t": 1791140079.357032, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< }"}
+{"t": 1791140079.357032, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> SdkEvalSpiReadRegisters 148 2"}
+{"t": 1791140079.357032, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.mock", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140079.358036, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< SdkEvalSpiReadRegisters 148 2"}
+{"t": 1791140079.358082, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(SdkEvalSpiReadRegisters)} API callback..."}
+{"t": 1791140079.358082, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {regs_list: 0x94,0x70,0x95,0x00}"}
+{"t": 1791140079.358374, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {timer:00002710}"}
+{"t": 1791140079.358374, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< }"}
+{"t": 1791140079.358374, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> SdkEvalSpiReadRegisters 153 2"}
+{"t": 1791140079.358374, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.mock", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140079.358374, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< SdkEvalSpiReadRegisters 153 2"}
+{"t": 1791140079.358374, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(SdkEvalSpiReadRegisters)} API callback..."}
+{"t": 1791140079.358374, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {regs_list: 0x99,0x00,0x9A,0x00}"}
+{"t": 1791140079.358374, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {timer:00002AF8}"}
+{"t": 1791140079.359396, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< }"}
+{"t": 1791140079.359396, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> SdkEvalSpiReadRegisters 156 5"}
+{"t": 1791140079.359396, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.mock", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140079.359396, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< SdkEvalSpiReadRegisters 156 5"}
+{"t": 1791140079.359396, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(SdkEvalSpiReadRegisters)} API callback..."}
+{"t": 1791140079.359396, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {regs_list: 0x9C,0x00,0x9D,0x00,0x9E,0x00,0x9F,0x00,0xA0,0x00}"}
+{"t": 1791140079.359396, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {timer:00002EE0}"}
+{"t": 1791140079.360395, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< }"}
+{"t": 1791140079.360395, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> SdkEvalSpiReadRegisters 162 1"}
+{"t": 1791140079.360395, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.mock", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140079.360395, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< SdkEvalSpiReadRegisters 162 1"}
+{"t": 1791140079.360395, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(SdkEvalSpiReadRegisters)} API callback..."}
+{"t": 1791140079.360395, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {regs_list: 0xA2,0x00}"}
+{"t": 1791140079.360395, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {timer:000032C8}"}
+{"t": 1791140079.361395, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< }"}
+{"t": 1791140079.361395, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> SdkEvalSpiReadRegisters 164 8"}
+{"t": 1791140079.361395, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.mock", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140079.361395, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< SdkEvalSpiReadRegisters 164 8"}
+{"t": 1791140079.361395, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(SdkEvalSpiReadRegisters)} API callback..."}
+{"t": 1791140079.361395, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {regs_list: 0xA4,0x00,0xA5,0x00,0xA6,0x00,0xA7,0x00,0xA8,0x00,0xA9,0x00,0xAA,0x00,0xAB,0x00}"}
+{"t": 1791140079.361395, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {timer:000036B0}"}
+{"t": 1791140079.361395, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< }"}
+{"t": 1791140079.362396, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> SdkEvalSpiReadRegisters 239 3"}
+{"t": 1791140079.362396, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.mock", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140079.362396, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< SdkEvalSpiReadRegisters 239 3"}
+{"t": 1791140079.362396, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(SdkEvalSpiReadRegisters)} API callback..."}
+{"t": 1791140079.362396, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {regs_list: 0xEF,0x00,0xF0,0x03,0xF1,0xC1}"}
+{"t": 1791140079.362396, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {timer:00003A98}"}
+{"t": 1791140079.362396, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< }"}
+{"t": 1791140079.363396, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> SdkEvalSpiReadRegisters 250 4"}
+{"t": 1791140079.363396, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.mock", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140079.363396, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< SdkEvalSpiReadRegisters 250 4"}
+{"t": 1791140079.363396, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(SdkEvalSpiReadRegisters)} API callback..."}
+{"t": 1791140079.363396, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {regs_list: 0xFA,0x00,0xFB,0x09,0xFC,0x05,0xFD,0x00}"}
+{"t": 1791140079.363396, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {timer:00003E80}"}
+{"t": 1791140079.364396, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< }"}
+{"t": 1791140079.364396, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": ">> S2LPRadioGetPALeveldBm 7"}
+{"t": 1791140079.364396, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.mock", "text": "discarding 1 stale bytes before write"}
+{"t": 1791140079.364396, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< S2LPRadioGetPALeveldBm 7"}
+{"t": 1791140079.364396, "source": "RF", "level": "DEBUG", "logger": "benchtools.instruments.s2lp.session", "text": "<< {{(S2LPRadioGetPALeveldBm)} API call...{value:120}}"}
+{"t": 1791140079.364396, "source": "RF", "level": "INFO", "logger": "benchtools.instruments.s2lp.s2lp", "text": "RF setup read: 123 registers", "kind": "rf_setup", "data": {"radio": {"frequency_hz": 834608045, "modulation": 112, "modulation_name": "cw", "data_rate_bps": 36922, "deviation_hz": 19216, "bandwidth_hz": 96633, "xtal_hz": 49999561}, "registers": {"0": 10, "1": 162, "2": 162, "3": 162, "4": 0, "5": 66, "6": 22, "7": 39, "8": 98, "9": 42, "10": 184, "12": 63, "13": 0, "14": 131, "15": 43, "16": 119, "17": 3, "18": 147, "19": 35, "20": 200, "21": 24, "22": 37, "23": 227, "24": 40, "31": 69, "32": 0, "33": 88, "43": 128, "44": 16, "45": 0, "46": 32, "47": 0, "48": 44, "49": 0, "50": 20, "51": 136, "52": 136, "53": 136, "54": 136, "55": 1, "56": 0, "57": 64, "58": 0, "59": 8, "60": 48, "61": 48, "62": 48, "63": 48, "64": 64, "65": 0, "66": 0, "67": 0, "68": 0, "69": 0, "70": 1, "71": 0, "72": 1, "73": 0, "74": 1, "75": 0, "76": 76, "77": 0, "78": 4, "79": 0, "80": 0, "81": 0, "82": 0, "83": 0, "84": 0, "90": 1, "91": 12, "92": 24, "93": 36, "94": 48, "95": 72, "96": 96, "97": 0, "98": 71, "99": 3, "100": 138, "101": 208, "104": 2, "105": 136, "106": 64, "107": 64, "108": 108, "109": 48, "110": 112, "111": 77, "117": 23, "118": 32, "119": 0, "120": 57, "121": 66, "141": 82, "142": 7, "143": 0, "144": 0, "148": 112, "149": 0, "153": 0, "154": 0, "156": 0, "157": 0, "158": 0, "159": 0, "160": 0, "162": 0, "164": 0, "165": 0, "166": 0, "167": 0, "168": 0, "169": 0, "170": 0, "171": 0, "239": 0, "240": 3, "241": 193, "250": 0, "251": 9, "252": 5, "253": 0}, "power_dbm": 12.0, "eeprom": {"programmed": false, "band_code": null, "band_hz": null, "band_range_hz": null, "xtal_hz": null, "page0": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"}}}
+{"t": 1791140079.365396, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner.runner", "text": "step s2lp.read_setup: ERROR", "kind": "step_end", "data": {"phase": "test", "case": 0, "step": 3, "action": "s2lp.read_setup", "arguments": {}, "result": {"radio": {"frequency_hz": 834608045, "modulation": 112, "modulation_name": "cw", "data_rate_bps": 36922, "deviation_hz": 19216, "bandwidth_hz": 96633, "xtal_hz": 49999561}, "registers": {"0": 10, "1": 162, "2": 162, "3": 162, "4": 0, "5": 66, "6": 22, "7": 39, "8": 98, "9": 42, "10": 184, "12": 63, "13": 0, "14": 131, "15": 43, "16": 119, "17": 3, "18": 147, "19": 35, "20": 200, "21": 24, "22": 37, "23": 227, "24": 40, "31": 69, "32": 0, "33": 88, "43": 128, "44": 16, "45": 0, "46": 32, "47": 0, "48": 44, "49": 0, "50": 20, "51": 136, "52": 136, "53": 136, "54": 136, "55": 1, "56": 0, "57": 64, "58": 0, "59": 8, "60": 48, "61": 48, "62": 48, "63": 48, "64": 64, "65": 0, "66": 0, "67": 0, "68": 0, "69": 0, "70": 1, "71": 0, "72": 1, "73": 0, "74": 1, "75": 0, "76": 76, "77": 0, "78": 4, "79": 0, "80": 0, "81": 0, "82": 0, "83": 0, "84": 0, "90": 1, "91": 12, "92": 24, "93": 36, "94": 48, "95": 72, "96": 96, "97": 0, "98": 71, "99": 3, "100": 138, "101": 208, "104": 2, "105": 136, "106": 64, "107": 64, "108": 108, "109": 48, "110": 112, "111": 77, "117": 23, "118": 32, "119": 0, "120": 57, "121": 66, "141": 82, "142": 7, "143": 0, "144": 0, "148": 112, "149": 0, "153": 0, "154": 0, "156": 0, "157": 0, "158": 0, "159": 0, "160": 0, "162": 0, "164": 0, "165": 0, "166": 0, "167": 0, "168": 0, "169": 0, "170": 0, "171": 0, "239": 0, "240": 3, "241": 193, "250": 0, "251": 9, "252": 5, "253": 0}, "power_dbm": 12.0, "eeprom": {"programmed": false, "band_code": null, "band_hz": null, "band_range_hz": null, "xtal_hz": null, "page0": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"}}, "save": null, "status": "ERROR", "error": "", "duration_s": 0.047, "measurements": [{"name": "s2lp_band_hz", "value": null, "unit": "Hz", "limit": ">= 4.3e+08, <= 4.4e+08", "status": "ERROR", "reason": "path 'frequency_hz': cannot resolve 'frequency_hz' on a dict"}]}}
+{"t": 1791140079.365396, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.runner", "text": "test 'Every instrument answers and is identified': ERROR - a step failed to execute", "kind": "case_end", "data": {"case": 0, "name": "Every instrument answers and is identified", "status": "ERROR", "error": "a step failed to execute", "skip_reason": "", "duration_s": 0.156}}
+{"t": 1791140079.366396, "source": "TEST", "level": "INFO", "logger": "benchtools.runner.runner", "text": "'QS-10 Bench identity': ERROR", "kind": "run_end", "data": {"suite": "QS-10 Bench identity", "status": "ERROR", "setup_error": "", "duration_s": 0.156, "totals": {"total": 1, "passed": 0, "failed": 0, "errored": 1, "skipped": 0}}}
+{"t": 1791140079.371695, "source": "PSU", "level": "DEBUG", "logger": "benchtools.core.transport.mock", "text": "closed simulated GPD-3303D"}
+{"t": 1791140079.371695, "source": "DMM", "level": "DEBUG", "logger": "benchtools.core.transport.mock", "text": "closed simulated 1604"}
+{"t": 1791140079.371695, "source": "BLE", "level": "DEBUG", "logger": "benchtools.core.transport.mock", "text": "closed simulated instrument"}
+{"t": 1791140079.371695, "source": "RF", "level": "DEBUG", "logger": "benchtools.core.transport.mock", "text": "closed simulated instrument"}

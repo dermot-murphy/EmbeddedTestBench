@@ -1,0 +1,271 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="7" skipped="4" tests="14" time="98.581" timestamp="2026-10-04T19:51:52.146163+01:00" hostname="ELITEDESK-4"><testcase classname="tests.bench.tti1604.test_bench.TestTheLink" name="test_the_meter_answers_and_reads" time="22.979"><failure message="benchtools.core.errors.InstrumentError: no measurement from the 1604 within 22.0 s. A healthy meter is silent in exactly two states: not in remote mode (this driver has put it there), and switched off at the Operate key - which does not affect this interface, so the link looks the same either way.">self = &lt;tests.bench.tti1604.test_bench.TestTheLink object at 0x000002562FC4FBD0&gt;
+meter = &lt;Tti1604 via serial COM13&gt;
+findings = &lt;tests.bench.tti1604.conftest.Findings object at 0x000002562FC3E750&gt;
+
+    def test_the_meter_answers_and_reads(self, meter, findings):
+        """DMM-FR-001 .. -006, DMM-FR-027: echo, remote mode, a reading."""
+        assert meter.is_remote
+&gt;       state = meter.current_state()
+                ^^^^^^^^^^^^^^^^^^^^^
+
+tests\bench\tti1604\test_bench.py:68: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = &lt;Tti1604 via serial COM13&gt;
+
+    def current_state(self) -&gt; Reading:
+        """A reading received now: what the meter is set to, and showing."""
+        self._discard_input()
+        reading = self._next_frame(self._patience(gate_ten_seconds=True))
+        if reading is None:
+&gt;           raise self._silence(self._patience(gate_ten_seconds=True))
+E           benchtools.core.errors.InstrumentError: no measurement from the 1604 within 22.0 s. A healthy meter is silent in exactly two states: not in remote mode (this driver has put it there), and switched off at the Operate key - which does not affect this interface, so the link looks the same either way.
+
+benchtools\instruments\tti1604\dmm.py:385: InstrumentError</failure></testcase><testcase classname="tests.bench.tti1604.test_bench.TestTheLink" name="test_keys_are_acknowledged_promptly" time="1.918"><failure message="benchtools.core.errors.InstrumentError: the 1604 did not echo 'c' after 3 attempts. The meter is not taking commands: check that DTR is asserted and RTS is not, since they power its interface, that the converter drives them to about +9 V and -9 V, and that the cable is a straight-through 9-way with every pin connected.">self = &lt;tests.bench.tti1604.test_bench.TestTheLink object at 0x000002562FC4DA90&gt;
+meter = &lt;Tti1604 via serial COM13&gt;
+findings = &lt;tests.bench.tti1604.conftest.Findings object at 0x000002562FC3E750&gt;
+
+    def test_keys_are_acknowledged_promptly(self, meter, findings):
+        """DMM-FR-024. Resends on a quiet bench point at the DTR/RTS levels."""
+        started = clock(meter)
+        for _ in range(4):                    # Auto/Man four times: back where it was
+&gt;           meter.press("auto")
+
+tests\bench\tti1604\test_bench.py:78: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+benchtools\instruments\tti1604\dmm.py:350: in press
+    self._send_character(character, retries=retries)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = &lt;Tti1604 via serial COM13&gt;, character = 'c', retries = 2
+
+    def _send_character(self, character: str, retries: int = 2) -&gt; None:
+        wanted = ord(character)
+        for attempt in range(retries + 1):
+            self._drain()
+            # Nothing received before this write can be its echo.
+            self._echoes.clear()
+            self._transport.write(character.encode("ascii"), append_terminator=False)
+            deadline = self._clock() + ECHO_TIMEOUT
+            while True:
+                if wanted in self._echoes:
+                    del self._echoes[: self._echoes.index(wanted) + 1]
+                    if attempt:
+                        self._logger.info("1604 echoed %r on attempt %d", character, attempt + 1)
+                    return
+                if not self._receive(deadline) and self._clock() &gt;= deadline:
+                    break
+            self._logger.debug("1604 did not echo %r (attempt %d)", character, attempt + 1)
+&gt;       raise InstrumentError(
+            "the 1604 did not echo %r after %d attempts. The meter is not "
+            "taking commands: check that DTR is asserted and RTS is not, since "
+            "they power its interface, that the converter drives them to about "
+            "+9 V and -9 V, and that the cable is a straight-through 9-way with "
+            "every pin connected." % (character, retries + 1)
+        )
+E       benchtools.core.errors.InstrumentError: the 1604 did not echo 'c' after 3 attempts. The meter is not taking commands: check that DTR is asserted and RTS is not, since they power its interface, that the converter drives them to about +9 V and -9 V, and that the cable is a straight-through 9-way with every pin connected.
+
+benchtools\instruments\tti1604\dmm.py:369: InstrumentError</failure></testcase><testcase classname="tests.bench.tti1604.test_bench.TestTheStream" name="test_every_frame_decodes" time="4.073"><failure message="benchtools.core.errors.InstrumentError: no measurement from the 1604 within 2.0 s. A healthy meter is silent in exactly two states: not in remote mode (this driver has put it there), and switched off at the Operate key - which does not affect this interface, so the link looks the same either way.">self = &lt;tests.bench.tti1604.test_bench.TestTheStream object at 0x000002562FC4D7D0&gt;
+meter = &lt;Tti1604 via serial COM13&gt;
+findings = &lt;tests.bench.tti1604.conftest.Findings object at 0x000002562FC3E750&gt;
+
+    def test_every_frame_decodes(self, meter, findings):
+        """DMM-FR-010, -028: 25 readings, ten seconds, none garbled."""
+        before = meter.resynchronised_bytes
+&gt;       readings = meter.read_many(25)
+                   ^^^^^^^^^^^^^^^^^^^
+
+tests\bench\tti1604\test_bench.py:92: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+benchtools\instruments\tti1604\dmm.py:644: in read_many
+    return [self.read(timeout=timeout) for _ in range(max(0, int(count)))]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+benchtools\instruments\tti1604\dmm.py:644: in &lt;listcomp&gt;
+    return [self.read(timeout=timeout) for _ in range(max(0, int(count)))]
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = &lt;Tti1604 via serial COM13&gt;, timeout = None
+
+    def read(self, timeout: Optional[float] = None) -&gt; Reading:
+        """The next complete measurement frame, decoded.
+    
+        :param timeout: How long to wait. Defaults to the settling time, plus
+            two gate times when the meter is measuring frequency.
+        :raises InstrumentError: Nothing arrived. The message distinguishes
+            the two states in which a healthy 1604 is silent - local mode, and
+            measurement circuits switched off - because both look identical
+            from here and neither is a fault.
+        """
+        limit = self._patience() if timeout is None else float(timeout)
+        reading = self._next_frame(limit)
+        if reading is None:
+&gt;           raise self._silence(limit)
+E           benchtools.core.errors.InstrumentError: no measurement from the 1604 within 2.0 s. A healthy meter is silent in exactly two states: not in remote mode (this driver has put it there), and switched off at the Operate key - which does not affect this interface, so the link looks the same either way.
+
+benchtools\instruments\tti1604\dmm.py:636: InstrumentError</failure></testcase><testcase classname="tests.bench.tti1604.test_bench.TestTheStream" name="test_the_reading_rate_is_two_and_a_half_per_second" time="5.799" /><testcase classname="tests.bench.tti1604.test_bench.TestTheStream" name="test_the_raw_stream" time="3.791" /><testcase classname="tests.bench.tti1604.test_bench.TestFunctionAndRange" name="test_a_tour_of_the_safe_functions" time="11.940"><failure message="benchtools.core.errors.InstrumentError: asked the 1604 for frequency, but within 8.0 s its readings show ac_volts on the 4 V range, auto. A key may have been refused (the meter beeps) or the front panel may be in use.">self = &lt;tests.bench.tti1604.test_bench.TestFunctionAndRange object at 0x000002562FC4D090&gt;
+meter = &lt;Tti1604 via serial COM13&gt;
+findings = &lt;tests.bench.tti1604.conftest.Findings object at 0x000002562FC3E750&gt;
+
+    def test_a_tour_of_the_safe_functions(self, meter, findings):
+        """DMM-FR-029: each confirmed from the readings. No current, no ohms."""
+        timings = []
+        steps = (
+            ("ac_volts", meter.select_ac),
+            ("ac_millivolts", meter.select_millivolts),
+            ("dc_millivolts", meter.select_dc),
+            ("dc_volts", meter.select_volts),
+            ("ac_volts", meter.select_ac),
+            ("frequency", meter.select_hertz),
+            ("ac_volts", meter.select_volts),
+            ("dc_volts", meter.select_dc),
+        )
+        for expected, step in steps:
+            started = clock(meter)
+&gt;           reading = step()
+                      ^^^^^^
+
+tests\bench\tti1604\test_bench.py:155: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+benchtools\instruments\tti1604\dmm.py:515: in select_hertz
+    return self._await(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = &lt;Tti1604 via serial COM13&gt;, description = 'frequency'
+condition = &lt;function Tti1604.select_hertz.&lt;locals&gt;.&lt;lambda&gt; at 0x000002562F3CF600&gt;
+timeout = 8.0
+
+    def _await(
+        self,
+        description: str,
+        condition: Callable[[Reading], bool],
+        timeout: Optional[float] = None,
+    ) -&gt; Reading:
+        """Wait for a reading satisfying *condition*, or say what the meter shows.
+    
+        :raises InstrumentError: No reading showed the state asked for. A key
+            may have been refused with a beep, lost after a resend undid it,
+            or the front panel may be in use.
+        """
+        allowed = max(CONFIRM_TIMEOUT, self._patience()) if timeout is None else timeout
+        deadline = self._clock() + allowed
+        latest = self._last
+        while self._clock() &lt; deadline:
+            reading = self._next_frame(deadline - self._clock())
+            if reading is None:
+                break
+            latest = reading
+            if condition(reading):
+                return reading
+        shown = "nothing" if latest is None else "%s on the %s range, %s" % (
+            latest.function, latest.range_label or latest.range_description,
+            "auto" if latest.flags.get("auto_range") else "manual")
+&gt;       raise InstrumentError(
+            "asked the 1604 for %s, but within %.1f s its readings show %s. A key "
+            "may have been refused (the meter beeps) or the front panel may be "
+            "in use." % (description, allowed, shown)
+        )
+E       benchtools.core.errors.InstrumentError: asked the 1604 for frequency, but within 8.0 s its readings show ac_volts on the 4 V range, auto. A key may have been refused (the meter beeps) or the front panel may be in use.
+
+benchtools\instruments\tti1604\dmm.py:413: InstrumentError</failure></testcase><testcase classname="tests.bench.tti1604.test_bench.TestFunctionAndRange" name="test_every_dc_voltage_range" time="23.408"><failure message="benchtools.core.errors.InstrumentError: no measurement from the 1604 within 22.0 s. A healthy meter is silent in exactly two states: not in remote mode (this driver has put it there), and switched off at the Operate key - which does not affect this interface, so the link looks the same either way.">self = &lt;tests.bench.tti1604.test_bench.TestFunctionAndRange object at 0x000002562FC4D510&gt;
+meter = &lt;Tti1604 via serial COM13&gt;
+findings = &lt;tests.bench.tti1604.conftest.Findings object at 0x000002562FC3E750&gt;
+
+    def test_every_dc_voltage_range(self, meter, findings):
+        """DMM-FR-030: lock each range by full scale, then auto again."""
+        seen = []
+        for full_scale in (4, 40, 400, 1000):
+&gt;           reading = meter.set_range(full_scale)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\bench\tti1604\test_bench.py:164: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+benchtools\instruments\tti1604\dmm.py:553: in set_range
+    state = self.current_state()
+            ^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = &lt;Tti1604 via serial COM13&gt;
+
+    def current_state(self) -&gt; Reading:
+        """A reading received now: what the meter is set to, and showing."""
+        self._discard_input()
+        reading = self._next_frame(self._patience(gate_ten_seconds=True))
+        if reading is None:
+&gt;           raise self._silence(self._patience(gate_ten_seconds=True))
+E           benchtools.core.errors.InstrumentError: no measurement from the 1604 within 22.0 s. A healthy meter is silent in exactly two states: not in remote mode (this driver has put it there), and switched off at the Operate key - which does not affect this interface, so the link looks the same either way.
+
+benchtools\instruments\tti1604\dmm.py:385: InstrumentError</failure></testcase><testcase classname="tests.bench.tti1604.test_bench.TestFunctionAndRange" name="test_the_frequency_gate" time="10.410"><failure message="benchtools.core.errors.InstrumentError: asked the 1604 for frequency, but within 8.0 s its readings show ac_volts on the 4 V range, auto. A key may have been refused (the meter beeps) or the front panel may be in use.">self = &lt;tests.bench.tti1604.test_bench.TestFunctionAndRange object at 0x000002562FC3F950&gt;
+meter = &lt;Tti1604 via serial COM13&gt;
+findings = &lt;tests.bench.tti1604.conftest.Findings object at 0x000002562FC3E750&gt;
+
+    def test_the_frequency_gate(self, meter, findings):
+        """DMM-FR-032, -033, DMM-OPEN-06: about 30 s, most of it the 10 s gate."""
+        meter.select_volts()
+        meter.select_ac()
+&gt;       meter.select_hertz()
+
+tests\bench\tti1604\test_bench.py:175: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+benchtools\instruments\tti1604\dmm.py:515: in select_hertz
+    return self._await(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = &lt;Tti1604 via serial COM13&gt;, description = 'frequency'
+condition = &lt;function Tti1604.select_hertz.&lt;locals&gt;.&lt;lambda&gt; at 0x000002562F3CED40&gt;
+timeout = 8.0
+
+    def _await(
+        self,
+        description: str,
+        condition: Callable[[Reading], bool],
+        timeout: Optional[float] = None,
+    ) -&gt; Reading:
+        """Wait for a reading satisfying *condition*, or say what the meter shows.
+    
+        :raises InstrumentError: No reading showed the state asked for. A key
+            may have been refused with a beep, lost after a resend undid it,
+            or the front panel may be in use.
+        """
+        allowed = max(CONFIRM_TIMEOUT, self._patience()) if timeout is None else timeout
+        deadline = self._clock() + allowed
+        latest = self._last
+        while self._clock() &lt; deadline:
+            reading = self._next_frame(deadline - self._clock())
+            if reading is None:
+                break
+            latest = reading
+            if condition(reading):
+                return reading
+        shown = "nothing" if latest is None else "%s on the %s range, %s" % (
+            latest.function, latest.range_label or latest.range_description,
+            "auto" if latest.flags.get("auto_range") else "manual")
+&gt;       raise InstrumentError(
+            "asked the 1604 for %s, but within %.1f s its readings show %s. A key "
+            "may have been refused (the meter beeps) or the front panel may be "
+            "in use." % (description, allowed, shown)
+        )
+E       benchtools.core.errors.InstrumentError: asked the 1604 for frequency, but within 8.0 s its readings show ac_volts on the 4 V range, auto. A key may have been refused (the meter beeps) or the front panel may be in use.
+
+benchtools\instruments\tti1604\dmm.py:413: InstrumentError</failure></testcase><testcase classname="tests.bench.tti1604.test_bench.TestAgainstReferences" name="test_dc_voltage" time="1.055"><skipped type="pytest.skip" message="no DC voltage reference: set BENCHTOOLS_TTI1604_DCV">U:\GitHub\EmbeddedTestBench\tests\bench\tti1604\test_bench.py:195: no DC voltage reference: set BENCHTOOLS_TTI1604_DCV</skipped></testcase><testcase classname="tests.bench.tti1604.test_bench.TestAgainstReferences" name="test_resistance" time="0.930"><skipped type="pytest.skip" message="no resistor named: set BENCHTOOLS_TTI1604_OHMS">U:\GitHub\EmbeddedTestBench\tests\bench\tti1604\test_bench.py:208: no resistor named: set BENCHTOOLS_TTI1604_OHMS</skipped></testcase><testcase classname="tests.bench.tti1604.test_bench.TestAgainstReferences" name="test_dc_current" time="0.985"><skipped type="pytest.skip" message="no current reference: set BENCHTOOLS_TTI1604_DCI, with the leads in the mA and COM sockets and in series with the load">U:\GitHub\EmbeddedTestBench\tests\bench\tti1604\test_bench.py:221: no current reference: set BENCHTOOLS_TTI1604_DCI, with the leads in the mA and COM sockets and in series with the load</skipped></testcase><testcase classname="tests.bench.tti1604.test_bench.TestAgainstReferences" name="test_frequency" time="0.935"><skipped type="pytest.skip" message="no frequency reference: set BENCHTOOLS_TTI1604_HZ, with a signal of at least 2,000 counts on an AC volts range">U:\GitHub\EmbeddedTestBench\tests\bench\tti1604\test_bench.py:236: no frequency reference: set BENCHTOOLS_TTI1604_HZ, with a signal of at least 2,000 counts on an AC volts range</skipped></testcase><testcase classname="tests.bench.tti1604.test_bench.TestAgainstReferences" name="test_an_open_input_on_ohms_is_an_overrange" time="6.385"><failure message="AssertionError: assert (False)&#10; +  where False = Reading(value=None, unit='ohm', text='.', measurement='ohms', ac=False, range_index=2, range_description='40 kohm / 40...old': False, 'gate_ten_seconds': False}, raw=b'\r%\xc8\x00\x01\x00\x00\x00\x00\x06', problem='', range_label='40 kohm').overrange">self = &lt;tests.bench.tti1604.test_bench.TestAgainstReferences object at 0x000002562FC3D6D0&gt;
+meter = &lt;Tti1604 via serial COM13&gt;
+findings = &lt;tests.bench.tti1604.conftest.Findings object at 0x000002562FC3E750&gt;
+
+    def test_an_open_input_on_ohms_is_an_overrange(self, meter, findings):
+        """DMM-FR-018. Needs the input open: skipped when anything is named."""
+        if any(reference(name) is not None for name in REFERENCES):
+            pytest.skip("a reference is wired, so the input is not open")
+        simulator = simulator_of(meter)
+        if simulator is not None:
+            simulator.set_value(math.inf)             # nothing connected
+        meter.select_ohms()
+        reading = meter.measure()
+        if simulator is not None:
+            simulator.set_value(1.0)
+        findings.record("Open input on ohms", "display `%s`, overrange %s"
+                        % (reading.text, reading.overrange), "DMM-FR-018")
+&gt;       assert reading.overrange and reading.value is None
+E       AssertionError: assert (False)
+E        +  where False = Reading(value=None, unit='ohm', text='.', measurement='ohms', ac=False, range_index=2, range_description='40 kohm / 40...old': False, 'gate_ten_seconds': False}, raw=b'\r%\xc8\x00\x01\x00\x00\x00\x00\x06', problem='', range_label='40 kohm').overrange
+
+tests\bench\tti1604\test_bench.py:259: AssertionError</failure></testcase><testcase classname="tests.bench.tti1604.test_bench.TestHandingBack" name="test_local_then_remote" time="3.568" /></testsuite></testsuites>

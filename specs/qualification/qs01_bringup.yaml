@@ -1,0 +1,150 @@
+# QS-01 - Sensor bring-up, end to end, on hardware (ETB-SYS5-001, #176).
+#
+# specs/sensor_bringup.yaml with three changes for the qualification bench,
+# each a decision recorded in ETB-SYS5-002:
+#
+#   * No supply. The owner ruled on 2026-10-04 that no supply output is
+#     energised; the sensor runs from its own supply. The power step is a
+#     deviation, and ETB-SYS2-020 is qualified by QS-03 instead.
+#   * The image is the archived V10.01.2000 production build, chosen by the
+#     owner. It uses SoftDevice 6.1.0 where the running V11 uses 7.2.0, so the
+#     part is chip-erased first - which also erases the identity record. The
+#     record is read before the erase and written back after the flash, and
+#     the erased part is used to show an invalid record reads as one
+#     (ETB-SYS2-049).
+#   * The dongle's firmware is not refreshed here; it is the bench's measuring
+#     instrument and QS-06 checks it against a manifest.
+#
+# One workaround is recorded in ETB-SYS5-002: the sensor is reset halted and
+# then run, because reset {halt: false} leaves it halted on a real J-Link
+# (#177).
+#
+# Restoring the sensor's own firmware afterwards is a procedure step
+# (specs/qualification/README.md), not part of this specification.
+#
+#   python -m benchtools run specs/qualification/qs01_bringup.yaml --bench benches/bench_pc.yaml
+
+name: QS-01 Sensor bring-up (hardware)
+description: >
+  Read the sensor's identity record, chip-erase the part, programme and verify
+  the V10.01.2000 image, restore the identity record, start the sensor and see
+  it run over RTT, find it over the air by the identifier read from its own
+  memory, and check the version it reports against the image's manifest.
+requirements: [ETB-SYS2-001, ETB-SYS2-002, ETB-SYS2-030, ETB-SYS2-031, ETB-SYS2-032, ETB-SYS2-034,
+               ETB-SYS2-036, ETB-SYS2-040, ETB-SYS2-041, ETB-SYS2-045, ETB-SYS2-048,
+               ETB-SYS2-049, ETB-SYS2-050, ETB-SYS2-070, ETB-SYS2-071, ETB-SYS2-076,
+               ETB-SYS2-078]
+
+parameters:
+  image: U:/PrivateWork/Sensoteq/archive/V10.01.2000_V4X/KAPPAX_PCB_V4X_Production_APP_PLUS_SD_V10.01.2000.hex
+  manifest: specs/qualification/firmware/v10.01.2000
+  identity_address: 0x10001080
+
+instruments:
+  probe: jlink
+  dongle: ble-dongle
+
+teardown:
+  - do: dongle.close_link
+  - do: probe.rtt_stop
+
+tests:
+  - name: The identity record is read off the part before it is erased
+    requirement: ETB-SYS2-048, ETB-SYS2-050
+    steps:
+      - do: probe.read_u8
+        with: {address: {param: identity_address}}
+        expect:
+          - {name: identity_is_valid, equals: 0}
+      - do: probe.read_integer
+        with: {address: 0x10001081, size: 3, byteorder: big}
+        save: sensor_id
+        expect:
+          - name: sensor_id
+            format: "{:06X}"
+            minimum: 1
+            maximum: 16777214
+      # The whole word, kept to write back after the erase.
+      - do: probe.read_word
+        with: {address: {param: identity_address}}
+        save: identity_word
+
+  - name: An erased part reads as an invalid identity record
+    requirement: ETB-SYS2-049
+    steps:
+      - do: probe.erase
+      - do: probe.read_u8
+        with: {address: {param: identity_address}}
+        expect:
+          # Non-zero validity byte: not an identifier. An erased cell is 0xFF.
+          - {name: erased_validity_byte, equals: 255}
+
+  - name: The image is programmed and verified
+    requirement: ETB-SYS2-030, ETB-SYS2-036
+    steps:
+      - do: probe.flash
+        with: {path: {param: image}}
+        save: flashed
+        expect:
+          - {name: image_verified, measure: verify.matched, equals: 1}
+      - do: probe.image_build
+        with: {path: {param: manifest}}
+        save: build
+
+  - name: The identity record is written back and reads as it did
+    requirement: ETB-SYS2-032, ETB-SYS2-048
+    steps:
+      - do: probe.write_word
+        with: {address: {param: identity_address}, value: {from: identity_word}}
+      - do: probe.read_u8
+        with: {address: {param: identity_address}}
+        expect:
+          - {name: identity_is_valid, equals: 0}
+      - do: probe.read_integer
+        with: {address: 0x10001081, size: 3, byteorder: big}
+        expect:
+          - name: sensor_id_restored
+            format: "{:06X}"
+            equals: {from: sensor_id}
+
+  - name: The sensor starts and is running
+    requirement: ETB-SYS2-002, ETB-SYS2-034
+    steps:
+      - do: probe.rtt_start
+      # Reset halted, then run. reset {halt: false} leaves the core halted on
+      # a real J-Link (#177): the first three hardware attempts of this run
+      # saw three RTT lines and then nothing, and nothing on the air.
+      - do: probe.reset
+        with: {halt: true}
+      - do: probe.run
+      - do: probe.rtt_lines_within
+        with: {timeout: 20.0}
+        expect:
+          - {name: rtt_lines, minimum: 1}
+
+  - name: The sensor is found over the air by its own identifier
+    requirement: ETB-SYS2-040, ETB-SYS2-041, ETB-SYS2-045
+    steps:
+      # 60 s: the sensor can take up to 45 s to come up after a reset.
+      - do: dongle.scan
+        with:
+          duration: 60.0
+          name: {from: sensor_id, format: "{:06X}"}
+        save: found
+        expect:
+          - {name: boards_with_that_identifier, measure: length, equals: 1}
+      - do: dongle.select
+        with: {sensor: {from: found.0.address}}
+      - do: dongle.open_link
+        expect:
+          - {name: linked_board, measure: name, equals: {from: found.0.name}}
+
+  - name: The sensor reports the version that was programmed
+    requirement: ETB-SYS2-036, ETB-SYS2-041
+    steps:
+      - do: dongle.command
+        with: {request: RD VERSION, timeout: 45.0}
+        save: reported
+        expect:
+          - {name: reported_version, measure: value, equals: {from: build.version}}
+      - do: dongle.close_link

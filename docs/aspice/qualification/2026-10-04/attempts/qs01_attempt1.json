@@ -1,0 +1,335 @@
+{
+  "suite": "QS-01 Sensor bring-up (hardware)",
+  "bench": "Bench PC (Windows)",
+  "spec_source": "specs/qualification/qs01_bringup.yaml",
+  "parameters": {
+    "image": "U:/PrivateWork/Sensoteq/archive/V10.01.2000_V4X/KAPPAX_PCB_V4X_Production_APP_PLUS_SD_V10.01.2000.hex",
+    "manifest": "specs/qualification/firmware/v10.01.2000",
+    "identity_address": 268439680
+  },
+  "selection": [],
+  "simulated": false,
+  "status": "ERROR",
+  "started": "2026-10-04T16:35:29+00:00",
+  "finished": "2026-10-04T16:35:52+00:00",
+  "duration_s": 23.016,
+  "totals": {
+    "total": 7,
+    "passed": 5,
+    "failed": 0,
+    "errored": 2,
+    "skipped": 0
+  },
+  "instruments": {
+    "probe": {
+      "driver": "JLinkProbe",
+      "resource": "jlink://",
+      "event": "JLINK",
+      "manufacturer": "SEGGER",
+      "model": "J-Link",
+      "serial_number": "682395790",
+      "firmware": "J-Link ARM V8 compiled Nov 28 2014 13:44:46",
+      "identity": "Firmware: J-Link ARM V8 compiled Nov 28 2014 13:44:46, Hardware: V8.00, S/N: 682395790"
+    },
+    "dongle": {
+      "driver": "NordicDongle",
+      "resource": "COM10",
+      "event": "BLE",
+      "manufacturer": "Nordic",
+      "model": "PCA10059",
+      "serial_number": "",
+      "firmware": "1.4.0 (built local:Sep-29-2026T11:41:48)",
+      "identity": "Nordic PCA10059 fw=1.4.0 built=local:Sep-29-2026T11:41:48 proto=1.4 uptime_us=449428113239 dropped=0"
+    }
+  },
+  "requirements": [
+    "TB-SYS2-001",
+    "TB-SYS2-002",
+    "TB-SYS2-030",
+    "TB-SYS2-032",
+    "TB-SYS2-034",
+    "TB-SYS2-036",
+    "TB-SYS2-040",
+    "TB-SYS2-041",
+    "TB-SYS2-045",
+    "TB-SYS2-048",
+    "TB-SYS2-049",
+    "TB-SYS2-050",
+    "TB-SYS2-070",
+    "TB-SYS2-071",
+    "TB-SYS2-076",
+    "TB-SYS2-078"
+  ],
+  "requirements_verified": {
+    "TB-SYS2-002": "PASS",
+    "TB-SYS2-030": "PASS",
+    "TB-SYS2-032": "PASS",
+    "TB-SYS2-034": "PASS",
+    "TB-SYS2-036": "ERROR",
+    "TB-SYS2-040": "ERROR",
+    "TB-SYS2-041": "ERROR",
+    "TB-SYS2-045": "ERROR",
+    "TB-SYS2-048": "PASS",
+    "TB-SYS2-049": "PASS",
+    "TB-SYS2-050": "PASS"
+  },
+  "setup_error": "",
+  "cases": [
+    {
+      "name": "The identity record is read off the part before it is erased",
+      "status": "PASS",
+      "requirement": "TB-SYS2-048, TB-SYS2-050",
+      "duration_s": 2.25,
+      "error": "",
+      "skip_reason": "",
+      "steps": [
+        {
+          "action": "probe.read_u8",
+          "status": "PASS",
+          "duration_s": 2.219,
+          "error": "",
+          "measurements": [
+            {
+              "name": "identity_is_valid",
+              "value": 0.0,
+              "unit": "",
+              "limit": "= 0",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        },
+        {
+          "action": "probe.read_integer",
+          "status": "PASS",
+          "duration_s": 0.016,
+          "error": "",
+          "measurements": [
+            {
+              "name": "sensor_id",
+              "value": "5C1712",
+              "unit": "",
+              "limit": ">= 000001, <= FFFFFE",
+              "status": "PASS",
+              "reason": "",
+              "raw_value": 6035218.0
+            }
+          ]
+        },
+        {
+          "action": "probe.read_word",
+          "status": "PASS",
+          "duration_s": 0.015,
+          "error": "",
+          "measurements": []
+        }
+      ]
+    },
+    {
+      "name": "An erased part reads as an invalid identity record",
+      "status": "PASS",
+      "requirement": "TB-SYS2-049",
+      "duration_s": 0.594,
+      "error": "",
+      "skip_reason": "",
+      "steps": [
+        {
+          "action": "probe.erase",
+          "status": "PASS",
+          "duration_s": 0.563,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "probe.read_u8",
+          "status": "PASS",
+          "duration_s": 0.031,
+          "error": "",
+          "measurements": [
+            {
+              "name": "erased_validity_byte",
+              "value": 255.0,
+              "unit": "",
+              "limit": "= 255",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "The image is programmed and verified",
+      "status": "PASS",
+      "requirement": "TB-SYS2-030, TB-SYS2-036",
+      "duration_s": 14.672,
+      "error": "",
+      "skip_reason": "",
+      "steps": [
+        {
+          "action": "probe.flash",
+          "status": "PASS",
+          "duration_s": 14.656,
+          "error": "",
+          "measurements": [
+            {
+              "name": "image_verified",
+              "value": 1.0,
+              "unit": "",
+              "limit": "= 1",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        },
+        {
+          "action": "probe.image_build",
+          "status": "PASS",
+          "duration_s": 0.0,
+          "error": "",
+          "measurements": []
+        }
+      ]
+    },
+    {
+      "name": "The identity record is written back and reads as it did",
+      "status": "PASS",
+      "requirement": "TB-SYS2-032, TB-SYS2-048",
+      "duration_s": 0.031,
+      "error": "",
+      "skip_reason": "",
+      "steps": [
+        {
+          "action": "probe.write_word",
+          "status": "PASS",
+          "duration_s": 0.0,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "probe.read_u8",
+          "status": "PASS",
+          "duration_s": 0.015,
+          "error": "",
+          "measurements": [
+            {
+              "name": "identity_is_valid",
+              "value": 0.0,
+              "unit": "",
+              "limit": "= 0",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        },
+        {
+          "action": "probe.read_integer",
+          "status": "PASS",
+          "duration_s": 0.016,
+          "error": "",
+          "measurements": [
+            {
+              "name": "sensor_id_restored",
+              "value": "5C1712",
+              "unit": "",
+              "limit": "= 5C1712",
+              "status": "PASS",
+              "reason": "",
+              "raw_value": 6035218.0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "The sensor starts and is running",
+      "status": "PASS",
+      "requirement": "TB-SYS2-002, TB-SYS2-034",
+      "duration_s": 0.359,
+      "error": "",
+      "skip_reason": "",
+      "steps": [
+        {
+          "action": "probe.rtt_start",
+          "status": "PASS",
+          "duration_s": 0.031,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "probe.reset",
+          "status": "PASS",
+          "duration_s": 0.313,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "probe.rtt_lines_within",
+          "status": "PASS",
+          "duration_s": 0.0,
+          "error": "",
+          "measurements": [
+            {
+              "name": "rtt_lines",
+              "value": 3.0,
+              "unit": "",
+              "limit": ">= 1",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "The sensor is found over the air by its own identifier",
+      "status": "ERROR",
+      "requirement": "TB-SYS2-040, TB-SYS2-041, TB-SYS2-045",
+      "duration_s": 5.094,
+      "error": "SpecError: path '0.address': index 0 is out of range for a sequence of 0",
+      "skip_reason": "",
+      "steps": [
+        {
+          "action": "dongle.scan",
+          "status": "FAIL",
+          "duration_s": 5.094,
+          "error": "",
+          "measurements": [
+            {
+              "name": "boards_with_that_identifier",
+              "value": 0.0,
+              "unit": "",
+              "limit": "= 1",
+              "status": "FAIL",
+              "reason": "0 != required 1"
+            }
+          ]
+        },
+        {
+          "action": "dongle.select",
+          "status": "ERROR",
+          "duration_s": 0.0,
+          "error": "SpecError: path '0.address': index 0 is out of range for a sequence of 0",
+          "measurements": []
+        }
+      ]
+    },
+    {
+      "name": "The sensor reports the version that was programmed",
+      "status": "ERROR",
+      "requirement": "TB-SYS2-036, TB-SYS2-041",
+      "duration_s": 0.0,
+      "error": "DongleCommandError: the dongle refused 'cmd 52442056455253494f4e timeout=45000': not connected (6)",
+      "skip_reason": "",
+      "steps": [
+        {
+          "action": "dongle.command",
+          "status": "ERROR",
+          "duration_s": 0.0,
+          "error": "DongleCommandError: the dongle refused 'cmd 52442056455253494f4e timeout=45000': not connected (6)",
+          "measurements": []
+        }
+      ]
+    }
+  ]
+}

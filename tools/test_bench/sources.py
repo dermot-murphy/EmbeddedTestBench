@@ -1,4 +1,4 @@
-"""Where the Test Bench monitor's data comes from, kept apart from the GUI.
+"""Where the Embedded Test Bench monitor's data comes from, kept apart from the GUI.
 
 * :class:`LiveRadio` owns the S2-LP kit through the benchtools driver and
   receives with the firmware's own loop (``stream(mode="batch")``, as ST's GUI

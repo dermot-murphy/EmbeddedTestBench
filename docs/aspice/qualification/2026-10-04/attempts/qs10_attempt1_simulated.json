@@ -1,0 +1,153 @@
+{
+  "suite": "QS-10 Bench identity",
+  "bench": "Bench PC (Windows)",
+  "spec_source": "specs/qualification/qs10_bench_identity.yaml",
+  "parameters": {},
+  "selection": [],
+  "simulated": true,
+  "status": "ERROR",
+  "started": "2026-10-04T18:54:39+00:00",
+  "finished": "2026-10-04T18:54:39+00:00",
+  "duration_s": 0.156,
+  "totals": {
+    "total": 1,
+    "passed": 0,
+    "failed": 0,
+    "errored": 1,
+    "skipped": 0
+  },
+  "instruments": {
+    "psu": {
+      "driver": "Gpd3303D",
+      "resource": "COM11",
+      "event": "PSU",
+      "manufacturer": "GW INSTEK",
+      "model": "GPD-3303D",
+      "serial_number": "SIM00000",
+      "firmware": "V1.09",
+      "identity": "GW INSTEK,GPD-3303D,SN:SIM00000,V1.09"
+    },
+    "dmm": {
+      "driver": "Tti1604",
+      "resource": "COM13",
+      "event": "DMM",
+      "manufacturer": "Thurlby Thandar Instruments",
+      "model": "1604",
+      "serial_number": "",
+      "firmware": "",
+      "identity": "Thurlby Thandar Instruments,1604"
+    },
+    "dongle": {
+      "driver": "NordicDongle",
+      "resource": "COM10",
+      "event": "BLE",
+      "manufacturer": "Nordic",
+      "model": "PCA10059",
+      "serial_number": "",
+      "firmware": "1.4.0 (built 2026-09-13T12:00:00Z)",
+      "identity": "Nordic PCA10059 fw=1.4.0 built=2026-09-13T12:00:00Z proto=1.4 uptime_us=1000000 dropped=0"
+    },
+    "s2lp": {
+      "driver": "S2lpDevkit",
+      "resource": "COM4",
+      "event": "RF",
+      "manufacturer": "STMicroelectronics",
+      "model": "STEVAL-FKI433V2",
+      "serial_number": "",
+      "firmware": "80",
+      "identity": "STMicroelectronics,STEVAL-FKI433V2,S2-LP 0xC1,library 1.3.5,board 80,XTAL 49999561 Hz"
+    }
+  },
+  "requirements": [
+    "TB-SYS2-010",
+    "TB-SYS2-011",
+    "TB-SYS2-012",
+    "TB-SYS2-014",
+    "TB-SYS2-015",
+    "TB-SYS2-016",
+    "TB-SYS2-070",
+    "TB-SYS2-078",
+    "TB-SYS2-079",
+    "TB-SYS2-084"
+  ],
+  "requirements_verified": {
+    "TB-SYS2-015": "ERROR"
+  },
+  "setup_error": "",
+  "cases": [
+    {
+      "name": "Every instrument answers and is identified",
+      "status": "ERROR",
+      "requirement": "TB-SYS2-015",
+      "duration_s": 0.156,
+      "error": "a step failed to execute",
+      "skip_reason": "",
+      "steps": [
+        {
+          "action": "psu.status",
+          "status": "PASS",
+          "duration_s": 0.109,
+          "error": "",
+          "measurements": [
+            {
+              "name": "psu_tracking",
+              "value": "independent",
+              "unit": "",
+              "limit": "= \"independent\"",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        },
+        {
+          "action": "dmm.measure",
+          "status": "PASS",
+          "duration_s": 0.0,
+          "error": "",
+          "measurements": [
+            {
+              "name": "dmm_unit_is_si",
+              "value": "V",
+              "unit": "",
+              "limit": "= \"V\"",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        },
+        {
+          "action": "dongle.scan",
+          "status": "PASS",
+          "duration_s": 0.0,
+          "error": "",
+          "measurements": [
+            {
+              "name": "dongle_scan_ran",
+              "value": 3.0,
+              "unit": "",
+              "limit": ">= 0",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        },
+        {
+          "action": "s2lp.read_setup",
+          "status": "ERROR",
+          "duration_s": 0.047,
+          "error": "",
+          "measurements": [
+            {
+              "name": "s2lp_band_hz",
+              "value": null,
+              "unit": "Hz",
+              "limit": ">= 4.3e+08, <= 4.4e+08",
+              "status": "ERROR",
+              "reason": "path 'frequency_hz': cannot resolve 'frequency_hz' on a dict"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

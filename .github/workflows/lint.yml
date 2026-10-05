@@ -10,7 +10,7 @@
 # that was already there.
 #
 # Same rule as the C side: a rule decided against is disabled and said so; a
-# rule accepted but not yet met stays on and is visible as debt. TB-ANA-001
+# rule accepted but not yet met stays on and is visible as debt. ETB-ANA-001
 # §6.13 lists what is in the baseline.
 
 name: lint

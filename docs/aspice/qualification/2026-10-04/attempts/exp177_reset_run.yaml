@@ -1,0 +1,24 @@
+name: Experiment - reset then run under the probe
+instruments:
+  probe: jlink
+  dongle: ble-dongle
+teardown:
+  - do: probe.rtt_stop
+tests:
+  - name: reset 0 only
+    steps:
+      - do: probe.rtt_start
+      - do: probe.reset
+        with: {halt: false}
+      - do: probe.rtt_lines_within
+        with: {timeout: 20.0}
+      - do: probe.halt
+      - do: probe.reset
+        with: {halt: true}
+      - do: probe.run
+      - do: probe.rtt_lines_within
+        with: {timeout: 60.0}
+      - do: dongle.scan
+        with: {duration: 60.0, name: 5C1712}
+        expect:
+          - {name: found, measure: length, equals: 1}

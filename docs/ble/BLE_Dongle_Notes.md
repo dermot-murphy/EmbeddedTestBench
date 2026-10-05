@@ -412,7 +412,7 @@ Treat the first real build as part of the work, not as a formality.
 | BLE-OPEN-01 | ~~**First build against SDK 17.1.0, linked.**~~ | **Discharged** — see §5.4. It builds, links, fits and packages. The remaining unknowns were all in the build configuration, not the sources |
 | BLE-OPEN-02 | **Behaviour under load.** The outgoing queue is 32 lines; a busy room may overflow it. The drop counter will say so — the question is whether the figures stay usable. | Scan with no address filter in a busy area and watch `adv stats` |
 | BLE-OPEN-03 | **Timestamp accuracy.** The timestamp is taken at the top of the radio event handler, which is some microseconds after the packet. The offset is constant and so does not affect intervals, but it does affect any absolute comparison with another instrument. | Advertise from a second dongle at a known interval and compare |
-| BLE-OPEN-04 | **Connection parameters.** The firmware requests 7.5–30 ms; the sensor may refuse. `+conn interval_us` reports what was agreed, and every latency figure depends on it. | Read `interval_us` on first connection and record it with the results |
+| BLE-OPEN-04 | ~~**Connection parameters.**~~ | **Closed 2026-10-04** (ETB-SYS5-002 §9): sensor 5C1712 agreed `interval_us=30000` on every connection in the hardware qualification, and the latency figures there are quoted at it |
 
 Two smaller unknowns, recorded here rather than in the code: whether
 `ble_advdata_search` returns the offset this firmware assumes for a name in a

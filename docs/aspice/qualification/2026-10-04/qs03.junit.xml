@@ -1,0 +1,14 @@
+<?xml version='1.0' encoding='utf-8'?>
+<testsuite name="QS-03 Supply state, setpoints and safe state (hardware, independent only)" tests="4" failures="0" errors="0" skipped="0" time="4.703" timestamp="2026-10-04T18:40:15+00:00"><properties><property name="bench" value="Bench PC (Windows)" /><property name="simulated" value="false" /><property name="specification" value="specs/qualification/qs03_supply.yaml" /><property name="parameter ch1_limit" value="0.1" /><property name="parameter ch1_volts" value="3.3" /><property name="parameter ch2_limit" value="0.2" /><property name="parameter ch2_volts" value="3.0" /><property name="parameter low_volts" value="2.8" /></properties><testcase name="The supply is in independent tracking with its outputs off" classname="QS-03 Supply state, setpoints and safe state (hardware, independent only).TB-SYS2-022" time="0.500"><system-out>tracking = independent [limit = "independent"] PASS
+output_off = 0 [limit = 0] PASS</system-out></testcase><testcase name="Setpoints are written with the output off and read back from the supply" classname="QS-03 Supply state, setpoints and safe state (hardware, independent only).TB-SYS2-020, TB-SYS2-021" time="2.968"><system-out>ch1_low_setpoint = 2.8 V [limit = 2.8 +/- 0.01] PASS
+ch1_limit = 0.1 A [limit = 0.1 +/- 0.001] PASS
+ch1_output_still_off = 0 [limit = 0] PASS
+ch1_setpoint = 3.3 V [limit = 3.3 +/- 0.01] PASS
+ch2_low_setpoint = 2.8 V [limit = 2.8 +/- 0.01] PASS
+ch2_limit = 0.2 A [limit = 0.2 +/- 0.001] PASS
+ch2_output_still_off = 0 [limit = 0] PASS
+ch2_setpoint = 3 V [limit = 3 +/- 0.01] PASS</system-out></testcase><testcase name="The outputs are read while off" classname="QS-03 Supply state, setpoints and safe state (hardware, independent only).TB-SYS2-021" time="0.954"><system-out>ch1_output_voltage = 0 V [limit = 0 +/- 0.05] PASS
+ch1_output_current = 0 A [limit = 0 +/- 0.005] PASS
+ch2_output_voltage = 0 V [limit = 0 +/- 0.05] PASS
+ch2_output_current = 0 A [limit = 0 +/- 0.005] PASS</system-out></testcase><testcase name="The safe state is the output switch open" classname="QS-03 Supply state, setpoints and safe state (hardware, independent only).TB-SYS2-024" time="0.265"><system-out>output_off = 0 [limit = 0] PASS
+still_independent = independent [limit = "independent"] PASS</system-out></testcase></testsuite>

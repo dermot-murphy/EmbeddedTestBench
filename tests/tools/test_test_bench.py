@@ -1,4 +1,4 @@
-"""The Test Bench monitor's data sources (tools/test_bench, #82).
+"""The Embedded Test Bench monitor's data sources (tools/test_bench, #82).
 
 The GUI itself is rf_monitor's, and is checked by running it; these check what
 feeds it: a live packet must reach rf_monitor's own parser as the same frame a

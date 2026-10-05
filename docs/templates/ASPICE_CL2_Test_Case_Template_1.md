@@ -8,13 +8,13 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | TB-TMPL-002 | **Version** | 0.1 |
-| **Project** | TestBench | **Date** | 2026-09-19 |
+| **Document ID** | ETB-TMPL-002 | **Version** | 0.2 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-04 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.4, SWE.5, SWE.6 |
 
-> Reviewer and Approver are the same person; see TB-DEV-002.
+> Reviewer and Approver are the same person; see ETB-DEV-002.
 
 ---
 
@@ -23,6 +23,7 @@
 | Version | Date | Author | Description of Change |
 |---|---|---|---|
 | 0.1 | 2026-09-19 | Claude | Initial |
+| 0.2 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
 
 ---
 
@@ -30,10 +31,10 @@
 
 ### 3.1 Purpose
 
-This is the form a TestBench test case is written on when it is written by hand
+This is the form a Embedded Test Bench test case is written on when it is written by hand
 rather than generated from the suite. Copy the block in §4 once per test case.
 
-Most TestBench test cases are **not** written on this form: they are pytest
+Most Embedded Test Bench test cases are **not** written on this form: they are pytest
 functions, whose docstring and identifier carry the same information and whose
 traceability is checked mechanically. Use this template for test cases that a
 person performs — bench-confirmation items against real instruments, and system
@@ -43,17 +44,17 @@ qualification runs — where there is no code to carry the record.
 
 | Document ID | Title | Version |
 |---|---|---|
-| TB-SWE4-001 | TestBench Unit Verification Specification | 0.1 |
-| TB-SWE5-001 | TestBench Software Integration & Integration Test | 0.1 |
-| TB-SWE6-001 | TestBench Software Qualification Test | 0.1 |
-| TB-SYS4-001 | TestBench System Integration & Integration Test | 0.1 |
-| TB-SYS5-001 | TestBench System Qualification Test | 0.1 |
+| ETB-SWE4-001 | Embedded Test Bench Unit Verification Specification | 0.1 |
+| ETB-SWE5-001 | Embedded Test Bench Software Integration & Integration Test | 0.1 |
+| ETB-SWE6-001 | Embedded Test Bench Software Qualification Test | 0.1 |
+| ETB-SYS4-001 | Embedded Test Bench System Integration & Integration Test | 0.1 |
+| ETB-SYS5-001 | Embedded Test Bench System Qualification Test | 0.1 |
 
 ### 3.3 Scope
 
 Applies to manually performed test cases at any level. It does not replace the
 automated suite, and a test case written on this form must still appear in
-TB-RTM-001 against the requirement it verifies.
+ETB-RTM-001 against the requirement it verifies.
 
 ---
 
@@ -61,10 +62,10 @@ TB-RTM-001 against the requirement it verifies.
 
 | Field | Value |
 |---|---|
-| **Test Case ID** | *TB-TC-nnn* |
+| **Test Case ID** | *ETB-TC-nnn* |
 | **Title** | *one line* |
 | **Level** | *Unit / SW integration / SW qualification / System integration / System qualification* |
-| **Verifies** | *requirement IDs, e.g. TB-SYS2-010, PSU-FR-004* |
+| **Verifies** | *requirement IDs, e.g. ETB-SYS2-010, PSU-FR-004* |
 | **Method** | *Test / Analysis / Inspection / Demonstration* |
 | **Type** | *Normal / Boundary / Negative / Robustness / Resource / Timing / Regression* |
 | **Automated** | *no — or the pytest node ID if it is* |
@@ -116,9 +117,9 @@ One row per execution. Do not overwrite an earlier row.
 
 | Run | Date | Tester | Build / revision | Bench | Result | Problem ID | Note |
 |---|---|---|---|---|---|---|---|
-| 1 | *YYYY-MM-DD* | *name* | *git revision* | *simulated / serial number* | *Pass / Fail / Blocked* | *TB-PR-nnn* | |
+| 1 | *YYYY-MM-DD* | *name* | *git revision* | *simulated / serial number* | *Pass / Fail / Blocked* | *ETB-PR-nnn* | |
 
-A failed run is raised as a problem under TB-SUP9-001 before the test case is
+A failed run is raised as a problem under ETB-SUP9-001 before the test case is
 run again, so that the second run cannot quietly replace the first.
 
 ---

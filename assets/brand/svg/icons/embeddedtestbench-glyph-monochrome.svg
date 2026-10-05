@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="500" height="500" viewBox="0 0 500 500" role="img" aria-labelledby="title desc">
+<title id="title">EmbeddedTestBench monochrome glyph</title>
+<desc id="desc">EmbeddedTestBench vector brand asset</desc>
+<g transform="translate(10 10) scale(4.8)">
+      
+      <path d="M31 5V17 M31 83V95" stroke="#26384D" stroke-width="5.5" stroke-linecap="round"/><path d="M50 5V17 M50 83V95" stroke="#26384D" stroke-width="5.5" stroke-linecap="round"/><path d="M69 5V17 M69 83V95" stroke="#26384D" stroke-width="5.5" stroke-linecap="round"/><path d="M5 31H17 M83 31H95" stroke="#26384D" stroke-width="5.5" stroke-linecap="round"/><path d="M5 50H17 M83 50H95" stroke="#26384D" stroke-width="5.5" stroke-linecap="round"/><path d="M5 69H17 M83 69H95" stroke="#26384D" stroke-width="5.5" stroke-linecap="round"/>
+      <rect x="18" y="18" width="64" height="64" rx="10" fill="none" stroke="#26384D" stroke-width="6"/>
+      <path d="M33 50 L45 62 L68 37" fill="none" stroke="#26384D" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round"/>
+      
+    </g>
+</svg>

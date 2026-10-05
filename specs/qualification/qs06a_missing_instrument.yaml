@@ -1,0 +1,19 @@
+# QS-06a - An instrument missing from the bench is refused, on hardware
+# (ETB-SYS5-001, #176).
+#
+# Asks for an oscilloscope that benches/bench_pc.yaml does not have. The run
+# must end in ERROR at connect, naming the instrument and the bench, and must
+# report no value. Expected outcome: ERROR (ETB-SYS5-002 reads it as a pass).
+
+name: QS-06a An instrument missing from the bench
+description: Ask for an oscilloscope the bench does not have.
+requirements: [ETB-SYS2-011, ETB-SYS2-094]
+
+instruments:
+  scope: tek3014b
+
+tests:
+  - name: A capture on an oscilloscope the bench lacks (expected ERROR)
+    requirement: ETB-SYS2-094
+    steps:
+      - do: scope.identify

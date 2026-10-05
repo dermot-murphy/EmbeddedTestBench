@@ -1,0 +1,49 @@
+# QS-10 - The whole bench identifies itself, on hardware and simulated
+# (ETB-SYS5-002, #176).
+#
+# One read-only step per instrument, so each is connected and its identity
+# recorded in the report (ETB-SYS2-015). Run once against benches/bench_pc.yaml
+# and once with --simulate: the same specification on two benches
+# (ETB-SYS2-070), and a simulated run labelled as such in every report format
+# (ETB-SYS2-016). Nothing changes a setting; the supply is only read.
+#
+# The J-Link is left out: connecting it halts the sensor, and QS-01 records
+# its identity.
+#
+#   python -m benchtools run specs/qualification/qs10_bench_identity.yaml --bench benches/bench_pc.yaml
+#   python -m benchtools run specs/qualification/qs10_bench_identity.yaml --bench benches/bench_pc.yaml --simulate
+
+name: QS-10 Bench identity
+description: >
+  Read each instrument once, without changing anything, so the report records
+  the model, serial number and firmware each one reports.
+requirements: [ETB-SYS2-010, ETB-SYS2-011, ETB-SYS2-012, ETB-SYS2-014, ETB-SYS2-015,
+               ETB-SYS2-016, ETB-SYS2-070, ETB-SYS2-078, ETB-SYS2-079, ETB-SYS2-084]
+
+instruments:
+  psu: gpd3303d
+  dmm: tti1604
+  dongle: ble-dongle
+  s2lp: s2lp
+  temp: pico-sht30
+
+tests:
+  - name: Every instrument answers and is identified
+    requirement: ETB-SYS2-015
+    steps:
+      - do: psu.status
+        expect:
+          - {name: psu_tracking, measure: tracking, equals: independent}
+      - do: dmm.measure
+        expect:
+          - {name: dmm_unit_is_si, measure: unit, equals: V}
+      - do: dongle.scan
+        with: {duration: 5.0}
+        expect:
+          - {name: dongle_scan_ran, measure: length, minimum: 0}
+      - do: s2lp.read_setup
+        expect:
+          - {name: s2lp_registers_read, measure: registers.length, minimum: 100}
+      - do: temp.version
+        expect:
+          - {name: thermometer_version, equals: V1.00.0000}

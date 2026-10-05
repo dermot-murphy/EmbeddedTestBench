@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Document ID | TB-CR-104 |
+| Document ID | ETB-CR-104 |
 | Date | 2026-09-30 |
 | Issue | [#104](https://github.com/dermot-murphy/EmbeddedTestBench/issues/104) — read the local temperature with a Raspberry Pi Pico 2 and a DollaTek SHT30-D |
 | Branch | `ccr-dd8136a2-4ayd75` |
@@ -36,7 +36,7 @@ updated to match.
 | Host tests | `tests/instruments/pico_sht30/{conftest,test_thermometer,test_simulator,test_cli,test_firmware_protocol}.py`; `PICO` prefix registered in `tests/test_traceability.py` |
 | Example | `examples/11_pico_thermometer.py` |
 | CI | `.github/workflows/firmware.yml` — jobs `pico-unit-tests` and `pico-firmware` (uploads the `.uf2`) |
-| ASPICE (`docs/aspice/`, after merging `develop`) | TB-SWE1-001 v0.7 (§15 PICO, STK-21/22, CON-09, ASM-10), TB-SWE2-001 v0.4 (PICO-ARC-001, AD-24, interfaces), TB-SWE3-001 v0.5 (§5.8, 14 design units), TB-SWE4-001 v0.5 (§1.4b, five groups), TB-SWE4-002 v0.4 (§13A, totals), TB-RTM-001 v0.7 (§13, STK rows, OPEN-09); each with a revision-history row |
+| ASPICE (`docs/aspice/`, after merging `develop`) | ETB-SWE1-001 v0.7 (§15 PICO, STK-21/22, CON-09, ASM-10), ETB-SWE2-001 v0.4 (PICO-ARC-001, AD-24, interfaces), ETB-SWE3-001 v0.5 (§5.8, 14 design units), ETB-SWE4-001 v0.5 (§1.4b, five groups), ETB-SWE4-002 v0.4 (§13A, totals), ETB-RTM-001 v0.7 (§13, STK rows, OPEN-09); each with a revision-history row |
 | Other docs | `docs/pico_sht30/{Pico_SHT30_Notes,References}.md`, `fetch_datasheets.sh`, `datasheets/pico-2-r4-pinout.svg`; `README.md`, `docs/README.md` |
 
 ## 4. Verification

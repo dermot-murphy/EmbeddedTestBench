@@ -112,6 +112,6 @@ instruments:
   # I2C (firmware/pico_sht30). Its records in the event log are TEMP (#126).
   temp:
     driver: pico-sht30
-    resource: /dev/ttyACM2        # site-specific: the Pico's own USB serial port
+    resource: COM14               # Pico 2 USB serial AC5483CD0798FB0B, Windows bench PC (#129)
     timeout: 5.0
     event: TEMP

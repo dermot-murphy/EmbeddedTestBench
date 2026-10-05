@@ -1,0 +1,100 @@
+# QS-03 - The supply's state, setpoints and safe state, on hardware
+# (ETB-SYS5-001, #176).
+#
+# Limits set by the owner on 2026-10-04, because Kepler sensor 5C1712 is wired
+# to the supply's outputs:
+#
+#   * tracking stays INDEPENDENT: series or parallel could put up to twice the
+#     intended voltage on the sensor;
+#   * every voltage setpoint stays between 2.8 V and 3.3 V;
+#   * no output is switched on.
+#
+# So this is a cut-down QS-03. The series and parallel refusals (ETB-SYS2-023)
+# and a safe state reached from each tracking mode (ETB-SYS2-024) are not
+# performed; ETB-SYS5-002 records why. The driver's reset() is not used either:
+# it sets both channels to 0 V, outside the window. The safe state here is the
+# output switch open with in-range setpoints.
+#
+# Setpoints are written with the output off, which changes what the supply
+# would deliver, not what it delivers. They end where the owner asked: CH1
+# 3.3 V, CH2 3.0 V.
+#
+#   python -m benchtools run specs/qualification/qs03_supply.yaml --bench benches/bench_pc.yaml
+
+name: QS-03 Supply state, setpoints and safe state (hardware, independent only)
+description: >
+  Read the supply's state, write in-range setpoints and current limits with the
+  output off and read them back from the supply, read the outputs, and leave the
+  outputs off at the owner's setpoints.
+requirements: [ETB-SYS2-015, ETB-SYS2-020, ETB-SYS2-021, ETB-SYS2-022, ETB-SYS2-024]
+
+parameters:
+  ch1_volts: 3.3
+  ch2_volts: 3.0
+  ch1_limit: 0.1
+  ch2_limit: 0.2
+  low_volts: 2.8
+
+instruments:
+  psu: gpd3303d
+
+teardown:
+  - do: psu.all_outputs_off
+
+tests:
+  - name: The supply is in independent tracking with its outputs off
+    requirement: ETB-SYS2-022
+    steps:
+      - do: psu.status
+        expect:
+          - {name: tracking, measure: tracking, equals: independent}
+          - {name: output_off, measure: output, equals: 0}
+
+  - name: Setpoints are written with the output off and read back from the supply
+    requirement: ETB-SYS2-020, ETB-SYS2-021
+    steps:
+      # The bottom of the window first, then the owner's values: two writes
+      # per channel, each read back by VSET?/ISET? from the supply itself.
+      - do: psu.configure_channel
+        with: {channel: 1, volts: {param: low_volts}, current_limit: {param: ch1_limit}}
+        expect:
+          - {name: ch1_low_setpoint, measure: voltage_setpoint, unit: V, equals: {param: low_volts}, tolerance: 0.01}
+          - {name: ch1_limit, measure: current_limit, unit: A, equals: {param: ch1_limit}, tolerance: 0.001}
+          - {name: ch1_output_still_off, measure: is_on, equals: 0}
+      - do: psu.configure_channel
+        with: {channel: 1, volts: {param: ch1_volts}, current_limit: {param: ch1_limit}}
+        expect:
+          - {name: ch1_setpoint, measure: voltage_setpoint, unit: V, equals: {param: ch1_volts}, tolerance: 0.01}
+      - do: psu.configure_channel
+        with: {channel: 2, volts: {param: low_volts}, current_limit: {param: ch2_limit}}
+        expect:
+          - {name: ch2_low_setpoint, measure: voltage_setpoint, unit: V, equals: {param: low_volts}, tolerance: 0.01}
+          - {name: ch2_limit, measure: current_limit, unit: A, equals: {param: ch2_limit}, tolerance: 0.001}
+          - {name: ch2_output_still_off, measure: is_on, equals: 0}
+      - do: psu.configure_channel
+        with: {channel: 2, volts: {param: ch2_volts}, current_limit: {param: ch2_limit}}
+        expect:
+          - {name: ch2_setpoint, measure: voltage_setpoint, unit: V, equals: {param: ch2_volts}, tolerance: 0.01}
+
+  - name: The outputs are read while off
+    requirement: ETB-SYS2-021
+    steps:
+      - do: psu.read_channel
+        with: {channel: 1}
+        expect:
+          - {name: ch1_output_voltage, measure: voltage, unit: V, equals: 0.0, tolerance: 0.05}
+          - {name: ch1_output_current, measure: current, unit: A, equals: 0.0, tolerance: 0.005}
+      - do: psu.read_channel
+        with: {channel: 2}
+        expect:
+          - {name: ch2_output_voltage, measure: voltage, unit: V, equals: 0.0, tolerance: 0.05}
+          - {name: ch2_output_current, measure: current, unit: A, equals: 0.0, tolerance: 0.005}
+
+  - name: The safe state is the output switch open
+    requirement: ETB-SYS2-024
+    steps:
+      - do: psu.all_outputs_off
+      - do: psu.status
+        expect:
+          - {name: output_off, measure: output, equals: 0}
+          - {name: still_independent, measure: tracking, equals: independent}

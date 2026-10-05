@@ -1,0 +1,217 @@
+{
+  "suite": "QS-06b Refusals on hardware",
+  "bench": "Bench PC (Windows)",
+  "spec_source": "specs/qualification/qs06b_refusals.yaml",
+  "parameters": {},
+  "selection": [],
+  "simulated": false,
+  "status": "ERROR",
+  "started": "2026-10-04T18:42:11+00:00",
+  "finished": "2026-10-04T18:42:20+00:00",
+  "duration_s": 8.984,
+  "totals": {
+    "total": 6,
+    "passed": 0,
+    "failed": 1,
+    "errored": 5,
+    "skipped": 0
+  },
+  "instruments": {
+    "dmm": {
+      "driver": "Tti1604",
+      "resource": "COM13",
+      "event": "DMM",
+      "manufacturer": "Thurlby Thandar Instruments",
+      "model": "1604",
+      "serial_number": "",
+      "firmware": "",
+      "identity": "Thurlby Thandar Instruments,1604"
+    },
+    "probe": {
+      "driver": "JLinkProbe",
+      "resource": "jlink://",
+      "event": "JLINK",
+      "manufacturer": "SEGGER",
+      "model": "J-Link",
+      "serial_number": "682395790",
+      "firmware": "J-Link ARM V8 compiled Nov 28 2014 13:44:46",
+      "identity": "Firmware: J-Link ARM V8 compiled Nov 28 2014 13:44:46, Hardware: V8.00, S/N: 682395790"
+    },
+    "dongle": {
+      "driver": "NordicDongle",
+      "resource": "COM10",
+      "event": "BLE",
+      "manufacturer": "Nordic",
+      "model": "PCA10059",
+      "serial_number": "",
+      "firmware": "1.4.0 (built local:Sep-29-2026T11:41:48)",
+      "identity": "Nordic PCA10059 fw=1.4.0 built=local:Sep-29-2026T11:41:48 proto=1.4 uptime_us=457017495099 dropped=0"
+    }
+  },
+  "requirements": [
+    "TB-SYS2-003",
+    "TB-SYS2-004",
+    "TB-SYS2-032",
+    "TB-SYS2-036",
+    "TB-SYS2-094"
+  ],
+  "requirements_verified": {
+    "TB-SYS2-003": "ERROR",
+    "TB-SYS2-004": "ERROR",
+    "TB-SYS2-032": "ERROR",
+    "TB-SYS2-036": "ERROR",
+    "TB-SYS2-094": "ERROR"
+  },
+  "setup_error": "",
+  "cases": [
+    {
+      "name": "A meter that stops answering mid-session (expected ERROR)",
+      "status": "ERROR",
+      "requirement": "TB-SYS2-004, TB-SYS2-094",
+      "duration_s": 4.016,
+      "error": "InstrumentError: no measurement from the 1604 within 3.0 s. A healthy meter is silent in exactly two states: not in remote mode (this driver has not put it there), and switched off at the Operate key - which does not affect this interface, so the link looks the same either way.",
+      "skip_reason": "",
+      "steps": [
+        {
+          "action": "dmm.measure",
+          "status": "PASS",
+          "duration_s": 0.969,
+          "error": "",
+          "measurements": [
+            {
+              "name": "first_reading_is_live",
+              "value": 1.0,
+              "unit": "",
+              "limit": "= 1",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        },
+        {
+          "action": "dmm.local",
+          "status": "PASS",
+          "duration_s": 0.015,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "dmm.read",
+          "status": "ERROR",
+          "duration_s": 3.032,
+          "error": "InstrumentError: no measurement from the 1604 within 3.0 s. A healthy meter is silent in exactly two states: not in remote mode (this driver has not put it there), and switched off at the Operate key - which does not affect this interface, so the link looks the same either way.",
+          "measurements": []
+        }
+      ]
+    },
+    {
+      "name": "A memory read of 16 bytes as one integer (expected ERROR)",
+      "status": "ERROR",
+      "requirement": "TB-SYS2-032, TB-SYS2-094",
+      "duration_s": 1.89,
+      "error": "ConfigurationError: read_integer takes 1 to 8 bytes, not 16. For a larger field use read_memory and decode it where its meaning is known.",
+      "skip_reason": "",
+      "steps": [
+        {
+          "action": "probe.read_integer",
+          "status": "ERROR",
+          "duration_s": 1.89,
+          "error": "ConfigurationError: read_integer takes 1 to 8 bytes, not 16. For a larger field use read_memory and decode it where its meaning is known.",
+          "measurements": []
+        }
+      ]
+    },
+    {
+      "name": "A memory read in a byte order that does not exist (expected ERROR)",
+      "status": "ERROR",
+      "requirement": "TB-SYS2-032, TB-SYS2-094",
+      "duration_s": 0.0,
+      "error": "ConfigurationError: byteorder must be 'little' or 'big', not 'middle'",
+      "skip_reason": "",
+      "steps": [
+        {
+          "action": "probe.read_integer",
+          "status": "ERROR",
+          "duration_s": 0.0,
+          "error": "ConfigurationError: byteorder must be 'little' or 'big', not 'middle'",
+          "measurements": []
+        }
+      ]
+    },
+    {
+      "name": "Dongle firmware that disagrees with its manifest is refused (expected ERROR)",
+      "status": "ERROR",
+      "requirement": "TB-SYS2-036, TB-SYS2-094",
+      "duration_s": 0.063,
+      "error": "InstrumentError: the dongle is not running the expected firmware and updating was not permitted: dongle runs 1.4.0 (built local:Sep-29-2026T11:41:48); the build is 9.9.9 (built 2000-01-01T00:00:00Z)",
+      "skip_reason": "",
+      "steps": [
+        {
+          "action": "dongle.ensure_firmware",
+          "status": "ERROR",
+          "duration_s": 0.063,
+          "error": "InstrumentError: the dongle is not running the expected firmware and updating was not permitted: dongle runs 1.4.0 (built local:Sep-29-2026T11:41:48); the build is 9.9.9 (built 2000-01-01T00:00:00Z)",
+          "measurements": []
+        }
+      ]
+    },
+    {
+      "name": "The same mismatch, compared and asserted, is a failure (expected FAIL)",
+      "status": "FAIL",
+      "requirement": "TB-SYS2-003, TB-SYS2-036",
+      "duration_s": 0.015,
+      "error": "",
+      "skip_reason": "",
+      "steps": [
+        {
+          "action": "dongle.check_firmware",
+          "status": "FAIL",
+          "duration_s": 0.0,
+          "error": "",
+          "measurements": [
+            {
+              "name": "compared",
+              "value": 1.0,
+              "unit": "",
+              "limit": "= 1",
+              "status": "PASS",
+              "reason": ""
+            },
+            {
+              "name": "dongle_matches_manifest",
+              "value": 0.0,
+              "unit": "",
+              "limit": "= 1",
+              "status": "FAIL",
+              "reason": "0 != required 1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "A command that gets no reply (expected ERROR)",
+      "status": "ERROR",
+      "requirement": "TB-SYS2-003, TB-SYS2-094",
+      "duration_s": 3.0,
+      "error": "RttTimeout: RTT did not produce '^NEVER-ANSWERED$' within 3.0 s. Received:\nSEGGER J-Link V9.42 - Real time terminal output\r\nSEGGER J-Link V8.0, SN=682395790\r\nProcess: JLinkGDBServerCL.exe\r\n",
+      "skip_reason": "",
+      "steps": [
+        {
+          "action": "probe.rtt_start",
+          "status": "PASS",
+          "duration_s": 0.0,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "probe.rtt_command",
+          "status": "ERROR",
+          "duration_s": 3.0,
+          "error": "RttTimeout: RTT did not produce '^NEVER-ANSWERED$' within 3.0 s. Received:\nSEGGER J-Link V9.42 - Real time terminal output\r\nSEGGER J-Link V8.0, SN=682395790\r\nProcess: JLinkGDBServerCL.exe\r\n",
+          "measurements": []
+        }
+      ]
+    }
+  ]
+}

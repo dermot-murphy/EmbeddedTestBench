@@ -1,0 +1,292 @@
+{
+  "suite": "QS-03 Supply state, setpoints and safe state (hardware, independent only)",
+  "bench": "Bench PC (Windows)",
+  "spec_source": "specs/qualification/qs03_supply.yaml",
+  "parameters": {
+    "ch1_volts": 3.3,
+    "ch2_volts": 3.0,
+    "ch1_limit": 0.1,
+    "ch2_limit": 0.2,
+    "low_volts": 2.8
+  },
+  "selection": [],
+  "simulated": false,
+  "status": "PASS",
+  "started": "2026-10-04T18:40:15+00:00",
+  "finished": "2026-10-04T18:40:19+00:00",
+  "duration_s": 4.703,
+  "totals": {
+    "total": 4,
+    "passed": 4,
+    "failed": 0,
+    "errored": 0,
+    "skipped": 0
+  },
+  "instruments": {
+    "psu": {
+      "driver": "Gpd3303D",
+      "resource": "COM11",
+      "event": "PSU",
+      "manufacturer": "GW INSTEK",
+      "model": "GPD-3303D",
+      "serial_number": "GER916893",
+      "firmware": "V1.09",
+      "identity": "GW INSTEK,GPD-3303D,SN:GER916893,V1.09"
+    }
+  },
+  "requirements": [
+    "TB-SYS2-015",
+    "TB-SYS2-020",
+    "TB-SYS2-021",
+    "TB-SYS2-022",
+    "TB-SYS2-024"
+  ],
+  "requirements_verified": {
+    "TB-SYS2-020": "PASS",
+    "TB-SYS2-021": "PASS",
+    "TB-SYS2-022": "PASS",
+    "TB-SYS2-024": "PASS"
+  },
+  "setup_error": "",
+  "cases": [
+    {
+      "name": "The supply is in independent tracking with its outputs off",
+      "status": "PASS",
+      "requirement": "TB-SYS2-022",
+      "duration_s": 0.5,
+      "error": "",
+      "skip_reason": "",
+      "steps": [
+        {
+          "action": "psu.status",
+          "status": "PASS",
+          "duration_s": 0.5,
+          "error": "",
+          "measurements": [
+            {
+              "name": "tracking",
+              "value": "independent",
+              "unit": "",
+              "limit": "= \"independent\"",
+              "status": "PASS",
+              "reason": ""
+            },
+            {
+              "name": "output_off",
+              "value": 0.0,
+              "unit": "",
+              "limit": "= 0",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Setpoints are written with the output off and read back from the supply",
+      "status": "PASS",
+      "requirement": "TB-SYS2-020, TB-SYS2-021",
+      "duration_s": 2.968,
+      "error": "",
+      "skip_reason": "",
+      "steps": [
+        {
+          "action": "psu.configure_channel",
+          "status": "PASS",
+          "duration_s": 0.515,
+          "error": "",
+          "measurements": [
+            {
+              "name": "ch1_low_setpoint",
+              "value": 2.8,
+              "unit": "V",
+              "limit": "= 2.8 +/- 0.01",
+              "status": "PASS",
+              "reason": ""
+            },
+            {
+              "name": "ch1_limit",
+              "value": 0.1,
+              "unit": "A",
+              "limit": "= 0.1 +/- 0.001",
+              "status": "PASS",
+              "reason": ""
+            },
+            {
+              "name": "ch1_output_still_off",
+              "value": 0.0,
+              "unit": "",
+              "limit": "= 0",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        },
+        {
+          "action": "psu.configure_channel",
+          "status": "PASS",
+          "duration_s": 0.594,
+          "error": "",
+          "measurements": [
+            {
+              "name": "ch1_setpoint",
+              "value": 3.3,
+              "unit": "V",
+              "limit": "= 3.3 +/- 0.01",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        },
+        {
+          "action": "psu.configure_channel",
+          "status": "PASS",
+          "duration_s": 0.922,
+          "error": "",
+          "measurements": [
+            {
+              "name": "ch2_low_setpoint",
+              "value": 2.8,
+              "unit": "V",
+              "limit": "= 2.8 +/- 0.01",
+              "status": "PASS",
+              "reason": ""
+            },
+            {
+              "name": "ch2_limit",
+              "value": 0.2,
+              "unit": "A",
+              "limit": "= 0.2 +/- 0.001",
+              "status": "PASS",
+              "reason": ""
+            },
+            {
+              "name": "ch2_output_still_off",
+              "value": 0.0,
+              "unit": "",
+              "limit": "= 0",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        },
+        {
+          "action": "psu.configure_channel",
+          "status": "PASS",
+          "duration_s": 0.937,
+          "error": "",
+          "measurements": [
+            {
+              "name": "ch2_setpoint",
+              "value": 3.0,
+              "unit": "V",
+              "limit": "= 3 +/- 0.01",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "The outputs are read while off",
+      "status": "PASS",
+      "requirement": "TB-SYS2-021",
+      "duration_s": 0.954,
+      "error": "",
+      "skip_reason": "",
+      "steps": [
+        {
+          "action": "psu.read_channel",
+          "status": "PASS",
+          "duration_s": 0.469,
+          "error": "",
+          "measurements": [
+            {
+              "name": "ch1_output_voltage",
+              "value": 0.0,
+              "unit": "V",
+              "limit": "= 0 +/- 0.05",
+              "status": "PASS",
+              "reason": ""
+            },
+            {
+              "name": "ch1_output_current",
+              "value": 0.0,
+              "unit": "A",
+              "limit": "= 0 +/- 0.005",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        },
+        {
+          "action": "psu.read_channel",
+          "status": "PASS",
+          "duration_s": 0.485,
+          "error": "",
+          "measurements": [
+            {
+              "name": "ch2_output_voltage",
+              "value": 0.0,
+              "unit": "V",
+              "limit": "= 0 +/- 0.05",
+              "status": "PASS",
+              "reason": ""
+            },
+            {
+              "name": "ch2_output_current",
+              "value": 0.0,
+              "unit": "A",
+              "limit": "= 0 +/- 0.005",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "The safe state is the output switch open",
+      "status": "PASS",
+      "requirement": "TB-SYS2-024",
+      "duration_s": 0.265,
+      "error": "",
+      "skip_reason": "",
+      "steps": [
+        {
+          "action": "psu.all_outputs_off",
+          "status": "PASS",
+          "duration_s": 0.046,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "psu.status",
+          "status": "PASS",
+          "duration_s": 0.219,
+          "error": "",
+          "measurements": [
+            {
+              "name": "output_off",
+              "value": 0.0,
+              "unit": "",
+              "limit": "= 0",
+              "status": "PASS",
+              "reason": ""
+            },
+            {
+              "name": "still_independent",
+              "value": "independent",
+              "unit": "",
+              "limit": "= \"independent\"",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
