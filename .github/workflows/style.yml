@@ -35,7 +35,7 @@ jobs:
 
       - name: Run CStyleCheck
         id: cstylecheck
-        uses: dermot-murphy/CStyleCheck@v1.5.1
+        uses: dermot-murphy/CStyleCheck@v1.6.0
         with:
           config: .cstylecheck.yml
           include: |
@@ -51,7 +51,7 @@ jobs:
       # the check clean, so it has no baseline and fails on any finding at all.
       - name: Run CStyleCheck (Pico thermometer)
         id: cstylecheck-pico
-        uses: dermot-murphy/CStyleCheck@v1.5.1
+        uses: dermot-murphy/CStyleCheck@v1.6.0
         with:
           config: .cstylecheck.yml
           include: |
@@ -71,7 +71,7 @@ jobs:
       # The tests entered the check clean: no baseline, and any finding fails.
       - name: Run CStyleCheck (dongle unit tests)
         id: cstylecheck-dongle-tests
-        uses: dermot-murphy/CStyleCheck@v1.5.1
+        uses: dermot-murphy/CStyleCheck@v1.6.0
         with:
           config: .cstylecheck.yml
           include: |
