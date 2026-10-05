@@ -1,3 +1,5 @@
+<img src="../../assets/brand/svg/logos/embeddedtestbench-logo-compact.svg" alt="Embedded Test Bench" width="240">
+
 # Software Detailed Design
 
 *Automotive SPICE® PAM v4.0 | SWE.3 Software Detailed Design and Unit Construction*
@@ -8,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE3-001 | **Version** | 1.19 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-04 |
+| **Document ID** | ETB-SWE3-001 | **Version** | 1.20 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.3 |
@@ -51,6 +53,7 @@
 | 1.17 | 2026-10-03 | Claude | #156: VIEW-DD-REPORT added (`NotesStore`, `build_report`, `svg_chart`, `/api/notes`, `/api/report`, `notes.js`); VIEW-DD-SENSOR sorts its points by time. |
 | 1.18 | 2026-10-03 | Claude | #157: S2LP-DD-S2LP `read_setup`; RUN-DD-CONTROL `READ_SETUP`; VIEW-DD-STGUI added (`StGui`, `rf_setup_rows`, `register_rows`, `regs_text`, `st_row`). |
 | 1.19 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
+| 1.20 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 
 ---
 

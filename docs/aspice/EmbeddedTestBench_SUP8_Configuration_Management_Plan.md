@@ -1,3 +1,5 @@
+<img src="../../assets/brand/svg/logos/embeddedtestbench-logo-compact.svg" alt="Embedded Test Bench" width="240">
+
 # Configuration Management Plan
 
 *Automotive SPICE® PAM v4.0 | SUP.8 — Configuration Management*
@@ -8,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SUP8-001 | **Version** | 0.9 |
+| **Document ID** | ETB-SUP8-001 | **Version** | 0.10 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -31,6 +33,7 @@
 | 0.7 | 2026-10-05 | Claude | #185: §5.5 added - the repository settings baseline (ruleset, merge, security, actions), with the enforcement observed on 2026-10-05. Changed together with CLAUDE.md. |
 | 0.8 | 2026-10-05 | Claude | #190: gitflow adopted. §5.1 adds `release/` and `hotfix/` branches, and their pull requests into `main` and the back-merge into `develop` are allowed by procedure; §5.6 added - release and hotfix procedure, tag on the merge commit in `main`. Changed together with CLAUDE.md. |
 | 0.9 | 2026-10-05 | Claude | #188: §6 states the version and tag format (`0.01.0000`, tag `v0.01.0000`) and the PEP 440 normalisation of the packaged version; §5.5 adds the tag ruleset protecting `v*` tags. Changed together with CLAUDE.md. |
+| 0.10 | 2026-10-05 | Claude | #194: §6.3 records where the brand logo appears - above the title of every controlled document in `docs/aspice/` and `docs/templates/`, in the documents themselves - and that the wiki and home page take it from their generators. The compact logo added above this document's title. |
 
 ---
 
@@ -272,6 +275,34 @@ edited: they record what was true when they were written.
 
 The order is checked by `tests/test_traceability.py` (SWE4-UT-TRACE), which
 fails if a history table's version column decreases from one row to the next.
+
+### 6.3 Brand Logo in Controlled Documents
+
+Every controlled document in `docs/aspice/` and `docs/templates/` starts with
+the compact brand logo, above its title, as the same line in each:
+
+```html
+<img src="../../assets/brand/svg/logos/embeddedtestbench-logo-compact.svg" alt="Embedded Test Bench" width="240">
+```
+
+- **In the documents themselves**, not only in their rendered copies, so the
+  document read on GitHub, in a clone or in a review is the document that is
+  controlled. The line sits above the title and outside the identification
+  block, which still carries the Document ID and version.
+- **The SVG master, by relative path.** GitHub renders an SVG from the
+  repository in a Markdown image, and a relative path resolves at any branch or
+  tag and in a local clone. A rendered copy that cannot show SVG uses the PNG
+  render of the same logo, `assets/brand/png/logos/logo_compact.png`.
+- **The wiki and the home page take the logo and banners from their
+  generators**, not from hand edits (#194, #184).
+- **A baseline is not re-issued for the logo.** ETB-SVD-001 describes the tagged
+  baseline `v0.01.0000` and is not edited for it (§7); it takes the logo at its
+  next revision.
+- **The templates carry the line**, so a document started from one in
+  `docs/templates/` has it from the first draft.
+
+The logo's wordmark is dark on a transparent background, so it has low contrast
+on a dark GitHub theme. There is no compact logo for dark backgrounds yet.
 
 ## 7. Baselines
 

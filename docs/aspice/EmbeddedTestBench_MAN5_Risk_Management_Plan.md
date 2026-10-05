@@ -1,3 +1,5 @@
+<img src="../../assets/brand/svg/logos/embeddedtestbench-logo-compact.svg" alt="Embedded Test Bench" width="240">
+
 # Risk Management Plan
 
 *Automotive SPICE® PAM v4.0 | MAN.5 — Risk Management*
@@ -8,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-MAN5-001 | **Version** | 0.3 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-04 |
+| **Document ID** | ETB-MAN5-001 | **Version** | 0.4 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | MAN.5 |
@@ -25,6 +27,7 @@
 | 0.1 | 2026-09-19 | Claude | Initial |
 | 0.2 | 2026-10-03 | Claude | #141: TB-RISK-013 added - the test run viewer opened to the network. |
 | 0.3 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
+| 0.4 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 
 ---
 

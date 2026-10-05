@@ -1,3 +1,5 @@
+<img src="../../assets/brand/svg/logos/embeddedtestbench-logo-compact.svg" alt="Embedded Test Bench" width="240">
+
 # Software Qualification Test
 
 *Automotive SPICE® PAM v4.0 | SWE.6 — Software Qualification Test*
@@ -8,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE6-001 | **Version** | 0.4 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-04 |
+| **Document ID** | ETB-SWE6-001 | **Version** | 0.5 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.6 |
@@ -26,6 +28,7 @@
 | 0.2 | 2026-09-23 | Claude | TB-QT-02a added: the five-instrument specification run against the simulated bench. |
 | 0.3 | 2026-09-24 | Claude | TB-QT-05 added: the bench self-check, simulated and gated. |
 | 0.4 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
+| 0.5 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 
 ---
 

@@ -1,3 +1,5 @@
+<img src="../../assets/brand/svg/logos/embeddedtestbench-logo-compact.svg" alt="Embedded Test Bench" width="240">
+
 # Software Unit Verification Specification
 
 *Automotive SPICE® PAM v4.0 | SWE.4 Software Unit Verification*
@@ -8,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE4-001 | **Version** | 1.22 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-04 |
+| **Document ID** | ETB-SWE4-001 | **Version** | 1.23 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.4 |
@@ -54,6 +56,7 @@
 | 1.20 | 2026-10-03 | Claude | #157: SWE4-UT-VIEWSTGUI added (11 cases). |
 | 1.21 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
 | 1.22 | 2026-10-04 | Claude | #187: SWE4-UT-TRACE also checks that every revision history in `docs/` lists entries oldest first. |
+| 1.23 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 
 ---
 

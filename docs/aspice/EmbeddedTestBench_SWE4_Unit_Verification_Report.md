@@ -1,3 +1,5 @@
+<img src="../../assets/brand/svg/logos/embeddedtestbench-logo-compact.svg" alt="Embedded Test Bench" width="240">
+
 # Software Unit Verification Report
 
 *Automotive SPICE® PAM v4.0 | SWE.4 Software Unit Verification*
@@ -8,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE4-002 | **Version** | 1.20 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-04 |
+| **Document ID** | ETB-SWE4-002 | **Version** | 1.21 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.4 |
@@ -52,6 +54,7 @@
 | 1.18 | 2026-10-03 | Claude | #157: SWE4-UT-VIEWSTGUI (11) added to §5, pass. Refresh was exercised in a browser during a simulated run using the S2-LP: the run read its setup between steps and passed. |
 | 1.19 | 2026-10-04 | Claude | #129: §14A added - #124 (choosing a sensor by part of its name) and #126 (per-instrument event-log names) confirmed on the bench PC with sensor 5C1712, the PCA10059 dongle and a Pico 2 with no module connected; D-46 and D-47 note the confirmation. PICO-OPEN-02 stays open. |
 | 1.20 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
+| 1.21 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 
 ---
 

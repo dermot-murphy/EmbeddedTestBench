@@ -1,3 +1,5 @@
+<img src="../../assets/brand/svg/logos/embeddedtestbench-logo-compact.svg" alt="Embedded Test Bench" width="240">
+
 # Software Architecture Description
 
 *Automotive SPICE® PAM v4.0 | SWE.2 Software Architectural Design*
@@ -8,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE2-001 | **Version** | 0.13 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-04 |
+| **Document ID** | ETB-SWE2-001 | **Version** | 0.14 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.2 |
@@ -35,6 +37,7 @@
 | 0.11 | 2026-10-03 | Claude | #141: VIEW-ARC-001 may listen beyond 127.0.0.1 with an access token; the runner's control channel stays on 127.0.0.1, so only the viewer is exposed. |
 | 0.12 | 2026-10-04 | Claude | #170: "the TestTools checkout" changed to "the EmbeddedTestBench checkout" after the repository rename. The architecture is unchanged. |
 | 0.13 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
+| 0.14 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 
 ---
 

@@ -1,4 +1,8 @@
+<img src="assets/brand/svg/headers/embeddedtestbench-github-header.svg" alt="Embedded Test Bench" width="100%">
+
 # EmbeddedTestBench — `benchtools`
+
+<img src="assets/brand/svg/logos/embeddedtestbench-logo-horizontal.svg" alt="Embedded Test Bench logo" width="360">
 
 Bench test tooling: instrument drivers, a debug probe driver, a BLE dongle with
 its own firmware, analysis of captured records, and a declarative test runner

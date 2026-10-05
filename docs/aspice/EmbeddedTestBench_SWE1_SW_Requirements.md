@@ -1,3 +1,5 @@
+<img src="../../assets/brand/svg/logos/embeddedtestbench-logo-compact.svg" alt="Embedded Test Bench" width="240">
+
 # Software Requirements Specification
 
 *Automotive SPICE® PAM v4.0 | SWE.1 Software Requirements Analysis*
@@ -8,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE1-001 | **Version** | 1.23 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-04 |
+| **Document ID** | ETB-SWE1-001 | **Version** | 1.24 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.1 |
@@ -55,6 +57,7 @@
 | 1.21 | 2026-10-04 | Claude | #170: RUN-FR-007 and RUN-FR-017 say "the EmbeddedTestBench checkout" after the repository rename. The requirements are unchanged. |
 | 1.22 | 2026-10-04 | Claude | #176: CON-04 and CON-10 restated after the first hardware qualification campaign (TB-SYS5-002). The J-Link and the TTi 1604 have now run against physical hardware, with the defects found named. |
 | 1.23 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
+| 1.24 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 
 ---
 
