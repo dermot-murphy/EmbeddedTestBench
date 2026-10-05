@@ -56,6 +56,30 @@ on `main`, on explicit instruction, because `main` is where #106 landed (#109).
 Background: #106 was merged into `main` although work merges to `develop` first,
 and had to be reverted (#109, #110). This rule was added by #113.
 
+## Review, approval and merging
+
+Dermot Murphy, the repository owner, is the only Reviewer and the only Approver
+(#204). **Merging a pull request is the review and the approval** of everything
+in it. The evidence is the pull request, its CI result and its merge record:
+who merged it, when, and the merge commit. See `ETB-SUP8-001 §5.7`.
+
+- **Claude never merges on its own initiative.** Finished work, green CI, or an
+  instruction given for a different pull request is not an instruction to merge.
+- A merge happens only on the owner's **explicit instruction for that pull
+  request**. That instruction, and the merge made on it, is the owner's review
+  and approval.
+- **Claude never records an approval on the owner's behalf in any other way**:
+  no GitHub review approval, no entry in a document's Review & Approval table,
+  no comment, status or signature saying the change is approved.
+- Every required check must be green before the merge; the ruleset enforces it.
+- The Review & Approval table of each controlled document points to the merge
+  of the pull request that last changed the document. It is not filled in.
+
+Claude works through the owner's GitHub account, so a merge Claude makes on
+instruction is recorded under `dermot-murphy`, the same as one the owner makes.
+The rule above is what makes it the owner's approval; the record alone does not
+show who pressed the button.
+
 ## Releases and hotfixes
 
 A release is made only when the repository owner says so.
@@ -66,7 +90,8 @@ A release is made only when the repository owner says so.
    PEP 440 form (`0.1.0` for `0.01.0000`); that is expected.
 2. On that branch: the version bump, the Software Version Description
    (ETB-SVD-001) and other release documents, and fixes only. No new features.
-3. Open a pull request into `main`. Merge it with a merge commit once CI is green.
+3. Open a pull request into `main`. Merge it with a merge commit once CI is green,
+   on the owner's instruction (see [Review, approval and merging](#review-approval-and-merging)).
 4. Create the annotated tag `v<version>` on that merge commit in `main`.
 5. Open a pull request from `main` into `develop` (the back-merge) and merge it,
    so `develop` contains the release commits and the tagged history.
@@ -154,6 +179,8 @@ recorded in `ETB-SUP8-001 §5.5`:
   change reaches them only through a pull request whose required checks pass:
   `pytest (3.8)`, `pytest (3.9)`, `pytest (3.12)`, `pylint`,
   `Embedded C standard` and `Simulated bench`.
+- A pull request needs 0 approvals: the merge itself is the review and approval
+  (see [Review, approval and merging](#review-approval-and-merging)).
 - Merge commits are the only merge method. Squash and rebase are switched off.
 - Release tags `v*` cannot be deleted or moved once pushed (tag ruleset).
 - **Merging a pull request deletes its head branch automatically.** In a stack,

@@ -8,8 +8,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-DEV-002 | **Version** | 0.2 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-04 |
+| **Document ID** | ETB-DEV-002 | **Version** | 0.3 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | GP 2.2.3 |
@@ -22,6 +22,7 @@
 |---|---|---|---|
 | 0.1 | 2026-09-19 | Claude | Initial |
 | 0.2 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
+| 0.3 | 2026-10-05 | Claude | #204: §4 states how review and approval are given - Reviewer and Approver remain the same person by decision, both given in one act, the merge of the pull request; evidence is the pull request, its CI result and its merge record. §5 states that the compensating measures remain. §7 points to the merge (ETB-SUP8-001 §5.7). |
 
 ---
 
@@ -51,6 +52,18 @@ while the team is one person.
 This is stated in the identification block of each document rather than left
 for a reader to notice.
 
+**How review and approval are given (owner's decision, 2026-10-05, #204).**
+
+- The Reviewer and the Approver remain the same person, Dermot Murphy, by
+  decision. There is no second reviewer, and no bot or machine account gives
+  approvals.
+- Review and approval are given in a single act: the merge of the pull request
+  that carries the change. The owner merges it, or explicitly instructs its
+  merge, after examining the change and its CI result (ETB-SUP8-001 §5.7).
+- The evidence is the pull request, its CI result and its merge record: who
+  merged it, when, and the merge commit. Each document's Review & Approval table
+  points to that record rather than carrying a signature.
+
 ---
 
 ## 5. Justification for Acceptance
@@ -70,6 +83,13 @@ who wrote or reviewed anything.
 **The scope of what independence would protect is small.** Embedded Test Bench is a test
 tool (ETB-DEV-001 §5). A defect in it that survives review shows up as a bench
 measurement that cannot be reproduced, not as a fault in a delivered vehicle.
+
+**The compensating measures remain in force.** The automated checks — the
+required status checks that must be green before any merge (ETB-SUP8-001 §5.5)
+— and the traceability tests apply to every change, and the author is a
+different party from the reviewer (ETB-DEV-001). Giving review and approval in
+one act, the merge, does not weaken them: it ties the approval to a record that
+already exists for every change.
 
 **The alternative is worse.** Inventing a second reviewer's name, or recording a
 review meeting that did not take place, would corrupt the record in exchange for
@@ -91,11 +111,18 @@ None while the team is one person. Should a second engineer join the project:
 
 ## 7. Approval
 
-| Role | Name | Signature / Electronic Approval | Date |
-|---|---|---|---|
-| Raised by | Claude | Approved | 2026-09-19 |
-| Quality Assurance | Dermot Murphy | — | *pending* |
-| Approver | Dermot Murphy | — | *pending* |
+Review and approval of this document are not entered in this table. They are
+given by the merge of the pull request that last changed the document, and that
+merge is the record (ETB-SUP8-001 §5.7). The evidence is the pull request, its
+CI result and its merge record: who merged it, when, and the merge commit. The
+last row of the revision history names the issue, and the issue links the pull
+request.
+
+| Role | Name | Recorded by |
+|---|---|---|
+| Raised by | Claude | The commits in the pull request |
+| Quality Assurance | Dermot Murphy | The merge of the pull request that last changed this document |
+| Approver | Dermot Murphy | The merge of the pull request that last changed this document |
 
 ---
 
