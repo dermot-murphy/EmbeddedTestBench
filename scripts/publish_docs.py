@@ -144,7 +144,8 @@ def read_text(path):
 
 def write_text(path, text):
     """Write with LF line endings and exactly one trailing newline."""
-    Path(path).write_text(text.rstrip("\n") + "\n", encoding="utf-8", newline="\n")
+    # Bytes, not write_text(newline=...), which needs Python 3.10.
+    Path(path).write_bytes((text.rstrip("\n") + "\n").encode("utf-8"))
 
 
 def aspice_stem(rel):
