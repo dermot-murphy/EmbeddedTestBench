@@ -1122,19 +1122,23 @@ class NordicDongle(Instrument):
         Traces to: BLE-FR-117.
         """
         samples = SampleSet(name=request, unit=unit, requested=int(count))
-        started = time.monotonic()
+        # perf_counter, not monotonic: before Python 3.13, monotonic on
+        # Windows is GetTickCount64 at 15.6 ms, which can send a command up
+        # to one tick before it is due and quantises the times (#214).
+        started = time.perf_counter()
         for index in range(int(count)):
             due = started + index * float(interval)
-            wait = due - time.monotonic()
-            if wait > 0:
+            wait = due - time.perf_counter()
+            while wait > 0:
                 time.sleep(wait)
+                wait = due - time.perf_counter()
             text = self.command(request, timeout=timeout).text
             value = extract_number(text, pattern)
             if value is None:
                 raise MeasurementError(
                     "reply %d of %d to %r was %r, which %r finds no number in"
                     % (index + 1, count, request, text, pattern))
-            samples.add(value * float(scale), source=text, at=time.monotonic() - started)
+            samples.add(value * float(scale), source=text, at=time.perf_counter() - started)
         return samples
 
     @input_paths("source")

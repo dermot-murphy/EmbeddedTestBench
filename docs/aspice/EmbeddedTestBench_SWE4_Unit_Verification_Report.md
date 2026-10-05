@@ -10,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE4-002 | **Version** | 1.24 |
+| **Document ID** | ETB-SWE4-002 | **Version** | 1.25 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -58,6 +58,7 @@
 | 1.22 | 2026-10-05 | Claude | #177: whole suite re-run (§4); SWE4-UT-JLINK re-counted 86 → 98 and SWE4-UT-JLINKSIM 23 → 25 in §5; §9.3 added - `reset(halt=False)` on the bench before and after the fix; D-48 added and closed, and D-39 notes that D-48 replaces its model. |
 | 1.23 | 2026-10-05 | Claude | #178: whole suite re-run (§4); SWE4-UT-JLINK 98 → 100 and SWE4-UT-JLINKSIM 25 → 27 in §5; §9.4 added - registers read after `reset(halt=True)` on the bench, before and after the fix, with the cause confirmed; D-49 added and closed. |
 | 1.24 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
+| 1.25 | 2026-10-05 | Claude | #214: whole suite re-run (§4); SWE4-UT-BLESAMPLE (5) added to §5; §10.4 added - `sample_command` timed on a 15.6 ms clock under CPython 3.11, before and after the fix; D-50 added and closed. |
 
 ---
 
@@ -86,13 +87,13 @@ It is deliberately a separate work product from the specification. A specificati
 
 | Metric | Result |
 |---|---|
-| Tests executed | **2 756** |
-| Passed | **2 750** |
+| Tests executed | **3 173** |
+| Passed | **3 167** |
 | Failed | 0 |
 | Errors | 0 |
 | Skipped | 6 |
 | Statement coverage | Not measured for revision 1.0: `pytest-cov` is not installed on the bench PC. Revision 0.9 measured **95%** (13 695 statements, 679 missed). |
-| Execution time | 187.6 s, without coverage instrumentation |
+| Execution time | 205.4 s, without coverage instrumentation |
 | Runtime | CPython 3.14.7, Windows 10 (10.0.19045) |
 | Framework | pytest 9.1.1 |
 
@@ -212,6 +213,7 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | SWE4-UT-BLESCRIPT | `instruments/nordic_dongle/test_script.py` | 58 | Pass |
 | SWE4-UT-BLELATENCY | `instruments/nordic_dongle/test_latency.py` | 20 | Pass |
 | SWE4-UT-BLEFW | `instruments/nordic_dongle/test_firmware_protocol.py` | 17 | Pass |
+| SWE4-UT-BLESAMPLE | `instruments/nordic_dongle/test_sampling.py` | 5 | Pass |
 | SWE4-UT-LAYERING | `test_layering.py` | 81 | Pass |
 | SWE4-UT-GDBMI | `instruments/jlink/test_gdbmi.py` | 37 | Pass |
 | SWE4-UT-BENCH | `runner/test_bench.py` | 41 | Pass |
@@ -755,6 +757,38 @@ A profile capture logged to a text file contains the commands sent, the replies,
 every `+adv` event with both timestamps, and any comment the caller wrote -
 flushed per line, so a session that then hangs still has a complete log. Verified
 by `TestLogging` in both `SWE4-UT-BLESESSION` and `SWE4-UT-BLE`.
+
+### 10.4 Sample spacing on a coarse clock (#214)
+
+`test_readings_are_spaced_by_the_interval` failed 2 of 6 runs on the bench PC
+(CPython 3.11.1, Windows 10), measuring 0.391 s against a bound of 0.4 s for
+three commands 0.2 s apart. Before Python 3.13, `time.monotonic()` on Windows is
+`GetTickCount64()`, resolution 0.015625 s; 0.391 s is 25 ticks, one short of
+0.4 s. From 3.13 it is `QueryPerformanceCounter()`, which is why the suite run in
+§4 (CPython 3.14.7) did not show it.
+
+The cause was in `NordicDongle.sample_command`, not only in the test. It read its
+start time from that clock, which can lag true time by up to one tick, so a
+command could be sent up to 15.6 ms before it was due, and the `times` it
+recorded were quantised to 15.6 ms. Changing only the test's clock to
+`time.perf_counter()` made the test fail more often on 3.11, not less, which is
+what showed it: a precise clock in the test exposes the early send instead of
+truncating it in step.
+
+`sample_command` now times with `time.perf_counter()` (`QueryPerformanceCounter()`
+on Windows under every supported Python) and sleeps again until the due time has
+been reached, so a sleep that returns early cannot send a command early. The test
+measures with `perf_counter` and keeps its bound of 0.4 s: no tolerance was added.
+A new test makes every sleep return halfway and checks that no command is sent
+before it is due.
+
+Run on 2026-10-05 on a Windows 10 PC (10.0.19045) with CPython 3.11.1 and 3.14.7:
+
+| Code | `test_sampling.py` under CPython 3.11 | Under CPython 3.14.7 |
+|---|---|---|
+| Before the fix, test unchanged | `test_readings_are_spaced_by_the_interval` failed 3 of 10 runs, measuring 0.390 s or 0.391 s | Not run |
+| Before the fix, test on `perf_counter`, new test added | `test_readings_are_spaced_by_the_interval` failed 8 of 10 runs; the new test failed 10 of 10 | The new test failed 3 of 3 runs |
+| After the fix | 5 of 5 passed in each of 20 runs | 5 of 5 passed in each of 20 runs |
 
 ## 11. Protocol interoperability results
 
@@ -1465,6 +1499,7 @@ SDK to provide it transitively.
 | D-47 | The event log named a record's source from a fixed table of driver packages. The Pico 2 thermometer was not in it, so its records read `bench`; the shared transports' lines read `bench` whatever instrument they carried; and two instruments of one driver - `probe` and `rtt` - were indistinguishable. Found in #126 | **Major** for a log whose purpose is to say which part of the bench did what: a supply's and a thermometer's lines could not be told apart, nor two J-Link links | **Closed** - each instrument carries a name, allocated by the specification and the bench, the specification winning, defaults per driver including `TEMP`; everything an instrument owns logs under it; clashes refused before connecting (AD-28) Confirmed on hardware 2026-10-04 (§14A, #129). | `SWE4-UT-EVENTNAMES` (21), `TestPerInstrumentNames` (15), `TestSourceNames` (18) |
 | D-48 | `JLinkProbe.reset(halt=False)` sent `monitor reset 0` and recorded the target as running, but the J-Link GDB Server halts the core after `monitor reset` whatever the reset type, and nothing resumed it. Found on the bench in the hardware qualification (#176), ticketed as #177. The simulator hid it: D-39 had modelled `monitor reset 0` as reset-and-run | **Major**: a test that resets the target "running" and then talks to it finds a halted target, and the failure points at the radio, not the probe | **Closed** - `reset(halt=False)` resumes with `run()` (`-exec-continue`) after the reset; the simulator leaves the core halted after every reset type. Confirmed on hardware 2026-10-05 (§9.3) | `test_a_reset_without_halting_resumes_the_core`, `test_every_reset_type_leaves_the_core_halted` (2), `TestIsItRunning` |
 | D-49 | Registers read straight after `JLinkProbe.reset()` were the ones GDB had cached before the reset. `monitor reset` and `monitor halt` go to the GDB Server, and GDB never sees them change the core. Found in the hardware qualification (#176, QS-01b, where the first PC read was `0x00000000`), ticketed as #178. The simulator hid it: it answered every register read from the core | **Major**: a register read after a reset, a common first step of a debug test, returned a value the core did not hold (ETB-SYS2-004) | **Closed** - `reset` sends `maintenance flush register-cache` after the reset; the simulator models GDB's register cache. Cause and fix confirmed on hardware 2026-10-05 (§9.4) | `test_registers_read_after_a_reset_are_the_reset_s`, `test_a_reset_flushes_gdb_s_register_cache`, `test_gdb_s_registers_are_stale_after_a_monitor_reset`, `test_gdb_reads_the_registers_again_when_the_target_stops` |
+| D-50 | `NordicDongle.sample_command` timed its interval with `time.monotonic()`, which before Python 3.13 on Windows is `GetTickCount64()` at 15.6 ms. A command could be sent up to one tick before it was due and the recorded times were quantised to a tick. Found by `test_readings_are_spaced_by_the_interval` failing intermittently on the bench PC (CPython 3.11.1), ticketed as #214 | **Minor**: commands spaced up to 15.6 ms closer than the `interval` documented as the minimum, and times coarser than they appear | **Closed** - timed with `time.perf_counter()`, and the sleep repeated until the command is due (§10.4) | `test_readings_are_spaced_by_the_interval`, `test_no_command_is_sent_before_it_is_due_when_a_sleep_ends_early` |
 
 No open defects.
 

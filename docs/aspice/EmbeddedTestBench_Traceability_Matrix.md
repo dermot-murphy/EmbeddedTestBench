@@ -10,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-RTM-001 | **Version** | 1.26 |
+| **Document ID** | ETB-RTM-001 | **Version** | 1.27 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -60,6 +60,7 @@
 | 1.24 | 2026-10-05 | Claude | #177: JLINK-FR-030 row cites `test_a_reset_without_halting_resumes_the_core` and `test_every_reset_type_leaves_the_core_halted`; JLINK-FR-090 count 23 → 25. |
 | 1.25 | 2026-10-05 | Claude | #178: JLINK-FR-031 row cites `test_registers_read_after_a_reset_are_the_reset_s`, `test_a_reset_flushes_gdb_s_register_cache` and `test_gdb_s_registers_are_stale_after_a_monitor_reset`; JLINK-FR-090 count 25 → 27. |
 | 1.26 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
+| 1.27 | 2026-10-05 | Claude | #214: BLE-FR-117 count 4 → 5. |
 
 ---
 
@@ -353,7 +354,7 @@ where the firmware implements the requirement.
 | BLE-FR-114 | BLE-ARC-001, AD-23 | BLE-DD-SCRIPT, BLE-DD-SCRIPTRUN | `ScriptStep.note`, `StepResult.notes` | `test_the_note_column_is_carried_to_the_result`, `test_the_report_has_response_time_result_and_note_columns` |
 | BLE-FR-115 | BLE-ARC-001, AD-23 | BLE-DD-SCRIPTRUN | `EventLog` | `TestTheEventLog` (2), `test_the_event_log_is_written_where_asked` |
 | BLE-FR-116 | BLE-ARC-001, AD-23 | BLE-DD-CLI | `_cmd_script` | `TestScript` (5, `test_cli.py`) |
-| BLE-FR-117 | BLE-ARC-001 | BLE-DD-DONGLE | `NordicDongle.sample_command` | `SWE4-UT-BLESAMPLE` (4) |
+| BLE-FR-117 | BLE-ARC-001 | BLE-DD-DONGLE | `NordicDongle.sample_command` | `SWE4-UT-BLESAMPLE` (5) |
 | BLE-FR-118 | BLE-ARC-001 | BLE-DD-LATENCY | `ResponseSample.value` | `test_the_value_a_reply_reports` (4) |
 | BLE-FR-090 | BLE-ARC-001 | BLE-DD-BUILD | `firmware/ses/*.emProject`, `firmware/Makefile`, `firmware/gcc/*.ld`, `firmware/scripts/{package_dfu,compile_check}.*`, `.github/workflows/firmware.yml` | `compile_check.sh` compiles every unit against real SDK headers (BENCHTOOLS-SWE4-002 §4.4); the workflow builds, links, sizes and packages against SDK 17.1.0 (§4.6, BLE-OPEN-01 discharged); flashing remains a bench confirmation item (CON-07) |
 
