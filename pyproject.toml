@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "benchtools"
-version = "0.01.0000"
+version = "0.01.0001"
 description = "Bench test tooling: instrument, debug-probe and BLE-dongle drivers, analysis and a declarative test runner, with no mandatory VISA or vendor dependency"
 readme = "README.md"
 requires-python = ">=3.8"
