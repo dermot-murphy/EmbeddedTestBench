@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-RTM-001 | **Version** | 1.24 |
+| **Document ID** | ETB-RTM-001 | **Version** | 1.25 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -54,8 +54,9 @@
 | 1.20 | 2026-10-03 | Claude | #156: rows for VIEW-FR-040 … -042 (notes and report); VIEW-DD-REPORT in VIEW-ARC-001; §16 count 431 declared, 430 in force. |
 | 1.21 | 2026-10-03 | Claude | #157: rows for S2LP-FR-084, RUN-FR-066 and VIEW-FR-043 … -045 (the ST GUI page); VIEW-DD-STGUI in VIEW-ARC-001; §16 count 436 declared, 435 in force. |
 | 1.22 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
-| 1.23 | 2026-10-05 | Claude | #177: JLINK-FR-030 row cites `test_a_reset_without_halting_resumes_the_core` and `test_every_reset_type_leaves_the_core_halted`; JLINK-FR-090 count 23 → 25. |
-| 1.24 | 2026-10-05 | Claude | #178: JLINK-FR-031 row cites `test_registers_read_after_a_reset_are_the_reset_s`, `test_a_reset_flushes_gdb_s_register_cache` and `test_gdb_s_registers_are_stale_after_a_monitor_reset`; JLINK-FR-090 count 25 → 27. |
+| 1.23 | 2026-10-05 | Claude | #204: Review & Approval table points to the merge of the pull request that last changed the document, which is the review and approval (ETB-SUP8-001 §5.7); no per-change signatures or dates. |
+| 1.24 | 2026-10-05 | Claude | #177: JLINK-FR-030 row cites `test_a_reset_without_halting_resumes_the_core` and `test_every_reset_type_leaves_the_core_halted`; JLINK-FR-090 count 23 → 25. |
+| 1.25 | 2026-10-05 | Claude | #178: JLINK-FR-031 row cites `test_registers_read_after_a_reset_are_the_reset_s`, `test_a_reset_flushes_gdb_s_register_cache` and `test_gdb_s_registers_are_stale_after_a_monitor_reset`; JLINK-FR-090 count 25 → 27. |
 
 ---
 
@@ -722,11 +723,18 @@ tests in `tests/instruments/pico_sht30/`.
 
 ## 18. Review & Approval
 
-| Role | Name | Signature / Electronic Approval | Date |
-|---|---|---|---|
-| Author | Claude | Approved | 2026-09-19 |
-| Technical Reviewer | Dermot Murphy | — | *pending* |
-| Quality Assurance | Dermot Murphy | — | *pending* |
-| Approver | Dermot Murphy | — | *pending* |
+Review and approval of this document are not entered in this table. They are
+given by the merge of the pull request that last changed the document, and that
+merge is the record (ETB-SUP8-001 §5.7). The evidence is the pull request, its
+CI result and its merge record: who merged it, when, and the merge commit. The
+last row of the revision history names the issue, and the issue links the pull
+request.
+
+| Role | Name | Recorded by |
+|---|---|---|
+| Author | Claude | The commits in the pull request |
+| Technical Reviewer | Dermot Murphy | The merge of the pull request that last changed this document |
+| Quality Assurance | Dermot Murphy | The merge of the pull request that last changed this document |
+| Approver | Dermot Murphy | The merge of the pull request that last changed this document |
 
 > **Note:** This document is under configuration management (SUP.8). Post-approval changes require a change request (SUP.10) and a new document version.
