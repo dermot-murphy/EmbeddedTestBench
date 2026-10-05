@@ -20,6 +20,17 @@ updates:
       interval: weekly
     labels:
       - process
+    ignore:
+      # CStyleCheck v1.6.0's action fails on every run: it writes its startup
+      # banner into the --log file that the action then parses as JSON
+      # ("could not read results JSON"), whatever the firmware contains.
+      # Reported as dermot-murphy/CStyleCheck#439; #222 declined for it. The
+      # pin stays at v1.5.1 (#203, ETB-ACQ4-001 §7). Remove this entry when a
+      # release with the fix appears, and move the pin then, regenerating
+      # .cstylecheck-baseline.json in the same change (#229).
+      - dependency-name: dermot-murphy/CStyleCheck
+        versions:
+          - "1.6.0"
 
   - package-ecosystem: pip
     directory: /

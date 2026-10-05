@@ -10,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-ACQ4-001 | **Version** | 0.6 |
+| **Document ID** | ETB-ACQ4-001 | **Version** | 0.7 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -30,6 +30,7 @@
 | 0.4 | 2026-10-05 | Claude | #203: §4.3 records the GitHub-owned actions and the runner images, and the CStyleCheck pin is re-dated. §6 adds Dependabot version updates. §7 records that CStyleCheck v1.6.0 was re-checked and is still broken, so the pin stays at v1.5.1. |
 | 0.5 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | 0.6 | 2026-10-05 | Claude | #228: §6 - Dependabot changes a Python requirement only when its range excludes a new release; #219, #223 and #224 declined because they raised floors the supported Pythons cannot install. |
+| 0.7 | 2026-10-05 | Claude | #229: §6 and §7 - Dependabot ignores CStyleCheck 1.6.0, whose action is broken (dermot-murphy/CStyleCheck#439); #222 declined for that reason. The pin stays at v1.5.1. |
 
 ---
 
@@ -125,7 +126,7 @@ Trust is stated so that it can be checked rather than assumed.
 | Vendor documentation changes | Checked when a driver is next worked on | A documented behaviour differs from what the driver assumes → problem, and the simulator is corrected |
 | Licence terms | Reviewed when a vendor product is added or upgraded | Terms that would require vendoring source → the dependency is not taken |
 | CStyleCheck | The style workflow's result | A failure unrelated to the firmware source → problem under ETB-SUP9-001 |
-| GitHub Actions and Python package versions | Dependabot version updates, weekly, `.github/dependabot.yml`, targeting `develop` (#203). For pip, `versioning-strategy: increase-if-necessary`: a requirement is changed only when its range excludes a new release (#228) | A Dependabot pull request → release notes read, CI result reviewed, merged or declined with the reason |
+| GitHub Actions and Python package versions | Dependabot version updates, weekly, `.github/dependabot.yml`, targeting `develop` (#203). For pip, `versioning-strategy: increase-if-necessary`: a requirement is changed only when its range excludes a new release (#228). For GitHub Actions, CStyleCheck 1.6.0 is ignored (§7, #229) | A Dependabot pull request → release notes read, CI result reviewed, merged or declined with the reason |
 | Runner and action deprecations | Annotations on CI runs | A deprecation warning → ticket to move the pin before the deadline (#203 was the Node.js 20 warning) |
 
 There is no supplier audit, no supplier scorecard and no escalation path to any
@@ -177,6 +178,13 @@ rather than by reading about it:
    lines, and `json.loads` failed on each - the step would fail whatever the
    firmware contained. No newer release exists. The pin therefore stays at
    v1.5.1, and the baseline is not regenerated.
+   **Declined and ignored, 2026-10-05 (#229).** Dependabot proposed v1.6.0 as
+   #222; its `Embedded C standard` check failed with the same error, and it was
+   declined. The defect is reported to the supplier as
+   dermot-murphy/CStyleCheck#439. `.github/dependabot.yml` ignores version
+   1.6.0 of `dermot-murphy/CStyleCheck`, with this reason, so it is not proposed
+   again. Remove that entry when a release with the fix appears, and move the
+   pin then, with the regenerated baseline (#229).
 3. **An exact pin is what ETB-SUP8-001 §4 asks for anyway**, because a checker
    that silently changes its rule set changes what a green build means.
 
