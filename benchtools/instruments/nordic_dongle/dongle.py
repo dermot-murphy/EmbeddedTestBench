@@ -21,11 +21,13 @@ Traces to: BLE-FR-001 .. BLE-FR-062, BLE-ARC-001, BLE-DD-DONGLE, BLE-DD-FIRMWARE
 
 from __future__ import annotations
 
+import logging
 import time
 from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
 from ...analysis.samples import NUMBER, SampleSet, extract_number
+from ...core.events import log_event
 from ...core.errors import (
     BenchToolsError,
     ConfigurationError,
@@ -52,6 +54,7 @@ from .constants import (
     DEFAULT_COMMAND_TIMEOUT,
     DEFAULT_SCAN_MS,
     COMMAND_TIMEOUT_RANGE,
+    CONNECT_ATTEMPTS,
     CONNECT_TIMEOUT_RANGE,
     DEFAULT_CONNECT_TIMEOUT,
     DISCONNECT_EVENT_TIMEOUT,
@@ -59,6 +62,7 @@ from .constants import (
     SERVICE_DISCOVERY_TIMEOUT,
     DONGLE_LIMITS,
     PROTOCOL_VERSION,
+    REASON_NOT_ESTABLISHED,
     AddressType,
     DongleLimits,
     ScanFilter,
@@ -75,8 +79,24 @@ from .protocol import (
 from .session import DongleCommandError, DongleSession
 from .simulator import SimulatedDongle
 
-__all__ = ["DisconnectSample", "NordicDongle", "Sensor"]
+__all__ = ["DisconnectSample", "LinkLostError", "NordicDongle", "Sensor"]
 
+
+class LinkLostError(InstrumentError):
+    """A connection attempt the dongle ended with ``+disc``, and why.
+
+    :param reason: The reason the dongle gave, as it wrote it - ``0x3e``,
+        ``timeout`` - or empty if it gave none.
+    """
+
+    def __init__(self, message: str, reason: str = "") -> None:
+        super().__init__(message)
+        self.reason = reason
+
+    @property
+    def not_established(self) -> bool:
+        """Whether the link failed to establish (HCI 0x3E): worth another try."""
+        return self.reason.lower() == REASON_NOT_ESTABLISHED
 
 
 @dataclass
@@ -833,23 +853,51 @@ class NordicDongle(Instrument):
         self,
         timeout: Optional[float] = None,
         connect_timeout: float = DEFAULT_CONNECT_TIMEOUT,
+        attempts: int = CONNECT_ATTEMPTS,
     ) -> Sensor:
         """Connect to the selected sensor and wait for its UART service.
 
         On any failure the dongle is told to disconnect before this raises, so
         a half-open link cannot refuse the next attempt.
 
-        :param timeout: Longest to wait overall. Defaults to the connect window
-            plus time for the UART service to be found.
+        A link that fails to establish - the dongle ends it with HCI reason
+        0x3E - is tried again, up to *attempts* in all, as a command
+        document's ``connect`` step does. Each failed attempt that is tried
+        again is logged as a warning and a ``ble_connect_attempt`` record, so a
+        flaky link stays visible (#180). Every other failure raises at once:
+        a closed connect window or a missing service is about the sensor.
+
+        :param timeout: Longest to wait for each attempt. Defaults to the
+            connect window plus time for the UART service to be found.
         :param connect_timeout: How long the dongle listens for the sensor.
             Needs protocol 1.2; an older dongle keeps its own 5 s window, and
             that is logged. A sensor that advertises rarely needs longer than
             its advertising interval.
+        :param attempts: Most links to try on 0x3E; 1 tries once.
         :raises ConfigurationError: if *connect_timeout* is out of range.
         :raises InstrumentError: if the sensor does not link, or links but
             does not become ready, in time. The message says which.
         """
         sensor = self._require_selected()
+        attempts = max(1, int(attempts))
+        for attempt in range(1, attempts):
+            try:
+                return self._open_link_once(sensor, timeout, connect_timeout)
+            except LinkLostError as exc:
+                if not exc.not_established:
+                    raise
+                text = ("connection attempt %d of %d to %s failed to establish (reason %s); "
+                        "trying again" % (attempt, attempts, sensor.address, exc.reason))
+                log_event(self._logger, "ble_connect_attempt", text,
+                          {"address": sensor.address, "attempt": attempt,
+                           "attempts": attempts, "reason": exc.reason},
+                          level=logging.WARNING)
+                self._session.note(text)
+        return self._open_link_once(sensor, timeout, connect_timeout)
+
+    def _open_link_once(self, sensor: Sensor, timeout: Optional[float],
+                        connect_timeout: float) -> Sensor:
+        """One connection attempt: :meth:`open_link` without the retry."""
         self._start_connect(connect_timeout)
         if timeout is None:
             timeout = connect_timeout + SERVICE_DISCOVERY_TIMEOUT
@@ -863,7 +911,7 @@ class NordicDongle(Instrument):
                 )
                 state = event.get("state")
                 if event.name == "disc":
-                    raise InstrumentError(
+                    raise LinkLostError(
                         "could not connect to %s: the dongle reported %s%s. "
                         "A sensor that advertises rarely can fall outside the "
                         "connect window; try again, or check it is in range and "
@@ -872,7 +920,8 @@ class NordicDongle(Instrument):
                             sensor.address,
                             "the connection lost" if linked else "no connection",
                             " (reason %s)" % event.get("reason") if event.get("reason") else "",
-                        )
+                        ),
+                        reason=str(event.get("reason") or ""),
                     )
                 if state == "linked":
                     linked = True

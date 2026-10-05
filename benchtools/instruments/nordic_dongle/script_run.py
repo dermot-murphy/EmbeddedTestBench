@@ -16,7 +16,7 @@ from dataclasses import dataclass, field, replace
 from typing import Dict, List, Mapping, Optional
 
 from ...core.errors import BenchToolsError, TransportTimeoutError
-from .constants import DongleError
+from .constants import CONNECT_ATTEMPTS, DongleError
 from .script import (
     _ADDRESS,
     _VARIABLE,
@@ -240,9 +240,9 @@ CONNECT_SCAN_S = 10.0
 #: catch a second notification.
 FRAME_WINDOW_S = 0.5
 
-#: Connection attempts a ``connect`` step makes. A sensor that advertises rarely
-#: can fall outside a connect window; each failure is in the session log.
-CONNECT_ATTEMPTS = 3
+# CONNECT_ATTEMPTS, imported above and exported from here, is how many links a
+# ``connect`` step tries. A sensor that advertises rarely can fall outside a
+# connect window; each failed attempt is in the event log.
 
 
 class EventLog:
@@ -442,19 +442,19 @@ def _run_connect(dongle, step: ScriptStep, scan_s: float, attempts: int,
             dongle.select(step.target)
         else:
             dongle.select_by_name(step.target)
-        failure = None
-        for _ in range(max(1, attempts)):
+        # The step makes every attempt itself, whatever the failure, so
+        # open_link is asked for one: its own retry would multiply them.
+        window = {} if step.timeout_s is None else {"connect_timeout": step.timeout_s}
+        attempts = max(1, attempts)
+        for attempt in range(1, attempts + 1):
             try:
-                if step.timeout_s is not None:
-                    dongle.open_link(connect_timeout=step.timeout_s)
-                else:
-                    dongle.open_link()
-                failure = None
+                dongle.open_link(attempts=1, **window)
                 break
             except BenchToolsError as exc:     # retried, then reported
-                failure = exc
-        if failure is not None:
-            raise failure
+                if attempt == attempts:
+                    raise
+                log.event("CONNECT", step, "%s: attempt %d of %d failed: %s"
+                          % (step.command, attempt, attempts, _first_sentence(exc)))
     except BenchToolsError as exc:             # reported, not raised
         log.event("CONNECT", step, "%s: no link" % step.command, ERROR)
         return _result(step, ERROR, _first_sentence(exc), command=step.command)

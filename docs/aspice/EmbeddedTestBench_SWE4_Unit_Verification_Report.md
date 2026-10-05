@@ -10,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE4-002 | **Version** | 1.25 |
+| **Document ID** | ETB-SWE4-002 | **Version** | 1.26 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -59,6 +59,7 @@
 | 1.23 | 2026-10-05 | Claude | #178: whole suite re-run (§4); SWE4-UT-JLINK 98 → 100 and SWE4-UT-JLINKSIM 25 → 27 in §5; §9.4 added - registers read after `reset(halt=True)` on the bench, before and after the fix, with the cause confirmed; D-49 added and closed. |
 | 1.24 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | 1.25 | 2026-10-05 | Claude | #214: whole suite re-run (§4); SWE4-UT-BLESAMPLE (5) added to §5; §10.4 added - `sample_command` timed on a 15.6 ms clock under CPython 3.11, before and after the fix; D-50 added and closed. |
+| 1.26 | 2026-10-05 | Claude | #180: whole suite re-run (§4); SWE4-UT-BLE re-counted 64 → 99 and SWE4-UT-BLESCRIPT 58 → 109 in §5; D-51 added and closed in the simulator, not yet confirmed on hardware. |
 
 ---
 
@@ -87,13 +88,13 @@ It is deliberately a separate work product from the specification. A specificati
 
 | Metric | Result |
 |---|---|
-| Tests executed | **3 173** |
-| Passed | **3 167** |
+| Tests executed | **3 189** |
+| Passed | **3 183** |
 | Failed | 0 |
 | Errors | 0 |
 | Skipped | 6 |
 | Statement coverage | Not measured for revision 1.0: `pytest-cov` is not installed on the bench PC. Revision 0.9 measured **95%** (13 695 statements, 679 missed). |
-| Execution time | 205.4 s, without coverage instrumentation |
+| Execution time | 228.6 s, without coverage instrumentation |
 | Runtime | CPython 3.14.7, Windows 10 (10.0.19045) |
 | Framework | pytest 9.1.1 |
 
@@ -200,7 +201,7 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | SWE4-UT-S2LPCLI | `instruments/s2lp/test_cli.py` | 35 | Pass |
 | SWE4-UT-S2LPSESSION | `instruments/s2lp/test_session.py` | 14 | Pass |
 | SWE4-UT-PSU | `instruments/gpd3303d/test_psu.py` | 102 | Pass |
-| SWE4-UT-BLE | `instruments/nordic_dongle/test_dongle.py` | 64 | Pass |
+| SWE4-UT-BLE | `instruments/nordic_dongle/test_dongle.py` | 99 | Pass |
 | SWE4-UT-BLEFIRMWARE | `instruments/nordic_dongle/test_firmware.py` | 49 | Pass |
 | SWE4-UT-BLEPROTO | `instruments/nordic_dongle/test_protocol.py` | 34 | Pass |
 | SWE4-UT-BLEPROFILE | `instruments/nordic_dongle/test_profile.py` | 30 | Pass |
@@ -210,7 +211,7 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | SWE4-UT-SERIAL | `core/transport/test_serial.py` | 31 | Pass |
 | SWE4-UT-BLESESSION | `instruments/nordic_dongle/test_session.py` | 23 | Pass |
 | SWE4-UT-BLECLI | `instruments/nordic_dongle/test_cli.py` | 46 | Pass |
-| SWE4-UT-BLESCRIPT | `instruments/nordic_dongle/test_script.py` | 58 | Pass |
+| SWE4-UT-BLESCRIPT | `instruments/nordic_dongle/test_script.py` | 109 | Pass |
 | SWE4-UT-BLELATENCY | `instruments/nordic_dongle/test_latency.py` | 20 | Pass |
 | SWE4-UT-BLEFW | `instruments/nordic_dongle/test_firmware_protocol.py` | 17 | Pass |
 | SWE4-UT-BLESAMPLE | `instruments/nordic_dongle/test_sampling.py` | 5 | Pass |
@@ -1500,6 +1501,7 @@ SDK to provide it transitively.
 | D-48 | `JLinkProbe.reset(halt=False)` sent `monitor reset 0` and recorded the target as running, but the J-Link GDB Server halts the core after `monitor reset` whatever the reset type, and nothing resumed it. Found on the bench in the hardware qualification (#176), ticketed as #177. The simulator hid it: D-39 had modelled `monitor reset 0` as reset-and-run | **Major**: a test that resets the target "running" and then talks to it finds a halted target, and the failure points at the radio, not the probe | **Closed** - `reset(halt=False)` resumes with `run()` (`-exec-continue`) after the reset; the simulator leaves the core halted after every reset type. Confirmed on hardware 2026-10-05 (§9.3) | `test_a_reset_without_halting_resumes_the_core`, `test_every_reset_type_leaves_the_core_halted` (2), `TestIsItRunning` |
 | D-49 | Registers read straight after `JLinkProbe.reset()` were the ones GDB had cached before the reset. `monitor reset` and `monitor halt` go to the GDB Server, and GDB never sees them change the core. Found in the hardware qualification (#176, QS-01b, where the first PC read was `0x00000000`), ticketed as #178. The simulator hid it: it answered every register read from the core | **Major**: a register read after a reset, a common first step of a debug test, returned a value the core did not hold (ETB-SYS2-004) | **Closed** - `reset` sends `maintenance flush register-cache` after the reset; the simulator models GDB's register cache. Cause and fix confirmed on hardware 2026-10-05 (§9.4) | `test_registers_read_after_a_reset_are_the_reset_s`, `test_a_reset_flushes_gdb_s_register_cache`, `test_gdb_s_registers_are_stale_after_a_monitor_reset`, `test_gdb_reads_the_registers_again_when_the_target_stops` |
 | D-50 | `NordicDongle.sample_command` timed its interval with `time.monotonic()`, which before Python 3.13 on Windows is `GetTickCount64()` at 15.6 ms. A command could be sent up to one tick before it was due and the recorded times were quantised to a tick. Found by `test_readings_are_spaced_by_the_interval` failing intermittently on the bench PC (CPython 3.11.1), ticketed as #214 | **Minor**: commands spaced up to 15.6 ms closer than the `interval` documented as the minimum, and times coarser than they appear | **Closed** - timed with `time.perf_counter()`, and the sleep repeated until the command is due (§10.4) | `test_readings_are_spaced_by_the_interval`, `test_no_command_is_sent_before_it_is_due_when_a_sleep_ends_early` |
+| D-51 | `NordicDongle.open_link` made one attempt. A link the dongle ended with HCI reason 0x3E ("connection failed to be established") errored the step, although a command document's `connect` step tried the link up to three times. Found in the hardware qualification (#176): 2 of about 10 `open_link` calls failed so, each within a minute of `ECURESET HARD`, and the next attempt linked each time. Ticketed as #180 | **Minor**: a rerun succeeds, but a specification step errors for a reason that has nothing to do with the target | **Closed** in the simulator - `open_link` tries a link that fails to establish again, up to `CONNECT_ATTEMPTS` (3) in all, logging each failed attempt as a warning and a `ble_connect_attempt` record and in the session log; no other failure is retried; a `connect` step asks for one attempt per try, so the two retries do not multiply, and logs each failed try. `SimulatedSensor.not_established` reproduces the failure. Not yet confirmed on hardware | `TestLinkNotEstablished` (7), `test_each_failed_connect_attempt_is_logged`, `test_a_connect_step_makes_no_more_attempts_than_it_is_allowed` |
 
 No open defects.
 

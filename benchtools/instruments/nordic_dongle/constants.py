@@ -83,6 +83,18 @@ DEFAULT_COMMAND_TIMEOUT = 3.0
 DEFAULT_CONNECT_TIMEOUT = 15.0
 CONNECT_TIMEOUT_RANGE = (1.0, 60.0)
 
+#: Links a connection tries before giving up: a command document's ``connect``
+#: step, and :meth:`NordicDongle.open_link` on a link that failed to establish.
+#: Seen on hardware within a minute of a sensor reset, the next try linked
+#: (#180).
+CONNECT_ATTEMPTS = 3
+
+#: The HCI reason a link that failed to establish ends with ("connection
+#: failed to be established"), as the dongle writes it in ``+disc``. The one
+#: failure :meth:`NordicDongle.open_link` tries again: it says nothing about
+#: the sensor, where a closed connect window or a missing service does.
+REASON_NOT_ESTABLISHED = "0x3e"
+
 #: How long the dongle waits for a sensor's reply, and the range it accepts
 #: (``cmd <hex> timeout=<ms>``, protocol 1.3). Older firmware waits a fixed 2 s.
 FIRMWARE_COMMAND_TIMEOUT = 2.0

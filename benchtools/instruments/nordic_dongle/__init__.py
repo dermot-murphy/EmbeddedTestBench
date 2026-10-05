@@ -42,7 +42,7 @@ from .constants import (
     DongleLimits,
     ScanFilter,
 )
-from .dongle import NordicDongle, Sensor
+from .dongle import LinkLostError, NordicDongle, Sensor
 from .script import (
     CommandScript,
     ScriptStep,
@@ -73,6 +73,7 @@ from .simulator import DEFAULT_SENSORS, SimulatedDongle, SimulatedSensor
 
 __all__ = [
     "NordicDongle",
+    "LinkLostError",
     "Sensor",
     "CommandScript",
     "ScriptRun",

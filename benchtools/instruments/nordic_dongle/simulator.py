@@ -46,6 +46,9 @@ class SimulatedSensor:
         and finds the UART service; ``"timeout"`` never links, as a sensor that
         advertises too rarely for the connect window does; ``"no_service"``
         links but never becomes ready.
+    :param not_established: How many of the next connection attempts link
+        and are then lost with reason 0x3e, the link failing to establish,
+        before *connect_outcome* applies. Each attempt counts one off.
     """
 
     address: str
@@ -64,6 +67,7 @@ class SimulatedSensor:
     latency_overrides: Dict[str, int] = field(default_factory=dict)
     connectable: bool = True
     connect_outcome: str = "ready"
+    not_established: int = 0
     #: Commands after which the sensor drops the link, and how long after, in
     #: microseconds - a reset, say.
     disconnect_on: Dict[str, int] = field(default_factory=dict)
@@ -505,10 +509,8 @@ class SimulatedDongle:
             return [self._error(DongleError.BLE, "the BLE stack refused the request")]
 
         self._scanning = False
-        if sensor.connect_outcome == "timeout":
-            # The connect window closes without hearing the sensor.
-            self.clock_us += 5_000_000
-            self._queue.append("+disc t=%d reason=timeout" % self.clock_us)
+        if sensor.not_established > 0 or sensor.connect_outcome == "timeout":
+            self._fail_connect(sensor)
             return ["ok connecting=1 addr=%s timeout_ms=%d" % (sensor.address, timeout_ms)]
 
         self._connected = sensor
@@ -523,6 +525,22 @@ class SimulatedDongle:
                 "+conn t=%d state=ready interval_us=30000" % self.clock_us
             )
         return ["ok connecting=1 addr=%s timeout_ms=%d" % (sensor.address, timeout_ms)]
+
+    def _fail_connect(self, sensor: SimulatedSensor) -> None:
+        """Queue the events of a connection attempt that ends without a link."""
+        if sensor.not_established > 0:
+            # Observed within a minute of a sensor reset (#180): the link comes
+            # up and is lost before it is established.
+            sensor.not_established -= 1
+            self.clock_us += 30_000
+            self._queue.append("+conn t=%d addr=%s state=linked interval_us=30000"
+                               % (self.clock_us, sensor.address))
+            self.clock_us += 60_000
+            self._queue.append("+disc t=%d reason=0x3e" % self.clock_us)
+            return
+        # The connect window closes without hearing the sensor.
+        self.clock_us += 5_000_000
+        self._queue.append("+disc t=%d reason=timeout" % self.clock_us)
 
     def _cmd_disconnect(self, arguments: List[str]) -> List[str]:
         if self._connected is None:
