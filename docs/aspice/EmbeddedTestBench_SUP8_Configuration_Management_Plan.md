@@ -31,7 +31,7 @@
 | 0.7 | 2026-10-05 | Claude | #185: §5.5 added - the repository settings baseline (ruleset, merge, security, actions), with the enforcement observed on 2026-10-05. Changed together with CLAUDE.md. |
 | 0.8 | 2026-10-05 | Claude | #190: gitflow adopted. §5.1 adds `release/` and `hotfix/` branches, and their pull requests into `main` and the back-merge into `develop` are allowed by procedure; §5.6 added - release and hotfix procedure, tag on the merge commit in `main`. Changed together with CLAUDE.md. |
 | 0.9 | 2026-10-05 | Claude | #188: §6 states the version and tag format (`0.01.0000`, tag `v0.01.0000`) and the PEP 440 normalisation of the packaged version; §5.5 adds the tag ruleset protecting `v*` tags. Changed together with CLAUDE.md. |
-| 0.10 | 2026-10-05 | Claude | #204: §5.7 added - Dermot Murphy is the only Reviewer and Approver, and the merge of a pull request is the review and approval of everything in it; the evidence is the pull request, its CI result and its merge record. Claude merges only on the owner's explicit instruction for that pull request. §5.5 gives this as the reason the ruleset requires 0 approvals. Decision recorded: Review & Approval tables point to the merge rather than being filled in from merge records. §11 points to the merge. Changed together with CLAUDE.md. |
+| 0.10 | 2026-10-05 | Claude | #204: §5.7 added - Dermot Murphy is the only Reviewer and Approver, and the merge of a pull request is the review and approval of everything in it; the evidence is the pull request, its CI result and its merge record. Either the owner merges, or Claude merges on the owner's explicit instruction for that pull request with the merge commit note `Merged by Claude Code on the owner's instruction (<date>).`; a merge without the note is the owner's own. §5.5 gives this as the reason the ruleset requires 0 approvals. Decision recorded: Review & Approval tables point to the merge rather than being filled in from merge records. §11 points to the merge. Changed together with CLAUDE.md. |
 
 ---
 
@@ -262,16 +262,27 @@ precondition of the merge, and the ruleset enforces it.
 | Act of review and approval | The merge of the pull request, into `develop` or `main` |
 | Checks applied before merging | ETB-TMPL-001 §6.1, checks C1 to C6 (ETB-SUP1-001 §6.5) |
 | Precondition | Every required status check green (§5.5) |
-| Evidence | The pull request, its CI result, and its merge record: who merged it, when, and the merge commit |
+| Evidence | The pull request, its CI result, and its merge record: who merged it, when, and the merge commit, whose body carries the note when Claude merged on instruction |
 | Required approvals in the ruleset | 0. The only collaborator opens every pull request, including Claude's work, and cannot approve their own, so a GitHub review approval is not available; the merge carries the approval instead |
-| Merges by Claude | Never on Claude's own initiative. Only on the owner's explicit instruction for that pull request, which is then the owner's review and approval. Claude never records an approval on the owner's behalf in any other way (`CLAUDE.md`) |
+| Who merges | The owner, or Claude on the owner's explicit instruction for that pull request; either merge is the review and approval (see below) |
+| Merges by Claude | Never on Claude's own initiative. Only on the owner's explicit instruction for that pull request, with the merge commit note below. Claude never records an approval on the owner's behalf in any other way (`CLAUDE.md`) |
 
-**The merge record names the owner's account in both cases.** Claude works
-through the owner's GitHub account (checked with `gh api user` on 2026-10-05),
-so a merge Claude makes on instruction is recorded under `dermot-murphy` exactly
-as a merge the owner makes. The record does not distinguish them; the rule
-above, that Claude merges only on the owner's explicit instruction for that
-pull request, is what makes either one the owner's approval.
+**Two ways of merging are allowed (owner's decision, 2026-10-05).**
+
+1. The owner merges the pull request himself.
+2. The owner instructs Claude to merge that pull request, and Claude merges it
+   with a merge commit whose body contains the line
+   `Merged by Claude Code on the owner's instruction (<date>).`, for example:
+   `gh pr merge <n> --merge --body "Merged by Claude Code on the owner's instruction (2026-10-05)."`
+
+Claude works through the owner's GitHub account (checked with `gh api user` on
+2026-10-05), so the merge record names `dermot-murphy` in both cases. The note
+is what tells them apart: **a merge commit without that note is the owner's own
+merge.** Either way, the merge is the Reviewer's and the Approver's approval.
+That `--body` sets the merge commit body was checked against
+`gh pr merge --help` on 2026-10-05 ("Body text for the merge commit"); it has
+not yet been observed on a merge in this repository, so the first such merge
+is read back to confirm the note is present.
 
 **Review & Approval tables point to the merge.** Two ways of showing approval
 in the documents were considered in #204: each document's Review & Approval

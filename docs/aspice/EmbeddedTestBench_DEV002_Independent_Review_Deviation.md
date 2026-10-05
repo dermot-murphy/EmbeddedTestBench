@@ -22,7 +22,7 @@
 |---|---|---|---|
 | 0.1 | 2026-09-19 | Claude | Initial |
 | 0.2 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
-| 0.3 | 2026-10-05 | Claude | #204: §4 states how review and approval are given - Reviewer and Approver remain the same person by decision, both given in one act, the merge of the pull request; evidence is the pull request, its CI result and its merge record. §5 states that the compensating measures remain. §7 points to the merge (ETB-SUP8-001 §5.7). |
+| 0.3 | 2026-10-05 | Claude | #204: §4 states how review and approval are given - Reviewer and Approver remain the same person by decision, both given in one act, the merge of the pull request; evidence is the pull request, its CI result and its merge record; a merge Claude makes on the owner's instruction carries a merge commit note saying so. §5 states that the compensating measures remain. §7 points to the merge (ETB-SUP8-001 §5.7). |
 
 ---
 
@@ -63,6 +63,10 @@ for a reader to notice.
 - The evidence is the pull request, its CI result and its merge record: who
   merged it, when, and the merge commit. Each document's Review & Approval table
   points to that record rather than carrying a signature.
+- The owner may merge himself, or instruct Claude to merge. A merge Claude makes
+  on instruction carries the merge commit note `Merged by Claude Code on the
+  owner's instruction (<date>).`; a merge without it is the owner's own. Either
+  way the merge is the review and approval (ETB-SUP8-001 §5.7).
 
 ---
 

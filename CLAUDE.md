@@ -68,6 +68,12 @@ who merged it, when, and the merge commit. See `ETB-SUP8-001 §5.7`.
 - A merge happens only on the owner's **explicit instruction for that pull
   request**. That instruction, and the merge made on it, is the owner's review
   and approval.
+- **When Claude merges on instruction, the merge commit says so.** Use a merge
+  commit with this body line, with the date of the merge:
+
+  ```sh
+  gh pr merge <n> --merge --body "Merged by Claude Code on the owner's instruction (2026-10-05)."
+  ```
 - **Claude never records an approval on the owner's behalf in any other way**:
   no GitHub review approval, no entry in a document's Review & Approval table,
   no comment, status or signature saying the change is approved.
@@ -75,10 +81,14 @@ who merged it, when, and the merge commit. See `ETB-SUP8-001 §5.7`.
 - The Review & Approval table of each controlled document points to the merge
   of the pull request that last changed the document. It is not filled in.
 
-Claude works through the owner's GitHub account, so a merge Claude makes on
-instruction is recorded under `dermot-murphy`, the same as one the owner makes.
-The rule above is what makes it the owner's approval; the record alone does not
-show who pressed the button.
+Both ways of merging are allowed: the owner merges the pull request himself, or
+Claude merges it on his instruction with the note above. Claude works through
+the owner's GitHub account, so the merge record names `dermot-murphy` either
+way; the note is what tells them apart. **A merge commit without the note is
+the owner's own merge.** Either way, the merge is the Reviewer's and Approver's
+approval. `gh pr merge --help` describes `--body` as "Body text for the merge
+commit" (checked 2026-10-05); read the first such merge back to confirm the note
+is there.
 
 ## Releases and hotfixes
 
