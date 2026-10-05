@@ -202,6 +202,25 @@ recorded in `ETB-SUP8-001 §5.5`:
 Read the settings back through the API before relying on them. If a setting is
 changed, change `ETB-SUP8-001 §5.5` with it.
 
+## Generated outputs: the wiki and the home page
+
+The GitHub wiki and the `gh-pages` branch (the home page served by GitHub
+Pages) are generated from the repository by `scripts/publish_docs.py` and
+published from `main` by `.github/workflows/wiki_publish.yml` and
+`pages_publish.yml` (`ETB-SUP8-001 §5.8`, #184).
+
+- **Never edit them by hand, and never push to them from a session.** The next
+  run overwrites a hand edit, and anything pushed before a release describes
+  work that is not in `main`.
+- To change a wiki page, change the document in `docs/` (or the README); to
+  change the page layout, change the generator and its test
+  (`tests/test_publish_docs.py`). The change reaches the wiki at the next
+  release.
+- To look at the output, run the generator into a temporary directory:
+  `python scripts/publish_docs.py wiki <dir>` or `... home <dir>`.
+- The wiki push uses the `WIKI_TOKEN` secret, because the default
+  `GITHUB_TOKEN` cannot push to a wiki.
+
 ## Verify, don't assert
 
 The retarget trap above is one instance of a general failure this project has

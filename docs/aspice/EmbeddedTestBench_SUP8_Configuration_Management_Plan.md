@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SUP8-001 | **Version** | 0.10 |
+| **Document ID** | ETB-SUP8-001 | **Version** | 0.11 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -32,6 +32,7 @@
 | 0.8 | 2026-10-05 | Claude | #190: gitflow adopted. §5.1 adds `release/` and `hotfix/` branches, and their pull requests into `main` and the back-merge into `develop` are allowed by procedure; §5.6 added - release and hotfix procedure, tag on the merge commit in `main`. Changed together with CLAUDE.md. |
 | 0.9 | 2026-10-05 | Claude | #188: §6 states the version and tag format (`0.01.0000`, tag `v0.01.0000`) and the PEP 440 normalisation of the packaged version; §5.5 adds the tag ruleset protecting `v*` tags. Changed together with CLAUDE.md. |
 | 0.10 | 2026-10-05 | Claude | #204: §5.7 added - Dermot Murphy is the only Reviewer and Approver, and the merge of a pull request is the review and approval of everything in it; the evidence is the pull request, its CI result and its merge record. Either the owner merges, or Claude merges on the owner's explicit instruction for that pull request with the merge commit note `Merged by Claude Code on the owner's instruction (<date>).`; a merge without the note is the owner's own. §5.5 gives this as the reason the ruleset requires 0 approvals. Decision recorded: Review & Approval tables point to the merge rather than being filled in from merge records. §11 points to the merge. Changed together with CLAUDE.md. |
+| 0.11 | 2026-10-05 | Claude | #184: §5.8 added - the GitHub wiki and the `gh-pages` home page are generated outputs, published from `main` by workflow and never edited by hand; §4 lists them as configuration items; §5.5 adds the Pages source, the repository homepage and the `WIKI_TOKEN` secret. Changed together with CLAUDE.md. |
 
 ---
 
@@ -76,6 +77,7 @@ physical bench instruments whose identity affects a result.
 | Bench descriptions | `benches/**` | Bench name | git |
 | Bench specifications | `specs/**` | Spec filename | git |
 | CI workflows and actions | `.github/workflows/*.yml`, `action.yml` | Filename | git |
+| Generated outputs | GitHub wiki; `gh-pages` branch (home page) | Wiki page name; file path | Regenerated from `main` by `wiki_publish.yml` and `pages_publish.yml`; never edited by hand (§5.8) |
 | C rule configuration | `.cstylecheck.yml`, `.cstylecheck-baseline.json` | Filename | git — the baseline changes only with a recorded reason |
 | Python rule configuration | `[tool.pylint]` in `pyproject.toml`, `.pylint-baseline.json` | Filename | git — as above |
 | Build tools | Python, `nrfutil`, GNU Arm toolchain, nRF5 SDK | Name + exact version | Pinned in the workflow; recorded in ETB-SVD-001 |
@@ -196,6 +198,9 @@ against the API rather than assumed (ETB-RISK-004).
 | Actions | Allowed actions | GitHub-owned, plus `carlosperate/arm-none-eabi-gcc-action@*` and `dermot-murphy/*` |
 | Actions | Default `GITHUB_TOKEN` permission | Read; Actions may not approve pull requests |
 | Repository | Description, topics | Set; Discussions off; Wiki on (#184) |
+| Repository | Homepage | `https://dermot-murphy.github.io/EmbeddedTestBench/` (#184) |
+| Pages | Source, build | Branch `gh-pages`, path `/`, legacy (branch) build; HTTPS enforced (#184) |
+| Actions | Repository secrets | `WIKI_TOKEN`: a personal access token of the owner's account, used only by `wiki_publish.yml` to push the wiki (#184) |
 
 The required checks are the jobs that run on every push and pull request. The
 firmware workflow's jobs are path-filtered and are therefore not required: a
@@ -216,6 +221,12 @@ has not been verified, so the procedure assumes it does.
 **Dependabot.** Whether `target-branch` in `dependabot.yml` redirects security
 updates has not been verified. Until it is, a Dependabot pull request is assumed
 to open against `main` and is retargeted to `develop` before it is merged (§5.1).
+
+**Pages, observed 2026-10-05 (#184).** Pushing the new `gh-pages` branch enabled
+GitHub Pages by itself: a read of the Pages API straight after the push already
+showed source `gh-pages`, path `/`, legacy build, and the explicit request to
+enable it was refused as already done (HTTP 409). The site was built from the
+pushed commit and answered HTTP 200.
 
 
 ### 5.6 Releases and Hotfixes
@@ -299,6 +310,36 @@ in the document's last revision history row.
 ETB-SVD-001 is not changed by this: it describes the released baseline
 `v0.01.0000`, and a baseline is not edited (§7). Its table is brought into line
 when the SVD is next revised for a new baseline.
+
+### 5.8 Generated Outputs: Wiki and Home Page
+
+The GitHub wiki and the `gh-pages` branch are generated outputs of the
+repository (#184). Neither is edited by hand, and neither is pushed to from a
+working session: a hand edit is overwritten by the next run, and an unreleased
+change published there would describe something that is not in `main`.
+
+| Output | Generated by | Published by | Trigger | Authentication |
+|---|---|---|---|---|
+| Wiki: `Home`, one page per user guide and instrument note in `docs/`, one `ASPICE-<name>` page per ASPICE document, `ASPICE-Index`, `_Sidebar` | `scripts/publish_docs.py wiki` | `.github/workflows/wiki_publish.yml` | Push to `main` touching `README.md`, `docs/**`, the generator or the workflow; `workflow_dispatch` | `WIKI_TOKEN` (§5.5); the default `GITHUB_TOKEN` cannot push to a wiki |
+| Home page: `README.md`, `_config.yml` and the logo on `gh-pages`, served by GitHub Pages | `scripts/publish_docs.py home` | `.github/workflows/pages_publish.yml` | Push to `main` touching `README.md`, the brand assets, the generator or the workflow; `workflow_dispatch` | `GITHUB_TOKEN` with `contents: write` for that job |
+
+Both are published from `main` because under gitflow `main` is the released
+state (§5.1): the wiki describes the latest release, not work in progress on
+`develop`. Links from a published page to a repository file point at that file
+on `main`. A run pushes only when the generated content differs from what is
+published, and the generated content carries no timestamp, so a run over
+unchanged documents pushes nothing. Each workflow has a `dry_run` input that
+generates and reports the change without pushing.
+
+The wiki generator removes the existing pages before writing, so a renamed or
+deleted document leaves no stale page. Qualification run records under
+`docs/aspice/qualification/` are not given pages; a link to one points at the
+file in the repository. The generator is verified by
+`tests/test_publish_docs.py` (SWE4-UT-PUBLISH).
+
+The ASPICE pages were first published by hand on 2026-10-05 from `develop`
+(393d310), before these workflows existed; the generator keeps those page
+names, so its first run replaces those pages rather than duplicating them.
 
 ---
 
