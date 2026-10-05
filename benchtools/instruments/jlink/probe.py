@@ -808,14 +808,40 @@ class JLinkProbe(Instrument):
         :param halt: Hold the core halted after reset. On by default: resetting
             into a running target and then halting it races the start-up code, so
             a test would sometimes catch ``main`` and sometimes the reset handler.
+            ``False`` resets and then resumes the core.
+
+        The J-Link GDB Server halts the core after ``monitor reset`` whatever
+        the reset type, so a reset that is to leave the target running has to
+        resume it. Seen on 5C1712 with GDB Server V9.42 (issue #177): after
+        ``monitor reset 0`` alone DHCSR read 0x00030003 and the firmware stayed
+        silent. It is resumed with ``-exec-continue``, as :meth:`run` does,
+        rather than ``monitor go``, so that GDB knows the target is running.
+
+        GDB does not see a ``monitor`` command change the core, so after one it
+        still holds the registers it read before the reset. On 5C1712 (issue
+        #178) ``program_counter()`` after ``reset()`` returned the PC from
+        before the reset while ``monitor reg pc`` said 0x00000A80, the reset
+        handler; after ``maintenance flush register-cache`` GDB read 0x00000A80
+        too. The cache is therefore flushed after every reset.
         """
         self.monitor("reset" if halt else "reset 0", timeout=timeout)
+        self._cycle_counter_ready = False
         if halt:
             self.monitor("halt", timeout=timeout)
+            self._flush_register_cache(timeout=timeout)
             self._halted = True
         else:
-            self._halted = False
-        self._cycle_counter_ready = False
+            self._flush_register_cache(timeout=timeout)
+            self.run(timeout=timeout)
+
+    def _flush_register_cache(self, timeout: Optional[float] = None) -> None:
+        """Make GDB read the registers from the target again.
+
+        Needed after anything that changes the core behind GDB's back, which a
+        ``monitor`` command does. Raises if GDB refuses: a register read after
+        that would return values the target no longer holds.
+        """
+        self._session.execute_console("maintenance flush register-cache", timeout=timeout)
 
     def run(self, timeout: Optional[float] = None) -> None:
         """Let the target run. Returns as soon as it is running."""

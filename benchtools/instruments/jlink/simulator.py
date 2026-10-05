@@ -259,6 +259,9 @@ class SimulatedJLink:
         self.rtt_in: List[str] = []
         self.itm_events: List[Tuple[int, int, int]] = []
         self.monitor_log: List[str] = []
+        #: The registers as GDB last read them, by register number, or ``None``
+        #: when GDB would read them from the target. See :meth:`_gdb_registers`.
+        self.register_cache: Optional[Dict[int, int]] = None
         self._load_symbol_values()
         self._load_preset_memory()
 
@@ -465,7 +468,7 @@ class SimulatedJLink:
             return str(symbol.size)
         if text.startswith("$"):
             if text == "$pc":
-                return "0x%08x" % self.program_counter
+                return "0x%08x" % self._gdb_registers()[15]
             raise KeyError(text)
         symbol = self.firmware.symbols.get(text)
         if symbol is None:
@@ -603,10 +606,12 @@ class SimulatedJLink:
                 "No target connected to the J-Link.",
             )
         self.connected = True
+        self._registers_seen_by_gdb()
         return ["%s^connected" % token, "(gdb)"]
 
     def _mi_detach(self, _argument: str, token: str) -> List[str]:
         self.connected = False
+        self._registers_forgotten_by_gdb()
         return self._ok(token)
 
     # -- breakpoints ----------------------------------------------------
@@ -719,16 +724,22 @@ class SimulatedJLink:
         if not self.connected:
             return self._error(token, "The program is not being run.")
         results = self.resume()
+        if results:
+            self._registers_seen_by_gdb()
+        else:
+            self._registers_forgotten_by_gdb()
         return ["%s^running" % token, "(gdb)"] + self._stopped_lines(results)
 
     def _mi_step(self, _argument: str, token: str) -> List[str]:
         if not self.connected:
             return self._error(token, "The program is not being run.")
         results = self.step()
+        self._registers_seen_by_gdb()
         return ["%s^running" % token, "(gdb)"] + self._stopped_lines(results)
 
     def _mi_interrupt(self, _argument: str, token: str) -> List[str]:
         results = self.interrupt()
+        self._registers_seen_by_gdb()
         return self._ok(token) + self._stopped_lines(results)
 
     # -- memory ---------------------------------------------------------
@@ -786,18 +797,49 @@ class SimulatedJLink:
         names = ",".join('"%s"' % name for name in self.REGISTER_NAMES)
         return self._ok(token, "register-names=[%s]" % names)
 
+    def core_registers(self) -> Dict[int, int]:
+        """The core's registers as they are now, by GDB register number."""
+        registers = {}
+        for index in range(len(self.REGISTER_NAMES)):
+            if index == 15:
+                registers[index] = self.program_counter
+            elif index == 13:
+                registers[index] = 0x20008000
+            else:
+                registers[index] = index * 0x11111111 & 0xFFFFFFFF
+        return registers
+
+    def _gdb_registers(self) -> Dict[int, int]:
+        """The registers as GDB reports them, which is not always the core's.
+
+        GDB reads the registers when the target stops and keeps them until it
+        sees the target run or stop again, or is told to flush them. A
+        ``monitor`` command goes to the GDB Server and GDB never sees what it
+        does, so after ``monitor reset`` GDB still reports the registers from
+        before the reset: on 5C1712 the PC from before the reset where the
+        server said 0x00000A80 (issue #178). Without this a driver that never
+        flushed the cache read correct registers here and wrong ones on a probe.
+        """
+        if self.register_cache is None:
+            self.register_cache = self.core_registers()
+        return self.register_cache
+
+    def _registers_seen_by_gdb(self) -> None:
+        """GDB saw the target stop: it reads the registers afresh."""
+        self.register_cache = self.core_registers()
+
+    def _registers_forgotten_by_gdb(self) -> None:
+        """GDB saw the target run, or was told to flush: nothing is cached."""
+        self.register_cache = None
+
     def _mi_register_values(self, argument: str, token: str) -> List[str]:
         wanted = [item for item in argument.split() if item.isdigit()]
         indices = [int(item) for item in wanted] or list(range(len(self.REGISTER_NAMES)))
-        entries = []
-        for index in indices:
-            if index == 15:
-                value = "0x%08x" % self.program_counter
-            elif index == 13:
-                value = "0x20008000"
-            else:
-                value = "0x%08x" % (index * 0x11111111 & 0xFFFFFFFF)
-            entries.append('{number="%d",value="%s"}' % (index, value))
+        registers = self._gdb_registers()
+        entries = [
+            '{number="%d",value="0x%08x"}' % (index, registers[index])
+            for index in indices if index in registers
+        ]
         return self._ok(token, "register-values=[%s]" % ",".join(entries))
 
     # -- console commands ----------------------------------------------
@@ -840,6 +882,10 @@ class SimulatedJLink:
                 output.append("warning: One or more sections of the target image does "
                               "not match the loaded file")
             return self._stream(output) + self._ok(token)
+
+        if lower in ("maintenance flush register-cache", "flushregs"):
+            self._registers_forgotten_by_gdb()
+            return self._stream(["Register cache flushed."]) + self._ok(token)
 
         if lower.startswith("monitor"):
             return self._monitor(text[len("monitor"):].strip(), token)
@@ -885,20 +931,15 @@ class SimulatedJLink:
         self.monitor_log.append(command)
         lower = command.lower()
         if lower.startswith("reset"):
-            # "reset 0" is reset *and run*, which is how a target is started
-            # without a debugger holding it. Modelling it as reset-and-halt
-            # would give a silent, stopped target to every test that starts the
-            # firmware and then asks whether it is running - and the answer
-            # would be about the simulator, not about anything the driver did.
-            running = lower[len("reset"):].strip() == "0"
+            # Every reset type leaves the core halted, as the J-Link GDB Server
+            # does: "monitor reset 0" on a real probe left the nRF52840 halted
+            # (DHCSR 0x00030003) until something resumed it (issue #177). An
+            # earlier model ran the target after "reset 0", which is why a
+            # driver that never resumed it passed here and failed on the bench.
             self.flow_index = 0
             self.location = self.firmware.flow[0] if self.firmware.flow else "main"
             self.cycles = 0
             self.halted = True
-            if running:
-                # Let it run, exactly as a resume does: execution walks the
-                # flow, emitting whatever the firmware emits along it.
-                self.resume()
             return self._stream(["Resetting target"]) + self._ok(token)
         if lower in ("halt", "h"):
             self.halted = True

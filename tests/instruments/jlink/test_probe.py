@@ -306,6 +306,41 @@ class TestRunControl:
         probe.reset(halt=False)
         assert not probe.is_halted
 
+    def test_a_reset_without_halting_resumes_the_core(self, probe):
+        """The GDB Server halts the core after any 'monitor reset', so the
+        driver has to resume it; recording it as running was not enough
+        (issue #177)."""
+        simulator = probe.session.transport.responder
+        probe.reset(halt=False)
+        assert simulator.halted is False
+        log = simulator.command_log
+        reset = max(i for i, c in enumerate(log) if "monitor reset" in c)
+        assert "-exec-continue" in log[reset + 1:]
+
+    def test_registers_read_after_a_reset_are_the_reset_s(self, probe):
+        """GDB does not see 'monitor reset' and kept the registers it read
+        before it: on a real probe the first PC read after a reset was not
+        the reset handler's (issue #178)."""
+        simulator = probe.session.transport.responder
+        probe.run_to(END_LOCATION)
+        assert probe.program_counter() == 0x080012C0
+        probe.reset(halt=True)
+        start = simulator.firmware.address_of(simulator.firmware.flow[0])
+        assert probe.program_counter() == start
+        registers = probe.registers()
+        assert registers["pc"] == start
+        assert registers == {
+            name: simulator.core_registers()[index]
+            for index, name in enumerate(simulator.REGISTER_NAMES)
+        }
+
+    def test_a_reset_flushes_gdb_s_register_cache(self, probe):
+        log = probe.session.transport.responder.command_log
+        for halt in (True, False):
+            probe.reset(halt=halt)
+            reset = max(i for i, c in enumerate(log) if "monitor reset" in c)
+            assert any("maintenance flush register-cache" in c for c in log[reset + 1:])
+
     def test_program_counter_and_registers(self, probe):
         probe.run_to(END_LOCATION)
         assert probe.program_counter() == 0x080012C0

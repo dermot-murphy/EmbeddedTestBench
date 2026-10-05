@@ -1,0 +1,30 @@
+# Dependabot version updates (#203).
+#
+# The workflows had drifted several major versions behind before anyone looked
+# (#203). This makes the drift arrive as a pull request each week instead.
+#
+# Every update targets develop, like any other change (CLAUDE.md, gitflow).
+# A Dependabot pull request is a proposal, not a decision: it is reviewed and
+# merged like any other, and a version that breaks the build is pinned away
+# from with the reason recorded (ETB-ACQ4-001). CStyleCheck in particular is
+# pinned to an exact tag on purpose - see ETB-ACQ4-001 §7 - and moving it means
+# regenerating .cstylecheck-baseline.json in the same change.
+
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: develop
+    schedule:
+      interval: weekly
+    labels:
+      - process
+
+  - package-ecosystem: pip
+    directory: /
+    target-branch: develop
+    schedule:
+      interval: weekly
+    labels:
+      - process

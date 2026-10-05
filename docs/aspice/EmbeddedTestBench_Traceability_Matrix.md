@@ -10,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-RTM-001 | **Version** | 1.24 |
+| **Document ID** | ETB-RTM-001 | **Version** | 1.26 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -57,7 +57,9 @@
 | 1.21 | 2026-10-03 | Claude | #157: rows for S2LP-FR-084, RUN-FR-066 and VIEW-FR-043 … -045 (the ST GUI page); VIEW-DD-STGUI in VIEW-ARC-001; §16 count 436 declared, 435 in force. |
 | 1.22 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
 | 1.23 | 2026-10-05 | Claude | #204: Review & Approval table points to the merge of the pull request that last changed the document, which is the review and approval (ETB-SUP8-001 §5.7); no per-change signatures or dates. |
-| 1.24 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
+| 1.24 | 2026-10-05 | Claude | #177: JLINK-FR-030 row cites `test_a_reset_without_halting_resumes_the_core` and `test_every_reset_type_leaves_the_core_halted`; JLINK-FR-090 count 23 → 25. |
+| 1.25 | 2026-10-05 | Claude | #178: JLINK-FR-031 row cites `test_registers_read_after_a_reset_are_the_reset_s`, `test_a_reset_flushes_gdb_s_register_cache` and `test_gdb_s_registers_are_stale_after_a_monitor_reset`; JLINK-FR-090 count 25 → 27. |
+| 1.26 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 
 ---
 
@@ -241,8 +243,8 @@ It is checked mechanically by `tests/test_traceability.py` on every run of the s
 | JLINK-FR-022 | JLINK-ARC-001 | JLINK-DD-PROBE | `VerifyResult.matched` | `test_verification_failure_raises`, `test_an_empty_comparison_is_not_a_pass`, `test_flash_without_an_image_is_rejected` |
 | JLINK-FR-023 | JLINK-ARC-001 | JLINK-DD-PROBE | `JLinkProbe.erase` | `test_erase_resets_first_and_leaves_flash_blank`, `test_an_erase_that_did_not_happen_raises`, `test_the_blank_check_can_be_skipped`, `test_erase` (CLI), `test_monitor_passthrough`, `TestExecutionModel` |
 | JLINK-FR-024 | JLINK-ARC-001 | JLINK-DD-PROBE | `JLinkProbe.image_build`, over CORE-DD-FIRMWARE | `TestWhatWasFlashed` (5), `test_the_reported_version_is_recorded_as_text` |
-| JLINK-FR-030 | JLINK-ARC-001 | JLINK-DD-PROBE | `reset`, `run`, `halt`, `step` | `test_reset_halts_by_default`, `test_reset_can_leave_it_running`, `test_step`, `test_run_to_a_location` |
-| JLINK-FR-031 | JLINK-ARC-001 | JLINK-DD-PROBE | `is_halted`, `program_counter`, `registers` | `test_program_counter_and_registers`, `test_halt_reports_where` |
+| JLINK-FR-030 | JLINK-ARC-001 | JLINK-DD-PROBE | `reset`, `run`, `halt`, `step` | `test_reset_halts_by_default`, `test_reset_can_leave_it_running`, `test_a_reset_without_halting_resumes_the_core`, `test_every_reset_type_leaves_the_core_halted` (2), `test_step`, `test_run_to_a_location` |
+| JLINK-FR-031 | JLINK-ARC-001 | JLINK-DD-PROBE | `is_halted`, `program_counter`, `registers` | `test_program_counter_and_registers`, `test_registers_read_after_a_reset_are_the_reset_s`, `test_a_reset_flushes_gdb_s_register_cache`, `test_gdb_s_registers_are_stale_after_a_monitor_reset`, `test_halt_reports_where` |
 | JLINK-FR-032 | JLINK-ARC-001 | JLINK-DD-PROBE, JLINK-DD-CONST | `wait_for_halt`, `HaltReason` | `test_never_reaching_a_breakpoint_times_out`, `test_unknown_halt_reason_does_not_break_the_driver` |
 | JLINK-FR-033 | JLINK-ARC-001 | JLINK-DD-PROBE | `set_breakpoint`, `list_breakpoints`, `delete_breakpoint`, `clear_breakpoints` | `TestBreakpoints` (8), notably `test_conditional_breakpoint`, `test_temporary_breakpoint_is_marked` |
 | JLINK-FR-034 | JLINK-ARC-001 | JLINK-DD-PROBE, JLINK-DD-CONST | `set_breakpoint(hardware=True)` | `test_hardware_breakpoint_limit_is_enforced` |
@@ -269,7 +271,7 @@ It is checked mechanically by `tests/test_traceability.py` on every run of the s
 | JLINK-FR-067 | JLINK-ARC-001 | JLINK-DD-TIMING | `TimingResult.seconds` | `test_no_samples_is_an_error_not_a_zero`, `test_repr_survives_no_samples` |
 | JLINK-FR-080 | JLINK-ARC-001, RUN-ARC-001 | JLINK-DD-PROBE, RUN-DD-BENCH | `register_driver("jlink", JLinkProbe)` | `test_declared_drivers_are_checked`, `test_the_wrong_kind_of_instrument_is_reported`, `test_simulated_from_a_mapping_uses_the_right_driver` |
 | JLINK-FR-081 | JLINK-ARC-001 | JLINK-DD-TIMING, JLINK-DD-PROBE | `as_dict` on every result type | `test_serialises_for_a_report`, `test_verify_result_serialises`, `test_flash_result_serialises`, `test_shipped_specifications_are_valid[firmware_timing.yaml]` |
-| JLINK-FR-090 | JLINK-ARC-001 | JLINK-DD-SIM | `jlink/simulator.py` | `SWE4-UT-JLINKSIM` (23) |
+| JLINK-FR-090 | JLINK-ARC-001 | JLINK-DD-SIM | `jlink/simulator.py` | `SWE4-UT-JLINKSIM` (27) |
 | JLINK-FR-100 | JLINK-ARC-001 | JLINK-DD-CLI | `jlink/cli.py` | `SWE4-UT-JLINKCLI` (30) |
 | JLINK-FR-101 | JLINK-ARC-001 | JLINK-DD-PROBE, RUN-DD-BENCH | `JLinkProbe.connect(attach=False)`, `JLinkRttReader`, driver `jlink-rtt` | `SWE4-UT-JLINKRTTONLY` (`TestRttOnly`, 3) |
 | JLINK-FR-102 | JLINK-ARC-001 | JLINK-DD-PROBE | `JLinkProbe.rtt_samples` | `SWE4-UT-JLINKRTTONLY` (`TestRttSamples`, 3) |

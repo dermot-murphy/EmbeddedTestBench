@@ -37,23 +37,25 @@ jobs:
         # serves is the one least likely to have been rebuilt lately.
         #
         # 3.8 runs on ubuntu-22.04 because it is end-of-life and is not in the
-        # tool cache for ubuntu-24.04, which is what ubuntu-latest now means.
+        # tool cache for ubuntu-24.04. The other legs pin ubuntu-24.04 rather
+        # than ubuntu-latest, which moves to Ubuntu 26 from 2026-10-19 (#203):
+        # a runner image change is a decision, not something that happens to us.
         # The day 3.8 stops being supportable the honest move is to raise
         # requires-python, not to drop this leg and leave the claim standing.
         include:
           - python-version: '3.8'
             runs-on: ubuntu-22.04
           - python-version: '3.9'
-            runs-on: ubuntu-latest
+            runs-on: ubuntu-24.04
           - python-version: '3.12'
-            runs-on: ubuntu-latest
+            runs-on: ubuntu-24.04
 
     steps:
       - name: Check out
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -68,7 +70,7 @@ jobs:
 
       - name: Upload the JUnit report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pytest-${{ matrix.python-version }}
           path: results/

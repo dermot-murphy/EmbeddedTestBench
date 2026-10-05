@@ -10,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-ANA-001 | **Version** | 0.4 |
+| **Document ID** | ETB-ANA-001 | **Version** | 0.5 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -27,7 +27,8 @@
 | 0.1 | 2026-09-19 | Claude | Initial |
 | 0.2 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
 | 0.3 | 2026-10-05 | Claude | #204: Review & Approval table points to the merge of the pull request that last changed the document, which is the review and approval (ETB-SUP8-001 §5.7); no per-change signatures or dates. |
-| 0.4 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
+| 0.4 | 2026-10-05 | Claude | #203: §6.1 - the 3.9 and 3.12 legs, and every other job, now pin `ubuntu-24.04` instead of `ubuntu-latest`, which moves to Ubuntu 26 from 2026-10-19. The 3.8 leg stays on `ubuntu-22.04`. |
+| 0.5 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 
 ---
 
@@ -124,8 +125,11 @@ serves is the one least likely to have been rebuilt lately.
 
 The suite passed on 3.8.20 unchanged — 1 879 tests, 94.37% coverage — so
 nothing in the source needed fixing. The 3.8 leg runs on `ubuntu-22.04`,
-because 3.8 is end-of-life and is not in the tool cache for the 24.04 image
-that `ubuntu-latest` now means.
+because 3.8 is end-of-life and is not in the tool cache for the 24.04 image.
+The other legs, and every other job, pin `ubuntu-24.04` by name rather than
+`ubuntu-latest`, which moves to Ubuntu 26 from 2026-10-19 (#203): a runner
+image change is then a change someone makes, not one that happens to the
+suite.
 
 ### 6.2 🔴 Critical — No driver has met its instrument
 
