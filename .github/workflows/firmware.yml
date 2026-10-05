@@ -47,9 +47,9 @@ env:
 jobs:
   unit-tests:
     name: Unit tests (Unity + CTest)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Configure
         run: >
@@ -67,7 +67,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: firmware-unit-test-results
           path: |
@@ -78,10 +78,10 @@ jobs:
 
   firmware:
     name: Build firmware
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: unit-tests
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Every make invocation in this job stamps the same build date, taken
       # from the commit rather than from the clock: the image, the manifest and
@@ -99,7 +99,7 @@ jobs:
 
       - name: Cache the nRF5 SDK
         id: sdk-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: sdk
           key: nrf5-sdk-${{ env.SDK_VERSION }}
@@ -136,7 +136,7 @@ jobs:
       # pkg generate on dict.iteritems. Pinning the interpreter as well keeps
       # the resolution stable when the runner image moves on again.
       - name: Set up Python for nrfutil
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.10'
 
@@ -149,7 +149,7 @@ jobs:
           make SDK_ROOT="$GITHUB_WORKSPACE/sdk/$SDK_DIRECTORY" dfu
 
       - name: Upload the firmware
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: nordic-dongle-firmware-${{ github.sha }}
           path: |
@@ -163,7 +163,7 @@ jobs:
 
       - name: Upload the build log on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: firmware-build-log-${{ github.sha }}
           path: firmware/nordic_dongle/_build/**
@@ -175,9 +175,9 @@ jobs:
   # Traces to: PICO-FR-031, PICO-NFR-003, SWE4-UT-PICOFW.
   pico-unit-tests:
     name: Pico thermometer unit tests (Unity + CTest, ASan/UBSan)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Configure
         run: cmake -S firmware/pico_sht30/test -B build/pico-tests -DCMAKE_BUILD_TYPE=Debug
@@ -193,7 +193,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pico-unit-test-results
           path: build/pico-tests/results.xml
@@ -202,12 +202,12 @@ jobs:
 
   pico-firmware:
     name: Build Pico thermometer firmware (UF2)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: pico-unit-tests
     env:
       PICO_SDK_TAG: '2.1.1'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install the Arm toolchain
         uses: carlosperate/arm-none-eabi-gcc-action@v1
@@ -216,7 +216,7 @@ jobs:
 
       - name: Cache the Pico SDK
         id: pico-sdk-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: pico-sdk
           key: pico-sdk-${{ env.PICO_SDK_TAG }}
@@ -240,7 +240,7 @@ jobs:
         run: arm-none-eabi-size build/pico_sht30/pico_sht30.elf
 
       - name: Upload the firmware
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pico-sht30-firmware-${{ github.sha }}
           path: |
