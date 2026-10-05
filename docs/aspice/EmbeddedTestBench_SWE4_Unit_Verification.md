@@ -1,3 +1,5 @@
+<img src="../../assets/brand/svg/logos/embeddedtestbench-logo-compact.svg" alt="Embedded Test Bench" width="240">
+
 # Software Unit Verification Specification
 
 *Automotive SPICE® PAM v4.0 | SWE.4 Software Unit Verification*
@@ -8,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE4-001 | **Version** | 1.22 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-04 |
+| **Document ID** | ETB-SWE4-001 | **Version** | 1.28 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.4 |
@@ -54,6 +56,12 @@
 | 1.20 | 2026-10-03 | Claude | #157: SWE4-UT-VIEWSTGUI added (11 cases). |
 | 1.21 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
 | 1.22 | 2026-10-04 | Claude | #187: SWE4-UT-TRACE also checks that every revision history in `docs/` lists entries oldest first. |
+| 1.23 | 2026-10-05 | Claude | #204: Review & Approval table points to the merge of the pull request that last changed the document, which is the review and approval (ETB-SUP8-001 §5.7); no per-change signatures or dates. |
+| 1.24 | 2026-10-05 | Claude | #184: SWE4-UT-PUBLISH added - the wiki and home page generator (`scripts/publish_docs.py`). |
+| 1.25 | 2026-10-05 | Claude | #177: SWE4-UT-JLINK covers a reset without halting resuming the core; SWE4-UT-JLINKSIM covers every reset type leaving the simulated core halted, as the J-Link GDB Server does. |
+| 1.26 | 2026-10-05 | Claude | #178: SWE4-UT-JLINK covers registers read after a reset being the core's and the reset flushing GDB's register cache; SWE4-UT-JLINKSIM covers GDB's register cache, stale after `monitor reset` until flushed and refreshed when the target stops. |
+| 1.27 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
+| 1.28 | 2026-10-05 | Claude | #194: SWE4-UT-PUBLISH also covers the brand artwork on the wiki and the home page's banner and favicons. |
 
 ---
 
@@ -323,6 +331,7 @@ against the simulator in the default run (SWE4-UT-PSUPANEL, SWE4-UT-DMMPANEL).
 |---|---|---|---|
 | SWE4-UT-LAYERING | `test_layering.py` | Import graph and element isolation, the viewer above the runner | CORE-NFR-001, -008, -009 |
 | SWE4-UT-LINT | `test_lint_script.py` | The pylint baseline gate (`scripts/lint.py`): a finding keyed by file and rule matches its baseline entry whatever path separator pylint reports | — |
+| SWE4-UT-PUBLISH | `test_publish_docs.py` | The wiki and home page generator (`scripts/publish_docs.py`, ETB-SUP8-001 §5.8): wiki page names, two documents refused on one page, relative links rewritten to wiki pages or to the file on the ref (fenced code, anchors and absolute links left alone), the sidebar reaching every published page, `--clean` removing stale pages, a second run over unchanged content producing identical files, the home page's banner, favicons and links, and the brand artwork on the wiki (the logo on Home and the sidebar, the banner on the ASPICE index, every brand image a PNG render that exists) | — |
 | SWE4-UT-TRACE | `test_traceability.py` | Consistency between the code and the SWE.1 to SWE.4 work products: every requirement traced, no orphan rows, every cited identifier defined, every module carrying its own trace, every revision history listed oldest first (ETB-SUP8-001 §6.2) | All (traceability base practices) |
 | SWE4-UT-SCPI | `core/test_scpi.py` | `ScpiInstrument`: lifecycle, primitives, identity, error queue, 488.2 blocks, simulator injection | CORE-FR-020 .. -028, INST-FR-001, -002 |
 | SWE4-UT-INSTRUMENT | `core/test_instrument.py` | `Instrument`: lifecycle template and hooks, identity caching, a close that cannot raise, simulator declaration, default empty event queue | CORE-FR-012 .. -016 |
@@ -343,13 +352,13 @@ against the simulator in the default run (SWE4-UT-PSUPANEL, SWE4-UT-DMMPANEL).
 | SWE4-UT-CLI | `instruments/tek3014b/test_cli.py` | Scope sub-commands end to end; argument expansion; exit statuses | SCOPE-FR-100 |
 | SWE4-UT-GDBMI | `instruments/jlink/test_gdbmi.py` | The GDB/MI grammar: all record kinds, nested tuples and lists, uniformly named lists, repeated names, C-string escapes, non-MI lines, GDB's unnamed download-progress tuple | JLINK-FR-001 |
 | SWE4-UT-GDBSESSION | `instruments/jlink/test_session.py` | Token correlation, MI errors as typed exceptions, draining asynchronous records before a write, waiting for `*stopped`, console command escaping, a dead GDB distinguished from a timeout | JLINK-FR-002 |
-| SWE4-UT-JLINK | `instruments/jlink/test_probe.py` | The probe driver: resource forms, symbols, attach, flash and per-section verification, erase, reset/run/halt/step, breakpoints and their envelope, watchpoints, memory and word access with chunking, variables, call stack, RTT delegation, all four timing methods, loading a named image before reading it, preserved ranges written back and checked, structures holding strings, erasing from reset and refusing an erase that did not happen, leaving the target running on close unless asked, identity from the server banner | JLINK-FR-003 .. -006, -010 .. -011, -020 .. -023, -030 .. -036, -040 .. -045, -050 .. -055, -060 .. -067, -080, -081 |
+| SWE4-UT-JLINK | `instruments/jlink/test_probe.py` | The probe driver: resource forms, symbols, attach, flash and per-section verification, erase, reset/run/halt/step, breakpoints and their envelope, watchpoints, memory and word access with chunking, variables, call stack, RTT delegation, all four timing methods, loading a named image before reading it, preserved ranges written back and checked, structures holding strings, erasing from reset and refusing an erase that did not happen, a reset without halting resuming the core, registers read after a reset being the reset's, leaving the target running on close unless asked, identity from the server banner | JLINK-FR-003 .. -006, -010 .. -011, -020 .. -023, -030 .. -036, -040 .. -045, -050 .. -055, -060 .. -067, -080, -081 |
 | SWE4-UT-RTT | `instruments/jlink/test_rtt.py` | RTT: line assembly from fragments, retained partial lines, history independent of consumption, pattern matching with timeout, the timeout diagnostic, per-line flushed logging | JLINK-FR-050 .. -055 |
 | SWE4-UT-SWO | `instruments/jlink/test_swo.py` | ITM decoding: 1-, 2- and 4-byte source packets, sync, overflow, both local timestamp formats, extension and global timestamps, fragmented feeds, prescaler scaling | JLINK-FR-064 |
 | SWE4-UT-TIMING | `instruments/jlink/test_timing.py` | `TimingResult`: statistics over repetitions, resolution per method, the trustworthiness rule, halting declaration, empty samples raising, `as_dict` | JLINK-FR-060, -065 .. -067, JLINK-NFR-004 |
 | SWE4-UT-JLINKSERVER | `instruments/jlink/test_server.py` | Server and GDB discovery with Windows names first, then install directories newest first, a host GDB refused unless it can debug ARM, the command line and its unattended flags with no `-singlerun`, draining the server's output and reading the probe from its banner, an already-listening port, a server that cannot be spawned remotely, one that exits during start-up, one that never listens, and stopping only what was started | JLINK-FR-003 .. -005, JLINK-NFR-002 |
 | SWE4-UT-JLINKSOCKETS | `instruments/jlink/test_sockets.py` | The RTT and SWO TCP links against a loopback server: fragmented arrival, writes reaching the server, collection with a timeout, an unreachable port, and the host as an argument | JLINK-FR-050, -051, -064, JLINK-NFR-002, -003 |
-| SWE4-UT-JLINKSIM | `instruments/jlink/test_simulator.py` | Self-checks on the simulated probe and target: the MI dialogue, the exact 64 000-cycle interval, symbols, stacks, RTT, sections, the hardware-breakpoint type | JLINK-FR-090 |
+| SWE4-UT-JLINKSIM | `instruments/jlink/test_simulator.py` | Self-checks on the simulated probe and target: the MI dialogue, the exact 64 000-cycle interval, symbols, stacks, RTT, sections, the hardware-breakpoint type, every reset type leaving the core halted as the GDB Server does, GDB's register cache stale after a `monitor` command until flushed | JLINK-FR-090 |
 | SWE4-UT-JLINKCLI | `instruments/jlink/test_cli.py` | Every probe sub-command end to end, including erase; JSON output; the untrustworthy-measurement warning; exit statuses; which sub-commands leave the target halted | JLINK-FR-006, JLINK-FR-100 |
 | SWE4-UT-JLINKRTTONLY | `instruments/jlink/test_rtt_only.py` | Numbers from matching RTT lines, lines already waiting ignored, a quiet target; opening without attaching, and the GDB Server told `-nohalt` only when asked | JLINK-FR-101, JLINK-FR-102 |
 | SWE4-UT-SERIAL | `core/transport/test_serial.py` | Serial transport: port and rate parsing, a TCP port not mistaken for a line rate, scheme registration, framing over `loop://`, a write the far end will not take; reading a stream without framing, and discarding what the port holds | CORE-FR-017, -061, CORE-NFR-003, -006 |
@@ -494,11 +503,18 @@ in the VISA determination report §5.1:
 
 ## 9. Review & Approval
 
-| Role | Name | Signature / Electronic Approval | Date |
-|---|---|---|---|
-| Author | Claude | Approved | 2026-09-19 |
-| Technical Reviewer | Dermot Murphy | — | *pending* |
-| Quality Assurance | Dermot Murphy | — | *pending* |
-| Approver | Dermot Murphy | — | *pending* |
+Review and approval of this document are not entered in this table. They are
+given by the merge of the pull request that last changed the document, and that
+merge is the record (ETB-SUP8-001 §5.7). The evidence is the pull request, its
+CI result and its merge record: who merged it, when, and the merge commit. The
+last row of the revision history names the issue, and the issue links the pull
+request.
+
+| Role | Name | Recorded by |
+|---|---|---|
+| Author | Claude | The commits in the pull request |
+| Technical Reviewer | Dermot Murphy | The merge of the pull request that last changed this document |
+| Quality Assurance | Dermot Murphy | The merge of the pull request that last changed this document |
+| Approver | Dermot Murphy | The merge of the pull request that last changed this document |
 
 > **Note:** This document is under configuration management (SUP.8). Post-approval changes require a change request (SUP.10) and a new document version.

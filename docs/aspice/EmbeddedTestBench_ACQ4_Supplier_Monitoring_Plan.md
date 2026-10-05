@@ -1,3 +1,5 @@
+<img src="../../assets/brand/svg/logos/embeddedtestbench-logo-compact.svg" alt="Embedded Test Bench" width="240">
+
 # Supplier Monitoring Plan
 
 *Automotive SPICE® PAM v4.0 | ACQ.4 — Supplier Monitoring*
@@ -8,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-ACQ4-001 | **Version** | 0.2 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-04 |
+| **Document ID** | ETB-ACQ4-001 | **Version** | 0.5 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | ACQ.4 |
@@ -24,6 +26,9 @@
 |---|---|---|---|
 | 0.1 | 2026-09-19 | Claude | Initial |
 | 0.2 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
+| 0.3 | 2026-10-05 | Claude | #204: Review & Approval table points to the merge of the pull request that last changed the document, which is the review and approval (ETB-SUP8-001 §5.7); no per-change signatures or dates. |
+| 0.4 | 2026-10-05 | Claude | #203: §4.3 records the GitHub-owned actions and the runner images, and the CStyleCheck pin is re-dated. §6 adds Dependabot version updates. §7 records that CStyleCheck v1.6.0 was re-checked and is still broken, so the pin stays at v1.5.1. |
+| 0.5 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 
 ---
 
@@ -87,7 +92,11 @@ addresses, field widths and reset values — written independently
 | Nordic Semiconductor | `nrfutil` | **6.1.7** | The last Python release packaging for the SDK 17 bootloader; unpinned installs resolve backwards to a Python 2 release that fails on `dict.iteritems` (ETB-RISK-006) |
 | Arm | GNU Arm Embedded toolchain | As pinned in `.github/workflows/firmware.yml` | Flash and RAM figures are toolchain-dependent |
 | PyPI maintainers | `pyvisa`, `pyserial`, `bleak`, `pytest`, `PyYAML` | As declared in `pyproject.toml` | Interface stability |
-| `dermot-murphy` | `CStyleCheck` GitHub Action | `@v1.5.1` | Coding-standard enforcement (ETB-RISK-011) |
+| `dermot-murphy` | `CStyleCheck` GitHub Action | `@v1.5.1` | Coding-standard enforcement (ETB-RISK-011); v1.6.0 skipped, §7 |
+| GitHub | `actions/checkout`, `actions/setup-python`, `actions/upload-artifact` | `@v7` | Major tag: a breaking change arrives only as a new major, read before it is taken (#203) |
+| GitHub | `actions/cache` | `@v6` | As above |
+| `carlosperate` | `arm-none-eabi-gcc-action` | `@v1` | No newer major exists; the toolchain release itself is pinned per job |
+| GitHub | Hosted runner images | `ubuntu-24.04`; `ubuntu-22.04` for the Python 3.8 leg | Named, not `ubuntu-latest`, so an image change is a decision (#203); 3.8 is not in the 24.04 tool cache |
 
 ---
 
@@ -115,6 +124,8 @@ Trust is stated so that it can be checked rather than assumed.
 | Vendor documentation changes | Checked when a driver is next worked on | A documented behaviour differs from what the driver assumes → problem, and the simulator is corrected |
 | Licence terms | Reviewed when a vendor product is added or upgraded | Terms that would require vendoring source → the dependency is not taken |
 | CStyleCheck | The style workflow's result | A failure unrelated to the firmware source → problem under ETB-SUP9-001 |
+| GitHub Actions and Python package versions | Dependabot version updates, weekly, `.github/dependabot.yml`, targeting `develop` (#203) | A Dependabot pull request → release notes read, CI result reviewed, merged or declined with the reason |
+| Runner and action deprecations | Annotations on CI runs | A deprecation warning → ticket to move the pin before the deadline (#203 was the Node.js 20 warning) |
 
 There is no supplier audit, no supplier scorecard and no escalation path to any
 of these parties. Where a vendor's product misbehaves, the only available
@@ -145,6 +156,15 @@ rather than by reading about it:
    the file cleanly. This is a defect in the supplier's product, of the kind
    §6 exists to notice; the response available to this project is to pin away
    from it, which is what §5 says about a dependency that misbehaves.
+   **Re-checked 2026-10-05 for #203**, with the intention of moving to v1.6.0:
+   the `v1.6.0` tag still points at `b8ddf41`, its `action.yml` still passes
+   `--log` to the results file and parses that file as JSON, and v1.6.0's
+   release notes say the new startup banner is "also written to the log file
+   when `--log` is used". Run locally exactly as the action runs it, over all
+   three steps of `style.yml`, every results file began with the two banner
+   lines, and `json.loads` failed on each - the step would fail whatever the
+   firmware contained. No newer release exists. The pin therefore stays at
+   v1.5.1, and the baseline is not regenerated.
 3. **An exact pin is what ETB-SUP8-001 §4 asks for anyway**, because a checker
    that silently changes its rule set changes what a green build means.
 
@@ -181,8 +201,15 @@ performed.
 
 ## 10. Review & Approval
 
-| Role | Name | Signature / Electronic Approval | Date |
-|---|---|---|---|
-| Author | Claude | Approved | 2026-09-19 |
-| Reviewer | Dermot Murphy | — | *pending* |
-| Approver | Dermot Murphy | — | *pending* |
+Review and approval of this document are not entered in this table. They are
+given by the merge of the pull request that last changed the document, and that
+merge is the record (ETB-SUP8-001 §5.7). The evidence is the pull request, its
+CI result and its merge record: who merged it, when, and the merge commit. The
+last row of the revision history names the issue, and the issue links the pull
+request.
+
+| Role | Name | Recorded by |
+|---|---|---|
+| Author | Claude | The commits in the pull request |
+| Reviewer | Dermot Murphy | The merge of the pull request that last changed this document |
+| Approver | Dermot Murphy | The merge of the pull request that last changed this document |

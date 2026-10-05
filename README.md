@@ -1,4 +1,8 @@
+<img src="assets/brand/svg/headers/embeddedtestbench-github-header.svg" alt="Embedded Test Bench" width="100%">
+
 # EmbeddedTestBench — `benchtools`
+
+<img src="assets/brand/svg/logos/embeddedtestbench-logo-horizontal.svg" alt="Embedded Test Bench logo" width="360">
 
 Bench test tooling: instrument drivers, a debug probe driver, a BLE dongle with
 its own firmware, analysis of captured records, and a declarative test runner
@@ -16,6 +20,10 @@ benchtools run specs/clock_skew.yaml --simulate --markdown report.md
 
 Everything below runs with no hardware: `sim://` and `--simulate` drive in-process
 instrument models.
+
+**New here?** Start with the [User Manual](docs/User_Manual.md): installing, a first
+run on the simulated bench, the real bench and its safety limits, and a section
+for Claude Code sessions.
 
 ---
 
@@ -833,7 +841,7 @@ This repository publishes a composite action, so another project can run its
 bench specifications in CI:
 
 ```yaml
-- uses: dermot-murphy/EmbeddedTestBench@v0.01.0000
+- uses: dermot-murphy/EmbeddedTestBench@v0.01.0001
   id: bench
   with:
     specs: |
@@ -866,6 +874,13 @@ Full input and output reference: [`action.yml`](action.yml).
 ---
 
 ## Documentation
+
+The documents below are also published, generated from `main` at each release:
+the [wiki](https://github.com/dermot-murphy/EmbeddedTestBench/wiki) has every user
+guide, instrument note and ASPICE document with a sidebar to move between them, and
+the [home page](https://dermot-murphy.github.io/EmbeddedTestBench/) links to the
+wiki, the latest release and the system qualification report. Both are generated
+by `scripts/publish_docs.py` and are not edited by hand.
 
 | Document | Contents |
 |---|---|

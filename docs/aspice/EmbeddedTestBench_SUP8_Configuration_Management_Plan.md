@@ -1,3 +1,5 @@
+<img src="../../assets/brand/svg/logos/embeddedtestbench-logo-compact.svg" alt="Embedded Test Bench" width="240">
+
 # Configuration Management Plan
 
 *Automotive SPICE® PAM v4.0 | SUP.8 — Configuration Management*
@@ -8,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SUP8-001 | **Version** | 0.9 |
+| **Document ID** | ETB-SUP8-001 | **Version** | 0.13 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -31,6 +33,10 @@
 | 0.7 | 2026-10-05 | Claude | #185: §5.5 added - the repository settings baseline (ruleset, merge, security, actions), with the enforcement observed on 2026-10-05. Changed together with CLAUDE.md. |
 | 0.8 | 2026-10-05 | Claude | #190: gitflow adopted. §5.1 adds `release/` and `hotfix/` branches, and their pull requests into `main` and the back-merge into `develop` are allowed by procedure; §5.6 added - release and hotfix procedure, tag on the merge commit in `main`. Changed together with CLAUDE.md. |
 | 0.9 | 2026-10-05 | Claude | #188: §6 states the version and tag format (`0.01.0000`, tag `v0.01.0000`) and the PEP 440 normalisation of the packaged version; §5.5 adds the tag ruleset protecting `v*` tags. Changed together with CLAUDE.md. |
+| 0.10 | 2026-10-05 | Claude | #204: §5.7 added - Dermot Murphy is the only Reviewer and Approver, and the merge of a pull request is the review and approval of everything in it; the evidence is the pull request, its CI result and its merge record. Either the owner merges, or Claude merges on the owner's explicit instruction for that pull request with the merge commit note `Merged by Claude Code on the owner's instruction (<date>).`; a merge without the note is the owner's own. §5.5 gives this as the reason the ruleset requires 0 approvals. Decision recorded: Review & Approval tables point to the merge rather than being filled in from merge records. §11 points to the merge. Changed together with CLAUDE.md. |
+| 0.11 | 2026-10-05 | Claude | #184: §5.8 added - the GitHub wiki and the `gh-pages` home page are generated outputs, published from `main` by workflow and never edited by hand; §4 lists them as configuration items; §5.5 adds the Pages source, the repository homepage and the `WIKI_TOKEN` secret. Changed together with CLAUDE.md. |
+| 0.12 | 2026-10-05 | Claude | #194: §6.3 records where the brand logo appears - above the title of every controlled document in `docs/aspice/` and `docs/templates/`, in the documents themselves - and that the wiki and home page take it from their generators. The compact logo added above this document's title. |
+| 0.13 | 2026-10-05 | Claude | #194: §5.8 lists the home page's banner, favicons and head include; §6.3 says which brand artwork the wiki and the home page show, and that the wiki shows the PNG renders. |
 
 ---
 
@@ -75,6 +81,7 @@ physical bench instruments whose identity affects a result.
 | Bench descriptions | `benches/**` | Bench name | git |
 | Bench specifications | `specs/**` | Spec filename | git |
 | CI workflows and actions | `.github/workflows/*.yml`, `action.yml` | Filename | git |
+| Generated outputs | GitHub wiki; `gh-pages` branch (home page) | Wiki page name; file path | Regenerated from `main` by `wiki_publish.yml` and `pages_publish.yml`; never edited by hand (§5.8) |
 | C rule configuration | `.cstylecheck.yml`, `.cstylecheck-baseline.json` | Filename | git — the baseline changes only with a recorded reason |
 | Python rule configuration | `[tool.pylint]` in `pyproject.toml`, `.pylint-baseline.json` | Filename | git — as above |
 | Build tools | Python, `nrfutil`, GNU Arm toolchain, nRF5 SDK | Name + exact version | Pinned in the workflow; recorded in ETB-SVD-001 |
@@ -183,18 +190,21 @@ against the API rather than assumed (ETB-RISK-004).
 | Ruleset | Name, enforcement, bypass | "Protect main and develop", active, no bypass actors |
 | Ruleset | Target branches | `refs/heads/main`, `refs/heads/develop` (two patterns) |
 | Ruleset | Deletion, force push | Both blocked |
-| Ruleset | Pull request | Required; 0 approvals (single maintainer, who cannot approve their own pull request); merge method **merge** only |
+| Ruleset | Pull request | Required; 0 approvals, because review and approval are given by the merge itself (§5.7) and the single maintainer cannot approve their own pull request; merge method **merge** only |
 | Ruleset | Required status checks | `pytest (3.8)`, `pytest (3.9)`, `pytest (3.12)`, `pylint`, `Embedded C standard`, `Simulated bench`; branch need not be up to date |
 | Ruleset | Linear history | Not required: it would block the merge commits §5.2 requires |
 | Tag ruleset | "Protect release tags" | Active, no bypass actors, on `refs/tags/v*`: deletion and update blocked, so a published release tag cannot be moved (#188) |
 | Merge | Merge commits / squash / rebase | On / off / off |
 | Merge | Automatically delete head branches | On (see below) |
-| Merge | Auto-merge | Off: a pull request is merged on instruction |
+| Merge | Auto-merge | Off: a pull request is merged by the owner or on the owner's instruction, and that merge is the review and approval (§5.7) |
 | Security | Secret scanning, push protection | On |
 | Security | Dependabot alerts, security updates | On |
 | Actions | Allowed actions | GitHub-owned, plus `carlosperate/arm-none-eabi-gcc-action@*` and `dermot-murphy/*` |
 | Actions | Default `GITHUB_TOKEN` permission | Read; Actions may not approve pull requests |
 | Repository | Description, topics | Set; Discussions off; Wiki on (#184) |
+| Repository | Homepage | `https://dermot-murphy.github.io/EmbeddedTestBench/` (#184) |
+| Pages | Source, build | Branch `gh-pages`, path `/`, legacy (branch) build; HTTPS enforced (#184) |
+| Actions | Repository secrets | `WIKI_TOKEN`: a personal access token of the owner's account, used only by `wiki_publish.yml` to push the wiki (#184) |
 
 The required checks are the jobs that run on every push and pull request. The
 firmware workflow's jobs are path-filtered and are therefore not required: a
@@ -215,6 +225,12 @@ has not been verified, so the procedure assumes it does.
 **Dependabot.** Whether `target-branch` in `dependabot.yml` redirects security
 updates has not been verified. Until it is, a Dependabot pull request is assumed
 to open against `main` and is retargeted to `develop` before it is merged (§5.1).
+
+**Pages, observed 2026-10-05 (#184).** Pushing the new `gh-pages` branch enabled
+GitHub Pages by itself: a read of the Pages API straight after the push already
+showed source `gh-pages`, path `/`, legacy build, and the explicit request to
+enable it was refused as already done (HTTP 409). The site was built from the
+pushed commit and answered HTTP 200.
 
 
 ### 5.6 Releases and Hotfixes
@@ -241,6 +257,93 @@ Head branches are deleted automatically on merge (§5.5). That is intended for
 `release/` and `hotfix/` branches. When the head is `main` (the back-merge) or
 `develop`, the ruleset blocks the deletion. This is checked after each such merge
 rather than assumed.
+
+### 5.7 Review and Approval
+
+**Decision (repository owner, 2026-10-05, #204).** Dermot Murphy is the only
+Reviewer and the only Approver of every work product. There is no second
+reviewer, and no bot or machine account gives approvals.
+
+**Merging the pull request is the act of review and approval.** A merge into
+`develop` or `main` is the Reviewer's approval and the Approver's approval of
+everything in that pull request. The owner merges the pull request, or
+explicitly instructs the merge of that pull request, after examining the change
+and its CI result. Every required status check (§5.5) being green is a
+precondition of the merge, and the ruleset enforces it.
+
+| Item | Arrangement |
+|---|---|
+| Reviewer and Approver | Dermot Murphy, both roles (ETB-DEV-002) |
+| Act of review and approval | The merge of the pull request, into `develop` or `main` |
+| Checks applied before merging | ETB-TMPL-001 §6.1, checks C1 to C6 (ETB-SUP1-001 §6.5) |
+| Precondition | Every required status check green (§5.5) |
+| Evidence | The pull request, its CI result, and its merge record: who merged it, when, and the merge commit, whose body carries the note when Claude merged on instruction |
+| Required approvals in the ruleset | 0. The only collaborator opens every pull request, including Claude's work, and cannot approve their own, so a GitHub review approval is not available; the merge carries the approval instead |
+| Who merges | The owner, or Claude on the owner's explicit instruction for that pull request; either merge is the review and approval (see below) |
+| Merges by Claude | Never on Claude's own initiative. Only on the owner's explicit instruction for that pull request, with the merge commit note below. Claude never records an approval on the owner's behalf in any other way (`CLAUDE.md`) |
+
+**Two ways of merging are allowed (owner's decision, 2026-10-05).**
+
+1. The owner merges the pull request himself.
+2. The owner instructs Claude to merge that pull request, and Claude merges it
+   with a merge commit whose body contains the line
+   `Merged by Claude Code on the owner's instruction (<date>).`, for example:
+   `gh pr merge <n> --merge --body "Merged by Claude Code on the owner's instruction (2026-10-05)."`
+
+Claude works through the owner's GitHub account (checked with `gh api user` on
+2026-10-05), so the merge record names `dermot-murphy` in both cases. The note
+is what tells them apart: **a merge commit without that note is the owner's own
+merge.** Either way, the merge is the Reviewer's and the Approver's approval.
+That `--body` sets the merge commit body was checked against
+`gh pr merge --help` on 2026-10-05 ("Body text for the merge commit"); it has
+not yet been observed on a merge in this repository, so the first such merge
+is read back to confirm the note is present.
+
+**Review & Approval tables point to the merge.** Two ways of showing approval
+in the documents were considered in #204: each document's Review & Approval
+table points to the merge of the pull request that last changed the document,
+or the tables are filled in from the merge records at each release. The owner
+chose the first. Every controlled document's Review & Approval table states
+that review and approval are recorded by that merge, and carries no per-change
+signature or date. The merge record exists for every change without anyone
+transcribing it, and on `main` and `develop` the merge commit cannot be
+rewritten because force pushes are blocked (§5.5); a copy in the table could
+only fall out of step with it. The pull request is found from the issue named
+in the document's last revision history row.
+
+ETB-SVD-001 is not changed by this: it describes the released baseline
+`v0.01.0000`, and a baseline is not edited (§7). Its table is brought into line
+when the SVD is next revised for a new baseline.
+
+### 5.8 Generated Outputs: Wiki and Home Page
+
+The GitHub wiki and the `gh-pages` branch are generated outputs of the
+repository (#184). Neither is edited by hand, and neither is pushed to from a
+working session: a hand edit is overwritten by the next run, and an unreleased
+change published there would describe something that is not in `main`.
+
+| Output | Generated by | Published by | Trigger | Authentication |
+|---|---|---|---|---|
+| Wiki: `Home`, one page per user guide and instrument note in `docs/`, one `ASPICE-<name>` page per ASPICE document, `ASPICE-Index`, `_Sidebar` | `scripts/publish_docs.py wiki` | `.github/workflows/wiki_publish.yml` | Push to `main` touching `README.md`, `docs/**`, the generator or the workflow; `workflow_dispatch` | `WIKI_TOKEN` (§5.5); the default `GITHUB_TOKEN` cannot push to a wiki |
+| Home page: `README.md`, `_config.yml`, `_includes/head-custom.html`, the website header banner and the favicons on `gh-pages`, served by GitHub Pages | `scripts/publish_docs.py home` | `.github/workflows/pages_publish.yml` | Push to `main` touching `README.md`, the brand assets, the generator or the workflow; `workflow_dispatch` | `GITHUB_TOKEN` with `contents: write` for that job |
+
+Both are published from `main` because under gitflow `main` is the released
+state (§5.1): the wiki describes the latest release, not work in progress on
+`develop`. Links from a published page to a repository file point at that file
+on `main`. A run pushes only when the generated content differs from what is
+published, and the generated content carries no timestamp, so a run over
+unchanged documents pushes nothing. Each workflow has a `dry_run` input that
+generates and reports the change without pushing.
+
+The wiki generator removes the existing pages before writing, so a renamed or
+deleted document leaves no stale page. Qualification run records under
+`docs/aspice/qualification/` are not given pages; a link to one points at the
+file in the repository. The generator is verified by
+`tests/test_publish_docs.py` (SWE4-UT-PUBLISH).
+
+The ASPICE pages were first published by hand on 2026-10-05 from `develop`
+(393d310), before these workflows existed; the generator keeps those page
+names, so its first run replaces those pages rather than duplicating them.
 
 ---
 
@@ -273,6 +376,40 @@ edited: they record what was true when they were written.
 The order is checked by `tests/test_traceability.py` (SWE4-UT-TRACE), which
 fails if a history table's version column decreases from one row to the next.
 
+### 6.3 Brand Logo in Controlled Documents
+
+Every controlled document in `docs/aspice/` and `docs/templates/` starts with
+the compact brand logo, above its title, as the same line in each:
+
+```html
+<img src="../../assets/brand/svg/logos/embeddedtestbench-logo-compact.svg" alt="Embedded Test Bench" width="240">
+```
+
+- **In the documents themselves**, not only in their rendered copies, so the
+  document read on GitHub, in a clone or in a review is the document that is
+  controlled. The line sits above the title and outside the identification
+  block, which still carries the Document ID and version.
+- **The SVG master, by relative path.** GitHub renders an SVG from the
+  repository in a Markdown image, and a relative path resolves at any branch or
+  tag and in a local clone. A rendered copy that cannot show SVG uses the PNG
+  render of the same logo, `assets/brand/png/logos/logo_compact.png`.
+- **The wiki and the home page take the logo and banners from their
+  generators**, not from hand edits (#194, #184). The wiki shows the compact
+  logo on `Home` and `_Sidebar` and the GitHub header banner on
+  `ASPICE-Index`, linked as raw files on `main`; it shows the PNG renders, and
+  a document's SVG logo is pointed at its PNG render on its wiki page. The
+  home page shows the website header banner, and its favicons are linked from
+  `_includes/head-custom.html`, which the Pages theme (Primer) includes in
+  the page head.
+- **A baseline is not re-issued for the logo.** ETB-SVD-001 describes the tagged
+  baseline `v0.01.0000` and is not edited for it (§7); it takes the logo at its
+  next revision.
+- **The templates carry the line**, so a document started from one in
+  `docs/templates/` has it from the first draft.
+
+The logo's wordmark is dark on a transparent background, so it has low contrast
+on a dark GitHub theme. There is no compact logo for dark backgrounds yet.
+
 ## 7. Baselines
 
 A baseline is an annotated git tag plus a Software Version Description
@@ -292,7 +429,8 @@ SVD, and the reason is recorded in the SVD's revision history.
 ## 8. Change Control
 
 Changes to a baselined item follow ETB-SUP10-001. Changes to items not yet
-baselined follow ordinary development: branch, change, test, review, merge.
+baselined follow ordinary development: branch, change, test, then review and
+approval by the merge of the pull request (§5.7).
 
 Every change, baselined or not, satisfies ETB-SUP1-001 §6.1 — the documents move
 with the code.
@@ -325,8 +463,15 @@ kept with that run's records, because the run cannot otherwise be reproduced.
 
 ## 11. Review & Approval
 
-| Role | Name | Signature / Electronic Approval | Date |
-|---|---|---|---|
-| Author | Claude | Approved | 2026-09-19 |
-| Reviewer | Dermot Murphy | — | *pending* |
-| Approver | Dermot Murphy | — | *pending* |
+Review and approval of this document are not entered in this table. They are
+given by the merge of the pull request that last changed the document, and that
+merge is the record (ETB-SUP8-001 §5.7). The evidence is the pull request, its
+CI result and its merge record: who merged it, when, and the merge commit. The
+last row of the revision history names the issue, and the issue links the pull
+request.
+
+| Role | Name | Recorded by |
+|---|---|---|
+| Author | Claude | The commits in the pull request |
+| Reviewer | Dermot Murphy | The merge of the pull request that last changed this document |
+| Approver | Dermot Murphy | The merge of the pull request that last changed this document |

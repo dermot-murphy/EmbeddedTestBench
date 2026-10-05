@@ -96,6 +96,41 @@ class TestExecutionModel:
         assert simulator.cycles == 0
         assert simulator.location == simulator.firmware.flow[0]
 
+    @pytest.mark.parametrize("command", ["monitor reset", "monitor reset 0"])
+    def test_every_reset_type_leaves_the_core_halted(self, simulator, command):
+        """As the J-Link GDB Server does: after 'monitor reset 0' the nRF52840
+        on the bench stayed halted until something resumed it (issue #177)."""
+        simulator.connected = True
+        simulator.resume()
+        assert not simulator.halted
+        simulator.respond(('1-interpreter-exec console "%s"' % command).encode())
+        assert simulator.halted
+
+    def test_gdb_s_registers_are_stale_after_a_monitor_reset(self, simulator):
+        """GDB never sees a 'monitor' command, so it keeps the registers it
+        read when the target last stopped, as it did on a real probe (issue
+        #178), until it is told to flush them."""
+        simulator.respond(b"1-target-select extended-remote x:1")
+        simulator.breakpoints[1] = {"location": "sensor.c:75", "enabled": True}
+        simulator.respond(b"2-exec-continue")
+        stopped = simulator.core_registers()[15]
+        simulator.respond(b'3-interpreter-exec console "monitor reset"')
+        assert simulator.core_registers()[15] != stopped
+        assert "0x%08x" % stopped in simulator.respond(b"4-data-list-register-values x 15").decode()
+        flushed = simulator.respond(
+            b'5-interpreter-exec console "maintenance flush register-cache"'
+        ).decode()
+        assert "Register cache flushed." in flushed
+        reply = simulator.respond(b"6-data-list-register-values x 15").decode()
+        assert "0x%08x" % simulator.core_registers()[15] in reply
+
+    def test_gdb_reads_the_registers_again_when_the_target_stops(self, simulator):
+        simulator.respond(b"1-target-select extended-remote x:1")
+        simulator.respond(b'2-interpreter-exec console "monitor reset"')
+        simulator.respond(b"3-exec-step-instruction")
+        reply = simulator.respond(b"4-data-list-register-values x 15").decode()
+        assert "0x%08x" % simulator.core_registers()[15] in reply
+
     def test_running_with_no_breakpoint_does_not_hang(self, simulator):
         simulator.connected = True
         assert simulator.resume() == {}

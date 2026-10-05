@@ -1,3 +1,5 @@
+<img src="../../assets/brand/svg/logos/embeddedtestbench-logo-compact.svg" alt="Embedded Test Bench" width="240">
+
 # Embedded Test Bench Embedded C Coding Standard
 
 *Automotive SPICE® PAM v4.0 | SWE.3, SWE.4, SUP.1 — Embedded C for Embedded Test Bench firmware*
@@ -8,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-STD-002 | **Version** | 0.4 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-04 |
+| **Document ID** | ETB-STD-002 | **Version** | 0.6 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.3, SWE.4, SUP.1 |
@@ -29,6 +31,8 @@
 | 0.2 | 2026-09-30 | Claude | §1.2: scope names `firmware/pico_sht30` - sources, headers and host unit tests - alongside the dongle firmware; §1.3: the Pico SDK is out of scope as vendor code; §7.4: CStyleCheck runs on the Pico firmware in its own step, clean and without a baseline (#104). |
 | 0.3 | 2026-09-30 | Claude | §1.2: scope names the dongle firmware's host unit tests, `firmware/nordic_dongle/test/`; §1.3: the tests' stand-ins for nRF5 SDK headers are vendor API; §7.4: CStyleCheck runs on the tests in their own step, clean and without a baseline (#111). |
 | 0.4 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
+| 0.5 | 2026-10-05 | Claude | #204: Review & Approval table points to the merge of the pull request that last changed the document, which is the review and approval (ETB-SUP8-001 §5.7); no per-change signatures or dates. |
+| 0.6 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 
 ---
 
@@ -1889,11 +1893,18 @@ goto cleanup;
 
 ## 74. Review & Approval
 
-| Role | Name | Signature / Electronic Approval | Date |
-|---|---|---|---|
-| Author | Claude | Approved | 2026-09-19 |
-| Reviewer | Dermot Murphy | — | *pending* |
-| Approver | Dermot Murphy | — | *pending* |
+Review and approval of this document are not entered in this table. They are
+given by the merge of the pull request that last changed the document, and that
+merge is the record (ETB-SUP8-001 §5.7). The evidence is the pull request, its
+CI result and its merge record: who merged it, when, and the merge commit. The
+last row of the revision history names the issue, and the issue links the pull
+request.
+
+| Role | Name | Recorded by |
+|---|---|---|
+| Author | Claude | The commits in the pull request |
+| Reviewer | Dermot Murphy | The merge of the pull request that last changed this document |
+| Approver | Dermot Murphy | The merge of the pull request that last changed this document |
 
 ---
 
