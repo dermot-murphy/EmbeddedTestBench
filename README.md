@@ -17,6 +17,10 @@ benchtools run specs/clock_skew.yaml --simulate --markdown report.md
 Everything below runs with no hardware: `sim://` and `--simulate` drive in-process
 instrument models.
 
+**New here?** Start with the [User Manual](docs/User_Manual.md): installing, a first
+run on the simulated bench, the real bench and its safety limits, and a section
+for Claude Code sessions.
+
 ---
 
 ## Layout
@@ -866,6 +870,13 @@ Full input and output reference: [`action.yml`](action.yml).
 ---
 
 ## Documentation
+
+The documents below are also published, generated from `main` at each release:
+the [wiki](https://github.com/dermot-murphy/EmbeddedTestBench/wiki) has every user
+guide, instrument note and ASPICE document with a sidebar to move between them, and
+the [home page](https://dermot-murphy.github.io/EmbeddedTestBench/) links to the
+wiki, the latest release and the system qualification report. Both are generated
+by `scripts/publish_docs.py` and are not edited by hand.
 
 | Document | Contents |
 |---|---|
