@@ -1,3 +1,5 @@
+<img src="../../assets/brand/svg/logos/embeddedtestbench-logo-compact.svg" alt="Embedded Test Bench" width="240">
+
 # Quality Assurance Plan
 
 *Automotive SPICE® PAM v4.0 | SUP.1 — Quality Assurance*
@@ -8,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SUP1-001 | **Version** | 0.3 |
+| **Document ID** | ETB-SUP1-001 | **Version** | 0.4 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -25,6 +27,7 @@
 | 0.1 | 2026-09-19 | Claude | Initial |
 | 0.2 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
 | 0.3 | 2026-10-05 | Claude | #204: §6.5 added - a pull request merge is an accepted form of review record, and the Reviewer applies ETB-TMPL-001 checks C1 to C6 before merging. §5, §6.3, §7 and §9 updated to match; §10 points to the merge (ETB-SUP8-001 §5.7). |
+| 0.4 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 
 ---
 

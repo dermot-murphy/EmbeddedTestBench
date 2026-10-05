@@ -1,3 +1,5 @@
+<img src="../../assets/brand/svg/logos/embeddedtestbench-logo-compact.svg" alt="Embedded Test Bench" width="240">
+
 # Requirements Traceability Matrix
 
 *Automotive SPICE® PAM v4.0 | Bidirectional traceability across SWE.1 to SWE.4*
@@ -8,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-RTM-001 | **Version** | 1.25 |
+| **Document ID** | ETB-RTM-001 | **Version** | 1.26 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -57,6 +59,7 @@
 | 1.23 | 2026-10-05 | Claude | #204: Review & Approval table points to the merge of the pull request that last changed the document, which is the review and approval (ETB-SUP8-001 §5.7); no per-change signatures or dates. |
 | 1.24 | 2026-10-05 | Claude | #177: JLINK-FR-030 row cites `test_a_reset_without_halting_resumes_the_core` and `test_every_reset_type_leaves_the_core_halted`; JLINK-FR-090 count 23 → 25. |
 | 1.25 | 2026-10-05 | Claude | #178: JLINK-FR-031 row cites `test_registers_read_after_a_reset_are_the_reset_s`, `test_a_reset_flushes_gdb_s_register_cache` and `test_gdb_s_registers_are_stale_after_a_monitor_reset`; JLINK-FR-090 count 25 → 27. |
+| 1.26 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 
 ---
 

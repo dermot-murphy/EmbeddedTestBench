@@ -1,3 +1,5 @@
+<img src="../../assets/brand/svg/logos/embeddedtestbench-logo-compact.svg" alt="Embedded Test Bench" width="240">
+
 # Software Unit Verification Report
 
 *Automotive SPICE® PAM v4.0 | SWE.4 Software Unit Verification*
@@ -8,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE4-002 | **Version** | 1.23 |
+| **Document ID** | ETB-SWE4-002 | **Version** | 1.24 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -55,6 +57,7 @@
 | 1.21 | 2026-10-05 | Claude | #204: Review & Approval table points to the merge of the pull request that last changed the document, which is the review and approval (ETB-SUP8-001 §5.7); no per-change signatures or dates. |
 | 1.22 | 2026-10-05 | Claude | #177: whole suite re-run (§4); SWE4-UT-JLINK re-counted 86 → 98 and SWE4-UT-JLINKSIM 23 → 25 in §5; §9.3 added - `reset(halt=False)` on the bench before and after the fix; D-48 added and closed, and D-39 notes that D-48 replaces its model. |
 | 1.23 | 2026-10-05 | Claude | #178: whole suite re-run (§4); SWE4-UT-JLINK 98 → 100 and SWE4-UT-JLINKSIM 25 → 27 in §5; §9.4 added - registers read after `reset(halt=True)` on the bench, before and after the fix, with the cause confirmed; D-49 added and closed. |
+| 1.24 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 
 ---
 

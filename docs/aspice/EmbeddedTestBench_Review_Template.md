@@ -1,3 +1,5 @@
+<img src="../../assets/brand/svg/logos/embeddedtestbench-logo-compact.svg" alt="Embedded Test Bench" width="240">
+
 # Work Product Review Record — Template
 
 *Automotive SPICE® PAM v4.0 | GP 2.2.3, SUP.1, SUP.9*
@@ -8,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-TMPL-001 | **Version** | 0.4 |
+| **Document ID** | ETB-TMPL-001 | **Version** | 0.5 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -26,6 +28,7 @@
 | 0.2 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
 | 0.3 | 2026-10-04 | Claude | #187: C4 names the revision history order - oldest entry first (ETB-SUP8-001 §6.2). |
 | 0.4 | 2026-10-05 | Claude | #204: §3.1 states that a pull request merge is an accepted form of review record and that checks C1 to C6 are what the Reviewer applies before merging. §9 points to the merge of the pull request that adds or last changes the record (ETB-SUP8-001 §5.7). |
+| 0.5 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 
 ---
 

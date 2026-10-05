@@ -12,8 +12,13 @@ every other relative link points at the file on ``--ref`` in the repository.
 so a renamed or deleted document does not leave a stale page behind.
 
 ``home`` writes the home page served by GitHub Pages from the ``gh-pages``
-branch: ``README.md`` with the logo, the README's introduction and links to
-the wiki, the latest release and the system qualification report.
+branch: ``README.md`` with the website header banner, the README's
+introduction and links to the wiki, the latest release and the system
+qualification report; the favicons and ``_includes/head-custom.html``, which
+links them from the theme's <head>.
+
+The brand artwork (#194) is the compact logo on the wiki's ``Home`` and
+``_Sidebar`` and the GitHub header banner on ``ASPICE-Index``, as PNG renders.
 
 Both outputs are generated, never edited by hand, and published from ``main``
 by ``.github/workflows/wiki_publish.yml`` and ``pages_publish.yml``
@@ -22,7 +27,7 @@ arguments - no timestamp - so a run with nothing changed changes nothing.
 
 Standard library only, Python 3.8 and later.
 
-Traces to: ETB-SUP8-001 §5.8, issue #184.
+Traces to: ETB-SUP8-001 §5.8 and §6.3, issues #184 and #194.
 """
 
 from __future__ import annotations
@@ -94,8 +99,45 @@ PROCESS_GROUPS = (
 OTHER_GROUP = "Other"
 GROUP_ORDER = tuple(group for _, group in PROCESS_GROUPS) + (OTHER_GROUP,)
 
-#: The logo copied onto the home page.
-LOGO = "assets/brand/png/logos/logo_horizontal.png"
+#: Brand artwork on the wiki (#194): the compact logo on Home and in the
+#: sidebar, the GitHub header banner on ASPICE-Index. Each is linked as a raw
+#: file on the ref, not copied into the wiki.
+WIKI_LOGO = "assets/brand/png/logos/logo_compact.png"
+WIKI_BANNER = "assets/brand/png/headers/github_header.png"
+
+#: The PNG render of each brand SVG master. A wiki page shows the PNG, as the
+#: brand README and #194 advise for the wiki, so an image in a document that
+#: names the SVG master is pointed at its render on the wiki.
+BRAND_PNG = {
+    "assets/brand/svg/logos/embeddedtestbench-logo-compact.svg":
+        "assets/brand/png/logos/logo_compact.png",
+    "assets/brand/svg/logos/embeddedtestbench-logo-horizontal.svg":
+        "assets/brand/png/logos/logo_horizontal.png",
+    "assets/brand/svg/logos/embeddedtestbench-logo-monochrome.svg":
+        "assets/brand/png/logos/logo_monochrome.png",
+    "assets/brand/svg/headers/embeddedtestbench-github-header.svg":
+        "assets/brand/png/headers/github_header.png",
+    "assets/brand/svg/headers/embeddedtestbench-website-header.svg":
+        "assets/brand/png/headers/website_header.png",
+}
+
+#: Copied onto the home page (#194): (repository path, path on gh-pages). The
+#: website header banner tops the page; the favicons are linked from
+#: ``_includes/head-custom.html``, which the Primer theme includes in <head>.
+HOME_BANNER = ("assets/brand/svg/headers/embeddedtestbench-website-header.svg",
+               "assets/embeddedtestbench-website-header.svg")
+HOME_FAVICONS = (
+    ("assets/brand/svg/icons/embeddedtestbench-favicon.svg",
+     "assets/embeddedtestbench-favicon.svg"),
+    ("assets/brand/png/favicon/favicon_32.png", "assets/favicon_32.png"),
+    ("assets/brand/png/favicon/favicon.ico", "favicon.ico"),
+)
+HEAD_CUSTOM = "_includes/head-custom.html"
+
+#: README lines that are only a brand image. The wiki Home page and the home
+#: page carry their own brand artwork, so these are left out of the README
+#: introduction they reuse.
+_BRAND_IMG_LINE = re.compile(r"""^\s*<img\b[^>]*\bsrc=["']assets/brand/[^>]*>\s*$""", re.I)
 
 SYS5_REPORT = "docs/aspice/EmbeddedTestBench_SYS5_002_System_Qualification_Test_Report.md"
 
@@ -109,11 +151,12 @@ _FRONT_MATTER = re.compile(r"^---\s*\n.*?\n---\s*\n", re.DOTALL)
 class Site:
     """Where links point: the repository, the ref, and the published pages."""
 
-    def __init__(self, root, repo, ref, pages):
+    def __init__(self, root, repo, ref, pages, brand_png=False):
         self.root = Path(root)
         self.repo = repo
         self.ref = ref
         self.pages = pages  # repository-relative POSIX path -> wiki slug
+        self.brand_png = brand_png  # show a brand SVG master as its PNG render
 
     @property
     def repo_url(self):
@@ -130,6 +173,8 @@ class Site:
         """The address of a repository file or directory at this ref."""
         if image:
             kind = "raw"
+            if self.brand_png:
+                rel = BRAND_PNG.get(rel, rel)
         elif (self.root / rel).is_dir():
             kind = "tree"
         else:
@@ -297,11 +342,26 @@ def document_page(rel, site, footer):
 
 
 def readme_intro(site):
-    """The README's introduction: everything before its first ``##`` section."""
+    """The README's introduction: everything before its first ``##`` section.
+
+    Lines that are only a brand image (the README's banner and logo) are left
+    out: the pages that reuse the introduction carry their own artwork.
+    """
     text = read_text(site.root / "README.md")
     intro = re.split(r"\n(?=## )", text, maxsplit=1)[0].rstrip()
     intro = re.sub(r"\n-{3,}$", "", intro).rstrip()
+    lines = intro.split("\n")
+    unfenced = set(_unfenced(lines))
+    kept = [line for i, line in enumerate(lines)
+            if i not in unfenced or not _BRAND_IMG_LINE.match(line)]
+    intro = re.sub(r"\n{3,}", "\n\n", "\n".join(kept)).strip()
     return rewrite_links(intro, "README.md", site)
+
+
+def brand_img(site, rel, width):
+    """An HTML image of a brand asset, as its raw file on the ref."""
+    return '<img src="%s" alt="Embedded Test Bench" width="%s">' % (
+        site.file_url(rel, image=True), width)
 
 
 def sidebar_entries(entries, site):
@@ -334,7 +394,7 @@ def generate_wiki(out, root=ROOT, repo=DEFAULT_REPO, ref=DEFAULT_REF, clean=Fals
         for old in out.glob("*.md"):
             old.unlink()
 
-    site = Site(root, repo, ref, page_map(discover(root)))
+    site = Site(root, repo, ref, page_map(discover(root)), brand_png=True)
     written = []
 
     def emit(name, text):
@@ -354,7 +414,7 @@ def generate_wiki(out, root=ROOT, repo=DEFAULT_REPO, ref=DEFAULT_REF, clean=Fals
     groups = process_groups(aspice)
     emit("Home", home_wiki_page(site, guides, instruments))
     emit("ASPICE-Index", aspice_index(site, aspice, groups))
-    emit("_Sidebar", sidebar(guides, instruments, groups))
+    emit("_Sidebar", sidebar(site, guides, instruments, groups))
     return written
 
 
@@ -364,8 +424,9 @@ def wiki_list(entries):
 
 
 def home_wiki_page(site, guides, instruments):
-    """The wiki's Home page: the README introduction and the contents."""
-    lines = [readme_intro(site), "", "---", "", "## User Guide", ""]
+    """The wiki's Home page: the logo, the README introduction and the contents."""
+    lines = [brand_img(site, WIKI_LOGO, 240), "", readme_intro(site), "",
+             "---", "", "## User Guide", ""]
     lines += wiki_list(guides)
     lines += ["", "## Instruments", ""] + wiki_list(instruments)
     lines += ["", "## ASPICE CL2 Documentation", "",
@@ -382,8 +443,8 @@ def home_wiki_page(site, guides, instruments):
 
 
 def aspice_index(site, aspice, groups):
-    """The ASPICE-Index page: documents by process group, then by Document ID."""
-    lines = ["# ASPICE CL2 Documentation", "",
+    """The ASPICE-Index page: the banner, documents by process group, then by ID."""
+    lines = [brand_img(site, WIKI_BANNER, "100%"), "", "# ASPICE CL2 Documentation", "",
              "**Embedded Test Bench** | Automotive SPICE® PAM v4.0 | Capability Level 2", "",
              "*Generated from `docs/aspice/` on the `%s` branch.*" % site.ref, "",
              "This section contains the ASPICE CL2 work products for Embedded Test Bench. "
@@ -409,9 +470,10 @@ def aspice_index(site, aspice, groups):
     return "\n".join(lines)
 
 
-def sidebar(guides, instruments, groups):
-    """The _Sidebar page: user guides, instruments, then ASPICE by process."""
-    lines = ["## [[Embedded Test Bench|Home]]", "", "**User Guide**", ""]
+def sidebar(site, guides, instruments, groups):
+    """The _Sidebar page: the logo, user guides, instruments, then ASPICE by process."""
+    lines = [brand_img(site, WIKI_LOGO, 180), "",
+             "## [[Embedded Test Bench|Home]]", "", "**User Guide**", ""]
     lines += wiki_list(guides)
     lines += ["", "**Instruments**", ""] + wiki_list(instruments)
     lines += ["", "---", "", "**ASPICE CL2 Docs**", "",
@@ -428,10 +490,12 @@ def sidebar(guides, instruments, groups):
 def generate_home(out, root=ROOT, repo=DEFAULT_REPO, ref=DEFAULT_REF):
     """Write the GitHub Pages home page into ``out``; return the files written."""
     out = Path(out)
-    (out / "assets").mkdir(parents=True, exist_ok=True)
     site = Site(root, repo, ref, {})
-    logo = "assets/" + posixpath.basename(LOGO)
-    shutil.copyfile(str(Path(root) / LOGO), str(out / logo))
+    copied = []
+    for source, target in (HOME_BANNER,) + HOME_FAVICONS:
+        (out / target).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(str(Path(root) / source), str(out / target))
+        copied.append(target)
 
     intro = readme_intro(site).split("\n")
     title = next((i for i in _unfenced(intro) if intro[i].startswith("# ")), None)
@@ -439,7 +503,7 @@ def generate_home(out, root=ROOT, repo=DEFAULT_REPO, ref=DEFAULT_REF):
         del intro[title]
     wiki = site.repo_url + "/wiki"
     # The theme's page header already shows the site title from _config.yml.
-    lines = ["![Embedded Test Bench](%s)" % logo, ""]
+    lines = ["![Embedded Test Bench](%s)" % HOME_BANNER[1], ""]
     lines += ["\n".join(intro).strip(), "", "## Links", "",
               "- [Documentation wiki](%s)" % wiki,
               "- [Latest release](%s/releases/latest)" % site.repo_url,
@@ -456,7 +520,25 @@ def generate_home(out, root=ROOT, repo=DEFAULT_REPO, ref=DEFAULT_REF):
         "description: Bench test tooling - instrument drivers, a debug probe driver "
         "and a declarative test runner.",
     ]))
-    return ["README.md", "_config.yml", logo]
+    write_head_custom(out)
+    return ["README.md", "_config.yml", HEAD_CUSTOM] + copied
+
+
+def write_head_custom(out):
+    """Write the <head> include that links the favicons.
+
+    The Primer theme's layout includes ``_includes/head-custom.html`` in <head>;
+    this replaces the theme's own, which holds only commented-out examples.
+    """
+    (out / HEAD_CUSTOM).parent.mkdir(parents=True, exist_ok=True)
+    href = "{{ '/%s' | relative_url }}"
+    svg, png, ico = (href % target for _, target in HOME_FAVICONS)
+    write_text(out / HEAD_CUSTOM, "\n".join([
+        "<!-- Generated by scripts/publish_docs.py - not edited by hand. -->",
+        '<link rel="icon" type="image/svg+xml" href="%s">' % svg,
+        '<link rel="icon" type="image/png" sizes="32x32" href="%s">' % png,
+        '<link rel="shortcut icon" type="image/x-icon" href="%s">' % ico,
+    ]))
 
 
 def main(argv=None):

@@ -1,3 +1,5 @@
+<img src="../../assets/brand/svg/logos/embeddedtestbench-logo-compact.svg" alt="Embedded Test Bench" width="240">
+
 # Change Request Management Plan
 
 *Automotive SPICE® PAM v4.0 | SUP.10 — Change Request Management*
@@ -8,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SUP10-001 | **Version** | 0.3 |
+| **Document ID** | ETB-SUP10-001 | **Version** | 0.4 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -25,6 +27,7 @@
 | 0.1 | 2026-09-19 | Claude | Initial |
 | 0.2 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
 | 0.3 | 2026-10-05 | Claude | #204: Review & Approval table points to the merge of the pull request that last changed the document, which is the review and approval (ETB-SUP8-001 §5.7); no per-change signatures or dates. |
+| 0.4 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 
 ---
 
