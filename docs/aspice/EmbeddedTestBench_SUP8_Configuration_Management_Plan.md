@@ -8,8 +8,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SUP8-001 | **Version** | 0.6 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-04 |
+| **Document ID** | ETB-SUP8-001 | **Version** | 0.7 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SUP.8 |
@@ -28,6 +28,7 @@
 | 0.4 | 2026-10-04 | Claude | #170: §5 repository identifier updated - the repository was renamed from `dermot-murphy/TestTools` to `dermot-murphy/EmbeddedTestBench`. The procedure is unchanged, and `CLAUDE.md` names no repository, so it needed no matching change. |
 | 0.5 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
 | 0.6 | 2026-10-04 | Claude | #187: §6.2 added - a revision history lists entries oldest first, a new entry is appended as the last row, and earlier rows are not edited. |
+| 0.7 | 2026-10-05 | Claude | #185: §5.5 added - the repository settings baseline (ruleset, merge, security, actions), with the enforcement observed on 2026-10-05. Changed together with CLAUDE.md. |
 
 ---
 
@@ -160,6 +161,50 @@ the failure it describes (ETB-RISK-004).
 `CLAUDE.md` at the repository root carries the same procedure in working form,
 for contributors and for Claude Code. It and this section are one configuration
 item in two places and are changed together; neither is updated alone.
+
+
+### 5.5 Repository Settings Baseline
+
+The settings below are part of this configuration item. They were applied and
+read back through the GitHub API on 2026-10-05 (#185), and are re-checked
+against the API rather than assumed (ETB-RISK-004).
+
+| Area | Setting | Value |
+|---|---|---|
+| Ruleset | Name, enforcement, bypass | "Protect main and develop", active, no bypass actors |
+| Ruleset | Target branches | `refs/heads/main`, `refs/heads/develop` (two patterns) |
+| Ruleset | Deletion, force push | Both blocked |
+| Ruleset | Pull request | Required; 0 approvals (single maintainer, who cannot approve their own pull request); merge method **merge** only |
+| Ruleset | Required status checks | `pytest (3.8)`, `pytest (3.9)`, `pytest (3.12)`, `pylint`, `Embedded C standard`, `Simulated bench`; branch need not be up to date |
+| Ruleset | Linear history | Not required: it would block the merge commits §5.2 requires |
+| Merge | Merge commits / squash / rebase | On / off / off |
+| Merge | Automatically delete head branches | On (see below) |
+| Merge | Auto-merge | Off: a pull request is merged on instruction |
+| Security | Secret scanning, push protection | On |
+| Security | Dependabot alerts, security updates | On |
+| Actions | Allowed actions | GitHub-owned, plus `carlosperate/arm-none-eabi-gcc-action@*` and `dermot-murphy/*` |
+| Actions | Default `GITHUB_TOKEN` permission | Read; Actions may not approve pull requests |
+| Repository | Description, topics | Set; Discussions off; Wiki on (#184) |
+
+The required checks are the jobs that run on every push and pull request. The
+firmware workflow's jobs are path-filtered and are therefore not required: a
+pull request that does not touch firmware would wait for them indefinitely.
+
+**Enforcement observed, 2026-10-05.** With the ruleset temporarily extended to
+a probe branch, a direct push, a force push and a deletion were each rejected
+(`GH013`: "Changes must be made through a pull request", "Cannot force-push to
+this branch", "Cannot delete this branch"). The ruleset was then restored to
+`main` and `develop` and the probe branch deleted.
+
+**Automatic head-branch deletion.** Merging a pull request deletes its branch.
+That is safe only because §5.2 already requires a stacked pull request to be
+retargeted to `develop` before its predecessor merges. Whether automatic
+deletion closes dependent pull requests the way the manual deletion in §5.3 did
+has not been verified, so the procedure assumes it does.
+
+**Dependabot.** Whether `target-branch` in `dependabot.yml` redirects security
+updates has not been verified. Until it is, a Dependabot pull request is assumed
+to open against `main` and is retargeted to `develop` before it is merged (§5.1).
 
 ---
 

@@ -110,6 +110,25 @@ The original commit SHA is recoverable from the merged pull request's head, from
 the local clone, or from the repository's events — check before deleting a branch,
 not after.
 
+## Repository settings
+
+The repository's GitHub settings enforce part of this procedure, and are
+recorded in `ETB-SUP8-001 §5.5`:
+
+- `main` and `develop` reject direct pushes, force pushes and deletion. A
+  change reaches them only through a pull request whose required checks pass:
+  `pytest (3.8)`, `pytest (3.9)`, `pytest (3.12)`, `pylint`,
+  `Embedded C standard` and `Simulated bench`.
+- Merge commits are the only merge method. Squash and rebase are switched off.
+- **Merging a pull request deletes its head branch automatically.** In a stack,
+  retarget the next pull request to `develop` *before* merging its predecessor,
+  as step 2 above already requires, or the deletion may close it.
+- A Dependabot pull request may open against `main`. Retarget it to `develop`
+  before merging.
+
+Read the settings back through the API before relying on them. If a setting is
+changed, change `ETB-SUP8-001 §5.5` with it.
+
 ## Verify, don't assert
 
 The retarget trap above is one instance of a general failure this project has
