@@ -176,6 +176,12 @@ the API or the live configuration. If something cannot be verified, say that it 
 unverified. A confident wrong answer about tooling costs more than an admitted gap,
 because it gets acted on.
 
+## Using the bench
+
+Read [`docs/User_Manual.md` §8](docs/User_Manual.md#8-for-claude-code-sessions)
+first. It says where the bench facts live and what must never be done on the
+real bench. It does not change the procedure in this file.
+
 ## Related
 
 - `ETB-SUP8-001 §5` — Configuration Management Plan. Carries this procedure in
