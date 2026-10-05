@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE4-002 | **Version** | 1.22 |
+| **Document ID** | ETB-SWE4-002 | **Version** | 1.23 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -54,6 +54,7 @@
 | 1.20 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
 | 1.21 | 2026-10-05 | Claude | #204: Review & Approval table points to the merge of the pull request that last changed the document, which is the review and approval (ETB-SUP8-001 §5.7); no per-change signatures or dates. |
 | 1.22 | 2026-10-05 | Claude | #177: whole suite re-run (§4); SWE4-UT-JLINK re-counted 86 → 98 and SWE4-UT-JLINKSIM 23 → 25 in §5; §9.3 added - `reset(halt=False)` on the bench before and after the fix; D-48 added and closed, and D-39 notes that D-48 replaces its model. |
+| 1.23 | 2026-10-05 | Claude | #178: whole suite re-run (§4); SWE4-UT-JLINK 98 → 100 and SWE4-UT-JLINKSIM 25 → 27 in §5; §9.4 added - registers read after `reset(halt=True)` on the bench, before and after the fix, with the cause confirmed; D-49 added and closed. |
 
 ---
 
@@ -131,6 +132,15 @@ A repeat of the run after the documents were updated failed one test,
 against at least 0.4 s): a host-timing check in the BLE dongle driver, which
 this change does not touch. Run alone it failed once in three runs; it is
 intermittent on this PC and is not this change's.
+Revision 1.22 re-ran the whole suite with #178's register-cache flush, on the
+same bench PC and Python: **3 136 tests, 3 130 passed, 0 failed, 0 errors, 6
+skipped**, in 209.8 s.
+Two later runs, after the documents were updated, each failed only
+`test_readings_are_spaced_by_the_interval` (0.391 s again). The same test failed
+2 of 6 runs on an unmodified export of `origin/develop` on this PC, so it is
+intermittent there and not this change's: 0.391 s is 25 ticks of the
+15.625 ms clock `time.monotonic()` uses here (`GetTickCount64`), one tick short
+of 0.4 s.
 Revision 1.1 re-ran the whole suite with #131's `rd` command set on the same
 Windows bench PC, before #127 was merged into it: **2 753 tests, 2 747 passed,
 0 failed, 0 errors, 6 skipped**, in 189.6 s, CPython 3.14.7 on Windows 10,
@@ -177,7 +187,7 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | Test group | File | Tests | Result |
 |---|---|---|---|
 | SWE4-UT-SCOPE | `instruments/tek3014b/test_scope.py` | 87 | Pass |
-| SWE4-UT-JLINK | `instruments/jlink/test_probe.py` | 98 | Pass |
+| SWE4-UT-JLINK | `instruments/jlink/test_probe.py` | 100 | Pass |
 | SWE4-UT-S2LP | `instruments/s2lp/test_s2lp.py` | 75 | Pass |
 | SWE4-UT-S2LPREG | `instruments/s2lp/test_registers.py` | 34 | Pass |
 | SWE4-UT-S2LPPROTO | `instruments/s2lp/test_protocol.py` | 31 | Pass |
@@ -208,7 +218,7 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | SWE4-UT-JLINKSERVER | `instruments/jlink/test_server.py` | 32 | Pass |
 | SWE4-UT-SCPI | `core/test_scpi.py` | 28 | Pass |
 | SWE4-UT-TIMING | `instruments/jlink/test_timing.py` | 29 | Pass |
-| SWE4-UT-JLINKSIM | `instruments/jlink/test_simulator.py` | 25 | Pass |
+| SWE4-UT-JLINKSIM | `instruments/jlink/test_simulator.py` | 27 | Pass |
 | SWE4-UT-JLINKCLI | `instruments/jlink/test_cli.py` | 22 | Pass |
 | SWE4-UT-RTT | `instruments/jlink/test_rtt.py` | 21 | Pass |
 | SWE4-UT-SWO | `instruments/jlink/test_swo.py` | 20 | Pass |
@@ -660,6 +670,34 @@ then read DHCSR and the PC sample register; its connection does not halt the cor
 
 `nrfjprog --memrd` was not used to check whether the core ran: on this bench it
 halted a running core and left it halted.
+
+### 9.4 Registers after a reset, on the bench (#178)
+
+Same bench and set-up as §9.3, 2026-10-05. A script connected `JLinkProbe`, read
+the PC, called `reset(halt=True)`, read the vector table at address 0
+(initial SP `0x20000400`, reset vector `0x00000A81`, so the handler is at
+`0x00000A80`), then read `program_counter()` and `registers()` and stepped one
+instruction. The diagnostic run also asked the GDB Server for its own view
+(`monitor reg pc`, `monitor reg sp`) and then sent `maintenance flush
+register-cache`.
+
+| Read after `reset(halt=True)` | Before the fix | After the fix |
+|---|---|---|
+| PC before the reset | `0x00025F40` | `0x00025F40` |
+| GDB Server's `monitor reg pc` / `monitor reg sp` | `0x00000A80` / `0x20000400` | not asked |
+| First `program_counter()` | `0x00025F40`, the pre-reset PC (and again on a second read) | `0x00000A80` |
+| `registers()` pc, sp, lr, xpsr | `0x00025F40`, `0x2003FF20`, `0x0001671D`, `0x61000000` (all pre-reset) | `0x00000A80`, `0x20000400`, `0xFFFFFFFF`, `0x01000000` |
+| After `maintenance flush register-cache` | `0x00000A80`, `0x20000400`, `0xFFFFFFFF`, `0x01000000` | - |
+| One instruction step | `0x00000A82` | `0x00000A82` |
+
+So the core had reset; GDB reported the registers it had read at attach until
+it was told to flush them, which confirms the cause #178 proposed. After the
+fix the first read is the reset handler, SP is the vector table's initial SP,
+and LR and xPSR read their architectural reset values. The issue's first read
+was `0x00000000` rather than a pre-reset PC; that run was not repeated, and
+which earlier value GDB had cached there is not known. `reset(halt=False)` was
+also run again with the flush in place: 84 RTT lines in 20 s, the periodic
+`Waking n` lines continuing, and the core running after the probe closed.
 
 ## 10. BLE dongle verification results
 
@@ -1423,6 +1461,7 @@ SDK to provide it transitively.
 | D-46 | On the BLE command line, `--select` with anything but the exact advertised name failed: the scan's firmware filter matched by containment, then `select()` matched the name exactly, found nothing and parsed the text as an address - "not a BLE address". `cmd --addr` was accepted and never read. Found on hardware with sensor 5C1712 during #73, ticketed as #124 | **Major** - the advertised name carries the firmware version, so the name an operator knows never matched; the only working form was an address | **Closed** - `select` and `--select` resolve an address, a name or part of one through `select_by_name`, with an unfiltered rescan for another case; `cmd --addr` selects; `--addr` with `--select` exits 2 Confirmed on hardware 2026-10-04 (§14A, #129). | `TestChoosingASensor` (16; 13 fail before the fix) |
 | D-47 | The event log named a record's source from a fixed table of driver packages. The Pico 2 thermometer was not in it, so its records read `bench`; the shared transports' lines read `bench` whatever instrument they carried; and two instruments of one driver - `probe` and `rtt` - were indistinguishable. Found in #126 | **Major** for a log whose purpose is to say which part of the bench did what: a supply's and a thermometer's lines could not be told apart, nor two J-Link links | **Closed** - each instrument carries a name, allocated by the specification and the bench, the specification winning, defaults per driver including `TEMP`; everything an instrument owns logs under it; clashes refused before connecting (AD-28) Confirmed on hardware 2026-10-04 (§14A, #129). | `SWE4-UT-EVENTNAMES` (21), `TestPerInstrumentNames` (15), `TestSourceNames` (18) |
 | D-48 | `JLinkProbe.reset(halt=False)` sent `monitor reset 0` and recorded the target as running, but the J-Link GDB Server halts the core after `monitor reset` whatever the reset type, and nothing resumed it. Found on the bench in the hardware qualification (#176), ticketed as #177. The simulator hid it: D-39 had modelled `monitor reset 0` as reset-and-run | **Major**: a test that resets the target "running" and then talks to it finds a halted target, and the failure points at the radio, not the probe | **Closed** - `reset(halt=False)` resumes with `run()` (`-exec-continue`) after the reset; the simulator leaves the core halted after every reset type. Confirmed on hardware 2026-10-05 (§9.3) | `test_a_reset_without_halting_resumes_the_core`, `test_every_reset_type_leaves_the_core_halted` (2), `TestIsItRunning` |
+| D-49 | Registers read straight after `JLinkProbe.reset()` were the ones GDB had cached before the reset. `monitor reset` and `monitor halt` go to the GDB Server, and GDB never sees them change the core. Found in the hardware qualification (#176, QS-01b, where the first PC read was `0x00000000`), ticketed as #178. The simulator hid it: it answered every register read from the core | **Major**: a register read after a reset, a common first step of a debug test, returned a value the core did not hold (ETB-SYS2-004) | **Closed** - `reset` sends `maintenance flush register-cache` after the reset; the simulator models GDB's register cache. Cause and fix confirmed on hardware 2026-10-05 (§9.4) | `test_registers_read_after_a_reset_are_the_reset_s`, `test_a_reset_flushes_gdb_s_register_cache`, `test_gdb_s_registers_are_stale_after_a_monitor_reset`, `test_gdb_reads_the_registers_again_when_the_target_stops` |
 
 No open defects.
 

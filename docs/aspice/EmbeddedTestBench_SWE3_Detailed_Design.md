@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE3-001 | **Version** | 1.21 |
+| **Document ID** | ETB-SWE3-001 | **Version** | 1.22 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -53,6 +53,7 @@
 | 1.19 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
 | 1.20 | 2026-10-05 | Claude | #204: Review & Approval table points to the merge of the pull request that last changed the document, which is the review and approval (ETB-SUP8-001 §5.7); no per-change signatures or dates. |
 | 1.21 | 2026-10-05 | Claude | #177: JLINK-DD-PROBE - `reset(halt=False)` resumes the core with `run()` after `monitor reset 0`, which halts it on a real probe. JLINK-DD-SIM - every `monitor reset` leaves the simulated core halted, replacing D-39's reset-and-run model. |
+| 1.22 | 2026-10-05 | Claude | #178: JLINK-DD-PROBE - `reset` flushes GDB's register cache (`_flush_register_cache`, `maintenance flush register-cache`), since GDB kept the pre-reset registers after `monitor reset`. JLINK-DD-SIM - GDB's register cache is modelled (`register_cache`, `core_registers`). |
 
 ---
 
@@ -823,6 +824,14 @@ traffic, ITM events and sections; `SimulatedJLink` answers the MI dialogue.
   again only when the driver resumes it (`-exec-continue` or `monitor go`). This
   replaces D-39's model, in which `monitor reset 0` reset and then ran: that
   made a driver which never resumed the core look correct (D-48).
+- **GDB's register cache is modelled** (#178). The registers GDB reports are
+  `register_cache`, read from the core (`core_registers`) when GDB sees the
+  target stop - attach, a breakpoint, a step, an interrupt - and forgotten
+  when it sees the target run, on detach, and on `maintenance flush
+  register-cache` (or `flushregs`). A `monitor` command changes the core and
+  not the cache, so a read after `monitor reset` is stale until flushed, as on
+  a real probe. Before this, a driver that never flushed read correct
+  registers here (D-49).
 
 #### JLINK-DD-PROBE — `jlink/probe.py`
 
@@ -876,6 +885,14 @@ Design points:
   `-exec-interrupt` to a target GDB knows is running.
   `reset(halt=True)` sends `monitor reset` and `monitor halt` and leaves it
   halted.
+- **`reset` flushes GDB's register cache** (`_flush_register_cache`, #178).
+  GDB never sees what a `monitor` command does to the core, so after `monitor
+  reset` it still reported the registers it had read before: on 5C1712 the
+  first `program_counter()` after `reset()` returned the pre-reset PC while
+  `monitor reg pc` gave `0x00000A80`, the reset handler. `reset` therefore sends
+  `maintenance flush register-cache` after the reset (after `monitor halt` when
+  halting, before `run()` when not), and raises if GDB refuses it, rather than
+  let a later read return a value the core no longer holds.
 - **`flash(path)` loads the file by name, then reads it as the executable** for
   `verify`. GDB 15.2 on Windows exited with status 3 after `file` then `load` of
   an Intel HEX file on a mapped drive ("has changed; re-reading symbols");
