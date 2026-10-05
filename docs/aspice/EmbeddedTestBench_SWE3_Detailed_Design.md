@@ -1,3 +1,5 @@
+<img src="../../assets/brand/svg/logos/embeddedtestbench-logo-compact.svg" alt="Embedded Test Bench" width="240">
+
 # Software Detailed Design
 
 *Automotive SPICE® PAM v4.0 | SWE.3 Software Detailed Design and Unit Construction*
@@ -8,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE3-001 | **Version** | 1.22 |
+| **Document ID** | ETB-SWE3-001 | **Version** | 1.23 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -54,6 +56,7 @@
 | 1.20 | 2026-10-05 | Claude | #204: Review & Approval table points to the merge of the pull request that last changed the document, which is the review and approval (ETB-SUP8-001 §5.7); no per-change signatures or dates. |
 | 1.21 | 2026-10-05 | Claude | #177: JLINK-DD-PROBE - `reset(halt=False)` resumes the core with `run()` after `monitor reset 0`, which halts it on a real probe. JLINK-DD-SIM - every `monitor reset` leaves the simulated core halted, replacing D-39's reset-and-run model. |
 | 1.22 | 2026-10-05 | Claude | #178: JLINK-DD-PROBE - `reset` flushes GDB's register cache (`_flush_register_cache`, `maintenance flush register-cache`), since GDB kept the pre-reset registers after `monitor reset`. JLINK-DD-SIM - GDB's register cache is modelled (`register_cache`, `core_registers`). |
+| 1.23 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 
 ---
 

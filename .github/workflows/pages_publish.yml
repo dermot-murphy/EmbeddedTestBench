@@ -1,9 +1,11 @@
 # Publish the home page to the gh-pages branch, served by GitHub Pages (#184).
 #
 # The home page is a generated output, never edited by hand (ETB-SUP8-001
-# §5.8). scripts/publish_docs.py writes README.md (the logo, the README's
+# §5.8). scripts/publish_docs.py writes README.md (the banner, the README's
 # introduction and links to the wiki, the latest release and the system
-# qualification report), _config.yml and the logo into a checkout of gh-pages.
+# qualification report), _config.yml, the banner, the favicons and
+# _includes/head-custom.html (which links the favicons) into a checkout of
+# gh-pages.
 # Files it does not write are left in place, so the branch can carry other
 # generated content later. GitHub Pages serves the branch from its root with the
 # legacy (branch) build.
@@ -42,23 +44,23 @@ permissions:
 jobs:
   publish-home:
     name: Publish home page
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: github.ref == 'refs/heads/main' || inputs.dry_run
     permissions:
       contents: write
 
     steps:
       - name: Check out
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Check out gh-pages
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: gh-pages
           path: site
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.12'
 

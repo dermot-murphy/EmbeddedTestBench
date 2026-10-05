@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Applies to | Release `v0.01.0000` and `develop` after it |
+| Applies to | Release `v0.01.0001` and `develop` after it |
 | Issue | #196 |
 | Audience | An engineer new to the bench, and a Claude Code session working in this repository ([§8](#8-for-claude-code-sessions)) |
 
@@ -90,20 +90,20 @@ tests 3.8, 3.9 and 3.12.
 ### 2.1 From the release tag, without cloning
 
 ```sh
-pip install "benchtools[spec] @ git+https://github.com/dermot-murphy/EmbeddedTestBench@v0.01.0000"
+pip install "benchtools[spec] @ git+https://github.com/dermot-murphy/EmbeddedTestBench@v0.01.0001"
 ```
 
 Add `serial` to the extras for a real bench ([§2.3](#23-the-extras)). Checked in a fresh virtual environment:
 
 ```
 > benchtools --version
-benchtools 0.01.0000
+benchtools 0.01.0001
 > pip show benchtools
 Name: benchtools
-Version: 0.1.0
+Version: 0.1.1
 ```
 
-`pip show` reports `0.1.0` because packaging normalises the version under PEP
+`pip show` reports `0.1.1` because packaging normalises the version under PEP
 440. Both name the same release (ETB-SVD-001 §5.1).
 
 This installs the package only. The example specifications and bench files
@@ -115,7 +115,7 @@ in [§3](#3-the-first-run-the-simulated-bench-end-to-end) use a checkout.
 ```sh
 git clone https://github.com/dermot-murphy/EmbeddedTestBench
 cd EmbeddedTestBench
-git checkout v0.01.0000          # or stay on develop
+git checkout v0.01.0001          # or stay on develop
 pip install -e ".[spec,serial,test]"
 ```
 
@@ -140,7 +140,7 @@ package might be first on `PATH`.
 
 ```
 > python -m benchtools --version
-benchtools 0.01.0000
+benchtools 0.01.0001
 ```
 
 ### 2.5 Firmware toolchains (only if you build instrument firmware)
@@ -658,7 +658,7 @@ summary. `.github/workflows/bench.yml` runs `specs/sensor_bringup.yaml` and
 another repository:
 
 ```yaml
-- uses: dermot-murphy/EmbeddedTestBench@v0.01.0000
+- uses: dermot-murphy/EmbeddedTestBench@v0.01.0001
   with:
     specs: specs/sensor_commands.yaml
     bench: benches/simulated_bench.yaml
@@ -860,6 +860,6 @@ Each of these was reproduced, except where marked *(from docs)*.
 | A port will not open *(from docs)* | The `serial` extra, a wrong COM number, another process holding the port, or (Linux) group permissions | [Bench Self-Check Setup §3–4](Bench_Self_Check_Setup.md#3-find-the-ports) |
 | The meter answers nothing *(from docs)* | DTR/RTS not passed: three-wire cable | [TTi 1604 Notes](dmm/TTi1604_Notes.md) |
 | The supply answers nothing *(from docs)* | Baud rate does not match the front panel | Utility > Baud on the supply |
-| `pip show benchtools` reports `0.1.0` | PEP 440 normalisation of `0.01.0000` | Expected. `benchtools --version` gives the project's form |
-| `pip show benchtools` reports `4.0.0` | Installed metadata from before the version scheme was set (ETB-SVD-001 §5.1) | Reinstall: `pip install -e ".[spec,serial,test]"`. A fresh editable install reports `benchtools 0.01.0000` |
+| `pip show benchtools` reports `0.1.1` | PEP 440 normalisation of `0.01.0001` (`0.1.0` for `0.01.0000`) | Expected. `benchtools --version` gives the project's form |
+| `pip show benchtools` reports `4.0.0` | Installed metadata from before the version scheme was set (ETB-SVD-001 §5.1) | Reinstall: `pip install -e ".[spec,serial,test]"`. A fresh editable install reports `benchtools 0.01.0001` |
 | `benchtools` runs a different copy from your checkout | Another install is first on `PATH` | Use `python -m benchtools` from the checkout's root |
