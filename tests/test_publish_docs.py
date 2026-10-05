@@ -1,7 +1,7 @@
 """The wiki and home page generator in scripts/publish_docs.py.
 
 The wiki and the gh-pages home page are generated from the repository and never
-edited by hand (ETB-SUP8-001 §5.7), so the generator is what has to be right:
+edited by hand (ETB-SUP8-001 §5.8), so the generator is what has to be right:
 page names, link rewriting, the sidebar reaching every guide, and a second run
 over unchanged content producing exactly the same files.
 

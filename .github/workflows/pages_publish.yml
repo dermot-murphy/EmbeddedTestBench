@@ -1,7 +1,7 @@
 # Publish the home page to the gh-pages branch, served by GitHub Pages (#184).
 #
 # The home page is a generated output, never edited by hand (ETB-SUP8-001
-# §5.7). scripts/publish_docs.py writes README.md (the banner, the README's
+# §5.8). scripts/publish_docs.py writes README.md (the banner, the README's
 # introduction and links to the wiki, the latest release and the system
 # qualification report), _config.yml, the banner, the favicons and
 # _includes/head-custom.html (which links the favicons) into a checkout of

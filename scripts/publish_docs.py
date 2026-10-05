@@ -22,12 +22,12 @@ The brand artwork (#194) is the compact logo on the wiki's ``Home`` and
 
 Both outputs are generated, never edited by hand, and published from ``main``
 by ``.github/workflows/wiki_publish.yml`` and ``pages_publish.yml``
-(ETB-SUP8-001 §5.7). The output depends only on the repository content and the
+(ETB-SUP8-001 §5.8). The output depends only on the repository content and the
 arguments - no timestamp - so a run with nothing changed changes nothing.
 
 Standard library only, Python 3.8 and later.
 
-Traces to: ETB-SUP8-001 §5.7 and §6.3, issues #184 and #194.
+Traces to: ETB-SUP8-001 §5.8 and §6.3, issues #184 and #194.
 """
 
 from __future__ import annotations

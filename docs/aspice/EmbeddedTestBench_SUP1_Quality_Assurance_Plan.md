@@ -10,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SUP1-001 | **Version** | 0.3 |
+| **Document ID** | ETB-SUP1-001 | **Version** | 0.4 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -26,7 +26,8 @@
 |---|---|---|---|
 | 0.1 | 2026-09-19 | Claude | Initial |
 | 0.2 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
-| 0.3 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
+| 0.3 | 2026-10-05 | Claude | #204: §6.5 added - a pull request merge is an accepted form of review record, and the Reviewer applies ETB-TMPL-001 checks C1 to C6 before merging. §5, §6.3, §7 and §9 updated to match; §10 points to the merge (ETB-SUP8-001 §5.7). |
+| 0.4 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 
 ---
 
@@ -83,7 +84,7 @@ and `benches/`, and the workflows under `.github/`.
 
 | Work product | Checks applied |
 |---|---|
-| ASPICE documents (`docs/aspice/`) | Review on ETB-TMPL-001 before status leaves Draft; traceability check for the requirement, design and test documents |
+| ASPICE documents (`docs/aspice/`) | Review and approval by the merge of the pull request that changes them (§6.5); review before status leaves Draft (§6.3); traceability check for the requirement, design and test documents |
 | Python source (`benchtools/`) | Unit tests, coverage, traceability of requirement citations |
 | Firmware source (`firmware/`) | Build in CI, CStyleCheck against ETB-STD-002 and ETB-STY-001, flash and RAM figures recorded |
 | Bench specifications (`specs/`, `benches/`) | Executed against the simulated bench in the suite |
@@ -112,13 +113,34 @@ is a problem under ETB-SUP9-001, not a thing to re-run until it passes.
 
 ### 6.3 Before a Document Leaves Draft
 
-A review is held and recorded on ETB-TMPL-001. Critical and Major findings are
-closed before approval.
+A review is held and recorded, either by the merge of the pull request that
+changes the document's status (§6.5) or on a completed copy of ETB-TMPL-001.
+Critical and Major findings are closed before approval.
 
 ### 6.4 At Each Milestone
 
 Quality objectives in §4 are measured and recorded; risks are reviewed
 (ETB-MAN5-001 §7); open bench-confirmation items are counted.
+
+### 6.5 Review and Approval by Pull Request Merge
+
+Every change reaches `develop` or `main` through a pull request
+(ETB-SUP8-001 §5.1). Merging that pull request is the Reviewer's approval and
+the Approver's approval of everything in it (ETB-SUP8-001 §5.7, ETB-DEV-002).
+**A pull request merge is therefore an accepted form of review record.**
+
+Before merging, the Reviewer:
+
+1. confirms that every required status check is green (ETB-SUP8-001 §5.5);
+2. applies checks C1 to C6 of ETB-TMPL-001 §6.1 to each work product the pull
+   request changes;
+3. raises each finding on the pull request, and as a problem (ETB-SUP9-001) when
+   it is Critical or Major, and does not merge until it is resolved.
+
+The record is the pull request (its description, changes and comments), its CI
+result, and its merge record: who merged it, when, and the merge commit. The
+Review & Approval table of each document points to that record and is not
+filled in.
 
 ---
 
@@ -129,8 +151,10 @@ than break:
 
 1. **A test that was not run is not recorded as passed.** Reports state whether
    a run was simulated.
-2. **A review that was not held is not recorded.** This baseline ships review
-   *templates* and no review *records*, because no reviews have been held.
+2. **A review that was not held is not recorded.** A review is recorded by the
+   merge of a pull request (§6.5) or on a completed copy of ETB-TMPL-001, and in
+   no other way. No approval is entered in a document's Review & Approval table,
+   and none is recorded on the owner's behalf.
 3. **A measurement not taken on hardware is listed as an open
    bench-confirmation item**, in the element's own notes, where someone
    reading about that element will see it.
@@ -162,7 +186,7 @@ ETB-DEV-002 are the standing examples).
 |---|---|
 | Test results | CI run logs; `pytest` output in the commit's checks |
 | Coverage | CI run logs |
-| Review records | `docs/aspice/reviews/` (none yet) |
+| Review and approval records | The merged pull request, its CI result and its merge record (§6.5); completed ETB-TMPL-001 copies in `docs/aspice/reviews/` (none yet) |
 | Problems | `docs/aspice/problems/` and the repository issue tracker (ETB-SUP9-001 §6) |
 | Change requests | ETB-SUP10-001 §6 |
 | Deviations | `docs/aspice/EmbeddedTestBench_DEV*.md` |
@@ -172,8 +196,15 @@ ETB-DEV-002 are the standing examples).
 
 ## 10. Review & Approval
 
-| Role | Name | Signature / Electronic Approval | Date |
-|---|---|---|---|
-| Author | Claude | Approved | 2026-09-19 |
-| Reviewer | Dermot Murphy | — | *pending* |
-| Approver | Dermot Murphy | — | *pending* |
+Review and approval of this document are not entered in this table. They are
+given by the merge of the pull request that last changed the document, and that
+merge is the record (ETB-SUP8-001 §5.7). The evidence is the pull request, its
+CI result and its merge record: who merged it, when, and the merge commit. The
+last row of the revision history names the issue, and the issue links the pull
+request.
+
+| Role | Name | Recorded by |
+|---|---|---|
+| Author | Claude | The commits in the pull request |
+| Reviewer | Dermot Murphy | The merge of the pull request that last changed this document |
+| Approver | Dermot Murphy | The merge of the pull request that last changed this document |

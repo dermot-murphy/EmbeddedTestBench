@@ -10,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE6-001 | **Version** | 0.5 |
+| **Document ID** | ETB-SWE6-001 | **Version** | 0.6 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -28,7 +28,8 @@
 | 0.2 | 2026-09-23 | Claude | TB-QT-02a added: the five-instrument specification run against the simulated bench. |
 | 0.3 | 2026-09-24 | Claude | TB-QT-05 added: the bench self-check, simulated and gated. |
 | 0.4 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
-| 0.5 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
+| 0.5 | 2026-10-05 | Claude | #204: Review & Approval table points to the merge of the pull request that last changed the document, which is the review and approval (ETB-SUP8-001 §5.7); no per-change signatures or dates. |
+| 0.6 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 
 ---
 
@@ -157,8 +158,15 @@ Qualification against the simulated bench cannot show:
 
 ## 9. Review & Approval
 
-| Role | Name | Signature / Electronic Approval | Date |
-|---|---|---|---|
-| Author | Claude | Approved | 2026-09-19 |
-| Reviewer | Dermot Murphy | — | *pending* |
-| Approver | Dermot Murphy | — | *pending* |
+Review and approval of this document are not entered in this table. They are
+given by the merge of the pull request that last changed the document, and that
+merge is the record (ETB-SUP8-001 §5.7). The evidence is the pull request, its
+CI result and its merge record: who merged it, when, and the merge commit. The
+last row of the revision history names the issue, and the issue links the pull
+request.
+
+| Role | Name | Recorded by |
+|---|---|---|
+| Author | Claude | The commits in the pull request |
+| Reviewer | Dermot Murphy | The merge of the pull request that last changed this document |
+| Approver | Dermot Murphy | The merge of the pull request that last changed this document |

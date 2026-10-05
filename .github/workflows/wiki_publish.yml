@@ -1,6 +1,6 @@
 # Publish the GitHub wiki, generated from the repository (#184).
 #
-# The wiki is a generated output, never edited by hand (ETB-SUP8-001 §5.7).
+# The wiki is a generated output, never edited by hand (ETB-SUP8-001 §5.8).
 # scripts/publish_docs.py writes every page: Home from the README's
 # introduction, one page per user guide and instrument note in docs/, one
 # ASPICE-<name> page per ASPICE work product, ASPICE-Index and _Sidebar.

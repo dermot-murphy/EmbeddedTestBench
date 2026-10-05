@@ -10,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-TMPL-001 | **Version** | 0.4 |
+| **Document ID** | ETB-TMPL-001 | **Version** | 0.5 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -27,7 +27,8 @@
 | 0.1 | 2026-09-19 | Claude | Initial |
 | 0.2 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
 | 0.3 | 2026-10-04 | Claude | #187: C4 names the revision history order - oldest entry first (ETB-SUP8-001 §6.2). |
-| 0.4 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
+| 0.4 | 2026-10-05 | Claude | #204: §3.1 states that a pull request merge is an accepted form of review record and that checks C1 to C6 are what the Reviewer applies before merging. §9 points to the merge of the pull request that adds or last changes the record (ETB-SUP8-001 §5.7). |
+| 0.5 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 
 ---
 
@@ -41,6 +42,15 @@ This is the form a Embedded Test Bench work product review is recorded on. It is
 
 No completed review records are shipped with this document set. A review that
 did not happen is not recorded as though it had (ETB-SUP1-001 §7).
+
+**A pull request merge is also an accepted form of review record**
+(ETB-SUP1-001 §6.5, ETB-SUP8-001 §5.7). Checks C1 to C6 in §6.1 are what the
+Reviewer applies to each work product in a pull request before merging it, and
+the merge is the Reviewer's and the Approver's approval. A finding is raised on
+the pull request, or as a problem under ETB-SUP9-001 when it is Critical or
+Major, and the pull request is not merged until it is resolved. No copy of this
+form is needed for such a review; the pull request, its CI result and its merge
+record are the record.
 
 ### 3.2 Referenced Documents
 
@@ -184,8 +194,14 @@ deferred with a recorded reason.
 
 ## 9. Review & Approval
 
-| Role | Name | Signature / Electronic Approval | Date |
-|---|---|---|---|
-| Author | *name* | — | *pending* |
-| Reviewer | *name* | — | *pending* |
-| Approver | *name* | — | *pending* |
+Approvals are not entered in this table. A review record made from this
+template, like this template itself, is reviewed and approved by the merge of
+the pull request that adds or last changes it (ETB-SUP8-001 §5.7). The evidence
+is the pull request, its CI result and its merge record: who merged it, when,
+and the merge commit.
+
+| Role | Name | Recorded by |
+|---|---|---|
+| Author | *name* | The commits in the pull request |
+| Reviewer | *name* | The merge of the pull request that adds or last changes the record |
+| Approver | *name* | The merge of the pull request that adds or last changes the record |
