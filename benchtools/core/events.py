@@ -3,7 +3,7 @@
 Every instrument driver already reports what it does through :mod:`logging`:
 the lines it sends and receives, the steps the runner takes. This module
 collects all of that into one file that another program can follow while the
-run is in progress - the Test Bench monitor's Events page does exactly that
+run is in progress - the Embedded Test Bench monitor's Events page does exactly that
 (#82). Each record says which part of the bench it came from, so a reader can
 tell the supply from the radio at a glance.
 

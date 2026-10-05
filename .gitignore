@@ -22,7 +22,7 @@ build/
 # Output of a bench run, regenerable by re-running the specification. None of it
 # is source. ble_commands.md in particular is a generated results table headed
 # "Result: PASS" - committed, it would be indistinguishable from bench evidence,
-# which is what TB-DEV-001 and TB-SUP9-001 section 8 exist to prevent.
+# which is what ETB-DEV-001 and ETB-SUP9-001 section 8 exist to prevent.
 #
 # *.log covers ble_session.log and sensor_rtt.log by pattern, and the logs any
 # other specification writes. No .log file is tracked in this repository.
@@ -40,7 +40,7 @@ results/
 # Bench test records (tests/bench), kept with the bench confirmation items
 *_bench_findings.md
 
-# Qualification evidence is committed on purpose: it is the record TB-SYS5-002
+# Qualification evidence is committed on purpose: it is the record ETB-SYS5-002
 # cites, kept with the campaign that produced it (#176).
 !docs/aspice/qualification/**
 

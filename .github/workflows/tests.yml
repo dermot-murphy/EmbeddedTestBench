@@ -4,12 +4,12 @@
 # something on a pull request: the traceability check that binds the documents
 # to the code, the layering test that enforces the architecture's dependency
 # direction, and the driver, runner and analysis tests all live here. Until it
-# existed they ran only when someone remembered to run them (TB-ANA-001 §6.1).
+# existed they ran only when someone remembered to run them (ETB-ANA-001 §6.1).
 #
 # No hardware is required. Every instrument has a simulator, so the whole suite
-# runs on a hosted runner - which is the point of TB-SYS2-012.
+# runs on a hosted runner - which is the point of ETB-SYS2-012.
 #
-# Coverage gates at the TB-QA-002 target of 90%.
+# Coverage gates at the ETB-QA-002 target of 90%.
 
 name: tests
 

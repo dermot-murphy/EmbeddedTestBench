@@ -1,19 +1,19 @@
 # C coding-standard check.
 #
-# Enforces the mechanically checkable part of TB-STD-002 (Embedded C Coding
-# Standard) and TB-STY-001 (Embedded C Style Guide) over the firmware this
+# Enforces the mechanically checkable part of ETB-STD-002 (Embedded C Coding
+# Standard) and ETB-STY-001 (Embedded C Style Guide) over the firmware this
 # project owns: the dongle firmware (baselined) and the Pico thermometer
 # firmware (clean, no baseline). The nRF5 SDK and the SoftDevice are vendor sources and are out
-# of scope (TB-STD-002 §1.3), so they are not in the include patterns.
+# of scope (ETB-STD-002 §1.3), so they are not in the include patterns.
 #
 # The run is baselined: `.cstylecheck-baseline.json` records the violations
 # present when the check was introduced, so the job fails on *new* ones. The
-# baseline is debt, not absolution — see TB-ANA-001 §6.12 for what is in it and
+# baseline is debt, not absolution — see ETB-ANA-001 §6.12 for what is in it and
 # what closing it involves.
 #
 # Pinned to v1.5.1, not the newest v1.6.0: v1.6.0 writes its version banner into
 # the results file its own action then parses as JSON, so the action fails after
-# the check itself has passed. See TB-ACQ4-001 §7. The baseline is written by
+# the check itself has passed. See ETB-ACQ4-001 §7. The baseline is written by
 # the pinned version and must be regenerated if that pin moves.
 
 name: style
@@ -66,7 +66,7 @@ jobs:
       # The dongle firmware's host unit tests (#111), in their own step so that
       # their module aliases cannot relax the check on the firmware itself.
       # test/support/include/ holds stand-ins for nRF5 SDK headers, which keep
-      # the SDK's names and are vendor API, outside TB-STD-002 (section 1.3).
+      # the SDK's names and are vendor API, outside ETB-STD-002 (section 1.3).
       # The tests entered the check clean: no baseline, and any finding fails.
       - name: Run CStyleCheck (dongle unit tests)
         id: cstylecheck-dongle-tests

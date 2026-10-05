@@ -1,8 +1,8 @@
-# QS-06b - The bench refuses rather than invents, on hardware (TB-SYS5-001, #176).
+# QS-06b - The bench refuses rather than invents, on hardware (ETB-SYS5-001, #176).
 #
 # Each test provokes one failure on a real instrument. Each must end in ERROR
 # with a message naming what was asked and why it could not be done, and none
-# may report a value. Expected outcome of every test: ERROR, except the one marked FAIL. TB-SYS5-002 reads
+# may report a value. Expected outcome of every test: ERROR, except the one marked FAIL. ETB-SYS5-002 reads
 # each ERROR, and its message, as the result.
 #
 # Nothing here changes a setting: the multimeter is put back under remote
@@ -16,7 +16,7 @@ description: >
   A meter that stops answering mid-session, a memory width and a byte order the
   probe cannot honour, a dongle firmware that disagrees with its manifest, and a
   command that gets no reply.
-requirements: [TB-SYS2-003, TB-SYS2-004, TB-SYS2-032, TB-SYS2-036, TB-SYS2-094]
+requirements: [ETB-SYS2-003, ETB-SYS2-004, ETB-SYS2-032, ETB-SYS2-036, ETB-SYS2-094]
 
 instruments:
   dmm: tti1604
@@ -25,7 +25,7 @@ instruments:
 
 tests:
   - name: A meter that stops answering mid-session (expected ERROR)
-    requirement: TB-SYS2-004, TB-SYS2-094
+    requirement: ETB-SYS2-004, ETB-SYS2-094
     steps:
       # One good reading first, so the exchange is established...
       - do: dmm.measure
@@ -39,26 +39,26 @@ tests:
         with: {timeout: 3.0}
 
   - name: A memory read of 16 bytes as one integer (expected ERROR)
-    requirement: TB-SYS2-032, TB-SYS2-094
+    requirement: ETB-SYS2-032, ETB-SYS2-094
     steps:
       - do: probe.read_integer
         with: {address: 0x10001080, size: 16}
 
   - name: A memory read in a byte order that does not exist (expected ERROR)
-    requirement: TB-SYS2-032, TB-SYS2-094
+    requirement: ETB-SYS2-032, ETB-SYS2-094
     steps:
       - do: probe.read_integer
         with: {address: 0x10001080, size: 4, byteorder: middle}
 
   - name: Dongle firmware that disagrees with its manifest is refused (expected ERROR)
-    requirement: TB-SYS2-036, TB-SYS2-094
+    requirement: ETB-SYS2-036, ETB-SYS2-094
     steps:
       # Updating forbidden: a mismatch must stop the run, not be corrected.
       - do: dongle.ensure_firmware
         with: {firmware: specs/qualification/firmware/wrong_version, update: false}
 
   - name: The same mismatch, compared and asserted, is a failure (expected FAIL)
-    requirement: TB-SYS2-003, TB-SYS2-036
+    requirement: ETB-SYS2-003, ETB-SYS2-036
     steps:
       # check_firmware measures; it does not refuse. Asserting on what it
       # measured is a test of the dongle, so a mismatch is a FAIL, not an
@@ -70,7 +70,7 @@ tests:
           - {name: dongle_matches_manifest, measure: matches, equals: 1}
 
   - name: A command that gets no reply (expected ERROR)
-    requirement: TB-SYS2-003, TB-SYS2-094
+    requirement: ETB-SYS2-003, ETB-SYS2-094
     steps:
       # The sensor's firmware reads nothing from RTT, so nothing answers.
       - do: probe.rtt_start

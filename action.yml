@@ -1,6 +1,6 @@
 # action.yml
 # =============================================================================
-# TestBench Bench Runner — GitHub Action (composite)
+# Embedded Test Bench Runner — GitHub Action (composite)
 # =============================================================================
 #
 # Runs one or more bench test specifications with `benchtools run`, annotates
@@ -35,11 +35,11 @@
 #
 # A run whose instruments were simulated is reported as simulated — in the
 # annotations, in the job summary and in every report file. That disclosure is
-# a requirement of the tool (TB-SYS2-016), not a nicety, so this action does
+# a requirement of the tool (ETB-SYS2-016), not a nicety, so this action does
 # not offer a way to turn it off.
 # =============================================================================
 
-name:        'TestBench Bench Runner'
+name:        'Embedded Test Bench Runner'
 description: 'Run bench test specifications against real or simulated instruments and report the results'
 author:      'Dermot Murphy'
 

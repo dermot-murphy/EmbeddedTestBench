@@ -2,7 +2,7 @@
 #
 # Each suppression says why. test/support/include/ is not checked at all: it
 # holds stand-ins for nRF5 SDK headers that must reproduce the SDK's own names
-# to stand in for it, and vendor SDK code is outside TB-STD-002 (section 1.3).
+# to stand in for it, and vendor SDK code is outside ETB-STD-002 (section 1.3).
 
 # fake_sdk.c defines nRF5 SDK functions (nrfx_timer_*, app_usbd_*,
 # ble_advdata_*, sd_*) under the SDK's names. The firmware links against those

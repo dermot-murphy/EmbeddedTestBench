@@ -209,12 +209,12 @@ test cases to run - or attach to one started with `benchtools run --event-log
 PATH --control 0`. The Event log page lists every instrument's traffic, filtered
 by source.
 
-It replaces the tkinter Test Bench monitor (`tools/test_bench`), which is
+It replaces the tkinter Embedded Test Bench monitor (`tools/test_bench`), which is
 **frozen** from 2026-10-04 and changes only to fix a defect (#142). The monitor
 is kept for the three things the viewer does not do, because each needs no test
 run: receiving from the S2-LP kit on its own (`--port`), reading a log written
 by ST's GUI (`--log`), and a simulated kit (`--simulate`). See
-[docs/test_bench/Test_Bench_Monitor.md](docs/test_bench/Test_Bench_Monitor.md).
+[docs/test_bench/Embedded_Test_Bench_Monitor.md](docs/test_bench/Embedded_Test_Bench_Monitor.md).
 
 It listens on 127.0.0.1 by default, needs nothing beyond the standard library,
 and loads nothing from the internet. A run started from it writes its event log
@@ -764,7 +764,7 @@ configurations can name it. New link types (serial, USBTMC, HTTP) register with
 | [`examples/07_supply_rails.py`](examples/07_supply_rails.py) | Bringing up two rails, and catching one that is in current limit |
 | [`examples/08_s2lp_radio.py`](examples/08_s2lp_radio.py) | Dumping an S2-LP's registers, transmitting, and capturing to a packet log |
 | [`examples/09_sensor_version.py`](examples/09_sensor_version.py) | Finding a sensor by part of its name, in any case, and reading its version over BLE UART |
-| [`examples/10_psu_front_panel_check.py`](examples/10_psu_front_panel_check.py) | Stepping a GPD-3303D through ten states while an operator checks the front panel; the answers are logged as TB-SIT-03 evidence |
+| [`examples/10_psu_front_panel_check.py`](examples/10_psu_front_panel_check.py) | Stepping a GPD-3303D through ten states while an operator checks the front panel; the answers are logged as ETB-SIT-03 evidence |
 | [`examples/11_pico_thermometer.py`](examples/11_pico_thermometer.py) | Identifying a Pico 2 thermometer by title and version, and logging temperature |
 | [`examples/12_dmm_front_panel_check.py`](examples/12_dmm_front_panel_check.py) | Stepping a TTi 1604 through twelve states while an operator checks the front panel; the answers are logged |
 
@@ -825,7 +825,7 @@ block a merge rather than only on a developer's machine.
 Both linters run against a **baseline** — the findings present when the check
 was introduced — so a job fails on new findings rather than on existing debt.
 What is in each baseline, and what closing it involves, is in the
-[analysis report](docs/aspice/TestBench_Analysis_Report.md) §6.12 and §6.13.
+[analysis report](docs/aspice/EmbeddedTestBench_Analysis_Report.md) §6.12 and §6.13.
 
 ### Using the bench runner as an action
 
@@ -878,16 +878,16 @@ Full input and output reference: [`action.yml`](action.yml).
 | [GPD-3303D Notes](docs/psu/GPD3303D_Notes.md) | The four ways this supply will mislead a test, its command set and status word, and the bench confirmation items |
 | [TTi 1604 Notes](docs/dmm/TTi1604_Notes.md) | The multimeter's interface and protocol, why a key press is confirmed from the readings, the stream read, the derived resistance multiplier, the bench test and front-panel check, and the bench confirmation items; the manufacturer's documents in `docs/dmm/reference/` |
 | [Pico 2 + SHT30-D Notes](docs/pico_sht30/Pico_SHT30_Notes.md) | Wiring, building and flashing the thermometer firmware, datasheet facts, MISRA position, bench confirmation items; [reference documents](docs/pico_sht30/References.md) |
-| [SWE.1 Requirements](docs/aspice/TestBench_SWE1_SW_Requirements.md) | 177 functional and 18 non-functional requirements |
-| [SWE.2 Architecture](docs/aspice/TestBench_SWE2_SW_Architecture.md) | Layering, elements, eighteen architectural decisions |
-| [SWE.3 Detailed Design](docs/aspice/TestBench_SWE3_Detailed_Design.md) | Per-module design units |
-| [SWE.4 Test Specification](docs/aspice/TestBench_SWE4_Unit_Verification.md) | Strategy, test groups, pass criteria |
-| [SWE.4 Test Report](docs/aspice/TestBench_SWE4_Unit_Verification_Report.md) | Results, coverage, measured accuracy, forty defects found |
-| [Traceability Matrix](docs/aspice/TestBench_Traceability_Matrix.md) | Bidirectional trace, stakeholder need to test |
-| [System Requirements & Architecture](docs/aspice/TestBench_SYS2_System_Requirements.md) | What the whole bench must do, and the elements and interfaces that do it |
-| [System Qualification](docs/aspice/TestBench_SYS5_System_Qualification_Test.md) | Eight scenarios, simulated and on hardware, and the gap between the two columns |
-| [Repository Analysis Report](docs/aspice/TestBench_Analysis_Report.md) | What is measured here, what the checks do not reach, and what to do first |
-| [Process Capability Records](docs/aspice/TestBench_PA2_Capability_Records.md) | Level 2 generic practices, rated against the evidence that exists |
+| [SWE.1 Requirements](docs/aspice/EmbeddedTestBench_SWE1_SW_Requirements.md) | 177 functional and 18 non-functional requirements |
+| [SWE.2 Architecture](docs/aspice/EmbeddedTestBench_SWE2_SW_Architecture.md) | Layering, elements, eighteen architectural decisions |
+| [SWE.3 Detailed Design](docs/aspice/EmbeddedTestBench_SWE3_Detailed_Design.md) | Per-module design units |
+| [SWE.4 Test Specification](docs/aspice/EmbeddedTestBench_SWE4_Unit_Verification.md) | Strategy, test groups, pass criteria |
+| [SWE.4 Test Report](docs/aspice/EmbeddedTestBench_SWE4_Unit_Verification_Report.md) | Results, coverage, measured accuracy, forty defects found |
+| [Traceability Matrix](docs/aspice/EmbeddedTestBench_Traceability_Matrix.md) | Bidirectional trace, stakeholder need to test |
+| [System Requirements & Architecture](docs/aspice/EmbeddedTestBench_SYS2_System_Requirements.md) | What the whole bench must do, and the elements and interfaces that do it |
+| [System Qualification](docs/aspice/EmbeddedTestBench_SYS5_System_Qualification_Test.md) | Eight scenarios, simulated and on hardware, and the gap between the two columns |
+| [Repository Analysis Report](docs/aspice/EmbeddedTestBench_Analysis_Report.md) | What is measured here, what the checks do not reach, and what to do first |
+| [Process Capability Records](docs/aspice/EmbeddedTestBench_PA2_Capability_Records.md) | Level 2 generic practices, rated against the evidence that exists |
 
 The full index is [docs/README.md](docs/README.md).
 
@@ -895,7 +895,7 @@ Work products follow Automotive SPICE V4.0 at Capability Level 2 - SYS.2 to
 SYS.5, SWE.1 to SWE.6, the management and support plans, and the C coding
 standards. This is a test tool: it is not delivered vehicle software and carries
 no ASIL classification. Capability Level 2 is **not** achieved, and
-[TB-PA2-001](docs/aspice/TestBench_PA2_Capability_Records.md) says which three
+[ETB-PA2-001](docs/aspice/EmbeddedTestBench_PA2_Capability_Records.md) says which three
 practices fall short and why.
 
 ---

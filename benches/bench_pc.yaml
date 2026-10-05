@@ -1,4 +1,4 @@
-# The Windows bench PC, as qualified on 2026-10-04 (#176, TB-SYS5-002).
+# The Windows bench PC, as qualified on 2026-10-04 (#176, ETB-SYS5-002).
 #
 # lab1.yaml is the example to copy; this is the copy for the bench that
 # exists. Ports were read from the USB serial numbers on that date:
@@ -11,7 +11,7 @@
 #   USB    J-Link OB-SAM3U128-V2-NordicSem   682395790, on sensor 5C1712
 #
 # There is no oscilloscope on this bench yet, so there is no scope entry: a
-# specification that wants one stops at connect and names it (TB-SYS2-011).
+# specification that wants one stops at connect and names it (ETB-SYS2-011).
 name: Bench PC (Windows)
 description: >
   Dongle, S2-LP kit, GPD-3303D, TTi 1604, Pico 2 thermometer and a J-Link on

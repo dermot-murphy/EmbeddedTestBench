@@ -209,18 +209,18 @@ it: pyserial on Windows loses bytes whenever the timeout changes (LL-07).
 
 Nothing below has been checked against a physical 1604. The driver has been run
 against its own simulator and over a serial loopback, which cannot
-independently confirm any of it (TB-RISK-001). The bench test and the
+independently confirm any of it (ETB-RISK-001). The bench test and the
 front-panel check (§6.3, §6.4) exist to close these.
 
 | ID | Open item | How to settle it |
 |---|---|---|
-| DMM-OPEN-01 | The segment patterns for characters beyond the ten digits and the letters listed, and whether a NUL follows each frame (the note calls the frame "null-terminated"). An unlisted pattern decodes to `?`; a NUL is ignored. | **Partly answered 2026-10-04** (TB-SYS5-002 §6.10): frames are 10 bytes between carriage returns, with **no** NUL after them. The overrange pattern is still unknown: an open input on ohms decoded as a blank `.` (#181) |
+| DMM-OPEN-01 | The segment patterns for characters beyond the ten digits and the letters listed, and whether a NUL follows each frame (the note calls the frame "null-terminated"). An unlisted pattern decodes to `?`; a NUL is ignored. | **Partly answered 2026-10-04** (ETB-SYS5-002 §6.10): frames are 10 bytes between carriage returns, with **no** NUL after them. The overrange pattern is still unknown: an open input on ohms decoded as a blank `.` (#181) |
 | DMM-OPEN-02 | The reading format in continuity and diode-test modes. Continuity is assumed to read ohms and diode test to read volts; neither is stated in the sources. | Select each by hand, then `benchtools dmm read` |
 | DMM-OPEN-03 | The echo's timing relative to the measurement stream, and whether an echo can arrive inside a frame. The driver tolerates either: a split frame fails validation and is passed over, and the key is confirmed from the readings anyway. | The bench test's raw-stream record during key presses |
 | DMM-OPEN-04 | Whether a range or function change emits one frame taken under the previous setting. `measure()` discards a frame on that assumption; if it is wrong, the discard costs 400 ms and nothing else. | The bench test's function tour timings |
 | DMM-OPEN-05 | Whether the keys still work from the front panel in remote mode, whether there is a remote indicator, and the SHIFT combinations (Null, Hold, T-Hold, Min-Max, continuity, diode), which the note does not map. | Front-panel check, steps 1 and 12 |
 | DMM-OPEN-06 | The frequency gate times. The manual's text gives the 4 kHz range the 10 s gate; its specification table has the gate times the other way round. The driver follows the text and waits long enough for either. | Bench test `test_the_frequency_gate`; front-panel check steps 9 and 10 |
-| DMM-OPEN-07 | Whether the bench's USB-to-RS-232 converter drives DTR and RTS far enough to power the interface (§2.2). | **Closed 2026-10-04** (TB-SYS5-002 §6.10): with FTDI converter A9LQ0R81A, `test_keys_are_acknowledged_promptly` passed |
+| DMM-OPEN-07 | Whether the bench's USB-to-RS-232 converter drives DTR and RTS far enough to power the interface (§2.2). | **Closed 2026-10-04** (ETB-SYS5-002 §6.10): with FTDI converter A9LQ0R81A, `test_keys_are_acknowledged_promptly` passed |
 | DMM-OPEN-08 | Which display convention the meter uses on each resistance range. The driver derives the multiplier and so reads right either way; this records which it is. | Bench test `test_resistance` with a known resistor, which records the display |
 
 The data-bit framing (8N1), formerly an open item, is stated in the

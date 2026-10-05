@@ -144,7 +144,7 @@ SETTLING_TIME = 2.0
 #: How long one read of the link waits before the driver checks its own
 #: deadline again. Fixed, and set on the transport once: pyserial reconfigures
 #: the port on every change of timeout, and on Windows that loses bytes in
-#: flight (TB-SWE3-002 LL-07), so the driver never varies it per read.
+#: flight (ETB-SWE3-002 LL-07), so the driver never varies it per read.
 READ_POLL = 0.05
 
 #: How long a function or range change may take to show in the readings. The

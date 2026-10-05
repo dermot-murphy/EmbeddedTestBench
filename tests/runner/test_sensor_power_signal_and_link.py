@@ -11,7 +11,7 @@ things, is that it would **fail** if those facts stopped being true. A
 specification that passes whatever the bench does is worse than none, because
 it reads as evidence.
 
-Traces to: RUN-FR-016, RUN-FR-024, DMM-FR-045, BLE-FR-025, TB-QT-02a.
+Traces to: RUN-FR-016, RUN-FR-024, DMM-FR-045, BLE-FR-025, ETB-QT-02a.
 """
 
 from __future__ import annotations

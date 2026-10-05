@@ -37,4 +37,4 @@ appear on USB, hold BOOTSEL while plugging it in and copy the `.uf2` onto the
 RP2350 drive.
 
 For wiring, building, flashing, the MISRA position and the bench confirmation
-items, see `docs/pico_sht30/Pico_SHT30_Notes.md`. Requirements: TB-SWE1-001 §15.
+items, see `docs/pico_sht30/Pico_SHT30_Notes.md`. Requirements: ETB-SWE1-001 §15.

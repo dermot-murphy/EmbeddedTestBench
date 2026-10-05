@@ -1,0 +1,296 @@
+# Configuration Management Plan
+
+*Automotive SPICE® PAM v4.0 | SUP.8 — Configuration Management*
+
+---
+
+## 1. Document Identification & Control
+
+| Field | Value | Field | Value |
+|---|---|---|---|
+| **Document ID** | ETB-SUP8-001 | **Version** | 0.7 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
+| **Status** | Draft | **Classification** | Internal |
+| **Author** | Claude | **Reviewer** | Dermot Murphy |
+| **Approver** | Dermot Murphy | **Related Process** | SUP.8 |
+
+> Reviewer and Approver are the same person; see ETB-DEV-002.
+
+---
+
+## 2. Revision History
+
+| Version | Date | Author | Description of Change |
+|---|---|---|---|
+| 0.1 | 2026-09-19 | Claude | Initial |
+| 0.2 | 2026-09-20 | Claude | Section 5 rewritten: `develop` recorded as the integration branch, stacked pull request procedure and the 2026-09-20 retargeting observation added, section 9 corrected to match |
+| 0.3 | 2026-09-30 | Claude | §5.1: a pull request targets `develop`; any other base only on explicit instruction for that pull request. §5.2: a stack is built only on instruction. Changed together with `CLAUDE.md` (#113). |
+| 0.4 | 2026-10-04 | Claude | #170: §5 repository identifier updated - the repository was renamed from `dermot-murphy/TestTools` to `dermot-murphy/EmbeddedTestBench`. The procedure is unchanged, and `CLAUDE.md` names no repository, so it needed no matching change. |
+| 0.5 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
+| 0.6 | 2026-10-04 | Claude | #187: §6.2 added - a revision history lists entries oldest first, a new entry is appended as the last row, and earlier rows are not edited. |
+| 0.7 | 2026-10-05 | Claude | #185: §5.5 added - the repository settings baseline (ruleset, merge, security, actions), with the enforcement observed on 2026-10-05. Changed together with CLAUDE.md. |
+
+---
+
+## 3. Purpose & Scope
+
+### 3.1 Purpose
+
+This plan says what is under configuration control, how items are identified and
+versioned, how baselines are made, and how the state of any Embedded Test Bench result can
+be reconstructed later.
+
+The requirement that drives all of it: **a report produced by Embedded Test Bench must be
+reproducible from what the report itself records.** That is only true if every
+input to the run is an identified configuration item.
+
+### 3.2 Referenced Documents
+
+| Document ID | Title | Version |
+|---|---|---|
+| ETB-MAN3-001 | Embedded Test Bench Project Management Plan | 0.1 |
+| ETB-SUP1-001 | Embedded Test Bench Quality Assurance Plan | 0.1 |
+| ETB-SUP10-001 | Embedded Test Bench Change Request Management Plan | 0.1 |
+| ETB-ACQ4-001 | Embedded Test Bench Supplier Monitoring Plan | 0.1 |
+| ETB-SVD-001 | Embedded Test Bench Software Version Description | 0.1 |
+
+### 3.3 Scope
+
+Everything in the repository, the external tools the build depends on, and the
+physical bench instruments whose identity affects a result.
+
+---
+
+## 4. Configuration Items
+
+| Class | Items | Identification | Versioned by |
+|---|---|---|---|
+| Documents | `docs/aspice/*.md`, `docs/templates/*.md`, guides in `docs/` | Document ID (TB-…) | Version field + git |
+| Python source | `benchtools/**` | Module path | git |
+| Tests | `tests/**` | pytest node ID | git |
+| Firmware source | `firmware/nordic_dongle/**` | Path | git |
+| Firmware images | `.hex`, `.zip` DFU packages | Filename + manifest | `firmware_manifest.json` beside the image |
+| Bench descriptions | `benches/**` | Bench name | git |
+| Bench specifications | `specs/**` | Spec filename | git |
+| CI workflows and actions | `.github/workflows/*.yml`, `action.yml` | Filename | git |
+| C rule configuration | `.cstylecheck.yml`, `.cstylecheck-baseline.json` | Filename | git — the baseline changes only with a recorded reason |
+| Python rule configuration | `[tool.pylint]` in `pyproject.toml`, `.pylint-baseline.json` | Filename | git — as above |
+| Build tools | Python, `nrfutil`, GNU Arm toolchain, nRF5 SDK | Name + exact version | Pinned in the workflow; recorded in ETB-SVD-001 |
+| External actions | `dermot-murphy/CStyleCheck@v1.5.1` | Repository + tag | Pinned in the workflow |
+| Bench instruments | Scope, supply, J-Link, dongle | Model + serial + firmware revision | Queried at run time and written into every report |
+
+### 4.1 Instruments Are Configuration Items
+
+An instrument's firmware revision changes what its commands mean. Embedded Test Bench
+therefore queries each instrument's identity at connection and records it in the
+report, so that a result can be attributed to the instrument that produced it
+rather than to the model name (ETB-RISK-002).
+
+---
+
+## 5. Repository and Branching
+
+### 5.1 Branches
+
+| Branch | Purpose |
+|---|---|
+| `main` | Released state. Nothing is committed here directly. |
+| `develop` | Integration branch. Every change merges here first; `main` is updated from `develop` at a release. |
+| `feature/<topic>`, `docs/<topic>`, `fix/<topic>` | One branch per ticket, branched from `develop`. |
+
+| Item | Convention |
+|---|---|
+| Repository | `dermot-murphy/EmbeddedTestBench` |
+| Direct pushes to `main` or `develop` | Not made; changes arrive through pull requests |
+| Ticket | Every change starts from an issue, referenced in the commit message |
+| History | Never rewritten on a branch someone else may have checked out |
+
+**A pull request targets `develop`.** Any other base — `main`, a predecessor's
+branch in a stack, or any other branch — is used only when the repository owner
+explicitly instructs it for that pull request, and the pull request's
+description says so. Being asked to open a pull request is not an instruction
+about its base. Example of an instructed exception: #110, which reverts #106 on
+`main` because that is where #106 landed (#109). #106 itself, merged into `main`
+without passing through `develop`, is the failure this rule prevents (#113).
+
+A pull request is merged only when CI is green. A red build is fixed or the
+change is withdrawn; it is not merged with a note to fix it afterwards. Where no
+workflow applies to a change, that is stated explicitly rather than implied by
+the absence of a failure.
+
+### 5.2 Stacked Pull Requests
+
+A stack is built **only on explicit instruction** (§5.1), because each pull
+request in it is based on its predecessor's branch rather than on `develop`.
+
+When so instructed and one body of work splits into several tickets that build
+on each other, each branch is based on its predecessor, so that each pull request's diff shows only
+its own work and review stays honest.
+
+A stack is merged in dependency order, and each pull request is **retargeted to
+`develop` before it is merged**. This is not a precaution. A pull request based
+on its predecessor's branch merges *into that branch*, not into `develop`.
+
+A branch is deleted only after confirming that no open pull request is based on
+it. Deleting a base branch closes the pull requests that target it.
+
+A stacked chain is merged with merge commits, not squashed. Each branch contains
+its predecessors' commits; squashing replaces them with a commit that is not an
+ancestor of the next branch, and every later merge in the chain is made harder
+for it.
+
+### 5.3 Recorded Observation: Retargeting
+
+**2026-09-20, this repository.** PR #3 merged into `develop` at 16:15:31 and its
+head branch was deleted. PR #5, whose base was that branch, was **closed** at
+16:15:37 — not retargeted to `develop`.
+
+Recovery required restoring the deleted branch at its original commit, because a
+pull request whose base branch has been deleted cannot be reopened, and a closed
+pull request's base branch cannot be changed. The order that works is: restore
+the branch, reopen the pull request, change its base, then delete the restored
+branch.
+
+This is recorded as an observation of this repository on that date, not as a
+general statement about how GitHub behaves under every configuration. The
+distinction matters: treating the unverified general case as fact is what caused
+the failure it describes (ETB-RISK-004).
+
+### 5.4 Relationship to CLAUDE.md
+
+`CLAUDE.md` at the repository root carries the same procedure in working form,
+for contributors and for Claude Code. It and this section are one configuration
+item in two places and are changed together; neither is updated alone.
+
+
+### 5.5 Repository Settings Baseline
+
+The settings below are part of this configuration item. They were applied and
+read back through the GitHub API on 2026-10-05 (#185), and are re-checked
+against the API rather than assumed (ETB-RISK-004).
+
+| Area | Setting | Value |
+|---|---|---|
+| Ruleset | Name, enforcement, bypass | "Protect main and develop", active, no bypass actors |
+| Ruleset | Target branches | `refs/heads/main`, `refs/heads/develop` (two patterns) |
+| Ruleset | Deletion, force push | Both blocked |
+| Ruleset | Pull request | Required; 0 approvals (single maintainer, who cannot approve their own pull request); merge method **merge** only |
+| Ruleset | Required status checks | `pytest (3.8)`, `pytest (3.9)`, `pytest (3.12)`, `pylint`, `Embedded C standard`, `Simulated bench`; branch need not be up to date |
+| Ruleset | Linear history | Not required: it would block the merge commits §5.2 requires |
+| Merge | Merge commits / squash / rebase | On / off / off |
+| Merge | Automatically delete head branches | On (see below) |
+| Merge | Auto-merge | Off: a pull request is merged on instruction |
+| Security | Secret scanning, push protection | On |
+| Security | Dependabot alerts, security updates | On |
+| Actions | Allowed actions | GitHub-owned, plus `carlosperate/arm-none-eabi-gcc-action@*` and `dermot-murphy/*` |
+| Actions | Default `GITHUB_TOKEN` permission | Read; Actions may not approve pull requests |
+| Repository | Description, topics | Set; Discussions off; Wiki on (#184) |
+
+The required checks are the jobs that run on every push and pull request. The
+firmware workflow's jobs are path-filtered and are therefore not required: a
+pull request that does not touch firmware would wait for them indefinitely.
+
+**Enforcement observed, 2026-10-05.** With the ruleset temporarily extended to
+a probe branch, a direct push, a force push and a deletion were each rejected
+(`GH013`: "Changes must be made through a pull request", "Cannot force-push to
+this branch", "Cannot delete this branch"). The ruleset was then restored to
+`main` and `develop` and the probe branch deleted.
+
+**Automatic head-branch deletion.** Merging a pull request deletes its branch.
+That is safe only because §5.2 already requires a stacked pull request to be
+retargeted to `develop` before its predecessor merges. Whether automatic
+deletion closes dependent pull requests the way the manual deletion in §5.3 did
+has not been verified, so the procedure assumes it does.
+
+**Dependabot.** Whether `target-branch` in `dependabot.yml` redirects security
+updates has not been verified. Until it is, a Dependabot pull request is assumed
+to open against `main` and is retargeted to `develop` before it is merged (§5.1).
+
+---
+
+## 6. Versioning
+
+| Item | Scheme |
+|---|---|
+| Documents | `major.minor`, starting at 0.1; 0.x while Draft, 1.0 at first approval |
+| Python package | Semantic versioning in `pyproject.toml` |
+| Firmware | `major.minor.patch`, reported by the `rd version` command and recorded in the firmware manifest |
+| Baselines | Annotated git tags |
+
+### 6.1 Firmware Manifests
+
+Every firmware image carries a `firmware_manifest.json` beside it giving its
+version and build date. The runner compares the version a device reports with
+the manifest for the image that was flashed, so an image that is not what the
+report says it is fails the run rather than passing quietly (ETB-RISK-009).
+
+---
+
+### 6.2 Revision History Order
+
+Every revision history, and every other change-history table in a document,
+lists its entries **oldest first**. A new entry is appended as the last row, so
+the most recent change is at the bottom of the table and the version in the
+last row is the version in the identification block. Earlier rows are not
+edited: they record what was true when they were written.
+
+The order is checked by `tests/test_traceability.py` (SWE4-UT-TRACE), which
+fails if a history table's version column decreases from one row to the next.
+
+## 7. Baselines
+
+A baseline is an annotated git tag plus a Software Version Description
+(ETB-SVD-001) naming exactly what the baseline contains — source revision,
+document versions, firmware versions, tool versions and known problems.
+
+| Baseline | When | Contents |
+|---|---|---|
+| Document baseline | When this document set is approved | All `docs/aspice/` documents at their approved versions |
+| Release baseline | When a version of `benchtools` or the firmware is released | Source revision, images, manifests, tool versions, ETB-SVD-001 |
+
+A baseline is never edited. A correction produces a new baseline with a new
+SVD, and the reason is recorded in the SVD's revision history.
+
+---
+
+## 8. Change Control
+
+Changes to a baselined item follow ETB-SUP10-001. Changes to items not yet
+baselined follow ordinary development: branch, change, test, review, merge.
+
+Every change, baselined or not, satisfies ETB-SUP1-001 §6.1 — the documents move
+with the code.
+
+---
+
+## 9. Status Accounting
+
+The state of any configuration item is answered from the repository:
+
+| Question | Answered by |
+|---|---|
+| What is in this release? | ETB-SVD-001 for that baseline |
+| What changed since the last baseline? | `git log <previous-tag>..<tag>` |
+| Which document version is current? | The Version field in the document, on `develop`; on `main` for a released baseline |
+| What produced this report? | The report's own header: spec revision, bench, instrument identities, simulated or not |
+| What tool versions built this firmware? | The workflow file at that revision, plus ETB-SVD-001 |
+
+---
+
+## 10. Backup and Retention
+
+The authoritative copy is the GitHub repository. Every developer checkout is a
+full clone and therefore a copy of the history. Build artefacts are reproducible
+from a tagged revision and are not separately archived, with one exception:
+firmware images that were flashed to a device during a recorded test run are
+kept with that run's records, because the run cannot otherwise be reproduced.
+
+---
+
+## 11. Review & Approval
+
+| Role | Name | Signature / Electronic Approval | Date |
+|---|---|---|---|
+| Author | Claude | Approved | 2026-09-19 |
+| Reviewer | Dermot Murphy | — | *pending* |
+| Approver | Dermot Murphy | — | *pending* |

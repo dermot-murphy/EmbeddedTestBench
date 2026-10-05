@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Document ID | TB-PICO-001 |
+| Document ID | ETB-PICO-001 |
 | Version | 1.3 |
 | Date | 2026-10-03 |
 | Element | `PICO-` — `benchtools.instruments.pico_sht30` and `firmware/pico_sht30` |
@@ -160,7 +160,7 @@ cmake --build build/pico-tests && ctest --test-dir build/pico-tests --output-on-
 ```
 
 On Windows, use clang rather than MinGW GCC 6.3, which stops with an internal
-compiler error on `-fsanitize=address`; TB-SWE4-001 §1.4b gives the commands.
+compiler error on `-fsanitize=address`; ETB-SWE4-001 §1.4b gives the commands.
 
 ### 3.1 The version number
 
@@ -319,7 +319,7 @@ Recorded deviations:
 | 2.2 / Dir 4.1 | `main.c` | `for (;;)` without exit is the intended behaviour of an embedded main loop. |
 
 All of the firmware's C code, host unit tests included, also passes the
-project's C coding standard (TB-STD-002, TB-STY-001) as checked by CStyleCheck
+project's C coding standard (ETB-STD-002, ETB-STY-001) as checked by CStyleCheck
 in CI, with no baseline (PICO-NFR-006). The Pico step uses its own module alias
 map (`.cstylecheck-pico-aliases.txt`) and a short, justified exclusion list
 (`.cstylecheck-pico-exclusions.yml`): the `X` of the X-macro idiom, Unity's

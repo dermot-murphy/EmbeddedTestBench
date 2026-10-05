@@ -26,62 +26,62 @@ instruments are added:
 
 All ASPICE work products live in [`aspice/`](aspice/). Every one is at version
 0.1 and status Draft: none has been through the review its own process requires
-(TB-PA2-001 §6, GP 2.2.4).
+(ETB-PA2-001 §6, GP 2.2.4).
 
 ### System level
 
 | Document | Contents |
 |---|---|
-| [SYS.2 System Requirements](aspice/TestBench_SYS2_System_Requirements.md) | What the bench must do, including the parts that are not software |
-| [SYS.3 System Architecture](aspice/TestBench_SYS3_System_Architecture.md) | Physical and logical elements, and the eleven interfaces between them |
-| [SYS.4 System Integration & Integration Test](aspice/TestBench_SYS4_System_Integration_Test.md) | How the bench is assembled, and the sixteen cases that need hardware |
-| [SYS.5 System Qualification Test](aspice/TestBench_SYS5_System_Qualification_Test.md) | Eight end-to-end scenarios, simulated and on hardware, and the open bench-confirmation items |
+| [SYS.2 System Requirements](aspice/EmbeddedTestBench_SYS2_System_Requirements.md) | What the bench must do, including the parts that are not software |
+| [SYS.3 System Architecture](aspice/EmbeddedTestBench_SYS3_System_Architecture.md) | Physical and logical elements, and the eleven interfaces between them |
+| [SYS.4 System Integration & Integration Test](aspice/EmbeddedTestBench_SYS4_System_Integration_Test.md) | How the bench is assembled, and the sixteen cases that need hardware |
+| [SYS.5 System Qualification Test](aspice/EmbeddedTestBench_SYS5_System_Qualification_Test.md) | Eight end-to-end scenarios, simulated and on hardware, and the open bench-confirmation items |
 
 ### Software level
 
 | Document | Contents |
 |---|---|
-| [SWE.1 Software Requirements](aspice/TestBench_SWE1_SW_Requirements.md) | What the tooling must do, per element |
-| [SWE.2 Software Architecture](aspice/TestBench_SWE2_SW_Architecture.md) | Layering, elements, and the architectural decisions |
-| [SWE.3 Detailed Design](aspice/TestBench_SWE3_Detailed_Design.md) | Per-module design units |
-| [SWE.3 GPD-3303D Driver Design](aspice/TestBench_SWE3_002_GPD3303D_Driver_Design.md) | The supply's driver as one component: structure, decisions, and the lessons learned bringing it up on hardware |
-| [GPD-3303D Remote Control Interface](aspice/TestBench_IF001_GPD3303D_Remote_Control_Interface.md) | The supply's protocol as the instrument implements it, command by command, with captured replies |
-| [SWE.4 Unit Verification](aspice/TestBench_SWE4_Unit_Verification.md) | Verification strategy, test groups, pass criteria |
-| [SWE.4 Unit Verification Report](aspice/TestBench_SWE4_Unit_Verification_Report.md) | Results, coverage, measured accuracy, defects found |
-| [SWE.5 Integration & Integration Test](aspice/TestBench_SWE5_SW_Integration_Test.md) | How the units are joined, and the interface properties no unit test can show |
-| [SWE.6 Qualification Test](aspice/TestBench_SWE6_SW_Qualification_Test.md) | Twenty qualification cases against the software requirements |
-| [Traceability Matrix](aspice/TestBench_Traceability_Matrix.md) | Bidirectional trace, stakeholder need to test |
+| [SWE.1 Software Requirements](aspice/EmbeddedTestBench_SWE1_SW_Requirements.md) | What the tooling must do, per element |
+| [SWE.2 Software Architecture](aspice/EmbeddedTestBench_SWE2_SW_Architecture.md) | Layering, elements, and the architectural decisions |
+| [SWE.3 Detailed Design](aspice/EmbeddedTestBench_SWE3_Detailed_Design.md) | Per-module design units |
+| [SWE.3 GPD-3303D Driver Design](aspice/EmbeddedTestBench_SWE3_002_GPD3303D_Driver_Design.md) | The supply's driver as one component: structure, decisions, and the lessons learned bringing it up on hardware |
+| [GPD-3303D Remote Control Interface](aspice/EmbeddedTestBench_IF001_GPD3303D_Remote_Control_Interface.md) | The supply's protocol as the instrument implements it, command by command, with captured replies |
+| [SWE.4 Unit Verification](aspice/EmbeddedTestBench_SWE4_Unit_Verification.md) | Verification strategy, test groups, pass criteria |
+| [SWE.4 Unit Verification Report](aspice/EmbeddedTestBench_SWE4_Unit_Verification_Report.md) | Results, coverage, measured accuracy, defects found |
+| [SWE.5 Integration & Integration Test](aspice/EmbeddedTestBench_SWE5_SW_Integration_Test.md) | How the units are joined, and the interface properties no unit test can show |
+| [SWE.6 Qualification Test](aspice/EmbeddedTestBench_SWE6_SW_Qualification_Test.md) | Twenty qualification cases against the software requirements |
+| [Traceability Matrix](aspice/EmbeddedTestBench_Traceability_Matrix.md) | Bidirectional trace, stakeholder need to test |
 
 ### Management and support
 
 | Document | Contents |
 |---|---|
-| [MAN.3 Project Management Plan](aspice/TestBench_MAN3_Project_Management_Plan.md) | Objectives, roles, work packages, milestones, what is monitored |
-| [MAN.5 Risk Management Plan](aspice/TestBench_MAN5_Risk_Management_Plan.md) | The process and the twelve risks currently carried |
-| [SUP.1 Quality Assurance Plan](aspice/TestBench_SUP1_Quality_Assurance_Plan.md) | What is checked, by what, and the five rules this project will break a schedule over |
-| [SUP.8 Configuration Management Plan](aspice/TestBench_SUP8_Configuration_Management_Plan.md) | Configuration items, versioning, baselines, status accounting |
-| [SUP.9 Problem Resolution Plan](aspice/TestBench_SUP9_Problem_Resolution_Management_Plan.md) | What counts as a problem, and what may never close one |
-| [SUP.10 Change Request Plan](aspice/TestBench_SUP10_Change_Request_Management_Plan.md) | When a change needs a request, and how its impact is analysed |
-| [ACQ.4 Supplier Monitoring Plan](aspice/TestBench_ACQ4_Supplier_Monitoring_Plan.md) | What is depended on, what each dependency is trusted to do, and how a change would be noticed |
-| [Software Version Description](aspice/TestBench_SVD_Software_Version_Description.md) | What the current baseline contains, and its known limitations |
-| [Process Capability Records](aspice/TestBench_PA2_Capability_Records.md) | Level 2 generic practices, rated honestly |
-| [Repository Analysis Report](aspice/TestBench_Analysis_Report.md) | A measured analysis of this repository, with prioritised actions |
+| [MAN.3 Project Management Plan](aspice/EmbeddedTestBench_MAN3_Project_Management_Plan.md) | Objectives, roles, work packages, milestones, what is monitored |
+| [MAN.5 Risk Management Plan](aspice/EmbeddedTestBench_MAN5_Risk_Management_Plan.md) | The process and the twelve risks currently carried |
+| [SUP.1 Quality Assurance Plan](aspice/EmbeddedTestBench_SUP1_Quality_Assurance_Plan.md) | What is checked, by what, and the five rules this project will break a schedule over |
+| [SUP.8 Configuration Management Plan](aspice/EmbeddedTestBench_SUP8_Configuration_Management_Plan.md) | Configuration items, versioning, baselines, status accounting |
+| [SUP.9 Problem Resolution Plan](aspice/EmbeddedTestBench_SUP9_Problem_Resolution_Management_Plan.md) | What counts as a problem, and what may never close one |
+| [SUP.10 Change Request Plan](aspice/EmbeddedTestBench_SUP10_Change_Request_Management_Plan.md) | When a change needs a request, and how its impact is analysed |
+| [ACQ.4 Supplier Monitoring Plan](aspice/EmbeddedTestBench_ACQ4_Supplier_Monitoring_Plan.md) | What is depended on, what each dependency is trusted to do, and how a change would be noticed |
+| [Software Version Description](aspice/EmbeddedTestBench_SVD_Software_Version_Description.md) | What the current baseline contains, and its known limitations |
+| [Process Capability Records](aspice/EmbeddedTestBench_PA2_Capability_Records.md) | Level 2 generic practices, rated honestly |
+| [Repository Analysis Report](aspice/EmbeddedTestBench_Analysis_Report.md) | A measured analysis of this repository, with prioritised actions |
 
 ### C coding standards
 
 | Document | Contents |
 |---|---|
-| [Embedded C Coding Standard](aspice/TestBench_Embedded_C_Coding_Standard.md) | Behavioural rules for the firmware's C |
-| [Embedded C Style Guide](aspice/TestBench_Embedded_C_Style_Guide.md) | Formatting, naming and layout, including which conventions are deliberately not adopted |
-| [Industry Standards — Applicability](aspice/TestBench_STD_001_Industry_Standards_Comparison.md) | Where the rules come from, how deep the MISRA subset goes, and what is not claimed |
+| [Embedded C Coding Standard](aspice/EmbeddedTestBench_Embedded_C_Coding_Standard.md) | Behavioural rules for the firmware's C |
+| [Embedded C Style Guide](aspice/EmbeddedTestBench_Embedded_C_Style_Guide.md) | Formatting, naming and layout, including which conventions are deliberately not adopted |
+| [Industry Standards — Applicability](aspice/EmbeddedTestBench_STD_001_Industry_Standards_Comparison.md) | Where the rules come from, how deep the MISRA subset goes, and what is not claimed |
 
 ### Deviations and templates
 
 | Document | Contents |
 |---|---|
-| [DEV-001 AI Authorship](aspice/TestBench_DEV001_AI_Authorship_Deviation.md) | The author is a model; what compensates for that |
-| [DEV-002 Reviewer Independence](aspice/TestBench_DEV002_Independent_Review_Deviation.md) | Reviewer and approver are the same person |
-| [Review Record Template](aspice/TestBench_Review_Template.md) | The form a work product review is recorded on |
+| [DEV-001 AI Authorship](aspice/EmbeddedTestBench_DEV001_AI_Authorship_Deviation.md) | The author is a model; what compensates for that |
+| [DEV-002 Reviewer Independence](aspice/EmbeddedTestBench_DEV002_Independent_Review_Deviation.md) | Reviewer and approver are the same person |
+| [Review Record Template](aspice/EmbeddedTestBench_Review_Template.md) | The form a work product review is recorded on |
 | [Test Case Template](templates/ASPICE_CL2_Test_Case_Template_1.md) | The form a manually performed test case is written on |
 
 ### Guides

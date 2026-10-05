@@ -78,7 +78,7 @@ filterwarnings = ["ignore::UserWarning:pyvisa_py.*"]
 # compares the findings against .pylint-baseline.json so the job fails on new
 # ones rather than on the debt that was there when the check was introduced.
 #
-# The same rule as the C side (TB-STY-001): a rule the project has decided
+# The same rule as the C side (ETB-STY-001): a rule the project has decided
 # against is switched off here and said so; a rule the project accepts but has
 # not yet met stays on and goes in the baseline.
 
@@ -115,7 +115,7 @@ disable = [
     # different pairs. A rule whose output is not reproducible cannot gate a
     # build, and baselining it only moves the flapping into the baseline.
     #
-    # What it was pointing at is real and is recorded as debt in TB-ANA-001
+    # What it was pointing at is real and is recorded as debt in ETB-ANA-001
     # §6.13 rather than silenced: five driver CLIs carry the same `main()`
     # boilerplate - parse, set the logging level, dispatch - and that belongs
     # in one helper. Factoring it out is its own change, not a CI ticket's.

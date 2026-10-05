@@ -5,7 +5,7 @@
 #
 # Every instrument here is simulated. That shows the specifications execute and
 # that the reports are complete; it shows nothing about instrument behaviour,
-# which is TB-SYS4-001's job and needs hardware. The action says so in its own
+# which is ETB-SYS4-001's job and needs hardware. The action says so in its own
 # annotations and job summary rather than leaving the distinction to a reader.
 #
 # The run uses benches/simulated_bench.yaml rather than the action's
