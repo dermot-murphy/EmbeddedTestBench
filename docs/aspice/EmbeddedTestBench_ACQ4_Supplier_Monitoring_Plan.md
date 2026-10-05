@@ -10,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-ACQ4-001 | **Version** | 0.5 |
+| **Document ID** | ETB-ACQ4-001 | **Version** | 0.6 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -29,6 +29,7 @@
 | 0.3 | 2026-10-05 | Claude | #204: Review & Approval table points to the merge of the pull request that last changed the document, which is the review and approval (ETB-SUP8-001 §5.7); no per-change signatures or dates. |
 | 0.4 | 2026-10-05 | Claude | #203: §4.3 records the GitHub-owned actions and the runner images, and the CStyleCheck pin is re-dated. §6 adds Dependabot version updates. §7 records that CStyleCheck v1.6.0 was re-checked and is still broken, so the pin stays at v1.5.1. |
 | 0.5 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
+| 0.6 | 2026-10-05 | Claude | #228: §6 - Dependabot changes a Python requirement only when its range excludes a new release; #219, #223 and #224 declined because they raised floors the supported Pythons cannot install. |
 
 ---
 
@@ -124,13 +125,24 @@ Trust is stated so that it can be checked rather than assumed.
 | Vendor documentation changes | Checked when a driver is next worked on | A documented behaviour differs from what the driver assumes → problem, and the simulator is corrected |
 | Licence terms | Reviewed when a vendor product is added or upgraded | Terms that would require vendoring source → the dependency is not taken |
 | CStyleCheck | The style workflow's result | A failure unrelated to the firmware source → problem under ETB-SUP9-001 |
-| GitHub Actions and Python package versions | Dependabot version updates, weekly, `.github/dependabot.yml`, targeting `develop` (#203) | A Dependabot pull request → release notes read, CI result reviewed, merged or declined with the reason |
+| GitHub Actions and Python package versions | Dependabot version updates, weekly, `.github/dependabot.yml`, targeting `develop` (#203). For pip, `versioning-strategy: increase-if-necessary`: a requirement is changed only when its range excludes a new release (#228) | A Dependabot pull request → release notes read, CI result reviewed, merged or declined with the reason |
 | Runner and action deprecations | Annotations on CI runs | A deprecation warning → ticket to move the pin before the deadline (#203 was the Node.js 20 warning) |
 
 There is no supplier audit, no supplier scorecard and no escalation path to any
 of these parties. Where a vendor's product misbehaves, the only available
 responses are to work around it, pin away from it, or stop using it — and to
 record which was chosen.
+
+**Python requirement floors (#228).** `pyproject.toml` states lower bounds, and
+the project supports Python 3.8 and later. With Dependabot's default strategy,
+each new release raised a floor to that release. Three such pull requests could
+not be installed on Python versions the project supports and were declined on
+2026-10-05: #224 (matplotlib 3.10.9, Python 3.10 or later), #223 (pyvisa-py 0.8.1,
+Python 3.10 or later) and #219 (pytest-cov 7.1.0, not installable on 3.8). The
+pip entry now uses `increase-if-necessary`, which GitHub documents as leaving a
+requirement unchanged when it already allows the new release. A floor is raised
+deliberately, by a ticket, when the project needs a newer release or drops a
+Python version.
 
 ---
 
