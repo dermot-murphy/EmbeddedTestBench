@@ -181,14 +181,67 @@ class TestGeneratedWiki:
         assert not [p.name for p in wiki.glob("*.md") if b"\r\n" in p.read_bytes()]
 
 
-def test_the_home_page_carries_the_logo_and_the_links(tmp_path):
+_RAW_IMG = re.compile(r'<img src="https://github\.com/dermot-murphy/EmbeddedTestBench/raw/main/'
+                      r'([^"]+)" alt="Embedded Test Bench" width="[^"]+">')
+
+
+class TestWikiBrand:
+    """The logo and banner on the wiki (#194)."""
+
+    def first_image(self, wiki, page):
+        first = (wiki / (page + ".md")).read_text(encoding="utf-8").split("\n")[0]
+        match = _RAW_IMG.fullmatch(first)
+        assert match, first
+        return match.group(1)
+
+    def test_home_and_the_sidebar_open_with_the_compact_logo(self, wiki):
+        assert self.first_image(wiki, "Home") == publish.WIKI_LOGO
+        assert self.first_image(wiki, "_Sidebar") == publish.WIKI_LOGO
+
+    def test_the_aspice_index_opens_with_the_header_banner(self, wiki):
+        assert self.first_image(wiki, "ASPICE-Index") == publish.WIKI_BANNER
+
+    def test_the_readme_artwork_is_not_repeated_on_home(self, wiki):
+        home = (wiki / "Home.md").read_text(encoding="utf-8")
+        assert home.count("<img ") == 1 and "# EmbeddedTestBench" in home
+
+    def test_a_document_logo_is_shown_as_its_png_render(self, wiki):
+        page = (wiki / "ASPICE-SUP8-Configuration-Management-Plan.md").read_text(encoding="utf-8")
+        assert self.first_image(wiki, "ASPICE-SUP8-Configuration-Management-Plan") == (
+            "assets/brand/png/logos/logo_compact.png")
+        assert ".svg" not in page.split("\n")[0]
+
+    def test_every_brand_image_on_the_wiki_is_a_png_that_exists(self, wiki):
+        text = "".join(p.read_text(encoding="utf-8") for p in wiki.glob("*.md"))
+        images = set(re.findall(r"/raw/main/(assets/brand/[^\")\s]+)", text))
+        assert images
+        assert not [rel for rel in images
+                    if not rel.endswith(".png") or not (ROOT / rel).is_file()]
+
+    def test_every_brand_svg_has_an_existing_png_render(self):
+        for svg, png in publish.BRAND_PNG.items():
+            assert (ROOT / svg).is_file() and (ROOT / png).is_file()
+
+
+def test_the_home_page_carries_the_banner_and_the_links(tmp_path):
     written = publish.generate_home(tmp_path, repo="owner/Repo")
     assert all((tmp_path / name).is_file() for name in written)
     page = (tmp_path / "README.md").read_text(encoding="utf-8")
-    assert page.startswith("![Embedded Test Bench](assets/")
+    assert page.startswith("![Embedded Test Bench](%s)\n" % publish.HOME_BANNER[1])
+    assert "assets/brand/" not in page
     assert "https://github.com/owner/Repo/wiki" in page
     assert "https://github.com/owner/Repo/releases/latest" in page
     assert "/wiki/ASPICE-SYS5-002-System-Qualification-Test-Report" in page
+
+
+def test_the_home_page_head_links_every_favicon_it_copies(tmp_path):
+    written = publish.generate_home(tmp_path, repo="owner/Repo")
+    head = (tmp_path / "_includes" / "head-custom.html").read_text(encoding="utf-8")
+    linked = re.findall(r"href=\"\{\{ '/([^']+)' \| relative_url \}\}\"", head)
+    assert linked == [target for _, target in publish.HOME_FAVICONS]
+    assert all(target in written for target in linked)
+    assert (tmp_path / "favicon.ico").read_bytes() == (
+        ROOT / "assets/brand/png/favicon/favicon.ico").read_bytes()
 
 
 def test_the_pages_address_is_derived_from_the_repository():

@@ -10,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE4-001 | **Version** | 1.24 |
+| **Document ID** | ETB-SWE4-001 | **Version** | 1.25 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -58,6 +58,7 @@
 | 1.22 | 2026-10-04 | Claude | #187: SWE4-UT-TRACE also checks that every revision history in `docs/` lists entries oldest first. |
 | 1.23 | 2026-10-05 | Claude | #184: SWE4-UT-PUBLISH added - the wiki and home page generator (`scripts/publish_docs.py`). |
 | 1.24 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
+| 1.25 | 2026-10-05 | Claude | #194: SWE4-UT-PUBLISH also covers the brand artwork on the wiki and the home page's banner and favicons. |
 
 ---
 
@@ -327,7 +328,7 @@ against the simulator in the default run (SWE4-UT-PSUPANEL, SWE4-UT-DMMPANEL).
 |---|---|---|---|
 | SWE4-UT-LAYERING | `test_layering.py` | Import graph and element isolation, the viewer above the runner | CORE-NFR-001, -008, -009 |
 | SWE4-UT-LINT | `test_lint_script.py` | The pylint baseline gate (`scripts/lint.py`): a finding keyed by file and rule matches its baseline entry whatever path separator pylint reports | — |
-| SWE4-UT-PUBLISH | `test_publish_docs.py` | The wiki and home page generator (`scripts/publish_docs.py`, ETB-SUP8-001 §5.7): wiki page names, two documents refused on one page, relative links rewritten to wiki pages or to the file on the ref (fenced code, anchors and absolute links left alone), the sidebar reaching every published page, `--clean` removing stale pages, a second run over unchanged content producing identical files, and the home page's logo and links | — |
+| SWE4-UT-PUBLISH | `test_publish_docs.py` | The wiki and home page generator (`scripts/publish_docs.py`, ETB-SUP8-001 §5.7): wiki page names, two documents refused on one page, relative links rewritten to wiki pages or to the file on the ref (fenced code, anchors and absolute links left alone), the sidebar reaching every published page, `--clean` removing stale pages, a second run over unchanged content producing identical files, the home page's banner, favicons and links, and the brand artwork on the wiki (the logo on Home and the sidebar, the banner on the ASPICE index, every brand image a PNG render that exists) | — |
 | SWE4-UT-TRACE | `test_traceability.py` | Consistency between the code and the SWE.1 to SWE.4 work products: every requirement traced, no orphan rows, every cited identifier defined, every module carrying its own trace, every revision history listed oldest first (ETB-SUP8-001 §6.2) | All (traceability base practices) |
 | SWE4-UT-SCPI | `core/test_scpi.py` | `ScpiInstrument`: lifecycle, primitives, identity, error queue, 488.2 blocks, simulator injection | CORE-FR-020 .. -028, INST-FR-001, -002 |
 | SWE4-UT-INSTRUMENT | `core/test_instrument.py` | `Instrument`: lifecycle template and hooks, identity caching, a close that cannot raise, simulator declaration, default empty event queue | CORE-FR-012 .. -016 |
