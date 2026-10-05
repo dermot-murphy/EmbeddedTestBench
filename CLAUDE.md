@@ -61,7 +61,9 @@ and had to be reverted (#109, #110). This rule was added by #113.
 A release is made only when the repository owner says so.
 
 1. Branch `release/v<version>` from `develop`. The version is semantic,
-   written `0.01.0000`, and the tag always has a lowercase `v` (#188).
+   written `0.01.0000`, and the tag always has a lowercase `v` (#188). Set it in
+   `pyproject.toml` and `benchtools/__init__.py`. The built wheel reports the
+   PEP 440 form (`0.1.0` for `0.01.0000`); that is expected.
 2. On that branch: the version bump, the Software Version Description
    (ETB-SVD-001) and other release documents, and fixes only. No new features.
 3. Open a pull request into `main`. Merge it with a merge commit once CI is green.
@@ -153,6 +155,7 @@ recorded in `ETB-SUP8-001 §5.5`:
   `pytest (3.8)`, `pytest (3.9)`, `pytest (3.12)`, `pylint`,
   `Embedded C standard` and `Simulated bench`.
 - Merge commits are the only merge method. Squash and rebase are switched off.
+- Release tags `v*` cannot be deleted or moved once pushed (tag ruleset).
 - **Merging a pull request deletes its head branch automatically.** In a stack,
   retarget the next pull request to `develop` *before* merging its predecessor,
   as step 2 above already requires, or the deletion may close it.

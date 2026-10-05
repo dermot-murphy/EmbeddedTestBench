@@ -9,7 +9,7 @@
 #
 # Minimal usage — the simulated bench, which needs no hardware:
 #
-#   - uses: dermot-murphy/EmbeddedTestBench@v1
+#   - uses: dermot-murphy/EmbeddedTestBench@v0.01.0000
 #     with:
 #       specs: specs/sensor_commands.yaml
 #       bench: benches/simulated_bench.yaml
@@ -20,7 +20,7 @@
 #
 # Against a real bench on a self-hosted runner:
 #
-#   - uses: dermot-murphy/EmbeddedTestBench@v1
+#   - uses: dermot-murphy/EmbeddedTestBench@v0.01.0000
 #     id: bench
 #     with:
 #       specs: |

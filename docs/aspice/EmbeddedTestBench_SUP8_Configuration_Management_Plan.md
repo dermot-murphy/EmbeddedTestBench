@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SUP8-001 | **Version** | 0.8 |
+| **Document ID** | ETB-SUP8-001 | **Version** | 0.9 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -30,6 +30,7 @@
 | 0.6 | 2026-10-04 | Claude | #187: §6.2 added - a revision history lists entries oldest first, a new entry is appended as the last row, and earlier rows are not edited. |
 | 0.7 | 2026-10-05 | Claude | #185: §5.5 added - the repository settings baseline (ruleset, merge, security, actions), with the enforcement observed on 2026-10-05. Changed together with CLAUDE.md. |
 | 0.8 | 2026-10-05 | Claude | #190: gitflow adopted. §5.1 adds `release/` and `hotfix/` branches, and their pull requests into `main` and the back-merge into `develop` are allowed by procedure; §5.6 added - release and hotfix procedure, tag on the merge commit in `main`. Changed together with CLAUDE.md. |
+| 0.9 | 2026-10-05 | Claude | #188: §6 states the version and tag format (`0.01.0000`, tag `v0.01.0000`) and the PEP 440 normalisation of the packaged version; §5.5 adds the tag ruleset protecting `v*` tags. Changed together with CLAUDE.md. |
 
 ---
 
@@ -185,6 +186,7 @@ against the API rather than assumed (ETB-RISK-004).
 | Ruleset | Pull request | Required; 0 approvals (single maintainer, who cannot approve their own pull request); merge method **merge** only |
 | Ruleset | Required status checks | `pytest (3.8)`, `pytest (3.9)`, `pytest (3.12)`, `pylint`, `Embedded C standard`, `Simulated bench`; branch need not be up to date |
 | Ruleset | Linear history | Not required: it would block the merge commits §5.2 requires |
+| Tag ruleset | "Protect release tags" | Active, no bypass actors, on `refs/tags/v*`: deletion and update blocked, so a published release tag cannot be moved (#188) |
 | Merge | Merge commits / squash / rebase | On / off / off |
 | Merge | Automatically delete head branches | On (see below) |
 | Merge | Auto-merge | Off: a pull request is merged on instruction |
@@ -247,7 +249,7 @@ rather than assumed.
 | Item | Scheme |
 |---|---|
 | Documents | `major.minor`, starting at 0.1; 0.x while Draft, 1.0 at first approval |
-| Python package | Semantic versioning in `pyproject.toml` |
+| Python package and releases | Semantic versioning, written `MAJOR.MINOR.PATCH` as `0.01.0000`, in `pyproject.toml` and `benchtools/__init__.py`. A release is tagged `v<version>` with a lowercase `v`, e.g. `v0.01.0000`. Python packaging normalises the version under PEP 440, so the wheel's metadata reads `0.1.0` for `0.01.0000`; the tag and `__version__` keep the project's form (ETB-SVD-001 §5.1) |
 | Firmware | `major.minor.patch`, reported by the `rd version` command and recorded in the firmware manifest |
 | Baselines | Annotated git tags |
 
