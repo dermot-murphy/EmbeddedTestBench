@@ -92,6 +92,20 @@ All ASPICE work products live in [`aspice/`](aspice/). Every one is at version
 | [Bench Self-Check Setup](Bench_Self_Check_Setup.md) | Setting up a Windows or Linux machine to run the bench self-check against real instruments |
 | [Robot Framework Keyword Catalogue](robot/Robot_Keyword_Catalogue.md) | Proposed keywords for the BLE dongle, the J-Link and the GPD-3303D, with the hardware behaviour that set each one's defaults. Nothing is implemented |
 
+### Product test setups
+
+A product that is tested on the bench keeps its own bench test setup - its
+bench file, test specifications, command documents and run evidence - in its
+own repository, not here.
+
+| Product | Where its setup lives | Bench it targets |
+|---|---|---|
+| Kepler (Sensoteq Kappa X), sensor 5C1712 | The Kepler project, `innovateuk-sensor`: `software/test/bench/` (bench file `bench_kepler.yaml`, one folder per test, and a `README.md` with the sensor's known behaviour), and the sessions A to C command document in `software/documents/other/` | Release `v0.01.0000`, updated 2026-10-05 (#199) |
+
+The Kepler bench file uses the instruments and ports of
+[`benches/bench_pc.yaml`](../benches/bench_pc.yaml). A change to either should
+be checked against the other.
+
 ## Instrument-specific
 
 | Document | Contents |
