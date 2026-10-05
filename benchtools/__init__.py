@@ -23,6 +23,6 @@ the standard library, so the package has no mandatory third-party dependencies.
 Traces to: CORE-ARC-001, ANA-ARC-001, INST-ARC-001, RUN-ARC-001.
 """
 
-__version__ = "0.01.0000"
+__version__ = "0.01.0001"
 
 __all__ = ["__version__", "core", "analysis", "instruments", "runner"]
