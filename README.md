@@ -1,4 +1,4 @@
-![Embedded Test Bench](assets/logo_horizontal.png)
+![Embedded Test Bench](assets/embeddedtestbench-website-header.svg)
 
 Bench test tooling: instrument drivers, a debug probe driver, a BLE dongle with
 its own firmware, analysis of captured records, and a declarative test runner
@@ -16,6 +16,10 @@ benchtools run specs/clock_skew.yaml --simulate --markdown report.md
 
 Everything below runs with no hardware: `sim://` and `--simulate` drive in-process
 instrument models.
+
+**New here?** Start with the [User Manual](https://github.com/dermot-murphy/EmbeddedTestBench/blob/main/docs/User_Manual.md): installing, a first
+run on the simulated bench, the real bench and its safety limits, and a section
+for Claude Code sessions.
 
 ## Links
 
