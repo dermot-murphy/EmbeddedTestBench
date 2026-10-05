@@ -45,6 +45,7 @@ from .constants import (
 from .dongle import NordicDongle, Sensor
 from .script import (
     CommandScript,
+    PrefixTimeout,
     ScriptStep,
     ScriptTest,
     load_script,
@@ -75,6 +76,7 @@ __all__ = [
     "NordicDongle",
     "Sensor",
     "CommandScript",
+    "PrefixTimeout",
     "ScriptRun",
     "ScriptStep",
     "ScriptTest",

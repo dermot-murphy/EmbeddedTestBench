@@ -10,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE1-001 | **Version** | 1.25 |
+| **Document ID** | ETB-SWE1-001 | **Version** | 1.26 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -59,6 +59,7 @@
 | 1.23 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
 | 1.24 | 2026-10-05 | Claude | #204: Review & Approval table points to the merge of the pull request that last changed the document, which is the review and approval (ETB-SUP8-001 §5.7); no per-change signatures or dates. |
 | 1.25 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
+| 1.26 | 2026-10-05 | Claude | #60: BLE-FR-119 added - timeouts by command prefix in a command document, with a per-run override and the timeout that applied stated in each result; BLE-FR-112's empty cell now defers to it. |
 
 ---
 
@@ -512,13 +513,14 @@ implements them; §11.6 says which.
 | BLE-FR-109 | Each step shall have exactly one result, the first of these that applies: **error** when the system returned a failure code - the dongle refused the command, a connect or disconnect failed, the link or transport failed, or no reply came where one was expected; **skip** when the expected response is empty; **fail** when the actual response differs from the expected one; **pass** when it matches. | STK-12, STK-15 | Test |
 | BLE-FR-110 | A document shall be able to declare variables, with or without defaults, and use them as `${NAME}` in any command, expected response, timeout or delay - Robot Framework's syntax - with values supplied when it is run overriding the defaults, so one document tests whichever sensor it is given. | STK-12 | Test |
 | BLE-FR-111 | A document shall be able to open its own link with a `connect <sensor>` step - selecting by address, or by a fragment of the advertised name ignoring case - and to close it with `disconnect`. A link the document opened shall be closed when the run ends, pass or fail; a document that connects before its first command shall need no link opened for it. | STK-12, STK-14 | Test |
-| BLE-FR-112 | A step shall be able to carry its own timeout, in milliseconds - for the reply, the listening window, the disconnection, or the connection - with an empty cell meaning the run's configurable default. | STK-12, STK-14 | Test |
+| BLE-FR-112 | A step shall be able to carry its own timeout, in milliseconds - for the reply, the listening window, the disconnection, or the connection - with an empty cell meaning the document's timeout for the command's prefix (BLE-FR-119), else the run's configurable default. | STK-12, STK-14 | Test |
 | BLE-FR-113 | An expected response of `<disconnect>` shall mean the sensor drops the link after the command: **pass** if it does within the step's timeout, **fail** if it does not, the time being measured per BLE-FR-048. | STK-12, STK-14 | Test |
 | BLE-FR-114 | A document shall be able to carry a note per step, which the report shows beside the step's result. | STK-12 | Test |
 | BLE-FR-115 | A run shall be able to write an event log: one line per event, with the time it happened, the event - TX, RX, DELAY, CONNECT, DISCONNECT or ERROR - the step, the data and the result; each RX line shall carry the dongle's own measurement of the exchange at full resolution. | STK-12, STK-17 | Test |
 | BLE-FR-116 | A document shall be runnable on its own from the command line, with variable values, a report and an event log, emitting the run as JSON and exiting 0 only when it passed. | STK-12, STK-15 | Test |
 | BLE-FR-117 | The driver shall send one command a given number of times at a given interval, take a number from each reply by a pattern and scale it, and refuse, naming the reply, one that carries no number. | STK-12 | Test |
 | BLE-FR-118 | A command's result shall give the value its reply reports - the text after the reply's first ` = `, trimmed, or nothing when there is none - so that it can be compared with the same value from another source, where the rest of the reply is not carried. | STK-12 | Test |
+| BLE-FR-119 | A document shall be able to declare a timeout, in milliseconds, for every command that starts with a given prefix, in a table before its first step. A prefix shall match the start of a command sent to the sensor ignoring case, the longest matching prefix winning; it shall be the reply timeout of a command with an expected response, the listening window of one with none, and the timeout of a `<disconnect>`. A step's own timeout shall win over it, and it over the run's default. A value may be a variable; a run shall be able to override or add to the table per prefix; a prefix given twice, an empty prefix or a value out of range shall be refused naming the line. Each step's result shall state the timeout that applied and why. | STK-12, STK-14 | Test |
 | BLE-FR-090 | The firmware shall build as a SEGGER Embedded Studio project against nRF5 SDK 17 for the PCA10059 dongle, and shall be packageable as a DFU image for the dongle's factory bootloader. | STK-16 | Inspection |
 
 ### 11.7 BLE non-functional

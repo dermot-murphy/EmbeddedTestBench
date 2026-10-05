@@ -45,8 +45,9 @@ written, emits these names.
   are converted with `robot.utils.timestr_to_secs` and passed to the drivers as
   seconds.
   - Every driver API already takes seconds.
-  - Milliseconds appear only in the markdown command document's Timeout and
-    delay cells, and on the dongle's own wire protocol.
+  - Milliseconds appear only in the markdown command document's Timeout,
+    Command prefix timeout and delay cells, and on the dongle's own wire
+    protocol.
   - Using Robot's time strings removes the one unit ambiguity the command
     documents had to solve.
 - **Electrical values are plain numbers in SI units**: volts, amps, watts and
@@ -149,7 +150,7 @@ than one link at a time.
 | `Reply Frames Should Be` | `count` | Checks `1 + len(extra_frames)` of the last reply | **Fails** on a different count, naming the extra frames. The command must have been sent with `frame_window` greater than 0; `0.5 s` is what command documents use, and a translator adds it to the send |
 | `Write To Sensor` | `payload` | `write()`. Sends a `uart` line and does not wait for a reply | Bytes written |
 | `Measure Response Time` | `command`, `repeat=1`, `timeout=3 s`, `source=DONGLE` | `measure_response_time()` | Timing dictionary, which includes `milliseconds`, `is_trustworthy` and `interval_us` |
-| `Run Command Document` | `path`, `report=None`, `events=None`, `timeout=3 s`, `listen=0.5 s`, `&{variables}` | `run_script()`. Runs a markdown command document as one Robot step | Summary dictionary: result, passed, failed, errors and saved values. **Fails** unless the document's result is PASS |
+| `Run Command Document` | `path`, `report=None`, `events=None`, `timeout=3 s`, `listen=0.5 s`, `timeouts=None`, `&{variables}` | `run_script()`. Runs a markdown command document as one Robot step; `timeouts` is a dictionary of command prefix to milliseconds, over the document's Command prefix table (#60) | Summary dictionary: result, passed, failed, errors and saved values. **Fails** unless the document's result is PASS |
 | `Measure Advertising Profile` | `duration=30 s`, `address=None`, `expected_interval=None` | `measure_advertising_profile()` | Profile dictionary. **Fails** if fewer than two advertising events were heard, because no interval can be computed |
 
 The command documents also have a delay step. It maps to Robot's own

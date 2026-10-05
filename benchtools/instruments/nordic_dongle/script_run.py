@@ -5,7 +5,7 @@ The document's shape, and the four results a step can have - ERROR, SKIP,
 FAIL, PASS, the first that applies - are described in
 :mod:`~benchtools.instruments.nordic_dongle.script`.
 
-Traces to: BLE-FR-100 .. BLE-FR-108, BLE-DD-SCRIPT.
+Traces to: BLE-FR-100 .. BLE-FR-108, BLE-FR-119, BLE-DD-SCRIPT.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from __future__ import annotations
 import re
 import time
 from dataclasses import dataclass, field, replace
-from typing import Dict, List, Mapping, Optional
+from typing import Dict, List, Mapping, Optional, Tuple
 
 from ...core.errors import BenchToolsError, TransportTimeoutError
 from .constants import DongleError
@@ -28,12 +28,15 @@ from .script import (
     RESOLUTION_S,
     SKIP,
     CommandScript,
+    PrefixTimeout,
     ScriptStep,
 )
 
 __all__ = [
     "CONNECT_ATTEMPTS",
     "CONNECT_SCAN_S",
+    "DEFAULT_LISTEN",
+    "DEFAULT_REPLY",
     "FRAME_WINDOW_S",
     "EventLog",
     "ScriptRun",
@@ -52,6 +55,10 @@ class StepResult:  # pylint: disable=too-many-instance-attributes
     :param clock: Which clock produced *elapsed_s* - the dongle's microsecond
         clock, or the host's, which includes USB. Recorded because a figure
         without its clock is not a measurement (BLE-NFR-005).
+    :param timeout_s: Seconds the step waited at most, None for a step that
+        waited for nothing.
+    :param timeout_from: Why it was that long: the step's Timeout cell, a
+        command prefix, or the run's default.
     """
 
     test: str
@@ -64,6 +71,15 @@ class StepResult:  # pylint: disable=too-many-instance-attributes
     result: str = SKIP
     reason: str = ""
     note: str = ""
+    timeout_s: Optional[float] = None
+    timeout_from: str = ""
+
+    @property
+    def timeout(self) -> str:
+        """The timeout that applied and why, as the report quotes it."""
+        if self.timeout_s is None:
+            return ""
+        return "%g ms, %s" % (self.timeout_s * 1000.0, self.timeout_from or "?")
 
     @property
     def notes(self) -> str:
@@ -92,11 +108,13 @@ class StepResult:  # pylint: disable=too-many-instance-attributes
             "result": self.result,
             "reason": self.reason,
             "note": self.note,
+            "timeout_ms": None if self.timeout_s is None else self.timeout_s * 1000.0,
+            "timeout_from": self.timeout_from,
         }
 
 
 @dataclass
-class ScriptRun:
+class ScriptRun:  # pylint: disable=too-many-instance-attributes
     """Every step of one run of a document, and the verdict over them."""
 
     results: List[StepResult] = field(default_factory=list)
@@ -107,6 +125,8 @@ class ScriptRun:
     saved: Dict[str, str] = field(default_factory=dict)
     #: The event log's lines, header first.
     events: List[str] = field(default_factory=list)
+    #: The timeouts by command prefix the steps were given, as written.
+    timeouts: List[PrefixTimeout] = field(default_factory=list)
 
     @property
     def passed(self) -> int:
@@ -155,6 +175,8 @@ class ScriptRun:
             "source": self.source,
             "sensor": self.sensor,
             "variables": dict(self.variables),
+            "timeouts": [{"prefix": item.prefix, "timeout_ms": item.timeout_s * 1000.0,
+                          "from": item.origin} for item in self.timeouts],
             "saved": dict(self.saved),
             "result": self.result,
             "passed": self.passed,
@@ -177,21 +199,27 @@ class ScriptRun:
             "| Sensor | %s |" % (self.sensor or "not recorded"),
             "| Variables | %s |" % (_cell(", ".join(
                 "%s=%s" % item for item in sorted(self.variables.items()))) or "none"),
+            "| Timeouts by prefix | %s |" % (_cell(", ".join(
+                "%s %g ms (%s)" % (item.prefix, item.timeout_s * 1000.0, item.origin)
+                for item in self.timeouts)) or "none"),
             "| Steps | %d passed, %d failed, %d errors, %d skipped |"
             % (self.passed, self.failed, self.errors, self.skipped),
             "",
             "Times are from the end of the command to the start of the response, "
-            "quoted to %g ms. Results, first that applies: ERROR when the system "
+            "quoted to %g ms. The timeout is the longest a step waited, and why: its "
+            "Timeout cell, the longest command prefix it starts with, or the run's "
+            "default. Results, first that applies: ERROR when the system "
             "returned a failure code, SKIP when nothing was expected, FAIL when the "
             "reply differs, PASS when it matches." % (RESOLUTION_S * 1000.0),
             "",
-            "| Test | Step | Command | Expected | Actual | Response time (ms) | Result | Note |",
-            "|---|---|---|---|---|---|---|---|",
+            "| Test | Step | Command | Expected | Actual | Response time (ms) | Timeout "
+            "| Result | Note |",
+            "|---|---|---|---|---|---|---|---|---|",
         ]
         for item in self.results:
             seconds = "-" if item.reported_s is None else "%.0f" % (item.reported_s * 1000.0)
             lines.append(
-                "| %s | %s | %s | %s | %s | %s | %s | %s |"
+                "| %s | %s | %s | %s | %s | %s | %s | %s | %s |"
                 % (
                     item.test,
                     item.number,
@@ -199,6 +227,7 @@ class ScriptRun:
                     _cell(item.expected),
                     _cell(item.response),
                     seconds,
+                    _cell(item.timeout) or "-",
                     item.result,
                     _cell(item.notes),
                 )
@@ -239,6 +268,11 @@ CONNECT_SCAN_S = 10.0
 #: Seconds a step with a Frames cell goes on listening after the reply, to
 #: catch a second notification.
 FRAME_WINDOW_S = 0.5
+
+#: Why a step without a timeout of its own waited as long as it did: the run's
+#: default reply timeout, or its listening window for a command expecting none.
+DEFAULT_REPLY = "run default (--timeout-s)"
+DEFAULT_LISTEN = "listening window (--listen)"
 
 #: Connection attempts a ``connect`` step makes. A sensor that advertises rarely
 #: can fall outside a connect window; each failure is in the session log.
@@ -323,7 +357,7 @@ def run_script(  # pylint: disable=too-many-arguments,too-many-positional-argume
     """
     log = events or EventLog()
     run = ScriptRun(source=script.source, sensor=_sensor_name(dongle),
-                    variables=dict(script.variables))
+                    variables=dict(script.variables), timeouts=list(script.timeouts))
     link = _LinkWatch(dongle, log)
     try:
         for test in script.tests:
@@ -341,7 +375,8 @@ def run_script(  # pylint: disable=too-many-arguments,too-many-positional-argume
                 elif step.action == DISCONNECT:
                     result = _run_disconnect(dongle, step, log)
                 elif step.expects_disconnect:
-                    result = _run_expect_disconnect(dongle, step, step.timeout_s or timeout, log)
+                    result = _run_expect_disconnect(
+                        dongle, step, _timeout_for(step, timeout, DEFAULT_REPLY), log)
                 else:
                     filled = _fill_saved(step, run.saved)
                     if filled is None:
@@ -365,6 +400,14 @@ def _result(step: ScriptStep, result: str, reason: str = "", **fields) -> StepRe
     """A step's result, carrying the document's own note."""
     return StepResult(test=step.test, number=step.number, result=result,
                       reason=reason, note=step.note, **fields)
+
+
+def _timeout_for(step: ScriptStep, default: float, why: str) -> Tuple[float, str]:
+    """The seconds *step* waits and why: its own, from its cell or its prefix,
+    else the run's *default* for what it waits for."""
+    if step.timeout_s is not None:
+        return step.timeout_s, step.timeout_from
+    return default, why
 
 
 class _LinkWatch:
@@ -463,7 +506,8 @@ def _run_connect(dongle, step: ScriptStep, scan_s: float, attempts: int,
     log.event("CONNECT", step, "%s: linked to %s in %.3f s" % (step.command, linked, elapsed),
               SKIP)
     return _result(step, SKIP, "linked to %s" % linked, command=step.command,
-                   response="linked to %s" % linked, elapsed_s=elapsed, clock="host")
+                   response="linked to %s" % linked, elapsed_s=elapsed, clock="host",
+                   timeout_s=step.timeout_s, timeout_from=step.timeout_from)
 
 
 def _run_disconnect(dongle, step: ScriptStep, log: EventLog) -> StepResult:
@@ -477,25 +521,28 @@ def _run_disconnect(dongle, step: ScriptStep, log: EventLog) -> StepResult:
     return _result(step, SKIP, "link closed", command=step.command)
 
 
-def _run_expect_disconnect(dongle, step: ScriptStep, timeout: float,
+def _run_expect_disconnect(dongle, step: ScriptStep, wait: Tuple[float, str],
                            log: EventLog) -> StepResult:
     """Send a command the sensor should drop the link after, and time the drop.
 
-    **Error** if it could not be sent, **pass** if the link dropped within
-    *timeout*, **fail** if it did not. Never raises.
+    *wait* is the timeout and why it applies. **Error** if the command could
+    not be sent, **pass** if the link dropped within the timeout, **fail** if
+    it did not. Never raises.
     """
-    log.event("TX", step, "%s (expecting a disconnect within %g ms)" % (step.command,
-                                                                      timeout * 1000.0))
+    timeout, why = wait
+    timed = {"timeout_s": timeout, "timeout_from": why}
+    log.event("TX", step, "%s (expecting a disconnect within %g ms, %s)"
+              % (step.command, timeout * 1000.0, why))
     try:
         sample = dongle.command_expecting_disconnect(step.command, timeout=timeout)
     except BenchToolsError as exc:             # reported, not raised
         return _result(step, ERROR, "%s (%s)" % (_first_sentence(exc), type(exc).__name__),
-                       command=step.command, expected=step.expected)
+                       command=step.command, expected=step.expected, **timed)
     if not sample.disconnected:
         log.event("DISCONNECT", step, "expected; none within %.2f s" % timeout, FAIL)
         return _result(step, FAIL, "still connected %.2f s after the command" % timeout,
                        command=step.command, expected=step.expected,
-                       response="still connected")
+                       response="still connected", **timed)
     if sample.dongle_us is not None:
         elapsed, clock = sample.dongle_us / 1.0e6, "dongle"
     else:
@@ -507,7 +554,7 @@ def _run_expect_disconnect(dongle, step: ScriptStep, timeout: float,
                                        ", supervision timeout" if sample.reason == "0x08"
                                        else ""), PASS)
     return _result(step, PASS, "", command=step.command, expected=step.expected,
-                   response="<disconnect>", elapsed_s=elapsed, clock=clock)
+                   response="<disconnect>", elapsed_s=elapsed, clock=clock, **timed)
 
 
 def _fill_saved(step: ScriptStep, saved: Mapping[str, str]) -> Optional[ScriptStep]:
@@ -557,7 +604,8 @@ def _run_step(dongle, step: ScriptStep, waits, sleep, log: EventLog) -> StepResu
     """Execute one step. Never raises: a step's outcome is its result.
 
     *waits* is the run's default reply timeout and listening window; a step's
-    own Timeout cell overrides whichever applies.
+    own timeout - its Timeout cell, else its command prefix's - overrides
+    whichever applies.
 
     Results in priority order: **error** if the system returned a failure code,
     **skip** if nothing was expected, **fail** if the reply differs, **pass** if
@@ -571,8 +619,17 @@ def _run_step(dongle, step: ScriptStep, waits, sleep, log: EventLog) -> StepResu
                        elapsed_s=step.delay_s, clock="requested")
 
     expects = step.expects_response or step.frames is not None
-    wanted = step.timeout_s or (waits[0] if expects else waits[1])
-    log.event("TX", step, "%s (timeout %g ms)" % (step.command, wanted * 1000.0))
+    wanted, why = (_timeout_for(step, waits[0], DEFAULT_REPLY) if expects
+                   else _timeout_for(step, waits[1], DEFAULT_LISTEN))
+    log.event("TX", step, "%s (timeout %g ms, %s)" % (step.command, wanted * 1000.0, why))
+    result = _exchange(dongle, step, expects, wanted, log)
+    result.timeout_s, result.timeout_from = wanted, why
+    return result
+
+
+def _exchange(dongle, step: ScriptStep, expects: bool, wanted: float,
+              log: EventLog) -> StepResult:
+    """Send *step*'s command, wait up to *wanted* seconds, and judge the reply."""
     try:
         sample = dongle.command(step.command, timeout=wanted,
                                 **({"frame_window": FRAME_WINDOW_S} if step.frames else {}))
