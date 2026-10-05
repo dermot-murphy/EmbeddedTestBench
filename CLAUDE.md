@@ -8,12 +8,16 @@ procedure was assumed rather than written down, and the assumption was wrong —
 
 ## Branching model
 
+The repository uses **gitflow** (#190).
+
 | Branch | Purpose |
 | --- | --- |
-| `main` | Released state. Nothing is committed here directly. |
-| `develop` | Integration branch. All work merges here first. |
+| `main` | Released state. Changes arrive only from `release/` and `hotfix/` branches, and each merge is tagged. Nothing is committed here directly. |
+| `develop` | Integration branch. All other work merges here first. |
 | `feature/<topic>` | One branch per ticket, branched from `develop`. |
 | `docs/<topic>`, `fix/<topic>` | Same rule, different kind of work. |
+| `release/v<version>` | Branched from `develop` to prepare a release; merged into `main`, then back into `develop`. |
+| `hotfix/v<version>` | Branched from `main` for an urgent fix to a release; merged into `main`, then back into `develop`. |
 
 Never commit directly to `main` or `develop`. Never push to a branch you were not
 asked to work on.
@@ -38,12 +42,43 @@ covers `main`, a predecessor's branch in a stack, and any other branch alike.
 Being asked to open a pull request is not an instruction about its base; the
 base is `develop`.
 
-An instructed exception is stated in the pull request's description, so a
+**Gitflow's own exceptions** need no further instruction, because the procedure
+defines them (see [Releases and hotfixes](#releases-and-hotfixes)):
+
+- a pull request from `release/v<version>` or `hotfix/v<version>` targets `main`;
+- the back-merge pull request after a release or hotfix has head `main` and base
+  `develop`.
+
+Any other instructed exception is stated in the pull request's description, so a
 reviewer can see why it does not target `develop`. Example: #110 reverts #106
 on `main`, on explicit instruction, because `main` is where #106 landed (#109).
 
 Background: #106 was merged into `main` although work merges to `develop` first,
 and had to be reverted (#109, #110). This rule was added by #113.
+
+## Releases and hotfixes
+
+A release is made only when the repository owner says so.
+
+1. Branch `release/v<version>` from `develop`. The version is semantic,
+   written `0.01.0000`, and the tag always has a lowercase `v` (#188). Set it in
+   `pyproject.toml` and `benchtools/__init__.py`. The built wheel reports the
+   PEP 440 form (`0.1.0` for `0.01.0000`); that is expected.
+2. On that branch: the version bump, the Software Version Description
+   (ETB-SVD-001) and other release documents, and fixes only. No new features.
+3. Open a pull request into `main`. Merge it with a merge commit once CI is green.
+4. Create the annotated tag `v<version>` on that merge commit in `main`.
+5. Open a pull request from `main` into `develop` (the back-merge) and merge it,
+   so `develop` contains the release commits and the tagged history.
+6. Delete the release branch once both merges are done.
+
+A hotfix is the same, except that it is branched from `main` as
+`hotfix/v<version>` and carries only the fix.
+
+Merging a pull request deletes its head branch automatically (`ETB-SUP8-001 §5.5`).
+That is wanted for `release/` and `hotfix/` branches. When the head is `main`
+(the back-merge) or `develop`, the ruleset blocks the deletion, so both survive.
+Check that they do after the merge rather than assuming it.
 
 ## Stacked pull requests
 
@@ -120,6 +155,7 @@ recorded in `ETB-SUP8-001 §5.5`:
   `pytest (3.8)`, `pytest (3.9)`, `pytest (3.12)`, `pylint`,
   `Embedded C standard` and `Simulated bench`.
 - Merge commits are the only merge method. Squash and rebase are switched off.
+- Release tags `v*` cannot be deleted or moved once pushed (tag ruleset).
 - **Merging a pull request deletes its head branch automatically.** In a stack,
   retarget the next pull request to `develop` *before* merging its predecessor,
   as step 2 above already requires, or the deletion may close it.
