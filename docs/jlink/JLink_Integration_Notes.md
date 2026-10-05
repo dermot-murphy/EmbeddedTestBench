@@ -221,7 +221,8 @@ ports, since only one can hold the J-Link at a time.
 
 ### 4.3 Resetting into a running target (issue #177)
 
-Verified on 5C1712 (nRF52840, J-Link OB V8, GDB Server V9.42, GDB 14.2),
+Verified on 5C1712 (nRF52840, J-Link OB V8, GDB Server V9.42, GDB 15.2.90
+from Arm GNU Toolchain 14.2.Rel1),
 2026-10-05. The GDB Server halts the core after `monitor reset`, whatever the
 reset type: after `monitor reset 0` DHCSR read `0x00030003`, the DWT PC sample
 register `0xE000101C` read `0xFFFFFFFF`, and RTT stayed silent. `reset(halt=False)`
