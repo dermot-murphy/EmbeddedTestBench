@@ -8,7 +8,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SUP8-001 | **Version** | 0.7 |
+| **Document ID** | ETB-SUP8-001 | **Version** | 0.8 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -29,6 +29,7 @@
 | 0.5 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
 | 0.6 | 2026-10-04 | Claude | #187: §6.2 added - a revision history lists entries oldest first, a new entry is appended as the last row, and earlier rows are not edited. |
 | 0.7 | 2026-10-05 | Claude | #185: §5.5 added - the repository settings baseline (ruleset, merge, security, actions), with the enforcement observed on 2026-10-05. Changed together with CLAUDE.md. |
+| 0.8 | 2026-10-05 | Claude | #190: gitflow adopted. §5.1 adds `release/` and `hotfix/` branches, and their pull requests into `main` and the back-merge into `develop` are allowed by procedure; §5.6 added - release and hotfix procedure, tag on the merge commit in `main`. Changed together with CLAUDE.md. |
 
 ---
 
@@ -94,9 +95,13 @@ rather than to the model name (ETB-RISK-002).
 
 | Branch | Purpose |
 |---|---|
-| `main` | Released state. Nothing is committed here directly. |
-| `develop` | Integration branch. Every change merges here first; `main` is updated from `develop` at a release. |
+| `main` | Released state. Changes arrive only from `release/` and `hotfix/` branches (§5.6), and each merge is tagged. Nothing is committed here directly. |
+| `develop` | Integration branch. Every other change merges here first. |
 | `feature/<topic>`, `docs/<topic>`, `fix/<topic>` | One branch per ticket, branched from `develop`. |
+| `release/v<version>` | Branched from `develop` to prepare a release; merged into `main`, then back into `develop` (§5.6). |
+| `hotfix/v<version>` | Branched from `main` for an urgent fix to a release; merged into `main`, then back into `develop` (§5.6). |
+
+The branching model is gitflow (#190).
 
 | Item | Convention |
 |---|---|
@@ -105,7 +110,10 @@ rather than to the model name (ETB-RISK-002).
 | Ticket | Every change starts from an issue, referenced in the commit message |
 | History | Never rewritten on a branch someone else may have checked out |
 
-**A pull request targets `develop`.** Any other base — `main`, a predecessor's
+**A pull request targets `develop`.** Gitflow defines two exceptions that need
+no further instruction: a pull request from a `release/` or `hotfix/` branch
+targets `main`, and the back-merge after a release or hotfix has head `main` and
+base `develop` (§5.6). Any other base — `main`, a predecessor's
 branch in a stack, or any other branch — is used only when the repository owner
 explicitly instructs it for that pull request, and the pull request's
 description says so. Being asked to open a pull request is not an instruction
@@ -205,6 +213,32 @@ has not been verified, so the procedure assumes it does.
 **Dependabot.** Whether `target-branch` in `dependabot.yml` redirects security
 updates has not been verified. Until it is, a Dependabot pull request is assumed
 to open against `main` and is retargeted to `develop` before it is merged (§5.1).
+
+
+### 5.6 Releases and Hotfixes
+
+A release is made only on the repository owner's instruction.
+
+| Step | Release | Hotfix |
+|---|---|---|
+| 1. Branch | `release/v<version>` from `develop` | `hotfix/v<version>` from `main` |
+| 2. Content | Version bump, ETB-SVD-001 and other release documents, and fixes only; no new features | The fix only, with its version bump and SVD update |
+| 3. Merge | Pull request into `main`, merge commit, CI green | Same |
+| 4. Tag | Annotated tag `v<version>` on the merge commit in `main` | Same |
+| 5. Back-merge | Pull request from `main` into `develop`, merge commit | Same |
+| 6. Clean up | Release branch deleted once steps 3 and 5 are done | Hotfix branch deleted likewise |
+
+The version is semantic and the tag always has a lowercase `v` (#188). The tag
+together with the SVD is the release baseline (§7).
+
+The back-merge keeps `develop` a descendant of every release, so the two
+branches do not diverge. Before gitflow, `main` gained commits that `develop`
+lacked: #106, its revert (#109, #110), and the merge commits of #169 and #189.
+
+Head branches are deleted automatically on merge (§5.5). That is intended for
+`release/` and `hotfix/` branches. When the head is `main` (the back-merge) or
+`develop`, the ruleset blocks the deletion. This is checked after each such merge
+rather than assumed.
 
 ---
 
