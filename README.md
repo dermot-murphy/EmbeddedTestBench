@@ -1,7 +1,5 @@
 ![Embedded Test Bench](assets/logo_horizontal.png)
 
-# Embedded Test Bench
-
 Bench test tooling: instrument drivers, a debug probe driver, a BLE dongle with
 its own firmware, analysis of captured records, and a declarative test runner
 that drives a bench and produces pass/fail evidence.
