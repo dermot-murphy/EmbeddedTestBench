@@ -10,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE4-002 | **Version** | 1.26 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
+| **Document ID** | ETB-SWE4-002 | **Version** | 1.27 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-06 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.4 |
@@ -60,6 +60,7 @@
 | 1.24 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | 1.25 | 2026-10-05 | Claude | #214: whole suite re-run (§4); SWE4-UT-BLESAMPLE (5) added to §5; §10.4 added - `sample_command` timed on a 15.6 ms clock under CPython 3.11, before and after the fix; D-50 added and closed. |
 | 1.26 | 2026-10-05 | Claude | #180: whole suite re-run (§4); SWE4-UT-BLE re-counted 64 → 99 and SWE4-UT-BLESCRIPT 58 → 109 in §5; D-51 added and closed in the simulator, not yet confirmed on hardware. |
+| 1.27 | 2026-10-06 | Claude | #180: §10.5 added - `open_link` and the `connect` step after `ECURESET HARD` on the bench PC with sensor 5C1712; 0x3E seen 6 times in 18 links and recovered each time; D-51 confirmed on hardware. |
 
 ---
 
@@ -791,6 +792,37 @@ Run on 2026-10-05 on a Windows 10 PC (10.0.19045) with CPython 3.11.1 and 3.14.7
 | Before the fix, test on `perf_counter`, new test added | `test_readings_are_spaced_by_the_interval` failed 8 of 10 runs; the new test failed 10 of 10 | The new test failed 3 of 3 runs |
 | After the fix | 5 of 5 passed in each of 20 runs | 5 of 5 passed in each of 20 runs |
 
+### 10.5 A link that fails to establish, on the bench (#180)
+
+Run on 2026-10-06 on the bench PC: PCA10059 dongle on COM10, sensor 5C1712
+(D1:8D:3B:4C:19:96) running V11.00.0000-95-gc051f3665, CPython 3.14.7. The
+evidence is in `docs/aspice/qualification/2026-10-06/180_open_link_retry/`.
+
+- **Run 1**, a script: `open_link()` with its default 3 attempts, `RD VERSION`,
+  then `ECURESET HARD` and the wait for the drop, 10 times, 2 s apart.
+- **Run 2**, a command document: a `connect` step, `RD VERSION`, then 8 cycles
+  of `ECURESET HARD` (`<disconnect>`), `connect` and `RD VERSION`.
+
+| Run | Links | Ended with 0x3E | Linked on the next attempt | Result |
+|---|---|---|---|---|
+| 1: `open_link()` | 10 | 1 (cycle 1) | 1 | Every cycle linked and read the version |
+| 2: `connect` steps | 9 | 5 (steps 7, 13, 16, 19, 25) | 5 | **PASS**: 17 passed, 0 failed, 0 errors, 10 skipped |
+
+In run 1 the retried attempt was logged as a WARNING, `connection attempt 1 of
+3 to D1:8D:3B:4C:19:96 failed to establish (reason 0x3e); trying again`, and
+the same text as a note in the dongle session log. In run 2 each failed try was
+an event-log `CONNECT` line with no result, `attempt 1 of 3 failed: ... (reason
+0x3e)`, before the line for the link. The dongle session log shows 14 `connect`
+commands for the 9 steps: each step made one more link per 0x3E and no more, so
+the step's tries and `open_link`'s retry did not multiply.
+
+Each 0x3E came about 0.15 s after the dongle reported the link
+(`state=linked`). Five of the six came within 20 s of an `ECURESET HARD`. The
+sixth, run 1's cycle 1, was the first link of that session, with no reset just
+before it, so the failure is not tied to a reset alone. In run 1, cycles 2 to
+10, links made 2 s after a reset did not hit it. The cause is not known; this
+section shows only that the retry recovers from it.
+
 ## 11. Protocol interoperability results
 
 | Check | Result |
@@ -1501,7 +1533,7 @@ SDK to provide it transitively.
 | D-48 | `JLinkProbe.reset(halt=False)` sent `monitor reset 0` and recorded the target as running, but the J-Link GDB Server halts the core after `monitor reset` whatever the reset type, and nothing resumed it. Found on the bench in the hardware qualification (#176), ticketed as #177. The simulator hid it: D-39 had modelled `monitor reset 0` as reset-and-run | **Major**: a test that resets the target "running" and then talks to it finds a halted target, and the failure points at the radio, not the probe | **Closed** - `reset(halt=False)` resumes with `run()` (`-exec-continue`) after the reset; the simulator leaves the core halted after every reset type. Confirmed on hardware 2026-10-05 (§9.3) | `test_a_reset_without_halting_resumes_the_core`, `test_every_reset_type_leaves_the_core_halted` (2), `TestIsItRunning` |
 | D-49 | Registers read straight after `JLinkProbe.reset()` were the ones GDB had cached before the reset. `monitor reset` and `monitor halt` go to the GDB Server, and GDB never sees them change the core. Found in the hardware qualification (#176, QS-01b, where the first PC read was `0x00000000`), ticketed as #178. The simulator hid it: it answered every register read from the core | **Major**: a register read after a reset, a common first step of a debug test, returned a value the core did not hold (ETB-SYS2-004) | **Closed** - `reset` sends `maintenance flush register-cache` after the reset; the simulator models GDB's register cache. Cause and fix confirmed on hardware 2026-10-05 (§9.4) | `test_registers_read_after_a_reset_are_the_reset_s`, `test_a_reset_flushes_gdb_s_register_cache`, `test_gdb_s_registers_are_stale_after_a_monitor_reset`, `test_gdb_reads_the_registers_again_when_the_target_stops` |
 | D-50 | `NordicDongle.sample_command` timed its interval with `time.monotonic()`, which before Python 3.13 on Windows is `GetTickCount64()` at 15.6 ms. A command could be sent up to one tick before it was due and the recorded times were quantised to a tick. Found by `test_readings_are_spaced_by_the_interval` failing intermittently on the bench PC (CPython 3.11.1), ticketed as #214 | **Minor**: commands spaced up to 15.6 ms closer than the `interval` documented as the minimum, and times coarser than they appear | **Closed** - timed with `time.perf_counter()`, and the sleep repeated until the command is due (§10.4) | `test_readings_are_spaced_by_the_interval`, `test_no_command_is_sent_before_it_is_due_when_a_sleep_ends_early` |
-| D-51 | `NordicDongle.open_link` made one attempt. A link the dongle ended with HCI reason 0x3E ("connection failed to be established") errored the step, although a command document's `connect` step tried the link up to three times. Found in the hardware qualification (#176): 2 of about 10 `open_link` calls failed so, each within a minute of `ECURESET HARD`, and the next attempt linked each time. Ticketed as #180 | **Minor**: a rerun succeeds, but a specification step errors for a reason that has nothing to do with the target | **Closed** in the simulator - `open_link` tries a link that fails to establish again, up to `CONNECT_ATTEMPTS` (3) in all, logging each failed attempt as a warning and a `ble_connect_attempt` record and in the session log; no other failure is retried; a `connect` step asks for one attempt per try, so the two retries do not multiply, and logs each failed try. `SimulatedSensor.not_established` reproduces the failure. Not yet confirmed on hardware | `TestLinkNotEstablished` (7), `test_each_failed_connect_attempt_is_logged`, `test_a_connect_step_makes_no_more_attempts_than_it_is_allowed` |
+| D-51 | `NordicDongle.open_link` made one attempt. A link the dongle ended with HCI reason 0x3E ("connection failed to be established") errored the step, although a command document's `connect` step tried the link up to three times. Found in the hardware qualification (#176): 2 of about 10 `open_link` calls failed so, each within a minute of `ECURESET HARD`, and the next attempt linked each time. Ticketed as #180 | **Minor**: a rerun succeeds, but a specification step errors for a reason that has nothing to do with the target | **Closed** in the simulator - `open_link` tries a link that fails to establish again, up to `CONNECT_ATTEMPTS` (3) in all, logging each failed attempt as a warning and a `ble_connect_attempt` record and in the session log; no other failure is retried; a `connect` step asks for one attempt per try, so the two retries do not multiply, and logs each failed try. `SimulatedSensor.not_established` reproduces the failure. Confirmed on hardware 2026-10-06 (§10.5): 6 of 18 links made just after `ECURESET HARD` ended with 0x3E, and each linked on the next attempt | `TestLinkNotEstablished` (7), `test_each_failed_connect_attempt_is_logged`, `test_a_connect_step_makes_no_more_attempts_than_it_is_allowed` |
 
 No open defects.
 

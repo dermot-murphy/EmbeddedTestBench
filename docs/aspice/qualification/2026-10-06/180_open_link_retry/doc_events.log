@@ -1,0 +1,50 @@
+time	event	step	data	result
+2026-10-06 12:22:43.007	CONNECT	Cycles/1	connect D1:8D:3B:4C:19:96: linked to KAPPA_5C1712_V11.00.000 D1:8D:3B:4C:19:96 in 12.744 s	SKIP
+2026-10-06 12:22:43.024	TX	Cycles/2	RD VERSION (timeout 45000 ms)	-
+2026-10-06 12:22:43.070	RX	Cycles/2	ACK RD VERSION = V11.00.0000-95-gc051f3665 (41.783 ms, dongle clock)	PASS
+2026-10-06 12:22:43.085	TX	Cycles/3	ECURESET HARD (expecting a disconnect within 15000 ms)	-
+2026-10-06 12:22:47.206	DISCONNECT	Cycles/3	sensor dropped the link 4120.374 ms after the command (dongle clock, reason 0x08, supervision timeout)	PASS
+2026-10-06 12:23:00.098	CONNECT	Cycles/4	connect D1:8D:3B:4C:19:96: linked to KAPPA_5C1712_V11.00.000 D1:8D:3B:4C:19:96 in 12.892 s	SKIP
+2026-10-06 12:23:00.120	TX	Cycles/5	RD VERSION (timeout 45000 ms)	-
+2026-10-06 12:23:00.161	RX	Cycles/5	ACK RD VERSION = V11.00.0000-95-gc051f3665 (37.242 ms, dongle clock)	PASS
+2026-10-06 12:23:00.181	TX	Cycles/6	ECURESET HARD (expecting a disconnect within 15000 ms)	-
+2026-10-06 12:23:04.298	DISCONNECT	Cycles/6	sensor dropped the link 4115.442 ms after the command (dongle clock, reason 0x08, supervision timeout)	PASS
+2026-10-06 12:23:17.286	CONNECT	Cycles/7	connect D1:8D:3B:4C:19:96: attempt 1 of 3 failed: could not connect to D1:8D:3B:4C:19:96: the dongle reported the connection lost (reason 0x3e)	-
+2026-10-06 12:23:18.700	CONNECT	Cycles/7	connect D1:8D:3B:4C:19:96: linked to KAPPA_5C1712_V11.00.000 D1:8D:3B:4C:19:96 in 14.402 s	SKIP
+2026-10-06 12:23:18.721	TX	Cycles/8	RD VERSION (timeout 45000 ms)	-
+2026-10-06 12:23:19.363	RX	Cycles/8	ACK RD VERSION = V11.00.0000-95-gc051f3665 (637.329 ms, dongle clock)	PASS
+2026-10-06 12:23:19.390	TX	Cycles/9	ECURESET HARD (expecting a disconnect within 15000 ms)	-
+2026-10-06 12:23:23.530	DISCONNECT	Cycles/9	sensor dropped the link 4138.631 ms after the command (dongle clock, reason 0x08, supervision timeout)	PASS
+2026-10-06 12:23:36.855	CONNECT	Cycles/10	connect D1:8D:3B:4C:19:96: linked to KAPPA_5C1712_V11.00.000 D1:8D:3B:4C:19:96 in 13.325 s	SKIP
+2026-10-06 12:23:36.879	TX	Cycles/11	RD VERSION (timeout 45000 ms)	-
+2026-10-06 12:23:36.919	RX	Cycles/11	ACK RD VERSION = V11.00.0000-95-gc051f3665 (35.088 ms, dongle clock)	PASS
+2026-10-06 12:23:36.941	TX	Cycles/12	ECURESET HARD (expecting a disconnect within 15000 ms)	-
+2026-10-06 12:23:41.054	DISCONNECT	Cycles/12	sensor dropped the link 4112.095 ms after the command (dongle clock, reason 0x08, supervision timeout)	PASS
+2026-10-06 12:23:54.173	CONNECT	Cycles/13	connect D1:8D:3B:4C:19:96: attempt 1 of 3 failed: could not connect to D1:8D:3B:4C:19:96: the dongle reported the connection lost (reason 0x3e)	-
+2026-10-06 12:23:55.584	CONNECT	Cycles/13	connect D1:8D:3B:4C:19:96: linked to KAPPA_5C1712_V11.00.000 D1:8D:3B:4C:19:96 in 14.530 s	SKIP
+2026-10-06 12:23:55.609	TX	Cycles/14	RD VERSION (timeout 45000 ms)	-
+2026-10-06 12:23:56.247	RX	Cycles/14	ACK RD VERSION = V11.00.0000-95-gc051f3665 (634.205 ms, dongle clock)	PASS
+2026-10-06 12:23:56.275	TX	Cycles/15	ECURESET HARD (expecting a disconnect within 15000 ms)	-
+2026-10-06 12:24:00.414	DISCONNECT	Cycles/15	sensor dropped the link 4137.899 ms after the command (dongle clock, reason 0x08, supervision timeout)	PASS
+2026-10-06 12:24:13.439	CONNECT	Cycles/16	connect D1:8D:3B:4C:19:96: attempt 1 of 3 failed: could not connect to D1:8D:3B:4C:19:96: the dongle reported the connection lost (reason 0x3e)	-
+2026-10-06 12:24:14.851	CONNECT	Cycles/16	connect D1:8D:3B:4C:19:96: linked to KAPPA_5C1712_V11.00.000 D1:8D:3B:4C:19:96 in 14.437 s	SKIP
+2026-10-06 12:24:14.867	TX	Cycles/17	RD VERSION (timeout 45000 ms)	-
+2026-10-06 12:24:15.515	RX	Cycles/17	ACK RD VERSION = V11.00.0000-95-gc051f3665 (642.956 ms, dongle clock)	PASS
+2026-10-06 12:24:15.529	TX	Cycles/18	ECURESET HARD (expecting a disconnect within 15000 ms)	-
+2026-10-06 12:24:19.650	DISCONNECT	Cycles/18	sensor dropped the link 4120.385 ms after the command (dongle clock, reason 0x08, supervision timeout)	PASS
+2026-10-06 12:24:32.657	CONNECT	Cycles/19	connect D1:8D:3B:4C:19:96: attempt 1 of 3 failed: could not connect to D1:8D:3B:4C:19:96: the dongle reported the connection lost (reason 0x3e)	-
+2026-10-06 12:24:34.065	CONNECT	Cycles/19	connect D1:8D:3B:4C:19:96: linked to KAPPA_5C1712_V11.00.000 D1:8D:3B:4C:19:96 in 14.415 s	SKIP
+2026-10-06 12:24:34.084	TX	Cycles/20	RD VERSION (timeout 45000 ms)	-
+2026-10-06 12:24:34.729	RX	Cycles/20	ACK RD VERSION = V11.00.0000-95-gc051f3665 (640.156 ms, dongle clock)	PASS
+2026-10-06 12:24:34.743	TX	Cycles/21	ECURESET HARD (expecting a disconnect within 15000 ms)	-
+2026-10-06 12:24:38.865	DISCONNECT	Cycles/21	sensor dropped the link 4120.887 ms after the command (dongle clock, reason 0x08, supervision timeout)	PASS
+2026-10-06 12:24:51.831	CONNECT	Cycles/22	connect D1:8D:3B:4C:19:96: linked to KAPPA_5C1712_V11.00.000 D1:8D:3B:4C:19:96 in 12.966 s	SKIP
+2026-10-06 12:24:51.857	TX	Cycles/23	RD VERSION (timeout 45000 ms)	-
+2026-10-06 12:24:51.894	RX	Cycles/23	ACK RD VERSION = V11.00.0000-95-gc051f3665 (32.814 ms, dongle clock)	PASS
+2026-10-06 12:24:51.920	TX	Cycles/24	ECURESET HARD (expecting a disconnect within 15000 ms)	-
+2026-10-06 12:24:56.061	DISCONNECT	Cycles/24	sensor dropped the link 4139.800 ms after the command (dongle clock, reason 0x08, supervision timeout)	PASS
+2026-10-06 12:25:09.027	CONNECT	Cycles/25	connect D1:8D:3B:4C:19:96: attempt 1 of 3 failed: could not connect to D1:8D:3B:4C:19:96: the dongle reported the connection lost (reason 0x3e)	-
+2026-10-06 12:25:10.440	CONNECT	Cycles/25	connect D1:8D:3B:4C:19:96: linked to KAPPA_5C1712_V11.00.000 D1:8D:3B:4C:19:96 in 14.379 s	SKIP
+2026-10-06 12:25:10.460	TX	Cycles/26	RD VERSION (timeout 45000 ms)	-
+2026-10-06 12:25:11.103	RX	Cycles/26	ACK RD VERSION = V11.00.0000-95-gc051f3665 (639.075 ms, dongle clock)	PASS
+2026-10-06 12:25:11.160	DISCONNECT	Cycles/27	link closed by the dongle	SKIP
