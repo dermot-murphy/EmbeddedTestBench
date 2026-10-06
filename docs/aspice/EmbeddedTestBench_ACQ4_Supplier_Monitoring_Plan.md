@@ -10,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-ACQ4-001 | **Version** | 0.6 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
+| **Document ID** | ETB-ACQ4-001 | **Version** | 0.7 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-06 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | ACQ.4 |
@@ -30,6 +30,7 @@
 | 0.4 | 2026-10-05 | Claude | #203: §4.3 records the GitHub-owned actions and the runner images, and the CStyleCheck pin is re-dated. §6 adds Dependabot version updates. §7 records that CStyleCheck v1.6.0 was re-checked and is still broken, so the pin stays at v1.5.1. |
 | 0.5 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | 0.6 | 2026-10-05 | Claude | #228: §6 - Dependabot changes a Python requirement only when its range excludes a new release; #219, #223 and #224 declined because they raised floors the supported Pythons cannot install. |
+| 0.7 | 2026-10-06 | Claude | #229: CStyleCheck moved to v1.6.1, which fixes CStyleCheck#439. §4.3 and §7 updated: baseline line numbers moved for 27 findings, one Pico finding excluded (CStyleCheck#447). |
 
 ---
 
@@ -93,7 +94,7 @@ addresses, field widths and reset values — written independently
 | Nordic Semiconductor | `nrfutil` | **6.1.7** | The last Python release packaging for the SDK 17 bootloader; unpinned installs resolve backwards to a Python 2 release that fails on `dict.iteritems` (ETB-RISK-006) |
 | Arm | GNU Arm Embedded toolchain | As pinned in `.github/workflows/firmware.yml` | Flash and RAM figures are toolchain-dependent |
 | PyPI maintainers | `pyvisa`, `pyserial`, `bleak`, `pytest`, `PyYAML` | As declared in `pyproject.toml` | Interface stability |
-| `dermot-murphy` | `CStyleCheck` GitHub Action | `@v1.5.1` | Coding-standard enforcement (ETB-RISK-011); v1.6.0 skipped, §7 |
+| `dermot-murphy` | `CStyleCheck` GitHub Action | `@v1.6.1` | Coding-standard enforcement (ETB-RISK-011); v1.6.0 skipped, §7 |
 | GitHub | `actions/checkout`, `actions/setup-python`, `actions/upload-artifact` | `@v7` | Major tag: a breaking change arrives only as a new major, read before it is taken (#203) |
 | GitHub | `actions/cache` | `@v6` | As above |
 | `carlosperate` | `arm-none-eabi-gcc-action` | `@v1` | No newer major exists; the toolchain release itself is pinned per job |
@@ -148,14 +149,14 @@ Python version.
 
 ## 7. Coding-Standard Checker
 
-`dermot-murphy/CStyleCheck@v1.5.1` is run by `.github/workflows/style.yml` against
-`firmware/nordic_dongle`. It is the mechanical enforcement of ETB-STD-002 and
+`dermot-murphy/CStyleCheck@v1.6.1` is run by `.github/workflows/style.yml` against
+`firmware/nordic_dongle`, its host unit tests and `firmware/pico_sht30`. It is the mechanical enforcement of ETB-STD-002 and
 ETB-STY-001. It is a dependency like any other: pinned by tag, its failures
 treated as findings against the firmware source, and its unavailability treated
 as a problem with the style job rather than a licence to merge unchecked C.
 
-The pin is the **exact** version, `@v1.5.1`, not a floating `@v1` and not the
-newest release. Three things are recorded here, all of them found by running it
+The pin is the **exact** version, `@v1.6.1`, not a floating `@v1`. Four things
+are recorded here, all of them found by running it
 rather than by reading about it:
 
 1. **`@v1` does not resolve.** The repository publishes exact version tags only,
@@ -177,13 +178,39 @@ rather than by reading about it:
    lines, and `json.loads` failed on each - the step would fail whatever the
    firmware contained. No newer release exists. The pin therefore stays at
    v1.5.1, and the baseline is not regenerated.
+   Reported as dermot-murphy/CStyleCheck#439; Dependabot's proposal of v1.6.0
+   (#222) was declined for it.
 3. **An exact pin is what ETB-SUP8-001 §4 asks for anyway**, because a checker
    that silently changes its rule set changes what a green build means.
+4. **v1.6.1 fixes the banner, and the pin moved to it on 2026-10-06 (#229).**
+   Its release notes say the banner is no longer written to a `json`, `sarif`
+   or `html` `--log` file, closing CStyleCheck#439. Run locally as the action
+   runs it, over all three steps of `style.yml`, every results file parsed.
+   Against v1.5.1 it found two differences, both dealt with in the same change:
+   - **27 `function.prefix` findings in `firmware/nordic_dongle/src` moved by
+     one line.** v1.6.1 reports each static function on the line of its
+     definition, where v1.5.1 reported the line before it, the end of the
+     comment above. They are the same 27 findings, not new ones. The baseline
+     entries' line numbers were moved to match, so the baseline still holds
+     the same 110 violations. Under Linux paths, as CI runs it, the dongle
+     step reports 0 findings against the baseline.
+   - **One new Pico finding**, `misc.constant_comparison` on
+     `#if (BOARD_I2C_INSTANCE == 0U)` in `firmware/pico_sht30/src/hal_pico.c`,
+     a compile-time board selection. It is a false positive, reported as
+     dermot-murphy/CStyleCheck#447, and the rule is disabled for that file in
+     `.cstylecheck-pico-exclusions.yml` until it is fixed. The exclusion cannot
+     be narrower: CStyleCheck keys an identifier entry on the first quoted text
+     of the finding, which for this rule is the operator.
+
+   The host unit tests step reported nothing under either version.
 
 The baseline file is written by the pinned version and is not portable across
-versions: the same 113 violations recorded by v1.6.0 were not matched by v1.5.1.
-Moving the pin therefore means regenerating the baseline in the same change, and
-dealing with whatever new findings the newer version brings.
+versions: the same 113 violations recorded by v1.6.0 were not matched by v1.5.1,
+and v1.6.1 reports 27 of v1.5.1's 110 on different lines. Moving the pin
+therefore means regenerating the baseline in the same change, and dealing with
+whatever new findings the newer version brings. A baseline written on Windows
+records paths with backslashes and matches nothing on the Linux runner: write
+it on Linux, or check its paths before committing it.
 
 ---
 

@@ -34,3 +34,16 @@
     tearDown:
       disabled_rules:
         - function.prefix
+
+# hal_pico.c chooses the I2C block at compile time from board_config.h:
+# `#if (BOARD_I2C_INSTANCE == 0U)`. Comparing two constants is what a
+# preprocessor conditional is for. CStyleCheck 1.6's misc.constant_comparison
+# rule looks for a comparison that cannot vary at run time, and reports this
+# line too. The rule is off for this file only: an identifier entry cannot be
+# narrower, because CStyleCheck keys it on the first quoted text of the
+# finding, which for this rule is the operator ('=='). Remove this entry when
+# CStyleCheck stops reporting constant comparisons in #if lines
+# (dermot-murphy/CStyleCheck#447).
+"hal_pico.c":
+  disabled_rules:
+    - misc.constant_comparison

@@ -10,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SUP8-001 | **Version** | 0.13 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
+| **Document ID** | ETB-SUP8-001 | **Version** | 0.14 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-06 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SUP.8 |
@@ -37,6 +37,7 @@
 | 0.11 | 2026-10-05 | Claude | #184: §5.8 added - the GitHub wiki and the `gh-pages` home page are generated outputs, published from `main` by workflow and never edited by hand; §4 lists them as configuration items; §5.5 adds the Pages source, the repository homepage and the `WIKI_TOKEN` secret. Changed together with CLAUDE.md. |
 | 0.12 | 2026-10-05 | Claude | #194: §6.3 records where the brand logo appears - above the title of every controlled document in `docs/aspice/` and `docs/templates/`, in the documents themselves - and that the wiki and home page take it from their generators. The compact logo added above this document's title. |
 | 0.13 | 2026-10-05 | Claude | #194: §5.8 lists the home page's banner, favicons and head include; §6.3 says which brand artwork the wiki and the home page show, and that the wiki shows the PNG renders. |
+| 0.14 | 2026-10-06 | Claude | #229: §4 - the CStyleCheck pin is now `@v1.6.1`. |
 
 ---
 
@@ -85,7 +86,7 @@ physical bench instruments whose identity affects a result.
 | C rule configuration | `.cstylecheck.yml`, `.cstylecheck-baseline.json` | Filename | git — the baseline changes only with a recorded reason |
 | Python rule configuration | `[tool.pylint]` in `pyproject.toml`, `.pylint-baseline.json` | Filename | git — as above |
 | Build tools | Python, `nrfutil`, GNU Arm toolchain, nRF5 SDK | Name + exact version | Pinned in the workflow; recorded in ETB-SVD-001 |
-| External actions | `dermot-murphy/CStyleCheck@v1.5.1` | Repository + tag | Pinned in the workflow |
+| External actions | `dermot-murphy/CStyleCheck@v1.6.1` | Repository + tag | Pinned in the workflow |
 | Bench instruments | Scope, supply, J-Link, dongle | Model + serial + firmware revision | Queried at run time and written into every report |
 
 ### 4.1 Instruments Are Configuration Items
