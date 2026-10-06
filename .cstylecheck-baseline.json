@@ -38,13 +38,13 @@
     },
     {
       "file": "firmware/nordic_dongle/src/nus_client.c",
-      "line": 58,
+      "line": 59,
       "rule": "function.prefix",
       "message": "'report_rx' must be prefixed with 'nus_client_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/timestamp.c",
-      "line": 29,
+      "line": 30,
       "rule": "function.prefix",
       "message": "'timer_event_handler' must be prefixed with 'timestamp_' (module prefix)"
     },
@@ -62,13 +62,13 @@
     },
     {
       "file": "firmware/nordic_dongle/src/cdc_acm.c",
-      "line": 70,
+      "line": 71,
       "rule": "function.prefix",
       "message": "'tx_pump' must be prefixed with 'cdc_acm_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/cdc_acm.c",
-      "line": 178,
+      "line": 179,
       "rule": "function.prefix",
       "message": "'usbd_user_event_handler' must be prefixed with 'cdc_acm_' (module prefix)"
     },
@@ -92,7 +92,7 @@
     },
     {
       "file": "firmware/nordic_dongle/src/ble_scanner.c",
-      "line": 48,
+      "line": 49,
       "rule": "function.prefix",
       "message": "'extract_name' must be prefixed with 'ble_scanner_' (module prefix)"
     },
@@ -116,97 +116,97 @@
     },
     {
       "file": "firmware/nordic_dongle/src/ble_scanner.c",
-      "line": 186,
+      "line": 187,
       "rule": "function.prefix",
       "message": "'scan_event_handler' must be prefixed with 'ble_scanner_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/ble_scanner.c",
-      "line": 201,
+      "line": 202,
       "rule": "function.prefix",
       "message": "'scanner_init' must be prefixed with 'ble_scanner_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/ble_scanner.c",
-      "line": 227,
+      "line": 228,
       "rule": "function.prefix",
       "message": "'scanner_start' must be prefixed with 'ble_scanner_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/ble_scanner.c",
-      "line": 267,
+      "line": 268,
       "rule": "function.prefix",
       "message": "'scanner_stop' must be prefixed with 'ble_scanner_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/ble_scanner.c",
-      "line": 280,
+      "line": 281,
       "rule": "function.prefix",
       "message": "'scanner_is_active' must be prefixed with 'ble_scanner_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/ble_scanner.c",
-      "line": 285,
+      "line": 286,
       "rule": "function.prefix",
       "message": "'scanner_clear' must be prefixed with 'ble_scanner_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/ble_scanner.c",
-      "line": 291,
+      "line": 292,
       "rule": "function.prefix",
       "message": "'scanner_count' must be prefixed with 'ble_scanner_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/ble_scanner.c",
-      "line": 296,
+      "line": 297,
       "rule": "function.prefix",
       "message": "'scanner_get' must be prefixed with 'ble_scanner_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/ble_scanner.c",
-      "line": 301,
+      "line": 302,
       "rule": "function.prefix",
       "message": "'scanner_find' must be prefixed with 'ble_scanner_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/ble_scanner.c",
-      "line": 316,
+      "line": 317,
       "rule": "function.prefix",
       "message": "'scanner_profile_start' must be prefixed with 'ble_scanner_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/ble_scanner.c",
-      "line": 333,
+      "line": 334,
       "rule": "function.prefix",
       "message": "'scanner_profile_stop' must be prefixed with 'ble_scanner_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/ble_scanner.c",
-      "line": 338,
+      "line": 339,
       "rule": "function.prefix",
       "message": "'scanner_profile_is_active' must be prefixed with 'ble_scanner_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/ble_scanner.c",
-      "line": 343,
+      "line": 344,
       "rule": "function.prefix",
       "message": "'scanner_profile_counters' must be prefixed with 'ble_scanner_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/ble_scanner.c",
-      "line": 349,
+      "line": 350,
       "rule": "function.prefix",
       "message": "'scanner_on_ble_evt' must be prefixed with 'ble_scanner_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/ble_scanner.c",
-      "line": 390,
+      "line": 391,
       "rule": "function.prefix",
       "message": "'scanner_format_address' must be prefixed with 'ble_scanner_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/ble_scanner.c",
-      "line": 399,
+      "line": 400,
       "rule": "function.prefix",
       "message": "'scanner_parse_address' must be prefixed with 'ble_scanner_' (module prefix)"
     },
@@ -248,37 +248,37 @@
     },
     {
       "file": "firmware/nordic_dongle/src/cmd_parser.c",
-      "line": 52,
+      "line": 53,
       "rule": "function.prefix",
       "message": "'reply_error' must be prefixed with 'cmd_parser_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/cmd_parser.c",
-      "line": 60,
+      "line": 61,
       "rule": "function.prefix",
       "message": "'reply_ok' must be prefixed with 'cmd_parser_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/cmd_parser.c",
-      "line": 83,
+      "line": 84,
       "rule": "function.prefix",
       "message": "'tokenise' must be prefixed with 'cmd_parser_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/cmd_parser.c",
-      "line": 112,
+      "line": 113,
       "rule": "function.prefix",
       "message": "'key_value' must be prefixed with 'cmd_parser_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/cmd_parser.c",
-      "line": 129,
+      "line": 130,
       "rule": "function.prefix",
       "message": "'decode_hex' must be prefixed with 'cmd_parser_' (module prefix)"
     },
     {
       "file": "firmware/nordic_dongle/src/cmd_parser.c",
-      "line": 156,
+      "line": 157,
       "rule": "function.prefix",
       "message": "'encode_hex' must be prefixed with 'cmd_parser_' (module prefix)"
     },
