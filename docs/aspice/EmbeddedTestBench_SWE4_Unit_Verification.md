@@ -10,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE4-001 | **Version** | 1.29 |
+| **Document ID** | ETB-SWE4-001 | **Version** | 1.30 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -63,6 +63,7 @@
 | 1.27 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | 1.28 | 2026-10-05 | Claude | #194: SWE4-UT-PUBLISH also covers the brand artwork on the wiki and the home page's banner and favicons. |
 | 1.29 | 2026-10-05 | Claude | #214: SWE4-UT-BLESAMPLE covers no command being sent before it is due when a sleep returns early, and measures spacing on `time.perf_counter()`. |
+| 1.30 | 2026-10-05 | Claude | #180: SWE4-UT-BLE covers a link that fails to establish (0x3E) being tried again, giving up after the attempts allowed, each failed attempt in the event log and the session log, and no other failure being tried again; SWE4-UT-BLESCRIPT covers a `connect` step logging each failed attempt and making no more than its own. |
 
 ---
 
@@ -363,14 +364,14 @@ against the simulator in the default run (SWE4-UT-PSUPANEL, SWE4-UT-DMMPANEL).
 | SWE4-UT-JLINKCLI | `instruments/jlink/test_cli.py` | Every probe sub-command end to end, including erase; JSON output; the untrustworthy-measurement warning; exit statuses; which sub-commands leave the target halted | JLINK-FR-006, JLINK-FR-100 |
 | SWE4-UT-JLINKRTTONLY | `instruments/jlink/test_rtt_only.py` | Numbers from matching RTT lines, lines already waiting ignored, a quiet target; opening without attaching, and the GDB Server told `-nohalt` only when asked | JLINK-FR-101, JLINK-FR-102 |
 | SWE4-UT-SERIAL | `core/transport/test_serial.py` | Serial transport: port and rate parsing, a TCP port not mistaken for a line rate, scheme registration, framing over `loop://`, a write the far end will not take; reading a stream without framing, and discarding what the port holds | CORE-FR-017, -061, CORE-NFR-003, -006 |
-| SWE4-UT-BLE | `instruments/nordic_dongle/test_dongle.py` | The dongle driver: identity and protocol check, scanning and filtering, selection, connection, UART, response timing, advertising profile, logging | BLE-FR-002 .. -062 |
+| SWE4-UT-BLE | `instruments/nordic_dongle/test_dongle.py` | The dongle driver: identity and protocol check, scanning and filtering, selection, connection, a link that fails to establish (0x3E) tried again and logged and no other failure retried, UART, response timing, advertising profile, logging | BLE-FR-002 .. -062 |
 | SWE4-UT-BLESAMPLE | `instruments/nordic_dongle/test_sampling.py` | One command repeated at an interval, never sent before it is due even when a sleep returns early, a number from each reply, scaling, and a reply without a number refused | BLE-FR-117 |
 | SWE4-UT-BLEPROTO | `instruments/nordic_dongle/test_protocol.py` | The line protocol: replies, errors, events, empty and `=`-bearing values, non-protocol lines, hex, addresses and their types | BLE-FR-001, -002 |
 | SWE4-UT-FWUNIT | `firmware/nordic_dongle/test/*.c` | **Firmware unit tests** (Unity, CMake, CTest, 149 cases; the test sources themselves pass CStyleCheck with no baseline): the command dispatcher and every reply shape; the host link's line assembly, bounded queue and drop counting; the sensor table, filters and advertising reports; the UART client's link, writes and round-trip timing; the microsecond clock and its 32-bit wrap | BLE-FR-002 .. -004, -010, -020 .. -030, -040 .. -051, BLE-NFR-001, -002 |
 | SWE4-UT-BLEFW | `instruments/nordic_dongle/test_firmware_protocol.py` | Firmware and driver agreement: commands, argument bounds, handlers attached, events, error codes, size limits, protocol version; and firmware hygiene: traces, no dynamic allocation, indentation | BLE-FR-001, -080, -090, BLE-NFR-001, -003 |
 | SWE4-UT-BLESESSION | `instruments/nordic_dongle/test_session.py` | Command/reply with events interleaved, early-stopping collection, waiting for an event, drop notices, and session logging | BLE-FR-002, -004, -060 .. -062 |
 | SWE4-UT-BLEPROFILE | `instruments/nordic_dongle/test_profile.py` | Advertising statistics: channel coalescing, advDelay, missed events, duty cycle, completeness, exactly nominal intervals | BLE-FR-030 .. -036 |
-| SWE4-UT-BLESCRIPT | `instruments/nordic_dongle/test_script.py`, `test_script_links.py` | Command documents: the shapes accepted and every shape refused, exact and pattern matching, variables, connect and disconnect steps, the Timeout and Note columns, results in the order error, skip, fail, pass, `<disconnect>`, the event log, a sensor that does not answer, the times and the clock behind them, the report's columns, the template, and the shipped document run | BLE-FR-100 .. -116 |
+| SWE4-UT-BLESCRIPT | `instruments/nordic_dongle/test_script.py`, `test_script_links.py` | Command documents: the shapes accepted and every shape refused, exact and pattern matching, variables, connect and disconnect steps, a `connect` step's failed attempts logged and bounded, the Timeout and Note columns, results in the order error, skip, fail, pass, `<disconnect>`, the event log, a sensor that does not answer, the times and the clock behind them, the report's columns, the template, and the shipped document run | BLE-FR-100 .. -116 |
 | SWE4-UT-BLELATENCY | `instruments/nordic_dongle/test_latency.py` | Round-trip statistics, which clock, resolution, the connection-interval floor, empty samples; the value a reply reports | BLE-FR-050 .. -054, BLE-FR-118, BLE-NFR-005 |
 | SWE4-UT-BLESIM | `instruments/nordic_dongle/test_simulator.py` | Self-checks on the simulated dongle: exact intervals, skipped beacons, channel rotation, refusals, drop counters | BLE-FR-080 |
 | SWE4-UT-BLECLI | `instruments/nordic_dongle/test_cli.py` | Every dongle sub-command end to end; JSON output; the incomplete-capture and unresolvable-latency warnings; `firmware` check, mismatch exit status and `--update`; `--select` by address, name, part of a name and any case, the strongest of several matches, one scan or two, every sub-command, `cmd --addr`, and `--addr` with `--select` refused | BLE-FR-012 .. -014, BLE-FR-070, BLE-FR-071 |

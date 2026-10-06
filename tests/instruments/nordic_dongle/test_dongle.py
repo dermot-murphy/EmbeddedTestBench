@@ -14,10 +14,12 @@ from benchtools.core.errors import (
 )
 from benchtools.core.instrument import Instrument
 from benchtools.core.transport.mock import MockTransport
+from benchtools.instruments.nordic_dongle.constants import CONNECT_ATTEMPTS
 from benchtools.instruments.nordic_dongle import (
     AddressType,
     DongleCommandError,
     LatencySource,
+    LinkLostError,
     NordicDongle,
     Sensor,
     SimulatedDongle,
@@ -325,6 +327,82 @@ class TestLink:
     def test_writing_without_a_link_is_reported(self, scanned):
         with pytest.raises(DongleCommandError, match="not connected"):
             scanned.write("version")
+
+
+class TestLinkNotEstablished:
+    """HCI reason 0x3E: tried again, as a ``connect`` step does (#180).
+
+    Seen on hardware within a minute of a sensor reset: 2 of about 10 links
+    failed to establish, and the next attempt linked each time.
+    """
+
+    @staticmethod
+    def retries(caplog):
+        return [record for record in caplog.records
+                if getattr(record, "event_kind", None) == "ble_connect_attempt"]
+
+    def test_a_link_that_fails_to_establish_is_tried_again(self, simulator, scanned, caplog):
+        simulator.sensors[0].not_established = 2
+        with caplog.at_level("WARNING"):
+            scanned.open_link()
+        assert scanned.is_linked is True
+        assert simulator.sensors[0].not_established == 0
+
+    def test_each_failed_attempt_is_in_the_event_log(self, simulator, scanned, caplog):
+        simulator.sensors[0].not_established = 2
+        with caplog.at_level("WARNING"):
+            scanned.open_link()
+        records = self.retries(caplog)
+        assert [record.event_data["attempt"] for record in records] == [1, 2]
+        assert all(record.levelname == "WARNING" for record in records)
+        assert all(record.event_data["reason"] == "0x3e" for record in records)
+        assert all(record.event_data["address"] == SENSOR_ADDRESS for record in records)
+        assert "attempt 1 of 3" in records[0].getMessage()
+
+    def test_each_failed_attempt_is_in_the_session_log(self, simulator, scanned, tmp_path):
+        path = tmp_path / "ble.log"
+        scanned.start_log(str(path))
+        simulator.sensors[0].not_established = 1
+        scanned.open_link()
+        scanned.stop_log()
+        assert "attempt 1 of 3" in path.read_text()
+
+    def test_it_gives_up_after_the_attempts_allowed(self, simulator, scanned, caplog):
+        simulator.sensors[0].not_established = 5
+        with caplog.at_level("WARNING"):
+            with pytest.raises(LinkLostError, match="reason 0x3e") as caught:
+                scanned.open_link()
+        assert caught.value.not_established
+        assert scanned.is_linked is False
+        assert simulator.sensors[0].not_established == 5 - CONNECT_ATTEMPTS
+        # The last attempt is the error raised, not a retry.
+        assert len(self.retries(caplog)) == CONNECT_ATTEMPTS - 1
+
+    def test_the_number_of_attempts_can_be_set(self, simulator, scanned):
+        simulator.sensors[0].not_established = 4
+        with pytest.raises(LinkLostError):
+            scanned.open_link(attempts=1)
+        assert simulator.sensors[0].not_established == 3
+        scanned.open_link(attempts=4)
+        assert scanned.is_linked is True
+
+    def test_a_closed_connect_window_is_not_tried_again(self, simulator, scanned, caplog):
+        """Only 0x3E is retried: a sensor not heard in the window is about the sensor."""
+        simulator.sensors[0].connect_outcome = "timeout"
+        with caplog.at_level("WARNING"):
+            with pytest.raises(LinkLostError, match="no connection") as caught:
+                scanned.open_link(timeout=5.0)
+        assert not caught.value.not_established
+        assert len([line for line in simulator.command_log if line.startswith("connect")]) == 1
+        assert self.retries(caplog) == []
+
+    def test_a_link_that_never_becomes_ready_is_not_tried_again(self, simulator, scanned,
+                                                                caplog):
+        simulator.sensors[0].connect_outcome = "no_service"
+        with caplog.at_level("WARNING"):
+            with pytest.raises(InstrumentError, match="did not become ready"):
+                scanned.open_link(timeout=0.3)
+        assert self.retries(caplog) == []
 
 
 class TestUart:
