@@ -10,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-RTM-001 | **Version** | 1.28 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
+| **Document ID** | ETB-RTM-001 | **Version** | 1.29 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-06 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.1 / SWE.2 / SWE.3 / SWE.4 |
@@ -61,7 +61,8 @@
 | 1.25 | 2026-10-05 | Claude | #178: JLINK-FR-031 row cites `test_registers_read_after_a_reset_are_the_reset_s`, `test_a_reset_flushes_gdb_s_register_cache` and `test_gdb_s_registers_are_stale_after_a_monitor_reset`; JLINK-FR-090 count 25 → 27. |
 | 1.26 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | 1.27 | 2026-10-05 | Claude | #214: BLE-FR-117 count 4 → 5. |
-| 1.28 | 2026-10-05 | Claude | #60: row added for BLE-FR-119 (timeouts by command prefix); STK-12 and OPEN-04 cite it. |
+| 1.28 | 2026-10-05 | Claude | #180: BLE-FR-049 row cites `_open_link_once`, `LinkLostError`, `_run_connect` and `TestLinkNotEstablished` (7) and the two `connect` step tests; BLE-FR-115 `TestTheEventLog` count 2 → 4. |
+| 1.29 | 2026-10-06 | Claude | #60: row added for BLE-FR-119 (timeouts by command prefix); STK-12 and OPEN-04 cite it. |
 
 ---
 
@@ -326,7 +327,7 @@ where the firmware implements the requirement.
 | BLE-FR-046 | BLE-ARC-001 | BLE-DD-NUS, BLE-DD-CMDARGS, BLE-DD-DONGLE | `nus_client_connect`, `cmd_args_connect`, `NordicDongle._start_connect` | `test_the_connect_window_is_sent_to_the_dongle`, `test_an_out_of_range_connect_window_is_refused_before_sending`, `test_an_older_dongle_is_sent_no_window`; firmware `test_connecting_listens_continuously_for_the_time_asked`, `test_connect_refuses_a_bad_timeout` |
 | BLE-FR-047 | BLE-ARC-001 | BLE-DD-CMD, BLE-DD-CMDARGS, BLE-DD-DONGLE | `command_cmd`, `cmd_args_timeout`, `NordicDongle.command` | `TestCommandTimeout` (4); firmware `test_cmd_takes_a_timeout_for_a_slow_command`, `test_cmd_refuses_a_bad_timeout` |
 | BLE-FR-048 | BLE-ARC-001 | BLE-DD-DONGLE | `NordicDongle.command_expecting_disconnect`, `DisconnectSample` | `TestExpectingADisconnect` (2, `test_dongle.py`) |
-| BLE-FR-049 | BLE-ARC-001 | BLE-DD-DONGLE | `NordicDongle.open_link`, `_disconnect` | `test_a_sensor_that_never_links_is_reported_as_not_connected`, `test_a_link_that_never_becomes_ready_is_reported_as_linked`, `test_a_failed_link_is_closed_so_the_next_attempt_is_not_refused` |
+| BLE-FR-049 | BLE-ARC-001 | BLE-DD-DONGLE, BLE-DD-SCRIPTRUN | `NordicDongle.open_link`, `_open_link_once`, `LinkLostError`, `_disconnect`, `_run_connect` | `test_a_sensor_that_never_links_is_reported_as_not_connected`, `test_a_link_that_never_becomes_ready_is_reported_as_linked`, `test_a_failed_link_is_closed_so_the_next_attempt_is_not_refused`, `TestLinkNotEstablished` (7), `test_each_failed_connect_attempt_is_logged`, `test_a_connect_step_makes_no_more_attempts_than_it_is_allowed` |
 | BLE-FR-050 | BLE-ARC-001 | BLE-DD-NUS, BLE-DD-LATENCY | `nus_client_command`, `ResponseSample` | `test_a_command_reports_both_timestamps`, `test_a_slow_command_takes_longer` |
 | BLE-FR-051 | BLE-ARC-001 | BLE-DD-LATENCY | `LatencySource.HOST` | `test_the_host_clock_can_be_asked_for`, `test_the_host_clock_resolves_a_millisecond` |
 | BLE-FR-052 | BLE-ARC-001 | BLE-DD-LATENCY | `ResponseTiming` | `TestStatistics` (5), `test_a_measurable_latency` |
@@ -353,7 +354,7 @@ where the firmware implements the requirement.
 | BLE-FR-112 | BLE-ARC-001, AD-23 | BLE-DD-SCRIPT, BLE-DD-SCRIPTRUN | `_parse_timeout`, `ScriptStep.timeout_s` | `TestTheTimeoutColumn` (7) |
 | BLE-FR-113 | BLE-ARC-001, AD-23 | BLE-DD-SCRIPTRUN | `ScriptStep.expects_disconnect`, `_run_expect_disconnect` | `TestExpectingADisconnect` (3, `test_script.py`) |
 | BLE-FR-114 | BLE-ARC-001, AD-23 | BLE-DD-SCRIPT, BLE-DD-SCRIPTRUN | `ScriptStep.note`, `StepResult.notes` | `test_the_note_column_is_carried_to_the_result`, `test_the_report_has_response_time_result_and_note_columns` |
-| BLE-FR-115 | BLE-ARC-001, AD-23 | BLE-DD-SCRIPTRUN | `EventLog` | `TestTheEventLog` (2), `test_the_event_log_is_written_where_asked` |
+| BLE-FR-115 | BLE-ARC-001, AD-23 | BLE-DD-SCRIPTRUN | `EventLog` | `TestTheEventLog` (4), `test_the_event_log_is_written_where_asked` |
 | BLE-FR-116 | BLE-ARC-001, AD-23 | BLE-DD-CLI | `_cmd_script` | `TestScript` (5, `test_cli.py`) |
 | BLE-FR-117 | BLE-ARC-001 | BLE-DD-DONGLE | `NordicDongle.sample_command` | `SWE4-UT-BLESAMPLE` (5) |
 | BLE-FR-118 | BLE-ARC-001 | BLE-DD-LATENCY | `ResponseSample.value` | `test_the_value_a_reply_reports` (4) |

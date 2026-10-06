@@ -29,7 +29,7 @@ from benchtools.instruments.nordic_dongle.script import (
     RESOLUTION_S,
     SKIP,
 )
-from benchtools.instruments.nordic_dongle.script_run import run_script
+from benchtools.instruments.nordic_dongle.script_run import CONNECT_ATTEMPTS, run_script
 
 DOCUMENT = """# Sensor commands
 
@@ -825,6 +825,41 @@ class TestTheEventLog:
             instrument.close()
         assert [line.split("\t")[1] for line in run.events[1:]] == ["TX", "RX"]
 
+
+    def test_each_failed_connect_attempt_is_logged(self):
+        """A flaky link stays visible though the step goes on to link (#180)."""
+        simulator = SimulatedDongle()
+        simulator.sensors[0].not_established = 2
+        instrument = NordicDongle(MockTransport(responder=simulator))
+        instrument.initialise()
+        try:
+            run = run_script(instrument, parse_script(document("| 1 | connect SENS-0A1B2C | |\n")),
+                             sleep=no_wait, scan_s=0.2)
+        finally:
+            instrument.close()
+        assert run.results[0].result == SKIP
+        rows = [line.split("\t") for line in run.events[1:]]
+        assert [row[1] for row in rows] == ["CONNECT", "CONNECT", "CONNECT"]
+        assert "attempt 1 of 3 failed" in rows[0][3] and "0x3e" in rows[0][3]
+        assert "attempt 2 of 3 failed" in rows[1][3]
+        assert rows[0][4] == "-" and rows[1][4] == "-"
+        assert "linked to" in rows[2][3] and rows[2][4] == SKIP
+
+    def test_a_connect_step_makes_no_more_attempts_than_it_is_allowed(self):
+        """The driver's own retry on 0x3E must not multiply the step's."""
+        simulator = SimulatedDongle()
+        simulator.sensors[0].not_established = 9
+        instrument = NordicDongle(MockTransport(responder=simulator))
+        instrument.initialise()
+        try:
+            run = run_script(instrument, parse_script(document("| 1 | connect SENS-0A1B2C | |\n")),
+                             sleep=no_wait, scan_s=0.2)
+        finally:
+            instrument.close()
+        assert run.results[0].result == ERROR
+        assert simulator.sensors[0].not_established == 9 - CONNECT_ATTEMPTS
+        assert len([line for line in simulator.command_log
+                    if line.startswith("connect")]) == CONNECT_ATTEMPTS
 
 def saving(body: str) -> str:
     """One test whose table has a Save column."""

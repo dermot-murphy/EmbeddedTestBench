@@ -10,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE3-001 | **Version** | 1.24 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
+| **Document ID** | ETB-SWE3-001 | **Version** | 1.25 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-06 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.3 |
@@ -57,7 +57,8 @@
 | 1.21 | 2026-10-05 | Claude | #177: JLINK-DD-PROBE - `reset(halt=False)` resumes the core with `run()` after `monitor reset 0`, which halts it on a real probe. JLINK-DD-SIM - every `monitor reset` leaves the simulated core halted, replacing D-39's reset-and-run model. |
 | 1.22 | 2026-10-05 | Claude | #178: JLINK-DD-PROBE - `reset` flushes GDB's register cache (`_flush_register_cache`, `maintenance flush register-cache`), since GDB kept the pre-reset registers after `monitor reset`. JLINK-DD-SIM - GDB's register cache is modelled (`register_cache`, `core_registers`). |
 | 1.23 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
-| 1.24 | 2026-10-05 | Claude | #60: BLE-DD-SCRIPT - timeouts by command prefix (`PrefixTimeout`, `longest_prefix`), resolved when the variables bind and applied as each row is read; BLE-DD-SCRIPTRUN - each result carries the timeout that applied and why (`StepResult.timeout_s`, `timeout_from`), shown in the report and the event log; BLE-DD-CLI - `script --timeout PREFIX=MS`. |
+| 1.24 | 2026-10-05 | Claude | #180: BLE-DD-DONGLE - `open_link` tries a link that fails to establish (0x3E) again, up to `CONNECT_ATTEMPTS`, logging each failed attempt (`LinkLostError`, `_open_link_once`); BLE-DD-SCRIPTRUN - a `connect` step asks `open_link` for one attempt per try and logs each failed one; BLE-DD-CONST gains `CONNECT_ATTEMPTS` and `REASON_NOT_ESTABLISHED`; BLE-DD-SIM gains `not_established`. |
+| 1.25 | 2026-10-06 | Claude | #60: BLE-DD-SCRIPT - timeouts by command prefix (`PrefixTimeout`, `longest_prefix`), resolved when the variables bind and applied as each row is read; BLE-DD-SCRIPTRUN - each result carries the timeout that applied and why (`StepResult.timeout_s`, `timeout_from`), shown in the report and the event log; BLE-DD-CLI - `script --timeout PREFIX=MS`. |
 
 ---
 
@@ -1084,6 +1085,10 @@ BLE-DD-SCRIPT, one step at a time.
   command would abandon the rest of a document. The handlers catch
   `BenchToolsError` only, so a bug still surfaces.
 - **A link the document opened is closed** in a `finally`, pass or fail.
+- **A `connect` step makes `CONNECT_ATTEMPTS` tries at most, whatever the
+  failure.** It calls `open_link(attempts=1)` for each, because the driver's own
+  retry on 0x3E would otherwise multiply them, and writes each failed try to the
+  event log as a `CONNECT` line with no result before the next (#180).
 - **The event log is written as it happens**, one tab-separated line per event,
   flushed per line so an interrupted run still leaves it, and kept on the
   `ScriptRun` as well. Its time is the host's to the millisecond; the dongle's
@@ -1124,6 +1129,10 @@ figures so the driver refuses an over-long payload with a clear message rather
 than letting the firmware truncate it silently, and states both clocks'
 resolutions - 1 us on the dongle, 1 ms on the host - in one place.
 
+`CONNECT_ATTEMPTS` (3) bounds both ways into a link, a `connect` step and
+`open_link`, so the two cannot drift apart. `REASON_NOT_ESTABLISHED` is the
+`+disc` reason `open_link` tries again on.
+
 #### BLE-DD-DONGLE — `dongle.py`
 
 `NordicDongle`, the façade: an `Instrument` (CORE-DD-INSTRUMENT) whose transport
@@ -1160,6 +1169,15 @@ Design points:
   ends the capture.
 - The connection interval is taken from the `+conn` event rather than a later
   query, because it is the floor under every latency measured on that link.
+- `open_link` tries a link that fails to establish again, up to
+  `CONNECT_ATTEMPTS` in all (#180). A `+disc` during the attempt raises
+  `LinkLostError`, an `InstrumentError` carrying the dongle's reason; only
+  reason 0x3E is retried, because it says nothing about the sensor, where a
+  closed connect window (`reason=timeout`) or a missing service does. Each
+  failed attempt that is retried is logged as a warning with a
+  `ble_connect_attempt` record (CORE-FR-064) - address, attempt, attempts,
+  reason - and a note in the session log, so a flaky link stays in the
+  evidence. `_open_link_once` is one attempt; each has its own `timeout`.
 - `sample_command` sends one command N times, each start an interval after the
   last, and takes a number from each reply into a `SampleSet`. A reply without
   a number raises, naming it: a `NACK` is not a reading to average in.
@@ -1266,6 +1284,8 @@ and `SENS-0A1B2C` is the identity record the simulated part carries (JLINK-DD-SI
 - the two have to agree or the bring-up specification could not be run without
 hardware. `drop_every` models a dongle
 whose USB queue could not keep up, which is what `is_complete` exists to detect.
+`SimulatedSensor.not_established` makes that many connection attempts link and
+then end with reason 0x3e, as seen on hardware after a sensor reset (#180).
 
 #### BLE-DD-CLI — `cli.py`
 

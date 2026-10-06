@@ -10,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE1-001 | **Version** | 1.26 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
+| **Document ID** | ETB-SWE1-001 | **Version** | 1.27 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-06 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.1 |
@@ -59,7 +59,8 @@
 | 1.23 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
 | 1.24 | 2026-10-05 | Claude | #204: Review & Approval table points to the merge of the pull request that last changed the document, which is the review and approval (ETB-SUP8-001 §5.7); no per-change signatures or dates. |
 | 1.25 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
-| 1.26 | 2026-10-05 | Claude | #60: BLE-FR-119 added - timeouts by command prefix in a command document, with a per-run override and the timeout that applied stated in each result; BLE-FR-112's empty cell now defers to it. |
+| 1.26 | 2026-10-05 | Claude | #180: BLE-FR-049 revised - a link that fails to establish (HCI reason 0x3E) is tried again, up to three attempts in all as a `connect` step's are, each failed attempt logged; no other failure is tried again, and a `connect` step makes no more attempts than its own. |
+| 1.27 | 2026-10-06 | Claude | #60: BLE-FR-119 added - timeouts by command prefix in a command document, with a per-run override and the timeout that applied stated in each result; BLE-FR-112's empty cell now defers to it. |
 
 ---
 
@@ -467,7 +468,7 @@ implements them; §11.6 says which.
 | BLE-FR-046 | A connection attempt shall listen for the sensor continuously for a window the host sets, 1 to 60 s, 15 s by default: a sensor that advertises every 9 s was missed by a fixed 5 s window at half duty. A dongle whose firmware cannot take the window shall be sent none, and the host shall log that it keeps its own. | STK-14, STK-15 | Test |
 | BLE-FR-047 | The host shall set, per command, how long the dongle waits for the sensor's reply, 0.1 to 60 s: some commands take longer than others. A wait outside that range shall be refused before transmission; a dongle whose firmware cannot take it keeps its fixed 2 s, and the host shall log that the wait asked for was not honoured. | STK-14 | Test |
 | BLE-FR-048 | The host shall send a command after which the sensor is expected to drop the link - a reset - and report whether it did within a timeout and, if so, the time from the write to the disconnection on the dongle's clock and the reason the link ended. A sensor that stays connected is a result, not an exception. | STK-14 | Test |
-| BLE-FR-049 | A connection attempt that fails shall leave no link half-open: the host shall disconnect before reporting, so the next attempt is not refused. The report shall say whether the sensor never linked or linked but its UART service was not found, and a failure the dongle has already reported shall end the wait for it. | STK-14 | Test |
+| BLE-FR-049 | A connection attempt that fails shall leave no link half-open: the host shall disconnect before reporting, so the next attempt is not refused. The report shall say whether the sensor never linked or linked but its UART service was not found, and a failure the dongle has already reported shall end the wait for it. A link that fails to establish - the dongle ends it with HCI reason 0x3E - shall be tried again, up to three attempts in all, the same bound as a `connect` step (BLE-FR-111), and each failed attempt tried again shall be logged with its number and reason, so a flaky link stays visible; no other failure shall be tried again. A `connect` step shall make no more attempts than its own bound, and each of its failed attempts shall be in the run's event log (BLE-FR-115). | STK-14 | Test |
 
 ### 11.4 Time until response
 
