@@ -10,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE4-001 | **Version** | 1.30 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
+| **Document ID** | ETB-SWE4-001 | **Version** | 1.31 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-06 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.4 |
@@ -64,6 +64,7 @@
 | 1.28 | 2026-10-05 | Claude | #194: SWE4-UT-PUBLISH also covers the brand artwork on the wiki and the home page's banner and favicons. |
 | 1.29 | 2026-10-05 | Claude | #214: SWE4-UT-BLESAMPLE covers no command being sent before it is due when a sleep returns early, and measures spacing on `time.perf_counter()`. |
 | 1.30 | 2026-10-05 | Claude | #180: SWE4-UT-BLE covers a link that fails to establish (0x3E) being tried again, giving up after the attempts allowed, each failed attempt in the event log and the session log, and no other failure being tried again; SWE4-UT-BLESCRIPT covers a `connect` step logging each failed attempt and making no more than its own. |
+| 1.31 | 2026-10-06 | Claude | #60: SWE4-UT-BLESCRIPT adds `test_script_timeouts.py` - timeouts by command prefix: matching, precedence, variables, the run's override, refusals, and the timeout each result reports - and traces BLE-FR-119; SWE4-UT-BLECLI covers `script --timeout PREFIX=MS`. |
 
 ---
 
@@ -371,10 +372,10 @@ against the simulator in the default run (SWE4-UT-PSUPANEL, SWE4-UT-DMMPANEL).
 | SWE4-UT-BLEFW | `instruments/nordic_dongle/test_firmware_protocol.py` | Firmware and driver agreement: commands, argument bounds, handlers attached, events, error codes, size limits, protocol version; and firmware hygiene: traces, no dynamic allocation, indentation | BLE-FR-001, -080, -090, BLE-NFR-001, -003 |
 | SWE4-UT-BLESESSION | `instruments/nordic_dongle/test_session.py` | Command/reply with events interleaved, early-stopping collection, waiting for an event, drop notices, and session logging | BLE-FR-002, -004, -060 .. -062 |
 | SWE4-UT-BLEPROFILE | `instruments/nordic_dongle/test_profile.py` | Advertising statistics: channel coalescing, advDelay, missed events, duty cycle, completeness, exactly nominal intervals | BLE-FR-030 .. -036 |
-| SWE4-UT-BLESCRIPT | `instruments/nordic_dongle/test_script.py`, `test_script_links.py` | Command documents: the shapes accepted and every shape refused, exact and pattern matching, variables, connect and disconnect steps, a `connect` step's failed attempts logged and bounded, the Timeout and Note columns, results in the order error, skip, fail, pass, `<disconnect>`, the event log, a sensor that does not answer, the times and the clock behind them, the report's columns, the template, and the shipped document run | BLE-FR-100 .. -116 |
+| SWE4-UT-BLESCRIPT | `instruments/nordic_dongle/test_script.py`, `test_script_links.py`, `test_script_timeouts.py` | Command documents: the shapes accepted and every shape refused, exact and pattern matching, variables, connect and disconnect steps, a `connect` step's failed attempts logged and bounded, the Timeout and Note columns, timeouts by command prefix (longest match, case, precedence, variables, the run's override, refusals), results in the order error, skip, fail, pass, `<disconnect>`, the event log, a sensor that does not answer, the times and the clock behind them, the timeout each result reports and why, the report's columns, the template, and the shipped document run | BLE-FR-100 .. -116, -119 |
 | SWE4-UT-BLELATENCY | `instruments/nordic_dongle/test_latency.py` | Round-trip statistics, which clock, resolution, the connection-interval floor, empty samples; the value a reply reports | BLE-FR-050 .. -054, BLE-FR-118, BLE-NFR-005 |
 | SWE4-UT-BLESIM | `instruments/nordic_dongle/test_simulator.py` | Self-checks on the simulated dongle: exact intervals, skipped beacons, channel rotation, refusals, drop counters | BLE-FR-080 |
-| SWE4-UT-BLECLI | `instruments/nordic_dongle/test_cli.py` | Every dongle sub-command end to end; JSON output; the incomplete-capture and unresolvable-latency warnings; `firmware` check, mismatch exit status and `--update`; `--select` by address, name, part of a name and any case, the strongest of several matches, one scan or two, every sub-command, `cmd --addr`, and `--addr` with `--select` refused | BLE-FR-012 .. -014, BLE-FR-070, BLE-FR-071 |
+| SWE4-UT-BLECLI | `instruments/nordic_dongle/test_cli.py` | Every dongle sub-command end to end; JSON output; the incomplete-capture and unresolvable-latency warnings; `firmware` check, mismatch exit status and `--update`; `--select` by address, name, part of a name and any case, the strongest of several matches, one scan or two, every sub-command, `cmd --addr`, and `--addr` with `--select` refused; `script --timeout PREFIX=MS` reaching the document and a value that is not `PREFIX=MS` refused | BLE-FR-012 .. -014, BLE-FR-070, BLE-FR-071, BLE-FR-119 |
 | SWE4-UT-BLEFIRMWARE | `instruments/nordic_dongle/test_firmware.py` | Build identity and refresh: manifest loading and its errors, build-date parsing, the same-version-rebuilt mismatch, three-valued `is_older`, protocol major versus minor, DFU entry, flashing, and the flash that did not take | BLE-FR-012 .. -014 |
 | SWE4-UT-LIMITS | `runner/test_limits.py` | Every limit form, construction validation, rendering; exact comparison against text and against a value an earlier step saved | RUN-FR-016, RUN-FR-020 .. -024 |
 | SWE4-UT-RESOLVE | `runner/test_resolve.py` | Result path resolution and its failure messages; how many, for a step returning a collection; references to a value an earlier step saved, their formatting and their failures | RUN-FR-013, RUN-FR-016 |

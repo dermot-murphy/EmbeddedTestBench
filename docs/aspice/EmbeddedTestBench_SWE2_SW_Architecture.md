@@ -10,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE2-001 | **Version** | 0.15 |
+| **Document ID** | ETB-SWE2-001 | **Version** | 0.16 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -39,6 +39,7 @@
 | 0.13 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
 | 0.14 | 2026-10-05 | Claude | #204: Review & Approval table points to the merge of the pull request that last changed the document, which is the review and approval (ETB-SUP8-001 §5.7); no per-change signatures or dates. |
 | 0.15 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
+| 0.16 | 2026-10-05 | Claude | #60: AD-23 covers BLE-FR-119 - timeouts by command prefix, and the timeout each result reports. |
 
 ---
 
@@ -542,11 +543,12 @@ that come from a markdown document; CON-06 deferred the general question of
 adopting Robot Framework for it.
 
 **Decision.** The driver reads the document directly
-(BLE-DD-SCRIPT, BLE-DD-SCRIPTRUN, BLE-FR-100 … -116): a heading per test, a
+(BLE-DD-SCRIPT, BLE-DD-SCRIPTRUN, BLE-FR-100 … -116, -119): a heading per test, a
 table of step number, command and expected response, with optional timeout and
-note columns and variables. Running it produces a result per row - what was
-sent, what came back, what was expected, how long the exchange took, the result
-and a note - and an event log; a run is in error when a step errored, fails when
+note columns, variables, and timeouts by command prefix. Running it produces a
+result per row - what was sent, what came back, what was expected, how long the
+exchange took, how long it could have waited and why, the result and a note -
+and an event log; a run is in error when a step errored, fails when
 a step failed, and passes otherwise. Reading lives in `script.py` and running in
 `script_run.py`, so each stays a size one person can read. The specification that runs
 it is four lines, and holds no commands at all.

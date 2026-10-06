@@ -10,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-RTM-001 | **Version** | 1.28 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
+| **Document ID** | ETB-RTM-001 | **Version** | 1.29 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-06 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.1 / SWE.2 / SWE.3 / SWE.4 |
@@ -62,6 +62,7 @@
 | 1.26 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | 1.27 | 2026-10-05 | Claude | #214: BLE-FR-117 count 4 → 5. |
 | 1.28 | 2026-10-05 | Claude | #180: BLE-FR-049 row cites `_open_link_once`, `LinkLostError`, `_run_connect` and `TestLinkNotEstablished` (7) and the two `connect` step tests; BLE-FR-115 `TestTheEventLog` count 2 → 4. |
+| 1.29 | 2026-10-06 | Claude | #60: row added for BLE-FR-119 (timeouts by command prefix); STK-12 and OPEN-04 cite it. |
 
 ---
 
@@ -102,7 +103,7 @@ It is checked mechanically by `tests/test_traceability.py` on every run of the s
 | STK-09 — J-Link: flash, verify, run/stop, breakpoints, RAM, variables, RTT, timing, call stack | JLINK-FR-001 … -006, -010, -011, -020 … -023, -030 … -036, -040 … -045, -050 … -055, -060 … -067, -090; CORE-FR-009, -012 … -016; JLINK-NFR-001, -004 |
 | STK-10 — use the probe from the test bench | JLINK-FR-080, -081, -053; RUN-FR-001, -010; CORE-FR-012 … -014 |
 | STK-11 — Windows first, Docker eventually | CORE-FR-009; JLINK-FR-003, -004, -005; JLINK-NFR-002, -003 |
-| STK-12 — Markdown to Robot Framework | BLE-FR-100 … -116, AD-23 — a command set specified in markdown is read and run as the test of itself. JLINK-FR-081, -100 — return types constrained for a keyword layer (AD-15). Robot Framework itself undecided: CON-06, OPEN-04. |
+| STK-12 — Markdown to Robot Framework | BLE-FR-100 … -116, -119, AD-23 — a command set specified in markdown is read and run as the test of itself. JLINK-FR-081, -100 — return types constrained for a keyword layer (AD-15). Robot Framework itself undecided: CON-06, OPEN-04. |
 | STK-14 — BLE UART command/response and response time | BLE-FR-040 … -045, -050 … -054; CORE-FR-017; BLE-NFR-005 |
 | STK-15 — scan, select and advertising profile | BLE-FR-020 … -024, -030 … -036, -080 |
 | STK-16 — dongle firmware, SES and SDK 17 | BLE-FR-090, -001, -003, -010; BLE-NFR-001 … -003, -006 |
@@ -357,6 +358,7 @@ where the firmware implements the requirement.
 | BLE-FR-116 | BLE-ARC-001, AD-23 | BLE-DD-CLI | `_cmd_script` | `TestScript` (5, `test_cli.py`) |
 | BLE-FR-117 | BLE-ARC-001 | BLE-DD-DONGLE | `NordicDongle.sample_command` | `SWE4-UT-BLESAMPLE` (5) |
 | BLE-FR-118 | BLE-ARC-001 | BLE-DD-LATENCY | `ResponseSample.value` | `test_the_value_a_reply_reports` (4) |
+| BLE-FR-119 | BLE-ARC-001, AD-23 | BLE-DD-SCRIPT, BLE-DD-SCRIPTRUN, BLE-DD-CLI | `PrefixTimeout`, `longest_prefix`, `_Reader.resolve_timeouts`, `_Reader.apply_prefix_timeout`, `_timeout_for`, `StepResult.timeout`, `_parse_timeouts` | `TestReadingTheTable` (21), `TestRunningWithIt` (8, `test_script_timeouts.py`), `test_timeout_sets_a_prefix_timeout_for_the_run`, `test_a_timeout_that_is_not_prefix_equals_ms_is_an_error` (3, `test_cli.py`) |
 | BLE-FR-090 | BLE-ARC-001 | BLE-DD-BUILD | `firmware/ses/*.emProject`, `firmware/Makefile`, `firmware/gcc/*.ld`, `firmware/scripts/{package_dfu,compile_check}.*`, `.github/workflows/firmware.yml` | `compile_check.sh` compiles every unit against real SDK headers (BENCHTOOLS-SWE4-002 §4.4); the workflow builds, links, sizes and packages against SDK 17.1.0 (§4.6, BLE-OPEN-01 discharged); flashing remains a bench confirmation item (CON-07) |
 
 ### BLE non-functional
@@ -717,7 +719,7 @@ tests in `tests/instruments/pico_sht30/`.
 | OPEN-02 | TDS3000 SCPI command spellings not transcribed from the programmer manual (CON-02) | Spot-check against Tektronix 071-0381-03 on first bench use. |
 | OPEN-03 | No requirements yet for the instrument families still named for future work (CON-03): loads, signal sources, logic and protocol analysers. STK-13, STK-18 and STK-19/STK-20 are **closed**: the GPD-3303D supply (PSU-FR-001 … -060), the TTi 1604 multimeter (DMM-FR-001 … -081) and the S2-LP kit (S2LP-FR-001 … -060) are each specified, designed, implemented and tested | Add a prefixed requirements section, design unit, test group and matrix rows per instrument as each driver is written, as was done for `PSU-` and `DMM-`. |
 | OPEN-06 | The dongle firmware builds, links, fits and packages against nRF5 SDK 17.1.0 in CI, but has not been flashed or run (CON-07) | **Narrowed**: BLE-OPEN-01 is discharged — `.github/workflows/firmware.yml` run 12 on `f66a248`, 51 652 bytes of flash and 12 636 of static RAM (BENCHTOOLS-SWE4-002 §4.6). What remains is to flash the DFU package and work through `docs/ble/BLE_Dongle_Notes.md` §5.3 (BLE-OPEN-02 to BLE-OPEN-04). |
-| OPEN-04 | **Narrowed.** Tests written as a markdown document are implemented for the BLE command set: `BLE-FR-100 … -116`, AD-23, `specs/sensor_commands.md`, and the template `specs/templates/ble_sensor_test.md`, whose rows each map to one Robot Framework keyword and whose `${NAME}` variables are Robot's own syntax. What remains undecided is Robot Framework itself (STK-12, CON-06) - a general keyword layer over every instrument, rather than one document format for one element | Decide whether to adopt Robot Framework. If adopted, add a `ROBOT-` element in front of the existing runner; AD-15 has kept the driver boundary suitable for it, and AD-23 is evidence that a document-driven test needs no framework to be useful. |
+| OPEN-04 | **Narrowed.** Tests written as a markdown document are implemented for the BLE command set: `BLE-FR-100 … -116`, `-119`, AD-23, `specs/sensor_commands.md`, and the template `specs/templates/ble_sensor_test.md`, whose rows each map to one Robot Framework keyword and whose `${NAME}` variables are Robot's own syntax. What remains undecided is Robot Framework itself (STK-12, CON-06) - a general keyword layer over every instrument, rather than one document format for one element | Decide whether to adopt Robot Framework. If adopted, add a `ROBOT-` element in front of the existing runner; AD-15 has kept the driver boundary suitable for it, and AD-23 is evidence that a document-driven test needs no framework to be useful. |
 | OPEN-07 | S2-LP kit bench confirmation items — `docs/s2lp/S2LP_Devkit_Notes.md` §7: the firmware's exact reply text and error codes, the board name it reports, the meaning of `S2LPGetNBytesBatch`'s reference-timer argument, and the link budget in practice | Discharge on first use with a kit. Tracked there as S2LP-OPEN-01 to S2LP-OPEN-05. Nothing in them blocks use of the driver: the parser reads tags by name and keeps every line, so an unexpected reply is visible rather than fatal. |
 | OPEN-08 | PSU bench confirmation items — ETB-IF-001 §12: the command interval a real supply needs, settling time, the slaved-channel behaviour, series and parallel tracking bits, current programming resolution, and `VOUT` read-back | PSU-OPEN-01 and -02 closed 2026-09-26; PSU-OPEN-06 partly. The rest open, tracked in ETB-IF-001 §12. |
 | OPEN-05 | J-Link bench confirmation items (CON-04, CON-05) — `docs/jlink/JLink_Integration_Notes.md` §4: Windows execution, real MI version behaviour, SWO timestamp scaling, RTT control-block discovery, flash timing | Discharge on first use with a probe and a target. Tracked there as JLINK-OPEN-01 to JLINK-OPEN-04. |

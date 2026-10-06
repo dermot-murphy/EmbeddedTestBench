@@ -10,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE3-001 | **Version** | 1.24 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
+| **Document ID** | ETB-SWE3-001 | **Version** | 1.25 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-06 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.3 |
@@ -58,6 +58,7 @@
 | 1.22 | 2026-10-05 | Claude | #178: JLINK-DD-PROBE - `reset` flushes GDB's register cache (`_flush_register_cache`, `maintenance flush register-cache`), since GDB kept the pre-reset registers after `monitor reset`. JLINK-DD-SIM - GDB's register cache is modelled (`register_cache`, `core_registers`). |
 | 1.23 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | 1.24 | 2026-10-05 | Claude | #180: BLE-DD-DONGLE - `open_link` tries a link that fails to establish (0x3E) again, up to `CONNECT_ATTEMPTS`, logging each failed attempt (`LinkLostError`, `_open_link_once`); BLE-DD-SCRIPTRUN - a `connect` step asks `open_link` for one attempt per try and logs each failed one; BLE-DD-CONST gains `CONNECT_ATTEMPTS` and `REASON_NOT_ESTABLISHED`; BLE-DD-SIM gains `not_established`. |
+| 1.25 | 2026-10-06 | Claude | #60: BLE-DD-SCRIPT - timeouts by command prefix (`PrefixTimeout`, `longest_prefix`), resolved when the variables bind and applied as each row is read; BLE-DD-SCRIPTRUN - each result carries the timeout that applied and why (`StepResult.timeout_s`, `timeout_from`), shown in the report and the event log; BLE-DD-CLI - `script --timeout PREFIX=MS`. |
 
 ---
 
@@ -1018,8 +1019,8 @@ representation rather than by behaviour (defect D-15).
 
 #### BLE-DD-SCRIPT — `script.py`
 
-`CommandScript`, `ScriptTest`, `ScriptStep`; `parse_script`, `load_script`.
-The document that specifies the sensor's command set, read as the test of it
+`CommandScript`, `ScriptTest`, `ScriptStep`, `PrefixTimeout`; `parse_script`,
+`load_script`, `longest_prefix`. The document that specifies the sensor's command set, read as the test of it
 (AD-23). Running it is BLE-DD-SCRIPTRUN.
 
 Design points:
@@ -1038,6 +1039,16 @@ Design points:
   given for the run. An undeclared name, a value for one, or a required variable
   left unset is refused naming the line, so a misspelt `--var` cannot leave a
   default silently in force. The syntax is Robot Framework's, `${NAME}`.
+- **Timeouts by command prefix are decided as the rows are read** (#60). A
+  `| Command prefix | Timeout (ms) |` table before the first step is kept as
+  written and resolved when the variables bind, so a `--var` value reaches a
+  `${NAME}` in it; the values given for the run (`timeouts=`) then replace the
+  row for the same prefix, ignoring case, or add one. Each command row with an
+  empty Timeout cell takes the longest prefix it starts with
+  (`longest_prefix`), and `ScriptStep.timeout_from` records why - `Timeout cell`
+  or `prefix WR (document)` - so the runner needs no knowledge of the table.
+  The Timeout heading is a step table's too; the Command prefix heading is what
+  makes the table a prefix table.
 - **The reader is split from the runner** because together they passed the
   1000-line limit; `_Reader` holds the state of one document being read, so each
   kind of row has one place.
@@ -1064,6 +1075,12 @@ BLE-DD-SCRIPT, one step at a time.
   measured and `clock` is which clock measured it (BLE-NFR-005). For a
   `<disconnect>` step it is the write to the `+disc`; a reason of `0x08` means a
   supervision timeout, so the figure includes the dongle's 4 s wait.
+- **Each result says how long it could wait, and why.** `_timeout_for` takes the
+  step's own timeout - its cell's or its prefix's, settled by BLE-DD-SCRIPT -
+  else the run's default for what it waits for: `timeout` for a reply or a
+  `<disconnect>`, `listen` for a listening window. `StepResult.timeout_s` and
+  `timeout_from` carry it into the report's Timeout column, the JSON and the
+  `TX` line of the event log (#60).
 - **A step never raises.** Its outcome *is* its result: an exception from one
   command would abandon the rest of a document. The handlers catch
   `BenchToolsError` only, so a bug still surfaces.
@@ -1273,8 +1290,11 @@ then end with reason 0x3e, as seen on hardware after a sensor reset (#180).
 #### BLE-DD-CLI — `cli.py`
 
 Sub-commands `info`, `scan`, `select`, `profile`, `cmd`, `monitor`, `firmware`,
-emitting
-JSON. `--log` records the whole session beside whatever the sub-command prints:
+`script`, emitting
+JSON. `script --timeout PREFIX=MS`, repeatable, passes timeouts by command
+prefix to the document (#60); its destination is `prefix_timeouts`, apart from
+the top-level `-t/--timeout` link timeout, and a value that is not `PREFIX=MS`
+is refused naming the flag. `--log` records the whole session beside whatever the sub-command prints:
 that file is the evidence, the JSON is the summary. `profile` and `cmd` add a
 `warning` key when the result is incomplete or not resolvable, so a figure
 quoted from a shell script carries the same caveat the API gives. `firmware`

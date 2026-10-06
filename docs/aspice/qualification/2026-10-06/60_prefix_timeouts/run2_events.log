@@ -1,0 +1,18 @@
+time	event	step	data	result
+2026-10-06 12:25:57.842	CONNECT	Prefixes/1	connect D1:8D:3B:4C:19:96: linked to KAPPA_5C1712_V11.00.000 D1:8D:3B:4C:19:96 in 10.800 s	SKIP
+2026-10-06 12:25:57.860	TX	Prefixes/2	RD VERSION (timeout 5000 ms, prefix rd version (document))	-
+2026-10-06 12:25:57.905	RX	Prefixes/2	ACK RD VERSION = V11.00.0000-95-gc051f3665 (40.700 ms, dongle clock)	PASS
+2026-10-06 12:25:57.922	TX	Prefixes/3	RD TEMPERATURE (timeout 25000 ms, prefix rd (--timeout))	-
+2026-10-06 12:25:57.965	RX	Prefixes/3	ACK RD TEMPERATURE = 21250mC (38.236 ms, dongle clock)	PASS
+2026-10-06 12:25:57.985	TX	Prefixes/4	RD BATTERY (timeout 8000 ms, Timeout cell)	-
+2026-10-06 12:25:58.054	RX	Prefixes/4	ACK RD BATTERY = 2798mV (64.272 ms, dongle clock)	PASS
+2026-10-06 12:25:58.076	TX	Prefixes/5	RD ID (timeout 2000 ms, prefix RD ID (document))	-
+2026-10-06 12:25:58.114	RX	Prefixes/5	ACK RD ID = 0x5C1712 (35.112 ms, dongle clock)	SKIP
+2026-10-06 12:25:58.137	TX	Prefixes/6	XX NOTHING (timeout 4000 ms, prefix XX (--timeout))	-
+2026-10-06 12:25:58.174	RX	Prefixes/6	NACK Invalid Command (33.736 ms, dongle clock)	PASS
+2026-10-06 12:25:58.199	TX	Prefixes/7	ECURESET HARD (expecting a disconnect within 15000 ms, prefix ECURESET (document))	-
+2026-10-06 12:26:02.342	DISCONNECT	Prefixes/7	sensor dropped the link 4141.543 ms after the command (dongle clock, reason 0x08, supervision timeout)	PASS
+2026-10-06 12:26:15.550	CONNECT	Prefixes/8	connect D1:8D:3B:4C:19:96: linked to KAPPA_5C1712_V11.00.000 D1:8D:3B:4C:19:96 in 13.208 s	SKIP
+2026-10-06 12:26:15.576	TX	Prefixes/9	rd version (timeout 5000 ms, prefix rd version (document))	-
+2026-10-06 12:26:15.613	RX	Prefixes/9	ACK rd version = V11.00.0000-95-gc051f3665 (32.650 ms, dongle clock)	PASS
+2026-10-06 12:26:15.670	DISCONNECT	Prefixes/10	link closed by the dongle	SKIP

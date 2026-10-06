@@ -748,8 +748,9 @@ class TestResultsInPriorityOrder:
         finally:
             instrument.close()
         text = run.markdown()
-        assert "| Expected | Actual | Response time (ms) | Result | Note |" in text
-        assert "| A test | 1 | rd version | 1.4.2 | 1.4.2 | 10 | PASS |" in text
+        assert "| Expected | Actual | Response time (ms) | Timeout | Result | Note |" in text
+        assert ("| A test | 1 | rd version | 1.4.2 | 1.4.2 | 10 | "
+                "3000 ms, run default (--timeout-s) | PASS |") in text
 
 
 class TestExpectingADisconnect:

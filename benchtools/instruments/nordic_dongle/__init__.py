@@ -45,6 +45,7 @@ from .constants import (
 from .dongle import LinkLostError, NordicDongle, Sensor
 from .script import (
     CommandScript,
+    PrefixTimeout,
     ScriptStep,
     ScriptTest,
     load_script,
@@ -76,6 +77,7 @@ __all__ = [
     "LinkLostError",
     "Sensor",
     "CommandScript",
+    "PrefixTimeout",
     "ScriptRun",
     "ScriptStep",
     "ScriptTest",

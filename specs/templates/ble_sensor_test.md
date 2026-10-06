@@ -14,13 +14,15 @@ The exit status is 0 when every checked step passed and 1 when one failed or
 errored, or the run could not start.
 
 - `--report` writes every step: command, expected, actual, response time,
-  result and note.
+  timeout - how long it waited at most, and why - result and note.
 - `--events` writes the event log: one line per event, tab-separated, with the
   time it happened - `time  event  step  data  result`. Events are `TX`, `RX`,
   `DELAY`, `CONNECT`, `DISCONNECT` and `ERROR`; an `RX` line carries the
   dongle's own measurement of the exchange, to the microsecond.
-- `--timeout-s` sets the default wait for a reply (3 s); `--log` on
-  `benchtools ble` records the raw exchange with the dongle.
+- `--timeout-s` sets the default wait for a reply (3 s); `--timeout
+  PREFIX=MS` overrides the Command prefix table below for one run, and is
+  repeatable; `--log` on `benchtools ble` records the raw exchange with the
+  dongle.
 
 ## How a document is read
 
@@ -42,8 +44,13 @@ closes it when the document ends.
 | Delay | `delay <milliseconds>` | empty | must be empty |
 | Disconnect | `disconnect` | empty | must be empty |
 
-An empty Timeout cell uses the run's default. Some commands take longer than
-others; give those a timeout of their own.
+An empty Timeout cell uses the timeout the **Command prefix** table gives the
+command, else the run's default. Some commands take longer than others: give a
+family of them - every `routine`, every `wr` - a row in that table, and a
+single command a timeout of its own. A prefix matches the start of the command,
+ignoring case, and the longest prefix that matches wins. It applies to the
+commands sent to the sensor - the reply wait, the listening window or the wait
+for the drop - not to `connect`, `delay` or `disconnect`.
 
 Add a **Frames** column to require a number of reply frames - usually `1` - for
 a command that must answer exactly once. A sensor that answers twice leaves
@@ -77,6 +84,13 @@ for a sensor that advertises every 9 s, and tries the link up to three times.
 | SETTLE_MS    | 500     | Pause after connecting, before the first command |
 | VERSION      | V11     | The start of the version the sensor must report |
 | REBOOT_MS    | 15000   | How long a reset sensor may take to drop the link |
+| ROUTINE_MS   | 30000   | How long a routine may take to answer |
+
+## Timeouts by command prefix
+
+| Command prefix | Timeout (ms)  | Note |
+|----------------|---------------|------|
+| routine        | ${ROUTINE_MS} | A routine runs before it answers |
 
 ## Connect and identify
 
@@ -110,13 +124,14 @@ Replace these rows with the commands under test. One row is one command.
 
 ## A command that takes longer
 
-`routine config start factory` runs a routine before it answers, so it gets a
-timeout of its own rather than the default. Check the reply against what the
-firmware sends; the pattern here accepts any acknowledgement.
+`routine config start factory` runs a routine before it answers, so it waits
+the `routine` timeout from the Command prefix table rather than the default.
+Check the reply against what the firmware sends; the pattern here accepts any
+acknowledgement.
 
 | Step | Command                      | Expected response | Timeout (ms) | Note |
 |------|------------------------------|-------------------|--------------|------|
-| 1    | routine config start factory | /^ACK/            | 30000        | Longer than normal: set to what the routine needs |
+| 1    | routine config start factory | /^ACK/            |              | Waits ${ROUTINE_MS} ms: its prefix's timeout |
 
 ## A command after which the sensor resets
 
@@ -161,6 +176,7 @@ variables written as they are here:
 | `rd version` \| (empty) | `Send Command    rd version` |
 | `wr mode normal` \| `<disconnect>` | `Send Command And Expect Disconnect    wr mode normal` |
 | a Timeout cell of 30000 | `...    timeout=30 s` on the same keyword |
+| a Command prefix row `routine` \| 30000 | `...    timeout=30 s` on each keyword whose command starts with `routine` - Robot has no timeout by prefix, so a translator applies the row as the runner does; a suite's `Test Timeout` bounds a whole test, not one command |
 | a Frames cell of 1 | `Reply Frames Should Be    1` after the command |
 | a Save cell of `BUILD` | `${BUILD}=    Send Command    rd version` |
 | `delay 250` | `Sleep    250 ms` |

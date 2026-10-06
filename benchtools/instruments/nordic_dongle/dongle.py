@@ -1199,6 +1199,7 @@ class NordicDongle(Instrument):
         listen: float = 0.5,
         variables: Optional[Dict[str, str]] = None,
         events: Optional[str] = None,
+        timeouts: Optional[Dict[str, object]] = None,
     ) -> ScriptRun:
         """Run a command document against the connected sensor.
 
@@ -1225,22 +1226,26 @@ class NordicDongle(Instrument):
             overriding its defaults - ``{"SENSOR_ID": "kappa"}``, say.
         :param events: Where to write the event log - one line per TX, RX,
             delay, connect, disconnect and error, with the time it happened.
+        :param timeouts: Timeouts in milliseconds by command prefix for this
+            run - ``{"WR": 45000}`` - over the document's own Command prefix
+            table. A step's Timeout cell still wins.
         :raises ConfigurationError: if the document cannot be read, or a
             variable it needs has no value.
         :raises InstrumentError: if no link is open and the document does not
             connect before its first command. Every step would fail identically
             for a reason that has nothing to do with the sensor.
 
-        Traces to: BLE-FR-100 .. BLE-FR-108.
+        Traces to: BLE-FR-100 .. BLE-FR-108, BLE-FR-119.
         """
         if isinstance(source, CommandScript):
-            if variables:
+            if variables or timeouts:
                 raise ConfigurationError(
-                    "variables apply when a document is read; this one is already parsed"
+                    "variables and timeouts apply when a document is read; this one "
+                    "is already parsed"
                 )
             script = source
         else:
-            script = load_script(str(source), variables=variables)
+            script = load_script(str(source), variables=variables, timeouts=timeouts)
         if not self.is_linked and not script.connects:
             raise InstrumentError(
                 "no link is open, so no command could reach a sensor. Start the "

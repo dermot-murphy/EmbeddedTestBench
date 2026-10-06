@@ -320,6 +320,29 @@ class TestScript:
         assert status == 1
         assert "NAME=VALUE" in err
 
+    def test_timeout_sets_a_prefix_timeout_for_the_run(self, capsys, tmp_path):
+        """--timeout PREFIX=MS overrides the document's table, and is reported (#60)."""
+        source = tmp_path / "test.md"
+        source.write_text("| Command prefix | Timeout (ms) |\n|---|---|\n| RD | 500 |\n\n"
+                          + self.DOCUMENT % "1.4.2")
+        status, payload, _ = run(capsys, *SIM, "script", str(source), "--var",
+                                 "SENSOR_ID=sens-0a1b", "--timeout", "rd=900",
+                                 "--timeout", "RD VERSION=1200")
+        assert status == 0
+        assert payload["timeouts"] == [
+            {"prefix": "rd", "timeout_ms": 900.0, "from": "--timeout"},
+            {"prefix": "RD VERSION", "timeout_ms": 1200.0, "from": "--timeout"}]
+        assert payload["steps"][1]["timeout_from"] == "prefix RD VERSION (--timeout)"
+
+    @pytest.mark.parametrize("given", ["900", "RD=", "=900"])
+    def test_a_timeout_that_is_not_prefix_equals_ms_is_an_error(self, capsys, tmp_path, given):
+        source = tmp_path / "test.md"
+        source.write_text(self.DOCUMENT % "1.4.2")
+        status, _, err = run(capsys, *SIM, "script", str(source), "--var",
+                             "SENSOR_ID=sens-0a1b", "--timeout", given)
+        assert status == 1
+        assert "PREFIX=MS" in err
+
 
     def test_the_event_log_is_written_where_asked(self, capsys, tmp_path):
         source = tmp_path / "test.md"
