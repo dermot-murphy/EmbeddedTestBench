@@ -43,7 +43,7 @@ visa = ["pyvisa>=1.11", "pyvisa-py>=0.5"]
 # Serial ports: the BLE dongle's USB CDC link, and RS-232 instruments.
 serial = ["pyserial>=3.5"]
 test = [
-    "pytest>=7.0",
+    "pytest>=9.1.1",
     "pytest-cov>=4.0",
     "pyyaml>=6.0.3",
     "matplotlib>=3.3",
