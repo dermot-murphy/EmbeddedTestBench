@@ -39,7 +39,7 @@ spec = ["pyyaml>=6.0.3"]
 # Host-side plots.
 plot = ["matplotlib>=3.3"]
 # Route the instrument link through a VISA library instead of the built-in one.
-visa = ["pyvisa>=1.11", "pyvisa-py>=0.5"]
+visa = ["pyvisa>=1.16.2", "pyvisa-py>=0.5"]
 # Serial ports: the BLE dongle's USB CDC link, and RS-232 instruments.
 serial = ["pyserial>=3.5"]
 test = [
@@ -47,7 +47,7 @@ test = [
     "pytest-cov>=4.0",
     "pyyaml>=6.0.3",
     "matplotlib>=3.3",
-    "pyvisa>=1.11",
+    "pyvisa>=1.16.2",
     "pyvisa-py>=0.5",
     "pyserial>=3.5",
 ]
