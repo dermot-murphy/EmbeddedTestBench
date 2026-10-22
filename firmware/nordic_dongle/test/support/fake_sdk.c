@@ -386,6 +386,8 @@ static uint32_t		m_connect_count;
 static uint32_t		m_connect_result;
 static uint32_t		m_disconnect_count;
 static uint16_t		m_disconnect_handle;
+static uint32_t		m_cancel_count;
+static uint32_t		m_cancel_result;
 
 static ble_gap_scan_params_t	m_connect_scan_params;
 
@@ -416,7 +418,15 @@ uint32_t sd_ble_gap_disconnect(uint16_t conn_handle, uint8_t hci_status_code)
 	return NRF_SUCCESS;
 }
 
+uint32_t sd_ble_gap_connect_cancel(void)
+{
+	m_cancel_count++;
+	return m_cancel_result;
+}
+
 const ble_gap_addr_t * fake_gap_connect_address(void)	{ return &m_connect_address; }
+uint32_t fake_gap_cancel_count(void)			{ return m_cancel_count; }
+void     fake_gap_set_cancel_result(uint32_t result)	{ m_cancel_result = result; }
 uint32_t fake_gap_connect_count(void)			{ return m_connect_count; }
 uint32_t fake_gap_disconnect_count(void)		{ return m_disconnect_count; }
 void     fake_gap_set_connect_result(uint32_t result)	{ m_connect_result = result; }
@@ -426,6 +436,8 @@ void fake_gap_reset(void)
 	m_connect_count    = 0U;
 	m_disconnect_count = 0U;
 	m_connect_result   = NRF_SUCCESS;
+	m_cancel_count     = 0U;
+	m_cancel_result    = NRF_SUCCESS;
 	(void)memset(&m_connect_address, 0, sizeof(m_connect_address));
 }
 

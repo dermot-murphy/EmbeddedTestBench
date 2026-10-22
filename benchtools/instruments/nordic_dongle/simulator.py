@@ -45,7 +45,9 @@ class SimulatedSensor:
     :param connect_outcome: What a connection attempt does. ``"ready"`` links
         and finds the UART service; ``"timeout"`` never links, as a sensor that
         advertises too rarely for the connect window does; ``"no_service"``
-        links but never becomes ready.
+        links but never becomes ready; ``"pending"`` hears nothing and leaves
+        the connection being made until ``disconnect`` (protocol 1.5) or
+        ``reset`` ends it, as the dongle did after a sensor reset (#251).
     :param not_established: How many of the next connection attempts link
         and are then lost with reason 0x3e, the link failing to establish,
         before *connect_outcome* applies. Each attempt counts one off.
@@ -148,9 +150,9 @@ class SimulatedDongle:
 
     #: The build the simulated dongle is running. A test that exercises the
     #: update path changes these, as flashing a real dongle would.
-    DEFAULT_FIRMWARE_VERSION = "1.4.0"
+    DEFAULT_FIRMWARE_VERSION = "1.5.0"
     DEFAULT_FIRMWARE_BUILT = "2026-09-13T12:00:00Z"
-    DEFAULT_PROTOCOL = "1.4"
+    DEFAULT_PROTOCOL = "1.5"
 
     def __init__(
         self,
@@ -174,6 +176,8 @@ class SimulatedDongle:
         self.firmware_version = self.DEFAULT_FIRMWARE_VERSION
         self.firmware_built = self.DEFAULT_FIRMWARE_BUILT
         self.protocol = self.DEFAULT_PROTOCOL
+        #: The sensor a connection is still being made to, if any.
+        self.connecting: Optional[SimulatedSensor] = None
         #: The window the last ``connect`` asked for, in milliseconds.
         self.last_connect_timeout_ms: Optional[int] = None
         #: The reply wait the last ``cmd`` asked for, in milliseconds.
@@ -397,6 +401,11 @@ class SimulatedDongle:
         self.in_bootloader = True
         return ["ok dfu=1 fw=%s" % self.firmware_version]
 
+    def _protocol_at_least(self, major: int, minor: int) -> bool:
+        """True when the simulated firmware speaks protocol *major*.*minor* or later."""
+        reported = tuple(int(part) for part in self.protocol.split(".")[:2])
+        return reported >= (major, minor)
+
     def _cmd_time(self, arguments: List[str]) -> List[str]:
         return ["ok t=%d hz=1000000" % self.clock_us]
 
@@ -503,13 +512,12 @@ class SimulatedDongle:
             )
         if sensor is None:
             return [self._error(DongleError.NO_SENSOR, "no sensor selected")]
-        if self._connected is not None:
-            return [self._error(DongleError.STATE, "not valid in this state")]
-        if not sensor.connectable:
-            return [self._error(DongleError.BLE, "the BLE stack refused the request")]
+        refusal = self._connect_refusal(sensor)
+        if refusal is not None:
+            return [refusal]
 
         self._scanning = False
-        if sensor.not_established > 0 or sensor.connect_outcome == "timeout":
+        if sensor.not_established > 0 or sensor.connect_outcome in ("timeout", "pending"):
             self._fail_connect(sensor)
             return ["ok connecting=1 addr=%s timeout_ms=%d" % (sensor.address, timeout_ms)]
 
@@ -526,8 +534,24 @@ class SimulatedDongle:
             )
         return ["ok connecting=1 addr=%s timeout_ms=%d" % (sensor.address, timeout_ms)]
 
+    def _connect_refusal(self, sensor: SimulatedSensor) -> Optional[str]:
+        """The ``err`` reply the firmware would refuse ``connect`` with, or None."""
+        if self._connected is not None:
+            return self._error(DongleError.STATE, "not valid in this state")
+        if self.connecting is not None and self._protocol_at_least(1, 5):
+            return self._error(DongleError.BUSY, "busy")
+        if self.connecting is not None or not sensor.connectable:
+            # Before protocol 1.5, a connection being made was refused by the
+            # stack, and said no more than an unconnectable device does.
+            return self._error(DongleError.BLE, "the BLE stack refused the request")
+        return None
+
     def _fail_connect(self, sensor: SimulatedSensor) -> None:
         """Queue the events of a connection attempt that ends without a link."""
+        if sensor.connect_outcome == "pending" and sensor.not_established == 0:
+            # Nothing is reported: the connection is still being made.
+            self.connecting = sensor
+            return
         if sensor.not_established > 0:
             # Observed within a minute of a sensor reset (#180): the link comes
             # up and is lost before it is established.
@@ -543,6 +567,11 @@ class SimulatedDongle:
         self._queue.append("+disc t=%d reason=timeout" % self.clock_us)
 
     def _cmd_disconnect(self, arguments: List[str]) -> List[str]:
+        if self.connecting is not None and self._protocol_at_least(1, 5):
+            self.connecting = None
+            self.clock_us += 1_000
+            self._queue.append("+disc t=%d reason=cancelled" % self.clock_us)
+            return ["ok"]
         if self._connected is None:
             return [self._error(DongleError.NOT_CONNECTED, "not connected")]
         self._connected = None
@@ -680,6 +709,7 @@ class SimulatedDongle:
         self._scan_until_us = None
         self._profiling = False
         self._connected = None
+        self.connecting = None
         self._selected = None
         self._found = []
         self._next_us = {}

@@ -467,7 +467,17 @@ static void test_a_refused_connection_is_reported(void)
 	test_handle("connect AA:BB:CC:DD:EE:FF");
 	fake_nus_client_set_connect_result(NRF_ERROR_INVALID_STATE);
 	test_handle("connect AA:BB:CC:DD:EE:FF");
-	TEST_ASSERT_EQUAL_STRING("err 10 the BLE stack refused the request", test_reply());
+	/* With the stack's own code: "refused" alone did not say why (#251). */
+	TEST_ASSERT_EQUAL_STRING("err 10 the BLE stack refused the request nrf=0x8", test_reply());
+}
+
+static void test_connecting_while_a_connection_is_being_made_is_busy(void)
+{
+	/* Said plainly, not as the stack's refusal (#251). */
+	fake_nus_client_set_connecting(true);
+	test_handle("connect AA:BB:CC:DD:EE:FF");
+	TEST_ASSERT_EQUAL_STRING("err 7 busy", test_reply());
+	TEST_ASSERT_EQUAL_UINT32(0U, fake_nus_client_connects());
 }
 
 static void test_disconnect_without_a_link(void)
@@ -729,6 +739,7 @@ static void test_run_second_half(void)
 	RUN_TEST(test_connect_uses_the_selection_with_only_a_timeout);
 	RUN_TEST(test_connect_refuses_a_bad_timeout);
 	RUN_TEST(test_a_refused_connection_is_reported);
+	RUN_TEST(test_connecting_while_a_connection_is_being_made_is_busy);
 	RUN_TEST(test_disconnect_without_a_link);
 	RUN_TEST(test_disconnect);
 	RUN_TEST(test_uart_decodes_hex_and_reports_the_length);

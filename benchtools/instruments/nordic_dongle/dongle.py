@@ -55,9 +55,11 @@ from .constants import (
     DEFAULT_SCAN_MS,
     COMMAND_TIMEOUT_RANGE,
     CONNECT_ATTEMPTS,
+    CONNECT_RECOVERABLE,
     CONNECT_TIMEOUT_RANGE,
     DEFAULT_CONNECT_TIMEOUT,
     DISCONNECT_EVENT_TIMEOUT,
+    DONGLE_RESET_SETTLE,
     FIRMWARE_COMMAND_TIMEOUT,
     SERVICE_DISCOVERY_TIMEOUT,
     DONGLE_LIMITS,
@@ -384,27 +386,88 @@ class NordicDongle(Instrument):
         """The protocol version the dongle reported."""
         return self._firmware_protocol
 
-    def _start_connect(self, connect_timeout: float) -> None:
-        """Check the window, clear stale link events, and send ``connect``."""
+    def _start_connect(self, connect_timeout: float) -> int:
+        """Check the window, clear stale link events, and send ``connect``.
+
+        A refusal that says the dongle is in the wrong state is recovered from
+        here (:meth:`_recover_connect`); any other refusal raises.
+
+        :returns: The dongle's clock just before the ``connect`` that was
+            accepted. A link event stamped earlier belongs to an earlier link.
+        """
         low, high = CONNECT_TIMEOUT_RANGE
         if not low <= connect_timeout <= high:
             raise ConfigurationError(
                 "connect_timeout must be between %.0f and %.0f s, not %r"
                 % (low, high, connect_timeout)
             )
-        # Stale link events from an earlier attempt must not be read as this
-        # attempt's outcome.
+        if not self._protocol_at_least(1, 2):
+            self._logger.warning(
+                "the dongle speaks protocol %s, which has a fixed 5 s connect "
+                "window; update its firmware to set one",
+                self._firmware_protocol or "unknown",
+            )
+
+        started_us, reply = self._send_connect(connect_timeout)
+        if not reply.ok and reply.error in CONNECT_RECOVERABLE:
+            started_us, reply = self._recover_connect(connect_timeout, reply)
+        if not reply.ok:
+            raise DongleCommandError("connect", reply.error, reply.text)
+        return started_us
+
+    def _send_connect(self, connect_timeout: float):
+        """Clear stale link events and send ``connect`` once.
+
+        :returns: ``(started_us, reply)``: the dongle's clock just before the
+            command, and its reply, which may be a refusal.
+        """
+        # Read what has already arrived before discarding it: a +disc still in
+        # the port's buffer would otherwise be read as this attempt's outcome.
+        self._session.poll()
         self._session.take_events("conn")
         self._session.take_events("disc")
+        started_us = self.dongle_time_us()
         if self._protocol_at_least(1, 2):
-            self._session.execute("connect", "timeout=%d" % round(connect_timeout * 1000.0))
-            return
-        self._logger.warning(
-            "the dongle speaks protocol %s, which has a fixed 5 s connect "
-            "window; update its firmware to set one",
-            self._firmware_protocol or "unknown",
-        )
-        self._session.execute("connect")
+            reply = self._session.execute(
+                "connect", "timeout=%d" % round(connect_timeout * 1000.0), allow_error=True
+            )
+        else:
+            reply = self._session.execute("connect", allow_error=True)
+        return started_us, reply
+
+    def _recover_connect(self, connect_timeout: float, refusal):
+        """Bring a dongle that refused ``connect`` back to a state that accepts it.
+
+        Seen on hardware (#251): after a sensor reset, a connection the host had
+        given up on was still being made in the dongle, and every ``connect``
+        was refused until the dongle was reset by hand. First ``disconnect``,
+        which ends a link and, from protocol 1.5, a connection still being made.
+        If ``connect`` is still refused, reset the dongle and select the sensor
+        again. Each step is logged as a ``ble_connect_recovery`` record.
+
+        :returns: ``(started_us, reply)`` of the last ``connect`` sent.
+        """
+        sensor = self._require_selected()
+
+        def record(text: str, step: str, reply) -> None:
+            log_event(self._logger, "ble_connect_recovery", text,
+                      {"address": sensor.address, "step": step,
+                       "refusal": reply.error.name if reply.error else "",
+                       "text": reply.text},
+                      level=logging.WARNING)
+            self._session.note(text)
+
+        record("the dongle refused 'connect' (%s); sending 'disconnect' and trying again"
+               % refusal.text, "disconnect", refusal)
+        self._disconnect()
+        started_us, reply = self._send_connect(connect_timeout)
+        if reply.ok or reply.error not in CONNECT_RECOVERABLE:
+            return started_us, reply
+
+        record("the dongle still refused 'connect' (%s); resetting it and selecting %s again"
+               % (reply.text, sensor.address), "reset", reply)
+        self.reset(reselect=True)
+        return self._send_connect(connect_timeout)
 
     def _protocol_at_least(self, major: int, minor: int) -> bool:
         """True when the dongle reported protocol *major*.*minor* or later."""
@@ -898,7 +961,7 @@ class NordicDongle(Instrument):
     def _open_link_once(self, sensor: Sensor, timeout: Optional[float],
                         connect_timeout: float) -> Sensor:
         """One connection attempt: :meth:`open_link` without the retry."""
-        self._start_connect(connect_timeout)
+        started_us = self._start_connect(connect_timeout)
         if timeout is None:
             timeout = connect_timeout + SERVICE_DISCOVERY_TIMEOUT
 
@@ -906,9 +969,7 @@ class NordicDongle(Instrument):
         linked = False
         try:
             while True:
-                event = self._session.wait_for_event(
-                    ("conn", "disc"), timeout=max(deadline - time.monotonic(), 0.0)
-                )
+                event = self._next_link_event(deadline, started_us)
                 state = event.get("state")
                 if event.name == "disc":
                     raise LinkLostError(
@@ -958,6 +1019,21 @@ class NordicDongle(Instrument):
                 if self._connection_interval_us:
                     break
         return sensor
+
+    def _next_link_event(self, deadline: float, started_us: int) -> Event:
+        """The next ``+conn`` or ``+disc`` of the connection started at *started_us*.
+
+        An event stamped earlier is the end of an earlier link, reported after
+        the driver stopped waiting for it (#251), and is skipped.
+        """
+        while True:
+            event = self._session.wait_for_event(
+                ("conn", "disc"), timeout=max(deadline - time.monotonic(), 0.0)
+            )
+            if event.timestamp_us is None or event.timestamp_us >= started_us:
+                return event
+            self._logger.info("ignoring a link event from before this connect: %s", event.raw)
+            self._session.note("ignored, from before this connect: %s" % event.raw)
 
     def close_link(self) -> None:
         """Disconnect from the sensor. Idempotent."""
@@ -1424,13 +1500,31 @@ class NordicDongle(Instrument):
         reply = self._session.execute("time")
         return int(reply.fields.get("t", 0))
 
-    def reset(self) -> None:
-        """Reset the dongle's firmware and forget local state."""
+    def reset(self, reselect: bool = False, settle: Optional[float] = None) -> None:
+        """Reset the dongle's firmware, reopen its port and forget local state.
+
+        The dongle leaves USB when it resets, so its port is closed, given
+        *settle* seconds to re-enumerate, and opened again.
+
+        :param reselect: Select the sensor that was selected before, by its
+            address, so the next :meth:`open_link` connects to it.
+        :param settle: Seconds to allow for re-enumeration;
+            ``DONGLE_RESET_SETTLE`` when omitted.
+        """
+        previous = self._selected
         self._session.execute("reset", allow_error=True, timeout=2.0)
         self._sensors = []
         self._selected = None
         self._connected = False
         self._connection_interval_us = 0
+        try:
+            self.transport.close()
+        except BenchToolsError:                # pragma: no cover - already down
+            pass
+        time.sleep(DONGLE_RESET_SETTLE if settle is None else settle)
+        self._reopen()
+        if reselect and previous is not None:
+            self.select(previous)
 
     def read_event_queue(self) -> List[str]:
         """Unsolicited events queued but not consumed.

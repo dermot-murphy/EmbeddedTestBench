@@ -115,5 +115,6 @@ uint32_t sd_ble_gap_connect(const ble_gap_addr_t *		p_peer_addr,
 			    const ble_gap_conn_params_t *	p_conn_params,
 			    uint8_t				conn_cfg_tag);
 uint32_t sd_ble_gap_disconnect(uint16_t conn_handle, uint8_t hci_status_code);
+uint32_t sd_ble_gap_connect_cancel(void);
 
 #endif /* BLE_GAP_H__ */

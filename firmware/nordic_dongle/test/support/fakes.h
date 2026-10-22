@@ -25,6 +25,9 @@ uint32_t		fake_gap_connect_count(void);
 const ble_gap_scan_params_t *	fake_gap_connect_scan_params(void);
 uint32_t		fake_gap_disconnect_count(void);
 void			fake_gap_set_connect_result(uint32_t result);
+/** Connection attempts cancelled, and what the next cancel returns. */
+uint32_t		fake_gap_cancel_count(void);
+void			fake_gap_set_cancel_result(uint32_t result);
 void			fake_gap_reset(void);
 
 /* --- the firmware's own modules, when one is faked to test another -- */
@@ -67,6 +70,7 @@ void		fake_scanner_reset(void);
 /* --- UART client, when faked for the command parser ----------------- */
 void		fake_nus_client_set_ready(bool ready);
 void		fake_nus_client_set_connected(bool connected);
+void		fake_nus_client_set_connecting(bool connecting);
 void		fake_nus_client_set_interval_us(uint32_t interval_us);
 void		fake_nus_client_set_reply(const char * text, uint64_t round_trip_us);
 void		fake_nus_client_set_no_reply(void);
