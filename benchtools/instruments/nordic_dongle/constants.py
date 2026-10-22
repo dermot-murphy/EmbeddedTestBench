@@ -27,6 +27,8 @@ __all__ = [
     "DEFAULT_SCAN_MS",
     "DEFAULT_COMMAND_TIMEOUT",
     "DISCONNECT_EVENT_TIMEOUT",
+    "CONNECT_RECOVERABLE",
+    "DONGLE_RESET_SETTLE",
     "DEFAULT_CONNECT_TIMEOUT",
     "CONNECT_TIMEOUT_RANGE",
     "SERVICE_DISCOVERY_TIMEOUT",
@@ -42,7 +44,7 @@ __all__ = [
 #: commands the other does not - reported, and survivable, because the missing
 #: ones fail individually with "unknown command". A differing *major* version
 #: means a command means something different, which is not survivable.
-PROTOCOL_VERSION = "1.4"
+PROTOCOL_VERSION = "1.5"
 
 #: Commands the firmware accepts, with the argument bounds it enforces.
 COMMANDS: Dict[str, Tuple[int, int]] = {
@@ -104,8 +106,15 @@ COMMAND_TIMEOUT_RANGE = (0.1, 60.0)
 SERVICE_DISCOVERY_TIMEOUT = 10.0
 
 #: Seconds to wait for the ``+disc`` that follows an accepted ``disconnect``.
-#: The link drops within a few connection intervals; this is generous.
-DISCONNECT_EVENT_TIMEOUT = 2.0
+#: A running sensor acknowledges at once (0.06 s on hardware). A sensor that
+#: has just reset cannot, and the dongle reports the drop only when the 4 s
+#: supervision timeout expires (3.9 s on hardware, #251). A wait shorter than
+#: that left the ``+disc`` unread, and the next connection took it as its own.
+DISCONNECT_EVENT_TIMEOUT = 6.0
+
+#: Seconds to allow a reset dongle to leave and re-enumerate on USB before its
+#: port is opened again.
+DONGLE_RESET_SETTLE = 2.5
 
 
 class DongleError(enum.IntEnum):
@@ -224,3 +233,10 @@ class DongleLimits:  # pylint: disable=too-many-instance-attributes
 
 #: The envelope of the firmware in this repository.
 DONGLE_LIMITS = DongleLimits()
+
+
+#: ``connect`` refusals that say the dongle, not the sensor, is in the wrong
+#: state: still linked (``STATE``), a connection still being made (``BUSY``,
+#: protocol 1.5), or the stack refusing (``BLE``, the same case before 1.5).
+#: :meth:`NordicDongle.open_link` recovers from these itself (#251).
+CONNECT_RECOVERABLE = (DongleError.STATE, DongleError.BUSY, DongleError.BLE)

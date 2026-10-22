@@ -63,9 +63,22 @@ uint32_t nus_client_init(nrf_ble_gq_t * p_gatt_queue, ble_db_discovery_t * p_db_
 uint32_t nus_client_connect(const ble_gap_addr_t * p_address, uint32_t timeout_ms);
 
 /**
- * @brief Disconnect, if connected.
+ * @brief Disconnect, or stop a connection still being made.
+ *
+ * A connection still being made is cancelled and reported as
+ * @c "+disc reason=cancelled". If the stack completed it before the cancel,
+ * the link is dropped as soon as it is reported, so the host sees @c +conn
+ * and then @c +disc either way (#251).
+ *
+ * @retval NRF_ERROR_INVALID_STATE  Neither connected nor connecting.
  */
 uint32_t nus_client_disconnect(void);
+
+/**
+ * @brief True while a connection is being made: from an accepted
+ *        nus_client_connect() until the link comes up or the attempt ends.
+ */
+bool nus_client_is_connecting(void);
 
 /**
  * @brief True once connected and the UART service has been discovered.

@@ -46,6 +46,12 @@ static ble_db_discovery_t *	m_p_db_discovery;
 static uint32_t			m_interval_us;
 static bool			m_ready;
 
+/* A connection being made, and whether to drop it as soon as it comes up: set
+ * when the host asked to disconnect after the stack had completed the
+ * connection but before it was reported (#251). */
+static bool			m_connecting;
+static bool			m_drop_on_connect;
+
 static volatile bool		m_awaiting_reply;
 static volatile bool		m_reply_arrived;
 static uint64_t			m_tx_us;
@@ -140,10 +146,15 @@ uint32_t nus_client_connect(const ble_gap_addr_t * p_address, uint32_t timeout_m
 {
 	ble_gap_scan_params_t	scan_params;
 	ble_gap_conn_params_t	conn_params;
+	uint32_t		error;
 
 	if (m_conn_handle != BLE_CONN_HANDLE_INVALID)
 	{
 		return NRF_ERROR_INVALID_STATE;
+	}
+	if (m_connecting)
+	{
+		return NRF_ERROR_BUSY;
 	}
 
 	(void)memset(&scan_params, 0, sizeof(scan_params));
@@ -160,18 +171,50 @@ uint32_t nus_client_connect(const ble_gap_addr_t * p_address, uint32_t timeout_m
 	conn_params.slave_latency     = CONN_SLAVE_LATENCY;
 	conn_params.conn_sup_timeout  = CONN_SUPERVISION_UNITS;
 
-	return sd_ble_gap_connect(p_address, &scan_params, &conn_params, APP_BLE_CONN_CFG_TAG);
+	error = sd_ble_gap_connect(p_address, &scan_params, &conn_params, APP_BLE_CONN_CFG_TAG);
+	if (error == NRF_SUCCESS)
+	{
+		m_connecting      = true;
+		m_drop_on_connect = false;
+	}
+
+	return error;
 }
 
 uint32_t nus_client_disconnect(void)
 {
-	if (m_conn_handle == BLE_CONN_HANDLE_INVALID)
+	if (m_conn_handle != BLE_CONN_HANDLE_INVALID)
+	{
+		return sd_ble_gap_disconnect(m_conn_handle,
+					     BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
+	}
+	if (!m_connecting)
 	{
 		return NRF_ERROR_INVALID_STATE;
 	}
 
-	return sd_ble_gap_disconnect(m_conn_handle,
-				     BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
+	/* Without this, a connection the host had given up on went on being made,
+	 * every connect was refused until it ended, and if it found the sensor
+	 * the dongle was linked without the host knowing (#251). */
+	m_connecting = false;
+	if (sd_ble_gap_connect_cancel() == NRF_SUCCESS)
+	{
+		(void)cdc_acm_send_format("+disc t=%llu reason=cancelled",
+					  (unsigned long long)timestamp_now_us());
+	}
+	else
+	{
+		/* The stack has already ended the attempt and its event is queued:
+		 * a timeout reports +disc itself, and a link is dropped on arrival. */
+		m_drop_on_connect = true;
+	}
+
+	return NRF_SUCCESS;
+}
+
+bool nus_client_is_connecting(void)
+{
+	return m_connecting;
 }
 
 bool nus_client_is_ready(void)
@@ -266,6 +309,7 @@ static void nus_client_on_connected(const ble_gap_evt_t * p_gap, uint64_t when_u
 	char		address[18];
 	uint32_t	error;
 
+	m_connecting  = false;
 	m_conn_handle = p_gap->conn_handle;
 	m_interval_us = (uint32_t)p_gap->params.connected.conn_params.min_conn_interval * 1250U;
 	scanner_format_address(&p_gap->params.connected.peer_addr, address);
@@ -273,6 +317,15 @@ static void nus_client_on_connected(const ble_gap_evt_t * p_gap, uint64_t when_u
 		"+conn t=%llu addr=%s state=linked interval_us=%lu",
 		(unsigned long long)when_us, address,
 		(unsigned long)m_interval_us);
+
+	if (m_drop_on_connect)
+	{
+		/* The host asked to disconnect before this link was reported. */
+		m_drop_on_connect = false;
+		(void)sd_ble_gap_disconnect(m_conn_handle,
+					    BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
+		return;
+	}
 
 	/* The link is not usable until discovery has found the UART service and
 	 * reported BLE_NUS_C_EVT_DISCOVERY_COMPLETE. Nothing else starts it:
@@ -319,6 +372,8 @@ void nus_client_on_ble_evt(const ble_evt_t * p_ble_evt)
 	case BLE_GAP_EVT_TIMEOUT:
 		if (p_gap->params.timeout.src == BLE_GAP_TIMEOUT_SRC_CONN)
 		{
+			m_connecting      = false;
+			m_drop_on_connect = false;
 			(void)cdc_acm_send_format("+disc t=%llu reason=timeout",
 						  (unsigned long long)when_us);
 		}

@@ -33,10 +33,13 @@ extern "C" {
 
 /** Protocol revision. Bumped when a command or event changes shape.
  *
+ * 1.5 - ``disconnect`` also stops a connection still being made, reported as
+ *       ``+disc reason=cancelled``; ``connect`` during one answers ``err 7``,
+ *       and a stack refusal carries its code as ``nrf=0x..`` (#251).
  * 1.1 - ``ver`` reports the firmware version and build date; ``dfu`` added.
  * 1.0 - first release.
  */
-#define PROTO_VERSION			"1.4"
+#define PROTO_VERSION			"1.5"
 
 /** How long a connection attempt listens for the sensor, by default and at
  *  most, in milliseconds. A sensor advertising every 9 s was missed by a

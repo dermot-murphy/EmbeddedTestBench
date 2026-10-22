@@ -31,6 +31,12 @@ SLOW_LATENCY_US = 95_000
 CONNECTION_INTERVAL_US = 30_000
 
 
+@pytest.fixture(autouse=True)
+def no_reset_settle(monkeypatch):
+    """A simulated dongle does not leave USB when it resets: do not wait for it."""
+    monkeypatch.setattr("benchtools.instruments.nordic_dongle.dongle.DONGLE_RESET_SETTLE", 0.0)
+
+
 @pytest.fixture
 def simulator() -> SimulatedDongle:
     """A simulated dongle with the default sensor population."""

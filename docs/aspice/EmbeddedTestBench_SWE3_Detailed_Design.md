@@ -10,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE3-001 | **Version** | 1.25 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-06 |
+| **Document ID** | ETB-SWE3-001 | **Version** | 1.26 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-22 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.3 |
@@ -59,6 +59,7 @@
 | 1.23 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | 1.24 | 2026-10-05 | Claude | #180: BLE-DD-DONGLE - `open_link` tries a link that fails to establish (0x3E) again, up to `CONNECT_ATTEMPTS`, logging each failed attempt (`LinkLostError`, `_open_link_once`); BLE-DD-SCRIPTRUN - a `connect` step asks `open_link` for one attempt per try and logs each failed one; BLE-DD-CONST gains `CONNECT_ATTEMPTS` and `REASON_NOT_ESTABLISHED`; BLE-DD-SIM gains `not_established`. |
 | 1.25 | 2026-10-06 | Claude | #60: BLE-DD-SCRIPT - timeouts by command prefix (`PrefixTimeout`, `longest_prefix`), resolved when the variables bind and applied as each row is read; BLE-DD-SCRIPTRUN - each result carries the timeout that applied and why (`StepResult.timeout_s`, `timeout_from`), shown in the report and the event log; BLE-DD-CLI - `script --timeout PREFIX=MS`. |
+| 1.26 | 2026-10-22 | Claude | #251: BLE-DD-NUS - `disconnect` stops a connection still being made (`sd_ble_gap_connect_cancel`, `+disc reason=cancelled`), and drops a link completed before the cancel; BLE-DD-CMD - `connect` during one answers `err 7`, and a stack refusal carries `nrf=`; protocol 1.5, firmware 1.5.0. BLE-DD-DONGLE - `open_link` ignores link events from before its `connect` and recovers a refused `connect` (`disconnect`, then `reset` and reselect); `reset` reopens the port. BLE-DD-CONST - `DISCONNECT_EVENT_TIMEOUT` 6 s, `CONNECT_RECOVERABLE`, `DONGLE_RESET_SETTLE`; BLE-DD-SIM - `connect_outcome="pending"`. |
 
 ---
 
@@ -1133,6 +1134,12 @@ resolutions - 1 us on the dongle, 1 ms on the host - in one place.
 `open_link`, so the two cannot drift apart. `REASON_NOT_ESTABLISHED` is the
 `+disc` reason `open_link` tries again on.
 
+`DISCONNECT_EVENT_TIMEOUT` (6 s) outlasts the 4 s supervision timeout: a sensor
+that has just reset cannot acknowledge `disconnect`, and its `+disc` came
+3.9 s later on hardware (#251). `CONNECT_RECOVERABLE` lists the `connect`
+refusals that are about the dongle rather than the sensor (4, 7, 10), and
+`DONGLE_RESET_SETTLE` the time a reset dongle is given to return on USB.
+
 #### BLE-DD-DONGLE — `dongle.py`
 
 `NordicDongle`, the façade: an `Instrument` (CORE-DD-INSTRUMENT) whose transport
@@ -1178,6 +1185,14 @@ Design points:
   `ble_connect_attempt` record (CORE-FR-064) - address, attempt, attempts,
   reason - and a note in the session log, so a flaky link stays in the
   evidence. `_open_link_once` is one attempt; each has its own `timeout`.
+- Each attempt reads what has already arrived and discards old link events
+  before `connect`, and notes the dongle's clock just before it;
+  `_next_link_event` skips a `+conn` or `+disc` stamped earlier, which is
+  the end of an earlier link reported late (#251). A `connect` refused with a
+  code in `CONNECT_RECOVERABLE` is recovered by `_recover_connect`:
+  `disconnect`, then `reset(reselect=True)` if it is still refused, each step
+  a `ble_connect_recovery` record. `reset` closes the port, waits
+  `DONGLE_RESET_SETTLE`, and reopens it, because the dongle leaves USB.
 - `sample_command` sends one command N times, each start an interval after the
   last, and takes a number from each reply into a `SampleSet`. A reply without
   a number raises, naming it: a `NACK` is not a reading to average in.
@@ -1286,6 +1301,9 @@ hardware. `drop_every` models a dongle
 whose USB queue could not keep up, which is what `is_complete` exists to detect.
 `SimulatedSensor.not_established` makes that many connection attempts link and
 then end with reason 0x3e, as seen on hardware after a sensor reset (#180).
+`connect_outcome="pending"` leaves a connection being made (`connecting`), so
+`connect` is refused - `err 7` at protocol 1.5, `err 10` before it - until
+`disconnect` (1.5 only) or `reset` ends it (#251).
 
 #### BLE-DD-CLI — `cli.py`
 
@@ -1407,6 +1425,14 @@ difference is bounded by the connection interval, which is reported alongside so
 the figure can be read correctly. USB is serviced while waiting for a reply, so
 a five second timeout does not cost the host five seconds of advertising events.
 
+A connection being made is tracked (`nus_client_is_connecting`) from an
+accepted `connect` until the link comes up or the window closes. `disconnect`
+during it cancels it with `sd_ble_gap_connect_cancel` and reports
+`+disc reason=cancelled`; if the stack completed the connection first, the
+link is dropped as soon as it is reported, before discovery. Without this, a
+connection the host had given up on went on being made, and if it found the
+sensor the dongle was linked without the host knowing (#251).
+
 #### BLE-DD-CMD — `firmware/src/cmd_parser.c`
 
 The dispatcher: one line in, exactly one `ok` or `err` line out.
@@ -1422,7 +1448,9 @@ enter the log as a measurement.
 `connect` and, from protocol 1.3, `cmd` take an optional `timeout=<ms>`; the
 connect window defaults to 15 s and the reply wait to 2 s. Reading those
 arguments is BLE-DD-CMDARGS, kept apart so `cmd_parser.c` stays under the
-800-line limit.
+800-line limit. From protocol 1.5 `connect` answers `err 7` while a
+connection is being made, and adds the SoftDevice's code (`nrf=0x..`) to
+`err 10`.
 
 #### BLE-DD-CMDARGS — `firmware/src/cmd_args.c`
 

@@ -66,8 +66,8 @@ Every event carries `t=`, microseconds on the dongle's clock.
 | `list` | one `+sensor` event per device found, then `ok sensors=<n>` |
 | `select <index\|addr[/type]>` | choose the sensor for later commands |
 | `selected` | report the selection |
-| `connect [<addr[/type]>] [timeout=<ms>]` | connect to the selection, or to an address, listening for it for up to `timeout` ms (1000-60000, default 15000; protocol 1.2). Protocol 1.1 listens for a fixed 5 s at half duty, which misses sensors advertising every 9 s |
-| `disconnect` | disconnect |
+| `connect [<addr[/type]>] [timeout=<ms>]` | connect to the selection, or to an address, listening for it for up to `timeout` ms (1000-60000, default 15000; protocol 1.2). Protocol 1.1 listens for a fixed 5 s at half duty, which misses sensors advertising every 9 s. While a connection is still being made, `connect` answers `err 7` (protocol 1.5) |
+| `disconnect` | disconnect, or stop a connection still being made, reported as `+disc reason=cancelled` (protocol 1.5; before it, `err 6` and the connection went on being made) |
 | `uart <hex>` | write to the sensor's UART service, no reply awaited |
 | `cmd <hex> [timeout=<ms>]` | write, await the reply for up to `timeout` ms (100-60000, default 2000; protocol 1.3), report both timestamps and the round trip |
 | `adv start [<addr>]` / `adv stop` / `adv stats` | advertising profile capture and its counters |
@@ -83,7 +83,7 @@ Every event carries `t=`, microseconds on the dongle's clock.
 | `+sensor` | `t idx addr type rssi seen name` — one entry of the scan result |
 | `+rx` | `t len data` — bytes notified by the sensor |
 | `+conn` | `t addr state interval_us` — `state=linked` then `state=ready` |
-| `+disc` | `t reason` — HCI reason code |
+| `+disc` | `t reason` — HCI reason code; `timeout` when the connect window closed; `cancelled` when `disconnect` stopped a connection being made (1.5) |
 | `+scan` | `t state` — `started` or `stopped` |
 | `+drop` | `t count` — lines the dongle could not send |
 
@@ -103,6 +103,35 @@ exists.
 
 The definitive list is `PROTO_ERROR_TABLE` in `include/protocol.h`, which the
 driver's `DongleError` mirrors and `test_firmware_protocol.py` checks.
+
+From protocol 1.5, `connect` adds the SoftDevice's own code to error 10, as in
+`err 10 the BLE stack refused the request nrf=0x8`.
+
+### 2.4 Reconnecting after a sensor reset
+
+Seen on hardware (#251): a write that resets the sensor (`wr mode`,
+`ECURESET HARD`), or a J-Link flash, leaves nothing to acknowledge the
+`disconnect` that follows. The dongle reports the end of the link only when the
+4 s supervision timeout expires: 3.9 s after `disconnect`, with reason 0x08 or
+0x22, against 0.06 s and 0x16 while the sensor runs. The driver used to wait
+2 s, so that `+disc` was left unread; the next `open_link` took it as its own
+failure, and the connection it had started went on being made in the dongle,
+which refused every `connect` until it was reset by hand.
+
+What the driver now does:
+
+- `close_link` waits up to 6 s (`DISCONNECT_EVENT_TIMEOUT`) for the `+disc`.
+- `open_link` reads what has already arrived before discarding old link
+  events, and ignores a `+conn` or `+disc` stamped before the `connect`.
+- A `connect` refused with error 4, 7 or 10 is recovered from: `disconnect`
+  (which, from 1.5, stops a connection still being made), then, if it is still
+  refused, `reset` and select the sensor again. Each step is a
+  `ble_connect_recovery` record in the event log.
+- `reset` reopens the port once the dongle is back on USB, and
+  `reset(reselect=True)` keeps the selected sensor.
+
+The first `connect` after a reset may still end with 0x3E while the sensor
+boots; `open_link` tries that again (#180).
 
 ## 3. Building and flashing
 

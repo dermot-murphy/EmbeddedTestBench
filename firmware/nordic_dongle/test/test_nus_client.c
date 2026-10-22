@@ -46,6 +46,17 @@ void setUp(void)
 	(void)nus_client_init(&m_queue, &m_db_discovery);
 }
 
+/** End a connection still being made the way the stack does: its window closes. */
+static void test_close_connect_window(void)
+{
+	ble_evt_t event;
+
+	(void)memset(&event, 0, sizeof(event));
+	event.header.evt_id = BLE_GAP_EVT_TIMEOUT;
+	event.evt.gap_evt.params.timeout.src = BLE_GAP_TIMEOUT_SRC_CONN;
+	nus_client_on_ble_evt(&event);
+}
+
 void tearDown(void)
 {
 	if (nus_client_is_connected())
@@ -55,6 +66,10 @@ void tearDown(void)
 		(void)memset(&event, 0, sizeof(event));
 		event.header.evt_id = BLE_GAP_EVT_DISCONNECTED;
 		nus_client_on_ble_evt(&event);
+	}
+	if (nus_client_is_connecting())
+	{
+		test_close_connect_window();
 	}
 }
 
@@ -159,6 +174,106 @@ static void test_connecting_while_connected_is_refused(void)
 	test_establish_link();
 	(void)scanner_parse_address("AA:BB:CC:DD:EE:FF", &target);
 	TEST_ASSERT_EQUAL_UINT32(NRF_ERROR_INVALID_STATE, nus_client_connect(&target, 15000U));
+}
+
+static void test_connecting_while_connecting_is_refused(void)
+{
+	ble_gap_addr_t target;
+
+	(void)scanner_parse_address("AA:BB:CC:DD:EE:FF", &target);
+	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, nus_client_connect(&target, 15000U));
+	TEST_ASSERT_TRUE(nus_client_is_connecting());
+	TEST_ASSERT_EQUAL_UINT32(NRF_ERROR_BUSY, nus_client_connect(&target, 15000U));
+	TEST_ASSERT_EQUAL_UINT32(1U, fake_gap_connect_count());
+}
+
+static void test_a_link_ends_the_connecting(void)
+{
+	ble_gap_addr_t target;
+
+	(void)scanner_parse_address("E4:1C:7B:02:9A:11", &target);
+	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, nus_client_connect(&target, 15000U));
+	test_establish_link();
+	TEST_ASSERT_FALSE(nus_client_is_connecting());
+	TEST_ASSERT_TRUE(nus_client_is_ready());
+}
+
+static void test_a_closed_connect_window_ends_the_connecting(void)
+{
+	ble_gap_addr_t target;
+
+	(void)scanner_parse_address("AA:BB:CC:DD:EE:FF", &target);
+	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, nus_client_connect(&target, 15000U));
+	test_close_connect_window();
+	TEST_ASSERT_FALSE(nus_client_is_connecting());
+	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, nus_client_connect(&target, 15000U));
+}
+
+static void test_disconnecting_cancels_a_connection_being_made(void)
+{
+	/* Seen on hardware (#251): disconnect answered "not connected", the
+	 * connection went on being made, and every connect was refused. */
+	ble_gap_addr_t target;
+
+	(void)scanner_parse_address("AA:BB:CC:DD:EE:FF", &target);
+	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, nus_client_connect(&target, 20000U));
+	fake_lines_reset();
+
+	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, nus_client_disconnect());
+	TEST_ASSERT_EQUAL_UINT32(1U, fake_gap_cancel_count());
+	TEST_ASSERT_EQUAL_UINT32(0U, fake_gap_disconnect_count());
+	TEST_ASSERT_FALSE(nus_client_is_connecting());
+	TEST_ASSERT_TRUE(fake_line_seen("+disc "));
+	TEST_ASSERT_TRUE(strstr(fake_last_line(), "reason=cancelled") != NULL);
+
+	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, nus_client_connect(&target, 20000U));
+	TEST_ASSERT_EQUAL_UINT32(2U, fake_gap_connect_count());
+}
+
+static void test_a_link_completed_before_the_cancel_is_dropped(void)
+{
+	/* The stack had already made the connection, so the cancel is refused and
+	 * the link is reported afterwards. The host asked for no link: drop it at
+	 * once, without looking for the UART service. */
+	ble_gap_addr_t	target;
+	ble_evt_t	event;
+
+	(void)scanner_parse_address("E4:1C:7B:02:9A:11", &target);
+	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, nus_client_connect(&target, 20000U));
+	fake_gap_set_cancel_result(NRF_ERROR_INVALID_STATE);
+	fake_lines_reset();
+
+	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, nus_client_disconnect());
+	TEST_ASSERT_FALSE(fake_line_seen("+disc "));
+
+	(void)memset(&event, 0, sizeof(event));
+	event.header.evt_id = BLE_GAP_EVT_CONNECTED;
+	event.evt.gap_evt.conn_handle = 5U;
+	nus_client_on_ble_evt(&event);
+
+	TEST_ASSERT_EQUAL_UINT32(1U, fake_gap_disconnect_count());
+	TEST_ASSERT_EQUAL_UINT32(0U, fake_db_discovery_starts());
+	TEST_ASSERT_FALSE(nus_client_is_ready());
+}
+
+static void test_a_window_closed_before_the_cancel_reports_itself(void)
+{
+	ble_gap_addr_t target;
+
+	(void)scanner_parse_address("AA:BB:CC:DD:EE:FF", &target);
+	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, nus_client_connect(&target, 20000U));
+	fake_gap_set_cancel_result(NRF_ERROR_INVALID_STATE);
+	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, nus_client_disconnect());
+	fake_lines_reset();
+
+	test_close_connect_window();
+	TEST_ASSERT_TRUE(strstr(fake_last_line(), "reason=timeout") != NULL);
+
+	/* And the next link is not dropped on arrival. */
+	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, nus_client_connect(&target, 20000U));
+	test_establish_link();
+	TEST_ASSERT_TRUE(nus_client_is_ready());
+	TEST_ASSERT_EQUAL_UINT32(0U, fake_gap_disconnect_count());
 }
 
 static void test_disconnecting_without_a_link(void)
@@ -346,6 +461,12 @@ int main(void)
 	RUN_TEST(test_a_failed_discovery_start_drops_the_link_and_says_so);
 	RUN_TEST(test_stack_events_are_not_forwarded_to_the_nus_client_twice);
 	RUN_TEST(test_connecting_while_connected_is_refused);
+	RUN_TEST(test_connecting_while_connecting_is_refused);
+	RUN_TEST(test_a_link_ends_the_connecting);
+	RUN_TEST(test_a_closed_connect_window_ends_the_connecting);
+	RUN_TEST(test_disconnecting_cancels_a_connection_being_made);
+	RUN_TEST(test_a_link_completed_before_the_cancel_is_dropped);
+	RUN_TEST(test_a_window_closed_before_the_cancel_reports_itself);
 	RUN_TEST(test_disconnecting_without_a_link);
 	RUN_TEST(test_disconnecting);
 	RUN_TEST(test_a_dropped_link_is_reported_with_its_reason);

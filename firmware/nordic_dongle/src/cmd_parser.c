@@ -402,6 +402,13 @@ static void command_connect(char * tokens[], uint32_t count)
 		reply_error(PROTO_ERR_STATE);
 		return;
 	}
+	if (nus_client_is_connecting())
+	{
+		/* Said plainly rather than left to the stack, whose refusal read as
+		 * "the BLE stack refused the request" (#251). disconnect ends it. */
+		reply_error(PROTO_ERR_BUSY);
+		return;
+	}
 
 	/* Scanning and connecting both own the radio's scanner; stop first so the
 	 * connection attempt is not refused for a reason the host cannot see. */
@@ -410,7 +417,10 @@ static void command_connect(char * tokens[], uint32_t count)
 	error = nus_client_connect(&target, timeout_ms);
 	if (error != NRF_SUCCESS)
 	{
-		reply_error(PROTO_ERR_BLE);
+		(void)cdc_acm_send_format("err %u %s nrf=0x%lx",
+					  (unsigned)PROTO_ERR_BLE,
+					  proto_error_text(PROTO_ERR_BLE),
+					  (unsigned long)error);
 		return;
 	}
 
