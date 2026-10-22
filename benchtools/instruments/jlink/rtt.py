@@ -161,7 +161,7 @@ class SimulatedRttBackend:
         self._simulator = simulator
 
     def rtt_open(self) -> None:
-        self._simulator.rtt_started = True
+        self._simulator.start_rtt()
 
     def rtt_close(self) -> None:
         self._simulator.rtt_started = False

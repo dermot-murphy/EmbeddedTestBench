@@ -10,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE4-002 | **Version** | 1.27 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-06 |
+| **Document ID** | ETB-SWE4-002 | **Version** | 1.28 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-22 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.4 |
@@ -61,6 +61,7 @@
 | 1.25 | 2026-10-05 | Claude | #214: whole suite re-run (§4); SWE4-UT-BLESAMPLE (5) added to §5; §10.4 added - `sample_command` timed on a 15.6 ms clock under CPython 3.11, before and after the fix; D-50 added and closed. |
 | 1.26 | 2026-10-05 | Claude | #180: whole suite re-run (§4); SWE4-UT-BLE re-counted 64 → 99 and SWE4-UT-BLESCRIPT 58 → 109 in §5; D-51 added and closed in the simulator, not yet confirmed on hardware. |
 | 1.27 | 2026-10-06 | Claude | #180: §10.5 added - `open_link` and the `connect` step after `ECURESET HARD` on the bench PC with sensor 5C1712; 0x3E seen 6 times in 18 links and recovered each time; D-51 confirmed on hardware. |
+| 1.28 | 2026-10-22 | Claude | #121: §14.4 added - the Kepler specifications' BLE, RTT and supply steps on the simulated bench, and the facts they check broken in turn. |
 
 ---
 
@@ -1420,6 +1421,35 @@ The comparison is held in the suite as
 `test_a_shipped_specification_runs_the_same_from_outside_the_checkout`, one case
 per specification on the simulated bench. Without the fix in `runner/` it fails
 for 10 of the 14, along with 6 of the 7 other `test_input_paths.py` tests.
+
+### 14.4 The Kepler specifications' BLE side, simulated (#121)
+
+The simulated bench now has the Kepler sensor 5C1712 behind its dongle, supply
+and probe (BLE-DD-KEPLERSIM, BLE-DD-SIMWORLD). Its radio is not simulated yet
+(#122), so `test_kepler_simulated.py` stands in for the S2-LP steps with ones
+that fail at once, and shortens `settle_s` and `interval_s`. Run on
+`feature/simulated-kepler-sensor`, 2026-10-22, simulated:
+
+| Specification | Setup | BLE, RTT, supply and sleep steps in tests | Their measurements | S2-LP steps |
+|---|---|---|---|---|
+| `kepler_version.yaml` | passed | 6 PASS | 2 PASS | 1 ERROR (#122) |
+| `kepler_battery.yaml` | passed | 20 PASS | 20 PASS | 4 ERROR (#122) |
+| `kepler_preamble.yaml` | passed | 8 PASS | none checked | 2 ERROR (#122) |
+| `kepler_temperature.yaml` | passed | 2 PASS | 5 PASS | 1 ERROR (#122) |
+
+Each fact the specifications check over BLE or RTT was then made false in the
+simulated sensor, and each was noticed: a battery reading 3000 mV at a 3.3 V
+setting (`ble_lowest` FAIL), an alive period refused as out of range (setup
+stops on `alive_period_set`), a machine temperature rising 1.5 C a reading
+(`machine_spread` FAIL), an MCU 6 C above it (`mcu_highest_from_machine` FAIL),
+a reset answered `NACK` (`reset_acknowledged` FAIL), a loaded-battery reply in
+volts (the sample step errors: no number), and an RTT log with no MCU line
+(`readings` FAIL). 11 tests, about 15 s.
+
+With the sensor present the Kepler specifications no longer stop at
+`dongle.select`, and their S2-LP steps would wait out 60 to 180 s receive
+timeouts on the silent simulated air. §14.3's comparison therefore runs their
+setup and teardown only, which is where their paths are; it takes 20 s again.
 
 ## 14A. Hardware confirmation of #124 and #126 (#129, 2026-10-04)
 

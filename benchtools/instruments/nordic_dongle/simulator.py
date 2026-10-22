@@ -16,15 +16,17 @@ configurable interval and deliberate dropouts, connection and UART over BLE
 with a fixed round-trip latency, and the drop counters that tell a host its
 stream was lossy.
 
-Traces to: BLE-FR-080, BLE-DD-SIM.
+Traces to: BLE-FR-080, BLE-DD-SIM, BLE-DD-KEPLERSIM.
 """
 
 from __future__ import annotations
 
 import copy
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
+from ...simulated import KEPLER_5C1712_ADDRESS, KEPLER_5C1712_ID, KEPLER_5C1712_NAME
+from ...simulated.world import kepler_sensor
 from .constants import AddressType, DongleError
 from .protocol import manufacturer_id
 
@@ -83,6 +85,16 @@ class SimulatedSensor:
     #: Commands answered with more than one notification, and what the extra
     #: ones say - the defect of a sensor replying twice.
     extra_frames: Dict[str, Tuple[str, ...]] = field(default_factory=dict)
+    #: Answers every command in place of *responses*, for a sensor whose
+    #: replies depend on its state - a simulated Kepler sensor (#121).
+    responder: Optional[Callable[[str], str]] = None
+
+    def reply_to(self, request: str) -> str:
+        """What this sensor answers to *request*."""
+        if self.responder is not None:
+            return self.responder(request)
+        reply = self.responses.get(request)
+        return "ERR unknown command" if reply is None else reply
 
     def advertising_payload(self) -> bytes:
         """The advertising data, with the local name appended when there is one."""
@@ -92,8 +104,28 @@ class SimulatedSensor:
         return self.payload + bytes([len(encoded) + 1, 0x09]) + encoded
 
 
+class KeplerResponder:  # pylint: disable=too-few-public-methods
+    """Answers as the shared simulated Kepler sensor with this identifier.
+
+    Looked up on every command rather than held, so the dongle, the probe and
+    the S2-LP kit all see the one sensor, and a copy of the dongle's sensor
+    list does not fork it.
+    """
+
+    def __init__(self, sensor_id: int) -> None:
+        self.sensor_id = sensor_id
+
+    def __call__(self, request: str) -> str:
+        model = kepler_sensor(self.sensor_id)
+        reply = model.respond(request)
+        if " ".join(request.split()).upper() == "ECURESET HARD":
+            model.reset()
+        return reply
+
+
 #: The default population: a sensor under test, a second one to make selection
-#: mean something, and an unnamed device to prove filtering works.
+#: mean something, an unnamed device to prove filtering works, and the bench's
+#: Kepler sensor 5C1712, which the Kepler specifications select (#121).
 DEFAULT_SENSORS: Tuple[SimulatedSensor, ...] = (
     SimulatedSensor(
         address="E4:1C:7B:02:9A:11",
@@ -133,6 +165,17 @@ DEFAULT_SENSORS: Tuple[SimulatedSensor, ...] = (
         rssi=-91,
         interval_us=500_000,
         connectable=False,
+    ),
+    SimulatedSensor(
+        address=KEPLER_5C1712_ADDRESS,
+        name=KEPLER_5C1712_NAME,
+        rssi=-84,
+        interval_us=2_000_000,
+        # Commands that measure or write take the sensor about 55 ms on the
+        # bench; a reset drops the link with a supervision timeout (#251).
+        latency_us=55_000,
+        responder=KeplerResponder(KEPLER_5C1712_ID),
+        crash_on={"ECURESET HARD": 60_000},
     ),
 )
 
@@ -634,9 +677,7 @@ class SimulatedDongle:
 
         sensor = self._connected
         request = payload.decode("utf-8", errors="replace").strip()
-        reply = sensor.responses.get(request)
-        if reply is None:
-            reply = "ERR unknown command"
+        reply = sensor.reply_to(request)
 
         latency_us = sensor.latency_overrides.get(request, sensor.latency_us)
         if latency_us > timeout_ms * 1000:

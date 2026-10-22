@@ -10,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE3-001 | **Version** | 1.28 |
+| **Document ID** | ETB-SWE3-001 | **Version** | 1.29 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-22 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -62,6 +62,7 @@
 | 1.26 | 2026-10-22 | Claude | #251: BLE-DD-NUS - `disconnect` stops a connection still being made (`sd_ble_gap_connect_cancel`, `+disc reason=cancelled`), and drops a link completed before the cancel; BLE-DD-CMD - `connect` during one answers `err 7`, and a stack refusal carries `nrf=`; protocol 1.5, firmware 1.5.0. BLE-DD-DONGLE - `open_link` ignores link events from before its `connect` and recovers a refused `connect` (`disconnect`, then `reset` and reselect); `reset` reopens the port. BLE-DD-CONST - `DISCONNECT_EVENT_TIMEOUT` 6 s, `CONNECT_RECOVERABLE`, `DONGLE_RESET_SETTLE`; BLE-DD-SIM - `connect_outcome="pending"`. |
 | 1.27 | 2026-10-22 | Claude | #256: BLE-DD-TIMESTAMP - `timestamp_format_us` writes a 64-bit count as decimal text, and every timestamp is printed through it with `%s`, because newlib-nano has no long long conversion; firmware 1.5.1. |
 | 1.28 | 2026-10-22 | Claude | #241: BLE-DD-SCANNER - names up to 31 bytes (`PROTO_MAX_NAME` 32), and each sensor keeps the latest scan response and the company ID from either payload; BLE-DD-CMD - `+sensor` reports `mfr=` and `sr=`; protocol 1.6, firmware 1.6.0. BLE-DD-DONGLE - `Sensor.manufacturer_id`, `Sensor.scan_response`; BLE-DD-SIM - `SimulatedSensor.scan_response`. |
+| 1.29 | 2026-10-22 | Claude | #121: BLE-DD-SIMWORLD and BLE-DD-KEPLERSIM added - a simulated Kepler sensor 5C1712 shared by the simulated dongle (`KeplerResponder`, `SimulatedSensor.responder`), supply (`terminal_volts`) and probe (`periodic_rtt`, `simulated_target`). |
 
 ---
 
@@ -1306,6 +1307,40 @@ then end with reason 0x3e, as seen on hardware after a sensor reset (#180).
 `connect_outcome="pending"` leaves a connection being made (`connecting`), so
 `connect` is refused - `err 7` at protocol 1.5, `err 10` before it - until
 `disconnect` (1.5 only) or `reset` ends it (#251).
+
+#### BLE-DD-SIMWORLD — `benchtools/simulated/world.py`
+
+What the simulated instruments share. Each is built on its own from a `sim://`
+resource; the sensor they all touch on a real bench, and the supply it runs
+from, are kept here once per process (#121). `kepler_sensor(id)` makes a
+`KeplerSensorModel` on first use and returns the same one after. The simulated
+GPD-3303D registers itself on construction, held weakly, and `supply_volts`
+reads its channel 2 terminals - 0 V while the output is off - which is how
+`kepler_battery.yaml` wires 5C1712. `rtt_source("kepler-5C1712")` is the
+periodic RTT line a simulated probe writes when the bench's `simulated_target`
+option wires it to the sensor. `reset_world` forgets all of it, for a test that
+must start clean.
+
+#### BLE-DD-KEPLERSIM — `benchtools/simulated/kepler.py`
+
+The Kepler sensor 5C1712 as the simulated instruments see it: version, SHA,
+identifier, battery (unloaded and loaded), machine and MCU temperature, alive
+period, preamble length and reset reason, and the replies its BLE console gives.
+The simulated dongle lists it at `D1:8D:3B:4C:19:96`, advertising every 2 s as
+the real one roughly does, and answers through `KeplerResponder`, which looks
+the model up on each command so a copy of the dongle's sensor list does not fork
+it. `ECURESET HARD` answers, resets the model (reason 4) and drops the link with
+reason 0x08, as on the bench (#251).
+
+Reply formats are those of V11.00.0000-95, captured in the 2026-10-04
+qualification: the command is echoed as sent and the unit follows the number
+(`ACK RD BATTERY = 2789mV`). The ranges of `WR ALIVE-PERIOD` (10-900) and
+`WR PREAMBLE-LENGTH` (32-1023) and the `OUT OF RANGE` refusal come from the
+sensor firmware's parameter table. **Open items**, assumed rather than captured:
+`ACK RD BATTERY-LOADED = <n>mV` and `ACK WR PREAMBLE-LENGTH <n> Pairs` (taken
+from V11.01, written in the V11.00 style); a loaded battery 20 mV below the
+unloaded one; an MCU 3.5 C above the machine temperature; `NACK Invalid Command`
+for anything else. Transmitting its frames is #122.
 
 #### BLE-DD-CLI — `cli.py`
 
