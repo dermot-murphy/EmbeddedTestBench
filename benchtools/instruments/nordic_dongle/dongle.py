@@ -119,12 +119,17 @@ class DisconnectSample:
 
 
 @dataclass
-class Sensor:
+class Sensor:  # pylint: disable=too-many-instance-attributes
     """One device seen while scanning.
 
     :param index: Position in the dongle's table, which is what ``select``
         takes.
     :param seen: Advertising reports from this address during the scan.
+    :param manufacturer_id: The company ID of a manufacturer-specific record
+        in either payload, e.g. 0x0F55 for Sensoteq; None if none was seen.
+        Protocol 1.6 (#241).
+    :param scan_response: The latest scan-response payload. Empty unless the
+        scan was active (``scan(active=True)``) and the sensor answered.
     """
 
     address: str
@@ -133,6 +138,8 @@ class Sensor:
     rssi: int = 0
     index: int = 0
     seen: int = 0
+    manufacturer_id: Optional[int] = None
+    scan_response: bytes = b""
 
     @property
     def qualified_address(self) -> str:
@@ -147,6 +154,8 @@ class Sensor:
             "name": self.name,
             "rssi": self.rssi,
             "seen": self.seen,
+            "manufacturer_id": self.manufacturer_id,
+            "scan_response": self.scan_response.hex(),
         }
 
     def __str__(self) -> str:
@@ -783,6 +792,8 @@ class NordicDongle(Instrument):
             rssi=event.integer("rssi"),
             seen=event.integer("seen"),
             name=event.get("name"),
+            manufacturer_id=int(event.get("mfr"), 16) if event.get("mfr") else None,
+            scan_response=from_hex(event.get("sr")) if event.get("sr") else b"",
         )
 
     @property
@@ -864,6 +875,8 @@ class NordicDongle(Instrument):
             chosen.rssi = known.rssi
             chosen.seen = known.seen
             chosen.index = known.index
+            chosen.manufacturer_id = known.manufacturer_id
+            chosen.scan_response = known.scan_response
         self._selected = chosen
         return chosen
 

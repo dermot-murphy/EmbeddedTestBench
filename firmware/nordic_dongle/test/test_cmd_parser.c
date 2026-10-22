@@ -317,6 +317,26 @@ static void test_list_emits_one_event_per_sensor_then_a_count(void)
 	TEST_ASSERT_EQUAL_STRING("ok sensors=2", test_reply());
 }
 
+static void test_list_reports_the_manufacturer_and_scan_response(void)
+{
+	/* What a Kepler sensor puts in its scan response since TX-941 (#241). */
+	static const uint8_t scan_response[] = { 0x05U, 0xFFU, 0x55U, 0x0FU, 0x01U, 0x02U };
+
+	fake_scanner_add("D1:8D:3B:4C:19:96", 1, "KAPPA_5C1712_V11.00.0000X", -55);
+	fake_scanner_set_scan_response(0x0F55U, scan_response, sizeof(scan_response));
+	test_handle("list");
+
+	TEST_ASSERT_TRUE(strstr(fake_line(0), "mfr=0x0F55 sr=05ff550f0102 ") != NULL);
+	TEST_ASSERT_TRUE(strstr(fake_line(0), "name=KAPPA_5C1712_V11.00.0000X") != NULL);
+}
+
+static void test_list_leaves_both_empty_when_not_seen(void)
+{
+	fake_scanner_add("E4:1C:7B:02:9A:11", 1, "SENS-01", -62);
+	test_handle("list");
+	TEST_ASSERT_TRUE(strstr(fake_line(0), " mfr= sr= name=SENS-01") != NULL);
+}
+
 static void test_list_with_nothing_found(void)
 {
 	test_handle("list");
@@ -720,6 +740,8 @@ static void test_run_first_half(void)
 	RUN_TEST(test_list_emits_one_event_per_sensor_then_a_count);
 	RUN_TEST(test_list_with_nothing_found);
 	RUN_TEST(test_a_sensor_with_no_name_still_appears);
+	RUN_TEST(test_list_reports_the_manufacturer_and_scan_response);
+	RUN_TEST(test_list_leaves_both_empty_when_not_seen);
 	RUN_TEST(test_select_by_index);
 	RUN_TEST(test_select_by_address);
 	RUN_TEST(test_selecting_an_unseen_address_is_allowed);

@@ -44,7 +44,7 @@ __all__ = [
 #: commands the other does not - reported, and survivable, because the missing
 #: ones fail individually with "unknown command". A differing *major* version
 #: means a command means something different, which is not survivable.
-PROTOCOL_VERSION = "1.5"
+PROTOCOL_VERSION = "1.6"
 
 #: Commands the firmware accepts, with the argument bounds it enforces.
 COMMANDS: Dict[str, Tuple[int, int]] = {
@@ -215,7 +215,8 @@ class DongleLimits:  # pylint: disable=too-many-instance-attributes
     model: str = "PCA10059"
     max_sensors: int = 16
     max_payload_bytes: int = 244
-    max_name_length: int = 24
+    max_name_length: int = 32
+    max_adv_data_bytes: int = 31
     max_line_bytes: int = 512
     max_event_bytes: int = 640
     #: One microsecond, the resolution of the dongle's timestamp clock.

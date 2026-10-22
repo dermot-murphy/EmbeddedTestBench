@@ -138,12 +138,22 @@ class TestEnvelope:
             "ff" * limits.max_payload_bytes)
         assert len(line) + 1 <= limits.max_event_bytes
 
+    def test_the_longest_sensor_line_fits(self):
+        """A full scan response and a full-length name in one +sensor (#241)."""
+        limits = constants.DONGLE_LIMITS
+        line = ("+sensor t=%d idx=%d addr=%s type=%d rssi=%d seen=%d mfr=0xFFFF sr=%s name=%s"
+                % (18446744073709551615, limits.max_sensors - 1, "AA:BB:CC:DD:EE:FF", 3,
+                   -127, 4294967295, "ff" * limits.max_adv_data_bytes,
+                   "n" * (limits.max_name_length - 1)))
+        assert len(line) + 1 <= limits.max_event_bytes
+
     @pytest.mark.parametrize(
         "macro,attribute",
         [
             ("PROTO_MAX_SENSORS", "max_sensors"),
             ("PROTO_MAX_PAYLOAD", "max_payload_bytes"),
             ("PROTO_MAX_NAME", "max_name_length"),
+            ("PROTOCOL_MAX_ADV_DATA", "max_adv_data_bytes"),
             ("PROTO_MAX_LINE", "max_line_bytes"),
             ("PROTO_MAX_EVENT", "max_event_bytes"),
         ],

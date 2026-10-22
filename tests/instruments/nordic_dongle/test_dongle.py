@@ -28,6 +28,7 @@ from benchtools.instruments.nordic_dongle import (
     SimulatedDongle,
     SimulatedSensor,
 )
+from benchtools.instruments.nordic_dongle.protocol import manufacturer_id
 
 from .conftest import (
     CONNECTION_INTERVAL_US,
@@ -52,7 +53,7 @@ class TestConnection:
         # it speaks: the build is what decides what a measurement means.
         assert identity.firmware.startswith(SimulatedDongle.DEFAULT_FIRMWARE_VERSION)
         assert SimulatedDongle.DEFAULT_FIRMWARE_BUILT in identity.firmware
-        assert dongle.protocol_version == "1.5"
+        assert dongle.protocol_version == "1.6"
 
     def test_it_is_an_instrument_but_not_scpi(self, dongle):
         """The runner drives it through the same contract as every other
@@ -406,6 +407,81 @@ class TestLinkNotEstablished:
             with pytest.raises(InstrumentError, match="did not become ready"):
                 scanned.open_link(timeout=0.3)
         assert self.retries(caplog) == []
+
+
+class TestNameAndManufacturer:
+    """A Kepler sensor's full name and the company ID in its scan response (#241).
+
+    Since TX-941 the sensor advertises a 25-character name, which the firmware
+    used to cut to 23, and carries the Sensoteq company ID 0x0F55 only in its
+    scan response.
+    """
+
+    KEPLER_NAME = "KAPPA_5C1712_V11.00.0000X"
+    KEPLER_ADDRESS = "D1:8D:3B:4C:19:96"
+    SCAN_RESPONSE = bytes.fromhex("05ff550f0102")
+
+    def kepler(self, protocol: str = None) -> NordicDongle:
+        name = self.KEPLER_NAME.encode()
+        simulator = SimulatedDongle(sensors=(SimulatedSensor(
+            address=self.KEPLER_ADDRESS, name=self.KEPLER_NAME,
+            payload=b"\x02\x01\x06" + bytes([len(name) + 1, 0x09]) + name,
+            scan_response=self.SCAN_RESPONSE),))
+        if protocol is not None:
+            simulator.protocol = protocol
+        instrument = NordicDongle(MockTransport(responder=simulator), timeout=5.0)
+        instrument.initialise()
+        return instrument
+
+    def test_an_active_scan_reports_the_full_name_and_the_manufacturer(self):
+        dongle = self.kepler()
+        try:
+            sensor = dongle.scan(1.0, active=True)[0]
+            assert sensor.name == self.KEPLER_NAME
+            assert sensor.manufacturer_id == 0x0F55
+            assert sensor.scan_response == self.SCAN_RESPONSE
+        finally:
+            dongle.close()
+
+    def test_a_passive_scan_hears_no_scan_response(self):
+        dongle = self.kepler()
+        try:
+            sensor = dongle.scan(1.0)[0]
+            assert sensor.name == self.KEPLER_NAME
+            assert sensor.manufacturer_id is None
+            assert sensor.scan_response == b""
+        finally:
+            dongle.close()
+
+    def test_the_selection_carries_them(self):
+        dongle = self.kepler()
+        try:
+            dongle.scan(1.0, active=True)
+            chosen = dongle.select(self.KEPLER_ADDRESS)
+            assert chosen.manufacturer_id == 0x0F55
+            assert chosen.as_dict()["scan_response"] == "05ff550f0102"
+        finally:
+            dongle.close()
+
+    def test_older_firmware_reports_neither(self):
+        """Protocol 1.5 has no mfr= or sr=; the driver says none were seen."""
+        dongle = self.kepler(protocol="1.5")
+        try:
+            sensor = dongle.scan(1.0, active=True)[0]
+            assert sensor.manufacturer_id is None
+            assert sensor.scan_response == b""
+        finally:
+            dongle.close()
+
+    @pytest.mark.parametrize("payload,expected", [
+        (bytes.fromhex("05ff550f0102"), 0x0F55),
+        (bytes.fromhex("02010603ff5900"), 0x0059),
+        (bytes.fromhex("020106"), None),
+        (bytes.fromhex("02ff59"), None),            # too short to hold an ID
+        (b"", None),
+    ])
+    def test_the_company_id_is_read_least_significant_byte_first(self, payload, expected):
+        assert manufacturer_id(payload) == expected
 
 
 class TestReconnectAfterSensorReset:

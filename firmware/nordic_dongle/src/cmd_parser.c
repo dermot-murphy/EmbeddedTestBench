@@ -281,16 +281,28 @@ static void command_list(char * tokens[], uint32_t count)
 	{
 		const scanner_sensor_t *	p_sensor = scanner_get(index);
 		char				address[18];
+		char				manufacturer[7];
+		char				scan_response[(PROTOCOL_MAX_ADV_DATA * 2U) + 1U];
 
 		scanner_format_address(&p_sensor->address, address);
+		manufacturer[0] = '\0';
+		if (p_sensor->has_manufacturer)
+		{
+			(void)sprintf(manufacturer, "0x%04X", (unsigned)p_sensor->manufacturer_id);
+		}
+		encode_hex(p_sensor->scan_response, p_sensor->scan_response_length, scan_response);
+
+		/* The name stays last: it is the one field that may hold a space. */
 		(void)cdc_acm_send_format(
-			"+sensor t=%s idx=%lu addr=%s type=%u rssi=%d seen=%lu name=%s",
+			"+sensor t=%s idx=%lu addr=%s type=%u rssi=%d seen=%lu mfr=%s sr=%s name=%s",
 			timestamp_format_us(now_us, time_text),
 			(unsigned long)index,
 			address,
 			(unsigned)p_sensor->address.addr_type,
 			(int)p_sensor->rssi,
 			(unsigned long)p_sensor->seen,
+			manufacturer,
+			scan_response,
 			p_sensor->name);
 	}
 

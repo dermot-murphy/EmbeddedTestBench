@@ -243,7 +243,7 @@ BLE dongle firmware identity: PASS - 3 passed, 0 failed, 0 errored, 0 skipped in
 
 | Alias | Event | Driver | Model | Firmware | Resource |
 |---|---|---|---|---|---|
-| dongle | BLE | NordicDongle | PCA10059 | 1.5.0 (built 2026-09-13T12:00:00Z) | sim:// |
+| dongle | BLE | NordicDongle | PCA10059 | 1.6.0 (built 2026-09-13T12:00:00Z) | sim:// |
 | probe | JLINK | JLinkProbe | J-Link V11 | V7.94e | sim:// |
 | psu | PSU | Gpd3303D | GPD-3303D | V1.09 | sim:// |
 ...
@@ -338,7 +338,7 @@ From `benches/bench_pc.yaml` and ETB-SYS5-002 §4.1:
 
 | Alias | Instrument | Resource | USB serial number |
 |---|---|---|---|
-| `dongle` | Nordic PCA10059 BLE dongle, firmware 1.5.1 | COM10 | `D7FA0F34C85A` |
+| `dongle` | Nordic PCA10059 BLE dongle, firmware 1.6.0 | COM10 | `D7FA0F34C85A` |
 | `psu` | GW Instek GPD-3303D, SN GER916893, firmware V1.09, 9600 baud | COM11 (FTDI) | `A105X5XCA` |
 | `dmm` | TTi 1604 multimeter | COM13 (FTDI FT232) | `A9LQ0R81A` |
 | `temp` | Raspberry Pi Pico 2 thermometer, `firmware/pico_sht30` V1.00.0000 | COM14 | `AC5483CD0798FB0B` |
