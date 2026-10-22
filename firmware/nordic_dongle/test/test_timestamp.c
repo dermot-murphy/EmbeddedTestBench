@@ -5,6 +5,8 @@
  * Traces to: BLE-FR-010, BLE-DD-TIMESTAMP, SWE4-UT-FWUNIT.
  */
 
+#include <stdio.h>
+
 #include "unity.h"
 
 #include "nrfx_timer.h"
@@ -132,6 +134,37 @@ static void test_elapsed_backwards_is_zero_not_a_huge_number(void)
 	TEST_ASSERT_EQUAL_UINT64(0U, timestamp_elapsed_us(5U, 5U));
 }
 
+static void test_a_count_is_written_as_decimal_text(void)
+{
+	char text[TIMESTAMP_TEXT_SIZE];
+
+	TEST_ASSERT_EQUAL_STRING("0", timestamp_format_us(0U, text));
+	TEST_ASSERT_EQUAL_STRING("7", timestamp_format_us(7U, text));
+	TEST_ASSERT_EQUAL_STRING("10", timestamp_format_us(10U, text));
+	TEST_ASSERT_EQUAL_STRING("5033285", timestamp_format_us(5033285U, text));
+}
+
+static void test_counts_past_thirty_two_bits_are_written_whole(void)
+{
+	/* What newlib-nano's printf could not do: it printed "lu" (#256). */
+	char text[TIMESTAMP_TEXT_SIZE];
+
+	TEST_ASSERT_EQUAL_STRING("4294967296", timestamp_format_us(4294967296ULL, text));
+	TEST_ASSERT_EQUAL_STRING("559888175427", timestamp_format_us(559888175427ULL, text));
+	TEST_ASSERT_EQUAL_STRING("18446744073709551615",
+				 timestamp_format_us(18446744073709551615ULL, text));
+}
+
+static void test_the_text_can_stand_in_a_format(void)
+{
+	char text[TIMESTAMP_TEXT_SIZE];
+	char line[48];
+
+	(void)snprintf(line, sizeof(line), "t=%s hz=%lu",
+		       timestamp_format_us(1234567890123ULL, text), (unsigned long)TIMESTAMP_HZ);
+	TEST_ASSERT_EQUAL_STRING("t=1234567890123 hz=1000000", line);
+}
+
 int main(void)
 {
 	UNITY_BEGIN();
@@ -149,5 +182,8 @@ int main(void)
 	RUN_TEST(test_time_never_goes_backwards_across_a_wrap);
 	RUN_TEST(test_elapsed_is_the_difference);
 	RUN_TEST(test_elapsed_backwards_is_zero_not_a_huge_number);
+	RUN_TEST(test_a_count_is_written_as_decimal_text);
+	RUN_TEST(test_counts_past_thirty_two_bits_are_written_whole);
+	RUN_TEST(test_the_text_can_stand_in_a_format);
 	return UNITY_END();
 }

@@ -170,6 +170,8 @@ static void encode_hex(const uint8_t * data, uint32_t length, char * text)
 
 static void command_ver(char * tokens[], uint32_t count)
 {
+	char		time_text[TIMESTAMP_TEXT_SIZE];
+
 	UNUSED_PARAMETER(tokens);
 	UNUSED_PARAMETER(count);
 
@@ -177,13 +179,13 @@ static void command_ver(char * tokens[], uint32_t count)
 	 * deliberately, the date is what distinguishes two builds of the same
 	 * version - which is the case during development, and exactly when a
 	 * stale dongle misleads. */
-	reply_ok("%s %s fw=%s built=%s proto=%s uptime_us=%llu dropped=%lu",
+	reply_ok("%s %s fw=%s built=%s proto=%s uptime_us=%s dropped=%lu",
 		 PROTO_MANUFACTURER,
 		 PROTO_MODEL,
 		 firmware_version_string,
 		 firmware_build_date(),
 		 PROTO_VERSION,
-		 (unsigned long long)timestamp_now_us(),
+		 timestamp_format_us(timestamp_now_us(), time_text),
 		 (unsigned long)cdc_acm_dropped());
 }
 
@@ -267,6 +269,7 @@ static void command_scan(char * tokens[], uint32_t count)
 
 static void command_list(char * tokens[], uint32_t count)
 {
+	char		time_text[TIMESTAMP_TEXT_SIZE];
 	uint32_t	found = scanner_count();
 	uint32_t	index;
 	uint64_t	now_us = timestamp_now_us();
@@ -281,8 +284,8 @@ static void command_list(char * tokens[], uint32_t count)
 
 		scanner_format_address(&p_sensor->address, address);
 		(void)cdc_acm_send_format(
-			"+sensor t=%llu idx=%lu addr=%s type=%u rssi=%d seen=%lu name=%s",
-			(unsigned long long)now_us,
+			"+sensor t=%s idx=%lu addr=%s type=%u rssi=%d seen=%lu name=%s",
+			timestamp_format_us(now_us, time_text),
 			(unsigned long)index,
 			address,
 			(unsigned)p_sensor->address.addr_type,
@@ -444,6 +447,7 @@ static void command_disconnect(char * tokens[], uint32_t count)
 
 static void command_uart(char * tokens[], uint32_t count)
 {
+	char		time_text[TIMESTAMP_TEXT_SIZE];
 	const char * argument = tokens[1];
 
 	uint8_t		payload[PROTO_MAX_PAYLOAD];
@@ -471,13 +475,16 @@ static void command_uart(char * tokens[], uint32_t count)
 		return;
 	}
 
-	reply_ok("len=%ld t=%llu",
+	reply_ok("len=%ld t=%s",
 		 (long)length,
-		 (unsigned long long)timestamp_now_us());
+		 timestamp_format_us(timestamp_now_us(), time_text));
 }
 
 static void command_cmd(char * tokens[], uint32_t count)
 {
+	char		tx_text[TIMESTAMP_TEXT_SIZE];
+	char		rx_text[TIMESTAMP_TEXT_SIZE];
+	char		dt_text[TIMESTAMP_TEXT_SIZE];
 	const char * argument = tokens[1];
 
 	uint8_t		payload[PROTO_MAX_PAYLOAD];
@@ -524,10 +531,10 @@ static void command_cmd(char * tokens[], uint32_t count)
 	}
 
 	encode_hex(response.data, response.length, hex);
-	reply_ok("t_tx=%llu t_rx=%llu dt_us=%llu interval_us=%lu len=%u data=%s",
-		 (unsigned long long)response.tx_us,
-		 (unsigned long long)response.rx_us,
-		 (unsigned long long)response.round_trip_us,
+	reply_ok("t_tx=%s t_rx=%s dt_us=%s interval_us=%lu len=%u data=%s",
+		 timestamp_format_us(response.tx_us, tx_text),
+		 timestamp_format_us(response.rx_us, rx_text),
+		 timestamp_format_us(response.round_trip_us, dt_text),
 		 (unsigned long)nus_client_interval_us(),
 		 (unsigned)response.length,
 		 hex);
@@ -590,11 +597,13 @@ static void command_adv(char * tokens[], uint32_t count)
 
 static void command_time(char * tokens[], uint32_t count)
 {
+	char		time_text[TIMESTAMP_TEXT_SIZE];
+
 	UNUSED_PARAMETER(tokens);
 	UNUSED_PARAMETER(count);
 
-	reply_ok("t=%llu hz=%lu",
-		 (unsigned long long)timestamp_now_us(),
+	reply_ok("t=%s hz=%lu",
+		 timestamp_format_us(timestamp_now_us(), time_text),
 		 (unsigned long)TIMESTAMP_HZ);
 }
 

@@ -64,6 +64,7 @@ static uint8_t			m_reply[PROTO_MAX_PAYLOAD];
  */
 static void report_rx(const uint8_t * p_data, uint16_t length, uint64_t when_us)
 {
+	char		time_text[TIMESTAMP_TEXT_SIZE];
 	char		hex[(PROTO_MAX_PAYLOAD * 2U) + 1U];
 	uint16_t	index;
 	uint16_t	kept = length;
@@ -78,14 +79,15 @@ static void report_rx(const uint8_t * p_data, uint16_t length, uint64_t when_us)
 	}
 	hex[kept * 2U] = '\0';
 
-	(void)cdc_acm_send_format("+rx t=%llu len=%u data=%s",
-				  (unsigned long long)when_us,
+	(void)cdc_acm_send_format("+rx t=%s len=%u data=%s",
+				  timestamp_format_us(when_us, time_text),
 				  (unsigned)length,
 				  hex);
 }
 
 static void nus_c_event_handler(ble_nus_c_t * p_nus_c, ble_nus_c_evt_t const * p_evt)
 {
+	char		time_text[TIMESTAMP_TEXT_SIZE];
 	uint64_t when_us = timestamp_now_us();
 
 	switch (p_evt->evt_type)
@@ -96,8 +98,8 @@ static void nus_c_event_handler(ble_nus_c_t * p_nus_c, ble_nus_c_evt_t const * p
 					       &p_evt->handles);
 		(void)ble_nus_c_tx_notif_enable(p_nus_c);
 		m_ready = true;
-		(void)cdc_acm_send_format("+conn t=%llu state=ready interval_us=%lu",
-					  (unsigned long long)when_us,
+		(void)cdc_acm_send_format("+conn t=%s state=ready interval_us=%lu",
+					  timestamp_format_us(when_us, time_text),
 					  (unsigned long)m_interval_us);
 		break;
 
@@ -183,6 +185,8 @@ uint32_t nus_client_connect(const ble_gap_addr_t * p_address, uint32_t timeout_m
 
 uint32_t nus_client_disconnect(void)
 {
+	char		time_text[TIMESTAMP_TEXT_SIZE];
+
 	if (m_conn_handle != BLE_CONN_HANDLE_INVALID)
 	{
 		return sd_ble_gap_disconnect(m_conn_handle,
@@ -199,8 +203,8 @@ uint32_t nus_client_disconnect(void)
 	m_connecting = false;
 	if (sd_ble_gap_connect_cancel() == NRF_SUCCESS)
 	{
-		(void)cdc_acm_send_format("+disc t=%llu reason=cancelled",
-					  (unsigned long long)timestamp_now_us());
+		(void)cdc_acm_send_format("+disc t=%s reason=cancelled",
+					  timestamp_format_us(timestamp_now_us(), time_text));
 	}
 	else
 	{
@@ -306,6 +310,7 @@ uint32_t nus_client_command(const uint8_t *  p_data,
  */
 static void nus_client_on_connected(const ble_gap_evt_t * p_gap, uint64_t when_us)
 {
+	char		time_text[TIMESTAMP_TEXT_SIZE];
 	char		address[18];
 	uint32_t	error;
 
@@ -314,8 +319,8 @@ static void nus_client_on_connected(const ble_gap_evt_t * p_gap, uint64_t when_u
 	m_interval_us = (uint32_t)p_gap->params.connected.conn_params.min_conn_interval * 1250U;
 	scanner_format_address(&p_gap->params.connected.peer_addr, address);
 	(void)cdc_acm_send_format(
-		"+conn t=%llu addr=%s state=linked interval_us=%lu",
-		(unsigned long long)when_us, address,
+		"+conn t=%s addr=%s state=linked interval_us=%lu",
+		timestamp_format_us(when_us, time_text), address,
 		(unsigned long)m_interval_us);
 
 	if (m_drop_on_connect)
@@ -336,8 +341,8 @@ static void nus_client_on_connected(const ble_gap_evt_t * p_gap, uint64_t when_u
 	{
 		/* Say so and drop the link, rather than leave the host waiting for a
 		 * ready that cannot come. */
-		(void)cdc_acm_send_format("+conn t=%llu state=failed error=0x%lx",
-					  (unsigned long long)when_us,
+		(void)cdc_acm_send_format("+conn t=%s state=failed error=0x%lx",
+					  timestamp_format_us(when_us, time_text),
 					  (unsigned long)error);
 		(void)sd_ble_gap_disconnect(m_conn_handle,
 					    BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
@@ -346,6 +351,7 @@ static void nus_client_on_connected(const ble_gap_evt_t * p_gap, uint64_t when_u
 
 void nus_client_on_ble_evt(const ble_evt_t * p_ble_evt)
 {
+	char		time_text[TIMESTAMP_TEXT_SIZE];
 	const ble_gap_evt_t *	p_gap = &p_ble_evt->evt.gap_evt;
 	uint64_t		when_us = timestamp_now_us();
 
@@ -359,8 +365,8 @@ void nus_client_on_ble_evt(const ble_evt_t * p_ble_evt)
 		m_conn_handle = BLE_CONN_HANDLE_INVALID;
 		m_ready       = false;
 		m_interval_us = 0U;
-		(void)cdc_acm_send_format("+disc t=%llu reason=0x%02x",
-					  (unsigned long long)when_us,
+		(void)cdc_acm_send_format("+disc t=%s reason=0x%02x",
+					  timestamp_format_us(when_us, time_text),
 					  (unsigned)p_gap->params.disconnected.reason);
 		break;
 
@@ -374,8 +380,8 @@ void nus_client_on_ble_evt(const ble_evt_t * p_ble_evt)
 		{
 			m_connecting      = false;
 			m_drop_on_connect = false;
-			(void)cdc_acm_send_format("+disc t=%llu reason=timeout",
-						  (unsigned long long)when_us);
+			(void)cdc_acm_send_format("+disc t=%s reason=timeout",
+						  timestamp_format_us(when_us, time_text));
 		}
 		break;
 
