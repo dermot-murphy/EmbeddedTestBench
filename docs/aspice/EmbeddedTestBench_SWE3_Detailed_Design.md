@@ -10,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE3-001 | **Version** | 1.26 |
+| **Document ID** | ETB-SWE3-001 | **Version** | 1.27 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-22 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -60,6 +60,7 @@
 | 1.24 | 2026-10-05 | Claude | #180: BLE-DD-DONGLE - `open_link` tries a link that fails to establish (0x3E) again, up to `CONNECT_ATTEMPTS`, logging each failed attempt (`LinkLostError`, `_open_link_once`); BLE-DD-SCRIPTRUN - a `connect` step asks `open_link` for one attempt per try and logs each failed one; BLE-DD-CONST gains `CONNECT_ATTEMPTS` and `REASON_NOT_ESTABLISHED`; BLE-DD-SIM gains `not_established`. |
 | 1.25 | 2026-10-06 | Claude | #60: BLE-DD-SCRIPT - timeouts by command prefix (`PrefixTimeout`, `longest_prefix`), resolved when the variables bind and applied as each row is read; BLE-DD-SCRIPTRUN - each result carries the timeout that applied and why (`StepResult.timeout_s`, `timeout_from`), shown in the report and the event log; BLE-DD-CLI - `script --timeout PREFIX=MS`. |
 | 1.26 | 2026-10-22 | Claude | #251: BLE-DD-NUS - `disconnect` stops a connection still being made (`sd_ble_gap_connect_cancel`, `+disc reason=cancelled`), and drops a link completed before the cancel; BLE-DD-CMD - `connect` during one answers `err 7`, and a stack refusal carries `nrf=`; protocol 1.5, firmware 1.5.0. BLE-DD-DONGLE - `open_link` ignores link events from before its `connect` and recovers a refused `connect` (`disconnect`, then `reset` and reselect); `reset` reopens the port. BLE-DD-CONST - `DISCONNECT_EVENT_TIMEOUT` 6 s, `CONNECT_RECOVERABLE`, `DONGLE_RESET_SETTLE`; BLE-DD-SIM - `connect_outcome="pending"`. |
+| 1.27 | 2026-10-22 | Claude | #256: BLE-DD-TIMESTAMP - `timestamp_format_us` writes a 64-bit count as decimal text, and every timestamp is printed through it with `%s`, because newlib-nano has no long long conversion; firmware 1.5.1. |
 
 ---
 
@@ -1394,6 +1395,13 @@ the same order as the jitter being measured. The 32-bit hardware counter wraps
 every 71.6 minutes at 1 MHz, so the overflow count is re-read after the capture
 and the capture repeated if it changed - a read that straddles an overflow
 cannot return a stale figure, and at most one retry is ever needed.
+
+`timestamp_format_us` (inline, in `timestamp.h`) writes a count as decimal
+text into a `TIMESTAMP_TEXT_SIZE` buffer and returns it, so it can stand in a
+format's argument list with `%s`. Every 64-bit value the dongle reports - `t=`,
+`uptime_us`, `t_tx`, `t_rx`, `dt_us` - goes through it: the Makefile build
+links newlib-nano, which has no long long conversion and printed "lu" (#256).
+It is in the header so the unit-test fakes, which replace `timestamp.c`, keep it.
 
 #### BLE-DD-SCANNER — `firmware/src/ble_scanner.c`
 

@@ -51,6 +51,17 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # The image links newlib-nano, whose printf has no long long support:
+      # %llu printed "lu" and shifted every later argument (#256). The host
+      # tests link a full C library and cannot see it, so look for the format
+      # itself. 64-bit counts go through timestamp_format_us() and %s.
+      - name: No long long formats in the dongle firmware
+        run: |
+          if grep -rnE '%[-+ #0-9.*]*ll[diouxX]' firmware/nordic_dongle/src firmware/nordic_dongle/include; then
+            echo "::error::newlib-nano cannot print these; use timestamp_format_us() and %s (#256)"
+            exit 1
+          fi
+
       - name: Configure
         run: >
           cmake -S firmware/nordic_dongle/test -B build/firmware-tests

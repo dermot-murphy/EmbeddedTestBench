@@ -147,6 +147,16 @@ make SDK_ROOT=/path/to/nRF5_SDK_17.1.0 dfu      # and package it
 
 SES remains the reference; the Makefile exists because CI cannot licence an IDE.
 
+**No long long formats.** The Makefile links newlib-nano (`--specs=nano.specs`),
+whose `printf` has no `long long` support. Until firmware 1.5.1 every timestamp
+was printed with a `%llu` conversion, and a Makefile image answered `ver` with
+`uptime_us=lu` and a garbage `dropped=`; every `t=` was wrong in the same way
+(#256). SES's library supports long long, so the bench never showed it. Write a
+64-bit count with `timestamp_format_us()` and `%s`. The firmware workflow
+fails on any long long conversion under `src/` or `include/`, because the host
+unit tests link a full C library and cannot see it. Full newlib would also
+work, at 125 KB of `text` against 53 KB.
+
 1. Install nRF5 SDK 17.1.0 and SEGGER Embedded Studio for ARM.
 2. Open `firmware/nordic_dongle/ses/nordic_dongle_pca10059.emProject`.
 3. Set `SDK_ROOT` (Tools → Options → Building → Global macros), or build headless:

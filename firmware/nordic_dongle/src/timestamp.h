@@ -53,6 +53,43 @@ uint64_t timestamp_now_us(void);
  */
 uint64_t timestamp_elapsed_us(uint64_t start, uint64_t end);
 
+/** Characters needed for any 64-bit count: 20 digits and the terminator. */
+#define TIMESTAMP_TEXT_SIZE		21U
+
+/**
+ * @brief Write a microsecond count as decimal text, for a @c %s in a format.
+ *
+ * Every timestamp the host reads is a 64-bit count, and a long long
+ * conversion cannot carry it: newlib-nano's printf, which the Makefile build
+ * links, has no long long support and prints "lu" (#256). Formatting here keeps the image
+ * small and correct whatever library it links.
+ *
+ * @param[in]  value_us  The count to write.
+ * @param[out] p_text    At least @ref TIMESTAMP_TEXT_SIZE characters.
+ * @return @p p_text, so the call can stand in a format's argument list.
+ */
+static inline const char * timestamp_format_us(uint64_t value_us, char * p_text)
+{
+	char		reversed[TIMESTAMP_TEXT_SIZE];
+	uint32_t	count = 0U;
+	uint32_t	index;
+
+	do
+	{
+		reversed[count] = (char)('0' + (char)(value_us % 10U));
+		value_us /= 10U;
+		count++;
+	} while (value_us != 0U);
+
+	for (index = 0U; index < count; index++)
+	{
+		p_text[index] = reversed[count - 1U - index];
+	}
+	p_text[count] = '\0';
+
+	return p_text;
+}
+
 #ifdef __cplusplus
 }
 #endif
