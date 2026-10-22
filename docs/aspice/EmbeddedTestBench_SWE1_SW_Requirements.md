@@ -10,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE1-001 | **Version** | 1.27 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-06 |
+| **Document ID** | ETB-SWE1-001 | **Version** | 1.28 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-22 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.1 |
@@ -61,6 +61,7 @@
 | 1.25 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | 1.26 | 2026-10-05 | Claude | #180: BLE-FR-049 revised - a link that fails to establish (HCI reason 0x3E) is tried again, up to three attempts in all as a `connect` step's are, each failed attempt logged; no other failure is tried again, and a `connect` step makes no more attempts than its own. |
 | 1.27 | 2026-10-06 | Claude | #60: BLE-FR-119 added - timeouts by command prefix in a command document, with a per-run override and the timeout that applied stated in each result; BLE-FR-112's empty cell now defers to it. |
+| 1.28 | 2026-10-22 | Claude | #121: BLE-FR-120 added - a simulated Kepler sensor 5C1712 shared by the simulated dongle, probe and supply. |
 
 ---
 
@@ -522,6 +523,7 @@ implements them; §11.6 says which.
 | BLE-FR-117 | The driver shall send one command a given number of times at a given interval, take a number from each reply by a pattern and scale it, and refuse, naming the reply, one that carries no number. | STK-12 | Test |
 | BLE-FR-118 | A command's result shall give the value its reply reports - the text after the reply's first ` = `, trimmed, or nothing when there is none - so that it can be compared with the same value from another source, where the rest of the reply is not carried. | STK-12 | Test |
 | BLE-FR-119 | A document shall be able to declare a timeout, in milliseconds, for every command that starts with a given prefix, in a table before its first step. A prefix shall match the start of a command sent to the sensor ignoring case, the longest matching prefix winning; it shall be the reply timeout of a command with an expected response, the listening window of one with none, and the timeout of a `<disconnect>`. A step's own timeout shall win over it, and it over the run's default. A value may be a variable; a run shall be able to override or add to the table per prefix; a prefix given twice, an empty prefix or a value out of range shall be refused naming the line. Each step's result shall state the timeout that applied and why. | STK-12, STK-14 | Test |
+| BLE-FR-120 | The simulated bench shall include the Kepler sensor 5C1712 at `D1:8D:3B:4C:19:96`, answering `RD VERSION`, `RD SHA`, `RD ID`, `RD BATTERY`, `RD BATTERY-LOADED`, `RD TEMPERATURE`, `WR ALIVE-PERIOD`, `WR PREAMBLE-LENGTH` and `ECURESET HARD` in the sensor's own reply formats, with each format's source recorded and any assumed one marked as an open item. Its battery shall read the simulated supply's channel 2, a reset shall drop the link, and the simulated probe, when the bench wires it to the sensor, shall read its RTT `MCU Temperature` line once a second, so that one simulated sensor is behind every simulated instrument that touches it. | STK-08, STK-15 | Test |
 | BLE-FR-090 | The firmware shall build as a SEGGER Embedded Studio project against nRF5 SDK 17 for the PCA10059 dongle, and shall be packageable as a DFU image for the dongle's factory bootloader. | STK-16 | Inspection |
 
 ### 11.7 BLE non-functional

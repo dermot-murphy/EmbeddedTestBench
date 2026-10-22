@@ -238,10 +238,15 @@ class TestCustomPopulation:
 
     def test_the_default_population_is_stable(self):
         """The tests assert on these figures, so they are part of the contract."""
-        assert [sensor.name for sensor in DEFAULT_SENSORS] == ["SENS-0A1B2C", "SENS-0B2C3D", ""]
+        assert [sensor.name for sensor in DEFAULT_SENSORS] == [
+            "SENS-0A1B2C", "SENS-0B2C3D", "", "KAPPA_5C1712_V11.00.00"]
         assert DEFAULT_SENSORS[0].interval_us == 100_000
         assert DEFAULT_SENSORS[1].miss_every == 5
         assert DEFAULT_SENSORS[2].connectable is False
+        # The Kepler sensor the Kepler specifications select (#121). Its 2 s
+        # interval keeps it out of the one-second scans the other tests make.
+        assert DEFAULT_SENSORS[3].address == "D1:8D:3B:4C:19:96"
+        assert DEFAULT_SENSORS[3].interval_us == 2_000_000
 
 
 class TestTheDefaultPopulationIsNotShared:
@@ -264,7 +269,7 @@ class TestTheDefaultPopulationIsNotShared:
         simulator.sensors[0].responses.clear()
         simulator.sensors.pop()
         assert DEFAULT_SENSORS[0].responses, "the shipped population still has replies"
-        assert len(DEFAULT_SENSORS) == 3
+        assert len(DEFAULT_SENSORS) == 4
 
     def test_a_population_given_explicitly_is_copied_too(self):
         given = SimulatedSensor(address="AA:BB:CC:DD:EE:FF", name="SENS-000001",

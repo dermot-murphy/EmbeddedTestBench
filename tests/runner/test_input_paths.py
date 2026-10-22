@@ -144,10 +144,23 @@ SPECS = sorted(ROOT.glob("specs/*.yaml"))
 SIMULATED_BENCH = ROOT / "benches" / "simulated_bench.yaml"
 
 
+#: Specifications run here for their setup and teardown only. Their tests talk
+#: to the simulated Kepler sensor (#121) and then wait for its radio frames,
+#: which nothing simulates yet (#122): every receive would sit out its 60 to
+#: 180 s timeout, ten minutes a run. Setup and teardown hold their paths, which
+#: are what this test is about; tests/runner/test_kepler_simulated.py runs the
+#: rest.
+SETUP_ONLY = ("kepler_",)
+
+#: A test case name no specification has, so a run selects none of its tests.
+NO_TESTS = ("(setup and teardown only)",)
+
+
 def _outcome(spec_path: pathlib.Path):
     """What running *spec_path* on the simulated bench came to, case by case."""
+    selection = NO_TESTS if spec_path.name.startswith(SETUP_ONLY) else ()
     with BenchRunner.from_config(load_bench(str(SIMULATED_BENCH)), simulate=True) as runner:
-        record = runner.run(load_spec(str(spec_path)))
+        record = runner.run(load_spec(str(spec_path)), selection=selection)
     return record.setup_error, [
         (case.name, case.status, [step.error for step in case.steps]) for case in record.cases
     ]

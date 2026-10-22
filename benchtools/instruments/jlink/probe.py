@@ -40,6 +40,7 @@ from ...core.instrument import Instrument, InstrumentIdentity
 from ...core.paths import input_paths
 from ...core.transport.base import Transport
 from ...core.transport.mock import MockTransport
+from ...simulated.world import rtt_source
 from ...core.transport.process import ProcessTransport
 from .constants import (
     DEFAULT_GDB_PORT,
@@ -325,6 +326,7 @@ class JLinkProbe(Instrument):
         initialise: bool = True,
         start_server: bool = True,
         attach: bool = True,
+        simulated_target: Optional[str] = None,
         **_ignored,
     ) -> "JLinkProbe":
         """Open a link to a target through a J-Link.
@@ -353,6 +355,10 @@ class JLinkProbe(Instrument):
             talks to the target over BLE while reading its log needs this.
             Anything but RTT needs the attach, and fails with GDB's own
             "no target" error.
+        :param simulated_target: ``sim://`` only: the simulated device the
+            probe is wired to, whose RTT log it reads - ``kepler-5C1712``, the
+            Kepler sensor the simulated dongle also talks to (#121). Ignored for
+            a real probe, which is wired to whatever is on the bench.
         """
         text = (resource or "sim://").strip()
         if core_clock_hz is not None:
@@ -360,6 +366,11 @@ class JLinkProbe(Instrument):
 
         if text.lower().startswith(("sim://", "mock://")) or text.lower() in ("sim", "mock"):
             simulator = SimulatedJLink()
+            if simulated_target:
+                try:
+                    simulator.periodic_rtt = rtt_source(simulated_target)
+                except ValueError as exc:
+                    raise ConfigurationError(str(exc)) from exc
             transport: Transport = MockTransport(responder=simulator, timeout=timeout)
             rtt = RttClient(SimulatedRttBackend(simulator))
             server = None

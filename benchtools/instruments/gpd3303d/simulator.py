@@ -23,7 +23,7 @@ front panel; the timing of the supply's own regulation loop; and the read-back
 truncation that makes a real unloaded 3.600 V channel measure ``3.5V`` - this
 model rounds.
 
-Traces to: PSU-FR-006, PSU-FR-050, PSU-DD-SIM.
+Traces to: PSU-FR-006, PSU-FR-050, PSU-DD-SIM, BLE-DD-SIMWORLD.
 """
 
 from __future__ import annotations
@@ -31,6 +31,7 @@ from __future__ import annotations
 import re
 from typing import Dict, List, Optional
 
+from ...simulated.world import register_supply
 from .constants import (
     CHANNELS,
     MAX_CURRENT,
@@ -149,6 +150,9 @@ class SimulatedGpd:
         self.tracking = tracking
         self.last_error = ""
         self.reset()
+        # The simulated sensor runs from this supply, as 5C1712 runs from the
+        # bench's (#121).
+        register_supply(self)
 
     # ------------------------------------------------------------------
     def reset(self) -> None:
@@ -162,6 +166,10 @@ class SimulatedGpd:
         for channel in self.channels.values():
             channel.voltage_setpoint = 0.0
             channel.current_limit = 0.0
+
+    def terminal_volts(self, channel: int) -> float:
+        """The voltage at *channel*'s terminals now, as a device wired to it sees it."""
+        return float(self.channels[channel].output(self.output)["voltage"])
 
     def set_load(self, channel: int, ohms: Optional[float]) -> None:
         """Connect a resistive load to *channel*, or ``None`` for open circuit."""

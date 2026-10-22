@@ -17,3 +17,17 @@ asserted to match in `tests/runner/test_sensor_bringup.py`, so a change to
 either simulator that would have made this bench a fiction fails a test instead.
 
 A real bench points at real build output — see `benches/lab1.yaml`.
+
+## The Kepler sensor (#121)
+
+`simulated_bench.yaml` also stands in for the bench's Kepler sensor 5C1712. One
+model of it (`benchtools/simulated/kepler.py`) is behind three instruments:
+
+| Instrument | What it sees of 5C1712 |
+|---|---|
+| `dongle` | the sensor at `D1:8D:3B:4C:19:96`, answering `RD VERSION`, `RD SHA`, `RD ID`, `RD BATTERY`, `RD BATTERY-LOADED`, `RD TEMPERATURE`, `WR ALIVE-PERIOD`, `WR PREAMBLE-LENGTH` and `ECURESET HARD` |
+| `psu` | its battery input on channel 2: `RD BATTERY` reads what channel 2 is set to |
+| `rtt` | its RTT log, `MCU Temperature: <n>mC` once a second, because the entry sets `simulated_target: kepler-5C1712` |
+
+Its radio is not simulated yet (#122): the Kepler specifications' S2-LP steps
+still need hardware, and on this bench they wait out their receive timeouts.

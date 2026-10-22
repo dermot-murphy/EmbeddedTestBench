@@ -17,16 +17,17 @@ What is deliberately *not* modelled: instruction semantics. Nothing here
 executes code. The model answers debugger questions consistently; it is not an
 emulator, and a test that needs real instruction behaviour needs real hardware.
 
-Traces to: JLINK-FR-090, JLINK-DD-SIM.
+Traces to: JLINK-FR-090, JLINK-DD-SIM, BLE-DD-SIMWORLD.
 """
 
 from __future__ import annotations
 
 import logging
 import shlex
+import time
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
-from typing import Any, Deque, Dict, List, Optional, Tuple
+from typing import Any, Callable, Deque, Dict, List, Optional, Tuple
 
 from .constants import DEMCR, DWT_CTRL, DWT_CYCCNT
 
@@ -238,6 +239,13 @@ class SimulatedJLink:
         self.idn = self.DEFAULT_IDN
         #: Every MI command received, in order. Tests assert on this.
         self.command_log: List[str] = []
+        #: A line the target writes to RTT every *periodic_rtt_s* while RTT
+        #: runs, on the host's clock: the simulated Kepler sensor's
+        #: "MCU Temperature" line, say (#121). None for a target that writes
+        #: only when it reaches a location.
+        self.periodic_rtt: Optional[Callable[[], str]] = None
+        self.periodic_rtt_s = 1.0
+        self._periodic_due = 0.0
         self.reset()
 
     # ------------------------------------------------------------------
@@ -430,10 +438,25 @@ class SimulatedJLink:
     # ------------------------------------------------------------------
     def rtt_read(self) -> str:
         """Drain the RTT output buffer."""
+        self._emit_periodic()
         lines: List[str] = []
         while self.rtt_out:
             lines.append(self.rtt_out.popleft())
         return "".join(line + "\n" for line in lines)
+
+    def start_rtt(self) -> None:
+        """RTT is running: lines the target writes from now on are kept."""
+        self.rtt_started = True
+        self._periodic_due = time.monotonic() + self.periodic_rtt_s
+
+    def _emit_periodic(self) -> None:
+        """Write the periodic line once for every period that has passed."""
+        if self.periodic_rtt is None or not self.rtt_started:
+            return
+        now = time.monotonic()
+        while now >= self._periodic_due:
+            self.rtt_out.append(self.periodic_rtt())
+            self._periodic_due += self.periodic_rtt_s
 
     def rtt_write(self, text: str) -> None:
         """Accept RTT input, replying as the firmware would."""
@@ -962,7 +985,7 @@ class SimulatedJLink:
             ]) + self._ok(token)
         if lower.startswith("rtt"):
             if "start" in lower:
-                self.rtt_started = True
+                self.start_rtt()
                 return self._stream(["RTT started"]) + self._ok(token)
             if "stop" in lower:
                 self.rtt_started = False
