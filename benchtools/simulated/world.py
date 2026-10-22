@@ -27,16 +27,16 @@ __all__ = ["kepler_sensor", "register_supply", "reset_world", "rtt_source", "sup
 SENSOR_SUPPLY_CHANNEL = 2
 
 _sensors: Dict[int, KeplerSensorModel] = {}
-_supply: Optional["weakref.ref"] = None
+#: The supply, held weakly: a supply nothing else uses any more powers nothing.
+_SUPPLY: Dict[str, "weakref.ref"] = {}
 
 
 def register_supply(simulator) -> None:
     """Make *simulator* the supply the simulated sensor is powered from.
 
-    Held weakly: a supply nothing else uses any more powers nothing.
+    The latest one built wins.
     """
-    global _supply  # pylint: disable=global-statement
-    _supply = weakref.ref(simulator)
+    _SUPPLY["supply"] = weakref.ref(simulator)
 
 
 def supply_volts(channel: int = SENSOR_SUPPLY_CHANNEL) -> Optional[float]:
@@ -44,7 +44,8 @@ def supply_volts(channel: int = SENSOR_SUPPLY_CHANNEL) -> Optional[float]:
 
     An output that is switched off reads 0 V, as the sensor would see it.
     """
-    simulator = _supply() if _supply is not None else None
+    held = _SUPPLY.get("supply")
+    simulator = held() if held is not None else None
     if simulator is None:
         return None
     return float(simulator.terminal_volts(channel))
@@ -77,6 +78,5 @@ def rtt_source(target: str) -> Callable[[], str]:
 
 def reset_world() -> None:
     """Forget the supply and every sensor."""
-    global _supply  # pylint: disable=global-statement
-    _supply = None
+    _SUPPLY.clear()
     _sensors.clear()
