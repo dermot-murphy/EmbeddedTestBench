@@ -77,6 +77,28 @@ static void extract_name(const ble_data_t * p_data, char * name, uint8_t * p_len
 }
 
 /**
+ * @brief The company ID that opens a manufacturer-specific record, if any.
+ *
+ * The ID is the record's first two bytes, least significant first.
+ */
+static bool ble_scanner_manufacturer_id(const ble_data_t * p_data, uint16_t * p_id)
+{
+	uint16_t	offset = 0U;
+	uint16_t	length;
+
+	length = ble_advdata_search(p_data->p_data, p_data->len, &offset,
+				    BLE_GAP_AD_TYPE_MANUFACTURER_SPECIFIC_DATA);
+	if ((length < 2U) || (offset == 0U))
+	{
+		return false;
+	}
+
+	*p_id = (uint16_t)((uint16_t)p_data->p_data[offset] |
+			   (uint16_t)((uint16_t)p_data->p_data[offset + 1U] << 8U));
+	return true;
+}
+
+/**
  * @brief True when a report passes the active filter.
  */
 static bool passes_filter(const ble_gap_evt_adv_report_t * p_report,
@@ -141,6 +163,25 @@ static void remember(const ble_gap_evt_adv_report_t * p_report,
 	{
 		(void)memcpy(p_sensor->name, name, (uint32_t)name_length + 1U);
 		p_sensor->name_length = name_length;
+	}
+
+	/* A Kepler sensor moved its company ID into the scan response (TX-941),
+	 * so both payloads are searched, and the scan response is kept whole for
+	 * a test to inspect (#241). */
+	if (ble_scanner_manufacturer_id(&p_report->data, &p_sensor->manufacturer_id))
+	{
+		p_sensor->has_manufacturer = true;
+	}
+	if (p_report->type.scan_response != 0U)
+	{
+		uint16_t kept = p_report->data.len;
+
+		if (kept > PROTOCOL_MAX_ADV_DATA)
+		{
+			kept = PROTOCOL_MAX_ADV_DATA;
+		}
+		(void)memcpy(p_sensor->scan_response, p_report->data.p_data, kept);
+		p_sensor->scan_response_length = (uint8_t)kept;
 	}
 }
 

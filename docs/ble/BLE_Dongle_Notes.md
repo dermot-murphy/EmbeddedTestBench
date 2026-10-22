@@ -80,7 +80,7 @@ Every event carries `t=`, microseconds on the dongle's clock.
 | Event | Fields |
 |---|---|
 | `+adv` | `t addr type rssi pdu ch name data` — one advertising report |
-| `+sensor` | `t idx addr type rssi seen name` — one entry of the scan result |
+| `+sensor` | `t idx addr type rssi seen mfr sr name` — one entry of the scan result. From protocol 1.6: `mfr` is the company ID of a manufacturer-specific record in either payload (`0x0F55` for Sensoteq), empty if none; `sr` is the latest scan response in hex, only after an active scan; the name is kept up to 31 bytes (#241) |
 | `+rx` | `t len data` — bytes notified by the sensor |
 | `+conn` | `t addr state interval_us` — `state=linked` then `state=ready` |
 | `+disc` | `t reason` — HCI reason code; `timeout` when the connect window closed; `cancelled` when `disconnect` stopped a connection being made (1.5) |

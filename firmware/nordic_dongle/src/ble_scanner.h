@@ -39,6 +39,10 @@ typedef struct
 	int8_t		rssi;				/**< most recent */
 	uint8_t		name_length;
 	char		name[PROTO_MAX_NAME];		/**< empty if not advertised */
+	bool		has_manufacturer;		/**< a manufacturer ID was seen */
+	uint16_t	manufacturer_id;		/**< company ID, from either payload */
+	uint8_t		scan_response_length;		/**< 0 until a scan response */
+	uint8_t		scan_response[PROTOCOL_MAX_ADV_DATA];	/**< the latest one */
 	uint32_t	seen;				/**< reports from this address */
 	uint64_t	first_us;
 	uint64_t	last_us;

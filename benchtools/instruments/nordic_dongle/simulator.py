@@ -26,6 +26,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
 from .constants import AddressType, DongleError
+from .protocol import manufacturer_id
 
 __all__ = ["SimulatedSensor", "SimulatedDongle", "DEFAULT_SENSORS"]
 
@@ -61,6 +62,9 @@ class SimulatedSensor:
     delay_pattern_us: Tuple[int, ...] = (0, 3_000, 7_000, 10_000)
     miss_every: int = 0
     payload: bytes = b"\x02\x01\x06"
+    #: Sent to an active scan (protocol 1.6). A Kepler sensor puts its company
+    #: ID here since TX-941 (#241).
+    scan_response: bytes = b""
     responses: Dict[str, str] = field(default_factory=dict)
     latency_us: int = 12_500
     #: Commands that take longer than the usual round trip, in microseconds.
@@ -150,9 +154,9 @@ class SimulatedDongle:
 
     #: The build the simulated dongle is running. A test that exercises the
     #: update path changes these, as flashing a real dongle would.
-    DEFAULT_FIRMWARE_VERSION = "1.5.0"
+    DEFAULT_FIRMWARE_VERSION = "1.6.0"
     DEFAULT_FIRMWARE_BUILT = "2026-09-13T12:00:00Z"
-    DEFAULT_PROTOCOL = "1.5"
+    DEFAULT_PROTOCOL = "1.6"
 
     def __init__(
         self,
@@ -432,19 +436,32 @@ class SimulatedDongle:
     def _cmd_list(self, arguments: List[str]) -> List[str]:
         lines = []
         for index, sensor in enumerate(self._found):
+            extra = ""
+            if self._protocol_at_least(1, 6):
+                extra = self._manufacturer_fields(sensor)
             lines.append(
-                "+sensor t=%d idx=%d addr=%s type=%d rssi=%d seen=1 name=%s"
+                "+sensor t=%d idx=%d addr=%s type=%d rssi=%d seen=1 %sname=%s"
                 % (
                     self.clock_us,
                     index,
                     sensor.address,
                     int(sensor.address_type),
                     sensor.rssi,
+                    extra,
                     sensor.name,
                 )
             )
         lines.append("ok sensors=%d" % len(self._found))
         return lines
+
+    def _manufacturer_fields(self, sensor: SimulatedSensor) -> str:
+        """``mfr=`` and ``sr=`` as the firmware writes them: the scan response
+        only after an active scan, the company ID from either payload."""
+        response = sensor.scan_response if self._scan_filter.get("active") == "1" else b""
+        company = manufacturer_id(sensor.payload)
+        if company is None:
+            company = manufacturer_id(response)
+        return "mfr=%s sr=%s " % ("" if company is None else "0x%04X" % company, response.hex())
 
     def _cmd_select(self, arguments: List[str]) -> List[str]:
         target = arguments[0]

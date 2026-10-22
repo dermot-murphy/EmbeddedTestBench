@@ -161,6 +161,17 @@ void fake_scanner_add(const char * address, uint8_t address_type, const char * n
 	m_sensor_count++;
 }
 
+void fake_scanner_set_scan_response(uint16_t manufacturer_id,
+				    const uint8_t * p_data, uint8_t length)
+{
+	scanner_sensor_t * p_sensor = &m_sensors[m_sensor_count - 1U];
+
+	p_sensor->has_manufacturer     = true;
+	p_sensor->manufacturer_id      = manufacturer_id;
+	p_sensor->scan_response_length = length;
+	(void)memcpy(p_sensor->scan_response, p_data, length);
+}
+
 void fake_scanner_set_active(bool active)		{ m_scanning = active; }
 void fake_scanner_set_profiling(bool profiling)		{ m_profiling = profiling; }
 void fake_scanner_set_counters(uint32_t received, uint32_t reported)

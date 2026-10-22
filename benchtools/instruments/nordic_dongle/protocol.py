@@ -36,6 +36,7 @@ __all__ = [
     "parse_fields",
     "to_hex",
     "from_hex",
+    "manufacturer_id",
     "encode_payload",
     "format_address",
     "normalise_address",
@@ -178,6 +179,24 @@ def from_hex(text: str) -> bytes:
         raise DongleProtocolError(
             "the dongle sent %r where hex was expected: %s" % (text, exc)
         ) from exc
+
+
+def manufacturer_id(payload: bytes) -> Optional[int]:
+    """The company ID opening the first manufacturer-specific record, or None.
+
+    Advertising data is a run of (length, type, data) records; a
+    manufacturer-specific record (type 0xFF) starts with the company ID, least
+    significant byte first. This is what the firmware reports as ``mfr=``.
+    """
+    index = 0
+    while index + 1 < len(payload):
+        length = payload[index]
+        if length == 0:
+            return None
+        if payload[index + 1] == 0xFF and length >= 3 and index + 3 < len(payload):
+            return payload[index + 2] | (payload[index + 3] << 8)
+        index += length + 1
+    return None
 
 
 def encode_payload(payload) -> str:

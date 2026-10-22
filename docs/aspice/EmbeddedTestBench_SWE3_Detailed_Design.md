@@ -10,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE3-001 | **Version** | 1.27 |
+| **Document ID** | ETB-SWE3-001 | **Version** | 1.28 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-22 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -61,6 +61,7 @@
 | 1.25 | 2026-10-06 | Claude | #60: BLE-DD-SCRIPT - timeouts by command prefix (`PrefixTimeout`, `longest_prefix`), resolved when the variables bind and applied as each row is read; BLE-DD-SCRIPTRUN - each result carries the timeout that applied and why (`StepResult.timeout_s`, `timeout_from`), shown in the report and the event log; BLE-DD-CLI - `script --timeout PREFIX=MS`. |
 | 1.26 | 2026-10-22 | Claude | #251: BLE-DD-NUS - `disconnect` stops a connection still being made (`sd_ble_gap_connect_cancel`, `+disc reason=cancelled`), and drops a link completed before the cancel; BLE-DD-CMD - `connect` during one answers `err 7`, and a stack refusal carries `nrf=`; protocol 1.5, firmware 1.5.0. BLE-DD-DONGLE - `open_link` ignores link events from before its `connect` and recovers a refused `connect` (`disconnect`, then `reset` and reselect); `reset` reopens the port. BLE-DD-CONST - `DISCONNECT_EVENT_TIMEOUT` 6 s, `CONNECT_RECOVERABLE`, `DONGLE_RESET_SETTLE`; BLE-DD-SIM - `connect_outcome="pending"`. |
 | 1.27 | 2026-10-22 | Claude | #256: BLE-DD-TIMESTAMP - `timestamp_format_us` writes a 64-bit count as decimal text, and every timestamp is printed through it with `%s`, because newlib-nano has no long long conversion; firmware 1.5.1. |
+| 1.28 | 2026-10-22 | Claude | #241: BLE-DD-SCANNER - names up to 31 bytes (`PROTO_MAX_NAME` 32), and each sensor keeps the latest scan response and the company ID from either payload; BLE-DD-CMD - `+sensor` reports `mfr=` and `sr=`; protocol 1.6, firmware 1.6.0. BLE-DD-DONGLE - `Sensor.manufacturer_id`, `Sensor.scan_response`; BLE-DD-SIM - `SimulatedSensor.scan_response`. |
 
 ---
 
@@ -1418,6 +1419,13 @@ Scanning, the sensor table and advertising-report timestamping.
   indistinguishable.
 - The sensor table is bounded and does not evict: once full, a new address is
   ignored rather than displacing one the host may already have selected.
+- A name is kept up to 31 bytes, the most an advertising payload holds; at 23 a
+  Kepler sensor's 25-character name lost its last two characters (#241). Each
+  sensor also keeps the latest scan response (`PROTOCOL_MAX_ADV_DATA`, an
+  active scan only) and the company ID of a manufacturer-specific record in
+  either payload, because a Kepler sensor moved its company ID into the scan
+  response (TX-941). `+sensor` reports them as `mfr=` and `sr=`, before the
+  name, which stays last because it may hold a space.
 - Addresses are formatted most significant octet first, as they are written,
   while the stack stores them the other way round.
 

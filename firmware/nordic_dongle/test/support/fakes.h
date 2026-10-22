@@ -51,6 +51,9 @@ void		fake_clock_set_step(uint64_t microseconds);
 void		fake_clock_reset(void);
 
 /* --- scanner, when faked for the command parser --------------------- */
+/** Give the last sensor added a manufacturer ID and a scan response. */
+void		fake_scanner_set_scan_response(uint16_t manufacturer_id,
+					       const uint8_t * p_data, uint8_t length);
 void		fake_scanner_add(const char * address, uint8_t address_type,
 				 const char * name, int8_t rssi);
 void		fake_scanner_set_active(bool active);

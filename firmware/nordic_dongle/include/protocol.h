@@ -33,13 +33,15 @@ extern "C" {
 
 /** Protocol revision. Bumped when a command or event changes shape.
  *
+ * 1.6 - ``+sensor`` reports the manufacturer ID (``mfr=``) and, after an active
+ *       scan, the scan-response payload (``sr=``); names up to 31 bytes (#241).
  * 1.5 - ``disconnect`` also stops a connection still being made, reported as
  *       ``+disc reason=cancelled``; ``connect`` during one answers ``err 7``,
  *       and a stack refusal carries its code as ``nrf=0x..`` (#251).
  * 1.1 - ``ver`` reports the firmware version and build date; ``dfu`` added.
  * 1.0 - first release.
  */
-#define PROTO_VERSION			"1.5"
+#define PROTO_VERSION			"1.6"
 
 /** How long a connection attempt listens for the sensor, by default and at
  *  most, in milliseconds. A sensor advertising every 9 s was missed by a
@@ -70,8 +72,14 @@ extern "C" {
 /** Sensors retained by a scan. Bounded because the firmware allocates nothing. */
 #define PROTO_MAX_SENSORS		16U
 
-/** Longest device name kept from an advertising payload. */
-#define PROTO_MAX_NAME			24U
+/** Longest advertising or scan-response payload: 31 bytes in legacy
+ *  advertising. */
+#define PROTOCOL_MAX_ADV_DATA		31U
+
+/** Longest device name kept, with its terminator: PROTOCOL_MAX_ADV_DATA and
+ *  one, since a name can fill an advertising payload. At 24 a sensor's
+ *  25-character name lost its last two characters (#241). */
+#define PROTO_MAX_NAME			32U
 
 /** Longest UART payload in one direction, in bytes before hex encoding: the
  *  ATT MTU of 247 less the 3-byte write header, the most one NUS write carries

@@ -202,7 +202,7 @@ class TestTheDongleReportsItsBuild:
         assert "fw=" in identity.raw
 
     def test_the_protocol_is_reported_separately(self, dongle):
-        assert dongle.protocol_version == "1.5"
+        assert dongle.protocol_version == "1.6"
         assert dongle.protocol_is_compatible is True
 
 

@@ -35,7 +35,7 @@ class TestSubcommands:
         status, payload, _ = run(capsys, *SIM, "info")
         assert status == 0
         assert payload["manufacturer"] == "Nordic"
-        assert payload["protocol"] == "1.5"
+        assert payload["protocol"] == "1.6"
         assert payload["firmware"] == SimulatedDongle.DEFAULT_FIRMWARE_VERSION
         assert payload["built"] == SimulatedDongle.DEFAULT_FIRMWARE_BUILT
 

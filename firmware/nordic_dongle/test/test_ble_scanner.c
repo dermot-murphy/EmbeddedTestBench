@@ -246,6 +246,64 @@ static void test_a_name_once_seen_is_kept(void)
 	TEST_ASSERT_EQUAL_STRING("SENS-01", scanner_get(0U)->name);
 }
 
+static void test_a_full_length_name_is_kept_whole(void)
+{
+	/* Cut to 23 characters before #241: the sensor's name has 25. */
+	test_report("D1:8D:3B:4C:19:96", -55, "KAPPA_5C1712_V11.00.0000X");
+	TEST_ASSERT_EQUAL_STRING("KAPPA_5C1712_V11.00.0000X", scanner_get(0U)->name);
+
+	/* The longest that fits beside the flags: 26 characters. */
+	test_report("C9:3A:51:0F:22:04", -60, "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+	TEST_ASSERT_EQUAL_STRING("ABCDEFGHIJKLMNOPQRSTUVWXYZ", scanner_get(1U)->name);
+}
+
+static void test_a_scan_response_is_kept_with_its_manufacturer_id(void)
+{
+	uint8_t		advertising[31];
+	uint16_t	length = test_make_payload(advertising, "KAPPA_5C1712_V11.00.0000X");
+	uint8_t		response[] = { 0x05U, 0xFFU, 0x55U, 0x0FU, 0xAAU, 0xBBU };
+	ble_evt_t	event;
+
+	event = test_make_report("D1:8D:3B:4C:19:96", -55, 37U, advertising, length);
+	scanner_on_ble_evt(&event);
+	TEST_ASSERT_FALSE(scanner_get(0U)->has_manufacturer);
+	TEST_ASSERT_EQUAL_UINT8(0U, scanner_get(0U)->scan_response_length);
+
+	event = test_make_report("D1:8D:3B:4C:19:96", -55, 37U, response, sizeof(response));
+	event.evt.gap_evt.params.adv_report.type.scan_response = 1U;
+	scanner_on_ble_evt(&event);
+
+	TEST_ASSERT_EQUAL_UINT32(1U, scanner_count());
+	TEST_ASSERT_TRUE(scanner_get(0U)->has_manufacturer);
+	TEST_ASSERT_EQUAL_HEX16(0x0F55U, scanner_get(0U)->manufacturer_id);
+	TEST_ASSERT_EQUAL_UINT8(sizeof(response), scanner_get(0U)->scan_response_length);
+	TEST_ASSERT_EQUAL_MEMORY(response, scanner_get(0U)->scan_response, sizeof(response));
+	/* The name from the advertising payload survives the scan response. */
+	TEST_ASSERT_EQUAL_STRING("KAPPA_5C1712_V11.00.0000X", scanner_get(0U)->name);
+}
+
+static void test_a_manufacturer_id_in_the_advertising_payload_is_found(void)
+{
+	uint8_t		advertising[] = { 0x02U, 0x01U, 0x06U, 0x03U, 0xFFU, 0x59U, 0x00U };
+	ble_evt_t	event = test_make_report("E4:1C:7B:02:9A:11", -62, 38U,
+						 advertising, sizeof(advertising));
+
+	scanner_on_ble_evt(&event);
+	TEST_ASSERT_TRUE(scanner_get(0U)->has_manufacturer);
+	TEST_ASSERT_EQUAL_HEX16(0x0059U, scanner_get(0U)->manufacturer_id);
+	TEST_ASSERT_EQUAL_UINT8(0U, scanner_get(0U)->scan_response_length);
+}
+
+static void test_a_manufacturer_record_too_short_for_an_id_is_ignored(void)
+{
+	uint8_t		advertising[] = { 0x02U, 0x01U, 0x06U, 0x02U, 0xFFU, 0x59U };
+	ble_evt_t	event = test_make_report("E4:1C:7B:02:9A:11", -62, 38U,
+						 advertising, sizeof(advertising));
+
+	scanner_on_ble_evt(&event);
+	TEST_ASSERT_FALSE(scanner_get(0U)->has_manufacturer);
+}
+
 static void test_several_sensors_are_kept_apart(void)
 {
 	test_report("E4:1C:7B:02:9A:11", -62, "SENS-01");
@@ -462,6 +520,10 @@ int main(void)
 	RUN_TEST(test_the_name_is_taken_from_the_payload);
 	RUN_TEST(test_a_sensor_that_advertises_no_name_is_still_recorded);
 	RUN_TEST(test_a_name_once_seen_is_kept);
+	RUN_TEST(test_a_full_length_name_is_kept_whole);
+	RUN_TEST(test_a_scan_response_is_kept_with_its_manufacturer_id);
+	RUN_TEST(test_a_manufacturer_id_in_the_advertising_payload_is_found);
+	RUN_TEST(test_a_manufacturer_record_too_short_for_an_id_is_ignored);
 	RUN_TEST(test_several_sensors_are_kept_apart);
 	RUN_TEST(test_the_table_is_bounded_and_does_not_evict);
 	RUN_TEST(test_finding_by_address);
