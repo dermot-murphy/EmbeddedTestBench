@@ -10,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE3-001 | **Version** | 1.29 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-22 |
+| **Document ID** | ETB-SWE3-001 | **Version** | 1.30 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-23 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.3 |
@@ -63,6 +63,7 @@
 | 1.27 | 2026-10-22 | Claude | #256: BLE-DD-TIMESTAMP - `timestamp_format_us` writes a 64-bit count as decimal text, and every timestamp is printed through it with `%s`, because newlib-nano has no long long conversion; firmware 1.5.1. |
 | 1.28 | 2026-10-22 | Claude | #241: BLE-DD-SCANNER - names up to 31 bytes (`PROTO_MAX_NAME` 32), and each sensor keeps the latest scan response and the company ID from either payload; BLE-DD-CMD - `+sensor` reports `mfr=` and `sr=`; protocol 1.6, firmware 1.6.0. BLE-DD-DONGLE - `Sensor.manufacturer_id`, `Sensor.scan_response`; BLE-DD-SIM - `SimulatedSensor.scan_response`. |
 | 1.29 | 2026-10-22 | Claude | #121: BLE-DD-SIMWORLD and BLE-DD-KEPLERSIM added - a simulated Kepler sensor 5C1712 shared by the simulated dongle (`KeplerResponder`, `SimulatedSensor.responder`), supply (`terminal_volts`) and probe (`periodic_rtt`, `simulated_target`). |
+| 1.30 | 2026-10-23 | Claude | #259: JLINK-DD-PROBE - `reset` and `flash` halt a running core first (`_stop_if_running`), since GDB refuses `monitor` commands while it runs. JLINK-DD-SIM - the simulated GDB refuses a `monitor` command while the core runs. |
 
 ---
 
@@ -894,6 +895,14 @@ Design points:
   `-exec-interrupt` to a target GDB knows is running.
   `reset(halt=True)` sends `monitor reset` and `monitor halt` and leaves it
   halted.
+- **`reset` and `flash` halt a running core first** (`_stop_if_running`,
+  #259). GDB refuses every `monitor` command while the target runs ("Cannot
+  execute this command while the target is running"), so after
+  `reset(halt=False)` the next reset, and the one `flash` makes, failed on
+  5C1712. Both now send `-exec-interrupt` through `halt()` when the driver
+  has the core running; `flash(reset=False)` halts it before `load`. A core
+  already halted is not interrupted, which would wait for a stop that never
+  comes.
 - **`reset` flushes GDB's register cache** (`_flush_register_cache`, #178).
   GDB never sees what a `monitor` command does to the core, so after `monitor
   reset` it still reported the registers it had read before: on 5C1712 the

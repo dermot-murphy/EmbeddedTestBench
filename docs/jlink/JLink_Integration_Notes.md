@@ -246,6 +246,36 @@ register-cache` GDB read `0x00000A80`, SP `0x20000400`, LR `0xFFFFFFFF` and
 xPSR `0x01000000`. `reset()` now sends that flush after every reset. In GDB
 15.2.90, `flushregs` is a deprecated alias of the same command.
 
+### 4.5 Flashing a running target (issue #259)
+
+Kepler bench, 2026-10-16 (TX-1074). After `probe.reset` with `halt: false`
+the core ran, and the next `probe.flash` failed before programming anything:
+
+```
+GdbError: -interpreter-exec console "monitor reset" failed: Cannot execute this command while the target is running.
+Use the "interrupt" command to stop the target
+and then try again.
+```
+
+GDB itself refuses to pass a `monitor` command on while it has the target
+running. `reset()` and `flash()` now halt a running core with `-exec-interrupt`
+first, so a specification no longer needs a `probe.halt` step before
+`probe.flash`. The simulated GDB refuses `monitor` while running in the same
+words, which is how the suite caught it.
+
+### 4.6 A failed connect stops the server it started (issue #254)
+
+Kepler bench, 2026-10-21 (TX-1121). A bench entry with no `gdb_executable`
+started `JLinkGDBServerCL.exe` and then found no GDB. `connect` raised, but no
+probe existed yet for `bench.close()` to close, and the server ran on for two
+and a half hours holding the probe until it was killed by hand.
+
+`connect` now stops the server whenever it raises after starting it: no GDB
+found, GDB failing to start, or the probe failing to build. A failure in
+`initialise` (opening the session, attaching) already closed the probe, which
+stops its server. `GdbServer.stop()` does nothing to a server this connect did
+not spawn, so one that was already listening is left running.
+
 ### 4.7 Flashing combined HEX images in turn (issue #253)
 
 Kepler bench, 2026-10-20 (TX-1084), GDB 15.2 on Windows, images on `U:`. In
