@@ -101,6 +101,13 @@ add_firmware_test(test_cmd_parser
 	        ${FIRMWARE_DIR}/src/firmware_version.c ${FIRMWARE_DIR}/src/cmd_dfu.c
 	        ${FAKE_SDK} ${FAKE_HOST_LINK} ${FAKE_SCANNER} ${FAKE_NUS} ${FAKE_DFU})
 
+# The dfucp and dfupkt commands, through the dispatcher, kept apart from
+# test_cmd_parser so that neither file passes the 800-line limit (#244).
+add_firmware_test(test_cmd_dfu
+	SOURCES ${FIRMWARE_DIR}/src/cmd_parser.c ${FIRMWARE_DIR}/src/cmd_args.c ${FIRMWARE_DIR}/src/bootloader.c
+	        ${FIRMWARE_DIR}/src/firmware_version.c ${FIRMWARE_DIR}/src/cmd_dfu.c
+	        ${FAKE_SDK} ${FAKE_HOST_LINK} ${FAKE_SCANNER} ${FAKE_NUS} ${FAKE_DFU})
+
 add_firmware_test(test_dfu_client
 	SOURCES ${FIRMWARE_DIR}/src/dfu_client.c ${FAKE_SDK} ${FAKE_HOST_LINK} ${FAKE_GATTC})
 

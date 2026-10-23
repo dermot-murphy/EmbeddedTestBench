@@ -15,12 +15,12 @@
 #include "fakes.h"
 #include "nrf_ble_gq.h"
 
-#define CONN		4U
-#define CONTROL		0x0010U
-#define CONTROL_CCCD	0x0011U
-#define PACKET		0x0013U
+#define TEST_CONN		4U
+#define TEST_CONTROL		0x0010U
+#define TEST_CONTROL_CCCD	0x0011U
+#define TEST_PACKET		0x0013U
 /** The vendor UUID type the fake gives the DFU base. */
-#define DFU_TYPE	3U
+#define TEST_DFU_TYPE	3U
 
 static nrf_ble_gq_t	m_queue;
 static nrf_ble_gatt_t	m_gatt;
@@ -35,17 +35,17 @@ static void test_discover(bool with_packet)
 
 	(void)memset(&evt, 0, sizeof(evt));
 	evt.evt_type                             = BLE_DB_DISCOVERY_COMPLETE;
-	evt.conn_handle                          = CONN;
+	evt.conn_handle                          = TEST_CONN;
 	evt.params.discovered_db.srv_uuid.uuid   = 0xFE59U;
 	evt.params.discovered_db.srv_uuid.type   = BLE_UUID_TYPE_BLE;
 	evt.params.discovered_db.char_count      = with_packet ? 2U : 1U;
 	evt.params.discovered_db.charateristics[0].characteristic.uuid.uuid = 0x0001U;
-	evt.params.discovered_db.charateristics[0].characteristic.uuid.type = DFU_TYPE;
-	evt.params.discovered_db.charateristics[0].characteristic.handle_value = CONTROL;
-	evt.params.discovered_db.charateristics[0].cccd_handle = CONTROL_CCCD;
+	evt.params.discovered_db.charateristics[0].characteristic.uuid.type = TEST_DFU_TYPE;
+	evt.params.discovered_db.charateristics[0].characteristic.handle_value = TEST_CONTROL;
+	evt.params.discovered_db.charateristics[0].cccd_handle = TEST_CONTROL_CCCD;
 	evt.params.discovered_db.charateristics[1].characteristic.uuid.uuid = 0x0002U;
-	evt.params.discovered_db.charateristics[1].characteristic.uuid.type = DFU_TYPE;
-	evt.params.discovered_db.charateristics[1].characteristic.handle_value = PACKET;
+	evt.params.discovered_db.charateristics[1].characteristic.uuid.type = TEST_DFU_TYPE;
+	evt.params.discovered_db.charateristics[1].characteristic.handle_value = TEST_PACKET;
 	dfu_client_on_db_disc_evt(&evt);
 }
 
@@ -56,7 +56,7 @@ static void test_notify(uint16_t handle, const uint8_t * data, uint16_t length)
 
 	(void)memset(&evt, 0, sizeof(evt));
 	evt.header.evt_id                   = BLE_GATTC_EVT_HVX;
-	evt.evt.gattc_evt.conn_handle       = CONN;
+	evt.evt.gattc_evt.conn_handle       = TEST_CONN;
 	evt.evt.gattc_evt.params.hvx.handle = handle;
 	evt.evt.gattc_evt.params.hvx.type   = BLE_GATT_HVX_NOTIFICATION;
 	evt.evt.gattc_evt.params.hvx.len    = length;
@@ -70,7 +70,7 @@ static void test_answer_hook(void)
 	if (m_answer_pending)
 	{
 		m_answer_pending = false;
-		test_notify(CONTROL, m_answer, m_answer_len);
+		test_notify(TEST_CONTROL, m_answer, m_answer_len);
 	}
 }
 
@@ -80,7 +80,7 @@ static void test_disconnect(void)
 
 	(void)memset(&evt, 0, sizeof(evt));
 	evt.header.evt_id           = BLE_GAP_EVT_DISCONNECTED;
-	evt.evt.gap_evt.conn_handle = CONN;
+	evt.evt.gap_evt.conn_handle = TEST_CONN;
 	dfu_client_on_ble_evt(&evt);
 }
 
@@ -115,11 +115,11 @@ static void test_a_found_service_turns_notifications_on_and_says_so(void)
 	test_discover(true);
 	TEST_ASSERT_TRUE(dfu_client_is_ready());
 	TEST_ASSERT_EQUAL_UINT32(1U, fake_gq_write_count());
-	TEST_ASSERT_EQUAL_HEX16(CONTROL_CCCD, fake_gq_write(0U)->handle);
+	TEST_ASSERT_EQUAL_HEX16(TEST_CONTROL_CCCD, fake_gq_write(0U)->handle);
 	TEST_ASSERT_EQUAL_UINT8(BLE_GATT_OP_WRITE_REQ, fake_gq_write(0U)->write_op);
 	TEST_ASSERT_EQUAL_UINT16(2U, fake_gq_write(0U)->len);
 	TEST_ASSERT_EQUAL_HEX8(0x01U, fake_gq_write(0U)->data[0]);
-	TEST_ASSERT_EQUAL_UINT16(CONN, fake_gq_write(0U)->conn_handle);
+	TEST_ASSERT_EQUAL_UINT16(TEST_CONN, fake_gq_write(0U)->conn_handle);
 	TEST_ASSERT_TRUE(fake_line_seen("+dfu "));
 	TEST_ASSERT_TRUE(strstr(fake_last_line(), "state=ready") != NULL);
 }
@@ -170,7 +170,7 @@ static void test_a_control_point_request_returns_its_response(void)
 				 dfu_client_control(select, sizeof(select), 1000U, response, &length));
 	TEST_ASSERT_EQUAL_UINT16(sizeof(answer), length);
 	TEST_ASSERT_EQUAL_MEMORY(answer, response, sizeof(answer));
-	TEST_ASSERT_EQUAL_HEX16(CONTROL, fake_gq_write(1U)->handle);
+	TEST_ASSERT_EQUAL_HEX16(TEST_CONTROL, fake_gq_write(1U)->handle);
 	TEST_ASSERT_EQUAL_UINT8(BLE_GATT_OP_WRITE_REQ, fake_gq_write(1U)->write_op);
 	TEST_ASSERT_EQUAL_MEMORY(select, fake_gq_write(1U)->data, sizeof(select));
 }
@@ -195,7 +195,7 @@ static void test_a_notification_from_elsewhere_is_not_the_response(void)
 	uint16_t		length = 0U;
 
 	test_discover(true);
-	test_notify(CONTROL, stray, sizeof(stray));      /* before the request */
+	test_notify(TEST_CONTROL, stray, sizeof(stray));      /* before the request */
 	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS,
 				 dfu_client_control(execute, sizeof(execute), 5U, response, &length));
 	TEST_ASSERT_EQUAL_UINT16(0U, length);
@@ -207,7 +207,7 @@ static void test_a_packet_is_written_without_a_response(void)
 
 	test_discover(true);
 	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, dfu_client_packet(data, sizeof(data), 100U));
-	TEST_ASSERT_EQUAL_HEX16(PACKET, fake_gq_write(1U)->handle);
+	TEST_ASSERT_EQUAL_HEX16(TEST_PACKET, fake_gq_write(1U)->handle);
 	TEST_ASSERT_EQUAL_UINT8(BLE_GATT_OP_WRITE_CMD, fake_gq_write(1U)->write_op);
 	TEST_ASSERT_EQUAL_MEMORY(data, fake_gq_write(1U)->data, sizeof(data));
 }

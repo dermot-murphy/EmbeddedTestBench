@@ -66,7 +66,7 @@
 | 1.30 | 2026-10-05 | Claude | #180: SWE4-UT-BLE covers a link that fails to establish (0x3E) being tried again, giving up after the attempts allowed, each failed attempt in the event log and the session log, and no other failure being tried again; SWE4-UT-BLESCRIPT covers a `connect` step logging each failed attempt and making no more than its own. |
 | 1.31 | 2026-10-06 | Claude | #60: SWE4-UT-BLESCRIPT adds `test_script_timeouts.py` - timeouts by command prefix: matching, precedence, variables, the run's override, refusals, and the timeout each result reports - and traces BLE-FR-119; SWE4-UT-BLECLI covers `script --timeout PREFIX=MS`. |
 | 1.32 | 2026-10-22 | Claude | #121: SWE4-UT-KEPLERSIM added - the four Kepler specifications' BLE, RTT and supply steps on the simulated bench, and each fact they check broken in turn. |
-| 1.33 | 2026-10-23 | Claude | #244: SWE4-UT-BLEDFU added - the Secure DFU procedure, packages and send_package against the simulated bootloader; firmware test_dfu_client added to SWE4-UT-FWUNIT. |
+| 1.33 | 2026-10-23 | Claude | #244: SWE4-UT-BLEDFU added - the Secure DFU procedure, packages and send_package against the simulated bootloader; firmware test_dfu_client and test_cmd_dfu added to SWE4-UT-FWUNIT. |
 
 ---
 
