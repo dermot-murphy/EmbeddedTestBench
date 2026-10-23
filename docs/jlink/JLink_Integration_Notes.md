@@ -299,6 +299,22 @@ The image is still read as the exec file after the load, for `verify`. Calling
 `probe.load_symbols` with a HEX file between flashes, as a workaround, made it
 the exec file again, which is why that did not help.
 
+### 4.8 Restoring an image set, keeping UICR (issue #264)
+
+5C1712, 2026-10-23. `probe.restore` was used to go from a non-default image
+(the DEBUG combined image) to a known one (the RELEASE combined image) and then
+back to the sensor's normal image (a full-flash backup), in one session. Every
+image verified, and the whole UICR page, 784 bytes from `0x10001000`, read the
+same at the end as at the start.
+
+The run also showed why the whole page is kept rather than the sensor ID alone.
+A plain `probe.flash` of the DEBUG image with `preserve` on `0x10001080` only
+left `PSELRESET[0]` and `PSELRESET[1]` (`0x10001200`, `0x10001204`) erased:
+the image's UICR record does not carry them. The firmware writes them back
+itself at its next boot, which hides the loss, but a specification that read
+UICR straight after the flash would have seen it. `restore` keeps the page by
+default (`keep=(NRF52_UICR,)`).
+
 ## 5. What this driver does not do
 
 | Not supported | Reason |

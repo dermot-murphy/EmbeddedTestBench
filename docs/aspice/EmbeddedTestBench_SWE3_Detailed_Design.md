@@ -10,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE3-001 | **Version** | 1.30 |
+| **Document ID** | ETB-SWE3-001 | **Version** | 1.31 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-23 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -64,6 +64,7 @@
 | 1.28 | 2026-10-22 | Claude | #241: BLE-DD-SCANNER - names up to 31 bytes (`PROTO_MAX_NAME` 32), and each sensor keeps the latest scan response and the company ID from either payload; BLE-DD-CMD - `+sensor` reports `mfr=` and `sr=`; protocol 1.6, firmware 1.6.0. BLE-DD-DONGLE - `Sensor.manufacturer_id`, `Sensor.scan_response`; BLE-DD-SIM - `SimulatedSensor.scan_response`. |
 | 1.29 | 2026-10-22 | Claude | #121: BLE-DD-SIMWORLD and BLE-DD-KEPLERSIM added - a simulated Kepler sensor 5C1712 shared by the simulated dongle (`KeplerResponder`, `SimulatedSensor.responder`), supply (`terminal_volts`) and probe (`periodic_rtt`, `simulated_target`). |
 | 1.30 | 2026-10-23 | Claude | #259: JLINK-DD-PROBE - `reset` and `flash` halt a running core first (`_stop_if_running`), since GDB refuses `monitor` commands while it runs. JLINK-DD-SIM - the simulated GDB refuses a `monitor` command while the core runs. |
+| 1.31 | 2026-10-23 | Claude | #264: JLINK-DD-PROBE - `restore` programmes an image set in order keeping UICR (`RestoreResult`, `NRF52_UICR`); CORE-DD-PATHS - `resolve_arguments` resolves a list of files item by item. |
 
 ---
 
@@ -895,6 +896,13 @@ Design points:
   `-exec-interrupt` to a target GDB knows is running.
   `reset(halt=True)` sends `monitor reset` and `monitor halt` and leaves it
   halted.
+- **`restore(images, keep=(NRF52_UICR,))` puts a known image set back**
+  (#264). It halts the core, reads every kept range, flashes each image in
+  order with `preserve=keep` - so an image holding a UICR record, which erases
+  the page (#69), has it written back at once - then reads the ranges again and
+  raises if any differs, before leaving the core running (`run=True`) or
+  halted. `RestoreResult` carries every `FlashResult`, the ranges as read
+  before, and `unchanged`, so a specification can assert on it.
 - **`reset` and `flash` halt a running core first** (`_stop_if_running`,
   #259). GDB refuses every `monitor` command while the target runs ("Cannot
   execute this command while the target is running"), so after

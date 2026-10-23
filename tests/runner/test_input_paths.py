@@ -55,6 +55,29 @@ class TestStepArguments:
         record = _run(_spec("radio.regs", suite / "spec.yaml"))
         assert record.status is Status.PASS, record.cases[0].steps[0].error
 
+    def test_a_list_of_images_beside_the_specification_is_found(self, tmp_path, monkeypatch):
+        """probe.restore names its images in a list (#264)."""
+        suite = tmp_path / "suite"
+        suite.mkdir()
+        for name in ("bootloader.hex", "app.hex"):
+            (suite / name).write_text(":00000001FF\n")
+        elsewhere = tmp_path / "elsewhere"
+        elsewhere.mkdir()
+        monkeypatch.chdir(elsewhere)
+        spec = TestSpec.from_mapping({
+            "name": "Restore",
+            "tests": [{"name": "The images go back",
+                       "steps": [{"do": "probe.restore",
+                                  "with": {"images": ["bootloader.hex", "app.hex"]},
+                                  "expect": [{"name": "uicr_unchanged",
+                                              "measure": "unchanged", "equals": 1}]}]}],
+        }, source=str(suite / "spec.yaml"))
+        config = BenchConfig.simulated(["probe"], driver="jlink")
+        with BenchRunner.from_config(config, simulate=True) as runner:
+            record = runner.run(spec)
+        step = record.cases[0].steps[0]
+        assert record.status is Status.PASS, step.error
+
     def test_a_shipped_configuration_is_found_from_elsewhere(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
         record = _run(_spec("configs/s2lp_915_38k4_basic.regs", tmp_path / "spec.yaml"))

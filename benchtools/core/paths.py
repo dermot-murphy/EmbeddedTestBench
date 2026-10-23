@@ -146,11 +146,17 @@ def resolve_arguments(
     """
     resolved = dict(arguments)
     for name in names:
-        if name in resolved:
+        if name not in resolved:
+            continue
+        label = "%s %s" % (what, name)
+        if isinstance(resolved[name], (list, tuple)):
+            # A list of files, such as the images a probe restores (#264):
+            # each one is resolved as a single path would be.
+            resolved[name] = [
+                resolve_input_path(item, declared_in, required=required, what=label)
+                for item in resolved[name]
+            ]
+        else:
             resolved[name] = resolve_input_path(
-                resolved[name],
-                declared_in,
-                required=required,
-                what="%s %s" % (what, name),
-            )
+                resolved[name], declared_in, required=required, what=label)
     return resolved

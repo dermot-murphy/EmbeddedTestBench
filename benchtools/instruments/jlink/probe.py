@@ -72,9 +72,16 @@ __all__ = [
     "StackFrame",
     "HaltInfo",
     "FlashResult",
+    "RestoreResult",
     "VerifyResult",
     "SectionVerdict",
+    "NRF52_UICR",
 ]
+
+#: The nRF52840's UICR, as ``(address, size)``: the sensor ID at 0x10001080
+#: and the bootloader address at 0x10001014 live here, and an image holding a
+#: UICR record erases the whole page (#69).
+NRF52_UICR = (0x10001000, 0x310)
 
 
 #: Matches "Loading section .text, size 0x1234 lma 0x08000000".
@@ -203,6 +210,46 @@ class VerifyResult:
                 for section in self.sections
             },
             "mismatched": self.mismatched,
+        }
+
+
+@dataclass
+class RestoreResult:
+    """Outcome of :meth:`JLinkProbe.restore`: every image, and the ranges kept.
+
+    Traces to: JLINK-FR-025.
+    """
+
+    images: List[str] = field(default_factory=list)
+    flashes: List["FlashResult"] = field(default_factory=list)
+    #: Each kept range as read before programming, ``address -> hex bytes``.
+    kept: Dict[int, str] = field(default_factory=dict)
+    #: Whether every kept range read the same afterwards. False never returns:
+    #: restore raises instead.
+    unchanged: bool = True
+    seconds: float = 0.0
+
+    @property
+    def verified(self) -> Optional[bool]:
+        """Whether every image verified, or ``None`` if verification was off."""
+        verdicts = [flash.verified for flash in self.flashes]
+        return None if any(verdict is None for verdict in verdicts) else all(verdicts)
+
+    @property
+    def bytes_written(self) -> int:
+        """Total size of everything programmed."""
+        return sum(flash.bytes_written for flash in self.flashes)
+
+    def as_dict(self) -> dict:
+        """The result as plain data, for a report."""
+        return {
+            "images": list(self.images),
+            "bytes_written": self.bytes_written,
+            "verified": self.verified,
+            "unchanged": self.unchanged,
+            "kept": {"0x%08x" % address: data for address, data in self.kept.items()},
+            "seconds": self.seconds,
+            "flashes": [flash.as_dict() for flash in self.flashes],
         }
 
 
@@ -733,6 +780,65 @@ class JLinkProbe(Instrument):
                 )
         result.preserved = self._restore(kept)
         self._cycle_counter_ready = False
+        return result
+
+    @input_paths("images")
+    def restore(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+        self,
+        images: Sequence[str],
+        keep: Sequence[Tuple[int, int]] = (NRF52_UICR,),
+        verify: bool = True,
+        run: bool = True,
+        timeout: float = 180.0,
+    ) -> RestoreResult:
+        """Put a known set of images back on the target, keeping UICR.
+
+        For a specification's teardown, and for recovery after a failed
+        bootloader or OTA update (#264): a SoftDevice, bootloader, application
+        and settings, in the order given, or one combined image. *keep* is read
+        once before anything is programmed, written back after each image that
+        disturbs it, and read again at the end; a range that does not read as
+        it did is an error, because a sensor that lost its ID is not restored.
+
+        :param images: Image files, programmed in this order.
+        :param keep: ``(address, size)`` ranges that must come through
+            unchanged; by default the nRF52's UICR page.
+        :param verify: Verify each image after programming it.
+        :param run: Leave the core running afterwards, else halted.
+        :raises ConfigurationError: for no images, or an image that does not exist.
+        :raises BenchToolsError: if an image does not verify, or a kept range
+            does not read back as it was.
+
+        Traces to: JLINK-FR-025.
+        """
+        if not images:
+            raise ConfigurationError("restore needs at least one image")
+        for path in images:
+            self._check_image(path)
+        started = time.monotonic()
+        self.reset(halt=True, timeout=timeout)
+        before = [(address, self.read_memory(address, size)) for address, size in keep]
+        result = RestoreResult(
+            images=list(images),
+            kept={address: data.hex() for address, data in before},
+        )
+        for path in images:
+            result.flashes.append(
+                self.flash(path, verify=verify, reset=False, timeout=timeout, preserve=keep))
+        changed = [
+            address for address, data in before
+            if self.read_memory(address, len(data)) != data
+        ]
+        result.unchanged = not changed
+        result.seconds = time.monotonic() - started
+        if changed:
+            raise BenchToolsError(
+                "restore programmed %d image(s) but %s no longer read as before"
+                % (len(images), ", ".join("0x%08x" % address for address in changed)))
+        self._logger.info("restored %d image(s), %d bytes, in %.1f s; kept %s unchanged",
+                          len(images), result.bytes_written, result.seconds,
+                          ", ".join("0x%08x" % address for address, _ in before) or "nothing")
+        self.reset(halt=not run, timeout=timeout)
         return result
 
     def _restore(self, kept: Sequence[Tuple[int, bytes]]) -> Dict[int, str]:
