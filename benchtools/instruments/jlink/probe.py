@@ -395,6 +395,43 @@ class JLinkProbe(Instrument):
             )
             if start_server:
                 server.start()
+            transport, rtt = cls._start_gdb(server, gdb_executable, host, rtt_port, timeout)
+            address = server.address
+
+        try:
+            probe = cls(
+                session=GdbMiSession(transport, timeout=timeout),
+                server=server,
+                rtt=rtt,
+                elf=elf,
+                firmware=firmware,
+                limits=limits,
+                target_address=address,
+                auto_check_errors=auto_check_errors,
+            )
+        except BaseException:
+            if server is not None:
+                server.stop()
+            raise
+        probe.attach_on_open = bool(attach)
+        try:
+            if initialise:
+                probe.initialise()
+        except Exception:
+            probe.close()
+            raise
+        return probe
+
+    @staticmethod
+    def _start_gdb(server: GdbServer, gdb_executable: Optional[str], host: str,
+                   rtt_port: int, timeout: float) -> Tuple[Transport, RttClient]:
+        """Start GDB and the RTT client for a real probe.
+
+        On failure the server is stopped before raising: no probe exists yet to
+        close it, so a server started by this connect would outlive the run and
+        hold the probe (#254). ``stop()`` leaves alone a server it did not spawn.
+        """
+        try:
             gdb = find_gdb(gdb_executable)
             if gdb is None:
                 raise ConnectionFailedError(
@@ -406,27 +443,10 @@ class JLinkProbe(Instrument):
             transport = ProcessTransport(
                 [gdb, "--interpreter=mi2", "--quiet", "-nx"], timeout=timeout
             )
-            rtt = RttClient(SocketRttBackend(host, rtt_port))
-            address = server.address
-
-        probe = cls(
-            session=GdbMiSession(transport, timeout=timeout),
-            server=server,
-            rtt=rtt,
-            elf=elf,
-            firmware=firmware,
-            limits=limits,
-            target_address=address,
-            auto_check_errors=auto_check_errors,
-        )
-        probe.attach_on_open = bool(attach)
-        try:
-            if initialise:
-                probe.initialise()
-        except Exception:
-            probe.close()
+            return transport, RttClient(SocketRttBackend(host, rtt_port))
+        except BaseException:
+            server.stop()
             raise
-        return probe
 
     @staticmethod
     def _parse_target(resource: str) -> Tuple[str, int]:
