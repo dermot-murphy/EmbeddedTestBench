@@ -13,11 +13,14 @@ a wrongly signed package is refused with ``InvalidObject``, or a package for
 another board with the extended error ``HwVersionFailure``. Only a target that
 stops answering, or answers out of turn, raises.
 
-Data lost on the link is sent again, as nrfutil does: each Packet Receipt
-Notification is checked against what was sent, and an object whose receipt
-or final CRC does not match is created and sent again, a bounded number of
-times (#271). An nRF5 SDK 15.2 bootloader at the minimum ATT MTU dropped one
-20-byte piece of 5C1712's first data object, and said so in its receipts.
+Data lost on the link is sent again (#271). Each Packet Receipt Notification
+is checked against what was sent, and at the first that does not match, or
+an object's final CRC that does not, the image is sent again from its init
+packet, with a pause after each data object is created, a bounded number of
+times. 5C1712's nRF5 SDK 15.2 bootloader (V1.01.0000), at the minimum ATT MTU
+and a 30 ms interval, lost a 20-byte piece of every first data object written
+straight after its create, and refused that object created again
+(``InvalidObject``); with 0.15 s after each create it lost nothing.
 
 Traces to: BLE-FR-121, BLE-DD-DFUHOST.
 """
@@ -196,8 +199,13 @@ def package_from_bytes(data: bytes) -> List[DfuImage]:
     return load_package(io.BytesIO(data))  # type: ignore[arg-type]
 
 
-#: Times an object is sent again after its data was found lost (#271).
+#: Times an image is sent again after its data was found lost (#271).
 DEFAULT_RETRIES = 3
+
+#: Seconds to wait after creating a data object on the first retry; each
+#: later retry doubles it. 0.15 s was enough on 5C1712's SDK 15.2 bootloader,
+#: which loses data written while it erases the object's flash page (#271).
+RETRY_CREATE_PAUSE = 0.15
 
 #: A receipt: the response header, then the offset and the CRC, 32 bits each.
 RECEIPT_LENGTH = 11
@@ -230,9 +238,13 @@ class SecureDfu:  # pylint: disable=too-few-public-methods,too-many-instance-att
     :param receipts: Returns the Control Point notifications that arrived
         since it was last called, so that each Packet Receipt Notification is
         checked; None to check only each object's final CRC.
-    :param retries: Times an object is created and sent again after its data
-        was found lost, before the transfer fails (#271).
+    :param retries: Times an image is sent again from its init packet after
+        its data was found lost, before the transfer fails (#271).
     :param on_retry: Called with the reason before each retry, to log it.
+    :param create_pause: Seconds to wait after creating each data object,
+        before writing it, while the bootloader erases its flash page. A
+        retry raises it to :data:`RETRY_CREATE_PAUSE`, then doubles it.
+    :param sleep: Waits that many seconds; replaced in tests.
     """
 
     def __init__(self, control: Callable[[bytes, float], bytes],  # pylint: disable=too-many-arguments,too-many-positional-arguments
@@ -240,11 +252,15 @@ class SecureDfu:  # pylint: disable=too-few-public-methods,too-many-instance-att
                  execute_timeout: float = 30.0, prn: int = 8,
                  receipts: Optional[Callable[[], List[bytes]]] = None,
                  retries: int = DEFAULT_RETRIES,
-                 on_retry: Optional[Callable[[str], None]] = None) -> None:
+                 on_retry: Optional[Callable[[str], None]] = None,
+                 create_pause: float = 0.0,
+                 sleep: Callable[[float], None] = time.sleep) -> None:
         if not 1 <= chunk <= 244:
             raise ConfigurationError("a Packet write carries 1 to 244 bytes, not %r" % chunk)
         if retries < 0:
             raise ConfigurationError("retries is 0 or more, not %r" % retries)
+        if create_pause < 0.0:
+            raise ConfigurationError("create_pause is 0 or more, not %r" % create_pause)
         self._control = control
         self._packet = packet
         self._chunk = int(chunk)
@@ -253,16 +269,43 @@ class SecureDfu:  # pylint: disable=too-few-public-methods,too-many-instance-att
         self._receipts = receipts
         self._retries = int(retries)
         self._on_retry = on_retry
+        self._sleep = sleep
+        #: The pause after each data object's create, as raised by retries.
+        self.create_pause = float(create_pause)
         self.bytes_sent = 0
         self.retries = 0
 
     # ------------------------------------------------------------------
     def send_image(self, image: DfuImage) -> Tuple[str, Optional[int], Optional[int]]:
-        """Send one image.
+        """Send one image, again from its init packet while its data is found lost.
+
+        Sending the init packet again makes the bootloader start the image
+        again. Each retry waits longer after each data object's create.
 
         :returns: ``(stage, code, extended)``: ``("done", SUCCESS, None)`` when
             executed, else the stage the bootloader refused and its codes.
-        :raises DfuError: if an object was still lost after every retry.
+        :raises DfuError: if the image was still lost after every retry.
+        """
+        attempt = 0
+        while True:
+            try:
+                return self._send_image_once(image)
+            except _Lost as lost:
+                if attempt >= self._retries:
+                    raise DfuError("%s; still lost after %d retr%s"
+                                   % (lost, attempt, "y" if attempt == 1 else "ies")) from lost
+                attempt += 1
+                self.retries += 1
+                self.create_pause = max(self.create_pause * 2.0, RETRY_CREATE_PAUSE)
+                if self._on_retry is not None:
+                    self._on_retry("%s image, retry %d of %d with %.2f s after each data "
+                                   "create: %s" % (image.kind, attempt, self._retries,
+                                                   self.create_pause, lost))
+
+    def _send_image_once(self, image: DfuImage) -> Tuple[str, Optional[int], Optional[int]]:
+        """Send one image from its init packet.
+
+        :raises _Lost: if the target did not receive an object as it was sent.
         """
         try:
             self._request(bytes([Opcode.RECEIPT_NOTIF_SET]) + struct.pack("<H", self._prn),
@@ -283,25 +326,14 @@ class SecureDfu:  # pylint: disable=too-few-public-methods,too-many-instance-att
     # ------------------------------------------------------------------
     def _send_object(self, kind: ObjectType, data: bytes, offset: int,
                      whole: bytes = b"") -> None:
-        """Send one object, again while its data is found lost, and execute it.
+        """Send one object, check it arrived, and execute it.
 
-        Creating the object again makes the bootloader drop what it holds of
-        it and start again from the end of the last executed object.
+        An object is not created again after a loss: 5C1712's SDK 15.2
+        bootloader refused that with ``InvalidObject`` (#271).
+
+        :raises _Lost: if the target did not receive it as it was sent.
         """
-        attempt = 0
-        while True:
-            try:
-                self._write_object(kind, data, offset, whole)
-                break
-            except _Lost as lost:
-                if attempt >= self._retries:
-                    raise DfuError("%s; still lost after %d retr%s"
-                                   % (lost, attempt, "y" if attempt == 1 else "ies")) from lost
-                attempt += 1
-                self.retries += 1
-                if self._on_retry is not None:
-                    self._on_retry("%s object at offset %d, retry %d of %d: %s"
-                                   % (kind.name.lower(), offset, attempt, self._retries, lost))
+        self._write_object(kind, data, offset, whole)
         self._request(bytes([Opcode.EXECUTE]), timeout=self._execute_timeout)
 
     def _write_object(self, kind: ObjectType, data: bytes, offset: int, whole: bytes) -> None:
@@ -313,6 +345,8 @@ class SecureDfu:  # pylint: disable=too-few-public-methods,too-many-instance-att
         if kind is ObjectType.COMMAND:
             self._select(kind)
         self._request(bytes([Opcode.CREATE, kind]) + struct.pack("<I", len(data)))
+        if kind is ObjectType.DATA and self.create_pause > 0.0:
+            self._sleep(self.create_pause)
         self._take_receipts()
         sent = whole + data
         acknowledged = offset

@@ -1063,6 +1063,8 @@ class NordicDongle(Instrument):
         connect_timeout: float = 15.0,
         chunk: int = 244,
         retries: int = DEFAULT_RETRIES,
+        prn: int = 8,
+        create_pause: float = 0.0,
     ) -> DfuResult:
         """Send a DFU package to a sensor in its bootloader, by Nordic Secure DFU.
 
@@ -1134,7 +1136,8 @@ class NordicDongle(Instrument):
             self._connected = False
 
         dfu = SecureDfu(control=control, packet=packet, chunk=chunk,
-                        receipts=receipts, retries=retries, on_retry=on_retry)
+                        receipts=receipts, retries=retries, on_retry=on_retry,
+                        prn=prn, create_pause=create_pause)
         result = run_images(dfu, images, connect, disconnect)
         result.target = "; ".join(found)
         log_event(self._logger, "ble_dfu", "DFU of %s to %s: %s%s, %d bytes in %.1f s"

@@ -41,6 +41,9 @@ class SimulatedBootloader:  # pylint: disable=too-many-instance-attributes
     :param lose: Packet writes, counted from 1 across the transfer, whose data
         is lost; each answers with a receipt of offset 0 and CRC 0 at the next
         receipt, as 5C1712's SDK 15.2 bootloader did (#271).
+    :param refuse_recreate: Refuse with ``InvalidObject`` a data object
+        created again before the last one was executed, as that bootloader
+        did (#271).
     """
 
     refuse_init: Optional[Tuple[int, Optional[int]]] = None
@@ -48,6 +51,7 @@ class SimulatedBootloader:  # pylint: disable=too-many-instance-attributes
     corrupt: bool = False
     prn_supported: bool = False
     lose: Tuple[int, ...] = ()
+    refuse_recreate: bool = False
     #: Receipts sent and not yet taken by the simulated dongle.
     receipts: List[bytes] = field(default_factory=list)
     #: What arrived and was executed: init packets, and firmware images.
@@ -132,6 +136,9 @@ class SimulatedBootloader:  # pylint: disable=too-many-instance-attributes
         limit = COMMAND_OBJECT_MAX if kind is ObjectType.COMMAND else DATA_OBJECT_MAX
         if size > limit:
             return self._answer(request[0], ResultCode.INSUFFICIENT_RESOURCES)
+        if (self.refuse_recreate and kind is ObjectType.DATA and self._kind is ObjectType.DATA
+                and len(self._data) > self._executed):
+            return self._answer(request[0], ResultCode.INVALID_OBJECT)
         self._kind = kind
         self._object_size = size
         if kind is ObjectType.COMMAND:

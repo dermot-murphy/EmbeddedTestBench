@@ -46,7 +46,7 @@ def make_package(path, images):
 
 def dfu_over(target: SimulatedBootloader, chunk: int = 244) -> SecureDfu:
     return SecureDfu(control=lambda request, timeout: target.control(request),
-                     packet=target.packet, chunk=chunk)
+                     packet=target.packet, chunk=chunk, sleep=lambda seconds: None)
 
 
 class TestTheProcedure:
@@ -120,10 +120,15 @@ def take(target: SimulatedBootloader):
     return receipts
 
 
-def dfu_checking(target: SimulatedBootloader, **options) -> SecureDfu:
-    """A procedure that checks the target's receipts, as send_package's does."""
+def dfu_checking(target: SimulatedBootloader, pauses=None, **options) -> SecureDfu:
+    """A procedure that checks the target's receipts, as send_package's does.
+
+    Each pause it would wait is recorded in *pauses* rather than slept.
+    """
+    waited = pauses if pauses is not None else []
     return SecureDfu(control=lambda request, timeout: target.control(request),
-                     packet=target.packet, receipts=take(target), **options)
+                     packet=target.packet, receipts=take(target), sleep=waited.append,
+                     **options)
 
 
 class TestLostData:
@@ -136,31 +141,56 @@ class TestLostData:
         assert dfu.retries == 0
         assert target.firmware == [FIRMWARE]
 
-    def test_a_lost_packet_is_found_at_its_receipt_and_the_object_sent_again(self):
-        target = SimulatedBootloader(prn_supported=True, lose=(3,))
+    def test_a_lost_packet_is_found_at_its_receipt_and_the_image_sent_again(self):
+        target = SimulatedBootloader(prn_supported=True, lose=(3,), refuse_recreate=True)
         reasons = []
         dfu = dfu_checking(target, prn=2, on_retry=reasons.append)
         assert dfu.send_image(DfuImage("application", INIT, FIRMWARE))[0] == "done"
-        assert target.firmware == [FIRMWARE]
+        assert target.firmware == [FIRMWARE] and target.init_packets == [INIT, INIT]
         assert dfu.retries == 1
         assert len(reasons) == 1 and "receipt" in reasons[0] and "retry 1 of 3" in reasons[0]
 
-    def test_the_object_stops_at_the_first_bad_receipt(self):
+    def test_the_image_stops_at_the_first_bad_receipt(self):
         """Packet 3 is the second of the first data object: its receipt is the
-        first, so nothing more of that object is sent before the retry."""
+        first, so nothing more is sent before the init packet again."""
         target = SimulatedBootloader(prn_supported=True, lose=(3,))
         dfu_checking(target, prn=2).send_image(DfuImage("application", INIT, FIRMWARE))
-        per_object = -(-DATA_OBJECT_MAX // 244)
-        objects = -(-len(FIRMWARE) // DATA_OBJECT_MAX)
         whole = 1 + sum(-(-min(DATA_OBJECT_MAX, len(FIRMWARE) - o) // 244)
                         for o in range(0, len(FIRMWARE), DATA_OBJECT_MAX))
-        assert target.packets == whole + 2
-        assert per_object > 2 and objects == 3
+        assert target.packets == whole + 3
+
+    def test_a_lost_object_is_not_created_again(self):
+        """5C1712's SDK 15.2 bootloader refused that with InvalidObject."""
+        target = SimulatedBootloader(prn_supported=True, lose=(3,), refuse_recreate=True)
+        dfu_checking(target, prn=2).send_image(DfuImage("application", INIT, FIRMWARE))
+        data_creates = [r[0] for r in target.requests if r[:2] == bytes([0x01, 0x02])]
+        assert len(data_creates) == 1 + -(-len(FIRMWARE) // DATA_OBJECT_MAX)
+
+    def test_each_retry_waits_longer_after_each_data_create(self):
+        """Nothing is lost on 5C1712 with 0.15 s after each create (#271)."""
+        pauses = []
+        # Each attempt writes the init packet, then the one data packet, which is lost.
+        dfu = dfu_checking(SimulatedBootloader(lose=(2, 4, 6, 8)), pauses=pauses)
+        with pytest.raises(DfuError):
+            dfu.send_image(DfuImage("application", INIT, b"x" * 100))
+        assert pauses == [0.15, 0.3, 0.6]
+
+    def test_no_pause_until_a_loss(self):
+        pauses = []
+        dfu = dfu_checking(SimulatedBootloader(), pauses=pauses)
+        assert dfu.send_image(DfuImage("application", INIT, FIRMWARE))[0] == "done"
+        assert not pauses and dfu.create_pause == 0.0
+
+    def test_a_pause_can_be_asked_for_from_the_start(self):
+        pauses = []
+        dfu = dfu_checking(SimulatedBootloader(), pauses=pauses, create_pause=0.2)
+        dfu.send_image(DfuImage("application", INIT, FIRMWARE))
+        assert pauses == [0.2] * -(-len(FIRMWARE) // DATA_OBJECT_MAX)
 
     def test_without_receipts_the_object_s_crc_finds_the_loss(self):
         target = SimulatedBootloader(lose=(5,))
         dfu = SecureDfu(control=lambda request, timeout: target.control(request),
-                        packet=target.packet)
+                        packet=target.packet, sleep=lambda seconds: None)
         assert dfu.send_image(DfuImage("application", INIT, FIRMWARE))[0] == "done"
         assert dfu.retries == 1
         assert target.firmware == [FIRMWARE]
@@ -201,6 +231,10 @@ class TestLostData:
     def test_retries_cannot_be_negative(self):
         with pytest.raises(ConfigurationError):
             SecureDfu(control=lambda r, t: b"", packet=lambda d: None, retries=-1)
+
+    def test_a_pause_cannot_be_negative(self):
+        with pytest.raises(ConfigurationError):
+            SecureDfu(control=lambda r, t: b"", packet=lambda d: None, create_pause=-0.1)
 
 
 class TestPackages:
