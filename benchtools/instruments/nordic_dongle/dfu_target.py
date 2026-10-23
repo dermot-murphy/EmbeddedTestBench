@@ -36,12 +36,20 @@ class SimulatedBootloader:  # pylint: disable=too-many-instance-attributes
         ``(0x0B, 0x06)`` for the extended error ``HwVersionFailure``.
     :param refuse_firmware: The same, for the first firmware object's execute.
     :param corrupt: Report a CRC one off, as a link that lost a byte would.
+    :param prn_supported: Accept a receipt interval, and send a receipt after
+        that many Packet writes, as :attr:`receipts`.
+    :param lose: Packet writes, counted from 1 across the transfer, whose data
+        is lost; each answers with a receipt of offset 0 and CRC 0 at the next
+        receipt, as 5C1712's SDK 15.2 bootloader did (#271).
     """
 
     refuse_init: Optional[Tuple[int, Optional[int]]] = None
     refuse_firmware: Optional[Tuple[int, Optional[int]]] = None
     corrupt: bool = False
     prn_supported: bool = False
+    lose: Tuple[int, ...] = ()
+    #: Receipts sent and not yet taken by the simulated dongle.
+    receipts: List[bytes] = field(default_factory=list)
     #: What arrived and was executed: init packets, and firmware images.
     init_packets: List[bytes] = field(default_factory=list)
     firmware: List[bytes] = field(default_factory=list)
@@ -53,16 +61,31 @@ class SimulatedBootloader:  # pylint: disable=too-many-instance-attributes
         self._data = b""
         self._object_size = 0
         self._object_start = 0
+        self._executed = 0
+        self._interval = 0
+        self._unreceipted = 0
+        self._lost_since_receipt = False
         self.packets = 0
 
     # ------------------------------------------------------------------
     def packet(self, data: bytes) -> None:
         """A Packet write: bytes of the current object."""
         self.packets += 1
-        if self._kind is ObjectType.COMMAND:
+        if self.packets in self.lose:
+            self._lost_since_receipt = True
+        elif self._kind is ObjectType.COMMAND:
             self._command += data
         else:
             self._data += data
+        self._unreceipted += 1
+        if self._interval and self._unreceipted >= self._interval:
+            self._unreceipted = 0
+            if self._lost_since_receipt:
+                self._lost_since_receipt = False
+                self.receipts.append(self._answer(Opcode.CRC_GET, ResultCode.SUCCESS,
+                                                  struct.pack("<II", 0, 0)))
+            else:
+                self.receipts.append(self._crc(bytes([Opcode.CRC_GET])))
 
     def control(self, request: bytes) -> bytes:
         """A Control Point write, and the notification that answers it."""
@@ -89,6 +112,8 @@ class SimulatedBootloader:  # pylint: disable=too-many-instance-attributes
     def _prn(self, request: bytes) -> bytes:
         if not self.prn_supported:
             return self._answer(request[0], ResultCode.OP_CODE_NOT_SUPPORTED)
+        self._interval = struct.unpack("<H", request[1:3])[0]
+        self._unreceipted = 0
         return self._answer(request[0], ResultCode.SUCCESS)
 
     def _select(self, request: bytes) -> bytes:
@@ -112,7 +137,13 @@ class SimulatedBootloader:  # pylint: disable=too-many-instance-attributes
         if kind is ObjectType.COMMAND:
             self._command = b""
             self._data = b""
+            self._executed = 0
+        else:
+            # A data object created again starts again from the end of the
+            # last executed one: what was received of it is dropped.
+            self._data = self._data[:self._executed]
         self._object_start = len(self._data)
+        self._unreceipted = 0
         return self._answer(request[0], ResultCode.SUCCESS)
 
     def _crc(self, request: bytes) -> bytes:
@@ -136,4 +167,5 @@ class SimulatedBootloader:  # pylint: disable=too-many-instance-attributes
         if not self.firmware or self._object_start == 0:
             self.firmware.append(b"")
         self.firmware[-1] = self._data
+        self._executed = len(self._data)
         return self._answer(request[0], ResultCode.SUCCESS)

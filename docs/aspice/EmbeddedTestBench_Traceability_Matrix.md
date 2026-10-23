@@ -10,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-RTM-001 | **Version** | 1.32 |
+| **Document ID** | ETB-RTM-001 | **Version** | 1.33 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-23 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -66,6 +66,7 @@
 | 1.30 | 2026-10-22 | Claude | #121: row added for BLE-FR-120 (simulated Kepler sensor). |
 | 1.31 | 2026-10-23 | Claude | #264: row added for JLINK-FR-025 (restore an image set, keeping UICR). |
 | 1.32 | 2026-10-23 | Claude | #244: row added for BLE-FR-121 (Secure DFU client). |
+| 1.33 | 2026-10-23 | Claude | #271: BLE-FR-121 - `SWE4-UT-BLEDFU` now 31 tests (lost data sent again). |
 
 ---
 
@@ -364,7 +365,7 @@ where the firmware implements the requirement.
 | BLE-FR-118 | BLE-ARC-001 | BLE-DD-LATENCY | `ResponseSample.value` | `test_the_value_a_reply_reports` (4) |
 | BLE-FR-119 | BLE-ARC-001, AD-23 | BLE-DD-SCRIPT, BLE-DD-SCRIPTRUN, BLE-DD-CLI | `PrefixTimeout`, `longest_prefix`, `_Reader.resolve_timeouts`, `_Reader.apply_prefix_timeout`, `_timeout_for`, `StepResult.timeout`, `_parse_timeouts` | `TestReadingTheTable` (21), `TestRunningWithIt` (8, `test_script_timeouts.py`), `test_timeout_sets_a_prefix_timeout_for_the_run`, `test_a_timeout_that_is_not_prefix_equals_ms_is_an_error` (3, `test_cli.py`) |
 | BLE-FR-120 | BLE-ARC-001, RUN-ARC-001 | BLE-DD-KEPLERSIM, BLE-DD-SIMWORLD, BLE-DD-SIM | `simulated/kepler.py`, `simulated/world.py`, `KeplerResponder`, `SimulatedGpd.terminal_volts`, `SimulatedJLink.periodic_rtt`, `simulated_target` | `SWE4-UT-KEPLERSIM` (11, `test_kepler_simulated.py`) |
-| BLE-FR-121 | BLE-ARC-001 | BLE-DD-DFU, BLE-DD-DFUHOST, BLE-DD-DFUSIM | `dfu_client.c`, `cmd_dfu.c`, `dfu.py` (`SecureDfu`, `load_package`), `NordicDongle.send_package`, `SimulatedBootloader` | `SWE4-UT-BLEDFU` (20, `test_dfu.py`), `test_dfu_client` (17), `test_cmd_dfu` (7) |
+| BLE-FR-121 | BLE-ARC-001 | BLE-DD-DFU, BLE-DD-DFUHOST, BLE-DD-DFUSIM | `dfu_client.c`, `cmd_dfu.c`, `dfu.py` (`SecureDfu`, `load_package`), `NordicDongle.send_package`, `SimulatedBootloader` | `SWE4-UT-BLEDFU` (31, `test_dfu.py`), `test_dfu_client` (17), `test_cmd_dfu` (7) |
 | BLE-FR-090 | BLE-ARC-001 | BLE-DD-BUILD | `firmware/ses/*.emProject`, `firmware/Makefile`, `firmware/gcc/*.ld`, `firmware/scripts/{package_dfu,compile_check}.*`, `.github/workflows/firmware.yml` | `compile_check.sh` compiles every unit against real SDK headers (BENCHTOOLS-SWE4-002 §4.4); the workflow builds, links, sizes and packages against SDK 17.1.0 (§4.6, BLE-OPEN-01 discharged); flashing remains a bench confirmation item (CON-07) |
 
 ### BLE non-functional

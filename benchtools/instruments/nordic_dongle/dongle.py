@@ -69,7 +69,8 @@ from .constants import (
     DongleLimits,
     ScanFilter,
 )
-from .dfu import DfuError, DfuImage, DfuResult, SecureDfu, load_package, run_images
+from .dfu import (DEFAULT_RETRIES, DfuError, DfuImage, DfuResult, SecureDfu, load_package,
+                  run_images)
 from .latency import LatencySource, ResponseSample, ResponseTiming
 from .profile import AdvertisingEvent, AdvertisingProfile
 from .protocol import (
@@ -1061,6 +1062,7 @@ class NordicDongle(Instrument):
         scan_seconds: float = 5.0,
         connect_timeout: float = 15.0,
         chunk: int = 244,
+        retries: int = DEFAULT_RETRIES,
     ) -> DfuResult:
         """Send a DFU package to a sensor in its bootloader, by Nordic Secure DFU.
 
@@ -1083,8 +1085,12 @@ class NordicDongle(Instrument):
             image; a Kepler bootloader advertises every 211 ms.
         :param connect_timeout: The connect window for each link.
         :param chunk: Bytes per Packet write.
+        :param retries: Times an object is sent again when its receipts or
+            CRC show data was lost on the link; each retry is logged, and
+            ``retries`` in the result counts them (#271).
         :raises InstrumentError: if the bootloader is not found, offers no DFU
-            service, or stops answering.
+            service, or stops answering, or an object is still lost after
+            every retry.
 
         Traces to: BLE-FR-121.
         """
@@ -1104,6 +1110,16 @@ class NordicDongle(Instrument):
             remaining()
             self._session.execute("dfupkt", data.hex())
 
+        def receipts() -> List[bytes]:
+            # Only what was read with a reply: a poll after every Packet write
+            # would wait 10 ms each time. A receipt read later is checked
+            # after the next write, and the object's CRC covers the last.
+            return [from_hex(event.get("data") or "") for event in self._session.take_events("rx")]
+
+        def on_retry(reason: str) -> None:
+            self._logger.warning("DFU data lost, sending again: %s", reason)
+            self._session.note("DFU data lost, sending again: %s" % reason)
+
         found: List[str] = []
 
         def connect(image: DfuImage, index: int) -> None:
@@ -1117,7 +1133,8 @@ class NordicDongle(Instrument):
             self._disconnect()
             self._connected = False
 
-        dfu = SecureDfu(control=control, packet=packet, chunk=chunk)
+        dfu = SecureDfu(control=control, packet=packet, chunk=chunk,
+                        receipts=receipts, retries=retries, on_retry=on_retry)
         result = run_images(dfu, images, connect, disconnect)
         result.target = "; ".join(found)
         log_event(self._logger, "ble_dfu", "DFU of %s to %s: %s%s, %d bytes in %.1f s"
