@@ -10,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE4-002 | **Version** | 1.28 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-22 |
+| **Document ID** | ETB-SWE4-002 | **Version** | 1.29 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-23 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.4 |
@@ -62,6 +62,7 @@
 | 1.26 | 2026-10-05 | Claude | #180: whole suite re-run (§4); SWE4-UT-BLE re-counted 64 → 99 and SWE4-UT-BLESCRIPT 58 → 109 in §5; D-51 added and closed in the simulator, not yet confirmed on hardware. |
 | 1.27 | 2026-10-06 | Claude | #180: §10.5 added - `open_link` and the `connect` step after `ECURESET HARD` on the bench PC with sensor 5C1712; 0x3E seen 6 times in 18 links and recovered each time; D-51 confirmed on hardware. |
 | 1.28 | 2026-10-22 | Claude | #121: §14.4 added - the Kepler specifications' BLE, RTT and supply steps on the simulated bench, and the facts they check broken in turn. |
+| 1.29 | 2026-10-23 | Claude | #244: §10.6 added - a sensor's firmware updated over BLE by the dongle on the bench, and refused by its bootloader. |
 
 ---
 
@@ -823,6 +824,35 @@ sixth, run 1's cycle 1, was the first link of that session, with no reset just
 before it, so the failure is not tied to a reset alone. In run 1, cycles 2 to
 10, links made 2 s after a reset did not hit it. The cause is not known; this
 section shows only that the retry recovers from it.
+
+### 10.6 Updating a sensor's firmware over BLE, on the bench (#244)
+
+Dongle COM10 on firmware 1.7.0 (protocol 1.7), sensor 5C1712 on application
+V11.01.0000-366 and bootloader V2.00.0000, 2026-10-23, hardware. `SESSION SWDL`
+over the application's link was acknowledged (`ACK session swdl`) and the
+sensor advertised its bootloader at `D1:8D:3B:4C:19:97` as `KAPPA_5C1712-0FDFU`.
+
+| Package | `result` | `extended_error` | `stage` | Sent | Time |
+|---|---|---|---|---|---|
+| `KAPPAX_APP_SDK17_PCB_V5_DEBUG_OTA.zip` (another PCB) | `ExtendedError` | `HwVersionFailure` | `init` | 144 B | 16.0 s |
+| `KAPPAX_APP_SDK17_PCB_V4X_RELEASE_OTA.zip` | `Success` | | `done` | 298 520 B | 108.8 s |
+
+After the second, the sensor answered `RD VERSION` with `V11.02.0000-2-GA83DD6847`,
+the package's application. Its flash was then put back from a backup taken
+before the run, and it answered `V11.01.0000-366-GE25673EAD` again.
+
+Three attempts failed first, and each changed the firmware:
+
+1. Every Packet write was refused with `NRF_ERROR_DATA_SIZE` (`+dfu state=error
+   error=0xc`): the transfer started before the MTU exchange ended, on the
+   23-byte default. Writes are now split to the effective MTU less 3.
+2. 704 bytes of a 4096-byte object arrived (`error=0x13`, `NRF_ERROR_RESOURCES`):
+   the GATT queue gave a write command that found no transmit buffer to its
+   error handler. Packet writes now go to the SoftDevice directly, waiting for
+   a buffer. The package then went across in 190.7 s at a 30 ms interval.
+3. At 7.5 ms, 3348 bytes of 4096 arrived: the writes outran the bootloader's
+   17 packet buffers. The client now waits for the bootloader's receipt every
+   8 packets. That is the run above.
 
 ## 11. Protocol interoperability results
 

@@ -10,5 +10,8 @@ typedef struct { int unused; } nrf_ble_gatt_t;
 
 uint32_t nrf_ble_gatt_init(nrf_ble_gatt_t * p_gatt, void * evt_handler);
 uint32_t nrf_ble_gatt_att_mtu_central_set(nrf_ble_gatt_t * p_gatt, uint16_t desired_mtu);
+uint16_t nrf_ble_gatt_eff_mtu_get(nrf_ble_gatt_t const * p_gatt, uint16_t conn_handle);
+/** What nrf_ble_gatt_eff_mtu_get reports: 247 by default, 23 before an exchange. */
+void     fake_gatt_set_eff_mtu(uint16_t mtu);
 
 #endif

@@ -61,7 +61,18 @@ bool cdc_acm_send_format(const char * format, ...)
 }
 
 uint32_t cdc_acm_init(void)				{ return 0U; }
-void     cdc_acm_process(void)				{ }
+static void (*m_process_hook)(void);
+
+/* Called while a command waits, so a test can deliver the event it waits for. */
+void cdc_acm_process(void)
+{
+	if (m_process_hook != NULL)
+	{
+		m_process_hook();
+	}
+}
+
+void fake_host_set_process_hook(void (*hook)(void))	{ m_process_hook = hook; }
 bool     cdc_acm_take_line(char * buffer, uint32_t size)	{ (void)buffer; (void)size; return false; }
 uint32_t cdc_acm_dropped(void)				{ return m_dropped; }
 bool     cdc_acm_is_open(void)				{ return true; }

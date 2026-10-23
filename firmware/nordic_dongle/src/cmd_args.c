@@ -7,6 +7,7 @@
 
 #include "cmd_args.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -14,6 +15,7 @@
 #include "protocol.h"
 
 #define CMD_ARGS_DECIMAL_BASE		10U	/**< for numbers in arguments */
+#define CMD_ARGS_ONE_FIELD		((int)1U)	/**< what sscanf returns for one byte */
 
 bool cmd_args_timeout(const char * token, uint32_t min_ms, uint32_t max_ms,
 		      uint32_t * p_timeout_ms, bool * p_ok)
@@ -62,4 +64,41 @@ bool cmd_args_connect(char * tokens[], uint32_t count, ble_gap_addr_t * p_target
 	}
 
 	return true;
+}
+
+bool cmd_args_decode_hex(const char * text, uint8_t * buffer, uint32_t capacity,
+			 uint16_t * p_length)
+{
+	uint32_t	length = (uint32_t)strlen(text);
+	uint32_t	index;
+
+	if (((length % 2U) != 0U) || ((length / 2U) > capacity))
+	{
+		return false;
+	}
+
+	for (index = 0U; index < (length / 2U); index++)
+	{
+		unsigned int value;
+
+		if (sscanf(&text[index * 2U], "%2x", &value) != CMD_ARGS_ONE_FIELD)
+		{
+			return false;
+		}
+		buffer[index] = (uint8_t)value;
+	}
+
+	*p_length = (uint16_t)(length / 2U);
+	return true;
+}
+
+void cmd_args_encode_hex(const uint8_t * data, uint32_t length, char * text)
+{
+	uint32_t index;
+
+	for (index = 0U; index < length; index++)
+	{
+		(void)sprintf(&text[index * 2U], "%02x", data[index]);
+	}
+	text[length * 2U] = '\0';
 }

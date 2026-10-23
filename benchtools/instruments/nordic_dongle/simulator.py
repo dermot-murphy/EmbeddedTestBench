@@ -26,8 +26,10 @@ from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional, Tuple
 
 from ...simulated import KEPLER_5C1712_ADDRESS, KEPLER_5C1712_ID, KEPLER_5C1712_NAME
+from ...simulated.kepler import KEPLER_5C1712_DFU_ADDRESS, KEPLER_5C1712_DFU_NAME
 from ...simulated.world import kepler_sensor
 from .constants import AddressType, DongleError
+from .dfu_target import SimulatedBootloader
 from .protocol import manufacturer_id
 
 __all__ = ["SimulatedSensor", "SimulatedDongle", "DEFAULT_SENSORS"]
@@ -88,6 +90,16 @@ class SimulatedSensor:
     #: Answers every command in place of *responses*, for a sensor whose
     #: replies depend on its state - a simulated Kepler sensor (#121).
     responder: Optional[Callable[[str], str]] = None
+    #: A target in its bootloader: a link to it offers the DFU service, not
+    #: the UART one (#244).
+    bootloader: Optional[SimulatedBootloader] = None
+    #: Whether the sensor is on the air now; None for always. A bootloader
+    #: advertises only once the application has entered it.
+    present: Optional[Callable[[], bool]] = None
+
+    def on_air(self) -> bool:
+        """Whether the sensor advertises, and answers a connection, now."""
+        return self.present is None or bool(self.present())
 
     def reply_to(self, request: str) -> str:
         """What this sensor answers to *request*."""
@@ -118,9 +130,16 @@ class KeplerResponder:  # pylint: disable=too-few-public-methods
     def __call__(self, request: str) -> str:
         model = kepler_sensor(self.sensor_id)
         reply = model.respond(request)
-        if " ".join(request.split()).upper() == "ECURESET HARD":
+        word = " ".join(request.split()).upper()
+        if word == "ECURESET HARD":
             model.reset()
+        elif word == "SESSION SWDL":
+            model.in_bootloader = True
         return reply
+
+
+def _kepler_in_bootloader(sensor_id: int) -> Callable[[], bool]:
+    return lambda: kepler_sensor(sensor_id).in_bootloader
 
 
 #: The default population: a sensor under test, a second one to make selection
@@ -175,7 +194,18 @@ DEFAULT_SENSORS: Tuple[SimulatedSensor, ...] = (
         # bench; a reset drops the link with a supervision timeout (#251).
         latency_us=55_000,
         responder=KeplerResponder(KEPLER_5C1712_ID),
-        crash_on={"ECURESET HARD": 60_000},
+        crash_on={"ECURESET HARD": 60_000, "SESSION SWDL": 100_000},
+    ),
+    # 5C1712 in its bootloader, after SESSION SWDL: address + 1, and the name
+    # the V2.00.0000 bootloader gives itself when the application enters it
+    # (bl_board.c), advertising every 211 ms (#244).
+    SimulatedSensor(
+        address=KEPLER_5C1712_DFU_ADDRESS,
+        name=KEPLER_5C1712_DFU_NAME,
+        rssi=-84,
+        interval_us=211_000,
+        bootloader=SimulatedBootloader(),
+        present=_kepler_in_bootloader(KEPLER_5C1712_ID),
     ),
 )
 
@@ -197,9 +227,9 @@ class SimulatedDongle:
 
     #: The build the simulated dongle is running. A test that exercises the
     #: update path changes these, as flashing a real dongle would.
-    DEFAULT_FIRMWARE_VERSION = "1.6.0"
+    DEFAULT_FIRMWARE_VERSION = "1.7.0"
     DEFAULT_FIRMWARE_BUILT = "2026-09-13T12:00:00Z"
-    DEFAULT_PROTOCOL = "1.6"
+    DEFAULT_PROTOCOL = "1.7"
 
     def __init__(
         self,
@@ -373,7 +403,7 @@ class SimulatedDongle:
 
     def _hears(self, sensor: SimulatedSensor) -> bool:
         """Whether the scan filter admits *sensor*."""
-        if self._connected is not None:
+        if self._connected is not None or not sensor.on_air():
             return False                       # the radio is on the connection
         name = self._scan_filter.get("name")
         if name and name not in sensor.name:
@@ -577,7 +607,8 @@ class SimulatedDongle:
             return [refusal]
 
         self._scanning = False
-        if sensor.not_established > 0 or sensor.connect_outcome in ("timeout", "pending"):
+        if (sensor.not_established > 0 or sensor.connect_outcome in ("timeout", "pending")
+                or not sensor.on_air()):
             self._fail_connect(sensor)
             return ["ok connecting=1 addr=%s timeout_ms=%d" % (sensor.address, timeout_ms)]
 
@@ -587,7 +618,10 @@ class SimulatedDongle:
             "+conn t=%d addr=%s state=linked interval_us=30000"
             % (self.clock_us, sensor.address)
         )
-        if sensor.connect_outcome == "ready":
+        if sensor.bootloader is not None:
+            self.clock_us += 5_000
+            self._queue.append("+dfu t=%d state=ready error=0x0" % self.clock_us)
+        elif sensor.connect_outcome == "ready":
             self.clock_us += 5_000
             self._queue.append(
                 "+conn t=%d state=ready interval_us=30000" % self.clock_us
@@ -714,6 +748,34 @@ class SimulatedDongle:
                 encoded.hex(),
             )
         ]
+
+    def _dfu_target(self) -> Optional[SimulatedBootloader]:
+        sensor = self._connected
+        return None if sensor is None else sensor.bootloader
+
+    def _cmd_dfucp(self, arguments: List[str]) -> List[str]:
+        target = self._dfu_target()
+        if target is None:
+            return [self._error(DongleError.STATE, "not valid in this state")]
+        try:
+            request = bytes.fromhex(arguments[0])
+        except ValueError:
+            return [self._error(DongleError.TOO_LONG, "payload too long")]
+        response = target.control(request)
+        self.clock_us += 30_000
+        return ["ok len=%d data=%s" % (len(response), response.hex())]
+
+    def _cmd_dfupkt(self, arguments: List[str]) -> List[str]:
+        target = self._dfu_target()
+        if target is None:
+            return [self._error(DongleError.STATE, "not valid in this state")]
+        try:
+            data = bytes.fromhex(arguments[0])
+        except ValueError:
+            return [self._error(DongleError.TOO_LONG, "payload too long")]
+        target.packet(data)
+        self.clock_us += 7_500
+        return ["ok len=%d" % len(data)]
 
     def _cmd_adv(self, arguments: List[str]) -> List[str]:
         if not arguments:

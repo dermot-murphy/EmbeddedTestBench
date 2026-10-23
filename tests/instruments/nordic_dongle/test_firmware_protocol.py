@@ -48,7 +48,7 @@ def firmware_commands():
     """``{name: (min_args, max_args)}`` from PROTO_COMMAND_TABLE."""
     found = {}
     for name, minimum, maximum in re.findall(
-        r"X\((\w+),\s*(\d+),\s*(\d+),", _table("PROTO_COMMAND_TABLE")
+        r"X\((\w+),\s*(\d+)U?,\s*(\d+)U?,", _table("PROTO_COMMAND_TABLE")
     ):
         found[name] = (int(minimum), int(maximum))
     return found
@@ -96,7 +96,8 @@ class TestCommands:
     def test_every_command_has_a_handler_in_the_firmware(self):
         """A documented command with no implementation answers 'unknown'."""
         source = CMD_PARSER_C.read_text()
-        attached = set(re.findall(r'\{\s*"(\w+)",\s*command_\w+\s*\}', source))
+        # Any handler name: the DFU commands' handlers live in cmd_dfu.c (#244).
+        attached = set(re.findall(r'\{\s*"(\w+)",\s*\w+\s*\}', source))
         missing = sorted(set(firmware_commands()) - attached)
         assert not missing, (
             "no handler is attached in cmd_parser.c for: %s" % ", ".join(missing)

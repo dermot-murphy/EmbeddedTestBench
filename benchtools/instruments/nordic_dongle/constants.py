@@ -44,7 +44,7 @@ __all__ = [
 #: commands the other does not - reported, and survivable, because the missing
 #: ones fail individually with "unknown command". A differing *major* version
 #: means a command means something different, which is not survivable.
-PROTOCOL_VERSION = "1.6"
+PROTOCOL_VERSION = "1.7"
 
 #: Commands the firmware accepts, with the argument bounds it enforces.
 COMMANDS: Dict[str, Tuple[int, int]] = {
@@ -61,10 +61,12 @@ COMMANDS: Dict[str, Tuple[int, int]] = {
     "time": (0, 0),
     "reset": (0, 0),
     "dfu": (0, 0),
+    "dfucp": (1, 2),
+    "dfupkt": (1, 1),
 }
 
 #: Unsolicited event names, without the leading ``+``.
-EVENTS: Tuple[str, ...] = ("adv", "sensor", "rx", "conn", "disc", "scan", "drop")
+EVENTS: Tuple[str, ...] = ("adv", "sensor", "rx", "conn", "disc", "scan", "drop", "dfu")
 
 #: Line rate. A USB CDC port ignores it; it is set for the sake of converters
 #: that do not.

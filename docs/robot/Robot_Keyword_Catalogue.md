@@ -109,8 +109,8 @@ record whatever comes back (§2.3).
 
 ## 2. Nordic BLE dongle — library `DongleLibrary`
 
-The dongle is a PCA10059 running this repository's firmware (protocol 1.6,
-firmware 1.6.0). It holds one BLE link at a time to a sensor that exposes the
+The dongle is a PCA10059 running this repository's firmware (protocol 1.7,
+firmware 1.7.0). It holds one BLE link at a time to a sensor that exposes the
 Nordic UART Service. It does not support pairing, and it does not support more
 than one link at a time.
 
