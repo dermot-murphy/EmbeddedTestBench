@@ -246,6 +246,23 @@ register-cache` GDB read `0x00000A80`, SP `0x20000400`, LR `0xFFFFFFFF` and
 xPSR `0x01000000`. `reset()` now sends that flush after every reset. In GDB
 15.2.90, `flushregs` is a deprecated alias of the same command.
 
+### 4.5 Flashing a running target (issue #259)
+
+Kepler bench, 2026-10-16 (TX-1074). After `probe.reset` with `halt: false`
+the core ran, and the next `probe.flash` failed before programming anything:
+
+```
+GdbError: -interpreter-exec console "monitor reset" failed: Cannot execute this command while the target is running.
+Use the "interrupt" command to stop the target
+and then try again.
+```
+
+GDB itself refuses to pass a `monitor` command on while it has the target
+running. `reset()` and `flash()` now halt a running core with `-exec-interrupt`
+first, so a specification no longer needs a `probe.halt` step before
+`probe.flash`. The simulated GDB refuses `monitor` while running in the same
+words, which is how the suite caught it.
+
 ## 5. What this driver does not do
 
 | Not supported | Reason |
