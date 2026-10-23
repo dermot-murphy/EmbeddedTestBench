@@ -686,6 +686,8 @@ class JLinkProbe(Instrument):
             )
         if reset:
             self.reset(halt=True)
+        else:
+            self._stop_if_running()
         kept = [(address, self.read_memory(address, size)) for address, size in preserve]
 
         # The file is named to "load" and read as the executable only afterwards.
@@ -854,7 +856,13 @@ class JLinkProbe(Instrument):
         before the reset while ``monitor reg pc`` said 0x00000A80, the reset
         handler; after ``maintenance flush register-cache`` GDB read 0x00000A80
         too. The cache is therefore flushed after every reset.
+
+        A running core is halted first: GDB refuses every ``monitor`` command
+        while the target runs, so after ``reset(halt=False)`` the next reset -
+        and the one :meth:`flash` makes - failed with "Cannot execute this
+        command while the target is running" (#259).
         """
+        self._stop_if_running(timeout=timeout)
         self.monitor("reset" if halt else "reset 0", timeout=timeout)
         self._cycle_counter_ready = False
         if halt:
@@ -864,6 +872,11 @@ class JLinkProbe(Instrument):
         else:
             self._flush_register_cache(timeout=timeout)
             self.run(timeout=timeout)
+
+    def _stop_if_running(self, timeout: float = 10.0) -> None:
+        """Halt the core if GDB has it running, so that it takes commands again."""
+        if self._attached and not self._halted:
+            self.halt(timeout=timeout)
 
     def _flush_register_cache(self, timeout: Optional[float] = None) -> None:
         """Make GDB read the registers from the target again.

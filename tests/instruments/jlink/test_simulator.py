@@ -103,8 +103,20 @@ class TestExecutionModel:
         simulator.connected = True
         simulator.resume()
         assert not simulator.halted
+        simulator.interrupt()                  # GDB refuses a monitor command otherwise
         simulator.respond(('1-interpreter-exec console "%s"' % command).encode())
         assert simulator.halted
+
+    @pytest.mark.parametrize("command", ["monitor reset", "monitor halt", "monitor flash erase"])
+    def test_a_monitor_command_is_refused_while_the_core_runs(self, simulator, command):
+        """As GDB refused 'monitor reset' after reset(halt=False) on 5C1712 (#259)."""
+        simulator.connected = True
+        simulator.resume()
+        assert not simulator.halted
+        reply = simulator.respond(('1-interpreter-exec console "%s"' % command).encode())
+        assert b"Cannot execute this command while the target is running" in reply
+        assert not simulator.halted
+        assert simulator.monitor_log == []
 
     def test_gdb_s_registers_are_stale_after_a_monitor_reset(self, simulator):
         """GDB never sees a 'monitor' command, so it keeps the registers it

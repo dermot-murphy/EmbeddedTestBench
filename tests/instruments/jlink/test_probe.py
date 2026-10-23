@@ -257,6 +257,40 @@ class TestFlashAndVerify:
         probe.flash(verify=False)
         assert any("reset" in entry for entry in probe.session.transport.responder.monitor_log)
 
+    def test_a_running_target_is_flashed(self, probe):
+        """After reset(halt=False) GDB refused the flash's 'monitor reset':
+        "Cannot execute this command while the target is running" (#259)."""
+        probe.reset(halt=False)
+        assert not probe.is_halted
+        result = probe.flash(verify=True)
+        assert result.verified is True
+        assert probe.is_halted
+
+    def test_a_running_target_is_flashed_without_a_reset(self, probe):
+        """'load' is refused on a running core too; it is halted first."""
+        simulator = probe.session.transport.responder
+        probe.reset(halt=False)
+        probe.flash(verify=False, reset=False)
+        assert simulator.halted
+        log = simulator.command_log
+        interrupt = max(i for i, c in enumerate(log) if "-exec-interrupt" in c)
+        load = max(i for i, c in enumerate(log) if '"load' in c)
+        assert interrupt < load
+
+    def test_a_running_target_is_reset_and_erased(self, probe):
+        probe.reset(halt=False)
+        probe.reset(halt=False)                # a second reset while it runs
+        assert not probe.is_halted
+        probe.erase()
+        assert probe.is_halted
+
+    def test_a_halted_target_is_not_interrupted(self, probe):
+        """Interrupting a core that is already stopped waits for a stop that
+        never comes."""
+        simulator = probe.session.transport.responder
+        probe.flash(verify=False)
+        assert not any("-exec-interrupt" in c for c in simulator.command_log)
+
     def test_a_named_image_is_loaded_before_it_is_read(self, probe):
         """GDB 15.2 exited when a HEX file on a mapped drive was read with
         'file' and then loaded (issue #69); 'load <file>' first did not."""
