@@ -19,6 +19,7 @@ from benchtools.core.errors import (
 )
 from benchtools.core.transport.mock import MockTransport
 from benchtools.instruments.jlink import (
+    NRF52_UICR,
     BreakpointKind,
     HaltReason,
     JLinkProbe,
@@ -243,6 +244,91 @@ class TestConnection:
                 probe.load_symbols("/nonexistent/app.elf")
         finally:
             probe.close()
+
+
+class _UicrErasingTarget(SimulatedJLink):
+    """An nRF52 that loses its whole UICR page when it loads an image holding
+    a UICR record, as 5C1712 did (#69). Here that is an image whose name says
+    so."""
+
+    def _console_command(self, command, token):
+        if command.lower().startswith("load") and "uicr" in command.lower():
+            for offset in range(NRF52_UICR[1]):
+                self.memory[NRF52_UICR[0] + offset] = 0xFF
+        return super()._console_command(command, token)
+
+
+class TestRestore:
+    """Putting a known image set back while keeping UICR (#264)."""
+
+    SENSOR_ID = bytes.fromhex("005c1712")
+    IMAGES = ["C:/images/s140.hex", "C:/images/bootloader-uicr.hex",
+              "C:/images/app.hex", "C:/images/settings.hex"]
+
+    @pytest.fixture
+    def target(self):
+        simulator = _UicrErasingTarget()
+        instance = JLinkProbe(
+            session=GdbMiSession(MockTransport(responder=simulator), timeout=5.0),
+            elf="firmware.elf",
+            target_address="simulated",
+        )
+        instance.initialise()
+        instance.write_memory(0x10001080, self.SENSOR_ID)
+        instance.write_memory(0x10001014, bytes.fromhex("00800f00"))
+        yield instance, simulator
+        instance.close()
+
+    def test_every_image_is_programmed_in_order(self, target):
+        probe, simulator = target
+        result = probe.restore(self.IMAGES)
+        loads = [c for c in simulator.command_log if '"load ' in c]
+        assert len(loads) == 4
+        for image, command in zip(self.IMAGES, loads):
+            assert image in command
+        assert result.verified is True
+        assert result.images == self.IMAGES
+
+    def test_uicr_erased_by_an_image_is_put_back_and_proven(self, target):
+        probe, _ = target
+        result = probe.restore(self.IMAGES)
+        assert result.unchanged is True
+        assert probe.read_memory(0x10001080, 4) == self.SENSOR_ID
+        assert probe.read_memory(0x10001014, 4) == bytes.fromhex("00800f00")
+        assert result.kept[NRF52_UICR[0]] == probe.read_memory(*NRF52_UICR).hex()
+        bootloader = result.flashes[1]
+        assert NRF52_UICR[0] in bootloader.preserved
+
+    def test_uicr_that_does_not_come_back_is_an_error(self, target, monkeypatch):
+        """A sensor that lost its ID is not restored, whatever was programmed."""
+        probe, _ = target
+        monkeypatch.setattr(JLinkProbe, "_restore", lambda self, kept: {})
+        with pytest.raises(BenchToolsError, match="0x10001000 no longer read as before"):
+            probe.restore(self.IMAGES)
+
+    def test_it_is_left_running_or_halted_as_asked(self, target):
+        probe, _ = target
+        probe.restore(self.IMAGES[:1])
+        assert not probe.is_halted
+        probe.restore(self.IMAGES[:1], run=False)
+        assert probe.is_halted
+
+    def test_a_running_target_is_restored(self, target):
+        probe, _ = target
+        probe.reset(halt=False)
+        assert probe.restore(self.IMAGES).unchanged
+
+    def test_no_images_is_refused(self, target):
+        probe, _ = target
+        with pytest.raises(ConfigurationError, match="at least one image"):
+            probe.restore([])
+
+    def test_the_result_is_reportable(self, target):
+        probe, _ = target
+        summary = probe.restore(self.IMAGES[:2]).as_dict()
+        assert summary["unchanged"] is True and summary["verified"] is True
+        assert "0x10001000" in summary["kept"]
+        assert len(summary["flashes"]) == 2
 
 
 class TestFlashAndVerify:

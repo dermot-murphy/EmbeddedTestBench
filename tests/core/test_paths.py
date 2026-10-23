@@ -112,6 +112,15 @@ class TestResolveArguments:
         resolve_arguments(given, ("source",), str(declared))
         assert given == {"source": "a.regs"}
 
+    def test_a_list_of_files_is_resolved_item_by_item(self, layout):
+        """The images a probe restores are named in a list (#264)."""
+        declared, _, _ = layout
+        (declared / "bl.hex").write_text("x")
+        (declared / "app.hex").write_text("x")
+        resolved = resolve_arguments({"images": ["bl.hex", "app.hex"]},
+                                     ("images",), str(declared))
+        assert resolved["images"] == [str(declared / "bl.hex"), str(declared / "app.hex")]
+
     def test_a_declared_name_that_is_not_given_is_ignored(self, layout):
         assert not resolve_arguments({}, ("source",), str(layout[0]))
 

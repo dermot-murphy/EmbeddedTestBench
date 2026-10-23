@@ -10,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-RTM-001 | **Version** | 1.30 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-22 |
+| **Document ID** | ETB-RTM-001 | **Version** | 1.31 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-23 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.1 / SWE.2 / SWE.3 / SWE.4 |
@@ -64,6 +64,7 @@
 | 1.28 | 2026-10-05 | Claude | #180: BLE-FR-049 row cites `_open_link_once`, `LinkLostError`, `_run_connect` and `TestLinkNotEstablished` (7) and the two `connect` step tests; BLE-FR-115 `TestTheEventLog` count 2 → 4. |
 | 1.29 | 2026-10-06 | Claude | #60: row added for BLE-FR-119 (timeouts by command prefix); STK-12 and OPEN-04 cite it. |
 | 1.30 | 2026-10-22 | Claude | #121: row added for BLE-FR-120 (simulated Kepler sensor). |
+| 1.31 | 2026-10-23 | Claude | #264: row added for JLINK-FR-025 (restore an image set, keeping UICR). |
 
 ---
 
@@ -247,6 +248,7 @@ It is checked mechanically by `tests/test_traceability.py` on every run of the s
 | JLINK-FR-022 | JLINK-ARC-001 | JLINK-DD-PROBE | `VerifyResult.matched` | `test_verification_failure_raises`, `test_an_empty_comparison_is_not_a_pass`, `test_flash_without_an_image_is_rejected` |
 | JLINK-FR-023 | JLINK-ARC-001 | JLINK-DD-PROBE | `JLinkProbe.erase` | `test_erase_resets_first_and_leaves_flash_blank`, `test_an_erase_that_did_not_happen_raises`, `test_the_blank_check_can_be_skipped`, `test_erase` (CLI), `test_monitor_passthrough`, `TestExecutionModel` |
 | JLINK-FR-024 | JLINK-ARC-001 | JLINK-DD-PROBE | `JLinkProbe.image_build`, over CORE-DD-FIRMWARE | `TestWhatWasFlashed` (5), `test_the_reported_version_is_recorded_as_text` |
+| JLINK-FR-025 | JLINK-ARC-001 | JLINK-DD-PROBE | `JLinkProbe.restore`, `RestoreResult`, `NRF52_UICR`, `resolve_arguments` (lists) | `TestRestore` (7), `test_a_list_of_images_beside_the_specification_is_found`, `test_a_list_of_files_is_resolved_item_by_item` |
 | JLINK-FR-030 | JLINK-ARC-001 | JLINK-DD-PROBE | `reset`, `run`, `halt`, `step` | `test_reset_halts_by_default`, `test_reset_can_leave_it_running`, `test_a_reset_without_halting_resumes_the_core`, `test_every_reset_type_leaves_the_core_halted` (2), `test_step`, `test_run_to_a_location` |
 | JLINK-FR-031 | JLINK-ARC-001 | JLINK-DD-PROBE | `is_halted`, `program_counter`, `registers` | `test_program_counter_and_registers`, `test_registers_read_after_a_reset_are_the_reset_s`, `test_a_reset_flushes_gdb_s_register_cache`, `test_gdb_s_registers_are_stale_after_a_monitor_reset`, `test_halt_reports_where` |
 | JLINK-FR-032 | JLINK-ARC-001 | JLINK-DD-PROBE, JLINK-DD-CONST | `wait_for_halt`, `HaltReason` | `test_never_reaching_a_breakpoint_times_out`, `test_unknown_halt_reason_does_not_break_the_driver` |
