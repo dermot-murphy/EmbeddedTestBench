@@ -952,8 +952,7 @@ class SimulatedJLink:
 
     def _monitor(self, command: str, token: str) -> List[str]:
         if not self.halted:
-            # GDB refuses to pass any "monitor" command on while the core
-            # runs, as it did on 5C1712 after reset(halt=False) (#259).
+            # GDB refuses any "monitor" command while the core runs (#259).
             return self._error(
                 token,
                 'Cannot execute this command while the target is running.\n'
