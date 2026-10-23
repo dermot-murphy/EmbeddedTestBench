@@ -5,9 +5,9 @@ How to write a test specification and a bench configuration, and how to run them
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-GUIDE-001 |
-| Version | 3.4 |
-| Date | 2026-10-05 |
-| Applies to | `benchtools` 0.01.0001 (release `v0.01.0001`) |
+| Version | 3.5 |
+| Date | 2026-10-23 |
+| Applies to | `benchtools` 0.02.0000 (release `v0.02.0000`) |
 
 ---
 
