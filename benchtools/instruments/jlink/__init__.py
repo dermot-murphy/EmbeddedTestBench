@@ -37,6 +37,8 @@ from .gdbmi import parse_line, parse_value
 from .probe import (
     Breakpoint,
     FlashResult,
+    NRF52_UICR,
+    RestoreResult,
     HaltInfo,
     JLinkProbe,
     JLinkRttReader,
@@ -60,6 +62,8 @@ __all__ = [
     "StackFrame",
     "HaltInfo",
     "FlashResult",
+    "NRF52_UICR",
+    "RestoreResult",
     "VerifyResult",
     "SectionVerdict",
     "TimingResult",

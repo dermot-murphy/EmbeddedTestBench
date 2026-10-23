@@ -10,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE1-001 | **Version** | 1.29 |
+| **Document ID** | ETB-SWE1-001 | **Version** | 1.30 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-23 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -62,7 +62,8 @@
 | 1.26 | 2026-10-05 | Claude | #180: BLE-FR-049 revised - a link that fails to establish (HCI reason 0x3E) is tried again, up to three attempts in all as a `connect` step's are, each failed attempt logged; no other failure is tried again, and a `connect` step makes no more attempts than its own. |
 | 1.27 | 2026-10-06 | Claude | #60: BLE-FR-119 added - timeouts by command prefix in a command document, with a per-run override and the timeout that applied stated in each result; BLE-FR-112's empty cell now defers to it. |
 | 1.28 | 2026-10-22 | Claude | #121: BLE-FR-120 added - a simulated Kepler sensor 5C1712 shared by the simulated dongle, probe and supply. |
-| 1.29 | 2026-10-23 | Claude | #244: BLE-FR-121 added - send a Nordic Secure DFU package to a sensor in its bootloader, reporting the bootloader's verdict. |
+| 1.29 | 2026-10-23 | Claude | #264: JLINK-FR-025 added - restore a known image set while keeping UICR. |
+| 1.30 | 2026-10-23 | Claude | #244: BLE-FR-121 added - send a Nordic Secure DFU package to a sensor in its bootloader, reporting the bootloader's verdict. |
 
 ---
 
@@ -356,6 +357,7 @@ it is commanded, and it yields measurements — so it implements the generic bas
 | JLINK-FR-022 | A verification mismatch shall raise, naming the sections that differ. A verification over an empty section list shall be reported as not matched, never as a pass. | STK-09 | Test |
 | JLINK-FR-023 | The driver shall erase the target's non-volatile memory, from reset with the core halted, and shall confirm the erasure by reading the flash back rather than trusting the server's report, raising if it did not happen. | STK-09 | Test |
 | JLINK-FR-024 | The driver shall report what the build system recorded about the image it programmed - the version and the build date - from the manifest beside that image, so a test can state the version it put on a part rather than repeating one into a specification where it would go stale. | STK-09, STK-16 | Test |
+| JLINK-FR-025 | The driver shall programme a given list of images in order - for example SoftDevice, bootloader, application and settings - in one step usable in a specification's teardown, reading the given ranges (by default the nRF52's UICR) before programming, writing them back after any image that disturbs them, and reading them again at the end. A range that does not read as it did, or an image that does not verify, shall be an error. | STK-08 | Test |
 
 ### 10.4 Execution control
 

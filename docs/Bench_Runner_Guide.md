@@ -706,6 +706,7 @@ wins.
 | `rtt_samples` | `SampleSet` | `count`, `minimum`, `maximum`, `mean`, `spread` (§3.8) |
 | `measure_time_between` | `TimingResult` | `microseconds`, `milliseconds`, `cycles`, `spread`, `standard_deviation`, `minimum`, `maximum`, `count`, `is_trustworthy`, `halts_target`, `resolution_seconds` |
 | `flash` | `FlashResult` | `bytes_written`, `verify.matched`, `seconds`, `sections` |
+| `restore` | `RestoreResult` | `unchanged`, `verified`, `bytes_written`, `seconds`, `kept` |
 | `verify` | `VerifyResult` | `matched`, `mismatched`, `sections` |
 | `call_stack` | `[StackFrame]` | `0.function`, `0.line`, `0.file` — and the list itself for a depth limit |
 | `wait_for_halt`, `halt` | `HaltInfo` | `reason`, `line`, `file`, `function`, `address`, `breakpoint_number` |
@@ -733,6 +734,25 @@ Two of these are worth asserting on beside any timing limit:
 ```
 
 A boolean is compared as `1` or `0`, since a limit is numeric throughout.
+
+`probe.restore` puts a known image set back - a SoftDevice, bootloader,
+application and settings, in the order given, or one combined image - while
+keeping the nRF52's UICR, which holds the sensor ID. UICR is read before
+anything is programmed and read again at the end; a difference is an error. It
+belongs in a teardown, or as recovery after a failed update (#264):
+
+```yaml
+teardown:
+  - do: probe.restore
+    with:
+      images: [images/s140.hex, images/bootloader.hex, images/app.hex, images/settings.hex]
+    expect:
+      - {name: uicr_unchanged, measure: unchanged, equals: 1}
+      - {name: images_verified, measure: verified, equals: 1}
+```
+
+Each image path is found as any input file is (§6.2). The core is left running;
+`run: false` leaves it halted.
 
 A limit on a figure whose method cannot resolve it is not a test, so the runner
 gives you the means to say so in the specification rather than in a comment.
