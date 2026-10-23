@@ -60,3 +60,24 @@ python -m benchtools run <specification> --bench bench_kepler.yaml --acknowledge
 
 `--acknowledge` confirms the specification's warning (reflash, supply on), on
 the owner's instruction for this run.
+
+# #275 on hardware: the bootloader link retry, a regression run
+
+`275_dfu_connect_retry/`: Kepler's `release_legacy_ota.yaml` as TX-1184 left
+it on 2026-10-23 (`spec_as_run.yaml`, with `step_2_scan_s` 30 s on package 2),
+run with `benchtools` 0.02.0002 from the working tree of `hotfix/v0.02.0002`
+at 48e55cd plus the version change, on the same bench and sensor as above.
+Kepler's `etb_v0_02_0001` virtual environment supplied the interpreter.
+
+**PASS**, 3 of 3 in 472.8 s:
+- Package 1: lost data and succeeded on retry 1 (178 510 bytes in 55.2 s).
+- Package 2: the same (299 136 bytes in 114.2 s).
+- The V5 package: refused with `ExtendedError` / `HwVersionFailure`.
+- The restore passed.
+
+No bootloader link failed to establish in this run, so the run shows that
+nothing regressed, not the retry itself; hardware cannot force a 0x3E. Two UART
+links did fail to establish, and `open_link` tried each again as before
+(`connection attempt 1 of 3 ... (reason 0x3e); trying again`). That retry
+loop is the code the bootloader link now shares. The retry itself is shown by
+the simulator tests in `test_dfu.py`.

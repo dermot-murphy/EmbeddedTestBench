@@ -1,6 +1,6 @@
 """Nordic Secure DFU over the dongle: the procedure, packages and send_package (#244).
 
-Lost data and its retries: #271.
+Lost data and its retries: #271. A bootloader link that fails to establish: #275.
 
 Traces to: BLE-FR-121, SWE4-UT-BLEDFU.
 """
@@ -15,6 +15,8 @@ import pytest
 from benchtools.core.errors import ConfigurationError, InstrumentError
 from benchtools.core.transport.mock import MockTransport
 from benchtools.instruments.nordic_dongle import NordicDongle, SimulatedDongle
+from benchtools.instruments.nordic_dongle.constants import CONNECT_ATTEMPTS
+from benchtools.instruments.nordic_dongle.dongle import LinkLostError
 from benchtools.instruments.nordic_dongle.dfu import (
     DfuError,
     DfuImage,
@@ -265,6 +267,11 @@ def bootloader_of(simulator) -> SimulatedBootloader:
     return next(s for s in simulator.sensors if s.address == KEPLER_5C1712_DFU_ADDRESS).bootloader
 
 
+def bootloader_sensor(simulator):
+    """The simulated 5C1712 as its bootloader advertises it."""
+    return next(s for s in simulator.sensors if s.address == KEPLER_5C1712_DFU_ADDRESS)
+
+
 def enter_bootloader(dongle):
     """SESSION SWDL over the application's link, as a Kepler spec does."""
     dongle.scan(5.0)
@@ -321,6 +328,53 @@ class TestSendPackage:
         assert result.as_dict()["retries"] == 1
         assert target.firmware == [FIRMWARE]
         assert result.bytes_sent > len(INIT) + len(FIRMWARE)
+
+    def test_a_bootloader_link_that_fails_to_establish_is_tried_again(
+            self, kepler_dongle, tmp_path, caplog):
+        """Seen twice in one Kepler run: linked, then lost with 0x3E (#275)."""
+        dongle, simulator = kepler_dongle
+        enter_bootloader(dongle)
+        bootloader_sensor(simulator).not_established = 2
+        package = make_package(tmp_path / "app.zip", [("application", INIT, FIRMWARE)])
+        with caplog.at_level("WARNING"):
+            result = dongle.send_package(package, "KAPPA_5C1712")
+        assert result.succeeded and bootloader_of(simulator).firmware == [FIRMWARE]
+        attempts = [record for record in caplog.records
+                    if getattr(record, "event_kind", None) == "ble_connect_attempt"]
+        assert [record.event_data["attempt"] for record in attempts] == [1, 2]
+        assert all(record.event_data["address"] == KEPLER_5C1712_DFU_ADDRESS
+                   and record.event_data["reason"] == "0x3e" for record in attempts)
+
+    def test_each_failed_bootloader_link_is_in_the_session_log(self, kepler_dongle, tmp_path):
+        dongle, simulator = kepler_dongle
+        enter_bootloader(dongle)
+        path = tmp_path / "ble.log"
+        dongle.start_log(str(path))
+        bootloader_sensor(simulator).not_established = 1
+        package = make_package(tmp_path / "app.zip", [("application", INIT, b"abc")])
+        assert dongle.send_package(package, "KAPPA_5C1712").succeeded
+        dongle.stop_log()
+        assert "attempt 1 of %d" % CONNECT_ATTEMPTS in path.read_text()
+
+    def test_a_bootloader_link_gives_up_after_the_attempts_allowed(self, kepler_dongle, tmp_path):
+        dongle, simulator = kepler_dongle
+        enter_bootloader(dongle)
+        bootloader_sensor(simulator).not_established = 5
+        package = make_package(tmp_path / "app.zip", [("application", INIT, b"abc")])
+        with pytest.raises(LinkLostError, match="reason 0x3e") as caught:
+            dongle.send_package(package, "KAPPA_5C1712")
+        assert caught.value.not_established
+        assert bootloader_sensor(simulator).not_established == 5 - CONNECT_ATTEMPTS
+        assert dongle.is_linked is False
+
+    def test_the_bootloader_link_attempts_can_be_set(self, kepler_dongle, tmp_path):
+        dongle, simulator = kepler_dongle
+        enter_bootloader(dongle)
+        bootloader_sensor(simulator).not_established = 1
+        package = make_package(tmp_path / "app.zip", [("application", INIT, b"abc")])
+        with pytest.raises(LinkLostError):
+            dongle.send_package(package, "KAPPA_5C1712", connect_attempts=1)
+        assert bootloader_sensor(simulator).not_established == 0
 
     def test_the_target_can_be_its_address(self, kepler_dongle, tmp_path):
         dongle, _ = kepler_dongle

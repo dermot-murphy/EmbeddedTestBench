@@ -957,10 +957,24 @@ class NordicDongle(Instrument):
             does not become ready, in time. The message says which.
         """
         sensor = self._require_selected()
+        self._retry_not_established(
+            sensor, attempts, lambda: self._open_link_once(sensor, timeout, connect_timeout))
+        return sensor
+
+    def _retry_not_established(self, sensor: Sensor, attempts: int,
+                               connect: Callable[[], object]) -> None:
+        """Run *connect* again while the link fails to establish (HCI 0x3E).
+
+        Up to *attempts* in all. Each failed attempt that is tried again is
+        logged as a warning and a ``ble_connect_attempt`` record, and noted in
+        the session log (#180). Every other failure, and the last attempt's,
+        is raised. Used for a UART link and a bootloader's DFU link (#275).
+        """
         attempts = max(1, int(attempts))
         for attempt in range(1, attempts):
             try:
-                return self._open_link_once(sensor, timeout, connect_timeout)
+                connect()
+                return
             except LinkLostError as exc:
                 if not exc.not_established:
                     raise
@@ -971,7 +985,7 @@ class NordicDongle(Instrument):
                            "attempts": attempts, "reason": exc.reason},
                           level=logging.WARNING)
                 self._session.note(text)
-        return self._open_link_once(sensor, timeout, connect_timeout)
+        connect()
 
     def _open_link_once(self, sensor: Sensor, timeout: Optional[float],
                         connect_timeout: float) -> Sensor:
@@ -1065,6 +1079,7 @@ class NordicDongle(Instrument):
         retries: int = DEFAULT_RETRIES,
         prn: int = 8,
         create_pause: float = 0.0,
+        connect_attempts: int = CONNECT_ATTEMPTS,
     ) -> DfuResult:
         """Send a DFU package to a sensor in its bootloader, by Nordic Secure DFU.
 
@@ -1085,11 +1100,14 @@ class NordicDongle(Instrument):
         :param timeout: Longest the whole transfer may take.
         :param scan_seconds: How long to look for the bootloader before each
             image; a Kepler bootloader advertises every 211 ms.
-        :param connect_timeout: The connect window for each link.
+        :param connect_timeout: The connect window for each link attempt.
         :param chunk: Bytes per Packet write.
         :param retries: Times an object is sent again when its receipts or
             CRC show data was lost on the link; each retry is logged, and
             ``retries`` in the result counts them (#271).
+        :param connect_attempts: Most attempts at each bootloader link when it
+            fails to establish (HCI 0x3E), as :meth:`open_link` makes; each
+            failed attempt is logged (#275).
         :raises InstrumentError: if the bootloader is not found, offers no DFU
             service, or stops answering, or an object is still lost after
             every retry.
@@ -1129,7 +1147,12 @@ class NordicDongle(Instrument):
             found.append("%s %s" % (sensor.address, sensor.name))
             self._session.note("DFU image %d of %d (%s) to %s %s"
                                % (index + 1, len(images), image.kind, sensor.address, sensor.name))
-            self._open_dfu_link(sensor, connect_timeout)
+
+            def attempt() -> None:
+                remaining()
+                self._open_dfu_link(sensor, connect_timeout)
+
+            self._retry_not_established(sensor, connect_attempts, attempt)
 
         def disconnect(image: DfuImage, index: int) -> None:  # pylint: disable=unused-argument
             self._disconnect()
