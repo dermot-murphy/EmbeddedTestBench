@@ -246,6 +246,23 @@ register-cache` GDB read `0x00000A80`, SP `0x20000400`, LR `0xFFFFFFFF` and
 xPSR `0x01000000`. `reset()` now sends that flush after every reset. In GDB
 15.2.90, `flushregs` is a deprecated alias of the same command.
 
+### 4.7 Flashing combined HEX images in turn (issue #253)
+
+Kepler bench, 2026-10-20 (TX-1084), GDB 15.2 on Windows, images on `U:`. In
+one run, the third `probe.flash` of three combined images made GDB print that
+the image flashed before it "has changed; re-reading symbols", and GDB
+answered nothing more; every later probe step, the teardown included, failed.
+After each `load`, `flash` makes the image GDB's exec file so that `verify`
+can compare against it, and the next `load` re-checks that file.
+
+`flash(path)` now discards the exec file (`-file-exec-and-symbols` with no
+argument) immediately before `load "<path>"`, so GDB holds no file to re-read
+when it loads. The image is still read as the exec file after the load, for
+`verify`. **Not yet confirmed on hardware.** The issue records that making the
+V10 hex the exec file between flashes did not help, and GDB still named the
+DEBUG file; discarding it is a different operation, but only a run of the
+three-flash sequence on the bench can show it is enough.
+
 ## 5. What this driver does not do
 
 | Not supported | Reason |
