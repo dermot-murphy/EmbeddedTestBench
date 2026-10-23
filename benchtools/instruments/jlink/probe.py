@@ -395,25 +395,7 @@ class JLinkProbe(Instrument):
             )
             if start_server:
                 server.start()
-            try:
-                gdb = find_gdb(gdb_executable)
-                if gdb is None:
-                    raise ConnectionFailedError(
-                        "no ARM-capable GDB found. Install arm-none-eabi-gdb (it ships "
-                        "with the GNU Arm Embedded toolchain) or pass "
-                        "gdb_executable=... . The driver needs GDB for symbol lookup "
-                        "and stack unwinding."
-                    )
-                transport = ProcessTransport(
-                    [gdb, "--interpreter=mi2", "--quiet", "-nx"], timeout=timeout
-                )
-                rtt = RttClient(SocketRttBackend(host, rtt_port))
-            except BaseException:
-                # No probe exists yet to close it, so a server started above
-                # would outlive the run and hold the probe (#254). stop() leaves
-                # alone a server this connect did not spawn.
-                server.stop()
-                raise
+            transport, rtt = cls._start_gdb(server, gdb_executable, host, rtt_port, timeout)
             address = server.address
 
         try:
@@ -439,6 +421,32 @@ class JLinkProbe(Instrument):
             probe.close()
             raise
         return probe
+
+    @staticmethod
+    def _start_gdb(server: GdbServer, gdb_executable: Optional[str], host: str,
+                   rtt_port: int, timeout: float) -> Tuple[Transport, RttClient]:
+        """Start GDB and the RTT client for a real probe.
+
+        On failure the server is stopped before raising: no probe exists yet to
+        close it, so a server started by this connect would outlive the run and
+        hold the probe (#254). ``stop()`` leaves alone a server it did not spawn.
+        """
+        try:
+            gdb = find_gdb(gdb_executable)
+            if gdb is None:
+                raise ConnectionFailedError(
+                    "no ARM-capable GDB found. Install arm-none-eabi-gdb (it ships "
+                    "with the GNU Arm Embedded toolchain) or pass "
+                    "gdb_executable=... . The driver needs GDB for symbol lookup "
+                    "and stack unwinding."
+                )
+            transport = ProcessTransport(
+                [gdb, "--interpreter=mi2", "--quiet", "-nx"], timeout=timeout
+            )
+            return transport, RttClient(SocketRttBackend(host, rtt_port))
+        except BaseException:
+            server.stop()
+            raise
 
     @staticmethod
     def _parse_target(resource: str) -> Tuple[str, int]:

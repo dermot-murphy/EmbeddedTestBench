@@ -118,7 +118,7 @@ class TestAFailedConnectLeavesNoServer:
                             lambda *a, **k: spawned.append(a) or None)
         with pytest.raises(ConnectionFailedError):
             JLinkProbe.connect("jlink://", device="nRF52840_xxAA")
-        assert spawned == []
+        assert not spawned
 
 
 class TestConnection:
