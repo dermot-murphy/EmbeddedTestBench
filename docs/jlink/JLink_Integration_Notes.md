@@ -282,16 +282,22 @@ Kepler bench, 2026-10-20 (TX-1084), GDB 15.2 on Windows, images on `U:`. In
 one run, the third `probe.flash` of three combined images made GDB print that
 the image flashed before it "has changed; re-reading symbols", and GDB
 answered nothing more; every later probe step, the teardown included, failed.
-After each `load`, `flash` makes the image GDB's exec file so that `verify`
-can compare against it, and the next `load` re-checks that file.
+
+**Cause, confirmed on 5C1712 on 2026-10-23.** After a flash, `flash` reads the
+image as GDB's exec file so that `verify` can compare against it. GDB's `load`
+first re-reads any symbol file whose modification time has changed since it
+was read, and re-reading a combined HEX file this way hangs GDB. Neither the
+images nor their age matter; what matters is the exec file's time changing
+between two flashes - a rebuild, a copy, or a mapped drive reporting a new
+time. Flashing DEBUG, moving the DEBUG file's time, then flashing RELEASE: on
+`develop` GDB stopped answering the `load` in 3 runs of 4; with the fix, 3 of
+3 flashed and verified.
 
 `flash(path)` now discards the exec file (`-file-exec-and-symbols` with no
-argument) immediately before `load "<path>"`, so GDB holds no file to re-read
-when it loads. The image is still read as the exec file after the load, for
-`verify`. **Not yet confirmed on hardware.** The issue records that making the
-V10 hex the exec file between flashes did not help, and GDB still named the
-DEBUG file; discarding it is a different operation, but only a run of the
-three-flash sequence on the bench can show it is enough.
+argument) immediately before `load "<path>"`, so GDB holds no file to re-read.
+The image is still read as the exec file after the load, for `verify`. Calling
+`probe.load_symbols` with a HEX file between flashes, as a workaround, made it
+the exec file again, which is why that did not help.
 
 ## 5. What this driver does not do
 
