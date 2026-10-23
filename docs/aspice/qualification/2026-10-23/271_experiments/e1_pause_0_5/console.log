@@ -1,0 +1,25 @@
+benchtools 0.02.0001
+5e0bdd6f4569f87ff53ae3d324579d7d3105fcdf
+ benchtools/__init__.py                         | 2 +-
+ benchtools/instruments/nordic_dongle/dfu.py    | 8 +++++++-
+ benchtools/instruments/nordic_dongle/dongle.py | 5 ++++-
+ 3 files changed, 12 insertions(+), 3 deletions(-)
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+SAFETY WARNING - ETB 271 experiments - SoftDevice and bootloader package to bootloader V1.01.0000
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+THIS TEST REFLASHES SENSOR 5C1712 THROUGH THE J-LINK WITH V10.00.0000,
+UPGRADES IT OVER THE AIR (SOFTDEVICE, BOOTLOADER AND APPLICATION), AND
+SWITCHES THE GPD-3303D'S OUTPUT ON, WITH CHANNEL 2 AT 3.3 V. A failed
+over-the-air step can leave the unit in its bootloader; teardown restores it
+through the J-Link (ETB v0.02.0000 proved send_package and probe.restore
+on 5C1712, #244 and #264). Channel 2 must power sensor
+5C1712 and nothing else; channel 1 is held at 0 V.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+WARNING  benchtools.instruments.nordic_dongle.dongle: connection attempt 1 of 3 to D1:8D:3B:4C:19:96 failed to establish (reason 0x3e); trying again
+WARNING  benchtools.instruments.nordic_dongle.dongle: connection attempt 1 of 3 to D1:8D:3B:4C:19:96 failed to establish (reason 0x3e); trying again
+ETB 271 experiments - SoftDevice and bootloader package to bootloader V1.01.0000: PASS - 2 passed, 0 failed, 0 errored, 3 skipped in 220.88 s
+  JSON    : result.json
+  Markdown: report.md
+rc=0

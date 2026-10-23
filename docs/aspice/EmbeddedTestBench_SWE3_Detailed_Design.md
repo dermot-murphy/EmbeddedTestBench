@@ -10,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE3-001 | **Version** | 1.32 |
+| **Document ID** | ETB-SWE3-001 | **Version** | 1.33 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-23 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -66,6 +66,7 @@
 | 1.30 | 2026-10-23 | Claude | #259: JLINK-DD-PROBE - `reset` and `flash` halt a running core first (`_stop_if_running`), since GDB refuses `monitor` commands while it runs. JLINK-DD-SIM - the simulated GDB refuses a `monitor` command while the core runs. |
 | 1.31 | 2026-10-23 | Claude | #264: JLINK-DD-PROBE - `restore` programmes an image set in order keeping UICR (`RestoreResult`, `NRF52_UICR`); CORE-DD-PATHS - `resolve_arguments` resolves a list of files item by item. |
 | 1.32 | 2026-10-23 | Claude | #244: BLE-DD-DFU (firmware `dfu_client.c`, `cmd_dfu.c`: `dfucp`, `dfupkt`, `+dfu`; protocol 1.7, firmware 1.7.0), BLE-DD-DFUHOST (`dfu.py`, `NordicDongle.send_package`) and BLE-DD-DFUSIM (`dfu_target.py`, the simulated 5C1712 bootloader) added; BLE-DD-CMDARGS gains the hex helpers. |
+| 1.33 | 2026-10-23 | Claude | #271: BLE-DD-DFUHOST - each Packet Receipt Notification is checked against what was sent, and an image whose receipt or object CRC does not match is sent again from its init packet up to `retries` times, waiting `create_pause` after each data object's create (0.15 s on the first retry, doubled after; `DfuResult.retries`); `send_package` takes `retries`, `prn` and `create_pause`. BLE-DD-DFUSIM - the simulated bootloader sends receipts, can lose chosen packets (`lose`) and refuse a data object created again (`refuse_recreate`). |
 
 ---
 
@@ -1377,8 +1378,33 @@ A refusal is a result: `send_image` returns the stage it stopped at (`init`,
 `firmware`) with the result code and any extended error, and `DfuResult`
 names them as a test compares them - `Success`, `InvalidObject`,
 `ExtendedError` with `FwVersionFailure`, `HwVersionFailure`,
-`SdVersionFailure`. A CRC that does not match, or a response to another
-request, is a broken transfer and raises `DfuError`.
+`SdVersionFailure`. A response to another request is a broken transfer and
+raises `DfuError`; a receipt or CRC that does not match is lost data.
+
+Data lost on the link is sent again (#271). On 5C1712, over links that
+connected at a 30 ms interval and carried 20-byte pieces (receipts every 160
+bytes, so an ATT MTU of 23), both its SDK 15.2 bootloader (V1.01.0000) and the
+V2.00.0000 one it was upgraded to lost a 20-byte piece of the first data
+object when it was written straight after the object's create, and said so in
+the next receipt with offset 0 and CRC 0. The SDK 15.2 one refused that object
+created again with `InvalidObject`. With 0.15 s or 0.5 s after each data
+create, nothing was lost, which points to writes arriving while the object's
+flash page is erased; that cause is inferred, not traced in the bootloader.
+
+With a `receipts` source, `SecureDfu` checks every receipt that has arrived
+after each Packet write: its offset must be past the last receipt's and not
+past what was sent, and its CRC must be that of the bytes sent up to it. At
+the first that does not match, or if an object's final CRC does not, it stops
+and sends the image again from its init packet, which makes the bootloader
+start the image again, up to `retries` times (3 by default), calling
+`on_retry` with the reason each time. Each retry waits `create_pause` after
+each data object's create: `RETRY_CREATE_PAUSE` (0.15 s) on the first, doubled
+on each after. An object is never created again after a loss. Only an image
+still lost after every retry raises `DfuError`. `create_pause` starts at 0, so
+a link that loses nothing is not slowed; it can be set from the start. A
+notification that is not a receipt is ignored, and those that arrive before
+an object's first write are taken and not checked. `DfuResult.retries` counts
+the retries, and `bytes_sent` includes what was sent again.
 
 `NordicDongle.send_package(package, target, timeout)` finds the bootloader by
 address or by the start of its name followed by `DFU` - `KAPPA_5C1712` finds
@@ -1386,7 +1412,13 @@ address or by the start of its name followed by `DFU` - `KAPPA_5C1712` finds
 waits for `+dfu state=ready`, runs the image, and disconnects: the bootloader
 resets after executing an image. It is a method of the dongle, not a separate
 instrument, because a second instrument on the same serial port could not open
-it. Each transfer is a `ble_dfu` event-log record.
+it. Each transfer is a `ble_dfu` event-log record. The receipts are the `+rx`
+events the dongle reports, taken as they were read with each reply: polling
+for them after every Packet write would add 10 ms a write, and a receipt read
+later is checked after the next write, while the object's CRC covers the last.
+Each retry is a warning in the log and a note in the session log.
+`send_package` passes `retries`, `prn` (the receipt interval, 8) and
+`create_pause` through to `SecureDfu`.
 
 #### BLE-DD-DFUSIM — `dfu_target.py`
 
@@ -1400,6 +1432,14 @@ returns it. The simulated dongle gives a sensor a bootloader with
 `dfucp` and `dfupkt` reach it. The simulated 5C1712 enters its bootloader on
 `SESSION SWDL` and then advertises at `D1:8D:3B:4C:19:97` as
 `KAPPA_5C1712-0FDFU` (`SimulatedSensor.present`).
+
+With `prn_supported`, it keeps the receipt interval it is given and, after that
+many Packet writes, queues a receipt in `receipts`; the simulated dongle
+reports each as `+rx` before its `dfupkt` reply. `lose` names Packet writes,
+counted from 1, whose data is dropped; the next receipt is then offset 0 and
+CRC 0, as 5C1712's was (#271). A data object created again drops what was
+received of it since the last execute, or, with `refuse_recreate`, is refused
+with `InvalidObject` as the SDK 15.2 bootloader refused it.
 
 #### BLE-DD-CLI — `cli.py`
 
