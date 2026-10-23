@@ -1,0 +1,959 @@
+{
+  "suite": "BT-003 legacy upgrade - V10.00.0000 to the candidate over the air",
+  "bench": "Kepler bench (5C1712)",
+  "spec_source": "U:/PrivateWork/Sensoteq/Kepler/innovateuk-sensor/software/test/bench/release_since_v10_00_0000/release_legacy_ota.yaml",
+  "parameters": {
+    "sensor_address": "D1:8D:3B:4C:19:96",
+    "sensor_id": "5C1712",
+    "supply_channel": 2,
+    "supply_v": 3.3,
+    "off_channel": 1,
+    "off_max_v": 0.05,
+    "boot_s": 15.0,
+    "scan_s": 20.0,
+    "connect_s": 60.0,
+    "reply_timeout_s": 45.0,
+    "two_frame_window_s": 2.0,
+    "id_address": 268439680,
+    "id_word": 303520768,
+    "settings_bl_version_address": 1044492,
+    "backup_bl_version_address": 1040396,
+    "dfu_target": "KAPPA_5C1712",
+    "step_1_timeout_s": 180.0,
+    "step_2_timeout_s": 180.0,
+    "refused_timeout_s": 60.0,
+    "bootloader_idle_s": 45.0,
+    "v10_00_hex": "../../../output/legacy_images/V10.00.0000/KAPPAX_PCB_V4X_Production_V10.00.0000-plus-bl-and-softdevice.hex",
+    "step_1_package": "../../../output/legacy_images/candidate/KAPPAX_Release_BL_V2.00.0000_UPGRADE_OTA.zip",
+    "step_2_package": "../../../output/legacy_images/candidate/KAPPAX_APP_SDK17_PCB_V4X_RELEASE_OTA.zip",
+    "v5_package": "../../../output/KAPPAX_APP_SDK17_PCB_V5_DEBUG/package/KAPPAX_APP_SDK17_PCB_V5_DEBUG_OTA.zip",
+    "debug_hex": "../../../output/KAPPAX_APP_SDK17_PCB_V4X_DEBUG/package/KAPPAX_APP_SDK17_PCB_V4X_DEBUG-plus-bl-and-softdevice.hex"
+  },
+  "selection": [],
+  "simulated": false,
+  "status": "FAIL",
+  "started": "2026-10-23T16:17:45+00:00",
+  "finished": "2026-10-23T16:23:00+00:00",
+  "duration_s": 314.105498,
+  "totals": {
+    "total": 3,
+    "passed": 1,
+    "failed": 2,
+    "errored": 0,
+    "skipped": 0
+  },
+  "instruments": {
+    "dongle": {
+      "driver": "NordicDongle",
+      "resource": "COM10",
+      "event": "BLE",
+      "manufacturer": "Nordic",
+      "model": "PCA10059",
+      "serial_number": "",
+      "firmware": "1.7.0 (built 2026-10-23T10:55:19Z)",
+      "identity": "Nordic PCA10059 fw=1.7.0 built=2026-10-23T10:55:19Z proto=1.7 uptime_us=7738844355 dropped=0"
+    },
+    "psu": {
+      "driver": "Gpd3303D",
+      "resource": "COM11",
+      "event": "PSU",
+      "manufacturer": "GW INSTEK",
+      "model": "GPD-3303D",
+      "serial_number": "GER916893",
+      "firmware": "V1.09",
+      "identity": "GW INSTEK,GPD-3303D,SN:GER916893,V1.09"
+    },
+    "probe": {
+      "driver": "JLinkProbe",
+      "resource": "jlink://",
+      "event": "JLINK",
+      "manufacturer": "SEGGER",
+      "model": "J-Link",
+      "serial_number": "682395790",
+      "firmware": "J-Link ARM V8 compiled Nov 28 2014 13:44:46",
+      "identity": "Firmware: J-Link ARM V8 compiled Nov 28 2014 13:44:46, Hardware: V8.00, S/N: 682395790"
+    }
+  },
+  "requirements": [
+    "V10-F-01"
+  ],
+  "requirements_verified": {
+    "V10-F-01": "FAIL"
+  },
+  "setup_error": "",
+  "cases": [
+    {
+      "name": "V10-F-01 Field upgrade V10.00.0000 to the candidate over the air",
+      "status": "FAIL",
+      "requirement": "V10-F-01",
+      "duration_s": 64.130653,
+      "error": "",
+      "skip_reason": "",
+      "steps": [
+        {
+          "action": "dongle.open_link",
+          "status": "PASS",
+          "duration_s": 9.760457,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "dongle.command",
+          "status": "PASS",
+          "duration_s": 0.063323,
+          "error": "",
+          "measurements": [
+            {
+              "name": "v10_f_01_v10_version",
+              "value": "ACK RD VERSION = V10.00.0000",
+              "unit": "",
+              "limit": "= \"ACK RD VERSION = V10.00.0000\"",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        },
+        {
+          "action": "dongle.command",
+          "status": "PASS",
+          "duration_s": 2.065011,
+          "error": "",
+          "measurements": [
+            {
+              "name": "v10_f_01_v10_factory_start",
+              "value": "ACK ROUTINE CONFIG = START",
+              "unit": "",
+              "limit": "= \"ACK ROUTINE CONFIG = START\"",
+              "status": "PASS",
+              "reason": ""
+            },
+            {
+              "name": "v10_f_01_v10_factory_two_frames",
+              "value": 2.0,
+              "unit": "",
+              "limit": "= 2",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        },
+        {
+          "action": "dongle.command",
+          "status": "PASS",
+          "duration_s": 0.246183,
+          "error": "",
+          "measurements": [
+            {
+              "name": "v10_f_01_v10_wr_twfa_scaling",
+              "value": "ACK WR 16",
+              "unit": "",
+              "limit": "= \"ACK WR 16\"",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        },
+        {
+          "action": "dongle.command",
+          "status": "PASS",
+          "duration_s": 0.236109,
+          "error": "",
+          "measurements": [
+            {
+              "name": "v10_f_01_v10_wr_twfb_scaling",
+              "value": "ACK WR 32",
+              "unit": "",
+              "limit": "= \"ACK WR 32\"",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        },
+        {
+          "action": "dongle.command",
+          "status": "PASS",
+          "duration_s": 0.240705,
+          "error": "",
+          "measurements": [
+            {
+              "name": "v10_f_01_v10_wr_detect_method",
+              "value": "ACK WR ACCRMS",
+              "unit": "",
+              "limit": "= \"ACK WR ACCRMS\"",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        },
+        {
+          "action": "dongle.command",
+          "status": "PASS",
+          "duration_s": 0.238305,
+          "error": "",
+          "measurements": [
+            {
+              "name": "v10_f_01_v10_wr_detect_period",
+              "value": "ACK WR 100",
+              "unit": "",
+              "limit": "= \"ACK WR 100\"",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        },
+        {
+          "action": "dongle.command",
+          "status": "PASS",
+          "duration_s": 0.060404,
+          "error": "",
+          "measurements": [
+            {
+              "name": "v10_f_01_v10_twfa_scaling_16",
+              "value": "ACK RD TWFA-SCALING = 16 g",
+              "unit": "",
+              "limit": "= \"ACK RD TWFA-SCALING = 16 g\"",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        },
+        {
+          "action": "dongle.command",
+          "status": "PASS",
+          "duration_s": 0.060058,
+          "error": "",
+          "measurements": [
+            {
+              "name": "v10_f_01_v10_twfb_scaling_32",
+              "value": "ACK RD TWFB-SCALING = 32 g",
+              "unit": "",
+              "limit": "= \"ACK RD TWFB-SCALING = 32 g\"",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        },
+        {
+          "action": "dongle.command",
+          "status": "PASS",
+          "duration_s": 0.059422,
+          "error": "",
+          "measurements": [
+            {
+              "name": "v10_f_01_v10_detect_method_accrms",
+              "value": "ACK RD DETECT-METHOD = ACCRMS",
+              "unit": "",
+              "limit": "= \"ACK RD DETECT-METHOD = ACCRMS\"",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        },
+        {
+          "action": "dongle.command",
+          "status": "PASS",
+          "duration_s": 0.062856,
+          "error": "",
+          "measurements": [
+            {
+              "name": "v10_f_01_v10_detect_period_100",
+              "value": "ACK RD DETECT-PERIOD = 100 Secs/Tick",
+              "unit": "",
+              "limit": "= \"ACK RD DETECT-PERIOD = 100 Secs/Tick\"",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        },
+        {
+          "action": "dongle.command",
+          "status": "PASS",
+          "duration_s": 0.055791,
+          "error": "",
+          "measurements": [
+            {
+              "name": "v10_f_01_v10_rd_id",
+              "value": "ACK RD ID = 0x5C1712",
+              "unit": "",
+              "limit": "= \"ACK RD ID = 0x5C1712\"",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        },
+        {
+          "action": "dongle.command",
+          "status": "PASS",
+          "duration_s": 0.060419,
+          "error": "",
+          "measurements": [
+            {
+              "name": "v10_f_01_v10_mode_normal",
+              "value": "ACK RD MODE = NORMAL",
+              "unit": "",
+              "limit": "= \"ACK RD MODE = NORMAL\"",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        },
+        {
+          "action": "dongle.command",
+          "status": "PASS",
+          "duration_s": 0.058517,
+          "error": "",
+          "measurements": [
+            {
+              "name": "v10_f_01_v10_session_swdl",
+              "value": "ACK SESSION SWDL",
+              "unit": "",
+              "limit": "= \"ACK SESSION SWDL\"",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        },
+        {
+          "action": "dongle.close_link",
+          "status": "PASS",
+          "duration_s": 0.05709,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "dongle.send_package",
+          "status": "FAIL",
+          "duration_s": 6.32946,
+          "error": "",
+          "measurements": [
+            {
+              "name": "v10_f_01_step_1_bootloader",
+              "value": "InvalidObject",
+              "unit": "",
+              "limit": "= \"Success\"",
+              "status": "FAIL",
+              "reason": "\"InvalidObject\" != required \"Success\""
+            },
+            {
+              "name": "v10_f_01_step_1_done",
+              "value": "firmware",
+              "unit": "",
+              "limit": "= \"done\"",
+              "status": "FAIL",
+              "reason": "\"firmware\" != required \"done\""
+            }
+          ]
+        },
+        {
+          "action": "dongle.send_package",
+          "status": "FAIL",
+          "duration_s": 5.88675,
+          "error": "",
+          "measurements": [
+            {
+              "name": "v10_f_01_step_2_application",
+              "value": "InvalidObject",
+              "unit": "",
+              "limit": "= \"Success\"",
+              "status": "FAIL",
+              "reason": "\"InvalidObject\" != required \"Success\""
+            },
+            {
+              "name": "v10_f_01_step_2_done",
+              "value": "init",
+              "unit": "",
+              "limit": "= \"done\"",
+              "status": "FAIL",
+              "reason": "\"init\" != required \"done\""
+            }
+          ]
+        },
+        {
+          "action": "sleep",
+          "status": "PASS",
+          "duration_s": 15.000372,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "dongle.scan",
+          "status": "PASS",
+          "duration_s": 20.013721,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "dongle.select",
+          "status": "PASS",
+          "duration_s": 0.003158,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "dongle.open_link",
+          "status": "PASS",
+          "duration_s": 1.52428,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "dongle.command",
+          "status": "FAIL",
+          "duration_s": 0.061823,
+          "error": "",
+          "measurements": [
+            {
+              "name": "v10_f_01_rd_id_unchanged",
+              "value": "ACK RD ID = 0x5C1712",
+              "unit": "",
+              "limit": "= \"ACK rd id = 0x5C1712\"",
+              "status": "FAIL",
+              "reason": "\"ACK RD ID = 0x5C1712\" != required \"ACK rd id = 0x5C1712\""
+            }
+          ]
+        },
+        {
+          "action": "dongle.command",
+          "status": "FAIL",
+          "duration_s": 0.060384,
+          "error": "",
+          "measurements": [
+            {
+              "name": "v10_f_01_mode_normal",
+              "value": "ACK RD MODE = NORMAL",
+              "unit": "",
+              "limit": "= \"ACK rd mode = NORMAL\"",
+              "status": "FAIL",
+              "reason": "\"ACK RD MODE = NORMAL\" != required \"ACK rd mode = NORMAL\""
+            }
+          ]
+        },
+        {
+          "action": "dongle.command",
+          "status": "PASS",
+          "duration_s": 0.05982,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "dongle.command",
+          "status": "FAIL",
+          "duration_s": 0.059407,
+          "error": "",
+          "measurements": [
+            {
+              "name": "v10_f_01_bootloader_v2",
+              "value": "NACK Invalid Command",
+              "unit": "",
+              "limit": "= \"ACK rd version-dfu = V2.00.0000\"",
+              "status": "FAIL",
+              "reason": "\"NACK Invalid Command\" != required \"ACK rd version-dfu = V2.00.0000\""
+            }
+          ]
+        },
+        {
+          "action": "dongle.command",
+          "status": "FAIL",
+          "duration_s": 1.200184,
+          "error": "",
+          "measurements": [
+            {
+              "name": "v10_f_01_config_factory",
+              "value": "ACK RD CONFIG = Custom",
+              "unit": "",
+              "limit": "= \"ACK rd config = FACTORY\"",
+              "status": "FAIL",
+              "reason": "\"ACK RD CONFIG = Custom\" != required \"ACK rd config = FACTORY\""
+            }
+          ]
+        },
+        {
+          "action": "dongle.command",
+          "status": "FAIL",
+          "duration_s": 0.059769,
+          "error": "",
+          "measurements": [
+            {
+              "name": "v10_f_01_twfa_scaling_factory",
+              "value": "ACK RD TWFA-SCALING = 16 g",
+              "unit": "",
+              "limit": "= \"ACK rd twfa-scaling = AUTO\"",
+              "status": "FAIL",
+              "reason": "\"ACK RD TWFA-SCALING = 16 g\" != required \"ACK rd twfa-scaling = AUTO\""
+            }
+          ]
+        },
+        {
+          "action": "dongle.command",
+          "status": "FAIL",
+          "duration_s": 0.060847,
+          "error": "",
+          "measurements": [
+            {
+              "name": "v10_f_01_twfb_scaling_factory",
+              "value": "ACK RD TWFB-SCALING = 32 g",
+              "unit": "",
+              "limit": "= \"ACK rd twfb-scaling = AUTO\"",
+              "status": "FAIL",
+              "reason": "\"ACK RD TWFB-SCALING = 32 g\" != required \"ACK rd twfb-scaling = AUTO\""
+            }
+          ]
+        },
+        {
+          "action": "dongle.command",
+          "status": "FAIL",
+          "duration_s": 0.059158,
+          "error": "",
+          "measurements": [
+            {
+              "name": "v10_f_01_detect_method_factory",
+              "value": "ACK RD DETECT-METHOD = ACCRMS",
+              "unit": "",
+              "limit": "= \"ACK rd detect-method = ACCWAVE\"",
+              "status": "FAIL",
+              "reason": "\"ACK RD DETECT-METHOD = ACCRMS\" != required \"ACK rd detect-method = ACCWAVE\""
+            }
+          ]
+        },
+        {
+          "action": "dongle.command",
+          "status": "FAIL",
+          "duration_s": 0.058441,
+          "error": "",
+          "measurements": [
+            {
+              "name": "v10_f_01_detect_period_factory",
+              "value": "ACK RD DETECT-PERIOD = 100 Secs/Tick",
+              "unit": "",
+              "limit": "= \"ACK rd detect-period = 45 Sec/Tick\"",
+              "status": "FAIL",
+              "reason": "\"ACK RD DETECT-PERIOD = 100 Secs/Tick\" != required \"ACK rd detect-period = 45 Sec/Tick\""
+            }
+          ]
+        },
+        {
+          "action": "dongle.command",
+          "status": "FAIL",
+          "duration_s": 0.059475,
+          "error": "",
+          "measurements": [
+            {
+              "name": "v10_f_01_detect_velrss_factory",
+              "value": "NACK Invalid Command",
+              "unit": "",
+              "limit": "= \"ACK rd detect-velrss = 20 mm/s\"",
+              "status": "FAIL",
+              "reason": "\"NACK Invalid Command\" != required \"ACK rd detect-velrss = 20 mm/s\""
+            }
+          ]
+        },
+        {
+          "action": "dongle.command",
+          "status": "FAIL",
+          "duration_s": 0.059543,
+          "error": "",
+          "measurements": [
+            {
+              "name": "v10_f_01_rms_odr_factory",
+              "value": "NACK Invalid Command",
+              "unit": "",
+              "limit": "= \"ACK rd rms-odr = 6400 Hz\"",
+              "status": "FAIL",
+              "reason": "\"NACK Invalid Command\" != required \"ACK rd rms-odr = 6400 Hz\""
+            }
+          ]
+        },
+        {
+          "action": "dongle.command",
+          "status": "FAIL",
+          "duration_s": 0.061508,
+          "error": "",
+          "measurements": [
+            {
+              "name": "v10_f_01_rms_samples_factory",
+              "value": "NACK Invalid Command",
+              "unit": "",
+              "limit": "= \"ACK rd rms-samples = 1024 Samples\"",
+              "status": "FAIL",
+              "reason": "\"NACK Invalid Command\" != required \"ACK rd rms-samples = 1024 Samples\""
+            }
+          ]
+        },
+        {
+          "action": "dongle.command",
+          "status": "FAIL",
+          "duration_s": 0.058129,
+          "error": "",
+          "measurements": [
+            {
+              "name": "v10_f_01_rms_fmin_factory",
+              "value": "NACK Invalid Command",
+              "unit": "",
+              "limit": "= \"ACK rd rms-fmin = 7 Hz\"",
+              "status": "FAIL",
+              "reason": "\"NACK Invalid Command\" != required \"ACK rd rms-fmin = 7 Hz\""
+            }
+          ]
+        },
+        {
+          "action": "dongle.command",
+          "status": "FAIL",
+          "duration_s": 0.060894,
+          "error": "",
+          "measurements": [
+            {
+              "name": "v10_f_01_battery_time_factory",
+              "value": "NACK Invalid Command",
+              "unit": "",
+              "limit": "= \"ACK rd battery-time = 50 mSec\"",
+              "status": "FAIL",
+              "reason": "\"NACK Invalid Command\" != required \"ACK rd battery-time = 50 mSec\""
+            }
+          ]
+        },
+        {
+          "action": "dongle.close_link",
+          "status": "PASS",
+          "duration_s": 0.054464,
+          "error": "",
+          "measurements": []
+        }
+      ]
+    },
+    {
+      "name": "V10-F-01b A package for another PCB is refused and the unit keeps its application",
+      "status": "FAIL",
+      "requirement": "V10-F-01",
+      "duration_s": 110.007164,
+      "error": "",
+      "skip_reason": "",
+      "steps": [
+        {
+          "action": "dongle.scan",
+          "status": "PASS",
+          "duration_s": 20.014623,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "dongle.select",
+          "status": "PASS",
+          "duration_s": 0.003916,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "dongle.open_link",
+          "status": "PASS",
+          "duration_s": 8.644423,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "dongle.command",
+          "status": "FAIL",
+          "duration_s": 0.061878,
+          "error": "",
+          "measurements": [
+            {
+              "name": "v10_f_01b_session_swdl",
+              "value": "ACK SESSION SWDL",
+              "unit": "",
+              "limit": "= \"ACK session swdl\"",
+              "status": "FAIL",
+              "reason": "\"ACK SESSION SWDL\" != required \"ACK session swdl\""
+            }
+          ]
+        },
+        {
+          "action": "dongle.close_link",
+          "status": "PASS",
+          "duration_s": 0.057031,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "dongle.send_package",
+          "status": "FAIL",
+          "duration_s": 5.890232,
+          "error": "",
+          "measurements": [
+            {
+              "name": "v10_f_01b_v5_refused",
+              "value": "InvalidObject",
+              "unit": "",
+              "limit": "= \"ExtendedError\"",
+              "status": "FAIL",
+              "reason": "\"InvalidObject\" != required \"ExtendedError\""
+            },
+            {
+              "name": "v10_f_01b_v5_hw_version",
+              "value": "",
+              "unit": "",
+              "limit": "= \"HwVersionFailure\"",
+              "status": "FAIL",
+              "reason": "\"\" != required \"HwVersionFailure\""
+            },
+            {
+              "name": "v10_f_01b_v5_refused_at_init",
+              "value": "init",
+              "unit": "",
+              "limit": "= \"init\"",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        },
+        {
+          "action": "sleep",
+          "status": "PASS",
+          "duration_s": 45.000233,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "dongle.scan",
+          "status": "PASS",
+          "duration_s": 20.012869,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "dongle.select",
+          "status": "PASS",
+          "duration_s": 0.00304,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "dongle.open_link",
+          "status": "PASS",
+          "duration_s": 10.135977,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "dongle.command",
+          "status": "FAIL",
+          "duration_s": 0.065835,
+          "error": "",
+          "measurements": [
+            {
+              "name": "v10_f_01b_rd_id_unchanged",
+              "value": "ACK RD ID = 0x5C1712",
+              "unit": "",
+              "limit": "= \"ACK rd id = 0x5C1712\"",
+              "status": "FAIL",
+              "reason": "\"ACK RD ID = 0x5C1712\" != required \"ACK rd id = 0x5C1712\""
+            }
+          ]
+        },
+        {
+          "action": "dongle.command",
+          "status": "FAIL",
+          "duration_s": 0.056372,
+          "error": "",
+          "measurements": [
+            {
+              "name": "v10_f_01b_bootloader_v2",
+              "value": "NACK Invalid Command",
+              "unit": "",
+              "limit": "= \"ACK rd version-dfu = V2.00.0000\"",
+              "status": "FAIL",
+              "reason": "\"NACK Invalid Command\" != required \"ACK rd version-dfu = V2.00.0000\""
+            }
+          ]
+        },
+        {
+          "action": "dongle.close_link",
+          "status": "PASS",
+          "duration_s": 0.056032,
+          "error": "",
+          "measurements": []
+        }
+      ]
+    },
+    {
+      "name": "Restore 5C1712 - sensor ID, DEBUG image, NORMAL mode, FACTORY",
+      "status": "PASS",
+      "requirement": "",
+      "duration_s": 70.003482,
+      "error": "",
+      "skip_reason": "",
+      "steps": [
+        {
+          "action": "probe.halt",
+          "status": "PASS",
+          "duration_s": 0.031455,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "probe.write_word",
+          "status": "PASS",
+          "duration_s": 0.017387,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "probe.restore",
+          "status": "PASS",
+          "duration_s": 16.362242,
+          "error": "",
+          "measurements": [
+            {
+              "name": "debug_image_verified",
+              "value": 1.0,
+              "unit": "",
+              "limit": "= 1",
+              "status": "PASS",
+              "reason": ""
+            },
+            {
+              "name": "uicr_kept_after_restore",
+              "value": 1.0,
+              "unit": "",
+              "limit": "= 1",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        },
+        {
+          "action": "probe.read_word",
+          "status": "PASS",
+          "duration_s": 0.019768,
+          "error": "",
+          "measurements": [
+            {
+              "name": "sensor_id_word_kept_after_restore",
+              "value": 303520768.0,
+              "unit": "",
+              "limit": "= 3.03521e+08",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        },
+        {
+          "action": "probe.reset",
+          "status": "PASS",
+          "duration_s": 0.122665,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "dongle.close_link",
+          "status": "PASS",
+          "duration_s": 0.002953,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "sleep",
+          "status": "PASS",
+          "duration_s": 15.000911,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "dongle.scan",
+          "status": "PASS",
+          "duration_s": 20.026003,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "dongle.select",
+          "status": "PASS",
+          "duration_s": 0.005877,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "dongle.open_link",
+          "status": "PASS",
+          "duration_s": 0.540453,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "dongle.command",
+          "status": "PASS",
+          "duration_s": 0.272651,
+          "error": "",
+          "measurements": [
+            {
+              "name": "teardown_mode_normal",
+              "value": "ACK wr mode NORMAL",
+              "unit": "",
+              "limit": "= \"ACK wr mode NORMAL\"",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        },
+        {
+          "action": "dongle.close_link",
+          "status": "PASS",
+          "duration_s": 0.056554,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "sleep",
+          "status": "PASS",
+          "duration_s": 15.000435,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "dongle.open_link",
+          "status": "PASS",
+          "duration_s": 2.146753,
+          "error": "",
+          "measurements": []
+        },
+        {
+          "action": "dongle.command",
+          "status": "PASS",
+          "duration_s": 0.273231,
+          "error": "",
+          "measurements": [
+            {
+              "name": "teardown_factory",
+              "value": "ACK routine config = FACTORY",
+              "unit": "",
+              "limit": "= \"ACK routine config = FACTORY\"",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        },
+        {
+          "action": "dongle.command",
+          "status": "PASS",
+          "duration_s": 0.059335,
+          "error": "",
+          "measurements": [
+            {
+              "name": "teardown_rd_id",
+              "value": "ACK rd id = 0x5C1712",
+              "unit": "",
+              "limit": "= \"ACK rd id = 0x5C1712\"",
+              "status": "PASS",
+              "reason": ""
+            }
+          ]
+        },
+        {
+          "action": "dongle.close_link",
+          "status": "PASS",
+          "duration_s": 0.056201,
+          "error": "",
+          "measurements": []
+        }
+      ]
+    }
+  ]
+}

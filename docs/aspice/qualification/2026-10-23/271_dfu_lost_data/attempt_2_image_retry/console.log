@@ -1,0 +1,23 @@
+benchtools 0.02.0001
+5e0bdd6f4569f87ff53ae3d324579d7d3105fcdf
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+SAFETY WARNING - BT-003 legacy upgrade - V10.00.0000 to the candidate over the air
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+THIS TEST REFLASHES SENSOR 5C1712 THROUGH THE J-LINK WITH V10.00.0000,
+UPGRADES IT OVER THE AIR (SOFTDEVICE, BOOTLOADER AND APPLICATION), AND
+SWITCHES THE GPD-3303D'S OUTPUT ON, WITH CHANNEL 2 AT 3.3 V. A failed
+over-the-air step can leave the unit in its bootloader; teardown restores it
+through the J-Link (ETB v0.02.0000 proved send_package and probe.restore
+on 5C1712, #244 and #264). Channel 2 must power sensor
+5C1712 and nothing else; channel 1 is held at 0 V.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+WARNING  benchtools.instruments.nordic_dongle.dongle: DFU data lost, sending again: softdevice_bootloader image, retry 1 of 3 with 0.15 s after each data create: a receipt reported offset 0 after offset 160, with 488 sent
+WARNING  benchtools.instruments.nordic_dongle.dongle: connection attempt 1 of 3 to D1:8D:3B:4C:19:96 failed to establish (reason 0x3e); trying again
+BT-003 legacy upgrade - V10.00.0000 to the candidate over the air: ERROR - 1 passed, 0 failed, 2 errored, 0 skipped in 291.42 s
+  ERROR   V10-F-01 Field upgrade V10.00.0000 to the candidate over the air - InstrumentError: no bootloader matching 'KAPPA_5C1712' was heard in 5 s. Heard: 5C:C1:D7:44:44:AF , 5A:51:E0:A8:AB:9F , E4:69:B9:0F:6B:3C KAPPA_5C314E_V10.00.0000P, 23:20:36:1C:85:3D , FE:1C:34:B2:58:90 SENS-G3-3045, C9:91:37:E4:C7:36 KAPPA_5C4EE7_V11.01.0000X, CE:CD:99:EE:91:C1 KAPPA_5C168B_V10.01.20, D9:40:04:9C:22:AA KAPPA_5C1705_V10.01.20. A sensor enters its bootloader on SESSION SWDL and leaves it after 30 s idle.
+  ERROR   V10-F-01b A package for another PCB is refused and the unit keeps its application - LinkLostError: could not connect to D1:8D:3B:4C:19:96: the dongle reported no connection (reason timeout). A sensor that advertises rarely can fall outside the connect window; try again, or check it is in range and not connected to something else.
+  JSON    : ota.json
+  Markdown: ota_report.md
+rc=1
