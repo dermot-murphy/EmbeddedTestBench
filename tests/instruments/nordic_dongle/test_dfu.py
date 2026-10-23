@@ -1,5 +1,7 @@
 """Nordic Secure DFU over the dongle: the procedure, packages and send_package (#244).
 
+Lost data and its retries: #271.
+
 Traces to: BLE-FR-121, SWE4-UT-BLEDFU.
 """
 
@@ -44,7 +46,7 @@ def make_package(path, images):
 
 def dfu_over(target: SimulatedBootloader, chunk: int = 244) -> SecureDfu:
     return SecureDfu(control=lambda request, timeout: target.control(request),
-                     packet=target.packet, chunk=chunk)
+                     packet=target.packet, chunk=chunk, sleep=lambda seconds: None)
 
 
 class TestTheProcedure:
@@ -107,6 +109,132 @@ class TestTheProcedure:
     def test_a_chunk_beyond_a_write_is_refused(self):
         with pytest.raises(ConfigurationError):
             SecureDfu(control=lambda r, t: b"", packet=lambda d: None, chunk=245)
+
+
+def take(target: SimulatedBootloader):
+    """The receipts the target has sent since the last call."""
+    def receipts():
+        sent = list(target.receipts)
+        target.receipts.clear()
+        return sent
+    return receipts
+
+
+def dfu_checking(target: SimulatedBootloader, pauses=None, **options) -> SecureDfu:
+    """A procedure that checks the target's receipts, as send_package's does.
+
+    Each pause it would wait is recorded in *pauses* rather than slept.
+    """
+    waited = pauses if pauses is not None else []
+    return SecureDfu(control=lambda request, timeout: target.control(request),
+                     packet=target.packet, receipts=take(target), sleep=waited.append,
+                     **options)
+
+
+class TestLostData:
+    """An SDK 15.2 bootloader at the minimum MTU lost a 20-byte piece (#271)."""
+
+    def test_receipts_that_match_need_no_retry(self):
+        target = SimulatedBootloader(prn_supported=True)
+        dfu = dfu_checking(target, prn=2)
+        assert dfu.send_image(DfuImage("application", INIT, FIRMWARE))[0] == "done"
+        assert dfu.retries == 0
+        assert target.firmware == [FIRMWARE]
+
+    def test_a_lost_packet_is_found_at_its_receipt_and_the_image_sent_again(self):
+        target = SimulatedBootloader(prn_supported=True, lose=(3,), refuse_recreate=True)
+        reasons = []
+        dfu = dfu_checking(target, prn=2, on_retry=reasons.append)
+        assert dfu.send_image(DfuImage("application", INIT, FIRMWARE))[0] == "done"
+        assert target.firmware == [FIRMWARE] and target.init_packets == [INIT, INIT]
+        assert dfu.retries == 1
+        assert len(reasons) == 1 and "receipt" in reasons[0] and "retry 1 of 3" in reasons[0]
+
+    def test_the_image_stops_at_the_first_bad_receipt(self):
+        """Packet 3 is the second of the first data object: its receipt is the
+        first, so nothing more is sent before the init packet again."""
+        target = SimulatedBootloader(prn_supported=True, lose=(3,))
+        dfu_checking(target, prn=2).send_image(DfuImage("application", INIT, FIRMWARE))
+        whole = 1 + sum(-(-min(DATA_OBJECT_MAX, len(FIRMWARE) - o) // 244)
+                        for o in range(0, len(FIRMWARE), DATA_OBJECT_MAX))
+        assert target.packets == whole + 3
+
+    def test_a_lost_object_is_not_created_again(self):
+        """5C1712's SDK 15.2 bootloader refused that with InvalidObject."""
+        target = SimulatedBootloader(prn_supported=True, lose=(3,), refuse_recreate=True)
+        dfu_checking(target, prn=2).send_image(DfuImage("application", INIT, FIRMWARE))
+        data_creates = [r[0] for r in target.requests if r[:2] == bytes([0x01, 0x02])]
+        assert len(data_creates) == 1 + -(-len(FIRMWARE) // DATA_OBJECT_MAX)
+
+    def test_each_retry_waits_longer_after_each_data_create(self):
+        """Nothing is lost on 5C1712 with 0.15 s after each create (#271)."""
+        pauses = []
+        # Each attempt writes the init packet, then the one data packet, which is lost.
+        dfu = dfu_checking(SimulatedBootloader(lose=(2, 4, 6, 8)), pauses=pauses)
+        with pytest.raises(DfuError):
+            dfu.send_image(DfuImage("application", INIT, b"x" * 100))
+        assert pauses == [0.15, 0.3, 0.6]
+
+    def test_no_pause_until_a_loss(self):
+        pauses = []
+        dfu = dfu_checking(SimulatedBootloader(), pauses=pauses)
+        assert dfu.send_image(DfuImage("application", INIT, FIRMWARE))[0] == "done"
+        assert not pauses and dfu.create_pause == 0.0
+
+    def test_a_pause_can_be_asked_for_from_the_start(self):
+        pauses = []
+        dfu = dfu_checking(SimulatedBootloader(), pauses=pauses, create_pause=0.2)
+        dfu.send_image(DfuImage("application", INIT, FIRMWARE))
+        assert pauses == [0.2] * -(-len(FIRMWARE) // DATA_OBJECT_MAX)
+
+    def test_without_receipts_the_object_s_crc_finds_the_loss(self):
+        target = SimulatedBootloader(lose=(5,))
+        dfu = SecureDfu(control=lambda request, timeout: target.control(request),
+                        packet=target.packet, sleep=lambda seconds: None)
+        assert dfu.send_image(DfuImage("application", INIT, FIRMWARE))[0] == "done"
+        assert dfu.retries == 1
+        assert target.firmware == [FIRMWARE]
+
+    def test_a_lost_init_packet_is_sent_again(self):
+        target = SimulatedBootloader(prn_supported=True, lose=(1,))
+        dfu = dfu_checking(target, prn=1)
+        assert dfu.send_image(DfuImage("application", INIT, FIRMWARE))[0] == "done"
+        assert target.init_packets == [INIT] and dfu.retries == 1
+
+    def test_a_receipt_that_goes_back_is_a_loss(self):
+        """5C1712 answered offset 0 and CRC 0 after a good receipt, where it
+        had lost a piece."""
+        target = SimulatedBootloader(prn_supported=True, lose=(5,))
+        reasons = []
+        dfu = dfu_checking(target, prn=2, on_retry=reasons.append)
+        assert dfu.send_image(DfuImage("application", INIT, FIRMWARE))[0] == "done"
+        assert "offset 0 after offset 488" in reasons[0]
+
+    def test_a_receipt_from_before_the_object_is_not_checked(self):
+        target = SimulatedBootloader(prn_supported=True)
+        dfu = dfu_checking(target, prn=1)
+        target.receipts.append(bytes([0x60, 0x03, 0x01]) + bytes(8))
+        assert dfu.send_image(DfuImage("application", INIT, b"x" * 600))[0] == "done"
+        assert dfu.retries == 0
+
+    def test_still_lost_after_every_retry_raises(self):
+        with pytest.raises(DfuError, match="still lost after 3 retries"):
+            dfu_checking(SimulatedBootloader(corrupt=True)).send_image(
+                DfuImage("application", INIT, FIRMWARE))
+
+    def test_no_retries_fails_at_the_first_loss(self):
+        target = SimulatedBootloader(prn_supported=True, lose=(3,))
+        with pytest.raises(DfuError, match="still lost after 0 retries"):
+            dfu_checking(target, prn=2, retries=0).send_image(
+                DfuImage("application", INIT, FIRMWARE))
+
+    def test_retries_cannot_be_negative(self):
+        with pytest.raises(ConfigurationError):
+            SecureDfu(control=lambda r, t: b"", packet=lambda d: None, retries=-1)
+
+    def test_a_pause_cannot_be_negative(self):
+        with pytest.raises(ConfigurationError):
+            SecureDfu(control=lambda r, t: b"", packet=lambda d: None, create_pause=-0.1)
 
 
 class TestPackages:
@@ -179,6 +307,20 @@ class TestSendPackage:
         connects = [line for line in simulator.command_log[before:] if line.startswith("connect")]
         assert len(connects) == 2
         assert bootloader_of(simulator).firmware == [b"S" * 5000, FIRMWARE]
+
+    def test_lost_data_is_sent_again_and_counted(self, kepler_dongle, tmp_path):
+        """The receipts reach the host as +rx events (#271)."""
+        dongle, simulator = kepler_dongle
+        enter_bootloader(dongle)
+        target = bootloader_of(simulator)
+        target.prn_supported = True
+        target.lose = (12,)
+        package = make_package(tmp_path / "app.zip", [("application", INIT, FIRMWARE)])
+        result = dongle.send_package(package, "KAPPA_5C1712")
+        assert result.succeeded and result.retries == 1
+        assert result.as_dict()["retries"] == 1
+        assert target.firmware == [FIRMWARE]
+        assert result.bytes_sent > len(INIT) + len(FIRMWARE)
 
     def test_the_target_can_be_its_address(self, kepler_dongle, tmp_path):
         dongle, _ = kepler_dongle

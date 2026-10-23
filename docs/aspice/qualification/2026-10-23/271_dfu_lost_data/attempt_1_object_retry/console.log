@@ -1,0 +1,49 @@
+benchtools 0.02.0001
+5e0bdd6f4569f87ff53ae3d324579d7d3105fcdf
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+SAFETY WARNING - BT-003 legacy upgrade - V10.00.0000 to the candidate over the air
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+THIS TEST REFLASHES SENSOR 5C1712 THROUGH THE J-LINK WITH V10.00.0000,
+UPGRADES IT OVER THE AIR (SOFTDEVICE, BOOTLOADER AND APPLICATION), AND
+SWITCHES THE GPD-3303D'S OUTPUT ON, WITH CHANNEL 2 AT 3.3 V. A failed
+over-the-air step can leave the unit in its bootloader; teardown restores it
+through the J-Link (ETB v0.02.0000 proved send_package and probe.restore
+on 5C1712, #244 and #264). Channel 2 must power sensor
+5C1712 and nothing else; channel 1 is held at 0 V.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+WARNING  benchtools.instruments.nordic_dongle.dongle: connection attempt 1 of 3 to D1:8D:3B:4C:19:96 failed to establish (reason 0x3e); trying again
+WARNING  benchtools.instruments.nordic_dongle.dongle: DFU data lost, sending again: data object at offset 0, retry 1 of 3: a receipt reported offset 0 after offset 160, with 488 sent
+WARNING  benchtools.instruments.nordic_dongle.dongle: DFU of U:\PrivateWork\Sensoteq\Kepler\innovateuk-sensor\software\output\legacy_images\candidate\KAPPAX_Release_BL_V2.00.0000_UPGRADE_OTA.zip to D1:8D:3B:4C:19:97 KAPPA_5C1712-0FDFU: InvalidObject, 641 bytes in 6.3 s
+WARNING  benchtools.instruments.nordic_dongle.dongle: DFU of U:\PrivateWork\Sensoteq\Kepler\innovateuk-sensor\software\output\legacy_images\candidate\KAPPAX_APP_SDK17_PCB_V4X_RELEASE_OTA.zip to D1:8D:3B:4C:19:97 KAPPA_5C1712-0FDFU: InvalidObject, 144 bytes in 5.9 s
+WARNING  benchtools.instruments.nordic_dongle.dongle: DFU of U:\PrivateWork\Sensoteq\Kepler\innovateuk-sensor\software\output\KAPPAX_APP_SDK17_PCB_V5_DEBUG\package\KAPPAX_APP_SDK17_PCB_V5_DEBUG_OTA.zip to D1:8D:3B:4C:19:97 KAPPA_5C1712-0FDFU: InvalidObject, 144 bytes in 5.9 s
+WARNING  benchtools.instruments.nordic_dongle.dongle: connection attempt 1 of 3 to D1:8D:3B:4C:19:96 failed to establish (reason 0x3e); trying again
+BT-003 legacy upgrade - V10.00.0000 to the candidate over the air: FAIL - 1 passed, 2 failed, 0 errored, 0 skipped in 314.11 s
+  FAIL    V10-F-01 Field upgrade V10.00.0000 to the candidate over the air
+            v10_f_01_step_1_bootloader: "InvalidObject" != required "Success"
+            v10_f_01_step_1_done: "firmware" != required "done"
+            v10_f_01_step_2_application: "InvalidObject" != required "Success"
+            v10_f_01_step_2_done: "init" != required "done"
+            v10_f_01_rd_id_unchanged: "ACK RD ID = 0x5C1712" != required "ACK rd id = 0x5C1712"
+            v10_f_01_mode_normal: "ACK RD MODE = NORMAL" != required "ACK rd mode = NORMAL"
+            v10_f_01_bootloader_v2: "NACK Invalid Command" != required "ACK rd version-dfu = V2.00.0000"
+            v10_f_01_config_factory: "ACK RD CONFIG = Custom" != required "ACK rd config = FACTORY"
+            v10_f_01_twfa_scaling_factory: "ACK RD TWFA-SCALING = 16 g" != required "ACK rd twfa-scaling = AUTO"
+            v10_f_01_twfb_scaling_factory: "ACK RD TWFB-SCALING = 32 g" != required "ACK rd twfb-scaling = AUTO"
+            v10_f_01_detect_method_factory: "ACK RD DETECT-METHOD = ACCRMS" != required "ACK rd detect-method = ACCWAVE"
+            v10_f_01_detect_period_factory: "ACK RD DETECT-PERIOD = 100 Secs/Tick" != required "ACK rd detect-period = 45 Sec/Tick"
+            v10_f_01_detect_velrss_factory: "NACK Invalid Command" != required "ACK rd detect-velrss = 20 mm/s"
+            v10_f_01_rms_odr_factory: "NACK Invalid Command" != required "ACK rd rms-odr = 6400 Hz"
+            v10_f_01_rms_samples_factory: "NACK Invalid Command" != required "ACK rd rms-samples = 1024 Samples"
+            v10_f_01_rms_fmin_factory: "NACK Invalid Command" != required "ACK rd rms-fmin = 7 Hz"
+            v10_f_01_battery_time_factory: "NACK Invalid Command" != required "ACK rd battery-time = 50 mSec"
+  FAIL    V10-F-01b A package for another PCB is refused and the unit keeps its application
+            v10_f_01b_session_swdl: "ACK SESSION SWDL" != required "ACK session swdl"
+            v10_f_01b_v5_refused: "InvalidObject" != required "ExtendedError"
+            v10_f_01b_v5_hw_version: "" != required "HwVersionFailure"
+            v10_f_01b_rd_id_unchanged: "ACK RD ID = 0x5C1712" != required "ACK rd id = 0x5C1712"
+            v10_f_01b_bootloader_v2: "NACK Invalid Command" != required "ACK rd version-dfu = V2.00.0000"
+  JSON    : ota.json
+  Markdown: ota_report.md
+rc=1

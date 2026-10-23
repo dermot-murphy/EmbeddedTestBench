@@ -775,7 +775,12 @@ class SimulatedDongle:
             return [self._error(DongleError.TOO_LONG, "payload too long")]
         target.packet(data)
         self.clock_us += 7_500
-        return ["ok len=%d" % len(data)]
+        # A receipt is a Control Point notification, reported as +rx before
+        # the reply, as the dongle reports one that came while it waited.
+        lines = ["+rx t=%d len=%d data=%s" % (self.clock_us, len(receipt), receipt.hex())
+                 for receipt in target.receipts]
+        target.receipts.clear()
+        return lines + ["ok len=%d" % len(data)]
 
     def _cmd_adv(self, arguments: List[str]) -> List[str]:
         if not arguments:

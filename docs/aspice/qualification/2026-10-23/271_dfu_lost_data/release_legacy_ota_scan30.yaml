@@ -1,0 +1,426 @@
+# KEP-STP-BT-003 V10-F-01: field upgrade from V10.00.0000 over the air, with
+# a site configuration (Kepler TX-1084).
+#
+# Needs Embedded Test Bench v0.02.0000 or later and the bench dongle on
+# firmware 1.7.0 (protocol 1.7), Kepler TX-1184. The DFU client is the
+# dongle's own send_package action (ETB #244): it finds the bootloader by
+# the start of its advertised name, sends each image of the package over
+# its own link, and returns the bootloader's verdict (result, extended_error,
+# stage), so a refused package is a result to check, not an error. The
+# J-Link steps use probe.restore (ETB #264), which keeps the whole UICR
+# page, not only the ID word.
+#
+# V10-F-01b, after the upgrade: SESSION SWDL on the candidate, then a V5
+# application package. Bootloader V2.00.0000 checks the hardware version in
+# the init packet, so it refuses the package with ExtendedError
+# HwVersionFailure at stage init and keeps the V4X application, which it
+# starts again once it has been idle for 30 s. The V5 package is the DEBUG
+# build of the commit under test (build.bat signs it with the second DFU key,
+# the one bootloader V2.00.0000 trusts, so only the hardware version is
+# wrong).
+#
+# The upgrade is the two-package path of the Firmware Update Guide (KEP-REF-
+# FWU-001 section 3): SESSION SWDL on V10.00.0000 (it exists at the tag:
+# app_bluetooth_cfg.h:200, app_cmd.c:974-987 at V10.01.2000), step 1 the
+# bootloader V2.00.0000 upgrade package (SoftDevice and bootloader, about
+# 45 s), then at once step 2 the V4X application package (about 70 s). A V4X
+# that waits more than 30 s between the two sleeps in System OFF (plan
+# OT-K-14), so step 2 follows step 1 with no other step between.
+#
+# What it checks after the upgrade, traced in develop: NVM layout 3 to 6
+# re-defaults every read-write parameter to FACTORY (api_param.c:326-418), the
+# mode stays NORMAL, the ID is unchanged (UICR is not written over the air),
+# RD VERSION-DFU is V2.00.0000 (app_param.c:732-734 -> hal_mcu.c:758-783,
+# bootloader record bl_board_cfg.h:39-41), and the four site items and the
+# five reads of V10-B-02 are at FACTORY.
+#
+# Images: the V10.00.0000 combined image from
+# generator/prepare_legacy_images.py, and the candidate's two signed DFU
+# packages from `prepare_legacy_images.py --candidate <tag>` (or the build.yml
+# run artifacts for an untagged candidate) in
+# U:/PrivateWork/Sensoteq/Kepler/innovateuk-sensor/software/output/legacy_images/candidate/. The DEBUG combined image of the
+# commit under test restores the unit in teardown.
+#
+# The V5 package for V10-F-01b is the V5 DEBUG build of the same commit:
+#   U:/PrivateWork/Sensoteq/Kepler/innovateuk-sensor/software/output/KAPPAX_APP_SDK17_PCB_V5_DEBUG/package/KAPPAX_APP_SDK17_PCB_V5_DEBUG_OTA.zip
+#
+# Run, from a new runs/<date>_<sha>_ota/ folder:
+#   python -m benchtools run ..\..\release_legacy_ota.yaml ^
+#       --bench ..\..\..\bench_kepler.yaml --acknowledge ^
+#       --markdown release_legacy_ota_report.md --json release_legacy_ota.json ^
+#       --event-log release_legacy_ota_events.log
+# About 15 min.
+
+name: BT-003 legacy upgrade - V10.00.0000 to the candidate over the air (ETB 271 copy, step 2 scan 30 s)
+description: >
+  Puts 5C1712 on V10.00.0000 with the J-Link, writes a site configuration in
+  V10 syntax, and upgrades it over BLE with the two DFU packages of the
+  candidate. Checks the NVM re-default to FACTORY, the mode, the sensor ID and
+  the bootloader version. Restores the DEBUG image, NORMAL mode and FACTORY.
+requirements: [V10-F-01]
+
+warning: |
+  THIS TEST REFLASHES SENSOR 5C1712 THROUGH THE J-LINK WITH V10.00.0000,
+  UPGRADES IT OVER THE AIR (SOFTDEVICE, BOOTLOADER AND APPLICATION), AND
+  SWITCHES THE GPD-3303D'S OUTPUT ON, WITH CHANNEL 2 AT 3.3 V. A failed
+  over-the-air step can leave the unit in its bootloader; teardown restores it
+  through the J-Link (ETB v0.02.0000 proved send_package and probe.restore
+  on 5C1712, #244 and #264). Channel 2 must power sensor
+  5C1712 and nothing else; channel 1 is held at 0 V.
+
+parameters:
+  sensor_address: "D1:8D:3B:4C:19:96"   # 5C1712, V4X
+  sensor_id: "5C1712"
+  supply_channel: 2
+  supply_v: 3.3
+  off_channel: 1
+  off_max_v: 0.05
+  boot_s: 15.0
+  scan_s: 20.0
+  connect_s: 60.0
+  reply_timeout_s: 45.0
+  two_frame_window_s: 2.0               # V10 ROUTINE CONFIG START answers twice
+  id_address: 0x10001080
+  id_word: 0x12175C00
+  # bootloader_version of the DFU settings page and of its backup
+  # (SDK 15.2 nrf_dfu_settings_t offset 12); V10's settings carry 1
+  settings_bl_version_address: 0x000FF00C
+  backup_bl_version_address: 0x000FE00C
+  # Step 1 advertises as KAPPA_<id>-<code>DFU, step 2 as KAPPA_<id>_<code>DFU
+  # (Firmware Update Guide section 3); send_package finds the unit by the
+  # start of its name, at address+1
+  dfu_target: "KAPPA_5C1712"
+  step_1_timeout_s: 180.0               # about 45 s seen with nrfutil
+  step_2_timeout_s: 180.0               # ETB: 298,520 bytes in 108.8 s
+  refused_timeout_s: 60.0               # refused at the init packet
+  bootloader_idle_s: 45.0               # bootloader starts the app after 30 s idle
+  v10_00_hex: U:/PrivateWork/Sensoteq/Kepler/innovateuk-sensor/software/output/legacy_images/V10.00.0000/KAPPAX_PCB_V4X_Production_V10.00.0000-plus-bl-and-softdevice.hex
+  step_1_package: U:/PrivateWork/Sensoteq/Kepler/innovateuk-sensor/software/output/legacy_images/candidate/KAPPAX_Release_BL_V2.00.0000_UPGRADE_OTA.zip
+  step_2_package: U:/PrivateWork/Sensoteq/Kepler/innovateuk-sensor/software/output/legacy_images/candidate/KAPPAX_APP_SDK17_PCB_V4X_RELEASE_OTA.zip
+  v5_package: U:/PrivateWork/Sensoteq/Kepler/innovateuk-sensor/software/output/KAPPAX_APP_SDK17_PCB_V5_DEBUG/package/KAPPAX_APP_SDK17_PCB_V5_DEBUG_OTA.zip
+  debug_hex: U:/PrivateWork/Sensoteq/Kepler/innovateuk-sensor/software/output/KAPPAX_APP_SDK17_PCB_V4X_DEBUG/package/KAPPAX_APP_SDK17_PCB_V4X_DEBUG-plus-bl-and-softdevice.hex
+
+instruments:
+  psu: gpd3303d
+  dongle: ble-dongle
+  probe: jlink
+
+setup:
+  - do: dongle.start_log
+    with: {path: ble_session.log}
+  - do: psu.output_off
+    with: {channel: {param: off_channel}}
+  - do: psu.set_voltage
+    with: {channel: {param: supply_channel}, volts: {param: supply_v}}
+  - do: psu.output_on
+    with: {channel: {param: supply_channel}}
+  - do: sleep
+    with: {seconds: {param: boot_s}}
+  - do: psu.read_channel
+    with: {channel: {param: supply_channel}}
+    expect:
+      - {name: supply_regulated, measure: regulated, equals: 1}
+  - do: psu.read_channel
+    with: {channel: {param: off_channel}}
+    expect:
+      - {name: channel_1_off, measure: voltage, unit: V, max: {param: off_max_v}}
+  - do: probe.halt
+  - do: probe.read_word
+    with: {address: {param: id_address}}
+    expect:
+      - {name: sensor_id_word_at_start, equals: 0x12175C00}
+  # The V10.00.0000 field state: flashed without a chip erase, UICR kept
+  # whole; restore leaves the core halted for the ID read
+  - do: probe.restore
+    with:
+      images: [{param: v10_00_hex}]
+      keep: [[0x10001000, 0x310]]   # the UICR page, ETB NRF52_UICR
+      run: false                    # halted, so the ID word can be read
+    expect:
+      - {name: v10_00_0000_verified, measure: verified, equals: 1}
+      - {name: uicr_kept_on_v10, measure: unchanged, equals: 1}
+  - do: probe.read_word
+    with: {address: {param: id_address}}
+    expect:
+      - {name: sensor_id_word_on_v10, equals: 0x12175C00}
+  # Bootloader V1.01.0000 restores the backup settings page (0x0FE000) over
+  # the main one (0x0FF000) when their protected parts differ, so both must
+  # be V10's: a stale backup from the DEBUG image (bootloader_version
+  # 2000000) makes it refuse step 1 with FwVersionFailure (TX-1184,
+  # generator/prepare_legacy_images.py)
+  - do: probe.read_word
+    with: {address: {param: settings_bl_version_address}}
+    expect:
+      - {name: settings_bootloader_version_v10, equals: 1}
+  - do: probe.read_word
+    with: {address: {param: backup_bl_version_address}}
+    expect:
+      - {name: backup_bootloader_version_v10, equals: 1}
+  - do: probe.reset
+    with: {halt: false}
+  - do: sleep
+    with: {seconds: {param: boot_s}}
+  - do: dongle.scan
+    with: {duration: {param: scan_s}}
+  - do: dongle.select
+    with: {sensor: {param: sensor_address}}
+
+tests:
+  - name: V10-F-01 Field upgrade V10.00.0000 to the candidate over the air
+    requirement: V10-F-01
+    description: >
+      On V10.00.0000: ROUTINE CONFIG START FACTORY, the site values
+      (TWFA-SCALING 16, TWFB-SCALING 32, DETECT-METHOD ACCRMS, DETECT-PERIOD
+      100) and their read-back, RD ID, RD MODE. SESSION SWDL, then the two
+      DFU packages back to back. After: RD ID unchanged, RD MODE NORMAL,
+      RD VERSION-DFU V2.00.0000, RD CONFIG FACTORY, the four site items at
+      FACTORY and the five reads of V10-B-02 at FACTORY.
+    steps:
+      - do: dongle.open_link
+        with: {connect_timeout: {param: connect_s}}
+      - do: dongle.command
+        with: {request: "RD VERSION", timeout: {param: reply_timeout_s}}
+        expect:
+          - {name: v10_f_01_v10_version, measure: text, equals: "ACK RD VERSION = V10.00.0000"}
+      - do: dongle.command
+        with: {request: "ROUTINE CONFIG START FACTORY", timeout: {param: reply_timeout_s}, frame_window: {param: two_frame_window_s}}
+        expect:
+          - {name: v10_f_01_v10_factory_start, measure: text, equals: "ACK ROUTINE CONFIG = START"}
+          - {name: v10_f_01_v10_factory_two_frames, measure: frames, equals: 2}
+      - do: dongle.command
+        with: {request: "WR TWFA-SCALING 16", timeout: {param: reply_timeout_s}}
+        expect:
+          - {name: v10_f_01_v10_wr_twfa_scaling, measure: text, equals: "ACK WR 16"}
+      - do: dongle.command
+        with: {request: "WR TWFB-SCALING 32", timeout: {param: reply_timeout_s}}
+        expect:
+          - {name: v10_f_01_v10_wr_twfb_scaling, measure: text, equals: "ACK WR 32"}
+      - do: dongle.command
+        with: {request: "WR DETECT-METHOD ACCRMS", timeout: {param: reply_timeout_s}}
+        expect:
+          - {name: v10_f_01_v10_wr_detect_method, measure: text, equals: "ACK WR ACCRMS"}
+      - do: dongle.command
+        with: {request: "WR DETECT-PERIOD 100", timeout: {param: reply_timeout_s}}
+        expect:
+          - {name: v10_f_01_v10_wr_detect_period, measure: text, equals: "ACK WR 100"}
+      - do: dongle.command
+        with: {request: "RD TWFA-SCALING", timeout: {param: reply_timeout_s}}
+        expect:
+          - {name: v10_f_01_v10_twfa_scaling_16, measure: text, equals: "ACK RD TWFA-SCALING = 16 g"}
+      - do: dongle.command
+        with: {request: "RD TWFB-SCALING", timeout: {param: reply_timeout_s}}
+        expect:
+          - {name: v10_f_01_v10_twfb_scaling_32, measure: text, equals: "ACK RD TWFB-SCALING = 32 g"}
+      - do: dongle.command
+        with: {request: "RD DETECT-METHOD", timeout: {param: reply_timeout_s}}
+        expect:
+          - {name: v10_f_01_v10_detect_method_accrms, measure: text, equals: "ACK RD DETECT-METHOD = ACCRMS"}
+      - do: dongle.command
+        with: {request: "RD DETECT-PERIOD", timeout: {param: reply_timeout_s}}
+        expect:
+          - {name: v10_f_01_v10_detect_period_100, measure: text, equals: "ACK RD DETECT-PERIOD = 100 Secs/Tick"}
+      - do: dongle.command
+        with: {request: "RD ID", timeout: {param: reply_timeout_s}}
+        expect:
+          - {name: v10_f_01_v10_rd_id, measure: text, equals: "ACK RD ID = 0x5C1712"}
+      - do: dongle.command
+        with: {request: "RD MODE", timeout: {param: reply_timeout_s}}
+        expect:
+          - {name: v10_f_01_v10_mode_normal, measure: text, equals: "ACK RD MODE = NORMAL"}
+      # Buttonless DFU: V10 answers, then restarts into its bootloader
+      - do: dongle.command
+        with: {request: "SESSION SWDL", timeout: {param: reply_timeout_s}}
+        expect:
+          - {name: v10_f_01_v10_session_swdl, measure: text, equals: "ACK SESSION SWDL"}
+      - do: dongle.close_link
+      # The bootloader's verdict on each package (ETB #244): Success at stage
+      # done when every image of it was executed
+      - do: dongle.send_package
+        with: {package: {param: step_1_package}, target: {param: dfu_target}, timeout: {param: step_1_timeout_s}}
+        expect:
+          - {name: v10_f_01_step_1_bootloader, measure: result, equals: "Success"}
+          - {name: v10_f_01_step_1_done, measure: stage, equals: "done"}
+      - do: dongle.send_package
+        with: {package: {param: step_2_package}, target: {param: dfu_target}, timeout: {param: step_2_timeout_s}, scan_seconds: 30.0}  # ETB 271: new bootloader swaps in first
+        expect:
+          - {name: v10_f_01_step_2_application, measure: result, equals: "Success"}
+          - {name: v10_f_01_step_2_done, measure: stage, equals: "done"}
+      - do: sleep
+        with: {seconds: {param: boot_s}}
+      - do: dongle.scan
+        with: {duration: {param: scan_s}}
+      - do: dongle.select
+        with: {sensor: {param: sensor_address}}
+      - do: dongle.open_link
+        with: {connect_timeout: {param: connect_s}}
+      - do: dongle.command
+        with: {request: "RD ID", timeout: {param: reply_timeout_s}}
+        expect:
+          - {name: v10_f_01_rd_id_unchanged, measure: text, equals: "ACK rd id = 0x5C1712"}
+      - do: dongle.command
+        with: {request: "RD MODE", timeout: {param: reply_timeout_s}}
+        expect:
+          - {name: v10_f_01_mode_normal, measure: text, equals: "ACK rd mode = NORMAL"}
+      - do: dongle.command
+        with: {request: "RD VERSION", timeout: {param: reply_timeout_s}}
+        save: candidate_version
+      - do: dongle.command
+        with: {request: "RD VERSION-DFU", timeout: {param: reply_timeout_s}}
+        expect:
+          - {name: v10_f_01_bootloader_v2, measure: text, equals: "ACK rd version-dfu = V2.00.0000"}
+      - do: dongle.command
+        with: {request: "RD CONFIG", timeout: {param: reply_timeout_s}}
+        expect:
+          - {name: v10_f_01_config_factory, measure: text, equals: "ACK rd config = FACTORY"}
+      - do: dongle.command
+        with: {request: "RD TWFA-SCALING", timeout: {param: reply_timeout_s}}
+        expect:
+          - {name: v10_f_01_twfa_scaling_factory, measure: text, equals: "ACK rd twfa-scaling = AUTO"}
+      - do: dongle.command
+        with: {request: "RD TWFB-SCALING", timeout: {param: reply_timeout_s}}
+        expect:
+          - {name: v10_f_01_twfb_scaling_factory, measure: text, equals: "ACK rd twfb-scaling = AUTO"}
+      - do: dongle.command
+        with: {request: "RD DETECT-METHOD", timeout: {param: reply_timeout_s}}
+        expect:
+          - {name: v10_f_01_detect_method_factory, measure: text, equals: "ACK rd detect-method = ACCWAVE"}
+      - do: dongle.command
+        with: {request: "RD DETECT-PERIOD", timeout: {param: reply_timeout_s}}
+        expect:
+          - {name: v10_f_01_detect_period_factory, measure: text, equals: "ACK rd detect-period = 45 Sec/Tick"}
+      - do: dongle.command
+        with: {request: "RD DETECT-VELRSS", timeout: {param: reply_timeout_s}}
+        expect:
+          - {name: v10_f_01_detect_velrss_factory, measure: text, equals: "ACK rd detect-velrss = 20 mm/s"}
+      - do: dongle.command
+        with: {request: "RD RMS-ODR", timeout: {param: reply_timeout_s}}
+        expect:
+          - {name: v10_f_01_rms_odr_factory, measure: text, equals: "ACK rd rms-odr = 6400 Hz"}
+      - do: dongle.command
+        with: {request: "RD RMS-SAMPLES", timeout: {param: reply_timeout_s}}
+        expect:
+          - {name: v10_f_01_rms_samples_factory, measure: text, equals: "ACK rd rms-samples = 1024 Samples"}
+      - do: dongle.command
+        with: {request: "RD RMS-FMIN", timeout: {param: reply_timeout_s}}
+        expect:
+          - {name: v10_f_01_rms_fmin_factory, measure: text, equals: "ACK rd rms-fmin = 7 Hz"}
+      - do: dongle.command
+        with: {request: "RD BATTERY-TIME", timeout: {param: reply_timeout_s}}
+        expect:
+          - {name: v10_f_01_battery_time_factory, measure: text, equals: "ACK rd battery-time = 50 mSec"}
+      - do: dongle.close_link
+
+  - name: V10-F-01b A package for another PCB is refused and the unit keeps its application
+    requirement: V10-F-01
+    description: >
+      On the candidate after V10-F-01: SESSION SWDL, then the V5 DEBUG
+      application package. Bootloader V2.00.0000 refuses it at the init
+      packet with ExtendedError HwVersionFailure. After 30 s idle the
+      bootloader starts the V4X application again: RD ID and RD VERSION-DFU
+      unchanged.
+    steps:
+      # send_package leaves the bootloader's address (address+1) selected on
+      # the dongle, and an earlier test may have stopped in a transfer, so
+      # find and select the sensor's own address first
+      - do: dongle.scan
+        with: {duration: {param: scan_s}}
+      - do: dongle.select
+        with: {sensor: {param: sensor_address}}
+      - do: dongle.open_link
+        with: {connect_timeout: {param: connect_s}}
+      - do: dongle.command
+        with: {request: "SESSION SWDL", timeout: {param: reply_timeout_s}}
+        expect:
+          - {name: v10_f_01b_session_swdl, measure: text, equals: "ACK session swdl"}
+      - do: dongle.close_link
+      - do: dongle.send_package
+        with: {package: {param: v5_package}, target: {param: dfu_target}, timeout: {param: refused_timeout_s}}
+        expect:
+          - {name: v10_f_01b_v5_refused, measure: result, equals: "ExtendedError"}
+          - {name: v10_f_01b_v5_hw_version, measure: extended_error, equals: "HwVersionFailure"}
+          - {name: v10_f_01b_v5_refused_at_init, measure: stage, equals: "init"}
+      - do: sleep
+        with: {seconds: {param: bootloader_idle_s}}
+      - do: dongle.scan
+        with: {duration: {param: scan_s}}
+      - do: dongle.select
+        with: {sensor: {param: sensor_address}}
+      - do: dongle.open_link
+        with: {connect_timeout: {param: connect_s}}
+      - do: dongle.command
+        with: {request: "RD ID", timeout: {param: reply_timeout_s}}
+        expect:
+          - {name: v10_f_01b_rd_id_unchanged, measure: text, equals: "ACK rd id = 0x5C1712"}
+      - do: dongle.command
+        with: {request: "RD VERSION-DFU", timeout: {param: reply_timeout_s}}
+        expect:
+          - {name: v10_f_01b_bootloader_v2, measure: text, equals: "ACK rd version-dfu = V2.00.0000"}
+      - do: dongle.close_link
+
+  # --------------------------------------------------------------------------
+  - name: Restore 5C1712 - sensor ID, DEBUG image, NORMAL mode, FACTORY
+    description: >
+      Not a plan case: writes the sensor ID word, restores the DEBUG
+      combined image with the whole UICR page kept (probe.restore, ETB
+      #264), then NORMAL mode and FACTORY. It runs after the other tests
+      even when one failed; a failing step here ends this test, and the
+      teardown still switches the supply off (TX-1121).
+    steps:
+      # The ID word, then the DEBUG image, before any BLE step; restore
+      # leaves the core halted for the ID read
+      - do: probe.halt
+      - do: probe.write_word
+        with: {address: {param: id_address}, value: {param: id_word}}
+      - do: probe.restore
+        with:
+          images: [{param: debug_hex}]
+          keep: [[0x10001000, 0x310]]   # the UICR page, ETB NRF52_UICR
+          run: false                    # halted, so the ID word can be read
+        expect:
+          - {name: debug_image_verified, measure: verified, equals: 1}
+          - {name: uicr_kept_after_restore, measure: unchanged, equals: 1}
+      - do: probe.read_word
+        with: {address: {param: id_address}}
+        expect:
+          - {name: sensor_id_word_kept_after_restore, equals: 0x12175C00}
+      - do: probe.reset
+        with: {halt: false}
+      - do: dongle.close_link
+      - do: sleep
+        with: {seconds: {param: boot_s}}
+      # send_package leaves the bootloader's address (address+1) selected on
+      # the dongle, and an earlier test may have stopped in a transfer, so
+      # find and select the sensor's own address first
+      - do: dongle.scan
+        with: {duration: {param: scan_s}}
+      - do: dongle.select
+        with: {sensor: {param: sensor_address}}
+      - do: dongle.open_link
+        with: {connect_timeout: {param: connect_s}}
+      - do: dongle.command
+        with: {request: "WR MODE NORMAL", timeout: {param: reply_timeout_s}}
+        expect:
+          - {name: teardown_mode_normal, measure: text, equals: "ACK wr mode NORMAL"}
+      - do: dongle.close_link
+      - do: sleep
+        with: {seconds: {param: boot_s}}
+      - do: dongle.open_link
+        with: {connect_timeout: {param: connect_s}}
+      - do: dongle.command
+        with: {request: "ROUTINE CONFIG START FACTORY", timeout: {param: reply_timeout_s}}
+        expect:
+          - {name: teardown_factory, measure: text, equals: "ACK routine config = FACTORY"}
+      - do: dongle.command
+        with: {request: "RD ID", timeout: {param: reply_timeout_s}}
+        expect:
+          - {name: teardown_rd_id, measure: text, equals: "ACK rd id = 0x5C1712"}
+      - do: dongle.close_link
+
+teardown:
+  # Only steps that cannot fail on a unit, supply last (TX-1121). The runner
+  # stops a teardown at its first step that errors, so a probe or BLE step
+  # here could leave the supply on. The restore is the last test case above.
+  - do: dongle.close_link
+  - do: psu.all_outputs_off
+
+# EOF: release_legacy_ota.yaml

@@ -10,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE4-002 | **Version** | 1.29 |
+| **Document ID** | ETB-SWE4-002 | **Version** | 1.30 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-23 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -63,6 +63,7 @@
 | 1.27 | 2026-10-06 | Claude | #180: §10.5 added - `open_link` and the `connect` step after `ECURESET HARD` on the bench PC with sensor 5C1712; 0x3E seen 6 times in 18 links and recovered each time; D-51 confirmed on hardware. |
 | 1.28 | 2026-10-22 | Claude | #121: §14.4 added - the Kepler specifications' BLE, RTT and supply steps on the simulated bench, and the facts they check broken in turn. |
 | 1.29 | 2026-10-23 | Claude | #244: §10.6 added - a sensor's firmware updated over BLE by the dongle on the bench, and refused by its bootloader. |
+| 1.30 | 2026-10-23 | Claude | #271: §10.7 added - DFU data lost on 5C1712's SDK 15.2 bootloader, the fix that failed and the one that passed, on the bench; D-52 added. |
 
 ---
 
@@ -854,6 +855,36 @@ Three attempts failed first, and each changed the firmware:
    17 packet buffers. The client now waits for the bootloader's receipt every
    8 packets. That is the run above.
 
+### 10.7 DFU data lost on an SDK 15.2 bootloader, on the bench (#271)
+
+Dongle COM10 on firmware 1.7.0, sensor 5C1712 put on Kepler V10.00.0000 with
+bootloader V1.01.0000 (nRF5 SDK 15.2) by the J-Link before each run, and
+restored afterwards, 2026-10-23, hardware. Kepler's field-upgrade test V10-F-01
+(innovateuk-sensor `release_legacy_ota.yaml`): `SESSION SWDL`, the SoftDevice
+and bootloader V2.00.0000 package, then the V4X application package. Evidence
+in `docs/aspice/qualification/2026-10-23/`.
+
+On `v0.02.0000` the first package failed: the target received 4076 of the
+first data object's 4096 bytes. The links connected at a 30 ms interval and
+carried 20-byte pieces. In every run without a pause, the first receipt
+(offset 160) was right and the next reported offset 0 and CRC 0: one piece
+was lost about 0.2 s after the object's create.
+
+| Run | Client | Result |
+|---|---|---|
+| Object created again after a bad receipt | 5e0bdd6 | Loss found at the receipt; the create refused with `InvalidObject`. Failed |
+| 0.5 s after each data create (package 1 only) | experiment | `Success`, 177 869 B in 68.5 s, no loss |
+| 0.15 s after each data create (package 1 only) | experiment | `Success`, 177 869 B in 53.4 s, no loss |
+| Image sent again from its init packet, 0.15 s on the first retry | the fix | Package 1: lost, then `Success` on retry 1, 178 510 B in 53.7 s. Package 2 not found within the specification's 5 s scan: the new bootloader was still swapping itself in |
+| The same, with `scan_seconds: 30.0` on package 2 | the fix | **V10-F-01 PASS**, 3 of 3. Package 1: retry 1, `Success`, 178 510 B in 53.6 s. Package 2, to the new V2.00.0000 bootloader: lost the same way, retry 1, `Success`, 299 136 B in 111.6 s. The V5 package refused with `HwVersionFailure` |
+
+A pause after each data create stopped the loss, which points to writes
+arriving while the object's flash page is erased; that is inferred, not traced
+in the bootloader. The 5 s scan is Kepler's specification's default, not a
+fault of the client: a SoftDevice and bootloader package leaves the new
+bootloader silent for longer, and the specification needs a longer scan
+before package 2.
+
 ## 11. Protocol interoperability results
 
 | Check | Result |
@@ -1594,6 +1625,7 @@ SDK to provide it transitively.
 | D-49 | Registers read straight after `JLinkProbe.reset()` were the ones GDB had cached before the reset. `monitor reset` and `monitor halt` go to the GDB Server, and GDB never sees them change the core. Found in the hardware qualification (#176, QS-01b, where the first PC read was `0x00000000`), ticketed as #178. The simulator hid it: it answered every register read from the core | **Major**: a register read after a reset, a common first step of a debug test, returned a value the core did not hold (ETB-SYS2-004) | **Closed** - `reset` sends `maintenance flush register-cache` after the reset; the simulator models GDB's register cache. Cause and fix confirmed on hardware 2026-10-05 (§9.4) | `test_registers_read_after_a_reset_are_the_reset_s`, `test_a_reset_flushes_gdb_s_register_cache`, `test_gdb_s_registers_are_stale_after_a_monitor_reset`, `test_gdb_reads_the_registers_again_when_the_target_stops` |
 | D-50 | `NordicDongle.sample_command` timed its interval with `time.monotonic()`, which before Python 3.13 on Windows is `GetTickCount64()` at 15.6 ms. A command could be sent up to one tick before it was due and the recorded times were quantised to a tick. Found by `test_readings_are_spaced_by_the_interval` failing intermittently on the bench PC (CPython 3.11.1), ticketed as #214 | **Minor**: commands spaced up to 15.6 ms closer than the `interval` documented as the minimum, and times coarser than they appear | **Closed** - timed with `time.perf_counter()`, and the sleep repeated until the command is due (§10.4) | `test_readings_are_spaced_by_the_interval`, `test_no_command_is_sent_before_it_is_due_when_a_sleep_ends_early` |
 | D-51 | `NordicDongle.open_link` made one attempt. A link the dongle ended with HCI reason 0x3E ("connection failed to be established") errored the step, although a command document's `connect` step tried the link up to three times. Found in the hardware qualification (#176): 2 of about 10 `open_link` calls failed so, each within a minute of `ECURESET HARD`, and the next attempt linked each time. Ticketed as #180 | **Minor**: a rerun succeeds, but a specification step errors for a reason that has nothing to do with the target | **Closed** in the simulator - `open_link` tries a link that fails to establish again, up to `CONNECT_ATTEMPTS` (3) in all, logging each failed attempt as a warning and a `ble_connect_attempt` record and in the session log; no other failure is retried; a `connect` step asks for one attempt per try, so the two retries do not multiply, and logs each failed try. `SimulatedSensor.not_established` reproduces the failure. Confirmed on hardware 2026-10-06 (§10.5): 6 of 18 links made just after `ECURESET HARD` ended with 0x3E, and each linked on the next attempt | `TestLinkNotEstablished` (7), `test_each_failed_connect_attempt_is_logged`, `test_a_connect_step_makes_no_more_attempts_than_it_is_allowed` |
+| D-52 | `send_package` read an object's CRC only after writing all of it, and on a mismatch raised. 5C1712's SDK 15.2 bootloader, at a 30 ms interval with 20-byte pieces, lost one piece of each image's first data object, said so in its next Packet Receipt Notification (offset 0, CRC 0), and refused the object created again. Found in Kepler TX-1184 on bootloader V1.01.0000, which every V10 field unit runs. Ticketed as #271 | **Major**: no package could be sent to a V10 unit, so Kepler's field-upgrade test could not pass | **Closed** on hardware (§10.7) - every receipt is checked; at the first loss the image is sent again from its init packet, 0.15 s after each data create, doubled on each retry, up to 3 retries, each logged. Regression tests in `test_dfu.py` (`TestLostData`) |
 
 No open defects.
 
