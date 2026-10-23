@@ -10,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE1-001 | **Version** | 1.25 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
+| **Document ID** | ETB-SWE1-001 | **Version** | 1.30 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-23 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.1 |
@@ -59,6 +59,11 @@
 | 1.23 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
 | 1.24 | 2026-10-05 | Claude | #204: Review & Approval table points to the merge of the pull request that last changed the document, which is the review and approval (ETB-SUP8-001 §5.7); no per-change signatures or dates. |
 | 1.25 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
+| 1.26 | 2026-10-05 | Claude | #180: BLE-FR-049 revised - a link that fails to establish (HCI reason 0x3E) is tried again, up to three attempts in all as a `connect` step's are, each failed attempt logged; no other failure is tried again, and a `connect` step makes no more attempts than its own. |
+| 1.27 | 2026-10-06 | Claude | #60: BLE-FR-119 added - timeouts by command prefix in a command document, with a per-run override and the timeout that applied stated in each result; BLE-FR-112's empty cell now defers to it. |
+| 1.28 | 2026-10-22 | Claude | #121: BLE-FR-120 added - a simulated Kepler sensor 5C1712 shared by the simulated dongle, probe and supply. |
+| 1.29 | 2026-10-23 | Claude | #264: JLINK-FR-025 added - restore a known image set while keeping UICR. |
+| 1.30 | 2026-10-23 | Claude | #244: BLE-FR-121 added - send a Nordic Secure DFU package to a sensor in its bootloader, reporting the bootloader's verdict. |
 
 ---
 
@@ -352,6 +357,7 @@ it is commanded, and it yields measurements — so it implements the generic bas
 | JLINK-FR-022 | A verification mismatch shall raise, naming the sections that differ. A verification over an empty section list shall be reported as not matched, never as a pass. | STK-09 | Test |
 | JLINK-FR-023 | The driver shall erase the target's non-volatile memory, from reset with the core halted, and shall confirm the erasure by reading the flash back rather than trusting the server's report, raising if it did not happen. | STK-09 | Test |
 | JLINK-FR-024 | The driver shall report what the build system recorded about the image it programmed - the version and the build date - from the manifest beside that image, so a test can state the version it put on a part rather than repeating one into a specification where it would go stale. | STK-09, STK-16 | Test |
+| JLINK-FR-025 | The driver shall programme a given list of images in order - for example SoftDevice, bootloader, application and settings - in one step usable in a specification's teardown, reading the given ranges (by default the nRF52's UICR) before programming, writing them back after any image that disturbs them, and reading them again at the end. A range that does not read as it did, or an image that does not verify, shall be an error. | STK-08 | Test |
 
 ### 10.4 Execution control
 
@@ -466,7 +472,7 @@ implements them; §11.6 says which.
 | BLE-FR-046 | A connection attempt shall listen for the sensor continuously for a window the host sets, 1 to 60 s, 15 s by default: a sensor that advertises every 9 s was missed by a fixed 5 s window at half duty. A dongle whose firmware cannot take the window shall be sent none, and the host shall log that it keeps its own. | STK-14, STK-15 | Test |
 | BLE-FR-047 | The host shall set, per command, how long the dongle waits for the sensor's reply, 0.1 to 60 s: some commands take longer than others. A wait outside that range shall be refused before transmission; a dongle whose firmware cannot take it keeps its fixed 2 s, and the host shall log that the wait asked for was not honoured. | STK-14 | Test |
 | BLE-FR-048 | The host shall send a command after which the sensor is expected to drop the link - a reset - and report whether it did within a timeout and, if so, the time from the write to the disconnection on the dongle's clock and the reason the link ended. A sensor that stays connected is a result, not an exception. | STK-14 | Test |
-| BLE-FR-049 | A connection attempt that fails shall leave no link half-open: the host shall disconnect before reporting, so the next attempt is not refused. The report shall say whether the sensor never linked or linked but its UART service was not found, and a failure the dongle has already reported shall end the wait for it. | STK-14 | Test |
+| BLE-FR-049 | A connection attempt that fails shall leave no link half-open: the host shall disconnect before reporting, so the next attempt is not refused. The report shall say whether the sensor never linked or linked but its UART service was not found, and a failure the dongle has already reported shall end the wait for it. A link that fails to establish - the dongle ends it with HCI reason 0x3E - shall be tried again, up to three attempts in all, the same bound as a `connect` step (BLE-FR-111), and each failed attempt tried again shall be logged with its number and reason, so a flaky link stays visible; no other failure shall be tried again. A `connect` step shall make no more attempts than its own bound, and each of its failed attempts shall be in the run's event log (BLE-FR-115). | STK-14 | Test |
 
 ### 11.4 Time until response
 
@@ -512,13 +518,16 @@ implements them; §11.6 says which.
 | BLE-FR-109 | Each step shall have exactly one result, the first of these that applies: **error** when the system returned a failure code - the dongle refused the command, a connect or disconnect failed, the link or transport failed, or no reply came where one was expected; **skip** when the expected response is empty; **fail** when the actual response differs from the expected one; **pass** when it matches. | STK-12, STK-15 | Test |
 | BLE-FR-110 | A document shall be able to declare variables, with or without defaults, and use them as `${NAME}` in any command, expected response, timeout or delay - Robot Framework's syntax - with values supplied when it is run overriding the defaults, so one document tests whichever sensor it is given. | STK-12 | Test |
 | BLE-FR-111 | A document shall be able to open its own link with a `connect <sensor>` step - selecting by address, or by a fragment of the advertised name ignoring case - and to close it with `disconnect`. A link the document opened shall be closed when the run ends, pass or fail; a document that connects before its first command shall need no link opened for it. | STK-12, STK-14 | Test |
-| BLE-FR-112 | A step shall be able to carry its own timeout, in milliseconds - for the reply, the listening window, the disconnection, or the connection - with an empty cell meaning the run's configurable default. | STK-12, STK-14 | Test |
+| BLE-FR-112 | A step shall be able to carry its own timeout, in milliseconds - for the reply, the listening window, the disconnection, or the connection - with an empty cell meaning the document's timeout for the command's prefix (BLE-FR-119), else the run's configurable default. | STK-12, STK-14 | Test |
 | BLE-FR-113 | An expected response of `<disconnect>` shall mean the sensor drops the link after the command: **pass** if it does within the step's timeout, **fail** if it does not, the time being measured per BLE-FR-048. | STK-12, STK-14 | Test |
 | BLE-FR-114 | A document shall be able to carry a note per step, which the report shows beside the step's result. | STK-12 | Test |
 | BLE-FR-115 | A run shall be able to write an event log: one line per event, with the time it happened, the event - TX, RX, DELAY, CONNECT, DISCONNECT or ERROR - the step, the data and the result; each RX line shall carry the dongle's own measurement of the exchange at full resolution. | STK-12, STK-17 | Test |
 | BLE-FR-116 | A document shall be runnable on its own from the command line, with variable values, a report and an event log, emitting the run as JSON and exiting 0 only when it passed. | STK-12, STK-15 | Test |
 | BLE-FR-117 | The driver shall send one command a given number of times at a given interval, take a number from each reply by a pattern and scale it, and refuse, naming the reply, one that carries no number. | STK-12 | Test |
 | BLE-FR-118 | A command's result shall give the value its reply reports - the text after the reply's first ` = `, trimmed, or nothing when there is none - so that it can be compared with the same value from another source, where the rest of the reply is not carried. | STK-12 | Test |
+| BLE-FR-119 | A document shall be able to declare a timeout, in milliseconds, for every command that starts with a given prefix, in a table before its first step. A prefix shall match the start of a command sent to the sensor ignoring case, the longest matching prefix winning; it shall be the reply timeout of a command with an expected response, the listening window of one with none, and the timeout of a `<disconnect>`. A step's own timeout shall win over it, and it over the run's default. A value may be a variable; a run shall be able to override or add to the table per prefix; a prefix given twice, an empty prefix or a value out of range shall be refused naming the line. Each step's result shall state the timeout that applied and why. | STK-12, STK-14 | Test |
+| BLE-FR-120 | The simulated bench shall include the Kepler sensor 5C1712 at `D1:8D:3B:4C:19:96`, answering `RD VERSION`, `RD SHA`, `RD ID`, `RD BATTERY`, `RD BATTERY-LOADED`, `RD TEMPERATURE`, `WR ALIVE-PERIOD`, `WR PREAMBLE-LENGTH` and `ECURESET HARD` in the sensor's own reply formats, with each format's source recorded and any assumed one marked as an open item. Its battery shall read the simulated supply's channel 2, a reset shall drop the link, and the simulated probe, when the bench wires it to the sensor, shall read its RTT `MCU Temperature` line once a second, so that one simulated sensor is behind every simulated instrument that touches it. | STK-08, STK-15 | Test |
+| BLE-FR-121 | The dongle shall send a Nordic Secure DFU package (the zip `nrfutil pkg generate` writes) to a sensor in its bootloader, found by address or by the start of its advertised name: for each image, a link of its own, then the init packet and the firmware, each object created, written, checked against the target's CRC and executed. The bootloader's verdict on the step that ended the transfer shall be the result - `Success`, or the result code and any extended error as text, e.g. `InvalidObject`, `ExtendedError`/`HwVersionFailure` - so that a refusal can be expected by a test; a target that stops answering or answers out of turn shall be an error. | STK-08, STK-12 | Test |
 | BLE-FR-090 | The firmware shall build as a SEGGER Embedded Studio project against nRF5 SDK 17 for the PCA10059 dongle, and shall be packageable as a DFU image for the dongle's factory bootloader. | STK-16 | Inspection |
 
 ### 11.7 BLE non-functional

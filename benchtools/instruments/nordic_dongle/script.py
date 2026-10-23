@@ -72,8 +72,29 @@ of it; a later step whose saved value was never captured is an error.
 
 A ``Timeout`` column, in milliseconds, sets how long a step waits: for the reply
 to a command, for the listening window of a command that expects none, for the
-link to drop, or for a ``connect`` to find its sensor. Empty means the run's
+link to drop, or for a ``connect`` to find its sensor. Empty means the
+document's timeout for the command's prefix, if it gives one, else the run's
 default. A delay or a disconnect cannot have one.
+
+Command families often answer at very different speeds - a write that keeps the
+sensor busy for seconds, a read that answers at once. A document may declare a
+timeout by command prefix, in a table before its first step, rather than write
+the same value into every row::
+
+    | Command prefix | Timeout (ms)     |
+    |----------------|------------------|
+    | WR             | ${WR_TIMEOUT_MS} |
+    | ROUTINE        | 45000            |
+    | RD             | 500              |
+    | RD EOL         | 5000             |
+
+A prefix matches the start of a command sent to the sensor, ignoring case; the
+longest one that matches wins, so ``RD EOL`` above overrides ``RD``. It is the
+reply timeout for a command with an expected response, the listening window for
+one with none, and the time allowed for a ``<disconnect>``. A step's own Timeout
+cell still wins over it, and it wins over the run's default. A run can override
+or add to the table with ``--timeout PREFIX=MS``. Each result says which timeout
+applied, and why.
 
 The steps that talk to the sensor:
 
@@ -100,14 +121,14 @@ by hand, and a row silently ignored is a command silently untested.
 Running a document, its results and its event log are in
 :mod:`~benchtools.instruments.nordic_dongle.script_run`.
 
-Traces to: BLE-FR-100 .. BLE-FR-108, BLE-DD-SCRIPT.
+Traces to: BLE-FR-100 .. BLE-FR-108, BLE-FR-119, BLE-DD-SCRIPT.
 """
 
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field, replace
-from typing import Dict, List, Mapping, Optional, Sequence
+from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
 from ...core.errors import ConfigurationError
 
@@ -122,9 +143,11 @@ __all__ = [
     "SKIP",
     "RESOLUTION_S",
     "CommandScript",
+    "PrefixTimeout",
     "ScriptStep",
     "ScriptTest",
     "load_script",
+    "longest_prefix",
     "parse_script",
 ]
 
@@ -194,6 +217,16 @@ _VARIABLE_COLUMNS = {
     "default": ("default", "value", "default value"),
 }
 
+#: Column headings of the timeouts-by-prefix table. Its Timeout heading is a
+#: step table's too, so the Command prefix heading is what tells them apart.
+_PREFIX_COLUMNS = {
+    "prefix": ("command prefix", "prefix"),
+    "timeout": _COLUMNS["timeout"],
+}
+
+#: Where a step's timeout came from when its own Timeout cell set it.
+TIMEOUT_CELL = "Timeout cell"
+
 
 @dataclass(frozen=True)
 class ScriptStep:
@@ -208,6 +241,9 @@ class ScriptStep:
     :param action: What the step does: :data:`COMMAND`, :data:`DELAY`,
         :data:`CONNECT` or :data:`DISCONNECT`.
     :param target: The sensor a ``connect`` step names.
+    :param timeout_s: Seconds the step waits, from its Timeout cell or the
+        document's timeout for its prefix; None for the run's default.
+    :param timeout_from: Where *timeout_s* came from, as the result reports it.
     """
 
     test: str
@@ -222,6 +258,7 @@ class ScriptStep:
     timeout_s: Optional[float] = None
     frames: Optional[int] = None
     save: str = ""
+    timeout_from: str = ""
 
     @property
     def is_delay(self) -> bool:
@@ -262,6 +299,29 @@ class ScriptStep:
 
 
 @dataclass(frozen=True)
+class PrefixTimeout:
+    """A timeout for every command that starts with *prefix*, ignoring case.
+
+    :param prefix: The start of the command, as written.
+    :param timeout_s: Seconds a matching command waits.
+    :param origin: ``document`` for the document's own table, ``--timeout``
+        for a value given for the run.
+    """
+
+    prefix: str
+    timeout_s: float
+    origin: str = "document"
+
+    def matches(self, command: str) -> bool:
+        """Whether *command* starts with this prefix, ignoring case."""
+        return command.strip().lower().startswith(self.prefix.lower())
+
+    def describe(self) -> str:
+        """Why a step waited this long, for its result."""
+        return "prefix %s (%s)" % (self.prefix, self.origin)
+
+
+@dataclass(frozen=True)
 class ScriptTest:
     """One heading and the steps under it."""
 
@@ -276,6 +336,8 @@ class CommandScript:
     tests: Sequence[ScriptTest] = ()
     source: str = ""
     variables: Mapping[str, str] = field(default_factory=dict)
+    #: The timeouts by command prefix the steps were given.
+    timeouts: Sequence[PrefixTimeout] = ()
 
     @property
     def steps(self) -> List[ScriptStep]:
@@ -417,6 +479,23 @@ def _substitute(text: str, values: Mapping[str, Optional[str]], where: str,
     return _VARIABLE.sub(value_of, text)
 
 
+def _prefix_columns(headings: Sequence[str]) -> Optional[Dict[str, int]]:
+    """Columns of a timeouts-by-prefix table, or None when the table is not one."""
+    found: Dict[str, int] = {}
+    for position, heading in enumerate(headings):
+        name = heading.strip().lower().rstrip(":")
+        for column, accepted in _PREFIX_COLUMNS.items():
+            if name in accepted and column not in found:
+                found[column] = position
+    return found if "prefix" in found else None
+
+
+def longest_prefix(timeouts: Sequence[PrefixTimeout], command: str) -> Optional[PrefixTimeout]:
+    """The longest prefix in *timeouts* that *command* starts with, or None."""
+    matching = [item for item in timeouts if item.matches(command)]
+    return max(matching, key=lambda item: len(item.prefix)) if matching else None
+
+
 def _is_step_table(headings: Sequence[str]) -> bool:
     """Whether a table claims to hold steps: it names any step column.
 
@@ -435,9 +514,15 @@ def _is_step_table(headings: Sequence[str]) -> bool:
 class _Reader:  # pylint: disable=too-many-instance-attributes
     """State while reading one document, so each kind of row has one place."""
 
-    def __init__(self, label: str, overrides: Mapping[str, str]) -> None:
+    def __init__(self, label: str, overrides: Mapping[str, str],
+                 timeouts: Mapping[str, object]) -> None:
         self.label = label
         self.overrides = dict(overrides)
+        #: Timeouts by prefix given for the run, applied when the variables bind.
+        self.given_timeouts = dict(timeouts)
+        #: The document's prefix table rows as written: prefix, timeout, where.
+        self.prefix_rows: List[Tuple[str, str, str]] = []
+        self.timeouts: List[PrefixTimeout] = []
         self.declared: Dict[str, Optional[str]] = {}
         self.bound = False
         self.saved: List[str] = []          # names earlier rows save replies in
@@ -446,7 +531,7 @@ class _Reader:  # pylint: disable=too-many-instance-attributes
         self.steps: List[ScriptStep] = []
         self.numbers: Dict[str, int] = {}
         #: What the table being read is: None between tables, else "steps",
-        #: "variables" or "prose".
+        #: "variables", "timeouts" or "prose".
         self.mode: Optional[str] = None
         self.columns: Dict[str, int] = {}
         self.width = 0
@@ -481,6 +566,35 @@ class _Reader:  # pylint: disable=too-many-instance-attributes
                 % (where, ", ".join(unknown), ", ".join(sorted(self.declared)) or "none")
             )
         self.declared.update(self.overrides)
+        self.timeouts = self.resolve_timeouts()
+
+    def resolve_timeouts(self) -> List[PrefixTimeout]:
+        """The prefix table, variables substituted, with the run's values over it.
+
+        Resolved when the variables bind, so a ``--var`` value reaches a
+        timeout written as ``${NAME}``.
+        """
+        table: Dict[str, PrefixTimeout] = {}
+        for prefix, text, where in self.prefix_rows:
+            prefix = _substitute(prefix, self.declared, where).strip()
+            if not prefix:
+                raise ConfigurationError(
+                    "%s: the row has no command prefix. A timeout for every "
+                    "command is the run's default, --timeout-s." % where)
+            if prefix.lower() in table:
+                raise ConfigurationError(
+                    "%s: the prefix %s is given a timeout twice (prefixes ignore "
+                    "case)." % (where, prefix))
+            seconds = _prefix_seconds(_substitute(text, self.declared, where), where)
+            table[prefix.lower()] = PrefixTimeout(prefix, seconds)
+        for prefix, value in self.given_timeouts.items():
+            where = "--timeout %s=%s" % (prefix, value)
+            prefix = str(prefix).strip()
+            if not prefix:
+                raise ConfigurationError("%s: the command prefix is empty." % where)
+            table[prefix.lower()] = PrefixTimeout(prefix, _prefix_seconds(str(value), where),
+                                                  origin="--timeout")
+        return list(table.values())
 
     @property
     def values(self) -> Dict[str, str]:
@@ -504,6 +618,9 @@ class _Reader:  # pylint: disable=too-many-instance-attributes
             )
         if self.mode == "variables":
             self.variable_row(cells, where)
+        elif self.mode == "timeouts":
+            self.prefix_rows.append((cells[self.columns["prefix"]].strip("`").strip(),
+                                     cells[self.columns["timeout"]].strip("`").strip(), where))
         else:
             self.step_row(cells, where, number)
 
@@ -518,6 +635,20 @@ class _Reader:  # pylint: disable=too-many-instance-attributes
                     "variable before any step uses one." % where
                 )
             self.mode, self.columns = "variables", variables
+            return
+        prefixes = _prefix_columns(headings)
+        if prefixes is not None:
+            if self.bound:
+                raise ConfigurationError(
+                    "%s: a timeouts-by-prefix table after the first step. Put it "
+                    "before the first test, so every step it covers sees it." % where
+                )
+            if "timeout" not in prefixes:
+                raise ConfigurationError(
+                    "%s: a Command prefix table needs a 'Timeout (ms)' column; it "
+                    "has %s." % (where, ", ".join(repr(item) for item in headings))
+                )
+            self.mode, self.columns = "timeouts", prefixes
             return
         if not _is_step_table(headings):
             self.mode = "prose"
@@ -565,6 +696,21 @@ class _Reader:  # pylint: disable=too-many-instance-attributes
             self.saved.append(name)
         return name
 
+    def apply_prefix_timeout(self, step: ScriptStep) -> ScriptStep:
+        """Give a command with no Timeout cell its prefix's timeout, saying why.
+
+        A step's own cell wins; then the longest prefix the command starts
+        with; otherwise the step is left to the run's default.
+        """
+        if step.timeout_s is not None:
+            return replace(step, timeout_from=TIMEOUT_CELL)
+        if step.action != COMMAND:
+            return step
+        match = longest_prefix(self.timeouts, step.command)
+        if match is None:
+            return step
+        return replace(step, timeout_s=match.timeout_s, timeout_from=match.describe())
+
     def step_row(self, cells: List[str], where: str, number: int) -> None:
         """Read one step, with the variables substituted."""
         self.bind(where)
@@ -594,6 +740,7 @@ class _Reader:  # pylint: disable=too-many-instance-attributes
         if "timeout" in self.columns:
             text = _substitute(cells[self.columns["timeout"]], self.declared, where)
             step = replace(step, timeout_s=_parse_timeout(text, step, where))
+        step = self.apply_prefix_timeout(step)
         if "frames" in self.columns and cells[self.columns["frames"]]:
             step = replace(step, frames=_parse_frames(cells[self.columns["frames"]], step, where))
         self.steps.append(step)
@@ -620,6 +767,19 @@ def _parse_timeout(text: str, step: ScriptStep, where: str) -> Optional[float]:
         raise ConfigurationError(
             "%s: a timeout is milliseconds from %g to %g for a %s step, not %r."
             % (where, low * 1000.0, high * 1000.0, step.action, text)
+        )
+    return seconds
+
+
+def _prefix_seconds(text: str, where: str) -> float:
+    """Seconds from a timeouts-by-prefix row; the range is a command step's."""
+    match = _TIMEOUT.match(text.strip())
+    low, high = _TIMEOUT_RANGES[COMMAND]
+    seconds = float(match.group("amount")) / 1000.0 if match else None
+    if seconds is None or not low <= seconds <= high:
+        raise ConfigurationError(
+            "%s: a timeout for a command prefix is milliseconds from %g to %g, "
+            "not %r." % (where, low * 1000.0, high * 1000.0, text.strip())
         )
     return seconds
 
@@ -686,6 +846,7 @@ def parse_script(
     text: str,
     source: str = "",
     variables: Optional[Mapping[str, str]] = None,
+    timeouts: Optional[Mapping[str, object]] = None,
 ) -> CommandScript:
     """Read a command document.
 
@@ -693,12 +854,15 @@ def parse_script(
     :param source: Its path, for diagnostics.
     :param variables: Values for the document's variables, overriding its
         defaults - the sensor to test, typically.
+    :param timeouts: Timeouts in milliseconds by command prefix, for this run:
+        ``{"WR": 45000}``. Each overrides the document's own row for the same
+        prefix, ignoring case, or adds one.
     :raises ConfigurationError: for anything that cannot be read as a step,
         naming the document and the line. A row this reader skipped quietly
         would be a command nobody tested and nobody missed.
     """
     label = source or "command document"
-    reader = _Reader(label, variables or {})
+    reader = _Reader(label, variables or {}, timeouts or {})
 
     for number, raw in enumerate(text.splitlines(), start=1):
         line = raw.rstrip()
@@ -726,11 +890,14 @@ def parse_script(
             "heading followed by a table of | Step | Command | Expected "
             "response | rows." % label
         )
-    return CommandScript(tests=tuple(reader.tests), source=source, variables=reader.values)
+    return CommandScript(tests=tuple(reader.tests), source=source, variables=reader.values,
+                         timeouts=tuple(reader.timeouts))
 
 
-def load_script(path: str, variables: Optional[Mapping[str, str]] = None) -> CommandScript:
-    """Read a command document from a file, with values for its variables."""
+def load_script(path: str, variables: Optional[Mapping[str, str]] = None,
+                timeouts: Optional[Mapping[str, object]] = None) -> CommandScript:
+    """Read a command document from a file, with values for its variables and
+    any timeouts by command prefix given for the run."""
     try:
         with open(path, "r", encoding="utf-8") as handle:
             text = handle.read()
@@ -738,4 +905,4 @@ def load_script(path: str, variables: Optional[Mapping[str, str]] = None) -> Com
         raise ConfigurationError(
             "cannot read the command document %s: %s" % (path, exc)
         ) from exc
-    return parse_script(text, source=path, variables=variables)
+    return parse_script(text, source=path, variables=variables, timeouts=timeouts)

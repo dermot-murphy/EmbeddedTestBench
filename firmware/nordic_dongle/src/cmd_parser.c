@@ -21,6 +21,7 @@
 #include "ble_scanner.h"
 #include "bootloader.h"
 #include "cmd_args.h"
+#include "cmd_dfu.h"
 #include "cdc_acm.h"
 #include "firmware_version.h"
 #include "nus_client.h"
@@ -123,53 +124,12 @@ static const char * key_value(const char * token, const char * key)
 	return NULL;
 }
 
-/**
- * @brief Decode hex text into bytes.
- *
- * @return Bytes decoded, or -1 if the text is not valid hex or is too long.
- */
-static int32_t decode_hex(const char * text, uint8_t * buffer, uint32_t capacity)
-{
-	uint32_t	length = (uint32_t)strlen(text);
-	uint32_t	index;
-
-	if (((length % 2U) != 0U) || ((length / 2U) > capacity))
-	{
-		return -1;
-	}
-
-	for (index = 0U; index < (length / 2U); index++)
-	{
-		unsigned int value;
-
-		if (sscanf(&text[index * 2U], "%2x", &value) != 1)
-		{
-			return -1;
-		}
-		buffer[index] = (uint8_t)value;
-	}
-
-	return (int32_t)(length / 2U);
-}
-
-/**
- * @brief Encode bytes as hex text.
- */
-static void encode_hex(const uint8_t * data, uint32_t length, char * text)
-{
-	uint32_t index;
-
-	for (index = 0U; index < length; index++)
-	{
-		(void)sprintf(&text[index * 2U], "%02x", data[index]);
-	}
-	text[length * 2U] = '\0';
-}
-
 /* ------------------------------------------------------------------ */
 
 static void command_ver(char * tokens[], uint32_t count)
 {
+	char		time_text[TIMESTAMP_TEXT_SIZE];
+
 	UNUSED_PARAMETER(tokens);
 	UNUSED_PARAMETER(count);
 
@@ -177,13 +137,13 @@ static void command_ver(char * tokens[], uint32_t count)
 	 * deliberately, the date is what distinguishes two builds of the same
 	 * version - which is the case during development, and exactly when a
 	 * stale dongle misleads. */
-	reply_ok("%s %s fw=%s built=%s proto=%s uptime_us=%llu dropped=%lu",
+	reply_ok("%s %s fw=%s built=%s proto=%s uptime_us=%s dropped=%lu",
 		 PROTO_MANUFACTURER,
 		 PROTO_MODEL,
 		 firmware_version_string,
 		 firmware_build_date(),
 		 PROTO_VERSION,
-		 (unsigned long long)timestamp_now_us(),
+		 timestamp_format_us(timestamp_now_us(), time_text),
 		 (unsigned long)cdc_acm_dropped());
 }
 
@@ -267,6 +227,7 @@ static void command_scan(char * tokens[], uint32_t count)
 
 static void command_list(char * tokens[], uint32_t count)
 {
+	char		time_text[TIMESTAMP_TEXT_SIZE];
 	uint32_t	found = scanner_count();
 	uint32_t	index;
 	uint64_t	now_us = timestamp_now_us();
@@ -278,16 +239,28 @@ static void command_list(char * tokens[], uint32_t count)
 	{
 		const scanner_sensor_t *	p_sensor = scanner_get(index);
 		char				address[18];
+		char				manufacturer[7];
+		char				scan_response[(PROTOCOL_MAX_ADV_DATA * 2U) + 1U];
 
 		scanner_format_address(&p_sensor->address, address);
+		manufacturer[0] = '\0';
+		if (p_sensor->has_manufacturer)
+		{
+			(void)sprintf(manufacturer, "0x%04X", (unsigned)p_sensor->manufacturer_id);
+		}
+		cmd_args_encode_hex(p_sensor->scan_response, p_sensor->scan_response_length, scan_response);
+
+		/* The name stays last: it is the one field that may hold a space. */
 		(void)cdc_acm_send_format(
-			"+sensor t=%llu idx=%lu addr=%s type=%u rssi=%d seen=%lu name=%s",
-			(unsigned long long)now_us,
+			"+sensor t=%s idx=%lu addr=%s type=%u rssi=%d seen=%lu mfr=%s sr=%s name=%s",
+			timestamp_format_us(now_us, time_text),
 			(unsigned long)index,
 			address,
 			(unsigned)p_sensor->address.addr_type,
 			(int)p_sensor->rssi,
 			(unsigned long)p_sensor->seen,
+			manufacturer,
+			scan_response,
 			p_sensor->name);
 	}
 
@@ -402,6 +375,13 @@ static void command_connect(char * tokens[], uint32_t count)
 		reply_error(PROTO_ERR_STATE);
 		return;
 	}
+	if (nus_client_is_connecting())
+	{
+		/* Said plainly rather than left to the stack, whose refusal read as
+		 * "the BLE stack refused the request" (#251). disconnect ends it. */
+		reply_error(PROTO_ERR_BUSY);
+		return;
+	}
 
 	/* Scanning and connecting both own the radio's scanner; stop first so the
 	 * connection attempt is not refused for a reason the host cannot see. */
@@ -410,7 +390,10 @@ static void command_connect(char * tokens[], uint32_t count)
 	error = nus_client_connect(&target, timeout_ms);
 	if (error != NRF_SUCCESS)
 	{
-		reply_error(PROTO_ERR_BLE);
+		(void)cdc_acm_send_format("err %u %s nrf=0x%lx",
+					  (unsigned)PROTO_ERR_BLE,
+					  proto_error_text(PROTO_ERR_BLE),
+					  (unsigned long)error);
 		return;
 	}
 
@@ -434,22 +417,22 @@ static void command_disconnect(char * tokens[], uint32_t count)
 
 static void command_uart(char * tokens[], uint32_t count)
 {
+	char		time_text[TIMESTAMP_TEXT_SIZE];
 	const char * argument = tokens[1];
 
 	uint8_t		payload[PROTO_MAX_PAYLOAD];
-	int32_t		length;
+	uint16_t	length = 0U;
 	uint32_t	error;
 
 	UNUSED_PARAMETER(count);
 
-	length = decode_hex(argument, payload, sizeof(payload));
-	if (length < 0)
+	if (!cmd_args_decode_hex(argument, payload, sizeof(payload), &length))
 	{
 		reply_error(PROTO_ERR_TOO_LONG);
 		return;
 	}
 
-	error = nus_client_write(payload, (uint16_t)length);
+	error = nus_client_write(payload, length);
 	if (error == NRF_ERROR_INVALID_STATE)
 	{
 		reply_error(PROTO_ERR_NOT_CONN);
@@ -461,19 +444,22 @@ static void command_uart(char * tokens[], uint32_t count)
 		return;
 	}
 
-	reply_ok("len=%ld t=%llu",
+	reply_ok("len=%ld t=%s",
 		 (long)length,
-		 (unsigned long long)timestamp_now_us());
+		 timestamp_format_us(timestamp_now_us(), time_text));
 }
 
 static void command_cmd(char * tokens[], uint32_t count)
 {
+	char		tx_text[TIMESTAMP_TEXT_SIZE];
+	char		rx_text[TIMESTAMP_TEXT_SIZE];
+	char		dt_text[TIMESTAMP_TEXT_SIZE];
 	const char * argument = tokens[1];
 
 	uint8_t		payload[PROTO_MAX_PAYLOAD];
 	char		hex[(PROTO_MAX_PAYLOAD * 2U) + 1U];
 	nus_response_t	response;
-	int32_t		length;
+	uint16_t	length = 0U;
 	uint32_t	error;
 	uint32_t	timeout_ms = PROTOCOL_CMD_DEFAULT_MS;
 	bool		valid = false;
@@ -486,14 +472,13 @@ static void command_cmd(char * tokens[], uint32_t count)
 		return;
 	}
 
-	length = decode_hex(argument, payload, sizeof(payload));
-	if (length < 0)
+	if (!cmd_args_decode_hex(argument, payload, sizeof(payload), &length))
 	{
 		reply_error(PROTO_ERR_TOO_LONG);
 		return;
 	}
 
-	error = nus_client_command(payload, (uint16_t)length,
+	error = nus_client_command(payload, length,
 				   timeout_ms, &response);
 	if (error == NRF_ERROR_INVALID_STATE)
 	{
@@ -513,11 +498,11 @@ static void command_cmd(char * tokens[], uint32_t count)
 		return;
 	}
 
-	encode_hex(response.data, response.length, hex);
-	reply_ok("t_tx=%llu t_rx=%llu dt_us=%llu interval_us=%lu len=%u data=%s",
-		 (unsigned long long)response.tx_us,
-		 (unsigned long long)response.rx_us,
-		 (unsigned long long)response.round_trip_us,
+	cmd_args_encode_hex(response.data, response.length, hex);
+	reply_ok("t_tx=%s t_rx=%s dt_us=%s interval_us=%lu len=%u data=%s",
+		 timestamp_format_us(response.tx_us, tx_text),
+		 timestamp_format_us(response.rx_us, rx_text),
+		 timestamp_format_us(response.round_trip_us, dt_text),
 		 (unsigned long)nus_client_interval_us(),
 		 (unsigned)response.length,
 		 hex);
@@ -580,11 +565,13 @@ static void command_adv(char * tokens[], uint32_t count)
 
 static void command_time(char * tokens[], uint32_t count)
 {
+	char		time_text[TIMESTAMP_TEXT_SIZE];
+
 	UNUSED_PARAMETER(tokens);
 	UNUSED_PARAMETER(count);
 
-	reply_ok("t=%llu hz=%lu",
-		 (unsigned long long)timestamp_now_us(),
+	reply_ok("t=%s hz=%lu",
+		 timestamp_format_us(timestamp_now_us(), time_text),
 		 (unsigned long)TIMESTAMP_HZ);
 }
 
@@ -687,7 +674,9 @@ static const struct
 	{ "adv",        command_adv        },
 	{ "time",       command_time       },
 	{ "reset",      command_reset      },
-	{ "dfu",        command_dfu        }
+	{ "dfu",        command_dfu        },
+	{ "dfucp",      cmd_dfu_control    },
+	{ "dfupkt",     cmd_dfu_packet     }
 };
 
 #define HANDLER_COUNT	(sizeof(m_handlers) / sizeof(m_handlers[0]))

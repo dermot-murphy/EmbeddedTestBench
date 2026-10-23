@@ -66,6 +66,9 @@ instruments:
     event: RTT
     options:
       device: nRF52840_xxAA
+      # The simulated probe reads the RTT log of the simulated Kepler sensor
+      # the simulated dongle talks to, as the bench's probe sits on 5C1712.
+      simulated_target: kepler-5C1712
 
   s2lp:
     driver: s2lp

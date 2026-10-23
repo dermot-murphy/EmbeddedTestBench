@@ -10,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE3-001 | **Version** | 1.23 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
+| **Document ID** | ETB-SWE3-001 | **Version** | 1.32 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-23 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.3 |
@@ -57,6 +57,15 @@
 | 1.21 | 2026-10-05 | Claude | #177: JLINK-DD-PROBE - `reset(halt=False)` resumes the core with `run()` after `monitor reset 0`, which halts it on a real probe. JLINK-DD-SIM - every `monitor reset` leaves the simulated core halted, replacing D-39's reset-and-run model. |
 | 1.22 | 2026-10-05 | Claude | #178: JLINK-DD-PROBE - `reset` flushes GDB's register cache (`_flush_register_cache`, `maintenance flush register-cache`), since GDB kept the pre-reset registers after `monitor reset`. JLINK-DD-SIM - GDB's register cache is modelled (`register_cache`, `core_registers`). |
 | 1.23 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
+| 1.24 | 2026-10-05 | Claude | #180: BLE-DD-DONGLE - `open_link` tries a link that fails to establish (0x3E) again, up to `CONNECT_ATTEMPTS`, logging each failed attempt (`LinkLostError`, `_open_link_once`); BLE-DD-SCRIPTRUN - a `connect` step asks `open_link` for one attempt per try and logs each failed one; BLE-DD-CONST gains `CONNECT_ATTEMPTS` and `REASON_NOT_ESTABLISHED`; BLE-DD-SIM gains `not_established`. |
+| 1.25 | 2026-10-06 | Claude | #60: BLE-DD-SCRIPT - timeouts by command prefix (`PrefixTimeout`, `longest_prefix`), resolved when the variables bind and applied as each row is read; BLE-DD-SCRIPTRUN - each result carries the timeout that applied and why (`StepResult.timeout_s`, `timeout_from`), shown in the report and the event log; BLE-DD-CLI - `script --timeout PREFIX=MS`. |
+| 1.26 | 2026-10-22 | Claude | #251: BLE-DD-NUS - `disconnect` stops a connection still being made (`sd_ble_gap_connect_cancel`, `+disc reason=cancelled`), and drops a link completed before the cancel; BLE-DD-CMD - `connect` during one answers `err 7`, and a stack refusal carries `nrf=`; protocol 1.5, firmware 1.5.0. BLE-DD-DONGLE - `open_link` ignores link events from before its `connect` and recovers a refused `connect` (`disconnect`, then `reset` and reselect); `reset` reopens the port. BLE-DD-CONST - `DISCONNECT_EVENT_TIMEOUT` 6 s, `CONNECT_RECOVERABLE`, `DONGLE_RESET_SETTLE`; BLE-DD-SIM - `connect_outcome="pending"`. |
+| 1.27 | 2026-10-22 | Claude | #256: BLE-DD-TIMESTAMP - `timestamp_format_us` writes a 64-bit count as decimal text, and every timestamp is printed through it with `%s`, because newlib-nano has no long long conversion; firmware 1.5.1. |
+| 1.28 | 2026-10-22 | Claude | #241: BLE-DD-SCANNER - names up to 31 bytes (`PROTO_MAX_NAME` 32), and each sensor keeps the latest scan response and the company ID from either payload; BLE-DD-CMD - `+sensor` reports `mfr=` and `sr=`; protocol 1.6, firmware 1.6.0. BLE-DD-DONGLE - `Sensor.manufacturer_id`, `Sensor.scan_response`; BLE-DD-SIM - `SimulatedSensor.scan_response`. |
+| 1.29 | 2026-10-22 | Claude | #121: BLE-DD-SIMWORLD and BLE-DD-KEPLERSIM added - a simulated Kepler sensor 5C1712 shared by the simulated dongle (`KeplerResponder`, `SimulatedSensor.responder`), supply (`terminal_volts`) and probe (`periodic_rtt`, `simulated_target`). |
+| 1.30 | 2026-10-23 | Claude | #259: JLINK-DD-PROBE - `reset` and `flash` halt a running core first (`_stop_if_running`), since GDB refuses `monitor` commands while it runs. JLINK-DD-SIM - the simulated GDB refuses a `monitor` command while the core runs. |
+| 1.31 | 2026-10-23 | Claude | #264: JLINK-DD-PROBE - `restore` programmes an image set in order keeping UICR (`RestoreResult`, `NRF52_UICR`); CORE-DD-PATHS - `resolve_arguments` resolves a list of files item by item. |
+| 1.32 | 2026-10-23 | Claude | #244: BLE-DD-DFU (firmware `dfu_client.c`, `cmd_dfu.c`: `dfucp`, `dfupkt`, `+dfu`; protocol 1.7, firmware 1.7.0), BLE-DD-DFUHOST (`dfu.py`, `NordicDongle.send_package`) and BLE-DD-DFUSIM (`dfu_target.py`, the simulated 5C1712 bootloader) added; BLE-DD-CMDARGS gains the hex helpers. |
 
 ---
 
@@ -888,6 +897,21 @@ Design points:
   `-exec-interrupt` to a target GDB knows is running.
   `reset(halt=True)` sends `monitor reset` and `monitor halt` and leaves it
   halted.
+- **`restore(images, keep=(NRF52_UICR,))` puts a known image set back**
+  (#264). It halts the core, reads every kept range, flashes each image in
+  order with `preserve=keep` - so an image holding a UICR record, which erases
+  the page (#69), has it written back at once - then reads the ranges again and
+  raises if any differs, before leaving the core running (`run=True`) or
+  halted. `RestoreResult` carries every `FlashResult`, the ranges as read
+  before, and `unchanged`, so a specification can assert on it.
+- **`reset` and `flash` halt a running core first** (`_stop_if_running`,
+  #259). GDB refuses every `monitor` command while the target runs ("Cannot
+  execute this command while the target is running"), so after
+  `reset(halt=False)` the next reset, and the one `flash` makes, failed on
+  5C1712. Both now send `-exec-interrupt` through `halt()` when the driver
+  has the core running; `flash(reset=False)` halts it before `load`. A core
+  already halted is not interrupted, which would wait for a stop that never
+  comes.
 - **`reset` flushes GDB's register cache** (`_flush_register_cache`, #178).
   GDB never sees what a `monitor` command does to the core, so after `monitor
   reset` it still reported the registers it had read before: on 5C1712 the
@@ -1017,8 +1041,8 @@ representation rather than by behaviour (defect D-15).
 
 #### BLE-DD-SCRIPT — `script.py`
 
-`CommandScript`, `ScriptTest`, `ScriptStep`; `parse_script`, `load_script`.
-The document that specifies the sensor's command set, read as the test of it
+`CommandScript`, `ScriptTest`, `ScriptStep`, `PrefixTimeout`; `parse_script`,
+`load_script`, `longest_prefix`. The document that specifies the sensor's command set, read as the test of it
 (AD-23). Running it is BLE-DD-SCRIPTRUN.
 
 Design points:
@@ -1037,6 +1061,16 @@ Design points:
   given for the run. An undeclared name, a value for one, or a required variable
   left unset is refused naming the line, so a misspelt `--var` cannot leave a
   default silently in force. The syntax is Robot Framework's, `${NAME}`.
+- **Timeouts by command prefix are decided as the rows are read** (#60). A
+  `| Command prefix | Timeout (ms) |` table before the first step is kept as
+  written and resolved when the variables bind, so a `--var` value reaches a
+  `${NAME}` in it; the values given for the run (`timeouts=`) then replace the
+  row for the same prefix, ignoring case, or add one. Each command row with an
+  empty Timeout cell takes the longest prefix it starts with
+  (`longest_prefix`), and `ScriptStep.timeout_from` records why - `Timeout cell`
+  or `prefix WR (document)` - so the runner needs no knowledge of the table.
+  The Timeout heading is a step table's too; the Command prefix heading is what
+  makes the table a prefix table.
 - **The reader is split from the runner** because together they passed the
   1000-line limit; `_Reader` holds the state of one document being read, so each
   kind of row has one place.
@@ -1063,10 +1097,20 @@ BLE-DD-SCRIPT, one step at a time.
   measured and `clock` is which clock measured it (BLE-NFR-005). For a
   `<disconnect>` step it is the write to the `+disc`; a reason of `0x08` means a
   supervision timeout, so the figure includes the dongle's 4 s wait.
+- **Each result says how long it could wait, and why.** `_timeout_for` takes the
+  step's own timeout - its cell's or its prefix's, settled by BLE-DD-SCRIPT -
+  else the run's default for what it waits for: `timeout` for a reply or a
+  `<disconnect>`, `listen` for a listening window. `StepResult.timeout_s` and
+  `timeout_from` carry it into the report's Timeout column, the JSON and the
+  `TX` line of the event log (#60).
 - **A step never raises.** Its outcome *is* its result: an exception from one
   command would abandon the rest of a document. The handlers catch
   `BenchToolsError` only, so a bug still surfaces.
 - **A link the document opened is closed** in a `finally`, pass or fail.
+- **A `connect` step makes `CONNECT_ATTEMPTS` tries at most, whatever the
+  failure.** It calls `open_link(attempts=1)` for each, because the driver's own
+  retry on 0x3E would otherwise multiply them, and writes each failed try to the
+  event log as a `CONNECT` line with no result before the next (#180).
 - **The event log is written as it happens**, one tab-separated line per event,
   flushed per line so an interrupted run still leaves it, and kept on the
   `ScriptRun` as well. Its time is the host's to the millisecond; the dongle's
@@ -1107,6 +1151,16 @@ figures so the driver refuses an over-long payload with a clear message rather
 than letting the firmware truncate it silently, and states both clocks'
 resolutions - 1 us on the dongle, 1 ms on the host - in one place.
 
+`CONNECT_ATTEMPTS` (3) bounds both ways into a link, a `connect` step and
+`open_link`, so the two cannot drift apart. `REASON_NOT_ESTABLISHED` is the
+`+disc` reason `open_link` tries again on.
+
+`DISCONNECT_EVENT_TIMEOUT` (6 s) outlasts the 4 s supervision timeout: a sensor
+that has just reset cannot acknowledge `disconnect`, and its `+disc` came
+3.9 s later on hardware (#251). `CONNECT_RECOVERABLE` lists the `connect`
+refusals that are about the dongle rather than the sensor (4, 7, 10), and
+`DONGLE_RESET_SETTLE` the time a reset dongle is given to return on USB.
+
 #### BLE-DD-DONGLE — `dongle.py`
 
 `NordicDongle`, the façade: an `Instrument` (CORE-DD-INSTRUMENT) whose transport
@@ -1143,6 +1197,23 @@ Design points:
   ends the capture.
 - The connection interval is taken from the `+conn` event rather than a later
   query, because it is the floor under every latency measured on that link.
+- `open_link` tries a link that fails to establish again, up to
+  `CONNECT_ATTEMPTS` in all (#180). A `+disc` during the attempt raises
+  `LinkLostError`, an `InstrumentError` carrying the dongle's reason; only
+  reason 0x3E is retried, because it says nothing about the sensor, where a
+  closed connect window (`reason=timeout`) or a missing service does. Each
+  failed attempt that is retried is logged as a warning with a
+  `ble_connect_attempt` record (CORE-FR-064) - address, attempt, attempts,
+  reason - and a note in the session log, so a flaky link stays in the
+  evidence. `_open_link_once` is one attempt; each has its own `timeout`.
+- Each attempt reads what has already arrived and discards old link events
+  before `connect`, and notes the dongle's clock just before it;
+  `_next_link_event` skips a `+conn` or `+disc` stamped earlier, which is
+  the end of an earlier link reported late (#251). A `connect` refused with a
+  code in `CONNECT_RECOVERABLE` is recovered by `_recover_connect`:
+  `disconnect`, then `reset(reselect=True)` if it is still refused, each step
+  a `ble_connect_recovery` record. `reset` closes the port, waits
+  `DONGLE_RESET_SETTLE`, and reopens it, because the dongle leaves USB.
 - `sample_command` sends one command N times, each start an interval after the
   last, and takes a number from each reply into a `SampleSet`. A reply without
   a number raises, naming it: a `NACK` is not a reading to average in.
@@ -1249,12 +1320,95 @@ and `SENS-0A1B2C` is the identity record the simulated part carries (JLINK-DD-SI
 - the two have to agree or the bring-up specification could not be run without
 hardware. `drop_every` models a dongle
 whose USB queue could not keep up, which is what `is_complete` exists to detect.
+`SimulatedSensor.not_established` makes that many connection attempts link and
+then end with reason 0x3e, as seen on hardware after a sensor reset (#180).
+`connect_outcome="pending"` leaves a connection being made (`connecting`), so
+`connect` is refused - `err 7` at protocol 1.5, `err 10` before it - until
+`disconnect` (1.5 only) or `reset` ends it (#251).
+
+#### BLE-DD-SIMWORLD — `benchtools/simulated/world.py`
+
+What the simulated instruments share. Each is built on its own from a `sim://`
+resource; the sensor they all touch on a real bench, and the supply it runs
+from, are kept here once per process (#121). `kepler_sensor(id)` makes a
+`KeplerSensorModel` on first use and returns the same one after. The simulated
+GPD-3303D registers itself on construction, held weakly, and `supply_volts`
+reads its channel 2 terminals - 0 V while the output is off - which is how
+`kepler_battery.yaml` wires 5C1712. `rtt_source("kepler-5C1712")` is the
+periodic RTT line a simulated probe writes when the bench's `simulated_target`
+option wires it to the sensor. `reset_world` forgets all of it, for a test that
+must start clean.
+
+#### BLE-DD-KEPLERSIM — `benchtools/simulated/kepler.py`
+
+The Kepler sensor 5C1712 as the simulated instruments see it: version, SHA,
+identifier, battery (unloaded and loaded), machine and MCU temperature, alive
+period, preamble length and reset reason, and the replies its BLE console gives.
+The simulated dongle lists it at `D1:8D:3B:4C:19:96`, advertising every 2 s as
+the real one roughly does, and answers through `KeplerResponder`, which looks
+the model up on each command so a copy of the dongle's sensor list does not fork
+it. `ECURESET HARD` answers, resets the model (reason 4) and drops the link with
+reason 0x08, as on the bench (#251).
+
+Reply formats are those of V11.00.0000-95, captured in the 2026-10-04
+qualification: the command is echoed as sent and the unit follows the number
+(`ACK RD BATTERY = 2789mV`). The ranges of `WR ALIVE-PERIOD` (10-900) and
+`WR PREAMBLE-LENGTH` (32-1023) and the `OUT OF RANGE` refusal come from the
+sensor firmware's parameter table. **Open items**, assumed rather than captured:
+`ACK RD BATTERY-LOADED = <n>mV` and `ACK WR PREAMBLE-LENGTH <n> Pairs` (taken
+from V11.01, written in the V11.00 style); a loaded battery 20 mV below the
+unloaded one; an MCU 3.5 C above the machine temperature; `NACK Invalid Command`
+for anything else. Transmitting its frames is #122.
+
+#### BLE-DD-DFUHOST — `dfu.py`, `NordicDongle.send_package`
+
+The host's half of a Secure DFU transfer. `load_package` reads the zip
+`nrfutil pkg generate` writes and orders its images as nrfutil does:
+SoftDevice and bootloader, SoftDevice, bootloader, application. `SecureDfu`
+runs Nordic's procedure over two callables - a Control Point write that
+returns the response, and a Packet write: a receipt every 8 packets, for the
+dongle's flow control (a reduced protocol may refuse it, which is not an
+error), then for the init packet and
+then the firmware in objects of the bootloader's size, *create*, write in
+244-byte pieces, *CRC* - the target's offset and CRC32 of everything received
+must match what was sent - and *execute*.
+
+A refusal is a result: `send_image` returns the stage it stopped at (`init`,
+`firmware`) with the result code and any extended error, and `DfuResult`
+names them as a test compares them - `Success`, `InvalidObject`,
+`ExtendedError` with `FwVersionFailure`, `HwVersionFailure`,
+`SdVersionFailure`. A CRC that does not match, or a response to another
+request, is a broken transfer and raises `DfuError`.
+
+`NordicDongle.send_package(package, target, timeout)` finds the bootloader by
+address or by the start of its name followed by `DFU` - `KAPPA_5C1712` finds
+`KAPPA_5C1712-0FDFU` - with a fresh scan before each image, opens a link and
+waits for `+dfu state=ready`, runs the image, and disconnects: the bootloader
+resets after executing an image. It is a method of the dongle, not a separate
+instrument, because a second instrument on the same serial port could not open
+it. Each transfer is a `ble_dfu` event-log record.
+
+#### BLE-DD-DFUSIM — `dfu_target.py`
+
+`SimulatedBootloader` answers the Control Point as an SDK 17 bootloader does,
+with real CRC32 bookkeeping, and keeps the init packets and firmware it
+executed. It does not decode an init packet, so a refusal that follows
+validation - a wrong key, another board, a downgrade - is configured with
+`refuse_init` and returned at the init packet's execute, where the real one
+returns it. The simulated dongle gives a sensor a bootloader with
+`SimulatedSensor.bootloader`: a link to it reports `+dfu state=ready`, and
+`dfucp` and `dfupkt` reach it. The simulated 5C1712 enters its bootloader on
+`SESSION SWDL` and then advertises at `D1:8D:3B:4C:19:97` as
+`KAPPA_5C1712-0FDFU` (`SimulatedSensor.present`).
 
 #### BLE-DD-CLI — `cli.py`
 
 Sub-commands `info`, `scan`, `select`, `profile`, `cmd`, `monitor`, `firmware`,
-emitting
-JSON. `--log` records the whole session beside whatever the sub-command prints:
+`script`, emitting
+JSON. `script --timeout PREFIX=MS`, repeatable, passes timeouts by command
+prefix to the document (#60); its destination is `prefix_timeouts`, apart from
+the top-level `-t/--timeout` link timeout, and a value that is not `PREFIX=MS`
+is refused naming the flag. `--log` records the whole session beside whatever the sub-command prints:
 that file is the evidence, the JSON is the summary. `profile` and `cmd` add a
 `warning` key when the result is incomplete or not resolvable, so a figure
 quoted from a shell script carries the same caveat the API gives. `firmware`
@@ -1337,6 +1491,13 @@ every 71.6 minutes at 1 MHz, so the overflow count is re-read after the capture
 and the capture repeated if it changed - a read that straddles an overflow
 cannot return a stale figure, and at most one retry is ever needed.
 
+`timestamp_format_us` (inline, in `timestamp.h`) writes a count as decimal
+text into a `TIMESTAMP_TEXT_SIZE` buffer and returns it, so it can stand in a
+format's argument list with `%s`. Every 64-bit value the dongle reports - `t=`,
+`uptime_us`, `t_tx`, `t_rx`, `dt_us` - goes through it: the Makefile build
+links newlib-nano, which has no long long conversion and printed "lu" (#256).
+It is in the header so the unit-test fakes, which replace `timestamp.c`, keep it.
+
 #### BLE-DD-SCANNER — `firmware/src/ble_scanner.c`
 
 Scanning, the sensor table and advertising-report timestamping.
@@ -1352,6 +1513,13 @@ Scanning, the sensor table and advertising-report timestamping.
   indistinguishable.
 - The sensor table is bounded and does not evict: once full, a new address is
   ignored rather than displacing one the host may already have selected.
+- A name is kept up to 31 bytes, the most an advertising payload holds; at 23 a
+  Kepler sensor's 25-character name lost its last two characters (#241). Each
+  sensor also keeps the latest scan response (`PROTOCOL_MAX_ADV_DATA`, an
+  active scan only) and the company ID of a manufacturer-specific record in
+  either payload, because a Kepler sensor moved its company ID into the scan
+  response (TX-941). `+sensor` reports them as `mfr=` and `sr=`, before the
+  name, which stays last because it may hold a space.
 - Addresses are formatted most significant octet first, as they are written,
   while the stack stores them the other way round.
 
@@ -1366,6 +1534,14 @@ is the instant the request left the application, not the antenna - the
 difference is bounded by the connection interval, which is reported alongside so
 the figure can be read correctly. USB is serviced while waiting for a reply, so
 a five second timeout does not cost the host five seconds of advertising events.
+
+A connection being made is tracked (`nus_client_is_connecting`) from an
+accepted `connect` until the link comes up or the window closes. `disconnect`
+during it cancels it with `sd_ble_gap_connect_cancel` and reports
+`+disc reason=cancelled`; if the stack completed the connection first, the
+link is dropped as soon as it is reported, before discovery. Without this, a
+connection the host had given up on went on being made, and if it found the
+sensor the dongle was linked without the host knowing (#251).
 
 #### BLE-DD-CMD — `firmware/src/cmd_parser.c`
 
@@ -1382,7 +1558,44 @@ enter the log as a measurement.
 `connect` and, from protocol 1.3, `cmd` take an optional `timeout=<ms>`; the
 connect window defaults to 15 s and the reply wait to 2 s. Reading those
 arguments is BLE-DD-CMDARGS, kept apart so `cmd_parser.c` stays under the
-800-line limit.
+800-line limit. From protocol 1.5 `connect` answers `err 7` while a
+connection is being made, and adds the SoftDevice's code (`nrf=0x..`) to
+`err 10`.
+
+#### BLE-DD-DFU — `firmware/src/dfu_client.c`, `firmware/src/cmd_dfu.c`
+
+A GATT client for Nordic's Secure DFU service, so the dongle can carry a
+firmware update to a sensor in its bootloader (#244). The dongle carries
+bytes; the host runs the procedure (BLE-DD-DFUHOST).
+
+`dfu_client_init` adds the vendor base `8EC9xxxx-F315-4F60-9FB8-838830DAEA50`
+and registers service 0xFE59 with discovery, beside the UART service. When a
+link's discovery finds it with its Control Point (0x0001) and Packet (0x0002),
+notifications are turned on at the Control Point's CCCD through the GATT queue
+and `+dfu state=ready` is reported; a service without both is `incomplete`.
+The queue keeps requests in order, so no Control Point write overtakes the
+CCCD write. `dfu_client_control` writes a request (write with response) and
+waits, servicing USB, for the notification that answers it; a notification
+that arrived before the request is not taken as its answer.
+`dfu_client_packet` writes without a response, straight to the SoftDevice
+rather than through the GATT queue, which passes `NRF_ERROR_RESOURCES` for a
+write command to its error handler instead of retrying; the client waits for
+a transmit buffer. It splits each write to the link's effective MTU less 3,
+because a transfer can start before the MTU exchange ends (a 144-byte write
+was refused on 5C1712's bootloader). It does its own flow control: when an
+accepted Control Point request has set a receipt interval (opcode 0x02), it
+waits for the bootloader's receipt after every that many packets, counted
+from the last object created. Without it, writes outran the bootloader's 17
+packet buffers and data was lost. A DFU link asks for a 7.5 ms interval when
+its service is found; a UART link keeps its own, the floor under its
+latencies. On 5C1712 a 298 KB application took 108.8 s, against 190.7 s at
+30 ms.
+
+`cmd_dfu.c` holds the commands, apart from `cmd_parser.c` for its 800-line
+limit: `dfucp <hex> [timeout=<ms>]` answers `ok len= data=` with the response,
+or `err 8` when none came; `dfupkt <hex>` answers `ok len=`, or `err 7` when
+the queue stayed full. Both answer `err 4` on a link with no DFU service.
+Protocol 1.7, firmware 1.7.0.
 
 #### BLE-DD-CMDARGS — `firmware/src/cmd_args.c`
 

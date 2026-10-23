@@ -16,16 +16,21 @@ configurable interval and deliberate dropouts, connection and UART over BLE
 with a fixed round-trip latency, and the drop counters that tell a host its
 stream was lossy.
 
-Traces to: BLE-FR-080, BLE-DD-SIM.
+Traces to: BLE-FR-080, BLE-DD-SIM, BLE-DD-KEPLERSIM.
 """
 
 from __future__ import annotations
 
 import copy
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
+from ...simulated import KEPLER_5C1712_ADDRESS, KEPLER_5C1712_ID, KEPLER_5C1712_NAME
+from ...simulated.kepler import KEPLER_5C1712_DFU_ADDRESS, KEPLER_5C1712_DFU_NAME
+from ...simulated.world import kepler_sensor
 from .constants import AddressType, DongleError
+from .dfu_target import SimulatedBootloader
+from .protocol import manufacturer_id
 
 __all__ = ["SimulatedSensor", "SimulatedDongle", "DEFAULT_SENSORS"]
 
@@ -45,7 +50,12 @@ class SimulatedSensor:
     :param connect_outcome: What a connection attempt does. ``"ready"`` links
         and finds the UART service; ``"timeout"`` never links, as a sensor that
         advertises too rarely for the connect window does; ``"no_service"``
-        links but never becomes ready.
+        links but never becomes ready; ``"pending"`` hears nothing and leaves
+        the connection being made until ``disconnect`` (protocol 1.5) or
+        ``reset`` ends it, as the dongle did after a sensor reset (#251).
+    :param not_established: How many of the next connection attempts link
+        and are then lost with reason 0x3e, the link failing to establish,
+        before *connect_outcome* applies. Each attempt counts one off.
     """
 
     address: str
@@ -56,6 +66,9 @@ class SimulatedSensor:
     delay_pattern_us: Tuple[int, ...] = (0, 3_000, 7_000, 10_000)
     miss_every: int = 0
     payload: bytes = b"\x02\x01\x06"
+    #: Sent to an active scan (protocol 1.6). A Kepler sensor puts its company
+    #: ID here since TX-941 (#241).
+    scan_response: bytes = b""
     responses: Dict[str, str] = field(default_factory=dict)
     latency_us: int = 12_500
     #: Commands that take longer than the usual round trip, in microseconds.
@@ -64,6 +77,7 @@ class SimulatedSensor:
     latency_overrides: Dict[str, int] = field(default_factory=dict)
     connectable: bool = True
     connect_outcome: str = "ready"
+    not_established: int = 0
     #: Commands after which the sensor drops the link, and how long after, in
     #: microseconds - a reset, say.
     disconnect_on: Dict[str, int] = field(default_factory=dict)
@@ -73,6 +87,26 @@ class SimulatedSensor:
     #: Commands answered with more than one notification, and what the extra
     #: ones say - the defect of a sensor replying twice.
     extra_frames: Dict[str, Tuple[str, ...]] = field(default_factory=dict)
+    #: Answers every command in place of *responses*, for a sensor whose
+    #: replies depend on its state - a simulated Kepler sensor (#121).
+    responder: Optional[Callable[[str], str]] = None
+    #: A target in its bootloader: a link to it offers the DFU service, not
+    #: the UART one (#244).
+    bootloader: Optional[SimulatedBootloader] = None
+    #: Whether the sensor is on the air now; None for always. A bootloader
+    #: advertises only once the application has entered it.
+    present: Optional[Callable[[], bool]] = None
+
+    def on_air(self) -> bool:
+        """Whether the sensor advertises, and answers a connection, now."""
+        return self.present is None or bool(self.present())
+
+    def reply_to(self, request: str) -> str:
+        """What this sensor answers to *request*."""
+        if self.responder is not None:
+            return self.responder(request)
+        reply = self.responses.get(request)
+        return "ERR unknown command" if reply is None else reply
 
     def advertising_payload(self) -> bytes:
         """The advertising data, with the local name appended when there is one."""
@@ -82,8 +116,35 @@ class SimulatedSensor:
         return self.payload + bytes([len(encoded) + 1, 0x09]) + encoded
 
 
+class KeplerResponder:  # pylint: disable=too-few-public-methods
+    """Answers as the shared simulated Kepler sensor with this identifier.
+
+    Looked up on every command rather than held, so the dongle, the probe and
+    the S2-LP kit all see the one sensor, and a copy of the dongle's sensor
+    list does not fork it.
+    """
+
+    def __init__(self, sensor_id: int) -> None:
+        self.sensor_id = sensor_id
+
+    def __call__(self, request: str) -> str:
+        model = kepler_sensor(self.sensor_id)
+        reply = model.respond(request)
+        word = " ".join(request.split()).upper()
+        if word == "ECURESET HARD":
+            model.reset()
+        elif word == "SESSION SWDL":
+            model.in_bootloader = True
+        return reply
+
+
+def _kepler_in_bootloader(sensor_id: int) -> Callable[[], bool]:
+    return lambda: kepler_sensor(sensor_id).in_bootloader
+
+
 #: The default population: a sensor under test, a second one to make selection
-#: mean something, and an unnamed device to prove filtering works.
+#: mean something, an unnamed device to prove filtering works, and the bench's
+#: Kepler sensor 5C1712, which the Kepler specifications select (#121).
 DEFAULT_SENSORS: Tuple[SimulatedSensor, ...] = (
     SimulatedSensor(
         address="E4:1C:7B:02:9A:11",
@@ -124,6 +185,28 @@ DEFAULT_SENSORS: Tuple[SimulatedSensor, ...] = (
         interval_us=500_000,
         connectable=False,
     ),
+    SimulatedSensor(
+        address=KEPLER_5C1712_ADDRESS,
+        name=KEPLER_5C1712_NAME,
+        rssi=-84,
+        interval_us=2_000_000,
+        # Commands that measure or write take the sensor about 55 ms on the
+        # bench; a reset drops the link with a supervision timeout (#251).
+        latency_us=55_000,
+        responder=KeplerResponder(KEPLER_5C1712_ID),
+        crash_on={"ECURESET HARD": 60_000, "SESSION SWDL": 100_000},
+    ),
+    # 5C1712 in its bootloader, after SESSION SWDL: address + 1, and the name
+    # the V2.00.0000 bootloader gives itself when the application enters it
+    # (bl_board.c), advertising every 211 ms (#244).
+    SimulatedSensor(
+        address=KEPLER_5C1712_DFU_ADDRESS,
+        name=KEPLER_5C1712_DFU_NAME,
+        rssi=-84,
+        interval_us=211_000,
+        bootloader=SimulatedBootloader(),
+        present=_kepler_in_bootloader(KEPLER_5C1712_ID),
+    ),
 )
 
 
@@ -144,9 +227,9 @@ class SimulatedDongle:
 
     #: The build the simulated dongle is running. A test that exercises the
     #: update path changes these, as flashing a real dongle would.
-    DEFAULT_FIRMWARE_VERSION = "1.4.0"
+    DEFAULT_FIRMWARE_VERSION = "1.7.0"
     DEFAULT_FIRMWARE_BUILT = "2026-09-13T12:00:00Z"
-    DEFAULT_PROTOCOL = "1.4"
+    DEFAULT_PROTOCOL = "1.7"
 
     def __init__(
         self,
@@ -170,6 +253,8 @@ class SimulatedDongle:
         self.firmware_version = self.DEFAULT_FIRMWARE_VERSION
         self.firmware_built = self.DEFAULT_FIRMWARE_BUILT
         self.protocol = self.DEFAULT_PROTOCOL
+        #: The sensor a connection is still being made to, if any.
+        self.connecting: Optional[SimulatedSensor] = None
         #: The window the last ``connect`` asked for, in milliseconds.
         self.last_connect_timeout_ms: Optional[int] = None
         #: The reply wait the last ``cmd`` asked for, in milliseconds.
@@ -318,7 +403,7 @@ class SimulatedDongle:
 
     def _hears(self, sensor: SimulatedSensor) -> bool:
         """Whether the scan filter admits *sensor*."""
-        if self._connected is not None:
+        if self._connected is not None or not sensor.on_air():
             return False                       # the radio is on the connection
         name = self._scan_filter.get("name")
         if name and name not in sensor.name:
@@ -393,6 +478,11 @@ class SimulatedDongle:
         self.in_bootloader = True
         return ["ok dfu=1 fw=%s" % self.firmware_version]
 
+    def _protocol_at_least(self, major: int, minor: int) -> bool:
+        """True when the simulated firmware speaks protocol *major*.*minor* or later."""
+        reported = tuple(int(part) for part in self.protocol.split(".")[:2])
+        return reported >= (major, minor)
+
     def _cmd_time(self, arguments: List[str]) -> List[str]:
         return ["ok t=%d hz=1000000" % self.clock_us]
 
@@ -419,19 +509,32 @@ class SimulatedDongle:
     def _cmd_list(self, arguments: List[str]) -> List[str]:
         lines = []
         for index, sensor in enumerate(self._found):
+            extra = ""
+            if self._protocol_at_least(1, 6):
+                extra = self._manufacturer_fields(sensor)
             lines.append(
-                "+sensor t=%d idx=%d addr=%s type=%d rssi=%d seen=1 name=%s"
+                "+sensor t=%d idx=%d addr=%s type=%d rssi=%d seen=1 %sname=%s"
                 % (
                     self.clock_us,
                     index,
                     sensor.address,
                     int(sensor.address_type),
                     sensor.rssi,
+                    extra,
                     sensor.name,
                 )
             )
         lines.append("ok sensors=%d" % len(self._found))
         return lines
+
+    def _manufacturer_fields(self, sensor: SimulatedSensor) -> str:
+        """``mfr=`` and ``sr=`` as the firmware writes them: the scan response
+        only after an active scan, the company ID from either payload."""
+        response = sensor.scan_response if self._scan_filter.get("active") == "1" else b""
+        company = manufacturer_id(sensor.payload)
+        if company is None:
+            company = manufacturer_id(response)
+        return "mfr=%s sr=%s " % ("" if company is None else "0x%04X" % company, response.hex())
 
     def _cmd_select(self, arguments: List[str]) -> List[str]:
         target = arguments[0]
@@ -499,16 +602,14 @@ class SimulatedDongle:
             )
         if sensor is None:
             return [self._error(DongleError.NO_SENSOR, "no sensor selected")]
-        if self._connected is not None:
-            return [self._error(DongleError.STATE, "not valid in this state")]
-        if not sensor.connectable:
-            return [self._error(DongleError.BLE, "the BLE stack refused the request")]
+        refusal = self._connect_refusal(sensor)
+        if refusal is not None:
+            return [refusal]
 
         self._scanning = False
-        if sensor.connect_outcome == "timeout":
-            # The connect window closes without hearing the sensor.
-            self.clock_us += 5_000_000
-            self._queue.append("+disc t=%d reason=timeout" % self.clock_us)
+        if (sensor.not_established > 0 or sensor.connect_outcome in ("timeout", "pending")
+                or not sensor.on_air()):
+            self._fail_connect(sensor)
             return ["ok connecting=1 addr=%s timeout_ms=%d" % (sensor.address, timeout_ms)]
 
         self._connected = sensor
@@ -517,14 +618,54 @@ class SimulatedDongle:
             "+conn t=%d addr=%s state=linked interval_us=30000"
             % (self.clock_us, sensor.address)
         )
-        if sensor.connect_outcome == "ready":
+        if sensor.bootloader is not None:
+            self.clock_us += 5_000
+            self._queue.append("+dfu t=%d state=ready error=0x0" % self.clock_us)
+        elif sensor.connect_outcome == "ready":
             self.clock_us += 5_000
             self._queue.append(
                 "+conn t=%d state=ready interval_us=30000" % self.clock_us
             )
         return ["ok connecting=1 addr=%s timeout_ms=%d" % (sensor.address, timeout_ms)]
 
+    def _connect_refusal(self, sensor: SimulatedSensor) -> Optional[str]:
+        """The ``err`` reply the firmware would refuse ``connect`` with, or None."""
+        if self._connected is not None:
+            return self._error(DongleError.STATE, "not valid in this state")
+        if self.connecting is not None and self._protocol_at_least(1, 5):
+            return self._error(DongleError.BUSY, "busy")
+        if self.connecting is not None or not sensor.connectable:
+            # Before protocol 1.5, a connection being made was refused by the
+            # stack, and said no more than an unconnectable device does.
+            return self._error(DongleError.BLE, "the BLE stack refused the request")
+        return None
+
+    def _fail_connect(self, sensor: SimulatedSensor) -> None:
+        """Queue the events of a connection attempt that ends without a link."""
+        if sensor.connect_outcome == "pending" and sensor.not_established == 0:
+            # Nothing is reported: the connection is still being made.
+            self.connecting = sensor
+            return
+        if sensor.not_established > 0:
+            # Observed within a minute of a sensor reset (#180): the link comes
+            # up and is lost before it is established.
+            sensor.not_established -= 1
+            self.clock_us += 30_000
+            self._queue.append("+conn t=%d addr=%s state=linked interval_us=30000"
+                               % (self.clock_us, sensor.address))
+            self.clock_us += 60_000
+            self._queue.append("+disc t=%d reason=0x3e" % self.clock_us)
+            return
+        # The connect window closes without hearing the sensor.
+        self.clock_us += 5_000_000
+        self._queue.append("+disc t=%d reason=timeout" % self.clock_us)
+
     def _cmd_disconnect(self, arguments: List[str]) -> List[str]:
+        if self.connecting is not None and self._protocol_at_least(1, 5):
+            self.connecting = None
+            self.clock_us += 1_000
+            self._queue.append("+disc t=%d reason=cancelled" % self.clock_us)
+            return ["ok"]
         if self._connected is None:
             return [self._error(DongleError.NOT_CONNECTED, "not connected")]
         self._connected = None
@@ -570,9 +711,7 @@ class SimulatedDongle:
 
         sensor = self._connected
         request = payload.decode("utf-8", errors="replace").strip()
-        reply = sensor.responses.get(request)
-        if reply is None:
-            reply = "ERR unknown command"
+        reply = sensor.reply_to(request)
 
         latency_us = sensor.latency_overrides.get(request, sensor.latency_us)
         if latency_us > timeout_ms * 1000:
@@ -609,6 +748,34 @@ class SimulatedDongle:
                 encoded.hex(),
             )
         ]
+
+    def _dfu_target(self) -> Optional[SimulatedBootloader]:
+        sensor = self._connected
+        return None if sensor is None else sensor.bootloader
+
+    def _cmd_dfucp(self, arguments: List[str]) -> List[str]:
+        target = self._dfu_target()
+        if target is None:
+            return [self._error(DongleError.STATE, "not valid in this state")]
+        try:
+            request = bytes.fromhex(arguments[0])
+        except ValueError:
+            return [self._error(DongleError.TOO_LONG, "payload too long")]
+        response = target.control(request)
+        self.clock_us += 30_000
+        return ["ok len=%d data=%s" % (len(response), response.hex())]
+
+    def _cmd_dfupkt(self, arguments: List[str]) -> List[str]:
+        target = self._dfu_target()
+        if target is None:
+            return [self._error(DongleError.STATE, "not valid in this state")]
+        try:
+            data = bytes.fromhex(arguments[0])
+        except ValueError:
+            return [self._error(DongleError.TOO_LONG, "payload too long")]
+        target.packet(data)
+        self.clock_us += 7_500
+        return ["ok len=%d" % len(data)]
 
     def _cmd_adv(self, arguments: List[str]) -> List[str]:
         if not arguments:
@@ -662,6 +829,7 @@ class SimulatedDongle:
         self._scan_until_us = None
         self._profiling = False
         self._connected = None
+        self.connecting = None
         self._selected = None
         self._found = []
         self._next_us = {}

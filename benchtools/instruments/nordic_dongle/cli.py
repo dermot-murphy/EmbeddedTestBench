@@ -201,6 +201,19 @@ def _parse_variables(pairs: Sequence[str]) -> dict:
     return values
 
 
+def _parse_timeouts(pairs: Sequence[str]) -> dict:
+    """``PREFIX=MS`` pairs from ``--timeout``, as a mapping; the document checks the values."""
+    timeouts = {}
+    for pair in pairs or ():
+        prefix, separator, value = pair.rpartition("=")
+        if not separator or not prefix.strip() or not value.strip():
+            raise ConfigurationError(
+                "--timeout takes PREFIX=MS - a command prefix and its timeout in "
+                "milliseconds, WR=45000 - not %r. The run's default is --timeout-s." % pair)
+        timeouts[prefix.strip()] = value.strip()
+    return timeouts
+
+
 def _cmd_script(dongle: NordicDongle, args) -> int:
     """Run a command document: connect, send, check, report. Exit 1 on a fail."""
     run = dongle.run_script(
@@ -210,6 +223,7 @@ def _cmd_script(dongle: NordicDongle, args) -> int:
         listen=args.listen,
         variables=_parse_variables(args.var),
         events=args.events,
+        timeouts=_parse_timeouts(args.prefix_timeouts),
     )
     payload = run.as_dict()
     payload["report"] = args.report
@@ -349,7 +363,13 @@ def build_parser() -> argparse.ArgumentParser:
                         help="write the event log here: time, event, step, data, result")
     script.add_argument("--timeout-s", type=float, default=DEFAULT_COMMAND_TIMEOUT,
                         help="default seconds to wait for a reply; a step's Timeout "
-                        "cell overrides it")
+                        "cell, then the document's timeout for its command prefix, "
+                        "override it")
+    script.add_argument("--timeout", action="append", dest="prefix_timeouts",
+                        metavar="PREFIX=MS",
+                        help="timeout in milliseconds for commands starting with "
+                        "PREFIX (any case), over the document's Command prefix "
+                        "table; repeatable")
     script.add_argument("--listen", type=float, default=0.5,
                         help="seconds to listen after a command with no expected reply")
     script.set_defaults(handler=_cmd_script)

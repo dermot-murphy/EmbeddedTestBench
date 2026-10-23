@@ -25,6 +25,9 @@ uint32_t		fake_gap_connect_count(void);
 const ble_gap_scan_params_t *	fake_gap_connect_scan_params(void);
 uint32_t		fake_gap_disconnect_count(void);
 void			fake_gap_set_connect_result(uint32_t result);
+/** Connection attempts cancelled, and what the next cancel returns. */
+uint32_t		fake_gap_cancel_count(void);
+void			fake_gap_set_cancel_result(uint32_t result);
 void			fake_gap_reset(void);
 
 /* --- the firmware's own modules, when one is faked to test another -- */
@@ -48,6 +51,9 @@ void		fake_clock_set_step(uint64_t microseconds);
 void		fake_clock_reset(void);
 
 /* --- scanner, when faked for the command parser --------------------- */
+/** Give the last sensor added a manufacturer ID and a scan response. */
+void		fake_scanner_set_scan_response(uint16_t manufacturer_id,
+					       const uint8_t * p_data, uint8_t length);
 void		fake_scanner_add(const char * address, uint8_t address_type,
 				 const char * name, int8_t rssi);
 void		fake_scanner_set_active(bool active);
@@ -67,6 +73,7 @@ void		fake_scanner_reset(void);
 /* --- UART client, when faked for the command parser ----------------- */
 void		fake_nus_client_set_ready(bool ready);
 void		fake_nus_client_set_connected(bool connected);
+void		fake_nus_client_set_connecting(bool connecting);
 void		fake_nus_client_set_interval_us(uint32_t interval_us);
 void		fake_nus_client_set_reply(const char * text, uint64_t round_trip_us);
 void		fake_nus_client_set_no_reply(void);
@@ -81,6 +88,19 @@ uint32_t	fake_nus_client_command_timeout_ms(void);
 uint32_t	fake_nus_client_disconnects(void);
 void		fake_nus_client_set_connect_result(uint32_t result);
 void		fake_nus_client_reset(void);
+
+/** Run @p hook whenever the code under test services USB while it waits. */
+void		fake_host_set_process_hook(void (*hook)(void));
+
+/* The DFU client, for tests of the dfucp and dfupkt commands (#244). */
+void		fake_dfu_set_ready(bool ready);
+void		fake_dfu_set_response(const uint8_t * p_data, uint16_t length);
+const uint8_t *	fake_dfu_last(void);
+uint16_t	fake_dfu_last_length(void);
+uint32_t	fake_dfu_last_timeout_ms(void);
+uint32_t	fake_dfu_packets(void);
+void		fake_dfu_set_packet_result(uint32_t result);
+void		fake_dfu_reset(void);
 
 /* Each test's setUp resets the fakes that test links. There is deliberately no
  * reset-everything helper: a binary links only the fakes it needs, so one would

@@ -33,10 +33,17 @@ extern "C" {
 
 /** Protocol revision. Bumped when a command or event changes shape.
  *
+ * 1.7 - ``dfucp`` and ``dfupkt`` carry a Secure DFU transfer to a target in its
+ *       bootloader, and ``+dfu`` reports its DFU service (#244).
+ * 1.6 - ``+sensor`` reports the manufacturer ID (``mfr=``) and, after an active
+ *       scan, the scan-response payload (``sr=``); names up to 31 bytes (#241).
+ * 1.5 - ``disconnect`` also stops a connection still being made, reported as
+ *       ``+disc reason=cancelled``; ``connect`` during one answers ``err 7``,
+ *       and a stack refusal carries its code as ``nrf=0x..`` (#251).
  * 1.1 - ``ver`` reports the firmware version and build date; ``dfu`` added.
  * 1.0 - first release.
  */
-#define PROTO_VERSION			"1.4"
+#define PROTO_VERSION			"1.7"
 
 /** How long a connection attempt listens for the sensor, by default and at
  *  most, in milliseconds. A sensor advertising every 9 s was missed by a
@@ -67,8 +74,14 @@ extern "C" {
 /** Sensors retained by a scan. Bounded because the firmware allocates nothing. */
 #define PROTO_MAX_SENSORS		16U
 
-/** Longest device name kept from an advertising payload. */
-#define PROTO_MAX_NAME			24U
+/** Longest advertising or scan-response payload: 31 bytes in legacy
+ *  advertising. */
+#define PROTOCOL_MAX_ADV_DATA		31U
+
+/** Longest device name kept, with its terminator: PROTOCOL_MAX_ADV_DATA and
+ *  one, since a name can fill an advertising payload. At 24 a sensor's
+ *  25-character name lost its last two characters (#241). */
+#define PROTO_MAX_NAME			32U
 
 /** Longest UART payload in one direction, in bytes before hex encoding: the
  *  ATT MTU of 247 less the 3-byte write header, the most one NUS write carries
@@ -93,7 +106,9 @@ extern "C" {
 	X(adv,		1, 2, "adv start [<addr>] | adv stop | adv stats") \
 	X(time,		0, 0, "the dongle's microsecond timestamp now") \
 	X(reset,	0, 0, "reset the dongle") \
-	X(dfu,		0, 0, "reset into the bootloader, to accept a firmware update")
+	X(dfu,		0, 0, "reset into the bootloader, to accept a firmware update") \
+	X(dfucp,	1U, 2U, "dfucp <hex> [timeout=<ms>] - write a target's DFU Control Point, report its response") \
+	X(dfupkt,	1U, 1U, "dfupkt <hex> - write a target's DFU Packet characteristic")
 
 /**
  * Event table: X(name, help)
@@ -107,7 +122,8 @@ extern "C" {
 	X(conn,	"+conn t= addr= interval_us= latency= timeout_ms= - connected") \
 	X(disc,	"+disc t= reason= - disconnected, with the HCI reason code") \
 	X(scan,	"+scan t= state= - scanning started or stopped") \
-	X(drop,	"+drop t= count= - events discarded because the USB queue was full")
+	X(drop,	"+drop t= count= - events discarded because the USB queue was full") \
+	X(dfu,	"+dfu t= state= error= - the link's DFU service: ready, incomplete, failed or error")
 
 /**
  * Error table: X(symbol, code, text)

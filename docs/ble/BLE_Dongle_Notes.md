@@ -66,26 +66,29 @@ Every event carries `t=`, microseconds on the dongle's clock.
 | `list` | one `+sensor` event per device found, then `ok sensors=<n>` |
 | `select <index\|addr[/type]>` | choose the sensor for later commands |
 | `selected` | report the selection |
-| `connect [<addr[/type]>] [timeout=<ms>]` | connect to the selection, or to an address, listening for it for up to `timeout` ms (1000-60000, default 15000; protocol 1.2). Protocol 1.1 listens for a fixed 5 s at half duty, which misses sensors advertising every 9 s |
-| `disconnect` | disconnect |
+| `connect [<addr[/type]>] [timeout=<ms>]` | connect to the selection, or to an address, listening for it for up to `timeout` ms (1000-60000, default 15000; protocol 1.2). Protocol 1.1 listens for a fixed 5 s at half duty, which misses sensors advertising every 9 s. While a connection is still being made, `connect` answers `err 7` (protocol 1.5) |
+| `disconnect` | disconnect, or stop a connection still being made, reported as `+disc reason=cancelled` (protocol 1.5; before it, `err 6` and the connection went on being made) |
 | `uart <hex>` | write to the sensor's UART service, no reply awaited |
 | `cmd <hex> [timeout=<ms>]` | write, await the reply for up to `timeout` ms (100-60000, default 2000; protocol 1.3), report both timestamps and the round trip |
 | `adv start [<addr>]` / `adv stop` / `adv stats` | advertising profile capture and its counters |
 | `time` | the dongle's timestamp now, and its rate |
 | `reset` | reset the dongle |
 | `dfu` | answer, then restart into the bootloader so the host can refresh the firmware |
+| `dfucp <hex> [timeout=<ms>]` | write a target's DFU Control Point, and answer with the response it notifies (`ok len= data=`); `err 8` when none came (protocol 1.7) |
+| `dfupkt <hex>` | write a target's DFU Packet characteristic; `err 7` when the GATT queue stayed full (protocol 1.7) |
 
 ### 2.2 Events
 
 | Event | Fields |
 |---|---|
 | `+adv` | `t addr type rssi pdu ch name data` — one advertising report |
-| `+sensor` | `t idx addr type rssi seen name` — one entry of the scan result |
+| `+sensor` | `t idx addr type rssi seen mfr sr name` — one entry of the scan result. From protocol 1.6: `mfr` is the company ID of a manufacturer-specific record in either payload (`0x0F55` for Sensoteq), empty if none; `sr` is the latest scan response in hex, only after an active scan; the name is kept up to 31 bytes (#241) |
 | `+rx` | `t len data` — bytes notified by the sensor |
 | `+conn` | `t addr state interval_us` — `state=linked` then `state=ready` |
-| `+disc` | `t reason` — HCI reason code |
+| `+disc` | `t reason` — HCI reason code; `timeout` when the connect window closed; `cancelled` when `disconnect` stopped a connection being made (1.5) |
 | `+scan` | `t state` — `started` or `stopped` |
 | `+drop` | `t count` — lines the dongle could not send |
+| `+dfu` | `t state error` — the link's DFU service: `ready`, `incomplete`, `failed`, or `error` for a queued write that failed (1.7) |
 
 `+drop` is the important one. It is how the host knows its stream was lossy
 rather than the sensor quiet, and it is why `AdvertisingProfile.is_complete`
@@ -104,6 +107,79 @@ exists.
 The definitive list is `PROTO_ERROR_TABLE` in `include/protocol.h`, which the
 driver's `DongleError` mirrors and `test_firmware_protocol.py` checks.
 
+From protocol 1.5, `connect` adds the SoftDevice's own code to error 10, as in
+`err 10 the BLE stack refused the request nrf=0x8`.
+
+### 2.4 Reconnecting after a sensor reset
+
+Seen on hardware (#251): a write that resets the sensor (`wr mode`,
+`ECURESET HARD`), or a J-Link flash, leaves nothing to acknowledge the
+`disconnect` that follows. The dongle reports the end of the link only when the
+4 s supervision timeout expires: 3.9 s after `disconnect`, with reason 0x08 or
+0x22, against 0.06 s and 0x16 while the sensor runs. The driver used to wait
+2 s, so that `+disc` was left unread; the next `open_link` took it as its own
+failure, and the connection it had started went on being made in the dongle,
+which refused every `connect` until it was reset by hand.
+
+What the driver now does:
+
+- `close_link` waits up to 6 s (`DISCONNECT_EVENT_TIMEOUT`) for the `+disc`.
+- `open_link` reads what has already arrived before discarding old link
+  events, and ignores a `+conn` or `+disc` stamped before the `connect`.
+- A `connect` refused with error 4, 7 or 10 is recovered from: `disconnect`
+  (which, from 1.5, stops a connection still being made), then, if it is still
+  refused, `reset` and select the sensor again. Each step is a
+  `ble_connect_recovery` record in the event log.
+- `reset` reopens the port once the dongle is back on USB, and
+  `reset(reselect=True)` keeps the selected sensor.
+
+The first `connect` after a reset may still end with 0x3E while the sensor
+boots; `open_link` tries that again (#180).
+
+### 2.5 Updating a sensor's firmware over BLE (#244)
+
+A sensor in its bootloader offers Nordic's Secure DFU service (0xFE59) instead
+of the UART service. When a link's discovery finds it, the dongle turns on
+Control Point notifications and reports `+dfu state=ready`; `dfucp` and
+`dfupkt` then carry the transfer, and the host runs the procedure:
+
+```yaml
+- do: dongle.command_expecting_disconnect     # a Kepler sensor enters its bootloader
+  with: {request: SESSION SWDL}
+- do: dongle.send_package
+  with: {package: images/app_OTA.zip, target: KAPPA_5C1712, timeout: 180}
+  expect:
+    - {name: updated, measure: result, equals: "Success"}
+```
+
+`target` is the bootloader's address, or the start of its name: the Kepler
+V2.00.0000 bootloader advertises at the application's address + 1 as
+`KAPPA_<id>-<pcb>DFU` (`_` instead of `-` when not entered from the
+application). Each image of a package goes over its own link, because the
+bootloader resets after executing one. A refusal is a result, not an error:
+
+| `result` | `extended_error` | A Kepler bootloader means |
+|---|---|---|
+| `Success` | | updated |
+| `InvalidObject` | | signed with a key it does not trust |
+| `ExtendedError` | `FwVersionFailure` | a lower application version |
+| `ExtendedError` | `HwVersionFailure` | a package for another PCB |
+| `ExtendedError` | `SdVersionFailure` | a SoftDevice requirement it does not meet |
+
+`stage` says where it stopped: `init` (the init packet, where version,
+hardware and signature are checked), `firmware`, or `done`.
+
+On 5C1712 (bootloader V2.00.0000, 2026-10-23) a V5 package was refused with
+`HwVersionFailure` and a 298 KB V4X application package was sent in 108.8 s.
+Three things were needed to get there, and are why the firmware does what it
+does: Packet writes split to the link's MTU (the transfer starts before the
+MTU exchange ends), written directly to the SoftDevice with a wait for a
+transmit buffer, and flow control by the bootloader's receipts every 8
+packets (it keeps 17 buffers, and without receipts data was lost). The link
+runs at 7.5 ms; at 30 ms the same package took 190.7 s. The DFU is a
+method of the dongle rather than a separate instrument: two instruments on one
+serial port could not both open it.
+
 ## 3. Building and flashing
 
 ### 3.1 Build
@@ -117,6 +193,16 @@ make SDK_ROOT=/path/to/nRF5_SDK_17.1.0 dfu      # and package it
 ```
 
 SES remains the reference; the Makefile exists because CI cannot licence an IDE.
+
+**No long long formats.** The Makefile links newlib-nano (`--specs=nano.specs`),
+whose `printf` has no `long long` support. Until firmware 1.5.1 every timestamp
+was printed with a `%llu` conversion, and a Makefile image answered `ver` with
+`uptime_us=lu` and a garbage `dropped=`; every `t=` was wrong in the same way
+(#256). SES's library supports long long, so the bench never showed it. Write a
+64-bit count with `timestamp_format_us()` and `%s`. The firmware workflow
+fails on any long long conversion under `src/` or `include/`, because the host
+unit tests link a full C library and cannot see it. Full newlib would also
+work, at 125 KB of `text` against 53 KB.
 
 1. Install nRF5 SDK 17.1.0 and SEGGER Embedded Studio for ARM.
 2. Open `firmware/nordic_dongle/ses/nordic_dongle_pca10059.emProject`.

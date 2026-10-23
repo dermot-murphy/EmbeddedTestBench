@@ -1,0 +1,62 @@
+[
+ {
+  "cycle": 1,
+  "link_s": 4.73,
+  "version": "ACK RD VERSION = V11.00.0000-95-gc051f3665",
+  "dropped": true
+ },
+ {
+  "cycle": 2,
+  "link_s": 0.77,
+  "version": "ACK RD VERSION = V11.00.0000-95-gc051f3665",
+  "dropped": true
+ },
+ {
+  "cycle": 3,
+  "link_s": 0.87,
+  "version": "ACK RD VERSION = V11.00.0000-95-gc051f3665",
+  "dropped": true
+ },
+ {
+  "cycle": 4,
+  "link_s": 0.97,
+  "version": "ACK RD VERSION = V11.00.0000-95-gc051f3665",
+  "dropped": true
+ },
+ {
+  "cycle": 5,
+  "link_s": 0.94,
+  "version": "ACK RD VERSION = V11.00.0000-95-gc051f3665",
+  "dropped": true
+ },
+ {
+  "cycle": 6,
+  "link_s": 0.67,
+  "version": "ACK RD VERSION = V11.00.0000-95-gc051f3665",
+  "dropped": true
+ },
+ {
+  "cycle": 7,
+  "link_s": 0.67,
+  "version": "ACK RD VERSION = V11.00.0000-95-gc051f3665",
+  "dropped": true
+ },
+ {
+  "cycle": 8,
+  "link_s": 0.79,
+  "version": "ACK RD VERSION = V11.00.0000-95-gc051f3665",
+  "dropped": true
+ },
+ {
+  "cycle": 9,
+  "link_s": 0.52,
+  "version": "ACK RD VERSION = V11.00.0000-95-gc051f3665",
+  "dropped": true
+ },
+ {
+  "cycle": 10,
+  "link_s": 0.54,
+  "version": "ACK RD VERSION = V11.00.0000-95-gc051f3665",
+  "dropped": true
+ }
+]

@@ -22,6 +22,7 @@
 
 static bool	m_ready;
 static bool	m_connected;
+static bool	m_connecting;
 static uint32_t	m_interval_us;
 static char	m_reply[PROTO_MAX_PAYLOAD];
 static uint64_t	m_round_trip_us;
@@ -68,6 +69,7 @@ uint32_t nus_client_disconnect(void)
 
 bool     nus_client_is_ready(void)	{ return m_ready; }
 bool     nus_client_is_connected(void)	{ return m_connected; }
+bool     nus_client_is_connecting(void)	{ return m_connecting; }
 uint32_t nus_client_interval_us(void)	{ return m_interval_us; }
 
 uint32_t nus_client_write(const uint8_t * p_data, uint16_t length)
@@ -122,6 +124,7 @@ void nus_client_on_db_disc_evt(void * p_evt)		{ (void)p_evt; }
 
 void fake_nus_client_set_ready(bool ready)		{ m_ready = ready; m_connected = ready || m_connected; }
 void fake_nus_client_set_connected(bool connected)	{ m_connected = connected; }
+void fake_nus_client_set_connecting(bool connecting)	{ m_connecting = connecting; }
 void fake_nus_client_set_interval_us(uint32_t interval_us)	{ m_interval_us = interval_us; }
 
 void fake_nus_client_set_reply(const char * text, uint64_t round_trip_us)
@@ -147,6 +150,7 @@ void fake_nus_client_reset(void)
 {
 	m_ready          = false;
 	m_connected      = false;
+	m_connecting     = false;
 	m_connect_timeout_ms = 0U;
 	m_interval_us    = 0U;
 	m_reply[0]       = '\0';

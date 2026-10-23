@@ -69,6 +69,8 @@ set(FAKE_SDK       ${SUPPORT_DIR}/fake_sdk.c)
 set(FAKE_HOST_LINK ${SUPPORT_DIR}/fake_host_link.c)
 set(FAKE_SCANNER   ${SUPPORT_DIR}/fake_scanner.c)
 set(FAKE_NUS       ${SUPPORT_DIR}/fake_nus_client.c)
+set(FAKE_GATTC     ${SUPPORT_DIR}/fake_gattc.c)
+set(FAKE_DFU       ${SUPPORT_DIR}/fake_dfu_client.c)
 
 function(add_firmware_test name)
 	cmake_parse_arguments(ARG "" "" "SOURCES" ${ARGN})
@@ -96,8 +98,18 @@ add_firmware_test(test_firmware_version
 
 add_firmware_test(test_cmd_parser
 	SOURCES ${FIRMWARE_DIR}/src/cmd_parser.c ${FIRMWARE_DIR}/src/cmd_args.c ${FIRMWARE_DIR}/src/bootloader.c
-	        ${FIRMWARE_DIR}/src/firmware_version.c
-	        ${FAKE_SDK} ${FAKE_HOST_LINK} ${FAKE_SCANNER} ${FAKE_NUS})
+	        ${FIRMWARE_DIR}/src/firmware_version.c ${FIRMWARE_DIR}/src/cmd_dfu.c
+	        ${FAKE_SDK} ${FAKE_HOST_LINK} ${FAKE_SCANNER} ${FAKE_NUS} ${FAKE_DFU})
+
+# The dfucp and dfupkt commands, through the dispatcher, kept apart from
+# test_cmd_parser so that neither file passes the 800-line limit (#244).
+add_firmware_test(test_cmd_dfu
+	SOURCES ${FIRMWARE_DIR}/src/cmd_parser.c ${FIRMWARE_DIR}/src/cmd_args.c ${FIRMWARE_DIR}/src/bootloader.c
+	        ${FIRMWARE_DIR}/src/firmware_version.c ${FIRMWARE_DIR}/src/cmd_dfu.c
+	        ${FAKE_SDK} ${FAKE_HOST_LINK} ${FAKE_SCANNER} ${FAKE_NUS} ${FAKE_DFU})
+
+add_firmware_test(test_dfu_client
+	SOURCES ${FIRMWARE_DIR}/src/dfu_client.c ${FAKE_SDK} ${FAKE_HOST_LINK} ${FAKE_GATTC})
 
 # A fixed build date, injected exactly as the real build injects one, so the
 # test can assert the whole field rather than that it merely looks plausible.

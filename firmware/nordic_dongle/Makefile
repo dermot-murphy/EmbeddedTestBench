@@ -52,6 +52,8 @@ SRC_FILES += \
   $(PROJ_DIR)/src/cdc_acm.c \
   $(PROJ_DIR)/src/cmd_args.c \
   $(PROJ_DIR)/src/cmd_parser.c \
+  $(PROJ_DIR)/src/cmd_dfu.c \
+  $(PROJ_DIR)/src/dfu_client.c \
   $(PROJ_DIR)/src/firmware_version.c \
   $(PROJ_DIR)/src/bootloader.c \
   $(PROJ_DIR)/src/ble_scanner.c \

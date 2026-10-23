@@ -55,6 +55,29 @@ class TestStepArguments:
         record = _run(_spec("radio.regs", suite / "spec.yaml"))
         assert record.status is Status.PASS, record.cases[0].steps[0].error
 
+    def test_a_list_of_images_beside_the_specification_is_found(self, tmp_path, monkeypatch):
+        """probe.restore names its images in a list (#264)."""
+        suite = tmp_path / "suite"
+        suite.mkdir()
+        for name in ("bootloader.hex", "app.hex"):
+            (suite / name).write_text(":00000001FF\n")
+        elsewhere = tmp_path / "elsewhere"
+        elsewhere.mkdir()
+        monkeypatch.chdir(elsewhere)
+        spec = TestSpec.from_mapping({
+            "name": "Restore",
+            "tests": [{"name": "The images go back",
+                       "steps": [{"do": "probe.restore",
+                                  "with": {"images": ["bootloader.hex", "app.hex"]},
+                                  "expect": [{"name": "uicr_unchanged",
+                                              "measure": "unchanged", "equals": 1}]}]}],
+        }, source=str(suite / "spec.yaml"))
+        config = BenchConfig.simulated(["probe"], driver="jlink")
+        with BenchRunner.from_config(config, simulate=True) as runner:
+            record = runner.run(spec)
+        step = record.cases[0].steps[0]
+        assert record.status is Status.PASS, step.error
+
     def test_a_shipped_configuration_is_found_from_elsewhere(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
         record = _run(_spec("configs/s2lp_915_38k4_basic.regs", tmp_path / "spec.yaml"))
@@ -144,10 +167,23 @@ SPECS = sorted(ROOT.glob("specs/*.yaml"))
 SIMULATED_BENCH = ROOT / "benches" / "simulated_bench.yaml"
 
 
+#: Specifications run here for their setup and teardown only. Their tests talk
+#: to the simulated Kepler sensor (#121) and then wait for its radio frames,
+#: which nothing simulates yet (#122): every receive would sit out its 60 to
+#: 180 s timeout, ten minutes a run. Setup and teardown hold their paths, which
+#: are what this test is about; tests/runner/test_kepler_simulated.py runs the
+#: rest.
+SETUP_ONLY = ("kepler_",)
+
+#: A test case name no specification has, so a run selects none of its tests.
+NO_TESTS = ("(setup and teardown only)",)
+
+
 def _outcome(spec_path: pathlib.Path):
     """What running *spec_path* on the simulated bench came to, case by case."""
+    selection = NO_TESTS if spec_path.name.startswith(SETUP_ONLY) else ()
     with BenchRunner.from_config(load_bench(str(SIMULATED_BENCH)), simulate=True) as runner:
-        record = runner.run(load_spec(str(spec_path)))
+        record = runner.run(load_spec(str(spec_path)), selection=selection)
     return record.setup_error, [
         (case.name, case.status, [step.error for step in case.steps]) for case in record.cases
     ]

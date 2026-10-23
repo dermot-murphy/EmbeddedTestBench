@@ -46,7 +46,8 @@
 # Against hardware (5C1712 is the sensor approved for configuration changes):
 #   python -m benchtools run specs/kepler_battery.yaml --bench benches/lab1.yaml
 #
-# The simulated bench has no sensor on the air, so this suite needs hardware.
+# On the simulated bench the sensor answers over BLE and RTT (#121) but does
+# not yet transmit (#122), so the S2-LP steps need hardware.
 
 name: Kepler battery voltage
 description: >

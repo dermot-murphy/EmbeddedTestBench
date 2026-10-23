@@ -40,6 +40,7 @@ from ...core.instrument import Instrument, InstrumentIdentity
 from ...core.paths import input_paths
 from ...core.transport.base import Transport
 from ...core.transport.mock import MockTransport
+from ...simulated.world import rtt_source
 from ...core.transport.process import ProcessTransport
 from .constants import (
     DEFAULT_GDB_PORT,
@@ -71,9 +72,16 @@ __all__ = [
     "StackFrame",
     "HaltInfo",
     "FlashResult",
+    "RestoreResult",
     "VerifyResult",
     "SectionVerdict",
+    "NRF52_UICR",
 ]
+
+#: The nRF52840's UICR, as ``(address, size)``: the sensor ID at 0x10001080
+#: and the bootloader address at 0x10001014 live here, and an image holding a
+#: UICR record erases the whole page (#69).
+NRF52_UICR = (0x10001000, 0x310)
 
 
 #: Matches "Loading section .text, size 0x1234 lma 0x08000000".
@@ -206,6 +214,46 @@ class VerifyResult:
 
 
 @dataclass
+class RestoreResult:
+    """Outcome of :meth:`JLinkProbe.restore`: every image, and the ranges kept.
+
+    Traces to: JLINK-FR-025.
+    """
+
+    images: List[str] = field(default_factory=list)
+    flashes: List["FlashResult"] = field(default_factory=list)
+    #: Each kept range as read before programming, ``address -> hex bytes``.
+    kept: Dict[int, str] = field(default_factory=dict)
+    #: Whether every kept range read the same afterwards. False never returns:
+    #: restore raises instead.
+    unchanged: bool = True
+    seconds: float = 0.0
+
+    @property
+    def verified(self) -> Optional[bool]:
+        """Whether every image verified, or ``None`` if verification was off."""
+        verdicts = [flash.verified for flash in self.flashes]
+        return None if any(verdict is None for verdict in verdicts) else all(verdicts)
+
+    @property
+    def bytes_written(self) -> int:
+        """Total size of everything programmed."""
+        return sum(flash.bytes_written for flash in self.flashes)
+
+    def as_dict(self) -> dict:
+        """The result as plain data, for a report."""
+        return {
+            "images": list(self.images),
+            "bytes_written": self.bytes_written,
+            "verified": self.verified,
+            "unchanged": self.unchanged,
+            "kept": {"0x%08x" % address: data for address, data in self.kept.items()},
+            "seconds": self.seconds,
+            "flashes": [flash.as_dict() for flash in self.flashes],
+        }
+
+
+@dataclass
 class FlashResult:
     """Outcome of programming an image onto the target."""
 
@@ -325,6 +373,7 @@ class JLinkProbe(Instrument):
         initialise: bool = True,
         start_server: bool = True,
         attach: bool = True,
+        simulated_target: Optional[str] = None,
         **_ignored,
     ) -> "JLinkProbe":
         """Open a link to a target through a J-Link.
@@ -353,6 +402,10 @@ class JLinkProbe(Instrument):
             talks to the target over BLE while reading its log needs this.
             Anything but RTT needs the attach, and fails with GDB's own
             "no target" error.
+        :param simulated_target: ``sim://`` only: the simulated device the
+            probe is wired to, whose RTT log it reads - ``kepler-5C1712``, the
+            Kepler sensor the simulated dongle also talks to (#121). Ignored for
+            a real probe, which is wired to whatever is on the bench.
         """
         text = (resource or "sim://").strip()
         if core_clock_hz is not None:
@@ -360,6 +413,11 @@ class JLinkProbe(Instrument):
 
         if text.lower().startswith(("sim://", "mock://")) or text.lower() in ("sim", "mock"):
             simulator = SimulatedJLink()
+            if simulated_target:
+                try:
+                    simulator.periodic_rtt = rtt_source(simulated_target)
+                except ValueError as exc:
+                    raise ConfigurationError(str(exc)) from exc
             transport: Transport = MockTransport(responder=simulator, timeout=timeout)
             rtt = RttClient(SimulatedRttBackend(simulator))
             server = None
@@ -384,6 +442,43 @@ class JLinkProbe(Instrument):
             )
             if start_server:
                 server.start()
+            transport, rtt = cls._start_gdb(server, gdb_executable, host, rtt_port, timeout)
+            address = server.address
+
+        try:
+            probe = cls(
+                session=GdbMiSession(transport, timeout=timeout),
+                server=server,
+                rtt=rtt,
+                elf=elf,
+                firmware=firmware,
+                limits=limits,
+                target_address=address,
+                auto_check_errors=auto_check_errors,
+            )
+        except BaseException:
+            if server is not None:
+                server.stop()
+            raise
+        probe.attach_on_open = bool(attach)
+        try:
+            if initialise:
+                probe.initialise()
+        except Exception:
+            probe.close()
+            raise
+        return probe
+
+    @staticmethod
+    def _start_gdb(server: GdbServer, gdb_executable: Optional[str], host: str,
+                   rtt_port: int, timeout: float) -> Tuple[Transport, RttClient]:
+        """Start GDB and the RTT client for a real probe.
+
+        On failure the server is stopped before raising: no probe exists yet to
+        close it, so a server started by this connect would outlive the run and
+        hold the probe (#254). ``stop()`` leaves alone a server it did not spawn.
+        """
+        try:
             gdb = find_gdb(gdb_executable)
             if gdb is None:
                 raise ConnectionFailedError(
@@ -395,27 +490,10 @@ class JLinkProbe(Instrument):
             transport = ProcessTransport(
                 [gdb, "--interpreter=mi2", "--quiet", "-nx"], timeout=timeout
             )
-            rtt = RttClient(SocketRttBackend(host, rtt_port))
-            address = server.address
-
-        probe = cls(
-            session=GdbMiSession(transport, timeout=timeout),
-            server=server,
-            rtt=rtt,
-            elf=elf,
-            firmware=firmware,
-            limits=limits,
-            target_address=address,
-            auto_check_errors=auto_check_errors,
-        )
-        probe.attach_on_open = bool(attach)
-        try:
-            if initialise:
-                probe.initialise()
-        except Exception:
-            probe.close()
+            return transport, RttClient(SocketRttBackend(host, rtt_port))
+        except BaseException:
+            server.stop()
             raise
-        return probe
 
     @staticmethod
     def _parse_target(resource: str) -> Tuple[str, int]:
@@ -655,6 +733,8 @@ class JLinkProbe(Instrument):
             )
         if reset:
             self.reset(halt=True)
+        else:
+            self._stop_if_running()
         kept = [(address, self.read_memory(address, size)) for address, size in preserve]
 
         # The file is named to "load" and read as the executable only afterwards.
@@ -662,6 +742,12 @@ class JLinkProbe(Instrument):
         # "file" and then "load", reported "has changed; re-reading symbols" and
         # exited with status 3 (issue #69). "load <file>" alone did not.
         command = 'load "%s"' % path.replace("\\", "/") if path else "load"
+        if path:
+            # Nothing held as the exec file when the image is loaded. After a
+            # flash the image becomes the exec file, for verify; at the next
+            # "load" GDB 15.2 re-checked it, said a combined HEX file "has
+            # changed; re-reading symbols" and exited (#253).
+            self._session.execute("-file-exec-and-symbols")
         started = time.monotonic()
         console = self._session.execute_console(command, timeout=timeout)
         elapsed = time.monotonic() - started
@@ -694,6 +780,65 @@ class JLinkProbe(Instrument):
                 )
         result.preserved = self._restore(kept)
         self._cycle_counter_ready = False
+        return result
+
+    @input_paths("images")
+    def restore(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+        self,
+        images: Sequence[str],
+        keep: Sequence[Tuple[int, int]] = (NRF52_UICR,),
+        verify: bool = True,
+        run: bool = True,
+        timeout: float = 180.0,
+    ) -> RestoreResult:
+        """Put a known set of images back on the target, keeping UICR.
+
+        For a specification's teardown, and for recovery after a failed
+        bootloader or OTA update (#264): a SoftDevice, bootloader, application
+        and settings, in the order given, or one combined image. *keep* is read
+        once before anything is programmed, written back after each image that
+        disturbs it, and read again at the end; a range that does not read as
+        it did is an error, because a sensor that lost its ID is not restored.
+
+        :param images: Image files, programmed in this order.
+        :param keep: ``(address, size)`` ranges that must come through
+            unchanged; by default the nRF52's UICR page.
+        :param verify: Verify each image after programming it.
+        :param run: Leave the core running afterwards, else halted.
+        :raises ConfigurationError: for no images, or an image that does not exist.
+        :raises BenchToolsError: if an image does not verify, or a kept range
+            does not read back as it was.
+
+        Traces to: JLINK-FR-025.
+        """
+        if not images:
+            raise ConfigurationError("restore needs at least one image")
+        for path in images:
+            self._check_image(path)
+        started = time.monotonic()
+        self.reset(halt=True, timeout=timeout)
+        before = [(address, self.read_memory(address, size)) for address, size in keep]
+        result = RestoreResult(
+            images=list(images),
+            kept={address: data.hex() for address, data in before},
+        )
+        for path in images:
+            result.flashes.append(
+                self.flash(path, verify=verify, reset=False, timeout=timeout, preserve=keep))
+        changed = [
+            address for address, data in before
+            if self.read_memory(address, len(data)) != data
+        ]
+        result.unchanged = not changed
+        result.seconds = time.monotonic() - started
+        if changed:
+            raise BenchToolsError(
+                "restore programmed %d image(s) but %s no longer read as before"
+                % (len(images), ", ".join("0x%08x" % address for address in changed)))
+        self._logger.info("restored %d image(s), %d bytes, in %.1f s; kept %s unchanged",
+                          len(images), result.bytes_written, result.seconds,
+                          ", ".join("0x%08x" % address for address, _ in before) or "nothing")
+        self.reset(halt=not run, timeout=timeout)
         return result
 
     def _restore(self, kept: Sequence[Tuple[int, bytes]]) -> Dict[int, str]:
@@ -823,7 +968,13 @@ class JLinkProbe(Instrument):
         before the reset while ``monitor reg pc`` said 0x00000A80, the reset
         handler; after ``maintenance flush register-cache`` GDB read 0x00000A80
         too. The cache is therefore flushed after every reset.
+
+        A running core is halted first: GDB refuses every ``monitor`` command
+        while the target runs, so after ``reset(halt=False)`` the next reset -
+        and the one :meth:`flash` makes - failed with "Cannot execute this
+        command while the target is running" (#259).
         """
+        self._stop_if_running(timeout=timeout)
         self.monitor("reset" if halt else "reset 0", timeout=timeout)
         self._cycle_counter_ready = False
         if halt:
@@ -833,6 +984,11 @@ class JLinkProbe(Instrument):
         else:
             self._flush_register_cache(timeout=timeout)
             self.run(timeout=timeout)
+
+    def _stop_if_running(self, timeout: float = 10.0) -> None:
+        """Halt the core if GDB has it running, so that it takes commands again."""
+        if self._attached and not self._halted:
+            self.halt(timeout=timeout)
 
     def _flush_register_cache(self, timeout: Optional[float] = None) -> None:
         """Make GDB read the registers from the target again.

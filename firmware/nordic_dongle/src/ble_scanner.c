@@ -77,6 +77,28 @@ static void extract_name(const ble_data_t * p_data, char * name, uint8_t * p_len
 }
 
 /**
+ * @brief The company ID that opens a manufacturer-specific record, if any.
+ *
+ * The ID is the record's first two bytes, least significant first.
+ */
+static bool ble_scanner_manufacturer_id(const ble_data_t * p_data, uint16_t * p_id)
+{
+	uint16_t	offset = 0U;
+	uint16_t	length;
+
+	length = ble_advdata_search(p_data->p_data, p_data->len, &offset,
+				    BLE_GAP_AD_TYPE_MANUFACTURER_SPECIFIC_DATA);
+	if ((length < 2U) || (offset == 0U))
+	{
+		return false;
+	}
+
+	*p_id = (uint16_t)((uint16_t)p_data->p_data[offset] |
+			   (uint16_t)((uint16_t)p_data->p_data[offset + 1U] << 8U));
+	return true;
+}
+
+/**
  * @brief True when a report passes the active filter.
  */
 static bool passes_filter(const ble_gap_evt_adv_report_t * p_report,
@@ -142,6 +164,25 @@ static void remember(const ble_gap_evt_adv_report_t * p_report,
 		(void)memcpy(p_sensor->name, name, (uint32_t)name_length + 1U);
 		p_sensor->name_length = name_length;
 	}
+
+	/* A Kepler sensor moved its company ID into the scan response (TX-941),
+	 * so both payloads are searched, and the scan response is kept whole for
+	 * a test to inspect (#241). */
+	if (ble_scanner_manufacturer_id(&p_report->data, &p_sensor->manufacturer_id))
+	{
+		p_sensor->has_manufacturer = true;
+	}
+	if (p_report->type.scan_response != 0U)
+	{
+		uint16_t kept = p_report->data.len;
+
+		if (kept > PROTOCOL_MAX_ADV_DATA)
+		{
+			kept = PROTOCOL_MAX_ADV_DATA;
+		}
+		(void)memcpy(p_sensor->scan_response, p_report->data.p_data, kept);
+		p_sensor->scan_response_length = (uint8_t)kept;
+	}
 }
 
 /**
@@ -151,6 +192,7 @@ static void report_advertising(const ble_gap_evt_adv_report_t * p_report,
 			       const char *                     name,
 			       uint64_t                         when_us)
 {
+	char		time_text[TIMESTAMP_TEXT_SIZE];
 	char		address[18];
 	char		payload[(PROTO_MAX_PAYLOAD * 2U) + 1U];
 	uint16_t	length = p_report->data.len;
@@ -172,8 +214,8 @@ static void report_advertising(const ble_gap_evt_adv_report_t * p_report,
 	 * host's reconciliation - reported against received - always agree, which
 	 * is precisely the check that exists to detect a lossy link. */
 	if (cdc_acm_send_format(
-		"+adv t=%llu addr=%s type=%u rssi=%d pdu=%u ch=%u name=%s data=%s",
-		(unsigned long long)when_us,
+		"+adv t=%s addr=%s type=%u rssi=%d pdu=%u ch=%u name=%s data=%s",
+		timestamp_format_us(when_us, time_text),
 		address,
 		(unsigned)p_report->peer_addr.addr_type,
 		(int)p_report->rssi,
@@ -188,12 +230,14 @@ static void report_advertising(const ble_gap_evt_adv_report_t * p_report,
 
 static void scan_event_handler(scan_evt_t const * p_scan_evt)
 {
+	char		time_text[TIMESTAMP_TEXT_SIZE];
+
 	switch (p_scan_evt->scan_evt_id)
 	{
 	case NRF_BLE_SCAN_EVT_SCAN_TIMEOUT:
 		m_scanning = false;
-		(void)cdc_acm_send_format("+scan t=%llu state=stopped",
-					  (unsigned long long)timestamp_now_us());
+		(void)cdc_acm_send_format("+scan t=%s state=stopped",
+					  timestamp_format_us(timestamp_now_us(), time_text));
 		break;
 
 	default:
@@ -229,6 +273,7 @@ uint32_t scanner_init(void)
 
 uint32_t scanner_start(const scanner_filter_t * p_filter, uint32_t duration_ms)
 {
+	char		time_text[TIMESTAMP_TEXT_SIZE];
 	ble_gap_scan_params_t	params;
 	uint32_t		error;
 
@@ -260,8 +305,8 @@ uint32_t scanner_start(const scanner_filter_t * p_filter, uint32_t duration_ms)
 	if (error == NRF_SUCCESS)
 	{
 		m_scanning = true;
-		(void)cdc_acm_send_format("+scan t=%llu state=started",
-					  (unsigned long long)timestamp_now_us());
+		(void)cdc_acm_send_format("+scan t=%s state=started",
+					  timestamp_format_us(timestamp_now_us(), time_text));
 	}
 
 	return error;
@@ -269,12 +314,14 @@ uint32_t scanner_start(const scanner_filter_t * p_filter, uint32_t duration_ms)
 
 uint32_t scanner_stop(void)
 {
+	char		time_text[TIMESTAMP_TEXT_SIZE];
+
 	nrf_ble_scan_stop();
 	if (m_scanning)
 	{
 		m_scanning = false;
-		(void)cdc_acm_send_format("+scan t=%llu state=stopped",
-					  (unsigned long long)timestamp_now_us());
+		(void)cdc_acm_send_format("+scan t=%s state=stopped",
+					  timestamp_format_us(timestamp_now_us(), time_text));
 	}
 
 	return NRF_SUCCESS;

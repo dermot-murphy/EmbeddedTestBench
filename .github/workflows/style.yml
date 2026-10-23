@@ -11,11 +11,11 @@
 # baseline is debt, not absolution — see ETB-ANA-001 §6.12 for what is in it and
 # what closing it involves.
 #
-# Pinned to v1.5.1, not the newest v1.6.0: v1.6.0 writes its version banner into
-# the results file its own action then parses as JSON, so the action fails after
-# the check itself has passed. Re-checked for #203 on 2026-10-05: the v1.6.0 tag
-# is unchanged and still does this. See ETB-ACQ4-001 §7. The baseline is written by
-# the pinned version and must be regenerated if that pin moves.
+# Pinned to the exact tag v1.6.1 (#229). v1.6.0 was skipped: it wrote its
+# version banner into the results file its own action parses as JSON, so every
+# run failed (dermot-murphy/CStyleCheck#439, fixed in v1.6.1). See ETB-ACQ4-001
+# §7. The baseline is written by the pinned version and must be regenerated if
+# that pin moves.
 
 name: style
 
@@ -35,7 +35,7 @@ jobs:
 
       - name: Run CStyleCheck
         id: cstylecheck
-        uses: dermot-murphy/CStyleCheck@v1.5.1
+        uses: dermot-murphy/CStyleCheck@v1.6.1
         with:
           config: .cstylecheck.yml
           include: |
@@ -51,7 +51,7 @@ jobs:
       # the check clean, so it has no baseline and fails on any finding at all.
       - name: Run CStyleCheck (Pico thermometer)
         id: cstylecheck-pico
-        uses: dermot-murphy/CStyleCheck@v1.5.1
+        uses: dermot-murphy/CStyleCheck@v1.6.1
         with:
           config: .cstylecheck.yml
           include: |
@@ -71,7 +71,7 @@ jobs:
       # The tests entered the check clean: no baseline, and any finding fails.
       - name: Run CStyleCheck (dongle unit tests)
         id: cstylecheck-dongle-tests
-        uses: dermot-murphy/CStyleCheck@v1.5.1
+        uses: dermot-murphy/CStyleCheck@v1.6.1
         with:
           config: .cstylecheck.yml
           include: |

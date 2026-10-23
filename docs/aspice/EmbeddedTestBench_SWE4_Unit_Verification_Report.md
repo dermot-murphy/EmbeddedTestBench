@@ -10,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE4-002 | **Version** | 1.24 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
+| **Document ID** | ETB-SWE4-002 | **Version** | 1.29 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-23 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.4 |
@@ -58,6 +58,11 @@
 | 1.22 | 2026-10-05 | Claude | #177: whole suite re-run (§4); SWE4-UT-JLINK re-counted 86 → 98 and SWE4-UT-JLINKSIM 23 → 25 in §5; §9.3 added - `reset(halt=False)` on the bench before and after the fix; D-48 added and closed, and D-39 notes that D-48 replaces its model. |
 | 1.23 | 2026-10-05 | Claude | #178: whole suite re-run (§4); SWE4-UT-JLINK 98 → 100 and SWE4-UT-JLINKSIM 25 → 27 in §5; §9.4 added - registers read after `reset(halt=True)` on the bench, before and after the fix, with the cause confirmed; D-49 added and closed. |
 | 1.24 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
+| 1.25 | 2026-10-05 | Claude | #214: whole suite re-run (§4); SWE4-UT-BLESAMPLE (5) added to §5; §10.4 added - `sample_command` timed on a 15.6 ms clock under CPython 3.11, before and after the fix; D-50 added and closed. |
+| 1.26 | 2026-10-05 | Claude | #180: whole suite re-run (§4); SWE4-UT-BLE re-counted 64 → 99 and SWE4-UT-BLESCRIPT 58 → 109 in §5; D-51 added and closed in the simulator, not yet confirmed on hardware. |
+| 1.27 | 2026-10-06 | Claude | #180: §10.5 added - `open_link` and the `connect` step after `ECURESET HARD` on the bench PC with sensor 5C1712; 0x3E seen 6 times in 18 links and recovered each time; D-51 confirmed on hardware. |
+| 1.28 | 2026-10-22 | Claude | #121: §14.4 added - the Kepler specifications' BLE, RTT and supply steps on the simulated bench, and the facts they check broken in turn. |
+| 1.29 | 2026-10-23 | Claude | #244: §10.6 added - a sensor's firmware updated over BLE by the dongle on the bench, and refused by its bootloader. |
 
 ---
 
@@ -86,13 +91,13 @@ It is deliberately a separate work product from the specification. A specificati
 
 | Metric | Result |
 |---|---|
-| Tests executed | **2 756** |
-| Passed | **2 750** |
+| Tests executed | **3 189** |
+| Passed | **3 183** |
 | Failed | 0 |
 | Errors | 0 |
 | Skipped | 6 |
 | Statement coverage | Not measured for revision 1.0: `pytest-cov` is not installed on the bench PC. Revision 0.9 measured **95%** (13 695 statements, 679 missed). |
-| Execution time | 187.6 s, without coverage instrumentation |
+| Execution time | 228.6 s, without coverage instrumentation |
 | Runtime | CPython 3.14.7, Windows 10 (10.0.19045) |
 | Framework | pytest 9.1.1 |
 
@@ -199,7 +204,7 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | SWE4-UT-S2LPCLI | `instruments/s2lp/test_cli.py` | 35 | Pass |
 | SWE4-UT-S2LPSESSION | `instruments/s2lp/test_session.py` | 14 | Pass |
 | SWE4-UT-PSU | `instruments/gpd3303d/test_psu.py` | 102 | Pass |
-| SWE4-UT-BLE | `instruments/nordic_dongle/test_dongle.py` | 64 | Pass |
+| SWE4-UT-BLE | `instruments/nordic_dongle/test_dongle.py` | 99 | Pass |
 | SWE4-UT-BLEFIRMWARE | `instruments/nordic_dongle/test_firmware.py` | 49 | Pass |
 | SWE4-UT-BLEPROTO | `instruments/nordic_dongle/test_protocol.py` | 34 | Pass |
 | SWE4-UT-BLEPROFILE | `instruments/nordic_dongle/test_profile.py` | 30 | Pass |
@@ -209,9 +214,10 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 | SWE4-UT-SERIAL | `core/transport/test_serial.py` | 31 | Pass |
 | SWE4-UT-BLESESSION | `instruments/nordic_dongle/test_session.py` | 23 | Pass |
 | SWE4-UT-BLECLI | `instruments/nordic_dongle/test_cli.py` | 46 | Pass |
-| SWE4-UT-BLESCRIPT | `instruments/nordic_dongle/test_script.py` | 58 | Pass |
+| SWE4-UT-BLESCRIPT | `instruments/nordic_dongle/test_script.py` | 109 | Pass |
 | SWE4-UT-BLELATENCY | `instruments/nordic_dongle/test_latency.py` | 20 | Pass |
 | SWE4-UT-BLEFW | `instruments/nordic_dongle/test_firmware_protocol.py` | 17 | Pass |
+| SWE4-UT-BLESAMPLE | `instruments/nordic_dongle/test_sampling.py` | 5 | Pass |
 | SWE4-UT-LAYERING | `test_layering.py` | 81 | Pass |
 | SWE4-UT-GDBMI | `instruments/jlink/test_gdbmi.py` | 37 | Pass |
 | SWE4-UT-BENCH | `runner/test_bench.py` | 41 | Pass |
@@ -755,6 +761,98 @@ A profile capture logged to a text file contains the commands sent, the replies,
 every `+adv` event with both timestamps, and any comment the caller wrote -
 flushed per line, so a session that then hangs still has a complete log. Verified
 by `TestLogging` in both `SWE4-UT-BLESESSION` and `SWE4-UT-BLE`.
+
+### 10.4 Sample spacing on a coarse clock (#214)
+
+`test_readings_are_spaced_by_the_interval` failed 2 of 6 runs on the bench PC
+(CPython 3.11.1, Windows 10), measuring 0.391 s against a bound of 0.4 s for
+three commands 0.2 s apart. Before Python 3.13, `time.monotonic()` on Windows is
+`GetTickCount64()`, resolution 0.015625 s; 0.391 s is 25 ticks, one short of
+0.4 s. From 3.13 it is `QueryPerformanceCounter()`, which is why the suite run in
+§4 (CPython 3.14.7) did not show it.
+
+The cause was in `NordicDongle.sample_command`, not only in the test. It read its
+start time from that clock, which can lag true time by up to one tick, so a
+command could be sent up to 15.6 ms before it was due, and the `times` it
+recorded were quantised to 15.6 ms. Changing only the test's clock to
+`time.perf_counter()` made the test fail more often on 3.11, not less, which is
+what showed it: a precise clock in the test exposes the early send instead of
+truncating it in step.
+
+`sample_command` now times with `time.perf_counter()` (`QueryPerformanceCounter()`
+on Windows under every supported Python) and sleeps again until the due time has
+been reached, so a sleep that returns early cannot send a command early. The test
+measures with `perf_counter` and keeps its bound of 0.4 s: no tolerance was added.
+A new test makes every sleep return halfway and checks that no command is sent
+before it is due.
+
+Run on 2026-10-05 on a Windows 10 PC (10.0.19045) with CPython 3.11.1 and 3.14.7:
+
+| Code | `test_sampling.py` under CPython 3.11 | Under CPython 3.14.7 |
+|---|---|---|
+| Before the fix, test unchanged | `test_readings_are_spaced_by_the_interval` failed 3 of 10 runs, measuring 0.390 s or 0.391 s | Not run |
+| Before the fix, test on `perf_counter`, new test added | `test_readings_are_spaced_by_the_interval` failed 8 of 10 runs; the new test failed 10 of 10 | The new test failed 3 of 3 runs |
+| After the fix | 5 of 5 passed in each of 20 runs | 5 of 5 passed in each of 20 runs |
+
+### 10.5 A link that fails to establish, on the bench (#180)
+
+Run on 2026-10-06 on the bench PC: PCA10059 dongle on COM10, sensor 5C1712
+(D1:8D:3B:4C:19:96) running V11.00.0000-95-gc051f3665, CPython 3.14.7. The
+evidence is in `docs/aspice/qualification/2026-10-06/180_open_link_retry/`.
+
+- **Run 1**, a script: `open_link()` with its default 3 attempts, `RD VERSION`,
+  then `ECURESET HARD` and the wait for the drop, 10 times, 2 s apart.
+- **Run 2**, a command document: a `connect` step, `RD VERSION`, then 8 cycles
+  of `ECURESET HARD` (`<disconnect>`), `connect` and `RD VERSION`.
+
+| Run | Links | Ended with 0x3E | Linked on the next attempt | Result |
+|---|---|---|---|---|
+| 1: `open_link()` | 10 | 1 (cycle 1) | 1 | Every cycle linked and read the version |
+| 2: `connect` steps | 9 | 5 (steps 7, 13, 16, 19, 25) | 5 | **PASS**: 17 passed, 0 failed, 0 errors, 10 skipped |
+
+In run 1 the retried attempt was logged as a WARNING, `connection attempt 1 of
+3 to D1:8D:3B:4C:19:96 failed to establish (reason 0x3e); trying again`, and
+the same text as a note in the dongle session log. In run 2 each failed try was
+an event-log `CONNECT` line with no result, `attempt 1 of 3 failed: ... (reason
+0x3e)`, before the line for the link. The dongle session log shows 14 `connect`
+commands for the 9 steps: each step made one more link per 0x3E and no more, so
+the step's tries and `open_link`'s retry did not multiply.
+
+Each 0x3E came about 0.15 s after the dongle reported the link
+(`state=linked`). Five of the six came within 20 s of an `ECURESET HARD`. The
+sixth, run 1's cycle 1, was the first link of that session, with no reset just
+before it, so the failure is not tied to a reset alone. In run 1, cycles 2 to
+10, links made 2 s after a reset did not hit it. The cause is not known; this
+section shows only that the retry recovers from it.
+
+### 10.6 Updating a sensor's firmware over BLE, on the bench (#244)
+
+Dongle COM10 on firmware 1.7.0 (protocol 1.7), sensor 5C1712 on application
+V11.01.0000-366 and bootloader V2.00.0000, 2026-10-23, hardware. `SESSION SWDL`
+over the application's link was acknowledged (`ACK session swdl`) and the
+sensor advertised its bootloader at `D1:8D:3B:4C:19:97` as `KAPPA_5C1712-0FDFU`.
+
+| Package | `result` | `extended_error` | `stage` | Sent | Time |
+|---|---|---|---|---|---|
+| `KAPPAX_APP_SDK17_PCB_V5_DEBUG_OTA.zip` (another PCB) | `ExtendedError` | `HwVersionFailure` | `init` | 144 B | 16.0 s |
+| `KAPPAX_APP_SDK17_PCB_V4X_RELEASE_OTA.zip` | `Success` | | `done` | 298 520 B | 108.8 s |
+
+After the second, the sensor answered `RD VERSION` with `V11.02.0000-2-GA83DD6847`,
+the package's application. Its flash was then put back from a backup taken
+before the run, and it answered `V11.01.0000-366-GE25673EAD` again.
+
+Three attempts failed first, and each changed the firmware:
+
+1. Every Packet write was refused with `NRF_ERROR_DATA_SIZE` (`+dfu state=error
+   error=0xc`): the transfer started before the MTU exchange ended, on the
+   23-byte default. Writes are now split to the effective MTU less 3.
+2. 704 bytes of a 4096-byte object arrived (`error=0x13`, `NRF_ERROR_RESOURCES`):
+   the GATT queue gave a write command that found no transmit buffer to its
+   error handler. Packet writes now go to the SoftDevice directly, waiting for
+   a buffer. The package then went across in 190.7 s at a 30 ms interval.
+3. At 7.5 ms, 3348 bytes of 4096 arrived: the writes outran the bootloader's
+   17 packet buffers. The client now waits for the bootloader's receipt every
+   8 packets. That is the run above.
 
 ## 11. Protocol interoperability results
 
@@ -1354,6 +1452,35 @@ The comparison is held in the suite as
 per specification on the simulated bench. Without the fix in `runner/` it fails
 for 10 of the 14, along with 6 of the 7 other `test_input_paths.py` tests.
 
+### 14.4 The Kepler specifications' BLE side, simulated (#121)
+
+The simulated bench now has the Kepler sensor 5C1712 behind its dongle, supply
+and probe (BLE-DD-KEPLERSIM, BLE-DD-SIMWORLD). Its radio is not simulated yet
+(#122), so `test_kepler_simulated.py` stands in for the S2-LP steps with ones
+that fail at once, and shortens `settle_s` and `interval_s`. Run on
+`feature/simulated-kepler-sensor`, 2026-10-22, simulated:
+
+| Specification | Setup | BLE, RTT, supply and sleep steps in tests | Their measurements | S2-LP steps |
+|---|---|---|---|---|
+| `kepler_version.yaml` | passed | 6 PASS | 2 PASS | 1 ERROR (#122) |
+| `kepler_battery.yaml` | passed | 20 PASS | 20 PASS | 4 ERROR (#122) |
+| `kepler_preamble.yaml` | passed | 8 PASS | none checked | 2 ERROR (#122) |
+| `kepler_temperature.yaml` | passed | 2 PASS | 5 PASS | 1 ERROR (#122) |
+
+Each fact the specifications check over BLE or RTT was then made false in the
+simulated sensor, and each was noticed: a battery reading 3000 mV at a 3.3 V
+setting (`ble_lowest` FAIL), an alive period refused as out of range (setup
+stops on `alive_period_set`), a machine temperature rising 1.5 C a reading
+(`machine_spread` FAIL), an MCU 6 C above it (`mcu_highest_from_machine` FAIL),
+a reset answered `NACK` (`reset_acknowledged` FAIL), a loaded-battery reply in
+volts (the sample step errors: no number), and an RTT log with no MCU line
+(`readings` FAIL). 11 tests, about 15 s.
+
+With the sensor present the Kepler specifications no longer stop at
+`dongle.select`, and their S2-LP steps would wait out 60 to 180 s receive
+timeouts on the silent simulated air. §14.3's comparison therefore runs their
+setup and teardown only, which is where their paths are; it takes 20 s again.
+
 ## 14A. Hardware confirmation of #124 and #126 (#129, 2026-10-04)
 
 #124 (choosing a sensor by part of its name, D-46) and #126 (per-instrument
@@ -1465,6 +1592,8 @@ SDK to provide it transitively.
 | D-47 | The event log named a record's source from a fixed table of driver packages. The Pico 2 thermometer was not in it, so its records read `bench`; the shared transports' lines read `bench` whatever instrument they carried; and two instruments of one driver - `probe` and `rtt` - were indistinguishable. Found in #126 | **Major** for a log whose purpose is to say which part of the bench did what: a supply's and a thermometer's lines could not be told apart, nor two J-Link links | **Closed** - each instrument carries a name, allocated by the specification and the bench, the specification winning, defaults per driver including `TEMP`; everything an instrument owns logs under it; clashes refused before connecting (AD-28) Confirmed on hardware 2026-10-04 (§14A, #129). | `SWE4-UT-EVENTNAMES` (21), `TestPerInstrumentNames` (15), `TestSourceNames` (18) |
 | D-48 | `JLinkProbe.reset(halt=False)` sent `monitor reset 0` and recorded the target as running, but the J-Link GDB Server halts the core after `monitor reset` whatever the reset type, and nothing resumed it. Found on the bench in the hardware qualification (#176), ticketed as #177. The simulator hid it: D-39 had modelled `monitor reset 0` as reset-and-run | **Major**: a test that resets the target "running" and then talks to it finds a halted target, and the failure points at the radio, not the probe | **Closed** - `reset(halt=False)` resumes with `run()` (`-exec-continue`) after the reset; the simulator leaves the core halted after every reset type. Confirmed on hardware 2026-10-05 (§9.3) | `test_a_reset_without_halting_resumes_the_core`, `test_every_reset_type_leaves_the_core_halted` (2), `TestIsItRunning` |
 | D-49 | Registers read straight after `JLinkProbe.reset()` were the ones GDB had cached before the reset. `monitor reset` and `monitor halt` go to the GDB Server, and GDB never sees them change the core. Found in the hardware qualification (#176, QS-01b, where the first PC read was `0x00000000`), ticketed as #178. The simulator hid it: it answered every register read from the core | **Major**: a register read after a reset, a common first step of a debug test, returned a value the core did not hold (ETB-SYS2-004) | **Closed** - `reset` sends `maintenance flush register-cache` after the reset; the simulator models GDB's register cache. Cause and fix confirmed on hardware 2026-10-05 (§9.4) | `test_registers_read_after_a_reset_are_the_reset_s`, `test_a_reset_flushes_gdb_s_register_cache`, `test_gdb_s_registers_are_stale_after_a_monitor_reset`, `test_gdb_reads_the_registers_again_when_the_target_stops` |
+| D-50 | `NordicDongle.sample_command` timed its interval with `time.monotonic()`, which before Python 3.13 on Windows is `GetTickCount64()` at 15.6 ms. A command could be sent up to one tick before it was due and the recorded times were quantised to a tick. Found by `test_readings_are_spaced_by_the_interval` failing intermittently on the bench PC (CPython 3.11.1), ticketed as #214 | **Minor**: commands spaced up to 15.6 ms closer than the `interval` documented as the minimum, and times coarser than they appear | **Closed** - timed with `time.perf_counter()`, and the sleep repeated until the command is due (§10.4) | `test_readings_are_spaced_by_the_interval`, `test_no_command_is_sent_before_it_is_due_when_a_sleep_ends_early` |
+| D-51 | `NordicDongle.open_link` made one attempt. A link the dongle ended with HCI reason 0x3E ("connection failed to be established") errored the step, although a command document's `connect` step tried the link up to three times. Found in the hardware qualification (#176): 2 of about 10 `open_link` calls failed so, each within a minute of `ECURESET HARD`, and the next attempt linked each time. Ticketed as #180 | **Minor**: a rerun succeeds, but a specification step errors for a reason that has nothing to do with the target | **Closed** in the simulator - `open_link` tries a link that fails to establish again, up to `CONNECT_ATTEMPTS` (3) in all, logging each failed attempt as a warning and a `ble_connect_attempt` record and in the session log; no other failure is retried; a `connect` step asks for one attempt per try, so the two retries do not multiply, and logs each failed try. `SimulatedSensor.not_established` reproduces the failure. Confirmed on hardware 2026-10-06 (§10.5): 6 of 18 links made just after `ECURESET HARD` ended with 0x3E, and each linked on the next attempt | `TestLinkNotEstablished` (7), `test_each_failed_connect_attempt_is_logged`, `test_a_connect_step_makes_no_more_attempts_than_it_is_allowed` |
 
 No open defects.
 

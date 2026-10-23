@@ -27,6 +27,8 @@ __all__ = [
     "DEFAULT_SCAN_MS",
     "DEFAULT_COMMAND_TIMEOUT",
     "DISCONNECT_EVENT_TIMEOUT",
+    "CONNECT_RECOVERABLE",
+    "DONGLE_RESET_SETTLE",
     "DEFAULT_CONNECT_TIMEOUT",
     "CONNECT_TIMEOUT_RANGE",
     "SERVICE_DISCOVERY_TIMEOUT",
@@ -42,7 +44,7 @@ __all__ = [
 #: commands the other does not - reported, and survivable, because the missing
 #: ones fail individually with "unknown command". A differing *major* version
 #: means a command means something different, which is not survivable.
-PROTOCOL_VERSION = "1.4"
+PROTOCOL_VERSION = "1.7"
 
 #: Commands the firmware accepts, with the argument bounds it enforces.
 COMMANDS: Dict[str, Tuple[int, int]] = {
@@ -59,10 +61,12 @@ COMMANDS: Dict[str, Tuple[int, int]] = {
     "time": (0, 0),
     "reset": (0, 0),
     "dfu": (0, 0),
+    "dfucp": (1, 2),
+    "dfupkt": (1, 1),
 }
 
 #: Unsolicited event names, without the leading ``+``.
-EVENTS: Tuple[str, ...] = ("adv", "sensor", "rx", "conn", "disc", "scan", "drop")
+EVENTS: Tuple[str, ...] = ("adv", "sensor", "rx", "conn", "disc", "scan", "drop", "dfu")
 
 #: Line rate. A USB CDC port ignores it; it is set for the sake of converters
 #: that do not.
@@ -83,6 +87,18 @@ DEFAULT_COMMAND_TIMEOUT = 3.0
 DEFAULT_CONNECT_TIMEOUT = 15.0
 CONNECT_TIMEOUT_RANGE = (1.0, 60.0)
 
+#: Links a connection tries before giving up: a command document's ``connect``
+#: step, and :meth:`NordicDongle.open_link` on a link that failed to establish.
+#: Seen on hardware within a minute of a sensor reset, the next try linked
+#: (#180).
+CONNECT_ATTEMPTS = 3
+
+#: The HCI reason a link that failed to establish ends with ("connection
+#: failed to be established"), as the dongle writes it in ``+disc``. The one
+#: failure :meth:`NordicDongle.open_link` tries again: it says nothing about
+#: the sensor, where a closed connect window or a missing service does.
+REASON_NOT_ESTABLISHED = "0x3e"
+
 #: How long the dongle waits for a sensor's reply, and the range it accepts
 #: (``cmd <hex> timeout=<ms>``, protocol 1.3). Older firmware waits a fixed 2 s.
 FIRMWARE_COMMAND_TIMEOUT = 2.0
@@ -92,8 +108,15 @@ COMMAND_TIMEOUT_RANGE = (0.1, 60.0)
 SERVICE_DISCOVERY_TIMEOUT = 10.0
 
 #: Seconds to wait for the ``+disc`` that follows an accepted ``disconnect``.
-#: The link drops within a few connection intervals; this is generous.
-DISCONNECT_EVENT_TIMEOUT = 2.0
+#: A running sensor acknowledges at once (0.06 s on hardware). A sensor that
+#: has just reset cannot, and the dongle reports the drop only when the 4 s
+#: supervision timeout expires (3.9 s on hardware, #251). A wait shorter than
+#: that left the ``+disc`` unread, and the next connection took it as its own.
+DISCONNECT_EVENT_TIMEOUT = 6.0
+
+#: Seconds to allow a reset dongle to leave and re-enumerate on USB before its
+#: port is opened again.
+DONGLE_RESET_SETTLE = 2.5
 
 
 class DongleError(enum.IntEnum):
@@ -194,7 +217,8 @@ class DongleLimits:  # pylint: disable=too-many-instance-attributes
     model: str = "PCA10059"
     max_sensors: int = 16
     max_payload_bytes: int = 244
-    max_name_length: int = 24
+    max_name_length: int = 32
+    max_adv_data_bytes: int = 31
     max_line_bytes: int = 512
     max_event_bytes: int = 640
     #: One microsecond, the resolution of the dongle's timestamp clock.
@@ -212,3 +236,10 @@ class DongleLimits:  # pylint: disable=too-many-instance-attributes
 
 #: The envelope of the firmware in this repository.
 DONGLE_LIMITS = DongleLimits()
+
+
+#: ``connect`` refusals that say the dongle, not the sensor, is in the wrong
+#: state: still linked (``STATE``), a connection still being made (``BUSY``,
+#: protocol 1.5), or the stack refusing (``BLE``, the same case before 1.5).
+#: :meth:`NordicDongle.open_link` recovers from these itself (#251).
+CONNECT_RECOVERABLE = (DongleError.STATE, DongleError.BUSY, DongleError.BLE)

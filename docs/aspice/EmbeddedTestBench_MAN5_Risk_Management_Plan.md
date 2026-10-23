@@ -10,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-MAN5-001 | **Version** | 0.5 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
+| **Document ID** | ETB-MAN5-001 | **Version** | 0.6 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-06 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | MAN.5 |
@@ -29,6 +29,7 @@
 | 0.3 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
 | 0.4 | 2026-10-05 | Claude | #204: Review & Approval table points to the merge of the pull request that last changed the document, which is the review and approval (ETB-SUP8-001 §5.7); no per-change signatures or dates. |
 | 0.5 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
+| 0.6 | 2026-10-06 | Claude | #229: ETB-RISK-011 - CStyleCheck pin moved to v1.6.1, which fixes the v1.6.0 action defect (CStyleCheck#439). |
 
 ---
 
@@ -119,7 +120,7 @@ tracked there; the risk entry records which problem it became.
 | ETB-RISK-008 | A power supply setpoint is accepted by the driver but silently discarded by the instrument (tracking modes on the GPD-3303D) and the operator believes the rail is set | P3 | I3 | 9 | **Mitigate.** Per-channel writes are refused while tracking is active; `read` reports tracking state and a warning | A report shows a channel setpoint with tracking active | Mitigated |
 | ETB-RISK-009 | Firmware flashed to a target differs from the firmware the report names | P2 | I3 | 6 | **Mitigate.** A firmware manifest beside the image records version and build date; the runner compares the version the device reports against the manifest | A run reports a version mismatch, or a manifest is missing | Mitigated |
 | ETB-RISK-010 | The single J-Link, dongle or supply is unavailable, blocking all hardware confirmation | P2 | I2 | 4 | **Accept and monitor.** Every capability can be exercised against the simulated bench, so work continues; only confirmation is blocked | An instrument is unavailable for longer than a milestone | Open |
-| ETB-RISK-011 | The coding-standard checker is an external repository that may change or become unavailable | P2 | I1 | 2 | **Accept and monitor.** The workflow pins `dermot-murphy/CStyleCheck@v1.5.1`; a failure blocks the style job only, not the build | The style workflow fails for a reason unrelated to the firmware source | **Trigger fired** — v1.6.0's action could not parse its own output; pinned to v1.5.1 (ETB-ACQ4-001 §7) |
+| ETB-RISK-011 | The coding-standard checker is an external repository that may change or become unavailable | P2 | I1 | 2 | **Accept and monitor.** The workflow pins `dermot-murphy/CStyleCheck@v1.6.1`; a failure blocks the style job only, not the build | The style workflow fails for a reason unrelated to the firmware source | **Trigger fired** — v1.6.0's action could not parse its own output; held at v1.5.1 until v1.6.1 fixed it, then moved to v1.6.1 on 2026-10-06 (#229, ETB-ACQ4-001 §7) |
 | ETB-RISK-012 | One person holds all project knowledge and all roles | P2 | I2 | 4 | **Mitigate.** Everything of record is in the repository (ETB-MAN3-001 §11); reviewer independence is recorded as a deviation rather than assumed away (ETB-DEV-002) | A question about the project cannot be answered from the repository | Open |
 | ETB-RISK-013 | The test run viewer, opened to the network so a run can be watched from another PC (#141), lets someone else on that network watch or steer a run that drives the bench's supply | P2 | I3 | 6 | **Mitigate.** The viewer listens on 127.0.0.1 unless told otherwise; another address needs an access token, generated at start, compared in constant time, on every request; `--read-only` removes control altogether; `--tls-cert`/`--tls-key` keep the token off the wire in clear, and the viewer warns when they are not used; the runner's control channel never leaves 127.0.0.1, and teardown cannot be interrupted (VIEW-FR-025 … -027, RUN-FR-061, -065) | The viewer is run with `--bind` on a network the bench does not trust, or the printed address is shared | Open |
 

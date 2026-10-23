@@ -26,5 +26,10 @@ updates:
     target-branch: develop
     schedule:
       interval: weekly
+    # pyproject.toml states lower bounds for a library that supports Python
+    # 3.8. Raising a bound to the newest release proposed versions that the
+    # older supported Pythons cannot install (#219, #223, #224). Change a
+    # requirement only when its range excludes a new release (#228).
+    versioning-strategy: increase-if-necessary
     labels:
       - process

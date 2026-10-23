@@ -14,15 +14,21 @@ from benchtools.core.errors import (
 )
 from benchtools.core.instrument import Instrument
 from benchtools.core.transport.mock import MockTransport
+from benchtools.instruments.nordic_dongle.constants import (
+    CONNECT_ATTEMPTS,
+    DISCONNECT_EVENT_TIMEOUT,
+)
 from benchtools.instruments.nordic_dongle import (
     AddressType,
     DongleCommandError,
     LatencySource,
+    LinkLostError,
     NordicDongle,
     Sensor,
     SimulatedDongle,
     SimulatedSensor,
 )
+from benchtools.instruments.nordic_dongle.protocol import manufacturer_id
 
 from .conftest import (
     CONNECTION_INTERVAL_US,
@@ -47,7 +53,7 @@ class TestConnection:
         # it speaks: the build is what decides what a measurement means.
         assert identity.firmware.startswith(SimulatedDongle.DEFAULT_FIRMWARE_VERSION)
         assert SimulatedDongle.DEFAULT_FIRMWARE_BUILT in identity.firmware
-        assert dongle.protocol_version == "1.4"
+        assert dongle.protocol_version == "1.7"
 
     def test_it_is_an_instrument_but_not_scpi(self, dongle):
         """The runner drives it through the same contract as every other
@@ -327,6 +333,219 @@ class TestLink:
             scanned.write("version")
 
 
+class TestLinkNotEstablished:
+    """HCI reason 0x3E: tried again, as a ``connect`` step does (#180).
+
+    Seen on hardware within a minute of a sensor reset: 2 of about 10 links
+    failed to establish, and the next attempt linked each time.
+    """
+
+    @staticmethod
+    def retries(caplog):
+        return [record for record in caplog.records
+                if getattr(record, "event_kind", None) == "ble_connect_attempt"]
+
+    def test_a_link_that_fails_to_establish_is_tried_again(self, simulator, scanned, caplog):
+        simulator.sensors[0].not_established = 2
+        with caplog.at_level("WARNING"):
+            scanned.open_link()
+        assert scanned.is_linked is True
+        assert simulator.sensors[0].not_established == 0
+
+    def test_each_failed_attempt_is_in_the_event_log(self, simulator, scanned, caplog):
+        simulator.sensors[0].not_established = 2
+        with caplog.at_level("WARNING"):
+            scanned.open_link()
+        records = self.retries(caplog)
+        assert [record.event_data["attempt"] for record in records] == [1, 2]
+        assert all(record.levelname == "WARNING" for record in records)
+        assert all(record.event_data["reason"] == "0x3e" for record in records)
+        assert all(record.event_data["address"] == SENSOR_ADDRESS for record in records)
+        assert "attempt 1 of 3" in records[0].getMessage()
+
+    def test_each_failed_attempt_is_in_the_session_log(self, simulator, scanned, tmp_path):
+        path = tmp_path / "ble.log"
+        scanned.start_log(str(path))
+        simulator.sensors[0].not_established = 1
+        scanned.open_link()
+        scanned.stop_log()
+        assert "attempt 1 of 3" in path.read_text()
+
+    def test_it_gives_up_after_the_attempts_allowed(self, simulator, scanned, caplog):
+        simulator.sensors[0].not_established = 5
+        with caplog.at_level("WARNING"):
+            with pytest.raises(LinkLostError, match="reason 0x3e") as caught:
+                scanned.open_link()
+        assert caught.value.not_established
+        assert scanned.is_linked is False
+        assert simulator.sensors[0].not_established == 5 - CONNECT_ATTEMPTS
+        # The last attempt is the error raised, not a retry.
+        assert len(self.retries(caplog)) == CONNECT_ATTEMPTS - 1
+
+    def test_the_number_of_attempts_can_be_set(self, simulator, scanned):
+        simulator.sensors[0].not_established = 4
+        with pytest.raises(LinkLostError):
+            scanned.open_link(attempts=1)
+        assert simulator.sensors[0].not_established == 3
+        scanned.open_link(attempts=4)
+        assert scanned.is_linked is True
+
+    def test_a_closed_connect_window_is_not_tried_again(self, simulator, scanned, caplog):
+        """Only 0x3E is retried: a sensor not heard in the window is about the sensor."""
+        simulator.sensors[0].connect_outcome = "timeout"
+        with caplog.at_level("WARNING"):
+            with pytest.raises(LinkLostError, match="no connection") as caught:
+                scanned.open_link(timeout=5.0)
+        assert not caught.value.not_established
+        assert len([line for line in simulator.command_log if line.startswith("connect")]) == 1
+        assert self.retries(caplog) == []
+
+    def test_a_link_that_never_becomes_ready_is_not_tried_again(self, simulator, scanned,
+                                                                caplog):
+        simulator.sensors[0].connect_outcome = "no_service"
+        with caplog.at_level("WARNING"):
+            with pytest.raises(InstrumentError, match="did not become ready"):
+                scanned.open_link(timeout=0.3)
+        assert self.retries(caplog) == []
+
+
+class TestNameAndManufacturer:
+    """A Kepler sensor's full name and the company ID in its scan response (#241).
+
+    Since TX-941 the sensor advertises a 25-character name, which the firmware
+    used to cut to 23, and carries the Sensoteq company ID 0x0F55 only in its
+    scan response.
+    """
+
+    KEPLER_NAME = "KAPPA_5C1712_V11.00.0000X"
+    KEPLER_ADDRESS = "D1:8D:3B:4C:19:96"
+    SCAN_RESPONSE = bytes.fromhex("05ff550f0102")
+
+    def kepler(self, protocol: str = None) -> NordicDongle:
+        name = self.KEPLER_NAME.encode()
+        simulator = SimulatedDongle(sensors=(SimulatedSensor(
+            address=self.KEPLER_ADDRESS, name=self.KEPLER_NAME,
+            payload=b"\x02\x01\x06" + bytes([len(name) + 1, 0x09]) + name,
+            scan_response=self.SCAN_RESPONSE),))
+        if protocol is not None:
+            simulator.protocol = protocol
+        instrument = NordicDongle(MockTransport(responder=simulator), timeout=5.0)
+        instrument.initialise()
+        return instrument
+
+    def test_an_active_scan_reports_the_full_name_and_the_manufacturer(self):
+        dongle = self.kepler()
+        try:
+            sensor = dongle.scan(1.0, active=True)[0]
+            assert sensor.name == self.KEPLER_NAME
+            assert sensor.manufacturer_id == 0x0F55
+            assert sensor.scan_response == self.SCAN_RESPONSE
+        finally:
+            dongle.close()
+
+    def test_a_passive_scan_hears_no_scan_response(self):
+        dongle = self.kepler()
+        try:
+            sensor = dongle.scan(1.0)[0]
+            assert sensor.name == self.KEPLER_NAME
+            assert sensor.manufacturer_id is None
+            assert sensor.scan_response == b""
+        finally:
+            dongle.close()
+
+    def test_the_selection_carries_them(self):
+        dongle = self.kepler()
+        try:
+            dongle.scan(1.0, active=True)
+            chosen = dongle.select(self.KEPLER_ADDRESS)
+            assert chosen.manufacturer_id == 0x0F55
+            assert chosen.as_dict()["scan_response"] == "05ff550f0102"
+        finally:
+            dongle.close()
+
+    def test_older_firmware_reports_neither(self):
+        """Protocol 1.5 has no mfr= or sr=; the driver says none were seen."""
+        dongle = self.kepler(protocol="1.5")
+        try:
+            sensor = dongle.scan(1.0, active=True)[0]
+            assert sensor.manufacturer_id is None
+            assert sensor.scan_response == b""
+        finally:
+            dongle.close()
+
+    @pytest.mark.parametrize("payload,expected", [
+        (bytes.fromhex("05ff550f0102"), 0x0F55),
+        (bytes.fromhex("02010603ff5900"), 0x0059),
+        (bytes.fromhex("020106"), None),
+        (bytes.fromhex("02ff59"), None),            # too short to hold an ID
+        (b"", None),
+    ])
+    def test_the_company_id_is_read_least_significant_byte_first(self, payload, expected):
+        assert manufacturer_id(payload) == expected
+
+
+class TestReconnectAfterSensorReset:
+    """Seen on hardware (#251): after a write that reset the sensor, the
+    dongle reported the end of the link 3.9 s after ``disconnect``; the
+    driver had stopped waiting at 2 s, the next connect read that ``+disc``
+    as its own failure, and the connection it had started went on being made,
+    so the dongle refused every ``connect`` until it was reset by hand.
+    """
+
+    @staticmethod
+    def recoveries(caplog):
+        return [record for record in caplog.records
+                if getattr(record, "event_kind", None) == "ble_connect_recovery"]
+
+    def test_the_wait_for_disc_outlasts_the_supervision_timeout(self):
+        assert DISCONNECT_EVENT_TIMEOUT > 4.0
+
+    def test_a_late_disc_from_the_previous_link_is_not_this_attempts_failure(
+            self, simulator, linked):
+        linked.close_link()
+        # The end of an earlier link, stamped before this connect, still unread.
+        simulator._queue.append("+disc t=%d reason=0x22" % (simulator.clock_us - 1_000))
+        linked.open_link(attempts=1)
+        assert linked.is_linked is True
+
+    def test_a_connection_still_being_made_is_stopped_and_the_link_made(
+            self, simulator, scanned, caplog):
+        simulator.connecting = simulator.sensors[0]
+        with caplog.at_level("WARNING"):
+            scanned.open_link()
+        assert scanned.is_linked is True
+        assert [record.event_data["step"] for record in self.recoveries(caplog)] == ["disconnect"]
+        assert self.recoveries(caplog)[0].event_data["refusal"] == "BUSY"
+        assert "reset" not in simulator.command_log
+
+    def test_older_firmware_is_reset_and_the_sensor_selected_again(
+            self, simulator, scanned, caplog):
+        """Before protocol 1.5, disconnect cannot stop a connection being made."""
+        simulator.protocol = "1.4"
+        simulator.connecting = simulator.sensors[0]
+        with caplog.at_level("WARNING"):
+            scanned.open_link()
+        assert scanned.is_linked is True
+        assert [record.event_data["step"] for record in self.recoveries(caplog)] == [
+            "disconnect", "reset"]
+        assert "reset" in simulator.command_log
+        assert scanned.selected.address == SENSOR_ADDRESS
+
+    def test_a_dongle_still_linked_is_disconnected_first(self, linked, caplog):
+        """A link the host did not know about answered "not valid in this state"."""
+        linked._connected = False
+        with caplog.at_level("WARNING"):
+            linked.open_link()
+        assert linked.is_linked is True
+        assert self.recoveries(caplog)[0].event_data["refusal"] == "STATE"
+
+    def test_a_refusal_that_survives_a_reset_is_raised(self, dongle):
+        dongle.scan(1.0)
+        dongle.select(2)                        # the beacon-only device
+        with pytest.raises(DongleCommandError, match="refused"):
+            dongle.open_link()
+
+
 class TestUart:
     def test_a_command_and_its_reply(self, linked):
         sample = linked.command("version")
@@ -497,6 +716,16 @@ class TestMiscellany:
         scanned.reset()
         assert scanned.selected is None
         assert scanned.sensors == []
+
+    def test_reset_reopens_the_dongle(self, scanned):
+        scanned.reset()
+        assert scanned.identify().model
+
+    def test_reset_can_keep_the_selection(self, scanned):
+        scanned.reset(reselect=True)
+        assert scanned.selected.address == SENSOR_ADDRESS
+        scanned.open_link()
+        assert scanned.is_linked is True
 
     def test_the_event_backlog_can_be_read(self, scanned):
         scanned.session.execute("scan", "start", 500)

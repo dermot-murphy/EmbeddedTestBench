@@ -19,6 +19,7 @@ from benchtools.core.errors import (
 )
 from benchtools.core.transport.mock import MockTransport
 from benchtools.instruments.jlink import (
+    NRF52_UICR,
     BreakpointKind,
     HaltReason,
     JLinkProbe,
@@ -31,6 +32,69 @@ from benchtools.instruments.jlink.session import GdbMiSession
 from .conftest import END_LOCATION, START_LOCATION
 
 
+class _RereadingGdb(SimulatedJLink):
+    """GDB 15.2 on Windows (#253): a ``load`` while a combined HEX file is
+    GDB's exec file reported that file "has changed; re-reading symbols", and
+    GDB answered nothing more."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.exec_file = ""
+        self.exited = False
+
+    def _mi_file(self, argument, token):
+        self.exec_file = argument.strip('"')
+        if not self.exec_file:
+            return self._ok(token)           # the exec file is discarded
+        return super()._mi_file(argument, token)
+
+    def _console_command(self, command, token):
+        if self.exited:
+            return []
+        if command.lower().startswith("load") and self.exec_file.lower().endswith(".hex"):
+            self.exited = True
+            return self._stream(["`%s' has changed; re-reading symbols." % self.exec_file])
+        return super()._console_command(command, token)
+
+
+class TestFlashingImagesInTurn:
+    """Any number of flashes, of any images, in one session (#253)."""
+
+    @pytest.fixture
+    def rereading(self):
+        simulator = _RereadingGdb()
+        instance = JLinkProbe(
+            session=GdbMiSession(MockTransport(responder=simulator), timeout=1.0),
+            elf="firmware.elf",
+            target_address="simulated",
+        )
+        instance.initialise()
+        yield instance, simulator
+        instance.close()
+
+    def test_three_combined_images_in_turn(self, rereading):
+        probe, simulator = rereading
+        for image in ("C:/images/v10.hex", "C:/images/debug.hex", "C:/images/release.hex"):
+            result = probe.flash(image, verify=True, timeout=1.0)
+            assert result.verified is True
+        assert not simulator.exited
+
+    def test_gdb_holds_no_exec_file_when_it_loads(self, rereading):
+        probe, simulator = rereading
+        probe.flash("C:/images/debug.hex", verify=False, timeout=1.0)
+        probe.flash("C:/images/release.hex", verify=False, timeout=1.0)
+        log = simulator.command_log
+        for index, command in enumerate(log):
+            if '"load ' in command:
+                assert log[index - 1].strip() == "-file-exec-and-symbols", log[index - 1]
+
+    def test_the_image_is_still_what_verify_compares_against(self, rereading):
+        probe, simulator = rereading
+        probe.flash("C:/images/release.hex", verify=False, timeout=1.0)
+        assert simulator.exec_file == "C:/images/release.hex"
+        assert probe.elf_path == "C:/images/release.hex"
+
+
 def probe_for(**simulator_kwargs) -> JLinkProbe:
     """A connected probe over a simulator built with *simulator_kwargs*."""
     simulator = SimulatedJLink(**simulator_kwargs)
@@ -41,6 +105,84 @@ def probe_for(**simulator_kwargs) -> JLinkProbe:
     )
     instance.initialise()
     return instance
+
+
+class _RecordingServer:
+    """Stands in for GdbServer: records start and stop, spawns nothing."""
+
+    instances = []
+
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+        self.started = self.stopped = False
+        self.address = "127.0.0.1:2331"
+        _RecordingServer.instances.append(self)
+
+    def start(self):
+        self.started = True
+
+    def stop(self):
+        self.stopped = True
+
+
+class TestAFailedConnectLeavesNoServer:
+    """A GDB Server started by a connect that then failed was left running,
+    holding the probe, for hours on the Kepler bench (#254)."""
+
+    @pytest.fixture(autouse=True)
+    def recording_server(self, monkeypatch):
+        _RecordingServer.instances = []
+        monkeypatch.setattr("benchtools.instruments.jlink.probe.GdbServer", _RecordingServer)
+
+    def test_no_gdb_stops_the_server_it_started(self, monkeypatch):
+        monkeypatch.setattr("benchtools.instruments.jlink.probe.find_gdb", lambda path: None)
+        with pytest.raises(ConnectionFailedError, match="no ARM-capable GDB"):
+            JLinkProbe.connect("jlink://", device="nRF52840_xxAA")
+        server = _RecordingServer.instances[0]
+        assert server.started and server.stopped
+
+    def test_a_gdb_that_will_not_start_stops_the_server(self, monkeypatch):
+        monkeypatch.setattr("benchtools.instruments.jlink.probe.find_gdb",
+                            lambda path: "arm-none-eabi-gdb")
+
+        def no_process(*args, **kwargs):
+            raise ConnectionFailedError("could not start arm-none-eabi-gdb")
+
+        monkeypatch.setattr("benchtools.instruments.jlink.probe.ProcessTransport", no_process)
+        with pytest.raises(ConnectionFailedError, match="could not start"):
+            JLinkProbe.connect("jlink://", device="nRF52840_xxAA")
+        assert _RecordingServer.instances[0].stopped
+
+    def test_a_failed_attach_stops_the_server(self, monkeypatch):
+        """Once the probe exists, closing it is what stops the server."""
+        monkeypatch.setattr("benchtools.instruments.jlink.probe.find_gdb",
+                            lambda path: "arm-none-eabi-gdb")
+        monkeypatch.setattr("benchtools.instruments.jlink.probe.ProcessTransport",
+                            lambda *a, **k: MockTransport(responder=SimulatedJLink()))
+
+        def refuse(self):
+            raise ConnectionFailedError("could not attach to the target")
+
+        monkeypatch.setattr(JLinkProbe, "initialise", refuse)
+        with pytest.raises(ConnectionFailedError, match="could not attach"):
+            JLinkProbe.connect("jlink://", device="nRF52840_xxAA")
+        assert _RecordingServer.instances[0].stopped
+
+    def test_a_server_it_did_not_start_is_left_running(self, monkeypatch):
+        """A server already listening is not this connect's to stop: GdbServer.stop
+        does nothing for one it did not spawn."""
+        from benchtools.instruments.jlink import server as server_module
+
+        monkeypatch.setattr("benchtools.instruments.jlink.probe.GdbServer",
+                            server_module.GdbServer)
+        monkeypatch.setattr(server_module, "port_is_open", lambda host, port, timeout=0.5: True)
+        monkeypatch.setattr("benchtools.instruments.jlink.probe.find_gdb", lambda path: None)
+        spawned = []
+        monkeypatch.setattr(server_module.subprocess, "Popen",
+                            lambda *a, **k: spawned.append(a) or None)
+        with pytest.raises(ConnectionFailedError):
+            JLinkProbe.connect("jlink://", device="nRF52840_xxAA")
+        assert not spawned
 
 
 class TestConnection:
@@ -167,6 +309,91 @@ class TestConnection:
             probe.close()
 
 
+class _UicrErasingTarget(SimulatedJLink):
+    """An nRF52 that loses its whole UICR page when it loads an image holding
+    a UICR record, as 5C1712 did (#69). Here that is an image whose name says
+    so."""
+
+    def _console_command(self, command, token):
+        if command.lower().startswith("load") and "uicr" in command.lower():
+            for offset in range(NRF52_UICR[1]):
+                self.memory[NRF52_UICR[0] + offset] = 0xFF
+        return super()._console_command(command, token)
+
+
+class TestRestore:
+    """Putting a known image set back while keeping UICR (#264)."""
+
+    SENSOR_ID = bytes.fromhex("005c1712")
+    IMAGES = ["C:/images/s140.hex", "C:/images/bootloader-uicr.hex",
+              "C:/images/app.hex", "C:/images/settings.hex"]
+
+    @pytest.fixture
+    def target(self):
+        simulator = _UicrErasingTarget()
+        instance = JLinkProbe(
+            session=GdbMiSession(MockTransport(responder=simulator), timeout=5.0),
+            elf="firmware.elf",
+            target_address="simulated",
+        )
+        instance.initialise()
+        instance.write_memory(0x10001080, self.SENSOR_ID)
+        instance.write_memory(0x10001014, bytes.fromhex("00800f00"))
+        yield instance, simulator
+        instance.close()
+
+    def test_every_image_is_programmed_in_order(self, target):
+        probe, simulator = target
+        result = probe.restore(self.IMAGES)
+        loads = [c for c in simulator.command_log if '"load ' in c]
+        assert len(loads) == 4
+        for image, command in zip(self.IMAGES, loads):
+            assert image in command
+        assert result.verified is True
+        assert result.images == self.IMAGES
+
+    def test_uicr_erased_by_an_image_is_put_back_and_proven(self, target):
+        probe, _ = target
+        result = probe.restore(self.IMAGES)
+        assert result.unchanged is True
+        assert probe.read_memory(0x10001080, 4) == self.SENSOR_ID
+        assert probe.read_memory(0x10001014, 4) == bytes.fromhex("00800f00")
+        assert result.kept[NRF52_UICR[0]] == probe.read_memory(*NRF52_UICR).hex()
+        bootloader = result.flashes[1]
+        assert NRF52_UICR[0] in bootloader.preserved
+
+    def test_uicr_that_does_not_come_back_is_an_error(self, target, monkeypatch):
+        """A sensor that lost its ID is not restored, whatever was programmed."""
+        probe, _ = target
+        monkeypatch.setattr(JLinkProbe, "_restore", lambda self, kept: {})
+        with pytest.raises(BenchToolsError, match="0x10001000 no longer read as before"):
+            probe.restore(self.IMAGES)
+
+    def test_it_is_left_running_or_halted_as_asked(self, target):
+        probe, _ = target
+        probe.restore(self.IMAGES[:1])
+        assert not probe.is_halted
+        probe.restore(self.IMAGES[:1], run=False)
+        assert probe.is_halted
+
+    def test_a_running_target_is_restored(self, target):
+        probe, _ = target
+        probe.reset(halt=False)
+        assert probe.restore(self.IMAGES).unchanged
+
+    def test_no_images_is_refused(self, target):
+        probe, _ = target
+        with pytest.raises(ConfigurationError, match="at least one image"):
+            probe.restore([])
+
+    def test_the_result_is_reportable(self, target):
+        probe, _ = target
+        summary = probe.restore(self.IMAGES[:2]).as_dict()
+        assert summary["unchanged"] is True and summary["verified"] is True
+        assert "0x10001000" in summary["kept"]
+        assert len(summary["flashes"]) == 2
+
+
 class TestFlashAndVerify:
     def test_flash_reports_what_was_written(self, probe):
         result = probe.flash(verify=True)
@@ -178,6 +405,40 @@ class TestFlashAndVerify:
         """Programming a running target corrupts whatever it was doing."""
         probe.flash(verify=False)
         assert any("reset" in entry for entry in probe.session.transport.responder.monitor_log)
+
+    def test_a_running_target_is_flashed(self, probe):
+        """After reset(halt=False) GDB refused the flash's 'monitor reset':
+        "Cannot execute this command while the target is running" (#259)."""
+        probe.reset(halt=False)
+        assert not probe.is_halted
+        result = probe.flash(verify=True)
+        assert result.verified is True
+        assert probe.is_halted
+
+    def test_a_running_target_is_flashed_without_a_reset(self, probe):
+        """'load' is refused on a running core too; it is halted first."""
+        simulator = probe.session.transport.responder
+        probe.reset(halt=False)
+        probe.flash(verify=False, reset=False)
+        assert simulator.halted
+        log = simulator.command_log
+        interrupt = max(i for i, c in enumerate(log) if "-exec-interrupt" in c)
+        load = max(i for i, c in enumerate(log) if '"load' in c)
+        assert interrupt < load
+
+    def test_a_running_target_is_reset_and_erased(self, probe):
+        probe.reset(halt=False)
+        probe.reset(halt=False)                # a second reset while it runs
+        assert not probe.is_halted
+        probe.erase()
+        assert probe.is_halted
+
+    def test_a_halted_target_is_not_interrupted(self, probe):
+        """Interrupting a core that is already stopped waits for a stop that
+        never comes."""
+        simulator = probe.session.transport.responder
+        probe.flash(verify=False)
+        assert not any("-exec-interrupt" in c for c in simulator.command_log)
 
     def test_a_named_image_is_loaded_before_it_is_read(self, probe):
         """GDB 15.2 exited when a HEX file on a mapped drive was read with

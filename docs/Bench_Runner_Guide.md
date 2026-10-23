@@ -5,9 +5,9 @@ How to write a test specification and a bench configuration, and how to run them
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-GUIDE-001 |
-| Version | 3.4 |
-| Date | 2026-10-05 |
-| Applies to | `benchtools` 0.01.0001 (release `v0.01.0001`) |
+| Version | 3.5 |
+| Date | 2026-10-23 |
+| Applies to | `benchtools` 0.02.0000 (release `v0.02.0000`) |
 
 ---
 
@@ -362,8 +362,12 @@ to copy.
   reply, and the time to the disconnection is measured on the dongle's clock.
 - A **Timeout** column, in milliseconds, sets how long a step waits: for a
   reply, a listening window, the link to drop, or a connect. Empty uses the
-  run's default (`--timeout-s`, 3 s). Some commands take longer than others;
-  waits over 2 s need dongle firmware 1.3 (`cmd <hex> timeout=<ms>`).
+  timeout for the command's prefix (below), else the run's default
+  (`--timeout-s`, 3 s). Some commands take longer than others; waits over 2 s
+  need dongle firmware 1.3 (`cmd <hex> timeout=<ms>`).
+- **Timeouts by command prefix** are declared in a
+  `| Command prefix | Timeout (ms) |` table before the first step, for command
+  families that answer at very different speeds - see below.
 - A **Note** column is carried into the report beside the result.
 - A **Frames** column says how many reply frames - notifications - a command
   must produce, usually `1`: a sensor that answers twice leaves every later
@@ -390,7 +394,55 @@ Every step gets one result, the first of these that applies:
 
 The run is **ERROR** if any step errored, else **FAIL** if any failed, else
 **PASS**. The report has a row per step: command, expected, actual, response
-time (to 10 ms), result and note.
+time (to 10 ms), timeout, result and note.
+
+#### Timeouts by command prefix
+
+A sensor's writes can keep it busy for seconds while its reads answer at once.
+Rather than write the same value into every row's Timeout cell, a document can
+give a timeout to every command that starts with a prefix:
+
+```markdown
+| Variable      | Default |
+|---------------|---------|
+| WR_TIMEOUT_MS | 45000   |
+
+| Command prefix | Timeout (ms)     |
+|----------------|------------------|
+| WR             | ${WR_TIMEOUT_MS} |
+| ROUTINE        | 45000            |
+| RD             | 500              |
+| RD EOL         | 5000             |
+```
+
+- **Matching.** A prefix matches the start of a command sent to the sensor,
+  ignoring case; it is plain text, so `RD` also matches `RDX`. The longest
+  prefix that matches wins, whatever the order of the rows, so `rd eol` above
+  waits 5 s and `rd version` 500 ms.
+- **What it applies to.** The reply timeout of a command with an expected
+  response, the listening window of a command with none, and the time allowed
+  for a `<disconnect>`. Not to `connect`, `disconnect` or `delay` steps.
+- **Precedence.** A step's own Timeout cell, then the longest matching prefix,
+  then the run's default: `--timeout-s` for a reply or a `<disconnect>`,
+  `--listen` for a listening window.
+- **Values** are milliseconds from 100 to 60 000, and can be variables, which
+  `--var` sets for the run. The table goes before the first step - before the
+  first test is usual - and the variables it uses are declared above it.
+- **Refused**, naming the line: a prefix given twice (ignoring case), an empty
+  prefix, a value out of range or not a number, an undeclared variable, a
+  `Command prefix` table without a `Timeout (ms)` column, or one after the
+  first step.
+- **For one run**, `--timeout PREFIX=MS` (repeatable) overrides the table's row
+  for that prefix, ignoring case, or adds one: `--timeout WR=60000 --timeout
+  "RD EOL=8000"`. It does not override a step's own Timeout cell. From a
+  specification, pass `timeouts: {WR: 60000}` to `dongle.run_script`.
+
+Each result says which timeout applied and why - `45000 ms, prefix WR
+(document)`, `60000 ms, prefix WR (--timeout)`, `2000 ms, Timeout cell`,
+`3000 ms, run default (--timeout-s)` or `500 ms, listening window (--listen)` -
+in the report's Timeout column, in the JSON (`timeout_ms`, `timeout_from`) and
+on the step's `TX` line in the event log. The report's header lists the
+prefix timeouts the run used.
 
 A document that connects runs on its own:
 
@@ -654,6 +706,7 @@ wins.
 | `rtt_samples` | `SampleSet` | `count`, `minimum`, `maximum`, `mean`, `spread` (§3.8) |
 | `measure_time_between` | `TimingResult` | `microseconds`, `milliseconds`, `cycles`, `spread`, `standard_deviation`, `minimum`, `maximum`, `count`, `is_trustworthy`, `halts_target`, `resolution_seconds` |
 | `flash` | `FlashResult` | `bytes_written`, `verify.matched`, `seconds`, `sections` |
+| `restore` | `RestoreResult` | `unchanged`, `verified`, `bytes_written`, `seconds`, `kept` |
 | `verify` | `VerifyResult` | `matched`, `mismatched`, `sections` |
 | `call_stack` | `[StackFrame]` | `0.function`, `0.line`, `0.file` — and the list itself for a depth limit |
 | `wait_for_halt`, `halt` | `HaltInfo` | `reason`, `line`, `file`, `function`, `address`, `breakpoint_number` |
@@ -682,6 +735,25 @@ Two of these are worth asserting on beside any timing limit:
 
 A boolean is compared as `1` or `0`, since a limit is numeric throughout.
 
+`probe.restore` puts a known image set back - a SoftDevice, bootloader,
+application and settings, in the order given, or one combined image - while
+keeping the nRF52's UICR, which holds the sensor ID. UICR is read before
+anything is programmed and read again at the end; a difference is an error. It
+belongs in a teardown, or as recovery after a failed update (#264):
+
+```yaml
+teardown:
+  - do: probe.restore
+    with:
+      images: [images/s140.hex, images/bootloader.hex, images/app.hex, images/settings.hex]
+    expect:
+      - {name: uicr_unchanged, measure: unchanged, equals: 1}
+      - {name: images_verified, measure: verified, equals: 1}
+```
+
+Each image path is found as any input file is (§6.2). The core is left running;
+`run: false` leaves it halted.
+
 A limit on a figure whose method cannot resolve it is not a test, so the runner
 gives you the means to say so in the specification rather than in a comment.
 
@@ -694,6 +766,7 @@ gives you the means to say so in the specification rather than in a comment.
 | `measure_advertising_profile` | `AdvertisingProfile` | `mean_interval_s`, `minimum_interval_s`, `maximum_interval_s`, `spread_s`, `jitter_s`, `expected_jitter_s`, `rate_hz`, `count`, `missed_events`, `expected_events`, `duty_cycle`, `reception_ratio`, `is_complete`, `lost_reports` |
 | `measure_response_time` | `ResponseTiming` | `milliseconds`, `seconds`, `minimum_s`, `maximum_s`, `spread_s`, `standard_deviation_s`, `count`, `is_trustworthy`, `quantisation_s` |
 | `command` | `ResponseSample` | `text`, `dongle_us`, `host_s` |
+| `send_package` | `DfuResult` | `result` (`Success`, `InvalidObject`, `ExtendedError`), `extended_error` (`HwVersionFailure`...), `stage`, `bytes_sent`, `seconds`, `succeeded` — BLE notes §2.5 |
 | `write` | `int` | *(omit `measure`)* |
 
 Three of these belong in a specification beside the limits, not in a comment:

@@ -10,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-RTM-001 | **Version** | 1.26 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
+| **Document ID** | ETB-RTM-001 | **Version** | 1.32 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-23 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.1 / SWE.2 / SWE.3 / SWE.4 |
@@ -60,6 +60,12 @@
 | 1.24 | 2026-10-05 | Claude | #177: JLINK-FR-030 row cites `test_a_reset_without_halting_resumes_the_core` and `test_every_reset_type_leaves_the_core_halted`; JLINK-FR-090 count 23 → 25. |
 | 1.25 | 2026-10-05 | Claude | #178: JLINK-FR-031 row cites `test_registers_read_after_a_reset_are_the_reset_s`, `test_a_reset_flushes_gdb_s_register_cache` and `test_gdb_s_registers_are_stale_after_a_monitor_reset`; JLINK-FR-090 count 25 → 27. |
 | 1.26 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
+| 1.27 | 2026-10-05 | Claude | #214: BLE-FR-117 count 4 → 5. |
+| 1.28 | 2026-10-05 | Claude | #180: BLE-FR-049 row cites `_open_link_once`, `LinkLostError`, `_run_connect` and `TestLinkNotEstablished` (7) and the two `connect` step tests; BLE-FR-115 `TestTheEventLog` count 2 → 4. |
+| 1.29 | 2026-10-06 | Claude | #60: row added for BLE-FR-119 (timeouts by command prefix); STK-12 and OPEN-04 cite it. |
+| 1.30 | 2026-10-22 | Claude | #121: row added for BLE-FR-120 (simulated Kepler sensor). |
+| 1.31 | 2026-10-23 | Claude | #264: row added for JLINK-FR-025 (restore an image set, keeping UICR). |
+| 1.32 | 2026-10-23 | Claude | #244: row added for BLE-FR-121 (Secure DFU client). |
 
 ---
 
@@ -100,7 +106,7 @@ It is checked mechanically by `tests/test_traceability.py` on every run of the s
 | STK-09 — J-Link: flash, verify, run/stop, breakpoints, RAM, variables, RTT, timing, call stack | JLINK-FR-001 … -006, -010, -011, -020 … -023, -030 … -036, -040 … -045, -050 … -055, -060 … -067, -090; CORE-FR-009, -012 … -016; JLINK-NFR-001, -004 |
 | STK-10 — use the probe from the test bench | JLINK-FR-080, -081, -053; RUN-FR-001, -010; CORE-FR-012 … -014 |
 | STK-11 — Windows first, Docker eventually | CORE-FR-009; JLINK-FR-003, -004, -005; JLINK-NFR-002, -003 |
-| STK-12 — Markdown to Robot Framework | BLE-FR-100 … -116, AD-23 — a command set specified in markdown is read and run as the test of itself. JLINK-FR-081, -100 — return types constrained for a keyword layer (AD-15). Robot Framework itself undecided: CON-06, OPEN-04. |
+| STK-12 — Markdown to Robot Framework | BLE-FR-100 … -116, -119, AD-23 — a command set specified in markdown is read and run as the test of itself. JLINK-FR-081, -100 — return types constrained for a keyword layer (AD-15). Robot Framework itself undecided: CON-06, OPEN-04. |
 | STK-14 — BLE UART command/response and response time | BLE-FR-040 … -045, -050 … -054; CORE-FR-017; BLE-NFR-005 |
 | STK-15 — scan, select and advertising profile | BLE-FR-020 … -024, -030 … -036, -080 |
 | STK-16 — dongle firmware, SES and SDK 17 | BLE-FR-090, -001, -003, -010; BLE-NFR-001 … -003, -006 |
@@ -243,6 +249,7 @@ It is checked mechanically by `tests/test_traceability.py` on every run of the s
 | JLINK-FR-022 | JLINK-ARC-001 | JLINK-DD-PROBE | `VerifyResult.matched` | `test_verification_failure_raises`, `test_an_empty_comparison_is_not_a_pass`, `test_flash_without_an_image_is_rejected` |
 | JLINK-FR-023 | JLINK-ARC-001 | JLINK-DD-PROBE | `JLinkProbe.erase` | `test_erase_resets_first_and_leaves_flash_blank`, `test_an_erase_that_did_not_happen_raises`, `test_the_blank_check_can_be_skipped`, `test_erase` (CLI), `test_monitor_passthrough`, `TestExecutionModel` |
 | JLINK-FR-024 | JLINK-ARC-001 | JLINK-DD-PROBE | `JLinkProbe.image_build`, over CORE-DD-FIRMWARE | `TestWhatWasFlashed` (5), `test_the_reported_version_is_recorded_as_text` |
+| JLINK-FR-025 | JLINK-ARC-001 | JLINK-DD-PROBE | `JLinkProbe.restore`, `RestoreResult`, `NRF52_UICR`, `resolve_arguments` (lists) | `TestRestore` (7), `test_a_list_of_images_beside_the_specification_is_found`, `test_a_list_of_files_is_resolved_item_by_item` |
 | JLINK-FR-030 | JLINK-ARC-001 | JLINK-DD-PROBE | `reset`, `run`, `halt`, `step` | `test_reset_halts_by_default`, `test_reset_can_leave_it_running`, `test_a_reset_without_halting_resumes_the_core`, `test_every_reset_type_leaves_the_core_halted` (2), `test_step`, `test_run_to_a_location` |
 | JLINK-FR-031 | JLINK-ARC-001 | JLINK-DD-PROBE | `is_halted`, `program_counter`, `registers` | `test_program_counter_and_registers`, `test_registers_read_after_a_reset_are_the_reset_s`, `test_a_reset_flushes_gdb_s_register_cache`, `test_gdb_s_registers_are_stale_after_a_monitor_reset`, `test_halt_reports_where` |
 | JLINK-FR-032 | JLINK-ARC-001 | JLINK-DD-PROBE, JLINK-DD-CONST | `wait_for_halt`, `HaltReason` | `test_never_reaching_a_breakpoint_times_out`, `test_unknown_halt_reason_does_not_break_the_driver` |
@@ -324,7 +331,7 @@ where the firmware implements the requirement.
 | BLE-FR-046 | BLE-ARC-001 | BLE-DD-NUS, BLE-DD-CMDARGS, BLE-DD-DONGLE | `nus_client_connect`, `cmd_args_connect`, `NordicDongle._start_connect` | `test_the_connect_window_is_sent_to_the_dongle`, `test_an_out_of_range_connect_window_is_refused_before_sending`, `test_an_older_dongle_is_sent_no_window`; firmware `test_connecting_listens_continuously_for_the_time_asked`, `test_connect_refuses_a_bad_timeout` |
 | BLE-FR-047 | BLE-ARC-001 | BLE-DD-CMD, BLE-DD-CMDARGS, BLE-DD-DONGLE | `command_cmd`, `cmd_args_timeout`, `NordicDongle.command` | `TestCommandTimeout` (4); firmware `test_cmd_takes_a_timeout_for_a_slow_command`, `test_cmd_refuses_a_bad_timeout` |
 | BLE-FR-048 | BLE-ARC-001 | BLE-DD-DONGLE | `NordicDongle.command_expecting_disconnect`, `DisconnectSample` | `TestExpectingADisconnect` (2, `test_dongle.py`) |
-| BLE-FR-049 | BLE-ARC-001 | BLE-DD-DONGLE | `NordicDongle.open_link`, `_disconnect` | `test_a_sensor_that_never_links_is_reported_as_not_connected`, `test_a_link_that_never_becomes_ready_is_reported_as_linked`, `test_a_failed_link_is_closed_so_the_next_attempt_is_not_refused` |
+| BLE-FR-049 | BLE-ARC-001 | BLE-DD-DONGLE, BLE-DD-SCRIPTRUN | `NordicDongle.open_link`, `_open_link_once`, `LinkLostError`, `_disconnect`, `_run_connect` | `test_a_sensor_that_never_links_is_reported_as_not_connected`, `test_a_link_that_never_becomes_ready_is_reported_as_linked`, `test_a_failed_link_is_closed_so_the_next_attempt_is_not_refused`, `TestLinkNotEstablished` (7), `test_each_failed_connect_attempt_is_logged`, `test_a_connect_step_makes_no_more_attempts_than_it_is_allowed` |
 | BLE-FR-050 | BLE-ARC-001 | BLE-DD-NUS, BLE-DD-LATENCY | `nus_client_command`, `ResponseSample` | `test_a_command_reports_both_timestamps`, `test_a_slow_command_takes_longer` |
 | BLE-FR-051 | BLE-ARC-001 | BLE-DD-LATENCY | `LatencySource.HOST` | `test_the_host_clock_can_be_asked_for`, `test_the_host_clock_resolves_a_millisecond` |
 | BLE-FR-052 | BLE-ARC-001 | BLE-DD-LATENCY | `ResponseTiming` | `TestStatistics` (5), `test_a_measurable_latency` |
@@ -351,10 +358,13 @@ where the firmware implements the requirement.
 | BLE-FR-112 | BLE-ARC-001, AD-23 | BLE-DD-SCRIPT, BLE-DD-SCRIPTRUN | `_parse_timeout`, `ScriptStep.timeout_s` | `TestTheTimeoutColumn` (7) |
 | BLE-FR-113 | BLE-ARC-001, AD-23 | BLE-DD-SCRIPTRUN | `ScriptStep.expects_disconnect`, `_run_expect_disconnect` | `TestExpectingADisconnect` (3, `test_script.py`) |
 | BLE-FR-114 | BLE-ARC-001, AD-23 | BLE-DD-SCRIPT, BLE-DD-SCRIPTRUN | `ScriptStep.note`, `StepResult.notes` | `test_the_note_column_is_carried_to_the_result`, `test_the_report_has_response_time_result_and_note_columns` |
-| BLE-FR-115 | BLE-ARC-001, AD-23 | BLE-DD-SCRIPTRUN | `EventLog` | `TestTheEventLog` (2), `test_the_event_log_is_written_where_asked` |
+| BLE-FR-115 | BLE-ARC-001, AD-23 | BLE-DD-SCRIPTRUN | `EventLog` | `TestTheEventLog` (4), `test_the_event_log_is_written_where_asked` |
 | BLE-FR-116 | BLE-ARC-001, AD-23 | BLE-DD-CLI | `_cmd_script` | `TestScript` (5, `test_cli.py`) |
-| BLE-FR-117 | BLE-ARC-001 | BLE-DD-DONGLE | `NordicDongle.sample_command` | `SWE4-UT-BLESAMPLE` (4) |
+| BLE-FR-117 | BLE-ARC-001 | BLE-DD-DONGLE | `NordicDongle.sample_command` | `SWE4-UT-BLESAMPLE` (5) |
 | BLE-FR-118 | BLE-ARC-001 | BLE-DD-LATENCY | `ResponseSample.value` | `test_the_value_a_reply_reports` (4) |
+| BLE-FR-119 | BLE-ARC-001, AD-23 | BLE-DD-SCRIPT, BLE-DD-SCRIPTRUN, BLE-DD-CLI | `PrefixTimeout`, `longest_prefix`, `_Reader.resolve_timeouts`, `_Reader.apply_prefix_timeout`, `_timeout_for`, `StepResult.timeout`, `_parse_timeouts` | `TestReadingTheTable` (21), `TestRunningWithIt` (8, `test_script_timeouts.py`), `test_timeout_sets_a_prefix_timeout_for_the_run`, `test_a_timeout_that_is_not_prefix_equals_ms_is_an_error` (3, `test_cli.py`) |
+| BLE-FR-120 | BLE-ARC-001, RUN-ARC-001 | BLE-DD-KEPLERSIM, BLE-DD-SIMWORLD, BLE-DD-SIM | `simulated/kepler.py`, `simulated/world.py`, `KeplerResponder`, `SimulatedGpd.terminal_volts`, `SimulatedJLink.periodic_rtt`, `simulated_target` | `SWE4-UT-KEPLERSIM` (11, `test_kepler_simulated.py`) |
+| BLE-FR-121 | BLE-ARC-001 | BLE-DD-DFU, BLE-DD-DFUHOST, BLE-DD-DFUSIM | `dfu_client.c`, `cmd_dfu.c`, `dfu.py` (`SecureDfu`, `load_package`), `NordicDongle.send_package`, `SimulatedBootloader` | `SWE4-UT-BLEDFU` (20, `test_dfu.py`), `test_dfu_client` (17), `test_cmd_dfu` (7) |
 | BLE-FR-090 | BLE-ARC-001 | BLE-DD-BUILD | `firmware/ses/*.emProject`, `firmware/Makefile`, `firmware/gcc/*.ld`, `firmware/scripts/{package_dfu,compile_check}.*`, `.github/workflows/firmware.yml` | `compile_check.sh` compiles every unit against real SDK headers (BENCHTOOLS-SWE4-002 §4.4); the workflow builds, links, sizes and packages against SDK 17.1.0 (§4.6, BLE-OPEN-01 discharged); flashing remains a bench confirmation item (CON-07) |
 
 ### BLE non-functional
@@ -715,7 +725,7 @@ tests in `tests/instruments/pico_sht30/`.
 | OPEN-02 | TDS3000 SCPI command spellings not transcribed from the programmer manual (CON-02) | Spot-check against Tektronix 071-0381-03 on first bench use. |
 | OPEN-03 | No requirements yet for the instrument families still named for future work (CON-03): loads, signal sources, logic and protocol analysers. STK-13, STK-18 and STK-19/STK-20 are **closed**: the GPD-3303D supply (PSU-FR-001 … -060), the TTi 1604 multimeter (DMM-FR-001 … -081) and the S2-LP kit (S2LP-FR-001 … -060) are each specified, designed, implemented and tested | Add a prefixed requirements section, design unit, test group and matrix rows per instrument as each driver is written, as was done for `PSU-` and `DMM-`. |
 | OPEN-06 | The dongle firmware builds, links, fits and packages against nRF5 SDK 17.1.0 in CI, but has not been flashed or run (CON-07) | **Narrowed**: BLE-OPEN-01 is discharged — `.github/workflows/firmware.yml` run 12 on `f66a248`, 51 652 bytes of flash and 12 636 of static RAM (BENCHTOOLS-SWE4-002 §4.6). What remains is to flash the DFU package and work through `docs/ble/BLE_Dongle_Notes.md` §5.3 (BLE-OPEN-02 to BLE-OPEN-04). |
-| OPEN-04 | **Narrowed.** Tests written as a markdown document are implemented for the BLE command set: `BLE-FR-100 … -116`, AD-23, `specs/sensor_commands.md`, and the template `specs/templates/ble_sensor_test.md`, whose rows each map to one Robot Framework keyword and whose `${NAME}` variables are Robot's own syntax. What remains undecided is Robot Framework itself (STK-12, CON-06) - a general keyword layer over every instrument, rather than one document format for one element | Decide whether to adopt Robot Framework. If adopted, add a `ROBOT-` element in front of the existing runner; AD-15 has kept the driver boundary suitable for it, and AD-23 is evidence that a document-driven test needs no framework to be useful. |
+| OPEN-04 | **Narrowed.** Tests written as a markdown document are implemented for the BLE command set: `BLE-FR-100 … -116`, `-119`, AD-23, `specs/sensor_commands.md`, and the template `specs/templates/ble_sensor_test.md`, whose rows each map to one Robot Framework keyword and whose `${NAME}` variables are Robot's own syntax. What remains undecided is Robot Framework itself (STK-12, CON-06) - a general keyword layer over every instrument, rather than one document format for one element | Decide whether to adopt Robot Framework. If adopted, add a `ROBOT-` element in front of the existing runner; AD-15 has kept the driver boundary suitable for it, and AD-23 is evidence that a document-driven test needs no framework to be useful. |
 | OPEN-07 | S2-LP kit bench confirmation items — `docs/s2lp/S2LP_Devkit_Notes.md` §7: the firmware's exact reply text and error codes, the board name it reports, the meaning of `S2LPGetNBytesBatch`'s reference-timer argument, and the link budget in practice | Discharge on first use with a kit. Tracked there as S2LP-OPEN-01 to S2LP-OPEN-05. Nothing in them blocks use of the driver: the parser reads tags by name and keeps every line, so an unexpected reply is visible rather than fatal. |
 | OPEN-08 | PSU bench confirmation items — ETB-IF-001 §12: the command interval a real supply needs, settling time, the slaved-channel behaviour, series and parallel tracking bits, current programming resolution, and `VOUT` read-back | PSU-OPEN-01 and -02 closed 2026-09-26; PSU-OPEN-06 partly. The rest open, tracked in ETB-IF-001 §12. |
 | OPEN-05 | J-Link bench confirmation items (CON-04, CON-05) — `docs/jlink/JLink_Integration_Notes.md` §4: Windows execution, real MI version behaviour, SWO timestamp scaling, RTT control-block discovery, flash timing | Discharge on first use with a probe and a target. Tracked there as JLINK-OPEN-01 to JLINK-OPEN-04. |

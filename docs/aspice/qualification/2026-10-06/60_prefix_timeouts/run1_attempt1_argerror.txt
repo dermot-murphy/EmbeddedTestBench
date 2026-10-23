@@ -1,0 +1,5 @@
+usage: benchtools ble [-h] [--version] [-r RESOURCE] [--baud BAUD]
+                      [-t TIMEOUT] [--log PATH] [--firmware PATH]
+                      [--json PATH] [-v]
+                      {info,firmware,scan,select,profile,cmd,script,monitor} ...
+benchtools ble: error: unrecognized arguments: --json U:/Temp/claude/U--GitHub-EmbeddedTestBench/8e5a5735-0595-4527-bb3b-8c1e42cfdb4d/scratchpad/hw233/run1.json

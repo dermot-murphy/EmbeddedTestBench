@@ -21,11 +21,13 @@ Traces to: BLE-FR-001 .. BLE-FR-062, BLE-ARC-001, BLE-DD-DONGLE, BLE-DD-FIRMWARE
 
 from __future__ import annotations
 
+import logging
 import time
 from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
 from ...analysis.samples import NUMBER, SampleSet, extract_number
+from ...core.events import log_event
 from ...core.errors import (
     BenchToolsError,
     ConfigurationError,
@@ -52,17 +54,22 @@ from .constants import (
     DEFAULT_COMMAND_TIMEOUT,
     DEFAULT_SCAN_MS,
     COMMAND_TIMEOUT_RANGE,
+    CONNECT_ATTEMPTS,
+    CONNECT_RECOVERABLE,
     CONNECT_TIMEOUT_RANGE,
     DEFAULT_CONNECT_TIMEOUT,
     DISCONNECT_EVENT_TIMEOUT,
+    DONGLE_RESET_SETTLE,
     FIRMWARE_COMMAND_TIMEOUT,
     SERVICE_DISCOVERY_TIMEOUT,
     DONGLE_LIMITS,
     PROTOCOL_VERSION,
+    REASON_NOT_ESTABLISHED,
     AddressType,
     DongleLimits,
     ScanFilter,
 )
+from .dfu import DfuError, DfuImage, DfuResult, SecureDfu, load_package, run_images
 from .latency import LatencySource, ResponseSample, ResponseTiming
 from .profile import AdvertisingEvent, AdvertisingProfile
 from .protocol import (
@@ -75,8 +82,24 @@ from .protocol import (
 from .session import DongleCommandError, DongleSession
 from .simulator import SimulatedDongle
 
-__all__ = ["DisconnectSample", "NordicDongle", "Sensor"]
+__all__ = ["DisconnectSample", "LinkLostError", "NordicDongle", "Sensor"]
 
+
+class LinkLostError(InstrumentError):
+    """A connection attempt the dongle ended with ``+disc``, and why.
+
+    :param reason: The reason the dongle gave, as it wrote it - ``0x3e``,
+        ``timeout`` - or empty if it gave none.
+    """
+
+    def __init__(self, message: str, reason: str = "") -> None:
+        super().__init__(message)
+        self.reason = reason
+
+    @property
+    def not_established(self) -> bool:
+        """Whether the link failed to establish (HCI 0x3E): worth another try."""
+        return self.reason.lower() == REASON_NOT_ESTABLISHED
 
 
 @dataclass
@@ -97,12 +120,17 @@ class DisconnectSample:
 
 
 @dataclass
-class Sensor:
+class Sensor:  # pylint: disable=too-many-instance-attributes
     """One device seen while scanning.
 
     :param index: Position in the dongle's table, which is what ``select``
         takes.
     :param seen: Advertising reports from this address during the scan.
+    :param manufacturer_id: The company ID of a manufacturer-specific record
+        in either payload, e.g. 0x0F55 for Sensoteq; None if none was seen.
+        Protocol 1.6 (#241).
+    :param scan_response: The latest scan-response payload. Empty unless the
+        scan was active (``scan(active=True)``) and the sensor answered.
     """
 
     address: str
@@ -111,6 +139,8 @@ class Sensor:
     rssi: int = 0
     index: int = 0
     seen: int = 0
+    manufacturer_id: Optional[int] = None
+    scan_response: bytes = b""
 
     @property
     def qualified_address(self) -> str:
@@ -125,6 +155,8 @@ class Sensor:
             "name": self.name,
             "rssi": self.rssi,
             "seen": self.seen,
+            "manufacturer_id": self.manufacturer_id,
+            "scan_response": self.scan_response.hex(),
         }
 
     def __str__(self) -> str:
@@ -364,27 +396,88 @@ class NordicDongle(Instrument):
         """The protocol version the dongle reported."""
         return self._firmware_protocol
 
-    def _start_connect(self, connect_timeout: float) -> None:
-        """Check the window, clear stale link events, and send ``connect``."""
+    def _start_connect(self, connect_timeout: float) -> int:
+        """Check the window, clear stale link events, and send ``connect``.
+
+        A refusal that says the dongle is in the wrong state is recovered from
+        here (:meth:`_recover_connect`); any other refusal raises.
+
+        :returns: The dongle's clock just before the ``connect`` that was
+            accepted. A link event stamped earlier belongs to an earlier link.
+        """
         low, high = CONNECT_TIMEOUT_RANGE
         if not low <= connect_timeout <= high:
             raise ConfigurationError(
                 "connect_timeout must be between %.0f and %.0f s, not %r"
                 % (low, high, connect_timeout)
             )
-        # Stale link events from an earlier attempt must not be read as this
-        # attempt's outcome.
+        if not self._protocol_at_least(1, 2):
+            self._logger.warning(
+                "the dongle speaks protocol %s, which has a fixed 5 s connect "
+                "window; update its firmware to set one",
+                self._firmware_protocol or "unknown",
+            )
+
+        started_us, reply = self._send_connect(connect_timeout)
+        if not reply.ok and reply.error in CONNECT_RECOVERABLE:
+            started_us, reply = self._recover_connect(connect_timeout, reply)
+        if not reply.ok:
+            raise DongleCommandError("connect", reply.error, reply.text)
+        return started_us
+
+    def _send_connect(self, connect_timeout: float):
+        """Clear stale link events and send ``connect`` once.
+
+        :returns: ``(started_us, reply)``: the dongle's clock just before the
+            command, and its reply, which may be a refusal.
+        """
+        # Read what has already arrived before discarding it: a +disc still in
+        # the port's buffer would otherwise be read as this attempt's outcome.
+        self._session.poll()
         self._session.take_events("conn")
         self._session.take_events("disc")
+        started_us = self.dongle_time_us()
         if self._protocol_at_least(1, 2):
-            self._session.execute("connect", "timeout=%d" % round(connect_timeout * 1000.0))
-            return
-        self._logger.warning(
-            "the dongle speaks protocol %s, which has a fixed 5 s connect "
-            "window; update its firmware to set one",
-            self._firmware_protocol or "unknown",
-        )
-        self._session.execute("connect")
+            reply = self._session.execute(
+                "connect", "timeout=%d" % round(connect_timeout * 1000.0), allow_error=True
+            )
+        else:
+            reply = self._session.execute("connect", allow_error=True)
+        return started_us, reply
+
+    def _recover_connect(self, connect_timeout: float, refusal):
+        """Bring a dongle that refused ``connect`` back to a state that accepts it.
+
+        Seen on hardware (#251): after a sensor reset, a connection the host had
+        given up on was still being made in the dongle, and every ``connect``
+        was refused until the dongle was reset by hand. First ``disconnect``,
+        which ends a link and, from protocol 1.5, a connection still being made.
+        If ``connect`` is still refused, reset the dongle and select the sensor
+        again. Each step is logged as a ``ble_connect_recovery`` record.
+
+        :returns: ``(started_us, reply)`` of the last ``connect`` sent.
+        """
+        sensor = self._require_selected()
+
+        def record(text: str, step: str, reply) -> None:
+            log_event(self._logger, "ble_connect_recovery", text,
+                      {"address": sensor.address, "step": step,
+                       "refusal": reply.error.name if reply.error else "",
+                       "text": reply.text},
+                      level=logging.WARNING)
+            self._session.note(text)
+
+        record("the dongle refused 'connect' (%s); sending 'disconnect' and trying again"
+               % refusal.text, "disconnect", refusal)
+        self._disconnect()
+        started_us, reply = self._send_connect(connect_timeout)
+        if reply.ok or reply.error not in CONNECT_RECOVERABLE:
+            return started_us, reply
+
+        record("the dongle still refused 'connect' (%s); resetting it and selecting %s again"
+               % (reply.text, sensor.address), "reset", reply)
+        self.reset(reselect=True)
+        return self._send_connect(connect_timeout)
 
     def _protocol_at_least(self, major: int, minor: int) -> bool:
         """True when the dongle reported protocol *major*.*minor* or later."""
@@ -700,6 +793,8 @@ class NordicDongle(Instrument):
             rssi=event.integer("rssi"),
             seen=event.integer("seen"),
             name=event.get("name"),
+            manufacturer_id=int(event.get("mfr"), 16) if event.get("mfr") else None,
+            scan_response=from_hex(event.get("sr")) if event.get("sr") else b"",
         )
 
     @property
@@ -781,6 +876,8 @@ class NordicDongle(Instrument):
             chosen.rssi = known.rssi
             chosen.seen = known.seen
             chosen.index = known.index
+            chosen.manufacturer_id = known.manufacturer_id
+            chosen.scan_response = known.scan_response
         self._selected = chosen
         return chosen
 
@@ -833,24 +930,52 @@ class NordicDongle(Instrument):
         self,
         timeout: Optional[float] = None,
         connect_timeout: float = DEFAULT_CONNECT_TIMEOUT,
+        attempts: int = CONNECT_ATTEMPTS,
     ) -> Sensor:
         """Connect to the selected sensor and wait for its UART service.
 
         On any failure the dongle is told to disconnect before this raises, so
         a half-open link cannot refuse the next attempt.
 
-        :param timeout: Longest to wait overall. Defaults to the connect window
-            plus time for the UART service to be found.
+        A link that fails to establish - the dongle ends it with HCI reason
+        0x3E - is tried again, up to *attempts* in all, as a command
+        document's ``connect`` step does. Each failed attempt that is tried
+        again is logged as a warning and a ``ble_connect_attempt`` record, so a
+        flaky link stays visible (#180). Every other failure raises at once:
+        a closed connect window or a missing service is about the sensor.
+
+        :param timeout: Longest to wait for each attempt. Defaults to the
+            connect window plus time for the UART service to be found.
         :param connect_timeout: How long the dongle listens for the sensor.
             Needs protocol 1.2; an older dongle keeps its own 5 s window, and
             that is logged. A sensor that advertises rarely needs longer than
             its advertising interval.
+        :param attempts: Most links to try on 0x3E; 1 tries once.
         :raises ConfigurationError: if *connect_timeout* is out of range.
         :raises InstrumentError: if the sensor does not link, or links but
             does not become ready, in time. The message says which.
         """
         sensor = self._require_selected()
-        self._start_connect(connect_timeout)
+        attempts = max(1, int(attempts))
+        for attempt in range(1, attempts):
+            try:
+                return self._open_link_once(sensor, timeout, connect_timeout)
+            except LinkLostError as exc:
+                if not exc.not_established:
+                    raise
+                text = ("connection attempt %d of %d to %s failed to establish (reason %s); "
+                        "trying again" % (attempt, attempts, sensor.address, exc.reason))
+                log_event(self._logger, "ble_connect_attempt", text,
+                          {"address": sensor.address, "attempt": attempt,
+                           "attempts": attempts, "reason": exc.reason},
+                          level=logging.WARNING)
+                self._session.note(text)
+        return self._open_link_once(sensor, timeout, connect_timeout)
+
+    def _open_link_once(self, sensor: Sensor, timeout: Optional[float],
+                        connect_timeout: float) -> Sensor:
+        """One connection attempt: :meth:`open_link` without the retry."""
+        started_us = self._start_connect(connect_timeout)
         if timeout is None:
             timeout = connect_timeout + SERVICE_DISCOVERY_TIMEOUT
 
@@ -858,12 +983,10 @@ class NordicDongle(Instrument):
         linked = False
         try:
             while True:
-                event = self._session.wait_for_event(
-                    ("conn", "disc"), timeout=max(deadline - time.monotonic(), 0.0)
-                )
+                event = self._next_link_event(deadline, started_us)
                 state = event.get("state")
                 if event.name == "disc":
-                    raise InstrumentError(
+                    raise LinkLostError(
                         "could not connect to %s: the dongle reported %s%s. "
                         "A sensor that advertises rarely can fall outside the "
                         "connect window; try again, or check it is in range and "
@@ -872,7 +995,8 @@ class NordicDongle(Instrument):
                             sensor.address,
                             "the connection lost" if linked else "no connection",
                             " (reason %s)" % event.get("reason") if event.get("reason") else "",
-                        )
+                        ),
+                        reason=str(event.get("reason") or ""),
                     )
                 if state == "linked":
                     linked = True
@@ -909,6 +1033,157 @@ class NordicDongle(Instrument):
                 if self._connection_interval_us:
                     break
         return sensor
+
+    def _next_link_event(self, deadline: float, started_us: int) -> Event:
+        """The next ``+conn`` or ``+disc`` of the connection started at *started_us*.
+
+        An event stamped earlier is the end of an earlier link, reported after
+        the driver stopped waiting for it (#251), and is skipped.
+        """
+        while True:
+            event = self._session.wait_for_event(
+                ("conn", "disc"), timeout=max(deadline - time.monotonic(), 0.0)
+            )
+            if event.timestamp_us is None or event.timestamp_us >= started_us:
+                return event
+            self._logger.info("ignoring a link event from before this connect: %s", event.raw)
+            self._session.note("ignored, from before this connect: %s" % event.raw)
+
+    # ------------------------------------------------------------------
+    # Firmware update of a sensor (#244)
+    # ------------------------------------------------------------------
+    @input_paths("package")
+    def send_package(  # pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals
+        self,
+        package: str,
+        target: str,
+        timeout: float = 180.0,
+        scan_seconds: float = 5.0,
+        connect_timeout: float = 15.0,
+        chunk: int = 244,
+    ) -> DfuResult:
+        """Send a DFU package to a sensor in its bootloader, by Nordic Secure DFU.
+
+        The sensor must already be in its bootloader - a Kepler sensor enters
+        it on the BLE UART command ``SESSION SWDL``. Each image of the package
+        (a SoftDevice and bootloader, an application) is sent over its own
+        link: the bootloader resets after executing one, and is found again
+        for the next.
+
+        A refusal is a result: ``result`` is the bootloader's verdict as text -
+        ``Success``, ``InvalidObject``, ``ExtendedError`` - and
+        ``extended_error`` its reason, e.g. ``HwVersionFailure``, so a test can
+        expect a package to be refused.
+
+        :param package: The zip ``nrfutil pkg generate`` writes.
+        :param target: The bootloader's address, or the start of its name -
+            ``KAPPA_5C1712`` finds ``KAPPA_5C1712-0FDFU`` and ``KAPPA_5C1712_0FDFU``.
+        :param timeout: Longest the whole transfer may take.
+        :param scan_seconds: How long to look for the bootloader before each
+            image; a Kepler bootloader advertises every 211 ms.
+        :param connect_timeout: The connect window for each link.
+        :param chunk: Bytes per Packet write.
+        :raises InstrumentError: if the bootloader is not found, offers no DFU
+            service, or stops answering.
+
+        Traces to: BLE-FR-121.
+        """
+        images = load_package(package)
+        deadline = time.monotonic() + float(timeout)
+
+        def remaining() -> float:
+            left = deadline - time.monotonic()
+            if left <= 0.0:
+                raise DfuError("the DFU transfer did not finish within %.0f s" % timeout)
+            return left
+
+        def control(request: bytes, wait: float) -> bytes:
+            return self._dfu_control(request, min(wait, remaining()))
+
+        def packet(data: bytes) -> None:
+            remaining()
+            self._session.execute("dfupkt", data.hex())
+
+        found: List[str] = []
+
+        def connect(image: DfuImage, index: int) -> None:
+            sensor = self._find_dfu_target(target, min(scan_seconds, remaining()))
+            found.append("%s %s" % (sensor.address, sensor.name))
+            self._session.note("DFU image %d of %d (%s) to %s %s"
+                               % (index + 1, len(images), image.kind, sensor.address, sensor.name))
+            self._open_dfu_link(sensor, connect_timeout)
+
+        def disconnect(image: DfuImage, index: int) -> None:  # pylint: disable=unused-argument
+            self._disconnect()
+            self._connected = False
+
+        dfu = SecureDfu(control=control, packet=packet, chunk=chunk)
+        result = run_images(dfu, images, connect, disconnect)
+        result.target = "; ".join(found)
+        log_event(self._logger, "ble_dfu", "DFU of %s to %s: %s%s, %d bytes in %.1f s"
+                  % (package, result.target, result.result,
+                     " (%s)" % result.extended_error if result.extended_error else "",
+                     result.bytes_sent, result.seconds),
+                  result.as_dict(),
+                  level=logging.INFO if result.succeeded else logging.WARNING)
+        return result
+
+    def _find_dfu_target(self, target: str, seconds: float) -> Sensor:
+        """The bootloader named or addressed by *target*, from a fresh scan."""
+        try:
+            wanted_address: Optional[str] = normalise_address(target)
+        except BenchToolsError:
+            wanted_address = None
+        heard = self.scan(max(seconds, 1.0))
+        if wanted_address is not None:
+            matches = [sensor for sensor in heard if sensor.address.upper() == wanted_address]
+        else:
+            matches = [sensor for sensor in heard
+                       if (sensor.name or "").startswith(target)
+                       and (sensor.name or "").upper().endswith("DFU")]
+        if not matches:
+            raise InstrumentError(
+                "no bootloader matching %r was heard in %.0f s. Heard: %s. A sensor "
+                "enters its bootloader on SESSION SWDL and leaves it after 30 s idle."
+                % (target, seconds, ", ".join(
+                    "%s %s" % (sensor.address, sensor.name) for sensor in heard) or "nothing"))
+        chosen = max(matches, key=lambda sensor: sensor.rssi)
+        self.select(chosen)
+        return chosen
+
+    def _open_dfu_link(self, sensor: Sensor, connect_timeout: float) -> None:
+        """Connect to a bootloader and wait for its DFU service."""
+        started_us = self._start_connect(connect_timeout)
+        deadline = time.monotonic() + connect_timeout + SERVICE_DISCOVERY_TIMEOUT
+        try:
+            while True:
+                event = self._session.wait_for_event(
+                    ("conn", "disc", "dfu"), timeout=max(deadline - time.monotonic(), 0.0))
+                if event.timestamp_us is not None and event.timestamp_us < started_us:
+                    continue
+                if event.name == "disc":
+                    raise LinkLostError("could not connect to the bootloader at %s (reason %s)"
+                                        % (sensor.address, event.get("reason")),
+                                        reason=str(event.get("reason") or ""))
+                if event.name == "dfu":
+                    if event.get("state") == "ready":
+                        self._connected = True
+                        return
+                    raise DfuError("linked to %s but its DFU service is %s"
+                                   % (sensor.address, event.get("state")))
+        except BenchToolsError:
+            self._disconnect()
+            raise
+
+    def _dfu_control(self, request: bytes, timeout: float) -> bytes:
+        """Write the Control Point and return the bootloader's response."""
+        milliseconds = int(min(max(timeout, 0.1), 60.0) * 1000)
+        reply = self._session.execute("dfucp", request.hex(), "timeout=%d" % milliseconds,
+                                      timeout=milliseconds / 1000.0 + 2.0, allow_error=True)
+        if not reply.ok:
+            raise DfuError("the bootloader did not answer the Control Point request %s: %s"
+                           % (request.hex(), reply.text))
+        return from_hex(reply.fields.get("data", ""))
 
     def close_link(self) -> None:
         """Disconnect from the sensor. Idempotent."""
@@ -1122,19 +1397,23 @@ class NordicDongle(Instrument):
         Traces to: BLE-FR-117.
         """
         samples = SampleSet(name=request, unit=unit, requested=int(count))
-        started = time.monotonic()
+        # perf_counter, not monotonic: before Python 3.13, monotonic on
+        # Windows is GetTickCount64 at 15.6 ms, which can send a command up
+        # to one tick before it is due and quantises the times (#214).
+        started = time.perf_counter()
         for index in range(int(count)):
             due = started + index * float(interval)
-            wait = due - time.monotonic()
-            if wait > 0:
+            wait = due - time.perf_counter()
+            while wait > 0:
                 time.sleep(wait)
+                wait = due - time.perf_counter()
             text = self.command(request, timeout=timeout).text
             value = extract_number(text, pattern)
             if value is None:
                 raise MeasurementError(
                     "reply %d of %d to %r was %r, which %r finds no number in"
                     % (index + 1, count, request, text, pattern))
-            samples.add(value * float(scale), source=text, at=time.monotonic() - started)
+            samples.add(value * float(scale), source=text, at=time.perf_counter() - started)
         return samples
 
     @input_paths("source")
@@ -1146,6 +1425,7 @@ class NordicDongle(Instrument):
         listen: float = 0.5,
         variables: Optional[Dict[str, str]] = None,
         events: Optional[str] = None,
+        timeouts: Optional[Dict[str, object]] = None,
     ) -> ScriptRun:
         """Run a command document against the connected sensor.
 
@@ -1172,22 +1452,26 @@ class NordicDongle(Instrument):
             overriding its defaults - ``{"SENSOR_ID": "kappa"}``, say.
         :param events: Where to write the event log - one line per TX, RX,
             delay, connect, disconnect and error, with the time it happened.
+        :param timeouts: Timeouts in milliseconds by command prefix for this
+            run - ``{"WR": 45000}`` - over the document's own Command prefix
+            table. A step's Timeout cell still wins.
         :raises ConfigurationError: if the document cannot be read, or a
             variable it needs has no value.
         :raises InstrumentError: if no link is open and the document does not
             connect before its first command. Every step would fail identically
             for a reason that has nothing to do with the sensor.
 
-        Traces to: BLE-FR-100 .. BLE-FR-108.
+        Traces to: BLE-FR-100 .. BLE-FR-108, BLE-FR-119.
         """
         if isinstance(source, CommandScript):
-            if variables:
+            if variables or timeouts:
                 raise ConfigurationError(
-                    "variables apply when a document is read; this one is already parsed"
+                    "variables and timeouts apply when a document is read; this one "
+                    "is already parsed"
                 )
             script = source
         else:
-            script = load_script(str(source), variables=variables)
+            script = load_script(str(source), variables=variables, timeouts=timeouts)
         if not self.is_linked and not script.connects:
             raise InstrumentError(
                 "no link is open, so no command could reach a sensor. Start the "
@@ -1366,13 +1650,31 @@ class NordicDongle(Instrument):
         reply = self._session.execute("time")
         return int(reply.fields.get("t", 0))
 
-    def reset(self) -> None:
-        """Reset the dongle's firmware and forget local state."""
+    def reset(self, reselect: bool = False, settle: Optional[float] = None) -> None:
+        """Reset the dongle's firmware, reopen its port and forget local state.
+
+        The dongle leaves USB when it resets, so its port is closed, given
+        *settle* seconds to re-enumerate, and opened again.
+
+        :param reselect: Select the sensor that was selected before, by its
+            address, so the next :meth:`open_link` connects to it.
+        :param settle: Seconds to allow for re-enumeration;
+            ``DONGLE_RESET_SETTLE`` when omitted.
+        """
+        previous = self._selected
         self._session.execute("reset", allow_error=True, timeout=2.0)
         self._sensors = []
         self._selected = None
         self._connected = False
         self._connection_interval_us = 0
+        try:
+            self.transport.close()
+        except BenchToolsError:                # pragma: no cover - already down
+            pass
+        time.sleep(DONGLE_RESET_SETTLE if settle is None else settle)
+        self._reopen()
+        if reselect and previous is not None:
+            self.select(previous)
 
     def read_event_queue(self) -> List[str]:
         """Unsolicited events queued but not consumed.
