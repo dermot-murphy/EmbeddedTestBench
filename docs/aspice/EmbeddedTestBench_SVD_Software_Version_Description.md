@@ -10,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SVD-001 | **Version** | 0.8 |
+| **Document ID** | ETB-SVD-001 | **Version** | 0.9 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-23 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -32,6 +32,7 @@
 | 0.6 | 2026-10-05 | Claude | #215: revised for the release baseline `v0.01.0001`. §4 identifies the new tag and lists the changes since `v0.01.0000`; §5 brought up to date (package 0.01.0001, document versions, publish workflows, action and runner pins); §6 brought up to the CI run on `develop` at f1eac09 and the J-Link fixes confirmed on hardware; §7 drops #177 and #178 (fixed) and adds the CStyleCheck pin and the Windows timing test. The brand logo (ETB-SUP8-001 §6.3) and the Review & Approval table that points to the merge (§5.7), both held back from the `v0.01.0000` baseline, are applied. |
 | 0.7 | 2026-10-23 | Claude | #268: revised for the release baseline `v0.02.0000`, a minor release. §4 identifies the new tag and lists the changes since `v0.01.0001`; §5 brought up to date (package 0.02.0000, dongle firmware 1.7.0 and protocol 1.7, document versions, CStyleCheck v1.6.1, both baselines); §6 brought up to the CI run on `develop` at 7507bda and the dongle and J-Link changes confirmed on hardware; §7 drops #180, #214, the CStyleCheck hold and the first wiki publication (all resolved), restates the simulated Kepler limitation now that #121 is done, and adds the limits of the DFU client. |
 | 0.8 | 2026-10-23 | Claude | #271: revised for the release baseline `v0.02.0001`, a hotfix. §4 identifies the new tag, branched from `main` at 213fe0a, and its one change; §5 brought up to date (package 0.02.0001, document versions); §6 records the tests on the hotfix branch and the DFU retry on hardware; §7 item 14 restated for the SDK 15.2 bootloader. |
+| 0.9 | 2026-10-23 | Claude | #275: revised for the release baseline `v0.02.0002`, a hotfix. §4 identifies the new tag, branched from `main` at 677f681, and its one change; §5 brought up to date (package 0.02.0002, document versions); §6 records the tests on the hotfix branch and the bench run; §7 item 14 notes the bootloader link retry. |
 
 ---
 
@@ -51,7 +52,7 @@ a known configuration.
 | ETB-SUP9-001 | Embedded Test Bench Problem Resolution Management Plan | 0.4 |
 | ETB-SYS5-001 | Embedded Test Bench System Qualification Test | 0.6 |
 | ETB-SYS5-002 | Embedded Test Bench System Qualification Test Report | 1.3 |
-| ETB-SWE4-002 | Embedded Test Bench Unit Verification Report | 1.30 |
+| ETB-SWE4-002 | Embedded Test Bench Unit Verification Report | 1.31 |
 | ETB-ACQ4-001 | Embedded Test Bench Supplier Monitoring Plan | 0.7 |
 | ETB-PA2-001 | Embedded Test Bench Process Capability Records | 0.4 |
 
@@ -67,14 +68,14 @@ not here.
 
 | Field | Value |
 |---|---|
-| **Baseline** | Release baseline `v0.02.0001`, a hotfix release after `v0.02.0000` |
-| **Tag** | `v0.02.0001`, annotated, on the merge commit of `hotfix/v0.02.0001` into `main` (ETB-SUP8-001 §5.6) |
-| **Revision** | The commit the tag points to; the tag is the identifier (`git rev-parse v0.02.0001^{commit}`) |
+| **Baseline** | Release baseline `v0.02.0002`, a hotfix release after `v0.02.0001` |
+| **Tag** | `v0.02.0002`, annotated, on the merge commit of `hotfix/v0.02.0002` into `main` (ETB-SUP8-001 §5.6) |
+| **Revision** | The commit the tag points to; the tag is the identifier (`git rev-parse v0.02.0002^{commit}`) |
 | **Repository** | `dermot-murphy/EmbeddedTestBench` (formerly `dermot-murphy/TestTools`) |
-| **Prepared on** | Branch `hotfix/v0.02.0001`, taken from `main` at 213fe0a (the `v0.02.0000` merge) |
+| **Prepared on** | Branch `hotfix/v0.02.0002`, taken from `main` at 677f681 (the `v0.02.0001` merge) |
 | **Date** | 2026-10-23 |
-| **Issue** | #271 |
-| **Previous baseline** | `v0.02.0000` (ETB-SVD-001 0.7, #268) |
+| **Issue** | #275 |
+| **Previous baseline** | `v0.02.0001` (ETB-SVD-001 0.8, #271) |
 
 The tag and this document together are the baseline (ETB-SUP8-001 §7). The
 baseline is not edited after the tag is created. A correction is a new release
@@ -82,14 +83,18 @@ with its own tag and a new revision of this document.
 
 It is a hotfix, not a minor release, because it carries one fix to a released
 feature and nothing else. Kepler (innovateuk-sensor TX-1184) uses Embedded Test
-Bench releases from `main` only, and its field-upgrade test V10-F-01 cannot pass
-without the fix.
+Bench releases from `main` only, and its field-upgrade test V10-F-01 errored on
+`v0.02.0001` when both bootloader links in a run failed to establish.
 
-**Changes since `v0.02.0000`:**
+**Changes since `v0.02.0001`:**
 
 | Change | Issue / PR |
 |---|---|
-| BLE dongle DFU client: each Packet Receipt Notification is checked against what was sent, and an image whose receipt or object CRC shows data lost on the link is sent again from its init packet, waiting 0.15 s after each data create (doubled on each later retry), up to `retries` (3) times, each retry logged; `DfuResult.retries` counts them, and `send_package` also takes `prn` and `create_pause`. Host only; dongle firmware unchanged at 1.7.0 | #271 |
+| BLE dongle DFU client: a bootloader link that fails to establish (HCI 0x3E) is tried again, as `open_link` tries a UART link (#180): up to `connect_attempts` (3), each failed attempt logged. Host only; dongle firmware unchanged at 1.7.0 | #275 |
+
+**In `v0.02.0001` (#271):** the DFU client checks each Packet Receipt
+Notification and sends an image again from its init packet when data is lost,
+waiting after each data create.
 
 ---
 
@@ -99,15 +104,15 @@ without the fix.
 
 | Item | Version | Notes |
 |---|---|---|
-| `benchtools` (Python package) | **0.02.0001** | `__version__` in `benchtools/__init__.py` and `version` in `pyproject.toml`; requires Python ≥ 3.8; no mandatory runtime dependencies |
+| `benchtools` (Python package) | **0.02.0002** | `__version__` in `benchtools/__init__.py` and `version` in `pyproject.toml`; requires Python ≥ 3.8; no mandatory runtime dependencies |
 | Optional extras | `spec` (PyYAML ≥ 6.0.3), `plot` (matplotlib ≥ 3.3), `visa` (pyvisa ≥ 1.11, pyvisa-py ≥ 0.5), `serial` (pyserial ≥ 3.5), `test` | A driver works on a bare Python install; extras add file formats, plots and transports |
 
 > **Version as packaged.** Python packaging normalises versions under PEP 440,
-> so `0.02.0001` is recorded in the built wheel's metadata as `0.2.1`: the wheel
-> is `benchtools-0.2.1-py3-none-any.whl`, and `pip show benchtools` reports
-> `0.2.1`. Both strings name the same version. The tag, `__version__` and every
-> `--version` option give the project's form, `0.02.0001`. Checked on
-> 2026-10-23 by building the wheel from `hotfix/v0.02.0001`.
+> so `0.02.0002` is recorded in the built wheel's metadata as `0.2.2`: the wheel
+> is `benchtools-0.2.2-py3-none-any.whl`, and `pip show benchtools` reports
+> `0.2.2`. Both strings name the same version. The tag, `__version__` and every
+> `--version` option give the project's form, `0.02.0002`. Checked on
+> 2026-10-23 by building the wheel from `hotfix/v0.02.0002`.
 >
 > Earlier revisions of this document gave the package as 4.0.0, a number carried
 > over from before the project's version scheme was set. No release was ever
@@ -137,16 +142,16 @@ baseline. Its manifests are under `specs/qualification/firmware/`.
 | ETB-SYS4-001 | System Integration & Integration Test | 0.5 | Draft |
 | ETB-SYS5-001 | System Qualification Test | 0.6 | Draft |
 | ETB-SYS5-002 | System Qualification Test Report | 1.3 | Draft — for review |
-| ETB-SWE1-001 | Software Requirements Specification | 1.31 | Draft |
+| ETB-SWE1-001 | Software Requirements Specification | 1.32 | Draft |
 | ETB-SWE2-001 | Software Architecture Description | 0.16 | Draft |
-| ETB-SWE3-001 | Software Detailed Design | 1.33 | Draft |
+| ETB-SWE3-001 | Software Detailed Design | 1.34 | Draft |
 | ETB-SWE3-002 | GPD-3303D Driver Design and Lessons Learned | 0.3 | Draft |
-| ETB-SWE4-001 | Software Unit Verification Specification | 1.34 | Draft |
-| ETB-SWE4-002 | Software Unit Verification Report | 1.30 | Draft |
+| ETB-SWE4-001 | Software Unit Verification Specification | 1.35 | Draft |
+| ETB-SWE4-002 | Software Unit Verification Report | 1.31 | Draft |
 | ETB-SWE5-001 | Software Integration & Integration Test | 0.4 | Draft |
 | ETB-SWE6-001 | Software Qualification Test | 0.6 | Draft |
 | ETB-IF-001 | GPD-3303D Remote Control Interface Specification | 0.3 | Draft |
-| ETB-RTM-001 | Requirements Traceability Matrix | 1.33 | Draft |
+| ETB-RTM-001 | Requirements Traceability Matrix | 1.34 | Draft |
 | ETB-MAN3-001 | Project Management Plan | 0.4 | Draft |
 | ETB-MAN5-001 | Risk Management Plan | 0.6 | Draft |
 | ETB-SUP1-001 | Quality Assurance Plan | 0.4 | Draft |
@@ -154,7 +159,7 @@ baseline. Its manifests are under `specs/qualification/firmware/`.
 | ETB-SUP9-001 | Problem Resolution Management Plan | 0.4 | Draft |
 | ETB-SUP10-001 | Change Request Management Plan | 0.4 | Draft |
 | ETB-ACQ4-001 | Supplier Monitoring Plan | 0.7 | Draft |
-| ETB-SVD-001 | Software Version Description *(this document)* | 0.8 | Draft |
+| ETB-SVD-001 | Software Version Description *(this document)* | 0.9 | Draft |
 | ETB-PA2-001 | Process Capability Records — Level 2 | 0.4 | Draft |
 | ETB-STD-001 | Industry C Coding Standards — Applicability | 0.5 | Draft |
 | ETB-STD-002 | Embedded C Coding Standard | 0.6 | Draft |
@@ -175,7 +180,7 @@ of Draft status.
 
 | Item | Purpose |
 |---|---|
-| `action.yml` | The bench-runner composite action this repository publishes, used as `dermot-murphy/EmbeddedTestBench@v0.02.0001` |
+| `action.yml` | The bench-runner composite action this repository publishes, used as `dermot-murphy/EmbeddedTestBench@v0.02.0002` |
 | `.github/workflows/bench.yml` | Runs the simulated-bench specifications through that action |
 | `.github/workflows/tests.yml` | Runs the Python suite with coverage on Python 3.8, 3.9 and 3.12, gated at 90% |
 | `.github/workflows/lint.yml` | Runs pylint over `benchtools/`, `tests/` and `scripts/` against its baseline |
@@ -217,7 +222,7 @@ of Draft status.
 
 | Measure | Value |
 |---|---|
-| Tests passing | **3 316**, none failing (`hotfix/v0.02.0001`, locally on Windows, Python 3.14; CI on Python 3.8, 3.9 and 3.12 runs on the pull request into `main`) |
+| Tests passing | **3 320**, none failing (`hotfix/v0.02.0002`, locally on Windows, Python 3.14; CI on Python 3.8, 3.9 and 3.12 runs on the pull request into `main`) |
 | Statement coverage | Gate 90%, checked by CI on the pull request; 95% at `v0.02.0000` |
 | Requirements without a covering test | 0, enforced by `tests/test_traceability.py` |
 | Firmware build and unit tests | Green in CI; flash and RAM recorded |
@@ -227,9 +232,10 @@ of Draft status.
 | Dongle changes on hardware | Dongle on COM10 (PCA10059) with sensor 5C1712. #251: the fault was reproduced, and 10 of 10 driver checks passed on the fixed image (2026-10-22); the #180 retry was exercised in the same runs. #241: an active scan read the full name and manufacturer ID 0x0F55. #244: a V4X application package was accepted (298 520 bytes in 108.8 s), a V5 package was refused with HwVersionFailure, and the sensor was restored from its backup (2026-10-23; ETB-SWE4-002 §10.6) |
 | J-Link changes on hardware | Probe on sensor 5C1712 (2026-10-23). #259: the reported `monitor reset` error was reproduced on `develop` and was gone with the fix. #253: the GDB hang was reproduced in 3 runs of 4; with the fix, 3 of 3 flashed and verified. #264: DEBUG, then RELEASE, then the normal image through `restore`, with the 784-byte UICR page identical at the end. #254 is covered by unit tests only |
 | DFU retry on hardware (#271) | Dongle on COM10 (firmware 1.7.0) with sensor 5C1712 on Kepler V10.00.0000 and bootloader V1.01.0000 (SDK 15.2), 2026-10-23. On `v0.02.0000` the SoftDevice and bootloader package failed (4076 of 4096 bytes). With the fix, Kepler's V10-F-01 passed, 3 of 3, with `scan_seconds: 30.0` on its second package: each package lost data once and succeeded on retry 1 (178 510 bytes in 53.6 s; 299 136 bytes in 111.6 s), and a V5 package was refused with HwVersionFailure (ETB-SWE4-002 §10.7) |
+| Bootloader link retry on hardware (#275) | The same bench, 2026-10-23, `benchtools` 0.02.0002. Kepler's V10-F-01 passed, 3 of 3. No bootloader link failed to establish in that run, so it is a regression run; the retry is verified by unit tests (ETB-SWE4-002 §10.8) |
 
-The hotfix branch changes only the DFU client of `v0.02.0000`, its simulator,
-tests and documents, the version and the usage examples.
+The hotfix branch changes only how the DFU client of `v0.02.0001` opens a
+bootloader's link, its tests and documents, the version and the usage examples.
 
 ---
 
@@ -250,7 +256,7 @@ tests and documents, the version and the usage examples.
 | 11 | The C standard check is baselined at 107 existing violations and fails only on new ones | ETB-ANA-001 §6.12 |
 | 12 | Python 3.8 is end-of-life upstream. It is tested because `pyproject.toml` declares it as the floor; when supporting it stops being tenable, the floor should be raised rather than the leg dropped | ETB-ANA-001 §6.1 |
 | 13 | The Kepler specifications cannot all run on the simulated bench. The simulated Kepler sensor exists (#121), but the simulated S2-LP kit transmits no Kepler frames | #119, #122 |
-| 14 | The DFU client has been run against two bootloaders on one sensor, 5C1712: Kepler V1.01.0000 (SDK 15.2) and V2.00.0000. On both, at a 30 ms interval with 20-byte pieces, the first data object of an image loses data unless the client waits after its create; the client finds the loss in a receipt and sends the image again with a 0.15 s pause, so each such transfer takes one retry. Why the data is lost is inferred (the flash page erase), not traced. The client needs dongle firmware 1.7.0; an older dongle refuses `dfucp` as an unknown command | #244, #271; ETB-SWE4-002 §10.6, §10.7 |
+| 14 | The DFU client has been run against two bootloaders on one sensor, 5C1712: Kepler V1.01.0000 (SDK 15.2) and V2.00.0000. On both, at a 30 ms interval with 20-byte pieces, the first data object of an image loses data unless the client waits after its create; the client finds the loss in a receipt and sends the image again with a 0.15 s pause, so each such transfer takes one retry. Why the data is lost is inferred (the flash page erase), not traced. A bootloader link that fails to establish (0x3E) is tried again, as a UART link is (#275); hardware cannot force one, so that retry is shown by unit tests only. The client needs dongle firmware 1.7.0; an older dongle refuses `dfucp` as an unknown command | #244, #271, #275; ETB-SWE4-002 §10.6 to §10.8 |
 | 15 | The J-Link driver has no configuration switch between the GDB backend and the local SEGGER tools | #71 |
 
 Items 1 and 2 are open defects against stated requirements. #179 and #181 block
@@ -266,7 +272,7 @@ eventually be shown to do, recorded so that the distance is visible.
 From a clone, at the release:
 
 ```
-git checkout v0.02.0001
+git checkout v0.02.0002
 pip install -e .[spec,serial,test]
 pytest
 ```
@@ -274,7 +280,7 @@ pytest
 Without cloning:
 
 ```
-pip install "benchtools @ git+https://github.com/dermot-murphy/EmbeddedTestBench@v0.02.0001"
+pip install "benchtools @ git+https://github.com/dermot-murphy/EmbeddedTestBench@v0.02.0002"
 ```
 
 The firmware is built with `make` under `firmware/nordic_dongle` and with CMake
