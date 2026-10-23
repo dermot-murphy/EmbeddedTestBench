@@ -32,6 +32,69 @@ from benchtools.instruments.jlink.session import GdbMiSession
 from .conftest import END_LOCATION, START_LOCATION
 
 
+class _RereadingGdb(SimulatedJLink):
+    """GDB 15.2 on Windows (#253): a ``load`` while a combined HEX file is
+    GDB's exec file reported that file "has changed; re-reading symbols", and
+    GDB answered nothing more."""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.exec_file = ""
+        self.exited = False
+
+    def _mi_file(self, argument, token):
+        self.exec_file = argument.strip('"')
+        if not self.exec_file:
+            return self._ok(token)           # the exec file is discarded
+        return super()._mi_file(argument, token)
+
+    def _console_command(self, command, token):
+        if self.exited:
+            return []
+        if command.lower().startswith("load") and self.exec_file.lower().endswith(".hex"):
+            self.exited = True
+            return self._stream(["`%s' has changed; re-reading symbols." % self.exec_file])
+        return super()._console_command(command, token)
+
+
+class TestFlashingImagesInTurn:
+    """Any number of flashes, of any images, in one session (#253)."""
+
+    @pytest.fixture
+    def rereading(self):
+        simulator = _RereadingGdb()
+        instance = JLinkProbe(
+            session=GdbMiSession(MockTransport(responder=simulator), timeout=1.0),
+            elf="firmware.elf",
+            target_address="simulated",
+        )
+        instance.initialise()
+        yield instance, simulator
+        instance.close()
+
+    def test_three_combined_images_in_turn(self, rereading):
+        probe, simulator = rereading
+        for image in ("C:/images/v10.hex", "C:/images/debug.hex", "C:/images/release.hex"):
+            result = probe.flash(image, verify=True, timeout=1.0)
+            assert result.verified is True
+        assert not simulator.exited
+
+    def test_gdb_holds_no_exec_file_when_it_loads(self, rereading):
+        probe, simulator = rereading
+        probe.flash("C:/images/debug.hex", verify=False, timeout=1.0)
+        probe.flash("C:/images/release.hex", verify=False, timeout=1.0)
+        log = simulator.command_log
+        for index, command in enumerate(log):
+            if '"load ' in command:
+                assert log[index - 1].strip() == "-file-exec-and-symbols", log[index - 1]
+
+    def test_the_image_is_still_what_verify_compares_against(self, rereading):
+        probe, simulator = rereading
+        probe.flash("C:/images/release.hex", verify=False, timeout=1.0)
+        assert simulator.exec_file == "C:/images/release.hex"
+        assert probe.elf_path == "C:/images/release.hex"
+
+
 def probe_for(**simulator_kwargs) -> JLinkProbe:
     """A connected probe over a simulator built with *simulator_kwargs*."""
     simulator = SimulatedJLink(**simulator_kwargs)

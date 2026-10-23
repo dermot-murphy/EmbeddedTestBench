@@ -742,6 +742,12 @@ class JLinkProbe(Instrument):
         # "file" and then "load", reported "has changed; re-reading symbols" and
         # exited with status 3 (issue #69). "load <file>" alone did not.
         command = 'load "%s"' % path.replace("\\", "/") if path else "load"
+        if path:
+            # Nothing held as the exec file when the image is loaded. After a
+            # flash the image becomes the exec file, for verify; at the next
+            # "load" GDB 15.2 re-checked it, said a combined HEX file "has
+            # changed; re-reading symbols" and exited (#253).
+            self._session.execute("-file-exec-and-symbols")
         started = time.monotonic()
         console = self._session.execute_console(command, timeout=timeout)
         elapsed = time.monotonic() - started
