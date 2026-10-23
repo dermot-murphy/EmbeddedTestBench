@@ -10,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE3-001 | **Version** | 1.33 |
+| **Document ID** | ETB-SWE3-001 | **Version** | 1.34 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-23 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -67,6 +67,7 @@
 | 1.31 | 2026-10-23 | Claude | #264: JLINK-DD-PROBE - `restore` programmes an image set in order keeping UICR (`RestoreResult`, `NRF52_UICR`); CORE-DD-PATHS - `resolve_arguments` resolves a list of files item by item. |
 | 1.32 | 2026-10-23 | Claude | #244: BLE-DD-DFU (firmware `dfu_client.c`, `cmd_dfu.c`: `dfucp`, `dfupkt`, `+dfu`; protocol 1.7, firmware 1.7.0), BLE-DD-DFUHOST (`dfu.py`, `NordicDongle.send_package`) and BLE-DD-DFUSIM (`dfu_target.py`, the simulated 5C1712 bootloader) added; BLE-DD-CMDARGS gains the hex helpers. |
 | 1.33 | 2026-10-23 | Claude | #271: BLE-DD-DFUHOST - each Packet Receipt Notification is checked against what was sent, and an image whose receipt or object CRC does not match is sent again from its init packet up to `retries` times, waiting `create_pause` after each data object's create (0.15 s on the first retry, doubled after; `DfuResult.retries`); `send_package` takes `retries`, `prn` and `create_pause`. BLE-DD-DFUSIM - the simulated bootloader sends receipts, can lose chosen packets (`lose`) and refuse a data object created again (`refuse_recreate`). |
+| 1.34 | 2026-10-23 | Claude | #275: BLE-DD-DFUHOST - each bootloader link that fails to establish (0x3E) is tried again up to `connect_attempts` (`CONNECT_ATTEMPTS`), through `_retry_not_established`, the retry `open_link` uses (BLE-DD-DONGLE). |
 
 ---
 
@@ -1419,6 +1420,15 @@ later is checked after the next write, while the object's CRC covers the last.
 Each retry is a warning in the log and a note in the session log.
 `send_package` passes `retries`, `prn` (the receipt interval, 8) and
 `create_pause` through to `SecureDfu`.
+
+A bootloader link that fails to establish - linked, then `+disc reason=0x3e` -
+is tried again, as `open_link` tries a UART link (#180): up to
+`connect_attempts` (`CONNECT_ATTEMPTS`, 3) in all, each failed attempt logged
+as a warning, a `ble_connect_attempt` record and a session-log note, and no
+other failure tried again (#275). Both go through `_retry_not_established`.
+`send_package` had made one attempt; in a Kepler run on 5C1712 both bootloader
+links in a row failed so, 0.15 s after linking. Each attempt keeps the connect
+window, and none starts once the transfer's `timeout` has passed.
 
 #### BLE-DD-DFUSIM — `dfu_target.py`
 

@@ -841,7 +841,7 @@ This repository publishes a composite action, so another project can run its
 bench specifications in CI:
 
 ```yaml
-- uses: dermot-murphy/EmbeddedTestBench@v0.02.0001
+- uses: dermot-murphy/EmbeddedTestBench@v0.02.0002
   id: bench
   with:
     specs: |

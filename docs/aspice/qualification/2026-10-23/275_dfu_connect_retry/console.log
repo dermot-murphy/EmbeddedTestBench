@@ -1,0 +1,26 @@
+benchtools 0.02.0002
+48e55cdbd7c16d521ba6523bded7e09dc3ed580f
+ benchtools/__init__.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+SAFETY WARNING - BT-003 legacy upgrade - V10.00.0000 to the candidate over the air
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+THIS TEST REFLASHES SENSOR 5C1712 THROUGH THE J-LINK WITH V10.00.0000,
+UPGRADES IT OVER THE AIR (SOFTDEVICE, BOOTLOADER AND APPLICATION), AND
+SWITCHES THE GPD-3303D'S OUTPUT ON, WITH CHANNEL 2 AT 3.3 V. A failed
+over-the-air step can leave the unit in its bootloader; teardown restores it
+through the J-Link (ETB proved send_package and probe.restore on 5C1712,
+#244, #264 and #271). Channel 2 must power sensor
+5C1712 and nothing else; channel 1 is held at 0 V.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+WARNING  benchtools.instruments.nordic_dongle.dongle: DFU data lost, sending again: softdevice_bootloader image, retry 1 of 3 with 0.15 s after each data create: a receipt reported offset 0 after offset 160, with 488 sent
+WARNING  benchtools.instruments.nordic_dongle.dongle: DFU data lost, sending again: application image, retry 1 of 3 with 0.15 s after each data create: a receipt reported offset 0 after offset 160, with 488 sent
+WARNING  benchtools.instruments.nordic_dongle.dongle: connection attempt 1 of 3 to D1:8D:3B:4C:19:96 failed to establish (reason 0x3e); trying again
+WARNING  benchtools.instruments.nordic_dongle.dongle: DFU of U:\PrivateWork\Sensoteq\Kepler\innovateuk-sensor\software\output\KAPPAX_APP_SDK17_PCB_V5_DEBUG\package\KAPPAX_APP_SDK17_PCB_V5_DEBUG_OTA.zip to D1:8D:3B:4C:19:97 KAPPA_5C1712-0FDFU: ExtendedError (HwVersionFailure), 144 bytes in 5.9 s
+WARNING  benchtools.instruments.nordic_dongle.dongle: connection attempt 1 of 3 to D1:8D:3B:4C:19:96 failed to establish (reason 0x3e); trying again
+BT-003 legacy upgrade - V10.00.0000 to the candidate over the air: PASS - 3 passed, 0 failed, 0 errored, 0 skipped in 472.82 s
+  JSON    : ota.json
+  Markdown: ota_report.md
+rc=0
