@@ -11,6 +11,12 @@
   disabled_rules:
     - function.prefix
 
+# fake_gattc.c does the same for the GATT client, discovery and queue calls
+# the DFU client makes (sd_ble_*, nrf_ble_gq_*, ble_db_discovery_*) (#244).
+"fake_gattc.c":
+  disabled_rules:
+    - function.prefix
+
 # fake_scanner.c compares sscanf()'s int result with the field count. A U
 # suffix there would make the comparison mixed-sign (MISRA C:2012 Rule 10.4),
 # so this rule's advice is wrong for these two lines.

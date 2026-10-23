@@ -55,6 +55,8 @@
       <file file_name="../src/cmd_parser.c" />
       <file file_name="../src/ble_scanner.c" />
       <file file_name="../src/nus_client.c" />
+      <file file_name="../src/dfu_client.c" />
+      <file file_name="../src/cmd_dfu.c" />
       <file file_name="../src/timestamp.c" />
       <file file_name="../src/bootloader.c" />
       <file file_name="../src/firmware_version.c" />

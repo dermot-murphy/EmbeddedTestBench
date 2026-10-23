@@ -89,6 +89,19 @@ uint32_t	fake_nus_client_disconnects(void);
 void		fake_nus_client_set_connect_result(uint32_t result);
 void		fake_nus_client_reset(void);
 
+/** Run @p hook whenever the code under test services USB while it waits. */
+void		fake_host_set_process_hook(void (*hook)(void));
+
+/* The DFU client, for tests of the dfucp and dfupkt commands (#244). */
+void		fake_dfu_set_ready(bool ready);
+void		fake_dfu_set_response(const uint8_t * p_data, uint16_t length);
+const uint8_t *	fake_dfu_last(void);
+uint16_t	fake_dfu_last_length(void);
+uint32_t	fake_dfu_last_timeout_ms(void);
+uint32_t	fake_dfu_packets(void);
+void		fake_dfu_set_packet_result(uint32_t result);
+void		fake_dfu_reset(void);
+
 /* Each test's setUp resets the fakes that test links. There is deliberately no
  * reset-everything helper: a binary links only the fakes it needs, so one would
  * be an undefined symbol in every binary but the largest. */

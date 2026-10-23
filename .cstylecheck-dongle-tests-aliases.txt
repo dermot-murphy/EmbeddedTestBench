@@ -7,10 +7,13 @@
 #   test_*.c         Unity test files name their functions test_*
 #   fake_scanner.c   stands in for ble_scanner.c, whose API is scanner_*
 #   fake_host_link.c stands in for cdc_acm.c, whose API is cdc_acm_*
+#   fake_dfu_client.c stands in for dfu_client.c, whose API is dfu_client_*
 #   fake_*.c, fakes.h the controls a test drives a fake with are fake_*
 test_ble_scanner       test
 test_cdc_acm           test
+test_cmd_dfu           test
 test_cmd_parser        test
+test_dfu_client        test
 test_firmware_version  test
 test_nus_client        test
 test_timestamp         test
@@ -20,5 +23,8 @@ fake_host_link         cdc_acm
 fake_host_link         fake
 fake_nus_client        nus_client
 fake_nus_client        fake
+fake_dfu_client        dfu_client
+fake_dfu_client        fake
+fake_gattc             fake
 fake_sdk               fake
 fakes                  fake

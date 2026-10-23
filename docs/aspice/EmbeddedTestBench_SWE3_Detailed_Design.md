@@ -10,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE3-001 | **Version** | 1.31 |
+| **Document ID** | ETB-SWE3-001 | **Version** | 1.32 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-23 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -65,6 +65,7 @@
 | 1.29 | 2026-10-22 | Claude | #121: BLE-DD-SIMWORLD and BLE-DD-KEPLERSIM added - a simulated Kepler sensor 5C1712 shared by the simulated dongle (`KeplerResponder`, `SimulatedSensor.responder`), supply (`terminal_volts`) and probe (`periodic_rtt`, `simulated_target`). |
 | 1.30 | 2026-10-23 | Claude | #259: JLINK-DD-PROBE - `reset` and `flash` halt a running core first (`_stop_if_running`), since GDB refuses `monitor` commands while it runs. JLINK-DD-SIM - the simulated GDB refuses a `monitor` command while the core runs. |
 | 1.31 | 2026-10-23 | Claude | #264: JLINK-DD-PROBE - `restore` programmes an image set in order keeping UICR (`RestoreResult`, `NRF52_UICR`); CORE-DD-PATHS - `resolve_arguments` resolves a list of files item by item. |
+| 1.32 | 2026-10-23 | Claude | #244: BLE-DD-DFU (firmware `dfu_client.c`, `cmd_dfu.c`: `dfucp`, `dfupkt`, `+dfu`; protocol 1.7, firmware 1.7.0), BLE-DD-DFUHOST (`dfu.py`, `NordicDongle.send_package`) and BLE-DD-DFUSIM (`dfu_target.py`, the simulated 5C1712 bootloader) added; BLE-DD-CMDARGS gains the hex helpers. |
 
 ---
 
@@ -1359,6 +1360,47 @@ from V11.01, written in the V11.00 style); a loaded battery 20 mV below the
 unloaded one; an MCU 3.5 C above the machine temperature; `NACK Invalid Command`
 for anything else. Transmitting its frames is #122.
 
+#### BLE-DD-DFUHOST — `dfu.py`, `NordicDongle.send_package`
+
+The host's half of a Secure DFU transfer. `load_package` reads the zip
+`nrfutil pkg generate` writes and orders its images as nrfutil does:
+SoftDevice and bootloader, SoftDevice, bootloader, application. `SecureDfu`
+runs Nordic's procedure over two callables - a Control Point write that
+returns the response, and a Packet write: a receipt every 8 packets, for the
+dongle's flow control (a reduced protocol may refuse it, which is not an
+error), then for the init packet and
+then the firmware in objects of the bootloader's size, *create*, write in
+244-byte pieces, *CRC* - the target's offset and CRC32 of everything received
+must match what was sent - and *execute*.
+
+A refusal is a result: `send_image` returns the stage it stopped at (`init`,
+`firmware`) with the result code and any extended error, and `DfuResult`
+names them as a test compares them - `Success`, `InvalidObject`,
+`ExtendedError` with `FwVersionFailure`, `HwVersionFailure`,
+`SdVersionFailure`. A CRC that does not match, or a response to another
+request, is a broken transfer and raises `DfuError`.
+
+`NordicDongle.send_package(package, target, timeout)` finds the bootloader by
+address or by the start of its name followed by `DFU` - `KAPPA_5C1712` finds
+`KAPPA_5C1712-0FDFU` - with a fresh scan before each image, opens a link and
+waits for `+dfu state=ready`, runs the image, and disconnects: the bootloader
+resets after executing an image. It is a method of the dongle, not a separate
+instrument, because a second instrument on the same serial port could not open
+it. Each transfer is a `ble_dfu` event-log record.
+
+#### BLE-DD-DFUSIM — `dfu_target.py`
+
+`SimulatedBootloader` answers the Control Point as an SDK 17 bootloader does,
+with real CRC32 bookkeeping, and keeps the init packets and firmware it
+executed. It does not decode an init packet, so a refusal that follows
+validation - a wrong key, another board, a downgrade - is configured with
+`refuse_init` and returned at the init packet's execute, where the real one
+returns it. The simulated dongle gives a sensor a bootloader with
+`SimulatedSensor.bootloader`: a link to it reports `+dfu state=ready`, and
+`dfucp` and `dfupkt` reach it. The simulated 5C1712 enters its bootloader on
+`SESSION SWDL` and then advertises at `D1:8D:3B:4C:19:97` as
+`KAPPA_5C1712-0FDFU` (`SimulatedSensor.present`).
+
 #### BLE-DD-CLI — `cli.py`
 
 Sub-commands `info`, `scan`, `select`, `profile`, `cmd`, `monitor`, `firmware`,
@@ -1519,6 +1561,41 @@ arguments is BLE-DD-CMDARGS, kept apart so `cmd_parser.c` stays under the
 800-line limit. From protocol 1.5 `connect` answers `err 7` while a
 connection is being made, and adds the SoftDevice's code (`nrf=0x..`) to
 `err 10`.
+
+#### BLE-DD-DFU — `firmware/src/dfu_client.c`, `firmware/src/cmd_dfu.c`
+
+A GATT client for Nordic's Secure DFU service, so the dongle can carry a
+firmware update to a sensor in its bootloader (#244). The dongle carries
+bytes; the host runs the procedure (BLE-DD-DFUHOST).
+
+`dfu_client_init` adds the vendor base `8EC9xxxx-F315-4F60-9FB8-838830DAEA50`
+and registers service 0xFE59 with discovery, beside the UART service. When a
+link's discovery finds it with its Control Point (0x0001) and Packet (0x0002),
+notifications are turned on at the Control Point's CCCD through the GATT queue
+and `+dfu state=ready` is reported; a service without both is `incomplete`.
+The queue keeps requests in order, so no Control Point write overtakes the
+CCCD write. `dfu_client_control` writes a request (write with response) and
+waits, servicing USB, for the notification that answers it; a notification
+that arrived before the request is not taken as its answer.
+`dfu_client_packet` writes without a response, straight to the SoftDevice
+rather than through the GATT queue, which passes `NRF_ERROR_RESOURCES` for a
+write command to its error handler instead of retrying; the client waits for
+a transmit buffer. It splits each write to the link's effective MTU less 3,
+because a transfer can start before the MTU exchange ends (a 144-byte write
+was refused on 5C1712's bootloader). It does its own flow control: when an
+accepted Control Point request has set a receipt interval (opcode 0x02), it
+waits for the bootloader's receipt after every that many packets, counted
+from the last object created. Without it, writes outran the bootloader's 17
+packet buffers and data was lost. A DFU link asks for a 7.5 ms interval when
+its service is found; a UART link keeps its own, the floor under its
+latencies. On 5C1712 a 298 KB application took 108.8 s, against 190.7 s at
+30 ms.
+
+`cmd_dfu.c` holds the commands, apart from `cmd_parser.c` for its 800-line
+limit: `dfucp <hex> [timeout=<ms>]` answers `ok len= data=` with the response,
+or `err 8` when none came; `dfupkt <hex>` answers `ok len=`, or `err 7` when
+the queue stayed full. Both answer `err 4` on a link with no DFU service.
+Protocol 1.7, firmware 1.7.0.
 
 #### BLE-DD-CMDARGS — `firmware/src/cmd_args.c`
 

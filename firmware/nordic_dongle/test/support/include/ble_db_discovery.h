@@ -5,7 +5,54 @@
 #include "ble.h"
 #include "nrf_ble_gq.h"
 
-typedef struct { uint16_t conn_handle; uint8_t evt_type; } ble_db_discovery_evt_t;
+#define BLE_GATT_DB_MAX_CHARS	6
+
+typedef enum
+{
+	BLE_DB_DISCOVERY_COMPLETE,
+	BLE_DB_DISCOVERY_ERROR,
+	BLE_DB_DISCOVERY_SRV_NOT_FOUND,
+	BLE_DB_DISCOVERY_AVAILABLE
+} ble_db_discovery_evt_type_t;
+
+typedef struct
+{
+	ble_uuid_t	uuid;
+	uint16_t	handle_decl;
+	uint16_t	handle_value;
+} ble_gattc_char_t;
+
+typedef struct
+{
+	ble_gattc_char_t	characteristic;
+	uint16_t		cccd_handle;
+	uint16_t		ext_prop_handle;
+	uint16_t		user_desc_handle;
+	uint16_t		report_ref_handle;
+} ble_gatt_db_char_t;
+
+typedef struct
+{
+	ble_uuid_t		srv_uuid;
+	uint8_t			char_count;
+	ble_gatt_db_char_t	charateristics[BLE_GATT_DB_MAX_CHARS];
+} ble_gatt_db_srv_t;
+
+typedef struct
+{
+	ble_db_discovery_evt_type_t	evt_type;
+	uint16_t			conn_handle;
+	union
+	{
+		ble_gatt_db_srv_t	discovered_db;
+		uint32_t		err_code;
+	} params;
+} ble_db_discovery_evt_t;
+
+uint32_t ble_db_discovery_evt_register(ble_uuid_t const * p_uuid);
+/** The service UUIDs registered, in order. */
+uint32_t		fake_db_discovery_registered_count(void);
+const ble_uuid_t *	fake_db_discovery_registered(uint32_t index);
 typedef struct { int unused; } ble_db_discovery_t;
 typedef void (*ble_db_discovery_evt_handler_t)(ble_db_discovery_evt_t * p_evt);
 

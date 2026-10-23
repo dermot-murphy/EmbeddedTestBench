@@ -74,6 +74,8 @@ Every event carries `t=`, microseconds on the dongle's clock.
 | `time` | the dongle's timestamp now, and its rate |
 | `reset` | reset the dongle |
 | `dfu` | answer, then restart into the bootloader so the host can refresh the firmware |
+| `dfucp <hex> [timeout=<ms>]` | write a target's DFU Control Point, and answer with the response it notifies (`ok len= data=`); `err 8` when none came (protocol 1.7) |
+| `dfupkt <hex>` | write a target's DFU Packet characteristic; `err 7` when the GATT queue stayed full (protocol 1.7) |
 
 ### 2.2 Events
 
@@ -86,6 +88,7 @@ Every event carries `t=`, microseconds on the dongle's clock.
 | `+disc` | `t reason` — HCI reason code; `timeout` when the connect window closed; `cancelled` when `disconnect` stopped a connection being made (1.5) |
 | `+scan` | `t state` — `started` or `stopped` |
 | `+drop` | `t count` — lines the dongle could not send |
+| `+dfu` | `t state error` — the link's DFU service: `ready`, `incomplete`, `failed`, or `error` for a queued write that failed (1.7) |
 
 `+drop` is the important one. It is how the host knows its stream was lossy
 rather than the sensor quiet, and it is why `AdvertisingProfile.is_complete`
@@ -132,6 +135,50 @@ What the driver now does:
 
 The first `connect` after a reset may still end with 0x3E while the sensor
 boots; `open_link` tries that again (#180).
+
+### 2.5 Updating a sensor's firmware over BLE (#244)
+
+A sensor in its bootloader offers Nordic's Secure DFU service (0xFE59) instead
+of the UART service. When a link's discovery finds it, the dongle turns on
+Control Point notifications and reports `+dfu state=ready`; `dfucp` and
+`dfupkt` then carry the transfer, and the host runs the procedure:
+
+```yaml
+- do: dongle.command_expecting_disconnect     # a Kepler sensor enters its bootloader
+  with: {request: SESSION SWDL}
+- do: dongle.send_package
+  with: {package: images/app_OTA.zip, target: KAPPA_5C1712, timeout: 180}
+  expect:
+    - {name: updated, measure: result, equals: "Success"}
+```
+
+`target` is the bootloader's address, or the start of its name: the Kepler
+V2.00.0000 bootloader advertises at the application's address + 1 as
+`KAPPA_<id>-<pcb>DFU` (`_` instead of `-` when not entered from the
+application). Each image of a package goes over its own link, because the
+bootloader resets after executing one. A refusal is a result, not an error:
+
+| `result` | `extended_error` | A Kepler bootloader means |
+|---|---|---|
+| `Success` | | updated |
+| `InvalidObject` | | signed with a key it does not trust |
+| `ExtendedError` | `FwVersionFailure` | a lower application version |
+| `ExtendedError` | `HwVersionFailure` | a package for another PCB |
+| `ExtendedError` | `SdVersionFailure` | a SoftDevice requirement it does not meet |
+
+`stage` says where it stopped: `init` (the init packet, where version,
+hardware and signature are checked), `firmware`, or `done`.
+
+On 5C1712 (bootloader V2.00.0000, 2026-10-23) a V5 package was refused with
+`HwVersionFailure` and a 298 KB V4X application package was sent in 108.8 s.
+Three things were needed to get there, and are why the firmware does what it
+does: Packet writes split to the link's MTU (the transfer starts before the
+MTU exchange ends), written directly to the SoftDevice with a wait for a
+transmit buffer, and flow control by the bootloader's receipts every 8
+packets (it keeps 17 buffers, and without receipts data was lost). The link
+runs at 7.5 ms; at 30 ms the same package took 190.7 s. The DFU is a
+method of the dongle rather than a separate instrument: two instruments on one
+serial port could not both open it.
 
 ## 3. Building and flashing
 

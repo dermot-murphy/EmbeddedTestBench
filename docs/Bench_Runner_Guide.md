@@ -766,6 +766,7 @@ gives you the means to say so in the specification rather than in a comment.
 | `measure_advertising_profile` | `AdvertisingProfile` | `mean_interval_s`, `minimum_interval_s`, `maximum_interval_s`, `spread_s`, `jitter_s`, `expected_jitter_s`, `rate_hz`, `count`, `missed_events`, `expected_events`, `duty_cycle`, `reception_ratio`, `is_complete`, `lost_reports` |
 | `measure_response_time` | `ResponseTiming` | `milliseconds`, `seconds`, `minimum_s`, `maximum_s`, `spread_s`, `standard_deviation_s`, `count`, `is_trustworthy`, `quantisation_s` |
 | `command` | `ResponseSample` | `text`, `dongle_us`, `host_s` |
+| `send_package` | `DfuResult` | `result` (`Success`, `InvalidObject`, `ExtendedError`), `extended_error` (`HwVersionFailure`...), `stage`, `bytes_sent`, `seconds`, `succeeded` — BLE notes §2.5 |
 | `write` | `int` | *(omit `measure`)* |
 
 Three of these belong in a specification beside the limits, not in a comment:

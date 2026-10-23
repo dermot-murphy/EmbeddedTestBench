@@ -69,6 +69,7 @@ from .constants import (
     DongleLimits,
     ScanFilter,
 )
+from .dfu import DfuError, DfuImage, DfuResult, SecureDfu, load_package, run_images
 from .latency import LatencySource, ResponseSample, ResponseTiming
 from .profile import AdvertisingEvent, AdvertisingProfile
 from .protocol import (
@@ -1047,6 +1048,142 @@ class NordicDongle(Instrument):
                 return event
             self._logger.info("ignoring a link event from before this connect: %s", event.raw)
             self._session.note("ignored, from before this connect: %s" % event.raw)
+
+    # ------------------------------------------------------------------
+    # Firmware update of a sensor (#244)
+    # ------------------------------------------------------------------
+    @input_paths("package")
+    def send_package(  # pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals
+        self,
+        package: str,
+        target: str,
+        timeout: float = 180.0,
+        scan_seconds: float = 5.0,
+        connect_timeout: float = 15.0,
+        chunk: int = 244,
+    ) -> DfuResult:
+        """Send a DFU package to a sensor in its bootloader, by Nordic Secure DFU.
+
+        The sensor must already be in its bootloader - a Kepler sensor enters
+        it on the BLE UART command ``SESSION SWDL``. Each image of the package
+        (a SoftDevice and bootloader, an application) is sent over its own
+        link: the bootloader resets after executing one, and is found again
+        for the next.
+
+        A refusal is a result: ``result`` is the bootloader's verdict as text -
+        ``Success``, ``InvalidObject``, ``ExtendedError`` - and
+        ``extended_error`` its reason, e.g. ``HwVersionFailure``, so a test can
+        expect a package to be refused.
+
+        :param package: The zip ``nrfutil pkg generate`` writes.
+        :param target: The bootloader's address, or the start of its name -
+            ``KAPPA_5C1712`` finds ``KAPPA_5C1712-0FDFU`` and ``KAPPA_5C1712_0FDFU``.
+        :param timeout: Longest the whole transfer may take.
+        :param scan_seconds: How long to look for the bootloader before each
+            image; a Kepler bootloader advertises every 211 ms.
+        :param connect_timeout: The connect window for each link.
+        :param chunk: Bytes per Packet write.
+        :raises InstrumentError: if the bootloader is not found, offers no DFU
+            service, or stops answering.
+
+        Traces to: BLE-FR-121.
+        """
+        images = load_package(package)
+        deadline = time.monotonic() + float(timeout)
+
+        def remaining() -> float:
+            left = deadline - time.monotonic()
+            if left <= 0.0:
+                raise DfuError("the DFU transfer did not finish within %.0f s" % timeout)
+            return left
+
+        def control(request: bytes, wait: float) -> bytes:
+            return self._dfu_control(request, min(wait, remaining()))
+
+        def packet(data: bytes) -> None:
+            remaining()
+            self._session.execute("dfupkt", data.hex())
+
+        found: List[str] = []
+
+        def connect(image: DfuImage, index: int) -> None:
+            sensor = self._find_dfu_target(target, min(scan_seconds, remaining()))
+            found.append("%s %s" % (sensor.address, sensor.name))
+            self._session.note("DFU image %d of %d (%s) to %s %s"
+                               % (index + 1, len(images), image.kind, sensor.address, sensor.name))
+            self._open_dfu_link(sensor, connect_timeout)
+
+        def disconnect(image: DfuImage, index: int) -> None:  # pylint: disable=unused-argument
+            self._disconnect()
+            self._connected = False
+
+        dfu = SecureDfu(control=control, packet=packet, chunk=chunk)
+        result = run_images(dfu, images, connect, disconnect)
+        result.target = "; ".join(found)
+        log_event(self._logger, "ble_dfu", "DFU of %s to %s: %s%s, %d bytes in %.1f s"
+                  % (package, result.target, result.result,
+                     " (%s)" % result.extended_error if result.extended_error else "",
+                     result.bytes_sent, result.seconds),
+                  result.as_dict(),
+                  level=logging.INFO if result.succeeded else logging.WARNING)
+        return result
+
+    def _find_dfu_target(self, target: str, seconds: float) -> Sensor:
+        """The bootloader named or addressed by *target*, from a fresh scan."""
+        try:
+            wanted_address: Optional[str] = normalise_address(target)
+        except BenchToolsError:
+            wanted_address = None
+        heard = self.scan(max(seconds, 1.0))
+        if wanted_address is not None:
+            matches = [sensor for sensor in heard if sensor.address.upper() == wanted_address]
+        else:
+            matches = [sensor for sensor in heard
+                       if (sensor.name or "").startswith(target)
+                       and (sensor.name or "").upper().endswith("DFU")]
+        if not matches:
+            raise InstrumentError(
+                "no bootloader matching %r was heard in %.0f s. Heard: %s. A sensor "
+                "enters its bootloader on SESSION SWDL and leaves it after 30 s idle."
+                % (target, seconds, ", ".join(
+                    "%s %s" % (sensor.address, sensor.name) for sensor in heard) or "nothing"))
+        chosen = max(matches, key=lambda sensor: sensor.rssi)
+        self.select(chosen)
+        return chosen
+
+    def _open_dfu_link(self, sensor: Sensor, connect_timeout: float) -> None:
+        """Connect to a bootloader and wait for its DFU service."""
+        started_us = self._start_connect(connect_timeout)
+        deadline = time.monotonic() + connect_timeout + SERVICE_DISCOVERY_TIMEOUT
+        try:
+            while True:
+                event = self._session.wait_for_event(
+                    ("conn", "disc", "dfu"), timeout=max(deadline - time.monotonic(), 0.0))
+                if event.timestamp_us is not None and event.timestamp_us < started_us:
+                    continue
+                if event.name == "disc":
+                    raise LinkLostError("could not connect to the bootloader at %s (reason %s)"
+                                        % (sensor.address, event.get("reason")),
+                                        reason=str(event.get("reason") or ""))
+                if event.name == "dfu":
+                    if event.get("state") == "ready":
+                        self._connected = True
+                        return
+                    raise DfuError("linked to %s but its DFU service is %s"
+                                   % (sensor.address, event.get("state")))
+        except BenchToolsError:
+            self._disconnect()
+            raise
+
+    def _dfu_control(self, request: bytes, timeout: float) -> bytes:
+        """Write the Control Point and return the bootloader's response."""
+        milliseconds = int(min(max(timeout, 0.1), 60.0) * 1000)
+        reply = self._session.execute("dfucp", request.hex(), "timeout=%d" % milliseconds,
+                                      timeout=milliseconds / 1000.0 + 2.0, allow_error=True)
+        if not reply.ok:
+            raise DfuError("the bootloader did not answer the Control Point request %s: %s"
+                           % (request.hex(), reply.text))
+        return from_hex(reply.fields.get("data", ""))
 
     def close_link(self) -> None:
         """Disconnect from the sensor. Idempotent."""

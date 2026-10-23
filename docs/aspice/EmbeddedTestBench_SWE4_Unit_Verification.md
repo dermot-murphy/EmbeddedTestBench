@@ -10,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE4-001 | **Version** | 1.32 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-22 |
+| **Document ID** | ETB-SWE4-001 | **Version** | 1.33 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-23 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.4 |
@@ -66,6 +66,7 @@
 | 1.30 | 2026-10-05 | Claude | #180: SWE4-UT-BLE covers a link that fails to establish (0x3E) being tried again, giving up after the attempts allowed, each failed attempt in the event log and the session log, and no other failure being tried again; SWE4-UT-BLESCRIPT covers a `connect` step logging each failed attempt and making no more than its own. |
 | 1.31 | 2026-10-06 | Claude | #60: SWE4-UT-BLESCRIPT adds `test_script_timeouts.py` - timeouts by command prefix: matching, precedence, variables, the run's override, refusals, and the timeout each result reports - and traces BLE-FR-119; SWE4-UT-BLECLI covers `script --timeout PREFIX=MS`. |
 | 1.32 | 2026-10-22 | Claude | #121: SWE4-UT-KEPLERSIM added - the four Kepler specifications' BLE, RTT and supply steps on the simulated bench, and each fact they check broken in turn. |
+| 1.33 | 2026-10-23 | Claude | #244: SWE4-UT-BLEDFU added - the Secure DFU procedure, packages and send_package against the simulated bootloader; firmware test_dfu_client and test_cmd_dfu added to SWE4-UT-FWUNIT. |
 
 ---
 
@@ -382,6 +383,7 @@ against the simulator in the default run (SWE4-UT-PSUPANEL, SWE4-UT-DMMPANEL).
 | SWE4-UT-RESOLVE | `runner/test_resolve.py` | Result path resolution and its failure messages; how many, for a step returning a collection; references to a value an earlier step saved, their formatting and their failures | RUN-FR-013, RUN-FR-016 |
 | SWE4-UT-BRINGUP | `runner/test_sensor_bringup.py` | The shipped sensor bring-up specification run end to end on the simulated bench, and each fact it claims to establish broken in turn to confirm it would fail: a firmware reporting another version, a part with no identifier programmed, a board that says nothing on RTT | RUN-FR-016, RUN-FR-024, RUN-FR-030 .. -037 |
 | SWE4-UT-KEPLERSIM | `runner/test_kepler_simulated.py` | The four Kepler specifications run on the simulated bench with the S2-LP steps failing at once (#122): every dongle, RTT, supply and sleep step passes. Each fact they check over BLE or RTT is then broken in the simulated sensor and must be noticed: a battery that does not follow the supply, an unacknowledged alive period, a wandering machine temperature, an MCU far from it, an unacknowledged reset, a loaded-battery reply in another format, a silent RTT log | BLE-FR-120 |
+| SWE4-UT-BLEDFU | `instruments/nordic_dongle/test_dfu.py` | The Secure DFU procedure against the simulated bootloader: an image arrives whole in objects of the bootloader's size; a refused init packet and each extended error (`FwVersionFailure`, `HwVersionFailure`, `SdVersionFailure`) are results, not exceptions; a CRC mismatch or an answer out of turn raises. Packages in nrfutil's order. `send_package` through the simulated dongle and 5C1712: entering the bootloader by `SESSION SWDL`, a package sent, a refusal reported, an image per link, the target by address, a sensor not in its bootloader | BLE-FR-121 |
 | SWE4-UT-EVENTS | `core/test_events.py` | The bench event log: sources by logger name, one JSON line per record, the console level left alone, following a growing file including a partial last line, and the supply's, the runner's and the radio's records arriving in it; the name rule, each driver's default including `TEMP`, a bound logger, a rename reaching loggers already bound, two instruments of one driver told apart, a transport's lines under its instrument's name, and an instrument named from construction | CORE-FR-060, CORE-FR-063 |
 | SWE4-UT-TESTBENCH | `tools/test_test_bench.py` | The Embedded Test Bench monitor's sources: a live packet as the log line rf_monitor's parser reads, the ST GUI page's RF setup, register table and register-file export, reading the setup while receiving and resuming, the PSU and J-Link panels rebuilt from event-log records, event formatting and colours, and live reception from a simulated kit; event sources upper case, a log written in lower case before #126 read the same, any declared name shown as itself in a colour of its own | CORE-FR-060 |
 | SWE4-UT-EVENTNAMES | `runner/test_event_names.py` | Event-log names allocated in the specification and attached on the bench (21 cases): the entry forms, an invalid or shared name refused in either, the specification's name winning, the bench's and the driver's in turn, a clash of defaults refused before anything connects, an open instrument renamed, the shipped benches naming `temp` and `rtt`, a run whose records carry only the declared names, and the name in the record and the report | RUN-FR-008, CORE-FR-063 |

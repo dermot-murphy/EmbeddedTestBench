@@ -31,6 +31,9 @@ Open items, assumed rather than captured, and marked so in BLE-DD-KEPLERSIM:
 - The loaded battery reads 20 mV below the unloaded one, and the MCU 3.5 C
   above the machine temperature (seen as 2.5-4.75 C on 5C1712).
 - An unknown command answers ``NACK Invalid Command``.
+- ``SESSION SWDL`` answers ``ACK SESSION SWDL``; the firmware's handler
+  (``app_cmd.c``) replies ``ACK``, and the exact text was not captured. The
+  sensor then enters its bootloader (#244).
 
 Traces to: BLE-DD-KEPLERSIM.
 """
@@ -45,6 +48,8 @@ __all__ = [
     "KEPLER_5C1712_ADDRESS",
     "KEPLER_5C1712_ID",
     "KEPLER_5C1712_NAME",
+    "KEPLER_5C1712_DFU_ADDRESS",
+    "KEPLER_5C1712_DFU_NAME",
     "KeplerSensorModel",
 ]
 
@@ -54,6 +59,11 @@ KEPLER_5C1712_ADDRESS = "D1:8D:3B:4C:19:96"
 #: The name V11.00.0000 advertises: the firmware tag, cut to 23 characters by
 #: that generation's advertising payload.
 KEPLER_5C1712_NAME = "KAPPA_5C1712_V11.00.00"
+#: 5C1712 in its bootloader: the application's address + 1, and the name the
+#: V2.00.0000 bootloader gives itself when the application enters it, with the
+#: V4X PCB code (bl_board.c) (#244).
+KEPLER_5C1712_DFU_ADDRESS = "D1:8D:3B:4C:19:97"
+KEPLER_5C1712_DFU_NAME = "KAPPA_5C1712-0FDFU"
 
 #: RESETREAS.SREQ: the reset reason a ``ECURESET HARD`` leaves.
 RESET_REASON_SOFT = 4
@@ -82,6 +92,8 @@ class KeplerSensorModel:  # pylint: disable=too-many-instance-attributes
     preamble_length: int = 32
     reset_reason: int = 1
     resets: int = 0
+    #: In its bootloader, after ``SESSION SWDL``, advertising for an update.
+    in_bootloader: bool = False
     supply: Optional[Callable[[], Optional[float]]] = None
 
     #: Accepted ranges, from the sensor firmware's parameter table.
@@ -124,7 +136,7 @@ class KeplerSensorModel:  # pylint: disable=too-many-instance-attributes
         }
         if word in readings:
             return "ACK %s = %s" % (text, readings[word])
-        if word == "ECURESET HARD":
+        if word in ("ECURESET HARD", "SESSION SWDL"):
             return "ACK %s" % text
         match = _WRITE.match(text)
         if match:

@@ -39,6 +39,20 @@ bool cmd_args_timeout(const char * token, uint32_t min_ms, uint32_t max_ms,
 bool cmd_args_connect(char * tokens[], uint32_t count, ble_gap_addr_t * p_target,
 		      bool * p_have_target, uint32_t * p_timeout_ms);
 
+/**
+ * @brief Decode hex text into bytes.
+ *
+ * @param[out] p_length  Bytes decoded.
+ * @return False if the text is not valid hex or is too long for @p capacity.
+ */
+bool cmd_args_decode_hex(const char * text, uint8_t * buffer, uint32_t capacity,
+			 uint16_t * p_length);
+
+/**
+ * @brief Encode bytes as hex text; @p text holds 2 * @p length + 1 characters.
+ */
+void cmd_args_encode_hex(const uint8_t * data, uint32_t length, char * text);
+
 #ifdef __cplusplus
 }
 #endif
