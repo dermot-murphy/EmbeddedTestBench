@@ -395,30 +395,42 @@ class JLinkProbe(Instrument):
             )
             if start_server:
                 server.start()
-            gdb = find_gdb(gdb_executable)
-            if gdb is None:
-                raise ConnectionFailedError(
-                    "no ARM-capable GDB found. Install arm-none-eabi-gdb (it ships "
-                    "with the GNU Arm Embedded toolchain) or pass "
-                    "gdb_executable=... . The driver needs GDB for symbol lookup "
-                    "and stack unwinding."
+            try:
+                gdb = find_gdb(gdb_executable)
+                if gdb is None:
+                    raise ConnectionFailedError(
+                        "no ARM-capable GDB found. Install arm-none-eabi-gdb (it ships "
+                        "with the GNU Arm Embedded toolchain) or pass "
+                        "gdb_executable=... . The driver needs GDB for symbol lookup "
+                        "and stack unwinding."
+                    )
+                transport = ProcessTransport(
+                    [gdb, "--interpreter=mi2", "--quiet", "-nx"], timeout=timeout
                 )
-            transport = ProcessTransport(
-                [gdb, "--interpreter=mi2", "--quiet", "-nx"], timeout=timeout
-            )
-            rtt = RttClient(SocketRttBackend(host, rtt_port))
+                rtt = RttClient(SocketRttBackend(host, rtt_port))
+            except BaseException:
+                # No probe exists yet to close it, so a server started above
+                # would outlive the run and hold the probe (#254). stop() leaves
+                # alone a server this connect did not spawn.
+                server.stop()
+                raise
             address = server.address
 
-        probe = cls(
-            session=GdbMiSession(transport, timeout=timeout),
-            server=server,
-            rtt=rtt,
-            elf=elf,
-            firmware=firmware,
-            limits=limits,
-            target_address=address,
-            auto_check_errors=auto_check_errors,
-        )
+        try:
+            probe = cls(
+                session=GdbMiSession(transport, timeout=timeout),
+                server=server,
+                rtt=rtt,
+                elf=elf,
+                firmware=firmware,
+                limits=limits,
+                target_address=address,
+                auto_check_errors=auto_check_errors,
+            )
+        except BaseException:
+            if server is not None:
+                server.stop()
+            raise
         probe.attach_on_open = bool(attach)
         try:
             if initialise:

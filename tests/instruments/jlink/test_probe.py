@@ -43,6 +43,84 @@ def probe_for(**simulator_kwargs) -> JLinkProbe:
     return instance
 
 
+class _RecordingServer:
+    """Stands in for GdbServer: records start and stop, spawns nothing."""
+
+    instances = []
+
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+        self.started = self.stopped = False
+        self.address = "127.0.0.1:2331"
+        _RecordingServer.instances.append(self)
+
+    def start(self):
+        self.started = True
+
+    def stop(self):
+        self.stopped = True
+
+
+class TestAFailedConnectLeavesNoServer:
+    """A GDB Server started by a connect that then failed was left running,
+    holding the probe, for hours on the Kepler bench (#254)."""
+
+    @pytest.fixture(autouse=True)
+    def recording_server(self, monkeypatch):
+        _RecordingServer.instances = []
+        monkeypatch.setattr("benchtools.instruments.jlink.probe.GdbServer", _RecordingServer)
+
+    def test_no_gdb_stops_the_server_it_started(self, monkeypatch):
+        monkeypatch.setattr("benchtools.instruments.jlink.probe.find_gdb", lambda path: None)
+        with pytest.raises(ConnectionFailedError, match="no ARM-capable GDB"):
+            JLinkProbe.connect("jlink://", device="nRF52840_xxAA")
+        server = _RecordingServer.instances[0]
+        assert server.started and server.stopped
+
+    def test_a_gdb_that_will_not_start_stops_the_server(self, monkeypatch):
+        monkeypatch.setattr("benchtools.instruments.jlink.probe.find_gdb",
+                            lambda path: "arm-none-eabi-gdb")
+
+        def no_process(*args, **kwargs):
+            raise ConnectionFailedError("could not start arm-none-eabi-gdb")
+
+        monkeypatch.setattr("benchtools.instruments.jlink.probe.ProcessTransport", no_process)
+        with pytest.raises(ConnectionFailedError, match="could not start"):
+            JLinkProbe.connect("jlink://", device="nRF52840_xxAA")
+        assert _RecordingServer.instances[0].stopped
+
+    def test_a_failed_attach_stops_the_server(self, monkeypatch):
+        """Once the probe exists, closing it is what stops the server."""
+        monkeypatch.setattr("benchtools.instruments.jlink.probe.find_gdb",
+                            lambda path: "arm-none-eabi-gdb")
+        monkeypatch.setattr("benchtools.instruments.jlink.probe.ProcessTransport",
+                            lambda *a, **k: MockTransport(responder=SimulatedJLink()))
+
+        def refuse(self):
+            raise ConnectionFailedError("could not attach to the target")
+
+        monkeypatch.setattr(JLinkProbe, "initialise", refuse)
+        with pytest.raises(ConnectionFailedError, match="could not attach"):
+            JLinkProbe.connect("jlink://", device="nRF52840_xxAA")
+        assert _RecordingServer.instances[0].stopped
+
+    def test_a_server_it_did_not_start_is_left_running(self, monkeypatch):
+        """A server already listening is not this connect's to stop: GdbServer.stop
+        does nothing for one it did not spawn."""
+        from benchtools.instruments.jlink import server as server_module
+
+        monkeypatch.setattr("benchtools.instruments.jlink.probe.GdbServer",
+                            server_module.GdbServer)
+        monkeypatch.setattr(server_module, "port_is_open", lambda host, port, timeout=0.5: True)
+        monkeypatch.setattr("benchtools.instruments.jlink.probe.find_gdb", lambda path: None)
+        spawned = []
+        monkeypatch.setattr(server_module.subprocess, "Popen",
+                            lambda *a, **k: spawned.append(a) or None)
+        with pytest.raises(ConnectionFailedError):
+            JLinkProbe.connect("jlink://", device="nRF52840_xxAA")
+        assert spawned == []
+
+
 class TestConnection:
     def test_connect_to_the_simulator(self):
         with JLinkProbe.connect("sim://", elf="firmware.elf") as probe:
