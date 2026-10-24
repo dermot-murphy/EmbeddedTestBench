@@ -29,6 +29,7 @@ ARCHITECTURE_DOC = DOCS / "EmbeddedTestBench_SWE2_SW_Architecture.md"
 DESIGN_DOC = DOCS / "EmbeddedTestBench_SWE3_Detailed_Design.md"
 TEST_SPEC_DOC = DOCS / "EmbeddedTestBench_SWE4_Unit_Verification.md"
 MATRIX_DOC = DOCS / "EmbeddedTestBench_Traceability_Matrix.md"
+REPORT_DOC = DOCS / "EmbeddedTestBench_SWE4_Unit_Verification_Report.md"
 
 #: Requirement identifier, e.g. CORE-FR-001, JLINK-FR-060 or CORE-NFR-007.
 #: One prefix per element of SWE.1 §3; a new element is registered here.
@@ -40,7 +41,9 @@ _DESIGN_UNIT = r"(?:CORE|ANA|INST|SCOPE|JLINK|BLE|PSU|DMM|S2LP|PICO|RUN)-DD-[A-Z
 
 def _text(path: pathlib.Path) -> str:
     assert path.exists(), "missing work product: %s" % path.relative_to(ROOT)
-    return path.read_text()
+    # The documents are UTF-8; the locale default (cp1252 on Windows) cannot
+    # read every byte in them (#286).
+    return path.read_text(encoding="utf-8")
 
 
 def _declared_requirements() -> set:
@@ -153,6 +156,79 @@ class TestTestGroupTraceability:
             "test group(s) cited in tests but absent from the test specification:\n  "
             + "\n  ".join(sorted(offenders))
         )
+
+
+#: A first-column cell that names a test group, matched loosely (bold or code
+#: marks, any characters to the cell's end) so that a malformed ID is caught
+#: rather than silently dropped; the strict form is what an ID must be.
+_GROUP_CELL = re.compile(r"^\|\s*[*`]*(SWE4-UT-[^|*`\s]*)[*`]*\s*\|(.*)$", re.M)
+_GROUP_ID = re.compile(r"SWE4-UT-[A-Z0-9]+")
+
+#: What a result cell may say: a verdict, optionally with a note in brackets,
+#: or "Not run:" with the reason.
+_VERDICT = re.compile(r"^(?:(?:Pass|Fail|\d+ failed|Pass, \d+ skipped)(?: \(.+\))?|Not run: .+)$")
+
+
+def _report_section() -> str:
+    text = _text(REPORT_DOC)
+    start = text.index("## 5. Results by test group")
+    return text[start:text.index("\n## ", start + 1)]
+
+
+def _report_rows() -> dict:
+    """Test group -> its (tests, result) cells in the report's results table (section 5)."""
+    rows = {}
+    for match in _GROUP_CELL.finditer(_report_section()):
+        cells = [cell.strip() for cell in match.group(2).split("|")]
+        rows[match.group(1)] = (cells[1] if len(cells) > 1 else "",
+                                cells[2] if len(cells) > 2 else "")
+    return rows
+
+
+def _report_results() -> set:
+    """Test groups with a row in the report's results table (section 5)."""
+    return set(_report_rows())
+
+
+def _specified_groups() -> set:
+    """Test groups defined in the specification, i.e. a table's first column."""
+    return {match.group(1) for match in _GROUP_CELL.finditer(_text(TEST_SPEC_DOC))}
+
+
+class TestVerificationReport:
+    """Every specified test group has a result in the report, and the report has
+    no result for a group the specification does not define (#286)."""
+
+    def test_the_report_has_results(self):
+        """Guard against the class passing on an empty table."""
+        assert len(_report_results()) > 50
+
+    def test_every_group_id_is_well_formed(self):
+        malformed = sorted(group for group in _specified_groups() | _report_results()
+                           if not _GROUP_ID.fullmatch(group))
+        assert not malformed, "malformed test group ID(s): %s" % ", ".join(malformed)
+
+    def test_every_specified_group_has_a_result(self):
+        missing = sorted(_specified_groups() - _report_results())
+        assert not missing, (
+            "test group(s) with no row in ETB-SWE4-002 section 5:\n  " + "\n  ".join(missing))
+
+    def test_every_result_is_for_a_specified_group(self):
+        extra = sorted(_report_results() - _specified_groups())
+        assert not extra, (
+            "row(s) in ETB-SWE4-002 section 5 for groups ETB-SWE4-001 does not define:\n  "
+            + "\n  ".join(extra))
+
+    def test_every_result_has_a_count_and_a_verdict(self):
+        offenders = []
+        for group, (tests, result) in sorted(_report_rows().items()):
+            if not tests.isdigit():
+                offenders.append("%s: tests %r is not a count" % (group, tests))
+            elif tests == "0" and not result.startswith("Not run:"):
+                offenders.append("%s: %r with no tests" % (group, result))
+            if not _VERDICT.match(result):
+                offenders.append("%s: result %r is not a verdict" % (group, result))
+        assert not offenders, "ETB-SWE4-002 section 5:\n  " + "\n  ".join(offenders)
 
 
 class TestArchitectureTraceability:
