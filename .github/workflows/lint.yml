@@ -39,11 +39,11 @@ jobs:
           python-version: '3.12'
 
       # pylint resolves imports, so the package and its extras have to be
-      # installed or half the findings would be import errors.
+      # installed or half the findings would be import errors. The versions,
+      # pylint's among them, are pinned in constraints/lint.txt (#282); the
+      # pylint pin itself is stated in constraints/lint.in.
       - name: Install
-        run: |
-          pip install --quiet -e .[test]
-          pip install --quiet 'pylint==4.0.8'
+        run: pip install --quiet -c constraints/lint.txt -e .[test] pylint
 
       - name: Run pylint against the baseline
         run: python scripts/lint.py

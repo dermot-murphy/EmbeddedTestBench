@@ -1,0 +1,134 @@
+#!/bin/bash
+# Run CI's Python legs on the checkout mounted at /src (#282).
+#
+#   etb-ci [LEG...] [-- PYTEST-ARGS...]   run the legs; with none, all of them
+#   etb-ci lock                           regenerate /src/constraints
+#
+# LEG is 3.8, 3.9 or 3.12 (tests.yml's pytest legs) or lint (lint.yml).
+# PYTEST-ARGS are added to the pytest command line, after CI's own options.
+#
+# The checkout is mounted read-only and copied into the container first, so the
+# run writes nothing into it and is not slowed by Docker's file sharing. The
+# copy holds what git would commit: tracked and untracked files, not ignored
+# ones. Text files get the LF line endings a CI checkout has, whatever the host
+# checkout uses (core.autocrlf on Windows). Without git metadata in /src (a
+# "git archive" export, or a worktree whose .git points at a host path), the
+# whole tree is copied as it is.
+set -u
+
+SRC=/src
+WORK=/tmp/work
+LEGS_ALL="3.8 3.9 3.12 lint"
+
+# Read the host checkout whoever owns it; nothing is written to it.
+export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0='*'
+
+die() {
+    echo "etb-ci: $*" >&2
+    exit 2
+}
+
+usage() {
+    sed -n '4,8p' "$0" | sed 's/^# \{0,1\}//'
+}
+
+copy_tree() {
+    [ -f "$SRC/pyproject.toml" ] || die "mount the checkout at $SRC (-v \"\$PWD\":/src:ro)"
+    rm -rf "$WORK" && mkdir -p "$WORK"
+    if git -C "$SRC" rev-parse --git-dir >/dev/null 2>&1; then
+        # A tracked file deleted in the checkout is listed but absent: skip it.
+        git -C "$SRC" ls-files -z --cached --others --exclude-standard \
+            | tar -C "$SRC" --null --ignore-failed-read -T - -cf - 2>/dev/null \
+            | tar -C "$WORK" -xf -
+        # "i/lf w/crlf": stored with LF, checked out with CRLF. "i/ w/crlf": an
+        # untracked text file with CRLF. A file stored with CRLF keeps it.
+        git -C "$SRC" ls-files -z --eol --cached --others --exclude-standard \
+            | while IFS= read -r -d '' entry; do
+                info=${entry%%$'\t'*}
+                path=${entry#*$'\t'}
+                case "$info" in
+                    "i/lf "*"w/crlf"* | "i/ "*"w/crlf"*)
+                        [ -f "$WORK/$path" ] && sed -i 's/\r$//' "$WORK/$path" ;;
+                esac
+            done
+        echo "etb-ci: copied $(git -C "$SRC" log -1 --format=%h 2>/dev/null) and the working tree's changes"
+    else
+        tar -C "$SRC" --exclude=./.git --exclude=./build --exclude='*.egg-info' \
+            --exclude='__pycache__' --exclude=./.pytest_cache --exclude=./results \
+            -cf - . | tar -C "$WORK" -xf -
+        echo "etb-ci: no git metadata in $SRC; copied the tree as it is"
+    fi
+}
+
+# The commands tests.yml and lint.yml run, with CI's options.
+run_leg() {
+    local leg=$1
+    shift
+    local venv=/opt/venv/$leg
+    [ -x "$venv/bin/python" ] || die "no such leg: $leg (legs: $LEGS_ALL)"
+    echo
+    echo "==== $leg ===="
+    uv pip install --quiet --python "$venv" --no-deps --no-build-isolation -e "$WORK" \
+        || return 1
+    (
+        cd "$WORK" || exit 1
+        if [ "$leg" = lint ]; then
+            "$venv/bin/python" scripts/lint.py
+        else
+            "$venv/bin/python" -m pytest \
+                --cov=benchtools --cov-report=term-missing --cov-fail-under=90 \
+                --junitxml="results/pytest-$leg.xml" "$@"
+        fi
+    )
+}
+
+# Constraints: pyproject.toml's [test] extra, resolved for each leg's Python,
+# plus setuptools for the editable install. lint.txt adds lint.in (pylint).
+lock() {
+    [ -w "$SRC/constraints" ] || die "mount constraints/ writable: -v \"\$PWD/constraints\":/src/constraints"
+    local inputs leg out
+    inputs=$(mktemp -d)
+    echo "setuptools>=61" > "$inputs/build.in"
+    for leg in 3.8 3.9 3.12 lint; do
+        out="$SRC/constraints/py$leg.txt"
+        set -- "$SRC/pyproject.toml" "$inputs/build.in"
+        if [ "$leg" = lint ]; then
+            out="$SRC/constraints/lint.txt"
+            set -- "$@" "$SRC/constraints/lint.in"
+        fi
+        (cd "$SRC" && uv pip compile --quiet --extra test --python "/opt/venv/$leg" \
+            --no-emit-package benchtools \
+            --custom-compile-command "etb-ci lock (docker/ci/Dockerfile)" \
+            -o "$out" "$@") || exit 1
+        # Paths are made relative to /src; say what they are relative to.
+        echo "etb-ci: wrote ${out#"$SRC"/}"
+    done
+}
+
+legs=()
+pytest_args=()
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --) shift; pytest_args=("$@"); break ;;
+        -h|--help) usage; exit 0 ;;
+        lock) lock; exit $? ;;
+        all) legs+=($LEGS_ALL) ;;
+        *) legs+=("$1") ;;
+    esac
+    shift
+done
+[ ${#legs[@]} -gt 0 ] || legs=($LEGS_ALL)
+
+copy_tree
+failed=()
+for leg in "${legs[@]}"; do
+    run_leg "$leg" "${pytest_args[@]}" || failed+=("$leg")
+done
+
+echo
+if [ ${#failed[@]} -eq 0 ]; then
+    echo "etb-ci: passed: ${legs[*]}"
+else
+    echo "etb-ci: FAILED: ${failed[*]} (of ${legs[*]})"
+    exit 1
+fi

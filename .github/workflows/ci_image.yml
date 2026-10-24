@@ -1,0 +1,53 @@
+# Build the CI image (docker/ci, #282) so that it cannot rot unnoticed.
+#
+# The image holds CI's Python legs - 3.8, 3.9 and 3.12 for tests.yml, and 3.12
+# with pylint for lint.yml - each with the library versions in constraints/,
+# so a leg can be run before pushing. This job builds it and checks that every
+# leg imports the package and collects the suite. It does not run the suite:
+# tests.yml and lint.yml already do that, from the same constraints.
+#
+# It runs only when something the image is built from changes. It is not a
+# required check, and the image is not published anywhere.
+
+name: ci-image
+
+on:
+  push:
+    paths:
+      - "docker/ci/**"
+      - "constraints/**"
+      - "pyproject.toml"
+      - ".dockerignore"
+      - ".github/workflows/ci_image.yml"
+  pull_request:
+    paths:
+      - "docker/ci/**"
+      - "constraints/**"
+      - "pyproject.toml"
+      - ".dockerignore"
+      - ".github/workflows/ci_image.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ci-image-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: CI image
+    runs-on: ubuntu-24.04
+    # Measured locally: about 4 minutes to build, under a minute to collect.
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
+      - name: Build
+        timeout-minutes: 12
+        run: docker build -f docker/ci/Dockerfile -t etb-ci .
+
+      # --no-cov: collection runs no code, so CI's coverage floor would fail.
+      - name: Collect the suite on every test leg
+        timeout-minutes: 6
+        run: docker run --rm -v "$PWD":/src:ro etb-ci 3.8 3.9 3.12 -- --collect-only -q --no-cov
