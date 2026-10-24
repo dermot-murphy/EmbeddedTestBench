@@ -10,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE3-001 | **Version** | 1.35 |
+| **Document ID** | ETB-SWE3-001 | **Version** | 1.36 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-24 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -69,6 +69,7 @@
 | 1.33 | 2026-10-23 | Claude | #271: BLE-DD-DFUHOST - each Packet Receipt Notification is checked against what was sent, and an image whose receipt or object CRC does not match is sent again from its init packet up to `retries` times, waiting `create_pause` after each data object's create (0.15 s on the first retry, doubled after; `DfuResult.retries`); `send_package` takes `retries`, `prn` and `create_pause`. BLE-DD-DFUSIM - the simulated bootloader sends receipts, can lose chosen packets (`lose`) and refuse a data object created again (`refuse_recreate`). |
 | 1.34 | 2026-10-23 | Claude | #275: BLE-DD-DFUHOST - each bootloader link that fails to establish (0x3E) is tried again up to `connect_attempts` (`CONNECT_ATTEMPTS`), through `_retry_not_established`, the retry `open_link` uses (BLE-DD-DONGLE). |
 | 1.35 | 2026-10-24 | Claude | #179: S2LP-DD-TRAFFIC - `restore_defaults` and `power_cycle` forget the interrupt routing, the receive setup and the payload length (`_forget_traffic_setup`), since the register defaults undo all three; the next send or receive sets them up again. |
+| 1.36 | 2026-10-24 | Claude | #255: S2LP-DD-KEPLER - FFT2 type version 2 (Kepler TX-1140): FFT ODR, sample count and first bin at 21-26, bins from 27, 111 bytes; chosen by type version, version 1 unchanged. |
 
 ---
 
@@ -2007,6 +2008,22 @@ Units are converted only where the firmware defines them - temperature in
 payload too short for its type, or of an unknown type, raises
 `KeplerFrameError`; a longer one, or one with another RF_CAP, is decoded with a
 warning. Checked against frames from sensor 5C1712 received on the kit.
+
+**FFT2 type version 2 (#255).** Kepler TX-1140 inserts FFT ODR, sample count and
+first bin, each a big-endian uint16, at 21, 23 and 25, and moves the 84 bytes of
+bins from 21 to 27, so the frame grows from 105 to 111 bytes
+(`api_radio_transport_cfg.h` FFT2 content rows, `API_Radio_Field_Load_FftWindow`,
+`API_RADIO_TRANSPORT_TYPE_CAPABILITY_FFT2` = 2; traced on the reference project's
+`develop` at e638d66df). The decoder chooses the layout from the type version,
+byte 5 bits 7:3. Version 1, which V10.01.0000 to V11.01.0000 send, is decoded
+as before. Version 2 adds `fft_odr`, `fft_samples` and `fft_first_bin`, and
+takes `bins` from 27. It also adds `fft_bin_hz` (ODR / N, `None` when N is 0)
+and `fft_bins_valid`, the number of slots that hold a real bin,
+`min(96, N / 2 - first_bin)` and never below 0. Slot i is bin first_bin + i,
+and slots past N / 2 are padding. A version 2 frame shorter than 111 bytes
+raises `KeplerFrameError`, since reading it at version 1's offsets would shift
+every bin. A later type version is decoded as version 2, with a warning.
+`FRAME_TYPES` keeps 105 as FFT2's minimum.
 
 **Checked against the firmware (#151).** The Kepler project's rf_monitor and
 this decoder disagreed; the sensor firmware at V11.00.0000-96-g25a54b97a

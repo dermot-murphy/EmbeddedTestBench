@@ -52,6 +52,13 @@ FRAME_TYPES: Dict[int, tuple] = {
     9: ("RESPONSE", 14),
 }
 
+#: FFT2 type version 2 is longer (#255); FRAME_TYPES keeps version 1's length,
+#: the minimum, because older firmware still sends it.
+FFT2_V2_SIZE = 111
+
+#: FFT2 bin slots: 84 bytes of 7-bit bins.
+FFT2_SLOTS = 96
+
 #: CMD_PARAM values, from the sensor's configuration header.
 CMD_PARAMS = {
     0x0001: "REQ_LORES", 0x0002: "REQ_HIRES", 0x0003: "GENERAL",
@@ -186,11 +193,28 @@ def _fft(data: bytes) -> Dict[str, Any]:
     return fields
 
 
+def _fft2_size(data: bytes) -> int:
+    """FFT2's length by its type version (byte 5 bits 7:3). Version 2 (Kepler
+    TX-1140) adds FFT ODR, sample count and first bin at 21-26, moving the 84
+    bytes of bins from 21 to 27 (#255); V10.01 to V11.01 send version 1."""
+    return FFT2_V2_SIZE if data[5] >> 3 >= 2 else FRAME_TYPES[7][1]
+
+
 def _fft2(data: bytes) -> Dict[str, Any]:
     fields = _environment(data, 8, 10)
     fields.update({"param": _u16(data, 11), "time_taken_us": _u32(data, 13),
-                   "max_bin_amplitude": struct.unpack_from("<f", data, 17)[0],
-                   "bins": data[21:105].hex()})
+                   "max_bin_amplitude": struct.unpack_from("<f", data, 17)[0]})
+    if _fft2_size(data) == FFT2_V2_SIZE:
+        odr, samples, first_bin = _u16(data, 21), _u16(data, 23), _u16(data, 25)
+        # Slot i is bin first_bin + i, at (first_bin + i) * odr / samples Hz;
+        # slots at or past bin samples / 2 are padding (API_Radio_Field_Load_FftWindow).
+        fields.update({
+            "fft_odr": odr, "fft_samples": samples, "fft_first_bin": first_bin,
+            "fft_bin_hz": odr / samples if samples else None,
+            "fft_bins_valid": max(0, min(FFT2_SLOTS, samples // 2 - first_bin)),
+            "bins": data[27:FFT2_V2_SIZE].hex()})
+    else:
+        fields["bins"] = data[21:105].hex()
     return fields
 
 
@@ -240,6 +264,8 @@ def decode_kepler_frame(payload: bytes) -> Dict[str, Any]:
     if pl_type not in FRAME_TYPES:
         raise KeplerFrameError("PL_TYPE %d is not a Kepler frame type" % pl_type)
     name, size = FRAME_TYPES[pl_type]
+    if pl_type == 7:
+        size = _fft2_size(data)
     if len(data) < size:
         raise KeplerFrameError(
             "a %s frame is %d bytes; this payload is %d" % (name, size, len(data)))
@@ -259,6 +285,8 @@ def decode_kepler_frame(payload: bytes) -> Dict[str, Any]:
     notes = []
     if data[4] != RF_CAPABILITY and pl_type != 9:
         notes.append("RF_CAP %d; these layouts are for RF_CAP %d" % (data[4], RF_CAPABILITY))
+    if pl_type == 7 and data[5] >> 3 > 2:
+        notes.append("FFT2 type version %d; decoded as version 2" % (data[5] >> 3))
     if len(data) > size and pl_type != 9:
         notes.append("%d byte(s) beyond the %s layout" % (len(data) - size, name))
     if notes:

@@ -196,6 +196,55 @@ class TestLayoutsFromTheReference:
         assert decoded["max_bin_amplitude"] == 1.5
         assert decoded["bins"].startswith("64")
 
+    def test_fft2_version_1_has_no_window_fields(self):
+        decoded = decode_kepler_frame(bytes(header(7, 105)))
+        assert decoded["type_capability"] == 1 and "fft_odr" not in decoded
+        assert len(bytes.fromhex(decoded["bins"])) == 84 and "warnings" not in decoded
+
+    def test_fft2_version_2(self):
+        # Kepler TX-1140: ODR, sample count and first bin at 21-26, bins at
+        # 27-110 (api_radio_transport_cfg.h, API_Radio_Field_Load_FftWindow, #255).
+        frame = header(7, 111, type_cap=2)
+        frame[17:21] = struct.pack("<f", 2.5)
+        frame[21:27] = struct.pack(">3H", 26667, 4096, 10)
+        frame[27] = 0x7F
+        frame[110] = 0x55
+        decoded = decode_kepler_frame(bytes(frame))
+        window = (decoded["fft_odr"], decoded["fft_samples"], decoded["fft_first_bin"])
+        assert window == (26667, 4096, 10)
+        assert decoded["max_bin_amplitude"] == 2.5
+        bins = bytes.fromhex(decoded["bins"])
+        assert len(bins) == 84 and bins[0] == 0x7F and bins[-1] == 0x55
+        assert decoded["fft_bin_hz"] == pytest.approx(26667 / 4096)
+        assert decoded["fft_bins_valid"] == 96 and "warnings" not in decoded
+
+    @pytest.mark.parametrize("samples, first_bin, valid", [
+        (128, 0, 64),      # fewer real bins than slots: the rest is padding
+        (256, 32, 96),     # exactly 96 real bins left
+        (256, 33, 95),     # one short of the slots
+        (128, 64, 0),      # first bin at N / 2: all padding
+        (128, 100, 0),     # past N / 2
+    ])
+    def test_fft2_version_2_real_bins(self, samples, first_bin, valid):
+        frame = header(7, 111, type_cap=2)
+        frame[21:27] = struct.pack(">3H", 3200, samples, first_bin)
+        assert decode_kepler_frame(bytes(frame))["fft_bins_valid"] == valid
+
+    def test_fft2_version_2_with_no_sample_count(self):
+        decoded = decode_kepler_frame(bytes(header(7, 111, type_cap=2)))
+        assert decoded["fft_bin_hz"] is None and decoded["fft_bins_valid"] == 0
+
+    def test_fft2_version_2_must_be_111_bytes(self):
+        # Decoding a short version 2 frame at version 1's offsets would shift
+        # every bin; it is refused instead.
+        with pytest.raises(KeplerFrameError, match="111"):
+            decode_kepler_frame(bytes(header(7, 105, type_cap=2)))
+
+    def test_fft2_later_version_is_decoded_as_2_with_a_warning(self):
+        decoded = decode_kepler_frame(bytes(header(7, 111, type_cap=3)))
+        assert "fft_odr" in decoded
+        assert decoded["warnings"] == ["FFT2 type version 3; decoded as version 2"]
+
     def test_fft(self):
         decoded = decode_kepler_frame(bytes(header(6, 97)))
         assert decoded["type"] == "FFT" and len(bytes.fromhex(decoded["bins"])) == 78
