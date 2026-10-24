@@ -158,6 +158,77 @@ GDB Server and an ARM GDB (`arm-none-eabi-gdb`). See
 [Bench Self-Check Setup §4](Bench_Self_Check_Setup.md#4-permissions-and-drivers)
 and [J-Link Integration Notes](jlink/JLink_Integration_Notes.md).
 
+### 2.6 Running CI's Python legs before pushing
+
+CI runs the suite on Python 3.8, 3.9 and 3.12 (`tests.yml`) and pylint on
+3.12 (`lint.yml`). A change that passes on your Python can still fail on one of
+those: #281 passed on 3.14 and failed collection on 3.8 and 3.9. The CI image,
+`docker/ci/Dockerfile`, holds all four legs, each with the library versions
+CI installs, so you can run them first. It needs Docker (Docker Desktop on
+Windows).
+
+Build it once, and again when `constraints/` or `docker/ci/` changes. It takes
+about 4 minutes and makes an image of about 1.5 GB:
+
+```sh
+docker build -f docker/ci/Dockerfile -t etb-ci .
+```
+
+Then, from the root of the checkout, run every leg (PowerShell):
+
+```powershell
+docker run --rm -v "${PWD}:/src:ro" etb-ci
+```
+
+or from bash on Ubuntu:
+
+```sh
+docker run --rm -v "$PWD":/src:ro etb-ci
+```
+
+In Git Bash on Windows, prefix the bash form with `MSYS_NO_PATHCONV=1`, or Git
+Bash rewrites `/src`.
+
+Name legs to run only those, and put pytest options after `--`:
+
+```sh
+docker run --rm -v "$PWD":/src:ro etb-ci 3.8 3.9 -- -x tests/viewer
+```
+
+The legs are `3.8`, `3.9`, `3.12` and `lint`. Each runs CI's own command, with
+the coverage floor, and the last line says which passed. The exit status is
+non-zero if any failed.
+
+The checkout is mounted read-only and copied into the container, so the run
+writes nothing into it. The copy is what git would commit: tracked and
+untracked files, not ignored ones, with uncommitted changes included and the LF
+line endings a CI checkout has. To run a commit other than the one checked out,
+export it and mount the export:
+
+```sh
+mkdir /tmp/at && git archive b392ab0 | tar -x -C /tmp/at
+docker run --rm -v /tmp/at:/src:ro etb-ci 3.8
+```
+
+**The library versions** are pinned per Python in `constraints/py3.8.txt`,
+`py3.9.txt`, `py3.12.txt` and `lint.txt`. CI installs from the same files, so
+the image and CI cannot drift apart. The pylint version is stated in
+`constraints/lint.in`. To take newer releases, or after changing a requirement
+in `pyproject.toml`, regenerate them with the image and commit the result:
+
+```sh
+docker run --rm -v "$PWD":/src:ro -v "$PWD/constraints":/src/constraints etb-ci lock
+```
+
+On Linux, add `--user "$(id -u):$(id -g)"` so the files stay yours.
+`tests/test_constraints.py` fails if a requirement of the `test` extra is
+missing from any of the files.
+
+3.9 and 3.12 are at the patch versions CI had when the image was made (3.9.25
+and 3.12.15); 3.8 is 3.8.20, where CI has 3.8.18 (`docker/ci/Dockerfile`
+says why). None of them is the runner's own build of Python, so a fault in one
+particular build would not show up in the image.
+
 ---
 
 ## 3. The first run: the simulated bench, end to end

@@ -10,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SUP8-001 | **Version** | 0.14 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-06 |
+| **Document ID** | ETB-SUP8-001 | **Version** | 0.15 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-24 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SUP.8 |
@@ -38,6 +38,7 @@
 | 0.12 | 2026-10-05 | Claude | #194: §6.3 records where the brand logo appears - above the title of every controlled document in `docs/aspice/` and `docs/templates/`, in the documents themselves - and that the wiki and home page take it from their generators. The compact logo added above this document's title. |
 | 0.13 | 2026-10-05 | Claude | #194: §5.8 lists the home page's banner, favicons and head include; §6.3 says which brand artwork the wiki and the home page show, and that the wiki shows the PNG renders. |
 | 0.14 | 2026-10-06 | Claude | #229: §4 - the CStyleCheck pin is now `@v1.6.1`. |
+| 0.15 | 2026-10-24 | Claude | #282: §4 - the CI library constraints (`constraints/`) and the CI image (`docker/ci/`) added as configuration items; `tests.yml` and `lint.yml` install from the constraints. |
 
 ---
 
@@ -82,6 +83,8 @@ physical bench instruments whose identity affects a result.
 | Bench descriptions | `benches/**` | Bench name | git |
 | Bench specifications | `specs/**` | Spec filename | git |
 | CI workflows and actions | `.github/workflows/*.yml`, `action.yml` | Filename | git |
+| CI library versions | `constraints/py<version>.txt`, `constraints/lint.txt`, `constraints/lint.in` | Filename | git — exact pins per Python leg, installed by `tests.yml`, `lint.yml` and the CI image; regenerated only by `etb-ci lock` (User Manual §2.6) |
+| CI image | `docker/ci/Dockerfile`, `docker/ci/etb-ci` | Filename | git — base image pinned by digest, uv and the Python patch versions pinned in the Dockerfile; built by `ci_image.yml`, not published |
 | Generated outputs | GitHub wiki; `gh-pages` branch (home page) | Wiki page name; file path | Regenerated from `main` by `wiki_publish.yml` and `pages_publish.yml`; never edited by hand (§5.8) |
 | C rule configuration | `.cstylecheck.yml`, `.cstylecheck-baseline.json` | Filename | git — the baseline changes only with a recorded reason |
 | Python rule configuration | `[tool.pylint]` in `pyproject.toml`, `.pylint-baseline.json` | Filename | git — as above |

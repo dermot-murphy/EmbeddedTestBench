@@ -1,0 +1,2 @@
+# The script runs in a Linux container, whatever the checkout's line endings (#282).
+docker/ci/etb-ci text eol=lf
