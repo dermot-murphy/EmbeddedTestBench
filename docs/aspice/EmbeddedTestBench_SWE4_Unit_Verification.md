@@ -10,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE4-001 | **Version** | 1.39 |
+| **Document ID** | ETB-SWE4-001 | **Version** | 1.40 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-24 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -73,6 +73,7 @@
 | 1.37 | 2026-10-24 | Claude | #255: SWE4-UT-S2LPKEPLER - FFT2 type version 2 cases added (10): the window fields and bin offset, real bins at and around N / 2 and 96 slots, N = 0, a 105-byte version 2 frame refused, version 3 decoded with a warning; version 1 without window fields. |
 | 1.38 | 2026-10-24 | Claude | #287: SWE4-UT-S2LPKEPLER - type version cases added (24): the version table pinned to the firmware's values at e638d66df, each known (PL_TYPE, version) without a warning, an unknown version above, below (V10.00's version 0) and between the known ones, a short frame at an unknown version naming the fallback, an ALIVE at version 2, RESPONSE unchecked. |
 | 1.39 | 2026-10-24 | Claude | #286: SWE4-UT-TRACE also checks that every test group defined here has a result row in ETB-SWE4-002 section 5, and that the report has no row for an undefined group, every group ID is well formed, and every row has a count and a verdict (5 cases). SWE4-UT-FWUNIT's case count corrected from 149 to 189, the count run and the `RUN_TEST` count in the sources. |
+| 1.40 | 2026-10-24 | Claude | #293: SWE4-UT-S2LPFRAME - 7 cases (was 3): frames set aside while a receive stops, and `since_last`; traces S2LP-FR-085. SWE4-UT-TRANSPORT - the mock keeps undelivered output through a `keep_buffer` write; traces CORE-FR-004. |
 
 ---
 
@@ -350,7 +351,7 @@ against the simulator in the default run (SWE4-UT-PSUPANEL, SWE4-UT-DMMPANEL).
 | SWE4-UT-PROCESS | `core/transport/test_process.py` | `ProcessTransport`: pipe framing, reader threads, bounded stderr retention, a child that exits immediately, retained exit status | CORE-FR-009, CORE-NFR-005, -006 |
 | SWE4-UT-SIMBASE | `core/test_simulator.py` | Shared simulator harness: dispatch, compound messages, event queue, binary replies, subclassing | CORE-FR-040, -041 |
 | SWE4-UT-VALIDATE | `core/test_validation.py` | Range, channel and choice validation; the enumeration base | CORE-FR-030, -031, CORE-NFR-004 |
-| SWE4-UT-TRANSPORT | `core/transport/test_base.py` | Message framing, buffering, stale-response discard, lifecycle, timeouts; stream reading past an end-of-message, the `read_raw` failure that motivated it, discarding unread input, and a virtual-clock simulator given the read timeout | CORE-FR-005, -007, -061, -062, CORE-NFR-005, -006 |
+| SWE4-UT-TRANSPORT | `core/transport/test_base.py` | Message framing, buffering, stale-response discard, lifecycle, timeouts; stream reading past an end-of-message, the `read_raw` failure that motivated it, discarding unread input, and a virtual-clock simulator given the read timeout; the mock keeping a simulator's undelivered output through a `keep_buffer` write | CORE-FR-004, -005, -007, -061, -062, CORE-NFR-005, -006 |
 | SWE4-UT-VXI11 | `core/transport/test_vxi11.py` | VXI-11 client at wire level against an independent RPC server | CORE-FR-001, -002, -007, -008 |
 | SWE4-UT-SOCKET | `core/transport/test_socket.py` | Raw socket transport; length-bounded and idle-bounded reads | CORE-FR-003 |
 | SWE4-UT-VISA | `core/transport/test_visa.py` | PyVISA transport against the same RPC server | CORE-FR-006, CORE-NFR-003 |
@@ -424,7 +425,7 @@ against the simulator in the default run (SWE4-UT-PSUPANEL, SWE4-UT-DMMPANEL).
 | SWE4-UT-S2LPTABLES | `instruments/s2lp/test_kepler_tables.py` | Kepler names and arithmetic against the firmware (19 cases): sixty parameters in the firmware's order, the slot mapping under none and distance, the polynomial covering every parameter once per version, out of range, values named with units and enumerations; the polynomial a permutation, out of range the identity; waveform order under each method covering every sample once; ODR codes; reset reasons; a CONFIG frame naming its parameters, VERSION naming its reset reason, PCB and product, ALIVE its phase | S2LP-FR-081 .. S2LP-FR-083 |
 | SWE4-UT-S2LPPREAMBLE | `instruments/s2lp/test_preamble.py` | Preamble length from PQI: the expected PQI for a length in bit-pairs, the best frame as the measurement, the ceiling, and the pass, fail and unmeasurable verdicts | S2LP-FR-049 |
 | SWE4-UT-S2LPSAMPLES | `instruments/s2lp/test_kepler_samples.py` | A field from each transmission, copies counted once even when their bytes differ (5C1712's ALIVE status) and when the first copy is lost; other sensors left out; too few frames; an unknown field | S2LP-FR-072 |
-| SWE4-UT-S2LPFRAME | `instruments/s2lp/test_kepler_frame.py` | One whole decoded frame of a type (5C1712's VERSION frame), other sensors left out, no frame an error naming the type and sensor | S2LP-FR-073 |
+| SWE4-UT-S2LPFRAME | `instruments/s2lp/test_kepler_frame.py` | One whole decoded frame of a type (5C1712's VERSION frame), other sensors left out, no frame an error naming the type and sensor; consecutive calls with `since_last` getting consecutive copies of one ALIVE packet, without it a timeout naming the frames set aside, a frame of another type passed over, and another receive discarding what was set aside (7 cases) | S2LP-FR-073, S2LP-FR-085 |
 | SWE4-UT-S2LPEEPROM | `instruments/s2lp/test_eeprom.py` | The RF board's EEPROM: the bench kit's page 0, blank pages, the band and crystal codes, the band taken from it, and a named board that disagrees refused | S2LP-FR-035 |
 | SWE4-UT-S2LPCLI | `instruments/s2lp/test_cli.py` | Every S2-LP sub-command end to end; JSON output; the register dump; a named board and the band refusal; `--setup` and the packet handler; the PN9 refusal; the "nothing heard" and "not continuous" warnings | S2LP-FR-060 |
 | SWE4-UT-PSU | `instruments/gpd3303d/test_psu.py` | The supply driver: identity, setting and its range refusals, measurement, constant-current detection, per-channel output emulation and what it does not promise, the refusal to program a channel the supply is slaving to another, status decoding, error reporting, command pacing and the safe state | PSU-FR-001 .. -043 |

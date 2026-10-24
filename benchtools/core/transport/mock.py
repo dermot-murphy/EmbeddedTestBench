@@ -56,6 +56,7 @@ class MockTransport(Transport):
         self._chunk_size = int(chunk_size)
         self._pending = bytearray()
         self._has_reply = False
+        self._keep_pending = False
 
     @property
     def simulator(self) -> Responder:
@@ -79,10 +80,27 @@ class MockTransport(Transport):
         self._pending = bytearray()
         self._has_reply = False
 
+    def write(
+        self, data: bytes, append_terminator: bool = True, keep_buffer: bool = False
+    ) -> None:
+        """As :meth:`Transport.write`; with *keep_buffer*, the simulator's
+        undelivered output is kept too, ahead of its answer to this write.
+
+        On a serial line, what the instrument sent before the write is still
+        on its way when the write goes out. Dropping it here lost the end of
+        a receive report that a stop interrupted, which a real line keeps (#293).
+        """
+        self._keep_pending = keep_buffer
+        try:
+            super().write(data, append_terminator, keep_buffer)
+        finally:
+            self._keep_pending = False
+
     def _send(self, data: bytes) -> None:
         reply = self.responder.respond(data)
-        self._pending = bytearray(reply or b"")
-        self._has_reply = reply is not None
+        kept = self._pending if self._keep_pending and self._has_reply else bytearray()
+        self._pending = kept + bytearray(reply or b"")
+        self._has_reply = bool(kept) or reply is not None
 
     def _recv_chunk(self, max_bytes: int) -> Tuple[bytes, bool]:
         if not self._has_reply:

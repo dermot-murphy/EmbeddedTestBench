@@ -10,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-RTM-001 | **Version** | 1.37 |
+| **Document ID** | ETB-RTM-001 | **Version** | 1.38 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-24 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -71,6 +71,7 @@
 | 1.35 | 2026-10-24 | Claude | #255: S2LP-FR-070 - `SWE4-UT-S2LPKEPLER` now 39 tests (FFT2 type version 2). |
 | 1.36 | 2026-10-24 | Claude | #287: S2LP-FR-070 - `SWE4-UT-S2LPKEPLER` now 63 tests (type version per frame type). |
 | 1.37 | 2026-10-24 | Claude | #286: BLE-NFR-006 - `SWE4-UT-FWUNIT` is 189 cases (was 131), the count run for ETB-SWE4-002 1.32 and the `RUN_TEST` count in the sources. |
+| 1.38 | 2026-10-24 | Claude | #293: row for S2LP-FR-085 (frames set aside while a receive stops); CORE-FR-004 also cites the mock's `keep_buffer` test. |
 
 ---
 
@@ -131,7 +132,7 @@ It is checked mechanically by `tests/test_traceability.py` on every run of the s
 | CORE-FR-001 | ARC-003 | CORE-DD-VXI11 | `core/transport/vxi11.py` | `TestXdrCodec` (4), `test_identity_query`, `test_full_driver_over_the_socket` |
 | CORE-FR-002 | ARC-003 | CORE-DD-VXI11 | `vxi11.query_portmapper` | `test_getport_returns_the_mapped_port`, `test_unreachable_portmapper_is_reported_clearly` |
 | CORE-FR-003 | ARC-003 | CORE-DD-SOCKET | `core/transport/socket_raw.py` | `TestSocketTransport` (12) |
-| CORE-FR-004 | ARC-004 | CORE-DD-MOCK | `core/transport/mock.py` | `test_transport_alone_falls_back_to_the_plain_simulator`, `test_an_explicit_responder_wins` |
+| CORE-FR-004 | ARC-004 | CORE-DD-MOCK | `core/transport/mock.py` | `test_transport_alone_falls_back_to_the_plain_simulator`, `test_an_explicit_responder_wins`, `test_the_mock_keeps_undelivered_output_on_such_a_write` |
 | CORE-FR-005 | ARC-002 | CORE-DD-TRANSPORT | `core/transport/base.py` | `TestFraming` (9) |
 | CORE-FR-006 | ARC-003 | CORE-DD-VISA | `core/transport/visa_backend.py` | `TestVisaTransport` (6), `test_visa_backend_is_opt_in` |
 | CORE-FR-007 | ARC-002, ARC-003 | CORE-DD-TRANSPORT, -VXI11 | `base.py`, `Vxi11Transport._send` | `test_large_transfer_is_reassembled`, `test_write_is_chunked_to_max_recv_size` |
@@ -424,6 +425,7 @@ where the firmware implements the requirement.
 | S2LP-FR-071 | S2LP-ARC-001 | S2LP-DD-PACKETS, -TRAFFIC | `Packet.registers`, `decoded`, `decode_error` | `test_raw_and_decoded_are_one_record`, `test_a_frame_that_will_not_decode_keeps_its_bytes` |
 | S2LP-FR-072 | S2LP-ARC-001 | S2LP-DD-TRAFFIC | `S2lpDevkit.kepler_samples` | `SWE4-UT-S2LPSAMPLES` (6) |
 | S2LP-FR-073 | S2LP-ARC-001 | S2LP-DD-TRAFFIC | `S2lpDevkit.kepler_frame` | `SWE4-UT-S2LPFRAME` (3) |
+| S2LP-FR-085 | S2LP-ARC-001 | S2LP-DD-TRAFFIC, CORE-DD-MOCK | `_set_aside`, `kepler_frame(since_last=...)`, `MockTransport.write` | `TestConsecutiveCalls` (4), `test_the_mock_keeps_undelivered_output_on_such_a_write` |
 | S2LP-FR-080 | S2LP-ARC-001 | S2LP-DD-S2LP | `S2lpDevkit._record`, `log_event` | `TestDriverRecords` (2) |
 | S2LP-FR-081 | S2LP-ARC-001 | S2LP-DD-KEPLER | `CONFIG_PARAMETERS`, `config_parameter`, `name_config`, `permute_poly_any_size` | `TestParameters` (10), `test_a_config_frame_names_its_parameters` |
 | S2LP-FR-082 | S2LP-ARC-001 | S2LP-DD-KEPLER | `twf_sample`, `permute_poly`, `odr_hz` | `TestPolynomial` (2), `TestWaveform` (2), `test_odr_codes` |

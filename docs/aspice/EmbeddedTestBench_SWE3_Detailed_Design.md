@@ -10,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE3-001 | **Version** | 1.38 |
+| **Document ID** | ETB-SWE3-001 | **Version** | 1.39 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-24 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -72,6 +72,7 @@
 | 1.36 | 2026-10-24 | Claude | #255: S2LP-DD-KEPLER - FFT2 type version 2 (Kepler TX-1140): FFT ODR, sample count and first bin at 21-26, bins from 27, 111 bytes; chosen by type version, version 1 unchanged. |
 | 1.37 | 2026-10-24 | Claude | #287: S2LP-DD-KEPLER - the layout of every frame type is chosen from `LAYOUTS` by its type version; an unknown version is decoded with the nearest known version below it, or the lowest known one, with a warning. |
 | 1.38 | 2026-10-24 | Claude | #252: S2LP-DD-TRAFFIC - `kepler_samples`: the copies of one ALIVE differ in the SI-updated bit on V11.00.0000 and V11.01.0000 only; Kepler TX-1049 (V11.02.0000) sends the same bit in every copy; the V10.00.0000 and V10.99.0000 loaders clear it as V11.00 does. |
+| 1.39 | 2026-10-24 | Claude | #293: S2LP-DD-TRAFFIC - `_set_aside` and `kepler_frame(since_last=...)`; CORE-DD-MOCK - a `keep_buffer` write keeps the simulator's undelivered output. |
 
 ---
 
@@ -392,6 +393,11 @@ read would wait is a `TransportTimeoutError`, and the simulator's clock moves on
 by the timeout, as time does on a real port. Without it a simulator on a
 virtual clock delivers data a driver would have given up on, and a wait that is
 too short passes every test. `discard_input()` also drops the pending reply.
+
+A write with `keep_buffer=True` keeps the simulator's undelivered output, and
+the answer to the write follows it, as on a line where the instrument's earlier
+output is still on its way. Replacing it lost the end of an S2-LP receive
+report that a stop interrupted (#293). Any other write drops it, as before.
 
 #### CORE-DD-FACTORY — `transport/factory.py`
 
@@ -1972,6 +1978,17 @@ a given sensor, with its payload as `raw`, for a frame whose fields are text or
 are compared with each other (#102). The first copy heard is taken: the copies
 of one transmission carry the same fields. No frame within the timeout raises
 `MeasurementError`, since the specification waiting on it has nothing to check.
+
+Each call starts its own batch receive and stops it on return. Reports that
+arrive with the stop are logged, and `_stream_batch` keeps them in
+`_set_aside` instead of dropping them; `stream()` empties it whenever a receive
+starts. `kepler_frame(since_last=True)` looks through those frames first,
+decoded with its own decoder, and leaves the ones after its match set aside
+for the next call: the next copy of a Kepler packet, 0.25 s behind the one
+returned, arrives while the board stops (#293). It is off by default, because
+a frame set aside was sent before the call: a step waiting for a frame that
+answers a command sent since must not get one. Without it, a timeout names
+the matching frames that were set aside (S2LP-FR-085).
 
 #### S2LP-DD-EEPROM — `eeprom.py`
 
