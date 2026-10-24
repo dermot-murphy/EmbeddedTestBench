@@ -29,6 +29,7 @@ ARCHITECTURE_DOC = DOCS / "EmbeddedTestBench_SWE2_SW_Architecture.md"
 DESIGN_DOC = DOCS / "EmbeddedTestBench_SWE3_Detailed_Design.md"
 TEST_SPEC_DOC = DOCS / "EmbeddedTestBench_SWE4_Unit_Verification.md"
 MATRIX_DOC = DOCS / "EmbeddedTestBench_Traceability_Matrix.md"
+REPORT_DOC = DOCS / "EmbeddedTestBench_SWE4_Unit_Verification_Report.md"
 
 #: Requirement identifier, e.g. CORE-FR-001, JLINK-FR-060 or CORE-NFR-007.
 #: One prefix per element of SWE.1 §3; a new element is registered here.
@@ -40,7 +41,9 @@ _DESIGN_UNIT = r"(?:CORE|ANA|INST|SCOPE|JLINK|BLE|PSU|DMM|S2LP|PICO|RUN)-DD-[A-Z
 
 def _text(path: pathlib.Path) -> str:
     assert path.exists(), "missing work product: %s" % path.relative_to(ROOT)
-    return path.read_text()
+    # The documents are UTF-8; the locale default (cp1252 on Windows) cannot
+    # read every byte in them (#286).
+    return path.read_text(encoding="utf-8")
 
 
 def _declared_requirements() -> set:
@@ -153,6 +156,39 @@ class TestTestGroupTraceability:
             "test group(s) cited in tests but absent from the test specification:\n  "
             + "\n  ".join(sorted(offenders))
         )
+
+
+def _report_results() -> set:
+    """Test groups with a row in the report's results table (§5)."""
+    text = _text(REPORT_DOC)
+    start = text.index("## 5. Results by test group")
+    section = text[start:text.index("\n## ", start + 1)]
+    return set(re.findall(r"^\| (SWE4-UT-[A-Z0-9]+) \|", section, re.M))
+
+
+def _specified_groups() -> set:
+    """Test groups defined in the specification, i.e. a table's first column."""
+    return set(re.findall(r"^\| (SWE4-UT-[A-Z0-9]+) \|", _text(TEST_SPEC_DOC), re.M))
+
+
+class TestVerificationReport:
+    """Every specified test group has a result in the report, and the report has
+    no result for a group the specification does not define (#286)."""
+
+    def test_the_report_has_results(self):
+        """Guard against the class passing on an empty table."""
+        assert len(_report_results()) > 50
+
+    def test_every_specified_group_has_a_result(self):
+        missing = sorted(_specified_groups() - _report_results())
+        assert not missing, (
+            "test group(s) with no row in ETB-SWE4-002 section 5:\n  " + "\n  ".join(missing))
+
+    def test_every_result_is_for_a_specified_group(self):
+        extra = sorted(_report_results() - _specified_groups())
+        assert not extra, (
+            "row(s) in ETB-SWE4-002 section 5 for groups ETB-SWE4-001 does not define:\n  "
+            + "\n  ".join(extra))
 
 
 class TestArchitectureTraceability:
