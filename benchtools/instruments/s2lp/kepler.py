@@ -20,7 +20,10 @@ and are reported as sent, not un-permuted.
 
 **The layout depends on the sensor's firmware.** It is keyed on RF_CAP (byte 4);
 these layouts are RF_CAP 6. A frame with another RF_CAP is still decoded, with a
-warning, because V10 (RF_CAP 4) frames differ.
+warning, because V10 (RF_CAP 4) frames differ. Within RF_CAP 6, each type's
+layout is chosen by its type version (byte 5 bits 7:3) from ``LAYOUTS``; an
+unknown version is decoded with the nearest known version below it, or the
+lowest known one, with a warning (#287).
 
 Traces to: S2LP-FR-070, S2LP-DD-KEPLER.
 """
@@ -28,13 +31,13 @@ Traces to: S2LP-FR-070, S2LP-DD-KEPLER.
 from __future__ import annotations
 
 import struct
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Tuple
 
 from .kepler_tables import (
     PCB_VERSIONS, PRODUCTS, SENSOR_PHASES, name_config, odr_hz, reset_reasons,
 )
 
-__all__ = ["decode_kepler_frame", "KeplerFrameError", "FRAME_TYPES", "RF_CAPABILITY"]
+__all__ = ["decode_kepler_frame", "KeplerFrameError", "FRAME_TYPES", "LAYOUTS", "RF_CAPABILITY"]
 
 #: The frame layout this module decodes.
 RF_CAPABILITY = 6
@@ -193,28 +196,32 @@ def _fft(data: bytes) -> Dict[str, Any]:
     return fields
 
 
-def _fft2_size(data: bytes) -> int:
-    """FFT2's length by its type version (byte 5 bits 7:3). Version 2 (Kepler
-    TX-1140) adds FFT ODR, sample count and first bin at 21-26, moving the 84
-    bytes of bins from 21 to 27 (#255); V10.01 to V11.01 send version 1."""
-    return FFT2_V2_SIZE if data[5] >> 3 >= 2 else FRAME_TYPES[7][1]
-
-
-def _fft2(data: bytes) -> Dict[str, Any]:
+def _fft2_common(data: bytes) -> Dict[str, Any]:
     fields = _environment(data, 8, 10)
     fields.update({"param": _u16(data, 11), "time_taken_us": _u32(data, 13),
                    "max_bin_amplitude": struct.unpack_from("<f", data, 17)[0]})
-    if _fft2_size(data) == FFT2_V2_SIZE:
-        odr, samples, first_bin = _u16(data, 21), _u16(data, 23), _u16(data, 25)
-        # Slot i is bin first_bin + i, at (first_bin + i) * odr / samples Hz;
-        # slots at or past bin samples / 2 are padding (API_Radio_Field_Load_FftWindow).
-        fields.update({
-            "fft_odr": odr, "fft_samples": samples, "fft_first_bin": first_bin,
-            "fft_bin_hz": odr / samples if samples else None,
-            "fft_bins_valid": max(0, min(FFT2_SLOTS, samples // 2 - first_bin)),
-            "bins": data[27:FFT2_V2_SIZE].hex()})
-    else:
-        fields["bins"] = data[21:105].hex()
+    return fields
+
+
+def _fft2(data: bytes) -> Dict[str, Any]:
+    """FFT2 type version 1, which V10.01 to V11.01 send: bins at 21."""
+    fields = _fft2_common(data)
+    fields["bins"] = data[21:105].hex()
+    return fields
+
+
+def _fft2_v2(data: bytes) -> Dict[str, Any]:
+    """FFT2 type version 2 (Kepler TX-1140): FFT ODR, sample count and first
+    bin at 21-26 move the 84 bytes of bins from 21 to 27 (#255)."""
+    fields = _fft2_common(data)
+    odr, samples, first_bin = _u16(data, 21), _u16(data, 23), _u16(data, 25)
+    # Slot i is bin first_bin + i, at (first_bin + i) * odr / samples Hz;
+    # slots at or past bin samples / 2 are padding (API_Radio_Field_Load_FftWindow).
+    fields.update({
+        "fft_odr": odr, "fft_samples": samples, "fft_first_bin": first_bin,
+        "fft_bin_hz": odr / samples if samples else None,
+        "fft_bins_valid": max(0, min(FFT2_SLOTS, samples // 2 - first_bin)),
+        "bins": data[27:FFT2_V2_SIZE].hex()})
     return fields
 
 
@@ -245,9 +252,37 @@ def _response(data: bytes) -> Dict[str, Any]:
     return fields
 
 
-_DECODERS: Dict[int, Callable[[bytes], Dict[str, Any]]] = {
-    2: _version, 3: _alive, 4: _twf, 5: _config, 6: _fft, 7: _fft2, 8: _cmd, 9: _response,
+#: For each PL_TYPE, the type versions (byte 5 bits 7:3) this module knows,
+#: each with its length and decoder (#287). The versions are the firmware's
+#: API_RADIO_TRANSPORT_TYPE_CAPABILITY_* values; CMD is outside that switch
+#: and sends 0. A frame of a version not listed is decoded with the highest
+#: listed version below it, or the lowest listed one when it is below them all,
+#: and a warning says so. V10.00.0000 writes all of byte 5 as its HW
+#: capability (4), so its frames read as version 0 and get version 1's layout.
+LAYOUTS: Dict[int, Dict[int, Tuple[int, Callable[[bytes], Dict[str, Any]]]]] = {
+    2: {1: (83, _version)},
+    3: {1: (35, _alive)},
+    4: {1: (100, _twf)},
+    5: {1: (21, _config)},
+    6: {1: (97, _fft)},
+    7: {1: (105, _fft2), 2: (FFT2_V2_SIZE, _fft2_v2)},
+    8: {0: (15, _cmd)},
+    9: {0: (14, _response)},
 }
+
+#: RESPONSE is built by the gateway, not by the sensor, so its header's RF_CAP
+#: and type version are not checked against the sensor's.
+_GATEWAY_FRAMES = (9,)
+
+
+def _layout(pl_type: int, version: int) -> Tuple[int, int, Callable[[bytes], Dict[str, Any]]]:
+    """The version used to decode, its length and its decoder: the frame's
+    own, else the nearest known version below it, else the lowest known."""
+    known = LAYOUTS[pl_type]
+    below = [listed for listed in known if listed <= version]
+    used = max(below) if below else min(known)
+    size, decoder = known[used]
+    return used, size, decoder
 
 
 def decode_kepler_frame(payload: bytes) -> Dict[str, Any]:
@@ -263,12 +298,14 @@ def decode_kepler_frame(payload: bytes) -> Dict[str, Any]:
     pl_type = data[7]
     if pl_type not in FRAME_TYPES:
         raise KeplerFrameError("PL_TYPE %d is not a Kepler frame type" % pl_type)
-    name, size = FRAME_TYPES[pl_type]
-    if pl_type == 7:
-        size = _fft2_size(data)
+    name = FRAME_TYPES[pl_type][0]
+    version = data[5] >> 3
+    used, size, decoder = _layout(pl_type, version)
     if len(data) < size:
+        fallback = "" if used == version or pl_type in _GATEWAY_FRAMES else (
+            " (type version %d, decoded as version %d)" % (version, used))
         raise KeplerFrameError(
-            "a %s frame is %d bytes; this payload is %d" % (name, size, len(data)))
+            "a %s frame is %d bytes; this payload is %d%s" % (name, size, len(data), fallback))
 
     decoded: Dict[str, Any] = {
         "type": name,
@@ -281,13 +318,13 @@ def decode_kepler_frame(payload: bytes) -> Dict[str, Any]:
         "hw_capability": data[5] & 0x07,
         "fw_capability": data[6],
     }
-    decoded.update(_DECODERS[pl_type](data))
+    decoded.update(decoder(data))
     notes = []
-    if data[4] != RF_CAPABILITY and pl_type != 9:
+    if data[4] != RF_CAPABILITY and pl_type not in _GATEWAY_FRAMES:
         notes.append("RF_CAP %d; these layouts are for RF_CAP %d" % (data[4], RF_CAPABILITY))
-    if pl_type == 7 and data[5] >> 3 > 2:
-        notes.append("FFT2 type version %d; decoded as version 2" % (data[5] >> 3))
-    if len(data) > size and pl_type != 9:
+    if used != version and pl_type not in _GATEWAY_FRAMES:
+        notes.append("%s type version %d; decoded as version %d" % (name, version, used))
+    if len(data) > size and pl_type not in _GATEWAY_FRAMES:
         notes.append("%d byte(s) beyond the %s layout" % (len(data) - size, name))
     if notes:
         decoded["warnings"] = notes
