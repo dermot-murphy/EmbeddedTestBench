@@ -133,28 +133,28 @@ class TestPanels:
         assert panel_for("benchtools.core.transport.mock") is None
 
 
+@pytest.fixture(scope="class")
+def hub(tmp_path_factory):
+    pytest.importorskip("yaml")
+    path = str(tmp_path_factory.mktemp("traffic") / "events.jsonl")
+    handler = start_event_log(path)
+    spec = load_spec(str(ROOT / "specs" / "sensor_power_signal_and_link.yaml"))
+    try:
+        aliases = {alias: spec.instrument_drivers.get(alias, "")
+                   for alias in spec.instruments_used}
+        with BenchRunner.from_config(BenchConfig.simulated(aliases), simulate=True) as runner:
+            runner.run(spec)
+    finally:
+        logging.getLogger("benchtools").removeHandler(handler)
+        handler.close()
+    recorded = Hub()
+    recorded.follow(path)
+    recorded.poll()
+    return recorded
+
+
 class TestRecordedRun:
     """A simulated run's own event log, paired as the viewer pairs it."""
-
-    @pytest.fixture(scope="class")
-    @classmethod
-    def hub(cls, tmp_path_factory):
-        pytest.importorskip("yaml")
-        path = str(tmp_path_factory.mktemp("traffic") / "events.jsonl")
-        handler = start_event_log(path)
-        spec = load_spec(str(ROOT / "specs" / "sensor_power_signal_and_link.yaml"))
-        try:
-            aliases = {alias: spec.instrument_drivers.get(alias, "")
-                       for alias in spec.instruments_used}
-            with BenchRunner.from_config(BenchConfig.simulated(aliases), simulate=True) as runner:
-                runner.run(spec)
-        finally:
-            logging.getLogger("benchtools").removeHandler(handler)
-            handler.close()
-        hub = Hub()
-        hub.follow(path)
-        hub.poll()
-        return hub
 
     def test_every_supply_query_has_its_reply(self, hub):
         entries = hub.traffic.view()["PSU"]["entries"]
