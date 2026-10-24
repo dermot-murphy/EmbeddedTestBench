@@ -534,8 +534,10 @@ class TrafficMixin:
         type keeps it (byte 8, or byte 9 behind TWF's and CONFIG's permute
         control byte). A copy starts a new transmission when its repeat number
         is not higher than the last one's. The bytes cannot be compared
-        instead: 5C1712 clears ALIVE_STATUS's "SI updated" bit after the first
-        copy, so the copies of one ALIVE differ (#95). One case is counted as
+        instead: on V11.00.0000 and V11.01.0000, ALIVE_STATUS's "SI updated"
+        bit is set in the first copy only, so the copies of one ALIVE differ
+        (#95). Kepler TX-1049 (V11.02.0000) sends the same bit in every copy
+        (#252), but the older firmware is still in use. One case is counted as
         one transmission when it was two: only an early copy of one heard, then
         only later copies of the next.
 
