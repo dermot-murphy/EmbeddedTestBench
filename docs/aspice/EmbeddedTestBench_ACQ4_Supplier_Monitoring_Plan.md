@@ -10,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-ACQ4-001 | **Version** | 0.7 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-06 |
+| **Document ID** | ETB-ACQ4-001 | **Version** | 0.8 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-24 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | ACQ.4 |
@@ -31,6 +31,7 @@
 | 0.5 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | 0.6 | 2026-10-05 | Claude | #228: §6 - Dependabot changes a Python requirement only when its range excludes a new release; #219, #223 and #224 declined because they raised floors the supported Pythons cannot install. |
 | 0.7 | 2026-10-06 | Claude | #229: CStyleCheck moved to v1.6.1, which fixes CStyleCheck#439. §4.3 and §7 updated: baseline line numbers moved for 27 findings, one Pico finding excluded (CStyleCheck#447). |
+| 0.8 | 2026-10-24 | Claude | #284: §6 - Dependabot no longer proposes pip updates; new library releases reach CI through the weekly `constraints_refresh.yml`, which regenerates `constraints/` and offers the result on a branch. #248 and #250 declined for the same reason as #219, #223 and #224. |
 
 ---
 
@@ -126,7 +127,9 @@ Trust is stated so that it can be checked rather than assumed.
 | Vendor documentation changes | Checked when a driver is next worked on | A documented behaviour differs from what the driver assumes → problem, and the simulator is corrected |
 | Licence terms | Reviewed when a vendor product is added or upgraded | Terms that would require vendoring source → the dependency is not taken |
 | CStyleCheck | The style workflow's result | A failure unrelated to the firmware source → problem under ETB-SUP9-001 |
-| GitHub Actions and Python package versions | Dependabot version updates, weekly, `.github/dependabot.yml`, targeting `develop` (#203). For pip, `versioning-strategy: increase-if-necessary`: a requirement is changed only when its range excludes a new release (#228) | A Dependabot pull request → release notes read, CI result reviewed, merged or declined with the reason |
+| GitHub Actions versions | Dependabot version updates, weekly, `.github/dependabot.yml`, targeting `develop` (#203) | A Dependabot pull request → release notes read, CI result reviewed, merged or declined with the reason |
+| Python package versions | `.github/workflows/constraints_refresh.yml`, weekly: `etb-ci lock` regenerates the exact pins in `constraints/` that CI installs (#282, #284) | A changed lock → pushed to `fix/constraints-refresh` and reported in an issue; a pull request is opened from the branch, release notes read, CI result reviewed, merged or declined with the reason |
+| Python package vulnerabilities | Dependabot security updates (ETB-SUP8-001 §5.5), independent of `dependabot.yml` | A Dependabot security pull request → as above |
 | Runner and action deprecations | Annotations on CI runs | A deprecation warning → ticket to move the pin before the deadline (#203 was the Node.js 20 warning) |
 
 There is no supplier audit, no supplier scorecard and no escalation path to any
@@ -144,6 +147,20 @@ pip entry now uses `increase-if-necessary`, which GitHub documents as leaving a
 requirement unchanged when it already allows the new release. A floor is raised
 deliberately, by a ticket, when the project needs a newer release or drops a
 Python version.
+
+**Dependabot pip updates removed (#284).** The strategy did not hold: on
+2026-10-14 Dependabot proposed #248 (pytest 9.1.1) and #250 (pyvisa 1.16.2),
+although `pytest>=7.0` and `pyvisa>=1.11` already allowed both. Why the strategy
+was not applied has not been verified. Neither floor installs on Python 3.8 or
+3.9, where the newest releases are pytest 8.3.5 (3.8) and 8.4.2 (3.9), and pyvisa
+1.14.1, so both were declined. Since #282, CI installs the exact versions in
+`constraints/`, resolved for each Python, and a floor no longer decides what CI
+tests. The pip entry was therefore removed from `dependabot.yml`.
+`constraints_refresh.yml` now runs `etb-ci lock` each week. When the pins move,
+it pushes them to `fix/constraints-refresh` and opens or updates an issue that
+lists each pin that moved. It does not open the pull request itself, for the
+reason given in the workflow and in ETB-SUP8-001 §5.5. The schedule runs from
+`main`, so it starts with the first release that contains the workflow.
 
 ---
 
