@@ -832,7 +832,7 @@ From ETB-SYS5-002 §8 and ETB-SVD-001 §7. All five were open on 2026-10-05.
 |---|---|---|
 | #177 | J-Link: `reset(halt=False)` leaves the target halted on a real probe. The simulator does not show it | Reset halted, then `probe.run` (as `specs/qualification/qs01_bringup.yaml` does) |
 | #178 | J-Link: registers read just after `reset(halt=True)` are stale; the PC reads 0 | Do not trust a register read immediately after a reset. In QS-01b the PC read correctly after one instruction step (ETB-SYS5-002 §6.2) |
-| #179 | S2-LP: receive refused after a transmit in the same session (GPIO3 reads 0) | Run receive in its own session: `--test` on the receive case alone passed in QS-07 |
+| #179 | S2-LP: receive refused after a transmit in the same session (GPIO3 reads 0) | Fixed after v0.02.0002: the cause was the defaults reset before the receive, not the transmit. Up to v0.02.0002, run the receive in its own session: `--test` on the receive case alone passed in QS-07 |
 | #180 | BLE dongle: `open_link` makes one attempt and does not retry a link that fails to establish (reason 0x3E) | Re-run the test. The QS-07 attempts that hit it were re-run (ETB-SYS5-002 §6.8) |
 | #181 | TTi 1604: frequency mode not recognised; the meter is lost afterwards; an open input on ohms reads blank, not overrange | Use DC volts only, which is qualified. Do not select frequency: after it the meter went silent or stopped echoing keys for the rest of the session, and a power cycle did not restore every check (ETB-SYS5-002 §6.10) |
 

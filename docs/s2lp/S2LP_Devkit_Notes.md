@@ -594,6 +594,22 @@ indefinitely.
    which read back as `GPIO3_CONF = 0x01`, and no interrupt ever arrived. All
    four S2-LP GPIOs were confirmed to reach the board's pins one to one, by
    driving each high in turn and reading `S2MGpioGetValue`.
+
+   **The register defaults undo the routing** (#179). GPIO3_CONF's reset value
+   is 0xA2: GPIO_SELECT 0xA0, a digital output driving GND. After
+   `restore_defaults()` (an `apply_configuration` with `reset="defaults"`) or
+   `power_cycle()` the line reads 0 whatever IRQ_STATUS holds, and IRQ_MASK is
+   0. Read on the kit on 2026-10-24, with and without a transmit before it:
+
+   | Point | GPIO3_CONF | IRQ_MASK3..0 | TIMERS5 | Line |
+   |---|---|---|---|---|
+   | After the first receive | 0x02 | 10 00 20 17 (once 10 00 22 17) | 0x00 | 1 (once 0: pending from the stopped receive, #99) |
+   | After a transmit | 0x02 | as before the transmit | 0x00 | 1 |
+   | After `reset="defaults"` again | 0xA2 | 00 00 00 00 | 0x01 | 0 |
+
+   The transmit was not the cause: a receive followed by a defaults reset was
+   refused the same way. Both resets now make the next send or receive route
+   the interrupt again, so QS-07's receive after transmit passes.
 2. **The TX source has to be the FIFO.** PCKTCTRL1 powers up as 0x2C, with
    TXSOURCE = 3: a PN9 test pattern, which the radio sends for as long as it is
    left in TX, ignoring the FIFO. `configure_packets()` (ST's

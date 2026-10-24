@@ -10,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE3-001 | **Version** | 1.34 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-23 |
+| **Document ID** | ETB-SWE3-001 | **Version** | 1.35 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-24 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.3 |
@@ -68,6 +68,7 @@
 | 1.32 | 2026-10-23 | Claude | #244: BLE-DD-DFU (firmware `dfu_client.c`, `cmd_dfu.c`: `dfucp`, `dfupkt`, `+dfu`; protocol 1.7, firmware 1.7.0), BLE-DD-DFUHOST (`dfu.py`, `NordicDongle.send_package`) and BLE-DD-DFUSIM (`dfu_target.py`, the simulated 5C1712 bootloader) added; BLE-DD-CMDARGS gains the hex helpers. |
 | 1.33 | 2026-10-23 | Claude | #271: BLE-DD-DFUHOST - each Packet Receipt Notification is checked against what was sent, and an image whose receipt or object CRC does not match is sent again from its init packet up to `retries` times, waiting `create_pause` after each data object's create (0.15 s on the first retry, doubled after; `DfuResult.retries`); `send_package` takes `retries`, `prn` and `create_pause`. BLE-DD-DFUSIM - the simulated bootloader sends receipts, can lose chosen packets (`lose`) and refuse a data object created again (`refuse_recreate`). |
 | 1.34 | 2026-10-23 | Claude | #275: BLE-DD-DFUHOST - each bootloader link that fails to establish (0x3E) is tried again up to `connect_attempts` (`CONNECT_ATTEMPTS`), through `_retry_not_established`, the retry `open_link` uses (BLE-DD-DONGLE). |
+| 1.35 | 2026-10-24 | Claude | #179: S2LP-DD-TRAFFIC - `restore_defaults` and `power_cycle` forget the interrupt routing, the receive setup and the payload length (`_forget_traffic_setup`), since the register defaults undo all three; the next send or receive sets them up again. |
 
 ---
 
@@ -1907,7 +1908,12 @@ register access. Three facts found on a kit (#76) shape it:
   S2-LP GPIO3 (GPIO_MODE 2, output; the CLI's help numbers the modes one lower,
   which makes the pin an input), unmasks the interrupts the firmware waits for,
   enables the board's input, and confirms the board reads the line high. It
-  runs once per session, on the first send or receive, not on connecting.
+  runs on the first send or receive, not on connecting, and again on the first
+  one after `restore_defaults` or `power_cycle` (#179). The defaults undo the
+  routing: GPIO3_CONF returns to 0xA2, a digital output driving GND, so the
+  line reads 0 whatever IRQ_STATUS holds. They also undo the receive setup
+  (TIMERS5 back to 1) and PCKTLEN, so `_forget_traffic_setup` drops all three.
+  The `SRES` strobe keeps the SPI registers, so `reset` drops nothing.
 - **The TX source has to be the FIFO.** PCKTCTRL1.TXSOURCE powers up as 3, a PN9
   test pattern that the radio sends indefinitely. A send is refused until it is
   0 (`configure_packets`, or a register file).

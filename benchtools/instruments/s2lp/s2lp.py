@@ -294,6 +294,7 @@ class S2lpDevkit(TrafficMixin, Instrument):
         :meth:`restore_defaults` when datasheet defaults are what is wanted.
         """
         self._session.execute("SdkEvalSdn", 1)
+        self._forget_traffic_setup()
         if settle > 0:
             time.sleep(settle)
         self._session.execute("SdkEvalSdn", 0)
@@ -548,7 +549,12 @@ class S2lpDevkit(TrafficMixin, Instrument):
         self._session.execute("SdkEvalSpiCommandStrobes", code)
 
     def restore_defaults(self) -> None:
-        """Write every writable register back to its documented reset value."""
+        """Write every writable register back to its documented reset value.
+
+        That undoes the interrupt routing and the receive setup, so the next
+        send or receive sets them up again (#179).
+        """
+        self._forget_traffic_setup()
         for start, count in reg.contiguous_runs():
             addresses = [start + offset for offset in range(count)]
             block: List[int] = []

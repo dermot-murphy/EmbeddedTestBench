@@ -9,7 +9,8 @@ Three things matter on a real kit, and each was found on one:
 
 * **The radio's interrupt has to be routed first.** ST's send and receive
   commands wait for an interrupt that, out of reset, reaches nothing.
-  :meth:`TrafficMixin.prepare_traffic` routes it, once per session.
+  :meth:`TrafficMixin.prepare_traffic` routes it, once per session, and again
+  after anything that puts the registers back at their defaults (#179).
 * **The packet handler has to be set up.** Out of reset the radio's TX source
   is a PN9 test pattern, so a send transmits that indefinitely and never the
   payload. A send is refused until TXSOURCE is the FIFO.
@@ -102,8 +103,9 @@ class TrafficMixin:
         pin, which must be high: nIRQ is active low, and a line that reads low
         here is not connected, or is already asserted, and would never deliver
         the edge the firmware waits for. It writes the GPIO and IRQ_MASK
-        registers, so it runs once per session, on the first send or receive,
-        not on connecting.
+        registers, so it runs on the first send or receive, not on
+        connecting, and again on the first one after the registers are put
+        back at their defaults, which undo it (#179).
 
         :raises InstrumentError: if the line does not read high at the board.
         """
@@ -150,6 +152,24 @@ class TrafficMixin:
                 "handler first (configure_packets, or a register file)." % source
             )
 
+    def _forget_traffic_setup(self) -> None:
+        """Mark the interrupt routing and the receive setup as gone.
+
+        Called by whatever puts the radio's registers back at their defaults
+        (:meth:`restore_defaults`, :meth:`power_cycle`). The defaults undo
+        everything :meth:`prepare_traffic` and :meth:`prepare_receive` wrote:
+        GPIO3_CONF goes back to 0xA2, a digital output driving GND, so the
+        line reads 0 whatever IRQ_STATUS holds; IRQ_MASK goes back to 0; and
+        TIMERS5 back to 1, a finite RX timer. Without this, the next send or
+        receive trusts a routing that is no longer there and is refused (#179).
+        The packet length is forgotten too: PCKTLEN goes back with the rest,
+        and a send that trusted the old length would leave the radio waiting
+        in TX for bytes that never come.
+        """
+        self._traffic_ready = False
+        self._receive_ready = False
+        self._payload_length = 0
+
     def _ready_for_traffic(self) -> None:
         if not self._traffic_ready:
             self.prepare_traffic()
@@ -163,7 +183,8 @@ class TrafficMixin:
         timeout infinite (``S2LPTimerSetRxTimeoutUs 0``, which ST's firmware
         implements as ``SET_INFINITE_RX_TIMEOUT``) and turns the low-power
         receive off (``S2LPGetBatchLP 0``). Out of reset TIMERS5 is 1, a finite
-        RX timer. Done once per session, on the first receive.
+        RX timer. Done on the first receive, and again on the first one after
+        the registers are put back at their defaults (#179).
         """
         self._ready_for_traffic()
         self._session.execute("S2LPTimerSetRxTimeoutUs", 0)
