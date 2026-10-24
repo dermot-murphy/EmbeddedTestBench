@@ -10,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE4-001 | **Version** | 1.37 |
+| **Document ID** | ETB-SWE4-001 | **Version** | 1.38 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-24 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -71,6 +71,7 @@
 | 1.35 | 2026-10-23 | Claude | #275: SWE4-UT-BLEDFU covers a bootloader link that fails to establish - tried again, logged, given up after the attempts allowed, and the number of attempts set. |
 | 1.36 | 2026-10-24 | Claude | #282: SWE4-UT-CONSTRAINTS added - every requirement of the `test` extra pinned in each per-Python constraints file, the package itself not pinned, `lint.txt` holding the pylint pin `lint.in` states, and each CI leg installing from its file. |
 | 1.37 | 2026-10-24 | Claude | #255: SWE4-UT-S2LPKEPLER - FFT2 type version 2 cases added (10): the window fields and bin offset, real bins at and around N / 2 and 96 slots, N = 0, a 105-byte version 2 frame refused, version 3 decoded with a warning; version 1 without window fields. |
+| 1.38 | 2026-10-24 | Claude | #286: SWE4-UT-TRACE also checks that every test group defined here has a result row in ETB-SWE4-002 section 5, and that the report has no row for an undefined group (3 cases). |
 
 ---
 
@@ -342,7 +343,7 @@ against the simulator in the default run (SWE4-UT-PSUPANEL, SWE4-UT-DMMPANEL).
 | SWE4-UT-CONSTRAINTS | `test_constraints.py` | The per-Python constraints CI and the CI image install from (`constraints/`, #282): every requirement of the `test` extra pinned in each file, the package itself not pinned, `lint.txt` holding the pylint pin `lint.in` states, and each `tests.yml` leg and `lint.yml` installing from its file | — |
 | SWE4-UT-LINT | `test_lint_script.py` | The pylint baseline gate (`scripts/lint.py`): a finding keyed by file and rule matches its baseline entry whatever path separator pylint reports | — |
 | SWE4-UT-PUBLISH | `test_publish_docs.py` | The wiki and home page generator (`scripts/publish_docs.py`, ETB-SUP8-001 §5.8): wiki page names, two documents refused on one page, relative links rewritten to wiki pages or to the file on the ref (fenced code, anchors and absolute links left alone), the sidebar reaching every published page, `--clean` removing stale pages, a second run over unchanged content producing identical files, the home page's banner, favicons and links, and the brand artwork on the wiki (the logo on Home and the sidebar, the banner on the ASPICE index, every brand image a PNG render that exists) | — |
-| SWE4-UT-TRACE | `test_traceability.py` | Consistency between the code and the SWE.1 to SWE.4 work products: every requirement traced, no orphan rows, every cited identifier defined, every module carrying its own trace, every revision history listed oldest first (ETB-SUP8-001 §6.2) | All (traceability base practices) |
+| SWE4-UT-TRACE | `test_traceability.py` | Consistency between the code and the SWE.1 to SWE.4 work products: every requirement traced, no orphan rows, every cited identifier defined, every module carrying its own trace, every revision history listed oldest first (ETB-SUP8-001 §6.2); every test group defined here has a row in ETB-SWE4-002 section 5, and that table has no row for an undefined group (#286) | All (traceability base practices) |
 | SWE4-UT-SCPI | `core/test_scpi.py` | `ScpiInstrument`: lifecycle, primitives, identity, error queue, 488.2 blocks, simulator injection | CORE-FR-020 .. -028, INST-FR-001, -002 |
 | SWE4-UT-INSTRUMENT | `core/test_instrument.py` | `Instrument`: lifecycle template and hooks, identity caching, a close that cannot raise, simulator declaration, default empty event queue | CORE-FR-012 .. -016 |
 | SWE4-UT-PROCESS | `core/transport/test_process.py` | `ProcessTransport`: pipe framing, reader threads, bounded stderr retention, a child that exits immediately, retained exit status | CORE-FR-009, CORE-NFR-005, -006 |

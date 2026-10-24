@@ -10,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE4-002 | **Version** | 1.31 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-23 |
+| **Document ID** | ETB-SWE4-002 | **Version** | 1.32 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-24 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.4 |
@@ -65,6 +65,7 @@
 | 1.29 | 2026-10-23 | Claude | #244: §10.6 added - a sensor's firmware updated over BLE by the dongle on the bench, and refused by its bootloader. |
 | 1.30 | 2026-10-23 | Claude | #271: §10.7 added - DFU data lost on 5C1712's SDK 15.2 bootloader, the fix that failed and the one that passed, on the bench; D-52 added. |
 | 1.31 | 2026-10-23 | Claude | #275: §10.8 added - V10-F-01 on the bench with the bootloader link retry; D-53 added. |
+| 1.32 | 2026-10-24 | Claude | #286: §5 regenerated from a whole-suite run on the branch, based on `develop` e86113e (3 348 passed, 95% coverage, §4): one row per ETB-SWE4-001 group, 19 of them missing before (including SWE4-UT-S2LPKEPLER); firmware CTest counts added; two test files with no group noted. |
 
 ---
 
@@ -132,6 +133,13 @@ its line protocol, and the serial port by pyserial's own `loop://` handler.
 
 Revision 1.0 re-ran the whole suite with #127's `flash` command on the bench
 PC; the figures above are that run.
+Revision 1.32 re-ran the whole suite on its branch, based on `develop`
+e86113e, to regenerate §5 (#286): **3 348 tests, 3 348 passed, 0 failed, 0
+errors, 0 skipped**, in 236.1 s with coverage, CPython 3.14.7 on Windows 10, pytest 9.1.1 with
+pytest-cov 7.1.0 (`python -m pytest -p no:cacheprovider --cov=benchtools
+--junitxml=...`). Statement coverage **95%** (17 506 statements, 840 missed).
+`pyvisa` is now installed on the bench PC, so `test_visa.py` ran and nothing
+was skipped.
 Revision 1.21 re-ran the whole suite with #177's change to `reset` on the same
 bench PC: **3 132 tests, 3 126 passed, 0 failed, 0 errors, 6 skipped**, in
 212.4 s, CPython 3.11.1 on Windows 10, pytest 9.0.3
@@ -174,7 +182,8 @@ Revision 0.5 re-ran the whole suite with #115's changes to the TTi 1604 driver
 and the core transport. Revision 0.4 re-ran the whole suite on the merge of `develop` - including
 D-42's regression test (#107) - with the `PICO-` element (#104). The per-group table in §5 has
 not been regenerated for the groups `develop` added since revision 0.1, so its
-rows do not sum to the total: the total is the collected count.
+rows did not sum to the total: the total was the collected count. Revision
+1.32 regenerated the table from one run (§5).
 
 **The Pico 2 thermometer firmware has run on a real Pico 2, but not yet with
 a sensor attached** (CON-09). Its 83 host unit tests pass and it agrees with its
@@ -194,104 +203,138 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 
 ## 5. Results by test group
 
+Regenerated for revision 1.32 (#286) from one run of the whole suite on this
+revision's branch, based on `develop` e86113e (§4): one row for each test group in ETB-SWE4-001, in that
+document's order, with the count and verdict from the run's JUnit XML. Earlier
+revisions added rows by hand, and 19 groups had none. `tests/test_traceability.py`
+now fails when a group in ETB-SWE4-001 has no row here.
+
 | Test group | File | Tests | Result |
 |---|---|---|---|
-| SWE4-UT-SCOPE | `instruments/tek3014b/test_scope.py` | 87 | Pass |
-| SWE4-UT-JLINK | `instruments/jlink/test_probe.py` | 100 | Pass |
-| SWE4-UT-S2LP | `instruments/s2lp/test_s2lp.py` | 75 | Pass |
-| SWE4-UT-S2LPREG | `instruments/s2lp/test_registers.py` | 34 | Pass |
-| SWE4-UT-S2LPPROTO | `instruments/s2lp/test_protocol.py` | 31 | Pass |
-| SWE4-UT-S2LPCONFIG | `instruments/s2lp/test_configuration.py` | 63 | Pass |
-| SWE4-UT-S2LPSIM | `instruments/s2lp/test_simulator.py` | 28 | Pass |
-| SWE4-UT-S2LPCLI | `instruments/s2lp/test_cli.py` | 35 | Pass |
-| SWE4-UT-S2LPSESSION | `instruments/s2lp/test_session.py` | 14 | Pass |
-| SWE4-UT-PSU | `instruments/gpd3303d/test_psu.py` | 102 | Pass |
-| SWE4-UT-BLE | `instruments/nordic_dongle/test_dongle.py` | 99 | Pass |
-| SWE4-UT-BLEFIRMWARE | `instruments/nordic_dongle/test_firmware.py` | 49 | Pass |
-| SWE4-UT-BLEPROTO | `instruments/nordic_dongle/test_protocol.py` | 34 | Pass |
-| SWE4-UT-BLEPROFILE | `instruments/nordic_dongle/test_profile.py` | 30 | Pass |
-| SWE4-UT-BLESIM | `instruments/nordic_dongle/test_simulator.py` | 30 | Pass |
-| SWE4-UT-PSUSIM | `instruments/gpd3303d/test_simulator.py` | 35 | Pass |
-| SWE4-UT-PSUCLI | `instruments/gpd3303d/test_cli.py` | 23 | Pass |
-| SWE4-UT-SERIAL | `core/transport/test_serial.py` | 31 | Pass |
-| SWE4-UT-BLESESSION | `instruments/nordic_dongle/test_session.py` | 23 | Pass |
-| SWE4-UT-BLECLI | `instruments/nordic_dongle/test_cli.py` | 46 | Pass |
-| SWE4-UT-BLESCRIPT | `instruments/nordic_dongle/test_script.py` | 109 | Pass |
-| SWE4-UT-BLELATENCY | `instruments/nordic_dongle/test_latency.py` | 20 | Pass |
-| SWE4-UT-BLEFW | `instruments/nordic_dongle/test_firmware_protocol.py` | 17 | Pass |
-| SWE4-UT-BLESAMPLE | `instruments/nordic_dongle/test_sampling.py` | 5 | Pass |
-| SWE4-UT-LAYERING | `test_layering.py` | 81 | Pass |
-| SWE4-UT-GDBMI | `instruments/jlink/test_gdbmi.py` | 37 | Pass |
-| SWE4-UT-BENCH | `runner/test_bench.py` | 41 | Pass |
-| SWE4-UT-MEASURE | `analysis/test_measure.py` | 35 | Pass |
-| SWE4-UT-SPEC | `runner/test_spec.py` | 38 | Pass |
-| SWE4-UT-WAVEFORM | `analysis/test_waveform.py` | 34 | Pass |
-| SWE4-UT-JLINKSERVER | `instruments/jlink/test_server.py` | 32 | Pass |
+| SWE4-UT-DMMBENCH | `bench/tti1604/test_bench.py` | 14 | Not run: needs a real TTi 1604 named by `BENCHTOOLS_TTI1604`; `tests/bench` is outside the default run |
+| SWE4-UT-LAYERING | `test_layering.py` | 125 | Pass |
+| SWE4-UT-CONSTRAINTS | `test_constraints.py` | 10 | Pass |
+| SWE4-UT-LINT | `test_lint_script.py` | 3 | Pass |
+| SWE4-UT-PUBLISH | `test_publish_docs.py` | 43 | Pass |
+| SWE4-UT-TRACE | `test_traceability.py` | 25 | Pass |
 | SWE4-UT-SCPI | `core/test_scpi.py` | 28 | Pass |
-| SWE4-UT-TIMING | `instruments/jlink/test_timing.py` | 29 | Pass |
-| SWE4-UT-JLINKSIM | `instruments/jlink/test_simulator.py` | 27 | Pass |
-| SWE4-UT-JLINKCLI | `instruments/jlink/test_cli.py` | 22 | Pass |
-| SWE4-UT-RTT | `instruments/jlink/test_rtt.py` | 21 | Pass |
-| SWE4-UT-SWO | `instruments/jlink/test_swo.py` | 20 | Pass |
 | SWE4-UT-INSTRUMENT | `core/test_instrument.py` | 20 | Pass |
-| SWE4-UT-GDBSESSION | `instruments/jlink/test_session.py` | 18 | Pass |
-| SWE4-UT-TRACE | `test_traceability.py` | 18 | Pass |
-| SWE4-UT-PROCESS | `core/transport/test_process.py` | 18 | Pass |
-| SWE4-UT-JLINKSOCKETS | `instruments/jlink/test_sockets.py` | 16 | Pass |
-| SWE4-UT-ENGINE | `runner/test_runner.py` | 33 | Pass |
-| SWE4-UT-VALIDATE | `core/test_validation.py` | 23 | Pass |
-| SWE4-UT-FACTORY | `core/transport/test_factory.py` | 23 | Pass |
-| SWE4-UT-LIMITS | `runner/test_limits.py` | 45 | Pass |
+| SWE4-UT-PROCESS | `core/transport/test_process.py` | 20 | Pass |
 | SWE4-UT-SIMBASE | `core/test_simulator.py` | 22 | Pass |
-| SWE4-UT-VXI11 | `core/transport/test_vxi11.py` | 22 | Pass |
-| SWE4-UT-CLI | `instruments/tek3014b/test_cli.py` | 20 | Pass |
-| SWE4-UT-REPORT | `runner/test_report.py` | 24 | Pass |
+| SWE4-UT-VALIDATE | `core/test_validation.py` | 23 | Pass |
 | SWE4-UT-TRANSPORT | `core/transport/test_base.py` | 29 | Pass |
-| SWE4-UT-ENV | `instruments/tek3014b/test_simulator.py` | 19 | Pass |
+| SWE4-UT-VXI11 | `core/transport/test_vxi11.py` | 22 | Pass |
+| SWE4-UT-SOCKET | `core/transport/test_socket.py` | 12 | Pass |
+| SWE4-UT-VISA | `core/transport/test_visa.py` | 6 | Pass |
+| SWE4-UT-FACTORY | `core/transport/test_factory.py` | 23 | Pass |
+| SWE4-UT-WAVEFORM | `analysis/test_waveform.py` | 34 | Pass |
+| SWE4-UT-MEASURE | `analysis/test_measure.py` | 35 | Pass |
 | SWE4-UT-PLOT | `analysis/test_plotting.py` | 15 | Pass |
-| SWE4-UT-RUNCLI | `runner/test_cli.py` | 15 | Pass |
+| SWE4-UT-SAMPLES | `analysis/test_samples.py` | 9 | Pass |
+| SWE4-UT-SCOPE | `instruments/tek3014b/test_scope.py` | 87 | Pass |
+| SWE4-UT-ENV | `instruments/tek3014b/test_simulator.py` | 19 | Pass |
+| SWE4-UT-CLI | `instruments/tek3014b/test_cli.py` | 20 | Pass |
+| SWE4-UT-GDBMI | `instruments/jlink/test_gdbmi.py` | 38 | Pass |
+| SWE4-UT-GDBSESSION | `instruments/jlink/test_session.py` | 18 | Pass |
+| SWE4-UT-JLINK | `instruments/jlink/test_probe.py` | 118 | Pass |
+| SWE4-UT-RTT | `instruments/jlink/test_rtt.py` | 22 | Pass |
+| SWE4-UT-SWO | `instruments/jlink/test_swo.py` | 20 | Pass |
+| SWE4-UT-TIMING | `instruments/jlink/test_timing.py` | 29 | Pass |
+| SWE4-UT-JLINKSERVER | `instruments/jlink/test_server.py` | 45 | Pass |
+| SWE4-UT-JLINKSOCKETS | `instruments/jlink/test_sockets.py` | 16 | Pass |
+| SWE4-UT-JLINKSIM | `instruments/jlink/test_simulator.py` | 30 | Pass |
+| SWE4-UT-JLINKCLI | `instruments/jlink/test_cli.py` | 30 | Pass |
+| SWE4-UT-JLINKRTTONLY | `instruments/jlink/test_rtt_only.py` | 6 | Pass |
+| SWE4-UT-SERIAL | `core/transport/test_serial.py` | 31 | Pass |
+| SWE4-UT-BLE | `instruments/nordic_dongle/test_dongle.py` | 116 | Pass |
+| SWE4-UT-BLESAMPLE | `instruments/nordic_dongle/test_sampling.py` | 5 | Pass |
+| SWE4-UT-BLEPROTO | `instruments/nordic_dongle/test_protocol.py` | 34 | Pass |
+| SWE4-UT-FWUNIT | `firmware/nordic_dongle/test/*.c` | 0 | Pass |
+| SWE4-UT-BLEFW | `instruments/nordic_dongle/test_firmware_protocol.py` | 22 | Pass |
+| SWE4-UT-BLESESSION | `instruments/nordic_dongle/test_session.py` | 23 | Pass |
+| SWE4-UT-BLEPROFILE | `instruments/nordic_dongle/test_profile.py` | 30 | Pass |
+| SWE4-UT-BLESCRIPT | `instruments/nordic_dongle/test_script.py`, `test_script_links.py`, `test_script_timeouts.py` | 147 | Pass |
+| SWE4-UT-BLELATENCY | `instruments/nordic_dongle/test_latency.py` | 24 | Pass |
+| SWE4-UT-BLESIM | `instruments/nordic_dongle/test_simulator.py` | 30 | Pass |
+| SWE4-UT-BLECLI | `instruments/nordic_dongle/test_cli.py` | 50 | Pass |
+| SWE4-UT-BLEFIRMWARE | `instruments/nordic_dongle/test_firmware.py` | 50 | Pass |
+| SWE4-UT-LIMITS | `runner/test_limits.py` | 45 | Pass |
+| SWE4-UT-RESOLVE | `runner/test_resolve.py` | 27 | Pass |
+| SWE4-UT-BRINGUP | `runner/test_sensor_bringup.py` | 18 | Pass |
+| SWE4-UT-KEPLERSIM | `runner/test_kepler_simulated.py` | 11 | Pass |
+| SWE4-UT-BLEDFU | `instruments/nordic_dongle/test_dfu.py` | 40 | Pass |
+| SWE4-UT-EVENTS | `core/test_events.py` | 54 | Pass |
+| SWE4-UT-TESTBENCH | `tools/test_test_bench.py` | 32 | Pass |
+| SWE4-UT-EVENTNAMES | `runner/test_event_names.py` | 21 | Pass |
+| SWE4-UT-COREFW | `core/test_firmware.py` | 13 | Pass |
+| SWE4-UT-SPEC | `runner/test_spec.py` | 39 | Pass |
+| SWE4-UT-PARAMS | `runner/test_parameters.py` | 7 | Pass |
 | SWE4-UT-SELECT | `runner/test_selection.py` | 14 | Pass |
 | SWE4-UT-RUNEVENTS | `runner/test_run_events.py` | 21 | Pass |
 | SWE4-UT-CONTROL | `runner/test_control.py` | 33 | Pass |
 | SWE4-UT-VIEWSTATE | `viewer/test_state.py` | 14 | Pass |
 | SWE4-UT-VIEWSERVER | `viewer/test_server.py` | 29 | Pass |
 | SWE4-UT-VIEWTRAFFIC | `viewer/test_traffic.py` | 26 | Pass |
-| SWE4-UT-VIEWRADIO | `viewer/test_radio.py` | 14 | Pass |
+| SWE4-UT-VIEWRADIO | `viewer/test_radio.py`, `viewer/radio_log.py` | 14 | Pass |
 | SWE4-UT-VIEWGRAPHS | `viewer/test_graphs.py` | 16 | Pass |
 | SWE4-UT-VIEWTAGS | `viewer/test_tags.py` | 19 | Pass |
 | SWE4-UT-VIEWSTATUS | `viewer/test_status.py` | 10 | Pass |
 | SWE4-UT-VIEWREMOTE | `viewer/test_remote.py` | 22 | Pass |
-| SWE4-UT-S2LPTABLES | `instruments/s2lp/test_kepler_tables.py` | 19 | Pass |
 | SWE4-UT-VIEWKEPLER | `viewer/test_kepler_view.py` | 12 | Pass |
 | SWE4-UT-VIEWSENSOR | `viewer/test_sensor_series.py` | 17 | Pass |
 | SWE4-UT-VIEWTWF | `viewer/test_twf.py` | 15 | Pass |
 | SWE4-UT-VIEWDIAG | `viewer/test_diagnostics.py` | 14 | Pass |
 | SWE4-UT-VIEWREPORT | `viewer/test_report.py` | 10 | Pass |
 | SWE4-UT-VIEWSTGUI | `viewer/test_st_gui.py` | 11 | Pass |
-| SWE4-UT-PATHS | `core/test_paths.py`, `runner/test_input_paths.py` | 70 | Pass |
-| SWE4-UT-EVENTNAMES | `runner/test_event_names.py` | 21 | Pass |
-| SWE4-UT-RESOLVE | `runner/test_resolve.py` | 27 | Pass |
-| SWE4-UT-BRINGUP | `runner/test_sensor_bringup.py` | 18 | Pass |
-| SWE4-UT-COREFW | `core/test_firmware.py` | 13 | Pass |
-| SWE4-UT-SOCKET | `core/transport/test_socket.py` | 12 | Pass |
-| SWE4-UT-VISA | `core/transport/test_visa.py` | 6 | Pass |
-| SWE4-UT-PICO | `instruments/pico_sht30/test_thermometer.py` | 44 | Pass |
-| SWE4-UT-DMM | `instruments/tti1604/test_dmm.py` | 34 | Pass |
+| SWE4-UT-S2LP | `instruments/s2lp/test_s2lp.py` | 143 | Pass |
+| SWE4-UT-S2LPREG | `instruments/s2lp/test_registers.py` | 34 | Pass |
+| SWE4-UT-S2LPCONFIG | `instruments/s2lp/test_configuration.py` | 64 | Pass |
+| SWE4-UT-S2LPPROTO | `instruments/s2lp/test_protocol.py` | 42 | Pass |
+| SWE4-UT-S2LPSESSION | `instruments/s2lp/test_session.py` | 22 | Pass |
+| SWE4-UT-S2LPSIM | `instruments/s2lp/test_simulator.py` | 48 | Pass |
+| SWE4-UT-S2LPKEPLER | `instruments/s2lp/test_kepler.py` | 39 | Pass |
+| SWE4-UT-S2LPTABLES | `instruments/s2lp/test_kepler_tables.py` | 19 | Pass |
+| SWE4-UT-S2LPPREAMBLE | `instruments/s2lp/test_preamble.py` | 17 | Pass |
+| SWE4-UT-S2LPSAMPLES | `instruments/s2lp/test_kepler_samples.py` | 7 | Pass |
+| SWE4-UT-S2LPFRAME | `instruments/s2lp/test_kepler_frame.py` | 3 | Pass |
+| SWE4-UT-S2LPEEPROM | `instruments/s2lp/test_eeprom.py` | 13 | Pass |
+| SWE4-UT-S2LPCLI | `instruments/s2lp/test_cli.py` | 46 | Pass |
+| SWE4-UT-PSU | `instruments/gpd3303d/test_psu.py` | 107 | Pass |
+| SWE4-UT-PSUSIM | `instruments/gpd3303d/test_simulator.py` | 40 | Pass |
+| SWE4-UT-PSUCLI | `instruments/gpd3303d/test_cli.py` | 23 | Pass |
+| SWE4-UT-PSUPANEL | `instruments/gpd3303d/test_front_panel_check.py` | 4 | Pass |
 | SWE4-UT-DMMPROTO | `instruments/tti1604/test_protocol.py` | 56 | Pass |
+| SWE4-UT-DMM | `instruments/tti1604/test_dmm.py` | 34 | Pass |
 | SWE4-UT-DMMSIM | `instruments/tti1604/test_simulator.py` | 28 | Pass |
-| SWE4-UT-DMMCLI | `instruments/tti1604/test_cli.py` | 8 | Pass |
 | SWE4-UT-DMMPANEL | `instruments/tti1604/test_front_panel_check.py` | 7 | Pass |
+| SWE4-UT-DMMCLI | `instruments/tti1604/test_cli.py` | 8 | Pass |
+| SWE4-UT-PICO | `instruments/pico_sht30/test_thermometer.py` | 44 | Pass |
 | SWE4-UT-PICOSIM | `instruments/pico_sht30/test_simulator.py` | 36 | Pass |
 | SWE4-UT-PICOCLI | `instruments/pico_sht30/test_cli.py` | 16 | Pass |
 | SWE4-UT-PICOFLASH | `instruments/pico_sht30/test_flash.py` | 35 | Pass |
 | SWE4-UT-PICOFWPROTO | `instruments/pico_sht30/test_firmware_protocol.py` | 9 | Pass |
-| **Total** | | **2 591** (2 590 passed, 1 skipped) | **Pass** |
+| SWE4-UT-PICOFW | `firmware/pico_sht30/test/*.c` | 0 | Pass |
+| SWE4-UT-BENCH | `runner/test_bench.py`, `runner/test_shipped_benches.py` | 67 | Pass |
+| SWE4-UT-ENGINE | `runner/test_runner.py` | 33 | Pass |
+| SWE4-UT-REPORT | `runner/test_report.py` | 24 | Pass |
+| SWE4-UT-RUNCLI | `runner/test_cli.py` | 25 | Pass |
+| SWE4-UT-PATHS | `core/test_paths.py`, `runner/test_input_paths.py` | 72 | Pass |
+| **Total (pytest)** | | **3 348** (3 348 passed) | **Pass** |
 
-The thermometer firmware's own unit tests (`SWE4-UT-PICOFW`, 83 cases) run
-under CTest, not pytest, and are reported in §13A. The five `PICO` rows above
-are the counts after #127 was merged into #131 (140 in all, from
-`python -m pytest tests/instruments/pico_sht30 -q`); the total row is still the
-revision 0.4 figure, as explained in §4.
+The pytest total is 3 333 tests in the groups above plus 15 in two files that
+no group in ETB-SWE4-001 names: `runner/test_bench_self_check.py` (added in
+99e781b) and `runner/test_sensor_power_signal_and_link.py` (054ec60). Both
+passed. Assigning them to a group belongs to the specification, not this
+report, and is left for a separate issue.
+
+The firmware unit tests run under CTest, not pytest, and are not in the pytest
+total. The dongle's 8 binaries (189 cases) were built and run on the bench PC
+for this revision. The Pico 2 thermometer's 3 binaries (83 cases) are built
+with AddressSanitizer and UndefinedBehaviorSanitizer, which the bench PC's
+MinGW gcc cannot build (it stops with an internal compiler error), so their
+result is CI run 39938471355 on 7507bda. No file under `firmware/` has changed
+between 7507bda and e86113e. `SWE4-UT-DMMBENCH` needs the real meter and is not
+part of the default run.
 
 ## 6. Coverage detail
 
