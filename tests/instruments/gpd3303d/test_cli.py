@@ -151,7 +151,7 @@ class TestTrackingIsVisibleWhenReading:
         psu = Gpd3303D(MockTransport(responder=simulator), command_interval=0.0)
         psu.initialise()
         try:
-            _cmd_read(psu, argparse.Namespace(channel=None, json=True))
+            _cmd_read(psu, argparse.Namespace(channel=None, json=None))
         finally:
             psu.close()
         text = capsys.readouterr().out

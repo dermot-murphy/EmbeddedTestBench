@@ -187,24 +187,25 @@ class TestJunit:
         assert root.find("testcase").find("error") is not None
 
 
+@pytest.fixture(scope="class")
+def dongle_run():
+    spec = TestSpec.from_mapping({
+        "name": "Identity suite",
+        "tests": [{"name": "reads its build", "steps": [
+            {"do": "dongle.firmware_version"}]}],
+    }, source="<test>")
+    config = BenchConfig.from_mapping({
+        "name": "B", "instruments": {"dongle": "ble-dongle@sim://"},
+    })
+    with BenchRunner.from_config(config) as runner:
+        return runner.run(spec)
+
+
 class TestInstrumentsSection:
     """Which instruments produced the numbers, and what they were running.
 
     Traces to: RUN-FR-037, RUN-FR-041, RUN-DD-REPORT.
     """
-
-    @pytest.fixture(scope="class")
-    def dongle_run(self):
-        spec = TestSpec.from_mapping({
-            "name": "Identity suite",
-            "tests": [{"name": "reads its build", "steps": [
-                {"do": "dongle.firmware_version"}]}],
-        }, source="<test>")
-        config = BenchConfig.from_mapping({
-            "name": "B", "instruments": {"dongle": "ble-dongle@sim://"},
-        })
-        with BenchRunner.from_config(config) as runner:
-            return runner.run(spec)
 
     def test_the_table_names_the_instrument_and_its_build(self, dongle_run):
         text = format_markdown(dongle_run)
