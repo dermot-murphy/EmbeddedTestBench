@@ -224,6 +224,18 @@ On Linux, add `--user "$(id -u):$(id -g)"` so the files stay yours.
 `tests/test_constraints.py` fails if a requirement of the `test` extra is
 missing from any of the files.
 
+The same lock also runs every Monday in `.github/workflows/constraints_refresh.yml`
+(#284). Dependabot does not propose pip updates. When the pins move, the
+workflow pushes them to `fix/constraints-refresh` and opens an issue, titled
+"Constraints refresh: new library releases for CI". If that issue is already
+open, it adds a comment instead. The issue lists each pin that moved. To test
+the change, open a pull request from the branch into `develop`; CI runs on it
+as usual. The schedule and the Run button on the Actions tab work only once
+the workflow is on `main`, at the next release. Until then, a push that changes
+the workflow, `docker/ci/`, `constraints/` or `pyproject.toml` runs it as a dry
+run. The dry run reports what the lock would change, and pushes and opens
+nothing.
+
 3.9 and 3.12 are at the patch versions CI had when the image was made (3.9.25
 and 3.12.15); 3.8 is 3.8.20, where CI has 3.8.18 (`docker/ci/Dockerfile`
 says why). None of them is the runner's own build of Python, so a fault in one

@@ -55,7 +55,7 @@ pyvisa-py==0.7.2
 pyyaml==6.0.3
     # via benchtools (pyproject.toml)
 setuptools==82.0.1
-    # via -r /tmp/tmp.agtbBSR4Nx/build.in
+    # via -r /tmp/etb-ci-lock/build.in
 six==1.17.0
     # via python-dateutil
 tomli==2.5.0
