@@ -87,7 +87,10 @@ run_leg() {
 lock() {
     [ -w "$SRC/constraints" ] || die "mount constraints/ writable: -v \"\$PWD/constraints\":/src/constraints"
     local inputs leg out
-    inputs=$(mktemp -d)
+    # A fixed path, not mktemp: uv writes it into each file ("via -r ..."), and
+    # a random one would make every lock differ from the last (#284).
+    inputs=/tmp/etb-ci-lock
+    mkdir -p "$inputs" || exit 1
     echo "setuptools>=61" > "$inputs/build.in"
     for leg in 3.8 3.9 3.12 lint; do
         out="$SRC/constraints/py$leg.txt"
