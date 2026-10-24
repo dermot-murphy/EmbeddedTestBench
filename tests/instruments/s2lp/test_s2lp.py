@@ -423,6 +423,30 @@ class TestTheInterrupt:
         with pytest.raises(Exception, match="after clearing IRQ_STATUS"):
             linked.transmit(PAYLOAD)
 
+    def test_restoring_defaults_routes_it_again(self, linked, loopback):
+        """The defaults make GPIO3 a GND output and mask every interrupt, so
+        the routing the first send made is gone (#179)."""
+        linked.transmit(PAYLOAD)
+        linked.restore_defaults()
+        assert linked.read_register("GPIO3_CONF") == 0xA2
+        linked.configure_packets()
+        linked.transmit(PAYLOAD)
+        assert loopback.command_log.count("S2MGpioIrqConfiguration 3 1") == 2
+
+    def test_a_power_cycle_routes_it_again(self, linked, loopback):
+        linked.transmit(PAYLOAD)
+        linked.power_cycle(settle=0)
+        linked.configure_packets()
+        linked.transmit(PAYLOAD)
+        assert loopback.command_log.count("S2MGpioIrqConfiguration 3 1") == 2
+
+    def test_the_reset_strobe_keeps_the_routing(self, linked, loopback):
+        """SRES leaves the SPI registers as they were, so nothing to redo."""
+        linked.transmit(PAYLOAD)
+        linked.reset(settle=0)
+        linked.transmit(PAYLOAD)
+        assert loopback.command_log.count("S2MGpioIrqConfiguration 3 1") == 1
+
     def test_the_gpio_is_made_an_output_not_an_input(self, linked, loopback):
         linked.prepare_traffic()
         assert "S2LPGpioInit 3 2 0" in loopback.command_log
@@ -461,6 +485,24 @@ class TestReceive:
         assert packet is not None
         assert packet.data == PAYLOAD
         assert packet.direction == "rx"
+
+    @pytest.mark.parametrize("before", ["transmit", "receive"])
+    def test_a_receive_after_a_defaults_reset_is_set_up_again(self, linked, loopback,
+                                                                before):
+        """QS-07's sequence: traffic, the receive setup applied again with a
+        defaults reset, then a receive. It was refused with GPIO3 reading 0,
+        and the transmit was not the cause: a receive first fails the same
+        way (#179, shown on the kit 2026-10-24)."""
+        if before == "transmit":
+            linked.transmit(PAYLOAD)
+        else:
+            assert linked.receive(timeout=0.2) is None
+        linked.apply_configuration(
+            "configs/s2lp_kepler_433_rx.regs", reset="defaults", verify=True)
+        loopback.queue_packet(PAYLOAD)
+        assert linked.receive(length=len(PAYLOAD)).data == PAYLOAD
+        assert loopback.command_log.count("S2LPTimerSetRxTimeoutUs 0") == (
+            1 if before == "transmit" else 2)
 
     def test_the_rssi_is_the_one_the_board_reported(self, linked, loopback):
         loopback.queue_packet(PAYLOAD, rssi_dbm=-72.0)
