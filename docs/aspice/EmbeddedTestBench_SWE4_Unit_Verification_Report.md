@@ -65,7 +65,7 @@
 | 1.29 | 2026-10-23 | Claude | #244: §10.6 added - a sensor's firmware updated over BLE by the dongle on the bench, and refused by its bootloader. |
 | 1.30 | 2026-10-23 | Claude | #271: §10.7 added - DFU data lost on 5C1712's SDK 15.2 bootloader, the fix that failed and the one that passed, on the bench; D-52 added. |
 | 1.31 | 2026-10-23 | Claude | #275: §10.8 added - V10-F-01 on the bench with the bootloader link retry; D-53 added. |
-| 1.32 | 2026-10-24 | Claude | #286: §5 regenerated from a whole-suite run on the branch, based on `develop` e86113e (3 350 passed, 95% coverage, §4): one row per ETB-SWE4-001 group, 19 of them missing before (including SWE4-UT-S2LPKEPLER); firmware CTest counts added; two test files with no group noted. |
+| 1.32 | 2026-10-24 | Claude | #286: §5 regenerated from a whole-suite run on the branch with `develop` 9b7da17 merged in (3 374 passed, 95% coverage, §4): one row per ETB-SWE4-001 group, 19 of them missing before (including SWE4-UT-S2LPKEPLER); firmware CTest counts added; two test files with no group noted. |
 
 ---
 
@@ -96,16 +96,16 @@ Revision 1.32's run (#286), the one §5 is generated from:
 
 | Metric | Result |
 |---|---|
-| Tests executed | **3 350** |
-| Passed | **3 350** |
+| Tests executed | **3 374** |
+| Passed | **3 374** |
 | Failed | 0 |
 | Errors | 0 |
 | Skipped | 0 |
-| Statement coverage | **95%** (17 506 statements, 839 missed) |
-| Execution time | 243.0 s, with coverage instrumentation |
+| Statement coverage | **95%** (17 517 statements, 840 missed) |
+| Execution time | 246.9 s, with coverage instrumentation |
 | Runtime | CPython 3.14.7, Windows 10 (10.0.19045) |
 | Framework | pytest 9.1.1, pytest-cov 7.1.0 |
-| Code | the #286 branch, based on `develop` e86113e |
+| Code | the #286 branch with `develop` 9b7da17 merged in (after #287 and #252) |
 
 Command:
 
@@ -204,7 +204,7 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 ## 5. Results by test group
 
 Regenerated for revision 1.32 (#286) from one run of the whole suite on this
-revision's branch, based on `develop` e86113e (§4): one row for each test group in ETB-SWE4-001, in that
+revision's branch with `develop` 9b7da17 merged in (§4): one row for each test group in ETB-SWE4-001, in that
 document's order, with the count and verdict from the run's JUnit XML. Earlier
 revisions added rows by hand, and 19 groups had none. `tests/test_traceability.py`
 now fails when a group in ETB-SWE4-001 has no row here.
@@ -292,7 +292,7 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-S2LPPROTO | `instruments/s2lp/test_protocol.py` | 42 | Pass |
 | SWE4-UT-S2LPSESSION | `instruments/s2lp/test_session.py` | 22 | Pass |
 | SWE4-UT-S2LPSIM | `instruments/s2lp/test_simulator.py` | 48 | Pass |
-| SWE4-UT-S2LPKEPLER | `instruments/s2lp/test_kepler.py` | 39 | Pass |
+| SWE4-UT-S2LPKEPLER | `instruments/s2lp/test_kepler.py` | 63 | Pass |
 | SWE4-UT-S2LPTABLES | `instruments/s2lp/test_kepler_tables.py` | 19 | Pass |
 | SWE4-UT-S2LPPREAMBLE | `instruments/s2lp/test_preamble.py` | 17 | Pass |
 | SWE4-UT-S2LPSAMPLES | `instruments/s2lp/test_kepler_samples.py` | 7 | Pass |
@@ -319,9 +319,9 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-REPORT | `runner/test_report.py` | 24 | Pass |
 | SWE4-UT-RUNCLI | `runner/test_cli.py` | 25 | Pass |
 | SWE4-UT-PATHS | `core/test_paths.py`, `runner/test_input_paths.py` | 72 | Pass |
-| **Total (pytest)** | | **3 350** (3 350 passed) | **Pass** |
+| **Total (pytest)** | | **3 374** (3 374 passed) | **Pass** |
 
-The pytest total is 3 335 tests in the groups above plus 15 in two files that
+The pytest total is 3 359 tests in the groups above plus 15 in two files that
 no group in ETB-SWE4-001 names: `runner/test_bench_self_check.py` (added in
 99e781b) and `runner/test_sensor_power_signal_and_link.py` (054ec60). Both
 passed. Assigning them to a group belongs to the specification, not this
@@ -333,7 +333,7 @@ for this revision. The Pico 2 thermometer's 3 binaries (83 cases) are built
 with AddressSanitizer and UndefinedBehaviorSanitizer, which the bench PC's
 MinGW gcc cannot build (it stops with an internal compiler error), so their
 result is CI run 39938471355 on 7507bda. No file under `firmware/` has changed
-between 7507bda and e86113e. `SWE4-UT-DMMBENCH` needs the real meter and is not
+between 7507bda and 9b7da17. `SWE4-UT-DMMBENCH` needs the real meter and is not
 part of the default run.
 
 ## 6. Coverage detail
