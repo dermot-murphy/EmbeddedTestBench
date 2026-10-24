@@ -70,7 +70,7 @@
 | 1.34 | 2026-10-23 | Claude | #275: BLE-DD-DFUHOST - each bootloader link that fails to establish (0x3E) is tried again up to `connect_attempts` (`CONNECT_ATTEMPTS`), through `_retry_not_established`, the retry `open_link` uses (BLE-DD-DONGLE). |
 | 1.35 | 2026-10-24 | Claude | #179: S2LP-DD-TRAFFIC - `restore_defaults` and `power_cycle` forget the interrupt routing, the receive setup and the payload length (`_forget_traffic_setup`), since the register defaults undo all three; the next send or receive sets them up again. |
 | 1.36 | 2026-10-24 | Claude | #255: S2LP-DD-KEPLER - FFT2 type version 2 (Kepler TX-1140): FFT ODR, sample count and first bin at 21-26, bins from 27, 111 bytes; chosen by type version, version 1 unchanged. |
-| 1.37 | 2026-10-24 | Claude | #287: S2LP-DD-KEPLER - the layout of every frame type is chosen from `LAYOUTS` by its type version; an unknown version is decoded with the highest known one, with a warning. |
+| 1.37 | 2026-10-24 | Claude | #287: S2LP-DD-KEPLER - the layout of every frame type is chosen from `LAYOUTS` by its type version; an unknown version is decoded with the nearest known version below it, or the lowest known one, with a warning. |
 
 ---
 
@@ -2031,12 +2031,19 @@ versions are the firmware's `API_RADIO_TRANSPORT_TYPE_CAPABILITY_*` values
 (`api_radio_transport_cfg.h`, mapped per APDU by
 `API_Radio_Field_Load_TypeHardwareCapability`): 1 for VERSION, ALIVE and
 INSTALL_ASSIST, TWF, CONFIG and FFT, 1 and 2 for FFT2, and 0 for CMD, which
-falls to that switch's default. A frame whose version is not listed is decoded
-with the highest listed version, and a warning names both versions (for
-example "ALIVE type version 2; decoded as version 1"). The owner chose this
-rule on #287 over decoding only the header: it keeps the bench working through
-a firmware change that only appends fields. The length check and the "beyond
-the layout" note use the chosen version's length. RESPONSE is built by the
+falls to that switch's default. These values are pinned at e638d66df; the
+firmware is not read at run time. A frame whose version is not listed is
+decoded with the highest listed version below it, or the lowest listed one when
+it is below them all, and a warning names both versions (for example "ALIVE
+type version 2; decoded as version 1"). The owner chose decoding with a known
+layout on #287 over decoding only the header: it keeps the bench working
+through a firmware change that only appends fields. A version below every
+known one takes the lowest because V10.00.0000 writes all of byte 5 as its HW
+capability (4, `API_RADIO_TRANSPORT_HW_CAPABILITY_VALUE`), so every V10.00
+frame reads as version 0, and the oldest layout is the nearest to it (PR #289
+review). The length check and the "beyond the layout" note use the chosen
+version's length, and a frame too short for a fallback layout says which
+version it declared and which was used. RESPONSE is built by the
 gateway, not the sensor, so its RF_CAP and type version are not checked.
 
 **Checked against the firmware (#151).** The Kepler project's rf_monitor and

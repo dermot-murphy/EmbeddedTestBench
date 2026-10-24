@@ -22,7 +22,8 @@ and are reported as sent, not un-permuted.
 these layouts are RF_CAP 6. A frame with another RF_CAP is still decoded, with a
 warning, because V10 (RF_CAP 4) frames differ. Within RF_CAP 6, each type's
 layout is chosen by its type version (byte 5 bits 7:3) from ``LAYOUTS``; an
-unknown version is decoded with the highest known one, with a warning (#287).
+unknown version is decoded with the nearest known version below it, or the
+lowest known one, with a warning (#287).
 
 Traces to: S2LP-FR-070, S2LP-DD-KEPLER.
 """
@@ -255,7 +256,9 @@ def _response(data: bytes) -> Dict[str, Any]:
 #: each with its length and decoder (#287). The versions are the firmware's
 #: API_RADIO_TRANSPORT_TYPE_CAPABILITY_* values; CMD is outside that switch
 #: and sends 0. A frame of a version not listed is decoded with the highest
-#: listed one, and a warning says so.
+#: listed version below it, or the lowest listed one when it is below them all,
+#: and a warning says so. V10.00.0000 writes all of byte 5 as its HW
+#: capability (4), so its frames read as version 0 and get version 1's layout.
 LAYOUTS: Dict[int, Dict[int, Tuple[int, Callable[[bytes], Dict[str, Any]]]]] = {
     2: {1: (83, _version)},
     3: {1: (35, _alive)},
@@ -273,9 +276,11 @@ _GATEWAY_FRAMES = (9,)
 
 
 def _layout(pl_type: int, version: int) -> Tuple[int, int, Callable[[bytes], Dict[str, Any]]]:
-    """The version used to decode, its length and its decoder."""
+    """The version used to decode, its length and its decoder: the frame's
+    own, else the nearest known version below it, else the lowest known."""
     known = LAYOUTS[pl_type]
-    used = version if version in known else max(known)
+    below = [listed for listed in known if listed <= version]
+    used = max(below) if below else min(known)
     size, decoder = known[used]
     return used, size, decoder
 
@@ -297,8 +302,10 @@ def decode_kepler_frame(payload: bytes) -> Dict[str, Any]:
     version = data[5] >> 3
     used, size, decoder = _layout(pl_type, version)
     if len(data) < size:
+        fallback = "" if used == version or pl_type in _GATEWAY_FRAMES else (
+            " (type version %d, decoded as version %d)" % (version, used))
         raise KeplerFrameError(
-            "a %s frame is %d bytes; this payload is %d" % (name, size, len(data)))
+            "a %s frame is %d bytes; this payload is %d%s" % (name, size, len(data), fallback))
 
     decoded: Dict[str, Any] = {
         "type": name,

@@ -307,11 +307,13 @@ KNOWN_LAYOUTS = [(pl_type, version, size)
 
 class TestTypeVersions:
     """The layout is chosen by the type version in byte 5 bits 7:3; an unknown
-    version is decoded with the highest known one, and a warning says so (#287)."""
+    version is decoded with the nearest known version below it, or the lowest
+    known one, and a warning says so (#287)."""
 
-    def test_the_versions_are_the_firmwares(self):
-        # API_RADIO_TRANSPORT_TYPE_CAPABILITY_* on innovateuk-sensor develop
-        # e638d66df; CMD falls to the switch's default, 0.
+    def test_the_versions_are_pinned_to_the_firmwares(self):
+        # Pinned to API_RADIO_TRANSPORT_TYPE_CAPABILITY_* on innovateuk-sensor
+        # develop e638d66df (CMD falls to the switch's default, 0). The firmware
+        # is not read here: this catches an edit to LAYOUTS, not a firmware change.
         versions = {pl_type: sorted(known) for pl_type, known in LAYOUTS.items()}
         assert versions == {2: [1], 3: [1], 4: [1], 5: [1], 6: [1], 7: [1, 2], 8: [0], 9: [0]}
 
@@ -333,10 +335,28 @@ class TestTypeVersions:
         assert decoded["warnings"] == [
             "%s type version %d; decoded as version %d" % (name, highest + 1, highest)]
 
-    def test_a_lower_unknown_version_also_uses_the_highest_known(self):
-        decoded = decode_kepler_frame(bytes(header(7, 111, type_cap=0)))
-        assert "fft_odr" in decoded
-        assert decoded["warnings"] == ["FFT2 type version 0; decoded as version 2"]
+    def test_a_version_below_every_known_one_uses_the_lowest(self):
+        # V10.00.0000 writes all of byte 5 as its HW capability, 4, so every
+        # V10.00 frame reads as type version 0 (api_radio_transport_cfg.h).
+        decoded = decode_kepler_frame(bytes(header(7, 105, type_cap=0)))
+        assert "fft_odr" not in decoded and len(bytes.fromhex(decoded["bins"])) == 84
+        assert decoded["warnings"] == ["FFT2 type version 0; decoded as version 1"]
+
+    def test_a_version_between_known_ones_uses_the_nearest_below(self, monkeypatch):
+        monkeypatch.setitem(LAYOUTS, 7, {1: LAYOUTS[7][1], 3: LAYOUTS[7][2]})
+        decoded = decode_kepler_frame(bytes(header(7, 105, type_cap=2)))
+        assert decoded["warnings"] == ["FFT2 type version 2; decoded as version 1"]
+
+    def test_a_short_frame_at_an_unknown_version_names_the_fallback(self):
+        # A V10.00 FFT2 APDU is 104 bytes (version 0).
+        with pytest.raises(KeplerFrameError,
+                           match=r"FFT2 frame is 105 bytes; this payload is 104 "
+                                 r"\(type version 0, decoded as version 1\)"):
+            decode_kepler_frame(bytes(header(7, 104, type_cap=0)))
+
+    def test_a_short_frame_at_a_known_version_does_not(self):
+        with pytest.raises(KeplerFrameError, match=r"this payload is 105$"):
+            decode_kepler_frame(bytes(header(7, 105, type_cap=2)))
 
     def test_an_alive_frame_at_an_unknown_version(self):
         frame = bytearray(bytes.fromhex(ALIVE_REPEATS[0]))
