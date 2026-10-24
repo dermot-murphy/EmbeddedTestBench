@@ -10,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-RTM-001 | **Version** | 1.35 |
+| **Document ID** | ETB-RTM-001 | **Version** | 1.36 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-24 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -69,6 +69,7 @@
 | 1.33 | 2026-10-23 | Claude | #271: BLE-FR-121 - `SWE4-UT-BLEDFU` now 36 tests (lost data sent again). |
 | 1.34 | 2026-10-23 | Claude | #275: BLE-FR-121 - `SWE4-UT-BLEDFU` now 40 tests (a bootloader link that fails to establish). |
 | 1.35 | 2026-10-24 | Claude | #255: S2LP-FR-070 - `SWE4-UT-S2LPKEPLER` now 39 tests (FFT2 type version 2). |
+| 1.36 | 2026-10-24 | Claude | #286: BLE-NFR-006 - `SWE4-UT-FWUNIT` is 189 cases (was 131), the count run for ETB-SWE4-002 1.32 and the `RUN_TEST` count in the sources. |
 
 ---
 
@@ -375,7 +376,7 @@ where the firmware implements the requirement.
 | Requirement | Evidence |
 |---|---|
 | BLE-NFR-001 | `test_no_dynamic_allocation` parses every firmware source; buffers are `PROTO_MAX_*` sized; no recursion by inspection; `compile_check.sh` compiles the whole firmware with `-Wall -Wextra` and no warnings; `SWE4-UT-FWUNIT` exercises the bounded buffers at their limits. |
-| BLE-NFR-006 | `SWE4-UT-FWUNIT`: 131 cases run the firmware's own sources on a host, with no dongle, SDK or toolchain; `firmware/nordic_dongle/Makefile` builds it headlessly, and `.github/workflows/firmware.yml` does both on every push touching `firmware/**`. |
+| BLE-NFR-006 | `SWE4-UT-FWUNIT`: 189 cases run the firmware's own sources on a host, with no dongle, SDK or toolchain; `firmware/nordic_dongle/Makefile` builds it headlessly, and `.github/workflows/firmware.yml` does both on every push touching `firmware/**`. |
 | BLE-NFR-002 | `BLE-DD-CDC`: the radio event handler queues and returns. `test_cdc_acm` proves the queue never blocks and that every path leaves its critical region; behaviour under load on the part is a bench confirmation item (BLE-OPEN-02). |
 | BLE-NFR-003 | `SWE4-UT-BLEFW`: the header is parsed and compared with the driver's constants - commands, argument bounds, handlers, events, error codes, limits, version. |
 | BLE-NFR-004 | `test_no_mandatory_third_party_imports`; pyserial is the `serial` extra, imported inside `_open_link`. |

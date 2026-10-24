@@ -65,7 +65,7 @@
 | 1.29 | 2026-10-23 | Claude | #244: §10.6 added - a sensor's firmware updated over BLE by the dongle on the bench, and refused by its bootloader. |
 | 1.30 | 2026-10-23 | Claude | #271: §10.7 added - DFU data lost on 5C1712's SDK 15.2 bootloader, the fix that failed and the one that passed, on the bench; D-52 added. |
 | 1.31 | 2026-10-23 | Claude | #275: §10.8 added - V10-F-01 on the bench with the bootloader link retry; D-53 added. |
-| 1.32 | 2026-10-24 | Claude | #286: §5 regenerated from a whole-suite run on the branch, based on `develop` e86113e (3 348 passed, 95% coverage, §4): one row per ETB-SWE4-001 group, 19 of them missing before (including SWE4-UT-S2LPKEPLER); firmware CTest counts added; two test files with no group noted. |
+| 1.32 | 2026-10-24 | Claude | #286: §5 regenerated from a whole-suite run on the branch, based on `develop` e86113e (3 350 passed, 95% coverage, §4): one row per ETB-SWE4-001 group, 19 of them missing before (including SWE4-UT-S2LPKEPLER); firmware CTest counts added; two test files with no group noted. |
 
 ---
 
@@ -92,35 +92,38 @@ It is deliberately a separate work product from the specification. A specificati
 
 ## 4. Execution summary
 
+Revision 1.32's run (#286), the one §5 is generated from:
+
 | Metric | Result |
 |---|---|
-| Tests executed | **3 189** |
-| Passed | **3 183** |
+| Tests executed | **3 350** |
+| Passed | **3 350** |
 | Failed | 0 |
 | Errors | 0 |
-| Skipped | 6 |
-| Statement coverage | Not measured for revision 1.0: `pytest-cov` is not installed on the bench PC. Revision 0.9 measured **95%** (13 695 statements, 679 missed). |
-| Execution time | 228.6 s, without coverage instrumentation |
+| Skipped | 0 |
+| Statement coverage | **95%** (17 506 statements, 839 missed) |
+| Execution time | 243.0 s, with coverage instrumentation |
 | Runtime | CPython 3.14.7, Windows 10 (10.0.19045) |
-| Framework | pytest 9.1.1 |
+| Framework | pytest 9.1.1, pytest-cov 7.1.0 |
+| Code | the #286 branch, based on `develop` e86113e |
 
 Command:
 
 ```
-python -m pytest -q -x
+python -m pytest -p no:cacheprovider --cov=benchtools --cov-report=term --junitxml=<file>
 ```
 
-The six skipped tests are in `core/transport/test_visa.py`: the `pyvisa`
-optional extra is not installed on the bench PC, and those tests skip without
-it, as designed. The `matplotlib`, `pyyaml` and `pyserial` extras were
-installed, so their tests executed.
+Every optional extra (`matplotlib`, `pyvisa`, `pyyaml`, `pyserial`) was
+installed, so nothing skipped. In revision 1.0, six tests in
+`core/transport/test_visa.py` skipped because `pyvisa` was not installed on the
+bench PC; they skip without it, as designed.
 
 The suite was also run with all extras blocked - `matplotlib`, `pyvisa`,
 `pyyaml` and `pyserial` - to confirm the claim that the package works
 without them: **2 444 passed, 51 skipped, 2 failed. The two failures are on `develop` already and are not this change's: `test_events.py::TestWhatFeedsIt::test_the_runner_reports_each_test_s_result` and `test_serial.py::TestHandshakeLines::test_requested_states_are_applied_after_opening` both need pyserial and do not skip without it** (revision 0.5). They were blocked by a
 `sitecustomize` that raises `ModuleNotFoundError` for those four names, which
 is closer to a machine that never had them than uninstalling is. (The totals
-differ from the figure above because the runner command-line module is skipped as a whole
+differ from the revision 0.5 full run because the runner command-line module is skipped as a whole
 rather than test by test — the shipped specifications are YAML, so without
 `pyyaml` there is nothing in that module to run. Its JSON equivalents are covered
 in `test_spec.py`.) The whole J-Link driver runs in that configuration, which is
@@ -132,14 +135,11 @@ the GDB/MI boundary, the RTT and SWO sockets by a loopback server, the dongle at
 its line protocol, and the serial port by pyserial's own `loop://` handler.
 
 Revision 1.0 re-ran the whole suite with #127's `flash` command on the bench
-PC; the figures above are that run.
-Revision 1.32 re-ran the whole suite on its branch, based on `develop`
-e86113e, to regenerate §5 (#286): **3 348 tests, 3 348 passed, 0 failed, 0
-errors, 0 skipped**, in 236.1 s with coverage, CPython 3.14.7 on Windows 10, pytest 9.1.1 with
-pytest-cov 7.1.0 (`python -m pytest -p no:cacheprovider --cov=benchtools
---junitxml=...`). Statement coverage **95%** (17 506 statements, 840 missed).
-`pyvisa` is now installed on the bench PC, so `test_visa.py` ran and nothing
-was skipped.
+PC: **3 189 executed, 3 183 passed, 0 failed, 6 skipped**, in 228.6 s without
+coverage (`python -m pytest -q -x`); revision 0.9 had measured 95% coverage
+(13 695 statements, 679 missed).
+Revision 1.32 re-ran the whole suite to regenerate §5 (#286); the table at
+the top of this section is that run.
 Revision 1.21 re-ran the whole suite with #177's change to `reset` on the same
 bench PC: **3 132 tests, 3 126 passed, 0 failed, 0 errors, 6 skipped**, in
 212.4 s, CPython 3.11.1 on Windows 10, pytest 9.0.3
@@ -216,7 +216,7 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-CONSTRAINTS | `test_constraints.py` | 10 | Pass |
 | SWE4-UT-LINT | `test_lint_script.py` | 3 | Pass |
 | SWE4-UT-PUBLISH | `test_publish_docs.py` | 43 | Pass |
-| SWE4-UT-TRACE | `test_traceability.py` | 25 | Pass |
+| SWE4-UT-TRACE | `test_traceability.py` | 27 | Pass |
 | SWE4-UT-SCPI | `core/test_scpi.py` | 28 | Pass |
 | SWE4-UT-INSTRUMENT | `core/test_instrument.py` | 20 | Pass |
 | SWE4-UT-PROCESS | `core/transport/test_process.py` | 20 | Pass |
@@ -249,7 +249,7 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-BLE | `instruments/nordic_dongle/test_dongle.py` | 116 | Pass |
 | SWE4-UT-BLESAMPLE | `instruments/nordic_dongle/test_sampling.py` | 5 | Pass |
 | SWE4-UT-BLEPROTO | `instruments/nordic_dongle/test_protocol.py` | 34 | Pass |
-| SWE4-UT-FWUNIT | `firmware/nordic_dongle/test/*.c` | 0 | Pass |
+| SWE4-UT-FWUNIT | `firmware/nordic_dongle/test/*.c` | 189 | Pass (CTest, 8 binaries, bench PC; not in the pytest total; §7.4) |
 | SWE4-UT-BLEFW | `instruments/nordic_dongle/test_firmware_protocol.py` | 22 | Pass |
 | SWE4-UT-BLESESSION | `instruments/nordic_dongle/test_session.py` | 23 | Pass |
 | SWE4-UT-BLEPROFILE | `instruments/nordic_dongle/test_profile.py` | 30 | Pass |
@@ -313,15 +313,15 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-PICOCLI | `instruments/pico_sht30/test_cli.py` | 16 | Pass |
 | SWE4-UT-PICOFLASH | `instruments/pico_sht30/test_flash.py` | 35 | Pass |
 | SWE4-UT-PICOFWPROTO | `instruments/pico_sht30/test_firmware_protocol.py` | 9 | Pass |
-| SWE4-UT-PICOFW | `firmware/pico_sht30/test/*.c` | 0 | Pass |
+| SWE4-UT-PICOFW | `firmware/pico_sht30/test/*.c` | 83 | Pass (CTest with ASan/UBSan, 3 binaries, CI run 39938471355; not in the pytest total; §13A) |
 | SWE4-UT-BENCH | `runner/test_bench.py`, `runner/test_shipped_benches.py` | 67 | Pass |
 | SWE4-UT-ENGINE | `runner/test_runner.py` | 33 | Pass |
 | SWE4-UT-REPORT | `runner/test_report.py` | 24 | Pass |
 | SWE4-UT-RUNCLI | `runner/test_cli.py` | 25 | Pass |
 | SWE4-UT-PATHS | `core/test_paths.py`, `runner/test_input_paths.py` | 72 | Pass |
-| **Total (pytest)** | | **3 348** (3 348 passed) | **Pass** |
+| **Total (pytest)** | | **3 350** (3 350 passed) | **Pass** |
 
-The pytest total is 3 333 tests in the groups above plus 15 in two files that
+The pytest total is 3 335 tests in the groups above plus 15 in two files that
 no group in ETB-SWE4-001 names: `runner/test_bench_self_check.py` (added in
 99e781b) and `runner/test_sensor_power_signal_and_link.py` (054ec60). Both
 passed. Assigning them to a group belongs to the specification, not this

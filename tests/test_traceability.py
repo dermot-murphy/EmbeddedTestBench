@@ -158,17 +158,41 @@ class TestTestGroupTraceability:
         )
 
 
-def _report_results() -> set:
-    """Test groups with a row in the report's results table (§5)."""
+#: A first-column cell that names a test group, matched loosely (bold or code
+#: marks, any characters to the cell's end) so that a malformed ID is caught
+#: rather than silently dropped; the strict form is what an ID must be.
+_GROUP_CELL = re.compile(r"^\|\s*[*`]*(SWE4-UT-[^|*`\s]*)[*`]*\s*\|(.*)$", re.M)
+_GROUP_ID = re.compile(r"SWE4-UT-[A-Z0-9]+")
+
+#: What a result cell may say: a verdict, optionally with a note in brackets,
+#: or "Not run:" with the reason.
+_VERDICT = re.compile(r"^(?:(?:Pass|Fail|\d+ failed|Pass, \d+ skipped)(?: \(.+\))?|Not run: .+)$")
+
+
+def _report_section() -> str:
     text = _text(REPORT_DOC)
     start = text.index("## 5. Results by test group")
-    section = text[start:text.index("\n## ", start + 1)]
-    return set(re.findall(r"^\| (SWE4-UT-[A-Z0-9]+) \|", section, re.M))
+    return text[start:text.index("\n## ", start + 1)]
+
+
+def _report_rows() -> dict:
+    """Test group -> its (tests, result) cells in the report's results table (section 5)."""
+    rows = {}
+    for match in _GROUP_CELL.finditer(_report_section()):
+        cells = [cell.strip() for cell in match.group(2).split("|")]
+        rows[match.group(1)] = (cells[1] if len(cells) > 1 else "",
+                                cells[2] if len(cells) > 2 else "")
+    return rows
+
+
+def _report_results() -> set:
+    """Test groups with a row in the report's results table (section 5)."""
+    return set(_report_rows())
 
 
 def _specified_groups() -> set:
     """Test groups defined in the specification, i.e. a table's first column."""
-    return set(re.findall(r"^\| (SWE4-UT-[A-Z0-9]+) \|", _text(TEST_SPEC_DOC), re.M))
+    return {match.group(1) for match in _GROUP_CELL.finditer(_text(TEST_SPEC_DOC))}
 
 
 class TestVerificationReport:
@@ -178,6 +202,11 @@ class TestVerificationReport:
     def test_the_report_has_results(self):
         """Guard against the class passing on an empty table."""
         assert len(_report_results()) > 50
+
+    def test_every_group_id_is_well_formed(self):
+        malformed = sorted(group for group in _specified_groups() | _report_results()
+                           if not _GROUP_ID.fullmatch(group))
+        assert not malformed, "malformed test group ID(s): %s" % ", ".join(malformed)
 
     def test_every_specified_group_has_a_result(self):
         missing = sorted(_specified_groups() - _report_results())
@@ -189,6 +218,17 @@ class TestVerificationReport:
         assert not extra, (
             "row(s) in ETB-SWE4-002 section 5 for groups ETB-SWE4-001 does not define:\n  "
             + "\n  ".join(extra))
+
+    def test_every_result_has_a_count_and_a_verdict(self):
+        offenders = []
+        for group, (tests, result) in sorted(_report_rows().items()):
+            if not tests.isdigit():
+                offenders.append("%s: tests %r is not a count" % (group, tests))
+            elif tests == "0" and not result.startswith("Not run:"):
+                offenders.append("%s: %r with no tests" % (group, result))
+            if not _VERDICT.match(result):
+                offenders.append("%s: result %r is not a verdict" % (group, result))
+        assert not offenders, "ETB-SWE4-002 section 5:\n  " + "\n  ".join(offenders)
 
 
 class TestArchitectureTraceability:
