@@ -39,9 +39,9 @@ def test_each_transmission_is_one_reading_not_three(radio, simulator):
 
 
 def test_copies_that_differ_in_status_are_still_one_transmission(radio, simulator):
-    """Before Kepler TX-1049 (V11.02.0000), ALIVE_STATUS's "SI updated" bit is
-    set in the first copy only (captured from 5C1712 2026-09-28), so copies
-    cannot be matched on their bytes (#252)."""
+    """On V11.00.0000 and V11.01.0000, before Kepler TX-1049, ALIVE_STATUS's
+    "SI updated" bit is set in the first copy only (captured from 5C1712
+    2026-09-28), so copies cannot be matched on their bytes (#252)."""
     captured = [
         "5C171203060C04031301037E008F0000870053005E0076003501120384020502510405",
         "5C171203060C04032301037E008F0000870053005E0076003501120384020502510404",

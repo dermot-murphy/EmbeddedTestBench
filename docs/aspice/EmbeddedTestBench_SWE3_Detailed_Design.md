@@ -70,7 +70,7 @@
 | 1.34 | 2026-10-23 | Claude | #275: BLE-DD-DFUHOST - each bootloader link that fails to establish (0x3E) is tried again up to `connect_attempts` (`CONNECT_ATTEMPTS`), through `_retry_not_established`, the retry `open_link` uses (BLE-DD-DONGLE). |
 | 1.35 | 2026-10-24 | Claude | #179: S2LP-DD-TRAFFIC - `restore_defaults` and `power_cycle` forget the interrupt routing, the receive setup and the payload length (`_forget_traffic_setup`), since the register defaults undo all three; the next send or receive sets them up again. |
 | 1.36 | 2026-10-24 | Claude | #255: S2LP-DD-KEPLER - FFT2 type version 2 (Kepler TX-1140): FFT ODR, sample count and first bin at 21-26, bins from 27, 111 bytes; chosen by type version, version 1 unchanged. |
-| 1.37 | 2026-10-24 | Claude | #252: S2LP-DD-TRAFFIC - `kepler_samples`: the copies of one ALIVE differ in the SI-updated bit on V11.00.0000 and V11.01.0000 only; Kepler TX-1049 (V11.02.0000) sends the same bit in every copy. |
+| 1.37 | 2026-10-24 | Claude | #252: S2LP-DD-TRAFFIC - `kepler_samples`: the copies of one ALIVE differ in the SI-updated bit on V11.00.0000 and V11.01.0000 only; Kepler TX-1049 (V11.02.0000) sends the same bit in every copy; the V10.00.0000 and V10.99.0000 loaders clear it as V11.00 does. |
 
 ---
 
@@ -1961,8 +1961,10 @@ transmission. Bytes cannot be compared instead: on V11.00.0000 and V11.01.0000,
 ALIVE_STATUS's "SI updated" bit is set in the first copy only (#95). Kepler
 TX-1049, released in V11.02.0000, takes the bit when the first copy is built
 and sends it in every copy (`API_Radio_Field_Load_AliveStatus`, b6c96beae;
-#252). The rule stays for the older firmware. Firmware before V11.00.0000 was
-not checked.
+#252). The rule stays for the older firmware. The V10.00.0000 and V10.99.0000
+loaders also clear the bit after loading it. Whether V10 rebuilds the field for
+each copy was not traced, so this document claims V10's copies differ only as
+far as that loader shows.
 
 `kepler_frame` returns the whole decode of the next frame of a given type from
 a given sensor, with its payload as `raw`, for a frame whose fields are text or
