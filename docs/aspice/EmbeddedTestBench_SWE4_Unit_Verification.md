@@ -10,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE4-001 | **Version** | 1.37 |
+| **Document ID** | ETB-SWE4-001 | **Version** | 1.38 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-24 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -71,6 +71,7 @@
 | 1.35 | 2026-10-23 | Claude | #275: SWE4-UT-BLEDFU covers a bootloader link that fails to establish - tried again, logged, given up after the attempts allowed, and the number of attempts set. |
 | 1.36 | 2026-10-24 | Claude | #282: SWE4-UT-CONSTRAINTS added - every requirement of the `test` extra pinned in each per-Python constraints file, the package itself not pinned, `lint.txt` holding the pylint pin `lint.in` states, and each CI leg installing from its file. |
 | 1.37 | 2026-10-24 | Claude | #255: SWE4-UT-S2LPKEPLER - FFT2 type version 2 cases added (10): the window fields and bin offset, real bins at and around N / 2 and 96 slots, N = 0, a 105-byte version 2 frame refused, version 3 decoded with a warning; version 1 without window fields. |
+| 1.38 | 2026-10-24 | Claude | #287: SWE4-UT-S2LPKEPLER - type version cases added (21): the versions are the firmware's, each known (PL_TYPE, version) without a warning, an unknown version above and below the known ones, an ALIVE at version 2, RESPONSE unchecked. |
 
 ---
 
@@ -418,7 +419,7 @@ against the simulator in the default run (SWE4-UT-PSUPANEL, SWE4-UT-DMMPANEL).
 | SWE4-UT-S2LPPROTO | `instruments/s2lp/test_protocol.py` | ST's CLI protocol: argument formatting against the declared types, signed arguments, byte strings, the brace-delimited reply, replies recorded from a kit, tags written in bare hex, signed decimals and floats, the interpreter's error lines, and lines the driver did not understand | S2LP-FR-001 .. -004 |
 | SWE4-UT-S2LPSESSION | `instruments/s2lp/test_session.py` | Reply framing by brace depth, a reply that never completes, output from before a command, an echo run into its reply, interpreter errors failing at once, stale replies skipped, the port timeout set once, the stop character and a stop sent to an idle board, collecting a batch, and the raw session log | S2LP-FR-003, -005, -035 |
 | SWE4-UT-S2LPSIM | `instruments/s2lp/test_simulator.py` | Self-checks on the simulated kit: the register file, read-only writes discarded, packet format following its register, replies as the kit sent them, the single-delivery air, a receive that waits until stopped, RSSI and link-quality registers, batches and the stop character, the interrupt line and its GPIO mode, the PN9 TX source, and ST's settings after shutdown | S2LP-FR-050 |
-| SWE4-UT-S2LPKEPLER | `instruments/s2lp/test_kepler.py` | Kepler frame decoding (RESPONSE as the firmware builds it: LORES and HIRES timers, slot, CONFIG pairs, a 14-byte empty CONFIG, #151): ALIVE, VERSION, CONFIG and TWF frames received from sensor 5C1712, every frame type built from the reference layouts (FFT2 in type versions 1 and 2, with the real-bin count at its bounds, a short version 2 frame and a later version, #255), and each payload that cannot be decoded | S2LP-FR-070 |
+| SWE4-UT-S2LPKEPLER | `instruments/s2lp/test_kepler.py` | Kepler frame decoding (RESPONSE as the firmware builds it: LORES and HIRES timers, slot, CONFIG pairs, a 14-byte empty CONFIG, #151): ALIVE, VERSION, CONFIG and TWF frames received from sensor 5C1712, every frame type built from the reference layouts (FFT2 in type versions 1 and 2, with the real-bin count at its bounds, a short version 2 frame and a later version, #255), each known type version without a warning and an unknown one decoded with the highest known version and a warning (#287), and each payload that cannot be decoded | S2LP-FR-070 |
 | SWE4-UT-S2LPTABLES | `instruments/s2lp/test_kepler_tables.py` | Kepler names and arithmetic against the firmware (19 cases): sixty parameters in the firmware's order, the slot mapping under none and distance, the polynomial covering every parameter once per version, out of range, values named with units and enumerations; the polynomial a permutation, out of range the identity; waveform order under each method covering every sample once; ODR codes; reset reasons; a CONFIG frame naming its parameters, VERSION naming its reset reason, PCB and product, ALIVE its phase | S2LP-FR-081 .. S2LP-FR-083 |
 | SWE4-UT-S2LPPREAMBLE | `instruments/s2lp/test_preamble.py` | Preamble length from PQI: the expected PQI for a length in bit-pairs, the best frame as the measurement, the ceiling, and the pass, fail and unmeasurable verdicts | S2LP-FR-049 |
 | SWE4-UT-S2LPSAMPLES | `instruments/s2lp/test_kepler_samples.py` | A field from each transmission, copies counted once even when their bytes differ (5C1712's ALIVE status) and when the first copy is lost; other sensors left out; too few frames; an unknown field | S2LP-FR-072 |

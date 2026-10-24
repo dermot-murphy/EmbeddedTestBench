@@ -10,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE3-001 | **Version** | 1.36 |
+| **Document ID** | ETB-SWE3-001 | **Version** | 1.37 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-24 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -70,6 +70,7 @@
 | 1.34 | 2026-10-23 | Claude | #275: BLE-DD-DFUHOST - each bootloader link that fails to establish (0x3E) is tried again up to `connect_attempts` (`CONNECT_ATTEMPTS`), through `_retry_not_established`, the retry `open_link` uses (BLE-DD-DONGLE). |
 | 1.35 | 2026-10-24 | Claude | #179: S2LP-DD-TRAFFIC - `restore_defaults` and `power_cycle` forget the interrupt routing, the receive setup and the payload length (`_forget_traffic_setup`), since the register defaults undo all three; the next send or receive sets them up again. |
 | 1.36 | 2026-10-24 | Claude | #255: S2LP-DD-KEPLER - FFT2 type version 2 (Kepler TX-1140): FFT ODR, sample count and first bin at 21-26, bins from 27, 111 bytes; chosen by type version, version 1 unchanged. |
+| 1.37 | 2026-10-24 | Claude | #287: S2LP-DD-KEPLER - the layout of every frame type is chosen from `LAYOUTS` by its type version; an unknown version is decoded with the highest known one, with a warning. |
 
 ---
 
@@ -2022,8 +2023,21 @@ and `fft_bins_valid`, the number of slots that hold a real bin,
 `min(96, N / 2 - first_bin)` and never below 0. Slot i is bin first_bin + i,
 and slots past N / 2 are padding. A version 2 frame shorter than 111 bytes
 raises `KeplerFrameError`, since reading it at version 1's offsets would shift
-every bin. A later type version is decoded as version 2, with a warning.
-`FRAME_TYPES` keeps 105 as FFT2's minimum.
+every bin. `FRAME_TYPES` keeps 105 as FFT2's minimum.
+
+**Layouts are chosen by type version (#287).** `LAYOUTS` maps each PL_TYPE to
+the type versions the decoder knows, each with its length and decoder. The
+versions are the firmware's `API_RADIO_TRANSPORT_TYPE_CAPABILITY_*` values
+(`api_radio_transport_cfg.h`, mapped per APDU by
+`API_Radio_Field_Load_TypeHardwareCapability`): 1 for VERSION, ALIVE and
+INSTALL_ASSIST, TWF, CONFIG and FFT, 1 and 2 for FFT2, and 0 for CMD, which
+falls to that switch's default. A frame whose version is not listed is decoded
+with the highest listed version, and a warning names both versions (for
+example "ALIVE type version 2; decoded as version 1"). The owner chose this
+rule on #287 over decoding only the header: it keeps the bench working through
+a firmware change that only appends fields. The length check and the "beyond
+the layout" note use the chosen version's length. RESPONSE is built by the
+gateway, not the sensor, so its RF_CAP and type version are not checked.
 
 **Checked against the firmware (#151).** The Kepler project's rf_monitor and
 this decoder disagreed; the sensor firmware at V11.00.0000-96-g25a54b97a
