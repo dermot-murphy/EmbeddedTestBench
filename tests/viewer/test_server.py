@@ -1,6 +1,6 @@
 """The test run viewer's server (#137).
 
-Traces to: VIEW-FR-001 .. VIEW-FR-009, SWE4-UT-VIEWSERVER.
+Traces to: VIEW-FR-001 .. VIEW-FR-009, VIEW-FR-046, SWE4-UT-VIEWSERVER.
 """
 
 from __future__ import annotations
@@ -292,3 +292,30 @@ class TestCommandLine:
                                           "0", "--specs", "a", "--specs", "b"])
         assert (args.event_log, args.control, args.port, args.specs) == (
             "e.jsonl", 5, 0, ["a", "b"])
+
+
+class TestClientGoesAway:
+    """VIEW-FR-046 (#294): a client that disconnects mid-request is one log line."""
+
+    @pytest.mark.parametrize("error", [
+        ConnectionAbortedError(10053, "aborted"),
+        ConnectionResetError(10054, "reset"),
+        BrokenPipeError(32, "broken pipe"),
+    ])
+    def test_a_client_that_went_away_is_one_line(self, viewer, error, capsys, caplog):
+        caplog.set_level(logging.INFO, logger="benchtools.viewer.server")
+        try:
+            raise error
+        except OSError:
+            viewer.handle_error(None, ("127.0.0.1", 60019))
+        assert capsys.readouterr().err == ""
+        lines = [r.getMessage() for r in caplog.records if "went away" in r.getMessage()]
+        assert len(lines) == 1 and "60019" in lines[0] and "\n" not in lines[0]
+
+    def test_any_other_error_keeps_its_traceback(self, viewer, capsys):
+        try:
+            raise ValueError("not a disconnect")
+        except ValueError:
+            viewer.handle_error(None, ("127.0.0.1", 60019))
+        err = capsys.readouterr().err
+        assert "Traceback" in err and "ValueError: not a disconnect" in err

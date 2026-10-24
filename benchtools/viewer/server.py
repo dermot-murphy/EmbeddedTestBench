@@ -849,6 +849,19 @@ class ViewerServer(ThreadingHTTPServer):  # pylint: disable=too-many-instance-at
         self.stopping.set()
         super().server_close()
 
+    def handle_error(self, request: Any, client_address: Any) -> None:
+        """Log a client that went away mid-request as one line (VIEW-FR-046).
+
+        A browser tab closed while loading, or a probe that is not HTTP, is
+        normal client behaviour and not worth a traceback. Any other error is
+        reported as ``socketserver`` reports it.
+        """
+        error = sys.exc_info()[1]
+        if isinstance(error, (ConnectionAbortedError, ConnectionResetError, BrokenPipeError)):
+            _LOG.info("viewer client %s went away: %s", client_address, error)
+            return
+        super().handle_error(request, client_address)
+
 
 def build_parser() -> argparse.ArgumentParser:
     """The ``benchtools view`` command line."""
