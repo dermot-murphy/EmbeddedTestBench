@@ -137,7 +137,8 @@ class TestRecordedRun:
     """A simulated run's own event log, paired as the viewer pairs it."""
 
     @pytest.fixture(scope="class")
-    def hub(self, tmp_path_factory):
+    @classmethod
+    def hub(cls, tmp_path_factory):
         pytest.importorskip("yaml")
         path = str(tmp_path_factory.mktemp("traffic") / "events.jsonl")
         handler = start_event_log(path)

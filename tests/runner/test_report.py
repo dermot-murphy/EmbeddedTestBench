@@ -194,7 +194,8 @@ class TestInstrumentsSection:
     """
 
     @pytest.fixture(scope="class")
-    def dongle_run(self):
+    @classmethod
+    def dongle_run(cls):
         spec = TestSpec.from_mapping({
             "name": "Identity suite",
             "tests": [{"name": "reads its build", "steps": [
