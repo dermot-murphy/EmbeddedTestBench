@@ -157,6 +157,29 @@ class TestTestGroupTraceability:
             + "\n  ".join(sorted(offenders))
         )
 
+    def test_every_test_file_belongs_to_a_group(self):
+        """A test file no group names has no test-case ID and no trace (#292).
+
+        A bare file name in a group's cell is in the directory of the path
+        before it, as in ``nordic_dongle/test_script.py``, ``test_script_links.py``.
+        """
+        named = set()
+        for match in _GROUP_CELL.finditer(_text(TEST_SPEC_DOC)):
+            directory = ""
+            for name in re.findall(r"`([\w/]+\.py)`", match.group(2).split("|")[0]):
+                if "/" in name:
+                    directory = name.rpartition("/")[0]
+                elif directory:
+                    name = directory + "/" + name
+                named.add(name)
+        unnamed = sorted(
+            path.relative_to(ROOT / "tests").as_posix()
+            for path in (ROOT / "tests").rglob("test_*.py")
+            if "__pycache__" not in path.parts
+            and path.relative_to(ROOT / "tests").as_posix() not in named)
+        assert not unnamed, (
+            "test file(s) that no group in ETB-SWE4-001 names:\n  " + "\n  ".join(unnamed))
+
 
 #: A first-column cell that names a test group, matched loosely (bold or code
 #: marks, any characters to the cell's end) so that a malformed ID is caught

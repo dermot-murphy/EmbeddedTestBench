@@ -10,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE4-002 | **Version** | 1.32 |
+| **Document ID** | ETB-SWE4-002 | **Version** | 1.33 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-24 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -66,6 +66,7 @@
 | 1.30 | 2026-10-23 | Claude | #271: §10.7 added - DFU data lost on 5C1712's SDK 15.2 bootloader, the fix that failed and the one that passed, on the bench; D-52 added. |
 | 1.31 | 2026-10-23 | Claude | #275: §10.8 added - V10-F-01 on the bench with the bootloader link retry; D-53 added. |
 | 1.32 | 2026-10-24 | Claude | #286: §5 regenerated from a whole-suite run on the branch with `develop` 9b7da17 merged in (3 374 passed, 95% coverage, §4): one row per ETB-SWE4-001 group, 19 of them missing before (including SWE4-UT-S2LPKEPLER); firmware CTest counts added; two test files with no group noted. |
+| 1.33 | 2026-10-24 | Claude | #292: §5 rows for SWE4-UT-SELFCHECK (7) and SWE4-UT-FIVEINST (8), the two files no group named, with their results from the 1.32 run; the note about them removed. |
 
 ---
 
@@ -262,6 +263,8 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-RESOLVE | `runner/test_resolve.py` | 27 | Pass |
 | SWE4-UT-BRINGUP | `runner/test_sensor_bringup.py` | 18 | Pass |
 | SWE4-UT-KEPLERSIM | `runner/test_kepler_simulated.py` | 11 | Pass |
+| SWE4-UT-SELFCHECK | `runner/test_bench_self_check.py` | 7 | Pass |
+| SWE4-UT-FIVEINST | `runner/test_sensor_power_signal_and_link.py` | 8 | Pass |
 | SWE4-UT-BLEDFU | `instruments/nordic_dongle/test_dfu.py` | 40 | Pass |
 | SWE4-UT-EVENTS | `core/test_events.py` | 54 | Pass |
 | SWE4-UT-TESTBENCH | `tools/test_test_bench.py` | 32 | Pass |
@@ -321,11 +324,9 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-PATHS | `core/test_paths.py`, `runner/test_input_paths.py` | 72 | Pass |
 | **Total (pytest)** | | **3 374** (3 374 passed) | **Pass** |
 
-The pytest total is 3 359 tests in the groups above plus 15 in two files that
-no group in ETB-SWE4-001 names: `runner/test_bench_self_check.py` (added in
-99e781b) and `runner/test_sensor_power_signal_and_link.py` (054ec60). Both
-passed. Assigning them to a group belongs to the specification, not this
-report, and is left for a separate issue.
+The pytest total is the 3 374 tests in the groups above. SWE4-UT-SELFCHECK
+and SWE4-UT-FIVEINST were added by #292 after this run; their rows give that
+run's results for the two files, which it ran but no group then named.
 
 The firmware unit tests run under CTest, not pytest, and are not in the pytest
 total. The dongle's 8 binaries (189 cases) were built and run on the bench PC

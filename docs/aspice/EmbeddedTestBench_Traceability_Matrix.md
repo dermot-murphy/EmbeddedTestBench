@@ -10,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-RTM-001 | **Version** | 1.37 |
+| **Document ID** | ETB-RTM-001 | **Version** | 1.38 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-24 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -71,6 +71,7 @@
 | 1.35 | 2026-10-24 | Claude | #255: S2LP-FR-070 - `SWE4-UT-S2LPKEPLER` now 39 tests (FFT2 type version 2). |
 | 1.36 | 2026-10-24 | Claude | #287: S2LP-FR-070 - `SWE4-UT-S2LPKEPLER` now 63 tests (type version per frame type). |
 | 1.37 | 2026-10-24 | Claude | #286: BLE-NFR-006 - `SWE4-UT-FWUNIT` is 189 cases (was 131), the count run for ETB-SWE4-002 1.32 and the `RUN_TEST` count in the sources. |
+| 1.38 | 2026-10-24 | Claude | #292: SWE4-UT-SELFCHECK and SWE4-UT-FIVEINST cited for the requirements they verify. The RUN-FR-054 row, broken by the merge in f890c9d (2026-09-30), is repaired: its cells after the ID were PICO-ARC-001's (Python side), and its own cells sat two rows below as a row of their own beginning RUN-ARC-001. The two PICO-ARC-001 rows and the VIEW-ARC-001 row, which belong to §15 and were missing there, are moved to §15. |
 
 ---
 
@@ -325,7 +326,7 @@ where the firmware implements the requirement.
 | BLE-FR-034 | BLE-ARC-001 | BLE-DD-PROFILE | `gaps`, `missed_events` | `TestMissedEvents` (5), `test_a_sensor_that_skips_beacons_is_caught` |
 | BLE-FR-035 | BLE-ARC-001 | BLE-DD-PROFILE | `duty_cycle`, `reception_ratio` | `TestDutyCycleAndCounts` (4) |
 | BLE-FR-036 | BLE-ARC-001 | BLE-DD-PROFILE | `as_dict`, `_require_intervals` | `test_as_dict_survives_too_few_events`, `test_a_silent_sensor_gives_no_statistics_rather_than_zero` |
-| BLE-FR-025 | BLE-ARC-001 | BLE-DD-DONGLE | `strongest` | `TestStrongest` (4) |
+| BLE-FR-025 | BLE-ARC-001 | BLE-DD-DONGLE | `strongest` | `TestStrongest` (4); `SWE4-UT-FIVEINST` (8) |
 | BLE-FR-026 | BLE-ARC-001 | BLE-DD-DONGLE | `NordicDongle.select_by_name` | `test_a_name_fragment_selects_the_strongest_match`, `test_a_name_fragment_ignores_case_by_default`, `test_case_can_be_made_to_matter`, `test_a_fragment_nothing_matches_names_what_was_heard`, `test_an_empty_fragment_is_refused` |
 | BLE-FR-040 | BLE-ARC-001 | BLE-DD-NUS | `firmware/src/nus_client.c`, `open_link` | `test_connect_and_disconnect`, `test_connecting_emits_the_ready_event` |
 | BLE-FR-041 | BLE-ARC-001 | BLE-DD-NUS, BLE-DD-DONGLE | `nus_client_interval_us` | `test_the_connection_interval_is_recorded` |
@@ -519,7 +520,7 @@ where the firmware implements the requirement.
 | DMM-FR-032 | DMM-ARC-001 | DMM-DD-DMM, DMM-DD-CONST | `_patience`, `GATE_TIME` | `test_the_ten_second_gate_is_waited_for`; on hardware `test_the_frequency_gate` |
 | DMM-FR-033 | DMM-ARC-001 | DMM-DD-DMM | `select_hertz`, frequency branch of `set_range` | `test_hertz_needs_an_ac_range`, `test_the_ten_second_gate_is_waited_for` |
 | DMM-FR-034 | DMM-ARC-001 | DMM-DD-DMM | `Tti1604.read` | `test_the_meter_s_reading` |
-| DMM-FR-045 | DMM-ARC-001 | DMM-DD-DMM, DMM-DD-SIM | `connect(simulated_value=...)` | `test_the_bench_can_say_what_the_simulated_meter_reads`; `specs/sensor_power_signal_and_link.yaml` against `benches/simulated_bench.yaml` |
+| DMM-FR-045 | DMM-ARC-001 | DMM-DD-DMM, DMM-DD-SIM | `connect(simulated_value=...)` | `test_the_bench_can_say_what_the_simulated_meter_reads`; `specs/sensor_power_signal_and_link.yaml` against `benches/simulated_bench.yaml`; `SWE4-UT-FIVEINST` (8) |
 | DMM-FR-046 | DMM-ARC-001 | DMM-DD-SIM | `SimulatedTti1604`: `frame`, `_digit_bytes`, `_auto_range_code`, `poll_within`, `measurement_time` | `TestTheMeterAsTheManualDescribesIt` (11) |
 | DMM-FR-070 | DMM-ARC-001 | DMM-DD-CLI | `cli.py` | `test_cli.py` (8) |
 | DMM-FR-080 | DMM-ARC-001 | — (a test artefact, ETB-SWE4-001 §1.6) | `tests/bench/tti1604/test_bench.py`, `conftest.py` | `SWE4-UT-DMMBENCH`: dry run against the simulator, 10 passed, 4 skipped (the reference tests) with no reference and with each reference in turn; on hardware when a meter is attached |
@@ -603,30 +604,27 @@ tests in `tests/instruments/pico_sht30/`.
 | RUN-FR-013 | ARC-001 | RUN-DD-RESOLVE | `runner/resolve.py` | `TestResolution` (9), `TestErrors` (4) |
 | RUN-FR-014 | ARC-001 | RUN-DD-SPEC | validation in `from_mapping` | `test_malformed_specifications_are_reported` (7), `TestExpectationParsing` (6) |
 | RUN-FR-015 | ARC-001 | RUN-DD-SPEC | `TestCase.skip` | `test_skip_is_carried`, `test_skipped_test_is_not_executed` |
-| RUN-FR-016 | ARC-001 | RUN-DD-RESOLVE, RUN-DD-SPEC | `Reference`, `parse_references`, `resolve_references`, `Expectation.limit_against`; `BenchRunner.run_step` resolves arguments | `TestReferences` (9), `TestLimitsTakenFromAnEarlierStep` (6), `SWE4-UT-BRINGUP` (12) |
+| RUN-FR-016 | ARC-001 | RUN-DD-RESOLVE, RUN-DD-SPEC | `Reference`, `parse_references`, `resolve_references`, `Expectation.limit_against`; `BenchRunner.run_step` resolves arguments | `TestReferences` (9), `TestLimitsTakenFromAnEarlierStep` (6), `SWE4-UT-BRINGUP` (12); `SWE4-UT-SELFCHECK` (7), `SWE4-UT-FIVEINST` (8) |
 | RUN-FR-017 | RUN-ARC-001, AD-27 | RUN-DD-RUNNER, CORE-DD-PATHS | `BenchRunner.run_step` resolves declared arguments; `resolve_arguments`, `search_locations`, `@input_paths` on the S2-LP, dongle and probe methods | `TestStepArguments` (3), `test_a_shipped_specification_runs_the_same_from_outside_the_checkout` (14), `TestResolveInputPath` (14), `TestResolveArguments` (3), `TestDeclaration` (3) |
 | RUN-FR-020 | ARC-001 | RUN-DD-LIMITS | `Limit` | `TestChecking.test_maximum/minimum/two_sided` |
 | RUN-FR-021 | ARC-001 | RUN-DD-LIMITS | `Limit.window` | `test_absolute_tolerance`, `test_percentage_tolerance`, `test_exact_equality` |
 | RUN-FR-022 | ARC-001 | RUN-DD-SPEC | `Expectation.scale` | `test_measured_value_is_scaled_for_the_limit` |
 | RUN-FR-023 | ARC-001 | RUN-DD-LIMITS | `Limit.text`, `LimitOutcome.reason` | `TestRendering` (6), `test_out_of_limit_is_a_failure_not_an_error` |
-| RUN-FR-024 | ARC-001 | RUN-DD-LIMITS | `TextLimit`, `Expectation._limit_for`, `_format_value` | `TestTextLimits` (8), `test_the_reported_version_is_recorded_as_text` |
+| RUN-FR-024 | ARC-001 | RUN-DD-LIMITS | `TextLimit`, `Expectation._limit_for`, `_format_value` | `TestTextLimits` (8), `test_the_reported_version_is_recorded_as_text`; `SWE4-UT-FIVEINST` (8) |
 | RUN-FR-025 | ARC-001 | RUN-DD-SPEC, RUN-DD-ENGINE | `spec.render`, `Expectation.format`, `BenchRunner._render_limit`, `MeasurementRecord.as_dict` | `TestHowAValueIsReported` (8), `test_the_identifier_is_reported_in_hex`, `test_the_number_is_still_in_the_record` |
-| RUN-FR-030 | ARC-001 | RUN-DD-RUNNER, -RESULTS | `runner/runner.py`, `results.py` | `TestHappyPath` (7) |
-| RUN-FR-031 | ARC-001 | RUN-DD-RUNNER | error vs failure classification | `TestFailureVersusError` (9) |
+| RUN-FR-030 | ARC-001 | RUN-DD-RUNNER, -RESULTS | `runner/runner.py`, `results.py` | `TestHappyPath` (7); `SWE4-UT-SELFCHECK` (7) |
+| RUN-FR-031 | ARC-001 | RUN-DD-RUNNER | error vs failure classification | `TestFailureVersusError` (9); `SWE4-UT-SELFCHECK` (7) |
 | RUN-FR-032 | ARC-001 | RUN-DD-RUNNER | setup abort, teardown `finally` | `test_setup_failure_aborts_the_suite`, `test_teardown_runs_even_after_a_failure` |
-| RUN-FR-033 | ARC-001 | RUN-DD-RUNNER | `stop_on_error` | `test_a_failure_does_not_stop_later_tests`, `test_stop_on_error_abandons_the_rest` |
+| RUN-FR-033 | ARC-001 | RUN-DD-RUNNER | `stop_on_error` | `test_a_failure_does_not_stop_later_tests`, `test_stop_on_error_abandons_the_rest`; `SWE4-UT-SELFCHECK` (7) |
 | RUN-FR-034 | ARC-001 | RUN-DD-RUNNER | `_resolve_action` | `test_private_methods_are_unreachable` |
 | RUN-FR-035 | ARC-001 | RUN-DD-BENCH | `Bench.require` | `test_missing_instrument_is_reported_before_anything_runs`, `test_require_reports_everything_missing`, `test_the_simulated_bench_provides_every_shipped_specification` (14) |
 | RUN-FR-036 | ARC-001 | RUN-DD-RUNNER | `_resolve_action` property branch | `TestPropertySteps` (6), notably `test_the_value_is_the_one_at_the_time_of_the_step` |
-| RUN-FR-037 | ARC-001 | RUN-DD-BENCH, RUN-DD-RESULTS, RUN-DD-REPORT | `Bench.describe_instruments`, `RunRecord.instruments`, the report's Instruments table | `TestDescribingInstruments` (4), `TestInstrumentsInTheRecord` (2), `TestInstrumentsSection` (4) |
+| RUN-FR-037 | ARC-001 | RUN-DD-BENCH, RUN-DD-RESULTS, RUN-DD-REPORT | `Bench.describe_instruments`, `RunRecord.instruments`, the report's Instruments table | `TestDescribingInstruments` (4), `TestInstrumentsInTheRecord` (2), `TestInstrumentsSection` (4); `SWE4-UT-SELFCHECK` (7) |
 | RUN-FR-040 | ARC-001 | RUN-DD-RESULTS | `requirements_verified` | `test_requirement_roll_up`, `test_requirement_takes_the_worst_of_its_tests`, `test_requirements_table` |
 | RUN-FR-041 | ARC-001 | RUN-DD-REPORT | `write_json` | `TestJson` (3) |
 | RUN-FR-042 | ARC-001 | RUN-DD-REPORT | `format_markdown` | `TestMarkdown` (8) |
 | RUN-FR-043 | ARC-001 | RUN-DD-REPORT | `write_junit` | `TestJunit` (6) |
-| RUN-FR-054 | PICO-ARC-001 | PICO-DD-DRIVER, -CONST, -SIM, -CLI, -FLASH | `instruments/pico_sht30/{thermometer,constants,simulator,cli,flash}.py` |
-| PICO-ARC-001 | PICO-DD-PROTOCOL, -VERSION, -BOARD, -HAL, -SHT30, -TEXT, -PARSER, -MAIN, -BUILD, -TEST | `firmware/pico_sht30/{include,src,test}/*`, `CMakeLists.txt`, `pico_sdk_import.cmake` |
-| RUN-ARC-001 | RUN-DD-SPEC, RUN-DD-RUNCLI | `TestSpec.warning`, `_warnings_of`, `_announce_warnings` | `test_the_warning_is_printed_before_anything_runs` |
-| VIEW-ARC-001 | VIEW-DD-STATE, -SERVER, -TRAFFIC, -RADIO, -GRAPHS, -TAGS, -STATUS, -KEPLER, -SENSOR, -TWF, -DIAG, -REPORT, -STGUI, -PAGE | `viewer/*.py`, `viewer/static/*` |
+| RUN-FR-054 | RUN-ARC-001 | RUN-DD-SPEC, RUN-DD-RUNCLI | `TestSpec.warning`, `_warnings_of`, `_announce_warnings` | `test_the_warning_is_printed_before_anything_runs` |
 | RUN-FR-055 | RUN-ARC-001 | RUN-DD-RUNCLI | `_announce_warnings` (stderr) | `test_the_warning_is_printed_before_anything_runs` |
 | RUN-FR-056 | RUN-ARC-001 | RUN-DD-RUNCLI | `_acknowledged`, `--acknowledge` | `test_hardware_without_a_terminal_refuses_to_start`, `test_a_terminal_is_asked_and_yes_proceeds`, `test_anything_but_yes_stops_the_run` (4) |
 | RUN-FR-057 | RUN-ARC-001 | RUN-DD-RUNCLI | `_acknowledged`, `_EXIT_NOT_ACKNOWLEDGED` | `test_a_simulated_run_is_not_gated`, `test_a_specification_with_no_warning_is_never_gated` |
@@ -710,6 +708,9 @@ tests in `tests/instruments/pico_sht30/`.
 | S2LP-ARC-001 | S2LP-DD-S2LP, -REGS, -CONFIG, -PROTOCOL, -SESSION, -PACKETS, -SIM, -CLI, -CONST | `instruments/s2lp/{s2lp,registers,configuration,protocol,session,packets,simulator,cli,constants}.py` |
 | PSU-ARC-001 | PSU-DD-PSU, -CONST, -SIM, -CLI | `instruments/gpd3303d/{psu,constants,simulator,cli}.py` |
 | RUN-ARC-001 | RUN-DD-SPEC, -LIMITS, -RESOLVE, -BENCH, -RESULTS, -RUNNER, -CONTROL, -REPORT, -CLI | `runner/*.py`, `cli.py` |
+| PICO-ARC-001 | PICO-DD-DRIVER, -CONST, -SIM, -CLI, -FLASH | `instruments/pico_sht30/{thermometer,constants,simulator,cli,flash}.py` |
+| PICO-ARC-001 | PICO-DD-PROTOCOL, -VERSION, -BOARD, -HAL, -SHT30, -TEXT, -PARSER, -MAIN, -BUILD, -TEST | `firmware/pico_sht30/{include,src,test}/*`, `CMakeLists.txt`, `pico_sdk_import.cmake` |
+| VIEW-ARC-001 | VIEW-DD-STATE, -SERVER, -TRAFFIC, -RADIO, -GRAPHS, -TAGS, -STATUS, -KEPLER, -SENSOR, -TWF, -DIAG, -REPORT, -STGUI, -PAGE | `viewer/*.py`, `viewer/static/*` |
 
 ## 16. Coverage analysis
 
