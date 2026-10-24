@@ -18,6 +18,7 @@ import pytest
 
 from benchtools.instruments.s2lp.kepler import (
     FRAME_TYPES,
+    LAYOUTS,
     KeplerFrameError,
     decode_kepler_frame,
 )
@@ -296,6 +297,58 @@ class TestLayoutsFromTheReference:
     def test_every_type_has_a_decoder(self):
         for pl_type, (_name, size) in FRAME_TYPES.items():
             assert decode_kepler_frame(bytes(header(pl_type, size)))["pl_type"] == pl_type
+
+
+#: Every (PL_TYPE, type version) the decoder knows (#287).
+KNOWN_LAYOUTS = [(pl_type, version, size)
+                 for pl_type, versions in sorted(LAYOUTS.items())
+                 for version, (size, _decoder) in sorted(versions.items())]
+
+
+class TestTypeVersions:
+    """The layout is chosen by the type version in byte 5 bits 7:3; an unknown
+    version is decoded with the highest known one, and a warning says so (#287)."""
+
+    def test_the_versions_are_the_firmwares(self):
+        # API_RADIO_TRANSPORT_TYPE_CAPABILITY_* on innovateuk-sensor develop
+        # e638d66df; CMD falls to the switch's default, 0.
+        versions = {pl_type: sorted(known) for pl_type, known in LAYOUTS.items()}
+        assert versions == {2: [1], 3: [1], 4: [1], 5: [1], 6: [1], 7: [1, 2], 8: [0], 9: [0]}
+
+    def test_frame_types_holds_each_types_shortest_layout(self):
+        for pl_type, (_name, size) in FRAME_TYPES.items():
+            assert size == min(length for length, _decoder in LAYOUTS[pl_type].values())
+
+    @pytest.mark.parametrize("pl_type, version, size", KNOWN_LAYOUTS)
+    def test_a_known_version_decodes_without_a_warning(self, pl_type, version, size):
+        decoded = decode_kepler_frame(bytes(header(pl_type, size, type_cap=version)))
+        assert decoded["type_capability"] == version and "warnings" not in decoded
+
+    @pytest.mark.parametrize("pl_type", [2, 3, 4, 5, 6, 7, 8])
+    def test_an_unknown_version_uses_the_highest_known(self, pl_type):
+        highest = max(LAYOUTS[pl_type])
+        size = LAYOUTS[pl_type][highest][0]
+        decoded = decode_kepler_frame(bytes(header(pl_type, size, type_cap=highest + 1)))
+        name = FRAME_TYPES[pl_type][0]
+        assert decoded["warnings"] == [
+            "%s type version %d; decoded as version %d" % (name, highest + 1, highest)]
+
+    def test_a_lower_unknown_version_also_uses_the_highest_known(self):
+        decoded = decode_kepler_frame(bytes(header(7, 111, type_cap=0)))
+        assert "fft_odr" in decoded
+        assert decoded["warnings"] == ["FFT2 type version 0; decoded as version 2"]
+
+    def test_an_alive_frame_at_an_unknown_version(self):
+        frame = bytearray(bytes.fromhex(ALIVE_REPEATS[0]))
+        frame[5] = (2 << 3) | 4
+        decoded = decode_kepler_frame(bytes(frame))
+        assert decoded["battery_mv"] == decode_kepler_frame(
+            bytes.fromhex(ALIVE_REPEATS[0]))["battery_mv"]
+        assert decoded["warnings"] == ["ALIVE type version 2; decoded as version 1"]
+
+    def test_the_gateways_response_is_not_checked(self):
+        # RESPONSE is built by the gateway, whose header is not the sensor's.
+        assert "warnings" not in decode_kepler_frame(bytes(header(9, 14, type_cap=5)))
 
 
 class TestWhatCannotBeDecoded:
