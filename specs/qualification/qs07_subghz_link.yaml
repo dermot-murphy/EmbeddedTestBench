@@ -78,7 +78,7 @@ tests:
       - do: s2lp.transmit
         with: {data: "ETB-SYS5-002 QS-07", note: "qualification transmit"}
         expect:
-          - {name: bytes_sent, measure: length, equals: 17}
+          - {name: bytes_sent, measure: length, equals: 18}
           - {name: firmware_error_code, measure: error, equals: 0}
 
   - name: A frame from the sensor is received after a reset over BLE
