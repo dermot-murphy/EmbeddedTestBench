@@ -685,7 +685,7 @@ tests in `tests/instruments/pico_sht30/`.
 | VIEW-FR-043 | VIEW-ARC-001 | VIEW-DD-STGUI | `StGui`, `rf_setup_rows` | `test_rf_setup_rows`, `test_the_hub_serves_the_page_and_the_file` |
 | VIEW-FR-044 | VIEW-ARC-001 | VIEW-DD-STGUI | `register_rows`, `regs_text`, `/api/stgui/regs` | `test_register_rows_mark_a_changed_register`, `test_the_register_file_round_trips` |
 | VIEW-FR-045 | VIEW-ARC-001 | VIEW-DD-STGUI | `st_row`, `/api/stgui/refresh`, `stgui.js` | `test_frames_as_st_s_gui_lists_them`, `test_nothing_read_yet` |
-| VIEW-FR-046 | VIEW-ARC-001 | VIEW-DD-SERVER | `ViewerServer.handle_error` | `TestClientGoesAway` (4) |
+| VIEW-FR-046 | VIEW-ARC-001 | VIEW-DD-SERVER | `ViewerServer.handle_error`, `_CLIENT_WENT_AWAY` | `TestClientGoesAway` (7) |
 | RUN-FR-050 | ARC-001 | RUN-DD-CLI | `runner/cli.py` | `TestRunCommand` (8) |
 | RUN-FR-051 | ARC-001 | RUN-DD-CLI | exit statuses | `test_simulated_run_passes`, `test_failure_exits_nonzero`, `test_no_bench_and_no_simulate_is_a_usage_error` |
 | RUN-FR-052 | ARC-001 | RUN-DD-CLI | report path suffixing | `test_several_specs_get_suffixed_reports` |
