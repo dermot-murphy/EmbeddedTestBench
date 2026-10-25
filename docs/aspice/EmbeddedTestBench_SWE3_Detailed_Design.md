@@ -343,9 +343,10 @@ Design points:
 
 - **A plugin is a package loaded by path.** `Registry.load` imports the
   folder's `__init__.py` as `etb_plugins.<folder>_<hash of the path>`
-  (`Plugin.module`), so two folders of one name are two plugins, with the
-  folder as its search path; a failed load removes its modules again, so the plugin imports its own modules relatively, and calls its
-  `register(plugin)`. The name is the module's `NAME`, or the folder's. Loading
+  (`Plugin.module`), so two folders of one name are two plugins. The folder
+  is the package's search path, so the plugin imports its own modules
+  relatively. It then calls `register(plugin)`; a failed load removes the
+  plugin's modules again. A folder is matched case-insensitively on Windows. The name is the module's `NAME`, or the folder's. Loading
   a folder twice returns the plugin already loaded; two plugins with one name,
   a folder with no `__init__.py`, no `register`, or one that raises are refused
   with a `ConfigurationError` naming the folder.
@@ -369,7 +370,10 @@ Design points:
 - **Deprecated Kepler names.** `ensure_legacy_kepler` loads the checkout's
   `plugins/kepler` (`LEGACY_KEPLER`) with a warning when no `kepler` plugin
   is loaded, for `kepler_samples`, `kepler_frame` and the old register file
-  path (`_MOVED` in `paths.py`), for one release; #240 removes it.
+  path (`MOVED`, resolved through the `kepler` plugin loaded), for one
+  release; #240 removes it. `BenchRunner.run` looks for those names in the
+  specification (`uses_legacy_kepler`) and loads the plugin before
+  `run_start`, so the run records it.
 - **One registry per process.** `REGISTRY` is module state, as the driver
   registry is; tests replace it with their own.
 
@@ -3025,7 +3029,7 @@ received frame to every one, and serves one by name at `/api/panel`.
 `static/plugins.js` loads after the page's own; `/plugin/<plugin>/<file>`
 serves a file from a panel's static folder and nothing outside it. A run
 started from the page loads its specification's and bench's plugins
-(`run_plugins`, then `Hub.add_plugin_panels`); a followed log's plugins are not
+(`run_plugins`, then `Hub.plugins`, which starts new panels); a followed log's plugins are not
 loaded, because a plugin runs code: `missing_plugins` names them in
 `/api/plugins` and logs the `--plugin` that would load them. `plugins.js`
 looks again every 5 s and loads each script once. With no `twf_sample` hook a
