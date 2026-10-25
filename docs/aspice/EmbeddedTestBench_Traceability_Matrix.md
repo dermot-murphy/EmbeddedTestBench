@@ -11,7 +11,7 @@
 | Field | Value | Field | Value |
 |---|---|---|---|
 | **Document ID** | ETB-RTM-001 | **Version** | 1.38 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-24 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-25 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.1 / SWE.2 / SWE.3 / SWE.4 |
@@ -71,7 +71,7 @@
 | 1.35 | 2026-10-24 | Claude | #255: S2LP-FR-070 - `SWE4-UT-S2LPKEPLER` now 39 tests (FFT2 type version 2). |
 | 1.36 | 2026-10-24 | Claude | #287: S2LP-FR-070 - `SWE4-UT-S2LPKEPLER` now 63 tests (type version per frame type). |
 | 1.37 | 2026-10-24 | Claude | #286: BLE-NFR-006 - `SWE4-UT-FWUNIT` is 189 cases (was 131), the count run for ETB-SWE4-002 1.32 and the `RUN_TEST` count in the sources. |
-| 1.38 | 2026-10-24 | Claude | #293: row for S2LP-FR-085 (frames set aside while a receive stops); CORE-FR-004 also cites the mock's `keep_buffer` test. |
+| 1.38 | 2026-10-25 | Claude | #293: row for S2LP-FR-085 (frames set aside while a receive stops, void once a command goes to the board), tracing S2LP-DD-SESSION `commands_sent` too; CORE-FR-004 also cites the mock's two `keep_buffer` tests; S2LP-FR-073 cites SWE4-UT-S2LPFRAME (9). |
 
 ---
 
@@ -424,7 +424,7 @@ where the firmware implements the requirement.
 | S2LP-FR-070 | S2LP-ARC-001 | S2LP-DD-KEPLER | `decode_kepler_frame` | `SWE4-UT-S2LPKEPLER` (63) |
 | S2LP-FR-071 | S2LP-ARC-001 | S2LP-DD-PACKETS, -TRAFFIC | `Packet.registers`, `decoded`, `decode_error` | `test_raw_and_decoded_are_one_record`, `test_a_frame_that_will_not_decode_keeps_its_bytes` |
 | S2LP-FR-072 | S2LP-ARC-001 | S2LP-DD-TRAFFIC | `S2lpDevkit.kepler_samples` | `SWE4-UT-S2LPSAMPLES` (6) |
-| S2LP-FR-073 | S2LP-ARC-001 | S2LP-DD-TRAFFIC | `S2lpDevkit.kepler_frame` | `SWE4-UT-S2LPFRAME` (3) |
+| S2LP-FR-073 | S2LP-ARC-001 | S2LP-DD-TRAFFIC | `S2lpDevkit.kepler_frame` | `SWE4-UT-S2LPFRAME` (9) |
 | S2LP-FR-085 | S2LP-ARC-001 | S2LP-DD-TRAFFIC, S2LP-DD-SESSION, CORE-DD-MOCK | `_put_aside`, `_take_set_aside`, `kepler_frame(since_last=...)`, `S2lpSession.commands_sent`, `MockTransport.write` | `TestConsecutiveCalls` (6), `test_the_mock_keeps_undelivered_output_on_such_a_write`, `test_an_ordinary_write_to_the_mock_drops_undelivered_output` |
 | S2LP-FR-080 | S2LP-ARC-001 | S2LP-DD-S2LP | `S2lpDevkit._record`, `log_event` | `TestDriverRecords` (2) |
 | S2LP-FR-081 | S2LP-ARC-001 | S2LP-DD-KEPLER | `CONFIG_PARAMETERS`, `config_parameter`, `name_config`, `permute_poly_any_size` | `TestParameters` (10), `test_a_config_frame_names_its_parameters` |

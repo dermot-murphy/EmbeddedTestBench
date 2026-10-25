@@ -10,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE4-002 | **Version** | 1.32 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-24 |
+| **Document ID** | ETB-SWE4-002 | **Version** | 1.33 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-25 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.4 |
@@ -66,6 +66,7 @@
 | 1.30 | 2026-10-23 | Claude | #271: §10.7 added - DFU data lost on 5C1712's SDK 15.2 bootloader, the fix that failed and the one that passed, on the bench; D-52 added. |
 | 1.31 | 2026-10-23 | Claude | #275: §10.8 added - V10-F-01 on the bench with the bootloader link retry; D-53 added. |
 | 1.32 | 2026-10-24 | Claude | #286: §5 regenerated from a whole-suite run on the branch with `develop` 9b7da17 merged in (3 374 passed, 95% coverage, §4): one row per ETB-SWE4-001 group, 19 of them missing before (including SWE4-UT-S2LPKEPLER); firmware CTest counts added; two test files with no group noted. |
+| 1.33 | 2026-10-25 | Claude | #293: SWE4-UT-TRANSPORT 29 → 31 and SWE4-UT-S2LPFRAME 3 → 9, pass, from runs of `core/transport/test_base.py` (31 passed) and `instruments/s2lp/test_kepler_frame.py` (9 passed) on this branch on 2026-10-25. The §5 total is still the 1.32 whole-suite run's; the whole suite passed at 0960059 on this branch (3 382). The bench run for #293 is in `docs/aspice/qualification/2026-10-25/`. |
 
 ---
 
@@ -222,7 +223,7 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-PROCESS | `core/transport/test_process.py` | 20 | Pass |
 | SWE4-UT-SIMBASE | `core/test_simulator.py` | 22 | Pass |
 | SWE4-UT-VALIDATE | `core/test_validation.py` | 23 | Pass |
-| SWE4-UT-TRANSPORT | `core/transport/test_base.py` | 29 | Pass |
+| SWE4-UT-TRANSPORT | `core/transport/test_base.py` | 31 | Pass |
 | SWE4-UT-VXI11 | `core/transport/test_vxi11.py` | 22 | Pass |
 | SWE4-UT-SOCKET | `core/transport/test_socket.py` | 12 | Pass |
 | SWE4-UT-VISA | `core/transport/test_visa.py` | 6 | Pass |
@@ -296,7 +297,7 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-S2LPTABLES | `instruments/s2lp/test_kepler_tables.py` | 19 | Pass |
 | SWE4-UT-S2LPPREAMBLE | `instruments/s2lp/test_preamble.py` | 17 | Pass |
 | SWE4-UT-S2LPSAMPLES | `instruments/s2lp/test_kepler_samples.py` | 7 | Pass |
-| SWE4-UT-S2LPFRAME | `instruments/s2lp/test_kepler_frame.py` | 3 | Pass |
+| SWE4-UT-S2LPFRAME | `instruments/s2lp/test_kepler_frame.py` | 9 | Pass |
 | SWE4-UT-S2LPEEPROM | `instruments/s2lp/test_eeprom.py` | 13 | Pass |
 | SWE4-UT-S2LPCLI | `instruments/s2lp/test_cli.py` | 46 | Pass |
 | SWE4-UT-PSU | `instruments/gpd3303d/test_psu.py` | 107 | Pass |
