@@ -329,6 +329,8 @@ class TestClientGoesAway:
             connection.close()
         assert _wait(lambda: any("went away" in r.getMessage() for r in caplog.records))
         assert "Traceback" not in capsys.readouterr().err
+        lines = [r for r in caplog.records if "went away" in r.getMessage()]
+        assert len(lines) == 1 and lines[0].levelno == logging.WARNING
 
     def test_any_other_error_keeps_its_traceback(self, viewer, capsys):
         try:
