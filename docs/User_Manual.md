@@ -119,6 +119,14 @@ git checkout v0.02.0002          # or stay on develop
 pip install -e ".[spec,serial,test]"
 ```
 
+If you will change the documents, also switch on the merge driver that keeps
+two revision history rows appended by different branches (ETB-SUP8-001 §6.2):
+
+```sh
+git config merge.etb-history.name "Embedded Test Bench revision history rows"
+git config merge.etb-history.driver "python scripts/doc_versions.py merge %O %A %B"
+```
+
 ### 2.3 The extras
 
 | Extra | Brings | Needed for |
@@ -878,10 +886,12 @@ Read `CLAUDE.md` itself. In short:
   procedure if you do.
 - Update the issue with what was done. Close it when CI is green, or say that no
   workflow applies.
-- A change to a controlled document under `docs/aspice/` raises its
-  `major.minor` version and date, and appends one revision-history row as the
-  last row (ETB-SUP8-001 §6, §6.2). `tests/test_traceability.py` fails if a
-  history is not oldest first.
+- A change to a controlled document under `docs/aspice/` appends one
+  revision-history row as the last row, with the version `next`. The Version
+  and Date in the identification table are links to that history and are not
+  edited; the release branch numbers the rows (ETB-SUP8-001 §6, §6.2).
+  `tests/test_doc_versions.py` and `tests/test_traceability.py` fail if a
+  history is out of order.
 - `CLAUDE.md` and ETB-SUP8-001 §5 are one configuration item: change both or
   neither.
 - Before pushing, run

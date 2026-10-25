@@ -10,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-RTM-001 | **Version** | 1.40 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-25 |
+| **Document ID** | ETB-RTM-001 | **Version** | [latest, §2](#2-revision-history) |
+| **Project** | Embedded Test Bench | **Date** | [latest, §2](#2-revision-history) |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.1 / SWE.2 / SWE.3 / SWE.4 |
@@ -74,6 +74,7 @@
 | 1.38 | 2026-10-24 | Claude | #294: row for VIEW-FR-046 (a client that went away is one log line); §16 count corrected to 440 in force, 441 declared (it still said 435 and 436 from 1.21). |
 | 1.39 | 2026-10-25 | Claude | #292: SWE4-UT-SELFCHECK and SWE4-UT-FIVEINST cited for the requirements they verify. The RUN-FR-054 row, broken by the merge in f890c9d (2026-09-30), is repaired: its cells after the ID were PICO-ARC-001's (Python side), and its own cells sat two rows below as a row of their own beginning RUN-ARC-001. The two PICO-ARC-001 rows and the VIEW-ARC-001 row, which belong to §15 and were missing there, are moved to §15. |
 | 1.40 | 2026-10-25 | Claude | #293: row for S2LP-FR-085 (frames set aside while a receive stops, void once a command goes to the board), tracing S2LP-DD-SESSION `commands_sent` too; CORE-FR-004 also cites the mock's two `keep_buffer` tests; S2LP-FR-073 cites SWE4-UT-S2LPFRAME (10); §16 count 441 in force, 442 declared. |
+| next | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
 
 ---
 

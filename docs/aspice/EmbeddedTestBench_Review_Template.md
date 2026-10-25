@@ -10,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-TMPL-001 | **Version** | 0.5 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
+| **Document ID** | ETB-TMPL-001 | **Version** | [latest, §2](#2-revision-history) |
+| **Project** | Embedded Test Bench | **Date** | [latest, §2](#2-revision-history) |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | GP 2.2.3 |
@@ -29,6 +29,7 @@
 | 0.3 | 2026-10-04 | Claude | #187: C4 names the revision history order - oldest entry first (ETB-SUP8-001 §6.2). |
 | 0.4 | 2026-10-05 | Claude | #204: §3.1 states that a pull request merge is an accepted form of review record and that checks C1 to C6 are what the Reviewer applies before merging. §9 points to the merge of the pull request that adds or last changes the record (ETB-SUP8-001 §5.7). |
 | 0.5 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
+| next | 2026-10-25 | Claude | #210: C4 also asks that the Version and Date cells link to the revision history and that a new row is written as `next` (ETB-SUP8-001 §6.2). |
 
 ---
 
@@ -110,7 +111,7 @@ Tick, cross, or mark n/a. A cross needs a finding in §7.
 | C1 | Does it say what it is for, and for whom? | |
 | C2 | Is every claim in it checkable by someone who was not there? | |
 | C3 | Is each statement traceable up to what it satisfies and down to what satisfies it? | |
-| C4 | Are the identification block, revision history and status filled in and correct, with the revision history oldest entry first (ETB-SUP8-001 §6.2)? | |
+| C4 | Are the identification block, revision history and status filled in and correct, with the revision history oldest entry first, the Version and Date cells linking to the history, and a new row written as `next` until the release numbers it (ETB-SUP8-001 §6.2)? | |
 | C5 | Are referenced documents cited by ID and version? | |
 | C6 | Does it distinguish what has been confirmed on hardware from what has not? | |
 
