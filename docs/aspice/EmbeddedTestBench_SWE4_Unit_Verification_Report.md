@@ -11,7 +11,7 @@
 | Field | Value | Field | Value |
 |---|---|---|---|
 | **Document ID** | ETB-SWE4-002 | **Version** | 1.33 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-24 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-25 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.4 |
@@ -66,7 +66,7 @@
 | 1.30 | 2026-10-23 | Claude | #271: §10.7 added - DFU data lost on 5C1712's SDK 15.2 bootloader, the fix that failed and the one that passed, on the bench; D-52 added. |
 | 1.31 | 2026-10-23 | Claude | #275: §10.8 added - V10-F-01 on the bench with the bootloader link retry; D-53 added. |
 | 1.32 | 2026-10-24 | Claude | #286: §5 regenerated from a whole-suite run on the branch with `develop` 9b7da17 merged in (3 374 passed, 95% coverage, §4): one row per ETB-SWE4-001 group, 19 of them missing before (including SWE4-UT-S2LPKEPLER); firmware CTest counts added; two test files with no group noted. |
-| 1.33 | 2026-10-24 | Claude | #292: §5 rows for SWE4-UT-SELFCHECK (7) and SWE4-UT-FIVEINST (8), the two files no group named, with their results from the 1.32 run; the note about them removed. |
+| 1.33 | 2026-10-25 | Claude | #292: §5 rows for SWE4-UT-SELFCHECK (7) and SWE4-UT-FIVEINST (8), the two files no group named, with their results from the 1.32 run; the note about them removed. SWE4-UT-TRACE 27 → 30, pass, from a run of `test_traceability.py` on this branch on 2026-10-25 (30 passed); the §5 total is still the 1.32 run's. |
 
 ---
 
@@ -217,7 +217,7 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-CONSTRAINTS | `test_constraints.py` | 10 | Pass |
 | SWE4-UT-LINT | `test_lint_script.py` | 3 | Pass |
 | SWE4-UT-PUBLISH | `test_publish_docs.py` | 43 | Pass |
-| SWE4-UT-TRACE | `test_traceability.py` | 27 | Pass |
+| SWE4-UT-TRACE | `test_traceability.py` | 30 | Pass |
 | SWE4-UT-SCPI | `core/test_scpi.py` | 28 | Pass |
 | SWE4-UT-INSTRUMENT | `core/test_instrument.py` | 20 | Pass |
 | SWE4-UT-PROCESS | `core/transport/test_process.py` | 20 | Pass |
@@ -326,7 +326,9 @@ now fails when a group in ETB-SWE4-001 has no row here.
 
 The pytest total is the 3 374 tests in the groups above. SWE4-UT-SELFCHECK
 and SWE4-UT-FIVEINST were added by #292 after this run; their rows give that
-run's results for the two files, which it ran but no group then named.
+run's results for the two files, which it ran but no group then named. The
+SWE4-UT-TRACE row (30) is from a later run of `test_traceability.py` alone,
+after #292 added three cases.
 
 The firmware unit tests run under CTest, not pytest, and are not in the pytest
 total. The dongle's 8 binaries (189 cases) were built and run on the bench PC

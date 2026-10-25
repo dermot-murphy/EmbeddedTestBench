@@ -178,12 +178,16 @@ class TestTestGroupTraceability:
             + "\n  ".join(missing))
 
     def test_named_files_are_read_from_the_file_column_only(self):
+        """Only the file column counts, a firmware glob is skipped, and a bare
+        name is a top-level file: it does not name a nested file of that name."""
         text = (
-            "| SWE4-UT-TRACE | `core/test_a.py`, `test_top.py` "
+            "| SWE4-UT-TRACE | `core/test_a.py`, `test_cli.py` "
             "| Mentions `core/test_other.py` | X |\n"
             "| SWE4-UT-FWUNIT | `firmware/x/test/*.c` | Firmware | Y |\n"
         )
-        assert _named_test_files(text) == {"core/test_a.py", "test_top.py"}
+        named = _named_test_files(text)
+        assert named == {"core/test_a.py", "test_cli.py"}
+        assert "runner/test_cli.py" not in named
 
 
 def _named_test_files(text: str) -> set:
