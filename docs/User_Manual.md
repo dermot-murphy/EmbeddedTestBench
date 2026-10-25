@@ -119,6 +119,10 @@ git checkout v0.02.0002          # or stay on develop
 pip install -e ".[spec,serial,test]"
 ```
 
+A specification for a device names the device's plugin - its frame decoder,
+register file and viewer panel - in `plugins:`; Kepler's is `plugins/kepler`.
+See the Bench Runner Guide, section 6.6.
+
 If you will change the documents, also switch on the merge driver that keeps
 two revision history rows appended by different branches (ETB-SUP8-001 §6.2):
 

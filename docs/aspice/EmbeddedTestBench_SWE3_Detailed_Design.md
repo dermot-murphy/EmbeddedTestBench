@@ -75,6 +75,7 @@
 | 1.39 | 2026-10-24 | Claude | #294: VIEW-DD-SERVER - `ViewerServer.handle_error` logs a client that went away, over HTTP or TLS, as one warning line. |
 | 1.40 | 2026-10-25 | Claude | #293: S2LP-DD-SESSION - `commands_sent`; S2LP-DD-TRAFFIC - `_set_aside`, `_put_aside`, `_take_set_aside` (valid while the session's `commands_sent` is unchanged since the stop) and `kepler_frame(since_last=...)`, with the gap between two calls measured on the bench kit (26 to 27 ms); CORE-DD-MOCK - a `keep_buffer` write keeps the simulator's undelivered output. |
 | next | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
+| next | 2026-10-25 | Claude | #238: CORE-DD-PLUGINS added (CORE count 17 → 18, total 76 → 77). S2LP-DD-KEPLER and VIEW-DD-KEPLER moved to `plugins/kepler`; S2LP-DD-TRAFFIC's `dut_samples` and `dut_frame`; VIEW-DD-SERVER's plugin panels, `/api/plugins`, `/api/panel` and `/plugin/`. |
 
 ---
 
@@ -114,7 +115,7 @@ not declare.
 
 | # | Element | Package | Design units |
 |---|---|---|---|
-| 5.1 | CORE | `benchtools.core` | 17 |
+| 5.1 | CORE | `benchtools.core` | 18 |
 | 5.2 | ANA | `benchtools.analysis` | 4 |
 | 5.3 | INST | `benchtools.instruments` | 5 |
 | 5.4 | JLINK | `benchtools.instruments.jlink` | 10 |
@@ -123,7 +124,7 @@ not declare.
 | 5.7 | PSU | `benchtools.instruments.gpd3303d` | 4 |
 | 5.8 | PICO | `benchtools.instruments.pico_sht30` and `firmware/pico_sht30` | 15 |
 | 5.9 | RUN | `benchtools.runner` | 8 |
-| | **Total** | | **76** |
+| | **Total** | | **77** |
 
 ### 4.1 Package Structure
 
@@ -140,6 +141,7 @@ benchtools/
 └── runner/        bench configuration, specifications, limits, execution, reports
 
 firmware/nordic_dongle/    the dongle's own half of the BLE element, in C
+plugins/kepler/            the Kepler device plugin (#238), until #240 removes it
 ```
 
 ---
@@ -329,6 +331,40 @@ Drivers that declare input files: `JLinkProbe.connect` (`elf`, `firmware`),
 `ensure_firmware` (`firmware`), `run_script` (`source`); `S2lpDevkit.load_configuration`,
 `apply_configuration`, `verify_configuration` (`source`). The GPD-3303D, the
 TTi 1604, the TDS3014B and the Pico SHT30 read no input file.
+
+#### CORE-DD-PLUGINS — `plugins.py`
+
+`Plugin`, `Panel`, `Registry`, `REGISTRY`, `load_plugin`, `loaded_plugins`,
+`decoder`, `decode`, `hook`, `resolve_plugin_path`, `plugin_folders`. Device
+code loaded at run time from a folder outside the package (CORE-FR-066 ..
+CORE-FR-070, AD-29, #238).
+
+Design points:
+
+- **A plugin is a package loaded by path.** `Registry.load` imports the
+  folder's `__init__.py` as `etb_plugins.<folder>` with the folder as its
+  search path, so the plugin imports its own modules relatively, and calls its
+  `register(plugin)`. The name is the module's `NAME`, or the folder's. Loading
+  a folder twice returns the plugin already loaded; two plugins with one name,
+  a folder with no `__init__.py`, no `register`, or one that raises are refused
+  with a `ConfigurationError` naming the folder.
+- **What a plugin provides is registered, not discovered.** `add_decoder`,
+  `add_register_file`, `add_panel`, `add_field`, `add_hook` fill the `Plugin`.
+  A decoder takes the payload and returns a dictionary, raising `ValueError`
+  for a payload it cannot read; `type`, `sensor_id` and `frame["repeat"]` are
+  the keys the bench reads.
+- **Lookups.** `decoder(name)` takes a decoder by name, or the only one loaded,
+  and otherwise names those loaded. `decode(payload)` tries each in load order,
+  for a frame logged without a decode. `field` maps a sample action's field
+  name; `hook` returns a named function or a default.
+- **Paths.** `resolve_plugin_path("plugin:<name>/<file>")` finds a register file
+  by name or a path inside the folder, refusing one that leaves it.
+  `resolve_input_path` hands such paths to it (CORE-DD-PATHS).
+- **Provenance.** Each plugin records `git rev-parse HEAD` of its folder and
+  whether `git status --porcelain` shows changes; `describe` gives name, path,
+  ref and dirty for reports. A folder outside git has ref `None`.
+- **One registry per process.** `REGISTRY` is module state, as the driver
+  registry is; tests replace it with their own.
 
 #### CORE-DD-PROCESS — `transport/process.py`
 
@@ -1914,6 +1950,11 @@ Design points:
 
 #### S2LP-DD-TRAFFIC — `traffic.py`
 
+`dut_samples` and `dut_frame` take `decoder`: a callable, a decoder's name from
+the plugins loaded, or `None` for the only one (CORE-FR-067, #238).
+`measure_preamble` and `check_preamble` take it too. `kepler_samples` and
+`kepler_frame` are the same with `decoder="kepler"`, kept for one release.
+
 `TrafficMixin`: send, receive and capture, split from S2LP-DD-S2LP so that each
 can be read on its own. It relies on the driver's session, clock, packet log and
 register access. Three facts found on a kit (#76) shape it:
@@ -2042,7 +2083,9 @@ if it is off and puts QI back when the stream ends (`_enable_pqi`), so a 0
 cannot pass for a result. `measure_preamble` and `check_preamble` receive in
 polled mode and attribute frames by the decoder's sensor ID.
 
-#### S2LP-DD-KEPLER — `kepler.py`
+#### S2LP-DD-KEPLER — `plugins/kepler/decoder.py`, `tables.py`
+
+Moved out of `benchtools.instruments.s2lp` into the Kepler device plugin (#238); the S2-LP driver reaches it only as the decoder `kepler`.
 
 `decode_kepler_frame` turns a Kepler sensor payload into a dictionary: the
 common header, then the fields of its PL_TYPE (VERSION, ALIVE and
@@ -2142,7 +2185,7 @@ discarded, as the hardware discards it - which is what the driver's refusal
 
 Sub-commands `info`, `registers`, `radio`, `config`, `packets`, `tx`, `rx`,
 `capture`, `stream`, `preamble`, `strobe`, emitting JSON (AD-15); `stream` prints one JSON
-line per frame, with `--decode kepler` and `--registers`. `--log` and `--packet-log` open both
+line per frame, with `--decode <decoder>` from a `--plugin` and `--registers`. `--log` and `--packet-log` open both
 logs at once; `--board` names the kit board; `--setup` applies a register file
 straight after connecting. `rx` with nothing on the air exits 1 and says why
 that is not the same as the air being quiet; `capture` adds a warning when the
@@ -2968,6 +3011,16 @@ serialise it outside the lock.
 
 #### VIEW-DD-SERVER — `server.py`
 
+Device plugins (VIEW-FR-047, #238; `plugin_panels.py`): the hub keeps a fresh
+state per plugin panel for each log it follows (`dut_panels`), feeds each
+received frame to every one, and serves one by name at `/api/panel`.
+`/api/plugins` lists the plugins and their panels' scripts, which
+`static/plugins.js` loads after the page's own; `/plugin/<plugin>/<file>`
+serves a file from a panel's static folder and nothing outside it. A run
+started from the page loads its specification's and bench's plugins
+(`run_plugins`); a followed log's plugins are not loaded, because a plugin runs
+code: `benchtools view --plugin` loads them.
+
 `Hub` follows one event log with `EventTail`, on a thread polling every 0.2 s.
 Under one condition it appends each record with a sequence number (the last
 `KEEP_RECORDS`, 5 000, are kept), applies it to `RunState` and notifies
@@ -3022,7 +3075,7 @@ serves it, `?t0=&t1=` refused unless finite numbers (VIEW-FR-012).
 #### VIEW-DD-RADIO — `radio.py`
 
 `RfFrames.feed` takes `rf_packet` records (S2LP-FR-080): a transmitted packet
-is counted as sent; a received one is decoded with `decode_kepler_frame` if the
+is counted as sent; a received one is decoded with the plugins' decoders (`plugins.decode`) if the
 driver did not, its problem stated when the radio rejected it or it would not
 decode, and appended to a deque of `KEEP_FRAMES` (1 000) with a one-line
 summary of its fields. Per sensor it keeps the frames heard, last time, RSSI and
@@ -3100,7 +3153,9 @@ the state badge, the test case, "Steps n / m", "About … left" or "Time left:
 estimating", and a chip per instrument with a status-palette dot, its name and
 "ok"-time or its state in words, its last line as the tooltip.
 
-#### VIEW-DD-KEPLER — `kepler_view.py`, `static/kepler.js`
+#### VIEW-DD-KEPLER — `plugins/kepler/view.py`, `static/kepler.js`
+
+Moved into the Kepler device plugin (#238), as its panel `kepler`; the page loads `kepler.js` from `/plugin/kepler/`, and asks `/api/panel?name=kepler` for the view.
 
 `RfFrames` now remembers the frame its last `feed` added (`last_frame`), and
 the hub hands it to `KeplerView.feed`, which keeps the last `KEEP_LATEST` (500)
@@ -3113,12 +3168,12 @@ firmware's mapping says the slot carries (S2LP-FR-081); and per sensor its last
 VERSION frame. `view(sensor)` gives the latest 50 frames, the 60-row
 configuration table with block, unit, time, and `disabled` for an enable set
 to 0, the `CONFIG_GROUPS` summaries, and the identification - of the sensor
-chosen, or the first heard (VIEW-FR-028 … -030). `/api/kepler?sensor=` serves
+chosen, or the first heard (VIEW-FR-028 … -030). `/api/panel?name=kepler&sensor=` serves
 it. The frames list's summary names a CONFIG frame's parameters and leaves the
 product out.
 
 `kepler.js` adds sub-tabs to the RF page - Frames, Latest Data, Config,
-Identification - polling `/api/kepler` every second while one is shown;
+Identification - polling `/api/panel?name=kepler` every second while one is shown;
 Latest Data has its own pause, holding the newest reply until resumed.
 
 #### VIEW-DD-SENSOR — `sensor_series.py`
