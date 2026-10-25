@@ -211,7 +211,7 @@ def _cell_problems(text, held_back):
             continue
         elif match.group(2) != wanted:
             hint = (" (a held-back document gives up its literal values when it is"
-                    " next revised; ETB-SUP8-001 §6.2)" if held_back else "")
+                    " next revised; ETB-SUP8-001 section 6.2)" if held_back else "")
             found.append("**%s** is %r, not %r%s" % (name, match.group(2), wanted, hint))
     return found
 
@@ -331,23 +331,32 @@ def _change(row):
 
 
 def _merged_rows(ours, base, theirs):
-    """One history from two sides that each changed its end, as rows.
+    """One history from two sides that each changed its end, as rows, or None.
 
-    Theirs' rows come first, then the rows ours added; a change both sides
-    hold is kept once, numbered if either side numbered it. Numbered rows
-    then go before ``next`` rows, each group keeping that order.
+    Theirs' rows come first, then the rows ours added. A row ours added that
+    records the same change as one of theirs - the same row, or the same
+    change numbered on one side and ``next`` on the other - is kept once,
+    numbered if either side numbered it. Numbered rows then go before
+    ``next`` rows, each group keeping that order.
+
+    Every common-ancestor row must still be on both sides, as it was or only
+    numbered. If a side edited or dropped one, that is not two appended rows,
+    and None leaves the conflict for a person.
     """
-    rows = list(theirs) + [row for row in ours if row not in base]
-    kept = {}
-    order = []
-    for row in rows:
-        change = _change(row)
-        if change not in kept:
-            order.append(change)
-            kept[change] = row
-        elif _is_next(kept[change]) and not _is_next(row):
-            kept[change] = row
-    merged = [kept[change] for change in order]
+    for side in (ours, theirs):
+        changes = {_change(row) for row in side}
+        if any(_change(row) not in changes for row in base):
+            return None
+    merged = list(theirs)
+    for row in ours:
+        if row in base:
+            continue
+        same = [i for i, kept in enumerate(merged) if _change(kept) == _change(row)
+                and (kept == row or _is_next(kept) != _is_next(row))]
+        if not same:
+            merged.append(row)
+        elif _is_next(merged[same[0]]) and not _is_next(row):
+            merged[same[0]] = row
     return ([row for row in merged if not _is_next(row)]
             + [row for row in merged if _is_next(row)])
 
@@ -368,12 +377,37 @@ def _conflict(lines, start, marker_size):
     return block, end
 
 
-def merge_rows(merged, marker_size=7):
+def _left_conflict(block, marker_size, keep_base):
+    """A conflict's lines as left for a person, without its base unless ``keep_base``."""
+    if keep_base:
+        return block
+    out = []
+    in_base = False
+    for line in block:
+        if line.startswith("|" * marker_size):
+            in_base = True
+        elif line.startswith("=" * marker_size):
+            in_base = False
+        if not in_base:
+            out.append(line)
+    return out
+
+
+def _conflict_style():
+    """``merge.conflictStyle`` in this clone, or "merge"."""
+    result = subprocess.run(["git", "config", "--get", "merge.conflictStyle"],
+                            stdout=subprocess.PIPE, check=False)
+    return result.stdout.decode("utf-8").strip() or "merge"
+
+
+def merge_rows(merged, marker_size=7, keep_base=True):
     """Resolve the conflicts in ``git merge-file --diff3`` output that are rows.
 
     Only a conflict inside a revision history, every line of which - ours,
     the common ancestor and theirs - is a history row, is resolved
-    (``_merged_rows``). Returns (text, number of conflicts left).
+    (``_merged_rows``). A conflict left for a person loses its common
+    ancestor section unless ``keep_base``, as git's default conflict style
+    does. Returns (text, number of conflicts left).
     """
     start_marker = "<" * marker_size
     out = []
@@ -391,11 +425,14 @@ def merge_rows(merged, marker_size=7):
             continue
         block, end = _conflict(lines, index, marker_size)
         every = block["ours"] + block["base"] + block["theirs"]
+        rows = None
         if (in_history and end < len(lines) and block["ours"] and block["theirs"]
                 and all(_ROW.match(row) for row in every)):
-            out.extend(_merged_rows(block["ours"], block["base"], block["theirs"]))
+            rows = _merged_rows(block["ours"], block["base"], block["theirs"])
+        if rows is not None:
+            out.extend(rows)
         else:
-            out.extend(lines[index:end + 1])
+            out.extend(_left_conflict(lines[index:end + 1], marker_size, keep_base))
             left += 1
         index = end + 1
     return "\n".join(out), left
@@ -425,7 +462,8 @@ def run_merge(base, ours, theirs, marker_size=7, label="document"):
         merged = result.stdout.decode("utf-8")
         left = 0
         if result.returncode:
-            merged, left = merge_rows(merged, marker_size)
+            keep_base = _conflict_style() in ("diff3", "zdiff3")
+            merged, left = merge_rows(merged, marker_size, keep_base)
         Path(ours).write_bytes(merged.encode("utf-8"))
         return 1 if left else 0
     except Exception as error:  # pylint: disable=broad-exception-caught
@@ -442,9 +480,11 @@ def driver_command(python=None):
     the command then lets git merge the file as usual.
     """
     python = Path(python or sys.executable).as_posix()
-    return ('"%s" scripts/doc_versions.py merge %%O %%A %%B %%L "%%P"; status=$?; '
+    # git passes %P already quoted for the shell, so it is not quoted again.
+    return ('"%s" scripts/doc_versions.py merge %%O %%A %%B %%L %%P; status=$?; '
             'if [ $status -le 1 ]; then exit $status; fi; '
-            'git merge-file --marker-size=%%L %%A %%O %%B' % python)
+            'git merge-file --marker-size=%%L -L %%P" (ours)" -L %%P" (base)" '
+            '-L %%P" (theirs)" %%A %%O %%B' % python)
 
 
 def run_install(root):

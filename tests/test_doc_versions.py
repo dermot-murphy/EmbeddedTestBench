@@ -208,6 +208,7 @@ class TestCheckRows:
         text = document([("0.1", "a"), ("next", "b")], version="0.1", date="a")
         found = dv.problems(text, held_back=True)
         assert len(found) == 2 and all("held-back" in message for message in found)
+        assert all("ETB-SUP8-001 section 6.2" in message for message in found)
 
 
 class TestCommandLine:
@@ -256,8 +257,7 @@ def conflict(ours, base, theirs):
 
 
 def rows_of(text):
-    return [line for line in text.split("\n") if line.startswith("| 0.") or
-            line.startswith("| next")]
+    return [line for line in text.split("\n") if dv._ROW.match(line)]
 
 
 class TestMergeRows:
@@ -289,6 +289,38 @@ class TestMergeRows:
             ["| 0.2 | b | Claude | X |"], ["| next | b | Claude | X |"],
             ["| next | b | Claude | X |", "| next | c | Claude | Y |"]))
         assert rows_of(text)[1:] == ["| 0.2 | b | Claude | X |", "| next | c | Claude | Y |"]
+
+    def test_a_row_ours_edited_leaves_the_conflict(self):
+        merged = conflict(["| next | b | Claude | X, corrected |", "| next | c | Claude | B |"],
+                          ["| next | b | Claude | X |"],
+                          ["| next | b | Claude | X |", "| next | d | Claude | C |"])
+        assert dv.merge_rows(merged) == (merged, 1)
+
+    def test_a_row_ours_dropped_leaves_the_conflict(self):
+        merged = conflict(["| next | c | Claude | B |"], ["| next | b | Claude | X |"],
+                          ["| next | b | Claude | X |", "| next | d | Claude | C |"])
+        assert dv.merge_rows(merged) == (merged, 1)
+
+    def test_two_identical_rows_on_one_side_are_both_kept(self):
+        text, left = dv.merge_rows(conflict(
+            ["| next | d | Claude | ours |"], [],
+            ["| 1.3 | d | Claude | Typo fixes |", "| 1.4 | d | Claude | Typo fixes |"]))
+        assert left == 0
+        assert rows_of(text)[1:] == ["| 1.3 | d | Claude | Typo fixes |",
+                                     "| 1.4 | d | Claude | Typo fixes |",
+                                     "| next | d | Claude | ours |"]
+
+    def test_a_row_both_sides_added_is_kept_once(self):
+        text, _ = dv.merge_rows(conflict(["| next | b | Claude | same |"], [],
+                                         ["| next | b | Claude | same |"]))
+        assert rows_of(text)[1:] == ["| next | b | Claude | same |"]
+
+    def test_a_left_conflict_loses_its_base_in_the_default_style(self):
+        merged = conflict(["prose"], ["| next | b | Claude | X |"],
+                          ["| next | b | Claude | X |"])
+        text, left = dv.merge_rows(merged, keep_base=False)
+        assert left == 1
+        assert "|||||||" not in text and "<<<<<<< ours" in text and "=======" in text
 
     def test_crlf_rows_are_resolved(self):
         text, left = dv.merge_rows(conflict(["| next | c | Claude | ours |\r"], [],
@@ -362,28 +394,52 @@ class TestMergeDriver:
         text = dv.read_text(ours)
         assert "| next | b |" in text and "| next | c |" in text and "<<<<<<<" in text
 
-    def test_the_installed_command_falls_back_when_the_script_cannot_run(self, tmp_path):
-        """A git merge with the driver pointing at a missing interpreter."""
+    def repository(self, tmp_path, ours_row, theirs_row, name="x y.md"):
+        """A repository whose branches a and b each changed docs/<name>."""
         repo = tmp_path / "repo"
-        repo.mkdir()
+        (repo / "docs").mkdir(parents=True)
+        (repo / "scripts").mkdir()
+        shutil.copy(ROOT / "scripts" / "doc_versions.py", repo / "scripts")
 
         def git(*args):
             return subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *args],
                                   cwd=str(repo), stdout=subprocess.PIPE,
                                   stderr=subprocess.STDOUT, check=False)
         git("init", "-q", "-b", "develop")
-        (repo / "docs").mkdir()
         (repo / ".gitattributes").write_text("docs/**/*.md merge=etb-history\n")
-        doc = repo / "docs" / "x.md"
+        doc = repo / "docs" / name
         doc.write_text(self.BASE, encoding="utf-8")
         git("add", ".")
         git("commit", "-qm", "base")
-        for branch, row in (("a", ("next", "b")), ("b", ("next", "c"))):
+        for branch, text in (("a", ours_row), ("b", theirs_row)):
             git("checkout", "-q", "-b", branch, "develop")
-            doc.write_text(document([("0.1", "a"), row]), encoding="utf-8")
+            doc.write_text(text, encoding="utf-8")
             git("commit", "-qam", branch)
+        return git, doc
+
+    def test_the_installed_command_resolves_rows_through_git(self, tmp_path):
+        git, doc = self.repository(tmp_path, document([("0.1", "a"), ("next", "b")]),
+                                   document([("0.1", "a"), ("next", "c")]))
+        git("config", "merge.etb-history.driver", dv.driver_command())
+        assert git("merge", "-q", "a").returncode == 0
+        assert [row[1:] for row in dv.history(dv.read_text(doc))] == [
+            ("0.1", "a"), ("next", "b"), ("next", "c")]
+
+    def test_the_installed_command_labels_a_left_conflict_with_the_path(self, tmp_path):
+        git, doc = self.repository(tmp_path, self.BASE.replace("# Plan", "# Plan A"),
+                                   self.BASE.replace("# Plan", "# Plan B"))
+        git("config", "merge.etb-history.driver", dv.driver_command())
+        assert git("merge", "-q", "a").returncode != 0
+        text = dv.read_text(doc)
+        assert "<<<<<<< docs/x y.md (ours)" in text and ">>>>>>> docs/x y.md (theirs)" in text
+
+    def test_the_installed_command_falls_back_when_the_script_cannot_run(self, tmp_path):
+        """A git merge with the driver pointing at a missing interpreter."""
+        git, doc = self.repository(tmp_path, document([("0.1", "a"), ("next", "b")]),
+                                   document([("0.1", "a"), ("next", "c")]))
         git("config", "merge.etb-history.driver",
             dv.driver_command(str(tmp_path / "no-such-python")))
         assert git("merge", "-q", "a").returncode != 0
         text = dv.read_text(doc)
-        assert "| next | b |" in text and "| next | c |" in text and "<<<<<<<" in text
+        assert "| next | b |" in text and "| next | c |" in text
+        assert "<<<<<<< docs/x y.md (ours)" in text
