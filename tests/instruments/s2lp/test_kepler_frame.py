@@ -8,6 +8,7 @@ from __future__ import annotations
 import pytest
 
 from benchtools.core.errors import MeasurementError
+from benchtools.instruments.s2lp.packets import Packet
 
 from .test_kepler import ALIVE_REPEATS, VERSION_FRAME
 
@@ -75,3 +76,30 @@ class TestConsecutiveCalls:
         assert not list(radio.stream(timeout=0.5))
         with pytest.raises(MeasurementError, match="no ALIVE frame from 5C1712 in 1 s$"):
             radio.kepler_frame("ALIVE", source="5C1712", timeout=1.0, since_last=True)
+
+    def test_any_command_to_the_board_discards_what_was_set_aside(self, radio, simulator):
+        self._queue_copies(simulator, 2)
+        radio.kepler_frame("ALIVE", source="5C1712", timeout=2.0)
+        radio.read_registers(0x00, 1)
+        with pytest.raises(MeasurementError, match="no ALIVE frame from 5C1712 in 1 s$"):
+            radio.kepler_frame("ALIVE", source="5C1712", timeout=1.0, since_last=True)
+
+    def test_frames_after_a_match_at_the_timeout_are_set_aside(self, radio, monkeypatch):
+        """The wanted frame lands in the stop at the end of the timeout; the
+        copies after it are set aside, not lost."""
+        original = radio._stop_and_collect
+        arrivals = [bytes.fromhex(payload) for payload in ALIVE_REPEATS[:3]]
+
+        def stop_as_the_copies_arrive(decoder):
+            packets = original(decoder)
+            while arrivals:
+                packet = Packet(direction="rx", data=arrivals.pop(0))
+                radio._annotate(packet, [], decoder)
+                packets.append(packet)
+            return packets
+
+        monkeypatch.setattr(radio, "_stop_and_collect", stop_as_the_copies_arrive)
+        repeats = [radio.kepler_frame("ALIVE", source="5C1712", timeout=0.5,
+                                      since_last=True)["frame"]["repeat"]
+                   for _ in range(3)]
+        assert repeats == [0, 1, 2]

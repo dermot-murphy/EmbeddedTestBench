@@ -93,10 +93,14 @@ class TrafficMixin:
     _traffic_ready = False
     _receive_ready = False
     #: The frames reported while the board was stopping, after the caller of
-    #: the last batch stream had stopped iterating (#293). Logged, not yielded;
-    #: ``kepler_frame(since_last=True)`` offers them first. Replaced, never
-    #: changed in place, so the class's empty list is never shared.
+    #: the last batch stream had what it wanted (#293). Logged, not yielded;
+    #: ``kepler_frame(since_last=True)`` offers them first, but only while no
+    #: command has been sent to the board since: see :meth:`_take_set_aside`.
+    #: Replaced, never changed in place, so the class's empty list is never
+    #: shared.
     _set_aside: List[Packet] = []
+    #: The session's command count when :attr:`_set_aside` was filled.
+    _set_aside_at = -1
 
     def prepare_traffic(self, gpio: int = IRQ_GPIO) -> None:
         """Route the radio's interrupt to the board, so traffic can complete.
@@ -400,17 +404,39 @@ class TrafficMixin:
                     return
             # Ended by the host: stop the board, and yield what arrived meanwhile.
             running = False
-            for packet in self._stop_and_collect(decoder):
-                yield self._record(packet)
+            leftover = self._stop_and_collect(decoder)
+            try:
+                while leftover:
+                    yield self._record(leftover.pop(0))
+            finally:
+                # The caller may stop at any one of them: the rest are set
+                # aside, not lost (#293).
+                self._put_aside(leftover)
         finally:
             if running:
                 # The caller stopped iterating. Stop the board; anything that
                 # arrived meanwhile still goes to the packet log, and is set
                 # aside for kepler_frame(since_last=True) (#293).
-                leftover = self._stop_and_collect(decoder)
-                for packet in leftover:
-                    self._record(packet)
-                self._set_aside = leftover
+                self._put_aside(self._stop_and_collect(decoder))
+
+    def _put_aside(self, packets: List[Packet]) -> None:
+        """Log *packets*, which the caller did not take, and set them aside."""
+        for packet in packets:
+            self._record(packet)
+        self._set_aside = list(packets)
+        self._set_aside_at = self._session.commands_sent
+
+    def _take_set_aside(self) -> List[Packet]:
+        """The frames set aside, if no command has gone to the board since; and empty it.
+
+        Any command - a send, a receive, a register write, a reset, the
+        identification on reconnecting - means the frames were heard before
+        something the caller did, so they are no longer the frames after the
+        last one returned.
+        """
+        fresh = self._session.commands_sent == self._set_aside_at
+        set_aside, self._set_aside = (self._set_aside if fresh else []), []
+        return set_aside
 
     def _next_batch_reply(self, started: float, timeout: Optional[float],
                           until: Optional[Callable[[], bool]]):
@@ -616,21 +642,25 @@ class TrafficMixin:
         :param source: Only frames from this sensor, e.g. ``"5C1712"``.
         :param since_last: Look first at the frames that arrived while the
             last receive was being stopped, after its caller had what it
-            wanted, so that consecutive calls get consecutive frames. Leave
-            it off when the frame must be sent after this call, such as one
-            answering a command sent since the last call: a frame set aside
-            was sent before it.
+            wanted, so that consecutive calls get consecutive frames. They
+            are offered only if no command has gone to the S2-LP board since.
+            Only frames that arrive while the board stops are kept: a frame
+            that arrives after the stop and before this call's receive starts
+            is still missed. Leave it off when the frame must be sent after
+            this call, such as one answering a command sent to the sensor
+            since the last call: a frame set aside was sent before it.
         :returns: The decoded fields, plus ``raw``: the payload in hex.
         :raises MeasurementError: if no such frame arrives within *timeout*.
 
         Traces to: S2LP-FR-073, S2LP-FR-085.
         """
-        set_aside, self._set_aside = self._set_aside, []
+        set_aside = self._take_set_aside()
         if since_last:
             for index, packet in enumerate(set_aside):
                 self._annotate(packet, [], decoder)
                 if self._is_frame(packet, frame_type, source):
                     self._set_aside = set_aside[index + 1:]
+                    self._set_aside_at = self._session.commands_sent
                     return self._whole_frame(packet)
         for packet in self.stream(decoder=decoder, timeout=timeout):
             if self._is_frame(packet, frame_type, source):
