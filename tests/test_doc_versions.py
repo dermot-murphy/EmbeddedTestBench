@@ -310,6 +310,32 @@ class TestMergeRows:
                                      "| 1.4 | d | Claude | Typo fixes |",
                                      "| next | d | Claude | ours |"]
 
+    def test_two_identical_rows_ours_added_are_both_kept(self):
+        text, left = dv.merge_rows(conflict(
+            ["| next | d | Claude | B |", "| next | d | Claude | B |"], [],
+            ["| next | d | Claude | C |"]))
+        assert left == 0
+        assert rows_of(text)[1:] == ["| next | d | Claude | C |",
+                                     "| next | d | Claude | B |",
+                                     "| next | d | Claude | B |"]
+
+    def test_a_numbered_row_renumbered_leaves_the_conflict(self):
+        merged = conflict(["| 0.3 | b | Claude | X |", "| next | c | Claude | B |"],
+                          ["| 0.2 | b | Claude | X |"],
+                          ["| 0.2 | b | Claude | X |", "| next | d | Claude | C |"])
+        assert dv.merge_rows(merged) == (merged, 1)
+
+    def test_one_of_two_identical_base_rows_dropped_leaves_the_conflict(self):
+        twin = "| next | b | Claude | X |"
+        merged = conflict([twin, "| next | c | Claude | B |"], [twin, twin],
+                          [twin, twin, "| next | d | Claude | C |"])
+        assert dv.merge_rows(merged) == (merged, 1)
+
+    def test_both_sides_numbering_one_row_differently_leaves_the_conflict(self):
+        merged = conflict(["| 0.2 | b | Claude | X |"], ["| next | b | Claude | X |"],
+                          ["| 0.3 | b | Claude | X |"])
+        assert dv.merge_rows(merged) == (merged, 1)
+
     def test_a_row_both_sides_added_is_kept_once(self):
         text, _ = dv.merge_rows(conflict(["| next | b | Claude | same |"], [],
                                          ["| next | b | Claude | same |"]))

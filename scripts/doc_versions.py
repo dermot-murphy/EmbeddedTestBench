@@ -330,33 +330,65 @@ def _change(row):
     return "|".join(row.rstrip("\r").split("|")[2:]).strip()
 
 
+def _numbers(base_row, row):
+    """True if ``row`` is ``base_row``, or ``base_row`` as ``next`` given a number."""
+    return row == base_row or (_is_next(base_row) and not _is_next(row)
+                               and _change(row) == _change(base_row))
+
+
+def _split(side, base):
+    """Where each common-ancestor row is on one side, and the side's other rows.
+
+    Returns (index on the side of each base row, in base order; indices of the
+    side's other rows), or None if a base row is not on the side as it was or
+    only numbered. Each side row stands for one base row at most.
+    """
+    free = list(range(len(side)))
+    found = []
+    for base_row in base:
+        match = next((i for i in free if _numbers(base_row, side[i])), None)
+        if match is None:
+            return None
+        free.remove(match)
+        found.append(match)
+    return found, free
+
+
+def _same_change(row, other):
+    """True if two added rows record one change: the same row, or one numbered."""
+    return _change(row) == _change(other) and (row == other or _is_next(row) != _is_next(other))
+
+
 def _merged_rows(ours, base, theirs):
     """One history from two sides that each changed its end, as rows, or None.
 
-    Theirs' rows come first, then the rows ours added. A row ours added that
-    records the same change as one of theirs - the same row, or the same
-    change numbered on one side and ``next`` on the other - is kept once,
-    numbered if either side numbered it. Numbered rows then go before
-    ``next`` rows, each group keeping that order.
-
-    Every common-ancestor row must still be on both sides, as it was or only
-    numbered. If a side edited or dropped one, that is not two appended rows,
-    and None leaves the conflict for a person.
+    Every common-ancestor row must still be on both sides, as it was or, if it
+    was ``next``, only numbered; otherwise None leaves the conflict for a
+    person. Theirs' rows come first, with any base row ours numbered and
+    theirs did not taking ours' number. Then come the rows ours added; one
+    that records the same change as a row theirs added is kept once, numbered
+    if either side numbered it. Numbered rows then go before ``next`` rows,
+    each group keeping that order.
     """
-    for side in (ours, theirs):
-        changes = {_change(row) for row in side}
-        if any(_change(row) not in changes for row in base):
-            return None
+    ours_split, theirs_split = _split(ours, base), _split(theirs, base)
+    if ours_split is None or theirs_split is None:
+        return None
     merged = list(theirs)
-    for row in ours:
-        if row in base:
+    for base_row, mine, yours in zip(base, ours_split[0], theirs_split[0]):
+        if ours[mine] in (base_row, theirs[yours]):
             continue
-        same = [i for i, kept in enumerate(merged) if _change(kept) == _change(row)
-                and (kept == row or _is_next(kept) != _is_next(row))]
-        if not same:
+        if theirs[yours] != base_row:
+            return None
+        merged[yours] = ours[mine]
+    unmatched = list(theirs_split[1])
+    for row in (ours[i] for i in ours_split[1]):
+        match = next((i for i in unmatched if _same_change(theirs[i], row)), None)
+        if match is None:
             merged.append(row)
-        elif _is_next(merged[same[0]]) and not _is_next(row):
-            merged[same[0]] = row
+            continue
+        unmatched.remove(match)
+        if _is_next(merged[match]) and not _is_next(row):
+            merged[match] = row
     return ([row for row in merged if not _is_next(row)]
             + [row for row in merged if _is_next(row)])
 
