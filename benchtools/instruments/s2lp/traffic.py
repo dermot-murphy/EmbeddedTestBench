@@ -635,7 +635,7 @@ class TrafficMixin:
         Each call starts its own receive and stops it on return, and frames
         that arrive while the board stops are logged but not returned: the
         next call starts after them. Frames close behind the one returned -
-        the next copy of the same packet, 0.25 s later on Kepler - are among
+        the next copy of the same packet, 31 to 229 ms later on 5C1712 - are among
         them (#293). *since_last* asks for those frames too.
 
         :param frame_type: The type, e.g. ``"VERSION"``.
@@ -646,7 +646,8 @@ class TrafficMixin:
             are offered only if no command has gone to the S2-LP board since.
             Only frames that arrive while the board stops are kept: a frame
             that arrives after the stop and before this call's receive starts
-            is still missed. Leave it off when the frame must be sent after
+            is still missed. On the bench kit that gap was 26 to 27 ms
+            (#293, 2026-10-25). Leave it off when the frame must be sent after
             this call, such as one answering a command sent to the sensor
             since the last call: a frame set aside was sent before it.
         :returns: The decoded fields, plus ``raw``: the payload in hex.

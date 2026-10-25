@@ -72,7 +72,7 @@
 | 1.36 | 2026-10-24 | Claude | #255: S2LP-DD-KEPLER - FFT2 type version 2 (Kepler TX-1140): FFT ODR, sample count and first bin at 21-26, bins from 27, 111 bytes; chosen by type version, version 1 unchanged. |
 | 1.37 | 2026-10-24 | Claude | #287: S2LP-DD-KEPLER - the layout of every frame type is chosen from `LAYOUTS` by its type version; an unknown version is decoded with the nearest known version below it, or the lowest known one, with a warning. |
 | 1.38 | 2026-10-24 | Claude | #252: S2LP-DD-TRAFFIC - `kepler_samples`: the copies of one ALIVE differ in the SI-updated bit on V11.00.0000 and V11.01.0000 only; Kepler TX-1049 (V11.02.0000) sends the same bit in every copy; the V10.00.0000 and V10.99.0000 loaders clear it as V11.00 does. |
-| 1.39 | 2026-10-24 | Claude | #293: S2LP-DD-TRAFFIC - `_set_aside`, `_put_aside`, `_take_set_aside` (valid while the session's `commands_sent` is unchanged) and `kepler_frame(since_last=...)`; CORE-DD-MOCK - a `keep_buffer` write keeps the simulator's undelivered output. |
+| 1.39 | 2026-10-24 | Claude | #293: S2LP-DD-TRAFFIC - `_set_aside`, `_put_aside`, `_take_set_aside` (valid while the session's `commands_sent` is unchanged) and `kepler_frame(since_last=...)`, with the gap between two calls measured on the bench kit (26 to 27 ms); CORE-DD-MOCK - a `keep_buffer` write keeps the simulator's undelivered output. |
 
 ---
 
@@ -1989,13 +1989,18 @@ any command to the board - a send, a receive, a register write, a reset, the
 identification on reconnecting - means they were heard before something the
 caller did. `kepler_frame(since_last=True)` looks through those frames first,
 decoded with its own decoder, and leaves the ones after its match set aside
-for the next call: the next copy of a Kepler packet, 0.25 s behind the one
+for the next call: the next copy of a Kepler packet, 31 to 229 ms behind the one
 returned, arrives while the board stops (#293). It is off by default, because
 a frame set aside was sent before the call: a step waiting for a frame that
 answers a command sent since must not get one. Without it, a timeout names
 the matching frames that were set aside (S2LP-FR-085). A frame that arrives
-after the stop and before the next call's receive starts is still missed; how
-long that gap is on the kit has not been measured.
+after the stop and before the next call's receive starts is still missed. On
+the bench kit (COM4, 2026-10-25) that gap, from the `StopCmd` acknowledgement
+to the echo of the next `S2LPGetNBytesBatch`, was 26 to 27 ms over four calls:
+most of it is the three commands sent before the loop restarts
+(`S2LPIrqGetStatus`, `S2MGpioGetValue`, `S2LPGetNBytesReportAll`), about 7 ms
+each. The stop itself took 3.5 to 4.4 ms, and 33.5 ms when a copy arrived
+during it.
 
 #### S2LP-DD-EEPROM — `eeprom.py`
 
