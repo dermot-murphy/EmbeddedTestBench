@@ -157,6 +157,50 @@ class TestTestGroupTraceability:
             + "\n  ".join(sorted(offenders))
         )
 
+    def test_every_test_file_belongs_to_a_group(self):
+        """A pytest file no group names has no test-case ID and no trace (#292)."""
+        named = _named_test_files(_text(TEST_SPEC_DOC))
+        unnamed = sorted(
+            path.relative_to(ROOT / "tests").as_posix()
+            for path in (ROOT / "tests").rglob("test_*.py")
+            if "__pycache__" not in path.parts
+            and path.relative_to(ROOT / "tests").as_posix() not in named)
+        assert not unnamed, (
+            "pytest file(s) under tests/ that no group in ETB-SWE4-001 names:\n  "
+            + "\n  ".join(unnamed))
+
+    def test_every_named_test_file_exists(self):
+        """A group citing a deleted file would cite tests that do not exist."""
+        missing = sorted(name for name in _named_test_files(_text(TEST_SPEC_DOC))
+                         if not (ROOT / "tests" / name).is_file())
+        assert not missing, (
+            "file(s) named by a group in ETB-SWE4-001 that are not under tests/:\n  "
+            + "\n  ".join(missing))
+
+    def test_named_files_are_read_from_the_file_column_only(self):
+        """Only the file column counts, a firmware glob is skipped, and a bare
+        name is a top-level file: it does not name a nested file of that name."""
+        text = (
+            "| SWE4-UT-TRACE | `core/test_a.py`, `test_cli.py` "
+            "| Mentions `core/test_other.py` | X |\n"
+            "| SWE4-UT-FWUNIT | `firmware/x/test/*.c` | Firmware | Y |\n"
+        )
+        named = _named_test_files(text)
+        assert named == {"core/test_a.py", "test_cli.py"}
+        assert "runner/test_cli.py" not in named
+
+
+def _named_test_files(text: str) -> set:
+    """The pytest files the groups in *text* name: each a path under tests/.
+
+    Only a group's file column counts, and only ``.py`` names in backticks;
+    a firmware glob (``firmware/.../*.c``) is not a pytest file.
+    """
+    named = set()
+    for match in _GROUP_CELL.finditer(text):
+        named.update(re.findall(r"`([\w/]+\.py)`", match.group(2).split("|")[0]))
+    return named
+
 
 #: A first-column cell that names a test group, matched loosely (bold or code
 #: marks, any characters to the cell's end) so that a malformed ID is caught

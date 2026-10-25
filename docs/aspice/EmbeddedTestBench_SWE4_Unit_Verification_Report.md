@@ -10,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE4-002 | **Version** | 1.34 |
+| **Document ID** | ETB-SWE4-002 | **Version** | 1.35 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-25 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -67,7 +67,8 @@
 | 1.31 | 2026-10-23 | Claude | #275: §10.8 added - V10-F-01 on the bench with the bootloader link retry; D-53 added. |
 | 1.32 | 2026-10-24 | Claude | #286: §5 regenerated from a whole-suite run on the branch with `develop` 9b7da17 merged in (3 374 passed, 95% coverage, §4): one row per ETB-SWE4-001 group, 19 of them missing before (including SWE4-UT-S2LPKEPLER); firmware CTest counts added; two test files with no group noted. |
 | 1.33 | 2026-10-25 | Claude | #294: SWE4-UT-VIEWSERVER 29 → 36, pass, from a run of `viewer/test_server.py` on this branch on 2026-10-25 (36 passed). The §5 total is still the 1.32 whole-suite run's. |
-| 1.34 | 2026-10-25 | Claude | #293: SWE4-UT-TRANSPORT 29 → 31 and SWE4-UT-S2LPFRAME 3 → 9, pass, from runs of `core/transport/test_base.py` (31 passed) and `instruments/s2lp/test_kepler_frame.py` (9 passed) on this branch on 2026-10-25. The §5 total is still the 1.32 whole-suite run's; the whole suite passed at 0960059 on this branch (3 382). The bench run for #293 is in `docs/aspice/qualification/2026-10-25/`. |
+| 1.34 | 2026-10-25 | Claude | #292: §5 rows for SWE4-UT-SELFCHECK (7) and SWE4-UT-FIVEINST (8), the two files no group named, with their results from the 1.32 run; the note about them removed. SWE4-UT-TRACE 27 → 30, pass, from a run of `test_traceability.py` on this branch on 2026-10-25 (30 passed); the §5 total is still the 1.32 run's. |
+| 1.35 | 2026-10-25 | Claude | #293: SWE4-UT-TRANSPORT 29 → 31 and SWE4-UT-S2LPFRAME 3 → 9, pass, from runs of `core/transport/test_base.py` (31 passed) and `instruments/s2lp/test_kepler_frame.py` (9 passed) on this branch on 2026-10-25. The §5 total is still the 1.32 whole-suite run's; the whole suite passed at 0960059 on this branch (3 382). The bench run for #293 is in `docs/aspice/qualification/2026-10-25/`. |
 
 ---
 
@@ -218,7 +219,7 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-CONSTRAINTS | `test_constraints.py` | 10 | Pass |
 | SWE4-UT-LINT | `test_lint_script.py` | 3 | Pass |
 | SWE4-UT-PUBLISH | `test_publish_docs.py` | 43 | Pass |
-| SWE4-UT-TRACE | `test_traceability.py` | 27 | Pass |
+| SWE4-UT-TRACE | `test_traceability.py` | 30 | Pass |
 | SWE4-UT-SCPI | `core/test_scpi.py` | 28 | Pass |
 | SWE4-UT-INSTRUMENT | `core/test_instrument.py` | 20 | Pass |
 | SWE4-UT-PROCESS | `core/transport/test_process.py` | 20 | Pass |
@@ -264,6 +265,8 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-RESOLVE | `runner/test_resolve.py` | 27 | Pass |
 | SWE4-UT-BRINGUP | `runner/test_sensor_bringup.py` | 18 | Pass |
 | SWE4-UT-KEPLERSIM | `runner/test_kepler_simulated.py` | 11 | Pass |
+| SWE4-UT-SELFCHECK | `runner/test_bench_self_check.py` | 7 | Pass |
+| SWE4-UT-FIVEINST | `runner/test_sensor_power_signal_and_link.py` | 8 | Pass |
 | SWE4-UT-BLEDFU | `instruments/nordic_dongle/test_dfu.py` | 40 | Pass |
 | SWE4-UT-EVENTS | `core/test_events.py` | 54 | Pass |
 | SWE4-UT-TESTBENCH | `tools/test_test_bench.py` | 32 | Pass |
@@ -323,11 +326,11 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-PATHS | `core/test_paths.py`, `runner/test_input_paths.py` | 72 | Pass |
 | **Total (pytest)** | | **3 374** (3 374 passed) | **Pass** |
 
-The pytest total is 3 359 tests in the groups above plus 15 in two files that
-no group in ETB-SWE4-001 names: `runner/test_bench_self_check.py` (added in
-99e781b) and `runner/test_sensor_power_signal_and_link.py` (054ec60). Both
-passed. Assigning them to a group belongs to the specification, not this
-report, and is left for a separate issue.
+The pytest total is the 3 374 tests in the groups above. SWE4-UT-SELFCHECK
+and SWE4-UT-FIVEINST were added by #292 after this run; their rows give that
+run's results for the two files, which it ran but no group then named. The
+SWE4-UT-TRACE row (30) is from a later run of `test_traceability.py` alone,
+after #292 added three cases.
 
 The firmware unit tests run under CTest, not pytest, and are not in the pytest
 total. The dongle's 8 binaries (189 cases) were built and run on the bench PC
