@@ -49,9 +49,11 @@ The release or hotfix branch numbers the `next` rows with
 history rows once per clone:
 
 ```sh
-git config merge.etb-history.name "Embedded Test Bench revision history rows"
-git config merge.etb-history.driver "python scripts/doc_versions.py merge %O %A %B"
+python scripts/doc_versions.py install-driver
 ```
+
+If GitHub shows a conflict in a revision history, merge `develop` into the
+branch locally with the driver on and push; GitHub does not run the driver.
 
 ## A pull request targets `develop`
 

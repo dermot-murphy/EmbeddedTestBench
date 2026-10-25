@@ -123,9 +123,11 @@ If you will change the documents, also switch on the merge driver that keeps
 two revision history rows appended by different branches (ETB-SUP8-001 §6.2):
 
 ```sh
-git config merge.etb-history.name "Embedded Test Bench revision history rows"
-git config merge.etb-history.driver "python scripts/doc_versions.py merge %O %A %B"
+python scripts/doc_versions.py install-driver
 ```
+
+It writes the driver into this clone's `git config`, naming the Python you ran
+it with.
 
 ### 2.3 The extras
 
