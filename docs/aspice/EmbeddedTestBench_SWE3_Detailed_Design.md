@@ -342,8 +342,9 @@ CORE-FR-070, AD-29, #238).
 Design points:
 
 - **A plugin is a package loaded by path.** `Registry.load` imports the
-  folder's `__init__.py` as `etb_plugins.<folder>` with the folder as its
-  search path, so the plugin imports its own modules relatively, and calls its
+  folder's `__init__.py` as `etb_plugins.<folder>_<hash of the path>`
+  (`Plugin.module`), so two folders of one name are two plugins, with the
+  folder as its search path; a failed load removes its modules again, so the plugin imports its own modules relatively, and calls its
   `register(plugin)`. The name is the module's `NAME`, or the folder's. Loading
   a folder twice returns the plugin already loaded; two plugins with one name,
   a folder with no `__init__.py`, no `register`, or one that raises are refused
@@ -355,14 +356,20 @@ Design points:
   the keys the bench reads.
 - **Lookups.** `decoder(name)` takes a decoder by name, or the only one loaded,
   and otherwise names those loaded. `decode(payload)` tries each in load order,
-  for a frame logged without a decode. `field` maps a sample action's field
+  for a frame logged without a decode (a decoder that raises anything has
+  not read it). `field` maps a sample action's field
   name; `hook` returns a named function or a default.
 - **Paths.** `resolve_plugin_path("plugin:<name>/<file>")` finds a register file
-  by name or a path inside the folder, refusing one that leaves it.
+  by name or a path inside the folder, refusing one that leaves it, links
+  followed and another drive included.
   `resolve_input_path` hands such paths to it (CORE-DD-PATHS).
 - **Provenance.** Each plugin records `git rev-parse HEAD` of its folder and
   whether `git status --porcelain` shows changes; `describe` gives name, path,
   ref and dirty for reports. A folder outside git has ref `None`.
+- **Deprecated Kepler names.** `ensure_legacy_kepler` loads the checkout's
+  `plugins/kepler` (`LEGACY_KEPLER`) with a warning when no `kepler` plugin
+  is loaded, for `kepler_samples`, `kepler_frame` and the old register file
+  path (`_MOVED` in `paths.py`), for one release; #240 removes it.
 - **One registry per process.** `REGISTRY` is module state, as the driver
   registry is; tests replace it with their own.
 
@@ -3018,8 +3025,11 @@ received frame to every one, and serves one by name at `/api/panel`.
 `static/plugins.js` loads after the page's own; `/plugin/<plugin>/<file>`
 serves a file from a panel's static folder and nothing outside it. A run
 started from the page loads its specification's and bench's plugins
-(`run_plugins`); a followed log's plugins are not loaded, because a plugin runs
-code: `benchtools view --plugin` loads them.
+(`run_plugins`, then `Hub.add_plugin_panels`); a followed log's plugins are not
+loaded, because a plugin runs code: `missing_plugins` names them in
+`/api/plugins` and logs the `--plugin` that would load them. `plugins.js`
+looks again every 5 s and loads each script once. With no `twf_sample` hook a
+permuted TWF is not drawn; an unpermuted one is placed in order.
 
 `Hub` follows one event log with `EventTail`, on a thread polling every 0.2 s.
 Under one condition it appends each record with a sequence number (the last

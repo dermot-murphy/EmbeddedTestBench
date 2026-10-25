@@ -1000,12 +1000,21 @@ tests:
 `s2lp.dut_samples` takes a field from N transmissions the same way, and
 `s2lp.check_preamble` takes `decoder` too. `s2lp.kepler_samples` and
 `s2lp.kepler_frame` still work, for one release, as the same actions with
-`decoder: kepler`.
+`decoder: kepler`. A specification written before #238 that names no plugin
+still runs for that release: the deprecated names, and Kepler's old register
+file path `configs/s2lp_kepler_433_rx.regs`, load the Kepler plugin from the
+EmbeddedTestBench checkout with a warning saying what to write instead.
+
+`plugins/kepler` is in the checkout, not in the installed package: run from a
+clone of EmbeddedTestBench (as the Kepler repository does, from a release tag),
+or name a plugin folder of your own.
 
 Every report names each plugin loaded, its folder and the git commit it was at
 (marked if the folder had uncommitted changes), so a result can be traced to the
 product code that read it. A plugin is code: the runner and the viewer load only
-the folders a specification, a bench file or the command line names.
+the folders a specification, a bench file or the command line names. The viewer
+does not load the plugins a log it follows names; it lists them as missing, and
+`benchtools view --plugin PATH` shows that run's frames decoded.
 
 ## 7. Failure versus error — read this before interpreting a report
 

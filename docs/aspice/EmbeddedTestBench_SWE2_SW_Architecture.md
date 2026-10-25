@@ -750,9 +750,13 @@ innovateuk-sensor and #240 removes it. The simulated Kepler sensor stays in
 `benchtools/simulated` until #119 and #240. The viewer's device analyses
 (sensor series, TWF, diagnostics, the report's sections) still read Kepler's
 fields, through a hook where they need its tables; making them plugin-provided
-is a follow-up. A plugin runs with the bench's permissions, so only a folder the
-operator names is loaded: the viewer does not load the plugins named in a log it
-follows.
+is a follow-up (#303). A plugin runs with the bench's permissions, so only a
+folder the operator names is loaded: the viewer does not load the plugins named
+in a log it follows, and says which they are. For one release, a specification
+written before #238 (`kepler_samples`, `kepler_frame`, the old register file
+path, no `plugins:`) loads the checkout's Kepler plugin with a deprecation
+warning, so the Kepler repository's specifications keep running until they
+name the plugin; #240 removes the fallback with the plugin.
 
 ## 8. Dynamic behaviour — a runner invocation
 

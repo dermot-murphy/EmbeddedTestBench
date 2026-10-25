@@ -497,7 +497,7 @@ from RAM):
 | Low-power receive | `S2LPGetBatchLP 0` | now the same |
 | nIRQ on GPIO3 | GPIO_MODE 3 (high power) | GPIO_MODE 2 (low power); drive strength only |
 | IRQ mask | RX ready, RX discarded | those, plus TX sent, CRC error, valid sync, RX timeout |
-| Sync words | primary `0x4E63F358` from `st_eval/Spirit_GUI_Configuration.dat`, secondary `0xB19C0CA7` written by hand to 0x42-0x45, with SECOND_SYNC_SEL | **now the same** in `configs/s2lp_kepler_433_rx.regs`; before #87 it held `0xB19C0CA7` only and did not hear the gateway |
+| Sync words | primary `0x4E63F358` from `st_eval/Spirit_GUI_Configuration.dat`, secondary `0xB19C0CA7` written by hand to 0x42-0x45, with SECOND_SYNC_SEL | **now the same** in `plugins/kepler/configs/s2lp_kepler_433_rx.regs`; before #87 it held `0xB19C0CA7` only and did not hear the gateway |
 
 The GUI's setup also confirms two things this driver found independently:
 nIRQ goes on GPIO3 with the register's own GPIO_MODE encoding, and the board's
