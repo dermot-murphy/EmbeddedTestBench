@@ -18,9 +18,9 @@ from benchtools.core import plugins
 FOLDER = pathlib.Path(__file__).resolve().parents[1] / "plugins" / "kepler"
 PLUGIN = plugins.load_plugin(str(FOLDER))
 
-decoder = importlib.import_module("etb_plugins.kepler.decoder")
-tables = importlib.import_module("etb_plugins.kepler.tables")
-view = importlib.import_module("etb_plugins.kepler.view")
+decoder = importlib.import_module(PLUGIN.module + ".decoder")
+tables = importlib.import_module(PLUGIN.module + ".tables")
+view = importlib.import_module(PLUGIN.module + ".view")
 
 decode_kepler_frame = decoder.decode_kepler_frame
 SETUP = str(FOLDER / "configs" / "s2lp_kepler_433_rx.regs")

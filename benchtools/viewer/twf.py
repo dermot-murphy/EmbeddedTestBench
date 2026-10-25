@@ -129,7 +129,13 @@ class _Capture:  # pylint: disable=too-many-instance-attributes
         size = self.total * SAMPLES_PER_PACKET
         values: List[Optional[float]] = [None] * size
         mg_per_count = (8 << self.scale) * 1000.0 / 32767.0
-        twf_sample = plugins.hook("twf_sample", _in_order)
+        twf_sample = plugins.hook("twf_sample")
+        if twf_sample is None:
+            if self.method != "none":
+                # Permuted, with no plugin to say where each sample goes: an
+                # order guessed would be a wrong waveform, so none is drawn.
+                return values
+            twf_sample = _in_order
         for (packet, version), samples in sorted(self.frames.items()):
             for slot, raw in enumerate(samples):
                 index = twf_sample(self.method, packet, slot, size, version)
@@ -139,7 +145,7 @@ class _Capture:  # pylint: disable=too-many-instance-attributes
 
 
 def _in_order(_method: str, packet: int, slot: int, _size: int, _version: int) -> int:
-    """Where a sample belongs when no plugin says: in the order it was sent."""
+    """Where a sample of an unpermuted waveform belongs: in the order it was sent."""
     return packet * SAMPLES_PER_PACKET + slot
 
 

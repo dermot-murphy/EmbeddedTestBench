@@ -14,6 +14,7 @@ import logging
 import os
 import pathlib
 import subprocess
+import sys
 import threading
 
 import pytest
@@ -30,6 +31,7 @@ from benchtools.runner.bench import BenchConfig
 from benchtools.runner.cli import main as run_main
 from benchtools.runner.report import format_markdown, plugin_text, write_junit
 from benchtools.runner.spec import TestSpec
+from benchtools.viewer import twf as twf_module
 from benchtools.viewer.plugin_panels import run_plugins
 from benchtools.viewer.server import Catalogue, Hub, Launcher, ViewerServer
 
@@ -211,10 +213,14 @@ def test_no_benchtools_module_imports_a_plugin_or_a_kepler_module():
         if "simulated" in path.relative_to(BENCHTOOLS).parts:
             continue
         for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-            text = line.strip()
-            if not text.startswith(("import ", "from ")) or "simulated" in text:
+            words = line.split()
+            if len(words) < 2 or words[0] not in ("import", "from"):
                 continue
-            if "kepler" in text.lower() or "etb_plugins" in text or "plugins.kepler" in text:
+            module = words[1].lower()               # what is imported from, not its names
+            if "simulated" in module:
+                continue
+            if "kepler" in module or "etb_plugins" in module:
+                text = line.strip()
                 offenders.append("%s:%d: %s" % (path.relative_to(ROOT).as_posix(), number, text))
     assert not offenders, "\n".join(offenders)
 
@@ -353,7 +359,9 @@ class TestViewer:
                 connection.close()
                 return response.status, body
             status, body = get("/api/plugins")
-            [listed] = json.loads(body)
+            reply = json.loads(body)
+            assert reply["missing"] == []
+            [listed] = reply["plugins"]
             assert status == 200 and listed["name"] == "synthetic"
             assert listed["panels"] == [{"name": "synthetic",
                                          "scripts": ["/plugin/synthetic/synthetic.js"]}]
@@ -399,3 +407,97 @@ class TestS2lpCommand:
         assert s2lp_main(["-r", "sim://", "--plugin", str(SYNTHETIC),
                           "--setup", "plugin:synthetic/synthetic_rx.regs", "info"]) == 0
         capsys.readouterr()
+
+
+class TestRoundOneOfReview:
+    """Findings of the first review of #304."""
+
+    def test_two_folders_with_one_name_are_two_plugins(self, registry, tmp_path):
+        one = write_plugin(tmp_path / "a" / "dev", "NAME = 'one'\nfrom .m import V\n"
+                           "def register(plugin):\n    plugin.add_field('v', V)\n")
+        (one / "m.py").write_text("V = 'one'\n", encoding="utf-8")
+        two = write_plugin(tmp_path / "b" / "dev", "NAME = 'two'\nfrom .m import V\n"
+                           "def register(plugin):\n    plugin.add_field('v', V)\n")
+        (two / "m.py").write_text("V = 'two'\n", encoding="utf-8")
+        assert plugins.load_plugin(str(one)).fields == {"v": "one"}
+        assert plugins.load_plugin(str(two)).fields == {"v": "two"}
+        assert registry.plugins["one"].module != registry.plugins["two"].module
+
+    def test_a_plugin_that_fails_leaves_no_modules_behind(self, tmp_path):
+        folder = write_plugin(tmp_path / "broken", "from .m import V\nraise RuntimeError('x')\n")
+        (folder / "m.py").write_text("V = 1\n", encoding="utf-8")
+        before = set(sys.modules)
+        with pytest.raises(ConfigurationError):
+            plugins.load_plugin(str(folder))
+        assert {name for name in set(sys.modules) - before if "broken" in name} == set()
+
+    def test_a_decoder_that_raises_anything_is_a_frame_it_cannot_read(self, tmp_path):
+        folder = write_plugin(tmp_path / "rough", "def bad(payload):\n    raise KeyError(1)\n"
+                              "def register(plugin):\n    plugin.add_decoder('rough', bad)\n")
+        plugins.load_plugin(str(folder))
+        with pytest.raises(ValueError, match="rough: 1"):
+            plugins.decode(b"\x00")
+
+    @pytest.mark.parametrize("name", ["..notes.regs", "configs/../configs/synthetic_rx.regs"])
+    def test_a_name_that_only_looks_like_a_parent_stays_inside(self, name):
+        plugin = plugins.load_plugin(str(SYNTHETIC))
+        target = SYNTHETIC / name
+        target_existed = target.exists()
+        if not target_existed:
+            target.write_text("# made for the test\n", encoding="utf-8")
+        try:
+            resolved = plugins.resolve_plugin_path("plugin:synthetic/" + name)
+            assert os.path.normpath(resolved).startswith(plugin.path)
+        finally:
+            if not target_existed:
+                target.unlink()
+
+    def test_a_path_on_another_drive_is_outside(self):
+        assert not plugins._inside("Z:\\elsewhere\\x.regs" if os.name == "nt" else "/x.regs",
+                                   str(SYNTHETIC))
+
+
+class TestDeprecatedKeplerNames:
+    """A specification written before #238 still runs for one release."""
+
+    def test_kepler_frame_with_no_plugin_loads_the_checkouts(self, registry, kit, caplog):
+        radio, simulator = kit
+        simulator.queue_packet(bytes.fromhex(
+            "5c171203060c04031300f47f018400008a0056005a00db0051007f02ed0233025c0005"))
+        with caplog.at_level(logging.WARNING, logger="benchtools.core.plugins"):
+            assert radio.kepler_frame("ALIVE", timeout=10.0)["sensor_id"] == "5C1712"
+        assert registry.plugins["kepler"].path == os.path.normpath(plugins.LEGACY_KEPLER)
+        assert "s2lp.kepler_frame is deprecated" in caplog.text
+
+    def test_the_old_register_file_path_still_resolves(self, caplog, tmp_path,
+                                                       monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        with caplog.at_level(logging.WARNING, logger="benchtools.core.plugins"):
+            found = resolve_input_path("configs/s2lp_kepler_433_rx.regs",
+                                       declared_in=str(tmp_path))
+        assert found == os.path.join(plugins.LEGACY_KEPLER, "configs", "s2lp_kepler_433_rx.regs")
+        assert "configs/s2lp_kepler_433_rx.regs is deprecated" in caplog.text
+
+    def test_a_loaded_kepler_plugin_is_used_as_it_is(self, registry, tmp_path):
+        own = write_plugin(tmp_path / "theirs", "NAME = 'kepler'\n"
+                           "def register(plugin):\n    plugin.add_decoder('kepler', len)\n")
+        plugins.load_plugin(str(own))
+        assert plugins.ensure_legacy_kepler("x")
+        assert registry.plugins["kepler"].path == os.path.normpath(str(own))
+
+
+class TestViewerWithoutThePlugins:
+    def test_a_run_that_used_plugins_not_loaded_is_reported(self, caplog):
+        hub = Hub()
+        with caplog.at_level(logging.WARNING):
+            hub._apply({"kind": "run_start", "t": 0, "data": {"plugins": [
+                {"name": "kepler", "path": "/somewhere/kepler", "ref": "abc", "dirty": False}]}})
+        assert [plugin["name"] for plugin in hub.plugins()["missing"]] == ["kepler"]
+        assert "benchtools view --plugin /somewhere/kepler" in caplog.text
+
+    def test_a_permuted_waveform_with_no_plugin_is_not_guessed(self):
+        buffer = twf_module._Capture(2, "polynomial", 0, 0, 0.0)
+        buffer.frames[(0, 0)] = [1] * 32
+        assert buffer.waveform() == [None] * 64
+        buffer.method = "none"
+        assert buffer.waveform()[:32] != [None] * 32

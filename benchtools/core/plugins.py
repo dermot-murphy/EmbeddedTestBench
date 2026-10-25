@@ -32,7 +32,9 @@ Traces to: CORE-FR-066 .. CORE-FR-070, CORE-DD-PLUGINS.
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
+import logging
 import os
 import subprocess
 import sys
@@ -43,6 +45,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 from .errors import ConfigurationError
 
 __all__ = [
+    "LEGACY_KEPLER",
     "PLUGIN_PATH_PREFIX",
     "Panel",
     "Plugin",
@@ -50,6 +53,7 @@ __all__ = [
     "REGISTRY",
     "decode",
     "decoder",
+    "ensure_legacy_kepler",
     "hook",
     "load_plugin",
     "loaded_plugins",
@@ -62,6 +66,15 @@ PLUGIN_PATH_PREFIX = "plugin:"
 
 #: The package every plugin is imported under.
 _PACKAGE = "etb_plugins"
+
+#: The Kepler plugin in the EmbeddedTestBench checkout, which the deprecated
+#: ``kepler_*`` actions and Kepler's old register file path still reach for
+#: one release when no ``kepler`` plugin is loaded (#238). #240 removes it.
+LEGACY_KEPLER = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "plugins", "kepler")
+
+_LOG = logging.getLogger(__name__)
 
 Decoder = Callable[[bytes], Dict[str, Any]]
 
@@ -92,6 +105,8 @@ class Plugin:  # pylint: disable=too-many-instance-attributes
     path: str
     ref: Optional[str] = None
     dirty: bool = False
+    #: The module the plugin's package was imported as.
+    module: str = ""
     decoders: Dict[str, Decoder] = field(default_factory=dict)
     register_files: Dict[str, str] = field(default_factory=dict)
     panels: Dict[str, Panel] = field(default_factory=dict)
@@ -176,30 +191,26 @@ class Registry:
         init = os.path.join(folder, "__init__.py")
         if not os.path.isfile(init):
             raise ConfigurationError("no plugin in %s: it has no __init__.py" % folder)
-        module_name = "%s.%s" % (_PACKAGE, os.path.basename(folder).replace("-", "_"))
-        _package()
-        spec = importlib.util.spec_from_file_location(
-            module_name, init, submodule_search_locations=[folder])
-        module = importlib.util.module_from_spec(spec)
-        sys.modules[module_name] = module
+        module_name = _module_name(folder)
         try:
-            spec.loader.exec_module(module)  # type: ignore[union-attr]
-        except Exception as error:
-            del sys.modules[module_name]
-            raise ConfigurationError("plugin %s failed to import: %s" % (folder, error)) from error
-        register = getattr(module, "register", None)
-        if not callable(register):
-            raise ConfigurationError("plugin %s has no register(plugin) function" % folder)
-        name = str(getattr(module, "NAME", os.path.basename(folder)))
-        if name in self.plugins:
-            raise ConfigurationError("two plugins are named %r: %s and %s"
-                                     % (name, self.plugins[name].path, folder))
-        ref, dirty = _ref(folder)
-        plugin = Plugin(name=name, path=folder, ref=ref, dirty=dirty)
-        try:
-            register(plugin)  # pylint: disable=not-callable  # checked just above
-        except Exception as error:
-            raise ConfigurationError("plugin %s failed to register: %s" % (name, error)) from error
+            module = _import(module_name, init, folder)
+            register = getattr(module, "register", None)
+            if not callable(register):
+                raise ConfigurationError("plugin %s has no register(plugin) function" % folder)
+            name = str(getattr(module, "NAME", os.path.basename(folder)))
+            if name in self.plugins:
+                raise ConfigurationError("two plugins are named %r: %s and %s"
+                                         % (name, self.plugins[name].path, folder))
+            ref, dirty = _ref(folder)
+            plugin = Plugin(name=name, path=folder, ref=ref, dirty=dirty, module=module_name)
+            try:
+                register(plugin)  # pylint: disable=not-callable  # checked just above
+            except Exception as error:
+                raise ConfigurationError("plugin %s failed to register: %s"
+                                         % (name, error)) from error
+        except ConfigurationError:
+            _forget(module_name)
+            raise
         self.plugins[name] = plugin
         return plugin
 
@@ -247,8 +258,10 @@ class Registry:
             for name, function in plugin.decoders.items():
                 try:
                     return function(payload)
-                except ValueError as error:
-                    reasons.append("%s: %s" % (name, error))
+                except Exception as error:  # pylint: disable=broad-exception-caught
+                    # A decoder that fails on a frame does not read it, for
+                    # whatever reason: one bad frame must not stop a reader.
+                    reasons.append("%s: %s" % (name, error or type(error).__name__))
         if not reasons:
             raise ValueError("no decoder is loaded")
         raise ValueError("; ".join(reasons))
@@ -290,15 +303,77 @@ class Registry:
         candidate = plugin.register_files.get(file)
         if candidate is None:
             candidate = os.path.normpath(os.path.join(plugin.path, file))
-            if os.path.relpath(candidate, plugin.path).startswith(os.pardir):
+            if not _inside(candidate, plugin.path):
                 raise ConfigurationError("%s is outside plugin %s" % (value, name))
         if not os.path.exists(candidate):
             raise ConfigurationError("plugin %s has no file %r (%s)" % (name, file, candidate))
         return candidate
 
 
+def _module_name(folder: str) -> str:
+    """A module name for the plugin in *folder*, unique to the folder.
+
+    Two folders with one name, such as two checkouts' ``plugins/kepler``, are
+    two plugins' code, so the name carries a hash of the whole path.
+    """
+    base = "".join(char if char.isalnum() else "_" for char in os.path.basename(folder))
+    digest = hashlib.sha1(os.path.normcase(folder).encode("utf-8")).hexdigest()[:10]
+    return "%s.%s_%s" % (_PACKAGE, base or "plugin", digest)
+
+
+def _import(module_name: str, init: str, folder: str) -> types.ModuleType:
+    """Import the package in *folder* as *module_name*."""
+    _package()
+    spec = importlib.util.spec_from_file_location(
+        module_name, init, submodule_search_locations=[folder])
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    try:
+        spec.loader.exec_module(module)  # type: ignore[union-attr]
+    except Exception as error:
+        raise ConfigurationError("plugin %s failed to import: %s" % (folder, error)) from error
+    return module
+
+
+def _forget(module_name: str) -> None:
+    """Remove a plugin that failed to load, and its modules, from ``sys.modules``."""
+    for name in [key for key in sys.modules
+                 if key == module_name or key.startswith(module_name + ".")]:
+        del sys.modules[name]
+
+
+def _inside(path: str, folder: str) -> bool:
+    """True if *path* is *folder* or within it, links followed."""
+    real, root = os.path.realpath(path), os.path.realpath(folder)
+    try:
+        return os.path.commonpath([os.path.normcase(real), os.path.normcase(root)]) \
+            == os.path.normcase(root)
+    except ValueError:                      # another drive on Windows
+        return False
+
+
 #: The plugins of this process.
 REGISTRY = Registry()
+
+
+def ensure_legacy_kepler(what: str) -> bool:
+    """Load the checkout's Kepler plugin for a deprecated Kepler name, if needed.
+
+    For one release, a specification written before #238 - ``kepler_samples``,
+    ``kepler_frame``, ``configs/s2lp_kepler_433_rx.regs``, no ``plugins:`` -
+    still runs: the Kepler plugin in this checkout is loaded, with a warning
+    saying what to write instead. Returns whether a ``kepler`` plugin is loaded.
+    """
+    if "kepler" in REGISTRY.plugins:
+        return True
+    if not os.path.isfile(os.path.join(LEGACY_KEPLER, "__init__.py")):
+        return False
+    REGISTRY.load(LEGACY_KEPLER)
+    _LOG.warning("%s is deprecated (#238): loaded the Kepler plugin from %s. Name it in the "
+                 "specification's plugins: and use s2lp.dut_samples or s2lp.dut_frame with "
+                 "decoder: kepler and plugin:kepler/ paths; this fallback goes with #240",
+                 what, LEGACY_KEPLER)
+    return True
 
 
 def plugin_folders(value: Any, directory: Optional[str], where: str) -> Tuple[str, ...]:

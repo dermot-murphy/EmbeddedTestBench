@@ -21,10 +21,8 @@ The API:
 ``GET /api/graphs``       readings, BLE advertising and step markers;
                           ``?ble=&expected_ms=`` (#140)
 ``GET /api/status``       the status bar: run, progress, time left, instruments
-``GET /api/plugins``      the device plugins loaded, with their panels' scripts
-                          (#238)
-``GET /api/panel``        a plugin's panel, e.g. Kepler's Latest Data, Config,
-                          Identification; ``?name=&sensor=`` (#152, #238)
+``GET /api/plugins``      the device plugins loaded and missing, scripts (#238)
+``GET /api/panel``        a plugin's panel, e.g. Kepler's; ``?name=&sensor=``
 ``GET /plugin/<p>/<f>``   a static file of plugin *p*'s panels (#238)
 ``GET /api/sensor``       rf_monitor's Environment, Short Interval, Ticks;
                           ``?sensor=&axis=`` (#153)
@@ -92,7 +90,7 @@ from ..runner.control import HOST
 from ..runner.spec import load_spec
 from .graphs import Readings, advertising, step_markers
 from .diagnostics import Diagnostics, SyncTracker
-from .plugin_panels import dut_panels, plugins_view, run_plugins
+from .plugin_panels import dut_panels, missing_plugins, plugin_file, plugins_view, run_plugins
 from .radio import BleAir, RfFrames
 from .report import NotesStore, build_report
 from .sensor_series import SensorSeries
@@ -146,6 +144,8 @@ class Hub:  # pylint: disable=too-many-instance-attributes
         self.tagger = Tagger()
         self.links = InstrumentStatus()
         self.dut_panels = dut_panels()
+        #: Plugins the followed run used that this viewer has not loaded.
+        self.missing_plugins: List[Dict[str, Any]] = []
         self.sensor_series = SensorSeries()
         self.twf = TwfAssembler()
         self.diagnostics = Diagnostics()
@@ -182,6 +182,7 @@ class Hub:  # pylint: disable=too-many-instance-attributes
             self.tagger = Tagger()
             self.links = InstrumentStatus()
             self.dut_panels = dut_panels()
+            self.missing_plugins = []
             self.sensor_series = SensorSeries()
             self.twf = TwfAssembler()
             self.diagnostics = Diagnostics()
@@ -225,6 +226,7 @@ class Hub:  # pylint: disable=too-many-instance-attributes
         if record.get("kind") == "run_start":
             self.traffic.clear()
             self.panels = {}
+            self.missing_plugins = missing_plugins(record)
         self.state.apply(record)
         self.rf.last_frame = None
         self.rf.feed(record)
@@ -294,11 +296,14 @@ class Hub:  # pylint: disable=too-many-instance-attributes
             panel = self.dut_panels.get(name)
             return panel.view(sensor) if panel is not None else {}
 
-    def add_plugin_panels(self) -> None:
-        """Start the panels of plugins loaded since, keeping those running."""
+    def plugins(self) -> Dict[str, Any]:
+        """The plugins loaded, and those the followed run used that are not.
+
+        A panel of a plugin loaded since is started, keeping those running."""
         with self._condition:
             for name, panel in dut_panels().items():
                 self.dut_panels.setdefault(name, panel)
+            return {"plugins": plugins_view(), "missing": list(self.missing_plugins)}
 
     def sensor_graphs(self, sensor: str = "", axis: str = "Z") -> Dict[str, Any]:
         """rf_monitor's Environment, Short Interval and Ticks (#153)."""
@@ -634,7 +639,7 @@ class _Handler(BaseHTTPRequestHandler):
                     "running": self.server.launcher.running})
 
     def _get_plugins(self) -> None:
-        self._json(plugins_view())
+        self._json(self.server.hub.plugins())
 
     def _get_panel(self) -> None:
         self._json(self.server.hub.panel_view(self._query("name") or "",
@@ -703,18 +708,12 @@ class _Handler(BaseHTTPRequestHandler):
 
     def _plugin_static(self, rest: str) -> None:
         """A file from the static folder of one of a plugin's panels."""
-        name, _, file = rest.partition("/")
-        plugin = plugins.REGISTRY.plugins.get(name)
-        for panel in plugin.panels.values() if plugin is not None else ():
-            if panel.static is None:
-                continue
-            folder = pathlib.Path(panel.static).resolve()
-            target = (folder / file).resolve()
-            if folder in target.parents and target.is_file():
-                self._send(HTTPStatus.OK, target.read_bytes(),
-                           _CONTENT_TYPES.get(target.suffix, "application/octet-stream"))
-                return
-        self._json({"ok": False, "error": "not found"}, HTTPStatus.NOT_FOUND)
+        target = plugin_file(rest)
+        if target is None:
+            self._json({"ok": False, "error": "not found"}, HTTPStatus.NOT_FOUND)
+            return
+        self._send(HTTPStatus.OK, target.read_bytes(),
+                   _CONTENT_TYPES.get(target.suffix, "application/octet-stream"))
 
     def _events(self) -> None:
         """Stream records and state as Server-Sent Events until the page goes."""
@@ -788,6 +787,7 @@ class _Handler(BaseHTTPRequestHandler):
                 plugins.load_plugin(folder)
             except BenchToolsError as exc:
                 _LOG.warning("plugin %s not loaded in the viewer: %s", folder, exc)
+        self.server.hub.plugins()                # starts the new plugins' panels
         self.server.hub.follow(reply["event_log"])
         self._json(reply)
 

@@ -754,7 +754,10 @@ class TrafficMixin:
 
         Kept for one release so existing Kepler specifications keep running
         (#238); write ``s2lp.dut_samples`` with ``decoder: kepler`` instead.
+        With no ``kepler`` plugin loaded, the checkout's is loaded, with a
+        warning (:func:`~benchtools.core.plugins.ensure_legacy_kepler`).
         """
+        plugins.ensure_legacy_kepler("s2lp.kepler_samples")
         kwargs.setdefault("decoder", "kepler")
         return self.dut_samples(field, **kwargs)
 
@@ -763,6 +766,7 @@ class TrafficMixin:
 
         Kept for one release, as :meth:`kepler_samples` is.
         """
+        plugins.ensure_legacy_kepler("s2lp.kepler_frame")
         kwargs.setdefault("decoder", "kepler")
         return self.dut_frame(frame_type, **kwargs)
 

@@ -37,7 +37,7 @@ import os
 from typing import Any, Callable, List, Optional, Sequence, Tuple, TypeVar
 
 from .errors import ConfigurationError
-from .plugins import PLUGIN_PATH_PREFIX, resolve_plugin_path
+from .plugins import LEGACY_KEPLER, PLUGIN_PATH_PREFIX, ensure_legacy_kepler, resolve_plugin_path
 
 __all__ = [
     "TESTTOOLS_ROOT",
@@ -54,6 +54,10 @@ __all__ = [
 TESTTOOLS_ROOT = os.path.dirname(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 )
+
+#: Input files that moved into the Kepler plugin (#238): the old path, still
+#: found for one release when nothing is at it, to the file in the plugin.
+_MOVED = {"configs/s2lp_kepler_433_rx.regs": os.path.join("configs", "s2lp_kepler_433_rx.regs")}
 
 #: Attribute :func:`input_paths` sets on the function it marks.
 _ATTRIBUTE = "__benchtools_input_paths__"
@@ -132,6 +136,9 @@ def resolve_input_path(
     for candidate in locations:
         if os.path.exists(candidate):
             return candidate
+    moved = _MOVED.get(value.replace("\\", "/"))
+    if moved is not None and ensure_legacy_kepler(value):
+        return os.path.join(LEGACY_KEPLER, moved)
     if required:
         raise ConfigurationError(
             "cannot find %s %r; looked in: %s" % (what, value, ", ".join(locations))
