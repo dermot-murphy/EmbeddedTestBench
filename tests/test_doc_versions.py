@@ -15,6 +15,7 @@ from __future__ import annotations
 import importlib.util
 import pathlib
 import shutil
+import subprocess
 
 import pytest
 
@@ -197,57 +198,283 @@ class TestFiles:
         assert path.read_bytes() == b"a\nb\nc\n"
 
 
+class TestCheckRows:
+    @pytest.mark.parametrize("version", ["Next", "NEXT", "0.7.1", "v0.7", "**next**", ""])
+    def test_a_row_whose_version_is_not_recognised_is_a_problem(self, version):
+        found = dv.problems(document([("0.1", "a"), (version, "b")]))
+        assert any("neither major.minor nor next" in message for message in found)
+
+    def test_a_held_back_document_given_a_next_row_must_take_the_links(self):
+        text = document([("0.1", "a"), ("next", "b")], version="0.1", date="a")
+        found = dv.problems(text, held_back=True)
+        assert len(found) == 2 and all("held-back" in message for message in found)
+        assert all("ETB-SUP8-001 section 6.2" in message for message in found)
+
+
+class TestCommandLine:
+    def test_check_exits_0_on_the_repository(self, capsys):
+        assert dv.main(["check"]) == 0
+        assert capsys.readouterr().out == ""
+
+    def test_check_exits_1_and_names_the_problem(self, tmp_path, monkeypatch, capsys):
+        (tmp_path / "docs").mkdir()
+        (tmp_path / "docs" / "x.md").write_text(
+            document([("0.1", "a")], version="0.1"), encoding="utf-8")
+        monkeypatch.setattr(dv, "ROOT", tmp_path)
+        assert dv.main(["check"]) == 1
+        assert "docs/x.md: **Version**" in capsys.readouterr().out
+
+    def test_list_names_every_controlled_document(self, capsys):
+        assert dv.main(["list"]) == 0
+        lines = capsys.readouterr().out.splitlines()
+        assert len(lines) == len(dv.controlled_documents(ROOT))
+        assert any(line.startswith("ETB-SUP8-001 ") for line in lines)
+
+    def test_number_with_a_file_numbers_that_file_only(self, tmp_path, monkeypatch):
+        (tmp_path / "docs").mkdir()
+        for name in ("a.md", "b.md"):
+            (tmp_path / "docs" / name).write_text(
+                document([("0.1", "a"), ("next", "b")]), encoding="utf-8")
+        monkeypatch.setattr(dv, "ROOT", tmp_path)
+        assert dv.main(["number", "docs/a.md"]) == 0
+        assert dv.current(dv.read_text(tmp_path / "docs" / "a.md"))[0] == "0.2"
+        assert dv.current(dv.read_text(tmp_path / "docs" / "b.md"))[0] == "next"
+
+    def test_number_skips_a_file_with_no_history(self, tmp_path, monkeypatch, capsys):
+        (tmp_path / "docs").mkdir()
+        (tmp_path / "docs" / "plain.md").write_text("# Notes\n", encoding="utf-8")
+        monkeypatch.setattr(dv, "ROOT", tmp_path)
+        assert dv.main(["number", "docs/plain.md"]) == 0
+        assert "skipped" in capsys.readouterr().out
+
+
+def conflict(ours, base, theirs):
+    """``git merge-file --diff3`` output for one conflict in a history."""
+    return "\n".join(["## 2. Revision History", "", "| Version | Date | Author | Change |",
+                      "|---|---|---|---|", "| 0.1 | a | Claude | first |",
+                      "<<<<<<< ours"] + ours + ["||||||| base"] + base + ["======="]
+                     + theirs + [">>>>>>> theirs", "", "## 3. Body", ""])
+
+
+def rows_of(text):
+    return [line for line in text.split("\n") if dv._ROW.match(line)]
+
+
+class TestMergeRows:
+    def test_two_appended_rows_keep_theirs_first(self):
+        text, left = dv.merge_rows(conflict(["| next | c | Claude | ours |"], [],
+                                            ["| next | b | Claude | theirs |"]))
+        assert left == 0
+        assert rows_of(text) == ["| 0.1 | a | Claude | first |",
+                                 "| next | b | Claude | theirs |",
+                                 "| next | c | Claude | ours |"]
+
+    def test_numbered_rows_go_before_next_rows(self):
+        text, _ = dv.merge_rows(conflict(["| next | c | Claude | ours |"], [],
+                                         ["| 0.2 | b | Claude | theirs |"]))
+        assert rows_of(text)[1:] == ["| 0.2 | b | Claude | theirs |",
+                                     "| next | c | Claude | ours |"]
+
+    def test_the_back_merge_takes_the_numbers_and_keeps_the_new_rows(self):
+        """develop (ours) holds X as next and added Y; main (theirs) numbered X."""
+        text, left = dv.merge_rows(conflict(
+            ["| next | b | Claude | X |", "| next | c | Claude | Y |"],
+            ["| next | b | Claude | X |"],
+            ["| 0.2 | b | Claude | X |"]))
+        assert left == 0
+        assert rows_of(text)[1:] == ["| 0.2 | b | Claude | X |", "| next | c | Claude | Y |"]
+
+    def test_a_numbered_row_on_ours_replaces_the_same_change_as_next_on_theirs(self):
+        text, _ = dv.merge_rows(conflict(
+            ["| 0.2 | b | Claude | X |"], ["| next | b | Claude | X |"],
+            ["| next | b | Claude | X |", "| next | c | Claude | Y |"]))
+        assert rows_of(text)[1:] == ["| 0.2 | b | Claude | X |", "| next | c | Claude | Y |"]
+
+    def test_a_row_ours_edited_leaves_the_conflict(self):
+        merged = conflict(["| next | b | Claude | X, corrected |", "| next | c | Claude | B |"],
+                          ["| next | b | Claude | X |"],
+                          ["| next | b | Claude | X |", "| next | d | Claude | C |"])
+        assert dv.merge_rows(merged) == (merged, 1)
+
+    def test_a_row_ours_dropped_leaves_the_conflict(self):
+        merged = conflict(["| next | c | Claude | B |"], ["| next | b | Claude | X |"],
+                          ["| next | b | Claude | X |", "| next | d | Claude | C |"])
+        assert dv.merge_rows(merged) == (merged, 1)
+
+    def test_two_identical_rows_on_one_side_are_both_kept(self):
+        text, left = dv.merge_rows(conflict(
+            ["| next | d | Claude | ours |"], [],
+            ["| 1.3 | d | Claude | Typo fixes |", "| 1.4 | d | Claude | Typo fixes |"]))
+        assert left == 0
+        assert rows_of(text)[1:] == ["| 1.3 | d | Claude | Typo fixes |",
+                                     "| 1.4 | d | Claude | Typo fixes |",
+                                     "| next | d | Claude | ours |"]
+
+    def test_two_identical_rows_ours_added_are_both_kept(self):
+        text, left = dv.merge_rows(conflict(
+            ["| next | d | Claude | B |", "| next | d | Claude | B |"], [],
+            ["| next | d | Claude | C |"]))
+        assert left == 0
+        assert rows_of(text)[1:] == ["| next | d | Claude | C |",
+                                     "| next | d | Claude | B |",
+                                     "| next | d | Claude | B |"]
+
+    def test_a_numbered_row_renumbered_leaves_the_conflict(self):
+        merged = conflict(["| 0.3 | b | Claude | X |", "| next | c | Claude | B |"],
+                          ["| 0.2 | b | Claude | X |"],
+                          ["| 0.2 | b | Claude | X |", "| next | d | Claude | C |"])
+        assert dv.merge_rows(merged) == (merged, 1)
+
+    def test_one_of_two_identical_base_rows_dropped_leaves_the_conflict(self):
+        twin = "| next | b | Claude | X |"
+        merged = conflict([twin, "| next | c | Claude | B |"], [twin, twin],
+                          [twin, twin, "| next | d | Claude | C |"])
+        assert dv.merge_rows(merged) == (merged, 1)
+
+    def test_both_sides_numbering_one_row_differently_leaves_the_conflict(self):
+        merged = conflict(["| 0.2 | b | Claude | X |"], ["| next | b | Claude | X |"],
+                          ["| 0.3 | b | Claude | X |"])
+        assert dv.merge_rows(merged) == (merged, 1)
+
+    def test_a_base_row_kept_as_it_was_is_matched_before_one_that_numbers_it(self):
+        text, left = dv.merge_rows(conflict(
+            ["| 0.2 | b | Claude | X |", "| 0.3 | b | Claude | X |", "| next | c | Claude | B |"],
+            ["| next | b | Claude | X |", "| 0.2 | b | Claude | X |"],
+            ["| 0.2 | b | Claude | X |", "| 0.3 | b | Claude | X |", "| next | d | Claude | C |"]))
+        assert left == 0
+        assert rows_of(text)[1:] == ["| 0.2 | b | Claude | X |", "| 0.3 | b | Claude | X |",
+                                     "| next | d | Claude | C |", "| next | c | Claude | B |"]
+
+    def test_a_row_both_sides_added_is_kept_once(self):
+        text, _ = dv.merge_rows(conflict(["| next | b | Claude | same |"], [],
+                                         ["| next | b | Claude | same |"]))
+        assert rows_of(text)[1:] == ["| next | b | Claude | same |"]
+
+    def test_a_left_conflict_loses_its_base_in_the_default_style(self):
+        merged = conflict(["prose"], ["| next | b | Claude | X |"],
+                          ["| next | b | Claude | X |"])
+        text, left = dv.merge_rows(merged, keep_base=False)
+        assert left == 1
+        assert "|||||||" not in text and "<<<<<<< ours" in text and "=======" in text
+
+    def test_crlf_rows_are_resolved(self):
+        text, left = dv.merge_rows(conflict(["| next | c | Claude | ours |\r"], [],
+                                            ["| next | b | Claude | theirs |\r"]))
+        assert left == 0 and "<<<<<<<" not in text
+
+    @pytest.mark.parametrize("ours", [
+        ["prose, not a row"],
+        ["| Next | c | Claude | typo |"],
+        ["| ETB-X-002 | another table's row |"],
+    ])
+    def test_a_conflict_that_is_not_only_history_rows_is_left(self, ours):
+        merged = conflict(ours, [], ["| next | b | Claude | theirs |"])
+        assert dv.merge_rows(merged) == (merged, 1)
+
+    def test_a_table_conflict_outside_the_history_is_left(self):
+        merged = "\n".join(["## 5. Requirements", "<<<<<<< ours", "| 0.2 | x | y | z |",
+                            "||||||| base", "=======", "| 0.3 | x | y | z |", ">>>>>>> theirs"])
+        assert dv.merge_rows(merged) == (merged, 1)
+
+    def test_the_marker_size_is_honoured(self):
+        merged = conflict(["| next | c | Claude | ours |"], [],
+                          ["| next | b | Claude | theirs |"])
+        wide = (merged.replace("<<<<<<<", "<" * 9).replace("|||||||", "|" * 9)
+                .replace("=======", "=" * 9).replace(">>>>>>>", ">" * 9))
+        assert dv.merge_rows(wide, 9)[1] == 0
+
+
+needs_git = pytest.mark.skipif(shutil.which("git") is None, reason="needs git")
+
+
+@needs_git
 class TestMergeDriver:
     BASE = document([("0.1", "a")])
 
-    def test_two_appended_rows_are_both_kept_numbered_first(self):
-        merged = "\n".join([
-            "| 0.1 | a | Claude | change |",
-            "<<<<<<< ours",
-            "| next | b | Claude | ours |",
-            "||||||| base",
-            "=======",
-            "| 0.2 | c | Claude | theirs |",
-            ">>>>>>> theirs",
-            "",
-        ])
-        text, left = dv.merge_rows(merged)
-        assert left == 0
-        assert text.split("\n")[:3] == [
-            "| 0.1 | a | Claude | change |",
-            "| 0.2 | c | Claude | theirs |",
-            "| next | b | Claude | ours |",
-        ]
+    def files(self, tmp_path, ours, theirs, newline="\n"):
+        paths = [tmp_path / name for name in ("base", "ours", "theirs")]
+        for path, text in zip(paths, (self.BASE, ours, theirs)):
+            path.write_bytes(text.replace("\n", newline).encode("utf-8"))
+        return [str(path) for path in paths]
 
-    @pytest.mark.parametrize("ours, base", [
-        (["prose, not a row"], []),
-        (["| next | b | Claude | ours |"], ["| 0.1 | a | Claude | change |"]),
-    ])
-    def test_any_other_conflict_is_left_for_a_person(self, ours, base):
-        merged = "\n".join(["<<<<<<< ours"] + ours + ["||||||| base"] + base
-                           + ["=======", "| next | c | Claude | theirs |", ">>>>>>> theirs"])
-        text, left = dv.merge_rows(merged)
-        assert left == 1
-        assert text == merged
-
-    @pytest.mark.skipif(shutil.which("git") is None, reason="needs git")
-    def test_the_driver_merges_two_appended_rows_in_files(self, tmp_path):
-        base, ours, theirs = (tmp_path / name for name in ("base", "ours", "theirs"))
-        base.write_text(self.BASE, encoding="utf-8")
-        ours.write_text(document([("0.1", "a"), ("next", "b")]), encoding="utf-8")
-        theirs.write_text(document([("0.1", "a"), ("next", "c")]), encoding="utf-8")
-        assert dv.run_merge(str(base), str(ours), str(theirs)) == 0
-        text = ours.read_text(encoding="utf-8")
+    def test_two_appended_rows_merge_in_files(self, tmp_path):
+        base, ours, theirs = self.files(tmp_path, document([("0.1", "a"), ("next", "b")]),
+                                        document([("0.1", "a"), ("next", "c")]))
+        assert dv.run_merge(base, ours, theirs) == 0
+        text = dv.read_text(ours)
         assert [row[1:] for row in dv.history(text)] == [
-            ("0.1", "a"), ("next", "b"), ("next", "c")]
-        assert "<<<<<<<" not in text
+            ("0.1", "a"), ("next", "c"), ("next", "b")]
         assert dv.problems(text) == []
 
-    @pytest.mark.skipif(shutil.which("git") is None, reason="needs git")
-    def test_the_driver_reports_a_conflict_it_cannot_resolve(self, tmp_path):
-        base, ours, theirs = (tmp_path / name for name in ("base", "ours", "theirs"))
-        base.write_text(self.BASE, encoding="utf-8")
-        ours.write_text(self.BASE.replace("# Plan", "# Plan A"), encoding="utf-8")
-        theirs.write_text(self.BASE.replace("# Plan", "# Plan B"), encoding="utf-8")
-        assert dv.run_merge(str(base), str(ours), str(theirs)) == 1
-        assert "<<<<<<<" in ours.read_text(encoding="utf-8")
+    def test_crlf_files_merge(self, tmp_path):
+        base, ours, theirs = self.files(tmp_path, document([("0.1", "a"), ("next", "b")]),
+                                        document([("0.1", "a"), ("next", "c")]), "\r\n")
+        assert dv.run_merge(base, ours, theirs) == 0
+        assert "<<<<<<<" not in dv.read_text(ours)
+
+    def test_a_conflict_it_cannot_resolve_is_left_with_named_markers(self, tmp_path):
+        base, ours, theirs = self.files(tmp_path, self.BASE.replace("# Plan", "# Plan A"),
+                                        self.BASE.replace("# Plan", "# Plan B"))
+        assert dv.run_merge(base, ours, theirs, 7, "docs/x.md") == 1
+        text = dv.read_text(ours)
+        assert "<<<<<<< docs/x.md (ours)" in text and ">>>>>>> docs/x.md (theirs)" in text
+
+    def test_a_failure_falls_back_to_gits_merge_not_to_ours(self, tmp_path, monkeypatch):
+        def broken(*_):
+            raise ValueError("broken")
+        monkeypatch.setattr(dv, "merge_rows", broken)
+        base, ours, theirs = self.files(tmp_path, document([("0.1", "a"), ("next", "b")]),
+                                        document([("0.1", "a"), ("next", "c")]))
+        assert dv.run_merge(base, ours, theirs) == 1
+        text = dv.read_text(ours)
+        assert "| next | b |" in text and "| next | c |" in text and "<<<<<<<" in text
+
+    def repository(self, tmp_path, ours_row, theirs_row, name="x y.md"):
+        """A repository whose branches a and b each changed docs/<name>."""
+        repo = tmp_path / "repo"
+        (repo / "docs").mkdir(parents=True)
+        (repo / "scripts").mkdir()
+        shutil.copy(ROOT / "scripts" / "doc_versions.py", repo / "scripts")
+
+        def git(*args):
+            return subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *args],
+                                  cwd=str(repo), stdout=subprocess.PIPE,
+                                  stderr=subprocess.STDOUT, check=False)
+        git("init", "-q", "-b", "develop")
+        (repo / ".gitattributes").write_text("docs/**/*.md merge=etb-history\n")
+        doc = repo / "docs" / name
+        doc.write_text(self.BASE, encoding="utf-8")
+        git("add", ".")
+        git("commit", "-qm", "base")
+        for branch, text in (("a", ours_row), ("b", theirs_row)):
+            git("checkout", "-q", "-b", branch, "develop")
+            doc.write_text(text, encoding="utf-8")
+            git("commit", "-qam", branch)
+        return git, doc
+
+    def test_the_installed_command_resolves_rows_through_git(self, tmp_path):
+        git, doc = self.repository(tmp_path, document([("0.1", "a"), ("next", "b")]),
+                                   document([("0.1", "a"), ("next", "c")]))
+        git("config", "merge.etb-history.driver", dv.driver_command())
+        assert git("merge", "-q", "a").returncode == 0
+        assert [row[1:] for row in dv.history(dv.read_text(doc))] == [
+            ("0.1", "a"), ("next", "b"), ("next", "c")]
+
+    def test_the_installed_command_labels_a_left_conflict_with_the_path(self, tmp_path):
+        git, doc = self.repository(tmp_path, self.BASE.replace("# Plan", "# Plan A"),
+                                   self.BASE.replace("# Plan", "# Plan B"))
+        git("config", "merge.etb-history.driver", dv.driver_command())
+        assert git("merge", "-q", "a").returncode != 0
+        text = dv.read_text(doc)
+        assert "<<<<<<< docs/x y.md (ours)" in text and ">>>>>>> docs/x y.md (theirs)" in text
+
+    def test_the_installed_command_falls_back_when_the_script_cannot_run(self, tmp_path):
+        """A git merge with the driver pointing at a missing interpreter."""
+        git, doc = self.repository(tmp_path, document([("0.1", "a"), ("next", "b")]),
+                                   document([("0.1", "a"), ("next", "c")]))
+        git("config", "merge.etb-history.driver",
+            dv.driver_command(str(tmp_path / "no-such-python")))
+        assert git("merge", "-q", "a").returncode != 0
+        text = dv.read_text(doc)
+        assert "| next | b |" in text and "| next | c |" in text
+        assert "<<<<<<< docs/x y.md (ours)" in text
