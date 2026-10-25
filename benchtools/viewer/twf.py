@@ -23,7 +23,7 @@ ends held), a Hann window is applied, and the magnitude of each bin is
 transform is NumPy's when NumPy is installed, else a plain-Python one that
 gives the same numbers.
 
-Traces to: VIEW-FR-034 .. VIEW-FR-036, VIEW-DD-TWF.
+Traces to: VIEW-FR-034 .. VIEW-FR-036, VIEW-FR-047, VIEW-DD-TWF.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ import cmath
 import math
 from typing import Any, Dict, List, Optional, Tuple
 
-from ..instruments.s2lp.kepler_tables import twf_sample
+from ..core import plugins
 
 __all__ = ["TwfAssembler", "spectrum", "fill_gaps", "SAMPLES_PER_PACKET"]
 
@@ -129,12 +129,18 @@ class _Capture:  # pylint: disable=too-many-instance-attributes
         size = self.total * SAMPLES_PER_PACKET
         values: List[Optional[float]] = [None] * size
         mg_per_count = (8 << self.scale) * 1000.0 / 32767.0
+        twf_sample = plugins.hook("twf_sample", _in_order)
         for (packet, version), samples in sorted(self.frames.items()):
             for slot, raw in enumerate(samples):
                 index = twf_sample(self.method, packet, slot, size, version)
                 if 0 <= index < size:
                     values[index] = round(raw * mg_per_count, 4)
         return values
+
+
+def _in_order(_method: str, packet: int, slot: int, _size: int, _version: int) -> int:
+    """Where a sample belongs when no plugin says: in the order it was sent."""
+    return packet * SAMPLES_PER_PACKET + slot
 
 
 class TwfAssembler:

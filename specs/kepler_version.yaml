@@ -42,13 +42,17 @@ parameters:
   frame_timeout_s: 60.0
   battery_tolerance_mv: 20
 
+# The Kepler decoder and register file come from its plugin (#238).
+plugins:
+  - ../plugins/kepler
+
 instruments:
   dongle: ble-dongle
   s2lp: s2lp
 
 setup:
   - do: s2lp.apply_configuration
-    with: {source: configs/s2lp_kepler_433_rx.regs, reset: defaults}
+    with: {source: plugin:kepler/s2lp_kepler_433_rx.regs, reset: defaults}
   - do: dongle.scan
     with: {duration: 5.0}
   - do: dongle.select
@@ -80,8 +84,9 @@ tests:
         expect:
           - {name: reset_acknowledged, measure: text, equals: "ACK ECURESET HARD"}
       - do: dongle.close_link
-      - do: s2lp.kepler_frame
+      - do: s2lp.dut_frame
         with:
+          decoder: kepler
           frame_type: VERSION
           source: {param: sensor_id}
           timeout: {param: frame_timeout_s}

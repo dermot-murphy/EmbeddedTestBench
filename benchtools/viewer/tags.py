@@ -16,7 +16,7 @@ rest as ``record["tags"]`` when the viewer reads it:
   ``None`` before any run. A log can hold several runs, and a run several test
   cases; this is what tells them apart.
 
-Traces to: VIEW-FR-019 .. VIEW-FR-021, VIEW-DD-TAGS.
+Traces to: VIEW-FR-019 .. VIEW-FR-021, VIEW-FR-047, VIEW-DD-TAGS.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, List, Optional
 
-from ..instruments.s2lp.kepler import decode_kepler_frame
+from ..core import plugins
 
 __all__ = ["Tagger", "sensor_of"]
 
@@ -40,7 +40,8 @@ def sensor_of(record: Dict[str, Any]) -> Optional[str]:
             return str(decoded["sensor_id"]).upper()
         if data.get("hex") and not data.get("error"):
             try:
-                return decode_kepler_frame(bytes.fromhex(data["hex"]))["sensor_id"]
+                sensor = plugins.decode(bytes.fromhex(data["hex"])).get("sensor_id")
+                return str(sensor).upper() if sensor else None
             except ValueError:
                 return None
         return None

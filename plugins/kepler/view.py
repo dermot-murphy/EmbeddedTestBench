@@ -14,7 +14,7 @@ from __future__ import annotations
 from collections import deque
 from typing import Any, Deque, Dict, List, Optional, Tuple
 
-from ..instruments.s2lp.kepler_tables import CONFIG_PARAMETERS, CONFIG_PER_FRAME
+from .tables import CONFIG_PARAMETERS, CONFIG_PER_FRAME
 
 __all__ = ["KeplerView", "byte_roles", "header_rows", "payload_rows", "CONFIG_GROUPS",
            "KEEP_LATEST"]

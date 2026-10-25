@@ -19,7 +19,7 @@ Three things matter on a real kit, and each was found on one:
 * **Nothing the firmware starts ends by itself.** A receive waits for as long
   as it takes, so every wait here is the host's, and ends with a stop.
 
-Traces to: S2LP-FR-040 .. S2LP-FR-046, S2LP-DD-TRAFFIC.
+Traces to: S2LP-FR-040 .. S2LP-FR-046, CORE-FR-067, S2LP-DD-TRAFFIC.
 """
 
 from __future__ import annotations
@@ -28,6 +28,7 @@ import time
 from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Union
 
 from ...analysis.samples import SampleSet
+from ...core import plugins
 from ...core.errors import (
     ConfigurationError,
     InstrumentError,
@@ -36,12 +37,23 @@ from ...core.errors import (
 )
 from .constants import MAX_PAYLOAD, Strobe
 from . import registers as reg
-from .kepler import decode_kepler_frame
 from .packets import Capture, Packet, packet_from_reply, rssi_dbm_from_register
 from .preamble import PreambleMeasurement, check_preamble
 from .session import STOP_ACK
 
-__all__ = ["TrafficMixin", "IRQ_GPIO", "TRAFFIC_IRQS", "FRAME_REGISTERS", "ANY_LENGTH"]
+__all__ = ["TrafficMixin", "IRQ_GPIO", "TRAFFIC_IRQS", "FRAME_REGISTERS", "ANY_LENGTH",
+           "DecoderChoice"]
+
+#: A frame decoder, or the name of one a loaded plugin provides (#238), or
+#: None for the only one loaded.
+DecoderChoice = Union[None, str, Callable[[bytes], Dict[str, Any]]]
+
+
+def _decoder(choice: DecoderChoice) -> Callable[[bytes], Dict[str, Any]]:
+    """The decoder *choice* names: itself if callable, else a plugin's."""
+    if callable(choice):
+        return choice
+    return plugins.decoder(choice)
 
 #: Registers a stream reads after each frame by default: AFC correction, PQI,
 #: carrier sense with SQI, and the RSSI level. They are read in one command.
@@ -94,7 +106,7 @@ class TrafficMixin:
     _receive_ready = False
     #: The frames reported while the board was stopping, after the caller of
     #: the last batch stream had what it wanted (#293). Logged, not yielded;
-    #: ``kepler_frame(since_last=True)`` offers them first, but only while no
+    #: ``dut_frame(since_last=True)`` offers them first, but only while no
     #: command has been sent to the board since: see :meth:`_take_set_aside`.
     #: Replaced, never changed in place, so the class's empty list is never
     #: shared.
@@ -418,7 +430,7 @@ class TrafficMixin:
             if running:
                 # The caller stopped iterating. Stop the board; anything that
                 # arrived meanwhile still goes to the packet log, and is set
-                # aside for kepler_frame(since_last=True) (#293).
+                # aside for dut_frame(since_last=True) (#293).
                 leftover = self._stop_and_collect(decoder)
                 self._put_aside(leftover, self._session.commands_sent)
 
@@ -530,7 +542,7 @@ class TrafficMixin:
         source: Optional[str] = None,
         count: Optional[int] = None,
         timeout: float = 120.0,
-        decoder: Callable[[bytes], Dict[str, Any]] = decode_kepler_frame,
+        decoder: DecoderChoice = None,
     ) -> Dict[str, PreambleMeasurement]:
         """Measure transmitters' preamble lengths from PQI, per source.
 
@@ -539,11 +551,13 @@ class TrafficMixin:
 
         :param source: Only count frames from this source, e.g. ``"5C1712"``.
         :param count: Stop after this many frames from *source* (or from anyone).
+        :param decoder: A decoder a loaded plugin provides, by name, e.g.
+            ``"kepler"``; or None for the only one loaded.
         :returns: Source to its :class:`~.preamble.PreambleMeasurement`.
         """
         results: Dict[str, PreambleMeasurement] = {}
         frames = 0
-        for packet in self.stream(decoder=decoder, timeout=timeout, mode="polled",
+        for packet in self.stream(decoder=_decoder(decoder), timeout=timeout, mode="polled",
                                   registers=(PQI_REGISTER, "LINK_QUALIF1", "RSSI_LEVEL")):
             if not packet.ok:
                 continue
@@ -556,7 +570,7 @@ class TrafficMixin:
                 break
         return results
 
-    def kepler_samples(  # pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals
+    def dut_samples(  # pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals
         self,
         field: str,
         source: Optional[str] = None,
@@ -565,17 +579,22 @@ class TrafficMixin:
         timeout: float = 60.0,
         scale: float = 1.0,
         unit: str = "",
-        decoder: Callable[[bytes], Dict[str, Any]] = decode_kepler_frame,
+        decoder: DecoderChoice = None,
     ) -> SampleSet:
         """Take *field* from the next *count* frames *source* sends.
 
-        A Kepler sensor sends each frame several times, and each reading here
-        is one transmission, not one copy of it. The copies are told apart by
-        their repeat number, which the decoder reads from wherever the frame
-        type keeps it (byte 8, or byte 9 behind TWF's and CONFIG's permute
-        control byte). A copy starts a new transmission when its repeat number
-        is not higher than the last one's. The bytes cannot be compared
-        instead: on V11.00.0000 and V11.01.0000, ALIVE_STATUS's "SI updated"
+        The frames are decoded by *decoder*, a decoder a loaded plugin
+        provides, by name (#238); or by the only one loaded, if None. *field*
+        is a key of the decoded frame, or a field name the plugin defines.
+
+        A sensor may send each frame several times; each reading here is one
+        transmission, not one copy of it. The copies are told apart by the
+        repeat number the decoder gives as ``frame["repeat"]``. On Kepler it is
+        read from wherever the frame type keeps it (byte 8, or byte 9 behind
+        TWF's and CONFIG's permute control byte). A copy starts a new
+        transmission when its repeat number is not higher than the last one's.
+        The bytes cannot be compared instead: on V11.00.0000 and V11.01.0000,
+        ALIVE_STATUS's "SI updated"
         bit is set in the first copy only, so the copies of one ALIVE differ
         (#95). Kepler TX-1049 (V11.02.0000) sends the same bit in every copy
         (#252), but the older firmware is still in use. One case is counted as
@@ -585,18 +604,20 @@ class TrafficMixin:
         :param field: A key of the decoded frame, e.g. ``temperature_c``.
         :param source: Only frames from this sensor, e.g. ``"5C1712"``.
         :param frame_type: Only frames of this type, e.g. ``"ALIVE"``.
+        :param decoder: The decoder, by name, e.g. ``"kepler"``.
         :param timeout: Seconds to wait for all *count*. Fewer is returned
             rather than raised, with ``count`` saying how many came.
         :param scale: Multiplies each value.
         :raises MeasurementError: if a matching frame has no *field*, which is
             a specification naming the wrong field rather than a result.
 
-        Traces to: S2LP-FR-072.
+        Traces to: S2LP-FR-072, CORE-FR-067.
         """
+        key = plugins.REGISTRY.field(field)
         samples = SampleSet(name=field, unit=unit, requested=int(count))
         started = time.monotonic()
         last_repeat: Optional[int] = None
-        for packet in self.stream(decoder=decoder, timeout=timeout,
+        for packet in self.stream(decoder=_decoder(decoder), timeout=timeout,
                                   until=lambda: samples.count >= samples.requested):
             decoded = packet.decoded or {}
             if not packet.ok or not decoded:
@@ -610,31 +631,33 @@ class TrafficMixin:
             last_repeat = repeat
             if same:
                 continue
-            if field not in decoded:
+            if key not in decoded:
                 raise MeasurementError(
                     "a %s frame from %s has no field %r; it has %s"
-                    % (decoded.get("type"), decoded.get("sensor_id"), field,
+                    % (decoded.get("type"), decoded.get("sensor_id"), key,
                        ", ".join(sorted(decoded))))
-            samples.add(float(decoded[field]) * float(scale),
+            samples.add(float(decoded[key]) * float(scale),
                         source=bytes(packet.data).hex(" ").upper(),
                         at=time.monotonic() - started)
             if samples.complete:
                 break
         return samples
 
-    def kepler_frame(
+    def dut_frame(
         self,
         frame_type: str,
         source: Optional[str] = None,
         timeout: float = 60.0,
-        decoder: Callable[[bytes], Dict[str, Any]] = decode_kepler_frame,
+        decoder: DecoderChoice = None,
         since_last: bool = False,
     ) -> Dict[str, Any]:
         """The decode of the next *frame_type* frame *source* sends, whole.
 
+        Decoded by *decoder*, as for :meth:`dut_samples` (#238).
+
         For a frame whose fields are compared with each other or with text -
         a VERSION frame's version string and SHA against ``RD VERSION`` and
-        ``RD SHA`` (#102) - where :meth:`kepler_samples`, which takes one
+        ``RD SHA`` (#102) - where :meth:`dut_samples`, which takes one
         number from each of several frames, does not fit. The first copy heard
         is returned; the copies of one transmission carry the same fields.
 
@@ -662,8 +685,9 @@ class TrafficMixin:
         :returns: The decoded fields, plus ``raw``: the payload in hex.
         :raises MeasurementError: if no such frame arrives within *timeout*.
 
-        Traces to: S2LP-FR-073, S2LP-FR-085.
+        Traces to: S2LP-FR-073, S2LP-FR-085, CORE-FR-067.
         """
+        decoder = _decoder(decoder)
         set_aside = self._take_set_aside()
         if since_last:
             for index, packet in enumerate(set_aside):
@@ -709,17 +733,38 @@ class TrafficMixin:
                 % (matching, "" if one else "s", "was" if one else "were",
                    "it" if one else "them"))
 
-    def check_preamble(self, expected_pairs: int, source: str, count: Optional[int] = None,
-                       timeout: float = 120.0, tolerance_pairs: int = 2) -> Dict[str, Any]:
+    def check_preamble(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+            self, expected_pairs: int, source: str, count: Optional[int] = None,
+            timeout: float = 120.0, tolerance_pairs: int = 2,
+            decoder: DecoderChoice = None) -> Dict[str, Any]:
         """Measure *source*'s preamble and compare it with *expected_pairs*.
 
+        :param decoder: As for :meth:`measure_preamble`.
         :returns: The check as a dictionary: ``verdict`` (pass, fail or
             unmeasurable), ``passed``, ``max_pqi``, ``expected_pqi``,
             ``preamble_bits`` and the reason.
         """
-        measured = self.measure_preamble(source=source, count=count, timeout=timeout)
+        measured = self.measure_preamble(source=source, count=count, timeout=timeout,
+                                         decoder=decoder)
         measurement = measured.get(source, PreambleMeasurement(source))
         return check_preamble(measurement, expected_pairs, tolerance_pairs).as_dict()
+
+    def kepler_samples(self, field: str, **kwargs: Any) -> SampleSet:
+        """:meth:`dut_samples` with the ``kepler`` decoder.
+
+        Kept for one release so existing Kepler specifications keep running
+        (#238); write ``s2lp.dut_samples`` with ``decoder: kepler`` instead.
+        """
+        kwargs.setdefault("decoder", "kepler")
+        return self.dut_samples(field, **kwargs)
+
+    def kepler_frame(self, frame_type: str, **kwargs: Any) -> Dict[str, Any]:
+        """:meth:`dut_frame` with the ``kepler`` decoder.
+
+        Kept for one release, as :meth:`kepler_samples` is.
+        """
+        kwargs.setdefault("decoder", "kepler")
+        return self.dut_frame(frame_type, **kwargs)
 
     def _annotate(self, packet: Packet, addresses: List[int],
                   decoder: Optional[Callable[[bytes], Dict[str, Any]]]) -> None:

@@ -56,9 +56,14 @@ def silent_radio(monkeypatch):
     reset_world()
 
 
+#: The Kepler plugin the specifications name (#238).
+KEPLER_PLUGIN = ROOT / "plugins" / "kepler"
+
+
 def run(spec_name: str, tmp_path: pathlib.Path, only=()):
     """Run *spec_name* on the simulated bench, with its waits shortened."""
     data = yaml.safe_load((ROOT / "specs" / spec_name).read_text())
+    data["plugins"] = [str(KEPLER_PLUGIN)]      # the copy is not beside plugins/
     for name, value in FAST.items():
         if name in data.get("parameters", {}):
             data["parameters"][name] = value
@@ -165,6 +170,7 @@ class TestBrokenFactsAreNoticed:
         monkeypatch.setattr("benchtools.instruments.jlink.probe.rtt_source",
                             lambda target: (lambda: "something else"))
         data = yaml.safe_load((ROOT / "specs" / "kepler_temperature.yaml").read_text())
+        data["plugins"] = [str(KEPLER_PLUGIN)]
         data["parameters"].update(FAST)
         for step in data["tests"][1]["steps"]:
             if step.get("do") == "rtt.rtt_samples":

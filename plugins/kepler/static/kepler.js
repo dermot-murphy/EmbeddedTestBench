@@ -270,7 +270,7 @@ async function loadKepler() {
   if (rfView === "twf") { loadTwf(); return; }
   if (["environment", "short", "ticks"].includes(rfView)) { loadSensorGraphs(); return; }
   const sensor = $("rf-sensor").value;
-  const reply = await (await fetch("/api/kepler?sensor=" + encodeURIComponent(sensor))).json();
+  const reply = await (await fetch("/api/panel?name=kepler&sensor=" + encodeURIComponent(sensor))).json();
   if (rfView === "latest") {
     if (latestPaused) { latestHeld = reply; $("rf-latest-pause").textContent = "Resume"; return; }
     renderLatest(reply);

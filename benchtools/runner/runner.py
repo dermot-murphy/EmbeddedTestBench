@@ -17,7 +17,7 @@ useful if they mean something:
 
 Conflating them turns a broken rig into a pile of apparent product defects.
 
-Traces to: RUN-FR-008, RUN-FR-010 .. RUN-FR-037, RUN-ARC-001, RUN-DD-RUNNER.
+Traces to: RUN-FR-008, RUN-FR-010 .. RUN-FR-037, CORE-FR-070, RUN-ARC-001, RUN-DD-RUNNER.
 """
 
 from __future__ import annotations
@@ -29,6 +29,7 @@ import os
 import time
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
+from ..core import plugins
 from ..core.errors import BenchToolsError, SpecError
 from ..core.events import log_event
 from ..core.paths import input_path_names, resolve_arguments
@@ -519,7 +520,14 @@ class BenchRunner:
 
         The run's start and end go to the event log as ``run_start``, carrying
         the whole plan, and ``run_end``, carrying the verdict (#135).
+
+        The device plugins the bench and the specification name are loaded
+        first, and every plugin loaded is recorded with its git ref (#238).
+
+        :raises ConfigurationError: if a plugin cannot be loaded.
         """
+        for folder in list(self.bench.config.plugins) + list(spec.plugins):
+            plugins.load_plugin(folder)
         run = RunRecord(
             suite=spec.name,
             bench=self.bench.config.name,
@@ -529,6 +537,7 @@ class BenchRunner:
             simulated=self.bench.is_simulated,
             started=_now(),
             selection=tuple(selection),
+            plugins=plugins.loaded_plugins(),
         )
         started = time.monotonic()
         self._saved = {}
@@ -536,7 +545,7 @@ class BenchRunner:
             os.path.dirname(os.path.abspath(spec.source)) if spec.source else None
         )
         plan = self._plan(spec, selection)
-        plan.update(bench=run.bench, simulated=run.simulated)
+        plan.update(bench=run.bench, simulated=run.simulated, plugins=run.plugins)
         log_event(_LOG, "run_start", "running %r" % spec.name, plan)
         try:
             self._run_body(spec, selection, run, started)

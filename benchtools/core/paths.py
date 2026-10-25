@@ -17,6 +17,9 @@ Two halves keep the knowledge where it belongs:
 * The **runner** resolves those arguments with :func:`resolve_input_path`,
   because only the runner knows which file declared them.
 
+A path ``plugin:<name>/<file>`` names a file a loaded plugin provides, such
+as a device's register file (:mod:`.plugins`, #238).
+
 A relative path is looked for, in order, beside the file that names it, in the
 current directory, and in the EmbeddedTestBench checkout. The declaring file comes
 first so a specification means the same thing wherever it is run from; the
@@ -25,7 +28,7 @@ firmware repository's own ``build/`` keeps finding it there. Output paths are
 not declared and are left alone: they are written relative to the current
 directory, as they always were.
 
-Traces to: RUN-FR-007, RUN-FR-017, CORE-DD-PATHS.
+Traces to: RUN-FR-007, RUN-FR-017, CORE-FR-068, CORE-DD-PATHS.
 """
 
 from __future__ import annotations
@@ -34,6 +37,7 @@ import os
 from typing import Any, Callable, List, Optional, Sequence, Tuple, TypeVar
 
 from .errors import ConfigurationError
+from .plugins import PLUGIN_PATH_PREFIX, resolve_plugin_path
 
 __all__ = [
     "TESTTOOLS_ROOT",
@@ -120,6 +124,8 @@ def resolve_input_path(
     :raises ConfigurationError: if *required* and the file is in none of the
         locations searched. The message lists every one of them.
     """
+    if isinstance(value, str) and value.startswith(PLUGIN_PATH_PREFIX):
+        return resolve_plugin_path(value)
     if not isinstance(value, str) or not value or os.path.isabs(value):
         return value
     locations = search_locations(value, declared_in)

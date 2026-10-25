@@ -79,6 +79,10 @@ parameters:
   ble_vs_supply_v: 0.05                 # every BLE reading from the setting
   alive_vs_ble_v: 0.03                  # every ALIVE reading from the BLE mean
 
+# The Kepler decoder and register file come from its plugin (#238).
+plugins:
+  - ../plugins/kepler
+
 instruments:
   psu: gpd3303d
   dongle: ble-dongle
@@ -103,7 +107,7 @@ setup:
     expect:
       - {name: channel_1_off, measure: voltage, unit: V, max: {param: off_max_v}}
   - do: s2lp.apply_configuration
-    with: {source: configs/s2lp_kepler_433_rx.regs, reset: defaults}
+    with: {source: plugin:kepler/s2lp_kepler_433_rx.regs, reset: defaults}
   - do: dongle.scan
     with: {duration: 5.0}
   - do: dongle.select
@@ -148,8 +152,9 @@ tests:
           - {name: ble_readings, measure: count, equals: {param: ble_readings}}
           - {name: ble_lowest, measure: minimum, unit: V, nominal: 3.3, tolerance: {param: ble_vs_supply_v}}
           - {name: ble_highest, measure: maximum, unit: V, nominal: 3.3, tolerance: {param: ble_vs_supply_v}}
-      - do: s2lp.kepler_samples
+      - do: s2lp.dut_samples
         with:
+          decoder: kepler
           field: battery_mv
           source: {param: sensor_id}
           frame_type: ALIVE
@@ -199,8 +204,9 @@ tests:
           - {name: ble_readings, measure: count, equals: {param: ble_readings}}
           - {name: ble_lowest, measure: minimum, unit: V, nominal: 3.2, tolerance: {param: ble_vs_supply_v}}
           - {name: ble_highest, measure: maximum, unit: V, nominal: 3.2, tolerance: {param: ble_vs_supply_v}}
-      - do: s2lp.kepler_samples
+      - do: s2lp.dut_samples
         with:
+          decoder: kepler
           field: battery_mv
           source: {param: sensor_id}
           frame_type: ALIVE
@@ -250,8 +256,9 @@ tests:
           - {name: ble_readings, measure: count, equals: {param: ble_readings}}
           - {name: ble_lowest, measure: minimum, unit: V, nominal: 3.1, tolerance: {param: ble_vs_supply_v}}
           - {name: ble_highest, measure: maximum, unit: V, nominal: 3.1, tolerance: {param: ble_vs_supply_v}}
-      - do: s2lp.kepler_samples
+      - do: s2lp.dut_samples
         with:
+          decoder: kepler
           field: battery_mv
           source: {param: sensor_id}
           frame_type: ALIVE
@@ -301,8 +308,9 @@ tests:
           - {name: ble_readings, measure: count, equals: {param: ble_readings}}
           - {name: ble_lowest, measure: minimum, unit: V, nominal: 3.0, tolerance: {param: ble_vs_supply_v}}
           - {name: ble_highest, measure: maximum, unit: V, nominal: 3.0, tolerance: {param: ble_vs_supply_v}}
-      - do: s2lp.kepler_samples
+      - do: s2lp.dut_samples
         with:
+          decoder: kepler
           field: battery_mv
           source: {param: sensor_id}
           frame_type: ALIVE

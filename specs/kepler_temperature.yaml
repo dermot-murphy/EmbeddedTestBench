@@ -46,6 +46,10 @@ parameters:
   mcu_vs_machine_c: 5.0                 # every MCU reading from the BLE mean
   alive_vs_ble_c: 0.5                   # every ALIVE reading from the BLE mean
 
+# The Kepler decoder and register file come from its plugin (#238).
+plugins:
+  - ../plugins/kepler
+
 instruments:
   dongle: ble-dongle
   s2lp: s2lp
@@ -53,7 +57,7 @@ instruments:
 
 setup:
   - do: s2lp.apply_configuration
-    with: {source: configs/s2lp_kepler_433_rx.regs, reset: defaults}
+    with: {source: plugin:kepler/s2lp_kepler_433_rx.regs, reset: defaults}
   - do: rtt.rtt_start
   - do: dongle.scan
     with: {duration: 5.0}
@@ -114,8 +118,9 @@ tests:
   - name: The ALIVE frame carries the temperature read over BLE
     requirement: S2LP-FR-072
     steps:
-      - do: s2lp.kepler_samples
+      - do: s2lp.dut_samples
         with:
+          decoder: kepler
           field: temperature_c
           source: {param: sensor_id}
           frame_type: ALIVE

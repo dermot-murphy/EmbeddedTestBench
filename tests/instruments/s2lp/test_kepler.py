@@ -16,12 +16,12 @@ import struct
 
 import pytest
 
-from benchtools.instruments.s2lp.kepler import (
-    FRAME_TYPES,
-    LAYOUTS,
-    KeplerFrameError,
-    decode_kepler_frame,
-)
+from ...kepler_plugin import decoder
+
+FRAME_TYPES = decoder.FRAME_TYPES
+LAYOUTS = decoder.LAYOUTS
+KeplerFrameError = decoder.KeplerFrameError
+decode_kepler_frame = decoder.decode_kepler_frame
 
 #: Received from sensor 5C1712: one ALIVE packet, its three repeats.
 ALIVE_REPEATS = [

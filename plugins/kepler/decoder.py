@@ -33,7 +33,7 @@ from __future__ import annotations
 import struct
 from typing import Any, Callable, Dict, List, Tuple
 
-from .kepler_tables import (
+from .tables import (
     PCB_VERSIONS, PRODUCTS, SENSOR_PHASES, name_config, odr_hz, reset_reasons,
 )
 

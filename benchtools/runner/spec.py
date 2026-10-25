@@ -54,7 +54,7 @@ one anywhere below: an argument, a bound, a tolerance::
               - {name: mean, measure: mean, equals: {from: ble.mean},
                  tolerance: {param: tolerance_c}}
 
-Traces to: RUN-FR-008, RUN-FR-010 .. RUN-FR-016, RUN-FR-058, RUN-DD-SPEC.
+Traces to: RUN-FR-008, RUN-FR-010 .. RUN-FR-016, RUN-FR-058, CORE-FR-069, RUN-DD-SPEC.
 """
 
 from __future__ import annotations
@@ -66,6 +66,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 from ..core.errors import ConfigurationError, OptionalDependencyError, SpecError
 from ..core.events import validate_source_name
+from ..core.plugins import plugin_folders
 from .limits import Limit, TextLimit
 from .resolve import Reference, parse_references
 
@@ -463,6 +464,9 @@ class TestSpec:
     source: str = ""
     #: The values the ``parameters`` block set, as used; for the record.
     parameters: Dict[str, Any] = field(default_factory=dict)
+    #: Device plugin folders the specification needs (``plugins:``, #238),
+    #: absolute: those whose decoders and register files its steps name.
+    plugins: Sequence[str] = ()
 
     @classmethod
     def from_mapping(cls, data, source: str = "") -> "TestSpec":
@@ -506,6 +510,10 @@ class TestSpec:
             tests=tuple(TestCase.from_mapping(item, i) for i, item in enumerate(tests)),
             source=source,
             parameters=parameters,
+            plugins=plugin_folders(
+                data.get("plugins"),
+                os.path.dirname(os.path.abspath(source)) if source else None,
+                source or str(name)),
         )
 
     @property
