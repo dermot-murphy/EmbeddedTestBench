@@ -64,6 +64,8 @@ include = ["benchtools*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Only test_*.py: tests/test_traceability.py checks that each is in a SWE.4 group (#292).
+python_files = ["test_*.py"]
 addopts = "-q"
 # tests/bench exercises real instruments and runs only when named:
 #     BENCHTOOLS_TTI1604=/dev/ttyUSB0 python -m pytest tests/bench/tti1604 -v
