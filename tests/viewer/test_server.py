@@ -1,6 +1,6 @@
 """The test run viewer's server (#137).
 
-Traces to: VIEW-FR-001 .. VIEW-FR-009, SWE4-UT-VIEWSERVER.
+Traces to: VIEW-FR-001 .. VIEW-FR-009, VIEW-FR-046, SWE4-UT-VIEWSERVER.
 """
 
 from __future__ import annotations
@@ -10,6 +10,7 @@ import json
 import logging
 import pathlib
 import socket
+import ssl
 import threading
 import time
 
@@ -21,7 +22,7 @@ from benchtools.runner import BenchConfig, BenchRunner
 from benchtools.runner.control import ControlServer, RunControl
 from benchtools.runner.spec import TestSpec
 from benchtools.viewer.server import (
-    GUARD_HEADER, Catalogue, Hub, Launcher, ViewerServer, build_parser, send_control,
+    GUARD_HEADER, Catalogue, Hub, Launcher, ViewerServer, _Handler, build_parser, send_control,
 )
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -294,3 +295,49 @@ class TestCommandLine:
                                           "0", "--specs", "a", "--specs", "b"])
         assert (args.event_log, args.control, args.port, args.specs) == (
             "e.jsonl", 5, 0, ["a", "b"])
+
+
+class TestClientGoesAway:
+    """VIEW-FR-046 (#294): a client that disconnects mid-request is one log line."""
+
+    @pytest.mark.parametrize("error", [
+        ConnectionAbortedError(10053, "aborted"),
+        ConnectionResetError(10054, "reset"),
+        BrokenPipeError(32, "broken pipe"),
+        ssl.SSLEOFError(8, "EOF occurred in violation of protocol"),
+        ssl.SSLZeroReturnError(6, "TLS/SSL connection has been closed"),
+    ])
+    def test_a_client_that_went_away_is_one_line(self, viewer, error, capsys, caplog):
+        try:
+            raise error
+        except OSError:
+            viewer.handle_error(None, ("127.0.0.1", 60019))
+        assert capsys.readouterr().err == ""
+        lines = [r for r in caplog.records if "went away" in r.getMessage()]
+        assert len(lines) == 1 and lines[0].levelno == logging.WARNING
+        assert "60019" in lines[0].getMessage() and "\n" not in lines[0].getMessage()
+
+    def test_a_real_request_reaches_the_override(self, viewer, monkeypatch, capsys, caplog):
+        """socketserver hands a handler's disconnect error to ViewerServer.handle_error."""
+        def went_away(_handler):
+            raise ConnectionResetError(10054, "reset by the client")
+        monkeypatch.setattr(_Handler, "do_GET", went_away)
+        connection = http.client.HTTPConnection("127.0.0.1", viewer.port, timeout=10)
+        try:
+            connection.request("GET", "/")
+            with pytest.raises((http.client.HTTPException, OSError)):
+                connection.getresponse()
+        finally:
+            connection.close()
+        assert _wait(lambda: any("went away" in r.getMessage() for r in caplog.records))
+        assert "Traceback" not in capsys.readouterr().err
+        lines = [r for r in caplog.records if "went away" in r.getMessage()]
+        assert len(lines) == 1 and lines[0].levelno == logging.WARNING
+
+    def test_any_other_error_keeps_its_traceback(self, viewer, capsys):
+        try:
+            raise ValueError("not a disconnect")
+        except ValueError:
+            viewer.handle_error(None, ("127.0.0.1", 60019))
+        err = capsys.readouterr().err
+        assert "Traceback" in err and "ValueError: not a disconnect" in err

@@ -816,6 +816,11 @@ def new_token() -> str:
     return secrets.token_urlsafe(32)
 
 
+#: Errors that mean the client went away mid-request (VIEW-FR-046).
+_CLIENT_WENT_AWAY = (ConnectionAbortedError, ConnectionResetError, BrokenPipeError,
+                     ssl.SSLEOFError, ssl.SSLZeroReturnError)
+
+
 class ViewerServer(ThreadingHTTPServer):  # pylint: disable=too-many-instance-attributes
     """The viewer's HTTP server, on 127.0.0.1 unless told otherwise."""
 
@@ -848,6 +853,21 @@ class ViewerServer(ThreadingHTTPServer):  # pylint: disable=too-many-instance-at
     def server_close(self) -> None:
         self.stopping.set()
         super().server_close()
+
+    def handle_error(self, request: Any, client_address: Any) -> None:
+        """Log a client that went away mid-request as one line (VIEW-FR-046).
+
+        A browser tab closed while loading, or a probe that is not HTTP, is
+        normal client behaviour and not worth a traceback. Over ``--tls`` the
+        same disconnect is an ``ssl.SSLEOFError`` or ``ssl.SSLZeroReturnError``.
+        The line is a warning, so ``benchtools view`` prints it. Any other
+        error is reported as ``socketserver`` reports it.
+        """
+        error = sys.exc_info()[1]
+        if isinstance(error, _CLIENT_WENT_AWAY):
+            _LOG.warning("viewer client %s went away: %s", client_address, error)
+            return
+        super().handle_error(request, client_address)
 
 
 def build_parser() -> argparse.ArgumentParser:

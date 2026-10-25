@@ -10,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE1-001 | **Version** | 1.32 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-23 |
+| **Document ID** | ETB-SWE1-001 | **Version** | 1.33 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-24 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.1 |
@@ -66,6 +66,7 @@
 | 1.30 | 2026-10-23 | Claude | #244: BLE-FR-121 added - send a Nordic Secure DFU package to a sensor in its bootloader, reporting the bootloader's verdict. |
 | 1.31 | 2026-10-23 | Claude | #271: BLE-FR-121 - an image the target did not receive as sent, by its receipts or its CRC, is sent again from its init packet a bounded number of times, waiting after each data object's create, each retry logged. |
 | 1.32 | 2026-10-23 | Claude | #275: BLE-FR-121 - a bootloader link that fails to establish is tried again, as a UART link is. |
+| 1.33 | 2026-10-24 | Claude | #294: VIEW-FR-046 - a client that disconnects mid-request, over HTTP or TLS, is logged as one warning line, not a traceback. |
 
 ---
 
@@ -1049,6 +1050,7 @@ A browser page onto a bench run (#130, #137), served by `benchtools view`. It is
 | VIEW-FR-043 | The RF page shall show the Embedded Test Bench monitor's ST GUI page from the latest `rf_setup` record: the RF setup - board band and crystal; frequency, modulation, data rate, deviation, channel filter, output power; and the packet settings decoded from the registers - and when it was read. | STK-23 | Test |
 | VIEW-FR-044 | The ST GUI page shall list every register - address, name, value, reset default - a writable register changed from its default marked, each expanding to its fields, with expand and collapse all, and export them as a register file the driver's `--setup` applies. | STK-23 | Test |
 | VIEW-FR-045 | The ST GUI page shall list the frames received as ST's GUI does - timestamp, bytes, RSSI, data, a CRC failure as "Packet lost" - with a count, pause, follow and clear; and Refresh shall ask the runner to read the setup (RUN-FR-066), never opening the kit's port from the viewer. | STK-23 | Test |
+| VIEW-FR-046 | The viewer's server shall log a client that disconnects before its reply is complete - connection aborted, reset, a broken pipe, or a TLS connection ended early - as one warning line naming the client, without a traceback, and shall report any other error in handling a request as before. | STK-23 | Test |
 
 ## 17. Assumptions and constraints
 
