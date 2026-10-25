@@ -10,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-RTM-001 | **Version** | 1.39 |
+| **Document ID** | ETB-RTM-001 | **Version** | 1.40 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-25 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -73,6 +73,7 @@
 | 1.37 | 2026-10-24 | Claude | #286: BLE-NFR-006 - `SWE4-UT-FWUNIT` is 189 cases (was 131), the count run for ETB-SWE4-002 1.32 and the `RUN_TEST` count in the sources. |
 | 1.38 | 2026-10-24 | Claude | #294: row for VIEW-FR-046 (a client that went away is one log line); §16 count corrected to 440 in force, 441 declared (it still said 435 and 436 from 1.21). |
 | 1.39 | 2026-10-25 | Claude | #292: SWE4-UT-SELFCHECK and SWE4-UT-FIVEINST cited for the requirements they verify. The RUN-FR-054 row, broken by the merge in f890c9d (2026-09-30), is repaired: its cells after the ID were PICO-ARC-001's (Python side), and its own cells sat two rows below as a row of their own beginning RUN-ARC-001. The two PICO-ARC-001 rows and the VIEW-ARC-001 row, which belong to §15 and were missing there, are moved to §15. |
+| 1.40 | 2026-10-25 | Claude | #293: row for S2LP-FR-085 (frames set aside while a receive stops, void once a command goes to the board), tracing S2LP-DD-SESSION `commands_sent` too; CORE-FR-004 also cites the mock's two `keep_buffer` tests; S2LP-FR-073 cites SWE4-UT-S2LPFRAME (10); §16 count 441 in force, 442 declared. |
 
 ---
 
@@ -133,7 +134,7 @@ It is checked mechanically by `tests/test_traceability.py` on every run of the s
 | CORE-FR-001 | ARC-003 | CORE-DD-VXI11 | `core/transport/vxi11.py` | `TestXdrCodec` (4), `test_identity_query`, `test_full_driver_over_the_socket` |
 | CORE-FR-002 | ARC-003 | CORE-DD-VXI11 | `vxi11.query_portmapper` | `test_getport_returns_the_mapped_port`, `test_unreachable_portmapper_is_reported_clearly` |
 | CORE-FR-003 | ARC-003 | CORE-DD-SOCKET | `core/transport/socket_raw.py` | `TestSocketTransport` (12) |
-| CORE-FR-004 | ARC-004 | CORE-DD-MOCK | `core/transport/mock.py` | `test_transport_alone_falls_back_to_the_plain_simulator`, `test_an_explicit_responder_wins` |
+| CORE-FR-004 | ARC-004 | CORE-DD-MOCK | `core/transport/mock.py` | `test_transport_alone_falls_back_to_the_plain_simulator`, `test_an_explicit_responder_wins`, `test_the_mock_keeps_undelivered_output_on_such_a_write`, `test_an_ordinary_write_to_the_mock_drops_undelivered_output` |
 | CORE-FR-005 | ARC-002 | CORE-DD-TRANSPORT | `core/transport/base.py` | `TestFraming` (9) |
 | CORE-FR-006 | ARC-003 | CORE-DD-VISA | `core/transport/visa_backend.py` | `TestVisaTransport` (6), `test_visa_backend_is_opt_in` |
 | CORE-FR-007 | ARC-002, ARC-003 | CORE-DD-TRANSPORT, -VXI11 | `base.py`, `Vxi11Transport._send` | `test_large_transfer_is_reassembled`, `test_write_is_chunked_to_max_recv_size` |
@@ -425,7 +426,8 @@ where the firmware implements the requirement.
 | S2LP-FR-070 | S2LP-ARC-001 | S2LP-DD-KEPLER | `decode_kepler_frame` | `SWE4-UT-S2LPKEPLER` (63) |
 | S2LP-FR-071 | S2LP-ARC-001 | S2LP-DD-PACKETS, -TRAFFIC | `Packet.registers`, `decoded`, `decode_error` | `test_raw_and_decoded_are_one_record`, `test_a_frame_that_will_not_decode_keeps_its_bytes` |
 | S2LP-FR-072 | S2LP-ARC-001 | S2LP-DD-TRAFFIC | `S2lpDevkit.kepler_samples` | `SWE4-UT-S2LPSAMPLES` (6) |
-| S2LP-FR-073 | S2LP-ARC-001 | S2LP-DD-TRAFFIC | `S2lpDevkit.kepler_frame` | `SWE4-UT-S2LPFRAME` (3) |
+| S2LP-FR-073 | S2LP-ARC-001 | S2LP-DD-TRAFFIC | `S2lpDevkit.kepler_frame` | `SWE4-UT-S2LPFRAME` (10) |
+| S2LP-FR-085 | S2LP-ARC-001 | S2LP-DD-TRAFFIC, S2LP-DD-SESSION, CORE-DD-MOCK | `_put_aside`, `_take_set_aside`, `kepler_frame(since_last=...)`, `S2lpSession.commands_sent`, `MockTransport.write` | `TestConsecutiveCalls` (7), `test_the_mock_keeps_undelivered_output_on_such_a_write`, `test_an_ordinary_write_to_the_mock_drops_undelivered_output` |
 | S2LP-FR-080 | S2LP-ARC-001 | S2LP-DD-S2LP | `S2lpDevkit._record`, `log_event` | `TestDriverRecords` (2) |
 | S2LP-FR-081 | S2LP-ARC-001 | S2LP-DD-KEPLER | `CONFIG_PARAMETERS`, `config_parameter`, `name_config`, `permute_poly_any_size` | `TestParameters` (10), `test_a_config_frame_names_its_parameters` |
 | S2LP-FR-082 | S2LP-ARC-001 | S2LP-DD-KEPLER | `twf_sample`, `permute_poly`, `odr_hz` | `TestPolynomial` (2), `TestWaveform` (2), `test_odr_codes` |
@@ -718,7 +720,7 @@ tests in `tests/instruments/pico_sht30/`.
 
 | Question | Answer |
 |---|---|
-| Requirements with no verifying test | **None.** All 440 functional requirements in force (441 declared; PICO-FR-044 is withdrawn) and 36 non-functional requirements trace to at least one test, or to a recorded inspection where a test is not the appropriate method (CORE-NFR-002, BLE-FR-090, BLE-NFR-002, and part of CORE-NFR-001). The firmware requirements are verified against the artefact the firmware is built from, not against a running dongle: see CON-07. |
+| Requirements with no verifying test | **None.** All 441 functional requirements in force (442 declared; PICO-FR-044 is withdrawn) and 36 non-functional requirements trace to at least one test, or to a recorded inspection where a test is not the appropriate method (CORE-NFR-002, BLE-FR-090, BLE-NFR-002, and part of CORE-NFR-001). The firmware requirements are verified against the artefact the firmware is built from, not against a running dongle: see CON-07. |
 | Tests not tracing to a requirement | **None.** Every test file names its requirements in its module docstring. |
 | Source modules with no design unit | **None.** Every module names its design unit in its docstring - firmware sources included, checked by `test_every_source_declares_its_trace` in `SWE4-UT-BLEFW`; `__main__.py` is covered by RUN-DD-CLI. |
 | Design units with no source | **None.** |

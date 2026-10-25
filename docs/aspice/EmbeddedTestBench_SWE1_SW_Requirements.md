@@ -10,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE1-001 | **Version** | 1.33 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-24 |
+| **Document ID** | ETB-SWE1-001 | **Version** | 1.34 |
+| **Project** | Embedded Test Bench | **Date** | 2026-10-25 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.1 |
@@ -67,6 +67,7 @@
 | 1.31 | 2026-10-23 | Claude | #271: BLE-FR-121 - an image the target did not receive as sent, by its receipts or its CRC, is sent again from its init packet a bounded number of times, waiting after each data object's create, each retry logged. |
 | 1.32 | 2026-10-23 | Claude | #275: BLE-FR-121 - a bootloader link that fails to establish is tried again, as a UART link is. |
 | 1.33 | 2026-10-24 | Claude | #294: VIEW-FR-046 - a client that disconnects mid-request, over HTTP or TLS, is logged as one warning line, not a traceback. |
+| 1.34 | 2026-10-25 | Claude | #293: S2LP-FR-085 - frames reported while a receive stops are set aside, and `kepler_frame(since_last=True)` takes them while no command has gone to the board since. |
 
 ---
 
@@ -699,6 +700,7 @@ timestamp. And the radio will accept a frequency the board cannot radiate.
 | S2LP-FR-071 | A frame's raw payload, the registers read after it and its decode shall be logged together, as one record. | STK-19 | Test |
 | S2LP-FR-072 | The driver shall take a decoded field from the next N Kepler transmissions from a given sensor and of a given frame type, counting each transmission once however many copies of it are received. | STK-19 | Test |
 | S2LP-FR-073 | The driver shall return the whole decode of the next Kepler frame of a given type from a given sensor, with its raw payload, and shall raise, naming the type and sensor, when none arrives in time. | STK-19 | Test |
+| S2LP-FR-085 | Frames reported while a receive is being stopped, after its caller has what it asked for, shall be kept as well as logged. `kepler_frame` shall, when asked, look at those frames first, so that consecutive calls return the frames that arrived while the board stopped; and when not asked, a timeout shall say how many matching frames were set aside, rather than imply that the sensor sent none. Any command sent to the board since shall discard them. A frame that arrives after the stop and before the next receive starts is not covered. | STK-19 | Test |
 | S2LP-FR-080 | Every packet the driver sends or receives shall be written to the event log as a structured `rf_packet` record (CORE-FR-064) carrying the packet's direction, payload in hex, length, RSSI, board time, error, extra fields, registers and decode, so a reader of the log has every frame without the driver's packet log. | STK-19, STK-23 | Test |
 | S2LP-FR-081 | A decoded CONFIG frame shall name each of its five values - parameter number, name, unit, and the value as its enumeration names it - by the sensor firmware's parameter order and the frame's permutation method: none, distance, or the polynomial with the frame's repeat number as its version. | STK-19, STK-23 | Test |
 | S2LP-FR-082 | The waveform sample a TWF slot carries shall be computable under each permutation method, and a TWF frame's frequency code shall be decoded to its output data rate (a code with bit 15 set is a tenth of the rate). | STK-19, STK-23 | Test |

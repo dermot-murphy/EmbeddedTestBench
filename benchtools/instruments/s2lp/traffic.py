@@ -92,6 +92,15 @@ class TrafficMixin:
 
     _traffic_ready = False
     _receive_ready = False
+    #: The frames reported while the board was stopping, after the caller of
+    #: the last batch stream had what it wanted (#293). Logged, not yielded;
+    #: ``kepler_frame(since_last=True)`` offers them first, but only while no
+    #: command has been sent to the board since: see :meth:`_take_set_aside`.
+    #: Replaced, never changed in place, so the class's empty list is never
+    #: shared.
+    _set_aside: List[Packet] = []
+    #: The session's command count when :attr:`_set_aside` was filled.
+    _set_aside_at = -1
 
     def prepare_traffic(self, gpio: int = IRQ_GPIO) -> None:
         """Route the radio's interrupt to the board, so traffic can complete.
@@ -359,6 +368,7 @@ class TrafficMixin:
                 "registers cannot be read per frame while ST's receive loop runs; "
                 "use mode=\"polled\" for them, at the cost of missing close frames")
         self._ready_for_receive()
+        self._set_aside = []
         if mode == "batch":
             return self._stream_batch(decoder, count, timeout, until)
         return self._stream_polled(decoder, count, timeout, until,
@@ -394,14 +404,45 @@ class TrafficMixin:
                     return
             # Ended by the host: stop the board, and yield what arrived meanwhile.
             running = False
-            for packet in self._stop_and_collect(decoder):
-                yield self._record(packet)
+            leftover = self._stop_and_collect(decoder)
+            stopped_at = self._session.commands_sent
+            try:
+                while leftover:
+                    yield self._record(leftover.pop(0))
+            finally:
+                # The caller may stop at any one of them: the rest are set
+                # aside, not lost (#293). They date from the stop, so a
+                # command the caller sent while taking the others voids them.
+                self._put_aside(leftover, stopped_at)
         finally:
             if running:
                 # The caller stopped iterating. Stop the board; anything that
-                # arrived meanwhile still goes to the packet log.
-                for packet in self._stop_and_collect(decoder):
-                    self._record(packet)
+                # arrived meanwhile still goes to the packet log, and is set
+                # aside for kepler_frame(since_last=True) (#293).
+                leftover = self._stop_and_collect(decoder)
+                self._put_aside(leftover, self._session.commands_sent)
+
+    def _put_aside(self, packets: List[Packet], stopped_at: int) -> None:
+        """Log *packets*, which the caller did not take, and set them aside.
+
+        *stopped_at* is the session's command count when the board stopped.
+        """
+        for packet in packets:
+            self._record(packet)
+        self._set_aside = list(packets)
+        self._set_aside_at = stopped_at
+
+    def _take_set_aside(self) -> List[Packet]:
+        """The frames set aside, if no command has gone to the board since; and empty it.
+
+        Any command - a send, a receive, a register write, a reset, the
+        identification on reconnecting - means the frames were heard before
+        something the caller did, so they are no longer the frames after the
+        last one returned.
+        """
+        fresh = self._session.commands_sent == self._set_aside_at
+        set_aside, self._set_aside = (self._set_aside if fresh else []), []
+        return set_aside
 
     def _next_batch_reply(self, started: float, timeout: Optional[float],
                           until: Optional[Callable[[], bool]]):
@@ -587,6 +628,7 @@ class TrafficMixin:
         source: Optional[str] = None,
         timeout: float = 60.0,
         decoder: Callable[[bytes], Dict[str, Any]] = decode_kepler_frame,
+        since_last: bool = False,
     ) -> Dict[str, Any]:
         """The decode of the next *frame_type* frame *source* sends, whole.
 
@@ -596,25 +638,76 @@ class TrafficMixin:
         number from each of several frames, does not fit. The first copy heard
         is returned; the copies of one transmission carry the same fields.
 
+        Each call starts its own receive and stops it on return, and frames
+        that arrive while the board stops are logged but not returned: the
+        next call starts after them. A frame close behind the one returned -
+        the next copy of the same packet, 31 to 229 ms later on 5C1712 - is
+        among them only if it arrives during the stop, which takes about 4 ms
+        (#293). *since_last* asks for those frames too.
+
         :param frame_type: The type, e.g. ``"VERSION"``.
         :param source: Only frames from this sensor, e.g. ``"5C1712"``.
+        :param since_last: Look first at the frames that arrived while the
+            last receive was being stopped, after its caller had what it
+            wanted, so that consecutive calls get consecutive frames. They
+            are offered only if no command has gone to the S2-LP board since.
+            Only frames that arrive while the board stops are kept: a frame
+            that arrives after the stop and before this call's receive starts
+            is still missed. On the bench kit that gap was 26 to 27 ms
+            for back-to-back calls (#293, 2026-10-25); anything the caller
+            does between two calls adds to it. Leave it off when the frame
+            must be sent after this call, such as one answering a command
+            sent to the sensor since the last call: a frame set aside was
+            sent before it.
         :returns: The decoded fields, plus ``raw``: the payload in hex.
         :raises MeasurementError: if no such frame arrives within *timeout*.
 
-        Traces to: S2LP-FR-073.
+        Traces to: S2LP-FR-073, S2LP-FR-085.
         """
+        set_aside = self._take_set_aside()
+        if since_last:
+            for index, packet in enumerate(set_aside):
+                self._annotate(packet, [], decoder)
+                if self._is_frame(packet, frame_type, source):
+                    self._set_aside = set_aside[index + 1:]
+                    self._set_aside_at = self._session.commands_sent
+                    return self._whole_frame(packet)
         for packet in self.stream(decoder=decoder, timeout=timeout):
-            decoded = packet.decoded or {}
-            if not packet.ok or decoded.get("type") != frame_type:
-                continue
-            if source is not None and str(decoded.get("sensor_id")) != source:
-                continue
-            frame = dict(decoded)
-            frame["raw"] = bytes(packet.data).hex(" ").upper()
-            return frame
+            if self._is_frame(packet, frame_type, source):
+                return self._whole_frame(packet)
+        missed = "" if since_last else self._set_aside_note(set_aside, decoder, frame_type, source)
         raise MeasurementError(
-            "no %s frame%s in %g s"
-            % (frame_type, "" if source is None else " from %s" % source, timeout))
+            "no %s frame%s in %g s%s"
+            % (frame_type, "" if source is None else " from %s" % source, timeout, missed))
+
+    @staticmethod
+    def _is_frame(packet: Packet, frame_type: str, source: Optional[str]) -> bool:
+        """Whether *packet* is a *frame_type* frame from *source* (any, if None)."""
+        decoded = packet.decoded or {}
+        if not packet.ok or decoded.get("type") != frame_type:
+            return False
+        return source is None or str(decoded.get("sensor_id")) == source
+
+    @staticmethod
+    def _whole_frame(packet: Packet) -> Dict[str, Any]:
+        frame = dict(packet.decoded or {})
+        frame["raw"] = bytes(packet.data).hex(" ").upper()
+        return frame
+
+    def _set_aside_note(self, set_aside: List[Packet], decoder, frame_type: str,
+                        source: Optional[str]) -> str:
+        """Why a frame may have been missed: matching frames that were set aside."""
+        matching = 0
+        for packet in set_aside:
+            self._annotate(packet, [], decoder)
+            matching += self._is_frame(packet, frame_type, source)
+        if not matching:
+            return ""
+        one = matching == 1
+        return ("; %d such frame%s arrived while the last receive was stopping, and "
+                "%s logged but not offered: since_last takes %s"
+                % (matching, "" if one else "s", "was" if one else "were",
+                   "it" if one else "them"))
 
     def check_preamble(self, expected_pairs: int, source: str, count: Optional[int] = None,
                        timeout: float = 120.0, tolerance_pairs: int = 2) -> Dict[str, Any]:

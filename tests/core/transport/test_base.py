@@ -1,6 +1,6 @@
 """Message framing and buffering in the transport base class.
 
-Traces to: SWE1-NFR-005, CORE-FR-061, CORE-FR-062, SWE4-UT-TRANSPORT.
+Traces to: SWE1-NFR-005, CORE-FR-004, CORE-FR-061, CORE-FR-062, SWE4-UT-TRANSPORT.
 """
 
 from __future__ import annotations
@@ -103,6 +103,34 @@ class TestWriteBehaviour:
         link._fill()                      # half a line has arrived
         link.write(b"S", append_terminator=False, keep_buffer=True)
         assert link.read_message() == b"partial"
+
+    def test_the_mock_keeps_undelivered_output_on_such_a_write(self):
+        """On a line, what the instrument sent before the stop is still on its
+        way; the mock delivered the stop's answer in its place (#293)."""
+        from benchtools.core.transport.mock import MockTransport
+
+        class Streaming:  # pylint: disable=too-few-public-methods
+            def respond(self, message):
+                return b"one\ntwo\nthree\n" if message == b"GO\n" else b"stopped\n"
+
+        link = MockTransport(responder=Streaming(), chunk_size=4).open()
+        link.write(b"GO")
+        assert link.read_message() == b"one"
+        link.write(b"S", append_terminator=False, keep_buffer=True)
+        assert [link.read_message() for _ in range(3)] == [b"two", b"three", b"stopped"]
+
+    def test_an_ordinary_write_to_the_mock_drops_undelivered_output(self):
+        from benchtools.core.transport.mock import MockTransport
+
+        class Streaming:  # pylint: disable=too-few-public-methods
+            def respond(self, message):
+                return b"one\ntwo\nthree\n" if message == b"GO\n" else b"fresh\n"
+
+        link = MockTransport(responder=Streaming(), chunk_size=4).open()
+        link.write(b"GO")
+        assert link.read_message() == b"one"      # "two" and "three" still pending
+        link.write(b"NEXT")
+        assert link.read_message() == b"fresh"
 
     def test_replies_can_end_differently_from_commands(self):
         """A GPD-3303D takes commands ending in LF and ends its replies in CR."""

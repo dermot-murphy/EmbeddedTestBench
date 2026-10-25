@@ -1,0 +1,35 @@
+{
+  "A_default": [
+    {
+      "call": 0,
+      "repeat": 0,
+      "raw": "5C 17 12 03 06 0C 04 03 13 00 D4 8F 05 A4 00 00 8D 00 51 00 58 00 93 00 7A 00 5F 03 16 02 1A 02 54 01 09"
+    },
+    {
+      "call": 1,
+      "repeat": 1,
+      "raw": "5C 17 12 03 06 0C 04 03 23 00 D4 8F 05 A4 00 00 8D 00 51 00 58 00 93 00 7A 00 5F 03 16 02 1A 02 54 01 09"
+    },
+    {
+      "call": 2,
+      "error": "no ALIVE frame from 5C1712 in 3 s; 1 such frame arrived while the last receive was stopping, and were logged but not offered: since_last takes them"
+    }
+  ],
+  "B_since_last": [
+    {
+      "call": 0,
+      "repeat": 0,
+      "raw": "5C 17 12 03 06 0C 04 03 13 00 D5 8F 05 B1 00 00 87 00 54 00 55 00 B6 00 84 00 55 02 FE 02 25 02 2E 01 09"
+    },
+    {
+      "call": 1,
+      "repeat": 1,
+      "raw": "5C 17 12 03 06 0C 04 03 23 00 D5 8F 05 B1 00 00 87 00 54 00 55 00 B6 00 84 00 55 02 FE 02 25 02 2E 01 09"
+    },
+    {
+      "call": 2,
+      "repeat": 2,
+      "raw": "5C 17 12 03 06 0C 04 03 33 00 D5 8F 05 B1 00 00 87 00 54 00 55 00 B6 00 84 00 55 02 FE 02 25 02 2E 01 09"
+    }
+  ]
+}

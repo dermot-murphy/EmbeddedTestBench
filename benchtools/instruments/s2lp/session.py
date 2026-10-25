@@ -91,6 +91,10 @@ class S2lpSession:
         #: rather than dropped, because a line nobody expected is evidence. The
         #: session log keeps all of them; this keeps the latest.
         self.unclaimed: Deque[str] = deque(maxlen=UNCLAIMED_LIMIT)
+        #: Commands sent since the session was made. The stop character is not
+        #: a command. Lets a caller tell whether anything was asked of the
+        #: board since a given moment (#293).
+        self.commands_sent = 0
 
     # ------------------------------------------------------------------
     @property
@@ -164,6 +168,7 @@ class S2lpSession:
     def send(self, name: str, *arguments) -> str:
         """Format and send one command, without waiting for its reply."""
         line = format_command(name, *arguments)
+        self.commands_sent += 1
         self._logger.debug(">> %s", line)
         self._write_log(">", line)
         self._transport.write(line.encode("ascii"))
