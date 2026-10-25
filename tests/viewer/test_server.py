@@ -9,6 +9,7 @@ import http.client
 import json
 import logging
 import pathlib
+import socket
 import ssl
 import threading
 import time
@@ -214,12 +215,13 @@ class TestControl:
         assert status == 200 and reply["state"] == "paused"
 
     def test_a_runner_that_does_not_answer_is_reported(self, viewer, tmp_path):
-        control = RunControl()
-        channel = ControlServer(control)
-        port = channel.port
-        channel.close()
-        viewer.hub.follow(str(tmp_path / "none.jsonl"), port)
-        status, reply = _json(viewer, "POST", "/api/control", {"cmd": "pause"})
+        # The port stays bound, but not listening, for the whole test: a freed
+        # port can be taken by another process's server, which then receives
+        # the control request (#280).
+        with socket.socket() as unanswered:
+            unanswered.bind(("127.0.0.1", 0))
+            viewer.hub.follow(str(tmp_path / "none.jsonl"), unanswered.getsockname()[1])
+            status, reply = _json(viewer, "POST", "/api/control", {"cmd": "pause"})
         assert status == 502 and "did not answer" in reply["error"]
 
     def test_send_control(self):
