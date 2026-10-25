@@ -134,14 +134,16 @@ def resolve_input_path(
         if os.path.exists(candidate):
             return candidate
     moved = moved_to_plugin(value)
+    plugin_problem = ""
     if moved is not None and ensure_legacy_kepler(value):
         try:
             return resolve_plugin_path(moved)
-        except ConfigurationError:
-            pass                            # the kepler plugin loaded lacks it
+        except ConfigurationError as error:  # the kepler plugin loaded lacks it
+            plugin_problem = "; and as %s: %s" % (moved, error)
     if required:
         raise ConfigurationError(
-            "cannot find %s %r; looked in: %s" % (what, value, ", ".join(locations))
+            "cannot find %s %r; looked in: %s%s"
+            % (what, value, ", ".join(locations), plugin_problem)
         )
     return value
 

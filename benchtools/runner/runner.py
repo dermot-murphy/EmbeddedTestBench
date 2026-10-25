@@ -32,7 +32,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 from ..core import plugins
 from ..core.errors import BenchToolsError, SpecError
 from ..core.events import log_event
-from ..core.paths import input_path_names, resolve_arguments
+from ..core.paths import input_path_names, resolve_arguments, search_locations
 from .bench import Bench, BenchConfig
 from .limits import Limit, TextLimit
 from .control import ABORT, READ_SETUP, Command, RunControl
@@ -118,14 +118,19 @@ BUILTIN_ACTIONS: Dict[str, Callable[..., Any]] = {
 }
 
 
-def _names_and_values(spec: TestSpec) -> Tuple[List[str], List[Any]]:
-    """Every step's action, and every argument value, of *spec*."""
+def _names_and_values(spec: TestSpec, finds: Callable[[str, Optional[str]], bool]
+                      ) -> Tuple[List[str], List[Any]]:
+    """Every step's action, and every argument value of *spec* that is not a
+    file *finds* locates, so that a moved path still present is not legacy."""
     steps = list(spec.setup) + list(spec.teardown) + [
         step for case in spec.tests for step in case.steps]
     values: List[Any] = []
     for step in steps:
         values.extend(step.arguments.values() if isinstance(step.arguments, dict)
                       else step.arguments or ())
+    directory = os.path.dirname(os.path.abspath(spec.source)) if spec.source else None
+    values = [value for value in values
+              if not (isinstance(value, str) and finds(value, directory))]
     return [step.action for step in steps], values
 
 
@@ -519,6 +524,12 @@ class BenchRunner:
             } for index, case in enumerate(spec.tests)],
         }
 
+    @staticmethod
+    def _finds(value: str, directory: Optional[str]) -> bool:
+        """Whether a relative input path *value* names a file that exists."""
+        return not os.path.isabs(value) and any(
+            os.path.exists(candidate) for candidate in search_locations(value, directory))
+
     def run(self, spec: TestSpec, selection: Sequence[str] = ()) -> RunRecord:
         """Run a whole specification and return its result record.
 
@@ -539,7 +550,7 @@ class BenchRunner:
         """
         for folder in list(self.bench.config.plugins) + list(spec.plugins):
             plugins.load_plugin(folder)
-        legacy = plugins.uses_legacy_kepler(*_names_and_values(spec))
+        legacy = plugins.uses_legacy_kepler(*_names_and_values(spec, self._finds))
         if legacy is not None:
             plugins.ensure_legacy_kepler(legacy)    # before run_start, so it is recorded
         run = RunRecord(

@@ -551,3 +551,27 @@ class TestRoundTwoOfReview:
         plugins.load_plugin(str(folder))
         with pytest.raises(ValueError, match="quiet: KeyError"):
             plugins.decode(b"\x00")
+
+
+class TestRoundThreeOfReview:
+    """Findings of the third review of #304."""
+
+    def test_a_moved_path_that_still_exists_does_not_load_the_kepler_plugin(self, registry,
+                                                                            tmp_path):
+        (tmp_path / "configs").mkdir()
+        (tmp_path / "configs" / "s2lp_kepler_433_rx.regs").write_text("SYNC3 0x12\n")
+        spec = TestSpec.from_mapping(dict(TestRoundTwoOfReview.LEGACY_SPEC),
+                                     source=str(tmp_path / "spec.yaml"))
+        with BenchRunner.from_config(BenchConfig.simulated({"s2lp": "s2lp"}),
+                                     simulate=True) as runner:
+            record = runner.run(spec)
+        assert record.plugins == [] and "kepler" not in registry.plugins
+
+    def test_a_kepler_plugin_without_the_file_is_named_in_the_error(self, tmp_path,
+                                                                    monkeypatch):
+        own = write_plugin(tmp_path / "theirs", "NAME = 'kepler'\n"
+                           "def register(plugin):\n    pass\n")
+        plugins.load_plugin(str(own))
+        monkeypatch.chdir(tmp_path)
+        with pytest.raises(ConfigurationError, match="and as plugin:kepler/.*has no file"):
+            resolve_input_path("configs/s2lp_kepler_433_rx.regs", str(tmp_path))
