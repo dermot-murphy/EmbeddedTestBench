@@ -655,9 +655,10 @@ class TrafficMixin:
             that arrives after the stop and before this call's receive starts
             is still missed. On the bench kit that gap was 26 to 27 ms
             for back-to-back calls (#293, 2026-10-25); anything the caller
-            does between two calls adds to it. Leave it off when the frame must be sent after
-            this call, such as one answering a command sent to the sensor
-            since the last call: a frame set aside was sent before it.
+            does between two calls adds to it. Leave it off when the frame
+            must be sent after this call, such as one answering a command
+            sent to the sensor since the last call: a frame set aside was
+            sent before it.
         :returns: The decoded fields, plus ``raw``: the payload in hex.
         :raises MeasurementError: if no such frame arrives within *timeout*.
 
@@ -702,9 +703,11 @@ class TrafficMixin:
             matching += self._is_frame(packet, frame_type, source)
         if not matching:
             return ""
+        one = matching == 1
         return ("; %d such frame%s arrived while the last receive was stopping, and "
-                "were logged but not offered: since_last takes them"
-                % (matching, "" if matching == 1 else "s"))
+                "%s logged but not offered: since_last takes %s"
+                % (matching, "" if one else "s", "was" if one else "were",
+                   "it" if one else "them"))
 
     def check_preamble(self, expected_pairs: int, source: str, count: Optional[int] = None,
                        timeout: float = 120.0, tolerance_pairs: int = 2) -> Dict[str, Any]:

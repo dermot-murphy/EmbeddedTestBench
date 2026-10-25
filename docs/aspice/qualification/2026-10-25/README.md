@@ -36,6 +36,14 @@ packet record, to time each step.
   arrived during the stop that ended call 2. That stop took 33.5 ms, against
   3.5 to 4.4 ms for the others. The copy was logged and set aside, which is
   the failure #293 reported, now named in the error.
+- **Packet B does not exercise `since_last`.** Its copies came 135 ms and
+  111 ms apart, so each arrived during the next call's own receive. Every
+  stop in phase B reported nothing with it (`events.tsv`: "0 replies with
+  it"), so nothing was set aside and the default would have returned the same
+  three copies. Phase B shows only that `since_last` does no harm. That a set-
+  aside frame is returned by `since_last` is shown by the unit tests on the
+  simulated kit, not by this run. On hardware, this run shows the frame being
+  set aside (packet A), not it being returned.
 - **Deaf gap.** From the `StopCmd` acknowledgement to the echo of the next
   `S2LPGetNBytesBatch` it was 25.9, 27.0, 26.7 and 27.0 ms (session log
   timestamps). It is mostly three commands of about 7 ms each:
