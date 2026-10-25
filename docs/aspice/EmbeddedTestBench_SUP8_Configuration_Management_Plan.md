@@ -426,10 +426,10 @@ inside a revision history, and only when every line of it, on both sides and in
 the common ancestor, is a history row, and every row of the common ancestor is
 still on both sides, as it was or, if it was `next`, only numbered. A row that
 either side edited, renumbered or removed leaves the conflict, as does one row
-numbered differently on the two sides. The result is theirs' rows first, then the rows
-ours added; a row ours added that records the same change as one of theirs is
-kept once, with its number if either side numbered it; numbered rows go before
-`next` rows. That covers:
+numbered differently on the two sides. The result is theirs' rows first, then
+the rows ours added; a row ours added that records the same change as one of
+theirs is kept once, with its number if either side numbered it; numbered rows
+go before `next` rows. That covers:
 
 | Merge | Result |
 |---|---|

@@ -336,6 +336,15 @@ class TestMergeRows:
                           ["| 0.3 | b | Claude | X |"])
         assert dv.merge_rows(merged) == (merged, 1)
 
+    def test_a_base_row_kept_as_it_was_is_matched_before_one_that_numbers_it(self):
+        text, left = dv.merge_rows(conflict(
+            ["| 0.2 | b | Claude | X |", "| 0.3 | b | Claude | X |", "| next | c | Claude | B |"],
+            ["| next | b | Claude | X |", "| 0.2 | b | Claude | X |"],
+            ["| 0.2 | b | Claude | X |", "| 0.3 | b | Claude | X |", "| next | d | Claude | C |"]))
+        assert left == 0
+        assert rows_of(text)[1:] == ["| 0.2 | b | Claude | X |", "| 0.3 | b | Claude | X |",
+                                     "| next | d | Claude | C |", "| next | c | Claude | B |"]
+
     def test_a_row_both_sides_added_is_kept_once(self):
         text, _ = dv.merge_rows(conflict(["| next | b | Claude | same |"], [],
                                          ["| next | b | Claude | same |"]))

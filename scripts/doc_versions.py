@@ -344,13 +344,20 @@ def _split(side, base):
     only numbered. Each side row stands for one base row at most.
     """
     free = list(range(len(side)))
-    found = []
-    for base_row in base:
-        match = next((i for i in free if _numbers(base_row, side[i])), None)
-        if match is None:
-            return None
-        free.remove(match)
-        found.append(match)
+    found = [None] * len(base)
+    # Rows kept as they were are matched first, so that a row which numbers
+    # a next row is not taken by a base row that is already there unchanged.
+    for exact in (True, False):
+        for position, base_row in enumerate(base):
+            if found[position] is not None:
+                continue
+            match = next((i for i in free if side[i] == base_row
+                          or (not exact and _numbers(base_row, side[i]))), None)
+            if match is not None:
+                free.remove(match)
+                found[position] = match
+    if None in found:
+        return None
     return found, free
 
 
