@@ -372,8 +372,8 @@ Design points:
   is loaded, for `kepler_samples`, `kepler_frame` and the old register file
   path (`MOVED`, resolved through the `kepler` plugin loaded), for one
   release; #240 removes it. `BenchRunner.run` looks for those names in the
-  specification (`uses_legacy_kepler`) and loads the plugin before
-  `run_start`, so the run records it.
+  specification (`uses_legacy_kepler`; a moved path that still names a file
+  is not one) and loads the plugin before `run_start`, so the run records it.
 - **One registry per process.** `REGISTRY` is module state, as the driver
   registry is; tests replace it with their own.
 
