@@ -10,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE4-002 | **Version** | 1.33 |
+| **Document ID** | ETB-SWE4-002 | **Version** | 1.34 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-25 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -66,7 +66,8 @@
 | 1.30 | 2026-10-23 | Claude | #271: §10.7 added - DFU data lost on 5C1712's SDK 15.2 bootloader, the fix that failed and the one that passed, on the bench; D-52 added. |
 | 1.31 | 2026-10-23 | Claude | #275: §10.8 added - V10-F-01 on the bench with the bootloader link retry; D-53 added. |
 | 1.32 | 2026-10-24 | Claude | #286: §5 regenerated from a whole-suite run on the branch with `develop` 9b7da17 merged in (3 374 passed, 95% coverage, §4): one row per ETB-SWE4-001 group, 19 of them missing before (including SWE4-UT-S2LPKEPLER); firmware CTest counts added; two test files with no group noted. |
-| 1.33 | 2026-10-25 | Claude | #293: SWE4-UT-TRANSPORT 29 → 31 and SWE4-UT-S2LPFRAME 3 → 9, pass, from runs of `core/transport/test_base.py` (31 passed) and `instruments/s2lp/test_kepler_frame.py` (9 passed) on this branch on 2026-10-25. The §5 total is still the 1.32 whole-suite run's; the whole suite passed at 0960059 on this branch (3 382). The bench run for #293 is in `docs/aspice/qualification/2026-10-25/`. |
+| 1.33 | 2026-10-25 | Claude | #294: SWE4-UT-VIEWSERVER 29 → 36, pass, from a run of `viewer/test_server.py` on this branch on 2026-10-25 (36 passed). The §5 total is still the 1.32 whole-suite run's. |
+| 1.34 | 2026-10-25 | Claude | #293: SWE4-UT-TRANSPORT 29 → 31 and SWE4-UT-S2LPFRAME 3 → 9, pass, from runs of `core/transport/test_base.py` (31 passed) and `instruments/s2lp/test_kepler_frame.py` (9 passed) on this branch on 2026-10-25. The §5 total is still the 1.32 whole-suite run's; the whole suite passed at 0960059 on this branch (3 382). The bench run for #293 is in `docs/aspice/qualification/2026-10-25/`. |
 
 ---
 
@@ -274,7 +275,7 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-RUNEVENTS | `runner/test_run_events.py` | 21 | Pass |
 | SWE4-UT-CONTROL | `runner/test_control.py` | 33 | Pass |
 | SWE4-UT-VIEWSTATE | `viewer/test_state.py` | 14 | Pass |
-| SWE4-UT-VIEWSERVER | `viewer/test_server.py` | 29 | Pass |
+| SWE4-UT-VIEWSERVER | `viewer/test_server.py` | 36 | Pass |
 | SWE4-UT-VIEWTRAFFIC | `viewer/test_traffic.py` | 26 | Pass |
 | SWE4-UT-VIEWRADIO | `viewer/test_radio.py`, `viewer/radio_log.py` | 14 | Pass |
 | SWE4-UT-VIEWGRAPHS | `viewer/test_graphs.py` | 16 | Pass |

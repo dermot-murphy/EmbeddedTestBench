@@ -10,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-RTM-001 | **Version** | 1.38 |
+| **Document ID** | ETB-RTM-001 | **Version** | 1.39 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-25 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -71,7 +71,8 @@
 | 1.35 | 2026-10-24 | Claude | #255: S2LP-FR-070 - `SWE4-UT-S2LPKEPLER` now 39 tests (FFT2 type version 2). |
 | 1.36 | 2026-10-24 | Claude | #287: S2LP-FR-070 - `SWE4-UT-S2LPKEPLER` now 63 tests (type version per frame type). |
 | 1.37 | 2026-10-24 | Claude | #286: BLE-NFR-006 - `SWE4-UT-FWUNIT` is 189 cases (was 131), the count run for ETB-SWE4-002 1.32 and the `RUN_TEST` count in the sources. |
-| 1.38 | 2026-10-25 | Claude | #293: row for S2LP-FR-085 (frames set aside while a receive stops, void once a command goes to the board), tracing S2LP-DD-SESSION `commands_sent` too; CORE-FR-004 also cites the mock's two `keep_buffer` tests; S2LP-FR-073 cites SWE4-UT-S2LPFRAME (9). |
+| 1.38 | 2026-10-24 | Claude | #294: row for VIEW-FR-046 (a client that went away is one log line); §16 count corrected to 440 in force, 441 declared (it still said 435 and 436 from 1.21). |
+| 1.39 | 2026-10-25 | Claude | #293: row for S2LP-FR-085 (frames set aside while a receive stops, void once a command goes to the board), tracing S2LP-DD-SESSION `commands_sent` too; CORE-FR-004 also cites the mock's two `keep_buffer` tests; S2LP-FR-073 cites SWE4-UT-S2LPFRAME (9); §16 count 441 in force, 442 declared. |
 
 ---
 
@@ -686,6 +687,7 @@ tests in `tests/instruments/pico_sht30/`.
 | VIEW-FR-043 | VIEW-ARC-001 | VIEW-DD-STGUI | `StGui`, `rf_setup_rows` | `test_rf_setup_rows`, `test_the_hub_serves_the_page_and_the_file` |
 | VIEW-FR-044 | VIEW-ARC-001 | VIEW-DD-STGUI | `register_rows`, `regs_text`, `/api/stgui/regs` | `test_register_rows_mark_a_changed_register`, `test_the_register_file_round_trips` |
 | VIEW-FR-045 | VIEW-ARC-001 | VIEW-DD-STGUI | `st_row`, `/api/stgui/refresh`, `stgui.js` | `test_frames_as_st_s_gui_lists_them`, `test_nothing_read_yet` |
+| VIEW-FR-046 | VIEW-ARC-001 | VIEW-DD-SERVER | `ViewerServer.handle_error`, `_CLIENT_WENT_AWAY` | `TestClientGoesAway` (7) |
 | RUN-FR-050 | ARC-001 | RUN-DD-CLI | `runner/cli.py` | `TestRunCommand` (8) |
 | RUN-FR-051 | ARC-001 | RUN-DD-CLI | exit statuses | `test_simulated_run_passes`, `test_failure_exits_nonzero`, `test_no_bench_and_no_simulate_is_a_usage_error` |
 | RUN-FR-052 | ARC-001 | RUN-DD-CLI | report path suffixing | `test_several_specs_get_suffixed_reports` |
@@ -717,7 +719,7 @@ tests in `tests/instruments/pico_sht30/`.
 
 | Question | Answer |
 |---|---|
-| Requirements with no verifying test | **None.** All 435 functional requirements in force (436 declared; PICO-FR-044 is withdrawn) and 36 non-functional requirements trace to at least one test, or to a recorded inspection where a test is not the appropriate method (CORE-NFR-002, BLE-FR-090, BLE-NFR-002, and part of CORE-NFR-001). The firmware requirements are verified against the artefact the firmware is built from, not against a running dongle: see CON-07. |
+| Requirements with no verifying test | **None.** All 441 functional requirements in force (442 declared; PICO-FR-044 is withdrawn) and 36 non-functional requirements trace to at least one test, or to a recorded inspection where a test is not the appropriate method (CORE-NFR-002, BLE-FR-090, BLE-NFR-002, and part of CORE-NFR-001). The firmware requirements are verified against the artefact the firmware is built from, not against a running dongle: see CON-07. |
 | Tests not tracing to a requirement | **None.** Every test file names its requirements in its module docstring. |
 | Source modules with no design unit | **None.** Every module names its design unit in its docstring - firmware sources included, checked by `test_every_source_declares_its_trace` in `SWE4-UT-BLEFW`; `__main__.py` is covered by RUN-DD-CLI. |
 | Design units with no source | **None.** |
