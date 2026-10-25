@@ -179,7 +179,8 @@ class TestTestGroupTraceability:
 
     def test_named_files_are_read_from_the_file_column_only(self):
         text = (
-            "| SWE4-UT-TRACE | `core/test_a.py`, `test_top.py` | Mentions `core/test_other.py` | X |\n"
+            "| SWE4-UT-TRACE | `core/test_a.py`, `test_top.py` "
+            "| Mentions `core/test_other.py` | X |\n"
             "| SWE4-UT-FWUNIT | `firmware/x/test/*.c` | Firmware | Y |\n"
         )
         assert _named_test_files(text) == {"core/test_a.py", "test_top.py"}
