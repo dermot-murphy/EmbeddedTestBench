@@ -138,6 +138,19 @@ class TestDocumentPage:
         lines = self.page(tmp_path, "Body only\n")
         assert lines[0].startswith("*Source: ") and lines[2] == "Body only"
 
+    def test_version_and_date_show_the_last_revision_rows_values(self, tmp_path):
+        link = "[latest, §2](#2-revision-history)"
+        lines = self.page(tmp_path, "\n".join([
+            "# Title", "",
+            "| **Document ID** | ETB-X-001 | **Version** | %s |" % link,
+            "| **Project** | P | **Date** | %s |" % link, "",
+            "## 2. Revision History", "",
+            "| Version | Date | Author | Description of Change |", "|---|---|---|---|",
+            "| 0.1 | 2026-01-01 | Claude | Initial |",
+            "| 0.2 | 2026-02-01 | Claude | #210 |", ""]))
+        assert "| **Document ID** | ETB-X-001 | **Version** | 0.2 |" in lines
+        assert "| **Project** | P | **Date** | 2026-02-01 |" in lines
+
 
 @pytest.fixture(scope="module")
 def wiki(tmp_path_factory):
@@ -179,6 +192,11 @@ class TestGeneratedWiki:
 
     def test_pages_have_lf_line_endings(self, wiki):
         assert not [p.name for p in wiki.glob("*.md") if b"\r\n" in p.read_bytes()]
+
+    def test_no_page_shows_a_version_link_in_place_of_a_value(self, wiki):
+        shown = re.compile(r"\*\*(?:Version|Date)\*\* \| \[latest")
+        assert not [p.name for p in wiki.glob("*.md")
+                    if shown.search(p.read_text(encoding="utf-8"))]
 
 
 _RAW_IMG = re.compile(r'<img src="https://github\.com/dermot-murphy/EmbeddedTestBench/raw/main/'

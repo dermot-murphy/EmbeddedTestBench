@@ -27,12 +27,13 @@ arguments - no timestamp - so a run with nothing changed changes nothing.
 
 Standard library only, Python 3.8 and later.
 
-Traces to: ETB-SUP8-001 §5.8 and §6.3, issues #184 and #194.
+Traces to: ETB-SUP8-001 §5.8, §6.2 and §6.3, issues #184, #194 and #210.
 """
 
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import posixpath
 import re
 import shutil
@@ -41,6 +42,18 @@ from pathlib import Path
 from urllib.parse import quote
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _load_doc_versions():
+    """``scripts/doc_versions.py``, loaded by path like this script itself."""
+    spec = importlib.util.spec_from_file_location(
+        "doc_versions", Path(__file__).resolve().parent / "doc_versions.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+doc_versions = _load_doc_versions()
 DEFAULT_REPO = "dermot-murphy/EmbeddedTestBench"
 DEFAULT_REF = "main"
 
@@ -330,10 +343,14 @@ def rewrite_links(text, src_rel, site):
 def document_page(rel, site, footer):
     """A document as a wiki page: links rewritten, its source noted, a footer.
 
+    A controlled document's Version and Date, which in the repository are
+    links to its revision history, show their values (``doc_versions``, #210).
+
     The source note goes under the first level-one heading, which need not be
     the first line: a document may open with a logo above its title.
     """
     text = _FRONT_MATTER.sub("", read_text(site.root / rel), count=1)
+    text = doc_versions.expand(text)
     lines = rewrite_links(text, rel, site).rstrip().split("\n")
     note = "*Source: [`%s`](%s)*" % (rel, site.file_url(rel))
     title = next((i for i in _unfenced(lines) if lines[i].startswith("# ")), -1)
