@@ -10,7 +10,7 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE3-001 | **Version** | 1.38 |
+| **Document ID** | ETB-SWE3-001 | **Version** | 1.39 |
 | **Project** | Embedded Test Bench | **Date** | 2026-10-24 |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
@@ -72,6 +72,7 @@
 | 1.36 | 2026-10-24 | Claude | #255: S2LP-DD-KEPLER - FFT2 type version 2 (Kepler TX-1140): FFT ODR, sample count and first bin at 21-26, bins from 27, 111 bytes; chosen by type version, version 1 unchanged. |
 | 1.37 | 2026-10-24 | Claude | #287: S2LP-DD-KEPLER - the layout of every frame type is chosen from `LAYOUTS` by its type version; an unknown version is decoded with the nearest known version below it, or the lowest known one, with a warning. |
 | 1.38 | 2026-10-24 | Claude | #252: S2LP-DD-TRAFFIC - `kepler_samples`: the copies of one ALIVE differ in the SI-updated bit on V11.00.0000 and V11.01.0000 only; Kepler TX-1049 (V11.02.0000) sends the same bit in every copy; the V10.00.0000 and V10.99.0000 loaders clear it as V11.00 does. |
+| 1.39 | 2026-10-24 | Claude | #294: VIEW-DD-SERVER - `ViewerServer.handle_error` logs a client that went away, over HTTP or TLS, as one warning line. |
 
 ---
 
@@ -2958,6 +2959,8 @@ hardware - refuses a second run while one it started is in progress, and runs
 acknowledged, its console to a file beside them (VIEW-FR-007, -008).
 
 **From another PC (#141).** `ViewerServer` takes `token`, `read_only` and `tls`, and refuses a non-loopback host (`is_loopback`) without a token. With a token, `_authorised` compares the presented token - `Authorization: Bearer`, else the `benchtools_view` cookie - with `hmac.compare_digest`, and refuses with 401; the Host check is then skipped, the token being the guard. `GET /?token=` with the right token (`_sign_in`) sets the cookie (HttpOnly, SameSite=Strict, Secure under TLS) and redirects to `/`. `_post_refusal` refuses, in order, a missing token, a read-only viewer, and a missing guard header or wrong Host. `tls` wraps the listening socket. `main` makes a token with `new_token` (32 random bytes) for a non-loopback `--bind`, prints the address with it, flushed, and warns when it is plain HTTP. The POST API is a table of handlers (`_POST_API`) like the GET API (VIEW-FR-025 … -027).
+
+**A client that goes away (#294).** `ViewerServer.handle_error` replaces `socketserver`'s, which prints a traceback to stderr. When the error being handled is one of `_CLIENT_WENT_AWAY` - `ConnectionAbortedError`, `ConnectionResetError` or `BrokenPipeError`, or over `--tls` `ssl.SSLEOFError` or `ssl.SSLZeroReturnError` - it logs one WARNING line with the client's address and the error: a browser tab closed while loading, or a probe that is not HTTP answered with an error it does not wait for. It is a warning because `main` sets the log level to WARNING, so an INFO line would never be printed. Any other error goes to the default handler, traceback and all (VIEW-FR-046).
 
 #### VIEW-DD-TRAFFIC — `traffic.py`
 
