@@ -4,7 +4,8 @@
     python scripts/doc_versions.py check [FILE...]
     python scripts/doc_versions.py number [FILE...]
     python scripts/doc_versions.py list
-    python scripts/doc_versions.py merge BASE OURS THEIRS
+    python scripts/doc_versions.py install-driver
+    python scripts/doc_versions.py merge BASE OURS THEIRS [MARKER_SIZE [PATH]]
 
 A controlled document's identification table does not hold its Version and
 Date. Each cell holds a link to the revision history, for example
@@ -18,20 +19,24 @@ On a feature branch a new history row is written with the version ``next``.
 row, one minor version above the row before it, and brings the version column
 of ETB-SVD-001 §5.3 up to date. ``check`` is what the test suite runs: every
 controlled document has both links, pointing at its own history, and its
-history is numbered in increasing order with any ``next`` rows last.
-``list`` prints each document's ID, version and date.
+history is numbered in increasing order with any ``next`` rows last, and
+holds no row whose version is neither. ``list`` prints each document's ID,
+version and date.
 
-``merge`` is a git merge driver for the documents (``.gitattributes``). Two
-branches that each append a row to the same history leave a conflict whose
-two sides are only table rows; the driver keeps both, numbered rows first and
-``next`` rows after them. Any other conflict is left for a person to resolve.
-It is switched on once per clone::
+``merge`` is a git merge driver for the documents (``.gitattributes``). It
+resolves a conflict only inside a revision history, and only when every line
+of it, on all three sides, is a history row: theirs' rows first, then the rows
+ours added, each change kept once with its number if either side numbered it,
+and ``next`` rows after the numbered ones. That covers two branches appending
+a row at one place, merging ``develop`` into a branch, and the back-merge
+after a release, where ``main`` numbered rows that ``develop`` holds as
+``next``. Any other conflict is left for a person, with markers. If the driver
+fails, it falls back to git's own merge of the file. It is switched on once
+per clone with ``install-driver``, which writes the ``git config`` for it;
+the command it writes also falls back to git's own merge when this script or
+its interpreter cannot run.
 
-    git config merge.etb-history.name "Embedded Test Bench revision history rows"
-    git config merge.etb-history.driver "python scripts/doc_versions.py merge %O %A %B"
-
-The rendered copies - the wiki and the home page - expand the links with
-``expand`` (``scripts/publish_docs.py``).
+The wiki expands the links with ``expand`` (``scripts/publish_docs.py``).
 
 Standard library only, Python 3.8 and later.
 
@@ -60,7 +65,7 @@ HELD_BACK = frozenset({SVD})
 
 _HISTORY_HEADING = re.compile(r"^(#+) +((?:(\d+)\. +)?Revision History) *$", re.M)
 _ROW = re.compile(r"^\| *(\d+\.\d+|%s) *\| *([^|]*?) *\|" % NEXT)
-_TABLE_ROW = re.compile(r"^\|.*\| *$")
+_SEPARATOR = re.compile(r"^\|[-:| ]+\| *$")
 _CELL = r"(\| *\*\*%s\*\* *\| *)([^|]*?)( *\|)"
 _LATEST = re.compile(r"^\[latest[^\]]*\]\((#[^)\s]+)\)$")
 _ID = re.compile(r"\| *\*\*Document ID\*\* *\| *([^|]*?) *\|")
@@ -111,18 +116,36 @@ def latest_link(text):
     return "[latest, %s](%s)" % (label, anchor(heading.group(2)))
 
 
-def history(text):
-    """The history rows as a list of (line index, version, date)."""
+def _history_lines(text):
+    """The body rows of the history table, as (line index, line).
+
+    The table's header row and separator are left out.
+    """
     heading = history_heading(text)
     if heading is None:
         return []
     lines = text.split("\n")
     start = text.count("\n", 0, heading.start()) + 1
-    rows = []
+    body = []
+    header_seen = False
     for index in range(start, len(lines)):
-        if lines[index].startswith("#"):
+        line = lines[index]
+        if line.startswith("#"):
             break
-        match = _ROW.match(lines[index])
+        if not line.startswith("|"):
+            continue
+        if not header_seen:
+            header_seen = True
+        elif not _SEPARATOR.match(line):
+            body.append((index, line))
+    return body
+
+
+def history(text):
+    """The history rows as a list of (line index, version, date)."""
+    rows = []
+    for index, line in _history_lines(text):
+        match = _ROW.match(line)
         if match:
             rows.append((index, match.group(1), match.group(2)))
     return rows
@@ -170,10 +193,14 @@ def problems(text, held_back=False):
     ``held_back`` accepts literal values in place of the links, if they are
     those of the last history row (``HELD_BACK``).
     """
-    found = []
-    heading = history_heading(text)
-    if heading is None:
+    if history_heading(text) is None:
         return ["no Revision History heading"]
+    return _cell_problems(text, held_back) + _row_problems(text)
+
+
+def _cell_problems(text, held_back):
+    """What is wrong with the identification table's Version and Date cells."""
+    found = []
     wanted = latest_link(text)
     last = current(text)
     for name, literal in (("Version", 0), ("Date", 1)):
@@ -183,7 +210,19 @@ def problems(text, held_back=False):
         elif held_back and last and match.group(2) == last[literal]:
             continue
         elif match.group(2) != wanted:
-            found.append("**%s** is %r, not %r" % (name, match.group(2), wanted))
+            hint = (" (a held-back document gives up its literal values when it is"
+                    " next revised; ETB-SUP8-001 §6.2)" if held_back else "")
+            found.append("**%s** is %r, not %r%s" % (name, match.group(2), wanted, hint))
+    return found
+
+
+def _row_problems(text):
+    """What is wrong with the revision history's rows."""
+    found = []
+    for index, line in _history_lines(text):
+        if not _ROW.match(line):
+            found.append("line %d: history row whose version is neither major.minor nor %s"
+                         % (index + 1, NEXT))
     rows = history(text)
     if not rows:
         found.append("the revision history has no rows")
@@ -263,6 +302,9 @@ def run_number(paths, root):
     for rel in paths:
         path = Path(root) / rel
         text = read_text(path)
+        if not is_controlled(text) or current(text) is None:
+            print("%s: not a controlled document with a revision history; skipped" % rel)
+            continue
         numbered = number(text)
         if numbered != text:
             write_text(path, numbered)
@@ -274,7 +316,7 @@ def run_number(paths, root):
         updated = svd_table(text, versions)
         if updated != text:
             write_text(svd, updated)
-            print("%s: §5.3 versions updated" % SVD)
+            print("%s: section 5.3 versions updated" % SVD)
     return 0
 
 
@@ -283,38 +325,75 @@ def _is_next(row):
     return match is not None and match.group(1) == NEXT
 
 
-def merge_rows(merged):
+def _change(row):
+    """A history row without its version: the change it records."""
+    return "|".join(row.rstrip("\r").split("|")[2:]).strip()
+
+
+def _merged_rows(ours, base, theirs):
+    """One history from two sides that each changed its end, as rows.
+
+    Theirs' rows come first, then the rows ours added; a change both sides
+    hold is kept once, numbered if either side numbered it. Numbered rows
+    then go before ``next`` rows, each group keeping that order.
+    """
+    rows = list(theirs) + [row for row in ours if row not in base]
+    kept = {}
+    order = []
+    for row in rows:
+        change = _change(row)
+        if change not in kept:
+            order.append(change)
+            kept[change] = row
+        elif _is_next(kept[change]) and not _is_next(row):
+            kept[change] = row
+    merged = [kept[change] for change in order]
+    return ([row for row in merged if not _is_next(row)]
+            + [row for row in merged if _is_next(row)])
+
+
+def _conflict(lines, start, marker_size):
+    """The conflict opening at ``lines[start]``: its three parts, and its end line."""
+    block = {"ours": [], "base": [], "theirs": []}
+    part = "ours"
+    end = start + 1
+    while end < len(lines) and not lines[end].startswith(">" * marker_size):
+        if lines[end].startswith("|" * marker_size):
+            part = "base"
+        elif lines[end].startswith("=" * marker_size):
+            part = "theirs"
+        else:
+            block[part].append(lines[end])
+        end += 1
+    return block, end
+
+
+def merge_rows(merged, marker_size=7):
     """Resolve the conflicts in ``git merge-file --diff3`` output that are rows.
 
-    A conflict whose common ancestor is empty and whose two sides are only
-    table rows is two rows appended at one place. It is replaced by both
-    sides' rows, numbered rows first and ``next`` rows after, each in the
-    order it had. Returns (text, number of conflicts left).
+    Only a conflict inside a revision history, every line of which - ours,
+    the common ancestor and theirs - is a history row, is resolved
+    (``_merged_rows``). Returns (text, number of conflicts left).
     """
+    start_marker = "<" * marker_size
     out = []
     left = 0
+    in_history = False
     lines = merged.split("\n")
     index = 0
     while index < len(lines):
-        if not lines[index].startswith("<<<<<<<"):
-            out.append(lines[index])
+        line = lines[index]
+        if not line.startswith(start_marker):
+            if line.startswith("#"):
+                in_history = _HISTORY_HEADING.match(line.rstrip("\r")) is not None
+            out.append(line)
             index += 1
             continue
-        block = {"ours": [], "base": [], "theirs": []}
-        part = "ours"
-        end = index + 1
-        while end < len(lines) and not lines[end].startswith(">>>>>>>"):
-            if lines[end].startswith("|||||||"):
-                part = "base"
-            elif lines[end].startswith("======="):
-                part = "theirs"
-            else:
-                block[part].append(lines[end])
-            end += 1
-        rows = block["ours"] + block["theirs"]
-        if not block["base"] and rows and all(_TABLE_ROW.match(row.rstrip("\r")) for row in rows):
-            out.extend(row for row in rows if not _is_next(row))
-            out.extend(row for row in rows if _is_next(row))
+        block, end = _conflict(lines, index, marker_size)
+        every = block["ours"] + block["base"] + block["theirs"]
+        if (in_history and end < len(lines) and block["ours"] and block["theirs"]
+                and all(_ROW.match(row) for row in every)):
+            out.extend(_merged_rows(block["ours"], block["base"], block["theirs"]))
         else:
             out.extend(lines[index:end + 1])
             left += 1
@@ -322,20 +401,59 @@ def merge_rows(merged):
     return "\n".join(out), left
 
 
-def run_merge(base, ours, theirs):
-    """The merge driver: ``git merge-file``, then the row conflicts resolved."""
-    result = subprocess.run(
-        ["git", "merge-file", "--diff3", "-p", ours, base, theirs],
+def _merge_file(files, marker_size, label, extra=()):
+    """``git merge-file`` on (base, ours, theirs), labelled with the document."""
+    base, ours, theirs = files
+    return subprocess.run(
+        ["git", "merge-file", "--marker-size=%d" % marker_size, *extra,
+         "-L", "%s (ours)" % label, "-L", "%s (base)" % label, "-L", "%s (theirs)" % label,
+         ours, base, theirs],
         stdout=subprocess.PIPE, check=False)
-    if result.returncode < 0 or result.returncode > 127:
-        return 2
-    merged = result.stdout.decode("utf-8")
-    if result.returncode == 0:
+
+
+def run_merge(base, ours, theirs, marker_size=7, label="document"):
+    """The merge driver: ``git merge-file``, then the row conflicts resolved.
+
+    ``ours`` is written only once the merge is complete. If anything fails
+    before that, git's own merge of the file is written instead, so the
+    result is never ours alone; the exit status is then 1, a conflict.
+    """
+    try:
+        result = _merge_file((base, ours, theirs), marker_size, label, ("--diff3", "-p"))
+        if result.returncode < 0 or result.returncode > 127:
+            raise RuntimeError("git merge-file failed with %d" % result.returncode)
+        merged = result.stdout.decode("utf-8")
         left = 0
-    else:
-        merged, left = merge_rows(merged)
-    Path(ours).write_bytes(merged.encode("utf-8"))
-    return 1 if left else 0
+        if result.returncode:
+            merged, left = merge_rows(merged, marker_size)
+        Path(ours).write_bytes(merged.encode("utf-8"))
+        return 1 if left else 0
+    except Exception as error:  # pylint: disable=broad-exception-caught
+        sys.stderr.write("doc_versions merge: %s; falling back to git merge-file\n" % error)
+        fallback = _merge_file((base, ours, theirs), marker_size, label)
+        return 1 if fallback.returncode >= 0 else 2
+
+
+def driver_command(python=None):
+    """The ``merge.etb-history.driver`` command for ``install-driver``.
+
+    This script exits 0 or 1 only. Any other status - no interpreter, no
+    script in an older checkout, a bad argument - means it did not run, and
+    the command then lets git merge the file as usual.
+    """
+    python = Path(python or sys.executable).as_posix()
+    return ('"%s" scripts/doc_versions.py merge %%O %%A %%B %%L "%%P"; status=$?; '
+            'if [ $status -le 1 ]; then exit $status; fi; '
+            'git merge-file --marker-size=%%L %%A %%O %%B' % python)
+
+
+def run_install(root):
+    """``install-driver``: write the merge driver's ``git config`` in this clone."""
+    for key, value in (("merge.etb-history.name", "Embedded Test Bench revision history rows"),
+                       ("merge.etb-history.driver", driver_command())):
+        subprocess.run(["git", "config", key, value], cwd=str(root), check=True)
+    print("merge.etb-history.driver = %s" % driver_command())
+    return 0
 
 
 def main(argv=None):
@@ -346,16 +464,21 @@ def main(argv=None):
         command = sub.add_parser(name)
         command.add_argument("files", nargs="*", help="documents (default: all controlled)")
     sub.add_parser("list")
+    sub.add_parser("install-driver")
     merge = sub.add_parser("merge")
     merge.add_argument("base")
     merge.add_argument("ours")
     merge.add_argument("theirs")
+    merge.add_argument("marker_size", nargs="?", type=int, default=7)
+    merge.add_argument("path", nargs="?", default="document")
     args = parser.parse_args(argv)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="replace")
 
     if args.command == "merge":
-        return run_merge(args.base, args.ours, args.theirs)
+        return run_merge(args.base, args.ours, args.theirs, args.marker_size, args.path)
+    if args.command == "install-driver":
+        return run_install(ROOT)
     paths = getattr(args, "files", None) or controlled_documents(ROOT)
     if args.command == "check":
         return run_check(paths, ROOT)
