@@ -57,7 +57,9 @@ __all__ = [
     "hook",
     "load_plugin",
     "loaded_plugins",
+    "moved_to_plugin",
     "plugin_folders",
+    "uses_legacy_kepler",
     "resolve_plugin_path",
 ]
 
@@ -75,6 +77,13 @@ LEGACY_KEPLER = os.path.join(
     "plugins", "kepler")
 
 _LOG = logging.getLogger(__name__)
+
+#: Input files that moved into the Kepler plugin (#238): the old path, still
+#: found for one release when nothing is at it, to the plugin path now.
+MOVED = {"configs/s2lp_kepler_433_rx.regs": "plugin:kepler/s2lp_kepler_433_rx.regs"}
+
+#: The deprecated actions that name Kepler (#238), kept for one release.
+LEGACY_ACTIONS = ("kepler_samples", "kepler_frame")
 
 Decoder = Callable[[bytes], Dict[str, Any]]
 
@@ -186,7 +195,7 @@ class Registry:
         """
         folder = os.path.normpath(os.path.abspath(path))
         for plugin in self.plugins.values():
-            if plugin.path == folder:
+            if os.path.normcase(plugin.path) == os.path.normcase(folder):
                 return plugin
         init = os.path.join(folder, "__init__.py")
         if not os.path.isfile(init):
@@ -261,7 +270,7 @@ class Registry:
                 except Exception as error:  # pylint: disable=broad-exception-caught
                     # A decoder that fails on a frame does not read it, for
                     # whatever reason: one bad frame must not stop a reader.
-                    reasons.append("%s: %s" % (name, error or type(error).__name__))
+                    reasons.append("%s: %s" % (name, str(error) or type(error).__name__))
         if not reasons:
             raise ValueError("no decoder is loaded")
         raise ValueError("; ".join(reasons))
@@ -354,6 +363,27 @@ def _inside(path: str, folder: str) -> bool:
 
 #: The plugins of this process.
 REGISTRY = Registry()
+
+
+def moved_to_plugin(value: str) -> Optional[str]:
+    """The ``plugin:`` path an input file that moved into a plugin is at now."""
+    return MOVED.get(value.replace("\\", "/"))
+
+
+def uses_legacy_kepler(actions: List[str], values: List[Any]) -> Optional[str]:
+    """What in a specification still names Kepler the old way, or None.
+
+    *actions* are its steps' actions, *values* its steps' argument values; a
+    deprecated action or a moved path is named so that the run can load the
+    Kepler plugin before it starts, and record it (#238).
+    """
+    for action in actions:
+        if action.rpartition(".")[2] in LEGACY_ACTIONS:
+            return action
+    for value in values:
+        if isinstance(value, str) and moved_to_plugin(value) is not None:
+            return value
+    return None
 
 
 def ensure_legacy_kepler(what: str) -> bool:

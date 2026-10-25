@@ -501,3 +501,53 @@ class TestViewerWithoutThePlugins:
         assert buffer.waveform() == [None] * 64
         buffer.method = "none"
         assert buffer.waveform()[:32] != [None] * 32
+
+
+class TestRoundTwoOfReview:
+    """Findings of the second review of #304."""
+
+    LEGACY_SPEC = {"name": "old", "tests": [{"name": "t", "steps": [
+        {"do": "s2lp.apply_configuration",
+         "with": {"source": "configs/s2lp_kepler_433_rx.regs", "reset": "defaults"}}]}]}
+
+    def test_a_legacy_kepler_run_records_the_plugin_it_falls_back_to(self, registry, tmp_path):
+        log = tmp_path / "events.jsonl"
+        handler = start_event_log(str(log))
+        try:
+            with BenchRunner.from_config(BenchConfig.simulated({"s2lp": "s2lp"}),
+                                         simulate=True) as runner:
+                record = runner.run(TestSpec.from_mapping(self.LEGACY_SPEC))
+        finally:
+            logging.getLogger("benchtools").removeHandler(handler)
+            handler.close()
+        assert [plugin["name"] for plugin in record.plugins] == ["kepler"]
+        [start] = [json.loads(line) for line in log.read_text().splitlines()
+                   if json.loads(line).get("kind") == "run_start"]
+        assert [plugin["name"] for plugin in start["data"]["plugins"]] == ["kepler"]
+        assert "kepler" in registry.plugins
+
+    def test_a_deprecated_action_is_found_in_a_specification(self):
+        assert plugins.uses_legacy_kepler(["s2lp.kepler_frame"], []) == "s2lp.kepler_frame"
+        assert plugins.uses_legacy_kepler(["s2lp.dut_frame"], ["x", 3]) is None
+
+    def test_the_moved_path_comes_from_the_kepler_plugin_loaded(self, tmp_path,
+                                                                monkeypatch):
+        own = write_plugin(tmp_path / "theirs", "NAME = 'kepler'\ndef register(plugin):\n"
+                           "    plugin.add_register_file('s2lp_kepler_433_rx.regs', 'r.regs')\n")
+        (own / "r.regs").write_text("# theirs\n", encoding="utf-8")
+        plugins.load_plugin(str(own))
+        monkeypatch.chdir(tmp_path)
+        assert resolve_input_path("configs/s2lp_kepler_433_rx.regs", str(tmp_path)) == \
+            os.path.normpath(str(own / "r.regs"))
+
+    def test_a_folder_named_in_another_case_is_the_same_plugin(self):
+        if os.name != "nt":
+            pytest.skip("case-insensitive paths are Windows'")
+        assert plugins.load_plugin(str(SYNTHETIC).upper()) is plugins.load_plugin(str(SYNTHETIC))
+
+    def test_a_decoder_raising_an_empty_exception_is_named_by_its_type(self, tmp_path):
+        folder = write_plugin(tmp_path / "quiet", "def bad(payload):\n    raise KeyError()\n"
+                              "def register(plugin):\n    plugin.add_decoder('quiet', bad)\n")
+        plugins.load_plugin(str(folder))
+        with pytest.raises(ValueError, match="quiet: KeyError"):
+            plugins.decode(b"\x00")

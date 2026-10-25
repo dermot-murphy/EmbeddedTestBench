@@ -118,6 +118,17 @@ BUILTIN_ACTIONS: Dict[str, Callable[..., Any]] = {
 }
 
 
+def _names_and_values(spec: TestSpec) -> Tuple[List[str], List[Any]]:
+    """Every step's action, and every argument value, of *spec*."""
+    steps = list(spec.setup) + list(spec.teardown) + [
+        step for case in spec.tests for step in case.steps]
+    values: List[Any] = []
+    for step in steps:
+        values.extend(step.arguments.values() if isinstance(step.arguments, dict)
+                      else step.arguments or ())
+    return [step.action for step in steps], values
+
+
 def _now() -> str:
     return datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
 
@@ -528,6 +539,9 @@ class BenchRunner:
         """
         for folder in list(self.bench.config.plugins) + list(spec.plugins):
             plugins.load_plugin(folder)
+        legacy = plugins.uses_legacy_kepler(*_names_and_values(spec))
+        if legacy is not None:
+            plugins.ensure_legacy_kepler(legacy)    # before run_start, so it is recorded
         run = RunRecord(
             suite=spec.name,
             bench=self.bench.config.name,
