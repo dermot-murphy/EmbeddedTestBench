@@ -10,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-ACQ4-001 | **Version** | 0.8 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-24 |
+| **Document ID** | ETB-ACQ4-001 | **Version** | [latest, §2](#2-revision-history) |
+| **Project** | Embedded Test Bench | **Date** | [latest, §2](#2-revision-history) |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | ACQ.4 |
@@ -32,6 +32,7 @@
 | 0.6 | 2026-10-05 | Claude | #228: §6 - Dependabot changes a Python requirement only when its range excludes a new release; #219, #223 and #224 declined because they raised floors the supported Pythons cannot install. |
 | 0.7 | 2026-10-06 | Claude | #229: CStyleCheck moved to v1.6.1, which fixes CStyleCheck#439. §4.3 and §7 updated: baseline line numbers moved for 27 findings, one Pico finding excluded (CStyleCheck#447). |
 | 0.8 | 2026-10-24 | Claude | #284: §6 - Dependabot no longer proposes pip updates; new library releases reach CI through the weekly `constraints_refresh.yml`, which regenerates `constraints/` and offers the result on a branch. #248 and #250 declined for the same reason as #219, #223 and #224. |
+| next | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
 
 ---
 

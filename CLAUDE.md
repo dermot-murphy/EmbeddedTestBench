@@ -34,6 +34,25 @@ asked to work on.
 7. Close the ticket once CI is green — or, if no workflow applies to the change,
    say so explicitly rather than implying checks passed.
 
+## Document versions
+
+A controlled document's version and date are those of the last row of its
+revision history (`ETB-SUP8-001 §6.2`, #210). On a branch:
+
+- append the new revision row with the version `next`, for example
+  `| next | 2026-10-25 | Claude | #210: ... |`;
+- never edit the Version or Date cell of the identification table: each is a
+  link to the revision history.
+
+The release or hotfix branch numbers the `next` rows with
+`python scripts/doc_versions.py number`. Switch on the merge driver for the
+history rows once per clone:
+
+```sh
+git config merge.etb-history.name "Embedded Test Bench revision history rows"
+git config merge.etb-history.driver "python scripts/doc_versions.py merge %O %A %B"
+```
+
 ## A pull request targets `develop`
 
 **Never open a pull request into any branch other than `develop` unless
@@ -98,8 +117,10 @@ A release is made only when the repository owner says so.
    written `0.01.0000`, and the tag always has a lowercase `v` (#188). Set it in
    `pyproject.toml` and `benchtools/__init__.py`. The built wheel reports the
    PEP 440 form (`0.1.0` for `0.01.0000`); that is expected.
-2. On that branch: the version bump, the Software Version Description
-   (ETB-SVD-001) and other release documents, and fixes only. No new features.
+2. On that branch: the version bump, `python scripts/doc_versions.py number`
+   (see [Document versions](#document-versions)), the Software Version
+   Description (ETB-SVD-001) and other release documents, and fixes only. No
+   new features.
 3. Open a pull request into `main`. Merge it with a merge commit once CI is green,
    on the owner's instruction (see [Review, approval and merging](#review-approval-and-merging)).
 4. Create the annotated tag `v<version>` on that merge commit in `main`.

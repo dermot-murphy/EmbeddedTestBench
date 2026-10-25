@@ -10,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE3-001 | **Version** | 1.40 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-25 |
+| **Document ID** | ETB-SWE3-001 | **Version** | [latest, §2](#2-revision-history) |
+| **Project** | Embedded Test Bench | **Date** | [latest, §2](#2-revision-history) |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.3 |
@@ -74,6 +74,7 @@
 | 1.38 | 2026-10-24 | Claude | #252: S2LP-DD-TRAFFIC - `kepler_samples`: the copies of one ALIVE differ in the SI-updated bit on V11.00.0000 and V11.01.0000 only; Kepler TX-1049 (V11.02.0000) sends the same bit in every copy; the V10.00.0000 and V10.99.0000 loaders clear it as V11.00 does. |
 | 1.39 | 2026-10-24 | Claude | #294: VIEW-DD-SERVER - `ViewerServer.handle_error` logs a client that went away, over HTTP or TLS, as one warning line. |
 | 1.40 | 2026-10-25 | Claude | #293: S2LP-DD-SESSION - `commands_sent`; S2LP-DD-TRAFFIC - `_set_aside`, `_put_aside`, `_take_set_aside` (valid while the session's `commands_sent` is unchanged since the stop) and `kepler_frame(since_last=...)`, with the gap between two calls measured on the bench kit (26 to 27 ms); CORE-DD-MOCK - a `keep_buffer` write keeps the simulator's undelivered output. |
+| next | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
 
 ---
 

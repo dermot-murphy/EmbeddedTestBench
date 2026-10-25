@@ -10,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE1-001 | **Version** | 1.34 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-25 |
+| **Document ID** | ETB-SWE1-001 | **Version** | [latest, §2](#2-revision-history) |
+| **Project** | Embedded Test Bench | **Date** | [latest, §2](#2-revision-history) |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.1 |
@@ -68,6 +68,7 @@
 | 1.32 | 2026-10-23 | Claude | #275: BLE-FR-121 - a bootloader link that fails to establish is tried again, as a UART link is. |
 | 1.33 | 2026-10-24 | Claude | #294: VIEW-FR-046 - a client that disconnects mid-request, over HTTP or TLS, is logged as one warning line, not a traceback. |
 | 1.34 | 2026-10-25 | Claude | #293: S2LP-FR-085 - frames reported while a receive stops are set aside, and `kepler_frame(since_last=True)` takes them while no command has gone to the board since. |
+| next | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
 
 ---
 

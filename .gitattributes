@@ -1,2 +1,8 @@
 # The script runs in a Linux container, whatever the checkout's line endings (#282).
 docker/ci/etb-ci text eol=lf
+
+# Revision history rows that two branches append at the same place are both
+# kept, numbered rows first (scripts/doc_versions.py, #210). The driver is
+# switched on per clone with git config (ETB-SUP8-001 §6.2); without it git
+# merges these files as usual.
+docs/**/*.md merge=etb-history
