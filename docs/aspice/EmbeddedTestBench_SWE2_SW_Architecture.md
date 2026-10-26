@@ -41,6 +41,7 @@
 | 0.15 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | 0.16 | 2026-10-05 | Claude | #60: AD-23 covers BLE-FR-119 - timeouts by command prefix, and the timeout each result reports. |
 | next | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
+| next | 2026-10-25 | Claude | #238: AD-29: device-specific code is a plugin, loaded by path, not part of the package. |
 
 ---
 
@@ -724,6 +725,38 @@ logger; a new driver gets this from `Instrument`. Names are upper case: a log
 written before #126 is lower case, and the monitor reads both. A specification
 that uses `probe` and `rtt` together must name one of them, which the shipped
 benches do (`event: RTT`).
+
+### AD-29 — Device-specific code is a plugin, loaded by path
+
+**Context.** The bench decoded Kepler's radio frames, held Kepler's S2-LP
+register file and showed a Kepler viewer panel, all inside `benchtools`. The
+owner decided that Kepler content belongs in the Kepler repository and is loaded
+from there, so the bench carries no product code of its own (#238).
+
+**Decision.** A device plugin is a folder holding a Python package with a
+`register(plugin)` function, loaded by path (`benchtools.core.plugins`). It
+provides decoders, register files, viewer panels, field names and named hooks.
+A bench file or specification lists the folders it needs (`plugins:`), and the
+command lines take `--plugin`. Actions take a decoder by name. Every report
+records each plugin's folder and git commit.
+
+**Alternatives.** Python entry points would need the product's code installed
+as a package in the bench's environment, and would record a package version
+rather than the commit the results were read with. Keeping the code in
+`benchtools` behind a registry would leave product code in the bench.
+
+**Consequences.** Kepler's code is in `plugins/kepler` until it is hosted in
+innovateuk-sensor and #240 removes it. The simulated Kepler sensor stays in
+`benchtools/simulated` until #119 and #240. The viewer's device analyses
+(sensor series, TWF, diagnostics, the report's sections) still read Kepler's
+fields, through a hook where they need its tables; making them plugin-provided
+is a follow-up (#303). A plugin runs with the bench's permissions, so only a
+folder the operator names is loaded: the viewer does not load the plugins named
+in a log it follows, and says which they are. For one release, a specification
+written before #238 (`kepler_samples`, `kepler_frame`, the old register file
+path, no `plugins:`) loads the checkout's Kepler plugin with a deprecation
+warning, so the Kepler repository's specifications keep running until they
+name the plugin; #240 removes the fallback with the plugin.
 
 ## 8. Dynamic behaviour — a runner invocation
 

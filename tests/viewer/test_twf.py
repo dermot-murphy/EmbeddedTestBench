@@ -11,10 +11,10 @@ import struct
 
 import pytest
 
-from benchtools.instruments.s2lp.kepler import decode_kepler_frame
-from benchtools.instruments.s2lp.kepler_tables import twf_sample
 from benchtools.viewer import twf as twf_module
 from benchtools.viewer.twf import TwfAssembler, fill_gaps, spectrum
+
+from ..kepler_plugin import decode_kepler_frame, tables
 
 _PERMUTE = {"distance": 0x00, "none": 0x08, "polynomial": 0x10}
 _PARAM_PERMUTE = {"distance": 0, "none": 1, "polynomial": 2}
@@ -38,7 +38,7 @@ def _frame(samples, method, where, layout):
     frame[17:19] = struct.pack(">H", packet)
     frame[19:21] = struct.pack(">H", len(samples) // 32)
     for slot in range(32):
-        value = samples[twf_sample(method, packet, slot, len(samples), repeat)]
+        value = samples[tables.twf_sample(method, packet, slot, len(samples), repeat)]
         frame[29 + 2 * slot:31 + 2 * slot] = struct.pack(">h", value)
     return bytes(frame)
 

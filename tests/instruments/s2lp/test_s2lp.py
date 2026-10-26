@@ -18,10 +18,10 @@ from benchtools.instruments.s2lp import (
     registers as reg,
 )
 from benchtools.instruments.s2lp.constants import AFTER_SHUTDOWN_EXIT
-from benchtools.instruments.s2lp.kepler import decode_kepler_frame
 from benchtools.instruments.s2lp.packets import REPORT_ALL_TAGS, BoardClock
 from benchtools.instruments.s2lp.packets import rssi_dbm_from_register, rssi_register_from_dbm
 
+from ...kepler_plugin import decode_kepler_frame
 from .conftest import PAYLOAD
 
 
@@ -498,7 +498,7 @@ class TestReceive:
         else:
             assert linked.receive(timeout=0.2) is None
         linked.apply_configuration(
-            "configs/s2lp_kepler_433_rx.regs", reset="defaults", verify=True)
+            "plugins/kepler/configs/s2lp_kepler_433_rx.regs", reset="defaults", verify=True)
         loopback.queue_packet(PAYLOAD)
         assert linked.receive(length=len(PAYLOAD)).data == PAYLOAD
         assert loopback.command_log.count("S2LPTimerSetRxTimeoutUs 0") == (

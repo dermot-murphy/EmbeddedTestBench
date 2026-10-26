@@ -21,8 +21,9 @@ The API:
 ``GET /api/graphs``       readings, BLE advertising and step markers;
                           ``?ble=&expected_ms=`` (#140)
 ``GET /api/status``       the status bar: run, progress, time left, instruments
-``GET /api/kepler``       rf_monitor's Latest Data, Config, Identification;
-                          ``?sensor=`` (#152)
+``GET /api/plugins``      the device plugins loaded and missing, scripts (#238)
+``GET /api/panel``        a plugin's panel, e.g. Kepler's; ``?name=&sensor=``
+``GET /plugin/<p>/<f>``   a static file of plugin *p*'s panels (#238)
 ``GET /api/sensor``       rf_monitor's Environment, Short Interval, Ticks;
                           ``?sensor=&axis=`` (#153)
 ``GET /api/twf``          rf_monitor's TWF: waveform and spectrum;
@@ -55,7 +56,7 @@ browser first asking this server, which never agrees, so another site open in
 the same browser cannot start or abort a run. The ``Host`` header must name
 this machine, which stops a DNS-rebinding page reaching the API by name.
 
-Traces to: VIEW-FR-001 .. VIEW-FR-045, VIEW-DD-SERVER.
+Traces to: VIEW-FR-001 .. VIEW-FR-045, VIEW-FR-047, VIEW-DD-SERVER.
 """
 
 from __future__ import annotations
@@ -82,13 +83,14 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 from urllib.parse import parse_qs, urlsplit
 
 from .. import __version__
+from ..core import plugins
 from ..core.errors import BenchToolsError
 from ..core.events import EventTail
 from ..runner.control import HOST
 from ..runner.spec import load_spec
 from .graphs import Readings, advertising, step_markers
 from .diagnostics import Diagnostics, SyncTracker
-from .kepler_view import KeplerView
+from .plugin_panels import dut_panels, missing_plugins, plugin_file, plugins_view, run_plugins
 from .radio import BleAir, RfFrames
 from .report import NotesStore, build_report
 from .sensor_series import SensorSeries
@@ -141,7 +143,9 @@ class Hub:  # pylint: disable=too-many-instance-attributes
         self.readings = Readings()
         self.tagger = Tagger()
         self.links = InstrumentStatus()
-        self.kepler = KeplerView()
+        self.dut_panels = dut_panels()
+        #: Plugins the followed run used that this viewer has not loaded.
+        self.missing_plugins: List[Dict[str, Any]] = []
         self.sensor_series = SensorSeries()
         self.twf = TwfAssembler()
         self.diagnostics = Diagnostics()
@@ -177,7 +181,8 @@ class Hub:  # pylint: disable=too-many-instance-attributes
             self.readings = Readings()
             self.tagger = Tagger()
             self.links = InstrumentStatus()
-            self.kepler = KeplerView()
+            self.dut_panels = dut_panels()
+            self.missing_plugins = []
             self.sensor_series = SensorSeries()
             self.twf = TwfAssembler()
             self.diagnostics = Diagnostics()
@@ -221,11 +226,13 @@ class Hub:  # pylint: disable=too-many-instance-attributes
         if record.get("kind") == "run_start":
             self.traffic.clear()
             self.panels = {}
+            self.missing_plugins = missing_plugins(record)
         self.state.apply(record)
         self.rf.last_frame = None
         self.rf.feed(record)
         if self.rf.last_frame is not None:
-            self.kepler.feed(self.rf.last_frame)
+            for panel in self.dut_panels.values():
+                panel.feed(self.rf.last_frame)
             self.sensor_series.feed(self.rf.last_frame)
             self.twf.feed(self.rf.last_frame)
             self.diagnostics.feed(self.rf.last_frame)
@@ -282,10 +289,21 @@ class Hub:  # pylint: disable=too-many-instance-attributes
                     "progress": progress(state), "instruments": self.links.view(now),
                     "now": now}
 
-    def kepler_screens(self, sensor: str = "") -> Dict[str, Any]:
-        """rf_monitor's Latest Data, Config and Identification (#152)."""
+    def panel_view(self, name: str, sensor: str = "") -> Dict[str, Any]:
+        """A plugin's panel for *sensor*, e.g. Kepler's Latest Data, Config and
+        Identification (#152); empty if no plugin loaded provides it (#238)."""
         with self._condition:
-            return self.kepler.view(sensor)
+            panel = self.dut_panels.get(name)
+            return panel.view(sensor) if panel is not None else {}
+
+    def plugins(self) -> Dict[str, Any]:
+        """The plugins loaded, and those the followed run used that are not.
+
+        A panel of a plugin loaded since is started, keeping those running."""
+        with self._condition:
+            for name, panel in dut_panels().items():
+                self.dut_panels.setdefault(name, panel)
+            return {"plugins": plugins_view(), "missing": list(self.missing_plugins)}
 
     def sensor_graphs(self, sensor: str = "", axis: str = "Z") -> Dict[str, Any]:
         """rf_monitor's Environment, Short Interval and Ticks (#153)."""
@@ -454,7 +472,8 @@ class Launcher:
                 command, stdout=console, stderr=subprocess.STDOUT,
                 stdin=subprocess.DEVNULL)
         _LOG.info("started %s", " ".join(command))
-        return {"ok": True, "event_log": base + ".events.jsonl", "pid": self.process.pid}
+        return {"ok": True, "event_log": base + ".events.jsonl", "pid": self.process.pid,
+                "plugins": run_plugins(spec["path"], None if simulate else bench)}
 
 
 #: The read-only API: path to the handler method serving it.
@@ -466,7 +485,8 @@ _GET_API = {
     "/api/graphs": "_get_graphs",
     "/api/catalogue": "_get_catalogue",
     "/api/status": "_get_status",
-    "/api/kepler": "_get_kepler",
+    "/api/plugins": "_get_plugins",
+    "/api/panel": "_get_panel",
     "/api/sensor": "_get_sensor",
     "/api/twf": "_get_twf",
     "/api/diagnostics": "_get_diagnostics",
@@ -577,6 +597,8 @@ class _Handler(BaseHTTPRequestHandler):
             self._static("index.html")
         elif path.startswith("/static/"):
             self._static(path[len("/static/"):])
+        elif path.startswith("/plugin/"):
+            self._plugin_static(path[len("/plugin/"):])
         elif path in _GET_API:
             try:
                 getattr(self, _GET_API[path])()
@@ -616,8 +638,12 @@ class _Handler(BaseHTTPRequestHandler):
                     "benches": self.server.catalogue.benches(),
                     "running": self.server.launcher.running})
 
-    def _get_kepler(self) -> None:
-        self._json(self.server.hub.kepler_screens((self._query("sensor") or "").upper()))
+    def _get_plugins(self) -> None:
+        self._json(self.server.hub.plugins())
+
+    def _get_panel(self) -> None:
+        self._json(self.server.hub.panel_view(self._query("name") or "",
+                                              (self._query("sensor") or "").upper()))
 
     def _get_sensor(self) -> None:
         self._json(self.server.hub.sensor_graphs((self._query("sensor") or "").upper(),
@@ -675,6 +701,15 @@ class _Handler(BaseHTTPRequestHandler):
     def _static(self, name: str) -> None:
         target = (STATIC / name).resolve()
         if STATIC not in target.parents or not target.is_file():
+            self._json({"ok": False, "error": "not found"}, HTTPStatus.NOT_FOUND)
+            return
+        self._send(HTTPStatus.OK, target.read_bytes(),
+                   _CONTENT_TYPES.get(target.suffix, "application/octet-stream"))
+
+    def _plugin_static(self, rest: str) -> None:
+        """A file from the static folder of one of a plugin's panels."""
+        target = plugin_file(rest)
+        if target is None:
             self._json({"ok": False, "error": "not found"}, HTTPStatus.NOT_FOUND)
             return
         self._send(HTTPStatus.OK, target.read_bytes(),
@@ -747,6 +782,12 @@ class _Handler(BaseHTTPRequestHandler):
             reply = self.server.launcher.start(body)
         except OSError as exc:
             raise ValueError(str(exc)) from exc
+        for folder in reply.get("plugins", ()):
+            try:
+                plugins.load_plugin(folder)
+            except BenchToolsError as exc:
+                _LOG.warning("plugin %s not loaded in the viewer: %s", folder, exc)
+        self.server.hub.plugins()                # starts the new plugins' panels
         self.server.hub.follow(reply["event_log"])
         self._json(reply)
 
@@ -895,6 +936,10 @@ def build_parser() -> argparse.ArgumentParser:
                         help="where to offer test specifications from (default: specs)")
     parser.add_argument("--benches", action="append", metavar="DIR",
                         help="where to offer benches from (default: benches)")
+    parser.add_argument("--plugin", action="append", default=[], metavar="PATH",
+                        help="load the device plugin in this folder, for its decoder and "
+                             "panels; repeatable. A run started from the page loads its "
+                             "specification's and bench's plugins as well")
     parser.add_argument("--runs", default="runs", metavar="DIR",
                         help="where a run started from the page writes its event log and "
                              "reports (default: %(default)s)")
@@ -907,6 +952,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     args = build_parser().parse_args(argv)
     logging.basicConfig(level=logging.WARNING, format="%(levelname)-8s %(name)s: %(message)s")
     catalogue = Catalogue(args.specs or ["specs"], args.benches or ["benches"])
+    try:
+        for folder in args.plugin:
+            plugins.load_plugin(folder)
+    except BenchToolsError as exc:
+        print("error: %s" % exc, file=sys.stderr)
+        return 2
     hub = Hub().start()
     if args.event_log:
         hub.follow(args.event_log, args.control)

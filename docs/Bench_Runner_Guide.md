@@ -573,7 +573,7 @@ result can always be read against the limits that produced it.
 
 ### 3.8 Repeated readings
 
-`dongle.sample_command`, `probe.rtt_samples` and `s2lp.kepler_samples` each take
+`dongle.sample_command`, `probe.rtt_samples` and `s2lp.dut_samples` each take
 N readings of one quantity - a reply, a log line, a decoded frame field - and
 return them with their statistics. A limit then applies to the set:
 
@@ -961,6 +961,60 @@ One JSON request per line, one JSON reply per line:
   (`control`, `control_applied`), so the evidence shows the intervention.
 
 ---
+
+### 6.6 Device plugins: the device's own decoders and files
+
+The bench carries no product code (#238). What belongs to one device - how its
+radio frames decode, the S2-LP register file that receives them, its viewer
+panel - comes from a **plugin**: a folder holding a Python package, usually a
+checkout of the product's repository. Kepler's is `plugins/kepler` until it
+moves to innovateuk-sensor.
+
+A specification names the plugins its steps need, and a bench file can name
+more, each as a folder relative to the file:
+
+```yaml
+plugins:
+  - ../plugins/kepler
+```
+
+`benchtools run --plugin PATH` adds one from the command line, and so do
+`benchtools s2lp --plugin` and `benchtools view --plugin`. All of them are
+loaded before the run starts; one that cannot be loaded stops the run before
+anything is energised.
+
+A step names a plugin's decoder, and a plugin's file by `plugin:<name>/<file>`:
+
+```yaml
+setup:
+  - do: s2lp.apply_configuration
+    with: {source: plugin:kepler/s2lp_kepler_433_rx.regs, reset: defaults}
+tests:
+  - name: VERSION frame
+    steps:
+      - do: s2lp.dut_frame
+        with: {decoder: kepler, frame_type: VERSION, source: "5C1712"}
+```
+
+`decoder` can be left out when exactly one plugin decoder is loaded.
+`s2lp.dut_samples` takes a field from N transmissions the same way, and
+`s2lp.check_preamble` takes `decoder` too. `s2lp.kepler_samples` and
+`s2lp.kepler_frame` still work, for one release, as the same actions with
+`decoder: kepler`. A specification written before #238 that names no plugin
+still runs for that release: the deprecated names, and Kepler's old register
+file path `configs/s2lp_kepler_433_rx.regs`, load the Kepler plugin from the
+EmbeddedTestBench checkout with a warning saying what to write instead.
+
+`plugins/kepler` is in the checkout, not in the installed package: run from a
+clone of EmbeddedTestBench (as the Kepler repository does, from a release tag),
+or name a plugin folder of your own.
+
+Every report names each plugin loaded, its folder and the git commit it was at
+(marked if the folder had uncommitted changes), so a result can be traced to the
+product code that read it. A plugin is code: the runner and the viewer load only
+the folders a specification, a bench file or the command line names. The viewer
+does not load the plugins a log it follows names; it lists them as missing, and
+`benchtools view --plugin PATH` shows that run's frames decoded.
 
 ## 7. Failure versus error — read this before interpreting a report
 

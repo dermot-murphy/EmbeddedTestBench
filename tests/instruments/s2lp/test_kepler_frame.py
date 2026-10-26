@@ -8,9 +8,9 @@ from __future__ import annotations
 import pytest
 
 from benchtools.core.errors import MeasurementError
-from benchtools.instruments.s2lp.kepler import decode_kepler_frame
 from benchtools.instruments.s2lp.packets import Packet
 
+from ...kepler_plugin import decode_kepler_frame
 from .test_kepler import ALIVE_REPEATS, VERSION_FRAME
 
 VERSION = bytes.fromhex(VERSION_FRAME)

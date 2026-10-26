@@ -7,13 +7,16 @@ from __future__ import annotations
 
 import struct
 
-from benchtools.instruments.s2lp.kepler import decode_kepler_frame
-from benchtools.viewer.kepler_view import (
-    CONFIG_GROUPS, KeplerView, byte_roles, header_rows, payload_rows,
-)
 from benchtools.viewer.radio import RfFrames
 
 from . import radio_log
+from ..kepler_plugin import decode_kepler_frame, tables, view as kepler_view
+
+CONFIG_GROUPS = kepler_view.CONFIG_GROUPS
+KeplerView = kepler_view.KeplerView
+byte_roles = kepler_view.byte_roles
+header_rows = kepler_view.header_rows
+payload_rows = kepler_view.payload_rows
 
 
 def _config(mux, values, method_byte=0x08, counter=0x13):
@@ -93,7 +96,7 @@ class TestConfig:
     def test_a_polynomial_frame_is_placed_by_its_repeat(self):
         # Under the polynomial a slot's parameter depends on the repeat; the
         # value lands where the firmware's mapping says, not at mux*5 + slot.
-        from benchtools.instruments.s2lp.kepler_tables import config_parameter
+        config_parameter = tables.config_parameter
         view = _view(_config(0, [11, 22, 33, 44, 55], method_byte=0x10, counter=0x23))
         table = view.view()["config"]
         for slot, value in enumerate([11, 22, 33, 44, 55]):

@@ -489,7 +489,7 @@ The kit on the bench:
 |---|---|---|---|
 | `Open Radio` | `resource`, `board=STEVAL-FKI433V2`, `setup=None` | `S2lpDevkit.connect(board=...)`; applies the register file *setup* when given. Changes no radio setting otherwise | Identity dictionary |
 | `Close Radio` | — | `close()` | — |
-| `Configure For Kepler` | `setup=configs/s2lp_kepler_433_rx.regs` | `apply_configuration(setup, reset="defaults")`, then verifies it | Check dictionary. **Fails** on any register that did not take |
+| `Configure For Kepler` | `setup=plugin:kepler/s2lp_kepler_433_rx.regs` | `apply_configuration(setup, reset="defaults")`, then verifies it | Check dictionary. **Fails** on any register that did not take |
 | `Configure Radio` | `frequency_hz`, `data_rate_bps`, `modulation`, `deviation_hz`, `bandwidth_hz` | `configure_radio()` | What the radio reads back. **Fails** outside the named board's band |
 | `Configure Packets` | `preamble`, `sync_word`, `variable_length`, `crc`, `address` | `configure_packets()`. Also moves the TX source off the power-on PN9 pattern | Packet settings as read back |
 | `Write Radio Register` / `Read Radio Register` | `name`, `value` | `write_register()` / `read_register()` | The value read. **Fails** on a read-only register |

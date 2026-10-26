@@ -71,6 +71,7 @@
 | 1.35 | 2026-10-25 | Claude | #293: SWE4-UT-TRANSPORT 29 → 31 and SWE4-UT-S2LPFRAME 3 → 10, pass, from runs of `core/transport/test_base.py` (31 passed) and `instruments/s2lp/test_kepler_frame.py` (10 passed) on this branch on 2026-10-25. The §5 total is still the 1.32 whole-suite run's; the whole suite passed at 0960059 on this branch (3 382). The bench run for #293 is in `docs/aspice/qualification/2026-10-25/`. |
 | next | 2026-10-25 | Claude | #210: §5 row for SWE4-UT-DOCVER (27), and SWE4-UT-PUBLISH 43 → 45, pass, from runs of `test_doc_versions.py` (27 passed) and `test_publish_docs.py` (45 passed) on this branch on 2026-10-25. The §5 total is still the 1.32 whole-suite run's. |
 | next | 2026-10-25 | Claude | #210, review of #301: SWE4-UT-DOCVER 27 → 61, pass, from a run of `test_doc_versions.py` on this branch on 2026-10-25 (61 passed). The §5 total is still the 1.32 whole-suite run's. |
+| next | 2026-10-25 | Claude | #238: §5 row for SWE4-UT-PLUGINS (61), pass, from a run of `core/test_plugins.py` on this branch on 2026-10-25 (61 passed, Windows). The §5 total is still the 1.32 whole-suite run's. |
 
 ---
 
@@ -221,6 +222,7 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-CONSTRAINTS | `test_constraints.py` | 10 | Pass |
 | SWE4-UT-LINT | `test_lint_script.py` | 3 | Pass |
 | SWE4-UT-PUBLISH | `test_publish_docs.py` | 45 | Pass |
+| SWE4-UT-PLUGINS | `core/test_plugins.py` | 61 | Pass (on Linux CI 60 and 1 skipped: the case-insensitive folder test is Windows-only) |
 | SWE4-UT-DOCVER | `test_doc_versions.py` | 61 | Pass |
 | SWE4-UT-TRACE | `test_traceability.py` | 30 | Pass |
 | SWE4-UT-SCPI | `core/test_scpi.py` | 28 | Pass |

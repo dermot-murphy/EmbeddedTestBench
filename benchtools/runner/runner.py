@@ -17,7 +17,7 @@ useful if they mean something:
 
 Conflating them turns a broken rig into a pile of apparent product defects.
 
-Traces to: RUN-FR-008, RUN-FR-010 .. RUN-FR-037, RUN-ARC-001, RUN-DD-RUNNER.
+Traces to: RUN-FR-008, RUN-FR-010 .. RUN-FR-037, CORE-FR-070, RUN-ARC-001, RUN-DD-RUNNER.
 """
 
 from __future__ import annotations
@@ -29,9 +29,10 @@ import os
 import time
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
+from ..core import plugins
 from ..core.errors import BenchToolsError, SpecError
 from ..core.events import log_event
-from ..core.paths import input_path_names, resolve_arguments
+from ..core.paths import input_path_names, resolve_arguments, search_locations
 from .bench import Bench, BenchConfig
 from .limits import Limit, TextLimit
 from .control import ABORT, READ_SETUP, Command, RunControl
@@ -115,6 +116,22 @@ def _action_sleep(seconds: float = 0.1) -> float:
 BUILTIN_ACTIONS: Dict[str, Callable[..., Any]] = {
     "sleep": _action_sleep,
 }
+
+
+def _names_and_values(spec: TestSpec, finds: Callable[[str, Optional[str]], bool]
+                      ) -> Tuple[List[str], List[Any]]:
+    """Every step's action, and every argument value of *spec* that is not a
+    file *finds* locates, so that a moved path still present is not legacy."""
+    steps = list(spec.setup) + list(spec.teardown) + [
+        step for case in spec.tests for step in case.steps]
+    values: List[Any] = []
+    for step in steps:
+        values.extend(step.arguments.values() if isinstance(step.arguments, dict)
+                      else step.arguments or ())
+    directory = os.path.dirname(os.path.abspath(spec.source)) if spec.source else None
+    values = [value for value in values
+              if not (isinstance(value, str) and finds(value, directory))]
+    return [step.action for step in steps], values
 
 
 def _now() -> str:
@@ -507,6 +524,12 @@ class BenchRunner:
             } for index, case in enumerate(spec.tests)],
         }
 
+    @staticmethod
+    def _finds(value: str, directory: Optional[str]) -> bool:
+        """Whether a relative input path *value* names a file that exists."""
+        return not os.path.isabs(value) and any(
+            os.path.exists(candidate) for candidate in search_locations(value, directory))
+
     def run(self, spec: TestSpec, selection: Sequence[str] = ()) -> RunRecord:
         """Run a whole specification and return its result record.
 
@@ -519,7 +542,17 @@ class BenchRunner:
 
         The run's start and end go to the event log as ``run_start``, carrying
         the whole plan, and ``run_end``, carrying the verdict (#135).
+
+        The device plugins the bench and the specification name are loaded
+        first, and every plugin loaded is recorded with its git ref (#238).
+
+        :raises ConfigurationError: if a plugin cannot be loaded.
         """
+        for folder in list(self.bench.config.plugins) + list(spec.plugins):
+            plugins.load_plugin(folder)
+        legacy = plugins.uses_legacy_kepler(*_names_and_values(spec, self._finds))
+        if legacy is not None:
+            plugins.ensure_legacy_kepler(legacy)    # before run_start, so it is recorded
         run = RunRecord(
             suite=spec.name,
             bench=self.bench.config.name,
@@ -529,6 +562,7 @@ class BenchRunner:
             simulated=self.bench.is_simulated,
             started=_now(),
             selection=tuple(selection),
+            plugins=plugins.loaded_plugins(),
         )
         started = time.monotonic()
         self._saved = {}
@@ -536,7 +570,7 @@ class BenchRunner:
             os.path.dirname(os.path.abspath(spec.source)) if spec.source else None
         )
         plan = self._plan(spec, selection)
-        plan.update(bench=run.bench, simulated=run.simulated)
+        plan.update(bench=run.bench, simulated=run.simulated, plugins=run.plugins)
         log_event(_LOG, "run_start", "running %r" % spec.name, plan)
         try:
             self._run_body(spec, selection, run, started)

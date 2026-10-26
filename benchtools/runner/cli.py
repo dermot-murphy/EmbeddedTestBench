@@ -9,17 +9,19 @@ Exit status is ``0`` when everything passed, ``1`` when a test failed or a step
 could not be executed, and ``2`` for a usage or specification error. That makes
 it usable directly as a CI step.
 
-Traces to: RUN-FR-050 .. RUN-FR-053, RUN-DD-CLI.
+Traces to: RUN-FR-050 .. RUN-FR-053, CORE-FR-069, RUN-DD-CLI.
 """
 
 from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
 from typing import List, Optional, Sequence
 
 from .. import __version__
+from ..core import plugins
 from ..core.errors import BenchToolsError
 from ..core.events import start_event_log
 from .bench import BenchConfig, load_bench, registered_drivers
@@ -56,6 +58,9 @@ def build_parser() -> argparse.ArgumentParser:
                         choices=registered_drivers(),
                         help="driver for simulated instruments whose alias the specification "
                              "does not declare (default: %(default)s)")
+    parser.add_argument("--plugin", action="append", default=[], metavar="PATH",
+                        help="load the device plugin in this folder, as well as those the "
+                             "bench file and the specifications name; repeatable")
     parser.add_argument("--json", metavar="PATH", help="write the full result record as JSON")
     parser.add_argument("--markdown", metavar="PATH", help="write a markdown report")
     parser.add_argument("--event-log", metavar="PATH",
@@ -149,6 +154,15 @@ def _load_bench_config(args: argparse.Namespace, aliases) -> BenchConfig:
     return BenchConfig.simulated(aliases, driver=args.simulate_driver)
 
 
+def _plugin_folders(args: argparse.Namespace, config: BenchConfig, specs) -> List[str]:
+    """Every plugin folder the run loads: --plugin, the bench's, the specifications'."""
+    folders = [os.path.abspath(folder) for folder in args.plugin]
+    folders += list(config.plugins)
+    for spec in specs:
+        folders += list(spec.plugins)
+    return list(dict.fromkeys(folders))
+
+
 def _write_reports(run: RunRecord, args: argparse.Namespace, index: int, total: int) -> None:
     """Write whichever reports were requested, suffixing when there are several."""
 
@@ -206,6 +220,8 @@ def _run(args) -> int:
                 aliases[alias] = driver
     try:
         config = _load_bench_config(args, aliases)
+        for folder in _plugin_folders(args, config, specs):
+            plugins.load_plugin(folder)
     except BenchToolsError as exc:
         print("error: %s" % exc, file=sys.stderr)
         return _EXIT_USAGE

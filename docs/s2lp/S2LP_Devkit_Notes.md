@@ -312,7 +312,7 @@ usually interrupted on purpose. `radio.log_note(...)` writes into both.
 ### 3.6 Receiving the Kepler sensor
 
 The Kepler (Kappa X) sensor transmits plaintext frames at 433.425 MHz. The bench
-kit is the 433 MHz board (STEVAL-FKI433V2). `configs/s2lp_kepler_433_rx.regs`
+kit is the 433 MHz board (STEVAL-FKI433V2). `plugins/kepler/configs/s2lp_kepler_433_rx.regs`
 holds the receive setup, captured from the kit after it was set up to the
 sensor firmware's settings:
 
@@ -325,17 +325,19 @@ sensor firmware's settings:
 
 ```python
 from benchtools.instruments.s2lp import S2lpDevkit
-from benchtools.instruments.s2lp.kepler import decode_kepler_frame
+from benchtools.core import plugins
 
 with S2lpDevkit.connect("COM4", board="STEVAL-FKI433V2",
                         packet_log="kepler.jsonl") as radio:
-    radio.apply_configuration("configs/s2lp_kepler_433_rx.regs", reset="defaults")
-    for frame in radio.stream(decoder=decode_kepler_frame, timeout=900):
+    plugins.load_plugin("plugins/kepler")          # the Kepler device plugin (#238)
+    radio.apply_configuration(
+        plugins.resolve_plugin_path("plugin:kepler/s2lp_kepler_433_rx.regs"), reset="defaults")
+    for frame in radio.stream(decoder=plugins.decoder("kepler"), timeout=900):
         print(frame)            # RX  35 bytes  -94.5 dBm  ALIVE  5c1712...
 ```
 
 ```bash
-python -m benchtools s2lp -r COM4 --board STEVAL-FKI433V2 --setup configs/s2lp_kepler_433_rx.regs stream --decode kepler --timeout 900 > frames.jsonl
+python -m benchtools s2lp -r COM4 --board STEVAL-FKI433V2 --plugin plugins/kepler --setup plugin:kepler/s2lp_kepler_433_rx.regs stream --decode kepler --timeout 900 > frames.jsonl
 ```
 
 `stream()` has two modes (#87):
@@ -350,8 +352,8 @@ python -m benchtools s2lp -r COM4 --board STEVAL-FKI433V2 --setup configs/s2lp_k
   is deaf while the host re-arms it (§4.1), and close repeats are lost.
 
 ```bash
-python -m benchtools s2lp ... stream --decode kepler                          # batch
-python -m benchtools s2lp ... stream --decode kepler --mode polled --registers LINK_QUALIF2,RSSI_LEVEL
+python -m benchtools s2lp --plugin plugins/kepler ... stream --decode kepler       # batch
+python -m benchtools s2lp --plugin plugins/kepler ... stream --decode kepler --mode polled --registers LINK_QUALIF2,RSSI_LEVEL
 ```
 
 Each record in the packet log carries the raw payload, the registers (polled
@@ -495,7 +497,7 @@ from RAM):
 | Low-power receive | `S2LPGetBatchLP 0` | now the same |
 | nIRQ on GPIO3 | GPIO_MODE 3 (high power) | GPIO_MODE 2 (low power); drive strength only |
 | IRQ mask | RX ready, RX discarded | those, plus TX sent, CRC error, valid sync, RX timeout |
-| Sync words | primary `0x4E63F358` from `st_eval/Spirit_GUI_Configuration.dat`, secondary `0xB19C0CA7` written by hand to 0x42-0x45, with SECOND_SYNC_SEL | **now the same** in `configs/s2lp_kepler_433_rx.regs`; before #87 it held `0xB19C0CA7` only and did not hear the gateway |
+| Sync words | primary `0x4E63F358` from `st_eval/Spirit_GUI_Configuration.dat`, secondary `0xB19C0CA7` written by hand to 0x42-0x45, with SECOND_SYNC_SEL | **now the same** in `plugins/kepler/configs/s2lp_kepler_433_rx.regs`; before #87 it held `0xB19C0CA7` only and did not hear the gateway |
 
 The GUI's setup also confirms two things this driver found independently:
 nIRQ goes on GPIO3 with the register's own GPIO_MODE encoding, and the board's

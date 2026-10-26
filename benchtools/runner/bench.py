@@ -20,7 +20,7 @@ Example (YAML)::
 Drivers are named, not imported by the specification, so a test file cannot
 reach arbitrary code. New drivers are added with :func:`register_driver`.
 
-Traces to: RUN-FR-001 .. RUN-FR-005, RUN-FR-007, RUN-FR-008, RUN-FR-037, RUN-DD-BENCH.
+Traces to: RUN-FR-001 .. RUN-FR-005, RUN-FR-007, RUN-FR-008, RUN-FR-037, CORE-FR-069, RUN-DD-BENCH.
 """
 
 from __future__ import annotations
@@ -28,12 +28,13 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterator, List, Optional, Type
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Type
 
 from ..core.errors import BenchConfigError, BenchToolsError, ConfigurationError
 from ..core.events import connecting_as, validate_source_name
 from ..core.instrument import Instrument
 from ..core.paths import input_path_names, resolve_input_path, search_locations
+from ..core.plugins import plugin_folders
 from ..instruments.generic import GenericScpiInstrument
 from ..instruments.jlink import JLinkProbe, JLinkRttReader
 from ..instruments.gpd3303d import Gpd3303D
@@ -158,6 +159,8 @@ class BenchConfig:
     instruments: Dict[str, InstrumentConfig]
     description: str = ""
     source: str = ""
+    #: Device plugin folders the bench loads (``plugins:``, #238), absolute.
+    plugins: Tuple[str, ...] = ()
 
     @property
     def directory(self) -> Optional[str]:
@@ -187,11 +190,13 @@ class BenchConfig:
                     "instrument's records need a name of their own"
                     % (seen[item.event], alias, item.event))
             seen[item.event] = alias
+        directory = os.path.dirname(os.path.abspath(source)) if source else None
         return cls(
             name=str(data.get("name", "bench")),
             description=str(data.get("description", "")),
             instruments=configs,
             source=source,
+            plugins=plugin_folders(data.get("plugins"), directory, source or "bench"),
         )
 
     @classmethod

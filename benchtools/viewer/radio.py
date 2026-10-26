@@ -12,7 +12,7 @@ advertising reports (``+adv``), sensors found in a scan (``+sensor``),
 connections (``+conn``, ``+disc``) - into a device table and an event list.
 The commands and their replies are the Instruments page's (#138).
 
-Traces to: VIEW-FR-013 .. VIEW-FR-015, VIEW-DD-RADIO.
+Traces to: VIEW-FR-013 .. VIEW-FR-015, VIEW-FR-047, VIEW-DD-RADIO.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ import re
 from collections import deque
 from typing import Any, Deque, Dict, List, Optional
 
-from ..instruments.s2lp.kepler import decode_kepler_frame
+from ..core import plugins
 
 __all__ = ["RfFrames", "BleAir", "parse_fields", "KEEP_FRAMES", "KEEP_BLE_EVENTS"]
 
@@ -90,7 +90,7 @@ class RfFrames:
             problem = problem or "the radio reported error 0x%02X" % packet["error"]
         elif not decoded and packet.get("hex"):
             try:
-                decoded = decode_kepler_frame(bytes.fromhex(packet["hex"]))
+                decoded = plugins.decode(bytes.fromhex(packet["hex"]))
             except ValueError as exc:
                 problem = str(exc)
         decoded = decoded if isinstance(decoded, dict) else None

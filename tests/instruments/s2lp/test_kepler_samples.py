@@ -8,7 +8,7 @@ from __future__ import annotations
 import pytest
 
 from benchtools.core.errors import MeasurementError
-from benchtools.instruments.s2lp.kepler import decode_kepler_frame
+from ...kepler_plugin import decode_kepler_frame
 
 #: An ALIVE from 5C1712 as received (#86); byte 8 counts the repeats.
 ALIVE = bytes.fromhex(

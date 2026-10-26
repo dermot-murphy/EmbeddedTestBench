@@ -202,7 +202,9 @@ def build_report(hub: Any, sensor: str = "") -> str:  # pylint: disable=too-many
     """The run as one self-contained HTML document."""
     state = hub.since(hub.sequence, hub.generation)["state"]
     notes = NotesStore(hub.path).load()
-    kepler = hub.kepler_screens(sensor)
+    # The sections below read the Kepler panel's fields; making them come
+    # from the plugin as well is the viewer follow-up to #238.
+    kepler = hub.panel_view("kepler", sensor)
     chosen = kepler.get("sensor") or sensor
     sensor_graphs = hub.sensor_graphs(chosen, "Z")
     diagnostics = hub.diagnostic_screens(chosen)["diagnostics"]

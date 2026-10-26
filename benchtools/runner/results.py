@@ -4,7 +4,7 @@ These are plain data: the runner fills them in, the report writers read them.
 Keeping them separate from both means a new output format needs no change to
 the execution engine.
 
-Traces to: RUN-FR-030, RUN-FR-037, RUN-DD-RESULTS.
+Traces to: RUN-FR-030, RUN-FR-037, CORE-FR-070, RUN-DD-RESULTS.
 """
 
 from __future__ import annotations
@@ -152,6 +152,9 @@ class RunRecord:
     #: The test cases the run was asked for, by name; empty means all of them.
     #: ASPICE 4.0 calls this the verification measure selection set (08-58).
     selection: Sequence[str] = ()
+    #: The device plugins loaded: name, folder, git ref and whether the tree
+    #: had changes (#238). The product code that decoded what was measured.
+    plugins: List[Dict[str, Any]] = field(default_factory=list)
 
     # ------------------------------------------------------------------
     def count(self, status: Status) -> int:
@@ -231,6 +234,7 @@ class RunRecord:
                 "skipped": self.skipped,
             },
             "instruments": self.instruments,
+            "plugins": [dict(plugin) for plugin in self.plugins],
             "requirements": list(self.requirements),
             "requirements_verified": self.requirements_verified,
             "setup_error": self.setup_error,

@@ -548,7 +548,7 @@ def print_help():
     print("  --port PORT        Read the S2-LP kit directly (e.g. COM4)")
     print("  --board NAME       Kit board name (optional; the EEPROM is read anyway)")
     print("  --setup REGS       Register file to receive with")
-    print("                     (default configs/s2lp_kepler_433_rx.regs)")
+    print("                     (default plugins/kepler/configs/s2lp_kepler_433_rx.regs)")
     print("  --packet-log PATH  Also write every packet, raw and decoded, as JSON Lines")
     print("  --event-log PATH   Follow a bench event log on the Events page")
     print("  --simulate         A simulated kit with a sensor on the air")
@@ -6590,8 +6590,13 @@ def main():
     parser.add_argument(
         "--setup",
         default=str(pathlib.Path(__file__).resolve().parents[2]
-                    / "configs" / "s2lp_kepler_433_rx.regs"),
+                    / "plugins" / "kepler" / "configs" / "s2lp_kepler_433_rx.regs"),
         help="register file to receive with",
+    )
+    parser.add_argument(
+        "--plugin",
+        default=str(pathlib.Path(__file__).resolve().parents[2] / "plugins" / "kepler"),
+        help="the Kepler device plugin's folder, for its decoder (#238)",
     )
     parser.add_argument("--packet-log", default=None,
                         help="also write every packet, raw and decoded, as JSON Lines")
@@ -6612,10 +6617,11 @@ def main():
     radio = None
     air = None
     if args.port or args.simulate:
-        from benchtools.instruments.s2lp.kepler import decode_kepler_frame
+        from benchtools.core import plugins
+        plugins.load_plugin(args.plugin)
         radio = LiveRadio("sim://" if args.simulate else args.port, board=args.board,
                           setup=args.setup, packet_log=args.packet_log,
-                          decoder=decode_kepler_frame)
+                          decoder=plugins.decoder("kepler"))
         if args.simulate:
             air = SimulatedAir(radio.radio)
             air.start()
