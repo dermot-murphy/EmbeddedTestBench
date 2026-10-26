@@ -1228,7 +1228,8 @@ refusals that are about the dongle rather than the sensor (4, 7, 10), and
 `poll_states(request, interval, duration, pattern)` (#242) counts its polls
 first (`_poll_slots`: `floor(duration / interval) + 1`, so the last is not lost
 to rounding), sends each at its time on `perf_counter` (`_sleep_until`), skips a
-slot whose time passed during a slow reply (`_next_slot`), and keeps each state
+slot whose time passed during a slow reply (`_next_slot`: the first slot still
+due, by `ceil`, so none is sent late), and keeps each state
 once while it repeats (`_state_of`: the pattern's first group, or the whole
 reply; None when a group took no part). A command that fails is counted
 (`_poll_once`) and the states are kept. It returns `states`, `times`,
@@ -2844,7 +2845,9 @@ An `instruments:` entry is a driver name or a mapping with `driver` and
 `ignore_case` for any of them and a required `reason` for `matches`, which is
 checked with `re.fullmatch` on the stripped text and compiled at load. A
 `one_of` item that is a number compares only with a plainly written number;
-a true, false, empty or list item is refused, saying to quote ON and OFF. `Expectation._limit_for`
+a true, false, null or list item is refused, saying to quote ON and OFF; an
+empty text is a value like any other. `Limit.from_mapping` refuses a bound
+that is not finite. `Expectation._limit_for`
 builds it when the limit has `matches` or `one_of` or a text `equals`, and
 refuses a numeric key beside them; `ignore_case` and `reason` on a numeric
 limit are refused. `Expectation._deferred` keeps a limit whose `min`, `max` or
