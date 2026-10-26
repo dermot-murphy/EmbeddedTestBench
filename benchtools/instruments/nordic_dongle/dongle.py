@@ -16,15 +16,16 @@ It is not a SCPI instrument, so it implements
 :class:`~benchtools.core.instrument.Instrument` directly - the same seam the
 J-Link probe uses.
 
-Traces to: BLE-FR-001 .. BLE-FR-062, BLE-ARC-001, BLE-DD-DONGLE, BLE-DD-FIRMWARE.
+Traces to: BLE-FR-001 .. BLE-FR-062, BLE-FR-122, BLE-ARC-001, BLE-DD-DONGLE, BLE-DD-FIRMWARE.
 """
 
 from __future__ import annotations
 
 import logging
+import re
 import time
 from dataclasses import dataclass
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from ...analysis.samples import NUMBER, SampleSet, extract_number
 from ...core.events import log_event
@@ -164,6 +165,25 @@ class Sensor:  # pylint: disable=too-many-instance-attributes
         return "%d: %s %-12s %4d dBm" % (
             self.index, self.address, self.name or "(no name)", self.rssi
         )
+
+
+def _sleep_until(due: float) -> None:
+    """Sleep until ``perf_counter`` reaches *due*, however early a sleep returns."""
+    wait = due - time.perf_counter()
+    while wait > 0:
+        time.sleep(wait)
+        wait = due - time.perf_counter()
+
+
+def _state_of(text: str, pattern: Optional["re.Pattern[str]"]) -> Optional[str]:
+    """The state a reply gives: *pattern*'s first group, or the whole reply."""
+    text = text.strip()
+    if pattern is None:
+        return text
+    match = pattern.search(text)
+    if match is None:
+        return None
+    return (match.group(1) if pattern.groups else match.group(0)).strip()
 
 
 class NordicDongle(Instrument):
@@ -1458,6 +1478,65 @@ class NordicDongle(Instrument):
                     % (index + 1, count, request, text, pattern))
             samples.add(value * float(scale), source=text, at=time.perf_counter() - started)
         return samples
+
+    def poll_states(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+        self,
+        request: str,
+        interval: float = 1.0,
+        duration: float = 10.0,
+        pattern: Optional[str] = None,
+        timeout: float = DEFAULT_COMMAND_TIMEOUT,
+    ) -> Dict[str, Any]:
+        """Send *request* every *interval* seconds for *duration*, and keep the
+        states its replies go through, in order.
+
+        For a sensor that moves through phases on its own - ``RD PHASE`` going
+        DETECT, then IGNORE, then DETECT again - where each reply is a state
+        and the test is the order they come in (#242). A state is kept when it
+        differs from the one before, so ``sequence`` reads
+        ``"DETECT,IGNORE,DETECT"`` however many polls each lasted.
+
+        :param pattern: Regular expression whose first group is the state; the
+            whole stripped reply if None. A reply it does not match is counted
+            in ``unmatched`` and changes nothing.
+        :param interval: Seconds from the start of one command to the start of
+            the next; a reply slower than that is followed at once.
+        :returns: ``states`` (each distinct state in order), ``times`` (seconds
+            from the first command to the reply that first showed it),
+            ``sequence`` (``states`` joined by commas, for a text limit),
+            ``count`` (how many states), ``polls`` and ``unmatched``.
+        :raises ConfigurationError: for a *pattern* that is not a regular
+            expression, or an *interval* that is not positive.
+
+        Traces to: BLE-FR-122.
+        """
+        if float(interval) <= 0.0:
+            raise ConfigurationError("poll_states: interval must be positive, not %r"
+                                     % interval)
+        try:
+            compiled = re.compile(pattern) if pattern else None
+        except re.error as exc:
+            raise ConfigurationError("poll_states: pattern %r is not a regular expression: %s"
+                                     % (pattern, exc)) from exc
+        states: List[str] = []
+        times: List[float] = []
+        polls = unmatched = 0
+        started = time.perf_counter()
+        while True:
+            due = started + polls * float(interval)
+            if due - started > float(duration):
+                break
+            _sleep_until(due)
+            state = _state_of(self.command(request, timeout=timeout).text, compiled)
+            polls += 1
+            if state is None:
+                unmatched += 1
+                continue
+            if not states or states[-1] != state:
+                states.append(state)
+                times.append(round(time.perf_counter() - started, 3))
+        return {"states": states, "times": times, "sequence": ",".join(states),
+                "count": len(states), "polls": polls, "unmatched": unmatched}
 
     @input_paths("source")
     def run_script(  # pylint: disable=too-many-arguments,too-many-positional-arguments

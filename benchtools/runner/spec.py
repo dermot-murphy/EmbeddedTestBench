@@ -54,7 +54,8 @@ one anywhere below: an argument, a bound, a tolerance::
               - {name: mean, measure: mean, equals: {from: ble.mean},
                  tolerance: {param: tolerance_c}}
 
-Traces to: RUN-FR-008, RUN-FR-010 .. RUN-FR-016, RUN-FR-058, CORE-FR-069, RUN-DD-SPEC.
+Traces to: RUN-FR-008, RUN-FR-010 .. RUN-FR-016, RUN-FR-058, RUN-FR-067 .. RUN-FR-069,
+CORE-FR-069, RUN-DD-SPEC.
 """
 
 from __future__ import annotations
@@ -68,7 +69,7 @@ from ..core.errors import ConfigurationError, OptionalDependencyError, SpecError
 from ..core.events import validate_source_name
 from ..core.plugins import plugin_folders
 from .limits import Limit, TextLimit
-from .resolve import Reference, parse_references
+from .resolve import Reference, parse_references, resolve_references
 
 __all__ = [
     "Expectation",
@@ -82,7 +83,14 @@ __all__ = [
 
 #: Keys accepted on an expectation but consumed by the limit, not the expectation.
 _LIMIT_KEYS = ("min", "max", "minimum", "maximum", "equals", "nominal",
-               "tolerance", "tolerance_percent")
+               "tolerance", "tolerance_percent", "matches", "one_of", "ignore_case",
+               "reason")
+
+#: The keys that make a limit a text limit (#242).
+_TEXT_KEYS = ("matches", "one_of")
+
+#: Bound keys a value saved by an earlier step can stand for (#242).
+_BOUND_KEYS = {"min": "minimum", "max": "maximum", "minimum": "minimum", "maximum": "maximum"}
 
 
 def _require_mapping(value, what: str) -> dict:
@@ -196,9 +204,14 @@ class Expectation:
     reference: Optional[Reference] = None
     tolerance: Optional[float] = None
     tolerance_percent: Optional[float] = None
+    #: Compare text without regard to case, for a limit taken from a step (#242).
+    ignore_case: bool = False
+    #: A limit that names saved values in its bounds or its ``one_of`` items,
+    #: as written, built when the steps have run (#242).
+    deferred: Optional[Dict[str, Any]] = None
 
     @classmethod
-    def from_mapping(cls, data, index: int) -> "Expectation":
+    def from_mapping(cls, data, index: int) -> "Expectation":  # pylint: disable=too-many-locals
         data = _require_mapping(data, "expectation %d" % index)
         measure = str(data.get("measure", ""))
         name = str(data.get("name") or measure or "value")
@@ -208,6 +221,7 @@ class Expectation:
                 "expectation %r declares no limit; add min, max or equals" % name
             )
 
+        ignore_case = bool(limit_source.get("ignore_case", False))
         # A limit may name a value saved by an earlier step rather than state
         # one. It can only be built when that step has run, so the expectation
         # carries the reference and the runner resolves it.
@@ -236,6 +250,7 @@ class Expectation:
             tolerance_percent = _optional_number(
                 limit_source.pop("tolerance_percent", None), name
             )
+            limit_source.pop("ignore_case", None)
             if limit_source:
                 raise SpecError(
                     "expectation %r takes its value from an earlier step, so "
@@ -243,8 +258,10 @@ class Expectation:
                     % (name, ", ".join(sorted(limit_source)))
                 )
             limit = None
+            deferred = None
         else:
-            limit = cls._limit_for(name, limit_source)
+            deferred = cls._deferred(name, limit_source)
+            limit = None if deferred is not None else cls._limit_for(name, limit_source)
         return cls(
             name=name,
             measure=measure,
@@ -256,19 +273,70 @@ class Expectation:
             format=str(data.get("format", "")),
             tolerance=tolerance,
             tolerance_percent=tolerance_percent,
+            ignore_case=ignore_case,
+            deferred=deferred,
         )
+
+    @classmethod
+    def _deferred(cls, name, source) -> Optional[Dict[str, Any]]:
+        """*source* with its saved-value references, if it names any; else None.
+
+        A bound (``min: {from: unloaded}``) or a ``one_of`` item may name a
+        value an earlier step saved; the limit is then built when the steps
+        have run. It is checked now, with a stand-in for each saved value, so
+        a malformed limit is still a load error.
+        """
+        parsed = parse_references(source)
+        references = [key for key, value in parsed.items()
+                      if isinstance(value, Reference) and key in _BOUND_KEYS]
+        items = parsed.get("one_of")
+        in_items = isinstance(items, list) and any(isinstance(item, Reference)
+                                                   for item in items)
+        stray = [key for key, value in parsed.items()
+                 if isinstance(value, Reference) and key not in _BOUND_KEYS]
+        if stray:
+            raise SpecError("expectation %r: %s cannot take a value from an earlier step"
+                            % (name, ", ".join(sorted(stray))))
+        if not references and not in_items:
+            return None
+        # A saved bound stands in as the widest it could be, so the check does
+        # not find a stated bound "inverted" against a value not known yet.
+        stand_in = {key: ((-1e300 if _BOUND_KEYS[key] == "minimum" else 1e300)
+                          if isinstance(value, Reference) else value)
+                    for key, value in parsed.items()}
+        if in_items:
+            stand_in["one_of"] = ["x" if isinstance(item, Reference) else item
+                                  for item in items]
+        cls._limit_for(name, stand_in)
+        return parsed
 
     @staticmethod
     def _limit_for(name, source):
         """The limit this expectation checks against."""
+        source = dict(source)
+        ignore_case = bool(source.pop("ignore_case", False))
+        reason = str(source.pop("reason", "") or "")
         wanted = source.get("equals", source.get("nominal"))
-        if isinstance(wanted, str):
-            if len(source) > 1:
+        if isinstance(wanted, str) or any(key in source for key in _TEXT_KEYS):
+            numeric = sorted(set(source) - {"equals", "nominal"} - set(_TEXT_KEYS))
+            if numeric:
                 raise SpecError(
                     "expectation %r compares against text, so it cannot also "
-                    "declare a tolerance or a bound" % name
+                    "declare a tolerance or a bound (%s)" % (name, ", ".join(numeric))
                 )
-            return TextLimit(wanted.strip())
+            items = source.get("one_of")
+            if items is not None and (not isinstance(items, (list, tuple)) or not items):
+                raise SpecError("expectation %r: one_of must be a list of values" % name)
+            return TextLimit(
+                equals=None if wanted is None else str(wanted).strip(),
+                matches=None if source.get("matches") is None else str(source["matches"]),
+                one_of=tuple(items or ()),
+                ignore_case=ignore_case,
+                reason=reason,
+            )
+        if ignore_case or reason:
+            raise SpecError("expectation %r: ignore_case and reason apply only to a text "
+                            "limit" % name)
         return Limit.from_mapping(source)
 
     def limit_against(self, saved) -> Union[Limit, TextLimit]:
@@ -277,6 +345,17 @@ class Expectation:
         :raises SpecError: if the reference cannot be resolved, or resolves to
             text where a tolerance was declared.
         """
+        if self.deferred is not None:
+            resolved = resolve_references(self.deferred, saved)
+            for key in [key for key in resolved if key in _BOUND_KEYS]:
+                if isinstance(resolved[key], (bytes, bytearray, str)):
+                    try:
+                        resolved[key] = float(resolved[key])
+                    except ValueError as exc:
+                        raise SpecError(
+                            "expectation %r cannot bound with %r taken from an earlier "
+                            "step" % (self.name, resolved[key])) from exc
+            return self._limit_for(self.name, resolved)
         if self.reference is None:
             return self.limit
         wanted = self.reference.resolve(saved)
@@ -288,7 +367,7 @@ class Expectation:
                     "expectation %r declares a tolerance, but %s is the text "
                     "%r" % (self.name, self.reference.path, wanted)
                 )
-            return TextLimit(wanted.strip())
+            return TextLimit(wanted.strip(), ignore_case=self.ignore_case)
         try:
             numeric = float(wanted)
         except (TypeError, ValueError) as exc:

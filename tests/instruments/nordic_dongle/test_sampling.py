@@ -1,15 +1,16 @@
 """One command repeated, and a number taken from each reply (#95).
 
-Traces to: BLE-FR-117, SWE4-UT-BLESAMPLE.
+Traces to: BLE-FR-117, BLE-FR-122, SWE4-UT-BLESAMPLE.
 """
 
 from __future__ import annotations
 
 import time
+import types
 
 import pytest
 
-from benchtools.core.errors import MeasurementError
+from benchtools.core.errors import ConfigurationError, MeasurementError
 
 
 def test_each_reply_gives_one_reading(linked):
@@ -53,3 +54,49 @@ def test_no_command_is_sent_before_it_is_due_when_a_sleep_ends_early(linked, mon
 def test_a_reply_without_a_number_is_an_error_naming_it(linked):
     with pytest.raises(MeasurementError, match="'OK 1024'|no number"):
         linked.sample_command("rd version", pattern=r"OK (\d+)x", count=1, interval=0.0)
+
+
+def _replies(monkeypatch, linked, texts):
+    """Make each command answer with the next of *texts*, then the last again."""
+    queue = list(texts)
+
+    def answer(request, **kwargs):  # pylint: disable=unused-argument
+        return types.SimpleNamespace(text=queue.pop(0) if len(queue) > 1 else queue[0])
+    monkeypatch.setattr(linked, "command", answer)
+
+
+class TestPollStates:
+    """The states a polled reply goes through, in order (#242). Traces to: BLE-FR-122."""
+
+    def test_repeated_states_are_kept_once_in_order(self, linked, monkeypatch):
+        _replies(monkeypatch, linked, ["DETECT", "DETECT", "IGNORE", "IGNORE", "DETECT"])
+        result = linked.poll_states("rd phase", interval=0.01, duration=0.05)
+        assert result["states"] == ["DETECT", "IGNORE", "DETECT"]
+        assert result["sequence"] == "DETECT,IGNORE,DETECT" and result["count"] == 3
+        assert result["polls"] >= 5 and result["unmatched"] == 0
+        assert result["times"] == sorted(result["times"]) and result["times"][0] >= 0.0
+
+    def test_a_pattern_takes_the_state_and_skips_replies_it_does_not_match(self, linked,
+                                                                           monkeypatch):
+        _replies(monkeypatch, linked, ["PHASE = DETECT", "NACK", "PHASE = IGNORE"])
+        result = linked.poll_states("rd phase", interval=0.01, duration=0.03,
+                                    pattern=r"PHASE = (\w+)")
+        assert result["states"] == ["DETECT", "IGNORE"] and result["unmatched"] == 1
+
+    def test_the_polls_are_spaced_by_the_interval(self, linked, monkeypatch):
+        _replies(monkeypatch, linked, ["A"])
+        started = time.perf_counter()
+        result = linked.poll_states("rd phase", interval=0.1, duration=0.2)
+        assert result["polls"] == 3 and time.perf_counter() - started >= 0.2
+
+    @pytest.mark.parametrize("options, message", [
+        ({"interval": 0}, "interval must be positive"),
+        ({"pattern": "("}, "not a regular expression"),
+    ])
+    def test_bad_options_are_refused(self, linked, options, message):
+        with pytest.raises(ConfigurationError, match=message):
+            linked.poll_states("rd phase", **options)
+
+    def test_a_real_reply_through_the_simulated_link(self, linked):
+        result = linked.poll_states("temp", interval=0.01, duration=0.02)
+        assert result["states"] == ["23.5"]
