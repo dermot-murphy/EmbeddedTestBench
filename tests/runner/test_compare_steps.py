@@ -202,3 +202,25 @@ class TestRoundOneOfReview:
             record = runner.run(spec)
         [measured] = record.cases[0].steps[0].measurements
         assert measured.status is Status.ERROR and "None" not in measured.limit
+
+
+class TestRoundTwoOfReview:
+    """Findings of the second review of #306."""
+
+    @pytest.mark.parametrize("value", [float("nan"), float("inf"), "nan", "-inf"])
+    def test_a_bound_written_as_not_a_finite_number_is_a_load_error(self, value):
+        with pytest.raises(SpecError, match="must be a finite number"):
+            expect(max=value)
+
+    @pytest.mark.parametrize("limit, message", [
+        ({"min": {"from": "x"}, "ignore_case": True}, "apply only to a text limit"),
+        ({"one_of": [{"from": "x"}], "max": 2}, "cannot also declare a tolerance or a bound"),
+        ({"min": {"from": "x"}, "max": "high"}, "must be a number"),
+    ])
+    def test_a_malformed_limit_with_a_saved_value_is_still_a_load_error(self, limit, message):
+        with pytest.raises(SpecError, match=message):
+            expect(**limit)
+
+    def test_an_empty_text_in_one_of_is_a_value_like_any_other(self):
+        limit = expect(one_of=["", "OK"]).limit
+        assert limit.check("").passed and limit.check("OK").passed

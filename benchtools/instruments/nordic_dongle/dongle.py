@@ -201,9 +201,12 @@ def _state_pattern(pattern: Optional[str]) -> Optional["re.Pattern[str]"]:
 
 
 def _next_slot(slot: int, slots: int, elapsed: float, interval: float) -> int:
-    """The next poll after *slot*: the first whose time has not passed already."""
-    due_now = int(elapsed / interval + 1e-9)
-    return max(slot + 1, min(due_now, slots))
+    """The next poll after *slot*: the first whose time has not passed already.
+
+    A slot due exactly now is still due; one due any earlier is skipped.
+    """
+    first_still_due = math.ceil(elapsed / interval - 1e-9)
+    return max(slot + 1, min(first_still_due, slots))
 
 
 def _state_of(text: str, pattern: Optional["re.Pattern[str]"]) -> Optional[str]:
@@ -1531,18 +1534,18 @@ class NordicDongle(Instrument):
         differs from the one before, so ``sequence`` reads
         ``"DETECT,IGNORE,DETECT"`` however many polls each lasted.
 
+        The polls are due at 0, *interval*, 2 x *interval* ... up to and
+        including *duration*, counted before the first is sent, so the last one
+        is not lost to rounding. A poll whose time has passed while an earlier
+        reply was slow is skipped rather than sent late: the next is the first
+        still due, so the states keep their spacing. A command that fails is
+        counted in ``failed`` and the states seen so far are kept.
+
         :param pattern: Regular expression whose first group is the state; the
             whole stripped reply if None. A reply it does not match is counted
             in ``unmatched`` and changes nothing.
         :param interval: Seconds from the start of one command to the start of
-            the next; a reply slower than that is followed at once.
-        The polls are due at 0, *interval*, 2 x *interval* ... up to and
-        including *duration*, counted before the first is sent, so the last one
-        is not lost to rounding. A poll whose time has passed while an earlier
-        reply was slow is skipped rather than sent late, so the states keep
-        their spacing; a command that fails is counted in ``failed`` and the
-        states seen so far are kept.
-
+            the next.
         :returns: ``states`` (each distinct state in order), ``times`` (seconds
             from the first command to the reply that first showed it),
             ``sequence`` (``states`` joined by commas, for a text limit),

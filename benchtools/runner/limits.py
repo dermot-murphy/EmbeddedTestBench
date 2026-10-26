@@ -99,6 +99,8 @@ class Limit:
                 fields[name] = float(value)
             except (TypeError, ValueError) as exc:
                 raise SpecError("limit %s must be a number, got %r" % (key, value)) from exc
+            if not math.isfinite(fields[name]):
+                raise SpecError("limit %s must be a finite number, got %r" % (key, value))
         return cls(**fields)
 
     @property
