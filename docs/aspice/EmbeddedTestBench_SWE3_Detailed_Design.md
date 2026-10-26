@@ -1225,11 +1225,14 @@ refusals that are about the dongle rather than the sensor (4, 7, 10), and
 
 #### BLE-DD-DONGLE — `dongle.py`
 
-`poll_states(request, interval, duration, pattern)` (#242) sends the command on
-the `sample_command` schedule (`_sleep_until` on `perf_counter`) and keeps each
-state once while it repeats (`_state_of`: the pattern's first group, or the
-whole reply), returning `states`, `times`, `sequence`, `count`, `polls` and
-`unmatched`.
+`poll_states(request, interval, duration, pattern)` (#242) counts its polls
+first (`_poll_slots`: `floor(duration / interval) + 1`, so the last is not lost
+to rounding), sends each at its time on `perf_counter` (`_sleep_until`), skips a
+slot whose time passed during a slow reply (`_next_slot`), and keeps each state
+once while it repeats (`_state_of`: the pattern's first group, or the whole
+reply; None when a group took no part). A command that fails is counted
+(`_poll_once`) and the states are kept. It returns `states`, `times`,
+`sequence`, `count`, `polls`, `skipped`, `unmatched` and `failed`.
 
 `NordicDongle`, the façade: an `Instrument` (CORE-DD-INSTRUMENT) whose transport
 is a serial port or a simulator.
@@ -2840,12 +2843,17 @@ An `instruments:` entry is a driver name or a mapping with `driver` and
 `TextLimit` (#242) takes exactly one of `equals`, `one_of` and `matches`, with
 `ignore_case` for any of them and a required `reason` for `matches`, which is
 checked with `re.fullmatch` on the stripped text and compiled at load. A
-`one_of` item that is a number compares as a number. `Expectation._limit_for`
+`one_of` item that is a number compares only with a plainly written number;
+a true, false, empty or list item is refused, saying to quote ON and OFF. `Expectation._limit_for`
 builds it when the limit has `matches` or `one_of` or a text `equals`, and
 refuses a numeric key beside them; `ignore_case` and `reason` on a numeric
 limit are refused. `Expectation._deferred` keeps a limit whose `min`, `max` or
 `one_of` items name saved values, checks it at load with the widest stand-in
-for each, and `limit_against` builds it once the steps have run.
+for each, and `limit_against` builds it once the steps have run, refusing a
+saved bound that is not finite and decoding a saved item read off a link.
+`scale` and `format` beside a text limit, and `equals` with `nominal`, are
+refused at load. An unresolved saved limit is reported as such, not as
+`None`.
 
 `Limit` supports `minimum`, `maximum`, `equals` with `tolerance` or
 `tolerance_percent`, in any consistent combination, validated at construction.
@@ -2918,7 +2926,8 @@ Report writers read only these, so a new format needs no change to the engine.
 The built-in `compute` step (`_action_compute`, `COMPUTE_OPERATIONS`, #242)
 makes one number from `a` and `b`, references resolved by the runner as for any
 step: `difference`, `absolute_difference`, `sum`, `product`, `ratio`. A value
-read off a link as text or bytes is read as a number.
+read off a link as text or bytes is read as a number; an input or a result that
+is not finite is refused.
 
 `BenchRunner` resolves each step's `do:` to a bound method on a bench instrument —
 rejecting private names, and on an unknown name listing what is available — calls

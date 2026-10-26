@@ -641,7 +641,8 @@ Three looser text forms exist for what exact text cannot state (#242), and
 each says so in the report:
 
 - `one_of: [...]` passes any of the values listed; a number in the list is
-  compared as a number, so `one_of: [1, 2]` passes `2.0`.
+  compared as a number, so `one_of: [1, 2]` passes `2.0`. Quote `ON`, `OFF`,
+  `YES` and `NO`: YAML reads them as true and false, which are refused.
 - `matches: <regex>` passes text the expression matches *whole*
   (`re.fullmatch`), and needs a `reason` saying why the exact text cannot be
   written down. Without one the specification does not load.
@@ -814,7 +815,7 @@ gives you the means to say so in the specification rather than in a comment.
 | `measure_advertising_profile` | `AdvertisingProfile` | `mean_interval_s`, `minimum_interval_s`, `maximum_interval_s`, `spread_s`, `jitter_s`, `expected_jitter_s`, `rate_hz`, `count`, `missed_events`, `expected_events`, `duty_cycle`, `reception_ratio`, `is_complete`, `lost_reports` |
 | `measure_response_time` | `ResponseTiming` | `milliseconds`, `seconds`, `minimum_s`, `maximum_s`, `spread_s`, `standard_deviation_s`, `count`, `is_trustworthy`, `quantisation_s` |
 | `command` | `ResponseSample` | `text`, `dongle_us`, `host_s` |
-| `poll_states` | `dict` | `sequence` (states in order, comma-joined), `states`, `times`, `count`, `polls`, `unmatched` |
+| `poll_states` | `dict` | `sequence` (states in order, comma-joined), `states`, `times`, `count`, `polls`, `skipped`, `unmatched`, `failed` |
 | `send_package` | `DfuResult` | `result` (`Success`, `InvalidObject`, `ExtendedError`), `extended_error` (`HwVersionFailure`...), `stage`, `bytes_sent`, `seconds`, `succeeded` — BLE notes §2.5 |
 | `write` | `int` | *(omit `measure`)* |
 
@@ -855,7 +856,10 @@ then IGNORE, then DETECT" is
 ```
 
 `pattern`'s first group is the state (the whole reply without one); a reply it
-does not match is counted in `unmatched`.
+does not match is counted in `unmatched`. The polls are due every `interval` up
+to and including `duration`; one whose time passed while a reply was slow is
+skipped (`skipped`), and a command that fails is counted in `failed` with the
+states seen kept.
 
 ---
 

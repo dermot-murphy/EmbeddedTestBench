@@ -381,7 +381,7 @@ where the firmware implements the requirement.
 | BLE-FR-119 | BLE-ARC-001, AD-23 | BLE-DD-SCRIPT, BLE-DD-SCRIPTRUN, BLE-DD-CLI | `PrefixTimeout`, `longest_prefix`, `_Reader.resolve_timeouts`, `_Reader.apply_prefix_timeout`, `_timeout_for`, `StepResult.timeout`, `_parse_timeouts` | `TestReadingTheTable` (21), `TestRunningWithIt` (8, `test_script_timeouts.py`), `test_timeout_sets_a_prefix_timeout_for_the_run`, `test_a_timeout_that_is_not_prefix_equals_ms_is_an_error` (3, `test_cli.py`) |
 | BLE-FR-120 | BLE-ARC-001, RUN-ARC-001 | BLE-DD-KEPLERSIM, BLE-DD-SIMWORLD, BLE-DD-SIM | `simulated/kepler.py`, `simulated/world.py`, `KeplerResponder`, `SimulatedGpd.terminal_volts`, `SimulatedJLink.periodic_rtt`, `simulated_target` | `SWE4-UT-KEPLERSIM` (11, `test_kepler_simulated.py`) |
 | BLE-FR-121 | BLE-ARC-001 | BLE-DD-DFU, BLE-DD-DFUHOST, BLE-DD-DFUSIM | `dfu_client.c`, `cmd_dfu.c`, `dfu.py` (`SecureDfu`, `load_package`), `NordicDongle.send_package`, `SimulatedBootloader` | `SWE4-UT-BLEDFU` (40, `test_dfu.py`), `test_dfu_client` (17), `test_cmd_dfu` (7) |
-| BLE-FR-122 | BLE-ARC-001 | BLE-DD-DONGLE | `NordicDongle.poll_states`, `_state_of`, `_sleep_until` | `SWE4-UT-BLESAMPLE`: `TestPollStates` (5) |
+| BLE-FR-122 | BLE-ARC-001 | BLE-DD-DONGLE | `NordicDongle.poll_states`, `_state_of`, `_sleep_until`, `_poll_slots`, `_next_slot`, `_poll_once` | `SWE4-UT-BLESAMPLE`: `TestPollStates` (10), `TestPollStatesSchedule` (5) |
 | BLE-FR-090 | BLE-ARC-001 | BLE-DD-BUILD | `firmware/ses/*.emProject`, `firmware/Makefile`, `firmware/gcc/*.ld`, `firmware/scripts/{package_dfu,compile_check}.*`, `.github/workflows/firmware.yml` | `compile_check.sh` compiles every unit against real SDK headers (BENCHTOOLS-SWE4-002 §4.4); the workflow builds, links, sizes and packages against SDK 17.1.0 (§4.6, BLE-OPEN-01 discharged); flashing remains a bench confirmation item (CON-07) |
 
 ### BLE non-functional
@@ -651,7 +651,7 @@ tests in `tests/instruments/pico_sht30/`.
 | RUN-FR-066 | RUN-ARC-001 | RUN-DD-CONTROL, RUN-DD-RUNNER | `READ_SETUP`, `_read_setups` | `TestRunner` (3) |
 | RUN-FR-067 | ARC-001 | RUN-DD-LIMITS, RUN-DD-SPEC | `TextLimit.one_of`, `ignore_case`, `Expectation.ignore_case` | `SWE4-UT-COMPARE`: `TestTextForms`, `test_equals_from_a_saved_reply_ignoring_case` |
 | RUN-FR-068 | ARC-001 | RUN-DD-LIMITS | `TextLimit.matches`, `reason` | `SWE4-UT-COMPARE`: `test_matches_is_a_whole_match_with_a_reason`, `test_a_malformed_text_limit_is_a_load_error` |
-| RUN-FR-069 | ARC-001, AD-22 | RUN-DD-SPEC | `Expectation._deferred`, `limit_against` | `SWE4-UT-COMPARE`: `TestBoundsFromSavedValues`, `test_a_loaded_battery_no_higher_than_unloaded_in_a_run` |
+| RUN-FR-069 | ARC-001, AD-22 | RUN-DD-SPEC | `Expectation._deferred`, `limit_against` | `SWE4-UT-COMPARE`: `TestBoundsFromSavedValues`, `test_a_loaded_battery_no_higher_than_unloaded_in_a_run`, `test_a_reading_above_the_saved_bound_fails_and_says_by_how_much`, `test_a_saved_bound_that_is_not_finite_is_an_error` |
 | RUN-FR-070 | ARC-001, AD-22 | RUN-DD-RUNNER | `_action_compute`, `COMPUTE_OPERATIONS` | `SWE4-UT-COMPARE`: `TestCompute` |
 | VIEW-FR-001 | VIEW-ARC-001 | VIEW-DD-SERVER, VIEW-DD-PAGE | `ViewerServer`, `_Handler._static`, `static/*`, `benchtools view` | `TestPage` (4), `TestCommandLine` (2) |
 | VIEW-FR-002 | VIEW-ARC-001 | VIEW-DD-SERVER | `_Handler._host_allowed`, `GUARD_HEADER` | `TestGuards` (4) |
