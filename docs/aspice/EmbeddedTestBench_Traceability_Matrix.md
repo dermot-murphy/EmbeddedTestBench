@@ -76,6 +76,7 @@
 | 1.40 | 2026-10-25 | Claude | #293: row for S2LP-FR-085 (frames set aside while a receive stops, void once a command goes to the board), tracing S2LP-DD-SESSION `commands_sent` too; CORE-FR-004 also cites the mock's two `keep_buffer` tests; S2LP-FR-073 cites SWE4-UT-S2LPFRAME (10); §16 count 441 in force, 442 declared. |
 | next | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
 | next | 2026-10-25 | Claude | #238: rows for CORE-FR-066 .. CORE-FR-070 and VIEW-FR-047 (device plugins); AD-29 traced; §16 count 447 in force, 448 declared. |
+| next | 2026-10-26 | Claude | #242: rows for RUN-FR-067 .. RUN-FR-070 and BLE-FR-122; §16 count 452 in force, 453 declared. |
 
 ---
 
@@ -380,6 +381,7 @@ where the firmware implements the requirement.
 | BLE-FR-119 | BLE-ARC-001, AD-23 | BLE-DD-SCRIPT, BLE-DD-SCRIPTRUN, BLE-DD-CLI | `PrefixTimeout`, `longest_prefix`, `_Reader.resolve_timeouts`, `_Reader.apply_prefix_timeout`, `_timeout_for`, `StepResult.timeout`, `_parse_timeouts` | `TestReadingTheTable` (21), `TestRunningWithIt` (8, `test_script_timeouts.py`), `test_timeout_sets_a_prefix_timeout_for_the_run`, `test_a_timeout_that_is_not_prefix_equals_ms_is_an_error` (3, `test_cli.py`) |
 | BLE-FR-120 | BLE-ARC-001, RUN-ARC-001 | BLE-DD-KEPLERSIM, BLE-DD-SIMWORLD, BLE-DD-SIM | `simulated/kepler.py`, `simulated/world.py`, `KeplerResponder`, `SimulatedGpd.terminal_volts`, `SimulatedJLink.periodic_rtt`, `simulated_target` | `SWE4-UT-KEPLERSIM` (11, `test_kepler_simulated.py`) |
 | BLE-FR-121 | BLE-ARC-001 | BLE-DD-DFU, BLE-DD-DFUHOST, BLE-DD-DFUSIM | `dfu_client.c`, `cmd_dfu.c`, `dfu.py` (`SecureDfu`, `load_package`), `NordicDongle.send_package`, `SimulatedBootloader` | `SWE4-UT-BLEDFU` (40, `test_dfu.py`), `test_dfu_client` (17), `test_cmd_dfu` (7) |
+| BLE-FR-122 | BLE-ARC-001 | BLE-DD-DONGLE | `NordicDongle.poll_states`, `_state_of`, `_sleep_until`, `_poll_slots`, `_next_slot`, `_poll_once` | `SWE4-UT-BLESAMPLE`: `TestPollStates` (12), `TestPollStatesSchedule` (4) |
 | BLE-FR-090 | BLE-ARC-001 | BLE-DD-BUILD | `firmware/ses/*.emProject`, `firmware/Makefile`, `firmware/gcc/*.ld`, `firmware/scripts/{package_dfu,compile_check}.*`, `.github/workflows/firmware.yml` | `compile_check.sh` compiles every unit against real SDK headers (BENCHTOOLS-SWE4-002 §4.4); the workflow builds, links, sizes and packages against SDK 17.1.0 (§4.6, BLE-OPEN-01 discharged); flashing remains a bench confirmation item (CON-07) |
 
 ### BLE non-functional
@@ -647,6 +649,10 @@ tests in `tests/instruments/pico_sht30/`.
 | RUN-FR-064 | RUN-ARC-001 | RUN-DD-CONTROL, RUN-DD-RUNNER, RUN-DD-CLI | `RESTART_FROM`, `_restart`, `_restart_refusal`, `_references_in`, `run_case(first, kept)`, `SKIPPED_BY_OPERATOR` | `SWE4-UT-CONTROL` (33) |
 | RUN-FR-065 | RUN-ARC-001 | RUN-DD-CONTROL, RUN-DD-RUNNER, RUN-DD-CLI | `RunControl._refusal`, `control` and `control_applied` records | `SWE4-UT-CONTROL` (33) |
 | RUN-FR-066 | RUN-ARC-001 | RUN-DD-CONTROL, RUN-DD-RUNNER | `READ_SETUP`, `_read_setups` | `TestRunner` (3) |
+| RUN-FR-067 | ARC-001 | RUN-DD-LIMITS, RUN-DD-SPEC | `TextLimit.one_of`, `ignore_case`, `Expectation.ignore_case` | `SWE4-UT-COMPARE`: `TestTextForms`, `test_equals_from_a_saved_reply_ignoring_case`, `test_a_bound_written_as_not_a_finite_number_is_a_load_error`, `test_an_empty_text_in_one_of_is_a_value_like_any_other`, `TestRoundThreeOfReview` |
+| RUN-FR-068 | ARC-001 | RUN-DD-LIMITS | `TextLimit.matches`, `reason` | `SWE4-UT-COMPARE`: `test_matches_is_a_whole_match_with_a_reason`, `test_a_malformed_text_limit_is_a_load_error` |
+| RUN-FR-069 | ARC-001, AD-22 | RUN-DD-SPEC | `Expectation._deferred`, `limit_against` | `SWE4-UT-COMPARE`: `TestBoundsFromSavedValues`, `test_a_loaded_battery_no_higher_than_unloaded_in_a_run`, `test_a_reading_above_the_saved_bound_fails_and_says_by_how_much`, `test_a_saved_bound_that_is_not_finite_is_an_error`, `test_a_malformed_limit_with_a_saved_value_is_still_a_load_error` |
+| RUN-FR-070 | ARC-001, AD-22 | RUN-DD-RUNNER | `_action_compute`, `COMPUTE_OPERATIONS` | `SWE4-UT-COMPARE`: `TestCompute` |
 | VIEW-FR-001 | VIEW-ARC-001 | VIEW-DD-SERVER, VIEW-DD-PAGE | `ViewerServer`, `_Handler._static`, `static/*`, `benchtools view` | `TestPage` (4), `TestCommandLine` (2) |
 | VIEW-FR-002 | VIEW-ARC-001 | VIEW-DD-SERVER | `_Handler._host_allowed`, `GUARD_HEADER` | `TestGuards` (4) |
 | VIEW-FR-003 | VIEW-ARC-001 | VIEW-DD-STATE, VIEW-DD-SERVER | `RunState.apply`, `Hub.follow`, `Hub.poll` | `SWE4-UT-VIEWSTATE` (14), `test_attach_to_a_finished_log_shows_the_run` |
@@ -728,7 +734,7 @@ tests in `tests/instruments/pico_sht30/`.
 
 | Question | Answer |
 |---|---|
-| Requirements with no verifying test | **None.** All 447 functional requirements in force (448 declared; PICO-FR-044 is withdrawn) and 36 non-functional requirements trace to at least one test, or to a recorded inspection where a test is not the appropriate method (CORE-NFR-002, BLE-FR-090, BLE-NFR-002, and part of CORE-NFR-001). The firmware requirements are verified against the artefact the firmware is built from, not against a running dongle: see CON-07. |
+| Requirements with no verifying test | **None.** All 452 functional requirements in force (453 declared; PICO-FR-044 is withdrawn) and 36 non-functional requirements trace to at least one test, or to a recorded inspection where a test is not the appropriate method (CORE-NFR-002, BLE-FR-090, BLE-NFR-002, and part of CORE-NFR-001). The firmware requirements are verified against the artefact the firmware is built from, not against a running dongle: see CON-07. |
 | Tests not tracing to a requirement | **None.** Every test file names its requirements in its module docstring. |
 | Source modules with no design unit | **None.** Every module names its design unit in its docstring - firmware sources included, checked by `test_every_source_declares_its_trace` in `SWE4-UT-BLEFW`; `__main__.py` is covered by RUN-DD-CLI. |
 | Design units with no source | **None.** |
