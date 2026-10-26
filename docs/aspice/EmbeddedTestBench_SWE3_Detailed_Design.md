@@ -76,6 +76,7 @@
 | 1.40 | 2026-10-25 | Claude | #293: S2LP-DD-SESSION - `commands_sent`; S2LP-DD-TRAFFIC - `_set_aside`, `_put_aside`, `_take_set_aside` (valid while the session's `commands_sent` is unchanged since the stop) and `kepler_frame(since_last=...)`, with the gap between two calls measured on the bench kit (26 to 27 ms); CORE-DD-MOCK - a `keep_buffer` write keeps the simulator's undelivered output. |
 | next | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
 | next | 2026-10-25 | Claude | #238: CORE-DD-PLUGINS added (CORE count 17 → 18, total 76 → 77). S2LP-DD-KEPLER and VIEW-DD-KEPLER moved to `plugins/kepler`; S2LP-DD-TRAFFIC's `dut_samples` and `dut_frame`; VIEW-DD-SERVER's plugin panels, `/api/plugins`, `/api/panel` and `/plugin/`. |
+| next | 2026-10-26 | Claude | #242: RUN-DD-LIMITS: `TextLimit` takes `one_of`, `matches` with a reason, and `ignore_case`; RUN-DD-SPEC: saved values in `min`, `max` and `one_of` (`Expectation.deferred`); RUN-DD-RUNNER: the `compute` step; BLE-DD-DONGLE: `poll_states`. |
 
 ---
 
@@ -1223,6 +1224,12 @@ refusals that are about the dongle rather than the sensor (4, 7, 10), and
 `DONGLE_RESET_SETTLE` the time a reset dongle is given to return on USB.
 
 #### BLE-DD-DONGLE — `dongle.py`
+
+`poll_states(request, interval, duration, pattern)` (#242) sends the command on
+the `sample_command` schedule (`_sleep_until` on `perf_counter`) and keeps each
+state once while it repeats (`_state_of`: the pattern's first group, or the
+whole reply), returning `states`, `times`, `sequence`, `count`, `polls` and
+`unmatched`.
 
 `NordicDongle`, the façade: an `Instrument` (CORE-DD-INSTRUMENT) whose transport
 is a serial port or a simulator.
@@ -2830,6 +2837,16 @@ An `instruments:` entry is a driver name or a mapping with `driver` and
 
 #### RUN-DD-LIMITS — `limits.py`
 
+`TextLimit` (#242) takes exactly one of `equals`, `one_of` and `matches`, with
+`ignore_case` for any of them and a required `reason` for `matches`, which is
+checked with `re.fullmatch` on the stripped text and compiled at load. A
+`one_of` item that is a number compares as a number. `Expectation._limit_for`
+builds it when the limit has `matches` or `one_of` or a text `equals`, and
+refuses a numeric key beside them; `ignore_case` and `reason` on a numeric
+limit are refused. `Expectation._deferred` keeps a limit whose `min`, `max` or
+`one_of` items name saved values, checks it at load with the widest stand-in
+for each, and `limit_against` builds it once the steps have run.
+
 `Limit` supports `minimum`, `maximum`, `equals` with `tolerance` or
 `tolerance_percent`, in any consistent combination, validated at construction.
 `from_mapping` accepts `min`/`max`/`nominal` aliases because that is what reads
@@ -2897,6 +2914,11 @@ the firmware build decides whether the number means what it appears to mean.
 Report writers read only these, so a new format needs no change to the engine.
 
 #### RUN-DD-RUNNER — `runner.py`
+
+The built-in `compute` step (`_action_compute`, `COMPUTE_OPERATIONS`, #242)
+makes one number from `a` and `b`, references resolved by the runner as for any
+step: `difference`, `absolute_difference`, `sum`, `product`, `ratio`. A value
+read off a link as text or bytes is read as a number.
 
 `BenchRunner` resolves each step's `do:` to a bound method on a bench instrument —
 rejecting private names, and on an unknown name listing what is available — calls

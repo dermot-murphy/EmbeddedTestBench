@@ -535,6 +535,21 @@ specification itself.
 off the part, finds that board over the air by it, and compares what the board
 reports with what was flashed onto it.
 
+**Computing from saved values.** The built-in `compute` step makes one number
+from two, for a limit on how two readings relate (#242):
+
+```yaml
+- do: compute
+  with: {operation: difference, a: {from: unloaded.mean}, b: {from: loaded.mean}}
+  save: drop
+  expect:
+    - {name: battery_drop, measure: "", unit: mV, min: 0, max: 200}
+```
+
+`operation` is `difference` (`a - b`), `absolute_difference`, `sum`, `product`
+or `ratio` (`a / b`). A value read off a reply as text is read as a number; one
+that is not a number is an error, and a ratio to zero is a measurement error.
+
 ### 3.7 Parameters: values named once, at the top
 
 The values a reader is most likely to want to change - a tolerance, how many
@@ -602,7 +617,11 @@ reads.
 | Nominal, relative window | `nominal`, `tolerance_percent` | `nominal: 1.0`, `tolerance_percent: 1.0` |
 | Exact | `nominal` alone | `nominal: 4` |
 | Exact, text | `equals` with a string | `equals: "1.4.2"` |
+| Text, any of a list | `one_of` | `one_of: [DETECT, IGNORE]` |
+| Text, a pattern, with why | `matches`, `reason` | `matches: 'V11\.\d{2}\.\d{4}'`, `reason: "the build number changes"` |
+| Text, any case | `ignore_case: true` beside `equals`, `one_of` or `matches` | `equals: {from: rd_version}`, `ignore_case: true` |
 | Taken from an earlier step | `equals` with a reference | `equals: {from: build.version}` |
+| A bound from an earlier step | `min` or `max` with a reference | `max: {from: unloaded}` |
 
 `minimum`/`maximum`/`equals` are accepted as the long forms. Bounds are inclusive.
 A failure states by how much the value missed:
@@ -617,6 +636,35 @@ A limit written as text compares as text: no scaling, exact on the stripped
 value, and the report shows the text rather than a number. Exact on purpose —
 a looser rule would pass `1.4.20` for `1.4.2`, which is the failure such a limit
 exists to catch. See §3.6 for taking one from an earlier step.
+
+Three looser text forms exist for what exact text cannot state (#242), and
+each says so in the report:
+
+- `one_of: [...]` passes any of the values listed; a number in the list is
+  compared as a number, so `one_of: [1, 2]` passes `2.0`.
+- `matches: <regex>` passes text the expression matches *whole*
+  (`re.fullmatch`), and needs a `reason` saying why the exact text cannot be
+  written down. Without one the specification does not load.
+- `ignore_case: true` makes `equals`, `one_of` or `matches` compare without
+  regard to case - a VERSION frame and `RD VERSION` spell the same version in
+  different cases.
+
+`min` and `max` may each take a value an earlier step saved, beside a bound
+stated outright: "the loaded battery is no higher than the unloaded one" is
+
+```yaml
+- do: dongle.sample_command
+  with: {request: "RD BATTERY", count: 3}
+  save: unloaded
+- do: dongle.sample_command
+  with: {request: "RD BATTERY LOADED", count: 3}
+  save: loaded
+  expect:
+    - {name: no_higher, measure: maximum, max: {from: unloaded.minimum}}
+```
+
+A saved bound that is not a number is an **error** naming it. For a
+difference or a ratio, use `compute` (§3.6).
 
 ### 4.1 Units and `scale`
 
@@ -766,6 +814,7 @@ gives you the means to say so in the specification rather than in a comment.
 | `measure_advertising_profile` | `AdvertisingProfile` | `mean_interval_s`, `minimum_interval_s`, `maximum_interval_s`, `spread_s`, `jitter_s`, `expected_jitter_s`, `rate_hz`, `count`, `missed_events`, `expected_events`, `duty_cycle`, `reception_ratio`, `is_complete`, `lost_reports` |
 | `measure_response_time` | `ResponseTiming` | `milliseconds`, `seconds`, `minimum_s`, `maximum_s`, `spread_s`, `standard_deviation_s`, `count`, `is_trustworthy`, `quantisation_s` |
 | `command` | `ResponseSample` | `text`, `dongle_us`, `host_s` |
+| `poll_states` | `dict` | `sequence` (states in order, comma-joined), `states`, `times`, `count`, `polls`, `unmatched` |
 | `send_package` | `DfuResult` | `result` (`Success`, `InvalidObject`, `ExtendedError`), `extended_error` (`HwVersionFailure`...), `stage`, `bytes_sent`, `seconds`, `succeeded` — BLE notes §2.5 |
 | `write` | `int` | *(omit `measure`)* |
 
@@ -793,6 +842,20 @@ Three of these belong in a specification beside the limits, not in a comment:
 A limit of "100 ms ± 1 ms" fails every conforming sensor, because the Bluetooth
 specification *requires* a random 0-10 ms advertising delay. See
 `docs/ble/BLE_Dongle_Notes.md` §4.1.
+
+`poll_states` sends one command at an interval for a duration and keeps each
+state its replies go through once, in order (#242). "RD PHASE goes DETECT,
+then IGNORE, then DETECT" is
+
+```yaml
+- do: dongle.poll_states
+  with: {request: "RD PHASE", interval: 1.0, duration: 120.0, pattern: 'PHASE = (\w+)'}
+  expect:
+    - {name: phases, measure: sequence, equals: "DETECT,IGNORE,DETECT"}
+```
+
+`pattern`'s first group is the state (the whole reply without one); a reply it
+does not match is counted in `unmatched`.
 
 ---
 
