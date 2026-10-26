@@ -2846,8 +2846,9 @@ An `instruments:` entry is a driver name or a mapping with `driver` and
 checked with `re.fullmatch` on the stripped text and compiled at load. A
 `one_of` item that is a number compares only with a plainly written number;
 a true, false, null or list item is refused, saying to quote ON and OFF; an
-empty text is a value like any other. `Limit.from_mapping` refuses a bound
-that is not finite. `Expectation._limit_for`
+empty text is a value like any other. `Limit` refuses any bound, nominal or
+tolerance that is not finite, on every path, a tolerance beside a saved value
+included (`_optional_number`). `Expectation._limit_for`
 builds it when the limit has `matches` or `one_of` or a text `equals`, and
 refuses a numeric key beside them; `ignore_case` and `reason` on a numeric
 limit are refused. `Expectation._deferred` keeps a limit whose `min`, `max` or

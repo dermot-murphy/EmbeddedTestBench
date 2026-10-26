@@ -72,7 +72,7 @@
 | next | 2026-10-25 | Claude | #210: §5 row for SWE4-UT-DOCVER (27), and SWE4-UT-PUBLISH 43 → 45, pass, from runs of `test_doc_versions.py` (27 passed) and `test_publish_docs.py` (45 passed) on this branch on 2026-10-25. The §5 total is still the 1.32 whole-suite run's. |
 | next | 2026-10-25 | Claude | #210, review of #301: SWE4-UT-DOCVER 27 → 61, pass, from a run of `test_doc_versions.py` on this branch on 2026-10-25 (61 passed). The §5 total is still the 1.32 whole-suite run's. |
 | next | 2026-10-25 | Claude | #238: §5 row for SWE4-UT-PLUGINS (61), pass, from a run of `core/test_plugins.py` on this branch on 2026-10-25 (61 passed, Windows). The §5 total is still the 1.32 whole-suite run's. |
-| next | 2026-10-26 | Claude | #242: §5 row for SWE4-UT-COMPARE (55); SWE4-UT-BLESAMPLE 5 → 21; pass, from runs of `runner/test_compare_steps.py` (55 passed) and `instruments/nordic_dongle/test_sampling.py` (21 passed) on this branch on 2026-10-26. The §5 total is still the 1.32 whole-suite run's. |
+| next | 2026-10-26 | Claude | #242: §5 row for SWE4-UT-COMPARE (62); SWE4-UT-BLESAMPLE 5 → 21; pass, from runs of `runner/test_compare_steps.py` (62 passed) and `instruments/nordic_dongle/test_sampling.py` (21 passed) on this branch on 2026-10-26. The §5 total is still the 1.32 whole-suite run's. |
 
 ---
 
@@ -268,7 +268,7 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-BLECLI | `instruments/nordic_dongle/test_cli.py` | 50 | Pass |
 | SWE4-UT-BLEFIRMWARE | `instruments/nordic_dongle/test_firmware.py` | 50 | Pass |
 | SWE4-UT-LIMITS | `runner/test_limits.py` | 45 | Pass |
-| SWE4-UT-COMPARE | `runner/test_compare_steps.py` | 55 | Pass |
+| SWE4-UT-COMPARE | `runner/test_compare_steps.py` | 62 | Pass |
 | SWE4-UT-RESOLVE | `runner/test_resolve.py` | 27 | Pass |
 | SWE4-UT-BRINGUP | `runner/test_sensor_bringup.py` | 18 | Pass |
 | SWE4-UT-KEPLERSIM | `runner/test_kepler_simulated.py` | 11 | Pass |
