@@ -61,6 +61,7 @@ CORE-FR-069, RUN-DD-SPEC.
 from __future__ import annotations
 
 import json
+import math
 import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
@@ -262,6 +263,11 @@ class Expectation:
         else:
             deferred = cls._deferred(name, limit_source)
             limit = None if deferred is not None else cls._limit_for(name, limit_source)
+            text = isinstance(limit, TextLimit) or (
+                deferred is not None and any(key in deferred for key in _TEXT_KEYS))
+            if text and (scale != 1.0 or data.get("format")):
+                raise SpecError("expectation %r compares text, so scale and format, which "
+                                "apply to a number, do not apply" % name)
         return cls(
             name=name,
             measure=measure,
@@ -313,6 +319,9 @@ class Expectation:
     @staticmethod
     def _limit_for(name, source):
         """The limit this expectation checks against."""
+        if "equals" in source and "nominal" in source:
+            raise SpecError("expectation %r sets both equals and nominal, which are one "
+                            "key; keep one" % name)
         source = dict(source)
         ignore_case = bool(source.pop("ignore_case", False))
         reason = str(source.pop("reason", "") or "")
@@ -348,13 +357,24 @@ class Expectation:
         if self.deferred is not None:
             resolved = resolve_references(self.deferred, saved)
             for key in [key for key in resolved if key in _BOUND_KEYS]:
-                if isinstance(resolved[key], (bytes, bytearray, str)):
-                    try:
-                        resolved[key] = float(resolved[key])
-                    except ValueError as exc:
-                        raise SpecError(
-                            "expectation %r cannot bound with %r taken from an earlier "
-                            "step" % (self.name, resolved[key])) from exc
+                value = resolved[key]
+                if isinstance(value, (bytes, bytearray)):
+                    value = value.decode("utf-8", errors="replace")
+                try:
+                    value = float(value)
+                except (TypeError, ValueError) as exc:
+                    raise SpecError(
+                        "expectation %r cannot bound with %r taken from an earlier "
+                        "step" % (self.name, resolved[key])) from exc
+                if not math.isfinite(value):
+                    raise SpecError("expectation %r: the bound taken from an earlier step "
+                                    "is %r, not a finite number" % (self.name, value))
+                resolved[key] = value
+            if isinstance(resolved.get("one_of"), list):
+                resolved["one_of"] = [
+                    item.decode("utf-8", errors="replace")
+                    if isinstance(item, (bytes, bytearray)) else item
+                    for item in resolved["one_of"]]
             return self._limit_for(self.name, resolved)
         if self.reference is None:
             return self.limit

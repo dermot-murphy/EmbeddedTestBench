@@ -10,7 +10,7 @@ import types
 
 import pytest
 
-from benchtools.core.errors import ConfigurationError, MeasurementError
+from benchtools.core.errors import ConfigurationError, InstrumentError, MeasurementError
 
 
 def test_each_reply_gives_one_reading(linked):
@@ -90,7 +90,11 @@ class TestPollStates:
         assert result["polls"] == 3 and time.perf_counter() - started >= 0.2
 
     @pytest.mark.parametrize("options, message", [
-        ({"interval": 0}, "interval must be positive"),
+        ({"interval": 0}, "interval must be a positive number"),
+        ({"interval": float("nan")}, "interval must be a positive number"),
+        ({"duration": float("nan")}, "duration must be a finite number"),
+        ({"duration": float("inf")}, "duration must be a finite number"),
+        ({"duration": -1}, "duration must be a finite number"),
         ({"pattern": "("}, "not a regular expression"),
     ])
     def test_bad_options_are_refused(self, linked, options, message):
@@ -100,3 +104,44 @@ class TestPollStates:
     def test_a_real_reply_through_the_simulated_link(self, linked):
         result = linked.poll_states("temp", interval=0.01, duration=0.02)
         assert result["states"] == ["23.5"]
+
+
+class TestPollStatesSchedule:
+    """Review of #306: the schedule, and what a bad poll does. Traces to: BLE-FR-122."""
+
+    def test_the_last_poll_is_not_lost_to_rounding(self, linked, monkeypatch):
+        _replies(monkeypatch, linked, ["A"])
+        monkeypatch.setattr("benchtools.instruments.nordic_dongle.dongle._sleep_until",
+                            lambda due: None)
+        assert linked.poll_states("rd", interval=0.1, duration=0.3)["polls"] == 4
+
+    def test_a_duration_of_zero_is_one_poll(self, linked, monkeypatch):
+        _replies(monkeypatch, linked, ["A"])
+        assert linked.poll_states("rd", interval=1.0, duration=0)["polls"] == 1
+
+    def test_a_slow_reply_skips_the_polls_it_overran(self, linked, monkeypatch):
+        def slow(request, **kwargs):  # pylint: disable=unused-argument
+            time.sleep(0.25)
+            return types.SimpleNamespace(text="A")
+        monkeypatch.setattr(linked, "command", slow)
+        result = linked.poll_states("rd", interval=0.1, duration=0.4)
+        assert result["polls"] + result["skipped"] == 5 and result["skipped"] >= 2
+
+    def test_a_failed_command_is_counted_and_the_states_are_kept(self, linked, monkeypatch):
+        answers = iter(["A", None, "B"])
+
+        def flaky(request, **kwargs):  # pylint: disable=unused-argument
+            text = next(answers)
+            if text is None:
+                raise InstrumentError("the sensor did not reply")
+            return types.SimpleNamespace(text=text)
+        monkeypatch.setattr(linked, "command", flaky)
+        monkeypatch.setattr("benchtools.instruments.nordic_dongle.dongle._sleep_until",
+                            lambda due: None)
+        result = linked.poll_states("rd", interval=1.0, duration=2.0)
+        assert result["states"] == ["A", "B"] and result["failed"] == 1 and result["polls"] == 2
+
+    def test_a_group_that_took_no_part_is_unmatched(self, linked, monkeypatch):
+        _replies(monkeypatch, linked, ["PHASE"])
+        result = linked.poll_states("rd", interval=1.0, duration=0, pattern=r"PHASE( = \w+)?")
+        assert result["states"] == [] and result["unmatched"] == 1

@@ -24,6 +24,9 @@ from ..core.errors import SpecError
 
 __all__ = ["Limit", "LimitOutcome", "TextLimit"]
 
+#: A number as a reply writes one, for comparing with a number in ``one_of``.
+_PLAIN_NUMBER = re.compile(r"[+-]?(\d+(\.\d*)?|\.\d+)")
+
 
 @dataclass(frozen=True)
 class LimitOutcome:
@@ -186,6 +189,14 @@ class TextLimit:
     reason: str = ""
 
     def __post_init__(self) -> None:
+        for item in self.one_of:
+            if item is None or isinstance(item, (bool, list, tuple, dict, set)):
+                raise SpecError(
+                    "one_of item %r is not a text or a number%s" % (
+                        item, "; quote ON, OFF, YES and NO, which YAML reads as true and "
+                        "false" if isinstance(item, bool) else ""))
+            if isinstance(item, float) and not math.isfinite(item):
+                raise SpecError("one_of item %r is not a finite number" % item)
         forms = [self.equals is not None, self.matches is not None, bool(self.one_of)]
         if sum(forms) != 1:
             raise SpecError("a text limit takes exactly one of equals, matches or one_of")
@@ -217,10 +228,13 @@ class TextLimit:
 
     def _same(self, actual: str, wanted: Any) -> bool:
         if isinstance(wanted, (int, float)) and not isinstance(wanted, bool):
-            try:
-                return float(actual) == float(wanted)
-            except ValueError:
+            # Only a plainly written number: float() also reads "1_0" and
+            # "1e0", which no instrument reply means as 10 or 1.
+            if _PLAIN_NUMBER.fullmatch(actual) is None:
                 return False
+            return float(actual) == float(wanted)
+        if isinstance(wanted, (bytes, bytearray)):
+            wanted = wanted.decode("utf-8", errors="replace")
         wanted = str(wanted).strip()
         if self.ignore_case:
             return actual.casefold() == wanted.casefold()

@@ -22,6 +22,7 @@ Traces to: BLE-FR-001 .. BLE-FR-062, BLE-FR-122, BLE-ARC-001, BLE-DD-DONGLE, BLE
 from __future__ import annotations
 
 import logging
+import math
 import re
 import time
 from dataclasses import dataclass
@@ -175,15 +176,49 @@ def _sleep_until(due: float) -> None:
         wait = due - time.perf_counter()
 
 
+def _poll_slots(interval: float, duration: float) -> int:
+    """How many polls ``poll_states`` makes: at 0, *interval*, ... up to *duration*."""
+    try:
+        interval, duration = float(interval), float(duration)
+    except (TypeError, ValueError) as exc:
+        raise ConfigurationError("poll_states: interval and duration are seconds") from exc
+    if not math.isfinite(interval) or interval <= 0.0:
+        raise ConfigurationError("poll_states: interval must be a positive number of "
+                                 "seconds, not %r" % interval)
+    if not math.isfinite(duration) or duration < 0.0:
+        raise ConfigurationError("poll_states: duration must be a finite number of seconds, "
+                                 "0 or more, not %r" % duration)
+    return int(duration / interval + 1e-9) + 1
+
+
+def _state_pattern(pattern: Optional[str]) -> Optional["re.Pattern[str]"]:
+    """``poll_states``'s *pattern*, compiled, or None for the whole reply."""
+    try:
+        return re.compile(pattern) if pattern else None
+    except re.error as exc:
+        raise ConfigurationError("poll_states: pattern %r is not a regular expression: %s"
+                                 % (pattern, exc)) from exc
+
+
+def _next_slot(slot: int, slots: int, elapsed: float, interval: float) -> int:
+    """The next poll after *slot*: the first whose time has not passed already."""
+    due_now = int(elapsed / interval + 1e-9)
+    return max(slot + 1, min(due_now, slots))
+
+
 def _state_of(text: str, pattern: Optional["re.Pattern[str]"]) -> Optional[str]:
-    """The state a reply gives: *pattern*'s first group, or the whole reply."""
+    """The state a reply gives: *pattern*'s first group, or the whole reply.
+
+    None when the pattern does not match, or its group took no part in the match.
+    """
     text = text.strip()
     if pattern is None:
         return text
     match = pattern.search(text)
     if match is None:
         return None
-    return (match.group(1) if pattern.groups else match.group(0)).strip()
+    found = match.group(1) if pattern.groups else match.group(0)
+    return None if found is None else found.strip()
 
 
 class NordicDongle(Instrument):
@@ -1501,42 +1536,56 @@ class NordicDongle(Instrument):
             in ``unmatched`` and changes nothing.
         :param interval: Seconds from the start of one command to the start of
             the next; a reply slower than that is followed at once.
+        The polls are due at 0, *interval*, 2 x *interval* ... up to and
+        including *duration*, counted before the first is sent, so the last one
+        is not lost to rounding. A poll whose time has passed while an earlier
+        reply was slow is skipped rather than sent late, so the states keep
+        their spacing; a command that fails is counted in ``failed`` and the
+        states seen so far are kept.
+
         :returns: ``states`` (each distinct state in order), ``times`` (seconds
             from the first command to the reply that first showed it),
             ``sequence`` (``states`` joined by commas, for a text limit),
-            ``count`` (how many states), ``polls`` and ``unmatched``.
+            ``count`` (how many states), ``polls`` (commands sent),
+            ``skipped``, ``unmatched`` and ``failed``.
         :raises ConfigurationError: for a *pattern* that is not a regular
-            expression, or an *interval* that is not positive.
+            expression, an *interval* that is not a positive finite number, or a
+            *duration* that is not a finite number of seconds, 0 or more.
 
         Traces to: BLE-FR-122.
         """
-        if float(interval) <= 0.0:
-            raise ConfigurationError("poll_states: interval must be positive, not %r"
-                                     % interval)
-        try:
-            compiled = re.compile(pattern) if pattern else None
-        except re.error as exc:
-            raise ConfigurationError("poll_states: pattern %r is not a regular expression: %s"
-                                     % (pattern, exc)) from exc
+        slots = _poll_slots(interval, duration)
+        compiled = _state_pattern(pattern)
         states: List[str] = []
         times: List[float] = []
-        polls = unmatched = 0
+        counts = {"polls": 0, "skipped": 0, "unmatched": 0, "failed": 0}
         started = time.perf_counter()
-        while True:
-            due = started + polls * float(interval)
-            if due - started > float(duration):
-                break
-            _sleep_until(due)
-            state = _state_of(self.command(request, timeout=timeout).text, compiled)
-            polls += 1
-            if state is None:
-                unmatched += 1
-                continue
-            if not states or states[-1] != state:
+        slot = 0
+        while slot < slots:
+            _sleep_until(started + slot * float(interval))
+            state = self._poll_once(request, timeout, compiled, counts)
+            if state is not None and (not states or states[-1] != state):
                 states.append(state)
                 times.append(round(time.perf_counter() - started, 3))
-        return {"states": states, "times": times, "sequence": ",".join(states),
-                "count": len(states), "polls": polls, "unmatched": unmatched}
+            following = _next_slot(slot, slots, time.perf_counter() - started, float(interval))
+            counts["skipped"] += following - slot - 1
+            slot = following
+        return dict({"states": states, "times": times, "sequence": ",".join(states),
+                     "count": len(states)}, **counts)
+
+    def _poll_once(self, request: str, timeout: float, pattern, counts: Dict[str, int]
+                   ) -> Optional[str]:
+        """One ``poll_states`` command: its state, or None, counted in *counts*."""
+        try:
+            state = _state_of(self.command(request, timeout=timeout).text, pattern)
+        except InstrumentError as exc:
+            self._logger.warning("poll_states: %r failed: %s", request, exc)
+            counts["failed"] += 1
+            return None
+        counts["polls"] += 1
+        if state is None:
+            counts["unmatched"] += 1
+        return state
 
     @input_paths("source")
     def run_script(  # pylint: disable=too-many-arguments,too-many-positional-arguments

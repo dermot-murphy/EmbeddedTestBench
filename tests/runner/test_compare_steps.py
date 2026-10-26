@@ -135,3 +135,70 @@ def test_a_loaded_battery_no_higher_than_unloaded_in_a_run():
     assert measured["no_higher"].limit == "<= 0"
     assert measured["drop"].status is Status.PASS and measured["drop"].value == 0.0
     assert measured["above"].status is Status.PASS
+
+
+class TestRoundOneOfReview:
+    """Findings of the first review of #306."""
+
+    def test_a_saved_bound_that_is_not_finite_is_an_error(self):
+        with pytest.raises(SpecError, match="not a finite number"):
+            expect(min={"from": "n"}).limit_against({"n": float("nan")})
+        with pytest.raises(SpecError, match="not a finite number"):
+            expect(max={"from": "n"}).limit_against({"n": "inf"})
+
+    @pytest.mark.parametrize("a, b, message", [
+        ("nan", 1, "a is 'nan', not a finite number"),
+        (1, float("inf"), "b is inf, not a finite number"),
+    ])
+    def test_compute_refuses_values_that_are_not_finite(self, a, b, message):
+        with pytest.raises(SpecError, match=message):
+            BUILTIN_ACTIONS["compute"]("difference", a, b)
+
+    def test_compute_refuses_a_result_that_is_not_finite(self):
+        with pytest.raises(MeasurementError, match="product of .* is inf"):
+            BUILTIN_ACTIONS["compute"]("product", 1e200, 1e200)
+
+    @pytest.mark.parametrize("item, message", [
+        (True, "quote ON, OFF"), (None, "not a text or a number"),
+        ([1], "not a text or a number"), (float("nan"), "not a finite number")])
+    def test_a_one_of_item_that_is_not_text_or_a_number_is_refused(self, item, message):
+        with pytest.raises(SpecError, match=message):
+            expect(one_of=["A", item])
+
+    def test_a_saved_one_of_item_read_off_a_link_is_text(self):
+        limit = expect(one_of=[{"from": "reply"}]).limit_against({"reply": b"ON"})
+        assert limit.check("ON").passed
+
+    @pytest.mark.parametrize("text", ["1_0", "1e1", "0x0A", " "])
+    def test_only_a_plainly_written_number_equals_a_number(self, text):
+        assert not expect(one_of=[10]).limit.check(text).passed
+        assert expect(one_of=[10]).limit.check("10.0").passed
+
+    @pytest.mark.parametrize("extra", [{"scale": 2}, {"format": "{:X}"}])
+    def test_scale_and_format_do_not_apply_to_text(self, extra):
+        with pytest.raises(SpecError, match="scale and format"):
+            expect(one_of=["A"], **extra)
+
+    def test_equals_and_nominal_together_are_refused(self):
+        with pytest.raises(SpecError, match="both equals and nominal"):
+            expect(equals=1, nominal=1)
+
+    def test_a_reading_above_the_saved_bound_fails_and_says_by_how_much(self):
+        spec = TestSpec.from_mapping({"name": "b", "tests": [{"name": "t", "steps": [
+            {"do": "compute", "with": {"operation": "sum", "a": 1, "b": 1}, "save": "two"},
+            {"do": "compute", "with": {"operation": "sum", "a": 2, "b": 1},
+             "expect": [{"name": "no_higher", "measure": "", "max": {"from": "two"}}]},
+        ]}]})
+        with BenchRunner.from_config(BenchConfig.simulated([]), simulate=True) as runner:
+            record = runner.run(spec)
+        [measured] = record.cases[0].steps[1].measurements
+        assert measured.status is Status.FAIL and measured.reason == "3 is above the maximum 2"
+
+    def test_an_unresolved_saved_limit_is_described_not_none(self):
+        spec = TestSpec.from_mapping({"name": "b", "tests": [{"name": "t", "steps": [
+            {"do": "sleep", "with": {"seconds": 0},
+             "expect": [{"name": "x", "measure": "", "max": {"from": "never"}}]}]}]})
+        with BenchRunner.from_config(BenchConfig.simulated([]), simulate=True) as runner:
+            record = runner.run(spec)
+        [measured] = record.cases[0].steps[0].measurements
+        assert measured.status is Status.ERROR and "None" not in measured.limit

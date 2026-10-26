@@ -26,6 +26,7 @@ from __future__ import annotations
 import dataclasses
 import datetime
 import logging
+import math
 import os
 import time
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
@@ -118,9 +119,12 @@ def _number(value: Any, what: str) -> float:
     if isinstance(value, (bytes, bytearray)):
         value = value.decode("utf-8", errors="replace")
     try:
-        return float(value)
+        number = float(value)
     except (TypeError, ValueError) as exc:
         raise SpecError("compute: %s is %r, which is not a number" % (what, value)) from exc
+    if not math.isfinite(number):
+        raise SpecError("compute: %s is %r, not a finite number" % (what, value))
+    return number
 
 
 #: What ``compute`` can do with two saved numbers (#242).
@@ -153,7 +157,10 @@ def _action_compute(operation: str, a: Any, b: Any) -> float:
     left, right = _number(a, "a"), _number(b, "b")
     if operation == "ratio" and right == 0.0:
         raise MeasurementError("compute: ratio of %g to zero" % left)
-    return COMPUTE_OPERATIONS[operation](left, right)
+    result = COMPUTE_OPERATIONS[operation](left, right)
+    if not math.isfinite(result):
+        raise MeasurementError("compute: %s of %g and %g is %r" % (operation, left, right, result))
+    return result
 
 
 #: Actions that are not bound to an instrument.
@@ -279,7 +286,12 @@ class BenchRunner:
     # ------------------------------------------------------------------
     def _check_expectation(self, result: Any, expectation: Expectation) -> MeasurementRecord:
         """Extract one value from *result* and check it against its limit."""
-        limit_text = expectation.limit.text if expectation.limit else str(expectation.reference)
+        if expectation.limit is not None:
+            limit_text = expectation.limit.text
+        elif expectation.reference is not None:
+            limit_text = str(expectation.reference)
+        else:
+            limit_text = "a limit from saved values, not resolved"
 
         def failed_to_resolve(reason: str) -> MeasurementRecord:
             return MeasurementRecord(
