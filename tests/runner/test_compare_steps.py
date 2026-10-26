@@ -9,7 +9,7 @@ import pytest
 
 from benchtools.core.errors import MeasurementError, SpecError
 from benchtools.runner import BenchConfig, BenchRunner
-from benchtools.runner.limits import TextLimit
+from benchtools.runner.limits import Limit, TextLimit
 from benchtools.runner.results import Status
 from benchtools.runner.runner import BUILTIN_ACTIONS
 from benchtools.runner.spec import Expectation, TestSpec
@@ -224,3 +224,23 @@ class TestRoundTwoOfReview:
     def test_an_empty_text_in_one_of_is_a_value_like_any_other(self):
         limit = expect(one_of=["", "OK"]).limit
         assert limit.check("").passed and limit.check("OK").passed
+
+
+class TestRoundThreeOfReview:
+    """Findings of the third review of #306."""
+
+    @pytest.mark.parametrize("tolerance", [float("nan"), float("inf")])
+    def test_a_tolerance_beside_a_saved_value_that_is_not_finite_is_a_load_error(
+            self, tolerance):
+        with pytest.raises(SpecError, match="not a finite number"):
+            expect(equals={"from": "x"}, tolerance=tolerance)
+
+    @pytest.mark.parametrize("saved", [float("inf"), float("nan")])
+    def test_a_saved_value_that_is_not_finite_cannot_be_a_limit(self, saved):
+        with pytest.raises(SpecError, match="must be a finite number"):
+            expect(equals={"from": "x"}).limit_against({"x": saved})
+
+    @pytest.mark.parametrize("field", ["minimum", "maximum", "equals"])
+    def test_every_limit_refuses_a_value_that_is_not_finite(self, field):
+        with pytest.raises(SpecError, match="limit %s must be a finite number" % field):
+            Limit(**{field: float("nan")})

@@ -62,6 +62,12 @@ class Limit:
     tolerance_percent: Optional[float] = None
 
     def __post_init__(self) -> None:
+        for name in ("minimum", "maximum", "equals", "tolerance", "tolerance_percent"):
+            value = getattr(self, name)
+            if value is not None and not math.isfinite(value):
+                # NaN compares false with everything, so a NaN bound would
+                # pass every value; an infinite one passes as much (#306).
+                raise SpecError("limit %s must be a finite number, not %r" % (name, value))
         if all(
             bound is None
             for bound in (self.minimum, self.maximum, self.equals)

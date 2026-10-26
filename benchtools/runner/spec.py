@@ -127,9 +127,12 @@ def _optional_number(value, what: str) -> Optional[float]:
     if value is None:
         return None
     try:
-        return float(value)
+        number = float(value)
     except (TypeError, ValueError) as exc:
         raise SpecError("%s has a non-numeric tolerance %r" % (what, value)) from exc
+    if not math.isfinite(number):
+        raise SpecError("%s has a tolerance that is not a finite number: %r" % (what, value))
+    return number
 
 
 def _is_parameter(value) -> bool:
