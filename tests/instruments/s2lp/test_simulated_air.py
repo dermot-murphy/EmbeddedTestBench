@@ -32,6 +32,22 @@ from benchtools.simulated.kepler import COPIES, COPY_GAP_S, KEPLER_433_TRANSMITT
 ROOT = pathlib.Path(__file__).resolve().parents[3]
 KEPLER_REGS = ROOT / "plugins" / "kepler" / "configs" / "s2lp_kepler_433_rx.regs"
 
+#: The bits a receiver must match, stated here rather than read from
+#: KEPLER_433_TRANSMITTER, so that narrowing a mask there fails a test:
+#: frequency, data rate and modulation whole; SYNC_LEN; LEN_WID and
+#: ADDRESS_LEN; all of PCKTCTRL3 (format, RX_MODE, swaps, PREAMBLE_SEL); the
+#: coding options and FIX_VAR_LEN; CRC_MODE, WHIT_EN and FEC_EN.
+MUST_MATCH = {
+    "SYNT3": 0x1F, "SYNT2": 0xFF, "SYNT1": 0xFF, "SYNT0": 0xFF,
+    "MOD4": 0xFF, "MOD3": 0xFF, "MOD2": 0xFF,
+    "PCKTCTRL6": 0xFC, "PCKTCTRL4": 0x88, "PCKTCTRL3": 0xFF, "PCKTCTRL2": 0x3F,
+    "PCKTCTRL1": 0xF1,
+}
+
+#: Every one of those bits, as (register, bit).
+COMPARED_BITS = [(name, 1 << shift) for name, mask in MUST_MATCH.items()
+                 for shift in range(8) if mask & (1 << shift)]
+
 
 @pytest.fixture(autouse=True)
 def clean_world():
@@ -86,22 +102,13 @@ class TestHearing:
         assert receive(simulator) == b""
         assert simulator.unheard == 1
 
-    @pytest.mark.parametrize("name, mask",
-                             [entry[:2] for entry in KEPLER_433_TRANSMITTER.registers],
-                             ids=[entry[0] for entry in KEPLER_433_TRANSMITTER.registers])
-    def test_each_compared_register_matters(self, name, mask):
-        """Every register compared matters: flip the lowest bit under its mask."""
+    @pytest.mark.parametrize("name, bit", COMPARED_BITS,
+                             ids=["%s-0x%02X" % entry for entry in COMPARED_BITS])
+    def test_each_compared_bit_matters(self, name, bit):
+        """Every bit under every register's mask is compared: flip each in turn."""
         simulator = kit()
-        address = lookup(name).address
-        lowest = mask & -mask
-        simulator.registers[address] ^= lowest
+        simulator.registers[lookup(name).address] ^= bit
         assert not simulator._hears(KEPLER_433_TRANSMITTER)  # pylint: disable=protected-access
-
-    @pytest.mark.parametrize("field, bit", [("WHIT_EN", 0x10), ("FEC_EN", 0x01)])
-    def test_whitening_or_fec_is_not_heard(self, field, bit):
-        simulator = kit()
-        simulator.registers[lookup("PCKTCTRL1").address] |= bit
-        assert not simulator._hears(KEPLER_433_TRANSMITTER), field  # pylint: disable=protected-access
 
     def test_the_secondary_sync_word_needs_second_sync_sel(self):
         simulator = kit()
@@ -168,6 +175,8 @@ class TestSensorRadio:
 
     def test_every_copy_carries_the_same_ticks_and_a_reset_starts_them_at_1(self):
         model = kepler_sensor()
+        for _ in range(2 * COPIES):                 # two ALIVEs: ticks is 2
+            model.transmit()
         model.reset()
         copies = [model.transmit() for _ in range(COPIES)]
         assert {copy.payload[81:83] for copy in copies} == {b"\x00\x01"}
