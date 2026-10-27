@@ -432,10 +432,14 @@ def _left_conflict(block, marker_size, keep_base):
     return out
 
 
-def _conflict_style():
-    """``merge.conflictStyle`` in this clone, or "merge"."""
+def _conflict_style(where):
+    """``merge.conflictStyle`` of the repository holding ``where``, or "merge".
+
+    git runs the driver at the top of the work tree, with ``%A`` a file
+    there, so ``where`` is the directory of ``ours``, not the caller's.
+    """
     result = subprocess.run(["git", "config", "--get", "merge.conflictStyle"],
-                            stdout=subprocess.PIPE, check=False)
+                            cwd=str(where), stdout=subprocess.PIPE, check=False)
     return result.stdout.decode("utf-8").strip() or "merge"
 
 
@@ -501,7 +505,7 @@ def run_merge(base, ours, theirs, marker_size=7, label="document"):
         merged = result.stdout.decode("utf-8")
         left = 0
         if result.returncode:
-            keep_base = _conflict_style() in ("diff3", "zdiff3")
+            keep_base = _conflict_style(Path(ours).resolve().parent) in ("diff3", "zdiff3")
             merged, left = merge_rows(merged, marker_size, keep_base)
         Path(ours).write_bytes(merged.encode("utf-8"))
         return 1 if left else 0

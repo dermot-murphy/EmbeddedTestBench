@@ -74,6 +74,7 @@
 | next | 2026-10-25 | Claude | #238: §5 row for SWE4-UT-PLUGINS (61), pass, from a run of `core/test_plugins.py` on this branch on 2026-10-25 (61 passed, Windows). The §5 total is still the 1.32 whole-suite run's. |
 | next | 2026-10-26 | Claude | #242: §5 row for SWE4-UT-COMPARE (62); SWE4-UT-BLESAMPLE 5 → 21; pass, from runs of `runner/test_compare_steps.py` (62 passed) and `instruments/nordic_dongle/test_sampling.py` (21 passed) on this branch on 2026-10-26. The §5 total is still the 1.32 whole-suite run's. |
 | next | 2026-10-27 | Claude | #299: SWE4-UT-S2LP 143 → 150, pass, from a run of `instruments/s2lp/test_s2lp.py` on this branch on 2026-10-27. The §5 total is still the 1.32 whole-suite run's. |
+| next | 2026-10-27 | Claude | #305: SWE4-UT-DOCVER 61 → 63, pass, from a run of `test_doc_versions.py` on this branch on 2026-10-27 (63 passed). The §5 total is still the 1.32 whole-suite run's. |
 
 ---
 
@@ -225,7 +226,7 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-LINT | `test_lint_script.py` | 3 | Pass |
 | SWE4-UT-PUBLISH | `test_publish_docs.py` | 45 | Pass |
 | SWE4-UT-PLUGINS | `core/test_plugins.py` | 61 | Pass (on Linux CI 60 and 1 skipped: the case-insensitive folder test is Windows-only) |
-| SWE4-UT-DOCVER | `test_doc_versions.py` | 61 | Pass |
+| SWE4-UT-DOCVER | `test_doc_versions.py` | 63 | Pass |
 | SWE4-UT-TRACE | `test_traceability.py` | 30 | Pass |
 | SWE4-UT-SCPI | `core/test_scpi.py` | 28 | Pass |
 | SWE4-UT-INSTRUMENT | `core/test_instrument.py` | 20 | Pass |
