@@ -74,6 +74,10 @@ instruments:
     driver: s2lp
     resource: sim://
     timeout: 5.0
+    options:
+      # The simulated kit hears the simulated Kepler sensor's 433 MHz frames
+      # (#122), once its registers are set up to receive them.
+      simulated_targets: [kepler-5C1712]
 
   # The bench thermometer: Pico 2 + SHT30-D, simulated. Event-log name TEMP.
   temp:

@@ -25,8 +25,12 @@
 # Against hardware (5C1712 is the sensor approved for configuration changes):
 #   python -m benchtools run specs/kepler_temperature.yaml --bench benches/lab1.yaml
 #
-# On the simulated bench the sensor answers over BLE and RTT (#121) but does
-# not yet transmit (#122), so the S2-LP steps need hardware.
+# On the simulated bench a simulated 5C1712 answers over BLE and RTT and
+# transmits its frames to the simulated S2-LP kit (#121, #122):
+#   python -m benchtools run specs/kepler_temperature.yaml --bench benches/simulated_bench.yaml
+# The report says the run was simulated (AD-10). A simulated pass shows that
+# the specification and the bench agree with a model of the sensor, not that
+# the sensor works.
 
 name: Kepler temperature
 description: >

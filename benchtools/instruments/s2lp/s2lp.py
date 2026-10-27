@@ -43,6 +43,7 @@ from ...core.instrument import Instrument, InstrumentIdentity
 from ...core.paths import input_paths
 from ...core.transport.base import Transport
 from ...core.transport.factory import open_transport
+from ...simulated.world import air
 from . import registers as reg
 from .configuration import (
     ConfigurationCheck,
@@ -144,6 +145,7 @@ class S2lpDevkit(TrafficMixin, Instrument):
         log_path: Optional[str] = None,
         packet_log: Optional[str] = None,
         initialise: bool = True,
+        simulated_targets: Optional[Sequence[str]] = None,
         **kwargs,
     ) -> "S2lpDevkit":
         """Open a kit.
@@ -153,6 +155,10 @@ class S2lpDevkit(TrafficMixin, Instrument):
             is taken as a serial port, not as a host name.
         :param log_path: Raw session log - every line, both directions.
         :param packet_log: Structured packet log, as JSON Lines.
+        :param simulated_targets: ``sim://`` only: the simulated devices whose
+            radio the kit is in range of - ``kepler-5C1712``, the Kepler
+            sensor the simulated dongle and probe also talk to (#122). Ignored
+            for a real kit, which hears whatever is on the air.
         """
         target = cls._normalise_resource(resource)
         transport = open_transport(
@@ -162,6 +168,14 @@ class S2lpDevkit(TrafficMixin, Instrument):
             responder_factory=cls.SIMULATOR_CLASS,
             **({"baudrate": baudrate} if target.startswith("serial://") else {}),
         )
+        simulator = getattr(transport, "responder", None)
+        if simulated_targets and isinstance(simulator, SimulatedS2lp):
+            if isinstance(simulated_targets, str):
+                simulated_targets = [simulated_targets]
+            try:
+                simulator.air = air(simulated_targets)
+            except ValueError as exc:
+                raise ConfigurationError(str(exc)) from exc
         instrument = cls(transport, board=board, timeout=timeout, **kwargs)
         if log_path:
             instrument._session.log_to(log_path)

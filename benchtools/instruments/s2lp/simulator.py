@@ -33,8 +33,15 @@ Behaviours modelled because they are the ones that mislead:
 * **Out of reset the radio sends a PN9 test pattern, not its FIFO.**
   PCKTCTRL1.TXSOURCE powers up as 3; until the packet handler is set up a send
   never finishes and the payload never goes.
+* **A simulated sensor is heard only by a receiver set up for it (#122).**
+  Wired to the simulated bench's air (:attr:`SimulatedS2lp.air`), a receive
+  with nothing to report takes the next frame a sensor sends. The frame is
+  delivered only if the radio's registers match the sensor's transmitter -
+  frequency, data rate, modulation, packet format and sync word - and is lost
+  otherwise, so a wrong register file hears nothing. Its PQI is the whole
+  preamble the sensor sent.
 
-Traces to: S2LP-FR-050, S2LP-DD-SIM.
+Traces to: S2LP-FR-050, S2LP-FR-087, S2LP-DD-SIM.
 """
 
 from __future__ import annotations
@@ -43,7 +50,9 @@ import re
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
+from ...simulated.world import Air
 from .constants import AFTER_SHUTDOWN_EXIT, DEFAULT_BOARD, FIFO_SIZE, Modulation, Strobe
+from .preamble import expected_pqi
 from .registers import BY_ADDRESS, REGISTERS, lookup
 
 __all__ = ["SimulatedS2lp"]
@@ -71,6 +80,10 @@ CLEAN_STOP_IRQ = 0x09605002
 
 #: Registers the receive path updates, by address.
 _PQI, _SQI, _RSSI_LEVEL, _RX_LEN1, _RX_LEN0 = 0x9F, 0xA0, 0xA2, 0xA4, 0xA5
+
+#: The signal a simulated sensor on the bench arrives with.
+AIR_RSSI_DBM = -70.0
+AIR_SQI = 30
 
 
 def _rssi_byte(dbm: float) -> int:
@@ -130,6 +143,11 @@ class SimulatedS2lp:
         self._arrivals: List[_Arrival] = []
         #: Packets that arrived while nothing was listening.
         self.missed = 0
+        #: The simulated sensors this board is in range of, if any (#122).
+        self.air: Optional[Air] = None
+        #: Their frames that a receive was armed for but the radio's settings
+        #: did not match.
+        self.unheard = 0
         self.stopped = False
         #: A stop character sent while nothing was running, waiting to spoil
         #: the next command.
@@ -195,6 +213,35 @@ class SimulatedS2lp:
         """
         self.missed += 1
 
+    def _listen(self) -> None:
+        """While a receive waits with nothing to report, take the next frame
+        a simulated sensor sends, if the radio is set up to hear it."""
+        if self.air is None or self._arrivals:
+            return
+        sent = self.air.next_transmission()
+        if sent is None:
+            return
+        if not self._hears(sent.settings):
+            self.unheard += 1
+            return
+        self.queue_packet(sent.payload, AIR_RSSI_DBM, pqi=expected_pqi(sent.preamble_pairs),
+                          sqi=AIR_SQI)
+
+    def _hears(self, settings) -> bool:
+        """Whether the radio's registers match a transmitter's *settings*."""
+        for name, mask, value in settings.registers:
+            if self.registers.get(lookup(name).address, 0) & mask != value:
+                return False
+
+        def word(first: str) -> int:
+            start = lookup(first).address           # least significant byte first
+            return sum(self.registers.get(start + index, 0) << (8 * index) for index in range(4))
+
+        if word("SYNC3") == settings.sync_word:
+            return True
+        second = self.registers.get(lookup("PCKTCTRL1").address, 0) & 0x02
+        return bool(second) and word("PCKT_FLT_GOALS3") == settings.sync_word
+
     def _take(self) -> Optional[_Arrival]:
         if not self._arrivals:
             return None
@@ -238,7 +285,10 @@ class SimulatedS2lp:
 
     def poll(self) -> Optional[bytes]:
         """Output the board produces on its own, while busy receiving."""
-        if self._busy not in ("get", "batch") or not self._arrivals:
+        if self._busy not in ("get", "batch"):
+            return None
+        self._listen()
+        if not self._arrivals:
             return None
         if self._busy == "get":
             self._busy = None
