@@ -660,6 +660,63 @@ class TestPreamble:
         assert check["verdict"] == "fail" and "longer" in check["reason"]
 
 
+class TestRearmBetweenReceives:
+    """Fewer commands between two receives, so the radio is deaf for less (#299)."""
+
+    @staticmethod
+    def _take_one_and_stop(radio, loopback):
+        """A receive the caller leaves after one frame: the host stops the board."""
+        loopback.queue_packet(PAYLOAD)
+        frames = radio.stream(timeout=5.0)
+        next(frames)
+        frames.close()
+
+    def test_report_all_is_sent_once_per_connection(self, linked, loopback):
+        for _ in range(3):
+            self._take_one_and_stop(linked, loopback)
+        assert loopback.command_log.count("S2LPGetNBytesReportAll 1") == 1
+
+    def test_after_its_own_stop_it_only_clears_the_interrupts(self, linked, loopback):
+        self._take_one_and_stop(linked, loopback)
+        loopback.command_log.clear()
+        self._take_one_and_stop(linked, loopback)
+        before_batch = loopback.command_log[:loopback.command_log.index(
+            "S2LPGetNBytesBatch 0 4294967295")]
+        assert before_batch == ["S2LPIrqGetStatus"]
+
+    def test_a_command_since_the_stop_means_the_line_is_checked(self, linked, loopback):
+        self._take_one_and_stop(linked, loopback)
+        linked.read_register("TIMERS5")
+        loopback.command_log.clear()
+        self._take_one_and_stop(linked, loopback)
+        assert "S2MGpioGetValue 3" in loopback.command_log
+
+    def test_an_unacknowledged_stop_means_the_line_is_checked(self, linked, loopback,
+                                                               monkeypatch):
+        session = linked._session  # pylint: disable=protected-access
+        original = session.stop
+
+        def stop_without_its_acknowledgement(*args, **kwargs):
+            replies = original(*args, **kwargs)
+            session.last_stop_acknowledged = False
+            return replies
+
+        monkeypatch.setattr(session, "stop", stop_without_its_acknowledgement)
+        self._take_one_and_stop(linked, loopback)
+        loopback.command_log.clear()
+        self._take_one_and_stop(linked, loopback)
+        assert "S2MGpioGetValue 3" in loopback.command_log
+
+    def test_a_new_connection_sends_report_all_again(self, linked, loopback):
+        self._take_one_and_stop(linked, loopback)
+        linked.close()
+        linked.initialise()
+        loopback.command_log.clear()
+        self._take_one_and_stop(linked, loopback)
+        assert "S2LPGetNBytesReportAll 1" in loopback.command_log
+        assert "S2MGpioGetValue 3" in loopback.command_log
+
+
 class TestBatchStream:
     """The default: ST's receive loop, as ST's GUI starts it (#87)."""
 

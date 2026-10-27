@@ -74,6 +74,7 @@
 | 1.38 | 2026-10-24 | Claude | #252: S2LP-DD-TRAFFIC - `kepler_samples`: the copies of one ALIVE differ in the SI-updated bit on V11.00.0000 and V11.01.0000 only; Kepler TX-1049 (V11.02.0000) sends the same bit in every copy; the V10.00.0000 and V10.99.0000 loaders clear it as V11.00 does. |
 | 1.39 | 2026-10-24 | Claude | #294: VIEW-DD-SERVER - `ViewerServer.handle_error` logs a client that went away, over HTTP or TLS, as one warning line. |
 | 1.40 | 2026-10-25 | Claude | #293: S2LP-DD-SESSION - `commands_sent`; S2LP-DD-TRAFFIC - `_set_aside`, `_put_aside`, `_take_set_aside` (valid while the session's `commands_sent` is unchanged since the stop) and `kepler_frame(since_last=...)`, with the gap between two calls measured on the bench kit (26 to 27 ms); CORE-DD-MOCK - a `keep_buffer` write keeps the simulator's undelivered output. |
+| 1.41 | 2026-10-27 | Claude | #299: S2LP-DD-TRAFFIC - `_turn_report_all_on`, `_own_stop_at` and the shorter re-arm in `_ready_for_receive`, with the gap re-measured (12.0 ms over three gaps); S2LP-DD-SESSION - `last_stop_acknowledged`. |
 | next | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
 | next | 2026-10-25 | Claude | #238: CORE-DD-PLUGINS added (CORE count 17 → 18, total 76 → 77). S2LP-DD-KEPLER and VIEW-DD-KEPLER moved to `plugins/kepler`; S2LP-DD-TRAFFIC's `dut_samples` and `dut_frame`; VIEW-DD-SERVER's plugin panels, `/api/plugins`, `/api/panel` and `/plugin/`. |
 | next | 2026-10-26 | Claude | #242: RUN-DD-LIMITS: `TextLimit` takes `one_of`, `matches` with a reason, and `ignore_case`; RUN-DD-SPEC: saved values in `min`, `max` and `one_of` (`Expectation.deferred`); RUN-DD-RUNNER: the `compute` step; BLE-DD-DONGLE: `poll_states`. |
@@ -1885,6 +1886,8 @@ Commands out, replies in, every line logged.
 - **`commands_sent`** counts the commands `send` has written since the session
   was made; the stop character is not one. The traffic layer compares it to
   tell whether anything was asked of the board since a stop (#293).
+- **`last_stop_acknowledged`** says whether the last `stop()` got its
+  `StopCmd`, so a loop really was running and has ended (#299).
 
 - **Where a reply ends** is decided by counting braces, because the firmware
   closes some replies on the first line and others five lines later. Waiting for
@@ -2072,6 +2075,20 @@ most of it is the three commands sent before the loop restarts
 (`S2LPIrqGetStatus`, `S2MGpioGetValue`, `S2LPGetNBytesReportAll`), about 7 ms
 each. The stop itself took 3.5 to 4.4 ms, and 33.5 ms when a copy arrived
 during it.
+
+#299 removes two of those three commands (S2LP-FR-086). `_turn_report_all_on`
+sends `S2LPGetNBytesReportAll 1` once per connection: the firmware keeps it
+until its MCU resets, and `_open` forgets it, since a reconnect may follow a
+reset. On the bench kit, 31 of 31 reports over 20 batches carried the
+report-all fields with it sent once. `_stop_and_collect` records
+`_own_stop_at`, the session's `commands_sent`, when the board acknowledged the
+stop. `_ready_for_receive` then reads only IRQ_STATUS if nothing has been sent
+since, which clears what the stop left pending (#99), and skips the
+`S2MGpioGetValue` line check. Every other path checks the line as before: the
+first receive, a command since the stop, an unacknowledged stop, and
+`_forget_traffic_setup`. On the bench kit the line read high after 300 of 300
+such stops. With both changes, the gap between two back-to-back calls measured
+12.0 ms over three gaps (2026-10-27).
 
 #### S2LP-DD-EEPROM — `eeprom.py`
 

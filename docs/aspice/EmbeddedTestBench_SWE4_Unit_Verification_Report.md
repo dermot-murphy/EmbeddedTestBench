@@ -69,6 +69,7 @@
 | 1.33 | 2026-10-25 | Claude | #294: SWE4-UT-VIEWSERVER 29 → 36, pass, from a run of `viewer/test_server.py` on this branch on 2026-10-25 (36 passed). The §5 total is still the 1.32 whole-suite run's. |
 | 1.34 | 2026-10-25 | Claude | #292: §5 rows for SWE4-UT-SELFCHECK (7) and SWE4-UT-FIVEINST (8), the two files no group named, with their results from the 1.32 run; the note about them removed. SWE4-UT-TRACE 27 → 30, pass, from a run of `test_traceability.py` on this branch on 2026-10-25 (30 passed); the §5 total is still the 1.32 run's. |
 | 1.35 | 2026-10-25 | Claude | #293: SWE4-UT-TRANSPORT 29 → 31 and SWE4-UT-S2LPFRAME 3 → 10, pass, from runs of `core/transport/test_base.py` (31 passed) and `instruments/s2lp/test_kepler_frame.py` (10 passed) on this branch on 2026-10-25. The §5 total is still the 1.32 whole-suite run's; the whole suite passed at 0960059 on this branch (3 382). The bench run for #293 is in `docs/aspice/qualification/2026-10-25/`. |
+| 1.36 | 2026-10-27 | Claude | #299: SWE4-UT-S2LP 143 → 148, pass, from a run of `instruments/s2lp/test_s2lp.py` on this branch on 2026-10-27. The §5 total is still the 1.32 whole-suite run's. |
 | next | 2026-10-25 | Claude | #210: §5 row for SWE4-UT-DOCVER (27), and SWE4-UT-PUBLISH 43 → 45, pass, from runs of `test_doc_versions.py` (27 passed) and `test_publish_docs.py` (45 passed) on this branch on 2026-10-25. The §5 total is still the 1.32 whole-suite run's. |
 | next | 2026-10-25 | Claude | #210, review of #301: SWE4-UT-DOCVER 27 → 61, pass, from a run of `test_doc_versions.py` on this branch on 2026-10-25 (61 passed). The §5 total is still the 1.32 whole-suite run's. |
 | next | 2026-10-25 | Claude | #238: §5 row for SWE4-UT-PLUGINS (61), pass, from a run of `core/test_plugins.py` on this branch on 2026-10-25 (61 passed, Windows). The §5 total is still the 1.32 whole-suite run's. |
@@ -298,7 +299,7 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-VIEWDIAG | `viewer/test_diagnostics.py` | 14 | Pass |
 | SWE4-UT-VIEWREPORT | `viewer/test_report.py` | 10 | Pass |
 | SWE4-UT-VIEWSTGUI | `viewer/test_st_gui.py` | 11 | Pass |
-| SWE4-UT-S2LP | `instruments/s2lp/test_s2lp.py` | 143 | Pass |
+| SWE4-UT-S2LP | `instruments/s2lp/test_s2lp.py` | 148 | Pass |
 | SWE4-UT-S2LPREG | `instruments/s2lp/test_registers.py` | 34 | Pass |
 | SWE4-UT-S2LPCONFIG | `instruments/s2lp/test_configuration.py` | 64 | Pass |
 | SWE4-UT-S2LPPROTO | `instruments/s2lp/test_protocol.py` | 42 | Pass |

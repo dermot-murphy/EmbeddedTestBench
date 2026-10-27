@@ -72,7 +72,7 @@ class ReadCancelled(TransportTimeoutError):
 
 
 
-class S2lpSession:
+class S2lpSession:  # pylint: disable=too-many-instance-attributes
     """Commands in, replies out, everything logged.
 
     :param transport: The link to the board, usually its USB serial port.
@@ -95,6 +95,9 @@ class S2lpSession:
         #: a command. Lets a caller tell whether anything was asked of the
         #: board since a given moment (#293).
         self.commands_sent = 0
+        #: Whether the last :meth:`stop` was acknowledged with ``StopCmd``, so a
+        #: loop really was running and has ended (#299).
+        self.last_stop_acknowledged = False
 
     # ------------------------------------------------------------------
     @property
@@ -305,6 +308,7 @@ class S2lpSession:
         :returns: Replies that arrived before the acknowledgement - a packet
             that landed while the stop was on its way is still a packet.
         """
+        self.last_stop_acknowledged = False
         self._logger.debug(">> (stop)")
         self._write_log(">", "(stop)")
         self._transport.write(STOP_CHARACTER, append_terminator=False, keep_buffer=True)
@@ -320,6 +324,7 @@ class S2lpSession:
             except TransportTimeoutError:
                 break
             if reply.command == STOP_ACK:
+                self.last_stop_acknowledged = True
                 return arrived
             arrived.append(reply)
 
