@@ -1,6 +1,6 @@
 """The S2-LP development kit driver.
 
-Traces to: S2LP-FR-001 .. S2LP-FR-060, SWE4-UT-S2LP.
+Traces to: S2LP-FR-001 .. S2LP-FR-060, S2LP-FR-086, SWE4-UT-S2LP.
 """
 
 from __future__ import annotations
@@ -20,6 +20,7 @@ from benchtools.instruments.s2lp import (
 from benchtools.instruments.s2lp.constants import AFTER_SHUTDOWN_EXIT
 from benchtools.instruments.s2lp.packets import REPORT_ALL_TAGS, BoardClock
 from benchtools.instruments.s2lp.packets import rssi_dbm_from_register, rssi_register_from_dbm
+from benchtools.instruments.s2lp.simulator import STOPPED_RECEIVE_IRQ
 
 from ...kepler_plugin import decode_kepler_frame
 from .conftest import PAYLOAD
@@ -703,6 +704,28 @@ class TestRearmBetweenReceives:
 
         monkeypatch.setattr(session, "stop", stop_without_its_acknowledgement)
         self._take_one_and_stop(linked, loopback)
+        loopback.command_log.clear()
+        self._take_one_and_stop(linked, loopback)
+        assert "S2MGpioGetValue 3" in loopback.command_log
+
+    def test_a_stop_part_way_through_a_reception_means_the_line_is_checked(
+            self, linked, loopback):
+        """More pending than a clean stop leaves (#99's 09607003): the line is
+        checked even straight after the driver's own stop."""
+        loopback.stop_irq = STOPPED_RECEIVE_IRQ
+        self._take_one_and_stop(linked, loopback)
+        loopback.command_log.clear()
+        self._take_one_and_stop(linked, loopback)
+        before_batch = loopback.command_log[:loopback.command_log.index(
+            "S2LPGetNBytesBatch 0 4294967295")]
+        assert before_batch == ["S2LPIrqGetStatus", "S2MGpioGetValue 3"]
+
+    def test_restored_defaults_between_receives_mean_the_line_is_checked(
+            self, linked, loopback):
+        self._take_one_and_stop(linked, loopback)
+        linked.restore_defaults()
+        linked.configure_packets()
+        linked.set_payload_length(len(PAYLOAD))
         loopback.command_log.clear()
         self._take_one_and_stop(linked, loopback)
         assert "S2MGpioGetValue 3" in loopback.command_log

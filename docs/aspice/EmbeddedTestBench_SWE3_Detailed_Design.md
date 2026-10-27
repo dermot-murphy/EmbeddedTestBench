@@ -74,10 +74,10 @@
 | 1.38 | 2026-10-24 | Claude | #252: S2LP-DD-TRAFFIC - `kepler_samples`: the copies of one ALIVE differ in the SI-updated bit on V11.00.0000 and V11.01.0000 only; Kepler TX-1049 (V11.02.0000) sends the same bit in every copy; the V10.00.0000 and V10.99.0000 loaders clear it as V11.00 does. |
 | 1.39 | 2026-10-24 | Claude | #294: VIEW-DD-SERVER - `ViewerServer.handle_error` logs a client that went away, over HTTP or TLS, as one warning line. |
 | 1.40 | 2026-10-25 | Claude | #293: S2LP-DD-SESSION - `commands_sent`; S2LP-DD-TRAFFIC - `_set_aside`, `_put_aside`, `_take_set_aside` (valid while the session's `commands_sent` is unchanged since the stop) and `kepler_frame(since_last=...)`, with the gap between two calls measured on the bench kit (26 to 27 ms); CORE-DD-MOCK - a `keep_buffer` write keeps the simulator's undelivered output. |
-| 1.41 | 2026-10-27 | Claude | #299: S2LP-DD-TRAFFIC - `_turn_report_all_on`, `_own_stop_at` and the shorter re-arm in `_ready_for_receive`, with the gap re-measured (12.0 ms over three gaps); S2LP-DD-SESSION - `last_stop_acknowledged`. |
 | next | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
 | next | 2026-10-25 | Claude | #238: CORE-DD-PLUGINS added (CORE count 17 → 18, total 76 → 77). S2LP-DD-KEPLER and VIEW-DD-KEPLER moved to `plugins/kepler`; S2LP-DD-TRAFFIC's `dut_samples` and `dut_frame`; VIEW-DD-SERVER's plugin panels, `/api/plugins`, `/api/panel` and `/plugin/`. |
 | next | 2026-10-26 | Claude | #242: RUN-DD-LIMITS: `TextLimit` takes `one_of`, `matches` with a reason, and `ignore_case`; RUN-DD-SPEC: saved values in `min`, `max` and `one_of` (`Expectation.deferred`); RUN-DD-RUNNER: the `compute` step; BLE-DD-DONGLE: `poll_states`. |
+| next | 2026-10-27 | Claude | #299: S2LP-DD-TRAFFIC - `_turn_report_all_on`, `_own_stop_at`, `CLEAN_STOP_IRQS` and the shorter re-arm in `_ready_for_receive`, with the bench evidence, the gap re-measured (11 to 12 ms) and the limits; S2LP-DD-SESSION - `last_stop_acknowledged`. |
 
 ---
 
@@ -2082,13 +2082,35 @@ until its MCU resets, and `_open` forgets it, since a reconnect may follow a
 reset. On the bench kit, 31 of 31 reports over 20 batches carried the
 report-all fields with it sent once. `_stop_and_collect` records
 `_own_stop_at`, the session's `commands_sent`, when the board acknowledged the
-stop. `_ready_for_receive` then reads only IRQ_STATUS if nothing has been sent
-since, which clears what the stop left pending (#99), and skips the
-`S2MGpioGetValue` line check. Every other path checks the line as before: the
-first receive, a command since the stop, an unacknowledged stop, and
-`_forget_traffic_setup`. On the bench kit the line read high after 300 of 300
-such stops. With both changes, the gap between two back-to-back calls measured
-12.0 ms over three gaps (2026-10-27).
+stop. If nothing has been sent since, `_ready_for_receive` reads IRQ_STATUS,
+which clears what the stop left pending (#99). It checks the `S2MGpioGetValue`
+line only if more is pending, within `TRAFFIC_IRQS`, than a clean stop leaves
+(`CLEAN_STOP_IRQS`, from 0x09605002). Every other path checks the line as
+before: the first receive, a command since the stop, and an unacknowledged
+stop. After `_forget_traffic_setup` the next receive goes through
+`prepare_receive`, which checks the line. The stops in `_stream_polled` and
+`_capture_batch` do not record `_own_stop_at`, so they keep the full check.
+
+On the bench kit (2026-10-27) the line read high after the IRQ_STATUS read in
+2 300 host stops:
+- 1 994 of them left the clean value, 76 of those with a frame arriving during
+  the stop;
+- 5 left 0x09607002 and 1 left 0x00000601. Under the safeguard these get the
+  line check.
+
+None left #99's 0x09607003, so that exact case has not been reproduced on
+hardware. The safeguard gives it the line check too. With both changes, the
+gap between two back-to-back calls was 12.0, 11.0, 12.0 and 12.0 ms, the four
+times one call's return was followed by another's receive (2026-10-27).
+
+Limits:
+- `_report_all_on` tracks the firmware only as far as the driver sees it. On
+  the NUCLEO kit the serial port belongs to the ST-LINK, so a reset of the
+  target MCU alone does not close the port. That covers its reset button, a
+  brown-out and a watchdog: ReportAll is not sent again until the next
+  connection.
+- A caller that sends `S2LPGetNBytesReportAll 0` through `session` is not seen
+  either. The interrupt-routing flags already had the same exposure.
 
 #### S2LP-DD-EEPROM — `eeprom.py`
 

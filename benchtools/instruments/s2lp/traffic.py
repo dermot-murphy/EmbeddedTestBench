@@ -98,6 +98,12 @@ TX_SOURCE_FIFO = 0
 #: thresholds they need they enable themselves.
 TRAFFIC_IRQS = 0x00000001 | 0x00000002 | 0x00000004 | 0x00000010 | 0x00002000 | 0x10000000
 
+#: The interrupts among :data:`TRAFFIC_IRQS` that a host stop with nothing in
+#: progress leaves pending: IRQ_STATUS read 0x09605002 after 300 of 300 such
+#: stops on the bench kit (#299). Anything more - 0x09607003 after a stop
+#: part-way through a reception (#99) - and the line is checked as well.
+CLEAN_STOP_IRQS = 0x09605002 & TRAFFIC_IRQS
+
 
 class TrafficMixin:
     """Transmit, receive and capture. See the module docstring."""
@@ -196,7 +202,6 @@ class TrafficMixin:
         self._traffic_ready = False
         self._receive_ready = False
         self._payload_length = 0
-        self._own_stop_at = -1
 
     def _ready_for_traffic(self) -> None:
         if not self._traffic_ready:
@@ -222,18 +227,21 @@ class TrafficMixin:
     def _ready_for_receive(self) -> None:
         """Make the radio ready to receive, as quickly as is safe.
 
-        Straight after the host's own acknowledged stop of a batch receive,
-        with no command sent since, only IRQ_STATUS is read: that clears the
-        interrupts the stop left pending (#99), and the routing has not been
-        touched. The interrupt line is checked on every other path. On the
-        bench kit the line read high after 300 of 300 such stops, and the
-        check cost about 7 ms of the time the radio is deaf between two
+        Straight after the host's own acknowledged stop of a batch stream,
+        with no command sent since, IRQ_STATUS is read, which clears the
+        interrupts the stop left pending (#99), and the interrupt line is
+        checked only if more is pending than a clean stop leaves
+        (:data:`CLEAN_STOP_IRQS`). The line is checked on every other path.
+        On the bench kit the line read high after 300 of 300 clean stops, and
+        the check cost about 7 ms of the time the radio is deaf between two
         receives (#299).
         """
         if not self._receive_ready:
             self.prepare_receive()
         elif self._session.commands_sent == self._own_stop_at:
-            self._session.execute("S2LPIrqGetStatus")          # reading clears it
+            pending = self._session.execute("S2LPIrqGetStatus").hex_number("value")
+            if pending & TRAFFIC_IRQS & ~CLEAN_STOP_IRQS:
+                self._check_interrupt_line(IRQ_GPIO, "after clearing IRQ_STATUS")
         else:
             self.clear_interrupt()
         self._own_stop_at = -1
@@ -248,7 +256,16 @@ class TrafficMixin:
         self._own_stop_at = -1
 
     def _turn_report_all_on(self) -> None:
-        """Have the board re-arm before printing each report, once per connection."""
+        """Have the board re-arm before printing each report, once per connection.
+
+        The firmware keeps the setting until its MCU resets. On the NUCLEO
+        kit the serial port belongs to the ST-LINK, so a reset of the target
+        MCU alone (its reset button, a brown-out, a watchdog) does not close
+        the port: the driver does not see it, and until the next connection
+        it does not send ReportAll again. A caller that sends
+        ``S2LPGetNBytesReportAll 0`` through :attr:`session` is not seen
+        either (#299).
+        """
         if not self._report_all_on:
             self._session.execute("S2LPGetNBytesReportAll", 1)
             self._report_all_on = True
@@ -713,7 +730,7 @@ class TrafficMixin:
             are offered only if no command has gone to the S2-LP board since.
             Only frames that arrive while the board stops are kept: a frame
             that arrives after the stop and before this call's receive starts
-            is still missed. On the bench kit that gap was 12 ms for
+            is still missed. On the bench kit that gap was 11 to 12 ms for
             back-to-back calls (#299, 2026-10-27; 26 to 27 ms before); anything the caller
             does between two calls adds to it. Leave it off when the frame
             must be sent after this call, such as one answering a command

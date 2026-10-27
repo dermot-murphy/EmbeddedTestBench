@@ -65,6 +65,10 @@ RX_DATA_READY = 0x00000001
 #: A stop leaves these pending, and nIRQ asserted, until IRQ_STATUS is read.
 STOPPED_RECEIVE_IRQ = 0x09607003
 
+#: IRQ_STATUS as read from the kit after a receive the host stopped with
+#: nothing in progress: 300 times out of 300 on 2026-10-27 (#299).
+CLEAN_STOP_IRQ = 0x09605002
+
 #: Registers the receive path updates, by address.
 _PQI, _SQI, _RSSI_LEVEL, _RX_LEN1, _RX_LEN0 = 0x9F, 0xA0, 0xA2, 0xA4, 0xA5
 
@@ -131,6 +135,10 @@ class SimulatedS2lp:
         #: the next command.
         self.stray_stop = False
         self.report_all = False
+        #: What a stop of a receive leaves in IRQ_STATUS: a clean stop by
+        #: default, :data:`STOPPED_RECEIVE_IRQ` for one part-way through a
+        #: reception (#99, #299).
+        self.stop_irq = CLEAN_STOP_IRQ
         #: GPIOs on which the board is listening for an interrupt.
         self.board_irq_lines = set()
         #: What the board is busy doing: ``None``, ``"get"`` or ``"batch"``.
@@ -243,7 +251,7 @@ class SimulatedS2lp:
             self.stray_stop = True
             return b"S"
         if self._busy in ("get", "batch"):
-            self.irq_status |= STOPPED_RECEIVE_IRQ
+            self.irq_status |= self.stop_irq
         self._busy = None
         self.stopped = True
         self._batch_left = 0
