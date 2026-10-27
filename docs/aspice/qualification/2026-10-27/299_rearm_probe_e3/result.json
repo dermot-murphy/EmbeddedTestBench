@@ -1,0 +1,24 @@
+{
+  "cycles": 2000,
+  "seconds": 168.7,
+  "irq_status": {
+    "09605002": {
+      "high": 1994,
+      "low": 0,
+      "with_reports": 76,
+      "acknowledged": 1994
+    },
+    "09607002": {
+      "high": 5,
+      "low": 0,
+      "with_reports": 0,
+      "acknowledged": 5
+    },
+    "00000601": {
+      "high": 1,
+      "low": 0,
+      "with_reports": 0,
+      "acknowledged": 1
+    }
+  }
+}

@@ -73,6 +73,7 @@
 | next | 2026-10-25 | Claude | #210, review of #301: SWE4-UT-DOCVER 27 → 61, pass, from a run of `test_doc_versions.py` on this branch on 2026-10-25 (61 passed). The §5 total is still the 1.32 whole-suite run's. |
 | next | 2026-10-25 | Claude | #238: §5 row for SWE4-UT-PLUGINS (61), pass, from a run of `core/test_plugins.py` on this branch on 2026-10-25 (61 passed, Windows). The §5 total is still the 1.32 whole-suite run's. |
 | next | 2026-10-26 | Claude | #242: §5 row for SWE4-UT-COMPARE (62); SWE4-UT-BLESAMPLE 5 → 21; pass, from runs of `runner/test_compare_steps.py` (62 passed) and `instruments/nordic_dongle/test_sampling.py` (21 passed) on this branch on 2026-10-26. The §5 total is still the 1.32 whole-suite run's. |
+| next | 2026-10-27 | Claude | #299: SWE4-UT-S2LP 143 → 150, pass, from a run of `instruments/s2lp/test_s2lp.py` on this branch on 2026-10-27. The §5 total is still the 1.32 whole-suite run's. |
 
 ---
 
@@ -298,7 +299,7 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-VIEWDIAG | `viewer/test_diagnostics.py` | 14 | Pass |
 | SWE4-UT-VIEWREPORT | `viewer/test_report.py` | 10 | Pass |
 | SWE4-UT-VIEWSTGUI | `viewer/test_st_gui.py` | 11 | Pass |
-| SWE4-UT-S2LP | `instruments/s2lp/test_s2lp.py` | 143 | Pass |
+| SWE4-UT-S2LP | `instruments/s2lp/test_s2lp.py` | 150 | Pass |
 | SWE4-UT-S2LPREG | `instruments/s2lp/test_registers.py` | 34 | Pass |
 | SWE4-UT-S2LPCONFIG | `instruments/s2lp/test_configuration.py` | 64 | Pass |
 | SWE4-UT-S2LPPROTO | `instruments/s2lp/test_protocol.py` | 42 | Pass |

@@ -98,6 +98,12 @@ TX_SOURCE_FIFO = 0
 #: thresholds they need they enable themselves.
 TRAFFIC_IRQS = 0x00000001 | 0x00000002 | 0x00000004 | 0x00000010 | 0x00002000 | 0x10000000
 
+#: The interrupts among :data:`TRAFFIC_IRQS` that a host stop with nothing in
+#: progress leaves pending: IRQ_STATUS read 0x09605002 after 300 of 300 such
+#: stops on the bench kit (#299). Anything more - 0x09607003 after a stop
+#: part-way through a reception (#99) - and the line is checked as well.
+CLEAN_STOP_IRQS = 0x09605002 & TRAFFIC_IRQS
+
 
 class TrafficMixin:
     """Transmit, receive and capture. See the module docstring."""
@@ -113,6 +119,12 @@ class TrafficMixin:
     _set_aside: List[Packet] = []
     #: The session's command count when :attr:`_set_aside` was filled.
     _set_aside_at = -1
+    #: Whether ``S2LPGetNBytesReportAll`` is on in the firmware. It stays on
+    #: until the board's MCU resets, so it is sent once (#299).
+    _report_all_on = False
+    #: The session's command count straight after the host's own,
+    #: acknowledged stop of a batch receive; -1 when there is none (#299).
+    _own_stop_at = -1
 
     def prepare_traffic(self, gpio: int = IRQ_GPIO) -> None:
         """Route the radio's interrupt to the board, so traffic can complete.
@@ -213,10 +225,50 @@ class TrafficMixin:
         self._receive_ready = True
 
     def _ready_for_receive(self) -> None:
+        """Make the radio ready to receive, as quickly as is safe.
+
+        Straight after the host's own acknowledged stop of a batch stream,
+        with no command sent since, IRQ_STATUS is read, which clears the
+        interrupts the stop left pending (#99), and the interrupt line is
+        checked only if more is pending than a clean stop leaves
+        (:data:`CLEAN_STOP_IRQS`). The line is checked on every other path.
+        On the bench kit the line read high after 300 of 300 clean stops, and
+        the check cost about 7 ms of the time the radio is deaf between two
+        receives (#299).
+        """
         if not self._receive_ready:
             self.prepare_receive()
+        elif self._session.commands_sent == self._own_stop_at:
+            pending = self._session.execute("S2LPIrqGetStatus").hex_number("value")
+            if pending & TRAFFIC_IRQS & ~CLEAN_STOP_IRQS:
+                self._check_interrupt_line(IRQ_GPIO, "after clearing IRQ_STATUS")
         else:
             self.clear_interrupt()
+        self._own_stop_at = -1
+
+    def _forget_firmware_state(self) -> None:
+        """Forget what the board's firmware was left doing, on connecting.
+
+        Its MCU may have reset since the last connection, which turns
+        ReportAll off and ends any receive the host stopped (#299).
+        """
+        self._report_all_on = False
+        self._own_stop_at = -1
+
+    def _turn_report_all_on(self) -> None:
+        """Have the board re-arm before printing each report, once per connection.
+
+        The firmware keeps the setting until its MCU resets. On the NUCLEO
+        kit the serial port belongs to the ST-LINK, so a reset of the target
+        MCU alone (its reset button, a brown-out, a watchdog) does not close
+        the port: the driver does not see it, and until the next connection
+        it does not send ReportAll again. A caller that sends
+        ``S2LPGetNBytesReportAll 0`` through :attr:`session` is not seen
+        either (#299).
+        """
+        if not self._report_all_on:
+            self._session.execute("S2LPGetNBytesReportAll", 1)
+            self._report_all_on = True
 
     def transmit(self, data: Union[bytes, str], note: str = "",
                  timeout: Optional[float] = None) -> Packet:
@@ -393,7 +445,7 @@ class TrafficMixin:
     def _stream_batch(self, decoder, count, timeout, until) -> Iterator[Packet]:
         """ST's receive loop, reports read as they arrive."""
         started = time.monotonic()
-        self._session.execute("S2LPGetNBytesReportAll", 1)
+        self._turn_report_all_on()
         self._session.send("S2LPGetNBytesBatch", 0, int(count) if count else BATCH_FOREVER)
         running = True
         received = 0
@@ -490,7 +542,9 @@ class TrafficMixin:
 
     def _stop_and_collect(self, decoder) -> List[Packet]:
         """Stop the board, and turn the reports that came with the stop into frames."""
-        frames = (self._frame_from(reply, decoder) for reply in self._session.stop())
+        frames = [self._frame_from(reply, decoder) for reply in self._session.stop()]
+        if self._session.last_stop_acknowledged:
+            self._own_stop_at = self._session.commands_sent
         return [packet for packet in frames if packet is not None]
 
     def _stream_polled(self, decoder, count, timeout, until, registers) -> Iterator[Packet]:
@@ -676,8 +730,8 @@ class TrafficMixin:
             are offered only if no command has gone to the S2-LP board since.
             Only frames that arrive while the board stops are kept: a frame
             that arrives after the stop and before this call's receive starts
-            is still missed. On the bench kit that gap was 26 to 27 ms
-            for back-to-back calls (#293, 2026-10-25); anything the caller
+            is still missed. On the bench kit that gap was 11 to 12 ms for
+            back-to-back calls (#299, 2026-10-27; 26 to 27 ms before); anything the caller
             does between two calls adds to it. Leave it off when the frame
             must be sent after this call, such as one answering a command
             sent to the sensor since the last call: a frame set aside was
@@ -826,7 +880,7 @@ class TrafficMixin:
     def _capture_batch(self, capture: Capture, started: float, timeout: float) -> None:
         """Let ST's batch loop receive, and read its reports as they come."""
         self._ready_for_receive()
-        self._session.execute("S2LPGetNBytesReportAll", 1)
+        self._turn_report_all_on()
         self._session.send("S2LPGetNBytesBatch", 0, capture.requested)
         finished = False
         receptions = 0

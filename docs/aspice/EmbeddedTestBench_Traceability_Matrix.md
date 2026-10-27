@@ -77,6 +77,7 @@
 | next | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
 | next | 2026-10-25 | Claude | #238: rows for CORE-FR-066 .. CORE-FR-070 and VIEW-FR-047 (device plugins); AD-29 traced; §16 count 447 in force, 448 declared. |
 | next | 2026-10-26 | Claude | #242: rows for RUN-FR-067 .. RUN-FR-070 and BLE-FR-122; §16 count 452 in force, 453 declared. |
+| next | 2026-10-27 | Claude | #299: row for S2LP-FR-086 (only what re-arming needs between two batch-stream receives); §16 count 453 in force, 454 declared. |
 
 ---
 
@@ -437,6 +438,7 @@ where the firmware implements the requirement.
 | S2LP-FR-072 | S2LP-ARC-001 | S2LP-DD-TRAFFIC | `S2lpDevkit.kepler_samples` | `SWE4-UT-S2LPSAMPLES` (6) |
 | S2LP-FR-073 | S2LP-ARC-001 | S2LP-DD-TRAFFIC | `S2lpDevkit.kepler_frame` | `SWE4-UT-S2LPFRAME` (10) |
 | S2LP-FR-085 | S2LP-ARC-001 | S2LP-DD-TRAFFIC, S2LP-DD-SESSION, CORE-DD-MOCK | `_put_aside`, `_take_set_aside`, `kepler_frame(since_last=...)`, `S2lpSession.commands_sent`, `MockTransport.write` | `TestConsecutiveCalls` (7), `test_the_mock_keeps_undelivered_output_on_such_a_write`, `test_an_ordinary_write_to_the_mock_drops_undelivered_output` |
+| S2LP-FR-086 | S2LP-ARC-001 | S2LP-DD-TRAFFIC, S2LP-DD-SESSION | `_turn_report_all_on`, `_own_stop_at`, `CLEAN_STOP_IRQS`, `_ready_for_receive`, `S2lpSession.last_stop_acknowledged` | `TestRearmBetweenReceives` (7) |
 | S2LP-FR-080 | S2LP-ARC-001 | S2LP-DD-S2LP | `S2lpDevkit._record`, `log_event` | `TestDriverRecords` (2) |
 | S2LP-FR-081 | S2LP-ARC-001 | S2LP-DD-KEPLER | `CONFIG_PARAMETERS`, `config_parameter`, `name_config`, `permute_poly_any_size` | `TestParameters` (10), `test_a_config_frame_names_its_parameters` |
 | S2LP-FR-082 | S2LP-ARC-001 | S2LP-DD-KEPLER | `twf_sample`, `permute_poly`, `odr_hz` | `TestPolynomial` (2), `TestWaveform` (2), `test_odr_codes` |
@@ -734,7 +736,7 @@ tests in `tests/instruments/pico_sht30/`.
 
 | Question | Answer |
 |---|---|
-| Requirements with no verifying test | **None.** All 452 functional requirements in force (453 declared; PICO-FR-044 is withdrawn) and 36 non-functional requirements trace to at least one test, or to a recorded inspection where a test is not the appropriate method (CORE-NFR-002, BLE-FR-090, BLE-NFR-002, and part of CORE-NFR-001). The firmware requirements are verified against the artefact the firmware is built from, not against a running dongle: see CON-07. |
+| Requirements with no verifying test | **None.** All 453 functional requirements in force (454 declared; PICO-FR-044 is withdrawn) and 36 non-functional requirements trace to at least one test, or to a recorded inspection where a test is not the appropriate method (CORE-NFR-002, BLE-FR-090, BLE-NFR-002, and part of CORE-NFR-001). The firmware requirements are verified against the artefact the firmware is built from, not against a running dongle: see CON-07. |
 | Tests not tracing to a requirement | **None.** Every test file names its requirements in its module docstring. |
 | Source modules with no design unit | **None.** Every module names its design unit in its docstring - firmware sources included, checked by `test_every_source_declares_its_trace` in `SWE4-UT-BLEFW`; `__main__.py` is covered by RUN-DD-CLI. |
 | Design units with no source | **None.** |

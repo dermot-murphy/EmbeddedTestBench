@@ -187,6 +187,7 @@ class S2lpDevkit(TrafficMixin, Instrument):
 
     def _open(self) -> None:
         self._session.start()
+        self._forget_firmware_state()
 
     def _close(self) -> None:
         self.stop_packet_log()
