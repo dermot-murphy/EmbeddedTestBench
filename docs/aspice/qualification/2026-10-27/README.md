@@ -7,7 +7,7 @@ packets on air. Software: CPython 3.14.7 on Windows 10, with `benchtools` from
 this repository's working tree on `fix/299-s2lp-rearm-gap`, based on `develop`
 cf0114c.
 
-Both runs only listened. No command went to the sensor, and no other
+All three runs only listened. No command went to the sensor, and no other
 instrument was used.
 
 ## 1. Probes before the change (`299_rearm_probe/`)

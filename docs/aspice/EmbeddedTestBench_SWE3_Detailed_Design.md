@@ -78,6 +78,7 @@
 | next | 2026-10-25 | Claude | #238: CORE-DD-PLUGINS added (CORE count 17 → 18, total 76 → 77). S2LP-DD-KEPLER and VIEW-DD-KEPLER moved to `plugins/kepler`; S2LP-DD-TRAFFIC's `dut_samples` and `dut_frame`; VIEW-DD-SERVER's plugin panels, `/api/plugins`, `/api/panel` and `/plugin/`. |
 | next | 2026-10-26 | Claude | #242: RUN-DD-LIMITS: `TextLimit` takes `one_of`, `matches` with a reason, and `ignore_case`; RUN-DD-SPEC: saved values in `min`, `max` and `one_of` (`Expectation.deferred`); RUN-DD-RUNNER: the `compute` step; BLE-DD-DONGLE: `poll_states`. |
 | next | 2026-10-27 | Claude | #299: S2LP-DD-TRAFFIC - `_turn_report_all_on`, `_own_stop_at`, `CLEAN_STOP_IRQS` and the shorter re-arm in `_ready_for_receive`, with the bench evidence, the gap re-measured (11 to 12 ms) and the limits; S2LP-DD-SESSION - `last_stop_acknowledged`. |
+| next | 2026-10-27 | Claude | #308: S2LP-DD-TRAFFIC - the clean-stop count is 2 294 of 2 300, not 1 994. |
 
 ---
 
@@ -2093,8 +2094,8 @@ stop. After `_forget_traffic_setup` the next receive goes through
 
 On the bench kit (2026-10-27) the line read high after the IRQ_STATUS read in
 2 300 host stops:
-- 1 994 of them left the clean value, 76 of those with a frame arriving during
-  the stop;
+- 2 294 of them left the clean value: all 300 in the first probe, and 1 994 of
+  2 000 in the second, 76 of those with a frame arriving during the stop;
 - 5 left 0x09607002 and 1 left 0x00000601. Under the safeguard these get the
   line check.
 
