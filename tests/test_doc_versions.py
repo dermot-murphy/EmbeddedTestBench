@@ -16,6 +16,7 @@ import importlib.util
 import pathlib
 import shutil
 import subprocess
+import time
 
 import pytest
 
@@ -387,6 +388,15 @@ class TestMergeRows:
 needs_git = pytest.mark.skipif(shutil.which("git") is None, reason="needs git")
 
 
+_GIT_ATTEMPTS = 5
+_TRANSIENT = ("Permission denied", "unable to write file", "failed to insert into database")
+
+
+def _transient(output):
+    """True if git's output shows a write refused for a moment (#305)."""
+    return any(text in output for text in _TRANSIENT)
+
+
 @needs_git
 class TestMergeDriver:
     BASE = document([("0.1", "a")])
@@ -429,6 +439,21 @@ class TestMergeDriver:
         text = dv.read_text(ours)
         assert "| next | b |" in text and "| next | c |" in text and "<<<<<<<" in text
 
+    def test_the_conflict_style_is_read_from_the_merged_files_repository(
+            self, tmp_path, monkeypatch):
+        seen = []
+        real = subprocess.run
+
+        def run(command, **kwargs):
+            if command[:2] == ["git", "config"]:
+                seen.append(kwargs.get("cwd"))
+            return real(command, **kwargs)  # pylint: disable=subprocess-run-check
+        monkeypatch.setattr(dv.subprocess, "run", run)
+        base, ours, theirs = self.files(tmp_path, self.BASE.replace("# Plan", "# Plan A"),
+                                        self.BASE.replace("# Plan", "# Plan B"))
+        dv.run_merge(base, ours, theirs)
+        assert seen == [str(tmp_path.resolve())]
+
     def repository(self, tmp_path, ours_row, theirs_row, name="x y.md"):
         """A repository whose branches a and b each changed docs/<name>."""
         repo = tmp_path / "repo"
@@ -436,10 +461,29 @@ class TestMergeDriver:
         (repo / "scripts").mkdir()
         shutil.copy(ROOT / "scripts" / "doc_versions.py", repo / "scripts")
 
-        def git(*args):
-            return subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *args],
-                                  cwd=str(repo), stdout=subprocess.PIPE,
-                                  stderr=subprocess.STDOUT, check=False)
+        def git(*args, check=True):
+            """git in ``repo``; a setup command that fails names itself and its output.
+
+            On Windows a newly written ``.git/objects`` file is sometimes
+            refused for a moment ("Permission denied"), most likely by a
+            scanner (#305). Such a command is retried after a short wait; a
+            merge it broke is reset first, so the retry starts clean.
+            """
+            for attempt in range(_GIT_ATTEMPTS):
+                result = subprocess.run(
+                    ["git", "-c", "user.name=t", "-c", "user.email=t@t", *args],
+                    cwd=str(repo), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                    check=False)
+                output = result.stdout.decode("utf-8", "replace")
+                if result.returncode == 0 or not _transient(output):
+                    break
+                time.sleep(0.2 * (attempt + 1))
+                if args[0] == "merge":
+                    git("reset", "-q", "--hard")
+            if check and result.returncode != 0:
+                pytest.fail("git %s returned %d:\n%s"
+                            % (" ".join(args), result.returncode, output))
+            return result
         git("init", "-q", "-b", "develop")
         (repo / ".gitattributes").write_text("docs/**/*.md merge=etb-history\n")
         doc = repo / "docs" / name
@@ -456,7 +500,7 @@ class TestMergeDriver:
         git, doc = self.repository(tmp_path, document([("0.1", "a"), ("next", "b")]),
                                    document([("0.1", "a"), ("next", "c")]))
         git("config", "merge.etb-history.driver", dv.driver_command())
-        assert git("merge", "-q", "a").returncode == 0
+        git("merge", "-q", "a")
         assert [row[1:] for row in dv.history(dv.read_text(doc))] == [
             ("0.1", "a"), ("next", "b"), ("next", "c")]
 
@@ -464,7 +508,7 @@ class TestMergeDriver:
         git, doc = self.repository(tmp_path, self.BASE.replace("# Plan", "# Plan A"),
                                    self.BASE.replace("# Plan", "# Plan B"))
         git("config", "merge.etb-history.driver", dv.driver_command())
-        assert git("merge", "-q", "a").returncode != 0
+        assert git("merge", "-q", "a", check=False).returncode != 0
         text = dv.read_text(doc)
         assert "<<<<<<< docs/x y.md (ours)" in text and ">>>>>>> docs/x y.md (theirs)" in text
 
@@ -474,7 +518,7 @@ class TestMergeDriver:
                                    document([("0.1", "a"), ("next", "c")]))
         git("config", "merge.etb-history.driver",
             dv.driver_command(str(tmp_path / "no-such-python")))
-        assert git("merge", "-q", "a").returncode != 0
+        assert git("merge", "-q", "a", check=False).returncode != 0
         text = dv.read_text(doc)
         assert "| next | b |" in text and "| next | c |" in text
         assert "<<<<<<< docs/x y.md (ours)" in text
