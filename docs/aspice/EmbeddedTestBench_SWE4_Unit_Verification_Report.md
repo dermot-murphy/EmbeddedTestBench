@@ -1638,7 +1638,7 @@ pairs longer than set (`preamble_as_set` FAIL). With the 7 BLE and RTT cases of
 
 `test_simulated_air.py` holds the same parts at unit level, 97 tests: the
 Kepler register file hears the sensor and the reset values do not; every bit a
-receiver must match, 79 of them, listed in the test independently of
+receiver must match, 80 of them, listed in the test independently of
 `KEPLER_433_TRANSMITTER`, is flipped in turn and the frame is not heard, and so
 for `SECOND_SYNC_SEL`. Mutations checked on this branch: with the
 `SECOND_SYNC_SEL` check removed from `_hears`, with PCKTCTRL4's, PCKTCTRL2's,
