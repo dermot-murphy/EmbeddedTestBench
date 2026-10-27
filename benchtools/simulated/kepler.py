@@ -49,6 +49,8 @@ comes from:
   as captured. The copies were 31 to 229 ms apart (#293); here, 100 ms.
 - The "SI updated" status bit set in the first copy of an ALIVE only: V11.00
   and V11.01 (#95).
+- ``ticks`` the same in every copy of a transmission, and 1 in the first
+  frame after a reset: as captured (both captures above).
 - The VERSION frame about 8 s after ``ECURESET HARD`` (#85), carrying reset
   reason 4. ``WR PREAMBLE-LENGTH`` is stored and applied when the radio next
   initialises, after a reset: the reason ``kepler_preamble.yaml`` resets.
@@ -66,7 +68,17 @@ Open items in the radio, assumed rather than captured:
   ``WR ALIVE-PERIOD`` starts a new period from when it is written.
 - The battery and temperature on the air are rounded to the nearest 20 mV and
   0.1 C.
-- The frame's ``ticks`` count one per frame sent.
+- ``ticks`` counts one per transmission. In the 2026-10-25 capture it went up
+  by 13 from one ALIVE to the next; what it counts is not known.
+- The 2026-10-25 capture has "SI updated" set in all three copies of an
+  ALIVE, against #95. Which firmware 5C1712 ran then is not recorded; the
+  model follows #95, which was observed on V11.00.
+- The receiver's host-side timestamps are real time. Frames that the air clock
+  puts 10 s apart arrive within milliseconds of each other on the host; only
+  the kit's board timer follows the air clock.
+- One sensor's frames go to whichever simulated kit takes them first: two kits
+  on one air would share them, not each hear all of them. The simulated bench
+  has one.
 
 Traces to: BLE-DD-KEPLERSIM.
 """
@@ -125,9 +137,10 @@ class RadioSettings:
 
 
 #: The sensor's 433 MHz transmitter: 433.425 MHz, 2-FSK at 100 kbps, basic
-#: packets of variable length with an address byte and CRC-16, sync word
-#: 0xB19C0CA7 (sensor to gateway). The values are those of
-#: ``s2lp_kepler_433_rx.regs``, which was set up to the sensor firmware's.
+#: packets of variable length with an address byte and CRC-16, no whitening,
+#: FEC or Manchester coding, 32-bit sync word 0xB19C0CA7 (sensor to gateway).
+#: The values are those of ``s2lp_kepler_433_rx.regs``, which was set up to the
+#: sensor firmware's; PCKTCTRL6, which it does not write, at its reset value.
 #: Deviation and channel filter are not compared: a near miss in either still
 #: receives on a real radio, and how near is not modelled.
 KEPLER_433_TRANSMITTER = RadioSettings(
@@ -139,10 +152,11 @@ KEPLER_433_TRANSMITTER = RadioSettings(
         ("MOD4", 0xFF, 0x06),       # data rate mantissa
         ("MOD3", 0xFF, 0x25),
         ("MOD2", 0xFF, 0x09),       # 2-FSK, data rate exponent 9
-        ("PCKTCTRL4", 0x08, 0x08),  # one address byte
-        ("PCKTCTRL3", 0xC0, 0x00),  # basic packets
-        ("PCKTCTRL2", 0x01, 0x01),  # variable length
-        ("PCKTCTRL1", 0xE0, 0x40),  # CRC-16 0x8005
+        ("PCKTCTRL6", 0xFC, 0x80),  # a 32-bit sync word
+        ("PCKTCTRL4", 0x88, 0x08),  # a one-byte length field and one address byte
+        ("PCKTCTRL3", 0xFF, 0x00),  # basic packets, normal RX mode, no swaps
+        ("PCKTCTRL2", 0x3F, 0x01),  # variable length; no Manchester, 3-of-6 or 802.15.4g
+        ("PCKTCTRL1", 0xF1, 0x40),  # CRC-16 0x8005; no whitening, no FEC
     ),
     sync_word=0xB19C0CA7,
 )
@@ -249,6 +263,7 @@ class KeplerSensorModel:  # pylint: disable=too-many-instance-attributes
         self.resets += 1
         self.reset_reason = RESET_REASON_SOFT
         self.radio_preamble_length = self.preamble_length
+        self.ticks = 0
         now = self._now()
         self._copies = []
         self._next_version_at = now + VERSION_DELAY_S
@@ -287,8 +302,9 @@ class KeplerSensorModel:  # pylint: disable=too-many-instance-attributes
                 kind = _ALIVE
                 self._next_alive_at = at + self.alive_period_s
             self._copies = [(at + COPY_GAP_S * repeat, kind, repeat) for repeat in range(COPIES)]
+            # One count per transmission: every copy carries the same.
+            self.ticks = (self.ticks + 1) & 0xFFFF
         sent_at, kind, repeat = self._copies.pop(0)
-        self.ticks = (self.ticks + 1) & 0xFFFF
         payload = self.version_frame(repeat) if kind == _VERSION else self.alive_frame(repeat)
         return Transmission(sent_at, payload, self.radio_preamble_length, self.radio,
                             "%06X" % self.sensor_id)

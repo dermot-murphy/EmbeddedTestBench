@@ -39,7 +39,8 @@ Behaviours modelled because they are the ones that mislead:
   delivered only if the radio's registers match the sensor's transmitter -
   frequency, data rate, modulation, packet format and sync word - and is lost
   otherwise, so a wrong register file hears nothing. Its PQI is the whole
-  preamble the sensor sent.
+  preamble the sensor sent, and the board's timer moves on by the air time
+  since the last frame.
 
 Traces to: S2LP-FR-050, S2LP-FR-087, S2LP-DD-SIM.
 """
@@ -148,6 +149,8 @@ class SimulatedS2lp:
         #: Their frames that a receive was armed for but the radio's settings
         #: did not match.
         self.unheard = 0
+        #: The air time of the last frame it took, for the board's timer.
+        self._air_at: Optional[float] = None
         self.stopped = False
         #: A stop character sent while nothing was running, waiting to spoil
         #: the next command.
@@ -221,6 +224,11 @@ class SimulatedS2lp:
         sent = self.air.next_transmission()
         if sent is None:
             return
+        # The board's timer follows the air clock, so the time between two
+        # frames on the board is the time between them on the air.
+        if self._air_at is not None and sent.at_s > self._air_at:
+            self._tick(int(round((sent.at_s - self._air_at) * 1e6)))
+        self._air_at = sent.at_s
         if not self._hears(sent.settings):
             self.unheard += 1
             return

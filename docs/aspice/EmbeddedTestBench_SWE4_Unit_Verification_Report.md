@@ -75,7 +75,7 @@
 | next | 2026-10-26 | Claude | #242: §5 row for SWE4-UT-COMPARE (62); SWE4-UT-BLESAMPLE 5 → 21; pass, from runs of `runner/test_compare_steps.py` (62 passed) and `instruments/nordic_dongle/test_sampling.py` (21 passed) on this branch on 2026-10-26. The §5 total is still the 1.32 whole-suite run's. |
 | next | 2026-10-27 | Claude | #299: SWE4-UT-S2LP 143 → 150, pass, from a run of `instruments/s2lp/test_s2lp.py` on this branch on 2026-10-27. The §5 total is still the 1.32 whole-suite run's. |
 | next | 2026-10-27 | Claude | #305: SWE4-UT-DOCVER 61 → 63, pass, from a run of `test_doc_versions.py` on this branch on 2026-10-27 (63 passed). The §5 total is still the 1.32 whole-suite run's. |
-| next | 2026-10-27 | Claude | #122: §14.5 added - the Kepler specifications' radio side on the simulated bench; SWE4-UT-KEPLERSIM 11 → 26, pass, from a run of `test_kepler_simulated.py` on this branch on 2026-10-27 (26 passed). The §5 total is still the 1.32 whole-suite run's. |
+| next | 2026-10-27 | Claude | #122: §14.5 added - the Kepler specifications' radio side on the simulated bench; SWE4-UT-KEPLERSIM 11 → 57, pass, from a run of `test_kepler_simulated.py` and `test_simulated_air.py` on this branch on 2026-10-27 (57 passed). The §5 total is still the 1.32 whole-suite run's. |
 
 ---
 
@@ -274,7 +274,7 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-COMPARE | `runner/test_compare_steps.py` | 62 | Pass |
 | SWE4-UT-RESOLVE | `runner/test_resolve.py` | 27 | Pass |
 | SWE4-UT-BRINGUP | `runner/test_sensor_bringup.py` | 18 | Pass |
-| SWE4-UT-KEPLERSIM | `runner/test_kepler_simulated.py` | 26 | Pass |
+| SWE4-UT-KEPLERSIM | `runner/test_kepler_simulated.py`, `instruments/s2lp/test_simulated_air.py` | 57 | Pass |
 | SWE4-UT-SELFCHECK | `runner/test_bench_self_check.py` | 7 | Pass |
 | SWE4-UT-FIVEINST | `runner/test_sensor_power_signal_and_link.py` | 8 | Pass |
 | SWE4-UT-BLEDFU | `instruments/nordic_dongle/test_dfu.py` | 40 | Pass |
@@ -1598,8 +1598,13 @@ The simulated Kepler sensor now transmits, and the simulated S2-LP kit hears it
 when the simulated bench wires the two together (`simulated_targets:
 [kepler-5C1712]`) and its registers are set up for the sensor's 433 MHz
 transmitter (BLE-DD-KEPLERSIM, BLE-DD-SIMWORLD, S2LP-DD-SIM). The frames were
-decoded by the Kepler plugin's decoder; an ALIVE frame matches one 5C1712 sent
-(`293_kepler_frame_gap/results.json`) in every byte but the BLE-connected flag.
+decoded by the Kepler plugin's decoder. Against the ALIVE copies 5C1712 sent in
+`293_kepler_frame_gap/results.json`: the first copy matches in every byte but
+the BLE-connected flag (byte 33: 1 captured, 0 simulated). The second and third
+copies also differ in the "SI updated" bit (byte 34), which that capture sets
+in every copy and the model, following #95, in the first only. Which firmware
+5C1712 ran on 2026-10-25 is not recorded; BLE-DD-KEPLERSIM lists it as an open
+item.
 Run on `fix/122-simulated-s2lp-kepler-frames`, 2026-10-27, simulated, with
 `settle_s` and `interval_s` shortened:
 
@@ -1630,10 +1635,21 @@ the reset (`preamble_as_set` and `best_pqi` FAIL at 48 pairs); and a preamble 4
 pairs longer than set (`preamble_as_set` FAIL). With the 7 BLE and RTT cases of
 §14.4 and one run of each specification, 26 tests, 22 s, all passed.
 
-§14.3's comparison now runs the four Kepler specifications whole, with their
-own parameters, inside and outside the checkout, and requires them to pass in
-both: `test_input_paths.py`, 22 passed in 93 s on this branch, 66 s of it
-`kepler_battery.yaml`'s settling waits.
+`test_simulated_air.py` holds the same parts at unit level, 31 tests: the
+Kepler register file hears the sensor and the reset values do not; each
+register compared, whitening, FEC and `SECOND_SYNC_SEL` matter (with the
+`SECOND_SYNC_SEL` check removed from `_hears`, its test fails); the sensor's
+sync word set as the primary is heard; PQI reads 63 for 32 pairs; the board
+timer moves 100 ms between two copies; the air takes the earliest sensor's
+frame and moves its clock; every copy carries the same ticks, 1 after a reset;
+a preamble written without a reset is not sent; and `simulated_targets` wires
+the kit, refusing an unknown target. 57 tests in the two files, all passed.
+
+§14.3's comparison now runs the four Kepler specifications whole, inside and
+outside the checkout, and requires them to pass in both. Their `settle_s` and
+`interval_s` are shortened there as here; neither holds a path.
+`test_input_paths.py`: 22 passed on this branch, the longest case
+`kepler_temperature.yaml` at 10 s, waiting on the once-a-second RTT line.
 
 ## 14A. Hardware confirmation of #124 and #126 (#129, 2026-10-04)
 

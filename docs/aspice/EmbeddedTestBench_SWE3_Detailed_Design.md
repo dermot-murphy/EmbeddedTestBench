@@ -1455,13 +1455,23 @@ reset applies the stored preamble length to the radio (`radio_preamble_length`),
 restarts the alive period and schedules the VERSION frame; `WR ALIVE-PERIOD`
 starts a new period. Each `Transmission` carries the transmitter's
 `RadioSettings` (`KEPLER_433_TRANSMITTER`): the register values and masks a
-receiver must match (frequency, data rate, modulation, packet format, CRC) and
-the sync word 0xB19C0CA7, taken from `s2lp_kepler_433_rx.regs`. **Open items**
+receiver must match (frequency, data rate, modulation, sync length, packet
+format, length field, RX mode, CRC, and no whitening, FEC, Manchester, 3-of-6 or
+802.15.4g coding) and the sync word 0xB19C0CA7, taken from
+`s2lp_kepler_433_rx.regs`, with PCKTCTRL6 at its reset value. `ticks` is the
+same in every copy of a transmission and 1 in the first frame after a reset,
+as captured. **Open items**
 in the radio: the frame's version is `RD VERSION` alone, the owner's V11 rule,
 although the V11.00.0000-95 build captured on 2026-10-04 appends a space and the
 SHA (`frame_version_with_sha` sends that); the first ALIVE comes one alive
 period after a reset or a new `WR ALIVE-PERIOD`; battery and temperature are
-rounded to 20 mV and 0.1 C; `ticks` counts one per frame sent.
+rounded to 20 mV and 0.1 C; `ticks` counts one per transmission (it rose by 13
+between two ALIVEs in the 2026-10-25 capture, unit unknown); that capture sets
+"SI updated" in every copy of an ALIVE, against #95, on firmware not recorded.
+**Limitations**: the receiver's host-side timestamps are real time, so frames
+the air clock puts seconds apart arrive milliseconds apart on the host; and one
+sensor's frames go to whichever simulated kit takes them first, so two kits on
+one air would share them. The simulated bench has one kit.
 
 #### BLE-DD-DFUHOST — `dfu.py`, `NordicDongle.send_package`
 
@@ -2279,7 +2289,9 @@ the radio's registers with the frame's `RadioSettings`, each register under its
 mask, and its sync word with SYNC3..0 or, with `PCKTCTRL1.SECOND_SYNC_SEL`, with
 PCKT_FLT_GOALS3..0. A frame that matches is queued with RSSI -70 dBm and the PQI
 of the whole preamble, `expected_pqi(pairs)`; one that does not is counted in
-`unheard` and lost, so a wrong register file hears nothing.
+`unheard` and lost, so a wrong register file hears nothing. Either way the
+board's timer moves on by the air time since the last frame taken, so board
+times between frames are air times.
 
 #### S2LP-DD-CLI — `cli.py`
 

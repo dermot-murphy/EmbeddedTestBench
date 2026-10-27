@@ -18,7 +18,7 @@ from benchtools.core.paths import input_paths
 from benchtools.runner.bench import Bench, BenchConfig, load_bench, register_driver
 from benchtools.runner.results import Status
 from benchtools.runner.runner import BenchRunner
-from benchtools.runner.spec import TestSpec, load_spec
+from benchtools.runner.spec import TestSpec, load_mapping
 from benchtools.simulated import reset_world
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -172,6 +172,10 @@ SIMULATED_BENCH = ROOT / "benches" / "simulated_bench.yaml"
 #: from: the Kepler ones, whose sensor is simulated (#121, #122).
 MUST_PASS = ("kepler_",)
 
+#: Waits about a real sensor's timing, shortened: none of them holds a path,
+#: and kepler_battery.yaml's settling alone would add a minute a run.
+FAST = {"settle_s": 0.0, "interval_s": 0.05}
+
 
 def _outcome(spec_path: pathlib.Path):
     """What running *spec_path* on the simulated bench came to, case by case.
@@ -180,8 +184,14 @@ def _outcome(spec_path: pathlib.Path):
     two runs compared see the same sensor.
     """
     reset_world()
+    data = load_mapping(str(spec_path))
+    parameters = data.get("parameters") or {}
+    if spec_path.name.startswith(MUST_PASS):
+        parameters.update({name: value for name, value in FAST.items() if name in parameters})
+    # From the file's own path, so its relative paths resolve as load_spec's do.
+    spec = TestSpec.from_mapping(data, source=str(spec_path))
     with BenchRunner.from_config(load_bench(str(SIMULATED_BENCH)), simulate=True) as runner:
-        record = runner.run(load_spec(str(spec_path)))
+        record = runner.run(spec)
     return record.setup_error, [
         (case.name, case.status, [step.error for step in case.steps]) for case in record.cases
     ]
