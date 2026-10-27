@@ -454,6 +454,20 @@ class TestMergeDriver:
         dv.run_merge(base, ours, theirs)
         assert seen == [str(tmp_path.resolve())]
 
+    def test_the_conflict_style_of_the_merged_files_repository_keeps_the_base(
+            self, tmp_path, monkeypatch):
+        """diff3 set in the merged file's repository, run from another directory."""
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        subprocess.run(["git", "init", "-q"], cwd=str(repo), check=True)
+        subprocess.run(["git", "config", "merge.conflictStyle", "diff3"], cwd=str(repo),
+                       check=True)
+        monkeypatch.chdir(tmp_path)
+        base, ours, theirs = self.files(repo, self.BASE.replace("# Plan", "# Plan A"),
+                                        self.BASE.replace("# Plan", "# Plan B"))
+        assert dv.run_merge(base, ours, theirs) == 1
+        assert "|||||||" in dv.read_text(ours)
+
     def repository(self, tmp_path, ours_row, theirs_row, name="x y.md"):
         """A repository whose branches a and b each changed docs/<name>."""
         repo = tmp_path / "repo"
@@ -467,7 +481,9 @@ class TestMergeDriver:
             On Windows a newly written ``.git/objects`` file is sometimes
             refused for a moment ("Permission denied"), most likely by a
             scanner (#305). Such a command is retried after a short wait; a
-            merge it broke is reset first, so the retry starts clean.
+            merge it broke is reset first, so the retry starts clean. A command
+            that is not safe to repeat, such as ``checkout -b`` refused after it
+            wrote its ref, fails its retry ("already exists") and so the test.
             """
             for attempt in range(_GIT_ATTEMPTS):
                 result = subprocess.run(
@@ -475,7 +491,8 @@ class TestMergeDriver:
                     cwd=str(repo), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                     check=False)
                 output = result.stdout.decode("utf-8", "replace")
-                if result.returncode == 0 or not _transient(output):
+                if (result.returncode == 0 or not _transient(output)
+                        or attempt == _GIT_ATTEMPTS - 1):
                     break
                 time.sleep(0.2 * (attempt + 1))
                 if args[0] == "merge":
