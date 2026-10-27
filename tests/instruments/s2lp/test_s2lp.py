@@ -729,6 +729,9 @@ class TestRearmBetweenReceives:
         loopback.command_log.clear()
         self._take_one_and_stop(linked, loopback)
         assert "S2MGpioGetValue 3" in loopback.command_log
+        # Only prepare_receive sends this: the receive setup was redone, not
+        # just the line checked because commands were sent since the stop.
+        assert "S2LPTimerSetRxTimeoutUs 0" in loopback.command_log
 
     def test_a_new_connection_sends_report_all_again(self, linked, loopback):
         self._take_one_and_stop(linked, loopback)
