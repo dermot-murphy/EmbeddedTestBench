@@ -81,7 +81,7 @@
 | next | 2026-10-28 | Claude | #274: SWE4-UT-BLEDFU 40 → 47 and SWE4-UT-BLESIM 30 → 35, pass, from a run of `tests/instruments/nordic_dongle` on this branch on 2026-10-28; SWE4-UT-FWUNIT 189 → 192, pass (CTest, 8 binaries, bench PC). The §5 total is still the 1.32 whole-suite run's. BLE-OPEN-05 (BENCHTOOLS-BLE-001 §5.3) closed on hardware on 2026-10-28: through bootloader V1.01.0000 and V2.00.0000 on 5C1712, dongle 1.8.0 reported an ATT MTU of 23 and 20-byte pieces, PASS (`docs/aspice/qualification/2026-10-28/274_dfu_piece_mtu/`). |
 | next | 2026-10-28 | Claude | #181: SWE4-UT-DMM 34 → 43 and SWE4-UT-DMMPANEL 7 → 9, pass, from a run of `tests/instruments/tti1604` on this branch on 2026-10-28. SWE4-UT-DMMBENCH run on the real TTi 1604 (COM13, FTDI A9LQ0R81A, inputs open) on 2026-10-28: 9 passed, 5 skipped (no reference wired), 0 failed, against 6 passed and 4 failed in QS-09; evidence in `docs/aspice/qualification/2026-10-28/181_tti1604/`. The section 5 total is still the 1.32 whole-suite run's. |
 
-| next | 2026-10-28 | Claude | #247: §5 rows for SWE4-UT-SER (36), -SERCONSOLE (49), -SERSIM (6) and -SERCLI (7), pass, from a run of `tests/instruments/serial_capture` on this branch on 2026-10-28 (98 passed, Windows). The section 5 total is still the 1.32 whole-suite run's. |
+| next | 2026-10-28 | Claude | #247: §5 rows for SWE4-UT-SER (37), -SERCONSOLE (49), -SERSIM (6) and -SERCLI (7), pass, from a run of `tests/instruments/serial_capture` on this branch on 2026-10-28 (99 passed, Windows). The section 5 total is still the 1.32 whole-suite run's. |
 ---
 
 ## 3. Purpose & Scope
@@ -334,7 +334,7 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-PICOCLI | `instruments/pico_sht30/test_cli.py` | 16 | Pass |
 | SWE4-UT-PICOFLASH | `instruments/pico_sht30/test_flash.py` | 35 | Pass |
 | SWE4-UT-PICOFWPROTO | `instruments/pico_sht30/test_firmware_protocol.py` | 9 | Pass |
-| SWE4-UT-SER | `instruments/serial_capture/test_capture.py` | 36 | Pass |
+| SWE4-UT-SER | `instruments/serial_capture/test_capture.py` | 37 | Pass |
 | SWE4-UT-SERCONSOLE | `instruments/serial_capture/test_console.py` | 49 | Pass |
 | SWE4-UT-SERSIM | `instruments/serial_capture/test_simulator.py` | 6 | Pass |
 | SWE4-UT-SERCLI | `instruments/serial_capture/test_cli.py` | 7 | Pass |
