@@ -38,6 +38,7 @@ instruments:
       device: nRF52840_xxAA
       speed_khz: 4000
       rtt_port: 19031
+      gdb_executable: C:/Users/dermot.murphy/tools/arm-gnu-toolchain-14.2/bin/arm-none-eabi-gdb.exe
 
   dongle:
     driver: ble-dongle

@@ -76,7 +76,7 @@ tests:
       - do: dongle.sample_command
         with:
           request: RD BATTERY-LOADED
-          pattern: '= (\d+)mV'
+          pattern: '= (\d+) ?mV'
           count: 1
           unit: mV
           timeout: 45.0
@@ -86,7 +86,7 @@ tests:
       - do: dongle.command
         with: {request: "ECURESET HARD", timeout: 45.0}
         expect:
-          - {name: reset_acknowledged, measure: text, equals: "ACK ECURESET HARD"}
+          - {name: reset_acknowledged, measure: text, equals: "ACK ECURESET HARD", ignore_case: true}
       - do: dongle.close_link
       - do: s2lp.dut_frame
         with:
@@ -101,9 +101,11 @@ tests:
           - name: version_as_rd_version
             measure: version
             equals: {from: ble_version.value}
+            ignore_case: true   # V11.02 upper-cases the reply; the frame keeps git's g (#314)
           - name: sha_as_start_of_rd_sha
             measure: sha
             equals: {from: ble_sha.value, format: "{:.7}"}
+            ignore_case: true
           - name: battery_loaded_as_rd_battery_loaded
             measure: battery_loaded_mv
             unit: mV

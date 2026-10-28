@@ -5,7 +5,8 @@
 # 3.3 V to 3.0 V in 100 mV steps, and at each step:
 #   * the supply's own readback confirms channel 2 is regulated, i.e. energised,
 #     in constant voltage and at the setting, and that channel 1 is still at 0 V;
-#   * RD BATTERY is read over BLE. It answers "ACK RD BATTERY = <n>mV", from a
+#   * RD BATTERY is read over BLE. It answers "ACK RD BATTERY = <n>mV" (V11.00;
+#     V11.02 sends "ACK rd battery = <n> mV", and the pattern takes both, #314), from a
 #     fresh at-rest ADC sample taken when the command arrives, not a cached one
 #     (app_param.c, API_PARAM_BATTERY_VOLTAGE). Every reading must be within
 #     ble_vs_supply_v of the setting - the +/-50 mV of the reference project's
@@ -124,7 +125,9 @@ setup:
     expect:
       - name: alive_period_set
         measure: text
-        equals: {param: alive_period_s, format: "ACK WR ALIVE-PERIOD {} Secs"}
+        matches: {param: alive_period_s, format: "ACK WR ALIVE-PERIOD {} Secs?"}
+        reason: "V11.00 answers ACK WR ALIVE-PERIOD 10 Secs, V11.02 ACK wr alive-period 10 Sec (#314)"
+        ignore_case: true
 
 tests:
   - name: At 3.3 V the sensor reads the supply, and the ALIVE frame carries it
@@ -145,7 +148,7 @@ tests:
       - do: dongle.sample_command
         with:
           request: RD BATTERY
-          pattern: '= (\d+)mV'
+          pattern: '= (\d+) ?mV'
           count: {param: ble_readings}
           interval: {param: interval_s}
           scale: 0.001
@@ -197,7 +200,7 @@ tests:
       - do: dongle.sample_command
         with:
           request: RD BATTERY
-          pattern: '= (\d+)mV'
+          pattern: '= (\d+) ?mV'
           count: {param: ble_readings}
           interval: {param: interval_s}
           scale: 0.001
@@ -249,7 +252,7 @@ tests:
       - do: dongle.sample_command
         with:
           request: RD BATTERY
-          pattern: '= (\d+)mV'
+          pattern: '= (\d+) ?mV'
           count: {param: ble_readings}
           interval: {param: interval_s}
           scale: 0.001
@@ -301,7 +304,7 @@ tests:
       - do: dongle.sample_command
         with:
           request: RD BATTERY
-          pattern: '= (\d+)mV'
+          pattern: '= (\d+) ?mV'
           count: {param: ble_readings}
           interval: {param: interval_s}
           scale: 0.001
