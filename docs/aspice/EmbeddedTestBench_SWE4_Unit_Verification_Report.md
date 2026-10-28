@@ -76,7 +76,7 @@
 | next | 2026-10-27 | Claude | #299: SWE4-UT-S2LP 143 → 150, pass, from a run of `instruments/s2lp/test_s2lp.py` on this branch on 2026-10-27. The §5 total is still the 1.32 whole-suite run's. |
 | next | 2026-10-27 | Claude | #305: SWE4-UT-DOCVER 61 → 63, pass, from a run of `test_doc_versions.py` on this branch on 2026-10-27 (63 passed). The §5 total is still the 1.32 whole-suite run's. |
 | next | 2026-10-27 | Claude | #122: §14.5 added - the Kepler specifications' radio side on the simulated bench; SWE4-UT-KEPLERSIM 11 → 123, pass, from a run of `test_kepler_simulated.py` and `test_simulated_air.py` on this branch on 2026-10-27 (123 passed). The §5 total is still the 1.32 whole-suite run's. |
-| next | 2026-10-28 | Claude | #243: SWE4-UT-S2LPMEASURES added, 54, pass; SWE4-UT-BLE 116 → 120 and SWE4-UT-KEPLERSIM 123 → 124, pass, from runs of `test_frame_measures.py` (54 passed), `test_dongle.py` (120 passed) and `test_kepler_simulated.py` with `test_simulated_air.py` (124 passed) on this branch on 2026-10-28. The §5 total is still the 1.32 whole-suite run's. |
+| next | 2026-10-28 | Claude | #243: SWE4-UT-S2LPMEASURES added, 64, pass; SWE4-UT-BLE 116 → 121 and SWE4-UT-KEPLERSIM 123 → 124, pass, from runs of `test_frame_measures.py` (64 passed), `test_dongle.py` (121 passed) and `test_kepler_simulated.py` with `test_simulated_air.py` (124 passed) on this branch on 2026-10-28. The §5 total is still the 1.32 whole-suite run's. |
 
 ---
 
@@ -259,7 +259,7 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-JLINKCLI | `instruments/jlink/test_cli.py` | 30 | Pass |
 | SWE4-UT-JLINKRTTONLY | `instruments/jlink/test_rtt_only.py` | 6 | Pass |
 | SWE4-UT-SERIAL | `core/transport/test_serial.py` | 31 | Pass |
-| SWE4-UT-BLE | `instruments/nordic_dongle/test_dongle.py` | 120 | Pass |
+| SWE4-UT-BLE | `instruments/nordic_dongle/test_dongle.py` | 121 | Pass |
 | SWE4-UT-BLESAMPLE | `instruments/nordic_dongle/test_sampling.py` | 21 | Pass |
 | SWE4-UT-BLEPROTO | `instruments/nordic_dongle/test_protocol.py` | 34 | Pass |
 | SWE4-UT-FWUNIT | `firmware/nordic_dongle/test/*.c` | 189 | Pass (CTest, 8 binaries, bench PC; not in the pytest total; §7.4) |
@@ -312,7 +312,7 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-S2LPTABLES | `instruments/s2lp/test_kepler_tables.py` | 19 | Pass |
 | SWE4-UT-S2LPPREAMBLE | `instruments/s2lp/test_preamble.py` | 17 | Pass |
 | SWE4-UT-S2LPSAMPLES | `instruments/s2lp/test_kepler_samples.py` | 7 | Pass |
-| SWE4-UT-S2LPMEASURES | `instruments/s2lp/test_frame_measures.py` | 54 | Pass |
+| SWE4-UT-S2LPMEASURES | `instruments/s2lp/test_frame_measures.py` | 64 | Pass |
 | SWE4-UT-S2LPFRAME | `instruments/s2lp/test_kepler_frame.py` | 10 | Pass |
 | SWE4-UT-S2LPEEPROM | `instruments/s2lp/test_eeprom.py` | 13 | Pass |
 | SWE4-UT-S2LPCLI | `instruments/s2lp/test_cli.py` | 46 | Pass |

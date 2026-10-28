@@ -1343,8 +1343,15 @@ class NordicDongle(Instrument):
         step can time a frame from a link event within one run (#243). None
         for a link that has not happened.
 
+        The dongle's lines are read first, so a ``+disc`` already sent is
+        counted. Each event is stamped when the host reads it: one that waited
+        in the port's buffer is stamped late by that wait, which a ``+disc``
+        read only here does. Read ``link_times`` straight after the link
+        event, or take the dongle's own ``t=`` for the exact time.
+
         Traces to: BLE-FR-123.
         """
+        self._session.poll()
         closed = self._session.last_disconnect_s
         opened = self._link_opened_s
         if opened is None or closed is None or closed < opened:

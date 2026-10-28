@@ -60,7 +60,7 @@ class FrameMeasuresMixin:
             self, frame_type: Optional[str] = None, source: Optional[str] = None, *,
             where: Optional[Dict[str, Any]] = None, window: float = 60.0,
             burst_gap: Optional[float] = None, above: Optional[float] = None,
-            below: Optional[float] = None, log: Optional[str] = None,
+            below: Optional[float] = None, clock: str = "host", log: Optional[str] = None,
             decoder: DecoderChoice = None) -> Dict[str, Any]:
         """The time between one kind of frame's transmissions, over a window.
 
@@ -73,6 +73,10 @@ class FrameMeasuresMixin:
 
         :param above: Count the intervals longer than this, in seconds.
         :param below: Count the intervals shorter than this.
+        :param clock: ``"host"``, the host's arrival time, shared with the BLE
+            dongle's events and in every packet log; or ``"board"``, the S2-LP
+            board's timer, without the USB link's jitter. See
+            :func:`benchtools.analysis.frames.intervals`.
         :returns: See :func:`benchtools.analysis.frames.intervals`: ``count``,
             ``minimum``, ``maximum``, ``mean``, ``above``, ``below``,
             ``bursts``, ``transmissions``, ``largest_burst``, ``intervals``.
@@ -81,7 +85,7 @@ class FrameMeasuresMixin:
         """
         heard = self._frames_for(decoder, window, log)
         chosen = fr.select(heard, frame_type, source, fr.check_where(where))
-        return fr.intervals(chosen, burst_gap=burst_gap, above=above, below=below)
+        return fr.intervals(chosen, burst_gap=burst_gap, above=above, below=below, clock=clock)
 
     @input_paths("log")
     def dut_census(  # pylint: disable=too-many-arguments
@@ -111,7 +115,8 @@ class FrameMeasuresMixin:
             where: Optional[Dict[str, Any]] = None, count: Optional[int] = None,
             window: float = 60.0, ignore_offsets: Sequence[int] = (),
             same_fields: Sequence[str] = (), positions: bool = False,
-            ascending: Optional[str] = None, log: Optional[str] = None,
+            ascending: Optional[str] = None, sequence: Sequence[str] = (),
+            restart_at: Any = None, log: Optional[str] = None,
             decoder: DecoderChoice = None) -> Dict[str, Any]:
         """Every copy of each transmission, and how the copies compare.
 
@@ -128,7 +133,12 @@ class FrameMeasuresMixin:
             belong to, by the plugin's ``frame_positions`` hook, and report
             the blocks, their overlap and what is missing.
         :param ascending: A dotted path that must increase from one
-            transmission to the next.
+            transmission to the next of the same sequence.
+        :param sequence: Dotted paths that tell sequences apart, e.g.
+            ``[axis, param.twfb]`` for the waveforms of one capture: each has
+            its own positions and order. Without, the frames chosen are one
+            sequence, so choose one with *where*.
+        :param restart_at: A value of *ascending* that starts it afresh.
         :returns: See :func:`benchtools.analysis.frames.compare_copies`.
         :raises ConfigurationError: if *positions* is asked for and no loaded
             plugin has a ``frame_positions`` hook.
@@ -157,7 +167,8 @@ class FrameMeasuresMixin:
             chosen = [frame for frame in chosen if id(frame) in kept]
         result = fr.compare_copies(chosen, ignore_offsets=ignore_offsets,
                                    same_fields=same_fields, positions=hook,
-                                   ascending=ascending)
+                                   ascending=ascending, sequence=sequence,
+                                   restart_at=restart_at)
         result["requested"] = count
         return result
 

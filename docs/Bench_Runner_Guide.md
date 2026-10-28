@@ -629,9 +629,9 @@ judged on its log than held in memory. A log written before #243 has no
 
 | Action | For | Measures (`measure:`) |
 |---|---|---|
-| `dut_intervals` | Time between transmissions of `frame_type` from `source` with `where`, each timed by its first copy. `burst_gap` joins transmissions closer than it into one burst (a command and its retries); `above` and `below` count the intervals beyond a bound | `count`, `minimum`, `maximum`, `mean`, `above`, `below`, `bursts`, `transmissions`, `largest_burst`, `intervals` |
-| `dut_census` | Every frame by type. `fields` lists each one's distinct values per type; with `expected`, any other type and any frame the decoder cannot read is `unexpected` | `frames`, `rejected`, `undecoded`, `unexpected`, `unexpected_types`, `type_names`, `types.<TYPE>.count`, `.transmissions`, `.lengths`, `.<field>` |
-| `dut_transmissions` | Every copy of each transmission (`count` of them, or the window's). `ignore_offsets` leaves bytes out of the comparison; `same_fields` must agree between copies; `ascending` must rise from one transmission to the next. With `positions: true`, the plugin's `frame_positions` hook places each copy's values in the whole sequence | `transmissions`, `copies`, `identical`, `not_identical`, `fields_differ`, `not_ascending`; with `positions`: `distinct_blocks`, `repeated_blocks`, `overlapping`, `covered`, `length`, `missing`, `conflicts` |
+| `dut_intervals` | Time between transmissions of `frame_type` from `source` with `where`, each timed by its first copy. `burst_gap` joins a transmission closer than it to the one before into that burst (a command and its retries; a chain of close ones is one burst). `above` and `below` count the intervals beyond a bound. `clock: board` times by the S2-LP board's timer instead of the host's: no USB jitter, but not comparable with dongle events, and it restarts with the board | `count`, `minimum`, `maximum`, `mean`, `above`, `below`, `bursts`, `transmissions`, `largest_burst`, `intervals` |
+| `dut_census` | Every frame by type. `fields` lists each one's distinct values per type; with `expected`, any other type and any frame the decoder cannot read is `unexpected` | `frames`, `rejected`, `undecoded`, `unexpected`, `unexpected_types`, `type_names`, `types.<TYPE>.count`, `.transmissions`, `.lengths`, `.fields.<field>` |
+| `dut_transmissions` | Every copy of each transmission (`count` of them, or the window's). `ignore_offsets` leaves bytes out of the comparison; `same_fields` must agree between copies; `ascending` must rise from one transmission to the next, and `restart_at` names a value that starts it afresh. `sequence` lists fields that tell sequences apart (`[axis, param.twfb]`: each waveform of a capture); without it, choose one sequence with `where`. With `positions: true`, the plugin's `frame_positions` hook places each copy's values in its sequence | `transmissions`, `copies`, `identical`, `not_identical`, `fields_differ`, `not_ascending`; with `positions`: `distinct_blocks`, `repeated_blocks`, `overlapping`, `sequences`, `covered`, `length`, `missing`, `conflicts` |
 | `dut_distinct` | Whether `value` differs within each `group` (a run of transmissions with the same group value). Each item is a transmission, or each combination of the `item` fields. `wrap_after` and `wrap_to` allow a wrapping group counter | `groups`, `items`, `all_distinct`, `not_distinct`, `inconsistent`, `repeated_sets`, `not_incrementing`, `group_values` |
 
 ```yaml
@@ -641,8 +641,8 @@ judged on its log than held in memory. A log written before #243 has no
     - {name: cmd_sequences_30_s_apart, measure: minimum, min: 29.0, max: 31.0}
     - {name: no_steady_50_s, measure: above, max: 1}
 - do: s2lp.dut_transmissions
-  with: {frame_type: CONFIG, source: "5C1712", count: 12, ignore_offsets: [9],
-         where: {permute_method: polynomial}, positions: true}
+  with: {frame_type: CONFIG, source: "5C1712", count: 12, window: 900,
+         ignore_offsets: [9], where: {permute_method: polynomial}, positions: true}
   expect:
     - {name: each_copy_its_own_set, measure: repeated_blocks, equals: 0}
     - {name: every_parameter_carried, measure: missing, equals: 0}
@@ -655,8 +655,9 @@ judged on its log than held in memory. A log written before #243 has no
 ```
 
 Copies are grouped by the repeat number the decoder gives, per source and
-type. A copy whose repeat number is not higher than the last starts a new
-transmission. `dut_transmissions` with `count`, live, receives until the first
+type. A copy whose repeat number is not higher than the last, or that comes
+more than 2 s after it, starts a new transmission. A log's times must not go
+backwards: a log appended to by two runs is refused, not measured. `dut_transmissions` with `count`, live, receives until the first
 copy of the transmission after the last one counted, so the last is complete.
 
 **Timing a frame from a BLE event.** Every S2-LP packet and every dongle event

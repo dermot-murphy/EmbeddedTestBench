@@ -684,23 +684,31 @@ packet. Three facts are read from the decode: `type`, `sensor_id` and
   timed.
 - `transmissions` groups copies per source and type: a copy joins the last
   group of its source and type when its repeat number is higher than that
-  group's last copy's. Per source and type, so that frames of two sensors or
-  two types interleaved do not split each other's copies.
-- `intervals` times each transmission by its first copy, joins
-  transmissions closer than `burst_gap` into bursts, and returns the
-  intervals between burst starts with their statistics and the counts above
-  and below the bounds asked for. A frame with no time is a
-  `MeasurementError`.
-- `census` counts by type, with transmissions, lengths and the distinct
-  values of named fields; with `expected`, other types and undecodable frames
-  are `unexpected`.
+  group's last copy's and it came within `COPY_GAP_S` (2 s) of it. Per source
+  and type, so that frames of two sensors or two types interleaved do not
+  split each other's copies; the time bound, so that a lost first copy on a
+  lossy link does not join two transmissions a period apart.
+- `intervals` times each transmission by its first copy, on the host clock
+  (`time_s`, shared with the dongle's events) or the board's (`board_s`, from
+  `board_time_us`, without the USB link's jitter but restarting with the
+  board). A transmission closer than `burst_gap` to the one before joins its
+  burst, so a chain is one burst. It returns the intervals between burst
+  starts with their statistics and the counts above and below the bounds
+  asked for. A frame with no time on the clock, or a time earlier than the
+  one before (a log appended to by two runs), is a `MeasurementError`.
+- `census` counts by type, with transmissions, lengths and, under `fields`
+  so that no field name meets them, the distinct values of named fields;
+  with `expected`, other types and undecodable frames are `unexpected`.
 - `compare_copies` compares the copies of each transmission: bytes outside
-  `ignore_offsets`, `same_fields`, an `ascending` field across transmissions.
+  `ignore_offsets`, `same_fields`, an `ascending` field across transmissions
+  (a value that cannot be compared does not ascend; `restart_at` starts the
+  order afresh). `sequence` paths split the frames into sequences - one
+  waveform's axis and buffer - each with its own order and positions.
   Given `positions` - a plugin's `frame_positions` hook, which returns the
   length of the whole sequence and the copy's values by position - it also
   counts transmissions whose copies carry distinct or repeated blocks, the
-  positions shared within one transmission, the positions of the whole
-  nobody carried, and positions given two values across all copies.
+  positions shared within one transmission, and, summed over the
+  sequences, the positions nobody carried and those given two values.
 - `distinct_per_group` groups consecutive transmissions by a field and, per
   group, compares another field between its items: each transmission, or each
   combination of `item` fields (one waveform of a capture), taken once by its
@@ -1287,7 +1295,8 @@ refusals that are about the dongle rather than the sensor (4, 7, 10), and
 
 `link_times()` (#243) gives `opened_s`, the `+conn state=ready` event's
 `monotonic_s` kept by `open_link`, and `closed_s`, BLE-DD-SESSION's
-`last_disconnect_s` when it is later than that, else `None`. The session keeps
+`last_disconnect_s` when it is later than that, else `None`. It polls the
+session first, so a `+disc` still in the port is counted, stamped when read. The session keeps
 it, not the driver, because a link a command ends (a sensor reset) has its
 `+disc` consumed by whichever wait reads it.
 

@@ -832,6 +832,12 @@ class TestLinkTimes:
         assert closed["opened_s"] == opened["opened_s"]
         assert opened["opened_s"] <= closed["closed_s"] <= time.perf_counter()
 
+    def test_a_disconnect_still_in_the_port_is_read_first(self, simulator, linked):
+        simulator.sensors[0].crash_on = {"rd version": 5_000_000}
+        linked.command("rd version")
+        # Nothing has read the +disc yet: link_times reads it.
+        assert linked.link_times()["closed_s"] is not None
+
     def test_a_link_lost_is_timed_by_its_disconnect_event(self, simulator, linked):
         simulator.sensors[0].crash_on = {"rd version": 5_000_000}
         linked.command("rd version")

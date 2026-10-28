@@ -53,6 +53,9 @@ class Frame:
     :param time_s: When the host read it, in seconds on one clock.
     :param error: The receiver's error code; 0 for a frame received intact.
     :param decode_error: Why the payload could not be decoded, if it could not.
+    :param board_s: The receiver board's own timer when it reported the
+        frame, in seconds, or None. It has no USB in it, but it is the
+        board's: it restarts with the board, and nothing else shares it.
     """
 
     data: bytes
@@ -60,6 +63,7 @@ class Frame:
     time_s: Optional[float]
     error: int = 0
     decode_error: str = ""
+    board_s: Optional[float] = None
 
     @property
     def ok(self) -> bool:
@@ -86,9 +90,11 @@ class Frame:
     @classmethod
     def from_packet(cls, packet: Any) -> "Frame":
         """A frame from an S2-LP :class:`~benchtools.instruments.s2lp.packets.Packet`."""
+        board = getattr(packet, "board_time_us", None)
         return cls(data=bytes(packet.data), decoded=packet.decoded,
                    time_s=getattr(packet, "monotonic_s", None), error=packet.error,
-                   decode_error=packet.decode_error)
+                   decode_error=packet.decode_error,
+                   board_s=None if board is None else board / 1e6)
 
 
 def field_value(decoded: Optional[Mapping[str, Any]], path: str) -> Any:
@@ -176,7 +182,9 @@ def frames_from_log(path: str,
     is read by the plugin loaded now; otherwise the decode the log carries is
     used. The times are the log's ``monotonic_s`` when every received frame
     has one, else its ``host_time``: one clock for the whole log either way.
-    A truncated last line is skipped, as :class:`PacketLog` reads it.
+    A log appended to by two runs can still go backwards where the second
+    starts; :func:`intervals` refuses that rather than measure it. A
+    truncated last line is skipped, as :class:`PacketLog` reads it.
     """
     records = []
     with open(path, "r", encoding="utf-8") as handle:
@@ -204,20 +212,31 @@ def frames_from_log(path: str,
                 decoded, decode_error = None, str(exc) or type(exc).__name__
         when = (float(record["monotonic_s"]) if monotonic
                 else _epoch_s(record.get("host_time")))
+        board = record.get("board_time_us")
         frames.append(Frame(data=data, decoded=decoded, time_s=when, error=error,
-                            decode_error=decode_error))
+                            decode_error=decode_error,
+                            board_s=None if board is None else float(board) / 1e6))
     return frames
 
 
-def transmissions(frames: Sequence[Frame]) -> List[List[Frame]]:
+#: The longest time between two copies of one transmission, in seconds. The
+#: copies of one packet from Kepler 5C1712 came 31 to 229 ms apart (#293); a
+#: copy later than this after the last is a new transmission whatever its
+#: repeat number, so a lost first copy does not join two transmissions.
+COPY_GAP_S = 2.0
+
+
+def transmissions(frames: Sequence[Frame],
+                  copy_gap: Optional[float] = COPY_GAP_S) -> List[List[Frame]]:
     """*frames* grouped into transmissions: each a list of its copies, in order.
 
     A copy belongs to the last transmission from the same source and of the
-    same type when its repeat number is higher than the last copy's there;
-    otherwise it starts a new one. A frame with no repeat number is a
-    transmission of its own. One case is read as one transmission when it
-    was two: only an early copy of one heard, then only later copies of the
-    next.
+    same type when its repeat number is higher than the last copy's there,
+    and, with both timed, it came within *copy_gap* seconds of it; otherwise
+    it starts a new one. A frame with no repeat number is a transmission of
+    its own. One case is still read as one transmission when it was two:
+    only an early copy of one heard, then within *copy_gap* only later
+    copies of the next.
     """
     groups: List[List[Frame]] = []
     open_group: Dict[Tuple[Optional[str], Optional[str]], List[Frame]] = {}
@@ -226,13 +245,20 @@ def transmissions(frames: Sequence[Frame]) -> List[List[Frame]]:
         last = open_group.get(key)
         repeat = frame.repeat
         if last is not None and repeat is not None and last[-1].repeat is not None \
-                and repeat > last[-1].repeat:
+                and repeat > last[-1].repeat and _close(last[-1], frame, copy_gap):
             last.append(frame)
             continue
         group = [frame]
         groups.append(group)
         open_group[key] = group
     return groups
+
+
+def _close(earlier: Frame, later: Frame, gap: Optional[float]) -> bool:
+    """Whether *later* came within *gap* seconds of *earlier*, or either is untimed."""
+    if gap is None or earlier.time_s is None or later.time_s is None:
+        return True
+    return later.time_s - earlier.time_s <= float(gap)
 
 
 def _stats(values: Sequence[float]) -> Dict[str, Optional[float]]:
@@ -243,28 +269,52 @@ def _stats(values: Sequence[float]) -> Dict[str, Optional[float]]:
     }
 
 
-def intervals(frames: Sequence[Frame], burst_gap: Optional[float] = None,
-              above: Optional[float] = None, below: Optional[float] = None) -> Dict[str, Any]:
+#: The clocks :func:`intervals` can time by.
+CLOCKS = ("host", "board")
+
+
+def intervals(  # pylint: disable=too-many-arguments,too-many-locals
+        frames: Sequence[Frame], burst_gap: Optional[float] = None,
+        above: Optional[float] = None, below: Optional[float] = None,
+        clock: str = "host") -> Dict[str, Any]:
     """The time between transmissions, or between bursts of them.
 
     Each transmission is timed by its first copy heard. With *burst_gap*,
-    transmissions that start less than *burst_gap* seconds after the one
-    before are one burst - a command and its retries - and the intervals
-    are between the bursts' starts.
+    a transmission that starts less than *burst_gap* seconds after the one
+    before joins its burst - a command and its retries - so a chain of
+    transmissions each closer than that to the last is one burst, however
+    long. The intervals are between the bursts' starts.
+
+    :param clock: ``"host"`` (the default), when the host read each frame:
+        the clock BLE dongle events are on, so a frame can be timed from one,
+        and the one every packet log has. ``"board"``, the receiver board's
+        own timer: free of the USB link's jitter, but it restarts with the
+        board and nothing else shares it.
 
     :returns: ``frames``, ``transmissions``, ``bursts``, ``count`` (intervals),
         ``minimum``, ``maximum``, ``mean``, ``above`` and ``below`` (how many
         intervals are longer than *above* or shorter than *below*; None when
         not asked), ``largest_burst`` (transmissions), ``first_s`` and
         ``last_s`` (on the frames' clock), and ``intervals`` themselves.
-    :raises MeasurementError: if a frame has no time.
+    :raises MeasurementError: if a frame has no time on *clock*, or the times
+        go backwards - a log appended to by two runs, or a board that
+        restarted.
+    :raises ConfigurationError: for a clock that is not one of :data:`CLOCKS`.
     """
+    if clock not in CLOCKS:
+        raise ConfigurationError("%r is not a clock; they are %s" % (clock, ", ".join(CLOCKS)))
     groups = transmissions(frames)
     starts = []
     for group in groups:
-        if group[0].time_s is None:
-            raise MeasurementError("a frame has no time to measure an interval from")
-        starts.append(group[0].time_s)
+        when = group[0].time_s if clock == "host" else group[0].board_s
+        if when is None:
+            raise MeasurementError("a frame has no %s time to measure an interval from" % clock)
+        if starts and when < starts[-1]:
+            raise MeasurementError(
+                "the %s times go backwards, from %.6f s to %.6f s: a log appended to by "
+                "two runs, or a board that restarted, has no single interval to measure"
+                % (clock, starts[-1], when))
+        starts.append(when)
     bursts: List[List[float]] = []
     for start in starts:
         if bursts and burst_gap is not None and start - bursts[-1][-1] < float(burst_gap):
@@ -307,9 +357,9 @@ def census(frames: Sequence[Frame], fields: Sequence[str] = (),  # pylint: disab
         and every frame the decoder could not read, is counted as unexpected.
     :returns: ``frames``, ``transmissions``, ``rejected`` (receptions with a
         receiver error), ``undecoded``, ``type_names`` (sorted), ``types``
-        (per type: ``count``, ``transmissions``, ``lengths``, and each field's
-        distinct values), and with *expected*: ``unexpected`` (frames) and
-        ``unexpected_types``.
+        (per type: ``count``, ``transmissions``, ``lengths``, and ``fields``:
+        each field's distinct values), and with *expected*: ``unexpected``
+        (frames) and ``unexpected_types``.
     """
     types: Dict[str, Dict[str, Any]] = {}
     rejected = sum(1 for frame in frames if frame.error)
@@ -317,16 +367,15 @@ def census(frames: Sequence[Frame], fields: Sequence[str] = (),  # pylint: disab
     intact = [frame for frame in frames if frame.ok]
     for frame in intact:
         name = str(frame.frame_type)
-        entry = types.setdefault(name, {"count": 0, "transmissions": 0, "lengths": []})
+        entry = types.setdefault(name, {"count": 0, "transmissions": 0, "lengths": [],
+                                        "fields": {path: [] for path in fields}})
         entry["count"] += 1
         if len(frame.data) not in entry["lengths"]:
             entry["lengths"].append(len(frame.data))
         for path in fields:
             value = field_value(frame.decoded, path)
-            if value is not MISSING:
-                entry.setdefault(path, [])
-                if value not in entry[path]:
-                    entry[path].append(value)
+            if value is not MISSING and value not in entry["fields"][path]:
+                entry["fields"][path].append(value)
     for group in transmissions(intact):
         types[str(group[0].frame_type)]["transmissions"] += 1
     for entry in types.values():
@@ -345,6 +394,20 @@ def census(frames: Sequence[Frame], fields: Sequence[str] = (),  # pylint: disab
     return result
 
 
+def _text(value: Any) -> str:
+    """*value* as text that two equal values share, for comparing and hashing."""
+    return json.dumps(value, sort_keys=True, default=str)
+
+
+def _values_at(decoded: Optional[Mapping[str, Any]], paths: Sequence[str]) -> List[Any]:
+    """The values at *paths*, None for each one missing."""
+    values = []
+    for path in paths:
+        value = field_value(decoded, path)
+        values.append(None if value is MISSING else value)
+    return values
+
+
 def _bytes_equal(first: bytes, second: bytes, ignore: Sequence[int]) -> bool:
     if len(first) != len(second):
         return False
@@ -357,11 +420,26 @@ def _bytes_equal(first: bytes, second: bytes, ignore: Sequence[int]) -> bool:
 Positions = Optional[Tuple[int, Dict[int, Any]]]
 
 
-def compare_copies(  # pylint: disable=too-many-locals,too-many-branches
+def _ascends(value: Any, previous: Any, restart_at: Any) -> bool:
+    """Whether *value* may follow *previous* in an ascending field."""
+    if previous is MISSING:
+        return True
+    if value is MISSING:
+        return False
+    if restart_at is not None and _same(value, restart_at):
+        return True
+    try:
+        return bool(value > previous)
+    except TypeError:
+        return False
+
+
+def compare_copies(  # pylint: disable=too-many-locals,too-many-branches,too-many-statements,too-many-arguments
         frames: Sequence[Frame], ignore_offsets: Sequence[int] = (),
         same_fields: Sequence[str] = (),
         positions: Optional[Callable[[Dict[str, Any]], Positions]] = None,
-        ascending: Optional[str] = None) -> Dict[str, Any]:
+        ascending: Optional[str] = None, *, sequence: Sequence[str] = (),
+        restart_at: Any = None) -> Dict[str, Any]:
     """Compare the copies of each transmission, and what they carry together.
 
     :param ignore_offsets: Byte offsets to leave out when comparing copies -
@@ -372,7 +450,14 @@ def compare_copies(  # pylint: disable=too-many-locals,too-many-branches
         None for a frame it does not place. A plugin provides it as its
         ``frame_positions`` hook.
     :param ascending: A dotted path that must increase from one transmission
-        to the next, e.g. a packet number.
+        to the next of the same sequence, e.g. a packet number. A value that
+        cannot be compared with the one before does not.
+    :param sequence: Dotted paths that tell the sequences apart - one
+        waveform's axis and buffer, say. Each combination of their values is
+        a sequence of its own, with its own positions and its own ascending
+        order. Without, all the frames are one sequence.
+    :param restart_at: A value of *ascending* that starts the order afresh,
+        such as packet number 0 of the next capture.
     :returns: ``transmissions``, ``copies``, ``copies_per_transmission``
         (min and max), ``identical`` and ``not_identical`` (transmissions
         whose copies are, or are not, the same bytes outside
@@ -384,17 +469,20 @@ def compare_copies(  # pylint: disable=too-many-locals,too-many-branches
         one copy of one transmission), ``covered``, ``length``, ``missing``
         (positions of the whole sequence nobody carried), ``conflicts``
         (positions given two different values) and ``placed`` (copies the
-        hook placed). ``detail`` lists each transmission.
+        hook placed); ``covered``, ``length``, ``missing`` and ``conflicts``
+        are summed over the sequences, and ``sequences`` counts them.
+        ``detail`` lists each transmission.
     """
     groups = transmissions(frames)
     identical = fields_differ = not_ascending = 0
     distinct_blocks = repeated_blocks = overlapping = placed = 0
-    whole: Dict[int, Any] = {}
-    conflicts = set()
-    length = 0
-    previous = MISSING
+    wholes: Dict[str, Dict[int, Any]] = {}
+    conflicts: Dict[str, set] = {}
+    lengths: Dict[str, int] = {}
+    previous: Dict[str, Any] = {}
     detail = []
     for group in groups:
+        key = _text(_values_at(group[0].decoded, sequence))
         same_bytes = all(_bytes_equal(group[0].data, copy.data, ignore_offsets)
                          for copy in group[1:])
         identical += same_bytes
@@ -406,13 +494,16 @@ def compare_copies(  # pylint: disable=too-many-locals,too-many-branches
                                "repeats": [copy.repeat for copy in group]}
         if differing:
             row["fields_differ"] = differing
+        if sequence:
+            row["sequence"] = _values_at(group[0].decoded, sequence)
         if ascending is not None:
             value = field_value(group[0].decoded, ascending)
             row[ascending] = None if value is MISSING else value
-            if previous is not MISSING and (value is MISSING or not value > previous):
+            if not _ascends(value, previous.get(key, MISSING), restart_at):
                 not_ascending += 1
-            previous = value
+            previous[key] = value
         if positions is not None:
+            whole = wholes.setdefault(key, {})
             blocks = []
             counted: Dict[int, int] = {}
             for copy in group:
@@ -421,12 +512,12 @@ def compare_copies(  # pylint: disable=too-many-locals,too-many-branches
                     continue
                 size, values = answer
                 placed += 1
-                length = max(length, int(size))
+                lengths[key] = max(lengths.get(key, 0), int(size))
                 blocks.append(frozenset(values))
                 for position, value in values.items():
                     counted[position] = counted.get(position, 0) + 1
                     if position in whole and whole[position] != value:
-                        conflicts.add(position)
+                        conflicts.setdefault(key, set()).add(position)
                     whole.setdefault(position, value)
             if blocks:
                 distinct = len(set(blocks)) == len(blocks)
@@ -446,29 +537,17 @@ def compare_copies(  # pylint: disable=too-many-locals,too-many-branches
         "detail": detail,
     }
     if positions is not None:
+        covered = {key: sum(1 for position in whole if 0 <= position < lengths.get(key, 0))
+                   for key, whole in wholes.items()}
         result.update({
             "placed": placed, "distinct_blocks": distinct_blocks,
             "repeated_blocks": repeated_blocks, "overlapping": overlapping,
-            "covered": sum(1 for position in whole if 0 <= position < length),
-            "length": length,
-            "missing": max(0, length - sum(1 for position in whole if 0 <= position < length)),
-            "conflicts": len(conflicts),
+            "sequences": sum(1 for key in wholes if lengths.get(key)),
+            "covered": sum(covered.values()), "length": sum(lengths.values()),
+            "missing": sum(max(0, lengths.get(key, 0) - covered[key]) for key in wholes),
+            "conflicts": sum(len(found) for found in conflicts.values()),
         })
     return result
-
-
-def _text(value: Any) -> str:
-    """*value* as text that two equal values share, for comparing and hashing."""
-    return json.dumps(value, sort_keys=True, default=str)
-
-
-def _values_at(decoded: Optional[Mapping[str, Any]], paths: Sequence[str]) -> List[Any]:
-    """The values at *paths*, None for each one missing."""
-    values = []
-    for path in paths:
-        value = field_value(decoded, path)
-        values.append(None if value is MISSING else value)
-    return values
 
 
 def distinct_per_group(  # pylint: disable=too-many-locals,too-many-arguments

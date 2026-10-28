@@ -98,6 +98,23 @@ class TestPacketLog:
         frames = fr.frames_from_log(str(log), decode_kepler_frame)
         assert [frame.time_s for frame in frames] == [10.0, 70.5]
 
+    def test_a_log_mixing_records_with_and_without_monotonic_s_uses_host_time(self, tmp_path):
+        log = tmp_path / "packets.jsonl"
+        log.write_text("\n".join(json.dumps(record) for record in [
+            {"direction": "rx", "hex": ALIVE_REPEATS[0], "error": 0,
+             "host_time": "2026-10-21T00:00:00+00:00"},
+            {"direction": "rx", "hex": ALIVE_REPEATS[0], "error": 0, "monotonic_s": 99.0,
+             "host_time": "2026-10-21T00:00:30+00:00"},
+        ]) + "\n", encoding="utf-8")
+        frames = fr.frames_from_log(str(log), decode_kepler_frame)
+        assert frames[1].time_s - frames[0].time_s == pytest.approx(30.0)
+
+    def test_the_board_time_is_read_back_too(self, tmp_path):
+        log = tmp_path / "packets.jsonl"
+        log.write_text(json.dumps({"direction": "rx", "hex": ALIVE_REPEATS[0], "error": 0,
+                                   "board_time_us": 2_500_000}) + "\n", encoding="utf-8")
+        assert fr.frames_from_log(str(log), decode_kepler_frame)[0].board_s == 2.5
+
     def test_without_a_decoder_the_logs_own_decode_is_used(self, tmp_path):
         log = tmp_path / "packets.jsonl"
         log.write_text(json.dumps({"direction": "rx", "hex": "00", "error": 0,
@@ -144,6 +161,35 @@ class TestIntervals:
         assert result["minimum"] == pytest.approx(45.0, abs=1e-3)
         assert (result["below"], result["above"]) == (22, 1)
 
+    def test_a_lost_first_copy_does_not_join_two_transmissions(self):
+        """Copy 0 of one ALIVE, then only copies 1 and 2 of the next, 60 s on."""
+        frames = [fr.Frame(b"", {"type": "ALIVE", "sensor_id": "A", "frame": {"repeat": r}}, t)
+                  for r, t in [(0, 0.0), (1, 60.1), (2, 60.2), (0, 120.0), (1, 120.1)]]
+        assert [len(group) for group in fr.transmissions(frames)] == [1, 2, 2]
+        assert fr.intervals(frames)["intervals"] == [60.1, 59.9]
+        assert [len(group) for group in fr.transmissions(frames, copy_gap=None)] == [3, 2]
+
+    def test_a_chain_of_close_transmissions_is_one_burst(self):
+        frames = [fr.Frame(b"", {"type": "CMD", "sensor_id": "A", "frame": {"repeat": 0}}, t)
+                  for t in (0.0, 0.9, 1.8, 10.0)]
+        result = fr.intervals(frames, burst_gap=1.0)
+        assert (result["bursts"], result["largest_burst"], result["intervals"]) == (2, 3, [10.0])
+
+    def test_times_that_go_backwards_are_refused(self):
+        frames = [fr.Frame(b"", {"type": "CMD", "sensor_id": "A"}, t) for t in (10.0, 20.0, 5.0)]
+        with pytest.raises(MeasurementError, match="go backwards"):
+            fr.intervals(frames)
+
+    def test_the_board_clock_can_be_chosen(self):
+        frames = [fr.Frame(b"", {"type": "CMD", "sensor_id": "A"}, host, board_s=board)
+                  for host, board in [(0.0, 100.0), (50.02, 150.0), (99.98, 200.0)]]
+        assert fr.intervals(frames, clock="board")["intervals"] == [50.0, 50.0]
+        assert fr.intervals(frames)["intervals"] == [50.02, 49.96]
+        with pytest.raises(MeasurementError, match="no board time"):
+            fr.intervals([fr.Frame(b"", {"type": "CMD"}, 1.0)], clock="board")
+        with pytest.raises(ConfigurationError, match="not a clock"):
+            fr.intervals(frames, clock="wall")
+
     def test_a_burst_gap_makes_retries_one_burst(self):
         times = [0.0, 0.1, 0.2, 30.0, 30.1, 60.0, 100.05]
         frames = [fr.Frame(b"", {"type": "CMD", "sensor_id": "A", "frame": {"repeat": 0}}, when)
@@ -158,7 +204,7 @@ class TestIntervals:
         assert result["count"] == 0 and result["mean"] is None
 
     def test_a_frame_with_no_time_is_an_error(self):
-        with pytest.raises(MeasurementError, match="no time"):
+        with pytest.raises(MeasurementError, match="no host time"):
             fr.intervals([fr.Frame(b"", {"type": "A"}, None)])
 
 
@@ -175,9 +221,16 @@ class TestCensus:
         assert {name: entry["lengths"] for name, entry in types.items()} == {
             "VERSION": [83], "ALIVE": [35], "TWF": [100], "CONFIG": [21], "CMD": [15],
             "RESPONSE": [14]}
-        assert types["TWF"]["axis"] == ["X"] and types["CMD"]["rf_capability"] == [5]
+        assert types["TWF"]["fields"]["axis"] == ["X"]
+        assert types["CMD"]["fields"]["rf_capability"] == [5]
+        assert types["CMD"]["fields"]["axis"] == []
         assert (types["ALIVE"]["count"], types["ALIVE"]["transmissions"]) == (180, 60)
         assert (result["rejected"], result["undecoded"]) == (1, 3)
+
+    def test_a_field_named_like_a_count_does_not_collide(self, hour):
+        result = fr.census(hour, fields=["count", "lengths"])
+        assert result["types"]["ALIVE"]["count"] == 180
+        assert result["types"]["ALIVE"]["fields"] == {"count": [], "lengths": []}
 
     def test_a_type_not_expected_is_counted(self, hour):
         result = fr.census(hour, expected=["VERSION", "ALIVE", "TWF", "CONFIG", "CMD"])
@@ -218,6 +271,39 @@ class TestCopies:
                                    ascending="packet_number")
         assert (result["identical"], result["not_ascending"]) == (8, 0)
         assert [row["packet_number"] for row in result["detail"]] == list(range(8))
+
+    def test_an_ascending_field_that_cannot_be_compared_is_counted(self):
+        frames = [fr.Frame(bytes([n]), {"type": "TWF", "sensor_id": "A", "packet_number": v}, n)
+                  for n, v in enumerate([0, 1, "2", 3])]
+        # "2" after 1, and 3 after "2"
+        assert fr.compare_copies(frames, ascending="packet_number")["not_ascending"] == 2
+
+    def test_a_restart_value_starts_the_order_afresh(self):
+        frames = [fr.Frame(bytes([n]), {"type": "TWF", "sensor_id": "A", "packet_number": v}, n)
+                  for n, v in enumerate([0, 1, 2, 0, 1, 1])]
+        assert fr.compare_copies(frames, ascending="packet_number")["not_ascending"] == 2
+        assert fr.compare_copies(frames, ascending="packet_number",
+                                 restart_at=0)["not_ascending"] == 1
+
+    def test_sequences_keep_their_own_positions_and_order(self, hour):
+        """Two axes of one capture: the same packet numbers, different samples."""
+        x_axis = fr.select(hour, "TWF", "5C1712")
+        y_axis = []
+        for frame in x_axis:
+            data = bytearray(frame.data)
+            data[13] = (data[13] & 0x3F) | (1 << 6)        # param bits 15:14, axis Y
+            data[30] ^= 0x01                                # a different first sample
+            y_axis.append(fr.Frame(bytes(data), decode_kepler_frame(bytes(data)),
+                                   frame.time_s + 100.0))
+        both = x_axis + y_axis
+        mixed = fr.compare_copies(both, positions=tables.frame_positions,
+                                  ascending="packet_number")
+        assert mixed["conflicts"] > 0 and mixed["not_ascending"] == 1
+        apart = fr.compare_copies(both, positions=tables.frame_positions,
+                                  ascending="packet_number", sequence=["axis", "param.twfb"])
+        assert (apart["sequences"], apart["conflicts"], apart["not_ascending"]) == (2, 0, 0)
+        assert apart["length"] == 2 * 256 * 32 and apart["covered"] == 2 * 8 * 32
+        assert apart["detail"][-1]["sequence"] == ["Y", 0]
 
     def test_a_packet_number_out_of_order_is_counted(self, hour):
         frames = fr.select(hour, "TWF", "5C1712")
