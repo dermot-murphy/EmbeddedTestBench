@@ -81,6 +81,9 @@ class Event:
     :param fields: Parsed ``key=value`` pairs.
     :param timestamp_us: The dongle's microsecond timestamp, from ``t=``.
     :param host_time: The host's own arrival time, filled in by the session.
+    :param monotonic_s: The same arrival on :func:`time.perf_counter`, the
+        clock the S2-LP driver stamps its packets with, so an event and a
+        radio frame can be compared within one run (#243).
     :param raw: The line as received.
     """
 
@@ -88,6 +91,7 @@ class Event:
     fields: Dict[str, str] = field(default_factory=dict)
     timestamp_us: Optional[int] = None
     host_time: Optional[float] = None
+    monotonic_s: Optional[float] = None
     raw: str = ""
 
     def __str__(self) -> str:

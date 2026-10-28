@@ -80,6 +80,7 @@
 | next | 2026-10-27 | Claude | #299: S2LP-DD-TRAFFIC - `_turn_report_all_on`, `_own_stop_at`, `CLEAN_STOP_IRQS` and the shorter re-arm in `_ready_for_receive`, with the bench evidence, the gap re-measured (11 to 12 ms) and the limits; S2LP-DD-SESSION - `last_stop_acknowledged`. |
 | next | 2026-10-27 | Claude | #308: S2LP-DD-TRAFFIC - the clean-stop count is 2 294 of 2 300, not 1 994. |
 | next | 2026-10-27 | Claude | #122: BLE-DD-SIMWORLD - the air and its clock; BLE-DD-KEPLERSIM - the sensor's radio, its frames, its transmitter settings and the open items; S2LP-DD-SIM - receiving the simulated sensor only when set up for it. |
+| next | 2026-10-28 | Claude | #243: ANA-DD-FRAMES and S2LP-DD-MEASURES added (ANA count 4 → 5, S2LP 13 → 14, total 77 → 79); ANA-DD-SAMPLES - `instants`; S2LP-DD-PACKETS - `monotonic_s`; S2LP-DD-TRAFFIC - `where` and the frame's `monotonic_s`; S2LP-DD-S2LP - `FrameMeasuresMixin`; BLE-DD-SESSION - event `monotonic_s` and `last_disconnect_s`; BLE-DD-DONGLE - `link_times`; S2LP-DD-KEPLER - the `frame_positions` hook. |
 
 ---
 
@@ -120,15 +121,15 @@ not declare.
 | # | Element | Package | Design units |
 |---|---|---|---|
 | 5.1 | CORE | `benchtools.core` | 18 |
-| 5.2 | ANA | `benchtools.analysis` | 4 |
+| 5.2 | ANA | `benchtools.analysis` | 5 |
 | 5.3 | INST | `benchtools.instruments` | 5 |
 | 5.4 | JLINK | `benchtools.instruments.jlink` | 10 |
 | 5.5 | BLE | `benchtools.instruments.nordic_dongle` and `firmware/nordic_dongle` | 20 |
-| 5.6 | S2LP | `benchtools.instruments.s2lp` | 13 |
+| 5.6 | S2LP | `benchtools.instruments.s2lp` | 14 |
 | 5.7 | PSU | `benchtools.instruments.gpd3303d` | 4 |
 | 5.8 | PICO | `benchtools.instruments.pico_sht30` and `firmware/pico_sht30` | 15 |
 | 5.9 | RUN | `benchtools.runner` | 8 |
-| | **Total** | | **77** |
+| | **Total** | | **79** |
 
 ### 4.1 Package Structure
 
@@ -657,7 +658,78 @@ another's. A set that got fewer readings than it asked for is returned, not
 raised: a sensor that went quiet is a result, and `count` is the limit that
 fails. Statistics are `None` only for an empty set. `extract_number` takes the
 number from a pattern's first group and refuses a pattern with no group. The
-dongle, the probe and the S2-LP each fill one (#95).
+dongle, the probe and the S2-LP each fill one (#95). `instants` keeps each
+reading's host-monotonic time where the source gives one, beside `times`,
+which stay relative to the first reading (#243).
+
+#### ANA-DD-FRAMES — `frames.py`
+
+Measures over decoded radio frames (#243), knowing no device. A `Frame` is a
+payload, its decode, the host time it was read (`time_s`), the receiver's
+error and any decode error; `Frame.from_packet` makes one from an S2-LP
+packet. Three facts are read from the decode: `type`, `sensor_id` and
+`frame.repeat`.
+
+- `field_value` walks a dotted path through dictionaries and, for a whole
+  number, lists; a path not there is `MISSING`, not `None`, since `None` can
+  be a value. `matches` applies a `where`: each path to a value or a list of
+  values any of which will do; equal values match, and so does text equal
+  ignoring case, except that `True` and `False` match only themselves.
+  `select` keeps the frames received intact and decoded that match type,
+  source and `where`.
+- `frames_from_log` reads an S2-LP packet log's received records back,
+  skipping a truncated line, decoding again with a given decoder or else
+  using the log's decode. The times are `monotonic_s` when every record has
+  one, else `host_time`: one clock for the whole log, so an old log is still
+  timed.
+- `transmissions` groups copies per source and type: a copy joins the last
+  group of its source and type when its repeat number is higher than that
+  group's last copy's and it came within `COPY_GAP_S` (2 s) of it. Per source
+  and type, so that frames of two sensors or two types interleaved do not
+  split each other's copies; the time bound, so that a lost first copy on a
+  lossy link does not join two transmissions a period apart.
+- `intervals` times each transmission by its first copy, on the host clock
+  (`time_s`, shared with the dongle's events) or the board's (`board_s`, from
+  `board_time_us`, without the USB link's jitter but restarting with the
+  board). A transmission closer than `burst_gap` to the one before joins its
+  burst, so a chain is one burst. It returns the intervals between burst
+  starts with their statistics and the counts above and below the bounds
+  asked for. A frame with no time on the clock, or a time earlier than the
+  one before in the same run (a `host_time` log across a clock step), is a
+  `MeasurementError`. No interval is taken across a run boundary. On the
+  board clock a board restart within a connection is unwrapped by
+  `BoardClock` as a wrap, so it shows as an interval 4294.97 s long, not as
+  time going backwards. Every measure takes `copy_gap`, checked by
+  `check_copy_gap`: a finite time above 0 s, or `None` for no bound.
+- `frames_from_log` numbers each frame's `run`, a new one wherever the
+  records' `run` changes; `PacketLog` writes a fresh `run` id on every
+  record of each log opened, so a file appended to by two runs keeps them
+  apart. A log from before #243 is one run.
+- `census` counts by type, with transmissions, lengths and, under `fields`
+  so that no field name meets them, the distinct values of named fields;
+  with `expected`, other types and undecodable frames are `unexpected`.
+- `compare_copies` compares the copies of each transmission: bytes outside
+  `ignore_offsets`, `same_fields`, an `ascending` field across transmissions
+  (a value that cannot be compared does not ascend; `restart_at` starts the
+  order afresh). `sequence` paths split the frames into sequences - one
+  waveform's axis and buffer - each with its own order and positions; a
+  transmission lacking one is `unsequenced` and left out of both.
+  Given `positions` - a plugin's `frame_positions` hook, which returns the
+  length of the whole sequence and the copy's values by position - it also
+  counts transmissions whose copies carry distinct or repeated blocks, the
+  positions shared within one transmission, and, summed over the
+  sequences, the positions nobody carried and those given two values.
+- `distinct_per_group` groups consecutive transmissions by a field and, per
+  group, compares another field between its items: each transmission, or each
+  combination of `item` fields (one waveform of a capture), taken once by its
+  first transmission; an item whose transmissions disagree is
+  `inconsistent`. It also counts groups that repeat the set before and groups
+  that do not step by one, with an optional wrap.
+
+Limits: copies are grouped by repeat number, with the ambiguity S2LP-DD-TRAFFIC
+records for `dut_samples` (only an early copy of one transmission heard, then
+only later copies of the next, reads as one). A packet log is read whole into
+memory; a day's log at one frame a second is about 86 000 frames.
 
 ---
 
@@ -1084,6 +1156,9 @@ Points that matter:
   second (defect D-16).
 - `wait_for_event` is satisfied by an event already queued, so a caller that
   asks a moment late is not made to wait for a second one.
+- Each event gets `host_time` (wall clock) and `monotonic_s`
+  (`time.perf_counter`, the clock S2-LP packets are stamped with) as its line
+  is read, and the latest `+disc`'s is kept as `last_disconnect_s` (#243).
 - Session logging lives here because this is the only place that sees the whole
   conversation, including lines the driver ignored. A log that omits what the
   tooling discarded cannot explain why it discarded it. Flushed per line.
@@ -1227,6 +1302,13 @@ refusals that are about the dongle rather than the sensor (4, 7, 10), and
 `DONGLE_RESET_SETTLE` the time a reset dongle is given to return on USB.
 
 #### BLE-DD-DONGLE — `dongle.py`
+
+`link_times()` (#243) gives `opened_s`, the `+conn state=ready` event's
+`monotonic_s` kept by `open_link`, and `closed_s`, BLE-DD-SESSION's
+`last_disconnect_s` when it is later than that, else `None`. It polls the
+session first, so a `+disc` still in the port is counted, stamped when read. The session keeps
+it, not the driver, because a link a command ends (a sensor reset) has its
+`+disc` consumed by whichever wait reads it.
 
 `poll_states(request, interval, duration, pattern)` (#242) counts its polls
 first (`_poll_slots`: `floor(duration / interval) + 1`, so the last is not lost
@@ -1976,7 +2058,14 @@ a smaller reading as one wrap.
 
 JSON Lines rather than one JSON document, so a capture interrupted half way
 through is still a readable file - which is the usual case, since a capture is
-usually interrupted on purpose.
+usually interrupted on purpose. Each `PacketLog` writes its own `run`
+identifier on every packet record, so a file appended to by two runs says
+where the second begins (#243).
+
+Every `Packet` also carries `monotonic_s`, `time.perf_counter` when the host
+made it from the board's report, logged with it (#243). It is the clock the BLE
+dongle's events carry, so a frame and a link event can be compared within one
+run; unlike `host_time` it does not move when the wall clock is set.
 
 #### S2LP-DD-S2LP — `s2lp.py`
 
@@ -1989,6 +2078,7 @@ transport.
 | Registers | `read_register(s)`, `write_register(s)`, `read_all_registers`, `dump_registers`, `registers_differing_from_reset`, `read_field`, `write_field`, `strobe`, `restore_defaults` |
 | Radio | `configure_radio`, `radio_info`, `frequency_hz`, `set_frequency`, `modulation`, `set_modulation`, `power_dbm`, `power_level_dbm`, `set_power_dbm`, `rssi_dbm`, `configure_packets`, `packet_info`, `payload_length`, `set_payload_length` |
 | Traffic | from S2LP-DD-TRAFFIC: `prepare_traffic`, `transmit`, `transmit_batch`, `receive`, `capture`, `stop` |
+| Frame measures | from S2LP-DD-MEASURES: `dut_intervals`, `dut_census`, `dut_transmissions`, `dut_distinct` |
 | Logging | `start_log`, `start_packet_log`, `log_note`, `log_path`, `packet_log_path`; `_record` writes every packet as an `rf_packet` event record (S2LP-FR-080); `read_setup` reads `radio_info`, `read_all_registers`, the power at `PA_LEVEL_MAX_IDX` and the EEPROM and logs them as one `rf_setup` record (S2LP-FR-084) |
 
 Design points:
@@ -2019,6 +2109,10 @@ Design points:
 the plugins loaded, or `None` for the only one (CORE-FR-067, #238).
 `measure_preamble` and `check_preamble` take it too. `kepler_samples` and
 `kepler_frame` are the same with `decoder="kepler"`, kept for one release.
+
+Both take `where` (ANA-DD-FRAMES `matches`, #243), and `dut_samples` a dotted
+field; `dut_frame` returns the packet's `monotonic_s`. The measures over a
+window are S2LP-DD-MEASURES.
 
 `TrafficMixin`: send, receive and capture, split from S2LP-DD-S2LP so that each
 can be read on its own. It relies on the driver's session, clock, packet log and
@@ -2152,6 +2246,21 @@ Limits:
 - A caller that sends `S2LPGetNBytesReportAll 0` through `session` is not seen
   either. The interrupt-routing flags already had the same exposure.
 
+#### S2LP-DD-MEASURES — `measures.py`
+
+`FrameMeasuresMixin` (#243), split from S2LP-DD-TRAFFIC so that the receive
+path and the measures can each be read on their own; it receives with
+`TrafficMixin.stream`. Four measures work over a window or a packet log (`log`,
+an input path). `_frames_for` receives in batch mode for `window` seconds, or
+until a caller's `enough` says so, or reads the log without touching the board,
+decoding again with the plugin's decoder when one is loaded.
+`dut_intervals`, `dut_census`, `dut_transmissions` and `dut_distinct` select
+from those frames and hand them to ANA-DD-FRAMES. `dut_transmissions(count=n)`
+live ends the receive when the first copy of transmission n + 1 is heard, so
+the last kept is complete. `positions` asks the plugins for a
+`frame_positions` hook, and refuses with a `ConfigurationError` when none has
+one.
+
 #### S2LP-DD-EEPROM — `eeprom.py`
 
 The RF board's identification EEPROM (#80), read through ST's
@@ -2264,6 +2373,14 @@ and "Transit Wake Time" - `config_parameter` (none `mux*5 + slot`, distance
 the PCB, product and phase names. CONFIG frames carry `parameters`, TWF
 `odr_hz` and `axis`, VERSION `reset_reasons`, `pcb`, ALIVE `phase_name`, every
 frame `product`.
+
+`frame_positions` (#243), the plugin's hook for `dut_transmissions`, places a
+TWF frame's 32 samples in its axis's `packet_count * 32` by `twf_sample`, and a
+CONFIG frame's five values among the 60 parameters by `parameters`; other
+frames, and a TWF frame without a packet count, it does not place. Under the
+polynomial the copies of one TWF packet are not disjoint: `twf_sample`, with
+the repeat number as the polynomial's version, maps some slots of two copies
+to the same sample.
 
 #### S2LP-DD-SIM — `simulator.py`
 

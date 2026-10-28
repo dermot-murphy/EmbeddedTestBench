@@ -5,6 +5,8 @@ Traces to: BLE-FR-002 .. BLE-FR-062, SWE4-UT-BLE.
 
 from __future__ import annotations
 
+import time
+
 import pytest
 
 from benchtools.core.errors import (
@@ -808,6 +810,45 @@ class TestTheLinkDropping:
 
     def test_nothing_to_report_with_no_link(self, scanned):
         assert scanned.check_link() is None
+
+
+class TestLinkTimes:
+    """When a link opened and ended, on the S2-LP packets' clock (#243).
+
+    Traces to: BLE-FR-123.
+    """
+
+    def test_no_link_has_no_times(self, scanned):
+        assert scanned.link_times() == {"opened_s": None, "closed_s": None}
+
+    def test_a_link_opened_then_closed(self, scanned):
+        before = time.perf_counter()
+        scanned.open_link()
+        opened = scanned.link_times()
+        assert before <= opened["opened_s"] <= time.perf_counter()
+        assert opened["closed_s"] is None
+        scanned.close_link()
+        closed = scanned.link_times()
+        assert closed["opened_s"] == opened["opened_s"]
+        assert opened["opened_s"] <= closed["closed_s"] <= time.perf_counter()
+
+    def test_a_disconnect_still_in_the_port_is_read_first(self, simulator, linked):
+        simulator.sensors[0].crash_on = {"rd version": 5_000_000}
+        linked.command("rd version")
+        # Nothing has read the +disc yet: link_times reads it.
+        assert linked.link_times()["closed_s"] is not None
+
+    def test_a_link_lost_is_timed_by_its_disconnect_event(self, simulator, linked):
+        simulator.sensors[0].crash_on = {"rd version": 5_000_000}
+        linked.command("rd version")
+        event = linked.check_link()
+        assert linked.link_times()["closed_s"] == event.monotonic_s
+
+    def test_a_new_link_forgets_the_last_ones_end(self, scanned):
+        scanned.open_link()
+        scanned.close_link()
+        scanned.open_link()
+        assert scanned.link_times()["closed_s"] is None
 
 
 class TestReplyFrames:

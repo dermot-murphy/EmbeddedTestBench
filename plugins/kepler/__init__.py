@@ -18,7 +18,9 @@ Provides:
   ``plugin:kepler/s2lp_kepler_433_rx.regs``;
 * viewer panel ``kepler``: :class:`.view.KeplerView`, with ``static/kepler.js``;
 * hook ``twf_sample``: where a permuted TWF sample belongs, for the viewer's
-  waveform reassembly.
+  waveform reassembly;
+* hook ``frame_positions``: where a TWF or CONFIG frame's values belong, for
+  ``s2lp.dut_transmissions`` to compare the copies of one packet (#243).
 
 Traces to: S2LP-FR-070, VIEW-FR-028, CORE-FR-066.
 """
@@ -26,15 +28,16 @@ Traces to: S2LP-FR-070, VIEW-FR-028, CORE-FR-066.
 from __future__ import annotations
 
 from .decoder import decode_kepler_frame
-from .tables import twf_sample
+from .tables import frame_positions, twf_sample
 from .view import KeplerView
 
 NAME = "kepler"
 
 
 def register(plugin) -> None:
-    """Add Kepler's decoder, register file, viewer panel and hook to *plugin*."""
+    """Add Kepler's decoder, register file, viewer panel and hooks to *plugin*."""
     plugin.add_decoder("kepler", decode_kepler_frame)
     plugin.add_register_file("s2lp_kepler_433_rx.regs", "configs/s2lp_kepler_433_rx.regs")
     plugin.add_panel("kepler", KeplerView, static="static", scripts=("kepler.js",))
     plugin.add_hook("twf_sample", twf_sample)
+    plugin.add_hook("frame_positions", frame_positions)

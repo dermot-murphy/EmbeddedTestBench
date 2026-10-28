@@ -30,11 +30,12 @@ Traces to: S2LP-FR-081 .. S2LP-FR-083, S2LP-DD-KEPLER.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 __all__ = [
     "CONFIG_PARAMETERS", "CONFIG_FRAMES", "CONFIG_PER_FRAME", "permute_poly",
     "permute_poly_any_size", "config_parameter", "name_config", "twf_sample",
+    "frame_positions",
     "odr_hz", "reset_reasons", "PCB_VERSIONS", "SENSOR_PHASES", "PRODUCTS",
 ]
 
@@ -197,6 +198,37 @@ def twf_sample(method: str, packet: int, slot: int, total: int, repeat: int = 0)
     if method == METHOD_POLY:
         return permute_poly(total, linear, repeat)
     return linear
+
+
+def frame_positions(decoded: Dict[str, Any]) -> Optional[Tuple[int, Dict[int, Any]]]:
+    """Where a decoded frame's values belong in the whole it is part of (#243).
+
+    A TWF frame carries 32 samples of one axis's waveform, ``packet_count``
+    packets long; a CONFIG frame five of the 60 configuration parameters.
+    Each value is placed by the frame's permutation and, under the
+    polynomial, its repeat number, as the firmware placed it.
+
+    :returns: ``(length of the whole, {position: value})``, or None for a
+        frame of another type, or one that does not say enough to place it.
+    """
+    kind = decoded.get("type")
+    method = str(decoded.get("permute_method", METHOD_NONE))
+    repeat = max(0, int((decoded.get("frame") or {}).get("repeat", 0) or 0))
+    if kind == "TWF":
+        packets = int(decoded.get("packet_count") or 0)
+        packet = int(decoded.get("packet_number", -1))
+        samples = list(decoded.get("samples") or [])
+        if packets <= 0 or not 0 <= packet < packets:
+            return None
+        size = packets * 32
+        return size, {twf_sample(method, packet, slot, size, repeat): value
+                      for slot, value in enumerate(samples)}
+    if kind == "CONFIG":
+        named = decoded.get("parameters") or []
+        return CONFIG_FRAMES * CONFIG_PER_FRAME, {
+            entry["parameter"]: entry["value"] for entry in named
+            if entry.get("parameter") is not None}
+    return None
 
 
 def odr_hz(code: int) -> int:

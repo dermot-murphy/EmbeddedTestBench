@@ -19,7 +19,7 @@ Three things matter on a real kit, and each was found on one:
 * **Nothing the firmware starts ends by itself.** A receive waits for as long
   as it takes, so every wait here is the host's, and ends with a stop.
 
-Traces to: S2LP-FR-040 .. S2LP-FR-046, CORE-FR-067, S2LP-DD-TRAFFIC.
+Traces to: S2LP-FR-040 .. S2LP-FR-046, S2LP-FR-088, CORE-FR-067, S2LP-DD-TRAFFIC.
 """
 
 from __future__ import annotations
@@ -27,6 +27,7 @@ from __future__ import annotations
 import time
 from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Union
 
+from ...analysis import frames as fr
 from ...analysis.samples import SampleSet
 from ...core import plugins
 from ...core.errors import (
@@ -634,6 +635,7 @@ class TrafficMixin:
         scale: float = 1.0,
         unit: str = "",
         decoder: DecoderChoice = None,
+        where: Optional[Dict[str, Any]] = None,
     ) -> SampleSet:
         """Take *field* from the next *count* frames *source* sends.
 
@@ -655,9 +657,13 @@ class TrafficMixin:
         one transmission when it was two: only an early copy of one heard, then
         only later copies of the next.
 
-        :param field: A key of the decoded frame, e.g. ``temperature_c``.
+        :param field: A key of the decoded frame, e.g. ``temperature_c``, or a
+            dotted path into it, e.g. ``status.phase`` (#243).
         :param source: Only frames from this sensor, e.g. ``"5C1712"``.
         :param frame_type: Only frames of this type, e.g. ``"ALIVE"``.
+        :param where: Only frames whose decode has these values, each named
+            by a dotted path: ``{mux: 3}``, ``{status.phase: [1, 2]}`` (a list
+            is any of them). Text matches ignoring case (#243).
         :param decoder: The decoder, by name, e.g. ``"kepler"``.
         :param timeout: Seconds to wait for all *count*. Fewer is returned
             rather than raised, with ``count`` saying how many came.
@@ -665,9 +671,13 @@ class TrafficMixin:
         :raises MeasurementError: if a matching frame has no *field*, which is
             a specification naming the wrong field rather than a result.
 
-        Traces to: S2LP-FR-072, CORE-FR-067.
+        Each reading's time on the host's monotonic clock is kept in the
+        set's ``instants`` (#243).
+
+        Traces to: S2LP-FR-072, S2LP-FR-088, CORE-FR-067.
         """
         key = plugins.REGISTRY.field(field)
+        where = fr.check_where(where)
         samples = SampleSet(name=field, unit=unit, requested=int(count))
         started = time.monotonic()
         last_repeat: Optional[int] = None
@@ -680,30 +690,34 @@ class TrafficMixin:
                 continue
             if frame_type is not None and decoded.get("type") != frame_type:
                 continue
+            if not fr.matches(decoded, where):
+                continue
             repeat = (decoded.get("frame") or {}).get("repeat")
             same = repeat is not None and last_repeat is not None and repeat > last_repeat
             last_repeat = repeat
             if same:
                 continue
-            if key not in decoded:
+            value = fr.field_value(decoded, key)
+            if value is fr.MISSING:
                 raise MeasurementError(
                     "a %s frame from %s has no field %r; it has %s"
                     % (decoded.get("type"), decoded.get("sensor_id"), key,
                        ", ".join(sorted(decoded))))
-            samples.add(float(decoded[key]) * float(scale),
+            samples.add(float(value) * float(scale),
                         source=bytes(packet.data).hex(" ").upper(),
-                        at=time.monotonic() - started)
+                        at=time.monotonic() - started, when=packet.monotonic_s)
             if samples.complete:
                 break
         return samples
 
-    def dut_frame(
+    def dut_frame(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
         frame_type: str,
         source: Optional[str] = None,
         timeout: float = 60.0,
         decoder: DecoderChoice = None,
         since_last: bool = False,
+        where: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """The decode of the next *frame_type* frame *source* sends, whole.
 
@@ -724,6 +738,8 @@ class TrafficMixin:
 
         :param frame_type: The type, e.g. ``"VERSION"``.
         :param source: Only frames from this sensor, e.g. ``"5C1712"``.
+        :param where: Only a frame whose decode has these values, as for
+            :meth:`dut_samples`: ``{mux: 3}`` picks CONFIG multiplex 3 (#243).
         :param since_last: Look first at the frames that arrived while the
             last receive was being stopped, after its caller had what it
             wanted, so that consecutive calls get consecutive frames. They
@@ -736,49 +752,62 @@ class TrafficMixin:
             must be sent after this call, such as one answering a command
             sent to the sensor since the last call: a frame set aside was
             sent before it.
-        :returns: The decoded fields, plus ``raw``: the payload in hex.
+        :returns: The decoded fields, plus ``raw``: the payload in hex, and
+            ``monotonic_s``: when the host read it, on the clock the BLE
+            dongle's ``link_times`` use, for a ``compute`` step to time the
+            frame from a link event (#243).
         :raises MeasurementError: if no such frame arrives within *timeout*.
 
-        Traces to: S2LP-FR-073, S2LP-FR-085, CORE-FR-067.
+        Traces to: S2LP-FR-073, S2LP-FR-085, S2LP-FR-088, CORE-FR-067.
         """
         decoder = _decoder(decoder)
+        where = fr.check_where(where)
         set_aside = self._take_set_aside()
         if since_last:
             for index, packet in enumerate(set_aside):
                 self._annotate(packet, [], decoder)
-                if self._is_frame(packet, frame_type, source):
+                if self._is_frame(packet, frame_type, source, where):
                     self._set_aside = set_aside[index + 1:]
                     self._set_aside_at = self._session.commands_sent
                     return self._whole_frame(packet)
         for packet in self.stream(decoder=decoder, timeout=timeout):
-            if self._is_frame(packet, frame_type, source):
+            if self._is_frame(packet, frame_type, source, where):
                 return self._whole_frame(packet)
-        missed = "" if since_last else self._set_aside_note(set_aside, decoder, frame_type, source)
+        missed = "" if since_last else self._set_aside_note(set_aside, decoder, frame_type,
+                                                             source, where)
         raise MeasurementError(
-            "no %s frame%s in %g s%s"
-            % (frame_type, "" if source is None else " from %s" % source, timeout, missed))
+            "no %s frame%s%s in %g s%s"
+            % (frame_type, "" if source is None else " from %s" % source,
+               "" if not where else " with %s" % ", ".join(
+                   "%s %s" % (path, value) for path, value in sorted(where.items())),
+               timeout, missed))
 
     @staticmethod
-    def _is_frame(packet: Packet, frame_type: str, source: Optional[str]) -> bool:
-        """Whether *packet* is a *frame_type* frame from *source* (any, if None)."""
+    def _is_frame(packet: Packet, frame_type: str, source: Optional[str],
+                  where: Optional[Dict[str, Any]] = None) -> bool:
+        """Whether *packet* is a *frame_type* frame from *source* (any, if None) with *where*."""
         decoded = packet.decoded or {}
         if not packet.ok or decoded.get("type") != frame_type:
             return False
-        return source is None or str(decoded.get("sensor_id")) == source
+        if source is not None and str(decoded.get("sensor_id")) != source:
+            return False
+        return fr.matches(decoded, where)
 
     @staticmethod
     def _whole_frame(packet: Packet) -> Dict[str, Any]:
         frame = dict(packet.decoded or {})
         frame["raw"] = bytes(packet.data).hex(" ").upper()
+        frame["monotonic_s"] = packet.monotonic_s
         return frame
 
-    def _set_aside_note(self, set_aside: List[Packet], decoder, frame_type: str,
-                        source: Optional[str]) -> str:
+    def _set_aside_note(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+            self, set_aside: List[Packet], decoder, frame_type: str,
+            source: Optional[str], where: Optional[Dict[str, Any]] = None) -> str:
         """Why a frame may have been missed: matching frames that were set aside."""
         matching = 0
         for packet in set_aside:
             self._annotate(packet, [], decoder)
-            matching += self._is_frame(packet, frame_type, source)
+            matching += self._is_frame(packet, frame_type, source, where)
         if not matching:
             return ""
         one = matching == 1

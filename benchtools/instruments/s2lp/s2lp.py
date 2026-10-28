@@ -73,13 +73,14 @@ from .packets import (
 )
 from .session import S2lpSession
 from .simulator import SimulatedS2lp
+from .measures import FrameMeasuresMixin
 from .traffic import TrafficMixin
 
 __all__ = ["S2lpDevkit"]
 
 
 
-class S2lpDevkit(TrafficMixin, Instrument):
+class S2lpDevkit(FrameMeasuresMixin, TrafficMixin, Instrument):
     """An S2-LP development kit running ST's CLI firmware.
 
     :param transport: The link to the board, usually its USB serial port.
