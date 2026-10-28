@@ -1248,16 +1248,21 @@ class NordicDongle(Instrument):
                               "piece_size": None})
 
             self._retry_not_established(sensor, connect_attempts, attempt)
-            mtu = links[-1]["att_mtu"]
-            self._session.note("DFU image %d of %d (%s): ATT MTU %s"
-                               % (index + 1, len(images), image.kind,
-                                  mtu if mtu is not None
-                                  else "not reported (dongle protocol %s)"
-                                  % (self._firmware_protocol or "unknown")))
 
-        def disconnect(image: DfuImage, index: int) -> None:  # pylint: disable=unused-argument
+        def disconnect(image: DfuImage, index: int) -> None:
             self._disconnect()
             self._connected = False
+            # After the image, so the note gives what its writes used.
+            link = links[-1]
+            if link["att_mtu"] is None:
+                allowed = "not reported (dongle protocol %s)" % (
+                    self._firmware_protocol or "unknown")
+            elif link["piece_size"] is None:
+                allowed = "%s, no Packet write" % link["att_mtu"]
+            else:
+                allowed = "%s, %s-byte pieces" % (link["att_mtu"], link["piece_size"])
+            self._session.note("DFU image %d of %d (%s): ATT MTU %s"
+                               % (index + 1, len(images), image.kind, allowed))
 
         dfu = SecureDfu(control=control, packet=packet, chunk=chunk,
                         receipts=receipts, retries=retries, on_retry=on_retry,

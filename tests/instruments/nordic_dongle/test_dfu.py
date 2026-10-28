@@ -428,10 +428,36 @@ class TestSendPackage:
             return original(arguments)
 
         monkeypatch.setattr(simulator, "_cmd_dfupkt", dfupkt)
+        path = tmp_path / "ble.log"
+        dongle.start_log(str(path))
+        package = make_package(tmp_path / "app.zip", [("application", INIT, FIRMWARE)])
+        result = dongle.send_package(package, "KAPPA_5C1712")
+        dongle.stop_log()
+        assert result.succeeded
+        assert result.links == [{"image": "application", "att_mtu": 247, "piece_size": 244}]
+        assert "(application): ATT MTU 247, 244-byte pieces" in path.read_text()
+
+    @pytest.mark.parametrize("rewrite, expected", [
+        # The reply's own att_mtu is used, not the piece plus 3.
+        (lambda line: line.replace("att_mtu=23", "att_mtu=30"), 30),
+        # A reply without one falls back to the piece plus 3.
+        (lambda line: line.replace(" att_mtu=23", ""), 23),
+    ])
+    def test_the_att_mtu_of_a_write_is_its_reply_s(
+            self, kepler_dongle, tmp_path, monkeypatch, rewrite, expected):
+        dongle, simulator = kepler_dongle
+        enter_bootloader(dongle)
+        original = simulator._cmd_dfupkt  # pylint: disable=protected-access
+
+        def dfupkt(arguments):
+            lines = original(arguments)
+            return lines[:-1] + [rewrite(lines[-1])]
+
+        monkeypatch.setattr(simulator, "_cmd_dfupkt", dfupkt)
         package = make_package(tmp_path / "app.zip", [("application", INIT, FIRMWARE)])
         result = dongle.send_package(package, "KAPPA_5C1712")
         assert result.succeeded
-        assert result.links == [{"image": "application", "att_mtu": 247, "piece_size": 244}]
+        assert (result.att_mtu, result.piece_size) == (expected, 20)
 
     def test_the_att_mtu_is_in_the_session_log(self, kepler_dongle, tmp_path):
         dongle, _ = kepler_dongle
@@ -441,7 +467,7 @@ class TestSendPackage:
         package = make_package(tmp_path / "app.zip", [("application", INIT, b"abc")])
         assert dongle.send_package(package, "KAPPA_5C1712").succeeded
         dongle.stop_log()
-        assert "DFU image 1 of 1 (application): ATT MTU 23" in path.read_text()
+        assert "DFU image 1 of 1 (application): ATT MTU 23, 20-byte pieces" in path.read_text()
 
     def test_a_protocol_1_7_dongle_still_sends_a_package(self, tmp_path):
         """It reports neither the piece size nor the ATT MTU; both are None."""

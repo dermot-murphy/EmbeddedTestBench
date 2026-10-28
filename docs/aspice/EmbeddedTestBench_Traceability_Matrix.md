@@ -80,7 +80,7 @@
 | next | 2026-10-27 | Claude | #299: row for S2LP-FR-086 (only what re-arming needs between two batch-stream receives); §16 count 453 in force, 454 declared. |
 | next | 2026-10-27 | Claude | #122: row for S2LP-FR-087 (the simulated S2-LP kit receives the simulated Kepler sensor's frames); §16 count 454 in force, 455 declared. |
 | next | 2026-10-28 | Claude | #243: rows for S2LP-FR-088 .. S2LP-FR-092 (frame filters, intervals, census, copies, distinct values per group) and BLE-FR-123 (link times); §16 count 460 in force, 461 declared. |
-| next | 2026-10-28 | Claude | #274: BLE-FR-121 - `SWE4-UT-BLEDFU` now 45 tests, `SWE4-UT-BLESIM` `TestDfuPieces` (5) added, `test_dfu_client` 19 and `test_cmd_dfu` 8 (the ATT MTU and piece size each link allowed); BLE-NFR-006 - `SWE4-UT-FWUNIT` 192 cases. |
+| next | 2026-10-28 | Claude | #274: BLE-FR-121 - `SWE4-UT-BLEDFU` now 47 tests, `SWE4-UT-BLESIM` `TestDfuPieces` (5) added, `test_dfu_client` 19 and `test_cmd_dfu` 8 (the ATT MTU and piece size each link allowed); BLE-NFR-006 - `SWE4-UT-FWUNIT` 192 cases. |
 
 ---
 
@@ -384,7 +384,7 @@ where the firmware implements the requirement.
 | BLE-FR-118 | BLE-ARC-001 | BLE-DD-LATENCY | `ResponseSample.value` | `test_the_value_a_reply_reports` (4) |
 | BLE-FR-119 | BLE-ARC-001, AD-23 | BLE-DD-SCRIPT, BLE-DD-SCRIPTRUN, BLE-DD-CLI | `PrefixTimeout`, `longest_prefix`, `_Reader.resolve_timeouts`, `_Reader.apply_prefix_timeout`, `_timeout_for`, `StepResult.timeout`, `_parse_timeouts` | `TestReadingTheTable` (21), `TestRunningWithIt` (8, `test_script_timeouts.py`), `test_timeout_sets_a_prefix_timeout_for_the_run`, `test_a_timeout_that_is_not_prefix_equals_ms_is_an_error` (3, `test_cli.py`) |
 | BLE-FR-120 | BLE-ARC-001, RUN-ARC-001 | BLE-DD-KEPLERSIM, BLE-DD-SIMWORLD, BLE-DD-SIM | `simulated/kepler.py`, `simulated/world.py`, `KeplerResponder`, `SimulatedGpd.terminal_volts`, `SimulatedJLink.periodic_rtt`, `simulated_target` | `SWE4-UT-KEPLERSIM` (11, `test_kepler_simulated.py`) |
-| BLE-FR-121 | BLE-ARC-001 | BLE-DD-DFU, BLE-DD-DFUHOST, BLE-DD-DFUSIM | `dfu_client.c`, `cmd_dfu.c`, `dfu.py` (`SecureDfu`, `load_package`), `NordicDongle.send_package`, `SimulatedBootloader` | `SWE4-UT-BLEDFU` (45, `test_dfu.py`), `SWE4-UT-BLESIM`: `TestDfuPieces` (5), `test_dfu_client` (19), `test_cmd_dfu` (8) |
+| BLE-FR-121 | BLE-ARC-001 | BLE-DD-DFU, BLE-DD-DFUHOST, BLE-DD-DFUSIM | `dfu_client.c`, `cmd_dfu.c`, `dfu.py` (`SecureDfu`, `load_package`), `NordicDongle.send_package`, `SimulatedBootloader` | `SWE4-UT-BLEDFU` (47, `test_dfu.py`), `SWE4-UT-BLESIM`: `TestDfuPieces` (5), `test_dfu_client` (19), `test_cmd_dfu` (8) |
 | BLE-FR-122 | BLE-ARC-001 | BLE-DD-DONGLE | `NordicDongle.poll_states`, `_state_of`, `_sleep_until`, `_poll_slots`, `_next_slot`, `_poll_once` | `SWE4-UT-BLESAMPLE`: `TestPollStates` (12), `TestPollStatesSchedule` (4) |
 | BLE-FR-123 | BLE-ARC-001 | BLE-DD-SESSION, BLE-DD-DONGLE | `Event.monotonic_s`, `DongleSession.last_disconnect_s`, `NordicDongle.link_times` | `SWE4-UT-BLE`: `TestLinkTimes` (5); `SWE4-UT-KEPLERSIM`: a frame timed from the link closing (1) |
 | BLE-FR-090 | BLE-ARC-001 | BLE-DD-BUILD | `firmware/ses/*.emProject`, `firmware/Makefile`, `firmware/gcc/*.ld`, `firmware/scripts/{package_dfu,compile_check}.*`, `.github/workflows/firmware.yml` | `compile_check.sh` compiles every unit against real SDK headers (BENCHTOOLS-SWE4-002 §4.4); the workflow builds, links, sizes and packages against SDK 17.1.0 (§4.6, BLE-OPEN-01 discharged); flashing remains a bench confirmation item (CON-07) |

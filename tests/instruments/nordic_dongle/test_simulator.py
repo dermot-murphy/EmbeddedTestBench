@@ -5,7 +5,7 @@ reports success. These tests hold the simulator to the behaviour the driver
 relies on: exact advertising intervals, refusals where the firmware refuses,
 and drop counters that reconcile.
 
-Traces to: BLE-FR-080, SWE4-UT-BLESIM.
+Traces to: BLE-FR-080, BLE-FR-121, SWE4-UT-BLESIM.
 """
 
 from __future__ import annotations

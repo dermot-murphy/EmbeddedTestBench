@@ -1634,8 +1634,9 @@ the smallest piece, kept together; the ready event's `att_mtu` until a write),
 because a package's images can
 reach two bootloaders, the old one and the one it installed; `att_mtu` and
 `piece_size` are the smallest over the transfer. Both are in the `ble_dfu`
-record and its message, and each image's ATT MTU is a session-log note,
-`DFU image <n> of <m> (<kind>): ATT MTU <mtu>`. In #271 the piece size had to
+record and its message. After each image, a session-log note gives its link's,
+`DFU image <n> of <m> (<kind>): ATT MTU <mtu>, <piece>-byte pieces`. A reply
+without `att_mtu` falls back to the piece plus 3. In #271 the piece size had to
 be worked out from the receipts, and receipts 144 bytes apart, where a 4-byte
 tail piece fell in the window, were first taken for losses. A dongle before
 protocol 1.8 reports neither: both are None, the note says so, and the
