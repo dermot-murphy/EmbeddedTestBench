@@ -656,8 +656,14 @@ judged on its log than held in memory. A log written before #243 has no
 
 Copies are grouped by the repeat number the decoder gives, per source and
 type. A copy whose repeat number is not higher than the last, or that comes
-more than 2 s after it, starts a new transmission. A log's times must not go
-backwards: a log appended to by two runs is refused, not measured. `dut_transmissions` with `count`, live, receives until the first
+more than `copy_gap` seconds after it (2 s unless the step says otherwise),
+starts a new transmission. Each packet log written since #243 marks every
+record with its run, so in a file appended to by two runs nothing is
+measured across the join, and `runs` in the result says so. A log timed by
+`host_time` (one written before #243) is on the wall clock: across a clock
+step its times can go backwards, and that is refused rather than measured.
+On `clock: board`, a board that restarted mid-connection reads as a counter
+wrap, an interval about 4295 s too long. `dut_transmissions` with `count`, live, receives until the first
 copy of the transmission after the last one counted, so the last is complete.
 
 **Timing a frame from a BLE event.** Every S2-LP packet and every dongle event

@@ -55,7 +55,10 @@ class Frame:
     :param decode_error: Why the payload could not be decoded, if it could not.
     :param board_s: The receiver board's own timer when it reported the
         frame, in seconds, or None. It has no USB in it, but it is the
-        board's: it restarts with the board, and nothing else shares it.
+        board's: nothing else shares it, and a board that restarts within one
+        connection is read as a counter wrap, 4294.97 s on.
+    :param run: Which run of a packet log the frame came from, counted from
+        0 where the log's ``run`` changes; 0 for a frame received live.
     """
 
     data: bytes
@@ -64,6 +67,7 @@ class Frame:
     error: int = 0
     decode_error: str = ""
     board_s: Optional[float] = None
+    run: int = 0
 
     @property
     def ok(self) -> bool:
@@ -174,7 +178,7 @@ def _epoch_s(text: Any) -> Optional[float]:
         return None
 
 
-def frames_from_log(path: str,
+def frames_from_log(path: str,  # pylint: disable=too-many-locals
                     decoder: Optional[Callable[[bytes], Dict[str, Any]]] = None) -> List[Frame]:
     """The frames an S2-LP packet log received, in order.
 
@@ -182,9 +186,13 @@ def frames_from_log(path: str,
     is read by the plugin loaded now; otherwise the decode the log carries is
     used. The times are the log's ``monotonic_s`` when every received frame
     has one, else its ``host_time``: one clock for the whole log either way.
-    A log appended to by two runs can still go backwards where the second
-    starts; :func:`intervals` refuses that rather than measure it. A
-    truncated last line is skipped, as :class:`PacketLog` reads it.
+    ``host_time`` is the wall clock, so a log timed by it is wrong across a
+    clock step (a time-zone change, a time server's correction). Each frame
+    carries the run it came from: a new one starts where the records'
+    ``run`` changes, as it does in a log appended to by two runs, and
+    :func:`intervals` measures nothing across that boundary. A log written
+    before ``run`` was recorded is one run. A truncated last line is
+    skipped, as :class:`PacketLog` reads it.
     """
     records = []
     with open(path, "r", encoding="utf-8") as handle:
@@ -201,7 +209,10 @@ def frames_from_log(path: str,
     monotonic = bool(records) and all(record.get("monotonic_s") is not None
                                       for record in records)
     frames = []
+    run, last_run = 0, records[0].get("run") if records else None
     for record in records:
+        if record.get("run") != last_run:
+            run, last_run = run + 1, record.get("run")
         data = bytes.fromhex(record.get("hex") or "")
         error = int(record.get("error") or 0)
         decoded, decode_error = record.get("decoded"), record.get("decode_error") or ""
@@ -215,14 +226,16 @@ def frames_from_log(path: str,
         board = record.get("board_time_us")
         frames.append(Frame(data=data, decoded=decoded, time_s=when, error=error,
                             decode_error=decode_error,
-                            board_s=None if board is None else float(board) / 1e6))
+                            board_s=None if board is None else float(board) / 1e6, run=run))
     return frames
 
 
-#: The longest time between two copies of one transmission, in seconds. The
-#: copies of one packet from Kepler 5C1712 came 31 to 229 ms apart (#293); a
-#: copy later than this after the last is a new transmission whatever its
-#: repeat number, so a lost first copy does not join two transmissions.
+#: The longest time between two copies of one transmission, in seconds, by
+#: default. The copies of one packet from Kepler 5C1712 came 31 to 229 ms
+#: apart (#293, one sensor, one evening); a copy later than this after the
+#: last is a new transmission whatever its repeat number, so a lost first copy
+#: does not join two transmissions. Every measure takes ``copy_gap`` for a
+#: device whose copies are further apart.
 COPY_GAP_S = 2.0
 
 
@@ -255,7 +268,12 @@ def transmissions(frames: Sequence[Frame],
 
 
 def _close(earlier: Frame, later: Frame, gap: Optional[float]) -> bool:
-    """Whether *later* came within *gap* seconds of *earlier*, or either is untimed."""
+    """Whether *later* came within *gap* seconds of *earlier* in the same run.
+
+    Untimed frames, or no *gap*, are close if they are in the same run.
+    """
+    if earlier.run != later.run:
+        return False
     if gap is None or earlier.time_s is None or later.time_s is None:
         return True
     return later.time_s - earlier.time_s <= float(gap)
@@ -273,10 +291,10 @@ def _stats(values: Sequence[float]) -> Dict[str, Optional[float]]:
 CLOCKS = ("host", "board")
 
 
-def intervals(  # pylint: disable=too-many-arguments,too-many-locals
+def intervals(  # pylint: disable=too-many-arguments,too-many-locals,too-many-positional-arguments
         frames: Sequence[Frame], burst_gap: Optional[float] = None,
         above: Optional[float] = None, below: Optional[float] = None,
-        clock: str = "host") -> Dict[str, Any]:
+        clock: str = "host", copy_gap: Optional[float] = COPY_GAP_S) -> Dict[str, Any]:
     """The time between transmissions, or between bursts of them.
 
     Each transmission is timed by its first copy heard. With *burst_gap*,
@@ -288,8 +306,14 @@ def intervals(  # pylint: disable=too-many-arguments,too-many-locals
     :param clock: ``"host"`` (the default), when the host read each frame:
         the clock BLE dongle events are on, so a frame can be timed from one,
         and the one every packet log has. ``"board"``, the receiver board's
-        own timer: free of the USB link's jitter, but it restarts with the
-        board and nothing else shares it.
+        own timer: free of the USB link's jitter, but nothing else shares it,
+        and a board restart within one connection reads as a counter wrap
+        (an interval 4294.97 s too long), not as time going backwards.
+    :param copy_gap: As for :func:`transmissions`.
+
+    No interval is measured across a packet log's run boundary
+    (:func:`frames_from_log`): ``runs`` says how many runs the frames came
+    from.
 
     :returns: ``frames``, ``transmissions``, ``bursts``, ``count`` (intervals),
         ``minimum``, ``maximum``, ``mean``, ``above`` and ``below`` (how many
@@ -297,39 +321,42 @@ def intervals(  # pylint: disable=too-many-arguments,too-many-locals
         not asked), ``largest_burst`` (transmissions), ``first_s`` and
         ``last_s`` (on the frames' clock), and ``intervals`` themselves.
     :raises MeasurementError: if a frame has no time on *clock*, or the times
-        go backwards - a log appended to by two runs, or a board that
-        restarted.
+        go backwards within one run - a log timed by the wall clock across a
+        clock step, say.
     :raises ConfigurationError: for a clock that is not one of :data:`CLOCKS`.
     """
     if clock not in CLOCKS:
         raise ConfigurationError("%r is not a clock; they are %s" % (clock, ", ".join(CLOCKS)))
-    groups = transmissions(frames)
-    starts = []
+    groups = transmissions(frames, copy_gap)
+    starts: List[Tuple[int, float]] = []
     for group in groups:
         when = group[0].time_s if clock == "host" else group[0].board_s
         if when is None:
             raise MeasurementError("a frame has no %s time to measure an interval from" % clock)
-        if starts and when < starts[-1]:
+        if starts and starts[-1][0] == group[0].run and when < starts[-1][1]:
             raise MeasurementError(
-                "the %s times go backwards, from %.6f s to %.6f s: a log appended to by "
-                "two runs, or a board that restarted, has no single interval to measure"
-                % (clock, starts[-1], when))
-        starts.append(when)
-    bursts: List[List[float]] = []
-    for start in starts:
-        if bursts and burst_gap is not None and start - bursts[-1][-1] < float(burst_gap):
-            bursts[-1].append(start)
+                "the %s times go backwards, from %.6f s to %.6f s, within one run: a log "
+                "timed by the wall clock (host_time) across a clock step has no single "
+                "interval to measure" % (clock, starts[-1][1], when))
+        starts.append((group[0].run, when))
+    bursts: List[Tuple[int, List[float]]] = []
+    for run, start in starts:
+        if bursts and burst_gap is not None and bursts[-1][0] == run \
+                and start - bursts[-1][1][-1] < float(burst_gap):
+            bursts[-1][1].append(start)
         else:
-            bursts.append([start])
-    gaps = [later[0] - earlier[0] for earlier, later in zip(bursts, bursts[1:])]
+            bursts.append((run, [start]))
+    gaps = [later[1][0] - earlier[1][0] for earlier, later in zip(bursts, bursts[1:])
+            if earlier[0] == later[0]]
     result: Dict[str, Any] = {
         "frames": len(frames), "transmissions": len(groups), "bursts": len(bursts),
+        "runs": len({run for run, _start in starts}),
         "count": len(gaps),
         "above": None if above is None else sum(1 for gap in gaps if gap > float(above)),
         "below": None if below is None else sum(1 for gap in gaps if gap < float(below)),
-        "largest_burst": max((len(burst) for burst in bursts), default=0),
-        "first_s": starts[0] if starts else None,
-        "last_s": starts[-1] if starts else None,
+        "largest_burst": max((len(burst) for _run, burst in bursts), default=0),
+        "first_s": starts[0][1] if starts else None,
+        "last_s": starts[-1][1] if starts else None,
         "intervals": [round(gap, 6) for gap in gaps],
     }
     result.update(_stats(gaps))
@@ -348,7 +375,8 @@ def _distinct(values: Iterable[Any]) -> List[Any]:
 
 
 def census(frames: Sequence[Frame], fields: Sequence[str] = (),  # pylint: disable=too-many-locals
-           expected: Optional[Sequence[str]] = None) -> Dict[str, Any]:
+           expected: Optional[Sequence[str]] = None,
+           copy_gap: Optional[float] = COPY_GAP_S) -> Dict[str, Any]:
     """What was heard: frames by type, with their lengths and the values of *fields*.
 
     :param fields: Dotted paths whose distinct values are listed per type,
@@ -376,7 +404,7 @@ def census(frames: Sequence[Frame], fields: Sequence[str] = (),  # pylint: disab
             value = field_value(frame.decoded, path)
             if value is not MISSING and value not in entry["fields"][path]:
                 entry["fields"][path].append(value)
-    for group in transmissions(intact):
+    for group in transmissions(intact, copy_gap):
         types[str(group[0].frame_type)]["transmissions"] += 1
     for entry in types.values():
         entry["lengths"].sort()
@@ -439,7 +467,7 @@ def compare_copies(  # pylint: disable=too-many-locals,too-many-branches,too-man
         same_fields: Sequence[str] = (),
         positions: Optional[Callable[[Dict[str, Any]], Positions]] = None,
         ascending: Optional[str] = None, *, sequence: Sequence[str] = (),
-        restart_at: Any = None) -> Dict[str, Any]:
+        restart_at: Any = None, copy_gap: Optional[float] = COPY_GAP_S) -> Dict[str, Any]:
     """Compare the copies of each transmission, and what they carry together.
 
     :param ignore_offsets: Byte offsets to leave out when comparing copies -
@@ -455,9 +483,12 @@ def compare_copies(  # pylint: disable=too-many-locals,too-many-branches,too-man
     :param sequence: Dotted paths that tell the sequences apart - one
         waveform's axis and buffer, say. Each combination of their values is
         a sequence of its own, with its own positions and its own ascending
-        order. Without, all the frames are one sequence.
+        order. Without, all the frames are one sequence. A transmission that
+        lacks one of them is counted as ``unsequenced`` and left out of the
+        order and the positions.
     :param restart_at: A value of *ascending* that starts the order afresh,
         such as packet number 0 of the next capture.
+    :param copy_gap: As for :func:`transmissions`.
     :returns: ``transmissions``, ``copies``, ``copies_per_transmission``
         (min and max), ``identical`` and ``not_identical`` (transmissions
         whose copies are, or are not, the same bytes outside
@@ -473,8 +504,8 @@ def compare_copies(  # pylint: disable=too-many-locals,too-many-branches,too-man
         are summed over the sequences, and ``sequences`` counts them.
         ``detail`` lists each transmission.
     """
-    groups = transmissions(frames)
-    identical = fields_differ = not_ascending = 0
+    groups = transmissions(frames, copy_gap)
+    identical = fields_differ = not_ascending = unsequenced = 0
     distinct_blocks = repeated_blocks = overlapping = placed = 0
     wholes: Dict[str, Dict[int, Any]] = {}
     conflicts: Dict[str, set] = {}
@@ -483,6 +514,8 @@ def compare_copies(  # pylint: disable=too-many-locals,too-many-branches,too-man
     detail = []
     for group in groups:
         key = _text(_values_at(group[0].decoded, sequence))
+        sequenced = all(field_value(group[0].decoded, path) is not MISSING for path in sequence)
+        unsequenced += not sequenced
         same_bytes = all(_bytes_equal(group[0].data, copy.data, ignore_offsets)
                          for copy in group[1:])
         identical += same_bytes
@@ -496,13 +529,13 @@ def compare_copies(  # pylint: disable=too-many-locals,too-many-branches,too-man
             row["fields_differ"] = differing
         if sequence:
             row["sequence"] = _values_at(group[0].decoded, sequence)
-        if ascending is not None:
+        if ascending is not None and sequenced:
             value = field_value(group[0].decoded, ascending)
             row[ascending] = None if value is MISSING else value
             if not _ascends(value, previous.get(key, MISSING), restart_at):
                 not_ascending += 1
             previous[key] = value
-        if positions is not None:
+        if positions is not None and sequenced:
             whole = wholes.setdefault(key, {})
             blocks = []
             counted: Dict[int, int] = {}
@@ -534,7 +567,7 @@ def compare_copies(  # pylint: disable=too-many-locals,too-many-branches,too-man
                                     "maximum": max(sizes, default=None)},
         "identical": identical, "not_identical": len(groups) - identical,
         "fields_differ": fields_differ, "not_ascending": not_ascending,
-        "detail": detail,
+        "unsequenced": unsequenced, "detail": detail,
     }
     if positions is not None:
         covered = {key: sum(1 for position in whole if 0 <= position < lengths.get(key, 0))
@@ -552,7 +585,8 @@ def compare_copies(  # pylint: disable=too-many-locals,too-many-branches,too-man
 
 def distinct_per_group(  # pylint: disable=too-many-locals,too-many-arguments
         frames: Sequence[Frame], value: str, group: str, item: Sequence[str] = (), *,
-        wrap_after: Optional[int] = None, wrap_to: Optional[int] = None) -> Dict[str, Any]:
+        wrap_after: Optional[int] = None, wrap_to: Optional[int] = None,
+        copy_gap: Optional[float] = COPY_GAP_S) -> Dict[str, Any]:
     """Whether *value* differs between the items of each *group*.
 
     A group is a run of consecutive transmissions with the same *group*
@@ -564,6 +598,7 @@ def distinct_per_group(  # pylint: disable=too-many-locals,too-many-arguments
 
     :param wrap_after: With *wrap_to*: the group value after which the next
         is *wrap_to* rather than one more, for a counter that wraps.
+    :param copy_gap: As for :func:`transmissions`.
     :returns: ``groups``, ``items`` (in all groups), ``all_distinct`` and
         ``not_distinct`` (groups whose items' values are, or are not,
         pairwise different), ``inconsistent`` (items whose transmissions
@@ -574,7 +609,7 @@ def distinct_per_group(  # pylint: disable=too-many-locals,too-many-arguments
     """
     runs: List[Tuple[Any, Dict[str, Any]]] = []
     inconsistent = 0
-    for transmission in transmissions(frames):
+    for transmission in transmissions(frames, copy_gap):
         decoded = transmission[0].decoded
         key = field_value(decoded, group)
         found = field_value(decoded, value)

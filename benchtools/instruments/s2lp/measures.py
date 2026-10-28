@@ -60,7 +60,8 @@ class FrameMeasuresMixin:
             self, frame_type: Optional[str] = None, source: Optional[str] = None, *,
             where: Optional[Dict[str, Any]] = None, window: float = 60.0,
             burst_gap: Optional[float] = None, above: Optional[float] = None,
-            below: Optional[float] = None, clock: str = "host", log: Optional[str] = None,
+            below: Optional[float] = None, clock: str = "host",
+            copy_gap: Optional[float] = fr.COPY_GAP_S, log: Optional[str] = None,
             decoder: DecoderChoice = None) -> Dict[str, Any]:
         """The time between one kind of frame's transmissions, over a window.
 
@@ -77,6 +78,9 @@ class FrameMeasuresMixin:
             dongle's events and in every packet log; or ``"board"``, the S2-LP
             board's timer, without the USB link's jitter. See
             :func:`benchtools.analysis.frames.intervals`.
+        :param copy_gap: The longest time between two copies of one
+            transmission, in seconds; a copy later than that after the last
+            starts a new one.
         :returns: See :func:`benchtools.analysis.frames.intervals`: ``count``,
             ``minimum``, ``maximum``, ``mean``, ``above``, ``below``,
             ``bursts``, ``transmissions``, ``largest_burst``, ``intervals``.
@@ -85,7 +89,8 @@ class FrameMeasuresMixin:
         """
         heard = self._frames_for(decoder, window, log)
         chosen = fr.select(heard, frame_type, source, fr.check_where(where))
-        return fr.intervals(chosen, burst_gap=burst_gap, above=above, below=below, clock=clock)
+        return fr.intervals(chosen, burst_gap=burst_gap, above=above, below=below, clock=clock,
+                            copy_gap=copy_gap)
 
     @input_paths("log")
     def dut_census(  # pylint: disable=too-many-arguments
@@ -116,7 +121,8 @@ class FrameMeasuresMixin:
             window: float = 60.0, ignore_offsets: Sequence[int] = (),
             same_fields: Sequence[str] = (), positions: bool = False,
             ascending: Optional[str] = None, sequence: Sequence[str] = (),
-            restart_at: Any = None, log: Optional[str] = None,
+            restart_at: Any = None, copy_gap: Optional[float] = fr.COPY_GAP_S,
+            log: Optional[str] = None,
             decoder: DecoderChoice = None) -> Dict[str, Any]:
         """Every copy of each transmission, and how the copies compare.
 
@@ -139,6 +145,7 @@ class FrameMeasuresMixin:
             its own positions and order. Without, the frames chosen are one
             sequence, so choose one with *where*.
         :param restart_at: A value of *ascending* that starts it afresh.
+        :param copy_gap: As for :meth:`dut_intervals`.
         :returns: See :func:`benchtools.analysis.frames.compare_copies`.
         :raises ConfigurationError: if *positions* is asked for and no loaded
             plugin has a ``frame_positions`` hook.
@@ -155,20 +162,20 @@ class FrameMeasuresMixin:
                     "where each copy's values belong; none of the plugins loaded has one")
 
         def enough(heard: List[fr.Frame]) -> bool:
-            return count is not None and len(
-                fr.transmissions(fr.select(heard, frame_type, source, where))) > int(count)
+            return count is not None and len(fr.transmissions(
+                fr.select(heard, frame_type, source, where), copy_gap)) > int(count)
 
         chosen = fr.select(self._frames_for(decoder, window, log,
                                             None if log is not None else enough),
                            frame_type, source, where)
         if count is not None:
-            groups = fr.transmissions(chosen)[:int(count)]
+            groups = fr.transmissions(chosen, copy_gap)[:int(count)]
             kept = {id(frame) for group in groups for frame in group}
             chosen = [frame for frame in chosen if id(frame) in kept]
         result = fr.compare_copies(chosen, ignore_offsets=ignore_offsets,
                                    same_fields=same_fields, positions=hook,
                                    ascending=ascending, sequence=sequence,
-                                   restart_at=restart_at)
+                                   restart_at=restart_at, copy_gap=copy_gap)
         result["requested"] = count
         return result
 

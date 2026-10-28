@@ -695,7 +695,15 @@ packet. Three facts are read from the decode: `type`, `sensor_id` and
   burst, so a chain is one burst. It returns the intervals between burst
   starts with their statistics and the counts above and below the bounds
   asked for. A frame with no time on the clock, or a time earlier than the
-  one before (a log appended to by two runs), is a `MeasurementError`.
+  one before in the same run (a `host_time` log across a clock step), is a
+  `MeasurementError`. No interval is taken across a run boundary. On the
+  board clock a board restart within a connection is unwrapped by
+  `BoardClock` as a wrap, so it shows as an interval 4294.97 s long, not as
+  time going backwards. Every measure takes `copy_gap`.
+- `frames_from_log` numbers each frame's `run`, a new one wherever the
+  records' `run` changes; `PacketLog` writes a fresh `run` id on every
+  record of each log opened, so a file appended to by two runs keeps them
+  apart. A log from before #243 is one run.
 - `census` counts by type, with transmissions, lengths and, under `fields`
   so that no field name meets them, the distinct values of named fields;
   with `expected`, other types and undecodable frames are `unexpected`.
@@ -703,7 +711,8 @@ packet. Three facts are read from the decode: `type`, `sensor_id` and
   `ignore_offsets`, `same_fields`, an `ascending` field across transmissions
   (a value that cannot be compared does not ascend; `restart_at` starts the
   order afresh). `sequence` paths split the frames into sequences - one
-  waveform's axis and buffer - each with its own order and positions.
+  waveform's axis and buffer - each with its own order and positions; a
+  transmission lacking one is `unsequenced` and left out of both.
   Given `positions` - a plugin's `frame_positions` hook, which returns the
   length of the whole sequence and the copy's values by position - it also
   counts transmissions whose copies carry distinct or repeated blocks, the
@@ -2048,7 +2057,9 @@ a smaller reading as one wrap.
 
 JSON Lines rather than one JSON document, so a capture interrupted half way
 through is still a readable file - which is the usual case, since a capture is
-usually interrupted on purpose.
+usually interrupted on purpose. Each `PacketLog` writes its own `run`
+identifier on every packet record, so a file appended to by two runs says
+where the second begins (#243).
 
 Every `Packet` also carries `monotonic_s`, `time.perf_counter` when the host
 made it from the board's report, logged with it (#243). It is the clock the BLE

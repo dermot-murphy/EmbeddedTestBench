@@ -17,6 +17,7 @@ import pytest
 from benchtools.analysis import frames as fr
 from benchtools.core import plugins
 from benchtools.core.errors import ConfigurationError, MeasurementError
+from benchtools.instruments.s2lp.packets import Packet, PacketLog
 
 from ...kepler_plugin import decode_kepler_frame, tables
 from . import synthetic_air
@@ -109,6 +110,23 @@ class TestPacketLog:
         frames = fr.frames_from_log(str(log), decode_kepler_frame)
         assert frames[1].time_s - frames[0].time_s == pytest.approx(30.0)
 
+    def test_a_log_appended_to_by_two_runs_has_no_interval_across_them(self, tmp_path):
+        path = str(tmp_path / "packets.jsonl")
+        for start in (100.0, 900.0):                       # the second run, 13 min later
+            with PacketLog(path) as log:
+                for index in range(3):
+                    log.write(Packet("rx", bytes.fromhex(ALIVE_REPEATS[0]),
+                                     monotonic_s=start + 60.0 * index))
+        frames = fr.frames_from_log(path, decode_kepler_frame)
+        assert [frame.run for frame in frames] == [0, 0, 0, 1, 1, 1]
+        result = fr.intervals(frames)
+        assert (result["runs"], result["intervals"]) == (2, [60.0, 60.0, 60.0, 60.0])
+
+    def test_two_runs_do_not_join_copies(self):
+        frames = [fr.Frame(b"", {"type": "ALIVE", "sensor_id": "A", "frame": {"repeat": r}}, t,
+                           run=run) for r, t, run in [(0, 0.0, 0), (1, 0.1, 1)]]
+        assert len(fr.transmissions(frames, copy_gap=None)) == 2
+
     def test_the_board_time_is_read_back_too(self, tmp_path):
         log = tmp_path / "packets.jsonl"
         log.write_text(json.dumps({"direction": "rx", "hex": ALIVE_REPEATS[0], "error": 0,
@@ -175,10 +193,16 @@ class TestIntervals:
         result = fr.intervals(frames, burst_gap=1.0)
         assert (result["bursts"], result["largest_burst"], result["intervals"]) == (2, 3, [10.0])
 
-    def test_times_that_go_backwards_are_refused(self):
+    def test_times_that_go_backwards_within_a_run_are_refused(self):
         frames = [fr.Frame(b"", {"type": "CMD", "sensor_id": "A"}, t) for t in (10.0, 20.0, 5.0)]
-        with pytest.raises(MeasurementError, match="go backwards"):
+        with pytest.raises(MeasurementError, match="go backwards.*within one run.*host_time"):
             fr.intervals(frames)
+
+    def test_the_copy_gap_can_be_set(self):
+        frames = [fr.Frame(b"", {"type": "ALIVE", "sensor_id": "A", "frame": {"repeat": r}}, t)
+                  for r, t in [(0, 0.0), (1, 3.0), (2, 6.0)]]
+        assert fr.intervals(frames)["transmissions"] == 3
+        assert fr.intervals(frames, copy_gap=5.0)["transmissions"] == 1
 
     def test_the_board_clock_can_be_chosen(self):
         frames = [fr.Frame(b"", {"type": "CMD", "sensor_id": "A"}, host, board_s=board)
@@ -304,6 +328,15 @@ class TestCopies:
         assert (apart["sequences"], apart["conflicts"], apart["not_ascending"]) == (2, 0, 0)
         assert apart["length"] == 2 * 256 * 32 and apart["covered"] == 2 * 8 * 32
         assert apart["detail"][-1]["sequence"] == ["Y", 0]
+
+    def test_a_transmission_without_its_sequence_fields_is_left_out(self, hour):
+        twf = fr.select(hour, "TWF", "5C1712")
+        stray = fr.Frame(twf[0].data, dict(twf[0].decoded, axis=None), 1.0)
+        del stray.decoded["axis"]
+        result = fr.compare_copies([stray] + twf, positions=tables.frame_positions,
+                                   ascending="packet_number", sequence=["axis"])
+        assert (result["unsequenced"], result["sequences"], result["not_ascending"]) == (1, 1, 0)
+        assert result["covered"] == 8 * 32
 
     def test_a_packet_number_out_of_order_is_counted(self, hour):
         frames = fr.select(hour, "TWF", "5C1712")
@@ -491,6 +524,15 @@ class TestActions:
         monkeypatch.setattr(plugins, "hook", lambda name, default=None: None)
         with pytest.raises(ConfigurationError, match="frame_positions hook"):
             radio.dut_transmissions("TWF", positions=True, window=0.5, decoder="kepler")
+
+    def test_dut_intervals_on_the_board_clock(self, radio, simulator):
+        for _ in range(3):
+            for repeat in range(3):
+                simulator.queue_packet(config_frame(0, repeat))
+        result = radio.dut_intervals("CONFIG", "5C1712", window=1.5, clock="board",
+                                     copy_gap=None, decoder="kepler")
+        assert result["transmissions"] == 3 and result["count"] == 2
+        assert result["first_s"] is not None and result["minimum"] >= 0
 
     def test_dut_census_of_a_window(self, radio, simulator):
         simulator.queue_packet(config_frame(0))
