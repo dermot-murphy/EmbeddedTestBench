@@ -75,7 +75,9 @@ setup:
     expect:
       - name: alive_period_set
         measure: text
-        equals: {param: alive_period_s, format: "ACK WR ALIVE-PERIOD {} Secs"}
+        matches: {param: alive_period_s, format: "ACK WR ALIVE-PERIOD {} Secs?"}
+        reason: "V11.00 answers ACK WR ALIVE-PERIOD 10 Secs, V11.02 ACK wr alive-period 10 Sec (#314)"
+        ignore_case: true
 
 tests:
   - name: The machine temperature read over BLE is steady
@@ -84,7 +86,7 @@ tests:
       - do: dongle.sample_command
         with:
           request: RD TEMPERATURE
-          pattern: '= (-?\d+)mC'
+          pattern: '= (-?\d+) ?mC'
           count: {param: readings}
           interval: {param: interval_s}
           scale: 0.001
