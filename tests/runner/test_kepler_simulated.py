@@ -352,3 +352,48 @@ class TestBrokenRadioFactsAreNoticed:
         record = run("kepler_preamble.yaml", tmp_path,
                      only=("The default 32-pair preamble is restored and heard as 32 pairs",))
         assert measurement(record, "preamble_as_set").status is Status.FAIL
+
+
+def test_a_frame_is_timed_from_the_link_closing(tmp_path):
+    """#243: the dongle's link times and the S2-LP frame's time are on one
+    clock, so ``compute`` gives the time from closing the link to the first
+    VERSION frame after the reset. On the simulated bench the frames are on an
+    air clock the receive moves on, so only the sign is checked here."""
+    data = {
+        "name": "Time from a link event to a frame",
+        "plugins": [str(KEPLER_PLUGIN)],
+        "instruments": {"dongle": "ble-dongle", "s2lp": "s2lp"},
+        "setup": [
+            {"do": "s2lp.apply_configuration",
+             "with": {"source": "plugin:kepler/s2lp_kepler_433_rx.regs", "reset": "defaults"}},
+            {"do": "dongle.scan", "with": {"duration": 5.0}},
+            {"do": "dongle.select", "with": {"sensor": "D1:8D:3B:4C:19:96"}},
+        ],
+        "tests": [{"name": "VERSION after the link closes", "steps": [
+            {"do": "dongle.open_link"},
+            {"do": "dongle.command", "with": {"request": "ECURESET HARD", "timeout": 45.0}},
+            {"do": "dongle.close_link"},
+            {"do": "dongle.link_times", "save": "link",
+             "expect": [{"name": "link_closed", "measure": "closed_s", "min": 0}]},
+            {"do": "s2lp.dut_frame", "save": "version",
+             "with": {"decoder": "kepler", "frame_type": "VERSION", "source": "5C1712",
+                      "timeout": 60.0}},
+            {"do": "compute", "save": "delay",
+             "with": {"operation": "difference", "a": {"from": "version.monotonic_s"},
+                      "b": {"from": "link.closed_s"}},
+             "expect": [{"name": "version_after_close", "measure": "", "unit": "s",
+                         "min": 0, "max": 60}]},
+        ]}],
+    }
+    path = tmp_path / "timing.yaml"
+    path.write_text(yaml.safe_dump(data, sort_keys=False))
+    bench = Bench(load_bench(str(BENCH)))
+    try:
+        record = BenchRunner(bench).run(load_spec(str(path)))
+    finally:
+        bench.close()
+    failed = ["%s %s %s" % (step.action, step.status, step.error)
+              for _, step in steps(record) if step.status is not Status.PASS]
+    assert not record.setup_error and not failed, (record.setup_error, failed, [
+        (s.action, [m.as_dict() for m in s.measurements]) for _, s in steps(record)])
+    assert measurement(record, "version_after_close").value >= 0

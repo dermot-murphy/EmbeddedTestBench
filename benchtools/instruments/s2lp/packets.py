@@ -25,6 +25,7 @@ from __future__ import annotations
 import datetime
 import json
 import statistics
+import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional
 
@@ -97,6 +98,10 @@ class Packet:  # pylint: disable=too-many-instance-attributes
     :param rssi_dbm: Signal strength, for a received packet. ``None`` for a
         transmitted one, and for a received one the firmware did not report.
     :param host_time: When the host recorded it, ISO 8601 UTC.
+    :param monotonic_s: When the host read it, on :func:`time.perf_counter`:
+        the clock the BLE dongle stamps its events with too, so a frame and a
+        dongle event can be compared within one run (#243). It does not go
+        back when the wall clock is set. Only differences mean anything.
     :param board_time_us: The board's own timer when it reported the packet, in
         microseconds, unwrapped by :class:`BoardClock`. It is the better clock
         of the two for intervals. It is read when the firmware *prints* the
@@ -118,6 +123,7 @@ class Packet:  # pylint: disable=too-many-instance-attributes
     data: bytes
     rssi_dbm: Optional[float] = None
     host_time: str = field(default_factory=_now)
+    monotonic_s: float = field(default_factory=time.perf_counter)
     board_time_us: Optional[int] = None
     error: int = 0
     note: str = ""
@@ -154,6 +160,7 @@ class Packet:  # pylint: disable=too-many-instance-attributes
         return {
             "direction": self.direction,
             "host_time": self.host_time,
+            "monotonic_s": round(self.monotonic_s, 6),
             "board_time_us": self.board_time_us,
             "length": self.length,
             "hex": self.hex,

@@ -254,6 +254,9 @@ class NordicDongle(Instrument):
         self._selected: Optional[Sensor] = None
         self._connected = False
         self._connection_interval_us = 0
+        #: When the last link became ready, on the clock the S2-LP driver
+        #: stamps its packets with (#243).
+        self._link_opened_s: Optional[float] = None
         self._firmware_protocol = ""
         self._firmware_version = ""
         self._firmware_built = ""
@@ -1096,6 +1099,7 @@ class NordicDongle(Instrument):
                 "neither a link nor a failure." % (sensor.address, timeout)
             ) from exc
         self._connected = True
+        self._link_opened_s = ready.monotonic_s
         # The connection interval comes from the event, not from a later query:
         # it is the floor under every latency measured on this link, and a
         # latency reported without it cannot be read correctly.
@@ -1327,6 +1331,25 @@ class NordicDongle(Instrument):
             except BenchToolsError:
                 self._logger.warning("no '+disc' followed an accepted disconnect")
         return reply
+
+    def link_times(self) -> Dict[str, Optional[float]]:
+        """When the last link became ready, and when it ended, in seconds.
+
+        ``opened_s`` is the arrival of the dongle's ``+conn state=ready``;
+        ``closed_s`` that of the latest ``+disc`` since - the host's close,
+        a drop, or a sensor reset a command caused - or None while the link
+        is open. Both are on :func:`time.perf_counter`, the clock the S2-LP
+        driver stamps each packet with as ``monotonic_s``, so a ``compute``
+        step can time a frame from a link event within one run (#243). None
+        for a link that has not happened.
+
+        Traces to: BLE-FR-123.
+        """
+        closed = self._session.last_disconnect_s
+        opened = self._link_opened_s
+        if opened is None or closed is None or closed < opened:
+            closed = None
+        return {"opened_s": opened, "closed_s": closed}
 
     @property
     def is_linked(self) -> bool:

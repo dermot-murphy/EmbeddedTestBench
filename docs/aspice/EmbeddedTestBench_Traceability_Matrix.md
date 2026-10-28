@@ -79,6 +79,7 @@
 | next | 2026-10-26 | Claude | #242: rows for RUN-FR-067 .. RUN-FR-070 and BLE-FR-122; §16 count 452 in force, 453 declared. |
 | next | 2026-10-27 | Claude | #299: row for S2LP-FR-086 (only what re-arming needs between two batch-stream receives); §16 count 453 in force, 454 declared. |
 | next | 2026-10-27 | Claude | #122: row for S2LP-FR-087 (the simulated S2-LP kit receives the simulated Kepler sensor's frames); §16 count 454 in force, 455 declared. |
+| next | 2026-10-28 | Claude | #243: rows for S2LP-FR-088 .. S2LP-FR-092 (frame filters, intervals, census, copies, distinct values per group) and BLE-FR-123 (link times); §16 count 460 in force, 461 declared. |
 
 ---
 
@@ -384,6 +385,7 @@ where the firmware implements the requirement.
 | BLE-FR-120 | BLE-ARC-001, RUN-ARC-001 | BLE-DD-KEPLERSIM, BLE-DD-SIMWORLD, BLE-DD-SIM | `simulated/kepler.py`, `simulated/world.py`, `KeplerResponder`, `SimulatedGpd.terminal_volts`, `SimulatedJLink.periodic_rtt`, `simulated_target` | `SWE4-UT-KEPLERSIM` (11, `test_kepler_simulated.py`) |
 | BLE-FR-121 | BLE-ARC-001 | BLE-DD-DFU, BLE-DD-DFUHOST, BLE-DD-DFUSIM | `dfu_client.c`, `cmd_dfu.c`, `dfu.py` (`SecureDfu`, `load_package`), `NordicDongle.send_package`, `SimulatedBootloader` | `SWE4-UT-BLEDFU` (40, `test_dfu.py`), `test_dfu_client` (17), `test_cmd_dfu` (7) |
 | BLE-FR-122 | BLE-ARC-001 | BLE-DD-DONGLE | `NordicDongle.poll_states`, `_state_of`, `_sleep_until`, `_poll_slots`, `_next_slot`, `_poll_once` | `SWE4-UT-BLESAMPLE`: `TestPollStates` (12), `TestPollStatesSchedule` (4) |
+| BLE-FR-123 | BLE-ARC-001 | BLE-DD-SESSION, BLE-DD-DONGLE | `Event.monotonic_s`, `DongleSession.last_disconnect_s`, `NordicDongle.link_times` | `SWE4-UT-BLE`: `TestLinkTimes` (4); `SWE4-UT-KEPLERSIM`: a frame timed from the link closing (1) |
 | BLE-FR-090 | BLE-ARC-001 | BLE-DD-BUILD | `firmware/ses/*.emProject`, `firmware/Makefile`, `firmware/gcc/*.ld`, `firmware/scripts/{package_dfu,compile_check}.*`, `.github/workflows/firmware.yml` | `compile_check.sh` compiles every unit against real SDK headers (BENCHTOOLS-SWE4-002 §4.4); the workflow builds, links, sizes and packages against SDK 17.1.0 (§4.6, BLE-OPEN-01 discharged); flashing remains a bench confirmation item (CON-07) |
 
 ### BLE non-functional
@@ -441,6 +443,11 @@ where the firmware implements the requirement.
 | S2LP-FR-085 | S2LP-ARC-001 | S2LP-DD-TRAFFIC, S2LP-DD-SESSION, CORE-DD-MOCK | `_put_aside`, `_take_set_aside`, `kepler_frame(since_last=...)`, `S2lpSession.commands_sent`, `MockTransport.write` | `TestConsecutiveCalls` (7), `test_the_mock_keeps_undelivered_output_on_such_a_write`, `test_an_ordinary_write_to_the_mock_drops_undelivered_output` |
 | S2LP-FR-086 | S2LP-ARC-001 | S2LP-DD-TRAFFIC, S2LP-DD-SESSION | `_turn_report_all_on`, `_own_stop_at`, `CLEAN_STOP_IRQS`, `_ready_for_receive`, `S2lpSession.last_stop_acknowledged` | `TestRearmBetweenReceives` (7) |
 | S2LP-FR-087 | S2LP-ARC-001, BLE-ARC-001 | S2LP-DD-SIM, BLE-DD-KEPLERSIM, BLE-DD-SIMWORLD | `SimulatedS2lp._listen`, `SimulatedS2lp._hears`, `S2lpDevkit.connect(simulated_targets=...)`, `KeplerSensorModel.transmit`, `version_frame`, `alive_frame`, `KEPLER_433_TRANSMITTER`, `Air`, `air` | `test_every_step_passes` (4), `TestBrokenRadioFactsAreNoticed` (15), `test_a_shipped_specification_runs_the_same_from_outside_the_checkout` (Kepler cases), `test_simulated_air.py`: `TestHearing` (87), `TestAir` (4), `TestSensorRadio` (2), `TestBenchOption` (4) |
+| S2LP-FR-088 | S2LP-ARC-001 | S2LP-DD-PACKETS, S2LP-DD-TRAFFIC, ANA-DD-FRAMES, ANA-DD-SAMPLES | `Packet.monotonic_s`, `S2lpDevkit.dut_frame(where=...)`, `dut_samples(where=...)`, `SampleSet.instants`, `field_value`, `matches`, `check_where` | `SWE4-UT-S2LPMEASURES`: `TestFieldsAndFilters` (7), `TestActions` (5) |
+| S2LP-FR-089 | S2LP-ARC-001 | S2LP-DD-MEASURES, ANA-DD-FRAMES | `S2lpDevkit.dut_intervals`, `_frames_for`, `intervals`, `transmissions`, `frames_from_log` | `SWE4-UT-S2LPMEASURES`: `TestIntervals` (8), `TestPacketLog` (5), `TestActions` (1) |
+| S2LP-FR-090 | S2LP-ARC-001 | S2LP-DD-MEASURES, ANA-DD-FRAMES | `S2lpDevkit.dut_census`, `census` | `SWE4-UT-S2LPMEASURES`: `TestCensus` (4), `TestActions` (1) |
+| S2LP-FR-091 | S2LP-ARC-001 | S2LP-DD-MEASURES, ANA-DD-FRAMES, S2LP-DD-KEPLER | `S2lpDevkit.dut_transmissions`, `compare_copies`, Kepler `frame_positions` | `SWE4-UT-S2LPMEASURES`: `TestCopies` (12), `TestFramePositionsHook` (3), `TestActions` (2), the specification case (1) |
+| S2LP-FR-092 | S2LP-ARC-001 | S2LP-DD-MEASURES, ANA-DD-FRAMES | `S2lpDevkit.dut_distinct`, `distinct_per_group` | `SWE4-UT-S2LPMEASURES`: `TestDistinctPerGroup` (5) |
 | S2LP-FR-080 | S2LP-ARC-001 | S2LP-DD-S2LP | `S2lpDevkit._record`, `log_event` | `TestDriverRecords` (2) |
 | S2LP-FR-081 | S2LP-ARC-001 | S2LP-DD-KEPLER | `CONFIG_PARAMETERS`, `config_parameter`, `name_config`, `permute_poly_any_size` | `TestParameters` (10), `test_a_config_frame_names_its_parameters` |
 | S2LP-FR-082 | S2LP-ARC-001 | S2LP-DD-KEPLER | `twf_sample`, `permute_poly`, `odr_hz` | `TestPolynomial` (2), `TestWaveform` (2), `test_odr_codes` |
@@ -738,7 +745,7 @@ tests in `tests/instruments/pico_sht30/`.
 
 | Question | Answer |
 |---|---|
-| Requirements with no verifying test | **None.** All 454 functional requirements in force (455 declared; PICO-FR-044 is withdrawn) and 36 non-functional requirements trace to at least one test, or to a recorded inspection where a test is not the appropriate method (CORE-NFR-002, BLE-FR-090, BLE-NFR-002, and part of CORE-NFR-001). The firmware requirements are verified against the artefact the firmware is built from, not against a running dongle: see CON-07. |
+| Requirements with no verifying test | **None.** All 460 functional requirements in force (461 declared; PICO-FR-044 is withdrawn) and 36 non-functional requirements trace to at least one test, or to a recorded inspection where a test is not the appropriate method (CORE-NFR-002, BLE-FR-090, BLE-NFR-002, and part of CORE-NFR-001). The firmware requirements are verified against the artefact the firmware is built from, not against a running dongle: see CON-07. |
 | Tests not tracing to a requirement | **None.** Every test file names its requirements in its module docstring. |
 | Source modules with no design unit | **None.** Every module names its design unit in its docstring - firmware sources included, checked by `test_every_source_declares_its_trace` in `SWE4-UT-BLEFW`; `__main__.py` is covered by RUN-DD-CLI. |
 | Design units with no source | **None.** |

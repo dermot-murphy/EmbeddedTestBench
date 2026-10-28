@@ -601,6 +601,87 @@ return them with their statistics. A limit then applies to the set:
 Bounding `minimum` and `maximum` against another source's `mean` puts every
 reading inside the window, not just their average.
 
+### 3.9 Radio frames: filters, intervals, copies, groups, census
+
+A device's frames are decoded by its plugin (§6.6). These S2-LP actions work on
+the decode, with no device knowledge of their own (#243). A field is a dotted
+path into the decode: `mux`, `status.phase`, `values.2`.
+
+**Choosing frames.** `s2lp.dut_frame` and `s2lp.dut_samples` take `where`, and
+so do the measures below. Each path takes a value, or a list of values any of
+which will do. Text matches ignoring case.
+
+```yaml
+- do: s2lp.dut_frame
+  with: {decoder: kepler, frame_type: CONFIG, source: "5C1712", where: {mux: 8}}
+  expect:
+    - {name: rms_odr, measure: parameters.2.value, equals: 3200}
+- do: s2lp.dut_samples
+  with: {decoder: kepler, field: status.phase, frame_type: ALIVE, where: {status.live: true}}
+```
+
+**Over a window, or a packet log.** Four measures take every frame heard in
+`window` seconds, or read `log`, an S2-LP packet log (an earlier step's `s2lp.start_packet_log`),
+without touching the board. A log path is relative to
+the specification, as other input files are (§6.2). A long soak is better
+judged on its log than held in memory. A log written before #243 has no
+`monotonic_s`, so it is timed by its `host_time`.
+
+| Action | For | Measures (`measure:`) |
+|---|---|---|
+| `dut_intervals` | Time between transmissions of `frame_type` from `source` with `where`, each timed by its first copy. `burst_gap` joins transmissions closer than it into one burst (a command and its retries); `above` and `below` count the intervals beyond a bound | `count`, `minimum`, `maximum`, `mean`, `above`, `below`, `bursts`, `transmissions`, `largest_burst`, `intervals` |
+| `dut_census` | Every frame by type. `fields` lists each one's distinct values per type; with `expected`, any other type and any frame the decoder cannot read is `unexpected` | `frames`, `rejected`, `undecoded`, `unexpected`, `unexpected_types`, `type_names`, `types.<TYPE>.count`, `.transmissions`, `.lengths`, `.<field>` |
+| `dut_transmissions` | Every copy of each transmission (`count` of them, or the window's). `ignore_offsets` leaves bytes out of the comparison; `same_fields` must agree between copies; `ascending` must rise from one transmission to the next. With `positions: true`, the plugin's `frame_positions` hook places each copy's values in the whole sequence | `transmissions`, `copies`, `identical`, `not_identical`, `fields_differ`, `not_ascending`; with `positions`: `distinct_blocks`, `repeated_blocks`, `overlapping`, `covered`, `length`, `missing`, `conflicts` |
+| `dut_distinct` | Whether `value` differs within each `group` (a run of transmissions with the same group value). Each item is a transmission, or each combination of the `item` fields. `wrap_after` and `wrap_to` allow a wrapping group counter | `groups`, `items`, `all_distinct`, `not_distinct`, `inconsistent`, `repeated_sets`, `not_incrementing`, `group_values` |
+
+```yaml
+- do: s2lp.dut_intervals
+  with: {frame_type: CMD, source: "5C1712", window: 300, burst_gap: 1.0, above: 45}
+  expect:
+    - {name: cmd_sequences_30_s_apart, measure: minimum, min: 29.0, max: 31.0}
+    - {name: no_steady_50_s, measure: above, max: 1}
+- do: s2lp.dut_transmissions
+  with: {frame_type: CONFIG, source: "5C1712", count: 12, ignore_offsets: [9],
+         where: {permute_method: polynomial}, positions: true}
+  expect:
+    - {name: each_copy_its_own_set, measure: repeated_blocks, equals: 0}
+    - {name: every_parameter_carried, measure: missing, equals: 0}
+- do: s2lp.dut_distinct
+  with: {log: runs/soak/s2lp_packets.jsonl, frame_type: TWF, value: sync_attribute,
+         group: group_id, item: [axis, param.twfb], wrap_after: 255, wrap_to: 1}
+  expect:
+    - {name: unique_per_capture, measure: not_distinct, equals: 0}
+    - {name: new_set_each_capture, measure: repeated_sets, equals: 0}
+```
+
+Copies are grouped by the repeat number the decoder gives, per source and
+type. A copy whose repeat number is not higher than the last starts a new
+transmission. `dut_transmissions` with `count`, live, receives until the first
+copy of the transmission after the last one counted, so the last is complete.
+
+**Timing a frame from a BLE event.** Every S2-LP packet and every dongle event
+carries `monotonic_s`, the host's arrival time on one clock. `dut_frame`
+returns its frame's time, and `dongle.link_times` returns `opened_s` and
+`closed_s` for the last link. `compute` (§3.6) gives the difference:
+
+```yaml
+- do: dongle.close_link
+- do: dongle.link_times
+  save: link
+- do: s2lp.dut_frame
+  with: {frame_type: ALIVE, source: "5C1712", timeout: 120}
+  save: alive
+- do: compute
+  with: {operation: difference, a: {from: alive.monotonic_s}, b: {from: link.closed_s}}
+  expect:
+    - {name: alive_after_disconnect, measure: "", unit: s, max: 2.0}
+```
+
+Both times are when the host read the line, not when the radio event
+happened. The S2-LP kit reports a frame after reading it out of the radio,
+and the dongle reports an event over USB. Each time therefore carries that
+path's latency, which this bench has not measured.
+
 ---
 
 ## 4. Limits
@@ -816,6 +897,7 @@ gives you the means to say so in the specification rather than in a comment.
 | `measure_response_time` | `ResponseTiming` | `milliseconds`, `seconds`, `minimum_s`, `maximum_s`, `spread_s`, `standard_deviation_s`, `count`, `is_trustworthy`, `quantisation_s` |
 | `command` | `ResponseSample` | `text`, `dongle_us`, `host_s` |
 | `poll_states` | `dict` | `sequence` (states in order, comma-joined), `states`, `times`, `count`, `polls`, `skipped`, `unmatched`, `failed` |
+| `link_times` | `dict` | `opened_s`, `closed_s` (host-monotonic seconds, for `compute` against an S2-LP frame's `monotonic_s`, §3.9) |
 | `send_package` | `DfuResult` | `result` (`Success`, `InvalidObject`, `ExtendedError`), `extended_error` (`HwVersionFailure`...), `stage`, `bytes_sent`, `seconds`, `succeeded` — BLE notes §2.5 |
 | `write` | `int` | *(omit `measure`)* |
 

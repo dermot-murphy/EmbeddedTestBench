@@ -64,12 +64,17 @@ class SampleSet:
     sources: List[str] = field(default_factory=list)
     #: Seconds from the first reading to each reading.
     times: List[float] = field(default_factory=list)
+    #: When each reading was taken on the host's monotonic clock, where the
+    #: source says (#243); None where it does not.
+    instants: List[Optional[float]] = field(default_factory=list)
 
-    def add(self, value: float, source: str = "", at: float = 0.0) -> None:
+    def add(self, value: float, source: str = "", at: float = 0.0,
+            when: Optional[float] = None) -> None:
         """Record one reading."""
         self.values.append(float(value))
         self.sources.append(source)
         self.times.append(float(at))
+        self.instants.append(None if when is None else float(when))
 
     @property
     def count(self) -> int:
@@ -115,5 +120,6 @@ class SampleSet:
             "mean": self.mean,
             "spread": self.spread,
             "times": list(self.times),
+            "instants": list(self.instants),
             "sources": list(self.sources),
         }
