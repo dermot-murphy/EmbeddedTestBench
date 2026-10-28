@@ -33,9 +33,10 @@ extern "C" {
 
 /** Protocol revision. Bumped when a command or event changes shape.
  *
- * 1.8 - ``dfupkt`` answers with the piece size it wrote in and the number of
- *       pieces (``piece=``, ``pieces=``), and ``+dfu`` reports the link's
- *       effective ATT MTU (``att_mtu=``) (#274).
+ * 1.8 - ``dfupkt`` answers with the piece size it wrote in, the number of
+ *       pieces and the ATT MTU that write used (``piece=``, ``pieces=``,
+ *       ``att_mtu=``), and ``+dfu`` reports the link's effective ATT MTU
+ *       (``att_mtu=``) (#274).
  * 1.7 - ``dfucp`` and ``dfupkt`` carry a Secure DFU transfer to a target in its
  *       bootloader, and ``+dfu`` reports its DFU service (#244).
  * 1.6 - ``+sensor`` reports the manufacturer ID (``mfr=``) and, after an active

@@ -33,6 +33,9 @@ extern "C" {
 /** Longest write to either characteristic: an ATT MTU of 247 less 3. */
 #define DFU_CLIENT_MAX_WRITE		244U
 
+/** An ATT write's opcode and handle: what the MTU carries besides the value. */
+#define DFU_CLIENT_ATT_OVERHEAD		3U
+
 /**
  * @brief Register the DFU service with discovery. Call once, after the
  *        SoftDevice is enabled and before any link.

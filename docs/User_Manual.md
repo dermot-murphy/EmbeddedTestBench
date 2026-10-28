@@ -340,7 +340,7 @@ BLE dongle firmware identity: PASS - 3 passed, 0 failed, 0 errored, 0 skipped in
 
 | Alias | Event | Driver | Model | Firmware | Resource |
 |---|---|---|---|---|---|
-| dongle | BLE | NordicDongle | PCA10059 | 1.8.0 (built 2026-09-13T12:00:00Z) | sim:// |
+| dongle | BLE | NordicDongle | PCA10059 | 1.8.0 (built 2026-10-28T12:00:00Z) | sim:// |
 | probe | JLINK | JLinkProbe | J-Link V11 | V7.94e | sim:// |
 | psu | PSU | Gpd3303D | GPD-3303D | V1.09 | sim:// |
 ...

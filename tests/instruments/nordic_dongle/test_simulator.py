@@ -10,6 +10,7 @@ Traces to: BLE-FR-080, SWE4-UT-BLESIM.
 
 from __future__ import annotations
 
+import pytest
 
 from benchtools.instruments.nordic_dongle.constants import DongleError
 from benchtools.instruments.nordic_dongle.dfu_target import SimulatedBootloader
@@ -277,8 +278,8 @@ class TestDfuPieces:
         simulator, target = self.linked(23)
         reply = reply_of(send(simulator, "dfupkt " + "aa" * 244))
         assert reply.ok
-        assert (reply.fields["len"], reply.fields["piece"], reply.fields["pieces"]) == (
-            "244", "20", "13")
+        assert (reply.fields["len"], reply.fields["piece"], reply.fields["pieces"],
+                reply.fields["att_mtu"]) == ("244", "20", "13", "23")
         assert target.packets == 13
 
     def test_at_the_largest_mtu_a_full_write_is_one_piece(self):
@@ -286,6 +287,11 @@ class TestDfuPieces:
         reply = reply_of(send(simulator, "dfupkt " + "aa" * 244))
         assert (reply.fields["piece"], reply.fields["pieces"]) == ("244", "1")
         assert target.packets == 1
+
+    def test_an_att_mtu_outside_the_att_range_is_refused(self):
+        for mtu in (3, 22, 248):
+            with pytest.raises(ValueError, match="att_mtu"):
+                SimulatedBootloader(att_mtu=mtu)
 
     def test_protocol_1_7_reports_neither(self):
         simulator, target = self.linked(23, protocol="1.7")

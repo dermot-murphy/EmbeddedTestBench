@@ -75,7 +75,7 @@ Every event carries `t=`, microseconds on the dongle's clock.
 | `reset` | reset the dongle |
 | `dfu` | answer, then restart into the bootloader so the host can refresh the firmware |
 | `dfucp <hex> [timeout=<ms>]` | write a target's DFU Control Point, and answer with the response it notifies (`ok len= data=`); `err 8` when none came (protocol 1.7) |
-| `dfupkt <hex>` | write a target's DFU Packet characteristic, split into pieces of the link's ATT MTU less 3, and answer `ok len= piece= pieces=`: the piece size used and the pieces written (`piece=` and `pieces=` from protocol 1.8, #274); `err 7` when the GATT queue stayed full (protocol 1.7) |
+| `dfupkt <hex>` | write a target's DFU Packet characteristic, split into pieces of the link's ATT MTU less 3, and answer `ok len= piece= pieces= att_mtu=`: the piece size used, the pieces written and the ATT MTU that write used (from protocol 1.8, #274); `err 7` when the GATT queue stayed full (protocol 1.7) |
 
 ### 2.2 Events
 
@@ -189,8 +189,9 @@ pieces, which #271 had to work out from the receipts: with a receipt every 8
 pieces they came every 160 bytes, or every 144 where a 4-byte tail piece fell
 in the window, and the 144-byte steps were first taken for losses. A dongle
 before protocol 1.8 reports neither; both are then None, and the transfer is
-unchanged. The dongle does not report a change of MTU after
-`+dfu state=ready`, so the piece size in each `dfupkt` reply is the one used.
+unchanged. The MTU exchange can end after `+dfu state=ready`, so each
+`dfupkt` reply also gives the ATT MTU that write used, and a link's `att_mtu`
+and `piece_size` are taken together from its writes.
 
 ## 3. Building and flashing
 

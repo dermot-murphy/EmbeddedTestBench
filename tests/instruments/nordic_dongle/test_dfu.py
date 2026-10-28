@@ -392,20 +392,20 @@ class TestSendPackage:
         assert (record.event_data["att_mtu"], record.event_data["piece_size"]) == (23, 20)
         assert "ATT MTU 23, 20-byte pieces" in record.getMessage()
 
-    def test_each_image_s_link_is_recorded(self, kepler_dongle, tmp_path):
+    def test_each_image_s_link_is_recorded(self, kepler_dongle, tmp_path, monkeypatch):
         """A package's images can reach two bootloaders; the smallest is the result."""
         dongle, simulator = kepler_dongle
         enter_bootloader(dongle)
         target = bootloader_of(simulator)
-        original = target.packet
+        original = simulator._cmd_dfupkt  # pylint: disable=protected-access
 
-        def packet(data):
-            # The first image installs a bootloader that links at 247.
+        def dfupkt(arguments):
+            # The first image installs a bootloader whose link reaches 247.
             if target.firmware:
                 target.att_mtu = 247
-            original(data)
+            return original(arguments)
 
-        target.packet = packet
+        monkeypatch.setattr(simulator, "_cmd_dfupkt", dfupkt)
         package = make_package(tmp_path / "bl.zip", [("softdevice_bootloader", INIT, b"S" * 5000),
                                                      ("application", INIT, FIRMWARE)])
         result = dongle.send_package(package, "KAPPA_5C1712")
@@ -413,6 +413,25 @@ class TestSendPackage:
         assert [link["att_mtu"] for link in result.links] == [23, 247]
         assert [link["piece_size"] for link in result.links] == [20, 244]
         assert (result.att_mtu, result.piece_size) == (23, 20)
+
+    def test_an_mtu_exchange_after_ready_is_taken_from_the_writes(
+            self, kepler_dongle, tmp_path, monkeypatch):
+        """+dfu state=ready said 23, then the exchange ended at 247: the
+        link's ATT MTU and piece come from the same write, not one each."""
+        dongle, simulator = kepler_dongle
+        enter_bootloader(dongle)
+        target = bootloader_of(simulator)
+        original = simulator._cmd_dfupkt  # pylint: disable=protected-access
+
+        def dfupkt(arguments):
+            target.att_mtu = 247
+            return original(arguments)
+
+        monkeypatch.setattr(simulator, "_cmd_dfupkt", dfupkt)
+        package = make_package(tmp_path / "app.zip", [("application", INIT, FIRMWARE)])
+        result = dongle.send_package(package, "KAPPA_5C1712")
+        assert result.succeeded
+        assert result.links == [{"image": "application", "att_mtu": 247, "piece_size": 244}]
 
     def test_the_att_mtu_is_in_the_session_log(self, kepler_dongle, tmp_path):
         dongle, _ = kepler_dongle

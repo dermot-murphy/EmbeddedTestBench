@@ -97,7 +97,7 @@ static void test_dfupkt_writes_the_packet(void)
 {
 	fake_dfu_set_ready(true);
 	test_handle("dfupkt 010203");
-	TEST_ASSERT_EQUAL_STRING("ok len=3 piece=244 pieces=1", test_reply());
+	TEST_ASSERT_EQUAL_STRING("ok len=3 piece=244 pieces=1 att_mtu=247", test_reply());
 	TEST_ASSERT_EQUAL_UINT32(1U, fake_dfu_packets());
 }
 
@@ -117,7 +117,7 @@ static void test_dfupkt_reports_the_piece_size_and_pieces(void)
 	fake_dfu_set_ready(true);
 	fake_dfu_set_att_mtu(23U);
 	test_handle(hex);
-	TEST_ASSERT_EQUAL_STRING("ok len=244 piece=20 pieces=13", test_reply());
+	TEST_ASSERT_EQUAL_STRING("ok len=244 piece=20 pieces=13 att_mtu=23", test_reply());
 }
 
 static void test_dfupkt_reports_a_full_queue_as_busy(void)

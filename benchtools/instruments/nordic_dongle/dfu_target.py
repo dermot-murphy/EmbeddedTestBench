@@ -64,6 +64,10 @@ class SimulatedBootloader:  # pylint: disable=too-many-instance-attributes
     requests: List[bytes] = field(default_factory=list)
 
     def __post_init__(self) -> None:
+        # 23 is the ATT minimum; 247 the most the dongle asks for. Below 4 a
+        # piece would be empty or negative.
+        if not 23 <= self.att_mtu <= 247:
+            raise ValueError("att_mtu must be 23 to 247, not %d" % self.att_mtu)
         self._kind = ObjectType.COMMAND
         self._command = b""
         self._data = b""

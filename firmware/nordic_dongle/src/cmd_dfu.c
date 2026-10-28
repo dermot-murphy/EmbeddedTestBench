@@ -104,7 +104,11 @@ void cmd_dfu_packet(char * tokens[], uint32_t count)
 		return;
 	}
 	/* The piece size is what the link allowed: without it, receipts every
-	 * 144 bytes were read as losses in #271 (protocol 1.8, #274). */
-	(void)cdc_acm_send_format("ok len=%u piece=%u pieces=%u", (unsigned)length,
-				  (unsigned)piece, (unsigned)pieces);
+	 * 144 bytes were read as losses in #271. The ATT MTU is the one this
+	 * write used, which can be larger than +dfu state=ready reported if the
+	 * MTU exchange ended after it (protocol 1.8, #274). A refused write
+	 * answers err as every command does; the host ends the transfer on it. */
+	(void)cdc_acm_send_format("ok len=%u piece=%u pieces=%u att_mtu=%u", (unsigned)length,
+				  (unsigned)piece, (unsigned)pieces,
+				  (unsigned)(piece + DFU_CLIENT_ATT_OVERHEAD));
 }

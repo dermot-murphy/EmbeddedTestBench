@@ -81,7 +81,7 @@
 | next | 2026-10-27 | Claude | #308: S2LP-DD-TRAFFIC - the clean-stop count is 2 294 of 2 300, not 1 994. |
 | next | 2026-10-27 | Claude | #122: BLE-DD-SIMWORLD - the air and its clock; BLE-DD-KEPLERSIM - the sensor's radio, its frames, its transmitter settings and the open items; S2LP-DD-SIM - receiving the simulated sensor only when set up for it. |
 | next | 2026-10-28 | Claude | #243: ANA-DD-FRAMES and S2LP-DD-MEASURES added (ANA count 4 → 5, S2LP 13 → 14, total 77 → 79); ANA-DD-SAMPLES - `instants`; S2LP-DD-PACKETS - `monotonic_s`; S2LP-DD-TRAFFIC - `where` and the frame's `monotonic_s`; S2LP-DD-S2LP - `FrameMeasuresMixin`; BLE-DD-SESSION - event `monotonic_s` and `last_disconnect_s`; BLE-DD-DONGLE - `link_times`; S2LP-DD-KEPLER - the `frame_positions` hook. |
-| next | 2026-10-28 | Claude | #274: BLE-DD-DFU - `dfupkt` answers with `piece=` and `pieces=`, every `+dfu` carries `att_mtu=` (`dfu_client_att_mtu`); protocol 1.8, firmware 1.8.0. BLE-DD-DFUHOST - `DfuResult.att_mtu`, `piece_size` and `links`, in the `ble_dfu` record and a session note per image; None from a 1.7 dongle. BLE-DD-DFUSIM - `SimulatedBootloader.att_mtu`, each `dfupkt` split into pieces of it less 3; 5C1712's at 23. |
+| next | 2026-10-28 | Claude | #274: BLE-DD-DFU - `dfupkt` answers with `piece=`, `pieces=` and `att_mtu=`, every `+dfu` carries `att_mtu=` (`dfu_client_att_mtu`); protocol 1.8, firmware 1.8.0. BLE-DD-DFUHOST - `DfuResult.att_mtu`, `piece_size` and `links`, in the `ble_dfu` record and a session note per image; None from a 1.7 dongle. BLE-DD-DFUSIM - `SimulatedBootloader.att_mtu`, each `dfupkt` split into pieces of it less 3; 5C1712's at 23. |
 
 ---
 
@@ -1625,10 +1625,13 @@ links in a row failed so, 0.15 s after linking. Each attempt keeps the connect
 window, and none starts once the transfer's `timeout` has passed.
 
 What each link allowed is recorded (#274). `_open_dfu_link` returns the
-`+dfu state=ready` event, whose `att_mtu` is the link's effective ATT MTU, and
-each `dfupkt` reply's `piece` is the size the dongle split that write into.
-`DfuResult.links` has one entry per image linked (`image`, `att_mtu`,
-`piece_size`, the smallest piece seen on it), because a package's images can
+`+dfu state=ready` event, whose `att_mtu` is the link's effective ATT MTU when
+its DFU service was found. Each `dfupkt` reply gives the `piece` that write was
+split into and the `att_mtu` it used; the MTU exchange can end after
+`+dfu state=ready`, so the writes override it. `DfuResult.links` has one entry
+per image linked (`image`, and the `att_mtu` and `piece_size` of the write with
+the smallest piece, kept together; the ready event's `att_mtu` until a write),
+because a package's images can
 reach two bootloaders, the old one and the one it installed; `att_mtu` and
 `piece_size` are the smallest over the transfer. Both are in the `ble_dfu`
 record and its message, and each image's ATT MTU is a session-log note,
@@ -1662,8 +1665,9 @@ with `InvalidObject` as the SDK 15.2 bootloader refused it.
 `att_mtu` (247 by default) is the effective ATT MTU of its link (#274). The
 simulated dongle splits each `dfupkt` into pieces of `att_mtu` less 3, each one
 Packet write here, as the firmware does, so receipts and `lose` count pieces.
-At protocol 1.8 it reports `att_mtu=` in `+dfu state=ready` and `piece=` and
-`pieces=` in the `dfupkt` reply; set to protocol 1.7, it reports neither. The
+An `att_mtu` outside 23 to 247 is refused. At protocol 1.8 it reports
+`att_mtu=` in `+dfu state=ready`, and `piece=`, `pieces=` and `att_mtu=` in the
+`dfupkt` reply; set to protocol 1.7, it reports neither. The
 simulated 5C1712's bootloader links at 23, as both of the real one's did.
 
 #### BLE-DD-CLI — `cli.py`
@@ -1862,8 +1866,11 @@ latencies. On 5C1712 a 298 KB application took 108.8 s, against 190.7 s at
 
 `cmd_dfu.c` holds the commands, apart from `cmd_parser.c` for its 800-line
 limit: `dfucp <hex> [timeout=<ms>]` answers `ok len= data=` with the response,
-or `err 8` when none came; `dfupkt <hex>` answers `ok len= piece= pieces=`,
-or `err 7` when the queue stayed full. Both answer `err 4` on a link with no
+or `err 8` when none came; `dfupkt <hex>` answers `ok len= piece= pieces=
+att_mtu=` (the ATT MTU is the piece plus `DFU_CLIENT_ATT_OVERHEAD`, the one the
+write used), or `err 7` when the queue stayed full. A refused write answers in
+the `err` form every command uses, without the pieces written before it: the
+host ends the transfer on any `err`. Both answer `err 4` on a link with no
 DFU service. Protocol 1.8, firmware 1.8.0 (`piece=`, `pieces=` and `att_mtu=`
 are new in 1.8, #274).
 

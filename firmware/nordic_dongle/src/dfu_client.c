@@ -33,9 +33,6 @@
 /** Microseconds in a millisecond. */
 #define DFU_CLIENT_US_PER_MS		1000U
 
-/** An ATT write's opcode and handle: what the MTU carries besides the value. */
-#define DFU_CLIENT_ATT_OVERHEAD		3U
-
 /** The connection interval a DFU link asks for: 7.5 ms, in 1.25 ms units. At
  *  the 30 ms a UART link uses, a 298 KB application took 191 s to send to
  *  5C1712, past the 180 s a Kepler specification allows (#244). */

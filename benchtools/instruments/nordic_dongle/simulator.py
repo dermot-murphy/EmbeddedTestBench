@@ -229,7 +229,7 @@ class SimulatedDongle:
     #: The build the simulated dongle is running. A test that exercises the
     #: update path changes these, as flashing a real dongle would.
     DEFAULT_FIRMWARE_VERSION = "1.8.0"
-    DEFAULT_FIRMWARE_BUILT = "2026-09-13T12:00:00Z"
+    DEFAULT_FIRMWARE_BUILT = "2026-10-28T12:00:00Z"
     DEFAULT_PROTOCOL = "1.8"
 
     def __init__(
@@ -791,7 +791,8 @@ class SimulatedDongle:
         target.receipts.clear()
         if not self._protocol_at_least(1, 8):
             return lines + ["ok len=%d" % len(data)]
-        return lines + ["ok len=%d piece=%d pieces=%d" % (len(data), piece, len(pieces))]
+        return lines + ["ok len=%d piece=%d pieces=%d att_mtu=%d"
+                        % (len(data), piece, len(pieces), piece + 3)]
 
     def _cmd_adv(self, arguments: List[str]) -> List[str]:
         if not arguments:

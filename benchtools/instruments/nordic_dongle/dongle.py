@@ -1213,8 +1213,14 @@ class NordicDongle(Instrument):
             remaining()
             reply = self._session.execute("dfupkt", data.hex())
             piece = _optional_integer(reply.fields.get("piece"))
-            if links:
-                links[-1]["piece_size"] = _smallest((links[-1]["piece_size"], piece))
+            if not links or piece is None:
+                return
+            # The write's own ATT MTU and piece, kept together: the MTU
+            # exchange can end after +dfu state=ready reported 23.
+            link = links[-1]
+            if link["piece_size"] is None or piece < link["piece_size"]:  # type: ignore[operator]
+                link["piece_size"] = piece
+                link["att_mtu"] = _optional_integer(reply.fields.get("att_mtu")) or piece + 3
 
         def receipts() -> List[bytes]:
             # Only what was read with a reply: a poll after every Packet write
