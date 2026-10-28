@@ -75,6 +75,7 @@
 | next | 2026-10-26 | Claude | #242: §5 row for SWE4-UT-COMPARE (62); SWE4-UT-BLESAMPLE 5 → 21; pass, from runs of `runner/test_compare_steps.py` (62 passed) and `instruments/nordic_dongle/test_sampling.py` (21 passed) on this branch on 2026-10-26. The §5 total is still the 1.32 whole-suite run's. |
 | next | 2026-10-27 | Claude | #299: SWE4-UT-S2LP 143 → 150, pass, from a run of `instruments/s2lp/test_s2lp.py` on this branch on 2026-10-27. The §5 total is still the 1.32 whole-suite run's. |
 | next | 2026-10-27 | Claude | #305: SWE4-UT-DOCVER 61 → 63, pass, from a run of `test_doc_versions.py` on this branch on 2026-10-27 (63 passed). The §5 total is still the 1.32 whole-suite run's. |
+| next | 2026-10-27 | Claude | #122: §14.5 added - the Kepler specifications' radio side on the simulated bench; SWE4-UT-KEPLERSIM 11 → 123, pass, from a run of `test_kepler_simulated.py` and `test_simulated_air.py` on this branch on 2026-10-27 (123 passed). The §5 total is still the 1.32 whole-suite run's. |
 
 ---
 
@@ -273,7 +274,7 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-COMPARE | `runner/test_compare_steps.py` | 62 | Pass |
 | SWE4-UT-RESOLVE | `runner/test_resolve.py` | 27 | Pass |
 | SWE4-UT-BRINGUP | `runner/test_sensor_bringup.py` | 18 | Pass |
-| SWE4-UT-KEPLERSIM | `runner/test_kepler_simulated.py` | 11 | Pass |
+| SWE4-UT-KEPLERSIM | `runner/test_kepler_simulated.py`, `instruments/s2lp/test_simulated_air.py` | 123 | Pass |
 | SWE4-UT-SELFCHECK | `runner/test_bench_self_check.py` | 7 | Pass |
 | SWE4-UT-FIVEINST | `runner/test_sensor_power_signal_and_link.py` | 8 | Pass |
 | SWE4-UT-BLEDFU | `instruments/nordic_dongle/test_dfu.py` | 40 | Pass |
@@ -1589,6 +1590,71 @@ With the sensor present the Kepler specifications no longer stop at
 `dongle.select`, and their S2-LP steps would wait out 60 to 180 s receive
 timeouts on the silent simulated air. §14.3's comparison therefore runs their
 setup and teardown only, which is where their paths are; it takes 20 s again.
+§14.5 replaces this: the air is no longer silent.
+
+### 14.5 The Kepler specifications' radio side, simulated (#122)
+
+The simulated Kepler sensor now transmits, and the simulated S2-LP kit hears it
+when the simulated bench wires the two together (`simulated_targets:
+[kepler-5C1712]`) and its registers are set up for the sensor's 433 MHz
+transmitter (BLE-DD-KEPLERSIM, BLE-DD-SIMWORLD, S2LP-DD-SIM). The frames were
+decoded by the Kepler plugin's decoder. Against the ALIVE copies 5C1712 sent in
+`293_kepler_frame_gap/results.json`: the first copy matches in every byte but
+the BLE-connected flag (byte 33: 1 captured, 0 simulated) and the values the
+sensor measured or counted, battery (byte 11) and ticks (bytes 12-13). The second and third
+copies also differ in the "SI updated" bit (byte 34), which that capture sets
+in every copy and the model, following #95, in the first only. Which firmware
+5C1712 ran on 2026-10-25 is not recorded; BLE-DD-KEPLERSIM lists it as an open
+item.
+Run on `fix/122-simulated-s2lp-kepler-frames`, 2026-10-27, simulated, with
+`settle_s` and `interval_s` shortened:
+
+| Specification | Setup | Tests | Steps | Time |
+|---|---|---|---|---|
+| `kepler_version.yaml` | passed | 1 PASS | all PASS | 0.2 s |
+| `kepler_battery.yaml` | passed | 4 PASS | all PASS | 0.5 s |
+| `kepler_preamble.yaml` | passed | 2 PASS | all PASS | under 0.1 s |
+| `kepler_temperature.yaml` | passed | 3 PASS | all PASS | 5.1 s (the RTT line comes once a second) |
+
+The air keeps its own clock, moved on to the next transmission whenever a
+receive waits, so a 10 s alive period takes no time.
+
+Each fact the specifications check over the air was then made false in the
+simulated sensor, and each was noticed: the frame's version with the SHA
+appended, as the captured V11.00.0000-95 build sends it (`version_as_rd_version`
+FAIL, `sha_as_start_of_rd_sha` PASS); another SHA (`sha_as_start_of_rd_sha`
+FAIL); reset reason 1 (`reset_reason` FAIL); PCB code 4 (`pcb_version` FAIL); a
+loaded battery of 3000 mV against 3280 mV over BLE
+(`battery_loaded_as_rd_battery_loaded` FAIL); no VERSION frame after the reset,
+and frames from 5D1712 only (`s2lp.dut_frame` ERROR: no VERSION frame from
+5C1712); a register file with another SYNT0, MOD3 or secondary sync word
+(`frames` FAIL: nothing heard); an ALIVE battery stuck at 3.3 V (the 3.3 V case
+passes, `alive_lowest_from_ble` FAILs at 3.0 V); a sensor that sends nothing
+(`alive_frames` FAIL); an ALIVE temperature of 22.3 C against 21.2 C
+(`alive_highest_from_ble` FAIL); a preamble setting the radio does not take at
+the reset (`preamble_as_set` and `best_pqi` FAIL at 48 pairs); and a preamble 4
+pairs longer than set (`preamble_as_set` FAIL). With the 7 BLE and RTT cases of
+§14.4 and one run of each specification, 26 tests, 22 s, all passed.
+
+`test_simulated_air.py` holds the same parts at unit level, 97 tests: the
+Kepler register file hears the sensor and the reset values do not; every bit a
+receiver must match, 80 of them, listed in the test independently of
+`KEPLER_433_TRANSMITTER`, is flipped in turn and the frame is not heard, and so
+for `SECOND_SYNC_SEL`. Mutations checked on this branch: with the
+`SECOND_SYNC_SEL` check removed from `_hears`, with PCKTCTRL4's, PCKTCTRL2's,
+PCKTCTRL3's or PCKTCTRL6's mask narrowed to what it was before review, or with
+a reset that does not clear `ticks`, tests fail; the sensor's
+sync word set as the primary is heard; PQI reads 63 for 32 pairs; the board
+timer moves 100 ms between two copies; the air takes the earliest sensor's
+frame and moves its clock; every copy carries the same ticks, 1 after a reset;
+a preamble written without a reset is not sent; and `simulated_targets` wires
+the kit, refusing an unknown target. 123 tests in the two files, all passed.
+
+§14.3's comparison now runs the four Kepler specifications whole, inside and
+outside the checkout, and requires them to pass in both. Their `settle_s` and
+`interval_s` are shortened there as here; neither holds a path.
+`test_input_paths.py`: 22 passed on this branch, the longest case
+`kepler_temperature.yaml` at 10 s, waiting on the once-a-second RTT line.
 
 ## 14A. Hardware confirmation of #124 and #126 (#129, 2026-10-04)
 

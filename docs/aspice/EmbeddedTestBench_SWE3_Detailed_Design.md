@@ -79,6 +79,7 @@
 | next | 2026-10-26 | Claude | #242: RUN-DD-LIMITS: `TextLimit` takes `one_of`, `matches` with a reason, and `ignore_case`; RUN-DD-SPEC: saved values in `min`, `max` and `one_of` (`Expectation.deferred`); RUN-DD-RUNNER: the `compute` step; BLE-DD-DONGLE: `poll_states`. |
 | next | 2026-10-27 | Claude | #299: S2LP-DD-TRAFFIC - `_turn_report_all_on`, `_own_stop_at`, `CLEAN_STOP_IRQS` and the shorter re-arm in `_ready_for_receive`, with the bench evidence, the gap re-measured (11 to 12 ms) and the limits; S2LP-DD-SESSION - `last_stop_acknowledged`. |
 | next | 2026-10-27 | Claude | #308: S2LP-DD-TRAFFIC - the clean-stop count is 2 294 of 2 300, not 1 994. |
+| next | 2026-10-27 | Claude | #122: BLE-DD-SIMWORLD - the air and its clock; BLE-DD-KEPLERSIM - the sensor's radio, its frames, its transmitter settings and the open items; S2LP-DD-SIM - receiving the simulated sensor only when set up for it. |
 
 ---
 
@@ -1413,6 +1414,14 @@ periodic RTT line a simulated probe writes when the bench's `simulated_target`
 option wires it to the sensor. `reset_world` forgets all of it, for a test that
 must start clean.
 
+The air (#122) has a clock of its own, in seconds, which only a listening
+receiver moves. `air(["kepler-5C1712"])` is what a simulated S2-LP kit wired to
+the sensor hears: its `next_transmission` asks every sensor in range when it
+next sends, moves the clock to the earliest and returns that copy of the
+frame. A 10 s alive period therefore costs a test nothing, and nothing is sent
+while no receiver listens. The receive gap between two polled receives is
+modelled by the S2-LP simulator, not by the air.
+
 #### BLE-DD-KEPLERSIM — `benchtools/simulated/kepler.py`
 
 The Kepler sensor 5C1712 as the simulated instruments see it: version, SHA,
@@ -1432,7 +1441,37 @@ sensor firmware's parameter table. **Open items**, assumed rather than captured:
 `ACK RD BATTERY-LOADED = <n>mV` and `ACK WR PREAMBLE-LENGTH <n> Pairs` (taken
 from V11.01, written in the V11.00 style); a loaded battery 20 mV below the
 unloaded one; an MCU 3.5 C above the machine temperature; `NACK Invalid Command`
-for anything else. Transmitting its frames is #122.
+for anything else.
+
+Its radio (#122). `transmit` returns the next copy of the next frame, with its
+readings taken when it is sent: a VERSION frame `VERSION_DELAY_S` (8 s, #85)
+after a reset, and an ALIVE frame every alive period, three copies each, repeat
+0 to 2, 100 ms apart (31 to 229 ms on 5C1712, #293). `version_frame` and
+`alive_frame` build the 83 and 35 bytes the Kepler plugin's decoder reads
+(RF_CAP 6, type version 1); the header bytes, PCB code 3 and an ALIVE frame's
+vibration figures are copied from frames 5C1712 sent, and the "SI updated" bit
+is set in an ALIVE's first copy only, as V11.00 and V11.01 send it (#95). A
+reset applies the stored preamble length to the radio (`radio_preamble_length`),
+restarts the alive period and schedules the VERSION frame; `WR ALIVE-PERIOD`
+starts a new period. Each `Transmission` carries the transmitter's
+`RadioSettings` (`KEPLER_433_TRANSMITTER`): the register values and masks a
+receiver must match (frequency, data rate, modulation, sync length, packet
+format, length field, RX mode, CRC, and no whitening, FEC, Manchester, 3-of-6 or
+802.15.4g coding) and the sync word 0xB19C0CA7, taken from
+`s2lp_kepler_433_rx.regs`, with PCKTCTRL6 at its reset value. `ticks` is the
+same in every copy of a transmission and 1 in the first frame after a reset,
+as captured. **Open items**
+in the radio: the frame's version is `RD VERSION` alone, the owner's V11 rule,
+although the V11.00.0000-95 build captured on 2026-10-04 appends a space and the
+SHA (`frame_version_with_sha` sends that); the first ALIVE comes one alive
+period after a reset or a new `WR ALIVE-PERIOD`; battery and temperature are
+rounded to 20 mV and 0.1 C; `ticks` counts one per transmission (it rose by 13
+between two ALIVEs in the 2026-10-25 capture, unit unknown); that capture sets
+"SI updated" in every copy of an ALIVE, against #95, on firmware not recorded.
+**Limitations**: the receiver's host-side timestamps are real time, so frames
+the air clock puts seconds apart arrive milliseconds apart on the host; and one
+sensor's frames go to whichever simulated kit takes them first, so two kits on
+one air would share them. The simulated bench has one kit.
 
 #### BLE-DD-DFUHOST — `dfu.py`, `NordicDongle.send_package`
 
@@ -2242,6 +2281,17 @@ shorter than PCKTLEN never goes; and a packet arriving while the radio is not
 armed is counted and lost. A write to a read-only register is accepted and
 discarded, as the hardware discards it - which is what the driver's refusal
 (S2LP-FR-013) protects a test from.
+
+Wired to the simulated bench's air (`air`, set by `S2lpDevkit.connect`'s
+`simulated_targets` option, BLE-DD-SIMWORLD), a receive with nothing queued
+takes the next frame the simulated Kepler sensor sends (#122). `_hears` compares
+the radio's registers with the frame's `RadioSettings`, each register under its
+mask, and its sync word with SYNC3..0 or, with `PCKTCTRL1.SECOND_SYNC_SEL`, with
+PCKT_FLT_GOALS3..0. A frame that matches is queued with RSSI -70 dBm and the PQI
+of the whole preamble, `expected_pqi(pairs)`; one that does not is counted in
+`unheard` and lost, so a wrong register file hears nothing. Either way the
+board's timer moves on by the air time since the last frame taken, so board
+times between frames are air times.
 
 #### S2LP-DD-CLI — `cli.py`
 

@@ -14,13 +14,25 @@ from .kepler import (
     KEPLER_5C1712_NAME,
     KeplerSensorModel,
 )
-from .world import kepler_sensor, register_supply, reset_world, rtt_source, supply_volts
+from .world import (
+    Air,
+    air,
+    air_time,
+    kepler_sensor,
+    register_supply,
+    reset_world,
+    rtt_source,
+    supply_volts,
+)
 
 __all__ = [
+    "Air",
     "KEPLER_5C1712_ADDRESS",
     "KEPLER_5C1712_ID",
     "KEPLER_5C1712_NAME",
     "KeplerSensorModel",
+    "air",
+    "air_time",
     "kepler_sensor",
     "register_supply",
     "reset_world",
