@@ -227,6 +227,16 @@ class TestIntervals:
             assert radio.dut_transmissions("CONFIG", log=str(log), **kwargs)[
                 "transmissions"] == expected
             assert radio.dut_census(log=str(log), **kwargs)["transmissions"] == expected
+            assert radio.dut_distinct("values.0", "mux", "CONFIG", log=str(log),
+                                      **kwargs)["items"] == expected
+
+    def test_a_bad_copy_gap_is_refused_before_the_receive(self, radio, simulator):
+        sent = len(simulator.command_log)
+        for action, args in (("dut_intervals", ()), ("dut_census", ()),
+                             ("dut_transmissions", ()), ("dut_distinct", ("values.0", "mux"))):
+            with pytest.raises(ConfigurationError, match="copy_gap"):
+                getattr(radio, action)(*args, window=30.0, copy_gap=0, decoder="kepler")
+        assert len(simulator.command_log) == sent
 
     def test_the_board_clock_can_be_chosen(self):
         frames = [fr.Frame(b"", {"type": "CMD", "sensor_id": "A"}, host, board_s=board)

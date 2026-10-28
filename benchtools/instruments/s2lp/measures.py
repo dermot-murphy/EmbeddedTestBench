@@ -90,6 +90,7 @@ class FrameMeasuresMixin:
 
         Traces to: S2LP-FR-089.
         """
+        copy_gap = fr.check_copy_gap(copy_gap)
         heard = self._frames_for(decoder, window, log)
         chosen = fr.select(heard, frame_type, source, fr.check_where(where))
         return fr.intervals(chosen, burst_gap=burst_gap, above=above, below=below, clock=clock,
@@ -115,6 +116,7 @@ class FrameMeasuresMixin:
 
         Traces to: S2LP-FR-090.
         """
+        copy_gap = fr.check_copy_gap(copy_gap)
         heard = self._frames_for(decoder, window, log)
         if source is not None:
             heard = [frame for frame in heard if not frame.ok or frame.source == str(source)]
@@ -158,6 +160,7 @@ class FrameMeasuresMixin:
 
         Traces to: S2LP-FR-091.
         """
+        copy_gap = fr.check_copy_gap(copy_gap)
         where = fr.check_where(where)
         hook = None
         if positions:
@@ -211,6 +214,7 @@ class FrameMeasuresMixin:
 
         Traces to: S2LP-FR-092.
         """
+        copy_gap = fr.check_copy_gap(copy_gap)
         heard = self._frames_for(decoder, window, log)
         chosen = fr.select(heard, frame_type, source, fr.check_where(where))
         return fr.distinct_per_group(chosen, value, group, item=item,
