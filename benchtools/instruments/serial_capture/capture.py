@@ -1,0 +1,668 @@
+"""Driver for the serial capture instrument: record what a device prints.
+
+The instrument opens a device's serial port - its console, a test UART - and
+records the lines the device prints, for a time window or until a line matches
+a pattern. A test then checks the lines: how many came, whether one matched,
+the value a matching line carried.
+
+It only listens. Nothing is ever written to the device's port.
+
+It is controlled in two equivalent ways:
+
+* the command set, in the form of the Kepler BLE console (#247) -
+  ``WR WINDOW 5000``, ``ROUTINE START CAPTURE``, ``RD COUNT`` - through
+  :meth:`SerialCapture.command`, from a specification or the
+  ``benchtools serial`` command line; see :mod:`.console`;
+* the Python methods the commands map onto: :meth:`SerialCapture.capture`,
+  :meth:`~SerialCapture.start_capture` and the rest.
+
+**Every captured line goes to the event log** as a ``line`` record under the
+instrument's name. ``WR LINES ON`` adds a live copy of each line,
+``LINE <n> = <text>``, while the capture runs; it is off until switched on, and
+only that command switches it.
+
+Traces to: SER-FR-001, SER-FR-006 .. SER-FR-009, SER-ARC-001, SER-DD-DRIVER.
+"""
+
+from __future__ import annotations
+
+import logging
+import re
+import threading
+import time
+from collections import deque
+from dataclasses import dataclass, field
+from typing import Any, Callable, Deque, Dict, List, Optional, Pattern, Tuple
+
+from ...core.errors import (
+    ConfigurationError,
+    ConnectionFailedError,
+    InstrumentError,
+    TransportError,
+    TransportTimeoutError,
+)
+from ...core.events import log_event
+from ...core.instrument import Instrument, InstrumentIdentity
+from ...core.transport.base import Transport
+from ...core.transport.factory import open_transport
+from .constants import (
+    ABORTED,
+    BAUD_RANGE,
+    COMPLETE,
+    DATA_BITS,
+    DEFAULT_BAUDRATE,
+    DEFAULT_FORMAT,
+    DEFAULT_TIMEOUT,
+    DEFAULT_WINDOW_MS,
+    IDLE_SLEEP,
+    LINE_PREFIX,
+    MANUFACTURER,
+    MAX_LINES,
+    MODEL,
+    NOT_STARTED,
+    PARITIES,
+    READ_POLL,
+    RUNNING,
+    STOP_BITS,
+    WINDOW_RANGE_MS,
+)
+from .simulator import SimulatedSerialDevice
+
+__all__ = [
+    "SerialCapture",
+    "CapturedLine",
+    "CaptureResult",
+    "CaptureBusyError",
+    "parse_format",
+]
+
+#: ``8N1``: data bits, parity, stop bits.
+_FORMAT = re.compile(r"^([5-8])([NEOMS])([12])$")
+
+
+class CaptureBusyError(InstrumentError):
+    """A capture is running, and the request needs it stopped first."""
+
+
+def parse_format(text: str) -> Tuple[int, str, int]:
+    """Split a character format such as ``8N1`` into its three parts.
+
+    :raises ValueError: for anything that is not data bits 5-8, parity
+        ``N``/``E``/``O``/``M``/``S`` and stop bits 1 or 2.
+    """
+    match = _FORMAT.match(str(text).strip().upper())
+    if not match:
+        raise ValueError(
+            "%r is not a character format; give data bits %s, parity %s and "
+            "stop bits %s, such as 8N1"
+            % (text, "/".join(map(str, DATA_BITS)), "/".join(PARITIES),
+               "/".join(map(str, STOP_BITS)))
+        )
+    return int(match.group(1)), match.group(2), int(match.group(3))
+
+
+@dataclass(frozen=True)
+class CapturedLine:
+    """One line the device printed.
+
+    :ivar number: Its place in the capture, from 1.
+    :ivar text: The line, without its ending.
+    :ivar elapsed: Seconds from the start of the capture to its arrival.
+    """
+
+    number: int
+    text: str
+    elapsed: float
+
+    def as_dict(self) -> Dict[str, Any]:
+        """The line as a JSON-ready dictionary."""
+        return {"number": self.number, "text": self.text, "elapsed": self.elapsed}
+
+
+@dataclass(frozen=True)
+class CaptureResult:  # pylint: disable=too-many-instance-attributes
+    """What a capture recorded, as ``ROUTINE RESULTS CAPTURE`` reports it.
+
+    A specification checks it through its fields: ``count``, ``matched``,
+    ``match``, ``value``, ``status``, or ``lines`` with an index.
+
+    :ivar status: ``Not Started``, ``Running``, ``Aborted`` or ``Complete``.
+    :ivar count: Lines captured. It counts lines dropped beyond
+        :data:`~.constants.MAX_LINES` too.
+    :ivar lines: The lines kept, oldest first.
+    :ivar pattern: The pattern the capture looked for, or ``""``.
+    :ivar match: The first line that matched it, or ``None``.
+    :ivar match_number: That line's number, or ``0``.
+    :ivar value: The pattern's first group in that line, when the pattern
+        has a group, or ``None``.
+    :ivar elapsed: Seconds the capture ran.
+    """
+
+    status: str = NOT_STARTED
+    count: int = 0
+    lines: Tuple[CapturedLine, ...] = ()
+    pattern: str = ""
+    match: Optional[str] = None
+    match_number: int = 0
+    value: Optional[str] = None
+    elapsed: float = 0.0
+
+    @property
+    def matched(self) -> bool:
+        """``True`` if a line matched the pattern."""
+        return self.match is not None
+
+    @property
+    def text(self) -> str:
+        """The lines kept, joined by newlines."""
+        return "\n".join(line.text for line in self.lines)
+
+    def summary(self) -> str:
+        """The status as ``ROUTINE RESULTS CAPTURE`` words it.
+
+        ``Not Started``; ``Running, 4 lines``; ``Complete, 12 lines``;
+        ``Complete, 12 lines, Matched``; ``Complete, 50 lines, Not Matched``;
+        ``Aborted, 3 lines``.
+        """
+        if self.status == NOT_STARTED:
+            return NOT_STARTED
+        words = "%s, %d line%s" % (self.status, self.count, "" if self.count == 1 else "s")
+        if self.pattern and self.status != RUNNING:
+            words += ", Matched" if self.matched else ", Not Matched"
+        return words
+
+    def as_dict(self) -> Dict[str, Any]:
+        """The result as a JSON-ready dictionary."""
+        return {
+            "status": self.status,
+            "count": self.count,
+            "pattern": self.pattern,
+            "matched": self.matched,
+            "match": self.match,
+            "match_number": self.match_number,
+            "value": self.value,
+            "elapsed": self.elapsed,
+            "lines": [line.as_dict() for line in self.lines],
+        }
+
+
+@dataclass
+class _Run:  # pylint: disable=too-many-instance-attributes
+    """The state of one capture, shared with its reader thread."""
+
+    pattern: Optional[Pattern[str]]
+    window_s: float
+    started: float
+    status: str = RUNNING
+    count: int = 0
+    lines: Deque[CapturedLine] = field(default_factory=lambda: deque(maxlen=MAX_LINES))
+    match: Optional[str] = None
+    match_number: int = 0
+    value: Optional[str] = None
+    ended: Optional[float] = None
+
+
+class SerialCapture(Instrument):  # pylint: disable=too-many-instance-attributes
+    """Record the lines a device prints on its serial port.
+
+    :param make_transport: Builds the link for a line rate and character
+        format. The driver calls it again when ``WR BAUD`` or ``WR FORMAT``
+        changes either, so the port reopens with the new settings.
+    :param resource: The port, as given: reported by ``RD PORT``.
+    :param baudrate: Line rate.
+    :param char_format: Character format, such as ``8N1``.
+    :param window_ms: Capture window in milliseconds.
+    :param pattern: Pattern that ends a capture, or ``""`` for none.
+    :param on_line: Called with ``LINE <n> = <text>`` for each captured line
+        while ``WR LINES ON``. Without it, those lines go to the log at INFO.
+
+    Example::
+
+        from benchtools.instruments.serial_capture import SerialCapture
+
+        with SerialCapture.connect("COM5", baudrate=115200) as uart:
+            print(uart.command("WR PATTERN ^SELF TEST (PASS|FAIL)").text)
+            result = uart.capture(window_ms=10000)
+            print(result.summary(), result.match)
+    """
+
+    SIMULATOR_CLASS = SimulatedSerialDevice
+    MODEL_NAME = MODEL
+    EVENT_SOURCE = "SERIAL"
+
+    def __init__(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+        self,
+        make_transport: Callable[[int, str], Transport],
+        resource: str = "sim://",
+        baudrate: int = DEFAULT_BAUDRATE,
+        char_format: str = DEFAULT_FORMAT,
+        window_ms: int = DEFAULT_WINDOW_MS,
+        pattern: str = "",
+        on_line: Optional[Callable[[str], None]] = None,
+    ) -> None:
+        super().__init__(auto_check_errors=False)
+        self._check_baudrate(baudrate)
+        parse_format(char_format)
+        self._make_transport = make_transport
+        self._resource = resource
+        self._baudrate = int(baudrate)
+        self._format = str(char_format).strip().upper()
+        self._window_ms = DEFAULT_WINDOW_MS
+        self.window_ms = window_ms
+        self._pattern_text = ""
+        self.pattern = pattern
+        self._lines_on = False
+        self.on_line = on_line
+        self._lock = threading.Lock()
+        self._run: Optional[_Run] = None
+        self._reader: Optional[threading.Thread] = None
+        self._stop = threading.Event()
+        self._transport = make_transport(self._baudrate, self._format)
+        self._adopt(self._transport)
+
+    # ------------------------------------------------------------------
+    # Lifecycle
+    # ------------------------------------------------------------------
+    @classmethod
+    def connect(  # pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals
+        cls,
+        resource: str = "sim://",
+        baudrate: int = DEFAULT_BAUDRATE,
+        timeout: float = DEFAULT_TIMEOUT,
+        char_format: str = DEFAULT_FORMAT,
+        window_ms: int = DEFAULT_WINDOW_MS,
+        pattern: str = "",
+        on_line: Optional[Callable[[str], None]] = None,
+        initialise: bool = True,
+        simulated_lines: Optional[List[str]] = None,
+        simulated_interval: Optional[float] = None,
+    ) -> "SerialCapture":
+        """Open a device's serial port.
+
+        :param resource: ``COM5``, ``/dev/ttyUSB0``, ``serial://COM5`` or
+            ``sim://``. A bare port name is taken as a serial port, not as a
+            host name.
+        :param timeout: Seconds :meth:`capture` waits beyond its window
+            before giving up on the reader.
+        :param simulated_lines: ``sim://`` only: the lines the simulated
+            device prints when a capture starts.
+        :param simulated_interval: ``sim://`` only: seconds between them.
+        """
+        target = cls._normalise_resource(resource)
+        try:
+            parse_format(char_format)
+        except ValueError as exc:
+            raise ConfigurationError(str(exc)) from exc
+        simulator = SimulatedSerialDevice(
+            simulated_lines,
+            **({} if simulated_interval is None else {"interval": simulated_interval}),
+        )
+
+        def make_transport(rate: int, fmt: str) -> Transport:
+            bits, parity, stops = parse_format(fmt)
+            serial = target.startswith("serial://")
+            return open_transport(
+                target,
+                timeout=timeout,
+                open_now=False,
+                responder_factory=lambda: simulator,
+                **({"baudrate": rate, "bytesize": bits, "parity": parity,
+                    "stopbits": stops} if serial else {}),
+            )
+
+        instrument = cls(make_transport, resource=resource, baudrate=baudrate,
+                         char_format=char_format, window_ms=window_ms,
+                         pattern=pattern, on_line=on_line)
+        instrument._capture_timeout = float(timeout)
+        if initialise:
+            try:
+                instrument.initialise()
+            except Exception:
+                instrument.close()
+                raise
+        return instrument
+
+    #: Seconds :meth:`capture` waits for the reader beyond the window.
+    _capture_timeout = DEFAULT_TIMEOUT
+
+    @staticmethod
+    def _normalise_resource(resource: str) -> str:
+        """Accept a bare port name as a serial port rather than a host name."""
+        text = (resource or "").strip()
+        if not text:
+            return "sim://"
+        if "://" in text or text.lower() in ("sim", "mock"):
+            return text
+        return "serial://%s" % text
+
+    def _open(self) -> None:
+        self._transport.open()
+        self._transport.timeout = READ_POLL
+
+    def _close(self) -> None:
+        self._stop_reader(ABORTED)
+        self._transport.close()
+
+    @property
+    def is_open(self) -> bool:
+        return self._transport.is_open
+
+    def _read_identity(self) -> InstrumentIdentity:
+        port = self._resource or "sim://"
+        return InstrumentIdentity(
+            raw="%s,%s,%s" % (MANUFACTURER, MODEL, port),
+            manufacturer=MANUFACTURER,
+            model=MODEL,
+            serial_number=port,
+        )
+
+    # ------------------------------------------------------------------
+    # Settings
+    # ------------------------------------------------------------------
+    @property
+    def port(self) -> str:
+        """The port, as it was given."""
+        return self._resource
+
+    @property
+    def baudrate(self) -> int:
+        """The line rate."""
+        return self._baudrate
+
+    @property
+    def char_format(self) -> str:
+        """The character format, such as ``8N1``."""
+        return self._format
+
+    @property
+    def window_ms(self) -> int:
+        """How long a capture runs if no line matches the pattern first."""
+        return self._window_ms
+
+    @window_ms.setter
+    def window_ms(self, value: int) -> None:
+        value = int(value)
+        low, high = WINDOW_RANGE_MS
+        if not low <= value <= high:
+            raise ValueError("a capture window is %d to %d ms, not %d" % (low, high, value))
+        self._window_ms = value
+
+    @property
+    def pattern(self) -> str:
+        """The pattern that ends a capture, searched for in each line, or ``""``."""
+        return self._pattern_text
+
+    @pattern.setter
+    def pattern(self, value: Optional[str]) -> None:
+        text = value or ""
+        if text:
+            try:
+                re.compile(text)
+            except re.error as exc:
+                raise ValueError("%r is not a regular expression: %s" % (text, exc)) from exc
+        self._pattern_text = text
+
+    @property
+    def lines_on(self) -> bool:
+        """``True`` while captured lines are shown live (``WR LINES ON``)."""
+        return self._lines_on
+
+    def set_lines(self, on: bool) -> None:
+        """Switch the live line output on or off (``WR LINES ON``/``OFF``)."""
+        self._lines_on = bool(on)
+
+    def set_baudrate(self, baudrate: int) -> None:
+        """Change the line rate, reopening the port.
+
+        :raises CaptureBusyError: while a capture is running.
+        :raises ValueError: for a rate outside :data:`~.constants.BAUD_RANGE`.
+        """
+        self._check_baudrate(baudrate)
+        self._reconfigure(int(baudrate), self._format)
+
+    def set_format(self, char_format: str) -> None:
+        """Change the character format, reopening the port.
+
+        :raises CaptureBusyError: while a capture is running.
+        :raises ValueError: for a format :func:`parse_format` refuses.
+        """
+        parse_format(char_format)
+        self._reconfigure(self._baudrate, str(char_format).strip().upper())
+
+    @staticmethod
+    def _check_baudrate(baudrate: Any) -> None:
+        low, high = BAUD_RANGE
+        if not low <= int(baudrate) <= high:
+            raise ValueError("a line rate is %d to %d baud, not %s" % (low, high, baudrate))
+
+    def _reconfigure(self, baudrate: int, char_format: str) -> None:
+        if self.running:
+            raise CaptureBusyError("the port settings cannot change while a capture runs")
+        if (baudrate, char_format) == (self._baudrate, self._format):
+            return
+        was_open = self.is_open
+        old = (self._baudrate, self._format)
+        self._transport.close()
+        try:
+            self._transport = self._make_transport(baudrate, char_format)
+            if was_open:
+                self._open()
+        except (TransportError, ValueError):
+            self._transport = self._make_transport(*old)
+            if was_open:
+                self._open()
+            raise
+        finally:
+            self._adopt(self._transport)
+        self._baudrate, self._format = baudrate, char_format
+        self._logger.info("port settings now %d baud %s", baudrate, char_format)
+
+    # ------------------------------------------------------------------
+    # The capture routine
+    # ------------------------------------------------------------------
+    @property
+    def running(self) -> bool:
+        """``True`` while a capture runs."""
+        with self._lock:
+            return self._run is not None and self._run.status == RUNNING
+
+    def start_capture(self, window_ms: Optional[int] = None,
+                      pattern: Optional[str] = None) -> CaptureResult:
+        """Start a capture (``ROUTINE START CAPTURE``) and return at once.
+
+        The previous capture's lines are discarded, and so is anything the
+        device printed before now. *window_ms* and *pattern*, when given,
+        replace the instrument's settings first, as ``WR WINDOW`` and
+        ``WR PATTERN`` would.
+
+        :raises CaptureBusyError: if a capture is already running.
+        """
+        if self.running:
+            raise CaptureBusyError("a capture is already running; abort it first")
+        if window_ms is not None:
+            self.window_ms = window_ms
+        if pattern is not None:
+            self.pattern = pattern
+        if not self.is_open:
+            self._open()
+        self._transport.discard_input()
+        restart = getattr(getattr(self._transport, "responder", None), "restart", None)
+        if callable(restart):
+            restart()
+        run = _Run(
+            pattern=re.compile(self._pattern_text) if self._pattern_text else None,
+            window_s=self._window_ms / 1000.0,
+            started=time.monotonic(),
+        )
+        self._stop.clear()
+        with self._lock:
+            self._run = run
+        self._reader = threading.Thread(target=self._read_until_done, args=(run,),
+                                        name="serial-capture", daemon=True)
+        self._reader.start()
+        self._logger.info("capture started: window %d ms, pattern %s",
+                          self._window_ms, self._pattern_text or "none")
+        return self.results()
+
+    def abort_capture(self) -> CaptureResult:
+        """Stop a running capture (``ROUTINE ABORT CAPTURE``).
+
+        A capture that is not running is left as it is.
+        """
+        self._stop_reader(ABORTED)
+        return self.results()
+
+    def wait_capture(self, timeout: Optional[float] = None) -> CaptureResult:
+        """Wait for the running capture to end, and return its result.
+
+        :param timeout: Seconds to wait. By default, what is left of the
+            window plus the connect timeout.
+        :raises InstrumentError: if the capture is still running after it.
+        """
+        reader = self._reader
+        if reader is not None:
+            if timeout is None:
+                with self._lock:
+                    run = self._run
+                left = 0.0 if run is None else run.started + run.window_s - time.monotonic()
+                timeout = max(left, 0.0) + self._capture_timeout
+            reader.join(timeout)
+            if reader.is_alive():
+                raise InstrumentError("the capture was still running after %.1f s" % timeout)
+        return self.results()
+
+    def capture(self, window_ms: Optional[int] = None, pattern: Optional[str] = None,
+                timeout: Optional[float] = None) -> CaptureResult:
+        """Run a capture to its end and return what it recorded.
+
+        It ends when a line matches the pattern or when the window runs out,
+        whichever comes first. A capture that heard nothing is a result with
+        ``count`` 0, not an error, so that silence fails a limit.
+        """
+        self.start_capture(window_ms=window_ms, pattern=pattern)
+        return self.wait_capture(timeout)
+
+    def results(self) -> CaptureResult:
+        """The current or last capture's result (``ROUTINE RESULTS CAPTURE``)."""
+        with self._lock:
+            run = self._run
+            if run is None:
+                return CaptureResult()
+            end = run.ended if run.ended is not None else time.monotonic()
+            return CaptureResult(
+                status=run.status,
+                count=run.count,
+                lines=tuple(run.lines),
+                pattern=run.pattern.pattern if run.pattern else "",
+                match=run.match,
+                match_number=run.match_number,
+                value=run.value,
+                elapsed=round(end - run.started, 6),
+            )
+
+    def line(self, number: int) -> str:
+        """The text of captured line *number*, counting from 1.
+
+        :raises IndexError: for a line that was not captured, or no longer kept.
+        """
+        result = self.results()
+        for item in result.lines:
+            if item.number == int(number):
+                return item.text
+        raise IndexError("line %s was not captured, or is no longer kept" % number)
+
+    def command(self, request: str):
+        """Run one command of the command set and return its reply.
+
+        See :mod:`.console` for the commands. The reply is an object whose
+        ``text`` is the reply line, ``ok`` is ``True`` for ``ACK``, and
+        ``value`` is what follows `` = `` in an ``RD`` reply.
+        """
+        from .console import execute
+        reply = execute(self, request)
+        self._logger.info("%s -> %s", reply.command, reply.text)
+        return reply
+
+    # ------------------------------------------------------------------
+    def _stop_reader(self, status: str) -> None:
+        stopped = False
+        with self._lock:
+            run = self._run
+            if run is not None and run.status == RUNNING:
+                run.status = status
+                run.ended = time.monotonic()
+                stopped = True
+        self._stop.set()
+        reader = self._reader
+        if reader is not None and reader is not threading.current_thread():
+            reader.join(READ_POLL * 10)
+        if stopped:
+            self._logger.info("capture aborted after %d lines", run.count)
+
+    def _read_until_done(self, run: _Run) -> None:
+        try:
+            while not self._stop.is_set():
+                if time.monotonic() >= run.started + run.window_s:
+                    self._finish(run, "window of %d ms ended" % round(run.window_s * 1000))
+                    return
+                text = self._read_line()
+                if text is None or self._stop.is_set():
+                    continue
+                if self._record(run, text):
+                    self._finish(run, "line %d matched %s" % (run.match_number,
+                                                              run.pattern.pattern))
+                    return
+        # Any failure of the port ends the capture rather than the thread
+        # silently: the result then says Aborted.
+        except Exception as exc:  # pylint: disable=broad-exception-caught  # pragma: no cover
+            self._logger.error("capture stopped: %s", exc)
+            with self._lock:
+                if run.status == RUNNING:
+                    run.status = ABORTED
+                    run.ended = time.monotonic()
+
+    def _finish(self, run: _Run, why: str) -> None:
+        with self._lock:
+            if run.status != RUNNING:
+                return
+            run.status = COMPLETE
+            run.ended = time.monotonic()
+        self._logger.info("capture complete, %d lines: %s", run.count, why)
+
+    def _record(self, run: _Run, text: str) -> bool:
+        """Keep and log one line. ``True`` if it matched the pattern."""
+        elapsed = time.monotonic() - run.started
+        with self._lock:
+            run.count += 1
+            item = CapturedLine(run.count, text, round(elapsed, 6))
+            run.lines.append(item)
+            found = run.pattern.search(text) if run.pattern else None
+            if found and run.match is None:
+                run.match = text
+                run.match_number = item.number
+                run.value = found.group(1) if found.re.groups else None
+        shown = "%s %d = %s" % (LINE_PREFIX, item.number, text)
+        level = logging.INFO if self._lines_on and self.on_line is None else logging.DEBUG
+        log_event(self._logger, "line", shown, item.as_dict(), level=level)
+        if self._lines_on and self.on_line is not None:
+            self.on_line(shown)
+        return found is not None
+
+    def _read_line(self) -> Optional[str]:
+        """One line from the device, or ``None`` if none completed in time.
+
+        A line cut short by the poll stays in the transport's buffer and is
+        finished by the next read. A blank line is kept: a device that prints
+        one printed something.
+        """
+        try:
+            raw = self._transport.read_message()
+        except TransportTimeoutError:
+            return None
+        except ConnectionFailedError:
+            raise
+        except TransportError:
+            # A link with nothing pending that says so at once: the simulator.
+            time.sleep(IDLE_SLEEP)
+            return None
+        return raw.decode("ascii", errors="replace").rstrip("\r\n")

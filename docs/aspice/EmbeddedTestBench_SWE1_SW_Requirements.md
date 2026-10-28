@@ -78,6 +78,7 @@
 | next | 2026-10-28 | Claude | #274: BLE-FR-121 - the result and its event-log record give each link's effective ATT MTU and piece size, and the smallest over the transfer; unknown from a dongle that does not report them. |
 | next | 2026-10-28 | Claude | #181: DMM-FR-035 (a measurement waits past the blank frames of auto-ranging) and DMM-FR-036 (frequency with no signal reported, with how to recover; a key that brings no reading reported as that) added, from the TTi 1604 on the bench. |
 
+| next | 2026-10-28 | Claude | #247: STK-24 and section 16, `SER-` (SER-FR-001 to SER-FR-013, SER-NFR-001): the serial capture instrument, its `RD`/`WR`/`ROUTINE` command set in the Kepler console's form, capturing, the live line output switched only by `WR LINES`, simulation, bench driver and command line. CORE-FR-063: the default name `SERIAL`. Sections 16 to 19 renumbered 17 to 20. |
 ---
 
 ## 3. Purpose & Scope
@@ -154,6 +155,7 @@ USB link. It is specified, designed and traced here like the rest of the item.
 | STK-21 | Read the local temperature using a Raspberry Pi Pico 2 and a DollaTek SHT30-D temperature sensor (issue #104). |
 | STK-22 | The firmware downloaded to the Pico shall report its title and version number. |
 | STK-23 | Watch a bench test run while it goes, and control it: start one or attach to one, pause, restart from a chosen step, or abort, and see each test case, step and instrument's commands and responses (issue #130). |
+| STK-24 | Capture what a device prints on its serial port - its console or a test UART - for a time or until an expected line, and check the lines: how many came, whether one matched, and a value one carried (issue #247, Jira TX-1083). |
 
 ## 5. Element structure
 
@@ -171,6 +173,7 @@ prefixes are per element so they stay unique as instruments are added.
 | `S2LP-` | `benchtools.instruments.s2lp` | The ST S2-LP development kit. Unlike the BLE dongle, the firmware is **ST's own** (STK-20), so this element is a host driver only and the firmware's command set is an external interface rather than something this project controls. |
 | `PSU-` | `benchtools.instruments.gpd3303d` | The GW Instek GPD-3303D bench supply. Separate from `INST-` because its command set is neither SCPI nor shared with any other instrument here, and its single output switch is a hardware constraint that shapes its whole interface. |
 | `PICO-` | `benchtools.instruments.pico_sht30` **and** `firmware/pico_sht30` | The Pico 2 + SHT30-D bench thermometer: host driver and the Pico's own firmware. One element for the same reason as `BLE-`: the line protocol between them is one design decision. |
+| `SER-` | `benchtools.instruments.serial_capture` | The serial capture instrument: a host-side driver that records a device's serial output. Separate from `INST-` because it has a command set of its own (`RD`, `WR`, `ROUTINE`), and from every other element because it has no hardware of its own beyond a USB serial adapter. |
 | `RUN-` | `benchtools.runner` | The bench test runner. |
 | `VIEW-` | `benchtools.viewer` | The test run viewer: a browser page onto a run. Separate from `RUN-` because it is a client of the runner - of its event log and control channel - and sits above it in the layering, so the runner never depends on it. |
 
@@ -240,7 +243,7 @@ Extends §6.2 with the SCPI and IEEE 488.2 vocabulary.
 | CORE-FR-050 | A build's manifest - the version and build date its build system recorded beside the image - shall be readable by any element that needs it, and the diagnostic for a missing one shall name every path searched and take from the caller the sentence saying how that particular build produces one. | STK-07, STK-16 | Test |
 | CORE-FR-061 | The link layer shall support instruments that send without being asked: reading whatever bytes have arrived without waiting for an end-of-message - which a serial port never signals - and discarding everything received but not yet read, including input held by the operating system, so that a reading taken on request is not one that was waiting in a buffer. | STK-18 | Test |
 | CORE-FR-062 | A simulated instrument that streams on a virtual clock shall be told how long the driver is prepared to wait, so that output due later than that is a timeout, as it is on a real link, rather than data the driver would never have received. | STK-07, STK-18 | Test |
-| CORE-FR-063 | Each instrument shall carry a short event-log name - 1 to 8 characters, an upper-case letter then A-Z, 0-9 or _ - and every record logged by the instrument or by anything it owns (its transport, its sessions) shall carry that name, from the instrument's construction on, so two instruments of one driver are told apart. Without a name given, it shall be the driver's default: `PSU`, `BLE`, `JLINK`, `RF`, `SCOPE`, `DMM`, `TEMP` (Pico 2 + SHT30-D thermometer); a record from nothing named shall be `BENCH` (#126). | STK-19 | Test |
+| CORE-FR-063 | Each instrument shall carry a short event-log name - 1 to 8 characters, an upper-case letter then A-Z, 0-9 or _ - and every record logged by the instrument or by anything it owns (its transport, its sessions) shall carry that name, from the instrument's construction on, so two instruments of one driver are told apart. Without a name given, it shall be the driver's default: `PSU`, `BLE`, `JLINK`, `RF`, `SCOPE`, `DMM`, `TEMP` (Pico 2 + SHT30-D thermometer), `SERIAL` (serial capture instrument, #247); a record from nothing named shall be `BENCH` (#126). | STK-19 | Test |
 | CORE-FR-060 | Every instrument's and the runner's log records shall be writable, while a run is in progress, to one event log of one JSON object per line, each carrying the short upper-case name of the instrument it came from (`PSU`, `BLE`, `RF`, `TEMP`, ...) or `TEST` for the runner, so that another program can follow the run as it happens and tell its sources apart. | STK-19 | Test |
 | CORE-FR-064 | A record in the event log shall be able to carry, beside its text, a `kind` naming what happened and a `data` object with its details, so that a reader can follow the run without parsing text. `data` shall be standard JSON - a value that is not finite written as text, bytes as hex, a long sequence cut short and saying so - and a reader that ignores the two fields shall be unaffected. | STK-19 | Test |
 | CORE-FR-065 | A driver shall be able to log a measured value as a `reading` record - quantity, value, unit, and details such as the channel - where it has the value in hand, so a reader of the event log can graph it without parsing the instrument's reply. | STK-23 | Test |
@@ -946,9 +949,59 @@ Drive discovery on Linux and macOS has not been tried on hardware.
 
 ---
 
-## 16. RUN — bench test runner
+## 16. SER — serial capture instrument
 
-### 16.1 Bench configuration
+A host-side instrument that records the lines a device prints on its serial
+port: a console, or a test UART such as the Kepler sensor's end-of-line output
+(KEP-STP-BT-003 OT-E-31, Jira TX-1083). It has no hardware of its own beyond a
+USB serial adapter, and it **only listens**: nothing is written to the device.
+
+It is controlled with a command set in the form of the Kepler sensor's BLE
+console, as the owner decided for #247 (2026-10-28): `RD`, `WR` and `ROUTINE`
+commands, one ASCII line each, each answered with one line. The routine verbs
+and statuses follow the owner's UDS-style routine design (#202). A refusal is
+spelled `NACK`, as the Kepler console spells it, not `NAK` as #202 and the Pico
+firmware spell it.
+
+### 16.1 The link and the command set
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| SER-FR-001 | The instrument shall open a device's serial port with a given line rate (default 115200) and character format (default `8N1`). A bare port name shall be taken as a serial port rather than a network host, and `sim://` shall select the simulated device. Nothing shall be written to the device's port. | STK-24 | Test |
+| SER-FR-002 | The instrument shall take one ASCII command per line and answer each with one reply line. The command words shall not be case sensitive, a run of spaces shall count as one, and the reply shall echo the command as it was sent: `ACK <command> = <value>` for a value, `ACK <command>` or `ACK <command> <unit>` for a setting, and `NACK <command> <REASON>` for a refusal - the form of the Kepler sensor's BLE console. | STK-24 | Test |
+| SER-FR-003 | `RD PORT`, `RD BAUD`, `RD FORMAT`, `RD WINDOW` (ms), `RD PATTERN` (`OFF` when none), `RD LINES` (`ON` or `OFF`), `RD COUNT`, `RD LINE <n>`, `RD MATCH` and `RD VALUE` shall report the setting or the last capture's result. A line that was not captured, no match and no value shall be refused `NOT FOUND`. | STK-24 | Test |
+| SER-FR-004 | `WR BAUD <rate>` (50 to 4 000 000, answered with `Baud`), `WR FORMAT <bits><parity><stop>` (data bits 5 to 8, parity `N`, `E`, `O`, `M` or `S`, stop bits 1 or 2), `WR WINDOW <ms>` (1 to 3 600 000, answered with `ms`), `WR PATTERN <regular expression>` (`WR PATTERN OFF` clears it) and `WR LINES ON` or `OFF` shall change the setting. A value that is not a number, a format or a regular expression shall be refused `INVALID VALUE`, a number outside its range `OUT OF RANGE`, and a change of line rate or format while a capture runs `BUSY`. A new line rate or format shall reopen the port; one the port refuses shall leave the old settings in force. | STK-24 | Test |
+| SER-FR-005 | `ROUTINE START CAPTURE` shall start a capture and answer `= Running`; started again while it runs, it shall be refused `BUSY`. `ROUTINE ABORT CAPTURE` and `ROUTINE ABORT ALL` shall stop a running capture and answer with the status after it. `ROUTINE RESULTS CAPTURE` shall answer exactly one status - `Not Started`, `Running`, `Aborted` or `Complete` - followed, once a capture has started, by the number of lines and, when a pattern was set and the capture has ended, `Matched` or `Not Matched`. | STK-24 | Test |
+
+### 16.2 Capturing
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| SER-FR-006 | A capture shall discard what the device printed before it started and the previous capture's lines, then record each line in order, with its number and its time from the start, until the window ends or a line matches the pattern, whichever is first. The pattern shall be searched for in each line; the value shall be its first group in the matching line, when it has one. A capture that hears nothing shall complete with no lines rather than fail. | STK-24 | Test |
+| SER-FR-007 | `WR LINES ON` shall switch on a live copy of each captured line, `LINE <n> = <text>`, and `WR LINES OFF` shall switch it off. It shall be off until switched on, and no other command or action shall switch it. | STK-24 | Test |
+| SER-FR-008 | Every captured line shall be logged to the event log as a `line` record under the instrument's name, with its number, text and time, whether or not the live copy is on. | STK-23, STK-24 | Test |
+| SER-FR-009 | The driver shall offer, as specification actions, `command` (one command; its reply with `text`, `ok` and `value`), `capture` (one capture run to its end), `start_capture`, `wait_capture`, `abort_capture` and `results`, the result giving `status`, `count`, `lines`, `match`, `match_number`, `matched` and `value`. A capture shall keep at most 100 000 lines and still count every line. | STK-24 | Test |
+| SER-FR-013 | A command that is not in the command set, or has the wrong number of words, shall be answered `NACK Invalid Command`. | STK-24 | Test |
+
+### 16.3 Simulation, bench use and command line
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| SER-FR-010 | With `sim://`, a simulated device shall print a script of lines, one every interval, starting when a capture starts, as a device powered on just after the capture started would. A bench shall be able to give the script and the interval (`simulated_lines`, `simulated_interval`). | STK-08, STK-24 | Test |
+| SER-FR-011 | The instrument shall be registered as the bench drivers `serial` and `serial-capture`, with the default event-log name `SERIAL`. | STK-24 | Test |
+| SER-FR-012 | `benchtools serial` shall run each argument as one command and print its reply, or read commands from standard input when given none. A capture still running when the commands end shall be waited for, its live lines shown if switched on, and its result printed; Ctrl-C shall abort it. The exit status shall be 1 if any reply was `NACK`. | STK-24 | Test |
+
+### 16.4 SER non-functional
+
+| ID | Requirement | Verification |
+|---|---|---|
+| SER-NFR-001 | The instrument shall add no mandatory third-party dependency; the serial library shall be the optional `serial` extra. | Inspection, Test |
+
+---
+
+## 17. RUN — bench test runner
+
+### 17.1 Bench configuration
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -961,7 +1014,7 @@ Drive discovery on Linux and macOS has not been tried on hardware.
 | RUN-FR-007 | A bench option that a driver declares as an input file, given as a relative path, shall be looked for in the bench file's directory, then the working directory, then the EmbeddedTestBench checkout, and the first that exists used. One found in none shall be passed to the driver unchanged and the locations searched logged, since a simulator may not read it. The runner is normally started in the repository of the firmware under test, not in this one (#116). | STK-08 | Test |
 | RUN-FR-008 | A specification shall be able to allocate an event-log name to each instrument it uses, and a bench to attach one to each actual instrument. The specification's name shall win, the bench's apply where the specification gives none, and the driver's default where neither does. An invalid name, or two instruments given one name in a specification or a bench, shall be refused at load; two instruments a run uses that would share a name, defaults included, shall be refused before any instrument connects. Each instrument's name shall appear in the run record and the report (#126). | STK-08, STK-19 | Test |
 
-### 16.2 Test specification
+### 17.2 Test specification
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -974,7 +1027,7 @@ Drive discovery on Linux and macOS has not been tried on hardware.
 | RUN-FR-016 | A step shall be able to save its result under a name, and any later step shall be able to use that saved value - or a value addressed inside it - as an argument or as a limit, optionally rendered through a format template. A reference to a name nothing has saved shall be refused, naming what has been saved. Without this a chained test would have to write down what an earlier step established, which makes the test assert its own input. | STK-08, STK-16 | Test |
 | RUN-FR-017 | A step argument that the driver declares as an input file, given as a relative path, shall be looked for in the specification's directory, then the working directory, then the EmbeddedTestBench checkout, and the first that exists used. One found in none shall be an execution error naming the argument and every location searched. An output path shall be written relative to the working directory, as before. A specification shall mean the same thing wherever the runner is started from (#116). | STK-08 | Test |
 
-### 16.3 Limits
+### 17.3 Limits
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -985,7 +1038,7 @@ Drive discovery on Linux and macOS has not been tried on hardware.
 | RUN-FR-025 | A measurement shall be reportable through a format template, so a value whose meaning is not decimal - an identifier, an address, a mask - reads in the record as it reads on the part. The template shall not affect the check, which remains against the number; the number shall be retained in the result record; and the limit's own bounds shall be rendered the same way, since a hexadecimal value beside decimal bounds is less legible than either alone. A template that cannot be applied shall be an error, not a silent fall back to the number. | STK-08, STK-16 | Test |
 | RUN-FR-024 | A limit shall support exact comparison against text - a version, a device name - reported as the text itself rather than as a number. Matching shall be exact on the stripped value unless the limit asks otherwise (RUN-FR-067, RUN-FR-068): a looser rule would pass 1.4.20 for 1.4.2, which is the failure such a limit exists to catch. | STK-08, STK-16 | Test |
 
-### 16.4 Execution
+### 17.4 Execution
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -998,7 +1051,7 @@ Drive discovery on Linux and macOS has not been tried on hardware.
 | RUN-FR-036 | A step shall be able to name a driver property as well as a method. A property shall be read when the step executes and shall take no arguments. | STK-08 | Test |
 | RUN-FR-037 | The run record and every report shall identify each instrument the run used - driver, model, serial number, resource and, where the instrument reports one, the firmware build - recorded after the run rather than before. An instrument that would not identify shall be recorded as such rather than omitted. | STK-08, STK-16, STK-17 | Test |
 
-### 16.5 Reporting
+### 17.5 Reporting
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -1030,7 +1083,7 @@ Drive discovery on Linux and macOS has not been tried on hardware.
 
 ---
 
-### 16.6 VIEW — test run viewer
+### 17.6 VIEW — test run viewer
 
 A browser page onto a bench run (#130, #137), served by `benchtools view`. It is a client of the runner: it reads the event log (RUN-FR-060) and drives the control channel (RUN-FR-061 … -065).
 
@@ -1084,7 +1137,7 @@ A browser page onto a bench run (#130, #137), served by `benchtools view`. It is
 | VIEW-FR-046 | The viewer's server shall log a client that disconnects before its reply is complete - connection aborted, reset, a broken pipe, or a TLS connection ended early - as one warning line naming the client, without a traceback, and shall report any other error in handling a request as before. | STK-23 | Test |
 | VIEW-FR-047 | The viewer shall decode a logged frame that carries no decode with the decoders of the plugins loaded, in load order; feed each received frame to every panel a plugin provides; serve a panel's view by name and its static files under `/plugin/<plugin>/` and nowhere outside its folder; list the plugins for the page, which loads their panels' scripts; load the plugins of a run it starts; and, for a followed run that used plugins it has not loaded, name them and the `--plugin` that would load them, rather than load them. A permuted TWF waveform with no plugin to place its samples shall not be drawn. | STK-23 | Test |
 
-## 17. Assumptions and constraints
+## 18. Assumptions and constraints
 
 | ID | Statement |
 |---|---|
@@ -1111,7 +1164,7 @@ A browser page onto a bench run (#130, #137), served by `benchtools view`. It is
 
 ---
 
-## 18. Requirements Traceability
+## 19. Requirements Traceability
 
 The consolidated trace - stakeholder requirement to software requirement to
 architecture element to design unit to source to test - is maintained as a
@@ -1127,7 +1180,7 @@ property the suite enforces rather than a table someone maintains by hand.
 
 ---
 
-## 19. Review & Approval
+## 20. Review & Approval
 
 Review and approval of this document are not entered in this table. They are
 given by the merge of the pull request that last changed the document, and that

@@ -1,0 +1,86 @@
+# The serial capture instrument records what a device prints, and a test
+# checks the lines (#247).
+#
+# The instrument is driven with its command set - RD, WR and ROUTINE, in the
+# Kepler console's form - through uart.command, and with uart.capture, which
+# runs one capture to its end. See docs/Bench_Runner_Guide.md section 5.
+#
+# On the simulated bench the simulated device prints a short boot script
+# ("BOOT V1.00.0000", "SELF TEST START", "VBAT = 3.30 V", "SELF TEST PASS")
+# when a capture starts:
+#   python -m benchtools run specs/serial_capture.yaml --bench benches/simulated_bench.yaml
+#
+# Against a real device, give the bench a "uart" instrument with driver serial
+# and the adapter's port, and change the patterns below to what the device
+# prints.
+
+name: Serial capture
+description: >
+  The device prints its boot lines, reports a battery voltage in range, and
+  ends its self test with PASS.
+requirements: [SER-FR-005, SER-FR-006, SER-FR-009]
+
+parameters:
+  window_ms: 2000
+  vbat_min: 3.0
+  vbat_max: 3.6
+
+instruments:
+  uart: serial
+
+tests:
+  - name: The device reports a battery voltage in range
+    requirement: SER-FR-006
+    steps:
+      - do: uart.command
+        description: The capture window
+        with: {request: {param: window_ms, format: "WR WINDOW {}"}}
+        expect:
+          - name: window_set
+            measure: text
+            equals: {param: window_ms, format: "ACK WR WINDOW {} ms"}
+
+      - do: uart.command
+        description: End the capture at the battery voltage line
+        with: {request: "WR PATTERN ^VBAT = ([0-9.]+) V"}
+        expect:
+          - name: pattern_set
+            measure: ok
+            equals: 1
+
+      - do: uart.command
+        with: {request: "ROUTINE START CAPTURE"}
+        expect:
+          - name: capture_started
+            measure: text
+            equals: "ACK ROUTINE START CAPTURE = Running"
+
+      - do: uart.wait_capture
+        expect:
+          - name: lines_before_vbat
+            measure: count
+            min: 1
+          - name: vbat_v
+            measure: value
+            min: {param: vbat_min}
+            max: {param: vbat_max}
+            unit: V
+
+      - do: uart.command
+        with: {request: "ROUTINE RESULTS CAPTURE"}
+        expect:
+          - name: capture_result
+            measure: text
+            matches: "ACK ROUTINE RESULTS CAPTURE = Complete, [0-9]+ lines?, Matched"
+            reason: "the capture ended at the VBAT line, not at the end of its window"
+
+  - name: The device's self test passes
+    requirement: SER-FR-009
+    steps:
+      - do: uart.capture
+        description: The self test's verdict
+        with: {pattern: "^SELF TEST (PASS|FAIL)$"}
+        expect:
+          - name: self_test
+            measure: value
+            equals: PASS

@@ -73,6 +73,7 @@ _SOURCE_PREFIXES = (
     ("benchtools.instruments.tek3014b", "SCOPE"),
     ("benchtools.instruments.tti1604", "DMM"),
     ("benchtools.instruments.pico_sht30", "TEMP"),
+    ("benchtools.instruments.serial_capture", "SERIAL"),
     ("benchtools.runner", "TEST"),
 )
 

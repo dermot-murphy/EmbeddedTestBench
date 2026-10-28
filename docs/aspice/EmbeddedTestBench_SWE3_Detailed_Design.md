@@ -84,6 +84,7 @@
 | next | 2026-10-28 | Claude | #274: BLE-DD-DFU - `dfupkt` answers with `piece=`, `pieces=` and `att_mtu=`, every `+dfu` carries `att_mtu=` (`dfu_client_att_mtu`); protocol 1.8, firmware 1.8.0. BLE-DD-DFUHOST - `DfuResult.att_mtu`, `piece_size` and `links`, in the `ble_dfu` record and a session note per image; None from a 1.7 dongle. BLE-DD-DFUSIM - `SimulatedBootloader.att_mtu`, each `dfupkt` split into pieces of it less 3; 5C1712's at 23. |
 | next | 2026-10-28 | Claude | #181: DMM-DD-DMM - blank frames while ranging (`Reading.blank`, `RANGING_TIME`, `measure`), frequency with no signal (`_silent_in_hertz`, `_stalled_in_hertz`), and `_await` reports no reading as none; DMM-DD-SIM - `stalled`, `press_front_panel`, `ranging_frames`. |
 
+| next | 2026-10-28 | Claude | #247: section 5.9, SER - SER-DD-CONST, SER-DD-DRIVER, SER-DD-CONSOLE, SER-DD-SIM and SER-DD-CLI, the serial capture instrument (total 79 → 84); RUN and VIEW renumbered 5.10 and 5.11; CORE-DD-EVENTS - the default name `SERIAL`. |
 ---
 
 ## 3. Purpose & Scope
@@ -130,8 +131,9 @@ not declare.
 | 5.6 | S2LP | `benchtools.instruments.s2lp` | 14 |
 | 5.7 | PSU | `benchtools.instruments.gpd3303d` | 4 |
 | 5.8 | PICO | `benchtools.instruments.pico_sht30` and `firmware/pico_sht30` | 15 |
-| 5.9 | RUN | `benchtools.runner` | 8 |
-| | **Total** | | **79** |
+| 5.9 | SER | `benchtools.instruments.serial_capture` | 5 |
+| 5.10 | RUN | `benchtools.runner` | 8 |
+| | **Total** | | **84** |
 
 ### 4.1 Package Structure
 
@@ -144,7 +146,8 @@ benchtools/
 │   ├── jlink/         debug probe
 │   ├── nordic_dongle/ BLE dongle - host half of the element
 │   ├── gpd3303d/      bench supply
-│   └── s2lp/          sub-1 GHz development kit
+│   ├── s2lp/          sub-1 GHz development kit
+│   └── serial_capture/ a device's serial output, recorded
 └── runner/        bench configuration, specifications, limits, execution, reports
 
 firmware/nordic_dongle/    the dongle's own half of the BLE element, in C
@@ -578,7 +581,7 @@ from (CORE-FR-060, CORE-FR-063, AD-28, #126):
   module-level code (the transport factory), so connecting is named too.
 - The handler's order: the record's `event_source`, else the pending name, else
   `source_of` the logger name - the driver defaults `PSU`, `BLE`, `JLINK`, `RF`,
-  `SCOPE`, `DMM`, `TEMP` (`pico_sht30`), `TEST` (the runner), and `BENCH` for
+  `SCOPE`, `DMM`, `TEMP` (`pico_sht30`), `SERIAL` (`serial_capture`), `TEST` (the runner), and `BENCH` for
   anything else.
 
 `log_event(logger, kind, text, data)` logs *text* as usual and attaches `kind`
@@ -3092,7 +3095,105 @@ discovery on Linux and macOS has not been tried on hardware.
 
 ---
 
-### 5.9 RUN — `benchtools.runner`
+### 5.9 SER — `benchtools.instruments.serial_capture`
+
+A host-side instrument that records the lines a device prints on a serial port
+(#247). It writes nothing to the port. The command set is a thin layer over the
+driver's methods, so a specification can call either, and both behave the
+same.
+
+#### SER-DD-CONST — `benchtools/instruments/serial_capture/constants.py`
+
+The defaults (115200 baud, `8N1`, a 5000 ms window, 2 s timeout), the ranges
+`WR BAUD` (50 to 4 000 000) and `WR WINDOW` (1 to 3 600 000 ms) accept, the
+format parts (`DATA_BITS`, `PARITIES`, `STOP_BITS`), `MAX_LINES` (100 000),
+the read poll (`READ_POLL`, 50 ms, set on the transport once, as in
+S2LP-DD-SESSION) and the idle sleep. The words of the command set: the routine
+name `CAPTURE`, the statuses `Not Started`, `Running`, `Aborted` and
+`Complete` (#202), `ON`, `OFF`, `PATTERN_OFF`, the refusal reasons
+`INVALID VALUE`, `OUT OF RANGE`, `BUSY` and `NOT FOUND`, `NACK Invalid
+Command`, and the `LINE` prefix of the live output.
+
+#### SER-DD-DRIVER — `benchtools/instruments/serial_capture/capture.py`
+
+`SerialCapture` subclasses `Instrument` (CORE-DD-INSTRUMENT). It is built from
+a function `make_transport(baudrate, char_format)` rather than a transport, so
+that `set_baudrate` and `set_format` can close the port and open it again with
+the new settings; if the port refuses them, the old transport is rebuilt and
+the error raised (SER-FR-004). Both are refused with `CaptureBusyError` while a
+capture runs. `connect()` takes a bare port name as a serial port, builds one
+`SimulatedSerialDevice` for `sim://` and hands the same one to every transport
+it makes, and passes `baudrate`, `bytesize`, `parity` and `stopbits` to a
+serial transport only. `parse_format` splits `8N1` into its parts.
+
+The capture runs on a daemon thread:
+
+* `start_capture(window_ms, pattern)` refuses a second capture, applies the
+  settings it is given, discards the transport's input, calls the
+  simulator's `restart()` when there is one, and starts the reader with a new
+  `_Run`. It returns at once with the `Running` result.
+* The reader (`_read_until_done`) reads a line at a time with
+  `READ_POLL`; a `TransportTimeoutError` is no line, and a `TransportError` with
+  nothing pending (the simulator) sleeps `IDLE_SLEEP`. It stops when the window
+  has run out (`Complete`), when a line matches (`Complete`), or when
+  `abort_capture` sets the stop event (`Aborted`). An error from the port ends
+  the capture `Aborted` and is logged.
+* `_record` numbers each line, keeps it with its time from the start in a
+  `deque` of `MAX_LINES`, searches the pattern in it, and for the first match
+  keeps the line, its number and the first group, if the pattern has one. It
+  logs the line with `log_event(..., "line", "LINE <n> = <text>", ...)` at
+  DEBUG; while `WR LINES ON` it also calls `on_line` with that text, or, with
+  no `on_line`, logs it at INFO instead (SER-FR-007, SER-FR-008).
+* `wait_capture(timeout)` joins the reader, by default for what is left of
+  the window plus the connect timeout, and raises `InstrumentError` if it is
+  still running. `capture()` is `start_capture` then `wait_capture`.
+* `results()` builds a frozen `CaptureResult` (status, count, lines, pattern,
+  match, match number, value, elapsed) under the lock; `summary()` words it as
+  `ROUTINE RESULTS CAPTURE` does, and `as_dict()` gives it as JSON.
+* `line(n)` is the text of a kept line, or `IndexError`.
+* `command(request)` runs one command through SER-DD-CONSOLE, logs the
+  command and its reply, and returns the `Reply`.
+
+`lines_on` changes only through `set_lines`, which only `WR LINES` calls.
+`close()` aborts a running capture before it closes the port.
+
+#### SER-DD-CONSOLE — `benchtools/instruments/serial_capture/console.py`
+
+`execute(capture, text)` collapses runs of spaces, takes the first word as
+the verb (`RD`, `WR` or `ROUTINE`, in any case) and dispatches through a
+table; anything else is `NACK Invalid Command`. Each handler checks the word
+count first and returns a frozen `Reply` (command as sent, text, `ok`, value).
+
+* `RD` reads through a table of getters; `RD LINE <n>` is handled before it.
+  A getter that has nothing (no match, no value) is `NOT FOUND`.
+* `WR PATTERN` takes everything after its second space as the pattern, so a
+  pattern keeps its case and inner spaces; `WR PATTERN OFF` clears it. `WR
+  WINDOW` and `WR BAUD` share `_number`: not all digits is `INVALID VALUE`,
+  busy is `BUSY`, a `ValueError` from the setter is `OUT OF RANGE`, and any
+  other error (the port refused the rate) is `INVALID VALUE`.
+* `ROUTINE <START|ABORT|RESULTS> CAPTURE` and `ROUTINE ABORT ALL` call the
+  driver; an abort answers with the status after it.
+
+#### SER-DD-SIM — `benchtools/instruments/serial_capture/simulator.py`
+
+`SimulatedSerialDevice` is a streaming responder (CORE-DD-SIM): it keeps
+nothing to answer, records what is written to it in `received` (a test checks
+that stays empty), and from `poll()` returns the next line of its script,
+`\r\n`-terminated, once `(n + 1) × interval` seconds of real time have passed
+since `restart()`. Until the first `restart()`, and after the last line, it
+returns nothing. The default script is a boot banner, a self test start, a
+battery voltage and a self test pass, 50 ms apart.
+
+#### SER-DD-CLI — `benchtools/instruments/serial_capture/cli.py`
+
+`benchtools serial [-r RESOURCE] [--baudrate N] [--format 8N1] [--timeout S]
+[-v] [COMMAND ...]`. It connects with an `on_line` that prints, runs each
+argument as a command - or each non-blank line of standard input when there
+are none - and prints each reply. A capture still running at the end is
+waited for and `ROUTINE RESULTS CAPTURE` is run; Ctrl-C aborts it. Exit
+status 1 if a connection failed or any reply was `NACK`, else 0.
+
+### 5.10 RUN — `benchtools.runner`
 
 #### RUN-DD-SPEC — `spec.py`
 
@@ -3315,7 +3416,7 @@ rather than nesting argparse parsers, so each tool keeps its own complete
 
 ---
 
-### 5.10 VIEW — `benchtools.viewer`
+### 5.11 VIEW — `benchtools.viewer`
 
 #### VIEW-DD-STATE — `state.py`
 

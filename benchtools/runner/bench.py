@@ -41,6 +41,7 @@ from ..instruments.gpd3303d import Gpd3303D
 from ..instruments.pico_sht30 import PicoSht30
 from ..instruments.nordic_dongle import NordicDongle
 from ..instruments.s2lp import S2lpDevkit
+from ..instruments.serial_capture import SerialCapture
 from ..instruments.tek3014b import Tek3014B
 from ..instruments.tti1604 import Tti1604
 
@@ -85,6 +86,8 @@ register_driver("tti1604", Tti1604)
 register_driver("dmm", Tti1604)
 register_driver("pico-sht30", PicoSht30)
 register_driver("thermometer", PicoSht30)
+register_driver("serial", SerialCapture)
+register_driver("serial-capture", SerialCapture)
 
 
 @dataclass(frozen=True)
