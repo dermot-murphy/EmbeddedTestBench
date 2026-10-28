@@ -21,7 +21,7 @@ from typing import Optional, Sequence
 
 from ... import __version__
 from ...core.errors import BenchToolsError, ConfigurationError
-from .constants import DEFAULT_BAUDRATE, DEFAULT_COMMAND_TIMEOUT
+from .constants import DEFAULT_BAUDRATE, DEFAULT_COMMAND_TIMEOUT, PROTOCOL_VERSION
 from .dongle import NordicDongle, Sensor
 from .latency import LatencySource
 from .protocol import normalise_address
@@ -86,7 +86,7 @@ def _cmd_info(dongle: NordicDongle, args) -> int:
             "firmware": dongle.firmware_version,
             "built": dongle.firmware_built,
             "protocol": dongle.protocol_version,
-            "driver_protocol": dongle.limits.model,
+            "driver_protocol": PROTOCOL_VERSION,
             "dongle_time_us": dongle.dongle_time_us(),
             "log": dongle.log_path,
         },

@@ -78,6 +78,7 @@
 | next | 2026-10-27 | Claude | #122: §14.5 added - the Kepler specifications' radio side on the simulated bench; SWE4-UT-KEPLERSIM 11 → 123, pass, from a run of `test_kepler_simulated.py` and `test_simulated_air.py` on this branch on 2026-10-27 (123 passed). The §5 total is still the 1.32 whole-suite run's. |
 | next | 2026-10-28 | Claude | #314: SWE4-UT-KEPLERSIM 123 → 131, pass, from a run of `test_kepler_simulated.py` and `test_simulated_air.py` on this branch on 2026-10-28 (131 passed). The §5 total is still the 1.32 whole-suite run's. |
 | next | 2026-10-28 | Claude | #243: SWE4-UT-S2LPMEASURES added, 77, pass; SWE4-UT-BLE 116 → 121 and SWE4-UT-KEPLERSIM 131 → 132 (after #314), pass, from runs of `test_frame_measures.py` (77 passed), `test_dongle.py` (121 passed) and `test_kepler_simulated.py` with `test_simulated_air.py` (132 passed) on this branch on 2026-10-28. The §5 total is still the 1.32 whole-suite run's. |
+| next | 2026-10-28 | Claude | #274: SWE4-UT-BLEDFU 40 → 47 and SWE4-UT-BLESIM 30 → 35, pass, from a run of `tests/instruments/nordic_dongle` on this branch on 2026-10-28; SWE4-UT-FWUNIT 189 → 192, pass (CTest, 8 binaries, bench PC). The §5 total is still the 1.32 whole-suite run's. BLE-OPEN-05 (BENCHTOOLS-BLE-001 §5.3) closed on hardware on 2026-10-28: through bootloader V1.01.0000 and V2.00.0000 on 5C1712, dongle 1.8.0 reported an ATT MTU of 23 and 20-byte pieces, PASS (`docs/aspice/qualification/2026-10-28/274_dfu_piece_mtu/`). |
 
 ---
 
@@ -263,13 +264,13 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-BLE | `instruments/nordic_dongle/test_dongle.py` | 121 | Pass |
 | SWE4-UT-BLESAMPLE | `instruments/nordic_dongle/test_sampling.py` | 21 | Pass |
 | SWE4-UT-BLEPROTO | `instruments/nordic_dongle/test_protocol.py` | 34 | Pass |
-| SWE4-UT-FWUNIT | `firmware/nordic_dongle/test/*.c` | 189 | Pass (CTest, 8 binaries, bench PC; not in the pytest total; §7.4) |
+| SWE4-UT-FWUNIT | `firmware/nordic_dongle/test/*.c` | 192 | Pass (CTest, 8 binaries, bench PC; not in the pytest total; §7.4) |
 | SWE4-UT-BLEFW | `instruments/nordic_dongle/test_firmware_protocol.py` | 22 | Pass |
 | SWE4-UT-BLESESSION | `instruments/nordic_dongle/test_session.py` | 23 | Pass |
 | SWE4-UT-BLEPROFILE | `instruments/nordic_dongle/test_profile.py` | 30 | Pass |
 | SWE4-UT-BLESCRIPT | `instruments/nordic_dongle/test_script.py`, `test_script_links.py`, `test_script_timeouts.py` | 147 | Pass |
 | SWE4-UT-BLELATENCY | `instruments/nordic_dongle/test_latency.py` | 24 | Pass |
-| SWE4-UT-BLESIM | `instruments/nordic_dongle/test_simulator.py` | 30 | Pass |
+| SWE4-UT-BLESIM | `instruments/nordic_dongle/test_simulator.py` | 35 | Pass |
 | SWE4-UT-BLECLI | `instruments/nordic_dongle/test_cli.py` | 50 | Pass |
 | SWE4-UT-BLEFIRMWARE | `instruments/nordic_dongle/test_firmware.py` | 50 | Pass |
 | SWE4-UT-LIMITS | `runner/test_limits.py` | 45 | Pass |
@@ -279,7 +280,7 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-KEPLERSIM | `runner/test_kepler_simulated.py`, `instruments/s2lp/test_simulated_air.py` | 132 | Pass |
 | SWE4-UT-SELFCHECK | `runner/test_bench_self_check.py` | 7 | Pass |
 | SWE4-UT-FIVEINST | `runner/test_sensor_power_signal_and_link.py` | 8 | Pass |
-| SWE4-UT-BLEDFU | `instruments/nordic_dongle/test_dfu.py` | 40 | Pass |
+| SWE4-UT-BLEDFU | `instruments/nordic_dongle/test_dfu.py` | 47 | Pass |
 | SWE4-UT-EVENTS | `core/test_events.py` | 54 | Pass |
 | SWE4-UT-TESTBENCH | `tools/test_test_bench.py` | 32 | Pass |
 | SWE4-UT-EVENTNAMES | `runner/test_event_names.py` | 21 | Pass |

@@ -224,6 +224,20 @@ def _state_of(text: str, pattern: Optional["re.Pattern[str]"]) -> Optional[str]:
     return None if found is None else found.strip()
 
 
+def _optional_integer(text: Optional[str]) -> Optional[int]:
+    """A reply or event field as an integer; None when absent or not a number."""
+    try:
+        return int(text) if text else None
+    except ValueError:
+        return None
+
+
+def _smallest(values: Any) -> Optional[int]:
+    """The smallest of *values* that is not None; None when there is none."""
+    present = [value for value in values if value is not None]
+    return min(present) if present else None
+
+
 class NordicDongle(Instrument):
     """A Nordic nRF52840 dongle running the BenchTools bench firmware.
 
@@ -1174,6 +1188,11 @@ class NordicDongle(Instrument):
             service, or stops answering, or an object is still lost after
             every retry.
 
+        The result also says what the links allowed: ``att_mtu`` and
+        ``piece_size``, the smallest the dongle reported, and per image in
+        ``links``. A dongle before protocol 1.8 reports neither, and both are
+        None (#274).
+
         Traces to: BLE-FR-121.
         """
         images = load_package(package)
@@ -1188,9 +1207,20 @@ class NordicDongle(Instrument):
         def control(request: bytes, wait: float) -> bytes:
             return self._dfu_control(request, min(wait, remaining()))
 
+        links: List[Dict[str, object]] = []
+
         def packet(data: bytes) -> None:
             remaining()
-            self._session.execute("dfupkt", data.hex())
+            reply = self._session.execute("dfupkt", data.hex())
+            piece = _optional_integer(reply.fields.get("piece"))
+            if not links or piece is None:
+                return
+            # The write's own ATT MTU and piece, kept together: the MTU
+            # exchange can end after +dfu state=ready reported 23.
+            link = links[-1]
+            if link["piece_size"] is None or piece < link["piece_size"]:  # type: ignore[operator]
+                link["piece_size"] = piece
+                link["att_mtu"] = _optional_integer(reply.fields.get("att_mtu")) or piece + 3
 
         def receipts() -> List[bytes]:
             # Only what was read with a reply: a poll after every Packet write
@@ -1212,23 +1242,42 @@ class NordicDongle(Instrument):
 
             def attempt() -> None:
                 remaining()
-                self._open_dfu_link(sensor, connect_timeout)
+                ready = self._open_dfu_link(sensor, connect_timeout)
+                links.append({"image": image.kind,
+                              "att_mtu": _optional_integer(ready.fields.get("att_mtu")),
+                              "piece_size": None})
 
             self._retry_not_established(sensor, connect_attempts, attempt)
 
-        def disconnect(image: DfuImage, index: int) -> None:  # pylint: disable=unused-argument
+        def disconnect(image: DfuImage, index: int) -> None:
             self._disconnect()
             self._connected = False
+            # After the image, so the note gives what its writes used.
+            link = links[-1]
+            if link["att_mtu"] is None:
+                allowed = "not reported (dongle protocol %s)" % (
+                    self._firmware_protocol or "unknown")
+            elif link["piece_size"] is None:
+                allowed = "%s, no Packet write" % link["att_mtu"]
+            else:
+                allowed = "%s, %s-byte pieces" % (link["att_mtu"], link["piece_size"])
+            self._session.note("DFU image %d of %d (%s): ATT MTU %s"
+                               % (index + 1, len(images), image.kind, allowed))
 
         dfu = SecureDfu(control=control, packet=packet, chunk=chunk,
                         receipts=receipts, retries=retries, on_retry=on_retry,
                         prn=prn, create_pause=create_pause)
         result = run_images(dfu, images, connect, disconnect)
         result.target = "; ".join(found)
-        log_event(self._logger, "ble_dfu", "DFU of %s to %s: %s%s, %d bytes in %.1f s"
+        result.links = links
+        result.att_mtu = _smallest(link["att_mtu"] for link in links)
+        result.piece_size = _smallest(link["piece_size"] for link in links)
+        log_event(self._logger, "ble_dfu", "DFU of %s to %s: %s%s, %d bytes in %.1f s%s"
                   % (package, result.target, result.result,
                      " (%s)" % result.extended_error if result.extended_error else "",
-                     result.bytes_sent, result.seconds),
+                     result.bytes_sent, result.seconds,
+                     ", ATT MTU %d, %d-byte pieces" % (result.att_mtu, result.piece_size)
+                     if result.att_mtu is not None and result.piece_size is not None else ""),
                   result.as_dict(),
                   level=logging.INFO if result.succeeded else logging.WARNING)
         return result
@@ -1256,8 +1305,12 @@ class NordicDongle(Instrument):
         self.select(chosen)
         return chosen
 
-    def _open_dfu_link(self, sensor: Sensor, connect_timeout: float) -> None:
-        """Connect to a bootloader and wait for its DFU service."""
+    def _open_dfu_link(self, sensor: Sensor, connect_timeout: float) -> Event:
+        """Connect to a bootloader and wait for its DFU service.
+
+        :returns: The ``+dfu state=ready`` event; from protocol 1.8 it
+            carries the link's ``att_mtu`` (#274).
+        """
         started_us = self._start_connect(connect_timeout)
         deadline = time.monotonic() + connect_timeout + SERVICE_DISCOVERY_TIMEOUT
         try:
@@ -1273,7 +1326,7 @@ class NordicDongle(Instrument):
                 if event.name == "dfu":
                     if event.get("state") == "ready":
                         self._connected = True
-                        return
+                        return event
                     raise DfuError("linked to %s but its DFU service is %s"
                                    % (sensor.address, event.get("state")))
         except BenchToolsError:
