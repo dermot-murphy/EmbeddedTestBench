@@ -32,6 +32,17 @@ within its own timeout (``poll_within``, CORE-FR-062), so a driver that waits
 less than the meter takes gets a timeout here, exactly as it would from a
 serial port, while a 20 s wait costs a test microseconds (#115).
 
+**Frequency with no signal stalls the link.** Measuring frequency with a value
+of 0 - no signal - the meter sends no frame and ignores every key that arrives
+over the link, echo included, until a key is pressed on its front panel
+(:meth:`SimulatedTti1604.press_front_panel`). A real 1604 did exactly this on
+the bench (#181, 2026-10-28).
+
+**Auto-ranging shows a blank display first.** ``ranging_frames`` blank frames -
+a decimal point and no digit - follow each change of function while
+auto-ranging, as a real 1604 sends while it steps through its ranges (#181).
+It is 0 by default.
+
 Fault injection: ``drop_keys`` loses keys before the meter sees them,
 ``ignore_keys`` echoes them without acting, ``garbage`` puts bytes in front of
 the next frame, as if the reader joined the stream part-way through one.
@@ -136,11 +147,27 @@ class SimulatedTti1604:  # pylint: disable=too-many-instance-attributes
         self.ignore_keys = False
         self.garbage = b""
         self.frames_sent = 0
+        #: Blank frames sent after each change of function while auto-ranging.
+        self.ranging_frames = 0
+        self._blank_due = 0
 
     # ------------------------------------------------------------------
     def set_value(self, value: float) -> None:
         """Change what the meter is measuring."""
         self.value = float(value)
+
+    @property
+    def stalled(self) -> bool:
+        """Measuring frequency with no signal: no frames, and keys ignored."""
+        return bool(self.flags["hertz"]) and self.value == 0.0
+
+    def press_front_panel(self, key: str) -> None:
+        """An operator presses *key* on the meter itself: not echoed, and it
+        works even while the link is stalled."""
+        before = self._measuring()
+        self._apply(KEYS[key])
+        if self._measuring() != before:
+            self.next_reading_at = self.clock + self.measurement_time
 
     @property
     def measurement_time(self) -> float:
@@ -162,6 +189,8 @@ class SimulatedTti1604:  # pylint: disable=too-many-instance-attributes
                 continue
             if self.drop_keys > 0:
                 self.drop_keys -= 1
+                continue
+            if self.stalled:
                 continue
             self.received.append(character)
             if not self.ignore_keys:
@@ -193,7 +222,7 @@ class SimulatedTti1604:  # pylint: disable=too-many-instance-attributes
             time waited, so a driver waiting for something that will not come
             reaches its deadline.
         """
-        sending = self.remote and self.operating
+        sending = self.remote and self.operating and not self.stalled
         if not sending or self.next_reading_at - self.clock > timeout:
             self.clock += timeout if math.isfinite(timeout) else READING_INTERVAL
             raise TransportTimeoutError(
@@ -201,7 +230,11 @@ class SimulatedTti1604:  # pylint: disable=too-many-instance-attributes
             )
         self.clock = max(self.clock, self.next_reading_at)
         self.next_reading_at = self.clock + self.measurement_time
-        data = self.garbage + self.frame()
+        frame = self.frame()
+        if self._blank_due > 0:
+            self._blank_due -= 1
+            frame = frame[:4] + bytes([DECIMAL_POINT_BIT, 0, 0, 0, 0]) + frame[9:]
+        data = self.garbage + frame
         self.garbage = b""
         self.frames_sent += 1
         return data
@@ -270,6 +303,7 @@ class SimulatedTti1604:  # pylint: disable=too-many-instance-attributes
         self.flags["auto_range"] = True
         self.status["auto_range_set"] = True
         self.range_index = self._auto_range_code()
+        self._blank_due = self.ranging_frames
 
     def _step(self, step: int) -> None:
         if self.flags["hertz"]:

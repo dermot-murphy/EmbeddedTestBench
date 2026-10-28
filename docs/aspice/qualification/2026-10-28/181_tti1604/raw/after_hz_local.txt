@@ -1,0 +1,20 @@
+Traceback (most recent call last):
+  File "U:\Temp\claude\U--GitHub-EmbeddedTestBench\3e11e252-0b63-4702-9e7c-925fb3f7f509\scratchpad\tti_raw.py", line 18, in <module>
+    dmm = Tti1604.connect(port)
+  File "U:\GitHub\EmbeddedTestBench\benchtools\instruments\tti1604\dmm.py", line 196, in connect
+    instrument.initialise()
+    ~~~~~~~~~~~~~~~~~~~~~^^
+  File "U:\GitHub\EmbeddedTestBench\benchtools\core\instrument.py", line 156, in initialise
+    self._post_open()
+    ~~~~~~~~~~~~~~~^^
+  File "U:\GitHub\EmbeddedTestBench\benchtools\instruments\tti1604\dmm.py", line 221, in _post_open
+    self.remote()
+    ~~~~~~~~~~~^^
+  File "U:\GitHub\EmbeddedTestBench\benchtools\instruments\tti1604\dmm.py", line 428, in remote
+    self._send_character(REMOTE)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "U:\GitHub\EmbeddedTestBench\benchtools\instruments\tti1604\dmm.py", line 369, in _send_character
+    raise InstrumentError(
+    ...<5 lines>...
+    )
+benchtools.core.errors.InstrumentError: the 1604 did not echo 'u' after 3 attempts. The meter is not taking commands: check that DTR is asserted and RTS is not, since they power its interface, that the converter drives them to about +9 V and -9 V, and that the cable is a straight-through 9-way with every pin connected.

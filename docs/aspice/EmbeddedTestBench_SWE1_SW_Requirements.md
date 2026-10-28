@@ -76,6 +76,7 @@
 | next | 2026-10-27 | Claude | #122: S2LP-FR-087 added - the simulated S2-LP kit receives the simulated Kepler sensor's VERSION and ALIVE frames, and only when it is set up for them. |
 | next | 2026-10-28 | Claude | #243: S2LP-FR-088 to S2LP-FR-092 (host-monotonic packet times and a `where` filter; intervals with bursts; a frame-type census; every copy of a transmission compared; distinct values per group, each over a window or a packet log) and BLE-FR-123 (link times on the same clock). |
 | next | 2026-10-28 | Claude | #274: BLE-FR-121 - the result and its event-log record give each link's effective ATT MTU and piece size, and the smallest over the transfer; unknown from a dongle that does not report them. |
+| next | 2026-10-28 | Claude | #181: DMM-FR-035 (a measurement waits past the blank frames of auto-ranging) and DMM-FR-036 (frequency with no signal reported, with how to recover; a key that brings no reading reported as that) added, from the TTi 1604 on the bench. |
 
 ---
 
@@ -809,6 +810,8 @@ review, in which case the reading is real but is not now.
 | DMM-FR-032 | Every wait for a reading shall allow for the meter's reading rate in the state it is in: 0.4 s per reading on most functions, one gate time - 1 s, or 10 s on the 4 kHz range - when measuring frequency. | STK-18 | Test |
 | DMM-FR-033 | Frequency shall be selectable only from an AC voltage or current function, which is the only state in which the meter accepts the Hz key, and its range shall be selectable by full scale. | STK-18 | Test |
 | DMM-FR-034 | Each measurement read shall be logged as a `reading` record (CORE-FR-065): its measurement, value and unit, AC or DC, the display's text and whether it was over range. | STK-18, STK-23 | Test |
+| DMM-FR-035 | A measurement taken on request shall not be a blank display. While it auto-ranges the meter sends frames with no digit lit - on an open input on ohms, six of them over 2.8 s before OFL (#181) - and the measurement shall wait past them, for up to the meter's ranging time; a display still blank by then shall be returned as it is, with no value and not as an overrange. | STK-18 | Test |
+| DMM-FR-036 | When the meter takes the Hz key and then sends no reading, the driver shall say that a 1604 measuring frequency with no signal sends nothing and ignores every key over the link until its front panel is used, and how to recover; every later call shall say the same within about a second, after listening for readings, until readings resume, rather than wait out its timeout or blame the handshake lines. Readings that go on showing another function are a refused key, not this state. A key that brings no reading at all shall be reported as that, not with the reading from before the key. | STK-18 | Test |
 | DMM-FR-026 | The echo shall be identified as the bytes left over once complete frames have been removed from the stream, not by searching the stream for the echoed character. Seven-segment digit patterns collide with the key characters exactly: `0x61` is both the Up key and the pattern for a `1` with its decimal point, so a scan for the character finds one inside an ordinary reading. | STK-18 | Test |
 
 ### 14.5 Simulation

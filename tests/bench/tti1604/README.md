@@ -15,7 +15,8 @@ set BENCHTOOLS_TTI1604=COM6 && python -m pytest tests/bench/tti1604 -v       # W
 BENCHTOOLS_TTI1604=sim:// python -m pytest tests/bench/tti1604 -v            # dry run
 ```
 
-About 45 s with the input open, most of it the 10 s frequency gate. A markdown
+About 15 s with the input open; 45 s with a frequency reference, most of it the
+10 s frequency gate. A markdown
 record of what the meter did is written to `tti1604_bench_findings.md` (or the
 path in `BENCHTOOLS_TTI1604_REPORT`); keep it with the bench confirmation items
 in `docs/dmm/TTi1604_Notes.md` §5.
@@ -33,16 +34,21 @@ in `docs/dmm/TTi1604_Notes.md` §5.
 | *(none)* | Nothing on the inputs | Everything except the four below; ohms with an open input must read OFL |
 | `BENCHTOOLS_TTI1604_DCV=3.300` | A known DC voltage (e.g. the GPD-3303D) across V/Ω and COM | `test_dc_voltage` |
 | `BENCHTOOLS_TTI1604_OHMS=4700` | A known resistor across V/Ω and COM, nothing else | `test_resistance` — settles DMM-OPEN-08 |
-| `BENCHTOOLS_TTI1604_HZ=1000` | A sine of known frequency, at least 2,000 counts on an AC volts range, across V/Ω and COM | `test_frequency` |
+| `BENCHTOOLS_TTI1604_HZ=1000` | A sine of known frequency, at least 2,000 counts on an AC volts range, across V/Ω and COM | `test_frequency`, `test_the_frequency_gate` |
 | `BENCHTOOLS_TTI1604_DCI=0.0123` | Leads in **mA and COM**, in series with a load drawing a known current (above 0.4 A: the **10 A** socket) | `test_dc_current` |
 | `BENCHTOOLS_TTI1604_TOLERANCE=0.005` | — | Relative tolerance for every comparison; 1% by default |
 
 The current test is the only one that selects a current function, and it runs
 only when `BENCHTOOLS_TTI1604_DCI` is set: a current function puts the meter's
 shunt across its input, which across a voltage source blows the fuse. The
-function tour selects AC and millivolt ranges and frequency, which is harmless
-on an open or low-voltage input; it never selects resistance, which drives a
-test current into whatever is connected.
+function tour selects AC and millivolt ranges, which is harmless on an open or
+low-voltage input; it never selects resistance, which drives a test current
+into whatever is connected.
+
+Nothing selects frequency without `BENCHTOOLS_TTI1604_HZ`. With no signal a
+1604 in Hz sends no reading and ignores every key over the link, remote
+included, until V is pressed on its front panel (#181, 2026-10-28). If a run
+leaves it showing Hz, press V.
 
 ## What each test settles
 

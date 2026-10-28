@@ -1,0 +1,5 @@
+after front-panel V: . (volts)
+select_dc: dc_volts
+auto: True
+measure: 0.0001 V
+left in local mode on DC volts, auto

@@ -55,7 +55,8 @@ class TestAFullRun:
         status, record = _run(check, tmp_path)
         assert status == 0
         assert [step["step"] for step in record["steps"]] == list(range(1, 13))
-        assert all(step["panel"].startswith("(not checked") for step in record["steps"])
+        assert all(step["panel"].startswith(("(not checked", "(skipped"))
+                   for step in record["steps"])
         assert record["identity"].startswith("Thurlby Thandar Instruments,1604")
         assert record["original"]["function"] == "dc_milliamps"
         assert meter.received
@@ -71,9 +72,25 @@ class TestAFullRun:
         assert by_step[5]["display"] == "0.000"
         assert by_step[6]["range"] == "1000 V"
         assert by_step[7]["auto"] is True
+        assert by_step[9] is None and by_step[10] is None     # no signal: skipped
+        assert by_step[11]["function"] == "dc_volts"
+
+    def test_without_a_signal_the_frequency_steps_are_skipped(self, check, meter, tmp_path):
+        """With no signal a real 1604 in Hz ignores the link (#181)."""
+        status, record = _run(check, tmp_path)
+        assert status == 0
+        assert [step["panel"] for step in record["steps"][8:10]] == [
+            "(skipped - no signal)"] * 2
+        assert "j" not in meter.received
+        assert record["signal"] is False
+
+    def test_with_a_signal_the_frequency_steps_are_taken(self, check, meter, tmp_path):
+        meter.set_value(1000.0)
+        status, record = _run(check, tmp_path, "--signal")
+        assert status == 0
+        by_step = {step["step"]: step["driver"] for step in record["steps"]}
         assert by_step[9]["function"] == "frequency" and by_step[9]["gate_10s"] is False
         assert by_step[10]["gate_10s"] is True
-        assert by_step[11]["function"] == "dc_volts"
 
     def test_open_circuit_resistance_reads_ofl(self, check, meter, tmp_path):
         meter.set_value(math.inf)
@@ -123,6 +140,6 @@ class TestTheMeterIsRestored:
 
         monkeypatch.setattr(Tti1604, "select_hertz", fail)
         with pytest.raises(RuntimeError):
-            _run(check, tmp_path)
+            _run(check, tmp_path, "--signal")
         assert meter.measurement_type == 2 and meter.ac is False
         assert meter.remote is False

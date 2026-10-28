@@ -81,6 +81,7 @@
 | next | 2026-10-27 | Claude | #122: row for S2LP-FR-087 (the simulated S2-LP kit receives the simulated Kepler sensor's frames); §16 count 454 in force, 455 declared. |
 | next | 2026-10-28 | Claude | #243: rows for S2LP-FR-088 .. S2LP-FR-092 (frame filters, intervals, census, copies, distinct values per group) and BLE-FR-123 (link times); §16 count 460 in force, 461 declared. |
 | next | 2026-10-28 | Claude | #274: BLE-FR-121 - `SWE4-UT-BLEDFU` now 47 tests, `SWE4-UT-BLESIM` `TestDfuPieces` (5) added, `test_dfu_client` 19 and `test_cmd_dfu` 8 (the ATT MTU and piece size each link allowed); BLE-NFR-006 - `SWE4-UT-FWUNIT` 192 cases. |
+| next | 2026-10-28 | Claude | #181: rows for DMM-FR-035 (blank frames while ranging) and DMM-FR-036 (frequency with no signal); STK-18 gains them; section 16 count 462 in force, 463 declared. |
 
 ---
 
@@ -132,7 +133,7 @@ It is checked mechanically by `tests/test_traceability.py` on every run of the s
 | STK-21 — local temperature with a Pico 2 and a DollaTek SHT30-D | PICO-FR-001, -003 … -005, -007, -010, -020 … -027, -030, -031, -040, -042, -043, -045 … -047, -050, -060, -061, -070 … -076; PICO-NFR-001 … -006; AD-24 (superseded by #131, see §16). PICO-FR-044 withdrawn (#131). |
 | STK-22 — firmware reports its title and version | PICO-FR-002, -005 … -007, -040, -041, -060, -061, -073, -075. Since #131 the "title" is the name reported by `rd name`, beside `rd copyright`, `rd version` and `rd sha`; `flash` checks the name, version and commit SHA of the image it installed (PICO-FR-073). |
 | STK-23 — watch and control a run (#130) | VIEW-FR-001 … -045; RUN-FR-066; S2LP-FR-080 … -084; CORE-FR-065; PSU-FR-044; PICO-FR-048; DMM-FR-034; RUN-FR-059 … -065; CORE-FR-064 |
-| STK-18 — RS-232 multimeter | DMM-FR-001 … -033, -045, -046, -070, -080, -081; DMM-NFR-001 … -004; CORE-FR-017, -061, -062. Implemented for the TTi 1604. No behaviour confirmed against a physical meter: `docs/dmm/TTi1604_Notes.md` §5. |
+| STK-18 — RS-232 multimeter | DMM-FR-001 … -033, -035, -036, -045, -046, -070, -080, -081; DMM-NFR-001 … -004; CORE-FR-017, -061, -062. Implemented for the TTi 1604. Confirmed against the bench meter: the link, stream and key echo, DC volts and its ranges (ETB-SYS5-002 §6.10), and OFL on open ohms and frequency with no signal (#181, 2026-10-28). Frequency with a signal and the gate times are not yet: `docs/dmm/TTi1604_Notes.md` §5. |
 
 ## 5. CORE requirements to design, code and test
 
@@ -544,6 +545,8 @@ where the firmware implements the requirement.
 | DMM-FR-032 | DMM-ARC-001 | DMM-DD-DMM, DMM-DD-CONST | `_patience`, `GATE_TIME` | `test_the_ten_second_gate_is_waited_for`; on hardware `test_the_frequency_gate` |
 | DMM-FR-033 | DMM-ARC-001 | DMM-DD-DMM | `select_hertz`, frequency branch of `set_range` | `test_hertz_needs_an_ac_range`, `test_the_ten_second_gate_is_waited_for` |
 | DMM-FR-034 | DMM-ARC-001 | DMM-DD-DMM | `Tti1604.read` | `test_the_meter_s_reading` |
+| DMM-FR-035 | DMM-ARC-001 | DMM-DD-DMM, DMM-DD-PROTO, DMM-DD-CONST | `measure`, `Reading.blank`, `RANGING_TIME` | `test_a_measurement_waits_past_the_blank_frames_of_ranging`, `test_a_display_still_blank_after_the_ranging_time_is_returned`; on hardware `test_an_open_input_on_ohms_is_an_overrange` |
+| DMM-FR-036 | DMM-ARC-001 | DMM-DD-DMM, DMM-DD-SIM | `select_hertz`, `_stalled_in_hertz`, `_check_stalled` (in `read`, `current_state`, `_send_character`), `STALL_CHECK`, `_take_frames`, `_await` | `test_frequency_with_no_signal_says_how_to_recover`, `test_after_recovery_another_fault_has_its_own_message`, `test_a_frame_in_flight_as_hz_is_pressed_is_not_a_refusal`, `test_two_frames_after_the_hz_key_are_a_refusal`, `test_a_refused_hz_key_names_what_the_readings_show`, `test_a_key_lost_to_a_meter_stuck_in_hertz_says_so`, `test_a_key_that_brings_no_reading_says_none_came`; on hardware `hz_no_signal_driver.txt` (#181); `SWE4-UT-DMMPANEL` `test_without_a_signal_the_frequency_steps_are_skipped` |
 | DMM-FR-045 | DMM-ARC-001 | DMM-DD-DMM, DMM-DD-SIM | `connect(simulated_value=...)` | `test_the_bench_can_say_what_the_simulated_meter_reads`; `specs/sensor_power_signal_and_link.yaml` against `benches/simulated_bench.yaml`; `SWE4-UT-FIVEINST` (8) |
 | DMM-FR-046 | DMM-ARC-001 | DMM-DD-SIM | `SimulatedTti1604`: `frame`, `_digit_bytes`, `_auto_range_code`, `poll_within`, `measurement_time` | `TestTheMeterAsTheManualDescribesIt` (11) |
 | DMM-FR-070 | DMM-ARC-001 | DMM-DD-CLI | `cli.py` | `test_cli.py` (8) |
@@ -746,7 +749,7 @@ tests in `tests/instruments/pico_sht30/`.
 
 | Question | Answer |
 |---|---|
-| Requirements with no verifying test | **None.** All 460 functional requirements in force (461 declared; PICO-FR-044 is withdrawn) and 36 non-functional requirements trace to at least one test, or to a recorded inspection where a test is not the appropriate method (CORE-NFR-002, BLE-FR-090, BLE-NFR-002, and part of CORE-NFR-001). The firmware requirements are verified against the artefact the firmware is built from, not against a running dongle: see CON-07. |
+| Requirements with no verifying test | **None.** All 462 functional requirements in force (463 declared; PICO-FR-044 is withdrawn) and 36 non-functional requirements trace to at least one test, or to a recorded inspection where a test is not the appropriate method (CORE-NFR-002, BLE-FR-090, BLE-NFR-002, and part of CORE-NFR-001). The firmware requirements are verified against the artefact the firmware is built from, not against a running dongle: see CON-07. |
 | Tests not tracing to a requirement | **None.** Every test file names its requirements in its module docstring. |
 | Source modules with no design unit | **None.** Every module names its design unit in its docstring - firmware sources included, checked by `test_every_source_declares_its_trace` in `SWE4-UT-BLEFW`; `__main__.py` is covered by RUN-DD-CLI. |
 | Design units with no source | **None.** |
