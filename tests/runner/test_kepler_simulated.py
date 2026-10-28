@@ -15,6 +15,7 @@ Traces to: BLE-FR-120, S2LP-FR-087, SWE4-UT-KEPLERSIM.
 from __future__ import annotations
 
 import pathlib
+import re
 
 import pytest
 
@@ -352,6 +353,73 @@ class TestBrokenRadioFactsAreNoticed:
         record = run("kepler_preamble.yaml", tmp_path,
                      only=("The default 32-pair preamble is restored and heard as 32 pairs",))
         assert measurement(record, "preamble_as_set").status is Status.FAIL
+
+
+#: Replies captured from 5C1712, in the two forms its firmware has used (#314):
+#: V11.00.0000 writes the unit straight after the number (2026-10-04
+#: qualification), V11.02.0000 develop puts a space before it (bench,
+#: 2026-10-28).
+CAPTURED_REPLIES = {
+    "RD BATTERY": ("ACK RD BATTERY = 2789mV", "ACK rd battery = 3307 mV"),
+    "RD BATTERY-LOADED": ("ACK RD BATTERY-LOADED = 2769mV",
+                          "ACK rd battery-loaded = 3293 mV"),
+    "RD TEMPERATURE": ("ACK RD TEMPERATURE = 21187mC", "ACK rd temperature = 21000 mC"),
+}
+
+
+@pytest.mark.parametrize("spec_name", SPECS)
+def test_every_reading_pattern_reads_both_reply_forms(spec_name):
+    """#314: a pattern written for one firmware's replies reads nothing from the other's."""
+    from benchtools.analysis.samples import extract_number  # pylint: disable=import-outside-toplevel
+
+    data = yaml.safe_load((ROOT / "specs" / spec_name).read_text())
+    checked = 0
+    for step in _all_steps(data):
+        arguments = step.get("with") or {}
+        if step.get("do") != "dongle.sample_command" or "pattern" not in arguments:
+            continue
+        for reply in CAPTURED_REPLIES[str(arguments["request"]).upper()]:
+            assert extract_number(reply, arguments["pattern"]) is not None, (reply, arguments)
+            checked += 1
+    assert checked or spec_name == "kepler_preamble.yaml"
+
+
+def answer_as_v11_02(monkeypatch) -> None:
+    """Make the simulated sensor answer as V11.02.0000 did on the bench (#314).
+
+    It echoes the command in lower case, puts a space before ``mV`` and
+    ``mC``, writes ``Sec`` for ``Secs``, and upper-cases the RD VERSION and
+    RD SHA values, while the VERSION frame keeps git's lower case:
+    ``ACK rd version = V11.02.0000-262-G8F547A592``, ``ACK rd battery = 3307
+    mV``, ``ACK wr alive-period 10 Sec``, ``ACK ecureset hard``.
+    """
+    model = kepler_sensor()
+    original = model.respond
+
+    def respond(request: str) -> str:
+        reply = original(request)
+        text = " ".join(request.split())
+        if not reply.startswith("ACK " + text):
+            return reply
+        rest = reply[len("ACK " + text):]
+        if text.upper() in ("RD VERSION", "RD SHA"):
+            rest = rest.upper()
+        rest = re.sub(r"(\d)(mV|mC)$", r"\1 \2", rest)
+        rest = re.sub(r" Secs$", " Sec", rest)
+        return "ACK " + text.lower() + rest
+
+    monkeypatch.setattr(model, "respond", respond)
+
+
+@pytest.mark.parametrize("spec_name", SPECS)
+def test_every_step_passes_on_v11_02_replies(spec_name, tmp_path, monkeypatch):
+    """#314: the specifications' text limits and patterns read the V11.02 replies."""
+    answer_as_v11_02(monkeypatch)
+    record = run(spec_name, tmp_path)
+    assert not record.setup_error, record.setup_error
+    failed = ["%s: %s %s %s" % (case.name, step.action, step.status, step.error)
+              for case, step in steps(record) if step.status is not Status.PASS]
+    assert not failed, "\n".join(failed)
 
 
 def test_a_frame_is_timed_from_the_link_closing(tmp_path):
