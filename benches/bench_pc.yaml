@@ -26,8 +26,9 @@ instruments:
       device: nRF52840_xxAA
       speed_khz: 4000
       core_clock_hz: 64000000
-      # A user-local install, not on PATH (see docs/jlink/JLink_Integration_Notes.md).
-      gdb_executable: C:/Users/dermot.murphy/tools/arm-gnu-toolchain-14.2/bin/arm-none-eabi-gdb.exe
+      # A user-local install on this bench PC, not on PATH (see
+      # docs/jlink/JLink_Integration_Notes.md). Another machine needs its own.
+      gdb_executable: &gdb C:/Users/dermot.murphy/tools/arm-gnu-toolchain-14.2/bin/arm-none-eabi-gdb.exe
 
   rtt:
     driver: jlink-rtt
@@ -38,7 +39,7 @@ instruments:
       device: nRF52840_xxAA
       speed_khz: 4000
       rtt_port: 19031
-      gdb_executable: C:/Users/dermot.murphy/tools/arm-gnu-toolchain-14.2/bin/arm-none-eabi-gdb.exe
+      gdb_executable: *gdb   # the probe's; jlink-rtt needs it to start, and never attaches
 
   dongle:
     driver: ble-dongle
