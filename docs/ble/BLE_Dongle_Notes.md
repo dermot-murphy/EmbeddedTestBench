@@ -75,7 +75,7 @@ Every event carries `t=`, microseconds on the dongle's clock.
 | `reset` | reset the dongle |
 | `dfu` | answer, then restart into the bootloader so the host can refresh the firmware |
 | `dfucp <hex> [timeout=<ms>]` | write a target's DFU Control Point, and answer with the response it notifies (`ok len= data=`); `err 8` when none came (protocol 1.7) |
-| `dfupkt <hex>` | write a target's DFU Packet characteristic; `err 7` when the GATT queue stayed full (protocol 1.7) |
+| `dfupkt <hex>` | write a target's DFU Packet characteristic, split into pieces of the link's ATT MTU less 3, and answer `ok len= piece= pieces=`: the piece size used and the pieces written (`piece=` and `pieces=` from protocol 1.8, #274); `err 7` when the GATT queue stayed full (protocol 1.7) |
 
 ### 2.2 Events
 
@@ -88,7 +88,7 @@ Every event carries `t=`, microseconds on the dongle's clock.
 | `+disc` | `t reason` — HCI reason code; `timeout` when the connect window closed; `cancelled` when `disconnect` stopped a connection being made (1.5) |
 | `+scan` | `t state` — `started` or `stopped` |
 | `+drop` | `t count` — lines the dongle could not send |
-| `+dfu` | `t state error` — the link's DFU service: `ready`, `incomplete`, `failed`, or `error` for a queued write that failed (1.7) |
+| `+dfu` | `t state error att_mtu` — the link's DFU service: `ready`, `incomplete`, `failed`, or `error` for a queued write that failed (1.7); `att_mtu` is the link's effective ATT MTU, 0 with no link (1.8, #274) |
 
 `+drop` is the important one. It is how the host knows its stream was lossy
 rather than the sensor quiet, and it is why `AdvertisingProfile.is_complete`
@@ -179,6 +179,18 @@ packets (it keeps 17 buffers, and without receipts data was lost). The link
 runs at 7.5 ms; at 30 ms the same package took 190.7 s. The DFU is a
 method of the dongle rather than a separate instrument: two instruments on one
 serial port could not both open it.
+
+The result also says what the links allowed (#274): `att_mtu`, from
+`+dfu state=ready`, and `piece_size`, from the `dfupkt` replies, each the
+smallest over the transfer, and `links`, one entry per image. Both are in the
+`ble_dfu` event-log record, and each image's ATT MTU is a session-log note.
+On 5C1712 both bootloaders linked at the minimum, an ATT MTU of 23 and 20-byte
+pieces, which #271 had to work out from the receipts: with a receipt every 8
+pieces they came every 160 bytes, or every 144 where a 4-byte tail piece fell
+in the window, and the 144-byte steps were first taken for losses. A dongle
+before protocol 1.8 reports neither; both are then None, and the transfer is
+unchanged. The dongle does not report a change of MTU after
+`+dfu state=ready`, so the piece size in each `dfupkt` reply is the one used.
 
 ## 3. Building and flashing
 

@@ -100,6 +100,7 @@ uint16_t	fake_dfu_last_length(void);
 uint32_t	fake_dfu_last_timeout_ms(void);
 uint32_t	fake_dfu_packets(void);
 void		fake_dfu_set_packet_result(uint32_t result);
+void		fake_dfu_set_att_mtu(uint16_t mtu);
 void		fake_dfu_reset(void);
 
 /* Each test's setUp resets the fakes that test links. There is deliberately no

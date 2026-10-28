@@ -7,7 +7,7 @@
  * (8EC90001-...), written with a response and answering by notification, and a
  * Packet characteristic (8EC90002-...), written without one. When discovery
  * finds them on a link, notifications are enabled on the Control Point and
- * @c +dfu state=ready is reported.
+ * @c +dfu state=ready is reported, with the link's effective ATT MTU.
  *
  * Traces to: BLE-FR-121, BLE-DD-DFU.
  */
@@ -45,6 +45,15 @@ uint32_t dfu_client_init(nrf_ble_gq_t * p_gatt_queue, nrf_ble_gatt_t * p_gatt);
 bool dfu_client_is_ready(void);
 
 /**
+ * @brief The effective ATT MTU of the DFU link; 0 when there is none.
+ *
+ * A Packet write is split into pieces of this less 3. On 5C1712 both Kepler
+ * bootloaders linked at 23, the minimum, which the host could only work out
+ * backwards from the receipts (#271, #274).
+ */
+uint16_t dfu_client_att_mtu(void);
+
+/**
  * @brief Write a Control Point request and wait for its response.
  *
  * @param[in]  p_data         Request bytes, opcode first.
@@ -63,10 +72,13 @@ uint32_t dfu_client_control(const uint8_t * p_data, uint16_t length, uint32_t ti
  * @brief Write to the Packet characteristic, waiting for a transmit buffer
  *        for up to @p timeout_ms.
  *
- * The bytes are split into writes the link can carry: its ATT MTU less 3. A
+ * The bytes are split into pieces the link can carry: its ATT MTU less 3. A
  * transfer can start before the MTU exchange has finished, on the 23-byte
  * default; a longer write was refused with NRF_ERROR_DATA_SIZE on the
  * bootloader of sensor 5C1712 (#244).
+ *
+ * @param[out] p_piece   The piece size used, in bytes.
+ * @param[out] p_pieces  Pieces written, including any written before a failure.
  *
  * @retval NRF_ERROR_INVALID_STATE  No DFU service on the link.
  * @retval NRF_ERROR_DATA_SIZE      Longer than DFU_CLIENT_MAX_WRITE.
@@ -77,7 +89,8 @@ uint32_t dfu_client_control(const uint8_t * p_data, uint16_t length, uint32_t ti
  * client waits for the bootloader's receipt after every that many packets,
  * counted from the last object created, before it writes more.
  */
-uint32_t dfu_client_packet(const uint8_t * p_data, uint16_t length, uint32_t timeout_ms);
+uint32_t dfu_client_packet(const uint8_t * p_data, uint16_t length, uint32_t timeout_ms,
+			   uint16_t * p_piece, uint16_t * p_pieces);
 
 /**
  * @brief Feed a BLE stack event to the client.

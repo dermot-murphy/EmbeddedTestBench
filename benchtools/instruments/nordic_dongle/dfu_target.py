@@ -44,6 +44,9 @@ class SimulatedBootloader:  # pylint: disable=too-many-instance-attributes
     :param refuse_recreate: Refuse with ``InvalidObject`` a data object
         created again before the last one was executed, as that bootloader
         did (#271).
+    :param att_mtu: The effective ATT MTU its link settles at. The simulated
+        dongle splits each Packet write into pieces of this less 3, and each
+        piece is one packet here, as on hardware (#274).
     """
 
     refuse_init: Optional[Tuple[int, Optional[int]]] = None
@@ -52,6 +55,7 @@ class SimulatedBootloader:  # pylint: disable=too-many-instance-attributes
     prn_supported: bool = False
     lose: Tuple[int, ...] = ()
     refuse_recreate: bool = False
+    att_mtu: int = 247
     #: Receipts sent and not yet taken by the simulated dongle.
     receipts: List[bytes] = field(default_factory=list)
     #: What arrived and was executed: init packets, and firmware images.

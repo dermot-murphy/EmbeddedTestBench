@@ -72,6 +72,8 @@ void cmd_dfu_packet(char * tokens[], uint32_t count)
 {
 	uint8_t		data[DFU_CLIENT_MAX_WRITE];
 	uint16_t	length = 0U;
+	uint16_t	piece  = 0U;
+	uint16_t	pieces = 0U;
 	uint32_t	error;
 
 	(void)count;
@@ -85,7 +87,7 @@ void cmd_dfu_packet(char * tokens[], uint32_t count)
 		cmd_dfu_refuse(PROTO_ERR_STATE);
 		return;
 	}
-	error = dfu_client_packet(data, length, CMD_DFU_PACKET_WAIT_MS);
+	error = dfu_client_packet(data, length, CMD_DFU_PACKET_WAIT_MS, &piece, &pieces);
 	if (error == NRF_ERROR_RESOURCES)
 	{
 		cmd_dfu_refuse(PROTO_ERR_BUSY);
@@ -101,5 +103,8 @@ void cmd_dfu_packet(char * tokens[], uint32_t count)
 		cmd_dfu_refuse(PROTO_ERR_BLE);
 		return;
 	}
-	(void)cdc_acm_send_format("ok len=%u", (unsigned)length);
+	/* The piece size is what the link allowed: without it, receipts every
+	 * 144 bytes were read as losses in #271 (protocol 1.8, #274). */
+	(void)cdc_acm_send_format("ok len=%u piece=%u pieces=%u", (unsigned)length,
+				  (unsigned)piece, (unsigned)pieces);
 }

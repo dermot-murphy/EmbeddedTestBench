@@ -204,7 +204,8 @@ DEFAULT_SENSORS: Tuple[SimulatedSensor, ...] = (
         name=KEPLER_5C1712_DFU_NAME,
         rssi=-84,
         interval_us=211_000,
-        bootloader=SimulatedBootloader(),
+        # Both of its bootloaders linked at the minimum ATT MTU, 23 (#271).
+        bootloader=SimulatedBootloader(att_mtu=23),
         present=_kepler_in_bootloader(KEPLER_5C1712_ID),
     ),
 )
@@ -227,9 +228,9 @@ class SimulatedDongle:
 
     #: The build the simulated dongle is running. A test that exercises the
     #: update path changes these, as flashing a real dongle would.
-    DEFAULT_FIRMWARE_VERSION = "1.7.0"
+    DEFAULT_FIRMWARE_VERSION = "1.8.0"
     DEFAULT_FIRMWARE_BUILT = "2026-09-13T12:00:00Z"
-    DEFAULT_PROTOCOL = "1.7"
+    DEFAULT_PROTOCOL = "1.8"
 
     def __init__(
         self,
@@ -620,7 +621,10 @@ class SimulatedDongle:
         )
         if sensor.bootloader is not None:
             self.clock_us += 5_000
-            self._queue.append("+dfu t=%d state=ready error=0x0" % self.clock_us)
+            # Protocol 1.8 adds the link's ATT MTU (#274).
+            mtu = (" att_mtu=%d" % sensor.bootloader.att_mtu
+                   if self._protocol_at_least(1, 8) else "")
+            self._queue.append("+dfu t=%d state=ready error=0x0%s" % (self.clock_us, mtu))
         elif sensor.connect_outcome == "ready":
             self.clock_us += 5_000
             self._queue.append(
@@ -773,14 +777,21 @@ class SimulatedDongle:
             data = bytes.fromhex(arguments[0])
         except ValueError:
             return [self._error(DongleError.TOO_LONG, "payload too long")]
-        target.packet(data)
-        self.clock_us += 7_500
+        # Split into pieces of the link's ATT MTU less 3, each one packet to
+        # the bootloader, as the firmware writes them (#274).
+        piece = target.att_mtu - 3
+        pieces = [data[start:start + piece] for start in range(0, len(data), piece)]
+        for each in pieces:
+            target.packet(each)
+        self.clock_us += 7_500 * len(pieces)
         # A receipt is a Control Point notification, reported as +rx before
         # the reply, as the dongle reports one that came while it waited.
         lines = ["+rx t=%d len=%d data=%s" % (self.clock_us, len(receipt), receipt.hex())
                  for receipt in target.receipts]
         target.receipts.clear()
-        return lines + ["ok len=%d" % len(data)]
+        if not self._protocol_at_least(1, 8):
+            return lines + ["ok len=%d" % len(data)]
+        return lines + ["ok len=%d piece=%d pieces=%d" % (len(data), piece, len(pieces))]
 
     def _cmd_adv(self, arguments: List[str]) -> List[str]:
         if not arguments:

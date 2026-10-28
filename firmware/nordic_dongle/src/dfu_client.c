@@ -88,16 +88,27 @@ static uint8_t			m_dfu_client_cccd_value[DFU_CLIENT_CCCD_LENGTH];
 static uint16_t			m_dfu_client_prn;
 static uint16_t			m_dfu_client_unreceipted;
 
+uint16_t dfu_client_att_mtu(void)
+{
+	if (m_dfu_client_conn == BLE_CONN_HANDLE_INVALID)
+	{
+		return 0U;
+	}
+	return nrf_ble_gatt_eff_mtu_get(m_dfu_client_gatt, m_dfu_client_conn);
+}
+
 /**
- * @brief Report the client's state to the host as a @c +dfu event.
+ * @brief Report the client's state to the host as a @c +dfu event, with the
+ *        link's effective ATT MTU (protocol 1.8, #274).
  */
 static void dfu_client_report(const char * p_state, uint32_t nrf_error)
 {
 	char time_text[TIMESTAMP_TEXT_SIZE];
 
-	(void)cdc_acm_send_format("+dfu t=%s state=%s error=0x%lx",
+	(void)cdc_acm_send_format("+dfu t=%s state=%s error=0x%lx att_mtu=%u",
 				  timestamp_format_us(timestamp_now_us(), time_text),
-				  p_state, (unsigned long)nrf_error);
+				  p_state, (unsigned long)nrf_error,
+				  (unsigned)dfu_client_att_mtu());
 }
 
 /**
@@ -421,13 +432,16 @@ static uint32_t dfu_client_packet_piece(const uint8_t * p_data, uint16_t length,
 	return error;
 }
 
-uint32_t dfu_client_packet(const uint8_t * p_data, uint16_t length, uint32_t timeout_ms)
+uint32_t dfu_client_packet(const uint8_t * p_data, uint16_t length, uint32_t timeout_ms,
+			   uint16_t * p_piece, uint16_t * p_pieces)
 {
 	uint64_t	deadline_us;
 	uint32_t	error = NRF_SUCCESS;
 	uint16_t	piece;
 	uint16_t	offset;
 
+	*p_piece  = 0U;
+	*p_pieces = 0U;
 	if (!m_dfu_client_ready)
 	{
 		return NRF_ERROR_INVALID_STATE;
@@ -437,8 +451,8 @@ uint32_t dfu_client_packet(const uint8_t * p_data, uint16_t length, uint32_t tim
 		return NRF_ERROR_DATA_SIZE;
 	}
 
-	piece = (uint16_t)(nrf_ble_gatt_eff_mtu_get(m_dfu_client_gatt, m_dfu_client_conn) -
-			   DFU_CLIENT_ATT_OVERHEAD);
+	piece = (uint16_t)(dfu_client_att_mtu() - DFU_CLIENT_ATT_OVERHEAD);
+	*p_piece = piece;
 	deadline_us = timestamp_now_us() + ((uint64_t)timeout_ms * DFU_CLIENT_US_PER_MS);
 	for (offset = 0U; (offset < length) && (error == NRF_SUCCESS); offset += piece)
 	{
@@ -453,6 +467,7 @@ uint32_t dfu_client_packet(const uint8_t * p_data, uint16_t length, uint32_t tim
 		{
 			break;
 		}
+		(*p_pieces)++;
 		m_dfu_client_unreceipted++;
 		if ((m_dfu_client_prn != 0U) && (m_dfu_client_unreceipted >= m_dfu_client_prn))
 		{

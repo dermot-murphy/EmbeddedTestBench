@@ -12,6 +12,7 @@ from __future__ import annotations
 
 
 from benchtools.instruments.nordic_dongle.constants import DongleError
+from benchtools.instruments.nordic_dongle.dfu_target import SimulatedBootloader
 from benchtools.instruments.nordic_dongle.protocol import parse_line
 from benchtools.instruments.nordic_dongle.simulator import (
     DEFAULT_SENSORS,
@@ -250,6 +251,50 @@ class TestCustomPopulation:
         # 5C1712 in its bootloader: on the air only after SESSION SWDL (#244).
         assert DEFAULT_SENSORS[4].address == "D1:8D:3B:4C:19:97"
         assert DEFAULT_SENSORS[4].bootloader is not None
+
+
+class TestDfuPieces:
+    """The Packet write split to the link's ATT MTU, and reported (#274)."""
+
+    @staticmethod
+    def linked(att_mtu: int, protocol: str = "1.8"):
+        sensor = SimulatedSensor(address="11:22:33:44:55:77", name="BOOT-DFU",
+                                 interval_us=20_000,
+                                 bootloader=SimulatedBootloader(att_mtu=att_mtu))
+        simulator = SimulatedDongle(sensors=(sensor,))
+        simulator.protocol = protocol
+        send(simulator, "connect 11:22:33:44:55:77")
+        # The simulator keeps a copy of each sensor, not the one given.
+        return simulator, simulator.sensors[0].bootloader
+
+    def test_ready_reports_the_att_mtu(self):
+        simulator, _ = self.linked(23)
+        events = [item for item in send(simulator, "time") if getattr(item, "name", "") == "dfu"]
+        assert events and events[0].get("state") == "ready"
+        assert events[0].get("att_mtu") == "23"
+
+    def test_a_write_is_split_into_pieces_and_reported(self):
+        simulator, target = self.linked(23)
+        reply = reply_of(send(simulator, "dfupkt " + "aa" * 244))
+        assert reply.ok
+        assert (reply.fields["len"], reply.fields["piece"], reply.fields["pieces"]) == (
+            "244", "20", "13")
+        assert target.packets == 13
+
+    def test_at_the_largest_mtu_a_full_write_is_one_piece(self):
+        simulator, target = self.linked(247)
+        reply = reply_of(send(simulator, "dfupkt " + "aa" * 244))
+        assert (reply.fields["piece"], reply.fields["pieces"]) == ("244", "1")
+        assert target.packets == 1
+
+    def test_protocol_1_7_reports_neither(self):
+        simulator, target = self.linked(23, protocol="1.7")
+        lines = send(simulator, "dfupkt " + "aa" * 40)
+        ready = [item for item in lines if getattr(item, "name", "") == "dfu"]
+        assert ready and "att_mtu" not in ready[0].fields
+        reply = reply_of(lines)
+        assert reply.ok and set(reply.fields) == {"len"}
+        assert target.packets == 2                 # still split, as the 1.7 firmware does
 
 
 class TestTheDefaultPopulationIsNotShared:
