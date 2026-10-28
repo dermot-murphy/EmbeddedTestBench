@@ -359,12 +359,58 @@ class TestFrequency:
             assert simulator.flags["hertz"] is True
             # Every later call says the same at once, not 22 s of silence
             # blamed on the handshake lines.
-            for call in (dmm.select_volts, dmm.read, dmm.current_state):
+            for call in (dmm.select_volts, dmm.read, dmm.current_state, dmm.select_hertz,
+                         dmm.select_auto_range, lambda: dmm.set_range(4)):
+                before = simulator.clock
                 with pytest.raises(InstrumentError, match="front panel") as caught:
                     call()
                 assert "DTR" not in str(caught.value)
+                assert simulator.clock - before <= 1.5
             simulator.press_front_panel("volts")
             assert dmm.select_dc().function == "dc_volts"
+
+    def test_after_recovery_another_fault_has_its_own_message(self):
+        """The stuck state ends with the first frame, however it is taken in."""
+        simulator = SimulatedTti1604(value=0.0, ac=True)
+        with driver(simulator) as dmm:
+            with pytest.raises(InstrumentError):
+                dmm.select_hertz()
+            simulator.press_front_panel("volts")
+            assert dmm.read().function == "ac_volts"
+            simulator.operating = False
+            with pytest.raises(InstrumentError, match="Operate") as caught:
+                dmm.read(timeout=0.5)
+            assert "front panel to recover" not in str(caught.value)
+
+    def test_a_frame_in_flight_as_hz_is_pressed_is_not_a_refusal(self):
+        """One frame measured before the key, then nothing: still no signal."""
+        simulator = SimulatedTti1604(value=0.0, ac=True)
+        with driver(simulator) as dmm:
+            dmm.current_state()
+            original = simulator.respond
+            in_flight = []
+
+            def respond(message):
+                echo = original(message)
+                if message == KEYS["hertz"].encode("ascii") and not in_flight:
+                    flags, simulator.flags = simulator.flags, dict(simulator.flags, hertz=False)
+                    in_flight.append(simulator.frame())
+                    simulator.flags = flags
+                    return (echo or b"") + in_flight[0]
+                return echo
+
+            simulator.respond = respond
+            with pytest.raises(InstrumentError, match="probably measuring frequency"):
+                dmm.select_hertz()
+
+    def test_a_refused_hz_key_names_what_the_readings_show(self):
+        """Readings that go on in AC volts are a refusal, not a stuck meter."""
+        simulator = SimulatedTti1604(value=0.0, ac=True)
+        with driver(simulator) as dmm:
+            simulator.ignore_keys = True              # echoed, not acted on
+            with pytest.raises(InstrumentError, match="readings show ac_volts") as caught:
+                dmm.select_hertz()
+            assert "front panel to recover" not in str(caught.value)
 
     def test_a_key_lost_to_a_meter_stuck_in_hertz_says_so(self):
         """Stuck in Hz before this driver connected: it cannot know, so the

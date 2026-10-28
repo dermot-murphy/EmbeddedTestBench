@@ -2602,11 +2602,14 @@ Design points added by #181, from the meter on the bench (2026-10-28):
 - **Frequency with no signal** (DMM-FR-036). With an open input the meter
   echoed the Hz key and then sent no frame for 30 s, though its display kept
   measuring; it ignored every key sent over the link, Hz and remote included,
-  until V was pressed on its front panel. `select_hertz` treats an echo with
-  no reading after it as that state: it sets `_silent_in_hertz` and raises
-  `_stalled_in_hertz()`, which says how to recover. While it is set,
-  `_silence` and an unechoed key raise the same at once; the first frame
-  received clears it. An unechoed key also names Hz as a possible cause, for a
+  until V was pressed on its front panel. `select_hertz` treats an echo
+  followed by no frame, or only the one in flight as the key went, as that
+  state; more frames showing another function are a refused key. It sets
+  `_silent_in_hertz` and raises `_stalled_in_hertz()`, which says how to
+  recover. While it is set, `_check_stalled` - at the start of `read`,
+  `current_state`, `_await` and each key - listens for `STALL_CHECK` (1 s)
+  and raises the same; `_take_frames`, the one place frames are decoded,
+  clears it on the first frame. An unechoed key also names Hz as a possible cause, for a
   meter left in it before the driver connected.
 - **No reading is not the last reading.** `_await` reports "no reading
   arrived" when none did. It used to report the reading from before the key as

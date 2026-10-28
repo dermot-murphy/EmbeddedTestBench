@@ -79,7 +79,7 @@
 | next | 2026-10-28 | Claude | #314: SWE4-UT-KEPLERSIM 123 → 131, pass, from a run of `test_kepler_simulated.py` and `test_simulated_air.py` on this branch on 2026-10-28 (131 passed). The §5 total is still the 1.32 whole-suite run's. |
 | next | 2026-10-28 | Claude | #243: SWE4-UT-S2LPMEASURES added, 77, pass; SWE4-UT-BLE 116 → 121 and SWE4-UT-KEPLERSIM 131 → 132 (after #314), pass, from runs of `test_frame_measures.py` (77 passed), `test_dongle.py` (121 passed) and `test_kepler_simulated.py` with `test_simulated_air.py` (132 passed) on this branch on 2026-10-28. The §5 total is still the 1.32 whole-suite run's. |
 | next | 2026-10-28 | Claude | #274: SWE4-UT-BLEDFU 40 → 47 and SWE4-UT-BLESIM 30 → 35, pass, from a run of `tests/instruments/nordic_dongle` on this branch on 2026-10-28; SWE4-UT-FWUNIT 189 → 192, pass (CTest, 8 binaries, bench PC). The §5 total is still the 1.32 whole-suite run's. BLE-OPEN-05 (BENCHTOOLS-BLE-001 §5.3) closed on hardware on 2026-10-28: through bootloader V1.01.0000 and V2.00.0000 on 5C1712, dongle 1.8.0 reported an ATT MTU of 23 and 20-byte pieces, PASS (`docs/aspice/qualification/2026-10-28/274_dfu_piece_mtu/`). |
-| next | 2026-10-28 | Claude | #181: SWE4-UT-DMM 34 → 39 and SWE4-UT-DMMPANEL 7 → 9, pass, from a run of `tests/instruments/tti1604` on this branch on 2026-10-28. SWE4-UT-DMMBENCH run on the real TTi 1604 (COM13, FTDI A9LQ0R81A, inputs open) on 2026-10-28: 9 passed, 5 skipped (no reference wired), 0 failed, against 6 passed and 4 failed in QS-09; evidence in `docs/aspice/qualification/2026-10-28/181_tti1604/`. The section 5 total is still the 1.32 whole-suite run's. |
+| next | 2026-10-28 | Claude | #181: SWE4-UT-DMM 34 → 42 and SWE4-UT-DMMPANEL 7 → 9, pass, from a run of `tests/instruments/tti1604` on this branch on 2026-10-28. SWE4-UT-DMMBENCH run on the real TTi 1604 (COM13, FTDI A9LQ0R81A, inputs open) on 2026-10-28: 9 passed, 5 skipped (no reference wired), 0 failed, against 6 passed and 4 failed in QS-09; evidence in `docs/aspice/qualification/2026-10-28/181_tti1604/`. The section 5 total is still the 1.32 whole-suite run's. |
 
 ---
 
@@ -324,7 +324,7 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-PSUCLI | `instruments/gpd3303d/test_cli.py` | 23 | Pass |
 | SWE4-UT-PSUPANEL | `instruments/gpd3303d/test_front_panel_check.py` | 4 | Pass |
 | SWE4-UT-DMMPROTO | `instruments/tti1604/test_protocol.py` | 56 | Pass |
-| SWE4-UT-DMM | `instruments/tti1604/test_dmm.py` | 39 | Pass |
+| SWE4-UT-DMM | `instruments/tti1604/test_dmm.py` | 42 | Pass |
 | SWE4-UT-DMMSIM | `instruments/tti1604/test_simulator.py` | 28 | Pass |
 | SWE4-UT-DMMPANEL | `instruments/tti1604/test_front_panel_check.py` | 9 | Pass |
 | SWE4-UT-DMMCLI | `instruments/tti1604/test_cli.py` | 8 | Pass |
