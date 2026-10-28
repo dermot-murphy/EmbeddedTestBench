@@ -1,0 +1,5 @@
+setup select_volts -> . (volts)
+setup select_ac -> . (volts)
+before: 0.946 V AC raw=0d 1a c8 80 fd e6 66 be 00 06
+t=0.000 wrote 'j' (hertz)
+left 6a

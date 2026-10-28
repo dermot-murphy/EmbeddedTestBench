@@ -112,6 +112,23 @@ meter acted on the key. Resending a toggle then undoes it, and the echo of the
 resend says all is well. A key the meter refuses with a beep (Hz on a DC range)
 is echoed all the same.
 
+### 3.2 Frequency with no signal stops the link (#181)
+
+Seen on the bench on 2026-10-28, inputs open. On AC volts the Hz key was echoed
+and the display lit AC, V and Hz and kept counting (`0004x`, the last digit
+between 0 and 6), but the meter sent **no frame** for 30 s. Every key sent over
+the link after that - V, Hz, even remote - was neither echoed nor acted on,
+across a reconnect. Pressing V on the front panel returned it to AC volts,
+auto-ranging, and the stream resumed. Captures in
+`docs/aspice/qualification/2026-10-28/181_tti1604/raw/`.
+
+So a frequency measurement needs a signal on the input before Hz is selected.
+The driver cannot leave Hz over the link: when the Hz key is echoed and no
+reading follows, `select_hertz` says so and asks for V on the front panel, and
+every later call says the same at once until a frame arrives (DMM-FR-036). The
+QS-09 message "readings show ac_volts" was the reading from *before* the key;
+the meter had switched.
+
 So the driver uses the echo only to pace keys. Every `select_*`,
 `select_auto_range` and `set_range` call then waits for a *reading* that shows
 the state asked for, and raises naming what the readings show if none does
@@ -203,23 +220,33 @@ after (AD-26).
 The driver sets the serial timeout to a fixed short poll once and never varies
 it: pyserial on Windows loses bytes whenever the timeout changes (LL-07).
 
+### 4.5 Auto-ranging sends blank frames (#181)
+
+Selecting ohms with the input open, the meter sent one frame per range, 0 to 5,
+each with a blank display - only a decimal point - over 2.8 s, and then 0FL on
+the 40 MΩ range (`0d 55 c8 00 00 fc 8e 1c 01 04`), which the front panel showed
+as OFL. A blank frame is neither a value nor an overrange; `measure()` reads on
+past them for up to 6 s (DMM-FR-035). The first frame after entering remote can
+be blank for the same reason.
+
 ---
 
 ## 5. Not confirmed
 
-Nothing below has been checked against a physical 1604. The driver has been run
+Unless its row says it was answered on the bench, nothing below has been
+checked against a physical 1604. The driver has been run
 against its own simulator and over a serial loopback, which cannot
 independently confirm any of it (ETB-RISK-001). The bench test and the
 front-panel check (§6.3, §6.4) exist to close these.
 
 | ID | Open item | How to settle it |
 |---|---|---|
-| DMM-OPEN-01 | The segment patterns for characters beyond the ten digits and the letters listed, and whether a NUL follows each frame (the note calls the frame "null-terminated"). An unlisted pattern decodes to `?`; a NUL is ignored. | **Partly answered 2026-10-04** (ETB-SYS5-002 §6.10): frames are 10 bytes between carriage returns, with **no** NUL after them. The overrange pattern is still unknown: an open input on ohms decoded as a blank `.` (#181) |
+| DMM-OPEN-01 | The segment patterns for characters beyond the ten digits and the letters listed, and whether a NUL follows each frame (the note calls the frame "null-terminated"). An unlisted pattern decodes to `?`; a NUL is ignored. | **Partly answered 2026-10-04** (ETB-SYS5-002 §6.10): frames are 10 bytes between carriage returns, with **no** NUL after them. **Overrange answered 2026-10-28** (#181): 0FL is `fc 8e 1c` on the last three digits, as decoded, and the panel showed OFL; the blank `.` of QS-09 was the meter auto-ranging (§4.5). Other letters are still unseen |
 | DMM-OPEN-02 | The reading format in continuity and diode-test modes. Continuity is assumed to read ohms and diode test to read volts; neither is stated in the sources. | Select each by hand, then `benchtools dmm read` |
 | DMM-OPEN-03 | The echo's timing relative to the measurement stream, and whether an echo can arrive inside a frame. The driver tolerates either: a split frame fails validation and is passed over, and the key is confirmed from the readings anyway. | The bench test's raw-stream record during key presses |
 | DMM-OPEN-04 | Whether a range or function change emits one frame taken under the previous setting. `measure()` discards a frame on that assumption; if it is wrong, the discard costs 400 ms and nothing else. | The bench test's function tour timings |
 | DMM-OPEN-05 | Whether the keys still work from the front panel in remote mode, whether there is a remote indicator, and the SHIFT combinations (Null, Hold, T-Hold, Min-Max, continuity, diode), which the note does not map. | Front-panel check, steps 1 and 12 |
-| DMM-OPEN-06 | The frequency gate times. The manual's text gives the 4 kHz range the 10 s gate; its specification table has the gate times the other way round. The driver follows the text and waits long enough for either. | Bench test `test_the_frequency_gate`; front-panel check steps 9 and 10 |
+| DMM-OPEN-06 | The frequency gate times. The manual's text gives the 4 kHz range the 10 s gate; its specification table has the gate times the other way round. The driver follows the text and waits long enough for either. | Needs a signal (§3.2): bench test `test_the_frequency_gate` with `BENCHTOOLS_TTI1604_HZ`; front-panel check steps 9 and 10 with `--signal`. Still open: no signal source on the bench (2026-10-28) |
 | DMM-OPEN-07 | Whether the bench's USB-to-RS-232 converter drives DTR and RTS far enough to power the interface (§2.2). | **Closed 2026-10-04** (ETB-SYS5-002 §6.10): with FTDI converter A9LQ0R81A, `test_keys_are_acknowledged_promptly` passed |
 | DMM-OPEN-08 | Which display convention the meter uses on each resistance range. The driver derives the multiplier and so reads right either way; this records which it is. | Bench test `test_resistance` with a known resistor, which records the display |
 
@@ -277,8 +304,9 @@ BENCHTOOLS_TTI1604=/dev/ttyUSB0 python -m pytest tests/bench/tti1604 -v
 
 With the inputs open it checks the link, key echo, the raw stream and reading
 rate, every frame decoding, the functions safe on an open input, every DC
-voltage range, the frequency gate, OFL on open-circuit ohms, and local and
-remote. Naming one wired reference — `BENCHTOOLS_TTI1604_DCV`, `_OHMS`, `_HZ`,
+voltage range, OFL on open-circuit ohms, and local and remote. It selects
+frequency only with `_HZ` named, since with no signal the meter then ignores
+the link (section 3.2). Naming one wired reference — `BENCHTOOLS_TTI1604_DCV`, `_OHMS`, `_HZ`,
 or `_DCI`, the only one that selects a current function — adds a measurement
 against it. It writes `tti1604_bench_findings.md`, the record to attach when
 closing DMM-OPEN items. See `tests/bench/tti1604/README.md`.

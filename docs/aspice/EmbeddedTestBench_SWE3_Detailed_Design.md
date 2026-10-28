@@ -82,6 +82,7 @@
 | next | 2026-10-27 | Claude | #122: BLE-DD-SIMWORLD - the air and its clock; BLE-DD-KEPLERSIM - the sensor's radio, its frames, its transmitter settings and the open items; S2LP-DD-SIM - receiving the simulated sensor only when set up for it. |
 | next | 2026-10-28 | Claude | #243: ANA-DD-FRAMES and S2LP-DD-MEASURES added (ANA count 4 → 5, S2LP 13 → 14, total 77 → 79); ANA-DD-SAMPLES - `instants`; S2LP-DD-PACKETS - `monotonic_s`; S2LP-DD-TRAFFIC - `where` and the frame's `monotonic_s`; S2LP-DD-S2LP - `FrameMeasuresMixin`; BLE-DD-SESSION - event `monotonic_s` and `last_disconnect_s`; BLE-DD-DONGLE - `link_times`; S2LP-DD-KEPLER - the `frame_positions` hook. |
 | next | 2026-10-28 | Claude | #274: BLE-DD-DFU - `dfupkt` answers with `piece=`, `pieces=` and `att_mtu=`, every `+dfu` carries `att_mtu=` (`dfu_client_att_mtu`); protocol 1.8, firmware 1.8.0. BLE-DD-DFUHOST - `DfuResult.att_mtu`, `piece_size` and `links`, in the `ble_dfu` record and a session note per image; None from a 1.7 dongle. BLE-DD-DFUSIM - `SimulatedBootloader.att_mtu`, each `dfupkt` split into pieces of it less 3; 5C1712's at 23. |
+| next | 2026-10-28 | Claude | #181: DMM-DD-DMM - blank frames while ranging (`Reading.blank`, `RANGING_TIME`, `measure`), frequency with no signal (`_silent_in_hertz`, `_stalled_in_hertz`), and `_await` reports no reading as none; DMM-DD-SIM - `stalled`, `press_front_panel`, `ranging_frames`. |
 
 ---
 
@@ -2589,6 +2590,29 @@ Design points added by #115:
   and the echo buffer is cleared before each key is sent, since nothing
   received before the write can be its echo.
 
+Design points added by #181, from the meter on the bench (2026-10-28):
+
+- **Blank frames while ranging** (DMM-FR-035). Selecting ohms on an open
+  input, the meter stepped through its six ranges with a blank display - a
+  decimal point and no digit - for 2.8 s, then showed 0FL (`fc 8e 1c`).
+  `Reading.blank` names such a frame; `measure` reads on past blank frames for
+  up to `RANGING_TIME` (6 s) and returns a display still blank by then as it
+  is. A single frame read too early was why open-circuit ohms looked like no
+  overrange in QS-09.
+- **Frequency with no signal** (DMM-FR-036). With an open input the meter
+  echoed the Hz key and then sent no frame for 30 s, though its display kept
+  measuring; it ignored every key sent over the link, Hz and remote included,
+  until V was pressed on its front panel. `select_hertz` treats an echo with
+  no reading after it as that state: it sets `_silent_in_hertz` and raises
+  `_stalled_in_hertz()`, which says how to recover. While it is set,
+  `_silence` and an unechoed key raise the same at once; the first frame
+  received clears it. An unechoed key also names Hz as a possible cause, for a
+  meter left in it before the driver connected.
+- **No reading is not the last reading.** `_await` reports "no reading
+  arrived" when none did. It used to report the reading from before the key as
+  if it were the meter's state, which is how QS-09's "readings show ac_volts"
+  hid a meter that had in fact switched to Hz.
+
 `read` logs each measurement with `log_reading`: its measurement as the quantity, value, unit, AC, display text and over range; a reading with no value (over range) is not logged as a number (DMM-FR-034).
 
 #### DMM-DD-SIM — `simulator.py`
@@ -2607,6 +2631,12 @@ gate measuring frequency, restarted by a key that changes what is measured.
 `poll_within(timeout)` delivers only what is due in time (CORE-FR-062), so a
 driver wait shorter than the meter's fails here. Fault injection:
 `drop_keys`, `ignore_keys`, `garbage`.
+
+Since #181, frequency with a value of 0 - no signal - is `stalled`: no frames,
+and every key over the link ignored, echo included, as the bench meter did.
+`press_front_panel(key)` is the operator's key, which works regardless.
+`ranging_frames` (0 by default) blank frames follow each change of function
+while auto-ranging.
 
 #### DMM-DD-CLI — `cli.py`
 

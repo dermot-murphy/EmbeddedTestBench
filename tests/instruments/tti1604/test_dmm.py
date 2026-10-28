@@ -5,7 +5,7 @@ interface left unpowered by the handshake lines, a meter that was never put
 into remote mode, a dropped keystroke that leaves it measuring something else,
 and a reading taken from a frozen display.
 
-Traces to: DMM-FR-001 .. DMM-FR-033, DMM-FR-045, SWE4-UT-DMM.
+Traces to: DMM-FR-001 .. DMM-FR-036, DMM-FR-045, SWE4-UT-DMM.
 """
 
 from __future__ import annotations
@@ -180,6 +180,24 @@ class TestReading:
             dmm.select_milliamps()
             assert dmm.read().value == pytest.approx(0.0214)
 
+    def test_a_measurement_waits_past_the_blank_frames_of_ranging(self):
+        """Ohms on an open input: six blank frames, then 0FL (#181)."""
+        simulator = SimulatedTti1604(value=float("inf"))
+        simulator.ranging_frames = 6
+        with driver(simulator) as dmm:
+            dmm.select_ohms()
+            reading = dmm.measure()
+        assert reading.overrange is True and reading.value is None
+        assert not reading.blank
+
+    def test_a_display_still_blank_after_the_ranging_time_is_returned(self):
+        simulator = SimulatedTti1604(value=float("inf"))
+        simulator.ranging_frames = 1000
+        with driver(simulator) as dmm:
+            dmm.select_ohms()
+            reading = dmm.measure()
+        assert reading.blank and reading.value is None and not reading.overrange
+
     def test_a_held_reading_is_flagged_rather_than_hidden(self):
         simulator = SimulatedTti1604(value=1.0)
         simulator.status["hold"] = True
@@ -331,6 +349,40 @@ class TestFrequency:
         with driver() as dmm:
             with pytest.raises(InstrumentError, match="AC volts or AC current"):
                 dmm.select_hertz()
+
+    def test_frequency_with_no_signal_says_how_to_recover(self):
+        """A real 1604 took Hz, then sent nothing and ignored the link (#181)."""
+        simulator = SimulatedTti1604(value=0.0, ac=True)
+        with driver(simulator) as dmm:
+            with pytest.raises(InstrumentError, match="Press V on its front panel"):
+                dmm.select_hertz()
+            assert simulator.flags["hertz"] is True
+            # Every later call says the same at once, not 22 s of silence
+            # blamed on the handshake lines.
+            for call in (dmm.select_volts, dmm.read, dmm.current_state):
+                with pytest.raises(InstrumentError, match="front panel") as caught:
+                    call()
+                assert "DTR" not in str(caught.value)
+            simulator.press_front_panel("volts")
+            assert dmm.select_dc().function == "dc_volts"
+
+    def test_a_key_lost_to_a_meter_stuck_in_hertz_says_so(self):
+        """Stuck in Hz before this driver connected: it cannot know, so the
+        unechoed-key message names Hz as well as the handshake lines."""
+        simulator = SimulatedTti1604(value=0.0, ac=True)
+        simulator.flags["hertz"] = True
+        with pytest.raises(InstrumentError, match="If it shows Hz") as caught:
+            driver(simulator)
+        assert "DTR" in str(caught.value)
+
+    def test_a_key_that_brings_no_reading_says_none_came(self):
+        """Not the reading from before the key, as if it were the state now (#181)."""
+        simulator = SimulatedTti1604(value=1.0)
+        with driver(simulator) as dmm:
+            dmm.read()
+            simulator.operating = False
+            with pytest.raises(InstrumentError, match="no reading arrived"):
+                dmm.select_ohms()
 
     def test_the_ten_second_gate_is_waited_for(self):
         # The 4 kHz range reads once every 10 s. Waits sized for 2.5 readings

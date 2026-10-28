@@ -69,6 +69,7 @@ from ...core.transport.base import Transport
 from ...core.transport.factory import open_transport
 from .constants import (
     CONFIRM_TIMEOUT,
+    RANGING_TIME,
     DEFAULT_BAUDRATE,
     DTR_ASSERTED,
     ECHO_TIMEOUT,
@@ -137,6 +138,9 @@ class Tti1604(ScpiInstrument):  # pylint: disable=too-many-public-methods,too-ma
         self._echoes = bytearray()
         self._remote = False
         self._last: Optional[Reading] = None
+        #: Set when Hz was taken and no reading followed: the meter then
+        #: ignores the link until its front panel is used (#181).
+        self._silent_in_hertz = False
         self._clock = clock if clock is not None else self._default_clock(transport)
         self._virtual = clock is None and self._clock is not time.monotonic
 
@@ -273,6 +277,8 @@ class Tti1604(ScpiInstrument):  # pylint: disable=too-many-public-methods,too-ma
         self._frames.feed(data)
         for frame in self._frames.frames():
             self._ready.append(decode(frame))
+            # Readings again: someone pressed a key on the front panel.
+            self._silent_in_hertz = False
         self._echoes.extend(self._frames.residue())
         return True
 
@@ -366,9 +372,13 @@ class Tti1604(ScpiInstrument):  # pylint: disable=too-many-public-methods,too-ma
                 if not self._receive(deadline) and self._clock() >= deadline:
                     break
             self._logger.debug("1604 did not echo %r (attempt %d)", character, attempt + 1)
+        if self._silent_in_hertz:
+            raise self._stalled_in_hertz()
         raise InstrumentError(
             "the 1604 did not echo %r after %d attempts. The meter is not "
-            "taking commands: check that DTR is asserted and RTS is not, since "
+            "taking commands. If it shows Hz, it is measuring frequency with no "
+            "signal, and then it ignores the link (#181): press V on its front "
+            "panel. Otherwise check that DTR is asserted and RTS is not, since "
             "they power its interface, that the converter drives them to about "
             "+9 V and -9 V, and that the cable is a straight-through 9-way with "
             "every pin connected." % (character, retries + 1)
@@ -399,7 +409,7 @@ class Tti1604(ScpiInstrument):  # pylint: disable=too-many-public-methods,too-ma
         """
         allowed = max(CONFIRM_TIMEOUT, self._patience()) if timeout is None else timeout
         deadline = self._clock() + allowed
-        latest = self._last
+        latest = None  # type: Optional[Reading]
         while self._clock() < deadline:
             reading = self._next_frame(deadline - self._clock())
             if reading is None:
@@ -407,13 +417,19 @@ class Tti1604(ScpiInstrument):  # pylint: disable=too-many-public-methods,too-ma
             latest = reading
             if condition(reading):
                 return reading
-        shown = "nothing" if latest is None else "%s on the %s range, %s" % (
-            latest.function, latest.range_label or latest.range_description,
-            "auto" if latest.flags.get("auto_range") else "manual")
+        if latest is None:
+            # Not the last reading from before the key, which until #181 was
+            # reported as if it were the meter's state now.
+            raise InstrumentError(
+                "asked the 1604 for %s, but no reading arrived within %.1f s"
+                % (description, allowed))
         raise InstrumentError(
-            "asked the 1604 for %s, but within %.1f s its readings show %s. A key "
-            "may have been refused (the meter beeps) or the front panel may be "
-            "in use." % (description, allowed, shown)
+            "asked the 1604 for %s, but within %.1f s its readings show %s on the "
+            "%s range, %s. A key may have been refused (the meter beeps) or the "
+            "front panel may be in use."
+            % (description, allowed, latest.function,
+               latest.range_label or latest.range_description,
+               "auto" if latest.flags.get("auto_range") else "manual")
         )
 
     def _confirming(self) -> bool:
@@ -512,10 +528,28 @@ class Tti1604(ScpiInstrument):  # pylint: disable=too-many-public-methods,too-ma
                 "is on %s" % state.function
             )
         self.press("hertz")
-        return self._await(
-            "frequency",
-            lambda reading: bool(reading.flags.get("hertz")),
-            timeout=CONFIRM_TIMEOUT + self._patience(gate_ten_seconds=False),
+        try:
+            return self._await(
+                "frequency",
+                lambda reading: bool(reading.flags.get("hertz")),
+                timeout=CONFIRM_TIMEOUT + self._patience(gate_ten_seconds=False),
+            )
+        except InstrumentError:
+            if self._last is not state and self._last is not None:
+                raise
+            # It took the key and then sent nothing: on a real 1604 that is
+            # frequency with no signal at the input (#181).
+            self._silent_in_hertz = True
+            raise self._stalled_in_hertz() from None
+
+    def _stalled_in_hertz(self) -> InstrumentError:
+        """What to do about a meter measuring frequency with no signal."""
+        return InstrumentError(
+            "the 1604 took the Hz key and has sent no reading since. With no "
+            "signal at its input a 1604 measures frequency but sends nothing, "
+            "and ignores every key sent over the link, Hz and remote included "
+            "(seen on the bench, #181). Press V on its front panel to recover, "
+            "and apply the signal before selecting frequency."
         )
 
     # ------------------------------------------------------------------
@@ -611,6 +645,8 @@ class Tti1604(ScpiInstrument):  # pylint: disable=too-many-public-methods,too-ma
     # Reading
     # ------------------------------------------------------------------
     def _silence(self, waited: float) -> InstrumentError:
+        if self._silent_in_hertz:
+            return self._stalled_in_hertz()
         return InstrumentError(
             "no measurement from the 1604 within %.1f s. A healthy meter is "
             "silent in exactly two states: not in remote mode (this driver "
@@ -650,7 +686,11 @@ class Tti1604(ScpiInstrument):  # pylint: disable=too-many-public-methods,too-ma
         buffer included, where a meter that streams while nobody reads leaves
         readings minutes old - and then the next complete frame too, because it
         may have been measured partly before the call, or under a setting just
-        changed (DMM-FR-031). The one after that is returned.
+        changed (DMM-FR-031). The one after that is returned, unless its
+        display is blank: then frames are read for up to
+        :data:`.constants.RANGING_TIME` until one is not, since the meter is
+        still auto-ranging (DMM-FR-035). A display still blank by then is
+        returned as it is.
 
         :param settle: Extra seconds to wait before discarding, for a circuit
             that needs time to settle. On a simulated meter this is not slept.
@@ -659,7 +699,12 @@ class Tti1604(ScpiInstrument):  # pylint: disable=too-many-public-methods,too-ma
             time.sleep(max(0.0, float(settle)))
         self._discard_input()
         self.read()
-        return self.read()
+        reading = self.read()
+        # Past the blank frames the meter sends while it auto-ranges (#181).
+        deadline = self._clock() + RANGING_TIME
+        while reading.blank and self._clock() < deadline:
+            reading = self.read()
+        return reading
 
     @property
     def last_reading(self) -> Optional[Reading]:
