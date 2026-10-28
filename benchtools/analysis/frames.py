@@ -29,6 +29,7 @@ Traces to: S2LP-FR-088 .. S2LP-FR-092, ANA-DD-FRAMES.
 from __future__ import annotations
 
 import datetime
+import math
 import json
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
@@ -251,6 +252,7 @@ def transmissions(frames: Sequence[Frame],
     only an early copy of one heard, then within *copy_gap* only later
     copies of the next.
     """
+    copy_gap = check_copy_gap(copy_gap)
     groups: List[List[Frame]] = []
     open_group: Dict[Tuple[Optional[str], Optional[str]], List[Frame]] = {}
     for frame in frames:
@@ -265,6 +267,27 @@ def transmissions(frames: Sequence[Frame],
         groups.append(group)
         open_group[key] = group
     return groups
+
+
+def check_copy_gap(copy_gap: Any) -> Optional[float]:
+    """*copy_gap* as seconds, or None; a refusal for anything not above 0.
+
+    :raises ConfigurationError: for 0, a negative time or something that is
+        not a number: each would split every copy into a transmission of
+        its own, or fail half-way through a measure.
+    """
+    if copy_gap is None:
+        return None
+    try:
+        gap = float(copy_gap)
+    except (TypeError, ValueError):
+        raise ConfigurationError("copy_gap must be a time in seconds; got %r" % (copy_gap,)) \
+            from None
+    if not math.isfinite(gap) or gap <= 0:
+        raise ConfigurationError(
+            "copy_gap must be more than 0 s, and finite (or left out for no bound); got %r"
+            % (copy_gap,))
+    return gap
 
 
 def _close(earlier: Frame, later: Frame, gap: Optional[float]) -> bool:
@@ -313,13 +336,16 @@ def intervals(  # pylint: disable=too-many-arguments,too-many-locals,too-many-po
 
     No interval is measured across a packet log's run boundary
     (:func:`frames_from_log`): ``runs`` says how many runs the frames came
-    from.
+    from. A transmission lost at the join is therefore not seen, so a
+    measure that must cover a whole window should also require ``runs`` to
+    be 1. ``first_s`` and ``last_s`` come from the first and last runs, which
+    need not share a clock.
 
     :returns: ``frames``, ``transmissions``, ``bursts``, ``count`` (intervals),
         ``minimum``, ``maximum``, ``mean``, ``above`` and ``below`` (how many
         intervals are longer than *above* or shorter than *below*; None when
-        not asked), ``largest_burst`` (transmissions), ``first_s`` and
-        ``last_s`` (on the frames' clock), and ``intervals`` themselves.
+        not asked), ``largest_burst`` (transmissions), ``runs``, ``first_s``
+        and ``last_s`` (on the frames' clock), and ``intervals`` themselves.
     :raises MeasurementError: if a frame has no time on *clock*, or the times
         go backwards within one run - a log timed by the wall clock across a
         clock step, say.

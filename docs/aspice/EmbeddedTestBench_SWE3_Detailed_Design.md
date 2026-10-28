@@ -699,7 +699,8 @@ packet. Three facts are read from the decode: `type`, `sensor_id` and
   `MeasurementError`. No interval is taken across a run boundary. On the
   board clock a board restart within a connection is unwrapped by
   `BoardClock` as a wrap, so it shows as an interval 4294.97 s long, not as
-  time going backwards. Every measure takes `copy_gap`.
+  time going backwards. Every measure takes `copy_gap`, checked by
+  `check_copy_gap`: a finite time above 0 s, or `None` for no bound.
 - `frames_from_log` numbers each frame's `run`, a new one wherever the
   records' `run` changes; `PacketLog` writes a fresh `run` id on every
   record of each log opened, so a file appended to by two runs keeps them

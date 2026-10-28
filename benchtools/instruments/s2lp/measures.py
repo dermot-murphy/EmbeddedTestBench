@@ -83,7 +83,10 @@ class FrameMeasuresMixin:
             starts a new one.
         :returns: See :func:`benchtools.analysis.frames.intervals`: ``count``,
             ``minimum``, ``maximum``, ``mean``, ``above``, ``below``,
-            ``bursts``, ``transmissions``, ``largest_burst``, ``intervals``.
+            ``bursts``, ``transmissions``, ``largest_burst``, ``runs``,
+            ``intervals``. ``runs`` above 1 means *log* holds more than one
+            run, between which nothing is measured: a specification that
+            must cover a whole window should require it to be 1.
 
         Traces to: S2LP-FR-089.
         """
@@ -96,6 +99,7 @@ class FrameMeasuresMixin:
     def dut_census(  # pylint: disable=too-many-arguments
             self, window: float = 60.0, *, source: Optional[str] = None,
             fields: Sequence[str] = (), expected: Optional[Sequence[str]] = None,
+            copy_gap: Optional[float] = fr.COPY_GAP_S,
             log: Optional[str] = None, decoder: DecoderChoice = None) -> Dict[str, Any]:
         """What was on the air: every frame by type, over a window or a packet log.
 
@@ -105,6 +109,8 @@ class FrameMeasuresMixin:
             type, e.g. ``rf_capability``.
         :param expected: The types that should be heard; any other, and any
             frame the decoder cannot read, counts as ``unexpected``.
+        :param copy_gap: As for :meth:`dut_intervals`, for counting
+            transmissions.
         :returns: See :func:`benchtools.analysis.frames.census`.
 
         Traces to: S2LP-FR-090.
@@ -112,7 +118,7 @@ class FrameMeasuresMixin:
         heard = self._frames_for(decoder, window, log)
         if source is not None:
             heard = [frame for frame in heard if not frame.ok or frame.source == str(source)]
-        return fr.census(heard, fields=fields, expected=expected)
+        return fr.census(heard, fields=fields, expected=expected, copy_gap=copy_gap)
 
     @input_paths("log")
     def dut_transmissions(  # pylint: disable=too-many-arguments,too-many-locals
@@ -184,7 +190,8 @@ class FrameMeasuresMixin:
             self, value: str, group: str, frame_type: Optional[str] = None,
             source: Optional[str] = None, *, where: Optional[Dict[str, Any]] = None,
             item: Sequence[str] = (), window: float = 60.0, wrap_after: Optional[int] = None,
-            wrap_to: Optional[int] = None, log: Optional[str] = None,
+            wrap_to: Optional[int] = None, copy_gap: Optional[float] = fr.COPY_GAP_S,
+            log: Optional[str] = None,
             decoder: DecoderChoice = None) -> Dict[str, Any]:
         """Whether *value* differs between the transmissions of each *group*.
 
@@ -199,6 +206,7 @@ class FrameMeasuresMixin:
             transmission is an item.
         :param wrap_after: With *wrap_to*, a group counter's wrap: after
             *wrap_after* the next group is *wrap_to*.
+        :param copy_gap: As for :meth:`dut_intervals`.
         :returns: See :func:`benchtools.analysis.frames.distinct_per_group`.
 
         Traces to: S2LP-FR-092.
@@ -206,4 +214,4 @@ class FrameMeasuresMixin:
         heard = self._frames_for(decoder, window, log)
         chosen = fr.select(heard, frame_type, source, fr.check_where(where))
         return fr.distinct_per_group(chosen, value, group, item=item,
-                                     wrap_after=wrap_after, wrap_to=wrap_to)
+                                     wrap_after=wrap_after, wrap_to=wrap_to, copy_gap=copy_gap)

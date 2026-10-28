@@ -76,7 +76,7 @@
 | next | 2026-10-27 | Claude | #299: SWE4-UT-S2LP 143 → 150, pass, from a run of `instruments/s2lp/test_s2lp.py` on this branch on 2026-10-27. The §5 total is still the 1.32 whole-suite run's. |
 | next | 2026-10-27 | Claude | #305: SWE4-UT-DOCVER 61 → 63, pass, from a run of `test_doc_versions.py` on this branch on 2026-10-27 (63 passed). The §5 total is still the 1.32 whole-suite run's. |
 | next | 2026-10-27 | Claude | #122: §14.5 added - the Kepler specifications' radio side on the simulated bench; SWE4-UT-KEPLERSIM 11 → 123, pass, from a run of `test_kepler_simulated.py` and `test_simulated_air.py` on this branch on 2026-10-27 (123 passed). The §5 total is still the 1.32 whole-suite run's. |
-| next | 2026-10-28 | Claude | #243: SWE4-UT-S2LPMEASURES added, 69, pass; SWE4-UT-BLE 116 → 121 and SWE4-UT-KEPLERSIM 123 → 124, pass, from runs of `test_frame_measures.py` (69 passed), `test_dongle.py` (121 passed) and `test_kepler_simulated.py` with `test_simulated_air.py` (124 passed) on this branch on 2026-10-28. The §5 total is still the 1.32 whole-suite run's. |
+| next | 2026-10-28 | Claude | #243: SWE4-UT-S2LPMEASURES added, 76, pass; SWE4-UT-BLE 116 → 121 and SWE4-UT-KEPLERSIM 123 → 124, pass, from runs of `test_frame_measures.py` (76 passed), `test_dongle.py` (121 passed) and `test_kepler_simulated.py` with `test_simulated_air.py` (124 passed) on this branch on 2026-10-28. The §5 total is still the 1.32 whole-suite run's. |
 
 ---
 
@@ -312,7 +312,7 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-S2LPTABLES | `instruments/s2lp/test_kepler_tables.py` | 19 | Pass |
 | SWE4-UT-S2LPPREAMBLE | `instruments/s2lp/test_preamble.py` | 17 | Pass |
 | SWE4-UT-S2LPSAMPLES | `instruments/s2lp/test_kepler_samples.py` | 7 | Pass |
-| SWE4-UT-S2LPMEASURES | `instruments/s2lp/test_frame_measures.py` | 69 | Pass |
+| SWE4-UT-S2LPMEASURES | `instruments/s2lp/test_frame_measures.py` | 76 | Pass |
 | SWE4-UT-S2LPFRAME | `instruments/s2lp/test_kepler_frame.py` | 10 | Pass |
 | SWE4-UT-S2LPEEPROM | `instruments/s2lp/test_eeprom.py` | 13 | Pass |
 | SWE4-UT-S2LPCLI | `instruments/s2lp/test_cli.py` | 46 | Pass |

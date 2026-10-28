@@ -629,7 +629,7 @@ judged on its log than held in memory. A log written before #243 has no
 
 | Action | For | Measures (`measure:`) |
 |---|---|---|
-| `dut_intervals` | Time between transmissions of `frame_type` from `source` with `where`, each timed by its first copy. `burst_gap` joins a transmission closer than it to the one before into that burst (a command and its retries; a chain of close ones is one burst). `above` and `below` count the intervals beyond a bound. `clock: board` times by the S2-LP board's timer instead of the host's: no USB jitter, but not comparable with dongle events, and it restarts with the board | `count`, `minimum`, `maximum`, `mean`, `above`, `below`, `bursts`, `transmissions`, `largest_burst`, `intervals` |
+| `dut_intervals` | Time between transmissions of `frame_type` from `source` with `where`, each timed by its first copy. `burst_gap` joins a transmission closer than it to the one before into that burst (a command and its retries; a chain of close ones is one burst). `above` and `below` count the intervals beyond a bound. `clock: board` times by the S2-LP board's timer instead of the host's: no USB jitter, but not comparable with dongle events, and it restarts with the board | `count`, `minimum`, `maximum`, `mean`, `above`, `below`, `bursts`, `transmissions`, `largest_burst`, `runs`, `intervals` |
 | `dut_census` | Every frame by type. `fields` lists each one's distinct values per type; with `expected`, any other type and any frame the decoder cannot read is `unexpected` | `frames`, `rejected`, `undecoded`, `unexpected`, `unexpected_types`, `type_names`, `types.<TYPE>.count`, `.transmissions`, `.lengths`, `.fields.<field>` |
 | `dut_transmissions` | Every copy of each transmission (`count` of them, or the window's). `ignore_offsets` leaves bytes out of the comparison; `same_fields` must agree between copies; `ascending` must rise from one transmission to the next, and `restart_at` names a value that starts it afresh. `sequence` lists fields that tell sequences apart (`[axis, param.twfb]`: each waveform of a capture); without it, choose one sequence with `where`. With `positions: true`, the plugin's `frame_positions` hook places each copy's values in its sequence | `transmissions`, `copies`, `identical`, `not_identical`, `fields_differ`, `not_ascending`; with `positions`: `distinct_blocks`, `repeated_blocks`, `overlapping`, `sequences`, `covered`, `length`, `missing`, `conflicts` |
 | `dut_distinct` | Whether `value` differs within each `group` (a run of transmissions with the same group value). Each item is a transmission, or each combination of the `item` fields. `wrap_after` and `wrap_to` allow a wrapping group counter | `groups`, `items`, `all_distinct`, `not_distinct`, `inconsistent`, `repeated_sets`, `not_incrementing`, `group_values` |
@@ -658,8 +658,12 @@ Copies are grouped by the repeat number the decoder gives, per source and
 type. A copy whose repeat number is not higher than the last, or that comes
 more than `copy_gap` seconds after it (2 s unless the step says otherwise),
 starts a new transmission. Each packet log written since #243 marks every
-record with its run, so in a file appended to by two runs nothing is
-measured across the join, and `runs` in the result says so. A log timed by
+record with its run, and every `s2lp.start_packet_log` begins a new one. In a
+file appended to by two runs nothing is measured across the join, so a
+transmission lost there is not seen; `runs` in the result says how many
+there were. A step that must cover a whole window should require
+`{measure: runs, equals: 1}`. `first_s` and `last_s` can then be on
+different clocks. A log timed by
 `host_time` (one written before #243) is on the wall clock: across a clock
 step its times can go backwards, and that is refused rather than measured.
 On `clock: board`, a board that restarted mid-connection reads as a counter

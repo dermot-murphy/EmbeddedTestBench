@@ -122,6 +122,12 @@ class TestPacketLog:
         result = fr.intervals(frames)
         assert (result["runs"], result["intervals"]) == (2, [60.0, 60.0, 60.0, 60.0])
 
+    def test_a_later_run_on_an_earlier_clock_is_not_going_backwards(self):
+        frames = [fr.Frame(b"", {"type": "CMD", "sensor_id": "A"}, t, run=run)
+                  for t, run in [(1000.0, 0), (1060.0, 0), (5.0, 1), (65.0, 1)]]
+        result = fr.intervals(frames)
+        assert (result["runs"], result["intervals"]) == (2, [60.0, 60.0])
+
     def test_two_runs_do_not_join_copies(self):
         frames = [fr.Frame(b"", {"type": "ALIVE", "sensor_id": "A", "frame": {"repeat": r}}, t,
                            run=run) for r, t, run in [(0, 0.0, 0), (1, 0.1, 1)]]
@@ -203,6 +209,24 @@ class TestIntervals:
                   for r, t in [(0, 0.0), (1, 3.0), (2, 6.0)]]
         assert fr.intervals(frames)["transmissions"] == 3
         assert fr.intervals(frames, copy_gap=5.0)["transmissions"] == 1
+
+    @pytest.mark.parametrize("gap", [0, -1.0, "soon", float("inf"), float("nan")])
+    def test_a_copy_gap_that_is_not_a_time_above_0_is_refused(self, gap):
+        with pytest.raises(ConfigurationError, match="copy_gap"):
+            fr.transmissions([], copy_gap=gap)
+
+    def test_the_actions_pass_the_copy_gap_on(self, radio, tmp_path):
+        """Copies 3 s apart: three transmissions by default, one with copy_gap 5."""
+        log = tmp_path / "packets.jsonl"
+        log.write_text("\n".join(json.dumps({
+            "direction": "rx", "hex": config_frame(0, repeat).hex(), "error": 0,
+            "monotonic_s": 3.0 * repeat}) for repeat in range(3)) + "\n", encoding="utf-8")
+        for kwargs, expected in (({}, 3), ({"copy_gap": 5.0}, 1)):
+            assert radio.dut_intervals("CONFIG", log=str(log), **kwargs)[
+                "transmissions"] == expected
+            assert radio.dut_transmissions("CONFIG", log=str(log), **kwargs)[
+                "transmissions"] == expected
+            assert radio.dut_census(log=str(log), **kwargs)["transmissions"] == expected
 
     def test_the_board_clock_can_be_chosen(self):
         frames = [fr.Frame(b"", {"type": "CMD", "sensor_id": "A"}, host, board_s=board)
@@ -331,8 +355,8 @@ class TestCopies:
 
     def test_a_transmission_without_its_sequence_fields_is_left_out(self, hour):
         twf = fr.select(hour, "TWF", "5C1712")
-        stray = fr.Frame(twf[0].data, dict(twf[0].decoded, axis=None), 1.0)
-        del stray.decoded["axis"]
+        stray = fr.Frame(twf[0].data, dict(twf[0].decoded, packet_number=99), 1.0)
+        del stray.decoded["axis"]                # and it would break the order if counted
         result = fr.compare_copies([stray] + twf, positions=tables.frame_positions,
                                    ascending="packet_number", sequence=["axis"])
         assert (result["unsequenced"], result["sequences"], result["not_ascending"]) == (1, 1, 0)
