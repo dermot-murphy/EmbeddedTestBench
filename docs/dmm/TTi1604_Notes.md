@@ -125,7 +125,8 @@ auto-ranging, and the stream resumed. Captures in
 So a frequency measurement needs a signal on the input before Hz is selected.
 The driver cannot leave Hz over the link: when the Hz key is echoed and no
 reading follows, `select_hertz` says so and asks for V on the front panel, and
-every later call says the same at once until a frame arrives (DMM-FR-036). The
+every later call says the same, after listening 2.5 s for readings, until a
+frame arrives (DMM-FR-036). The
 QS-09 message "readings show ac_volts" was the reading from *before* the key;
 the meter had switched.
 

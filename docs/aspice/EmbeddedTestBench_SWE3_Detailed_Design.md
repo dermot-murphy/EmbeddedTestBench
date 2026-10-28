@@ -2607,9 +2607,12 @@ Design points added by #181, from the meter on the bench (2026-10-28):
   state; more frames showing another function are a refused key. It sets
   `_silent_in_hertz` and raises `_stalled_in_hertz()`, which says how to
   recover. While it is set, `_check_stalled` - at the start of `read`,
-  `current_state`, `_await` and each key - listens for `STALL_CHECK` (1 s)
-  and raises the same; `_take_frames`, the one place frames are decoded,
-  clears it on the first frame. An unechoed key also names Hz as a possible cause, for a
+  `current_state` and each key (`_send_character`, which every `_await`
+  follows) - listens for `STALL_CHECK` (2.5 s: two 1 s gates and a margin, in
+  case the state was entered with a signal whose first reading came late,
+  which is not known to happen and is unverified on hardware) and raises the
+  same; `_take_frames`, the one place frames are decoded, clears it on the
+  first frame. An unechoed key also names Hz as a possible cause, for a
   meter left in it before the driver connected.
 - **No reading is not the last reading.** `_await` reports "no reading
   arrived" when none did. It used to report the reading from before the key as

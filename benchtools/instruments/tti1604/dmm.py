@@ -98,8 +98,11 @@ _TYPE_NAMES = {1: "millivolts", 2: "volts", 3: "milliamps", 4: "amps", 5: "ohms"
 
 
 #: Seconds a call listens for readings before saying the meter is still stuck
-#: in Hz: a little over two of its 0.4 s reading intervals (#181).
-STALL_CHECK = 1.0
+#: in Hz (#181): two 1 s frequency gates and a margin, in case the state was
+#: entered with a signal whose first reading came late. Whether a late first
+#: Hz reading happens on a real 1604 is not known: the bench has no signal
+#: source (DMM-OPEN-06).
+STALL_CHECK = 2.5
 
 
 class Tti1604(ScpiInstrument):  # pylint: disable=too-many-public-methods,too-many-instance-attributes
@@ -296,9 +299,8 @@ class Tti1604(ScpiInstrument):  # pylint: disable=too-many-public-methods,too-ma
     def _check_stalled(self) -> None:
         """Raise at once while the meter is stuck in Hz with no signal (#181).
 
-        It listens for :data:`STALL_CHECK` first, a little over two reading
-        intervals: a front-panel key since then has restarted the stream, and
-        its frames clear the state.
+        It listens for :data:`STALL_CHECK` first: a front-panel key since
+        then has restarted the stream, and its frames clear the state.
         """
         if not self._silent_in_hertz:
             return
@@ -398,8 +400,6 @@ class Tti1604(ScpiInstrument):  # pylint: disable=too-many-public-methods,too-ma
                 if not self._receive(deadline) and self._clock() >= deadline:
                     break
             self._logger.debug("1604 did not echo %r (attempt %d)", character, attempt + 1)
-        if self._silent_in_hertz:
-            raise self._stalled_in_hertz()
         raise InstrumentError(
             "the 1604 did not echo %r after %d attempts. The meter is not "
             "taking commands. If it shows Hz, it is measuring frequency with no "
@@ -434,7 +434,8 @@ class Tti1604(ScpiInstrument):  # pylint: disable=too-many-public-methods,too-ma
             may have been refused with a beep, lost after a resend undid it,
             or the front panel may be in use.
         """
-        self._check_stalled()
+        # No stall check here: every caller has just pressed a key, which
+        # made it (_send_character).
         allowed = max(CONFIRM_TIMEOUT, self._patience()) if timeout is None else timeout
         deadline = self._clock() + allowed
         latest = None  # type: Optional[Reading]
@@ -683,8 +684,6 @@ class Tti1604(ScpiInstrument):  # pylint: disable=too-many-public-methods,too-ma
     # Reading
     # ------------------------------------------------------------------
     def _silence(self, waited: float) -> InstrumentError:
-        if self._silent_in_hertz:
-            return self._stalled_in_hertz()
         return InstrumentError(
             "no measurement from the 1604 within %.1f s. A healthy meter is "
             "silent in exactly two states: not in remote mode (this driver "

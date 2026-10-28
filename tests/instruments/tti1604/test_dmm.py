@@ -16,6 +16,7 @@ from benchtools.core.errors import InstrumentError
 from benchtools.core.transport.mock import MockTransport
 from benchtools.instruments.tti1604 import SimulatedTti1604, Tti1604
 from benchtools.instruments.tti1604.constants import DTR_ASSERTED, KEYS, RTS_ASSERTED
+from benchtools.instruments.tti1604.dmm import STALL_CHECK
 
 
 def driver(simulator=None, **kwargs) -> Tti1604:
@@ -365,7 +366,7 @@ class TestFrequency:
                 with pytest.raises(InstrumentError, match="front panel") as caught:
                     call()
                 assert "DTR" not in str(caught.value)
-                assert simulator.clock - before <= 1.5
+                assert simulator.clock - before <= STALL_CHECK + 0.5
             simulator.press_front_panel("volts")
             assert dmm.select_dc().function == "dc_volts"
 
@@ -382,25 +383,43 @@ class TestFrequency:
                 dmm.read(timeout=0.5)
             assert "front panel to recover" not in str(caught.value)
 
-    def test_a_frame_in_flight_as_hz_is_pressed_is_not_a_refusal(self):
-        """One frame measured before the key, then nothing: still no signal."""
+    @staticmethod
+    def _stale_frames_after_hz(simulator, monkeypatch, count):
+        """After the Hz key's echo, *count* frames still showing AC volts, as
+        if measured before the key, then the stall of no signal."""
+        stale = []
+        original_respond, original_poll = simulator.respond, simulator.poll_within
+
+        def respond(message):
+            if message == KEYS["hertz"].encode("ascii") and not stale:
+                stale.extend([simulator.frame()] * count)
+            return original_respond(message)
+
+        def poll_within(timeout):
+            if stale:
+                simulator.clock += 0.4
+                return stale.pop(0)
+            return original_poll(timeout)
+
+        monkeypatch.setattr(simulator, "respond", respond)
+        monkeypatch.setattr(simulator, "poll_within", poll_within)
+
+    def test_a_frame_in_flight_as_hz_is_pressed_is_not_a_refusal(self, monkeypatch):
+        """One frame measured before the key, after its echo, then nothing."""
         simulator = SimulatedTti1604(value=0.0, ac=True)
         with driver(simulator) as dmm:
             dmm.current_state()
-            original = simulator.respond
-            in_flight = []
-
-            def respond(message):
-                echo = original(message)
-                if message == KEYS["hertz"].encode("ascii") and not in_flight:
-                    flags, simulator.flags = simulator.flags, dict(simulator.flags, hertz=False)
-                    in_flight.append(simulator.frame())
-                    simulator.flags = flags
-                    return (echo or b"") + in_flight[0]
-                return echo
-
-            simulator.respond = respond
+            self._stale_frames_after_hz(simulator, monkeypatch, 1)
             with pytest.raises(InstrumentError, match="probably measuring frequency"):
+                dmm.select_hertz()
+
+    def test_two_frames_after_the_hz_key_are_a_refusal(self, monkeypatch):
+        """More than the one in flight, still showing AC volts: refused."""
+        simulator = SimulatedTti1604(value=0.0, ac=True)
+        with driver(simulator) as dmm:
+            dmm.current_state()
+            self._stale_frames_after_hz(simulator, monkeypatch, 2)
+            with pytest.raises(InstrumentError, match="readings show ac_volts"):
                 dmm.select_hertz()
 
     def test_a_refused_hz_key_names_what_the_readings_show(self):
