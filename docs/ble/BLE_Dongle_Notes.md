@@ -186,10 +186,10 @@ The result also says what the links allowed (#274): `att_mtu` and
 transfer, and `links`, one entry per image. Both are in the `ble_dfu`
 event-log record, and after each image a session-log note gives its link's.
 On 5C1712 both bootloaders linked at the minimum, an ATT MTU of 23 and 20-byte
-pieces, as the dongle reported on 2026-10-28 (BLE-OPEN-05) and #271 had had to
-work out from the receipts: with a receipt every 8
-pieces they came every 160 bytes, or every 144 where a 4-byte tail piece fell
-in the window, and the 144-byte steps were first taken for losses. A dongle
+pieces, as the dongle reported on 2026-10-28 (BLE-OPEN-05). #271 could only
+work this out from the receipts: with a receipt every 8 pieces they came every
+160 bytes, or every 144 where a 4-byte tail piece fell in the window, and the
+144-byte steps were first taken for losses. A dongle
 before protocol 1.8 reports neither; both are then None, and the transfer is
 unchanged. The MTU exchange can end after `+dfu state=ready`, so each
 `dfupkt` reply also gives the ATT MTU that write used, and a link's `att_mtu`
