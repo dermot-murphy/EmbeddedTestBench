@@ -88,3 +88,30 @@ def test_a_bad_format_does_not_connect(capsys):
 def test_reached_from_the_top_level(capsys):
     assert top_level_main(["serial", "RD PORT"]) == 0
     assert capsys.readouterr().out.strip() == "ACK RD PORT = sim://"
+
+
+def test_ctrl_c_while_closing_still_closes_the_port(capsys, monkeypatch):
+    from benchtools.instruments.serial_capture import SerialCapture
+
+    made = []
+    original_connect = SerialCapture.connect
+    original_close = SerialCapture.close
+
+    def connect(*args, **kwargs):
+        made.append(original_connect(*args, **kwargs))
+        return made[-1]
+
+    calls = []
+
+    def close(self):
+        calls.append(1)
+        if len(calls) == 1:
+            raise KeyboardInterrupt
+        original_close(self)
+
+    monkeypatch.setattr(SerialCapture, "connect", connect)
+    monkeypatch.setattr(SerialCapture, "close", close)
+    assert main(["RD PORT"]) == 1
+    capsys.readouterr()
+    assert len(calls) == 2
+    assert not made[0].is_open

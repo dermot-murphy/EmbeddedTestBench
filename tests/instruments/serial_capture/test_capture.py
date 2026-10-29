@@ -7,7 +7,9 @@ SER-FR-011, SWE4-UT-SER.
 from __future__ import annotations
 
 import logging
+import queue
 import socket
+import types
 import threading
 import time
 
@@ -703,3 +705,138 @@ class TestLiveOutput:
             dropped_at = len(shown)
             uart.abort_capture()
         assert dropped_at < 20
+
+
+class _LateEmptyQueue(queue.Queue):
+    """A queue whose first timed-out get() reports Empty 0.3 s late.
+
+    That is the window the race needs: the reader queues its last line and
+    finishes while the show thread is between the timeout and its check.
+    """
+
+    def __init__(self, maxsize=0):
+        super().__init__(maxsize)
+        self.late = True
+
+    def get(self, block=True, timeout=None):
+        try:
+            return super().get(block, timeout)
+        except queue.Empty:
+            if self.late:
+                self.late = False
+                time.sleep(0.3)
+            raise
+
+
+class TestLiveOutputEnds:
+    def test_a_line_queued_after_a_timeout_is_still_shown(self, monkeypatch):
+        monkeypatch.setattr(capture_module, "queue", types.SimpleNamespace(
+            Queue=_LateEmptyQueue, Empty=queue.Empty, Full=queue.Full))
+        shown = []
+        uart = SerialCapture.connect("sim://", simulated_lines=["ONLY"],
+                                     simulated_interval=0.1, on_line=shown.append)
+        uart.set_lines(True)
+        with uart:
+            result = uart.capture(window_ms=5000, pattern="ONLY")
+        assert result.matched
+        assert shown == ["LINE 1 = ONLY"]
+        assert result.unshown == 0
+
+    def test_lines_apart_in_time_all_reach_the_live_output(self):
+        shown = []
+        uart = SerialCapture.connect("sim://", simulated_lines=["A", "B", "C", "D"],
+                                     simulated_interval=0.2, on_line=shown.append)
+        uart.set_lines(True)
+        with uart:
+            uart.capture(window_ms=5000, pattern="^D$")
+        assert shown == ["LINE 1 = A", "LINE 2 = B", "LINE 3 = C", "LINE 4 = D"]
+
+    def test_aborting_an_ended_capture_does_not_wait_for_its_live_lines(self):
+        shown = []
+        uart = SerialCapture.connect("sim://", simulated_lines=["L%02d" % n for n in range(10)],
+                                     simulated_interval=0.0, on_line=shown.append)
+        uart.set_lines(True)
+        with uart.output_lock:
+            uart.start_capture(window_ms=5000, pattern="L09")
+            while uart.running:
+                time.sleep(0.01)
+            started = time.monotonic()
+            assert uart.command("ROUTINE ABORT CAPTURE").text == \
+                "ACK ROUTINE ABORT CAPTURE = Complete"
+            assert time.monotonic() - started < 1.0
+        uart.close()
+        assert len(shown) == 10
+
+    def test_closing_waits_a_bounded_time_and_counts_what_it_drops(self, monkeypatch):
+        monkeypatch.setattr(capture_module, "_JOIN_TIMEOUT", 0.2)
+        shown = []
+
+        def slow(text):
+            shown.append(text)
+            time.sleep(0.1)
+
+        uart = SerialCapture.connect("sim://", simulated_lines=["L%02d" % n for n in range(20)],
+                                     simulated_interval=0.0, on_line=slow)
+        uart.set_lines(True)
+        uart.start_capture(window_ms=5000, pattern="L19")
+        while uart.running:
+            time.sleep(0.01)
+        started = time.monotonic()
+        uart.close()
+        assert time.monotonic() - started < 2.0
+        result = uart.results()
+        assert result.unshown > 0
+        assert len(shown) + result.unshown == 20
+        assert result.summary().endswith(", %d unshown" % result.unshown)
+
+    def test_stop_live_output_drops_and_counts_the_waiting_lines(self):
+        release = threading.Event()
+        uart = SerialCapture.connect("sim://", simulated_lines=["A", "B", "C"],
+                                     simulated_interval=0.0,
+                                     on_line=lambda _text: release.wait(5.0))
+        uart.set_lines(True)
+        uart.start_capture(window_ms=5000, pattern="C")
+        while uart.running:
+            time.sleep(0.01)
+        uart.stop_live_output()
+        release.set()
+        uart.close()
+        assert uart.results().unshown == 2
+
+
+class TestOutputLock:
+    def test_it_knows_its_owner(self):
+        lock = capture_module.OutputLock()
+        assert not lock.held()
+        with lock:
+            assert lock.held()
+            with lock:
+                assert lock.held()
+            assert lock.held()
+            seen = []
+            other = threading.Thread(target=lambda: seen.append(lock.held()))
+            other.start()
+            other.join()
+            assert seen == [False]
+        assert not lock.held()
+
+    def test_a_timed_acquire_gives_up_while_another_thread_holds_it(self):
+        lock = capture_module.OutputLock()
+        taken, done = threading.Event(), threading.Event()
+
+        def hold():
+            with lock:
+                taken.set()
+                done.wait(5.0)
+
+        holder = threading.Thread(target=hold)
+        holder.start()
+        taken.wait(5.0)
+        try:
+            assert lock.acquire(timeout=0.1) is False
+            assert not lock.held()
+        finally:
+            done.set()
+            holder.join()
+        assert lock.acquire(timeout=1.0)
+        lock.release()

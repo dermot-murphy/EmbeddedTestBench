@@ -77,6 +77,7 @@ __all__ = [
     "CaptureBusyError",
     "parse_format",
     "split_lines",
+    "OutputLock",
 ]
 
 #: ``8N1``: data bits, parity, stop bits.
@@ -93,6 +94,46 @@ _MAX_LINE_BYTES = 65536
 
 _CR = 0x0D
 _LF = 0x0A
+
+
+class OutputLock:
+    """A re-entrant lock that can say whether this thread holds it.
+
+    The driver needs to know: a thread that holds it while it stops a
+    capture cannot wait for the live lines to be shown, because showing
+    them needs this lock (#318).
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.RLock()
+        self._owner: Optional[int] = None
+        self._depth = 0
+
+    def acquire(self, blocking: bool = True, timeout: float = -1) -> bool:
+        """Take the lock, as :meth:`threading.RLock.acquire` does."""
+        if not self._lock.acquire(blocking, timeout):  # pylint: disable=consider-using-with
+            return False
+        self._owner = threading.get_ident()
+        self._depth += 1
+        return True
+
+    def release(self) -> None:
+        """Give the lock back."""
+        self._depth -= 1
+        if self._depth == 0:
+            self._owner = None
+        self._lock.release()
+
+    def held(self) -> bool:
+        """``True`` if this thread holds the lock."""
+        return self._owner == threading.get_ident()
+
+    def __enter__(self) -> "OutputLock":
+        self.acquire()
+        return self
+
+    def __exit__(self, *exc: Any) -> None:
+        self.release()
 
 
 class _LineState:  # pylint: disable=too-few-public-methods
@@ -222,13 +263,16 @@ class CaptureResult:  # pylint: disable=too-many-instance-attributes
 
         ``Not Started``; ``Running, 4 lines``; ``Complete, 12 lines``;
         ``Complete, 12 lines, Matched``; ``Complete, 50 lines, Not Matched``;
-        ``Aborted, 3 lines``.
+        ``Aborted, 3 lines``. Live lines that were not shown are added at
+        the end when there are any: ``Complete, 40 lines, 12 unshown``.
         """
         if self.status == NOT_STARTED:
             return NOT_STARTED
         words = "%s, %d line%s" % (self.status, self.count, "" if self.count == 1 else "s")
         if self.pattern and self.status != RUNNING:
             words += ", Matched" if self.matched else ", Not Matched"
+        if self.unshown:
+            words += ", %d unshown" % self.unshown
         return words
 
     def as_dict(self) -> Dict[str, Any]:
@@ -339,7 +383,7 @@ class SerialCapture(Instrument):  # pylint: disable=too-many-instance-attributes
         #: prints command replies holds it while it runs a command and prints
         #: the reply, so that a reply comes before the lines that follow it.
         #: The reader never waits on it once its capture is stopped.
-        self.output_lock = threading.RLock()
+        self.output_lock = OutputLock()
         self._transport = make_transport(self._baudrate, self._format)
         self._adopt(self._transport)
 
@@ -424,7 +468,19 @@ class SerialCapture(Instrument):  # pylint: disable=too-many-instance-attributes
 
     def _close(self) -> None:
         self._stop_reader(ABORTED)
+        self._finish_live_output()
         self._transport.close()
+
+    def stop_live_output(self) -> None:
+        """Drop the live lines still waiting to be shown.
+
+        For a caller that cannot wait for them, such as a command line
+        interrupted while it closes. They are counted in ``unshown``.
+        """
+        with self._lock:
+            run = self._run
+        if run is not None:
+            run.stop.set()
 
     @property
     def is_open(self) -> bool:
@@ -565,16 +621,8 @@ class SerialCapture(Instrument):  # pylint: disable=too-many-instance-attributes
         self._join_reader()
         if self._reader is not None and self._reader.is_alive():
             raise CaptureBusyError("the last capture's reader has not stopped")
-        if self._shower is not None and self._shower.is_alive():
-            # The last capture's live lines are still being shown and did not
-            # finish in time: drop the rest, so two captures' lines never
-            # interleave, and refuse if even that does not end it.
-            previous = self._run
-            if previous is not None:
-                previous.stop.set()
-            self._shower.join(_JOIN_TIMEOUT)
-            if self._shower.is_alive():
-                raise CaptureBusyError("the last capture's live output has not stopped")
+        if not self._finish_live_output():
+            raise CaptureBusyError("the last capture's live output has not stopped")
         if window_ms is not None:
             self.window_ms = window_ms
         if pattern is not None:
@@ -706,22 +754,52 @@ class SerialCapture(Instrument):  # pylint: disable=too-many-instance-attributes
                 run.ended = time.monotonic()
                 stopped = True
                 # Only a capture that is running is stopped. One that has
-                # ended keeps its live lines, and they are shown before this
-                # returns, as closing after a capture completes needs (#318).
+                # ended keeps its live lines, and close() shows them (#318).
                 run.stop.set()
-        self._join_reader()
+        # A stopped show thread ends within one READ_POLL; one whose capture
+        # had already ended is left to show its lines, and not waited for:
+        # the caller may hold output_lock, which showing them needs.
+        self._join_reader(shower=stopped)
         if stopped:
             self._logger.info("capture aborted after %d lines", run.count)
 
-    def _join_reader(self) -> None:
-        """Wait for the reader and the line shower to finish, if neither is this thread."""
-        for thread in (self._reader, self._shower):
+    def _join_reader(self, shower: bool = True) -> None:
+        """Wait for the reader, and the line shower too, to finish.
+
+        Neither is waited for from its own thread.
+        """
+        for thread in (self._reader, self._shower if shower else None):
             if thread is None or thread is threading.current_thread():
                 continue
             thread.join(_JOIN_TIMEOUT)
             if thread.is_alive():
                 self._logger.warning("the capture's %s thread did not stop within %.0f s",
                                      thread.name, _JOIN_TIMEOUT)
+
+    def _finish_live_output(self) -> bool:
+        """Let the last capture's live lines be shown, then end the show thread.
+
+        The lines are waited for up to :data:`_JOIN_TIMEOUT`, unless this
+        thread holds :attr:`output_lock`, which showing them needs. Lines
+        still waiting after that are dropped and counted in ``unshown``.
+        ``False`` if the show thread still has not ended: an ``on_line``
+        that does not return.
+        """
+        shower = self._shower
+        if shower is None or not shower.is_alive() or shower is threading.current_thread():
+            return True
+        if not self.output_lock.held():
+            shower.join(_JOIN_TIMEOUT)
+        if shower.is_alive():
+            with self._lock:
+                run = self._run
+            if run is not None:
+                run.stop.set()
+            shower.join(READ_POLL * 4)
+        if shower.is_alive():
+            self._logger.warning("the capture's live output did not stop")
+            return False
+        return True
 
     def _show_until_done(self, run: _Run) -> None:
         """Show the run's live lines in order until the reader has finished.
@@ -733,10 +811,24 @@ class SerialCapture(Instrument):  # pylint: disable=too-many-instance-attributes
             try:
                 shown = run.shown.get(timeout=READ_POLL)
             except queue.Empty:
-                if run.read_done.is_set():
+                # The reader queues every line before it sets read_done, so
+                # once it is set an empty queue is really the end; a line
+                # queued after the timeout is still taken (#318).
+                if run.read_done.is_set() and run.shown.empty():
                     return
                 continue
             self._show(run, shown)
+        dropped = 0
+        while True:
+            try:
+                run.shown.get_nowait()
+            except queue.Empty:
+                break
+            dropped += 1
+        if dropped:
+            with self._lock:
+                run.unshown += dropped
+            self._logger.info("%d live lines not shown: the live output was stopped", dropped)
 
     def _read_until_done(self, run: _Run) -> None:
         try:

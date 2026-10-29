@@ -89,6 +89,7 @@
 | next | 2026-10-29 | Claude | #247, review of #318 round 2: SER-DD-DRIVER - LFCR pairs and the ending after a cut line in `split_lines`, lines timed and windowed by arrival (`_read_lines` returns the time), `_record` keeps nothing once the run has ended, `CaptureBusyError` moved to `errors.py` so the command set can catch it without an import cycle; SER-DD-CONSOLE - `BUSY` from `CaptureBusyError`, a trailing space kept in the pattern. |
 | next | 2026-10-29 | Claude | #247, review of #318 round 3: SER-DD-DRIVER - live lines through a queue to a thread of their own (`_show_until_done`), joined by `wait_capture` and `_join_reader`, so a slow `on_line` does not hold up the reader; SER-DD-CONSOLE - `WR PATTERN OFF` with white space. |
 | next | 2026-10-29 | Claude | #247, review of #318 round 4: SER-DD-DRIVER - `stop` set only on a running run, so close() shows an ended capture's live lines; `read_done` in place of the `None` sentinel; the show queue bounded to `MAX_LINES` with `unshown`; `start_capture` stops or refuses a show thread that outlives the last capture; `wait_capture` warns of one. |
+| next | 2026-10-29 | Claude | #247, review of #318 round 5: SER-DD-DRIVER - the show thread drains after `read_done`, dropped live lines counted in `unshown` and in `summary()`, `_finish_live_output` (bounded, not under `output_lock`) for `close()` and `start_capture`, an abort of an ended capture leaving its lines, `stop_live_output`, `OutputLock`; SER-DD-CLI - Ctrl-C while closing. |
 ---
 
 ## 3. Purpose & Scope
@@ -3166,13 +3167,21 @@ The capture runs on a daemon thread:
 * A second thread per run (`_show_until_done`) takes the queue in order and
   hands each line to `on_line` through `_show`, so a slow `on_line` never
   holds up the reader. The reader sets the run's `read_done` when it
-  finishes, and the thread ends once the queue is then empty; a stopped run's
-  waiting lines are dropped. `_stop_reader` sets `stop` only on a run that is
-  `Running`, so a capture that has ended keeps its live lines, and `close()`
-  shows them before the port closes. `start_capture`, finding the last show
-  thread alive after `_JOIN_TIMEOUT`, sets the last run's `stop`, and refuses
-  with `CaptureBusyError` if the thread still does not end (an `on_line`
-  that never returns); `wait_capture` warns when the thread outlives it. `_show` waits for `output_lock`
+  finishes, after queuing its last line, and the thread ends when, after a
+  timed-out `get`, `read_done` is set and the queue is empty - so a line
+  queued just after the timeout is still shown; a stopped run's
+  waiting lines are dropped and added to `unshown`. `_stop_reader` sets
+  `stop` only on a run that is `Running`, and joins the show thread only
+  then, so aborting an ended capture neither waits for nor drops its live
+  lines. `_finish_live_output`, called by `close()` and `start_capture`,
+  waits up to `_JOIN_TIMEOUT` for them - not at all when this thread holds
+  `output_lock`, which showing them needs - then sets `stop` and waits one
+  more moment; `start_capture` refuses with `CaptureBusyError` if the thread
+  still has not ended (an `on_line` that never returns). `stop_live_output`
+  sets `stop` for a caller that cannot wait. `wait_capture` warns when the
+  thread outlives it.
+* `output_lock` is an `OutputLock`: a re-entrant lock that records its
+  owning thread, so `held()` can tell the driver not to wait. `_show` waits for `output_lock`
   in `READ_POLL` steps, giving up once the run is stopped, and logs an
   exception from `on_line` as a warning. `wait_capture` joins this thread
   after the reader, so every live line is shown before the result is
@@ -3182,7 +3191,7 @@ The capture runs on a daemon thread:
   still running. `capture()` is `start_capture` then `wait_capture`.
 * `results()` builds a frozen `CaptureResult` (status, count, lines, pattern,
   match, match number, value, elapsed, error, unshown) under the lock; `summary()` words it as
-  `ROUTINE RESULTS CAPTURE` does, and `as_dict()` gives it as JSON.
+  `ROUTINE RESULTS CAPTURE` does, adding `N unshown` when there are any, and `as_dict()` gives it as JSON.
 * `line(n)` is the text of a kept line, or `IndexError`.
 * `command(request)` runs one command through SER-DD-CONSOLE, logs the
   command and its reply, and returns the `Reply`.
@@ -3230,7 +3239,8 @@ argument as a command - or each non-blank line of standard input when there
 are none - and prints each reply. A capture still running at the end is
 waited for and `ROUTINE RESULTS CAPTURE` is run; Ctrl-C aborts it. Each command is run and
 its reply printed holding the driver's `output_lock`, so a reply is printed
-before the live lines that follow it. Exit
+before the live lines that follow it. Ctrl-C while closing calls
+`stop_live_output` and closes again, and exits 1. Exit
 status 1 if a connection failed or any reply was `NACK`, else 0.
 
 ### 5.10 RUN — `benchtools.runner`

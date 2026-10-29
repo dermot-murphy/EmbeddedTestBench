@@ -113,5 +113,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print("error: %s" % exc, file=sys.stderr)
         return _EXIT_ERROR
     finally:
-        capture.close()
+        try:
+            capture.close()
+        except KeyboardInterrupt:
+            # Interrupted while the last live lines were being shown: drop
+            # them and close the port, rather than leave it open.
+            capture.stop_live_output()
+            capture.close()
+            ok = False
     return _EXIT_OK if ok else _EXIT_ERROR

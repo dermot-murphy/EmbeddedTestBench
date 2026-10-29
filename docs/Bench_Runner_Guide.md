@@ -982,7 +982,7 @@ console, through `command`, or with the methods the commands map onto:
 | `WR LINES ON`, `WR LINES OFF` | `ACK WR LINES ON` |
 | `ROUTINE START CAPTURE` | `ACK ROUTINE START CAPTURE = Running` |
 | `ROUTINE ABORT CAPTURE`, `ROUTINE ABORT ALL` | `ACK ROUTINE ABORT CAPTURE = Aborted` |
-| `ROUTINE RESULTS CAPTURE` | `ACK ROUTINE RESULTS CAPTURE = Complete, 4 lines, Matched` |
+| `ROUTINE RESULTS CAPTURE` | `ACK ROUTINE RESULTS CAPTURE = Complete, 4 lines, Matched`, then `, 12 unshown` if live lines were dropped |
 
 A refusal is `NACK <command> INVALID VALUE`, `OUT OF RANGE`, `BUSY` (a capture
 is running) or `NOT FOUND`, and a command the set does not have is
