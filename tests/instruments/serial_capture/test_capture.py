@@ -337,6 +337,14 @@ class TestLineEndings:
         monkeypatch.setattr(capture_module, "_MAX_LINE_BYTES", 4)
         assert self._split(b"ABCDEF") == (["ABCD"], b"EF")
 
+    def test_the_ending_after_a_cut_line_is_its_ending(self, monkeypatch):
+        monkeypatch.setattr(capture_module, "_MAX_LINE_BYTES", 4)
+        assert self._split(b"ABCD\r\nEF\n") == (["ABCD", "EF"], b"")
+        assert self._split(b"ABCD", b"\nEF\n") == (["ABCD", "EF"], b"")
+
+    def test_an_lfcr_pair_is_one_ending(self):
+        assert self._split(b"A\n\rB\n", b"\rC\n\r") == (["A", "B", "C"], b"")
+
     def test_a_device_that_ends_lines_with_cr_alone(self):
         uart = SerialCapture.connect("sim://", simulated_lines=[], simulated_interval=0.0)
         with uart:
@@ -384,6 +392,44 @@ class _LatePort(Transport):
         return b"LATE\n", True
 
 
+class _RefusingPort(Transport):
+    """A port that cannot be opened: the adapter refuses the line rate."""
+
+    def _open_link(self):
+        raise ConnectionFailedError("the adapter cannot do this rate")
+
+    def _close_link(self):
+        pass
+
+    def _send(self, data):
+        pass
+
+    def _recv_chunk(self, max_bytes):
+        raise TransportTimeoutError("nothing")
+
+
+class _BurstPort(Transport):
+    """A port that delivers a burst of lines in one read, then nothing."""
+
+    BURST = b"".join(b"L%02d\n" % n for n in range(40))
+
+    def _open_link(self):
+        self.sent = False
+
+    def _close_link(self):
+        pass
+
+    def _send(self, data):
+        pass
+
+    def _recv_chunk(self, max_bytes):
+        if self.sent:
+            time.sleep(0.01)
+            raise TransportTimeoutError("nothing more")
+        self.sent = True
+        return self.BURST, True
+
+
 class TestPortFailures:
     def test_a_dead_port_aborts_the_capture_and_says_why(self):
         uart = SerialCapture(lambda _rate, _fmt: _DeadPort())
@@ -401,6 +447,33 @@ class TestPortFailures:
             result = uart.capture(window_ms=100)
         assert result.status == COMPLETE
         assert result.count == 0
+
+    def test_a_port_that_cannot_open_at_a_new_rate_reopens_at_the_old(self):
+        device = SimulatedSerialDevice(["BOOT"], interval=0.0)
+
+        def make_transport(rate, _fmt):
+            return _RefusingPort() if rate == 9600 else MockTransport(device)
+
+        uart = SerialCapture(make_transport)
+        uart.initialise()
+        with uart:
+            with pytest.raises(ConnectionFailedError):
+                uart.set_baudrate(9600)
+            assert uart.baudrate == 115200
+            assert uart.is_open
+            assert isinstance(uart._transport, MockTransport)
+            assert uart.capture(window_ms=5000, pattern="BOOT").matched
+
+    def test_lines_are_timed_by_when_they_arrived_not_when_shown(self):
+        uart = SerialCapture(lambda _rate, _fmt: _BurstPort())
+        uart.initialise()
+        uart.on_line = lambda _shown: time.sleep(0.02)
+        uart.set_lines(True)
+        with uart:
+            # Showing the burst takes longer than the window.
+            result = uart.capture(window_ms=300, timeout=30.0)
+        assert result.count == 40
+        assert result.lines[-1].elapsed == result.lines[0].elapsed
 
     def test_a_failing_live_output_does_not_end_the_capture(self, uart, caplog):
         def broken(_shown):
@@ -441,6 +514,43 @@ class TestStopping:
             assert time.monotonic() - started < 1.0
         assert not uart._reader.is_alive()
         assert len(shown) == 0
+
+    def test_no_line_is_kept_after_the_capture_is_aborted(self):
+        uart = SerialCapture(lambda _rate, _fmt: _BurstPort())
+        uart.initialise()
+        uart.on_line = lambda _shown: uart.abort_capture()
+        uart.set_lines(True)
+        with uart:
+            result = uart.capture(window_ms=5000)
+        assert result.status == ABORTED
+        assert result.count == 1
+
+    def test_a_start_waits_for_the_last_reader_to_finish(self, uart):
+        release = threading.Event()
+        old = threading.Thread(target=release.wait, args=(5.0,), daemon=True)
+        old.start()
+        uart._reader = old
+        threading.Timer(0.2, release.set).start()
+        assert uart.start_capture(window_ms=5000, pattern="PASS").status == RUNNING
+        assert not old.is_alive()
+        uart.wait_capture()
+
+    def test_a_reader_that_will_not_stop_refuses_the_next_start(self, uart, monkeypatch):
+        monkeypatch.setattr(capture_module, "_JOIN_TIMEOUT", 0.1)
+        release = threading.Event()
+        stuck = threading.Thread(target=release.wait, args=(5.0,), daemon=True)
+        stuck.start()
+        uart._reader = stuck
+        try:
+            started = time.monotonic()
+            with pytest.raises(CaptureBusyError, match="has not stopped"):
+                uart.start_capture()
+            assert time.monotonic() - started < 1.0
+            assert uart.command("ROUTINE START CAPTURE").text == \
+                "NACK ROUTINE START CAPTURE BUSY"
+        finally:
+            release.set()
+            stuck.join()
 
     def test_start_says_running_even_if_the_capture_ends_at_once(self, uart):
         result = uart.start_capture(window_ms=5000, pattern="^BOOT$")

@@ -66,6 +66,7 @@ from .constants import (
     STOP_BITS,
     WINDOW_RANGE_MS,
 )
+from .errors import CaptureBusyError
 from .simulator import SimulatedSerialDevice
 
 __all__ = [
@@ -93,41 +94,45 @@ _CR = 0x0D
 _LF = 0x0A
 
 
-class CaptureBusyError(InstrumentError):
-    """A capture is running, and the request needs it stopped first."""
-
-
 class _LineState:  # pylint: disable=too-few-public-methods
     """What :func:`split_lines` carries from one chunk of bytes to the next."""
 
     def __init__(self) -> None:
         self.pending = bytearray()
-        self.skip_lf = False
+        #: The byte that, coming next, ends nothing: the second half of a CRLF
+        #: or LFCR pair, or either ending after a line cut at its limit.
+        self.skip: tuple = ()
 
 
 def split_lines(state: _LineState, data: bytes) -> List[str]:
     """The lines *data* completes, with what is left kept in *state*.
 
-    A line ends at CR, at LF or at CRLF, so a device that ends its lines
-    with CR alone is read as well as one that uses LF (#318). A CRLF split
-    across two chunks is one ending, not two. A byte that is not ASCII is
-    kept as ``\\xNN``, so any console can print the line.
+    A line ends at CR, at LF, or at a CRLF or LFCR pair, so a device that
+    ends its lines with CR alone is read as well as one that uses LF (#318).
+    A pair split across two chunks is one ending, not two. A line cut at
+    :data:`_MAX_LINE_BYTES` takes the ending that follows it, if one does,
+    rather than a blank line after it. A byte that is not ASCII is kept as
+    ``\\xNN``, so any console can print the line.
     """
     lines: List[str] = []
     for byte in bytearray(data):
-        if state.skip_lf:
-            state.skip_lf = False
-            if byte == _LF:
-                continue
+        skip, state.skip = state.skip, ()
+        if byte in skip:
+            # The pair after a CR or LF, or the ending of a line just cut:
+            # it ends nothing more, but a CR after a cut is still half a pair.
+            if len(skip) == 2:
+                state.skip = (_LF,) if byte == _CR else (_CR,)
+            continue
         if byte in (_CR, _LF):
             lines.append(bytes(state.pending).decode("ascii", errors="backslashreplace"))
             state.pending.clear()
-            state.skip_lf = byte == _CR
+            state.skip = (_LF,) if byte == _CR else (_CR,)
         else:
             state.pending.append(byte)
             if len(state.pending) >= _MAX_LINE_BYTES:
                 lines.append(bytes(state.pending).decode("ascii", errors="backslashreplace"))
                 state.pending.clear()
+                state.skip = (_CR, _LF)
     return lines
 
 
@@ -685,14 +690,17 @@ class SerialCapture(Instrument):  # pylint: disable=too-many-instance-attributes
                 if time.monotonic() >= deadline:
                     self._finish(run, window)
                     return
-                for text in self._read_lines(run):
+                arrived, lines = self._read_lines(run)
+                # Lines that arrived after the window closed are not in it.
+                # The time is when they arrived, not when they are handled:
+                # a slow live output must not push lines out of the window.
+                if lines and arrived >= deadline:
+                    self._finish(run, window)
+                    return
+                for text in lines:
                     if run.stop.is_set():
                         return
-                    # A line that ended after the window closed is not in it.
-                    if time.monotonic() >= deadline:
-                        self._finish(run, window)
-                        return
-                    if self._record(run, text):
+                    if self._record(run, text, arrived):
                         self._finish(run, "line %d matched %s" % (run.match_number,
                                                                   run.pattern.pattern))
                         return
@@ -714,10 +722,16 @@ class SerialCapture(Instrument):  # pylint: disable=too-many-instance-attributes
             run.ended = time.monotonic()
         self._logger.info("capture complete, %d lines: %s", run.count, why)
 
-    def _record(self, run: _Run, text: str) -> bool:
-        """Keep and log one line. ``True`` if it matched the pattern."""
-        elapsed = time.monotonic() - run.started
+    def _record(self, run: _Run, text: str, arrived: float) -> bool:
+        """Keep and log one line that arrived at *arrived*.
+
+        ``True`` if it matched the pattern. A line is not kept once its
+        capture has ended, however that happened.
+        """
+        elapsed = arrived - run.started
         with self._lock:
+            if run.status != RUNNING:
+                return False
             run.count += 1
             item = CapturedLine(run.count, text, round(elapsed, 6))
             run.lines.append(item)
@@ -752,8 +766,8 @@ class SerialCapture(Instrument):  # pylint: disable=too-many-instance-attributes
                     self.output_lock.release()
                 return
 
-    def _read_lines(self, run: _Run) -> List[str]:
-        """The lines completed by what arrived within one read of the port.
+    def _read_lines(self, run: _Run) -> Tuple[float, List[str]]:
+        """When one read of the port returned, and the lines it completed.
 
         Nothing arriving is no lines. The simulator says at once that it has
         nothing, so that is idle too; any other error from the port is raised,
@@ -762,10 +776,10 @@ class SerialCapture(Instrument):  # pylint: disable=too-many-instance-attributes
         try:
             data = self._transport.read_available()
         except TransportTimeoutError:
-            return []
+            return time.monotonic(), []
         except TransportError:
             if not isinstance(self._transport, MockTransport):
                 raise
             time.sleep(IDLE_SLEEP)
-            return []
-        return split_lines(run.framing, data)
+            return time.monotonic(), []
+        return time.monotonic(), split_lines(run.framing, data)

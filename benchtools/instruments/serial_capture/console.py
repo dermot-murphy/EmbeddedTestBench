@@ -50,6 +50,7 @@ from dataclasses import dataclass
 from typing import Callable, Dict, Optional
 
 from ...core.errors import TransportError
+from .errors import CaptureBusyError
 from .constants import (
     BUSY,
     INVALID_COMMAND,
@@ -110,7 +111,9 @@ def execute(capture, text: str) -> Reply:
     if verb == "WR" and len(words) > 2 and words[1].upper() == "PATTERN":
         # The pattern is everything after WR PATTERN, as it was sent: its
         # spaces are part of it, so they are not collapsed (SER-FR-004).
-        head, name, pattern = re.split(r"\s+", str(text).strip(), maxsplit=2)
+        # Only the line's own ending is dropped: a trailing space is part of
+        # the pattern as sent.
+        head, name, pattern = re.split(r"\s+", str(text).rstrip("\r\n").lstrip(), maxsplit=2)
         return _pattern(capture, "%s %s %s" % (head, name, pattern), pattern)
     return handler(capture, command, words[1:])
 
@@ -220,9 +223,11 @@ def _routine(capture, command: str, args) -> Reply:  # pylint: disable=too-many-
     if name != ROUTINE_CAPTURE:
         return _invalid(command)
     if action == "START":
-        if capture.running:
+        try:
+            return _ack(command, capture.start_capture().status)
+        except CaptureBusyError:
+            # Running, or the last capture's reader has not stopped yet.
             return _nack(command, BUSY)
-        return _ack(command, capture.start_capture().status)
     if action == "ABORT":
         return _ack(command, capture.abort_capture().status)
     if action == "RESULTS":

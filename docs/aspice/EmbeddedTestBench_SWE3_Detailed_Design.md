@@ -86,6 +86,7 @@
 
 | next | 2026-10-28 | Claude | #247: section 5.9, SER - SER-DD-CONST, SER-DD-DRIVER, SER-DD-CONSOLE, SER-DD-SIM and SER-DD-CLI, the serial capture instrument (total 79 → 84); RUN and VIEW renumbered 5.10 and 5.11; CORE-DD-EVENTS - the default name `SERIAL`. |
 | next | 2026-10-29 | Claude | #247, review of #318: SER-DD-DRIVER - `split_lines` and `_LineState` (CR, LF and CRLF, escaped bytes, `_MAX_LINE_BYTES`), `read_available` in place of `read_message`, a stop event per run and the reader joined (`_join_reader`), a line after the window left out, a port error ending the capture with `error`, `output_lock` and `_show`, the start result taken before the reader starts; SER-DD-CONSOLE - the pattern as sent; SER-DD-SIM - `ending`; SER-DD-CLI - the driver's `output_lock`. |
+| next | 2026-10-29 | Claude | #247, review of #318 round 2: SER-DD-DRIVER - LFCR pairs and the ending after a cut line in `split_lines`, lines timed and windowed by arrival (`_read_lines` returns the time), `_record` keeps nothing once the run has ended, `CaptureBusyError` moved to `errors.py` so the command set can catch it without an import cycle; SER-DD-CONSOLE - `BUSY` from `CaptureBusyError`, a trailing space kept in the pattern. |
 ---
 
 ## 3. Purpose & Scope
@@ -3115,7 +3116,7 @@ name `CAPTURE`, the statuses `Not Started`, `Running`, `Aborted` and
 `INVALID VALUE`, `OUT OF RANGE`, `BUSY` and `NOT FOUND`, `NACK Invalid
 Command`, and the `LINE` prefix of the live output.
 
-#### SER-DD-DRIVER — `benchtools/instruments/serial_capture/capture.py`
+#### SER-DD-DRIVER — `benchtools/instruments/serial_capture/capture.py`, `errors.py`
 
 `SerialCapture` subclasses `Instrument` (CORE-DD-INSTRUMENT). It is built from
 a function `make_transport(baudrate, char_format)` rather than a transport, so
@@ -3137,20 +3138,22 @@ The capture runs on a daemon thread:
   already ended.
 * The reader (`_read_until_done`) reads what has arrived with
   `read_available` and `READ_POLL`, and `split_lines` cuts it into lines at
-  CR, LF or CRLF, keeping a part line and a pending LF in the run's
-  `_LineState`, escaping a byte that is not ASCII, and keeping a line that
-  reaches `_MAX_LINE_BYTES` with no ending. A `TransportTimeoutError` is no
+  CR, LF, CRLF or LFCR, keeping a part line and the byte that would complete
+  a pair in the run's `_LineState`, escaping a byte that is not ASCII, and
+  keeping a line that reaches `_MAX_LINE_BYTES` with no ending, the ending
+  that follows it then being its own. A `TransportTimeoutError` is no
   data; a `TransportError` from the simulator's `MockTransport` (nothing
-  pending) sleeps `IDLE_SLEEP`; any other error is raised. It stops when the
-  window has run out, checked again after each line so a line that ends late
-  is left out (`Complete`), when a line matches (`Complete`), or when the run's
+  pending) sleeps `IDLE_SLEEP`; any other error is raised. `_read_lines` returns the time the read returned with its lines, and that
+  arrival time is both each line's `elapsed` and what is checked against the
+  window, so a slow `on_line` cannot push lines out of it. It stops when the
+  window has run out, or when lines arrive after it (`Complete`), when a line matches (`Complete`), or when the run's
   own `stop` event is set (`Aborted`). An exception ends the capture
   `Aborted` with its text in `error`, and is logged.
 * Each `_Run` has its own `stop` event, set by `_stop_reader`, which then
   joins the reader (`_join_reader`, up to `_JOIN_TIMEOUT`). `start_capture`
   joins the last reader too and refuses with `CaptureBusyError` if it is
   still alive, so no reader outlives its capture into the next.
-* `_record` numbers each line, keeps it with its time from the start in a
+* `_record` keeps nothing once the run is no longer `Running`, and numbers each line, keeps it with its time from the start in a
   `deque` of `MAX_LINES`, searches the pattern in it, and for the first match
   keeps the line, its number and the first group, if the pattern has one. It
   logs the line with `log_event(..., "line", "LINE <n> = <text>", ...)` at
@@ -3188,7 +3191,9 @@ count first and returns a frozen `Reply` (command as sent, text, `ok`, value).
   busy is `BUSY`, a `ValueError` from the setter is `OUT OF RANGE`, and any
   other error (the port refused the rate) is `INVALID VALUE`.
 * `ROUTINE <START|ABORT|RESULTS> CAPTURE` and `ROUTINE ABORT ALL` call the
-  driver; an abort answers with the status after it.
+  driver; an abort answers with the status after it, and a `CaptureBusyError`
+  from `start_capture` is `BUSY`. `WR PATTERN` drops only the line's own
+  CR/LF, so a trailing space stays in the pattern.
 
 #### SER-DD-SIM — `benchtools/instruments/serial_capture/simulator.py`
 

@@ -90,6 +90,8 @@ class TestWr:
         assert _say(uart, "WR  PATTERN  ^Self Test  (pass|fail)") == \
             "ACK WR PATTERN ^Self Test  (pass|fail)"
         assert uart.pattern == "^Self Test  (pass|fail)"
+        assert _say(uart, "WR PATTERN PASS \n") == "ACK WR PATTERN PASS "
+        assert uart.pattern == "PASS "
         _say(uart, "WR PATTERN OFF")
         assert uart.pattern == ""
         assert _say(uart, "RD PATTERN") == "ACK RD PATTERN = OFF"
