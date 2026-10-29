@@ -6,6 +6,7 @@ Traces to: SER-FR-012, SWE4-UT-SERCLI.
 from __future__ import annotations
 
 import io
+import time
 
 from benchtools.cli import main as top_level_main
 from benchtools.instruments.serial_capture.cli import main
@@ -27,6 +28,31 @@ def test_a_running_capture_is_waited_for_and_shown(capsys):
     assert out[4:8] == ["LINE 1 = BOOT V1.00.0000", "LINE 2 = SELF TEST START",
                         "LINE 3 = VBAT = 3.30 V", "LINE 4 = SELF TEST PASS"]
     assert out[-1] == "ACK ROUTINE RESULTS CAPTURE = Complete, 4 lines, Matched"
+
+
+def test_a_capture_that_ends_before_the_commands_still_shows_its_lines(
+        capsys, monkeypatch):
+    # The simulated device prints its whole script at once, so the capture
+    # ends while the commands are still running, and each line is slow to
+    # show, so most are still queued when the commands end.
+    from benchtools.instruments.serial_capture import SerialCapture, cli
+
+    original = SerialCapture.connect
+    monkeypatch.setattr(SerialCapture, "connect", lambda *args, **kwargs: original(
+        *args, simulated_interval=0.0, **kwargs))
+
+    def slow_show(text):
+        time.sleep(0.02)
+        print(text, flush=True)
+
+    monkeypatch.setattr(cli, "_show", slow_show)
+    status = main(["WR LINES ON", "WR PATTERN PASS", "ROUTINE START CAPTURE",
+                   "RD PORT", "RD BAUD"])
+    out = capsys.readouterr().out.splitlines()
+    assert status == 0
+    assert [line for line in out if line.startswith("LINE ")] == [
+        "LINE 1 = BOOT V1.00.0000", "LINE 2 = SELF TEST START",
+        "LINE 3 = VBAT = 3.30 V", "LINE 4 = SELF TEST PASS"]
 
 
 def test_lines_are_not_shown_unless_switched_on(capsys):

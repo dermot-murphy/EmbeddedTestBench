@@ -1000,7 +1000,7 @@ unplugged - the capture ends `Aborted` and `error` says why.
 | Method | Returns | Useful paths |
 |---|---|---|
 | `command` | `Reply` | `text`, `ok` (1 for `ACK`), `value` (after ` = `) |
-| `capture` | `CaptureResult` | `status`, `count`, `matched`, `match`, `match_number`, `value`, `elapsed`, `error`, `lines.0.text`, `text` |
+| `capture` | `CaptureResult` | `status`, `count`, `matched`, `match`, `match_number`, `value`, `elapsed`, `error`, `unshown`, `lines.0.text`, `text` |
 | `start_capture`, `wait_capture`, `abort_capture`, `results` | `CaptureResult` | as `capture` |
 | `line` | `str` | *(omit `measure`)* |
 

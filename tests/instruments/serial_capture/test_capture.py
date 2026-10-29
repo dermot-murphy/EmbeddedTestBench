@@ -623,3 +623,83 @@ class TestStopping:
         result = uart.capture(window_ms=5000, pattern="PASS")
         assert result.count == 4
         assert [line.text for line in result.lines] == _SCRIPT[2:]
+
+
+class TestLiveOutput:
+    """The thread that shows live lines: draining, bounds, and stopping."""
+
+    @staticmethod
+    def _slow(shown, seconds):
+        def show(text):
+            shown.append(text)
+            time.sleep(seconds)
+        return show
+
+    def test_closing_after_a_capture_completes_shows_every_line(self):
+        shown = []
+        uart = SerialCapture.connect("sim://", simulated_lines=["L%02d" % n for n in range(20)],
+                                     simulated_interval=0.0, on_line=self._slow(shown, 0.02))
+        uart.set_lines(True)
+        uart.start_capture(window_ms=5000, pattern="L19")
+        while uart.running:
+            time.sleep(0.01)
+        uart.close()
+        assert len(shown) == 20
+
+    def test_the_show_thread_is_gone_after_a_capture_and_after_an_abort(self, uart):
+        uart.on_line = lambda _text: None
+        uart.set_lines(True)
+        uart.capture(window_ms=5000, pattern="PASS")
+        assert not uart._shower.is_alive()
+        uart.start_capture(window_ms=60000, pattern="NEVER")
+        uart.abort_capture()
+        assert not uart._shower.is_alive()
+        assert not uart._reader.is_alive()
+
+    def test_the_queue_is_bounded_and_what_it_drops_is_counted(self, monkeypatch):
+        monkeypatch.setattr(capture_module, "MAX_LINES", 2)
+        shown = []
+        uart = SerialCapture(lambda _rate, _fmt: _BurstPort())
+        uart.initialise()
+        uart.on_line = self._slow(shown, 0.01)
+        uart.set_lines(True)
+        with uart:
+            result = uart.capture(window_ms=2000, timeout=30.0)
+        assert result.count == 40
+        assert result.unshown > 0
+        assert len(shown) + result.unshown == 40
+        assert result.as_dict()["unshown"] == result.unshown
+
+    def test_a_stuck_live_output_is_warned_of_and_refuses_the_next_start(
+            self, uart, monkeypatch, caplog):
+        monkeypatch.setattr(capture_module, "_JOIN_TIMEOUT", 0.2)
+        release = threading.Event()
+        uart.on_line = lambda _text: release.wait(10.0)
+        uart.set_lines(True)
+        try:
+            uart.capture(window_ms=5000, pattern="PASS", timeout=0.5)
+            assert "still being shown" in caplog.text
+            with pytest.raises(CaptureBusyError, match="live output"):
+                uart.start_capture(window_ms=5000, pattern="PASS")
+        finally:
+            release.set()
+        uart._shower.join(5.0)
+        assert not uart._shower.is_alive()
+        assert uart.capture(window_ms=5000, pattern="PASS").matched
+
+    def test_a_start_drops_the_last_capture_s_unshown_lines(self, monkeypatch):
+        monkeypatch.setattr(capture_module, "_JOIN_TIMEOUT", 0.2)
+        shown = []
+        uart = SerialCapture.connect("sim://", simulated_lines=["L%02d" % n for n in range(20)],
+                                     simulated_interval=0.0, on_line=self._slow(shown, 0.1))
+        uart.set_lines(True)
+        with uart:
+            uart.start_capture(window_ms=5000, pattern="L19")
+            while uart.running:
+                time.sleep(0.01)
+            first = uart._shower
+            uart.start_capture(window_ms=5000, pattern="NEVER")
+            assert not first.is_alive()
+            dropped_at = len(shown)
+            uart.abort_capture()
+        assert dropped_at < 20

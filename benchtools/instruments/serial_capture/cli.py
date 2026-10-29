@@ -104,6 +104,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             except KeyboardInterrupt:
                 capture.abort_capture()
             ok = _run(capture, "ROUTINE RESULTS CAPTURE") and ok
+        # A capture that ended before the commands did keeps its live lines;
+        # close() shows the ones still queued before the port is closed.
     except KeyboardInterrupt:
         capture.abort_capture()
         ok = False

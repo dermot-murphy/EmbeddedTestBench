@@ -191,6 +191,9 @@ class CaptureResult:  # pylint: disable=too-many-instance-attributes
     :ivar elapsed: Seconds the capture ran.
     :ivar error: Why the port stopped the capture, for an ``Aborted``
         capture that was not aborted by a command; otherwise ``""``.
+    :ivar unshown: Live lines (``WR LINES ON``) dropped because the live
+        output fell :data:`~.constants.MAX_LINES` behind. They are still
+        captured and logged.
     """
 
     status: str = NOT_STARTED
@@ -202,6 +205,7 @@ class CaptureResult:  # pylint: disable=too-many-instance-attributes
     value: Optional[str] = None
     elapsed: float = 0.0
     error: str = ""
+    unshown: int = 0
 
     @property
     def matched(self) -> bool:
@@ -239,6 +243,7 @@ class CaptureResult:  # pylint: disable=too-many-instance-attributes
             "value": self.value,
             "elapsed": self.elapsed,
             "error": self.error,
+            "unshown": self.unshown,
             "lines": [line.as_dict() for line in self.lines],
         }
 
@@ -262,10 +267,15 @@ class _Run:  # pylint: disable=too-many-instance-attributes
     #: still finishing cannot take lines from the capture after it (#318).
     stop: threading.Event = field(default_factory=threading.Event)
     framing: _LineState = field(default_factory=_LineState)
-    #: Live lines waiting for ``on_line``, then ``None`` when the reader
-    #: has finished. A thread of their own shows them, so a slow
-    #: ``on_line`` never holds up the reading of the port (#318).
-    shown: "queue.Queue[Optional[str]]" = field(default_factory=queue.Queue)
+    #: Live lines waiting for ``on_line``. A thread of their own shows them,
+    #: so a slow ``on_line`` never holds up the reading of the port (#318).
+    #: Bounded like the lines kept; a line that does not fit is counted in
+    #: ``unshown`` rather than waited for.
+    shown: "queue.Queue[str]" = field(default_factory=lambda: queue.Queue(maxsize=MAX_LINES))
+    unshown: int = 0
+    #: Set when the reader has finished: the show thread then ends once the
+    #: queue is empty.
+    read_done: threading.Event = field(default_factory=threading.Event)
 
 
 class SerialCapture(Instrument):  # pylint: disable=too-many-instance-attributes
@@ -555,6 +565,16 @@ class SerialCapture(Instrument):  # pylint: disable=too-many-instance-attributes
         self._join_reader()
         if self._reader is not None and self._reader.is_alive():
             raise CaptureBusyError("the last capture's reader has not stopped")
+        if self._shower is not None and self._shower.is_alive():
+            # The last capture's live lines are still being shown and did not
+            # finish in time: drop the rest, so two captures' lines never
+            # interleave, and refuse if even that does not end it.
+            previous = self._run
+            if previous is not None:
+                previous.stop.set()
+            self._shower.join(_JOIN_TIMEOUT)
+            if self._shower.is_alive():
+                raise CaptureBusyError("the last capture's live output has not stopped")
         if window_ms is not None:
             self.window_ms = window_ms
         if pattern is not None:
@@ -617,6 +637,9 @@ class SerialCapture(Instrument):  # pylint: disable=too-many-instance-attributes
             shower = self._shower
             if shower is not None:
                 shower.join(max(ends - time.monotonic(), 0.0) + _JOIN_TIMEOUT)
+                if shower.is_alive():
+                    self._logger.warning("the capture has ended, but its live lines are "
+                                         "still being shown")
         return self.results()
 
     def capture(self, window_ms: Optional[int] = None, pattern: Optional[str] = None,
@@ -647,6 +670,7 @@ class SerialCapture(Instrument):  # pylint: disable=too-many-instance-attributes
                 value=run.value,
                 elapsed=round(end - run.started, 6),
                 error=run.error,
+                unshown=run.unshown,
             )
 
     def line(self, number: int) -> str:
@@ -681,7 +705,9 @@ class SerialCapture(Instrument):  # pylint: disable=too-many-instance-attributes
                 run.status = status
                 run.ended = time.monotonic()
                 stopped = True
-            if run is not None:
+                # Only a capture that is running is stopped. One that has
+                # ended keeps its live lines, and they are shown before this
+                # returns, as closing after a capture completes needs (#318).
                 run.stop.set()
         self._join_reader()
         if stopped:
@@ -703,22 +729,23 @@ class SerialCapture(Instrument):  # pylint: disable=too-many-instance-attributes
         A stopped run shows nothing more: the lines still waiting are dropped,
         as an abort means.
         """
-        while True:
+        while not run.stop.is_set():
             try:
                 shown = run.shown.get(timeout=READ_POLL)
             except queue.Empty:
-                if run.stop.is_set():
+                if run.read_done.is_set():
                     return
                 continue
-            if shown is None or run.stop.is_set():
-                return
             self._show(run, shown)
 
     def _read_until_done(self, run: _Run) -> None:
         try:
             self._read_run(run)
         finally:
-            run.shown.put(None)
+            run.read_done.set()
+            if run.unshown:
+                self._logger.warning("%d live lines were not shown: the live output "
+                                     "fell %d lines behind", run.unshown, MAX_LINES)
 
     def _read_run(self, run: _Run) -> None:
         deadline = run.started + run.window_s
@@ -782,7 +809,11 @@ class SerialCapture(Instrument):  # pylint: disable=too-many-instance-attributes
         level = logging.INFO if self._lines_on and self.on_line is None else logging.DEBUG
         log_event(self._logger, "line", shown, item.as_dict(), level=level)
         if self._lines_on and self.on_line is not None:
-            run.shown.put(shown)
+            try:
+                run.shown.put_nowait(shown)
+            except queue.Full:
+                with self._lock:
+                    run.unshown += 1
         return found is not None
 
     def _show(self, run: _Run, shown: str) -> None:

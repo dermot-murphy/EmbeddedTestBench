@@ -88,6 +88,7 @@
 | next | 2026-10-29 | Claude | #247, review of #318: SER-DD-DRIVER - `split_lines` and `_LineState` (CR, LF and CRLF, escaped bytes, `_MAX_LINE_BYTES`), `read_available` in place of `read_message`, a stop event per run and the reader joined (`_join_reader`), a line after the window left out, a port error ending the capture with `error`, `output_lock` and `_show`, the start result taken before the reader starts; SER-DD-CONSOLE - the pattern as sent; SER-DD-SIM - `ending`; SER-DD-CLI - the driver's `output_lock`. |
 | next | 2026-10-29 | Claude | #247, review of #318 round 2: SER-DD-DRIVER - LFCR pairs and the ending after a cut line in `split_lines`, lines timed and windowed by arrival (`_read_lines` returns the time), `_record` keeps nothing once the run has ended, `CaptureBusyError` moved to `errors.py` so the command set can catch it without an import cycle; SER-DD-CONSOLE - `BUSY` from `CaptureBusyError`, a trailing space kept in the pattern. |
 | next | 2026-10-29 | Claude | #247, review of #318 round 3: SER-DD-DRIVER - live lines through a queue to a thread of their own (`_show_until_done`), joined by `wait_capture` and `_join_reader`, so a slow `on_line` does not hold up the reader; SER-DD-CONSOLE - `WR PATTERN OFF` with white space. |
+| next | 2026-10-29 | Claude | #247, review of #318 round 4: SER-DD-DRIVER - `stop` set only on a running run, so close() shows an ended capture's live lines; `read_done` in place of the `None` sentinel; the show queue bounded to `MAX_LINES` with `unshown`; `start_capture` stops or refuses a show thread that outlives the last capture; `wait_capture` warns of one. |
 ---
 
 ## 3. Purpose & Scope
@@ -3159,12 +3160,19 @@ The capture runs on a daemon thread:
   keeps the line, its number and the first group, if the pattern has one. It
   logs the line with `log_event(..., "line", "LINE <n> = <text>", ...)` at
   DEBUG; while `WR LINES ON` it also puts that text on the run's `shown`
-  queue, or, with no `on_line`, logs it at INFO instead (SER-FR-007,
+  queue (bounded to `MAX_LINES`; a line that does not fit is counted in
+  `unshown`), or, with no `on_line`, logs it at INFO instead (SER-FR-007,
   SER-FR-008).
 * A second thread per run (`_show_until_done`) takes the queue in order and
   hands each line to `on_line` through `_show`, so a slow `on_line` never
-  holds up the reader. The reader puts `None` on the queue when it finishes;
-  a stopped run's waiting lines are dropped. `_show` waits for `output_lock`
+  holds up the reader. The reader sets the run's `read_done` when it
+  finishes, and the thread ends once the queue is then empty; a stopped run's
+  waiting lines are dropped. `_stop_reader` sets `stop` only on a run that is
+  `Running`, so a capture that has ended keeps its live lines, and `close()`
+  shows them before the port closes. `start_capture`, finding the last show
+  thread alive after `_JOIN_TIMEOUT`, sets the last run's `stop`, and refuses
+  with `CaptureBusyError` if the thread still does not end (an `on_line`
+  that never returns); `wait_capture` warns when the thread outlives it. `_show` waits for `output_lock`
   in `READ_POLL` steps, giving up once the run is stopped, and logs an
   exception from `on_line` as a warning. `wait_capture` joins this thread
   after the reader, so every live line is shown before the result is
@@ -3173,7 +3181,7 @@ The capture runs on a daemon thread:
   the window plus the connect timeout, and raises `InstrumentError` if it is
   still running. `capture()` is `start_capture` then `wait_capture`.
 * `results()` builds a frozen `CaptureResult` (status, count, lines, pattern,
-  match, match number, value, elapsed, error) under the lock; `summary()` words it as
+  match, match number, value, elapsed, error, unshown) under the lock; `summary()` words it as
   `ROUTINE RESULTS CAPTURE` does, and `as_dict()` gives it as JSON.
 * `line(n)` is the text of a kept line, or `IndexError`.
 * `command(request)` runs one command through SER-DD-CONSOLE, logs the
