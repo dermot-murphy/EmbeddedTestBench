@@ -115,3 +115,48 @@ def test_ctrl_c_while_closing_still_closes_the_port(capsys, monkeypatch):
     capsys.readouterr()
     assert len(calls) == 2
     assert not made[0].is_open
+
+
+def test_ctrl_c_while_closing_drops_the_waiting_lines_at_once(capsys, monkeypatch):
+    from benchtools.instruments.serial_capture import SerialCapture, capture as capture_module
+    from benchtools.instruments.serial_capture import cli
+
+    # Without stop_live_output the second close would wait out this.
+    monkeypatch.setattr(capture_module, "_JOIN_TIMEOUT", 3.0)
+    original_connect = SerialCapture.connect
+    original_close = SerialCapture.close
+    made, calls = [], []
+
+    def connect(*args, **kwargs):
+        made.append(original_connect(*args, simulated_interval=0.0, **kwargs))
+        return made[-1]
+
+    def close(self):
+        calls.append(time.monotonic())
+        if len(calls) == 1:
+            raise KeyboardInterrupt
+        original_close(self)
+
+    def slow_show(text):
+        time.sleep(0.2)
+        print(text, flush=True)
+
+    monkeypatch.setattr(SerialCapture, "connect", connect)
+    monkeypatch.setattr(SerialCapture, "close", close)
+    original_run = cli._run
+
+    def run(capture, text):
+        ok = original_run(capture, text)
+        if text == "RD PORT":
+            time.sleep(0.3)      # the capture ends while the commands go on
+        return ok
+
+    monkeypatch.setattr(cli, "_show", slow_show)
+    monkeypatch.setattr(cli, "_run", run)
+    assert main(["WR LINES ON", "WR PATTERN PASS", "ROUTINE START CAPTURE", "RD PORT"]) == 1
+    finished = time.monotonic()
+    capsys.readouterr()
+    assert len(calls) == 2
+    assert finished - calls[1] < 1.0
+    assert not made[0].is_open
+    assert made[0].results().unshown > 0

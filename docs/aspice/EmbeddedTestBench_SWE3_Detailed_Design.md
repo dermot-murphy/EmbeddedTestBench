@@ -90,6 +90,7 @@
 | next | 2026-10-29 | Claude | #247, review of #318 round 3: SER-DD-DRIVER - live lines through a queue to a thread of their own (`_show_until_done`), joined by `wait_capture` and `_join_reader`, so a slow `on_line` does not hold up the reader; SER-DD-CONSOLE - `WR PATTERN OFF` with white space. |
 | next | 2026-10-29 | Claude | #247, review of #318 round 4: SER-DD-DRIVER - `stop` set only on a running run, so close() shows an ended capture's live lines; `read_done` in place of the `None` sentinel; the show queue bounded to `MAX_LINES` with `unshown`; `start_capture` stops or refuses a show thread that outlives the last capture; `wait_capture` warns of one. |
 | next | 2026-10-29 | Claude | #247, review of #318 round 5: SER-DD-DRIVER - the show thread drains after `read_done`, dropped live lines counted in `unshown` and in `summary()`, `_finish_live_output` (bounded, not under `output_lock`) for `close()` and `start_capture`, an abort of an ended capture leaving its lines, `stop_live_output`, `OutputLock`; SER-DD-CLI - Ctrl-C while closing. |
+| next | 2026-10-29 | Claude | #247, review of #318 round 6: SER-DD-DRIVER - `start_capture` leaves the show thread to `_finish_live_output`, `_show` returns whether it showed the line and an overtaken line is counted, `join_thread` joins in `READ_POLL` steps. |
 ---
 
 ## 3. Purpose & Scope
@@ -3181,7 +3182,12 @@ The capture runs on a daemon thread:
   sets `stop` for a caller that cannot wait. `wait_capture` warns when the
   thread outlives it.
 * `output_lock` is an `OutputLock`: a re-entrant lock that records its
-  owning thread, so `held()` can tell the driver not to wait. `_show` waits for `output_lock`
+  owning thread, so `held()` can tell the driver not to wait.
+  `start_capture` joins only the last reader itself and leaves the last show
+  thread to `_finish_live_output`. `_show` returns whether it handed the line
+  over; a line a stop overtook while it waited for the lock is counted in
+  `unshown`. Every wait for a thread is `join_thread`, which joins in
+  `READ_POLL` steps so that Ctrl-C can interrupt it on Windows. `_show` waits for `output_lock`
   in `READ_POLL` steps, giving up once the run is stopped, and logs an
   exception from `on_line` as a warning. `wait_capture` joins this thread
   after the reader, so every live line is shown before the result is

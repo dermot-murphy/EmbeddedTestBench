@@ -87,6 +87,7 @@
 | next | 2026-10-29 | Claude | #247, review of #318 round 3: SWE4-UT-SER 61 → 63 and SWE4-UT-SERCONSOLE 49 → 52, pass, from a run of `tests/instruments/serial_capture` on this branch on 2026-10-29 (129 passed, Windows). The section 5 total is still the 1.32 whole-suite run's. |
 | next | 2026-10-29 | Claude | #247, review of #318 round 4: SWE4-UT-SER 63 → 68 and SWE4-UT-SERCLI 8 → 9, pass, from a run of `tests/instruments/serial_capture` on this branch on 2026-10-29 (135 passed, Windows). The section 5 total is still the 1.32 whole-suite run's. |
 | next | 2026-10-29 | Claude | #247, review of #318 round 5: SWE4-UT-SER 68 → 75 and SWE4-UT-SERCLI 9 → 10, pass, from a run of `tests/instruments/serial_capture` on this branch on 2026-10-29 (143 passed, Windows). The section 5 total is still the 1.32 whole-suite run's. |
+| next | 2026-10-29 | Claude | #247, review of #318 round 6: SWE4-UT-SER 75 → 78 and SWE4-UT-SERCLI 10 → 11, pass, from a run of `tests/instruments/serial_capture` on this branch on 2026-10-29 (147 passed, Windows). The section 5 total is still the 1.32 whole-suite run's. |
 ---
 
 ## 3. Purpose & Scope
@@ -339,10 +340,10 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-PICOCLI | `instruments/pico_sht30/test_cli.py` | 16 | Pass |
 | SWE4-UT-PICOFLASH | `instruments/pico_sht30/test_flash.py` | 35 | Pass |
 | SWE4-UT-PICOFWPROTO | `instruments/pico_sht30/test_firmware_protocol.py` | 9 | Pass |
-| SWE4-UT-SER | `instruments/serial_capture/test_capture.py` | 75 | Pass |
+| SWE4-UT-SER | `instruments/serial_capture/test_capture.py` | 78 | Pass |
 | SWE4-UT-SERCONSOLE | `instruments/serial_capture/test_console.py` | 52 | Pass |
 | SWE4-UT-SERSIM | `instruments/serial_capture/test_simulator.py` | 6 | Pass |
-| SWE4-UT-SERCLI | `instruments/serial_capture/test_cli.py` | 10 | Pass |
+| SWE4-UT-SERCLI | `instruments/serial_capture/test_cli.py` | 11 | Pass |
 | SWE4-UT-PICOFW | `firmware/pico_sht30/test/*.c` | 83 | Pass (CTest with ASan/UBSan, 3 binaries, CI run 39938471355; not in the pytest total; §13A) |
 | SWE4-UT-BENCH | `runner/test_bench.py`, `runner/test_shipped_benches.py` | 67 | Pass |
 | SWE4-UT-ENGINE | `runner/test_runner.py` | 33 | Pass |

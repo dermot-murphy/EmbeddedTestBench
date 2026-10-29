@@ -77,6 +77,7 @@ __all__ = [
     "CaptureBusyError",
     "parse_format",
     "split_lines",
+    "join_thread",
     "OutputLock",
 ]
 
@@ -176,6 +177,20 @@ def split_lines(state: _LineState, data: bytes) -> List[str]:
                 state.pending.clear()
                 state.skip = (_CR, _LF)
     return lines
+
+
+def join_thread(thread: threading.Thread, timeout: float) -> None:
+    """Wait up to *timeout* seconds for *thread*, in steps of :data:`READ_POLL`.
+
+    One long timed ``join`` cannot be interrupted by Ctrl-C on Windows;
+    short ones can, between steps (#318).
+    """
+    deadline = time.monotonic() + timeout
+    while thread.is_alive():
+        left = deadline - time.monotonic()
+        if left <= 0:
+            return
+        thread.join(min(left, READ_POLL))
 
 
 def parse_format(text: str) -> Tuple[int, str, int]:
@@ -618,7 +633,9 @@ class SerialCapture(Instrument):  # pylint: disable=too-many-instance-attributes
         """
         if self.running:
             raise CaptureBusyError("a capture is already running; abort it first")
-        self._join_reader()
+        # The last show thread is left to _finish_live_output, which knows not
+        # to wait for it under output_lock.
+        self._join_reader(shower=False)
         if self._reader is not None and self._reader.is_alive():
             raise CaptureBusyError("the last capture's reader has not stopped")
         if not self._finish_live_output():
@@ -677,14 +694,14 @@ class SerialCapture(Instrument):  # pylint: disable=too-many-instance-attributes
                 left = 0.0 if run is None else run.started + run.window_s - time.monotonic()
                 timeout = max(left, 0.0) + self._capture_timeout
             ends = time.monotonic() + timeout
-            reader.join(timeout)
+            join_thread(reader, timeout)
             if reader.is_alive():
                 raise InstrumentError("the capture was still running after %.1f s" % timeout)
             # The live lines are all shown before the result is returned, so
             # a caller printing both prints the lines first.
             shower = self._shower
             if shower is not None:
-                shower.join(max(ends - time.monotonic(), 0.0) + _JOIN_TIMEOUT)
+                join_thread(shower, max(ends - time.monotonic(), 0.0) + _JOIN_TIMEOUT)
                 if shower.is_alive():
                     self._logger.warning("the capture has ended, but its live lines are "
                                          "still being shown")
@@ -771,7 +788,7 @@ class SerialCapture(Instrument):  # pylint: disable=too-many-instance-attributes
         for thread in (self._reader, self._shower if shower else None):
             if thread is None or thread is threading.current_thread():
                 continue
-            thread.join(_JOIN_TIMEOUT)
+            join_thread(thread, _JOIN_TIMEOUT)
             if thread.is_alive():
                 self._logger.warning("the capture's %s thread did not stop within %.0f s",
                                      thread.name, _JOIN_TIMEOUT)
@@ -789,13 +806,13 @@ class SerialCapture(Instrument):  # pylint: disable=too-many-instance-attributes
         if shower is None or not shower.is_alive() or shower is threading.current_thread():
             return True
         if not self.output_lock.held():
-            shower.join(_JOIN_TIMEOUT)
+            join_thread(shower, _JOIN_TIMEOUT)
         if shower.is_alive():
             with self._lock:
                 run = self._run
             if run is not None:
                 run.stop.set()
-            shower.join(READ_POLL * 4)
+            join_thread(shower, READ_POLL * 4)
         if shower.is_alive():
             self._logger.warning("the capture's live output did not stop")
             return False
@@ -817,7 +834,9 @@ class SerialCapture(Instrument):  # pylint: disable=too-many-instance-attributes
                 if run.read_done.is_set() and run.shown.empty():
                     return
                 continue
-            self._show(run, shown)
+            if not self._show(run, shown):
+                with self._lock:
+                    run.unshown += 1
         dropped = 0
         while True:
             try:
@@ -908,8 +927,11 @@ class SerialCapture(Instrument):  # pylint: disable=too-many-instance-attributes
                     run.unshown += 1
         return found is not None
 
-    def _show(self, run: _Run, shown: str) -> None:
+    def _show(self, run: _Run, shown: str) -> bool:
         """Hand one live line to ``on_line``, unless the capture is stopped first.
+
+        ``True`` if it was handed over: a line the stop overtook is not, and
+        is counted with the other live lines not shown.
 
         The lock is waited for in short steps, checking the run's stop event
         between them, so a reader is never held by a caller that is printing
@@ -925,7 +947,8 @@ class SerialCapture(Instrument):  # pylint: disable=too-many-instance-attributes
                     self._logger.warning("the live line output failed: %s", exc)
                 finally:
                     self.output_lock.release()
-                return
+                return True
+        return False
 
     def _read_lines(self, run: _Run) -> Tuple[float, List[str]]:
         """When one read of the port returned, and the lines it completed.

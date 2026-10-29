@@ -790,12 +790,17 @@ class TestLiveOutputEnds:
         assert result.summary().endswith(", %d unshown" % result.unshown)
 
     def test_stop_live_output_drops_and_counts_the_waiting_lines(self):
-        release = threading.Event()
+        release, entered = threading.Event(), threading.Event()
+
+        def stuck(_text):
+            entered.set()
+            release.wait(5.0)
+
         uart = SerialCapture.connect("sim://", simulated_lines=["A", "B", "C"],
-                                     simulated_interval=0.0,
-                                     on_line=lambda _text: release.wait(5.0))
+                                     simulated_interval=0.0, on_line=stuck)
         uart.set_lines(True)
         uart.start_capture(window_ms=5000, pattern="C")
+        assert entered.wait(5.0)
         while uart.running:
             time.sleep(0.01)
         uart.stop_live_output()
@@ -840,3 +845,60 @@ class TestOutputLock:
             holder.join()
         assert lock.acquire(timeout=1.0)
         lock.release()
+
+
+class TestLiveOutputUnderTheLock:
+    """What a caller holding output_lock - the command line - meets."""
+
+    def test_a_second_start_under_the_lock_does_not_wait_and_counts_the_drop(self):
+        shown = []
+        uart = SerialCapture.connect("sim://", simulated_lines=["L%02d" % n for n in range(10)],
+                                     simulated_interval=0.0, on_line=shown.append)
+        uart.set_lines(True)
+        with uart:
+            with uart.output_lock:
+                uart.start_capture(window_ms=5000, pattern="L09")
+                while uart.running:
+                    time.sleep(0.01)
+                first = uart._run
+                started = time.monotonic()
+                assert uart.command("ROUTINE START CAPTURE").text == \
+                    "ACK ROUTINE START CAPTURE = Running"
+                assert time.monotonic() - started < 1.0
+            uart.abort_capture()
+        # The first capture's lines were all dropped; any shown are the second's.
+        assert first.unshown == 10
+        assert len(shown) <= 10
+
+    def test_a_line_the_stop_overtakes_is_counted(self):
+        shown = []
+        uart = SerialCapture.connect("sim://", simulated_lines=["L%02d" % n for n in range(20)],
+                                     simulated_interval=0.0, on_line=shown.append)
+        uart.set_lines(True)
+        with uart.output_lock:
+            uart.start_capture(window_ms=60000, pattern="NEVER")
+            time.sleep(0.3)
+            uart.abort_capture()
+        uart.close()
+        result = uart.results()
+        assert not shown
+        assert result.unshown == 20
+        assert result.summary() == "Aborted, 20 lines, Not Matched, 20 unshown"
+
+
+def test_join_thread_waits_for_the_end_or_the_timeout():
+    quick = threading.Thread(target=time.sleep, args=(0.1,))
+    quick.start()
+    started = time.monotonic()
+    capture_module.join_thread(quick, 5.0)
+    assert not quick.is_alive()
+    assert time.monotonic() - started < 1.0
+    release = threading.Event()
+    slow = threading.Thread(target=release.wait, args=(5.0,))
+    slow.start()
+    started = time.monotonic()
+    capture_module.join_thread(slow, 0.2)
+    assert slow.is_alive()
+    assert 0.15 < time.monotonic() - started < 1.0
+    release.set()
+    slow.join()
