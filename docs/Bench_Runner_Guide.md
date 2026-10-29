@@ -993,12 +993,14 @@ A capture discards what the device printed before it, then records every line
 until the window ends or a line matches the pattern, whichever comes first.
 The pattern is searched for in each line, and its first group in the matching
 line is the value. A capture that hears nothing completes with no lines, so
-silence fails a limit rather than erroring.
+silence fails a limit rather than erroring. A line ends at CR, LF or CRLF;
+a byte that is not ASCII is kept as `\xNN`. If the port fails - an adapter
+unplugged - the capture ends `Aborted` and `error` says why.
 
 | Method | Returns | Useful paths |
 |---|---|---|
 | `command` | `Reply` | `text`, `ok` (1 for `ACK`), `value` (after ` = `) |
-| `capture` | `CaptureResult` | `status`, `count`, `matched`, `match`, `match_number`, `value`, `elapsed`, `lines.0.text`, `text` |
+| `capture` | `CaptureResult` | `status`, `count`, `matched`, `match`, `match_number`, `value`, `elapsed`, `error`, `lines.0.text`, `text` |
 | `start_capture`, `wait_capture`, `abort_capture`, `results` | `CaptureResult` | as `capture` |
 | `line` | `str` | *(omit `measure`)* |
 

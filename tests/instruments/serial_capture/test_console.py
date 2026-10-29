@@ -86,9 +86,10 @@ class TestWr:
         assert _say(uart, "RD FORMAT") == "ACK RD FORMAT = 7E2"
         assert _say(uart, "RD WINDOW") == "ACK RD WINDOW = 1234"
 
-    def test_a_pattern_keeps_its_case(self, uart):
-        _say(uart, "WR PATTERN ^Self Test (pass|fail)")
-        assert uart.pattern == "^Self Test (pass|fail)"
+    def test_a_pattern_keeps_its_case_and_spaces(self, uart):
+        assert _say(uart, "WR  PATTERN  ^Self Test  (pass|fail)") == \
+            "ACK WR PATTERN ^Self Test  (pass|fail)"
+        assert uart.pattern == "^Self Test  (pass|fail)"
         _say(uart, "WR PATTERN OFF")
         assert uart.pattern == ""
         assert _say(uart, "RD PATTERN") == "ACK RD PATTERN = OFF"

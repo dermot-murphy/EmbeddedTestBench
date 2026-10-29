@@ -1,16 +1,28 @@
 """The serial capture driver: settings, the capture routine and its result.
 
-Traces to: SER-FR-001, SER-FR-006, SER-FR-008, SER-FR-009, SER-FR-011,
-SWE4-UT-SER.
+Traces to: SER-FR-001, SER-FR-004, SER-FR-006, SER-FR-008, SER-FR-009,
+SER-FR-011, SWE4-UT-SER.
 """
 
 from __future__ import annotations
 
 import logging
+import socket
+import threading
+import time
 
 import pytest
 
-from benchtools.core.errors import ConfigurationError, InstrumentError
+from benchtools.core.errors import (
+    ConfigurationError,
+    ConnectionFailedError,
+    InstrumentError,
+    TransportError,
+    TransportTimeoutError,
+)
+from benchtools.core.transport.base import Transport
+from benchtools.core.transport.mock import MockTransport
+from benchtools.instruments.serial_capture import capture as capture_module
 from benchtools.instruments.serial_capture import (
     ABORTED,
     COMPLETE,
@@ -18,8 +30,10 @@ from benchtools.instruments.serial_capture import (
     RUNNING,
     CaptureBusyError,
     SerialCapture,
+    SimulatedSerialDevice,
     parse_format,
 )
+from benchtools.instruments.serial_capture.capture import _LineState, split_lines
 from benchtools.runner.bench import registered_drivers
 
 #: A script printed all at once: no test waits on real-time pacing.
@@ -216,19 +230,60 @@ class TestLog:
         assert lines and all(r.levelno == logging.INFO for r in lines)
 
 
-class TestLoopback:
-    """The real serial transport, against pyserial's loopback port."""
+class TestSocketPort:
+    """The real serial transport, reading a device that a socket stands in for.
 
-    def test_lines_written_to_the_port_are_captured(self):
+    pyserial's ``socket://`` handler is a serial port whose far end is a TCP
+    socket, so the test writes as the device would, from its own end, and the
+    capture reads through its own transport alone.
+    """
+
+    @pytest.fixture
+    def device(self):
         pytest.importorskip("serial")
-        with SerialCapture.connect("serial://loop://") as uart:
-            uart.start_capture(window_ms=2000, pattern="^END$")
-            uart._transport.write(b"first\r\nsecond", append_terminator=False)
-            uart._transport.write(b"\r\nEND\r\n", append_terminator=False)
+        listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        listener.bind(("127.0.0.1", 0))
+        listener.listen(1)
+        accepted = {}
+
+        def accept():
+            accepted["end"], _ = listener.accept()
+
+        thread = threading.Thread(target=accept, daemon=True)
+        thread.start()
+        yield listener.getsockname()[1], accepted, thread
+        if "end" in accepted:
+            accepted["end"].close()
+        listener.close()
+
+    @staticmethod
+    def _connect(port, accepted, thread):
+        uart = SerialCapture.connect("serial://socket://localhost:%d" % port)
+        thread.join(5.0)
+        return uart, accepted["end"]
+
+    def test_lines_the_device_prints_are_captured(self, device):
+        uart, end = self._connect(*device)
+        with uart:
+            uart.start_capture(window_ms=5000, pattern="^END$")
+            end.sendall(b"first\r\nsecond")
+            end.sendall(b"\r\nEND\r\n")
             result = uart.wait_capture()
         assert [line.text for line in result.lines] == ["first", "second", "END"]
         assert result.matched
 
+    def test_what_came_before_the_capture_is_discarded(self, device):
+        uart, end = self._connect(*device)
+        with uart:
+            end.sendall(b"OLD\r\n")
+            time.sleep(0.3)
+            uart.start_capture(window_ms=5000, pattern="^NEW$")
+            end.sendall(b"NEW\r\n")
+            result = uart.wait_capture()
+        assert [line.text for line in result.lines] == ["NEW"]
+
+
+class TestLineSettings:
     def test_the_port_takes_the_line_settings(self):
         pytest.importorskip("serial")
         with SerialCapture.connect("serial://loop://", baudrate=9600,
@@ -239,3 +294,169 @@ class TestLoopback:
             uart.set_baudrate(19200)
             assert uart._transport.baudrate == 19200
             assert uart._transport is not port
+
+    def test_settings_the_port_refuses_leave_the_old_ones(self):
+        device = SimulatedSerialDevice(["BOOT"], interval=0.0)
+
+        def make_transport(rate, _fmt):
+            if rate == 9600:
+                raise ConnectionFailedError("the adapter cannot do 9600")
+            return MockTransport(device)
+
+        uart = SerialCapture(make_transport)
+        uart.initialise()
+        with uart:
+            assert uart.command("WR BAUD 9600").text == "NACK WR BAUD 9600 INVALID VALUE"
+            assert uart.baudrate == 115200
+            assert uart.is_open
+            assert uart.capture(window_ms=5000, pattern="BOOT").matched
+
+
+class TestLineEndings:
+    @staticmethod
+    def _split(*chunks):
+        state = _LineState()
+        lines = []
+        for chunk in chunks:
+            lines.extend(split_lines(state, chunk))
+        return lines, bytes(state.pending)
+
+    def test_cr_lf_and_crlf_each_end_a_line(self):
+        assert self._split(b"A\rB\nC\r\nD") == (["A", "B", "C"], b"D")
+
+    def test_a_crlf_split_across_chunks_is_one_ending(self):
+        assert self._split(b"A\r", b"\nB\n") == (["A", "B"], b"")
+
+    def test_two_endings_are_a_blank_line(self):
+        assert self._split(b"A\n\nB\r\r") == (["A", "", "B", ""], b"")
+
+    def test_a_byte_that_is_not_ascii_is_escaped(self):
+        assert self._split(b"caf\xe9\n") == (["caf\\xe9"], b"")
+
+    def test_a_line_with_no_ending_is_cut_at_its_limit(self, monkeypatch):
+        monkeypatch.setattr(capture_module, "_MAX_LINE_BYTES", 4)
+        assert self._split(b"ABCDEF") == (["ABCD"], b"EF")
+
+    def test_a_device_that_ends_lines_with_cr_alone(self):
+        uart = SerialCapture.connect("sim://", simulated_lines=[], simulated_interval=0.0)
+        with uart:
+            device = uart._transport.responder
+            device.lines = ["A", "B"]
+            device.ending = b"\r"
+            result = uart.capture(window_ms=5000, pattern="^B$")
+        assert result.status == COMPLETE
+        assert [line.text for line in result.lines] == ["A", "B"]
+
+
+class _DeadPort(Transport):
+    """A port that fails as soon as it is read, as an unplugged adapter does."""
+
+    def _open_link(self):
+        pass
+
+    def _close_link(self):
+        pass
+
+    def _send(self, data):
+        pass
+
+    def _recv_chunk(self, max_bytes):
+        raise TransportError("the port has gone")
+
+
+class _LatePort(Transport):
+    """A port whose one line ends after the window has closed."""
+
+    def _open_link(self):
+        self.sent = False
+
+    def _close_link(self):
+        pass
+
+    def _send(self, data):
+        pass
+
+    def _recv_chunk(self, max_bytes):
+        if self.sent:
+            raise TransportTimeoutError("nothing more")
+        time.sleep(0.3)
+        self.sent = True
+        return b"LATE\n", True
+
+
+class TestPortFailures:
+    def test_a_dead_port_aborts_the_capture_and_says_why(self):
+        uart = SerialCapture(lambda _rate, _fmt: _DeadPort())
+        uart.initialise()
+        with uart:
+            result = uart.capture(window_ms=5000)
+        assert result.status == ABORTED
+        assert result.count == 0
+        assert "the port has gone" in result.error
+
+    def test_a_line_that_ends_after_the_window_is_not_in_it(self):
+        uart = SerialCapture(lambda _rate, _fmt: _LatePort())
+        uart.initialise()
+        with uart:
+            result = uart.capture(window_ms=100)
+        assert result.status == COMPLETE
+        assert result.count == 0
+
+    def test_a_failing_live_output_does_not_end_the_capture(self, uart, caplog):
+        def broken(_shown):
+            raise UnicodeEncodeError("cp1252", "�", 0, 1, "cannot print")
+
+        uart.on_line = broken
+        uart.set_lines(True)
+        result = uart.capture(window_ms=5000, pattern="PASS")
+        assert result.status == COMPLETE
+        assert result.count == 4
+        assert "live line output failed" in caplog.text
+
+
+class TestStopping:
+    def test_an_aborted_reader_is_gone_before_abort_returns(self, uart):
+        uart.start_capture(window_ms=60000, pattern="NEVER")
+        reader = uart._reader
+        uart.abort_capture()
+        assert not reader.is_alive()
+
+    def test_the_next_capture_gets_every_line(self, uart):
+        uart.start_capture(window_ms=60000, pattern="NEVER")
+        first = uart.abort_capture()
+        result = uart.capture(window_ms=5000, pattern="PASS")
+        assert [line.text for line in result.lines] == _SCRIPT
+        assert uart.results().count == 4
+        assert first.status == ABORTED
+
+    def test_a_reader_waiting_to_show_a_line_stops_when_aborted(self, uart):
+        shown = []
+        uart.on_line = shown.append
+        uart.set_lines(True)
+        with uart.output_lock:
+            uart.start_capture(window_ms=60000, pattern="NEVER")
+            time.sleep(0.2)
+            started = time.monotonic()
+            uart.abort_capture()
+            assert time.monotonic() - started < 1.0
+        assert not uart._reader.is_alive()
+        assert len(shown) == 0
+
+    def test_start_says_running_even_if_the_capture_ends_at_once(self, uart):
+        result = uart.start_capture(window_ms=5000, pattern="^BOOT$")
+        uart.wait_capture()
+        assert result.status == RUNNING
+        assert uart.results().status == COMPLETE
+
+    def test_the_summary_while_running_has_no_verdict(self, uart):
+        uart.start_capture(window_ms=60000, pattern="NEVER")
+        summary = uart.results().summary()
+        uart.abort_capture()
+        assert summary.startswith("Running, ")
+        assert "Matched" not in summary
+
+    def test_the_lines_kept_are_bounded_and_every_line_counted(self, uart, monkeypatch):
+        monkeypatch.setattr(capture_module, "MAX_LINES", 2)
+        result = uart.capture(window_ms=5000, pattern="PASS")
+        assert result.count == 4
+        assert [line.text for line in result.lines] == _SCRIPT[2:]

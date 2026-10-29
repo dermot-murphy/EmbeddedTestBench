@@ -45,6 +45,7 @@ Traces to: SER-FR-002 .. SER-FR-005, SER-FR-007, SER-DD-CONSOLE.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Callable, Dict, Optional
 
@@ -106,6 +107,11 @@ def execute(capture, text: str) -> Reply:
     handler = _VERBS.get(verb)
     if handler is None:
         return _invalid(command)
+    if verb == "WR" and len(words) > 2 and words[1].upper() == "PATTERN":
+        # The pattern is everything after WR PATTERN, as it was sent: its
+        # spaces are part of it, so they are not collapsed (SER-FR-004).
+        head, name, pattern = re.split(r"\s+", str(text).strip(), maxsplit=2)
+        return _pattern(capture, "%s %s %s" % (head, name, pattern), pattern)
     return handler(capture, command, words[1:])
 
 
@@ -156,19 +162,12 @@ def _wr(capture, command: str, args) -> Reply:  # pylint: disable=too-many-retur
     if len(args) < 2:
         return _invalid(command)
     what = args[0].upper()
-    # The pattern is everything after WR PATTERN, spaces included, as sent.
     value = command.split(" ", 2)[2]
     if what == "LINES":
         word = value.upper()
         if word not in (ON, OFF):
             return _nack(command, INVALID_VALUE)
         capture.set_lines(word == ON)
-        return _ack(command)
-    if what == "PATTERN":
-        try:
-            capture.pattern = "" if value.upper() == PATTERN_OFF else value
-        except ValueError:
-            return _nack(command, INVALID_VALUE)
         return _ack(command)
     if len(args) != 2:
         return _invalid(command)
@@ -185,6 +184,14 @@ def _wr(capture, command: str, args) -> Reply:  # pylint: disable=too-many-retur
             return _nack(command, INVALID_VALUE)
         return _ack(command)
     return _invalid(command)
+
+
+def _pattern(capture, command: str, value: str) -> Reply:
+    try:
+        capture.pattern = "" if value.upper() == PATTERN_OFF else value
+    except ValueError:
+        return _nack(command, INVALID_VALUE)
+    return _ack(command)
 
 
 def _number(command: str, value: str, apply, unit: str, busy: bool = False) -> Reply:

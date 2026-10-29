@@ -41,6 +41,12 @@ def test_a_nack_fails(capsys):
     assert capsys.readouterr().out.strip() == "NACK WR BAUD 1 OUT OF RANGE"
 
 
+def test_a_nack_fails_even_when_later_commands_succeed(capsys):
+    assert main(["WR BAUD 1", "RD BAUD"]) == 1
+    assert capsys.readouterr().out.splitlines() == ["NACK WR BAUD 1 OUT OF RANGE",
+                                                    "ACK RD BAUD = 115200"]
+
+
 def test_commands_from_standard_input(capsys, monkeypatch):
     monkeypatch.setattr("sys.stdin", io.StringIO("RD FORMAT\n\nRD LINES\n"))
     assert main([]) == 0

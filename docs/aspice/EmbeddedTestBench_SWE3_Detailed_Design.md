@@ -85,6 +85,7 @@
 | next | 2026-10-28 | Claude | #181: DMM-DD-DMM - blank frames while ranging (`Reading.blank`, `RANGING_TIME`, `measure`), frequency with no signal (`_silent_in_hertz`, `_stalled_in_hertz`), and `_await` reports no reading as none; DMM-DD-SIM - `stalled`, `press_front_panel`, `ranging_frames`. |
 
 | next | 2026-10-28 | Claude | #247: section 5.9, SER - SER-DD-CONST, SER-DD-DRIVER, SER-DD-CONSOLE, SER-DD-SIM and SER-DD-CLI, the serial capture instrument (total 79 → 84); RUN and VIEW renumbered 5.10 and 5.11; CORE-DD-EVENTS - the default name `SERIAL`. |
+| next | 2026-10-29 | Claude | #247, review of #318: SER-DD-DRIVER - `split_lines` and `_LineState` (CR, LF and CRLF, escaped bytes, `_MAX_LINE_BYTES`), `read_available` in place of `read_message`, a stop event per run and the reader joined (`_join_reader`), a line after the window left out, a port error ending the capture with `error`, `output_lock` and `_show`, the start result taken before the reader starts; SER-DD-CONSOLE - the pattern as sent; SER-DD-SIM - `ending`; SER-DD-CLI - the driver's `output_lock`. |
 ---
 
 ## 3. Purpose & Scope
@@ -3131,24 +3132,37 @@ The capture runs on a daemon thread:
 * `start_capture(window_ms, pattern)` refuses a second capture, applies the
   settings it is given, discards the transport's input, calls the
   simulator's `restart()` when there is one, and starts the reader with a new
-  `_Run`. It returns at once with the `Running` result.
-* The reader (`_read_until_done`) reads a line at a time with
-  `READ_POLL`; a `TransportTimeoutError` is no line, and a `TransportError` with
-  nothing pending (the simulator) sleeps `IDLE_SLEEP`. It stops when the window
-  has run out (`Complete`), when a line matches (`Complete`), or when
-  `abort_capture` sets the stop event (`Aborted`). An error from the port ends
-  the capture `Aborted` and is logged.
+  `_Run`. It returns at once with the `Running` result, taken before the
+  reader starts, so the reply says the capture started even if it has
+  already ended.
+* The reader (`_read_until_done`) reads what has arrived with
+  `read_available` and `READ_POLL`, and `split_lines` cuts it into lines at
+  CR, LF or CRLF, keeping a part line and a pending LF in the run's
+  `_LineState`, escaping a byte that is not ASCII, and keeping a line that
+  reaches `_MAX_LINE_BYTES` with no ending. A `TransportTimeoutError` is no
+  data; a `TransportError` from the simulator's `MockTransport` (nothing
+  pending) sleeps `IDLE_SLEEP`; any other error is raised. It stops when the
+  window has run out, checked again after each line so a line that ends late
+  is left out (`Complete`), when a line matches (`Complete`), or when the run's
+  own `stop` event is set (`Aborted`). An exception ends the capture
+  `Aborted` with its text in `error`, and is logged.
+* Each `_Run` has its own `stop` event, set by `_stop_reader`, which then
+  joins the reader (`_join_reader`, up to `_JOIN_TIMEOUT`). `start_capture`
+  joins the last reader too and refuses with `CaptureBusyError` if it is
+  still alive, so no reader outlives its capture into the next.
 * `_record` numbers each line, keeps it with its time from the start in a
   `deque` of `MAX_LINES`, searches the pattern in it, and for the first match
   keeps the line, its number and the first group, if the pattern has one. It
   logs the line with `log_event(..., "line", "LINE <n> = <text>", ...)` at
-  DEBUG; while `WR LINES ON` it also calls `on_line` with that text, or, with
-  no `on_line`, logs it at INFO instead (SER-FR-007, SER-FR-008).
+  DEBUG; while `WR LINES ON` it also hands that text to `on_line` through
+  `_show`, or, with no `on_line`, logs it at INFO instead (SER-FR-007,
+  SER-FR-008). `_show` waits for `output_lock` in `READ_POLL` steps, giving up
+  once the run is stopped, and logs an exception from `on_line` as a warning.
 * `wait_capture(timeout)` joins the reader, by default for what is left of
   the window plus the connect timeout, and raises `InstrumentError` if it is
   still running. `capture()` is `start_capture` then `wait_capture`.
 * `results()` builds a frozen `CaptureResult` (status, count, lines, pattern,
-  match, match number, value, elapsed) under the lock; `summary()` words it as
+  match, match number, value, elapsed, error) under the lock; `summary()` words it as
   `ROUTINE RESULTS CAPTURE` does, and `as_dict()` gives it as JSON.
 * `line(n)` is the text of a kept line, or `IndexError`.
 * `command(request)` runs one command through SER-DD-CONSOLE, logs the
@@ -3166,8 +3180,10 @@ count first and returns a frozen `Reply` (command as sent, text, `ok`, value).
 
 * `RD` reads through a table of getters; `RD LINE <n>` is handled before it.
   A getter that has nothing (no match, no value) is `NOT FOUND`.
-* `WR PATTERN` takes everything after its second space as the pattern, so a
-  pattern keeps its case and inner spaces; `WR PATTERN OFF` clears it. `WR
+* `WR PATTERN` is handled before the spaces are collapsed: `execute` splits
+  the command as sent at its first two runs of white space and takes the rest
+  as the pattern, so it keeps its case and its spaces; `WR PATTERN OFF` clears
+  it. `WR
   WINDOW` and `WR BAUD` share `_number`: not all digits is `INVALID VALUE`,
   busy is `BUSY`, a `ValueError` from the setter is `OUT OF RANGE`, and any
   other error (the port refused the rate) is `INVALID VALUE`.
@@ -3179,7 +3195,7 @@ count first and returns a frozen `Reply` (command as sent, text, `ok`, value).
 `SimulatedSerialDevice` is a streaming responder (CORE-DD-SIM): it keeps
 nothing to answer, records what is written to it in `received` (a test checks
 that stays empty), and from `poll()` returns the next line of its script,
-`\r\n`-terminated, once `(n + 1) × interval` seconds of real time have passed
+ended with `ending` (`\r\n` by default), once `(n + 1) × interval` seconds of real time have passed
 since `restart()`. Until the first `restart()`, and after the last line, it
 returns nothing. The default script is a boot banner, a self test start, a
 battery voltage and a self test pass, 50 ms apart.
@@ -3190,7 +3206,9 @@ battery voltage and a self test pass, 50 ms apart.
 [-v] [COMMAND ...]`. It connects with an `on_line` that prints, runs each
 argument as a command - or each non-blank line of standard input when there
 are none - and prints each reply. A capture still running at the end is
-waited for and `ROUTINE RESULTS CAPTURE` is run; Ctrl-C aborts it. Exit
+waited for and `ROUTINE RESULTS CAPTURE` is run; Ctrl-C aborts it. Each command is run and
+its reply printed holding the driver's `output_lock`, so a reply is printed
+before the live lines that follow it. Exit
 status 1 if a connection failed or any reply was `NACK`, else 0.
 
 ### 5.10 RUN — `benchtools.runner`

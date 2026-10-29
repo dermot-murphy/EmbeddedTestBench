@@ -30,15 +30,17 @@ DEFAULT_INTERVAL = 0.05
 class SimulatedSerialDevice:
     """A device that prints a fixed script of lines on its serial port.
 
-    :param lines: The script, in order. Each is sent with a ``\\r\\n`` ending,
-        as most device consoles do.
+    :param lines: The script, in order.
     :param interval: Seconds from the start of a capture to the first line,
         and between lines.
+    :param ending: What ends each line: ``\\r\\n``, as most device consoles
+        send, unless a test needs ``\\r`` or ``\\n`` alone.
     """
 
     def __init__(self, lines: Optional[Sequence[str]] = None,
-                 interval: float = DEFAULT_INTERVAL) -> None:
+                 interval: float = DEFAULT_INTERVAL, ending: bytes = b"\r\n") -> None:
         self.lines: List[str] = list(DEFAULT_SCRIPT if lines is None else lines)
+        self.ending = bytes(ending)
         self.interval = float(interval)
         if self.interval < 0:
             raise ValueError("the interval between simulated lines cannot be negative")
@@ -71,4 +73,4 @@ class SimulatedSerialDevice:
             return b""
         line = self.lines[self._sent]
         self._sent += 1
-        return line.encode("ascii", errors="replace") + b"\r\n"
+        return line.encode("ascii", errors="replace") + self.ending

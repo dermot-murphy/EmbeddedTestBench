@@ -68,7 +68,7 @@ _TOOLS = {
     ("psu", "gpd3303d", "supply"): "benchtools.instruments.gpd3303d.cli",
     ("dmm", "tti1604", "multimeter"): "benchtools.instruments.tti1604.cli",
     ("s2lp", "s2-lp", "radio"): "benchtools.instruments.s2lp.cli",
-    ("serial", "serial-capture", "uart"): "benchtools.instruments.serial_capture.cli",
+    ("serial", "serial-capture"): "benchtools.instruments.serial_capture.cli",
 }
 
 

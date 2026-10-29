@@ -36,7 +36,6 @@ from typing import Any, Callable, Deque, Dict, List, Optional, Pattern, Tuple
 
 from ...core.errors import (
     ConfigurationError,
-    ConnectionFailedError,
     InstrumentError,
     TransportError,
     TransportTimeoutError,
@@ -45,6 +44,7 @@ from ...core.events import log_event
 from ...core.instrument import Instrument, InstrumentIdentity
 from ...core.transport.base import Transport
 from ...core.transport.factory import open_transport
+from ...core.transport.mock import MockTransport
 from .constants import (
     ABORTED,
     BAUD_RANGE,
@@ -74,14 +74,61 @@ __all__ = [
     "CaptureResult",
     "CaptureBusyError",
     "parse_format",
+    "split_lines",
 ]
 
 #: ``8N1``: data bits, parity, stop bits.
 _FORMAT = re.compile(r"^([5-8])([NEOMS])([12])$")
 
+#: Seconds to wait for a stopped reader to finish. It finishes within one
+#: read of the port, :data:`~.constants.READ_POLL`, so this is only reached
+#: by a port that has hung.
+_JOIN_TIMEOUT = 5.0
+
+#: Bytes a line may grow to with no ending before it is kept as a line anyway,
+#: so a device that never ends a line cannot exhaust memory.
+_MAX_LINE_BYTES = 65536
+
+_CR = 0x0D
+_LF = 0x0A
+
 
 class CaptureBusyError(InstrumentError):
     """A capture is running, and the request needs it stopped first."""
+
+
+class _LineState:  # pylint: disable=too-few-public-methods
+    """What :func:`split_lines` carries from one chunk of bytes to the next."""
+
+    def __init__(self) -> None:
+        self.pending = bytearray()
+        self.skip_lf = False
+
+
+def split_lines(state: _LineState, data: bytes) -> List[str]:
+    """The lines *data* completes, with what is left kept in *state*.
+
+    A line ends at CR, at LF or at CRLF, so a device that ends its lines
+    with CR alone is read as well as one that uses LF (#318). A CRLF split
+    across two chunks is one ending, not two. A byte that is not ASCII is
+    kept as ``\\xNN``, so any console can print the line.
+    """
+    lines: List[str] = []
+    for byte in bytearray(data):
+        if state.skip_lf:
+            state.skip_lf = False
+            if byte == _LF:
+                continue
+        if byte in (_CR, _LF):
+            lines.append(bytes(state.pending).decode("ascii", errors="backslashreplace"))
+            state.pending.clear()
+            state.skip_lf = byte == _CR
+        else:
+            state.pending.append(byte)
+            if len(state.pending) >= _MAX_LINE_BYTES:
+                lines.append(bytes(state.pending).decode("ascii", errors="backslashreplace"))
+                state.pending.clear()
+    return lines
 
 
 def parse_format(text: str) -> Tuple[int, str, int]:
@@ -136,6 +183,8 @@ class CaptureResult:  # pylint: disable=too-many-instance-attributes
     :ivar value: The pattern's first group in that line, when the pattern
         has a group, or ``None``.
     :ivar elapsed: Seconds the capture ran.
+    :ivar error: Why the port stopped the capture, for an ``Aborted``
+        capture that was not aborted by a command; otherwise ``""``.
     """
 
     status: str = NOT_STARTED
@@ -146,6 +195,7 @@ class CaptureResult:  # pylint: disable=too-many-instance-attributes
     match_number: int = 0
     value: Optional[str] = None
     elapsed: float = 0.0
+    error: str = ""
 
     @property
     def matched(self) -> bool:
@@ -182,6 +232,7 @@ class CaptureResult:  # pylint: disable=too-many-instance-attributes
             "match_number": self.match_number,
             "value": self.value,
             "elapsed": self.elapsed,
+            "error": self.error,
             "lines": [line.as_dict() for line in self.lines],
         }
 
@@ -200,6 +251,11 @@ class _Run:  # pylint: disable=too-many-instance-attributes
     match_number: int = 0
     value: Optional[str] = None
     ended: Optional[float] = None
+    error: str = ""
+    #: Set to stop this run's reader. One per run, so a reader that is
+    #: still finishing cannot take lines from the capture after it (#318).
+    stop: threading.Event = field(default_factory=threading.Event)
+    framing: _LineState = field(default_factory=_LineState)
 
 
 class SerialCapture(Instrument):  # pylint: disable=too-many-instance-attributes
@@ -214,7 +270,9 @@ class SerialCapture(Instrument):  # pylint: disable=too-many-instance-attributes
     :param window_ms: Capture window in milliseconds.
     :param pattern: Pattern that ends a capture, or ``""`` for none.
     :param on_line: Called with ``LINE <n> = <text>`` for each captured line
-        while ``WR LINES ON``. Without it, those lines go to the log at INFO.
+        while ``WR LINES ON``, holding :attr:`output_lock`. Without it, those
+        lines go to the log at INFO. An error from it is logged, and the
+        capture goes on.
 
     Example::
 
@@ -256,7 +314,11 @@ class SerialCapture(Instrument):  # pylint: disable=too-many-instance-attributes
         self._lock = threading.Lock()
         self._run: Optional[_Run] = None
         self._reader: Optional[threading.Thread] = None
-        self._stop = threading.Event()
+        #: Held while a live line is handed to ``on_line``. A caller that
+        #: prints command replies holds it while it runs a command and prints
+        #: the reply, so that a reply comes before the lines that follow it.
+        #: The reader never waits on it once its capture is stopped.
+        self.output_lock = threading.RLock()
         self._transport = make_transport(self._baudrate, self._format)
         self._adopt(self._transport)
 
@@ -479,6 +541,9 @@ class SerialCapture(Instrument):  # pylint: disable=too-many-instance-attributes
         """
         if self.running:
             raise CaptureBusyError("a capture is already running; abort it first")
+        self._join_reader()
+        if self._reader is not None and self._reader.is_alive():
+            raise CaptureBusyError("the last capture's reader has not stopped")
         if window_ms is not None:
             self.window_ms = window_ms
         if pattern is not None:
@@ -494,15 +559,18 @@ class SerialCapture(Instrument):  # pylint: disable=too-many-instance-attributes
             window_s=self._window_ms / 1000.0,
             started=time.monotonic(),
         )
-        self._stop.clear()
         with self._lock:
             self._run = run
+        # The result is taken before the reader starts: a capture can be
+        # complete by the time this thread runs again, and the reply to
+        # ROUTINE START CAPTURE is that it started.
+        started = self.results()
         self._reader = threading.Thread(target=self._read_until_done, args=(run,),
                                         name="serial-capture", daemon=True)
         self._reader.start()
         self._logger.info("capture started: window %d ms, pattern %s",
                           self._window_ms, self._pattern_text or "none")
-        return self.results()
+        return started
 
     def abort_capture(self) -> CaptureResult:
         """Stop a running capture (``ROUTINE ABORT CAPTURE``).
@@ -558,6 +626,7 @@ class SerialCapture(Instrument):  # pylint: disable=too-many-instance-attributes
                 match_number=run.match_number,
                 value=run.value,
                 elapsed=round(end - run.started, 6),
+                error=run.error,
             )
 
     def line(self, number: int) -> str:
@@ -592,34 +661,50 @@ class SerialCapture(Instrument):  # pylint: disable=too-many-instance-attributes
                 run.status = status
                 run.ended = time.monotonic()
                 stopped = True
-        self._stop.set()
-        reader = self._reader
-        if reader is not None and reader is not threading.current_thread():
-            reader.join(READ_POLL * 10)
+            if run is not None:
+                run.stop.set()
+        self._join_reader()
         if stopped:
             self._logger.info("capture aborted after %d lines", run.count)
 
+    def _join_reader(self) -> None:
+        """Wait for the reader to finish, if it is not this thread."""
+        reader = self._reader
+        if reader is None or reader is threading.current_thread():
+            return
+        reader.join(_JOIN_TIMEOUT)
+        if reader.is_alive():
+            self._logger.warning("the capture's reader did not stop within %.0f s",
+                                 _JOIN_TIMEOUT)
+
     def _read_until_done(self, run: _Run) -> None:
+        deadline = run.started + run.window_s
+        window = "window of %d ms ended" % round(run.window_s * 1000)
         try:
-            while not self._stop.is_set():
-                if time.monotonic() >= run.started + run.window_s:
-                    self._finish(run, "window of %d ms ended" % round(run.window_s * 1000))
+            while not run.stop.is_set():
+                if time.monotonic() >= deadline:
+                    self._finish(run, window)
                     return
-                text = self._read_line()
-                if text is None or self._stop.is_set():
-                    continue
-                if self._record(run, text):
-                    self._finish(run, "line %d matched %s" % (run.match_number,
-                                                              run.pattern.pattern))
-                    return
-        # Any failure of the port ends the capture rather than the thread
-        # silently: the result then says Aborted.
-        except Exception as exc:  # pylint: disable=broad-exception-caught  # pragma: no cover
+                for text in self._read_lines(run):
+                    if run.stop.is_set():
+                        return
+                    # A line that ended after the window closed is not in it.
+                    if time.monotonic() >= deadline:
+                        self._finish(run, window)
+                        return
+                    if self._record(run, text):
+                        self._finish(run, "line %d matched %s" % (run.match_number,
+                                                                  run.pattern.pattern))
+                        return
+        # Any failure of the port ends the capture, and the result says why;
+        # the thread does not end silently with the capture still Running.
+        except Exception as exc:  # pylint: disable=broad-exception-caught
             self._logger.error("capture stopped: %s", exc)
             with self._lock:
                 if run.status == RUNNING:
                     run.status = ABORTED
                     run.ended = time.monotonic()
+                    run.error = str(exc) or type(exc).__name__
 
     def _finish(self, run: _Run, why: str) -> None:
         with self._lock:
@@ -645,24 +730,42 @@ class SerialCapture(Instrument):  # pylint: disable=too-many-instance-attributes
         level = logging.INFO if self._lines_on and self.on_line is None else logging.DEBUG
         log_event(self._logger, "line", shown, item.as_dict(), level=level)
         if self._lines_on and self.on_line is not None:
-            self.on_line(shown)
+            self._show(run, shown)
         return found is not None
 
-    def _read_line(self) -> Optional[str]:
-        """One line from the device, or ``None`` if none completed in time.
+    def _show(self, run: _Run, shown: str) -> None:
+        """Hand one live line to ``on_line``, unless the capture is stopped first.
 
-        A line cut short by the poll stays in the transport's buffer and is
-        finished by the next read. A blank line is kept: a device that prints
-        one printed something.
+        The lock is waited for in short steps, checking the run's stop event
+        between them, so a reader is never held by a caller that is printing
+        a reply while it aborts this capture.
+        """
+        while not run.stop.is_set():
+            if self.output_lock.acquire(timeout=READ_POLL):  # pylint: disable=consider-using-with
+                try:
+                    self.on_line(shown)
+                # The live copy is a convenience; a failure to show a line
+                # (a console that cannot print it) must not end the capture.
+                except Exception as exc:  # pylint: disable=broad-exception-caught
+                    self._logger.warning("the live line output failed: %s", exc)
+                finally:
+                    self.output_lock.release()
+                return
+
+    def _read_lines(self, run: _Run) -> List[str]:
+        """The lines completed by what arrived within one read of the port.
+
+        Nothing arriving is no lines. The simulator says at once that it has
+        nothing, so that is idle too; any other error from the port is raised,
+        which ends the capture ``Aborted`` with the error.
         """
         try:
-            raw = self._transport.read_message()
+            data = self._transport.read_available()
         except TransportTimeoutError:
-            return None
-        except ConnectionFailedError:
-            raise
+            return []
         except TransportError:
-            # A link with nothing pending that says so at once: the simulator.
+            if not isinstance(self._transport, MockTransport):
+                raise
             time.sleep(IDLE_SLEEP)
-            return None
-        return raw.decode("ascii", errors="replace").rstrip("\r\n")
+            return []
+        return split_lines(run.framing, data)

@@ -20,7 +20,6 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
-import threading
 from typing import Optional, Sequence
 
 from ... import __version__
@@ -58,20 +57,15 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-#: Held while a command runs and its reply is printed, and while a live line
-#: is printed, so that a reply always comes before the lines that follow it:
-#: without it, the first line of a capture can beat ``ROUTINE START CAPTURE``'s
-#: own reply to the screen.
-_OUTPUT = threading.Lock()
-
-
 def _show(text: str) -> None:
-    with _OUTPUT:
-        print(text, flush=True)
+    print(text, flush=True)
 
 
 def _run(capture: SerialCapture, text: str) -> bool:
-    with _OUTPUT:
+    # Holding the driver's output lock while the command runs and its reply
+    # is printed puts the reply before the live lines that follow it: without
+    # it, the first line of a capture can beat ROUTINE START CAPTURE's reply.
+    with capture.output_lock:
         reply = capture.command(text)
         print(reply.text, flush=True)
     return reply.ok
