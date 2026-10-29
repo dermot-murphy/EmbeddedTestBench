@@ -430,6 +430,26 @@ class _BurstPort(Transport):
         return self.BURST, True
 
 
+class _TricklePort(Transport):
+    """A port that delivers one line every 5 ms, 40 in all, then nothing."""
+
+    def _open_link(self):
+        self.sent = 0
+
+    def _close_link(self):
+        pass
+
+    def _send(self, data):
+        pass
+
+    def _recv_chunk(self, max_bytes):
+        time.sleep(0.005)
+        if self.sent >= 40:
+            raise TransportTimeoutError("nothing more")
+        self.sent += 1
+        return b"T%02d\n" % self.sent, True
+
+
 class TestPortFailures:
     def test_a_dead_port_aborts_the_capture_and_says_why(self):
         uart = SerialCapture(lambda _rate, _fmt: _DeadPort())
@@ -467,13 +487,30 @@ class TestPortFailures:
     def test_lines_are_timed_by_when_they_arrived_not_when_shown(self):
         uart = SerialCapture(lambda _rate, _fmt: _BurstPort())
         uart.initialise()
-        uart.on_line = lambda _shown: time.sleep(0.02)
+        shown = []
+        uart.on_line = lambda text: (shown.append(text), time.sleep(0.02))
         uart.set_lines(True)
         with uart:
             # Showing the burst takes longer than the window.
-            result = uart.capture(window_ms=300, timeout=30.0)
+            result = uart.capture(window_ms=2000, timeout=30.0)
         assert result.count == 40
         assert result.lines[-1].elapsed == result.lines[0].elapsed
+        assert len(shown) == 40
+
+    def test_a_slow_live_output_does_not_hold_up_reading(self):
+        uart = SerialCapture(lambda _rate, _fmt: _TricklePort())
+        uart.initialise()
+        shown = []
+        uart.on_line = lambda text: (shown.append(text), time.sleep(0.05))
+        uart.set_lines(True)
+        with uart:
+            # 40 lines, each 5 ms after the last, read well inside the window;
+            # showing them takes 2 s, which a reader that showed them itself
+            # would spend instead of reading.
+            result = uart.capture(window_ms=1500, timeout=30.0)
+        assert result.count == 40
+        assert len(shown) == 40
+        assert result.lines[-1].elapsed < 1.5
 
     def test_a_failing_live_output_does_not_end_the_capture(self, uart, caplog):
         def broken(_shown):
@@ -515,15 +552,31 @@ class TestStopping:
         assert not uart._reader.is_alive()
         assert len(shown) == 0
 
-    def test_no_line_is_kept_after_the_capture_is_aborted(self):
+    def test_no_line_is_kept_after_the_capture_has_ended(self, uart):
+        uart.capture(window_ms=5000, pattern="PASS")
+        run = uart._run
+        assert uart._record(run, "LATE", time.monotonic()) is False
+        assert uart.results().count == 4
+
+    def test_an_abort_drops_the_live_lines_not_yet_shown(self):
         uart = SerialCapture(lambda _rate, _fmt: _BurstPort())
         uart.initialise()
-        uart.on_line = lambda _shown: uart.abort_capture()
+        shown = []
+
+        def slow(text):
+            shown.append(text)
+            time.sleep(0.05)
+
+        uart.on_line = slow
         uart.set_lines(True)
         with uart:
-            result = uart.capture(window_ms=5000)
-        assert result.status == ABORTED
-        assert result.count == 1
+            uart.start_capture(window_ms=60000)
+            time.sleep(0.2)
+            uart.abort_capture()
+            seen = len(shown)
+            time.sleep(0.2)
+        assert 0 < seen < 40
+        assert len(shown) == seen
 
     def test_a_start_waits_for_the_last_reader_to_finish(self, uart):
         release = threading.Event()

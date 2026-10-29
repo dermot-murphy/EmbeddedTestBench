@@ -190,8 +190,12 @@ def _wr(capture, command: str, args) -> Reply:  # pylint: disable=too-many-retur
 
 
 def _pattern(capture, command: str, value: str) -> Reply:
+    if value.strip().upper() == PATTERN_OFF:
+        # White space around OFF is not a pattern of OFF and spaces.
+        capture.pattern = ""
+        return _ack(" ".join(command.split(" ")[:2] + [PATTERN_OFF]))
     try:
-        capture.pattern = "" if value.upper() == PATTERN_OFF else value
+        capture.pattern = value
     except ValueError:
         return _nack(command, INVALID_VALUE)
     return _ack(command)

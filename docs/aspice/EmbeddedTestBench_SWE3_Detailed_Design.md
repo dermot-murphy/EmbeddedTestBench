@@ -87,6 +87,7 @@
 | next | 2026-10-28 | Claude | #247: section 5.9, SER - SER-DD-CONST, SER-DD-DRIVER, SER-DD-CONSOLE, SER-DD-SIM and SER-DD-CLI, the serial capture instrument (total 79 → 84); RUN and VIEW renumbered 5.10 and 5.11; CORE-DD-EVENTS - the default name `SERIAL`. |
 | next | 2026-10-29 | Claude | #247, review of #318: SER-DD-DRIVER - `split_lines` and `_LineState` (CR, LF and CRLF, escaped bytes, `_MAX_LINE_BYTES`), `read_available` in place of `read_message`, a stop event per run and the reader joined (`_join_reader`), a line after the window left out, a port error ending the capture with `error`, `output_lock` and `_show`, the start result taken before the reader starts; SER-DD-CONSOLE - the pattern as sent; SER-DD-SIM - `ending`; SER-DD-CLI - the driver's `output_lock`. |
 | next | 2026-10-29 | Claude | #247, review of #318 round 2: SER-DD-DRIVER - LFCR pairs and the ending after a cut line in `split_lines`, lines timed and windowed by arrival (`_read_lines` returns the time), `_record` keeps nothing once the run has ended, `CaptureBusyError` moved to `errors.py` so the command set can catch it without an import cycle; SER-DD-CONSOLE - `BUSY` from `CaptureBusyError`, a trailing space kept in the pattern. |
+| next | 2026-10-29 | Claude | #247, review of #318 round 3: SER-DD-DRIVER - live lines through a queue to a thread of their own (`_show_until_done`), joined by `wait_capture` and `_join_reader`, so a slow `on_line` does not hold up the reader; SER-DD-CONSOLE - `WR PATTERN OFF` with white space. |
 ---
 
 ## 3. Purpose & Scope
@@ -3157,10 +3158,17 @@ The capture runs on a daemon thread:
   `deque` of `MAX_LINES`, searches the pattern in it, and for the first match
   keeps the line, its number and the first group, if the pattern has one. It
   logs the line with `log_event(..., "line", "LINE <n> = <text>", ...)` at
-  DEBUG; while `WR LINES ON` it also hands that text to `on_line` through
-  `_show`, or, with no `on_line`, logs it at INFO instead (SER-FR-007,
-  SER-FR-008). `_show` waits for `output_lock` in `READ_POLL` steps, giving up
-  once the run is stopped, and logs an exception from `on_line` as a warning.
+  DEBUG; while `WR LINES ON` it also puts that text on the run's `shown`
+  queue, or, with no `on_line`, logs it at INFO instead (SER-FR-007,
+  SER-FR-008).
+* A second thread per run (`_show_until_done`) takes the queue in order and
+  hands each line to `on_line` through `_show`, so a slow `on_line` never
+  holds up the reader. The reader puts `None` on the queue when it finishes;
+  a stopped run's waiting lines are dropped. `_show` waits for `output_lock`
+  in `READ_POLL` steps, giving up once the run is stopped, and logs an
+  exception from `on_line` as a warning. `wait_capture` joins this thread
+  after the reader, so every live line is shown before the result is
+  returned, and `_join_reader` joins both.
 * `wait_capture(timeout)` joins the reader, by default for what is left of
   the window plus the connect timeout, and raises `InstrumentError` if it is
   still running. `capture()` is `start_capture` then `wait_capture`.
@@ -3193,7 +3201,8 @@ count first and returns a frozen `Reply` (command as sent, text, `ok`, value).
 * `ROUTINE <START|ABORT|RESULTS> CAPTURE` and `ROUTINE ABORT ALL` call the
   driver; an abort answers with the status after it, and a `CaptureBusyError`
   from `start_capture` is `BUSY`. `WR PATTERN` drops only the line's own
-  CR/LF, so a trailing space stays in the pattern.
+  CR/LF, so a trailing space stays in the pattern; `OFF` with white space
+  around it clears the pattern and is answered `ACK WR PATTERN OFF`.
 
 #### SER-DD-SIM — `benchtools/instruments/serial_capture/simulator.py`
 

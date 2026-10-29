@@ -27,6 +27,7 @@ Traces to: SER-FR-001, SER-FR-006 .. SER-FR-009, SER-ARC-001, SER-DD-DRIVER.
 from __future__ import annotations
 
 import logging
+import queue
 import re
 import threading
 import time
@@ -261,6 +262,10 @@ class _Run:  # pylint: disable=too-many-instance-attributes
     #: still finishing cannot take lines from the capture after it (#318).
     stop: threading.Event = field(default_factory=threading.Event)
     framing: _LineState = field(default_factory=_LineState)
+    #: Live lines waiting for ``on_line``, then ``None`` when the reader
+    #: has finished. A thread of their own shows them, so a slow
+    #: ``on_line`` never holds up the reading of the port (#318).
+    shown: "queue.Queue[Optional[str]]" = field(default_factory=queue.Queue)
 
 
 class SerialCapture(Instrument):  # pylint: disable=too-many-instance-attributes
@@ -319,6 +324,7 @@ class SerialCapture(Instrument):  # pylint: disable=too-many-instance-attributes
         self._lock = threading.Lock()
         self._run: Optional[_Run] = None
         self._reader: Optional[threading.Thread] = None
+        self._shower: Optional[threading.Thread] = None
         #: Held while a live line is handed to ``on_line``. A caller that
         #: prints command replies holds it while it runs a command and prints
         #: the reply, so that a reply comes before the lines that follow it.
@@ -570,8 +576,11 @@ class SerialCapture(Instrument):  # pylint: disable=too-many-instance-attributes
         # complete by the time this thread runs again, and the reply to
         # ROUTINE START CAPTURE is that it started.
         started = self.results()
+        self._shower = threading.Thread(target=self._show_until_done, args=(run,),
+                                        name="serial-capture-lines", daemon=True)
         self._reader = threading.Thread(target=self._read_until_done, args=(run,),
                                         name="serial-capture", daemon=True)
+        self._shower.start()
         self._reader.start()
         self._logger.info("capture started: window %d ms, pattern %s",
                           self._window_ms, self._pattern_text or "none")
@@ -599,9 +608,15 @@ class SerialCapture(Instrument):  # pylint: disable=too-many-instance-attributes
                     run = self._run
                 left = 0.0 if run is None else run.started + run.window_s - time.monotonic()
                 timeout = max(left, 0.0) + self._capture_timeout
+            ends = time.monotonic() + timeout
             reader.join(timeout)
             if reader.is_alive():
                 raise InstrumentError("the capture was still running after %.1f s" % timeout)
+            # The live lines are all shown before the result is returned, so
+            # a caller printing both prints the lines first.
+            shower = self._shower
+            if shower is not None:
+                shower.join(max(ends - time.monotonic(), 0.0) + _JOIN_TIMEOUT)
         return self.results()
 
     def capture(self, window_ms: Optional[int] = None, pattern: Optional[str] = None,
@@ -673,16 +688,39 @@ class SerialCapture(Instrument):  # pylint: disable=too-many-instance-attributes
             self._logger.info("capture aborted after %d lines", run.count)
 
     def _join_reader(self) -> None:
-        """Wait for the reader to finish, if it is not this thread."""
-        reader = self._reader
-        if reader is None or reader is threading.current_thread():
-            return
-        reader.join(_JOIN_TIMEOUT)
-        if reader.is_alive():
-            self._logger.warning("the capture's reader did not stop within %.0f s",
-                                 _JOIN_TIMEOUT)
+        """Wait for the reader and the line shower to finish, if neither is this thread."""
+        for thread in (self._reader, self._shower):
+            if thread is None or thread is threading.current_thread():
+                continue
+            thread.join(_JOIN_TIMEOUT)
+            if thread.is_alive():
+                self._logger.warning("the capture's %s thread did not stop within %.0f s",
+                                     thread.name, _JOIN_TIMEOUT)
+
+    def _show_until_done(self, run: _Run) -> None:
+        """Show the run's live lines in order until the reader has finished.
+
+        A stopped run shows nothing more: the lines still waiting are dropped,
+        as an abort means.
+        """
+        while True:
+            try:
+                shown = run.shown.get(timeout=READ_POLL)
+            except queue.Empty:
+                if run.stop.is_set():
+                    return
+                continue
+            if shown is None or run.stop.is_set():
+                return
+            self._show(run, shown)
 
     def _read_until_done(self, run: _Run) -> None:
+        try:
+            self._read_run(run)
+        finally:
+            run.shown.put(None)
+
+    def _read_run(self, run: _Run) -> None:
         deadline = run.started + run.window_s
         window = "window of %d ms ended" % round(run.window_s * 1000)
         try:
@@ -744,7 +782,7 @@ class SerialCapture(Instrument):  # pylint: disable=too-many-instance-attributes
         level = logging.INFO if self._lines_on and self.on_line is None else logging.DEBUG
         log_event(self._logger, "line", shown, item.as_dict(), level=level)
         if self._lines_on and self.on_line is not None:
-            self._show(run, shown)
+            run.shown.put(shown)
         return found is not None
 
     def _show(self, run: _Run, shown: str) -> None:

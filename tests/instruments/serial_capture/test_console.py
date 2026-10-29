@@ -92,6 +92,15 @@ class TestWr:
         assert uart.pattern == "^Self Test  (pass|fail)"
         assert _say(uart, "WR PATTERN PASS \n") == "ACK WR PATTERN PASS "
         assert uart.pattern == "PASS "
+        assert _say(uart, "  WR PATTERN ^X") == "ACK WR PATTERN ^X"
+        assert uart.pattern == "^X"
+
+    @pytest.mark.parametrize("command", ["WR PATTERN OFF ", "WR PATTERN off\t",
+                                         "WR PATTERN  OFF"])
+    def test_off_with_white_space_clears_the_pattern(self, uart, command):
+        _say(uart, "WR PATTERN ^X")
+        assert _say(uart, command) == "ACK WR PATTERN OFF"
+        assert uart.pattern == ""
         _say(uart, "WR PATTERN OFF")
         assert uart.pattern == ""
         assert _say(uart, "RD PATTERN") == "ACK RD PATTERN = OFF"
