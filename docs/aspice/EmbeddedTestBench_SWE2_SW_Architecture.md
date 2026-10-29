@@ -43,6 +43,7 @@
 | next | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
 | next | 2026-10-25 | Claude | #238: AD-29: device-specific code is a plugin, loaded by path, not part of the package. |
 
+| next | 2026-10-28 | Claude | #247: SER-ARC-001 added, the serial capture instrument; the layering diagram and the interfaces (the device's serial port, receive only) updated. |
 ---
 
 ## 3. Purpose & Scope
@@ -102,6 +103,7 @@ This document satisfies **Automotive SPICE® PAM v4.0, SWE.2 — Software Archit
    |  nordic_dongle (dongle, protocol, session, profile,          |
    |            latency, constants, simulator, cli)               |
    |  pico_sht30 (thermometer, constants, simulator, cli)         |
+   |  serial_capture (capture, console, constants, simulator, cli)|
    |  generic  (anything answering *IDN?)                         |
    +--------------------------------------------------------------+
               |                                    |
@@ -154,6 +156,7 @@ instrument, and to be importable without importing any other element.
 | PSU-ARC-001 | `instruments.gpd3303d` | The GW Instek bench supply, programmable channels 1 and 2; its fixed rail is a front-panel switch and is outside the element. Not a SCPI instrument: it takes the transport and lifecycle from `ScpiInstrument` and replaces the SCPI-specific parts (`*CLS`, `*RST`, `SYSTem:ERRor?`) with its own. Its own command grammar, a load-modelling simulator, and a command line. | `Gpd3303D`, `ChannelReading`, `SupplyStatus`, `SimulatedGpd` |
 | DMM-ARC-001 | `instruments.tti1604` | The TTi 1604 bench multimeter, on an opto-isolated RS-232 link. Not a SCPI instrument and not close to one: no command language, no query, no `*IDN?`, no error queue. The link carries single characters standing for key presses, and the meter streams a ten-byte binary frame per measurement. Frame decoding (`protocol`) is pure and separate from the link, because decoding is where a wrong number comes from and it should be testable without a meter. The instrument envelope and protocol facts (`constants`), the driver façade (`dmm`) - which reads the link as a stream (AD-26) and confirms every key press from the readings (AD-25) - a behavioural simulator with the meter's resolution and reading rate on a virtual clock, a command line, an opt-in bench test and a front-panel check. | `Tti1604`, `Reading`, `FrameAssembler`, `decode`, `frame_problem`, `SimulatedTti1604` |
 | PICO-ARC-001 | `instruments.pico_sht30` **and** `firmware/pico_sht30` | The Pico 2 + SHT30-D bench thermometer, as one element across two languages. Host side: the driver (`thermometer`), which takes the transport and lifecycle from `ScpiInstrument` and replaces the SCPI-specific parts with the firmware's `rd` command set (`rd name`, `copyright`, `version`, `sha` and `temperature`, answered `ACK rd <option> = <value>` or `NAK`, #131); the protocol tables (`constants`); a simulated thermometer that answers with the firmware's reply text; and a command line. Pico side: line assembly and dispatch (`cmd_parser`), the SHT30 driver (`sht30`), a bounded text builder in place of stdio (`text`), and a HAL seam (`hal.h`) implemented on the Pico SDK by `hal_pico.c` and by a fake in the host tests. `include/protocol.h` is the interface both sides are built from. | `PicoSht30`, `FirmwareInfo`, `Reading`, `SensorError`, `NoReadingError`, `RdRefusedError`, `SimulatedPicoSht30`; `cmd_execute`, `sht30_measure`, `hal_i2c_write` |
+| SER-ARC-001 | `instruments.serial_capture` | The serial capture instrument, host side only: it records the lines a device prints on a serial port, and writes nothing to it. The driver (`capture`) takes the lifecycle from `Instrument` and reads the port on a thread of its own while a capture runs, so that `ROUTINE START CAPTURE` returns at once; it reopens the port when the line rate or character format changes. The command set (`console`) - `RD`, `WR` and `ROUTINE`, in the Kepler BLE console's reply form (#247) - is a thin layer over the driver's methods, so a specification can use either. Its limits and words (`constants`), a simulated device that prints a script of lines when a capture starts, and a command line. | `SerialCapture`, `CaptureResult`, `CapturedLine`, `Reply`, `execute`, `SimulatedSerialDevice` |
 | RUN-ARC-001 | `runner` | Specification model, bench resolution, execution engine, result records, report writers, command line, and the run control channel (127.0.0.1 only). | `load_spec`, `BenchConfig`, `BenchRunner`, `write_*` |
 | VIEW-ARC-001 | `viewer` | The test run viewer: follows a run's event log, rebuilds the run's state from its structured records, serves a page and JSON API with Server-Sent Events on 127.0.0.1 - or, with an access token and optionally read-only and over HTTPS, on another address (#141) - passes control requests to the runner's control channel, and starts runs as separate processes. The top layer: it may import from every other, and nothing imports from it. | `RunState`, `Hub`, `ViewerServer`, `Launcher`, `Catalogue`, `benchtools view` |
 
@@ -817,6 +820,7 @@ CLI            BenchRunner        Bench           Tek3014B        Transport
 | `pyserial` | bidirectional | Optional; the serial transport. |
 | nRF5 SDK 17.1.0 + S140 | in | Builds the dongle firmware. Not needed to run the host driver or the tests. |
 | USB CDC (serial) — thermometer | bidirectional | The Pico 2 thermometer's line protocol (`firmware/pico_sht30/include/protocol.h`). |
+| Serial port — device under test | in | A device's console or test UART, read by the serial capture instrument through a USB serial adapter. Receive only: the instrument writes nothing to it. |
 | I2C | bidirectional | Pico 2 to SHT30-DIS, 100 kHz, address 0x44. Below the thermometer firmware; not visible to the host driver except as `err 4`/`err 6`. |
 | Raspberry Pi Pico C SDK 2.1.1 + Arm GNU toolchain | in | Builds the thermometer firmware into a UF2 image. Not needed to run the host driver or the tests. |
 

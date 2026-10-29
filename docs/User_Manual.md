@@ -139,7 +139,7 @@ it with.
 |---|---|---|
 | *(none)* | nothing | Drivers, analysis, runner, viewer, JSON specifications |
 | `spec` | PyYAML ≥ 5.1 | Reading `.yaml` specifications and bench files — every shipped one |
-| `serial` | pyserial ≥ 3.4 | The supply, multimeter, dongle, S2-LP kit and thermometer on a real port |
+| `serial` | pyserial ≥ 3.4 | The supply, multimeter, dongle, S2-LP kit, thermometer and serial capture instrument on a real port |
 | `visa` | pyvisa, pyvisa-py | Only if your site routes instruments through VISA |
 | `plot` | matplotlib ≥ 3.3 | Host-side plots (`scope spread --plot`) |
 | `test` | all of the above plus pytest, pytest-cov | Running the test suite |
@@ -776,6 +776,7 @@ Commands:
   psu         control a GW Instek GPD-3303D bench power supply
   s2lp        drive an ST S2-LP sub-1 GHz development kit
   thermo      read a Pico 2 + SHT30-D thermometer: identity and temperature
+  serial      capture the lines a device prints on a serial port (RD, WR, ROUTINE)
   drivers     list the instrument drivers a bench configuration can name
   backends    list the transport backends a resource string can select
 ```
@@ -796,6 +797,7 @@ to a file. `<tool> <sub-command> --help` gives each sub-command's options.
 | `jlink` (J-Link) | `jlink://[host][:port]`, `sim://`; with `-d DEVICE`, `-e ELF`, `--gdb`, `--server` | `info`, `flash [--preserve ADDR:SIZE]`, `verify`, `erase`, `reset [--run]`, `run`, `halt`, `read`, `write`, `var`, `stack`, `rtt`, `time` | `jlink -r sim:// info` → `"model": "J-Link V11", "halted": true` |
 | `ble` (Nordic dongle) | `COM10`, `/dev/ttyACM0`, `serial://socket://host:4001`, `sim://` | `info`, `firmware`, `scan`, `select`, `profile`, `cmd`, `script`, `monitor` | `ble -r sim:// scan` → 3 sensors, first `SENS-0A1B2C` |
 | `s2lp` (S2-LP kit) | `COM4`, `/dev/ttyACM0`, `sim://`; `--board`, `--setup REGS` | `info`, `registers`, `radio`, `config`, `tx`, `rx`, `capture`, `packets`, `stream`, `preamble`, `strobe` | `s2lp -r sim:// info` → `"library": "1.3.5"` |
+| `serial` (serial capture) | `COM5`, `/dev/ttyUSB0`, `sim://`; `--baudrate`, `--format 8N1` | none: each argument is one command (`RD`, `WR`, `ROUTINE`), or they are read from standard input; replies are text, not JSON | `serial -r sim:// "WR LINES ON" "ROUTINE START CAPTURE"` → `LINE 1 = BOOT V1.00.0000` … `ACK ROUTINE RESULTS CAPTURE = Complete, 4 lines` |
 | `thermo` (Pico 2 + SHT30-D) | `COM14`, `/dev/ttyACM0`, `sim://` | `info`, `rd`, `temp`, `status`, `sreset`, `ecureset`, `bootsel`, `flash` | `thermo -r sim:// temp` → `"temperature_c": 22.5` |
 | `scope` (TDS3014B) | IP address, VISA-style string, `sim://`; `-b` backend | `idn`, `screenshot`, `capture`, `spread`, `period`, `measure` | `scope -r sim:// idn` → `"model": "TDS 3014B"` |
 
@@ -809,6 +811,7 @@ Each instrument's notes go further: [J-Link](jlink/JLink_Integration_Notes.md),
 [BLE dongle](ble/BLE_Dongle_Notes.md), [GPD-3303D](psu/GPD3303D_Notes.md),
 [TTi 1604](dmm/TTi1604_Notes.md), [S2-LP](s2lp/S2LP_Devkit_Notes.md),
 [Pico 2 + SHT30-D](pico_sht30/Pico_SHT30_Notes.md),
+[serial capture](Bench_Runner_Guide.md#54-useful-paths-for-the-serial-capture-instrument),
 [TDS3014B](tek3014b/VISA_Determination_Report.md).
 
 The tkinter Embedded Test Bench monitor (`tools/test_bench`) is frozen. The

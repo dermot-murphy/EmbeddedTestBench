@@ -32,6 +32,7 @@
 | 0.6 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | next | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
 
+| next | 2026-10-28 | Claude | #247: ETB-SYS2-037 - capture a target's serial output, record every line, write nothing to the port; traced to STK-24 and `SER-` (ETB-SWE1-001 §16). The software requirement sections referred to are §6 to §17 (RUN is now §17). |
 ---
 
 ## 3. Purpose & Scope
@@ -44,7 +45,7 @@ to it, the dongle firmware Embedded Test Bench itself supplies, and the target u
 as it appears to the bench.
 
 It sits between the stakeholder requirements (ETB-SWE1-001 §4) and the software
-requirements (ETB-SWE1-001 §6–§15). A stakeholder requirement says what the
+requirements (ETB-SWE1-001 §6–§17). A stakeholder requirement says what the
 engineer wants; a system requirement says what the bench must therefore do,
 including the parts that are not software; a software requirement says what the
 code must do.
@@ -160,6 +161,7 @@ Each requirement carries a verification method: **T** test, **A** analysis,
 | ETB-SYS2-034 | The system shall read and write the target's RTT channels, and shall be able to log RTT output to a file for the duration of a run. | T |
 | ETB-SYS2-035 | The system shall measure elapsed time between points in target execution, and shall report the resolution of the method used. | T |
 | ETB-SYS2-036 | Every firmware image the system programmes shall be accompanied by a manifest stating its version and build date, and the system shall be able to compare the version a running target reports against that manifest. | T |
+| ETB-SYS2-037 | The system shall capture the lines a target prints on a serial port, for a stated time or until a line matches an expected pattern, shall record every line it captures in the run's evidence, and shall write nothing to that port (#247). | T |
 
 ---
 
@@ -251,7 +253,7 @@ Each requirement carries a verification method: **T** test, **A** analysis,
 ## 14. Traceability
 
 Upward to the stakeholder requirements in ETB-SWE1-001 §4, downward to the
-software requirements in ETB-SWE1-001 §6–§15. The full matrix is ETB-RTM-001.
+software requirements in ETB-SWE1-001 §6–§17. The full matrix is ETB-RTM-001.
 
 | Stakeholder | System requirements |
 |---|---|
@@ -268,12 +270,13 @@ software requirements in ETB-SWE1-001 §6–§15. The full matrix is ETB-RTM-001
 | STK-17 | ETB-SYS2-044 |
 | STK-18 | ETB-SYS2-051, ETB-SYS2-052, ETB-SYS2-053, ETB-SYS2-104 |
 | STK-19, STK-20 | ETB-SYS2-046, ETB-SYS2-047, ETB-SYS2-103 |
+| STK-24 | ETB-SYS2-037 |
 
 | System requirement group | Software requirements |
 |---|---|
 | Bench composition §6 | `CORE-FR-*`, `INST-FR-*` |
 | Power §7 | `PSU-FR-*`, `PSU-NFR-*` |
-| Target control §8 | `JLINK-FR-*`, `JLINK-NFR-*` |
+| Target control §8 | `JLINK-FR-*`, `JLINK-NFR-*`, `SER-FR-*`, `SER-NFR-*` |
 | Wireless §9 | `BLE-FR-*`, `BLE-NFR-*`, `S2LP-FR-*`, `S2LP-NFR-*` |
 | Measurement §10 | `SCOPE-FR-*`, `ANA-FR-*` |
 | Test definition §11 | `RUN-FR-*` |

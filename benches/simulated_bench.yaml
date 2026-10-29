@@ -96,3 +96,11 @@ instruments:
       # needed" needs nothing - which is the outcome to want here: flashing a
       # simulator would be flashing nothing.
       update_firmware: true
+
+  # A device's serial output, captured by the serial capture instrument (#247),
+  # simulated. The simulated device prints a short boot script when a capture
+  # starts. Event-log name SERIAL.
+  uart:
+    driver: serial
+    resource: sim://
+    timeout: 5.0

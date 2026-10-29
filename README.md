@@ -41,6 +41,7 @@ benchtools/
 │   ├── tti1604/     TTi 1604 bench multimeter over RS-232
 │   ├── s2lp/        ST S2-LP sub-1 GHz development kit (registers, TX, RX, logs)
 │   ├── pico_sht30/  Raspberry Pi Pico 2 + SHT30-D thermometer, with its own firmware
+│   ├── serial_capture/  a device's serial output, captured and checked
 │   └── generic.py   anything answering *IDN?
 ├── runner/        declarative bench test runner
 └── viewer/        test run viewer: watch and control a run in a browser
@@ -693,6 +694,39 @@ A value that is not degrees to two decimal places is refused.
 See [Pico 2 + SHT30-D Notes](docs/pico_sht30/Pico_SHT30_Notes.md) for wiring,
 building and flashing, the datasheet facts, the MISRA position and the bench
 confirmation items.
+
+---
+
+## Serial capture — a device's console or test UART
+
+The serial capture instrument records the lines a device prints on its serial
+port, through a USB serial adapter, for a time window or until a line matches
+a pattern. It writes nothing to the device. It is controlled with `RD`, `WR`
+and `ROUTINE` commands, in the form of the Kepler sensor's BLE console: one
+line each, answered `ACK <command> = <value>`, `ACK <command> [<unit>]` or
+`NACK <command> <REASON>`.
+
+```bash
+python -m benchtools serial -r COM5 "WR WINDOW 10000" "WR PATTERN ^SELF TEST (PASS|FAIL)" \
+                                    "WR LINES ON" "ROUTINE START CAPTURE"
+python -m benchtools serial -r sim:// "WR LINES ON" "ROUTINE START CAPTURE"   # no hardware needed
+```
+
+Each line is shown as `LINE <n> = <text>` only after `WR LINES ON`, and
+every line goes to the event log whether shown or not. In a specification,
+`uart.capture` returns the count, the matching line and the value the
+pattern's first group took from it:
+
+```python
+from benchtools.instruments.serial_capture import SerialCapture
+
+with SerialCapture.connect("COM5", baudrate=115200) as uart:
+    result = uart.capture(window_ms=10000, pattern=r"^VBAT = ([0-9.]+) V")
+    print(result.summary(), result.value)       # Complete, 3 lines, Matched 3.30
+```
+
+See [Bench Runner Guide §5.4](docs/Bench_Runner_Guide.md#54-useful-paths-for-the-serial-capture-instrument)
+for the whole command set.
 
 ---
 

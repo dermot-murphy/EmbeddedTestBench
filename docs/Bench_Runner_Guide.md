@@ -954,6 +954,91 @@ to and including `duration`; one whose time passed while a reply was slow is
 skipped (`skipped`), and a command that fails is counted in `failed` with the
 states seen kept.
 
+### 5.4 Useful paths for the serial capture instrument
+
+The serial capture instrument (driver `serial`, #247) records the lines a device
+prints on its serial port - its console or a test UART - through a USB serial
+adapter. It writes nothing to the port.
+
+```yaml
+# bench
+uart:
+  driver: serial
+  resource: COM5                # the adapter's port
+  options: {baudrate: 115200, char_format: 8N1}
+```
+
+It is driven with its command set, in the form of the Kepler sensor's BLE
+console, through `command`, or with the methods the commands map onto:
+
+| Command | Reply |
+|---|---|
+| `RD PORT`, `RD BAUD`, `RD FORMAT`, `RD WINDOW`, `RD PATTERN`, `RD LINES` | `ACK RD BAUD = 115200`; `RD PATTERN` is `OFF` with none |
+| `RD COUNT`, `RD LINE <n>`, `RD MATCH`, `RD VALUE` | the last capture: `ACK RD VALUE = 3.30`, or `NACK RD VALUE NOT FOUND` |
+| `WR BAUD <rate>` | `ACK WR BAUD 9600 Baud` (50 to 4 000 000) |
+| `WR FORMAT <bits><parity><stop>` | `ACK WR FORMAT 7E1` |
+| `WR WINDOW <ms>` | `ACK WR WINDOW 10000 ms` (1 to 3 600 000) |
+| `WR PATTERN <regex>`, `WR PATTERN OFF` | `ACK WR PATTERN ^SELF TEST (PASS\|FAIL)` |
+| `WR LINES ON`, `WR LINES OFF` | `ACK WR LINES ON` |
+| `ROUTINE START CAPTURE` | `ACK ROUTINE START CAPTURE = Running` |
+| `ROUTINE ABORT CAPTURE`, `ROUTINE ABORT ALL` | `ACK ROUTINE ABORT CAPTURE = Aborted` |
+| `ROUTINE RESULTS CAPTURE` | `ACK ROUTINE RESULTS CAPTURE = Complete, 4 lines, Matched`, then `, 12 unshown` if live lines were dropped |
+
+A refusal is `NACK <command> INVALID VALUE`, `OUT OF RANGE`, `BUSY` (a capture
+is running) or `NOT FOUND`, and a command the set does not have is
+`NACK Invalid Command`. The command words are not case sensitive, and the
+reply echoes the command as it was sent.
+
+A capture discards what the device printed before it, then records every line
+until the window ends or a line matches the pattern, whichever comes first.
+The pattern is searched for in each line, and its first group in the matching
+line is the value. A capture that hears nothing completes with no lines, so
+silence fails a limit rather than erroring. A line ends at CR, LF or CRLF;
+a byte that is not ASCII is kept as `\xNN`. If the port fails - an adapter
+unplugged - the capture ends `Aborted` and `error` says why.
+
+| Method | Returns | Useful paths |
+|---|---|---|
+| `command` | `Reply` | `text`, `ok` (1 for `ACK`), `value` (after ` = `) |
+| `capture` | `CaptureResult` | `status`, `count`, `matched`, `match`, `match_number`, `value`, `elapsed`, `error`, `unshown`, `lines.0.text`, `text` |
+| `start_capture`, `wait_capture`, `abort_capture`, `results` | `CaptureResult` | as `capture` |
+| `line` | `str` | *(omit `measure`)* |
+
+`capture` takes `window_ms`, `pattern` and `timeout` (seconds beyond the
+window), and returns when the capture ends:
+
+```yaml
+- do: uart.capture
+  with: {window_ms: 10000, pattern: '^VBAT = ([0-9.]+) V'}
+  expect:
+    - {name: vbat_line_seen, measure: matched, equals: 1}
+    - {name: vbat_v, measure: value, unit: V, min: 3.0, max: 3.6}
+```
+
+To power the device on after the capture has started - its boot output is
+what is being checked - start it, switch the supply on, then wait:
+
+```yaml
+- do: uart.command
+  with: {request: "ROUTINE START CAPTURE"}
+- do: psu.output_on
+  with: {channel: 2}
+- do: uart.wait_capture
+  expect:
+    - {name: self_test, measure: match, matches: '.*PASS', reason: "the self test passed"}
+```
+
+Every captured line goes to the event log as a `line` record under the
+instrument's name (`SERIAL` by default). `WR LINES ON` adds a live copy of
+each line, `LINE <n> = <text>`, at INFO; it is off until switched on, and only
+`WR LINES` switches it. `benchtools serial -r COM5 "WR LINES ON" "ROUTINE START
+CAPTURE"` shows the same at the command line.
+
+On the simulated bench (`uart` in `benches/simulated_bench.yaml`) the device
+prints a short boot script when a capture starts; `simulated_lines` and
+`simulated_interval` in the bench's `options` change it.
+`specs/serial_capture.yaml` is a worked example.
+
 ---
 
 ## 6. Running
@@ -1052,7 +1137,7 @@ The name is allocated in the setup:
 |---|---|---|
 | Specification | `instruments:` entry as a mapping: `temp: {driver: pico-sht30, event: TEMP}` | Always |
 | Bench | `event: TEMP` on the instrument | When the specification gives none |
-| Driver default | `PSU`, `BLE`, `JLINK`, `RF`, `SCOPE`, `DMM`, `TEMP` (Pico 2 + SHT30-D) | When neither does |
+| Driver default | `PSU`, `BLE`, `JLINK`, `RF`, `SCOPE`, `DMM`, `TEMP` (Pico 2 + SHT30-D), `SERIAL` (serial capture) | When neither does |
 
 The runner's own records are `TEST`; anything not from an instrument is `BENCH`.
 

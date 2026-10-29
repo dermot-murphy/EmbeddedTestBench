@@ -30,6 +30,7 @@ Commands:
   psu         control a GW Instek GPD-3303D bench power supply
   s2lp        drive an ST S2-LP sub-1 GHz development kit
   thermo      read a Pico 2 + SHT30-D thermometer: identity and temperature
+  serial      capture the lines a device prints on a serial port (RD, WR, ROUTINE)
   drivers     list the instrument drivers a bench configuration can name
   backends    list the transport backends a resource string can select
 
@@ -42,6 +43,7 @@ Examples:
   benchtools psu -r sim:// set 1 -V 3.3 -I 0.5 --on
   benchtools s2lp -r sim:// registers --plain
   benchtools thermo -r /dev/ttyACM0 temp --count 10 --interval 1
+  benchtools serial -r COM5 "WR WINDOW 10000" "WR LINES ON" "ROUTINE START CAPTURE"
   benchtools run tests/clock_skew.yaml --simulate --markdown report.md
   benchtools run tests/*.yaml --bench benches/lab1.yaml --junit results.xml
 
@@ -66,6 +68,7 @@ _TOOLS = {
     ("psu", "gpd3303d", "supply"): "benchtools.instruments.gpd3303d.cli",
     ("dmm", "tti1604", "multimeter"): "benchtools.instruments.tti1604.cli",
     ("s2lp", "s2-lp", "radio"): "benchtools.instruments.s2lp.cli",
+    ("serial", "serial-capture"): "benchtools.instruments.serial_capture.cli",
 }
 
 

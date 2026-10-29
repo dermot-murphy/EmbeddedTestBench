@@ -20,6 +20,7 @@ instruments are added:
 | `PSU-` | GW Instek GPD-3303D bench supply | `benchtools.instruments.gpd3303d` |
 | `S2LP-` | ST S2-LP development kit | `benchtools.instruments.s2lp` |
 | `PICO-` | Pico 2 + SHT30-D thermometer: host driver **and** Pico firmware | `benchtools.instruments.pico_sht30`, `firmware/pico_sht30` |
+| `SER-` | Serial capture instrument: a device's serial output, recorded | `benchtools.instruments.serial_capture` |
 | `RUN-` | Bench test runner | `benchtools.runner` |
 
 ## Documents

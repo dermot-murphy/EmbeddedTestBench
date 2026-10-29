@@ -83,6 +83,13 @@
 | next | 2026-10-28 | Claude | #274: BLE-FR-121 - `SWE4-UT-BLEDFU` now 47 tests, `SWE4-UT-BLESIM` `TestDfuPieces` (5) added, `test_dfu_client` 19 and `test_cmd_dfu` 8 (the ATT MTU and piece size each link allowed); BLE-NFR-006 - `SWE4-UT-FWUNIT` 192 cases. |
 | next | 2026-10-28 | Claude | #181: rows for DMM-FR-035 (blank frames while ranging) and DMM-FR-036 (frequency with no signal); STK-18 gains them; section 16 count 462 in force, 463 declared. |
 
+| next | 2026-10-28 | Claude | #247: STK-24 and section 14, SER (SER-FR-001 .. SER-FR-013, SER-NFR-001), the serial capture instrument; SER-ARC-001 in section 16; STK-23 gains SER-FR-008; sections 14 to 18 renumbered 15 to 19; section 17 count 475 in force, 476 declared, 37 non-functional. |
+| next | 2026-10-29 | Claude | #247, review of #318: the SER rows name the tests added for the socket port, a refused rate, the pattern's spaces, line endings, port failures, stopping, the line bound and the exit status after a `NACK`. |
+| next | 2026-10-29 | Claude | #247, review of #318 round 2: SER-FR-006 names `_read_lines`, `split_lines` and the reader's stop and join, and the added line-ending, port and stopping tests; SER-FR-004 drops the renamed pattern test and names the port that cannot open. |
+| next | 2026-10-29 | Claude | #247, review of #318 round 3: SER-FR-005 names `CaptureBusyError` and the start tests; SER-FR-006 and SER-FR-007 name the slow-live-output, abort and `WR PATTERN OFF` tests. |
+| next | 2026-10-29 | Claude | #247, review of #318 round 4: SER-FR-007 names `TestLiveOutput` and the CLI test of a capture that ends before the commands. |
+| next | 2026-10-29 | Claude | #247, review of #318 round 5: SER-FR-007 names `TestLiveOutputEnds` and `TestOutputLock`; SER-FR-012 the Ctrl-C test. |
+| next | 2026-10-29 | Claude | #247, review of #318 round 6: SER-FR-007 names `TestLiveOutputUnderTheLock` and `join_thread`'s test; SER-FR-012 the second Ctrl-C test. |
 ---
 
 ## 3. Purpose & Scope
@@ -132,7 +139,8 @@ It is checked mechanically by `tests/test_traceability.py` on every run of the s
 | STK-20 — use ST's firmware if it is fit for purpose | AD-20; S2LP-FR-001, -002; S2LP-NFR-002. The firmware was examined before any was written: BENCHTOOLS-SWE4-002 §10, `docs/s2lp/S2LP_Devkit_Notes.md` §1 |
 | STK-21 — local temperature with a Pico 2 and a DollaTek SHT30-D | PICO-FR-001, -003 … -005, -007, -010, -020 … -027, -030, -031, -040, -042, -043, -045 … -047, -050, -060, -061, -070 … -076; PICO-NFR-001 … -006; AD-24 (superseded by #131, see §16). PICO-FR-044 withdrawn (#131). |
 | STK-22 — firmware reports its title and version | PICO-FR-002, -005 … -007, -040, -041, -060, -061, -073, -075. Since #131 the "title" is the name reported by `rd name`, beside `rd copyright`, `rd version` and `rd sha`; `flash` checks the name, version and commit SHA of the image it installed (PICO-FR-073). |
-| STK-23 — watch and control a run (#130) | VIEW-FR-001 … -045; RUN-FR-066; S2LP-FR-080 … -084; CORE-FR-065; PSU-FR-044; PICO-FR-048; DMM-FR-034; RUN-FR-059 … -065; CORE-FR-064 |
+| STK-23 — watch and control a run (#130) | VIEW-FR-001 … -045; RUN-FR-066; S2LP-FR-080 … -084; CORE-FR-065; PSU-FR-044; PICO-FR-048; DMM-FR-034; RUN-FR-059 … -065; CORE-FR-064; SER-FR-008 |
+| STK-24 — capture a device's serial output and check its lines (#247) | SER-FR-001 … -013, SER-NFR-001 |
 | STK-18 — RS-232 multimeter | DMM-FR-001 … -033, -035, -036, -045, -046, -070, -080, -081; DMM-NFR-001 … -004; CORE-FR-017, -061, -062. Implemented for the TTi 1604. Confirmed against the bench meter: the link, stream and key echo, DC volts and its ranges (ETB-SYS5-002 §6.10), and OFL on open ohms and frequency with no signal (#181, 2026-10-28). Frequency with a signal and the gate times are not yet: `docs/dmm/TTi1604_Notes.md` §5. |
 
 ## 5. CORE requirements to design, code and test
@@ -565,6 +573,7 @@ tests in `tests/instruments/pico_sht30/`.
 | Requirement | Architecture | Design unit | Source | Verifying test(s) |
 |---|---|---|---|---|
 | PICO-FR-001 | PICO-ARC-001 | PICO-DD-PROTOCOL, PICO-DD-PARSER | `cmd_line_push`, `cmd_execute`, `cmd_rd_begin` | `test_a_line_is_ready_at_lf`, `test_cr_is_ignored`, `test_a_blank_line_has_no_reply`, `test_rd_name` (C); `test_commands_agree`, `test_errors_agree`, `test_rd` (simulator) |
+| SER-ARC-001 | SER-DD-DRIVER, -CONSOLE, -CONST, -SIM, -CLI | `instruments/serial_capture/{capture,errors,console,constants,simulator,cli}.py` |
 | PICO-FR-002 | PICO-ARC-001 | PICO-DD-VERSION, PICO-DD-BUILD | `firmware_version.h`, `firmware_version.c`, `CMakeLists.txt` (`FIRMWARE_GIT_SHA`) | `test_rd_sha_reports_the_injected_commit`, `test_rd_identity_matches_the_header` (C); `test_name_and_copyright_agree`, `test_version_is_semantic`; inspection of `CMakeLists.txt` for the SHA injection |
 | PICO-FR-003 | PICO-ARC-001 | PICO-DD-PARSER | `cmd_execute` lookup and argument check | `test_an_unknown_command_is_refused`, `test_commands_are_case_sensitive`, `test_an_unexpected_argument_is_refused`, `test_more_tokens_than_are_stored_is_still_refused`, `test_ver_temp_and_reset_are_no_longer_commands`, `test_rd_without_an_option_is_refused`, `test_rd_with_two_options_is_refused`, `test_a_refused_ecureset_does_not_reboot` (C); `test_rd_needs_exactly_one_option`, `test_removed_commands_are_unknown` (3) |
 | PICO-FR-004 | PICO-ARC-001 | PICO-DD-PARSER | `cmd_line_push` discard state, `cmd_report_overflow` | `test_an_over_length_line_is_dropped_whole`, `test_the_line_after_an_overflow_is_accepted`, `test_the_longest_line_that_fits_is_ready`, `test_an_overflow_is_reported` (C) |
@@ -613,7 +622,33 @@ tests in `tests/instruments/pico_sht30/`.
 | PICO-NFR-005 | `test_no_mandatory_third_party_imports`; the port is reached through CORE-DD-SERIAL, whose pyserial import is deferred. |
 | PICO-NFR-006 | `.github/workflows/style.yml` step "Run CStyleCheck (Pico thermometer)", `fail-on: info`, no baseline; `.cstylecheck-pico-aliases.txt`, `.cstylecheck-pico-exclusions.yml`. Local run with CStyleCheck v1.5.1: 18 files, 0 errors, 0 warnings, 0 info. |
 
-## 14. RUN requirements to design, code and test
+## 14. SER requirements to design, code and test
+
+Tests are in `tests/instruments/serial_capture/`.
+
+| Requirement | Architecture | Design unit | Source | Verifying test(s) |
+|---|---|---|---|---|
+| SER-FR-001 | SER-ARC-001 | SER-DD-DRIVER | `SerialCapture.connect`, `_normalise_resource`, `parse_format`, `make_transport` | `test_a_bare_port_is_a_serial_port`, `test_identity`, `test_defaults`, `test_a_bad_format_is_refused_at_connect`, `TestFormat` (9), `test_nothing_is_written_to_the_device`, `TestSocketPort` (2), `test_the_port_takes_the_line_settings` |
+| SER-FR-002 | SER-ARC-001 | SER-DD-CONSOLE | `execute`, `Reply`, `_ack`, `_nack` | `TestForm` (6): `test_words_are_not_case_sensitive_and_the_echo_is_as_sent`, `test_spaces_are_collapsed`; `test_the_reply_carries_the_value` |
+| SER-FR-003 | SER-ARC-001 | SER-DD-CONSOLE | `_rd`, `_READINGS`, `SerialCapture.line` | `TestRd` (16): `test_before_a_capture` (14), `test_after_a_capture`, `test_the_reply_carries_the_value` |
+| SER-FR-004 | SER-ARC-001 | SER-DD-CONSOLE, SER-DD-DRIVER | `_wr`, `_number`, `set_baudrate`, `set_format`, `window_ms`, `pattern`, `_reconfigure` | `TestWr` (20): `test_replies` (16), `test_settings_take`, `test_port_settings_are_busy_during_a_capture`, `test_a_pattern_keeps_its_case_and_spaces`; `TestSettings` (5); `test_settings_the_port_refuses_leave_the_old_ones`, `test_a_port_that_cannot_open_at_a_new_rate_reopens_at_the_old` |
+| SER-FR-005 | SER-ARC-001 | SER-DD-CONSOLE, SER-DD-DRIVER | `_routine`, `start_capture`, `abort_capture`, `results`, `CaptureResult.summary`, `CaptureBusyError` (`errors.py`) | `TestRoutine` (7): `test_start_results_abort`, `test_abort_all`, `test_complete_with_a_match`, `test_invalid` (4); `test_start_returns_at_once_and_abort_stops_it`, `test_aborting_a_finished_capture_leaves_it`, `test_a_start_waits_for_the_last_reader_to_finish`, `test_a_reader_that_will_not_stop_refuses_the_next_start`, `test_start_says_running_even_if_the_capture_ends_at_once` |
+| SER-FR-006 | SER-ARC-001 | SER-DD-DRIVER | `start_capture`, `_read_until_done`, `_record`, `_read_lines`, `split_lines`, `_stop_reader`, `_join_reader` | `test_the_window_ends_it`, `test_a_match_ends_it_early_and_gives_the_value`, `test_a_pattern_without_a_group_has_no_value`, `test_no_match_in_the_window`, `test_silence_is_a_result_not_an_error`, `test_a_new_capture_forgets_the_last`, `test_what_came_before_the_capture_is_discarded`; `TestLineEndings` (8), `TestPortFailures` (6), `TestStopping` (10); `specs/serial_capture.yaml` on the simulated bench |
+| SER-FR-007 | SER-ARC-001 | SER-DD-CONSOLE, SER-DD-DRIVER | `set_lines`, `lines_on`, `_record`, `on_line` | `test_only_wr_lines_switches_the_line_output`, `test_lines_on_shows_them`, `test_lines_are_not_shown_unless_switched_on`, `test_a_failing_live_output_does_not_end_the_capture`, `test_an_abort_drops_the_live_lines_not_yet_shown`, `test_off_with_white_space_clears_the_pattern` (3), `TestLiveOutput` (5), `TestLiveOutputEnds` (5), `TestOutputLock` (2), `TestLiveOutputUnderTheLock` (2), `test_join_thread_waits_for_the_end_or_the_timeout`, `test_a_capture_that_ends_before_the_commands_still_shows_its_lines` |
+| SER-FR-008 | SER-ARC-001 | SER-DD-DRIVER | `_record` (`log_event`, kind `line`) | `test_every_line_is_a_line_event`, `test_lines_on_without_a_sink_logs_at_info` |
+| SER-FR-009 | SER-ARC-001 | SER-DD-DRIVER | `command`, `capture`, `start_capture`, `wait_capture`, `abort_capture`, `results`, `CaptureResult`, `CapturedLine`, `MAX_LINES` | `test_line_by_number`, `test_wait_gives_up`, `test_as_dict`, `test_the_lines_kept_are_bounded_and_every_line_counted`, `test_a_dead_port_aborts_the_capture_and_says_why`; `specs/serial_capture.yaml` on the simulated bench |
+| SER-FR-010 | SER-ARC-001 | SER-DD-SIM | `SimulatedSerialDevice` | `SWE4-UT-SERSIM` (6) |
+| SER-FR-011 | SER-ARC-001 | SER-DD-DRIVER | `register_driver("serial", …)`, `_SOURCE_PREFIXES` | `test_registered_as_a_bench_driver`; `test_shipped_benches.py` with the `uart` instrument of `benches/simulated_bench.yaml` |
+| SER-FR-012 | SER-ARC-001 | SER-DD-CLI | `cli.py`, `benchtools/cli.py` | `SWE4-UT-SERCLI` (11): `test_commands_in_order`, `test_a_running_capture_is_waited_for_and_shown`, `test_a_nack_fails`, `test_a_nack_fails_even_when_later_commands_succeed`, `test_commands_from_standard_input`, `test_a_bad_format_does_not_connect`, `test_reached_from_the_top_level`, `test_ctrl_c_while_closing_still_closes_the_port`, `test_ctrl_c_while_closing_drops_the_waiting_lines_at_once` |
+| SER-FR-013 | SER-ARC-001 | SER-DD-CONSOLE | `execute`, `_invalid` | `test_unknown_commands` (4), `test_invalid` (4), the `NACK Invalid Command` cases of `test_before_a_capture` and `test_replies` |
+
+### SER non-functional
+
+| Requirement | Evidence |
+|---|---|
+| SER-NFR-001 | `test_no_mandatory_third_party_imports`; the port is reached through CORE-DD-SERIAL, whose pyserial import is deferred. |
+
+## 15. RUN requirements to design, code and test
 
 | Requirement | Architecture | Design unit | Source | Verifying test(s) |
 |---|---|---|---|---|
@@ -720,7 +755,7 @@ tests in `tests/instruments/pico_sht30/`.
 | RUN-FR-052 | ARC-001 | RUN-DD-CLI | report path suffixing | `test_several_specs_get_suffixed_reports` |
 | RUN-FR-053 | ARC-001 | RUN-DD-CLI | `benchtools/cli.py` | `TestTopLevelDispatch` (7) |
 
-## 15. Architecture to design to source
+## 16. Architecture to design to source
 
 | Architectural element | Design unit | Source |
 |---|---|---|
@@ -745,18 +780,18 @@ tests in `tests/instruments/pico_sht30/`.
 | PICO-ARC-001 | PICO-DD-PROTOCOL, -VERSION, -BOARD, -HAL, -SHT30, -TEXT, -PARSER, -MAIN, -BUILD, -TEST | `firmware/pico_sht30/{include,src,test}/*`, `CMakeLists.txt`, `pico_sdk_import.cmake` |
 | VIEW-ARC-001 | VIEW-DD-STATE, -SERVER, -TRAFFIC, -RADIO, -GRAPHS, -TAGS, -STATUS, -KEPLER, -SENSOR, -TWF, -DIAG, -REPORT, -STGUI, -PAGE | `viewer/*.py`, `viewer/static/*` |
 
-## 16. Coverage analysis
+## 17. Coverage analysis
 
 | Question | Answer |
 |---|---|
-| Requirements with no verifying test | **None.** All 462 functional requirements in force (463 declared; PICO-FR-044 is withdrawn) and 36 non-functional requirements trace to at least one test, or to a recorded inspection where a test is not the appropriate method (CORE-NFR-002, BLE-FR-090, BLE-NFR-002, and part of CORE-NFR-001). The firmware requirements are verified against the artefact the firmware is built from, not against a running dongle: see CON-07. |
+| Requirements with no verifying test | **None.** All 475 functional requirements in force (476 declared; PICO-FR-044 is withdrawn) and 37 non-functional requirements trace to at least one test, or to a recorded inspection where a test is not the appropriate method (CORE-NFR-002, BLE-FR-090, BLE-NFR-002, and part of CORE-NFR-001). The firmware requirements are verified against the artefact the firmware is built from, not against a running dongle: see CON-07. |
 | Tests not tracing to a requirement | **None.** Every test file names its requirements in its module docstring. |
 | Source modules with no design unit | **None.** Every module names its design unit in its docstring - firmware sources included, checked by `test_every_source_declares_its_trace` in `SWE4-UT-BLEFW`; `__main__.py` is covered by RUN-DD-CLI. |
 | Design units with no source | **None.** |
 | Stakeholder requirements not decomposed | **None of those in scope.** STK-01 to STK-11 and STK-14 to STK-17 trace downward; STK-06 additionally produces BENCHTOOLS-VISA-001 as its work product. STK-12 is partly addressed (AD-15 constrains the driver boundary for it, and AD-23 reads a markdown command document as a test) and Robot Framework itself is deferred: CON-06, OPEN-04. STK-13 is decomposed into `PSU-` and verified; STK-19 and STK-20 into `S2LP-` and AD-20. STK-18 is decomposed into `DMM-` and verified against a simulator; no behaviour is confirmed on a physical meter (DMM-OPEN-01…05). |
 | Architectural decisions without a verifying test | **None.** AD-01 → `test_full_driver_over_the_socket`; AD-02 → `test_layering.py`; AD-03 → `TestDriverRegistry`; AD-04 → `TestFraming`; AD-05 → `test_payload_containing_a_hash_byte_is_not_re_parsed`; AD-06 → `TestChannelSpread`; AD-07 → `test_busy_is_polled_until_clear`; AD-08 → `TestSpecParsing`; AD-09 → `TestFailureVersusError`; AD-10 → `test_all_sim_resources_count_as_simulated`; AD-11 → `test_the_probe_is_an_instrument_but_not_scpi`, `test_scpi_instrument_is_an_instrument`; AD-12 → `SWE4-UT-GDBMI`, `SWE4-UT-GDBSESSION`, `test_connect_to_the_simulator`; AD-13 → `test_resource_parsing`, `test_a_remote_server_is_never_spawned`; AD-14 → `SWE4-UT-TIMING`, `test_a_short_interval_is_flagged_untrustworthy`; AD-15 → `test_serialises_for_a_report`, `test_shipped_specifications_are_valid`; AD-16 → `SWE4-UT-BLEFW`; AD-17 → `test_both_clocks_are_recorded`, `test_the_host_clock_resolves_a_millisecond`; AD-18 → `test_a_lossy_link_is_declared_rather_than_averaged`, `test_a_dropping_dongle_says_so`; AD-19 → `TestOutputSwitching` (11), notably `test_the_last_channel_off_opens_the_real_switch` and `test_setting_a_voltage_on_a_parked_channel_does_not_energise_it`; AD-20 → `SWE4-UT-S2LPPROTO` and `SWE4-UT-S2LPSESSION` verify the driver against ST's declared command set, and `test_a_polled_capture_reports_its_gaps` verifies the honesty the decision requires; AD-21 → `TestTracking` in `test_psu.py` (14), with `TestTracking` in `test_simulator.py` (10) establishing that the supply really does discard what the driver refuses to send; AD-22 → `TestReferences` (9) and `TestLimitsTakenFromAnEarlierStep` (6) for the mechanism, and `SWE4-UT-BRINGUP` (12) for what it is for - the shipped chained specification, with each fact it establishes broken in turn to confirm it would fail; AD-23 → `SWE4-UT-BLESCRIPT` (58), including `TestTheShippedDocument`, which runs `specs/sensor_commands.md` against the simulated sensor so the worked example cannot rot.; AD-24 → the shared conversion vectors in `test_sht30.c` and `test_matches_the_firmware_vectors`, and the shared two-place vectors in `test_text.c` and `test_two_places_half_away_from_zero`. Since #131 the raw word no longer travels with the reading, so the host-side cross-check AD-24 called for is gone (PICO-FR-044 withdrawn); AD-24 is marked superseded by #131 in ETB-SWE2-001 0.8, and what replaces it - the two-place format check and `Error`/`NAK` - is verified under PICO-FR-027 and -047; AD-25 → `TestConfirmation` (3), `test_an_echo_is_not_found_inside_a_frame`, `TestRanges` (6) in `test_dmm.py`; AD-26 → `TestTheSerialLink` (2), `TestStreamReading` (7), `test_a_measurement_is_taken_after_the_call`, `test_the_ten_second_gate_is_waited_for`; AD-27 → `SWE4-UT-PATHS` (70), notably `test_a_shipped_specification_runs_the_same_from_outside_the_checkout`; AD-28 → `SWE4-UT-EVENTNAMES` (21), notably `test_records_carry_the_specification_s_names`, and `test_two_instruments_of_one_driver_are_told_apart`; AD-29 → `SWE4-UT-PLUGINS` (61) |
 
-## 17. Open items
+## 18. Open items
 
 | ID | Item | Owner action |
 |---|---|---|
@@ -773,7 +808,7 @@ tests in `tests/instruments/pico_sht30/`.
 
 ---
 
-## 18. Review & Approval
+## 19. Review & Approval
 
 Review and approval of this document are not entered in this table. They are
 given by the merge of the pull request that last changed the document, and that
