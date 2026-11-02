@@ -14,7 +14,7 @@ importlib-resources==6.4.5
     # via matplotlib
 iniconfig==2.1.0
     # via pytest
-kiwisolver==1.4.7
+kiwisolver==1.5.1
     # via matplotlib
 matplotlib==3.7.5
     # via benchtools (pyproject.toml)
