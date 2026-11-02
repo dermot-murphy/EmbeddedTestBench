@@ -67,7 +67,7 @@ typing-extensions==4.16.0
     #   exceptiongroup
     #   pyvisa
     #   pyvisa-py
-tzdata==2026.5
+tzdata==2026.6
     # via python-dateutil
 zipp==3.23.1
     # via importlib-resources
