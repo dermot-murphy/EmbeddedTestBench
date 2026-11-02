@@ -28,7 +28,7 @@ packaging==26.3
     #   pytest
 pillow==11.3.0
     # via matplotlib
-pluggy==1.6.0
+pluggy==1.7.0
     # via
     #   pytest
     #   pytest-cov
