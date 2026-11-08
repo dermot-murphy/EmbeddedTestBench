@@ -9,6 +9,9 @@ two forms:
   options are ``name``, ``copyright``, ``version``, ``sha`` and ``temperature``.
 * The control commands (``status``, ``sreset``, ``ecureset``, ``bootsel``) are
   answered ``ok ...`` or ``err <code> <text>``, values as ``key=value`` tokens.
+* The frequency generator is controlled in the style of UDS: ``wr`` stores a
+  setting, ``rd`` reads it back and ``routine`` starts, stops and reports it.
+  Each is answered ``ACK <command> = <value>`` or ``NAK <command> = Error``.
 
 **A failed reading is an error, never a stale value.** When the firmware cannot
 read the sensor - it does not acknowledge, a frame fails its CRC, or the bus
@@ -16,7 +19,7 @@ times out - ``rd temperature`` answers ``Error``, and the driver raises
 :class:`NoReadingError`, so that a test cannot mistake "no reading" for "same
 as last time".
 
-Traces to: PICO-FR-040 .. PICO-FR-048, PICO-ARC-001, PICO-DD-DRIVER.
+Traces to: PICO-FR-040 .. PICO-FR-048, PICO-FR-085, PICO-ARC-001, PICO-DD-DRIVER.
 """
 
 from __future__ import annotations
@@ -24,7 +27,7 @@ from __future__ import annotations
 import re
 import time
 from dataclasses import dataclass
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 from ...core.errors import InstrumentError, ProtocolError
 from ...core.events import log_reading
@@ -35,6 +38,9 @@ from ...core.transport.factory import open_transport
 from .constants import (
     DEFAULT_BAUDRATE,
     ERRORS,
+    FGEN_CHANNELS,
+    FGEN_DEFAULT_CHANNEL,
+    FGEN_SETTINGS,
     MANUFACTURER,
     MODEL,
     NAME,
@@ -51,6 +57,8 @@ __all__ = [
     "SensorError",
     "NoReadingError",
     "RdRefusedError",
+    "CommandRefusedError",
+    "FreqStatus",
 ]
 
 #: Informational lines (``help`` only) are skipped when looking for a reply.
@@ -60,7 +68,16 @@ _INFO_PREFIX = "#"
 _MAX_SKIPPED_LINES = 32
 
 #: ``ACK rd temperature = 22.85``: the verdict, the option and the value.
-_RD_REPLY = re.compile(r"^(ACK|NAK) rd (\S+) = (.*)$")
+_RD_REPLY = re.compile(r"^(ACK|NAK) rd (\S+(?: \d)?) = (.*)$")
+
+#: ``ACK wr freq 1 = 1000.00``: the verdict, the command echoed and the value.
+_ACK_REPLY = re.compile(r"^(ACK|NAK) (.+?) = (.*)$")
+
+#: ``Running, sine, 999.98 Hz``, or a status with nothing after it.
+_RESULT_VALUE = re.compile(r"^([^,]+)(?:, (\w+), (\d+\.\d{2}) Hz)?$")
+
+#: A value on the link: a number, or text such as ``20k`` or ``sine``.
+ValueType = Union[int, float, str]
 
 #: What ``rd temperature`` reports when it has a reading: two decimal places.
 _TEMPERATURE = re.compile(r"^-?\d+\.\d{2}$")
@@ -90,7 +107,12 @@ class NoReadingError(InstrumentError):
     """``rd temperature`` answered ``Error``: the sensor could not be read."""
 
 
-class RdRefusedError(InstrumentError):
+class CommandRefusedError(InstrumentError):
+    """The firmware answered ``NAK``: a value out of range, an unknown setting,
+    or a routine that cannot start."""
+
+
+class RdRefusedError(CommandRefusedError):
     """The firmware answered ``NAK``: it does not know the ``rd`` option."""
 
 
@@ -145,6 +167,39 @@ class SensorStatus:
         payload: Dict[str, object] = {"raw": "0x%04X" % self.raw}
         payload.update({name: self.flag(name) for name in STATUS_BITS})
         return payload
+
+
+@dataclass(frozen=True)
+class FreqStatus:
+    """One channel's line from ``routine freq results``.
+
+    :ivar status: ``Not Started``, ``Running``, ``Aborted`` or ``Complete``.
+    :ivar wave: The waveform last generated; ``None`` if ``Not Started``.
+    :ivar frequency: The frequency last generated, in hertz; ``None`` if
+        ``Not Started``.
+    """
+
+    channel: int
+    status: str
+    wave: Optional[str]
+    frequency: Optional[float]
+
+    def as_dict(self) -> Dict[str, object]:
+        """The status as a JSON-ready dictionary."""
+        return {
+            "channel": self.channel,
+            "status": self.status,
+            "wave": self.wave,
+            "frequency_hz": self.frequency,
+        }
+
+
+def format_value(value: ValueType) -> str:
+    """A value as the link writes it: at most three places, no exponent."""
+    if isinstance(value, str):
+        return value
+    text = "%.3f" % float(value)
+    return text.rstrip("0").rstrip(".")
 
 
 def parse_fields(reply: str) -> Dict[str, str]:
@@ -280,8 +335,12 @@ class PicoSht30(ScpiInstrument):
             raise SensorError(code, parts[2] if len(parts) > 2 else "", command)
         raise ProtocolError("unexpected reply to %r: %r" % (command, reply))
 
-    def rd(self, option: str) -> str:  # pylint: disable=invalid-name
-        """Send ``rd <option>`` and return the value of its ``ACK``.
+    def rd(  # pylint: disable=invalid-name
+        self, option: str, channel: Optional[int] = None
+    ) -> str:
+        """Send ``rd <option> [<channel>]`` and return the value of its ``ACK``.
+
+        A generator setting is reported for *channel*, channel 1 if ``None``.
 
         :raises RdRefusedError: if the firmware answered ``NAK``.
         :raises SensorError: if it answered ``err`` (a malformed command).
@@ -289,6 +348,12 @@ class PicoSht30(ScpiInstrument):
             neither ``ACK`` nor ``NAK``.
         """
         command = "rd %s" % option
+        expected = option
+        if channel is not None:
+            command = "%s %d" % (command, channel)
+            expected = "%s %d" % (option, channel)
+        elif option in FGEN_SETTINGS:
+            expected = "%s %d" % (option, FGEN_DEFAULT_CHANNEL)
         reply = self._send(command)
         match = _RD_REPLY.match(reply)
         if match is None:
@@ -298,7 +363,7 @@ class PicoSht30(ScpiInstrument):
                                   parts[2] if len(parts) > 2 else "", command)
             raise ProtocolError("unexpected reply to %r: %r" % (command, reply))
         verdict, echoed, value = match.groups()
-        if echoed != option:
+        if echoed != expected:
             raise ProtocolError("reply to %r is for %r: %r" % (command, echoed, reply))
         if verdict == "NAK":
             raise RdRefusedError("%r refused: %s" % (command, reply))
@@ -400,3 +465,109 @@ class PicoSht30(ScpiInstrument):
         """Reboot into the USB bootloader, ready for a new ``.uf2``."""
         self.execute("bootsel")
         self._info = None
+
+    # ------------------------------------------------------------------
+    # Frequency generator
+    # ------------------------------------------------------------------
+    def _acknowledged(self, command: str, reply: str, expected: str) -> str:
+        """The value of an ``ACK`` to *command*, which must echo *expected*.
+
+        :raises CommandRefusedError: if the firmware answered ``NAK``.
+        :raises SensorError: if it answered ``err`` (a malformed command).
+        :raises ProtocolError: if the reply is for another command, or is
+            neither ``ACK`` nor ``NAK``.
+        """
+        match = _ACK_REPLY.match(reply)
+        if match is None:
+            if reply.startswith("err "):
+                parts = reply.split(" ", 2)
+                raise SensorError(int(parts[1]) if parts[1].isdigit() else -1,
+                                  parts[2] if len(parts) > 2 else "", command)
+            raise ProtocolError("unexpected reply to %r: %r" % (command, reply))
+        verdict, echoed, value = match.groups()
+        if echoed != expected:
+            raise ProtocolError("reply to %r is for %r: %r" % (command, echoed, reply))
+        if verdict == "NAK":
+            raise CommandRefusedError("%r refused: %s" % (command, reply))
+        return value
+
+    def wr(  # pylint: disable=invalid-name
+        self, setting: str, value: ValueType, channel: int = FGEN_DEFAULT_CHANNEL
+    ) -> str:
+        """Send ``wr <setting> <channel> <value>`` and return the value stored.
+
+        A number may be given as text with a ``k`` suffix for a frequency, so
+        ``wr("freq", "1.5k")`` is the same as ``wr("freq", 1500)``. The setting
+        takes effect at the next start.
+
+        :raises CommandRefusedError: for a value the channel cannot use.
+        """
+        command = "wr %s %d %s" % (setting, channel, format_value(value))
+        return self._acknowledged(command, self._send(command), "wr %s %d" % (setting, channel))
+
+    def freq_start(self, channel: int = FGEN_DEFAULT_CHANNEL) -> None:
+        """Start *channel* with its stored settings.
+
+        :raises CommandRefusedError: if it is running continuously.
+        """
+        command = "routine freq start %d" % channel
+        self._acknowledged(command, self._send(command), command)
+
+    def start_freq(  # pylint: disable=too-many-arguments
+        self,
+        channel: int,
+        freq: ValueType,
+        cycles: Optional[int] = None,
+        wave: str = "square",
+        **options: ValueType,
+    ) -> None:
+        """Write the settings of *channel* and start it.
+
+        :param freq: The frequency in hertz, or text such as ``"1.5k"``.
+        :param cycles: Cycles to generate; ``None`` runs until aborted.
+        :param wave: ``square``, ``sine``, ``triangle``, ``sawtooth`` or
+            ``sine2``.
+        :param options: Other settings to write first: ``duty``, ``amp``,
+            ``freq2`` and ``ratio``.
+        :raises CommandRefusedError: if a value is refused, or if *channel* is
+            running continuously.
+        """
+        self.wr("wave", wave, channel)
+        self.wr("freq", freq, channel)
+        self.wr("cycles", 0 if cycles is None else cycles, channel)
+        for setting, value in options.items():
+            self.wr(setting, value, channel)
+        self.freq_start(channel)
+
+    def abort_freq(self, channel: Optional[int] = None) -> None:
+        """Stop *channel*, or every channel if ``None``."""
+        command = "routine freq abort"
+        if channel is not None:
+            command = "%s %d" % (command, channel)
+        self._acknowledged(command, self._send(command), command)
+
+    def abort_all(self) -> None:
+        """Stop every running routine, of every kind."""
+        command = "routine all abort"
+        self._acknowledged(command, self._send(command), command)
+
+    def _parse_status(self, command: str, reply: str, channel: int) -> FreqStatus:
+        value = self._acknowledged(command, reply, "routine freq results %d" % channel)
+        match = _RESULT_VALUE.match(value)
+        if match is None:
+            raise ProtocolError("malformed reply to %r: %r" % (command, reply))
+        status, wave, frequency = match.groups()
+        return FreqStatus(channel, status, wave, None if frequency is None else float(frequency))
+
+    def freq_status(
+        self, channel: Optional[int] = None
+    ) -> Union[FreqStatus, List[FreqStatus]]:
+        """The status of *channel*, or a list with every channel if ``None``."""
+        if channel is not None:
+            command = "routine freq results %d" % channel
+            return self._parse_status(command, self._send(command), channel)
+        command = "routine freq results"
+        replies = [self._send(command)]
+        replies.extend(self._read_reply(command) for _ in FGEN_CHANNELS[1:])
+        return [self._parse_status(command, reply, number)
+                for reply, number in zip(replies, FGEN_CHANNELS)]

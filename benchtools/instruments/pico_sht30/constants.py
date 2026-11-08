@@ -5,7 +5,7 @@ A test parses that header and compares it with these tables
 (``tests/instruments/pico_sht30/test_firmware_protocol.py``), so the two cannot
 drift apart unnoticed.
 
-Traces to: PICO-FR-001 .. PICO-FR-005, PICO-FR-040, PICO-DD-CONST.
+Traces to: PICO-FR-001 .. PICO-FR-005, PICO-FR-040, PICO-FR-085, PICO-DD-CONST.
 """
 
 from __future__ import annotations
@@ -19,6 +19,17 @@ __all__ = [
     "COPYRIGHT",
     "PROTOCOL_VERSION",
     "RD_OPTIONS",
+    "FGEN_SETTINGS",
+    "FGEN_CHANNELS",
+    "FGEN_DEFAULT_CHANNEL",
+    "FGEN_GPIO_CHANNEL",
+    "FGEN_WAVES",
+    "FGEN_FREQ_RANGE_MHZ",
+    "FGEN_SAMPLE_RATE_MHZ",
+    "NOT_STARTED",
+    "RUNNING",
+    "ABORTED",
+    "COMPLETE",
     "RD_ERROR",
     "SENSOR",
     "DEFAULT_ADDRESS",
@@ -46,10 +57,39 @@ COPYRIGHT = "(c) 2026 Dermot Murphy"
 
 #: Protocol revision this driver speaks; ``PROTO_VERSION`` in protocol.h. The
 #: firmware does not report it: ``rd name`` identifies the firmware instead.
-PROTOCOL_VERSION = "2.0"
+PROTOCOL_VERSION = "2.1"
 
 #: The options ``rd`` answers, in the order ``rd`` documents them.
-RD_OPTIONS = ("name", "copyright", "version", "sha", "temperature")
+RD_OPTIONS = ("name", "copyright", "version", "sha", "temperature",
+              "freq", "freq2", "wave", "duty", "amp", "ratio", "cycles")
+
+#: The frequency generator's settings: what ``wr`` writes and ``rd`` reads with
+#: an optional channel.
+FGEN_SETTINGS = ("freq", "freq2", "wave", "duty", "amp", "ratio", "cycles")
+
+#: Generator channels: 1 and 2 are the DAC outputs, 3 is a GPIO square wave.
+FGEN_CHANNELS = (1, 2, 3)
+
+#: The channel a command means when it names none.
+FGEN_DEFAULT_CHANNEL = 1
+
+#: The GPIO channel, which generates only a square wave.
+FGEN_GPIO_CHANNEL = 3
+
+#: What ``wr wave`` accepts, in ``fgen_wave_t`` order.
+FGEN_WAVES = ("square", "sine", "triangle", "sawtooth", "sine2")
+
+#: ``wr freq`` and ``wr freq2`` limits, in millihertz; ``FGEN_FREQ_*`` in fgen.h.
+FGEN_FREQ_RANGE_MHZ: Tuple[int, int] = (10000, 12000000)
+
+#: DAC sample rate in millihertz; ``FGEN_SAMPLE_RATE_MHZ`` in fgen.h.
+FGEN_SAMPLE_RATE_MHZ = 97656250
+
+#: Routine statuses, as ``routine freq results`` reports them.
+NOT_STARTED = "Not Started"
+RUNNING = "Running"
+ABORTED = "Aborted"
+COMPLETE = "Complete"
 
 #: The value ``rd temperature`` reports when there is no reading, and that a
 #: ``NAK`` carries.
@@ -67,7 +107,9 @@ DEFAULT_BAUDRATE = 115200
 #: ``{command: (min_args, max_args)}`` from PROTO_COMMAND_TABLE.
 COMMANDS: Dict[str, Tuple[int, int]] = {
     "help": (0, 0),
-    "rd": (1, 1),
+    "rd": (1, 2),
+    "wr": (2, 3),
+    "routine": (2, 3),
     "status": (0, 0),
     "sreset": (0, 0),
     "ecureset": (0, 0),

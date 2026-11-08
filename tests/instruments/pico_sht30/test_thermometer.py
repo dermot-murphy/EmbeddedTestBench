@@ -28,7 +28,7 @@ from benchtools.instruments.pico_sht30.thermometer import parse_fields
 _IDENTITY = {
     "rd name": "ACK rd name = %s" % NAME,
     "rd copyright": "ACK rd copyright = %s" % COPYRIGHT,
-    "rd version": "ACK rd version = V1.00.0000",
+    "rd version": "ACK rd version = V1.01.0000",
     "rd sha": "ACK rd sha = 0c0ffee",
 }
 
@@ -54,12 +54,12 @@ def _scripted(reply: str, **identity) -> PicoSht30:
 class TestIdentity:
     def test_name_version_and_sha(self, thermometer):
         assert thermometer.name == NAME
-        assert thermometer.version == "V1.00.0000"
+        assert thermometer.version == "V1.01.0000"
         assert thermometer.sha == SimulatedPicoSht30.DEFAULT_SHA
 
     def test_firmware_info(self, thermometer):
         assert thermometer.firmware_info().as_dict() == {
-            "name": NAME, "copyright": COPYRIGHT, "version": "V1.00.0000",
+            "name": NAME, "copyright": COPYRIGHT, "version": "V1.01.0000",
             "sha": SimulatedPicoSht30.DEFAULT_SHA,
         }
 
@@ -67,7 +67,7 @@ class TestIdentity:
         identity = thermometer.identify()
         assert identity.manufacturer == "Raspberry Pi"
         assert identity.model == "Pico 2/SHT30"
-        assert identity.firmware == "V1.00.0000 (0c0ffee)"
+        assert identity.firmware == "V1.01.0000 (0c0ffee)"
 
     def test_a_different_version_is_reported_as_it_is(self):
         simulator = SimulatedPicoSht30(version="V1.01.0000")
@@ -80,7 +80,7 @@ class TestIdentity:
 
     def test_a_reply_for_another_option_is_refused(self):
         with pytest.raises(ProtocolError, match="is for 'version'"):
-            _scripted("ok", **{"rd sha": "ACK rd version = V1.00.0000"})
+            _scripted("ok", **{"rd sha": "ACK rd version = V1.01.0000"})
 
     def test_connecting_sends_only_rd(self, simulator, thermometer):  # pylint: disable=unused-argument
         """*CLS would be answered with err 1 by this firmware."""

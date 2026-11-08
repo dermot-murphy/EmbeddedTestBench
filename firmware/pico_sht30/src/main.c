@@ -1,6 +1,6 @@
 /**
  * @file main.c
- * @brief Pico 2 + SHT30-D thermometer: USB command loop.
+ * @brief Pico 2 + SHT30-D thermometer and frequency generator: USB command loop.
  *
  * Brings up USB CDC and the I2C bus, soft-resets the sensor so that it starts
  * from a known state, then assembles command lines from USB and executes them
@@ -14,6 +14,7 @@
 
 #include "board_config.h"
 #include "cmd_parser.h"
+#include "fgen.h"
 #include "hal.h"
 #include "sht30.h"
 
@@ -30,11 +31,13 @@ int main(void)
 	(void)stdio_init_all();
 	hal_init();
 	(void)sht30_soft_reset((uint8_t)BOARD_SHT30_ADDRESS);
+	fgen_init();
 	cmd_line_init(&line);
 
 	for (;;)
 	{
 		received = getchar_timeout_us(MAIN_POLL_US);
+		fgen_poll();
 		if ((received >= 0) && (received <= 0x7F))
 		{
 			cmd_line_result_t	result = cmd_line_push(&line, (char)received);

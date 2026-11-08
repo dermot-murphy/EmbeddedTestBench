@@ -90,6 +90,7 @@
 | next | 2026-10-29 | Claude | #247, review of #318 round 4: SER-FR-007 names `TestLiveOutput` and the CLI test of a capture that ends before the commands. |
 | next | 2026-10-29 | Claude | #247, review of #318 round 5: SER-FR-007 names `TestLiveOutputEnds` and `TestOutputLock`; SER-FR-012 the Ctrl-C test. |
 | next | 2026-10-29 | Claude | #247, review of #318 round 6: SER-FR-007 names `TestLiveOutputUnderTheLock` and `join_thread`'s test; SER-FR-012 the second Ctrl-C test. |
+| next | 2026-11-08 | Claude | #202: rows for PICO-FR-080 … -089, the frequency generator. |
 ---
 
 ## 3. Purpose & Scope
@@ -610,6 +611,16 @@ tests in `tests/instruments/pico_sht30/`.
 | PICO-FR-074 | PICO-ARC-001 | PICO-DD-FLASH | `PicoFlasher._wait_for`, `_one_drive`, `_port_after`, `candidate_roots` | `test_bootloader_timeout`, `test_no_drive_and_no_port`, `test_two_drives_need_drive_option`, `test_drive_that_never_goes_away`, `test_port_that_never_comes_back`, `test_other_systems_are_unsupported` |
 | PICO-FR-075 | PICO-ARC-001 | PICO-DD-CLI, PICO-DD-FLASH | `_cmd_flash`, `build_parser`, `main` (standalone sub-commands), `FlashResult.as_dict` | `test_cli_flash`, `test_cli_flash_mismatch_exits_1`, `test_cli_flash_error_exits_1` |
 | PICO-FR-076 | PICO-ARC-001 | PICO-DD-FLASH, PICO-DD-SIM | `SimulatedRp2350` (`copy` takes the image's version and SHA), `SimulatedPicoSht30.on_bootloader` | `test_simulated_drive_is_removed`, and every flasher test above that uses the `board` fixture |
+| PICO-FR-080 | PICO-ARC-001 | PICO-DD-FGEN | `fgen_build_table`, `fgen_next_sample`, `fgen_start_gpio` | `test_band_limited_waves_are_normalised`, `test_sine2_never_exceeds_full_scale`, `test_the_gpio_channel_uses_pwm` |
+| PICO-FR-081 | PICO-ARC-001 | PICO-DD-PARSER, PICO-DD-FGEN | `cmd_wr`, `cmd_parse_milli`, `fgen_write` | `test_wr_with_no_channel_means_channel_1`, `test_wr_a_named_channel`, `test_frequency_forms`, `test_every_wave_name` |
+| PICO-FR-082 | PICO-ARC-001 | PICO-DD-PARSER, PICO-DD-FGEN | `fgen_value_valid`, `cmd_parse_value` | `test_frequency_range_is_refused_not_clamped`, `test_malformed_numbers_are_refused`, `test_the_gpio_channel_is_square_only`, `test_a_bad_channel_is_refused` |
+| PICO-FR-083 | PICO-ARC-001 | PICO-DD-PARSER, PICO-DD-FGEN | `cmd_rd_setting`, `fgen_read` | `test_defaults`, `test_wr_does_not_change_a_running_channel` |
+| PICO-FR-084 | PICO-ARC-001 | PICO-DD-PARSER, PICO-DD-FGEN | `cmd_routine`, `fgen_start`, `fgen_abort` | `test_a_continuous_run_cannot_be_restarted`, `test_a_finite_run_can_be_restarted_with_new_settings`, `test_results_for_every_channel`, `test_a_finite_run_completes_after_its_cycles` |
+| PICO-FR-085 | PICO-ARC-001 | PICO-DD-DRIVER | `wr`, `freq_start`, `start_freq`, `abort_freq`, `abort_all`, `freq_status` | `test_start_freq_writes_then_starts`, `test_status_of_every_channel`, `test_a_refused_wr_raises` |
+| PICO-FR-086 | PICO-ARC-001 | PICO-DD-SIM | `_cmd_wr`, `_cmd_routine`, `_update_run` | `test_commands`, `test_a_finite_run_completes_on_time`, `test_the_arithmetic_matches_the_firmware_vectors` |
+| PICO-FR-087 | PICO-ARC-001 | PICO-DD-CLI | `_cmd_wr`, `_cmd_rd`, `_cmd_routine` | `test_cli_wr_with_no_channel`, `test_cli_rd_a_setting_on_a_channel`, `test_cli_routine_results_every_channel` |
+| PICO-FR-088 | PICO-ARC-001 | PICO-DD-FGEN | `FGEN_SAMPLE_RATE_MHZ`, `fgen_harmonics`, `fgen_store_scratch` | `test_the_sample_rate_is_an_integer_division_of_the_clock`, `test_harmonics_stop_at_the_dac_pass_band`, `test_a_full_scale_sine_reaches_full_scale_without_clipping` |
+| PICO-FR-089 | PICO-ARC-001 | PICO-DD-FGEN | `fgen_init`, `fgen_poll`, `fgen_abort_all`, `hal_init` | `test_outputs_are_silent_before_a_start`, `test_the_dac_starts_muted`, `test_the_dac_mutes_only_after_the_hold`, `test_routine_all_abort` |
 
 ### PICO non-functional
 

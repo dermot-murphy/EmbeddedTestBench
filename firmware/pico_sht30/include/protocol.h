@@ -28,8 +28,36 @@
  *                   ACK rd temperature = Error   when no reading was possible
  *   rd <other>      NAK rd <other> = Error
  *
- * @c rd with no option, or more than one, is refused with "err 2" like any
- * other command with the wrong number of arguments.
+ * @c rd with no option is refused with "err 2", as is a second token after
+ * any option that takes no channel.
+ *
+ * The frequency generator is controlled in the style of UDS: @c wr stores a
+ * setting, @c rd reads it back and @c routine runs it. <ch> is 1, 2 or 3; a
+ * command that omits it means channel 1, and the reply always names it. A
+ * @c wr changes nothing being generated: it takes effect at the next start.
+ *
+ *   wr freq [<ch>] <hz>        ACK wr freq 1 = 1000.00     10 to 12k; k suffix
+ *   wr freq2 [<ch>] <hz>       ACK wr freq2 1 = 2000.00    sine2's second sine
+ *   wr wave [<ch>] <wave>      ACK wr wave 1 = sine
+ *                              square sine triangle sawtooth sine2
+ *   wr duty [<ch>] <percent>   ACK wr duty 1 = 25.00       1 to 99
+ *   wr amp [<ch>] <percent>    ACK wr amp 1 = 50.00        0 to 100
+ *   wr ratio [<ch>] <0..1>     ACK wr ratio 1 = 0.20       sine2's second amplitude
+ *   wr cycles [<ch>] <count>   ACK wr cycles 1 = 50        0 runs until aborted
+ *   rd <setting> [<ch>]        ACK rd freq 1 = 1000.00
+ *   wr or rd refused           NAK wr freq 1 = Error
+ *
+ *   routine freq start [<ch>]    ACK routine freq start 1 = Running
+ *                                NAK routine freq start 1 = Error
+ *   routine freq abort [<ch>]    ACK routine freq abort 1 = Aborted
+ *   routine freq abort           ACK routine freq abort = Aborted   (every channel)
+ *   routine freq results <ch>    ACK routine freq results 1 = Running, sine, 999.98 Hz
+ *                                ACK routine freq results 3 = Not Started
+ *   routine freq results         one such line per channel
+ *   routine all abort            ACK routine all abort = Aborted
+ *
+ * Channel 3 is a GPIO: square wave only, so @c wr @c wave of anything else, and
+ * @c freq2, @c amp and @c ratio on it, are refused with NAK.
  *
  * The remaining commands reply "ok", followed for @c status by one
  * @c key=value token:
@@ -54,8 +82,9 @@ extern "C" {
  *
  * 1.0 - first release.
  * 2.0 - rd command set replaces ver and temp; reset renamed ecureset (#131).
+ * 2.1 - wr and routine, and rd of the frequency generator's settings (#202).
  */
-#define PROTO_VERSION			"2.0"
+#define PROTO_VERSION			"2.1"
 
 /** Sensor part fitted. Not reported on the link since 2.0; the host driver
  *  still checks that it agrees. */
@@ -77,7 +106,9 @@ extern "C" {
  */
 #define PROTO_COMMAND_TABLE \
 	X(help,		0, 0, "list the commands") \
-	X(rd,		1U, 1U, "read a value: name, copyright, version, sha or temperature") \
+	X(rd,		1U, 2U, "read a value: name, copyright, version, sha, temperature, freq, freq2, wave, duty, amp, ratio or cycles") \
+	X(wr,		2U, 3U, "write a generator setting: freq, freq2, wave, duty, amp, ratio or cycles") \
+	X(routine,	2U, 3U, "routine freq start|abort|results [channel], or routine all abort") \
 	X(status,	0, 0, "the SHT30 status register") \
 	X(sreset,	0, 0, "soft-reset the SHT30") \
 	X(ecureset,	0, 0, "reboot the Pico") \

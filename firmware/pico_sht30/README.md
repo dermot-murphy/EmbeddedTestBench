@@ -16,13 +16,17 @@ rd <other>      -> NAK rd <other> = Error
 `err <code> <text>`. `ver`, `temp` and `reset` were removed in protocol 2.0
 (#131).
 
+It also drives a UDA1334A I2S DAC as a frequency generator, with `wr`, `rd` and
+`routine` commands (#202): `wr freq 5k`, `wr wave sine`, `routine freq start`,
+`rd duty`. See `include/protocol.h`.
+
 | Path | Contents |
 |---|---|
 | `include/protocol.h` | The host link: commands and error codes (the one definition) |
 | `include/firmware_version.h` | Name, copyright and version. The version is `V<major>.<minor, 2 digits>.<patch, 4 digits>`, semantic, and bumped with every change to the firmware or its driver |
 | `include/board_config.h` | Pins, bus rate and sensor address |
 | `include/hal.h` | The hardware seam |
-| `src/` | `main.c`, `cmd_parser.c`, `sht30.c`, `text.c`, `hal_pico.c`, `firmware_version.c` |
+| `src/` | `main.c`, `cmd_parser.c`, `fgen.c`, `sht30.c`, `text.c`, `hal_pico.c`, `firmware_version.c` |
 | `test/` | Host unit tests (Unity, CTest) against a fake HAL |
 
 Build: `PICO_SDK_PATH=... cmake -S . -B build && cmake --build build`, which

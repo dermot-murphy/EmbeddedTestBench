@@ -91,6 +91,7 @@
 | next | 2026-10-29 | Claude | #247, review of #318 round 4: SER-DD-DRIVER - `stop` set only on a running run, so close() shows an ended capture's live lines; `read_done` in place of the `None` sentinel; the show queue bounded to `MAX_LINES` with `unshown`; `start_capture` stops or refuses a show thread that outlives the last capture; `wait_capture` warns of one. |
 | next | 2026-10-29 | Claude | #247, review of #318 round 5: SER-DD-DRIVER - the show thread drains after `read_done`, dropped live lines counted in `unshown` and in `summary()`, `_finish_live_output` (bounded, not under `output_lock`) for `close()` and `start_capture`, an abort of an ended capture leaving its lines, `stop_live_output`, `OutputLock`; SER-DD-CLI - Ctrl-C while closing. |
 | next | 2026-10-29 | Claude | #247, review of #318 round 6: SER-DD-DRIVER - `start_capture` leaves the show thread to `_finish_live_output`, `_show` returns whether it showed the line and an overtaken line is counted, `join_thread` joins in `READ_POLL` steps. |
+| next | 2026-11-08 | Claude | #202: PICO-DD-FGEN added: the frequency generator, the `wr` and `routine` commands, and the HAL's DAC and PWM functions. |
 ---
 
 ## 3. Purpose & Scope
@@ -2898,6 +2899,43 @@ because it is measured: `cmd_rd_temperature` calls `sht30_measure` and writes
 echoed as received (PICO-FR-007). `rd` always returns `PROTO_ERR_NONE`; an
 option count other than one is refused by the generic argument check with
 `err 2`.
+
+#### PICO-DD-FGEN — `firmware/pico_sht30/src/fgen.c`, `hal_pico.c`
+
+The frequency generator (PICO-FR-080 … -089). `fgen.c` is portable and holds the
+settings, the routine state and the synthesis. `cmd_parser.c` turns `wr`, `rd`
+and `routine` into calls on it. The values are integers: millihertz, thousandths
+of a percent and thousandths.
+
+- **Sample rate.** The PIO state machine runs at 150 MHz / 12, two cycles per
+  bit, 64 bits per frame: 97 656.25 Hz. An integer divider avoids fractional
+  jitter into the DAC's PLL, which regenerates its clock from WS (audio mode).
+  The `SCLK` pin selects the 50 to 100 kHz range.
+- **DDS.** Each DAC channel has a 32-bit phase accumulator and reads a
+  4096-entry table with linear interpolation. The step is about 23 µHz.
+- **Tables.** `sine` and `sine2` use the sine table. The others are built at
+  start by summing harmonics up to 0.45 fs, at most 256, because the DAC's
+  filter is flat to 0.45 fs and a harmonic above it aliases. The sum is
+  normalised to full scale, so overshoot cannot clip.
+- **Stream.** PIO shifts 32-bit words, MSB first, entered at the instruction
+  that drops WS, so the left word goes first. Two chained DMA channels play two
+  256-frame buffers; the interrupt refills the one just finished with
+  `fgen_render`. Rendering is integer only. The stream never stops, so the DAC
+  stays locked; an idle channel is mid-scale.
+- **Concurrency.** The interrupt reads a channel only while it is `Running`. The
+  main loop writes a channel's fields only inside `hal_critical_enter()` or
+  while it is not running, and a `wr` touches only the stored settings.
+- **Finite runs.** The cycle count is decremented at each phase wrap, and the
+  channel ends at the wrap. `Complete` is set when the last sample is rendered,
+  up to two buffers (5.2 ms) plus the DAC's filter delay before it leaves the
+  output.
+- **Mute.** The DAC is unmuted, with a 50 ms settle, before the first start and
+  muted by `fgen_poll` 50 ms after the last channel stops, so the buffers and
+  filter drain first.
+- **Channel 3.** A PWM slice: `fgen_pwm_config` picks the divider and wrap. In a
+  finite run the interrupt at the end of cycle N-1 writes compare level 0, which
+  latches at the wrap ending cycle N, so no extra pulse appears; the interrupt
+  at that wrap releases the pin low.
 
 #### PICO-DD-MAIN — `firmware/pico_sht30/src/main.c`
 

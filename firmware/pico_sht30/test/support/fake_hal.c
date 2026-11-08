@@ -44,6 +44,11 @@ static uint32_t		m_reboots;
 static uint32_t		m_lines_at_reboot;
 static uint32_t		m_bootloaders;
 static uint32_t		m_inits;
+static bool		m_dac_muted;
+static hal_dac_render_t	m_dac_render;
+static bool		m_pwm_running;
+static hal_pwm_config_t	m_pwm_config;
+static hal_pwm_done_t	m_pwm_done;
 
 void fake_hal_reset(void)
 {
@@ -63,6 +68,11 @@ void fake_hal_reset(void)
 	m_lines_at_reboot = 0U;
 	m_bootloaders = 0U;
 	m_inits = 0U;
+	m_dac_muted = false;
+	m_dac_render = NULL;
+	m_pwm_running = false;
+	(void)memset(&m_pwm_config, 0, sizeof(m_pwm_config));
+	m_pwm_done = NULL;
 }
 
 void fake_hal_fail_next_write(hal_status_t status)
@@ -108,6 +118,19 @@ uint32_t fake_hal_reboot_count(void) { return m_reboots; }
 uint32_t fake_hal_bootloader_count(void) { return m_bootloaders; }
 uint32_t fake_hal_init_count(void) { return m_inits; }
 uint32_t fake_hal_lines_at_reboot(void) { return m_lines_at_reboot; }
+bool fake_hal_dac_muted(void) { return m_dac_muted; }
+hal_dac_render_t fake_hal_dac_render(void) { return m_dac_render; }
+bool fake_hal_pwm_running(void) { return m_pwm_running; }
+const hal_pwm_config_t *fake_hal_pwm_config(void) { return &m_pwm_config; }
+
+void fake_hal_pwm_finish(void)
+{
+	m_pwm_running = false;
+	if (m_pwm_done != NULL)
+	{
+		m_pwm_done();
+	}
+}
 
 const char *fake_hal_last_line(void)
 {
@@ -184,6 +207,36 @@ const char *hal_board_id(void)
 uint64_t hal_uptime_us(void)
 {
 	return m_uptime;
+}
+
+void hal_critical_enter(void)
+{
+}
+
+void hal_critical_exit(void)
+{
+}
+
+void hal_dac_start(hal_dac_render_t render)
+{
+	m_dac_render = render;
+}
+
+void hal_dac_mute(bool mute)
+{
+	m_dac_muted = mute;
+}
+
+void hal_pwm_start(const hal_pwm_config_t *config, hal_pwm_done_t done)
+{
+	m_pwm_config = *config;
+	m_pwm_done = done;
+	m_pwm_running = true;
+}
+
+void hal_pwm_stop(void)
+{
+	m_pwm_running = false;
 }
 
 void hal_reboot(void)

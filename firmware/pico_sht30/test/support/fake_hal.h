@@ -66,6 +66,15 @@ uint32_t fake_hal_bootloader_count(void);
 /** Lines that had been sent when a reboot of either kind was requested. */
 uint32_t fake_hal_lines_at_reboot(void);
 
+/** Whether the DAC is muted, and the render callback the firmware registered. */
+bool fake_hal_dac_muted(void);
+hal_dac_render_t fake_hal_dac_render(void);
+
+/** Whether the PWM output is running, its last setting, and how to end a run. */
+bool fake_hal_pwm_running(void);
+const hal_pwm_config_t *fake_hal_pwm_config(void);
+void fake_hal_pwm_finish(void);
+
 /** hal_init() calls. */
 uint32_t fake_hal_init_count(void);
 

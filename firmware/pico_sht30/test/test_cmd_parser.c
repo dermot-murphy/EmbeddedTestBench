@@ -14,6 +14,7 @@
 
 #include "cmd_parser.h"
 #include "fake_hal.h"
+#include "fgen.h"
 #include "firmware_version.h"
 #include "sht30.h"
 
@@ -22,6 +23,7 @@ static cmd_line_t	line;
 void setUp(void)
 {
 	fake_hal_reset();
+	fgen_init();
 	cmd_line_init(&line);
 }
 
@@ -212,7 +214,7 @@ static void test_rd_copyright(void)
 static void test_rd_version(void)
 {
 	test_feed("rd version\n");
-	TEST_ASSERT_EQUAL_STRING("ACK rd version = V1.00.0000", fake_hal_last_line());
+	TEST_ASSERT_EQUAL_STRING("ACK rd version = V1.01.0000", fake_hal_last_line());
 }
 
 static void test_rd_sha_reports_the_injected_commit(void)
@@ -464,13 +466,15 @@ static void test_a_refused_ecureset_does_not_reboot(void)
 static void test_help_lists_every_command_then_ok(void)
 {
 	test_feed("help\n");
-	TEST_ASSERT_EQUAL_UINT32(7U, fake_hal_line_count());
+	TEST_ASSERT_EQUAL_UINT32(9U, fake_hal_line_count());
 	TEST_ASSERT_EQUAL_STRING_LEN("# help - ", fake_hal_line(0U), 9U);
 	test_expect_in("# rd - ", fake_hal_line(1U));
-	test_expect_in("# status - ", fake_hal_line(2U));
-	test_expect_in("# sreset - ", fake_hal_line(3U));
-	test_expect_in("# ecureset - ", fake_hal_line(4U));
-	test_expect_in("# bootsel - ", fake_hal_line(5U));
+	test_expect_in("# wr - ", fake_hal_line(2U));
+	test_expect_in("# routine - ", fake_hal_line(3U));
+	test_expect_in("# status - ", fake_hal_line(4U));
+	test_expect_in("# sreset - ", fake_hal_line(5U));
+	test_expect_in("# ecureset - ", fake_hal_line(6U));
+	test_expect_in("# bootsel - ", fake_hal_line(7U));
 	TEST_ASSERT_EQUAL_STRING("ok", fake_hal_last_line());
 }
 

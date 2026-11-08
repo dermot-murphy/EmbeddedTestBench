@@ -20,3 +20,4 @@ board_config      board
 test_text         test
 test_sht30        test
 test_cmd_parser   test
+test_fgen         test

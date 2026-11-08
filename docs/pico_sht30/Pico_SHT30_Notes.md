@@ -55,6 +55,30 @@ cmake -S firmware/pico_sht30 -B build/pico_sht30 \
       -DCMAKE_C_FLAGS="-DBOARD_I2C_SDA_PIN=16U -DBOARD_I2C_SCL_PIN=17U -DBOARD_SHT30_ADDRESS=0x45U"
 ```
 
+### 2.1 Frequency generator wiring (#202)
+
+A CJMCU-1334 module carries the NXP UDA1334A I2S DAC. Data sheet and the guide
+to a similar board: `References.md` rows 9 and 10.
+
+| CJMCU-1334 pin | Pico 2 pin | Pico 2 function |
+|---|---|---|
+| VIN | 36 | 3V3(OUT) |
+| GND | 18 | GND |
+| BCLK | 14 | GP10 |
+| WSEL | 15 | GP11 |
+| DIN | 16 | GP12 |
+| MUTE | 17 | GP13, with 10 kΩ to 3V3(OUT) so it is muted before the firmware runs |
+| SCLK | 36 | 3V3(OUT): selects the 50 to 100 kHz sample-rate range |
+| PLL, SF0, SF1 | 18 | GND: audio mode, I2S format |
+
+Channel 1 is the left output and channel 2 the right. Channel 3 is GP15 (pin
+20), a 3.3 V logic output. `BCLK` and `WSEL` must stay on adjacent GPIOs,
+because PIO side-set drives consecutive pins.
+
+The pin names and default ties come from the Adafruit UDA1334A guide and the
+chip's data sheet. Check them against the CJMCU-1334 board before powering it
+(PICO-OPEN-07).
+
 ## 3. Building and flashing
 
 Prerequisites: CMake ≥ 3.13, the Arm GNU toolchain (`arm-none-eabi-gcc`), and
@@ -255,6 +279,34 @@ named `pico-sht30` (alias `thermometer`).
 | `err 6 I2C bus timeout` | Transfer did not complete (`status`, `sreset`) | SDA/SCL swapped, a line held low |
 | `NAK rd <option> = Error` | An option the firmware does not know. The driver raises `RdRefusedError`. | Spelling and case: options are lower case |
 
+### 4.0a The frequency generator (#202)
+
+`wr` stores a setting, `rd` reads it back and `routine` runs it. `<ch>` is 1, 2
+or 3; a command that omits it means channel 1. A `wr` takes effect at the next
+start. Refusals answer `NAK ... = Error`, and nothing is clamped.
+
+| Command | Value | Example reply |
+|---|---|---|
+| `wr freq [<ch>] <hz>` | 10 to 12k, `k` suffix | `ACK wr freq 1 = 5000.00` |
+| `wr wave [<ch>] <wave>` | `square` `sine` `triangle` `sawtooth` `sine2` | `ACK wr wave 1 = sine` |
+| `wr duty [<ch>] <percent>` | 1 to 99, square wave | `ACK wr duty 1 = 25.00` |
+| `wr amp [<ch>] <percent>` | 0 to 100, channels 1 and 2 | `ACK wr amp 1 = 50.00` |
+| `wr freq2 [<ch>] <hz>` | `sine2`'s second sine | `ACK wr freq2 1 = 2000.00` |
+| `wr ratio [<ch>] <0..1>` | `sine2`'s second amplitude | `ACK wr ratio 1 = 0.20` |
+| `wr cycles [<ch>] <count>` | 0 runs until aborted | `ACK wr cycles 1 = 50` |
+| `rd <setting> [<ch>]` | | `ACK rd duty 1 = 25.00` |
+| `routine freq start [<ch>]` | | `ACK routine freq start 1 = Running` |
+| `routine freq abort [<ch>]` | no channel: all | `ACK routine freq abort 1 = Aborted` |
+| `routine freq results [<ch>]` | no channel: one line each | `ACK routine freq results 1 = Running, sine, 1000.00 Hz` |
+| `routine all abort` | | `ACK routine all abort = Aborted` |
+
+From the host: `benchtools thermo -r COM14 wr freq 5k`, `... rd duty`,
+`... routine freq start`.
+
+Above about 6 kHz (triangle), 5 kHz (square on the DAC) and 4 kHz (sawtooth) the
+waveform is rounded, because the DAC passes too few harmonics. These limits are
+calculated. Channel 3 is a true square wave across the range.
+
 ### 4.1 On a bench
 
 Both shipped benches carry the thermometer as `temp`, named `TEMP` in the event
@@ -338,6 +390,7 @@ PICO-OPEN-04.
 | PICO-OPEN-04 | Reference PDFs and MISRA tool run | The hosts serving the PDFs were blocked in the build environment; run `fetch_datasheets.sh` and commit the files. Run a MISRA C:2012 checker over `firmware/pico_sht30/src`. |
 | PICO-OPEN-05 | Reflashing with `benchtools thermo flash` (#127) | Run `flash` three ways and check that each exits 0 with every check passing: from the running thermometer (method `bootsel`); from a board started with BOOTSEL held (method `already-in-bootloader`); and from a board running other USB-serial firmware built with the Pico SDK (method `1200-baud`), which also confirms that the SDK's 1200-baud reset is enabled in such a build. Confirm that the drive is found on the bench PC's operating system without `--drive`. **Closed 2026-10-03** on Windows 10, with a 60 416-byte UF2 (118 blocks, families `absolute` and `rp2350-arm-s`) built on the bench PC with Pico SDK 2.1.1, Arm GNU Toolchain 14.2.Rel1 and picotool 2.1.1. (1) The board arrived in its bootloader as drive D:; `flash` with `-r ""` gave method `already-in-bootloader`, found the port as COM14 by vendor ID, and passed every check in about 2.5 s. (2) After a rebuild, `flash -r COM14` from the running thermometer gave method `bootsel`; the build date changed from `12:06:39Z` to `12:07:19Z` and the title, version and build checks passed. (3) With the protocol open made to fail once, `flash -r COM14` gave method `1200-baud` and the title and build checks passed. The reset was tried on the thermometer firmware, which is itself an SDK USB-serial build, not on other firmware. On Windows the Pico reboots while pyserial is still opening the port, so the open raises "A device attached to the system is not functioning"; `touch_1200` now keeps that as a note, and the drive appearing decides success. The drive was found without `--drive` on Windows; Linux and macOS have not been tried on hardware. These three runs predate #131 and checked `ver`; with the `rd` firmware of #131, `flash -r COM14` (method `bootsel`) passed its `name`, `version` and `sha` checks (§7.1). |
 | PICO-OPEN-06 | The `rd` command set (#131) on a real Pico 2 | **Confirmed in part 2026-10-03** (§7.1). The #131 firmware was cross-compiled on the bench PC with no warnings, the build injected the SHA, and it was flashed to a Pico 2. Every `rd` option, the `NAK`, the `err` replies and `ecureset` behaved as specified. Still open: `rd temperature` with a real value to two places, which needs the SHT30-D module connected (PICO-OPEN-02). |
+| PICO-OPEN-07 | The frequency generator (#202) on a real Pico 2 and CJMCU-1334 | **Open: not run on hardware.** The firmware builds and its unit tests pass. Confirm the board's pin ties, DAC lock at 97 656.25 Hz, left and right, output level and coupling, each waveform and limit by scope, the exact cycle count on channels 1 to 3, frequency against the TTi 1604, and silence at power-up and after `routine all abort`. |
 
 ### 7.1 First run on a real Pico 2 (2026-10-03)
 

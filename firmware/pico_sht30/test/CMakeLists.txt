@@ -44,6 +44,7 @@ endif()
 # bench would never show.
 add_library(firmware STATIC
 	${FIRMWARE_DIR}/src/cmd_parser.c
+	${FIRMWARE_DIR}/src/fgen.c
 	${FIRMWARE_DIR}/src/firmware_version.c
 	${FIRMWARE_DIR}/src/sht30.c
 	${FIRMWARE_DIR}/src/text.c
@@ -61,11 +62,16 @@ target_compile_options(firmware PRIVATE
 	-Wall -Wextra -Wconversion -Wshadow -Wstrict-prototypes -Werror
 )
 
+# fgen.c builds its tables with sinf. Windows has no separate maths library.
+if(NOT WIN32)
+	target_link_libraries(firmware PUBLIC m)
+endif()
+
 set(SANITIZE -fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=all)
 target_compile_options(firmware PUBLIC ${SANITIZE})
 target_link_options(firmware PUBLIC ${SANITIZE})
 
-foreach(name text sht30 cmd_parser)
+foreach(name text sht30 cmd_parser fgen)
 	add_executable(test_${name} ${CMAKE_CURRENT_SOURCE_DIR}/test_${name}.c)
 	target_link_libraries(test_${name} firmware unity)
 	add_test(NAME ${name} COMMAND test_${name})

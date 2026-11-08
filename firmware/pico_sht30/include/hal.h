@@ -14,6 +14,7 @@
 #ifndef HAL_H__
 #define HAL_H__
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -27,6 +28,22 @@ typedef enum
 	HAL_STATUS_ERR_NACK,		/**< The address or a data byte was not acknowledged. */
 	HAL_STATUS_ERR_TIMEOUT		/**< The transfer did not finish in time. */
 } hal_status_t;
+
+/** A PWM setting for the square-wave output. */
+typedef struct
+{
+	uint32_t	divider;	/**< Clock divider, 8.4 fixed point. */
+	uint32_t	top;		/**< Counter wrap value. */
+	uint32_t	level;		/**< Compare level: ticks high per cycle. */
+	uint32_t	cycles;		/**< Cycles to generate; 0 runs until stopped. */
+} hal_pwm_config_t;
+
+/** Fills @p frames stereo frames of Q31 samples, left then right. Called from
+ *  an interrupt. */
+typedef void (*hal_dac_render_t)(int32_t *samples, uint32_t frames);
+
+/** Called from an interrupt when a finite PWM run has ended. */
+typedef void (*hal_pwm_done_t)(void);
 
 /** Length of the board identifier, including the terminator. */
 #define HAL_BOARD_ID_LENGTH		17U
@@ -65,6 +82,41 @@ const char *hal_board_id(void);
  * @brief Microseconds since boot.
  */
 uint64_t hal_uptime_us(void);
+
+/**
+ * @brief Keep the audio-stream interrupt out until hal_critical_exit().
+ *        Calls do not nest.
+ */
+void hal_critical_enter(void);
+
+/**
+ * @brief End a critical section.
+ */
+void hal_critical_exit(void);
+
+/**
+ * @brief Start the I2S stream to the DAC; it runs from then on.
+ */
+void hal_dac_start(hal_dac_render_t render);
+
+/**
+ * @brief Drive the DAC's soft mute.
+ */
+void hal_dac_mute(bool mute);
+
+/**
+ * @brief Start the square-wave output, stopping any earlier run.
+ *
+ * @param config  The setting. A finite run ends low after exactly
+ *                @c config->cycles cycles.
+ * @param done    Called when a finite run has ended.
+ */
+void hal_pwm_start(const hal_pwm_config_t *config, hal_pwm_done_t done);
+
+/**
+ * @brief Stop the square-wave output and leave it low.
+ */
+void hal_pwm_stop(void);
 
 /**
  * @brief Reboot the microcontroller. Does not return on the target.

@@ -2,7 +2,9 @@
 
 A Pico 2 running ``firmware/pico_sht30`` reads the Sensirion SHT30-DIS on a
 DollaTek SHT30-D module over I2C and answers ``rd name``, ``rd copyright``,
-``rd version``, ``rd sha`` and ``rd temperature`` over USB CDC.
+``rd version``, ``rd sha`` and ``rd temperature`` over USB CDC. The same
+firmware drives a UDA1334A I2S DAC as a frequency generator, controlled with
+``wr``, ``rd`` and ``routine`` commands.
 :mod:`.flash` reflashes it with no BOOTSEL press.
 
 Traces to: PICO-FR-040 .. PICO-FR-076, PICO-ARC-001.
@@ -20,7 +22,9 @@ from .constants import (
 )
 from .simulator import SimulatedPicoSht30
 from .thermometer import (
+    CommandRefusedError,
     FirmwareInfo,
+    FreqStatus,
     NoReadingError,
     PicoSht30,
     RdRefusedError,
@@ -33,6 +37,8 @@ from .flash import FlashError, FlashResult, PicoFlasher, SimulatedRp2350, Uf2Ima
 __all__ = [
     "PicoSht30",
     "FirmwareInfo",
+    "FreqStatus",
+    "CommandRefusedError",
     "Reading",
     "SensorStatus",
     "SensorError",

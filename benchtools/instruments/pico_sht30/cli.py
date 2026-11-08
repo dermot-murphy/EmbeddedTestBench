@@ -1,11 +1,12 @@
 """Command line for the Pico 2 + SHT30-D thermometer.
 
-``benchtools thermo --help``. ``flash`` reflashes the Pico with no BOOTSEL
+``benchtools thermo --help``. ``wr``, ``rd`` and ``routine`` control the
+frequency generator with the firmware's own commands. ``flash`` reflashes the Pico with no BOOTSEL
 press; see :mod:`.flash`. Results are printed as JSON so the tool composes
 into a larger harness, and ``--resource sim://`` runs every sub-command with no
 Pico attached.
 
-Traces to: PICO-FR-060, PICO-FR-061, PICO-FR-075, PICO-DD-CLI.
+Traces to: PICO-FR-060, PICO-FR-061, PICO-FR-075, PICO-FR-087, PICO-DD-CLI.
 """
 
 from __future__ import annotations
@@ -19,7 +20,7 @@ from typing import Optional, Sequence
 
 from ... import __version__
 from ...core.errors import BenchToolsError
-from .constants import DEFAULT_BAUDRATE, RD_OPTIONS
+from .constants import DEFAULT_BAUDRATE, FGEN_DEFAULT_CHANNEL, FGEN_SETTINGS, RD_OPTIONS
 from .thermometer import PicoSht30
 
 __all__ = ["main", "build_parser"]
@@ -42,7 +43,45 @@ def _cmd_info(thermometer: PicoSht30, args) -> int:
 
 
 def _cmd_rd(thermometer: PicoSht30, args) -> int:
-    _emit({"option": args.option, "value": thermometer.rd(args.option)}, args.json)
+    payload = {"option": args.option,
+               "value": thermometer.rd(args.option, args.channel)}
+    if args.channel is not None:
+        payload["channel"] = args.channel
+    _emit(payload, args.json)
+    return _EXIT_OK
+
+
+def _cmd_wr(thermometer: PicoSht30, args) -> int:
+    if len(args.values) == 1:
+        channel, value = FGEN_DEFAULT_CHANNEL, args.values[0]
+    elif len(args.values) == 2 and args.values[0].isdigit():
+        channel, value = int(args.values[0]), args.values[1]
+    else:
+        print("error: wr takes [channel] value", file=sys.stderr)
+        return _EXIT_ERROR
+    _emit({"setting": args.setting, "channel": channel,
+           "value": thermometer.wr(args.setting, value, channel)}, args.json)
+    return _EXIT_OK
+
+
+def _cmd_routine(thermometer: PicoSht30, args) -> int:
+    if args.target == "all":
+        if args.verb != "abort" or args.channel is not None:
+            print("error: the only routine for all is: routine all abort", file=sys.stderr)
+            return _EXIT_ERROR
+        thermometer.abort_all()
+        _emit({"status": "Aborted"}, args.json)
+    elif args.verb == "start":
+        channel = FGEN_DEFAULT_CHANNEL if args.channel is None else args.channel
+        thermometer.freq_start(channel)
+        _emit({"channel": channel, "status": "Running"}, args.json)
+    elif args.verb == "abort":
+        thermometer.abort_freq(args.channel)
+        _emit({"channel": args.channel, "status": "Aborted"}, args.json)
+    else:
+        status = thermometer.freq_status(args.channel)
+        _emit(status.as_dict() if args.channel is not None
+              else {"channels": [item.as_dict() for item in status]}, args.json)
     return _EXIT_OK
 
 
@@ -107,7 +146,8 @@ def build_parser() -> argparse.ArgumentParser:
     """The argument parser for ``benchtools thermo``."""
     parser = argparse.ArgumentParser(
         prog="benchtools thermo",
-        description="Read a Raspberry Pi Pico 2 + SHT30-D thermometer.",
+        description="Read a Raspberry Pi Pico 2 + SHT30-D thermometer and control its "
+                    "frequency generator.",
     )
     parser.add_argument("--version", action="version", version="benchtools %s" % __version__)
     parser.add_argument(
@@ -128,7 +168,28 @@ def build_parser() -> argparse.ArgumentParser:
 
     rd = subparsers.add_parser("rd", help="send one 'rd' command and print its value")
     rd.add_argument("option", choices=RD_OPTIONS)
+    rd.add_argument("channel", type=int, nargs="?",
+                    help="generator channel for a generator setting (default 1)")
     rd.set_defaults(handler=_cmd_rd)
+
+    wr = subparsers.add_parser(
+        "wr", help="write one frequency generator setting",
+        description="Store a setting; it takes effect at the next 'routine freq start'. "
+                    "Frequencies take a k suffix: 'wr freq 1.5k'.",
+    )
+    wr.add_argument("setting", choices=FGEN_SETTINGS)
+    wr.add_argument("values", nargs="+", metavar="[channel] value")
+    wr.set_defaults(handler=_cmd_wr)
+
+    routine = subparsers.add_parser(
+        "routine", help="start, abort or report the frequency generator",
+    )
+    routine.add_argument("target", choices=("freq", "all"))
+    routine.add_argument("verb", choices=("start", "abort", "results"))
+    routine.add_argument("channel", type=int, nargs="?",
+                         help="generator channel (start defaults to 1; "
+                              "abort and results default to every channel)")
+    routine.set_defaults(handler=_cmd_routine)
 
     temp = subparsers.add_parser("temp", help="read the temperature (rd temperature)")
     temp.add_argument("--count", "-n", type=int, default=1, help="readings to take")

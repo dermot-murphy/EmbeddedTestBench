@@ -50,7 +50,7 @@ class TestReplies:
         "line,reply",
         [("rd name", "ACK rd name = Pico 2 SHT30 Temperature Sensor"),
          ("rd copyright", "ACK rd copyright = (c) 2026 Dermot Murphy"),
-         ("rd version", "ACK rd version = V1.00.0000"),
+         ("rd version", "ACK rd version = V1.01.0000"),
          ("rd sha", "ACK rd sha = 0c0ffee"),
          ("rd colour", "NAK rd colour = Error"),
          ("rd NAME", "NAK rd NAME = Error")],
@@ -83,7 +83,7 @@ class TestReplies:
 
     def test_help_ends_with_ok(self):
         lines = _ask(SimulatedPicoSht30(), "help").splitlines()
-        assert len(lines) == 7
+        assert len(lines) == 9
         assert lines[0].startswith("# help - ")
         assert lines[1].startswith("# rd - ")
         assert lines[-1] == "ok"

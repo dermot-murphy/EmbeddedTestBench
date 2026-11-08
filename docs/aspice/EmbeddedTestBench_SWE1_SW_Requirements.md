@@ -85,6 +85,7 @@
 | next | 2026-10-29 | Claude | #247, review of #318 round 4: SER-FR-007 - a capture that has ended keeps its live lines until shown, closing included; only an abort drops them; at most 100 000 waiting, the rest counted as `unshown`; a start drops the last capture's unshown lines or is refused `BUSY`; a live output still running after the result is warned of. SER-FR-009 - `unshown`. |
 | next | 2026-10-29 | Claude | #247, review of #318 round 5: SER-FR-005 - `ROUTINE RESULTS` gives the live lines not shown; SER-FR-007 - closing waits up to 5 s for the live lines (not at all under the output lock), an abort of an ended capture leaves them, every dropped live line counted as `unshown`; SER-FR-012 - Ctrl-C while closing still closes the port. |
 | next | 2026-10-29 | Claude | #247, review of #318 round 6: SER-FR-007 - a line overtaken by a stop counted as `unshown`, a start under the live output's lock not waiting; SER-FR-012 - every wait interruptible by Ctrl-C. |
+| next | 2026-11-08 | Claude | #202: §15.5a added - PICO-FR-080 … -089, the frequency generator on the Pico 2: a UDA1334A DAC, the `wr` and `routine` commands and `rd` of its settings. |
 ---
 
 ## 3. Purpose & Scope
@@ -941,6 +942,26 @@ Drive discovery on Linux and macOS has not been tried on hardware.
 | PICO-FR-074 | Every wait - for the bootloader drive, for the drive to go after the copy, and for the port and the thermometer to come back - shall be bounded by a timeout, and shall end in an error that names what was being waited for. It shall also be an error, naming the remedy, to find more than one bootloader drive or Raspberry Pi port, to have neither a drive nor a port to start from, or to need drive discovery on an operating system it does not support. | STK-21 | Test |
 | PICO-FR-075 | `benchtools thermo -r <port> flash <uf2>` shall perform PICO-FR-070 to -074, with `--expect-version`, `--drive`, `--any-image`, `--no-verify`, `--bootloader-timeout` and `--port-timeout`. It shall print the result as JSON - the image, the drive, how the bootloader was reached, the firmware before and after, each check and any notes - and exit 0 only if every check passed; a mismatch or an error shall exit 1. | STK-21, STK-22 | Test |
 | PICO-FR-076 | With `-r sim://`, `flash` shall run against a simulated Pico 2 that presents a bootloader drive on `bootsel` or a 1200-baud reset, takes a copied image, reboots, and then reports the image's version and commit SHA through `rd` (and, for an image that is not the thermometer, a different name), so that every path can be exercised with no Pico attached. | STK-08, STK-21 | Test |
+
+### 15.5a PICO frequency generator (#202)
+
+The Pico 2 also generates test signals. Channels 1 and 2 are the left and right
+outputs of a CJMCU-1334 module (NXP UDA1334A I2S DAC); channel 3 is a 3.3 V GPIO.
+It is controlled in the style of UDS: `wr` stores a setting, `rd` reads it and
+`routine` runs it. None of this has been run on hardware yet (PICO-OPEN-07).
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| PICO-FR-080 | The firmware shall generate, on channels 1 and 2, a square, sine, triangle or sawtooth wave, or the sum of two sines (`sine2`), from 10 Hz to 12 kHz, and on channel 3 a square wave over the same range. | #202 | Unit test (`test_fgen.c`); hardware PICO-OPEN-07 |
+| PICO-FR-081 | `wr <setting> [<channel>] <value>` shall store `freq`, `freq2`, `wave`, `duty`, `amp`, `ratio` or `cycles`, and answer `ACK wr <setting> <channel> = <value>`. A frequency may carry a `k` suffix. An omitted channel shall mean channel 1. | #202 | Unit test |
+| PICO-FR-082 | A value out of range, malformed, or that the channel cannot generate shall be refused with `NAK ... = Error` and not clamped or stored. | #202 | Unit test |
+| PICO-FR-083 | `rd <setting> [<channel>]` shall report a setting. A `wr` shall change nothing being generated: it takes effect at the next start. | #202 | Unit test |
+| PICO-FR-084 | `routine freq start`, `abort` and `results`, each with an optional channel, and `routine all abort`, shall behave as `protocol.h` states, with the statuses `Not Started`, `Running`, `Aborted` and `Complete`. A finite run may be restarted; a continuous one shall be refused until aborted. `results` shall give the waveform and the frequency actually generated, to two places, once the channel has run. | #202 | Unit test |
+| PICO-FR-085 | The host driver shall provide `wr`, `rd` with a channel, `freq_start`, `start_freq`, `abort_freq`, `abort_all` and `freq_status`, and shall raise `CommandRefusedError` for a `NAK`. | #202 | Unit test (`test_freq_generator.py`) |
+| PICO-FR-086 | The simulated Pico shall implement the same settings, limits, statuses and restart rule, and report `Complete` after the time the cycles take. | #202 | Unit test |
+| PICO-FR-087 | `benchtools thermo wr`, `rd` and `routine` shall send those commands and print the result as JSON. | #202 | Unit test |
+| PICO-FR-088 | The DAC shall be driven at 97 656.25 Hz, an integer division of the system clock. Non-sine waveforms shall contain only harmonics up to 0.45 fs, and shall be scaled so that they do not clip. | #202 | Unit test; hardware PICO-OPEN-07 |
+| PICO-FR-089 | Every output shall be off at power-up and after `ecureset`. Off is mid-scale with `MUTE` high on channels 1 and 2, and low on channel 3. `routine all abort` shall leave every output off. | #202 | Unit test; hardware PICO-OPEN-07 |
 
 ### 15.6 PICO non-functional
 
