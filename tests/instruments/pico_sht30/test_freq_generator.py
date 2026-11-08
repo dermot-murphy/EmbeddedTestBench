@@ -19,7 +19,7 @@ from benchtools.instruments.pico_sht30.cli import main
 from benchtools.instruments.pico_sht30.simulator import dac_actual_mhz, parse_milli, pwm_actual_mhz
 
 
-class FakeClock:
+class FakeClock:  # pylint: disable=too-few-public-methods
     """A clock a test moves by hand."""
 
     def __init__(self):

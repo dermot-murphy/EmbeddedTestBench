@@ -100,18 +100,18 @@ typedef struct
 	fgen_wave_t		actual_wave;
 } fgen_channel_t;
 
-static fgen_settings_t	fgen_settings[FGEN_CHANNEL_COUNT];
-static fgen_channel_t	fgen_channels[FGEN_CHANNEL_COUNT];
-static int16_t		fgen_sine[FGEN_TABLE_SIZE];
-static int16_t		fgen_tables[FGEN_DAC_CHANNELS][FGEN_TABLE_SIZE];
-static float		fgen_scratch[FGEN_TABLE_SIZE];
-static bool		fgen_muted;
-static uint64_t		fgen_last_active_us;
+static fgen_settings_t	fgen_m_settings[FGEN_CHANNEL_COUNT];
+static fgen_channel_t	fgen_m_channels[FGEN_CHANNEL_COUNT];
+static int16_t		fgen_m_sine[FGEN_TABLE_SIZE];
+static int16_t		fgen_m_tables[FGEN_DAC_CHANNELS][FGEN_TABLE_SIZE];
+static float		fgen_m_scratch[FGEN_TABLE_SIZE];
+static bool		fgen_m_muted;
+static uint64_t		fgen_m_last_active_us;
 
 /* The PWM interrupt reports the end of a finite run on the GPIO channel. */
 static void fgen_gpio_done(void)
 {
-	fgen_channel_t	*channel = &fgen_channels[FGEN_CHANNEL_GPIO - 1U];
+	fgen_channel_t	*channel = &fgen_m_channels[FGEN_CHANNEL_GPIO - 1U];
 
 	if (channel->state == FGEN_STATE_RUNNING)
 	{
@@ -164,7 +164,7 @@ static void fgen_add_harmonic(uint32_t harmonic, float amplitude, uint32_t offse
 	{
 		uint32_t	position = ((index * harmonic) + offset) & FGEN_TABLE_MASK;
 
-		fgen_scratch[index] += amplitude * (float)fgen_sine[position];
+		fgen_m_scratch[index] += amplitude * (float)fgen_m_sine[position];
 	}
 }
 
@@ -175,7 +175,7 @@ static void fgen_add_pulse_harmonic(uint32_t harmonic, uint32_t duty)
 	uint64_t	turns = ((uint64_t)harmonic * (uint64_t)duty * (uint64_t)FGEN_TABLE_SIZE) /
 				(FGEN_PERCENT_FULL * 2ULL);
 	uint32_t	shift = (uint32_t)turns & FGEN_TABLE_MASK;
-	float		amplitude = (float)fgen_sine[shift] / (float)harmonic;
+	float		amplitude = (float)fgen_m_sine[shift] / (float)harmonic;
 
 	fgen_add_harmonic(harmonic, amplitude, (FGEN_QUARTER_TURN - shift) & FGEN_TABLE_MASK);
 }
@@ -189,7 +189,7 @@ static void fgen_store_scratch(int16_t *table)
 
 	for (index = 0UL; index < FGEN_TABLE_SIZE; index++)
 	{
-		float	magnitude = fabsf(fgen_scratch[index]);
+		float	magnitude = fabsf(fgen_m_scratch[index]);
 
 		if (magnitude > peak)
 		{
@@ -198,7 +198,7 @@ static void fgen_store_scratch(int16_t *table)
 	}
 	for (index = 0UL; index < FGEN_TABLE_SIZE; index++)
 	{
-		table[index] = (peak > 0.0F) ? (int16_t)((fgen_scratch[index] * FGEN_TABLE_PEAK) / peak) : (int16_t)0;
+		table[index] = (peak > 0.0F) ? (int16_t)((fgen_m_scratch[index] * FGEN_TABLE_PEAK) / peak) : (int16_t)0;
 	}
 }
 
@@ -210,7 +210,7 @@ static void fgen_build_table(int16_t *table, fgen_wave_t wave, uint32_t freq_mhz
 
 	for (index = 0UL; index < FGEN_TABLE_SIZE; index++)
 	{
-		fgen_scratch[index] = 0.0F;
+		fgen_m_scratch[index] = 0.0F;
 	}
 	for (harmonic = 1UL; harmonic <= limit; harmonic++)
 	{
@@ -253,14 +253,14 @@ static void fgen_silence(fgen_channel_t *channel, fgen_state_t state)
 
 static void fgen_start_dac(uint32_t channel_number)
 {
-	const uint32_t	*values = fgen_settings[channel_number - 1U].values;
-	fgen_channel_t	*channel = &fgen_channels[channel_number - 1U];
+	const uint32_t	*values = fgen_m_settings[channel_number - 1U].values;
+	fgen_channel_t	*channel = &fgen_m_channels[channel_number - 1U];
 	fgen_wave_t	wave = (fgen_wave_t)values[FGEN_PARAM_WAVE];
 	uint64_t	gain = ((uint64_t)values[FGEN_PARAM_AMP] * FGEN_GAIN_ONE) / FGEN_PERCENT_FULL;
 	uint32_t	step = fgen_step(values[FGEN_PARAM_FREQ]);
 	uint64_t	first = gain;
 	uint64_t	second = 0ULL;
-	const int16_t	*table = fgen_sine;
+	const int16_t	*table = fgen_m_sine;
 
 	fgen_silence(channel, FGEN_STATE_ABORTED);
 
@@ -273,19 +273,19 @@ static void fgen_start_dac(uint32_t channel_number)
 	}
 	else if (wave != FGEN_WAVE_SINE)
 	{
-		fgen_build_table(fgen_tables[channel_number - 1U], wave, values[FGEN_PARAM_FREQ],
+		fgen_build_table(fgen_m_tables[channel_number - 1U], wave, values[FGEN_PARAM_FREQ],
 				 values[FGEN_PARAM_DUTY]);
-		table = fgen_tables[channel_number - 1U];
+		table = fgen_m_tables[channel_number - 1U];
 	}
 	else
 	{
 		/* A sine reads the sine table. */
 	}
 
-	if (fgen_muted)
+	if (fgen_m_muted)
 	{
 		hal_dac_mute(false);
-		fgen_muted = false;
+		fgen_m_muted = false;
 		hal_delay_ms(FGEN_UNMUTE_SETTLE_MS);
 	}
 
@@ -308,8 +308,8 @@ static void fgen_start_dac(uint32_t channel_number)
 
 static void fgen_start_gpio(void)
 {
-	const uint32_t		*values = fgen_settings[FGEN_CHANNEL_GPIO - 1U].values;
-	fgen_channel_t		*channel = &fgen_channels[FGEN_CHANNEL_GPIO - 1U];
+	const uint32_t		*values = fgen_m_settings[FGEN_CHANNEL_GPIO - 1U].values;
+	fgen_channel_t		*channel = &fgen_m_channels[FGEN_CHANNEL_GPIO - 1U];
 	hal_pwm_config_t	config;
 	uint32_t		actual;
 
@@ -333,7 +333,7 @@ void fgen_init(void)
 
 	for (index = 0UL; index < FGEN_CHANNEL_COUNT; index++)
 	{
-		uint32_t	*values = fgen_settings[index].values;
+		uint32_t	*values = fgen_m_settings[index].values;
 
 		values[FGEN_PARAM_FREQ] = FGEN_DEFAULT_FREQ_MHZ;
 		values[FGEN_PARAM_FREQ2] = FGEN_DEFAULT_FREQ2_MHZ;
@@ -342,18 +342,18 @@ void fgen_init(void)
 		values[FGEN_PARAM_RATIO] = FGEN_DEFAULT_RATIO;
 		values[FGEN_PARAM_CYCLES] = 0UL;
 		values[FGEN_PARAM_WAVE] = (uint32_t)FGEN_WAVE_SQUARE;
-		fgen_channels[index].state = FGEN_STATE_NOT_STARTED;
-		fgen_channels[index].actual_mhz = 0UL;
-		fgen_channels[index].actual_wave = FGEN_WAVE_SQUARE;
+		fgen_m_channels[index].state = FGEN_STATE_NOT_STARTED;
+		fgen_m_channels[index].actual_mhz = 0UL;
+		fgen_m_channels[index].actual_wave = FGEN_WAVE_SQUARE;
 	}
 	for (index = 0UL; index < FGEN_TABLE_SIZE; index++)
 	{
 		float	angle = (FGEN_TWO_PI * (float)index) / (float)FGEN_TABLE_SIZE;
 
-		fgen_sine[index] = (int16_t)lroundf(sinf(angle) * FGEN_TABLE_PEAK);
+		fgen_m_sine[index] = (int16_t)lroundf(sinf(angle) * FGEN_TABLE_PEAK);
 	}
-	fgen_muted = true;
-	fgen_last_active_us = 0ULL;
+	fgen_m_muted = true;
+	fgen_m_last_active_us = 0ULL;
 	hal_dac_mute(true);
 	hal_dac_start(&fgen_render);
 }
@@ -407,14 +407,14 @@ bool fgen_write(uint32_t channel, fgen_param_t param, uint32_t value)
 
 	if (result)
 	{
-		fgen_settings[channel - 1U].values[param] = value;
+		fgen_m_settings[channel - 1U].values[param] = value;
 	}
 	return result;
 }
 
 uint32_t fgen_read(uint32_t channel, fgen_param_t param)
 {
-	return fgen_settings[channel - 1U].values[param];
+	return fgen_m_settings[channel - 1U].values[param];
 }
 
 bool fgen_start(uint32_t channel)
@@ -423,7 +423,7 @@ bool fgen_start(uint32_t channel)
 
 	if (result)
 	{
-		const fgen_channel_t	*running = &fgen_channels[channel - 1U];
+		const fgen_channel_t	*running = &fgen_m_channels[channel - 1U];
 
 		if ((running->state == FGEN_STATE_RUNNING) && !running->finite)
 		{
@@ -445,7 +445,7 @@ void fgen_abort(uint32_t channel)
 {
 	if (fgen_channel_valid(channel))
 	{
-		fgen_silence(&fgen_channels[channel - 1U], FGEN_STATE_ABORTED);
+		fgen_silence(&fgen_m_channels[channel - 1U], FGEN_STATE_ABORTED);
 		if (channel == FGEN_CHANNEL_GPIO)
 		{
 			hal_pwm_stop();
@@ -465,17 +465,17 @@ void fgen_abort_all(void)
 
 fgen_state_t fgen_state(uint32_t channel)
 {
-	return fgen_channels[channel - 1U].state;
+	return fgen_m_channels[channel - 1U].state;
 }
 
 uint32_t fgen_actual_mhz(uint32_t channel)
 {
-	return fgen_channels[channel - 1U].actual_mhz;
+	return fgen_m_channels[channel - 1U].actual_mhz;
 }
 
 fgen_wave_t fgen_actual_wave(uint32_t channel)
 {
-	return fgen_channels[channel - 1U].actual_wave;
+	return fgen_m_channels[channel - 1U].actual_wave;
 }
 
 void fgen_poll(void)
@@ -486,16 +486,16 @@ void fgen_poll(void)
 
 	for (index = 0UL; index < FGEN_DAC_CHANNELS; index++)
 	{
-		active = active || (fgen_channels[index].state == FGEN_STATE_RUNNING);
+		active = active || (fgen_m_channels[index].state == FGEN_STATE_RUNNING);
 	}
 	if (active)
 	{
-		fgen_last_active_us = now;
+		fgen_m_last_active_us = now;
 	}
-	else if (!fgen_muted && ((now - fgen_last_active_us) >= FGEN_MUTE_HOLD_US))
+	else if (!fgen_m_muted && ((now - fgen_m_last_active_us) >= FGEN_MUTE_HOLD_US))
 	{
 		hal_dac_mute(true);
-		fgen_muted = true;
+		fgen_m_muted = true;
 	}
 	else
 	{
@@ -515,7 +515,7 @@ static int32_t fgen_next_sample(fgen_channel_t *channel)
 		sample = fgen_lookup(channel->table, channel->phase) * channel->gain;
 		if (channel->two_tones)
 		{
-			sample += fgen_lookup(fgen_sine, channel->phase2) * channel->gain2;
+			sample += fgen_lookup(fgen_m_sine, channel->phase2) * channel->gain2;
 			channel->phase2 += channel->step2;
 		}
 		if (channel->finite && (next < channel->phase))
@@ -541,7 +541,7 @@ void fgen_render(int32_t *samples, uint32_t frames)
 		for (index = 0UL; index < FGEN_DAC_CHANNELS; index++)
 		{
 			samples[(frame * FGEN_DAC_CHANNELS) + index] =
-				fgen_next_sample(&fgen_channels[index]) * FGEN_Q30_TO_Q31;
+				fgen_next_sample(&fgen_m_channels[index]) * FGEN_Q30_TO_Q31;
 		}
 	}
 }
@@ -549,8 +549,8 @@ void fgen_render(int32_t *samples, uint32_t frames)
 uint32_t fgen_pwm_config(uint32_t freq_mhz, uint32_t duty, hal_pwm_config_t *config)
 {
 	/* Clock ticks per cycle, in sixteenths: the divider has 4 fractional bits. */
-	uint64_t	clock = (uint64_t)BOARD_SYS_CLOCK_HZ * FGEN_PWM_DIV_ONE * FGEN_MILLI_PER_UNIT;
-	uint64_t	total = clock / (uint64_t)freq_mhz;
+	uint64_t	scaled_clock = (uint64_t)BOARD_SYS_CLOCK_HZ * FGEN_PWM_DIV_ONE * FGEN_MILLI_PER_UNIT;
+	uint64_t	total = scaled_clock / (uint64_t)freq_mhz;
 	uint64_t	divider = (total + (FGEN_PWM_COUNT_MAX - 1ULL)) / FGEN_PWM_COUNT_MAX;
 	uint64_t	count;
 	uint64_t	level;
@@ -579,5 +579,5 @@ uint32_t fgen_pwm_config(uint32_t freq_mhz, uint32_t duty, hal_pwm_config_t *con
 	config->top = (uint32_t)(count - 1ULL);
 	config->level = (uint32_t)level;
 	config->cycles = 0UL;
-	return (uint32_t)(((clock / divider) + (count / 2ULL)) / count);
+	return (uint32_t)(((scaled_clock / divider) + (count / 2ULL)) / count);
 }

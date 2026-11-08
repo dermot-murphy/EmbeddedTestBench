@@ -20,7 +20,7 @@
 /* One 1 kHz cycle at 97 656.25 Hz, rounded up. */
 #define TEST_FRAMES_PER_KHZ_CYCLE	98U
 
-static int32_t	samples[TEST_FRAMES * 2U];
+static int32_t	test_m_samples[TEST_FRAMES * 2U];
 
 static void test_run(const char *command)
 {
@@ -38,7 +38,7 @@ static void test_expect(const char *command, const char *reply)
 
 static void test_render(void)
 {
-	fgen_render(samples, TEST_FRAMES);
+	fgen_render(test_m_samples, TEST_FRAMES);
 }
 
 /* The largest magnitude in channel @p index (0 is left), as a fraction of
@@ -50,7 +50,7 @@ static double test_peak(uint32_t index)
 
 	for (frame = 0U; frame < TEST_FRAMES; frame++)
 	{
-		double	value = (double)samples[(frame * 2U) + index] / 2147483648.0;
+		double	value = (double)test_m_samples[(frame * 2U) + index] / 2147483648.0;
 		double	magnitude = (value < 0.0) ? -value : value;
 
 		if (magnitude > peak)
@@ -416,15 +416,15 @@ static void test_a_finite_run_completes_after_its_cycles(void)
 	test_run("wr wave 1 sine");
 	test_run("wr cycles 1 2");
 	test_run("routine freq start 1");
-	fgen_render(samples, TEST_FRAMES_PER_KHZ_CYCLE);
+	fgen_render(test_m_samples, TEST_FRAMES_PER_KHZ_CYCLE);
 	TEST_ASSERT_EQUAL_INT((int)FGEN_STATE_RUNNING, (int)fgen_state(1U));
-	fgen_render(samples, TEST_FRAMES_PER_KHZ_CYCLE);
+	fgen_render(test_m_samples, TEST_FRAMES_PER_KHZ_CYCLE);
 	TEST_ASSERT_EQUAL_INT((int)FGEN_STATE_COMPLETE, (int)fgen_state(1U));
 
-	fgen_render(samples, TEST_FRAMES);
+	fgen_render(test_m_samples, TEST_FRAMES);
 	for (frame = 0U; frame < TEST_FRAMES; frame++)
 	{
-		TEST_ASSERT_EQUAL_INT32(0, samples[frame * 2U]);
+		TEST_ASSERT_EQUAL_INT32(0, test_m_samples[frame * 2U]);
 	}
 	test_expect("routine freq results 1", "ACK routine freq results 1 = Complete, sine, 1000.00 Hz");
 }
@@ -434,7 +434,7 @@ static void test_a_finite_run_can_start_again_once_complete(void)
 	test_run("wr wave 1 sine");
 	test_run("wr cycles 1 1");
 	test_run("routine freq start 1");
-	fgen_render(samples, TEST_FRAMES);
+	fgen_render(test_m_samples, TEST_FRAMES);
 	test_expect("routine freq start 1", "ACK routine freq start 1 = Running");
 }
 

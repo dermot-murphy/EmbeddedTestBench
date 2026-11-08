@@ -43,6 +43,7 @@ endif()
 # sanitisers: an out-of-bounds write in a line buffer is exactly the defect a
 # bench would never show.
 add_library(firmware STATIC
+	${FIRMWARE_DIR}/src/cmd_fgen.c
 	${FIRMWARE_DIR}/src/cmd_parser.c
 	${FIRMWARE_DIR}/src/fgen.c
 	${FIRMWARE_DIR}/src/firmware_version.c

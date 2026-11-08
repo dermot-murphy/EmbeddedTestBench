@@ -88,6 +88,7 @@
 | next | 2026-10-29 | Claude | #247, review of #318 round 4: SWE4-UT-SER 63 → 68 and SWE4-UT-SERCLI 8 → 9, pass, from a run of `tests/instruments/serial_capture` on this branch on 2026-10-29 (135 passed, Windows). The section 5 total is still the 1.32 whole-suite run's. |
 | next | 2026-10-29 | Claude | #247, review of #318 round 5: SWE4-UT-SER 68 → 75 and SWE4-UT-SERCLI 9 → 10, pass, from a run of `tests/instruments/serial_capture` on this branch on 2026-10-29 (143 passed, Windows). The section 5 total is still the 1.32 whole-suite run's. |
 | next | 2026-10-29 | Claude | #247, review of #318 round 6: SWE4-UT-SER 75 → 78 and SWE4-UT-SERCLI 10 → 11, pass, from a run of `tests/instruments/serial_capture` on this branch on 2026-10-29 (147 passed, Windows). The section 5 total is still the 1.32 whole-suite run's. |
+| next | 2026-11-08 | Claude | #202: §5 row for SWE4-UT-PICOFGEN. |
 ---
 
 ## 3. Purpose & Scope
@@ -340,6 +341,7 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-PICOCLI | `instruments/pico_sht30/test_cli.py` | 16 | Pass |
 | SWE4-UT-PICOFLASH | `instruments/pico_sht30/test_flash.py` | 35 | Pass |
 | SWE4-UT-PICOFWPROTO | `instruments/pico_sht30/test_firmware_protocol.py` | 9 | Pass |
+| SWE4-UT-PICOFGEN | `instruments/pico_sht30/test_freq_generator.py` | 66 | Pass |
 | SWE4-UT-SER | `instruments/serial_capture/test_capture.py` | 78 | Pass |
 | SWE4-UT-SERCONSOLE | `instruments/serial_capture/test_console.py` | 52 | Pass |
 | SWE4-UT-SERSIM | `instruments/serial_capture/test_simulator.py` | 6 | Pass |

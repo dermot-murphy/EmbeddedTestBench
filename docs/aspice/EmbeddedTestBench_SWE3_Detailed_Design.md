@@ -2900,10 +2900,10 @@ echoed as received (PICO-FR-007). `rd` always returns `PROTO_ERR_NONE`; an
 option count other than one is refused by the generic argument check with
 `err 2`.
 
-#### PICO-DD-FGEN — `firmware/pico_sht30/src/fgen.c`, `hal_pico.c`
+#### PICO-DD-FGEN — `firmware/pico_sht30/src/fgen.c`, `cmd_fgen.c`, `hal_pico.c`
 
 The frequency generator (PICO-FR-080 … -089). `fgen.c` is portable and holds the
-settings, the routine state and the synthesis. `cmd_parser.c` turns `wr`, `rd`
+settings, the routine state and the synthesis. `cmd_fgen.c` turns `wr`, `rd`
 and `routine` into calls on it. The values are integers: millihertz, thousandths
 of a percent and thousandths.
 

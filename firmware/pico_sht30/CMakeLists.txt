@@ -94,6 +94,7 @@ endif()
 message(STATUS "pico_sht30: FIRMWARE_GIT_SHA=${FIRMWARE_GIT_SHA}")
 
 set(FIRMWARE_SOURCES
+	${CMAKE_CURRENT_LIST_DIR}/src/cmd_fgen.c
 	${CMAKE_CURRENT_LIST_DIR}/src/cmd_parser.c
 	${CMAKE_CURRENT_LIST_DIR}/src/fgen.c
 	${CMAKE_CURRENT_LIST_DIR}/src/firmware_version.c
