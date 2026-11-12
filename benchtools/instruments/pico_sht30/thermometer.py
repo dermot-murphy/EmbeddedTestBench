@@ -6,7 +6,12 @@ two forms:
 
 * ``rd <option>`` reads one value and is answered ``ACK rd <option> = <value>``,
   or ``NAK rd <option> = Error`` for an option the firmware does not know. The
-  options are ``name``, ``copyright``, ``version``, ``sha`` and ``temperature``.
+  options are ``name``, ``copyright``, ``version``, ``sha``, ``temperature``
+  and the LEDs ``led-red``, ``led-yellow`` and ``led-green`` (``on``/``off``).
+* ``wr <option> <value>`` writes one value and is answered
+  ``ACK wr <option> = <value read back>``, or ``NAK wr <option> = Error`` for
+  an option or value the firmware does not accept. The only options are the
+  LEDs, and the only values ``on`` and ``off`` (#328).
 * The control commands (``status``, ``sreset``, ``ecureset``, ``bootsel``) are
   answered ``ok ...`` or ``err <code> <text>``, values as ``key=value`` tokens.
 
@@ -16,7 +21,7 @@ times out - ``rd temperature`` answers ``Error``, and the driver raises
 :class:`NoReadingError`, so that a test cannot mistake "no reading" for "same
 as last time".
 
-Traces to: PICO-FR-040 .. PICO-FR-048, PICO-ARC-001, PICO-DD-DRIVER.
+Traces to: PICO-FR-040 .. PICO-FR-049, PICO-ARC-001, PICO-DD-DRIVER.
 """
 
 from __future__ import annotations
@@ -35,11 +40,14 @@ from ...core.transport.factory import open_transport
 from .constants import (
     DEFAULT_BAUDRATE,
     ERRORS,
+    LED_OFF,
+    LED_ON,
     MANUFACTURER,
     MODEL,
     NAME,
     RD_ERROR,
     STATUS_BITS,
+    led_option,
 )
 from .simulator import SimulatedPicoSht30
 
@@ -51,6 +59,7 @@ __all__ = [
     "SensorError",
     "NoReadingError",
     "RdRefusedError",
+    "WrRefusedError",
 ]
 
 #: Informational lines (``help`` only) are skipped when looking for a reply.
@@ -61,6 +70,9 @@ _MAX_SKIPPED_LINES = 32
 
 #: ``ACK rd temperature = 22.85``: the verdict, the option and the value.
 _RD_REPLY = re.compile(r"^(ACK|NAK) rd (\S+) = (.*)$")
+
+#: ``ACK wr led-red = on``: the verdict, the option and the value read back.
+_WR_REPLY = re.compile(r"^(ACK|NAK) wr (\S+) = (.*)$")
 
 #: What ``rd temperature`` reports when it has a reading: two decimal places.
 _TEMPERATURE = re.compile(r"^-?\d+\.\d{2}$")
@@ -92,6 +104,10 @@ class NoReadingError(InstrumentError):
 
 class RdRefusedError(InstrumentError):
     """The firmware answered ``NAK``: it does not know the ``rd`` option."""
+
+
+class WrRefusedError(InstrumentError):
+    """The firmware answered ``NAK`` to ``wr``: an unknown option or value."""
 
 
 @dataclass(frozen=True)
@@ -288,9 +304,26 @@ class PicoSht30(ScpiInstrument):
         :raises ProtocolError: if the reply is for another option, or is
             neither ``ACK`` nor ``NAK``.
         """
-        command = "rd %s" % option
+        return self._value_command("rd %s" % option, option, _RD_REPLY, RdRefusedError)
+
+    def wr(self, option: str, value: str) -> str:  # pylint: disable=invalid-name
+        """Send ``wr <option> <value>`` and return the value its ``ACK`` reports.
+
+        The firmware reports the value read back after the write, so the
+        caller can check it took effect.
+
+        :raises WrRefusedError: if the firmware answered ``NAK``.
+        :raises SensorError: if it answered ``err`` (a malformed command).
+        :raises ProtocolError: if the reply is for another option, or is
+            neither ``ACK`` nor ``NAK``.
+        """
+        return self._value_command("wr %s %s" % (option, value), option, _WR_REPLY,
+                                   WrRefusedError)
+
+    def _value_command(self, command: str, option: str, pattern, refused) -> str:
+        """Send an ``rd`` or ``wr`` *command* and return the value of its ``ACK``."""
         reply = self._send(command)
-        match = _RD_REPLY.match(reply)
+        match = pattern.match(reply)
         if match is None:
             if reply.startswith("err "):
                 parts = reply.split(" ", 2)
@@ -301,7 +334,7 @@ class PicoSht30(ScpiInstrument):
         if echoed != option:
             raise ProtocolError("reply to %r is for %r: %r" % (command, echoed, reply))
         if verdict == "NAK":
-            raise RdRefusedError("%r refused: %s" % (command, reply))
+            raise refused("%r refused: %s" % (command, reply))
         return value
 
     # ------------------------------------------------------------------
@@ -325,7 +358,7 @@ class PicoSht30(ScpiInstrument):
 
     @property
     def version(self) -> str:
-        """The firmware version, e.g. ``V1.00.0000``."""
+        """The firmware version, e.g. ``V1.01.0000``."""
         return self.firmware_info().version
 
     @property
@@ -385,6 +418,38 @@ class PicoSht30(ScpiInstrument):
     # ------------------------------------------------------------------
     # Control
     # ------------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # LEDs (#328)
+    # ------------------------------------------------------------------
+    def led(self, colour: str) -> bool:
+        """Whether LED *colour* (``red``, ``yellow`` or ``green``) is lit.
+
+        :raises ValueError: for another colour, before anything is sent.
+        :raises ProtocolError: if the firmware reports neither ``on`` nor ``off``.
+        """
+        option = led_option(colour)
+        return self._led_state(option, self.rd(option))
+
+    def set_led(self, colour: str, on: bool) -> bool:  # pylint: disable=invalid-name
+        """Light (*on* True) or extinguish LED *colour*; return the state read back.
+
+        :raises ValueError: for another colour, before anything is sent.
+        :raises ProtocolError: if the state read back is not the one written.
+        """
+        option = led_option(colour)
+        wanted = LED_ON if on else LED_OFF
+        state = self._led_state(option, self.wr(option, wanted))
+        if state != bool(on):
+            raise ProtocolError("wr %s %s: the LED reads back %s"
+                                % (option, wanted, LED_ON if state else LED_OFF))
+        return state
+
+    @staticmethod
+    def _led_state(option: str, value: str) -> bool:
+        if value not in (LED_ON, LED_OFF):
+            raise ProtocolError("%s: %r is neither %r nor %r" % (option, value, LED_ON, LED_OFF))
+        return value == LED_ON
+
     def soft_reset_sensor(self) -> None:
         """Soft-reset the SHT30; the Pico keeps running."""
         self.execute("sreset")

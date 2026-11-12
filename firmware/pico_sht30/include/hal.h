@@ -14,11 +14,21 @@
 #ifndef HAL_H__
 #define HAL_H__
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/** The indicator LEDs (#328). */
+typedef enum
+{
+	HAL_LED_RED = 0,		/**< GP18 by default. */
+	HAL_LED_YELLOW,			/**< GP19 by default. */
+	HAL_LED_GREEN,			/**< GP20 by default. */
+	HAL_LED_COUNT
+} hal_led_t;
 
 /** Outcome of a bus transfer. */
 typedef enum
@@ -32,7 +42,8 @@ typedef enum
 #define HAL_BOARD_ID_LENGTH		17U
 
 /**
- * @brief Bring up the I2C bus and anything else the board needs.
+ * @brief Bring up the I2C bus and anything else the board needs. The LEDs
+ *        are made outputs, all off.
  */
 void hal_init(void);
 
@@ -45,6 +56,18 @@ hal_status_t hal_i2c_write(uint8_t address, const uint8_t *data, uint32_t length
  * @brief Read @p length bytes from the device at 7-bit @p address, with a STOP.
  */
 hal_status_t hal_i2c_read(uint8_t address, uint8_t *data, uint32_t length);
+
+/**
+ * @brief Light (@p lit true) or extinguish an LED. An out-of-range @p led is
+ *        ignored.
+ */
+void hal_led_set(hal_led_t led, bool lit);
+
+/**
+ * @brief Whether an LED is lit, read back from the pin's output latch rather
+ *        than remembered. False for an out-of-range @p led.
+ */
+bool hal_led_get(hal_led_t led);
 
 /**
  * @brief Block for at least @p milliseconds.

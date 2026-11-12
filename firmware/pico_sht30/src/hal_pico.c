@@ -13,7 +13,8 @@
  *   function is used anywhere in the firmware.
  * * Dir 4.6 - SDK prototypes use the SDK's own "uint" and "int" types.
  *
- * Traces to: PICO-FR-010, PICO-FR-030, PICO-FR-031, PICO-DD-HAL.
+ * Traces to: PICO-FR-010, PICO-FR-011, PICO-FR-030, PICO-FR-031,
+ *            PICO-DD-HAL.
  */
 
 #include "hal.h"
@@ -38,6 +39,14 @@
 
 static char	m_board_id_text[HAL_BOARD_ID_LENGTH];
 
+/** The GPIO of each LED, indexed by hal_led_t. */
+static const uint32_t	m_led_pins[HAL_LED_COUNT] =
+{
+	BOARD_LED_RED_PIN,
+	BOARD_LED_YELLOW_PIN,
+	BOARD_LED_GREEN_PIN
+};
+
 static hal_status_t hal_from_sdk(int result, uint32_t expected)
 {
 	hal_status_t	status;
@@ -59,6 +68,16 @@ static hal_status_t hal_from_sdk(int result, uint32_t expected)
 
 void hal_init(void)
 {
+	uint32_t	index;
+
+	/* LEDs first, so they are defined - off - from the earliest moment. */
+	for (index = 0U; index < (uint32_t)HAL_LED_COUNT; index++)
+	{
+		gpio_init((uint)m_led_pins[index]);
+		gpio_put((uint)m_led_pins[index], false);
+		gpio_set_dir((uint)m_led_pins[index], true);
+	}
+
 	(void)i2c_init(HAL_I2C_PORT, (uint)BOARD_I2C_BAUD_HZ);
 	gpio_set_function((uint)BOARD_I2C_SDA_PIN, GPIO_FUNC_I2C);
 	gpio_set_function((uint)BOARD_I2C_SCL_PIN, GPIO_FUNC_I2C);
@@ -84,6 +103,26 @@ hal_status_t hal_i2c_read(uint8_t address, uint8_t *data, uint32_t length)
 					     false, (uint)BOARD_I2C_TIMEOUT_US);
 
 	return hal_from_sdk(result, length);
+}
+
+void hal_led_set(hal_led_t led, bool lit)
+{
+	if ((uint32_t)led < (uint32_t)HAL_LED_COUNT)
+	{
+		gpio_put((uint)m_led_pins[(uint32_t)led], lit);
+	}
+}
+
+bool hal_led_get(hal_led_t led)
+{
+	bool	lit = false;
+
+	if ((uint32_t)led < (uint32_t)HAL_LED_COUNT)
+	{
+		/* The output latch, not the pad: what the firmware commanded. */
+		lit = gpio_get_out_level((uint)m_led_pins[(uint32_t)led]);
+	}
+	return lit;
 }
 
 void hal_delay_ms(uint32_t milliseconds)

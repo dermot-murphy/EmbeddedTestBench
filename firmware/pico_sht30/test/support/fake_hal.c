@@ -44,6 +44,8 @@ static uint32_t		m_reboots;
 static uint32_t		m_lines_at_reboot;
 static uint32_t		m_bootloaders;
 static uint32_t		m_inits;
+static bool		m_leds[HAL_LED_COUNT];
+static uint32_t		m_led_writes;
 
 void fake_hal_reset(void)
 {
@@ -63,6 +65,8 @@ void fake_hal_reset(void)
 	m_lines_at_reboot = 0U;
 	m_bootloaders = 0U;
 	m_inits = 0U;
+	(void)memset(m_leds, 0, sizeof(m_leds));
+	m_led_writes = 0U;
 }
 
 void fake_hal_fail_next_write(hal_status_t status)
@@ -108,6 +112,12 @@ uint32_t fake_hal_reboot_count(void) { return m_reboots; }
 uint32_t fake_hal_bootloader_count(void) { return m_bootloaders; }
 uint32_t fake_hal_init_count(void) { return m_inits; }
 uint32_t fake_hal_lines_at_reboot(void) { return m_lines_at_reboot; }
+uint32_t fake_hal_led_writes(void) { return m_led_writes; }
+
+bool fake_hal_led(hal_led_t led)
+{
+	return ((uint32_t)led < (uint32_t)HAL_LED_COUNT) ? m_leds[(uint32_t)led] : false;
+}
 
 const char *fake_hal_last_line(void)
 {
@@ -160,6 +170,20 @@ hal_status_t hal_i2c_read(uint8_t address, uint8_t *data, uint32_t length)
 		status = reply->status;
 	}
 	return status;
+}
+
+void hal_led_set(hal_led_t led, bool lit)
+{
+	m_led_writes++;
+	if ((uint32_t)led < (uint32_t)HAL_LED_COUNT)
+	{
+		m_leds[(uint32_t)led] = lit;
+	}
+}
+
+bool hal_led_get(hal_led_t led)
+{
+	return fake_hal_led(led);
 }
 
 void hal_delay_ms(uint32_t milliseconds)

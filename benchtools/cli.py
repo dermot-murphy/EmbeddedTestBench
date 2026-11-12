@@ -29,7 +29,7 @@ Commands:
   ble         scan, drive and profile a BLE sensor through a Nordic dongle
   psu         control a GW Instek GPD-3303D bench power supply
   s2lp        drive an ST S2-LP sub-1 GHz development kit
-  thermo      read a Pico 2 + SHT30-D thermometer: identity and temperature
+  thermo      read a Pico 2 + SHT30-D thermometer: identity, temperature, LEDs
   serial      capture the lines a device prints on a serial port (RD, WR, ROUTINE)
   drivers     list the instrument drivers a bench configuration can name
   backends    list the transport backends a resource string can select

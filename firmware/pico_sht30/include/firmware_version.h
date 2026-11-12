@@ -39,7 +39,7 @@
 
 /** Firmware version reported by @c rd @c version. Bump it with every change;
  *  the host compares it. */
-#define FIRMWARE_VERSION		"V1.00.0000"
+#define FIRMWARE_VERSION		"V1.01.0000"
 
 #ifndef FIRMWARE_GIT_SHA
 /* Not injected by the build: say so rather than guess. */

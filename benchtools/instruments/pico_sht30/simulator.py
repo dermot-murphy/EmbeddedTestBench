@@ -14,6 +14,10 @@ answer ``Error``, never a stale value, which is the firmware's contract; the
 commands that keep the ``ok``/``err`` form (``status``, ``sreset``) answer
 ``err`` with the firmware's code.
 
+The three LEDs (#328) are modelled as the firmware drives them: off at boot
+and after ``ecureset``, switched by ``wr led-<colour> on|off``, and read back by
+``rd`` and in the ``wr`` reply.
+
 Traces to: PICO-FR-050, PICO-DD-SIM.
 """
 
@@ -27,6 +31,9 @@ from .constants import (
     ERROR_BUS,
     ERROR_CRC,
     ERROR_NO_SENSOR,
+    LED_OFF,
+    LED_ON,
+    LED_OPTIONS,
     NAME,
     RD_ERROR,
     STATUS_BITS,
@@ -46,7 +53,8 @@ _ERROR_TEXT = {
 
 _HELP = (
     ("help", "list the commands"),
-    ("rd", "read one value: name, copyright, version, sha, temperature"),
+    ("rd", "read a value: name, copyright, version, sha, temperature or led-<red|yellow|green>"),
+    ("wr", "write a value: led-<red|yellow|green> on|off"),
     ("status", "the SHT30 status register"),
     ("sreset", "soft-reset the SHT30"),
     ("ecureset", "reboot the Pico"),
@@ -78,7 +86,7 @@ class SimulatedPicoSht30:  # pylint: disable=too-many-instance-attributes,too-fe
     :param sha: What ``rd sha`` reports: the commit the image was built from.
     """
 
-    DEFAULT_VERSION = "V1.00.0000"
+    DEFAULT_VERSION = "V1.01.0000"
     DEFAULT_SHA = "0c0ffee"
 
     def __init__(
@@ -106,6 +114,8 @@ class SimulatedPicoSht30:  # pylint: disable=too-many-instance-attributes,too-fe
         self.reboots = 0
         self.bootloader_requests = 0
         self.measurements = 0
+        #: ``{"led-red": False, ...}``: True is lit. All off, as at boot.
+        self.leds = {option: False for option in LED_OPTIONS}
         #: Called after ``bootsel`` is answered: the board model in
         #: :mod:`.flash` uses it to present the bootloader drive.
         self.on_bootloader: Optional[Callable[[], None]] = None
@@ -161,9 +171,20 @@ class SimulatedPicoSht30:  # pylint: disable=too-many-instance-attributes,too-fe
             "sha": lambda: self.sha,
             "temperature": self._temperature_text,
         }
+        for led in LED_OPTIONS:
+            values[led] = lambda led=led: self._led_text(led)
         if option not in values:
             return ["NAK rd %s = %s" % (option, RD_ERROR)]
         return ["ACK rd %s = %s" % (option, values[option]())]
+
+    def _led_text(self, option: str) -> str:
+        return LED_ON if self.leds[option] else LED_OFF
+
+    def _cmd_wr(self, option: str, value: str) -> List[str]:
+        if option not in self.leds or value not in (LED_ON, LED_OFF):
+            return ["NAK wr %s = %s" % (option, RD_ERROR)]
+        self.leds[option] = value == LED_ON
+        return ["ACK wr %s = %s" % (option, self._led_text(option))]
 
     def _temperature_text(self) -> str:
         if self._sensor_fault() is not None:
@@ -186,6 +207,8 @@ class SimulatedPicoSht30:  # pylint: disable=too-many-instance-attributes,too-fe
 
     def _cmd_ecureset(self) -> List[str]:
         self.reboots += 1
+        # The reboot re-runs hal_init(), which turns every LED off.
+        self.leds = {option: False for option in LED_OPTIONS}
         return ["ok"]
 
     def _cmd_bootsel(self) -> List[str]:

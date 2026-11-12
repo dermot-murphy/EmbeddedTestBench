@@ -50,7 +50,7 @@ class TestReplies:
         "line,reply",
         [("rd name", "ACK rd name = Pico 2 SHT30 Temperature Sensor"),
          ("rd copyright", "ACK rd copyright = (c) 2026 Dermot Murphy"),
-         ("rd version", "ACK rd version = V1.00.0000"),
+         ("rd version", "ACK rd version = V1.01.0000"),
          ("rd sha", "ACK rd sha = 0c0ffee"),
          ("rd colour", "NAK rd colour = Error"),
          ("rd NAME", "NAK rd NAME = Error")],
@@ -83,9 +83,10 @@ class TestReplies:
 
     def test_help_ends_with_ok(self):
         lines = _ask(SimulatedPicoSht30(), "help").splitlines()
-        assert len(lines) == 7
+        assert len(lines) == 8
         assert lines[0].startswith("# help - ")
         assert lines[1].startswith("# rd - ")
+        assert lines[2].startswith("# wr - ")
         assert lines[-1] == "ok"
 
     def test_faults(self):
@@ -99,6 +100,39 @@ class TestReplies:
         simulator.bus_timeout = True
         assert _ask(simulator, "rd temperature") == "ACK rd temperature = Error\n"
         assert _ask(simulator, "sreset") == "err 6 I2C bus timeout\n"
+
+    def test_leds_are_off_at_boot(self):
+        simulator = SimulatedPicoSht30()
+        for colour in ("red", "yellow", "green"):
+            assert _ask(simulator, "rd led-%s" % colour) == "ACK rd led-%s = off\n" % colour
+
+    def test_wr_led_on_and_off(self):
+        """The same reply text as test_wr_led_red_on_and_off in test_cmd_parser.c."""
+        simulator = SimulatedPicoSht30()
+        assert _ask(simulator, "wr led-red on") == "ACK wr led-red = on\n"
+        assert _ask(simulator, "rd led-red") == "ACK rd led-red = on\n"
+        assert _ask(simulator, "rd led-yellow") == "ACK rd led-yellow = off\n"
+        assert _ask(simulator, "wr led-red off") == "ACK wr led-red = off\n"
+        assert _ask(simulator, "rd led-red") == "ACK rd led-red = off\n"
+
+    @pytest.mark.parametrize("line,option",
+                             [("wr led-blue on", "led-blue"), ("wr name on", "name"),
+                              ("wr LED-RED on", "LED-RED"), ("wr led-red 1", "led-red"),
+                              ("wr led-red OFF", "led-red")])
+    def test_wr_refused(self, line, option):
+        simulator = SimulatedPicoSht30()
+        assert _ask(simulator, line) == "NAK wr %s = Error\n" % option
+        assert not any(simulator.leds.values())
+
+    def test_wr_needs_an_option_and_a_value(self):
+        for line in ("wr", "wr led-red", "wr led-red on now"):
+            assert _ask(SimulatedPicoSht30(), line) == "err 2 wrong number of arguments\n"
+
+    def test_ecureset_turns_the_leds_off(self):
+        simulator = SimulatedPicoSht30()
+        _ask(simulator, "wr led-green on")
+        _ask(simulator, "ecureset")
+        assert _ask(simulator, "rd led-green") == "ACK rd led-green = off\n"
 
     def test_ecureset(self):
         simulator = SimulatedPicoSht30()

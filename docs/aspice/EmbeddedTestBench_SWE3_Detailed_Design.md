@@ -91,6 +91,7 @@
 | next | 2026-10-29 | Claude | #247, review of #318 round 4: SER-DD-DRIVER - `stop` set only on a running run, so close() shows an ended capture's live lines; `read_done` in place of the `None` sentinel; the show queue bounded to `MAX_LINES` with `unshown`; `start_capture` stops or refuses a show thread that outlives the last capture; `wait_capture` warns of one. |
 | next | 2026-10-29 | Claude | #247, review of #318 round 5: SER-DD-DRIVER - the show thread drains after `read_done`, dropped live lines counted in `unshown` and in `summary()`, `_finish_live_output` (bounded, not under `output_lock`) for `close()` and `start_capture`, an abort of an ended capture leaving its lines, `stop_live_output`, `OutputLock`; SER-DD-CLI - Ctrl-C while closing. |
 | next | 2026-10-29 | Claude | #247, review of #318 round 6: SER-DD-DRIVER - `start_capture` leaves the show thread to `_finish_live_output`, `_show` returns whether it showed the line and an overtaken line is counted, `join_thread` joins in `READ_POLL` steps. |
+| next | 2026-11-12 | Claude | #328: the Pico thermometer's indicator LEDs. PICO-DD-PROTOCOL - `wr`, the LED options of `rd`, `PROTO_VERSION` 2.1; PICO-DD-VERSION - `V1.01.0000`; PICO-DD-BOARD - `BOARD_LED_*_PIN`; PICO-DD-HAL - `hal_led_set`, `hal_led_get`, the LEDs off in `hal_init`; PICO-DD-PARSER - `cmd_wr`, `cmd_leds`, `cmd_led_lookup`, `cmd_led_state`, `cmd_value_begin`; PICO-DD-TEST - the fake HAL's LEDs; PICO-DD-CONST, -DRIVER, -SIM and -CLI - the LED constants, `wr`, `WrRefusedError`, `led`, `set_led`, the simulated LEDs and `benchtools thermo wr`. |
 ---
 
 ## 3. Purpose & Scope
@@ -2761,7 +2762,8 @@ channel is parked at zero volts rather than disconnected. `read` adds a
 
 A Raspberry Pi Pico 2 reads a Sensirion SHT30-DIS on a DollaTek SHT30-D module
 over I2C and reports the temperature, with its name, copyright, version and
-commit, over USB CDC. One element across two languages, like BLE: `include/protocol.h` is
+commit, over USB CDC. It also drives three indicator LEDs, set by `wr` and read
+back by `rd` (#328). One element across two languages, like BLE: `include/protocol.h` is
 the interface both halves are built from.
 
 #### PICO-DD-PROTOCOL — `firmware/pico_sht30/include/protocol.h`
@@ -2769,8 +2771,9 @@ the interface both halves are built from.
 The single definition of the host link. Two X-macro tables: `PROTO_COMMAND_TABLE`
 (`name, min_args, max_args, help`) generates the firmware's dispatch table and
 handler prototypes; `PROTO_ERROR_TABLE` (`symbol, code, text`) generates
-`proto_error_t` and the error texts. `PROTO_VERSION` is `2.0` (#131: `rd`
-replaces `ver` and `temp`, and `reset` is renamed `ecureset`); the firmware
+`proto_error_t` and the error texts. `PROTO_VERSION` is `2.1` (2.0, #131: `rd`
+replaces `ver` and `temp`, and `reset` is renamed `ecureset`; 2.1, #328: the
+`wr` command and the three LED options of `rd`); the firmware
 does not report it, and the host checks it only against the header. Limits:
 `PROTO_MAX_LINE` 64 (command, terminator included), `PROTO_MAX_REPLY` 192,
 `PROTO_MAX_TOKENS` 4.
@@ -2779,19 +2782,24 @@ does not report it, and the host checks it only against the header. Limits:
 |---|---|
 | `rd name` | `ACK rd name = Pico 2 SHT30 Temperature Sensor` |
 | `rd copyright` | `ACK rd copyright = (c) 2026 Dermot Murphy` |
-| `rd version` | `ACK rd version = V1.00.0000` |
+| `rd version` | `ACK rd version = V1.01.0000` |
 | `rd sha` | `ACK rd sha = <7 hex digits, or unknown>` |
 | `rd temperature` | `ACK rd temperature = <°C, 2 dp>`, or `ACK rd temperature = Error` when no reading could be made |
+| `rd led-red`, `rd led-yellow`, `rd led-green` | `ACK rd <option> = on` or `ACK rd <option> = off` |
 | `rd <other>` | `NAK rd <other> = Error` |
 | `rd`, `rd a b` | `err 2 wrong number of arguments` |
+| `wr led-red on`, `wr led-red off` (and `led-yellow`, `led-green`) | `ACK wr <option> = on` or `ACK wr <option> = off`, the state read back after the write |
+| `wr <other> <value>`, or a value other than `on` or `off` | `NAK wr <other> = Error`; nothing changes |
+| `wr`, `wr a`, `wr a b c` | `err 2 wrong number of arguments` |
 | `status` | `ok status=0x<hhhh>` |
 | `sreset` | `ok` |
 | `ecureset`, `bootsel` | `ok` (the reboot follows the reply) |
 | `help` | one `# <name> - <help>` line per command, then `ok` |
 | `ver`, `temp`, `reset` | `err 1 unknown command` since 2.0 |
 
-An `rd` reply is a whole line with no `ok` in front, in the `ACK`/`NAK` form the
-other bench devices use; everything after `= ` is the value, spaces included.
+An `rd` or `wr` reply is a whole line with no `ok` in front, in the `ACK`/`NAK`
+form the other bench devices use; everything after `= ` is the value, spaces
+included. `help` lists `wr` straight after `rd`: seven command lines, then `ok`.
 
 | Code | Symbol | Meaning |
 |---|---|---|
@@ -2805,7 +2813,8 @@ other bench devices use; everything after `= ` is the value, spaces included.
 #### PICO-DD-VERSION — `firmware/pico_sht30/include/firmware_version.h`, `src/firmware_version.c`
 
 `FIRMWARE_NAME` (`Pico 2 SHT30 Temperature Sensor`), `FIRMWARE_COPYRIGHT`
-(`(c) 2026 Dermot Murphy`) and `FIRMWARE_VERSION` (`V1.00.0000`) are edited here
+(`(c) 2026 Dermot Murphy`) and `FIRMWARE_VERSION` (`V1.01.0000` since #328, which
+added the `wr` command; the baseline was `V1.00.0000`) are edited here
 and nowhere else, each as a single quoted string so that
 `SWE4-UT-PICOFWPROTO` can read it as text. The version is
 `V<major>.<minor, 2 digits>.<patch, 4 digits>`, semantic, and bumped with every
@@ -2820,14 +2829,24 @@ injected by CMake (PICO-DD-BUILD); a build that does not inject it gets
 Wiring constants, each overridable with `-D`: `BOARD_I2C_INSTANCE` 0,
 `BOARD_I2C_SDA_PIN` 4, `BOARD_I2C_SCL_PIN` 5, `BOARD_I2C_BAUD_HZ` 100000,
 `BOARD_I2C_TIMEOUT_US` 10000 (ten times a six-byte transfer at 100 kHz),
-`BOARD_SHT30_ADDRESS` 0x44.
+`BOARD_SHT30_ADDRESS` 0x44. The indicator LEDs (#328, PICO-FR-011), each lit by
+driving its pin high: `BOARD_LED_RED_PIN` 18 (pin 24), `BOARD_LED_YELLOW_PIN` 19
+(pin 25) and `BOARD_LED_GREEN_PIN` 20 (pin 26).
 
 #### PICO-DD-HAL — `firmware/pico_sht30/include/hal.h`, `src/hal_pico.c`
 
 The only seam between portable code and the board (PICO-NFR-001): I2C write
 and read with STOP, returning `HAL_STATUS_OK`, `HAL_STATUS_ERR_NACK` or `HAL_STATUS_ERR_TIMEOUT`;
 millisecond delay; line output (the HAL appends LF); board unique ID; uptime;
-reboot; reboot to bootloader. `hal_pico.c` implements it on the Pico SDK -
+reboot; reboot to bootloader; and the indicator LEDs (#328): `hal_led_set(led, on)`
+lights or extinguishes one, and `hal_led_get(led)` says whether it is lit, for a
+`hal_led_t` of `HAL_LED_RED`, `HAL_LED_YELLOW` or `HAL_LED_GREEN`; an
+out-of-range LED is ignored by the one and reads as off from the other.
+`hal_init` makes the three LED pins outputs, driven low (off), before it brings
+up I2C, so the LEDs are off from boot and again after `ecureset` (PICO-FR-011).
+`hal_led_get` reads the pin's output latch (`gpio_get_out_level`), so `rd` and
+`wr` report what the pin is driven to rather than a remembered value
+(PICO-FR-009). `hal_pico.c` implements it on the Pico SDK -
 `i2c_write_timeout_us`/`i2c_read_timeout_us` (a short count or
 `PICO_ERROR_GENERIC` is a NACK, `PICO_ERROR_TIMEOUT` a timeout),
 `stdio_puts_raw` for output (no CRLF translation), `pico_get_unique_board_id_string`,
@@ -2880,7 +2899,7 @@ each): tokenise in place on space and tab, counting tokens
 past `PROTO_MAX_TOKENS` without storing them so an over-long command fails its
 argument check rather than being truncated; look the first token up
 (case-sensitive); check the argument count; run the handler, which writes its
-whole reply line - `ok …`, or for `rd`, `ACK …` or `NAK …` - into an empty
+whole reply line - `ok …`, or for `rd` and `wr`, `ACK …` or `NAK …` - into an empty
 buffer. A handler returning an error sends `err <code> <text>` instead, and
 whatever it wrote is discarded. A reply that overflowed is replaced by `err 3`,
 never sent truncated. `ecureset` and `bootsel` set a pending action that runs
@@ -2897,7 +2916,25 @@ because it is measured: `cmd_rd_temperature` calls `sht30_measure` and writes
 (PICO-FR-027). Any other option is answered `NAK rd <option> = Error`, the option
 echoed as received (PICO-FR-007). `rd` always returns `PROTO_ERR_NONE`; an
 option count other than one is refused by the generic argument check with
-`err 2`.
+`err 2`. *(Revised by #328:)* an option not in `cmd_rd_fields` is then looked
+up in `cmd_leds` (below) and answered with `cmd_led_state`, also without
+touching the sensor (PICO-FR-009).
+
+*LEDs* (#328): `cmd_leds` binds each option - `led-red`, `led-yellow`,
+`led-green` - to its `hal_led_t`. `cmd_led_lookup` finds an option in it,
+matched exactly, or returns NULL. `cmd_led_state` gives `on` or `off` from
+`hal_led_get`, the pin's output latch, so a reply says what the pin is doing and
+not what was asked.
+
+*`wr`* (`cmd_wr`, #328, PICO-FR-008): takes exactly an option and a value (the
+generic argument check refuses anything else with `err 2`). The value must be
+exactly `on` or `off`, case included. If the option is an LED and the value is
+valid, `hal_led_set` is called and the reply is `ACK wr <option> = ` followed by
+`cmd_led_state` read back after the write. Otherwise the reply is
+`NAK wr <option> = Error`, the option echoed as received, and `hal_led_set` is
+not called, so nothing changes. `wr` always returns `PROTO_ERR_NONE`.
+`cmd_value_begin` writes the `<ACK|NAK> <rd|wr> <option> = ` prefix that every
+`rd` and `wr` reply shares; `cmd_rd_begin` is a wrapper on it for `rd`.
 
 #### PICO-DD-MAIN — `firmware/pico_sht30/src/main.c`
 
@@ -2932,17 +2969,25 @@ Host build (CMake + Unity v2.6.0 + CTest) of `cmd_parser.c`, `sht30.c`,
 `text.c` and `firmware_version.c`, unchanged, against `support/fake_hal.c`.
 The fake records every I2C write, answers reads from a queue (an empty queue is
 a NACK - an absent sensor), accumulates delays, captures output lines, and
-records how many lines had been sent when a reboot was requested. Built with the
+records how many lines had been sent when a reboot was requested. It also
+models the three LEDs, all off after `fake_hal_reset`: `fake_hal_led(led)` says
+whether one is lit, and `fake_hal_led_writes()` counts `hal_led_set` calls, so a
+test can show that a refused `wr` wrote nothing (#328). Built with the
 target's warning set as errors plus `-fsanitize=address,undefined`.
 `FIRMWARE_GIT_SHA` is fixed at `0123abc`, so that the tests exercise the
 injected path.
 
 #### PICO-DD-CONST — `benchtools/instruments/pico_sht30/constants.py`
 
-The command and error tables, `NAME`, `COPYRIGHT`, protocol version (`2.0`),
+The command and error tables, `NAME`, `COPYRIGHT`, protocol version (`2.1`),
 sensor, default address, status bits and datasheet accuracy, mirrored from the
 firmware headers and checked against them by `SWE4-UT-PICOFWPROTO`.
-`RD_OPTIONS` lists the five `rd` options and `RD_ERROR` is `Error`.
+`RD_OPTIONS` lists the `rd` options - the five values and the three LEDs - and
+`RD_ERROR` is `Error`. For the LEDs (#328): `LEDS` is `red`, `yellow`, `green`;
+`LED_OPTIONS` (also `WR_OPTIONS`, the only `wr` options) is `led-red`,
+`led-yellow`, `led-green`; `LED_ON`, `LED_OFF` and `LED_STATES` are `on` and
+`off`; `led_option(colour)` gives the option for a colour and raises
+`ValueError` for any other. `COMMANDS` has `wr` with exactly two arguments.
 `raw_to_celsius` and `raw_to_percent` repeat the firmware's integer arithmetic
 exactly, and `milli_to_centi_text` repeats `text_centi`; the simulator uses all
 three, so that its readings are ones the firmware could produce.
@@ -2962,6 +3007,15 @@ line and reads lines skipping `#` lines.
 * `rd(option)` matches `^(ACK|NAK) rd (\S+) = (.*)$`, refuses a reply for
   another option with `ProtocolError`, raises `RdRefusedError` for `NAK` and
   `SensorError` for `err`, and returns the value of an `ACK` (PICO-FR-047).
+* `wr(option, value)` (#328) does the same for `^(ACK|NAK) wr (\S+) = (.*)$`,
+  raising `WrRefusedError` for `NAK`, and returns the value read back
+  (PICO-FR-049). `rd` and `wr` share `_value_command`, which takes the command,
+  the option, the reply pattern and the error to raise for `NAK`.
+* `led(colour)` is `rd led-<colour>` and returns True for `on`; `set_led(colour,
+  on)` is `wr led-<colour> on|off` and returns the state read back, raising
+  `ProtocolError` if it is not the one written. Both raise `ValueError` for an
+  unknown colour before anything is sent (`led_option`), and `_led_state`
+  refuses a state that is neither `on` nor `off` with `ProtocolError`.
 * `firmware_info()` is four `rd` reads - name, copyright, version, sha - cached
   until `refresh` or a reboot; `name`, `version` and `sha` are properties.
 * `read()` is `rd temperature`: `Error` raises `NoReadingError`, and a value not
@@ -2971,7 +3025,8 @@ line and reads lines skipping `#` lines.
 
 `FirmwareInfo` (name, copyright, version, sha), `Reading` (temperature, text,
 timestamp) and `SensorStatus` are frozen dataclasses with `as_dict()` for JSON
-reports. `NoReadingError` and `RdRefusedError` are `InstrumentError`s.
+reports. `NoReadingError`, `RdRefusedError` and `WrRefusedError` are
+`InstrumentError`s.
 `connect()` takes a bare port name as a serial port.
 
 `read` logs the temperature with `log_reading` in degC, with the firmware's text (PICO-FR-048).
@@ -2983,8 +3038,12 @@ text, checking argument counts against `COMMANDS`. The ambient temperature is
 quantised to a raw word, converted to milli-degrees with the firmware's integer
 arithmetic and formatted with `milli_to_centi_text`, so the simulator is held
 to the same arithmetic and rounding as the firmware. `rd` answers name,
-copyright, `version` (default `V1.00.0000`) and `sha` (default `0c0ffee`), and
-`NAK` for any other option. Faults: `sensor_present = False`, `corrupt_next`
+copyright, `version` (default `V1.01.0000`) and `sha` (default `0c0ffee`), and
+`NAK` for any other option. *(Revised by #328:)* `leds` maps each LED option to
+whether it is lit, all off at construction and again on `ecureset` (as the
+firmware's `hal_init` leaves them); `rd led-<colour>` answers its state and
+`wr` answers `ACK wr <option> = on|off`, or `NAK wr <option> = Error` for an
+unknown option or a value other than `on` or `off`, changing nothing. Faults: `sensor_present = False`, `corrupt_next`
 (one reading) and `bus_timeout` each make `rd temperature` answer `Error`, and
 `status` and `sreset` answer `err 4`, `err 5` and `err 6` respectively. It
 counts measurements, reboots (`ecureset`) and bootloader requests. An optional
@@ -2995,7 +3054,11 @@ PICO-DD-FLASH's simulated board uses it to present its bootloader drive.
 
 `benchtools thermo` with sub-commands `info` (name, copyright, version, sha),
 `rd <option>` (argparse `choices` from `RD_OPTIONS`, so an unknown option is
-refused before anything is sent), `temp [--count N --interval S]`, `status`,
+refused before anything is sent; the LED options included since #328),
+`wr <option> <value>` (#328: `choices` from `WR_OPTIONS` and `LED_STATES`, so
+anything else is refused before anything is sent; it prints `{"option",
+"value"}` with the value read back, and exits 1 if that is not the value
+written), `temp [--count N --interval S]`, `status`,
 `sreset`, `ecureset`, `bootsel` and `flash`, emitting JSON (AD-15), `--json PATH`
 to also write it to a file. Exit status 0 on success, 1 on a connection or
 instrument error.

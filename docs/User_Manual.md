@@ -438,7 +438,7 @@ From `benches/bench_pc.yaml` and ETB-SYS5-002 §4.1:
 | `dongle` | Nordic PCA10059 BLE dongle, firmware 1.7.0 | COM10 | `D7FA0F34C85A` |
 | `psu` | GW Instek GPD-3303D, SN GER916893, firmware V1.09, 9600 baud | COM11 (FTDI) | `A105X5XCA` |
 | `dmm` | TTi 1604 multimeter | COM13 (FTDI FT232) | `A9LQ0R81A` |
-| `temp` | Raspberry Pi Pico 2 thermometer, `firmware/pico_sht30` V1.00.0000 | COM14 | `AC5483CD0798FB0B` |
+| `temp` | Raspberry Pi Pico 2 thermometer, `firmware/pico_sht30` V1.01.0000 (with the indicator LEDs of #328) | COM14 | `AC5483CD0798FB0B` |
 | `s2lp` | NUCLEO-L053R8 + STEVAL-FKI433V2, ST's CLI firmware | COM4 (ST-LINK VCP) | `066CFF515055657867182645` |
 | `probe` | J-Link OB-SAM3U128-V2-NordicSem, S/N 682395790, on Kepler sensor **5C1712** | `jlink://` (USB) | — |
 | `rtt` | The same J-Link, RTT only, never halting the target | `jlink://127.0.0.1:2341` | — |
@@ -446,7 +446,10 @@ From `benches/bench_pc.yaml` and ETB-SYS5-002 §4.1:
 There is **no oscilloscope** on this bench. A specification that needs `scope`
 stops at connect and names the missing alias (ETB-SYS5-002 §6.7).
 The SHT30-D module is **not yet wired** to the Pico (ETB-SYS5-002 §3.3): the
-thermometer identifies itself but measures nothing real.
+thermometer identifies itself but measures nothing real. *Note, 2026-11-12
+(#328):* the module is now wired, SDA on GP4 and SCL on GP5, and the
+thermometer read about 23 °C; three indicator LEDs on GP18, GP19 and GP20 are
+switched with `thermo wr` ([Pico 2 + SHT30-D Notes §7.2](pico_sht30/Pico_SHT30_Notes.md#72-indicator-leds-and-the-sensor-connected-2026-11-12)).
 
 **Ports and identification.** COM numbers can change when a device is
 re-plugged. Before a session, match each port to its USB serial number
@@ -775,7 +778,7 @@ Commands:
   ble         scan, drive and profile a BLE sensor through a Nordic dongle
   psu         control a GW Instek GPD-3303D bench power supply
   s2lp        drive an ST S2-LP sub-1 GHz development kit
-  thermo      read a Pico 2 + SHT30-D thermometer: identity and temperature
+  thermo      read a Pico 2 + SHT30-D thermometer: identity, temperature, LEDs
   serial      capture the lines a device prints on a serial port (RD, WR, ROUTINE)
   drivers     list the instrument drivers a bench configuration can name
   backends    list the transport backends a resource string can select
@@ -798,11 +801,11 @@ to a file. `<tool> <sub-command> --help` gives each sub-command's options.
 | `ble` (Nordic dongle) | `COM10`, `/dev/ttyACM0`, `serial://socket://host:4001`, `sim://` | `info`, `firmware`, `scan`, `select`, `profile`, `cmd`, `script`, `monitor` | `ble -r sim:// scan` → 3 sensors, first `SENS-0A1B2C` |
 | `s2lp` (S2-LP kit) | `COM4`, `/dev/ttyACM0`, `sim://`; `--board`, `--setup REGS` | `info`, `registers`, `radio`, `config`, `tx`, `rx`, `capture`, `packets`, `stream`, `preamble`, `strobe` | `s2lp -r sim:// info` → `"library": "1.3.5"` |
 | `serial` (serial capture) | `COM5`, `/dev/ttyUSB0`, `sim://`; `--baudrate`, `--format 8N1` | none: each argument is one command (`RD`, `WR`, `ROUTINE`), or they are read from standard input; replies are text, not JSON | `serial -r sim:// "WR LINES ON" "ROUTINE START CAPTURE"` → `LINE 1 = BOOT V1.00.0000` … `ACK ROUTINE RESULTS CAPTURE = Complete, 4 lines` |
-| `thermo` (Pico 2 + SHT30-D) | `COM14`, `/dev/ttyACM0`, `sim://` | `info`, `rd`, `temp`, `status`, `sreset`, `ecureset`, `bootsel`, `flash` | `thermo -r sim:// temp` → `"temperature_c": 22.5` |
+| `thermo` (Pico 2 + SHT30-D) | `COM14`, `/dev/ttyACM0`, `sim://` | `info`, `rd`, `wr`, `temp`, `status`, `sreset`, `ecureset`, `bootsel`, `flash` | `thermo -r sim:// temp` → `"temperature_c": 22.5` |
 | `scope` (TDS3014B) | IP address, VISA-style string, `sim://`; `-b` backend | `idn`, `screenshot`, `capture`, `spread`, `period`, `measure` | `scope -r sim:// idn` → `"model": "TDS 3014B"` |
 
 Commands that change the instrument or the target: `psu set/on/off`,
-`jlink flash/erase/reset/write`, `thermo sreset/ecureset/bootsel/flash`,
+`jlink flash/erase/reset/write`, `thermo wr/sreset/ecureset/bootsel/flash`,
 `s2lp tx/config/registers` writes and `strobe`, `dmm press`. `jlink erase` also
 erases UICR on an nRF52, and with it the sensor ID; its help says so. Pass a
 real resource to these only within [§4.3](#43-safety-limits).

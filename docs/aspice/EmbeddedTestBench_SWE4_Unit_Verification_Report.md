@@ -88,6 +88,7 @@
 | next | 2026-10-29 | Claude | #247, review of #318 round 4: SWE4-UT-SER 63 → 68 and SWE4-UT-SERCLI 8 → 9, pass, from a run of `tests/instruments/serial_capture` on this branch on 2026-10-29 (135 passed, Windows). The section 5 total is still the 1.32 whole-suite run's. |
 | next | 2026-10-29 | Claude | #247, review of #318 round 5: SWE4-UT-SER 68 → 75 and SWE4-UT-SERCLI 9 → 10, pass, from a run of `tests/instruments/serial_capture` on this branch on 2026-10-29 (143 passed, Windows). The section 5 total is still the 1.32 whole-suite run's. |
 | next | 2026-10-29 | Claude | #247, review of #318 round 6: SWE4-UT-SER 75 → 78 and SWE4-UT-SERCLI 10 → 11, pass, from a run of `tests/instruments/serial_capture` on this branch on 2026-10-29 (147 passed, Windows). The section 5 total is still the 1.32 whole-suite run's. |
+| next | 2026-11-12 | Claude | #328: §13A.8 added - the Pico thermometer's indicator LEDs. SWE4-UT-PICOFW 83 → 92 (`cmd_parser` 55, 0 failures, clang 21 on Windows); SWE4-UT-PICO 44 → 54, SWE4-UT-PICOSIM 36 → 45 and SWE4-UT-PICOCLI 16 → 29, pass, from a run of `tests/instruments/pico_sht30` on this branch on 2026-11-12 (172 passed, Windows); `wr` and `rd` of the LEDs confirmed on the real Pico 2, and the SHT30-D connected and reading about 23 °C. PICO-OPEN-02 noted. The section 5 total is still the 1.32 whole-suite run's. |
 ---
 
 ## 3. Purpose & Scope
@@ -1297,7 +1298,7 @@ PICO-OPEN-04.
 | ID | Item |
 |---|---|
 | PICO-OPEN-01 | **Closed 2026-10-03** (§13A.7). Flash `pico_sht30.uf2`, confirm USB enumeration, and confirm `rd name`, `rd copyright`, `rd version` and `rd sha` return the name, copyright, `V1.00.0000` and the SHA the build injected. |
-| PICO-OPEN-02 | **Confirmed in part 2026-10-03** (§13A.7): with no module connected, `rd temperature` answers `ACK rd temperature = Error` and `status` answers `err 4`. Still open: a value to two places with the DollaTek module on GP4/GP5 at 0x44. |
+| PICO-OPEN-02 | **Confirmed in part 2026-10-03** (§13A.7): with no module connected, `rd temperature` answers `ACK rd temperature = Error` and `status` answers `err 4`. Still open: a value to two places with the DollaTek module on GP4/GP5 at 0x44. *Note, 2026-11-12 (#328, §13A.8):* the module is now connected on GP4/GP5 and the thermometer read about 23 °C; the item is not closed here. |
 | PICO-OPEN-03 | Compare against a reference thermometer: expect agreement within ±0.2 °C typical between 0 and 65 °C, allowing for self-heating of the Pico. |
 | PICO-OPEN-04 | The reference PDFs (Pico 2 datasheet and schematic, RP2350 datasheet, SDK guide, Sensirion SHT3x-DIS datasheet) could not be fetched in the build environment; run `docs/pico_sht30/fetch_datasheets.sh` and commit them. Run a MISRA C:2012 checker over `firmware/pico_sht30/src`. |
 | PICO-OPEN-05 | Reflash a real Pico 2 with `benchtools thermo flash`: from the running thermometer (`bootsel`), from a board already in its bootloader, and through the 1200-baud reset; confirm the drive is found without `--drive`. **Closed 2026-10-03** on Windows 10: all three methods exited 0 with every check passing (§13A.7). Drive discovery on Linux and macOS is untested on hardware. With the `rd` firmware of #131, `flash -r COM14` (method `bootsel`) passed its `name`, `version` and `sha` checks (§13A.7). |
@@ -1384,6 +1385,57 @@ After #127 was merged into this branch, `flash` confirms the build by `rd`
 (§13A.6). `benchtools thermo -r COM14 flash pico_sht30.uf2`, with the same
 image, reported `ok`, method `bootsel`, and its checks `name`, `version`
 (`V1.00.0000`) and `sha` (`5c80ae7`) all passed.
+
+### 13A.8 Indicator LEDs (#328, 2026-11-12)
+
+#328 adds three indicator LEDs to the thermometer - red on GP18, yellow on GP19
+and green on GP20 - with the `wr` command to switch them and the LED options of
+`rd` to read them back (PICO-FR-008, -009, -011, -049, -050, -061, -062). The
+firmware version is `V1.01.0000` and the protocol version 2.1.
+
+**Host unit tests.** The firmware unit tests were built and run on the bench PC
+with clang 21 on Windows, in the configuration of §13A.1. All three suites
+passed:
+
+| Suite | File | Cases | Result |
+|---|---|---|---|
+| text | `test/test_text.c` | 15 | Pass |
+| sht30 | `test/test_sht30.c` | 22 | Pass |
+| cmd_parser | `test/test_cmd_parser.c` | 55 | Pass, 0 failures |
+| **Total** | | **92** | **Pass** |
+
+`cmd_parser` gains nine cases against §13A.1: the LEDs are off until written;
+`wr led-red on` and `off`; each LED drives only its own pin; `wr on` twice stays
+on; `rd` and `wr` of an LED do not touch the sensor; an unknown option is a
+`NAK`; a bad value is a `NAK` and changes nothing; `wr` needs an option and a
+value (`err 2`); and the longest option is echoed whole.
+
+The Python tests of `tests/instruments/pico_sht30` - 172 cases - all passed on
+the same day (`python -m pytest tests/instruments/pico_sht30`), as did
+`tests/runner` and `tests/test_publish_docs.py`. Against §5's counts,
+SWE4-UT-PICO goes from 44 to 54 cases (`TestLeds`), SWE4-UT-PICOSIM from 36 to
+45 (the simulated LEDs) and SWE4-UT-PICOCLI from 16 to 29 (`wr`, and `rd` of
+each LED); SWE4-UT-PICOFLASH (35) and SWE4-UT-PICOFWPROTO (9) are unchanged. §5
+is not re-run here.
+
+**On the bench.** The firmware was built on the bench PC with Arm GNU 14.2.1 and
+Pico SDK 2.1.1 into a UF2 image of 59 904 bytes, and flashed onto the Pico 2 on
+COM14 with `benchtools thermo -r COM14 flash`; its checks of `name`, `version`
+(`V1.01.0000`) and `sha` all passed. Over the serial link:
+
+| Sent | Reply | Expected? |
+|---|---|---|
+| `wr led-red on`, `wr led-yellow on`, `wr led-green on` | `ACK wr led-<colour> = on` | Yes |
+| `wr led-red off`, `wr led-yellow off`, `wr led-green off` | `ACK wr led-<colour> = off` | Yes |
+| `rd led-<colour>` after each write | the state just written | Yes |
+| `wr led-blue on` | `NAK` | Yes, unknown option |
+| `wr led-red 1` | `NAK` | Yes, value other than `on` or `off` |
+| `wr led-red` | `err 2` | Yes, no value |
+| `rd led-purple` | `NAK` | Yes, unknown option |
+
+The owner watched the board and confirmed that red, then yellow, then green lit
+one at a time, and then all three together. On the same day the SHT30-D module
+was connected (SDA on GP4, SCL on GP5), and the thermometer read about 23 °C.
 
 ## 13B. TTi 1604 multimeter verification results (#115)
 
