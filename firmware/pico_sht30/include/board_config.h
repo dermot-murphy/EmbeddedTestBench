@@ -12,6 +12,12 @@
  *   SCL       GP5 = I2C0 SCL, pin 7
  *   ADDR      GND -> I2C address 0x44
  *
+ * Indicator LEDs (#328), each driven high to light, through its own resistor:
+ *
+ *   red       GP18, pin 24
+ *   yellow    GP19, pin 25
+ *   green     GP20, pin 26
+ *
  * Each value may be overridden from the build (-DBOARD_I2C_SDA_PIN=...), so a
  * bench wired differently needs no source edit.
  *
@@ -50,6 +56,21 @@
 /** 7-bit address of the SHT30: 0x44 with ADDR low, 0x45 with ADDR high. */
 #ifndef BOARD_SHT30_ADDRESS
 #define BOARD_SHT30_ADDRESS		0x44U
+#endif
+
+/** GPIO driving the red LED (#328). High is lit. */
+#ifndef BOARD_LED_RED_PIN
+#define BOARD_LED_RED_PIN		18U
+#endif
+
+/** GPIO driving the yellow LED (#328). High is lit. */
+#ifndef BOARD_LED_YELLOW_PIN
+#define BOARD_LED_YELLOW_PIN		19U
+#endif
+
+/** GPIO driving the green LED (#328). High is lit. */
+#ifndef BOARD_LED_GREEN_PIN
+#define BOARD_LED_GREEN_PIN		20U
 #endif
 
 /** Board name. Not reported on the link since protocol 2.0. */

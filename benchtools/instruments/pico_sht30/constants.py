@@ -5,7 +5,8 @@ A test parses that header and compares it with these tables
 (``tests/instruments/pico_sht30/test_firmware_protocol.py``), so the two cannot
 drift apart unnoticed.
 
-Traces to: PICO-FR-001 .. PICO-FR-005, PICO-FR-040, PICO-DD-CONST.
+Traces to: PICO-FR-001 .. PICO-FR-005, PICO-FR-008, PICO-FR-009, PICO-FR-040,
+PICO-DD-CONST.
 """
 
 from __future__ import annotations
@@ -20,6 +21,13 @@ __all__ = [
     "PROTOCOL_VERSION",
     "RD_OPTIONS",
     "RD_ERROR",
+    "LEDS",
+    "LED_OPTIONS",
+    "WR_OPTIONS",
+    "LED_ON",
+    "LED_OFF",
+    "LED_STATES",
+    "led_option",
     "SENSOR",
     "DEFAULT_ADDRESS",
     "DEFAULT_BAUDRATE",
@@ -46,10 +54,24 @@ COPYRIGHT = "(c) 2026 Dermot Murphy"
 
 #: Protocol revision this driver speaks; ``PROTO_VERSION`` in protocol.h. The
 #: firmware does not report it: ``rd name`` identifies the firmware instead.
-PROTOCOL_VERSION = "2.0"
+PROTOCOL_VERSION = "2.1"
+
+#: The indicator LEDs (#328): red on GP18, yellow on GP19, green on GP20.
+LEDS = ("red", "yellow", "green")
+
+#: How ``rd`` and ``wr`` name the LEDs: ``led-red``, ``led-yellow``, ``led-green``.
+LED_OPTIONS = tuple("led-%s" % colour for colour in LEDS)
 
 #: The options ``rd`` answers, in the order ``rd`` documents them.
-RD_OPTIONS = ("name", "copyright", "version", "sha", "temperature")
+RD_OPTIONS = ("name", "copyright", "version", "sha", "temperature") + LED_OPTIONS
+
+#: The options ``wr`` accepts: the LEDs only.
+WR_OPTIONS = LED_OPTIONS
+
+#: The two LED states, as ``wr`` takes them and ``rd`` and ``wr`` report them.
+LED_ON = "on"
+LED_OFF = "off"
+LED_STATES = (LED_ON, LED_OFF)
 
 #: The value ``rd temperature`` reports when there is no reading, and that a
 #: ``NAK`` carries.
@@ -68,6 +90,7 @@ DEFAULT_BAUDRATE = 115200
 COMMANDS: Dict[str, Tuple[int, int]] = {
     "help": (0, 0),
     "rd": (1, 1),
+    "wr": (2, 2),
     "status": (0, 0),
     "sreset": (0, 0),
     "ecureset": (0, 0),
@@ -108,6 +131,16 @@ TEMPERATURE_ACCURACY = 0.2
 HUMIDITY_ACCURACY = 2.0
 
 _FULL_SCALE = 65535
+
+
+def led_option(colour: str) -> str:
+    """The ``rd``/``wr`` option for LED *colour*: ``"red"`` -> ``"led-red"``.
+
+    :raises ValueError: for a colour that is not one of :data:`LEDS`.
+    """
+    if colour not in LEDS:
+        raise ValueError("no %r LED; the LEDs are %s" % (colour, ", ".join(LEDS)))
+    return "led-%s" % colour
 
 
 def raw_to_celsius(raw: int) -> float:

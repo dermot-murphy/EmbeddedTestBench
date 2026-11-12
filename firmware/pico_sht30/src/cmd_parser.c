@@ -4,7 +4,8 @@
  *
  * Traces to: PICO-FR-001, PICO-FR-003, PICO-FR-004, PICO-FR-005,
  *            PICO-FR-006, PICO-FR-007, PICO-FR-020, PICO-FR-024,
- *            PICO-FR-027, PICO-FR-030, PICO-DD-PARSER.
+ *            PICO-FR-008, PICO-FR-009, PICO-FR-027, PICO-FR-030,
+ *            PICO-DD-PARSER.
  */
 
 #include "cmd_parser.h"
@@ -24,6 +25,11 @@
 
 /** The @c rd option that is measured rather than looked up. */
 #define CMD_PARSER_RD_TEMPERATURE	"temperature"
+
+/** The two states of an LED, as @c wr takes them and @c rd and @c wr report
+ *  them (#328). */
+#define CMD_PARSER_LED_ON		"on"
+#define CMD_PARSER_LED_OFF		"off"
 
 /** What to do once the reply has been sent. A reboot must follow the reply,
  *  or the host never learns that the command was accepted. */
@@ -50,6 +56,7 @@ typedef struct
  * still fails to build, because the table below takes each one's address. */
 static proto_error_t cmd_help(uint32_t argc, char *argv[], text_t *reply);
 static proto_error_t cmd_rd(uint32_t argc, char *argv[], text_t *reply);
+static proto_error_t cmd_wr(uint32_t argc, char *argv[], text_t *reply);
 static proto_error_t cmd_status(uint32_t argc, char *argv[], text_t *reply);
 static proto_error_t cmd_sreset(uint32_t argc, char *argv[], text_t *reply);
 static proto_error_t cmd_ecureset(uint32_t argc, char *argv[], text_t *reply);
@@ -82,6 +89,22 @@ static const cmd_rd_field_t	cmd_rd_fields[] =
 };
 
 #define CMD_PARSER_RD_FIELD_COUNT	((uint32_t)(sizeof(cmd_rd_fields) / sizeof(cmd_rd_fields[0])))
+
+/** An LED as @c rd and @c wr name it (#328). */
+typedef struct
+{
+	const char	*option;
+	hal_led_t	led;
+} cmd_led_t;
+
+static const cmd_led_t	cmd_leds[] =
+{
+	{ "led-red",	HAL_LED_RED },
+	{ "led-yellow",	HAL_LED_YELLOW },
+	{ "led-green",	HAL_LED_GREEN }
+};
+
+#define CMD_PARSER_LED_COUNT		((uint32_t)(sizeof(cmd_leds) / sizeof(cmd_leds[0])))
 
 #define X(symbol, code, text)	(text),
 static const char * const	cmd_error_text[] =
@@ -168,13 +191,21 @@ static proto_error_t cmd_help(uint32_t argc, char *argv[], text_t *reply)
 	return PROTO_ERR_NONE;
 }
 
-/* "<ACK|NAK> rd <option> = " - the part every rd reply shares. */
-static void cmd_rd_begin(text_t *reply, const char *verdict, const char *option)
+/* "<ACK|NAK> <rd|wr> <option> = " - the part every rd and wr reply shares. */
+static void cmd_value_begin(text_t *reply, const char *verdict, const char *command,
+			    const char *option)
 {
 	text_str(reply, verdict);
-	text_str(reply, " rd ");
+	text_char(reply, ' ');
+	text_str(reply, command);
+	text_char(reply, ' ');
 	text_str(reply, option);
 	text_str(reply, " = ");
+}
+
+static void cmd_rd_begin(text_t *reply, const char *verdict, const char *option)
+{
+	cmd_value_begin(reply, verdict, "rd", option);
 }
 
 /* rd temperature: one measurement, in degrees Celsius to two places. Any
@@ -196,14 +227,39 @@ static void cmd_rd_temperature(text_t *reply)
 	}
 }
 
+/* The LED named @p option, matched exactly, or NULL. */
+static const cmd_led_t *cmd_led_lookup(const char *option)
+{
+	const cmd_led_t	*entry = NULL;
+	uint32_t	index;
+
+	for (index = 0U; (index < CMD_PARSER_LED_COUNT) && (entry == NULL); index++)
+	{
+		if (strcmp(option, cmd_leds[index].option) == 0)
+		{
+			entry = &cmd_leds[index];
+		}
+	}
+	return entry;
+}
+
+/* "on" or "off": the state of @p led read back from its pin's output latch,
+ * so the reply says what the pin is doing, not what was asked (PICO-FR-009). */
+static const char *cmd_led_state(hal_led_t led)
+{
+	return hal_led_get(led) ? CMD_PARSER_LED_ON : CMD_PARSER_LED_OFF;
+}
+
 /* rd <option>. The option is matched exactly, case included. The identity
  * options never touch the sensor, so a Pico with no sensor still says what it
- * is (PICO-FR-005, PICO-FR-006). An unknown option is answered with a NAK
- * that echoes it as received (PICO-FR-007). */
+ * is (PICO-FR-005, PICO-FR-006). An LED option reports its state (PICO-FR-009).
+ * An unknown option is answered with a NAK that echoes it as received
+ * (PICO-FR-007). */
 static proto_error_t cmd_rd(uint32_t argc, char *argv[], text_t *reply)
 {
 	const char	*option = argv[0];
 	const char	*value = NULL;
+	const cmd_led_t	*led = cmd_led_lookup(option);
 	uint32_t	index;
 
 	(void)argc;
@@ -213,6 +269,10 @@ static proto_error_t cmd_rd(uint32_t argc, char *argv[], text_t *reply)
 		{
 			value = cmd_rd_fields[index].value;
 		}
+	}
+	if ((value == NULL) && (led != NULL))
+	{
+		value = cmd_led_state(led->led);
 	}
 
 	if (value != NULL)
@@ -227,6 +287,47 @@ static proto_error_t cmd_rd(uint32_t argc, char *argv[], text_t *reply)
 	else
 	{
 		cmd_rd_begin(reply, "NAK", option);
+		text_str(reply, CMD_PARSER_RD_ERROR);
+	}
+	return PROTO_ERR_NONE;
+}
+
+/* wr <option> <value> (#328). The only options are the LEDs, and the only
+ * values "on" and "off", each matched exactly, case included. The ACK carries
+ * the state read back after the write (PICO-FR-008). Anything else is
+ * answered with a NAK that echoes the option as received, and changes
+ * nothing. */
+static proto_error_t cmd_wr(uint32_t argc, char *argv[], text_t *reply)
+{
+	const char	*option = argv[0];
+	const char	*value = argv[1];
+	const cmd_led_t	*led = cmd_led_lookup(option);
+	bool		valid = true;
+	bool		on = false;
+
+	(void)argc;
+	if (strcmp(value, CMD_PARSER_LED_ON) == 0)
+	{
+		on = true;
+	}
+	else if (strcmp(value, CMD_PARSER_LED_OFF) != 0)
+	{
+		valid = false;
+	}
+	else
+	{
+		/* "off": on stays false. */
+	}
+
+	if ((led != NULL) && valid)
+	{
+		hal_led_set(led->led, on);
+		cmd_value_begin(reply, "ACK", "wr", option);
+		text_str(reply, cmd_led_state(led->led));
+	}
+	else
+	{
+		cmd_value_begin(reply, "NAK", "wr", option);
 		text_str(reply, CMD_PARSER_RD_ERROR);
 	}
 	return PROTO_ERR_NONE;

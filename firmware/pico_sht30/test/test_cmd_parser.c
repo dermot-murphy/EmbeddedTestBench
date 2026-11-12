@@ -5,7 +5,8 @@
  * Traces to: PICO-FR-001, PICO-FR-003, PICO-FR-004, PICO-FR-005,
  *            PICO-FR-006, PICO-FR-007, PICO-FR-020, PICO-FR-021,
  *            PICO-FR-023, PICO-FR-024, PICO-FR-025, PICO-FR-027,
- *            PICO-FR-030, PICO-DD-PARSER, SWE4-UT-PICOFW.
+ *            PICO-FR-008, PICO-FR-009, PICO-FR-030, PICO-DD-PARSER,
+ *            SWE4-UT-PICOFW.
  */
 
 #include "unity.h"
@@ -212,7 +213,7 @@ static void test_rd_copyright(void)
 static void test_rd_version(void)
 {
 	test_feed("rd version\n");
-	TEST_ASSERT_EQUAL_STRING("ACK rd version = V1.00.0000", fake_hal_last_line());
+	TEST_ASSERT_EQUAL_STRING("ACK rd version = V1.01.0000", fake_hal_last_line());
 }
 
 static void test_rd_sha_reports_the_injected_commit(void)
@@ -460,17 +461,133 @@ static void test_a_refused_ecureset_does_not_reboot(void)
 	TEST_ASSERT_EQUAL_UINT32(0U, fake_hal_reboot_count());
 }
 
+/* --- LEDs: rd and wr (#328, PICO-FR-008, PICO-FR-009) --------------------- */
+static void test_leds_are_off_until_written(void)
+{
+	test_feed("rd led-red\nrd led-yellow\nrd led-green\n");
+	TEST_ASSERT_EQUAL_UINT32(3U, fake_hal_line_count());
+	TEST_ASSERT_EQUAL_STRING("ACK rd led-red = off", fake_hal_line(0U));
+	TEST_ASSERT_EQUAL_STRING("ACK rd led-yellow = off", fake_hal_line(1U));
+	TEST_ASSERT_EQUAL_STRING("ACK rd led-green = off", fake_hal_line(2U));
+	TEST_ASSERT_EQUAL_UINT32(0U, fake_hal_led_writes());
+}
+
+static void test_wr_led_red_on_and_off(void)
+{
+	test_feed("wr led-red on\n");
+	TEST_ASSERT_EQUAL_STRING("ACK wr led-red = on", fake_hal_last_line());
+	TEST_ASSERT_TRUE(fake_hal_led(HAL_LED_RED));
+	test_feed("rd led-red\n");
+	TEST_ASSERT_EQUAL_STRING("ACK rd led-red = on", fake_hal_last_line());
+	test_feed("wr led-red off\n");
+	TEST_ASSERT_EQUAL_STRING("ACK wr led-red = off", fake_hal_last_line());
+	TEST_ASSERT_FALSE(fake_hal_led(HAL_LED_RED));
+	test_feed("rd led-red\n");
+	TEST_ASSERT_EQUAL_STRING("ACK rd led-red = off", fake_hal_last_line());
+}
+
+static void test_wr_each_led_drives_only_its_own_pin(void)
+{
+	test_feed("wr led-yellow on\n");
+	TEST_ASSERT_EQUAL_STRING("ACK wr led-yellow = on", fake_hal_last_line());
+	TEST_ASSERT_FALSE(fake_hal_led(HAL_LED_RED));
+	TEST_ASSERT_TRUE(fake_hal_led(HAL_LED_YELLOW));
+	TEST_ASSERT_FALSE(fake_hal_led(HAL_LED_GREEN));
+	test_feed("wr led-green on\n");
+	TEST_ASSERT_EQUAL_STRING("ACK wr led-green = on", fake_hal_last_line());
+	TEST_ASSERT_FALSE(fake_hal_led(HAL_LED_RED));
+	TEST_ASSERT_TRUE(fake_hal_led(HAL_LED_YELLOW));
+	TEST_ASSERT_TRUE(fake_hal_led(HAL_LED_GREEN));
+	test_feed("wr led-yellow off\n");
+	TEST_ASSERT_FALSE(fake_hal_led(HAL_LED_YELLOW));
+	TEST_ASSERT_TRUE(fake_hal_led(HAL_LED_GREEN));
+}
+
+static void test_wr_on_twice_stays_on(void)
+{
+	test_feed("wr led-green on\nwr led-green on\n");
+	TEST_ASSERT_EQUAL_STRING("ACK wr led-green = on", fake_hal_last_line());
+	TEST_ASSERT_TRUE(fake_hal_led(HAL_LED_GREEN));
+}
+
+static void test_leds_do_not_touch_the_sensor(void)
+{
+	test_feed("wr led-red on\nrd led-red\n");
+	TEST_ASSERT_EQUAL_UINT32(0U, fake_hal_write_count());
+	TEST_ASSERT_EQUAL_UINT32(0U, fake_hal_read_count());
+}
+
+static void test_wr_unknown_option_is_a_nak(void)
+{
+	test_feed("wr led-blue on\n");
+	TEST_ASSERT_EQUAL_STRING("NAK wr led-blue = Error", fake_hal_last_line());
+	test_feed("wr name on\n");
+	TEST_ASSERT_EQUAL_STRING("NAK wr name = Error", fake_hal_last_line());
+	test_feed("wr LED-RED on\n");
+	TEST_ASSERT_EQUAL_STRING("NAK wr LED-RED = Error", fake_hal_last_line());
+	TEST_ASSERT_EQUAL_UINT32(0U, fake_hal_led_writes());
+}
+
+static void test_wr_bad_value_is_a_nak_and_changes_nothing(void)
+{
+	test_feed("wr led-red on\n");
+	test_feed("wr led-red 0\n");
+	TEST_ASSERT_EQUAL_STRING("NAK wr led-red = Error", fake_hal_last_line());
+	test_feed("wr led-red OFF\n");
+	TEST_ASSERT_EQUAL_STRING("NAK wr led-red = Error", fake_hal_last_line());
+	test_feed("wr led-red of\n");
+	TEST_ASSERT_EQUAL_STRING("NAK wr led-red = Error", fake_hal_last_line());
+	TEST_ASSERT_TRUE(fake_hal_led(HAL_LED_RED));
+	TEST_ASSERT_EQUAL_UINT32(1U, fake_hal_led_writes());
+}
+
+static void test_wr_needs_an_option_and_a_value(void)
+{
+	test_feed("wr\n");
+	TEST_ASSERT_EQUAL_STRING("err 2 wrong number of arguments", fake_hal_last_line());
+	test_feed("wr led-red\n");
+	TEST_ASSERT_EQUAL_STRING("err 2 wrong number of arguments", fake_hal_last_line());
+	test_feed("wr led-red on now\n");
+	TEST_ASSERT_EQUAL_STRING("err 2 wrong number of arguments", fake_hal_last_line());
+	TEST_ASSERT_EQUAL_UINT32(0U, fake_hal_led_writes());
+}
+
+static void test_wr_the_longest_option_is_echoed_whole(void)
+{
+	char		command[PROTO_MAX_LINE + 1U];
+	char		expected[PROTO_MAX_REPLY];
+	uint32_t	index;
+	uint32_t	end = PROTO_MAX_LINE - 4U;
+
+	/* The longest line that fits: "wr ", an option, " on". */
+	(void)strcpy(command, "wr ");
+	for (index = 3U; index < end; index++)
+	{
+		command[index] = 'q';
+	}
+	command[end] = '\0';
+	(void)strcpy(expected, "NAK ");
+	(void)strcat(expected, command);
+	(void)strcat(expected, " = Error");
+	(void)strcat(command, " on\n");
+	TEST_ASSERT_EQUAL_UINT32(PROTO_MAX_LINE, (uint32_t)strlen(command));
+
+	test_feed(command);
+	TEST_ASSERT_EQUAL_STRING(expected, fake_hal_last_line());
+}
+
 /* --- help --------------------------------------------------------------- */
 static void test_help_lists_every_command_then_ok(void)
 {
 	test_feed("help\n");
-	TEST_ASSERT_EQUAL_UINT32(7U, fake_hal_line_count());
+	TEST_ASSERT_EQUAL_UINT32(8U, fake_hal_line_count());
 	TEST_ASSERT_EQUAL_STRING_LEN("# help - ", fake_hal_line(0U), 9U);
 	test_expect_in("# rd - ", fake_hal_line(1U));
-	test_expect_in("# status - ", fake_hal_line(2U));
-	test_expect_in("# sreset - ", fake_hal_line(3U));
-	test_expect_in("# ecureset - ", fake_hal_line(4U));
-	test_expect_in("# bootsel - ", fake_hal_line(5U));
+	test_expect_in("# wr - ", fake_hal_line(2U));
+	test_expect_in("# status - ", fake_hal_line(3U));
+	test_expect_in("# sreset - ", fake_hal_line(4U));
+	test_expect_in("# ecureset - ", fake_hal_line(5U));
+	test_expect_in("# bootsel - ", fake_hal_line(6U));
 	TEST_ASSERT_EQUAL_STRING("ok", fake_hal_last_line());
 }
 
@@ -522,6 +639,15 @@ int main(void)
 	RUN_TEST(test_ecureset_replies_before_rebooting);
 	RUN_TEST(test_bootsel_replies_before_rebooting);
 	RUN_TEST(test_a_refused_ecureset_does_not_reboot);
+	RUN_TEST(test_leds_are_off_until_written);
+	RUN_TEST(test_wr_led_red_on_and_off);
+	RUN_TEST(test_wr_each_led_drives_only_its_own_pin);
+	RUN_TEST(test_wr_on_twice_stays_on);
+	RUN_TEST(test_leds_do_not_touch_the_sensor);
+	RUN_TEST(test_wr_unknown_option_is_a_nak);
+	RUN_TEST(test_wr_bad_value_is_a_nak_and_changes_nothing);
+	RUN_TEST(test_wr_needs_an_option_and_a_value);
+	RUN_TEST(test_wr_the_longest_option_is_echoed_whole);
 	RUN_TEST(test_help_lists_every_command_then_ok);
 	return UNITY_END();
 }

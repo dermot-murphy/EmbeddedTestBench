@@ -675,13 +675,14 @@ board in BOOTSEL mode.
 from benchtools.instruments.pico_sht30 import PicoSht30
 
 with PicoSht30.connect("/dev/ttyACM0") as thermometer:     # COM5 on Windows
-    print(thermometer.name, thermometer.version)           # Pico 2 SHT30 Temperature Sensor V1.00.0000
+    print(thermometer.name, thermometer.version)           # Pico 2 SHT30 Temperature Sensor V1.01.0000
     print("%.2f °C" % thermometer.temperature())
 ```
 
 ```bash
 python -m benchtools thermo -r /dev/ttyACM0 info
 python -m benchtools thermo -r /dev/ttyACM0 rd sha
+python -m benchtools thermo -r /dev/ttyACM0 wr led-red on   # LEDs: led-red, led-yellow, led-green (#328)
 python -m benchtools thermo -r /dev/ttyACM0 temp --count 10 --interval 1
 python -m benchtools thermo -r sim:// temp          # no hardware needed
 ```

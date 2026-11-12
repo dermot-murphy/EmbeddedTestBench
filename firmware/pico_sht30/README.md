@@ -1,26 +1,34 @@
 # Pico 2 + SHT30-D thermometer firmware
 
 A Raspberry Pi Pico 2 reads a Sensirion SHT30-DIS (on a DollaTek SHT30-D module)
-over I2C and answers over USB CDC:
+over I2C and answers over USB CDC. It also drives three indicator LEDs - red on
+GP18, yellow on GP19 and green on GP20, each lit when its pin is high - which
+are off from boot and switched by `wr` (#328):
 
 ```
 rd name         -> ACK rd name = Pico 2 SHT30 Temperature Sensor
 rd copyright    -> ACK rd copyright = (c) 2026 Dermot Murphy
-rd version      -> ACK rd version = V1.00.0000
+rd version      -> ACK rd version = V1.01.0000
 rd sha          -> ACK rd sha = <7-character commit SHA>
 rd temperature  -> ACK rd temperature = 22.85      (or = Error when the sensor cannot be read)
+rd led-red      -> ACK rd led-red = off            (also led-yellow, led-green; on or off)
 rd <other>      -> NAK rd <other> = Error
+wr led-red on   -> ACK wr led-red = on             (the state read back; also off,
+                                                    led-yellow, led-green)
+wr <other> <v>  -> NAK wr <other> = Error          (unknown option, or a value other
+                                                    than on/off; nothing changes)
 ```
 
-`status`, `sreset`, `ecureset` (reboot), `bootsel` and `help` answer `ok ...` or
+`rd` and `wr` with the wrong number of arguments answer `err 2`. `status`,
+`sreset`, `ecureset` (reboot), `bootsel` and `help` answer `ok ...` or
 `err <code> <text>`. `ver`, `temp` and `reset` were removed in protocol 2.0
-(#131).
+(#131); `wr` and the LED options of `rd` were added in protocol 2.1 (#328).
 
 | Path | Contents |
 |---|---|
 | `include/protocol.h` | The host link: commands and error codes (the one definition) |
 | `include/firmware_version.h` | Name, copyright and version. The version is `V<major>.<minor, 2 digits>.<patch, 4 digits>`, semantic, and bumped with every change to the firmware or its driver |
-| `include/board_config.h` | Pins, bus rate and sensor address |
+| `include/board_config.h` | Pins (I2C and the three LEDs), bus rate and sensor address |
 | `include/hal.h` | The hardware seam |
 | `src/` | `main.c`, `cmd_parser.c`, `sht30.c`, `text.c`, `hal_pico.c`, `firmware_version.c` |
 | `test/` | Host unit tests (Unity, CTest) against a fake HAL |

@@ -26,10 +26,22 @@
  *   rd sha          ACK rd sha = <short commit SHA, or unknown>
  *   rd temperature  ACK rd temperature = <degC, 2 dp>, e.g. 22.85 or -1.23
  *                   ACK rd temperature = Error   when no reading was possible
+ *   rd led-red      ACK rd led-red = on|off      (also led-yellow, led-green)
  *   rd <other>      NAK rd <other> = Error
  *
- * @c rd with no option, or more than one, is refused with "err 2" like any
- * other command with the wrong number of arguments.
+ * The @c wr command writes one named value (#328). The only options are the
+ * LEDs and the only values "on" and "off"; the reply carries the state read
+ * back from the pin after the write:
+ *
+ *   wr led-red on   ACK wr led-red = on          (also led-yellow, led-green)
+ *   wr led-red off  ACK wr led-red = off
+ *   wr <other> <v>  NAK wr <other> = Error       (unknown option, or a value
+ *                                                 other than on/off; nothing
+ *                                                 changes)
+ *
+ * @c rd with no option, or more than one, and @c wr with other than an option
+ * and a value, are refused with "err 2" like any other command with the wrong
+ * number of arguments.
  *
  * The remaining commands reply "ok", followed for @c status by one
  * @c key=value token:
@@ -39,7 +51,8 @@
  *   ecureset  ok   (then the Pico reboots)
  *   bootsel   ok   (then the Pico reboots into its USB bootloader)
  *
- * Traces to: PICO-FR-001, PICO-FR-006, PICO-FR-007, PICO-FR-027,
+ * Traces to: PICO-FR-001, PICO-FR-006, PICO-FR-007, PICO-FR-008,
+ *            PICO-FR-009, PICO-FR-027,
  *            PICO-DD-PROTOCOL.
  */
 
@@ -54,8 +67,9 @@ extern "C" {
  *
  * 1.0 - first release.
  * 2.0 - rd command set replaces ver and temp; reset renamed ecureset (#131).
+ * 2.1 - wr command and the led-red, led-yellow and led-green options (#328).
  */
-#define PROTO_VERSION			"2.0"
+#define PROTO_VERSION			"2.1"
 
 /** Sensor part fitted. Not reported on the link since 2.0; the host driver
  *  still checks that it agrees. */
@@ -77,7 +91,8 @@ extern "C" {
  */
 #define PROTO_COMMAND_TABLE \
 	X(help,		0, 0, "list the commands") \
-	X(rd,		1U, 1U, "read a value: name, copyright, version, sha or temperature") \
+	X(rd,		1U, 1U, "read a value: name, copyright, version, sha, temperature or led-<red|yellow|green>") \
+	X(wr,		2U, 2U, "write a value: led-<red|yellow|green> on|off") \
 	X(status,	0, 0, "the SHT30 status register") \
 	X(sreset,	0, 0, "soft-reset the SHT30") \
 	X(ecureset,	0, 0, "reboot the Pico") \

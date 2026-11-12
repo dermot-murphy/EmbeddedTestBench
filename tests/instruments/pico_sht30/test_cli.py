@@ -23,12 +23,13 @@ def test_info(capsys):
     assert status == 0
     payload = json.loads(out.out)
     assert payload["name"] == "Pico 2 SHT30 Temperature Sensor"
-    assert payload["version"] == "V1.00.0000"
+    assert payload["version"] == "V1.01.0000"
     assert payload["copyright"] == "(c) 2026 Dermot Murphy"
     assert len(payload["sha"]) == 7
 
 
-@pytest.mark.parametrize("option", ["name", "copyright", "version", "sha", "temperature"])
+@pytest.mark.parametrize("option", ["name", "copyright", "version", "sha", "temperature",
+                                    "led-red", "led-yellow", "led-green"])
 def test_rd(capsys, option):
     status, out = _run(capsys, "rd", option)
     assert status == 0
@@ -38,6 +39,21 @@ def test_rd(capsys, option):
 def test_rd_rejects_an_unknown_option():
     with pytest.raises(SystemExit):
         main(["rd", "colour"])
+
+
+@pytest.mark.parametrize("option", ["led-red", "led-yellow", "led-green"])
+@pytest.mark.parametrize("value", ["on", "off"])
+def test_wr(capsys, option, value):
+    status, out = _run(capsys, "wr", option, value)
+    assert status == 0
+    assert json.loads(out.out) == {"option": option, "value": value}
+
+
+@pytest.mark.parametrize("argv", [["wr", "led-blue", "on"], ["wr", "name", "on"],
+                                  ["wr", "led-red", "1"], ["wr", "led-red"]])
+def test_wr_refuses_before_sending(argv):
+    with pytest.raises(SystemExit):
+        main(argv)
 
 
 def test_ecureset(capsys):
