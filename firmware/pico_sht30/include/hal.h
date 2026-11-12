@@ -58,10 +58,10 @@ hal_status_t hal_i2c_write(uint8_t address, const uint8_t *data, uint32_t length
 hal_status_t hal_i2c_read(uint8_t address, uint8_t *data, uint32_t length);
 
 /**
- * @brief Light (@p on true) or extinguish an LED. An out-of-range @p led is
+ * @brief Light (@p lit true) or extinguish an LED. An out-of-range @p led is
  *        ignored.
  */
-void hal_led_set(hal_led_t led, bool on);
+void hal_led_set(hal_led_t led, bool lit);
 
 /**
  * @brief Whether an LED is lit, read back from the pin's output latch rather

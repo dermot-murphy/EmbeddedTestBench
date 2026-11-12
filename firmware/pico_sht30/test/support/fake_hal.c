@@ -172,12 +172,12 @@ hal_status_t hal_i2c_read(uint8_t address, uint8_t *data, uint32_t length)
 	return status;
 }
 
-void hal_led_set(hal_led_t led, bool on)
+void hal_led_set(hal_led_t led, bool lit)
 {
 	m_led_writes++;
 	if ((uint32_t)led < (uint32_t)HAL_LED_COUNT)
 	{
-		m_leds[(uint32_t)led] = on;
+		m_leds[(uint32_t)led] = lit;
 	}
 }
 

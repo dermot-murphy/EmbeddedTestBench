@@ -105,11 +105,11 @@ hal_status_t hal_i2c_read(uint8_t address, uint8_t *data, uint32_t length)
 	return hal_from_sdk(result, length);
 }
 
-void hal_led_set(hal_led_t led, bool on)
+void hal_led_set(hal_led_t led, bool lit)
 {
 	if ((uint32_t)led < (uint32_t)HAL_LED_COUNT)
 	{
-		gpio_put((uint)m_led_pins[(uint32_t)led], on);
+		gpio_put((uint)m_led_pins[(uint32_t)led], lit);
 	}
 }
 

@@ -303,12 +303,12 @@ static proto_error_t cmd_wr(uint32_t argc, char *argv[], text_t *reply)
 	const char	*value = argv[1];
 	const cmd_led_t	*led = cmd_led_lookup(option);
 	bool		valid = true;
-	bool		on = false;
+	bool		lit = false;
 
 	(void)argc;
 	if (strcmp(value, CMD_PARSER_LED_ON) == 0)
 	{
-		on = true;
+		lit = true;
 	}
 	else if (strcmp(value, CMD_PARSER_LED_OFF) != 0)
 	{
@@ -316,12 +316,12 @@ static proto_error_t cmd_wr(uint32_t argc, char *argv[], text_t *reply)
 	}
 	else
 	{
-		/* "off": on stays false. */
+		/* "off": lit stays false. */
 	}
 
 	if ((led != NULL) && valid)
 	{
-		hal_led_set(led->led, on);
+		hal_led_set(led->led, lit);
 		cmd_value_begin(reply, "ACK", "wr", option);
 		text_str(reply, cmd_led_state(led->led));
 	}
