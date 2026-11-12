@@ -78,4 +78,8 @@ void fake_hal_pwm_finish(void);
 /** hal_init() calls. */
 uint32_t fake_hal_init_count(void);
 
+/** Whether an LED is lit, and how many times hal_led_set() was called. */
+bool fake_hal_led(hal_led_t led);
+uint32_t fake_hal_led_writes(void);
+
 #endif /* FAKE_HAL_H__ */

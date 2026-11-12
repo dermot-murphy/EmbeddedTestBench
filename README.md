@@ -675,13 +675,16 @@ board in BOOTSEL mode.
 from benchtools.instruments.pico_sht30 import PicoSht30
 
 with PicoSht30.connect("/dev/ttyACM0") as thermometer:     # COM5 on Windows
-    print(thermometer.name, thermometer.version)           # Pico 2 SHT30 Temperature Sensor V1.00.0000
+    print(thermometer.name, thermometer.version)           # Pico 2 SHT30 Temperature Sensor V1.02.0000
     print("%.2f °C" % thermometer.temperature())
 ```
 
 ```bash
 python -m benchtools thermo -r /dev/ttyACM0 info
 python -m benchtools thermo -r /dev/ttyACM0 rd sha
+python -m benchtools thermo -r /dev/ttyACM0 wr led-red on   # LEDs: led-red, led-yellow, led-green (#328)
+python -m benchtools thermo -r /dev/ttyACM0 wr freq 5k      # frequency generator (#202): channel 1 unless named
+python -m benchtools thermo -r /dev/ttyACM0 routine freq start
 python -m benchtools thermo -r /dev/ttyACM0 temp --count 10 --interval 1
 python -m benchtools thermo -r sim:// temp          # no hardware needed
 ```
@@ -690,6 +693,12 @@ A reading that fails raises an error; it never returns the previous value. When
 the sensor is absent, a frame fails its CRC or the bus times out, the firmware
 answers `ACK rd temperature = Error` and the driver raises `NoReadingError`.
 A value that is not degrees to two decimal places is refused.
+
+The same Pico is also a frequency generator (#202): a UDA1334A DAC gives
+channels 1 and 2 and a GPIO gives channel 3. `wr` stores a setting, `rd` reads
+it and `routine` runs it; the one `wr` serves the LEDs too, which take no
+channel. Its commands have been run on the bench Pico; its analogue outputs
+have not yet been measured.
 
 See [Pico 2 + SHT30-D Notes](docs/pico_sht30/Pico_SHT30_Notes.md) for wiring,
 building and flashing, the datasheet facts, the MISRA position and the bench
@@ -827,7 +836,7 @@ python -m pytest tests/ --cov=benchtools --cov-report=term
 
 **2 498 tests (2 497 pass, 1 skipped without `tkinter`), 95% statement coverage, no hardware required** — no oscilloscope,
 no probe, no target, no GDB, no dongle, no BLE sensor, no power supply, no
-sub-1 GHz kit, no Pico. The Pico firmware's own 61 unit tests run under CTest
+sub-1 GHz kit, no Pico. The Pico firmware's own 140 unit tests run under CTest
 (`firmware/pico_sht30/test`). With
 every optional extra removed: 1 807 pass, 40 skip, 0 fail.
 

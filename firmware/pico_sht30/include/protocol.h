@@ -26,10 +26,23 @@
  *   rd sha          ACK rd sha = <short commit SHA, or unknown>
  *   rd temperature  ACK rd temperature = <degC, 2 dp>, e.g. 22.85 or -1.23
  *                   ACK rd temperature = Error   when no reading was possible
+ *   rd led-red      ACK rd led-red = on|off      (also led-yellow, led-green)
  *   rd <other>      NAK rd <other> = Error
  *
+ * The @c wr command writes one named value. For an LED (#328) the only
+ * values are "on" and "off", and the reply carries the state read back from
+ * the pin after the write; an LED takes no channel:
+ *
+ *   wr led-red on   ACK wr led-red = on          (also led-yellow, led-green)
+ *   wr led-red off  ACK wr led-red = off
+ *   wr led-red <v>  NAK wr led-red = Error       (a value other than on/off;
+ *                                                 nothing changes)
+ *   wr <other> ...  NAK wr <other> = Error       (an option that is neither an
+ *                                                 LED nor a generator setting)
+ *
  * @c rd with no option is refused with "err 2", as is a second token after
- * any option that takes no channel.
+ * any option that takes no channel, and @c wr of an LED with other than an
+ * option and a value.
  *
  * The frequency generator is controlled in the style of UDS: @c wr stores a
  * setting, @c rd reads it back and @c routine runs it. <ch> is 1, 2 or 3; a
@@ -67,7 +80,8 @@
  *   ecureset  ok   (then the Pico reboots)
  *   bootsel   ok   (then the Pico reboots into its USB bootloader)
  *
- * Traces to: PICO-FR-001, PICO-FR-006, PICO-FR-007, PICO-FR-027,
+ * Traces to: PICO-FR-001, PICO-FR-006, PICO-FR-007, PICO-FR-008,
+ *            PICO-FR-009, PICO-FR-027,
  *            PICO-DD-PROTOCOL.
  */
 
@@ -82,9 +96,10 @@ extern "C" {
  *
  * 1.0 - first release.
  * 2.0 - rd command set replaces ver and temp; reset renamed ecureset (#131).
- * 2.1 - wr and routine, and rd of the frequency generator's settings (#202).
+ * 2.1 - wr command and the led-red, led-yellow and led-green options (#328).
+ * 2.2 - routine, and wr and rd of the frequency generator's settings (#202).
  */
-#define PROTO_VERSION			"2.1"
+#define PROTO_VERSION			"2.2"
 
 /** Sensor part fitted. Not reported on the link since 2.0; the host driver
  *  still checks that it agrees. */
@@ -106,8 +121,8 @@ extern "C" {
  */
 #define PROTO_COMMAND_TABLE \
 	X(help,		0, 0, "list the commands") \
-	X(rd,		1U, 2U, "read a value: name, copyright, version, sha, temperature, freq, freq2, wave, duty, amp, ratio or cycles") \
-	X(wr,		2U, 3U, "write a generator setting: freq, freq2, wave, duty, amp, ratio or cycles") \
+	X(rd,		1U, 2U, "read a value: name, copyright, version, sha, temperature, led-<red|yellow|green>, freq, freq2, wave, duty, amp, ratio or cycles") \
+	X(wr,		2U, 3U, "write a value: led-<red|yellow|green> on|off, or a generator setting: freq, freq2, wave, duty, amp, ratio or cycles") \
 	X(routine,	2U, 3U, "routine freq start|abort|results [channel], or routine all abort") \
 	X(status,	0, 0, "the SHT30 status register") \
 	X(sreset,	0, 0, "soft-reset the SHT30") \

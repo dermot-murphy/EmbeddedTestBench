@@ -16,19 +16,21 @@ from benchtools.core.errors import InstrumentError, ProtocolError
 from benchtools.core.transport.mock import MockTransport
 from benchtools.instruments.pico_sht30 import (
     COPYRIGHT,
+    CommandRefusedError,
     NAME,
     NoReadingError,
     PicoSht30,
     RdRefusedError,
     SensorError,
     SimulatedPicoSht30,
+    WrRefusedError,
 )
 from benchtools.instruments.pico_sht30.thermometer import parse_fields
 
 _IDENTITY = {
     "rd name": "ACK rd name = %s" % NAME,
     "rd copyright": "ACK rd copyright = %s" % COPYRIGHT,
-    "rd version": "ACK rd version = V1.01.0000",
+    "rd version": "ACK rd version = V1.02.0000",
     "rd sha": "ACK rd sha = 0c0ffee",
 }
 
@@ -54,12 +56,12 @@ def _scripted(reply: str, **identity) -> PicoSht30:
 class TestIdentity:
     def test_name_version_and_sha(self, thermometer):
         assert thermometer.name == NAME
-        assert thermometer.version == "V1.01.0000"
+        assert thermometer.version == "V1.02.0000"
         assert thermometer.sha == SimulatedPicoSht30.DEFAULT_SHA
 
     def test_firmware_info(self, thermometer):
         assert thermometer.firmware_info().as_dict() == {
-            "name": NAME, "copyright": COPYRIGHT, "version": "V1.01.0000",
+            "name": NAME, "copyright": COPYRIGHT, "version": "V1.02.0000",
             "sha": SimulatedPicoSht30.DEFAULT_SHA,
         }
 
@@ -67,20 +69,20 @@ class TestIdentity:
         identity = thermometer.identify()
         assert identity.manufacturer == "Raspberry Pi"
         assert identity.model == "Pico 2/SHT30"
-        assert identity.firmware == "V1.01.0000 (0c0ffee)"
+        assert identity.firmware == "V1.02.0000 (0c0ffee)"
 
     def test_a_different_version_is_reported_as_it_is(self):
-        simulator = SimulatedPicoSht30(version="V1.01.0000")
+        simulator = SimulatedPicoSht30(version="V1.02.0000")
         with PicoSht30(MockTransport(responder=simulator)) as device:
-            assert device.version == "V1.01.0000"
+            assert device.version == "V1.02.0000"
 
     def test_another_device_is_refused(self):
         with pytest.raises(ProtocolError, match="name 'Something else'"):
             _scripted("ok", **{"rd name": "ACK rd name = Something else"})
 
     def test_a_reply_for_another_option_is_refused(self):
-        with pytest.raises(ProtocolError, match="is for 'version'"):
-            _scripted("ok", **{"rd sha": "ACK rd version = V1.01.0000"})
+        with pytest.raises(ProtocolError, match="is for 'rd version'"):
+            _scripted("ok", **{"rd sha": "ACK rd version = V1.02.0000"})
 
     def test_connecting_sends_only_rd(self, simulator, thermometer):  # pylint: disable=unused-argument
         """*CLS would be answered with err 1 by this firmware."""
@@ -229,3 +231,73 @@ class TestResources:
 def test_parse_fields():
     assert parse_fields("ok a=1 b=0x2 c=") == {"a": "1", "b": "0x2", "c": ""}
     assert not parse_fields("ok")
+
+
+class TestLeds:
+    """#328: rd/wr led-<colour>, PICO-FR-049."""
+
+    @pytest.mark.parametrize("colour", ["red", "yellow", "green"])
+    def test_set_and_read_back(self, simulator, thermometer, colour):
+        assert thermometer.led(colour) is False
+        assert thermometer.set_led(colour, True) is True
+        assert thermometer.led(colour) is True
+        assert simulator.leds["led-%s" % colour] is True
+        assert thermometer.set_led(colour, False) is False
+        assert thermometer.led(colour) is False
+
+    def test_each_led_is_its_own(self, simulator, thermometer):
+        thermometer.set_led("yellow", True)
+        assert simulator.leds == {"led-red": False, "led-yellow": True, "led-green": False}
+
+    def test_wr_returns_the_value_read_back(self, thermometer):
+        assert thermometer.wr("led-green", "on") == "on"
+
+    def test_an_unknown_colour_is_refused_before_sending(self, simulator, thermometer):
+        sent = len(simulator.command_log)
+        with pytest.raises(ValueError):
+            thermometer.set_led("blue", True)
+        with pytest.raises(ValueError):
+            thermometer.led("blue")
+        assert len(simulator.command_log) == sent
+
+    def test_nak_is_wr_refused(self, thermometer):
+        with pytest.raises(WrRefusedError):
+            thermometer.wr("led-red", "1")
+        with pytest.raises(WrRefusedError):
+            thermometer.wr("led-blue", "on")
+
+    def test_a_state_that_did_not_take_is_refused(self):
+        thermometer = _scripted("ACK wr led-red = off")
+        with pytest.raises(ProtocolError):
+            thermometer.set_led("red", True)
+
+    def test_a_state_that_is_neither_on_nor_off_is_refused(self):
+        thermometer = _scripted("ACK rd led-red = dim")
+        with pytest.raises(ProtocolError):
+            thermometer.led("red")
+
+    def test_a_wr_reply_for_another_option_is_refused(self):
+        thermometer = _scripted("ACK wr led-green = on")
+        with pytest.raises(ProtocolError):
+            thermometer.set_led("red", True)
+
+    def test_an_led_takes_no_channel(self, simulator, thermometer):
+        """#202 merged with #328: one wr, and only a generator setting has a channel."""
+        sent = len(simulator.command_log)
+        with pytest.raises(ValueError):
+            thermometer.wr("led-red", "on", 2)
+        assert len(simulator.command_log) == sent
+
+    def test_an_led_and_a_generator_setting_share_wr(self, simulator, thermometer):
+        assert thermometer.wr("led-yellow", "on") == "on"
+        assert thermometer.wr("freq", "2k") == "2000.00"
+        assert simulator.leds["led-yellow"] is True
+        assert simulator.command_log[-2:] == ["wr led-yellow on", "wr freq 1 2k"]
+
+    def test_an_unknown_option_is_sent_as_given_and_refused(self, simulator, thermometer):
+        with pytest.raises(WrRefusedError):
+            thermometer.wr("led-blue", "on")
+        assert simulator.command_log[-1] == "wr led-blue on"
+
+    def test_wr_refused_is_a_command_refused(self):
+        assert issubclass(WrRefusedError, CommandRefusedError)

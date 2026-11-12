@@ -88,7 +88,9 @@
 | next | 2026-10-29 | Claude | #247, review of #318 round 4: SWE4-UT-SER 63 → 68 and SWE4-UT-SERCLI 8 → 9, pass, from a run of `tests/instruments/serial_capture` on this branch on 2026-10-29 (135 passed, Windows). The section 5 total is still the 1.32 whole-suite run's. |
 | next | 2026-10-29 | Claude | #247, review of #318 round 5: SWE4-UT-SER 68 → 75 and SWE4-UT-SERCLI 9 → 10, pass, from a run of `tests/instruments/serial_capture` on this branch on 2026-10-29 (143 passed, Windows). The section 5 total is still the 1.32 whole-suite run's. |
 | next | 2026-10-29 | Claude | #247, review of #318 round 6: SWE4-UT-SER 75 → 78 and SWE4-UT-SERCLI 10 → 11, pass, from a run of `tests/instruments/serial_capture` on this branch on 2026-10-29 (147 passed, Windows). The section 5 total is still the 1.32 whole-suite run's. |
+| next | 2026-11-12 | Claude | #328: §13A.8 added - the Pico thermometer's indicator LEDs. SWE4-UT-PICOFW 83 → 92 (`cmd_parser` 55, 0 failures, clang 21 on Windows); SWE4-UT-PICO 44 → 54, SWE4-UT-PICOSIM 36 → 45 and SWE4-UT-PICOCLI 16 → 29, pass, from a run of `tests/instruments/pico_sht30` on this branch on 2026-11-12 (172 passed, Windows); `wr` and `rd` of the LEDs confirmed on the real Pico 2, and the SHT30-D connected and reading about 23 °C. PICO-OPEN-02 noted. The section 5 total is still the 1.32 whole-suite run's. |
 | next | 2026-11-08 | Claude | #202: §5 row for SWE4-UT-PICOFGEN. |
+| next | 2026-11-12 | Claude | #202: merged with #328 (LEDs). §13A.9 added: protocol 2.2 and `V1.02.0000`; SWE4-UT-PICOFW 140 cases (`fgen` 48), pass, clang 21 with ASan and UBSan on Windows; `tests/instruments/pico_sht30` 242 cases, pass; the generator not yet run on hardware, with the bench wiring of 2026-11-12. The section 5 total is still the 1.32 whole-suite run's. |
 ---
 
 ## 3. Purpose & Scope
@@ -1299,7 +1301,7 @@ PICO-OPEN-04.
 | ID | Item |
 |---|---|
 | PICO-OPEN-01 | **Closed 2026-10-03** (§13A.7). Flash `pico_sht30.uf2`, confirm USB enumeration, and confirm `rd name`, `rd copyright`, `rd version` and `rd sha` return the name, copyright, `V1.00.0000` and the SHA the build injected. |
-| PICO-OPEN-02 | **Confirmed in part 2026-10-03** (§13A.7): with no module connected, `rd temperature` answers `ACK rd temperature = Error` and `status` answers `err 4`. Still open: a value to two places with the DollaTek module on GP4/GP5 at 0x44. |
+| PICO-OPEN-02 | **Confirmed in part 2026-10-03** (§13A.7): with no module connected, `rd temperature` answers `ACK rd temperature = Error` and `status` answers `err 4`. Still open: a value to two places with the DollaTek module on GP4/GP5 at 0x44. *Note, 2026-11-12 (#328, §13A.8):* the module is now connected on GP4/GP5 and the thermometer read about 23 °C; the item is not closed here. |
 | PICO-OPEN-03 | Compare against a reference thermometer: expect agreement within ±0.2 °C typical between 0 and 65 °C, allowing for self-heating of the Pico. |
 | PICO-OPEN-04 | The reference PDFs (Pico 2 datasheet and schematic, RP2350 datasheet, SDK guide, Sensirion SHT3x-DIS datasheet) could not be fetched in the build environment; run `docs/pico_sht30/fetch_datasheets.sh` and commit them. Run a MISRA C:2012 checker over `firmware/pico_sht30/src`. |
 | PICO-OPEN-05 | Reflash a real Pico 2 with `benchtools thermo flash`: from the running thermometer (`bootsel`), from a board already in its bootloader, and through the 1200-baud reset; confirm the drive is found without `--drive`. **Closed 2026-10-03** on Windows 10: all three methods exited 0 with every check passing (§13A.7). Drive discovery on Linux and macOS is untested on hardware. With the `rd` firmware of #131, `flash -r COM14` (method `bootsel`) passed its `name`, `version` and `sha` checks (§13A.7). |
@@ -1386,6 +1388,87 @@ After #127 was merged into this branch, `flash` confirms the build by `rd`
 (§13A.6). `benchtools thermo -r COM14 flash pico_sht30.uf2`, with the same
 image, reported `ok`, method `bootsel`, and its checks `name`, `version`
 (`V1.00.0000`) and `sha` (`5c80ae7`) all passed.
+
+### 13A.8 Indicator LEDs (#328, 2026-11-12)
+
+#328 adds three indicator LEDs to the thermometer - red on GP18, yellow on GP19
+and green on GP20 - with the `wr` command to switch them and the LED options of
+`rd` to read them back (PICO-FR-008, -009, -011, -049, -050, -061, -062). The
+firmware version is `V1.01.0000` and the protocol version 2.1.
+
+**Host unit tests.** The firmware unit tests were built and run on the bench PC
+with clang 21 on Windows, in the configuration of §13A.1. All three suites
+passed:
+
+| Suite | File | Cases | Result |
+|---|---|---|---|
+| text | `test/test_text.c` | 15 | Pass |
+| sht30 | `test/test_sht30.c` | 22 | Pass |
+| cmd_parser | `test/test_cmd_parser.c` | 55 | Pass, 0 failures |
+| **Total** | | **92** | **Pass** |
+
+`cmd_parser` gains nine cases against §13A.1: the LEDs are off until written;
+`wr led-red on` and `off`; each LED drives only its own pin; `wr on` twice stays
+on; `rd` and `wr` of an LED do not touch the sensor; an unknown option is a
+`NAK`; a bad value is a `NAK` and changes nothing; `wr` needs an option and a
+value (`err 2`); and the longest option is echoed whole.
+
+The Python tests of `tests/instruments/pico_sht30` - 172 cases - all passed on
+the same day (`python -m pytest tests/instruments/pico_sht30`), as did
+`tests/runner` and `tests/test_publish_docs.py`. Against §5's counts,
+SWE4-UT-PICO goes from 44 to 54 cases (`TestLeds`), SWE4-UT-PICOSIM from 36 to
+45 (the simulated LEDs) and SWE4-UT-PICOCLI from 16 to 29 (`wr`, and `rd` of
+each LED); SWE4-UT-PICOFLASH (35) and SWE4-UT-PICOFWPROTO (9) are unchanged. §5
+is not re-run here.
+
+**On the bench.** The firmware was built on the bench PC with Arm GNU 14.2.1 and
+Pico SDK 2.1.1 into a UF2 image of 59 904 bytes, and flashed onto the Pico 2 on
+COM14 with `benchtools thermo -r COM14 flash`; its checks of `name`, `version`
+(`V1.01.0000`) and `sha` all passed. Over the serial link:
+
+| Sent | Reply | Expected? |
+|---|---|---|
+| `wr led-red on`, `wr led-yellow on`, `wr led-green on` | `ACK wr led-<colour> = on` | Yes |
+| `wr led-red off`, `wr led-yellow off`, `wr led-green off` | `ACK wr led-<colour> = off` | Yes |
+| `rd led-<colour>` after each write | the state just written | Yes |
+| `wr led-blue on` | `NAK` | Yes, unknown option |
+| `wr led-red 1` | `NAK` | Yes, value other than `on` or `off` |
+| `wr led-red` | `err 2` | Yes, no value |
+| `rd led-purple` | `NAK` | Yes, unknown option |
+
+The owner watched the board and confirmed that red, then yellow, then green lit
+one at a time, and then all three together. On the same day the SHT30-D module
+was connected (SDA on GP4, SCL on GP5), and the thermometer read about 23 °C.
+
+### 13A.9 The frequency generator merged with the LEDs (#202, 2026-11-12)
+
+#202 adds a frequency generator to the Pico 2 (PICO-FR-080 … -089). It was
+written alongside #328, and both claimed protocol 2.1 and firmware
+`V1.01.0000`. With `develop` (holding #328) merged into #202, the generator is
+protocol 2.2 and firmware `V1.02.0000`, and one `wr` command serves both: an
+LED takes exactly an option and a value, and any other option goes to the
+generator, which refuses one it does not know with `NAK`.
+
+**Host unit tests.** The firmware unit tests were built and run with clang 21
+on Windows, in the configuration of §13A.1, with AddressSanitizer and
+UndefinedBehaviorSanitizer. All four suites passed:
+
+| Suite | File | Cases | Result |
+|---|---|---|---|
+| text | `test/test_text.c` | 15 | Pass |
+| sht30 | `test/test_sht30.c` | 22 | Pass |
+| cmd_parser | `test/test_cmd_parser.c` | 55 | Pass |
+| fgen | `test/test_fgen.c` | 48 | Pass |
+| **Total** | | **140** | **Pass** |
+
+The Python tests of `tests/instruments/pico_sht30` - 242 cases - all passed
+on the same day with Python 3.11 on Windows: SWE4-UT-PICO 58,
+SWE4-UT-PICOSIM 45, SWE4-UT-PICOCLI 29, SWE4-UT-PICOFLASH 35,
+SWE4-UT-PICOFWPROTO 9 and SWE4-UT-PICOFGEN 66. §5 is not re-run here.
+
+**On the bench.** On 2026-11-12 the merged firmware (`V1.02.0000`, protocol 2.2) was built with no warnings, flashed to the bench Pico 2 on COM14 with `benchtools thermo flash` (name, version and SHA checks passed) and its commands run over the serial link: the LEDs, `wr led-red 2 on` answered `err 2`, `wr led-blue on` a `NAK`; `wr freq 1k`, `wr wave sine`, `wr amp 50`, `wr cycles 0` and `wr freq 3 500` acknowledged and read back; `routine freq start` on channels 1 and 3 reported `Running, sine, 1000.00 Hz` and `Running, square, 500.00 Hz`; `routine all abort` left 1 and 3 `Aborted` and 2 `Not Started`. The analogue outputs were not observed: no scope or meter was on the DAC or GP15, so nothing about the waveforms, levels or frequency accuracy is confirmed. PICO-OPEN-07 stays open. The DAC module's wiring was corrected on 2026-11-12 to the
+bench as the owner stated it: DIN on GP9, BCLK on GP10, WSEL on GP11, VIN on
+VBUS (5 V) and `MUTE` not connected.
 
 ## 13B. TTi 1604 multimeter verification results (#115)
 

@@ -6,7 +6,8 @@ press; see :mod:`.flash`. Results are printed as JSON so the tool composes
 into a larger harness, and ``--resource sim://`` runs every sub-command with no
 Pico attached.
 
-Traces to: PICO-FR-060, PICO-FR-061, PICO-FR-075, PICO-FR-087, PICO-DD-CLI.
+Traces to: PICO-FR-060, PICO-FR-061, PICO-FR-062, PICO-FR-075, PICO-FR-087,
+PICO-DD-CLI.
 """
 
 from __future__ import annotations
@@ -20,7 +21,14 @@ from typing import Optional, Sequence
 
 from ... import __version__
 from ...core.errors import BenchToolsError
-from .constants import DEFAULT_BAUDRATE, FGEN_DEFAULT_CHANNEL, FGEN_SETTINGS, RD_OPTIONS
+from .constants import (
+    DEFAULT_BAUDRATE,
+    FGEN_DEFAULT_CHANNEL,
+    LED_OPTIONS,
+    LED_STATES,
+    RD_OPTIONS,
+    WR_OPTIONS,
+)
 from .thermometer import PicoSht30
 
 __all__ = ["main", "build_parser"]
@@ -52,6 +60,11 @@ def _cmd_rd(thermometer: PicoSht30, args) -> int:
 
 
 def _cmd_wr(thermometer: PicoSht30, args) -> int:
+    if args.setting in LED_OPTIONS:
+        # Checked in main(): exactly one value, on or off.
+        value = thermometer.wr(args.setting, args.values[0])
+        _emit({"option": args.setting, "value": value}, args.json)
+        return _EXIT_OK if value == args.values[0] else _EXIT_ERROR
     if len(args.values) == 1:
         channel, value = FGEN_DEFAULT_CHANNEL, args.values[0]
     elif len(args.values) == 2 and args.values[0].isdigit():
@@ -173,11 +186,13 @@ def build_parser() -> argparse.ArgumentParser:
     rd.set_defaults(handler=_cmd_rd)
 
     wr = subparsers.add_parser(
-        "wr", help="write one frequency generator setting",
-        description="Store a setting; it takes effect at the next 'routine freq start'. "
-                    "Frequencies take a k suffix: 'wr freq 1.5k'.",
+        "wr", help="switch an LED, or write one frequency generator setting",
+        description="'wr led-red on|off' switches an LED and prints the state read back "
+                    "(#328). 'wr <setting> [channel] value' stores a generator setting; it "
+                    "takes effect at the next 'routine freq start'. Frequencies take a k "
+                    "suffix: 'wr freq 1.5k'.",
     )
-    wr.add_argument("setting", choices=FGEN_SETTINGS)
+    wr.add_argument("setting", choices=WR_OPTIONS)
     wr.add_argument("values", nargs="+", metavar="[channel] value")
     wr.set_defaults(handler=_cmd_wr)
 
@@ -241,6 +256,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     args = parser.parse_args(argv)
     if getattr(args, "count", 1) < 1:
         parser.error("--count must be at least 1")
+    if args.command == "wr" and args.setting in LED_OPTIONS and (
+            len(args.values) != 1 or args.values[0] not in LED_STATES):
+        parser.error("wr %s takes exactly one value: %s"
+                     % (args.setting, " or ".join(LED_STATES)))
 
     level = logging.WARNING
     if args.verbose == 1:

@@ -5,7 +5,8 @@ A test parses that header and compares it with these tables
 (``tests/instruments/pico_sht30/test_firmware_protocol.py``), so the two cannot
 drift apart unnoticed.
 
-Traces to: PICO-FR-001 .. PICO-FR-005, PICO-FR-040, PICO-FR-085, PICO-DD-CONST.
+Traces to: PICO-FR-001 .. PICO-FR-005, PICO-FR-008, PICO-FR-009, PICO-FR-040,
+PICO-FR-085, PICO-DD-CONST.
 """
 
 from __future__ import annotations
@@ -31,6 +32,13 @@ __all__ = [
     "ABORTED",
     "COMPLETE",
     "RD_ERROR",
+    "LEDS",
+    "LED_OPTIONS",
+    "WR_OPTIONS",
+    "LED_ON",
+    "LED_OFF",
+    "LED_STATES",
+    "led_option",
     "SENSOR",
     "DEFAULT_ADDRESS",
     "DEFAULT_BAUDRATE",
@@ -57,15 +65,28 @@ COPYRIGHT = "(c) 2026 Dermot Murphy"
 
 #: Protocol revision this driver speaks; ``PROTO_VERSION`` in protocol.h. The
 #: firmware does not report it: ``rd name`` identifies the firmware instead.
-PROTOCOL_VERSION = "2.1"
+PROTOCOL_VERSION = "2.2"
 
-#: The options ``rd`` answers, in the order ``rd`` documents them.
-RD_OPTIONS = ("name", "copyright", "version", "sha", "temperature",
-              "freq", "freq2", "wave", "duty", "amp", "ratio", "cycles")
+#: The indicator LEDs (#328): red on GP18, yellow on GP19, green on GP20.
+LEDS = ("red", "yellow", "green")
+
+#: How ``rd`` and ``wr`` name the LEDs: ``led-red``, ``led-yellow``, ``led-green``.
+LED_OPTIONS = tuple("led-%s" % colour for colour in LEDS)
+
+#: The two LED states, as ``wr`` takes them and ``rd`` and ``wr`` report them.
+LED_ON = "on"
+LED_OFF = "off"
+LED_STATES = (LED_ON, LED_OFF)
 
 #: The frequency generator's settings: what ``wr`` writes and ``rd`` reads with
 #: an optional channel.
 FGEN_SETTINGS = ("freq", "freq2", "wave", "duty", "amp", "ratio", "cycles")
+
+#: The options ``rd`` answers, in the order ``rd`` documents them.
+RD_OPTIONS = ("name", "copyright", "version", "sha", "temperature") + LED_OPTIONS + FGEN_SETTINGS
+
+#: The options ``wr`` accepts: the LEDs (no channel) and the generator settings.
+WR_OPTIONS = LED_OPTIONS + FGEN_SETTINGS
 
 #: Generator channels: 1 and 2 are the DAC outputs, 3 is a GPIO square wave.
 FGEN_CHANNELS = (1, 2, 3)
@@ -150,6 +171,16 @@ TEMPERATURE_ACCURACY = 0.2
 HUMIDITY_ACCURACY = 2.0
 
 _FULL_SCALE = 65535
+
+
+def led_option(colour: str) -> str:
+    """The ``rd``/``wr`` option for LED *colour*: ``"red"`` -> ``"led-red"``.
+
+    :raises ValueError: for a colour that is not one of :data:`LEDS`.
+    """
+    if colour not in LEDS:
+        raise ValueError("no %r LED; the LEDs are %s" % (colour, ", ".join(LEDS)))
+    return "led-%s" % colour
 
 
 def raw_to_celsius(raw: int) -> float:

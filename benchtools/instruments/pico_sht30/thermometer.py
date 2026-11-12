@@ -6,7 +6,12 @@ two forms:
 
 * ``rd <option>`` reads one value and is answered ``ACK rd <option> = <value>``,
   or ``NAK rd <option> = Error`` for an option the firmware does not know. The
-  options are ``name``, ``copyright``, ``version``, ``sha`` and ``temperature``.
+  options are ``name``, ``copyright``, ``version``, ``sha``, ``temperature``
+  and the LEDs ``led-red``, ``led-yellow`` and ``led-green`` (``on``/``off``).
+* ``wr <led> on|off`` switches an LED and is answered
+  ``ACK wr <led> = <state read back>``, or ``NAK wr <led> = Error`` for a
+  value other than ``on`` or ``off`` (#328). ``wr`` of any other option is a
+  generator setting (below).
 * The control commands (``status``, ``sreset``, ``ecureset``, ``bootsel``) are
   answered ``ok ...`` or ``err <code> <text>``, values as ``key=value`` tokens.
 * The frequency generator is controlled in the style of UDS: ``wr`` stores a
@@ -19,7 +24,7 @@ times out - ``rd temperature`` answers ``Error``, and the driver raises
 :class:`NoReadingError`, so that a test cannot mistake "no reading" for "same
 as last time".
 
-Traces to: PICO-FR-040 .. PICO-FR-048, PICO-FR-085, PICO-ARC-001, PICO-DD-DRIVER.
+Traces to: PICO-FR-040 .. PICO-FR-049, PICO-FR-085, PICO-ARC-001, PICO-DD-DRIVER.
 """
 
 from __future__ import annotations
@@ -41,11 +46,15 @@ from .constants import (
     FGEN_CHANNELS,
     FGEN_DEFAULT_CHANNEL,
     FGEN_SETTINGS,
+    LED_OFF,
+    LED_ON,
+    LED_OPTIONS,
     MANUFACTURER,
     MODEL,
     NAME,
     RD_ERROR,
     STATUS_BITS,
+    led_option,
 )
 from .simulator import SimulatedPicoSht30
 
@@ -59,6 +68,7 @@ __all__ = [
     "RdRefusedError",
     "CommandRefusedError",
     "FreqStatus",
+    "WrRefusedError",
 ]
 
 #: Informational lines (``help`` only) are skipped when looking for a reply.
@@ -66,9 +76,6 @@ _INFO_PREFIX = "#"
 
 #: Lines read while looking for a reply before giving up.
 _MAX_SKIPPED_LINES = 32
-
-#: ``ACK rd temperature = 22.85``: the verdict, the option and the value.
-_RD_REPLY = re.compile(r"^(ACK|NAK) rd (\S+(?: \d)?) = (.*)$")
 
 #: ``ACK wr freq 1 = 1000.00``: the verdict, the command echoed and the value.
 _ACK_REPLY = re.compile(r"^(ACK|NAK) (.+?) = (.*)$")
@@ -114,6 +121,10 @@ class CommandRefusedError(InstrumentError):
 
 class RdRefusedError(CommandRefusedError):
     """The firmware answered ``NAK``: it does not know the ``rd`` option."""
+
+
+class WrRefusedError(CommandRefusedError):
+    """The firmware answered ``NAK`` to ``wr``: an unknown option or value."""
 
 
 @dataclass(frozen=True)
@@ -212,7 +223,7 @@ def parse_fields(reply: str) -> Dict[str, str]:
 
 
 # ---------------------------------------------------------------------------
-class PicoSht30(ScpiInstrument):
+class PicoSht30(ScpiInstrument):  # pylint: disable=too-many-public-methods
     """A Pico 2 + SHT30-D thermometer.
 
     Example::
@@ -354,20 +365,8 @@ class PicoSht30(ScpiInstrument):
             expected = "%s %d" % (option, channel)
         elif option in FGEN_SETTINGS:
             expected = "%s %d" % (option, FGEN_DEFAULT_CHANNEL)
-        reply = self._send(command)
-        match = _RD_REPLY.match(reply)
-        if match is None:
-            if reply.startswith("err "):
-                parts = reply.split(" ", 2)
-                raise SensorError(int(parts[1]) if parts[1].isdigit() else -1,
-                                  parts[2] if len(parts) > 2 else "", command)
-            raise ProtocolError("unexpected reply to %r: %r" % (command, reply))
-        verdict, echoed, value = match.groups()
-        if echoed != expected:
-            raise ProtocolError("reply to %r is for %r: %r" % (command, echoed, reply))
-        if verdict == "NAK":
-            raise RdRefusedError("%r refused: %s" % (command, reply))
-        return value
+        return self._acknowledged(command, self._send(command), "rd %s" % expected,
+                                  RdRefusedError)
 
     # ------------------------------------------------------------------
     # Identity
@@ -390,7 +389,7 @@ class PicoSht30(ScpiInstrument):
 
     @property
     def version(self) -> str:
-        """The firmware version, e.g. ``V1.00.0000``."""
+        """The firmware version, e.g. ``V1.02.0000``."""
         return self.firmware_info().version
 
     @property
@@ -450,6 +449,38 @@ class PicoSht30(ScpiInstrument):
     # ------------------------------------------------------------------
     # Control
     # ------------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # LEDs (#328)
+    # ------------------------------------------------------------------
+    def led(self, colour: str) -> bool:
+        """Whether LED *colour* (``red``, ``yellow`` or ``green``) is lit.
+
+        :raises ValueError: for another colour, before anything is sent.
+        :raises ProtocolError: if the firmware reports neither ``on`` nor ``off``.
+        """
+        option = led_option(colour)
+        return self._led_state(option, self.rd(option))
+
+    def set_led(self, colour: str, on: bool) -> bool:  # pylint: disable=invalid-name
+        """Light (*on* True) or extinguish LED *colour*; return the state read back.
+
+        :raises ValueError: for another colour, before anything is sent.
+        :raises ProtocolError: if the state read back is not the one written.
+        """
+        option = led_option(colour)
+        wanted = LED_ON if on else LED_OFF
+        state = self._led_state(option, self.wr(option, wanted))
+        if state != bool(on):
+            raise ProtocolError("wr %s %s: the LED reads back %s"
+                                % (option, wanted, LED_ON if state else LED_OFF))
+        return state
+
+    @staticmethod
+    def _led_state(option: str, value: str) -> bool:
+        if value not in (LED_ON, LED_OFF):
+            raise ProtocolError("%s: %r is neither %r nor %r" % (option, value, LED_ON, LED_OFF))
+        return value == LED_ON
+
     def soft_reset_sensor(self) -> None:
         """Soft-reset the SHT30; the Pico keeps running."""
         self.execute("sreset")
@@ -469,10 +500,13 @@ class PicoSht30(ScpiInstrument):
     # ------------------------------------------------------------------
     # Frequency generator
     # ------------------------------------------------------------------
-    def _acknowledged(self, command: str, reply: str, expected: str) -> str:
+    @staticmethod
+    def _acknowledged(command: str, reply: str, expected: str,
+                      refused=CommandRefusedError) -> str:
         """The value of an ``ACK`` to *command*, which must echo *expected*.
 
-        :raises CommandRefusedError: if the firmware answered ``NAK``.
+        :raises CommandRefusedError: (or *refused*, a subclass of it) if the
+            firmware answered ``NAK``.
         :raises SensorError: if it answered ``err`` (a malformed command).
         :raises ProtocolError: if the reply is for another command, or is
             neither ``ACK`` nor ``NAK``.
@@ -488,22 +522,37 @@ class PicoSht30(ScpiInstrument):
         if echoed != expected:
             raise ProtocolError("reply to %r is for %r: %r" % (command, echoed, reply))
         if verdict == "NAK":
-            raise CommandRefusedError("%r refused: %s" % (command, reply))
+            raise refused("%r refused: %s" % (command, reply))
         return value
 
     def wr(  # pylint: disable=invalid-name
-        self, setting: str, value: ValueType, channel: int = FGEN_DEFAULT_CHANNEL
+        self, setting: str, value: ValueType, channel: Optional[int] = None
     ) -> str:
-        """Send ``wr <setting> <channel> <value>`` and return the value stored.
+        """Send ``wr`` and return the value the ``ACK`` reports.
 
-        A number may be given as text with a ``k`` suffix for a frequency, so
-        ``wr("freq", "1.5k")`` is the same as ``wr("freq", 1500)``. The setting
-        takes effect at the next start.
+        For an LED (``led-red``, ``led-yellow``, ``led-green``; #328) this is
+        ``wr <led> on|off``, with no channel, and the value is the state read
+        back after the write. For a generator setting it is
+        ``wr <setting> <channel> <value>``, *channel* 1 if ``None``, and the
+        value is the one stored; a number may be given as text with a ``k``
+        suffix for a frequency, so ``wr("freq", "1.5k")`` is the same as
+        ``wr("freq", 1500)``. A setting takes effect at the next start.
 
-        :raises CommandRefusedError: for a value the channel cannot use.
+        :raises WrRefusedError: if the firmware answered ``NAK``: an unknown
+            option, or a value the LED or the channel cannot use.
+        :raises ValueError: for a channel given with an LED, before sending.
         """
-        command = "wr %s %d %s" % (setting, channel, format_value(value))
-        return self._acknowledged(command, self._send(command), "wr %s %d" % (setting, channel))
+        if setting in LED_OPTIONS and channel is not None:
+            raise ValueError("%s takes no channel" % setting)
+        if setting not in FGEN_SETTINGS and channel is None:
+            # An LED, or an option the firmware will NAK as it was sent.
+            command = "wr %s %s" % (setting, format_value(value))
+            expected = "wr %s" % setting
+        else:
+            channel = FGEN_DEFAULT_CHANNEL if channel is None else channel
+            command = "wr %s %d %s" % (setting, channel, format_value(value))
+            expected = "wr %s %d" % (setting, channel)
+        return self._acknowledged(command, self._send(command), expected, WrRefusedError)
 
     def freq_start(self, channel: int = FGEN_DEFAULT_CHANNEL) -> None:
         """Start *channel* with its stored settings.

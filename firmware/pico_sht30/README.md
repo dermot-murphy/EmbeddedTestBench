@@ -1,30 +1,51 @@
 # Pico 2 + SHT30-D thermometer firmware
 
 A Raspberry Pi Pico 2 reads a Sensirion SHT30-DIS (on a DollaTek SHT30-D module)
-over I2C and answers over USB CDC:
+over I2C and answers over USB CDC. It also drives three indicator LEDs - red on
+GP18, yellow on GP19 and green on GP20, each lit when its pin is high - which
+are off from boot and switched by `wr` (#328):
 
 ```
 rd name         -> ACK rd name = Pico 2 SHT30 Temperature Sensor
 rd copyright    -> ACK rd copyright = (c) 2026 Dermot Murphy
-rd version      -> ACK rd version = V1.00.0000
+rd version      -> ACK rd version = V1.02.0000
 rd sha          -> ACK rd sha = <7-character commit SHA>
 rd temperature  -> ACK rd temperature = 22.85      (or = Error when the sensor cannot be read)
+rd led-red      -> ACK rd led-red = off            (also led-yellow, led-green; on or off)
 rd <other>      -> NAK rd <other> = Error
+wr led-red on   -> ACK wr led-red = on             (the state read back; also off,
+                                                    led-yellow, led-green)
+wr led-red 2 on -> err 2 wrong number of arguments (an LED takes no channel)
+wr <other> <v>  -> NAK wr <other> = Error          (an option that is neither an LED
+                                                    nor a generator setting, or a
+                                                    value other than on/off;
+                                                    nothing changes)
 ```
 
-`status`, `sreset`, `ecureset` (reboot), `bootsel` and `help` answer `ok ...` or
+`rd` takes one or two arguments, `wr` two or three and `routine` two or three;
+only a generator setting takes the extra one, a channel. A wrong number of
+arguments answers `err 2`. `status`,
+`sreset`, `ecureset` (reboot), `bootsel` and `help` answer `ok ...` or
 `err <code> <text>`. `ver`, `temp` and `reset` were removed in protocol 2.0
-(#131).
+(#131); `wr` and the LED options of `rd` were added in protocol 2.1 (#328);
+`routine`, and `wr` and `rd` of the generator's settings, in protocol 2.2
+(#202). `help` lists nine lines: `help`, `rd`, `wr`, `routine`, `status`,
+`sreset`, `ecureset`, `bootsel`, then `ok`.
 
-It also drives a UDA1334A I2S DAC as a frequency generator, with `wr`, `rd` and
-`routine` commands (#202): `wr freq 5k`, `wr wave sine`, `routine freq start`,
-`rd duty`. See `include/protocol.h`.
+It also drives a UDA1334A I2S DAC (a CJMCU-1334 module) as a frequency
+generator, with the same `wr` and `rd` and the `routine` command (#202):
+`wr freq 5k`, `wr wave sine`, `routine freq start`, `rd duty`. See
+`include/protocol.h`. On the bench the module's DIN is on GP9, BCLK on GP10,
+WSEL on GP11, VIN on VBUS (5 V) and MUTE is not connected, so the firmware
+never mutes the DAC; a board that wires MUTE builds with
+`-DBOARD_DAC_MUTE_PIN=<pin>`. Channel 3 is a square wave on GP15. Nothing of
+the generator has been run on hardware yet.
 
 | Path | Contents |
 |---|---|
 | `include/protocol.h` | The host link: commands and error codes (the one definition) |
 | `include/firmware_version.h` | Name, copyright and version. The version is `V<major>.<minor, 2 digits>.<patch, 4 digits>`, semantic, and bumped with every change to the firmware or its driver |
-| `include/board_config.h` | Pins, bus rate and sensor address |
+| `include/board_config.h` | Pins (I2C, the three LEDs and the generator), bus rate and sensor address |
 | `include/hal.h` | The hardware seam |
 | `src/` | `main.c`, `cmd_parser.c`, `cmd_fgen.c`, `fgen.c`, `sht30.c`, `text.c`, `hal_pico.c`, `firmware_version.c` |
 | `test/` | Host unit tests (Unity, CTest) against a fake HAL |

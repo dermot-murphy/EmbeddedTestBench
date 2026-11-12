@@ -6,11 +6,13 @@
 | Version | 1.3 |
 | Date | 2026-10-03 |
 | Element | `PICO-` — `benchtools.instruments.pico_sht30` and `firmware/pico_sht30` |
-| Issue | #104; `flash` #127; `rd` command set #131 |
+| Issue | #104; `flash` #127; `rd` command set #131; indicator LEDs and `wr` #328; frequency generator #202 |
 
 A Raspberry Pi Pico 2 reads the local temperature from a DollaTek SHT30-D
 module and reports it over USB, together with the firmware's name, copyright,
-version and the commit it was built from. This
+version and the commit it was built from. Three indicator LEDs on the Pico,
+red, yellow and green, can be switched and read back from the host (#328), and
+the Pico is also a frequency generator (#202, §2.1 and §4.0a). This
 note covers the hardware, the wiring, how to build and flash the firmware, how
 to read it from the host, the facts taken from the reference documents, the
 MISRA C position, and what remains to confirm on a bench.
@@ -48,7 +50,22 @@ Keep the wires short (under 30 cm at 100 kHz), and mount the sensor away from
 the Pico: the RP2350 and its regulator warm the board by a degree or more, and
 the sensor will report that faithfully.
 
-Different wiring is a build option, not a source edit:
+The three indicator LEDs (#328) each have their own series resistor and light
+when their pin is driven high:
+
+| LED | Pico 2 pin | Pico 2 function |
+|---|---|---|
+| Red | 24 | GP18 |
+| Yellow | 25 | GP19 |
+| Green | 26 | GP20 |
+
+The firmware makes the three pins outputs, all off, as it starts, so the LEDs
+are off from power-up and again after `ecureset`. They change only when the host
+sends `wr`.
+
+Different wiring is a build option, not a source edit. The LED pins are
+`BOARD_LED_RED_PIN`, `BOARD_LED_YELLOW_PIN` and `BOARD_LED_GREEN_PIN`, set the
+same way:
 
 ```
 cmake -S firmware/pico_sht30 -B build/pico_sht30 \
@@ -62,12 +79,12 @@ to a similar board: `References.md` rows 9 and 10.
 
 | CJMCU-1334 pin | Pico 2 pin | Pico 2 function |
 |---|---|---|
-| VIN | 36 | 3V3(OUT) |
+| VIN | 40 | VBUS (5 V from USB) |
 | GND | 18 | GND |
+| DIN | 12 | GP9 |
 | BCLK | 14 | GP10 |
 | WSEL | 15 | GP11 |
-| DIN | 16 | GP12 |
-| MUTE | 17 | GP13, with 10 kΩ to 3V3(OUT) so it is muted before the firmware runs |
+| MUTE | — | not connected |
 | SCLK | 36 | 3V3(OUT): selects the 50 to 100 kHz sample-rate range |
 | PLL, SF0, SF1 | 18 | GND: audio mode, I2S format |
 
@@ -75,9 +92,20 @@ Channel 1 is the left output and channel 2 the right. Channel 3 is GP15 (pin
 20), a 3.3 V logic output. `BCLK` and `WSEL` must stay on adjacent GPIOs,
 because PIO side-set drives consecutive pins.
 
-The pin names and default ties come from the Adafruit UDA1334A guide and the
-chip's data sheet. Check them against the CJMCU-1334 board before powering it
-(PICO-OPEN-07).
+DIN, BCLK, WSEL, VIN and MUTE are the bench wiring as the owner stated it on
+2026-11-12. Before that, this table had DIN on GP12 (pin 16), VIN on 3V3(OUT)
+(pin 36) and MUTE on GP13 (pin 17) with a 10 kΩ pull-up to 3V3(OUT); the
+firmware's default DIN pin is now GP9. Because MUTE is not connected, the
+firmware drives no pin for it and the DAC is never muted: a channel that is not
+running plays mid-scale silence, and nothing holds the DAC silent at power-up
+before the firmware runs. A board that does wire MUTE builds with
+`-DBOARD_DAC_MUTE_PIN=13U` (or its own pin), and the firmware then holds MUTE
+high until a channel starts.
+
+The SCLK, PLL, SF0 and SF1 ties and channel 3 on GP15 are as #202 designed them;
+they were not part of the owner's statement. The pin names and default ties come
+from the Adafruit UDA1334A guide and the chip's data sheet. Check them against
+the CJMCU-1334 board before powering it (PICO-OPEN-07).
 
 ## 3. Building and flashing
 
@@ -103,7 +131,7 @@ the next build re-configure, so the image never carries a stale SHA.
 To download it to the Pico 2, use one command (#127):
 
 ```
-benchtools thermo -r /dev/ttyACM0 flash build/pico_sht30/pico_sht30.uf2 --expect-version V1.00.0000
+benchtools thermo -r /dev/ttyACM0 flash build/pico_sht30/pico_sht30.uf2 --expect-version V1.02.0000
 benchtools thermo -r COM5 flash build\pico_sht30\pico_sht30.uf2          # Windows
 benchtools thermo -r '' flash build/pico_sht30/pico_sht30.uf2           # blank board; port found afterwards
 ```
@@ -176,6 +204,11 @@ method `bootsel`, and the `name`, `version` (`V1.00.0000`) and `sha`
 (`5c80ae7`) checks all passed (§7.1). Drive discovery on Linux and macOS has
 not been tried on hardware. See PICO-OPEN-05 in §7.
 
+On 2026-11-12 the #328 firmware (`V1.01.0000`, with the LEDs) was built on the
+bench PC with Arm GNU 14.2.1 and Pico SDK 2.1.1, a UF2 of 59 904 bytes, and
+flashed with `benchtools thermo -r COM14 flash`; the `name`, `version` and `sha`
+checks all passed (§7.2).
+
 Host unit tests for the firmware, no Pico needed:
 
 ```
@@ -189,7 +222,9 @@ compiler error on `-fsanitize=address`; ETB-SWE4-001 §1.4b gives the commands.
 ### 3.1 The version number
 
 The version is `V<major>.<minor>.<patch>`, the minor number as two digits and
-the patch number as four: `V1.00.0000` is the baseline set by #131. It follows
+the patch number as four: `V1.00.0000` is the baseline set by #131, #328
+made it `V1.01.0000` because it added a command (`wr`), and #202 made it
+`V1.02.0000` because it added the frequency generator's commands. It follows
 semantic versioning and is bumped with **every** change to the firmware or its
 host driver:
 
@@ -212,7 +247,7 @@ ACK rd name = Pico 2 SHT30 Temperature Sensor
 rd copyright
 ACK rd copyright = (c) 2026 Dermot Murphy
 rd version
-ACK rd version = V1.00.0000
+ACK rd version = V1.02.0000
 rd sha
 ACK rd sha = 1a2b3c4
 rd temperature
@@ -221,24 +256,35 @@ rd humidity
 NAK rd humidity = Error
 status
 ok status=0x0010
+wr led-red on
+ACK wr led-red = on
+rd led-red
+ACK rd led-red = on
+wr led-red off
+ACK wr led-red = off
 ```
 
-The commands (protocol 2.0, `firmware/pico_sht30/include/protocol.h`):
+The commands (protocol 2.2, `firmware/pico_sht30/include/protocol.h`; the
+frequency generator's are in §4.0a):
 
 | Command | Reply |
 |---|---|
 | `rd name` | `ACK rd name = Pico 2 SHT30 Temperature Sensor` |
 | `rd copyright` | `ACK rd copyright = (c) 2026 Dermot Murphy` |
-| `rd version` | `ACK rd version = V1.00.0000` |
+| `rd version` | `ACK rd version = V1.02.0000` |
 | `rd sha` | `ACK rd sha = <7-character commit SHA, or unknown>` |
 | `rd temperature` | `ACK rd temperature = <°C to 2 places>`, e.g. `22.85`, `-1.24`; `ACK rd temperature = Error` when the sensor could not be read |
+| `rd led-red`, `rd led-yellow`, `rd led-green` | `ACK rd <option> = on` or `off` - read from the pin's output latch; the sensor is not touched |
 | `rd <anything else>` | `NAK rd <option> = Error` |
-| `rd` with no option, or two | `err 2 wrong number of arguments` |
+| `rd` with no option, more than two tokens, or a second token after an option that is not a generator setting | `err 2 wrong number of arguments` |
+| `wr led-red on`, `wr led-red off` (likewise `led-yellow`, `led-green`) | `ACK wr <option> = on` or `off` - the state read back from the pin after the write |
+| `wr` of an LED with a value other than `on` or `off`, or `wr` with an option that is neither an LED nor a generator setting | `NAK wr <option> = Error`, for example `NAK wr led-blue = Error`; nothing changes. Options and values are matched exactly, case included |
+| `wr` with fewer than two tokens or more than three, or an LED with anything other than an option and a value (`wr led-red 2 on`: an LED takes no channel) | `err 2 wrong number of arguments` |
 | `status` | `ok status=0x<hhhh>` - the sensor's status register |
 | `sreset` | `ok` - soft-reset the sensor |
 | `ecureset` | `ok`, then the Pico reboots (this was `reset` before #131) |
 | `bootsel` | `ok`, then the Pico reboots into its USB bootloader |
-| `help` | one `# <command> - <help>` line per command, then `ok` |
+| `help` | one `# <command> - <help>` line per command - `help`, `rd`, `wr`, `routine`, `status`, `sreset`, `ecureset`, `bootsel` - then `ok`: nine lines |
 
 `ver`, `temp` and `reset` were removed by #131 and now answer
 `err 1 unknown command`. The temperature is rounded half away from zero from
@@ -251,6 +297,8 @@ From the host:
 ```
 benchtools thermo -r /dev/ttyACM0 info        # name, copyright, version, sha
 benchtools thermo -r /dev/ttyACM0 rd sha
+benchtools thermo -r /dev/ttyACM0 wr led-green on   # prints the state read back
+benchtools thermo -r /dev/ttyACM0 rd led-green
 benchtools thermo -r /dev/ttyACM0 temp --count 10 --interval 1
 benchtools thermo -r /dev/ttyACM0 ecureset
 benchtools thermo -r sim:// temp              # no hardware
@@ -265,7 +313,22 @@ with PicoSht30.connect("/dev/ttyACM0") as thermometer:     # COM5 on Windows
         print("%.2f °C" % thermometer.temperature())
     except NoReadingError:
         print("the sensor could not be read")
+    thermometer.set_led("green", True)      # raises if the LED does not read back on
+    print(thermometer.led("green"))         # True
 ```
+
+`benchtools thermo wr <setting> [channel] value` is one command for the LEDs
+and the generator's settings; it refuses any other option before it sends a
+command. For an LED it takes exactly one value, `on` or `off`, and no channel,
+refuses anything else before sending, prints the option and the value read back
+as JSON, and exits 0 only if that value is the one written. For a generator
+setting it prints the setting, the channel and the value stored. In Python,
+`wr(setting, value, channel=None)` sends `wr <led> <value>` for an LED, and
+raises `ValueError` before sending if a channel is given with one; it sends
+`wr <setting> <channel> <value>` for a generator setting, channel 1 if none is
+given. It returns the value the firmware reports. `led(colour)` returns whether
+an LED is lit, and `set_led(colour, on)` sets it and checks the read-back; an
+unknown colour raises `ValueError` before anything is sent.
 
 Connecting reads the four identity values and refuses a device whose `rd name`
 is not `Pico 2 SHT30 Temperature Sensor`. In a bench configuration the driver is
@@ -277,13 +340,17 @@ named `pico-sht30` (alias `thermometer`).
 | `err 4 the sensor did not acknowledge` | NACK at 0x44 (`status`, `sreset`) | Wiring, power, ADDR strap (0x45?) |
 | `err 5 the sensor checksum did not match` | Corrupted frame (`status`) | Wire length, pull-ups, noise |
 | `err 6 I2C bus timeout` | Transfer did not complete (`status`, `sreset`) | SDA/SCL swapped, a line held low |
-| `NAK rd <option> = Error` | An option the firmware does not know. The driver raises `RdRefusedError`. | Spelling and case: options are lower case |
+| `NAK rd <option> = Error` | An option the firmware does not know. The driver raises `RdRefusedError`, a `CommandRefusedError`. | Spelling and case: options are lower case |
+| `NAK wr <option> = Error` | An option that is neither an LED nor a generator setting, or a value other than `on` or `off` for an LED. Nothing was changed. The driver raises `WrRefusedError`, a `CommandRefusedError`. | Spelling and case: options and values are lower case |
 
 ### 4.0a The frequency generator (#202)
 
 `wr` stores a setting, `rd` reads it back and `routine` runs it. `<ch>` is 1, 2
 or 3; a command that omits it means channel 1. A `wr` takes effect at the next
-start. Refusals answer `NAK ... = Error`, and nothing is clamped.
+start. Refusals answer `NAK ... = Error`, and nothing is clamped; the driver
+raises `WrRefusedError` for a refused `wr`, `RdRefusedError` for a refused `rd`
+and `CommandRefusedError`, the class of both, for a refused `routine`. This is
+the same `wr` that switches the LEDs, which take no channel.
 
 | Command | Value | Example reply |
 |---|---|---|
@@ -340,6 +407,7 @@ event log, e.g. `temp: {driver: pico-sht30, event: ROOM}` - see the
 | Humidity | RH = 100 · S_RH / (2¹⁶ − 1) | `sht30_ticks_to_millipercent` |
 | Status bits | 15 alert pending, 13 heater, 11 RH alert, 10 T alert, 4 reset detected, 1 command failed, 0 write CRC failed | `SHT30_STATUS_*`, `STATUS_BITS` |
 | Pico 2 I2C0 default pins | GP4 SDA (pin 6), GP5 SCL (pin 7) | `board_config.h` |
+| Pico 2 pins of GP18, GP19, GP20 | pins 24, 25, 26 | the LEDs, `board_config.h` (#328) |
 | Pico 2 3V3(OUT) | pin 36, up to 300 mA for external circuits | wiring |
 
 The command codes and CRC parameters were cross-checked against Sensirion's own
@@ -385,12 +453,12 @@ PICO-OPEN-04.
 | ID | Item | How |
 |---|---|---|
 | PICO-OPEN-01 | USB enumeration and identity | **Closed 2026-10-03** (§7.1). Flash the UF2; `benchtools thermo -r <port> info` must show the name `Pico 2 SHT30 Temperature Sensor`, copyright `(c) 2026 Dermot Murphy`, version `V1.00.0000`, and the SHA the configure step printed. `rd colour` must answer `NAK rd colour = Error`; `ver` must answer `err 1`. |
-| PICO-OPEN-02 | Sensor on the bus, and a missing sensor reported | `rd temperature` must answer a value to two places; with SDA disconnected it must answer `ACK rd temperature = Error`, never a value, and `status` must answer `err 4`. **Confirmed in part 2026-10-03** (§7.1): with no module connected, `Error` and `err 4` are answered as specified. Still open: a value to two places with the module connected. |
+| PICO-OPEN-02 | Sensor on the bus, and a missing sensor reported | `rd temperature` must answer a value to two places; with SDA disconnected it must answer `ACK rd temperature = Error`, never a value, and `status` must answer `err 4`. **Confirmed in part 2026-10-03** (§7.1): with no module connected, `Error` and `err 4` are answered as specified. Still open: a value to two places with the module connected. *Note, 2026-11-12 (#328):* the module is now connected on GP4/GP5 and the thermometer read about 23 °C (§7.2); the item is not closed by this note. |
 | PICO-OPEN-03 | Accuracy | Beside a calibrated reference thermometer, away from the Pico, after 10 minutes: agreement within ±0.2 °C typical (0–65 °C) plus the reference's own uncertainty. |
 | PICO-OPEN-04 | Reference PDFs and MISRA tool run | The hosts serving the PDFs were blocked in the build environment; run `fetch_datasheets.sh` and commit the files. Run a MISRA C:2012 checker over `firmware/pico_sht30/src`. |
 | PICO-OPEN-05 | Reflashing with `benchtools thermo flash` (#127) | Run `flash` three ways and check that each exits 0 with every check passing: from the running thermometer (method `bootsel`); from a board started with BOOTSEL held (method `already-in-bootloader`); and from a board running other USB-serial firmware built with the Pico SDK (method `1200-baud`), which also confirms that the SDK's 1200-baud reset is enabled in such a build. Confirm that the drive is found on the bench PC's operating system without `--drive`. **Closed 2026-10-03** on Windows 10, with a 60 416-byte UF2 (118 blocks, families `absolute` and `rp2350-arm-s`) built on the bench PC with Pico SDK 2.1.1, Arm GNU Toolchain 14.2.Rel1 and picotool 2.1.1. (1) The board arrived in its bootloader as drive D:; `flash` with `-r ""` gave method `already-in-bootloader`, found the port as COM14 by vendor ID, and passed every check in about 2.5 s. (2) After a rebuild, `flash -r COM14` from the running thermometer gave method `bootsel`; the build date changed from `12:06:39Z` to `12:07:19Z` and the title, version and build checks passed. (3) With the protocol open made to fail once, `flash -r COM14` gave method `1200-baud` and the title and build checks passed. The reset was tried on the thermometer firmware, which is itself an SDK USB-serial build, not on other firmware. On Windows the Pico reboots while pyserial is still opening the port, so the open raises "A device attached to the system is not functioning"; `touch_1200` now keeps that as a note, and the drive appearing decides success. The drive was found without `--drive` on Windows; Linux and macOS have not been tried on hardware. These three runs predate #131 and checked `ver`; with the `rd` firmware of #131, `flash -r COM14` (method `bootsel`) passed its `name`, `version` and `sha` checks (§7.1). |
-| PICO-OPEN-06 | The `rd` command set (#131) on a real Pico 2 | **Confirmed in part 2026-10-03** (§7.1). The #131 firmware was cross-compiled on the bench PC with no warnings, the build injected the SHA, and it was flashed to a Pico 2. Every `rd` option, the `NAK`, the `err` replies and `ecureset` behaved as specified. Still open: `rd temperature` with a real value to two places, which needs the SHT30-D module connected (PICO-OPEN-02). |
-| PICO-OPEN-07 | The frequency generator (#202) on a real Pico 2 and CJMCU-1334 | **Open: not run on hardware.** The firmware builds and its unit tests pass. Confirm the board's pin ties, DAC lock at 97 656.25 Hz, left and right, output level and coupling, each waveform and limit by scope, the exact cycle count on channels 1 to 3, frequency against the TTi 1604, and silence at power-up and after `routine all abort`. |
+| PICO-OPEN-06 | The `rd` command set (#131) on a real Pico 2 | **Confirmed in part 2026-10-03** (§7.1). The #131 firmware was cross-compiled on the bench PC with no warnings, the build injected the SHA, and it was flashed to a Pico 2. Every `rd` option, the `NAK`, the `err` replies and `ecureset` behaved as specified. Still open: `rd temperature` with a real value to two places, which needs the SHT30-D module connected (PICO-OPEN-02). *Note, 2026-11-12:* the module is now connected; see PICO-OPEN-02 and §7.2. |
+| PICO-OPEN-07 | The frequency generator (#202) on a real Pico 2 and CJMCU-1334 | **Open: command set confirmed, outputs not observed.** The firmware builds and its unit tests pass. Confirm the board's pin ties, DAC lock at 97 656.25 Hz, left and right, output level and coupling, each waveform and limit by scope, the exact cycle count on channels 1 to 3, frequency against the TTi 1604, what the outputs do at power-up before the firmware starts the I2S stream (`MUTE` is not connected, so nothing mutes the DAC then), and silence after `routine all abort`. *Note, 2026-11-12:* the DAC module's DIN (GP9), VIN (VBUS, 5 V) and `MUTE` (not connected) were corrected to the bench wiring as the owner stated it, with BCLK on GP10 and WSEL on GP11 (§2.1). On 2026-11-12 the merged firmware (`V1.02.0000`, protocol 2.2) was built with no warnings, flashed to the bench Pico 2 on COM14 with `benchtools thermo flash` (name, version and SHA checks passed) and its commands run over the serial link: the LEDs, `wr led-red 2 on` answered `err 2`, `wr led-blue on` a `NAK`; `wr freq 1k`, `wr wave sine`, `wr amp 50`, `wr cycles 0` and `wr freq 3 500` acknowledged and read back; `routine freq start` on channels 1 and 3 reported `Running, sine, 1000.00 Hz` and `Running, square, 500.00 Hz`; `routine all abort` left 1 and 3 `Aborted` and 2 `Not Started`. The analogue outputs were not observed: no scope or meter was on the DAC or GP15, so nothing about the waveforms, levels or frequency accuracy is confirmed. |
 
 ### 7.1 First run on a real Pico 2 (2026-10-03)
 
@@ -430,3 +498,27 @@ instead of `ver`. `benchtools thermo -r COM14 flash pico_sht30.uf2`, with the
 same image, reported `ok`, method `bootsel`, and the checks `name`
 (`Pico 2 SHT30 Temperature Sensor`), `version` (`V1.00.0000`) and `sha`
 (`5c80ae7`) all passed.
+
+### 7.2 Indicator LEDs, and the sensor connected (2026-11-12)
+
+The same Pico 2, on COM14 of the bench PC. The #328 firmware, `V1.01.0000`, was
+built with Arm GNU 14.2.1 and Pico SDK 2.1.1 into a UF2 of 59 904 bytes and
+flashed with `benchtools thermo -r COM14 flash`; the `name`, `version`
+(`V1.01.0000`) and `sha` checks all passed. Over the serial link:
+
+| Sent | Reply |
+|---|---|
+| `wr led-red on`, `wr led-yellow on`, `wr led-green on` | `ACK wr led-<colour> = on` |
+| `wr led-red off`, `wr led-yellow off`, `wr led-green off` | `ACK wr led-<colour> = off` |
+| `rd led-<colour>` after each write | the state just written |
+| `wr led-blue on` | `NAK` (unknown option) |
+| `wr led-red 1` | `NAK` (a value other than `on` or `off`) |
+| `wr led-red` | `err 2` (no value) |
+| `rd led-purple` | `NAK` (unknown option) |
+
+The owner watched the board and confirmed that red, then yellow, then green lit
+one at a time, and then all three together.
+
+The SHT30-D module was connected the same day, SDA on GP4 and SCL on GP5, and
+the thermometer read about 23 °C. The reading
+was not compared with a reference (PICO-OPEN-03).

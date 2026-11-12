@@ -12,17 +12,24 @@
  *   SCL       GP5 = I2C0 SCL, pin 7
  *   ADDR      GND -> I2C address 0x44
  *
- * Frequency generator (docs/pico_sht30/Pico_SHT30_Notes.md):
+ * Indicator LEDs (#328), each driven high to light, through its own resistor:
+ *
+ *   red       GP18, pin 24
+ *   yellow    GP19, pin 25
+ *   green     GP20, pin 26
+ *
+ * Frequency generator (docs/pico_sht30/Pico_SHT30_Notes.md), as wired on the
+ * bench:
  *
  *   CJMCU-1334     Pico 2
  *   ----------     -----------------------------
- *   VIN            3V3(OUT), pin 36
+ *   VIN            VBUS (5 V from USB), pin 40
  *   GND            GND, pin 18
+ *   DIN            GP9, pin 12
  *   BCLK           GP10, pin 14
  *   WSEL           GP11, pin 15
- *   DIN            GP12, pin 16
- *   MUTE           GP13, pin 17, with 10 kOhm to 3V3 so it is muted before
- *                  the firmware runs
+ *   MUTE           not connected, so the firmware never mutes the DAC
+ *                  (#202). Define BOARD_DAC_MUTE_PIN to drive one.
  *   SCLK           3V3(OUT): selects the 50 to 100 kHz sample-rate range
  *   PLL, SF0, SF1  GND: audio mode, I2S format
  *
@@ -68,6 +75,21 @@
 #define BOARD_SHT30_ADDRESS		0x44U
 #endif
 
+/** GPIO driving the red LED (#328). High is lit. */
+#ifndef BOARD_LED_RED_PIN
+#define BOARD_LED_RED_PIN		18U
+#endif
+
+/** GPIO driving the yellow LED (#328). High is lit. */
+#ifndef BOARD_LED_YELLOW_PIN
+#define BOARD_LED_YELLOW_PIN		19U
+#endif
+
+/** GPIO driving the green LED (#328). High is lit. */
+#ifndef BOARD_LED_GREEN_PIN
+#define BOARD_LED_GREEN_PIN		20U
+#endif
+
 /** System clock in Hz, the Pico 2's default. */
 #ifndef BOARD_SYS_CLOCK_HZ
 #define BOARD_SYS_CLOCK_HZ		150000000UL
@@ -85,15 +107,15 @@
 #define BOARD_DAC_BCK_PIN		10U
 #endif
 
-/** GPIO carrying the I2S data. */
+/** GPIO carrying the I2S data. GP9 on the bench (#202). */
 #ifndef BOARD_DAC_DATA_PIN
-#define BOARD_DAC_DATA_PIN		12U
+#define BOARD_DAC_DATA_PIN		9U
 #endif
 
-/** GPIO driving the DAC's MUTE input; high mutes. */
-#ifndef BOARD_DAC_MUTE_PIN
-#define BOARD_DAC_MUTE_PIN		13U
-#endif
+/* BOARD_DAC_MUTE_PIN - the GPIO driving the DAC's MUTE input, high mutes - is
+ * deliberately left undefined: MUTE is not connected on the bench, so the
+ * firmware drives no pin for it and the DAC is never muted. Define it from
+ * the build (-DBOARD_DAC_MUTE_PIN=13U) on a board that wires MUTE. */
 
 /** GPIO carrying generator channel 3. */
 #ifndef BOARD_FGEN_GPIO_PIN
