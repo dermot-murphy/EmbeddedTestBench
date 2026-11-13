@@ -33,6 +33,7 @@
 | 0.7 | 2026-10-06 | Claude | #229: CStyleCheck moved to v1.6.1, which fixes CStyleCheck#439. §4.3 and §7 updated: baseline line numbers moved for 27 findings, one Pico finding excluded (CStyleCheck#447). |
 | 0.8 | 2026-10-24 | Claude | #284: §6 - Dependabot no longer proposes pip updates; new library releases reach CI through the weekly `constraints_refresh.yml`, which regenerates `constraints/` and offers the result on a branch. #248 and #250 declined for the same reason as #219, #223 and #224. |
 | next | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
+| next | 2026-11-13 | Claude | #200: Pico Technology added - §4.1 the PicoScope 3405D MSO, §4.4 the `ps3000a` library (from PicoScope 7 T&M Stable, unit driver version 2.2.160.7569; WinUSB driver 2.4.0.2 of 2022-06-10), not pinned, its licence not yet reviewed; §5 what the library is trusted to do. |
 
 ---
 
@@ -78,6 +79,7 @@ bench instruments themselves.
 | SEGGER | J-Link probe, J-Link Commander, RTT | Flash programming, memory read, RTT transport | SEGGER licence terms; tools used, not redistributed |
 | Nordic Semiconductor | nRF52840 dongle (PCA10059), nRF5 SDK 17.1.0, S140 SoftDevice 7.2.0, `nrfutil` | Firmware platform, BLE stack, DFU packaging | Nordic 5-clause licence for SDK; SoftDevice binary not redistributed |
 | STMicroelectronics | S2-LP sub-GHz transceiver | Register map — addresses, widths, reset values | **SLA0072** |
+| Pico Technology | PicoScope 3405D MSO (3000D series), serial HT415/0202; the `ps3000a` driver library and the WinUSB device driver (§4.4) | The behaviour of the `ps3000a` API - each call, its arguments and its status codes - and the unit's ranges, timebases, memory and signal generator as the specification page states them and as measured on the bench (#200) | Pico Technology's terms for PicoScope 7 and the PicoSDK; the library is installed on the bench PC, called through `ctypes`, and not vendored or redistributed. The licence text has not been reviewed (§4.4) |
 
 ### 4.2 Licence Constraint — SLA0072
 
@@ -102,6 +104,35 @@ addresses, field widths and reset values — written independently
 | `carlosperate` | `arm-none-eabi-gcc-action` | `@v1` | No newer major exists; the toolchain release itself is pinned per job |
 | GitHub | Hosted runner images | `ubuntu-24.04`; `ubuntu-22.04` for the Python 3.8 leg | Named, not `ubuntu-latest`, so an image change is a decision (#203); 3.8 is not in the 24.04 tool cache |
 
+### 4.4 Pico Technology `ps3000a` library (#200)
+
+The PicoScope driver (`benchtools.instruments.picoscope3000`, PSCOPE-ARC-001)
+is built on Pico Technology's `ps3000a` C library, called through `ctypes`. No
+Pico Python package is used (PSCOPE-NFR-001), and nothing of Pico's is vendored
+into this repository: the library is installed on the bench PC with PicoScope 7
+or the PicoSDK, and found there at run time.
+
+| Item | Seen on the bench PC (2026-11-13) | Where it is reported |
+|---|---|---|
+| `ps3000a.dll` | From PicoScope 7 T&M Stable; driver version **2.2.160.7569** | The driver version is what `ps3000aGetUnitInfo` returns, given by `benchtools pscope info` and in the identity recorded with each run |
+| USB device driver | WinUSB, version **2.4.0.2**, dated **2022-06-10** | Windows, in the device's driver properties; not reported by `ps3000a` or recorded by a run |
+| Unit | PicoScope 3405D MSO, serial HT415/0202 | `ps3000aGetUnitInfo` (variant and serial), as above |
+
+- **Not pinned.** The library is whatever PicoScope 7 or the PicoSDK installed
+  on the bench PC; this project does not install or choose it. Its version is
+  reported with the unit's identity (`driver <version>`) and so is recorded in
+  every run that uses the scope (§6, "Instrument firmware revision").
+- **What was checked against it.** The ranges, offset limits, timebases, memory
+  and full-scale code the driver uses were measured through this library on the
+  bench unit on 2026-11-13 (ETB-SWE1-001 §17). Some enumeration values were not
+  measured and are taken from the SDK's header; they are marked unverified in
+  `constants.py` and listed as PSCOPE-OPEN-05 (ETB-RTM-001 §19).
+- **Licence.** The terms under which PicoScope 7 and the PicoSDK are supplied
+  have not been read for this entry. Nothing is redistributed, which is the use
+  that most licences restrict, but that is an assumption, not a review. The
+  review is open: §6, "Licence terms".
+- **Interface note.** `docs/picoscope3000/PicoScope3000_Notes.md`.
+
 ---
 
 ## 5. What Each Dependency Is Trusted To Do
@@ -116,6 +147,7 @@ Trust is stated so that it can be checked rather than assumed.
 | `nrfutil` | Produce a valid DFU package for a given SDK | Remain compatible across versions | Pinned exactly |
 | PyPI packages | Honour semantic versioning | Never regress | Version ranges declared; the suite is the check |
 | CStyleCheck | Report violations of ETB-STD-002 and ETB-STY-001 | Be available forever | Pinned tag; failure blocks the style job only |
+| Pico Technology `ps3000a` library | Implement the `ps3000a` API as its calls and status codes behave on the bench unit | Keep enumeration values the driver has not measured where the header puts them; be the same version on every PC | Every call's status is checked and a refusal raised with the call's name; values not measured are marked unverified (PSCOPE-OPEN-05); the driver version is recorded with the unit's identity |
 
 ---
 

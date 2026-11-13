@@ -103,7 +103,8 @@ the Adafruit guide to the board: `References.md` rows 9 and 10.
 | PLL, SF0, SF1 | — | pulled low on the board: audio mode, I2S format |
 
 Channel 1 is the left output and channel 2 the right. Channel 3 is GP15 (pin
-20), a 3.3 V logic output. `BCLK` and `WSEL` must stay on adjacent GPIOs,
+20), a 3.3 V logic output. On the bench PC, channel 1 is wired to channel A of
+the PicoScope 3405D MSO (owner, 2026-11-13; ETB-PICO-002 §5.3). `BCLK` and `WSEL` must stay on adjacent GPIOs,
 because PIO side-set drives consecutive pins.
 
 VIN and MUTE are the bench wiring as the owner stated it on 2026-11-12; DIN,

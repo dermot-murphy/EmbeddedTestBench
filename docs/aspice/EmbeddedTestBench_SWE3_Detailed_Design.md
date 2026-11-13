@@ -96,6 +96,7 @@
 | next | 2026-11-12 | Claude | #202: merged with #328 (LEDs). PICO-DD-PROTOCOL - `PROTO_VERSION` 2.2, one `wr` for the LEDs and the generator, the argument counts, `help` in nine lines; PICO-DD-VERSION - `V1.02.0000`; PICO-DD-BOARD - the generator's pins, DIN on GP9, VIN on VBUS and `MUTE` not connected on the bench, `BOARD_DAC_MUTE_PIN` undefined; PICO-DD-HAL and -FGEN - `hal_dac_mute` a no-op without a `MUTE` pin; PICO-DD-PARSER - `cmd_rd` and `cmd_wr` dispatch to the generator; PICO-DD-TEST - `fgen.c` and `cmd_fgen.c` in the host build; PICO-DD-CONST, -DRIVER, -SIM and -CLI - `WR_OPTIONS`, the combined `wr`, `_acknowledged`, `WrRefusedError` a `CommandRefusedError`, the simulator's `V1.02.0000` and `err 2` for an LED with a channel. |
 | next | 2026-11-13 | Claude | #202: PICO-DD-BOARD - `BOARD_DAC_PIO_DIVIDER` 24, `BOARD_DAC_DATA_PIN` 6 and `BOARD_DAC_BCK_PIN` 7 (WSEL GP8), as the owner rewired the bench on 2026-11-13; the DAC board is an Adafruit UDA1334A, with `PLL`, `SF0`, `SF1` and `SCLK` low on the board. PICO-DD-FGEN - the sample rate is 48 828.125 Hz, inside the 16 to 50 kHz range that `SCLK` low selects; the DDS step about 11 µHz. |
 | next | 2026-11-13 | Claude | #330: the Pico 2 SHT30 Temperature Sensor renamed the PICO2 Test Board. §5.8 notes the rename and the user manual (ETB-PICO-002); PICO-DD-PROTOCOL and -VERSION - the name and `V1.00.0000`; PICO-DD-DRIVER - `Pico2TestBoard`, the aliases kept, the bench driver names, `set_led(colour, lit)`; PICO-DD-SIM - default version `V1.00.0000`; PICO-DD-CLI - `benchtools pico2` and the names it still accepts. |
+| next | 2026-11-13 | Claude | #200: section 5.10, PSCOPE - PSCOPE-DD-CONST, PSCOPE-DD-SDK, PSCOPE-DD-SIM, PSCOPE-DD-SCOPE and PSCOPE-DD-CLI, the PicoScope 3000D MSO driver through the `ps3000a` library (total 84 → 89); RUN and VIEW renumbered 5.11 and 5.12; CORE-DD-EVENTS - the default name `PSCOPE`. |
 ---
 
 ## 3. Purpose & Scope
@@ -143,8 +144,9 @@ not declare.
 | 5.7 | PSU | `benchtools.instruments.gpd3303d` | 4 |
 | 5.8 | PICO | `benchtools.instruments.pico2_test_board` and `firmware/pico2_test_board` | 15 |
 | 5.9 | SER | `benchtools.instruments.serial_capture` | 5 |
-| 5.10 | RUN | `benchtools.runner` | 8 |
-| | **Total** | | **84** |
+| 5.10 | PSCOPE | `benchtools.instruments.picoscope3000` | 5 |
+| 5.11 | RUN | `benchtools.runner` | 8 |
+| | **Total** | | **89** |
 
 ### 4.1 Package Structure
 
@@ -154,6 +156,7 @@ benchtools/
 ├── analysis/      waveform model, measurement, plotting
 ├── instruments/   one subpackage per instrument, plus the generic driver
 │   ├── tek3014b/      oscilloscope
+│   ├── picoscope3000/ PicoScope 3000D MSO: analogue, digital, signal generator
 │   ├── jlink/         debug probe
 │   ├── nordic_dongle/ BLE dongle - host half of the element
 │   ├── gpd3303d/      bench supply
@@ -592,7 +595,7 @@ from (CORE-FR-060, CORE-FR-063, AD-28, #126):
   module-level code (the transport factory), so connecting is named too.
 - The handler's order: the record's `event_source`, else the pending name, else
   `source_of` the logger name - the driver defaults `PSU`, `BLE`, `JLINK`, `RF`,
-  `SCOPE`, `DMM`, `TEMP` (`pico2_test_board`), `SERIAL` (`serial_capture`), `TEST` (the runner), and `BENCH` for
+  `SCOPE`, `DMM`, `TEMP` (`pico2_test_board`), `SERIAL` (`serial_capture`), `PSCOPE` (`picoscope3000`), `TEST` (the runner), and `BENCH` for
   anything else.
 
 `log_event(logger, kind, text, data)` logs *text* as usual and attaches `kind`
@@ -3444,7 +3447,200 @@ before the live lines that follow it. Ctrl-C while closing calls
 `stop_live_output` and closes again, and exits 1. Exit
 status 1 if a connection failed or any reply was `NACK`, else 0.
 
-### 5.10 RUN — `benchtools.runner`
+### 5.10 PSCOPE — `benchtools.instruments.picoscope3000`
+
+The PicoScope 3000D series MSO (#200), reached through Pico Technology's
+`ps3000a` C library rather than a transport. The driver (PSCOPE-DD-SCOPE) holds
+the settings and does the scaling; below it, PSCOPE-DD-SDK and PSCOPE-DD-SIM
+offer the same methods, one calling the C library and one modelling the bench
+unit, and the driver is built with either. The numbers it uses are in
+PSCOPE-DD-CONST, each marked there as measured on the bench's 3405D
+(2026-11-13), taken from the specification page, or taken from the SDK header
+and unverified. The interface note is `docs/picoscope3000/PicoScope3000_Notes.md`.
+
+#### PSCOPE-DD-CONST — `benchtools/instruments/picoscope3000/constants.py`
+
+The enumerations, each an `ScpiEnum` whose `code` is the SDK's value:
+`Channel` (A to D; `sdk_index` A = 0, `number` A = 1, and `parse`, which takes
+a letter in any case, a number 1 to 4 or its text, and raises `ValueError`
+otherwise), `Coupling` (AC 0, DC 1), `ThresholdDirection` (`ABOVE`, `BELOW`,
+`RISE`, `FALL`, `EITHER`, in the header's order; `RISE` measured),
+`DigitalDirection` (`DONT_CARE` to `EITHER`) and `WaveType` (`SINE` to
+`DC_VOLTAGE`), the last two in the header's order and unverified.
+
+The tables: `RANGES`, SDK range index 1 to 10 to full-scale volts, and
+`RANGE_VOLTS`; `OFFSET_LIMITS`, the offset limit per range as
+`ps3000aGetAnalogueOffset` gave it; `DIGITAL_PORTS` (port 0 is the SDK's 0x80,
+port 1 0x81); `DIGITAL_BITS` (8); `STATUS_NAMES`, only the statuses whose
+meaning was seen on the bench (0x00, 0x03, 0x0E, 0x0F), and `status_text`,
+which words one of those and gives any other by number, so no meaning is
+repeated from memory; `POWER_STATUSES` (0x119, 0x11A, 0x11E, unverified: the
+bench unit opened with 0); and `UnitInfo`, the `PICO_INFO` keys.
+
+The functions: `sample_interval_s(n)`, 2^n ns for n below 3 and (n − 2) × 8 ns
+from 3; `timebase_for(seconds)`, the timebase with the longest interval not
+above *seconds* (0 below 1 ns), refusing zero and negative intervals;
+`range_for_volts(volts)`, the index of the smallest range covering ±*volts*,
+`ValueError` above 20 V. `ModelLimits` is the frozen capability envelope -
+channels, bandwidth, sample rate, memory, digital ports and threshold range,
+full-scale code (32 512), generator frequency and voltage limits, and
+`digital_outputs` 0 - and `PS3405D_LIMITS` the bench's unit.
+
+#### PSCOPE-DD-SDK — `benchtools/instruments/picoscope3000/sdk.py`
+
+The seam. `find_library(sdk_path)` returns the first of `_candidates`: the
+platform's file name (`ps3000a.dll`, `libps3000a.dylib` or `libps3000a.so`)
+in *sdk_path* and in `PICOSDK_PATH`, each also with `lib` appended; then, on
+Windows, `C:\Program Files\Pico Technology\SDK\lib` and every
+`C:\Program Files\Pico Technology\PicoScope*` (PicoScope 7), and elsewhere
+`/opt/picoscope/lib`, `/usr/local/lib` and the macOS PicoSDK framework; then
+`ctypes.util.find_library`. With none, it raises `OptionalDependencyError`
+naming PicoScope 7, the PicoSDK, `sdk_path` and `PICOSDK_PATH`.
+
+`Ps3000aSdk(serial, sdk_path, library)` is one unit. The library is loaded on
+the first `open()`, not on construction or import: `WinDLL` on Windows,
+`CDLL` elsewhere, with its folder added by `os.add_dll_directory` so its own
+DLLs are found; a test passes *library* instead. `open()` calls
+`ps3000aOpenUnit` with the serial, or NULL for the first unit; a status in
+`POWER_STATUSES` with a valid handle is passed back to
+`ps3000aChangePowerSource`. A non-zero status, or a handle not above 0, resets
+the handle and raises `ConnectionFailedError` with `status_text`. `close()`
+calls `ps3000aStop` and then, in a `finally`, `ps3000aCloseUnit`, and drops
+the buffers.
+
+Every other method is one C call with `ctypes` types, its status passed to
+`check(status, what)`, which raises `InstrumentError` naming the call and
+the status and carrying `(status, what)` as its event: `unit_info` (an
+80-byte buffer; `""` when the call fails), `maximum_value`,
+`analogue_offset_limits` (returned as lowest, highest), `set_channel`,
+`set_digital_port`, `timebase` (`ps3000aGetTimebase2`, oversample 1, segment
+0; the interval in seconds and the most samples), `set_simple_trigger`,
+`run_block` (oversample 1, segment 0, no callback), `is_ready`, `stop`,
+`get_values` and `set_siggen`. `set_digital_trigger` first switches the simple
+trigger off, then sets `PS3000A_TRIGGER_CONDITIONS_V2` with only `digital`
+true, the `(bit, direction)` pairs, and no channel properties beyond the
+auto-trigger time. `get_values` gives `ps3000aSetDataBuffer` one buffer per
+channel and port, keeps them referenced in `_buffers` until the values are
+copied out, calls `ps3000aGetValues` from sample 0 without downsampling, and
+returns a `BlockData` of the raw codes - each digital code masked to its low
+8 bits - and the overflow mask. `set_siggen` calls
+`ps3000aSetSigGenBuiltInV2` with the offset and peak-to-peak in microvolts,
+the same start and stop frequency, and no sweep, shots or trigger.
+
+#### PSCOPE-DD-SIM — `benchtools/instruments/picoscope3000/simulator.py`
+
+`SimulatedPs3000a` has the methods and arguments of `Ps3000aSdk` and records
+every call in `calls`, so a test can check what the driver sent. It reports
+the 3405D's variant, a simulated serial (`SIM/0001`) and driver version
+`simulated`, the measured full-scale code and the measured offset limits; a
+range outside `RANGES` raises as the unit's status 0x0F does.
+
+Each channel sees a `ChannelSignal` - `SINE`, `SQUARE`, `TRIANGLE` or `DC`,
+with a frequency, amplitude and offset - by default a 1 kHz sine of 1 V
+amplitude on A, a 1 kHz square from 0 to 3.3 V on B, a 2 kHz triangle of
+0.5 V amplitude on C and 1.2 V DC on D, any of them replaced by the
+`simulated_signals` given to `connect`. Once the signal generator is set,
+channel A sees its output instead. `_code` digitises a voltage with the
+channel's range and offset and clips it at ±32 512; `get_values` sets a
+channel's overflow bit when any of its codes reaches full scale. The digital
+inputs are `counter(t)`, a 16-bit count at 2 kHz, so D0 is a 1 kHz square
+wave and each higher bit runs at half the rate of the one below; port 0 is
+its low byte and port 1 its high byte.
+
+`timebase` refuses, with status 0x0E, a timebase faster than `_FASTEST` allows
+for the number of channels and ports on: 0 with one, 1 with two, 2 with three
+or four, 3 with five or six. The bench unit's refusals of timebase 0 with two
+channels, 1 with four and 2 with four and a port were measured; the step at
+three is assumed. It also refuses a length beyond the
+memory divided as measured (`_memory_share`: 1, 2, 4, then 8 with four
+channels and a port). `run_block` searches the signal for the trigger, in
+steps of the sample interval but never longer than 1 µs, for at most 200 000 steps
+after the pre-trigger samples: an analogue trigger by direction and threshold
+code (`_analog_hit`), a digital one when every named bit meets its condition
+at once (`_bit_matches`). With no edge found and no auto-trigger the block
+never becomes ready, as on the unit; with one, it starts at once.
+`get_values` then samples every channel and port from the pre-trigger start.
+
+#### PSCOPE-DD-SCOPE — `benchtools/instruments/picoscope3000/scope.py`
+
+`PicoScope3000` subclasses `Instrument` (CORE-DD-INSTRUMENT) with
+`auto_check_errors` off, since the unit has no error queue: each call raises
+for itself. `SIMULATOR_CLASS` is `None`, because a simulated unit is not a
+`Responder` on a transport; `connect` handles `sim://` itself. `EVENT_SOURCE`
+is `PSCOPE`.
+
+`connect(resource, timeout, sdk_path, initialise, simulated_signals)` builds a
+`SimulatedPs3000a` for `sim...`, a `Ps3000aSdk` for `pico://[serial]` (also
+`pico`, `usb` and `usb://`), and refuses anything else with
+`ConfigurationError`; an initialise that fails closes the unit before the
+error is raised. `_post_open` reads the full-scale code from the unit, logs
+the identity, and sends every setting the driver holds, so the unit starts
+in a known state: channel A on at ±5 V DC with no offset, B to D off, both
+digital ports off at 1.5 V, the trigger off. The driver also starts at
+timebase 127 (1 µs), 10 000 samples and a pre-trigger fraction of 0.2.
+`_read_identity` takes the variant, serial and driver version from
+`unit_info`.
+
+The settings are held in the driver and sent as they are made:
+
+* `configure_channel` builds a new `ChannelSetup` from the arguments given and
+  the old values, rounds the range up with `range_for_volts`, asks the unit
+  for the range's offset limits, sends the set-up, and only then keeps it, so
+  a refused setting changes nothing. `enable_channel` is `configure_channel`
+  with `enabled` alone.
+* `configure_digital_port` converts the threshold to the SDK's level,
+  threshold / 5 V × 32 767, refusing more than ±5 V.
+* `set_timebase` and `set_sample_interval` (through `timebase_for`) set the
+  timebase; `set_record_length` the length and the pre-trigger fraction.
+* `configure_edge_trigger` converts the level to a code,
+  (level + offset) / range × full-scale code, refusing a level off the
+  channel's range. `configure_digital_trigger` checks each bit and its port and
+  passes `(bit, code)` pairs to `set_digital_trigger`. `disable_trigger`
+  switches the simple trigger off.
+
+`capture(timeout)` lists the channels and ports that are on and refuses an
+empty list; asks the unit for the timebase with the length (`sdk.timebase`,
+which raises if it is not available, and gives the interval); runs the block
+with round(length × pre-trigger fraction) samples before the trigger; and polls
+`is_ready` every 5 ms until the deadline, when it calls `stop` and raises
+`AcquisitionTimeoutError`. `_scale` then builds each analogue record with
+`Waveform.from_codes` (ANA-DD-WAVEFORM) from a `WaveformPreamble` of the
+interval, the pre-trigger count as the point offset, range / full-scale code
+as the multiplier and −offset as the zero, and gives it the full-scale code so
+clipping is detected; and each digital bit as a `Waveform` of
+`(code >> bit) & 1` with `y_unit` `bit` and a full-scale code of 2, so a bit
+never reads as clipped. Channels whose overflow bit is set go into
+`overrange`, with a warning. The result is a `BlockCapture` (analogue and
+digital records, interval, timebase, overrange) with `bits(n)` and
+`to_csv(path)`.
+
+`capture_single` returns the analogue records only, as the TDS3014B driver
+does, refusing a channel asked for that is not on; `measure_channel_spread`
+captures at least two channels and passes them to `measure_channel_spread`
+(ANA-DD-MEASURE); `save_csv` is `waveforms_to_csv`. `set_signal_generator`
+checks the waveform, the frequency (0 to 1 MHz) and |offset| + amplitude / 2
+against ±2 V from the limits, then sends the offset and amplitude in
+microvolts; `signal_generator_off` sends `DC_VOLTAGE` at 0 V.
+
+#### PSCOPE-DD-CLI — `benchtools/instruments/picoscope3000/cli.py`
+
+`benchtools pscope [-r RESOURCE] [--sdk-path DIR] [--timeout S] [--json PATH]
+[-v] {info,capture,siggen}`, reached from the top-level command as `pscope`,
+`picoscope` or `picoscope3000`, with `sim://` the default resource. `info`
+prints the identity and `unit_info()`. `capture` sets the channels named with
+`-c` (others off), `--range`, `--coupling` and `--offset`, the ports named with
+`--digital` and `--threshold`, `--interval`, `--samples` and `--pre-trigger`,
+then a digital trigger from `--digital-trigger BIT:COND ...` (`D` before the
+bit allowed, `RISE` if no condition), or an analogue one from `--trigger`,
+`--level` and `--slope`, or none, with `--auto-ms`; it prints the interval,
+timebase, points, channels over range, each channel's minimum, maximum,
+peak-to-peak and mean, and each bit's high fraction and edge count, and writes
+`--csv` and `--plot` when asked. `siggen` sets `--wave`, `--frequency`, `--vpp`
+and `--offset`, or `--off`. The result is printed as JSON and also written to
+`--json`. Exit status 0; 1 when the connection fails or the driver raises
+`BenchToolsError` or `ValueError`; 2 for a malformed `--digital-trigger`.
+
+### 5.11 RUN — `benchtools.runner`
 
 #### RUN-DD-SPEC — `spec.py`
 
@@ -3667,7 +3863,7 @@ rather than nesting argparse parsers, so each tool keeps its own complete
 
 ---
 
-### 5.11 VIEW — `benchtools.viewer`
+### 5.12 VIEW — `benchtools.viewer`
 
 #### VIEW-DD-STATE — `state.py`
 

@@ -15,6 +15,7 @@ instruments are added:
 | `ANA-` | Analysis of captured records | `benchtools.analysis` |
 | `INST-` | Instrument drivers, common requirements | `benchtools.instruments` |
 | `SCOPE-` | Tektronix TDS3014B driver | `benchtools.instruments.tek3014b` |
+| `PSCOPE-` | PicoScope 3000D MSO driver: four analogue, 16 digital, signal generator | `benchtools.instruments.picoscope3000` |
 | `JLINK-` | SEGGER J-Link debug probe driver | `benchtools.instruments.jlink` |
 | `BLE-` | Nordic BLE bench dongle: host driver **and** dongle firmware | `benchtools.instruments.nordic_dongle`, `firmware/nordic_dongle` |
 | `PSU-` | GW Instek GPD-3303D bench supply | `benchtools.instruments.gpd3303d` |
@@ -47,6 +48,7 @@ All ASPICE work products live in [`aspice/`](aspice/). Every one is at version
 | [SWE.3 Detailed Design](aspice/EmbeddedTestBench_SWE3_Detailed_Design.md) | Per-module design units |
 | [SWE.3 GPD-3303D Driver Design](aspice/EmbeddedTestBench_SWE3_002_GPD3303D_Driver_Design.md) | The supply's driver as one component: structure, decisions, and the lessons learned bringing it up on hardware |
 | [GPD-3303D Remote Control Interface](aspice/EmbeddedTestBench_IF001_GPD3303D_Remote_Control_Interface.md) | The supply's protocol as the instrument implements it, command by command, with captured replies |
+| [PicoScope 3000D Driver Interface and Dependencies](aspice/EmbeddedTestBench_IF002_PicoScope3000_Driver_Interface.md) | How Embedded Test Bench drives the PicoScope through the `ps3000a` library, call by call, and every layer it depends on |
 | [SWE.4 Unit Verification](aspice/EmbeddedTestBench_SWE4_Unit_Verification.md) | Verification strategy, test groups, pass criteria |
 | [SWE.4 Unit Verification Report](aspice/EmbeddedTestBench_SWE4_Unit_Verification_Report.md) | Results, coverage, measured accuracy, defects found |
 | [SWE.5 Integration & Integration Test](aspice/EmbeddedTestBench_SWE5_SW_Integration_Test.md) | How the units are joined, and the interface properties no unit test can show |

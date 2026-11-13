@@ -1129,7 +1129,7 @@ Which arguments are input files is declared by each driver, not guessed:
 | `s2lp` | `source` of `load_configuration`, `apply_configuration`, `verify_configuration` |
 | `ble-dongle` | bench option `firmware`; `firmware` of `expect_firmware`, `check_firmware`, `update_firmware`, `ensure_firmware`; `source` of `run_script` |
 | `jlink`, `jlink-rtt` | bench options `elf`, `firmware`; `elf` of `load_symbols`; `path` of `flash`, `image_build`, `verify` |
-| `gpd3303d`, `tti1604`, `tek3014b`, `pico2-test-board` | none |
+| `gpd3303d`, `tti1604`, `tek3014b`, `pico2-test-board`, `picoscope3000` | none |
 
 **Output files** - logs, reports, screenshots, `--json`/`--markdown`/`--junit` -
 are written relative to the working directory, as before. A run started in the

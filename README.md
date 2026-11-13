@@ -35,6 +35,7 @@ benchtools/
 ├── analysis/      waveform scaling, edge/period/spread measurement, plotting
 ├── instruments/   one subpackage per instrument
 │   ├── tek3014b/    Tektronix TDS3014B oscilloscope
+│   ├── picoscope3000/  PicoScope 3000D MSO: 4 analogue + 16 digital, signal generator
 │   ├── jlink/       SEGGER J-Link debug probe (flash, RTT, breakpoints, timing)
 │   ├── nordic_dongle/  Nordic BLE dongle (scan, UART over BLE, advertising profile)
 │   ├── gpd3303d/    GW Instek GPD-3303D bench power supply
@@ -288,6 +289,41 @@ benchtools backends       # transport backends a resource string can select
 
 > Pass negative values with `=`, as in `--position=-4,-3`. `argparse` otherwise
 > reads a leading `-` as an option flag.
+
+---
+
+## Mixed-signal oscilloscope — PicoScope 3000D MSO
+
+The bench's PicoScope 3405D MSO captures four analogue channels and sixteen
+digital inputs in one block, on one time base, and has a signal generator. It
+is driven through Pico Technology's `ps3000a` library with `ctypes`: install
+PicoScope 7 or the PicoSDK; no Pico Python package is needed.
+
+```bash
+python -m benchtools pscope -r pico:// info
+python -m benchtools pscope -r pico:// capture -c A B --range 2 --digital 0        --interval 1e-6 --trigger A --level 0 --csv block.csv --plot block.png
+python -m benchtools pscope -r sim:// capture -c A B C D --digital 0 1   # no hardware needed
+```
+
+Analogue records come back as the same `Waveform`, in seconds and volts and
+keyed by channel number (A is 1), as the TDS3014B's, so the analysis helpers
+and `measure_channel_spread` work on either. Each digital bit is a `Waveform`
+of 0 and 1:
+
+```python
+from benchtools.instruments.picoscope3000 import PicoScope3000
+
+with PicoScope3000.connect("pico://HT415/0202") as scope:
+    scope.configure_channel("A", range_volts=2.0)
+    scope.configure_digital_port(0, threshold=1.5)
+    scope.configure_edge_trigger("A", level=0.0)
+    block = scope.capture()
+    print(block.analog[1].peak_to_peak, block.bits(0)[:16])
+```
+
+The 3000D MSO has no digital outputs. What was measured on the unit, and what
+is still unverified, is in the
+[PicoScope 3000 Notes](docs/picoscope3000/PicoScope3000_Notes.md).
 
 ---
 
@@ -929,6 +965,8 @@ by `scripts/publish_docs.py` and are not edited by hand.
 |---|---|
 | [Documentation index](docs/README.md) | Work-product map and identifier prefixes |
 | [VISA Determination Report](docs/tek3014b/VISA_Determination_Report.md) | Whether VISA is required, with evidence and bench confirmation items |
+| [PicoScope 3000D Driver Interface](docs/aspice/EmbeddedTestBench_IF002_PicoScope3000_Driver_Interface.md) | ETB-IF-002: how the bench drives the PicoScope, call by call, and its dependencies |
+| [PicoScope 3000 Notes](docs/picoscope3000/PicoScope3000_Notes.md) | How the PicoScope is reached (ps3000a through ctypes), what was measured on the 3405D, and what is unverified |
 | [J-Link Integration Notes](docs/jlink/JLink_Integration_Notes.md) | Why the GDB Server rather than the DLL, Windows and Docker, timing methods, probe confirmation items |
 | [Bench Runner Guide](docs/Bench_Runner_Guide.md) | Writing specifications and bench configurations |
 | [BLE Dongle Notes](docs/ble/BLE_Dongle_Notes.md) | Why the dongle needs firmware, the line protocol, building and flashing, reading a profile, and what is unproven |

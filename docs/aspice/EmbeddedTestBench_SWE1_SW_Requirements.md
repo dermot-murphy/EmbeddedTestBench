@@ -90,6 +90,7 @@
 | next | 2026-11-12 | Claude | #202: merged with #328 (LEDs). PICO-FR-001, -003, -007, -008, -049, -061, -062, -085 and -089 revised: one `wr` command for the LEDs and the generator's settings, the argument counts of `rd`, `wr` and `routine`, `WrRefusedError` a `CommandRefusedError`, and `MUTE` not connected on the bench. |
 | next | 2026-11-13 | Claude | #202: PICO-FR-088 revised: the DAC is driven at 48 828.125 Hz, inside the 16 to 50 kHz range that the Adafruit UDA1334A board's `SCLK` selects; at 97 656.25 Hz the outputs were silent. §15.5a: the DAC board is an Adafruit UDA1334A, not a CJMCU-1334, and a sine was seen on channels 1 and 2 on 2026-11-13. |
 | next | 2026-11-13 | Claude | #330: the Pico 2 SHT30 Temperature Sensor renamed the PICO2 Test Board. §5 `PICO-` element row and §15 retitled, with a note on the rename and the user manual (ETB-PICO-002). PICO-FR-002 (name, and the version reset to `V1.00.0000`), -006 and -040 (the name), -049 (`set_led(colour, lit)`), -050 (driver names `pico2-test-board` and `pico2`, the old names kept) and -060 (`benchtools pico2`, the old names kept) revised. |
+| next | 2026-11-13 | Claude | #200: §17, `PSCOPE-` (PSCOPE-FR-001 to PSCOPE-FR-020, PSCOPE-FR-030, PSCOPE-NFR-001): the PicoScope 3000D series MSO - opening and identity, ranges, coupling and offset with the limits measured on the bench's 3405D, timebase, analogue and digital triggers, one block of four analogue channels and sixteen digital bits as `Waveform` records, overrange, timeout and auto-trigger, the signal generator, the simulator, bench driver and `benchtools pscope`; the 3000D MSO has no digital outputs, so digital output is not a requirement. §5 element row; CORE-FR-063: the default name `PSCOPE`; CON-03 revised and CON-11 added. Sections 17 to 20 renumbered 18 to 21. |
 ---
 
 ## 3. Purpose & Scope
@@ -185,6 +186,7 @@ prefixes are per element so they stay unique as instruments are added.
 | `PSU-` | `benchtools.instruments.gpd3303d` | The GW Instek GPD-3303D bench supply. Separate from `INST-` because its command set is neither SCPI nor shared with any other instrument here, and its single output switch is a hardware constraint that shapes its whole interface. |
 | `PICO-` | `benchtools.instruments.pico2_test_board` **and** `firmware/pico2_test_board` | The PICO2 Test Board (the Pico 2 SHT30 Temperature Sensor before #330), a Pico 2 bench thermometer with LEDs and a frequency generator: host driver and the Pico's own firmware. One element for the same reason as `BLE-`: the line protocol between them is one design decision. |
 | `SER-` | `benchtools.instruments.serial_capture` | The serial capture instrument: a host-side driver that records a device's serial output. Separate from `INST-` because it has a command set of its own (`RD`, `WR`, `ROUTINE`), and from every other element because it has no hardware of its own beyond a USB serial adapter. |
+| `PSCOPE-` | `benchtools.instruments.picoscope3000` | The PicoScope 3000D series MSO: four analogue channels, sixteen digital inputs and a signal generator. Separate from `SCOPE-` because it is a different instrument reached a different way: not a SCPI instrument and not on a message link at all, but a C library (`ps3000a`) called through `ctypes`. |
 | `RUN-` | `benchtools.runner` | The bench test runner. |
 | `VIEW-` | `benchtools.viewer` | The test run viewer: a browser page onto a run. Separate from `RUN-` because it is a client of the runner - of its event log and control channel - and sits above it in the layering, so the runner never depends on it. |
 
@@ -254,7 +256,7 @@ Extends §6.2 with the SCPI and IEEE 488.2 vocabulary.
 | CORE-FR-050 | A build's manifest - the version and build date its build system recorded beside the image - shall be readable by any element that needs it, and the diagnostic for a missing one shall name every path searched and take from the caller the sentence saying how that particular build produces one. | STK-07, STK-16 | Test |
 | CORE-FR-061 | The link layer shall support instruments that send without being asked: reading whatever bytes have arrived without waiting for an end-of-message - which a serial port never signals - and discarding everything received but not yet read, including input held by the operating system, so that a reading taken on request is not one that was waiting in a buffer. | STK-18 | Test |
 | CORE-FR-062 | A simulated instrument that streams on a virtual clock shall be told how long the driver is prepared to wait, so that output due later than that is a timeout, as it is on a real link, rather than data the driver would never have received. | STK-07, STK-18 | Test |
-| CORE-FR-063 | Each instrument shall carry a short event-log name - 1 to 8 characters, an upper-case letter then A-Z, 0-9 or _ - and every record logged by the instrument or by anything it owns (its transport, its sessions) shall carry that name, from the instrument's construction on, so two instruments of one driver are told apart. Without a name given, it shall be the driver's default: `PSU`, `BLE`, `JLINK`, `RF`, `SCOPE`, `DMM`, `TEMP` (Pico 2 + SHT30-D thermometer), `SERIAL` (serial capture instrument, #247); a record from nothing named shall be `BENCH` (#126). | STK-19 | Test |
+| CORE-FR-063 | Each instrument shall carry a short event-log name - 1 to 8 characters, an upper-case letter then A-Z, 0-9 or _ - and every record logged by the instrument or by anything it owns (its transport, its sessions) shall carry that name, from the instrument's construction on, so two instruments of one driver are told apart. Without a name given, it shall be the driver's default: `PSU`, `BLE`, `JLINK`, `RF`, `SCOPE`, `DMM`, `TEMP` (Pico 2 + SHT30-D thermometer), `SERIAL` (serial capture instrument, #247), `PSCOPE` (PicoScope 3000D MSO, #200); a record from nothing named shall be `BENCH` (#126). | STK-19 | Test |
 | CORE-FR-060 | Every instrument's and the runner's log records shall be writable, while a run is in progress, to one event log of one JSON object per line, each carrying the short upper-case name of the instrument it came from (`PSU`, `BLE`, `RF`, `TEMP`, ...) or `TEST` for the runner, so that another program can follow the run as it happens and tell its sources apart. | STK-19 | Test |
 | CORE-FR-064 | A record in the event log shall be able to carry, beside its text, a `kind` naming what happened and a `data` object with its details, so that a reader can follow the run without parsing text. `data` shall be standard JSON - a value that is not finite written as text, bytes as hex, a long sequence cut short and saying so - and a reader that ignores the two fields shall be unaffected. | STK-19 | Test |
 | CORE-FR-065 | A driver shall be able to log a measured value as a `reading` record - quantity, value, unit, and details such as the channel - where it has the value in hand, so a reader of the event log can graph it without parsing the instrument's reply. | STK-23 | Test |
@@ -360,7 +362,7 @@ Extends §6.2 with the SCPI and IEEE 488.2 vocabulary.
 The probe is not an instrument in the SCPI sense: it does not answer `*IDN?` and
 has no error queue. It is nonetheless a *bench instrument* — it is configured,
 it is commanded, and it yields measurements — so it implements the generic base of
-§6.2 and is usable from the runner of §17.
+§6.2 and is usable from the runner of §18.
 
 ### 10.1 Link to the probe
 
@@ -1044,9 +1046,107 @@ firmware spell it.
 
 ---
 
-## 17. RUN — bench test runner
+## 17. PSCOPE — PicoScope 3000D series MSO
 
-### 17.1 Bench configuration
+A driver for a Pico Technology PicoScope 3000D series mixed-signal oscilloscope
+(#200): four analogue channels, sixteen digital inputs in two ports, and a
+built-in signal generator, the analogue and digital channels captured in one
+block on one time base. The bench's unit is a **PicoScope 3405D MSO**, serial
+HT415/0202, on USB. It is not a message-based instrument: there is no command
+text on a wire, only calls into Pico Technology's `ps3000a` C library, which the
+driver reaches with `ctypes` (PSCOPE-NFR-001). The interface note is
+`docs/picoscope3000/PicoScope3000_Notes.md`.
+
+Each number below has one of two sources, and `constants.py` marks which:
+**measured** on the bench's 3405D through `ps3000a` on 2026-11-13, or the
+**spec page**, Pico Technology's 3000 series specifications
+(<https://www.picotech.com/oscilloscope/3000/picoscope-3000-oscilloscope-specifications>:
+100 MHz, 1 GS/s, 256 MS, 8 bits, 16 digital inputs in 2 ports with a ±5 V
+threshold, a function generator from DC to 1 MHz within ±2 V into 600 Ω, an
+AWG of 20 MS/s and 32 kS). A few SDK enumeration values could be checked
+neither way; they are marked unverified in the code (ETB-RISK-004,
+PSCOPE-OPEN-05).
+
+**No digital outputs.** #200 asked for digital output "if the model has it". The
+specification page lists no digital or pattern outputs for the 3000D MSO; its
+only output is the signal generator. Digital output is therefore **not a
+requirement**, and the model's limits record none (PSCOPE-FR-018).
+
+**Hardware status, 2026-11-13** (CON-11). Confirmed on the bench unit: open,
+close and identity; the ranges, offset limits, timebases and memory below; four
+analogue channels and both digital ports captured in one block at 8 ns
+(timebase 3), with no signal connected to the inputs; a 1 kHz sine of about
+1.94 V peak-to-peak captured on channel A; and 32 settings of the PICO2 Test
+Board's generator on channel A, every frequency within ±40 ppm of the board's
+and every duty within 0.5 points (ETB-PICO-002 §5.3). Not yet confirmed on hardware: the
+digital bits against a real logic signal (PSCOPE-OPEN-01), the digital trigger
+(PSCOPE-OPEN-02) and the signal generator (PSCOPE-OPEN-03). The acceptance of
+#200 - four analogue channels and the digital channels captured in one block on
+hardware, against a known signal - is therefore met only in part
+(PSCOPE-OPEN-04).
+
+### 17.1 The unit and its identity
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| PSCOPE-FR-001 | The driver shall open a unit from the resource `pico://` (the first unit found), `pico://<serial>` (that unit, for example `pico://HT415/0202`) or `sim://` (the simulated unit, PSCOPE-FR-020), and shall refuse any other resource, naming the forms it takes. A unit that will not open shall be a connection failure naming the SDK's status, with no unit left open; a unit that opens asking for its power source to be confirmed shall have it confirmed. Closing shall stop any acquisition, close the unit, and not raise. | STK-07 | Test |
+| PSCOPE-FR-002 | The driver shall identify the unit - manufacturer `Pico Technology`, model `PicoScope <variant>` (`PicoScope 3405DMSO` on the bench), serial number, and the version of the driver library - and shall report what the unit says about itself by name: driver, USB, hardware version, variant, serial number and calibration date. A call the SDK refuses shall raise an error naming the call and its status, the status worded where its meaning was seen on the bench (0x03 no unit found, 0x0E timebase not available, 0x0F range not available) and given by number otherwise. | STK-07 | Test |
+
+### 17.2 Analogue channels, digital inputs and timebase
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| PSCOPE-FR-003 | Each analogue channel, named by its letter A to D in any case or by its number 1 to 4, shall have its full scale set in volts, rounded up to the next of the ten ranges the unit accepts: ±20 mV, 50 mV, 100 mV, 200 mV, 500 mV, 1 V, 2 V, 5 V, 10 V and 20 V (SDK range index 1 to 10; the unit refused 0 and 11 with status 0x0F, measured). A full scale above ±20 V, or a channel the model does not have, shall be refused. | STK-02, STK-03 | Test |
+| PSCOPE-FR-004 | Each analogue channel shall have its coupling (DC or AC) and its analogue offset set, and shall be switchable on and off keeping its settings; a setting not named shall keep its value, and the set-up as sent shall be readable. The offset shall be within the limit the unit reports for the range - measured ±0.25 V on the 20 mV to 200 mV ranges, ±2.5 V on 0.5 V to 2 V, and ±20 V on 5 V to 20 V - and a setting outside it shall be refused and change nothing. | STK-02, STK-03 | Test |
+| PSCOPE-FR-005 | The timebase shall be settable by the SDK's timebase number or by a sample interval in seconds. Timebase *n* shall have an interval of 2^*n* ns for *n* below 3 and (*n* − 2) × 8 ns from 3 on (measured for *n* = 0 to 5, 10, 127 and 252). A sample interval asked for shall give the timebase with the longest interval not above it, and one below 1 ns timebase 0. | STK-04 | Test |
+| PSCOPE-FR-006 | A capture shall take a record length of at least 2 samples, a fraction of them from 0 to 1 (by default 0.2) before the trigger. Before each capture the driver shall ask the unit whether the timebase and length are available with the channels and ports that are on, and a refusal shall be an error naming the timebase. On the bench unit timebase 0 was refused with two channels on, 1 with four, and 2 with four channels and a digital port (status 0x0E); the memory was 268 435 200 samples with one channel, half that with two and a quarter with four, and 33 554 400 with four channels and a digital port (measured). | STK-04 | Test |
+| PSCOPE-FR-007 | Each digital port - port 0 for D0 to D7, port 1 for D8 to D15 - shall be switchable on and off with a logic threshold in volts within ±5 V (spec page). A threshold beyond it, or any other port, shall be refused. | STK-02 | Test |
+
+### 17.3 Triggering
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| PSCOPE-FR-008 | An analogue edge trigger shall be settable on a channel, with a level in volts, a direction (`RISE`, `FALL`, `EITHER`, `ABOVE` or `BELOW`), a delay in samples and an auto-trigger time in milliseconds. A level outside the channel's range, its offset taken into account, shall be refused. `RISE` was confirmed on the bench unit; the SDK values of the other directions are unverified (PSCOPE-OPEN-05). | STK-04 | Test |
+| PSCOPE-FR-009 | A digital trigger shall be settable on one or more of the bits D0 to D15, each with a condition (`RISE`, `FALL`, `EITHER`, `HIGH` or `LOW`), firing when all of them hold at once, with an auto-trigger time; it shall replace any analogue trigger. A bit outside 0 to 15, a bit whose port is off, or no bit at all, shall be refused. Not yet confirmed on hardware (PSCOPE-OPEN-02). | STK-04 | Test |
+| PSCOPE-FR-010 | The trigger shall be able to be switched off, so that a capture starts at once. A capture whose trigger does not come shall wait at most its timeout - by default 10 s, set for the connection or for one capture - then stop the acquisition and raise an acquisition timeout that points at the trigger and the auto-trigger time. With an auto-trigger time set, the unit shall capture anyway when it runs out. | STK-04 | Test |
+
+### 17.4 Capture and results
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| PSCOPE-FR-011 | One capture shall take a single block of every analogue channel and every digital port that is on - up to four analogue channels and sixteen digital bits - on one time base, and shall refuse to start with nothing on. Each analogue record shall be a `Waveform` in seconds and volts, keyed by channel number (A is 1) with the channel's letter as its source, time 0 at the trigger and the pre-trigger samples before it, scaled by the range over the unit's full-scale code (32 512, measured) and corrected for the offset, so that it reads the voltage at the input. | STK-02, STK-04 | Test |
+| PSCOPE-FR-012 | Each bit of a digital port that is on shall be a `Waveform` of 0 and 1 with the unit `bit`, keyed by bit number (D0 is 0, D15 is 15) with `D<n>` as its source, on the same times as the analogue records; a bit shall also be readable as a list of 0 and 1. Not yet confirmed against a real logic signal (PSCOPE-OPEN-01). | STK-02, STK-04 | Test |
+| PSCOPE-FR-013 | An analogue channel that went beyond its range during a capture shall be reported by number in the capture's `overrange`, its record shall be marked clipped, and a warning shall be logged. | STK-05 | Test |
+| PSCOPE-FR-014 | The driver shall offer the TDS3014B driver's capture and timing steps in the same form - `capture_single`, returning the analogue records keyed by channel number, `measure_channel_spread` and `save_csv` - so that a specification and the analysis helpers run on either oscilloscope. A channel asked for that is not on shall be refused. | STK-05, STK-07 | Test |
+| PSCOPE-FR-015 | A capture shall be writable to one CSV file: a `time_s` column, then `<channel>_volts` for each analogue record and `D<n>` (0 or 1) for each digital bit. | STK-04 | Test |
+
+### 17.5 Signal generator
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| PSCOPE-FR-016 | The signal generator shall run a built-in waveform continuously - `SINE`, `SQUARE`, `TRIANGLE`, `RAMP_UP`, `RAMP_DOWN`, `SINC`, `GAUSSIAN`, `HALF_SINE` or `DC_VOLTAGE` - at a frequency from 0 to 1 MHz, with a peak-to-peak amplitude and an offset that together stay within ±2 V (spec page). A setting outside these limits, or an unknown waveform, shall be refused before anything is sent to the unit. Not yet confirmed on hardware (PSCOPE-OPEN-03). | STK-07 | Test |
+| PSCOPE-FR-017 | The signal generator shall be able to be switched off, its output driven to 0 V DC. | STK-07 | Test |
+
+### 17.6 Envelope, simulation, bench use and command line
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| PSCOPE-FR-018 | The model's capability envelope - channel count, bandwidth, sample rate, memory, digital ports and threshold range, full-scale code, the signal generator's frequency and voltage limits, and the number of digital outputs (none) - shall be data, defaulting to the PicoScope 3405D MSO, so that another model of the series is supported by constructing the driver with its limits (INST-FR-003). | STK-07 | Test |
+| PSCOPE-FR-019 | The driver shall be registered as the bench drivers `picoscope3000` and `picoscope`, with the default event-log name `PSCOPE`, and shall take from a bench the options `timeout`, `sdk_path` and, for `sim://`, `simulated_signals`. | STK-08 | Test |
+| PSCOPE-FR-020 | With `sim://`, a simulated PicoScope 3405D MSO shall stand in for the SDK behind the same calls, so that the driver runs unchanged. It shall digitise a signal on each channel - by default a 1 kHz sine of 2 V peak-to-peak on A, a 1 kHz square from 0 to 3.3 V on B, a 2 kHz triangle of 1 V peak-to-peak on C and 1.2 V DC on D, each replaceable - with the range, offset and full-scale code set, clipping at full scale and reporting the overflow; wire the signal generator's output to channel A; drive the digital inputs from a 16-bit counter, so that D0 is a 1 kHz square wave and each higher bit runs at half the rate of the one below; find analogue and digital trigger edges in those signals, never completing without one unless an auto-trigger time is set; and refuse the ranges, offsets and fastest timebases the bench unit refused. | STK-08 | Test |
+| PSCOPE-FR-030 | `benchtools pscope` (also `picoscope` and `picoscope3000`) shall identify the unit (`info`), capture one block (`capture`: analogue channels, range, coupling and offset, digital ports and threshold, sample interval, length, pre-trigger fraction, an analogue or digital trigger, auto-trigger time, CSV file and plot) and drive the signal generator (`siggen`, and `siggen --off`), against `sim://` unless a resource is given. It shall print its result as JSON and optionally write it to a file. The exit status shall be 0 on success, 1 when the unit cannot be opened or a setting or capture fails, and 2 for a malformed digital trigger. | STK-04, STK-07 | Test |
+
+### 17.7 PSCOPE non-functional
+
+| ID | Requirement | Verification |
+|---|---|---|
+| PSCOPE-NFR-001 | The driver shall need no Pico Python package and add no mandatory third-party dependency. It shall call Pico Technology's `ps3000a` C library through `ctypes`, looked for in the bench's `sdk_path` folder, then the folder named by `PICOSDK_PATH` (each with its `lib` subfolder), then where the PicoSDK and PicoScope 7 install it (`/opt/picoscope/lib` and the like off Windows), then on the system's library search path. The library shall be loaded only when a unit is opened, so that a bare install imports the driver and runs the simulator, and its absence shall be reported as a missing optional dependency naming PicoScope 7 or the PicoSDK and how to point at it. | Inspection, Test |
+
+---
+
+## 18. RUN — bench test runner
+
+### 18.1 Bench configuration
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -1059,7 +1159,7 @@ firmware spell it.
 | RUN-FR-007 | A bench option that a driver declares as an input file, given as a relative path, shall be looked for in the bench file's directory, then the working directory, then the EmbeddedTestBench checkout, and the first that exists used. One found in none shall be passed to the driver unchanged and the locations searched logged, since a simulator may not read it. The runner is normally started in the repository of the firmware under test, not in this one (#116). | STK-08 | Test |
 | RUN-FR-008 | A specification shall be able to allocate an event-log name to each instrument it uses, and a bench to attach one to each actual instrument. The specification's name shall win, the bench's apply where the specification gives none, and the driver's default where neither does. An invalid name, or two instruments given one name in a specification or a bench, shall be refused at load; two instruments a run uses that would share a name, defaults included, shall be refused before any instrument connects. Each instrument's name shall appear in the run record and the report (#126). | STK-08, STK-19 | Test |
 
-### 17.2 Test specification
+### 18.2 Test specification
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -1072,7 +1172,7 @@ firmware spell it.
 | RUN-FR-016 | A step shall be able to save its result under a name, and any later step shall be able to use that saved value - or a value addressed inside it - as an argument or as a limit, optionally rendered through a format template. A reference to a name nothing has saved shall be refused, naming what has been saved. Without this a chained test would have to write down what an earlier step established, which makes the test assert its own input. | STK-08, STK-16 | Test |
 | RUN-FR-017 | A step argument that the driver declares as an input file, given as a relative path, shall be looked for in the specification's directory, then the working directory, then the EmbeddedTestBench checkout, and the first that exists used. One found in none shall be an execution error naming the argument and every location searched. An output path shall be written relative to the working directory, as before. A specification shall mean the same thing wherever the runner is started from (#116). | STK-08 | Test |
 
-### 17.3 Limits
+### 18.3 Limits
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -1083,7 +1183,7 @@ firmware spell it.
 | RUN-FR-025 | A measurement shall be reportable through a format template, so a value whose meaning is not decimal - an identifier, an address, a mask - reads in the record as it reads on the part. The template shall not affect the check, which remains against the number; the number shall be retained in the result record; and the limit's own bounds shall be rendered the same way, since a hexadecimal value beside decimal bounds is less legible than either alone. A template that cannot be applied shall be an error, not a silent fall back to the number. | STK-08, STK-16 | Test |
 | RUN-FR-024 | A limit shall support exact comparison against text - a version, a device name - reported as the text itself rather than as a number. Matching shall be exact on the stripped value unless the limit asks otherwise (RUN-FR-067, RUN-FR-068): a looser rule would pass 1.4.20 for 1.4.2, which is the failure such a limit exists to catch. | STK-08, STK-16 | Test |
 
-### 17.4 Execution
+### 18.4 Execution
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -1096,7 +1196,7 @@ firmware spell it.
 | RUN-FR-036 | A step shall be able to name a driver property as well as a method. A property shall be read when the step executes and shall take no arguments. | STK-08 | Test |
 | RUN-FR-037 | The run record and every report shall identify each instrument the run used - driver, model, serial number, resource and, where the instrument reports one, the firmware build - recorded after the run rather than before. An instrument that would not identify shall be recorded as such rather than omitted. | STK-08, STK-16, STK-17 | Test |
 
-### 17.5 Reporting
+### 18.5 Reporting
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -1128,7 +1228,7 @@ firmware spell it.
 
 ---
 
-### 17.6 VIEW — test run viewer
+### 18.6 VIEW — test run viewer
 
 A browser page onto a bench run (#130, #137), served by `benchtools view`. It is a client of the runner: it reads the event log (RUN-FR-060) and drives the control channel (RUN-FR-061 … -065).
 
@@ -1182,7 +1282,7 @@ A browser page onto a bench run (#130, #137), served by `benchtools view`. It is
 | VIEW-FR-046 | The viewer's server shall log a client that disconnects before its reply is complete - connection aborted, reset, a broken pipe, or a TLS connection ended early - as one warning line naming the client, without a traceback, and shall report any other error in handling a request as before. | STK-23 | Test |
 | VIEW-FR-047 | The viewer shall decode a logged frame that carries no decode with the decoders of the plugins loaded, in load order; feed each received frame to every panel a plugin provides; serve a panel's view by name and its static files under `/plugin/<plugin>/` and nowhere outside its folder; list the plugins for the page, which loads their panels' scripts; load the plugins of a run it starts; and, for a followed run that used plugins it has not loaded, name them and the `--plugin` that would load them, rather than load them. A permuted TWF waveform with no plugin to place its samples shall not be drawn. | STK-23 | Test |
 
-## 18. Assumptions and constraints
+## 19. Assumptions and constraints
 
 | ID | Statement |
 |---|---|
@@ -1199,17 +1299,18 @@ A browser page onto a bench run (#130, #137), served by `benchtools view`. It is
 | ASM-09 | Advertising is on the primary channels (37, 38, 39) at 1 Mbit/s; extended advertising and coded PHY are not scanned for in this revision. |
 | CON-07 | The dongle firmware targets nRF5 SDK 17.1.0. It **builds, links, fits and packages** against that SDK in CI (`.github/workflows/firmware.yml`), and also compiles against SDK 15.2.0 headers in the `canembed/canembed-arm` image. It has **not** been flashed or run on a dongle. See `docs/ble/BLE_Dongle_Notes.md` §5. |
 | CON-08 | Only RTT-free, connection-oriented UART is supported; the dongle connects to one sensor at a time. |
-| CON-03 | Instrument families named for future work - loads, signal sources, logic and protocol analysers - have no requirements in this revision. The core is designed for them but not validated against them. STK-13 (the GPD-3303D supply) and STK-18 (the TTi 1604 multimeter) are specified in §12 and §14. |
+| CON-03 | Instrument families named for future work - loads, signal sources, logic and protocol analysers - have no requirements in this revision. The core is designed for them but not validated against them. STK-13 (the GPD-3303D supply) and STK-18 (the TTi 1604 multimeter) are specified in §12 and §14. The PicoScope 3000D MSO's sixteen logic inputs and its signal generator are specified in §17 (#200); stand-alone logic and protocol analysers, loads and other signal sources still are not. |
 | CON-10 | The TTi 1604 driver is verified against a simulated meter and over a serial loopback. Against the physical meter (ETB-SYS5-002 §6.10, 2026-10-04) the link, key echo, reading rate, frame format and local/remote were confirmed; frequency selection and open-input overrange failed (#181). The remaining bench confirmation items are in `docs/dmm/TTi1604_Notes.md` (DMM-OPEN-01 … -08). |
 | CON-04 | The J-Link driver is verified against a simulated probe and target, and since 2026-10-04 against a physical J-Link on an nRF52840 (ETB-SYS5-002 §6.1, §6.2): erase, flash and verify, memory, RTT, breakpoints, stepping, variables, the call stack and cycle-counter timing. Two defects found there are open: #177 (`reset(halt=False)` leaves the core halted) and #178 (registers stale just after a reset). The remaining bench confirmation item is JLINK-OPEN-03 in `docs/jlink/JLink_Integration_Notes.md` §4. |
 | CON-05 | The scaling of SWO/ITM local timestamps to core cycles depends on the trace prescaler configured by the GDB server and the firmware. It is implemented from the ARMv7-M architecture reference manual and requires confirmation against a part before SWO timing figures are quoted (JLINK-OPEN-03). |
 | CON-09 | The Pico 2 thermometer firmware **builds** (Pico SDK 2.1.1, Arm GNU 14.2.1, UF2 produced) and its portable logic passes its host unit tests. On 2026-10-03 it **ran on a real Pico 2** (Windows 10 bench PC): it enumerated on USB and reported the expected identity (PICO-OPEN-01, closed), and the `flash` command (PICO-FR-070 … -076) reflashed it by all three routes into the bootloader (PICO-OPEN-05, closed). The `rd` command set (#131) was cross-compiled on the bench PC and run on the same Pico 2 the same day, with no SHT30-D module connected: identity, `NAK`, the `err` replies, `Error` for the missing sensor and `ecureset` all behaved as specified, and `flash` installed it and confirmed its name, version and commit SHA by `rd`. It has **not** yet been run with a sensor attached, so a real temperature value is unconfirmed (PICO-OPEN-02, -03, -06). Drive discovery on Linux and macOS is untested on hardware. Bench confirmation items are in `docs/pico2_test_board/PICO2_Test_Board_Notes.md` §7 (PICO-OPEN-01 … -06). *Note, 2026-11-12 (#328):* the SHT30-D module is now connected (SDA on GP4, SCL on GP5) and the thermometer read about 23 °C on the same Pico 2; firmware V1.01.0000, with the three LEDs, was flashed by `flash` and its `wr` and `rd` LED commands confirmed over the serial link, the owner watching each LED light. |
+| CON-11 | The PicoScope 3000D driver is verified against a simulated unit and, for its `ctypes` seam, a fake library. On the bench's PicoScope 3405D MSO (serial HT415/0202, 2026-11-13) the following were confirmed through `ps3000a`: open, close and identity; the ranges, offset limits, timebases and memory of §17; four analogue channels and both digital ports captured in one block at 8 ns (timebase 3), with no signal connected; and a 1 kHz sine of about 1.94 V peak-to-peak captured on channel A. **Not yet confirmed on hardware:** digital bits against a real logic signal, the digital trigger, the signal generator, and the SDK enumeration values marked unverified in `constants.py`. The bench confirmation items are PSCOPE-OPEN-01 … -05, listed in ETB-RTM-001 §19 and `docs/picoscope3000/PicoScope3000_Notes.md`. |
 | ASM-10 | The SHT30-D module is powered from the Pico's 3V3(OUT) and carries its own I2C pull-ups; its ADDR pin is tied low (0x44). |
 | CON-06 | Markdown-to-Robot-Framework translation (STK-12) is not implemented in this revision. The driver's return types are constrained by JLINK-FR-081 so that it can be added without changing the driver. |
 
 ---
 
-## 19. Requirements Traceability
+## 20. Requirements Traceability
 
 The consolidated trace - stakeholder requirement to software requirement to
 architecture element to design unit to source to test - is maintained as a
@@ -1225,7 +1326,7 @@ property the suite enforces rather than a table someone maintains by hand.
 
 ---
 
-## 20. Review & Approval
+## 21. Review & Approval
 
 Review and approval of this document are not entered in this table. They are
 given by the merge of the pull request that last changed the document, and that

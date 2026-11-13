@@ -104,3 +104,11 @@ instruments:
     driver: serial
     resource: sim://
     timeout: 5.0
+
+  # The PicoScope 3000D MSO (#200), simulated: a 1 kHz sine on A, a 3.3 V
+  # square wave on B, a counter on the digital inputs, and the signal
+  # generator wired to A. Event-log name PSCOPE.
+  pscope:
+    driver: picoscope3000
+    resource: sim://
+    timeout: 5.0

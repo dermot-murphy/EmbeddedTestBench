@@ -95,6 +95,7 @@
 | next | 2026-11-12 | Claude | #202: merged with #328 (LEDs). PICO-FR-003, -008, -049, -081, -083, -085 and -089 re-traced to the one `wr` for the LEDs and the generator (`cmd_fgen_wr`, `cmd_fgen_rd`, `_acknowledged`, `WrRefusedError` a `CommandRefusedError`, `hal_dac_mute`); OPEN-09 notes PICO-OPEN-07 and the bench wiring of 2026-11-12; section 17 count 490 in force, 491 declared, 37 non-functional. |
 | next | 2026-11-13 | Claude | #202: OPEN-09 notes the bench of 2026-11-13: the Adafruit UDA1334A board on GP6, GP7 and GP8, the DAC at 48 828.125 Hz, and a sine observed on channels 1 and 2. |
 | next | 2026-11-13 | Claude | #330: SWE4-UT-PICOSPEC (the PICO2 Test Board test sequence on the simulated bench) traced to PICO-FR-008, -009 and -040; PICO-FR-050 names the bench drivers `pico2-test-board` and `pico2`, the names before #330 kept. |
+| next | 2026-11-13 | Claude | #200: section 15, PSCOPE (PSCOPE-FR-001 … PSCOPE-FR-020, PSCOPE-FR-030, PSCOPE-NFR-001), the PicoScope 3000D MSO; STK-02, -03, -04, -05, -07 and -08 gain them; PSCOPE-ARC-001 in section 17; OPEN-11, the PicoScope's bench confirmation items (PSCOPE-OPEN-01 … -05); sections 15 to 19 renumbered 16 to 20, and the AD-24 note points at section 18, coverage analysis; section 18 count 511 in force, 512 declared, 38 non-functional. |
 ---
 
 ## 3. Purpose & Scope
@@ -124,13 +125,13 @@ It is checked mechanically by `tests/test_traceability.py` on every run of the s
 | Stakeholder req | Software requirements |
 |---|---|
 | STK-01 — interface over Ethernet | CORE-FR-001, -002, -003, -005, -007, -008, -011, -026; SCOPE-FR-101 |
-| STK-02 — enable up to four channels | SCOPE-FR-010, -011 |
-| STK-03 — screen position and volts per channel | SCOPE-FR-012 … -016; CORE-FR-031 |
-| STK-04 — trigger and capture a plot | SCOPE-FR-020 … -022, -030, -031, -040 … -043, -050 … -052, -080, -081, -100; ANA-FR-001 … -005, -020; CORE-FR-027 |
-| STK-05 — measurements: period, spread of channels going high | SCOPE-FR-053, -060 … -062; ANA-FR-004, -010 … -017, -021 |
+| STK-02 — enable up to four channels | SCOPE-FR-010, -011; PSCOPE-FR-003, -004, -007, -011, -012 |
+| STK-03 — screen position and volts per channel | SCOPE-FR-012 … -016; CORE-FR-031; PSCOPE-FR-003, -004 |
+| STK-04 — trigger and capture a plot | SCOPE-FR-020 … -022, -030, -031, -040 … -043, -050 … -052, -080, -081, -100; ANA-FR-001 … -005, -020; CORE-FR-027; PSCOPE-FR-005, -006, -008 … -012, -015, -030 |
+| STK-05 — measurements: period, spread of channels going high | SCOPE-FR-053, -060 … -062; ANA-FR-004, -010 … -017, -021; PSCOPE-FR-013, -014 |
 | STK-06 — determine whether VISA must be used | CORE-FR-001, -006; SCOPE-FR-090; BENCHTOOLS-VISA-001 |
-| STK-07 — host further tools sharing common code | CORE-FR-004, -010, -020 … -031, -040, -041; CORE-NFR-008, -009; INST-FR-001 … -003 |
-| STK-08 — overall bench test runner | RUN-FR-001 … -006, -010 … -015, -020 … -023, -030 … -035, -040 … -043, -050 … -053 |
+| STK-07 — host further tools sharing common code | CORE-FR-004, -010, -020 … -031, -040, -041; CORE-NFR-008, -009; INST-FR-001 … -003; PSCOPE-FR-001, -002, -014, -016 … -018, -030; PSCOPE-NFR-001. The PicoScope 3000D MSO (#200) has no stakeholder requirement of its own: its analogue capture serves STK-02 to STK-05, and its logic inputs and signal generator are traced here, as further bench tools |
+| STK-08 — overall bench test runner | PSCOPE-FR-019, -020; RUN-FR-001 … -006, -010 … -015, -020 … -023, -030 … -035, -040 … -043, -050 … -053 |
 | STK-09 — J-Link: flash, verify, run/stop, breakpoints, RAM, variables, RTT, timing, call stack | JLINK-FR-001 … -006, -010, -011, -020 … -023, -030 … -036, -040 … -045, -050 … -055, -060 … -067, -090; CORE-FR-009, -012 … -016; JLINK-NFR-001, -004 |
 | STK-10 — use the probe from the test bench | JLINK-FR-080, -081, -053; RUN-FR-001, -010; CORE-FR-012 … -014 |
 | STK-11 — Windows first, Docker eventually | CORE-FR-009; JLINK-FR-003, -004, -005; JLINK-NFR-002, -003 |
@@ -142,7 +143,7 @@ It is checked mechanically by `tests/test_traceability.py` on every run of the s
 | STK-13 — programmable supply for the sensor | PSU-FR-001 … -060; PSU-NFR-001 … -003; CORE-FR-017 |
 | STK-19 — S2-LP kit: registers, transmit, receive, log | S2LP-FR-001 … -060; S2LP-NFR-001 … -004; CORE-FR-017 |
 | STK-20 — use ST's firmware if it is fit for purpose | AD-20; S2LP-FR-001, -002; S2LP-NFR-002. The firmware was examined before any was written: BENCHTOOLS-SWE4-002 §10, `docs/s2lp/S2LP_Devkit_Notes.md` §1 |
-| STK-21 — local temperature with a Pico 2 and a DollaTek SHT30-D | PICO-FR-001, -003 … -005, -007 … -011, -020 … -027, -030, -031, -040, -042, -043, -045 … -047, -049, -050, -060 … -062, -070 … -076; PICO-NFR-001 … -006; AD-24 (superseded by #131, see §16). PICO-FR-044 withdrawn (#131). The indicator LEDs, `wr` and the LED options of `rd` (PICO-FR-008, -009, -011, -049, -062) were added by #328. |
+| STK-21 — local temperature with a Pico 2 and a DollaTek SHT30-D | PICO-FR-001, -003 … -005, -007 … -011, -020 … -027, -030, -031, -040, -042, -043, -045 … -047, -049, -050, -060 … -062, -070 … -076; PICO-NFR-001 … -006; AD-24 (superseded by #131, see §18). PICO-FR-044 withdrawn (#131). The indicator LEDs, `wr` and the LED options of `rd` (PICO-FR-008, -009, -011, -049, -062) were added by #328. |
 | STK-22 — firmware reports its title and version | PICO-FR-002, -005 … -007, -040, -041, -060, -061, -073, -075. Since #131 the "title" is the name reported by `rd name`, beside `rd copyright`, `rd version` and `rd sha`; `flash` checks the name, version and commit SHA of the image it installed (PICO-FR-073). |
 | STK-23 — watch and control a run (#130) | VIEW-FR-001 … -045; RUN-FR-066; S2LP-FR-080 … -084; CORE-FR-065; PSU-FR-044; PICO-FR-048; DMM-FR-034; RUN-FR-059 … -065; CORE-FR-064; SER-FR-008 |
 | STK-24 — capture a device's serial output and check its lines (#247) | SER-FR-001 … -013, SER-NFR-001 |
@@ -668,7 +669,44 @@ Tests are in `tests/instruments/serial_capture/`.
 |---|---|
 | SER-NFR-001 | `test_no_mandatory_third_party_imports`; the port is reached through CORE-DD-SERIAL, whose pyserial import is deferred. |
 
-## 15. RUN requirements to design, code and test
+## 15. PSCOPE requirements to design, code and test
+
+Tests are in `tests/instruments/picoscope3000/`. They run against the simulated
+unit (PSCOPE-FR-020) and, for the `ctypes` seam, a fake library. What the
+bench's PicoScope 3405D MSO has and has not confirmed is in ETB-SWE4-002 §13C
+and the open items of §19 (OPEN-11).
+
+| Requirement | Architecture | Design unit | Source | Verifying test(s) |
+|---|---|---|---|---|
+| PSCOPE-FR-001 | PSCOPE-ARC-001 | PSCOPE-DD-SCOPE, PSCOPE-DD-SDK | `PicoScope3000.connect`, `Ps3000aSdk.open`, `Ps3000aSdk.close`, `POWER_STATUSES` | `test_resource_forms`, `test_open_passes_the_serial_and_closes`, `test_power_source_is_confirmed_when_asked`, `test_not_found_is_a_connection_failure`; on the bench unit 2026-11-13 (ETB-SWE4-002 §13C.2) |
+| PSCOPE-FR-002 | PSCOPE-ARC-001 | PSCOPE-DD-SCOPE, PSCOPE-DD-SDK, PSCOPE-DD-CONST | `_read_identity`, `unit_info`, `check`, `status_text`, `STATUS_NAMES` | `test_identity`, `test_a_refused_call_raises_with_its_status`, `test_check`, `test_status_text_names_only_what_was_seen`, `test_info`; on the bench unit 2026-11-13 |
+| PSCOPE-FR-003 | PSCOPE-ARC-001 | PSCOPE-DD-CONST, PSCOPE-DD-SCOPE | `RANGES`, `range_for_volts`, `Channel.parse`, `configure_channel` | `test_ranges_are_the_ten_the_unit_accepts`, `test_range_for_volts_rounds_up` (6), `test_range_beyond_20_v_is_refused`, `test_channel_names` (6), `test_channel_numbers_and_indices`, `test_range_rounds_up_and_offset_is_checked`; ranges measured on the bench unit |
+| PSCOPE-FR-004 | PSCOPE-ARC-001 | PSCOPE-DD-SCOPE, PSCOPE-DD-CONST | `configure_channel`, `enable_channel`, `get_channel_setup`, `ChannelSetup`, `analogue_offset_limits`, `OFFSET_LIMITS`, `Coupling` | `test_range_rounds_up_and_offset_is_checked`, `test_offset_moves_the_window_not_the_reading`, `test_open_leaves_a_known_state`; offset limits measured on the bench unit |
+| PSCOPE-FR-005 | PSCOPE-ARC-001 | PSCOPE-DD-CONST, PSCOPE-DD-SCOPE | `sample_interval_s`, `timebase_for`, `set_timebase`, `set_sample_interval` | `test_interval_matches_the_bench_unit` (9), `test_timebase_for_is_not_faster_than_asked_except_below_1ns` (8), `test_timebase_for_refuses_nonsense` |
+| PSCOPE-FR-006 | PSCOPE-ARC-001 | PSCOPE-DD-SCOPE, PSCOPE-DD-SDK, PSCOPE-DD-SIM | `set_record_length`, `capture` (`sdk.timebase`), `Ps3000aSdk.timebase`, `SimulatedPs3000a.timebase`, `_memory_share` | `test_four_channels_and_digital_in_one_block` (the timebase refused), `test_capture_in_si_units` (length and pre-trigger), `test_record_length_and_threshold_checks` |
+| PSCOPE-FR-007 | PSCOPE-ARC-001 | PSCOPE-DD-SCOPE, PSCOPE-DD-CONST | `configure_digital_port`, `_level`, `enabled_ports`, `DIGITAL_PORTS` | `test_record_length_and_threshold_checks`, `test_open_leaves_a_known_state`, `test_four_channels_and_digital_in_one_block` |
+| PSCOPE-FR-008 | PSCOPE-ARC-001 | PSCOPE-DD-SCOPE, PSCOPE-DD-CONST | `configure_edge_trigger`, `ThresholdDirection`, `set_simple_trigger` | `test_capture_in_si_units`, `test_trigger_level_must_be_on_screen`, `test_signal_generator_drives_channel_a`; `RISE` on the bench unit. Other directions: PSCOPE-OPEN-05 |
+| PSCOPE-FR-009 | PSCOPE-ARC-001 | PSCOPE-DD-SCOPE, PSCOPE-DD-SDK | `configure_digital_trigger`, `DigitalDirection`, `Ps3000aSdk.set_digital_trigger` | `test_digital_trigger_finds_the_edge`, `test_digital_trigger_needs_its_port`, `test_digital_trigger` (CLI). Not on hardware: PSCOPE-OPEN-02 |
+| PSCOPE-FR-010 | PSCOPE-ARC-001 | PSCOPE-DD-SCOPE | `disable_trigger`, `capture` (deadline, `stop`), `AcquisitionTimeoutError` | `test_no_trigger_times_out_and_auto_captures`, `test_open_leaves_a_known_state`, `test_signal_generator_drives_channel_a` |
+| PSCOPE-FR-011 | PSCOPE-ARC-001 | PSCOPE-DD-SCOPE, PSCOPE-DD-SDK | `capture`, `_scale`, `BlockCapture`, `Ps3000aSdk.get_values`, `Waveform.from_codes` | `test_capture_in_si_units`, `test_four_channels_and_digital_in_one_block`, `test_offset_moves_the_window_not_the_reading`, `test_nothing_enabled_is_refused`; on the bench unit, one block of four channels and both ports, and a 1 kHz sine on A (ETB-SWE4-002 §13C.2). Against a known signal on every channel: PSCOPE-OPEN-04 |
+| PSCOPE-FR-012 | PSCOPE-ARC-001 | PSCOPE-DD-SCOPE, PSCOPE-DD-SDK | `_scale` (digital), `BlockCapture.bits`, `get_values` (low 8 bits) | `test_four_channels_and_digital_in_one_block`, `test_digital_trigger_finds_the_edge`, `test_csv_holds_analog_and_digital`. Against a real logic signal: PSCOPE-OPEN-01 |
+| PSCOPE-FR-013 | PSCOPE-ARC-001 | PSCOPE-DD-SCOPE, PSCOPE-DD-SIM | `_scale` (`overrange`, `full_scale_code`) | `test_overrange_is_reported` |
+| PSCOPE-FR-014 | PSCOPE-ARC-001 | PSCOPE-DD-SCOPE | `capture_single`, `measure_channel_spread`, `save_csv` | `test_channel_spread_matches_the_tds3014b_step`, `test_capture_in_si_units` (`measure_period`) |
+| PSCOPE-FR-015 | PSCOPE-ARC-001 | PSCOPE-DD-SCOPE | `BlockCapture.to_csv` | `test_csv_holds_analog_and_digital`, `test_capture_analog_and_digital` (CLI) |
+| PSCOPE-FR-016 | PSCOPE-ARC-001 | PSCOPE-DD-SCOPE, PSCOPE-DD-SDK, PSCOPE-DD-CONST | `set_signal_generator`, `WaveType`, `Ps3000aSdk.set_siggen` | `test_signal_generator_drives_channel_a`, `test_signal_generator_limits`, `test_siggen_on_and_off`, `test_errors_are_reported_not_raised`. Not on hardware: PSCOPE-OPEN-03 |
+| PSCOPE-FR-017 | PSCOPE-ARC-001 | PSCOPE-DD-SCOPE | `signal_generator_off` | `test_signal_generator_drives_channel_a`, `test_siggen_on_and_off`. Not on hardware: PSCOPE-OPEN-03 |
+| PSCOPE-FR-018 | PSCOPE-ARC-001 | PSCOPE-DD-CONST, PSCOPE-DD-SCOPE | `ModelLimits`, `PS3405D_LIMITS`, `PicoScope3000.limits` | `test_identity` (the variant), `test_range_rounds_up_and_offset_is_checked` (no fifth channel), `test_signal_generator_limits`, `test_record_length_and_threshold_checks` (the threshold range) |
+| PSCOPE-FR-019 | PSCOPE-ARC-001 | PSCOPE-DD-SCOPE | `register_driver("picoscope3000", …)`, `register_driver("picoscope", …)`, `EVENT_SOURCE`, `_SOURCE_PREFIXES` | `test_identity` (`event_source`); `test_shipped_benches.py` with the `pscope` instrument of `benches/simulated_bench.yaml` |
+| PSCOPE-FR-020 | PSCOPE-ARC-001 | PSCOPE-DD-SIM | `SimulatedPs3000a`, `ChannelSignal` | `SWE4-UT-PSCOPE` (18) runs against it; notably `test_four_channels_and_digital_in_one_block`, `test_digital_trigger_finds_the_edge`, `test_no_trigger_times_out_and_auto_captures`, `test_overrange_is_reported`, `test_signal_generator_drives_channel_a` |
+| PSCOPE-FR-030 | PSCOPE-ARC-001 | PSCOPE-DD-CLI | `cli.py`, `benchtools/cli.py` | `SWE4-UT-PSCOPECLI` (6): `test_info`, `test_capture_analog_and_digital`, `test_digital_trigger`, `test_siggen_on_and_off`, `test_errors_are_reported_not_raised`, `test_top_level_command` |
+
+### PSCOPE non-functional
+
+| Requirement | Evidence |
+|---|---|
+| PSCOPE-NFR-001 | `test_library_found_in_the_named_folder`, `test_missing_library_says_what_to_install`; `test_no_mandatory_third_party_imports` (no third-party import at module level; `ctypes` is standard library); inspection of `sdk.py`: the library is loaded in `Ps3000aSdk._load`, on the first `open()`, so importing the package and `sim://` need no library. |
+
+## 16. RUN requirements to design, code and test
 
 | Requirement | Architecture | Design unit | Source | Verifying test(s) |
 |---|---|---|---|---|
@@ -775,7 +813,7 @@ Tests are in `tests/instruments/serial_capture/`.
 | RUN-FR-052 | ARC-001 | RUN-DD-CLI | report path suffixing | `test_several_specs_get_suffixed_reports` |
 | RUN-FR-053 | ARC-001 | RUN-DD-CLI | `benchtools/cli.py` | `TestTopLevelDispatch` (7) |
 
-## 16. Architecture to design to source
+## 17. Architecture to design to source
 
 | Architectural element | Design unit | Source |
 |---|---|---|
@@ -790,6 +828,7 @@ Tests are in `tests/instruments/serial_capture/`.
 | ANA-ARC-002 | ANA-DD-MEASURE, ANA-DD-PLOT | `analysis/{measure,plotting}.py` |
 | INST-ARC-001 | INST-DD-GENERIC | `instruments/generic.py` |
 | SCOPE-ARC-001 | SCOPE-DD-SCOPE, -CONST, -SIM, -CLI | `instruments/tek3014b/*.py` |
+| PSCOPE-ARC-001 | PSCOPE-DD-SCOPE, -SDK, -CONST, -SIM, -CLI | `instruments/picoscope3000/{scope,sdk,constants,simulator,cli}.py` |
 | JLINK-ARC-001 | JLINK-DD-GDBMI, -SESSION, -SERVER, -RTT, -SWO, -TIMING, -CONST, -SIM, -PROBE, -CLI | `instruments/jlink/*.py` |
 | BLE-ARC-001 | BLE-DD-PROTOCOL, -SESSION, -PROFILE, -LATENCY, -CONST, -DONGLE, -SIM, -CLI | `instruments/nordic_dongle/*.py` |
 | BLE-ARC-001 | BLE-DD-CDC, -TIMESTAMP, -SCANNER, -NUS, -CMD, -MAIN, -BUILD, -TEST | `firmware/nordic_dongle/{src,include,config,ses,gcc,scripts,test}/*` |
@@ -800,18 +839,18 @@ Tests are in `tests/instruments/serial_capture/`.
 | PICO-ARC-001 | PICO-DD-PROTOCOL, -VERSION, -BOARD, -HAL, -SHT30, -TEXT, -PARSER, -MAIN, -BUILD, -TEST | `firmware/pico2_test_board/{include,src,test}/*`, `CMakeLists.txt`, `pico_sdk_import.cmake` |
 | VIEW-ARC-001 | VIEW-DD-STATE, -SERVER, -TRAFFIC, -RADIO, -GRAPHS, -TAGS, -STATUS, -KEPLER, -SENSOR, -TWF, -DIAG, -REPORT, -STGUI, -PAGE | `viewer/*.py`, `viewer/static/*` |
 
-## 17. Coverage analysis
+## 18. Coverage analysis
 
 | Question | Answer |
 |---|---|
-| Requirements with no verifying test | **None.** All 490 functional requirements in force (491 declared; PICO-FR-044 is withdrawn) and 37 non-functional requirements trace to at least one test, or to a recorded inspection where a test is not the appropriate method (CORE-NFR-002, BLE-FR-090, BLE-NFR-002, and part of CORE-NFR-001). The firmware requirements are verified against the artefact the firmware is built from, not against a running dongle: see CON-07. |
+| Requirements with no verifying test | **None.** All 511 functional requirements in force (512 declared; PICO-FR-044 is withdrawn) and 38 non-functional requirements trace to at least one test, or to a recorded inspection where a test is not the appropriate method (CORE-NFR-002, BLE-FR-090, BLE-NFR-002, and part of CORE-NFR-001). The firmware requirements are verified against the artefact the firmware is built from, not against a running dongle: see CON-07. |
 | Tests not tracing to a requirement | **None.** Every test file names its requirements in its module docstring. |
 | Source modules with no design unit | **None.** Every module names its design unit in its docstring - firmware sources included, checked by `test_every_source_declares_its_trace` in `SWE4-UT-BLEFW`; `__main__.py` is covered by RUN-DD-CLI. |
 | Design units with no source | **None.** |
 | Stakeholder requirements not decomposed | **None of those in scope.** STK-01 to STK-11 and STK-14 to STK-17 trace downward; STK-06 additionally produces BENCHTOOLS-VISA-001 as its work product. STK-12 is partly addressed (AD-15 constrains the driver boundary for it, and AD-23 reads a markdown command document as a test) and Robot Framework itself is deferred: CON-06, OPEN-04. STK-13 is decomposed into `PSU-` and verified; STK-19 and STK-20 into `S2LP-` and AD-20. STK-18 is decomposed into `DMM-` and verified against a simulator; no behaviour is confirmed on a physical meter (DMM-OPEN-01…05). |
 | Architectural decisions without a verifying test | **None.** AD-01 → `test_full_driver_over_the_socket`; AD-02 → `test_layering.py`; AD-03 → `TestDriverRegistry`; AD-04 → `TestFraming`; AD-05 → `test_payload_containing_a_hash_byte_is_not_re_parsed`; AD-06 → `TestChannelSpread`; AD-07 → `test_busy_is_polled_until_clear`; AD-08 → `TestSpecParsing`; AD-09 → `TestFailureVersusError`; AD-10 → `test_all_sim_resources_count_as_simulated`; AD-11 → `test_the_probe_is_an_instrument_but_not_scpi`, `test_scpi_instrument_is_an_instrument`; AD-12 → `SWE4-UT-GDBMI`, `SWE4-UT-GDBSESSION`, `test_connect_to_the_simulator`; AD-13 → `test_resource_parsing`, `test_a_remote_server_is_never_spawned`; AD-14 → `SWE4-UT-TIMING`, `test_a_short_interval_is_flagged_untrustworthy`; AD-15 → `test_serialises_for_a_report`, `test_shipped_specifications_are_valid`; AD-16 → `SWE4-UT-BLEFW`; AD-17 → `test_both_clocks_are_recorded`, `test_the_host_clock_resolves_a_millisecond`; AD-18 → `test_a_lossy_link_is_declared_rather_than_averaged`, `test_a_dropping_dongle_says_so`; AD-19 → `TestOutputSwitching` (11), notably `test_the_last_channel_off_opens_the_real_switch` and `test_setting_a_voltage_on_a_parked_channel_does_not_energise_it`; AD-20 → `SWE4-UT-S2LPPROTO` and `SWE4-UT-S2LPSESSION` verify the driver against ST's declared command set, and `test_a_polled_capture_reports_its_gaps` verifies the honesty the decision requires; AD-21 → `TestTracking` in `test_psu.py` (14), with `TestTracking` in `test_simulator.py` (10) establishing that the supply really does discard what the driver refuses to send; AD-22 → `TestReferences` (9) and `TestLimitsTakenFromAnEarlierStep` (6) for the mechanism, and `SWE4-UT-BRINGUP` (12) for what it is for - the shipped chained specification, with each fact it establishes broken in turn to confirm it would fail; AD-23 → `SWE4-UT-BLESCRIPT` (58), including `TestTheShippedDocument`, which runs `specs/sensor_commands.md` against the simulated sensor so the worked example cannot rot.; AD-24 → the shared conversion vectors in `test_sht30.c` and `test_matches_the_firmware_vectors`, and the shared two-place vectors in `test_text.c` and `test_two_places_half_away_from_zero`. Since #131 the raw word no longer travels with the reading, so the host-side cross-check AD-24 called for is gone (PICO-FR-044 withdrawn); AD-24 is marked superseded by #131 in ETB-SWE2-001 0.8, and what replaces it - the two-place format check and `Error`/`NAK` - is verified under PICO-FR-027 and -047; AD-25 → `TestConfirmation` (3), `test_an_echo_is_not_found_inside_a_frame`, `TestRanges` (6) in `test_dmm.py`; AD-26 → `TestTheSerialLink` (2), `TestStreamReading` (7), `test_a_measurement_is_taken_after_the_call`, `test_the_ten_second_gate_is_waited_for`; AD-27 → `SWE4-UT-PATHS` (70), notably `test_a_shipped_specification_runs_the_same_from_outside_the_checkout`; AD-28 → `SWE4-UT-EVENTNAMES` (21), notably `test_records_carry_the_specification_s_names`, and `test_two_instruments_of_one_driver_are_told_apart`; AD-29 → `SWE4-UT-PLUGINS` (61) |
 
-## 18. Open items
+## 19. Open items
 
 | ID | Item | Owner action |
 |---|---|---|
@@ -825,10 +864,11 @@ Tests are in `tests/instruments/serial_capture/`.
 | OPEN-05 | J-Link bench confirmation items (CON-04, CON-05) — `docs/jlink/JLink_Integration_Notes.md` §4: Windows execution, real MI version behaviour, SWO timestamp scaling, RTT control-block discovery, flash timing | Discharge on first use with a probe and a target. Tracked there as JLINK-OPEN-01 to JLINK-OPEN-04. |
 | OPEN-10 | TTi 1604 bench confirmation items (CON-10) — `docs/dmm/TTi1604_Notes.md` §5: DMM-OPEN-01 … -08 | Run `tests/bench/tti1604` (SWE4-UT-DMMBENCH) and the panel test with the meter attached, and keep the findings record. A meter is connected to the owner's bench PC. |
 | OPEN-09 | Pico 2 thermometer bench confirmation items (CON-09) — `docs/pico2_test_board/PICO2_Test_Board_Notes.md` §7. **Done 2026-10-03** on a real Pico 2 on Windows: reflashing with `benchtools pico2 flash` by all three routes into the bootloader (PICO-OPEN-05, closed); with no module connected, the #131 target build, USB enumeration, `rd name`, `rd copyright`, `rd version` and `rd sha`, `NAK`, the `err` replies, `Error` without the module, and `ecureset` (PICO-OPEN-01 closed, PICO-OPEN-06 confirmed in part); and `flash` installing the #131 firmware and confirming its name, version and commit SHA by `rd`. **Still open:** `rd temperature` with a real value to two places and the module's pull-ups, accuracy against a reference thermometer, the reference PDFs that could not be fetched in the build environment, and drive discovery on Linux and macOS. *Note, 2026-11-12 (#328):* the SHT30-D module is now connected on GP4/GP5 and the thermometer read about 23 °C, and the three indicator LEDs were confirmed with `wr` and `rd` on the same Pico 2 (ETB-SWE4-002 §13A.8); the items above are not closed by this note. The frequency generator's (#202) command set was run on the same Pico 2 on 2026-11-12 (ETB-SWE4-002 §13A.9), but its analogue outputs have not been observed: PICO-OPEN-07, with the DAC module's bench wiring as the owner stated it on 2026-11-12 (DIN GP9, VIN on VBUS, `MUTE` not connected). *Note, 2026-11-13 (#202):* the DAC board is an Adafruit UDA1334A, rewired to DIN GP6, BCLK GP7 and WSEL GP8; at 48 828.125 Hz a scope showed a 1 kHz sine on channel 1 and a 2 kHz sine on channel 2 (ETB-SWE4-002 §13A.9). PICO-OPEN-07 stays open, confirmed in part | Discharge when an SHT30-D module is connected. Tracked there as PICO-OPEN-02 (confirmed in part: `Error` and `err 4` with no module), PICO-OPEN-03, PICO-OPEN-04 and PICO-OPEN-06. |
+| OPEN-11 | PicoScope 3000D MSO bench confirmation items (CON-11), confirmed so far on the bench's 3405D MSO on 2026-11-13: open, close, identity, the ranges, offset limits, timebases and memory, a block of four analogue channels and both digital ports at 8 ns with no signal connected, a 1 kHz sine on channel A, and 32 settings of the PICO2 Test Board's generator on channel A (ETB-SWE4-002 §13C, ETB-PICO-002 §5.3). **Open:** PSCOPE-OPEN-01, the digital bits against a real logic signal; PSCOPE-OPEN-02, the digital trigger; PSCOPE-OPEN-03, the signal generator's output; PSCOPE-OPEN-04, the acceptance of #200 - four analogue channels and the digital channels in one block against a known signal on each; PSCOPE-OPEN-05, the SDK values marked unverified in `constants.py` | Wire the signal generator to an analogue channel and a logic source to the digital inputs, and run the captures and the digital trigger on the unit; record the result in ETB-SWE4-002 §13C and `docs/picoscope3000/PicoScope3000_Notes.md`. |
 
 ---
 
-## 19. Review & Approval
+## 20. Review & Approval
 
 Review and approval of this document are not entered in this table. They are
 given by the merge of the pull request that last changed the document, and that

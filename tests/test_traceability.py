@@ -33,10 +33,16 @@ REPORT_DOC = DOCS / "EmbeddedTestBench_SWE4_Unit_Verification_Report.md"
 
 #: Requirement identifier, e.g. CORE-FR-001, JLINK-FR-060 or CORE-NFR-007.
 #: One prefix per element of SWE.1 §3; a new element is registered here.
-_REQUIREMENT = r"(?:CORE|ANA|INST|SCOPE|JLINK|BLE|PSU|DMM|S2LP|PICO|SER|RUN)-(?:FR|NFR)-\d{3}"
+#: ``PSCOPE`` must be in the list: without it ``re.findall`` would read
+#: a PicoScope requirement as a TDS3014B one, one character in (#200).
+_REQUIREMENT = (r"(?:CORE|ANA|INST|PSCOPE|SCOPE|JLINK|BLE|PSU|DMM|S2LP|PICO|SER|RUN)"
+                r"-(?:FR|NFR)-\d{3}")
 
 #: Design unit identifier, e.g. CORE-DD-SCPI.
-_DESIGN_UNIT = r"(?:CORE|ANA|INST|SCOPE|JLINK|BLE|PSU|DMM|S2LP|PICO|SER|RUN)-DD-[A-Z0-9]+"
+_DESIGN_UNIT = r"(?:CORE|ANA|INST|PSCOPE|SCOPE|JLINK|BLE|PSU|DMM|S2LP|PICO|SER|RUN)-DD-[A-Z0-9]+"
+
+#: Architectural element identifier, e.g. CORE-ARC-006.
+_ARCHITECTURE = r"(?:CORE|ANA|INST|PSCOPE|SCOPE|JLINK|BLE|PICO|SER|RUN)-ARC-\d{3}"
 
 
 def _text(path: pathlib.Path) -> str:
@@ -64,6 +70,7 @@ class TestWorkProductsExist:
         [REQUIREMENTS_DOC, ARCHITECTURE_DOC, DESIGN_DOC, TEST_SPEC_DOC, MATRIX_DOC,
          DOCS / "EmbeddedTestBench_SWE4_Unit_Verification_Report.md",
          DOCS / "EmbeddedTestBench_IF001_GPD3303D_Remote_Control_Interface.md",
+         DOCS / "EmbeddedTestBench_IF002_PicoScope3000_Driver_Interface.md",
          DOCS / "EmbeddedTestBench_SWE3_002_GPD3303D_Driver_Design.md",
          ROOT / "docs" / "tek3014b" / "VISA_Determination_Report.md"],
         ids=lambda p: p.name,
@@ -277,12 +284,12 @@ class TestVerificationReport:
 
 class TestArchitectureTraceability:
     def test_architectural_elements_cited_in_code_are_defined(self):
-        declared = set(re.findall(r"(?:CORE|ANA|INST|SCOPE|JLINK|BLE|PICO|SER|RUN)-ARC-\d{3}", _text(ARCHITECTURE_DOC)))
+        declared = set(re.findall(_ARCHITECTURE, _text(ARCHITECTURE_DOC)))
         offenders = []
         for path in (ROOT / "benchtools").rglob("*.py"):
             if "__pycache__" in path.parts:
                 continue
-            for cited in set(re.findall(r"(?:CORE|ANA|INST|SCOPE|JLINK|BLE|PICO|SER|RUN)-ARC-\d{3}", path.read_text())):
+            for cited in set(re.findall(_ARCHITECTURE, path.read_text())):
                 if cited not in declared:
                     offenders.append("%s cites %s" % (path.relative_to(ROOT), cited))
         assert not offenders, (

@@ -71,6 +71,7 @@ _SOURCE_PREFIXES = (
     ("benchtools.instruments.jlink", "JLINK"),
     ("benchtools.instruments.s2lp", "RF"),
     ("benchtools.instruments.tek3014b", "SCOPE"),
+    ("benchtools.instruments.picoscope3000", "PSCOPE"),
     ("benchtools.instruments.tti1604", "DMM"),
     ("benchtools.instruments.pico2_test_board", "TEMP"),
     ("benchtools.instruments.serial_capture", "SERIAL"),

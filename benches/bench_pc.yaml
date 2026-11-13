@@ -9,13 +9,16 @@
 #   COM14  PICO2 Test Board (Pico 2)         AC5483CD0798FB0B
 #   COM4   S2-LP kit, ST-LINK VCP            066CFF515055657867182645
 #   USB    J-Link OB-SAM3U128-V2-NordicSem   682395790, on sensor 5C1712
+#   USB    PicoScope 3405D MSO               HT415/0202 (added 2026-11-13, #200)
 #
-# There is no oscilloscope on this bench yet, so there is no scope entry: a
-# specification that wants one stops at connect and names it (ETB-SYS2-011).
+# The PicoScope is the bench's oscilloscope (pscope). The Tektronix TDS3014B
+# driver has no unit on this bench, so there is no `scope` entry: a
+# specification written for the TDS3014B stops at connect and names it
+# (ETB-SYS2-011).
 name: Bench PC (Windows)
 description: >
-  Dongle, S2-LP kit, GPD-3303D, TTi 1604, PICO2 Test Board and a J-Link on
-  Kepler sensor 5C1712. No oscilloscope.
+  Dongle, S2-LP kit, GPD-3303D, TTi 1604, PICO2 Test Board, a PicoScope 3405D
+  MSO and a J-Link on Kepler sensor 5C1712.
 
 instruments:
   probe:
@@ -71,3 +74,16 @@ instruments:
     resource: COM14
     timeout: 5.0
     event: TEMP
+
+  # PicoScope 3405D MSO on USB: four analogue channels, 16 digital inputs and a
+  # signal generator (#200). Opened by serial number, so a second PicoScope on
+  # the PC is never taken by mistake. The ps3000a library is found in the
+  # PicoScope 7 installation; name its folder with sdk_path if it moves.
+  # Wiring (owner, 2026-11-13): channel A is the PICO2 Test Board's generator
+  # channel 1, the UDA1334A's left output. B, C, D and the digital inputs are
+  # not connected. What the scope's own generator output drives is not stated.
+  pscope:
+    driver: picoscope3000
+    resource: pico://HT415/0202
+    timeout: 10.0
+    event: PSCOPE
