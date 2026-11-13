@@ -97,6 +97,7 @@
 | next | 2026-11-13 | Claude | #202: PICO-DD-BOARD - `BOARD_DAC_PIO_DIVIDER` 24, `BOARD_DAC_DATA_PIN` 6 and `BOARD_DAC_BCK_PIN` 7 (WSEL GP8), as the owner rewired the bench on 2026-11-13; the DAC board is an Adafruit UDA1334A, with `PLL`, `SF0`, `SF1` and `SCLK` low on the board. PICO-DD-FGEN - the sample rate is 48 828.125 Hz, inside the 16 to 50 kHz range that `SCLK` low selects; the DDS step about 11 µHz. |
 | next | 2026-11-13 | Claude | #330: the Pico 2 SHT30 Temperature Sensor renamed the PICO2 Test Board. §5.8 notes the rename and the user manual (ETB-PICO-002); PICO-DD-PROTOCOL and -VERSION - the name and `V1.00.0000`; PICO-DD-DRIVER - `Pico2TestBoard`, the aliases kept, the bench driver names, `set_led(colour, lit)`; PICO-DD-SIM - default version `V1.00.0000`; PICO-DD-CLI - `benchtools pico2` and the names it still accepts. |
 | next | 2026-11-13 | Claude | #200: section 5.10, PSCOPE - PSCOPE-DD-CONST, PSCOPE-DD-SDK, PSCOPE-DD-SIM, PSCOPE-DD-SCOPE and PSCOPE-DD-CLI, the PicoScope 3000D MSO driver through the `ps3000a` library (total 84 → 89); RUN and VIEW renumbered 5.11 and 5.12; CORE-DD-EVENTS - the default name `PSCOPE`. |
+| next | 2026-11-13 | Claude | #313: S2LP-DD-KEPLER - TWF type version 0, the V10.00 firmware's 96-byte layout (no Permute Control byte, counter at 8, 24-bit time taken, no sync attribute, distance order implied), read from the reference project's V10.00.0000 tag; version 1 unchanged. VIEW-DD-KEPLER - `byte_roles` and `header_rows` for a frame whose permute method is implied. |
 ---
 
 ## 3. Purpose & Scope
@@ -2391,10 +2392,36 @@ through a firmware change that only appends fields. A version below every
 known one takes the lowest because V10.00.0000 writes all of byte 5 as its HW
 capability (4, `API_RADIO_TRANSPORT_HW_CAPABILITY_VALUE`), so every V10.00
 frame reads as version 0, and the oldest layout is the nearest to it (PR #289
-review). The length check and the "beyond the layout" note use the chosen
+review); TWF is the exception, because its V10.00 layout is listed as version 0
+(#313, below). The length check and the "beyond the layout" note use the chosen
 version's length, and a frame too short for a fallback layout says which
 version it declared and which was used. RESPONSE is built by the
 gateway, not the sensor, so its RF_CAP and type version are not checked.
+
+**TWF type version 0 is V10.00's 96-byte layout (#313).** A V10 sensor on the
+bench, 5C314E (BLE name `KAPPA_5C314E_V10.00.000`, RF_CAP 4, byte 5 0x04, FW
+capability 2), sends 96-byte TWF frames, which version 1's 100-byte layout
+refused. Their layout is the reference project's at the V10.00.0000 tag
+(`api_radio_transport_cfg.h` TWF rows; `api_radio_field.c`,
+`api_radio_llc.c`, `api_vibration.c`); V10.00.0001, V10.00.1000 and V10.99.x
+have the same rows, and none of them writes a type version. There is no
+Permute Control byte: the frame counter is at 8, temperature at 9, battery 11,
+PARAM 12, FREQ 14, packet number and count 16 and 18, ticks 20, the SI figures
+22-27 and the 32 samples (big-endian int16) 28-91, each one byte earlier than in
+version 1. Time taken is 24 bits at 92-94, capped at 0xFFFFFF; the group ID is
+at 95; there is no sync attribute. PARAM bits 4:2 are reserved, so `param`
+carries `reserved` in place of `permute`. The ODR is sent as configured, not
+compressed, so `odr_hz` equals `freq_code`. `API_Vibration_PacketGet` sends the
+samples in distance order (`packet + slot*delta`), so the frame carries
+`permute_method` "distance" with `permute_implied` true, and `frame_positions`
+places its samples as it does a version 1 frame's. `_twf_v0` decodes it;
+`LAYOUTS[4]` is `{0: 96, 1: 100}` and `FRAME_TYPES` holds 96 as TWF's minimum.
+Version 1 is decoded exactly as before, and a 96-byte frame that declares
+version 1 is still refused. V10.01.x declares version 1 for a 99-byte TWF
+(time taken 32 bits, then group and sync attribute, no Permute Control); that
+layout is not listed, so such a frame is still refused. No 96-byte frame was
+recorded: the layout is the firmware's, checked against frames built from it,
+not yet against one received.
 
 **Checked against the firmware (#151).** The Kepler project's rf_monitor and
 this decoder disagreed; the sensor firmware at V11.00.0000-96-g25a54b97a
@@ -4035,7 +4062,10 @@ Moved into the Kepler device plugin (#238), as its panel `kepler`; the page load
 `RfFrames` now remembers the frame its last `feed` added (`last_frame`), and
 the hub hands it to `KeplerView.feed`, which keeps the last `KEEP_LATEST` (500)
 frames with `byte_roles` (bytes 0-6 header, 7 type, 8 permute control when the
-frame has one, the counter at 8 or 9, the rest payload), `header_rows` and
+frame has one, the counter at 8 or 9, the rest payload; a V10.00 TWF frame,
+whose `permute_implied` is set, has no permute control byte and its counter at
+8, and `header_rows` shows its order as "Distance (none sent; the firmware's
+order)", #313), `header_rows` and
 `payload_rows` - every decoded field not the header's, ticks also as
 DD:HH:MM:SS, a CONFIG frame's parameters by name with their units; per sensor,
 each configuration parameter's latest value, keyed by the parameter the
