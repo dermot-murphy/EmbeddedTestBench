@@ -70,6 +70,7 @@ class TestWorkProductsExist:
         [REQUIREMENTS_DOC, ARCHITECTURE_DOC, DESIGN_DOC, TEST_SPEC_DOC, MATRIX_DOC,
          DOCS / "EmbeddedTestBench_SWE4_Unit_Verification_Report.md",
          DOCS / "EmbeddedTestBench_IF001_GPD3303D_Remote_Control_Interface.md",
+         DOCS / "EmbeddedTestBench_IF002_PicoScope3000_Driver_Interface.md",
          DOCS / "EmbeddedTestBench_SWE3_002_GPD3303D_Driver_Design.md",
          ROOT / "docs" / "tek3014b" / "VISA_Determination_Report.md"],
         ids=lambda p: p.name,

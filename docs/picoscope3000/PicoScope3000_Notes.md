@@ -43,9 +43,11 @@ Resource strings: `pico://` opens the first unit, `pico://HT415/0202` that
 serial number, `sim://` the simulator. The bench file names the serial, so a
 second PicoScope on the PC is never opened by mistake.
 
-**One owner.** The unit is held by one process. If PicoScope 7 is open, the
-driver's open fails with status `0x3`, the same as no unit at all. Close
-PicoScope 7 first.
+**One owner.** The unit is held by one process at a time. What the driver's
+open returns while PicoScope 7 holds the unit was not observed; `0x3` was seen
+with no unit on USB, and is the likely answer (unverified). Close PicoScope 7
+first. How the scope is driven, call by call, and every dependency, is
+ETB-IF-002 (`docs/aspice/EmbeddedTestBench_IF002_PicoScope3000_Driver_Interface.md`).
 
 **Older 3000 models are a different library.** The 3204/3205/3206 (no suffix)
 use `ps3000.dll`, not `ps3000a`. This driver does not open them.

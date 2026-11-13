@@ -173,7 +173,7 @@ DIGITAL_BITS = 8
 #: reported by number; the SDK header's names are not repeated from memory.
 STATUS_NAMES: Dict[int, str] = {
     0x00: "OK",
-    0x03: "no PicoScope found (or it is in use by another program)",
+    0x03: "no PicoScope found; close any other program using it",
     0x0E: "timebase not available with the channels enabled",
     0x0F: "voltage range not available on this model",
 }

@@ -30,6 +30,7 @@
 | 0.4 | 2026-10-05 | Claude | #204: Review & Approval table points to the merge of the pull request that last changed the document, which is the review and approval (ETB-SUP8-001 §5.7); no per-change signatures or dates. |
 | 0.5 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | next | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
+| next | 2026-11-13 | Claude | #200: SE-PSCOPE, the PicoScope 3405D MSO; ETB-SIF-12 (host to scope, specified in ETB-IF-002) and ETB-SIF-13 (target to scope); §6.1 containerisation. |
 
 ---
 
@@ -84,11 +85,12 @@ Embedded Test Bench supplies, and the target under test as the bench sees it.
 |---|---|---|---|
 | **SE-HOST** | The bench host — a PC or a container running `benchtools` | This project (software) | — |
 | **SE-SCOPE** | Tektronix TDS3014B oscilloscope | Tektronix | Ethernet, VXI-11 |
+| **SE-PSCOPE** | PicoScope 3405D MSO: four analogue channels, 16 digital inputs, signal generator (#200) | Pico Technology | USB, through Pico's `ps3000a` library |
 | **SE-PSU** | GW Instek GPD-3303D bench supply | GW Instek | USB serial, 9600 8N1 |
 | **SE-PROBE** | SEGGER J-Link debug probe | SEGGER | USB, presented as TCP: GDB server and RTT |
 | **SE-DONGLE** | Nordic nRF52840 dongle (PCA10059) | Hardware: Nordic. Firmware: **this project** | USB serial (CDC ACM) |
 | **SE-S2LP** | ST S2-LP development kit | Hardware and firmware: STMicroelectronics | USB serial |
-| **SE-TARGET** | The device under test | The project being tested | Debug port (to SE-PROBE), BLE (to SE-DONGLE), power (from SE-PSU), signals (to SE-SCOPE) |
+| **SE-TARGET** | The device under test | The project being tested | Debug port (to SE-PROBE), BLE (to SE-DONGLE), power (from SE-PSU), signals (to SE-SCOPE and SE-PSCOPE) |
 
 ### 5.2 Logical Elements on the Host
 
@@ -129,12 +131,15 @@ observes rather than defines.
 | ETB-SIF-09 | SE-PSU ↔ SE-TARGET | Wires | Power | Tracking mode constrains what may be set (ETB-SYS2-023) |
 | ETB-SIF-10 | SE-TARGET ↔ SE-SCOPE | Probes | Analogue signals | Up to four channels |
 | ETB-SIF-11 | SE-HOST ↔ CI | Files | JUnit XML, markdown reports | ETB-SYS2-079 |
+| ETB-SIF-12 | SE-HOST ↔ SE-PSCOPE | USB | Pico Technology's `ps3000a` C library, called through `ctypes` | No command text on a wire: the interface is the set of library calls. Specified in ETB-IF-002 |
+| ETB-SIF-13 | SE-TARGET ↔ SE-PSCOPE | Probes, logic leads, BNC | Analogue and logic signals in; the signal generator out | Up to four analogue channels and 16 digital inputs in one acquisition (ETB-SYS2-065). On the bench PC, channel A is wired to the PICO2 Test Board's generator channel 1 |
 
 ### 6.1 Containerisation
 
 ETB-SAD-03 is satisfied for SE-SCOPE and SE-PROBE, whose links are TCP. SE-PSU,
 SE-DONGLE and SE-S2LP are USB serial and require the device to be passed into
-the container. This is a property of the instruments, not a decision, and is
+the container. SE-PSCOPE is USB too, and needs Pico's Linux library inside
+the container as well (ETB-IF-002 §12). This is a property of the instruments, not a decision, and is
 recorded so that a reader does not expect otherwise.
 
 ---

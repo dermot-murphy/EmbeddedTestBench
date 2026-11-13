@@ -851,6 +851,7 @@ Do not rely on what you remember from an earlier session. Read these:
 | How each instrument behaves, its traps, its open items | `docs/<instrument>/*_Notes.md`: `jlink/`, `ble/`, `psu/`, `dmm/`, `s2lp/`, `pico2_test_board/`, `tek3014b/`, `picoscope3000/` |
 | How to drive the PICO2 Test Board (commands, CLI, driver methods as test steps) | `docs/pico2_test_board/PICO2_Test_Board_User_Manual.md` |
 | The supply protocol, command by command | ETB-IF-001, `docs/aspice/EmbeddedTestBench_IF001_GPD3303D_Remote_Control_Interface.md` |
+| How the PicoScope is driven, and what it depends on | ETB-IF-002, `docs/aspice/EmbeddedTestBench_IF002_PicoScope3000_Driver_Interface.md` |
 | What has been shown on hardware, and what has not | ETB-SYS5-002, and its evidence in `docs/aspice/qualification/2026-10-04/` |
 | The hardware session procedure and the owner's safety limits | `specs/qualification/README.md` |
 | Sensor commands with side effects, timeouts | `docs/robot/Robot_Keyword_Catalogue.md` §2.5–2.6, §3.6, §4.3 |

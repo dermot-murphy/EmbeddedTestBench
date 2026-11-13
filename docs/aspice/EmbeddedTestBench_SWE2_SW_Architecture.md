@@ -49,6 +49,7 @@
 | next | 2026-11-13 | Claude | #202: the frequency generator's I2S interface: an Adafruit UDA1334A board, not a CJMCU-1334, on GP6 (DIN), GP7 (BCLK) and GP8 (WSEL), as the owner rewired it on 2026-11-13. |
 | next | 2026-11-13 | Claude | #330: PICO-ARC-001 names the element the PICO2 Test Board (the Pico 2 SHT30 Temperature Sensor before #330), its class `Pico2TestBoard` and its bench drivers `pico2-test-board` and `pico2`; the event-name example uses the alias `pico2`. |
 | next | 2026-11-13 | Claude | #200: PSCOPE-ARC-001 added, the PicoScope 3000D series MSO driver reached through the `ps3000a` C library with `ctypes`; the layering diagram and the interfaces (USB to the unit, the `ps3000a` library) updated. |
+| next | 2026-11-13 | Claude | #200: the `ps3000a` interface row names its interface specification, ETB-IF-002. |
 ---
 
 ## 3. Purpose & Scope
@@ -829,7 +830,7 @@ CLI            BenchRunner        Bench           Tek3014B        Transport
 | USB CDC (serial) — thermometer | bidirectional | The Pico 2 thermometer's line protocol (`firmware/pico2_test_board/include/protocol.h`). |
 | Serial port — device under test | in | A device's console or test UART, read by the serial capture instrument through a USB serial adapter. Receive only: the instrument writes nothing to it. |
 | USB — PicoScope 3000D MSO | bidirectional | The PicoScope 3405D MSO on USB, through Pico Technology's WinUSB driver (version 2.4.0.2, dated 2022-06-10, on the bench PC). Not visible to this software: every exchange with the unit goes through the `ps3000a` library. Its inputs are four analogue channels and sixteen digital inputs; its only output is the signal generator. |
-| `ps3000a` C library (Pico Technology) | bidirectional | Optional; called through `ctypes` by the PicoScope driver, with no Pico Python package. Installed with PicoScope 7 or the PicoSDK, and found from the bench's `sdk_path`, `PICOSDK_PATH`, the install folders or the system's library path. Not needed to import the driver or to run the tests. On the bench PC it is the `ps3000a.dll` of PicoScope 7 T&M Stable, reporting driver version 2.2.160.7569 (ETB-ACQ4-001 §4.4). |
+| `ps3000a` C library (Pico Technology) | bidirectional | Optional; called through `ctypes` by the PicoScope driver, with no Pico Python package. Installed with PicoScope 7 or the PicoSDK, and found from the bench's `sdk_path`, `PICOSDK_PATH`, the install folders or the system's library path. Not needed to import the driver or to run the tests. On the bench PC it is the `ps3000a.dll` of PicoScope 7 T&M Stable, reporting driver version 2.2.160.7569 (ETB-ACQ4-001 §4.4). Specified, call by call, with every dependency, in ETB-IF-002. |
 | I2C | bidirectional | Pico 2 to SHT30-DIS, 100 kHz, address 0x44. Below the thermometer firmware; not visible to the host driver except as `err 4`/`err 6`. |
 | GPIO — thermometer LEDs | out | Pico 2 GP18, GP19 and GP20 to the red, yellow and green indicator LEDs, each lit by driving its pin high (#328). Set by `wr` and read back by `rd` from the pins' output latches. |
 | I2S and GPIO — frequency generator | out | Pico 2 GP6 (DIN), GP7 (BCLK) and GP8 (WSEL) to an Adafruit UDA1334A board (NXP UDA1334A DAC), generator channels 1 and 2; its `MUTE` input is not connected on the bench. GP15 carries channel 3, a square wave (#202). |

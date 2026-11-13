@@ -965,6 +965,7 @@ by `scripts/publish_docs.py` and are not edited by hand.
 |---|---|
 | [Documentation index](docs/README.md) | Work-product map and identifier prefixes |
 | [VISA Determination Report](docs/tek3014b/VISA_Determination_Report.md) | Whether VISA is required, with evidence and bench confirmation items |
+| [PicoScope 3000D Driver Interface](docs/aspice/EmbeddedTestBench_IF002_PicoScope3000_Driver_Interface.md) | ETB-IF-002: how the bench drives the PicoScope, call by call, and its dependencies |
 | [PicoScope 3000 Notes](docs/picoscope3000/PicoScope3000_Notes.md) | How the PicoScope is reached (ps3000a through ctypes), what was measured on the 3405D, and what is unverified |
 | [J-Link Integration Notes](docs/jlink/JLink_Integration_Notes.md) | Why the GDB Server rather than the DLL, Windows and Docker, timing methods, probe confirmation items |
 | [Bench Runner Guide](docs/Bench_Runner_Guide.md) | Writing specifications and bench configurations |
