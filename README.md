@@ -40,7 +40,7 @@ benchtools/
 │   ├── gpd3303d/    GW Instek GPD-3303D bench power supply
 │   ├── tti1604/     TTi 1604 bench multimeter over RS-232
 │   ├── s2lp/        ST S2-LP sub-1 GHz development kit (registers, TX, RX, logs)
-│   ├── pico_sht30/  Raspberry Pi Pico 2 + SHT30-D thermometer, with its own firmware
+│   ├── pico2_test_board/  PICO2 Test Board: Pico 2 thermometer, LEDs and frequency generator, with its own firmware
 │   ├── serial_capture/  a device's serial output, captured and checked
 │   └── generic.py   anything answering *IDN?
 ├── runner/        declarative bench test runner
@@ -660,39 +660,48 @@ eight bench confirmation items, and the manufacturer's documents in
 
 ---
 
-## Thermometer — Raspberry Pi Pico 2 + DollaTek SHT30-D
+## PICO2 Test Board — Raspberry Pi Pico 2 thermometer, LEDs and frequency generator
 
-A Pico 2 reads the local temperature from a Sensirion SHT30-DIS, carried on a
-DollaTek SHT30-D module, over I2C (GP4/GP5, address 0x44). It answers
-`rd name`, `rd copyright`, `rd version`, `rd sha` and `rd temperature` over USB,
-each as `ACK rd <option> = <value>`; an unknown option gets
-`NAK rd <option> = Error`. The
-firmware lives in [`firmware/pico_sht30`](firmware/pico_sht30): it is C for
-the Pico SDK, written to MISRA C:2012, and builds to a `.uf2` you copy onto the
-board in BOOTSEL mode.
+A Raspberry Pi Pico 2 with its own firmware
+([`firmware/pico2_test_board`](firmware/pico2_test_board), C for the Pico SDK,
+written to MISRA C:2012), on the bench as `pico2` on COM14. It does three
+things over one USB serial link:
+
+- **Temperature** from a Sensirion SHT30-DIS on a DollaTek SHT30-D module
+  (I2C, GP4/GP5, address 0x44). A reading that fails raises `NoReadingError`;
+  it never returns the previous value.
+- **Three LEDs**, red, yellow and green on GP18 to GP20, each set and read back.
+- **A frequency generator**: channels 1 and 2 from an Adafruit UDA1334A I2S DAC
+  (sine, square, triangle, sawtooth, or two sines summed), channel 3 a square
+  wave on GP15, 10 Hz to 12 kHz. A sine has been seen on a scope; levels and
+  the other waveforms are not yet measured.
 
 ```python
-from benchtools.instruments.pico_sht30 import PicoSht30
+from benchtools.instruments.pico2_test_board import Pico2TestBoard
 
-with PicoSht30.connect("/dev/ttyACM0") as thermometer:     # COM5 on Windows
-    print(thermometer.name, thermometer.version)           # Pico 2 SHT30 Temperature Sensor V1.00.0000
-    print("%.2f °C" % thermometer.temperature())
+with Pico2TestBoard.connect("COM14") as board:          # /dev/ttyACM0 on Linux
+    print(board.name, board.version)                     # PICO2 Test Board V1.00.0000
+    print("%.2f °C" % board.temperature())
+    board.set_led("green", True)
+    board.start_freq(1, 1000, wave="sine", amp=50)       # 1 kHz sine on channel 1
+    board.abort_all()
 ```
 
 ```bash
-python -m benchtools thermo -r /dev/ttyACM0 info
-python -m benchtools thermo -r /dev/ttyACM0 rd sha
-python -m benchtools thermo -r /dev/ttyACM0 temp --count 10 --interval 1
-python -m benchtools thermo -r sim:// temp          # no hardware needed
+python -m benchtools pico2 -r COM14 info
+python -m benchtools pico2 -r COM14 wr led-red on
+python -m benchtools pico2 -r COM14 wr freq 5k            # channel 1 unless named
+python -m benchtools pico2 -r COM14 routine freq start
+python -m benchtools pico2 -r sim:// temp                 # no hardware needed
+python -m benchtools run specs/pico2_test_board.yaml --bench benches/simulated_bench.yaml
 ```
 
-A reading that fails raises an error; it never returns the previous value. When
-the sensor is absent, a frame fails its CRC or the bus times out, the firmware
-answers `ACK rd temperature = Error` and the driver raises `NoReadingError`.
-A value that is not degrees to two decimal places is refused.
-
-See [Pico 2 + SHT30-D Notes](docs/pico_sht30/Pico_SHT30_Notes.md) for wiring,
-building and flashing, the datasheet facts, the MISRA position and the bench
+It was named the Pico 2 SHT30 Temperature Sensor until #330, and `thermo`,
+`pico-sht30` and `PicoSht30` still work. The
+[PICO2 Test Board User Manual](docs/pico2_test_board/PICO2_Test_Board_User_Manual.md)
+covers every command, the command line, the driver and test sequences; the
+[PICO2 Test Board Notes](docs/pico2_test_board/PICO2_Test_Board_Notes.md) cover
+wiring, building, the datasheet facts, the MISRA position and the bench
 confirmation items.
 
 ---
@@ -827,8 +836,8 @@ python -m pytest tests/ --cov=benchtools --cov-report=term
 
 **2 498 tests (2 497 pass, 1 skipped without `tkinter`), 95% statement coverage, no hardware required** — no oscilloscope,
 no probe, no target, no GDB, no dongle, no BLE sensor, no power supply, no
-sub-1 GHz kit, no Pico. The Pico firmware's own 61 unit tests run under CTest
-(`firmware/pico_sht30/test`). With
+sub-1 GHz kit, no Pico. The Pico firmware's own 140 unit tests run under CTest
+(`firmware/pico2_test_board/test`). With
 every optional extra removed: 1 807 pass, 40 skip, 0 fail.
 
 The suite includes an independently implemented VXI-11 RPC server, a SCPI socket
@@ -926,7 +935,8 @@ by `scripts/publish_docs.py` and are not edited by hand.
 | [S2-LP Devkit Notes](docs/s2lp/S2LP_Devkit_Notes.md) | Why ST's firmware is used unchanged, its CLI protocol, the register map, what a polled capture can and cannot be quoted as, and the licence position |
 | [GPD-3303D Notes](docs/psu/GPD3303D_Notes.md) | The four ways this supply will mislead a test, its command set and status word, and the bench confirmation items |
 | [TTi 1604 Notes](docs/dmm/TTi1604_Notes.md) | The multimeter's interface and protocol, why a key press is confirmed from the readings, the stream read, the derived resistance multiplier, the bench test and front-panel check, and the bench confirmation items; the manufacturer's documents in `docs/dmm/reference/` |
-| [Pico 2 + SHT30-D Notes](docs/pico_sht30/Pico_SHT30_Notes.md) | Wiring, building and flashing the thermometer firmware, datasheet facts, MISRA position, bench confirmation items; [reference documents](docs/pico_sht30/References.md) |
+| [PICO2 Test Board User Manual](docs/pico2_test_board/PICO2_Test_Board_User_Manual.md) | Using the PICO2 Test Board: wiring, flashing, every serial command, `benchtools pico2`, the Python driver, test sequences and worked examples |
+| [PICO2 Test Board Notes](docs/pico2_test_board/PICO2_Test_Board_Notes.md) | Wiring, building and flashing the board's firmware, datasheet facts, MISRA position, bench confirmation items; [reference documents](docs/pico2_test_board/References.md) |
 | [SWE.1 Requirements](docs/aspice/EmbeddedTestBench_SWE1_SW_Requirements.md) | 177 functional and 18 non-functional requirements |
 | [SWE.2 Architecture](docs/aspice/EmbeddedTestBench_SWE2_SW_Architecture.md) | Layering, elements, eighteen architectural decisions |
 | [SWE.3 Detailed Design](docs/aspice/EmbeddedTestBench_SWE3_Detailed_Design.md) | Per-module design units |

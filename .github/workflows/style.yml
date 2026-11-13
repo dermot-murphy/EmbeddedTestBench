@@ -55,11 +55,11 @@ jobs:
         with:
           config: .cstylecheck.yml
           include: |
-            firmware/pico_sht30/src/**/*.c
-            firmware/pico_sht30/src/**/*.h
-            firmware/pico_sht30/include/**/*.h
-            firmware/pico_sht30/test/**/*.c
-            firmware/pico_sht30/test/**/*.h
+            firmware/pico2_test_board/src/**/*.c
+            firmware/pico2_test_board/src/**/*.h
+            firmware/pico2_test_board/include/**/*.h
+            firmware/pico2_test_board/test/**/*.c
+            firmware/pico2_test_board/test/**/*.h
           aliases: .cstylecheck-pico-aliases.txt
           exclusions: .cstylecheck-pico-exclusions.yml
           fail-on: info

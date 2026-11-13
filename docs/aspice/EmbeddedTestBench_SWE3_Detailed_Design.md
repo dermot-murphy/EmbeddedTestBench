@@ -91,6 +91,11 @@
 | next | 2026-10-29 | Claude | #247, review of #318 round 4: SER-DD-DRIVER - `stop` set only on a running run, so close() shows an ended capture's live lines; `read_done` in place of the `None` sentinel; the show queue bounded to `MAX_LINES` with `unshown`; `start_capture` stops or refuses a show thread that outlives the last capture; `wait_capture` warns of one. |
 | next | 2026-10-29 | Claude | #247, review of #318 round 5: SER-DD-DRIVER - the show thread drains after `read_done`, dropped live lines counted in `unshown` and in `summary()`, `_finish_live_output` (bounded, not under `output_lock`) for `close()` and `start_capture`, an abort of an ended capture leaving its lines, `stop_live_output`, `OutputLock`; SER-DD-CLI - Ctrl-C while closing. |
 | next | 2026-10-29 | Claude | #247, review of #318 round 6: SER-DD-DRIVER - `start_capture` leaves the show thread to `_finish_live_output`, `_show` returns whether it showed the line and an overtaken line is counted, `join_thread` joins in `READ_POLL` steps. |
+| next | 2026-11-12 | Claude | #328: the Pico thermometer's indicator LEDs. PICO-DD-PROTOCOL - `wr`, the LED options of `rd`, `PROTO_VERSION` 2.1; PICO-DD-VERSION - `V1.01.0000`; PICO-DD-BOARD - `BOARD_LED_*_PIN`; PICO-DD-HAL - `hal_led_set`, `hal_led_get`, the LEDs off in `hal_init`; PICO-DD-PARSER - `cmd_wr`, `cmd_leds`, `cmd_led_lookup`, `cmd_led_state`, `cmd_value_begin`; PICO-DD-TEST - the fake HAL's LEDs; PICO-DD-CONST, -DRIVER, -SIM and -CLI - the LED constants, `wr`, `WrRefusedError`, `led`, `set_led`, the simulated LEDs and `benchtools thermo wr`. |
+| next | 2026-11-08 | Claude | #202: PICO-DD-FGEN added: the frequency generator, the `wr` and `routine` commands, and the HAL's DAC and PWM functions. |
+| next | 2026-11-12 | Claude | #202: merged with #328 (LEDs). PICO-DD-PROTOCOL - `PROTO_VERSION` 2.2, one `wr` for the LEDs and the generator, the argument counts, `help` in nine lines; PICO-DD-VERSION - `V1.02.0000`; PICO-DD-BOARD - the generator's pins, DIN on GP9, VIN on VBUS and `MUTE` not connected on the bench, `BOARD_DAC_MUTE_PIN` undefined; PICO-DD-HAL and -FGEN - `hal_dac_mute` a no-op without a `MUTE` pin; PICO-DD-PARSER - `cmd_rd` and `cmd_wr` dispatch to the generator; PICO-DD-TEST - `fgen.c` and `cmd_fgen.c` in the host build; PICO-DD-CONST, -DRIVER, -SIM and -CLI - `WR_OPTIONS`, the combined `wr`, `_acknowledged`, `WrRefusedError` a `CommandRefusedError`, the simulator's `V1.02.0000` and `err 2` for an LED with a channel. |
+| next | 2026-11-13 | Claude | #202: PICO-DD-BOARD - `BOARD_DAC_PIO_DIVIDER` 24, `BOARD_DAC_DATA_PIN` 6 and `BOARD_DAC_BCK_PIN` 7 (WSEL GP8), as the owner rewired the bench on 2026-11-13; the DAC board is an Adafruit UDA1334A, with `PLL`, `SF0`, `SF1` and `SCLK` low on the board. PICO-DD-FGEN - the sample rate is 48 828.125 Hz, inside the 16 to 50 kHz range that `SCLK` low selects; the DDS step about 11 µHz. |
+| next | 2026-11-13 | Claude | #330: the Pico 2 SHT30 Temperature Sensor renamed the PICO2 Test Board. §5.8 notes the rename and the user manual (ETB-PICO-002); PICO-DD-PROTOCOL and -VERSION - the name and `V1.00.0000`; PICO-DD-DRIVER - `Pico2TestBoard`, the aliases kept, the bench driver names, `set_led(colour, lit)`; PICO-DD-SIM - default version `V1.00.0000`; PICO-DD-CLI - `benchtools pico2` and the names it still accepts. |
 ---
 
 ## 3. Purpose & Scope
@@ -136,7 +141,7 @@ not declare.
 | 5.5 | BLE | `benchtools.instruments.nordic_dongle` and `firmware/nordic_dongle` | 20 |
 | 5.6 | S2LP | `benchtools.instruments.s2lp` | 14 |
 | 5.7 | PSU | `benchtools.instruments.gpd3303d` | 4 |
-| 5.8 | PICO | `benchtools.instruments.pico_sht30` and `firmware/pico_sht30` | 15 |
+| 5.8 | PICO | `benchtools.instruments.pico2_test_board` and `firmware/pico2_test_board` | 15 |
 | 5.9 | SER | `benchtools.instruments.serial_capture` | 5 |
 | 5.10 | RUN | `benchtools.runner` | 8 |
 | | **Total** | | **84** |
@@ -587,7 +592,7 @@ from (CORE-FR-060, CORE-FR-063, AD-28, #126):
   module-level code (the transport factory), so connecting is named too.
 - The handler's order: the record's `event_source`, else the pending name, else
   `source_of` the logger name - the driver defaults `PSU`, `BLE`, `JLINK`, `RF`,
-  `SCOPE`, `DMM`, `TEMP` (`pico_sht30`), `SERIAL` (`serial_capture`), `TEST` (the runner), and `BENCH` for
+  `SCOPE`, `DMM`, `TEMP` (`pico2_test_board`), `SERIAL` (`serial_capture`), `TEST` (the runner), and `BENCH` for
   anything else.
 
 `log_event(logger, kind, text, data)` logs *text* as usual and attaches `kind`
@@ -2757,41 +2762,62 @@ channel is parked at zero volts rather than disconnected. `read` adds a
 
 ---
 
-### 5.8 PICO — `benchtools.instruments.pico_sht30` and `firmware/pico_sht30`
+### 5.8 PICO — `benchtools.instruments.pico2_test_board` and `firmware/pico2_test_board`
 
 A Raspberry Pi Pico 2 reads a Sensirion SHT30-DIS on a DollaTek SHT30-D module
 over I2C and reports the temperature, with its name, copyright, version and
-commit, over USB CDC. One element across two languages, like BLE: `include/protocol.h` is
+commit, over USB CDC. It also drives three indicator LEDs, set by `wr` and read
+back by `rd` (#328), and is a frequency generator, its settings written by the
+same `wr`, read by `rd` and run by `routine` (#202). One element across two languages, like BLE: `include/protocol.h` is
 the interface both halves are built from.
 
-#### PICO-DD-PROTOCOL — `firmware/pico_sht30/include/protocol.h`
+The board is the **PICO2 Test Board** since #330 (2026-11-13); it was the Pico 2
+SHT30 Temperature Sensor before, and the version was reset to `V1.00.0000` with
+the new name. Its use is described in the PICO2 Test Board User Manual
+(ETB-PICO-002).
+
+#### PICO-DD-PROTOCOL — `firmware/pico2_test_board/include/protocol.h`
 
 The single definition of the host link. Two X-macro tables: `PROTO_COMMAND_TABLE`
 (`name, min_args, max_args, help`) generates the firmware's dispatch table and
 handler prototypes; `PROTO_ERROR_TABLE` (`symbol, code, text`) generates
-`proto_error_t` and the error texts. `PROTO_VERSION` is `2.0` (#131: `rd`
-replaces `ver` and `temp`, and `reset` is renamed `ecureset`); the firmware
+`proto_error_t` and the error texts. `PROTO_VERSION` is `2.2` (2.0, #131: `rd`
+replaces `ver` and `temp`, and `reset` is renamed `ecureset`; 2.1, #328: the
+`wr` command and the three LED options of `rd`; 2.2, #202: `routine`, and `wr`
+and `rd` of the frequency generator's settings); the firmware
 does not report it, and the host checks it only against the header. Limits:
 `PROTO_MAX_LINE` 64 (command, terminator included), `PROTO_MAX_REPLY` 192,
 `PROTO_MAX_TOKENS` 4.
 
 | Command | Reply |
 |---|---|
-| `rd name` | `ACK rd name = Pico 2 SHT30 Temperature Sensor` |
+| `rd name` | `ACK rd name = PICO2 Test Board` |
 | `rd copyright` | `ACK rd copyright = (c) 2026 Dermot Murphy` |
 | `rd version` | `ACK rd version = V1.00.0000` |
 | `rd sha` | `ACK rd sha = <7 hex digits, or unknown>` |
 | `rd temperature` | `ACK rd temperature = <°C, 2 dp>`, or `ACK rd temperature = Error` when no reading could be made |
+| `rd led-red`, `rd led-yellow`, `rd led-green` | `ACK rd <option> = on` or `ACK rd <option> = off` |
 | `rd <other>` | `NAK rd <other> = Error` |
-| `rd`, `rd a b` | `err 2 wrong number of arguments` |
+| `rd`, `rd name 1`, `rd a b c` | `err 2 wrong number of arguments`: only a generator setting takes a channel |
+| `rd <setting> [<ch>]` | `ACK rd <setting> <ch> = <value>` (PICO-DD-FGEN) |
+| `wr led-red on`, `wr led-red off` (and `led-yellow`, `led-green`) | `ACK wr <option> = on` or `ACK wr <option> = off`, the state read back after the write |
+| `wr led-red <v>`, a value other than `on` or `off` | `NAK wr led-red = Error`; nothing changes |
+| `wr <setting> [<ch>] <value>` | `ACK wr <setting> <ch> = <value>`, or `NAK wr <setting> <ch> = Error` (PICO-DD-FGEN) |
+| `wr <other> ...`, an option that is neither an LED nor a generator setting | `NAK wr <other> = Error`, for example `NAK wr led-blue = Error` |
+| `wr`, `wr a`, `wr a b c d`, `wr led-red 2 on` | `err 2 wrong number of arguments`: an LED takes no channel |
+| `routine freq start [<ch>]`, `routine freq abort [<ch>]`, `routine freq results [<ch>]`, `routine all abort` | `ACK routine ... = <status>` or `NAK ...`, as `protocol.h` states (PICO-DD-FGEN) |
 | `status` | `ok status=0x<hhhh>` |
 | `sreset` | `ok` |
 | `ecureset`, `bootsel` | `ok` (the reboot follows the reply) |
 | `help` | one `# <name> - <help>` line per command, then `ok` |
 | `ver`, `temp`, `reset` | `err 1 unknown command` since 2.0 |
 
-An `rd` reply is a whole line with no `ok` in front, in the `ACK`/`NAK` form the
-other bench devices use; everything after `= ` is the value, spaces included.
+An `rd`, `wr` or `routine` reply is a whole line with no `ok` in front, in the
+`ACK`/`NAK` form the other bench devices use; everything after `= ` is the
+value, spaces included. The command table gives `rd` one or two arguments, `wr`
+two or three and `routine` two or three. `help` lists `help`, `rd`, `wr`,
+`routine`, `status`, `sreset`, `ecureset` and `bootsel`, one line each, then
+`ok`: nine lines.
 
 | Code | Symbol | Meaning |
 |---|---|---|
@@ -2802,10 +2828,14 @@ other bench devices use; everything after `= ` is the value, spaces included.
 | 5 | `PROTO_ERR_CRC` | the sensor checksum did not match |
 | 6 | `PROTO_ERR_BUS` | I2C bus timeout |
 
-#### PICO-DD-VERSION — `firmware/pico_sht30/include/firmware_version.h`, `src/firmware_version.c`
+#### PICO-DD-VERSION — `firmware/pico2_test_board/include/firmware_version.h`, `src/firmware_version.c`
 
-`FIRMWARE_NAME` (`Pico 2 SHT30 Temperature Sensor`), `FIRMWARE_COPYRIGHT`
-(`(c) 2026 Dermot Murphy`) and `FIRMWARE_VERSION` (`V1.00.0000`) are edited here
+`FIRMWARE_NAME` (`PICO2 Test Board` since #330; `Pico 2 SHT30 Temperature
+Sensor` before), `FIRMWARE_COPYRIGHT` (`(c) 2026 Dermot Murphy`) and
+`FIRMWARE_VERSION` (`V1.00.0000` since #330, which renamed the board and reset
+the version; before it, `V1.02.0000` was #202, which added the frequency
+generator's commands, `V1.01.0000` was #328, which added the `wr` command, and
+the baseline was `V1.00.0000`) are edited here
 and nowhere else, each as a single quoted string so that
 `SWE4-UT-PICOFWPROTO` can read it as text. The version is
 `V<major>.<minor, 2 digits>.<patch, 4 digits>`, semantic, and bumped with every
@@ -2815,19 +2845,52 @@ injected by CMake (PICO-DD-BUILD); a build that does not inject it gets
 `firmware_g_name`, `firmware_g_copyright`, `firmware_g_version` and
 `firmware_g_sha`. The build date and `FIRMWARE_TITLE` are gone (#131).
 
-#### PICO-DD-BOARD — `firmware/pico_sht30/include/board_config.h`
+#### PICO-DD-BOARD — `firmware/pico2_test_board/include/board_config.h`
 
 Wiring constants, each overridable with `-D`: `BOARD_I2C_INSTANCE` 0,
 `BOARD_I2C_SDA_PIN` 4, `BOARD_I2C_SCL_PIN` 5, `BOARD_I2C_BAUD_HZ` 100000,
 `BOARD_I2C_TIMEOUT_US` 10000 (ten times a six-byte transfer at 100 kHz),
-`BOARD_SHT30_ADDRESS` 0x44.
+`BOARD_SHT30_ADDRESS` 0x44. The indicator LEDs (#328, PICO-FR-011), each lit by
+driving its pin high: `BOARD_LED_RED_PIN` 18 (pin 24), `BOARD_LED_YELLOW_PIN` 19
+(pin 25) and `BOARD_LED_GREEN_PIN` 20 (pin 26).
 
-#### PICO-DD-HAL — `firmware/pico_sht30/include/hal.h`, `src/hal_pico.c`
+The frequency generator (#202): `BOARD_SYS_CLOCK_HZ` 150 MHz,
+`BOARD_DAC_PIO_DIVIDER` 24, `BOARD_DAC_BCK_PIN` 7 (pin 10; the word select,
+WSEL, is the next GPIO up, GP8, pin 11, because PIO side-set drives consecutive
+pins), `BOARD_DAC_DATA_PIN` 6 (pin 9) and `BOARD_FGEN_GPIO_PIN` 15 (pin 20,
+channel 3). The DAC board is an Adafruit UDA1334A. Its DIN, BCLK and WSEL on
+GP6, GP7 and GP8 are the bench wiring as the owner rewired it on 2026-11-13;
+they were GP9, GP10 and GP11 on 2026-11-12, and DIN was GP12 before that. Its
+VIN on VBUS (5 V, pin 40; the board has its own 3.3 V regulator) and its `MUTE`
+not connected are the bench wiring as the owner stated it on 2026-11-12; VIN
+was 3V3(OUT) and `MUTE` GP13 before. `BOARD_DAC_MUTE_PIN` is therefore
+deliberately left undefined: no pin is driven for `MUTE`, and a board that
+wires it builds with `-DBOARD_DAC_MUTE_PIN=13U`. The board pulls `PLL`, `SF0`
+and `SF1` low (audio mode, I2S format) and its `SCLK` is low, which selects the
+16 to 50 kHz sample-rate range. Channel 3 on GP15 is as #202 designed it; it was
+not part of the owner's statement.
+
+#### PICO-DD-HAL — `firmware/pico2_test_board/include/hal.h`, `src/hal_pico.c`
 
 The only seam between portable code and the board (PICO-NFR-001): I2C write
 and read with STOP, returning `HAL_STATUS_OK`, `HAL_STATUS_ERR_NACK` or `HAL_STATUS_ERR_TIMEOUT`;
 millisecond delay; line output (the HAL appends LF); board unique ID; uptime;
-reboot; reboot to bootloader. `hal_pico.c` implements it on the Pico SDK -
+reboot; reboot to bootloader; and the indicator LEDs (#328): `hal_led_set(led, on)`
+lights or extinguishes one, and `hal_led_get(led)` says whether it is lit, for a
+`hal_led_t` of `HAL_LED_RED`, `HAL_LED_YELLOW` or `HAL_LED_GREEN`; an
+out-of-range LED is ignored by the one and reads as off from the other.
+`hal_init` makes the three LED pins outputs, driven low (off), before it brings
+up I2C, so the LEDs are off from boot and again after `ecureset` (PICO-FR-011).
+`hal_led_get` reads the pin's output latch (`gpio_get_out_level`), so `rd` and
+`wr` report what the pin is driven to rather than a remembered value
+(PICO-FR-009). For the frequency generator (#202): `hal_critical_enter` and
+`hal_critical_exit` keep the audio-stream interrupt out; `hal_dac_start(render)`
+starts the I2S stream, which runs from then on; `hal_dac_mute(mute)` drives the
+DAC's `MUTE` input; and `hal_pwm_start` and `hal_pwm_stop` run channel 3.
+`hal_dac_mute` drives a pin only in a build that defines `BOARD_DAC_MUTE_PIN`,
+when `hal_init` also makes that pin an output, high (muted); otherwise, as on
+the bench, it does nothing and the DAC is never muted (PICO-DD-BOARD).
+`hal_pico.c` implements it on the Pico SDK -
 `i2c_write_timeout_us`/`i2c_read_timeout_us` (a short count or
 `PICO_ERROR_GENERIC` is a NACK, `PICO_ERROR_TIMEOUT` a timeout),
 `stdio_puts_raw` for output (no CRLF translation), `pico_get_unique_board_id_string`,
@@ -2836,7 +2899,7 @@ first so the `ok` reaches the host. It is the only file that includes SDK
 headers, and it holds the two MISRA deviations (Rule 21.6 for the SDK's own
 output routine, Dir 4.6 for SDK prototypes).
 
-#### PICO-DD-SHT30 — `firmware/pico_sht30/src/sht30.c`
+#### PICO-DD-SHT30 — `firmware/pico2_test_board/src/sht30.c`
 
 * `sht30_crc8`: bitwise CRC-8, polynomial 0x31, initial 0xFF, no reflection, no
   final XOR; check value CRC(0xBE 0xEF) = 0x92 (datasheet).
@@ -2854,7 +2917,7 @@ output routine, Dir 4.6 for SDK prototypes).
 HAL errors map to `SHT30_STATUS_ERR_NACK` / `SHT30_STATUS_ERR_TIMEOUT`; a NULL
 pointer is `SHT30_STATUS_ERR_PARAM`. Status-register bits are `SHT30_STATREG_*`.
 
-#### PICO-DD-TEXT — `firmware/pico_sht30/src/text.c`
+#### PICO-DD-TEXT — `firmware/pico2_test_board/src/text.c`
 
 A bounded line builder in place of `snprintf` (MISRA Rules 21.6, 17.1).
 `text_t` holds the caller's buffer, its capacity, the length and an `overflow`
@@ -2867,7 +2930,7 @@ it rounds the magnitude half away from zero (`(|m| + 5) / 10`, in unsigned
 arithmetic, which holds for `INT32_MIN`), then adds the sign only if the
 rounded value is not zero, so that −0.004 is `0.00` and never `-0.00`.
 
-#### PICO-DD-PARSER — `firmware/pico_sht30/src/cmd_parser.c`
+#### PICO-DD-PARSER — `firmware/pico2_test_board/src/cmd_parser.c`
 
 *Line assembly* (`cmd_line_push`): CR ignored; LF completes the line; a line
 that reaches `PROTO_MAX_LINE − 1` characters switches to discarding until the
@@ -2880,7 +2943,7 @@ each): tokenise in place on space and tab, counting tokens
 past `PROTO_MAX_TOKENS` without storing them so an over-long command fails its
 argument check rather than being truncated; look the first token up
 (case-sensitive); check the argument count; run the handler, which writes its
-whole reply line - `ok …`, or for `rd`, `ACK …` or `NAK …` - into an empty
+whole reply line - `ok …`, or for `rd`, `wr` and `routine`, `ACK …` or `NAK …` - into an empty
 buffer. A handler returning an error sends `err <code> <text>` instead, and
 whatever it wrote is discarded. A reply that overflowed is replaced by `err 3`,
 never sent truncated. `ecureset` and `bootsel` set a pending action that runs
@@ -2897,15 +2960,88 @@ because it is measured: `cmd_rd_temperature` calls `sht30_measure` and writes
 (PICO-FR-027). Any other option is answered `NAK rd <option> = Error`, the option
 echoed as received (PICO-FR-007). `rd` always returns `PROTO_ERR_NONE`; an
 option count other than one is refused by the generic argument check with
-`err 2`.
+`err 2`. *(Revised by #328:)* an option not in `cmd_rd_fields` is then looked
+up in `cmd_leds` (below) and answered with `cmd_led_state`, also without
+touching the sensor (PICO-FR-009). *(Revised by #202:)* `rd` takes one or two
+tokens. `cmd_rd` first asks `cmd_fgen_is_setting` whether the option is a
+generator setting, and if it is passes the command to `cmd_fgen_rd`, which takes
+an optional channel. Any other option must stand alone; a second token is
+refused with `err 2`, and the option is answered by `cmd_rd_plain` as above.
 
-#### PICO-DD-MAIN — `firmware/pico_sht30/src/main.c`
+*LEDs* (#328): `cmd_leds` binds each option - `led-red`, `led-yellow`,
+`led-green` - to its `hal_led_t`. `cmd_led_lookup` finds an option in it,
+matched exactly, or returns NULL. `cmd_led_state` gives `on` or `off` from
+`hal_led_get`, the pin's output latch, so a reply says what the pin is doing and
+not what was asked.
+
+*`wr`* (`cmd_wr`, #328, PICO-FR-008; revised by #202): takes two or three
+tokens, one `wr` for the LEDs and the generator's settings. `cmd_wr` looks the
+option up as an LED first. An LED takes no channel: anything other than exactly
+an option and a value is refused with `err 2`, so `wr led-red 2 on` is `err 2`.
+For an LED, `cmd_wr_led` checks that the value is exactly `on` or `off`, case
+included; if it is, `hal_led_set` is called and the reply is
+`ACK wr <option> = ` followed by `cmd_led_state` read back after the write.
+Otherwise the reply is `NAK wr <option> = Error`, the option echoed as received,
+and `hal_led_set` is not called, so nothing changes. Any option that is not an
+LED goes to the generator's `cmd_fgen_wr` (PICO-DD-FGEN), which NAKs one it does
+not know: `wr led-blue on` answers `NAK wr led-blue = Error`. `routine` is passed
+to `cmd_fgen_routine`. `rd` of a plain option and `wr` of an LED return
+`PROTO_ERR_ARGS` for a wrong count and `PROTO_ERR_NONE` otherwise.
+`cmd_value_begin` writes the `<ACK|NAK> <rd|wr> <option> = ` prefix that every
+`rd` and `wr` reply shares; `cmd_rd_begin` is a wrapper on it for `rd`.
+
+#### PICO-DD-FGEN — `firmware/pico2_test_board/src/fgen.c`, `cmd_fgen.c`, `hal_pico.c`
+
+The frequency generator (PICO-FR-080 … -089). `fgen.c` is portable and holds the
+settings, the routine state and the synthesis. `cmd_fgen.c` turns `wr`, `rd`
+and `routine` into calls on it. The values are integers: millihertz, thousandths
+of a percent and thousandths.
+
+- **Sample rate.** The PIO state machine runs at 150 MHz / 24, two cycles per
+  bit, 64 bits per frame: a 3.125 MHz bit clock and 48 828.125 Hz, so 0.45 fs
+  is 21 972.66 Hz. An integer divider avoids fractional jitter into the DAC's
+  PLL, which regenerates its clock from WS (audio mode). The board holds `SCLK`
+  low, which selects the 16 to 50 kHz range. The first design ran at
+  97 656.25 Hz (divider 12), outside that range, and the outputs were silent
+  (2026-11-13).
+- **DDS.** Each DAC channel has a 32-bit phase accumulator and reads a
+  4096-entry table with linear interpolation. The step is about 11 µHz.
+- **Tables.** `sine` and `sine2` use the sine table. The others are built at
+  start by summing harmonics up to 0.45 fs, at most 256, because the DAC's
+  filter is flat to 0.45 fs and a harmonic above it aliases. The sum is
+  normalised to full scale, so overshoot cannot clip.
+- **Stream.** PIO shifts 32-bit words, MSB first, entered at the instruction
+  that drops WS, so the left word goes first. Two chained DMA channels play two
+  256-frame buffers; the interrupt refills the one just finished with
+  `fgen_render`. Rendering is integer only. The stream never stops, so the DAC
+  stays locked; an idle channel is mid-scale.
+- **Concurrency.** The interrupt reads a channel only while it is `Running`. The
+  main loop writes a channel's fields only inside `hal_critical_enter()` or
+  while it is not running, and a `wr` touches only the stored settings.
+- **Finite runs.** The cycle count is decremented at each phase wrap, and the
+  channel ends at the wrap. `Complete` is set when the last sample is rendered,
+  up to two buffers (5.2 ms) plus the DAC's filter delay before it leaves the
+  output.
+- **Mute.** The DAC is unmuted, with a 50 ms settle, before the first start and
+  muted by `fgen_poll` 50 ms after the last channel stops, so the buffers and
+  filter drain first. *(Revised by #202, on merging #328:)* these calls go
+  through `hal_dac_mute`, which drives a pin only when `BOARD_DAC_MUTE_PIN` is
+  defined. On the bench `MUTE` is not connected (2026-11-12), so the DAC is never
+  muted: a channel that is not running renders mid-scale silence
+  (`fgen_silence`), and nothing holds the DAC silent at power-up before the
+  firmware runs.
+- **Channel 3.** A PWM slice: `fgen_pwm_config` picks the divider and wrap. In a
+  finite run the interrupt at the end of cycle N-1 writes compare level 0, which
+  latches at the wrap ending cycle N, so no extra pulse appears; the interrupt
+  at that wrap releases the pin low.
+
+#### PICO-DD-MAIN — `firmware/pico2_test_board/src/main.c`
 
 `stdio_init_all`, `hal_init`, soft-reset the sensor (a failure is ignored so
 that `rd name` still answers, PICO-FR-005), then for ever: `getchar_timeout_us(1000)`,
 accept 0–0x7F, push into the line, execute on READY, report on OVERFLOW.
 
-#### PICO-DD-BUILD — `firmware/pico_sht30/CMakeLists.txt`, `pico_sdk_import.cmake`
+#### PICO-DD-BUILD — `firmware/pico2_test_board/CMakeLists.txt`, `pico_sdk_import.cmake`
 
 `PICO_BOARD=pico2`, `PICO_PLATFORM=rp2350-arm-s`, C11 (the SDK requires
 `static_assert`; MISRA C:2012 Amendment 3 covers C11). The firmware's own
@@ -2914,7 +3050,7 @@ sources, and only those, compile with `-Wall -Wextra -Wconversion -Wshadow
 `pico_bootrom`, `hardware_i2c`, `hardware_watchdog`; stdio on USB, not UART;
 `pico_add_extra_outputs` produces the `.uf2`. The SDK is found from
 `PICO_SDK_PATH`, or fetched at tag 2.1.1 with `-DPICO_SDK_FETCH_FROM_GIT=ON`.
-The program name is `Pico 2 SHT30 Temperature Sensor`.
+The program name is `PICO2 Test Board`.
 
 The commit SHA (#131, PICO-FR-002): at configure time
 `git rev-parse --short=7 HEAD` is run in the source directory and passed as
@@ -2926,30 +3062,47 @@ checked out, its ref and `packed-refs`. Each is resolved with
 file), and a file that does not exist is skipped. The SHA is printed as a
 configure-time status message.
 
-#### PICO-DD-TEST — `firmware/pico_sht30/test/`
+#### PICO-DD-TEST — `firmware/pico2_test_board/test/`
 
-Host build (CMake + Unity v2.6.0 + CTest) of `cmd_parser.c`, `sht30.c`,
-`text.c` and `firmware_version.c`, unchanged, against `support/fake_hal.c`.
+Host build (CMake + Unity v2.6.0 + CTest) of `cmd_parser.c`, `cmd_fgen.c`,
+`fgen.c`, `sht30.c`, `text.c` and `firmware_version.c`, unchanged, against
+`support/fake_hal.c`.
 The fake records every I2C write, answers reads from a queue (an empty queue is
 a NACK - an absent sensor), accumulates delays, captures output lines, and
-records how many lines had been sent when a reboot was requested. Built with the
+records how many lines had been sent when a reboot was requested. It also
+models the three LEDs, all off after `fake_hal_reset`: `fake_hal_led(led)` says
+whether one is lit, and `fake_hal_led_writes()` counts `hal_led_set` calls, so a
+test can show that a refused `wr` wrote nothing (#328). Built with the
 target's warning set as errors plus `-fsanitize=address,undefined`.
 `FIRMWARE_GIT_SHA` is fixed at `0123abc`, so that the tests exercise the
 injected path.
 
-#### PICO-DD-CONST — `benchtools/instruments/pico_sht30/constants.py`
+#### PICO-DD-CONST — `benchtools/instruments/pico2_test_board/constants.py`
 
-The command and error tables, `NAME`, `COPYRIGHT`, protocol version (`2.0`),
+The command and error tables, `NAME`, `COPYRIGHT`, protocol version (`2.2`),
 sensor, default address, status bits and datasheet accuracy, mirrored from the
 firmware headers and checked against them by `SWE4-UT-PICOFWPROTO`.
-`RD_OPTIONS` lists the five `rd` options and `RD_ERROR` is `Error`.
+`RD_OPTIONS` lists the `rd` options - the five values, the three LEDs and the
+generator settings - and `RD_ERROR` is `Error`. For the LEDs (#328): `LEDS` is
+`red`, `yellow`, `green`; `LED_OPTIONS` is `led-red`, `led-yellow`, `led-green`;
+`LED_ON`, `LED_OFF` and `LED_STATES` are `on` and `off`; `led_option(colour)`
+gives the option for a colour and raises `ValueError` for any other. For the
+generator (#202): `FGEN_SETTINGS` is `freq`, `freq2`, `wave`, `duty`, `amp`,
+`ratio` and `cycles`, `FGEN_CHANNELS` 1, 2 and 3, `FGEN_DEFAULT_CHANNEL` 1 and
+`FGEN_GPIO_CHANNEL` 3. `WR_OPTIONS`, the `wr` options, is `LED_OPTIONS` followed
+by `FGEN_SETTINGS`. `COMMANDS` gives `rd` one or two arguments, `wr` two or
+three and `routine` two or three.
 `raw_to_celsius` and `raw_to_percent` repeat the firmware's integer arithmetic
 exactly, and `milli_to_centi_text` repeats `text_centi`; the simulator uses all
 three, so that its readings are ones the firmware could produce.
 
-#### PICO-DD-DRIVER — `benchtools/instruments/pico_sht30/thermometer.py`
+#### PICO-DD-DRIVER — `benchtools/instruments/pico2_test_board/thermometer.py`
 
-`PicoSht30` subclasses CORE-DD-SCPI for its transport and lifecycle and
+`Pico2TestBoard` (`PicoSht30` before #330; the old name, and
+`SimulatedPicoSht30` for the simulator, are kept as aliases in the package
+`__init__`) is registered as the bench drivers `pico2-test-board` and `pico2`,
+and under the names before #330, `pico-sht30` and `thermometer`. It
+subclasses CORE-DD-SCPI for its transport and lifecycle and
 replaces the SCPI parts: `_post_open` reads the identity (not `*CLS`) and
 refuses a device whose `rd name` is not `NAME`; `_read_identity` builds the
 identity from it (firmware `<version> (<sha>)`, no serial number);
@@ -2959,9 +3112,31 @@ line and reads lines skipping `#` lines.
 * `execute()` is for the control commands: it returns the `key=value` fields of
   an `ok` reply, raises `SensorError(code, text)` for `err`, and
   `ProtocolError` for anything else.
-* `rd(option)` matches `^(ACK|NAK) rd (\S+) = (.*)$`, refuses a reply for
-  another option with `ProtocolError`, raises `RdRefusedError` for `NAK` and
-  `SensorError` for `err`, and returns the value of an `ACK` (PICO-FR-047).
+* `rd(option, channel=None)` sends `rd <option>`, or `rd <option> <channel>`
+  when a channel is given, refuses a reply for another option (or channel) with
+  `ProtocolError`, raises `RdRefusedError` for `NAK` and `SensorError` for
+  `err`, and returns the value of an `ACK` (PICO-FR-047). A generator setting
+  read with no channel is expected back for channel 1.
+* `wr(setting, value, channel=None)` (#328, revised by #202) is one method for
+  the LEDs and the generator. An LED option is sent as `wr <option> <value>`;
+  a channel given with it raises `ValueError` before anything is sent. A
+  generator setting is sent as `wr <setting> <channel> <value>`, channel 1 if
+  none is given. Any other option is sent as given, for the firmware to NAK.
+  It raises `WrRefusedError` for `NAK` and returns the value of the `ACK`: for
+  an LED the state read back, for a setting the value stored (PICO-FR-049,
+  -085). `rd`, `wr` and the `routine` methods share `_acknowledged`, which
+  matches `^(ACK|NAK) (.+?) = (.*)$`, checks that the reply echoes the command,
+  and takes the error to raise for `NAK`.
+* `freq_start`, `start_freq`, `abort_freq`, `abort_all` and `freq_status` send
+  `routine` (#202, PICO-FR-085); a `NAK` raises `CommandRefusedError`.
+  `freq_status` with no channel reads one line for each channel and returns a
+  list of `FreqStatus`.
+* `led(colour)` is `rd led-<colour>` and returns True for `on`; `set_led(colour,
+  lit)` (the argument was `on` before #330; YAML reads a bare `on` key as
+  true, so a test sequence could not name it) is `wr led-<colour> on|off` and returns the state read back, raising
+  `ProtocolError` if it is not the one written. Both raise `ValueError` for an
+  unknown colour before anything is sent (`led_option`), and `_led_state`
+  refuses a state that is neither `on` nor `off` with `ProtocolError`.
 * `firmware_info()` is four `rd` reads - name, copyright, version, sha - cached
   until `refresh` or a reboot; `name`, `version` and `sha` are properties.
 * `read()` is `rd temperature`: `Error` raises `NoReadingError`, and a value not
@@ -2971,31 +3146,51 @@ line and reads lines skipping `#` lines.
 
 `FirmwareInfo` (name, copyright, version, sha), `Reading` (temperature, text,
 timestamp) and `SensorStatus` are frozen dataclasses with `as_dict()` for JSON
-reports. `NoReadingError` and `RdRefusedError` are `InstrumentError`s.
+reports. `NoReadingError` and `CommandRefusedError` are `InstrumentError`s;
+`RdRefusedError` and `WrRefusedError` are `CommandRefusedError`s, so a caller
+can catch any refusal with the one class.
 `connect()` takes a bare port name as a serial port.
 
 `read` logs the temperature with `log_reading` in degC, with the firmware's text (PICO-FR-048).
 
-#### PICO-DD-SIM — `benchtools/instruments/pico_sht30/simulator.py`
+#### PICO-DD-SIM — `benchtools/instruments/pico2_test_board/simulator.py`
 
-`SimulatedPicoSht30` answers the firmware's command set with its exact reply
+`SimulatedPico2TestBoard` answers the firmware's command set with its exact reply
 text, checking argument counts against `COMMANDS`. The ambient temperature is
 quantised to a raw word, converted to milli-degrees with the firmware's integer
 arithmetic and formatted with `milli_to_centi_text`, so the simulator is held
 to the same arithmetic and rounding as the firmware. `rd` answers name,
 copyright, `version` (default `V1.00.0000`) and `sha` (default `0c0ffee`), and
-`NAK` for any other option. Faults: `sensor_present = False`, `corrupt_next`
+`NAK` for any other option. *(Revised by #328:)* `leds` maps each LED option to
+whether it is lit, all off at construction and again on `ecureset` (as the
+firmware's `hal_init` leaves them); `rd led-<colour>` answers its state and
+`wr` answers `ACK wr <option> = on|off`, or `NAK wr <option> = Error` for an
+unknown option or a value other than `on` or `off`, changing nothing.
+*(Revised by #202:)* it also models the frequency generator - the same settings,
+limits, statuses and restart rule (PICO-FR-086) - behind the same single `wr`:
+an LED option is handled as above, and `wr` of an LED with a channel answers
+`err 2`; a generator setting takes an optional channel; any other option
+answers `NAK wr <option> = Error`. Faults: `sensor_present = False`, `corrupt_next`
 (one reading) and `bus_timeout` each make `rd temperature` answer `Error`, and
 `status` and `sreset` answer `err 4`, `err 5` and `err 6` respectively. It
 counts measurements, reboots (`ecureset`) and bootloader requests. An optional
 `on_bootloader` callable is invoked after `bootsel` has been answered;
 PICO-DD-FLASH's simulated board uses it to present its bootloader drive.
 
-#### PICO-DD-CLI — `benchtools/instruments/pico_sht30/cli.py`
+#### PICO-DD-CLI — `benchtools/instruments/pico2_test_board/cli.py`
 
-`benchtools thermo` with sub-commands `info` (name, copyright, version, sha),
+`benchtools pico2` (#330; the top-level command also accepts `pico2-test-board`
+and the names before #330, `thermo`, `pico-sht30` and `sht30`) with sub-commands `info` (name, copyright, version, sha),
 `rd <option>` (argparse `choices` from `RD_OPTIONS`, so an unknown option is
-refused before anything is sent), `temp [--count N --interval S]`, `status`,
+refused before anything is sent; the LED options included since #328),
+`rd <option> [channel]` taking a channel for a generator setting since #202,
+`wr <setting> [channel] value...` (#328, revised by #202: one command for the
+LEDs and the generator, its `choices` from `WR_OPTIONS`. For an LED, exactly one
+value, `on` or `off`, is required, and anything else is refused by argparse
+before anything is sent; it prints `{"option", "value"}` with the value read
+back, and exits 1 if that is not the value written. For a generator setting it
+prints `{"setting", "channel", "value"}`), `routine freq|all start|abort|results
+[channel]` (#202), `temp [--count N --interval S]`, `status`,
 `sreset`, `ecureset`, `bootsel` and `flash`, emitting JSON (AD-15), `--json PATH`
 to also write it to a file. Exit status 0 on success, 1 on a connection or
 instrument error.
@@ -3009,7 +3204,7 @@ prints `FlashResult.as_dict()`, and exits 1 if any check failed. A
 `FlashError` (or any `BenchToolsError`) is printed as `error: ...` on stderr and
 exits 1 (PICO-FR-075).
 
-#### PICO-DD-FLASH — `benchtools/instruments/pico_sht30/flash.py`
+#### PICO-DD-FLASH — `benchtools/instruments/pico2_test_board/flash.py`
 
 Reflashing with no BOOTSEL press (PICO-FR-070 … -076). The RP2350 boot ROM's
 UF2 drive was chosen over `picotool load -x`: it needs no extra tool on the
@@ -3023,7 +3218,7 @@ bench PC, and the boot ROM checks what it is given. The module has four parts.
   one an RP2350 accepts - `rp2350-arm-s`, `rp2350-arm-ns`, `rp2350-riscv`, and
   the `absolute` and `data` families an SDK 2.x build may place ahead of the
   image; `rp2040` is not among them. `is_thermometer` looks for the firmware name
-  `Pico 2 SHT30 Temperature Sensor` (`NAME` in PICO-DD-CONST) followed by a NUL
+  `PICO2 Test Board` (`NAME` in PICO-DD-CONST) followed by a NUL
   in the payload. `version` is the version string, matched as
   `V\d+\.\d{2}\.\d{4}` followed by a NUL, and `sha` the 7-character
   lower-case hexadecimal commit SHA followed by a NUL; each is empty unless
@@ -3077,7 +3272,7 @@ bench PC, and the boot ROM checks what it is given. The module has four parts.
   mismatch is not raised: it is in the `FlashResult`, whose `ok` is true only if
   every check passed and whose `as_dict()` is the JSON the command line prints.
 - **`SimulatedRp2350`** is the board for `sim://` (PICO-FR-076). It holds a
-  `SimulatedPicoSht30` whose `on_bootloader` makes a temporary directory
+  `SimulatedPico2TestBoard` whose `on_bootloader` makes a temporary directory
   appear as the drive, with an `INFO_UF2.TXT` naming `RP2350`; a 1200-baud
   touch does the same. Its `copy` writes the image with `copy_image`, removes
   the drive, leaves the bootloader, and sets the simulated firmware's version

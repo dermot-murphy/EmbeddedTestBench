@@ -23,7 +23,7 @@ import sys
 import time
 
 from benchtools.core.errors import BenchToolsError
-from benchtools.instruments.pico_sht30 import NoReadingError, PicoSht30
+from benchtools.instruments.pico2_test_board import NoReadingError, Pico2TestBoard
 
 
 def main() -> int:
@@ -34,7 +34,7 @@ def main() -> int:
     args = parser.parse_args()
 
     try:
-        thermometer = PicoSht30.connect(args.port)
+        thermometer = Pico2TestBoard.connect(args.port)
     except BenchToolsError as exc:
         print("could not connect to %s: %s" % (args.port, exc), file=sys.stderr)
         return 1

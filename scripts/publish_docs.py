@@ -75,28 +75,29 @@ INSTRUMENTS = (
     ("docs/jlink/JLink_Integration_Notes.md", "SEGGER J-Link"),
     ("docs/s2lp/S2LP_Devkit_Notes.md", "S2-LP Development Kit"),
     ("docs/ble/BLE_Dongle_Notes.md", "Nordic BLE Dongle"),
-    ("docs/pico_sht30/Pico_SHT30_Notes.md", "Pico 2 + SHT30-D Thermometer"),
+    ("docs/pico2_test_board/PICO2_Test_Board_User_Manual.md", "PICO2 Test Board User Manual"),
+    ("docs/pico2_test_board/PICO2_Test_Board_Notes.md", "PICO2 Test Board"),
     ("docs/tek3014b/VISA_Determination_Report.md", "TDS3014B Oscilloscope (VISA)"),
 )
 
 #: Published as pages and reached through links from their parent page, but
 #: given no sidebar entry of their own.
 SUPPORTING = (
-    "docs/pico_sht30/References.md",
+    "docs/pico2_test_board/References.md",
 )
 
 #: Wiki page names that differ from the file name, where the file name alone
 #: would be too generic to identify the page.
 SLUG_OVERRIDES = {
     "docs/README.md": "Documentation-Index",
-    "docs/pico_sht30/References.md": "Pico-SHT30-References",
+    "docs/pico2_test_board/References.md": "PICO2-Test-Board-References",
 }
 
 #: Not published as pages, by path prefix: run records and change records stay
 #: in the repository, and a link to one points at the file there.
 UNPUBLISHED = (
     "docs/aspice/qualification/",
-    "docs/pico_sht30/Issue_104_Change_Report.md",
+    "docs/pico2_test_board/Issue_104_Change_Report.md",
 )
 
 #: ASPICE process groups, in index and sidebar order: (filename code, group).

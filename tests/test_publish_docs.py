@@ -43,7 +43,7 @@ class TestSlugs:
         ("docs/Bench_Runner_Guide.md", "Bench-Runner-Guide"),
         ("docs/psu/GPD3303D_Notes.md", "GPD3303D-Notes"),
         ("docs/README.md", "Documentation-Index"),
-        ("docs/pico_sht30/References.md", "Pico-SHT30-References"),
+        ("docs/pico2_test_board/References.md", "PICO2-Test-Board-References"),
     ])
     def test_page_names(self, rel, expected):
         assert publish.slug(rel) == expected
