@@ -22,7 +22,7 @@ machine with normal internet access and commit the result (PICO-OPEN-04).
 | 7 | Datasheet SHT3x-DIS | Sensirion AG | **Sensor datasheet**: commands, timing, CRC, conversion, status register, electrical | https://sensirion.com/media/documents/213E6A3B/63A5A569/Datasheet_SHT3x_DIS.pdf | fetch |
 | 8 | DollaTek SHT30-D module | DollaTek | No datasheet or schematic is published. The module is the common "GY-SHT30-D" breakout: SHT30-DIS, 100 nF decoupling, 10 kΩ pull-ups on SDA and SCL, ADDR and ALERT on header pins. The seller's listing is the only DollaTek document. | — | n/a |
 | 9 | UDA1334ATS data sheet, 2000 Jul 31 | NXP Semiconductors | **DAC data sheet** for the frequency generator (#202): I2S interface, audio-mode PLL, sample-rate ranges, interpolation filter, output level, load limits | https://cdn.components.ru/media/PDF/1912383.pdf (distributor copy) | `datasheets/UDA1334ATS.pdf` |
-| 10 | Adafruit I2S Stereo Decoder - UDA1334A | Adafruit | Guide to a similar breakout board: pin functions, default ties, output capacitors. **Not the CJMCU-1334 board**: confirm against the actual module. | https://learn.adafruit.com/adafruit-i2s-stereo-decoder-uda1334a | `datasheets/adafruit-i2s-stereo-decoder-uda1334a.pdf` |
+| 10 | Adafruit I2S Stereo Decoder - UDA1334A | Adafruit | Guide to the DAC board on the bench (confirmed 2026-11-13): pin functions, default ties (`SCLK` low, so 16 to 50 kHz), output capacitors. | https://learn.adafruit.com/adafruit-i2s-stereo-decoder-uda1334a | `datasheets/adafruit-i2s-stereo-decoder-uda1334a.pdf` |
 
 Cross-checks used during development, both reachable from the build environment:
 

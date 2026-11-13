@@ -14,7 +14,7 @@
 # specification that wants one stops at connect and names it (ETB-SYS2-011).
 name: Bench PC (Windows)
 description: >
-  Dongle, S2-LP kit, GPD-3303D, TTi 1604, Pico 2 thermometer and a J-Link on
+  Dongle, S2-LP kit, GPD-3303D, TTi 1604, PICO2 Test Board and a J-Link on
   Kepler sensor 5C1712. No oscilloscope.
 
 instruments:
