@@ -182,7 +182,7 @@ jobs:
           retention-days: 7
 
   # ---------------------------------------------------------------------------
-  # Pico 2 + SHT30-D thermometer (firmware/pico_sht30).
+  # Pico 2 + SHT30-D thermometer (firmware/pico2_test_board).
   # Traces to: PICO-FR-031, PICO-NFR-003, SWE4-UT-PICOFW.
   pico-unit-tests:
     name: Pico thermometer unit tests (Unity + CTest, ASan/UBSan)
@@ -191,7 +191,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Configure
-        run: cmake -S firmware/pico_sht30/test -B build/pico-tests -DCMAKE_BUILD_TYPE=Debug
+        run: cmake -S firmware/pico2_test_board/test -B build/pico-tests -DCMAKE_BUILD_TYPE=Debug
 
       - name: Build
         run: cmake --build build/pico-tests --parallel
@@ -244,19 +244,19 @@ jobs:
       - name: Build
         run: |
           set -euo pipefail
-          cmake -S firmware/pico_sht30 -B build/pico_sht30 -DPICO_SDK_PATH="$GITHUB_WORKSPACE/pico-sdk"
-          cmake --build build/pico_sht30 --parallel
+          cmake -S firmware/pico2_test_board -B build/pico2_test_board -DPICO_SDK_PATH="$GITHUB_WORKSPACE/pico-sdk"
+          cmake --build build/pico2_test_board --parallel
 
       - name: Report the size
-        run: arm-none-eabi-size build/pico_sht30/pico_sht30.elf
+        run: arm-none-eabi-size build/pico2_test_board/pico2_test_board.elf
 
       - name: Upload the firmware
         uses: actions/upload-artifact@v7
         with:
-          name: pico-sht30-firmware-${{ github.sha }}
+          name: pico2-test-board-firmware-${{ github.sha }}
           path: |
-            build/pico_sht30/pico_sht30.uf2
-            build/pico_sht30/pico_sht30.elf
-            build/pico_sht30/pico_sht30.elf.map
+            build/pico2_test_board/pico2_test_board.uf2
+            build/pico2_test_board/pico2_test_board.elf
+            build/pico2_test_board/pico2_test_board.elf.map
           if-no-files-found: error
           retention-days: 90

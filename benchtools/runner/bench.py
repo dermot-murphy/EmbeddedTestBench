@@ -38,7 +38,7 @@ from ..core.plugins import plugin_folders
 from ..instruments.generic import GenericScpiInstrument
 from ..instruments.jlink import JLinkProbe, JLinkRttReader
 from ..instruments.gpd3303d import Gpd3303D
-from ..instruments.pico_sht30 import PicoSht30
+from ..instruments.pico2_test_board import Pico2TestBoard
 from ..instruments.nordic_dongle import NordicDongle
 from ..instruments.s2lp import S2lpDevkit
 from ..instruments.serial_capture import SerialCapture
@@ -84,8 +84,11 @@ register_driver("s2lp", S2lpDevkit)
 register_driver("s2lp-devkit", S2lpDevkit)
 register_driver("tti1604", Tti1604)
 register_driver("dmm", Tti1604)
-register_driver("pico-sht30", PicoSht30)
-register_driver("thermometer", PicoSht30)
+register_driver("pico2-test-board", Pico2TestBoard)
+register_driver("pico2", Pico2TestBoard)
+# Names from before #330, kept so that existing bench files still load.
+register_driver("pico-sht30", Pico2TestBoard)
+register_driver("thermometer", Pico2TestBoard)
 register_driver("serial", SerialCapture)
 register_driver("serial-capture", SerialCapture)
 

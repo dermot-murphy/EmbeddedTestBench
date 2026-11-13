@@ -1,4 +1,4 @@
-# CStyleCheck module aliases for firmware/pico_sht30 (ETB-STY-001 module prefixes).
+# CStyleCheck module aliases for firmware/pico2_test_board (ETB-STY-001 module prefixes).
 #
 # Used only by the Pico step of .github/workflows/style.yml, so that these
 # pairs cannot relax the check on any other firmware. Each pair lets a file
@@ -20,3 +20,4 @@ board_config      board
 test_text         test
 test_sht30        test
 test_cmd_parser   test
+test_fgen         test

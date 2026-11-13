@@ -118,7 +118,7 @@ This guide applies to:
 
 - all `.c` and `.h` files owned by this project — in practice
   `firmware/nordic_dongle/src/` and its headers, the firmware's host unit
-  tests in `firmware/nordic_dongle/test/`, and all of `firmware/pico_sht30/`;
+  tests in `firmware/nordic_dongle/test/`, and all of `firmware/pico2_test_board/`;
 - all new C files added to this project;
 - existing files undergoing a modification that touches more than 20% of their
   lines.

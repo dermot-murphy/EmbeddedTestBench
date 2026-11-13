@@ -87,7 +87,7 @@ the first run.
 | `psu` | GW Instek GPD-3303D | SN GER916893, firmware V1.09 | COM11, FTDI `A105X5XCA` |
 | `dmm` | TTi 1604 | (the meter reports no identity) | COM13, FTDI `A9LQ0R81A` |
 | `s2lp` | NUCLEO-L053R8 with STEVAL-FKI433V2, ST CLI firmware | board STEVAL-FKI433V2, firmware 80 | COM4, ST-LINK `066CFF515055657867182645` |
-| `temp` | Raspberry Pi Pico 2, `firmware/pico_sht30` | V1.00.0000 (5c80ae7) | COM14, USB `AC5483CD0798FB0B` |
+| `temp` | Raspberry Pi Pico 2, `firmware/pico2_test_board` | V1.00.0000 (5c80ae7) | COM14, USB `AC5483CD0798FB0B` |
 
 ### 4.2 Target
 

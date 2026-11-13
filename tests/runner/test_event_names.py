@@ -97,9 +97,15 @@ class TestTheBench:
     def test_the_shipped_benches_name_the_thermometer_and_rtt(self):
         for name in ("lab1.yaml", "simulated_bench.yaml"):
             config = load_bench(str(ROOT / "benches" / name))
-            assert config.instruments["temp"].driver == "pico-sht30"
-            assert config.instruments["temp"].event == "TEMP"
+            assert config.instruments["pico2"].driver == "pico2-test-board"
+            assert config.instruments["pico2"].event == "TEMP"
             assert config.instruments["rtt"].event == "RTT"
+
+    @pytest.mark.parametrize("driver", ["pico2-test-board", "pico2", "pico-sht30", "thermometer"])
+    def test_the_board_loads_by_its_new_and_its_old_driver_names(self, driver):
+        # pico2-test-board and pico2 since #330; the others still load.
+        config = BenchConfig.from_mapping({"instruments": {"pico2": {"driver": driver}}})
+        assert config.instruments["pico2"].driver == driver
 
 
 class TestWhichNameWins:
@@ -182,4 +188,4 @@ class TestARun:
         with BenchRunner(live) as runner:
             record = runner.run(spec({"temp": "pico-sht30"}))
         assert record.instruments["temp"]["event"] == "ROOM"
-        assert "| temp | ROOM | PicoSht30 |" in format_markdown(record)
+        assert "| temp | ROOM | Pico2TestBoard |" in format_markdown(record)

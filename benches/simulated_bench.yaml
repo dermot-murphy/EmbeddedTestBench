@@ -79,9 +79,9 @@ instruments:
       # (#122), once its registers are set up to receive them.
       simulated_targets: [kepler-5C1712]
 
-  # The bench thermometer: Pico 2 + SHT30-D, simulated. Event-log name TEMP.
-  temp:
-    driver: pico-sht30
+  # The PICO2 Test Board (Pico 2 thermometer, LEDs, generator), simulated. Event-log name TEMP.
+  pico2:
+    driver: pico2-test-board
     resource: sim://
     timeout: 5.0
     event: TEMP
