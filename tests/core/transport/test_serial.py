@@ -42,6 +42,24 @@ class TestResourceParsing:
         assert transport.port == "socket://bench-pc:4001"
         assert transport.baudrate == DEFAULT_BAUDRATE
 
+    @pytest.mark.parametrize(
+        "resource",
+        [
+            "socket://192.168.1.5:4003",
+            "socket://127.0.0.1:4003",
+            "socket://bench-pc.example.com:4003",
+            "socket://localhost:4003",
+            "rfc2217://192.168.1.5:4001",
+            "socket://[::1]:4003",
+        ],
+    )
+    def test_a_tcp_port_is_kept_whatever_the_host(self, resource):
+        """#319: a dotted host - an IP address or a domain name - lost its
+        port, which became the line rate, and pyserial could not open it."""
+        transport = SerialTransport(resource)
+        assert transport.port == resource
+        assert transport.baudrate == DEFAULT_BAUDRATE
+
     def test_an_explicit_rate_wins_over_the_default(self):
         assert SerialTransport("COM5", baudrate=9600).baudrate == 9600
 
