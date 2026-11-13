@@ -60,6 +60,19 @@ class TestResourceParsing:
         assert transport.port == resource
         assert transport.baudrate == DEFAULT_BAUDRATE
 
+    def test_a_url_takes_its_rate_from_the_argument(self):
+        """#319: a pyserial URL keeps its port, so *baudrate* is the only
+        way to give it a line rate - which rfc2217:// passes to the far end."""
+        transport = SerialTransport("rfc2217://192.168.1.5:4001", baudrate=9600)
+        assert transport.port == "rfc2217://192.168.1.5:4001"
+        assert transport.baudrate == 9600
+
+    def test_a_url_with_a_trailing_number_goes_to_pyserial_whole(self):
+        """#319: no trailing number is taken from a URL as its line rate."""
+        transport = SerialTransport("socket://192.168.1.5:4001:9600")
+        assert transport.port == "socket://192.168.1.5:4001:9600"
+        assert transport.baudrate == DEFAULT_BAUDRATE
+
     def test_an_explicit_rate_wins_over_the_default(self):
         assert SerialTransport("COM5", baudrate=9600).baudrate == 9600
 

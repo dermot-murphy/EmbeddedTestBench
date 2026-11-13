@@ -47,8 +47,10 @@ class SerialTransport(Transport):
     :param port: Port name or pyserial URL. ``COM5``, ``/dev/ttyACM0``,
         ``socket://host:4001``, ``loop://``.
     :param resource: Alias for *port*, so the transport can be selected by a
-        ``serial://`` resource string. May carry a trailing ``:<baudrate>``.
-    :param baudrate: Line rate. Overridden by one given in *resource*.
+        ``serial://`` resource string. A bare port name may carry a
+        trailing ``:<baudrate>``; a pyserial URL keeps its whole text (#319).
+    :param baudrate: Line rate. Overridden by one given in a bare port name.
+        The only way to set the rate for a pyserial URL.
     :param timeout: Default I/O timeout in seconds.
     :param terminator: Line terminator.
     :param bytesize: Data bits.
