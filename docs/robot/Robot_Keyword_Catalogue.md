@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Scope | Keywords a Robot Framework library would offer over three drivers: the Nordic BLE dongle (`benchtools.instruments.nordic_dongle`), the SEGGER J-Link (`benchtools.instruments.jlink`) the GW Instek GPD-3303D supply (`benchtools.instruments.gpd3303d`), and the ST S2-LP kit (`benchtools.instruments.s2lp`, added for #77) |
+| Scope | Keywords a Robot Framework library would offer over three drivers: the Nordic BLE dongle (`benchtools.instruments.nordic_dongle`), the SEGGER J-Link (`benchtools.instruments.jlink`) the GW Instek GPD-3303D supply (`benchtools.instruments.gpd3303d`), and the ST S2-LP kit (`benchtools.instruments.s2lp`, added for #77). §5A, added for #200, proposes keywords for the PicoScope 3000D MSO (`benchtools.instruments.picoscope3000`) |
 | Status | **Proposal.** No keyword library exists, and no Robot Framework dependency is taken. Robot Framework itself is still undecided (STK-12, CON-06, OPEN-04) |
 | Sources | The drivers as they stand on `develop` at `f7ca43f`; the BLE command-document work (#38–#59); the GPD-3303D bring-up (#61–#67); the J-Link bring-up (#69) |
 | Issue | #74 |
@@ -519,6 +519,72 @@ The kit on the bench:
   keyword asserting absence would need a statement of that gap.
 - **Kepler sends each packet three times.** The frame count distinguishes them
   (repeat 0, 1, 2). A keyword counting packets should count repeat 0.
+
+## 5A. PicoScope 3000D MSO — library `PicoScopeLibrary` (proposal, #200)
+
+The scope on the bench:
+
+| Item | Value |
+|---|---|
+| Unit | PicoScope 3405D MSO, serial HT415/0202: 4 analogue channels, 16 digital inputs in 2 ports, a signal generator. No digital outputs |
+| Link | USB, through Pico Technology's `ps3000a` library (PicoScope 7 or the PicoSDK), called with `ctypes` |
+| Driver | `PicoScope3000` (ETB-SWE1-001 §17, PSCOPE-FR-001 … -030) |
+| Interface note | `docs/picoscope3000/PicoScope3000_Notes.md` |
+
+This section is a proposal like the rest of the catalogue. No keyword library
+exists, and nothing here changes the driver. Each keyword wraps one driver call
+unless the table says *library logic*.
+
+### 5A.1 Setup and channels
+
+| Keyword | Arguments | Action | Returns / fails |
+|---|---|---|---|
+| `Open Scope` | `resource=pico://`, `timeout=10 s`, `sdk_path=None` | `PicoScope3000.connect()`. `pico://<serial>` opens one unit | Identity dictionary. **Fails** when the unit or the `ps3000a` library is not found, naming what to install |
+| `Close Scope` | — | `close()`. Stops any acquisition first | — |
+| `Configure Channel` | `channel`, `range=5 V`, `coupling=DC`, `offset=0 V` | `configure_channel()`. The range is rounded up to one the unit has | The set-up as sent. **Fails** on an offset beyond the range's limit (±0.25, ±2.5 or ±20 V) or a range above ±20 V |
+| `Disable Channel` | `channel` | `enable_channel(channel, False)` | — |
+| `Configure Digital Port` | `port`, `threshold=1.5 V` | `configure_digital_port()`. Port 0 is D0-D7, port 1 is D8-D15 | **Fails** on a threshold beyond ±5 V |
+| `Set Sample Interval` | `interval` | `set_sample_interval()` | The interval used, which may be shorter than asked |
+| `Set Record Length` | `samples`, `pre_trigger=0.2` | `set_record_length()` | — |
+
+### 5A.2 Trigger and capture
+
+| Keyword | Arguments | Action | Returns / fails |
+|---|---|---|---|
+| `Trigger On Edge` | `channel`, `level`, `slope=RISE`, `auto=0 ms` | `configure_edge_trigger()` | **Fails** on a level off the channel's range |
+| `Trigger On Logic` | `conditions`, e.g. `D0=RISE    D3=HIGH`, `auto=0 ms` | `configure_digital_trigger()` | **Fails** for a bit whose port is off. Not yet tried on hardware (PSCOPE-OPEN-02) |
+| `Trigger Off` | — | `disable_trigger()` | — |
+| `Capture Block` | `timeout=None` | `capture()` | The block: analogue records by channel number, digital bits by number, the interval and the channels over range. **Fails** at the timeout with no trigger, and when the unit refuses the timebase with what is enabled |
+| `Save Block` | `block`, `path` | `BlockCapture.to_csv()` | The path |
+| `Channel Should Not Be Over Range` | `block`, `channel` | *Library logic*. Checks `block.overrange` | **Fails** when the channel clipped |
+| `Measure Period` | `block`, `channel` | `measure_period()` on the channel's record | Period statistics, seconds |
+| `Measure Channel Spread` | `channels`, `percent=50`, `direction=RISE` | `measure_channel_spread()`, the TDS3014B's step | Records and spread, seconds |
+| `Count Logic Edges` | `block`, `bit` | *Library logic*. Counts changes in `block.bits(bit)` | Edge count |
+
+### 5A.3 Signal generator
+
+| Keyword | Arguments | Action | Returns / fails |
+|---|---|---|---|
+| `Start Signal Generator` | `waveform=SINE`, `frequency=1 kHz`, `vpp=1 V`, `offset=0 V` | `set_signal_generator()` | **Fails** before anything is sent when offset plus half the amplitude leaves ±2 V, or the frequency leaves 0 to 1 MHz. Output not yet measured on hardware (PSCOPE-OPEN-03) |
+| `Stop Signal Generator` | — | `signal_generator_off()`: 0 V DC | — |
+
+### 5A.4 What the PicoScope work taught (#200)
+
+- **The fastest timebases depend on what is enabled.** The unit refused
+  timebase 0 with two channels on, 1 with four, and 2 with four channels and a
+  digital port. `Capture Block` fails with the unit's reason rather than
+  quietly slowing down; a test that needs a given interval should set it and
+  read back what `Set Sample Interval` returns.
+- **The offset moves the window, not the reading.** A record reads the voltage
+  at the input whatever the offset, so a limit is written in input volts.
+- **A digital bit is a waveform of 0 and 1.** With the unit `bit`, the analysis
+  helpers find its edges at a 0.5 threshold, as they find an analogue edge.
+- **There is no digital output.** "Logic outputs" in #200 is not available on
+  the 3000D MSO, so there is no keyword to drive a logic level. A stimulus comes
+  from the signal generator, or from another instrument.
+- **No trigger is a failure, not an empty result.** Without `auto`, a capture
+  with no trigger waits for its timeout and fails; the test then knows the edge
+  never came.
 
 ## 6. The first three together
 

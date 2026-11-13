@@ -33,6 +33,7 @@
 | next | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
 
 | next | 2026-10-28 | Claude | #247: ETB-SYS2-037 - capture a target's serial output, record every line, write nothing to the port; traced to STK-24 and `SER-` (ETB-SWE1-001 §16). The software requirement sections referred to are §6 to §17 (RUN is now §17). |
+| next | 2026-11-13 | Claude | #200: ETB-SYS2-065 - capture analogue and logic signals together on one time base, and drive a stimulus from a signal generator; traced to STK-02, STK-04, STK-05 and STK-07 and to `PSCOPE-` (ETB-SWE1-001 §17). The software requirement sections referred to are §6 to §18 (RUN is now §18). |
 ---
 
 ## 3. Purpose & Scope
@@ -45,7 +46,7 @@ to it, the dongle firmware Embedded Test Bench itself supplies, and the target u
 as it appears to the bench.
 
 It sits between the stakeholder requirements (ETB-SWE1-001 §4) and the software
-requirements (ETB-SWE1-001 §6–§17). A stakeholder requirement says what the
+requirements (ETB-SWE1-001 §6–§18). A stakeholder requirement says what the
 engineer wants; a system requirement says what the bench must therefore do,
 including the parts that are not software; a software requirement says what the
 code must do.
@@ -200,6 +201,7 @@ Each requirement carries a verification method: **T** test, **A** analysis,
 | ETB-SYS2-062 | The system shall measure quantities from a captured record, including period, frequency, edge times, and the spread in time between several channels reaching a threshold. | T |
 | ETB-SYS2-063 | Analysis of captured records shall be performed on the host from the captured data, so that the same record analysed twice yields the same result. | T |
 | ETB-SYS2-064 | Every measurement the system reports shall carry its units and, where the method bounds it, its resolution. | T |
+| ETB-SYS2-065 | The system shall capture analogue and digital (logic) signals of the target together, in one acquisition on one time base, with the analogue records in seconds and volts and each logic line as a record of 0 and 1, so that a test can relate a logic event to an analogue one; and it shall drive a stated stimulus waveform into the target from a signal generator, within that generator's stated limits (#200). | T |
 
 ---
 
@@ -253,13 +255,13 @@ Each requirement carries a verification method: **T** test, **A** analysis,
 ## 14. Traceability
 
 Upward to the stakeholder requirements in ETB-SWE1-001 §4, downward to the
-software requirements in ETB-SWE1-001 §6–§17. The full matrix is ETB-RTM-001.
+software requirements in ETB-SWE1-001 §6–§18. The full matrix is ETB-RTM-001.
 
 | Stakeholder | System requirements |
 |---|---|
-| STK-01…STK-05 | ETB-SYS2-060…ETB-SYS2-064 |
+| STK-01…STK-05 | ETB-SYS2-060…ETB-SYS2-065 |
 | STK-06 | ETB-SYS2-090 |
-| STK-07 | ETB-SYS2-011, ETB-SYS2-014 |
+| STK-07 | ETB-SYS2-011, ETB-SYS2-014, ETB-SYS2-065 |
 | STK-08 | ETB-SYS2-070…ETB-SYS2-084 |
 | STK-09, STK-10 | ETB-SYS2-030…ETB-SYS2-036, ETB-SYS2-002 |
 | STK-11 | ETB-SYS2-090 |
@@ -278,7 +280,7 @@ software requirements in ETB-SWE1-001 §6–§17. The full matrix is ETB-RTM-001
 | Power §7 | `PSU-FR-*`, `PSU-NFR-*` |
 | Target control §8 | `JLINK-FR-*`, `JLINK-NFR-*`, `SER-FR-*`, `SER-NFR-*` |
 | Wireless §9 | `BLE-FR-*`, `BLE-NFR-*`, `S2LP-FR-*`, `S2LP-NFR-*` |
-| Measurement §10 | `SCOPE-FR-*`, `ANA-FR-*` |
+| Measurement §10 | `SCOPE-FR-*`, `PSCOPE-FR-*`, `PSCOPE-NFR-*`, `ANA-FR-*` |
 | Test definition §11 | `RUN-FR-*` |
 | Non-functional §12 | `CORE-NFR-*`, ETB-STD-002, ETB-STY-001 |
 

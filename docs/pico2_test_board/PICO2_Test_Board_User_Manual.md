@@ -269,12 +269,125 @@ A channel that is not running outputs mid-scale silence (channels 1 and 2).
 **Band limit.** The square, triangle and sawtooth on channels 1 and 2 are
 built with harmonics up to 0.45 × 48 828.125 Hz = 21.97 kHz only. Above about
 2.5 kHz (square), 3 kHz (triangle) and 2 kHz (sawtooth) they are visibly
-rounded, because too few harmonics fit. These limits are calculated, not
-measured. Channel 3 is a true square wave across the range.
+rounded, because too few harmonics fit. The rounding was seen on a scope
+([§5.3](#53-measured-accuracy-resolution-and-limits)); the corner
+frequencies themselves are calculated. Channel 3 is a true square wave across
+the range.
 
 **Level.** 100 % is the DAC's full scale, about 900 mV rms typical by the
-UDA1334A data sheet. This has **not** been measured on the board
-([§10](#10-limits-and-known-gaps)).
+UDA1334A data sheet. Measured on channel 1: 0.63 V rms (1.79 V peak-to-peak)
+for a 1 kHz sine at 100 %
+([§5.3](#53-measured-accuracy-resolution-and-limits)).
+
+### 5.3 Measured accuracy, resolution and limits
+
+Measured on 2026-11-13 on channel 1 (the left output), the only generator
+output wired to the scope: channel 1 goes to channel A of the bench's
+PicoScope 3405D MSO, DC coupled, 1 MΩ. Channels 2 and 3 were not measured.
+Each signal was captured twice, at ±2 V and then on the smallest range that
+fitted it, as 20 000 samples covering 20 periods of `freq`. Frequency and
+amplitude come from a fit to the samples, not from peaks: a zero-padded FFT
+for the frequency, then a least-squares sine at that frequency for the
+amplitude of the fundamental. The script, the settings, the results and the
+plot of every capture are in
+[`measurements/2026-11-13_generator_sweep/`](measurements/2026-11-13_generator_sweep/).
+Firmware `V1.00.0000`; driver `benchtools.instruments.picoscope3000` (#200).
+
+**What the scope adds to these numbers.** The PicoScope digitises with 8
+bits and is specified to ±3 % of full scale ±200 µV DC accuracy (Pico's
+specification page): on the ±1 V range that is ±30 mV. Its timebase accuracy
+was not looked up or checked, so the frequency figures below say that the
+board and the scope agree, not that either is right. A check against the TTi
+1604's frequency range is still open ([§10](#10-limits-and-known-gaps)).
+
+#### Frequency
+
+| Setting | Measured | Difference |
+|---|---|---|
+| 10, 20, 50, 100, 200 Hz sine | 10.000, 20.000, 50.000, 100.001, 199.999 Hz | −6 to +8 ppm |
+| 1 kHz sine (10 runs at different `amp`) | 999.977 to 1000.011 Hz | −23 to +11 ppm |
+| 2, 5, 7, 10, 12 kHz sine | 1999.991, 5000.050, 7000.018, 10000.149, 11999.920 Hz | −7 to +15 ppm |
+| square, PWM, triangle, sawtooth, 500 Hz to 5 kHz | (see the results file) | −5 to +40 ppm |
+| `sine2` 1 kHz + 3 kHz; 500 Hz + 7 kHz | both tones present: 1000.001 + 2999.98 Hz; 500.004 + 7000.01 Hz | under 10 ppm |
+
+Every one of 32 settings was within ±40 ppm, most within ±15 ppm, of the
+frequency `routine freq results` reported. The spread is within what 20
+periods of an 8-bit record resolve; no setting stood out.
+
+#### Duty cycle (channel 1 square wave)
+
+| `duty` | 10 % | 25 % | 50 % | 75 % | 90 % |
+|---|---|---|---|---|---|
+| Measured | 10.42 % | 25.30 % | 49.94 % (1 kHz), 49.84 % (5 kHz) | 74.80 % | 89.80 % |
+
+Within 0.5 percentage points: the fraction of samples above the midpoint of
+the 2nd and 98th percentile levels. The square on channels 1 and 2 is built
+from band-limited harmonics, so its edges ring and slope (see the plot); the
+duty is still where it was set.
+
+#### Amplitude
+
+The `amp` setting is **not proportional** to the output. 1 kHz sine,
+peak-to-peak of the fitted fundamental:
+
+| `amp` | 10 % | 20 % | 30 % | 40 % | 50 % | 60 % | 70 % | 80 % | 90 % | 100 % |
+|---|---|---|---|---|---|---|---|---|---|---|
+| V p-p | 0.132 | 0.271 | 0.424 | 0.587 | 0.766 | 0.955 | 1.150 | 1.358 | 1.579 | 1.790 |
+| of 100 % | 7.4 % | 15.1 % | 23.7 % | 32.8 % | 42.8 % | 53.4 % | 64.3 % | 75.9 % | 88.2 % | 100 % |
+
+50 % gives 43 % of full output; each step of 10 % adds from 0.14 V (low) to
+0.22 V (high). The firmware's gain is linear in `amp` (`fgen.c`: the gain is
+`amp × 32768 / 100 %`), and the bend is there between captures on one scope
+range (60 % to 80 %, all ±1 V), where a scope gain or offset error would
+cancel. So it is after the firmware: in the DAC or the output stage of the
+Adafruit board. Cause not established. Until it is, set `amp` from this
+table, not by proportion, and measure the level where it matters.
+
+#### Frequency response
+
+Sine at `amp` 50 %:
+
+| Frequency | 10 Hz | 50 Hz | 200 Hz | 1 kHz | 2 kHz | 5 kHz | 7 kHz | 10 kHz | 12 kHz |
+|---|---|---|---|---|---|---|---|---|---|
+| V p-p | 0.788 | 0.793 | 0.786 | 0.766 | 0.756 | 0.657 | 0.591 | 0.512 | 0.469 |
+| dB re 200 Hz | 0.0 | +0.1 | 0.0 | −0.2 | −0.3 | −1.6 | −2.5 | −3.7 | −4.5 |
+
+The output falls from about 2 kHz and is 4.5 dB down at 12 kHz. A sine reads
+one table with linear interpolation, and the hold of a 48 828 Hz sample
+stream accounts for under 1 dB at 12 kHz, so most of this is not explained by
+the firmware. Cause not established. It shows in `sine2`: set to `ratio` 1.0
+with 500 Hz and 7 kHz, the 7 kHz tone measured 0.60 of the 500 Hz one; set to
+0.5 with 1 kHz and 3 kHz, it measured 0.49.
+
+#### Coupling
+
+The outputs are **AC coupled**: every capture averaged within 40 mV of 0 V,
+including a 10 % PWM, whose DC level would otherwise be a tenth of its
+amplitude. A pulse train therefore sits around 0 V and droops between edges
+(the PWM plots). For a logic-level square wave with a true DC level, use
+channel 3 (GP15).
+
+#### Resolution, from the firmware
+
+| Quantity | Resolution | Where it comes from |
+|---|---|---|
+| Settings on the link | 0.001 of a unit (`freq` in mHz; `amp`, `duty` and `ratio` to 0.001); replies show 2 places | `cmd_fgen.c` |
+| Frequency, channels 1 and 2 | 48 828.125 Hz / 2³² = 11.4 µHz, so the 1 mHz setting is met to within half of that | 32-bit phase accumulator, `fgen.c` |
+| Waveform table | 4096 points, linear interpolation with a 15-bit fraction | `fgen.c` |
+| Amplitude | 1/32768 of full scale (Q15 gain) | `fgen.c` |
+| Duty, channels 1 and 2 | 1/4096 of a period (0.024 %) | the pulse is built into the 4096-point table, `fgen.c` |
+| Frequency and duty, channel 3 | one count of a PWM period of up to 65 536 counts of 150 MHz, after a divider of 1 to 255.9375 in sixteenths: about 64 900 counts at 1 kHz, 12 500 at 12 kHz (0.008 % of duty) | `fgen_pwm_config`, `fgen.c` |
+
+#### Limits
+
+| Limit | Value | Source |
+|---|---|---|
+| Frequency | 10 Hz to 12 kHz; refused outside | firmware |
+| `amp` | 0 to 100 %; 100 % measured 1.79 V p-p (0.63 V rms) at 1 kHz | measured |
+| Flatness | within 0.3 dB of the low-frequency level up to 2 kHz; −4.5 dB at 12 kHz | measured |
+| Square, triangle, sawtooth shape | band-limited to 21.97 kHz: a 5 kHz square and a 3 kHz sawtooth are visibly rounded | measured (plot); corner calculated |
+| DC level, channels 1 and 2 | none: AC coupled | measured |
+| `duty` | 1 to 99 % | firmware |
 
 ## 6. The `benchtools pico2` command line
 
@@ -582,16 +695,23 @@ Seen on the real board (Pico 2 on COM14, 2026-11-13, firmware `V1.00.0000`):
   completed in 2.08 s.
 - On a scope: a 1 kHz sine on channel 1 (left), a 2 kHz sine on channel 2
   (right), and `sine2` of 500 Hz and 1 kHz.
+- On the PicoScope, channel 1 only, 32 settings: frequency, duty, amplitude,
+  frequency response and coupling, in
+  [§5.3](#53-measured-accuracy-resolution-and-limits). Two findings: `amp`
+  is not proportional to the output, and the output is 4.5 dB down at 12 kHz.
 
 **Not yet confirmed on hardware** (PICO-OPEN-07 and PICO-OPEN-03 in the
 [Notes §7](PICO2_Test_Board_Notes.md#7-bench-confirmation-items)):
 
-- the output level: 100 % is about 900 mV rms only by the data sheet; the
-  coupling and load the outputs drive;
-- the square, triangle and sawtooth waveforms, and the band-limit corners
-  quoted in §5.2;
+- the output level and shape on channel 2 (channel 1 is measured in §5.3),
+  and the load the outputs can drive;
+- the band-limit corner frequencies quoted in §5.2 (the rounding is seen;
+  the corners are calculated);
+- why `amp` is not proportional to the output, and why the output falls
+  above 2 kHz (§5.3);
 - channel 3 on GP15, on a scope;
-- frequency accuracy against a reference (the TTi 1604);
+- frequency accuracy against a reference (the TTi 1604): §5.3 shows that the
+  board and the PicoScope agree within ±40 ppm, not which is right;
 - exact cycle counts on channels 1 to 3;
 - what the DAC outputs at power-up before the firmware starts (MUTE is not
   connected), and silence after `routine all abort`;
@@ -644,3 +764,4 @@ The event-log name is still `TEMP`.
 | Version | Date | Author | Description of Change |
 |---|---|---|---|
 | 0.1 | 2026-11-13 | Claude | #330: first issue. |
+| next | 2026-11-13 | Claude | #200: §5.3 measured accuracy, resolution and limits of the generator, channel 1 on the PicoScope 3405D MSO; §5.2 and §10 updated to match. |

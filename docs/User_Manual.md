@@ -783,6 +783,7 @@ Commands:
   run         run bench test specifications against a bench
   view        watch and control test runs in a browser (127.0.0.1 only)
   scope       control a Tektronix TDS3014B oscilloscope
+  pscope      control a PicoScope 3000D MSO: analogue, digital, signal generator
   jlink       control a target through a SEGGER J-Link debug probe
   ble         scan, drive and profile a BLE sensor through a Nordic dongle
   psu         control a GW Instek GPD-3303D bench power supply
@@ -813,6 +814,7 @@ to a file. `<tool> <sub-command> --help` gives each sub-command's options.
 | `serial` (serial capture) | `COM5`, `/dev/ttyUSB0`, `sim://`; `--baudrate`, `--format 8N1` | none: each argument is one command (`RD`, `WR`, `ROUTINE`), or they are read from standard input; replies are text, not JSON | `serial -r sim:// "WR LINES ON" "ROUTINE START CAPTURE"` → `LINE 1 = BOOT V1.00.0000` … `ACK ROUTINE RESULTS CAPTURE = Complete, 4 lines` |
 | `pico2` (PICO2 Test Board; `thermo` before #330, still accepted) | `COM14`, `/dev/ttyACM0`, `sim://` | `info`, `rd`, `wr`, `routine`, `temp`, `status`, `sreset`, `ecureset`, `bootsel`, `flash` | `pico2 -r sim:// temp` → `"temperature_c": 22.5` |
 | `scope` (TDS3014B) | IP address, VISA-style string, `sim://`; `-b` backend | `idn`, `screenshot`, `capture`, `spread`, `period`, `measure` | `scope -r sim:// idn` → `"model": "TDS 3014B"` |
+| `pscope` (PicoScope 3000D MSO) | `pico://`, `pico://<serial>`, `sim://`; `--sdk-path` | `info`, `capture`, `siggen` | `pscope -r sim:// info` → `"variant": "3405DMSO"` |
 
 Commands that change the instrument or the target: `psu set/on/off`,
 `jlink flash/erase/reset/write`, `pico2 wr/routine/sreset/ecureset/bootsel/flash`,
@@ -846,7 +848,7 @@ Do not rely on what you remember from an earlier session. Read these:
 | Fact | Source |
 |---|---|
 | Which instruments exist, on which ports, with which serial numbers | `benches/bench_pc.yaml`, and ETB-SYS5-002 §4.1 |
-| How each instrument behaves, its traps, its open items | `docs/<instrument>/*_Notes.md`: `jlink/`, `ble/`, `psu/`, `dmm/`, `s2lp/`, `pico2_test_board/`, `tek3014b/` |
+| How each instrument behaves, its traps, its open items | `docs/<instrument>/*_Notes.md`: `jlink/`, `ble/`, `psu/`, `dmm/`, `s2lp/`, `pico2_test_board/`, `tek3014b/`, `picoscope3000/` |
 | How to drive the PICO2 Test Board (commands, CLI, driver methods as test steps) | `docs/pico2_test_board/PICO2_Test_Board_User_Manual.md` |
 | The supply protocol, command by command | ETB-IF-001, `docs/aspice/EmbeddedTestBench_IF001_GPD3303D_Remote_Control_Interface.md` |
 | What has been shown on hardware, and what has not | ETB-SYS5-002, and its evidence in `docs/aspice/qualification/2026-10-04/` |

@@ -93,6 +93,7 @@
 | next | 2026-11-12 | Claude | #202: merged with #328 (LEDs). §13A.9 added: protocol 2.2 and `V1.02.0000`; SWE4-UT-PICOFW 140 cases (`fgen` 48), pass, clang 21 with ASan and UBSan on Windows; `tests/instruments/pico_sht30` 242 cases, pass; the generator not yet run on hardware, with the bench wiring of 2026-11-12. The section 5 total is still the 1.32 whole-suite run's. |
 | next | 2026-11-13 | Claude | #202: §13A.9: the bench of 2026-11-13 - the DAC board an Adafruit UDA1334A, rewired to GP6, GP7 and GP8, the DAC at 48 828.125 Hz, and a 1 kHz and a 2 kHz sine observed by scope on channels 1 and 2. PICO-OPEN-07 stays open, confirmed in part. |
 | next | 2026-11-13 | Claude | #330: §5 row for SWE4-UT-PICOSPEC (2 cases, pass, run on its own); the rest of §5 is not re-run. |
+| next | 2026-11-13 | Claude | #200: §5 rows for SWE4-UT-PSCOPE (18), -PSCOPECONST (34), -PSCOPESDK (7) and -PSCOPECLI (6), pass, from a run of `tests/instruments/picoscope3000` on this branch on 2026-11-13 (65 passed, Windows). §13C added: those results, what the bench's PicoScope 3405D MSO showed on 2026-11-13, and what it has not yet shown (PSCOPE-OPEN-01 … -05). The section 5 total is still the 1.32 whole-suite run's. |
 ---
 
 ## 3. Purpose & Scope
@@ -351,6 +352,10 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-SERCONSOLE | `instruments/serial_capture/test_console.py` | 52 | Pass |
 | SWE4-UT-SERSIM | `instruments/serial_capture/test_simulator.py` | 6 | Pass |
 | SWE4-UT-SERCLI | `instruments/serial_capture/test_cli.py` | 11 | Pass |
+| SWE4-UT-PSCOPE | `instruments/picoscope3000/test_scope.py` | 18 | Pass |
+| SWE4-UT-PSCOPECONST | `instruments/picoscope3000/test_constants.py` | 34 | Pass |
+| SWE4-UT-PSCOPESDK | `instruments/picoscope3000/test_sdk.py` | 7 | Pass |
+| SWE4-UT-PSCOPECLI | `instruments/picoscope3000/test_cli.py` | 6 | Pass |
 | SWE4-UT-PICOFW | `firmware/pico2_test_board/test/*.c` | 83 | Pass (CTest with ASan/UBSan, 3 binaries, CI run 39938471355; not in the pytest total; §13A) |
 | SWE4-UT-BENCH | `runner/test_bench.py`, `runner/test_shipped_benches.py` | 67 | Pass |
 | SWE4-UT-ENGINE | `runner/test_runner.py` | 33 | Pass |
@@ -1544,6 +1549,50 @@ DMM-OPEN-01 … -08.
 DMM-OPEN-01 … -08, `docs/dmm/TTi1604_Notes.md` §5. None blocks use of the
 driver: each is accepted either way, refused rather than guessed, or confined
 to a function the driver does not select.
+
+## 13C. PicoScope 3000D MSO verification results (#200)
+
+### 13C.1 Unit tests
+
+`tests/instruments/picoscope3000` was run on the `feature/200-picoscope` branch
+on 2026-11-13 (Windows, Python 3.14.7): 65 passed, none failed or skipped -
+SWE4-UT-PSCOPE 18, SWE4-UT-PSCOPECONST 34, SWE4-UT-PSCOPESDK 7 and
+SWE4-UT-PSCOPECLI 6. They run against the simulated unit and, for the `ctypes`
+seam, a fake library; none needs the PicoScope or the `ps3000a` library. The
+section 5 total is still the 1.32 whole-suite run's.
+
+### 13C.2 On the bench unit, 2026-11-13
+
+The bench's PicoScope 3405D MSO (serial HT415/0202), on USB to the bench PC,
+through `ps3000a.dll` from PicoScope 7 T&M Stable (driver version
+2.2.160.7569). These are the observations the requirements and the simulator
+were built from (ETB-SWE1-001 §17); they were made during development of the
+driver, not by a recorded test run, and no evidence folder is kept for them.
+
+| What | Observed | Requirement |
+|---|---|---|
+| Open, close and identity | The unit opened, identified itself as a 3405D MSO with its serial, and closed | PSCOPE-FR-001, -002 |
+| Full-scale code | `ps3000aMaximumValue` 32 512 | PSCOPE-FR-011 |
+| Ranges | Range indices 1 to 10 (±20 mV to ±20 V) accepted; 0 and 11 refused with status 0x0F | PSCOPE-FR-003 |
+| Offset limits | ±0.25 V on the 20 to 200 mV ranges, ±2.5 V on 0.5 to 2 V, ±20 V on 5 to 20 V | PSCOPE-FR-004 |
+| Timebases | 2^n ns below 3, (n − 2) × 8 ns from 3 (n = 0 to 5, 10, 127, 252); 0 refused with 2 channels, 1 with 4, 2 with 4 and a digital port (status 0x0E) | PSCOPE-FR-005, -006 |
+| Memory | 268 435 200 samples with one channel, halving with two and with four, 33 554 400 with four channels and a digital port; 500 000 segments; AWG buffer 32 768 | PSCOPE-FR-006 |
+| One block, analogue and digital | Four analogue channels and both digital ports captured in one block at 8 ns (timebase 3), with no signal connected to the inputs | PSCOPE-FR-011, -012 (in part) |
+| A known analogue signal | A 1 kHz sine of about 1.94 V peak-to-peak captured on channel A | PSCOPE-FR-011 |
+| A known signal, swept | Channel A is wired to the PICO2 Test Board's generator channel 1. 32 settings (sine, `sine2`, square, PWM at 10 to 90 % duty, triangle, sawtooth; 10 Hz to 12 kHz; `amp` 10 to 100 %) captured through the driver, each auto-ranged: every frequency within ±40 ppm of the frequency the board reported, every duty within 0.5 points of its setting. Evidence: `docs/pico2_test_board/measurements/2026-11-13_generator_sweep/`; results in ETB-PICO-002 §5.3 | PSCOPE-FR-003, -005, -008, -011 |
+| Analogue trigger | `RISE`: the trace crossed upwards at t = 0 | PSCOPE-FR-008 (in part) |
+
+### 13C.3 Not yet confirmed on hardware
+
+| ID | Item |
+|---|---|
+| PSCOPE-OPEN-01 | The digital bits decoded against a real logic signal: which bit of a port's code is which input, and the threshold. The block of 13C.2 had nothing connected. |
+| PSCOPE-OPEN-02 | The digital trigger (PSCOPE-FR-009) on the unit. |
+| PSCOPE-OPEN-03 | The signal generator's output (PSCOPE-FR-016, -017): waveform, frequency, amplitude and offset, measured on an analogue channel. |
+| PSCOPE-OPEN-04 | The acceptance of #200: four analogue channels and the digital channels captured in one block, against a known signal on each. |
+| PSCOPE-OPEN-05 | The SDK values taken from the header and marked unverified in `constants.py`: the analogue trigger directions other than `RISE`, the digital directions, the wave types and the power-source statuses. |
+
+---
 
 ## 14. Runner verification results
 
