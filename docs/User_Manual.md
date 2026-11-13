@@ -450,9 +450,12 @@ thermometer identifies itself but measures nothing real. *Note, 2026-11-12
 (#328):* the module is now wired, SDA on GP4 and SCL on GP5, and the
 thermometer read about 23 °C; three indicator LEDs on GP18, GP19 and GP20 are
 switched with `thermo wr` ([Pico 2 + SHT30-D Notes §7.2](pico_sht30/Pico_SHT30_Notes.md#72-indicator-leds-and-the-sensor-connected-2026-11-12)).
-The frequency generator of #202 (firmware `V1.02.0000`, protocol 2.2) has not
-been run on hardware. Its DAC module is wired DIN to GP9, BCLK to GP10, WSEL
-to GP11 and VIN to VBUS (5 V), with MUTE not connected ([Pico 2 + SHT30-D Notes §2.1](pico_sht30/Pico_SHT30_Notes.md#21-frequency-generator-wiring-202)).
+The frequency generator of #202 (firmware `V1.02.0000`, protocol 2.2) drives
+an Adafruit UDA1334A DAC board wired DIN to GP6, BCLK to GP7, WSEL to GP8 and
+VIN to VBUS (5 V), with MUTE not connected ([Pico 2 + SHT30-D Notes §2.1](pico_sht30/Pico_SHT30_Notes.md#21-frequency-generator-wiring-202)).
+*Note, 2026-11-13 (#202):* a scope on the DAC outputs showed a 1 kHz sine on
+channel 1 and a 2 kHz sine on channel 2; the rest of the generator is not yet
+checked on hardware (PICO-OPEN-07).
 
 **Ports and identification.** COM numbers can change when a device is
 re-plugged. Before a session, match each port to its USB serial number

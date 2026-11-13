@@ -21,17 +21,19 @@
  * Frequency generator (docs/pico_sht30/Pico_SHT30_Notes.md), as wired on the
  * bench:
  *
- *   CJMCU-1334     Pico 2
- *   ----------     -----------------------------
- *   VIN            VBUS (5 V from USB), pin 40
- *   GND            GND, pin 18
- *   DIN            GP9, pin 12
- *   BCLK           GP10, pin 14
- *   WSEL           GP11, pin 15
- *   MUTE           not connected, so the firmware never mutes the DAC
- *                  (#202). Define BOARD_DAC_MUTE_PIN to drive one.
- *   SCLK           3V3(OUT): selects the 50 to 100 kHz sample-rate range
- *   PLL, SF0, SF1  GND: audio mode, I2S format
+ *   Adafruit UDA1334A  Pico 2
+ *   -----------------  -----------------------------
+ *   VIN                VBUS (5 V from USB), pin 40; the board has its
+ *                      own 3.3 V regulator
+ *   GND                GND, pin 18
+ *   DIN                GP6, pin 9
+ *   BCLK               GP7, pin 10
+ *   WSEL               GP8, pin 11
+ *   MUTE               not connected, so the firmware never mutes the
+ *                      DAC (#202). Define BOARD_DAC_MUTE_PIN to drive one.
+ *   SCLK               low on the board: selects the 16 to 50 kHz
+ *                      sample-rate range
+ *   PLL, SF0, SF1      pulled low on the board: audio mode, I2S format
  *
  *   Channel 3 (GPIO square wave): GP15, pin 20
  *
@@ -96,20 +98,21 @@
 #endif
 
 /** PIO clock divider for the I2S stream. Integer, so that the bit clock has
- *  no fractional-divider jitter: 150 MHz / 12 / 2 = 6.25 MHz = 64 fs. */
+ *  no fractional-divider jitter: 150 MHz / 24 / 2 = 3.125 MHz = 64 fs,
+ *  so fs = 48 828.125 Hz, inside the DAC's 16 to 50 kHz range (#202). */
 #ifndef BOARD_DAC_PIO_DIVIDER
-#define BOARD_DAC_PIO_DIVIDER		12U
+#define BOARD_DAC_PIO_DIVIDER		24U
 #endif
 
 /** GPIO carrying the I2S bit clock. The word select is the next GPIO up,
  *  because PIO side-set drives consecutive pins. */
 #ifndef BOARD_DAC_BCK_PIN
-#define BOARD_DAC_BCK_PIN		10U
+#define BOARD_DAC_BCK_PIN		7U
 #endif
 
-/** GPIO carrying the I2S data. GP9 on the bench (#202). */
+/** GPIO carrying the I2S data. GP6 on the bench (#202). */
 #ifndef BOARD_DAC_DATA_PIN
-#define BOARD_DAC_DATA_PIN		9U
+#define BOARD_DAC_DATA_PIN		6U
 #endif
 
 /* BOARD_DAC_MUTE_PIN - the GPIO driving the DAC's MUTE input, high mutes - is

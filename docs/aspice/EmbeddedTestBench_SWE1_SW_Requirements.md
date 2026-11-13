@@ -88,6 +88,7 @@
 | next | 2026-11-12 | Claude | #328: indicator LEDs on the Pico 2 thermometer. PICO-FR-008 (`wr`), PICO-FR-009 (`rd` of an LED), PICO-FR-011 (the LEDs on GP18, GP19 and GP20, off from boot), PICO-FR-049 (the driver's `wr`, `led` and `set_led`) and PICO-FR-062 (the command line's `wr`) added. PICO-FR-001, -003, -007, -050 and -061 revised for `wr` and the LED options. CON-09: the SHT30-D connected and read on 2026-11-12, and the LEDs confirmed. |
 | next | 2026-11-08 | Claude | #202: §15.5a added - PICO-FR-080 … -089, the frequency generator on the Pico 2: a UDA1334A DAC, the `wr` and `routine` commands and `rd` of its settings. |
 | next | 2026-11-12 | Claude | #202: merged with #328 (LEDs). PICO-FR-001, -003, -007, -008, -049, -061, -062, -085 and -089 revised: one `wr` command for the LEDs and the generator's settings, the argument counts of `rd`, `wr` and `routine`, `WrRefusedError` a `CommandRefusedError`, and `MUTE` not connected on the bench. |
+| next | 2026-11-13 | Claude | #202: PICO-FR-088 revised: the DAC is driven at 48 828.125 Hz, inside the 16 to 50 kHz range that the Adafruit UDA1334A board's `SCLK` selects; at 97 656.25 Hz the outputs were silent. §15.5a: the DAC board is an Adafruit UDA1334A, not a CJMCU-1334, and a sine was seen on channels 1 and 2 on 2026-11-13. |
 ---
 
 ## 3. Purpose & Scope
@@ -954,9 +955,11 @@ Drive discovery on Linux and macOS has not been tried on hardware.
 ### 15.5a PICO frequency generator (#202)
 
 The Pico 2 also generates test signals. Channels 1 and 2 are the left and right
-outputs of a CJMCU-1334 module (NXP UDA1334A I2S DAC); channel 3 is a 3.3 V GPIO.
+outputs of an Adafruit UDA1334A board (NXP UDA1334A I2S DAC); channel 3 is a 3.3 V GPIO.
 It is controlled in the style of UDS: `wr` stores a setting, `rd` reads it and
-`routine` runs it. None of this has been run on hardware yet (PICO-OPEN-07).
+`routine` runs it. The command set was run on the bench Pico 2 on 2026-11-12,
+and a sine was seen by scope on channels 1 and 2 on 2026-11-13; the rest is not
+yet confirmed on hardware (PICO-OPEN-07).
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -968,7 +971,7 @@ It is controlled in the style of UDS: `wr` stores a setting, `rd` reads it and
 | PICO-FR-085 | The host driver shall provide `wr`, `rd` with a channel, `freq_start`, `start_freq`, `abort_freq`, `abort_all` and `freq_status`, and shall raise `CommandRefusedError` for a `NAK`. *(Revised by #202, on merging #328: a `NAK` to `wr` raises `WrRefusedError` and one to `rd` `RdRefusedError`, each a subclass of `CommandRefusedError`; `wr` of an LED is PICO-FR-049.)* | #202 | Unit test (`test_freq_generator.py`) |
 | PICO-FR-086 | The simulated Pico shall implement the same settings, limits, statuses and restart rule, and report `Complete` after the time the cycles take. | #202 | Unit test |
 | PICO-FR-087 | `benchtools thermo wr`, `rd` and `routine` shall send those commands and print the result as JSON. | #202 | Unit test |
-| PICO-FR-088 | The DAC shall be driven at 97 656.25 Hz, an integer division of the system clock. Non-sine waveforms shall contain only harmonics up to 0.45 fs, and shall be scaled so that they do not clip. | #202 | Unit test; hardware PICO-OPEN-07 |
+| PICO-FR-088 | The DAC shall be driven at 48 828.125 Hz, an integer division of the system clock inside the UDA1334A's 16 to 50 kHz sample-rate range. Non-sine waveforms shall contain only harmonics up to 0.45 fs, and shall be scaled so that they do not clip. *(Revised by #202, 2026-11-13: the rate was 97 656.25 Hz, outside the range the board's `SCLK` selects, and the outputs were silent.)* | #202 | Unit test; hardware PICO-OPEN-07 |
 | PICO-FR-089 | Every output shall be off at power-up and after `ecureset`. Off is mid-scale with `MUTE` high on channels 1 and 2, and low on channel 3. `routine all abort` shall leave every output off. *(Revised by #202, on merging #328: `MUTE` is not connected on the bench (PICO-OPEN-07), so off on channels 1 and 2 is mid-scale with no mute; `MUTE` is driven high only in a build for a board that wires it. On the bench, `MUTE` does not keep the DAC silent before the firmware runs.)* | #202 | Unit test; hardware PICO-OPEN-07 |
 
 ### 15.6 PICO non-functional

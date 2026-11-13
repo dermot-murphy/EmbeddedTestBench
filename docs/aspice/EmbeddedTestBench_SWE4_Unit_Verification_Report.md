@@ -91,6 +91,7 @@
 | next | 2026-11-12 | Claude | #328: §13A.8 added - the Pico thermometer's indicator LEDs. SWE4-UT-PICOFW 83 → 92 (`cmd_parser` 55, 0 failures, clang 21 on Windows); SWE4-UT-PICO 44 → 54, SWE4-UT-PICOSIM 36 → 45 and SWE4-UT-PICOCLI 16 → 29, pass, from a run of `tests/instruments/pico_sht30` on this branch on 2026-11-12 (172 passed, Windows); `wr` and `rd` of the LEDs confirmed on the real Pico 2, and the SHT30-D connected and reading about 23 °C. PICO-OPEN-02 noted. The section 5 total is still the 1.32 whole-suite run's. |
 | next | 2026-11-08 | Claude | #202: §5 row for SWE4-UT-PICOFGEN. |
 | next | 2026-11-12 | Claude | #202: merged with #328 (LEDs). §13A.9 added: protocol 2.2 and `V1.02.0000`; SWE4-UT-PICOFW 140 cases (`fgen` 48), pass, clang 21 with ASan and UBSan on Windows; `tests/instruments/pico_sht30` 242 cases, pass; the generator not yet run on hardware, with the bench wiring of 2026-11-12. The section 5 total is still the 1.32 whole-suite run's. |
+| next | 2026-11-13 | Claude | #202: §13A.9: the bench of 2026-11-13 - the DAC board an Adafruit UDA1334A, rewired to GP6, GP7 and GP8, the DAC at 48 828.125 Hz, and a 1 kHz and a 2 kHz sine observed by scope on channels 1 and 2. PICO-OPEN-07 stays open, confirmed in part. |
 ---
 
 ## 3. Purpose & Scope
@@ -1469,6 +1470,20 @@ SWE4-UT-PICOFWPROTO 9 and SWE4-UT-PICOFGEN 66. §5 is not re-run here.
 **On the bench.** On 2026-11-12 the merged firmware (`V1.02.0000`, protocol 2.2) was built with no warnings, flashed to the bench Pico 2 on COM14 with `benchtools thermo flash` (name, version and SHA checks passed) and its commands run over the serial link: the LEDs, `wr led-red 2 on` answered `err 2`, `wr led-blue on` a `NAK`; `wr freq 1k`, `wr wave sine`, `wr amp 50`, `wr cycles 0` and `wr freq 3 500` acknowledged and read back; `routine freq start` on channels 1 and 3 reported `Running, sine, 1000.00 Hz` and `Running, square, 500.00 Hz`; `routine all abort` left 1 and 3 `Aborted` and 2 `Not Started`. The analogue outputs were not observed: no scope or meter was on the DAC or GP15, so nothing about the waveforms, levels or frequency accuracy is confirmed. PICO-OPEN-07 stays open. The DAC module's wiring was corrected on 2026-11-12 to the
 bench as the owner stated it: DIN on GP9, BCLK on GP10, WSEL on GP11, VIN on
 VBUS (5 V) and `MUTE` not connected.
+
+**On the bench, 2026-11-13.** The DAC board was identified as an Adafruit
+UDA1334A, not a CJMCU-1334. It pulls `PLL`, `SF0` and `SF1` low (audio mode,
+I2S format) and its `SCLK` is low, which selects the UDA1334A's 16 to 50 kHz
+sample-rate range; at the 97 656.25 Hz of the 2026-11-12 firmware the outputs
+were silent. The owner rewired the I2S lines to DIN on GP6 (pin 9), BCLK on GP7
+(pin 10) and WSEL on GP8 (pin 11), and the firmware's defaults became those
+pins with `BOARD_DAC_PIO_DIVIDER` 24: 150 MHz / 24 / 2 / 64 = 48 828.125 Hz,
+a 3.125 MHz bit clock. With that firmware the owner saw on a scope a continuous
+1 kHz sine on channel 1 (left) and a 2 kHz sine on channel 2 (right), both at
+amplitude 100: the first observation of the DAC's analogue output. Levels, each
+waveform, frequency accuracy against the TTi 1604, cycle counts, channel 3 on
+GP15, the outputs at power-up and silence after `routine all abort` are still
+not observed. PICO-OPEN-07 stays open, confirmed in part.
 
 ## 13B. TTi 1604 multimeter verification results (#115)
 

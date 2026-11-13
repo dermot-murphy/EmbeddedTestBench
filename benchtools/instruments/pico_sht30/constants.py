@@ -104,7 +104,7 @@ FGEN_WAVES = ("square", "sine", "triangle", "sawtooth", "sine2")
 FGEN_FREQ_RANGE_MHZ: Tuple[int, int] = (10000, 12000000)
 
 #: DAC sample rate in millihertz; ``FGEN_SAMPLE_RATE_MHZ`` in fgen.h.
-FGEN_SAMPLE_RATE_MHZ = 97656250
+FGEN_SAMPLE_RATE_MHZ = 48828125
 
 #: Routine statuses, as ``routine freq results`` reports them.
 NOT_STARTED = "Not Started"

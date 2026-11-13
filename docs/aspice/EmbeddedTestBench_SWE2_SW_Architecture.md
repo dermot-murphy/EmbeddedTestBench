@@ -46,6 +46,7 @@
 | next | 2026-10-28 | Claude | #247: SER-ARC-001 added, the serial capture instrument; the layering diagram and the interfaces (the device's serial port, receive only) updated. |
 | next | 2026-11-12 | Claude | #328: PICO-ARC-001 updated for the `wr` command and the three indicator LEDs; the LED GPIO interface added. |
 | next | 2026-11-12 | Claude | #202: merged with #328 (LEDs). PICO-ARC-001: the one `wr` command also stores the frequency generator's settings, read by `rd` and run by `routine`; `fgen` and `cmd_fgen` added. The generator's I2S and GPIO interface added, with the bench wiring. |
+| next | 2026-11-13 | Claude | #202: the frequency generator's I2S interface: an Adafruit UDA1334A board, not a CJMCU-1334, on GP6 (DIN), GP7 (BCLK) and GP8 (WSEL), as the owner rewired it on 2026-11-13. |
 ---
 
 ## 3. Purpose & Scope
@@ -825,7 +826,7 @@ CLI            BenchRunner        Bench           Tek3014B        Transport
 | Serial port — device under test | in | A device's console or test UART, read by the serial capture instrument through a USB serial adapter. Receive only: the instrument writes nothing to it. |
 | I2C | bidirectional | Pico 2 to SHT30-DIS, 100 kHz, address 0x44. Below the thermometer firmware; not visible to the host driver except as `err 4`/`err 6`. |
 | GPIO — thermometer LEDs | out | Pico 2 GP18, GP19 and GP20 to the red, yellow and green indicator LEDs, each lit by driving its pin high (#328). Set by `wr` and read back by `rd` from the pins' output latches. |
-| I2S and GPIO — frequency generator | out | Pico 2 GP9 (DIN), GP10 (BCLK) and GP11 (WSEL) to a CJMCU-1334 module (NXP UDA1334A DAC), generator channels 1 and 2; its `MUTE` input is not connected on the bench. GP15 carries channel 3, a square wave (#202). |
+| I2S and GPIO — frequency generator | out | Pico 2 GP6 (DIN), GP7 (BCLK) and GP8 (WSEL) to an Adafruit UDA1334A board (NXP UDA1334A DAC), generator channels 1 and 2; its `MUTE` input is not connected on the bench. GP15 carries channel 3, a square wave (#202). |
 | Raspberry Pi Pico C SDK 2.1.1 + Arm GNU toolchain | in | Builds the thermometer firmware into a UF2 image. Not needed to run the host driver or the tests. |
 
 ---

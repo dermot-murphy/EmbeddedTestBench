@@ -51,7 +51,7 @@ extern "C" {
 #define FGEN_RATIO_MAX			1000UL
 
 /** DAC sample rate in millihertz: the system clock over the PIO divider, two
- *  PIO cycles per bit and 64 bits per frame. 97 656.25 Hz at 150 MHz. */
+ *  PIO cycles per bit and 64 bits per frame. 48 828.125 Hz at 150 MHz. */
 #define FGEN_SAMPLE_RATE_MHZ		(((uint64_t)BOARD_SYS_CLOCK_HZ * 1000ULL) / \
 					 ((uint64_t)BOARD_DAC_PIO_DIVIDER * 2ULL * 64ULL))
 

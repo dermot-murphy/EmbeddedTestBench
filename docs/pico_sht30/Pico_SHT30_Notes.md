@@ -74,38 +74,44 @@ cmake -S firmware/pico_sht30 -B build/pico_sht30 \
 
 ### 2.1 Frequency generator wiring (#202)
 
-A CJMCU-1334 module carries the NXP UDA1334A I2S DAC. Data sheet and the guide
-to a similar board: `References.md` rows 9 and 10.
+An Adafruit UDA1334A board carries the NXP UDA1334A I2S DAC. Data sheet and
+the Adafruit guide to the board: `References.md` rows 9 and 10.
 
-| CJMCU-1334 pin | Pico 2 pin | Pico 2 function |
+| Adafruit UDA1334A pin | Pico 2 pin | Pico 2 function |
 |---|---|---|
-| VIN | 40 | VBUS (5 V from USB) |
+| VIN | 40 | VBUS (5 V from USB); the board has its own 3.3 V regulator |
 | GND | 18 | GND |
-| DIN | 12 | GP9 |
-| BCLK | 14 | GP10 |
-| WSEL | 15 | GP11 |
+| DIN | 9 | GP6 |
+| BCLK | 10 | GP7 |
+| WSEL | 11 | GP8 |
 | MUTE | — | not connected |
-| SCLK | 36 | 3V3(OUT): selects the 50 to 100 kHz sample-rate range |
-| PLL, SF0, SF1 | 18 | GND: audio mode, I2S format |
+| SCLK | — | low on the board: selects the 16 to 50 kHz sample-rate range |
+| PLL, SF0, SF1 | — | pulled low on the board: audio mode, I2S format |
 
 Channel 1 is the left output and channel 2 the right. Channel 3 is GP15 (pin
 20), a 3.3 V logic output. `BCLK` and `WSEL` must stay on adjacent GPIOs,
 because PIO side-set drives consecutive pins.
 
-DIN, BCLK, WSEL, VIN and MUTE are the bench wiring as the owner stated it on
-2026-11-12. Before that, this table had DIN on GP12 (pin 16), VIN on 3V3(OUT)
-(pin 36) and MUTE on GP13 (pin 17) with a 10 kΩ pull-up to 3V3(OUT); the
-firmware's default DIN pin is now GP9. Because MUTE is not connected, the
+VIN and MUTE are the bench wiring as the owner stated it on 2026-11-12; DIN,
+BCLK and WSEL as he rewired them on 2026-11-13. On 2026-11-12 DIN, BCLK and
+WSEL were on GP9, GP10 and GP11 (pins 12, 14 and 15). Before that, this table
+had DIN on GP12 (pin 16), VIN on 3V3(OUT) (pin 36) and MUTE on GP13 (pin 17)
+with a 10 kΩ pull-up to 3V3(OUT); the firmware's default DIN pin is now GP6
+and BCLK GP7. Because MUTE is not connected, the
 firmware drives no pin for it and the DAC is never muted: a channel that is not
 running plays mid-scale silence, and nothing holds the DAC silent at power-up
 before the firmware runs. A board that does wire MUTE builds with
 `-DBOARD_DAC_MUTE_PIN=13U` (or its own pin), and the firmware then holds MUTE
 high until a channel starts.
 
-The SCLK, PLL, SF0 and SF1 ties and channel 3 on GP15 are as #202 designed them;
-they were not part of the owner's statement. The pin names and default ties come
-from the Adafruit UDA1334A guide and the chip's data sheet. Check them against
-the CJMCU-1334 board before powering it (PICO-OPEN-07).
+The board was identified on 2026-11-13 as an Adafruit UDA1334A; this note
+called it a CJMCU-1334 before. The Adafruit board pulls PLL, SF0 and SF1 low
+(audio mode, I2S format), and its SCLK is low, which selects the UDA1334A's 16
+to 50 kHz sample-rate range. The firmware therefore runs the DAC at
+150 MHz / 24 / 2 / 64 = 48 828.125 Hz, with a 3.125 MHz bit clock. At the
+97 656.25 Hz of the first design, outside that range, the outputs were silent.
+The board takes 3 to 5 V on VIN. Channel 3 on GP15 is as #202 designed it; it
+was not part of the owner's statement.
 
 ## 3. Building and flashing
 
@@ -370,9 +376,9 @@ the same `wr` that switches the LEDs, which take no channel.
 From the host: `benchtools thermo -r COM14 wr freq 5k`, `... rd duty`,
 `... routine freq start`.
 
-Above about 6 kHz (triangle), 5 kHz (square on the DAC) and 4 kHz (sawtooth) the
-waveform is rounded, because the DAC passes too few harmonics. These limits are
-calculated. Channel 3 is a true square wave across the range.
+Above about 3 kHz (triangle), 2.5 kHz (square on the DAC) and 2 kHz (sawtooth)
+the waveform is rounded, because the DAC passes too few harmonics. These limits
+are calculated, and were halved with the sample rate on 2026-11-13. Channel 3 is a true square wave across the range.
 
 ### 4.1 On a bench
 
@@ -458,7 +464,7 @@ PICO-OPEN-04.
 | PICO-OPEN-04 | Reference PDFs and MISRA tool run | The hosts serving the PDFs were blocked in the build environment; run `fetch_datasheets.sh` and commit the files. Run a MISRA C:2012 checker over `firmware/pico_sht30/src`. |
 | PICO-OPEN-05 | Reflashing with `benchtools thermo flash` (#127) | Run `flash` three ways and check that each exits 0 with every check passing: from the running thermometer (method `bootsel`); from a board started with BOOTSEL held (method `already-in-bootloader`); and from a board running other USB-serial firmware built with the Pico SDK (method `1200-baud`), which also confirms that the SDK's 1200-baud reset is enabled in such a build. Confirm that the drive is found on the bench PC's operating system without `--drive`. **Closed 2026-10-03** on Windows 10, with a 60 416-byte UF2 (118 blocks, families `absolute` and `rp2350-arm-s`) built on the bench PC with Pico SDK 2.1.1, Arm GNU Toolchain 14.2.Rel1 and picotool 2.1.1. (1) The board arrived in its bootloader as drive D:; `flash` with `-r ""` gave method `already-in-bootloader`, found the port as COM14 by vendor ID, and passed every check in about 2.5 s. (2) After a rebuild, `flash -r COM14` from the running thermometer gave method `bootsel`; the build date changed from `12:06:39Z` to `12:07:19Z` and the title, version and build checks passed. (3) With the protocol open made to fail once, `flash -r COM14` gave method `1200-baud` and the title and build checks passed. The reset was tried on the thermometer firmware, which is itself an SDK USB-serial build, not on other firmware. On Windows the Pico reboots while pyserial is still opening the port, so the open raises "A device attached to the system is not functioning"; `touch_1200` now keeps that as a note, and the drive appearing decides success. The drive was found without `--drive` on Windows; Linux and macOS have not been tried on hardware. These three runs predate #131 and checked `ver`; with the `rd` firmware of #131, `flash -r COM14` (method `bootsel`) passed its `name`, `version` and `sha` checks (§7.1). |
 | PICO-OPEN-06 | The `rd` command set (#131) on a real Pico 2 | **Confirmed in part 2026-10-03** (§7.1). The #131 firmware was cross-compiled on the bench PC with no warnings, the build injected the SHA, and it was flashed to a Pico 2. Every `rd` option, the `NAK`, the `err` replies and `ecureset` behaved as specified. Still open: `rd temperature` with a real value to two places, which needs the SHT30-D module connected (PICO-OPEN-02). *Note, 2026-11-12:* the module is now connected; see PICO-OPEN-02 and §7.2. |
-| PICO-OPEN-07 | The frequency generator (#202) on a real Pico 2 and CJMCU-1334 | **Open: command set confirmed, outputs not observed.** The firmware builds and its unit tests pass. Confirm the board's pin ties, DAC lock at 97 656.25 Hz, left and right, output level and coupling, each waveform and limit by scope, the exact cycle count on channels 1 to 3, frequency against the TTi 1604, what the outputs do at power-up before the firmware starts the I2S stream (`MUTE` is not connected, so nothing mutes the DAC then), and silence after `routine all abort`. *Note, 2026-11-12:* the DAC module's DIN (GP9), VIN (VBUS, 5 V) and `MUTE` (not connected) were corrected to the bench wiring as the owner stated it, with BCLK on GP10 and WSEL on GP11 (§2.1). On 2026-11-12 the merged firmware (`V1.02.0000`, protocol 2.2) was built with no warnings, flashed to the bench Pico 2 on COM14 with `benchtools thermo flash` (name, version and SHA checks passed) and its commands run over the serial link: the LEDs, `wr led-red 2 on` answered `err 2`, `wr led-blue on` a `NAK`; `wr freq 1k`, `wr wave sine`, `wr amp 50`, `wr cycles 0` and `wr freq 3 500` acknowledged and read back; `routine freq start` on channels 1 and 3 reported `Running, sine, 1000.00 Hz` and `Running, square, 500.00 Hz`; `routine all abort` left 1 and 3 `Aborted` and 2 `Not Started`. The analogue outputs were not observed: no scope or meter was on the DAC or GP15, so nothing about the waveforms, levels or frequency accuracy is confirmed. |
+| PICO-OPEN-07 | The frequency generator (#202) on a real Pico 2 and Adafruit UDA1334A | **Open: command set confirmed; a sine seen on channels 1 and 2 (2026-11-13).** The firmware builds and its unit tests pass. Confirm DAC lock at 48 828.125 Hz, output level and coupling, each waveform and limit by scope, the exact cycle count on channels 1 to 3, frequency against the TTi 1604, what the outputs do at power-up before the firmware starts the I2S stream (`MUTE` is not connected, so nothing mutes the DAC then), and silence after `routine all abort`. *Note, 2026-11-12:* the DAC module's DIN (GP9), VIN (VBUS, 5 V) and `MUTE` (not connected) were corrected to the bench wiring as the owner stated it, with BCLK on GP10 and WSEL on GP11 (§2.1). On 2026-11-12 the merged firmware (`V1.02.0000`, protocol 2.2) was built with no warnings, flashed to the bench Pico 2 on COM14 with `benchtools thermo flash` (name, version and SHA checks passed) and its commands run over the serial link: the LEDs, `wr led-red 2 on` answered `err 2`, `wr led-blue on` a `NAK`; `wr freq 1k`, `wr wave sine`, `wr amp 50`, `wr cycles 0` and `wr freq 3 500` acknowledged and read back; `routine freq start` on channels 1 and 3 reported `Running, sine, 1000.00 Hz` and `Running, square, 500.00 Hz`; `routine all abort` left 1 and 3 `Aborted` and 2 `Not Started`. The analogue outputs were not observed: no scope or meter was on the DAC or GP15, so nothing about the waveforms, levels or frequency accuracy is confirmed. *Note, 2026-11-13:* the DAC board is an Adafruit UDA1334A, not a CJMCU-1334. Its `SCLK` is low, selecting the 16 to 50 kHz range, so at 97 656.25 Hz the outputs were silent; the firmware now runs the DAC at 48 828.125 Hz (`BOARD_DAC_PIO_DIVIDER` 24), and the owner rewired DIN to GP6, BCLK to GP7 and WSEL to GP8 (§2.1). With that firmware a scope showed a continuous 1 kHz sine on channel 1 (left) and a 2 kHz sine on channel 2 (right), both at amplitude 100: the first observation of the DAC's output. Still open: output level and coupling, each waveform and limit, frequency against the TTi 1604, cycle counts, channel 3 on GP15, the outputs at power-up and silence after `routine all abort`. |
 
 ### 7.1 First run on a real Pico 2 (2026-10-03)
 

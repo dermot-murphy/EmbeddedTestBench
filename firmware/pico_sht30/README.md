@@ -32,14 +32,17 @@ arguments answers `err 2`. `status`,
 (#202). `help` lists nine lines: `help`, `rd`, `wr`, `routine`, `status`,
 `sreset`, `ecureset`, `bootsel`, then `ok`.
 
-It also drives a UDA1334A I2S DAC (a CJMCU-1334 module) as a frequency
-generator, with the same `wr` and `rd` and the `routine` command (#202):
-`wr freq 5k`, `wr wave sine`, `routine freq start`, `rd duty`. See
-`include/protocol.h`. On the bench the module's DIN is on GP9, BCLK on GP10,
-WSEL on GP11, VIN on VBUS (5 V) and MUTE is not connected, so the firmware
+It also drives a UDA1334A I2S DAC (an Adafruit UDA1334A breakout) as a
+frequency generator, with the same `wr` and `rd` and the `routine` command
+(#202): `wr freq 5k`, `wr wave sine`, `routine freq start`, `rd duty`. See
+`include/protocol.h`. On the bench the board's DIN is on GP6, BCLK on GP7,
+WSEL on GP8, VIN on VBUS (5 V) and MUTE is not connected, so the firmware
 never mutes the DAC; a board that wires MUTE builds with
-`-DBOARD_DAC_MUTE_PIN=<pin>`. Channel 3 is a square wave on GP15. Nothing of
-the generator has been run on hardware yet.
+`-DBOARD_DAC_MUTE_PIN=<pin>`. The DAC runs at 48 828.125 Hz (150 MHz / 24 /
+2 / 64), inside the 16 to 50 kHz range the board's SCLK pull-down selects.
+Channel 3 is a square wave on GP15. On 2026-11-13 a scope showed a 1 kHz sine
+on channel 1 and a 2 kHz sine on channel 2; the rest of the generator is not
+yet checked on hardware (PICO-OPEN-07).
 
 | Path | Contents |
 |---|---|

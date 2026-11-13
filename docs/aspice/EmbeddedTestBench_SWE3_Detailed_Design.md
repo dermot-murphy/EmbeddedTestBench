@@ -94,6 +94,7 @@
 | next | 2026-11-12 | Claude | #328: the Pico thermometer's indicator LEDs. PICO-DD-PROTOCOL - `wr`, the LED options of `rd`, `PROTO_VERSION` 2.1; PICO-DD-VERSION - `V1.01.0000`; PICO-DD-BOARD - `BOARD_LED_*_PIN`; PICO-DD-HAL - `hal_led_set`, `hal_led_get`, the LEDs off in `hal_init`; PICO-DD-PARSER - `cmd_wr`, `cmd_leds`, `cmd_led_lookup`, `cmd_led_state`, `cmd_value_begin`; PICO-DD-TEST - the fake HAL's LEDs; PICO-DD-CONST, -DRIVER, -SIM and -CLI - the LED constants, `wr`, `WrRefusedError`, `led`, `set_led`, the simulated LEDs and `benchtools thermo wr`. |
 | next | 2026-11-08 | Claude | #202: PICO-DD-FGEN added: the frequency generator, the `wr` and `routine` commands, and the HAL's DAC and PWM functions. |
 | next | 2026-11-12 | Claude | #202: merged with #328 (LEDs). PICO-DD-PROTOCOL - `PROTO_VERSION` 2.2, one `wr` for the LEDs and the generator, the argument counts, `help` in nine lines; PICO-DD-VERSION - `V1.02.0000`; PICO-DD-BOARD - the generator's pins, DIN on GP9, VIN on VBUS and `MUTE` not connected on the bench, `BOARD_DAC_MUTE_PIN` undefined; PICO-DD-HAL and -FGEN - `hal_dac_mute` a no-op without a `MUTE` pin; PICO-DD-PARSER - `cmd_rd` and `cmd_wr` dispatch to the generator; PICO-DD-TEST - `fgen.c` and `cmd_fgen.c` in the host build; PICO-DD-CONST, -DRIVER, -SIM and -CLI - `WR_OPTIONS`, the combined `wr`, `_acknowledged`, `WrRefusedError` a `CommandRefusedError`, the simulator's `V1.02.0000` and `err 2` for an LED with a channel. |
+| next | 2026-11-13 | Claude | #202: PICO-DD-BOARD - `BOARD_DAC_PIO_DIVIDER` 24, `BOARD_DAC_DATA_PIN` 6 and `BOARD_DAC_BCK_PIN` 7 (WSEL GP8), as the owner rewired the bench on 2026-11-13; the DAC board is an Adafruit UDA1334A, with `PLL`, `SF0`, `SF1` and `SCLK` low on the board. PICO-DD-FGEN - the sample rate is 48 828.125 Hz, inside the 16 to 50 kHz range that `SCLK` low selects; the DDS step about 11 µHz. |
 ---
 
 ## 3. Purpose & Scope
@@ -2846,17 +2847,20 @@ driving its pin high: `BOARD_LED_RED_PIN` 18 (pin 24), `BOARD_LED_YELLOW_PIN` 19
 (pin 25) and `BOARD_LED_GREEN_PIN` 20 (pin 26).
 
 The frequency generator (#202): `BOARD_SYS_CLOCK_HZ` 150 MHz,
-`BOARD_DAC_PIO_DIVIDER` 12, `BOARD_DAC_BCK_PIN` 10 (pin 14; the word select,
-WSEL, is the next GPIO up, GP11, pin 15, because PIO side-set drives consecutive
-pins), `BOARD_DAC_DATA_PIN` 9 (pin 12) and `BOARD_FGEN_GPIO_PIN` 15 (pin 20,
-channel 3). The DAC module's DIN, BCLK and WSEL on GP9, GP10 and GP11, its VIN
-on VBUS (5 V, pin 40) and its `MUTE` not connected are the bench wiring as the
-owner stated it on 2026-11-12; DIN was GP12, VIN 3V3(OUT) and `MUTE` GP13
-before. `BOARD_DAC_MUTE_PIN` is therefore deliberately left undefined: no pin is
-driven for `MUTE`, and a board that wires it builds with
-`-DBOARD_DAC_MUTE_PIN=13U`. The module's `SCLK`, `PLL`, `SF0` and `SF1` ties and
-channel 3 on GP15 are as #202 designed them; they were not part of that
-statement.
+`BOARD_DAC_PIO_DIVIDER` 24, `BOARD_DAC_BCK_PIN` 7 (pin 10; the word select,
+WSEL, is the next GPIO up, GP8, pin 11, because PIO side-set drives consecutive
+pins), `BOARD_DAC_DATA_PIN` 6 (pin 9) and `BOARD_FGEN_GPIO_PIN` 15 (pin 20,
+channel 3). The DAC board is an Adafruit UDA1334A. Its DIN, BCLK and WSEL on
+GP6, GP7 and GP8 are the bench wiring as the owner rewired it on 2026-11-13;
+they were GP9, GP10 and GP11 on 2026-11-12, and DIN was GP12 before that. Its
+VIN on VBUS (5 V, pin 40; the board has its own 3.3 V regulator) and its `MUTE`
+not connected are the bench wiring as the owner stated it on 2026-11-12; VIN
+was 3V3(OUT) and `MUTE` GP13 before. `BOARD_DAC_MUTE_PIN` is therefore
+deliberately left undefined: no pin is driven for `MUTE`, and a board that
+wires it builds with `-DBOARD_DAC_MUTE_PIN=13U`. The board pulls `PLL`, `SF0`
+and `SF1` low (audio mode, I2S format) and its `SCLK` is low, which selects the
+16 to 50 kHz sample-rate range. Channel 3 on GP15 is as #202 designed it; it was
+not part of the owner's statement.
 
 #### PICO-DD-HAL — `firmware/pico_sht30/include/hal.h`, `src/hal_pico.c`
 
@@ -2985,12 +2989,15 @@ settings, the routine state and the synthesis. `cmd_fgen.c` turns `wr`, `rd`
 and `routine` into calls on it. The values are integers: millihertz, thousandths
 of a percent and thousandths.
 
-- **Sample rate.** The PIO state machine runs at 150 MHz / 12, two cycles per
-  bit, 64 bits per frame: 97 656.25 Hz. An integer divider avoids fractional
-  jitter into the DAC's PLL, which regenerates its clock from WS (audio mode).
-  The `SCLK` pin selects the 50 to 100 kHz range.
+- **Sample rate.** The PIO state machine runs at 150 MHz / 24, two cycles per
+  bit, 64 bits per frame: a 3.125 MHz bit clock and 48 828.125 Hz, so 0.45 fs
+  is 21 972.66 Hz. An integer divider avoids fractional jitter into the DAC's
+  PLL, which regenerates its clock from WS (audio mode). The board holds `SCLK`
+  low, which selects the 16 to 50 kHz range. The first design ran at
+  97 656.25 Hz (divider 12), outside that range, and the outputs were silent
+  (2026-11-13).
 - **DDS.** Each DAC channel has a 32-bit phase accumulator and reads a
-  4096-entry table with linear interpolation. The step is about 23 µHz.
+  4096-entry table with linear interpolation. The step is about 11 µHz.
 - **Tables.** `sine` and `sine2` use the sine table. The others are built at
   start by summing harmonics up to 0.45 fs, at most 256, because the DAC's
   filter is flat to 0.45 fs and a harmonic above it aliases. The sum is

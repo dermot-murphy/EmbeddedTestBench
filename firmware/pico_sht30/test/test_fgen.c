@@ -17,8 +17,8 @@
 /* Frames in the buffers the tests render into. */
 #define TEST_FRAMES	1024U
 
-/* One 1 kHz cycle at 97 656.25 Hz, rounded up. */
-#define TEST_FRAMES_PER_KHZ_CYCLE	98U
+/* One 1 kHz cycle at 48 828.125 Hz, rounded up. */
+#define TEST_FRAMES_PER_KHZ_CYCLE	49U
 
 static int32_t	test_m_samples[TEST_FRAMES * 2U];
 
@@ -74,13 +74,13 @@ void tearDown(void)
 /* --- rate and arithmetic ------------------------------------------------- */
 static void test_the_sample_rate_is_an_integer_division_of_the_clock(void)
 {
-	TEST_ASSERT_EQUAL_UINT64(97656250ULL, FGEN_SAMPLE_RATE_MHZ);
+	TEST_ASSERT_EQUAL_UINT64(48828125ULL, FGEN_SAMPLE_RATE_MHZ);
 }
 
 static void test_harmonics_stop_at_the_dac_pass_band(void)
 {
-	TEST_ASSERT_EQUAL_UINT32(3U, fgen_harmonics(12000000UL));
-	TEST_ASSERT_EQUAL_UINT32(43U, fgen_harmonics(1000000UL));
+	TEST_ASSERT_EQUAL_UINT32(1U, fgen_harmonics(12000000UL));
+	TEST_ASSERT_EQUAL_UINT32(21U, fgen_harmonics(1000000UL));
 }
 
 static void test_harmonics_are_capped_at_low_frequency(void)
