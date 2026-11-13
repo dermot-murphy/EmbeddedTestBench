@@ -6,7 +6,10 @@ measure the time between two points in the code by any of four methods.
 
 Driven over the J-Link GDB Server using GDB's machine interface, so symbol-aware
 features - variables by name, source-line breakpoints, call stacks - come from
-GDB's own DWARF handling rather than a reimplementation.
+GDB's own DWARF handling rather than a reimplementation. That is the ``gdb``
+backend, the default; ``backend="segger"`` drives the probe with SEGGER's own
+J-Link Commander and RTT Logger instead, for flash, verify, erase, memory,
+reset and RTT reading with no GDB installed (#71).
 
 Both links are TCP, so the probe can be on another machine::
 
@@ -35,6 +38,7 @@ from .constants import (
 )
 from .gdbmi import parse_line, parse_value
 from .probe import (
+    BACKENDS,
     Breakpoint,
     FlashResult,
     NRF52_UICR,
@@ -48,14 +52,27 @@ from .probe import (
     Watchpoint,
 )
 from .rtt import RttClient, RttTimeout
-from .server import GdbServer, find_gdb, find_gdb_server
+from .server import (
+    GdbServer,
+    find_gdb,
+    find_gdb_server,
+    find_jlink_commander,
+    find_rtt_logger,
+)
 from .session import GdbError, GdbMiSession
 from .simulator import SimulatedFirmware, SimulatedJLink, SimulatedSymbol
+# Imported for its registration too: connect(backend="segger") opens one (#71).
+from .segger import SeggerJLinkProbe, UnsupportedOperationError
 from .swo import ItmDecoder, ItmEvent, SwoStream
 from .timing import TimingResult, TimingSample
 
 __all__ = [
     "JLinkProbe",
+    "SeggerJLinkProbe",
+    "UnsupportedOperationError",
+    "BACKENDS",
+    "find_jlink_commander",
+    "find_rtt_logger",
     "JLinkRttReader",
     "Breakpoint",
     "Watchpoint",

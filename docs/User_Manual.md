@@ -522,6 +522,12 @@ From `docs/jlink/JLink_Integration_Notes.md` §4.1–4.2,
   or the other.
 - **Resetting with `reset(halt=False)` leaves the core halted** on a real probe
   (#177). Reset halted, then `run`.
+- **Two backends.** `backend: gdb` (the default) needs `arm-none-eabi-gdb`;
+  `backend: segger` in the probe's `options`, or `--backend segger`, uses only
+  `JLink.exe` and `JLinkRTTLogger.exe` and offers `info`, `flash`, `verify`,
+  `erase`, `read`, `write`, `reset`, `run`, `halt` and reading RTT. It refuses
+  `var`, `stack`, `time` and RTT writes by name. It has run on the simulated
+  bench only: its bench check is open (JLink_Integration_Notes §4.9).
 
 #### Sensor commands with side effects
 
@@ -808,7 +814,7 @@ to a file. `<tool> <sub-command> --help` gives each sub-command's options.
 |---|---|---|---|
 | `psu` (GPD-3303D) | `COM11`, `/dev/ttyUSB0`, `serial://COM4:57600`, `sim://` | `info`, `read`, `set <ch> -V -I [--on]`, `on`, `off`, `status` | `psu -r sim:// set 1 -V 3.3 -I 0.5 --on` → `"voltage": 3.3, "mode": "CV", "is_on": true` |
 | `dmm` (TTi 1604) | `COM13`, `/dev/ttyUSB0`, `sim://` | `info`, `read`, `press`, `keys` | `dmm -r sim:// read` → `"value": 1.0, "unit": "V"` |
-| `jlink` (J-Link) | `jlink://[host][:port]`, `sim://`; with `-d DEVICE`, `-e ELF`, `--gdb`, `--server` | `info`, `flash [--preserve ADDR:SIZE]`, `verify`, `erase`, `reset [--run]`, `run`, `halt`, `read`, `write`, `var`, `stack`, `rtt`, `time` | `jlink -r sim:// info` → `"model": "J-Link V11", "halted": true` |
+| `jlink` (J-Link) | `jlink://[host][:port]`, `sim://`; with `-d DEVICE`, `-e ELF`, `--gdb`, `--server`; `--backend segger` (with `--commander`, `--rtt-logger`) for SEGGER's own tools and no GDB | `info`, `flash [--preserve ADDR:SIZE]`, `verify`, `erase`, `reset [--run]`, `run`, `halt`, `read`, `write`, `var`, `stack`, `rtt`, `time` | `jlink -r sim:// info` → `"model": "J-Link V11", "halted": true` |
 | `ble` (Nordic dongle) | `COM10`, `/dev/ttyACM0`, `serial://socket://host:4001`, `sim://` | `info`, `firmware`, `scan`, `select`, `profile`, `cmd`, `script`, `monitor` | `ble -r sim:// scan` → 3 sensors, first `SENS-0A1B2C` |
 | `s2lp` (S2-LP kit) | `COM4`, `/dev/ttyACM0`, `sim://`; `--board`, `--setup REGS` | `info`, `registers`, `radio`, `config`, `tx`, `rx`, `capture`, `packets`, `stream`, `preamble`, `strobe` | `s2lp -r sim:// info` → `"library": "1.3.5"` |
 | `serial` (serial capture) | `COM5`, `/dev/ttyUSB0`, `sim://`; `--baudrate`, `--format 8N1` | none: each argument is one command (`RD`, `WR`, `ROUTINE`), or they are read from standard input; replies are text, not JSON | `serial -r sim:// "WR LINES ON" "ROUTINE START CAPTURE"` → `LINE 1 = BOOT V1.00.0000` … `ACK ROUTINE RESULTS CAPTURE = Complete, 4 lines` |

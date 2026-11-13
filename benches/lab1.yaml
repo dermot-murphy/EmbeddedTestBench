@@ -22,6 +22,10 @@ instruments:
     timeout: 30.0
     options:
       device: nRF52840_xxAA       # required to start a GDB Server
+      # backend: segger           # SEGGER's JLink.exe and JLinkRTTLogger.exe
+      #                           # only, no GDB: flash, verify, erase, memory,
+      #                           # reset and RTT reading; the rest is refused.
+      #                           # The default is gdb (#71).
       elf: build/app.elf          # symbols, for variables and call stacks
       core_clock_hz: 64000000     # wrong here makes every cycle timing wrong
       speed_khz: 4000
