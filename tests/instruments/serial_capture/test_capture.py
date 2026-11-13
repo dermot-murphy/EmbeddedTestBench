@@ -260,7 +260,7 @@ class TestSocketPort:
 
     @staticmethod
     def _connect(port, accepted, thread):
-        uart = SerialCapture.connect("serial://socket://localhost:%d" % port)
+        uart = SerialCapture.connect("serial://socket://127.0.0.1:%d" % port)
         thread.join(5.0)
         return uart, accepted["end"]
 
