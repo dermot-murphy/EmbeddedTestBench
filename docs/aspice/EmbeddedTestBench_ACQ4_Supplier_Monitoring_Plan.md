@@ -168,7 +168,7 @@ reason given in the workflow and in ETB-SUP8-001 §5.5. The schedule runs from
 ## 7. Coding-Standard Checker
 
 `dermot-murphy/CStyleCheck@v1.6.1` is run by `.github/workflows/style.yml` against
-`firmware/nordic_dongle`, its host unit tests and `firmware/pico_sht30`. It is the mechanical enforcement of ETB-STD-002 and
+`firmware/nordic_dongle`, its host unit tests and `firmware/pico2_test_board`. It is the mechanical enforcement of ETB-STD-002 and
 ETB-STY-001. It is a dependency like any other: pinned by tag, its failures
 treated as findings against the firmware source, and its unavailability treated
 as a problem with the style job rather than a licence to merge unchecked C.
@@ -213,7 +213,7 @@ rather than by reading about it:
      the same 110 violations. Under Linux paths, as CI runs it, the dongle
      step reports 0 findings against the baseline.
    - **One new Pico finding**, `misc.constant_comparison` on
-     `#if (BOARD_I2C_INSTANCE == 0U)` in `firmware/pico_sht30/src/hal_pico.c`,
+     `#if (BOARD_I2C_INSTANCE == 0U)` in `firmware/pico2_test_board/src/hal_pico.c`,
      a compile-time board selection. It is a false positive, reported as
      dermot-murphy/CStyleCheck#447, and the rule is disabled for that file in
      `.cstylecheck-pico-exclusions.yml` until it is fixed. The exclusion cannot

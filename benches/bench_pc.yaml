@@ -6,7 +6,7 @@
 #   COM10  Nordic PCA10059 dongle            D7FA0F34C85A
 #   COM11  GPD-3303D, FTDI adapter           A105X5XCA   (supply SN GER916893)
 #   COM13  TTi 1604, FTDI FT232 converter    A9LQ0R81A
-#   COM14  Raspberry Pi Pico 2 thermometer   AC5483CD0798FB0B
+#   COM14  PICO2 Test Board (Pico 2)         AC5483CD0798FB0B
 #   COM4   S2-LP kit, ST-LINK VCP            066CFF515055657867182645
 #   USB    J-Link OB-SAM3U128-V2-NordicSem   682395790, on sensor 5C1712
 #
@@ -66,8 +66,8 @@ instruments:
     resource: COM13
     timeout: 5.0
 
-  temp:
-    driver: pico-sht30
+  pico2:
+    driver: pico2-test-board
     resource: COM14
     timeout: 5.0
     event: TEMP

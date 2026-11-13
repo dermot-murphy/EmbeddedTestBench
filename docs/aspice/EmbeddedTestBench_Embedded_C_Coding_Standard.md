@@ -144,7 +144,7 @@ This standard applies to:
 
 - all `.c` and `.h` files owned by this project — in practice
   `firmware/nordic_dongle/src/` and its headers, the firmware's host unit
-  tests in `firmware/nordic_dongle/test/`, and all of `firmware/pico_sht30/`
+  tests in `firmware/nordic_dongle/test/`, and all of `firmware/pico2_test_board/`
   (sources, headers and host unit tests);
 - all new C files added to this project;
 - existing files undergoing a modification that touches more than 20% of their
@@ -302,7 +302,7 @@ an image stops fitting.
 ### 7.4 Static Analysis
 
 CStyleCheck runs on every push against `firmware/nordic_dongle`, against
-`.cstylecheck-baseline.json`; against all of `firmware/pico_sht30`; and
+`.cstylecheck-baseline.json`; against all of `firmware/pico2_test_board`; and
 against the dongle firmware's host unit tests. The last two are separate
 steps with no baseline that fail on any finding
 (`.github/workflows/style.yml`). Each has its own module aliases and narrow,

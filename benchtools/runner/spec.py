@@ -490,8 +490,8 @@ class TestCase:
 def _parse_instruments(declared) -> Tuple[Dict[str, str], Dict[str, str]]:
     """Split ``instruments:`` into alias-to-driver and alias-to-event-name.
 
-    An entry is a driver name (``temp: pico-sht30``) or a mapping
-    (``temp: {driver: pico-sht30, event: TEMP}``) in which either key may be
+    An entry is a driver name (``temp: pico2-test-board``) or a mapping
+    (``temp: {driver: pico2-test-board, event: TEMP}``) in which either key may be
     left out. An event name is checked here, and two aliases may not share one.
     """
     if not isinstance(declared, dict):

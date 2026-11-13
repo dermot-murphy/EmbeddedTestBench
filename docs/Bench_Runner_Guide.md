@@ -182,7 +182,7 @@ instruments:
 It does two things. It makes `--simulate` work for a suite that spans more than one
 kind of instrument — without it, every alias would be simulated as the same driver.
 An entry can also name the instrument in the event log, as a mapping
-(`temp: {driver: pico-sht30, event: TEMP}`), see
+(`pico2: {driver: pico2-test-board, event: TEMP}`), see
 [§6.3](#63-event-log-names-which-instrument-said-what).
 
 And it is checked against the bench before the first step runs, so pointing a suite
@@ -1039,6 +1039,26 @@ prints a short boot script when a capture starts; `simulated_lines` and
 `simulated_interval` in the bench's `options` change it.
 `specs/serial_capture.yaml` is a worked example.
 
+### 5.5 Useful paths for the PICO2 Test Board
+
+The PICO2 Test Board (driver `pico2-test-board`, alias `pico2` on the shipped
+benches; the Pico 2 SHT30 Temperature Sensor, driver `pico-sht30`, before #330)
+is a Pico 2 with a temperature sensor, three LEDs and a frequency generator.
+Every public method of its driver is a step; the
+[PICO2 Test Board User Manual §8](pico2_test_board/PICO2_Test_Board_User_Manual.md#8-test-sequences)
+lists them, and `specs/pico2_test_board.yaml` is a worked example.
+
+| Step | `measure` | Value |
+|---|---|---|
+| `pico2.temperature` | *(omitted)* | degrees Celsius |
+| `pico2.read` | `temperature`, `text` | the reading, and the firmware's text |
+| `pico2.set_led` (`colour`, `lit`), `pico2.led` (`colour`) | *(omitted)* | the state read back: `1` lit, `0` out |
+| `pico2.name`, `pico2.version`, `pico2.sha` | *(omitted)* | text |
+| `pico2.freq_status` (`channel`) | `status`, `wave`, `frequency` | `Not Started`, `Running`, `Aborted` or `Complete`; the waveform; hertz |
+| `pico2.rd` (`option`, `channel`) | *(omitted)* | the value as text, e.g. `1000.00` |
+
+The LED argument is `lit`, not `on`: YAML reads a bare `on` key as `true`.
+
 ---
 
 ## 6. Running
@@ -1109,7 +1129,7 @@ Which arguments are input files is declared by each driver, not guessed:
 | `s2lp` | `source` of `load_configuration`, `apply_configuration`, `verify_configuration` |
 | `ble-dongle` | bench option `firmware`; `firmware` of `expect_firmware`, `check_firmware`, `update_firmware`, `ensure_firmware`; `source` of `run_script` |
 | `jlink`, `jlink-rtt` | bench options `elf`, `firmware`; `elf` of `load_symbols`; `path` of `flash`, `image_build`, `verify` |
-| `gpd3303d`, `tti1604`, `tek3014b`, `pico-sht30` | none |
+| `gpd3303d`, `tti1604`, `tek3014b`, `pico2-test-board` | none |
 
 **Output files** - logs, reports, screenshots, `--json`/`--markdown`/`--junit` -
 are written relative to the working directory, as before. A run started in the
@@ -1128,16 +1148,16 @@ is the short name of the instrument it came from, so a supply's lines and a
 thermometer's never look alike (#126):
 
 ```json
-{"t": 1790600000.12, "source": "TEMP", "level": "DEBUG", "logger": "benchtools.instruments.pico_sht30.thermometer", "text": ">> temp"}
+{"t": 1790600000.12, "source": "TEMP", "level": "DEBUG", "logger": "benchtools.instruments.pico2_test_board.thermometer", "text": ">> temp"}
 ```
 
 The name is allocated in the setup:
 
 | Where | How | Wins |
 |---|---|---|
-| Specification | `instruments:` entry as a mapping: `temp: {driver: pico-sht30, event: TEMP}` | Always |
+| Specification | `instruments:` entry as a mapping: `pico2: {driver: pico2-test-board, event: TEMP}` | Always |
 | Bench | `event: TEMP` on the instrument | When the specification gives none |
-| Driver default | `PSU`, `BLE`, `JLINK`, `RF`, `SCOPE`, `DMM`, `TEMP` (Pico 2 + SHT30-D), `SERIAL` (serial capture) | When neither does |
+| Driver default | `PSU`, `BLE`, `JLINK`, `RF`, `SCOPE`, `DMM`, `TEMP` (PICO2 Test Board), `SERIAL` (serial capture) | When neither does |
 
 The runner's own records are `TEST`; anything not from an instrument is `BENCH`.
 

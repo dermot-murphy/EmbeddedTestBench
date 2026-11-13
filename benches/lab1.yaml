@@ -108,10 +108,12 @@ instruments:
     resource: /dev/ttyUSB1        # COM5 on Windows
     timeout: 5.0
 
-  # Bench temperature: a Raspberry Pi Pico 2 reading a DollaTek SHT30-D over
-  # I2C (firmware/pico_sht30). Its records in the event log are TEMP (#126).
-  temp:
-    driver: pico-sht30
+  # The PICO2 Test Board (#330): a Raspberry Pi Pico 2 reading a DollaTek SHT30-D
+  # over I2C, with three LEDs and a frequency generator (firmware/pico2_test_board;
+  # docs/pico2_test_board/PICO2_Test_Board_User_Manual.md). Its records in the
+  # event log are TEMP (#126).
+  pico2:
+    driver: pico2-test-board
     resource: COM14               # Pico 2 USB serial AC5483CD0798FB0B, Windows bench PC (#129)
     timeout: 5.0
     event: TEMP
