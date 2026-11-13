@@ -201,6 +201,43 @@ class TestInstruments:
         assert _json(viewer, "GET", "/api/instruments?" + query)[0] == 400
 
 
+class TestStep:
+    """``/api/step``: a step and the events logged during it (VIEW-FR-048, #201)."""
+
+    def test_a_step_of_a_finished_run(self, viewer, tmp_path):
+        log = tmp_path / "events.jsonl"
+        log.write_text("".join(json.dumps(r) + "\n" for r in (
+            {"t": 1.0, "source": "TEST", "level": "INFO", "logger": "benchtools.runner",
+             "text": "run", "kind": "run_start", "data": {
+                 "suite": "s", "tests": [{"name": "t", "steps": [{"action": "psu.output"}]}]}},
+            {"t": 2.0, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner",
+             "text": "step", "kind": "step_start", "data": {"phase": "test", "case": 0,
+                                                            "step": 0}},
+            {"t": 2.5, "source": "PSU", "level": "DEBUG", "logger": "x", "text": ">> OUT1"},
+            {"t": 3.0, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner",
+             "text": "step", "kind": "step_end", "data": {
+                 "phase": "test", "case": 0, "step": 0, "status": "PASS", "measurements": [
+                     {"name": "v", "value": 3.3, "unit": "V", "limit": "3.2 .. 3.4",
+                      "status": "PASS", "reason": ""}]}},
+            {"t": 4.0, "source": "PSU", "level": "DEBUG", "logger": "x", "text": ">> OUT0"})))
+        viewer.hub.follow(str(log))
+        assert _wait(lambda: viewer.hub.traffic.counts.get("PSU") == 2)
+        status, reply = _json(viewer, "GET", "/api/step?phase=test&case=0&step=0")
+        assert status == 200
+        assert [(e["dt"], e["source"], e["text"]) for e in reply["events"]] == \
+            [(0.5, "PSU", ">> OUT1")]
+        assert (reply["started"], reply["ended"]) == (2.0, 3.0)
+        assert reply["step"]["status"] == "PASS"
+        assert reply["step"]["measurements"][0]["limit"] == "3.2 .. 3.4"
+        assert _json(viewer, "GET", "/api/step?phase=test&case=0&step=5")[0] == 400
+
+    @pytest.mark.parametrize("query", ["", "phase=cleanup&step=0", "phase=test&step=0",
+                                       "phase=test&case=x&step=0", "phase=setup&step=1.5"])
+    def test_a_query_that_names_no_step_is_refused(self, viewer, query):
+        status, reply = _json(viewer, "GET", "/api/step?" + query)
+        assert status == 400 and not reply["ok"]
+
+
 class TestControl:
     def test_control_without_a_channel_is_refused(self, viewer):
         status, reply = _json(viewer, "POST", "/api/control", {"cmd": "pause"})
