@@ -405,6 +405,81 @@ class TestV10Twf:
         assert decoded["time_taken_us"] == 630260 and "sync_attribute" in decoded
 
 
+def v1001_twf() -> bytearray:
+    """A 99-byte V10.01.x TWF frame (#335): the V10.00 payload of
+    :func:`v10_twf` with V10.01.2000's header (RF_CAP 5, TWF type version 1,
+    HW and FW capability 4), a 32-bit time taken, the group ID at 96 and the
+    sync attribute at 97-98. None has been received on the bench, so it is
+    built from the firmware."""
+    frame = bytearray(99)
+    frame[0:92] = v10_twf()[0:92]
+    frame[4:7] = bytes([5, (1 << 3) | 4, 4])
+    frame[92:96] = struct.pack(">I", 0x12ABCDEF)
+    frame[96] = 9
+    frame[97:99] = struct.pack(">H", 0xBEEF)
+    return frame
+
+
+class TestV1001Twf:
+    """TWF type version 1 as V10.01.x sends it: 99 bytes, RF_CAP 5 (#335), from
+    the reference project's V10.01.2000 tag; V10.01.0000 and V10.01.1000 have
+    the same TWF rows."""
+
+    def test_a_99_byte_frame_is_decoded_not_refused(self):
+        decoded = decode_kepler_frame(bytes(v1001_twf()))
+        assert decoded["type"] == "TWF" and decoded["sensor_id"] == "5C314E"
+        assert (decoded["rf_capability"], decoded["type_capability"],
+                decoded["hw_capability"], decoded["fw_capability"]) == (5, 1, 4, 4)
+
+    def test_no_warning_its_rf_capability_has_its_own_layout(self):
+        assert "warnings" not in decode_kepler_frame(bytes(v1001_twf()))
+
+    def test_the_fields_are_at_the_v10_offsets(self):
+        decoded = decode_kepler_frame(bytes(v1001_twf()))
+        assert decoded["frame"] == {"repeat": 1, "frames_per_packet": 3}
+        assert decoded["permute_method"] == "distance" and decoded["permute_implied"]
+        assert decoded["temperature_c"] == 23.1 and decoded["battery_mv"] == 3580
+        assert (decoded["packet_number"], decoded["packet_count"]) == (5, 128)
+        assert decoded["ticks"] == 6775 and decoded["si"] == [145, 84, 93]
+        assert decoded["samples"] == list(range(-300, -300 + 32 * 7, 7))
+        assert decoded["param"]["reserved"] == 7 and "permute" not in decoded["param"]
+        assert decoded["odr_hz"] == 25600
+
+    def test_time_taken_is_32_bits_then_the_group_and_the_sync_attribute(self):
+        decoded = decode_kepler_frame(bytes(v1001_twf()))
+        assert decoded["time_taken_us"] == 0x12ABCDEF
+        assert decoded["group_id"] == 9 and decoded["sync_attribute"] == 0xBEEF
+
+    def test_its_samples_are_placed_in_distance_order(self):
+        size, placed = decoder_tables.frame_positions(decode_kepler_frame(bytes(v1001_twf())))
+        assert size == 128 * 32
+        assert placed[5] == -300 and placed[5 + 128] == -293
+
+    def test_a_short_one_is_refused(self):
+        with pytest.raises(KeplerFrameError, match=r"a TWF frame is 99 bytes; this payload is 98$"):
+            decode_kepler_frame(bytes(v1001_twf())[:98])
+
+    def test_an_rf_cap_6_frame_of_99_bytes_is_still_refused(self):
+        # V11 declares the same type version in 100 bytes: the RF_CAP, not the
+        # length, picks the layout.
+        frame = v1001_twf()
+        frame[4] = 6
+        with pytest.raises(KeplerFrameError,
+                           match=r"a TWF frame is 100 bytes; this payload is 99$"):
+            decode_kepler_frame(bytes(frame))
+
+    def test_v11_and_v10_00_twf_are_unchanged(self):
+        decoded = decode_kepler_frame(bytes.fromhex(TWF_FRAMES[0]))
+        assert decoded["rf_capability"] == 6 and decoded["param"]["permute"] == 0
+        assert decode_kepler_frame(bytes(v10_twf()))["time_taken_us"] == 0xABCDEF
+
+    def test_other_rf_cap_5_frames_keep_the_shared_layouts_and_the_warning(self):
+        frame = header(3, 35)
+        frame[4] = 5
+        assert decode_kepler_frame(bytes(frame))["warnings"] == [
+            "RF_CAP 5; these layouts are for RF_CAP 6"]
+
+
 #: Every (PL_TYPE, type version) the decoder knows (#287).
 KNOWN_LAYOUTS = [(pl_type, version, size)
                  for pl_type, versions in sorted(LAYOUTS.items())
