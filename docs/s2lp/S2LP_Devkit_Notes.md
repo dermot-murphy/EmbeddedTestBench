@@ -508,7 +508,7 @@ from RAM):
 | RF (433.425 MHz, 2-FSK, 100 kbps, 19.979 kHz deviation, 156.153 kHz filter) | same | same |
 | Packet (sync `0xB19C0CA7`, CRC-16 0x8005, variable length, address byte, no FEC or whitening) | same | same |
 | Preamble | 32 bits | PREAMBLE_LEN 32, the sensor firmware's value; this only matters when transmitting |
-| RX timeout | infinite (`S2LPTimerSetRxTimeoutUs 0`) | **now the same**, set by `prepare_receive()` on the first receive (#87). Out of reset TIMERS5 is 1, a finite timer. On the ETB kit firmware neither the driver nor the firmware changes it, and RX_TIMEOUT is not among the interrupts the firmware takes, so a timeout would leave the stream silently deaf. It was not seen: with TIMERS5 at 1 and TIMERS4 at 0, the 300 s stream of `84_kit_driver/run1` kept receiving to its end, the longest gap between records 10.0 s (#348 review) |
+| RX timeout | infinite (`S2LPTimerSetRxTimeoutUs 0`) | **now the same**, set by `prepare_receive()` on the first receive (#87). Out of reset TIMERS5 is 1, a finite timer. On the ETB kit firmware neither the driver nor the firmware changes it, and RX_TIMEOUT is not among the interrupts the firmware takes, so a timeout would leave the stream silently deaf. It was not seen: with TIMERS5 at 1 and TIMERS4 at 0, the 300 s stream of `84_kit_driver/run1` kept receiving to its end, the longest gap between its 115 records 9.3 s (#348 review) |
 | Low-power receive | `S2LPGetBatchLP 0` | now the same |
 | nIRQ on GPIO3 | GPIO_MODE 3 (high power) | GPIO_MODE 2 (low power); drive strength only |
 | IRQ mask | RX ready, RX discarded | those, plus TX sent, CRC error, valid sync, RX timeout |
