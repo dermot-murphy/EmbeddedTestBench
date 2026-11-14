@@ -97,6 +97,7 @@
 | next | 2026-11-13 | Claude | #202: PICO-DD-BOARD - `BOARD_DAC_PIO_DIVIDER` 24, `BOARD_DAC_DATA_PIN` 6 and `BOARD_DAC_BCK_PIN` 7 (WSEL GP8), as the owner rewired the bench on 2026-11-13; the DAC board is an Adafruit UDA1334A, with `PLL`, `SF0`, `SF1` and `SCLK` low on the board. PICO-DD-FGEN - the sample rate is 48 828.125 Hz, inside the 16 to 50 kHz range that `SCLK` low selects; the DDS step about 11 µHz. |
 | next | 2026-11-13 | Claude | #330: the Pico 2 SHT30 Temperature Sensor renamed the PICO2 Test Board. §5.8 notes the rename and the user manual (ETB-PICO-002); PICO-DD-PROTOCOL and -VERSION - the name and `V1.00.0000`; PICO-DD-DRIVER - `Pico2TestBoard`, the aliases kept, the bench driver names, `set_led(colour, lit)`; PICO-DD-SIM - default version `V1.00.0000`; PICO-DD-CLI - `benchtools pico2` and the names it still accepts. |
 | next | 2026-11-13 | Claude | #200: section 5.10, PSCOPE - PSCOPE-DD-CONST, PSCOPE-DD-SDK, PSCOPE-DD-SIM, PSCOPE-DD-SCOPE and PSCOPE-DD-CLI, the PicoScope 3000D MSO driver through the `ps3000a` library (total 84 → 89); RUN and VIEW renumbered 5.11 and 5.12; CORE-DD-EVENTS - the default name `PSCOPE`. |
+| next | 2026-11-13 | Claude | #319: CORE-DD-SERIAL - only a bare port name gives up a trailing `:<digits>` as its line rate; a `socket://` or other pyserial URL keeps its port whatever the host. |
 | next | 2026-11-13 | Claude | #71: JLINK-DD-SEGGER, JLINK-DD-COMMANDER, JLINK-DD-SIMCOMMANDER and JLINK-DD-IMAGE added - the `segger` backend (J-Link Commander command files, RTT Logger), its simulation and the host-side image reader. JLINK-DD-SERVER - `find_jlink_commander`, `find_rtt_logger`. JLINK-DD-CLI - `--backend`, `--commander`, `--rtt-logger`. |
 | next | 2026-11-14 | Claude | #71 review round 1: JLINK-DD-SEGGER - `run` always resumes, `core_is_halted` reads DHCSR after run control, register writes not read back by default (`is_register_address`), the RTT logger stopped on a failed start and finished before the client stops; JLINK-DD-COMMANDER - one RTT file per session, `finish`, a logger stopped if its start is interrupted; JLINK-DD-SIMCOMMANDER - simulated DHCSR. |
 | next | 2026-11-14 | Claude | #71 review round 3: JLINK-DD-SEGGER - the register-region test covers the whole written range, and the DHCSR read's connect is stated unverified; JLINK-DD-COMMANDER - an RTT file that cannot be removed raises a clear error; JLINK-DD-CLI - `write --no-read-back` refused on `gdb`. |
@@ -441,8 +442,9 @@ Design points:
   a hand-off and buy nothing.
 - pyserial is imported inside `_open_link`, so the package installs and runs
   without it and its absence is a diagnostic naming the extra (CORE-NFR-003).
-- A trailing `:<digits>` in the resource is a line rate, except where it is a
-  TCP port: `COM5:9600` is 9600 baud, `socket://host:4001` is not 4001 baud.
+- A trailing `:<digits>` in a bare port name is a line rate: `COM5:9600` is
+  9600 baud. A pyserial URL (anything with `://`) keeps its whole text, so
+  `socket://192.168.1.5:4001` is TCP port 4001 whatever the host (#319).
 - A write the far end will not take is reported as a **timeout**, not a
   connection failure. The port is fine; flow control is asserted or the device
   stopped reading, and saying "connection failed" sends the reader to look at

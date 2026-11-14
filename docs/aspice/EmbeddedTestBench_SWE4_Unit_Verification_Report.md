@@ -94,6 +94,8 @@
 | next | 2026-11-13 | Claude | #202: §13A.9: the bench of 2026-11-13 - the DAC board an Adafruit UDA1334A, rewired to GP6, GP7 and GP8, the DAC at 48 828.125 Hz, and a 1 kHz and a 2 kHz sine observed by scope on channels 1 and 2. PICO-OPEN-07 stays open, confirmed in part. |
 | next | 2026-11-13 | Claude | #330: §5 row for SWE4-UT-PICOSPEC (2 cases, pass, run on its own); the rest of §5 is not re-run. |
 | next | 2026-11-13 | Claude | #200: §5 rows for SWE4-UT-PSCOPE (18), -PSCOPECONST (34), -PSCOPESDK (7) and -PSCOPECLI (6), pass, from a run of `tests/instruments/picoscope3000` on this branch on 2026-11-13 (65 passed, Windows). §13C added: those results, what the bench's PicoScope 3405D MSO showed on 2026-11-13, and what it has not yet shown (PSCOPE-OPEN-01 … -05). The section 5 total is still the 1.32 whole-suite run's. |
+| next | 2026-11-13 | Claude | #319: SWE4-UT-SERIAL 31 → 37, pass, from a run of `core/transport/test_serial.py` on this branch on 2026-11-13 (37 passed, Windows). The section 5 total is still the 1.32 whole-suite run's. |
+| next | 2026-11-13 | Claude | #319, review of #332: SWE4-UT-SERIAL 37 → 39, pass, from a run of `core/transport/test_serial.py` on this branch on 2026-11-13 (39 passed, Windows). The section 5 total is still the 1.32 whole-suite run's. |
 | next | 2026-11-13 | Claude | #71: §5 rows for SWE4-UT-JLINKSEGGER (87, pass) and SWE4-UT-JLINKIMAGE (15, pass), from a run of the whole suite on this branch on 2026-11-13 (Windows 10, Python 3.14). The rest of §5 is not regenerated. |
 | next | 2026-11-14 | Claude | #71 review round 1: §5 SWE4-UT-JLINKSEGGER 87 → 107, pass, from a run of the whole suite on this branch on 2026-11-14 (Windows 10, Python 3.14). The rest of §5 is not regenerated. |
 | next | 2026-11-14 | Claude | #71 review round 3: §5 SWE4-UT-JLINKSEGGER 107 → 118, pass, from a run of the whole suite on this branch on 2026-11-14 (Windows 10, Python 3.14). The rest of §5 is not regenerated. |
@@ -279,7 +281,7 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-JLINKRTTONLY | `instruments/jlink/test_rtt_only.py` | 6 | Pass |
 | SWE4-UT-JLINKSEGGER | `instruments/jlink/test_segger.py` | 118 | Pass |
 | SWE4-UT-JLINKIMAGE | `instruments/jlink/test_image.py` | 15 | Pass |
-| SWE4-UT-SERIAL | `core/transport/test_serial.py` | 31 | Pass |
+| SWE4-UT-SERIAL | `core/transport/test_serial.py` | 39 | Pass |
 | SWE4-UT-BLE | `instruments/nordic_dongle/test_dongle.py` | 121 | Pass |
 | SWE4-UT-BLESAMPLE | `instruments/nordic_dongle/test_sampling.py` | 21 | Pass |
 | SWE4-UT-BLEPROTO | `instruments/nordic_dongle/test_protocol.py` | 34 | Pass |
