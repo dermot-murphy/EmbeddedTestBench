@@ -15,6 +15,8 @@ from benchtools.instruments.s2lp import (
     SimulatedKitFirmware,
     SimulatedS2lp,
 )
+from benchtools.core.errors import TransportTimeoutError
+from benchtools.instruments.s2lp import kit_firmware
 from benchtools.instruments.s2lp.kit_firmware import parse_identity, parse_record
 
 RSSI, PQI, SQI, AFC = 0xA2, 0x9F, 0xA0, 0x9E
@@ -212,6 +214,53 @@ class TestStream:
         next(stream)
         stream.close()
         assert not board.running and board.command_log[-1] != "rx start"
+
+    def test_until_ends_it_and_what_the_board_still_held_is_yielded(self, kit, board):
+        for payload in (b"", b"", b""):
+            board.queue_frame(payload)
+        taken = []
+        for packet in kit.stream(timeout=2, until=lambda: len(taken) >= 1):
+            taken.append(packet)
+        assert [packet.data for packet in taken] == [b"", b"", b""]
+        assert [packet.extra["seq"] for packet in taken] == [0, 1, 2]
+        assert not board.running and kit.kit_counters["frames"] == 3
+
+    def test_a_failed_start_still_stops_the_board_and_restores_qi(self, kit, board):
+        def refuse(words):
+            if words[0] == "start":
+                raise ValueError(words)
+            return SimulatedKitFirmware._do_rx(board, words)
+        board._do_rx = refuse
+        with pytest.raises(ProtocolError, match="bad argument"):
+            list(kit.stream(timeout=1))
+        assert board.command_log[-2:] == ["rx stop", "wr 37 01"]
+        assert board.registers[0x37] == 0x01
+
+    def test_a_stop_that_times_out_is_raised_and_tried_again(self, kit, board, monkeypatch):
+        monkeypatch.setattr(kit_firmware, "STOP_TIMEOUT", 0.2)
+        kit.session.timeout = 0.2
+        answer = board.respond
+        silent = {"on": True}
+        board.respond = lambda message: (
+            None if silent["on"] and message.strip() == b"rx stop" else answer(message))
+        with pytest.raises(TransportTimeoutError):
+            list(kit.stream(timeout=0.2))
+        assert board.running and kit.session.receiving    # QI cannot be written now
+        assert "wr 37 01" not in board.command_log
+        silent["on"] = False
+        kit.stop()
+        assert not board.running and not kit.session.receiving
+
+    def test_a_record_lost_after_the_last_sent_is_noted(self, board, tmp_path):
+        path = tmp_path / "kit.log"
+        radio = S2lpDevkit(MockTransport(responder=board))
+        radio.session.log_to(str(path))
+        radio.initialise()
+        board.queue_frame(b"")
+        board.queue_frame(b"", dropped=True)
+        list(radio.stream(count=1, timeout=1))
+        radio.close()
+        assert "1 record(s) lost after the last one sent" in path.read_text(encoding="utf-8")
 
     def test_a_timeout_with_nothing_heard_ends_cleanly(self, kit, board):
         assert not list(kit.stream(timeout=0.2))

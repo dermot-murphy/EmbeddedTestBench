@@ -57,6 +57,7 @@
 | next | 2026-11-14 | Claude | #84 (2): AD-20 points to AD-32; S2LP-ARC-001 names the kit firmware. |
 | next | 2026-11-14 | Claude | #84 review round 1: AD-32 trace count 21. |
 | next | 2026-11-14 | Claude | #84 (driver): S2LP-ARC-001 names `kit_firmware`, `kit_driver`, `KitSession` and `SimulatedKitFirmware`; AD-32 - the host driver is `S2lpDevkit`, and its trace adds SWE4-UT-S2LPKITHOST (31) and the driver's bench run. |
+| next | 2026-11-14 | Claude | #84 review round 3: AD-32 trace: SWE4-UT-S2LPKITHOST 31 -> 35. |
 ---
 
 ## 3. Purpose & Scope
@@ -872,7 +873,7 @@ way to set it up. The host driver is `S2lpDevkit` itself: it asks which
 firmware the board runs on connecting and changes session, so a caller of
 `stream` does not change (S2LP-FR-098 .. S2LP-FR-100).
 
-AD-32 → `SWE4-UT-S2LPKITFW` (21), notably `test_a_frame_is_queued_with_time_and_registers_then_rearmed` and `test_the_longest_deaf_time_is_kept`; `SWE4-UT-S2LPKITHOST` (31), notably `test_the_kit_firmware_is_found_by_asking` and `test_frames_with_their_registers_and_decode`; and the bench runs in `docs/aspice/qualification/2026-11-14/84_kit_firmware/` and `84_kit_driver/`.
+AD-32 → `SWE4-UT-S2LPKITFW` (21), notably `test_a_frame_is_queued_with_time_and_registers_then_rearmed` and `test_the_longest_deaf_time_is_kept`; `SWE4-UT-S2LPKITHOST` (35), notably `test_the_kit_firmware_is_found_by_asking` and `test_frames_with_their_registers_and_decode`; and the bench runs in `docs/aspice/qualification/2026-11-14/84_kit_firmware/` and `84_kit_driver/`.
 
 ---
 

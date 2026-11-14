@@ -129,10 +129,12 @@ class KitFirmwareMixin:
         restore_qi = self._enable_pqi() if _PQI_REGISTER in names else None
         started = time.monotonic()
         received = 0
-        expected_seq = [0]
-        session.rx_start([register.address for register in registers])
+        expected_seq = [0, 0]           # the next number, and the lost so far
+        # Set before the start, so a start that fails still stops the board
+        # and puts QI back: an idle board answers "rx stop" (#348 review).
         running = True
         try:
+            session.rx_start([register.address for register in registers])
             while count is None or received < count:
                 remaining = self._remaining(started, timeout)
                 if (remaining is not None and remaining <= 0) or (until is not None and until()):
@@ -161,15 +163,30 @@ class KitFirmwareMixin:
             expected_seq: List[int], restore_qi: Optional[int]):
         """Stop the kit receiving; the packets it still held, and the command count after.
 
-        QI is put back first, so the count dates from the end of the stream.
+        QI is put back before the count is taken, so the count dates from the
+        end of the stream. A stop the board does not answer leaves it
+        receiving, and a receiving board refuses register writes, so QI cannot
+        be put back then: that is noted in the log, the error raised, and
+        :meth:`stop` tries the stop again (#348 review).
+        Records the board could not queue after the last one it sent show in
+        no gap, only in the ``overflows`` counter: they are noted.
         """
-        leftover, counters = session.rx_stop()
-        session.note("kit receive ended: %s" % " ".join(
-            "%s=%d" % item for item in sorted(counters.items())))
+        try:
+            leftover, counters = session.rx_stop()
+        except Exception:
+            if restore_qi is not None:
+                session.note("the board did not stop: QI left with the PQI check on "
+                             "(0x%02X to restore)" % restore_qi)
+            raise
         if restore_qi is not None:
             self.write_register("QI", restore_qi)
-        return ([self._kit_packet(record, names, decoder, expected_seq) for record in leftover],
-                session.commands_sent)
+        session.note("kit receive ended: %s" % " ".join(
+            "%s=%d" % item for item in sorted(counters.items())))
+        packets = [self._kit_packet(record, names, decoder, expected_seq) for record in leftover]
+        unseen = counters.get("overflows", 0) - expected_seq[1]
+        if unseen > 0:
+            session.note("%d record(s) lost after the last one sent" % unseen)
+        return packets, session.commands_sent
 
     def _kit_packet(self, record: KitRecord, names: List[str], decoder,
                     expected_seq: List[int]) -> Packet:
@@ -183,6 +200,7 @@ class KitFirmwareMixin:
         lost = record.seq - expected_seq[0]
         if lost > 0:
             packet.extra["lost_before"] = lost
+            expected_seq[1] += lost
             self._session.note("%d record(s) lost before seq %d" % (lost, record.seq))
         expected_seq[0] = record.seq + 1
         for name, value in zip(names, record.registers):

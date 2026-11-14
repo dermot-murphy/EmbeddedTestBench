@@ -117,6 +117,7 @@
 | next | 2026-11-14 | Claude | #84: §5 row for SWE4-UT-S2LPKITFW (17), pass, from a local run (Windows, MinGW gcc, CTest) on 2026-11-14; the bench runs are in `qualification/2026-11-14/84_kit_firmware/`. |
 | next | 2026-11-14 | Claude | #84 review round 1: §5 SWE4-UT-S2LPKITFW 17 -> 21, pass, local run 2026-11-14; host commands while receiving checked on the kit (`84_kit_firmware/r1_check/`). |
 | next | 2026-11-14 | Claude | #84 (driver): §5 row for SWE4-UT-S2LPKITHOST (31), pass, from a run of `instruments/s2lp/` on this branch on 2026-11-14 (Windows 10, Python 3.14): no failures; the bench run is in `qualification/2026-11-14/84_kit_driver/`. The §5 total is still the 1.32 whole-suite run's. |
+| next | 2026-11-14 | Claude | #84 review round 3: §5 SWE4-UT-S2LPKITHOST 31 -> 35, pass, from a run of `instruments/s2lp/` on this branch on 2026-11-14 (772 passed). The §5 total is still the 1.32 whole-suite run's. |
 ---
 
 ## 3. Purpose & Scope
@@ -388,7 +389,7 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-PPKCLI | `instruments/ppk2/test_cli.py` | 13 | Pass |
 | SWE4-UT-PICOFW | `firmware/pico2_test_board/test/*.c` | 83 | Pass (CTest with ASan/UBSan, 3 binaries, CI run 39938471355; not in the pytest total; §13A) |
 | SWE4-UT-S2LPKITFW | `firmware/s2lp_kit/test/*.c` | 21 | Pass (CTest, 2 binaries, local run 2026-11-14; not in the pytest total; on the bench: `docs/aspice/qualification/2026-11-14/84_kit_firmware/`) |
-| SWE4-UT-S2LPKITHOST | `instruments/s2lp/test_kit_firmware.py` | 31 | Pass (on the bench: `docs/aspice/qualification/2026-11-14/84_kit_driver/`) |
+| SWE4-UT-S2LPKITHOST | `instruments/s2lp/test_kit_firmware.py` | 35 | Pass (on the bench: `docs/aspice/qualification/2026-11-14/84_kit_driver/`) |
 | SWE4-UT-BENCH | `runner/test_bench.py`, `runner/test_shipped_benches.py` | 67 | Pass |
 | SWE4-UT-ENGINE | `runner/test_runner.py` | 33 | Pass |
 | SWE4-UT-REPORT | `runner/test_report.py` | 24 | Pass |

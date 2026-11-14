@@ -301,9 +301,13 @@ class KitSession(S2lpSession):
         self.receiving = True
 
     def rx_stop(self) -> Tuple[List[KitRecord], Dict[str, int]]:
-        """Stop receiving: the records not yet taken, and the firmware's counters."""
-        self.receiving = False
+        """Stop receiving: the records not yet taken, and the firmware's counters.
+
+        :attr:`receiving` is cleared only once the board has answered, so a
+        stop that timed out is tried again by :meth:`stop` (#348 review).
+        """
         counters = _counters(self.ask("rx stop", timeout=max(self.timeout, STOP_TIMEOUT)))
+        self.receiving = False
         self.last_counters = counters
         left = list(self.records)
         self.records.clear()
