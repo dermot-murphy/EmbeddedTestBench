@@ -96,6 +96,7 @@
 | next | 2026-11-13 | Claude | #200: §5 rows for SWE4-UT-PSCOPE (18), -PSCOPECONST (34), -PSCOPESDK (7) and -PSCOPECLI (6), pass, from a run of `tests/instruments/picoscope3000` on this branch on 2026-11-13 (65 passed, Windows). §13C added: those results, what the bench's PicoScope 3405D MSO showed on 2026-11-13, and what it has not yet shown (PSCOPE-OPEN-01 … -05). The section 5 total is still the 1.32 whole-suite run's. |
 | next | 2026-11-13 | Claude | #319: SWE4-UT-SERIAL 31 → 37, pass, from a run of `core/transport/test_serial.py` on this branch on 2026-11-13 (37 passed, Windows). The section 5 total is still the 1.32 whole-suite run's. |
 | next | 2026-11-13 | Claude | #319, review of #332: SWE4-UT-SERIAL 37 → 39, pass, from a run of `core/transport/test_serial.py` on this branch on 2026-11-13 (39 passed, Windows). The section 5 total is still the 1.32 whole-suite run's. |
+| next | 2026-11-13 | Claude | #313: §5 rows for SWE4-UT-S2LPKEPLER (63 → 75) and SWE4-UT-VIEWKEPLER (12 → 13), pass, from a whole-suite run on this branch on 2026-11-13 (Windows). The section 5 total is still the 1.32 whole-suite run's. |
 | next | 2026-11-13 | Claude | #71: §5 rows for SWE4-UT-JLINKSEGGER (87, pass) and SWE4-UT-JLINKIMAGE (15, pass), from a run of the whole suite on this branch on 2026-11-13 (Windows 10, Python 3.14). The rest of §5 is not regenerated. |
 | next | 2026-11-14 | Claude | #71 review round 1: §5 SWE4-UT-JLINKSEGGER 87 → 107, pass, from a run of the whole suite on this branch on 2026-11-14 (Windows 10, Python 3.14). The rest of §5 is not regenerated. |
 | next | 2026-11-14 | Claude | #71 review round 3: §5 SWE4-UT-JLINKSEGGER 107 → 118, pass, from a run of the whole suite on this branch on 2026-11-14 (Windows 10, Python 3.14). The rest of §5 is not regenerated. |
@@ -319,7 +320,7 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-VIEWTAGS | `viewer/test_tags.py` | 19 | Pass |
 | SWE4-UT-VIEWSTATUS | `viewer/test_status.py` | 10 | Pass |
 | SWE4-UT-VIEWREMOTE | `viewer/test_remote.py` | 22 | Pass |
-| SWE4-UT-VIEWKEPLER | `viewer/test_kepler_view.py` | 12 | Pass |
+| SWE4-UT-VIEWKEPLER | `viewer/test_kepler_view.py` | 13 | Pass |
 | SWE4-UT-VIEWSENSOR | `viewer/test_sensor_series.py` | 17 | Pass |
 | SWE4-UT-VIEWTWF | `viewer/test_twf.py` | 15 | Pass |
 | SWE4-UT-VIEWDIAG | `viewer/test_diagnostics.py` | 14 | Pass |
@@ -331,7 +332,7 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-S2LPPROTO | `instruments/s2lp/test_protocol.py` | 42 | Pass |
 | SWE4-UT-S2LPSESSION | `instruments/s2lp/test_session.py` | 22 | Pass |
 | SWE4-UT-S2LPSIM | `instruments/s2lp/test_simulator.py` | 48 | Pass |
-| SWE4-UT-S2LPKEPLER | `instruments/s2lp/test_kepler.py` | 63 | Pass |
+| SWE4-UT-S2LPKEPLER | `instruments/s2lp/test_kepler.py` | 75 | Pass |
 | SWE4-UT-S2LPTABLES | `instruments/s2lp/test_kepler_tables.py` | 19 | Pass |
 | SWE4-UT-S2LPPREAMBLE | `instruments/s2lp/test_preamble.py` | 17 | Pass |
 | SWE4-UT-S2LPSAMPLES | `instruments/s2lp/test_kepler_samples.py` | 7 | Pass |
