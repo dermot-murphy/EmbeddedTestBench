@@ -487,6 +487,9 @@ V1001_CONFIG = "5c170503050c04051300000a000a000a000a0003"
 V10_TWF = ("5c171203040402041300d38c0001640000000100004802ff10d3021400c6fffe013d0192"
            "00d703ab041102f0008c0315fff9ffde02a301c4017bffea057f0471041401a202d1ff56"
            "054a03d70155044f00ea03d202b5038c01600241099abc01")
+V1001_TWF = ("5c171203050c04041300cf8e0001640000000100001002ff10d70216038f0430033bffa4"
+             "00ee036b0040001e01b903fb01a2046703e003db009302f5047efea9016b029c044e03b6"
+             "03e105930340037402ca011dfff60382006b000100099c7701d483")
 
 
 class TestV10ConfigAndRealFrames:
@@ -533,6 +536,19 @@ class TestV10ConfigAndRealFrames:
         # 16384 samples at 25600 Hz take 640 ms; the sensor reports 629 436 us.
         assert decoded["time_taken_us"] == 629436 and decoded["group_id"] == 1
         assert decoded["samples"][:4] == [198, -2, 317, 402]
+
+    def test_the_first_real_v10_01_twf_frame(self):
+        # 5C1712 on V10.01.2000, received on 2026-11-14 (335_5c1712_v1001/):
+        # #335's 99-byte layout, confirmed on a frame from the air.
+        decoded = decode_kepler_frame(bytes.fromhex(V1001_TWF))
+        assert (decoded["type"], decoded["sensor_id"], decoded["rf_capability"],
+                decoded["type_capability"]) == ("TWF", "5C1712", 5, 1)
+        assert "warnings" not in decoded
+        assert (decoded["axis"], decoded["packet_number"], decoded["packet_count"]) == ("X", 0, 256)
+        assert decoded["time_taken_us"] == 629879 and decoded["group_id"] == 1
+        assert decoded["sync_attribute"] == 54403
+        assert (decoded["temperature_c"], decoded["battery_mv"]) == (20.7, 2840)
+        assert decoded["samples"][:4] == [911, 1072, 827, -92]
 
 
 #: Every (PL_TYPE, type version) the decoder knows (#287).

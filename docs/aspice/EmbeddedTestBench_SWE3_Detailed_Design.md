@@ -113,6 +113,7 @@
 | next | 2026-11-14 | Claude | #342 review round 1: PPK-DD-PROTOCOL - `_number`; PPK-DD-DRIVER - `power` refuses an unknown mode or source voltage; PPK-DD-CLI - `--voltage-limit` required by `voltage` and `power on`. |
 | next | 2026-11-14 | Claude | #335: S2LP-DD-KEPLER - V10.01.x's 99-byte TWF (RF_CAP 5, type version 1), `RF_CAP_LAYOUTS` and `_twf_v1001`. |
 | next | 2026-11-14 | Claude | #335 (2): S2LP-DD-KEPLER - V10's 20-byte CONFIG (`_config_v10`, version 0 and RF_CAP 5); the first V10.00 TWF frames received. |
+| next | 2026-11-14 | Claude | #335 (3): S2LP-DD-KEPLER - V10.01's 99-byte TWF confirmed on frames received from 5C1712 on V10.01.2000. |
 ---
 
 ## 3. Purpose & Scope
@@ -2588,9 +2589,10 @@ The RF_CAP tells it from V11's 100-byte layout, not the length:
 `_layout` before `LAYOUTS`, and `RF_CAP_LAYOUTS[5][4][1]` is 99 bytes,
 `_twf_v1001`, which is `_twf_v0` with those three fields. A frame decoded with
 such a layout gets no RF_CAP warning; other RF_CAP 5 frames keep the shared
-layouts and the warning. An RF_CAP 6 TWF of 99 bytes is still refused. No such
-frame has been received yet; it is checked against frames built from the
-firmware.
+layouts and the warning. An RF_CAP 6 TWF of 99 bytes is still refused. Confirmed on
+the bench on 2026-11-14: 5C1712 on V10.01.2000 sent 99 such frames, every one
+decoded with no warning (time taken 629 879 µs, group 1, sync attribute 54403;
+`docs/aspice/qualification/2026-11-14/335_5c1712_v1001/`).
 
 **V10's CONFIG is 20 bytes (#335).** V10.00.0000, V10.01.2000 and the
 V10.01.2000-323 build on the bench send CONFIG with no Permute Control byte:
