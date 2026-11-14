@@ -514,7 +514,8 @@ class TestV10ConfigAndRealFrames:
     def test_a_20_byte_config_from_v11_is_still_refused(self):
         frame = bytearray.fromhex(V1001_CONFIG)
         frame[4] = 6
-        with pytest.raises(KeplerFrameError, match=r"a CONFIG frame is 21 bytes; this payload is 20$"):
+        refused = r"a CONFIG frame is 21 bytes; this payload is 20$"
+        with pytest.raises(KeplerFrameError, match=refused):
             decode_kepler_frame(bytes(frame))
 
     def test_a_v11_config_is_unchanged(self):

@@ -42,7 +42,7 @@ The commands and their replies, with times, are in `before.txt` and `writes.txt`
   - group ID 1, 21.1 °C, 2800 mV;
   - samples in distance order.
 - **The 99-byte V10.01 TWF (#335).** Not seen: 5C1712 runs V10.00, and the V10.01 sensors sent no TWF.
-- **CONFIG, 20 bytes.** All 183 refused frames were CONFIG frames, from both V10.00 and V10.01-dev: "a CONFIG frame is 21 bytes; this payload is 20". V10's CONFIG has no Permute Control byte. #346 now decodes it (`_config_v10`), and three of these frames are its unit tests.
+- **CONFIG, 20 bytes.** All 183 refused frames were CONFIG frames, from both V10.00 and V10.01-dev: "a CONFIG frame is 21 bytes; this payload is 20". V10's CONFIG has no Permute Control byte. #346 now decodes it (`_config_v10`), and two of these frames, with one of the TWF frames, are its unit tests.
 - **The 268 rejections** are all radio error 2, a CRC error, with no payload. This many senders transmit at once that the copies collide. None were seen in the earlier captures, which had fewer senders.
 
 ## Afterwards
