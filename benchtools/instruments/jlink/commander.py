@@ -41,6 +41,7 @@ import logging
 import os
 import re
 import shutil
+import signal
 import subprocess
 import tempfile
 import time
@@ -72,6 +73,12 @@ __all__ = [
 
 _LOG = logging.getLogger(__name__)
 
+#: How the RTT Logger is asked to quit on Windows: CTRL_BREAK, which reaches
+#: only a process started in a process group of its own. Elsewhere neither
+#: exists, and the logger gets the newline only.
+_CTRL_BREAK = getattr(signal, "CTRL_BREAK_EVENT", None)
+_NEW_PROCESS_GROUP = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+
 #: Messages ``JLink.exe`` V9.42 prints when a command or the connection fails,
 #: each found in the binary's own strings (2026-11-13). A line holding any of
 #: them fails the run, whatever the exit status says.
@@ -100,6 +107,10 @@ ERROR_MARKERS = (
     "Could not open J-Link Command File",
     "Failed to read J-Link Command File",
     "Please select a device with",
+    # With -If JTAG on a target that answers only SWD, V9.42 asks for the JTAG
+    # chain position at this prompt, takes the next command as its answer and
+    # exits 0 with nothing else said (5C1712, 2026-11-14).
+    "JTAGConf>",
     "is unknown to this software version",
 )
 
@@ -387,7 +398,8 @@ class RttLoggerBackend:  # pylint: disable=too-many-instance-attributes
             try:
                 # Not "with": the logger runs until rtt_close stops it.
                 self._process = subprocess.Popen(  # pylint: disable=consider-using-with
-                    arguments, stdin=subprocess.PIPE, stdout=console, stderr=subprocess.STDOUT)
+                    arguments, stdin=subprocess.PIPE, stdout=console, stderr=subprocess.STDOUT,
+                    creationflags=_NEW_PROCESS_GROUP)
             except OSError as exc:
                 raise ConnectionFailedError("cannot start %r: %s" % (arguments[0], exc)) from exc
         try:
@@ -450,12 +462,13 @@ class RttLoggerBackend:  # pylint: disable=too-many-instance-attributes
         """Stop the logger so that what it holds reaches its file, and keep
         the file readable for a last :meth:`rtt_poll`.
 
-        It is first asked to quit as it asks to be ("Press any key to
-        quit"): a newline on its input, which is then closed, and up to
-        :attr:`quit_timeout` seconds to exit and close its file. Only then is
-        it terminated; a terminated process cannot flush what it buffered.
-        Whether the logger reads the key from that pipe, rather than from the
-        console only, is unverified, so terminating remains the fallback.
+        On Windows it is sent CTRL_BREAK (it runs in a process group of its
+        own for this): V9.42 then exits at once, with its file complete
+        (5C1712, 2026-11-14, JLINK-OPEN-05). It ignores the "Press any key to
+        quit" key sent on a pipe; that newline is still sent, for other hosts,
+        where CTRL_BREAK does not exist. It then has :attr:`quit_timeout`
+        seconds to exit and close its file before it is terminated; a
+        terminated process cannot flush what it buffered.
         """
         self._stop_process()
 
@@ -463,6 +476,11 @@ class RttLoggerBackend:  # pylint: disable=too-many-instance-attributes
         process, self._process = self._process, None
         if process is None:
             return
+        if process.poll() is None and _CTRL_BREAK is not None:
+            try:
+                process.send_signal(_CTRL_BREAK)
+            except (OSError, ValueError):
+                pass
         if process.poll() is None and process.stdin is not None:
             try:
                 process.stdin.write(b"\n")

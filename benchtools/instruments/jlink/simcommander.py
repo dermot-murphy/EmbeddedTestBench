@@ -67,7 +67,7 @@ class SimulatedCommander(JLinkCommander):
         #: Each command's handler, by lower-case name; a test may replace one.
         self.handlers: Dict[str, Callable[[str, List[str], List[str]], bool]] = {}
         for names, handler in (
-            (("exitonerror", "eoe", "q", "qc", "quit", "exit", "sleep"), self._quiet),
+            (_NO_CONNECTION, self._quiet),
             (("f",), self._firmware),
             (("h", "halt"), self._halt),
             (("g", "go"), self._go),

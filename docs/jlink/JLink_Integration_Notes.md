@@ -432,11 +432,25 @@ backed up with `nrfjprog --readcode --readuicr`. UICR held CUSTOMER[0]
   57 lines: "Sensor ID is: 0x5C1712", "VERSION: V11.03.0000 (0fbb3f85)",
   "NVM Memory: PASSED". The sensor was back as before the check.
 - **The logger's stop.** `JLinkRTTLogger.exe` does not read the quit key from a
-  pipe. Sent a newline on its input, it was still running 10 s later. So the
-  driver's `finish` always waits the full `quit_timeout` (2 s) and then
-  terminates it. Nothing was lost in the run checked: the file held all 871
-  bytes the logger reported as written. Its own lines show that it writes as it
-  goes.
+  pipe. Sent a newline on its input, it was still running 10 s later, so the
+  driver waited the full `quit_timeout` (2 s) and then terminated it. Sent
+  CTRL_BREAK, in a process group of its own, it exited after 0.02 s with
+  status `0xC000013A`, and its file held all 1016 bytes it reported as written.
+  The driver now starts it that way on Windows and sends CTRL_BREAK first.
+  `rtt --duration 20` went from 28.1 s to 26.1 s. Elsewhere, where CTRL_BREAK
+  does not exist, the newline and the terminate remain (unverified on Linux).
+- **Failed connects** (the checks that could be made without changing the
+  wiring or the supply):
+  - With a probe serial number that is not attached (`--serial 123456789`),
+    Commander printed "Connecting to J-Link via USB...FAILED" and exited 1.
+    The `...FAILED` marker caught it.
+  - With `--interface JTAG` on this SWD-only target, Commander stopped at a
+    `JTAGConf>` prompt for the chain position and took the next command as its
+    answer. It then exited **0**, with no error line at all. The driver caught
+    it only because the read wrote no file. `JTAGConf>` is now a marker.
+  - Not run, because they need someone at the bench: the supply off, with the
+    J-Link back-powering the sensor (§4.3), and the probe unplugged. Their
+    wording is still unseen.
 - **Timing** (each wall clock time includes about 0.4 s for Python to start;
   one Commander run alone is about 0.22 s):
 
@@ -449,19 +463,19 @@ backed up with `nrfjprog --readcode --readuicr`. UICR held CUSTOMER[0]
   | `write` with read-back | 2 | 1.6 s |
   | `erase` with blank check | 2 | 2.0 s |
   | `flash` of 1.05 MB with read-back | 2 + one per range | 37.9 s |
-  | `rtt --duration 20` | 2, then the logger | 28.1 s, of which 2 s is the logger's stop |
+  | `rtt --duration 20` | 2, then the logger | 28.1 s with the 2 s wait; 26.1 s with CTRL_BREAK |
 
 **The table above, item by item, after the check:**
 
 | Item | Result |
 |---|---|
 | `r` for reset | Confirmed: "Reset: Reset device via AIRCR.SYSRESETREQ." |
-| Exit status | A run that succeeds exits 0. The status of a run that `ExitOnError` stops is still not seen, because no command failed |
+| Exit status | A run that succeeds exits 0. A failed probe connect exits 1. A JTAG chain prompt exits 0 with no error line, so the output markers are needed, not the status alone |
 | A quoted file name with a space | Not exercised: the scratch paths have no spaces |
 | `w4` into UICR | Confirmed: it programs the part |
 | Chip `erase` and UICR | Confirmed: UICR is erased too |
 | A halt surviving Commander's exit | It does not: the core runs again |
-| Stopping the logger | It does not read the key from a pipe. It is terminated after 2 s, with no loss seen |
+| Stopping the logger | It does not read the key from a pipe. CTRL_BREAK stops it at once with its file complete |
 | DHCSR read without halting | Confirmed: it does not halt |
 | Commander and the logger at once | Not exercised: the CLI runs nothing else while the logger reads |
 | Linux tool names | Not exercised |
