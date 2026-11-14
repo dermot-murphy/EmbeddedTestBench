@@ -104,6 +104,7 @@
 | next | 2026-11-14 | Claude | #71 review round 3: §5 SWE4-UT-JLINKSEGGER 107 → 118, pass, from a run of the whole suite on this branch on 2026-11-14 (Windows 10, Python 3.14). The rest of §5 is not regenerated. |
 | next | 2026-11-14 | Claude | #71 bench check JLINK-OPEN-05: §5 SWE4-UT-JLINKSEGGER 118 → 120, pass - Commander's connect notices are not failures, the simulator connects only when a command needs it, and `identify` sends `f`; from a run of the J-Link tests on this branch on 2026-11-14 (Windows 10, Python 3.11). The rest of §5 is not regenerated. |
 | next | 2026-11-14 | Claude | #71 bench check review round 1: §5 SWE4-UT-JLINKSEGGER 120 → 122, pass - `JTAGConf>` fails a run, and on Windows the RTT Logger is stopped with CTRL_BREAK (skipped elsewhere); from a run of the J-Link tests on this branch on 2026-11-14 (Windows 10, Python 3.11). The rest of §5 is not regenerated. |
+| next | 2026-11-14 | Claude | #303: §5 SWE4-UT-PLUGINS 61 → 66, pass - the panel interface, the viewer with no plugin, no viewer module naming a Kepler field; SWE4-UT-VIEWSENSOR (17), -VIEWTWF (15), -VIEWDIAG (14), -VIEWKEPLER (13), -VIEWREPORT (10) and -VIEWRADIO (14) pass unchanged in count against the Kepler plugin's modules; from a whole-suite run on this branch on 2026-11-14 (Windows 10, Python 3.11; `core/transport/test_process.py` left out, it needs `cat`). The rest of §5 is not regenerated. |
 ---
 
 ## 3. Purpose & Scope
@@ -253,7 +254,7 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-CONSTRAINTS | `test_constraints.py` | 10 | Pass |
 | SWE4-UT-LINT | `test_lint_script.py` | 3 | Pass |
 | SWE4-UT-PUBLISH | `test_publish_docs.py` | 45 | Pass |
-| SWE4-UT-PLUGINS | `core/test_plugins.py` | 61 | Pass (on Linux CI 60 and 1 skipped: the case-insensitive folder test is Windows-only) |
+| SWE4-UT-PLUGINS | `core/test_plugins.py` | 66 | Pass (on Linux CI 65 and 1 skipped: the case-insensitive folder test is Windows-only) |
 | SWE4-UT-DOCVER | `test_doc_versions.py` | 63 | Pass |
 | SWE4-UT-TRACE | `test_traceability.py` | 30 | Pass |
 | SWE4-UT-SCPI | `core/test_scpi.py` | 28 | Pass |

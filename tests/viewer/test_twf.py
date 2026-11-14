@@ -11,10 +11,12 @@ import struct
 
 import pytest
 
-from benchtools.viewer import twf as twf_module
-from benchtools.viewer.twf import TwfAssembler, fill_gaps, spectrum
+from benchtools.analysis import spectrum as spectrum_module
+from benchtools.analysis.spectrum import fill_gaps, spectrum
 
-from ..kepler_plugin import decode_kepler_frame, tables
+from ..kepler_plugin import decode_kepler_frame, tables, twf
+
+TwfAssembler = twf.TwfAssembler
 
 _PERMUTE = {"distance": 0x00, "none": 0x08, "polynomial": 0x10}
 _PARAM_PERMUTE = {"distance": 0, "none": 1, "polynomial": 2}
@@ -142,7 +144,7 @@ class TestSpectrum:
         assert [b[1] for b in plain] == pytest.approx([b[1] for b in with_numpy], abs=1e-5)
 
     def test_a_length_that_is_not_a_power_of_two(self, monkeypatch):
-        monkeypatch.setattr(twf_module, "_fft", lambda values: pytest.fail("radix-2 used"))
+        monkeypatch.setattr(spectrum_module, "_fft", lambda values: pytest.fail("radix-2 used"))
         real_import = builtins.__import__
 
         def no_numpy(name, *args, **kwargs):

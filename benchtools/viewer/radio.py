@@ -1,10 +1,13 @@
-"""Radio traffic for the viewer: Kepler frames over the S2-LP, and BLE (#139).
+"""Radio traffic for the viewer: device frames over the S2-LP, and BLE (#139).
 
 **RF.** The S2-LP driver logs every packet it sends or receives as an
 ``rf_packet`` record (S2LP-FR-080). :class:`RfFrames` keeps the received
-ones, decodes any the driver did not with the Kepler decoder, and keeps per
-sensor the latest frame of each type, so the page can show both the frames as
-they arrive and what each sensor last said.
+ones, decodes any the driver did not with the decoders of the plugins loaded,
+and keeps per sensor the latest frame of each type, so the page can show both
+the frames as they arrive and what each sensor last said. What a frame's
+one-line summary says, and which of its fields the sensor table keeps, is the
+device's: a plugin's ``frame_summary`` and ``sensor_fields`` hooks (#303).
+Without them a summary lists the frame's plain values.
 
 **BLE.** The dongle's session logs every line it exchanges: ``> command``,
 ``< reply`` and ``< +event key=value ...``. :class:`BleAir` reads the events -
@@ -23,17 +26,14 @@ from typing import Any, Deque, Dict, List, Optional
 
 from ..core import plugins
 
-__all__ = ["RfFrames", "BleAir", "parse_fields", "KEEP_FRAMES", "KEEP_BLE_EVENTS"]
+__all__ = ["RfFrames", "BleAir", "parse_fields", "plain_summary", "KEEP_FRAMES",
+           "KEEP_BLE_EVENTS"]
 
 #: Received frames kept for the page; older ones are dropped.
 KEEP_FRAMES = 1000
 
 #: BLE events kept for the page.
 KEEP_BLE_EVENTS = 1000
-
-#: Kepler fields worth a column in the sensor table, in order, when present.
-SUMMARY_FIELDS = ("temperature_c", "battery_mv", "battery_loaded_mv", "version", "sha",
-                  "frame_count", "ticks", "rms", "velocity", "peak_to_peak")
 
 _FIELD = re.compile(r"(\w+)=(\S*)")
 
@@ -49,22 +49,39 @@ def parse_fields(text: str) -> Dict[str, Any]:
     return fields
 
 
-def _summary(decoded: Dict[str, Any]) -> str:
-    """One line of what a decoded frame says."""
-    parts = ["%s %s%s" % (item["name"], item["shown"], " " + item["unit"] if item["unit"] else "")
-             for item in decoded.get("parameters") or [] if item.get("name")]
-    for key, value in decoded.items():
-        if key in ("type", "pl_type", "sensor_id", "product_id", "product", "rf_capability",
-                   "type_capability", "hw_capability", "fw_capability", "warnings"):
-            continue
-        if isinstance(value, (dict, list)):
-            continue
-        parts.append("%s %s" % (key.replace("_", " "), value))
+def plain_summary(decoded: Dict[str, Any]) -> str:
+    """One line of a decoded frame's plain values, for a device with no
+    ``frame_summary`` hook: every value that is not a list or a mapping, but
+    the frame's type and sender."""
+    parts = ["%s %s" % (key.replace("_", " "), value) for key, value in decoded.items()
+             if key not in ("type", "sensor_id") and not isinstance(value, (dict, list))]
     return ", ".join(parts[:8])
 
 
+def _summary(decoded: Dict[str, Any]) -> str:
+    """One line of what a decoded frame says, as its device's plugin says it."""
+    summary = plugins.hook("frame_summary", plain_summary)
+    try:
+        return str(summary(decoded))
+    except Exception as error:  # pylint: disable=broad-exception-caught
+        # A plugin's hook failing on one frame must not stop the radio view.
+        return "summary failed: %s" % (str(error) or type(error).__name__)
+
+
+def _sensor_fields(decoded: Dict[str, Any]) -> Dict[str, Any]:
+    """The fields the sensor table keeps from a frame, as its plugin says."""
+    fields = plugins.hook("sensor_fields")
+    if fields is None:
+        return {}
+    try:
+        kept = fields(decoded)
+    except Exception:  # pylint: disable=broad-exception-caught
+        return {}
+    return dict(kept) if isinstance(kept, dict) else {}
+
+
 class RfFrames:
-    """Received Kepler frames, and each sensor's latest of every frame type."""
+    """Received frames, and each sensor's latest of every frame type."""
 
     def __init__(self) -> None:
         self.frames: Deque[Dict[str, Any]] = deque(maxlen=KEEP_FRAMES)
@@ -118,8 +135,7 @@ class RfFrames:
             entry["last_t"] = frame["t"]
             entry["rssi_dbm"] = frame["rssi_dbm"]
             entry["latest"][frame["type"]] = {
-                "t": frame["t"], "summary": frame["summary"],
-                **{key: decoded[key] for key in SUMMARY_FIELDS if key in decoded}}
+                **_sensor_fields(decoded), "t": frame["t"], "summary": frame["summary"]}
         return True
 
     def view(self, sensor: str = "", limit: int = 300) -> Dict[str, Any]:

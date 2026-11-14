@@ -7,7 +7,8 @@ ID, a repeat counter and a value, big-endian::
 
 Type 1 is ``READING``, 2 is ``HELLO``. Anything else is not one of its frames.
 The plugin provides decoder ``synthetic``, a register file, a viewer panel
-with a script, a field name and a hook.
+with a script, a tab, an action and a report section, a field name and a
+hook.
 
 Traces to: SWE4-UT-PLUGINS (the synthetic test plugin).
 """
@@ -24,7 +25,8 @@ def register(plugin) -> None:
     """Add the synthetic device's decoder, register file, panel, field and hook."""
     plugin.add_decoder("synthetic", decode_synthetic_frame)
     plugin.add_register_file("synthetic_rx.regs", "configs/synthetic_rx.regs")
-    plugin.add_panel("synthetic", SyntheticPanel, static="static", scripts=("synthetic.js",))
+    plugin.add_panel("synthetic", SyntheticPanel, static="static", scripts=("synthetic.js",),
+                     tabs=(("latest", "Readings"),))
     plugin.add_field("reading", "value")
     plugin.add_hook("twf_sample", lambda method, packet, slot, total, repeat=0:
                     total - 1 - (packet * 32 + slot))

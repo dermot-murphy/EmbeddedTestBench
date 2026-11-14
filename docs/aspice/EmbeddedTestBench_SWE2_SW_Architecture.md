@@ -51,6 +51,7 @@
 | next | 2026-11-13 | Claude | #200: PSCOPE-ARC-001 added, the PicoScope 3000D series MSO driver reached through the `ps3000a` C library with `ctypes`; the layering diagram and the interfaces (USB to the unit, the `ps3000a` library) updated. |
 | next | 2026-11-13 | Claude | #200: the `ps3000a` interface row names its interface specification, ETB-IF-002. |
 | next | 2026-11-13 | Claude | #71: AD-30 added - SEGGER's J-Link Commander and RTT Logger as a second J-Link backend, chosen by configuration; JLINK-ARC-001 names it. |
+| next | 2026-11-14 | Claude | #303: AD-29 consequences - the viewer's device analyses are the Kepler plugin's panel, with its RF tabs and report sections; the viewer names no Kepler field. |
 ---
 
 ## 3. Purpose & Scope
@@ -760,9 +761,10 @@ rather than the commit the results were read with. Keeping the code in
 **Consequences.** Kepler's code is in `plugins/kepler` until it is hosted in
 innovateuk-sensor and #240 removes it. The simulated Kepler sensor stays in
 `benchtools/simulated` until #119 and #240. The viewer's device analyses
-(sensor series, TWF, diagnostics, the report's sections) still read Kepler's
-fields, through a hook where they need its tables; making them plugin-provided
-is a follow-up (#303). A plugin runs with the bench's permissions, so only a
+(sensor series, TWF, diagnostics, sync, the report's sections) are the Kepler
+plugin's panel since #303: the panel lists its RF tabs, and gives its report
+sections as data that the viewer draws, so nothing under `benchtools/viewer`
+names a Kepler field. A plugin runs with the bench's permissions, so only a
 folder the operator names is loaded: the viewer does not load the plugins named
 in a log it follows, and says which they are. For one release, a specification
 written before #238 (`kepler_samples`, `kepler_frame`, the old register file

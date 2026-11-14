@@ -16,96 +16,35 @@ Where this differs from rf_monitor, the sensor firmware decided (#151):
 * **The sample rate** is decoded from the frame's ODR code (``odr_hz``), which
   rf_monitor took as Hz even when bit 15 marks a rate divided by ten.
 
-A sample no frame carried is ``None``: the plot has a gap there. For the
-spectrum the gaps are filled by straight lines between their neighbours (the
-ends held), a Hann window is applied, and the magnitude of each bin is
-``|X(k)| * 2 / N`` in mg at ``k * ODR / N`` Hz, as rf_monitor computed it. The
-transform is NumPy's when NumPy is installed, else a plain-Python one that
-gives the same numbers.
+A sample no frame carried is ``None``: the plot has a gap there. The spectrum
+is :func:`benchtools.analysis.spectrum.spectrum`'s: gaps filled by straight
+lines, a Hann window, ``|X(k)| * 2 / N`` in mg, as rf_monitor computed it.
 
-Traces to: VIEW-FR-034 .. VIEW-FR-036, VIEW-FR-047, VIEW-DD-TWF.
+Part of the Kepler plugin's viewer panel (#303); it was the viewer's own
+``twf`` module, and placed each sample through the plugin's ``twf_sample``
+hook. Here it calls :func:`.tables.twf_sample` itself.
+
+Traces to: VIEW-FR-034 .. VIEW-FR-036, VIEW-DD-TWF.
 """
 
 from __future__ import annotations
 
-import cmath
-import math
 from typing import Any, Dict, List, Optional, Tuple
 
-from ..core import plugins
+from benchtools.analysis.spectrum import spectrum
 
-__all__ = ["TwfAssembler", "spectrum", "fill_gaps", "SAMPLES_PER_PACKET"]
+from .tables import twf_sample
+
+__all__ = ["TwfAssembler", "SAMPLES_PER_PACKET"]
 
 SAMPLES_PER_PACKET = 32
-_METHODS = {0: "distance", 1: "none", 2: "polynomial"}
-
-
-def fill_gaps(values: List[Optional[float]]) -> List[float]:
-    """*values* with each run of ``None`` replaced by a straight line between its
-    neighbours; a run at either end takes the nearest value. All ``None``: zeros."""
-    known = [index for index, value in enumerate(values) if value is not None]
-    if not known:
-        return [0.0] * len(values)
-    out = list(values)
-    for index in range(known[0]):
-        out[index] = values[known[0]]
-    for index in range(known[-1] + 1, len(values)):
-        out[index] = values[known[-1]]
-    for left, right in zip(known, known[1:]):
-        for index in range(left + 1, right):
-            fraction = (index - left) / (right - left)
-            out[index] = values[left] + (values[right] - values[left]) * fraction
-    return [float(value) for value in out]
-
-
-def _fft(values: List[complex]) -> List[complex]:
-    """Radix-2 FFT of a power-of-two length; plain Python."""
-    size = len(values)
-    if size == 1:
-        return list(values)
-    even, odd = _fft(values[0::2]), _fft(values[1::2])
-    out = [0j] * size
-    for index in range(size // 2):
-        twiddle = cmath.exp(-2j * math.pi * index / size) * odd[index]
-        out[index] = even[index] + twiddle
-        out[index + size // 2] = even[index] - twiddle
-    return out
-
-
-def _dft_magnitudes(values: List[float]) -> List[float]:
-    """|X(k)| for k = 0 .. N/2, NumPy's rfft when available."""
-    try:
-        import numpy  # pylint: disable=import-outside-toplevel
-    except ImportError:
-        numpy = None
-    if numpy is not None:
-        return [float(value) for value in numpy.abs(numpy.fft.rfft(numpy.asarray(values)))]
-    size = len(values)
-    if size & (size - 1):
-        # Not a power of two: a direct transform, slower but the same numbers.
-        return [abs(sum(values[n] * cmath.exp(-2j * math.pi * k * n / size)
-                        for n in range(size))) for k in range(size // 2 + 1)]
-    transformed = _fft([complex(value) for value in values])
-    return [abs(transformed[k]) for k in range(size // 2 + 1)]
-
-
-def spectrum(values: List[Optional[float]], odr: float) -> List[Tuple[float, float]]:
-    """``(Hz, mg)`` per bin of a waveform sampled at *odr*: gaps filled, Hann window,
-    ``|X(k)| * 2 / N`` - rf_monitor's computation."""
-    size = len(values)
-    if size < 2 or odr <= 0:
-        return []
-    filled = fill_gaps(values)
-    window = [0.5 - 0.5 * math.cos(2 * math.pi * n / (size - 1)) for n in range(size)]
-    magnitudes = _dft_magnitudes([filled[n] * window[n] for n in range(size)])
-    return [(round(k * odr / size, 6), round(magnitude * 2 / size, 6))
-            for k, magnitude in enumerate(magnitudes)]
 
 
 class _Capture:  # pylint: disable=too-many-instance-attributes
     """One waveform being gathered: a buffer, an axis, a sequence of packets."""
 
-    def __init__(self, total: int, method: str, scale: int, odr: int, t: float) -> None:
+    def __init__(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+            self, total: int, method: str, scale: int, odr: int, t: float) -> None:
         self.total = total
         self.method = method
         self.scale = scale
@@ -129,24 +68,12 @@ class _Capture:  # pylint: disable=too-many-instance-attributes
         size = self.total * SAMPLES_PER_PACKET
         values: List[Optional[float]] = [None] * size
         mg_per_count = (8 << self.scale) * 1000.0 / 32767.0
-        twf_sample = plugins.hook("twf_sample")
-        if twf_sample is None:
-            if self.method != "none":
-                # Permuted, with no plugin to say where each sample goes: an
-                # order guessed would be a wrong waveform, so none is drawn.
-                return values
-            twf_sample = _in_order
         for (packet, version), samples in sorted(self.frames.items()):
             for slot, raw in enumerate(samples):
                 index = twf_sample(self.method, packet, slot, size, version)
                 if 0 <= index < size:
                     values[index] = round(raw * mg_per_count, 4)
         return values
-
-
-def _in_order(_method: str, packet: int, slot: int, _size: int, _version: int) -> int:
-    """Where a sample of an unpermuted waveform belongs: in the order it was sent."""
-    return packet * SAMPLES_PER_PACKET + slot
 
 
 class TwfAssembler:

@@ -16,9 +16,12 @@ Provides:
 * decoder ``kepler``: :func:`.decoder.decode_kepler_frame`;
 * register file ``s2lp_kepler_433_rx.regs``, as
   ``plugin:kepler/s2lp_kepler_433_rx.regs``;
-* viewer panel ``kepler``: :class:`.view.KeplerView`, with ``static/kepler.js``;
-* hook ``twf_sample``: where a permuted TWF sample belongs, for the viewer's
-  waveform reassembly;
+* viewer panel ``kepler``: :class:`.panel.KeplerPanel` - rf_monitor's Latest
+  Data, Config, Identification, Environment, Short Interval, Ticks, TWF,
+  Diagnostics and Sync, each a tab on the RF page, and the report's Kepler
+  sections - with ``static/kepler.js`` and ``static/kepler.css`` (#303);
+* hooks ``frame_summary`` and ``sensor_fields``: a frame's one-line summary,
+  and the fields the RF page's sensor table keeps (#303);
 * hook ``frame_positions``: where a TWF or CONFIG frame's values belong, for
   ``s2lp.dut_transmissions`` to compare the copies of one packet (#243).
 
@@ -28,8 +31,9 @@ Traces to: S2LP-FR-070, VIEW-FR-028, CORE-FR-066.
 from __future__ import annotations
 
 from .decoder import decode_kepler_frame
-from .tables import frame_positions, twf_sample
-from .view import KeplerView
+from .panel import TABS, KeplerPanel
+from .tables import frame_positions
+from .view import frame_summary, sensor_fields
 
 NAME = "kepler"
 
@@ -38,6 +42,8 @@ def register(plugin) -> None:
     """Add Kepler's decoder, register file, viewer panel and hooks to *plugin*."""
     plugin.add_decoder("kepler", decode_kepler_frame)
     plugin.add_register_file("s2lp_kepler_433_rx.regs", "configs/s2lp_kepler_433_rx.regs")
-    plugin.add_panel("kepler", KeplerView, static="static", scripts=("kepler.js",))
-    plugin.add_hook("twf_sample", twf_sample)
+    plugin.add_panel("kepler", KeplerPanel, static="static", scripts=("kepler.js",),
+                     tabs=TABS)
+    plugin.add_hook("frame_summary", frame_summary)
+    plugin.add_hook("sensor_fields", sensor_fields)
     plugin.add_hook("frame_positions", frame_positions)

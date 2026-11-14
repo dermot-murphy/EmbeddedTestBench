@@ -55,6 +55,8 @@ async function loadStGui() {
   if ($("st-follow").checked) box.scrollTop = box.scrollHeight;
 }
 
+registerRfView("stgui", {element: $("rf-stgui-view"), load: loadStGui});
+
 $("st-refresh").addEventListener("click", async () => {
   const reply = await post("/api/stgui/refresh", {});
   $("st-note").textContent = reply.ok

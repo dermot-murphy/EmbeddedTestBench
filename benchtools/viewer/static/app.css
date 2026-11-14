@@ -183,17 +183,9 @@ h2.section { font-size: 13px; margin: 14px 0 6px; color: var(--muted); font-weig
          overflow: hidden; }
 .frame > header { padding: 4px 10px; font-family: var(--mono); font-size: 12px; font-weight: 600;
                   background: var(--bg); border-bottom: 1px solid var(--line); }
-.frame.t-ALIVE > header { border-left: 4px solid var(--series-3); }
-.frame.t-VERSION > header { border-left: 4px solid var(--series-1); }
-.frame.t-CONFIG > header { border-left: 4px solid var(--series-2); }
-.frame.t-TWF > header { border-left: 4px solid var(--series-7); }
-.frame.t-FFT > header, .frame.t-FFT2 > header { border-left: 4px solid var(--series-4); }
-.frame.t-CMD > header, .frame.t-RESPONSE > header { border-left: 4px solid var(--series-5); }
 .frame > .note, .frame > h4, .frame > .raw, .frame > table, .frame > .detail { margin: 6px 10px 0; }
 .frame h4 { font-size: 12px; margin-bottom: 2px; color: var(--muted); }
 .raw { font-family: var(--mono); font-size: 12px; display: flex; flex-wrap: wrap; gap: 0 4px; }
-.raw .r-header { color: var(--series-1); } .raw .r-type { color: var(--series-3); font-weight: 600; }
-.raw .r-permute { color: var(--series-3); } .raw .r-counter { color: var(--series-2); font-weight: 600; }
 table.kv { border-collapse: collapse; font-size: 12px; }
 table.kv th { text-align: left; color: var(--muted); font-weight: 400; padding: 1px 16px 1px 0;
               vertical-align: top; white-space: nowrap; }

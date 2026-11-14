@@ -8,8 +8,8 @@ rest as ``record["tags"]`` when the viewer reads it:
   received), ``rf_tx``, ``reading``, ``runner`` (the run, a test case or a
   step), ``control`` (an operator's request and what the runner did), and
   ``ble_adv`` (a BLE advertising report).
-* ``sensor`` - the sensor the record names: a received frame's Kepler sensor
-  ID, or the ID in a BLE device's advertised name (``SENS-0A1B2C`` names
+* ``sensor`` - the sensor the record names: a received frame's sender, its
+  decode's ``sensor_id``, or the ID in a BLE device's advertised name (``SENS-0A1B2C`` names
   ``0A1B2C``). ``None`` when it names none.
 * ``test`` - the run and test case in progress when it was logged:
   ``"1. Suite > Test case"``, ``"... > setup"`` or ``"... > teardown"``, or

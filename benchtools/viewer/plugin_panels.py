@@ -2,26 +2,33 @@
 
 A device plugin (:mod:`benchtools.core.plugins`) can provide viewer panels: an
 object fed each received radio frame and asked for what it shows, plus the
-scripts the page loads from ``/plugin/<plugin>/``. The server keeps one fresh
-state per panel for each run it follows, lists the plugins for the page, and
-loads the plugins of a run it starts, so that their panels show that run. It
-does not load the plugins a followed log names, and says which are missing.
+scripts the page loads from ``/plugin/<plugin>/`` and the tabs the panel adds
+to the RF page. The server keeps one fresh state per panel for each run it
+follows, lists the plugins and their tabs for the page, and loads the plugins
+of a run it starts, so that their panels show that run. It does not load the
+plugins a followed log names, and says which are missing.
+
+Everything the viewer shows of one device - rf_monitor's screens for Kepler,
+and their sections of the report - comes from that device's panel (#303):
+nothing under ``benchtools/viewer`` names a device's frame types or fields.
 
 Traces to: VIEW-FR-047, VIEW-DD-SERVER.
 """
 
 from __future__ import annotations
 
+import inspect
 import logging
 import pathlib
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from ..core import plugins
 from ..core.errors import BenchToolsError
 from ..runner.bench import load_bench
 from ..runner.spec import load_spec
 
-__all__ = ["dut_panels", "missing_plugins", "plugin_file", "plugins_view", "run_plugins"]
+__all__ = ["dut_panels", "missing_plugins", "panel_call", "plugin_file", "plugins_view",
+           "run_plugins"]
 
 _LOG = logging.getLogger(__name__)
 
@@ -38,10 +45,28 @@ def plugins_view() -> List[Dict[str, Any]]:
         entry = plugin.describe()
         entry["panels"] = [{"name": panel.name,
                             "scripts": ["/plugin/%s/%s" % (plugin.name, script)
-                                        for script in panel.scripts]}
+                                        for script in panel.scripts],
+                            "tabs": [{"id": tab, "label": label} for tab, label in panel.tabs]}
                            for panel in plugin.panels.values()]
         listed.append(entry)
     return listed
+
+
+def panel_call(name: str, view: Callable[..., Any], sensor: str, **options: str
+               ) -> Dict[str, Any]:
+    """*view* (a panel's) for *sensor* with the request's *options*.
+
+    :raises ValueError: naming the options the panel does not take, rather
+        than the :class:`TypeError` a call with them would raise inside it.
+    """
+    if options:
+        try:
+            inspect.signature(view).bind(sensor, **options)
+        except TypeError as error:
+            raise ValueError("panel %s does not take %s: %s"
+                             % (name, ", ".join(sorted(options)), error)) from error
+    reply = view(sensor, **options)
+    return reply if isinstance(reply, dict) else {"view": reply}
 
 
 def plugin_file(rest: str) -> Optional[pathlib.Path]:

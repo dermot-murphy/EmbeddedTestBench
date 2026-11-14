@@ -9,10 +9,10 @@ import struct
 
 import pytest
 
-from benchtools.viewer.sensor_series import SensorSeries, to_mg, to_mm_s
-
 from . import radio_log
-from ..kepler_plugin import decode_kepler_frame
+from ..kepler_plugin import decode_kepler_frame, series
+
+SensorSeries, to_mg, to_mm_s = series.SensorSeries, series.to_mg, series.to_mm_s
 
 
 def _alive(ticks=388, repeat=0, **values):

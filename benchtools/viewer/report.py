@@ -11,11 +11,12 @@ no PDF library is needed). It holds what rf_monitor's export held, and the run:
 * when it was made, from which event log, and the sensor it covers;
 * the notes;
 * the run: test specification, bench, verdict, and each test case;
-* the sensor's identification (last VERSION frame);
-* the Environment, Short Interval (Z axis) and Ticks graphs, and each TWF
-  waveform with its spectrum, drawn as inline SVG;
-* the configuration table and the Diagnostics period statistics;
-* the latest frames, as rf_monitor's Latest Data log.
+* each device plugin's sections for the sensor (#303), which its panel gives
+  as data - tables, charts drawn here as inline SVG, and text. Kepler's are
+  the sensor's identification (last VERSION frame); the Environment, Short
+  Interval (Z axis) and Ticks graphs, and each TWF waveform with its
+  spectrum; the configuration table and the Diagnostics period statistics;
+  and the latest frames, as rf_monitor's Latest Data log.
 
 Traces to: VIEW-FR-040 .. VIEW-FR-042, VIEW-DD-REPORT.
 """
@@ -198,16 +199,55 @@ def _time(value: Any) -> str:
     return datetime.datetime.fromtimestamp(value).strftime("%Y-%m-%d %H:%M:%S")
 
 
-def build_report(hub: Any, sensor: str = "") -> str:  # pylint: disable=too-many-locals
-    """The run as one self-contained HTML document."""
+def _table_block(table: Any) -> str:
+    table = table or {}
+    return _table(list(table.get("headers") or []), list(table.get("rows") or []),
+                  tuple(table.get("numeric") or ()))
+
+
+#: How each kind of block of a panel's report section is drawn, by its key.
+_BLOCKS = {
+    "table": _table_block,
+    "charts": lambda charts: _charts(list(charts or [])),
+    "chart": lambda chart: svg_chart(chart or {}),
+    "heading": lambda text: "<h3>%s</h3>" % _e(text),
+    "text": lambda text: "<pre>%s</pre>" % _e(text),
+    "note": lambda text: '<p class="meta">%s</p>' % _e(text),
+}
+
+
+def _block(block: Dict[str, Any]) -> str:
+    """One block of a panel's report section (:class:`~benchtools.core.plugins.Panel`);
+    a block of no kind known draws nothing."""
+    for kind, draw in _BLOCKS.items():
+        if kind in block:
+            return draw(block[kind])
+    return ""
+
+
+def _sections(report: Dict[str, Any]) -> List[str]:
+    """A panel's sections of the report, as HTML."""
+    parts = []
+    for section in report.get("sections") or []:
+        if not isinstance(section, dict):
+            continue
+        parts.append("<h2>%s</h2>" % _e(section.get("title")))
+        parts.extend(_block(block) for block in section.get("blocks") or []
+                     if isinstance(block, dict))
+    return parts
+
+
+def build_report(hub: Any, sensor: str = "") -> str:
+    """The run as one self-contained HTML document.
+
+    After the notes and the run, each device plugin's panel adds its own
+    sections for *sensor* (#303): Kepler's are its identification, graphs,
+    waveforms, configuration, diagnostics and latest frames.
+    """
     state = hub.since(hub.sequence, hub.generation)["state"]
     notes = NotesStore(hub.path).load()
-    # The sections below read the Kepler panel's fields; making them come
-    # from the plugin as well is the viewer follow-up to #238.
-    kepler = hub.panel_view("kepler", sensor)
-    chosen = kepler.get("sensor") or sensor
-    sensor_graphs = hub.sensor_graphs(chosen, "Z")
-    diagnostics = hub.diagnostic_screens(chosen)["diagnostics"]
+    reports = hub.panel_reports(sensor)
+    chosen = next((report.get("sensor") for report in reports if report.get("sensor")), sensor)
     parts = ["<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">",
              "<title>Bench report: %s</title><style>%s</style></head><body>"
              % (_e(state.get("suite") or "test run"), _CSS),
@@ -233,58 +273,7 @@ def build_report(hub: Any, sensor: str = "") -> str:  # pylint: disable=too-many
                         [[c.get("name"), c.get("requirement"), c.get("status"),
                           c.get("error") or c.get("skip_reason")]
                          for c in state.get("cases") or []]))
-    identification = kepler.get("identification")
-    parts.append("<h2>Identification</h2>")
-    parts.append(_table(["Item", "Value"], [
-        ["Sensor / product", "0x%s / %s" % (identification.get("sensor_id"),
-                                            identification.get("product"))],
-        ["Firmware", identification.get("version")], ["SHA", identification.get("sha")],
-        ["PCB", identification.get("pcb")],
-        ["Reset reason", ", ".join(identification.get("reset_reasons") or [])],
-        ["Received", _time(identification.get("t"))]]) if identification
-                 else '<p class="meta">No VERSION frame received.</p>')
-    parts.append("<h2>Environment</h2>" + _charts(sensor_graphs["environment"]))
-    parts.append("<h2>Short interval (Z axis)</h2>" + _charts(sensor_graphs["short_interval"]))
-    parts.append("<h2>Ticks</h2>" + _charts(sensor_graphs["ticks"]))
-    parts.append("<h2>Time waveforms</h2>")
-    shown_any = False
-    for buffer in ("A", "B"):
-        for axis in ("X", "Y", "Z"):
-            twf = hub.waveform(chosen, buffer, axis)
-            capture = twf.get("capture")
-            if not capture or twf.get("buffer") != buffer:
-                continue
-            shown_any = True
-            parts.append("<h3>TWF%s %s-axis: %s, ODR %s Hz, %s of %s packets, %s</h3>" % (
-                buffer, axis, "complete" if capture["complete"] else "partial",
-                capture["odr_hz"], capture["packets"], capture["total_packets"],
-                capture["method"]))
-            parts.append(svg_chart({"title": "waveform", "unit": "mg", "xunit": "ms",
-                                    "series": [{"points": twf["waveform"]}]}))
-            parts.append(svg_chart({"title": "spectrum", "unit": "mg", "xunit": "Hz",
-                                    "zero": True, "series": [{"points": twf["spectrum"]}]}))
-    if not shown_any:
-        parts.append('<p class="meta">No TWF frames.</p>')
-    parts.append("<h2>Configuration</h2>")
-    parts.append(_table(["Block", "Parameter", "Name", "Value", "Unit"],
-                        [[r["block"], r["parameter"], r["name"], r["shown"], r["unit"]]
-                         for r in kepler.get("config", []) if r["shown"] is not None]))
-    parts.append("<h2>Diagnostics: period statistics</h2>")
-    parts.append(_table(
-        ["Frame type", "Frames", "Packets", "Dropped", "Success %", "Mean s", "Std dev s",
-         "Min s", "Max s", "Last seen"],
-        [[t["type"], t["frames"], t["packets"], t["dropped"] if t["expected"] else "-",
-          t["success_pct"], t.get("mean_s"), t.get("std_s"), t.get("min_s"), t.get("max_s"),
-          _time(t.get("last_seen"))] for t in diagnostics["types"]],
-        numeric=(1, 2, 3, 4, 5, 6, 7, 8)))
-    parts.append("<h2>Latest data</h2><pre>")
-    for frame in kepler.get("latest", []):
-        parts.append(_e("%s  Sensor 0x%s  %s  %s dBm\n" % (
-            _time(frame.get("t")), frame.get("sensor_id"), frame.get("type"),
-            frame.get("rssi_dbm"))))
-        for name, value in frame.get("header", []) + frame.get("payload", []):
-            parts.append(_e("    %-26s %s\n" % (name, value)))
-        if frame.get("problem"):
-            parts.append(_e("    %s\n" % frame["problem"]))
-    parts.append("</pre></body></html>")
+    for report in reports:
+        parts.extend(_sections(report))
+    parts.append("</body></html>")
     return "".join(parts)
