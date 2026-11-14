@@ -281,11 +281,19 @@ class Registry:
         :raises ValueError: if no decoder is loaded, or none reads *payload*;
             the message gives each decoder's reason.
         """
+        return self.decode_with_plugin(payload)[1]
+
+    def decode_with_plugin(self, payload: bytes) -> Tuple[Plugin, Dict[str, Any]]:
+        """As :meth:`decode`, with the plugin whose decoder read *payload* (#303).
+
+        The viewer asks that plugin's hooks, not the first plugin's, what to
+        say of the frame.
+        """
         reasons = []
         for plugin in self.plugins.values():
             for name, function in plugin.decoders.items():
                 try:
-                    return function(payload)
+                    return plugin, function(payload)
                 except Exception as error:  # pylint: disable=broad-exception-caught
                     # A decoder that fails on a frame does not read it, for
                     # whatever reason: one bad frame must not stop a reader.

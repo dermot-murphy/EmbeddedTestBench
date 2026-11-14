@@ -105,6 +105,7 @@
 | next | 2026-11-14 | Claude | #71 bench check JLINK-OPEN-05: §5 SWE4-UT-JLINKSEGGER 118 → 120, pass - Commander's connect notices are not failures, the simulator connects only when a command needs it, and `identify` sends `f`; from a run of the J-Link tests on this branch on 2026-11-14 (Windows 10, Python 3.11). The rest of §5 is not regenerated. |
 | next | 2026-11-14 | Claude | #71 bench check review round 1: §5 SWE4-UT-JLINKSEGGER 120 → 122, pass - `JTAGConf>` fails a run, and on Windows the RTT Logger is stopped with CTRL_BREAK (skipped elsewhere); from a run of the J-Link tests on this branch on 2026-11-14 (Windows 10, Python 3.11). The rest of §5 is not regenerated. |
 | next | 2026-11-14 | Claude | #303: §5 SWE4-UT-PLUGINS 61 → 66, pass - the panel interface, the viewer with no plugin, no viewer module naming a Kepler field; SWE4-UT-VIEWSENSOR (17), -VIEWTWF (15), -VIEWDIAG (14), -VIEWKEPLER (13), -VIEWREPORT (10) and -VIEWRADIO (14) pass unchanged in count against the Kepler plugin's modules; from a whole-suite run on this branch on 2026-11-14 (Windows 10, Python 3.11; `core/transport/test_process.py` left out, it needs `cat`). The rest of §5 is not regenerated. |
+| next | 2026-11-14 | Claude | #303 review round 1: §5 SWE4-UT-PLUGINS 66 → 69, pass, from a run of `core/test_plugins.py` and `viewer/` on this branch on 2026-11-14 (Windows 10, Python 3.11). The page was exercised in a browser (the app's built-in pane) on an event log of a simulated run with Kepler ALIVE and VERSION frames from two sensors and a 256-sample TWFA X capture. With `--plugin plugins/kepler`: the nine Kepler tabs between Frames and ST GUI; the sensor drop-down filtering the sensor table; Latest Data's ten frames with byte colours from `kepler.css`, Pause and Resume; Config's six groups; Identification V11.00.0000; Short Interval's axis selector (X) and three charts, Environment two and Ticks one, Zoom in, out and Reset; TWF's waveform and spectrum, axis Y with no capture saying so, TWFB falling back to TWFA, zoom and Reset; Diagnostics' three type rows, Auto and Hold, Reset clearing the sensor through `POST /api/panel`; Sync; ST GUI; Download report an attachment with Run and the eight Kepler sections. With no plugin: only Frames and ST GUI, both opening, and the report with Run alone; no console errors. The rest of §5 is not regenerated. |
 ---
 
 ## 3. Purpose & Scope
@@ -254,7 +255,7 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-CONSTRAINTS | `test_constraints.py` | 10 | Pass |
 | SWE4-UT-LINT | `test_lint_script.py` | 3 | Pass |
 | SWE4-UT-PUBLISH | `test_publish_docs.py` | 45 | Pass |
-| SWE4-UT-PLUGINS | `core/test_plugins.py` | 66 | Pass (on Linux CI 65 and 1 skipped: the case-insensitive folder test is Windows-only) |
+| SWE4-UT-PLUGINS | `core/test_plugins.py` | 69 | Pass (on Linux CI 68 and 1 skipped: the case-insensitive folder test is Windows-only) |
 | SWE4-UT-DOCVER | `test_doc_versions.py` | 63 | Pass |
 | SWE4-UT-TRACE | `test_traceability.py` | 30 | Pass |
 | SWE4-UT-SCPI | `core/test_scpi.py` | 28 | Pass |

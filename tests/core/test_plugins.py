@@ -512,18 +512,81 @@ class TestViewerWithoutThePlugins:
     def test_no_viewer_module_names_a_kepler_field(self):
         # #303's acceptance: the viewer reads no Kepler frame type or field.
         # Prose may name Kepler as an example of a plugin; code may not.
-        names = ("temperature_c", "battery_mv", "battery_loaded_mv", "packet_count",
-                 "permute_method", "odr_hz", "twfb", "si_scale", "cmd_param", "for_sensor",
-                 "pl_type", "product_id", "rf_capability", '"ALIVE"', '"TWF"', '"VERSION"',
-                 '"CONFIG"', '"CMD"', '"RESPONSE"', "t-ALIVE", "name=kepler", '"kepler"')
+        fields = ("temperature_c", "battery_mv", "battery_loaded_mv", "packet_count",
+                  "permute_method", "odr_hz", "twfb", "si_scale", "twf_scale", "cmd_param",
+                  "for_sensor", "pl_type", "product_id", "rf_capability", "frames_per_packet",
+                  "ALIVE", "TWF", "VERSION", "CONFIG", "CMD", "RESPONSE", "TWFA", "TWFB")
+        pattern = re.compile(r"(?<![\w-])(%s)(?![\w-])" % "|".join(fields))
+        literals = ("name=kepler", '"kepler"', "'kepler'")
         offenders = []
         for path in sorted((BENCHTOOLS / "viewer").rglob("*")):
             if path.suffix not in (".py", ".js", ".html", ".css"):
                 continue
             for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                found = pattern.findall(line) + [name for name in literals if name in line]
                 offenders.extend("%s:%d: %s" % (path.relative_to(ROOT).as_posix(), number, name)
-                                 for name in names if name in line)
+                                 for name in found)
         assert not offenders, "\n".join(offenders)
+
+
+class TestRoundOneOfReview303:
+    """Findings of the first review of #339 (#303)."""
+
+    def test_each_frame_is_described_by_the_plugin_that_reads_it(self, tmp_path):
+        # Loaded first, the other plugin must not describe Kepler's frames,
+        # nor Kepler the other's.
+        write_plugin(tmp_path / "other", (
+            "NAME = 'other'\n"
+            "def decode(payload):\n"
+            "    if payload[:1] != b'\\xee':\n"
+            "        raise ValueError('not mine')\n"
+            "    return {'type': 'PING', 'sensor_id': '00EE', 'value': payload[1]}\n"
+            "def register(plugin):\n"
+            "    plugin.add_decoder('other', decode)\n"
+            "    plugin.add_hook('frame_summary', lambda decoded: 'other says %d' % "
+            "decoded['value'])\n"
+            "    plugin.add_hook('sensor_fields', lambda decoded: {'value': decoded['value']})\n"))
+        plugins.load_plugin(str(tmp_path / "other"))
+        plugins.load_plugin(str(KEPLER))
+        hub = Hub()
+        alive = bytes.fromhex("5c171203060c0401") + bytes(13)
+        for payload, logged in ((b"\xee\x07", None), (alive, None),
+                                (alive, {"type": "ALIVE", "sensor_id": "5C1712", "x": 1})):
+            hub._apply({"kind": "rf_packet", "t": 1.0, "source": "s2lp", "data": {
+                "direction": "rx", "hex": payload.hex(), "length": len(payload),
+                "decoded": logged}})
+        frames = hub.radio()["frames"]
+        assert frames[0]["summary"] == "other says 7"
+        assert not frames[1]["summary"].startswith("other says")
+        assert frames[2]["summary"] == "x 1"           # Kepler's hook, the driver's decode
+        sensors = {entry["sensor_id"]: entry for entry in hub.radio()["sensors"]}
+        assert sensors["00EE"]["latest"]["PING"]["value"] == 7
+        assert "value" not in sensors["5C1712"]["latest"]["ALIVE"]
+
+    def test_a_kepler_tab_that_does_not_exist_is_refused(self):
+        plugins.load_plugin(str(KEPLER))
+        hub = Hub()
+        hub.plugins()
+        assert "latest" in hub.panel_view("kepler", tab="latest")
+        with pytest.raises(ValueError, match="no tab 'nope'"):
+            hub.panel_view("kepler", tab="nope")
+
+    def test_every_panel_reports_on_the_sensor_the_header_names(self):
+        plugins.load_plugin(str(SYNTHETIC))
+        plugins.load_plugin(str(KEPLER))
+        hub = Hub()
+        hub.plugins()
+        for sender, value in ((0x00AB, 1), (0x00CD, 2)):
+            hub._apply({"kind": "rf_packet", "t": 1.0, "source": "s2lp", "data": {
+                "direction": "rx", "hex": synthetic_frame(1, sender, 0, value).hex(),
+                "length": 7}})
+        seen = []
+        kepler = hub.dut_panels["kepler"]
+        original = kepler.report
+        kepler.report = lambda sensor="": seen.append(sensor) or original(sensor)
+        report = build_report(hub)
+        assert "Sensor 0x00AB" in report
+        assert seen[-1] == "00AB"
 
 
 class TestPanelInterface:

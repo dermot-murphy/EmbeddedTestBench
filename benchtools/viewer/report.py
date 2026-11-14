@@ -13,10 +13,8 @@ no PDF library is needed). It holds what rf_monitor's export held, and the run:
 * the run: test specification, bench, verdict, and each test case;
 * each device plugin's sections for the sensor (#303), which its panel gives
   as data - tables, charts drawn here as inline SVG, and text. Kepler's are
-  the sensor's identification (last VERSION frame); the Environment, Short
-  Interval (Z axis) and Ticks graphs, and each TWF waveform with its
-  spectrum; the configuration table and the Diagnostics period statistics;
-  and the latest frames, as rf_monitor's Latest Data log.
+  its identification, graphs, waveforms with their spectra, configuration,
+  diagnostics and latest frames.
 
 Traces to: VIEW-FR-040 .. VIEW-FR-042, VIEW-DD-REPORT.
 """
@@ -248,6 +246,10 @@ def build_report(hub: Any, sensor: str = "") -> str:
     notes = NotesStore(hub.path).load()
     reports = hub.panel_reports(sensor)
     chosen = next((report.get("sensor") for report in reports if report.get("sensor")), sensor)
+    if chosen and chosen != sensor:
+        # One sensor for the whole report: the first panel's choice, given to
+        # every panel rather than each choosing its own.
+        reports = hub.panel_reports(chosen)
     parts = ["<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">",
              "<title>Bench report: %s</title><style>%s</style></head><body>"
              % (_e(state.get("suite") or "test run"), _CSS),

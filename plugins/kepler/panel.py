@@ -78,6 +78,9 @@ class KeplerPanel:
             return self.twf.view(sensor, buffer, axis or "X")
         if tab in ("diagnostics", "sync"):
             return {"diagnostics": self.diagnostics.view(sensor), "sync": self.sync.view()}
+        if tab not in _SCREEN_TABS:
+            raise ValueError("the kepler panel has no tab %r; it has: %s"
+                             % (tab, ", ".join(name for name, _label in TABS)))
         return self.screens.view(sensor)
 
     def action(self, name: str, sensor: str = "") -> Dict[str, Any]:

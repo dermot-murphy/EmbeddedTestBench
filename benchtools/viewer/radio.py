@@ -6,8 +6,10 @@ ones, decodes any the driver did not with the decoders of the plugins loaded,
 and keeps per sensor the latest frame of each type, so the page can show both
 the frames as they arrive and what each sensor last said. What a frame's
 one-line summary says, and which of its fields the sensor table keeps, is the
-device's: a plugin's ``frame_summary`` and ``sensor_fields`` hooks (#303).
-Without them a summary lists the frame's plain values.
+device's: the ``frame_summary`` and ``sensor_fields`` hooks of the plugin
+whose decoder reads the frame's bytes (#303), so that with two device plugins
+each describes its own frames. Without them, or with no plugin that reads the
+frame, a summary lists the frame's plain values.
 
 **BLE.** The dongle's session logs every line it exchanges: ``> command``,
 ``< reply`` and ``< +event key=value ...``. :class:`BleAir` reads the events -
@@ -22,7 +24,7 @@ from __future__ import annotations
 
 import re
 from collections import deque
-from typing import Any, Deque, Dict, List, Optional
+from typing import Any, Deque, Dict, List, Optional, Tuple
 
 from ..core import plugins
 
@@ -58,9 +60,9 @@ def plain_summary(decoded: Dict[str, Any]) -> str:
     return ", ".join(parts[:8])
 
 
-def _summary(decoded: Dict[str, Any]) -> str:
-    """One line of what a decoded frame says, as its device's plugin says it."""
-    summary = plugins.hook("frame_summary", plain_summary)
+def _summary(decoded: Dict[str, Any], owner: Optional[plugins.Plugin]) -> str:
+    """One line of what a decoded frame says, as the plugin that reads it says it."""
+    summary = (owner.hooks if owner else {}).get("frame_summary", plain_summary)
     try:
         return str(summary(decoded))
     except Exception as error:  # pylint: disable=broad-exception-caught
@@ -68,9 +70,9 @@ def _summary(decoded: Dict[str, Any]) -> str:
         return "summary failed: %s" % (str(error) or type(error).__name__)
 
 
-def _sensor_fields(decoded: Dict[str, Any]) -> Dict[str, Any]:
-    """The fields the sensor table keeps from a frame, as its plugin says."""
-    fields = plugins.hook("sensor_fields")
+def _sensor_fields(decoded: Dict[str, Any], owner: Optional[plugins.Plugin]) -> Dict[str, Any]:
+    """The fields the sensor table keeps from a frame, as the plugin that reads it says."""
+    fields = (owner.hooks if owner else {}).get("sensor_fields")
     if fields is None:
         return {}
     try:
@@ -78,6 +80,15 @@ def _sensor_fields(decoded: Dict[str, Any]) -> Dict[str, Any]:
     except Exception:  # pylint: disable=broad-exception-caught
         return {}
     return dict(kept) if isinstance(kept, dict) else {}
+
+
+def _read(payload_hex: str) -> Tuple[Optional[plugins.Plugin], Optional[Dict[str, Any]], str]:
+    """The plugin whose decoder reads a frame's bytes, its decode, and why none did."""
+    try:
+        owner, decoded = plugins.REGISTRY.decode_with_plugin(bytes.fromhex(payload_hex))
+    except ValueError as exc:
+        return None, None, str(exc)
+    return owner, decoded, ""
 
 
 class RfFrames:
@@ -102,14 +113,16 @@ class RfFrames:
             return True
         self.received += 1
         decoded, problem = packet.get("decoded"), packet.get("decode_error") or ""
+        owner: Optional[plugins.Plugin] = None
         if packet.get("error"):
             self.failed += 1
             problem = problem or "the radio reported error 0x%02X" % packet["error"]
-        elif not decoded and packet.get("hex"):
-            try:
-                decoded = plugins.decode(bytes.fromhex(packet["hex"]))
-            except ValueError as exc:
-                problem = str(exc)
+        elif packet.get("hex"):
+            # Which plugin reads the bytes says whose hooks describe the frame,
+            # even when the driver logged its own decode.
+            owner, read, reason = _read(packet["hex"])
+            if not decoded:
+                decoded, problem = read, reason
         decoded = decoded if isinstance(decoded, dict) else None
         sensor = (decoded or {}).get("sensor_id", "")
         frame = {
@@ -122,7 +135,7 @@ class RfFrames:
             "board_time_us": packet.get("board_time_us"),
             "error": packet.get("error", 0),
             "hex": packet.get("hex", ""),
-            "summary": _summary(decoded) if decoded else problem,
+            "summary": _summary(decoded, owner) if decoded else problem,
             "decoded": decoded,
             "problem": problem,
         }
@@ -135,7 +148,7 @@ class RfFrames:
             entry["last_t"] = frame["t"]
             entry["rssi_dbm"] = frame["rssi_dbm"]
             entry["latest"][frame["type"]] = {
-                **_sensor_fields(decoded), "t": frame["t"], "summary": frame["summary"]}
+                **_sensor_fields(decoded, owner), "t": frame["t"], "summary": frame["summary"]}
         return True
 
     def view(self, sensor: str = "", limit: int = 300) -> Dict[str, Any]:

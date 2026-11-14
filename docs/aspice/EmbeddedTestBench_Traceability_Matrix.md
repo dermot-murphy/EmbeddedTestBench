@@ -103,6 +103,7 @@
 | next | 2026-11-14 | Claude | #71 review round 1: JLINK-FR-008 row cites the round-1 tests; AD-30 count 87 → 107. |
 | next | 2026-11-14 | Claude | #71 review round 3: JLINK-FR-008 and -009 rows cite the round-3 tests; AD-30 count 107 → 118. |
 | next | 2026-11-14 | Claude | #303: VIEW-FR-047 traced to the panel interface (tabs, options, actions, report sections, the summary hooks) and `TestPanelInterface`; VIEW-FR-028, -035, -037 and -041 name the code where it now is (`KeplerPanel`, `benchtools.analysis.spectrum`). No requirement added; counts unchanged. |
+| next | 2026-11-14 | Claude | #303 review round 1: VIEW-FR-047 traced to `decode_with_plugin` and `TestRoundOneOfReview303`. |
 ---
 
 ## 3. Purpose & Scope
@@ -818,7 +819,7 @@ and the open items of §19 (OPEN-11).
 | VIEW-FR-044 | VIEW-ARC-001 | VIEW-DD-STGUI | `register_rows`, `regs_text`, `/api/stgui/regs` | `test_register_rows_mark_a_changed_register`, `test_the_register_file_round_trips` |
 | VIEW-FR-045 | VIEW-ARC-001 | VIEW-DD-STGUI | `st_row`, `/api/stgui/refresh`, `stgui.js` | `test_frames_as_st_s_gui_lists_them`, `test_nothing_read_yet` |
 | VIEW-FR-046 | VIEW-ARC-001 | VIEW-DD-SERVER | `ViewerServer.handle_error`, `_CLIENT_WENT_AWAY` | `TestClientGoesAway` (7) |
-| VIEW-FR-047 | VIEW-ARC-001, AD-29 | VIEW-DD-SERVER, VIEW-DD-RADIO, VIEW-DD-KEPLER | `dut_panels`, `plugins_view` (tabs), `run_plugins`, `Hub.panel_view`, `panel_call`, `Hub.panel_action`, `Hub.panel_reports`, `_plugin_static`, `missing_plugins`; `plugins.decode` in `RfFrames.feed` and `sensor_of`; the `frame_summary` and `sensor_fields` hooks, `plain_summary`; `static/plugins.js`, `registerRfView`, `addRfTab`; `KeplerPanel` | `SWE4-UT-PLUGINS`: `TestViewer`, `TestViewerWithoutThePlugins`, `TestPanelInterface` |
+| VIEW-FR-047 | VIEW-ARC-001, AD-29 | VIEW-DD-SERVER, VIEW-DD-RADIO, VIEW-DD-KEPLER | `dut_panels`, `plugins_view` (tabs), `run_plugins`, `Hub.panel_view`, `panel_call`, `Hub.panel_action`, `Hub.panel_reports`, `_plugin_static`, `missing_plugins`; `plugins.decode` in `sensor_of`, `decode_with_plugin` in `RfFrames.feed`; the `frame_summary` and `sensor_fields` hooks of the plugin that reads the frame, `plain_summary`; `static/plugins.js`, `registerRfView`, `addRfTab`; `KeplerPanel` | `SWE4-UT-PLUGINS`: `TestViewer`, `TestViewerWithoutThePlugins`, `TestPanelInterface`, `TestRoundOneOfReview303` |
 | VIEW-FR-048 | VIEW-ARC-001 | VIEW-DD-STEPEVENTS, VIEW-DD-SERVER, VIEW-DD-PAGE | `StepEvents`, `category`, `step_view`, `step_query`, `Hub.step`, `/api/step`, `toggleStep`, `stepPanel` | `SWE4-UT-VIEWSTEPS`: `test_every_step_lists_exactly_its_own_records`, `TestAttribution` (8), `TestCategory` (13), `TestRunBound` (5); `TestStep` (6), `TestFollowRebuilds` (2) |
 | RUN-FR-050 | ARC-001 | RUN-DD-CLI | `runner/cli.py` | `TestRunCommand` (8) |
 | RUN-FR-051 | ARC-001 | RUN-DD-CLI | exit statuses | `test_simulated_run_passes`, `test_failure_exits_nonzero`, `test_no_bench_and_no_simulate_is_a_usage_error` |
