@@ -146,7 +146,7 @@ driver is verified against a simulated probe (CON-04).
 | JLINK-OPEN-03 | **SWO/ITM local timestamp scaling** | The tick-to-cycle scaling depends on the trace prescaler configured by the server and the firmware. Implemented from the ARMv7-M architecture reference manual; unconfirmed | Measure a known interval with `CYCLE_COUNTER` and with `SWO_ITM` and compare. Until then, quote SWO figures as provisional (CON-05) |
 | JLINK-OPEN-04 | RTT control-block discovery and flash timing | **Figures recorded 2026-10-04** (ETB-SYS5-002 §9): chip erase 0.6 s; flash and verify 14.7 s for a 1.17 MB HEX (V10 with SoftDevice) and 17.0 s for 1.34 MB (V11 with SoftDevice and bootloader); RTT output within 20 s of reset and run. The driver's 180 s flash timeout covers these | Set tighter timeouts only with more figures |
 
-| JLINK-OPEN-05 | **The `segger` backend on a real probe** (#71) | Built and verified on the simulator only. Commander's options and commands were read from the V9.42 binary's strings, not run (§4.9) | Run §4.9's bench check on 5C1712 and record each item |
+| JLINK-OPEN-05 | **The `segger` backend on a real probe** (#71) | Built and verified on the simulator only. Commander's options and commands were read from the V9.42 binary's strings, not run (§4.9). Unknown: whether the DHCSR read's connect halts the core, whether a halt survives Commander's exit, and what the extra Commander run per reset, run and halt and the logger's stop cost in time | Run §4.9's bench check on 5C1712, the DHCSR steps and the timing first, and record each item |
 
 JLINK-OPEN-03 is the one that could change a reported number. The other three
 would show up as an outright failure, not a wrong figure.
@@ -368,17 +368,36 @@ USB probe.
 | Whether a core halted by `h` stays halted after Commander exits | **Unverified**; on 2026-10-05 ending a session resumed a halted core (§4.3). The simulator models the resume |
 | RTT Logger options; its default channel is 1 | In the binary's strings; the logger ran on 5C1712 on 2026-09-26 with `-RTTChannel 0` |
 | Whether stopping the logger loses bytes not yet written | **Unverified**. It is first sent a newline on its input, as it asks for a key, and given 2 s to exit and close its file; only then terminated. Whether it reads that key from a pipe is unverified |
-| Reading DHCSR with `savebin` without halting the core | **Unverified**; `mem32` did not halt it on 2026-10-05 |
+| Reading DHCSR with `savebin` without halting the core | **Unverified**; `mem32` did not halt it on 2026-10-05. Every reset, run and halt reads DHCSR in a new run that connects with `-AutoConnect 1`: if that connect halted a running core, `run` and `reset --run` would raise for a core that runs |
+| Time cost | **Unmeasured**: each reset, run and halt is two Commander runs (the command and the DHCSR read), and stopping RTT can wait up to 2 s for the logger to quit before it is terminated. Time both on the bench |
 | Commander and the logger holding the probe at the same time | **Unverified**; only one client held the probe reliably in earlier sessions |
 | Tool names `JLinkExe`, `JLinkRTTLoggerExe` on Linux | **Unverified** |
 
 **Bench check (pending, JLINK-OPEN-05).** On 5C1712, with its UICR backed up:
-`--backend segger info`; `read 0x10001080 4`; `erase` and a read of UICR;
-`write 0x10001080 005c1712` into the erased UICR, and its read-back; `flash`
-of the V11 HEX with `--preserve 0x10001080:4`; `reset --run` and DHCSR
-(`0xE000EDF0`) read with `read`; `rtt --duration 20`; `halt`, then DHCSR read
-in a second run, to settle whether a halt survives Commander's exit. Each line
-of the table above marked unverified is then confirmed or corrected.
+
+1. **DHCSR read does not disturb the core.** `--backend segger reset --run`;
+   `read 0xE000EDF0 4` twice, in two separate runs; `halt`; `read 0xE000EDF0
+   4` again. Expect `0x00050001` (running) from both reads after the reset, and
+   `0x00030003` (halted) after the halt if the halt holds; `halt` itself exits
+   with an error if the core ran again, and the read after it shows which. If
+   the first reads
+   say halted, the DHCSR read itself halts the core and the backend's state
+   checks are wrong.
+2. **Timing.** Time `reset --run`, `run`, `halt` (each two Commander runs) and
+   the end of `rtt` (up to 2 s waiting for the logger to quit).
+3. `--backend segger info`; `read 0x10001080 4`; `erase` and a read of UICR;
+   `write 0x10001080 005c1712` into the erased UICR, and its read-back;
+   `flash` of the V11 HEX with `--preserve 0x10001080:4`; `reset --run`;
+   `rtt --duration 20`.
+
+Each line of the table above marked unverified is then confirmed or corrected.
+
+**`halt` on this backend.** If ending a Commander run resumes the core, as it
+did once on 2026-10-05 (§4.3), then **`--backend segger halt` always fails**:
+the core is halted, Commander exits, the core runs again, and the DHCSR read
+that follows says so. The driver raises rather than report a halted core that
+is running. A core that has to stay halted - to read it at rest, to keep it
+off the air - needs `backend: gdb`. `reset` without `--run` only logs it.
 
 ## 5. What this driver does not do
 

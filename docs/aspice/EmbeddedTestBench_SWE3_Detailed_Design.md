@@ -99,6 +99,7 @@
 | next | 2026-11-13 | Claude | #200: section 5.10, PSCOPE - PSCOPE-DD-CONST, PSCOPE-DD-SDK, PSCOPE-DD-SIM, PSCOPE-DD-SCOPE and PSCOPE-DD-CLI, the PicoScope 3000D MSO driver through the `ps3000a` library (total 84 → 89); RUN and VIEW renumbered 5.11 and 5.12; CORE-DD-EVENTS - the default name `PSCOPE`. |
 | next | 2026-11-13 | Claude | #71: JLINK-DD-SEGGER, JLINK-DD-COMMANDER, JLINK-DD-SIMCOMMANDER and JLINK-DD-IMAGE added - the `segger` backend (J-Link Commander command files, RTT Logger), its simulation and the host-side image reader. JLINK-DD-SERVER - `find_jlink_commander`, `find_rtt_logger`. JLINK-DD-CLI - `--backend`, `--commander`, `--rtt-logger`. |
 | next | 2026-11-14 | Claude | #71 review round 1: JLINK-DD-SEGGER - `run` always resumes, `core_is_halted` reads DHCSR after run control, register writes not read back by default (`is_register_address`), the RTT logger stopped on a failed start and finished before the client stops; JLINK-DD-COMMANDER - one RTT file per session, `finish`, a logger stopped if its start is interrupted; JLINK-DD-SIMCOMMANDER - simulated DHCSR. |
+| next | 2026-11-14 | Claude | #71 review round 3: JLINK-DD-SEGGER - the register-region test covers the whole written range, and the DHCSR read's connect is stated unverified; JLINK-DD-COMMANDER - an RTT file that cannot be removed raises a clear error; JLINK-DD-CLI - `write --no-read-back` refused on `gdb`. |
 ---
 
 ## 3. Purpose & Scope
@@ -1153,8 +1154,9 @@ runs instead of GDB/MI commands. `JLinkProbe.connect(backend="segger")` calls
   and removed; `w4` for whole aligned words and `w1` for the rest. A write is
   read back in a **new** run, so the read is the part's and not the DLL's
   flash cache, and raises if it differs. `verify=None`, the default, reads
-  back memory and not a register in the peripheral (`0x40000000`-`0x5FFFFFFF`)
-  or system (`0xE0000000` up) region (`is_register_address`): a
+  back memory and not a write any byte of which falls in the peripheral
+  (`0x40000000`-`0x5FFFFFFF`) or system (`0xE0000000` up) region
+  (`is_register_address(address, size)`, over the whole range): a
   write-1-to-clear bit reads back 0. `verify=True` or `False` decides either
   way; the CLI's `write --no-read-back` passes `False`.
 - **Run control**: `reset` is `r` with `h` or `g`; `run` always sends `g`,
@@ -1164,7 +1166,9 @@ runs instead of GDB/MI commands. `JLinkProbe.connect(backend="segger")` calls
   `is_halted` reports that. `run` and `reset(halt=False)` raise if the core
   is still halted; `halt` raises if Commander's exit let the core run again
   (seen once, JLink_Integration_Notes §4.3); `reset(halt=True)` only logs it,
-  since `restore` resets halted and `loadfile` halts for itself.
+  since `restore` resets halted and `loadfile` halts for itself. Unverified:
+  that the DHCSR run's `-AutoConnect 1` connect leaves a running core
+  running; JLINK-OPEN-05 checks it. Each of these is two Commander runs.
 - **Close**: a run of `g` if the probe ran anything and `leave_halted` is not
   set (JLINK-FR-006).
 - **RTT**: `RttClient` over `RttLoggerBackend`; the core is let go first
@@ -1204,7 +1208,8 @@ Running SEGGER's tools for the `segger` backend.
   a logger that stops by itself with what it printed, and refuses `rtt_send`
   (`RttReadOnlyError`). Each session writes its own file
   (`rtt_channel_<n>_<session>.log`), so nothing is replayed and the read
-  position is that file's. `finish` sends a newline and closes the logger's
+  position is that file's. An old file that cannot be removed - another
+  logger still writing it - is a `ConnectionFailedError` saying so. `finish` sends a newline and closes the logger's
   input, waits `quit_timeout` for it to exit and close its file, and only then
   terminates it; the file stays readable until `rtt_close`. An exception,
   `BaseException` included, while waiting for the logger to start stops it. `SimulatedReadOnlyRtt` makes the simulator's RTT
@@ -1241,7 +1246,8 @@ Sub-commands `info`, `flash`, `verify`, `erase`, `reset`, `run`, `halt`, `read`,
 without `--run`, and `run --until` set `leave_halted`, since a halted core is their
 purpose; every other sub-command leaves the target running (JLINK-FR-006). `--backend
 {gdb,segger}` (default `gdb`), `--commander` and `--rtt-logger` choose the
-backend and its tools (#71); `info` and `erase` report the backend, and `info`
+backend and its tools (#71); `write --no-read-back` is refused on `gdb`, which
+never reads back; `info` and `erase` report the backend, and `info`
 reports no program counter on `segger`. The `time` sub-command adds a
 `warning` key when the result is not trustworthy, so a figure quoted from a shell
 script carries the same caveat the API gives.

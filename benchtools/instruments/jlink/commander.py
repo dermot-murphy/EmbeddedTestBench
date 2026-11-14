@@ -368,7 +368,15 @@ class RttLoggerBackend:  # pylint: disable=too-many-instance-attributes
         self._console = os.path.join(directory, stem + "_console.txt")
         self._offset = 0
         if os.path.exists(self._path):
-            os.remove(self._path)
+            try:
+                os.remove(self._path)
+            except OSError as exc:
+                # On Windows a file another process still has open cannot be
+                # removed: most likely a logger from an earlier session.
+                raise ConnectionFailedError(
+                    "cannot start a new RTT session: the old RTT file %s cannot be "
+                    "removed (%s). Another J-Link RTT Logger may still be writing it; "
+                    "stop it and try again." % (self._path, exc)) from exc
         arguments = self.command_line(self._path)
         with open(self._console, "wb") as console:
             try:

@@ -160,7 +160,13 @@ def _cmd_read(probe: JLinkProbe, args) -> int:
 
 def _cmd_write(probe: JLinkProbe, args) -> int:
     data = bytes.fromhex(args.data.replace(" ", ""))
-    if args.no_read_back and probe.backend == "segger":
+    if args.no_read_back and probe.backend != "segger":
+        # The gdb backend never reads a write back, so the option would do
+        # nothing; accepting it silently would suggest it did something.
+        print("error: --no-read-back applies to --backend segger only; the %s "
+              "backend does not read writes back" % probe.backend, file=sys.stderr)
+        return _EXIT_USAGE
+    if args.no_read_back:
         probe.write_memory(args.address, data, verify=False)
     else:
         probe.write_memory(args.address, data)

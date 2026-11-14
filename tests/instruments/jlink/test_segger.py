@@ -37,6 +37,7 @@ from benchtools.instruments.jlink.commander import (
 )
 from benchtools.instruments.jlink.segger import (
     GDB_ONLY_OPERATIONS,
+    is_register_address,
     SeggerJLinkProbe,
     UnsupportedOperationError,
 )
@@ -362,6 +363,30 @@ class TestMemory:
         probe.write_word(address, 0x12345678)
         assert commands_run(probe)[-1][1].startswith("savebin ")
 
+    @pytest.mark.parametrize("address, size", [
+        (0x3FFFFFFC, 8),        # starts in memory, runs into the peripherals
+        (0x5FFFFFFC, 8),        # starts in the peripherals, runs out of them
+        (0xDFFFFFFC, 8),        # starts in memory, runs into the system region
+    ])
+    def test_a_write_reaching_a_register_region_is_not_read_back(self, probe, address, size):
+        probe.write_memory(address, bytes(range(size)))
+        assert all(line.startswith("w") for line in commands_run(probe)[-1][1:-1])
+
+    @pytest.mark.parametrize("address, size, expected", [
+        (0x3FFFFFF8, 8, False), (0x3FFFFFFC, 8, True), (0x60000000, 4, False),
+        (0x5FFFFFFF, 1, True), (0xDFFFFFFC, 4, False), (0xDFFFFFFC, 5, True),
+    ])
+    def test_the_register_test_covers_the_whole_range(self, address, size, expected):
+        assert is_register_address(address, size) is expected
+
+    def test_no_read_back_is_refused_on_gdb(self, capsys):
+        """gdb never reads a write back: the option would do nothing."""
+        status = cli_main(["-r", "sim://", "write", "0x20000100", "01020304",
+                           "--no-read-back"])
+        captured = capsys.readouterr()
+        assert status == 2 and "--backend segger only" in captured.err
+        assert captured.out == ""
+
     def test_the_command_line_can_skip_the_read_back(self, capsys):
         status = cli_main(["-r", "sim://", "--backend", "segger", "write", "0x20000100",
                            "01020304", "--no-read-back"])
@@ -606,6 +631,18 @@ class TestRtt:
         with pytest.raises(KeyboardInterrupt):
             backend.rtt_open()
         assert started and started[0].poll() is not None
+
+    def test_an_old_file_that_cannot_be_removed_is_reported_clearly(
+            self, monkeypatch, tmp_path):
+        backend = self.logger(monkeypatch, tmp_path, "pass\n")
+        (tmp_path / "rtt_channel_0_001.log").write_bytes(b"old")
+
+        def locked(path):
+            raise PermissionError(13, "The process cannot access the file", path)
+
+        monkeypatch.setattr(commander_module.os, "remove", locked)
+        with pytest.raises(ConnectionFailedError, match="cannot be removed.*still be writing"):
+            backend.rtt_open()
 
     def test_a_logger_that_exits_says_what_it_printed(self, monkeypatch, tmp_path):
         script = tmp_path / "logger.py"

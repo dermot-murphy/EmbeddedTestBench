@@ -85,11 +85,15 @@ DHCSR = 0xE000EDF0
 DHCSR_S_HALT = 1 << 17
 
 
-def is_register_address(address: int) -> bool:
-    """Whether *address* is in a Cortex-M peripheral or system region, where
-    registers live and a write need not read back as written (ARMv7-M
-    memory map: peripherals 0x40000000-0x5FFFFFFF, system from 0xE0000000)."""
-    return 0x40000000 <= address < 0x60000000 or address >= 0xE0000000
+def is_register_address(address: int, size: int = 1) -> bool:
+    """Whether any byte of *size* bytes from *address* is in a Cortex-M
+    peripheral or system region, where registers live and a write need not
+    read back as written (ARMv7-M memory map: peripherals
+    0x40000000-0x5FFFFFFF, system from 0xE0000000). A range that only starts
+    in memory and runs into a register counts: the register in it would fail
+    the read-back."""
+    end = address + max(int(size), 1)
+    return (address < 0x60000000 and end > 0x40000000) or end > 0xE0000000
 
 
 __all__ = [
@@ -462,6 +466,13 @@ class SeggerJLinkProbe(JLinkProbe):  # pylint: disable=too-many-instance-attribu
         (JLink_Integration_Notes §4.3). That session read DHCSR with
         ``mem32`` without halting the core; reading it with ``savebin``, as
         here, is not yet verified on the bench.
+
+        **Unverified: that the read leaves the core as it was.** The run that
+        reads DHCSR connects with ``-AutoConnect 1``. If that connect halted a
+        running core, this would report "halted" for a core that ran, and
+        :meth:`run` and ``reset(halt=False)`` would raise falsely. The bench
+        check JLINK-OPEN-05 (notes §4.9) settles it: ``reset --run``, DHCSR
+        read twice in separate runs, then ``halt`` and DHCSR read again.
         """
         halted = bool(self.read_word(DHCSR) & DHCSR_S_HALT)
         self._halted = halted
@@ -576,7 +587,7 @@ class SeggerJLinkProbe(JLinkProbe):  # pylint: disable=too-many-instance-attribu
         """
         payload = bytes(data)
         if verify is None:
-            verify = not is_register_address(address)
+            verify = not is_register_address(address, len(payload))
         if not payload:
             return
         commands: List[str] = []

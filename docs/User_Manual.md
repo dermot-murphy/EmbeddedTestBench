@@ -528,6 +528,11 @@ From `docs/jlink/JLink_Integration_Notes.md` §4.1–4.2,
   `erase`, `read`, `write`, `reset`, `run`, `halt` and reading RTT. It refuses
   `var`, `stack`, `time` and RTT writes by name. It has run on the simulated
   bench only: its bench check is open (JLink_Integration_Notes §4.9).
+  **`halt` probably always fails on it**: each operation is a Commander run
+  that ends, ending one let a halted core run again on 2026-10-05, and the
+  driver reads the core back and raises rather than report it halted. To keep
+  a core halted, use `backend: gdb`. `write --no-read-back` is for `segger`
+  only; on `gdb` it is refused.
 
 #### Sensor commands with side effects
 
