@@ -93,5 +93,7 @@ The kit was put back on ST's firmware after each session: the backup was written
 
 - **The 20 ms repeat case.** The closest copies on air were 41 ms apart, and the sensors set the spacing. The firmware's own figure, 393 µs at most from a frame's interrupt to the radio armed again, says a 20 ms repeat would be caught. It was not seen.
 - **The UART, at sustained close repeats.** At 115200 a 100-byte TWF record takes about 23 ms to send. The board queues 16 records, so a burst of close copies is held and sent behind them, but a long run of repeats closer than that would fill the queue. That shows as `overflows` and as gaps in `seq`, not as frames silently missed.
+- **Host bytes landing inside a radio interrupt.** With 27 frames in 180 s, few if any of the 360 `stat` commands can have arrived during a frame's interrupt. So `r1_check` shows that nothing regressed, not that the priority fix works under overlap. The fix stands on the code and its review. A bench figure would need bytes streamed during busy reception.
+- **A full 128-byte FIFO.** If NELEM_RXFIFO really is 7 bits, a full FIFO reads 0 and such a frame would be reported as empty. RX_PCKT_LEN1/0 would give its real length. Kepler frames are at most 100 bytes.
 - **Rejections.** None occurred. The CRC, filter and FIFO-error path is checked only by the unit tests.
 - **The host driver.** These runs used `kit_rx.py`, not a `benchtools` driver.

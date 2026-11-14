@@ -48,8 +48,9 @@ SECTIONS
 		_ebss = .;
 	} > RAM
 
-	/* At least 1 KB left for the stack. */
-	ASSERT(_ebss + 1024 <= _estack, "RAM overflow: less than 1 KB left for the stack")
+	/* At least 2 KB left for the stack: "rx stop" holds about 1.1 KB of
+	   line buffers at its deepest (#348 review). */
+	ASSERT(_ebss + 2048 <= _estack, "RAM overflow: less than 2 KB left for the stack")
 
 	/DISCARD/ :
 	{
