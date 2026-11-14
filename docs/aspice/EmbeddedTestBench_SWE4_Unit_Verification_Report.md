@@ -99,6 +99,9 @@
 | next | 2026-11-13 | Claude | #313: §5 rows for SWE4-UT-S2LPKEPLER (63 → 75) and SWE4-UT-VIEWKEPLER (12 → 13), pass, from a whole-suite run on this branch on 2026-11-13 (Windows). The section 5 total is still the 1.32 whole-suite run's. |
 | next | 2026-11-13 | Claude | #201: §5 row for SWE4-UT-VIEWSTEPS (26), and SWE4-UT-VIEWSERVER 36 → 42, pass, from a run of `tests/viewer` on this branch on 2026-11-13 (Windows). The Run page's step events were also exercised in a browser on a simulated run's event log. The section 5 total is still the 1.32 whole-suite run's. |
 | next | 2026-11-14 | Claude | #201, review of #334: SWE4-UT-VIEWSTEPS 26 → 31 and SWE4-UT-VIEWSERVER 42 → 44, pass, from a run of `viewer/test_step_events.py` and `viewer/test_server.py` on this branch on 2026-11-14 (Windows). The section 5 total is still the 1.32 whole-suite run's. |
+| next | 2026-11-13 | Claude | #71: §5 rows for SWE4-UT-JLINKSEGGER (87, pass) and SWE4-UT-JLINKIMAGE (15, pass), from a run of the whole suite on this branch on 2026-11-13 (Windows 10, Python 3.14). The rest of §5 is not regenerated. |
+| next | 2026-11-14 | Claude | #71 review round 1: §5 SWE4-UT-JLINKSEGGER 87 → 107, pass, from a run of the whole suite on this branch on 2026-11-14 (Windows 10, Python 3.14). The rest of §5 is not regenerated. |
+| next | 2026-11-14 | Claude | #71 review round 3: §5 SWE4-UT-JLINKSEGGER 107 → 118, pass, from a run of the whole suite on this branch on 2026-11-14 (Windows 10, Python 3.14). The rest of §5 is not regenerated. |
 ---
 
 ## 3. Purpose & Scope
@@ -279,6 +282,8 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-JLINKSIM | `instruments/jlink/test_simulator.py` | 30 | Pass |
 | SWE4-UT-JLINKCLI | `instruments/jlink/test_cli.py` | 30 | Pass |
 | SWE4-UT-JLINKRTTONLY | `instruments/jlink/test_rtt_only.py` | 6 | Pass |
+| SWE4-UT-JLINKSEGGER | `instruments/jlink/test_segger.py` | 118 | Pass |
+| SWE4-UT-JLINKIMAGE | `instruments/jlink/test_image.py` | 15 | Pass |
 | SWE4-UT-SERIAL | `core/transport/test_serial.py` | 39 | Pass |
 | SWE4-UT-BLE | `instruments/nordic_dongle/test_dongle.py` | 121 | Pass |
 | SWE4-UT-BLESAMPLE | `instruments/nordic_dongle/test_sampling.py` | 21 | Pass |

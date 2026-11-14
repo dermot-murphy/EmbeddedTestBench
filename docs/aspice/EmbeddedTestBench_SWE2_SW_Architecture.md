@@ -50,6 +50,7 @@
 | next | 2026-11-13 | Claude | #330: PICO-ARC-001 names the element the PICO2 Test Board (the Pico 2 SHT30 Temperature Sensor before #330), its class `Pico2TestBoard` and its bench drivers `pico2-test-board` and `pico2`; the event-name example uses the alias `pico2`. |
 | next | 2026-11-13 | Claude | #200: PSCOPE-ARC-001 added, the PicoScope 3000D series MSO driver reached through the `ps3000a` C library with `ctypes`; the layering diagram and the interfaces (USB to the unit, the `ps3000a` library) updated. |
 | next | 2026-11-13 | Claude | #200: the `ps3000a` interface row names its interface specification, ETB-IF-002. |
+| next | 2026-11-13 | Claude | #71: AD-30 added - SEGGER's J-Link Commander and RTT Logger as a second J-Link backend, chosen by configuration; JLINK-ARC-001 names it. |
 ---
 
 ## 3. Purpose & Scope
@@ -159,7 +160,7 @@ instrument, and to be importable without importing any other element.
 | SCOPE-ARC-001 | `instruments.tek3014b` | The TDS3000 SCPI vocabulary and the oscilloscope's capability envelope. | `Tek3014B` |
 | PSCOPE-ARC-001 | `instruments.picoscope3000` | The PicoScope 3000D series MSO (#200): four analogue channels, sixteen digital inputs in two ports and a signal generator, captured in one block on one time base. Not a message-based instrument: it has no command text and no transport, and is reached through Pico Technology's `ps3000a` C library. The seam is `sdk`: `Ps3000aSdk` turns each C call the driver uses into a Python method with Python types, and a non-zero status into an exception, and `SimulatedPs3000a` (`simulator`) offers the same methods, so the driver (`scope`), which takes its lifecycle from `Instrument`, cannot tell which it has. The library is found and loaded with `ctypes` only when a unit is opened, so no Pico package is needed and a bare install imports the element. Its records are `Waveform` objects (ANA-ARC-001) in the form the TDS3014B driver returns, so the analysis helpers and a specification take either scope. The facts and capability envelope (`constants`, each value marked measured, spec page or unverified) and a command line. The 3000D MSO has no digital outputs. | `PicoScope3000`, `BlockCapture`, `ChannelSetup`, `ModelLimits`, `Ps3000aSdk`, `find_library`, `SimulatedPs3000a`, `ChannelSignal`, `benchtools pscope` |
 | BLE-ARC-001 | `instruments.nordic_dongle` **and** `firmware/nordic_dongle` | The BLE bench dongle, as one element across two languages. Host side: the line protocol (`protocol`), the command/event session with its log (`session`), advertising statistics (`profile`), latency statistics (`latency`), command documents read and run (`script`, AD-23), the driver façade (`dongle`) and a simulated dongle. Dongle side: USB CDC line transport, command dispatch, scanner, UART client and the microsecond clock. `include/protocol.h` is the interface both are built from. | `NordicDongle`, `DongleSession`, `AdvertisingProfile`, `ResponseTiming`, `SimulatedDongle`; `cmd_parser_handle`, `scanner_on_ble_evt`, `nus_client_command` |
-| JLINK-ARC-001 | `instruments.jlink` | The debug probe driver. `JLinkProbe` is the façade over seven collaborators, each independently testable: MI record parsing (`gdbmi`), the command/response session (`session`), server discovery and lifetime (`server`), RTT (`rtt`), ITM/SWO decoding (`swo`), timing results (`timing`), and the probe and target envelope (`constants`). Its simulator answers the MI dialogue. | `JLinkProbe`, `GdbMiSession`, `RttClient`, `ItmDecoder`, `TimingResult`, `GdbServer` |
+| JLINK-ARC-001 | `instruments.jlink` | The debug probe driver. `JLinkProbe` is the façade over seven collaborators, each independently testable: MI record parsing (`gdbmi`), the command/response session (`session`), server discovery and lifetime (`server`), RTT (`rtt`), ITM/SWO decoding (`swo`), timing results (`timing`), and the probe and target envelope (`constants`). Its simulator answers the MI dialogue. A second backend, selected by configuration (AD-30), drives the probe with SEGGER's J-Link Commander and RTT Logger instead (`segger`, `commander`, `simcommander`, `image`). | `JLinkProbe`, `SeggerJLinkProbe`, `GdbMiSession`, `JLinkCommander`, `RttClient`, `ItmDecoder`, `TimingResult`, `GdbServer` |
 | S2LP-ARC-001 | `instruments.s2lp` | The ST S2-LP development kit, host side only: ST's firmware runs on the board (AD-20). The line protocol (`protocol`), the command/reply session with its raw log (`session`), the device's register map (`registers`), packet records and their structured log (`packets`), the driver façade (`s2lp`) and a simulated kit with a register file and a modelled air interface. | `S2lpDevkit`, `S2lpSession`, `Register`, `Packet`, `Capture`, `SimulatedS2lp` |
 | PSU-ARC-001 | `instruments.gpd3303d` | The GW Instek bench supply, programmable channels 1 and 2; its fixed rail is a front-panel switch and is outside the element. Not a SCPI instrument: it takes the transport and lifecycle from `ScpiInstrument` and replaces the SCPI-specific parts (`*CLS`, `*RST`, `SYSTem:ERRor?`) with its own. Its own command grammar, a load-modelling simulator, and a command line. | `Gpd3303D`, `ChannelReading`, `SupplyStatus`, `SimulatedGpd` |
 | DMM-ARC-001 | `instruments.tti1604` | The TTi 1604 bench multimeter, on an opto-isolated RS-232 link. Not a SCPI instrument and not close to one: no command language, no query, no `*IDN?`, no error queue. The link carries single characters standing for key presses, and the meter streams a ten-byte binary frame per measurement. Frame decoding (`protocol`) is pure and separate from the link, because decoding is where a wrong number comes from and it should be testable without a meter. The instrument envelope and protocol facts (`constants`), the driver façade (`dmm`) - which reads the link as a stream (AD-26) and confirms every key press from the readings (AD-25) - a behavioural simulator with the meter's resolution and reading rate on a virtual clock, a command line, an opt-in bench test and a front-panel check. | `Tti1604`, `Reading`, `FrameAssembler`, `decode`, `frame_problem`, `SimulatedTti1604` |
@@ -768,6 +769,39 @@ written before #238 (`kepler_samples`, `kepler_frame`, the old register file
 path, no `plugins:`) loads the checkout's Kepler plugin with a deprecation
 warning, so the Kepler repository's specifications keep running until they
 name the plugin; #240 removes the fallback with the plugin.
+
+### AD-30 — SEGGER's own tools as a second J-Link backend, chosen by configuration
+
+**Context.** AD-12 drives the probe through the J-Link GDB Server and an ARM
+GDB. That needs a GDB installed, which the bench PC did not have, and it
+carries GDB's own faults (issue #69). The same PC has SEGGER's J-Link Commander
+and RTT Logger, with which the bench's erase, flash, UICR write, reset and RTT
+sequence was done before #69. A bench that needs only those has had to install
+GDB anyway (#71).
+
+**Decision.** A probe option `backend`: `gdb`, the default and AD-12
+unchanged, or `segger`. `segger` runs one J-Link Commander command file per
+operation and reads RTT with J-Link RTT Logger. It is a subclass of
+`JLinkProbe`, so a bench registers and checks it as the same driver; every
+operation that needs symbols or a debugger is refused by name before anything
+reaches the probe. What #69 taught is kept on both: an erase is checked by
+reading back, a write is read back, the core is left running on close, and
+each result records the backend that produced it. Nordic's `nrfjprog` is not
+part of it: it is not SEGGER's, and it is nRF-specific.
+
+**Alternatives.** Driving `JLinkARM.dll` directly is rejected for the reasons
+AD-12 gives. One long-lived Commander process fed commands on its input would
+keep a core halted between operations, but needs a prompt-driven dialogue that
+cannot be checked without a probe; one run per operation is simpler and leaves
+no session behind a failure. Reading RTT through Commander's telnet port needs
+that long-lived process too.
+
+**Consequences.** Commander's syntax was read from the installed binary's own
+strings, not run against a probe (ETB-RISK-004); the `segger` backend is
+verified on the simulator only until its bench check. The image is read on
+the host (`image`), so verification is per range rather than per section
+name. RTT is read only. Whether a core halted by one Commander run stays
+halted after it exits is not known.
 
 ## 8. Dynamic behaviour — a runner invocation
 

@@ -27,6 +27,12 @@ Recorded as AD-12 in SWE.2. The consequence worth stating plainly: **VISA is not
 involved and neither is any vendor Python package.** The driver's only external
 dependencies are two executables it launches or connects to.
 
+That is the `gdb` backend, and the default. Since #71 a probe can instead be
+given `backend: segger`, which drives it with SEGGER's own J-Link Commander and
+RTT Logger and needs no GDB - for a bench that flashes, verifies, erases,
+reads and writes memory, resets and reads RTT, and nothing more. §4.9 says what
+it does and what of it is verified (AD-30).
+
 ## 2. Running it
 
 ### 2.1 On a Windows PC (the first deployment)
@@ -139,6 +145,8 @@ driver is verified against a simulated probe (CON-04).
 | JLINK-OPEN-02 | GDB/MI output of the installed GDB | **Closed 2026-10-04** (ETB-SYS5-002 §6.2). Info, call stack, a variable by name, a breakpoint on `main`, an instruction step and `compare-sections` were parsed from GDB 14.2 against nRF52840 sensor 5C1712. One defect was found in register reads after `monitor reset` (#178), not in the MI parsing; fixed, see §4.4 | — |
 | JLINK-OPEN-03 | **SWO/ITM local timestamp scaling** | The tick-to-cycle scaling depends on the trace prescaler configured by the server and the firmware. Implemented from the ARMv7-M architecture reference manual; unconfirmed | Measure a known interval with `CYCLE_COUNTER` and with `SWO_ITM` and compare. Until then, quote SWO figures as provisional (CON-05) |
 | JLINK-OPEN-04 | RTT control-block discovery and flash timing | **Figures recorded 2026-10-04** (ETB-SYS5-002 §9): chip erase 0.6 s; flash and verify 14.7 s for a 1.17 MB HEX (V10 with SoftDevice) and 17.0 s for 1.34 MB (V11 with SoftDevice and bootloader); RTT output within 20 s of reset and run. The driver's 180 s flash timeout covers these | Set tighter timeouts only with more figures |
+
+| JLINK-OPEN-05 | **The `segger` backend on a real probe** (#71) | Built and verified on the simulator only. Commander's options and commands were read from the V9.42 binary's strings, not run (§4.9). Unknown: whether the DHCSR read's connect halts the core, whether a halt survives Commander's exit, and what the extra Commander run per reset, run and halt and the logger's stop cost in time | Run §4.9's bench check on 5C1712, the DHCSR steps and the timing first, and record each item |
 
 JLINK-OPEN-03 is the one that could change a reported number. The other three
 would show up as an outright failure, not a wrong figure.
@@ -315,6 +323,82 @@ itself at its next boot, which hides the loss, but a specification that read
 UICR straight after the flash would have seen it. `restore` keeps the page by
 default (`keep=(NRF52_UICR,)`).
 
+### 4.9 The `segger` backend (issue #71)
+
+Selected with `backend: segger` in the probe's `options`, or `--backend
+segger` on `benchtools jlink`. Each operation is one run of `JLink.exe` with a
+command file (`exitonerror 1`, the commands, `q`); RTT is read by
+`JLinkRTTLogger.exe` into a file the driver reads as it grows.
+
+| Operation | Commands | Check made by the driver |
+|---|---|---|
+| `info` | none: the start-up banner | - |
+| `flash` | `r`, `h`, `loadfile <image>` | every range of the image read back with `savebin` and compared |
+| `verify` | `savebin` per range | the same comparison |
+| `erase` | `r`, `h`, `erase` | flash word at 0 read back in a new run; must be `0xFFFFFFFF` |
+| `read` | `savebin <file>, <addr>, <n>` | the file holds exactly *n* bytes |
+| `write` | `w4` per aligned word, `w1` per other byte | read back in a new run; must match. Not by default in the peripheral or system region, where write-1-to-clear bits do not read back (`--no-read-back` skips it anywhere) |
+| `reset`, `run`, `halt` | `r` + `h` or `g`; `g` (always); `h` | DHCSR read in a new run: `run` and `reset --run` raise if still halted, `halt` raises if Commander's exit let the core go |
+| close | `g`, unless `leave_halted` | - |
+| `rtt` | `JLinkRTTLogger.exe -Device -If -Speed [-USB] -RTTChannel 0 <file>` | a logger that stops is reported with what it printed |
+
+`var`, `stack`, `time`, `run --until`, breakpoints, registers, `monitor` and
+writing to RTT are refused, naming the operation and the backend, before any
+tool runs.
+
+**What was checked, and how (2026-11-13).** Nothing in this section was run
+against a probe. The local manual (`Doc/Manuals/UM08001_JLink.pdf`, V9.42) no
+longer carries Commander's command reference, so the syntax was read from the
+help and diagnostic strings inside `JLink.exe` and `JLinkRTTLogger.exe`
+V9.42. `JLink.exe` was **not** started, even for help: it has no help option
+among its command-line options (an unknown one is reported as "Unknown command
+line option"), and it was not certain that it would exit without opening the
+USB probe.
+
+| Item | Status |
+|---|---|
+| Options `-NoGui`, `-Device`, `-If`, `-Speed`, `-USB`, `-AutoConnect`, `-CommandFile`; `-NoGui` and `-AutoConnect` take a value | In the binary's strings |
+| `ExitOnError <1\|0>`, `h`/`Halt`, `g`/`Go`, `erase` (no range: chip erase), `loadfile <file> [, <Addr>] [, noreset\|reset]`, `savebin <file>, <addr>, <n> (hex)`, `w1`/`w4 <addr>, <data> (hex)`, `q` | In the binary's strings |
+| `r` for reset | Help text "Reset CPU." is there; the name beside it could not be read. **Unverified** |
+| Banner `S/N:`, `Firmware:`, `Hardware version:` | Format strings in the binary |
+| Exit status when `ExitOnError` stops a run | **Unverified**; the driver also fails a run on any of the binary's error messages |
+| A quoted file name with a space | **Unverified**; logged when used |
+| Whether `w4` into flash or UICR programs the part or only the DLL's cache | **Unverified**; each write is read back in a new run, which would show it |
+| Whether a chip `erase` also erases the nRF52840's UICR | **Unverified**; only the flash word at 0 is checked |
+| Whether a core halted by `h` stays halted after Commander exits | **Unverified**; on 2026-10-05 ending a session resumed a halted core (§4.3). The simulator models the resume |
+| RTT Logger options; its default channel is 1 | In the binary's strings; the logger ran on 5C1712 on 2026-09-26 with `-RTTChannel 0` |
+| Whether stopping the logger loses bytes not yet written | **Unverified**. It is first sent a newline on its input, as it asks for a key, and given 2 s to exit and close its file; only then terminated. Whether it reads that key from a pipe is unverified |
+| Reading DHCSR with `savebin` without halting the core | **Unverified**; `mem32` did not halt it on 2026-10-05. Every reset, run and halt reads DHCSR in a new run that connects with `-AutoConnect 1`: if that connect halted a running core, `run` and `reset --run` would raise for a core that runs |
+| Time cost | **Unmeasured**: each reset, run and halt is two Commander runs (the command and the DHCSR read), and stopping RTT can wait up to 2 s for the logger to quit before it is terminated. Time both on the bench |
+| Commander and the logger holding the probe at the same time | **Unverified**; only one client held the probe reliably in earlier sessions |
+| Tool names `JLinkExe`, `JLinkRTTLoggerExe` on Linux | **Unverified** |
+
+**Bench check (pending, JLINK-OPEN-05).** On 5C1712, with its UICR backed up:
+
+1. **DHCSR read does not disturb the core.** `--backend segger reset --run`;
+   `read 0xE000EDF0 4` twice, in two separate runs; `halt`; `read 0xE000EDF0
+   4` again. Expect `0x00050001` (running) from both reads after the reset, and
+   `0x00030003` (halted) after the halt if the halt holds; `halt` itself exits
+   with an error if the core ran again, and the read after it shows which. If
+   the first reads
+   say halted, the DHCSR read itself halts the core and the backend's state
+   checks are wrong.
+2. **Timing.** Time `reset --run`, `run`, `halt` (each two Commander runs) and
+   the end of `rtt` (up to 2 s waiting for the logger to quit).
+3. `--backend segger info`; `read 0x10001080 4`; `erase` and a read of UICR;
+   `write 0x10001080 005c1712` into the erased UICR, and its read-back;
+   `flash` of the V11 HEX with `--preserve 0x10001080:4`; `reset --run`;
+   `rtt --duration 20`.
+
+Each line of the table above marked unverified is then confirmed or corrected.
+
+**`halt` on this backend.** If ending a Commander run resumes the core, as it
+did once on 2026-10-05 (§4.3), then **`--backend segger halt` always fails**:
+the core is halted, Commander exits, the core runs again, and the DHCSR read
+that follows says so. The driver raises rather than report a halted core that
+is running. A core that has to stay halted - to read it at rest, to keep it
+off the air - needs `backend: gdb`. `reset` without `--run` only logs it.
+
 ## 5. What this driver does not do
 
 | Not supported | Reason |
@@ -323,4 +407,6 @@ default (`keep=(NRF52_UICR,)`).
 | Unlimited software breakpoints in flash | The probe's envelope is four hardware breakpoints; software breakpoints in RAM are GDB's business |
 | Semihosting | Not required; RTT serves the same purpose without halting |
 | Multi-core or multi-target sessions | One target per connection. Two probes are two instruments in the bench configuration |
-| Flashing a raw binary | An ELF or Intel HEX image is flashed and verified (issue #69); a raw binary has no addresses. `monitor loadbin` is reachable through `monitor()` if one is ever required |
+| Flashing a raw binary | An ELF or Intel HEX image is flashed and verified (issue #69); a raw binary has no addresses. `monitor loadbin` is reachable through `monitor()` if one is ever required. The `segger` backend refuses one too |
+| Symbols, breakpoints, stepping, registers, call stack, timing or RTT writes on the `segger` backend | It has no GDB (§4.9); select `backend: gdb` |
+| `nrfjprog` | Nordic's tool, not SEGGER's, and nRF-specific; not part of either backend (#71) |

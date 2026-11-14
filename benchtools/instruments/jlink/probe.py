@@ -16,6 +16,12 @@ reach it. Moving this into a container changes a host name and nothing else::
 
     JLinkProbe.connect("jlink://192.168.1.9:2331", elf="build/app.elf")
 
+That is the ``gdb`` backend, and the default. ``backend="segger"`` selects the
+other one (#71): SEGGER's own J-Link Commander and RTT Logger, with no GDB,
+for a bench that needs flash, verify, erase, memory, reset and RTT only. It is
+:class:`~benchtools.instruments.jlink.segger.SeggerJLinkProbe`, and
+:meth:`JLinkProbe.connect` returns one when asked.
+
 Traces to: JLINK-FR-001 .. JLINK-FR-100, JLINK-ARC-001, JLINK-DD-PROBE.
 """
 
@@ -25,7 +31,7 @@ import os
 import re
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 from ...analysis.samples import SampleSet, extract_number
 from ...core.errors import (
@@ -76,12 +82,45 @@ __all__ = [
     "VerifyResult",
     "SectionVerdict",
     "NRF52_UICR",
+    "BACKENDS",
+    "backend_opener",
+    "register_backend",
 ]
 
 #: The nRF52840's UICR, as ``(address, size)``: the sensor ID at 0x10001080
 #: and the bootloader address at 0x10001014 live here, and an image holding a
 #: UICR record erases the whole page (#69).
 NRF52_UICR = (0x10001000, 0x310)
+
+#: The J-Link backends ``connect`` accepts, the default first (#71).
+BACKENDS = ("gdb", "segger")
+
+#: How each backend other than ``gdb`` opens a link, by name. The module that
+#: implements one registers it, so this module need not import that one,
+#: which builds on it.
+_BACKEND_OPENERS: Dict[str, Callable[..., "JLinkProbe"]] = {}
+
+
+def register_backend(name: str, opener: Callable[..., "JLinkProbe"]) -> None:
+    """Make *opener* what ``connect(backend=name)`` calls."""
+    _BACKEND_OPENERS[name.lower()] = opener
+
+
+def backend_opener(backend: Optional[str]) -> Optional[Callable[..., "JLinkProbe"]]:
+    """The opener for *backend*, or ``None`` for ``gdb``, which is this module.
+
+    :raises ConfigurationError: for a backend that is not one of
+        :data:`BACKENDS`, or one whose module was never imported.
+    """
+    chosen = str(backend or "gdb").strip().lower()
+    if chosen not in BACKENDS:
+        raise ConfigurationError(
+            "unknown J-Link backend %r: choose %s" % (backend, " or ".join(BACKENDS)))
+    if chosen == "gdb":
+        return None
+    if chosen not in _BACKEND_OPENERS:  # pragma: no cover - the package imports it
+        raise ConfigurationError("the J-Link %r backend is not loaded" % chosen)
+    return _BACKEND_OPENERS[chosen]
 
 
 #: Matches "Loading section .text, size 0x1234 lma 0x08000000".
@@ -184,6 +223,8 @@ class VerifyResult:
 
     sections: List[SectionVerdict] = field(default_factory=list)
     output: str = ""
+    #: The J-Link backend that compared, so a report says which did (#71).
+    backend: str = "gdb"
 
     @property
     def matched(self) -> bool:
@@ -202,6 +243,7 @@ class VerifyResult:
 
     def as_dict(self) -> dict:
         return {
+            "backend": self.backend,
             "matched": self.matched,
             "sections": {
                 section.name: {
@@ -228,6 +270,8 @@ class RestoreResult:
     #: restore raises instead.
     unchanged: bool = True
     seconds: float = 0.0
+    #: The J-Link backend that programmed the images (#71).
+    backend: str = "gdb"
 
     @property
     def verified(self) -> Optional[bool]:
@@ -243,6 +287,7 @@ class RestoreResult:
     def as_dict(self) -> dict:
         """The result as plain data, for a report."""
         return {
+            "backend": self.backend,
             "images": list(self.images),
             "bytes_written": self.bytes_written,
             "verified": self.verified,
@@ -263,6 +308,8 @@ class FlashResult:
     verify: Optional[VerifyResult] = None
     #: Ranges kept across the flash, as ``address -> hex bytes`` written back.
     preserved: Dict[int, str] = field(default_factory=dict)
+    #: The J-Link backend that programmed the image (#71).
+    backend: str = "gdb"
 
     @property
     def bytes_written(self) -> int:
@@ -276,6 +323,7 @@ class FlashResult:
 
     def as_dict(self) -> dict:
         summary = {
+            "backend": self.backend,
             "bytes_written": self.bytes_written,
             "seconds": self.seconds,
             "sections": {
@@ -309,6 +357,8 @@ class JLinkProbe(Instrument):
     SIMULATOR_CLASS = SimulatedJLink
     MODEL_NAME = "J-Link"
     EVENT_SOURCE = "JLINK"
+    #: Which mechanism produced a result, recorded in each result (#71).
+    backend = "gdb"
 
     def __init__(
         self,
@@ -374,6 +424,9 @@ class JLinkProbe(Instrument):
         start_server: bool = True,
         attach: bool = True,
         simulated_target: Optional[str] = None,
+        backend: str = "gdb",
+        commander_executable: Optional[str] = None,
+        rtt_logger_executable: Optional[str] = None,
         **_ignored,
     ) -> "JLinkProbe":
         """Open a link to a target through a J-Link.
@@ -406,10 +459,30 @@ class JLinkProbe(Instrument):
             probe is wired to, whose RTT log it reads - ``kepler-5C1712``, the
             Kepler sensor the simulated dongle also talks to (#121). Ignored for
             a real probe, which is wired to whatever is on the bench.
+        :param backend: ``gdb`` (the default: the J-Link GDB Server and an ARM
+            GDB) or ``segger`` (J-Link Commander and RTT Logger only, #71),
+            in any case. The ``segger`` backend returns a
+            :class:`~benchtools.instruments.jlink.segger.SeggerJLinkProbe`,
+            which refuses every operation that needs GDB by name.
+        :param commander_executable: ``segger`` only: ``JLink.exe``, searched
+            for when omitted.
+        :param rtt_logger_executable: ``segger`` only: ``JLinkRTTLogger.exe``,
+            searched for when omitted.
+        :raises ConfigurationError: for a backend that is neither.
         """
         text = (resource or "sim://").strip()
         if core_clock_hz is not None:
             limits = ProbeLimits(**{**limits.__dict__, "core_clock_hz": float(core_clock_hz)})
+        opener = backend_opener(backend)
+        if opener is not None:
+            return opener(
+                resource, device=device, elf=elf, firmware=firmware, interface=interface,
+                speed_khz=speed_khz, serial_number=serial_number,
+                commander_executable=commander_executable,
+                rtt_logger_executable=rtt_logger_executable, limits=limits,
+                timeout=timeout, auto_check_errors=auto_check_errors,
+                initialise=initialise, attach=attach, simulated_target=simulated_target,
+            )
 
         if text.lower().startswith(("sim://", "mock://")) or text.lower() in ("sim", "mock"):
             simulator = SimulatedJLink()
@@ -765,7 +838,8 @@ class JLinkProbe(Instrument):
                 "flashing reported no sections loaded, so nothing was programmed.\n"
                 "GDB said:\n%s" % (console.text or "(no output)")
             )
-        result = FlashResult(sections=sections, output=console.text, seconds=elapsed)
+        result = FlashResult(sections=sections, output=console.text, seconds=elapsed,
+                             backend=self.backend)
         self._logger.info(
             "flashed %d bytes in %d section(s) in %.2f s",
             result.bytes_written, len(sections), elapsed,
@@ -821,6 +895,7 @@ class JLinkProbe(Instrument):
         result = RestoreResult(
             images=list(images),
             kept={address: data.hex() for address, data in before},
+            backend=self.backend,
         )
         for path in images:
             result.flashes.append(
@@ -918,7 +993,7 @@ class JLinkProbe(Instrument):
             )
             for match in _COMPARE_RE.finditer(console.text)
         ]
-        return VerifyResult(sections=sections, output=console.text)
+        return VerifyResult(sections=sections, output=console.text, backend=self.backend)
 
     def erase(self, timeout: float = 120.0, blank_check_address: Optional[int] = 0) -> str:
         """Erase the target's flash, and check that it did.

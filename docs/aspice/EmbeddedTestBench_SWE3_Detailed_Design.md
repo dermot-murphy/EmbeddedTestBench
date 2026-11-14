@@ -102,6 +102,9 @@
 | next | 2026-11-14 | Claude | #313: S2LP-DD-KEPLER - the V10.00 TWF's time taken is documented as microseconds in the V10 source (`app_normal.c:1501`, `API_Radio_Field_WaveSampleTimePut`); the timer behind it is not traced (PR #333 review). |
 | next | 2026-11-13 | Claude | #201: VIEW-DD-STEPEVENTS added (`StepEvents`, `category`, `step_view`, `step_query`, `Hub.step`, `/api/step`; `Hub.follow` rebuilds the views named in `_PER_LOG`); VIEW-DD-PAGE - a step's text opens its measurements and events (`toggleStep`, `stepPanel`), in place of its instrument traffic alone. |
 | next | 2026-11-14 | Claude | #201, review of #334: VIEW-DD-STEPEVENTS - a run-wide bound, `KEEP_RUN_RECORDS` (50 000), the oldest steps' records dropped first and counted (`total`, `_start`, `_add`). |
+| next | 2026-11-13 | Claude | #71: JLINK-DD-SEGGER, JLINK-DD-COMMANDER, JLINK-DD-SIMCOMMANDER and JLINK-DD-IMAGE added - the `segger` backend (J-Link Commander command files, RTT Logger), its simulation and the host-side image reader. JLINK-DD-SERVER - `find_jlink_commander`, `find_rtt_logger`. JLINK-DD-CLI - `--backend`, `--commander`, `--rtt-logger`. |
+| next | 2026-11-14 | Claude | #71 review round 1: JLINK-DD-SEGGER - `run` always resumes, `core_is_halted` reads DHCSR after run control, register writes not read back by default (`is_register_address`), the RTT logger stopped on a failed start and finished before the client stops; JLINK-DD-COMMANDER - one RTT file per session, `finish`, a logger stopped if its start is interrupted; JLINK-DD-SIMCOMMANDER - simulated DHCSR. |
+| next | 2026-11-14 | Claude | #71 review round 3: JLINK-DD-SEGGER - the register-region test covers the whole written range, and the DHCSR read's connect is stated unverified; JLINK-DD-COMMANDER - an RTT file that cannot be removed raises a clear error; JLINK-DD-CLI - `write --no-read-back` refused on `gdb`. |
 ---
 
 ## 3. Purpose & Scope
@@ -904,6 +907,10 @@ Discovery and lifetime of the J-Link GDB Server and GDB.
   start-up diagnostic and the banner for `probe_identity()`, which returns the
   probe's serial number, firmware and hardware. An undrained pipe fills and blocks
   the server on its next write.
+- `find_jlink_commander` and `find_rtt_logger` find the `segger` backend's
+  tools (`JLink.exe`, `JLinkRTTLogger.exe`; `JLinkExe`, `JLinkRTTLoggerExe`
+  elsewhere, unverified) in the same order and the same SEGGER install
+  directories as `find_gdb_server` (#71).
 
 #### JLINK-DD-RTT — `jlink/rtt.py`
 
@@ -1130,12 +1137,124 @@ Design points:
 - `rtt_samples` takes a number from each of the next N matching RTT lines,
   discarding lines already buffered - they were logged before the test asked.
 
+#### JLINK-DD-SEGGER — `jlink/segger.py`
+
+`SeggerJLinkProbe`, the `segger` backend (#71): a `JLinkProbe` subclass, so a
+bench registers and checks it as one, whose operations are J-Link Commander
+runs instead of GDB/MI commands. `JLinkProbe.connect(backend="segger")` calls
+`open_segger` through a registry (`register_backend`, `backend_opener` in
+`probe.py`), so `probe.py` does not import the module that builds on it.
+
+- **One Commander run per operation.** Nothing is held open, so a failed run
+  leaves no session behind. `_run` refuses every run on a link opened with
+  `attach=False` (RTT only), as the `gdb` backend's RTT-only link does.
+- **Flash**: `r`, `h` (left out for `reset=False`; `loadfile` still resets
+  and halts the MCU itself, which its own message says), `loadfile <image>`.
+  The image is read on the host (`JLINK-DD-IMAGE`), and `_compare` reads each
+  range back with `savebin` in one run and compares it: the per-range verdict
+  `compare-sections` gives `gdb`. Sections are the image's ranges (ELF
+  segments, HEX runs), since nothing reads section names.
+- **Erase**: `r`, `h`, `erase` (chip erase), then the blank-check word read in
+  a run of its own, as `gdb`'s erase is checked (issue #69).
+- **Memory**: `savebin <file>, <addr>, <n>` into a scratch file, which is read
+  and removed; `w4` for whole aligned words and `w1` for the rest. A write is
+  read back in a **new** run, so the read is the part's and not the DLL's
+  flash cache, and raises if it differs. `verify=None`, the default, reads
+  back memory and not a write any byte of which falls in the peripheral
+  (`0x40000000`-`0x5FFFFFFF`) or system (`0xE0000000` up) region
+  (`is_register_address(address, size)`, over the whole range): a
+  write-1-to-clear bit reads back 0. `verify=True` or `False` decides either
+  way; the CLI's `write --no-read-back` passes `False`.
+- **Run control**: `reset` is `r` with `h` or `g`; `run` always sends `g`,
+  whatever this instance did before (the CLI's `halt` and `run` are two
+  instances); `halt` returns a `HaltInfo` with no location. After each,
+  `core_is_halted` reads DHCSR (`S_HALT`, bit 17) in a run of its own and
+  `is_halted` reports that. `run` and `reset(halt=False)` raise if the core
+  is still halted; `halt` raises if Commander's exit let the core run again
+  (seen once, JLink_Integration_Notes §4.3); `reset(halt=True)` only logs it,
+  since `restore` resets halted and `loadfile` halts for itself. Unverified:
+  that the DHCSR run's `-AutoConnect 1` connect leaves a running core
+  running; JLINK-OPEN-05 checks it. Each of these is two Commander runs.
+- **Close**: a run of `g` if the probe ran anything and `leave_halted` is not
+  set (JLINK-FR-006).
+- **RTT**: `RttClient` over `RttLoggerBackend`; the core is let go first
+  (`run`). If the client fails to start after the logger did, the logger is
+  stopped. `rtt_stop` and close call the source's `finish` before the client
+  stops, so its last pump reads what the logger wrote as it quit. The CLI's
+  `rtt` sends no further Commander run while the logger reads.
+- **Refusals**: `GDB_ONLY_OPERATIONS` maps each GDB-only method to the reason,
+  and `_install_refusals` replaces each with one raising
+  `UnsupportedOperationError` (a `ConfigurationError`) that names the
+  operation and the backend, before anything is sent. `session` refuses too.
+- Results carry `backend` (JLINK-FR-009): `FlashResult`, `VerifyResult` and
+  `RestoreResult` have the field, `as_dict` reports it, and `JLinkProbe.backend`
+  is `"gdb"`, `SeggerJLinkProbe.backend` `"segger"`.
+
+#### JLINK-DD-COMMANDER — `jlink/commander.py`
+
+Running SEGGER's tools for the `segger` backend.
+
+- `JLinkCommander.command_line`: `-NoGui 1 -Device <d> -If <i> -Speed <s>
+  -AutoConnect 1 [-USB <sn>] -CommandFile <f>`. Each option was read from the
+  V9.42 binary's strings on 2026-11-13 (ETB-RISK-004); none was run against a
+  probe. `run` writes `exitonerror 1`, the commands and `q` to a command file
+  in a per-runner scratch directory, runs it with a timeout, and passes the
+  output to `check_output`.
+- `check_output` fails a run on a non-zero status **or** on any line holding
+  one of `ERROR_MARKERS`, each a message the binary prints: whether
+  `JLink.exe` exits non-zero when `ExitOnError` stops it is not documented
+  locally. `CommanderError` carries the tool's last lines.
+- `parse_banner` reads `S/N:`, `Firmware:`, `Hardware version:` and the
+  Commander version, formats found in the binary.
+- `file_argument` quotes a file name only if it holds white space; whether
+  Commander accepts the quotes is unverified and logged.
+- `RttLoggerBackend` is an `RttSource`: it starts `JLinkRTTLogger.exe -Device
+  -If -Speed [-USB] -RTTChannel <n> <file>` (channel always given: the
+  logger's default is 1), reads new bytes from the file at each poll, reports
+  a logger that stops by itself with what it printed, and refuses `rtt_send`
+  (`RttReadOnlyError`). Each session writes its own file
+  (`rtt_channel_<n>_<session>.log`), so nothing is replayed and the read
+  position is that file's. An old file that cannot be removed - another
+  logger still writing it - is a `ConnectionFailedError` saying so. `finish` sends a newline and closes the logger's
+  input, waits `quit_timeout` for it to exit and close its file, and only then
+  terminates it; the file stays readable until `rtt_close`. An exception,
+  `BaseException` included, while waiting for the logger to start stops it. `SimulatedReadOnlyRtt` makes the simulator's RTT
+  read-only in the same way.
+
+#### JLINK-DD-SIMCOMMANDER — `jlink/simcommander.py`
+
+`SimulatedCommander` runs the same command files against the `SimulatedJLink`
+target the simulated GDB uses: memory, flash, halted state and RTT are that
+model's. Its output lines are the binary's message texts, so `check_output`
+is exercised on real wording, and `savebin` writes a real file. `log` keeps
+every command file run. `exit_resumes` (default on) models what was seen once
+on the bench: ending a Commander session let a halted core run.
+`savebin` of DHCSR returns `0x00030003` or `0x00050001` from the model's
+halted state, the values 5C1712 gave. `erase_works=False` makes `erase` say
+"Erasing done." and erase nothing, and
+`flash_matches=False` corrupts what `loadfile` writes, so the backend's own
+checks are shown to catch both. With no image on disk, `firmware_image` gives
+the simulated firmware's flash sections with a byte pattern. It is a module
+of its own because `simulator.py` is at pylint's module-length limit.
+
+#### JLINK-DD-IMAGE — `jlink/image.py`
+
+What an image writes, read on the host for the `segger` backend's read-back.
+Intel HEX: record types 00, 01, 02 and 04, with 03 and 05 skipped, each
+record's length and checksum checked, and the bytes merged into contiguous
+`ImageRange`s. ELF: 32-bit little-endian only, the `PT_LOAD` segments with
+file bytes, at their physical address. A raw binary is refused, as on `gdb`.
+
 #### JLINK-DD-CLI — `jlink/cli.py`
 
 Sub-commands `info`, `flash`, `verify`, `erase`, `reset`, `run`, `halt`, `read`,
 `write`, `var`, `stack`, `rtt`, `time`, emitting JSON (AD-15). `halt`, `reset`
 without `--run`, and `run --until` set `leave_halted`, since a halted core is their
-purpose; every other sub-command leaves the target running (JLINK-FR-006). The `time` sub-command adds a
+purpose; every other sub-command leaves the target running (JLINK-FR-006). `--backend
+{gdb,segger}` (default `gdb`), `--commander` and `--rtt-logger` choose the
+backend and its tools (#71); `write --no-read-back` is refused on `gdb`, which
+never reads back; `info` and `erase` report the backend, and `info`
+reports no program counter on `segger`. The `time` sub-command adds a
 `warning` key when the result is not trustworthy, so a figure quoted from a shell
 script carries the same caveat the API gives.
 
