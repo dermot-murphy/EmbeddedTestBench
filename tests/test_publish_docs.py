@@ -264,3 +264,42 @@ def test_the_home_page_head_links_every_favicon_it_copies(tmp_path):
 
 def test_the_pages_address_is_derived_from_the_repository():
     assert site().pages_url == "https://owner.github.io/Repo/"
+
+
+class TestAtAGlance:
+    """The README's "At a glance" section on both home pages (#195)."""
+
+    @staticmethod
+    def section(text):
+        start = text.index("## At a glance")
+        return text[start:text.index("\n## ", start + 1)]
+
+    def test_both_home_pages_carry_the_same_section(self, wiki, tmp_path):
+        publish.generate_home(tmp_path)
+        home = self.section((tmp_path / "README.md").read_text(encoding="utf-8"))
+        wiki_home = self.section((wiki / "Home.md").read_text(encoding="utf-8"))
+        for heading in ("### What it drives", "### Getting started", "### Where to read more"):
+            assert heading in home and heading in wiki_home
+        rows = lambda text: [line.split("|")[1].strip() for line in text.split("\n")
+                             if line.startswith("| ") and "---" not in line]
+        assert rows(home) == rows(wiki_home) and len(rows(home)) > 5
+
+    def test_every_relative_link_in_it_resolves(self):
+        text = self.section((ROOT / "README.md").read_text(encoding="utf-8"))
+        targets = re.findall(r"\]\(([^)]+)\)", text)
+        assert targets
+        for target in targets:
+            if target.startswith("http"):
+                continue
+            path, _, anchor = target.partition("#")
+            assert (ROOT / path).is_file(), target
+            if anchor:
+                headings = [re.sub(r"[^\w\- ]", "", line.lstrip("#").strip().lower())
+                            .replace(" ", "-")
+                            for line in (ROOT / path).read_text(encoding="utf-8").split("\n")
+                            if line.startswith("#")]
+                assert anchor in headings, target
+
+    def test_a_readme_without_the_section_gives_nothing(self, tmp_path):
+        (tmp_path / "README.md").write_text("# Title\n\nIntro.\n\n## Other\n", encoding="utf-8")
+        assert publish.readme_section(site(root=tmp_path), publish.GLANCE) == ""
