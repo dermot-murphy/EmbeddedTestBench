@@ -22,7 +22,8 @@ from benchtools.runner import BenchConfig, BenchRunner
 from benchtools.runner.control import ControlServer, RunControl
 from benchtools.runner.spec import TestSpec
 from benchtools.viewer.server import (
-    GUARD_HEADER, Catalogue, Hub, Launcher, ViewerServer, _Handler, build_parser, send_control,
+    _PER_LOG, GUARD_HEADER, Catalogue, Hub, Launcher, ViewerServer, _Handler, build_parser,
+    send_control,
 )
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -199,6 +200,24 @@ class TestInstruments:
     @pytest.mark.parametrize("query", ["t0=x", "t1=nan", "t0=inf"])
     def test_a_window_that_is_not_numbers_is_refused(self, viewer, query):
         assert _json(viewer, "GET", "/api/instruments?" + query)[0] == 400
+
+
+class TestFollowRebuilds:
+    """``Hub.follow`` rebuilds every view of the log: ``_PER_LOG`` names them all (#201)."""
+
+    #: What a hub keeps across logs: the thread, the lock, where it reads and counts.
+    KEPT = {"interval", "_condition", "_tail", "path", "sequence", "generation",
+            "_override_port", "_stop", "_thread"}
+
+    def test_per_log_names_every_other_attribute_of_a_new_hub(self):
+        assert set(vars(Hub())) - self.KEPT == set(_PER_LOG)
+        assert len(_PER_LOG) == len(set(_PER_LOG))
+
+    def test_follow_replaces_each_view(self, tmp_path):
+        hub = Hub()
+        before = {name: getattr(hub, name) for name in _PER_LOG}
+        hub.follow(str(tmp_path / "events.jsonl"))
+        assert all(getattr(hub, name) is not before[name] for name in _PER_LOG)
 
 
 class TestStep:

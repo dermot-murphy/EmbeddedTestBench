@@ -133,6 +133,61 @@ class TestAttribution:
                                               "events": []}
 
 
+def _steps_of(events, *counts, first=0):
+    """Feed steps 0, 1, ... of test case 0 with *counts* records each."""
+    for offset, count in enumerate(counts):
+        step = first + offset
+        events.feed(_runner("step_start", float(step), phase="test", case=0, step=step))
+        for index in range(count):
+            events.feed(_line(step + 0.1, "s%d r%d" % (step, index)))
+        events.feed(_runner("step_end", step + 0.5, phase="test", case=0, step=step))
+
+
+def _texts(events, step):
+    return [e["text"] for e in events.view("test", 0, step)["events"]]
+
+
+class TestRunBound:
+    """The records of all a run's steps together are bounded, oldest steps first."""
+
+    def test_the_oldest_step_loses_its_oldest_records_first(self):
+        events = StepEvents(keep=10, keep_run=5)
+        _steps_of(events, 3, 4)
+        assert _texts(events, 0) == ["s0 r2"]
+        assert events.view("test", 0, 0)["dropped"] == 2
+        assert _texts(events, 1) == ["s1 r0", "s1 r1", "s1 r2", "s1 r3"]
+        assert events.view("test", 0, 1)["dropped"] == 0
+        assert events.total == 5
+
+    def test_a_step_emptied_then_the_next_oldest(self):
+        events = StepEvents(keep=10, keep_run=3)
+        _steps_of(events, 2, 2, 2)
+        assert (_texts(events, 0), events.view("test", 0, 0)["dropped"]) == ([], 2)
+        assert (_texts(events, 1), events.view("test", 0, 1)["dropped"]) == (["s1 r1"], 1)
+        assert _texts(events, 2) == ["s2 r0", "s2 r1"]
+        assert events.total == 3
+
+    def test_a_step_that_runs_again_is_the_newest(self):
+        events = StepEvents(keep=10, keep_run=4)
+        _steps_of(events, 2, 2)
+        _steps_of(events, 3, first=0)                      # step 0 again, after step 1
+        assert events.total == 4
+        assert _texts(events, 0) == ["s0 r0", "s0 r1", "s0 r2"]
+        assert (_texts(events, 1), events.view("test", 0, 1)["dropped"]) == (["s1 r1"], 1)
+
+    def test_the_step_bound_is_not_counted_twice(self):
+        events = StepEvents(keep=2, keep_run=100)
+        _steps_of(events, 5)
+        assert events.total == 2
+        assert events.view("test", 0, 0)["dropped"] == 3
+
+    def test_a_new_run_starts_the_count_afresh(self):
+        events = StepEvents(keep=10, keep_run=100)
+        _steps_of(events, 4)
+        events.feed(_runner("run_start", 9.0))
+        assert events.total == 0
+
+
 @pytest.fixture(scope="module")
 def recorded(tmp_path_factory):
     """A simulated run's own event log, and the hub that read it."""

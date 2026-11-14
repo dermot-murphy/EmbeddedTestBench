@@ -95,6 +95,7 @@
 | next | 2026-11-13 | Claude | #330: §5 row for SWE4-UT-PICOSPEC (2 cases, pass, run on its own); the rest of §5 is not re-run. |
 | next | 2026-11-13 | Claude | #200: §5 rows for SWE4-UT-PSCOPE (18), -PSCOPECONST (34), -PSCOPESDK (7) and -PSCOPECLI (6), pass, from a run of `tests/instruments/picoscope3000` on this branch on 2026-11-13 (65 passed, Windows). §13C added: those results, what the bench's PicoScope 3405D MSO showed on 2026-11-13, and what it has not yet shown (PSCOPE-OPEN-01 … -05). The section 5 total is still the 1.32 whole-suite run's. |
 | next | 2026-11-13 | Claude | #201: §5 row for SWE4-UT-VIEWSTEPS (26), and SWE4-UT-VIEWSERVER 36 → 42, pass, from a run of `tests/viewer` on this branch on 2026-11-13 (Windows). The Run page's step events were also exercised in a browser on a simulated run's event log. The section 5 total is still the 1.32 whole-suite run's. |
+| next | 2026-11-14 | Claude | #201, review of #334: SWE4-UT-VIEWSTEPS 26 → 31 and SWE4-UT-VIEWSERVER 42 → 44, pass, from a run of `viewer/test_step_events.py` and `viewer/test_server.py` on this branch on 2026-11-14 (Windows). The section 5 total is still the 1.32 whole-suite run's. |
 ---
 
 ## 3. Purpose & Scope
@@ -306,12 +307,12 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-RUNEVENTS | `runner/test_run_events.py` | 21 | Pass |
 | SWE4-UT-CONTROL | `runner/test_control.py` | 33 | Pass |
 | SWE4-UT-VIEWSTATE | `viewer/test_state.py` | 14 | Pass |
-| SWE4-UT-VIEWSERVER | `viewer/test_server.py` | 42 | Pass |
+| SWE4-UT-VIEWSERVER | `viewer/test_server.py` | 44 | Pass |
 | SWE4-UT-VIEWTRAFFIC | `viewer/test_traffic.py` | 26 | Pass |
 | SWE4-UT-VIEWRADIO | `viewer/test_radio.py`, `viewer/radio_log.py` | 14 | Pass |
 | SWE4-UT-VIEWGRAPHS | `viewer/test_graphs.py` | 16 | Pass |
 | SWE4-UT-VIEWTAGS | `viewer/test_tags.py` | 19 | Pass |
-| SWE4-UT-VIEWSTEPS | `viewer/test_step_events.py` | 26 | Pass |
+| SWE4-UT-VIEWSTEPS | `viewer/test_step_events.py` | 31 | Pass |
 | SWE4-UT-VIEWSTATUS | `viewer/test_status.py` | 10 | Pass |
 | SWE4-UT-VIEWREMOTE | `viewer/test_remote.py` | 22 | Pass |
 | SWE4-UT-VIEWKEPLER | `viewer/test_kepler_view.py` | 12 | Pass |
@@ -371,8 +372,8 @@ from that run, so they do not add up to it. SWE4-UT-SELFCHECK and
 SWE4-UT-FIVEINST were added by #292 after this run; their rows give that run's
 results for the two files, which it ran but no group then named. These rows
 are from later runs of their own files, after cases were added:
-SWE4-UT-TRACE (30, #292), SWE4-UT-VIEWSERVER (36, #294; 42, #201),
-SWE4-UT-VIEWSTEPS (26, #201), SWE4-UT-TRANSPORT (31) and SWE4-UT-S2LPFRAME
+SWE4-UT-TRACE (30, #292), SWE4-UT-VIEWSERVER (36, #294; 44, #201),
+SWE4-UT-VIEWSTEPS (31, #201), SWE4-UT-TRANSPORT (31) and SWE4-UT-S2LPFRAME
 (10, #293). The whole suite passed on 2026-10-25 on
 the #293 branch with #292 and #294 merged in: 3 392 passed.
 

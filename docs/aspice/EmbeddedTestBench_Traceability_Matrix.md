@@ -97,6 +97,7 @@
 | next | 2026-11-13 | Claude | #330: SWE4-UT-PICOSPEC (the PICO2 Test Board test sequence on the simulated bench) traced to PICO-FR-008, -009 and -040; PICO-FR-050 names the bench drivers `pico2-test-board` and `pico2`, the names before #330 kept. |
 | next | 2026-11-13 | Claude | #200: section 15, PSCOPE (PSCOPE-FR-001 … PSCOPE-FR-020, PSCOPE-FR-030, PSCOPE-NFR-001), the PicoScope 3000D MSO; STK-02, -03, -04, -05, -07 and -08 gain them; PSCOPE-ARC-001 in section 17; OPEN-11, the PicoScope's bench confirmation items (PSCOPE-OPEN-01 … -05); sections 15 to 19 renumbered 16 to 20, and the AD-24 note points at section 18, coverage analysis; section 18 count 511 in force, 512 declared, 38 non-functional. |
 | next | 2026-11-13 | Claude | #201: row for VIEW-FR-048 (a step's events on the Run page); VIEW-FR-012 traced to `toggleStep`, which replaced `toggleTraffic`; VIEW-DD-STEPEVENTS in VIEW-ARC-001; section 18 count 512 in force, 513 declared, 38 non-functional. |
+| next | 2026-11-14 | Claude | #201, review of #334: VIEW-FR-048 names `TestRunBound` (the run-wide bound on a step's events) and `TestFollowRebuilds`. |
 ---
 
 ## 3. Purpose & Scope
@@ -809,7 +810,7 @@ and the open items of §19 (OPEN-11).
 | VIEW-FR-045 | VIEW-ARC-001 | VIEW-DD-STGUI | `st_row`, `/api/stgui/refresh`, `stgui.js` | `test_frames_as_st_s_gui_lists_them`, `test_nothing_read_yet` |
 | VIEW-FR-046 | VIEW-ARC-001 | VIEW-DD-SERVER | `ViewerServer.handle_error`, `_CLIENT_WENT_AWAY` | `TestClientGoesAway` (7) |
 | VIEW-FR-047 | VIEW-ARC-001, AD-29 | VIEW-DD-SERVER, VIEW-DD-RADIO | `dut_panels`, `plugins_view`, `run_plugins`, `Hub.panel_view`, `_plugin_static`, `missing_plugins`; `plugins.decode` in `RfFrames.feed` and `sensor_of`; `static/plugins.js` | `SWE4-UT-PLUGINS`: `TestViewer`, `TestViewerWithoutThePlugins` |
-| VIEW-FR-048 | VIEW-ARC-001 | VIEW-DD-STEPEVENTS, VIEW-DD-SERVER, VIEW-DD-PAGE | `StepEvents`, `category`, `step_view`, `step_query`, `Hub.step`, `/api/step`, `toggleStep`, `stepPanel` | `SWE4-UT-VIEWSTEPS`: `test_every_step_lists_exactly_its_own_records`, `TestAttribution` (8), `TestCategory` (13); `TestStep` (6) |
+| VIEW-FR-048 | VIEW-ARC-001 | VIEW-DD-STEPEVENTS, VIEW-DD-SERVER, VIEW-DD-PAGE | `StepEvents`, `category`, `step_view`, `step_query`, `Hub.step`, `/api/step`, `toggleStep`, `stepPanel` | `SWE4-UT-VIEWSTEPS`: `test_every_step_lists_exactly_its_own_records`, `TestAttribution` (8), `TestCategory` (13), `TestRunBound` (5); `TestStep` (6), `TestFollowRebuilds` (2) |
 | RUN-FR-050 | ARC-001 | RUN-DD-CLI | `runner/cli.py` | `TestRunCommand` (8) |
 | RUN-FR-051 | ARC-001 | RUN-DD-CLI | exit statuses | `test_simulated_run_passes`, `test_failure_exits_nonzero`, `test_no_bench_and_no_simulate_is_a_usage_error` |
 | RUN-FR-052 | ARC-001 | RUN-DD-CLI | report path suffixing | `test_several_specs_get_suffixed_reports` |

@@ -15,8 +15,10 @@ listed: what they say is the step's own row and its measurements.
 Only the latest time a step ran is kept: a step that runs again (a test case
 restarted, a restart from a step) starts afresh, and a step marked to run again
 and not yet run shows nothing. A step keeps its last :data:`KEEP_STEP_RECORDS`
-records and counts the earlier ones it dropped, so a long step cannot take the
-viewer's memory with it.
+records, and the run as a whole its last :data:`KEEP_RUN_RECORDS`: beyond that,
+the records of the steps that started longest ago go first. Each step counts the
+records it dropped, so neither a long step nor a long run of short ones can take
+the viewer's memory with it.
 
 Traces to: VIEW-FR-048, VIEW-DD-STEPEVENTS.
 """
@@ -30,10 +32,14 @@ from typing import Any, Callable, Deque, Dict, List, Optional, Tuple
 from .traffic import EVENT, NOTE, RECEIVED, SENT, classify
 
 __all__ = ["StepEvents", "category", "step_query", "step_view", "KEEP_STEP_RECORDS",
-           "PHASES"]
+           "KEEP_RUN_RECORDS", "PHASES"]
 
 #: Most records kept for one step; earlier ones are dropped and counted.
 KEEP_STEP_RECORDS = 5000
+
+#: Most records kept for all of a run's steps together; the records of the steps
+#: that started longest ago are dropped first, and counted by their step.
+KEEP_RUN_RECORDS = 50000
 
 #: The phases a step belongs to, as the runner names them.
 PHASES = ("setup", "test", "teardown")
@@ -77,11 +83,16 @@ def category(record: Dict[str, Any]) -> str:
 class StepEvents:
     """Every record logged during each step, in log order, for the latest run."""
 
-    def __init__(self, keep: int = KEEP_STEP_RECORDS) -> None:
+    def __init__(self, keep: int = KEEP_STEP_RECORDS,
+                 keep_run: int = KEEP_RUN_RECORDS) -> None:
         self.keep = keep
+        self.keep_run = keep_run
+        #: Each step's records, in the order the steps last started.
         self.steps: Dict[StepKey, Dict[str, Any]] = {}
         #: The step whose records are arriving, between its start and end.
         self.current: Optional[StepKey] = None
+        #: Records kept across every step.
+        self.total = 0
 
     def feed(self, record: Dict[str, Any]) -> None:
         """One event record, in the order the log holds it."""
@@ -90,12 +101,9 @@ class StepEvents:
         if kind == "run_start":
             self.steps.clear()
             self.current = None
+            self.total = 0
         elif kind == "step_start":
-            self.current = _key(data)
-            if self.current is not None:
-                self.steps[self.current] = {"started": record.get("t"), "ended": None,
-                                            "records": deque(maxlen=self.keep),
-                                            "dropped": 0}
+            self._start(_key(data), record.get("t"))
         elif kind == "step_end":
             key = _key(data)
             if key is not None and key in self.steps:
@@ -104,11 +112,35 @@ class StepEvents:
         elif kind == "run_end":
             self.current = None
         elif self.current is not None:
-            entry = self.steps[self.current]
-            listed: Deque[Dict[str, Any]] = entry["records"]
-            if len(listed) == listed.maxlen:
-                entry["dropped"] += 1
-            listed.append(record)
+            self._add(record)
+
+    def _start(self, key: Optional[StepKey], started: Any) -> None:
+        """A step starts: afresh, and as the newest, even if it ran before."""
+        self.current = key
+        if key is None:
+            return
+        earlier = self.steps.pop(key, None)
+        if earlier is not None:
+            self.total -= len(earlier["records"])
+        self.steps[key] = {"started": started, "ended": None,
+                           "records": deque(maxlen=self.keep), "dropped": 0}
+
+    def _add(self, record: Dict[str, Any]) -> None:
+        """A record of the current step, within the step's and the run's bounds."""
+        entry = self.steps[self.current]
+        listed: Deque[Dict[str, Any]] = entry["records"]
+        if len(listed) == listed.maxlen:
+            entry["dropped"] += 1
+        else:
+            self.total += 1
+        listed.append(record)
+        for oldest in self.steps.values():         # the steps that started longest ago
+            if self.total <= self.keep_run:
+                break
+            while oldest["records"] and self.total > self.keep_run:
+                oldest["records"].popleft()
+                oldest["dropped"] += 1
+                self.total -= 1
 
     def view(self, phase: str, case: Optional[int], step: int,
              started: Optional[float] = None) -> Dict[str, Any]:

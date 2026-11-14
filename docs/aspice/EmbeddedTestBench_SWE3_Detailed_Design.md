@@ -98,6 +98,7 @@
 | next | 2026-11-13 | Claude | #330: the Pico 2 SHT30 Temperature Sensor renamed the PICO2 Test Board. §5.8 notes the rename and the user manual (ETB-PICO-002); PICO-DD-PROTOCOL and -VERSION - the name and `V1.00.0000`; PICO-DD-DRIVER - `Pico2TestBoard`, the aliases kept, the bench driver names, `set_led(colour, lit)`; PICO-DD-SIM - default version `V1.00.0000`; PICO-DD-CLI - `benchtools pico2` and the names it still accepts. |
 | next | 2026-11-13 | Claude | #200: section 5.10, PSCOPE - PSCOPE-DD-CONST, PSCOPE-DD-SDK, PSCOPE-DD-SIM, PSCOPE-DD-SCOPE and PSCOPE-DD-CLI, the PicoScope 3000D MSO driver through the `ps3000a` library (total 84 → 89); RUN and VIEW renumbered 5.11 and 5.12; CORE-DD-EVENTS - the default name `PSCOPE`. |
 | next | 2026-11-13 | Claude | #201: VIEW-DD-STEPEVENTS added (`StepEvents`, `category`, `step_view`, `step_query`, `Hub.step`, `/api/step`; `Hub.follow` rebuilds the views named in `_PER_LOG`); VIEW-DD-PAGE - a step's text opens its measurements and events (`toggleStep`, `stepPanel`), in place of its instrument traffic alone. |
+| next | 2026-11-14 | Claude | #201, review of #334: VIEW-DD-STEPEVENTS - a run-wide bound, `KEEP_RUN_RECORDS` (50 000), the oldest steps' records dropped first and counted (`total`, `_start`, `_add`). |
 ---
 
 ## 3. Purpose & Scope
@@ -4016,8 +4017,12 @@ it (VIEW-FR-048). A `step_start` names the step - phase, test case (for a
 deque of `KEEP_STEP_RECORDS` (5 000); every record after it goes to that step,
 a record pushed out of a full deque counted in `dropped`, until the step's
 `step_end` sets its end time, or `run_end` ends it. The start and end records
-themselves are not kept: the step's row holds what they say. `run_start`
-forgets every step. A record belongs to a step by its place in the log, not by
+themselves are not kept: the step's row holds what they say. The run as a whole
+keeps at most `KEEP_RUN_RECORDS` (50 000), counted in `total`: past it, the
+steps that started longest ago - `steps` holds them in the order they last
+started, a step that runs again moved to the end and its old records taken out
+of `total` - lose their oldest records first, each counted in its step's
+`dropped`. `run_start` forgets every step and sets `total` to 0. A record belongs to a step by its place in the log, not by
 its time, so a record stamped inside a step but logged after it is not the
 step's: the runner runs one step at a time, and the log is the order in which
 things were recorded. `view(phase, case, step, started)` lists the step's
