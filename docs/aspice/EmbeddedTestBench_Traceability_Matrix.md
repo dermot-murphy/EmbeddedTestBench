@@ -97,6 +97,8 @@
 | next | 2026-11-13 | Claude | #330: SWE4-UT-PICOSPEC (the PICO2 Test Board test sequence on the simulated bench) traced to PICO-FR-008, -009 and -040; PICO-FR-050 names the bench drivers `pico2-test-board` and `pico2`, the names before #330 kept. |
 | next | 2026-11-13 | Claude | #200: section 15, PSCOPE (PSCOPE-FR-001 … PSCOPE-FR-020, PSCOPE-FR-030, PSCOPE-NFR-001), the PicoScope 3000D MSO; STK-02, -03, -04, -05, -07 and -08 gain them; PSCOPE-ARC-001 in section 17; OPEN-11, the PicoScope's bench confirmation items (PSCOPE-OPEN-01 … -05); sections 15 to 19 renumbered 16 to 20, and the AD-24 note points at section 18, coverage analysis; section 18 count 511 in force, 512 declared, 38 non-functional. |
 | next | 2026-11-13 | Claude | #313: S2LP-FR-070 - `SWE4-UT-S2LPKEPLER` now 75 tests (the V10.00 firmware's TWF layout, type version 0); VIEW-FR-028 - `TestLatestData` now 6. |
+| next | 2026-11-13 | Claude | #201: row for VIEW-FR-048 (a step's events on the Run page); VIEW-FR-012 traced to `toggleStep`, which replaced `toggleTraffic`; VIEW-DD-STEPEVENTS in VIEW-ARC-001; section 18 count 512 in force, 513 declared, 38 non-functional. |
+| next | 2026-11-14 | Claude | #201, review of #334: VIEW-FR-048 names `TestRunBound` (the run-wide bound on a step's events) and `TestFollowRebuilds`. |
 | next | 2026-11-13 | Claude | #71: rows for JLINK-FR-007, -008, -009 and -091, the `segger` J-Link backend, traced to JLINK-DD-SEGGER, -COMMANDER, -SIMCOMMANDER and -IMAGE and to SWE4-UT-JLINKSEGGER and -JLINKIMAGE; AD-30 traced. |
 | next | 2026-11-14 | Claude | #71 review round 1: JLINK-FR-008 row cites the round-1 tests; AD-30 count 87 → 107. |
 | next | 2026-11-14 | Claude | #71 review round 3: JLINK-FR-008 and -009 rows cite the round-3 tests; AD-30 count 107 → 118. |
@@ -780,7 +782,7 @@ and the open items of §19 (OPEN-11).
 | VIEW-FR-009 | VIEW-ARC-001 | VIEW-DD-SERVER, VIEW-DD-STATE, VIEW-DD-PAGE | `/api/attach`, `Hub.control_port`, `_on_control_listening`, `renderEvents` | `test_attach_needs_a_log_and_a_numeric_port`, `test_the_control_port_is_taken_from_the_log` |
 | VIEW-FR-010 | VIEW-ARC-001 | VIEW-DD-TRAFFIC, VIEW-DD-PAGE | `classify`, `Traffic`, `loadInstruments` | `TestClassify` (11), `TestPairing` (7), `test_every_supply_query_has_its_reply`, `test_no_dongle_reply_is_left_unasked` |
 | VIEW-FR-011 | VIEW-ARC-001 | VIEW-DD-TRAFFIC, VIEW-DD-SERVER | `PsuPanel`, `JlinkPanel`, `panel_for`, `Hub._apply` | `TestPanels` (3), `test_the_panels_are_built` |
-| VIEW-FR-012 | VIEW-ARC-001 | VIEW-DD-TRAFFIC, VIEW-DD-SERVER, VIEW-DD-PAGE | `Traffic.view(t0, t1)`, `Hub.instruments`, `/api/instruments`, `toggleTraffic` | `test_a_step_s_window_holds_only_its_own_traffic`, `TestInstruments` (4) |
+| VIEW-FR-012 | VIEW-ARC-001 | VIEW-DD-TRAFFIC, VIEW-DD-SERVER, VIEW-DD-PAGE | `Traffic.view(t0, t1)`, `Hub.instruments`, `/api/instruments`, `toggleStep` | `test_a_step_s_window_holds_only_its_own_traffic`, `TestInstruments` (4) |
 | VIEW-FR-013 | VIEW-ARC-001 | VIEW-DD-RADIO, VIEW-DD-PAGE | `RfFrames`, `loadRadio` | `TestFrames` (6) |
 | VIEW-FR-014 | VIEW-ARC-001 | VIEW-DD-RADIO, VIEW-DD-SERVER | `RfFrames.view(sensor)`, `/api/radio` | `test_each_sensor_s_latest_frame_of_each_type`, `test_one_sensor_only` |
 | VIEW-FR-015 | VIEW-ARC-001 | VIEW-DD-RADIO, VIEW-DD-SERVER, VIEW-DD-PAGE | `BleAir`, `parse_fields`, `Hub.bluetooth`, `/api/ble`, `loadBle` | `TestBle` (6) |
@@ -816,6 +818,7 @@ and the open items of §19 (OPEN-11).
 | VIEW-FR-045 | VIEW-ARC-001 | VIEW-DD-STGUI | `st_row`, `/api/stgui/refresh`, `stgui.js` | `test_frames_as_st_s_gui_lists_them`, `test_nothing_read_yet` |
 | VIEW-FR-046 | VIEW-ARC-001 | VIEW-DD-SERVER | `ViewerServer.handle_error`, `_CLIENT_WENT_AWAY` | `TestClientGoesAway` (7) |
 | VIEW-FR-047 | VIEW-ARC-001, AD-29 | VIEW-DD-SERVER, VIEW-DD-RADIO | `dut_panels`, `plugins_view`, `run_plugins`, `Hub.panel_view`, `_plugin_static`, `missing_plugins`; `plugins.decode` in `RfFrames.feed` and `sensor_of`; `static/plugins.js` | `SWE4-UT-PLUGINS`: `TestViewer`, `TestViewerWithoutThePlugins` |
+| VIEW-FR-048 | VIEW-ARC-001 | VIEW-DD-STEPEVENTS, VIEW-DD-SERVER, VIEW-DD-PAGE | `StepEvents`, `category`, `step_view`, `step_query`, `Hub.step`, `/api/step`, `toggleStep`, `stepPanel` | `SWE4-UT-VIEWSTEPS`: `test_every_step_lists_exactly_its_own_records`, `TestAttribution` (8), `TestCategory` (13), `TestRunBound` (5); `TestStep` (6), `TestFollowRebuilds` (2) |
 | RUN-FR-050 | ARC-001 | RUN-DD-CLI | `runner/cli.py` | `TestRunCommand` (8) |
 | RUN-FR-051 | ARC-001 | RUN-DD-CLI | exit statuses | `test_simulated_run_passes`, `test_failure_exits_nonzero`, `test_no_bench_and_no_simulate_is_a_usage_error` |
 | RUN-FR-052 | ARC-001 | RUN-DD-CLI | report path suffixing | `test_several_specs_get_suffixed_reports` |
@@ -845,13 +848,13 @@ and the open items of §19 (OPEN-11).
 | RUN-ARC-001 | RUN-DD-SPEC, -LIMITS, -RESOLVE, -BENCH, -RESULTS, -RUNNER, -CONTROL, -REPORT, -CLI | `runner/*.py`, `cli.py` |
 | PICO-ARC-001 | PICO-DD-DRIVER, -CONST, -SIM, -CLI, -FLASH | `instruments/pico2_test_board/{thermometer,constants,simulator,cli,flash}.py` |
 | PICO-ARC-001 | PICO-DD-PROTOCOL, -VERSION, -BOARD, -HAL, -SHT30, -TEXT, -PARSER, -MAIN, -BUILD, -TEST | `firmware/pico2_test_board/{include,src,test}/*`, `CMakeLists.txt`, `pico_sdk_import.cmake` |
-| VIEW-ARC-001 | VIEW-DD-STATE, -SERVER, -TRAFFIC, -RADIO, -GRAPHS, -TAGS, -STATUS, -KEPLER, -SENSOR, -TWF, -DIAG, -REPORT, -STGUI, -PAGE | `viewer/*.py`, `viewer/static/*` |
+| VIEW-ARC-001 | VIEW-DD-STATE, -SERVER, -TRAFFIC, -RADIO, -GRAPHS, -TAGS, -STEPEVENTS, -STATUS, -KEPLER, -SENSOR, -TWF, -DIAG, -REPORT, -STGUI, -PAGE | `viewer/*.py`, `viewer/static/*` |
 
 ## 18. Coverage analysis
 
 | Question | Answer |
 |---|---|
-| Requirements with no verifying test | **None.** All 511 functional requirements in force (512 declared; PICO-FR-044 is withdrawn) and 38 non-functional requirements trace to at least one test, or to a recorded inspection where a test is not the appropriate method (CORE-NFR-002, BLE-FR-090, BLE-NFR-002, and part of CORE-NFR-001). The firmware requirements are verified against the artefact the firmware is built from, not against a running dongle: see CON-07. |
+| Requirements with no verifying test | **None.** All 512 functional requirements in force (513 declared; PICO-FR-044 is withdrawn) and 38 non-functional requirements trace to at least one test, or to a recorded inspection where a test is not the appropriate method (CORE-NFR-002, BLE-FR-090, BLE-NFR-002, and part of CORE-NFR-001). The firmware requirements are verified against the artefact the firmware is built from, not against a running dongle: see CON-07. |
 | Tests not tracing to a requirement | **None.** Every test file names its requirements in its module docstring. |
 | Source modules with no design unit | **None.** Every module names its design unit in its docstring - firmware sources included, checked by `test_every_source_declares_its_trace` in `SWE4-UT-BLEFW`; `__main__.py` is covered by RUN-DD-CLI. |
 | Design units with no source | **None.** |
