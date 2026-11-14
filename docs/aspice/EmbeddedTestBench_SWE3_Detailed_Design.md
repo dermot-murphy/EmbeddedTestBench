@@ -111,6 +111,8 @@
 | next | 2026-11-14 | Claude | #303 review round 1: VIEW-DD-RADIO - the summary hooks are the plugin's whose decoder reads the frame (`decode_with_plugin`), not the first loaded; CORE-DD-PLUGINS - `decode_with_plugin`; VIEW-DD-KEPLER - an unknown tab is refused; VIEW-DD-REPORT - every panel reports on the sensor the header names. |
 | next | 2026-11-14 | Claude | #342: §5.11, PPK - PPK-DD-CONST, -PROTOCOL, -MEASUREMENT, -DRIVER, -SIM and -CLI, the Nordic Power Profiler Kit II driver; §4 catalogue (95 units) and package structure. RUN and VIEW renumbered 5.12 and 5.13. |
 | next | 2026-11-14 | Claude | #342 review round 1: PPK-DD-PROTOCOL - `_number`; PPK-DD-DRIVER - `power` refuses an unknown mode or source voltage; PPK-DD-CLI - `--voltage-limit` required by `voltage` and `power on`. |
+| next | 2026-11-14 | Claude | #340: S2LP-DD-PACKETS - `Packet.decoder`; CORE-DD-PLUGINS - `decoder_name`, `plugin_of_decoder`; VIEW-DD-RADIO - a record naming its decoder is not decoded again. |
+| next | 2026-11-14 | Claude | #340 review round 1: CORE-DD-PLUGINS - `load` refuses a second plugin providing a decoder name already loaded; S2LP-DD-PACKETS line wrapped. |
 ---
 
 ## 3. Purpose & Scope
@@ -407,7 +409,12 @@ Design points:
   and otherwise names those loaded. `decode(payload)` tries each in load order,
   and `decode_with_plugin` also gives the plugin whose decoder read it (#303),
   for a frame logged without a decode (a decoder that raises anything has
-  not read it). `field` maps a sample action's field
+  not read it). `decoder_name(function)` gives the name a plugin provides a
+  decoder function under, and `plugin_of_decoder(name)` the plugin that
+  provides it (#340). A decoder name belongs to one plugin: `load` refuses a
+  plugin that provides a name another loaded plugin already does, so the name
+  a packet record carries names one plugin, whatever order a reader loads
+  them in. `field` maps a sample action's field
   name; `hook` returns a named function or a default.
 - **Paths.** `resolve_plugin_path("plugin:<name>/<file>")` finds a register file
   by name or a path inside the folder, refusing one that leaves it, links
@@ -2245,7 +2252,9 @@ Commands out, replies in, every line logged.
 #### S2LP-DD-PACKETS — `packets.py`
 
 `Packet` (direction, payload, RSSI, both clocks, error, the firmware's extra
-fields), `Capture` (the packets, the rejected receptions, and how they were
+fields, the decode and `decoder`, the name a loaded plugin gives the decoder
+that made it, `""` for none or a decoder that is not a plugin's, #340),
+`Capture` (the packets, the rejected receptions, and how they were
 taken), `PacketLog` (JSON Lines, one object per line), `BoardClock`, and
 `packet_from_reply`, which turns one receive report into a packet.
 
@@ -4275,9 +4284,12 @@ is counted as sent; a received one is decoded with the plugins' decoders (`plugi
 driver did not, its problem stated when the radio rejected it or it would not
 decode, and appended to a deque of `KEEP_FRAMES` (1 000) with a one-line
 summary of its fields - the `frame_summary` hook's of the plugin whose
-decoder reads the frame's bytes (`Registry.decode_with_plugin`, asked even when
-the driver logged its own decode, so that with two device plugins each
-describes its own frames), else `plain_summary`, every plain value but the type
+decoder read the frame, so that with two device plugins each describes its own
+frames, else `plain_summary`. For a record whose decode names its decoder
+(`decoder`, #340) that plugin is `Registry.plugin_of_decoder`'s and the frame
+is not decoded again; for a record with no decode, one from an older log that
+names none, or one naming a decoder no loaded plugin provides, it is
+`Registry.decode_with_plugin`'s, decoding the bytes, every plain value but the type
 and sender. Per sensor it keeps the frames heard, last time, RSSI and the latest
 frame of each type with the fields that plugin's `sensor_fields` hook picks
 (none without one, #303). A hook that raises does not stop the view.
