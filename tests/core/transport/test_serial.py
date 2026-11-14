@@ -42,6 +42,37 @@ class TestResourceParsing:
         assert transport.port == "socket://bench-pc:4001"
         assert transport.baudrate == DEFAULT_BAUDRATE
 
+    @pytest.mark.parametrize(
+        "resource",
+        [
+            "socket://192.168.1.5:4003",
+            "socket://127.0.0.1:4003",
+            "socket://bench-pc.example.com:4003",
+            "socket://localhost:4003",
+            "rfc2217://192.168.1.5:4001",
+            "socket://[::1]:4003",
+        ],
+    )
+    def test_a_tcp_port_is_kept_whatever_the_host(self, resource):
+        """#319: a dotted host - an IP address or a domain name - lost its
+        port, which became the line rate, and pyserial could not open it."""
+        transport = SerialTransport(resource)
+        assert transport.port == resource
+        assert transport.baudrate == DEFAULT_BAUDRATE
+
+    def test_a_url_takes_its_rate_from_the_argument(self):
+        """#319: a pyserial URL keeps its port, so *baudrate* is the only
+        way to give it a line rate - which rfc2217:// passes to the far end."""
+        transport = SerialTransport("rfc2217://192.168.1.5:4001", baudrate=9600)
+        assert transport.port == "rfc2217://192.168.1.5:4001"
+        assert transport.baudrate == 9600
+
+    def test_a_url_with_a_trailing_number_goes_to_pyserial_whole(self):
+        """#319: no trailing number is taken from a URL as its line rate."""
+        transport = SerialTransport("socket://192.168.1.5:4001:9600")
+        assert transport.port == "socket://192.168.1.5:4001:9600"
+        assert transport.baudrate == DEFAULT_BAUDRATE
+
     def test_an_explicit_rate_wins_over_the_default(self):
         assert SerialTransport("COM5", baudrate=9600).baudrate == 9600
 
