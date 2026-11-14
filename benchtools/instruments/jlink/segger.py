@@ -337,8 +337,13 @@ class SeggerJLinkProbe(JLinkProbe):  # pylint: disable=too-many-instance-attribu
         return self._commander.run(commands, what, timeout=timeout)
 
     def _read_identity(self) -> InstrumentIdentity:
-        """Identify the probe from Commander's start-up banner."""
-        output = self._commander.run([], "identify", timeout=30.0)
+        """Identify the probe from the banner Commander prints when it connects.
+
+        Commander connects only when a command needs it, so an empty command
+        file prints no ``S/N:`` or ``Firmware:`` line. ``f`` (firmware info)
+        connects to the probe and not to the target (5C1712, 2026-11-14).
+        """
+        output = self._commander.run(["f"], "identify", timeout=30.0)
         banner = parse_banner(output)
         parts = ["%s: %s" % (label, banner[key]) for key, label in (
             ("firmware", "Firmware"), ("hardware", "Hardware"), ("serial_number", "S/N"),

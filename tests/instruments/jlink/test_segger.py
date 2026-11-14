@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import signal
 import subprocess
 import sys
 import time
@@ -191,6 +192,7 @@ class TestRunning:
         "Unknown command. '?' for help.",
         "Connecting to J-Link via USB...FAILED",
         "ERROR: Erase returned with error code -1.",
+        "JTAGConf>",
     ])
     def test_each_failure_message_is_recognised(self, line):
         with pytest.raises(CommanderError):
@@ -198,6 +200,26 @@ class TestRunning:
 
     def test_a_clean_run_passes(self):
         check_output("Erasing device...\nErasing done.\nScript processing completed.", 0, "x")
+
+    def test_the_connect_notices_are_not_failures(self):
+        # V9.42 prints both on every run that connects, even with -AutoConnect
+        # 1 (5C1712, 2026-11-14, JLINK-OPEN-05).
+        check_output(
+            "J-Link>savebin x.bin, E000EDF0, 4\n"
+            "J-Link connection not established yet but required for command.\n"
+            "Connecting to J-Link via USB...O.K.\n"
+            "S/N: 682395790\n"
+            "Target connection not established yet but required for command.\n"
+            "Device \"NRF52840_XXAA\" selected.\n"
+            "Reading 4 bytes from addr 0xE000EDF0 into file...O.K.\n"
+            "Script processing completed.", 0, "x")
+
+    def test_the_simulator_connects_only_when_a_command_needs_it(self, probe):
+        quiet = probe.commander.run([], "nothing")
+        probe_only = probe.commander.run(["f"], "firmware")
+        assert "S/N:" not in quiet and "Target connection" not in quiet
+        assert "J-Link connection not established" in probe_only and "S/N:" in probe_only
+        assert "Target connection" not in probe_only
 
     def test_the_banner_is_read(self):
         banner = parse_banner(
@@ -485,6 +507,8 @@ class TestIdentityAndResults:
         identity = probe.identify()
         assert identity.serial_number == "801012345" and identity.manufacturer == "SEGGER"
         assert "J-Link Commander: V9.42" in identity.raw
+        # An empty command file never connects, so prints no banner.
+        assert commands_run(probe)[-1] == ["exitonerror 1", "f", "q"]
 
     def test_gdb_results_say_gdb(self):
         with JLinkProbe.connect("sim://") as probe:
@@ -596,6 +620,9 @@ class TestRtt:
                               "import sys\n"
                               "out = open(sys.argv[1], 'wb')\n"
                               "out.write(b'first\\n'); out.flush()\n"
+                              "import signal\n"
+                              "if hasattr(signal, 'SIGBREAK'):\n"
+                              "    signal.signal(signal.SIGBREAK, lambda *_: None)\n"
                               "sys.stdin.readline()\n"
                               "out.write(b'last\\n'); out.close()\n")
         backend.rtt_open()
@@ -604,6 +631,27 @@ class TestRtt:
         assert backend.rtt_poll() == b"last\n"
         backend.rtt_close()
         assert backend.rtt_poll() == b""
+
+    @pytest.mark.skipif(not hasattr(signal, "CTRL_BREAK_EVENT"), reason="Windows only")
+    def test_on_windows_the_logger_is_stopped_with_ctrl_break(self, monkeypatch, tmp_path):
+        """JLinkRTTLogger V9.42 ignores a key on a pipe and exits at once on
+        CTRL_BREAK (5C1712, 2026-11-14), so finish must not wait it out."""
+        backend = self.logger(monkeypatch, tmp_path,
+                              "import signal, sys, time\n"
+                              "out = open(sys.argv[1], 'wb')\n"
+                              "def bye(*_):\n"
+                              "    out.write(b'bye\\n'); out.close(); sys.exit(0)\n"
+                              "signal.signal(signal.SIGBREAK, bye)\n"
+                              "out.write(b'first\\n'); out.flush()\n"
+                              "while True:\n"
+                              "    time.sleep(0.05)\n", quit_timeout=5.0)
+        backend.rtt_open()
+        assert self.poll_until(backend, b"first\n") == b"first\n"
+        started = time.monotonic()
+        backend.finish()
+        assert time.monotonic() - started < 4
+        assert backend.rtt_poll() == b"bye\n"
+        backend.rtt_close()
 
     def test_a_logger_that_will_not_quit_is_terminated(self, monkeypatch, tmp_path):
         backend = self.logger(monkeypatch, tmp_path,

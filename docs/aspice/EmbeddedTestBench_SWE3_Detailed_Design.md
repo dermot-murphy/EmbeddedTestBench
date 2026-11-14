@@ -105,6 +105,8 @@
 | next | 2026-11-13 | Claude | #71: JLINK-DD-SEGGER, JLINK-DD-COMMANDER, JLINK-DD-SIMCOMMANDER and JLINK-DD-IMAGE added - the `segger` backend (J-Link Commander command files, RTT Logger), its simulation and the host-side image reader. JLINK-DD-SERVER - `find_jlink_commander`, `find_rtt_logger`. JLINK-DD-CLI - `--backend`, `--commander`, `--rtt-logger`. |
 | next | 2026-11-14 | Claude | #71 review round 1: JLINK-DD-SEGGER - `run` always resumes, `core_is_halted` reads DHCSR after run control, register writes not read back by default (`is_register_address`), the RTT logger stopped on a failed start and finished before the client stops; JLINK-DD-COMMANDER - one RTT file per session, `finish`, a logger stopped if its start is interrupted; JLINK-DD-SIMCOMMANDER - simulated DHCSR. |
 | next | 2026-11-14 | Claude | #71 review round 3: JLINK-DD-SEGGER - the register-region test covers the whole written range, and the DHCSR read's connect is stated unverified; JLINK-DD-COMMANDER - an RTT file that cannot be removed raises a clear error; JLINK-DD-CLI - `write --no-read-back` refused on `gdb`. |
+| next | 2026-11-14 | Claude | #71 bench check JLINK-OPEN-05: JLINK-DD-SEGGER - the connect notices are not errors; `identify` runs `f`; the DHCSR read does not halt the core and a halt does not survive Commander's exit, both seen on 5C1712. |
+| next | 2026-11-14 | Claude | #71 bench check review round 1: JLINK-DD-SEGGER - `JTAGConf>` is a failure marker; the RTT Logger is stopped with CTRL_BREAK on Windows; `halt`'s result narrowed to the probe, target and Commander version it was seen with. |
 ---
 
 ## 3. Purpose & Scope
@@ -1172,14 +1174,17 @@ runs instead of GDB/MI commands. `JLinkProbe.connect(backend="segger")` calls
   `is_halted` reports that. `run` and `reset(halt=False)` raise if the core
   is still halted; `halt` raises if Commander's exit let the core run again
   (seen once, JLink_Integration_Notes §4.3); `reset(halt=True)` only logs it,
-  since `restore` resets halted and `loadfile` halts for itself. Unverified:
-  that the DHCSR run's `-AutoConnect 1` connect leaves a running core
-  running; JLINK-OPEN-05 checks it. Each of these is two Commander runs.
+  since `restore` resets halted and `loadfile` halts for itself. The DHCSR
+  run's connect leaves a running core running, and a halt made by `h` does not
+  survive Commander's exit, so `halt` raised every time it was tried (nRF52840 5C1712, J-Link OB V8, Commander V9.42,
+  2026-11-14, JLINK-OPEN-05). Each of these is two Commander runs.
 - **Close**: a run of `g` if the probe ran anything and `leave_halted` is not
   set (JLINK-FR-006).
 - **RTT**: `RttClient` over `RttLoggerBackend`; the core is let go first
   (`run`). If the client fails to start after the logger did, the logger is
-  stopped. `rtt_stop` and close call the source's `finish` before the client
+  stopped. On Windows the logger runs in a process group of its own and
+  `finish` sends it CTRL_BREAK, which V9.42 obeys at once; it ignores a key
+  on a pipe. `rtt_stop` and close call the source's `finish` before the client
   stops, so its last pump reads what the logger wrote as it quit. The CLI's
   `rtt` sends no further Commander run while the logger reads.
 - **Refusals**: `GDB_ONLY_OPERATIONS` maps each GDB-only method to the reason,
@@ -1203,7 +1208,14 @@ Running SEGGER's tools for the `segger` backend.
 - `check_output` fails a run on a non-zero status **or** on any line holding
   one of `ERROR_MARKERS`, each a message the binary prints: whether
   `JLink.exe` exits non-zero when `ExitOnError` stops it is not documented
-  locally. `CommanderError` carries the tool's last lines.
+  locally. `CommanderError` carries the tool's last lines. The two notices
+  "J-Link connection not established yet ..." and "Target connection not
+  established yet ..." are not markers: Commander V9.42 connects lazily and
+  prints both on every successful run (JLINK-OPEN-05). `JTAGConf>` is a
+  marker: it is printed when `-If JTAG` meets an SWD-only target, and the run
+  then exits 0 with nothing else said.
+- `identify` runs `f`, which connects to the probe and not to the target, so
+  that the banner is printed; an empty command file never connects.
 - `parse_banner` reads `S/N:`, `Firmware:`, `Hardware version:` and the
   Commander version, formats found in the binary.
 - `file_argument` quotes a file name only if it holds white space; whether
