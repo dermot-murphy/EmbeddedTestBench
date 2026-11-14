@@ -169,6 +169,20 @@ class TestSettings:
             kit.set_mode("ammeter")
             assert kit.power_on() is True
 
+    def test_power_on_is_refused_until_the_mode_is_known(self, kit):
+        kit._mode = None  # pylint: disable=protected-access
+        sim(kit).received.clear()
+        with pytest.raises(ConfigurationError, match="mode is not known"):
+            kit.power_on()
+        assert not sim(kit).received
+        assert kit.power_off() is False
+
+    def test_a_source_kit_with_no_voltage_is_not_switched_on(self, kit):
+        kit._vdd_mv = 0  # pylint: disable=protected-access
+        with pytest.raises(ConfigurationError, match="not known"):
+            kit.power_on()
+        assert not sim(kit).running
+
     def test_settings_are_logged(self, kit, caplog):
         with caplog.at_level(logging.INFO):
             kit.set_voltage(3.0)

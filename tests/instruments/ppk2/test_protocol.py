@@ -70,6 +70,10 @@ class TestMetadata:
         assert bench_calibration().gs[0] == DEFAULT_MODIFIERS["gs"][0]
         assert Calibration.from_metadata({}) == Calibration()
 
+    def test_a_value_that_is_not_a_number_keeps_the_default(self):
+        calibration = Calibration.from_metadata({"r0": "garbled", "r1": None, "r2": True})
+        assert calibration.r[:3] == DEFAULT_MODIFIERS["r"][:3]
+
 
 class TestConversion:
     def test_the_formula(self):

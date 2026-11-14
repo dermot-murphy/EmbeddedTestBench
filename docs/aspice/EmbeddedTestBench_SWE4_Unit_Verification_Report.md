@@ -107,6 +107,7 @@
 | next | 2026-11-14 | Claude | #303: §5 SWE4-UT-PLUGINS 61 → 66, pass - the panel interface, the viewer with no plugin, no viewer module naming a Kepler field; SWE4-UT-VIEWSENSOR (17), -VIEWTWF (15), -VIEWDIAG (14), -VIEWKEPLER (13), -VIEWREPORT (10) and -VIEWRADIO (14) pass unchanged in count against the Kepler plugin's modules; from a whole-suite run on this branch on 2026-11-14 (Windows 10, Python 3.11; `core/transport/test_process.py` left out, it needs `cat`). The rest of §5 is not regenerated. |
 | next | 2026-11-14 | Claude | #303 review round 1: §5 SWE4-UT-PLUGINS 66 → 69, pass, from a run of `core/test_plugins.py` and `viewer/` on this branch on 2026-11-14 (Windows 10, Python 3.11). The page was exercised in a browser (the app's built-in pane) on an event log of a simulated run with Kepler ALIVE and VERSION frames from two sensors and a 256-sample TWFA X capture. With `--plugin plugins/kepler`: the nine Kepler tabs between Frames and ST GUI; the sensor drop-down filtering the sensor table; Latest Data's ten frames with byte colours from `kepler.css`, Pause and Resume; Config's six groups; Identification V11.00.0000; Short Interval's axis selector (X) and three charts, Environment two and Ticks one, Zoom in, out and Reset; TWF's waveform and spectrum, axis Y with no capture saying so, TWFB falling back to TWFA, zoom and Reset; Diagnostics' three type rows, Auto and Hold, Reset clearing the sensor through `POST /api/panel`; Sync; ST GUI; Download report an attachment with Run and the eight Kepler sections. With no plugin: only Frames and ST GUI, both opening, and the report with Run alone; no console errors. The rest of §5 is not regenerated. |
 | next | 2026-11-14 | Claude | #342: §5 rows for SWE4-UT-PPK (36), -PPKPROTO (22), -PPKMEAS (15) and -PPKCLI (10), pass, from a run of `tests/instruments/ppk2` on this branch on 2026-11-14 (83 passed, Windows). §13D added: those results, what the bench's PPK2 showed on 2026-11-14 with nothing wired to it, and what it has not yet shown (PPK-OPEN-01 … -03). The section 5 total is still the 1.32 whole-suite run's. |
+| next | 2026-11-14 | Claude | #342 review round 1: §5 and §13D.1 counts after round 1: SWE4-UT-PPK 38, -PPKPROTO 23, -PPKCLI 13 (89 passed). |
 ---
 
 ## 3. Purpose & Scope
@@ -372,10 +373,10 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-PSCOPECONST | `instruments/picoscope3000/test_constants.py` | 34 | Pass |
 | SWE4-UT-PSCOPESDK | `instruments/picoscope3000/test_sdk.py` | 7 | Pass |
 | SWE4-UT-PSCOPECLI | `instruments/picoscope3000/test_cli.py` | 6 | Pass |
-| SWE4-UT-PPK | `instruments/ppk2/test_ppk2.py` | 36 | Pass |
-| SWE4-UT-PPKPROTO | `instruments/ppk2/test_protocol.py` | 22 | Pass |
+| SWE4-UT-PPK | `instruments/ppk2/test_ppk2.py` | 38 | Pass |
+| SWE4-UT-PPKPROTO | `instruments/ppk2/test_protocol.py` | 23 | Pass |
 | SWE4-UT-PPKMEAS | `instruments/ppk2/test_measurement.py` | 15 | Pass |
-| SWE4-UT-PPKCLI | `instruments/ppk2/test_cli.py` | 10 | Pass |
+| SWE4-UT-PPKCLI | `instruments/ppk2/test_cli.py` | 13 | Pass |
 | SWE4-UT-PICOFW | `firmware/pico2_test_board/test/*.c` | 83 | Pass (CTest with ASan/UBSan, 3 binaries, CI run 39938471355; not in the pytest total; §13A) |
 | SWE4-UT-BENCH | `runner/test_bench.py`, `runner/test_shipped_benches.py` | 67 | Pass |
 | SWE4-UT-ENGINE | `runner/test_runner.py` | 33 | Pass |
@@ -1618,8 +1619,9 @@ driver, not by a recorded test run, and no evidence folder is kept for them.
 ### 13D.1 Unit tests
 
 `tests/instruments/ppk2` was run on the `feature/342-ppk2` branch on
-2026-11-14 (Windows, Python 3.11.1): 83 passed, none failed or skipped -
-SWE4-UT-PPK 36, SWE4-UT-PPKPROTO 22, SWE4-UT-PPKMEAS 15 and SWE4-UT-PPKCLI 10.
+2026-11-14 (Windows, Python 3.11.1), after review round 1: 89 passed, none
+failed or skipped - SWE4-UT-PPK 38, SWE4-UT-PPKPROTO 23, SWE4-UT-PPKMEAS 15
+and SWE4-UT-PPKCLI 13.
 They run against the simulated kit; none needs a PPK2. The section 5 total is
 still the 1.32 whole-suite run's.
 

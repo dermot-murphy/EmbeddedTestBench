@@ -86,7 +86,7 @@ Four bytes, little-endian, 100 000 a second:
 |---|---|
 | 0 to 13 | ADC reading; multiplied by 4 before use |
 | 14 to 16 | Current range, 0 (most sensitive) to 4; a value above 4 is read as 4 |
-| 18 to 23 | Sample counter, modulo 64. A gap is samples lost |
+| 18 to 23 | Sample counter, modulo 64. A gap is samples lost; a gap of exactly 64 cannot be seen, so the count is a lower bound |
 | 24 to 31 | Logic inputs D0 (bit 24) to D7 |
 
 The current in amps, for range *k*, ADC reading *a* and regulator voltage *V*
@@ -149,10 +149,13 @@ python -m benchtools ppk2 -r ppk2:// info
 python -m benchtools ppk2 -r ppk2:// measure --duration 1
 python -m benchtools ppk2 -r ppk2:// --voltage-limit 3.3 voltage 3.0
 python -m benchtools ppk2 -r ppk2:// mode source
-python -m benchtools ppk2 -r ppk2:// power on
+python -m benchtools ppk2 -r ppk2:// --voltage-limit 3.3 power on
 python -m benchtools ppk2 -r ppk2:// measure --duration 2 --threshold 0.001 --csv run.csv
 ```
 
 `mode`, `voltage` and `power` change what the kit supplies: read what is wired
-to it first. `specs/ppk2.yaml` is a worked specification, and
+to it first. `voltage` and `power on` need `--voltage-limit`, because the
+command line reads no bench file and the kit may have been left at a higher
+voltage (it was found at 4.0 V). The kit keeps its DUT power on after its port
+closes, so a specification switches it off in its `teardown`. `specs/ppk2.yaml` is a worked specification, and
 `docs/Bench_Runner_Guide.md` §5.6 lists the values a step reads.

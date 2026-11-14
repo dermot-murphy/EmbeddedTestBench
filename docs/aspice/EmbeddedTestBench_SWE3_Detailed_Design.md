@@ -110,6 +110,7 @@
 | next | 2026-11-14 | Claude | #303: the viewer's device analyses move into the Kepler plugin. VIEW-DD-SERVER - panel tabs, `registerRfView`, `/api/panel` options (`panel_call`) and `POST /api/panel` actions, `Hub.panel_reports`; `/api/sensor`, `/api/twf`, `/api/diagnostics` removed. VIEW-DD-RADIO - `frame_summary` and `sensor_fields` hooks, `plain_summary`. VIEW-DD-KEPLER - `KeplerPanel`, its tabs, actions and report, `kepler.css`. VIEW-DD-SENSOR, -TWF and -DIAG now in `plugins/kepler`; `spectrum` and `fill_gaps` in `benchtools.analysis.spectrum`. VIEW-DD-REPORT draws each panel's sections. |
 | next | 2026-11-14 | Claude | #303 review round 1: VIEW-DD-RADIO - the summary hooks are the plugin's whose decoder reads the frame (`decode_with_plugin`), not the first loaded; CORE-DD-PLUGINS - `decode_with_plugin`; VIEW-DD-KEPLER - an unknown tab is refused; VIEW-DD-REPORT - every panel reports on the sensor the header names. |
 | next | 2026-11-14 | Claude | #342: §5.11, PPK - PPK-DD-CONST, -PROTOCOL, -MEASUREMENT, -DRIVER, -SIM and -CLI, the Nordic Power Profiler Kit II driver; §4 catalogue (95 units) and package structure. RUN and VIEW renumbered 5.12 and 5.13. |
+| next | 2026-11-14 | Claude | #342 review round 1: PPK-DD-PROTOCOL - `_number`; PPK-DD-DRIVER - `power` refuses an unknown mode or source voltage; PPK-DD-CLI - `--voltage-limit` required by `voltage` and `power on`. |
 ---
 
 ## 3. Purpose & Scope
@@ -3852,8 +3853,8 @@ dict keyed in lower case: an `int` for a whole number, a `float` for any other,
 `None` for `-nan`, the text otherwise; a line with no colon is skipped.
 `Calibration` holds the seven per-range tuples (`r`, `gs`, `gi`, `o`, `s`, `i`,
 `ug`); `from_metadata` takes `<key><range>` from the metadata, keeping the
-default where the value is missing, zero or `None`, as Nordic's app does
-(`meta[key] || default`). `amps(range, adc, vdd_mv)` is Nordic's formula:
+default where the value is missing, zero, `None` or not a number (`_number`),
+as Nordic's app does (`meta[key] || default`). `amps(range, adc, vdd_mv)` is Nordic's formula:
 `raw = (adc − o) × ADC_MULT / r`, then
 `ug × (raw × (gs × raw + gi) + (s × vdd / 1000 + i))`. `adc(range, amps,
 vdd_mv)` inverts it, solving the quadratic, for the simulator, clipped to the
@@ -3905,8 +3906,9 @@ opens it unless asked not to. `_open` retries a `ConnectionFailedError` every
 once and reads until `END` or `METADATA_TIMEOUT`, taking the calibration, the
 mode and the voltage. `set_mode` sends `DEVICE_RUNNING_SET 0` then
 `SET_POWER_MODE`; `set_voltage` checks `voltage_limit` and the range before
-sending; `power` refuses to switch a source-mode kit on above the limit; each
-logs its record. `measure` checks the duration and the pulse options, then
+sending; `power` refuses to switch on while the mode is not known, or a
+source-mode kit whose voltage is not known or is above the limit, and never
+refuses switching off; each logs its record. `measure` checks the duration and the pulse options, then
 `_record` drops the input, sets a 0.5 s read timeout, sends `AVERAGE_START`,
 reads raw bytes until it has the duration's samples, and always sends
 `AVERAGE_STOP`, waits `STOP_SETTLE` and drops what followed; a read with
@@ -3938,9 +3940,11 @@ default resource. `list` prints `find_ppk2_ports()` without opening a kit.
 `info` prints the identity, `info()` and the metadata. `measure` takes
 `--duration`, `--threshold` with `--release` or `--line`, `--pulses` (every
 pulse listed; otherwise only the figures) and `--csv` (`time_s`, `current_a`,
-`logic` per sample). `mode`, `voltage` and `power` set the kit. The result is
-printed as JSON and also written to `--json`. Exit status 0; 1 when the
-connection fails or the driver raises `BenchToolsError` or `ValueError`.
+`logic` per sample). `mode`, `voltage` and `power` set the kit; `voltage` and
+`power on` exit 2 before opening anything without `--voltage-limit`, since
+the command line reads no bench file. The result is printed as JSON and also
+written to `--json`. Exit status 0; 1 when the connection fails or the driver
+raises `BenchToolsError` or `ValueError`; 2 for a missing voltage limit.
 
 ### 5.12 RUN — `benchtools.runner`
 

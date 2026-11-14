@@ -10,11 +10,13 @@ Examples::
     benchtools ppk2 -r ppk2:// measure --duration 1
     benchtools ppk2 -r ppk2:// --voltage-limit 3.3 voltage 3.0
     benchtools ppk2 -r ppk2:// mode source
-    benchtools ppk2 -r ppk2:// power on
+    benchtools ppk2 -r ppk2:// --voltage-limit 3.3 power on
     benchtools ppk2 -r ppk2:// measure --duration 2 --threshold 0.001 --csv run.csv
 
 ``mode``, ``voltage`` and ``power`` change what the kit supplies. Read what is
-wired to it before using them.
+wired to it before using them. ``voltage`` and ``power on`` need
+``--voltage-limit``, because the command line reads no bench file; the
+kit may have been left at a higher voltage.
 
 Traces to: PPK-FR-011, PPK-DD-CLI.
 """
@@ -34,6 +36,7 @@ from .ppk2 import Ppk2, find_ppk2_ports
 
 _EXIT_OK = 0
 _EXIT_ERROR = 1
+_EXIT_USAGE = 2
 
 
 def _emit(payload: object, path: Optional[str]) -> None:
@@ -100,9 +103,9 @@ def build_parser() -> argparse.ArgumentParser:
                              "such as COM5, or sim:// (default)")
     parser.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT,
                         help="seconds a measurement may overrun (default %g)" % DEFAULT_TIMEOUT)
-    parser.add_argument("--voltage-limit", type=float, default=VOLTAGE_RANGE[1],
-                        help="highest voltage to set or power on at (default %g)"
-                             % VOLTAGE_RANGE[1])
+    parser.add_argument("--voltage-limit", type=float,
+                        help="highest voltage to set or power on at, in volts; "
+                             "required by voltage and power on, which read no bench file")
     parser.add_argument("--no-spike-filter", action="store_true",
                         help="keep the raw samples after a range change")
     parser.add_argument("--json", metavar="PATH", help="also write the result to PATH")
@@ -150,9 +153,16 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if args.command == "list":
         _emit(find_ppk2_ports(), args.json)
         return _EXIT_OK
+    if args.voltage_limit is None and (
+            args.command == "voltage" or (args.command == "power" and args.state == "on")):
+        print("error: %s needs --voltage-limit: the highest voltage what is wired to the "
+              "PPK2 takes. The command line reads no bench file."
+              % ("voltage" if args.command == "voltage" else "power on"), file=sys.stderr)
+        return _EXIT_USAGE
     try:
         kit = Ppk2.connect(args.resource, timeout=args.timeout,
-                           voltage_limit=args.voltage_limit,
+                           voltage_limit=(VOLTAGE_RANGE[1] if args.voltage_limit is None
+                                          else args.voltage_limit),
                            spike_filter=not args.no_spike_filter)
     except BenchToolsError as exc:
         print("error: could not connect to %s: %s" % (args.resource, exc), file=sys.stderr)

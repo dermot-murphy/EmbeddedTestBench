@@ -89,6 +89,13 @@ def _value(text: str) -> Any:
         return text
 
 
+def _number(value: Any, default: float) -> float:
+    """*value* as a float; *default* for one missing, zero or not a number."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not value:
+        return default
+    return float(value)
+
+
 @dataclass(frozen=True)
 class Calibration:
     """The per-range constants that turn an ADC count into amps.
@@ -115,10 +122,8 @@ class Calibration:
         """
         values = {}
         for key, defaults in DEFAULT_MODIFIERS.items():
-            values[key] = tuple(
-                float(meta.get("%s%d" % (key, index)) or default)
-                for index, default in enumerate(defaults)
-            )
+            values[key] = tuple(_number(meta.get("%s%d" % (key, index)), default)
+                                for index, default in enumerate(defaults))
         return cls(**values)
 
     def amps(self, current_range: int, adc: int, vdd_mv: float) -> float:
@@ -165,7 +170,8 @@ class SampleDecoder:  # pylint: disable=too-many-instance-attributes
     Feed it every byte read while sampling, in order, with :meth:`feed`; it
     keeps a word split across two reads. :attr:`amps` and :attr:`logic` grow
     by one entry per sample. :attr:`lost` counts samples the counter says
-    never arrived; they are not filled in, so the time base closes up across
+    never arrived - at least that many: the counter is six bits, so a gap of
+    exactly 64 reads as none; they are not filled in, so the time base closes up across
     a gap, and a measurement with any lost reports it.
 
     :param calibration: The kit's calibration.

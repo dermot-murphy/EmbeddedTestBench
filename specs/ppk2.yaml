@@ -103,6 +103,9 @@ tests:
             display_unit: ms
             nominal: 100.0
             tolerance: 1.0
+          - name: pulse_samples_lost
+            measure: lost
+            max: 0
       - do: ppk.measure
         description: Pulses marked by logic input D0
         with: {duration: {param: duration}, line: 0}
@@ -124,3 +127,8 @@ tests:
             scale: 1.0e6
             display_unit: uA
             max: 1.0
+
+teardown:
+  # The DUT power goes off however the run ended - aborted, errored, or with
+  # only some test cases selected. The kit keeps it on after its port closes.
+  - do: ppk.power_off

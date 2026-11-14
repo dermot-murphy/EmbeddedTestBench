@@ -406,12 +406,21 @@ class Ppk2(Instrument):  # pylint: disable=too-many-instance-attributes
         return self.volts
 
     def power(self, on: bool) -> bool:
-        """Switch the DUT power on or off; return the state set."""
+        """Switch the DUT power on or off; return the state set.
+
+        Switching on is refused until the mode is known, and, in source
+        mode, until the voltage is known and within :attr:`voltage_limit`.
+        Switching off is never refused.
+        """
         state = bool(on)
-        if state and self._mode == MODE_SOURCE and self.volts > self.voltage_limit:
+        if state and self._mode is None:
             raise ConfigurationError(
-                "the PPK2 is set to %g V, above this bench's limit of %g V; "
-                "set_voltage first" % (self.volts, self.voltage_limit))
+                "the PPK2's mode is not known; set_mode before switching the DUT power on")
+        if state and self._mode == MODE_SOURCE and not (
+                VOLTAGE_RANGE[0] <= self.volts <= self.voltage_limit):
+            raise ConfigurationError(
+                "the PPK2 is set to %g V, outside this bench's limit of %g V or not "
+                "known; set_voltage first" % (self.volts, self.voltage_limit))
         self._send(running_command(state))
         self._powered = state
         log_event(self._logger, "ppk_power", "PPK2 DUT power %s" % ("on" if state else "off"),

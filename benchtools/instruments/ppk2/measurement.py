@@ -54,7 +54,7 @@ class PulseResult:
     or still high when it ended, is counted in :attr:`incomplete` instead,
     because its width and charge are not known.
 
-    :ivar source: What marked the pulses: ``current > 0.001 A`` or ``D0``.
+    :ivar source: What marked the pulses: ``current >= 0.001 A`` or ``D0``.
     :ivar pulses: Each whole pulse, in order.
     :ivar incomplete: Pulses cut by the start or the end of the measurement.
     """
@@ -159,7 +159,8 @@ class Measurement:  # pylint: disable=too-many-instance-attributes
     :ivar logic: The logic inputs, sample by sample: bit 0 is D0.
     :ivar mode: ``source`` or ``ammeter``.
     :ivar volts: The regulator voltage while it was taken.
-    :ivar lost: Samples the kit's counter says never arrived.
+    :ivar lost: Samples the kit's counter says never arrived: at least this
+        many, because the counter is six bits and a gap of 64 reads as none.
     :ivar threshold: Amps a pulse rises above, or ``None``.
     :ivar release: Amps a pulse falls below; ``threshold`` when not given.
     :ivar line: The logic input that marks a pulse, or ``None``.

@@ -1065,7 +1065,9 @@ The Nordic Power Profiler Kit II (driver `ppk2`, alias `ppk` on the shipped
 benches, event name `PPK`) measures the current a device draws. Every public
 method of its driver is a step; `specs/ppk2.yaml` is a worked example. The
 bench option `voltage_limit` caps the voltage a step may set: a step asking
-for more is an error, and nothing is sent.
+for more is an error, and nothing is sent. Put `ppk.power_off` in the
+specification's `teardown`: the kit keeps its DUT power on after the run
+closes its port.
 
 | Step | `measure` | Value |
 |---|---|---|
@@ -1074,7 +1076,7 @@ for more is an error, and nothing is sent.
 | `ppk.power_on`, `ppk.power_off`, `ppk.power` (`on`) | *(omitted)* | `1` on, `0` off |
 | `ppk.measure` (`duration`; `threshold` with `release`, or `line`) | `average`, `peak`, `minimum` | amps |
 | | `charge` | coulombs |
-| | `samples`, `lost`, `duration` | how many; how many the kit's counter says never arrived; seconds |
+| | `samples`, `lost`, `duration` | how many; at least how many the kit's counter says never arrived (it is six bits, so a gap of 64 reads as none); seconds |
 | | `pulses.count`, `pulses.incomplete` | whole pulses; pulses cut by the start or end |
 | | `pulses.mean_width`, `pulses.min_width`, `pulses.max_width`, `pulses.mean_interval` | seconds |
 | | `pulses.mean_charge`, `pulses.total_charge` | coulombs |

@@ -46,8 +46,9 @@ def test_measure_lists_the_pulses_when_asked(capsys):
 
 @pytest.mark.parametrize("argv, key, value", [
     (["mode", "ammeter"], "mode", "ammeter"),
-    (["voltage", "3.0"], "volts", 3.0),
-    (["power", "on"], "powered", True),
+    (["--voltage-limit", "3.3", "voltage", "3.0"], "volts", 3.0),
+    (["--voltage-limit", "3.3", "power", "on"], "powered", True),
+    (["power", "off"], "powered", False),
 ])
 def test_settings(capsys, argv, key, value):
     assert main(argv) == 0
@@ -58,6 +59,13 @@ def test_errors_exit_1(capsys):
     assert main(["--voltage-limit", "3.3", "voltage", "4.0"]) == 1
     assert "voltage limit" in capsys.readouterr().err
     assert main(["-r", "nowhere://x", "info"]) == 1
+
+
+@pytest.mark.parametrize("argv", [["voltage", "3.0"], ["power", "on"]])
+def test_supplying_needs_a_voltage_limit(capsys, argv):
+    # The command line reads no bench file, and the kit may be left at 4 V.
+    assert main(argv) == 2
+    assert "--voltage-limit" in capsys.readouterr().err
 
 
 def test_list(capsys, monkeypatch):
