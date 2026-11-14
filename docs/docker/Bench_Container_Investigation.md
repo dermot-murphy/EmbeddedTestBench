@@ -372,7 +372,7 @@ and settings. After an application-only HEX the sensor may not boot, and steps
 | 7 | With `--elf /work/<V11>.elf`: `var`, `stack` | Values and a call stack as on the host |
 | 8 | The `rtt` alias: a second GDB Server on the host with `-port 2341 -rtttelnetport 19031 -nohalt`, and `jlink-rtt` at `jlink://host.docker.internal:2341`, `rtt_port: 19031`, while the dongle runs a BLE scan on the host | RTT lines arrive; the sensor keeps advertising (no attach, #95) |
 | 9 | `nrfjprog -f NRF52 --reset` on the host; BLE scan | `KAPPA_5C1712_` advertises with the version of the HEX flashed in step 5 |
-| 10 | Restore: `flash --preserve 0x10001080:4 /work/<backup>.hex`, then `read 0x10001080 4` and `read 0x10001014 8`, then `nrfjprog -f NRF52 --reset` on the host | Reads `005c1712` and `00800f0000e00f00`; the sensor advertises the version it ran before step 0 |
+| 10 | Restore on the host, not through the container, so a fault in the container path cannot stop it: `nrfjprog -f NRF52 --program <backup>.hex --chiperase --verify`, then `nrfjprog -f NRF52 --memrd 0x10001080 --n 4` and `--memrd 0x10001014 --n 8`, then `nrfjprog -f NRF52 --reset` last, because `--memrd` leaves the core halted. The chip erase matters: after step 5 has written UICR, a load without an erase cannot set a UICR bit back from 0 to 1 | Reads `0x12175C00` (bytes `005c1712`), and `0x000F8000 0x000FE000` (bytes `00800f0000e00f00`); the sensor advertises the version it ran before step 0 | Reads `005c1712` and `00800f0000e00f00`; the sensor advertises the version it ran before step 0 |
 
 For each step record the image ID, the GDB Server version, the time taken and
 the time the same step takes on the host. A step that fails in the container
