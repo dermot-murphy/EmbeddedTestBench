@@ -139,7 +139,7 @@ it with.
 |---|---|---|
 | *(none)* | nothing | Drivers, analysis, runner, viewer, JSON specifications |
 | `spec` | PyYAML ≥ 5.1 | Reading `.yaml` specifications and bench files — every shipped one |
-| `serial` | pyserial ≥ 3.4 | The supply, multimeter, dongle, S2-LP kit, thermometer and serial capture instrument on a real port |
+| `serial` | pyserial ≥ 3.4 | The supply, multimeter, dongle, S2-LP kit, thermometer, serial capture instrument and PPK2 on a real port |
 | `visa` | pyvisa, pyvisa-py | Only if your site routes instruments through VISA |
 | `plot` | matplotlib ≥ 3.3 | Host-side plots (`scope spread --plot`) |
 | `test` | all of the above plus pytest, pytest-cov | Running the test suite |
@@ -806,6 +806,7 @@ Commands:
   view        watch and control test runs in a browser (127.0.0.1 only)
   scope       control a Tektronix TDS3014B oscilloscope
   pscope      control a PicoScope 3000D MSO: analogue, digital, signal generator
+  ppk2        measure current with a Nordic Power Profiler Kit II
   jlink       control a target through a SEGGER J-Link debug probe
   ble         scan, drive and profile a BLE sensor through a Nordic dongle
   psu         control a GW Instek GPD-3303D bench power supply
@@ -837,10 +838,11 @@ to a file. `<tool> <sub-command> --help` gives each sub-command's options.
 | `pico2` (PICO2 Test Board; `thermo` before #330, still accepted) | `COM14`, `/dev/ttyACM0`, `sim://` | `info`, `rd`, `wr`, `routine`, `temp`, `status`, `sreset`, `ecureset`, `bootsel`, `flash` | `pico2 -r sim:// temp` → `"temperature_c": 22.5` |
 | `scope` (TDS3014B) | IP address, VISA-style string, `sim://`; `-b` backend | `idn`, `screenshot`, `capture`, `spread`, `period`, `measure` | `scope -r sim:// idn` → `"model": "TDS 3014B"` |
 | `pscope` (PicoScope 3000D MSO) | `pico://`, `pico://<serial>`, `sim://`; `--sdk-path` | `info`, `capture`, `siggen` | `pscope -r sim:// info` → `"variant": "3405DMSO"` |
+| `ppk2` (Nordic PPK2) | `ppk2://`, `ppk2://<serial>`, `COM5`, `sim://`; `--voltage-limit`, `--no-spike-filter` | `list`, `info`, `measure`, `mode`, `voltage`, `power` | `ppk2 -r sim:// measure --duration 1` → `"samples": 100000` |
 
 Commands that change the instrument or the target: `psu set/on/off`,
 `jlink flash/erase/reset/write`, `pico2 wr/routine/sreset/ecureset/bootsel/flash`,
-`s2lp tx/config/registers` writes and `strobe`, `dmm press`. `jlink erase` also
+`s2lp tx/config/registers` writes and `strobe`, `dmm press`, `ppk2 mode/voltage/power`. `jlink erase` also
 erases UICR on an nRF52, and with it the sensor ID; its help says so. Pass a
 real resource to these only within [§4.3](#43-safety-limits).
 
@@ -870,7 +872,7 @@ Do not rely on what you remember from an earlier session. Read these:
 | Fact | Source |
 |---|---|
 | Which instruments exist, on which ports, with which serial numbers | `benches/bench_pc.yaml`, and ETB-SYS5-002 §4.1 |
-| How each instrument behaves, its traps, its open items | `docs/<instrument>/*_Notes.md`: `jlink/`, `ble/`, `psu/`, `dmm/`, `s2lp/`, `pico2_test_board/`, `tek3014b/`, `picoscope3000/` |
+| How each instrument behaves, its traps, its open items | `docs/<instrument>/*_Notes.md`: `jlink/`, `ble/`, `psu/`, `dmm/`, `s2lp/`, `pico2_test_board/`, `tek3014b/`, `picoscope3000/`, `ppk2/` |
 | How to drive the PICO2 Test Board (commands, CLI, driver methods as test steps) | `docs/pico2_test_board/PICO2_Test_Board_User_Manual.md` |
 | The supply protocol, command by command | ETB-IF-001, `docs/aspice/EmbeddedTestBench_IF001_GPD3303D_Remote_Control_Interface.md` |
 | How the PicoScope is driven, and what it depends on | ETB-IF-002, `docs/aspice/EmbeddedTestBench_IF002_PicoScope3000_Driver_Interface.md` |

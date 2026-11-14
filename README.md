@@ -36,6 +36,7 @@ benchtools/
 ├── instruments/   one subpackage per instrument
 │   ├── tek3014b/    Tektronix TDS3014B oscilloscope
 │   ├── picoscope3000/  PicoScope 3000D MSO: 4 analogue + 16 digital, signal generator
+│   ├── ppk2/        Nordic Power Profiler Kit II: current, charge and pulses
 │   ├── jlink/       SEGGER J-Link debug probe (flash, RTT, breakpoints, timing)
 │   ├── nordic_dongle/  Nordic BLE dongle (scan, UART over BLE, advertising profile)
 │   ├── gpd3303d/    GW Instek GPD-3303D bench power supply
@@ -324,6 +325,40 @@ with PicoScope3000.connect("pico://HT415/0202") as scope:
 The 3000D MSO has no digital outputs. What was measured on the unit, and what
 is still unverified, is in the
 [PicoScope 3000 Notes](docs/picoscope3000/PicoScope3000_Notes.md).
+
+---
+
+## Current profiler — Nordic Power Profiler Kit II
+
+The bench's Nordic PPK2 measures the current a device draws, 100 000 times a
+second, from under a microamp to about 1 A, with eight logic inputs sampled
+alongside. It is the device's supply (source mode, 0.8 V to 5.0 V) or sits in
+an outside supply's line (ammeter mode). The driver speaks the kit's own serial
+protocol: no Nordic package is needed, only pyserial.
+
+```bash
+python -m benchtools ppk2 list
+python -m benchtools ppk2 -r ppk2:// measure --duration 1
+python -m benchtools ppk2 -r sim:// measure --duration 1 --threshold 0.001   # no hardware needed
+```
+
+Connecting changes nothing on the kit. A test sets the mode, the voltage and
+the DUT power itself, and the bench's `voltage_limit` caps the voltage:
+
+```python
+from benchtools.instruments.ppk2 import Ppk2
+
+with Ppk2.connect("ppk2://", voltage_limit=3.3) as ppk:
+    ppk.set_mode("source")
+    ppk.set_voltage(3.0)
+    ppk.power_on()
+    result = ppk.measure(1.0, threshold=0.001)
+    print(result.average, result.charge, result.pulses.count, result.pulses.mean_width)
+    ppk.power_off()
+```
+
+The protocol, what the bench's kit showed and what is still unconfirmed are in
+the [PPK2 Notes](docs/ppk2/PPK2_Notes.md).
 
 ---
 
@@ -966,6 +1001,7 @@ by `scripts/publish_docs.py` and are not edited by hand.
 | [Documentation index](docs/README.md) | Work-product map and identifier prefixes |
 | [VISA Determination Report](docs/tek3014b/VISA_Determination_Report.md) | Whether VISA is required, with evidence and bench confirmation items |
 | [PicoScope 3000D Driver Interface](docs/aspice/EmbeddedTestBench_IF002_PicoScope3000_Driver_Interface.md) | ETB-IF-002: how the bench drives the PicoScope, call by call, and its dependencies |
+| [PPK2 Notes](docs/ppk2/PPK2_Notes.md) | The Nordic PPK2's serial protocol, command by command, what the bench's kit showed, and what is unconfirmed |
 | [PicoScope 3000 Notes](docs/picoscope3000/PicoScope3000_Notes.md) | How the PicoScope is reached (ps3000a through ctypes), what was measured on the 3405D, and what is unverified |
 | [J-Link Integration Notes](docs/jlink/JLink_Integration_Notes.md) | Why the GDB Server rather than the DLL, Windows and Docker, timing methods, probe confirmation items |
 | [Bench Tools in a Container](docs/docker/Bench_Container_Investigation.md) | ETB-DOCK-001: what runs in a Docker image and what stays on the host, how instruments are reached, costs, and the J-Link test plan |

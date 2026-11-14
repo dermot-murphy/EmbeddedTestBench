@@ -106,6 +106,7 @@
 | next | 2026-11-14 | Claude | #71 bench check review round 1: §5 SWE4-UT-JLINKSEGGER 120 → 122, pass - `JTAGConf>` fails a run, and on Windows the RTT Logger is stopped with CTRL_BREAK (skipped elsewhere); from a run of the J-Link tests on this branch on 2026-11-14 (Windows 10, Python 3.11). The rest of §5 is not regenerated. |
 | next | 2026-11-14 | Claude | #303: §5 SWE4-UT-PLUGINS 61 → 66, pass - the panel interface, the viewer with no plugin, no viewer module naming a Kepler field; SWE4-UT-VIEWSENSOR (17), -VIEWTWF (15), -VIEWDIAG (14), -VIEWKEPLER (13), -VIEWREPORT (10) and -VIEWRADIO (14) pass unchanged in count against the Kepler plugin's modules; from a whole-suite run on this branch on 2026-11-14 (Windows 10, Python 3.11; `core/transport/test_process.py` left out, it needs `cat`). The rest of §5 is not regenerated. |
 | next | 2026-11-14 | Claude | #303 review round 1: §5 SWE4-UT-PLUGINS 66 → 69, pass, from a run of `core/test_plugins.py` and `viewer/` on this branch on 2026-11-14 (Windows 10, Python 3.11). The page was exercised in a browser (the app's built-in pane) on an event log of a simulated run with Kepler ALIVE and VERSION frames from two sensors and a 256-sample TWFA X capture. With `--plugin plugins/kepler`: the nine Kepler tabs between Frames and ST GUI; the sensor drop-down filtering the sensor table; Latest Data's ten frames with byte colours from `kepler.css`, Pause and Resume; Config's six groups; Identification V11.00.0000; Short Interval's axis selector (X) and three charts, Environment two and Ticks one, Zoom in, out and Reset; TWF's waveform and spectrum, axis Y with no capture saying so, TWFB falling back to TWFA, zoom and Reset; Diagnostics' three type rows, Auto and Hold, Reset clearing the sensor through `POST /api/panel`; Sync; ST GUI; Download report an attachment with Run and the eight Kepler sections. With no plugin: only Frames and ST GUI, both opening, and the report with Run alone; no console errors. The rest of §5 is not regenerated. |
+| next | 2026-11-14 | Claude | #342: §5 rows for SWE4-UT-PPK (36), -PPKPROTO (22), -PPKMEAS (15) and -PPKCLI (10), pass, from a run of `tests/instruments/ppk2` on this branch on 2026-11-14 (83 passed, Windows). §13D added: those results, what the bench's PPK2 showed on 2026-11-14 with nothing wired to it, and what it has not yet shown (PPK-OPEN-01 … -03). The section 5 total is still the 1.32 whole-suite run's. |
 ---
 
 ## 3. Purpose & Scope
@@ -371,6 +372,10 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-PSCOPECONST | `instruments/picoscope3000/test_constants.py` | 34 | Pass |
 | SWE4-UT-PSCOPESDK | `instruments/picoscope3000/test_sdk.py` | 7 | Pass |
 | SWE4-UT-PSCOPECLI | `instruments/picoscope3000/test_cli.py` | 6 | Pass |
+| SWE4-UT-PPK | `instruments/ppk2/test_ppk2.py` | 36 | Pass |
+| SWE4-UT-PPKPROTO | `instruments/ppk2/test_protocol.py` | 22 | Pass |
+| SWE4-UT-PPKMEAS | `instruments/ppk2/test_measurement.py` | 15 | Pass |
+| SWE4-UT-PPKCLI | `instruments/ppk2/test_cli.py` | 10 | Pass |
 | SWE4-UT-PICOFW | `firmware/pico2_test_board/test/*.c` | 83 | Pass (CTest with ASan/UBSan, 3 binaries, CI run 39938471355; not in the pytest total; §13A) |
 | SWE4-UT-BENCH | `runner/test_bench.py`, `runner/test_shipped_benches.py` | 67 | Pass |
 | SWE4-UT-ENGINE | `runner/test_runner.py` | 33 | Pass |
@@ -1607,6 +1612,44 @@ driver, not by a recorded test run, and no evidence folder is kept for them.
 | PSCOPE-OPEN-03 | The signal generator's output (PSCOPE-FR-016, -017): waveform, frequency, amplitude and offset, measured on an analogue channel. |
 | PSCOPE-OPEN-04 | The acceptance of #200: four analogue channels and the digital channels captured in one block, against a known signal on each. |
 | PSCOPE-OPEN-05 | The SDK values taken from the header and marked unverified in `constants.py`: the analogue trigger directions other than `RISE`, the digital directions, the wave types and the power-source statuses. |
+
+## 13D. Nordic PPK2 verification results (#342)
+
+### 13D.1 Unit tests
+
+`tests/instruments/ppk2` was run on the `feature/342-ppk2` branch on
+2026-11-14 (Windows, Python 3.11.1): 83 passed, none failed or skipped -
+SWE4-UT-PPK 36, SWE4-UT-PPKPROTO 22, SWE4-UT-PPKMEAS 15 and SWE4-UT-PPKCLI 10.
+They run against the simulated kit; none needs a PPK2. The section 5 total is
+still the 1.32 whole-suite run's.
+
+### 13D.2 On the bench kit, 2026-11-14
+
+The bench's PPK2, USB serial number D527E1DA8DBA (hardware 59726), on COM5.
+The owner stated that nothing was wired to its VOUT, VIN, GND or logic inputs.
+The script and its record are in `docs/ppk2/2026-11-14_bench_check/`.
+
+| What | Observed | Requirement |
+|---|---|---|
+| Found and opened | `ppk2://D527E1DA8DBA` resolved to COM5 by USB identity and serial number | PPK-FR-001 |
+| Metadata | 517 bytes ending `END`: the calibration of the five ranges, `VDD: 4000`, `HW: 59726`, `mode: 2`, `Calibrated: 0`, `IA: 56` | PPK-FR-002, -003 |
+| Metadata asked twice | The first request after opening was answered; a second in the same open was not, while the kit went on streaming samples when asked | PPK-FR-002 |
+| Closing the port | The kit went off USB for about 0.7 s and came back; a voltage set before closing (1.8 V) was still set after reopening. The driver's reopening took 0.9 to 1.0 s | PPK-FR-001 |
+| Sampling | 0.1 s, 1.0 s and 5.0 s measured: exactly 10 000, 100 000 and 500 000 samples, none lost by the counter; a 5 s measurement took 6.0 s to record and decode | PPK-FR-003, -006 |
+| Current with nothing wired | About 0.16 µA in source mode at 4.0 V, DUT power as found; within ±1 µA in every later step but one | PPK-FR-003 |
+| Mode and voltage | Source at 1.8 V, then 3.0 V, then ammeter: each read back from the kit's metadata after reopening (`mode` 2, `VDD` 1800; 2, 3000; 1, 3000) | PPK-FR-005 |
+| The voltage limit | 3.4 V refused with the limit at 3.3 V, before anything was sent | PPK-FR-005 |
+| DUT power | Switched on and off in both modes. Switching on at 1.8 V with VOUT open drew a peak of 0.72 mA over the first second, taken to be the output's capacitance charging | PPK-FR-005 |
+| Logic inputs | 255 in every sample: all eight inputs read high with nothing connected | PPK-FR-003 |
+| Restored | Source mode, 4.0 V, DUT power off; read back as `mode` 2, `VDD` 4000 | - |
+
+### 13D.3 Not yet confirmed on hardware
+
+| ID | Item |
+|---|---|
+| PPK-OPEN-01 | A current through a real load, against a reference meter, in each range: the calibration and the spike filter as the driver applies them. |
+| PPK-OPEN-02 | The pulse figures (PPK-FR-008) on a real device's current. |
+| PPK-OPEN-03 | The logic inputs driven by a signal: which bit is which input, and their threshold. The DUT power state cannot be read back, so whether it is on is shown only by a current through a load. |
 
 ---
 

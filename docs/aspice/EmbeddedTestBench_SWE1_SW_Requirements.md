@@ -96,6 +96,7 @@
 | next | 2026-11-14 | Claude | #71 review round 1: JLINK-FR-008 revised - register writes not read back by default, `run` always resumes, the core state read from DHCSR, one RTT file per session, the logger asked to quit and its last bytes read, and stopped if its start is interrupted. |
 | next | 2026-11-14 | Claude | #71 review round 3: JLINK-FR-008 - the register-region rule applies to any byte of the written range. |
 | next | 2026-11-14 | Claude | #303: VIEW-FR-047 - everything the viewer shows of one device (RF tabs, a frame's summary, the sensor table's fields, the report's sections) comes from its plugin; with none loaded, only Frames, ST GUI and the run. The sentence on a permuted TWF with no plugin is removed: the waveform is now the plugin's own. |
+| next | 2026-11-14 | Claude | #342: STK-25, and §18, `PPK-` (PPK-FR-001 to PPK-FR-012, PPK-NFR-001): the Nordic Power Profiler Kit II - opening by USB serial number and waiting while it enumerates again, the metadata asked for once, samples turned into amps with the kit's calibration and Nordic's spike filter, mode, voltage within the bench's limit and DUT power, measurements with their average, charge and pulses, logging, the simulator, bench driver and `benchtools ppk2`. §5 element row; CORE-FR-063: the default name `PPK`; CON-12 added. Sections 18 to 21 renumbered 19 to 22. |
 ---
 
 ## 3. Purpose & Scope
@@ -173,6 +174,7 @@ USB link. It is specified, designed and traced here like the rest of the item.
 | STK-22 | The firmware downloaded to the Pico shall report its title and version number. |
 | STK-23 | Watch a bench test run while it goes, and control it: start one or attach to one, pause, restart from a chosen step, or abort, and see each test case, step and instrument's commands and responses (issue #130). |
 | STK-24 | Capture what a device prints on its serial port - its console or a test UART - for a time or until an expected line, and check the lines: how many came, whether one matched, and a value one carried (issue #247, Jira TX-1083). |
+| STK-25 | Measure the current a device draws with a Nordic Power Profiler Kit II, as its supply or in its supply line: the average current over a window, the charge between edges, and pulse widths and counts (issue #342, Jira TX-1079). |
 
 ## 5. Element structure
 
@@ -192,6 +194,7 @@ prefixes are per element so they stay unique as instruments are added.
 | `PICO-` | `benchtools.instruments.pico2_test_board` **and** `firmware/pico2_test_board` | The PICO2 Test Board (the Pico 2 SHT30 Temperature Sensor before #330), a Pico 2 bench thermometer with LEDs and a frequency generator: host driver and the Pico's own firmware. One element for the same reason as `BLE-`: the line protocol between them is one design decision. |
 | `SER-` | `benchtools.instruments.serial_capture` | The serial capture instrument: a host-side driver that records a device's serial output. Separate from `INST-` because it has a command set of its own (`RD`, `WR`, `ROUTINE`), and from every other element because it has no hardware of its own beyond a USB serial adapter. |
 | `PSCOPE-` | `benchtools.instruments.picoscope3000` | The PicoScope 3000D series MSO: four analogue channels, sixteen digital inputs and a signal generator. Separate from `SCOPE-` because it is a different instrument reached a different way: not a SCPI instrument and not on a message link at all, but a C library (`ps3000a`) called through `ctypes`. |
+| `PPK-` | `benchtools.instruments.ppk2` | The Nordic Power Profiler Kit II: a supply and current meter sampling 100 000 times a second, with eight logic inputs. Separate from `PSU-` and `DMM-` because it is neither: it streams samples rather than answering for a reading, in a binary protocol of its own, and is a source and a meter at once. |
 | `RUN-` | `benchtools.runner` | The bench test runner. |
 | `VIEW-` | `benchtools.viewer` | The test run viewer: a browser page onto a run. Separate from `RUN-` because it is a client of the runner - of its event log and control channel - and sits above it in the layering, so the runner never depends on it. |
 
@@ -261,7 +264,7 @@ Extends §6.2 with the SCPI and IEEE 488.2 vocabulary.
 | CORE-FR-050 | A build's manifest - the version and build date its build system recorded beside the image - shall be readable by any element that needs it, and the diagnostic for a missing one shall name every path searched and take from the caller the sentence saying how that particular build produces one. | STK-07, STK-16 | Test |
 | CORE-FR-061 | The link layer shall support instruments that send without being asked: reading whatever bytes have arrived without waiting for an end-of-message - which a serial port never signals - and discarding everything received but not yet read, including input held by the operating system, so that a reading taken on request is not one that was waiting in a buffer. | STK-18 | Test |
 | CORE-FR-062 | A simulated instrument that streams on a virtual clock shall be told how long the driver is prepared to wait, so that output due later than that is a timeout, as it is on a real link, rather than data the driver would never have received. | STK-07, STK-18 | Test |
-| CORE-FR-063 | Each instrument shall carry a short event-log name - 1 to 8 characters, an upper-case letter then A-Z, 0-9 or _ - and every record logged by the instrument or by anything it owns (its transport, its sessions) shall carry that name, from the instrument's construction on, so two instruments of one driver are told apart. Without a name given, it shall be the driver's default: `PSU`, `BLE`, `JLINK`, `RF`, `SCOPE`, `DMM`, `TEMP` (Pico 2 + SHT30-D thermometer), `SERIAL` (serial capture instrument, #247), `PSCOPE` (PicoScope 3000D MSO, #200); a record from nothing named shall be `BENCH` (#126). | STK-19 | Test |
+| CORE-FR-063 | Each instrument shall carry a short event-log name - 1 to 8 characters, an upper-case letter then A-Z, 0-9 or _ - and every record logged by the instrument or by anything it owns (its transport, its sessions) shall carry that name, from the instrument's construction on, so two instruments of one driver are told apart. Without a name given, it shall be the driver's default: `PSU`, `BLE`, `JLINK`, `RF`, `SCOPE`, `DMM`, `TEMP` (Pico 2 + SHT30-D thermometer), `SERIAL` (serial capture instrument, #247), `PSCOPE` (PicoScope 3000D MSO, #200), `PPK` (Nordic Power Profiler Kit II, #342); a record from nothing named shall be `BENCH` (#126). | STK-19 | Test |
 | CORE-FR-060 | Every instrument's and the runner's log records shall be writable, while a run is in progress, to one event log of one JSON object per line, each carrying the short upper-case name of the instrument it came from (`PSU`, `BLE`, `RF`, `TEMP`, ...) or `TEST` for the runner, so that another program can follow the run as it happens and tell its sources apart. | STK-19 | Test |
 | CORE-FR-064 | A record in the event log shall be able to carry, beside its text, a `kind` naming what happened and a `data` object with its details, so that a reader can follow the run without parsing text. `data` shall be standard JSON - a value that is not finite written as text, bytes as hex, a long sequence cut short and saying so - and a reader that ignores the two fields shall be unaffected. | STK-19 | Test |
 | CORE-FR-065 | A driver shall be able to log a measured value as a `reading` record - quantity, value, unit, and details such as the channel - where it has the value in hand, so a reader of the event log can graph it without parsing the instrument's reply. | STK-23 | Test |
@@ -367,7 +370,7 @@ Extends §6.2 with the SCPI and IEEE 488.2 vocabulary.
 The probe is not an instrument in the SCPI sense: it does not answer `*IDN?` and
 has no error queue. It is nonetheless a *bench instrument* — it is configured,
 it is commanded, and it yields measurements — so it implements the generic base of
-§6.2 and is usable from the runner of §18.
+§6.2 and is usable from the runner of §19.
 
 ### 10.1 Link to the probe
 
@@ -1153,9 +1156,65 @@ hardware, against a known signal - is therefore met only in part
 
 ---
 
-## 18. RUN — bench test runner
+## 18. PPK — Nordic Power Profiler Kit II
 
-### 18.1 Bench configuration
+A driver for Nordic Semiconductor's Power Profiler Kit II (#342, the PPK2 half
+of Jira TX-1079): the current a device draws, 100 000 samples a second, from
+under a microamp to about 1 A, with eight logic inputs (D0 to D7) sampled
+alongside. The kit is the device's supply in **source** mode, at 0.8 V to
+5.0 V, or sits in an outside supply's line in **ammeter** mode. It is a USB CDC
+device; the driver speaks its serial protocol as Nordic's Power Profiler app
+does (`NordicSemiconductor/pc-nrfconnect-ppk`, read on 2026-11-14), with no
+Nordic package. The bench's kit is on COM5, USB serial number D527E1DA8DBA.
+The interface note is `docs/ppk2/PPK2_Notes.md`.
+
+**Hardware status, 2026-11-14** (CON-12). With nothing wired to the kit, as
+the owner stated: the metadata, the calibration and a stream of 100 000 samples
+a second with none lost; the mode and the voltage, each read back from the
+kit's metadata after reopening it; a voltage above the bench's limit refused;
+and the DUT power switched on and off in both modes. Not confirmed on
+hardware: a current through a real load, the pulse figures on a real
+device's current, and the logic inputs driven by a signal (PPK-OPEN-01 …
+-03).
+
+### 18.1 The kit and its settings
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| PPK-FR-001 | The driver shall open a kit from the resource `ppk2://` (the only kit on the PC), `ppk2://<USB serial number>` (that kit, in any case), a serial port (`COM5`, `serial://COM5`) or `sim://` (the simulated kit, PPK-FR-010), found by its USB identity (vendor 0x1915, product 0xC00A). No kit, or two kits for `ppk2://`, shall be refused naming the kits seen. Because closing the port takes the kit off USB for under a second while it enumerates again, a kit or port not found shall be waited for up to 3 s before it is reported missing. Closing shall stop sampling and not raise. | STK-25 | Test |
+| PPK-FR-002 | On opening, the driver shall stop any sampling left running and drop what it sent, then ask the kit once for its metadata, and take from it the hardware number, the mode, the regulator voltage and the calibration. The metadata shall be asked for only on opening, because the kit answers only the first request after its port opens. Metadata that does not end with `END` within 3 s shall be an error. Opening shall change nothing else on the kit: not its mode, its voltage or its DUT power. The identity shall be manufacturer `Nordic Semiconductor`, model `Power Profiler Kit II` and the hardware number. | STK-25 | Test |
+| PPK-FR-003 | Each streamed sample, a 32-bit little-endian word, shall be read as Nordic's app reads it - the ADC reading in bits 0 to 13 (counts of 4), the current range in bits 14 to 16 (capped at range 4), a sample counter in bits 18 to 23 and the logic inputs in bits 24 to 31 - and turned into amps with the kit's calibration for that range: shunt `R`, gain slope `GS` and intercept `GI`, offset `O`, supply slope `S` and intercept `I` against the regulator voltage, and user gain `UG`. A calibration value the metadata does not give, or gives as zero or `-nan`, shall keep Nordic's default. A sample the counter says never arrived shall be counted as lost. | STK-25 | Test |
+| PPK-FR-004 | After the kit changes current range, the next three samples shall be smoothed as Nordic's app smooths them - a rolling average of weight 0.18, 0.06 in the top range, which holds its previous average for its first two samples - unless the spike filter is switched off. | STK-25 | Test |
+| PPK-FR-005 | The driver shall select `source` or `ammeter` mode, switching the DUT power off first and leaving it off; set the regulator to a voltage from 0.8 V to 5.0 V in whole millivolts; and switch the DUT power on and off. A voltage above the bench's `voltage_limit` (0.8 V to 5.0 V, by default 5.0 V) shall be refused with nothing sent, and a source-mode kit set above it shall not be switched on. The kit cannot report its DUT power, so the driver shall report the state it last set, and none before. | STK-25 | Test |
+
+### 18.2 Measuring
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| PPK-FR-006 | A measurement shall record a stated duration, above 0 s and at most 120 s, of every sample: start the stream, read exactly the samples the duration holds, stop the stream and drop what follows. Its result shall give the current and logic inputs sample by sample, and the `samples`, `duration`, `average`, `peak`, `minimum` and `charge` (coulombs, the current summed over the samples times 10 µs), the mode and voltage, and the samples `lost`. | STK-25 | Test |
+| PPK-FR-007 | A kit that sends nothing for 0.5 s while sampling, or that has not sent the duration's samples by the duration plus the timeout, shall be an error saying how many samples arrived, and the stream shall be stopped. | STK-25 | Test |
+| PPK-FR-008 | A measurement asked for pulses shall find them where the current rises to a threshold or more, until it falls below a release level (the threshold when none is given), or where a logic input is high; not both. A pulse shall run from its rising edge to the falling edge after it, with its start, width, charge, average and peak. Only whole pulses shall count; one cut by the start or end of the measurement shall be counted as incomplete. The result shall give their count, widths and charges, the narrowest, widest and mean width, the total and mean charge, and the mean interval from one rising edge to the next. | STK-25 | Test |
+| PPK-FR-009 | Each measurement shall be logged as a `ppk_measurement` record with its figures, and its average as a `reading` of current in amps; each change of mode, voltage or DUT power shall be logged as a `ppk_mode`, `ppk_voltage` or `ppk_power` record. | STK-23, STK-25 | Test |
+
+### 18.3 Simulation, bench use and command line
+
+| ID | Requirement | Source | Verification |
+|---|---|---|---|
+| PPK-FR-010 | With `sim://`, a simulated kit shall answer the same commands and stream samples on a virtual clock, 100 000 per second of it, encoded with Nordic's default calibration and the most sensitive range that holds the current. While its DUT power is on, the device it powers shall draw 20 µA with a 5 mA pulse of 5 ms every 100 ms and D0 high during each pulse; while it is off, nothing. It shall be able to leave samples out of the stream, the counter running on. | STK-08, STK-25 | Test |
+| PPK-FR-011 | `benchtools ppk2` (also `ppk`) shall list the kits on the PC (`list`), identify a kit and show its settings and metadata (`info`), measure (`measure`: duration, threshold and release or a logic input, every pulse listed, every sample to a CSV of seconds, amps and logic) and set the mode, the voltage and the DUT power (`mode`, `voltage`, `power`), against `sim://` unless a resource is given, with a voltage limit and the spike filter as options. It shall print its result as JSON and optionally write it to a file. The exit status shall be 0 on success and 1 when the kit cannot be opened or a setting or measurement fails. | STK-25 | Test |
+| PPK-FR-012 | The driver shall be registered as the bench driver `ppk2`, with the default event-log name `PPK`, and shall take from a bench the options `timeout`, `voltage_limit` and `spike_filter`. Its public methods shall be specification steps whose results a `measure` path reads (`average`, `charge`, `pulses.count`, `pulses.mean_width`). | STK-08, STK-25 | Test |
+
+### 18.4 PPK non-functional
+
+| ID | Requirement | Verification |
+|---|---|---|
+| PPK-NFR-001 | The driver shall need no Nordic package and add no mandatory third-party dependency: it shall speak the kit's serial protocol itself, through the optional `serial` extra, and import and run its simulator on a bare install. | Inspection, Test |
+
+---
+
+## 19. RUN — bench test runner
+
+### 19.1 Bench configuration
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -1168,7 +1227,7 @@ hardware, against a known signal - is therefore met only in part
 | RUN-FR-007 | A bench option that a driver declares as an input file, given as a relative path, shall be looked for in the bench file's directory, then the working directory, then the EmbeddedTestBench checkout, and the first that exists used. One found in none shall be passed to the driver unchanged and the locations searched logged, since a simulator may not read it. The runner is normally started in the repository of the firmware under test, not in this one (#116). | STK-08 | Test |
 | RUN-FR-008 | A specification shall be able to allocate an event-log name to each instrument it uses, and a bench to attach one to each actual instrument. The specification's name shall win, the bench's apply where the specification gives none, and the driver's default where neither does. An invalid name, or two instruments given one name in a specification or a bench, shall be refused at load; two instruments a run uses that would share a name, defaults included, shall be refused before any instrument connects. Each instrument's name shall appear in the run record and the report (#126). | STK-08, STK-19 | Test |
 
-### 18.2 Test specification
+### 19.2 Test specification
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -1181,7 +1240,7 @@ hardware, against a known signal - is therefore met only in part
 | RUN-FR-016 | A step shall be able to save its result under a name, and any later step shall be able to use that saved value - or a value addressed inside it - as an argument or as a limit, optionally rendered through a format template. A reference to a name nothing has saved shall be refused, naming what has been saved. Without this a chained test would have to write down what an earlier step established, which makes the test assert its own input. | STK-08, STK-16 | Test |
 | RUN-FR-017 | A step argument that the driver declares as an input file, given as a relative path, shall be looked for in the specification's directory, then the working directory, then the EmbeddedTestBench checkout, and the first that exists used. One found in none shall be an execution error naming the argument and every location searched. An output path shall be written relative to the working directory, as before. A specification shall mean the same thing wherever the runner is started from (#116). | STK-08 | Test |
 
-### 18.3 Limits
+### 19.3 Limits
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -1192,7 +1251,7 @@ hardware, against a known signal - is therefore met only in part
 | RUN-FR-025 | A measurement shall be reportable through a format template, so a value whose meaning is not decimal - an identifier, an address, a mask - reads in the record as it reads on the part. The template shall not affect the check, which remains against the number; the number shall be retained in the result record; and the limit's own bounds shall be rendered the same way, since a hexadecimal value beside decimal bounds is less legible than either alone. A template that cannot be applied shall be an error, not a silent fall back to the number. | STK-08, STK-16 | Test |
 | RUN-FR-024 | A limit shall support exact comparison against text - a version, a device name - reported as the text itself rather than as a number. Matching shall be exact on the stripped value unless the limit asks otherwise (RUN-FR-067, RUN-FR-068): a looser rule would pass 1.4.20 for 1.4.2, which is the failure such a limit exists to catch. | STK-08, STK-16 | Test |
 
-### 18.4 Execution
+### 19.4 Execution
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -1205,7 +1264,7 @@ hardware, against a known signal - is therefore met only in part
 | RUN-FR-036 | A step shall be able to name a driver property as well as a method. A property shall be read when the step executes and shall take no arguments. | STK-08 | Test |
 | RUN-FR-037 | The run record and every report shall identify each instrument the run used - driver, model, serial number, resource and, where the instrument reports one, the firmware build - recorded after the run rather than before. An instrument that would not identify shall be recorded as such rather than omitted. | STK-08, STK-16, STK-17 | Test |
 
-### 18.5 Reporting
+### 19.5 Reporting
 
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
@@ -1237,7 +1296,7 @@ hardware, against a known signal - is therefore met only in part
 
 ---
 
-### 18.6 VIEW — test run viewer
+### 19.6 VIEW — test run viewer
 
 A browser page onto a bench run (#130, #137), served by `benchtools view`. It is a client of the runner: it reads the event log (RUN-FR-060) and drives the control channel (RUN-FR-061 … -065).
 
@@ -1292,7 +1351,7 @@ A browser page onto a bench run (#130, #137), served by `benchtools view`. It is
 | VIEW-FR-047 | The viewer shall decode a logged frame that carries no decode with the decoders of the plugins loaded, in load order; feed each received frame to every panel a plugin provides; serve a panel's view by name and its static files under `/plugin/<plugin>/` and nowhere outside its folder; list the plugins for the page, which loads their panels' scripts; load the plugins of a run it starts; and, for a followed run that used plugins it has not loaded, name them and the `--plugin` that would load them, rather than load them. Everything the viewer shows of one device - its tabs on the RF page, a frame's one-line summary, the fields its sensor table keeps, and its sections of the report - shall come from the plugins loaded: a panel lists its tabs, takes its own view options, offers its actions and gives its report sections as data. With no plugin loaded the RF page shall offer only Frames and ST GUI, and the report only the notes and the run. | STK-23 | Test |
 | VIEW-FR-048 | Selecting a step on the Run page, of a run followed live or of a finished run's event log, shall show every record the event log holds after that step's start record and before its end record, in log order - instrument commands and replies, frames, readings, warnings and errors - each with its source, what it is and its time from the step's start; and, beside them, each measurement that decided the step's verdict, its value next to the limit it was checked against. A step still running shall show its records as they arrive; a step that has run again shall show its latest run's only, and a step marked to run again and not yet run, none. | STK-23 | Test |
 
-## 19. Assumptions and constraints
+## 20. Assumptions and constraints
 
 | ID | Statement |
 |---|---|
@@ -1315,12 +1374,13 @@ A browser page onto a bench run (#130, #137), served by `benchtools view`. It is
 | CON-05 | The scaling of SWO/ITM local timestamps to core cycles depends on the trace prescaler configured by the GDB server and the firmware. It is implemented from the ARMv7-M architecture reference manual and requires confirmation against a part before SWO timing figures are quoted (JLINK-OPEN-03). |
 | CON-09 | The Pico 2 thermometer firmware **builds** (Pico SDK 2.1.1, Arm GNU 14.2.1, UF2 produced) and its portable logic passes its host unit tests. On 2026-10-03 it **ran on a real Pico 2** (Windows 10 bench PC): it enumerated on USB and reported the expected identity (PICO-OPEN-01, closed), and the `flash` command (PICO-FR-070 … -076) reflashed it by all three routes into the bootloader (PICO-OPEN-05, closed). The `rd` command set (#131) was cross-compiled on the bench PC and run on the same Pico 2 the same day, with no SHT30-D module connected: identity, `NAK`, the `err` replies, `Error` for the missing sensor and `ecureset` all behaved as specified, and `flash` installed it and confirmed its name, version and commit SHA by `rd`. It has **not** yet been run with a sensor attached, so a real temperature value is unconfirmed (PICO-OPEN-02, -03, -06). Drive discovery on Linux and macOS is untested on hardware. Bench confirmation items are in `docs/pico2_test_board/PICO2_Test_Board_Notes.md` §7 (PICO-OPEN-01 … -06). *Note, 2026-11-12 (#328):* the SHT30-D module is now connected (SDA on GP4, SCL on GP5) and the thermometer read about 23 °C on the same Pico 2; firmware V1.01.0000, with the three LEDs, was flashed by `flash` and its `wr` and `rd` LED commands confirmed over the serial link, the owner watching each LED light. |
 | CON-11 | The PicoScope 3000D driver is verified against a simulated unit and, for its `ctypes` seam, a fake library. On the bench's PicoScope 3405D MSO (serial HT415/0202, 2026-11-13) the following were confirmed through `ps3000a`: open, close and identity; the ranges, offset limits, timebases and memory of §17; four analogue channels and both digital ports captured in one block at 8 ns (timebase 3), with no signal connected; and a 1 kHz sine of about 1.94 V peak-to-peak captured on channel A. **Not yet confirmed on hardware:** digital bits against a real logic signal, the digital trigger, the signal generator, and the SDK enumeration values marked unverified in `constants.py`. The bench confirmation items are PSCOPE-OPEN-01 … -05, listed in ETB-RTM-001 §19 and `docs/picoscope3000/PicoScope3000_Notes.md`. |
+| CON-12 | The PPK2 driver is verified against a simulated kit. On the bench's PPK2 (USB serial number D527E1DA8DBA, 2026-11-14), with nothing wired to it, the following were confirmed: opening by serial number, the metadata and calibration, 100 000 samples a second with none lost over 5 s, the mode and voltage read back from the kit after reopening it, a voltage above the limit refused, the DUT power switched in both modes, and the kit going off USB for about 0.7 s each time its port closes, its settings kept. **Not yet confirmed on hardware:** a current through a real load against a reference, the pulse figures on a real device's current, and the logic inputs driven by a signal. The bench confirmation items are PPK-OPEN-01 … -03 in `docs/ppk2/PPK2_Notes.md`. |
 | ASM-10 | The SHT30-D module is powered from the Pico's 3V3(OUT) and carries its own I2C pull-ups; its ADDR pin is tied low (0x44). |
 | CON-06 | Markdown-to-Robot-Framework translation (STK-12) is not implemented in this revision. The driver's return types are constrained by JLINK-FR-081 so that it can be added without changing the driver. |
 
 ---
 
-## 20. Requirements Traceability
+## 21. Requirements Traceability
 
 The consolidated trace - stakeholder requirement to software requirement to
 architecture element to design unit to source to test - is maintained as a
@@ -1336,7 +1396,7 @@ property the suite enforces rather than a table someone maintains by hand.
 
 ---
 
-## 21. Review & Approval
+## 22. Review & Approval
 
 Review and approval of this document are not entered in this table. They are
 given by the merge of the pull request that last changed the document, and that

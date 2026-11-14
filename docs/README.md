@@ -16,6 +16,7 @@ instruments are added:
 | `INST-` | Instrument drivers, common requirements | `benchtools.instruments` |
 | `SCOPE-` | Tektronix TDS3014B driver | `benchtools.instruments.tek3014b` |
 | `PSCOPE-` | PicoScope 3000D MSO driver: four analogue, 16 digital, signal generator | `benchtools.instruments.picoscope3000` |
+| `PPK-` | Nordic Power Profiler Kit II driver: current, charge and pulses | `benchtools.instruments.ppk2` |
 | `JLINK-` | SEGGER J-Link debug probe driver | `benchtools.instruments.jlink` |
 | `BLE-` | Nordic BLE bench dongle: host driver **and** dongle firmware | `benchtools.instruments.nordic_dongle`, `firmware/nordic_dongle` |
 | `PSU-` | GW Instek GPD-3303D bench supply | `benchtools.instruments.gpd3303d` |
