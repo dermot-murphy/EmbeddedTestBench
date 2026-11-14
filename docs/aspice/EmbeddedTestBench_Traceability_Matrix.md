@@ -96,6 +96,7 @@
 | next | 2026-11-13 | Claude | #202: OPEN-09 notes the bench of 2026-11-13: the Adafruit UDA1334A board on GP6, GP7 and GP8, the DAC at 48 828.125 Hz, and a sine observed on channels 1 and 2. |
 | next | 2026-11-13 | Claude | #330: SWE4-UT-PICOSPEC (the PICO2 Test Board test sequence on the simulated bench) traced to PICO-FR-008, -009 and -040; PICO-FR-050 names the bench drivers `pico2-test-board` and `pico2`, the names before #330 kept. |
 | next | 2026-11-13 | Claude | #200: section 15, PSCOPE (PSCOPE-FR-001 … PSCOPE-FR-020, PSCOPE-FR-030, PSCOPE-NFR-001), the PicoScope 3000D MSO; STK-02, -03, -04, -05, -07 and -08 gain them; PSCOPE-ARC-001 in section 17; OPEN-11, the PicoScope's bench confirmation items (PSCOPE-OPEN-01 … -05); sections 15 to 19 renumbered 16 to 20, and the AD-24 note points at section 18, coverage analysis; section 18 count 511 in force, 512 declared, 38 non-functional. |
+| next | 2026-11-13 | Claude | #313: S2LP-FR-070 - `SWE4-UT-S2LPKEPLER` now 75 tests (the V10.00 firmware's TWF layout, type version 0); VIEW-FR-028 - `TestLatestData` now 6. |
 ---
 
 ## 3. Purpose & Scope
@@ -452,7 +453,7 @@ where the firmware implements the requirement.
 | S2LP-FR-047 | S2LP-ARC-001 | S2LP-DD-TRAFFIC | `stream`, `_stream_batch`, `_stream_polled`, `_annotate`, `FRAME_REGISTERS` | `TestBatchStream` (9), notably `test_it_is_the_default_and_starts_the_loop_once` and `test_a_caller_that_stops_iterating_stops_the_board`; `TestStream` (9), notably `test_each_frame_carries_the_registers_read_after_it` |
 | S2LP-FR-048 | S2LP-ARC-001 | S2LP-DD-TRAFFIC | `prepare_traffic`, `_check_tx_source` | `TestTheInterrupt` (8) |
 | S2LP-FR-049 | S2LP-ARC-001 | S2LP-DD-PREAMBLE, -TRAFFIC | `preamble.py`, `_enable_pqi`, `measure_preamble`, `check_preamble`; `specs/kepler_preamble.yaml` | `SWE4-UT-S2LPPREAMBLE` (15), `TestPreamble` (7), `TestPreambleCommand` (3) |
-| S2LP-FR-070 | S2LP-ARC-001 | S2LP-DD-KEPLER | `decode_kepler_frame` | `SWE4-UT-S2LPKEPLER` (63) |
+| S2LP-FR-070 | S2LP-ARC-001 | S2LP-DD-KEPLER | `decode_kepler_frame` | `SWE4-UT-S2LPKEPLER` (75) |
 | S2LP-FR-071 | S2LP-ARC-001 | S2LP-DD-PACKETS, -TRAFFIC | `Packet.registers`, `decoded`, `decode_error` | `test_raw_and_decoded_are_one_record`, `test_a_frame_that_will_not_decode_keeps_its_bytes` |
 | S2LP-FR-072 | S2LP-ARC-001 | S2LP-DD-TRAFFIC | `S2lpDevkit.kepler_samples` | `SWE4-UT-S2LPSAMPLES` (6) |
 | S2LP-FR-073 | S2LP-ARC-001 | S2LP-DD-TRAFFIC | `S2lpDevkit.kepler_frame` | `SWE4-UT-S2LPFRAME` (10) |
@@ -788,7 +789,7 @@ and the open items of §19 (OPEN-11).
 | VIEW-FR-025 | VIEW-ARC-001 | VIEW-DD-SERVER | `_authorised`, `_sign_in`, `is_loopback`, `new_token`, `--bind` | `TestToken` (8), `test_another_address_without_a_token_is_refused`, `test_reached_by_another_address_of_this_machine` |
 | VIEW-FR-026 | VIEW-ARC-001 | VIEW-DD-SERVER | `_post_refusal`, `--read-only` | `TestReadOnly` (2) |
 | VIEW-FR-027 | VIEW-ARC-001 | VIEW-DD-SERVER, RUN-DD-CONTROL | `ViewerServer(tls=)`, `--tls-cert`, `--tls-key`; `ControlServer` on `HOST` | `test_https_with_a_certificate`, `test_it_listens_on_127_0_0_1_only` |
-| VIEW-FR-028 | VIEW-ARC-001 | VIEW-DD-KEPLER | `KeplerView.feed`, `byte_roles`, `header_rows`, `payload_rows`, `renderLatest` | `TestLatestData` (5) |
+| VIEW-FR-028 | VIEW-ARC-001 | VIEW-DD-KEPLER | `KeplerView.feed`, `byte_roles`, `header_rows`, `payload_rows`, `renderLatest` | `TestLatestData` (6) |
 | VIEW-FR-029 | VIEW-ARC-001 | VIEW-DD-KEPLER | `KeplerView.view` (config, groups), `CONFIG_GROUPS`, `renderConfig` | `TestConfig` (4), `test_the_frames_list_names_config_parameters` |
 | VIEW-FR-030 | VIEW-ARC-001 | VIEW-DD-KEPLER | `KeplerView` (identification), `renderIdentification` | `TestIdentification` (2) |
 | VIEW-FR-031 | VIEW-ARC-001 | VIEW-DD-SENSOR | `SensorSeries.feed`, `_first_copy` | `TestEnvironment` (3) |
