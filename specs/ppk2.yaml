@@ -1,0 +1,126 @@
+# The Nordic Power Profiler Kit II measures the current a device draws (#342).
+#
+# The kit is the device's supply here (source mode): the specification sets
+# the voltage, switches the device on, measures for a second, and checks the
+# average current, the charge, and the pulses the device draws. It switches
+# the device off at the end. See docs/Bench_Runner_Guide.md section 5.6.
+#
+# On the simulated bench the device draws 20 uA, with a 5 mA pulse of 5 ms
+# every 100 ms and logic input D0 high during each pulse:
+#   python -m benchtools run specs/ppk2.yaml --bench benches/simulated_bench.yaml
+#
+# Against a real device, change the limits to what the device draws. The
+# bench's voltage_limit caps the voltage; a step asking for more is an error.
+
+name: PPK2 current profile
+description: >
+  Powered at 3.0 V by the PPK2, the device draws its expected average
+  current, and a pulse of the expected width and charge ten times a second.
+requirements: [PPK-FR-005, PPK-FR-006, PPK-FR-007, PPK-FR-008]
+
+warning: |
+  This specification switches on the PPK2's DUT supply at 3.0 V.
+  Check what is wired to the PPK2's VOUT and GND before running it.
+
+parameters:
+  volts: 3.0
+  duration: 1.0
+
+instruments:
+  ppk: ppk2
+
+tests:
+  - name: The device draws its expected current at 3.0 V
+    requirement: PPK-FR-006
+    steps:
+      - do: ppk.set_mode
+        with: {mode: source}
+        expect:
+          - name: mode
+            equals: source
+      - do: ppk.set_voltage
+        with: {volts: {param: volts}}
+        expect:
+          - name: volts
+            unit: V
+            nominal: {param: volts}
+            tolerance: 0.001
+      - do: ppk.power_on
+      - do: sleep
+        description: Let the device start
+        with: {seconds: 0.2}
+      - do: ppk.measure
+        with: {duration: {param: duration}}
+        save: profile
+        expect:
+          - name: average_current
+            measure: average
+            unit: A
+            scale: 1.0e6
+            display_unit: uA
+            min: 200
+            max: 350
+          - name: charge
+            measure: charge
+            unit: C
+            scale: 1.0e6
+            display_unit: uC
+            min: 200
+            max: 350
+          - name: samples_lost
+            measure: lost
+            max: 0
+
+  - name: The device draws a 5 ms pulse ten times a second
+    requirement: PPK-FR-008
+    steps:
+      - do: ppk.measure
+        description: Pulses where the current is 1 mA or more
+        with: {duration: {param: duration}, threshold: 0.001}
+        expect:
+          - name: pulses
+            measure: pulses.count
+            min: 9
+            max: 10
+          - name: pulse_width
+            measure: pulses.mean_width
+            unit: s
+            scale: 1.0e3
+            display_unit: ms
+            nominal: 5.0
+            tolerance: 0.5
+          - name: pulse_charge
+            measure: pulses.mean_charge
+            unit: C
+            scale: 1.0e6
+            display_unit: uC
+            nominal: 25.0
+            tolerance: 2.5
+          - name: pulse_interval
+            measure: pulses.mean_interval
+            unit: s
+            scale: 1.0e3
+            display_unit: ms
+            nominal: 100.0
+            tolerance: 1.0
+      - do: ppk.measure
+        description: Pulses marked by logic input D0
+        with: {duration: {param: duration}, line: 0}
+        expect:
+          - name: d0_pulses
+            measure: pulses.count
+            min: 9
+            max: 10
+
+  - name: The device is switched off
+    requirement: PPK-FR-005
+    steps:
+      - do: ppk.power_off
+      - do: ppk.average_current
+        with: {duration: 0.1}
+        expect:
+          - name: current_off
+            unit: A
+            scale: 1.0e6
+            display_unit: uA
+            max: 1.0

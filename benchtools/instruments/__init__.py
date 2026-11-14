@@ -9,4 +9,4 @@ Drivers are imported individually so that using one does not pull in the rest::
 Traces to: INST-ARC-001.
 """
 
-__all__ = ["tek3014b", "picoscope3000", "generic", "tti1604", "serial_capture"]
+__all__ = ["tek3014b", "picoscope3000", "ppk2", "generic", "tti1604", "serial_capture"]

@@ -35,14 +35,14 @@ REPORT_DOC = DOCS / "EmbeddedTestBench_SWE4_Unit_Verification_Report.md"
 #: One prefix per element of SWE.1 §3; a new element is registered here.
 #: ``PSCOPE`` must be in the list: without it ``re.findall`` would read
 #: a PicoScope requirement as a TDS3014B one, one character in (#200).
-_REQUIREMENT = (r"(?:CORE|ANA|INST|PSCOPE|SCOPE|JLINK|BLE|PSU|DMM|S2LP|PICO|SER|RUN)"
+_REQUIREMENT = (r"(?:CORE|ANA|INST|PSCOPE|SCOPE|JLINK|BLE|PSU|DMM|S2LP|PICO|SER|PPK|RUN)"
                 r"-(?:FR|NFR)-\d{3}")
 
 #: Design unit identifier, e.g. CORE-DD-SCPI.
-_DESIGN_UNIT = r"(?:CORE|ANA|INST|PSCOPE|SCOPE|JLINK|BLE|PSU|DMM|S2LP|PICO|SER|RUN)-DD-[A-Z0-9]+"
+_DESIGN_UNIT = r"(?:CORE|ANA|INST|PSCOPE|SCOPE|JLINK|BLE|PSU|DMM|S2LP|PICO|SER|PPK|RUN)-DD-[A-Z0-9]+"
 
 #: Architectural element identifier, e.g. CORE-ARC-006.
-_ARCHITECTURE = r"(?:CORE|ANA|INST|PSCOPE|SCOPE|JLINK|BLE|PICO|SER|RUN)-ARC-\d{3}"
+_ARCHITECTURE = r"(?:CORE|ANA|INST|PSCOPE|SCOPE|JLINK|BLE|PICO|SER|PPK|RUN)-ARC-\d{3}"
 
 
 def _text(path: pathlib.Path) -> str:

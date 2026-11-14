@@ -10,6 +10,7 @@
 #   COM4   S2-LP kit, ST-LINK VCP            066CFF515055657867182645
 #   USB    J-Link OB-SAM3U128-V2-NordicSem   682395790, on sensor 5C1712
 #   USB    PicoScope 3405D MSO               HT415/0202 (added 2026-11-13, #200)
+#   COM5   Nordic PPK2 (Power Profiler Kit II) D527E1DA8DBA (added 2026-11-14, #342)
 #
 # The PicoScope is the bench's oscilloscope (pscope). The Tektronix TDS3014B
 # driver has no unit on this bench, so there is no `scope` entry: a
@@ -18,7 +19,7 @@
 name: Bench PC (Windows)
 description: >
   Dongle, S2-LP kit, GPD-3303D, TTi 1604, PICO2 Test Board, a PicoScope 3405D
-  MSO and a J-Link on Kepler sensor 5C1712.
+  MSO, a Nordic PPK2 and a J-Link on Kepler sensor 5C1712.
 
 instruments:
   probe:
@@ -87,3 +88,18 @@ instruments:
     resource: pico://HT415/0202
     timeout: 10.0
     event: PSCOPE
+
+  # Nordic Power Profiler Kit II on USB (#342): current from under a microamp
+  # to about 1 A, 100 000 samples a second, with logic inputs D0-D7. Opened by
+  # USB serial number, so the port it lands on does not matter. Connecting
+  # changes nothing on the kit; a specification switches the mode, voltage and
+  # DUT power itself. voltage_limit caps the voltage the driver will set or
+  # power a source-mode kit on at; 3.3 V is the top of a Kepler sensor's supply.
+  # What its DUT port and logic inputs are wired to is not yet recorded.
+  ppk:
+    driver: ppk2
+    resource: ppk2://D527E1DA8DBA
+    timeout: 5.0
+    event: PPK
+    options:
+      voltage_limit: 3.3
