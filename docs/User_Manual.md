@@ -708,7 +708,7 @@ Pages (`benchtools/viewer/static/index.html`):
 
 | Page | Shows |
 |---|---|
-| Run | The specification, each test case and step with its live status, result and measurements, and the run controls |
+| Run | The specification, each test case and step with its live status, result and measurements, and the run controls. Click a step that has started to see the events recorded during it |
 | Instruments | Each instrument's exchanges, the latest or those in a time window, with a panel per instrument |
 | RF | S2-LP traffic: frames, latest data, configuration, identification, environment, ticks, TWF, diagnostics, sync, and an ST GUI register view |
 | BLE | Devices, events, commands and replies |
@@ -716,6 +716,17 @@ Pages (`benchtools/viewer/static/index.html`):
 | Event log | Every instrument's traffic, filtered by source |
 | Notes & report | A fault description and findings to save, and a report to download as HTML or print to PDF |
 | Start / attach | Start a run (specification, bench or simulated, test cases), or attach to one already going |
+
+**A step's events (#201).** On the Run page, click the text of a step that has
+started. Below it open the step's measurements - each one's measured value next to
+the limit it was checked against, the verdict and the reason - and every record the
+event log holds between the step's start and its end: instrument commands and
+replies, frames, readings, warnings and errors, each with its time from the step's
+start (`+0.002 s`), its source and what it is. A step still running gathers its
+events as they arrive. It works the same for a live run and for a finished run's
+event log opened with `view --event-log` or Start / attach. Click the step again
+to close it. The same is served as JSON at `/api/step?phase=test&case=0&step=2`
+(`phase` is `setup`, `test` or `teardown`; `case` only for `test`).
 
 ### 6.2 Run control
 

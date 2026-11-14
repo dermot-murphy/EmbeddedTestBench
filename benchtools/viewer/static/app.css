@@ -119,6 +119,21 @@ button.danger { color: var(--fail); }
 .exchange .src { font-weight: 600; margin-right: 6px; }
 .step .text.clickable { cursor: pointer; text-decoration: underline dotted var(--muted); }
 .step .traffic { grid-column: 2 / -1; border: 1px solid var(--line); border-radius: 6px; }
+/* A step's events (#201): measurements against limits, then every record. */
+.step-panel { padding: 6px 0; display: flex; flex-direction: column; gap: 6px; }
+.step-panel.note { padding: 6px 8px; }
+.step-panel .table { border: 0; border-radius: 0; max-height: none; }
+.step-panel .step-count { padding: 0 8px; }
+.step-events { max-height: 40vh; overflow: auto; font-family: var(--mono); font-size: 12px; }
+.step-event { display: grid; grid-template-columns: 84px 64px 88px minmax(0, 1fr); gap: 8px;
+              padding: 2px 8px; border-top: 1px solid var(--line); }
+.step-event .dt { color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }
+.step-event .src { font-weight: 600; }
+.step-event .cat { color: var(--muted); }
+.step-event .txt { white-space: pre-wrap; overflow-wrap: anywhere; }
+.step-event.c-error .cat, .step-event.c-error .txt { color: var(--error); }
+.step-event.c-warning .cat, .step-event.c-warning .txt { color: var(--warn); }
+.step-event.c-note .txt, .step-event.c-runner .txt { color: var(--muted); }
 .toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 8px; }
 .toolbar label { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); }
 h2.section { font-size: 13px; margin: 14px 0 6px; color: var(--muted); font-weight: 600; }
@@ -220,4 +235,6 @@ fieldset label { flex-direction: row !important; align-items: center; color: var
   .events-head, .event { grid-template-columns: 70px 52px 1fr; }
   .exchanges-head, .exchange { grid-template-columns: 70px minmax(0, 1fr) minmax(0, 1fr); }
   .exchange .ms, .exchanges-head span:last-child { display: none; }
+  .step-event { grid-template-columns: 70px 52px minmax(0, 1fr); }
+  .step-event .cat { display: none; }
 }

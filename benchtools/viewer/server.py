@@ -18,6 +18,7 @@ The API:
 ``GET /api/radio``        received Kepler frames and each sensor's latest;
                           ``?sensor=`` for one sensor (#139)
 ``GET /api/ble``          BLE devices, events and the dongle's exchanges (#139)
+``GET /api/step``         a step and its events; ``?phase=&case=&step=`` (#201)
 ``GET /api/graphs``       readings, BLE advertising and step markers;
                           ``?ble=&expected_ms=`` (#140)
 ``GET /api/status``       the status bar: run, progress, time left, instruments
@@ -56,7 +57,7 @@ browser first asking this server, which never agrees, so another site open in
 the same browser cannot start or abort a run. The ``Host`` header must name
 this machine, which stops a DNS-rebinding page reaching the API by name.
 
-Traces to: VIEW-FR-001 .. VIEW-FR-045, VIEW-FR-047, VIEW-DD-SERVER.
+Traces to: VIEW-FR-001 .. VIEW-FR-045, VIEW-FR-047, VIEW-FR-048, VIEW-DD-SERVER.
 """
 
 from __future__ import annotations
@@ -95,6 +96,7 @@ from .radio import BleAir, RfFrames
 from .report import NotesStore, build_report
 from .sensor_series import SensorSeries
 from .state import RunState
+from .step_events import StepEvents, step_query, step_view
 from .st_gui import StGui, regs_text
 from .status import InstrumentStatus, progress
 from .tags import Tagger
@@ -116,6 +118,9 @@ KEEP_RECORDS = 5000
 #: Seconds between keep-alive comments on an idle event stream.
 KEEPALIVE_S = 15.0
 
+_PER_LOG = ("state traffic panels rf ble readings tagger links dut_panels missing_plugins "
+            "sensor_series twf diagnostics sync st_gui step_events records").split()
+
 _CONTENT_TYPES = {
     ".html": "text/html; charset=utf-8",
     ".js": "text/javascript; charset=utf-8",
@@ -123,7 +128,7 @@ _CONTENT_TYPES = {
 }
 
 
-class Hub:  # pylint: disable=too-many-instance-attributes
+class Hub:  # pylint: disable=too-many-instance-attributes,too-many-public-methods
     """Follows one event log, and holds its records and the run's state.
 
     A background thread reads the log every *interval* seconds. Readers wait on
@@ -151,6 +156,7 @@ class Hub:  # pylint: disable=too-many-instance-attributes
         self.diagnostics = Diagnostics()
         self.sync = SyncTracker()
         self.st_gui = StGui()
+        self.step_events = StepEvents()
         self.records: List[Tuple[int, Dict[str, Any]]] = []
         self.sequence = 0
         self.generation = 0
@@ -170,25 +176,12 @@ class Hub:  # pylint: disable=too-many-instance-attributes
 
     def follow(self, path: Optional[str], control_port: Optional[int] = None) -> None:
         """Follow *path* from its start, forgetting the previous log."""
+        fresh = Hub(self.interval)          # _PER_LOG: every view of the log, made afresh
         with self._condition:
             self.path = path
             self._tail = EventTail(path) if path else None
-            self.state = RunState()
-            self.traffic = Traffic()
-            self.panels = {}
-            self.rf = RfFrames()
-            self.ble = BleAir()
-            self.readings = Readings()
-            self.tagger = Tagger()
-            self.links = InstrumentStatus()
-            self.dut_panels = dut_panels()
-            self.missing_plugins = []
-            self.sensor_series = SensorSeries()
-            self.twf = TwfAssembler()
-            self.diagnostics = Diagnostics()
-            self.sync = SyncTracker()
-            self.st_gui = StGui()
-            self.records = []
+            for name in _PER_LOG:
+                setattr(self, name, getattr(fresh, name))
             self._override_port = control_port
             self.generation += 1
             self.sequence += 1
@@ -241,6 +234,7 @@ class Hub:  # pylint: disable=too-many-instance-attributes
         self.readings.feed(record)
         self.links.feed(record)
         self.st_gui.feed(record)
+        self.step_events.feed(record)
         if self.traffic.feed(record):
             source = record["source"]
             if self.panels.get(source) is None:
@@ -258,6 +252,11 @@ class Hub:  # pylint: disable=too-many-instance-attributes
                 "panels": {source: {"kind": panel.kind, "rows": panel.rows()}
                            for source, panel in self.panels.items() if panel is not None},
             }
+
+    def step(self, phase: str, case: Optional[int], step: int) -> Dict[str, Any]:
+        """A step and the records logged during it (#201); ValueError if none."""
+        with self._condition:
+            return step_view(self.state, self.step_events, phase, case, step)
 
     def radio(self, sensor: str = "") -> Dict[str, Any]:
         """Received Kepler frames - of one sensor, or all - and the sensor table."""
@@ -480,6 +479,7 @@ class Launcher:
 _GET_API = {
     "/api/state": "_get_state",
     "/api/instruments": "_get_instruments",
+    "/api/step": "_get_step",
     "/api/radio": "_get_radio",
     "/api/ble": "_get_ble",
     "/api/graphs": "_get_graphs",
@@ -619,6 +619,9 @@ class _Handler(BaseHTTPRequestHandler):
         except ValueError as exc:
             raise ValueError("t0 and t1 are numbers") from exc
         self._json(self.server.hub.instruments(t0, t1))
+
+    def _get_step(self) -> None:
+        self._json(self.server.hub.step(*step_query(self._query)))
 
     def _get_radio(self) -> None:
         self._json(self.server.hub.radio((self._query("sensor") or "").upper()))

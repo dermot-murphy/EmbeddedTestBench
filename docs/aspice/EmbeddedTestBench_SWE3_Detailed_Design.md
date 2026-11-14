@@ -100,6 +100,8 @@
 | next | 2026-11-13 | Claude | #319: CORE-DD-SERIAL - only a bare port name gives up a trailing `:<digits>` as its line rate; a `socket://` or other pyserial URL keeps its port whatever the host. |
 | next | 2026-11-13 | Claude | #313: S2LP-DD-KEPLER - TWF type version 0, the V10.00 firmware's 96-byte layout (no Permute Control byte, counter at 8, 24-bit time taken, no sync attribute, distance order implied), read from the reference project's V10.00.0000 tag; version 1 unchanged. VIEW-DD-KEPLER - `byte_roles` and `header_rows` for a frame whose permute method is implied. |
 | next | 2026-11-14 | Claude | #313: S2LP-DD-KEPLER - the V10.00 TWF's time taken is documented as microseconds in the V10 source (`app_normal.c:1501`, `API_Radio_Field_WaveSampleTimePut`); the timer behind it is not traced (PR #333 review). |
+| next | 2026-11-13 | Claude | #201: VIEW-DD-STEPEVENTS added (`StepEvents`, `category`, `step_view`, `step_query`, `Hub.step`, `/api/step`; `Hub.follow` rebuilds the views named in `_PER_LOG`); VIEW-DD-PAGE - a step's text opens its measurements and events (`toggleStep`, `stepPanel`), in place of its instrument traffic alone. |
+| next | 2026-11-14 | Claude | #201, review of #334: VIEW-DD-STEPEVENTS - a run-wide bound, `KEEP_RUN_RECORDS` (50 000), the oldest steps' records dropped first and counted (`total`, `_start`, `_add`). |
 ---
 
 ## 3. Purpose & Scope
@@ -4039,6 +4041,42 @@ if the driver did not, or the six hex digits after the dash in a BLE line's
 not selected tags its own `case_end`. `Tagger.tests` lists every label in
 order, and the state snapshot carries it as `tests`.
 
+#### VIEW-DD-STEPEVENTS — `step_events.py`
+
+`StepEvents.feed(record)` sees every record in log order, as `Hub._apply` reads
+it (VIEW-FR-048). A `step_start` names the step - phase, test case (for a
+`test` step only) and index - and starts it afresh with its start time and a
+deque of `KEEP_STEP_RECORDS` (5 000); every record after it goes to that step,
+a record pushed out of a full deque counted in `dropped`, until the step's
+`step_end` sets its end time, or `run_end` ends it. The start and end records
+themselves are not kept: the step's row holds what they say. The run as a whole
+keeps at most `KEEP_RUN_RECORDS` (50 000), counted in `total`: past it, the
+steps that started longest ago - `steps` holds them in the order they last
+started, a step that runs again moved to the end and its old records taken out
+of `total` - lose their oldest records first, each counted in its step's
+`dropped`. `run_start` forgets every step and sets `total` to 0. A record belongs to a step by its place in the log, not by
+its time, so a record stamped inside a step but logged after it is not the
+step's: the runner runs one step at a time, and the log is the order in which
+things were recorded. `view(phase, case, step, started)` lists the step's
+records with `t`, `dt` (seconds from the step's start), `source`, `level`,
+`kind`, `text` and a `category` - `error` or `warning` by level, then `frame`
+(`rf_packet`), `measurement` (`reading`), `runner`, `control`, and otherwise
+`command`, `reply`, `event` or `note` by `classify` (VIEW-DD-TRAFFIC); and none
+when *started* is not the start the records were kept from.
+
+`step_view(state, events, phase, case, step)`, which `Hub.step` calls under the
+hub's lock, finds the step in the run's state - `ValueError` when there is
+none - and returns a copy of it, with its measurements and their limits, and
+its records from `StepEvents.view` given the state's start time, so a step that
+`case_start` or `restart_from` has marked to run again (its `started` cleared)
+shows none. `GET /api/step?phase=&case=&step=` serves it, `step_query` reading
+the query: a phase that is not `setup`, `test` or `teardown`, a step or test
+case index that is not a whole number, and a step the run does not have are
+refused with 400. It is the same for a run followed live and a finished log
+opened with `--event-log` or attached: the hub reads both the same way.
+`Hub.follow` takes each view it rebuilds for a new log - `_PER_LOG`, the step
+events among them - from a new hub, so the list is made in one place.
+
 #### VIEW-DD-STATUS — `status.py`, `static/status.js`
 
 `InstrumentStatus.feed` keeps per source (not `TEST`, `BENCH` or the runner's
@@ -4200,7 +4238,7 @@ right, each register row expanding to its fields.
 
 #### VIEW-DD-PAGE — `static/index.html`, `app.js`, `app.css`
 
-The Event log tab has Pause/Resume - records arriving while paused are held in `heldBack` and counted, and added on resume - a checkbox per instrument, "Show only" checkboxes per kind (any checked restricts to those), a sensor selector of the sensors seen, and a test selector shown when there are two or more; `shown(record)` applies all of them. One page, seven tabs: Run, Instruments, RF, BLE, Graphs, Event log, Start / attach. RF shows a sensor selector, the sensor table and the frames, a frame's decode on selecting it; BLE the device table, events and the dongle's exchanges; both polled every second while shown. The Instruments tab shows the front panels, a button per source with its count, and that source's exchanges - time, sent, replies, milliseconds - polled every second while shown; a step's text on the Run page, once it has started, opens its traffic below it. `app.js` opens an
+The Event log tab has Pause/Resume - records arriving while paused are held in `heldBack` and counted, and added on resume - a checkbox per instrument, "Show only" checkboxes per kind (any checked restricts to those), a sensor selector of the sensors seen, and a test selector shown when there are two or more; `shown(record)` applies all of them. One page, seven tabs: Run, Instruments, RF, BLE, Graphs, Event log, Start / attach. RF shows a sensor selector, the sensor table and the frames, a frame's decode on selecting it; BLE the device table, events and the dongle's exchanges; both polled every second while shown. The Instruments tab shows the front panels, a button per source with its count, and that source's exchanges - time, sent, replies, milliseconds - polled every second while shown; a step's text on the Run page, once it has started, opens below it (`toggleStep`) the step's measurements - measured, expected, verdict, reason - and the events recorded during it from `/api/step`, each with its time from the step's start, source, category and text (`stepPanel`); an open step is fetched again every second while it runs, and when it starts again (VIEW-DD-STEPEVENTS). `app.js` opens an
 `EventSource` on `/api/events`, keeps the latest state and up to 3 000 records,
 and redraws on the next animation frame. The Run page draws each group's
 status dot, name, requirement and reason, and each step's text, duration,
