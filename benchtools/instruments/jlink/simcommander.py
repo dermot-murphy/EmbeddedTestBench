@@ -27,6 +27,11 @@ __all__ = ["SimulatedCommander"]
 #: Below this address the default simulated part has flash; above it, RAM.
 _RAM_START = 0x20000000
 
+#: DHCSR, and what 5C1712 read in it halted and running.
+_DHCSR = 0xE000EDF0
+_DHCSR_HALTED = 0x00030003
+_DHCSR_RUNNING = 0x00050001
+
 
 class SimulatedCommander(JLinkCommander):
     """Runs command files against a simulated target instead of a probe.
@@ -226,9 +231,16 @@ class SimulatedCommander(JLinkCommander):
             return False
         out.append("Opening binary file for writing... [%s]" % path)
         out.append("Reading %u bytes from addr 0x%08X into file..." % (count, address))
+        data = bytearray(self.simulator.read_memory(address, count))
+        # DHCSR reports the model's halted state, with the values 5C1712 gave
+        # (JLink_Integration_Notes §4.3): the part's answer to "is it halted".
+        state = (_DHCSR_HALTED if self.simulator.halted else _DHCSR_RUNNING).to_bytes(4, "little")
+        for index in range(4):
+            if address <= _DHCSR + index < address + count:
+                data[_DHCSR + index - address] = state[index]
         try:
             with open(path, "wb") as handle:
-                handle.write(self.simulator.read_memory(address, count))
+                handle.write(bytes(data))
         except OSError:
             out.append("Could not write to file.")
             return False

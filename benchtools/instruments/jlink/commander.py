@@ -307,10 +307,8 @@ class RttLoggerBackend:  # pylint: disable=too-many-instance-attributes
     index. Default: channel 1"), so the channel is always given.
 
     The logger reads only: it has no way to send to the target, so
-    :meth:`rtt_send` refuses. It runs until it is stopped; it says "Press any
-    key to quit", and is given an input pipe nobody writes to, then
-    terminated. Whether terminating it loses bytes it has not yet written to the
-    file is unverified.
+    :meth:`rtt_send` refuses. It runs until it is stopped: see :meth:`finish`.
+    Each session writes its own file.
     """
 
     def __init__(  # pylint: disable=too-many-arguments,too-many-positional-arguments
@@ -330,6 +328,10 @@ class RttLoggerBackend:  # pylint: disable=too-many-instance-attributes
         self._path = ""
         self._console = ""
         self._offset = 0
+        self._sessions = 0
+        #: Seconds the logger is given to quit by itself before it is
+        #: terminated.
+        self.quit_timeout = 2.0
 
     def command_line(self, output_path: str) -> List[str]:
         """The logger's command line, writing RTT to *output_path*."""
@@ -350,13 +352,23 @@ class RttLoggerBackend:  # pylint: disable=too-many-instance-attributes
         return arguments + ["-RTTChannel", str(self.channel), output_path]
 
     def rtt_open(self) -> None:
-        """Start the logger and wait, briefly, for its output file."""
+        """Start the logger and wait, briefly, for its output file.
+
+        Each session writes a file of its own, so a second session never
+        reads the first one's bytes, and its read position starts at 0 in a
+        file nothing else has written. If anything - an exception, Ctrl-C -
+        interrupts the start, the logger is stopped before it propagates.
+        """
         if self._process is not None:
             return
         directory = self.directory or tempfile.mkdtemp(prefix="benchtools-rtt-")
-        self._path = os.path.join(directory, "rtt_channel_%d.log" % self.channel)
-        self._console = os.path.join(directory, "rtt_logger_console.txt")
+        self._sessions += 1
+        stem = "rtt_channel_%d_%03d" % (self.channel, self._sessions)
+        self._path = os.path.join(directory, stem + ".log")
+        self._console = os.path.join(directory, stem + "_console.txt")
         self._offset = 0
+        if os.path.exists(self._path):
+            os.remove(self._path)
         arguments = self.command_line(self._path)
         with open(self._console, "wb") as console:
             try:
@@ -365,9 +377,16 @@ class RttLoggerBackend:  # pylint: disable=too-many-instance-attributes
                     arguments, stdin=subprocess.PIPE, stdout=console, stderr=subprocess.STDOUT)
             except OSError as exc:
                 raise ConnectionFailedError("cannot start %r: %s" % (arguments[0], exc)) from exc
+        try:
+            self._wait_for_start()
+        except BaseException:
+            self._stop_process()
+            raise
+
+    def _wait_for_start(self) -> None:
         deadline = time.monotonic() + self.start_timeout
         while time.monotonic() < deadline:
-            status = self._process.poll()
+            status = self._process.poll() if self._process is not None else None
             if status is not None:
                 self._process = None
                 raise ConnectionFailedError(
@@ -390,9 +409,12 @@ class RttLoggerBackend:  # pylint: disable=too-many-instance-attributes
     def rtt_poll(self) -> bytes:
         """Bytes the logger has written since the last poll.
 
-        :raises ConnectionFailedError: if the logger has stopped.
+        After :meth:`finish` this still returns what the logger wrote before
+        it stopped, so the last bytes are not lost.
+
+        :raises ConnectionFailedError: if the logger stopped by itself.
         """
-        if self._process is None:
+        if not self._path:
             return b""
         data = b""
         if os.path.exists(self._path):
@@ -400,7 +422,8 @@ class RttLoggerBackend:  # pylint: disable=too-many-instance-attributes
                 handle.seek(self._offset)
                 data = handle.read()
             self._offset += len(data)
-        if not data and self._process.poll() is not None:
+        process = self._process
+        if not data and process is not None and process.poll() is not None:
             said = self._said()
             self._process = None
             raise ConnectionFailedError("J-Link RTT Logger stopped.%s" % said)
@@ -410,23 +433,50 @@ class RttLoggerBackend:  # pylint: disable=too-many-instance-attributes
         """Refused: the logger only reads."""
         raise RttReadOnlyError()
 
-    def rtt_close(self) -> None:
-        """Stop the logger."""
+    def finish(self) -> None:
+        """Stop the logger so that what it holds reaches its file, and keep
+        the file readable for a last :meth:`rtt_poll`.
+
+        It is first asked to quit as it asks to be ("Press any key to
+        quit"): a newline on its input, which is then closed, and up to
+        :attr:`quit_timeout` seconds to exit and close its file. Only then is
+        it terminated; a terminated process cannot flush what it buffered.
+        Whether the logger reads the key from that pipe, rather than from the
+        console only, is unverified, so terminating remains the fallback.
+        """
+        self._stop_process()
+
+    def _stop_process(self) -> None:
         process, self._process = self._process, None
         if process is None:
             return
-        if process.poll() is None:
+        if process.poll() is None and process.stdin is not None:
+            try:
+                process.stdin.write(b"\n")
+                process.stdin.flush()
+            except OSError:
+                pass
+        if process.stdin is not None:
+            try:
+                process.stdin.close()
+            except OSError:  # pragma: no cover
+                pass
+        try:
+            process.wait(timeout=self.quit_timeout)
+        except subprocess.TimeoutExpired:
             process.terminate()
             try:
                 process.wait(timeout=5.0)
             except subprocess.TimeoutExpired:  # pragma: no cover - stubborn logger
                 process.kill()
                 process.wait(timeout=5.0)
-        if process.stdin is not None:
-            try:
-                process.stdin.close()
-            except OSError:  # pragma: no cover
-                pass
+
+    def rtt_close(self) -> None:
+        """Stop the logger and stop reading its file."""
+        try:
+            self._stop_process()
+        finally:
+            self._path = ""
 
 
 class RttReadOnlyError(ConfigurationError):

@@ -12,9 +12,10 @@ flash (HEX, ELF)          ``r``, ``h``, ``loadfile``; then every range of the
 verify                    the same read-back, range by range
 erase                     ``r``, ``h``, ``erase``; then a flash word read back
                           and required to be erased
-read / write memory       ``savebin`` / ``w4`` and ``w1``; every write read
-                          back in a new Commander run
-reset, run, halt          ``r`` with ``h`` or ``g``, ``g``, ``h``
+read / write memory       ``savebin`` / ``w4`` and ``w1``; a write to memory
+                          read back in a new Commander run
+reset, run, halt          ``r`` with ``h`` or ``g``, ``g``, ``h``; then DHCSR
+                          read in a new run
 restore                   as for ``gdb``: built on flash and memory access
 RTT (read only)           J-Link RTT Logger, written to a file and read back
 ========================  ==================================================
@@ -30,15 +31,17 @@ an error from a tool that was never asked.
 Behaviour kept equal to ``gdb`` (issue #69's lessons):
 
 * an erase is confirmed by reading flash back, never by the tool's report;
-* a write - to UICR as to anything - is read back, in a separate Commander
-  run so that the read is the part's and not a cached copy;
+* a write to memory - UICR, flash, RAM - is read back, in a separate
+  Commander run so that the read is the part's and not a cached copy (a
+  register write is not, by default: see :meth:`write_memory`);
 * the core is left running on close unless :attr:`leave_halted` is set.
 
 Each operation is one Commander run, which connects and disconnects. Whether
 a core halted by one run stays halted after Commander exits is **not
 verified**: on 2026-10-05 ending a Commander session resumed a core that was
-halted (JLink_Integration_Notes §4.3). So :attr:`is_halted` reports what the
-driver last asked for, and the simulator models the resume.
+halted (JLink_Integration_Notes §4.3). So after run control the core's state
+is read from DHCSR, :attr:`is_halted` reports that, and a halt that did not
+hold raises. The simulator models the resume.
 
 Traces to: JLINK-FR-006, JLINK-FR-007, JLINK-FR-008, JLINK-FR-009,
 JLINK-DD-SEGGER.
@@ -62,6 +65,7 @@ from .commander import (
     parse_banner,
 )
 from .constants import DebugInterface, HaltReason, JLINK_LIMITS, ProbeLimits
+
 from .image import ImageRange
 from .probe import (
     FlashResult,
@@ -75,7 +79,26 @@ from .rtt import RttClient, SimulatedRttBackend
 from .simcommander import SimulatedCommander
 from .simulator import SimulatedJLink
 
-__all__ = ["SeggerJLinkProbe", "UnsupportedOperationError", "GDB_ONLY_OPERATIONS"]
+#: Debug Halting Control and Status Register, and its S_HALT bit (ARMv7-M).
+#: On 5C1712 it read 0x00030003 halted and 0x00050001 running (notes §4.3).
+DHCSR = 0xE000EDF0
+DHCSR_S_HALT = 1 << 17
+
+
+def is_register_address(address: int) -> bool:
+    """Whether *address* is in a Cortex-M peripheral or system region, where
+    registers live and a write need not read back as written (ARMv7-M
+    memory map: peripherals 0x40000000-0x5FFFFFFF, system from 0xE0000000)."""
+    return 0x40000000 <= address < 0x60000000 or address >= 0xE0000000
+
+
+__all__ = [
+    "SeggerJLinkProbe",
+    "UnsupportedOperationError",
+    "GDB_ONLY_OPERATIONS",
+    "DHCSR",
+    "is_register_address",
+]
 
 
 class UnsupportedOperationError(ConfigurationError):
@@ -158,6 +181,7 @@ class SeggerJLinkProbe(JLinkProbe):  # pylint: disable=too-many-instance-attribu
         limits: ProbeLimits = JLINK_LIMITS,
         auto_check_errors: bool = True,
         firmware: Optional[str] = None,
+        rtt_stream=None,
     ) -> None:
         Instrument.__init__(  # pylint: disable=non-parent-init-called
             self, auto_check_errors=auto_check_errors)
@@ -165,6 +189,9 @@ class SeggerJLinkProbe(JLinkProbe):  # pylint: disable=too-many-instance-attribu
         self._server = None
         self._session = None
         self._rtt = rtt
+        #: The RTT client's source, kept so the logger can be stopped and its
+        #: file read out before the client stops collecting.
+        self._rtt_source = rtt_stream
         self._elf = elf
         self._firmware = firmware
         self._limits = limits
@@ -218,7 +245,7 @@ class SeggerJLinkProbe(JLinkProbe):  # pylint: disable=too-many-instance-attribu
                 except ValueError as exc:
                     raise ConfigurationError(str(exc)) from exc
             commander: JLinkCommander = SimulatedCommander(simulator, timeout=max(timeout, 1.0))
-            rtt = RttClient(SimulatedReadOnlyRtt(SimulatedRttBackend(simulator)))
+            source = SimulatedReadOnlyRtt(SimulatedRttBackend(simulator))
             if elf is None:
                 elf = simulator.firmware.path
         else:
@@ -233,9 +260,10 @@ class SeggerJLinkProbe(JLinkProbe):  # pylint: disable=too-many-instance-attribu
                 serial_number=serial_number, executable=commander_executable,
                 timeout=max(timeout, 60.0),
             )
-            rtt = RttClient(commander.rtt_backend(executable=rtt_logger_executable))
-        probe = cls(commander=commander, rtt=rtt, elf=elf, limits=limits,
-                    auto_check_errors=auto_check_errors, firmware=firmware)
+            source = commander.rtt_backend(executable=rtt_logger_executable)
+        probe = cls(commander=commander, rtt=RttClient(source), elf=elf, limits=limits,
+                    auto_check_errors=auto_check_errors, firmware=firmware,
+                    rtt_stream=source)
         probe.attach_on_open = bool(attach)
         try:
             if initialise:
@@ -262,11 +290,10 @@ class SeggerJLinkProbe(JLinkProbe):  # pylint: disable=too-many-instance-attribu
         self._attached = bool(self.attach_on_open)
 
     def _close(self) -> None:
-        if self._rtt is not None:
-            try:
-                self._rtt.stop()
-            except Exception:  # pylint: disable=broad-exception-caught
-                self._logger.debug("RTT did not stop cleanly", exc_info=True)
+        try:
+            self._finish_rtt()
+        except Exception:  # pylint: disable=broad-exception-caught
+            self._logger.debug("RTT did not stop cleanly", exc_info=True)
         try:
             if self._open_flag and self._attached and self._touched and not self.leave_halted:
                 # JLINK-FR-006 on this backend: a run of its own that lets the
@@ -425,26 +452,74 @@ class SeggerJLinkProbe(JLinkProbe):  # pylint: disable=too-many-instance-attribu
     # ------------------------------------------------------------------
     # Run control
     # ------------------------------------------------------------------
+    def core_is_halted(self) -> bool:
+        """Whether the core is halted, read from DHCSR in a Commander run of
+        its own: ``S_HALT``, bit 17, of ``0xE000EDF0``.
+
+        This is the part's answer, not the driver's belief. It matters here
+        because each operation is a Commander run that ends, and on 5C1712 on
+        2026-10-05 ending a Commander session let a halted core run again
+        (JLink_Integration_Notes §4.3). That session read DHCSR with
+        ``mem32`` without halting the core; reading it with ``savebin``, as
+        here, is not yet verified on the bench.
+        """
+        halted = bool(self.read_word(DHCSR) & DHCSR_S_HALT)
+        self._halted = halted
+        return halted
+
     def reset(self, halt: bool = True, timeout: float = 30.0) -> None:
-        """Reset the target, then hold it halted (``h``) or let it run (``g``)."""
+        """Reset the target, then hold it halted (``h``) or let it run (``g``).
+
+        The core's state is then read back from DHCSR (:meth:`core_is_halted`)
+        and :attr:`is_halted` reports that, not the request. A reset that was
+        to let the core run and left it halted raises, as #177 was on
+        ``gdb``. A reset that was to leave it halted and found it running is
+        logged, not raised: Commander's exit may resume the core, and
+        :meth:`restore` resets halted before programming, which ``loadfile``
+        halts for itself anyway.
+
+        :raises BenchToolsError: if ``reset(halt=False)`` left the core halted.
+        """
         self._run(["r", "h" if halt else "g"], "reset", timeout=timeout)
-        self._halted = bool(halt)
         self._cycle_counter_ready = False
+        halted = self.core_is_halted()
+        if not halt and halted:
+            raise BenchToolsError(
+                "reset with the core to run, but DHCSR says it is halted afterwards")
+        if halt and not halted:
+            self._logger.warning(
+                "reset with the core halted, but it was running once J-Link "
+                "Commander exited")
 
     def run(self, timeout: Optional[float] = None) -> None:
-        """Let the target run. Nothing is sent if the driver did not halt it."""
-        if not self._halted:
-            return
+        """Let the target run: always ``g``, whatever the driver last did,
+        since another run - the command line's ``halt``, another tool - may
+        have halted it. The core's state is then read back from DHCSR.
+
+        :raises BenchToolsError: if the core is still halted.
+        """
         self._run(["g"], "run", timeout=timeout)
-        self._halted = False
+        if self.core_is_halted():
+            raise BenchToolsError("sent 'g' but DHCSR says the core is still halted")
 
     resume = run
 
     def halt(self, timeout: float = 10.0) -> HaltInfo:
-        """Halt the core with ``h``. Where it stopped is not reported: there
-        are no symbols, and the registers are read through GDB."""
+        """Halt the core with ``h``, then read DHCSR in a new run to see
+        whether it stayed halted. Where it stopped is not reported: there are
+        no symbols, and the registers are read through GDB.
+
+        :raises BenchToolsError: if the core was running once Commander had
+            exited - this backend cannot then hold a core halted between
+            operations, and saying "halted" would be false.
+        """
         self._run(["h"], "halt", timeout=timeout)
-        self._halted = True
+        if not self.core_is_halted():
+            raise BenchToolsError(
+                "J-Link Commander halted the core, but it was running again once "
+                "Commander exited (DHCSR S_HALT clear). The segger backend cannot "
+                "hold a core halted between operations here; use backend: gdb "
+                "to keep it halted.")
         return HaltInfo(reason=HaltReason.SIGNAL, signal="halted by J-Link Commander")
 
     stop = halt
@@ -485,17 +560,23 @@ class SeggerJLinkProbe(JLinkProbe):  # pylint: disable=too-many-instance-attribu
                 "J-Link Commander read %d of %d byte(s) at 0x%08x" % (len(data), size, address))
         return data
 
-    def write_memory(self, address: int, data: bytes, verify: bool = True) -> None:
+    def write_memory(self, address: int, data: bytes, verify: Optional[bool] = None) -> None:
         """Write *data* with ``w4`` for whole aligned words and ``w1`` for the
         rest, then read it back in a new run.
 
         :param verify: Read back and raise if the part does not hold *data*.
-            On by default: whether ``w4`` into flash or UICR programs the part
-            or only J-Link's flash cache is not verified on this backend, and
-            this check is what would show it. Turn it off only for memory the
-            running firmware itself changes.
+            ``None``, the default, reads back memory - flash, UICR, RAM -
+            and not a register: in the Cortex-M peripheral and system regions
+            (:func:`is_register_address`) a write-1-to-clear or write-1-to-set
+            bit reads back differently from what was written, so a read-back
+            there would fail a correct write. ``True`` or ``False`` decides
+            either way. Whether ``w4`` into flash or UICR programs the part or
+            only J-Link's flash cache is not verified on this backend; the
+            read-back is what would show it.
         """
         payload = bytes(data)
+        if verify is None:
+            verify = not is_register_address(address)
         if not payload:
             return
         commands: List[str] = []
@@ -537,9 +618,30 @@ class SeggerJLinkProbe(JLinkProbe):  # pylint: disable=too-many-instance-attribu
             raise ConfigurationError(
                 "channel %d is beyond the %d configured RTT channels"
                 % (channel, self._limits.max_rtt_channels))
-        if self._halted and self._attached:
+        if self._attached:
             self.run()
-        self.rtt.start(log_path=log_path)
+        try:
+            self.rtt.start(log_path=log_path)
+        except BaseException:
+            # The logger may already be running (a log file that cannot be
+            # opened fails after it starts); it must not outlive the failure.
+            if self._rtt_source is not None:
+                self._rtt_source.rtt_close()
+            raise
+
+    def rtt_stop(self) -> None:
+        """Stop the logger so it writes out what it holds, then take the last
+        bytes from its file and stop collecting."""
+        self._finish_rtt()
+
+    def _finish_rtt(self) -> None:
+        finish = getattr(self._rtt_source, "finish", None)
+        try:
+            if finish is not None:
+                finish()
+        finally:
+            if self._rtt is not None:
+                self._rtt.stop()
 
 
 def _install_refusals() -> None:

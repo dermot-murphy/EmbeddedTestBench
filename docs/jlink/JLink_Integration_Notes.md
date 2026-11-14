@@ -337,8 +337,8 @@ command file (`exitonerror 1`, the commands, `q`); RTT is read by
 | `verify` | `savebin` per range | the same comparison |
 | `erase` | `r`, `h`, `erase` | flash word at 0 read back in a new run; must be `0xFFFFFFFF` |
 | `read` | `savebin <file>, <addr>, <n>` | the file holds exactly *n* bytes |
-| `write` | `w4` per aligned word, `w1` per other byte | read back in a new run; must match |
-| `reset`, `run`, `halt` | `r` + `h` or `g`; `g`; `h` | - |
+| `write` | `w4` per aligned word, `w1` per other byte | read back in a new run; must match. Not by default in the peripheral or system region, where write-1-to-clear bits do not read back (`--no-read-back` skips it anywhere) |
+| `reset`, `run`, `halt` | `r` + `h` or `g`; `g` (always); `h` | DHCSR read in a new run: `run` and `reset --run` raise if still halted, `halt` raises if Commander's exit let the core go |
 | close | `g`, unless `leave_halted` | - |
 | `rtt` | `JLinkRTTLogger.exe -Device -If -Speed [-USB] -RTTChannel 0 <file>` | a logger that stops is reported with what it printed |
 
@@ -367,7 +367,8 @@ USB probe.
 | Whether a chip `erase` also erases the nRF52840's UICR | **Unverified**; only the flash word at 0 is checked |
 | Whether a core halted by `h` stays halted after Commander exits | **Unverified**; on 2026-10-05 ending a session resumed a halted core (§4.3). The simulator models the resume |
 | RTT Logger options; its default channel is 1 | In the binary's strings; the logger ran on 5C1712 on 2026-09-26 with `-RTTChannel 0` |
-| Whether stopping the logger loses bytes not yet written | **Unverified** |
+| Whether stopping the logger loses bytes not yet written | **Unverified**. It is first sent a newline on its input, as it asks for a key, and given 2 s to exit and close its file; only then terminated. Whether it reads that key from a pipe is unverified |
+| Reading DHCSR with `savebin` without halting the core | **Unverified**; `mem32` did not halt it on 2026-10-05 |
 | Commander and the logger holding the probe at the same time | **Unverified**; only one client held the probe reliably in earlier sessions |
 | Tool names `JLinkExe`, `JLinkRTTLoggerExe` on Linux | **Unverified** |
 

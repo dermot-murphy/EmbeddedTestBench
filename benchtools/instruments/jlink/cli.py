@@ -160,7 +160,10 @@ def _cmd_read(probe: JLinkProbe, args) -> int:
 
 def _cmd_write(probe: JLinkProbe, args) -> int:
     data = bytes.fromhex(args.data.replace(" ", ""))
-    probe.write_memory(args.address, data)
+    if args.no_read_back and probe.backend == "segger":
+        probe.write_memory(args.address, data, verify=False)
+    else:
+        probe.write_memory(args.address, data)
     _emit({"address": "0x%08x" % args.address, "written": len(data)}, args.json)
     return _EXIT_OK
 
@@ -217,7 +220,10 @@ def _cmd_rtt(probe: JLinkProbe, args) -> int:
                 args.json,
             )
             return _EXIT_OK
-        probe.run()
+        if probe.backend == "gdb":
+            # The segger backend let the core go in rtt_start; a second
+            # Commander run while the logger holds the probe is avoided.
+            probe.run()
         deadline = time.monotonic() + args.duration
         while time.monotonic() < deadline:
             for line in probe.rtt_read_lines():
@@ -334,6 +340,11 @@ def build_parser() -> argparse.ArgumentParser:
     write = subparsers.add_parser("write", help="write target memory")
     write.add_argument("address", type=_number)
     write.add_argument("data", help="hex bytes, e.g. deadbeef")
+    write.add_argument(
+        "--no-read-back", action="store_true",
+        help="segger backend: do not read the write back (it is read back by "
+             "default, except in the peripheral and system regions)",
+    )
     write.set_defaults(handler=_cmd_write)
 
     var = subparsers.add_parser("var", help="read or write a variable by name")

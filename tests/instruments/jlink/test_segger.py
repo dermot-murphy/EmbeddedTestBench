@@ -346,16 +346,84 @@ class TestMemory:
         with pytest.raises(BenchToolsError, match="read back"):
             probe.write_word(UICR_ID, 0x12175C00)
 
+    @pytest.mark.parametrize("address", [0x40000100, 0x5FFFFFFC, 0xE000EDFC])
+    def test_a_register_write_is_not_read_back(self, probe, address):
+        """A write-1-to-clear bit reads back 0: reading back would fail a
+        correct write."""
+        probe.write_word(address, 1)
+        assert commands_run(probe)[-1][1].startswith("w4 ")
+
+    def test_a_register_write_can_still_be_read_back_on_request(self, probe):
+        probe.write_memory(0x40000100, b"\x01\x00\x00\x00", verify=True)
+        assert commands_run(probe)[-1][1].startswith("savebin ")
+
+    @pytest.mark.parametrize("address", [0x00001000, 0x10001080, 0x20000100])
+    def test_memory_is_read_back_by_default(self, probe, address):
+        probe.write_word(address, 0x12345678)
+        assert commands_run(probe)[-1][1].startswith("savebin ")
+
+    def test_the_command_line_can_skip_the_read_back(self, capsys):
+        status = cli_main(["-r", "sim://", "--backend", "segger", "write", "0x20000100",
+                           "01020304", "--no-read-back"])
+        capsys.readouterr()
+        assert status == 0
+
     def test_the_integer_readers_work_over_it(self, probe):
         assert probe.read_integer(UICR_ID + 1, 3, byteorder="big") == 0x0A1B2C
 
 
+DHCSR_READ = "E000EDF0, 4"
+
+
 class TestRunControlAndClose:
-    def test_reset_and_run(self, probe):
+    def test_reset_and_run_read_the_core_state_back(self, probe):
+        probe.commander.exit_resumes = False
         probe.reset(halt=False)
-        assert commands_run(probe)[-1][1:3] == ["r", "g"] and not probe.is_halted
+        reset, check = commands_run(probe)[-2:]
+        assert reset[1:3] == ["r", "g"] and check[1].endswith(DHCSR_READ)
+        assert not probe.is_halted
         probe.reset()
-        assert commands_run(probe)[-1][1:3] == ["r", "h"] and probe.is_halted
+        assert commands_run(probe)[-2][1:3] == ["r", "h"] and probe.is_halted
+
+    def test_a_halted_reset_that_commander_s_exit_undid_is_reported_as_running(self, probe):
+        probe.reset()
+        assert not probe.is_halted
+
+    def test_a_reset_to_run_that_left_the_core_halted_raises(self, probe, monkeypatch):
+        probe.commander.exit_resumes = False
+        monkeypatch.setitem(probe.commander.handlers, "g", lambda *args: True)
+        with pytest.raises(BenchToolsError, match="halted afterwards"):
+            probe.reset(halt=False)
+
+    def test_run_always_sends_go(self):
+        """The command line's 'halt' and 'run' are two probe instances: the
+        second never halted the core itself, and must still let it go."""
+        with JLinkProbe.connect("sim://", backend="segger") as probe:
+            probe.commander.exit_resumes = False
+            simulator_of(probe).halted = True     # halted by an earlier run
+            assert not probe.is_halted
+            probe.run()
+            assert commands_run(probe)[-2][1:-1] == ["g"]
+            assert not simulator_of(probe).halted and not probe.is_halted
+
+    def test_run_raises_if_the_core_stays_halted(self, probe, monkeypatch):
+        probe.commander.exit_resumes = False
+        simulator_of(probe).halted = True
+        monkeypatch.setitem(probe.commander.handlers, "g", lambda *args: True)
+        with pytest.raises(BenchToolsError, match="still halted"):
+            probe.run()
+
+    def test_a_halt_that_commander_s_exit_undid_raises(self, probe):
+        """Seen once on the bench (notes §4.3), and modelled: the probe says
+        so rather than report a halted core that runs."""
+        with pytest.raises(BenchToolsError, match="running again once Commander exited"):
+            probe.halt()
+        assert not probe.is_halted
+
+    def test_a_halt_that_holds_is_reported_from_dhcsr(self, probe):
+        probe.commander.exit_resumes = False
+        probe.halt()
+        assert commands_run(probe)[-1][1].endswith(DHCSR_READ) and probe.is_halted
 
     def test_closing_lets_the_core_run(self):
         probe = JLinkProbe.connect("sim://", backend="segger")
@@ -366,6 +434,7 @@ class TestRunControlAndClose:
 
     def test_closing_can_leave_it_halted(self):
         probe = JLinkProbe.connect("sim://", backend="segger")
+        probe.commander.exit_resumes = False
         probe.halt()
         probe.leave_halted = True
         log = commands_run(probe)
@@ -382,8 +451,8 @@ class TestRunControlAndClose:
     def test_exit_resumes_the_core_in_the_model(self, probe):
         """What was seen once on the bench (notes §4.3); unverified for a halt
         Commander itself made, so the model is what a test can rely on."""
-        probe.halt()
-        assert probe.is_halted and not simulator_of(probe).halted
+        probe.commander.run(["h"], "halt")
+        assert not simulator_of(probe).halted
 
 
 class TestIdentityAndResults:
@@ -409,10 +478,25 @@ class TestRtt:
         simulator_of(probe).rtt_out.append("Sensor ID is: 0x0A1B2C")
         assert probe.rtt_expect("Sensor ID is: (0x[0-9A-F]+)").group(1) == "0x0A1B2C"
 
-    def test_a_halted_core_is_let_go_before_reading(self, probe):
-        probe.reset()
+    def test_the_core_is_let_go_before_reading(self, probe):
         probe.rtt_start()
-        assert commands_run(probe)[-1][1:-1] == ["g"]
+        assert commands_run(probe)[-2][1:-1] == ["g"]
+
+    def test_a_logger_that_fails_after_starting_is_stopped(self, probe, tmp_path):
+        """A log path that cannot be opened fails after the source started."""
+        with pytest.raises(OSError):
+            probe.rtt_start(log_path=str(tmp_path))        # a directory
+        assert not simulator_of(probe).rtt_started
+
+    def test_the_command_line_runs_no_commander_while_the_logger_reads(
+            self, capsys, monkeypatch):
+        calls = []
+        original = SeggerJLinkProbe.run
+        monkeypatch.setattr(SeggerJLinkProbe, "run",
+                            lambda self, timeout=None: calls.append(1) or original(self))
+        assert cli_main(["-r", "sim://", "--backend", "segger", "rtt", "--duration", "0.1"]) == 0
+        capsys.readouterr()
+        assert len(calls) == 1                     # rtt_start's, and no other
 
     def test_the_logger_command_line_always_names_channel_0(self):
         backend = RttLoggerBackend(device="nRF52840_xxAA", executable="L.exe",
@@ -444,6 +528,84 @@ class TestRtt:
             assert data == b"line one\n"
         finally:
             backend.rtt_close()
+
+    @staticmethod
+    def logger(monkeypatch, tmp_path, body, quit_timeout=5.0):
+        script = tmp_path / "logger.py"
+        script.write_text(body)
+        backend = RttLoggerBackend(device="X", directory=str(tmp_path))
+        backend.quit_timeout = quit_timeout
+        monkeypatch.setattr(backend, "command_line",
+                            lambda path: [sys.executable, str(script), path])
+        return backend
+
+    @staticmethod
+    def poll_until(backend, wanted, seconds=10.0):
+        deadline, data = time.monotonic() + seconds, b""
+        while wanted not in data and time.monotonic() < deadline:
+            data += backend.rtt_poll()
+            time.sleep(0.05)
+        return data
+
+    def test_a_second_session_starts_on_a_fresh_file(self, monkeypatch, tmp_path):
+        """The first session's bytes are not replayed, and a second session's
+        bytes are read from the start of its own file."""
+        backend = self.logger(monkeypatch, tmp_path,
+                              "import sys, time\n"
+                              "open(sys.argv[1], 'ab').write(b'session\\n')\n"
+                              "time.sleep(30)\n", quit_timeout=0.2)
+        backend.rtt_open()
+        assert self.poll_until(backend, b"session\n") == b"session\n"
+        backend.rtt_close()
+        backend.rtt_open()
+        try:
+            assert self.poll_until(backend, b"session\n") == b"session\n"
+        finally:
+            backend.rtt_close()
+        assert len(list(tmp_path.glob("rtt_channel_0_*.log"))) == 2
+
+    def test_the_logger_is_asked_to_quit_and_its_last_bytes_are_read(
+            self, monkeypatch, tmp_path):
+        """It is sent a key, and what it writes as it quits is still read."""
+        backend = self.logger(monkeypatch, tmp_path,
+                              "import sys\n"
+                              "out = open(sys.argv[1], 'wb')\n"
+                              "out.write(b'first\\n'); out.flush()\n"
+                              "sys.stdin.readline()\n"
+                              "out.write(b'last\\n'); out.close()\n")
+        backend.rtt_open()
+        assert self.poll_until(backend, b"first\n") == b"first\n"
+        backend.finish()
+        assert backend.rtt_poll() == b"last\n"
+        backend.rtt_close()
+        assert backend.rtt_poll() == b""
+
+    def test_a_logger_that_will_not_quit_is_terminated(self, monkeypatch, tmp_path):
+        backend = self.logger(monkeypatch, tmp_path,
+                              "import time\ntime.sleep(30)\n", quit_timeout=0.2)
+        backend.rtt_open()
+        started = time.monotonic()
+        backend.rtt_close()
+        assert time.monotonic() - started < 10
+
+    def test_an_interrupted_start_stops_the_logger(self, monkeypatch, tmp_path):
+        backend = self.logger(monkeypatch, tmp_path, "import time\ntime.sleep(30)\n",
+                              quit_timeout=0.2)
+        started = []
+        real_popen = commander_module.subprocess.Popen
+
+        def popen(*args, **kwargs):
+            started.append(real_popen(*args, **kwargs))  # pylint: disable=consider-using-with
+            return started[-1]
+
+        def interrupted():
+            raise KeyboardInterrupt
+
+        monkeypatch.setattr(commander_module.subprocess, "Popen", popen)
+        monkeypatch.setattr(backend, "_wait_for_start", interrupted)
+        with pytest.raises(KeyboardInterrupt):
+            backend.rtt_open()
+        assert started and started[0].poll() is not None
 
     def test_a_logger_that_exits_says_what_it_printed(self, monkeypatch, tmp_path):
         script = tmp_path / "logger.py"

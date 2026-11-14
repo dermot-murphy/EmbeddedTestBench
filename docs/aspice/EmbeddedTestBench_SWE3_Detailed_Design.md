@@ -98,6 +98,7 @@
 | next | 2026-11-13 | Claude | #330: the Pico 2 SHT30 Temperature Sensor renamed the PICO2 Test Board. §5.8 notes the rename and the user manual (ETB-PICO-002); PICO-DD-PROTOCOL and -VERSION - the name and `V1.00.0000`; PICO-DD-DRIVER - `Pico2TestBoard`, the aliases kept, the bench driver names, `set_led(colour, lit)`; PICO-DD-SIM - default version `V1.00.0000`; PICO-DD-CLI - `benchtools pico2` and the names it still accepts. |
 | next | 2026-11-13 | Claude | #200: section 5.10, PSCOPE - PSCOPE-DD-CONST, PSCOPE-DD-SDK, PSCOPE-DD-SIM, PSCOPE-DD-SCOPE and PSCOPE-DD-CLI, the PicoScope 3000D MSO driver through the `ps3000a` library (total 84 → 89); RUN and VIEW renumbered 5.11 and 5.12; CORE-DD-EVENTS - the default name `PSCOPE`. |
 | next | 2026-11-13 | Claude | #71: JLINK-DD-SEGGER, JLINK-DD-COMMANDER, JLINK-DD-SIMCOMMANDER and JLINK-DD-IMAGE added - the `segger` backend (J-Link Commander command files, RTT Logger), its simulation and the host-side image reader. JLINK-DD-SERVER - `find_jlink_commander`, `find_rtt_logger`. JLINK-DD-CLI - `--backend`, `--commander`, `--rtt-logger`. |
+| next | 2026-11-14 | Claude | #71 review round 1: JLINK-DD-SEGGER - `run` always resumes, `core_is_halted` reads DHCSR after run control, register writes not read back by default (`is_register_address`), the RTT logger stopped on a failed start and finished before the client stops; JLINK-DD-COMMANDER - one RTT file per session, `finish`, a logger stopped if its start is interrupted; JLINK-DD-SIMCOMMANDER - simulated DHCSR. |
 ---
 
 ## 3. Purpose & Scope
@@ -1149,17 +1150,28 @@ runs instead of GDB/MI commands. `JLinkProbe.connect(backend="segger")` calls
 - **Erase**: `r`, `h`, `erase` (chip erase), then the blank-check word read in
   a run of its own, as `gdb`'s erase is checked (issue #69).
 - **Memory**: `savebin <file>, <addr>, <n>` into a scratch file, which is read
-  and removed; `w4` for whole aligned words and `w1` for the rest. Every write
-  is read back in a **new** run, so the read is the part's and not the DLL's
-  flash cache, and raises if it differs (`verify=False` for memory the
-  firmware changes itself).
-- **Run control**: `reset` is `r` with `h` or `g`; `run` sends `g` only if the
-  driver halted the core; `halt` returns a `HaltInfo` with no location.
-  `is_halted` is what the driver last asked for: whether a core stays halted
-  after Commander exits is unverified (JLink_Integration_Notes §4.3).
+  and removed; `w4` for whole aligned words and `w1` for the rest. A write is
+  read back in a **new** run, so the read is the part's and not the DLL's
+  flash cache, and raises if it differs. `verify=None`, the default, reads
+  back memory and not a register in the peripheral (`0x40000000`-`0x5FFFFFFF`)
+  or system (`0xE0000000` up) region (`is_register_address`): a
+  write-1-to-clear bit reads back 0. `verify=True` or `False` decides either
+  way; the CLI's `write --no-read-back` passes `False`.
+- **Run control**: `reset` is `r` with `h` or `g`; `run` always sends `g`,
+  whatever this instance did before (the CLI's `halt` and `run` are two
+  instances); `halt` returns a `HaltInfo` with no location. After each,
+  `core_is_halted` reads DHCSR (`S_HALT`, bit 17) in a run of its own and
+  `is_halted` reports that. `run` and `reset(halt=False)` raise if the core
+  is still halted; `halt` raises if Commander's exit let the core run again
+  (seen once, JLink_Integration_Notes §4.3); `reset(halt=True)` only logs it,
+  since `restore` resets halted and `loadfile` halts for itself.
 - **Close**: a run of `g` if the probe ran anything and `leave_halted` is not
   set (JLINK-FR-006).
-- **RTT**: `RttClient` over `RttLoggerBackend`; a halted core is let go first.
+- **RTT**: `RttClient` over `RttLoggerBackend`; the core is let go first
+  (`run`). If the client fails to start after the logger did, the logger is
+  stopped. `rtt_stop` and close call the source's `finish` before the client
+  stops, so its last pump reads what the logger wrote as it quit. The CLI's
+  `rtt` sends no further Commander run while the logger reads.
 - **Refusals**: `GDB_ONLY_OPERATIONS` maps each GDB-only method to the reason,
   and `_install_refusals` replaces each with one raising
   `UnsupportedOperationError` (a `ConfigurationError`) that names the
@@ -1189,8 +1201,13 @@ Running SEGGER's tools for the `segger` backend.
 - `RttLoggerBackend` is an `RttSource`: it starts `JLinkRTTLogger.exe -Device
   -If -Speed [-USB] -RTTChannel <n> <file>` (channel always given: the
   logger's default is 1), reads new bytes from the file at each poll, reports
-  a logger that stops with what it printed, and refuses `rtt_send`
-  (`RttReadOnlyError`). `SimulatedReadOnlyRtt` makes the simulator's RTT
+  a logger that stops by itself with what it printed, and refuses `rtt_send`
+  (`RttReadOnlyError`). Each session writes its own file
+  (`rtt_channel_<n>_<session>.log`), so nothing is replayed and the read
+  position is that file's. `finish` sends a newline and closes the logger's
+  input, waits `quit_timeout` for it to exit and close its file, and only then
+  terminates it; the file stays readable until `rtt_close`. An exception,
+  `BaseException` included, while waiting for the logger to start stops it. `SimulatedReadOnlyRtt` makes the simulator's RTT
   read-only in the same way.
 
 #### JLINK-DD-SIMCOMMANDER — `jlink/simcommander.py`
@@ -1201,7 +1218,9 @@ model's. Its output lines are the binary's message texts, so `check_output`
 is exercised on real wording, and `savebin` writes a real file. `log` keeps
 every command file run. `exit_resumes` (default on) models what was seen once
 on the bench: ending a Commander session let a halted core run.
-`erase_works=False` makes `erase` say "Erasing done." and erase nothing, and
+`savebin` of DHCSR returns `0x00030003` or `0x00050001` from the model's
+halted state, the values 5C1712 gave. `erase_works=False` makes `erase` say
+"Erasing done." and erase nothing, and
 `flash_matches=False` corrupts what `loadfile` writes, so the backend's own
 checks are shown to catch both. With no image on disk, `firmware_image` gives
 the simulated firmware's flash sections with a byte pattern. It is a module

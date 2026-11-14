@@ -103,6 +103,7 @@
 | next | 2026-11-13 | Claude | #330: the Pico 2 firmware renamed PICO2 Test Board. SWE4-UT-PICOSPEC added (2 cases): `specs/pico2_test_board.yaml` run on the simulated bench (PICO-FR-008, -009, -040); SWE4-UT-PICOCLI gains 4 cases, the top-level command reached as `pico2` and by its earlier names. |
 | next | 2026-11-13 | Claude | #200: SWE4-UT-PSCOPE (18 cases), -PSCOPECONST (34), -PSCOPESDK (7) and -PSCOPECLI (6) added for the PicoScope 3000D MSO driver (PSCOPE-FR-001 to PSCOPE-FR-020, PSCOPE-FR-030, PSCOPE-NFR-001); §8 - what the PicoScope's hardware has not yet confirmed. |
 | next | 2026-11-13 | Claude | #71: SWE4-UT-JLINKSEGGER (87 cases) and SWE4-UT-JLINKIMAGE (15) added, for the `segger` J-Link backend. |
+| next | 2026-11-14 | Claude | #71 review round 1: SWE4-UT-JLINKSEGGER 87 → 107 cases - `run` after another instance's halt, the core state from DHCSR after reset, run and halt, register writes not read back, a fresh RTT file per session, the logger asked to quit and its last bytes read, terminated when it will not quit, stopped when its start is interrupted or the client fails to start, no Commander run while the CLI reads RTT. |
 ---
 
 ## 3. Purpose & Scope

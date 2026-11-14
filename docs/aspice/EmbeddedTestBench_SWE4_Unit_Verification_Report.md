@@ -95,6 +95,7 @@
 | next | 2026-11-13 | Claude | #330: §5 row for SWE4-UT-PICOSPEC (2 cases, pass, run on its own); the rest of §5 is not re-run. |
 | next | 2026-11-13 | Claude | #200: §5 rows for SWE4-UT-PSCOPE (18), -PSCOPECONST (34), -PSCOPESDK (7) and -PSCOPECLI (6), pass, from a run of `tests/instruments/picoscope3000` on this branch on 2026-11-13 (65 passed, Windows). §13C added: those results, what the bench's PicoScope 3405D MSO showed on 2026-11-13, and what it has not yet shown (PSCOPE-OPEN-01 … -05). The section 5 total is still the 1.32 whole-suite run's. |
 | next | 2026-11-13 | Claude | #71: §5 rows for SWE4-UT-JLINKSEGGER (87, pass) and SWE4-UT-JLINKIMAGE (15, pass), from a run of the whole suite on this branch on 2026-11-13 (Windows 10, Python 3.14). The rest of §5 is not regenerated. |
+| next | 2026-11-14 | Claude | #71 review round 1: §5 SWE4-UT-JLINKSEGGER 87 → 107, pass, from a run of the whole suite on this branch on 2026-11-14 (Windows 10, Python 3.14). The rest of §5 is not regenerated. |
 ---
 
 ## 3. Purpose & Scope
@@ -275,7 +276,7 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-JLINKSIM | `instruments/jlink/test_simulator.py` | 30 | Pass |
 | SWE4-UT-JLINKCLI | `instruments/jlink/test_cli.py` | 30 | Pass |
 | SWE4-UT-JLINKRTTONLY | `instruments/jlink/test_rtt_only.py` | 6 | Pass |
-| SWE4-UT-JLINKSEGGER | `instruments/jlink/test_segger.py` | 87 | Pass |
+| SWE4-UT-JLINKSEGGER | `instruments/jlink/test_segger.py` | 107 | Pass |
 | SWE4-UT-JLINKIMAGE | `instruments/jlink/test_image.py` | 15 | Pass |
 | SWE4-UT-SERIAL | `core/transport/test_serial.py` | 31 | Pass |
 | SWE4-UT-BLE | `instruments/nordic_dongle/test_dongle.py` | 121 | Pass |
