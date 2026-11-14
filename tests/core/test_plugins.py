@@ -36,6 +36,8 @@ from benchtools.viewer.plugin_panels import run_plugins
 from benchtools.viewer.report import build_report
 from benchtools.viewer.server import GUARD_HEADER, Catalogue, Hub, Launcher, ViewerServer
 
+from ..viewer import radio_log
+
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 SYNTHETIC = ROOT / "tests" / "plugins" / "synthetic"
 KEPLER = ROOT / "plugins" / "kepler"
@@ -517,7 +519,7 @@ class TestViewerWithoutThePlugins:
                   "for_sensor", "pl_type", "product_id", "rf_capability", "frames_per_packet",
                   "ALIVE", "TWF", "VERSION", "CONFIG", "CMD", "RESPONSE", "TWFA", "TWFB")
         pattern = re.compile(r"(?<![\w-])(%s)(?![\w-])" % "|".join(fields))
-        literals = ("name=kepler", '"kepler"', "'kepler'")
+        literals = ("name=kepler", '"kepler"', "'kepler'", "t-ALIVE")
         offenders = []
         for path in sorted((BENCHTOOLS / "viewer").rglob("*")):
             if path.suffix not in (".py", ".js", ".html", ".css"):
@@ -549,19 +551,23 @@ class TestRoundOneOfReview303:
         plugins.load_plugin(str(tmp_path / "other"))
         plugins.load_plugin(str(KEPLER))
         hub = Hub()
-        alive = bytes.fromhex("5c171203060c0401") + bytes(13)
+        alive = radio_log.ALIVE                        # a frame Kepler's decoder reads
         for payload, logged in ((b"\xee\x07", None), (alive, None),
-                                (alive, {"type": "ALIVE", "sensor_id": "5C1712", "x": 1})):
+                                (alive, {"type": "ALIVE", "sensor_id": "5C1712", "pl_type": 3,
+                                         "x": 1, "ticks": 5})):
             hub._apply({"kind": "rf_packet", "t": 1.0, "source": "s2lp", "data": {
                 "direction": "rx", "hex": payload.hex(), "length": len(payload),
                 "decoded": logged}})
         frames = hub.radio()["frames"]
         assert frames[0]["summary"] == "other says 7"
+        assert frames[1]["type"] == "ALIVE" and not frames[1]["problem"]
         assert not frames[1]["summary"].startswith("other says")
-        assert frames[2]["summary"] == "x 1"           # Kepler's hook, the driver's decode
+        # Kepler's hook on the driver's decode: plain_summary would say "pl type 3".
+        assert frames[2]["summary"] == "x 1, ticks 5"
         sensors = {entry["sensor_id"]: entry for entry in hub.radio()["sensors"]}
         assert sensors["00EE"]["latest"]["PING"]["value"] == 7
         assert "value" not in sensors["5C1712"]["latest"]["ALIVE"]
+        assert sensors["5C1712"]["latest"]["ALIVE"]["ticks"] == 5     # Kepler's sensor_fields
 
     def test_a_kepler_tab_that_does_not_exist_is_refused(self):
         plugins.load_plugin(str(KEPLER))
