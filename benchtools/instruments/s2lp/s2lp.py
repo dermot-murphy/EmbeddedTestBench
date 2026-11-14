@@ -71,16 +71,22 @@ from .packets import (
     Packet,
     PacketLog,
 )
+from .kit_driver import KitFirmwareMixin
+from .kit_firmware import KitSession
 from .session import S2lpSession
 from .simulator import SimulatedS2lp
 from .measures import FrameMeasuresMixin
 from .traffic import TrafficMixin
 
-__all__ = ["S2lpDevkit"]
+__all__ = ["S2lpDevkit", "FIRMWARES"]
+
+#: Which firmware the driver expects on the board: ``"auto"`` asks it (#84),
+#: ``"st"`` is ST's CLI firmware, ``"kit"`` the ETB kit firmware.
+FIRMWARES = ("auto", "st", "kit")
 
 
 
-class S2lpDevkit(FrameMeasuresMixin, TrafficMixin, Instrument):
+class S2lpDevkit(KitFirmwareMixin, FrameMeasuresMixin, TrafficMixin, Instrument):
     """An S2-LP development kit running ST's CLI firmware.
 
     :param transport: The link to the board, usually its USB serial port.
@@ -88,6 +94,11 @@ class S2lpDevkit(FrameMeasuresMixin, TrafficMixin, Instrument):
         firmware does not report it, so it is the caller's to give; without it
         the board is unknown and only the synthesiser's range is checked.
     :param timeout: Seconds to wait for a reply.
+    :param firmware: One of :data:`FIRMWARES`. With ``"auto"``, the default,
+        the driver sends ``id`` on connecting: the ETB kit firmware answers it
+        and ST's answers ``no such command``. On the ETB firmware registers,
+        strobes, shutdown and :meth:`stream` work, and ST's other commands are
+        refused with a message naming the firmware (#84).
 
     Example::
 
@@ -113,8 +124,12 @@ class S2lpDevkit(FrameMeasuresMixin, TrafficMixin, Instrument):
         transport: Transport,
         board: str = "",
         timeout: float = DEFAULT_TIMEOUT,
+        firmware: str = "auto",
     ) -> None:
         super().__init__(auto_check_errors=False)
+        if firmware not in FIRMWARES:
+            raise ConfigurationError("%r is not a firmware choice; they are %s"
+                                     % (firmware, ", ".join(FIRMWARES)))
         board = (board or "").strip()
         if board and board not in BOARDS:
             raise ConfigurationError(
@@ -122,13 +137,13 @@ class S2lpDevkit(FrameMeasuresMixin, TrafficMixin, Instrument):
                 % (board, ", ".join(sorted(BOARDS)))
             )
         self._transport = transport
-        self._session = S2lpSession(transport, timeout=timeout)
+        self._session: S2lpSession = S2lpSession(transport, timeout=timeout)
         self._adopt(transport, self._session)
         self._board = board
         #: What identification read: ST's library version text, the radio's
         #: version byte, the crystal frequency in hertz, and the board EEPROM.
         self._facts: Dict[str, Any] = {"library": "", "silicon": 0, "xtal_hz": 0,
-                                       "eeprom": None}
+                                       "eeprom": None, "firmware": firmware}
         self._clock = BoardClock()
         self._packet_log: Optional[PacketLog] = None
         self._payload_length = 0
@@ -202,6 +217,7 @@ class S2lpDevkit(FrameMeasuresMixin, TrafficMixin, Instrument):
 
     def _open(self) -> None:
         self._session.start()
+        self._choose_session()
         self._forget_firmware_state()
 
     def _close(self) -> None:
@@ -227,7 +243,10 @@ class S2lpDevkit(FrameMeasuresMixin, TrafficMixin, Instrument):
         ``SdkEvalRfboardIdentification`` sets up the firmware's crystal
         detection, and answers with no tags. The band comes from the board's
         EEPROM instead (#80), and a board named by the caller must agree with it.
+        On the ETB kit firmware see :meth:`_read_kit_identity`.
         """
+        if isinstance(self._session, KitSession):
+            return self._read_kit_identity(self._session)
         self._session.execute("SdkEvalRfboardIdentification", DEFAULT_XTAL_HZ)
         xtal_hz = self._session.execute("S2LPRadioGetXtalFrequency").hex_number("value")
 
@@ -308,12 +327,13 @@ class S2lpDevkit(FrameMeasuresMixin, TrafficMixin, Instrument):
         firmware writes some on the way out of shutdown; on a kit, the ten in
         :data:`~.constants.AFTER_SHUTDOWN_EXIT` came back set. Use
         :meth:`restore_defaults` when datasheet defaults are what is wanted.
+        The ETB kit firmware writes none (#84).
         """
-        self._session.execute("SdkEvalSdn", 1)
+        self._shutdown(True)
         self._forget_traffic_setup()
         if settle > 0:
             time.sleep(settle)
-        self._session.execute("SdkEvalSdn", 0)
+        self._shutdown(False)
         if settle > 0:
             time.sleep(settle)
 
@@ -415,6 +435,8 @@ class S2lpDevkit(FrameMeasuresMixin, TrafficMixin, Instrument):
                 "cannot read %d register(s) from 0x%02X; the map ends at 0xFF"
                 % (count, address)
             )
+        if isinstance(self._session, KitSession):
+            return self._session.read(address, count)
         reply = self._session.execute("SdkEvalSpiReadRegisters", address, count)
         pairs = reply.numbers("regs_list")
         if len(pairs) != 2 * count:
@@ -448,7 +470,10 @@ class S2lpDevkit(FrameMeasuresMixin, TrafficMixin, Instrument):
                 "%s is read-only on this device; writing it would be ignored "
                 "and the read-back would not show it" % register
             )
-        self._session.execute("SdkEvalSpiWriteRegisters", register.address, payload)
+        if isinstance(self._session, KitSession):
+            self._session.write(register.address, payload)
+        else:
+            self._session.execute("SdkEvalSpiWriteRegisters", register.address, payload)
 
     def write_register(self, which: Union[int, str], value: int) -> None:
         """One register, by name or address."""
@@ -562,6 +587,9 @@ class S2lpDevkit(FrameMeasuresMixin, TrafficMixin, Instrument):
             code = Strobe.BY_NAME[key]
         else:
             code = int(what)
+        if isinstance(self._session, KitSession):
+            self._session.command(code)
+            return
         self._session.execute("SdkEvalSpiCommandStrobes", code)
 
     def restore_defaults(self) -> None:

@@ -49,9 +49,12 @@ interrupt to the radio armed again, against 26-27 ms for a polled stream on
 ST's firmware, with RSSI, PQI, SQI and AFC read after every frame
 (`docs/aspice/qualification/2026-11-14/84_kit_firmware/`). It does not change
 ST's firmware and contains none of ST's source (§6). The radio is set up by
-register writes; ST's configuration commands are not on it, and the driver
-in this package still talks to ST's firmware only. To use it, flash it as its
-README says; to go back, write the backup of ST's image taken from the kit,
+register writes; ST's configuration commands are not on it. The driver in
+this package talks to either: on connecting it sends `id`, which the kit
+firmware answers and ST's answers with `no such command`, and on the kit
+firmware registers, strobes, shutdown and `stream` work, with RSSI, PQI, SQI
+and AFC on every frame in either mode (`docs/aspice/qualification/2026-11-14/84_kit_driver/`).
+To use it, flash it as its README says; to go back, write the backup of ST's image taken from the kit,
 which is kept outside this repository.
 
 ---

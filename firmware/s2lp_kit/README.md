@@ -81,6 +81,30 @@ frequency, modulation, packet handler and filters.
 
 The core runs at 32 MHz from HSI16 through the PLL (x4, /2).
 
+## Host driver
+
+`benchtools`' S2-LP driver drives this firmware as well as ST's. Connecting
+sends `id`; on this firmware the driver reads and writes registers, sends
+strobes, takes the radio through shutdown, and receives with `stream`, as on
+ST's firmware:
+
+```python
+from benchtools.core import plugins
+from benchtools.instruments.s2lp import S2lpDevkit
+
+plugins.load_plugin("plugins/kepler")
+with S2lpDevkit.connect("COM4", log_path="kit.log") as radio:
+    assert radio.kit_firmware
+    radio.apply_configuration("plugins/kepler/configs/s2lp_kepler_433_rx.regs")
+    for packet in radio.stream(decoder=plugins.decoder("kepler"), timeout=60):
+        print(packet.extra["seq"], packet.extra.get("pqi"), packet.decoded)
+    print(radio.kit_counters)
+```
+
+`firmware="st"` or `"kit"` names the firmware instead of asking. ST's radio
+commands, `transmit`, `receive` and `capture` need ST's firmware and are
+refused here with a message saying so.
+
 ## Build
 
 ```bash

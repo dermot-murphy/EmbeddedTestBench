@@ -118,6 +118,7 @@
 | next | 2026-11-14 | Claude | #335 (3): S2LP-DD-KEPLER - V10.01's 99-byte TWF confirmed on frames received from 5C1712 on V10.01.2000. |
 | next | 2026-11-14 | Claude | #84: S2LP-DD-KITFW: the ETB S2-LP kit firmware. |
 | next | 2026-11-14 | Claude | #84 review round 1: S2LP-DD-KITFW - interrupt priorities, the FIFO count read whole, `rx stop` sending what is queued, long lines refused, the board clock. |
+| next | 2026-11-14 | Claude | #84 (driver): S2LP-DD-KITHOST: the host side of the kit firmware (`probe`, `KitSession`, `KitFirmwareMixin`, `SimulatedKitFirmware`); S2LP-DD-SESSION gains `write_line`, `read_line`, `drain`, `adopt_log` and `hand_over_log`. |
 ---
 
 ## 3. Purpose & Scope
@@ -2227,6 +2228,11 @@ Commands out, replies in, every line logged.
   tell whether anything was asked of the board since a stop (#293).
 - **`last_stop_acknowledged`** says whether the last `stop()` got its
   `StopCmd`, so a loop really was running and has ended (#299).
+- **`write_line`, `read_line`, `drain`** send one line as it is (logged,
+  counted, the receive buffer kept), read one, and discard what is pending:
+  the ETB kit firmware's probe and session use them. **`adopt_log`** takes
+  over another session's open log through its `hand_over_log`, so the log
+  carries on when the driver changes session (#84, S2LP-DD-KITHOST).
 
 - **Where a reply ends** is decided by counting braces, because the firmware
   closes some replies on the first line and others five lines later. Waiting for
@@ -2741,6 +2747,28 @@ The host tests (`firmware/s2lp_kit/test`) build everything but the board and
 startup files against `test/support/fake_hal.c`, which models the S2-LP's SPI
 protocol: a register file, a FIFO, an interrupt status cleared on reading, a
 log of command strobes, and one microsecond per SPI byte.
+
+#### S2LP-DD-KITHOST — `kit_firmware.py`, `kit_driver.py`
+
+The host side of the ETB kit firmware (AD-32, S2LP-DD-KITFW). `S2lpDevkit`
+talks to either firmware; what differs on the kit firmware is here.
+
+| Unit | Role |
+|---|---|
+| `probe(session)` | Sends `id` and reads lines for up to 1 s. `ok etb-s2lp-kit ...` is the kit firmware's identity; ST's command interpreter answers `no such command`, and its prompt is drained. Nothing else is sent. |
+| `KitSession` | A `S2lpSession` (the raw log, line reading, `commands_sent`) with the kit protocol: `ask` (one line out, the answer after `ok`; `err` raises `ProtocolError`; records that arrive first are kept), `read` and `write` in transfers of up to 128, `command`, `shutdown`, `stat`, `rx_start`, `rx_stop` (the records still queued and the counters, kept as `last_counters`), `next_record`. Every write keeps the transport's receive buffer, so records on their way are not dropped. ST's `send`, `execute` and `read_reply` raise `InstrumentError` naming the firmware, so an ST-only method of the driver says why it cannot run. |
+| `parse_identity`, `parse_record`, `KitRecord` | The `id` answer and the `f`/`r` record lines. A line that does not parse is not a record. |
+| `KitFirmwareMixin._choose_session` | Run by `_open` after the session starts. `firmware="st"` skips the probe; `"kit"` makes a board that does not answer as the kit firmware an error; `"auto"` (the default) follows the answer. On the kit firmware the session becomes a `KitSession` that takes over the open log (`S2lpSession.adopt_log`), the line protocol version must be 1, and a board left receiving (`stat` running) is stopped. |
+| `_read_kit_identity` | DEVICE_INFO1/0 through `rd`: part 0x03 or an error; the firmware's name and version as the identity's firmware. No crystal, library version or EEPROM: they are ST's firmware's. |
+| `_shutdown`, and the kit branches of `read_registers`, `write_registers`, `strobe` | `sdn`, `rd`, `wr`, `cmd` in place of ST's commands. |
+| `_stream_kit`, `_stop_kit`, `_kit_packet` | `stream` on the kit firmware, whatever the mode: the PQI check on if PQI is read (`_enable_pqi`), `rx start` with the registers' addresses, then one packet per record until the count, the time or `until`. Each packet has `extra["seq"]`, the board time unwrapped by the session's `BoardClock`, the registers by name and what `_interpret_registers` makes of them, and the decode; a rejection has `error` and `extra["irq_status"]` set to the interrupt status. A sequence number beyond the one expected sets `extra["lost_before"]` and is noted in the log. On every exit `rx stop` is sent, its counters kept (`kit_counters`), QI put back, and the records it returned yielded while the count allows, the rest set aside (`_put_aside`) with the command count taken after QI is restored. |
+| `SimulatedKitFirmware` | The protocol answered in process, for the tests: a register file at reset values, frames and rejections queued and sent one per poll while receiving, a queued record marked dropped taking a sequence number unsent, and what is still queued sent before `rx stop`'s answer. |
+
+`stream` checks the mode, then on the kit firmware takes this path before the
+batch-mode refusal of registers: per-frame registers cost the kit nothing, so
+they are allowed in either mode, at most eight. `transmit`, `receive`,
+`capture` and ST's radio calls are refused on the kit firmware through
+`KitSession.execute`.
 
 ---
 
