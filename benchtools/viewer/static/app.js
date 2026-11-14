@@ -42,7 +42,7 @@ for (const tab of document.querySelectorAll("#tabs button")) {
     }
     if (tab.dataset.page === "start") loadCatalogue();
     if (tab.dataset.page === "instruments") loadInstruments();
-    if (tab.dataset.page === "rf") loadRadio();
+    if (tab.dataset.page === "rf") showRfView(false);
     if (tab.dataset.page === "graphs") loadGraphs();
     if (tab.dataset.page === "ble") loadBle();
   });
@@ -228,8 +228,50 @@ function stickToBottom(id, draw) {
   if (atBottom) box.scrollTop = box.scrollHeight;
 }
 
+// The RF page's tabs (#303). Frames and ST GUI are the bench's own. A device
+// plugin's panel adds its tabs, which /api/plugins lists (plugins.js adds the
+// buttons), and its script fills them: registerRfView(id, {element, load}),
+// the id "<panel>.<tab>". load(entered) is called when the tab is chosen
+// (entered true), every second while it shows, and when the sensor changes.
+let rfView = "frames";
+const rfViews = {};
+
+function registerRfView(id, view) {
+  rfViews[id] = view;
+  if (id === rfView) showRfView(true);
+}
+
+function addRfTab(id, label) {
+  const bar = $("rf-views");
+  if (bar.querySelector('button[data-view="' + CSS.escape(id) + '"]')) return;
+  const button = el("button", {"data-view": id, "aria-selected": "false"}, label);
+  button.addEventListener("click", () => chooseRfView(id));
+  bar.insertBefore(button, bar.querySelector('button[data-view="stgui"]'));
+}
+
+function chooseRfView(id) {
+  rfView = id;
+  for (const button of document.querySelectorAll("#rf-views button")) {
+    button.setAttribute("aria-selected", String(button.dataset.view === id));
+  }
+  showRfView(true);
+}
+
+function showRfView(entered) {
+  const view = rfViews[rfView];
+  for (const other of Object.values(rfViews)) other.element.hidden = true;
+  $("rf-none-view").hidden = Boolean(view);
+  if (view) {
+    view.element.hidden = false;
+    view.load(entered);
+  }
+}
+
+for (const button of document.querySelectorAll("#rf-views button")) {
+  button.addEventListener("click", () => chooseRfView(button.dataset.view));
+}
+
 async function loadRadio() {
-  if (typeof rfView !== "undefined" && rfView !== "frames") return;
   const chosen = $("rf-sensor").value;
   const reply = await (await fetch("/api/radio?sensor=" + encodeURIComponent(chosen))).json();
   const select = $("rf-sensor");
@@ -250,7 +292,7 @@ async function loadRadio() {
     {label: "RSSI dBm", value: (s) => s.rssi_dbm, class: "num"},
     {label: "Latest by type", value: (s) => Object.entries(s.latest).map(
       ([type, f]) => type + ": " + f.summary).join("  |  ")},
-  ], sensors, "No Kepler frames received yet.");
+  ], sensors, "No frames received yet.");
   stickToBottom("rf-frames", () => fill("rf-frames", [
     {label: "Time", value: (f) => time(f.t)},
     {label: "Sensor", value: (f) => f.sensor_id, class: "mono id"},
@@ -264,7 +306,8 @@ async function loadRadio() {
     box.textContent = JSON.stringify({hex: frame.hex, decoded: frame.decoded, problem: frame.problem}, null, 2);
   }));
 }
-$("rf-sensor").addEventListener("change", loadRadio);
+registerRfView("frames", {element: $("rf-frames-view"), load: loadRadio});
+$("rf-sensor").addEventListener("change", () => showRfView(false));
 
 async function loadBle() {
   const reply = await (await fetch("/api/ble")).json();
@@ -296,7 +339,7 @@ async function loadBle() {
 }
 
 setInterval(() => {
-  if (!$("page-rf").hidden) loadRadio();
+  if (!$("page-rf").hidden) showRfView(false);
   if (!$("page-ble").hidden) loadBle();
 }, 1000);
 

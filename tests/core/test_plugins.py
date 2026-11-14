@@ -13,6 +13,7 @@ import json
 import logging
 import os
 import pathlib
+import re
 import subprocess
 import sys
 import threading
@@ -31,9 +32,11 @@ from benchtools.runner.bench import BenchConfig
 from benchtools.runner.cli import main as run_main
 from benchtools.runner.report import format_markdown, plugin_text, write_junit
 from benchtools.runner.spec import TestSpec
-from benchtools.viewer import twf as twf_module
 from benchtools.viewer.plugin_panels import run_plugins
-from benchtools.viewer.server import Catalogue, Hub, Launcher, ViewerServer
+from benchtools.viewer.report import build_report
+from benchtools.viewer.server import GUARD_HEADER, Catalogue, Hub, Launcher, ViewerServer
+
+from ..viewer import radio_log
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 SYNTHETIC = ROOT / "tests" / "plugins" / "synthetic"
@@ -338,10 +341,6 @@ class TestViewer:
         assert hub.panel_view("synthetic", "00AB") == {"sensor": "00AB", "value": 42}
         assert hub.panel_view("missing") == {}
 
-    def test_the_twf_hook_places_the_samples(self):
-        plugins.load_plugin(str(SYNTHETIC))
-        assert plugins.hook("twf_sample")("none", 0, 1, 4) == 2
-
     def test_the_api_lists_the_plugins_and_serves_their_scripts(self, tmp_path):
         plugins.load_plugin(str(SYNTHETIC))
         hub = Hub(interval=0.05).start()
@@ -364,7 +363,8 @@ class TestViewer:
             [listed] = reply["plugins"]
             assert status == 200 and listed["name"] == "synthetic"
             assert listed["panels"] == [{"name": "synthetic",
-                                         "scripts": ["/plugin/synthetic/synthetic.js"]}]
+                                         "scripts": ["/plugin/synthetic/synthetic.js"],
+                                         "tabs": [{"id": "latest", "label": "Readings"}]}]
             status, body = get("/plugin/synthetic/synthetic.js")
             assert status == 200 and b"syntheticPanelLoaded" in body
             assert get("/plugin/synthetic/../frames.py")[0] == 404
@@ -495,12 +495,175 @@ class TestViewerWithoutThePlugins:
         assert [plugin["name"] for plugin in hub.plugins()["missing"]] == ["kepler"]
         assert "benchtools view --plugin /somewhere/kepler" in caplog.text
 
-    def test_a_permuted_waveform_with_no_plugin_is_not_guessed(self):
-        buffer = twf_module._Capture(2, "polynomial", 0, 0, 0.0)
-        buffer.frames[(0, 0)] = [1] * 32
-        assert buffer.waveform() == [None] * 64
-        buffer.method = "none"
-        assert buffer.waveform()[:32] != [None] * 32
+    def test_no_device_tab_or_report_section_without_a_plugin(self):
+        # #303: without a plugin the viewer shows Frames and ST GUI only, and
+        # the report the run alone; a frame's summary is its plain values.
+        hub = Hub()
+        hub._apply({"kind": "rf_packet", "t": 1.0, "source": "s2lp", "data": {
+            "direction": "rx", "hex": "0102", "length": 2,
+            "decoded": {"type": "X", "sensor_id": "0001", "value": 3, "list": [1]}}})
+        assert hub.plugins() == {"plugins": [], "missing": []}
+        assert not hub.panel_reports()
+        report = build_report(hub)
+        assert re.findall(r"<h2>([^<]*)", report) == ["Run"]
+        assert "Sensor none" in report
+        frame = hub.radio()["frames"][0]
+        assert frame["summary"] == "value 3"
+        assert hub.radio()["sensors"][0]["latest"]["X"] == {"t": 1.0, "summary": "value 3"}
+
+    def test_no_viewer_module_names_a_kepler_field(self):
+        # #303's acceptance: the viewer reads no Kepler frame type or field.
+        # Prose may name Kepler as an example of a plugin; code may not.
+        fields = ("temperature_c", "battery_mv", "battery_loaded_mv", "packet_count",
+                  "permute_method", "odr_hz", "twfb", "si_scale", "twf_scale", "cmd_param",
+                  "for_sensor", "pl_type", "product_id", "rf_capability", "frames_per_packet",
+                  "ALIVE", "TWF", "VERSION", "CONFIG", "CMD", "RESPONSE", "TWFA", "TWFB")
+        pattern = re.compile(r"(?<![\w-])(%s)(?![\w-])" % "|".join(fields))
+        literals = ("name=kepler", '"kepler"', "'kepler'", "t-ALIVE")
+        offenders = []
+        for path in sorted((BENCHTOOLS / "viewer").rglob("*")):
+            if path.suffix not in (".py", ".js", ".html", ".css"):
+                continue
+            for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                found = pattern.findall(line) + [name for name in literals if name in line]
+                offenders.extend("%s:%d: %s" % (path.relative_to(ROOT).as_posix(), number, name)
+                                 for name in found)
+        assert not offenders, "\n".join(offenders)
+
+
+class TestRoundOneOfReview303:
+    """Findings of the first review of #339 (#303)."""
+
+    def test_each_frame_is_described_by_the_plugin_that_reads_it(self, tmp_path):
+        # Loaded first, the other plugin must not describe Kepler's frames,
+        # nor Kepler the other's.
+        write_plugin(tmp_path / "other", (
+            "NAME = 'other'\n"
+            "def decode(payload):\n"
+            "    if payload[:1] != b'\\xee':\n"
+            "        raise ValueError('not mine')\n"
+            "    return {'type': 'PING', 'sensor_id': '00EE', 'value': payload[1]}\n"
+            "def register(plugin):\n"
+            "    plugin.add_decoder('other', decode)\n"
+            "    plugin.add_hook('frame_summary', lambda decoded: 'other says %d' % "
+            "decoded['value'])\n"
+            "    plugin.add_hook('sensor_fields', lambda decoded: {'value': decoded['value']})\n"))
+        plugins.load_plugin(str(tmp_path / "other"))
+        plugins.load_plugin(str(KEPLER))
+        hub = Hub()
+        alive = radio_log.ALIVE                        # a frame Kepler's decoder reads
+        for payload, logged in ((b"\xee\x07", None), (alive, None),
+                                (alive, {"type": "ALIVE", "sensor_id": "5C1712", "pl_type": 3,
+                                         "x": 1, "ticks": 5})):
+            hub._apply({"kind": "rf_packet", "t": 1.0, "source": "s2lp", "data": {
+                "direction": "rx", "hex": payload.hex(), "length": len(payload),
+                "decoded": logged}})
+        frames = hub.radio()["frames"]
+        assert frames[0]["summary"] == "other says 7"
+        assert frames[1]["type"] == "ALIVE" and not frames[1]["problem"]
+        assert not frames[1]["summary"].startswith("other says")
+        # Kepler's hook on the driver's decode: plain_summary would say "pl type 3".
+        assert frames[2]["summary"] == "x 1, ticks 5"
+        sensors = {entry["sensor_id"]: entry for entry in hub.radio()["sensors"]}
+        assert sensors["00EE"]["latest"]["PING"]["value"] == 7
+        assert "value" not in sensors["5C1712"]["latest"]["ALIVE"]
+        assert sensors["5C1712"]["latest"]["ALIVE"]["ticks"] == 5     # Kepler's sensor_fields
+
+    def test_a_kepler_tab_that_does_not_exist_is_refused(self):
+        plugins.load_plugin(str(KEPLER))
+        hub = Hub()
+        hub.plugins()
+        assert "latest" in hub.panel_view("kepler", tab="latest")
+        with pytest.raises(ValueError, match="no tab 'nope'"):
+            hub.panel_view("kepler", tab="nope")
+
+    def test_every_panel_reports_on_the_sensor_the_header_names(self):
+        plugins.load_plugin(str(SYNTHETIC))
+        plugins.load_plugin(str(KEPLER))
+        hub = Hub()
+        hub.plugins()
+        for sender, value in ((0x00AB, 1), (0x00CD, 2)):
+            hub._apply({"kind": "rf_packet", "t": 1.0, "source": "s2lp", "data": {
+                "direction": "rx", "hex": synthetic_frame(1, sender, 0, value).hex(),
+                "length": 7}})
+        seen = []
+        kepler = hub.dut_panels["kepler"]
+        original = kepler.report
+        kepler.report = lambda sensor="": seen.append(sensor) or original(sensor)
+        report = build_report(hub)
+        assert "Sensor 0x00AB" in report
+        assert seen[-1] == "00AB"
+
+
+class TestPanelInterface:
+    """A panel's tabs, options, actions and report sections (#303), with the
+    synthetic plugin: no product code."""
+
+    @pytest.fixture
+    def hub(self):
+        plugins.load_plugin(str(SYNTHETIC))
+        hub = Hub()
+        hub.plugins()
+        for sender, value in ((0x00AB, 42), (0x00CD, 7)):
+            hub._apply({"kind": "rf_packet", "t": 1.0, "source": "s2lp", "data": {
+                "direction": "rx", "hex": synthetic_frame(1, sender, 0, value).hex(),
+                "length": 7}})
+        return hub
+
+    def test_a_view_takes_the_panels_options_and_refuses_others(self, hub):
+        assert hub.panel_view("synthetic", "00AB", tab="latest")["value"] == 42
+        with pytest.raises(ValueError, match="does not take bogus"):
+            hub.panel_view("synthetic", "", bogus="1")
+
+    def test_an_action(self, hub):
+        assert hub.panel_action("synthetic", "clear", "00AB") == {"ok": True,
+                                                                   "cleared": "00AB"}
+        assert hub.panel_view("synthetic")["latest"] == {"00CD": 7}
+        with pytest.raises(ValueError, match="no action"):
+            hub.panel_action("synthetic", "explode")
+        with pytest.raises(ValueError, match="no panel 'missing'"):
+            hub.panel_action("missing", "clear")
+
+    def test_the_report_carries_each_panels_sections(self, hub):
+        report = build_report(hub, "00CD")
+        assert re.findall(r"<h2>([^<]*)", report) == ["Run", "Synthetic readings"]
+        assert "Sensor 0x00CD" in report and "<td class=\"num\">7</td>" in report
+
+    def test_a_panel_whose_report_fails_is_left_out(self, hub, monkeypatch, caplog):
+        def broken(_sensor=""):
+            raise RuntimeError("no")
+        monkeypatch.setattr(hub.dut_panels["synthetic"], "report", broken)
+        with caplog.at_level(logging.ERROR):
+            assert not hub.panel_reports()
+        assert "synthetic could not give its report sections" in caplog.text
+
+    def test_the_api_serves_options_and_actions(self, hub, tmp_path):
+        catalogue = Catalogue([], [])
+        server = ViewerServer(hub, catalogue, Launcher(catalogue, str(tmp_path / "runs")))
+        threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.05},
+                         daemon=True).start()
+        try:
+            def call(method, path, body=None):
+                connection = http.client.HTTPConnection("127.0.0.1", server.port, timeout=10)
+                headers = {"Host": "127.0.0.1:%d" % server.port}
+                if body is not None:
+                    headers.update({GUARD_HEADER: "1", "Content-Type": "application/json"})
+                connection.request(method, path, body=None if body is None
+                                   else json.dumps(body).encode(), headers=headers)
+                response = connection.getresponse()
+                reply = json.loads(response.read())
+                connection.close()
+                return response.status, reply
+            assert call("GET", "/api/panel?name=synthetic&sensor=00ab&tab=latest") == (
+                200, {"sensor": "00AB", "value": 42})
+            status, reply = call("GET", "/api/panel?name=synthetic&bogus=1")
+            assert status == 400 and "bogus" in reply["error"]
+            assert call("POST", "/api/panel", {"name": "synthetic", "action": "clear"})[1] == {
+                "ok": True, "cleared": "all"}
+            assert call("POST", "/api/panel", {"name": "synthetic", "action": "x"})[0] == 400
+        finally:
+            server.shutdown()
+            server.server_close()
 
 
 class TestRoundTwoOfReview:

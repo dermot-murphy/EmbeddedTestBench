@@ -21,6 +21,9 @@ a replayed log's countdowns meaningless. "Now" is the time of the latest
 record read. rf_monitor also raised an error on a frame of unknown type in
 Diagnostics; here such a frame is counted under its type like any other.
 
+Part of the Kepler plugin's viewer panel (#303); it was the viewer's own
+``diagnostics`` module.
+
 Traces to: VIEW-FR-037 .. VIEW-FR-039, VIEW-DD-DIAG.
 """
 

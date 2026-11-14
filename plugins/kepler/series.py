@@ -22,6 +22,9 @@ recorded once per frame, where rf_monitor could record it twice.
 Each chart has one y-axis: where rf_monitor drew raw counts with a second axis
 in mg, the chart is in mg and the hover readout gives the count.
 
+Part of the Kepler plugin's viewer panel (#303); it was the viewer's own
+``sensor_series`` module.
+
 Traces to: VIEW-FR-031 .. VIEW-FR-033, VIEW-DD-SENSOR.
 """
 

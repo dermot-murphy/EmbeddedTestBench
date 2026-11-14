@@ -1,6 +1,7 @@
 """The Kepler plugin in ``plugins/kepler``, loaded for the tests that use it.
 
-Kepler's decoder, frame tables and viewer panel are a device plugin (#238),
+Kepler's decoder, frame tables and viewer panel - with rf_monitor's screens,
+moved out of the viewer by #303 - are a device plugin (#238),
 loaded by path rather than imported from ``benchtools``. The tests of that
 code, and the viewer tests that feed it Kepler frames, import its modules from
 here. The plugin is in this repository until #240 removes it.
@@ -21,6 +22,10 @@ PLUGIN = plugins.load_plugin(str(FOLDER))
 decoder = importlib.import_module(PLUGIN.module + ".decoder")
 tables = importlib.import_module(PLUGIN.module + ".tables")
 view = importlib.import_module(PLUGIN.module + ".view")
+series = importlib.import_module(PLUGIN.module + ".series")
+twf = importlib.import_module(PLUGIN.module + ".twf")
+diagnostics = importlib.import_module(PLUGIN.module + ".diagnostics")
+panel = importlib.import_module(PLUGIN.module + ".panel")
 
 decode_kepler_frame = decoder.decode_kepler_frame
 SETUP = str(FOLDER / "configs" / "s2lp_kepler_433_rx.regs")

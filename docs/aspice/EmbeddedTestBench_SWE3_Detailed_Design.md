@@ -107,6 +107,8 @@
 | next | 2026-11-14 | Claude | #71 review round 3: JLINK-DD-SEGGER - the register-region test covers the whole written range, and the DHCSR read's connect is stated unverified; JLINK-DD-COMMANDER - an RTT file that cannot be removed raises a clear error; JLINK-DD-CLI - `write --no-read-back` refused on `gdb`. |
 | next | 2026-11-14 | Claude | #71 bench check JLINK-OPEN-05: JLINK-DD-SEGGER - the connect notices are not errors; `identify` runs `f`; the DHCSR read does not halt the core and a halt does not survive Commander's exit, both seen on 5C1712. |
 | next | 2026-11-14 | Claude | #71 bench check review round 1: JLINK-DD-SEGGER - `JTAGConf>` is a failure marker; the RTT Logger is stopped with CTRL_BREAK on Windows; `halt`'s result narrowed to the probe, target and Commander version it was seen with. |
+| next | 2026-11-14 | Claude | #303: the viewer's device analyses move into the Kepler plugin. VIEW-DD-SERVER - panel tabs, `registerRfView`, `/api/panel` options (`panel_call`) and `POST /api/panel` actions, `Hub.panel_reports`; `/api/sensor`, `/api/twf`, `/api/diagnostics` removed. VIEW-DD-RADIO - `frame_summary` and `sensor_fields` hooks, `plain_summary`. VIEW-DD-KEPLER - `KeplerPanel`, its tabs, actions and report, `kepler.css`. VIEW-DD-SENSOR, -TWF and -DIAG now in `plugins/kepler`; `spectrum` and `fill_gaps` in `benchtools.analysis.spectrum`. VIEW-DD-REPORT draws each panel's sections. |
+| next | 2026-11-14 | Claude | #303 review round 1: VIEW-DD-RADIO - the summary hooks are the plugin's whose decoder reads the frame (`decode_with_plugin`), not the first loaded; CORE-DD-PLUGINS - `decode_with_plugin`; VIEW-DD-KEPLER - an unknown tab is refused; VIEW-DD-REPORT - every panel reports on the sensor the header names. |
 ---
 
 ## 3. Purpose & Scope
@@ -389,8 +391,17 @@ Design points:
   A decoder takes the payload and returns a dictionary, raising `ValueError`
   for a payload it cannot read; `type`, `sensor_id` and `frame["repeat"]` are
   the keys the bench reads.
+- **A panel is the device's part of the viewer** (#303). `add_panel(name,
+  factory, static, scripts, tabs)` records a `Panel`: the factory makes an
+  object with `feed(frame)` and `view(sensor, **options)`, and optionally
+  `action(name, sensor)` and `report(sensor)`, the last giving the report's
+  sections as data (titles, and blocks of tables, charts, headings, text or
+  notes); `tabs` are its `(id, label)` pairs on the RF page (VIEW-DD-SERVER).
+  The hooks the viewer calls are `frame_summary` and `sensor_fields`
+  (VIEW-DD-RADIO); the runner's measures call `frame_positions`.
 - **Lookups.** `decoder(name)` takes a decoder by name, or the only one loaded,
   and otherwise names those loaded. `decode(payload)` tries each in load order,
+  and `decode_with_plugin` also gives the plugin whose decoder read it (#303),
   for a frame logged without a decode (a decoder that raises anything has
   not read it). `field` maps a sample action's field
   name; `hook` returns a named function or a default.
@@ -4058,8 +4069,23 @@ started from the page loads its specification's and bench's plugins
 (`run_plugins`, then `Hub.plugins`, which starts new panels); a followed log's plugins are not
 loaded, because a plugin runs code: `missing_plugins` names them in
 `/api/plugins` and logs the `--plugin` that would load them. `plugins.js`
-looks again every 5 s and loads each script once. With no `twf_sample` hook a
-permuted TWF is not drawn; an unpermuted one is placed in order.
+looks again every 5 s and loads each script once.
+
+Everything the viewer shows of one device is its panel's (#303). A panel
+(`Panel`) lists its tabs on the RF page; `/api/plugins` gives them, and
+`plugins.js` adds a button per tab, `<panel>.<tab>`, before ST GUI. The RF page's
+tabs are a registry in `app.js` (`registerRfView(id, {element, load})`):
+Frames and ST GUI register themselves, a panel's script registers its tabs, and
+the page calls `load(entered)` when a tab is chosen, every second while it
+shows and when the sensor changes; a tab whose script has not loaded shows a
+note. `GET /api/panel?name=&sensor=&...` passes the request's other parameters
+to the panel's `view` as options (`panel_call` checks them against its
+signature: an option it does not take is a 400 naming it). `POST /api/panel`
+`{name, action, sensor}` calls the panel's `action`; a panel without one, or
+an action it refuses, is a 400. `Hub.panel_reports(sensor)` asks each panel's
+`report` for its sections; one that fails is logged and left out. The
+`/api/sensor`, `/api/twf`, `/api/diagnostics` and `/api/diagnostics/reset`
+endpoints are gone: they were Kepler's.
 
 `Hub` follows one event log with `EventTail`, on a thread polling every 0.2 s.
 Under one condition it appends each record with a sequence number (the last
@@ -4118,8 +4144,13 @@ serves it, `?t0=&t1=` refused unless finite numbers (VIEW-FR-012).
 is counted as sent; a received one is decoded with the plugins' decoders (`plugins.decode`) if the
 driver did not, its problem stated when the radio rejected it or it would not
 decode, and appended to a deque of `KEEP_FRAMES` (1 000) with a one-line
-summary of its fields. Per sensor it keeps the frames heard, last time, RSSI and
-the latest frame of each type with the `SUMMARY_FIELDS` it carries.
+summary of its fields - the `frame_summary` hook's of the plugin whose
+decoder reads the frame's bytes (`Registry.decode_with_plugin`, asked even when
+the driver logged its own decode, so that with two device plugins each
+describes its own frames), else `plain_summary`, every plain value but the type
+and sender. Per sensor it keeps the frames heard, last time, RSSI and the latest
+frame of each type with the fields that plugin's `sensor_fields` hook picks
+(none without one, #303). A hook that raises does not stop the view.
 `view(sensor)` filters to one sensor (VIEW-FR-013, -014).
 
 `BleAir.feed` takes the dongle session's `< +event key=value ...` lines,
@@ -4229,9 +4260,23 @@ the state badge, the test case, "Steps n / m", "About … left" or "Time left:
 estimating", and a chip per instrument with a status-palette dot, its name and
 "ok"-time or its state in words, its last line as the tooltip.
 
-#### VIEW-DD-KEPLER — `plugins/kepler/view.py`, `static/kepler.js`
+#### VIEW-DD-KEPLER — `plugins/kepler/panel.py`, `view.py`, `static/kepler.js`, `static/kepler.css`
 
 Moved into the Kepler device plugin (#238), as its panel `kepler`; the page loads `kepler.js` from `/plugin/kepler/`, and asks `/api/panel?name=kepler` for the view.
+
+Since #303 the panel is `KeplerPanel`, which holds every rf_monitor screen -
+`KeplerView` (below), `SensorSeries`, `TwfAssembler`, `Diagnostics` and
+`SyncTracker` (VIEW-DD-SENSOR, -TWF, -DIAG) - feeds each frame to all of them,
+and lists its tabs (`TABS`): Latest Data, Config, Identification, Environment,
+Short Interval, Ticks, TWF, Diagnostics, Sync. `view(sensor, tab, axis,
+buffer)` gives a tab's data, and refuses a tab it does not have with a
+`ValueError` (a 400); `action("reset", sensor)` resets the Diagnostics;
+`report(sensor)` gives the report's Kepler sections as data (VIEW-DD-REPORT).
+`kepler.js` builds the tabs' elements itself, registers them with
+`registerRfView`, and loads `kepler.css`, the colours of the frame types and
+byte roles. The plugin's `frame_summary` (a CONFIG frame's parameters by name,
+the header left out) and `sensor_fields` (`SUMMARY_FIELDS`) hooks give the RF
+page's summaries.
 
 `RfFrames` now remembers the frame its last `feed` added (`last_frame`), and
 the hub hands it to `KeplerView.feed`, which keeps the last `KEEP_LATEST` (500)
@@ -4251,11 +4296,11 @@ chosen, or the first heard (VIEW-FR-028 … -030). `/api/panel?name=kepler&senso
 it. The frames list's summary names a CONFIG frame's parameters and leaves the
 product out.
 
-`kepler.js` adds sub-tabs to the RF page - Frames, Latest Data, Config,
-Identification - polling `/api/panel?name=kepler` every second while one is shown;
-Latest Data has its own pause, holding the newest reply until resumed.
+`kepler.js` fills the Latest Data, Config and Identification tabs from
+`/api/panel?name=kepler&tab=`, every second while one is shown; Latest Data has
+its own pause, holding the newest reply until resumed.
 
-#### VIEW-DD-SENSOR — `sensor_series.py`
+#### VIEW-DD-SENSOR — `plugins/kepler/series.py`
 
 `SensorSeries.feed` takes each frame `RfFrames` adds (as `KeplerView` does) and
 keeps, per sensor, `KEEP_POINTS` (1 000) per series. A copy is plotted only if
@@ -4271,12 +4316,14 @@ count, and the ticks; from TWF, its three SI values by SI type (0 acceleration,
 1 velocity, 2 peak to peak, 3 magnetometer frequency, 4 amplitude, both
 counts). `view(sensor, axis)` gives the Environment, Short Interval and Ticks
 charts, the tick delta `max(0, next - this)` (VIEW-FR-031 … -033).
-`/api/sensor?sensor=&axis=` serves it. The RF page's Environment, Short
-Interval (with an X/Y/Z selector) and Ticks sub-tabs draw them with
+The Kepler panel serves it, `/api/panel?name=kepler&tab=environment` (or
+`short`, `ticks`) `&axis=` (#303; it was the viewer's `/api/sensor`). The RF
+page's Environment, Short Interval (with an X/Y/Z selector) and Ticks tabs draw
+them with
 `lineChart`, whose tooltip adds a point's raw count; Zoom in and out halve or
 double the span about the time last hovered, and Reset restores it.
 
-#### VIEW-DD-TWF — `twf.py`
+#### VIEW-DD-TWF — `plugins/kepler/twf.py`, `benchtools/analysis/spectrum.py`
 
 `TwfAssembler.feed` keys a TWF frame by sensor, buffer - B when the param's
 `twfb` bits are set - and axis, and keeps a `_Capture` per key: packet count,
@@ -4284,15 +4331,19 @@ permutation, TWF scale, ODR (`odr_hz`), and the samples per `(packet,
 version)` - the version being the repeat under the polynomial, 0 otherwise,
 where copies are the same. A different packet count or permutation, or packet
 0 after the capture completed, starts a new one; a completed capture is kept
-as `complete`. `_Capture.waveform` places each sample at `twf_sample(method,
-packet, slot, N, version)` in mg at `(8 << twf_scale) * 1000 / 32767` per
-count, `None` where unheard (VIEW-FR-034). `spectrum` fills gaps with
+as `complete`. `_Capture.waveform` places each sample at the plugin's own
+`tables.twf_sample(method, packet, slot, N, version)` (#303; the viewer's
+assembler asked for it through a hook) in mg at `(8 << twf_scale) * 1000 / 32767` per
+count, `None` where unheard (VIEW-FR-034). `spectrum`, in
+`benchtools.analysis.spectrum` because it names nothing of Kepler's, fills
+gaps with
 `fill_gaps`, applies a Hann window, and gives `|X(k)| * 2 / N` per bin -
 NumPy's `rfft`, else `_fft` (radix 2) or a direct transform for a length that
 is not a power of two (VIEW-FR-035). `view(sensor, buffer, axis)` falls back to
 the other buffer and gives the waveform with its gaps as nulls, the spectrum
 and the reception figures, signal Excellent ≥ 99 %, Good ≥ 95, Fair ≥ 80,
-else Poor. `/api/twf?sensor=&buffer=&axis=` serves it.
+else Poor. The Kepler panel serves it,
+`/api/panel?name=kepler&tab=twf&buffer=&axis=` (it was `/api/twf`).
 
 Three choices differ from rf_monitor, each from the firmware (#151): the
 buffer is the frame's, not guessed by alternation; the scale is the TWF scale,
@@ -4302,7 +4353,7 @@ breaks its line at a null, draws only what is inside its span (clipped), and
 labels a numeric x-axis in its unit; Zoom in/out/Reset act on the waveform
 within the capture (VIEW-FR-036).
 
-#### VIEW-DD-DIAG — `diagnostics.py`
+#### VIEW-DD-DIAG — `plugins/kepler/diagnostics.py`
 
 `Diagnostics.feed` keeps, per sensor and frame type (`UNKNOWN` when the type
 is missing), a `_TypeStats`: packets; frame times - a copy starts a frame when
@@ -4322,8 +4373,10 @@ the slot. `view` gives each sensor heard within `SYNC_IDLE_S` (1 200 s) of
 "now" its remaining times and a state - `nack`, `hires` or `fired`
 (VIEW-FR-039). Both are timed by the frames, not the viewer's clock: rf_monitor
 anchored them to when it processed a frame, so a replayed log's countdowns
-meant nothing. `/api/diagnostics?sensor=` serves both, and `POST
-/api/diagnostics/reset` resets. The RF page's Diagnostics sub-tab draws the
+meant nothing. The Kepler panel serves both,
+`/api/panel?name=kepler&tab=diagnostics` (or `sync`), and `POST /api/panel`
+with action `reset` resets (#303; they were `/api/diagnostics` and
+`/api/diagnostics/reset`). The RF page's Diagnostics sub-tab draws the
 period table (a row's tooltip naming the frames either side of its extremes),
 Reset, Auto/Hold and the last ten; Sync the table with its states coloured.
 
@@ -4337,11 +4390,16 @@ change and so refused by a read-only viewer.
 
 `build_report(hub, sensor)` writes one HTML document with its CSS inline and no
 script: when made, from which log, which sensor; the notes, escaped; the run
-and its test cases; and from the hub's own views (`kepler_screens`,
-`sensor_graphs`, `waveform`, `diagnostic_screens`) the identification, the
-Environment, Short Interval (Z) and Ticks charts, each TWF buffer and axis
-with its waveform and spectrum, the configuration parameters received, the
-period statistics and the latest frames as text (VIEW-FR-041). `svg_chart`
+and its test cases; and each panel's sections, from `Hub.panel_reports`
+(#303). A panel gives a section as a title and blocks - a table, charts, one
+chart, a heading, preformatted text or a note - and `_block` draws each. The
+sensor named is the first panel's choice, and when it differs from the one
+asked for every panel is asked again for it, so the whole report is of one
+sensor. The Kepler panel's sections are the
+identification, the Environment, Short Interval (Z) and Ticks charts, each TWF
+buffer and axis with its waveform and spectrum, the configuration parameters
+received, the period statistics and the latest frames as text (VIEW-FR-041).
+With no plugin loaded the report holds the notes and the run alone. `svg_chart`
 draws a chart as SVG without a script - gridlines, round ticks, the time or a
 unit on the x-axis, a line per series broken at a gap. Print CSS keeps charts
 and tables whole (VIEW-FR-042). `GET /api/report?sensor=&download=1` serves it,

@@ -102,6 +102,8 @@
 | next | 2026-11-13 | Claude | #71: rows for JLINK-FR-007, -008, -009 and -091, the `segger` J-Link backend, traced to JLINK-DD-SEGGER, -COMMANDER, -SIMCOMMANDER and -IMAGE and to SWE4-UT-JLINKSEGGER and -JLINKIMAGE; AD-30 traced. |
 | next | 2026-11-14 | Claude | #71 review round 1: JLINK-FR-008 row cites the round-1 tests; AD-30 count 87 → 107. |
 | next | 2026-11-14 | Claude | #71 review round 3: JLINK-FR-008 and -009 rows cite the round-3 tests; AD-30 count 107 → 118. |
+| next | 2026-11-14 | Claude | #303: VIEW-FR-047 traced to the panel interface (tabs, options, actions, report sections, the summary hooks) and `TestPanelInterface`; VIEW-FR-028, -035, -037 and -041 name the code where it now is (`KeplerPanel`, `benchtools.analysis.spectrum`). No requirement added; counts unchanged. |
+| next | 2026-11-14 | Claude | #303 review round 1: VIEW-FR-047 traced to `decode_with_plugin` and `TestRoundOneOfReview303`. |
 ---
 
 ## 3. Purpose & Scope
@@ -798,26 +800,26 @@ and the open items of §19 (OPEN-11).
 | VIEW-FR-025 | VIEW-ARC-001 | VIEW-DD-SERVER | `_authorised`, `_sign_in`, `is_loopback`, `new_token`, `--bind` | `TestToken` (8), `test_another_address_without_a_token_is_refused`, `test_reached_by_another_address_of_this_machine` |
 | VIEW-FR-026 | VIEW-ARC-001 | VIEW-DD-SERVER | `_post_refusal`, `--read-only` | `TestReadOnly` (2) |
 | VIEW-FR-027 | VIEW-ARC-001 | VIEW-DD-SERVER, RUN-DD-CONTROL | `ViewerServer(tls=)`, `--tls-cert`, `--tls-key`; `ControlServer` on `HOST` | `test_https_with_a_certificate`, `test_it_listens_on_127_0_0_1_only` |
-| VIEW-FR-028 | VIEW-ARC-001 | VIEW-DD-KEPLER | `KeplerView.feed`, `byte_roles`, `header_rows`, `payload_rows`, `renderLatest` | `TestLatestData` (6) |
+| VIEW-FR-028 | VIEW-ARC-001 | VIEW-DD-KEPLER | `KeplerPanel.feed`, `KeplerView.feed`, `byte_roles`, `header_rows`, `payload_rows`, `renderLatest` | `TestLatestData` (6) |
 | VIEW-FR-029 | VIEW-ARC-001 | VIEW-DD-KEPLER | `KeplerView.view` (config, groups), `CONFIG_GROUPS`, `renderConfig` | `TestConfig` (4), `test_the_frames_list_names_config_parameters` |
 | VIEW-FR-030 | VIEW-ARC-001 | VIEW-DD-KEPLER | `KeplerView` (identification), `renderIdentification` | `TestIdentification` (2) |
 | VIEW-FR-031 | VIEW-ARC-001 | VIEW-DD-SENSOR | `SensorSeries.feed`, `_first_copy` | `TestEnvironment` (3) |
 | VIEW-FR-032 | VIEW-ARC-001 | VIEW-DD-SENSOR | `SensorSeries._alive`, `_twf`, `to_mg`, `to_mm_s`, `lineChart` (raw) | `TestConversion` (2), `TestShortInterval` (7) |
 | VIEW-FR-033 | VIEW-ARC-001 | VIEW-DD-SENSOR | `SensorSeries.view` (ticks, delta), `zoom` | `TestTicks` (2) |
 | VIEW-FR-034 | VIEW-ARC-001 | VIEW-DD-TWF | `TwfAssembler.feed`, `_Capture.waveform` | `test_sample_for_sample_under_each_method` (4), `test_a_missing_packet_is_a_gap`, `test_distance_spreads_a_lost_packet_across_the_waveform`, `test_the_twf_scale_sets_mg_and_the_odr_code_the_time`, `test_packet_zero_after_a_complete_capture_starts_the_next` |
-| VIEW-FR-035 | VIEW-ARC-001 | VIEW-DD-TWF | `spectrum`, `fill_gaps`, `_fft`, `TwfAssembler.view`, `loadTwf` | `TestSpectrum` (5) |
+| VIEW-FR-035 | VIEW-ARC-001 | VIEW-DD-TWF | `benchtools.analysis.spectrum`: `spectrum`, `fill_gaps`, `_fft`; `TwfAssembler.view`, `loadTwf` | `TestSpectrum` (5) |
 | VIEW-FR-036 | VIEW-ARC-001 | VIEW-DD-TWF | `TwfAssembler.view` (fallback), `zoomTwf` | `test_buffer_and_axis_from_the_frame` |
-| VIEW-FR-037 | VIEW-ARC-001 | VIEW-DD-DIAG | `Diagnostics`, `_TypeStats`, `loadDiagnostics` | `test_frames_packets_and_drops`, `test_periods_mean_deviation_and_extremes_with_their_frames`, `test_a_lost_first_copy_still_counts_the_frame`, `test_a_burst_closes_after_a_gap_without_a_first_copy`, `test_a_burst_still_arriving_is_not_yet_counted`, `test_types_without_a_counter_count_no_drops`, `test_one_sensor_at_a_time_and_reset` |
+| VIEW-FR-037 | VIEW-ARC-001 | VIEW-DD-DIAG | `Diagnostics`, `_TypeStats`, `KeplerPanel.action` (reset), `loadDiagnostics` | `test_frames_packets_and_drops`, `test_periods_mean_deviation_and_extremes_with_their_frames`, `test_a_lost_first_copy_still_counts_the_frame`, `test_a_burst_closes_after_a_gap_without_a_first_copy`, `test_a_burst_still_arriving_is_not_yet_counted`, `test_types_without_a_counter_count_no_drops`, `test_one_sensor_at_a_time_and_reset` |
 | VIEW-FR-038 | VIEW-ARC-001 | VIEW-DD-DIAG | `_TypeStats.recent`, Auto/Hold | `test_the_last_ten_frames_newest_first_with_their_deltas`, `test_an_unknown_type_is_counted_not_an_error` |
 | VIEW-FR-039 | VIEW-ARC-001 | VIEW-DD-DIAG | `SyncTracker` | `TestSync` (5) |
 | VIEW-FR-040 | VIEW-ARC-001 | VIEW-DD-REPORT | `NotesStore`, `/api/notes`, `notes.js` | `TestNotes` (4), `test_the_api_saves_notes_and_serves_the_report` |
-| VIEW-FR-041 | VIEW-ARC-001 | VIEW-DD-REPORT | `build_report`, `svg_chart`, `/api/report` | `TestSvgChart` (2), `TestReport` (3) |
+| VIEW-FR-041 | VIEW-ARC-001 | VIEW-DD-REPORT | `build_report`, `_block`, `Hub.panel_reports`, `KeplerPanel.report`, `svg_chart`, `/api/report` | `TestSvgChart` (2), `TestReport` (3); `SWE4-UT-PLUGINS`: `test_the_report_carries_each_panels_sections`, `test_a_panel_whose_report_fails_is_left_out` |
 | VIEW-FR-042 | VIEW-ARC-001 | VIEW-DD-REPORT | `_CSS` (print), `report-print` | `test_it_is_self_contained_and_escaped` |
 | VIEW-FR-043 | VIEW-ARC-001 | VIEW-DD-STGUI | `StGui`, `rf_setup_rows` | `test_rf_setup_rows`, `test_the_hub_serves_the_page_and_the_file` |
 | VIEW-FR-044 | VIEW-ARC-001 | VIEW-DD-STGUI | `register_rows`, `regs_text`, `/api/stgui/regs` | `test_register_rows_mark_a_changed_register`, `test_the_register_file_round_trips` |
 | VIEW-FR-045 | VIEW-ARC-001 | VIEW-DD-STGUI | `st_row`, `/api/stgui/refresh`, `stgui.js` | `test_frames_as_st_s_gui_lists_them`, `test_nothing_read_yet` |
 | VIEW-FR-046 | VIEW-ARC-001 | VIEW-DD-SERVER | `ViewerServer.handle_error`, `_CLIENT_WENT_AWAY` | `TestClientGoesAway` (7) |
-| VIEW-FR-047 | VIEW-ARC-001, AD-29 | VIEW-DD-SERVER, VIEW-DD-RADIO | `dut_panels`, `plugins_view`, `run_plugins`, `Hub.panel_view`, `_plugin_static`, `missing_plugins`; `plugins.decode` in `RfFrames.feed` and `sensor_of`; `static/plugins.js` | `SWE4-UT-PLUGINS`: `TestViewer`, `TestViewerWithoutThePlugins` |
+| VIEW-FR-047 | VIEW-ARC-001, AD-29 | VIEW-DD-SERVER, VIEW-DD-RADIO, VIEW-DD-KEPLER | `dut_panels`, `plugins_view` (tabs), `run_plugins`, `Hub.panel_view`, `panel_call`, `Hub.panel_action`, `Hub.panel_reports`, `_plugin_static`, `missing_plugins`; `plugins.decode` in `sensor_of`, `decode_with_plugin` in `RfFrames.feed`; the `frame_summary` and `sensor_fields` hooks of the plugin that reads the frame, `plain_summary`; `static/plugins.js`, `registerRfView`, `addRfTab`; `KeplerPanel` | `SWE4-UT-PLUGINS`: `TestViewer`, `TestViewerWithoutThePlugins`, `TestPanelInterface`, `TestRoundOneOfReview303` |
 | VIEW-FR-048 | VIEW-ARC-001 | VIEW-DD-STEPEVENTS, VIEW-DD-SERVER, VIEW-DD-PAGE | `StepEvents`, `category`, `step_view`, `step_query`, `Hub.step`, `/api/step`, `toggleStep`, `stepPanel` | `SWE4-UT-VIEWSTEPS`: `test_every_step_lists_exactly_its_own_records`, `TestAttribution` (8), `TestCategory` (13), `TestRunBound` (5); `TestStep` (6), `TestFollowRebuilds` (2) |
 | RUN-FR-050 | ARC-001 | RUN-DD-CLI | `runner/cli.py` | `TestRunCommand` (8) |
 | RUN-FR-051 | ARC-001 | RUN-DD-CLI | exit statuses | `test_simulated_run_passes`, `test_failure_exits_nonzero`, `test_no_bench_and_no_simulate_is_a_usage_error` |

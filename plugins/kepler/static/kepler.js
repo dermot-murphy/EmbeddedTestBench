@@ -1,30 +1,90 @@
-// benchtools test run viewer: rf_monitor's Latest Data, Config and Identification (#152).
-// Uses el, $, time, fill and format from app.js, loaded before this file.
+// Kepler's viewer panel (#152 .. #155, #303): rf_monitor's Latest Data, Config,
+// Identification, Environment, Short Interval, Ticks, TWF, Diagnostics and Sync,
+// each a tab on the viewer's RF page. The page adds the tabs the panel lists in
+// /api/plugins; this script builds what each shows, registers it with
+// registerRfView, and asks /api/panel?name=kepler&tab=... for its data.
+// Uses el, $, time, fill, post, lineChart, hoverTime and registerRfView from
+// the viewer's own scripts, loaded before this file.
 "use strict";
 
-let rfView = "frames";
+const keplerBase = new URL(".", document.currentScript.src).href;
+let keplerTab = "latest";
 let latestPaused = false;
 let latestHeld = null;
 
-for (const button of document.querySelectorAll("#rf-views button")) {
-  button.addEventListener("click", () => {
-    rfView = button.dataset.view;
-    for (const other of document.querySelectorAll("#rf-views button")) {
-      other.setAttribute("aria-selected", String(other === button));
-    }
-    for (const view of ["frames", "latest", "config", "identification"]) {
-      $("rf-" + view + "-view").hidden = view !== rfView;
-    }
-    $("rf-twf-view").hidden = rfView !== "twf";
-    $("rf-diagnostics-view").hidden = rfView !== "diagnostics";
-    $("rf-sync-view").hidden = rfView !== "sync";
-    $("rf-stgui-view").hidden = rfView !== "stgui";
-    const graphs = ["environment", "short", "ticks"].includes(rfView);
-    $("rf-graphs-view").hidden = !graphs;
-    $("rf-axis-box").hidden = rfView !== "short";
-    zoomSpan = null;
-    loadKepler();
-  });
+(function keplerBuild() {
+  const style = document.createElement("link");
+  style.rel = "stylesheet";
+  style.href = keplerBase + "kepler.css";
+  document.head.append(style);
+  const box = document.createElement("div");
+  box.id = "kepler-views";
+  box.innerHTML = `
+    <div id="rf-latest-view" hidden>
+      <div class="toolbar"><button id="rf-latest-pause" type="button">Pause</button>
+        <span class="note">Newest first; the last 50 frames of the sensor chosen above.</span></div>
+      <div id="rf-latest" class="latest"></div>
+    </div>
+    <div id="rf-config-view" hidden>
+      <div class="note" id="rf-config-sensor"></div>
+      <div id="rf-config-groups" class="panels"></div>
+      <div id="rf-config" class="table config"></div>
+    </div>
+    <div id="rf-identification-view" hidden>
+      <div id="rf-identification" class="panel"></div>
+    </div>
+    <div id="rf-twf-view" hidden>
+      <div class="toolbar">
+        <span>Buffer
+          <label><input type="radio" name="twf-buffer" value="A" checked> TWFA</label>
+          <label><input type="radio" name="twf-buffer" value="B"> TWFB</label></span>
+        <span>Axis
+          <label><input type="radio" name="twf-axis" value="X" checked> X</label>
+          <label><input type="radio" name="twf-axis" value="Y"> Y</label>
+          <label><input type="radio" name="twf-axis" value="Z"> Z</label></span>
+        <button type="button" id="twf-zoom-in">Zoom in</button>
+        <button type="button" id="twf-zoom-out">Zoom out</button>
+        <button type="button" id="twf-zoom-reset">Reset</button>
+      </div>
+      <div id="twf-status" class="note"></div>
+      <div id="twf-diagnostics" class="note"></div>
+      <div id="twf-graphs" class="graphs"></div>
+    </div>
+    <div id="rf-diagnostics-view" hidden>
+      <div class="toolbar">
+        <span id="diag-overall" class="note"></span>
+        <button type="button" id="diag-reset">Reset</button>
+        <button type="button" id="diag-hold" aria-pressed="false">Auto</button>
+      </div>
+      <h2 class="section">Period statistics</h2>
+      <div id="diag-table" class="table"></div>
+      <h2 class="section" id="diag-detail-title">Last 10 frames</h2>
+      <div id="diag-detail" class="table"></div>
+    </div>
+    <div id="rf-sync-view" hidden>
+      <div class="note">Every sensor's sync with the gateway, from CMD and RESPONSE frames; not filtered to a sensor.</div>
+      <div id="sync-table" class="table"></div>
+    </div>
+    <div id="rf-graphs-view" hidden>
+      <div class="toolbar">
+        <span id="rf-axis-box" hidden>Axis
+          <label><input type="radio" name="rf-axis" value="X"> X</label>
+          <label><input type="radio" name="rf-axis" value="Y"> Y</label>
+          <label><input type="radio" name="rf-axis" value="Z" checked> Z</label>
+        </span>
+        <button type="button" id="rf-zoom-in">Zoom in</button>
+        <button type="button" id="rf-zoom-out">Zoom out</button>
+        <button type="button" id="rf-zoom-reset">Reset</button>
+        <span class="note">Hover a chart for the values at a time; zoom centres on the last point hovered.</span>
+      </div>
+      <div id="rf-graphs" class="graphs"></div>
+    </div>`;
+  $("page-rf").append(...box.children);
+})();
+
+function keplerPanel(tab, extra) {
+  return fetch("/api/panel?name=kepler&tab=" + tab + "&sensor=" +
+               encodeURIComponent($("rf-sensor").value) + (extra || "")).then((r) => r.json());
 }
 
 function rawBytes(hex, roles) {
@@ -101,10 +161,9 @@ let lastSpan = null;
 
 async function loadSensorGraphs() {
   const axis = document.querySelector("input[name=rf-axis]:checked").value;
-  const reply = await (await fetch("/api/sensor?sensor=" + encodeURIComponent($("rf-sensor").value) +
-                                   "&axis=" + axis)).json();
-  const charts = rfView === "environment" ? reply.environment
-    : rfView === "short" ? reply.short_interval : reply.ticks;
+  const reply = await keplerPanel(keplerTab, "&axis=" + axis);
+  const charts = keplerTab === "environment" ? reply.environment
+    : keplerTab === "short" ? reply.short_interval : reply.ticks;
   const times = charts.flatMap((c) => c.series.flatMap((s) => s.points.map((p) => p[0])));
   lastSpan = times.length ? [Math.min(...times), Math.max(...times)] : [0, 1];
   const span = zoomSpan || lastSpan;
@@ -133,8 +192,7 @@ for (const radio of document.querySelectorAll("input[name=rf-axis]")) {
 async function loadTwf() {
   const buffer = document.querySelector("input[name=twf-buffer]:checked").value;
   const axis = document.querySelector("input[name=twf-axis]:checked").value;
-  const reply = await (await fetch("/api/twf?sensor=" + encodeURIComponent($("rf-sensor").value) +
-                                   "&buffer=" + buffer + "&axis=" + axis)).json();
+  const reply = await keplerPanel("twf", "&buffer=" + buffer + "&axis=" + axis);
   const box = $("twf-graphs");
   const c = reply.capture;
   if (!c) {
@@ -192,14 +250,13 @@ function seconds(value) {
 }
 
 async function loadDiagnostics() {
-  const reply = await (await fetch("/api/diagnostics?sensor=" +
-                                   encodeURIComponent($("rf-sensor").value))).json();
+  const reply = await keplerPanel("diagnostics");
   const d = reply.diagnostics;
   const o = d.overall;
   $("diag-overall").textContent = (d.sensor ? "Sensor 0x" + d.sensor + ".  " : "") +
     "Overall success " + (o.success_pct == null ? "-" : o.success_pct + "%") +
     "  (" + o.received + " / " + o.expected + " copies, dropped " + o.dropped + ")";
-  if (rfView === "diagnostics") {
+  if (keplerTab === "diagnostics") {
     if (!diagHold || !d.types.some((t) => t.type === diagType)) {
       const latest = d.types.slice().sort((a, b) => (b.last_seen || 0) - (a.last_seen || 0))[0];
       if (!diagHold) diagType = latest ? latest.type : null;
@@ -259,26 +316,39 @@ function updateHold() {
 }
 $("diag-hold").addEventListener("click", () => { diagHold = !diagHold; updateHold(); loadDiagnostics(); });
 $("diag-reset").addEventListener("click", async () => {
-  await post("/api/diagnostics/reset", {sensor: $("rf-sensor").value});
+  await post("/api/panel", {name: "kepler", action: "reset", sensor: $("rf-sensor").value});
   loadDiagnostics();
 });
 
-async function loadKepler() {
-  if (rfView === "frames") return;
-  if (rfView === "stgui") { loadStGui(); return; }
-  if (rfView === "diagnostics" || rfView === "sync") { loadDiagnostics(); return; }
-  if (rfView === "twf") { loadTwf(); return; }
-  if (["environment", "short", "ticks"].includes(rfView)) { loadSensorGraphs(); return; }
-  const sensor = $("rf-sensor").value;
-  const reply = await (await fetch("/api/panel?name=kepler&sensor=" + encodeURIComponent(sensor))).json();
-  if (rfView === "latest") {
+async function loadScreens() {
+  const reply = await keplerPanel(keplerTab);
+  if (keplerTab === "latest") {
     if (latestPaused) { latestHeld = reply; $("rf-latest-pause").textContent = "Resume"; return; }
     renderLatest(reply);
-  } else if (rfView === "config") {
+  } else if (keplerTab === "config") {
     renderConfig(reply);
   } else {
     renderIdentification(reply);
   }
+}
+
+// Each tab: the element it shows and how it loads; the tabs that share an
+// element (the graphs; Diagnostics and Sync share a loader) say which they are.
+for (const [tab, element, load] of [
+  ["latest", "rf-latest-view", loadScreens], ["config", "rf-config-view", loadScreens],
+  ["identification", "rf-identification-view", loadScreens],
+  ["environment", "rf-graphs-view", loadSensorGraphs], ["short", "rf-graphs-view", loadSensorGraphs],
+  ["ticks", "rf-graphs-view", loadSensorGraphs], ["twf", "rf-twf-view", loadTwf],
+  ["diagnostics", "rf-diagnostics-view", loadDiagnostics], ["sync", "rf-sync-view", loadDiagnostics],
+]) {
+  registerRfView("kepler." + tab, {element: $(element), load: (entered) => {
+    keplerTab = tab;
+    if (entered) {
+      zoomSpan = null;
+      $("rf-axis-box").hidden = tab !== "short";
+    }
+    return load();
+  }});
 }
 
 $("rf-latest-pause").addEventListener("click", () => {
@@ -286,5 +356,3 @@ $("rf-latest-pause").addEventListener("click", () => {
   $("rf-latest-pause").textContent = latestPaused ? "Resume" : "Pause";
   if (!latestPaused && latestHeld) { renderLatest(latestHeld); latestHeld = null; }
 });
-$("rf-sensor").addEventListener("change", loadKepler);
-setInterval(() => { if (!$("page-rf").hidden) loadKepler(); }, 1000);

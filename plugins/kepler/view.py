@@ -16,8 +16,8 @@ from typing import Any, Deque, Dict, List, Optional, Tuple
 
 from .tables import CONFIG_PARAMETERS, CONFIG_PER_FRAME
 
-__all__ = ["KeplerView", "byte_roles", "header_rows", "payload_rows", "CONFIG_GROUPS",
-           "KEEP_LATEST"]
+__all__ = ["KeplerView", "byte_roles", "frame_summary", "header_rows", "payload_rows",
+           "sensor_fields", "CONFIG_GROUPS", "KEEP_LATEST", "SUMMARY_FIELDS"]
 
 #: Frames kept for Latest Data.
 KEEP_LATEST = 500
@@ -123,6 +123,34 @@ def payload_rows(decoded: Dict[str, Any]) -> List[Tuple[str, str]]:
     if decoded.get("samples"):
         rows.append(("Samples", ", ".join(str(v) for v in decoded["samples"])))
     return rows
+
+
+#: Fields worth a column in the viewer's sensor table, in order, when present.
+SUMMARY_FIELDS = ("temperature_c", "battery_mv", "battery_loaded_mv", "version", "sha",
+                  "frame_count", "ticks", "rms", "velocity", "peak_to_peak")
+
+
+def frame_summary(decoded: Dict[str, Any]) -> str:
+    """One line of what a decoded frame says: the viewer's ``frame_summary`` hook.
+
+    A CONFIG frame's parameters by name first, then the payload's plain values;
+    the header's fields are left out.
+    """
+    parts = ["%s %s%s" % (item["name"], item["shown"], " " + item["unit"] if item["unit"] else "")
+             for item in decoded.get("parameters") or [] if item.get("name")]
+    for key, value in decoded.items():
+        if key in ("type", "pl_type", "sensor_id", "product_id", "product", "rf_capability",
+                   "type_capability", "hw_capability", "fw_capability", "warnings"):
+            continue
+        if isinstance(value, (dict, list)):
+            continue
+        parts.append("%s %s" % (key.replace("_", " "), value))
+    return ", ".join(parts[:8])
+
+
+def sensor_fields(decoded: Dict[str, Any]) -> Dict[str, Any]:
+    """The fields of a frame the viewer's sensor table keeps: its ``sensor_fields`` hook."""
+    return {key: decoded[key] for key in SUMMARY_FIELDS if key in decoded}
 
 
 class KeplerView:

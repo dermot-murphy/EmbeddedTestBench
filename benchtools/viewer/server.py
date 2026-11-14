@@ -15,7 +15,7 @@ The API:
                           ``record`` for every event-log record
 ``GET /api/instruments``  each instrument's commands and replies, and front
                           panels; ``?t0=&t1=`` for a step's window (#138)
-``GET /api/radio``        received Kepler frames and each sensor's latest;
+``GET /api/radio``        received frames and each sensor's latest;
                           ``?sensor=`` for one sensor (#139)
 ``GET /api/ble``          BLE devices, events and the dongle's exchanges (#139)
 ``GET /api/step``         a step and its events; ``?phase=&case=&step=`` (#201)
@@ -23,13 +23,11 @@ The API:
                           ``?ble=&expected_ms=`` (#140)
 ``GET /api/status``       the status bar: run, progress, time left, instruments
 ``GET /api/plugins``      the device plugins loaded and missing, scripts (#238)
-``GET /api/panel``        a plugin's panel, e.g. Kepler's; ``?name=&sensor=``
+``GET /api/panel``        a plugin's panel: ``?name=&sensor=`` and the panel's
+                          own options, e.g. ``tab=`` (#238, #303)
+``POST /api/panel``       a panel's action, e.g. a reset:
+                          ``{name, action, sensor}`` (#303)
 ``GET /plugin/<p>/<f>``   a static file of plugin *p*'s panels (#238)
-``GET /api/sensor``       rf_monitor's Environment, Short Interval, Ticks;
-                          ``?sensor=&axis=`` (#153)
-``GET /api/twf``          rf_monitor's TWF: waveform and spectrum;
-                          ``?sensor=&buffer=&axis=`` (#154)
-``GET /api/diagnostics``  rf_monitor's Diagnostics and Sync; ``?sensor=`` (#155)
 ``GET /api/notes``        the run's notes; ``POST`` saves them (#156)
 ``GET /api/report``       the run as one HTML report; ``?sensor=&download=1``
 ``GET /api/stgui``        the ST GUI page: RF setup, registers, frames (#157);
@@ -90,17 +88,15 @@ from ..core.events import EventTail
 from ..runner.control import HOST
 from ..runner.spec import load_spec
 from .graphs import Readings, advertising, step_markers
-from .diagnostics import Diagnostics, SyncTracker
-from .plugin_panels import dut_panels, missing_plugins, plugin_file, plugins_view, run_plugins
+from .plugin_panels import (dut_panels, missing_plugins, panel_call, plugin_file, plugins_view,
+                            run_plugins)
 from .radio import BleAir, RfFrames
 from .report import NotesStore, build_report
-from .sensor_series import SensorSeries
 from .state import RunState
 from .step_events import StepEvents, step_query, step_view
 from .st_gui import StGui, regs_text
 from .status import InstrumentStatus, progress
 from .tags import Tagger
-from .twf import TwfAssembler
 from .traffic import Traffic, panel_for
 
 __all__ = ["Hub", "Catalogue", "Launcher", "ViewerServer", "send_control", "main"]
@@ -119,7 +115,7 @@ KEEP_RECORDS = 5000
 KEEPALIVE_S = 15.0
 
 _PER_LOG = ("state traffic panels rf ble readings tagger links dut_panels missing_plugins "
-            "sensor_series twf diagnostics sync st_gui step_events records").split()
+            "st_gui step_events records").split()
 
 _CONTENT_TYPES = {
     ".html": "text/html; charset=utf-8",
@@ -151,10 +147,6 @@ class Hub:  # pylint: disable=too-many-instance-attributes,too-many-public-metho
         self.dut_panels = dut_panels()
         #: Plugins the followed run used that this viewer has not loaded.
         self.missing_plugins: List[Dict[str, Any]] = []
-        self.sensor_series = SensorSeries()
-        self.twf = TwfAssembler()
-        self.diagnostics = Diagnostics()
-        self.sync = SyncTracker()
         self.st_gui = StGui()
         self.step_events = StepEvents()
         self.records: List[Tuple[int, Dict[str, Any]]] = []
@@ -226,10 +218,6 @@ class Hub:  # pylint: disable=too-many-instance-attributes,too-many-public-metho
         if self.rf.last_frame is not None:
             for panel in self.dut_panels.values():
                 panel.feed(self.rf.last_frame)
-            self.sensor_series.feed(self.rf.last_frame)
-            self.twf.feed(self.rf.last_frame)
-            self.diagnostics.feed(self.rf.last_frame)
-            self.sync.feed(self.rf.last_frame)
         self.ble.feed(record)
         self.readings.feed(record)
         self.links.feed(record)
@@ -259,7 +247,7 @@ class Hub:  # pylint: disable=too-many-instance-attributes,too-many-public-metho
             return step_view(self.state, self.step_events, phase, case, step)
 
     def radio(self, sensor: str = "") -> Dict[str, Any]:
-        """Received Kepler frames - of one sensor, or all - and the sensor table."""
+        """Received frames - of one sensor, or all - and the sensor table."""
         with self._condition:
             return self.rf.view(sensor)
 
@@ -288,12 +276,53 @@ class Hub:  # pylint: disable=too-many-instance-attributes,too-many-public-metho
                     "progress": progress(state), "instruments": self.links.view(now),
                     "now": now}
 
-    def panel_view(self, name: str, sensor: str = "") -> Dict[str, Any]:
-        """A plugin's panel for *sensor*, e.g. Kepler's Latest Data, Config and
-        Identification (#152); empty if no plugin loaded provides it (#238)."""
+    def panel_view(self, name: str, sensor: str = "", **options: str) -> Dict[str, Any]:
+        """A plugin's panel for *sensor*, with the panel's own *options*, such
+        as ``tab``; empty if no plugin loaded provides it (#238, #303).
+
+        :raises ValueError: if the panel takes no such option.
+        """
         with self._condition:
             panel = self.dut_panels.get(name)
-            return panel.view(sensor) if panel is not None else {}
+            if panel is None:
+                return {}
+            return panel_call(name, panel.view, sensor, **options)
+
+    def panel_action(self, name: str, action: str, sensor: str = "") -> Dict[str, Any]:
+        """Do a panel's *action*, such as Kepler's Diagnostics reset (#303).
+
+        :raises ValueError: if no plugin loaded provides the panel, it has no
+            actions, or it refuses this one.
+        """
+        with self._condition:
+            panel = self.dut_panels.get(name)
+            act = getattr(panel, "action", None)
+            if not callable(act):
+                raise ValueError("no panel %r with actions is loaded" % name)
+            reply = act(action, sensor)
+            return reply if isinstance(reply, dict) else {"ok": True}
+
+    def panel_reports(self, sensor: str = "") -> List[Dict[str, Any]]:
+        """Each panel's sections of the report, for *sensor* (#303).
+
+        A panel with no ``report``, or whose ``report`` fails, gives none;
+        the failure is logged.
+        """
+        with self._condition:
+            reports = []
+            for name, panel in self.dut_panels.items():
+                report = getattr(panel, "report", None)
+                if not callable(report):
+                    continue
+                try:
+                    reply = report(sensor)
+                except Exception:  # pylint: disable=broad-exception-caught
+                    # Plugin code: one panel failing must not lose the report.
+                    _LOG.exception("panel %s could not give its report sections", name)
+                    continue
+                if isinstance(reply, dict):
+                    reports.append(dict(reply, panel=name))
+            return reports
 
     def plugins(self) -> Dict[str, Any]:
         """The plugins loaded, and those the followed run used that are not.
@@ -303,26 +332,6 @@ class Hub:  # pylint: disable=too-many-instance-attributes,too-many-public-metho
             for name, panel in dut_panels().items():
                 self.dut_panels.setdefault(name, panel)
             return {"plugins": plugins_view(), "missing": list(self.missing_plugins)}
-
-    def sensor_graphs(self, sensor: str = "", axis: str = "Z") -> Dict[str, Any]:
-        """rf_monitor's Environment, Short Interval and Ticks (#153)."""
-        with self._condition:
-            return self.sensor_series.view(sensor, axis)
-
-    def waveform(self, sensor: str = "", buffer: str = "A", axis: str = "X") -> Dict[str, Any]:
-        """rf_monitor's TWF screen: a waveform and its spectrum (#154)."""
-        with self._condition:
-            return self.twf.view(sensor, buffer, axis)
-
-    def diagnostic_screens(self, sensor: str = "") -> Dict[str, Any]:
-        """rf_monitor's Diagnostics (for one sensor) and Sync (all sensors) (#155)."""
-        with self._condition:
-            return {"diagnostics": self.diagnostics.view(sensor), "sync": self.sync.view()}
-
-    def reset_diagnostics(self, sensor: str = "") -> None:
-        """Start the Diagnostics statistics again."""
-        with self._condition:
-            self.diagnostics.reset(sensor)
 
     def st_gui_screen(self) -> Dict[str, Any]:
         """The ST GUI page: the kit's latest setup, its registers, its frames (#157)."""
@@ -487,9 +496,6 @@ _GET_API = {
     "/api/status": "_get_status",
     "/api/plugins": "_get_plugins",
     "/api/panel": "_get_panel",
-    "/api/sensor": "_get_sensor",
-    "/api/twf": "_get_twf",
-    "/api/diagnostics": "_get_diagnostics",
     "/api/notes": "_get_notes",
     "/api/report": "_get_report",
     "/api/stgui": "_get_stgui",
@@ -502,7 +508,7 @@ _POST_API = {
     "/api/control": "_post_control",
     "/api/start": "_post_start",
     "/api/attach": "_post_attach",
-    "/api/diagnostics/reset": "_post_diagnostics_reset",
+    "/api/panel": "_post_panel",
     "/api/notes": "_post_notes",
     "/api/stgui/refresh": "_post_stgui_refresh",
 }
@@ -645,20 +651,11 @@ class _Handler(BaseHTTPRequestHandler):
         self._json(self.server.hub.plugins())
 
     def _get_panel(self) -> None:
+        query = parse_qs(urlsplit(self.path).query)
+        options = {key: values[0] for key, values in query.items()
+                   if key not in ("name", "sensor") and values}
         self._json(self.server.hub.panel_view(self._query("name") or "",
-                                              (self._query("sensor") or "").upper()))
-
-    def _get_sensor(self) -> None:
-        self._json(self.server.hub.sensor_graphs((self._query("sensor") or "").upper(),
-                                                 self._query("axis") or "Z"))
-
-    def _get_twf(self) -> None:
-        self._json(self.server.hub.waveform((self._query("sensor") or "").upper(),
-                                            self._query("buffer") or "A",
-                                            self._query("axis") or "X"))
-
-    def _get_diagnostics(self) -> None:
-        self._json(self.server.hub.diagnostic_screens((self._query("sensor") or "").upper()))
+                                              (self._query("sensor") or "").upper(), **options))
 
     def _get_notes(self) -> None:
         self._json(NotesStore(self.server.hub.path).load())
@@ -794,9 +791,10 @@ class _Handler(BaseHTTPRequestHandler):
         self.server.hub.follow(reply["event_log"])
         self._json(reply)
 
-    def _post_diagnostics_reset(self, body: Dict[str, Any]) -> None:
-        self.server.hub.reset_diagnostics(str(body.get("sensor") or "").upper())
-        self._json({"ok": True})
+    def _post_panel(self, body: Dict[str, Any]) -> None:
+        self._json(self.server.hub.panel_action(str(body.get("name") or ""),
+                                                str(body.get("action") or ""),
+                                                str(body.get("sensor") or "").upper()))
 
     def _post_stgui_refresh(self, _body: Dict[str, Any]) -> None:
         """Ask the runner to read the kit's setup between steps (RUN-FR-066)."""

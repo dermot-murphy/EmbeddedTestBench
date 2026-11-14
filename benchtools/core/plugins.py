@@ -17,11 +17,12 @@ given:
   frame names its type in ``type`` and its sender in ``sensor_id``, and may
   give a transmission's copy number as ``frame["repeat"]``;
 * **register files**, by name, found by an input path ``plugin:<name>/<file>``;
-* **viewer panels**: a factory for an object with ``feed(frame)`` and
-  ``view(sensor)``, and a folder of static files the viewer serves;
+* **viewer panels**: a factory for the panel's state, a folder of static
+  files the viewer serves, the scripts of it the page loads, and the panel's
+  tabs on the RF page (see :class:`Panel`);
 * **field names** that sample actions accept for a decoded field;
-* **hooks**: named functions the viewer's device-specific analyses use until
-  they are generic themselves.
+* **hooks**: named functions the bench calls for what only the device knows,
+  such as a frame's one-line summary.
 
 Every report names each plugin loaded, its folder and its git ref
 (:meth:`Plugin.describe`), so a result can be traced to the product code that
@@ -92,18 +93,34 @@ Decoder = Callable[[bytes], Dict[str, Any]]
 class Panel:
     """A viewer panel a plugin provides.
 
-    :param factory: Makes the panel's state: an object with ``feed(frame)``,
-        given each decoded radio frame, and ``view(sensor)``, returning what
-        the panel shows for one sensor as JSON-ready data.
+    :param factory: Makes the panel's state, an object with:
+
+        * ``feed(frame)``, given each received radio frame;
+        * ``view(sensor, **options)``, returning what the panel shows for one
+          sensor as JSON-ready data. *options* are the other parameters of the
+          page's request, such as ``tab``;
+        * optionally ``action(name, sensor)``, for a button on the page, such
+          as a reset, returning JSON-ready data or raising :class:`ValueError`;
+        * optionally ``report(sensor)``, returning the panel's sections of the
+          viewer's report as ``{"sensor": id, "sections": [...]}``. Each
+          section is ``{"title": text, "blocks": [...]}``, and each block one
+          of ``{"table": {"headers", "rows", "numeric"}}``, ``{"charts":
+          [chart, ...]}``, ``{"chart": chart}``, ``{"heading": text}``,
+          ``{"text": text}`` (preformatted) or ``{"note": text}``. A chart is
+          the viewer's chart data: ``title``, ``unit``, ``series`` of
+          ``points``, and optionally ``xunit`` and ``zero``.
     :param static: Folder of the panel's static files (its script), served by
         the viewer under ``/plugin/<plugin>/``.
     :param scripts: The scripts in *static* the viewer's page loads.
+    :param tabs: The panel's tabs on the RF page, in order, as ``(id, label)``
+        pairs. The page adds a tab for each; the panel's script fills it.
     """
 
     name: str
     factory: Callable[[], Any]
     static: Optional[str] = None
     scripts: Tuple[str, ...] = ()
+    tabs: Tuple[Tuple[str, str], ...] = ()
 
 
 @dataclass
@@ -130,11 +147,13 @@ class Plugin:  # pylint: disable=too-many-instance-attributes
         """Provide a register file; *path* is relative to the plugin's folder."""
         self.register_files[name] = os.path.normpath(os.path.join(self.path, path))
 
-    def add_panel(self, name: str, factory: Callable[[], Any], static: Optional[str] = None,
-                  scripts: Tuple[str, ...] = ()) -> None:
+    def add_panel(  # pylint: disable=too-many-arguments
+            self, name: str, factory: Callable[[], Any], static: Optional[str] = None, *,
+            scripts: Tuple[str, ...] = (), tabs: Tuple[Tuple[str, str], ...] = ()) -> None:
         """Provide a viewer panel; *static* is relative to the plugin's folder."""
         folder = os.path.normpath(os.path.join(self.path, static)) if static else None
-        self.panels[name] = Panel(name, factory, folder, tuple(scripts))
+        self.panels[name] = Panel(name, factory, folder, tuple(scripts),
+                                  tuple((str(tab), str(label)) for tab, label in tabs))
 
     def add_field(self, name: str, decoded_key: str) -> None:
         """Let a sample action take *name* for the decoded field *decoded_key*."""
@@ -262,11 +281,19 @@ class Registry:
         :raises ValueError: if no decoder is loaded, or none reads *payload*;
             the message gives each decoder's reason.
         """
+        return self.decode_with_plugin(payload)[1]
+
+    def decode_with_plugin(self, payload: bytes) -> Tuple[Plugin, Dict[str, Any]]:
+        """As :meth:`decode`, with the plugin whose decoder read *payload* (#303).
+
+        The viewer asks that plugin's hooks, not the first plugin's, what to
+        say of the frame.
+        """
         reasons = []
         for plugin in self.plugins.values():
             for name, function in plugin.decoders.items():
                 try:
-                    return function(payload)
+                    return plugin, function(payload)
                 except Exception as error:  # pylint: disable=broad-exception-caught
                     # A decoder that fails on a frame does not read it, for
                     # whatever reason: one bad frame must not stop a reader.
