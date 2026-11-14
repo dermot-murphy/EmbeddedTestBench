@@ -1059,6 +1059,35 @@ lists them, and `specs/pico2_test_board.yaml` is a worked example.
 
 The LED argument is `lit`, not `on`: YAML reads a bare `on` key as `true`.
 
+### 5.6 Useful paths for the PPK2
+
+The Nordic Power Profiler Kit II (driver `ppk2`, alias `ppk` on the shipped
+benches, event name `PPK`) measures the current a device draws. Every public
+method of its driver is a step; `specs/ppk2.yaml` is a worked example. The
+bench option `voltage_limit` caps the voltage a step may set: a step asking
+for more is an error, and nothing is sent. Put `ppk.power_off` in the
+specification's `teardown`: the kit keeps its DUT power on after the run
+closes its port.
+
+| Step | `measure` | Value |
+|---|---|---|
+| `ppk.set_mode` (`mode`: `source` or `ammeter`) | *(omitted)* | the mode; the DUT power is switched off first |
+| `ppk.set_voltage` (`volts`) | *(omitted)* | volts set |
+| `ppk.power_on`, `ppk.power_off`, `ppk.power` (`on`) | *(omitted)* | `1` on, `0` off |
+| `ppk.measure` (`duration`; `threshold` with `release`, or `line`) | `average`, `peak`, `minimum` | amps |
+| | `charge` | coulombs |
+| | `samples`, `lost`, `duration` | how many; at least how many the kit's counter says never arrived (it is six bits, so a gap of 64 reads as none); seconds |
+| | `pulses.count`, `pulses.incomplete` | whole pulses; pulses cut by the start or end |
+| | `pulses.mean_width`, `pulses.min_width`, `pulses.max_width`, `pulses.mean_interval` | seconds |
+| | `pulses.mean_charge`, `pulses.total_charge` | coulombs |
+| `ppk.average_current` (`duration`) | *(omitted)* | amps |
+| `ppk.info` | `mode`, `volts`, `voltage_limit` | the kit's settings |
+
+Give `scale` to read amps as microamps or seconds as milliseconds (§4.1).
+A pulse runs from the current rising to `threshold` until it falls below
+`release` (the threshold when not given), or while logic input `line` (0 to 7)
+is high.
+
 ---
 
 ## 6. Running
@@ -1129,7 +1158,7 @@ Which arguments are input files is declared by each driver, not guessed:
 | `s2lp` | `source` of `load_configuration`, `apply_configuration`, `verify_configuration` |
 | `ble-dongle` | bench option `firmware`; `firmware` of `expect_firmware`, `check_firmware`, `update_firmware`, `ensure_firmware`; `source` of `run_script` |
 | `jlink`, `jlink-rtt` | bench options `elf`, `firmware`; `elf` of `load_symbols`; `path` of `flash`, `image_build`, `verify` |
-| `gpd3303d`, `tti1604`, `tek3014b`, `pico2-test-board`, `picoscope3000` | none |
+| `gpd3303d`, `tti1604`, `tek3014b`, `pico2-test-board`, `picoscope3000`, `ppk2` | none |
 
 **Output files** - logs, reports, screenshots, `--json`/`--markdown`/`--junit` -
 are written relative to the working directory, as before. A run started in the
@@ -1157,7 +1186,7 @@ The name is allocated in the setup:
 |---|---|---|
 | Specification | `instruments:` entry as a mapping: `pico2: {driver: pico2-test-board, event: TEMP}` | Always |
 | Bench | `event: TEMP` on the instrument | When the specification gives none |
-| Driver default | `PSU`, `BLE`, `JLINK`, `RF`, `SCOPE`, `DMM`, `TEMP` (PICO2 Test Board), `SERIAL` (serial capture) | When neither does |
+| Driver default | `PSU`, `BLE`, `JLINK`, `RF`, `SCOPE`, `DMM`, `TEMP` (PICO2 Test Board), `SERIAL` (serial capture), `PSCOPE` (PicoScope), `PPK` (PPK2) | When neither does |
 
 The runner's own records are `TEST`; anything not from an instrument is `BENCH`.
 

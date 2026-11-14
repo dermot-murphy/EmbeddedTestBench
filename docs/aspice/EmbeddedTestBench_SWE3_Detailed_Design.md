@@ -109,6 +109,8 @@
 | next | 2026-11-14 | Claude | #71 bench check review round 1: JLINK-DD-SEGGER - `JTAGConf>` is a failure marker; the RTT Logger is stopped with CTRL_BREAK on Windows; `halt`'s result narrowed to the probe, target and Commander version it was seen with. |
 | next | 2026-11-14 | Claude | #303: the viewer's device analyses move into the Kepler plugin. VIEW-DD-SERVER - panel tabs, `registerRfView`, `/api/panel` options (`panel_call`) and `POST /api/panel` actions, `Hub.panel_reports`; `/api/sensor`, `/api/twf`, `/api/diagnostics` removed. VIEW-DD-RADIO - `frame_summary` and `sensor_fields` hooks, `plain_summary`. VIEW-DD-KEPLER - `KeplerPanel`, its tabs, actions and report, `kepler.css`. VIEW-DD-SENSOR, -TWF and -DIAG now in `plugins/kepler`; `spectrum` and `fill_gaps` in `benchtools.analysis.spectrum`. VIEW-DD-REPORT draws each panel's sections. |
 | next | 2026-11-14 | Claude | #303 review round 1: VIEW-DD-RADIO - the summary hooks are the plugin's whose decoder reads the frame (`decode_with_plugin`), not the first loaded; CORE-DD-PLUGINS - `decode_with_plugin`; VIEW-DD-KEPLER - an unknown tab is refused; VIEW-DD-REPORT - every panel reports on the sensor the header names. |
+| next | 2026-11-14 | Claude | #342: §5.11, PPK - PPK-DD-CONST, -PROTOCOL, -MEASUREMENT, -DRIVER, -SIM and -CLI, the Nordic Power Profiler Kit II driver; §4 catalogue (95 units) and package structure. RUN and VIEW renumbered 5.12 and 5.13. |
+| next | 2026-11-14 | Claude | #342 review round 1: PPK-DD-PROTOCOL - `_number`; PPK-DD-DRIVER - `power` refuses an unknown mode or source voltage; PPK-DD-CLI - `--voltage-limit` required by `voltage` and `power on`. |
 ---
 
 ## 3. Purpose & Scope
@@ -157,8 +159,9 @@ not declare.
 | 5.8 | PICO | `benchtools.instruments.pico2_test_board` and `firmware/pico2_test_board` | 15 |
 | 5.9 | SER | `benchtools.instruments.serial_capture` | 5 |
 | 5.10 | PSCOPE | `benchtools.instruments.picoscope3000` | 5 |
-| 5.11 | RUN | `benchtools.runner` | 8 |
-| | **Total** | | **89** |
+| 5.11 | PPK | `benchtools.instruments.ppk2` | 6 |
+| 5.12 | RUN | `benchtools.runner` | 8 |
+| | **Total** | | **95** |
 
 ### 4.1 Package Structure
 
@@ -169,6 +172,7 @@ benchtools/
 ├── instruments/   one subpackage per instrument, plus the generic driver
 │   ├── tek3014b/      oscilloscope
 │   ├── picoscope3000/ PicoScope 3000D MSO: analogue, digital, signal generator
+│   ├── ppk2/          Nordic Power Profiler Kit II: current, charge and pulses
 │   ├── jlink/         debug probe
 │   ├── nordic_dongle/ BLE dongle - host half of the element
 │   ├── gpd3303d/      bench supply
@@ -3816,7 +3820,133 @@ and `--offset`, or `--off`. The result is printed as JSON and also written to
 `--json`. Exit status 0; 1 when the connection fails or the driver raises
 `BenchToolsError` or `ValueError`; 2 for a malformed `--digital-trigger`.
 
-### 5.11 RUN — `benchtools.runner`
+### 5.11 PPK — `benchtools.instruments.ppk2`
+
+The Nordic Power Profiler Kit II (#342), reached over USB CDC through the
+serial transport, in the kit's own binary protocol (AD-31). The driver
+(PPK-DD-DRIVER) records raw bytes; PPK-DD-PROTOCOL turns them into amps and
+logic levels, and PPK-DD-MEASUREMENT turns those into the figures a test
+checks. Every protocol fact is in PPK-DD-CONST, read from Nordic's Power
+Profiler app on 2026-11-14 and checked against the bench's kit where it could
+be. The interface note is `docs/ppk2/PPK2_Notes.md`.
+
+#### PPK-DD-CONST — `benchtools/instruments/ppk2/constants.py`
+
+The kit's USB identity (`USB_VENDOR_ID` 0x1915, `USB_PRODUCT_ID` 0xC00A); the
+opcodes the driver sends (`CMD_AVERAGE_START` 0x06, `CMD_AVERAGE_STOP` 0x07,
+`CMD_DEVICE_RUNNING_SET` 0x0C, `CMD_REGULATOR_SET` 0x0D, `CMD_SET_POWER_MODE`
+0x11, `CMD_GET_METADATA` 0x19, and `CMD_TRIGGER_SET` 0x01, which only the
+simulator reads); the modes (`MODE_AMMETER` 1, `MODE_SOURCE` 2, with `MODES`
+and `MODE_NAMES`); `VOLTAGE_RANGE` (0.8 V to 5.0 V); the sample rate (100 000
+a second, `SAMPLE_PERIOD` 10 µs, four bytes each); the sample word's fields
+(ADC bits 0 to 13, range 14 to 16, counter 18 to 23, logic 24 to 31) and
+`ADC_MULT` (1.8 / 163 840); `RANGES` (5) and `DEFAULT_MODIFIERS`, Nordic's
+starting calibration; the spike filter's weights (0.18, 0.06 in the top range)
+and length (3 samples); `MAX_DURATION` (120 s, every sample kept);
+`METADATA_TIMEOUT` (3 s); `STOP_SETTLE` (50 ms); and `REENUMERATE_WAIT` (3 s,
+for a kit off USB after its port closed).
+
+#### PPK-DD-PROTOCOL — `benchtools/instruments/ppk2/protocol.py`
+
+`parse_metadata(text)` reads the kit's `Name: value` lines up to `END` into a
+dict keyed in lower case: an `int` for a whole number, a `float` for any other,
+`None` for `-nan`, the text otherwise; a line with no colon is skipped.
+`Calibration` holds the seven per-range tuples (`r`, `gs`, `gi`, `o`, `s`, `i`,
+`ug`); `from_metadata` takes `<key><range>` from the metadata, keeping the
+default where the value is missing, zero, `None` or not a number (`_number`),
+as Nordic's app does (`meta[key] || default`). `amps(range, adc, vdd_mv)` is Nordic's formula:
+`raw = (adc − o) × ADC_MULT / r`, then
+`ug × (raw × (gs × raw + gi) + (s × vdd / 1000 + i))`. `adc(range, amps,
+vdd_mv)` inverts it, solving the quadratic, for the simulator, clipped to the
+ADC's scale and rounded to a count of 4. `split_word(word)` gives the ADC
+reading times 4, the range (capped at 4), the counter and the logic byte.
+`SampleDecoder(calibration, vdd_mv, spike_filter)` is fed bytes in order and
+keeps a word split across two feeds; per word it counts as `lost` the samples
+the counter skipped (modulo 64), converts the reading, applies the spike
+filter when switched on, and appends to `amps` (`array("d")`) and `logic`
+(`array("B")`). The filter keeps two rolling averages; on a range change it
+starts a run of three samples replaced by the average (the slower one in the
+top range, whose first two samples keep the previous averages), as Nordic's
+`getAdcResult` does. The command builders return the bytes:
+`metadata_command`, `start_command`, `stop_command`, `running_command(on)`,
+`mode_command(mode)` (refusing any but 1 and 2) and `regulator_command(volts)`,
+millivolts high byte first, through `millivolts`, which refuses a voltage
+outside `VOLTAGE_RANGE`.
+
+#### PPK-DD-MEASUREMENT — `benchtools/instruments/ppk2/measurement.py`
+
+`Measurement` holds `amps`, `logic`, the `mode`, `volts`, `lost`, and how its
+pulses are marked: a `threshold` with an optional `release`, or a `line`, not
+both, checked on construction (a line 0 to 7; a release only with a threshold
+and not above it). `samples`, `duration`, `average`, `peak` and `minimum`
+(`None` with no samples) and `charge` (the sum times the period) are computed
+when read. `bits(line)` gives one logic input as 0 and 1. `pulses` is computed
+once, from the line or with `pulses_above(threshold, release)`, which holds a
+pulse high from the first sample at or above the threshold until the first
+below the release. `find_pulses(amps, high, period, source)` walks the high
+flags: each run from a rising to a falling edge is a `Pulse` (start, width,
+charge, average, peak); a run that began at the first sample or is still high
+at the last is counted in `incomplete`. `PulseResult` gives `count`, `widths`,
+`charges`, `min_width`, `max_width`, `mean_width`, `total_charge`,
+`mean_charge` and `mean_interval` (first to last rising edge over the gaps),
+each `None` where it has no value. `summary()` is one line with the units
+scaled; `as_dict(with_samples)` is JSON-ready.
+
+#### PPK-DD-DRIVER — `benchtools/instruments/ppk2/ppk2.py`
+
+`find_ppk2_ports()` lists the ports whose USB identity is the kit's, from
+pyserial's `list_ports` (none without pyserial). `_resolve_port` turns
+`ppk2://` or `ppk2://<serial>` into a port, looking again every 0.1 s for up to
+`REENUMERATE_WAIT`; none is a `ConnectionFailedError`, two for `ppk2://` a
+`ConfigurationError` naming both. `Ppk2.connect` maps the resource - `sim://`,
+`ppk2://...`, a URL, or a bare port taken as `serial://` - to a transport, and
+opens it unless asked not to. `_open` retries a `ConnectionFailedError` every
+0.1 s up to `REENUMERATE_WAIT`. `_post_open` sends `AVERAGE_STOP`, waits
+`STOP_SETTLE`, drops the input, then `_read_metadata` sends `GET_METADATA`
+once and reads until `END` or `METADATA_TIMEOUT`, taking the calibration, the
+mode and the voltage. `set_mode` sends `DEVICE_RUNNING_SET 0` then
+`SET_POWER_MODE`; `set_voltage` checks `voltage_limit` and the range before
+sending; `power` refuses to switch on while the mode is not known, or a
+source-mode kit whose voltage is not known or is above the limit, and never
+refuses switching off; each logs its record. `measure` checks the duration and the pulse options, then
+`_record` drops the input, sets a 0.5 s read timeout, sends `AVERAGE_START`,
+reads raw bytes until it has the duration's samples, and always sends
+`AVERAGE_STOP`, waits `STOP_SETTLE` and drops what followed; a read with
+nothing or the overall deadline (duration plus timeout) is an
+`InstrumentError` naming the samples received. The bytes are decoded after
+sampling has stopped, cut to the duration, and logged (`ppk_measurement`, and
+a `reading`). `_close` sends `AVERAGE_STOP` and closes the port.
+
+#### PPK-DD-SIM — `benchtools/instruments/ppk2/simulator.py`
+
+`SimulatedPpk2` answers `respond` command by command, splitting a write by
+each opcode's length and keeping a part command for the next: `GET_METADATA`
+returns the metadata text with Nordic's default calibration, the voltage, the
+mode and hardware number 1; the others set its state and return nothing. Every
+command is kept in `received`. While sampling, `poll_within` returns 1 000
+samples (10 ms of its clock) per read, each the current at that moment -
+nothing with the DUT power off, else 20 µA with a 5 mA pulse of 5 ms every
+100 ms - encoded in the most sensitive range below 90 % of the ADC's scale,
+with the counter and D0 high during a pulse. Not sampling, it moves its clock
+on by the timeout and raises `TransportTimeoutError`. `lose_samples` leaves
+samples out halfway through the next chunk, the counter running on.
+
+#### PPK-DD-CLI — `benchtools/instruments/ppk2/cli.py`
+
+`benchtools ppk2 [-r RESOURCE] [--timeout S] [--voltage-limit V]
+[--no-spike-filter] [--json PATH] [-v] {list,info,measure,mode,voltage,power}`,
+reached from the top-level command as `ppk2` or `ppk`, with `sim://` the
+default resource. `list` prints `find_ppk2_ports()` without opening a kit.
+`info` prints the identity, `info()` and the metadata. `measure` takes
+`--duration`, `--threshold` with `--release` or `--line`, `--pulses` (every
+pulse listed; otherwise only the figures) and `--csv` (`time_s`, `current_a`,
+`logic` per sample). `mode`, `voltage` and `power` set the kit; `voltage` and
+`power on` exit 2 before opening anything without `--voltage-limit`, since
+the command line reads no bench file. The result is printed as JSON and also
+written to `--json`. Exit status 0; 1 when the connection fails or the driver
+raises `BenchToolsError` or `ValueError`; 2 for a missing voltage limit.
+
+### 5.12 RUN — `benchtools.runner`
 
 #### RUN-DD-SPEC — `spec.py`
 
@@ -4039,7 +4169,7 @@ rather than nesting argparse parsers, so each tool keeps its own complete
 
 ---
 
-### 5.12 VIEW — `benchtools.viewer`
+### 5.13 VIEW — `benchtools.viewer`
 
 #### VIEW-DD-STATE — `state.py`
 

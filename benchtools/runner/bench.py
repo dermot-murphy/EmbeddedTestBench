@@ -41,6 +41,7 @@ from ..instruments.gpd3303d import Gpd3303D
 from ..instruments.pico2_test_board import Pico2TestBoard
 from ..instruments.nordic_dongle import NordicDongle
 from ..instruments.picoscope3000 import PicoScope3000
+from ..instruments.ppk2 import Ppk2
 from ..instruments.s2lp import S2lpDevkit
 from ..instruments.serial_capture import SerialCapture
 from ..instruments.tek3014b import Tek3014B
@@ -94,6 +95,7 @@ register_driver("serial", SerialCapture)
 register_driver("serial-capture", SerialCapture)
 register_driver("picoscope3000", PicoScope3000)
 register_driver("picoscope", PicoScope3000)
+register_driver("ppk2", Ppk2)
 
 
 @dataclass(frozen=True)

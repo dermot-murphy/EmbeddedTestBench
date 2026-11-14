@@ -34,6 +34,7 @@
 | 0.8 | 2026-10-24 | Claude | #284: §6 - Dependabot no longer proposes pip updates; new library releases reach CI through the weekly `constraints_refresh.yml`, which regenerates `constraints/` and offers the result on a branch. #248 and #250 declined for the same reason as #219, #223 and #224. |
 | next | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
 | next | 2026-11-13 | Claude | #200: Pico Technology added - §4.1 the PicoScope 3405D MSO, §4.4 the `ps3000a` library (from PicoScope 7 T&M Stable, unit driver version 2.2.160.7569; WinUSB driver 2.4.0.2 of 2022-06-10), not pinned, its licence not yet reviewed; §5 what the library is trusted to do. |
+| next | 2026-11-14 | Claude | #342: §4.1 Nordic's Power Profiler Kit II and its serial protocol, read from Nordic's Power Profiler app; facts only, no code copied (AD-31). |
 
 ---
 
@@ -78,6 +79,7 @@ bench instruments themselves.
 | GW Instek | GPD-3303D power supply | Programming-manual command set, tracking-mode behaviour, status byte encoding | Documentation used as reference only |
 | SEGGER | J-Link probe, J-Link Commander, RTT | Flash programming, memory read, RTT transport | SEGGER licence terms; tools used, not redistributed |
 | Nordic Semiconductor | nRF52840 dongle (PCA10059), nRF5 SDK 17.1.0, S140 SoftDevice 7.2.0, `nrfutil` | Firmware platform, BLE stack, DFU packaging | Nordic 5-clause licence for SDK; SoftDevice binary not redistributed |
+| Nordic Semiconductor | Power Profiler Kit II, USB serial number D527E1DA8DBA (#342); its serial protocol as Nordic's Power Profiler app (`pc-nrfconnect-ppk`) uses it | The opcodes, the metadata, the sample word, the calibration formula and the spike filter, read from the app's source on 2026-11-14 (`docs/ppk2/PPK2_Notes.md`) | The app is under Nordic's 4-clause licence; protocol facts only are used, no code is copied or redistributed (AD-31). The kit's firmware is not pinned and is not reported by the kit beyond its hardware number |
 | STMicroelectronics | S2-LP sub-GHz transceiver | Register map — addresses, widths, reset values | **SLA0072** |
 | Pico Technology | PicoScope 3405D MSO (3000D series), serial HT415/0202; the `ps3000a` driver library and the WinUSB device driver (§4.4) | The behaviour of the `ps3000a` API - each call, its arguments and its status codes - and the unit's ranges, timebases, memory and signal generator as the specification page states them and as measured on the bench (#200) | Pico Technology's terms for PicoScope 7 and the PicoSDK; the library is installed on the bench PC, called through `ctypes`, and not vendored or redistributed. The licence text has not been reviewed (§4.4) |
 

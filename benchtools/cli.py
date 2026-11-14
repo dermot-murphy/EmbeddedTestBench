@@ -26,6 +26,7 @@ Commands:
   view        watch and control test runs in a browser (127.0.0.1 only)
   scope       control a Tektronix TDS3014B oscilloscope
   pscope      control a PicoScope 3000D MSO: analogue, digital, signal generator
+  ppk2        measure current with a Nordic Power Profiler Kit II
   jlink       control a target through a SEGGER J-Link debug probe
   ble         scan, drive and profile a BLE sensor through a Nordic dongle
   psu         control a GW Instek GPD-3303D bench power supply
@@ -41,6 +42,7 @@ Run 'benchtools <command> --help' for a command's own options.
 Examples:
   benchtools scope -r sim:// idn
   benchtools pscope -r pico:// capture -c A B --range 2 --trigger A --csv a.csv
+  benchtools ppk2 -r ppk2:// measure --duration 1 --threshold 0.001
   benchtools jlink -r sim:// -e build/app.elf time sensor.c:40 sensor.c:75
   benchtools ble -r sim:// profile --select SENS-0A1B2C --duration 30 --interval 0.1
   benchtools psu -r sim:// set 1 -V 3.3 -I 0.5 --on
@@ -67,6 +69,7 @@ _TOOLS = {
     ("view", "viewer"): "benchtools.viewer.server",
     ("scope", "tek3014b"): "benchtools.instruments.tek3014b.cli",
     ("pscope", "picoscope", "picoscope3000"): "benchtools.instruments.picoscope3000.cli",
+    ("ppk2", "ppk"): "benchtools.instruments.ppk2.cli",
     ("jlink", "segger", "probe"): "benchtools.instruments.jlink.cli",
     ("ble", "dongle", "nordic"): "benchtools.instruments.nordic_dongle.cli",
     ("psu", "gpd3303d", "supply"): "benchtools.instruments.gpd3303d.cli",

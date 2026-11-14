@@ -112,3 +112,13 @@ instruments:
     driver: picoscope3000
     resource: sim://
     timeout: 5.0
+
+  # The Nordic PPK2 (#342), simulated: with its DUT power on, the device draws
+  # 20 uA with a 5 mA pulse of 5 ms every 100 ms, and D0 high during each
+  # pulse. Event-log name PPK.
+  ppk:
+    driver: ppk2
+    resource: sim://
+    timeout: 5.0
+    options:
+      voltage_limit: 3.3

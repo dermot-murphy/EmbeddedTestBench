@@ -52,6 +52,7 @@
 | next | 2026-11-13 | Claude | #200: the `ps3000a` interface row names its interface specification, ETB-IF-002. |
 | next | 2026-11-13 | Claude | #71: AD-30 added - SEGGER's J-Link Commander and RTT Logger as a second J-Link backend, chosen by configuration; JLINK-ARC-001 names it. |
 | next | 2026-11-14 | Claude | #303: AD-29 consequences - the viewer's device analyses are the Kepler plugin's panel, with its RF tabs and report sections; the viewer names no Kepler field. |
+| next | 2026-11-14 | Claude | #342: PPK-ARC-001 added, the Nordic Power Profiler Kit II driver, and AD-31, the kit driven through its own serial protocol by this project's code; the layering diagram and the interfaces (USB CDC to the kit; power and logic to the device) updated. |
 ---
 
 ## 3. Purpose & Scope
@@ -107,6 +108,8 @@ This document satisfies **Automotive SPICE® PAM v4.0, SWE.2 — Software Archit
    |  benchtools.instruments                                      |
    |  tek3014b (scope, constants, simulator, cli)                 |
    |  picoscope3000 (scope, sdk, constants, simulator, cli)       |
+   |  ppk2     (ppk2, protocol, measurement, constants,           |
+   |            simulator, cli)                                   |
    |  jlink    (probe, gdbmi, session, server, rtt, swo,          |
    |            timing, constants, simulator, cli)                |
    |  nordic_dongle (dongle, protocol, session, profile,          |
@@ -167,6 +170,7 @@ instrument, and to be importable without importing any other element.
 | DMM-ARC-001 | `instruments.tti1604` | The TTi 1604 bench multimeter, on an opto-isolated RS-232 link. Not a SCPI instrument and not close to one: no command language, no query, no `*IDN?`, no error queue. The link carries single characters standing for key presses, and the meter streams a ten-byte binary frame per measurement. Frame decoding (`protocol`) is pure and separate from the link, because decoding is where a wrong number comes from and it should be testable without a meter. The instrument envelope and protocol facts (`constants`), the driver façade (`dmm`) - which reads the link as a stream (AD-26) and confirms every key press from the readings (AD-25) - a behavioural simulator with the meter's resolution and reading rate on a virtual clock, a command line, an opt-in bench test and a front-panel check. | `Tti1604`, `Reading`, `FrameAssembler`, `decode`, `frame_problem`, `SimulatedTti1604` |
 | PICO-ARC-001 | `instruments.pico2_test_board` **and** `firmware/pico2_test_board` | The PICO2 Test Board - a Pico 2 bench thermometer with three LEDs and a frequency generator, named the Pico 2 SHT30 Temperature Sensor before #330 - as one element across two languages. Host side: the driver (`thermometer`, class `Pico2TestBoard`, bench drivers `pico2-test-board` and `pico2`), which takes the transport and lifecycle from `ScpiInstrument` and replaces the SCPI-specific parts with the firmware's `rd` command set (`rd name`, `copyright`, `version`, `sha` and `temperature`, answered `ACK rd <option> = <value>` or `NAK`, #131) and its `wr` command, which switches the three indicator LEDs and is answered with the state read back (`ACK wr <option> = on|off` or `NAK`; the LEDs are also read by `rd`, #328) and also stores the frequency generator's settings, which `rd` reads back and `routine` runs (#202); the protocol tables (`constants`); a simulated thermometer that answers with the firmware's reply text; and a command line. Pico side: line assembly and dispatch (`cmd_parser`), the SHT30 driver (`sht30`), the frequency generator (`fgen`, with its commands in `cmd_fgen`, #202), a bounded text builder in place of stdio (`text`), and a HAL seam (`hal.h`) implemented on the Pico SDK by `hal_pico.c` and by a fake in the host tests. `include/protocol.h` is the interface both sides are built from. | `Pico2TestBoard`, `FirmwareInfo`, `Reading`, `SensorError`, `NoReadingError`, `CommandRefusedError`, `RdRefusedError`, `WrRefusedError`, `SimulatedPico2TestBoard`; `cmd_execute`, `sht30_measure`, `fgen_write`, `fgen_start`, `hal_i2c_write`, `hal_led_set`, `hal_led_get`, `hal_dac_start` |
 | SER-ARC-001 | `instruments.serial_capture` | The serial capture instrument, host side only: it records the lines a device prints on a serial port, and writes nothing to it. The driver (`capture`) takes the lifecycle from `Instrument` and reads the port on a thread of its own while a capture runs, so that `ROUTINE START CAPTURE` returns at once; it reopens the port when the line rate or character format changes. The command set (`console`) - `RD`, `WR` and `ROUTINE`, in the Kepler BLE console's reply form (#247) - is a thin layer over the driver's methods, so a specification can use either. Its limits and words (`constants`), a simulated device that prints a script of lines when a capture starts, and a command line. | `SerialCapture`, `CaptureResult`, `CapturedLine`, `Reply`, `execute`, `SimulatedSerialDevice` |
+| PPK-ARC-001 | `instruments.ppk2` | The Nordic Power Profiler Kit II (#342): a supply and current meter streaming 100 000 samples a second, with eight logic inputs. Reached over USB CDC through the serial transport, in the kit's own binary protocol (AD-31). The wire format (`protocol`) - commands, the metadata, the calibration and the decoding of each sample into amps and logic levels with Nordic's spike filter - is pure and separate from the link, as the 1604's frame decoding is (DMM-ARC-001). The driver (`ppk2`) takes the lifecycle from `Instrument`, finds the kit by USB serial number, and keeps every sample of a measurement as a `Measurement` (`measurement`), which gives the average, the charge and the pulses with no kit attached. Its facts (`constants`), a simulated kit on a virtual clock, and a command line. | `Ppk2`, `Measurement`, `PulseResult`, `Pulse`, `Calibration`, `SampleDecoder`, `SimulatedPpk2`, `find_ppk2_ports`, `benchtools ppk2` |
 | RUN-ARC-001 | `runner` | Specification model, bench resolution, execution engine, result records, report writers, command line, and the run control channel (127.0.0.1 only). | `load_spec`, `BenchConfig`, `BenchRunner`, `write_*` |
 | VIEW-ARC-001 | `viewer` | The test run viewer: follows a run's event log, rebuilds the run's state from its structured records, serves a page and JSON API with Server-Sent Events on 127.0.0.1 - or, with an access token and optionally read-only and over HTTPS, on another address (#141) - passes control requests to the runner's control channel, and starts runs as separate processes. The top layer: it may import from every other, and nothing imports from it. | `RunState`, `Hub`, `ViewerServer`, `Launcher`, `Catalogue`, `benchtools view` |
 
@@ -805,6 +809,36 @@ the host (`image`), so verification is per range rather than per section
 name. RTT is read only. Whether a core halted by one Commander run stays
 halted after it exits is not known.
 
+### AD-31 — The PPK2 is driven through its own serial protocol, by this project's code
+
+**Context.** The Power Profiler Kit II (#342) is a USB CDC device with a small
+binary protocol: one opcode per command, a metadata text, and a stream of
+32-bit samples. Nordic publishes no Python library for it. Nordic's Power
+Profiler app (`pc-nrfconnect-ppk`, TypeScript, Nordic's own 4-clause licence)
+is the authority on the protocol. `ppk2-api` (IRNAS) is an unofficial Python
+library, licensed GPL-2.0.
+
+**Decision.** The driver speaks the protocol itself, over the project's serial
+transport (CORE-ARC-002). The protocol facts - opcodes, the sample word, the
+calibration formula and the spike filter - were read from Nordic's app and are
+written down in `constants`, `protocol` and `docs/ppk2/PPK2_Notes.md`; no code
+was copied from either project. The samples are kept as read and decoded after
+sampling stops, so decoding never holds up reading a 400 kB/s stream. The
+driver changes nothing on the kit when it connects, and `voltage_limit`, from
+the bench file, caps the voltage it will set or power a device on at.
+
+**Alternatives.** Depending on `ppk2-api` would bring a GPL-2.0 dependency
+into a package with none, and its own threads and buffering in place of the
+project's transport and simulator seam. Driving Nordic's app is not possible:
+it is a desktop program with no remote interface.
+
+**Consequences.** The protocol is followed as Nordic's app uses it, not from a
+specification Nordic publishes; where the bench kit behaved otherwise it is
+recorded (it answers its metadata once per open, and goes off USB for under a
+second each time its port closes). A change in the kit's firmware would be
+found by the bench check, not by the unit tests, which run against the
+simulated kit.
+
 ## 8. Dynamic behaviour — a runner invocation
 
 ```
@@ -864,6 +898,8 @@ CLI            BenchRunner        Bench           Tek3014B        Transport
 | `pyserial` | bidirectional | Optional; the serial transport. |
 | nRF5 SDK 17.1.0 + S140 | in | Builds the dongle firmware. Not needed to run the host driver or the tests. |
 | USB CDC (serial) — thermometer | bidirectional | The Pico 2 thermometer's line protocol (`firmware/pico2_test_board/include/protocol.h`). |
+| USB CDC — Nordic Power Profiler Kit II | bidirectional | The PPK2's serial protocol (AD-31): one-byte opcodes with their arguments out; its metadata text and a stream of 32-bit samples, 100 000 a second, in. Found by its USB identity (0x1915:0xC00A) and serial number. Specified, command by command, in `docs/ppk2/PPK2_Notes.md`. |
+| Power and logic — PPK2 to the device under test | bidirectional | In source mode the PPK2's VOUT supplies the device at 0.8 V to 5.0 V; in ammeter mode an outside supply on VIN reaches the device through the kit. Eight logic inputs, D0 to D7, are sampled with the current. Nothing is wired to them on the bench PC as of 2026-11-14. |
 | Serial port — device under test | in | A device's console or test UART, read by the serial capture instrument through a USB serial adapter. Receive only: the instrument writes nothing to it. |
 | USB — PicoScope 3000D MSO | bidirectional | The PicoScope 3405D MSO on USB, through Pico Technology's WinUSB driver (version 2.4.0.2, dated 2022-06-10, on the bench PC). Not visible to this software: every exchange with the unit goes through the `ps3000a` library. Its inputs are four analogue channels and sixteen digital inputs; its only output is the signal generator. |
 | `ps3000a` C library (Pico Technology) | bidirectional | Optional; called through `ctypes` by the PicoScope driver, with no Pico Python package. Installed with PicoScope 7 or the PicoSDK, and found from the bench's `sdk_path`, `PICOSDK_PATH`, the install folders or the system's library path. Not needed to import the driver or to run the tests. On the bench PC it is the `ps3000a.dll` of PicoScope 7 T&M Stable, reporting driver version 2.2.160.7569 (ETB-ACQ4-001 §4.4). Specified, call by call, with every dependency, in ETB-IF-002. |

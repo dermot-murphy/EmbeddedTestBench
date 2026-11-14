@@ -34,6 +34,7 @@
 
 | next | 2026-10-28 | Claude | #247: ETB-SYS2-037 - capture a target's serial output, record every line, write nothing to the port; traced to STK-24 and `SER-` (ETB-SWE1-001 §16). The software requirement sections referred to are §6 to §17 (RUN is now §17). |
 | next | 2026-11-13 | Claude | #200: ETB-SYS2-065 - capture analogue and logic signals together on one time base, and drive a stimulus from a signal generator; traced to STK-02, STK-04, STK-05 and STK-07 and to `PSCOPE-` (ETB-SWE1-001 §17). The software requirement sections referred to are §6 to §18 (RUN is now §18). |
+| next | 2026-11-14 | Claude | #342: ETB-SYS2-026 - measure the target's current at 100 000 samples a second, as its supply or in its supply line, with the average, charge and pulses, within the bench's voltage limit; traced to STK-25 and `PPK-` (ETB-SWE1-001 §18). The software requirement sections referred to are §6 to §19 (RUN is now §19). |
 ---
 
 ## 3. Purpose & Scope
@@ -46,7 +47,7 @@ to it, the dongle firmware Embedded Test Bench itself supplies, and the target u
 as it appears to the bench.
 
 It sits between the stakeholder requirements (ETB-SWE1-001 §4) and the software
-requirements (ETB-SWE1-001 §6–§18). A stakeholder requirement says what the
+requirements (ETB-SWE1-001 §6–§19). A stakeholder requirement says what the
 engineer wants; a system requirement says what the bench must therefore do,
 including the parts that are not software; a software requirement says what the
 code must do.
@@ -143,6 +144,7 @@ Each requirement carries a verification method: **T** test, **A** analysis,
 | ETB-SYS2-023 | Where the supply's tracking mode means a per-channel setpoint would be accepted and silently discarded by the hardware, the system shall refuse the write rather than perform it. | T |
 | ETB-SYS2-024 | The system shall be able to bring the supply to a known safe state — outputs off, setpoints at zero — and that state shall be reachable whatever mode the supply is in. | T |
 | ETB-SYS2-025 | The system shall not present the supply's fixed, front-panel-switched auxiliary rail as a controllable channel. | I |
+| ETB-SYS2-026 | The system shall measure the current the target draws, from under a microamp to about 1 A, at 100 000 samples a second, either supplying the target itself at a set voltage or in the line of an outside supply; and shall report the average current over a window, the charge drawn, and the pulses in it - their count, widths and charges - marked by a current threshold or by a logic signal from the target (#342). It shall not set or switch on a voltage above the limit the bench states for what is wired. | T |
 
 > ETB-SYS2-023 is the treatment of ETB-RISK-008. The GPD-3303D accepts CH2
 > setpoints in series and parallel tracking and discards them; a bench that
@@ -255,7 +257,7 @@ Each requirement carries a verification method: **T** test, **A** analysis,
 ## 14. Traceability
 
 Upward to the stakeholder requirements in ETB-SWE1-001 §4, downward to the
-software requirements in ETB-SWE1-001 §6–§18. The full matrix is ETB-RTM-001.
+software requirements in ETB-SWE1-001 §6–§19. The full matrix is ETB-RTM-001.
 
 | Stakeholder | System requirements |
 |---|---|
@@ -273,11 +275,12 @@ software requirements in ETB-SWE1-001 §6–§18. The full matrix is ETB-RTM-001
 | STK-18 | ETB-SYS2-051, ETB-SYS2-052, ETB-SYS2-053, ETB-SYS2-104 |
 | STK-19, STK-20 | ETB-SYS2-046, ETB-SYS2-047, ETB-SYS2-103 |
 | STK-24 | ETB-SYS2-037 |
+| STK-25 | ETB-SYS2-026 |
 
 | System requirement group | Software requirements |
 |---|---|
 | Bench composition §6 | `CORE-FR-*`, `INST-FR-*` |
-| Power §7 | `PSU-FR-*`, `PSU-NFR-*` |
+| Power §7 | `PSU-FR-*`, `PSU-NFR-*`, `PPK-FR-*`, `PPK-NFR-*` |
 | Target control §8 | `JLINK-FR-*`, `JLINK-NFR-*`, `SER-FR-*`, `SER-NFR-*` |
 | Wireless §9 | `BLE-FR-*`, `BLE-NFR-*`, `S2LP-FR-*`, `S2LP-NFR-*` |
 | Measurement §10 | `SCOPE-FR-*`, `PSCOPE-FR-*`, `PSCOPE-NFR-*`, `ANA-FR-*` |
