@@ -42,6 +42,18 @@ this driver without reflashing between them.
 **What comes with that decision** is in §4. The limits are the firmware's, and
 the driver's job is to be honest about them rather than to hide them.
 
+**Since #84 there is a second choice.** `firmware/s2lp_kit` is this project's
+own firmware for the kit (AD-32). It receives on the radio's interrupt and
+re-arms before anything goes to the host: 393 µs at most from a frame's
+interrupt to the radio armed again, against 26-27 ms for a polled stream on
+ST's firmware, with RSSI, PQI, SQI and AFC read after every frame
+(`docs/aspice/qualification/2026-11-14/84_kit_firmware/`). It does not change
+ST's firmware and contains none of ST's source (§6). The radio is set up by
+register writes; ST's configuration commands are not on it, and the driver
+in this package still talks to ST's firmware only. To use it, flash it as its
+README says; to go back, write the backup of ST's image taken from the kit,
+which is kept outside this repository.
+
 ---
 
 ## 2. The protocol
@@ -672,6 +684,11 @@ one. This matters for what may be kept here:
   driver targets, which is also what makes a drifted command fail in a test.
 * **No ST source is vendored.** There is no copy of ST's headers, library or
   firmware in this repository.
+* **SLA0072 forbids publishing ST's sources**, modified or not, to third
+  parties: so ST's CLI cannot be extended here, and neither the backup of
+  ST's image nor a patch to it may be committed. The kit firmware of #84 was
+  written instead, with its own startup, linker script, register definitions
+  and S2-LP SPI access; pin assignments are facts of the board.
 * **The register map holds facts, not prose**: addresses, reset values, field
   names and bit positions, which are properties of the silicon published in the
   S2-LP datasheet. It was cross-checked against ST's published register header

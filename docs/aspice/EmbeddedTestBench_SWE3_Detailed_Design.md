@@ -111,6 +111,7 @@
 | next | 2026-11-14 | Claude | #303 review round 1: VIEW-DD-RADIO - the summary hooks are the plugin's whose decoder reads the frame (`decode_with_plugin`), not the first loaded; CORE-DD-PLUGINS - `decode_with_plugin`; VIEW-DD-KEPLER - an unknown tab is refused; VIEW-DD-REPORT - every panel reports on the sensor the header names. |
 | next | 2026-11-14 | Claude | #342: §5.11, PPK - PPK-DD-CONST, -PROTOCOL, -MEASUREMENT, -DRIVER, -SIM and -CLI, the Nordic Power Profiler Kit II driver; §4 catalogue (95 units) and package structure. RUN and VIEW renumbered 5.12 and 5.13. |
 | next | 2026-11-14 | Claude | #342 review round 1: PPK-DD-PROTOCOL - `_number`; PPK-DD-DRIVER - `power` refuses an unknown mode or source voltage; PPK-DD-CLI - `--voltage-limit` required by `voltage` and `power on`. |
+| next | 2026-11-14 | Claude | #84: S2LP-DD-KITFW: the ETB S2-LP kit firmware. |
 ---
 
 ## 3. Purpose & Scope
@@ -2652,6 +2653,32 @@ logs at once; `--board` names the kit board; `--setup` applies a register file
 straight after connecting. `rx` with nothing on the air exits 1 and says why
 that is not the same as the air being quiet; `capture` adds a warning when the
 capture was not continuous.
+
+#### S2LP-DD-KITFW — `firmware/s2lp_kit`
+
+The ETB S2-LP kit firmware (AD-32), for the NUCLEO-L053R8 with the S2-LP
+board. Its commands, records and wiring are in `firmware/s2lp_kit/README.md`.
+
+| File | Role |
+|---|---|
+| `src/startup.c`, `stm32l053r8.ld` | Reset: copy `.data`, clear `.bss`, run `main`; the vector table, naming only the handlers used |
+| `src/l053.h` | The STM32L053 registers and bits used, from RM0367 |
+| `include/hal.h`, `src/hal_l053.c` | The board: 32 MHz from HSI16 and the PLL; SPI1 at 8 MHz, mode 0; USART2 at 115200 with a receive interrupt; TIM2 as a microsecond timer with its upper half counted on overflow; EXTI line 0 (PC0, falling) for nIRQ; PC7 high for the TCXO |
+| `src/s2lp.c` | SPI transactions: header 0x00 write, 0x01 read, 0x80 command; the two status bytes kept; the 32-bit interrupt status read, which clears it |
+| `src/ring.c` | 16 records between the interrupt (producer) and the main loop (consumer), lock-free; a record that will not fit still takes a sequence number and counts an overflow |
+| `src/rx.c` | `rx_start`: abort, READY, nIRQ on GPIO3, mask data ready, discarded and FIFO error, clear the status, arm. `rx_on_irq`: time, status; a frame takes the FIFO count, the payload and the host's registers; a discard or FIFO error a rejection; then flush and RX at once, and the deaf time kept |
+| `src/cmd.c` | Line parsing and answers; while receiving only `rx`, `stat` and `id` are taken; `cmd_format_record` writes a record as its line |
+| `src/main.c` | Releases SDN, then loops: one queued record out, one byte of host input in |
+
+The interrupt handler takes nIRQ again while the line is still low, up to four
+passes, so an event that arrives while the status is being read is not left
+waiting for an edge. The firmware does not set PM_CONF3 before the RX strobe,
+as ST's library macros do; ST's CLI does not either.
+
+The host tests (`firmware/s2lp_kit/test`) build everything but the board and
+startup files against `test/support/fake_hal.c`, which models the S2-LP's SPI
+protocol: a register file, a FIFO, an interrupt status cleared on reading, a
+log of command strobes, and one microsecond per SPI byte.
 
 ---
 

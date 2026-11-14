@@ -1,0 +1,14 @@
+{
+  "port": "COM4",
+  "seconds": 600.0,
+  "id": "ok etb-s2lp-kit V1.00.0000 proto=1 silicon=c1",
+  "registers_written": 94,
+  "registers_differing": [],
+  "rx_start": "ok",
+  "rx_stop": "ok frames=86 rejects=0 overflows=0",
+  "stat": "ok running=0 frames=86 rejects=0 overflows=0 queued=0",
+  "frames_received": 86,
+  "rejects_received": 0,
+  "seq_gaps": 0
+}
+exit 0

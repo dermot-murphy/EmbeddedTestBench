@@ -260,3 +260,59 @@ jobs:
             build/pico2_test_board/pico2_test_board.elf.map
           if-no-files-found: error
           retention-days: 90
+
+  # ETB S2-LP kit firmware (firmware/s2lp_kit), #84.
+  # Traces to: S2LP-FR-093 .. S2LP-FR-097, S2LP-NFR-005, SWE4-UT-S2LPKITFW.
+  s2lp-kit-unit-tests:
+    name: S2-LP kit firmware unit tests (Unity + CTest)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Configure
+        run: cmake -S firmware/s2lp_kit/test -B build/s2lp-kit-tests -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build
+        run: cmake --build build/s2lp-kit-tests --parallel
+
+      - name: Test
+        run: >
+          ctest --test-dir build/s2lp-kit-tests
+          --output-on-failure
+          --output-junit ${{ github.workspace }}/build/s2lp-kit-tests/results.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: s2lp-kit-unit-test-results
+          path: build/s2lp-kit-tests/results.xml
+          if-no-files-found: warn
+          retention-days: 30
+
+  s2lp-kit-firmware:
+    name: Build S2-LP kit firmware
+    runs-on: ubuntu-24.04
+    needs: s2lp-kit-unit-tests
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install the Arm toolchain
+        uses: carlosperate/arm-none-eabi-gcc-action@v1
+        with:
+          release: '14.2.Rel1'
+
+      - name: Build
+        run: make -C firmware/s2lp_kit
+
+      - name: Upload the firmware
+        uses: actions/upload-artifact@v7
+        with:
+          name: s2lp-kit-firmware-${{ github.sha }}
+          path: |
+            firmware/s2lp_kit/build/s2lp_kit.bin
+            firmware/s2lp_kit/build/s2lp_kit.hex
+            firmware/s2lp_kit/build/s2lp_kit.elf
+            firmware/s2lp_kit/build/s2lp_kit.map
+          if-no-files-found: error
+          retention-days: 90

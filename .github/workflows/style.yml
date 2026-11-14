@@ -69,6 +69,21 @@ jobs:
       # test/support/include/ holds stand-ins for nRF5 SDK headers, which keep
       # the SDK's names and are vendor API, outside ETB-STD-002 (section 1.3).
       # The tests entered the check clean: no baseline, and any finding fails.
+      - name: Run CStyleCheck (S2-LP kit firmware)
+        id: cstylecheck-s2lp-kit
+        uses: dermot-murphy/CStyleCheck@v1.6.1
+        with:
+          config: .cstylecheck.yml
+          include: |
+            firmware/s2lp_kit/src/**/*.c
+            firmware/s2lp_kit/src/**/*.h
+            firmware/s2lp_kit/include/**/*.h
+            firmware/s2lp_kit/test/**/*.c
+            firmware/s2lp_kit/test/**/*.h
+          aliases: .cstylecheck-s2lp-kit-aliases.txt
+          exclusions: .cstylecheck-s2lp-kit-exclusions.yml
+          fail-on: info
+
       - name: Run CStyleCheck (dongle unit tests)
         id: cstylecheck-dongle-tests
         uses: dermot-murphy/CStyleCheck@v1.6.1
@@ -94,3 +109,6 @@ jobs:
           echo "dongle tests errors=${{ steps.cstylecheck-dongle-tests.outputs.errors }}"
           echo "dongle tests warnings=${{ steps.cstylecheck-dongle-tests.outputs.warnings }}"
           echo "dongle tests info=${{ steps.cstylecheck-dongle-tests.outputs.info }}"
+          echo "s2lp kit errors=${{ steps.cstylecheck-s2lp-kit.outputs.errors }}"
+          echo "s2lp kit warnings=${{ steps.cstylecheck-s2lp-kit.outputs.warnings }}"
+          echo "s2lp kit info=${{ steps.cstylecheck-s2lp-kit.outputs.info }}"
