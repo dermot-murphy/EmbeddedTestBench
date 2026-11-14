@@ -877,6 +877,8 @@ class TrafficMixin:
                 packet.decoded = decoder(packet.data)
             except Exception as exc:  # pylint: disable=broad-except
                 packet.decode_error = str(exc) or type(exc).__name__
+            else:
+                packet.decoder = plugins.REGISTRY.decoder_name(decoder)
 
     def capture(
         self,
