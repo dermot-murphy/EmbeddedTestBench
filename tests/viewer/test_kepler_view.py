@@ -52,6 +52,17 @@ class TestLatestData:
         assert byte_roles(config, 21)[7:11] == ["type", "permute", "counter", "payload"]
         assert byte_roles(None, 4) == ["header"] * 4
 
+    def test_a_v10_twf_frame_has_its_counter_at_8(self):
+        # V10.00's TWF has no Permute Control byte; the order is implied (#313).
+        frame = bytearray(96)
+        frame[0:8] = bytes.fromhex("5c314e0304040204")
+        frame[8] = 0x13
+        decoded = decode_kepler_frame(bytes(frame))
+        assert byte_roles(decoded, 96)[7:10] == ["type", "counter", "payload"]
+        rows = dict(header_rows(decoded))
+        assert rows["Permute control"] == "Distance (none sent; the firmware's order)"
+        assert "Permute implied" not in dict(payload_rows(decoded))
+
     def test_header_rows(self):
         rows = dict(header_rows(decode_kepler_frame(_config(0, [0] * 5))))
         assert rows["Sensor ID"] == "0x5C1712"

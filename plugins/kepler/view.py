@@ -24,7 +24,7 @@ KEEP_LATEST = 500
 
 _HEADER_KEYS = {"type", "pl_type", "sensor_id", "product_id", "product", "rf_capability",
                 "type_capability", "hw_capability", "fw_capability", "frame",
-                "permute_method", "warnings"}
+                "permute_method", "permute_implied", "warnings"}
 
 #: Units of decoded fields, for the payload rows.
 _UNITS = {"temperature_c": "°C", "battery_mv": "mV", "battery_loaded_mv": "mV",
@@ -63,7 +63,8 @@ def byte_roles(decoded: Optional[Dict[str, Any]], length: int) -> List[str]:
         roles[7] = "type"
     if not decoded:
         return roles
-    permuted = "permute_method" in decoded
+    # A V10.00 TWF frame has a permute method but no Permute Control byte (#313).
+    permuted = "permute_method" in decoded and not decoded.get("permute_implied")
     if permuted and length > 8:
         roles[8] = "permute"
     if "frame" in decoded:
@@ -81,7 +82,10 @@ def header_rows(decoded: Dict[str, Any]) -> List[Tuple[str, str]]:
             ("HW capability / type", "HW %s, type %s" % (decoded.get("hw_capability", ""),
                                                         decoded.get("type_capability", ""))),
             ("FW capability", str(decoded.get("fw_capability", "")))]
-    if "permute_method" in decoded:
+    if decoded.get("permute_implied"):
+        rows.append(("Permute control", "%s (none sent; the firmware's order)"
+                     % str(decoded["permute_method"]).capitalize()))
+    elif "permute_method" in decoded:
         rows.append(("Permute control", str(decoded["permute_method"]).capitalize()))
     frame = decoded.get("frame")
     if isinstance(frame, dict):

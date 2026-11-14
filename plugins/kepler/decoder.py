@@ -23,7 +23,9 @@ these layouts are RF_CAP 6. A frame with another RF_CAP is still decoded, with a
 warning, because V10 (RF_CAP 4) frames differ. Within RF_CAP 6, each type's
 layout is chosen by its type version (byte 5 bits 7:3) from ``LAYOUTS``; an
 unknown version is decoded with the nearest known version below it, or the
-lowest known one, with a warning (#287).
+lowest known one, with a warning (#287). TWF type version 0 is the V10.00
+firmware's own 96-byte layout (#313), read from the reference project's
+V10.00.0000 tag.
 
 Traces to: S2LP-FR-070, S2LP-DD-KEPLER.
 """
@@ -43,11 +45,12 @@ __all__ = ["decode_kepler_frame", "KeplerFrameError", "FRAME_TYPES", "LAYOUTS", 
 RF_CAPABILITY = 6
 
 #: PL_TYPE (byte 7) to frame name, and the payload length the sensor sends.
-#: RESPONSE is variable in length; the figure is its minimum.
+#: RESPONSE is variable in length, and TWF and FFT2 have more than one layout;
+#: the figure is the minimum, the shortest layout.
 FRAME_TYPES: Dict[int, tuple] = {
     2: ("VERSION", 83),
     3: ("ALIVE", 35),
-    4: ("TWF", 100),
+    4: ("TWF", 96),
     5: ("CONFIG", 21),
     6: ("FFT", 97),
     7: ("FFT2", 105),
@@ -58,6 +61,13 @@ FRAME_TYPES: Dict[int, tuple] = {
 #: FFT2 type version 2 is longer (#255); FRAME_TYPES keeps version 1's length,
 #: the minimum, because older firmware still sends it.
 FFT2_V2_SIZE = 111
+
+#: TWF type version 1, V11's layout: 100 bytes.
+TWF_V1_SIZE = 100
+
+#: TWF type version 0, the V10.00 firmware's layout: 96 bytes (#313). V10.00
+#: writes no type version, so its frames read as version 0.
+TWF_V0_SIZE = 96
 
 #: FFT2 bin slots: 84 bytes of 7-bit bins.
 FFT2_SLOTS = 96
@@ -177,6 +187,46 @@ def _twf(data: bytes) -> Dict[str, Any]:
     return fields
 
 
+def _twf_v0(data: bytes) -> Dict[str, Any]:
+    """TWF type version 0: the V10.00 firmware's 96-byte layout (#313).
+
+    From the reference project at V10.00.0000 (``api_radio_transport_cfg.h``
+    TWF rows, ``api_radio_field.c``, ``api_radio_llc.c``, ``api_vibration.c``);
+    V10.00.0001, V10.00.1000 and V10.99.x have the same rows. There is no
+    Permute Control byte, so the frame counter is at 8 and every field after
+    it is one byte earlier than in version 1. Time taken is 24 bits at 92-94
+    (capped at 0xFFFFFF); it is documented as microseconds in the V10 source
+    (``app_normal.c:1501``, ``API_Radio_Field_WaveSampleTimePut``), but the
+    timer behind it has not been traced. The group ID is at 95, and there is no sync
+    attribute. PARAM bits 4:2 are reserved, not a permute method. Samples go
+    out in distance order (``API_Vibration_PacketGet``: ``packet + slot*delta``),
+    so ``permute_method`` is "distance", marked ``permute_implied`` because
+    the frame does not say so. The ODR is sent as it is, not compressed.
+    """
+    param = _u16(data, 12)
+    freq = _u16(data, 14)
+    fields: Dict[str, Any] = {"frame": _frame_count(data[8]),
+                              "permute_method": "distance", "permute_implied": True}
+    fields.update(_environment(data, 9, 11))
+    fields.update({
+        "param": {"raw": param, "axis": param >> 14, "twf_scale": (param >> 12) & 3,
+                  "si_scale": (param >> 10) & 3, "twfb": (param >> 8) & 3,
+                  "si_type": (param >> 5) & 7, "reserved": (param >> 2) & 7,
+                  "rescale": param & 3},
+        "freq_code": freq,
+        "odr_hz": freq,
+        "axis": "XYZ"[param >> 14] if param >> 14 < 3 else "?",
+        "packet_number": _u16(data, 16),
+        "packet_count": _u16(data, 18),
+        "ticks": _u16(data, 20),
+        "si": _xyz(data, 22),
+        "samples": [_s16(data, 28 + 2 * index) for index in range(32)],
+        "time_taken_us": int.from_bytes(data[92:95], "big"),
+        "group_id": data[95],
+    })
+    return fields
+
+
 def _config(data: bytes) -> Dict[str, Any]:
     fields = {"frame": _frame_count(data[9])}
     fields.update(_permute(data[8]))
@@ -258,11 +308,12 @@ def _response(data: bytes) -> Dict[str, Any]:
 #: and sends 0. A frame of a version not listed is decoded with the highest
 #: listed version below it, or the lowest listed one when it is below them all,
 #: and a warning says so. V10.00.0000 writes all of byte 5 as its HW
-#: capability (4), so its frames read as version 0 and get version 1's layout.
+#: capability (4), so its frames read as version 0 and get version 1's layout,
+#: except TWF, whose V10.00 layout is listed as version 0 (#313).
 LAYOUTS: Dict[int, Dict[int, Tuple[int, Callable[[bytes], Dict[str, Any]]]]] = {
     2: {1: (83, _version)},
     3: {1: (35, _alive)},
-    4: {1: (100, _twf)},
+    4: {0: (TWF_V0_SIZE, _twf_v0), 1: (TWF_V1_SIZE, _twf)},
     5: {1: (21, _config)},
     6: {1: (97, _fft)},
     7: {1: (105, _fft2), 2: (FFT2_V2_SIZE, _fft2_v2)},
