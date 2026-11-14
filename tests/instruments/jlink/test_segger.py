@@ -199,6 +199,26 @@ class TestRunning:
     def test_a_clean_run_passes(self):
         check_output("Erasing device...\nErasing done.\nScript processing completed.", 0, "x")
 
+    def test_the_connect_notices_are_not_failures(self):
+        # V9.42 prints both on every run that connects, even with -AutoConnect
+        # 1 (5C1712, 2026-11-14, JLINK-OPEN-05).
+        check_output(
+            "J-Link>savebin x.bin, E000EDF0, 4\n"
+            "J-Link connection not established yet but required for command.\n"
+            "Connecting to J-Link via USB...O.K.\n"
+            "S/N: 682395790\n"
+            "Target connection not established yet but required for command.\n"
+            "Device \"NRF52840_XXAA\" selected.\n"
+            "Reading 4 bytes from addr 0xE000EDF0 into file...O.K.\n"
+            "Script processing completed.", 0, "x")
+
+    def test_the_simulator_connects_only_when_a_command_needs_it(self, probe):
+        quiet = probe.commander.run([], "nothing")
+        probe_only = probe.commander.run(["f"], "firmware")
+        assert "S/N:" not in quiet and "Target connection" not in quiet
+        assert "J-Link connection not established" in probe_only and "S/N:" in probe_only
+        assert "Target connection" not in probe_only
+
     def test_the_banner_is_read(self):
         banner = parse_banner(
             "SEGGER J-Link Commander V9.42 (Compiled May  6 2026 12:31:09)\n"
@@ -485,6 +505,8 @@ class TestIdentityAndResults:
         identity = probe.identify()
         assert identity.serial_number == "801012345" and identity.manufacturer == "SEGGER"
         assert "J-Link Commander: V9.42" in identity.raw
+        # An empty command file never connects, so prints no banner.
+        assert commands_run(probe)[-1] == ["exitonerror 1", "f", "q"]
 
     def test_gdb_results_say_gdb(self):
         with JLinkProbe.connect("sim://") as probe:

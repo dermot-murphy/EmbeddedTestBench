@@ -102,6 +102,7 @@
 | next | 2026-11-13 | Claude | #71: §5 rows for SWE4-UT-JLINKSEGGER (87, pass) and SWE4-UT-JLINKIMAGE (15, pass), from a run of the whole suite on this branch on 2026-11-13 (Windows 10, Python 3.14). The rest of §5 is not regenerated. |
 | next | 2026-11-14 | Claude | #71 review round 1: §5 SWE4-UT-JLINKSEGGER 87 → 107, pass, from a run of the whole suite on this branch on 2026-11-14 (Windows 10, Python 3.14). The rest of §5 is not regenerated. |
 | next | 2026-11-14 | Claude | #71 review round 3: §5 SWE4-UT-JLINKSEGGER 107 → 118, pass, from a run of the whole suite on this branch on 2026-11-14 (Windows 10, Python 3.14). The rest of §5 is not regenerated. |
+| next | 2026-11-14 | Claude | #71 bench check JLINK-OPEN-05: §5 SWE4-UT-JLINKSEGGER 118 → 120, pass - Commander's connect notices are not failures, the simulator connects only when a command needs it, and `identify` sends `f`; from a run of the J-Link tests on this branch on 2026-11-14 (Windows 10, Python 3.11). The rest of §5 is not regenerated. |
 ---
 
 ## 3. Purpose & Scope
@@ -282,7 +283,7 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-JLINKSIM | `instruments/jlink/test_simulator.py` | 30 | Pass |
 | SWE4-UT-JLINKCLI | `instruments/jlink/test_cli.py` | 30 | Pass |
 | SWE4-UT-JLINKRTTONLY | `instruments/jlink/test_rtt_only.py` | 6 | Pass |
-| SWE4-UT-JLINKSEGGER | `instruments/jlink/test_segger.py` | 118 | Pass |
+| SWE4-UT-JLINKSEGGER | `instruments/jlink/test_segger.py` | 120 | Pass |
 | SWE4-UT-JLINKIMAGE | `instruments/jlink/test_image.py` | 15 | Pass |
 | SWE4-UT-SERIAL | `core/transport/test_serial.py` | 39 | Pass |
 | SWE4-UT-BLE | `instruments/nordic_dongle/test_dongle.py` | 121 | Pass |

@@ -146,7 +146,7 @@ driver is verified against a simulated probe (CON-04).
 | JLINK-OPEN-03 | **SWO/ITM local timestamp scaling** | The tick-to-cycle scaling depends on the trace prescaler configured by the server and the firmware. Implemented from the ARMv7-M architecture reference manual; unconfirmed | Measure a known interval with `CYCLE_COUNTER` and with `SWO_ITM` and compare. Until then, quote SWO figures as provisional (CON-05) |
 | JLINK-OPEN-04 | RTT control-block discovery and flash timing | **Figures recorded 2026-10-04** (ETB-SYS5-002 §9): chip erase 0.6 s; flash and verify 14.7 s for a 1.17 MB HEX (V10 with SoftDevice) and 17.0 s for 1.34 MB (V11 with SoftDevice and bootloader); RTT output within 20 s of reset and run. The driver's 180 s flash timeout covers these | Set tighter timeouts only with more figures |
 
-| JLINK-OPEN-05 | **The `segger` backend on a real probe** (#71) | Built and verified on the simulator only. Commander's options and commands were read from the V9.42 binary's strings, not run (§4.9). Unknown: whether the DHCSR read's connect halts the core, whether a halt survives Commander's exit, and what the extra Commander run per reset, run and halt and the logger's stop cost in time | Run §4.9's bench check on 5C1712, the DHCSR steps and the timing first, and record each item |
+| JLINK-OPEN-05 | The `segger` backend on a real probe (#71) | **Closed 2026-11-14** (§4.9). Run on 5C1712 with J-Link OB V8 (S/N 682395790) and Commander V9.42. Every operation the backend offers worked, after one fix: Commander's connect notices had been taken for errors. A DHCSR read does not halt the core. A halt does not survive Commander's exit, so `halt` on this backend always fails, as designed. Erase, UICR write, flash with `--preserve`, `reset --run` and RTT all worked | - |
 
 JLINK-OPEN-03 is the one that could change a reported number. The other three
 would show up as an outright failure, not a wrong figure.
@@ -373,7 +373,7 @@ USB probe.
 | Commander and the logger holding the probe at the same time | **Unverified**; only one client held the probe reliably in earlier sessions |
 | Tool names `JLinkExe`, `JLinkRTTLoggerExe` on Linux | **Unverified** |
 
-**Bench check (pending, JLINK-OPEN-05).** On 5C1712, with its UICR backed up:
+**Bench check (JLINK-OPEN-05), planned before it ran.** On 5C1712, with its UICR backed up:
 
 1. **DHCSR read does not disturb the core.** `--backend segger reset --run`;
    `read 0xE000EDF0 4` twice, in two separate runs; `halt`; `read 0xE000EDF0
@@ -391,6 +391,80 @@ USB probe.
    `rtt --duration 20`.
 
 Each line of the table above marked unverified is then confirmed or corrected.
+
+**Bench check result (2026-11-14, JLINK-OPEN-05).** It ran on 5C1712 with
+J-Link OB-SAM3U128-V2 (firmware V8, Nov 28 2014, S/N 682395790), Commander and
+RTT Logger V9.42, and Python 3.11. Before any probe use, flash and UICR were
+backed up with `nrfjprog --readcode --readuicr`. UICR held CUSTOMER[0]
+`0x12175C00` (ID 5C1712) and `0x10001014`/`18` = `0x000F8000`/`0x000FE000`.
+
+- **First finding: a fix.** Every run except `info` failed with "J-Link
+  connection not established yet but required for command". Commander V9.42
+  connects lazily, even with `-AutoConnect 1`. The first command that needs the
+  probe prints that line and then connects to the probe. The first command that
+  needs the target prints "Target connection not established yet ..." and then
+  connects to the target. Both lines appear on every run that succeeds. The
+  first had been listed in `ERROR_MARKERS` and is now removed. A failed connect
+  is still caught by the lines that follow it ("...FAILED", "Could not connect
+  to the target device"). The same laziness meant that `info`'s empty command
+  file never connected, so the S/N and firmware were blank. `info` now sends
+  `f` (firmware info), which connects to the probe but not to the target. The
+  simulator now prints both notices where Commander does.
+- **DHCSR.** After `reset --run`, two `read 0xE000EDF0 4` in separate runs both
+  gave `0x00050001` (running). Reading DHCSR with `savebin`, through a new
+  connect, does not halt the core. The backend's state checks are therefore
+  sound.
+- **`halt`.** `halt` exited with "halted the core, but it was running again once
+  Commander exited", and the read that followed gave `0x00050001`. Ending a
+  Commander run lets a core that `h` halted run again. This is now seen with a
+  halt that Commander itself made. `--backend segger halt` therefore always
+  fails on this target, as this section predicted. Use `backend: gdb` to hold a
+  core halted.
+- **Erase.** Chip `erase` took 0.44 s inside Commander ("Erase: 0.167s"). It
+  erased UICR as well: `0x10001080` and `0x10001014`..`1B` read `FF` afterwards,
+  and so did the flash at 0.
+- **Write into UICR.** `write 0x10001080 005c1712` read back `005c1712` in a new
+  run. `w4` into UICR programs the part, not only the DLL's cache.
+- **Flash.** The backup HEX (1 052 672 bytes written, flash and UICR) was
+  flashed with `--preserve 0x10001080:4` in 37.9 s, read back range by range
+  and passed. `0x10001080` and the bootloader address read as before.
+- **Run and RTT.** `reset --run` reported running. `rtt --duration 20` logged
+  57 lines: "Sensor ID is: 0x5C1712", "VERSION: V11.03.0000 (0fbb3f85)",
+  "NVM Memory: PASSED". The sensor was back as before the check.
+- **The logger's stop.** `JLinkRTTLogger.exe` does not read the quit key from a
+  pipe. Sent a newline on its input, it was still running 10 s later. So the
+  driver's `finish` always waits the full `quit_timeout` (2 s) and then
+  terminates it. Nothing was lost in the run checked: the file held all 871
+  bytes the logger reported as written. Its own lines show that it writes as it
+  goes.
+- **Timing** (each wall clock time includes about 0.4 s for Python to start;
+  one Commander run alone is about 0.22 s):
+
+  | Command | Commander runs | Time |
+  |---|---|---|
+  | `info` | 1 (`f`) | 0.6 s |
+  | `read` 4 bytes | 1 | 1.0 s |
+  | `halt` (fails, see above) | 2 | 1.0 s |
+  | `reset --run`, `run` | 2 | 1.3 s |
+  | `write` with read-back | 2 | 1.6 s |
+  | `erase` with blank check | 2 | 2.0 s |
+  | `flash` of 1.05 MB with read-back | 2 + one per range | 37.9 s |
+  | `rtt --duration 20` | 2, then the logger | 28.1 s, of which 2 s is the logger's stop |
+
+**The table above, item by item, after the check:**
+
+| Item | Result |
+|---|---|
+| `r` for reset | Confirmed: "Reset: Reset device via AIRCR.SYSRESETREQ." |
+| Exit status | A run that succeeds exits 0. The status of a run that `ExitOnError` stops is still not seen, because no command failed |
+| A quoted file name with a space | Not exercised: the scratch paths have no spaces |
+| `w4` into UICR | Confirmed: it programs the part |
+| Chip `erase` and UICR | Confirmed: UICR is erased too |
+| A halt surviving Commander's exit | It does not: the core runs again |
+| Stopping the logger | It does not read the key from a pipe. It is terminated after 2 s, with no loss seen |
+| DHCSR read without halting | Confirmed: it does not halt |
+| Commander and the logger at once | Not exercised: the CLI runs nothing else while the logger reads |
+| Linux tool names | Not exercised |
 
 **`halt` on this backend.** If ending a Commander run resumes the core, as it
 did once on 2026-10-05 (§4.3), then **`--backend segger halt` always fails**:

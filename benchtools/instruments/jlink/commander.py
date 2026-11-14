@@ -75,11 +75,16 @@ _LOG = logging.getLogger(__name__)
 #: Messages ``JLink.exe`` V9.42 prints when a command or the connection fails,
 #: each found in the binary's own strings (2026-11-13). A line holding any of
 #: them fails the run, whatever the exit status says.
+#:
+#: Not among them: "J-Link connection not established yet but required for
+#: command" and "Target connection not established yet ...". Commander prints
+#: each before it connects, on every successful run, even with
+#: ``-AutoConnect 1`` (5C1712, 2026-11-14, JLINK-OPEN-05). A failed connection
+#: is reported by the lines that follow them.
 ERROR_MARKERS = (
     "Could not connect to the target device",
     # "Connecting to J-Link via %s..." then "FAILED".
     "...FAILED",
-    "J-Link connection not established yet but required for command",
     "Error while programming flash",
     "Writing target memory failed",
     "Could not write memory",

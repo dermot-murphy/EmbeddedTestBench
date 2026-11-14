@@ -108,6 +108,7 @@
 | next | 2026-11-13 | Claude | #71: SWE4-UT-JLINKSEGGER (87 cases) and SWE4-UT-JLINKIMAGE (15) added, for the `segger` J-Link backend. |
 | next | 2026-11-14 | Claude | #71 review round 1: SWE4-UT-JLINKSEGGER 87 → 107 cases - `run` after another instance's halt, the core state from DHCSR after reset, run and halt, register writes not read back, a fresh RTT file per session, the logger asked to quit and its last bytes read, terminated when it will not quit, stopped when its start is interrupted or the client fails to start, no Commander run while the CLI reads RTT. |
 | next | 2026-11-14 | Claude | #71 review round 3: SWE4-UT-JLINKSEGGER 107 → 118 cases - a write reaching a register region from memory not read back, the register test over the whole range, `write --no-read-back` refused on `gdb`, an RTT file that cannot be removed reported clearly. |
+| next | 2026-11-14 | Claude | #71 bench check JLINK-OPEN-05: SWE4-UT-JLINKSEGGER 118 → 120 cases - Commander's connect notices are not failures, and the simulator connects only when a command needs it. |
 ---
 
 ## 3. Purpose & Scope

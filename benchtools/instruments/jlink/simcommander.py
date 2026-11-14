@@ -32,6 +32,11 @@ _DHCSR = 0xE000EDF0
 _DHCSR_HALTED = 0x00030003
 _DHCSR_RUNNING = 0x00050001
 
+#: Commands that need no connection, and those that need the probe but not
+#: the target.
+_NO_CONNECTION = ("exitonerror", "eoe", "q", "qc", "quit", "exit", "sleep")
+_PROBE_ONLY = ("f",)
+
 
 class SimulatedCommander(JLinkCommander):
     """Runs command files against a simulated target instead of a probe.
@@ -63,6 +68,7 @@ class SimulatedCommander(JLinkCommander):
         self.handlers: Dict[str, Callable[[str, List[str], List[str]], bool]] = {}
         for names, handler in (
             (("exitonerror", "eoe", "q", "qc", "quit", "exit", "sleep"), self._quiet),
+            (("f",), self._firmware),
             (("h", "halt"), self._halt),
             (("g", "go"), self._go),
             (("r", "reset"), self._reset),
@@ -110,21 +116,36 @@ class SimulatedCommander(JLinkCommander):
         out = [
             "SEGGER J-Link Commander V9.42 (Compiled May  6 2026 12:31:09)",
             "DLL version V9.42, compiled May  6 2026 12:30:32",
-            "Connecting to J-Link via USB...O.K.",
-            "Firmware: J-Link V11 compiled Jan  1 2026 00:00:00",
-            "Hardware version: V11.00",
-            "S/N: %s" % target.serial_number,
-            "VTref=3.300V",
         ]
-        if not target.attached:
-            out.append("Error occurred: Could not connect to the target device.")
-            return 1, "\n".join(out)
-        target.connected = True
+        # Commander V9.42 connects lazily, even with -AutoConnect 1: the first
+        # command that needs the probe prints the probe notice and banner, and
+        # the first that needs the target prints the target notice and
+        # connects (5C1712, 2026-11-14, JLINK-OPEN-05). Neither notice is an
+        # error.
+        probe_connected = target_connected = False
         exit_on_error, status = False, 0
         for line in script:
             text = line.strip()
             lower = text.lower()
             out.append("J-Link>%s" % text)
+            name = lower.split(" ", 1)[0]
+            if name and name not in _NO_CONNECTION:
+                if not probe_connected:
+                    probe_connected = True
+                    out.extend([
+                        "J-Link connection not established yet but required for command.",
+                        "Connecting to J-Link via USB...O.K.",
+                        "Firmware: J-Link V11 compiled Jan  1 2026 00:00:00",
+                        "Hardware version: V11.00",
+                        "S/N: %s" % target.serial_number,
+                        "VTref=3.300V",
+                    ])
+                if name not in _PROBE_ONLY and not target_connected:
+                    out.append("Target connection not established yet but required for command.")
+                    if not target.attached:
+                        out.append("Error occurred: Could not connect to the target device.")
+                        return 1, "\n".join(out)
+                    target_connected = target.connected = True
             if not self._command(text, out):
                 status = 1
                 if exit_on_error:
@@ -152,6 +173,10 @@ class SimulatedCommander(JLinkCommander):
 
     # ------------------------------------------------------------------
     def _quiet(self, _name: str, _arguments: List[str], _out: List[str]) -> bool:
+        return True
+
+    def _firmware(self, _name: str, _arguments: List[str], out: List[str]) -> bool:
+        out.extend(["Firmware: J-Link V11 compiled Jan  1 2026 00:00:00", "Hardware: V11.00"])
         return True
 
     def _halt(self, _name: str, _arguments: List[str], out: List[str]) -> bool:
