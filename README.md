@@ -968,6 +968,7 @@ by `scripts/publish_docs.py` and are not edited by hand.
 | [PicoScope 3000D Driver Interface](docs/aspice/EmbeddedTestBench_IF002_PicoScope3000_Driver_Interface.md) | ETB-IF-002: how the bench drives the PicoScope, call by call, and its dependencies |
 | [PicoScope 3000 Notes](docs/picoscope3000/PicoScope3000_Notes.md) | How the PicoScope is reached (ps3000a through ctypes), what was measured on the 3405D, and what is unverified |
 | [J-Link Integration Notes](docs/jlink/JLink_Integration_Notes.md) | Why the GDB Server rather than the DLL, Windows and Docker, timing methods, probe confirmation items |
+| [Bench Tools in a Container](docs/docker/Bench_Container_Investigation.md) | ETB-DOCK-001: what runs in a Docker image and what stays on the host, how instruments are reached, costs, and the J-Link test plan |
 | [Bench Runner Guide](docs/Bench_Runner_Guide.md) | Writing specifications and bench configurations |
 | [BLE Dongle Notes](docs/ble/BLE_Dongle_Notes.md) | Why the dongle needs firmware, the line protocol, building and flashing, reading a profile, and what is unproven |
 | [S2-LP Devkit Notes](docs/s2lp/S2LP_Devkit_Notes.md) | Why ST's firmware is used unchanged, its CLI protocol, the register map, what a polled capture can and cannot be quoted as, and the licence position |

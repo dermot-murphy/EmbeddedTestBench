@@ -95,6 +95,7 @@ All ASPICE work products live in [`aspice/`](aspice/). Every one is at version
 | [Bench Runner Guide](Bench_Runner_Guide.md) | How to write a test specification and a bench configuration |
 | [Bench Self-Check Setup](Bench_Self_Check_Setup.md) | Setting up a Windows or Linux machine to run the bench self-check against real instruments |
 | [Robot Framework Keyword Catalogue](robot/Robot_Keyword_Catalogue.md) | Proposed keywords for the BLE dongle, the J-Link and the GPD-3303D, with the hardware behaviour that set each one's defaults. Nothing is implemented |
+| [Bench Tools in a Container](docker/Bench_Container_Investigation.md) | ETB-DOCK-001 (#70). Whether benchtools and the ARM GDB should run in a Docker image: what moves and what stays on the host, how each instrument is reached, measured costs, the prototype `docker/bench/Dockerfile`, and the J-Link test plan |
 
 ### Product test setups
 

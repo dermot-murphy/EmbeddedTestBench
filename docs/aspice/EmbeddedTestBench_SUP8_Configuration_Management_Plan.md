@@ -43,6 +43,7 @@
 | next | 2026-10-25 | Claude | #210: §6.2 rewritten: a document's version and date are those of its last revision history row, which the identification table links to; a new row is written as `next` and numbered on the release or hotfix branch by `scripts/doc_versions.py`, which also sets ETB-SVD-001 §5.3; ETB-SVD-001 keeps literal values until its next revision; the `etb-history` merge driver. §5.6 step 2 and the §6 Documents row name the numbering. |
 | next | 2026-10-25 | Claude | #210, review of #301: §6.2 merge driver restated - only revision history rows, theirs first, the release back-merge, the fallback to git's own merge, `install-driver`; GitHub does not run it; the links are expanded on the wiki only; `check` also fails on a row whose version is not recognised. A row edited or removed by either side leaves the conflict; the conflict style and the fallback's labels; a renumbered row, two rows numbered differently, and twin rows. |
 | next | 2026-10-27 | Claude | #305: §6.2 - the conflict style is read from the clone being merged. |
+| next | 2026-11-14 | Claude | #70: §4 - the prototype bench image (`docker/bench/`) added as a configuration item. |
 
 ---
 
@@ -89,6 +90,7 @@ physical bench instruments whose identity affects a result.
 | CI workflows and actions | `.github/workflows/*.yml`, `action.yml` | Filename | git |
 | CI library versions | `constraints/py<version>.txt`, `constraints/lint.txt`, `constraints/lint.in` | Filename | git — exact pins per Python leg, installed by `tests.yml`, `lint.yml` and the CI image; regenerated only by `etb-ci lock` (User Manual §2.6), by hand or by the weekly `constraints_refresh.yml` (#284) |
 | CI image | `docker/ci/Dockerfile`, `docker/ci/etb-ci` | Filename | git — base image pinned by digest, uv and the Python patch versions pinned in the Dockerfile; built by `ci_image.yml`, not published |
+| Bench image (prototype) | `docker/bench/Dockerfile`, `docker/bench/Dockerfile.dockerignore` | Filename | git - base image pinned by digest, uv by tag; Python, the Arm GNU Toolchain release and its SHA-256 pinned in the Dockerfile; libraries from `constraints/py3.12.txt`; not built by CI, not published, not used for evidence (ETB-DOCK-001) |
 | Generated outputs | GitHub wiki; `gh-pages` branch (home page) | Wiki page name; file path | Regenerated from `main` by `wiki_publish.yml` and `pages_publish.yml`; never edited by hand (§5.8) |
 | C rule configuration | `.cstylecheck.yml`, `.cstylecheck-baseline.json` | Filename | git — the baseline changes only with a recorded reason |
 | Python rule configuration | `[tool.pylint]` in `pyproject.toml`, `.pylint-baseline.json` | Filename | git — as above |
