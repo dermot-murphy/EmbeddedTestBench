@@ -480,6 +480,60 @@ class TestV1001Twf:
             "RF_CAP 5; these layouts are for RF_CAP 6"]
 
 
+#: Received on the bench on 2026-11-14 (docs/aspice/qualification/2026-11-14/
+#: 335_5c1712_v10/): 5C1712 on V10.00.0000, and 5C1705 on V10.01.2000-323.
+V10_CONFIG = "5c1712030404020513040000000000004dfc0000"
+V1001_CONFIG = "5c170503050c04051300000a000a000a000a0003"
+V10_TWF = ("5c171203040402041300d38c0001640000000100004802ff10d3021400c6fffe013d0192"
+           "00d703ab041102f0008c0315fff9ffde02a301c4017bffea057f0471041401a202d1ff56"
+           "054a03d70155044f00ea03d202b5038c01600241099abc01")
+
+
+class TestV10ConfigAndRealFrames:
+    """CONFIG as V10 sends it, 20 bytes (#335), and the first V10.00 TWF frame
+    received on the bench, which #313's layout was written for from source."""
+
+    def test_a_v10_00_config_is_decoded(self):
+        decoded = decode_kepler_frame(bytes.fromhex(V10_CONFIG))
+        assert (decoded["type"], decoded["sensor_id"], decoded["type_capability"]) == (
+            "CONFIG", "5C1712", 0)
+        assert decoded["frame"] == {"repeat": 0, "frames_per_packet": 3}
+        assert decoded["mux"] == 4 and decoded["values"] == [0, 0, 0, 0x4DFC, 0]
+        assert decoded["permute_method"] == "none" and decoded["permute_implied"]
+        # V10's parameter list is not V11's, so the values are not named.
+        assert "parameters" not in decoded
+        assert decoded["warnings"] == ["RF_CAP 4; these layouts are for RF_CAP 6"]
+
+    def test_a_v10_01_config_is_decoded_under_its_rf_capability(self):
+        decoded = decode_kepler_frame(bytes.fromhex(V1001_CONFIG))
+        assert (decoded["sensor_id"], decoded["rf_capability"], decoded["type_capability"]) == (
+            "5C1705", 5, 1)
+        assert decoded["mux"] == 0 and decoded["values"] == [10, 10, 10, 10, 3]
+        assert "warnings" not in decoded
+
+    def test_a_20_byte_config_from_v11_is_still_refused(self):
+        frame = bytearray.fromhex(V1001_CONFIG)
+        frame[4] = 6
+        with pytest.raises(KeplerFrameError, match=r"a CONFIG frame is 21 bytes; this payload is 20$"):
+            decode_kepler_frame(bytes(frame))
+
+    def test_a_v11_config_is_unchanged(self):
+        frame = header(5, 21)
+        frame[10] = 3
+        decoded = decode_kepler_frame(bytes(frame))
+        assert decoded["mux"] == 3 and "parameters" in decoded
+
+    def test_the_first_real_v10_00_twf_frame(self):
+        decoded = decode_kepler_frame(bytes.fromhex(V10_TWF))
+        assert (decoded["type"], decoded["sensor_id"], decoded["type_capability"]) == (
+            "TWF", "5C1712", 0)
+        assert (decoded["axis"], decoded["packet_number"], decoded["packet_count"]) == ("X", 0, 256)
+        assert decoded["odr_hz"] == 25600
+        # 16384 samples at 25600 Hz take 640 ms; the sensor reports 629 436 us.
+        assert decoded["time_taken_us"] == 629436 and decoded["group_id"] == 1
+        assert decoded["samples"][:4] == [198, -2, 317, 402]
+
+
 #: Every (PL_TYPE, type version) the decoder knows (#287).
 KNOWN_LAYOUTS = [(pl_type, version, size)
                  for pl_type, versions in sorted(LAYOUTS.items())
@@ -495,9 +549,10 @@ class TestTypeVersions:
         # Pinned to API_RADIO_TRANSPORT_TYPE_CAPABILITY_* on innovateuk-sensor
         # develop e638d66df (CMD falls to the switch's default, 0). The firmware
         # is not read here: this catches an edit to LAYOUTS, not a firmware change.
-        # TWF version 0 is V10.00.0000's layout, which writes no type version (#313).
+        # TWF version 0 is V10.00.0000's layout, which writes no type version (#313);
+        # CONFIG version 0 is V10's 20-byte layout (#335).
         versions = {pl_type: sorted(known) for pl_type, known in LAYOUTS.items()}
-        assert versions == {2: [1], 3: [1], 4: [0, 1], 5: [1], 6: [1], 7: [1, 2], 8: [0], 9: [0]}
+        assert versions == {2: [1], 3: [1], 4: [0, 1], 5: [0, 1], 6: [1], 7: [1, 2], 8: [0], 9: [0]}
 
     def test_frame_types_holds_each_types_shortest_layout(self):
         for pl_type, (_name, size) in FRAME_TYPES.items():

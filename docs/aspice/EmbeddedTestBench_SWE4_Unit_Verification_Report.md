@@ -109,6 +109,7 @@
 | next | 2026-11-14 | Claude | #342: §5 rows for SWE4-UT-PPK (36), -PPKPROTO (22), -PPKMEAS (15) and -PPKCLI (10), pass, from a run of `tests/instruments/ppk2` on this branch on 2026-11-14 (83 passed, Windows). §13D added: those results, what the bench's PPK2 showed on 2026-11-14 with nothing wired to it, and what it has not yet shown (PPK-OPEN-01 … -03). The section 5 total is still the 1.32 whole-suite run's. |
 | next | 2026-11-14 | Claude | #342 review round 1: §5 and §13D.1 counts after round 1: SWE4-UT-PPK 38, -PPKPROTO 23, -PPKCLI 13 (89 passed). |
 | next | 2026-11-14 | Claude | #335: §5 SWE4-UT-S2LPKEPLER 75 → 84, pass, from a run of `tests/` on this branch on 2026-11-14 (Windows 10, Python 3.14): no failures. |
+| next | 2026-11-14 | Claude | #335 (2): §5 SWE4-UT-S2LPKEPLER 84 -> 90, pass, from a run of `tests/` on this branch on 2026-11-14 (Windows 10, Python 3.14): no failures. |
 ---
 
 ## 3. Purpose & Scope
@@ -342,7 +343,7 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-S2LPPROTO | `instruments/s2lp/test_protocol.py` | 42 | Pass |
 | SWE4-UT-S2LPSESSION | `instruments/s2lp/test_session.py` | 22 | Pass |
 | SWE4-UT-S2LPSIM | `instruments/s2lp/test_simulator.py` | 48 | Pass |
-| SWE4-UT-S2LPKEPLER | `instruments/s2lp/test_kepler.py` | 84 | Pass |
+| SWE4-UT-S2LPKEPLER | `instruments/s2lp/test_kepler.py` | 90 | Pass |
 | SWE4-UT-S2LPTABLES | `instruments/s2lp/test_kepler_tables.py` | 19 | Pass |
 | SWE4-UT-S2LPPREAMBLE | `instruments/s2lp/test_preamble.py` | 17 | Pass |
 | SWE4-UT-S2LPSAMPLES | `instruments/s2lp/test_kepler_samples.py` | 7 | Pass |

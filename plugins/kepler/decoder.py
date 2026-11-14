@@ -54,7 +54,7 @@ FRAME_TYPES: Dict[int, tuple] = {
     2: ("VERSION", 83),
     3: ("ALIVE", 35),
     4: ("TWF", 96),
-    5: ("CONFIG", 21),
+    5: ("CONFIG", 20),
     6: ("FFT", 97),
     7: ("FFT2", 105),
     8: ("CMD", 15),
@@ -74,6 +74,10 @@ TWF_V0_SIZE = 96
 
 #: TWF type version 1 as V10.01.x (RF_CAP 5) sends it: 99 bytes (#335).
 TWF_V1001_SIZE = 99
+
+#: CONFIG as V10.00 and V10.01.x send it: 20 bytes, with no Permute Control
+#: byte (#335).
+CONFIG_V10_SIZE = 20
 
 #: FFT2 bin slots: 84 bytes of 7-bit bins.
 FFT2_SLOTS = 96
@@ -266,6 +270,23 @@ def _config(data: bytes) -> Dict[str, Any]:
     return fields
 
 
+def _config_v10(data: bytes) -> Dict[str, Any]:
+    """CONFIG as V10.00 and V10.01.x send it: 20 bytes (#335).
+
+    From the reference project at V10.00.0000, V10.01.2000 and the
+    V10.01.2000-323 build on the bench (``api_radio_transport_cfg.h`` CONFIG
+    rows, ``API_Radio_Field_Load_Config``): the frame counter at 8, then the
+    multiplex at 9 and five big-endian values at 10-19. There is no Permute
+    Control byte; the values go out in order, parameter ``mux * 5 + slot`` of
+    V10's own list (``NUM_CONFIG_MUX`` 8), which is not V11's, so they are not
+    named here. Seen on the bench, 2026-11-14, from 5C1712 on V10.00.0000 and
+    from 5C1705 and 5C168B on V10.01.2000-323.
+    """
+    return {"frame": _frame_count(data[8]), "permute_method": "none",
+            "permute_implied": True, "mux": data[9],
+            "values": [_u16(data, 10 + 2 * slot) for slot in range(5)]}
+
+
 def _fft(data: bytes) -> Dict[str, Any]:
     fields = _environment(data, 8, 10)
     fields.update({"param": _u16(data, 11), "time_taken_us": _u32(data, 13),
@@ -336,12 +357,13 @@ def _response(data: bytes) -> Dict[str, Any]:
 #: listed version below it, or the lowest listed one when it is below them all,
 #: and a warning says so. V10.00.0000 writes all of byte 5 as its HW
 #: capability (4), so its frames read as version 0 and get version 1's layout,
-#: except TWF, whose V10.00 layout is listed as version 0 (#313).
+#: except TWF, whose V10.00 layout is listed as version 0 (#313), and CONFIG,
+#: whose V10 layout is listed as version 0 (#335).
 LAYOUTS: Dict[int, Dict[int, Tuple[int, Callable[[bytes], Dict[str, Any]]]]] = {
     2: {1: (83, _version)},
     3: {1: (35, _alive)},
     4: {0: (TWF_V0_SIZE, _twf_v0), 1: (TWF_V1_SIZE, _twf)},
-    5: {1: (21, _config)},
+    5: {0: (CONFIG_V10_SIZE, _config_v10), 1: (21, _config)},
     6: {1: (97, _fft)},
     7: {1: (105, _fft2), 2: (FFT2_V2_SIZE, _fft2_v2)},
     8: {0: (15, _cmd)},
@@ -354,7 +376,7 @@ LAYOUTS: Dict[int, Dict[int, Tuple[int, Callable[[bytes], Dict[str, Any]]]]] = {
 #: bytes; the RF_CAP, not the length, tells the two apart (#335). A frame
 #: whose layout comes from here gets no RF_CAP warning for it.
 RF_CAP_LAYOUTS: Dict[int, Dict[int, Dict[int, Tuple[int, Callable[[bytes], Dict[str, Any]]]]]] = {
-    5: {4: {1: (TWF_V1001_SIZE, _twf_v1001)}},
+    5: {4: {1: (TWF_V1001_SIZE, _twf_v1001)}, 5: {1: (CONFIG_V10_SIZE, _config_v10)}},
 }
 
 #: RESPONSE is built by the gateway, not by the sensor, so its header's RF_CAP
