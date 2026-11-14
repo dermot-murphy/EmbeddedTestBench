@@ -98,6 +98,7 @@
 | next | 2026-11-13 | Claude | #330: the Pico 2 SHT30 Temperature Sensor renamed the PICO2 Test Board. §5.8 notes the rename and the user manual (ETB-PICO-002); PICO-DD-PROTOCOL and -VERSION - the name and `V1.00.0000`; PICO-DD-DRIVER - `Pico2TestBoard`, the aliases kept, the bench driver names, `set_led(colour, lit)`; PICO-DD-SIM - default version `V1.00.0000`; PICO-DD-CLI - `benchtools pico2` and the names it still accepts. |
 | next | 2026-11-13 | Claude | #200: section 5.10, PSCOPE - PSCOPE-DD-CONST, PSCOPE-DD-SDK, PSCOPE-DD-SIM, PSCOPE-DD-SCOPE and PSCOPE-DD-CLI, the PicoScope 3000D MSO driver through the `ps3000a` library (total 84 → 89); RUN and VIEW renumbered 5.11 and 5.12; CORE-DD-EVENTS - the default name `PSCOPE`. |
 | next | 2026-11-13 | Claude | #313: S2LP-DD-KEPLER - TWF type version 0, the V10.00 firmware's 96-byte layout (no Permute Control byte, counter at 8, 24-bit time taken, no sync attribute, distance order implied), read from the reference project's V10.00.0000 tag; version 1 unchanged. VIEW-DD-KEPLER - `byte_roles` and `header_rows` for a frame whose permute method is implied. |
+| next | 2026-11-14 | Claude | #313: S2LP-DD-KEPLER - the V10.00 TWF's time taken is documented as microseconds in the V10 source (`app_normal.c:1501`, `API_Radio_Field_WaveSampleTimePut`); the timer behind it is not traced (PR #333 review). |
 ---
 
 ## 3. Purpose & Scope
@@ -2408,8 +2409,10 @@ have the same rows, and none of them writes a type version. There is no
 Permute Control byte: the frame counter is at 8, temperature at 9, battery 11,
 PARAM 12, FREQ 14, packet number and count 16 and 18, ticks 20, the SI figures
 22-27 and the 32 samples (big-endian int16) 28-91, each one byte earlier than in
-version 1. Time taken is 24 bits at 92-94, capped at 0xFFFFFF; the group ID is
-at 95; there is no sync attribute. PARAM bits 4:2 are reserved, so `param`
+version 1. Time taken is 24 bits at 92-94, capped at 0xFFFFFF, and kept as
+`time_taken_us`: it is documented as microseconds in the V10 source
+(`app_normal.c:1501`, `API_Radio_Field_WaveSampleTimePut`), but the timer behind
+it has not been traced. The group ID is at 95; there is no sync attribute. PARAM bits 4:2 are reserved, so `param`
 carries `reserved` in place of `permute`. The ODR is sent as configured, not
 compressed, so `odr_hz` equals `freq_code`. `API_Vibration_PacketGet` sends the
 samples in distance order (`packet + slot*delta`), so the frame carries

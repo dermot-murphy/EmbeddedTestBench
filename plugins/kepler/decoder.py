@@ -195,7 +195,9 @@ def _twf_v0(data: bytes) -> Dict[str, Any]:
     V10.00.0001, V10.00.1000 and V10.99.x have the same rows. There is no
     Permute Control byte, so the frame counter is at 8 and every field after
     it is one byte earlier than in version 1. Time taken is 24 bits at 92-94
-    (capped at 0xFFFFFF), the group ID is at 95, and there is no sync
+    (capped at 0xFFFFFF); it is documented as microseconds in the V10 source
+    (``app_normal.c:1501``, ``API_Radio_Field_WaveSampleTimePut``), but the
+    timer behind it has not been traced. The group ID is at 95, and there is no sync
     attribute. PARAM bits 4:2 are reserved, not a permute method. Samples go
     out in distance order (``API_Vibration_PacketGet``: ``packet + slot*delta``),
     so ``permute_method`` is "distance", marked ``permute_implied`` because
