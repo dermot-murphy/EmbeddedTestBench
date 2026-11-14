@@ -111,6 +111,9 @@
 | next | 2026-11-14 | Claude | #340: §5 SWE4-UT-PLUGINS 69 → 73, pass, from a run of `tests/` on this branch on 2026-11-14 (Windows 10, Python 3.14): no failures. |
 | next | 2026-11-14 | Claude | #340 review round 1: §5 SWE4-UT-PLUGINS 73 → 74, pass, from a run of `tests/` on this branch on 2026-11-14 (Windows 10, Python 3.14): no failures. |
 | next | 2026-11-14 | Claude | #195: §5 SWE4-UT-PUBLISH 45 → 48, pass, from a run of `tests/` on this branch on 2026-11-14 (Windows 10, Python 3.14): no failures. |
+| next | 2026-11-14 | Claude | #335: §5 SWE4-UT-S2LPKEPLER 75 → 84, pass, from a run of `tests/` on this branch on 2026-11-14 (Windows 10, Python 3.14): no failures. |
+| next | 2026-11-14 | Claude | #335 (2): §5 SWE4-UT-S2LPKEPLER 84 -> 90, pass, from a run of `tests/` on this branch on 2026-11-14 (Windows 10, Python 3.14): no failures. |
+| next | 2026-11-14 | Claude | #335 (3): §5 SWE4-UT-S2LPKEPLER 90 -> 91, pass, from a run of `tests/` on this branch on 2026-11-14 (Windows 10, Python 3.14): no failures. |
 | next | 2026-11-14 | Claude | #84: §5 row for SWE4-UT-S2LPKITFW (17), pass, from a local run (Windows, MinGW gcc, CTest) on 2026-11-14; the bench runs are in `qualification/2026-11-14/84_kit_firmware/`. |
 | next | 2026-11-14 | Claude | #84 review round 1: §5 SWE4-UT-S2LPKITFW 17 -> 21, pass, local run 2026-11-14; host commands while receiving checked on the kit (`84_kit_firmware/r1_check/`). |
 ---
@@ -346,7 +349,7 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-S2LPPROTO | `instruments/s2lp/test_protocol.py` | 42 | Pass |
 | SWE4-UT-S2LPSESSION | `instruments/s2lp/test_session.py` | 22 | Pass |
 | SWE4-UT-S2LPSIM | `instruments/s2lp/test_simulator.py` | 48 | Pass |
-| SWE4-UT-S2LPKEPLER | `instruments/s2lp/test_kepler.py` | 75 | Pass |
+| SWE4-UT-S2LPKEPLER | `instruments/s2lp/test_kepler.py` | 91 | Pass |
 | SWE4-UT-S2LPTABLES | `instruments/s2lp/test_kepler_tables.py` | 19 | Pass |
 | SWE4-UT-S2LPPREAMBLE | `instruments/s2lp/test_preamble.py` | 17 | Pass |
 | SWE4-UT-S2LPSAMPLES | `instruments/s2lp/test_kepler_samples.py` | 7 | Pass |
