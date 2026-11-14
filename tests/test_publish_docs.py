@@ -274,15 +274,18 @@ class TestAtAGlance:
         start = text.index("## At a glance")
         return text[start:text.index("\n## ", start + 1)]
 
+    @staticmethod
+    def rows(text):
+        return [line.split("|")[1].strip() for line in text.split("\n")
+                if line.startswith("| ") and "---" not in line]
+
     def test_both_home_pages_carry_the_same_section(self, wiki, tmp_path):
         publish.generate_home(tmp_path)
         home = self.section((tmp_path / "README.md").read_text(encoding="utf-8"))
         wiki_home = self.section((wiki / "Home.md").read_text(encoding="utf-8"))
         for heading in ("### What it drives", "### Getting started", "### Where to read more"):
             assert heading in home and heading in wiki_home
-        rows = lambda text: [line.split("|")[1].strip() for line in text.split("\n")
-                             if line.startswith("| ") and "---" not in line]
-        assert rows(home) == rows(wiki_home) and len(rows(home)) > 5
+        assert self.rows(home) == self.rows(wiki_home) and len(self.rows(home)) > 5
 
     def test_every_relative_link_in_it_resolves(self):
         text = self.section((ROOT / "README.md").read_text(encoding="utf-8"))

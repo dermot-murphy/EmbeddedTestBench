@@ -45,13 +45,13 @@ instrument also has a simulator.
 
 | Instrument | On hardware |
 |---|---|
-| GW Instek GPD-3303D power supply | Qualified: QS-03 passed, for independent outputs only |
-| TTi 1604 multimeter | Checked on the bench: QS-09 failed ([#181](https://github.com/dermot-murphy/EmbeddedTestBench/issues/181)); fixed and checked again on 2026-10-28 |
-| SEGGER J-Link debug probe | Qualified: QS-01 passed; QS-01b failed ([#178](https://github.com/dermot-murphy/EmbeddedTestBench/issues/178)), fixed and checked again on the bench |
+| GW Instek GPD-3303D power supply | Qualified, with its outputs off: QS-03 passed, setting and reading back the limits of independent outputs. No output has been switched on in a test |
+| TTi 1604 multimeter | Checked on the bench: QS-09 failed ([#181](https://github.com/dermot-murphy/EmbeddedTestBench/issues/181)); the fix was checked on 2026-10-28 with the inputs open. Nothing has been measured against a reference |
+| SEGGER J-Link debug probe | Qualified: QS-01 passed; QS-01b failed ([#178](https://github.com/dermot-murphy/EmbeddedTestBench/issues/178)), fixed and checked again on the bench on 2026-10-05 |
 | Nordic nRF52840 BLE dongle, with its own firmware | Qualified: QS-02 passed |
-| ST S2-LP sub-GHz development kit | Checked on the bench: receive only; QS-07 ended in error ([#179](https://github.com/dermot-murphy/EmbeddedTestBench/issues/179)) |
-| PICO2 Test Board: Raspberry Pi Pico 2 thermometer, LEDs and frequency generator | Checked on the bench; its identity is qualified (QS-10) |
-| PicoScope 3000D mixed-signal oscilloscope | Checked on the bench: analogue channel A, on 2026-11-13 |
+| ST S2-LP sub-GHz development kit | Qualified in part: QS-07 ended in error ([#179](https://github.com/dermot-murphy/EmbeddedTestBench/issues/179), since fixed), with register access passing and a transmission sent but not shown to arrive. Receiving was checked on the bench since |
+| PICO2 Test Board: Raspberry Pi Pico 2 thermometer, LEDs and frequency generator | Its identity is qualified (QS-10). LEDs checked on the bench on 2026-11-12. The thermometer has read a plausible room temperature, with no reference. The generator has been seen only on a scope, in an unrecorded check |
+| PicoScope 3000D mixed-signal oscilloscope | Seen working on the bench on 2026-11-13 (analogue channel A), during development, not in a recorded test run |
 | Nordic Power Profiler Kit II | Checked on the bench, with nothing wired to it, on 2026-11-14 |
 | Tektronix TDS3014B oscilloscope | Simulated only |
 | Serial capture of a device's console or test UART | Simulated only |
@@ -61,11 +61,14 @@ Each instrument's notes list what is still unconfirmed on hardware.
 ### Getting started
 
 The latest release is on the [releases page](https://github.com/dermot-murphy/EmbeddedTestBench/releases/latest).
-Install it with pip, naming its tag:
+Install it with pip, putting its tag, such as `v0.02.0002`, in place of `<tag>`:
 
 ```bash
-pip install "benchtools[spec] @ git+https://github.com/dermot-murphy/EmbeddedTestBench@v0.02.0002"
+pip install "benchtools[spec] @ git+https://github.com/dermot-murphy/EmbeddedTestBench@<tag>"
 ```
+
+The table above describes the source this page was generated from. What each
+release contains is in its [Software Version Description (ETB-SVD-001)](docs/aspice/EmbeddedTestBench_SVD_Software_Version_Description.md).
 
 Then run a specification on the simulated bench:
 
