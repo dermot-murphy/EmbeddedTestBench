@@ -36,10 +36,24 @@
 /** Most passes of the nIRQ handler while the line stays low. */
 #define HAL_IRQ_PASSES          (4U)
 
+/**
+ * Interrupt priorities (Cortex-M0+: the top two bits of each byte). USART2 has
+ * no FIFO: a byte from the host overruns two byte times later, 174 us at
+ * 115200, and a frame's interrupt takes up to 393 us, so USART2 comes first.
+ */
+#define HAL_PRIORITY_UART       (0x00U)
+#define HAL_PRIORITY_RADIO      (0x40U)
+#define HAL_PRIORITY_TIMER      (0x40U)
+
+/** Interrupts per priority register, and bits per priority. */
+#define HAL_IPR_PER_WORD        (4U)
+#define HAL_IPR_BITS            (8U)
+
 static volatile uint32_t m_time_high;
 static volatile uint8_t m_rx_bytes[HAL_RX_SIZE];
 static volatile uint32_t m_rx_head;
 static volatile uint32_t m_rx_tail;
+static volatile uint32_t m_rx_overruns;
 
 static void hal_pin_mode(uint32_t base, uint32_t pin, uint32_t mode)
 {
@@ -64,6 +78,17 @@ static void hal_pin_af(uint32_t base, uint32_t pin, uint32_t function)
 static void hal_pin_write(uint32_t base, uint32_t pin, bool high)
 {
 	L053_GPIO_BSRR(base) = high ? (1UL << pin) : (1UL << (pin + 16U));
+}
+
+static void hal_nvic_priority(uint32_t irq, uint32_t priority)
+{
+	uint32_t address = L053_NVIC_IPR0 + (4U * (irq / HAL_IPR_PER_WORD));
+	uint32_t shift = HAL_IPR_BITS * (irq % HAL_IPR_PER_WORD);
+	uint32_t value = L053_REG(address);
+
+	value &= ~(0xFFUL << shift);
+	value |= priority << shift;
+	L053_REG(address) = value;
 }
 
 static void hal_nvic_enable(uint32_t irq, bool enable)
@@ -151,6 +176,9 @@ static void hal_peripherals_init(void)
 	L053_USART2_BRR = HAL_USART_BRR_115200;
 	L053_USART2_CR1 = L053_USART_CR1_TE | L053_USART_CR1_RE | L053_USART_CR1_RXNEIE
 		| L053_USART_CR1_UE;
+	hal_nvic_priority(L053_IRQ_USART2, HAL_PRIORITY_UART);
+	hal_nvic_priority(L053_IRQ_TIM2, HAL_PRIORITY_TIMER);
+	hal_nvic_priority(L053_IRQ_EXTI0_1, HAL_PRIORITY_RADIO);
 	hal_nvic_enable(L053_IRQ_USART2, true);
 
 	L053_TIM2_PSC = 31U;                            /* 32 MHz / 32 = 1 MHz */
@@ -267,6 +295,11 @@ int32_t hal_uart_read(void)
 	return byte;
 }
 
+uint32_t hal_uart_overruns(void)
+{
+	return m_rx_overruns;
+}
+
 uint32_t hal_irq_save(void)
 {
 	uint32_t state;
@@ -313,6 +346,7 @@ void hal_usart2_isr(void)
 	if ((status & L053_USART_ISR_ORE) != 0U)
 	{
 		L053_USART2_ICR = L053_USART_ICR_ORECF;
+		m_rx_overruns = m_rx_overruns + 1U;
 	}
 	if ((status & L053_USART_ISR_RXNE) != 0U)
 	{
@@ -321,6 +355,10 @@ void hal_usart2_isr(void)
 		{
 			m_rx_bytes[m_rx_head % HAL_RX_SIZE] = byte;
 			m_rx_head = m_rx_head + 1U;
+		}
+		else
+		{
+			m_rx_overruns = m_rx_overruns + 1U;
 		}
 	}
 }

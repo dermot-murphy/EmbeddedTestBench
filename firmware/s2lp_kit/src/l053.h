@@ -30,6 +30,7 @@
 #define L053_NVIC_ISER          (0xE000E100UL)
 #define L053_NVIC_ICER          (0xE000E180UL)
 #define L053_NVIC_ICPR          (0xE000E280UL)
+#define L053_NVIC_IPR0          (0xE000E400UL)
 
 /* RCC. */
 #define L053_RCC_CR             L053_REG(L053_RCC_BASE + 0x00UL)

@@ -33,12 +33,22 @@ wr <addr> <hex>         ok                    1 .. 128 bytes
 cmd <code>              ok <MC_STATE1><MC_STATE0>, after a command strobe
 sdn <0|1>               ok                    1 holds the radio in shutdown
 rx start [<addr>,...]   ok                    up to 8 registers read after each frame
-rx stop                 ok frames=<n> rejects=<n> overflows=<n>
-stat                    ok running=<0|1> frames=<n> rejects=<n> overflows=<n> queued=<n>
+rx stop                 (the records still queued, then)
+                        ok frames=<n> rejects=<n> overflows=<n> deaf_max_us=<n>
+stat                    ok running=<0|1> frames=<n> rejects=<n> overflows=<n>
+                        deaf_max_us=<n> queued=<n> uart_overruns=<n>
 ```
 
 Addresses, codes and data are hexadecimal. While receiving, `rd`, `wr`, `cmd`
-and `sdn` answer `err receiving`.
+and `sdn` answer `err receiving`. A line longer than 300 characters is not run:
+it answers `err line too long`.
+
+- `deaf_max_us` is the longest time from a reception's interrupt to the radio
+  armed again.
+- `uart_overruns` counts bytes from the host that were lost.
+
+USART2 has no FIFO, so its interrupt has priority over the radio's and the
+timer's. A host may send `stat` while frames arrive.
 
 While receiving, records arrive unasked:
 

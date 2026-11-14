@@ -85,6 +85,38 @@ static void test_a_frame_is_queued_with_time_and_registers_then_rearmed(void)
 	TEST_ASSERT_EQUAL_HEX8(0x00U, fake_hal_register(0xFDU));
 }
 
+static void test_a_full_fifo_is_read_whole(void)
+{
+	uint8_t payload[PROTO_MAX_PAYLOAD];
+	const ring_record_t *record;
+	uint32_t index;
+
+	for (index = 0U; index < PROTO_MAX_PAYLOAD; index++)
+	{
+		payload[index] = (uint8_t)index;
+	}
+	(void)rx_start(m_registers, 0U);
+	fake_hal_queue_frame(payload, PROTO_MAX_PAYLOAD);   /* RX_FIFO_STATUS reads 0x80 */
+	fake_hal_raise_irq(S2LP_IRQ_RX_DATA_READY);
+	rx_on_irq();
+	record = ring_peek();
+	TEST_ASSERT_NOT_NULL(record);
+	TEST_ASSERT_EQUAL_UINT8(PROTO_MAX_PAYLOAD, record->length);
+	TEST_ASSERT_EQUAL_HEX8(0x7FU, record->payload[127]);
+}
+
+static void test_a_count_beyond_the_fifo_is_held_to_it(void)
+{
+	const uint8_t payload[] = {0x01U};
+
+	(void)rx_start(m_registers, 0U);
+	fake_hal_queue_frame(payload, 1U);
+	fake_hal_set_register(S2LP_RX_FIFO_STATUS, 0xFFU);
+	fake_hal_raise_irq(S2LP_IRQ_RX_DATA_READY);
+	rx_on_irq();
+	TEST_ASSERT_EQUAL_UINT8(PROTO_MAX_PAYLOAD, ring_peek()->length);
+}
+
 static void test_the_longest_deaf_time_is_kept(void)
 {
 	const uint8_t payload[] = {0x01U, 0x02U, 0x03U, 0x04U, 0x05U, 0x06U, 0x07U, 0x08U};
@@ -201,6 +233,8 @@ int main(void)
 	RUN_TEST(test_start_routes_nirq_masks_irqs_and_arms);
 	RUN_TEST(test_too_many_registers_is_refused);
 	RUN_TEST(test_a_frame_is_queued_with_time_and_registers_then_rearmed);
+	RUN_TEST(test_a_full_fifo_is_read_whole);
+	RUN_TEST(test_a_count_beyond_the_fifo_is_held_to_it);
 	RUN_TEST(test_the_longest_deaf_time_is_kept);
 	RUN_TEST(test_a_discarded_reception_is_queued_as_a_rejection);
 	RUN_TEST(test_an_interrupt_with_nothing_asked_for_changes_nothing);

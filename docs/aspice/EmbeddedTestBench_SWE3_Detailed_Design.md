@@ -112,6 +112,7 @@
 | next | 2026-11-14 | Claude | #342: §5.11, PPK - PPK-DD-CONST, -PROTOCOL, -MEASUREMENT, -DRIVER, -SIM and -CLI, the Nordic Power Profiler Kit II driver; §4 catalogue (95 units) and package structure. RUN and VIEW renumbered 5.12 and 5.13. |
 | next | 2026-11-14 | Claude | #342 review round 1: PPK-DD-PROTOCOL - `_number`; PPK-DD-DRIVER - `power` refuses an unknown mode or source voltage; PPK-DD-CLI - `--voltage-limit` required by `voltage` and `power on`. |
 | next | 2026-11-14 | Claude | #84: S2LP-DD-KITFW: the ETB S2-LP kit firmware. |
+| next | 2026-11-14 | Claude | #84 review round 1: S2LP-DD-KITFW - interrupt priorities, the FIFO count read whole, `rx stop` sending what is queued, long lines refused, the board clock. |
 ---
 
 ## 3. Purpose & Scope
@@ -2672,7 +2673,27 @@ board. Its commands, records and wiring are in `firmware/s2lp_kit/README.md`.
 
 The interrupt handler takes nIRQ again while the line is still low, up to four
 passes, so an event that arrives while the status is being read is not left
-waiting for an edge. The firmware does not set PM_CONF3 before the RX strobe,
+waiting for an edge.
+
+**Interrupt priority.** USART2's interrupt comes first: priority 0x00, against
+0x40 for EXTI0_1 and TIM2. USART2 has no FIFO, so a host byte overruns after
+two byte times, 174 µs at 115200, while a frame's interrupt takes up to 393 µs.
+Overruns and a full input queue are counted (`uart_overruns`).
+
+**The FIFO count.** RX_FIFO_STATUS is read whole and held to 128. The datasheet
+gives NELEM_RXFIFO as bits 6:0, which cannot count a full FIFO.
+
+**Stopping.** `rx stop` sends every record still queued before its answer, so a
+later `rx start` empties nothing that was not sent. A line longer than
+`PROTO_LINE_MAX` is refused, not run cut short.
+
+**The board clock.** It runs from HSI16, not a crystal. In run 2 it gained
+about 0.4% on the host's clock. Board times are good for intervals within a
+run, not as absolute time.
+
+The interrupt and the main loop share no SPI traffic: while receiving, only the
+interrupt touches the radio. The queue's indices are `volatile` and there is no
+link-time optimisation; one would need a compiler barrier in `ring_commit`. The firmware does not set PM_CONF3 before the RX strobe,
 as ST's library macros do; ST's CLI does not either.
 
 The host tests (`firmware/s2lp_kit/test`) build everything but the board and

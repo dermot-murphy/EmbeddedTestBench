@@ -109,6 +109,7 @@
 | next | 2026-11-14 | Claude | #342: §5 rows for SWE4-UT-PPK (36), -PPKPROTO (22), -PPKMEAS (15) and -PPKCLI (10), pass, from a run of `tests/instruments/ppk2` on this branch on 2026-11-14 (83 passed, Windows). §13D added: those results, what the bench's PPK2 showed on 2026-11-14 with nothing wired to it, and what it has not yet shown (PPK-OPEN-01 … -03). The section 5 total is still the 1.32 whole-suite run's. |
 | next | 2026-11-14 | Claude | #342 review round 1: §5 and §13D.1 counts after round 1: SWE4-UT-PPK 38, -PPKPROTO 23, -PPKCLI 13 (89 passed). |
 | next | 2026-11-14 | Claude | #84: §5 row for SWE4-UT-S2LPKITFW (17), pass, from a local run (Windows, MinGW gcc, CTest) on 2026-11-14; the bench runs are in `qualification/2026-11-14/84_kit_firmware/`. |
+| next | 2026-11-14 | Claude | #84 review round 1: §5 SWE4-UT-S2LPKITFW 17 -> 21, pass, local run 2026-11-14; host commands while receiving checked on the kit (`84_kit_firmware/r1_check/`). |
 ---
 
 ## 3. Purpose & Scope
@@ -379,7 +380,7 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-PPKMEAS | `instruments/ppk2/test_measurement.py` | 15 | Pass |
 | SWE4-UT-PPKCLI | `instruments/ppk2/test_cli.py` | 13 | Pass |
 | SWE4-UT-PICOFW | `firmware/pico2_test_board/test/*.c` | 83 | Pass (CTest with ASan/UBSan, 3 binaries, CI run 39938471355; not in the pytest total; §13A) |
-| SWE4-UT-S2LPKITFW | `firmware/s2lp_kit/test/*.c` | 17 | Pass (CTest, 2 binaries, local run 2026-11-14; not in the pytest total; on the bench: `docs/aspice/qualification/2026-11-14/84_kit_firmware/`) |
+| SWE4-UT-S2LPKITFW | `firmware/s2lp_kit/test/*.c` | 21 | Pass (CTest, 2 binaries, local run 2026-11-14; not in the pytest total; on the bench: `docs/aspice/qualification/2026-11-14/84_kit_firmware/`) |
 | SWE4-UT-BENCH | `runner/test_bench.py`, `runner/test_shipped_benches.py` | 67 | Pass |
 | SWE4-UT-ENGINE | `runner/test_runner.py` | 33 | Pass |
 | SWE4-UT-REPORT | `runner/test_report.py` | 24 | Pass |

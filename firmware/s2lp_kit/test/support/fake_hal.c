@@ -238,6 +238,11 @@ int32_t hal_uart_read(void)
 	return -1;
 }
 
+uint32_t hal_uart_overruns(void)
+{
+	return 0U;
+}
+
 uint32_t hal_irq_save(void)
 {
 	return 0U;

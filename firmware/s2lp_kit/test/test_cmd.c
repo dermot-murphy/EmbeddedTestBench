@@ -97,13 +97,39 @@ static void test_receiving_refuses_register_access_but_answers_stat(void)
 	TEST_ASSERT_EQUAL_STRING("err receiving\r\n", fake_hal_output());
 	test_cmd_run("stat");
 	TEST_ASSERT_EQUAL_STRING(
-		"ok running=1 frames=0 rejects=0 overflows=0 deaf_max_us=0 queued=0\r\n",
+		"ok running=1 frames=0 rejects=0 overflows=0 deaf_max_us=0 queued=0 uart_overruns=0\r\n",
 		fake_hal_output());
 	test_cmd_run("rx stop");
 	TEST_ASSERT_EQUAL_STRING("ok frames=0 rejects=0 overflows=0 deaf_max_us=0\r\n",
 		fake_hal_output());
 	test_cmd_run("rd 50 1");
 	TEST_ASSERT_EQUAL_STRING("ok 00\r\n", fake_hal_output());
+}
+
+static void test_rx_stop_sends_what_is_queued_before_its_answer(void)
+{
+	const uint8_t payload[] = {0x5CU, 0x17U};
+
+	test_cmd_run("rx start");
+	fake_hal_set_time(5U);
+	fake_hal_queue_frame(payload, 2U);
+	fake_hal_raise_irq(S2LP_IRQ_RX_DATA_READY);
+	rx_on_irq();
+	fake_hal_raise_irq(S2LP_IRQ_RX_DATA_DISC);
+	rx_on_irq();
+	test_cmd_run("rx stop");
+	/* The fake board takes 1 us per SPI byte: the frame's interrupt, at 5 us,
+	   takes 17 bytes, so the rejection's is at 22 us. */
+	TEST_ASSERT_EQUAL_STRING("f 0 5 2 - 5c17\r\nr 1 22 00000002\r\n"
+		"ok frames=1 rejects=1 overflows=0 deaf_max_us=17\r\n", fake_hal_output());
+	TEST_ASSERT_EQUAL_UINT32(0U, ring_count());
+}
+
+static void test_a_line_too_long_is_refused(void)
+{
+	fake_hal_clear_output();
+	cmd_line_too_long();
+	TEST_ASSERT_EQUAL_STRING("err line too long\r\n", fake_hal_output());
 }
 
 static void test_record_lines(void)
@@ -164,6 +190,8 @@ int main(void)
 	RUN_TEST(test_cmd_strobes_and_reports_status);
 	RUN_TEST(test_sdn);
 	RUN_TEST(test_receiving_refuses_register_access_but_answers_stat);
+	RUN_TEST(test_rx_stop_sends_what_is_queued_before_its_answer);
+	RUN_TEST(test_a_line_too_long_is_refused);
 	RUN_TEST(test_record_lines);
 	RUN_TEST(test_a_full_frame_fits_the_line);
 	return UNITY_END();

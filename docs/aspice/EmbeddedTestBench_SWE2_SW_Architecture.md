@@ -55,6 +55,7 @@
 | next | 2026-11-14 | Claude | #342: PPK-ARC-001 added, the Nordic Power Profiler Kit II driver, and AD-31, the kit driven through its own serial protocol by this project's code; the layering diagram and the interfaces (USB CDC to the kit; power and logic to the device) updated. |
 | next | 2026-11-14 | Claude | #84: AD-32: the S2-LP kit gets firmware of its own, for receiving on the interrupt, with no SLA0072 source; AD-20 stands for the kit on ST's firmware. |
 | next | 2026-11-14 | Claude | #84 (2): AD-20 points to AD-32; S2LP-ARC-001 names the kit firmware. |
+| next | 2026-11-14 | Claude | #84 review round 1: AD-32 trace count 21. |
 ---
 
 ## 3. Purpose & Scope
@@ -868,7 +869,7 @@ the PICO2 Test Board's. Configuring the radio by its ST commands
 (`S2LPRadioInit` and the like) is not available on it: a register file is the
 way to set it up. A host driver for it is still to come.
 
-AD-32 → `SWE4-UT-S2LPKITFW` (17), notably `test_a_frame_is_queued_with_time_and_registers_then_rearmed` and `test_the_longest_deaf_time_is_kept`, and the bench runs in `docs/aspice/qualification/2026-11-14/84_kit_firmware/`.
+AD-32 → `SWE4-UT-S2LPKITFW` (21), notably `test_a_frame_is_queued_with_time_and_registers_then_rearmed` and `test_the_longest_deaf_time_is_kept`, and the bench runs in `docs/aspice/qualification/2026-11-14/84_kit_firmware/`.
 
 ---
 

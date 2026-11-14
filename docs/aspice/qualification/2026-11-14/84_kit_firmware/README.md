@@ -56,6 +56,25 @@ These are replayed onto the new firmware, so the two firmwares receive with the 
 
 The deaf-time figure was added to the firmware after run 1, and the kit was flashed again before run 2. That build's `s2lp_kit.bin` has SHA-256 `7062550e…ae64f6`.
 
+## 3a. After review round 1 (`r1_check/`)
+
+The firmware was changed after review round 1:
+
+- USART2's interrupt now has priority over the radio's and the timer's;
+- UART overruns are counted;
+- `rx stop` sends the queued records first;
+- long lines are refused;
+- the FIFO count is read whole.
+
+That build's `s2lp_kit.bin`, with SHA-256 `267fed19…aec5c6`, was flashed. `check_r1.py` then received for 180 s and sent `stat` every 0.5 s, without waiting for the frames:
+
+| Check | Result |
+|---|---|
+| `stat` sent; answered | 360; 360 |
+| Frames during it | 27, with no stray lines |
+| `uart_overruns` | 0 |
+| `rx stop`'s answer is the last line | yes: `ok frames=27 rejects=0 overflows=0 deaf_max_us=393` |
+
 ## 4. Compared with ST's firmware, the same day
 
 ST's firmware received for 20 minutes in batch mode (`../335_340_rx/`):
@@ -68,10 +87,11 @@ With ST's firmware, the polled mode reads them, but it is deaf for 26-27 ms afte
 
 ## 5. Afterwards
 
-The kit was put back on ST's firmware: the backup was written and verified, and the whole flash read back with the backup's SHA-256. `benchtools s2lp -r COM4 --board STEVAL-FKI433V2 info` then answered as before.
+The kit was put back on ST's firmware after each session: the backup was written and verified, and the whole flash read back with the backup's SHA-256. `benchtools s2lp -r COM4 --board STEVAL-FKI433V2 info` then answered as before.
 
 ## What this does not show
 
 - **The 20 ms repeat case.** The closest copies on air were 41 ms apart, and the sensors set the spacing. The firmware's own figure, 393 µs at most from a frame's interrupt to the radio armed again, says a 20 ms repeat would be caught. It was not seen.
+- **The UART, at sustained close repeats.** At 115200 a 100-byte TWF record takes about 23 ms to send. The board queues 16 records, so a burst of close copies is held and sent behind them, but a long run of repeats closer than that would fill the queue. That shows as `overflows` and as gaps in `seq`, not as frames silently missed.
 - **Rejections.** None occurred. The CRC, filter and FIFO-error path is checked only by the unit tests.
 - **The host driver.** These runs used `kit_rx.py`, not a `benchtools` driver.

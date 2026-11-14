@@ -8,8 +8,10 @@
  *   cmd <code>              ok <status hex>       a command strobe
  *   sdn <0|1>               ok                    1 holds the radio in shutdown
  *   rx start [<addr>,...]   ok                    registers read after each frame
- *   rx stop                 ok frames=<n> rejects=<n> overflows=<n> deaf_max_us=<n>
- *   stat                    ok running=<0|1> frames=<n> rejects=<n> overflows=<n> deaf_max_us=<n> queued=<n>
+ *   rx stop                 (the records still queued, then)
+ *                           ok frames=<n> rejects=<n> overflows=<n> deaf_max_us=<n>
+ *   stat                    ok running=<0|1> frames=<n> rejects=<n> overflows=<n>
+ *                           deaf_max_us=<n> queued=<n> uart_overruns=<n>
  *
  * Addresses, codes and data are hexadecimal; counts are decimal. While
  * receiving, only rx, stat and id are taken; the others answer "err receiving".
@@ -27,6 +29,12 @@
 
 /** Carry out one command line (without its line end) and send the answer. */
 void cmd_handle_line(char *line);
+
+/** Answer a line longer than PROTO_LINE_MAX, which is not run. */
+void cmd_line_too_long(void);
+
+/** Send every record still queued, oldest first. */
+void cmd_send_queued(void);
 
 /**
  * @brief Format a record as the line the host reads, line end included.

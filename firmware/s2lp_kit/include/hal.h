@@ -39,6 +39,9 @@ void hal_uart_write(const char *text, uint32_t length);
 /** The next byte from the host, or -1 when none has arrived. */
 int32_t hal_uart_read(void);
 
+/** Bytes from the host lost: the UART overran, or its queue was full. */
+uint32_t hal_uart_overruns(void);
+
 /** Mask interrupts; returns the state to give hal_irq_restore. */
 uint32_t hal_irq_save(void);
 

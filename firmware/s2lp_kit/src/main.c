@@ -3,6 +3,7 @@
  * @brief ETB S2-LP kit firmware (#84): commands from the host, records to it.
  */
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -19,6 +20,7 @@ int main(void)
 	static char line[PROTO_LINE_MAX + 1U];
 	static char out[CMD_OUT_MAX];
 	uint32_t length = 0U;
+	bool too_long = false;
 	uint32_t written;
 	int32_t byte;
 	const ring_record_t *record;
@@ -41,17 +43,29 @@ int main(void)
 		if ((byte == (int32_t)'\r') || (byte == (int32_t)'\n'))
 		{
 			line[length] = '\0';
-			cmd_handle_line(line);
+			if (too_long)
+			{
+				cmd_line_too_long();
+			}
+			else
+			{
+				cmd_handle_line(line);
+			}
 			length = 0U;
+			too_long = false;
 		}
 		else if ((byte >= 0) && (length < PROTO_LINE_MAX))
 		{
 			line[length] = (char)byte;
 			length++;
 		}
+		else if (byte >= 0)
+		{
+			too_long = true;
+		}
 		else
 		{
-			/* No input, or a line too long: the excess is dropped. */
+			/* No input. */
 		}
 	}
 }

@@ -408,6 +408,7 @@ static void cmd_rx(char *words[], uint32_t count)
 	else if ((count == 2U) && (strcmp(words[1], "stop") == 0))
 	{
 		rx_stop();
+		cmd_send_queued();
 		out.length = 0U;
 		cmd_put_text(&out, "ok ");
 		cmd_counters(&out);
@@ -430,7 +431,29 @@ static void cmd_stat(void)
 	cmd_counters(&out);
 	cmd_put_text(&out, " queued=");
 	cmd_put_decimal(&out, ring_count());
+	cmd_put_text(&out, " uart_overruns=");
+	cmd_put_decimal(&out, hal_uart_overruns());
 	cmd_send(&out);
+}
+
+void cmd_line_too_long(void)
+{
+	cmd_send_text("err line too long");
+}
+
+void cmd_send_queued(void)
+{
+	char line[CMD_OUT_MAX];
+	uint32_t length;
+	const ring_record_t *record = ring_peek();
+
+	while (record != NULL)
+	{
+		length = cmd_format_record(record, line);
+		ring_release();
+		hal_uart_write(line, length);
+		record = ring_peek();
+	}
 }
 
 void cmd_handle_line(char *line)

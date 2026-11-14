@@ -93,8 +93,14 @@ static void rx_take_frame(uint32_t irq, uint32_t time_us)
 	uint8_t length;
 	uint32_t index;
 
+	/* RX_FIFO_STATUS: the datasheet gives NELEM_RXFIFO as bits 6:0, which
+	   cannot count a full 128-byte FIFO, so all eight bits are read and the
+	   count is held to the FIFO's size (#84 review). */
 	s2lp_read(S2LP_RX_FIFO_STATUS, &length, 1U);
-	length = (uint8_t)(length & 0x7FU);
+	if (length > PROTO_MAX_PAYLOAD)
+	{
+		length = (uint8_t)PROTO_MAX_PAYLOAD;
+	}
 	record = ring_claim();
 	if (record != NULL)
 	{
