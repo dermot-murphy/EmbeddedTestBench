@@ -111,6 +111,7 @@
 | next | 2026-11-14 | Claude | #303 review round 1: VIEW-DD-RADIO - the summary hooks are the plugin's whose decoder reads the frame (`decode_with_plugin`), not the first loaded; CORE-DD-PLUGINS - `decode_with_plugin`; VIEW-DD-KEPLER - an unknown tab is refused; VIEW-DD-REPORT - every panel reports on the sensor the header names. |
 | next | 2026-11-14 | Claude | #342: §5.11, PPK - PPK-DD-CONST, -PROTOCOL, -MEASUREMENT, -DRIVER, -SIM and -CLI, the Nordic Power Profiler Kit II driver; §4 catalogue (95 units) and package structure. RUN and VIEW renumbered 5.12 and 5.13. |
 | next | 2026-11-14 | Claude | #342 review round 1: PPK-DD-PROTOCOL - `_number`; PPK-DD-DRIVER - `power` refuses an unknown mode or source voltage; PPK-DD-CLI - `--voltage-limit` required by `voltage` and `power on`. |
+| next | 2026-11-14 | Claude | #335: S2LP-DD-KEPLER - V10.01.x's 99-byte TWF (RF_CAP 5, type version 1), `RF_CAP_LAYOUTS` and `_twf_v1001`. |
 ---
 
 ## 3. Purpose & Scope
@@ -2570,11 +2571,25 @@ samples in distance order (`packet + slot*delta`), so the frame carries
 places its samples as it does a version 1 frame's. `_twf_v0` decodes it;
 `LAYOUTS[4]` is `{0: 96, 1: 100}` and `FRAME_TYPES` holds 96 as TWF's minimum.
 Version 1 is decoded exactly as before, and a 96-byte frame that declares
-version 1 is still refused. V10.01.x declares version 1 for a 99-byte TWF
-(time taken 32 bits, then group and sync attribute, no Permute Control); that
-layout is not listed, so such a frame is still refused. No 96-byte frame was
+version 1 is still refused. No 96-byte frame was
 recorded: the layout is the firmware's, checked against frames built from it,
 not yet against one received.
+
+**V10.01.x's TWF is 99 bytes, under RF_CAP 5 (#335).** V10.01.0000, .1000 and
+.2000 (RF_CAP 5, byte 5 `(1 << 3) | 4`, FW capability 4) declare TWF type
+version 1, V11's version, but their TWF rows in `api_radio_transport_cfg.h`
+are V10.00's up to 91; `api_radio_field.c` widens time taken to 32 bits at
+92-95, no longer capped, and adds the sync attribute, so the group ID is at
+96 and the sync attribute at 97-98. `api_vibration.c` is unchanged from
+V10.00, so the samples are in distance order and PARAM bits 4:2 reserved.
+The RF_CAP tells it from V11's 100-byte layout, not the length:
+`RF_CAP_LAYOUTS` holds layouts that belong to one RF_CAP, looked up by
+`_layout` before `LAYOUTS`, and `RF_CAP_LAYOUTS[5][4][1]` is 99 bytes,
+`_twf_v1001`, which is `_twf_v0` with those three fields. A frame decoded with
+such a layout gets no RF_CAP warning; other RF_CAP 5 frames keep the shared
+layouts and the warning. An RF_CAP 6 TWF of 99 bytes is still refused. No such
+frame has been received yet; it is checked against frames built from the
+firmware.
 
 **Checked against the firmware (#151).** The Kepler project's rf_monitor and
 this decoder disagreed; the sensor firmware at V11.00.0000-96-g25a54b97a

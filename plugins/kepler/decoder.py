@@ -25,7 +25,9 @@ layout is chosen by its type version (byte 5 bits 7:3) from ``LAYOUTS``; an
 unknown version is decoded with the nearest known version below it, or the
 lowest known one, with a warning (#287). TWF type version 0 is the V10.00
 firmware's own 96-byte layout (#313), read from the reference project's
-V10.00.0000 tag.
+V10.00.0000 tag. A few layouts belong to one RF_CAP only and come first
+(``RF_CAP_LAYOUTS``): V10.01.x (RF_CAP 5) sends TWF type version 1 in a
+99-byte layout of its own (#335), not V11's 100 bytes.
 
 Traces to: S2LP-FR-070, S2LP-DD-KEPLER.
 """
@@ -39,7 +41,8 @@ from .tables import (
     PCB_VERSIONS, PRODUCTS, SENSOR_PHASES, name_config, odr_hz, reset_reasons,
 )
 
-__all__ = ["decode_kepler_frame", "KeplerFrameError", "FRAME_TYPES", "LAYOUTS", "RF_CAPABILITY"]
+__all__ = ["decode_kepler_frame", "KeplerFrameError", "FRAME_TYPES", "LAYOUTS", "RF_CAP_LAYOUTS",
+           "RF_CAPABILITY"]
 
 #: The frame layout this module decodes.
 RF_CAPABILITY = 6
@@ -68,6 +71,9 @@ TWF_V1_SIZE = 100
 #: TWF type version 0, the V10.00 firmware's layout: 96 bytes (#313). V10.00
 #: writes no type version, so its frames read as version 0.
 TWF_V0_SIZE = 96
+
+#: TWF type version 1 as V10.01.x (RF_CAP 5) sends it: 99 bytes (#335).
+TWF_V1001_SIZE = 99
 
 #: FFT2 bin slots: 84 bytes of 7-bit bins.
 FFT2_SLOTS = 96
@@ -227,6 +233,27 @@ def _twf_v0(data: bytes) -> Dict[str, Any]:
     return fields
 
 
+def _twf_v1001(data: bytes) -> Dict[str, Any]:
+    """TWF type version 1 as V10.01.x sends it: 99 bytes, RF_CAP 5 (#335).
+
+    From the reference project at V10.01.2000 (``api_radio_transport_cfg.h``
+    TWF rows, ``api_radio_field.c``); V10.01.0000 and V10.01.1000 have the
+    same rows. It is the V10.00 layout (:func:`_twf_v0`: no Permute Control
+    byte, every field one byte earlier than V11's, PARAM bits 4:2 reserved,
+    the ODR uncompressed, samples in distance order; ``api_vibration.c`` is
+    unchanged from V10.00), except that time taken is a full 32 bits at 92-95,
+    no longer capped, the group ID is at 96 and the sync attribute, new in
+    V10.01, is at 97-98.
+    """
+    fields = _twf_v0(data)
+    fields.update({
+        "time_taken_us": _u32(data, 92),
+        "group_id": data[96],
+        "sync_attribute": _u16(data, 97),
+    })
+    return fields
+
+
 def _config(data: bytes) -> Dict[str, Any]:
     fields = {"frame": _frame_count(data[9])}
     fields.update(_permute(data[8]))
@@ -321,14 +348,29 @@ LAYOUTS: Dict[int, Dict[int, Tuple[int, Callable[[bytes], Dict[str, Any]]]]] = {
     9: {0: (14, _response)},
 }
 
+#: Layouts that belong to one RF_CAP (byte 4), by RF_CAP, PL_TYPE and type
+#: version, looked up before ``LAYOUTS``. V10.01.x is RF_CAP 5 and declares
+#: TWF type version 1, the same version as V11's 100-byte layout, but sends 99
+#: bytes; the RF_CAP, not the length, tells the two apart (#335). A frame
+#: whose layout comes from here gets no RF_CAP warning for it.
+RF_CAP_LAYOUTS: Dict[int, Dict[int, Dict[int, Tuple[int, Callable[[bytes], Dict[str, Any]]]]]] = {
+    5: {4: {1: (TWF_V1001_SIZE, _twf_v1001)}},
+}
+
 #: RESPONSE is built by the gateway, not by the sensor, so its header's RF_CAP
 #: and type version are not checked against the sensor's.
 _GATEWAY_FRAMES = (9,)
 
 
-def _layout(pl_type: int, version: int) -> Tuple[int, int, Callable[[bytes], Dict[str, Any]]]:
-    """The version used to decode, its length and its decoder: the frame's
-    own, else the nearest known version below it, else the lowest known."""
+def _layout(pl_type: int, version: int, rf_capability: int = RF_CAPABILITY
+            ) -> Tuple[int, int, Callable[[bytes], Dict[str, Any]]]:
+    """The version used to decode, its length and its decoder: the RF_CAP's
+    own layout of that version, else the frame's version, else the nearest
+    known version below it, else the lowest known."""
+    own = RF_CAP_LAYOUTS.get(rf_capability, {}).get(pl_type, {})
+    if version in own:
+        size, decoder = own[version]
+        return version, size, decoder
     known = LAYOUTS[pl_type]
     below = [listed for listed in known if listed <= version]
     used = max(below) if below else min(known)
@@ -351,7 +393,8 @@ def decode_kepler_frame(payload: bytes) -> Dict[str, Any]:
         raise KeplerFrameError("PL_TYPE %d is not a Kepler frame type" % pl_type)
     name = FRAME_TYPES[pl_type][0]
     version = data[5] >> 3
-    used, size, decoder = _layout(pl_type, version)
+    own_layout = version in RF_CAP_LAYOUTS.get(data[4], {}).get(pl_type, {})
+    used, size, decoder = _layout(pl_type, version, data[4])
     if len(data) < size:
         fallback = "" if used == version or pl_type in _GATEWAY_FRAMES else (
             " (type version %d, decoded as version %d)" % (version, used))
@@ -371,7 +414,7 @@ def decode_kepler_frame(payload: bytes) -> Dict[str, Any]:
     }
     decoded.update(decoder(data))
     notes = []
-    if data[4] != RF_CAPABILITY and pl_type not in _GATEWAY_FRAMES:
+    if data[4] != RF_CAPABILITY and pl_type not in _GATEWAY_FRAMES and not own_layout:
         notes.append("RF_CAP %d; these layouts are for RF_CAP %d" % (data[4], RF_CAPABILITY))
     if used != version and pl_type not in _GATEWAY_FRAMES:
         notes.append("%s type version %d; decoded as version %d" % (name, version, used))
