@@ -109,6 +109,7 @@
 | next | 2026-11-14 | Claude | #342: §5 rows for SWE4-UT-PPK (36), -PPKPROTO (22), -PPKMEAS (15) and -PPKCLI (10), pass, from a run of `tests/instruments/ppk2` on this branch on 2026-11-14 (83 passed, Windows). §13D added: those results, what the bench's PPK2 showed on 2026-11-14 with nothing wired to it, and what it has not yet shown (PPK-OPEN-01 … -03). The section 5 total is still the 1.32 whole-suite run's. |
 | next | 2026-11-14 | Claude | #342 review round 1: §5 and §13D.1 counts after round 1: SWE4-UT-PPK 38, -PPKPROTO 23, -PPKCLI 13 (89 passed). |
 | next | 2026-11-14 | Claude | #340: §5 SWE4-UT-PLUGINS 69 → 73, pass, from a run of `tests/` on this branch on 2026-11-14 (Windows 10, Python 3.14): no failures. |
+| next | 2026-11-14 | Claude | #340 review round 1: §5 SWE4-UT-PLUGINS 73 → 74, pass, from a run of `tests/` on this branch on 2026-11-14 (Windows 10, Python 3.14): no failures. |
 ---
 
 ## 3. Purpose & Scope
@@ -258,7 +259,7 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-CONSTRAINTS | `test_constraints.py` | 10 | Pass |
 | SWE4-UT-LINT | `test_lint_script.py` | 3 | Pass |
 | SWE4-UT-PUBLISH | `test_publish_docs.py` | 45 | Pass |
-| SWE4-UT-PLUGINS | `core/test_plugins.py` | 73 | Pass (on Linux CI 72 and 1 skipped: the case-insensitive folder test is Windows-only) |
+| SWE4-UT-PLUGINS | `core/test_plugins.py` | 74 | Pass (on Linux CI 73 and 1 skipped: the case-insensitive folder test is Windows-only) |
 | SWE4-UT-DOCVER | `test_doc_versions.py` | 63 | Pass |
 | SWE4-UT-TRACE | `test_traceability.py` | 30 | Pass |
 | SWE4-UT-SCPI | `core/test_scpi.py` | 28 | Pass |

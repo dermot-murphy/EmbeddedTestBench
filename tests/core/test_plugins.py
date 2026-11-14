@@ -767,6 +767,18 @@ class TestTheRecordNamesItsDecoder:
         assert plugins.REGISTRY.plugin_of_decoder("absent") is None
         assert plugins.REGISTRY.plugin_of_decoder("") is None
 
+    def test_two_plugins_may_not_provide_one_decoder_name(self, tmp_path):
+        self._other(tmp_path)
+        clash = write_plugin(tmp_path / "clash", (
+            "NAME = 'clash'\n"
+            "def register(plugin):\n"
+            "    plugin.add_decoder('other', lambda payload: {})\n"))
+        with pytest.raises(ConfigurationError, match="plugins other and clash both provide "
+                                                     "the decoder 'other'"):
+            plugins.load_plugin(str(clash))
+        assert "clash" not in plugins.REGISTRY.plugins
+        assert plugins.REGISTRY.plugin_of_decoder("other").name == "other"
+
     def test_the_driver_records_the_decoder_s_name(self, tmp_path, kit):
         plugin, _calls = self._other(tmp_path)
         radio, simulator = kit

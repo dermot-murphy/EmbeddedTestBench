@@ -112,6 +112,7 @@
 | next | 2026-11-14 | Claude | #342: §5.11, PPK - PPK-DD-CONST, -PROTOCOL, -MEASUREMENT, -DRIVER, -SIM and -CLI, the Nordic Power Profiler Kit II driver; §4 catalogue (95 units) and package structure. RUN and VIEW renumbered 5.12 and 5.13. |
 | next | 2026-11-14 | Claude | #342 review round 1: PPK-DD-PROTOCOL - `_number`; PPK-DD-DRIVER - `power` refuses an unknown mode or source voltage; PPK-DD-CLI - `--voltage-limit` required by `voltage` and `power on`. |
 | next | 2026-11-14 | Claude | #340: S2LP-DD-PACKETS - `Packet.decoder`; CORE-DD-PLUGINS - `decoder_name`, `plugin_of_decoder`; VIEW-DD-RADIO - a record naming its decoder is not decoded again. |
+| next | 2026-11-14 | Claude | #340 review round 1: CORE-DD-PLUGINS - `load` refuses a second plugin providing a decoder name already loaded; S2LP-DD-PACKETS line wrapped. |
 ---
 
 ## 3. Purpose & Scope
@@ -410,7 +411,10 @@ Design points:
   for a frame logged without a decode (a decoder that raises anything has
   not read it). `decoder_name(function)` gives the name a plugin provides a
   decoder function under, and `plugin_of_decoder(name)` the plugin that
-  provides it (#340). `field` maps a sample action's field
+  provides it (#340). A decoder name belongs to one plugin: `load` refuses a
+  plugin that provides a name another loaded plugin already does, so the name
+  a packet record carries names one plugin, whatever order a reader loads
+  them in. `field` maps a sample action's field
   name; `hook` returns a named function or a default.
 - **Paths.** `resolve_plugin_path("plugin:<name>/<file>")` finds a register file
   by name or a path inside the folder, refusing one that leaves it, links
@@ -2249,7 +2253,8 @@ Commands out, replies in, every line logged.
 
 `Packet` (direction, payload, RSSI, both clocks, error, the firmware's extra
 fields, the decode and `decoder`, the name a loaded plugin gives the decoder
-that made it, `""` for none or a decoder that is not a plugin's, #340), `Capture` (the packets, the rejected receptions, and how they were
+that made it, `""` for none or a decoder that is not a plugin's, #340),
+`Capture` (the packets, the rejected receptions, and how they were
 taken), `PacketLog` (JSON Lines, one object per line), `BoardClock`, and
 `packet_from_reply`, which turns one receive report into a packet.
 

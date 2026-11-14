@@ -236,6 +236,14 @@ class Registry:
             except Exception as error:
                 raise ConfigurationError("plugin %s failed to register: %s"
                                          % (name, error)) from error
+            # A decoder is named in a packet record and chosen by name, so
+            # one name must mean one plugin's decoder (#340 review).
+            for other in self.plugins.values():
+                shared = sorted(set(other.decoders) & set(plugin.decoders))
+                if shared:
+                    raise ConfigurationError(
+                        "plugins %s and %s both provide the decoder %s"
+                        % (other.name, name, ", ".join(repr(each) for each in shared)))
         except ConfigurationError:
             _forget(module_name)
             raise
@@ -316,7 +324,11 @@ class Registry:
         return ""
 
     def plugin_of_decoder(self, name: str) -> Optional[Plugin]:
-        """The loaded plugin that provides the decoder called *name*, or None (#340)."""
+        """The loaded plugin that provides the decoder called *name*, or None (#340).
+
+        A decoder name belongs to one plugin: :meth:`load` refuses a plugin
+        that provides a name another loaded plugin already does.
+        """
         for plugin in self.plugins.values():
             if name and name in plugin.decoders:
                 return plugin
