@@ -376,6 +376,24 @@ def readme_intro(site):
     return rewrite_links(intro, "README.md", site)
 
 
+#: The README section both home pages carry after the introduction (#195):
+#: what the product is for, what it drives, how to start and where to read more.
+GLANCE = "At a glance"
+
+
+def readme_section(site, title):
+    """The README's ``## <title>`` section, its heading kept, links rewritten.
+
+    ``""`` when the README has no such section.
+    """
+    text = read_text(site.root / "README.md")
+    for part in re.split(r"\n(?=## )", text):
+        if part.startswith("## %s\n" % title):
+            part = re.sub(r"\n-{3,}\s*$", "", part.rstrip()).rstrip()
+            return rewrite_links(part, "README.md", site)
+    return ""
+
+
 def brand_img(site, rel, width):
     """An HTML image of a brand asset, as its raw file on the ref."""
     return '<img src="%s" alt="Embedded Test Bench" width="%s">' % (
@@ -442,9 +460,10 @@ def wiki_list(entries):
 
 
 def home_wiki_page(site, guides, instruments):
-    """The wiki's Home page: the logo, the README introduction and the contents."""
+    """The wiki's Home page: the logo, the README introduction, its "At a
+    glance" section (#195) and the contents."""
     lines = [brand_img(site, WIKI_LOGO, 240), "", readme_intro(site), "",
-             "---", "", "## User Guide", ""]
+             readme_section(site, GLANCE), "", "---", "", "## User Guide", ""]
     lines += wiki_list(guides)
     lines += ["", "## Instruments", ""] + wiki_list(instruments)
     lines += ["", "## ASPICE CL2 Documentation", "",
@@ -522,7 +541,8 @@ def generate_home(out, root=ROOT, repo=DEFAULT_REPO, ref=DEFAULT_REF):
     wiki = site.repo_url + "/wiki"
     # The theme's page header already shows the site title from _config.yml.
     lines = ["![Embedded Test Bench](%s)" % HOME_BANNER[1], ""]
-    lines += ["\n".join(intro).strip(), "", "## Links", "",
+    lines += ["\n".join(intro).strip(), "", readme_section(site, GLANCE), "",
+              "## Links", "",
               "- [Documentation wiki](%s)" % wiki,
               "- [Latest release](%s/releases/latest)" % site.repo_url,
               "- [System qualification test report (ETB-SYS5-002)](%s/%s)"

@@ -1,0 +1,2 @@
+as logged (decoder named)      records 173, received 173, described 173, decoder calls 0
+older log (no decoder field)   records 173, received 173, described 173, decoder calls 173

@@ -118,11 +118,16 @@ class RfFrames:
             self.failed += 1
             problem = problem or "the radio reported error 0x%02X" % packet["error"]
         elif packet.get("hex"):
-            # Which plugin reads the bytes says whose hooks describe the frame,
-            # even when the driver logged its own decode.
-            owner, read, reason = _read(packet["hex"])
-            if not decoded:
-                decoded, problem = read, reason
+            # The plugin whose decoder read the frame says whose hooks describe
+            # it. A record naming the decoder that decoded it says which plugin
+            # that is (#340); otherwise, as for an older log or a frame logged
+            # without a decode, the bytes are decoded here to find out.
+            if decoded:
+                owner = plugins.REGISTRY.plugin_of_decoder(str(packet.get("decoder") or ""))
+            if owner is None:
+                owner, read, reason = _read(packet["hex"])
+                if not decoded:
+                    decoded, problem = read, reason
         decoded = decoded if isinstance(decoded, dict) else None
         sensor = (decoded or {}).get("sensor_id", "")
         frame = {
