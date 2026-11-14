@@ -236,6 +236,14 @@ class Registry:
             except Exception as error:
                 raise ConfigurationError("plugin %s failed to register: %s"
                                          % (name, error)) from error
+            # A decoder is named in a packet record and chosen by name, so
+            # one name must mean one plugin's decoder (#340 review).
+            for other in self.plugins.values():
+                shared = sorted(set(other.decoders) & set(plugin.decoders))
+                if shared:
+                    raise ConfigurationError(
+                        "plugins %s and %s both provide the decoder %s"
+                        % (other.name, name, ", ".join(repr(each) for each in shared)))
         except ConfigurationError:
             _forget(module_name)
             raise
@@ -301,6 +309,30 @@ class Registry:
         if not reasons:
             raise ValueError("no decoder is loaded")
         raise ValueError("; ".join(reasons))
+
+    def decoder_name(self, function: Callable[..., Any]) -> str:
+        """The name a loaded plugin gives decoder *function*, or ``""`` (#340).
+
+        A driver handed a decoder function records its name with each frame
+        it decodes, so a reader of the log knows which plugin read the frame
+        without decoding it again.
+        """
+        for plugin in self.plugins.values():
+            for name, provided in plugin.decoders.items():
+                if provided is function:
+                    return name
+        return ""
+
+    def plugin_of_decoder(self, name: str) -> Optional[Plugin]:
+        """The loaded plugin that provides the decoder called *name*, or None (#340).
+
+        A decoder name belongs to one plugin: :meth:`load` refuses a plugin
+        that provides a name another loaded plugin already does.
+        """
+        for plugin in self.plugins.values():
+            if name and name in plugin.decoders:
+                return plugin
+        return None
 
     def field(self, name: str) -> str:
         """The decoded key a sample action's field name stands for."""
