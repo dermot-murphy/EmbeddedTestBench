@@ -118,6 +118,10 @@ class Packet:  # pylint: disable=too-many-instance-attributes
     :param decoded: What a frame decoder made of the payload, or ``None``.
     :param decode_error: Why the decoder could not, when it could not. The raw
         payload is kept either way.
+    :param decoder: The name of the loaded plugin's decoder that produced
+        *decoded*, ``""`` when there is no decode or the decoder is not a
+        plugin's (#340). The viewer uses it to find the plugin whose hooks
+        describe the frame, without decoding the frame again.
     """
 
     direction: str
@@ -132,6 +136,7 @@ class Packet:  # pylint: disable=too-many-instance-attributes
     registers: Dict[str, int] = field(default_factory=dict)
     decoded: Optional[Dict[str, Any]] = None
     decode_error: str = ""
+    decoder: str = ""
 
     @property
     def length(self) -> int:
@@ -173,6 +178,7 @@ class Packet:  # pylint: disable=too-many-instance-attributes
             "registers": dict(self.registers),
             "decoded": self.decoded,
             "decode_error": self.decode_error,
+            "decoder": self.decoder,
         }
 
     def __str__(self) -> str:

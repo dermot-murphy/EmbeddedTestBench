@@ -738,3 +738,79 @@ class TestRoundThreeOfReview:
         monkeypatch.chdir(tmp_path)
         with pytest.raises(ConfigurationError, match="and as plugin:kepler/.*has no file"):
             resolve_input_path("configs/s2lp_kepler_433_rx.regs", str(tmp_path))
+
+
+class TestTheRecordNamesItsDecoder:
+    """The viewer finds a frame's plugin from the record, not by decoding again (#340)."""
+
+    OTHER = ("NAME = 'other'\n"
+             "CALLS = []\n"
+             "def decode(payload):\n"
+             "    CALLS.append(payload)\n"
+             "    if payload[:1] != b'\\xee':\n"
+             "        raise ValueError('not mine')\n"
+             "    return {'type': 'PING', 'sensor_id': '00EE', 'value': payload[1]}\n"
+             "def register(plugin):\n"
+             "    plugin.add_decoder('other', decode)\n"
+             "    plugin.add_hook('frame_summary', lambda decoded: 'other says %d' % "
+             "decoded['value'])\n")
+
+    def _other(self, tmp_path):
+        plugin = plugins.load_plugin(str(write_plugin(tmp_path / "other", self.OTHER)))
+        return plugin, sys.modules[plugin.module].CALLS
+
+    def test_the_registry_names_a_decoder_and_finds_its_plugin(self, tmp_path):
+        plugin, _calls = self._other(tmp_path)
+        assert plugins.REGISTRY.decoder_name(plugin.decoders["other"]) == "other"
+        assert plugins.REGISTRY.decoder_name(lambda payload: {}) == ""
+        assert plugins.REGISTRY.plugin_of_decoder("other") is plugin
+        assert plugins.REGISTRY.plugin_of_decoder("absent") is None
+        assert plugins.REGISTRY.plugin_of_decoder("") is None
+
+    def test_the_driver_records_the_decoder_s_name(self, tmp_path, kit):
+        plugin, _calls = self._other(tmp_path)
+        radio, simulator = kit
+        simulator.queue_packet(b"\xee\x07")
+        simulator.queue_packet(b"\x00\x07")
+        named, refused = list(radio.stream(count=2, decoder=plugin.decoders["other"],
+                                           mode="polled"))
+        assert (named.decoder, named.as_dict()["decoder"]) == ("other", "other")
+        assert (refused.decoded, refused.decoder) == (None, "")
+        simulator.queue_packet(b"\xee\x07")
+        unnamed = next(radio.stream(count=1, decoder=lambda payload: {"type": "X"},
+                                    mode="polled"))
+        assert unnamed.decoded == {"type": "X"} and unnamed.decoder == ""
+
+    @staticmethod
+    def _feed(hub, payload, decoded, decoder=None):
+        data = {"direction": "rx", "hex": payload.hex(), "length": len(payload),
+                "decoded": decoded}
+        if decoder is not None:
+            data["decoder"] = decoder
+        hub._apply({"kind": "rf_packet", "t": 1.0, "source": "s2lp", "data": data})
+        return hub.radio()["frames"][-1]
+
+    def test_a_named_decode_is_not_decoded_again(self, tmp_path):
+        _plugin, calls = self._other(tmp_path)
+        plugins.load_plugin(str(KEPLER))
+        hub = Hub()
+        logged = {"type": "PING", "sensor_id": "00EE", "value": 7}
+        frame = self._feed(hub, b"\xee\x07", logged, "other")
+        assert frame["summary"] == "other says 7" and not calls
+        # A Kepler frame named as Kepler's: the other plugin, loaded first,
+        # is not asked to try it either.
+        alive = {"type": "ALIVE", "sensor_id": "5C1712", "pl_type": 3, "x": 1, "ticks": 5}
+        frame = self._feed(hub, radio_log.ALIVE, alive, "kepler")
+        assert frame["summary"] == "x 1, ticks 5" and not calls
+
+    def test_older_and_undecoded_records_are_decoded_as_before(self, tmp_path):
+        _plugin, calls = self._other(tmp_path)
+        hub = Hub()
+        logged = {"type": "PING", "sensor_id": "00EE", "value": 7}
+        assert self._feed(hub, b"\xee\x07", logged)["summary"] == "other says 7"
+        assert len(calls) == 1                           # no name: decoded to find the plugin
+        # A name no loaded plugin provides: found by decoding, as before.
+        assert self._feed(hub, b"\xee\x09", logged, "gone")["summary"] == "other says 7"
+        assert len(calls) == 2
+        # No decode logged: decoded here, as before.
+        assert self._feed(hub, b"\xee\x08", None, "")["summary"] == "other says 8"

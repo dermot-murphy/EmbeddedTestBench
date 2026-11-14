@@ -106,6 +106,7 @@
 | next | 2026-11-14 | Claude | #303 review round 1: VIEW-FR-047 traced to `decode_with_plugin` and `TestRoundOneOfReview303`. |
 | next | 2026-11-14 | Claude | #342: STK-25 and section 15A, PPK (PPK-FR-001 … PPK-FR-012, PPK-NFR-001), the Nordic Power Profiler Kit II; STK-08 and STK-23 gain them; PPK-ARC-001 in section 17; AD-31 → SWE4-UT-PPKPROTO; OPEN-12; section 18 count 524 in force, 525 declared, 39 non-functional. |
 | next | 2026-11-14 | Claude | #342 review round 1: PPK-FR-003, -005, -010 and -011 rows cite the round-1 tests; AD-31 count 22 → 23. |
+| next | 2026-11-14 | Claude | #340: S2LP-FR-080 traced to `Packet.decoder`; VIEW-FR-047 to `plugin_of_decoder` and `TestTheRecordNamesItsDecoder`. No requirement added; counts unchanged. |
 ---
 
 ## 3. Purpose & Scope
@@ -479,7 +480,7 @@ where the firmware implements the requirement.
 | S2LP-FR-090 | S2LP-ARC-001 | S2LP-DD-MEASURES, ANA-DD-FRAMES | `S2lpDevkit.dut_census`, `census` | `SWE4-UT-S2LPMEASURES`: `TestCensus` (5), `TestActions` (1) |
 | S2LP-FR-091 | S2LP-ARC-001 | S2LP-DD-MEASURES, ANA-DD-FRAMES, S2LP-DD-KEPLER | `S2lpDevkit.dut_transmissions`, `compare_copies`, Kepler `frame_positions` | `SWE4-UT-S2LPMEASURES`: `TestCopies` (16), `TestFramePositionsHook` (3), `TestActions` (2), the specification case (1) |
 | S2LP-FR-092 | S2LP-ARC-001 | S2LP-DD-MEASURES, ANA-DD-FRAMES | `S2lpDevkit.dut_distinct`, `distinct_per_group` | `SWE4-UT-S2LPMEASURES`: `TestDistinctPerGroup` (5) |
-| S2LP-FR-080 | S2LP-ARC-001 | S2LP-DD-S2LP | `S2lpDevkit._record`, `log_event` | `TestDriverRecords` (2) |
+| S2LP-FR-080 | S2LP-ARC-001 | S2LP-DD-S2LP, S2LP-DD-PACKETS | `S2lpDevkit._record`, `log_event`, `Packet.decoder`, `Registry.decoder_name` | `TestDriverRecords` (2); `SWE4-UT-PLUGINS`: `test_the_driver_records_the_decoder_s_name` |
 | S2LP-FR-081 | S2LP-ARC-001 | S2LP-DD-KEPLER | `CONFIG_PARAMETERS`, `config_parameter`, `name_config`, `permute_poly_any_size` | `TestParameters` (10), `test_a_config_frame_names_its_parameters` |
 | S2LP-FR-082 | S2LP-ARC-001 | S2LP-DD-KEPLER | `twf_sample`, `permute_poly`, `odr_hz` | `TestPolynomial` (2), `TestWaveform` (2), `test_odr_codes` |
 | S2LP-FR-083 | S2LP-ARC-001 | S2LP-DD-KEPLER | `_response`, `reset_reasons`, `PCB_VERSIONS`, `SENSOR_PHASES`, `PRODUCTS` | `test_response`, `test_a_hires_response_times_in_microseconds`, `test_a_config_response_carries_id_value_pairs`, `test_an_empty_config_response_is_fourteen_bytes`, `test_reset_reasons`, `test_version_names_its_reset_reason_and_pcb`, `test_alive_names_its_phase` |
@@ -849,7 +850,7 @@ ETB-SWE4-002 §13D and the open items of §19 (OPEN-12).
 | VIEW-FR-044 | VIEW-ARC-001 | VIEW-DD-STGUI | `register_rows`, `regs_text`, `/api/stgui/regs` | `test_register_rows_mark_a_changed_register`, `test_the_register_file_round_trips` |
 | VIEW-FR-045 | VIEW-ARC-001 | VIEW-DD-STGUI | `st_row`, `/api/stgui/refresh`, `stgui.js` | `test_frames_as_st_s_gui_lists_them`, `test_nothing_read_yet` |
 | VIEW-FR-046 | VIEW-ARC-001 | VIEW-DD-SERVER | `ViewerServer.handle_error`, `_CLIENT_WENT_AWAY` | `TestClientGoesAway` (7) |
-| VIEW-FR-047 | VIEW-ARC-001, AD-29 | VIEW-DD-SERVER, VIEW-DD-RADIO, VIEW-DD-KEPLER | `dut_panels`, `plugins_view` (tabs), `run_plugins`, `Hub.panel_view`, `panel_call`, `Hub.panel_action`, `Hub.panel_reports`, `_plugin_static`, `missing_plugins`; `plugins.decode` in `sensor_of`, `decode_with_plugin` in `RfFrames.feed`; the `frame_summary` and `sensor_fields` hooks of the plugin that reads the frame, `plain_summary`; `static/plugins.js`, `registerRfView`, `addRfTab`; `KeplerPanel` | `SWE4-UT-PLUGINS`: `TestViewer`, `TestViewerWithoutThePlugins`, `TestPanelInterface`, `TestRoundOneOfReview303` |
+| VIEW-FR-047 | VIEW-ARC-001, AD-29 | VIEW-DD-SERVER, VIEW-DD-RADIO, VIEW-DD-KEPLER | `dut_panels`, `plugins_view` (tabs), `run_plugins`, `Hub.panel_view`, `panel_call`, `Hub.panel_action`, `Hub.panel_reports`, `_plugin_static`, `missing_plugins`; `plugins.decode` in `sensor_of`, `decode_with_plugin` and `plugin_of_decoder` in `RfFrames.feed`; the `frame_summary` and `sensor_fields` hooks of the plugin that reads the frame, `plain_summary`; `static/plugins.js`, `registerRfView`, `addRfTab`; `KeplerPanel` | `SWE4-UT-PLUGINS`: `TestViewer`, `TestViewerWithoutThePlugins`, `TestPanelInterface`, `TestRoundOneOfReview303`, `TestTheRecordNamesItsDecoder` |
 | VIEW-FR-048 | VIEW-ARC-001 | VIEW-DD-STEPEVENTS, VIEW-DD-SERVER, VIEW-DD-PAGE | `StepEvents`, `category`, `step_view`, `step_query`, `Hub.step`, `/api/step`, `toggleStep`, `stepPanel` | `SWE4-UT-VIEWSTEPS`: `test_every_step_lists_exactly_its_own_records`, `TestAttribution` (8), `TestCategory` (13), `TestRunBound` (5); `TestStep` (6), `TestFollowRebuilds` (2) |
 | RUN-FR-050 | ARC-001 | RUN-DD-CLI | `runner/cli.py` | `TestRunCommand` (8) |
 | RUN-FR-051 | ARC-001 | RUN-DD-CLI | exit statuses | `test_simulated_run_passes`, `test_failure_exits_nonzero`, `test_no_bench_and_no_simulate_is_a_usage_error` |
