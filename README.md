@@ -49,7 +49,7 @@ instrument also has a simulator.
 | TTi 1604 multimeter | Checked on the bench: QS-09 failed ([#181](https://github.com/dermot-murphy/EmbeddedTestBench/issues/181)); the fix was checked on 2026-10-28 with the inputs open. Nothing has been measured against a reference |
 | SEGGER J-Link debug probe | Qualified: QS-01 passed; QS-01b failed ([#178](https://github.com/dermot-murphy/EmbeddedTestBench/issues/178)), fixed and checked again on the bench on 2026-10-05 |
 | Nordic nRF52840 BLE dongle, with its own firmware | Qualified: QS-02 passed |
-| ST S2-LP sub-GHz development kit | Qualified in part: QS-07 ended in error ([#179](https://github.com/dermot-murphy/EmbeddedTestBench/issues/179), since fixed), with register access passing and a transmission sent but not shown to arrive. Receiving was checked on the bench since |
+| ST S2-LP sub-GHz development kit | Checked on the bench: QS-07 ended in error ([#179](https://github.com/dermot-murphy/EmbeddedTestBench/issues/179), since fixed; not yet rerun), with register access passing and a transmission sent but not shown to arrive. Receiving was checked on the bench since |
 | PICO2 Test Board: Raspberry Pi Pico 2 thermometer, LEDs and frequency generator | Its identity is qualified (QS-10). LEDs checked on the bench on 2026-11-12. The thermometer has read a plausible room temperature, with no reference. The generator has been seen only on a scope, in an unrecorded check |
 | PicoScope 3000D mixed-signal oscilloscope | Seen working on the bench on 2026-11-13 (analogue channel A), during development, not in a recorded test run |
 | Nordic Power Profiler Kit II | Checked on the bench, with nothing wired to it, on 2026-11-14 |
