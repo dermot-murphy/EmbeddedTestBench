@@ -11,7 +11,7 @@
 # (serial://socket://host.docker.internal:<port>).
 #
 # A prototype: not built by CI, not published, and not yet used for a run on
-# the real bench. ETB-DOCK-001 section 6 is the test plan for that.
+# the real bench. ETB-DOCK-001 section 7 is the test plan for that.
 #
 # Build, from the repository root:
 #

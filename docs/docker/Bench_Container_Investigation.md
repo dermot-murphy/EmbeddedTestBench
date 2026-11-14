@@ -191,8 +191,8 @@ Built on 2026-11-14 at `2b03f91` (develop):
 | ARM GDB | Arm GNU Toolchain 14.2.Rel1, GNU gdb 15.2.90.20241130-git | Release name and the SHA-256 Arm publishes beside the archive |
 
 The ARM GDB is the same build as the bench PC's
-(`C:\Users\dermot.murphy\tools\arm-gnu-toolchain-14.2`, the same `--version`
-line), so a difference between a host run and a container run is not a
+(a user-local zip install of the Arm GNU Toolchain 14.2.Rel1, the same
+`--version` line), so a difference between a host run and a container run is not a
 difference of GDB. Ubuntu's `gdb-multiarch` would also do, since the driver
 accepts it (`_ARM_GDB_NAMES` in `jlink/server.py`), but it is a different GDB
 (`15.1-1ubuntu1~24.04.1`, `apt-cache policy` on 2026-11-14) from the one the
@@ -332,9 +332,7 @@ attaches.
 1. Build the image at the commit under test:
    `docker build -f docker/bench/Dockerfile --build-arg REVISION=<commit> -t etb-bench .`
    and note the image ID (`docker image inspect -f "{{.Id}}" etb-bench`).
-2. Back up 5C1712 on the host, as for any erase or flash:
-   `nrfjprog --readcode ... --readuicr`.
-3. Start the GDB Server on the host, by hand, and leave it running:
+2. Start the GDB Server on the host, by hand, and leave it running:
 
    ```
    JLinkGDBServerCL -device nRF52840_xxAA -if SWD -speed 4000 -port 2331 ^
@@ -343,8 +341,11 @@ attaches.
 
    Record whether it listens on loopback only or on every interface
    (`netstat -an | findstr 2331`); §6.3 suggests either works.
-4. Copy the V10 and V11 HEX files and the V11 ELF onto `U:` under the checkout,
-   and mount it: every path given to the driver is a container path
+3. Copy the full images onto `U:` under the checkout: for V10,
+   `KAPPAX_PCB_V4X_Production_APP_PLUS_SD_V10.01.2000.hex` (application and
+   SoftDevice s140 6.1.0, as in the 2026-09-26 round trip); for V11, the merged
+   `-plus-bl-and-softdevice.hex` image; and the V11 ELF. Mount the checkout:
+   every path given to the driver is a container path
    (`/work/...`). A bench file used in the container must not name
    `gdb_executable`: the Windows path in `benches/bench_pc.yaml` is used as given
    and does not exist in the container.
@@ -352,17 +353,26 @@ attaches.
 **Sequence**, each with
 `docker run --rm -v "${PWD}:/work" etb-bench jlink --resource jlink://host.docker.internal:2331 --device nRF52840_xxAA ...`:
 
+**A chip erase clears UICR as well as flash** (seen on 5C1712 on 2026-11-14,
+PR #337): CUSTOMER[0] at `0x10001080`, which holds the sensor ID, and the
+bootloader address at `0x10001014`/`0x10001018`. So every image flashed after
+step 2 must be a full image, with the SoftDevice and, for V11, the bootloader
+and settings. After an application-only HEX the sensor may not boot, and steps
+6 and 9 then fail. Step 0 takes the backup that step 10 restores.
+
 | Step | Command | Pass if |
 |---|---|---|
+| 0 | On the host, before anything else: `nrfjprog -f NRF52 --readcode <backup>.hex --readuicr` | The file holds code flash and UICR. Copy it beside the images on `U:` |
 | 1 | `info` | The probe and core are reported, as on the host |
-| 2 | `erase` | Reported erased and blank-checked |
-| 3 | `flash /work/<V10>.hex` | Flash and verify succeed |
-| 4 | `write 0x10001080 <the ID word from the backup>`, then `read` it back | Reads the ID that was backed up (`0x5C1712`) |
-| 5 | `flash --preserve 0x10001080:4 /work/<V11>.hex`, the HEX on `U:` through the bind mount | Succeeds; GDB does not exit (the #69 fault, §6.5) |
-| 6 | `reset --run`, then `rtt --duration 10` | RTT shows `Sensor ID is: 0x5C1712` and `VERSION: V11.00.0000` |
+| 2 | `erase` | Reported erased and blank-checked. Until step 10 the sensor has no ID and no bootloader address |
+| 3 | `flash /work/KAPPAX_PCB_V4X_Production_APP_PLUS_SD_V10.01.2000.hex` | Flash and verify succeed |
+| 4 | `write 0x10001080 005c1712` (the word `0x12175C00`), then `read 0x10001080 4` | Reads `005c1712` |
+| 5 | `flash --preserve 0x10001080:4 /work/<V11>-plus-bl-and-softdevice.hex`, the HEX on `U:` through the bind mount | Succeeds; GDB does not exit (the #69 fault, §6.5) |
+| 6 | `reset --run`, then `rtt --duration 10` | RTT shows `Sensor ID is: 0x5C1712` and the version of the HEX flashed in step 5 |
 | 7 | With `--elf /work/<V11>.elf`: `var`, `stack` | Values and a call stack as on the host |
 | 8 | The `rtt` alias: a second GDB Server on the host with `-port 2341 -rtttelnetport 19031 -nohalt`, and `jlink-rtt` at `jlink://host.docker.internal:2341`, `rtt_port: 19031`, while the dongle runs a BLE scan on the host | RTT lines arrive; the sensor keeps advertising (no attach, #95) |
-| 9 | `nrfjprog -f NRF52 --reset` on the host; BLE scan | `KAPPA_5C1712_V11.00.00` advertises |
+| 9 | `nrfjprog -f NRF52 --reset` on the host; BLE scan | `KAPPA_5C1712_` advertises with the version of the HEX flashed in step 5 |
+| 10 | Restore: `flash --preserve 0x10001080:4 /work/<backup>.hex`, then `read 0x10001080 4` and `read 0x10001014 8`, then `nrfjprog -f NRF52 --reset` on the host | Reads `005c1712` and `00800f0000e00f00`; the sensor advertises the version it ran before step 0 |
 
 For each step record the image ID, the GDB Server version, the time taken and
 the time the same step takes on the host. A step that fails in the container
