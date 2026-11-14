@@ -44,6 +44,7 @@
 | next | 2026-10-25 | Claude | #210, review of #301: §6.2 merge driver restated - only revision history rows, theirs first, the release back-merge, the fallback to git's own merge, `install-driver`; GitHub does not run it; the links are expanded on the wiki only; `check` also fails on a row whose version is not recognised. A row edited or removed by either side leaves the conflict; the conflict style and the fallback's labels; a renumbered row, two rows numbered differently, and twin rows. |
 | next | 2026-10-27 | Claude | #305: §6.2 - the conflict style is read from the clone being merged. |
 | next | 2026-11-14 | Claude | #70: §4 - the prototype bench image (`docker/bench/`) added as a configuration item. |
+| next | 2026-11-14 | Claude | #195: §5.8 - `Home` and the home page both carry the README's "At a glance" section. |
 
 ---
 
@@ -356,7 +357,12 @@ unchanged documents pushes nothing. Each workflow has a `dry_run` input that
 generates and reports the change without pushing.
 
 The wiki generator removes the existing pages before writing, so a renamed or
-deleted document leaves no stale page. Qualification run records under
+deleted document leaves no stale page. Both `Home` and the home page carry
+the README's introduction and its "At a glance" section (#195): what the
+product is for, each instrument with what has been shown on hardware, how to
+install the release and start, and where to read more. That section is
+written in the README, so the two pages carry the same content and change
+together. Qualification run records under
 `docs/aspice/qualification/` are not given pages; a link to one points at the
 file in the repository. The generator is verified by
 `tests/test_publish_docs.py` (SWE4-UT-PUBLISH).
