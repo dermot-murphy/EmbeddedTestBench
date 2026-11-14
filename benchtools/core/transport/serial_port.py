@@ -47,8 +47,10 @@ class SerialTransport(Transport):
     :param port: Port name or pyserial URL. ``COM5``, ``/dev/ttyACM0``,
         ``socket://host:4001``, ``loop://``.
     :param resource: Alias for *port*, so the transport can be selected by a
-        ``serial://`` resource string. May carry a trailing ``:<baudrate>``.
-    :param baudrate: Line rate. Overridden by one given in *resource*.
+        ``serial://`` resource string. A bare port name may carry a
+        trailing ``:<baudrate>``; a pyserial URL keeps its whole text (#319).
+    :param baudrate: Line rate. Overridden by one given in a bare port name.
+        The only way to set the rate for a pyserial URL.
     :param timeout: Default I/O timeout in seconds.
     :param terminator: Line terminator.
     :param bytesize: Data bits.
@@ -102,16 +104,17 @@ class SerialTransport(Transport):
     def _split_baudrate(target: str, default: int) -> Tuple[str, int]:
         """Separate a trailing ``:<baudrate>`` from the port name.
 
-        Only a trailing group of digits counts, so ``socket://host:4001`` keeps
-        its port number and ``COM5:115200`` gives up its line rate.
+        Only a bare port name gives up a trailing group of digits as its line
+        rate: ``COM5:115200`` and ``/dev/ttyUSB0:9600``. A pyserial URL keeps
+        its whole text, whatever its host, so the number in
+        ``socket://192.168.1.5:4001`` or ``rfc2217://bench-pc:4001`` stays the
+        TCP port (#319).
         """
+        if "://" in target:
+            return target, default
         head, separator, tail = target.rpartition(":")
-        if separator and tail.isdigit() and "://" not in tail:
-            if "://" in head and head.rpartition("/")[2].count(".") == 0 and not head.endswith("/"):
-                # socket://host:4001 - the number is a TCP port, not a rate.
-                return target, default
-            if head:
-                return head, int(tail)
+        if separator and head and tail.isdigit():
+            return head, int(tail)
         return target, default
 
     @property
