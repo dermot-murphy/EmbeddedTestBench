@@ -49,6 +49,7 @@ keep every USB device and every vendor tool that drives one on the host.
 | next | 2026-11-15 | Claude | #70: the J-Link test plan run on the bench (§7.1); the status, §1, §3, §6.5, §8 and §9 follow it. Step 7 stops the core at a breakpoint (#349). Step 10 erases separately and checks the flash is blank, because `--program --chiperase` did not erase; its malformed row is fixed. |
 | next | 2026-11-15 | Claude | #70 review round 1 (PR #350): §7.1 corrected against the record - step 5 has 14 sections; step 0's host time and step 7's host outputs were seen but not kept; step 1 identifies the core, not the probe; `var m_freq` read a discarded variable at address 0 (#352); step 10's empty `## program` part and its -256 lines explained. |
 | next | 2026-11-15 | Claude | #70 review round 2 (PR #350): §7.1 step 10 - that the -256 lines are routine is the operator's observation, not shown in the record. |
+| next | 2026-11-15 | Claude | #349 follow-up: §7 step 7 uses `halt` again, now that PR #351 halts the core on attach; §7.1 finding 2 says #349 is fixed and words its cause as the bench showed it (an attach after `monitor go`). |
 
 ---
 
@@ -374,7 +375,7 @@ and settings. After an application-only HEX the sensor may not boot, and steps
 | 4 | `write 0x10001080 005c1712` (the word `0x12175C00`), then `read 0x10001080 4` | Reads `005c1712` |
 | 5 | `flash --preserve 0x10001080:4 /work/<V11>-plus-bl-and-softdevice.hex`, the HEX on `U:` through the bind mount | Succeeds; GDB does not exit (the #69 fault, §6.5) |
 | 6 | `reset --run`, then `rtt --duration 10` | RTT shows `Sensor ID is: 0x5C1712` and the version of the HEX flashed in step 5 |
-| 7 | With `--elf /work/<V11>.elf`: `run --until <function>`, then `stack` and `var`. A `halt` does not stop a core that an already-running GDB Server lets run (#349), so stop it at a breakpoint | Values and a call stack as on the host |
+| 7 | With `--elf /work/<V11>.elf`: `halt`, then `stack` and `var`; or `run --until <function>` for a stack at a known place. Before #349 was fixed (PR #351), `halt` did not stop a core left running by an earlier client's `monitor go`, and a breakpoint was needed | Values and a call stack as on the host |
 | 8 | The `rtt` alias: a second GDB Server on the host with `-port 2341 -rtttelnetport 19031 -nohalt`, and `jlink-rtt` at `jlink://host.docker.internal:2341`, `rtt_port: 19031`, while the dongle runs a BLE scan on the host | RTT lines arrive; the sensor keeps advertising (no attach, #95) |
 | 9 | `nrfjprog -f NRF52 --reset` on the host; BLE scan | `KAPPA_5C1712_` advertises with the version of the HEX flashed in step 5 |
 | 10 | Restore on the host, not through the container, so a fault in the container path cannot stop it: `nrfjprog -f NRF52 --eraseall`, then `--memrd 0x0 --n 16` to see it blank, then `nrfjprog -f NRF52 --program <backup>.hex --verify`, then `--memrd 0x10001080 --n 4` and `--memrd 0x10001014 --n 8`, then `nrfjprog -f NRF52 --reset` last, because `--memrd` leaves the core halted. The erase matters: after step 5 has written UICR, a load without an erase cannot set a bit back from 0 to 1. Do not rely on `--program ... --chiperase`: on 2026-11-15 it reported the erase done but left the flash as it was (§7.1) | The flash reads blank after the erase; the program verifies; UICR reads `0x12175C00` and `0x000F8000 0x000FE000`; the sensor advertises the version it ran before step 0 |
@@ -425,11 +426,13 @@ Findings:
 1. **No fault belongs to the container.** Every step that failed or misled
    did the same on the host. For step 7 the host's output was seen on the
    console but not kept (see the step 7 row).
-2. **The driver assumes an attach halts the core** (#349). A GDB Server that
-   is already running does not halt it for a second client, so `halt`, `info`
-   and `stack` treat a running core as halted. Every container run uses such
-   a server, so this matters most there. A breakpoint (`run --until`) is the
-   workaround.
+2. **The driver assumed an attach halts the core** (#349). An attach made
+   after an earlier client's `monitor go`, which GDB never sees, found the
+   core running, so `halt`, `info` and `stack` treated a running core as
+   halted. Every container run uses a GDB Server left running, so this
+   mattered most there. Fixed by PR #351: the driver halts the core on attach,
+   so `halt` and `stack` work from the container. The bench check is in
+   `docs/aspice/qualification/2026-11-15/349_attach_halt/`.
 3. **`nrfjprog --program --chiperase` did not erase**, once, with the sensor
    running V11. Step 10 now erases separately and checks the flash is blank.
    Why it did not erase was not established.
