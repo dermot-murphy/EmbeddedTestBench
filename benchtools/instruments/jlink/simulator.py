@@ -470,7 +470,8 @@ class SimulatedJLink:
             )
         self.connected = True
         # GDB takes the target for stopped after an attach, whether or not the
-        # core runs: a GDB Server already running does not halt it (#349).
+        # core runs: after an earlier client's "monitor go" the attach found
+        # the core running (#349).
         self.gdb_knows_running = False
         self._registers_seen_by_gdb()
         return ["%s^connected" % token, "(gdb)"]

@@ -1,6 +1,6 @@
-"""Attaching to a core that a GDB Server already running left running (#349).
+"""Attaching to a core that an earlier client left running (#349).
 
-Traces to: SWE4-UT-JLINK, JLINK-FR-003.
+Traces to: SWE4-UT-JLINK, JLINK-FR-004.
 """
 
 from __future__ import annotations
@@ -14,9 +14,9 @@ from .conftest import END_LOCATION
 
 class TestAttachingToARunningCore:
     def test_a_core_left_running_by_the_server_is_halted_on_attach(self):
-        """A GDB Server already running does not halt the core for its next
-        client, so the driver halts it; before #349 it took the running core
-        for halted and read every register as 0xDEADBEEF."""
+        """After an earlier client's "monitor go" the next attach finds the
+        core running, so the driver halts it; before #349 it took the running
+        core for halted and read every register as 0xDEADBEEF."""
         simulator = SimulatedJLink()
         simulator.halted = False               # the last client let it run
         probe = JLinkProbe(

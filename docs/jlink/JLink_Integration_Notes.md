@@ -164,7 +164,7 @@ what the driver now does about it:
 | Observed | Driver behaviour |
 |---|---|
 | `-singlerun` made the spawned server exit on the readiness check | Flag removed; `stop()` ends the server |
-| The server halts the core on attach and leaves it halted on detach | `close()` sends `monitor go` unless `leave_halted`. Corrected by #349: a server halts the core when it starts, not on every attach, so `attach()` now halts it |
+| The server halts the core on attach and leaves it halted on detach | `close()` sends `monitor go` unless `leave_halted`. Narrowed by #349: after an earlier client resumed the core with `monitor go`, which GDB never sees, the next client's attach found it running, so `attach()` now halts it |
 | `monitor version` is unsupported | Identity read from the server's start-up banner |
 | `monitor flash erase` said O.K. and erased nothing while the firmware ran | Reset and halt first; blank-check afterwards |
 | GDB exited on `file` then `load` of a HEX file on a mapped drive | `load <file>` first, then read it for verify |
@@ -216,7 +216,10 @@ with a BLE link to the sensor open throughout:
 | GDB Server with `-nohalt`, no GDB client | running | served on the RTT port | stayed up |
 | The same, then GDB `target extended-remote` | **halted** (PC unchanged over 6 s) | silent | **dropped** |
 
-`-nohalt` stops the *server* halting the core; GDB's attach halts it anyway.
+`-nohalt` stops the *server* halting the core; GDB's attach halted it anyway.
+That was a first attach. An attach after an earlier client's `monitor go` found
+the core running instead (#349), so the driver now halts the core itself on
+attach (`attach()`).
 After the detach the SoftDevice logged `<error> app: Fatal error` and the sensor
 stopped advertising until `nrfjprog --reset`.
 

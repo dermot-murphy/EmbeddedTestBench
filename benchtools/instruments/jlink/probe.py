@@ -392,7 +392,7 @@ class JLinkProbe(Instrument):
         self._itm = ItmDecoder()
         self._adopt(session, session.transport, server, rtt, self._itm)
         #: Leave the core halted when the link closes. Off by default: the
-        #: driver halts the core on attach (#349) and the GDB Server does not
+        #: core is halted on attach (#95, #349) and the GDB Server does not
         #: resume it on detach, so without a resume every read or verify
         #: leaves the target stopped.
         self.leave_halted = False
@@ -744,14 +744,14 @@ class JLinkProbe(Instrument):
     def attach(self) -> None:
         """Attach GDB to the target through the GDB Server, and halt the core.
 
-        An attach does not halt the core by itself. A GDB Server halts it when
-        the server starts, so the first client of a server the driver started
-        finds it halted; a server that is already running, and whose last
-        client let the core run, does not halt it for the next client. That is
-        every remote ``jlink://<host>:<port>`` and every run from the bench
-        container. GDB still believes the core stopped, so without a halt
-        here the driver took a running core for a halted one: ``halt`` did
-        nothing, and the registers read ``0xDEADBEEF`` (issue #349, seen on
+        An attach has been seen to halt the core (#95), but not after an
+        earlier client resumed it with ``monitor go``: GDB never saw that
+        resume, and a client attaching to the same GDB Server afterwards found
+        the core running while GDB took it for stopped. The driver's own
+        ``close`` ends that way, so the second call against a GDB Server left
+        running - every remote ``jlink://<host>:<port>`` and every run from
+        the bench container - took a running core for a halted one: ``halt``
+        did nothing, and the registers read ``0xDEADBEEF`` (issue #349, seen on
         5C1712 with GDB Server V9.42). ``monitor halt`` is harmless on a
         halted core, and GDB's register cache is flushed after it because GDB
         does not see what a ``monitor`` command does (#178).

@@ -121,6 +121,7 @@
 | next | 2026-11-14 | Claude | #84 (driver): S2LP-DD-KITHOST: the host side of the kit firmware (`probe`, `KitSession`, `KitFirmwareMixin`, `SimulatedKitFirmware`); S2LP-DD-SESSION gains `write_line`, `read_line`, `drain`, `adopt_log` and `hand_over_log`. |
 | next | 2026-11-14 | Claude | #84 review round 3: S2LP-DD-KITHOST - `rx start` inside the stream's `try`; a stop the board does not answer raised, with QI left on and noted and `receiving` kept for a retry; records lost after the last one sent noted. |
 | next | 2026-11-15 | Claude | #349: JLINK-DD-PROBE - `attach` halts the core and flushes GDB's register cache. JLINK-DD-SIM - GDB's knowledge that the core runs is modelled apart from the core (`gdb_knows_running`), and a running core's registers read `0xDEADBEEF`; the firmware model moves to `simfirmware.py`. |
+| next | 2026-11-15 | Claude | #349 review round 1: JLINK-DD-PROBE - the reason for halting on attach narrowed to an attach after an earlier client's `monitor go`. |
 ---
 
 ## 3. Purpose & Scope
@@ -1095,9 +1096,10 @@ Design points:
 - Memory transfers are chunked to `ProbeLimits.max_transfer_bytes`; a 1 MB read is
   not one MI command.
 - **`attach` halts the core** (JLINK-FR-004, #349): `monitor halt` and a
-  register-cache flush after `-target-select`. A GDB Server halts the core when
-  it starts, but one already running does not halt it for its next client, and
-  GDB takes the target for stopped either way. On 5C1712 a container's attach
+  register-cache flush after `-target-select`. An attach halted the core on
+  5C1712 (#95), but one made after an earlier client resumed the core with
+  `monitor go`, which GDB never sees, found it running while GDB took it for
+  stopped - and the driver's own `close` ends that way. On 5C1712 a container's attach
   to such a server found the core running: `halt` returned without halting,
   because the driver already believed it halted, and every register read
   `0xDEADBEEF`. `monitor halt` on a halted core changes nothing. `halt` on a core already
