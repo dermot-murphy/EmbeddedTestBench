@@ -62,3 +62,20 @@ class TestAVariableAtAddressZero:
     def test_an_expression_with_no_address_is_not_checked(self, probe):
         """``&$pc`` has no meaning, so ``$pc`` is evaluated unchecked."""
         assert isinstance(probe.read_variable("$pc"), int)
+
+    def test_the_check_takes_the_address_of_the_whole_expression(self, probe, simulator):
+        """``&(name)``, so ``a + 1`` is not taken as ``(&a) + 1``."""
+        with pytest.raises(MeasurementError):
+            probe.read_variable("m_freq")
+        assert any("&(m_freq)" in command for command in simulator.command_log)
+
+    @pytest.mark.parametrize("expression", ["m_freq++", "m_freq = 5", "reset_count()"])
+    def test_an_expression_with_a_side_effect_is_not_evaluated_twice(
+            self, probe, simulator, expression):
+        """The check would evaluate it once more, so it is skipped."""
+        before = len(simulator.command_log)
+        with pytest.raises(MeasurementError):     # the simulator cannot evaluate these
+            probe.read_variable(expression)
+        sent = simulator.command_log[before:]
+        assert not any(command.startswith("-data-evaluate-expression \"&") for command in sent)
+        assert len(sent) == 1

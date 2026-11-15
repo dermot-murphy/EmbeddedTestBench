@@ -317,6 +317,8 @@ class SimulatedJLink:
         text = expression.strip()
         if text.startswith("&"):
             name = text[1:].strip()
+            if name.startswith("(") and name.endswith(")"):
+                name = name[1:-1].strip()
             symbol = self.firmware.symbols.get(name)
             if symbol is None:
                 raise KeyError(name)

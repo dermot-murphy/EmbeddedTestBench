@@ -120,6 +120,7 @@
 | next | 2026-11-14 | Claude | #84 review round 3: §5 SWE4-UT-S2LPKITHOST 31 -> 35, pass, from a run of `instruments/s2lp/` on this branch on 2026-11-14 (772 passed). The §5 total is still the 1.32 whole-suite run's. |
 | next | 2026-11-15 | Claude | #349: §5 SWE4-UT-JLINK 118 -> 121 (`test_attach.py`) and SWE4-UT-JLINKSIM 30 -> 32, pass, from a run of `instruments/jlink/` and `runner/` on this branch on 2026-11-15. The §5 total is still the 1.32 whole-suite run's. |
 | next | 2026-11-15 | Claude | #352: §5 SWE4-UT-JLINK 121 -> 126 (`test_variable_address.py`), pass, from a run of `instruments/jlink/` on this branch on 2026-11-15. The §5 total is still the 1.32 whole-suite run's. |
+| next | 2026-11-15 | Claude | #352 review round 1: §5 SWE4-UT-JLINK 126 -> 130 (`test_variable_address.py` 5 -> 9), pass, from a run of `instruments/jlink/` on this branch on 2026-11-15. |
 ---
 
 ## 3. Purpose & Scope
@@ -291,7 +292,7 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-CLI | `instruments/tek3014b/test_cli.py` | 20 | Pass |
 | SWE4-UT-GDBMI | `instruments/jlink/test_gdbmi.py` | 38 | Pass |
 | SWE4-UT-GDBSESSION | `instruments/jlink/test_session.py` | 18 | Pass |
-| SWE4-UT-JLINK | `instruments/jlink/test_probe.py`, `instruments/jlink/test_attach.py`, `instruments/jlink/test_variable_address.py` | 126 | Pass |
+| SWE4-UT-JLINK | `instruments/jlink/test_probe.py`, `instruments/jlink/test_attach.py`, `instruments/jlink/test_variable_address.py` | 130 | Pass |
 | SWE4-UT-RTT | `instruments/jlink/test_rtt.py` | 22 | Pass |
 | SWE4-UT-SWO | `instruments/jlink/test_swo.py` | 20 | Pass |
 | SWE4-UT-TIMING | `instruments/jlink/test_timing.py` | 29 | Pass |
