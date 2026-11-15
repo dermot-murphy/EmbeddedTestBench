@@ -93,9 +93,11 @@ __all__ = [
 NRF52_UICR = (0x10001000, 0x310)
 
 #: An expression that may change the target when evaluated: an increment or
-#: decrement, an assignment (not a comparison) or a call. The address-0 check
-#: (#352) would evaluate it a second time, so it is not checked.
-_MAY_HAVE_SIDE_EFFECT = re.compile(r"\+\+|--|(?<![=!<>])=(?!=)|\(")
+#: decrement, an assignment (compound ones included, not a comparison), or
+#: anything with a parenthesis - a call, but also a cast or a parenthesised
+#: name, which are skipped too. The address-0 check (#352) would evaluate it a
+#: second time, so it is not checked.
+_MAY_HAVE_SIDE_EFFECT = re.compile(r"\+\+|--|<<=|>>=|(?<![=!<>])=(?!=)|\(")
 
 #: The J-Link backends ``connect`` accepts, the default first (#71).
 BACKENDS = ("gdb", "segger")
@@ -1496,7 +1498,9 @@ class JLinkProbe(Instrument):
         pointer as the variable's value: ``m_freq`` read ``0x20000400`` on
         5C1712 (#352). An expression that has no address, such as a register,
         is not checked. Nor is one that may have a side effect - an increment,
-        an assignment or a call - because the check evaluates it once more.
+        an assignment or a call - because the check evaluates it once more;
+        any parenthesis counts, so a cast such as ``(uint32_t)x`` is not
+        checked either.
         """
         if _MAY_HAVE_SIDE_EFFECT.search(name):
             return
