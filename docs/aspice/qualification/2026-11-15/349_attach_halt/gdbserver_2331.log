@@ -1,0 +1,1463 @@
+SEGGER J-Link GDB Server V9.42 Command Line Version
+
+JLinkARM.dll V9.42 (DLL compiled May  6 2026 12:30:07)
+
+Command line: -device nRF52840_xxAA -if SWD -speed 4000 -port 2331 -rtttelnetport 19021 -nogui -strict
+-----GDB Server start settings-----
+GDBInit file:                  none
+GDB Server Listening port:     2331
+SWO raw output listening port: 2332
+Terminal I/O port:             2333
+Accept remote connection:      localhost only
+Generate logfile:              off
+Verify download:               off
+Init regs on start:            off
+Silent mode:                   off
+Single run mode:               off
+Target connection timeout:     0 ms
+------J-Link related settings------
+J-Link Host interface:         USB
+J-Link script:                 none
+J-Link settings file:          none
+------Target related settings------
+Target device:                 nRF52840_xxAA
+Target device parameters:      none
+Target interface:              SWD
+Target interface speed:        4000kHz
+Target endian:                 little
+
+Connecting to J-Link...
+J-Link is connected.
+Firmware: J-Link ARM V8 compiled Nov 28 2014 13:44:46
+Hardware: V8.00
+S/N: 682395790
+Feature(s): RDI,FlashDL,FlashBP,JFlash,GDB
+Checking target voltage...
+Target voltage: 3.28 V
+Listening on TCP/IP port 2331
+Connecting to target...
+Halting core...
+Connected to target
+Waiting for GDB connection...Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 960)
+Connected to 127.0.0.1
+GDB client (conn. 968) requested target.xml from GDB Server
+Reading common registers: 
+Reading register 'r0' from hardware = 0x01000001
+Reading register 'r1' from hardware = 0x40020518
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000001
+Reading register 'r4' from hardware = 0x200000C0
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0xE000E000
+Reading register 'r7' from hardware = 0x0000004C
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0xCCCCCCCD
+Reading register 'sp' from hardware = 0x2003FF20
+Reading register 'lr' from hardware = 0x00015F59
+Reading register 'pc' from hardware = 0x00015F5A
+Reading register 'xpsr' from hardware = 0x61000000
+Read 4 bytes @ address 0x00015F5A (Data = 0xBF20BF40)
+Read 2 bytes @ address 0x00015F5A (Data = 0xBF40)
+Received monitor command: reset 0
+Resetting target (0 = NORMAL: Resets core & peripherals via SYSRESETREQ & VECTRESET bit.)
+Reading common registers: 
+Reading register 'r0' from hardware = 0x00000000
+Reading register 'r1' from hardware = 0x00000000
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000000
+Reading register 'r4' from hardware = 0x00000000
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0x00000000
+Reading register 'r7' from hardware = 0x00000000
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x00000000
+Reading register 'sp' from hardware = 0x20000400
+Reading register 'lr' from hardware = 0xFFFFFFFF
+Reading register 'pc' from hardware = 0x00000998
+Reading register 'xpsr' from hardware = 0x01000000
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 968)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 924)
+Connected to 127.0.0.1
+GDB client (conn. 976) requested target.xml from GDB Server
+Reading common registers: 
+...Target halted (PC = 0x0000000000015F5A)
+Reading register 'r0' from hardware = 0x01000001
+Reading register 'r1' from hardware = 0x40020518
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000001
+Reading register 'r4' from hardware = 0x200000C0
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0xE000E000
+Reading register 'r7' from hardware = 0x00000002
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x2003FE0C
+Reading register 'sp' from hardware = 0x2003FF20
+Reading register 'lr' from hardware = 0x00015F59
+Reading register 'pc' from hardware = 0x00015F5A
+Reading register 'xpsr' from hardware = 0x61000000
+Read 4 bytes @ address 0x00015F5A (Data = 0xBF20BF40)
+Read 2 bytes @ address 0x00015F5A (Data = 0xBF40)
+WARNING: Unsupported remote command "version"
+Received monitor command: go
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 976)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 988)
+Connected to 127.0.0.1
+GDB client (conn. 944) requested target.xml from GDB Server
+Reading common registers: 
+ERROR: Cannot read register 0 (R0) while CPU is running
+Reading register 'r0' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 1 (R1) while CPU is running
+Reading register 'r1' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 2 (R2) while CPU is running
+Reading register 'r2' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 3 (R3) while CPU is running
+Reading register 'r3' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 4 (R4) while CPU is running
+Reading register 'r4' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 5 (R5) while CPU is running
+Reading register 'r5' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 6 (R6) while CPU is running
+Reading register 'r6' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 7 (R7) while CPU is running
+Reading register 'r7' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 8 (R8) while CPU is running
+Reading register 'r8' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 9 (R9) while CPU is running
+Reading register 'r9' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 10 (R10) while CPU is running
+Reading register 'r10' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 11 (R11) while CPU is running
+Reading register 'r11' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 12 (R12) while CPU is running
+Reading register 'r12' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 13 (R13) while CPU is running
+Reading register 'sp' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 14 (R14) while CPU is running
+Reading register 'lr' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 15 (R15) while CPU is running
+Reading register 'pc' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 16 (XPSR) while CPU is running
+Reading register 'xpsr' from hardware = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+GDB closed TCP/IP connection (Socket 944)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 952)
+Connected to 127.0.0.1
+GDB client (conn. 1000) requested target.xml from GDB Server
+Reading common registers: 
+ERROR: Cannot read register 0 (R0) while CPU is running
+Reading register 'r0' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 1 (R1) while CPU is running
+Reading register 'r1' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 2 (R2) while CPU is running
+Reading register 'r2' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 3 (R3) while CPU is running
+Reading register 'r3' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 4 (R4) while CPU is running
+Reading register 'r4' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 5 (R5) while CPU is running
+Reading register 'r5' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 6 (R6) while CPU is running
+Reading register 'r6' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 7 (R7) while CPU is running
+Reading register 'r7' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 8 (R8) while CPU is running
+Reading register 'r8' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 9 (R9) while CPU is running
+Reading register 'r9' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 10 (R10) while CPU is running
+Reading register 'r10' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 11 (R11) while CPU is running
+Reading register 'r11' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 12 (R12) while CPU is running
+Reading register 'r12' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 13 (R13) while CPU is running
+Reading register 'sp' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 14 (R14) while CPU is running
+Reading register 'lr' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 15 (R15) while CPU is running
+Reading register 'pc' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 16 (XPSR) while CPU is running
+Reading register 'xpsr' from hardware = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+Received monitor command: reset 0
+Resetting target (0 = NORMAL: Resets core & peripherals via SYSRESETREQ & VECTRESET bit.)
+Reading common registers: 
+Reading register 'r0' from hardware = 0x00000000
+Reading register 'r1' from hardware = 0x00000000
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000000
+Reading register 'r4' from hardware = 0x00000000
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0x00000000
+Reading register 'r7' from hardware = 0x00000000
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x00000000
+Reading register 'sp' from hardware = 0x20000400
+Reading register 'lr' from hardware = 0xFFFFFFFF
+Reading register 'pc' from hardware = 0x00000998
+Reading register 'xpsr' from hardware = 0x01000000
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 1000)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 924)
+Connected to 127.0.0.1
+GDB client (conn. 976) requested target.xml from GDB Server
+Reading common registers: 
+...Target halted (PC = 0x0000000000015F5A)
+Reading register 'r0' from hardware = 0x01000001
+Reading register 'r1' from hardware = 0x40020518
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000001
+Reading register 'r4' from hardware = 0x200000C0
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0xE000E000
+Reading register 'r7' from hardware = 0x00000002
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x2003FE0C
+Reading register 'sp' from hardware = 0x2003FF20
+Reading register 'lr' from hardware = 0x00015F59
+Reading register 'pc' from hardware = 0x00015F5A
+Reading register 'xpsr' from hardware = 0x61000000
+Read 4 bytes @ address 0x00015F5A (Data = 0xBF20BF40)
+Read 2 bytes @ address 0x00015F5A (Data = 0xBF40)
+Received monitor command: halt
+Halting target CPU...
+...Target halted (PC = 0x0000000000015F5A)
+Reading common registers: 
+Reading register 'r0' from hardware = 0x01000001
+Reading register 'r1' from hardware = 0x40020518
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000001
+Reading register 'r4' from hardware = 0x200000C0
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0xE000E000
+Reading register 'r7' from hardware = 0x00000002
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x2003FE0C
+Reading register 'sp' from hardware = 0x2003FF20
+Reading register 'lr' from hardware = 0x00015F59
+Reading register 'pc' from hardware = 0x00015F5A
+Reading register 'xpsr' from hardware = 0x61000000
+WARNING: Unsupported remote command "version"
+Received monitor command: go
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 976)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 972)
+Connected to 127.0.0.1
+GDB client (conn. 816) requested target.xml from GDB Server
+Reading common registers: 
+ERROR: Cannot read register 0 (R0) while CPU is running
+Reading register 'r0' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 1 (R1) while CPU is running
+Reading register 'r1' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 2 (R2) while CPU is running
+Reading register 'r2' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 3 (R3) while CPU is running
+Reading register 'r3' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 4 (R4) while CPU is running
+Reading register 'r4' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 5 (R5) while CPU is running
+Reading register 'r5' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 6 (R6) while CPU is running
+Reading register 'r6' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 7 (R7) while CPU is running
+Reading register 'r7' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 8 (R8) while CPU is running
+Reading register 'r8' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 9 (R9) while CPU is running
+Reading register 'r9' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 10 (R10) while CPU is running
+Reading register 'r10' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 11 (R11) while CPU is running
+Reading register 'r11' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 12 (R12) while CPU is running
+Reading register 'r12' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 13 (R13) while CPU is running
+Reading register 'sp' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 14 (R14) while CPU is running
+Reading register 'lr' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 15 (R15) while CPU is running
+Reading register 'pc' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 16 (XPSR) while CPU is running
+Reading register 'xpsr' from hardware = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+Received monitor command: halt
+Halting target CPU...
+...Target halted (PC = 0x0000000000015F5A)
+Reading common registers: 
+Reading register 'r0' from hardware = 0x01000001
+Reading register 'r1' from hardware = 0x40020518
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000001
+Reading register 'r4' from hardware = 0x200000C0
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0xE000E000
+Reading register 'r7' from hardware = 0x00000004
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x2003FDEC
+Reading register 'sp' from hardware = 0x2003FF20
+Reading register 'lr' from hardware = 0x00015F59
+Reading register 'pc' from hardware = 0x00015F5A
+Reading register 'xpsr' from hardware = 0x61000000
+Received monitor command: reset 0
+Resetting target (0 = NORMAL: Resets core & peripherals via SYSRESETREQ & VECTRESET bit.)
+Reading common registers: 
+Reading register 'r0' from hardware = 0x00000000
+Reading register 'r1' from hardware = 0x00000000
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000000
+Reading register 'r4' from hardware = 0x00000000
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0x00000000
+Reading register 'r7' from hardware = 0x00000000
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x00000000
+Reading register 'sp' from hardware = 0x20000400
+Reading register 'lr' from hardware = 0xFFFFFFFF
+Reading register 'pc' from hardware = 0x00000998
+Reading register 'xpsr' from hardware = 0x01000000
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 816)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 1000)
+Connected to 127.0.0.1
+GDB client (conn. 956) requested target.xml from GDB Server
+Reading common registers: 
+...Target halted (PC = 0x0000000000015F5A)
+Reading register 'r0' from hardware = 0x01000001
+Reading register 'r1' from hardware = 0x40020518
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000001
+Reading register 'r4' from hardware = 0x200000C0
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0xE000E000
+Reading register 'r7' from hardware = 0x00000002
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x2003FE0C
+Reading register 'sp' from hardware = 0x2003FF20
+Reading register 'lr' from hardware = 0x00015F59
+Reading register 'pc' from hardware = 0x00015F5A
+Reading register 'xpsr' from hardware = 0x61000000
+Read 4 bytes @ address 0x00015F5A (Data = 0xBF20BF40)
+Read 2 bytes @ address 0x00015F5A (Data = 0xBF40)
+Received monitor command: halt
+Halting target CPU...
+...Target halted (PC = 0x0000000000015F5A)
+Reading common registers: 
+Reading register 'r0' from hardware = 0x01000001
+Reading register 'r1' from hardware = 0x40020518
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000001
+Reading register 'r4' from hardware = 0x200000C0
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0xE000E000
+Reading register 'r7' from hardware = 0x00000002
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x2003FE0C
+Reading register 'sp' from hardware = 0x2003FF20
+Reading register 'lr' from hardware = 0x00015F59
+Reading register 'pc' from hardware = 0x00015F5A
+Reading register 'xpsr' from hardware = 0x61000000
+GDB closed TCP/IP connection (Socket 956)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 952)
+Connected to 127.0.0.1
+GDB client (conn. 792) requested target.xml from GDB Server
+Reading common registers: 
+Reading register 'r0' from hardware = 0x01000001
+Reading register 'r1' from hardware = 0x40020518
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000001
+Reading register 'r4' from hardware = 0x200000C0
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0xE000E000
+Reading register 'r7' from hardware = 0x00000002
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x2003FE0C
+Reading register 'sp' from hardware = 0x2003FF20
+Reading register 'lr' from hardware = 0x00015F59
+Reading register 'pc' from hardware = 0x00015F5A
+Reading register 'xpsr' from hardware = 0x61000000
+Read 4 bytes @ address 0x00015F5A (Data = 0xBF20BF40)
+Read 2 bytes @ address 0x00015F5A (Data = 0xBF40)
+Received monitor command: halt
+Halting target CPU...
+...Target halted (PC = 0x0000000000015F5A)
+Reading common registers: 
+Reading register 'r0' from hardware = 0x01000001
+Reading register 'r1' from hardware = 0x40020518
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000001
+Reading register 'r4' from hardware = 0x200000C0
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0xE000E000
+Reading register 'r7' from hardware = 0x00000002
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x2003FE0C
+Reading register 'sp' from hardware = 0x2003FF20
+Reading register 'lr' from hardware = 0x00015F59
+Reading register 'pc' from hardware = 0x00015F5A
+Reading register 'xpsr' from hardware = 0x61000000
+WARNING: Unsupported remote command "version"
+Received monitor command: go
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 792)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 992)
+Connected to 127.0.0.1
+GDB client (conn. 972) requested target.xml from GDB Server
+Reading common registers: 
+ERROR: Cannot read register 0 (R0) while CPU is running
+Reading register 'r0' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 1 (R1) while CPU is running
+Reading register 'r1' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 2 (R2) while CPU is running
+Reading register 'r2' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 3 (R3) while CPU is running
+Reading register 'r3' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 4 (R4) while CPU is running
+Reading register 'r4' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 5 (R5) while CPU is running
+Reading register 'r5' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 6 (R6) while CPU is running
+Reading register 'r6' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 7 (R7) while CPU is running
+Reading register 'r7' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 8 (R8) while CPU is running
+Reading register 'r8' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 9 (R9) while CPU is running
+Reading register 'r9' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 10 (R10) while CPU is running
+Reading register 'r10' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 11 (R11) while CPU is running
+Reading register 'r11' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 12 (R12) while CPU is running
+Reading register 'r12' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 13 (R13) while CPU is running
+Reading register 'sp' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 14 (R14) while CPU is running
+Reading register 'lr' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 15 (R15) while CPU is running
+Reading register 'pc' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 16 (XPSR) while CPU is running
+Reading register 'xpsr' from hardware = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+Received monitor command: halt
+Halting target CPU...
+...Target halted (PC = 0x0000000000015F5A)
+Reading common registers: 
+Reading register 'r0' from hardware = 0x01000001
+Reading register 'r1' from hardware = 0x40020518
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000001
+Reading register 'r4' from hardware = 0x200000C0
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0xE000E000
+Reading register 'r7' from hardware = 0x00000005
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x2003FDEC
+Reading register 'sp' from hardware = 0x2003FF20
+Reading register 'lr' from hardware = 0x00015F59
+Reading register 'pc' from hardware = 0x00015F5A
+Reading register 'xpsr' from hardware = 0x61000000
+Received monitor command: reset 0
+Resetting target (0 = NORMAL: Resets core & peripherals via SYSRESETREQ & VECTRESET bit.)
+Reading common registers: 
+Reading register 'r0' from hardware = 0x00000000
+Reading register 'r1' from hardware = 0x00000000
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000000
+Reading register 'r4' from hardware = 0x00000000
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0x00000000
+Reading register 'r7' from hardware = 0x00000000
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x00000000
+Reading register 'sp' from hardware = 0x20000400
+Reading register 'lr' from hardware = 0xFFFFFFFF
+Reading register 'pc' from hardware = 0x00000998
+Reading register 'xpsr' from hardware = 0x01000000
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 972)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 972)
+Connected to 127.0.0.1
+GDB client (conn. 1028) requested target.xml from GDB Server
+Reading common registers: 
+...Target halted (PC = 0x0000000000015F5A)
+Reading register 'r0' from hardware = 0x01000001
+Reading register 'r1' from hardware = 0x40020518
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000001
+Reading register 'r4' from hardware = 0x200000C0
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0xE000E000
+Reading register 'r7' from hardware = 0x00000001
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x20039945
+Reading register 'sp' from hardware = 0x2003FF20
+Reading register 'lr' from hardware = 0x00015F59
+Reading register 'pc' from hardware = 0x00015F5A
+Reading register 'xpsr' from hardware = 0x61000000
+Read 4 bytes @ address 0x00015F5A (Data = 0xBF20BF40)
+Read 2 bytes @ address 0x00015F5A (Data = 0xBF40)
+Received monitor command: halt
+Halting target CPU...
+...Target halted (PC = 0x0000000000015F5A)
+Reading common registers: 
+Reading register 'r0' from hardware = 0x01000001
+Reading register 'r1' from hardware = 0x40020518
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000001
+Reading register 'r4' from hardware = 0x200000C0
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0xE000E000
+Reading register 'r7' from hardware = 0x00000001
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x20039945
+Reading register 'sp' from hardware = 0x2003FF20
+Reading register 'lr' from hardware = 0x00015F59
+Reading register 'pc' from hardware = 0x00015F5A
+Reading register 'xpsr' from hardware = 0x61000000
+WARNING: Unsupported remote command "version"
+Received monitor command: go
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 1028)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 1048)
+Connected to 127.0.0.1
+GDB client (conn. 992) requested target.xml from GDB Server
+Reading common registers: 
+ERROR: Cannot read register 0 (R0) while CPU is running
+Reading register 'r0' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 1 (R1) while CPU is running
+Reading register 'r1' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 2 (R2) while CPU is running
+Reading register 'r2' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 3 (R3) while CPU is running
+Reading register 'r3' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 4 (R4) while CPU is running
+Reading register 'r4' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 5 (R5) while CPU is running
+Reading register 'r5' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 6 (R6) while CPU is running
+Reading register 'r6' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 7 (R7) while CPU is running
+Reading register 'r7' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 8 (R8) while CPU is running
+Reading register 'r8' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 9 (R9) while CPU is running
+Reading register 'r9' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 10 (R10) while CPU is running
+Reading register 'r10' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 11 (R11) while CPU is running
+Reading register 'r11' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 12 (R12) while CPU is running
+Reading register 'r12' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 13 (R13) while CPU is running
+Reading register 'sp' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 14 (R14) while CPU is running
+Reading register 'lr' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 15 (R15) while CPU is running
+Reading register 'pc' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 16 (XPSR) while CPU is running
+Reading register 'xpsr' from hardware = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+Received monitor command: halt
+Halting target CPU...
+...Target halted (PC = 0x0000000000015F5A)
+Reading common registers: 
+Reading register 'r0' from hardware = 0x01000001
+Reading register 'r1' from hardware = 0x40020518
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000001
+Reading register 'r4' from hardware = 0x200000C0
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0xE000E000
+Reading register 'r7' from hardware = 0x00000002
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x2003FE0C
+Reading register 'sp' from hardware = 0x2003FF20
+Reading register 'lr' from hardware = 0x00015F59
+Reading register 'pc' from hardware = 0x00015F5A
+Reading register 'xpsr' from hardware = 0x61000000
+Received monitor command: reset 0
+Resetting target (0 = NORMAL: Resets core & peripherals via SYSRESETREQ & VECTRESET bit.)
+Reading common registers: 
+Reading register 'r0' from hardware = 0x00000000
+Reading register 'r1' from hardware = 0x00000000
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000000
+Reading register 'r4' from hardware = 0x00000000
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0x00000000
+Reading register 'r7' from hardware = 0x00000000
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x00000000
+Reading register 'sp' from hardware = 0x20000400
+Reading register 'lr' from hardware = 0xFFFFFFFF
+Reading register 'pc' from hardware = 0x00000998
+Reading register 'xpsr' from hardware = 0x01000000
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 992)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 868)
+Connected to 127.0.0.1
+GDB client (conn. 1016) requested target.xml from GDB Server
+Reading common registers: 
+...Target halted (PC = 0x0000000000015F5A)
+Reading register 'r0' from hardware = 0x01000001
+Reading register 'r1' from hardware = 0x40020518
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000001
+Reading register 'r4' from hardware = 0x200000C0
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0xE000E000
+Reading register 'r7' from hardware = 0x00000008
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0xCCCCCCCD
+Reading register 'sp' from hardware = 0x2003FF20
+Reading register 'lr' from hardware = 0x00015F59
+Reading register 'pc' from hardware = 0x00015F5A
+Reading register 'xpsr' from hardware = 0x61000000
+Read 4 bytes @ address 0x00015F5A (Data = 0xBF20BF40)
+Read 2 bytes @ address 0x00015F5A (Data = 0xBF40)
+WARNING: Unsupported remote command "version"
+Received monitor command: go
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 1016)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 1060)
+Connected to 127.0.0.1
+GDB client (conn. 896) requested target.xml from GDB Server
+Reading common registers: 
+ERROR: Cannot read register 0 (R0) while CPU is running
+Reading register 'r0' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 1 (R1) while CPU is running
+Reading register 'r1' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 2 (R2) while CPU is running
+Reading register 'r2' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 3 (R3) while CPU is running
+Reading register 'r3' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 4 (R4) while CPU is running
+Reading register 'r4' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 5 (R5) while CPU is running
+Reading register 'r5' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 6 (R6) while CPU is running
+Reading register 'r6' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 7 (R7) while CPU is running
+Reading register 'r7' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 8 (R8) while CPU is running
+Reading register 'r8' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 9 (R9) while CPU is running
+Reading register 'r9' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 10 (R10) while CPU is running
+Reading register 'r10' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 11 (R11) while CPU is running
+Reading register 'r11' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 12 (R12) while CPU is running
+Reading register 'r12' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 13 (R13) while CPU is running
+Reading register 'sp' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 14 (R14) while CPU is running
+Reading register 'lr' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 15 (R15) while CPU is running
+Reading register 'pc' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 16 (XPSR) while CPU is running
+Reading register 'xpsr' from hardware = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+WARNING: Unsupported remote command "version"
+Received monitor command: go
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 896)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 1028)
+Connected to 127.0.0.1
+GDB client (conn. 1064) requested target.xml from GDB Server
+Reading common registers: 
+ERROR: Cannot read register 0 (R0) while CPU is running
+Reading register 'r0' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 1 (R1) while CPU is running
+Reading register 'r1' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 2 (R2) while CPU is running
+Reading register 'r2' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 3 (R3) while CPU is running
+Reading register 'r3' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 4 (R4) while CPU is running
+Reading register 'r4' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 5 (R5) while CPU is running
+Reading register 'r5' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 6 (R6) while CPU is running
+Reading register 'r6' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 7 (R7) while CPU is running
+Reading register 'r7' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 8 (R8) while CPU is running
+Reading register 'r8' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 9 (R9) while CPU is running
+Reading register 'r9' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 10 (R10) while CPU is running
+Reading register 'r10' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 11 (R11) while CPU is running
+Reading register 'r11' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 12 (R12) while CPU is running
+Reading register 'r12' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 13 (R13) while CPU is running
+Reading register 'sp' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 14 (R14) while CPU is running
+Reading register 'lr' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 15 (R15) while CPU is running
+Reading register 'pc' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 16 (XPSR) while CPU is running
+Reading register 'xpsr' from hardware = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+GDB closed TCP/IP connection (Socket 1064)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 1072)
+Connected to 127.0.0.1
+GDB client (conn. 984) requested target.xml from GDB Server
+Reading common registers: 
+ERROR: Cannot read register 0 (R0) while CPU is running
+Reading register 'r0' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 1 (R1) while CPU is running
+Reading register 'r1' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 2 (R2) while CPU is running
+Reading register 'r2' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 3 (R3) while CPU is running
+Reading register 'r3' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 4 (R4) while CPU is running
+Reading register 'r4' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 5 (R5) while CPU is running
+Reading register 'r5' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 6 (R6) while CPU is running
+Reading register 'r6' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 7 (R7) while CPU is running
+Reading register 'r7' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 8 (R8) while CPU is running
+Reading register 'r8' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 9 (R9) while CPU is running
+Reading register 'r9' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 10 (R10) while CPU is running
+Reading register 'r10' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 11 (R11) while CPU is running
+Reading register 'r11' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 12 (R12) while CPU is running
+Reading register 'r12' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 13 (R13) while CPU is running
+Reading register 'sp' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 14 (R14) while CPU is running
+Reading register 'lr' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 15 (R15) while CPU is running
+Reading register 'pc' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 16 (XPSR) while CPU is running
+Reading register 'xpsr' from hardware = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+Received monitor command: reset 0
+Resetting target (0 = NORMAL: Resets core & peripherals via SYSRESETREQ & VECTRESET bit.)
+Reading common registers: 
+Reading register 'r0' from hardware = 0x00000000
+Reading register 'r1' from hardware = 0x00000000
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000000
+Reading register 'r4' from hardware = 0x00000000
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0x00000000
+Reading register 'r7' from hardware = 0x00000000
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x00000000
+Reading register 'sp' from hardware = 0x20000400
+Reading register 'lr' from hardware = 0xFFFFFFFF
+Reading register 'pc' from hardware = 0x00000998
+Reading register 'xpsr' from hardware = 0x01000000
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 984)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 896)
+Connected to 127.0.0.1
+GDB client (conn. 1020) requested target.xml from GDB Server
+Reading common registers: 
+...Target halted (PC = 0x0000000000015F5A)
+Reading register 'r0' from hardware = 0x01000001
+Reading register 'r1' from hardware = 0x40020518
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000001
+Reading register 'r4' from hardware = 0x200000C0
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0xE000E000
+Reading register 'r7' from hardware = 0x00000002
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x2003FE0C
+Reading register 'sp' from hardware = 0x2003FF20
+Reading register 'lr' from hardware = 0x00015F59
+Reading register 'pc' from hardware = 0x00015F5A
+Reading register 'xpsr' from hardware = 0x61000000
+Read 4 bytes @ address 0x00015F5A (Data = 0xBF20BF40)
+Read 2 bytes @ address 0x00015F5A (Data = 0xBF40)
+Received monitor command: halt
+Halting target CPU...
+...Target halted (PC = 0x0000000000015F5A)
+Reading common registers: 
+Reading register 'r0' from hardware = 0x01000001
+Reading register 'r1' from hardware = 0x40020518
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000001
+Reading register 'r4' from hardware = 0x200000C0
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0xE000E000
+Reading register 'r7' from hardware = 0x00000002
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x2003FE0C
+Reading register 'sp' from hardware = 0x2003FF20
+Reading register 'lr' from hardware = 0x00015F59
+Reading register 'pc' from hardware = 0x00015F5A
+Reading register 'xpsr' from hardware = 0x61000000
+WARNING: Unsupported remote command "version"
+Received monitor command: go
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 1020)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 1016)
+Connected to 127.0.0.1
+GDB client (conn. 984) requested target.xml from GDB Server
+Reading common registers: 
+ERROR: Cannot read register 0 (R0) while CPU is running
+Reading register 'r0' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 1 (R1) while CPU is running
+Reading register 'r1' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 2 (R2) while CPU is running
+Reading register 'r2' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 3 (R3) while CPU is running
+Reading register 'r3' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 4 (R4) while CPU is running
+Reading register 'r4' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 5 (R5) while CPU is running
+Reading register 'r5' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 6 (R6) while CPU is running
+Reading register 'r6' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 7 (R7) while CPU is running
+Reading register 'r7' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 8 (R8) while CPU is running
+Reading register 'r8' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 9 (R9) while CPU is running
+Reading register 'r9' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 10 (R10) while CPU is running
+Reading register 'r10' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 11 (R11) while CPU is running
+Reading register 'r11' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 12 (R12) while CPU is running
+Reading register 'r12' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 13 (R13) while CPU is running
+Reading register 'sp' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 14 (R14) while CPU is running
+Reading register 'lr' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 15 (R15) while CPU is running
+Reading register 'pc' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 16 (XPSR) while CPU is running
+Reading register 'xpsr' from hardware = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+Received monitor command: halt
+Halting target CPU...
+...Target halted (PC = 0x0000000000015F5A)
+Reading common registers: 
+Reading register 'r0' from hardware = 0x01000001
+Reading register 'r1' from hardware = 0x40020518
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000001
+Reading register 'r4' from hardware = 0x200000C0
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0xE000E000
+Reading register 'r7' from hardware = 0x00000004
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x2003FDEC
+Reading register 'sp' from hardware = 0x2003FF20
+Reading register 'lr' from hardware = 0x00015F59
+Reading register 'pc' from hardware = 0x00015F5A
+Reading register 'xpsr' from hardware = 0x61000000
+WARNING: Unsupported remote command "version"
+Received monitor command: go
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 984)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 1056)
+Connected to 127.0.0.1
+GDB client (conn. 1092) requested target.xml from GDB Server
+Reading common registers: 
+ERROR: Cannot read register 0 (R0) while CPU is running
+Reading register 'r0' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 1 (R1) while CPU is running
+Reading register 'r1' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 2 (R2) while CPU is running
+Reading register 'r2' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 3 (R3) while CPU is running
+Reading register 'r3' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 4 (R4) while CPU is running
+Reading register 'r4' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 5 (R5) while CPU is running
+Reading register 'r5' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 6 (R6) while CPU is running
+Reading register 'r6' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 7 (R7) while CPU is running
+Reading register 'r7' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 8 (R8) while CPU is running
+Reading register 'r8' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 9 (R9) while CPU is running
+Reading register 'r9' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 10 (R10) while CPU is running
+Reading register 'r10' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 11 (R11) while CPU is running
+Reading register 'r11' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 12 (R12) while CPU is running
+Reading register 'r12' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 13 (R13) while CPU is running
+Reading register 'sp' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 14 (R14) while CPU is running
+Reading register 'lr' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 15 (R15) while CPU is running
+Reading register 'pc' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 16 (XPSR) while CPU is running
+Reading register 'xpsr' from hardware = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+Received monitor command: halt
+Halting target CPU...
+...Target halted (PC = 0x000000000002764E)
+Reading common registers: 
+Reading register 'r0' from hardware = 0x4001B000
+Reading register 'r1' from hardware = 0x00000003
+Reading register 'r2' from hardware = 0x00000002
+Reading register 'r3' from hardware = 0x00000320
+Reading register 'r4' from hardware = 0x20001380
+Reading register 'r5' from hardware = 0x00001000
+Reading register 'r6' from hardware = 0x000FE000
+Reading register 'r7' from hardware = 0x00000000
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x20037E45
+Reading register 'sp' from hardware = 0x2003FF28
+Reading register 'lr' from hardware = 0x000266E9
+Reading register 'pc' from hardware = 0x0002764E
+Reading register 'xpsr' from hardware = 0x21000000
+GDB closed TCP/IP connection (Socket 1092)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 1096)
+Connected to 127.0.0.1
+GDB client (conn. 1076) requested target.xml from GDB Server
+Reading common registers: 
+Reading register 'r0' from hardware = 0x4001B000
+Reading register 'r1' from hardware = 0x00000003
+Reading register 'r2' from hardware = 0x00000002
+Reading register 'r3' from hardware = 0x00000320
+Reading register 'r4' from hardware = 0x20001380
+Reading register 'r5' from hardware = 0x00001000
+Reading register 'r6' from hardware = 0x000FE000
+Reading register 'r7' from hardware = 0x00000000
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x20037E45
+Reading register 'sp' from hardware = 0x2003FF28
+Reading register 'lr' from hardware = 0x000266E9
+Reading register 'pc' from hardware = 0x0002764E
+Reading register 'xpsr' from hardware = 0x21000000
+Read 4 bytes @ address 0x0002764E (Data = 0xBF00BF00)
+Read 2 bytes @ address 0x0002764E (Data = 0xBF00)
+Received monitor command: halt
+Halting target CPU...
+...Target halted (PC = 0x000000000002764E)
+Reading common registers: 
+Reading register 'r0' from hardware = 0x4001B000
+Reading register 'r1' from hardware = 0x00000003
+Reading register 'r2' from hardware = 0x00000002
+Reading register 'r3' from hardware = 0x00000320
+Reading register 'r4' from hardware = 0x20001380
+Reading register 'r5' from hardware = 0x00001000
+Reading register 'r6' from hardware = 0x000FE000
+Reading register 'r7' from hardware = 0x00000000
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x20037E45
+Reading register 'sp' from hardware = 0x2003FF28
+Reading register 'lr' from hardware = 0x000266E9
+Reading register 'pc' from hardware = 0x0002764E
+Reading register 'xpsr' from hardware = 0x21000000
+Received monitor command: reset 0
+Resetting target (0 = NORMAL: Resets core & peripherals via SYSRESETREQ & VECTRESET bit.)
+Reading common registers: 
+Reading register 'r0' from hardware = 0x00000000
+Reading register 'r1' from hardware = 0x00000000
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000000
+Reading register 'r4' from hardware = 0x00000000
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0x00000000
+Reading register 'r7' from hardware = 0x00000000
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x00000000
+Reading register 'sp' from hardware = 0x20000400
+Reading register 'lr' from hardware = 0xFFFFFFFF
+Reading register 'pc' from hardware = 0x00000998
+Reading register 'xpsr' from hardware = 0x01000000
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 1076)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 900)
+Connected to 127.0.0.1
+GDB client (conn. 1096) requested target.xml from GDB Server
+Reading common registers: 
+...Target halted (PC = 0x000000000002764E)
+Reading register 'r0' from hardware = 0x4001B000
+Reading register 'r1' from hardware = 0x00000003
+Reading register 'r2' from hardware = 0x00000002
+Reading register 'r3' from hardware = 0x000000DC
+Reading register 'r4' from hardware = 0x00000003
+Reading register 'r5' from hardware = 0x00001000
+Reading register 'r6' from hardware = 0x000FE000
+Reading register 'r7' from hardware = 0x00000000
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x20002B79
+Reading register 'sp' from hardware = 0x2003FEA0
+Reading register 'lr' from hardware = 0x000266E9
+Reading register 'pc' from hardware = 0x0002764E
+Reading register 'xpsr' from hardware = 0x21000000
+Read 4 bytes @ address 0x0002764E (Data = 0xBF00BF00)
+Read 2 bytes @ address 0x0002764E (Data = 0xBF00)
+Received monitor command: halt
+Halting target CPU...
+...Target halted (PC = 0x000000000002764E)
+Reading common registers: 
+Reading register 'r0' from hardware = 0x4001B000
+Reading register 'r1' from hardware = 0x00000003
+Reading register 'r2' from hardware = 0x00000002
+Reading register 'r3' from hardware = 0x000000DC
+Reading register 'r4' from hardware = 0x00000003
+Reading register 'r5' from hardware = 0x00001000
+Reading register 'r6' from hardware = 0x000FE000
+Reading register 'r7' from hardware = 0x00000000
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x20002B79
+Reading register 'sp' from hardware = 0x2003FEA0
+Reading register 'lr' from hardware = 0x000266E9
+Reading register 'pc' from hardware = 0x0002764E
+Reading register 'xpsr' from hardware = 0x21000000
+WARNING: Unsupported remote command "version"
+Received monitor command: go
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 1096)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 1088)
+Connected to 127.0.0.1
+GDB client (conn. 868) requested target.xml from GDB Server
+Reading common registers: 
+ERROR: Cannot read register 0 (R0) while CPU is running
+Reading register 'r0' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 1 (R1) while CPU is running
+Reading register 'r1' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 2 (R2) while CPU is running
+Reading register 'r2' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 3 (R3) while CPU is running
+Reading register 'r3' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 4 (R4) while CPU is running
+Reading register 'r4' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 5 (R5) while CPU is running
+Reading register 'r5' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 6 (R6) while CPU is running
+Reading register 'r6' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 7 (R7) while CPU is running
+Reading register 'r7' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 8 (R8) while CPU is running
+Reading register 'r8' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 9 (R9) while CPU is running
+Reading register 'r9' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 10 (R10) while CPU is running
+Reading register 'r10' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 11 (R11) while CPU is running
+Reading register 'r11' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 12 (R12) while CPU is running
+Reading register 'r12' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 13 (R13) while CPU is running
+Reading register 'sp' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 14 (R14) while CPU is running
+Reading register 'lr' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 15 (R15) while CPU is running
+Reading register 'pc' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 16 (XPSR) while CPU is running
+Reading register 'xpsr' from hardware = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+Received monitor command: halt
+Halting target CPU...
+...Target halted (PC = 0x0000000000015F5A)
+Reading common registers: 
+Reading register 'r0' from hardware = 0x01000001
+Reading register 'r1' from hardware = 0x40020518
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000001
+Reading register 'r4' from hardware = 0x200000C0
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0xE000E000
+Reading register 'r7' from hardware = 0x00000032
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0xCCCCCCCD
+Reading register 'sp' from hardware = 0x2003FF20
+Reading register 'lr' from hardware = 0x00015F59
+Reading register 'pc' from hardware = 0x00015F5A
+Reading register 'xpsr' from hardware = 0x61000000
+WARNING: Unsupported remote command "version"
+Received monitor command: go
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 868)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 1016)
+Connected to 127.0.0.1
+GDB client (conn. 1132) requested target.xml from GDB Server
+Reading common registers: 
+ERROR: Cannot read register 0 (R0) while CPU is running
+Reading register 'r0' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 1 (R1) while CPU is running
+Reading register 'r1' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 2 (R2) while CPU is running
+Reading register 'r2' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 3 (R3) while CPU is running
+Reading register 'r3' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 4 (R4) while CPU is running
+Reading register 'r4' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 5 (R5) while CPU is running
+Reading register 'r5' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 6 (R6) while CPU is running
+Reading register 'r6' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 7 (R7) while CPU is running
+Reading register 'r7' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 8 (R8) while CPU is running
+Reading register 'r8' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 9 (R9) while CPU is running
+Reading register 'r9' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 10 (R10) while CPU is running
+Reading register 'r10' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 11 (R11) while CPU is running
+Reading register 'r11' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 12 (R12) while CPU is running
+Reading register 'r12' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 13 (R13) while CPU is running
+Reading register 'sp' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 14 (R14) while CPU is running
+Reading register 'lr' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 15 (R15) while CPU is running
+Reading register 'pc' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 16 (XPSR) while CPU is running
+Reading register 'xpsr' from hardware = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+Received monitor command: halt
+Halting target CPU...
+...Target halted (PC = 0x0000000000015F5A)
+Reading common registers: 
+Reading register 'r0' from hardware = 0x01000001
+Reading register 'r1' from hardware = 0x40020518
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000001
+Reading register 'r4' from hardware = 0x200000C0
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0xE000E000
+Reading register 'r7' from hardware = 0x00000032
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0xCCCCCCCD
+Reading register 'sp' from hardware = 0x2003FF20
+Reading register 'lr' from hardware = 0x00015F59
+Reading register 'pc' from hardware = 0x00015F5A
+Reading register 'xpsr' from hardware = 0x61000000
+WARNING: Unsupported remote command "version"
+Received monitor command: go
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 1132)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 1052)
+Connected to 127.0.0.1
+GDB client (conn. 1020) requested target.xml from GDB Server
+Reading common registers: 
+ERROR: Cannot read register 0 (R0) while CPU is running
+Reading register 'r0' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 1 (R1) while CPU is running
+Reading register 'r1' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 2 (R2) while CPU is running
+Reading register 'r2' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 3 (R3) while CPU is running
+Reading register 'r3' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 4 (R4) while CPU is running
+Reading register 'r4' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 5 (R5) while CPU is running
+Reading register 'r5' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 6 (R6) while CPU is running
+Reading register 'r6' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 7 (R7) while CPU is running
+Reading register 'r7' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 8 (R8) while CPU is running
+Reading register 'r8' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 9 (R9) while CPU is running
+Reading register 'r9' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 10 (R10) while CPU is running
+Reading register 'r10' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 11 (R11) while CPU is running
+Reading register 'r11' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 12 (R12) while CPU is running
+Reading register 'r12' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 13 (R13) while CPU is running
+Reading register 'sp' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 14 (R14) while CPU is running
+Reading register 'lr' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 15 (R15) while CPU is running
+Reading register 'pc' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 16 (XPSR) while CPU is running
+Reading register 'xpsr' from hardware = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+Received monitor command: halt
+Halting target CPU...
+...Target halted (PC = 0x0000000000015F5A)
+Reading common registers: 
+Reading register 'r0' from hardware = 0x01000001
+Reading register 'r1' from hardware = 0x40020518
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000001
+Reading register 'r4' from hardware = 0x200000C0
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0xE000E000
+Reading register 'r7' from hardware = 0x00000033
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0xCCCCCCCD
+Reading register 'sp' from hardware = 0x2003FF20
+Reading register 'lr' from hardware = 0x00015F59
+Reading register 'pc' from hardware = 0x00015F5A
+Reading register 'xpsr' from hardware = 0x61000000
+Read 4 bytes @ address 0x00015F5A (Data = 0xBF20BF40)
+Read 2 bytes @ address 0x00015F5A (Data = 0xBF40)
+Reading register 'msp' = 0x2003FF20
+Reading register 'psp' = 0x00000000
+Read 4 bytes @ address 0x00015F58 (Data = 0xBF40BF20)
+Read 2 bytes @ address 0x00015F58 (Data = 0xBF20)
+GDB closed TCP/IP connection (Socket 1020)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 964)
+Connected to 127.0.0.1
+GDB client (conn. 1124) requested target.xml from GDB Server
+Reading common registers: 
+Reading register 'r0' from hardware = 0x01000001
+Reading register 'r1' from hardware = 0x40020518
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000001
+Reading register 'r4' from hardware = 0x200000C0
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0xE000E000
+Reading register 'r7' from hardware = 0x00000033
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0xCCCCCCCD
+Reading register 'sp' from hardware = 0x2003FF20
+Reading register 'lr' from hardware = 0x00015F59
+Reading register 'pc' from hardware = 0x00015F5A
+Reading register 'xpsr' from hardware = 0x61000000
+Read 4 bytes @ address 0x00015F5A (Data = 0xBF20BF40)
+Read 2 bytes @ address 0x00015F5A (Data = 0xBF40)
+Received monitor command: halt
+Halting target CPU...
+...Target halted (PC = 0x0000000000015F5A)
+Reading common registers: 
+Reading register 'r0' from hardware = 0x01000001
+Reading register 'r1' from hardware = 0x40020518
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000001
+Reading register 'r4' from hardware = 0x200000C0
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0xE000E000
+Reading register 'r7' from hardware = 0x00000033
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0xCCCCCCCD
+Reading register 'sp' from hardware = 0x2003FF20
+Reading register 'lr' from hardware = 0x00015F59
+Reading register 'pc' from hardware = 0x00015F5A
+Reading register 'xpsr' from hardware = 0x61000000
+WARNING: Unsupported remote command "version"
+Received monitor command: go
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 1124)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 1140)
+Connected to 127.0.0.1
+GDB client (conn. 992) requested target.xml from GDB Server
+Reading common registers: 
+ERROR: Cannot read register 0 (R0) while CPU is running
+Reading register 'r0' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 1 (R1) while CPU is running
+Reading register 'r1' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 2 (R2) while CPU is running
+Reading register 'r2' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 3 (R3) while CPU is running
+Reading register 'r3' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 4 (R4) while CPU is running
+Reading register 'r4' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 5 (R5) while CPU is running
+Reading register 'r5' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 6 (R6) while CPU is running
+Reading register 'r6' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 7 (R7) while CPU is running
+Reading register 'r7' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 8 (R8) while CPU is running
+Reading register 'r8' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 9 (R9) while CPU is running
+Reading register 'r9' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 10 (R10) while CPU is running
+Reading register 'r10' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 11 (R11) while CPU is running
+Reading register 'r11' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 12 (R12) while CPU is running
+Reading register 'r12' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 13 (R13) while CPU is running
+Reading register 'sp' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 14 (R14) while CPU is running
+Reading register 'lr' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 15 (R15) while CPU is running
+Reading register 'pc' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 16 (XPSR) while CPU is running
+Reading register 'xpsr' from hardware = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+Received monitor command: halt
+Halting target CPU...
+...Target halted (PC = 0x0000000000015F5A)
+Reading common registers: 
+Reading register 'r0' from hardware = 0x01000001
+Reading register 'r1' from hardware = 0x40020518
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000001
+Reading register 'r4' from hardware = 0x200000C0
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0xE000E000
+Reading register 'r7' from hardware = 0x00000033
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0xCCCCCCCD
+Reading register 'sp' from hardware = 0x2003FF20
+Reading register 'lr' from hardware = 0x00015F59
+Reading register 'pc' from hardware = 0x00015F5A
+Reading register 'xpsr' from hardware = 0x61000000
+Received monitor command: reset 0
+Resetting target (0 = NORMAL: Resets core & peripherals via SYSRESETREQ & VECTRESET bit.)
+Reading common registers: 
+Reading register 'r0' from hardware = 0x00000000
+Reading register 'r1' from hardware = 0x00000000
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000000
+Reading register 'r4' from hardware = 0x00000000
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0x00000000
+Reading register 'r7' from hardware = 0x00000000
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x00000000
+Reading register 'sp' from hardware = 0x20000400
+Reading register 'lr' from hardware = 0xFFFFFFFF
+Reading register 'pc' from hardware = 0x00000998
+Reading register 'xpsr' from hardware = 0x01000000
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 992)

@@ -114,6 +114,7 @@
 | next | 2026-11-14 | Claude | #84 review round 1: AD-32 listed after AD-31; S2LP-FR-093 cites the review's inspection; S2LP-FR-094 and -095 the new tests and the bench check. |
 | next | 2026-11-14 | Claude | #84 (driver): rows for S2LP-FR-098 .. S2LP-FR-100 (the host driver on the kit firmware); AD-32 also traces to SWE4-UT-S2LPKITHOST (31) and `84_kit_driver/`; §16 count 532 in force, 533 declared. |
 | next | 2026-11-14 | Claude | #84 review round 3: S2LP-FR-100 cites `TestStream` (13); AD-32 SWE4-UT-S2LPKITHOST (35). |
+| next | 2026-11-15 | Claude | #349: JLINK-FR-004 row cites `JLinkProbe.attach`, the three `test_attach.py` tests and the bench check. |
 ---
 
 ## 3. Purpose & Scope
@@ -293,7 +294,7 @@ It is checked mechanically by `tests/test_traceability.py` on every run of the s
 | JLINK-FR-001 | JLINK-ARC-001 | JLINK-DD-GDBMI | `jlink/gdbmi.py` | `SWE4-UT-GDBMI` (37), notably `test_repeated_key_yields_every_entry`, `test_mixed_names_keep_their_keys`, `test_nested_structures`, `test_text_is_unescaped`, `test_non_mi_lines_are_ignored` |
 | JLINK-FR-002 | JLINK-ARC-001 | JLINK-DD-SESSION | `jlink/session.py` | `TestCommands` (7), `TestAsyncRecords` (6), `TestDiagnostics` (3) |
 | JLINK-FR-003 | JLINK-ARC-001 | JLINK-DD-SERVER | `jlink/server.py` | `TestDiscovery` (13), `TestCommandLine` (11), `TestServerOutput` (3); notably `test_windows_names_are_searched_first`, `test_install_directories_are_searched_after_path`, `test_a_host_gdb_that_cannot_debug_arm_is_refused`, `test_unattended_flags_are_present`, `test_the_server_is_not_single_run`, `test_a_missing_tool_is_reported_with_what_to_do` |
-| JLINK-FR-004 | JLINK-ARC-001 | JLINK-DD-SERVER, JLINK-DD-PROBE | `GdbServer.start`, `JLinkProbe._parse_target` | `test_an_already_listening_port_is_used`, `test_a_remote_server_is_never_spawned`, `test_a_server_that_exits_reports_its_own_output`, `test_resource_parsing` |
+| JLINK-FR-004 | JLINK-ARC-001 | JLINK-DD-SERVER, JLINK-DD-PROBE | `GdbServer.start`, `JLinkProbe._parse_target`, `JLinkProbe.attach` | `test_an_already_listening_port_is_used`, `test_a_remote_server_is_never_spawned`, `test_a_server_that_exits_reports_its_own_output`, `test_resource_parsing`, `test_a_core_left_running_by_the_server_is_halted_on_attach`, `test_without_the_halt_the_registers_were_unreadable`, `test_halting_a_halted_core_reports_where_it_is`; bench: `qualification/2026-11-15/349_attach_halt/` |
 | JLINK-FR-005 | JLINK-ARC-001 | JLINK-DD-SERVER | `GdbServer.stop`, `was_spawned` | `test_only_a_spawned_server_is_stopped`, `test_closing_is_idempotent` |
 | JLINK-FR-006 | JLINK-ARC-001 | JLINK-DD-PROBE, JLINK-DD-CLI | `JLinkProbe._close`, `leave_halted` | `test_closing_leaves_the_target_running`, `test_closing_can_leave_the_target_halted`, `test_the_target_is_left_running_unless_asked` (7) |
 | JLINK-FR-007 | JLINK-ARC-001 | JLINK-DD-PROBE, JLINK-DD-SEGGER, JLINK-DD-SERVER, JLINK-DD-CLI | `JLinkProbe.connect(backend=...)`, `backend_opener`, `find_jlink_commander`, `find_rtt_logger`, `--backend` | `TestSelection` (10), `TestDiscovery` (3), `TestCommandLine` (4); notably `test_gdb_is_the_default`, `test_an_unknown_backend_is_refused`, `test_the_bench_option_selects_it`, `test_the_newest_segger_release_wins`, `test_an_unknown_backend_is_a_usage_error` |

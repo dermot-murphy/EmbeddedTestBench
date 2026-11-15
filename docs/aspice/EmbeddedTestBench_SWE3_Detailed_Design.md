@@ -120,6 +120,8 @@
 | next | 2026-11-14 | Claude | #84 review round 1: S2LP-DD-KITFW - interrupt priorities, the FIFO count read whole, `rx stop` sending what is queued, long lines refused, the board clock. |
 | next | 2026-11-14 | Claude | #84 (driver): S2LP-DD-KITHOST: the host side of the kit firmware (`probe`, `KitSession`, `KitFirmwareMixin`, `SimulatedKitFirmware`); S2LP-DD-SESSION gains `write_line`, `read_line`, `drain`, `adopt_log` and `hand_over_log`. |
 | next | 2026-11-14 | Claude | #84 review round 3: S2LP-DD-KITHOST - `rx start` inside the stream's `try`; a stop the board does not answer raised, with QI left on and noted and `receiving` kept for a retry; records lost after the last one sent noted. |
+| next | 2026-11-15 | Claude | #349: JLINK-DD-PROBE - `attach` halts the core and flushes GDB's register cache. JLINK-DD-SIM - GDB's knowledge that the core runs is modelled apart from the core (`gdb_knows_running`), and a running core's registers read `0xDEADBEEF`; the firmware model moves to `simfirmware.py`. |
+| next | 2026-11-15 | Claude | #349 review round 1: JLINK-DD-PROBE - the reason for halting on attach narrowed to an attach after an earlier client's `monitor go`. |
 ---
 
 ## 3. Purpose & Scope
@@ -1004,12 +1006,21 @@ beyond which the 32-bit cycle counter wraps.
 `TimingMethod` carries the trade-off of each method in its docstring, next to the
 member, because that is where the choice is made.
 
-#### JLINK-DD-SIM — `jlink/simulator.py`
+#### JLINK-DD-SIM — `jlink/simulator.py`, `jlink/simfirmware.py`
 
 A simulated probe **and** a simulated target: `SimulatedFirmware` holds the
 execution flow, cycle counts per location, symbols, memory, call stacks, RTT
 traffic, ITM events and sections; `SimulatedJLink` answers the MI dialogue.
 
+- `SimulatedFirmware`, `SimulatedSymbol`, the default firmware and the
+  identity-record constants are in `simfirmware.py` (#349), re-exported by
+  `simulator.py`, which keeps the MI dialogue.
+- GDB's view of the core is kept apart from the core's: `gdb_knows_running`
+  is set by an `-exec-continue` that leaves the core running and cleared by an
+  attach, a step or an interrupt. A `monitor` command is refused only while
+  GDB knows the core runs (#259); after an attach or a `monitor go` GDB does
+  not know, and passes it on. A running core's registers read `0xDEADBEEF`, as
+  the J-Link GDB Server answers for them (#349).
 - The default firmware puts `sensor.c:40` at 5 000 cycles and `sensor.c:75` at
   69 000 — exactly 64 000 cycles, which at 64 MHz is exactly 1.000 ms. The timing
   tests therefore assert an exact figure rather than a range, and a scaling error of
@@ -1084,8 +1095,17 @@ Design points:
   silence reads as a failed test (RUN-FR-031).
 - Memory transfers are chunked to `ProbeLimits.max_transfer_bytes`; a 1 MB read is
   not one MI command.
+- **`attach` halts the core** (JLINK-FR-004, #349): `monitor halt` and a
+  register-cache flush after `-target-select`. An attach halted the core on
+  5C1712 (#95), but one made after an earlier client resumed the core with
+  `monitor go`, which GDB never sees, found it running while GDB took it for
+  stopped - and the driver's own `close` ends that way. On 5C1712 a container's attach
+  to such a server found the core running: `halt` returned without halting,
+  because the driver already believed it halted, and every register read
+  `0xDEADBEEF`. `monitor halt` on a halted core changes nothing. `halt` on a core already
+  halted reports its innermost frame (`_innermost_frame`), not address 0.
 - **`close` resumes the core unless `leave_halted` is set** (JLINK-FR-006). The
-  GDB Server halts the core on attach, and `-target-detach` leaves it halted:
+  core is halted on attach, and `-target-detach` leaves it halted:
   observed on an nRF52840 with J-Link V9.42 as DHCSR `0x00030003` and a sensor
   that stopped advertising until reset. `close` therefore sends `monitor go`
   before detaching.
