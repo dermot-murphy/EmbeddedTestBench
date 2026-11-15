@@ -1,0 +1,16 @@
+{
+  "count": 1,
+  "duration_s": 20.0,
+  "sensors": [
+    {
+      "address": "D1:8D:3B:4C:19:96",
+      "address_type": 1,
+      "index": 0,
+      "manufacturer_id": null,
+      "name": "KAPPA_5C1712_V10.01.2000P",
+      "rssi": -53,
+      "scan_response": "",
+      "seen": 9
+    }
+  ]
+}

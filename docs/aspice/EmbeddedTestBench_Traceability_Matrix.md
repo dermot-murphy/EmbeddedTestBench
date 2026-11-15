@@ -115,6 +115,9 @@
 | next | 2026-11-14 | Claude | #84 (driver): rows for S2LP-FR-098 .. S2LP-FR-100 (the host driver on the kit firmware); AD-32 also traces to SWE4-UT-S2LPKITHOST (31) and `84_kit_driver/`; §16 count 532 in force, 533 declared. |
 | next | 2026-11-14 | Claude | #84 review round 3: S2LP-FR-100 cites `TestStream` (13); AD-32 SWE4-UT-S2LPKITHOST (35). |
 | next | 2026-11-15 | Claude | #349: JLINK-FR-004 row cites `JLinkProbe.attach`, the three `test_attach.py` tests and the bench check. |
+| next | 2026-11-15 | Claude | #352: JLINK-FR-041 row cites `TestAVariableAtAddressZero` and the bench check. |
+| next | 2026-11-15 | Claude | #352 review round 1: JLINK-FR-041 row: `TestAVariableAtAddressZero` (9). |
+| next | 2026-11-15 | Claude | #352 review round 2: JLINK-FR-041 row: `TestAVariableAtAddressZero` (11). |
 ---
 
 ## 3. Purpose & Scope
@@ -316,7 +319,7 @@ It is checked mechanically by `tests/test_traceability.py` on every run of the s
 | JLINK-FR-035 | JLINK-ARC-001 | JLINK-DD-PROBE | `set_watchpoint` | `test_watchpoints` |
 | JLINK-FR-036 | JLINK-ARC-001 | JLINK-DD-PROBE | `run_to` | `test_run_to_a_location`, `test_unreachable_location_is_reported` |
 | JLINK-FR-040 | JLINK-ARC-001 | JLINK-DD-PROBE | `read_memory`, `write_memory`, `read_word`, `read_u8`, `read_u16` | `TestMemory` (7), notably `test_large_transfers_are_split`, `test_negative_size_is_rejected` |
-| JLINK-FR-041 | JLINK-ARC-001 | JLINK-DD-PROBE | `read_variable`, `write_variable`, `variable_address`, `variable_size` | `TestVariables` (19), notably `test_a_structure_holding_a_string_is_a_structure`, `test_read_string`, `test_memory_agrees_with_the_variable`, `test_value_parsing` |
+| JLINK-FR-041 | JLINK-ARC-001 | JLINK-DD-PROBE | `read_variable`, `write_variable`, `variable_address`, `variable_size`, `_refuse_address_zero` | `TestVariables` (19), notably `test_a_structure_holding_a_string_is_a_structure`, `test_read_string`, `test_memory_agrees_with_the_variable`, `test_value_parsing`; `TestAVariableAtAddressZero` (11); bench: `qualification/2026-11-15/352_var_address_zero/` |
 | JLINK-FR-042 | JLINK-ARC-001 | JLINK-DD-PROBE | `evaluate` | `test_evaluate_expression`, `test_unknown_variable_is_reported` |
 | JLINK-FR-043 | JLINK-ARC-001 | JLINK-DD-PROBE | `read_integer` | `TestByteOrderedReads` (6), `test_the_identifier_comes_from_the_part` |
 | JLINK-FR-045 | JLINK-ARC-001 | JLINK-DD-PROBE, JLINK-DD-GDBMI | `call_stack`, `StackFrame` | `TestCallStack` (6), notably `test_frames_innermost_first`, `test_frames_carry_source_positions` |
