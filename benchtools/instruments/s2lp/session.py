@@ -165,6 +165,43 @@ class S2lpSession:  # pylint: disable=too-many-instance-attributes
         self._log.write("%.6f %s %s\n" % (time.time(), direction, text))
         self._log.flush()
 
+    def adopt_log(self, previous: "S2lpSession") -> None:
+        """Take over *previous*'s open log, so one file covers both sessions.
+
+        Used when the driver finds the board runs the ETB kit firmware and
+        changes session (#84): the log the caller asked for carries on.
+        """
+        self.stop_log()
+        self._log, self._log_path = previous.hand_over_log()
+
+    def hand_over_log(self):
+        """The open log file and its path, which this session stops writing to."""
+        handed = self._log, self._log_path
+        self._log, self._log_path = None, None
+        return handed
+
+    # ------------------------------------------------------------------
+    # Lines
+    # ------------------------------------------------------------------
+    def write_line(self, line: str) -> None:
+        """Send one line as it is, logged and counted as a command.
+
+        The transport's receive buffer is kept: a line already on its way from
+        the board is not dropped by a write (#84).
+        """
+        self.commands_sent += 1
+        self._logger.debug(">> %s", line)
+        self._write_log(">", line)
+        self._transport.write(line.encode("ascii"), keep_buffer=True)
+
+    def read_line(self) -> Optional[str]:
+        """One line from the board, or ``None`` if none completed in :data:`READ_POLL`."""
+        return self._read_line()
+
+    def drain(self) -> None:
+        """Discard whatever the board is saying, until it says nothing."""
+        self._drain()
+
     # ------------------------------------------------------------------
     # Commands
     # ------------------------------------------------------------------

@@ -40,6 +40,7 @@ from .constants import MAX_PAYLOAD, Strobe
 from . import registers as reg
 from .packets import Capture, Packet, packet_from_reply, rssi_dbm_from_register
 from .preamble import PreambleMeasurement, check_preamble
+from .kit_firmware import MAX_REGISTERS as KIT_MAX_REGISTERS, KitSession
 from .session import STOP_ACK
 
 __all__ = ["TrafficMixin", "IRQ_GPIO", "TRAFFIC_IRQS", "FRAME_REGISTERS", "ANY_LENGTH",
@@ -417,7 +418,10 @@ class TrafficMixin:
               after every frame: on the bench, gaps under about 105 ms were
               missed.
         :param registers: Polled mode only: the registers to read after each
-            frame.
+            frame. On the ETB kit firmware (#84) both modes are the same: the
+            board re-arms the radio inside its interrupt and reads up to 8
+            registers after each frame (by default as polled mode does), so
+            registers may be asked for in either.
         :param count: Stop after this many receptions.
         :param timeout: Stop after this many seconds.
         :param until: Stop when this returns true; it is checked while waiting,
@@ -428,6 +432,15 @@ class TrafficMixin:
         if mode not in self.STREAM_MODES:
             raise ConfigurationError(
                 "%r is not a stream mode; they are %s" % (mode, ", ".join(self.STREAM_MODES)))
+        if isinstance(self._session, KitSession):
+            names = list(FRAME_REGISTERS if registers is None else registers)
+            if len(names) > KIT_MAX_REGISTERS:
+                raise ConfigurationError(
+                    "the kit firmware reads at most %d registers per frame, not %d"
+                    % (KIT_MAX_REGISTERS, len(names)))
+            self._set_aside = []
+            return self._stream_kit(self._session, decoder, count, timeout, until,
+                                    [reg.lookup(name) for name in names])
         if mode == "batch" and registers:
             raise ConfigurationError(
                 "registers cannot be read per frame while ST's receive loop runs; "
@@ -861,17 +874,7 @@ class TrafficMixin:
             values = self.read_registers(start, addresses[-1] - start + 1)
             for address in addresses:
                 packet.registers[reg.BY_ADDRESS[address].name] = values[address - start]
-            regs = packet.registers
-            if "RSSI_LEVEL" in regs:
-                packet.rssi_dbm = rssi_dbm_from_register(regs["RSSI_LEVEL"])
-            if "LINK_QUALIF2" in regs:
-                packet.extra["pqi"] = regs["LINK_QUALIF2"]
-            if "LINK_QUALIF1" in regs:
-                packet.extra["sqi"] = regs["LINK_QUALIF1"] & 0x7F
-                packet.extra["carrier_sense"] = regs["LINK_QUALIF1"] >> 7
-            if "AFC_CORR" in regs:
-                value = regs["AFC_CORR"]
-                packet.extra["afc_corr"] = value - 256 if value & 0x80 else value
+            self._interpret_registers(packet)
         if decoder is not None and packet.ok:
             try:
                 packet.decoded = decoder(packet.data)
@@ -879,6 +882,21 @@ class TrafficMixin:
                 packet.decode_error = str(exc) or type(exc).__name__
             else:
                 packet.decoder = plugins.REGISTRY.decoder_name(decoder)
+
+    @staticmethod
+    def _interpret_registers(packet: Packet) -> None:
+        """RSSI, PQI, SQI, carrier sense and AFC from the registers read after *packet*."""
+        regs = packet.registers
+        if "RSSI_LEVEL" in regs:
+            packet.rssi_dbm = rssi_dbm_from_register(regs["RSSI_LEVEL"])
+        if "LINK_QUALIF2" in regs:
+            packet.extra["pqi"] = regs["LINK_QUALIF2"]
+        if "LINK_QUALIF1" in regs:
+            packet.extra["sqi"] = regs["LINK_QUALIF1"] & 0x7F
+            packet.extra["carrier_sense"] = regs["LINK_QUALIF1"] >> 7
+        if "AFC_CORR" in regs:
+            value = regs["AFC_CORR"]
+            packet.extra["afc_corr"] = value - 256 if value & 0x80 else value
 
     def capture(
         self,

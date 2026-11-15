@@ -42,6 +42,21 @@ this driver without reflashing between them.
 **What comes with that decision** is in §4. The limits are the firmware's, and
 the driver's job is to be honest about them rather than to hide them.
 
+**Since #84 there is a second choice.** `firmware/s2lp_kit` is this project's
+own firmware for the kit (AD-32). It receives on the radio's interrupt and
+re-arms before anything goes to the host: 393 µs at most from a frame's
+interrupt to the radio armed again, against 26-27 ms for a polled stream on
+ST's firmware, with RSSI, PQI, SQI and AFC read after every frame
+(`docs/aspice/qualification/2026-11-14/84_kit_firmware/`). It does not change
+ST's firmware and contains none of ST's source (§6). The radio is set up by
+register writes; ST's configuration commands are not on it. The driver in
+this package talks to either: on connecting it sends `id`, which the kit
+firmware answers and ST's answers with `no such command`, and on the kit
+firmware registers, strobes, shutdown and `stream` work, with RSSI, PQI, SQI
+and AFC on every frame in either mode (`docs/aspice/qualification/2026-11-14/84_kit_driver/`).
+To use it, flash it as its README says; to go back, write the backup of ST's image taken from the kit,
+which is kept outside this repository.
+
 ---
 
 ## 2. The protocol
@@ -493,7 +508,7 @@ from RAM):
 | RF (433.425 MHz, 2-FSK, 100 kbps, 19.979 kHz deviation, 156.153 kHz filter) | same | same |
 | Packet (sync `0xB19C0CA7`, CRC-16 0x8005, variable length, address byte, no FEC or whitening) | same | same |
 | Preamble | 32 bits | PREAMBLE_LEN 32, the sensor firmware's value; this only matters when transmitting |
-| RX timeout | infinite (`S2LPTimerSetRxTimeoutUs 0`) | **now the same**, set by `prepare_receive()` on the first receive (#87). Out of reset TIMERS5 is 1, a finite timer |
+| RX timeout | infinite (`S2LPTimerSetRxTimeoutUs 0`) | **now the same**, set by `prepare_receive()` on the first receive (#87). Out of reset TIMERS5 is 1, a finite timer. On the ETB kit firmware neither the driver nor the firmware changes it, and RX_TIMEOUT is not among the interrupts the firmware takes, so a timeout would leave the stream silently deaf. It was not seen: with TIMERS5 at 1 and TIMERS4 at 0, the 300 s stream of `84_kit_driver/run1` kept receiving to its end, the longest gap between its 115 records 9.3 s (#348 review) |
 | Low-power receive | `S2LPGetBatchLP 0` | now the same |
 | nIRQ on GPIO3 | GPIO_MODE 3 (high power) | GPIO_MODE 2 (low power); drive strength only |
 | IRQ mask | RX ready, RX discarded | those, plus TX sent, CRC error, valid sync, RX timeout |
@@ -672,6 +687,11 @@ one. This matters for what may be kept here:
   driver targets, which is also what makes a drifted command fail in a test.
 * **No ST source is vendored.** There is no copy of ST's headers, library or
   firmware in this repository.
+* **SLA0072 forbids publishing ST's sources**, modified or not, to third
+  parties: so ST's CLI cannot be extended here, and neither the backup of
+  ST's image nor a patch to it may be committed. The kit firmware of #84 was
+  written instead, with its own startup, linker script, register definitions
+  and S2-LP SPI access; pin assignments are facts of the board.
 * **The register map holds facts, not prose**: addresses, reset values, field
   names and bit positions, which are properties of the silicon published in the
   S2-LP datasheet. It was cross-checked against ST's published register header

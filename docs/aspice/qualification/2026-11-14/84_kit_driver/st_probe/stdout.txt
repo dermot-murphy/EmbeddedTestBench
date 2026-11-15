@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "<string>", line 7, in <module>
+    print('PCKTLEN0', hex(r.read_register('PCKTLEN0')), 'freq', r.frequency_hz())
+                                                                ~~~~~~~~~~~~~~^^
+TypeError: 'int' object is not callable
+kit_firmware False
+identity STMicroelectronics,STEVAL-FKI433V2,S2-LP 0xC1,library 1.3.5,board 80,XTAL 49999561 Hz

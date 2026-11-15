@@ -1,0 +1,16 @@
+# CStyleCheck module aliases for firmware/s2lp_kit (#84, ETB-STY-001 module prefixes).
+#
+# Used only by the S2-LP kit step of .github/workflows/style.yml. Each pair lets
+# a file use the prefix of the module it belongs to rather than its own stem:
+#
+#   hal_l053.c implements hal.h, and fake_hal.c implements it for the tests
+#   protocol.h is the host-link contract, prefixed PROTO_
+#   firmware_version.h carries FIRMWARE_ identifiers
+#   l053.h carries the part's register definitions, prefixed L053_
+hal_l053          hal
+fake_hal          hal
+fake_hal          fake
+protocol          proto
+firmware_version  firmware
+test_rx           test
+test_cmd          test

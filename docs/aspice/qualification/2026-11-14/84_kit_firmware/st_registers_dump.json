@@ -1,0 +1,242 @@
+{
+  "changed_from_reset": {
+    "CHFLT": {
+      "reset": "0x23",
+      "value": "0x62"
+    },
+    "IF_OFFSET_ANA": {
+      "reset": "0x2A",
+      "value": "0x2F"
+    },
+    "IF_OFFSET_DIG": {
+      "reset": "0xB8",
+      "value": "0xC2"
+    },
+    "MOD0": {
+      "reset": "0x93",
+      "value": "0xA3"
+    },
+    "MOD2": {
+      "reset": "0x77",
+      "value": "0x09"
+    },
+    "MOD3": {
+      "reset": "0x2B",
+      "value": "0x25"
+    },
+    "MOD4": {
+      "reset": "0x83",
+      "value": "0x06"
+    },
+    "PA_CONFIG0": {
+      "reset": "0x8A",
+      "value": "0x8B"
+    },
+    "PA_CONFIG1": {
+      "reset": "0x03",
+      "value": "0x01"
+    },
+    "PCKTCTRL1": {
+      "reset": "0x2C",
+      "value": "0x42"
+    },
+    "PCKTCTRL2": {
+      "reset": "0x00",
+      "value": "0x01"
+    },
+    "PCKTCTRL3": {
+      "reset": "0x20",
+      "value": "0x00"
+    },
+    "PCKTCTRL4": {
+      "reset": "0x00",
+      "value": "0x08"
+    },
+    "PCKTCTRL5": {
+      "reset": "0x10",
+      "value": "0x20"
+    },
+    "PCKT_FLT_GOALS0": {
+      "reset": "0x00",
+      "value": "0xB1"
+    },
+    "PCKT_FLT_GOALS1": {
+      "reset": "0x00",
+      "value": "0x9C"
+    },
+    "PCKT_FLT_GOALS2": {
+      "reset": "0x00",
+      "value": "0x0C"
+    },
+    "PCKT_FLT_GOALS3": {
+      "reset": "0x00",
+      "value": "0xA7"
+    },
+    "PCKT_FLT_OPTIONS": {
+      "reset": "0x40",
+      "value": "0x41"
+    },
+    "PROTOCOL1": {
+      "reset": "0x00",
+      "value": "0x01"
+    },
+    "SYNC0": {
+      "reset": "0x88",
+      "value": "0x4E"
+    },
+    "SYNC1": {
+      "reset": "0x88",
+      "value": "0x63"
+    },
+    "SYNC2": {
+      "reset": "0x88",
+      "value": "0xF3"
+    },
+    "SYNC3": {
+      "reset": "0x88",
+      "value": "0x58"
+    },
+    "SYNT0": {
+      "reset": "0x62",
+      "value": "0xF3"
+    },
+    "SYNT1": {
+      "reset": "0x27",
+      "value": "0xC9"
+    },
+    "SYNT2": {
+      "reset": "0x16",
+      "value": "0x2A"
+    },
+    "SYNT3": {
+      "reset": "0x42",
+      "value": "0x72"
+    }
+  },
+  "count": 123,
+  "dump": [
+    "0x00 GPIO0_CONF             = 0x0A  (reset)  GPIO_SELECT=1 GPIO_MODE=2",
+    "0x01 GPIO1_CONF             = 0xA2  (reset)  GPIO_SELECT=20 GPIO_MODE=2",
+    "0x02 GPIO2_CONF             = 0xA2  (reset)  GPIO_SELECT=20 GPIO_MODE=2",
+    "0x03 GPIO3_CONF             = 0xA2  (reset)  GPIO_SELECT=20 GPIO_MODE=2",
+    "0x04 MCU_CK_CONF            = 0x00  (reset)",
+    "0x05 SYNT3                  = 0x72  PLL_CP_ISEL=3 BS=1 SYNT_27_24=2",
+    "0x06 SYNT2                  = 0x2A  SYNT=42",
+    "0x07 SYNT1                  = 0xC9  SYNT=201",
+    "0x08 SYNT0                  = 0xF3  SYNT=243",
+    "0x09 IF_OFFSET_ANA          = 0x2F  IF_OFFSET_ANA=47",
+    "0x0A IF_OFFSET_DIG          = 0xC2  IF_OFFSET_DIG=194",
+    "0x0C CH_SPACE               = 0x3F  (reset)  CH_SPACE=63",
+    "0x0D CHNUM                  = 0x00  (reset)",
+    "0x0E MOD4                   = 0x06  DATARATE_M=6",
+    "0x0F MOD3                   = 0x25  DATARATE_M=37",
+    "0x10 MOD2                   = 0x09  DATARATE_E=9",
+    "0x11 MOD1                   = 0x03  (reset)  FDEV_E=3",
+    "0x12 MOD0                   = 0xA3  FDEV_M=163",
+    "0x13 CHFLT                  = 0x62  CHFLT_M=6 CHFLT_E=2",
+    "0x14 AFC2                   = 0xC8  (reset)  AFC_FREEZE_ON_SYNC=1 AFC_ENABLED=1",
+    "0x15 AFC1                   = 0x18  (reset)  AFC_FAST_PERIOD=24",
+    "0x16 AFC0                   = 0x25  (reset)  AFC_FAST_GAIN=2 AFC_SLOW_GAIN=5",
+    "0x17 RSSI_FLT               = 0xE3  (reset)  RSSI_FLT=14",
+    "0x18 RSSI_TH                = 0x28  (reset)  RSSI_TH=40",
+    "0x1F ANT_SELECT_CONF        = 0x45  (reset)  EQU_CTRL=2 AS_MEAS_TIME=5",
+    "0x20 CLOCKREC1              = 0x00  (reset)",
+    "0x21 CLOCKREC0              = 0x58  (reset)  CLK_REC_P_GAIN_FAST=2 PSTFLT_LEN=1 CLK_REC_I_GAIN_FAST=8",
+    "0x2B PCKTCTRL6              = 0x80  (reset)  SYNC_LEN=32",
+    "0x2C PCKTCTRL5              = 0x20  PREAMBLE_LEN=32",
+    "0x2D PCKTCTRL4              = 0x08  ADDRESS_LEN=1",
+    "0x2E PCKTCTRL3              = 0x00",
+    "0x2F PCKTCTRL2              = 0x01  FIX_VAR_LEN=1",
+    "0x30 PCKTCTRL1              = 0x42  CRC_MODE=2 SECOND_SYNC_SEL=1",
+    "0x31 PCKTLEN1               = 0x00  (reset)",
+    "0x32 PCKTLEN0               = 0x14  (reset)  PCKTLEN0=20",
+    "0x33 SYNC3                  = 0x58  SYNC3=88",
+    "0x34 SYNC2                  = 0xF3  SYNC2=243",
+    "0x35 SYNC1                  = 0x63  SYNC1=99",
+    "0x36 SYNC0                  = 0x4E  SYNC0=78",
+    "0x37 QI                     = 0x01  (reset)  SQI_EN=1",
+    "0x38 PCKT_PSTMBL            = 0x00  (reset)",
+    "0x39 PROTOCOL2              = 0x40  (reset)  SQI_TIMEOUT_MASK=1",
+    "0x3A PROTOCOL1              = 0x01  AUTO_PCKT_FLT=1",
+    "0x3B PROTOCOL0              = 0x08  (reset)  NACK_TX=1",
+    "0x3C FIFO_CONFIG3           = 0x30  (reset)  RX_AFTHR=48",
+    "0x3D FIFO_CONFIG2           = 0x30  (reset)  RX_AETHR=48",
+    "0x3E FIFO_CONFIG1           = 0x30  (reset)  TX_AFTHR=48",
+    "0x3F FIFO_CONFIG0           = 0x30  (reset)  TX_AETHR=48",
+    "0x40 PCKT_FLT_OPTIONS       = 0x41  RX_TIMEOUT_AND_OR_SEL=1 CRC_FLT=1",
+    "0x41 PCKT_FLT_GOALS4        = 0x00  (reset)",
+    "0x42 PCKT_FLT_GOALS3        = 0xA7",
+    "0x43 PCKT_FLT_GOALS2        = 0x0C",
+    "0x44 PCKT_FLT_GOALS1        = 0x9C",
+    "0x45 PCKT_FLT_GOALS0        = 0xB1  TX_SOURCE_ADDR=177",
+    "0x46 TIMERS5                = 0x01  (reset)  RX_TIMER_CNTR=1",
+    "0x47 TIMERS4                = 0x00  (reset)",
+    "0x48 TIMERS3                = 0x01  (reset)  LDC_TIMER_PRESC=1",
+    "0x49 TIMERS2                = 0x00  (reset)",
+    "0x4A TIMERS1                = 0x01  (reset)  LDC_RELOAD_PRSC=1",
+    "0x4B TIMERS0                = 0x00  (reset)",
+    "0x4C CSMA_CONF3             = 0x4C  (reset)  BU_CNTR_SEED=76",
+    "0x4D CSMA_CONF2             = 0x00  (reset)",
+    "0x4E CSMA_CONF1             = 0x04  (reset)  BU_PRSC=1",
+    "0x4F CSMA_CONF0             = 0x00  (reset)",
+    "0x50 IRQ_MASK3              = 0x00  (reset)",
+    "0x51 IRQ_MASK2              = 0x00  (reset)",
+    "0x52 IRQ_MASK1              = 0x00  (reset)",
+    "0x53 IRQ_MASK0              = 0x00  (reset)",
+    "0x54 FAST_RX_TIMER          = 0x00  (reset)",
+    "0x5A PA_POWER8              = 0x01  (reset)  PA_LEVEL8=1",
+    "0x5B PA_POWER7              = 0x0C  (reset)  PA_LEVEL_7=12",
+    "0x5C PA_POWER6              = 0x18  (reset)  PA_LEVEL_6=24",
+    "0x5D PA_POWER5              = 0x24  (reset)  PA_LEVEL_5=36",
+    "0x5E PA_POWER4              = 0x30  (reset)  PA_LEVEL_4=48",
+    "0x5F PA_POWER3              = 0x48  (reset)  PA_LEVEL_3=72",
+    "0x60 PA_POWER2              = 0x60  (reset)  PA_LEVEL_2=96",
+    "0x61 PA_POWER1              = 0x00  (reset)",
+    "0x62 PA_POWER0              = 0x47  (reset)  PA_MAXDBM=1 PA_LEVEL_MAX_IDX=7",
+    "0x63 PA_CONFIG1             = 0x01",
+    "0x64 PA_CONFIG0             = 0x8B",
+    "0x65 SYNTH_CONFIG2          = 0xD0  (reset)",
+    "0x68 VCO_CONFIG             = 0x02  (reset)",
+    "0x69 VCO_CALIBR_IN2         = 0x88  (reset)  VCO_CALAMP_TX=8 VCO_CALAMP_RX=8",
+    "0x6A VCO_CALIBR_IN1         = 0x40  (reset)  VCO_CALFREQ_TX=64",
+    "0x6B VCO_CALIBR_IN0         = 0x40  (reset)  VCO_CALFREQ_RX=64",
+    "0x6C XO_RCO_CONF1           = 0x6C  (reset)",
+    "0x6D XO_RCO_CONF0           = 0x30  (reset)  GM_CONF=3",
+    "0x6E RCO_CALIBR_CONF3       = 0x70  (reset)  RWT_IN=7",
+    "0x6F RCO_CALIBR_CONF2       = 0x4D  (reset)",
+    "0x75 PM_CONF4               = 0x17  (reset)",
+    "0x76 PM_CONF3               = 0x20  (reset)  KRM_14_8=32",
+    "0x77 PM_CONF2               = 0x00  (reset)",
+    "0x78 PM_CONF1               = 0x39  (reset)  SET_BLD_TH=3",
+    "0x79 PM_CONF0               = 0x42  (reset)  SET_SMPS_LVL=4",
+    "0x8D MC_STATE1              = 0x52  (reset)  RCO_CAL_OK=1 RX_FIFO_EMPTY=1",
+    "0x8E MC_STATE0              = 0x01  XO_ON=1",
+    "0x8F TX_FIFO_STATUS         = 0x00  (reset)",
+    "0x90 RX_FIFO_STATUS         = 0x00  (reset)",
+    "0x94 RCO_CALIBR_OUT4        = 0x70  (reset)  RWT_OUT=7",
+    "0x95 RCO_CALIBR_OUT3        = 0x00  (reset)",
+    "0x99 VCO_CALIBR_OUT1        = 0x00  (reset)",
+    "0x9A VCO_CALIBR_OUT0        = 0x00  (reset)",
+    "0x9C TX_PCKT_INFO           = 0x00  (reset)",
+    "0x9D RX_PCKT_INFO           = 0x00  (reset)",
+    "0x9E AFC_CORR               = 0x00  (reset)",
+    "0x9F LINK_QUALIF2           = 0x00  (reset)",
+    "0xA0 LINK_QUALIF1           = 0x00  (reset)",
+    "0xA2 RSSI_LEVEL             = 0x00  (reset)",
+    "0xA4 RX_PCKT_LEN1           = 0x00  (reset)",
+    "0xA5 RX_PCKT_LEN0           = 0x00  (reset)",
+    "0xA6 CRC_FIELD3             = 0x00  (reset)",
+    "0xA7 CRC_FIELD2             = 0x00  (reset)",
+    "0xA8 CRC_FIELD1             = 0x00  (reset)",
+    "0xA9 CRC_FIELD0             = 0x00  (reset)",
+    "0xAA RX_ADDRE_FIELD1        = 0x00  (reset)",
+    "0xAB RX_ADDRE_FIELD0        = 0x00  (reset)",
+    "0xEF RSSI_LEVEL_RUN         = 0x00  (reset)",
+    "0xF0 DEVICE_INFO1           = 0x00  (reset)",
+    "0xF1 DEVICE_INFO0           = 0x00",
+    "0xFA IRQ_STATUS3            = 0x00  (reset)",
+    "0xFB IRQ_STATUS2            = 0x00",
+    "0xFC IRQ_STATUS1            = 0x00",
+    "0xFD IRQ_STATUS0            = 0x00  (reset)"
+  ]
+}
