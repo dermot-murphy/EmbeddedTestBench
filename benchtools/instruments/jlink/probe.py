@@ -391,9 +391,10 @@ class JLinkProbe(Instrument):
         self._cycle_counter_ready = False
         self._itm = ItmDecoder()
         self._adopt(session, session.transport, server, rtt, self._itm)
-        #: Leave the core halted when the link closes. Off by default: the GDB
-        #: Server halts the core on attach and does not resume it on detach, so
-        #: without a resume every read or verify leaves the target stopped.
+        #: Leave the core halted when the link closes. Off by default: the
+        #: driver halts the core on attach (#349) and the GDB Server does not
+        #: resume it on detach, so without a resume every read or verify
+        #: leaves the target stopped.
         self.leave_halted = False
         #: Attach to the target when the link opens. ``False`` is RTT only;
         #: see :meth:`connect`.
@@ -741,7 +742,20 @@ class JLinkProbe(Instrument):
             raise ConfigurationError("no such ELF file: %s" % path)
 
     def attach(self) -> None:
-        """Attach GDB to the target through the GDB Server."""
+        """Attach GDB to the target through the GDB Server, and halt the core.
+
+        An attach does not halt the core by itself. A GDB Server halts it when
+        the server starts, so the first client of a server the driver started
+        finds it halted; a server that is already running, and whose last
+        client let the core run, does not halt it for the next client. That is
+        every remote ``jlink://<host>:<port>`` and every run from the bench
+        container. GDB still believes the core stopped, so without a halt
+        here the driver took a running core for a halted one: ``halt`` did
+        nothing, and the registers read ``0xDEADBEEF`` (issue #349, seen on
+        5C1712 with GDB Server V9.42). ``monitor halt`` is harmless on a
+        halted core, and GDB's register cache is flushed after it because GDB
+        does not see what a ``monitor`` command does (#178).
+        """
         address = self._target_address if self._target_address != "simulated" else "sim:0"
         record = self._session.execute(
             "-target-select extended-remote %s" % address, allow_error=True, timeout=30.0
@@ -753,6 +767,8 @@ class JLinkProbe(Instrument):
                 % (address, record.error_message)
             )
         self._attached = True
+        self.monitor("halt")
+        self._flush_register_cache()
         self._halted = True
 
     @property
@@ -1084,9 +1100,13 @@ class JLinkProbe(Instrument):
     resume = run
 
     def halt(self, timeout: float = 10.0) -> HaltInfo:
-        """Halt the target and report where it stopped."""
+        """Halt the target and report where it stopped.
+
+        A core already halted - as every attach leaves it (#349) - is reported
+        where it is, from its innermost frame, rather than at address 0.
+        """
         if self._halted:
-            return self._halt_info({"reason": "signal-received"})
+            return self._halt_info({"reason": "signal-received", "frame": self._innermost_frame()})
         self._session.execute("-exec-interrupt", timeout=timeout, allow_error=True)
         info = self.wait_for_halt(timeout=timeout)
         return info
@@ -1116,6 +1136,15 @@ class JLinkProbe(Instrument):
         results = self._session.wait_for_stop(timeout=timeout)
         self._halted = True
         return self._halt_info(results)
+
+    def _innermost_frame(self) -> Dict[str, Any]:
+        """The halted core's innermost frame as GDB reports it; empty if none."""
+        record = self._session.execute("-stack-list-frames 0 0", allow_error=True)
+        frames = [] if record.is_error else (record.results.get("stack") or [])
+        for entry in frames if isinstance(frames, list) else [frames]:
+            if isinstance(entry, dict):
+                return entry
+        return {}
 
     def _halt_info(self, results: Dict[str, Any]) -> HaltInfo:
         frame = results.get("frame") or {}

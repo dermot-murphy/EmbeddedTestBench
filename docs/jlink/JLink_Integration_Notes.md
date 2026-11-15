@@ -164,7 +164,7 @@ what the driver now does about it:
 | Observed | Driver behaviour |
 |---|---|
 | `-singlerun` made the spawned server exit on the readiness check | Flag removed; `stop()` ends the server |
-| The server halts the core on attach and leaves it halted on detach | `close()` sends `monitor go` unless `leave_halted` |
+| The server halts the core on attach and leaves it halted on detach | `close()` sends `monitor go` unless `leave_halted`. Corrected by #349: a server halts the core when it starts, not on every attach, so `attach()` now halts it |
 | `monitor version` is unsupported | Identity read from the server's start-up banner |
 | `monitor flash erase` said O.K. and erased nothing while the firmware ran | Reset and halt first; blank-check afterwards |
 | GDB exited on `file` then `load` of a HEX file on a mapped drive | `load <file>` first, then read it for verify |
