@@ -1,0 +1,14 @@
+## eraseall
+Erasing user available code and UICR flash areas.
+Applying system reset.
+## blank check
+0x00000000: FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF   |................|
+0x10001080: FFFFFFFF                              |....|
+## program
+## readback
+0x00000000: 20000400 00000999 0000062D 00000979   |... ....-...y...|
+0x10001080: 12175C00                              |.\..|
+0x10001014: 000F8000 000FE000                     |........|
+## verify again
+Applying system reset.
+Run.

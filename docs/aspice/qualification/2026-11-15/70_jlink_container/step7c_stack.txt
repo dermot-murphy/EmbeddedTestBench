@@ -1,0 +1,47 @@
+{
+  "backtrace": [
+    "#0  API_Power_Sleep at source/api/power/api_power.c:111",
+    "#1  APP_Manager_Sleep at source/application/manager/app_manager.c:373",
+    "#2  APP_Manager_PostIdle at source/application/manager/app_manager.c:358",
+    "#3  APP_Manager_IdleTask at source/application/manager/app_manager.c:596",
+    "#4  main at source/main/main.c:110"
+  ],
+  "depth": 5,
+  "frames": [
+    {
+      "address": "0x000332d4",
+      "file": "source/api/power/api_power.c",
+      "function": "API_Power_Sleep",
+      "level": 0,
+      "line": 111
+    },
+    {
+      "address": "0x00034aac",
+      "file": "source/application/manager/app_manager.c",
+      "function": "APP_Manager_Sleep",
+      "level": 1,
+      "line": 373
+    },
+    {
+      "address": "0x00034aa2",
+      "file": "source/application/manager/app_manager.c",
+      "function": "APP_Manager_PostIdle",
+      "level": 2,
+      "line": 358
+    },
+    {
+      "address": "0x00034be4",
+      "file": "source/application/manager/app_manager.c",
+      "function": "APP_Manager_IdleTask",
+      "level": 3,
+      "line": 596
+    },
+    {
+      "address": "0x000273ee",
+      "file": "source/main/main.c",
+      "function": "main",
+      "level": 4,
+      "line": 110
+    }
+  ]
+}

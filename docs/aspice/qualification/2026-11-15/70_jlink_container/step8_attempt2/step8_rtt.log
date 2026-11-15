@@ -1,0 +1,74 @@
+# RTT channel 0, opened 2026-11-15T09:52:04
+SEGGER J-Link V9.42 - Real time terminal output
+SEGGER J-Link V8.0, SN=682395790
+Process: JLinkGDBServerCL.exe
+<info> app: Waking 11
+<info> app: Sleeping
+<info> app: Waking 12
+<info> app: Sleeping
+<info> app: Waking 13
+<info> app: Sleeping
+<info> app: Waking 14
+<info> app: Sleeping
+<info> app: Waking 15
+<info> app: 
+<info> app: Wakeup (Periodic)
+<info> app: 
+<info> app: Ticks since reset:     2
+<info> app: Sensor ID is:          0x5C1712
+<info> app: RMS Sampling
+<info> app: RMS Scaling:           Enabled (trying 8g)
+<info> app: Sample Profile:        Buffer:2, Samples:1024, Scale:8g, ODR:6400Hz
+<info> app: Sample time:           157557 uSec
+<info> app: RMS Acceleration:      X    129 Y     85 Z     88
+<info> app: RSS Velocity:          X    252 Y     93 Z     69
+<info> app: RMS Peak To Peak:      X    709 Y    554 Z    588
+<info> app: Machine method:        ACC WAVES (Units: Integer)
+<info> app: Machine AccWave Min Size:     1638
+<info> app: Machine threshold:     20
+<info> app: Machine detect max:    0
+<info> app: Machine detect found:  0
+<info> app: Machine state:         OFF
+<info> app: 
+<info> app: Wakeup (Periodic)
+<info> app: 
+<info> app: Ticks since reset:     3
+<info> app: Sensor ID is:          0x5C1712
+<info> app: Radio:                 Config
+<info> app: Phase: DETECT Counter 810 Tick 45
+<info> app: Sleeping
+<info> app: Waking 24
+<info> app: Sleeping
+<info> app: Waking 25
+<info> app: Sleeping
+<info> app: Waking 26
+<info> app: Sleeping
+<info> app: Waking 27
+<info> app: Sleeping
+<info> app: Waking 28
+<info> app: Sleeping
+<info> app: Waking 29
+<info> app: Sleeping
+<info> app: Waking 30
+<info> app: Sleeping
+<info> app: Waking 31
+<info> app: 
+<info> app: Wakeup (Periodic)
+<info> app: 
+<info> app: Ticks since reset:     4
+<info> app: Sensor ID is:          0x5C1712
+<info> app: Radio:                 Config
+<info> app: Phase: DETECT Counter 765 Tick 45
+<info> app: Sleeping
+<info> app: Waking 32
+<info> app: Sleeping
+<info> app: Waking 33
+<info> app: Sleeping
+<info> app: Waking 34
+<info> app: Sleeping
+<info> app: Waking 35
+<info> app: Sleeping
+<info> app: Waking 36
+<info> app: Sleeping
+<info> app: Waking 37
+<info> app: Sleeping

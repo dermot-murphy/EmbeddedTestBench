@@ -1,0 +1,13 @@
+{
+  "attached": true,
+  "backend": "gdb",
+  "core_clock_hz": 64000000.0,
+  "elf": "/work/KAPPAX_APP_SDK17_PCB_V4X_RELEASE.elf",
+  "firmware": "",
+  "halted": true,
+  "identity": "J-Link (no version reported)",
+  "manufacturer": "SEGGER",
+  "model": "J-Link",
+  "program_counter": "0xdeadbeef",
+  "serial_number": ""
+}

@@ -1,0 +1,6 @@
+{
+  "address": "0x20038f80",
+  "name": "m_host_present",
+  "size": 1,
+  "value": false
+}

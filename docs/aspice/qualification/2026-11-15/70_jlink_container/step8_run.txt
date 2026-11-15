@@ -1,0 +1,2 @@
+RTT from a container without stopping the sensor (#70 step 8): PASS - 1 passed, 0 failed, 0 errored, 0 skipped in 41.01 s
+  Markdown: /out/step8_report.md

@@ -1,0 +1,31 @@
+# RTT channel 0, opened 2026-11-15T09:47:18
+SEGGER J-Link V9.42 - Real time terminal output
+SEGGER J-Link V8.0, SN=682395790
+Process: JLinkGDBServerCL.exe
+<info> app: 
+<info> app: Starting from reset in NORMAL mode
+<info> app: 
+<info> app: Sensor ID is:          0x5C1712
+<info> app: PRODUCT:               KAPPA
+<info> app: VERSION:               V11.03.0000-160-g046094e6c (046094e6c)
+<info> app: Battery Voltage:       0mV
+<info> app: TARGET:                Production
+<info> app: Compiler Version:      V9.03.01
+<info> app: Reset reason:          6 (unknown reason)
+<info> app: NVM Memory:            CLEARED
+<info> app: First Assembly:        WRITTEN
+<info> app: RF Part ID:            0x03C1
+<info> app: Accel Part ID is:      0x4B696F6E4601
+<info> app: Magnetometer Part ID:  0x40
+<info> app: MCU Part ID:           0x00052840-AAD0
+<info> app: MCU ID:                0x409EB104-253F30AA
+<info> app: Sleeping
+<info> app: Waking 1
+<info> app: 
+<info> app: Wakeup (Periodic)
+<info> app: Phase: INIT Counter 0 Tick 1
+<info> app: Sleeping
+<info> app: Waking 2
+<info> app: 
+<info> app: Wakeup (Periodic)
+<info> app: Phase: INIT Counter 0 Tick 1

@@ -1,0 +1,6 @@
+{
+  "address": "0x000332d4",
+  "function": "API_Power_Sleep",
+  "location": "source/api/power/api_power.c:111",
+  "reason": "breakpoint-hit"
+}

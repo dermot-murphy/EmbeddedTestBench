@@ -1,0 +1,12 @@
+# #70 step 8: the rtt alias from a container, reaching a host GDB Server.
+name: Bench PC from a container (rtt only, #70)
+instruments:
+  rtt:
+    driver: jlink-rtt
+    resource: jlink://host.docker.internal:2341
+    timeout: 30.0
+    event: RTT
+    options:
+      device: nRF52840_xxAA
+      speed_khz: 4000
+      rtt_port: 19031

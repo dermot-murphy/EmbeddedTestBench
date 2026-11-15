@@ -1,0 +1,4 @@
+RTT from a container without stopping the sensor (#70 step 8): FAIL - 0 passed, 1 failed, 0 errored, 0 skipped in 60.55 s
+  FAIL    The firmware's periodic log arrives over RTT
+            wakes: 2 != required 3
+  Markdown: /out/step8_report.md
