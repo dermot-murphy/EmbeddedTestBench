@@ -47,6 +47,7 @@ keep every USB device and every vendor tool that drives one on the host.
 |---|---|---|---|
 | 0.1 | 2026-11-14 | Claude | #70: first issue. What moves into an image and what stays on the host, how each instrument is reached, the prototype `docker/bench/Dockerfile`, measured costs, and the J-Link test plan. |
 | next | 2026-11-15 | Claude | #70: the J-Link test plan run on the bench (§7.1); the status, §1, §3, §6.5, §8 and §9 follow it. Step 7 stops the core at a breakpoint (#349). Step 10 erases separately and checks the flash is blank, because `--program --chiperase` did not erase; its malformed row is fixed. |
+| next | 2026-11-15 | Claude | #70 review round 1 (PR #350): §7.1 corrected against the record - step 5 has 14 sections; step 0's host time and step 7's host outputs were seen but not kept; step 1 identifies the core, not the probe; `var m_freq` read a discarded variable at address 0 (#352); step 10's empty `## program` part and its -256 lines explained. |
 
 ---
 
@@ -398,17 +399,17 @@ lists them. The images flashed are not copied there: they are Sensoteq's.
 
 | Step | Result | Container, s | Host, s |
 |---|---|---|---|
-| 0 | Pass. Code flash and UICR read; ID `0x12175C00`, bootloader address `0x000F8000 0x000FE000` | - | 13.4 (nrfjprog) |
-| 1 | Pass. Probe and core reported; PC `0x00015f5a` | 2.61 | 2.50 |
+| 0 | Pass. Code flash and UICR read; ID `0x12175C00`, bootloader address `0x000F8000 0x000FE000` | - | 13.4 (nrfjprog; seen on the console, not kept in the record) |
+| 1 | Pass for the core: attached, halted, PC `0x00015f5a`. The probe is not identified: the identity reads `J-Link (no version reported)`, with no firmware or serial number, because the driver takes them from the banner of a GDB Server it started, and here it started none. The host run, which started its own server, names the probe (`host_info.txt`) | 2.61 | 2.50 |
 | 2 | Pass. Erased; flash and UICR then read `ff` | 3.04 | not run |
 | 3 | Pass. 416 664 bytes in 9 sections, all verified | 17.40 | not run |
 | 4 | Pass. Reads `005c1712` | 2.72 (write), 2.30 (read) | 2.43 (read) |
-| 5 | Pass. 488 412 bytes in 15 sections, all verified; ID preserved; bootloader address written. **GDB did not exit** | 20.12 | not run |
+| 5 | Pass. 488 412 bytes in 14 sections, all verified; ID preserved; bootloader address written. **GDB did not exit** | 20.12 | not run |
 | 6 | Pass. RTT: `Sensor ID is: 0x5C1712`, `VERSION: V11.03.0000-160-g046094e6c` | 2.69 (reset), 17.33 (rtt) | not run |
-| 7 | Pass with `run --until API_Power_Sleep`: a 5-frame stack down to `main`, and `var` values. Without the breakpoint, `stack` gave `?? at 0xdeadbeee` on the host as in the container (#349) | 2.37 (stack) | 1.19 (stack, same server) |
+| 7 | Pass with `run --until API_Power_Sleep`: a 5-frame stack down to `main`, and `var m_host_present`. Without the breakpoint, `stack` gave `?? at 0xdeadbeee` in the container. The host's `var` and `stack` against the same server gave the same results; they were seen on the console but not kept, and only their times are in `timings.txt`. `var m_freq` is not a check: GDB places that discarded variable at address 0, so the driver read the vector table's initial stack pointer, `0x20000400` (#352) | 2.37 (stack) | 1.19 (stack, same server) |
 | 8 | Pass on the third attempt. RTT lines arrived while the sensor advertised (seen 35 times in a 100 s scan). Attempts 1 and 2 failed on the specification, not the path: a wrong `measure`, then 3 wake lines asked for in 60 s of a 45 s tick | 43.2 | not run |
 | 9 | Pass. `KAPPA_5C1712_V11.03.0000X` advertised | - | - |
-| 10 | Pass on the second attempt. The first, `--program --chiperase --verify`, failed verify at `0x4`: expected `0x99`, read `0x81`, which is `0x99 AND 0x81`, so nothing had been erased. `--eraseall`, a blank check, then `--program --verify` passed, and the sensor advertised `KAPPA_5C1712_V10.01.2000P` | - | 28, 48 |
+| 10 | Pass on the second attempt. The first, `--program --chiperase --verify`, failed verify at `0x4`: expected `0x99`, read `0x81`, which is `0x99 AND 0x81`, so nothing had been erased. `--eraseall`, a blank check, then `--program --verify` passed, and the sensor advertised `KAPPA_5C1712_V10.01.2000P`. The `## program` part of `step10_restore_attempt2.txt` is empty because the progress lines were filtered out of it; the verify that passed is in `step10_final_verify.txt`, whose `JLinkARM.dll ... -256` lines are nrfjprog's usual messages on this probe and do not change the result | - | 28, 48 |
 
 What the times say: a container step costs about 1.1 s more than the same
 command on the host against the same GDB Server (var 2.48 s against 1.38 s,
@@ -421,7 +422,8 @@ sensor.
 Findings:
 
 1. **No fault belongs to the container.** Every step that failed or misled
-   did the same on the host.
+   did the same on the host. For step 7 the host's output was seen on the
+   console but not kept (see the step 7 row).
 2. **The driver assumes an attach halts the core** (#349). A GDB Server that
    is already running does not halt it for a second client, so `halt`, `info`
    and `stack` treat a running core as halted. Every container run uses such

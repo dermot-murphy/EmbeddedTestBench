@@ -58,15 +58,28 @@ times are wall-clock times on the host, so they include starting the container.
 | 4 | `step4_write.txt`, `step4_read.txt` |
 | 5 | `step5_flash_v11.txt`, `step5_read_id.txt`, `step5_read_bl.txt` |
 | 6 | `step6_reset.txt`, `step6_rtt.txt`, `step6_rtt.log` |
-| 7 | First try, with no stop: `step7_var.txt`, `step7_var2.txt`, `step7_stack.txt`, `step7_info_after.txt`. With `halt`: `step7b_*.txt`. With a breakpoint: `step7c_run_until.txt`, `step7c_stack.txt`, `step7c_var.txt`. Then `step7_end_reset.txt`. The halt fault is #349 |
+| 7 | First try, with no stop: `step7_var.txt`, `step7_var2.txt`, `step7_stack.txt`, `step7_info_after.txt`. With `halt`: `step7b_*.txt`. With a breakpoint: `step7c_run_until.txt`, `step7c_stack.txt`, `step7c_var.txt`. Then `step7_end_reset.txt`. The halt fault is #349. `step7_var2.txt` (`m_freq`) is not a variable check: GDB places that discarded variable at address 0, so the read returned the vector table's initial SP (#352) |
 | 8 | `bench_container_rtt.yaml`, `step8_rtt.yaml`, `step8_run.txt`, `step8_report.md`, `step8_rtt.log`, `step8_ble_scan.txt`; the two failed attempts in `step8_attempt1/` and `step8_attempt2/` |
 | 9 | `step9_reset.txt`, `step9_ble_scan.txt` |
 | 10 | The first attempt, which failed verify: `step10_restore.txt`. The second: `step10_restore_attempt2.txt`, `step10_final_verify.txt`, `step10_ble_scan.txt` |
-| Host comparison | `host_info.txt`, `host_read_*.txt` (the driver starting its own GDB Server); the host `var` and `stack` against the step 1-7 server are in `timings.txt` only |
+| Host comparison | `host_info.txt`, `host_read_*.txt` (the driver starting its own GDB Server). The host `var` and `stack` against the step 1-7 server were seen on the console but not kept: only their times are in `timings.txt`. Step 0's time (13.4 s) was likewise seen and not kept |
 | All | `timings.txt`, `container_step.sh`, `gdbserver_2331.log`, `gdbserver_2341.log` |
 
 In `timings.txt`, the three `step8_rtt_alias` lines are attempts 1, 2 and 3 in
 that order.
+
+In step 8 each BLE scan was started on the host 3 s before the container run,
+in the same command. The scans lasted 45, 60 and 100 s, against runs of 2.8,
+62.7 and 43.2 s, so the passing attempt's 100 s scan covered its whole run.
+The scan's own start time is not recorded.
+
+`step10_restore_attempt2.txt` has an empty `## program` part: the progress lines
+were filtered out when it was written. The verify that passed is in
+`step10_final_verify.txt`; its `JLinkARM.dll ... -256` lines are nrfjprog's usual
+messages on this probe.
+
+`container_step.sh` is kept as it ran, with this session's scratch folder
+written into it; to run it again, change `W`.
 
 `bench_container_rtt.yaml` names the bench `Bench PC from a container (rtt
 only, #70)`, but YAML reads `#70)` as a comment, so the report shows the name
