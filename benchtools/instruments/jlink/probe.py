@@ -1438,7 +1438,11 @@ class JLinkProbe(Instrument):
         Needs symbols. Integers, floats, strings, pointers and simple structures
         are converted; anything else is returned as GDB's own text, which is
         better than guessing.
+
+        A variable GDB places at address 0 is refused rather than read
+        (:meth:`_refuse_address_zero`, #352).
         """
+        self._refuse_address_zero(name, "read")
         record = self._session.execute(
             '-data-evaluate-expression "%s"' % name, allow_error=True
         )
@@ -1454,7 +1458,8 @@ class JLinkProbe(Instrument):
         return self._parse_gdb_value(str(record.results.get("value", "")))
 
     def write_variable(self, name: str, value: Any) -> None:
-        """Write a variable by name."""
+        """Write a variable by name. One at address 0 is refused (#352)."""
+        self._refuse_address_zero(name, "write")
         if isinstance(value, bool):
             text = "1" if value else "0"
         elif isinstance(value, (int, float)):
@@ -1471,7 +1476,40 @@ class JLinkProbe(Instrument):
         self._after_configuration()
 
     def variable_address(self, name: str) -> int:
-        """Address of a variable."""
+        """Address of a variable. Address 0 is refused (#352)."""
+        address = self._address_of(name)
+        if address == 0:
+            raise MeasurementError(self._address_zero_message(name, "locate"))
+        return address
+
+    def _refuse_address_zero(self, name: str, action: str) -> None:
+        """Refuse *name* if GDB places it at address 0.
+
+        A variable the linker discarded can keep its debug entry with address
+        0, and GDB then reports it as static storage there. Address 0 is the
+        vector table on every Cortex-M, so a read returned the initial stack
+        pointer as the variable's value: ``m_freq`` read ``0x20000400`` on
+        5C1712 (#352). An expression that has no address, such as a register,
+        is not checked.
+        """
+        try:
+            address = self._address_of(name)
+        except (MeasurementError, ProtocolError):
+            return
+        if address == 0:
+            raise MeasurementError(self._address_zero_message(name, action))
+
+    @staticmethod
+    def _address_zero_message(name: str, action: str) -> str:
+        return (
+            "cannot %s %r: GDB places it at address 0, which on a Cortex-M is the "
+            "vector table, not a variable. It is probably not in the image (the "
+            "linker removed it), or a null pointer was followed; check that the "
+            "ELF is the image's own" % (action, name)
+        )
+
+    def _address_of(self, name: str) -> int:
+        """The address GDB gives ``&name``."""
         value = self._session.execute(
             '-data-evaluate-expression "&%s"' % name, allow_error=True
         )
