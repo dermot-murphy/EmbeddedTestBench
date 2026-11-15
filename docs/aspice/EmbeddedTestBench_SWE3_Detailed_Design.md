@@ -122,6 +122,7 @@
 | next | 2026-11-14 | Claude | #84 review round 3: S2LP-DD-KITHOST - `rx start` inside the stream's `try`; a stop the board does not answer raised, with QI left on and noted and `receiving` kept for a retry; records lost after the last one sent noted. |
 | next | 2026-11-15 | Claude | #349: JLINK-DD-PROBE - `attach` halts the core and flushes GDB's register cache. JLINK-DD-SIM - GDB's knowledge that the core runs is modelled apart from the core (`gdb_knows_running`), and a running core's registers read `0xDEADBEEF`; the firmware model moves to `simfirmware.py`. |
 | next | 2026-11-15 | Claude | #349 review round 1: JLINK-DD-PROBE - the reason for halting on attach narrowed to an attach after an earlier client's `monitor go`. |
+| next | 2026-11-15 | Claude | #352: JLINK-DD-PROBE - `read_variable`, `write_variable` and `variable_address` refuse a variable at address 0 (`_refuse_address_zero`, `_address_of`). |
 ---
 
 ## 3. Purpose & Scope
@@ -1068,7 +1069,7 @@ GDB process or a simulator.
 | Execution | `reset`, `run`/`resume`, `halt`/`stop`, `step`, `wait_for_halt`, `is_halted`, `program_counter`, `registers`, `run_to` |
 | Breakpoints | `set_breakpoint`, `set_watchpoint`, `list_breakpoints`, `delete_breakpoint`, `clear_breakpoints` |
 | Memory | `read_memory`, `write_memory`, `read_word`, `write_word`, `read_u8`, `read_u16`, `read_integer`, `read_ram`, `write_ram` |
-| Symbols | `read_variable`, `write_variable`, `variable_address`, `variable_size`, `evaluate`, `call_stack`/`backtrace` |
+| Symbols | `read_variable`, `write_variable`, `variable_address`, `variable_size`, `_refuse_address_zero`, `_address_of`, `evaluate`, `call_stack`/`backtrace` |
 | RTT | `rtt_start`, `rtt_stop`, `rtt_read_lines`, `rtt_lines_within`, `rtt_write`, `rtt_expect`, `rtt_command`, `rtt_log` |
 | Timing | `enable_cycle_counter`, `read_cycle_counter`, `measure_time_between` |
 
@@ -1095,6 +1096,13 @@ Design points:
   silence reads as a failed test (RUN-FR-031).
 - Memory transfers are chunked to `ProbeLimits.max_transfer_bytes`; a 1 MB read is
   not one MI command.
+- **A variable at address 0 is refused** (JLINK-FR-041, #352).
+  `read_variable`, `write_variable` and `variable_address` take `&name` first
+  (`_address_of`) and raise if it is 0. A variable the linker discarded can
+  keep its debug entry with address 0, and GDB reports it as static storage
+  there: on 5C1712 `m_freq` read `0x20000400`, the vector table's initial
+  stack pointer. An expression with no address, such as `$pc`, is not
+  checked. The check costs one more MI command per access.
 - **`attach` halts the core** (JLINK-FR-004, #349): `monitor halt` and a
   register-cache flush after `-target-select`. An attach halted the core on
   5C1712 (#95), but one made after an earlier client resumed the core with

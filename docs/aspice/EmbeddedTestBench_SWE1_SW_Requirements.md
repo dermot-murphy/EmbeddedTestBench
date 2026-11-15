@@ -104,6 +104,7 @@
 | next | 2026-11-14 | Claude | #84 (driver): S2LP-FR-098 .. S2LP-FR-100 (the host driver on the kit firmware: choosing the firmware on connecting, registers and identity, the stream). |
 | next | 2026-11-15 | Claude | #349: JLINK-FR-004 - the driver halts the core on attaching, since a GDB Server already running does not; JLINK-FR-006's reason follows it. |
 | next | 2026-11-15 | Claude | #349 review round 1: JLINK-FR-004's reason narrowed to what #349 showed: the attach after an earlier client's `monitor go` finds the core running. |
+| next | 2026-11-15 | Claude | #352: JLINK-FR-041 - a variable at address 0 is refused. |
 ---
 
 ## 3. Purpose & Scope
@@ -428,7 +429,7 @@ it is commanded, and it yields measurements — so it implements the generic bas
 | ID | Requirement | Source | Verification |
 |---|---|---|---|
 | JLINK-FR-040 | The driver shall read and write target memory of arbitrary length, splitting transfers to the probe's maximum transfer size, and shall provide byte, half-word and word accessors. | STK-09 | Test |
-| JLINK-FR-041 | The driver shall read and write a variable by name, returning integers, floating-point values, booleans, strings and structures (as a field-by-field mapping, nested as the type nests) as the debug information describes them, and shall report a variable's address and size. | STK-09 | Test |
+| JLINK-FR-041 | The driver shall read and write a variable by name, returning integers, floating-point values, booleans, strings and structures (as a field-by-field mapping, nested as the type nests) as the debug information describes them, and shall report a variable's address and size. A variable the debug information places at address 0 shall be refused, naming it, rather than read or written: on a Cortex-M address 0 is the vector table, and such a variable is one the linker discarded or a null pointer followed (issue #352). | STK-09 | Test |
 | JLINK-FR-042 | The driver shall evaluate an arbitrary expression in the target's context. | STK-09 | Test |
 | JLINK-FR-043 | The driver shall read a field of one to eight bytes as an integer in a byte order the caller states, because the byte order and width of a record programmed into a part are properties of that record and not of the core that loads it. A width or byte order outside what is supported shall be refused, since a misspelling would otherwise read a plausible and entirely wrong number. | STK-09 | Test |
 | JLINK-FR-045 | The driver shall read the call stack, reporting for each frame its level, function, source file and line, and the frame address. | STK-09 | Test |

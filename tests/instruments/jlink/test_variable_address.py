@@ -41,7 +41,8 @@ def probe(simulator):
 class TestAVariableAtAddressZero:
     def test_reading_it_is_refused(self, probe):
         """Before #352 this returned 0x20000400, the initial stack pointer."""
-        with pytest.raises(MeasurementError, match="cannot read 'm_freq'.*address 0.*not in the image"):
+        with pytest.raises(MeasurementError,
+                           match="cannot read 'm_freq'.*address 0.*not in the image"):
             probe.read_variable("m_freq")
 
     def test_writing_it_is_refused_and_nothing_is_written(self, probe, simulator):

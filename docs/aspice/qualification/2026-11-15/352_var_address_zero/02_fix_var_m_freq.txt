@@ -1,0 +1,1 @@
+error: cannot read 'm_freq': GDB places it at address 0, which on a Cortex-M is the vector table, not a variable. It is probably not in the image (the linker removed it), or a null pointer was followed; check that the ELF is the image's own
