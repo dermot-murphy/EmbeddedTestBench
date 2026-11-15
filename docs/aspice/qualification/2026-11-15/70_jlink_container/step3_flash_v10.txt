@@ -1,0 +1,95 @@
+{
+  "backend": "gdb",
+  "bytes_written": 416664,
+  "seconds": 14.240894151007524,
+  "sections": {
+    ".sec1": {
+      "address": 0,
+      "size": 2584
+    },
+    ".sec2": {
+      "address": 4096,
+      "size": 61440
+    },
+    ".sec3": {
+      "address": 65536,
+      "size": 65536
+    },
+    ".sec4": {
+      "address": 131072,
+      "size": 24188
+    },
+    ".sec5": {
+      "address": 155648,
+      "size": 40960
+    },
+    ".sec6": {
+      "address": 196608,
+      "size": 65536
+    },
+    ".sec7": {
+      "address": 262144,
+      "size": 65536
+    },
+    ".sec8": {
+      "address": 327680,
+      "size": 65536
+    },
+    ".sec9": {
+      "address": 393216,
+      "size": 25348
+    }
+  },
+  "verify": {
+    "backend": "gdb",
+    "matched": true,
+    "mismatched": [],
+    "sections": {
+      ".sec1": {
+        "matched": true,
+        "size": 2584,
+        "start": 0
+      },
+      ".sec2": {
+        "matched": true,
+        "size": 61440,
+        "start": 4096
+      },
+      ".sec3": {
+        "matched": true,
+        "size": 65536,
+        "start": 65536
+      },
+      ".sec4": {
+        "matched": true,
+        "size": 24188,
+        "start": 131072
+      },
+      ".sec5": {
+        "matched": true,
+        "size": 40960,
+        "start": 155648
+      },
+      ".sec6": {
+        "matched": true,
+        "size": 65536,
+        "start": 196608
+      },
+      ".sec7": {
+        "matched": true,
+        "size": 65536,
+        "start": 262144
+      },
+      ".sec8": {
+        "matched": true,
+        "size": 65536,
+        "start": 327680
+      },
+      ".sec9": {
+        "matched": true,
+        "size": 25348,
+        "start": 393216
+      }
+    }
+  }
+}

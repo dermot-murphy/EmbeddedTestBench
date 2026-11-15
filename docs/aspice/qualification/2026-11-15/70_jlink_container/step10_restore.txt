@@ -1,0 +1,17 @@
+[ ######               ]   0.000s | Erase file - Check image                                                           [ #################### ]   0.101s | Erase file - Done erasing                                                          
+[ ######               ]   0.000s | Program file - Checking image                                                      [ ####                 ]   0.000s | Check image validity - Initialize device info                                      [ ########             ]   0.000s | Check image validity - Check region 0 settings                                     [ ############         ]   0.000s | Check image validity - block 1 of 3                                                [ ################     ]   0.004s | Check image validity - block 2 of 3                                                [ #################### ]   0.018s | Check image validity - Finished                                                    [ #############        ]   0.000s | Program file - Programming                                                         [ ######               ]   0.000s | Programming image - block 1 of 2                                                   [ #############        ]   5.574s | Programming image - block 2 of 2                                                   [ #################### ]   0.000s | Programming image - Write successful                                               [ #################### ]  10.878s | Program file - Done programming                                                    
+[ ######               ]   0.000s | Verify file - Check image                                                          [ ####                 ]   0.000s | Check image validity - Initialize device info                                      [ ########             ]   0.000s | Check image validity - Check region 0 settings                                     [ ############         ]   7.594s | Check image validity - block 1 of 3                                                [ ################     ]   2.854s | Check image validity - block 2 of 3                                                [ #################### ]   0.024s | Check image validity - Finished                                                    [ #############        ]   0.000s | Verify file - Verifying                                                            [ ######               ]   0.000s | Verifying image - block 1 of 2                                                     [error] [ Client] - Encountered error -160: Command verify_file executed for 11868 milliseconds with result -160
+[error] [  nRF52] - Failed while performing 'Verify' operation on target address 0x00000000. 
+-160: Data does not match in address range [0x00000000 - 0x000FFFFF] (Flash)
+Expected byte value 0x99 but read 0x81 at address 0x00000004.
+[error] [  nRF52] - Failed while verifying device. -160: Data does not match in address range [0x00000000 - 0x000FFFFF] (Flash)
+Expected byte value 0x99 but read 0x81 at address 0x00000004.
+[error] [ Worker] - Data does not match in address range [0x00000000 - 0x000FFFFF] (Flash)
+Expected byte value 0x99 but read 0x81 at address 0x00000004.
+ERROR: Write verify failed.
+NOTE: For additional output, try running again with logging enabled (--log).
+NOTE: Any generated log error messages will be displayed.
+0x10001080: 12175C00                              |.\..|
+0x10001014: 000F8000 000FE000                     |........|
+Applying system reset.
+Run.

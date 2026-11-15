@@ -1,0 +1,16 @@
+{
+  "address": "0x2003a1cc",
+  "name": "_SEGGER_RTT",
+  "size": 120,
+  "value": {
+    "MaxNumDownBuffers": 2,
+    "MaxNumUpBuffers": 2,
+    "aDown": {
+      "{sName": "0x0, pBuffer = 0x0, SizeOfBuffer = 0, WrOff = 0, RdOff = 0, Flags = 0}"
+    },
+    "aUp": {
+      "{sName": "0x0, pBuffer = 0x0, SizeOfBuffer = 0, WrOff = 0, RdOff = 0, Flags = 0}"
+    },
+    "acID": "SEGGER RTT\\000\\000\\000\\000\\000"
+  }
+}

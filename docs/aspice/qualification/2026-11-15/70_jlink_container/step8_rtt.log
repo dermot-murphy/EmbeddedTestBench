@@ -1,0 +1,42 @@
+# RTT channel 0, opened 2026-11-15T09:53:20
+SEGGER J-Link V9.42 - Real time terminal output
+SEGGER J-Link V8.0, SN=682395790
+Process: JLinkGDBServerCL.exe
+<info> app: Waking 38
+<info> app: Sleeping
+<info> app: Waking 39
+<info> app: Sleeping
+<info> app: Waking 40
+<info> app: 
+<info> app: Wakeup (Periodic)
+<info> app: 
+<info> app: Ticks since reset:     5
+<info> app: Sensor ID is:          0x5C1712
+<info> app: Radio:                 Config
+<info> app: Phase: DETECT Counter 720 Tick 45
+<info> app: Sleeping
+<info> app: Waking 41
+<info> app: Sleeping
+<info> app: Waking 42
+<info> app: Sleeping
+<info> app: Waking 43
+<info> app: Sleeping
+<info> app: Waking 44
+<info> app: Sleeping
+<info> app: Waking 45
+<info> app: Sleeping
+<info> app: Waking 46
+<info> app: Sleeping
+<info> app: Waking 47
+<info> app: Sleeping
+<info> app: Waking 48
+<info> app: 
+<info> app: Wakeup (Periodic)
+<info> app: 
+<info> app: Ticks since reset:     6
+<info> app: Sensor ID is:          0x5C1712
+<info> app: Radio:                 Config
+<info> app: Phase: DETECT Counter 675 Tick 45
+<info> app: Sleeping
+<info> app: Waking 49
+<info> app: Sleeping

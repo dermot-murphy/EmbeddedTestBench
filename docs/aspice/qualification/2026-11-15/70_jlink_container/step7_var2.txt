@@ -1,0 +1,6 @@
+{
+  "address": "0x00000000",
+  "name": "m_freq",
+  "size": 4,
+  "value": 536871936
+}

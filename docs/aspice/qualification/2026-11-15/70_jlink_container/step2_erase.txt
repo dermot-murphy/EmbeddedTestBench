@@ -1,0 +1,5 @@
+{
+  "backend": "gdb",
+  "erased": true,
+  "output": "Flash erase: O.K."
+}

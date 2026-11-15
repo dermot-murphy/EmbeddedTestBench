@@ -8,7 +8,7 @@
 | **Question** | Should the bench tools and the toolchain move into a Docker image, and how would the bench's instruments be reached from it? |
 | **Issue** | #70 |
 | **Prototype** | `docker/bench/Dockerfile` |
-| **Status** | Draft. Measured on the bench PC without instruments; the J-Link and serial paths are a test plan (§7), not results |
+| **Status** | Draft. The J-Link path was run on the bench on 2026-11-15 (§7.1) and works from the container; the serial path is still a plan, not a result |
 
 ---
 
@@ -32,7 +32,9 @@ keep every USB device and every vendor tool that drives one on the host.
    evidence runs (§4.3).
 4. **Not yet for evidence.** A bench report does not record the software it ran
    on (§5.3). Until it names the image, and until the test plan in §7 has
-   passed on the bench, evidence runs stay on the host as they are now.
+   passed on the bench, evidence runs stay on the host as they are now. The
+   J-Link half of §7 passed on 2026-11-15 (§7.1): the #69 sequence ran from the
+   container against a host GDB Server, with no container-only fault.
 5. **Cost:** about 1 s to start a container, and small-file access through a
    bind mount of `U:` about 20 times slower than on the host. Neither matters to
    a bench run; the second matters to anything that walks a large tree (§6).
@@ -44,6 +46,7 @@ keep every USB device and every vendor tool that drives one on the host.
 | Version | Date | Author | Description of Change |
 |---|---|---|---|
 | 0.1 | 2026-11-14 | Claude | #70: first issue. What moves into an image and what stays on the host, how each instrument is reached, the prototype `docker/bench/Dockerfile`, measured costs, and the J-Link test plan. |
+| next | 2026-11-15 | Claude | #70: the J-Link test plan run on the bench (§7.1); the status, §1, §3, §6.5, §8 and §9 follow it. Step 7 stops the core at a breakpoint (#349). Step 10 erases separately and checks the flash is blank, because `--program --chiperase` did not erase; its malformed row is fixed. |
 
 ---
 
@@ -56,9 +59,9 @@ Issue #70 lists five questions. #282 (PR #283) has answered part of them:
 | Python, extras and `pylint` at CI's versions, and the suite giving CI's result | **Done by #282.** `docker/ci/Dockerfile` runs `tests.yml`'s 3.8, 3.9 and 3.12 legs and `lint.yml`'s pylint leg from `constraints/*.txt`, which CI installs from too (User Manual §2.6). The Windows-only lint and test failures named in #70 are what that image avoids; whether they still fail on the Windows host was not rechecked here |
 | 1. What moves into an image | §4 and the table in §4.4 |
 | 2. How USB instruments are reached | §4.1 to §4.3 |
-| 3. The J-Link path end to end | A test plan for the owner (§7). It needs the probe, which another session held while this was written |
+| 3. The J-Link path end to end | Run on the bench on 2026-11-15: §7.1. It works; the one fault found is the driver's (#349), not the container's |
 | 4. Image contents, versions, recording the image in a report | §5 |
-| 5. Cost: start-up, file access on `U:`, the #69 GDB crash through a bind mount | §6. The crash needs a target to reproduce; §7 step 5 covers it |
+| 5. Cost: start-up, file access on `U:`, the #69 GDB crash through a bind mount | §6. The crash did not recur through a bind mount (§7.1, step 5) |
 
 The bench image here is a second image beside the CI one, not a change to it.
 The CI image holds four Pythons and the test tools; a bench image needs one
@@ -308,7 +311,8 @@ matter, which is why `etb-ci` copies the checkout into the container first.
 reproduced here. What was checked: GDB in the container, given the dummy HEX
 through the bind mount, read it (`file type ihex`, the sections listed), and the
 host GDB did the same from `U:`; both refused `load` with no target, as
-expected. §7 step 5 is the real check.
+expected. §7 step 5 is the real check. It passed on 2026-11-15: a V11 HEX on
+`U:`, through the bind mount, flashed and verified with no GDB exit (§7.1).
 
 ### 6.6 J-Link resource from the container
 
@@ -322,8 +326,7 @@ requires. Port 42339 was chosen so as not to touch the GDB Server's ports.
 
 ## 7. Test plan for the J-Link path (for the owner, on the bench)
 
-Not run: it needs the probe and sensor 5C1712, and another session was using
-them. This repeats the #69 sequence through the container. Follow User Manual
+Run on 2026-11-15: the results are in §7.1. This repeats the #69 sequence through the container. Follow User Manual
 §4.3 and §8.2: back up the sensor first, and reset it after any run that
 attaches.
 
@@ -369,14 +372,66 @@ and settings. After an application-only HEX the sensor may not boot, and steps
 | 4 | `write 0x10001080 005c1712` (the word `0x12175C00`), then `read 0x10001080 4` | Reads `005c1712` |
 | 5 | `flash --preserve 0x10001080:4 /work/<V11>-plus-bl-and-softdevice.hex`, the HEX on `U:` through the bind mount | Succeeds; GDB does not exit (the #69 fault, §6.5) |
 | 6 | `reset --run`, then `rtt --duration 10` | RTT shows `Sensor ID is: 0x5C1712` and the version of the HEX flashed in step 5 |
-| 7 | With `--elf /work/<V11>.elf`: `var`, `stack` | Values and a call stack as on the host |
+| 7 | With `--elf /work/<V11>.elf`: `run --until <function>`, then `stack` and `var`. A `halt` does not stop a core that an already-running GDB Server lets run (#349), so stop it at a breakpoint | Values and a call stack as on the host |
 | 8 | The `rtt` alias: a second GDB Server on the host with `-port 2341 -rtttelnetport 19031 -nohalt`, and `jlink-rtt` at `jlink://host.docker.internal:2341`, `rtt_port: 19031`, while the dongle runs a BLE scan on the host | RTT lines arrive; the sensor keeps advertising (no attach, #95) |
 | 9 | `nrfjprog -f NRF52 --reset` on the host; BLE scan | `KAPPA_5C1712_` advertises with the version of the HEX flashed in step 5 |
-| 10 | Restore on the host, not through the container, so a fault in the container path cannot stop it: `nrfjprog -f NRF52 --program <backup>.hex --chiperase --verify`, then `nrfjprog -f NRF52 --memrd 0x10001080 --n 4` and `--memrd 0x10001014 --n 8`, then `nrfjprog -f NRF52 --reset` last, because `--memrd` leaves the core halted. The chip erase matters: after step 5 has written UICR, a load without an erase cannot set a UICR bit back from 0 to 1 | Reads `0x12175C00` (bytes `005c1712`), and `0x000F8000 0x000FE000` (bytes `00800f0000e00f00`); the sensor advertises the version it ran before step 0 | Reads `005c1712` and `00800f0000e00f00`; the sensor advertises the version it ran before step 0 |
+| 10 | Restore on the host, not through the container, so a fault in the container path cannot stop it: `nrfjprog -f NRF52 --eraseall`, then `--memrd 0x0 --n 16` to see it blank, then `nrfjprog -f NRF52 --program <backup>.hex --verify`, then `--memrd 0x10001080 --n 4` and `--memrd 0x10001014 --n 8`, then `nrfjprog -f NRF52 --reset` last, because `--memrd` leaves the core halted. The erase matters: after step 5 has written UICR, a load without an erase cannot set a bit back from 0 to 1. Do not rely on `--program ... --chiperase`: on 2026-11-15 it reported the erase done but left the flash as it was (§7.1) | The flash reads blank after the erase; the program verifies; UICR reads `0x12175C00` and `0x000F8000 0x000FE000`; the sensor advertises the version it ran before step 0 |
 
 For each step record the image ID, the GDB Server version, the time taken and
 the time the same step takes on the host. A step that fails in the container
 and passes on the host is a finding about the container path, not the driver.
+
+### 7.1 Results, 2026-11-15
+
+Run on the bench PC with the probe and sensor 5C1712. Every command, output,
+timing and server log is in `docs/aspice/qualification/2026-11-15/70_jlink_container/`, whose README
+lists them. The images flashed are not copied there: they are Sensoteq's.
+
+| Item | Value |
+|---|---|
+| Image | `etb-bench`, `sha256:5485c0a641f00ed031418eff520de8c442f87922e80cf2aaf0b0734e3125b644`, built at `aa75c21` (develop); Python 3.12.15, benchtools 0.02.0002, GDB 15.2.90 |
+| GDB Server | V9.42 on the host, started by hand. It listened on `127.0.0.1` only, and the container reached it as `host.docker.internal` |
+| Probe, target | J-Link OB V8.00, S/N 682395790; nRF52840, VTref 3.28 V |
+| Sensor before and after | V10.01.2000, advertising `KAPPA_5C1712_V10.01.2000P` |
+| V11 image | A release build, V11.03.0000-160-g046094e6c, with the ELF from the same build. V11.00.0000 has no ELF beside its image |
+| Images mounted | From a folder on `U:` outside the checkout, read-only at `/work`, so no Sensoteq image enters the repository |
+
+| Step | Result | Container, s | Host, s |
+|---|---|---|---|
+| 0 | Pass. Code flash and UICR read; ID `0x12175C00`, bootloader address `0x000F8000 0x000FE000` | - | 13.4 (nrfjprog) |
+| 1 | Pass. Probe and core reported; PC `0x00015f5a` | 2.61 | 2.50 |
+| 2 | Pass. Erased; flash and UICR then read `ff` | 3.04 | not run |
+| 3 | Pass. 416 664 bytes in 9 sections, all verified | 17.40 | not run |
+| 4 | Pass. Reads `005c1712` | 2.72 (write), 2.30 (read) | 2.43 (read) |
+| 5 | Pass. 488 412 bytes in 15 sections, all verified; ID preserved; bootloader address written. **GDB did not exit** | 20.12 | not run |
+| 6 | Pass. RTT: `Sensor ID is: 0x5C1712`, `VERSION: V11.03.0000-160-g046094e6c` | 2.69 (reset), 17.33 (rtt) | not run |
+| 7 | Pass with `run --until API_Power_Sleep`: a 5-frame stack down to `main`, and `var` values. Without the breakpoint, `stack` gave `?? at 0xdeadbeee` on the host as in the container (#349) | 2.37 (stack) | 1.19 (stack, same server) |
+| 8 | Pass on the third attempt. RTT lines arrived while the sensor advertised (seen 35 times in a 100 s scan). Attempts 1 and 2 failed on the specification, not the path: a wrong `measure`, then 3 wake lines asked for in 60 s of a 45 s tick | 43.2 | not run |
+| 9 | Pass. `KAPPA_5C1712_V11.03.0000X` advertised | - | - |
+| 10 | Pass on the second attempt. The first, `--program --chiperase --verify`, failed verify at `0x4`: expected `0x99`, read `0x81`, which is `0x99 AND 0x81`, so nothing had been erased. `--eraseall`, a blank check, then `--program --verify` passed, and the sensor advertised `KAPPA_5C1712_V10.01.2000P` | - | 28, 48 |
+
+What the times say: a container step costs about 1.1 s more than the same
+command on the host against the same GDB Server (var 2.48 s against 1.38 s,
+stack 2.37 s against 1.19 s), which is the container's start (§6.2). On the
+host the driver usually starts its own GDB Server, which costs about the same,
+so `info` and `read` took 2.4 to 2.6 s either way. Flash and erase were not
+timed on the host: that would have needed another erase and restore of the
+sensor.
+
+Findings:
+
+1. **No fault belongs to the container.** Every step that failed or misled
+   did the same on the host.
+2. **The driver assumes an attach halts the core** (#349). A GDB Server that
+   is already running does not halt it for a second client, so `halt`, `info`
+   and `stack` treat a running core as halted. Every container run uses such
+   a server, so this matters most there. A breakpoint (`run --until`) is the
+   workaround.
+3. **`nrfjprog --program --chiperase` did not erase**, once, with the sensor
+   running V11. Step 10 now erases separately and checks the flash is blank.
+   Why it did not erase was not established.
+4. The GDB Server listened on loopback only, and the container still reached
+   it, as §6.3 found with an echo listener.
 
 **Serial instruments**, once a bridge is chosen (§4.2): run
 `specs/qualification/qs10_bench_identity.yaml` from the container with a bench
@@ -398,8 +453,8 @@ handshake lines arrived.
 | A container reaches a loopback-only host listener at `host.docker.internal` | Verified, with an echo listener |
 | The driver refuses to start a GDB Server on `host.docker.internal` | Verified |
 | Start-up, latency and file access figures | Measured once on this PC; one unexplained 13.8 s start |
-| The J-Link GDB Server reached from the container; the #69 sequence | **Not verified**: §7 |
-| The #69 GDB exit with a HEX file on `U:` does not recur through a bind mount | **Not verified**: needs a target |
+| The J-Link GDB Server reached from the container; the #69 sequence | Verified on 5C1712, 2026-11-15 (§7.1) |
+| The #69 GDB exit with a HEX file on `U:` does not recur through a bind mount | Verified once, §7.1 step 5 |
 | Serial instruments through any host bridge | **Not verified**: no bridge was run against an instrument |
 | usbipd with Docker Desktop | **Not verified**: not installed |
 | VXI-11 and raw-socket instruments from a container | **Not verified**: none on this bench |
@@ -413,7 +468,8 @@ handshake lines arrived.
    version, Python, platform, image revision and ID (§5.3).
 2. A host serial bridge command with RFC 2217, so the bridge is part of
    benchtools and its version is known (§4.2).
-3. The bench test plan in §7, run by the owner, and its results added here.
+3. The bench test plan in §7. The J-Link half was run on 2026-11-15 (§7.1);
+   the serial half waits for 2.
 4. A container bench file (`benches/bench_pc_container.yaml`) with
    `host.docker.internal` resources and no Windows paths, once 2 and 3 are done.
 5. If the image is kept: build it in CI as `ci_image.yml` builds `docker/ci/`.
