@@ -75,8 +75,9 @@ The scan's own start time is not recorded.
 
 `step10_restore_attempt2.txt` has an empty `## program` part: the progress lines
 were filtered out when it was written. The verify that passed is in
-`step10_final_verify.txt`; its `JLinkARM.dll ... -256` lines are nrfjprog's usual
-messages on this probe.
+`step10_final_verify.txt`. It reports success despite its `JLinkARM.dll ... -256`
+lines. That those lines are routine on this probe is the operator's observation,
+not shown here: the other nrfjprog calls in this run were filtered for them.
 
 `container_step.sh` is kept as it ran, with this session's scratch folder
 written into it; to run it again, change `W`.
