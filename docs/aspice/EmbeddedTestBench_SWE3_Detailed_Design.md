@@ -124,6 +124,7 @@
 | next | 2026-11-15 | Claude | #349 review round 1: JLINK-DD-PROBE - the reason for halting on attach narrowed to an attach after an earlier client's `monitor go`. |
 | next | 2026-11-15 | Claude | #352: JLINK-DD-PROBE - `read_variable`, `write_variable` and `variable_address` refuse a variable at address 0 (`_refuse_address_zero`, `_address_of`). |
 | next | 2026-11-15 | Claude | #352 review round 1: JLINK-DD-PROBE - the address-0 check takes `&(name)` and skips an expression that may have a side effect. |
+| next | 2026-11-15 | Claude | #352 review round 2: JLINK-DD-PROBE - the side-effect skip covers `>>=` and `<<=`, and says a cast is skipped too. |
 ---
 
 ## 3. Purpose & Scope
@@ -1105,8 +1106,9 @@ Design points:
   stack pointer. The check takes `&(name)`, parenthesised so that `a + 1` is
   not taken as `(&a) + 1`. An expression with no address, such as `$pc`, is
   not checked, nor one that may have a side effect - an increment, an
-  assignment or a call (`_MAY_HAVE_SIDE_EFFECT`) - since the check would
-  evaluate it a second time. The check costs one more MI command per access.
+  assignment (`>>=` and `<<=` included) or a call (`_MAY_HAVE_SIDE_EFFECT`) -
+  since the check would evaluate it a second time. Any parenthesis counts, so
+  a cast is not checked either. The check costs one more MI command per access.
 - **`attach` halts the core** (JLINK-FR-004, #349): `monitor halt` and a
   register-cache flush after `-target-select`. An attach halted the core on
   5C1712 (#95), but one made after an earlier client resumed the core with

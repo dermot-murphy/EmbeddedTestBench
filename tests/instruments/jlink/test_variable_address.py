@@ -69,7 +69,8 @@ class TestAVariableAtAddressZero:
             probe.read_variable("m_freq")
         assert any("&(m_freq)" in command for command in simulator.command_log)
 
-    @pytest.mark.parametrize("expression", ["m_freq++", "m_freq = 5", "m_freq >>= 1", "m_freq <<= 1", "reset_count()"])
+    @pytest.mark.parametrize("expression", [
+        "m_freq++", "m_freq = 5", "m_freq >>= 1", "m_freq <<= 1", "reset_count()"])
     def test_an_expression_with_a_side_effect_is_not_evaluated_twice(
             self, probe, simulator, expression):
         """The check would evaluate it once more, so it is skipped."""
