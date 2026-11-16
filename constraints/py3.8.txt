@@ -22,7 +22,7 @@ numpy==1.24.4
     # via
     #   contourpy
     #   matplotlib
-packaging==26.2
+packaging==26.3
     # via
     #   matplotlib
     #   pytest
