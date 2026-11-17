@@ -86,10 +86,12 @@ class RegisterSetting:
 
     @property
     def name(self) -> str:
+        """The register's datasheet name."""
         return self.register.name
 
     @property
     def address(self) -> int:
+        """The register's address."""
         return self.register.address
 
     def describe(self) -> str:
@@ -97,6 +99,7 @@ class RegisterSetting:
         return self.register.describe(self.value)
 
     def as_dict(self) -> Dict[str, object]:
+        """The setting as a JSON-ready dict, with its fields decoded."""
         return {
             "name": self.name,
             "address": "0x%02X" % self.address,
@@ -130,10 +133,12 @@ class RegisterConfiguration:
 
     @property
     def names(self) -> List[str]:
+        """The registers this configuration sets, by name, in file order."""
         return [setting.name for setting in self.settings]
 
     @property
     def addresses(self) -> List[int]:
+        """The registers this configuration sets, by address, in file order."""
         return [setting.address for setting in self.settings]
 
     def as_map(self) -> Dict[int, int]:
@@ -150,6 +155,7 @@ class RegisterConfiguration:
         return "\n".join(setting.describe() for setting in self.settings)
 
     def as_dict(self) -> Dict[str, object]:
+        """The configuration and each of its settings as a JSON-ready dict."""
         return {
             "source": self.source,
             "name": self.name,
@@ -222,6 +228,7 @@ class ConfigurationCheck:
         return "; ".join(parts)
 
     def as_dict(self) -> Dict[str, object]:
+        """The check's outcome as a JSON-ready dict, values in hex."""
         return {
             "source": self.source,
             "checked": self.checked,

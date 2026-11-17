@@ -54,6 +54,7 @@ class Field:
 
     @property
     def width(self) -> int:
+        """The field's width in bits."""
         return self.high - self.low + 1
 
     @property
@@ -99,6 +100,7 @@ class Register:
 
     @property
     def writable(self) -> bool:
+        """True when the datasheet marks the register read-write."""
         return self.access == RW
 
     def field(self, name: str) -> Field:
@@ -333,8 +335,10 @@ def lookup(what: Union[int, str]) -> Register:
     address = int(what)
     if address in BY_ADDRESS:
         return BY_ADDRESS[address]
-    below = max((r for r in REGISTERS if r.address < address), key=lambda r: r.address, default=None)
-    above = min((r for r in REGISTERS if r.address > address), key=lambda r: r.address, default=None)
+    below = max((r for r in REGISTERS if r.address < address),
+                key=lambda r: r.address, default=None)
+    above = min((r for r in REGISTERS if r.address > address),
+                key=lambda r: r.address, default=None)
     neighbours = ", ".join(str(r) for r in (below, above) if r is not None)
     raise KeyError(
         "0x%02X is not a documented S2-LP register%s"

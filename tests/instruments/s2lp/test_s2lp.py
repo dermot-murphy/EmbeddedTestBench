@@ -6,6 +6,7 @@ Traces to: S2LP-FR-001 .. S2LP-FR-060, S2LP-FR-086, SWE4-UT-S2LP.
 from __future__ import annotations
 
 import json
+import pathlib
 
 import pytest
 
@@ -907,7 +908,7 @@ class TestLogs:
         path = linked.start_log(str(tmp_path / "session.log"))
         linked.transmit(PAYLOAD)
         linked.receive(timeout=0.5)
-        text = open(path, encoding="utf-8").read()
+        text = pathlib.Path(path).read_text(encoding="utf-8")
         assert " > S2LPSendNBytes" in text
         assert " < {" in text
 
@@ -915,7 +916,7 @@ class TestLogs:
         """The log of a session that then hung is the log worth having."""
         path = linked.start_log(str(tmp_path / "session.log"))
         linked.transmit(PAYLOAD)
-        assert "S2LPSendNBytes" in open(path, encoding="utf-8").read()
+        assert "S2LPSendNBytes" in pathlib.Path(path).read_text(encoding="utf-8")
 
     def test_the_packet_log_is_one_json_object_per_packet(self, linked, tmp_path):
         path = str(tmp_path / "packets.jsonl")
@@ -932,7 +933,7 @@ class TestLogs:
         packets = str(tmp_path / "packets.jsonl")
         linked.start_packet_log(packets)
         linked.log_note("sensor under test: A3")
-        assert "sensor under test: A3" in open(session, encoding="utf-8").read()
+        assert "sensor under test: A3" in pathlib.Path(session).read_text(encoding="utf-8")
         assert PacketLog.read(packets)[0]["note"] == "sensor under test: A3"
 
     def test_a_truncated_packet_log_still_reads(self, tmp_path):

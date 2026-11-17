@@ -116,8 +116,9 @@ def _cmd_config(radio: S2lpDevkit, args) -> int:
     """Apply, verify or capture a register file."""
     if args.save:
         path = radio.save_configuration(args.save, only_changed=not args.all)
-        _emit({"saved": path, "registers": len(open(path, encoding="utf-8").read().splitlines())},
-              args.json)
+        with open(path, encoding="utf-8") as saved:
+            registers = len(saved.read().splitlines())
+        _emit({"saved": path, "registers": registers}, args.json)
         return _EXIT_OK
 
     configuration = radio.load_configuration(args.file)
@@ -268,6 +269,7 @@ def _cmd_strobe(radio: S2lpDevkit, args) -> int:
 
 # ---------------------------------------------------------------------------
 def build_parser() -> argparse.ArgumentParser:
+    """The ``benchtools s2lp`` argument parser, with every subcommand."""
     parser = argparse.ArgumentParser(
         prog="benchtools s2lp",
         description="Drive an %s through ST's CLI firmware." % MODEL,
@@ -297,12 +299,20 @@ def build_parser() -> argparse.ArgumentParser:
                         help="-v for progress, -vv for every line")
 
     subparsers = parser.add_subparsers(dest="command", required=True)
+    _add_setup_commands(subparsers)
+    _add_air_commands(subparsers)
+    _add_listening_commands(subparsers)
+    return parser
 
+
+def _add_setup_commands(subparsers) -> None:
+    """Add the info, registers, radio and config subcommands, which set up the radio."""
     info = subparsers.add_parser("info", help="identify the board and read its radio settings")
     info.set_defaults(handler=_cmd_info)
 
     regs = subparsers.add_parser("registers", help="dump, read or write registers")
-    regs.add_argument("register", nargs="?", help="name (PCKTCTRL3) or address (0x2E); omit for all")
+    regs.add_argument("register", nargs="?",
+                      help="name (PCKTCTRL3) or address (0x2E); omit for all")
     regs.add_argument("--write", metavar="VALUE", help="write this value to that register first")
     regs.add_argument("--plain", action="store_true", help="print the dump as text, not JSON")
     regs.set_defaults(handler=_cmd_registers)
@@ -335,6 +345,9 @@ def build_parser() -> argparse.ArgumentParser:
                         help="--save: include registers that are at their reset value")
     config.set_defaults(handler=_cmd_config)
 
+
+def _add_air_commands(subparsers) -> None:
+    """Add the tx, rx, capture and packets subcommands, which send and receive packets."""
     tx = subparsers.add_parser("tx", help="transmit a packet")
     tx.add_argument("data", help="payload: 0x-prefixed hex, or text")
     tx.add_argument("--repeat", type=int, default=1, help="send it this many times")
@@ -364,6 +377,9 @@ def build_parser() -> argparse.ArgumentParser:
     packets.add_argument("--crc", choices=sorted(CRC_MODES), help="CRC mode")
     packets.set_defaults(handler=_cmd_packets)
 
+
+def _add_listening_commands(subparsers) -> None:
+    """Add the stream, preamble and strobe subcommands."""
     stream = subparsers.add_parser(
         "stream", help="receive frames until stopped: one JSON line each, with registers")
     stream.add_argument("--count", type=int, help="stop after this many frames")
@@ -398,8 +414,6 @@ def build_parser() -> argparse.ArgumentParser:
     strobe = subparsers.add_parser("strobe", help="send a command strobe")
     strobe.add_argument("name", choices=sorted(Strobe.BY_NAME))
     strobe.set_defaults(handler=_cmd_strobe)
-
-    return parser
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:

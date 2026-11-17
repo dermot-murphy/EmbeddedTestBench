@@ -125,7 +125,8 @@ class TestParsingReplies:
 
     def test_an_absent_tag_with_a_default_does_not_raise(self):
         assert parse_reply(RECEIVE_REPLY).number("nothing", 7) == 7
-        assert parse_reply(RECEIVE_REPLY).numbers("nothing") == []
+        numbers = parse_reply(RECEIVE_REPLY).numbers("nothing")
+        assert isinstance(numbers, list) and not numbers
 
     def test_every_line_is_kept_verbatim(self):
         """A log that omits what the tooling did not recognise cannot explain
@@ -148,7 +149,7 @@ class TestParsingReplies:
         assert summary["rssi"] == "D4"
 
 
-class TestNumbers:
+class TestNumbers:  # pylint: disable=too-few-public-methods  # D-33 cites it by name
     @pytest.mark.parametrize(
         "text,expected",
         [("0x00,0x0A", [0, 10]), ("1,2,3", [1, 2, 3]), ("", []),

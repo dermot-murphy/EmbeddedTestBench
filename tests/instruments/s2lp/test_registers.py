@@ -137,7 +137,7 @@ class TestReadingABlock:
     def test_runs_are_contiguous_within_themselves(self):
         for start, count in reg.contiguous_runs():
             for offset in range(count):
-                assert (start + offset) in reg.BY_ADDRESS
+                assert start + offset in reg.BY_ADDRESS
 
     def test_there_are_far_fewer_runs_than_registers(self):
         """The point of runs: a dump is a handful of commands, not 123."""
