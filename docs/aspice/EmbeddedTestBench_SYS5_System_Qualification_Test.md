@@ -248,7 +248,7 @@ capture it.
 ### QS-15 — The reference test board
 
 Run `specs/pico2_test_board.yaml` against the PICO2 Test Board: its identity,
-its temperature and humidity against a reference, its LEDs set and read back,
+its firmware version, its temperature against a reference, its LEDs set and read back,
 and its generator's frequency measured by the PicoScope.
 
 *Qualifies:* ETB-SYS2-017.
