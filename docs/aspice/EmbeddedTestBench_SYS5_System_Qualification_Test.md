@@ -33,6 +33,7 @@
 | 0.7 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
 | next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. |
 | next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
+| next | 2026-11-17 | Claude | #363: every system requirement is now named by a scenario. QS-01 adds -071 and -072; QS-02 adds -080 to -083; QS-08 adds -090. QS-11 (inspection: -013, -093, -095), QS-12 (PPK2, -026), QS-13 (serial capture, -037), QS-14 (PicoScope, -065) and QS-15 (PICO2 Test Board, -017) are added. §4.1 states the selection and regression rule. §8 records that the entry criterion was not met for the 2026-10-04 campaign. X2 counts against the 68 requirements. |
 
 ---
 
@@ -80,6 +81,20 @@ A requirement is **qualified** only by the hardware configuration. The simulated
 run is a precondition for attempting the hardware one, not a substitute for it.
 §6 therefore reports two columns, and they do not currently agree.
 
+Every system requirement is named by at least one scenario, and the scenario
+that qualifies each one is listed in ETB-RTM-001, section "System Requirements to Qualification Scenarios" (#363).
+
+### 4.1 Selection and Regression (SYS.5.BP2)
+
+| When | Scenarios selected |
+|---|---|
+| A release that makes the qualification claim (from `v0.05.0000`) | Every scenario, in the hardware configuration, against the requirements as they stand at that release |
+| Any other release | Every scenario in the simulated configuration (through the suite); in hardware, every scenario whose requirements, elements or instruments changed since the last hardware campaign. Under ETB-DEV-004, `v0.04.0000` performs none in hardware |
+| A requirement added or changed | The scenario that names it, and a new scenario where none can show it (ETB-SUP10-001 §5, step 2) |
+
+The selection for a release is recorded in its qualification report
+(ETB-SYS5-002 or its successor).
+
 ---
 
 ## 5. Qualification Scenarios
@@ -95,7 +110,10 @@ that identifier; send `rd version`; confirm the version matches the manifest of
 the image that was programmed.
 
 *Qualifies:* ETB-SYS2-001, -002, -004, -015, -020, -021, -030, -031, -034, -036,
--040, -041, -045, -048, -049, -050, -070, -076, -078.
+-040, -041, -045, -048, -049, -050, -070, -071, -072, -076, -078. The
+specification carries the identifier read in one step into the scan and the
+selection (-071), and states each expectation as a limit, a tolerance or an exact
+text (-072).
 
 ### QS-02 — BLE command set as a document
 
@@ -104,7 +122,10 @@ heading a test, each row a step, delays and unasserted commands recorded as
 skipped, timings at 10 ms resolution with the finer value retained, overall
 pass only if no step failed.
 
-*Qualifies:* ETB-SYS2-003, -042, -043, -044, -073, -074, -075, -076, -077.
+*Qualifies:* ETB-SYS2-003, -042, -043, -044, -073, -074, -075, -076, -077, -080,
+-081, -082, -083. The document's steps take each result in the order -080 sets,
+take the sensor as a parameter and connect to it (-081), set their own timeouts
+(-082), and expect a disconnection after `WR MODE` (-083).
 
 ### QS-03 — The supply refuses what it cannot honour
 
@@ -150,7 +171,9 @@ link, and confirm that all data exchanged is logged.
 The firmware builds from a clean checkout in CI with its flash and RAM figures
 recorded, and the C source passes the coding-standard check.
 
-*Qualifies:* ETB-SYS2-091, -092.
+*Qualifies:* ETB-SYS2-090, -091, -092. CI runs the host software on Linux, and
+the bench PC runs it on Windows; the container is ETB-DOCK-001 (-090, by
+analysis).
 
 ### QS-01b — Debug control and firmware state
 
@@ -183,6 +206,52 @@ report records each instrument's model, serial number and firmware. Run the
 same specification again on the simulated bench.
 
 *Qualifies:* ETB-SYS2-010, -011, -012, -014, -015, -016, -070, -078, -079, -084.
+
+### QS-11 — Inspection and analysis of the bench as built
+
+Inspect the repository and the simulators for the requirements a run cannot
+show: the simulators model behaviour, not replies (ETB-SYS2-013, against
+ETB-TMPL-001 T5 and the simulators' state); no vendor source or documentation
+text is in the repository (ETB-SYS2-093, against ETB-ACQ4-001 §4.2); every
+system requirement traces to software requirements and to a test (ETB-SYS2-095,
+by the traceability check and ETB-RTM-001).
+
+*Qualifies:* ETB-SYS2-013, -093, -095.
+
+### QS-12 — Current drawn by the target
+
+Run `specs/ppk2.yaml` with the PPK2 supplying a known load, and in the line of
+an outside supply: the average current over a window, the charge and the pulses,
+against the load's known values; the voltage stays within the bench's
+`voltage_limit`.
+
+*Qualifies:* ETB-SYS2-026.
+
+### QS-13 — A target's serial output
+
+Run `specs/serial_capture.yaml` against a target printing on its UART through a
+USB serial adapter: every line is recorded in the run's evidence, the capture
+ends at the expected pattern or at the window, and nothing is written to the
+port.
+
+*Qualifies:* ETB-SYS2-037.
+
+### QS-14 — Analogue and logic together
+
+With the PicoScope, capture a target's analogue signal and its logic lines in one
+acquisition, and relate a logic edge to the analogue waveform on the one time
+base; drive a stated stimulus from the signal generator into the target and
+capture it.
+
+*Qualifies:* ETB-SYS2-065.
+
+### QS-15 — The reference test board
+
+Run `specs/pico2_test_board.yaml` against the PICO2 Test Board: its identity,
+its temperature and humidity against a reference, its LEDs set and read back,
+and its generator's frequency measured by the PicoScope.
+
+*Qualifies:* ETB-SYS2-017.
 
 ### 5.1 Hardware specifications
 
@@ -240,12 +309,20 @@ here.
 **Entry:** system integration complete per ETB-SYS4-001 §6, with every case in
 ETB-SYS4-001 §5 performed and passed.
 
+This entry criterion was **not met** when the 2026-10-04 campaign ran: no
+integration case had been performed as one (ETB-SYS4-001 §8.1). The campaign ran
+by the owner's decision of that time, and its results stand as recorded. They
+were gathered with integration-level failures still possible, and three
+scenarios did fail on integration-level defects (#178, #179, #181). From
+`v0.05.0000` the criterion is met before the campaign, or a deviation is
+recorded first (ETB-DEV-004 covers `v0.04.0000`).
+
 **Exit:**
 
 | # | Criterion | State |
 |---|---|---|
 | X1 | Every scenario in §5 passes in the hardware configuration | Not met. QS-01b, QS-07 and QS-09 fail on hardware; QS-04 is out of scope; QS-05 was not performed (ETB-SYS5-002 §10) |
-| X2 | Every system requirement traces to a passing scenario | Not met. 44 of 64 qualified (ETB-SYS5-002 §7) |
+| X2 | Every system requirement traces to a passing scenario | Not met. 44 of the 64 requirements of 2026-10-04 were qualified (ETB-SYS5-002 §7). Against the 68 of 2026-11-17, the four added since (-017, -026, -037, -065) have no qualification run (ETB-SYS5-002 §11) |
 | X3 | Every item in §7 is closed by a recorded run | Not met |
 | X4 | No open Critical or Major problem against a qualified requirement | Met |
 

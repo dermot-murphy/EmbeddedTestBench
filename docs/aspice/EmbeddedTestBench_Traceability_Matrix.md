@@ -122,6 +122,7 @@
 | next | 2026-11-17 | Claude | #374: PICO-NFR-006 names the style.yml step by its new name, "Run CStyleCheck (PICO2 Test Board)". |
 | next | 2026-11-17 | Claude | #368: §18 - the design-unit answers say how they are checked, and that until #368 the check missed units with no code, `Traces to` lines with no unit, and the S2-LP kit firmware. |
 | next | 2026-11-17 | Claude | #367: §17 adds the DMM-ARC-001 and SER-ARC-001 rows, and the S2-LP kit firmware units. |
+| next | 2026-11-17 | Claude | #363: §20 traces each system requirement to the qualification scenarios that name it. Review & Approval is now §21. |
 
 ---
 
@@ -943,7 +944,85 @@ ETB-SWE4-002 §13D and the open items of §19 (OPEN-12).
 
 ---
 
-## 20. Review & Approval
+## 20. System Requirements to Qualification Scenarios (SYS.5)
+
+Each system requirement of ETB-SYS2-001 and the scenarios of ETB-SYS5-001 §5 that
+qualify it (#363). The result of each scenario on hardware is in ETB-SYS5-002.
+
+| System requirement | Scenarios |
+|---|---|
+| ETB-SYS2-001 | QS-01, QS-05 |
+| ETB-SYS2-002 | QS-01, QS-01b |
+| ETB-SYS2-003 | QS-02, QS-06 |
+| ETB-SYS2-004 | QS-01, QS-06 |
+| ETB-SYS2-010 | QS-10 |
+| ETB-SYS2-011 | QS-10 |
+| ETB-SYS2-012 | QS-10 |
+| ETB-SYS2-013 | QS-11 |
+| ETB-SYS2-014 | QS-10 |
+| ETB-SYS2-015 | QS-01, QS-05, QS-10 |
+| ETB-SYS2-016 | QS-05, QS-10 |
+| ETB-SYS2-017 | QS-15 |
+| ETB-SYS2-020 | QS-01 |
+| ETB-SYS2-021 | QS-01 |
+| ETB-SYS2-022 | QS-03 |
+| ETB-SYS2-023 | QS-03 |
+| ETB-SYS2-024 | QS-03 |
+| ETB-SYS2-025 | QS-03 |
+| ETB-SYS2-026 | QS-12 |
+| ETB-SYS2-030 | QS-01, QS-01b |
+| ETB-SYS2-031 | QS-01, QS-01b |
+| ETB-SYS2-032 | QS-06 |
+| ETB-SYS2-033 | QS-01b |
+| ETB-SYS2-034 | QS-01 |
+| ETB-SYS2-035 | QS-01b |
+| ETB-SYS2-036 | QS-01, QS-06, QS-01b |
+| ETB-SYS2-037 | QS-13 |
+| ETB-SYS2-040 | QS-01 |
+| ETB-SYS2-041 | QS-01, QS-01b |
+| ETB-SYS2-042 | QS-02 |
+| ETB-SYS2-043 | QS-02 |
+| ETB-SYS2-044 | QS-02 |
+| ETB-SYS2-045 | QS-01 |
+| ETB-SYS2-046 | QS-07 |
+| ETB-SYS2-047 | QS-07 |
+| ETB-SYS2-051 | QS-09 |
+| ETB-SYS2-052 | QS-09 |
+| ETB-SYS2-053 | QS-09 |
+| ETB-SYS2-048 | QS-01 |
+| ETB-SYS2-049 | QS-01 |
+| ETB-SYS2-050 | QS-01 |
+| ETB-SYS2-060 | QS-04 |
+| ETB-SYS2-061 | QS-04 |
+| ETB-SYS2-062 | QS-04 |
+| ETB-SYS2-063 | QS-04 |
+| ETB-SYS2-064 | QS-04 |
+| ETB-SYS2-065 | QS-14 |
+| ETB-SYS2-070 | QS-01, QS-10 |
+| ETB-SYS2-071 | QS-01 |
+| ETB-SYS2-072 | QS-01 |
+| ETB-SYS2-073 | QS-02 |
+| ETB-SYS2-074 | QS-02 |
+| ETB-SYS2-075 | QS-02 |
+| ETB-SYS2-076 | QS-01, QS-02 |
+| ETB-SYS2-077 | QS-02 |
+| ETB-SYS2-078 | QS-01, QS-05, QS-10 |
+| ETB-SYS2-079 | QS-05, QS-10 |
+| ETB-SYS2-080 | QS-02 |
+| ETB-SYS2-081 | QS-02 |
+| ETB-SYS2-082 | QS-02 |
+| ETB-SYS2-083 | QS-02 |
+| ETB-SYS2-084 | QS-10 |
+| ETB-SYS2-090 | QS-08 |
+| ETB-SYS2-091 | QS-08 |
+| ETB-SYS2-092 | QS-08 |
+| ETB-SYS2-093 | QS-11 |
+| ETB-SYS2-094 | QS-06 |
+| ETB-SYS2-095 | QS-11 |
+
+---
+
+## 21. Review & Approval
 
 Review and approval of this document are not entered in this table. They are
 given by the merge of the pull request that last changed the document, and that
