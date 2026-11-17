@@ -220,7 +220,7 @@ class HardcopyLayout(ScpiEnum):
 INVALID_MEASUREMENT = 9.9e37
 
 @dataclass(frozen=True)
-class ModelLimits:
+class ModelLimits:  # pylint: disable=too-many-instance-attributes  # one field per instrument limit
     """Capability envelope used to validate settings before they are sent.
 
     Defaults describe the TDS3014B. Instantiate a different object and pass it
