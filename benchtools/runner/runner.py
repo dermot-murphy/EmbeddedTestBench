@@ -443,7 +443,7 @@ class BenchRunner:
             record.error = "%s could not be called as specified: %s" % (step.action, exc)
             record.duration_s = time.monotonic() - started
             return record, arguments, None
-        except Exception as exc:  # noqa: BLE001 - a driver may raise anything
+        except Exception as exc:  # pylint: disable=broad-exception-caught  # noqa: BLE001 - a driver may raise anything (ETB-SYS2-003)
             record.status = Status.ERROR
             record.error = "%s raised %s: %s" % (step.action, type(exc).__name__, exc)
             record.duration_s = time.monotonic() - started

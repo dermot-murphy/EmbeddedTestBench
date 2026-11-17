@@ -179,7 +179,7 @@ def _require_sequence(value, what: str) -> list:
 
 
 @dataclass(frozen=True)
-class Expectation:
+class Expectation:  # pylint: disable=too-many-instance-attributes  # one field per spec key
     """One measured value and the limit it must satisfy.
 
     :param name: Name reported for this measurement.
@@ -216,6 +216,7 @@ class Expectation:
 
     @classmethod
     def from_mapping(cls, data, index: int) -> "Expectation":  # pylint: disable=too-many-locals
+        """Build the *index*-th expectation of a step from its specification mapping."""
         data = _require_mapping(data, "expectation %d" % index)
         measure = str(data.get("measure", ""))
         name = str(data.get("name") or measure or "value")
@@ -424,6 +425,7 @@ class Step:
 
     @classmethod
     def from_mapping(cls, data, index: int) -> "Step":
+        """Build the *index*-th step from its specification mapping."""
         data = _require_mapping(data, "step %d" % index)
         action = data.get("do") or data.get("action")
         if not action:
@@ -467,6 +469,7 @@ class TestCase:
 
     @classmethod
     def from_mapping(cls, data, index: int) -> "TestCase":
+        """Build the *index*-th test case, and its steps, from its specification mapping."""
         data = _require_mapping(data, "test %d" % index)
         name = data.get("name")
         if not name:
@@ -530,7 +533,7 @@ def _parse_instruments(declared) -> Tuple[Dict[str, str], Dict[str, str]]:
 
 
 @dataclass(frozen=True)
-class TestSpec:
+class TestSpec:  # pylint: disable=too-many-instance-attributes  # one field per spec key
     """A suite of tests, with shared setup and teardown.
 
     :param setup: Steps run once before the tests. A failure here aborts the
@@ -572,6 +575,7 @@ class TestSpec:
 
     @classmethod
     def from_mapping(cls, data, source: str = "") -> "TestSpec":
+        """Build the suite from a parsed specification; *source* is the file's path."""
         data = _require_mapping(data, "specification")
         parameters = data.get("parameters", {}) or {}
         if not isinstance(parameters, dict):
@@ -607,7 +611,9 @@ class TestSpec:
             ),
             teardown=tuple(
                 Step.from_mapping(item, i)
-                for i, item in enumerate(_require_sequence(data.get("teardown", []) or [], "teardown"))
+                for i, item in enumerate(
+                    _require_sequence(data.get("teardown", []) or [], "teardown")
+                )
             ),
             tests=tuple(TestCase.from_mapping(item, i) for i, item in enumerate(tests)),
             source=source,

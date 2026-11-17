@@ -22,12 +22,6 @@ import pathlib
 
 import pytest
 
-# The specification and the bench it runs on are YAML, so this whole group needs
-# the optional extra. The fixture checks below do not, but splitting them out
-# would separate the assertions about the fixtures from the run that depends on
-# them, which is worth more than three tests in the extras-blocked run.
-pytest.importorskip("yaml", reason="pyyaml is not installed (it is an optional extra)")
-
 from benchtools.instruments.jlink.simulator import (
     DEVICE_ID_ADDRESS,
     DEVICE_ID_VALID,
@@ -38,6 +32,12 @@ from benchtools.runner.bench import Bench, load_bench
 from benchtools.runner.results import Status
 from benchtools.runner.runner import BenchRunner
 from benchtools.runner.spec import load_spec
+
+# The specification and the bench it runs on are YAML, so this whole group needs
+# the optional extra. The fixture checks below do not, but splitting them out
+# would separate the assertions about the fixtures from the run that depends on
+# them, which is worth more than three tests in the extras-blocked run.
+pytest.importorskip("yaml", reason="pyyaml is not installed (it is an optional extra)")
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 SPEC = ROOT / "specs" / "sensor_bringup.yaml"

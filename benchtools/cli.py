@@ -87,6 +87,22 @@ def _tool_for(command: str) -> Optional[str]:
     return None
 
 
+def _print_registry(command: str) -> None:
+    """Print the names registered for *command*: ``drivers`` or ``backends``."""
+    if command == "drivers":
+        from .runner.bench import registered_drivers
+
+        print("Instrument drivers a bench configuration can name:")
+        names = registered_drivers()
+    else:
+        from .core.transport import registered_backends
+
+        print("Transport backends a resource string can select:")
+        names = registered_backends()
+    for name in names:
+        print("  %s" % name)
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     """Entry point. Returns a process exit status."""
     arguments = list(sys.argv[1:] if argv is None else argv)
@@ -109,20 +125,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
         return pico2_main(rest)
 
-    if command == "drivers":
-        from .runner.bench import registered_drivers
-
-        print("Instrument drivers a bench configuration can name:")
-        for name in registered_drivers():
-            print("  %s" % name)
-        return 0
-
-    if command == "backends":
-        from .core.transport import registered_backends
-
-        print("Transport backends a resource string can select:")
-        for name in registered_backends():
-            print("  %s" % name)
+    if command in ("drivers", "backends"):
+        _print_registry(command)
         return 0
 
     print("benchtools: unknown command %r\n" % command, file=sys.stderr)

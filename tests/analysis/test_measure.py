@@ -36,8 +36,8 @@ def square_wave(source: str, delay: float = 0.0, rise_time: float = 0.0) -> Wave
     """
     times = [index * SAMPLE_INTERVAL for index in range(POINTS)]
     volts = []
-    for t in times:
-        phase = (t - delay - 0.25 * PERIOD) % PERIOD
+    for when in times:
+        phase = (when - delay - 0.25 * PERIOD) % PERIOD
         if rise_time and phase < rise_time:
             volts.append(AMPLITUDE * (phase / rise_time))
         elif phase < 0.5 * PERIOD:
@@ -87,7 +87,9 @@ class TestEdgeDetection:
         assert len(crossings) == 5
         # First rising edge is a quarter period in, then every period after.
         for index, crossing in enumerate(crossings):
-            assert crossing.time == pytest.approx(0.25 * PERIOD + index * PERIOD, abs=SAMPLE_INTERVAL)
+            assert crossing.time == pytest.approx(
+                0.25 * PERIOD + index * PERIOD, abs=SAMPLE_INTERVAL
+            )
 
     def test_falling_edges_are_found(self):
         crossings = find_crossings(square_wave("CH1"), 1.65, EdgeDirection.FALL)
@@ -117,7 +119,7 @@ class TestEdgeDetection:
             find_crossings(square_wave("CH1"), 1.65, hysteresis=-0.1)
 
     def test_short_record_yields_no_edges(self):
-        assert find_crossings(Waveform("CH1", [0.0], [0.0]), 1.0) == []
+        assert not find_crossings(Waveform("CH1", [0.0], [0.0]), 1.0)
 
 
 class TestPeriod:
@@ -185,7 +187,9 @@ class TestChannelSpread:
     def test_spread_equals_the_injected_skew(self, skewed):
         skews, waveforms = skewed
         result = measure_channel_spread(waveforms)
-        assert result.spread == pytest.approx(max(skews.values()) - min(skews.values()), abs=2.0e-12)
+        assert result.spread == pytest.approx(
+            max(skews.values()) - min(skews.values()), abs=2.0e-12
+        )
 
     def test_per_channel_skews_are_recovered(self, skewed):
         skews, waveforms = skewed

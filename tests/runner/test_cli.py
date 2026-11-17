@@ -27,7 +27,7 @@ class TestRunCommand:
         assert main([SPEC, "--simulate"]) == 0
         assert "PASS" in capsys.readouterr().out
 
-    def test_named_bench_file(self, capsys):
+    def test_named_bench_file(self):
         assert main([SPEC, "--bench", BENCH]) == 0
 
     def test_no_bench_and_no_simulate_is_a_usage_error(self, capsys):
@@ -41,14 +41,14 @@ class TestRunCommand:
     def test_failure_exits_nonzero(self, capsys, tmp_path):
         tight = tmp_path / "tight.yaml"
         tight.write_text(
-            open(SPEC, encoding="utf-8").read().replace("max: 20.0", "max: 1.0")
+            pathlib.Path(SPEC).read_text(encoding="utf-8").replace("max: 20.0", "max: 1.0")
         )
         assert main([str(tight), "--simulate"]) == 1
         out = capsys.readouterr().out
         assert "FAIL" in out
         assert "above the maximum" in out
 
-    def test_reports_are_written(self, capsys, tmp_path):
+    def test_reports_are_written(self, tmp_path):
         status = main([
             SPEC, "--simulate",
             "--json", str(tmp_path / "r.json"),
@@ -60,13 +60,13 @@ class TestRunCommand:
         assert (tmp_path / "r.md").read_text().startswith("# Bench test report")
         assert (tmp_path / "r.xml").read_text().startswith("<?xml")
 
-    def test_several_specs_get_suffixed_reports(self, capsys, tmp_path):
+    def test_several_specs_get_suffixed_reports(self, tmp_path):
         status = main([SPEC, SPEC, "--simulate", "--json", str(tmp_path / "r.json")])
         assert status == 0
         assert (tmp_path / "r_1.json").exists()
         assert (tmp_path / "r_2.json").exists()
 
-    def test_verbose_is_accepted(self, capsys):
+    def test_verbose_is_accepted(self):
         assert main([SPEC, "--simulate", "-vv"]) == 0
 
 
@@ -178,5 +178,5 @@ class TestTopLevelDispatch:
         assert top_level_main(["scope", "-r", "sim://", "idn"]) == 0
         assert "TDS 3014B" in capsys.readouterr().out
 
-    def test_run_is_dispatched(self, capsys):
+    def test_run_is_dispatched(self):
         assert top_level_main(["run", SPEC, "--simulate"]) == 0

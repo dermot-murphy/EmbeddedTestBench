@@ -58,7 +58,94 @@ def _time_scale(span: float):
     return ENGINEERING_PREFIXES[-1]
 
 
-def plot_waveforms(
+def _pyplot():
+    """Import ``matplotlib.pyplot`` on the non-interactive Agg backend.
+
+    :raises OptionalDependencyError: if ``matplotlib`` is not installed.
+    """
+    try:
+        import matplotlib
+        matplotlib.use("Agg")  # never require a display on a test rig
+        import matplotlib.pyplot as plt
+    except ImportError as exc:
+        raise OptionalDependencyError(
+            "plotting needs matplotlib (pip install matplotlib, or "
+            "pip install benchtools[plot]). Waveform capture and CSV export do not."
+        ) from exc
+    return plt
+
+
+def _new_figure(plt, count: int, separate_axes: bool, figure_size):
+    """Create the figure and one axes per channel, shared or stacked.
+
+    :returns: ``(figure, axes_list)`` with *count* entries in *axes_list*.
+    """
+    if separate_axes:
+        # No explicit hspace here: tight_layout() below computes the spacing,
+        # and setting both makes matplotlib warn and pick one.
+        figure, axes_list = plt.subplots(
+            count, 1, sharex=True, figsize=figure_size,
+        )
+        if count == 1:
+            axes_list = [axes_list]
+    else:
+        figure, single = plt.subplots(figsize=figure_size)
+        axes_list = [single] * count
+    return figure, axes_list
+
+
+def _plot_channels(axes_list, waveforms, divisor: float, separate_axes: bool,
+                   show_trigger: bool) -> None:
+    """Draw each channel's trace on its axes, in channel order."""
+    for axes, channel in zip(axes_list, sorted(waveforms)):
+        waveform = waveforms[channel]
+        axes.plot(
+            [t / divisor for t in waveform.times],
+            waveform.volts,
+            linewidth=1.0,
+            color=CHANNEL_COLOURS.get(channel, None),
+            label="CH%d" % channel,
+        )
+        axes.grid(True, which="major", alpha=0.25, linestyle=":")
+        axes.set_ylabel("CH%d (V)" % channel if separate_axes else "Volts")
+        if show_trigger:
+            axes.axvline(0.0, color="#b00020", linewidth=0.8, alpha=0.6)
+
+
+def _mark_spread(axes_list, channels, spread: SpreadResult, divisor: float,
+                 unit: str) -> None:
+    """Mark each channel's measured crossing and title the plot with the spread."""
+    for axes, channel in zip(axes_list, channels):
+        crossing = spread.crossings.get(channel)
+        if crossing is None:
+            continue
+        axes.plot(
+            [crossing.time / divisor],
+            [crossing.threshold],
+            marker="o",
+            markersize=5,
+            color=CHANNEL_COLOURS.get(channel, "#ffffff"),
+            markeredgecolor="#202020",
+            zorder=5,
+        )
+        axes.axvline(
+            crossing.time / divisor,
+            color=CHANNEL_COLOURS.get(channel, "#808080"),
+            linewidth=0.7,
+            linestyle="--",
+            alpha=0.7,
+        )
+    annotation = "%s spread: %.4g %s (CH%d first, CH%d last)" % (
+        "rising" if spread.direction.value == "RISE" else "falling",
+        spread.spread / divisor,
+        unit,
+        spread.earliest_channel,
+        spread.latest_channel,
+    )
+    axes_list[0].set_title(annotation, fontsize=10, loc="left")
+
+
+def plot_waveforms(  # pylint: disable=too-many-arguments,too-many-positional-arguments  # public API; each option is documented
     waveforms: Mapping[int, Waveform],
     path: str,
     title: str = "Tektronix TDS3014B capture",
@@ -84,82 +171,16 @@ def plot_waveforms(
     """
     if not waveforms:
         raise ValueError("no waveforms to plot")
-    try:
-        import matplotlib
-        matplotlib.use("Agg")  # never require a display on a test rig
-        import matplotlib.pyplot as plt
-    except ImportError as exc:
-        raise OptionalDependencyError(
-            "plotting needs matplotlib (pip install matplotlib, or "
-            "pip install benchtools[plot]). Waveform capture and CSV export do not."
-        ) from exc
+    plt = _pyplot()
 
     channels = sorted(waveforms)
-    reference = waveforms[channels[0]]
-    span = reference.duration or 1.0
-    divisor, unit = _time_scale(span)
-
-    if separate_axes:
-        # No explicit hspace here: tight_layout() below computes the spacing,
-        # and setting both makes matplotlib warn and pick one.
-        figure, axes_list = plt.subplots(
-            len(channels), 1, sharex=True, figsize=figure_size,
-        )
-        if len(channels) == 1:
-            axes_list = [axes_list]
-    else:
-        figure, single = plt.subplots(figsize=figure_size)
-        axes_list = [single] * len(channels)
-
-    for position, channel in enumerate(channels):
-        waveform = waveforms[channel]
-        axes = axes_list[position]
-        colour = CHANNEL_COLOURS.get(channel, None)
-        axes.plot(
-            [t / divisor for t in waveform.times],
-            waveform.volts,
-            linewidth=1.0,
-            color=colour,
-            label="CH%d" % channel,
-        )
-        axes.grid(True, which="major", alpha=0.25, linestyle=":")
-        axes.set_ylabel("CH%d (V)" % channel if separate_axes else "Volts")
-        if show_trigger:
-            axes.axvline(0.0, color="#b00020", linewidth=0.8, alpha=0.6)
-
+    divisor, unit = _time_scale(waveforms[channels[0]].duration or 1.0)
+    figure, axes_list = _new_figure(plt, len(channels), separate_axes, figure_size)
+    _plot_channels(axes_list, waveforms, divisor, separate_axes, show_trigger)
     if spread is not None:
-        for position, channel in enumerate(channels):
-            crossing = spread.crossings.get(channel)
-            if crossing is None:
-                continue
-            axes = axes_list[position]
-            axes.plot(
-                [crossing.time / divisor],
-                [crossing.threshold],
-                marker="o",
-                markersize=5,
-                color=CHANNEL_COLOURS.get(channel, "#ffffff"),
-                markeredgecolor="#202020",
-                zorder=5,
-            )
-            axes.axvline(
-                crossing.time / divisor,
-                color=CHANNEL_COLOURS.get(channel, "#808080"),
-                linewidth=0.7,
-                linestyle="--",
-                alpha=0.7,
-            )
-        annotation = "%s spread: %.4g %s (CH%d first, CH%d last)" % (
-            "rising" if spread.direction.value == "RISE" else "falling",
-            spread.spread / divisor,
-            unit,
-            spread.earliest_channel,
-            spread.latest_channel,
-        )
-        axes_list[0].set_title(annotation, fontsize=10, loc="left")
+        _mark_spread(axes_list, channels, spread, divisor, unit)
 
-    bottom = axes_list[-1]
-    bottom.set_xlabel("Time (%s), relative to trigger" % unit)
+    axes_list[-1].set_xlabel("Time (%s), relative to trigger" % unit)
     if not separate_axes:
         axes_list[0].legend(loc="upper right", fontsize=9, framealpha=0.85)
 

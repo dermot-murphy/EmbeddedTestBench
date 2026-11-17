@@ -39,7 +39,8 @@ _REQUIREMENT = (r"(?:CORE|ANA|INST|PSCOPE|SCOPE|JLINK|BLE|PSU|DMM|S2LP|PICO|SER|
                 r"-(?:FR|NFR)-\d{3}")
 
 #: Design unit identifier, e.g. CORE-DD-SCPI.
-_DESIGN_UNIT = r"(?:CORE|ANA|INST|PSCOPE|SCOPE|JLINK|BLE|PSU|DMM|S2LP|PICO|SER|PPK|RUN)-DD-[A-Z0-9]+"
+_DESIGN_UNIT = (r"(?:CORE|ANA|INST|PSCOPE|SCOPE|JLINK|BLE|PSU|DMM|S2LP|PICO|SER|PPK|RUN)"
+                r"-DD-[A-Z0-9]+")
 
 #: Architectural element identifier, e.g. CORE-ARC-006.
 _ARCHITECTURE = r"(?:CORE|ANA|INST|PSCOPE|SCOPE|JLINK|BLE|PICO|SER|PPK|RUN)-ARC-\d{3}"
@@ -64,19 +65,18 @@ def _source_files():
                 yield path
 
 
-class TestWorkProductsExist:
-    @pytest.mark.parametrize(
-        "path",
-        [REQUIREMENTS_DOC, ARCHITECTURE_DOC, DESIGN_DOC, TEST_SPEC_DOC, MATRIX_DOC,
-         DOCS / "EmbeddedTestBench_SWE4_Unit_Verification_Report.md",
-         DOCS / "EmbeddedTestBench_IF001_GPD3303D_Remote_Control_Interface.md",
-         DOCS / "EmbeddedTestBench_IF002_PicoScope3000_Driver_Interface.md",
-         DOCS / "EmbeddedTestBench_SWE3_002_GPD3303D_Driver_Design.md",
-         ROOT / "docs" / "tek3014b" / "VISA_Determination_Report.md"],
-        ids=lambda p: p.name,
-    )
-    def test_present(self, path):
-        assert path.exists(), "missing work product: %s" % path
+@pytest.mark.parametrize(
+    "path",
+    [REQUIREMENTS_DOC, ARCHITECTURE_DOC, DESIGN_DOC, TEST_SPEC_DOC, MATRIX_DOC,
+     DOCS / "EmbeddedTestBench_SWE4_Unit_Verification_Report.md",
+     DOCS / "EmbeddedTestBench_IF001_GPD3303D_Remote_Control_Interface.md",
+     DOCS / "EmbeddedTestBench_IF002_PicoScope3000_Driver_Interface.md",
+     DOCS / "EmbeddedTestBench_SWE3_002_GPD3303D_Driver_Design.md",
+     ROOT / "docs" / "tek3014b" / "VISA_Determination_Report.md"],
+    ids=lambda p: p.name,
+)
+def test_work_product_is_present(path):
+    assert path.exists(), "missing work product: %s" % path
 
 
 class TestRequirementTraceability:
