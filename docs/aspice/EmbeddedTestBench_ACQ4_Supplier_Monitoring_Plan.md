@@ -35,6 +35,7 @@
 | 0.9 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
 | 0.10 | 2026-11-13 | Claude | #200: Pico Technology added - §4.1 the PicoScope 3405D MSO, §4.4 the `ps3000a` library (from PicoScope 7 T&M Stable, unit driver version 2.2.160.7569; WinUSB driver 2.4.0.2 of 2022-06-10), not pinned, its licence not yet reviewed; §5 what the library is trusted to do. |
 | 0.11 | 2026-11-14 | Claude | #342: §4.1 Nordic's Power Profiler Kit II and its serial protocol, read from Nordic's Power Profiler app; facts only, no code copied (AD-31). |
+| next | 2026-11-17 | Claude | #376: §3.1 and §4.5 - the AI model supplier (Anthropic, Claude Code) is listed: what is depended upon, what is agreed and exchanged, and how it is monitored. §4.3 - CPython versions as CI runs them (3.8, 3.9, 3.12; 3.10 for `nrfutil`). §4.4 and §6 - the Pico licence review tracked on #382. §6 - Dependabot reads its configuration from `main`, which is why pip pull requests #320 to #324 and #355 to #359 opened after #284; #355 to #359 closed. §9 - supplier corrective action requests are raised on the supplier's tracker (CStyleCheck#439, #447). |
 
 ---
 
@@ -45,7 +46,8 @@
 Embedded Test Bench has no suppliers in the contractual sense — nothing is subcontracted
 and no supplier agreement exists. What it does have is a set of parties whose
 products it depends on and cannot influence: instrument manufacturers,
-toolchain vendors, and open-source maintainers.
+toolchain vendors, open-source maintainers, and the supplier of the AI model
+that writes the work products (§4.5).
 
 This plan says what is depended upon, what each dependency is trusted to do,
 how a change in it would be noticed, and what happens then. That is the part of
@@ -96,7 +98,7 @@ addresses, field widths and reset values — written independently
 
 | Supplier | Product | Version | Why pinned |
 |---|---|---|---|
-| Python Software Foundation | CPython | 3.10 in CI | `nrfutil` 6.1.7 requires it |
+| Python Software Foundation | CPython | 3.8, 3.9 and 3.12 for the test legs (`tests.yml`); 3.12 for `pylint`; 3.10 for the dongle firmware job (`firmware.yml`) | 3.8 is the oldest Python the package supports; 3.10 because `nrfutil` 6.1.7 requires it |
 | Nordic Semiconductor | `nrfutil` | **6.1.7** | The last Python release packaging for the SDK 17 bootloader; unpinned installs resolve backwards to a Python 2 release that fails on `dict.iteritems` (ETB-RISK-006) |
 | Arm | GNU Arm Embedded toolchain | As pinned in `.github/workflows/firmware.yml` | Flash and RAM figures are toolchain-dependent |
 | PyPI maintainers | `pyvisa`, `pyserial`, `bleak`, `pytest`, `PyYAML` | As declared in `pyproject.toml` | Interface stability |
@@ -134,6 +136,28 @@ or the PicoSDK, and found there at run time.
   that most licences restrict, but that is an assumption, not a review. The
   review is open: §6, "Licence terms".
 - **Interface note.** `docs/picoscope3000/PicoScope3000_Notes.md`.
+- **Licence review tracked on #382** (2026-11-17). The installation on the
+  bench PC holds third-party licence files (Austra, NotoSans, OpenCV, Roboto)
+  and a `LICENSES` file, none of which is Pico Technology's own terms for
+  PicoScope 7 or the PicoSDK. Closing #382 closes the open action in §6.
+
+### 4.5 AI Model Supplier
+
+Every work product in this repository is drafted by an AI model (ETB-DEV-001):
+Anthropic's Claude, used through Claude Code. That makes Anthropic a supplier
+of the authoring and the QA review (ETB-SUP1-001 §6.5), not only of a tool.
+
+| Item | Value |
+|---|---|
+| Supplier | Anthropic |
+| Product | Claude Code, with the Claude model it runs; the model is named in each commit's `Co-Authored-By` trailer (in October and November 2026: `Claude Opus 5.5`) |
+| Depended upon for | Drafting documents, code and tests; running the suite; the QA review on each pull request (the *PR Review* session) |
+| Agreement | No project-specific agreement. The product is used under Anthropic's published terms for it. Nothing in this repository is agreed with Anthropic |
+| Information exchanged | To the supplier: the repository content and the owner's instructions that each session reads. From the supplier: the commits, pull requests, issue text and review comments the sessions write |
+| Joint activities | None with the supplier. The interface that is managed is the one between the owner and the sessions: instructions in `CLAUDE.md`, the documents in `docs/`, and the owner's decisions recorded on issues and pull requests |
+| Not trusted to | Be right without checking; state tool or platform behaviour from memory (ETB-RISK-004); review its own work independently (ETB-DEV-002 §4) |
+| How the project copes | Mechanical checks on every change (ETB-SUP1-001 §6.1, §6.2); the QA review on every pull request; the owner's review and approval by merge (ETB-SUP8-001 §5.7); the rule to verify, not assert (`CLAUDE.md`) |
+| Monitoring | The model named in the commit trailers. A change of model is noted in the next release's ETB-SVD-001. A defect in the product is reported on Anthropic's tracker for Claude Code (`anthropics/claude-code`) |
 
 ---
 
@@ -160,9 +184,10 @@ Trust is stated so that it can be checked rather than assumed.
 | Instrument firmware revision | Recorded in every report | A revision not seen before appears → confirm the affected commands on the bench before the result is used |
 | Toolchain and library versions | Pinned in CI, recorded in ETB-SVD-001 | CI fails on a revision that previously passed with no source change → problem under ETB-SUP9-001 |
 | Vendor documentation changes | Checked when a driver is next worked on | A documented behaviour differs from what the driver assumes → problem, and the simulator is corrected |
-| Licence terms | Reviewed when a vendor product is added or upgraded | Terms that would require vendoring source → the dependency is not taken |
+| Licence terms | Reviewed when a vendor product is added or upgraded. Open: Pico Technology, #382 | Terms that would require vendoring source → the dependency is not taken |
+| AI model supplier | The model named in the commit trailers; the QA review's findings; the owner's review | A change of model → noted in ETB-SVD-001; a product defect → reported to the supplier (§4.5) |
 | CStyleCheck | The style workflow's result | A failure unrelated to the firmware source → problem under ETB-SUP9-001 |
-| GitHub Actions versions | Dependabot version updates, weekly, `.github/dependabot.yml`, targeting `develop` (#203) | A Dependabot pull request → release notes read, CI result reviewed, merged or declined with the reason |
+| GitHub Actions versions | Dependabot version updates, weekly, `.github/dependabot.yml`, targeting `develop` (#203). Dependabot reads that file from the default branch, `main`, so a change to it takes effect at the next release (#376) | A Dependabot pull request → release notes read, CI result reviewed, merged or declined with the reason |
 | Python package versions | `.github/workflows/constraints_refresh.yml`, weekly: `etb-ci lock` regenerates the exact pins in `constraints/` that CI installs (#282, #284) | A changed lock → pushed to `fix/constraints-refresh` and reported in an issue; a pull request is opened from the branch, release notes read, CI result reviewed, merged or declined with the reason |
 | Python package vulnerabilities | Dependabot security updates (ETB-SUP8-001 §5.5), independent of `dependabot.yml` | A Dependabot security pull request → as above |
 | Runner and action deprecations | Annotations on CI runs | A deprecation warning → ticket to move the pin before the deadline (#203 was the Node.js 20 warning) |
@@ -191,6 +216,16 @@ was not applied has not been verified. Neither floor installs on Python 3.8 or
 1.14.1, so both were declined. Since #282, CI installs the exact versions in
 `constraints/`, resolved for each Python, and a floor no longer decides what CI
 tests. The pip entry was therefore removed from `dependabot.yml`.
+**Pip pull requests after #284 (#376).** Dependabot still opened pip pull
+requests against `develop` on 2026-11-02 (#320 to #324) and 2026-11-16 (#355
+to #359), each changing `constraints/py*.txt`. The cause: Dependabot reads
+`.github/dependabot.yml` from the default branch, `main`, and `main` kept the
+pip entry until the `v0.03.0000` release merged on 2026-11-17. This was
+checked against the tags: the file at `v0.02.0002` has the pip entry and the
+file at `v0.03.0000` does not. #355 to #359 were closed on the owner's
+instruction. No further pip version-update pull request is expected. If one
+opens after 2026-11-17, it is a problem under ETB-SUP9-001.
+
 `constraints_refresh.yml` now runs `etb-ci lock` each week. When the pins move,
 it pushes them to `fix/constraints-refresh` and opens or updates an issue that
 lists each pin that moved. It does not open the pull request itself, for the
@@ -282,7 +317,7 @@ hardware is.
 |---|---|---|
 | Supplier agreements and their monitoring | Not applicable | No agreements exist; all dependencies are commercially or openly available products used under their published terms |
 | Joint progress reviews with suppliers | Not applicable | No supplier relationship exists to review |
-| Supplier corrective action requests | Not applicable | No mechanism to raise one |
+| Supplier corrective action requests | Performed, where the supplier has a public tracker | A defect is reported on the supplier's tracker, and the pin or workaround records it: CStyleCheck#439 (banner in the results file, fixed in v1.6.1) and CStyleCheck#447 (false positive, excluded until fixed), §7. Where there is no tracker, the only responses are those in §6 |
 | Acceptance against contractual criteria | Replaced | §8 — acceptance against use in a green build or a recorded run |
 
 These are recorded as not applicable, with the reason, rather than described as
