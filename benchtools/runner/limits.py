@@ -75,7 +75,9 @@ class Limit:
             raise SpecError(
                 "a limit must set at least one of minimum, maximum or equals"
             )
-        if self.equals is None and (self.tolerance is not None or self.tolerance_percent is not None):
+        if self.equals is None and (
+            self.tolerance is not None or self.tolerance_percent is not None
+        ):
             raise SpecError("tolerance is only meaningful alongside equals")
         if self.tolerance is not None and self.tolerance_percent is not None:
             raise SpecError("set tolerance or tolerance_percent, not both")

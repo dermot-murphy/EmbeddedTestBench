@@ -143,6 +143,7 @@ class ChannelReading:
         )
 
     def as_dict(self) -> Dict[str, object]:
+        """Return the reading as a JSON-ready dict, including the derived fields."""
         return {
             "channel": self.channel,
             "voltage": self.voltage,
@@ -180,6 +181,7 @@ class SupplyStatus:
         return self.modes[channel - 1]
 
     def as_dict(self) -> Dict[str, object]:
+        """Return the decoded status as a JSON-ready dict, modes keyed by channel."""
         return {
             "raw": self.raw,
             "modes": {index + 1: mode for index, mode in enumerate(self.modes)},
@@ -190,7 +192,7 @@ class SupplyStatus:
 
 
 # ---------------------------------------------------------------------------
-class Gpd3303D(ScpiInstrument):
+class Gpd3303D(ScpiInstrument):  # pylint: disable=too-many-public-methods  # one method per supply command
     """A GW Instek GPD-3303D two-channel bench supply.
 
     :param transport: An open or openable link, usually a serial port.
@@ -259,7 +261,7 @@ class Gpd3303D(ScpiInstrument):
     # Lifecycle
     # ------------------------------------------------------------------
     @classmethod
-    def connect(
+    def connect(  # pylint: disable=arguments-differ  # a serial supply takes a baud rate, not a network backend
         cls,
         resource: str = "sim://",
         timeout: float = 5.0,

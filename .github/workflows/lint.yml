@@ -5,13 +5,12 @@
 #
 # The configuration lives in pyproject.toml under [tool.pylint], where each
 # rule the project has decided against is switched off with its reason. What is
-# left is run through scripts/lint.py, which compares the findings against
-# .pylint-baseline.json so the job fails on new ones rather than on the debt
-# that was already there.
+# left is run through scripts/lint.py, which fails on any finding. There is no
+# baseline: #379 fixed the findings it held and deleted it.
 #
-# Same rule as the C side: a rule decided against is disabled and said so; a
-# rule accepted but not yet met stays on and is visible as debt. ETB-ANA-001
-# §6.13 lists what is in the baseline.
+# A rule decided against is disabled in pyproject.toml and said so; a finding
+# the code cannot avoid is disabled inline, on that def or class, with its
+# reason. ETB-ANA-001 §6.13 records how the baseline was cleared.
 
 name: lint
 

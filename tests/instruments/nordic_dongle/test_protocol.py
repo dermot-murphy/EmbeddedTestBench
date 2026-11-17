@@ -82,11 +82,10 @@ class TestEvents:
         assert parse_line("+scan t=soon").timestamp_us is None
 
 
-class TestNonProtocolLines:
-    @pytest.mark.parametrize("line", ["", "   ", "\n", "SEGGER banner", "ready."])
-    def test_ignored(self, line):
-        """A dongle may print something before anyone is listening."""
-        assert parse_line(line) is None
+@pytest.mark.parametrize("line", ["", "   ", "\n", "SEGGER banner", "ready."])
+def test_a_non_protocol_line_is_ignored(line):
+    """A dongle may print something before anyone is listening."""
+    assert parse_line(line) is None
 
 
 class TestFields:
@@ -134,7 +133,8 @@ class TestAddresses:
         assert format_address("e4:1c:7b:02:9a:11", 1) == "E4:1C:7B:02:9A:11/1"
 
     @pytest.mark.parametrize(
-        "text", ["", "not an address", "E4:1C:7B:02:9A", "E4:1C:7B:02:9A:11:22", "GG:1C:7B:02:9A:11"]
+        "text",
+        ["", "not an address", "E4:1C:7B:02:9A", "E4:1C:7B:02:9A:11:22", "GG:1C:7B:02:9A:11"],
     )
     def test_a_malformed_address_says_what_was_expected(self, text):
         with pytest.raises(DongleProtocolError, match="six colon-separated octets"):

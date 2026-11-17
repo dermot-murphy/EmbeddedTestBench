@@ -178,10 +178,10 @@ class TestSimulatorInjection:
             link.close()
 
     def test_an_explicit_responder_wins(self):
-        class Fake:
+        class Fake:  # pylint: disable=too-few-public-methods  # a responder needs only respond()
             idn = "ACME,FAKE,0,1"
 
-            def respond(self, message):
+            def respond(self, _message):
                 return b"ACME,FAKE,0,1\n"
 
         instrument = GenericScpiInstrument(MockTransport(responder=Fake()))

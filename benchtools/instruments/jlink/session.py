@@ -147,7 +147,8 @@ class GdbMiSession:
         try:
             if self._transport.is_open:
                 self._transport.write(b"-gdb-exit")
-        except Exception:  # noqa: BLE001 - closing must not raise
+        # Closing must not raise, whatever the transport fails with.
+        except Exception:  # noqa: BLE001  # pylint: disable=broad-exception-caught
             self._logger.debug("could not send -gdb-exit", exc_info=True)
         finally:
             self._transport.close()

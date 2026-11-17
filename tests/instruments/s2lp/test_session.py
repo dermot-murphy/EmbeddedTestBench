@@ -8,6 +8,8 @@ Traces to: S2LP-FR-001 .. S2LP-FR-004, S2LP-FR-045, SWE4-UT-S2LPSESSION.
 
 from __future__ import annotations
 
+import pathlib
+
 import pytest
 
 from benchtools.core.errors import ProtocolError, TransportTimeoutError
@@ -16,7 +18,7 @@ from benchtools.instruments.s2lp import S2lpSession
 from benchtools.instruments.s2lp.session import READ_POLL, UNCLAIMED_LIMIT
 
 
-class Scripted:
+class Scripted:  # pylint: disable=too-few-public-methods  # a Responder needs only respond()
     """A responder that answers with whatever it was told to, once."""
 
     def __init__(self, *replies):
@@ -82,7 +84,7 @@ class TestFraming:
         assert any("S2LPSendNBytes" in line for line in session.unclaimed)
         session.close()
 
-    def test_nested_braces_do_not_end_the_reply_early(self, session):
+    def test_nested_braces_do_not_end_the_reply_early(self):
         transport = MockTransport(
             responder=Scripted(
                 "{{(SdkEvalGetVersion)} a...\r\n{tag: {inner}}\r\n{timer:1}\r\n}\r\n")
@@ -127,7 +129,7 @@ class TestStopping:
     def test_stopping_is_logged(self, session, tmp_path):
         path = session.log_to(str(tmp_path / "s.log"))
         session.stop()
-        assert "(stop)" in open(path, encoding="utf-8").read()
+        assert "(stop)" in pathlib.Path(path).read_text(encoding="utf-8")
 
 
 class TestCollecting:
@@ -157,26 +159,26 @@ class TestLogging:
     def test_both_directions_are_recorded(self, session, tmp_path):
         path = session.log_to(str(tmp_path / "s.log"))
         session.execute("SdkEvalGetVersion")
-        text = open(path, encoding="utf-8").read()
+        text = pathlib.Path(path).read_text(encoding="utf-8")
         assert " > SdkEvalGetVersion" in text
         assert " < {" in text
 
     def test_a_note_is_marked_as_one(self, session, tmp_path):
         path = session.log_to(str(tmp_path / "s.log"))
         session.note("antenna disconnected on purpose")
-        assert " # antenna disconnected" in open(path, encoding="utf-8").read()
+        assert " # antenna disconnected" in pathlib.Path(path).read_text(encoding="utf-8")
 
     def test_lines_carry_a_host_timestamp(self, session, tmp_path):
         path = session.log_to(str(tmp_path / "s.log"))
         session.execute("SdkEvalGetVersion")
-        first = open(path, encoding="utf-8").read().splitlines()[0]
+        first = pathlib.Path(path).read_text(encoding="utf-8").splitlines()[0]
         assert float(first.split()[0]) > 1_600_000_000
 
     def test_starting_a_second_log_closes_the_first(self, session, tmp_path):
         session.log_to(str(tmp_path / "one.log"))
         session.log_to(str(tmp_path / "two.log"))
         assert session.log_path.endswith("two.log")
-        assert "session closed" in open(tmp_path / "one.log", encoding="utf-8").read()
+        assert "session closed" in pathlib.Path(tmp_path / "one.log").read_text(encoding="utf-8")
 
     def test_stopping_the_log_is_idempotent(self, session, tmp_path):
         session.log_to(str(tmp_path / "s.log"))

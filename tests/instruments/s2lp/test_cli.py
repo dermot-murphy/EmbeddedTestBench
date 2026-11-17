@@ -212,7 +212,7 @@ class TestConfigFiles:
         status, payload, _ = run(capsys, *SIM, "config", "--save", path)
         assert status == 0
         assert payload["saved"] == path
-        assert "register" in open(path, encoding="utf-8").read()
+        assert "register" in pathlib.Path(path).read_text(encoding="utf-8")
 
     def test_the_shipped_example_verifies_against_a_radio_it_was_applied_to(self, capsys):
         """The file in configs/ is a working example, not decoration."""

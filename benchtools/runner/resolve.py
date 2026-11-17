@@ -153,6 +153,7 @@ class Reference:
 
     @classmethod
     def from_mapping(cls, data: Any) -> "Reference":
+        """Build a reference from its ``{from: <name>, format: <template>}`` mapping."""
         data = dict(data)
         path = str(data.pop(cls.KEY, "")).strip()
         if not path:

@@ -150,6 +150,7 @@ class DongleSession:  # pylint: disable=too-many-instance-attributes
         :returns: The path written.
         """
         self.stop_log()
+        # pylint: disable-next=consider-using-with  # open across calls; stop_log() closes it
         self._log = open(path, "a", encoding="utf-8")
         self._log_path = path
         self._write_log("#", "session opened on %s" % self._transport.description)

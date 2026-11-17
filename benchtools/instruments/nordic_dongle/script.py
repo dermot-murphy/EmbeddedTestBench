@@ -229,7 +229,7 @@ TIMEOUT_CELL = "Timeout cell"
 
 
 @dataclass(frozen=True)
-class ScriptStep:
+class ScriptStep:  # pylint: disable=too-many-instance-attributes  # one field per column of a document row
     """One row of the document.
 
     :param test: The heading this row came under.

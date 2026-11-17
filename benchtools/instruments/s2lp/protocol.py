@@ -217,9 +217,11 @@ class Reply:
 
     @property
     def raw(self) -> str:
+        """The reply as the firmware sent it, one line per line."""
         return "\n".join(self.lines)
 
     def has(self, tag: str) -> bool:
+        """True when the reply carried *tag*."""
         return tag in self.tags
 
     def text(self, tag: str, default: Optional[str] = None) -> str:
@@ -292,6 +294,7 @@ class Reply:
         return parse_pairs(self.text(tag))
 
     def as_dict(self) -> Dict[str, str]:
+        """The command and each tag's raw text, as a dict."""
         return {"command": self.command, **self.tags}
 
 

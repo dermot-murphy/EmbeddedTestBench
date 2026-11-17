@@ -137,6 +137,7 @@ def _cmd_status(psu: Gpd3303D, args) -> int:
 
 # ---------------------------------------------------------------------------
 def build_parser() -> argparse.ArgumentParser:
+    """Build the ``benchtools psu`` argument parser and its subcommands."""
     parser = argparse.ArgumentParser(
         prog="benchtools psu",
         description="Control a %s bench power supply." % MODEL,

@@ -9,6 +9,8 @@ Traces to: SWE1-FR-010 .. SWE1-FR-080, SWE4-UT-SCOPE.
 
 from __future__ import annotations
 
+import pathlib
+
 import pytest
 
 from benchtools.core import MockTransport
@@ -37,7 +39,8 @@ class TestIdentification:
         scope.identity()
         assert simulator.command_log.count("*IDN?") == before
 
-    def test_initialise_disables_headers(self, simulator, scope):
+    @pytest.mark.usefixtures("scope")
+    def test_initialise_disables_headers(self, simulator):
         assert simulator.header_enabled is False
         assert simulator.verbose_enabled is False
 
@@ -366,7 +369,7 @@ class TestCapture:
     def test_csv_export(self, configured_scope, tmp_path):
         waveforms = configured_scope.capture_single([1, 2])
         path = configured_scope.save_csv(waveforms, str(tmp_path / "cap.csv"))
-        lines = open(path, encoding="utf-8").read().splitlines()
+        lines = pathlib.Path(path).read_text(encoding="utf-8").splitlines()
         assert lines[0] == "time_s,ch1_volts,ch2_volts"
         assert len(lines) == 10001
 
@@ -442,7 +445,7 @@ class TestHostSideMeasurements:
 class TestScreenshot:
     def test_png_is_written(self, configured_scope, tmp_path):
         path = configured_scope.screenshot(str(tmp_path / "screen.png"))
-        data = open(path, "rb").read()
+        data = pathlib.Path(path).read_bytes()
         assert data.startswith(b"\x89PNG\r\n\x1a\n")
 
     def test_suffix_is_added_when_missing(self, configured_scope, tmp_path):
@@ -456,7 +459,7 @@ class TestScreenshot:
         configured_scope.screenshot(str(tmp_path / "shot.png"))
         assert simulator.hardcopy_port == "GPIB"
 
-    def test_unsupported_format_falls_back(self, configured_scope, simulator, tmp_path, caplog):
+    def test_unsupported_format_falls_back(self, configured_scope, simulator, tmp_path):
         """Older firmware without PNG must still yield an image, not an error."""
         original = simulator._cmd_HARDCOPY_FORMAT
 
@@ -469,7 +472,7 @@ class TestScreenshot:
         simulator.hardcopy_format = "BMP"
         path = configured_scope.screenshot(str(tmp_path / "shot.png"), image_format="PNG")
         assert simulator.hardcopy_format == "BMPCOLOR"
-        assert open(path, "rb").read()
+        assert pathlib.Path(path).read_bytes()
 
     def test_timeout_is_restored_after_the_transfer(self, configured_scope, tmp_path):
         before = configured_scope.transport.timeout

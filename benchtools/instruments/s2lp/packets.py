@@ -140,18 +140,22 @@ class Packet:  # pylint: disable=too-many-instance-attributes
 
     @property
     def length(self) -> int:
+        """The payload's length in bytes."""
         return len(self.data)
 
     @property
     def hex(self) -> str:
+        """The payload as lower-case hex, the form the log records."""
         return self.data.hex()
 
     @property
     def is_received(self) -> bool:
+        """True for a packet the radio received, False for one it sent."""
         return self.direction == "rx"
 
     @property
     def ok(self) -> bool:
+        """True unless the firmware reported an error code for this packet."""
         return self.error == 0
 
     @property
@@ -163,6 +167,7 @@ class Packet:  # pylint: disable=too-many-instance-attributes
         return "".join(chr(b) if 32 <= b < 127 else "." for b in self.data)
 
     def as_dict(self) -> Dict[str, Any]:
+        """The packet as a JSON-ready dict, the record a packet log writes."""
         return {
             "direction": self.direction,
             "host_time": self.host_time,
@@ -226,6 +231,7 @@ class Capture:
 
     @property
     def count(self) -> int:
+        """Packets received without an error."""
         return len(self.packets)
 
     @property
@@ -243,6 +249,7 @@ class Capture:
 
     @property
     def mean_rssi_dbm(self) -> Optional[float]:
+        """Mean RSSI of the packets that report one, or ``None`` if none does."""
         values = [p.rssi_dbm for p in self.packets if p.rssi_dbm is not None]
         return statistics.fmean(values) if values else None
 
@@ -253,6 +260,7 @@ class Capture:
 
     @property
     def bytes_received(self) -> int:
+        """Total payload bytes across the received packets."""
         return sum(packet.length for packet in self.packets)
 
     def describe(self) -> str:
@@ -270,6 +278,7 @@ class Capture:
         return text
 
     def as_dict(self) -> Dict[str, Any]:
+        """The capture, its summary and its packets as a JSON-ready dict."""
         return {
             "count": self.count,
             "requested": self.requested,
@@ -324,7 +333,8 @@ class PacketLog:
 
     def __init__(self, path: str) -> None:
         self.path = path
-        self._file = open(path, "a", encoding="utf-8")
+        self._file = open(  # pylint: disable=consider-using-with  # open until close()
+            path, "a", encoding="utf-8")
         self._count = 0
         #: This log's run identifier, written with every packet.
         self.run = uuid.uuid4().hex

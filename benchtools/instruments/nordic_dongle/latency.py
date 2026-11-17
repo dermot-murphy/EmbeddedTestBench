@@ -97,6 +97,7 @@ class ResponseSample:
         return self.host_s
 
     def as_dict(self) -> dict:
+        """The exchange as a plain dictionary, with the host's figure in microseconds."""
         return {
             "request": self.request,
             "response": self.text,
@@ -141,6 +142,7 @@ class ResponseTiming:
 
     @property
     def count(self) -> int:
+        """How many exchanges were measured."""
         return len(self.samples)
 
     @property
@@ -150,27 +152,33 @@ class ResponseTiming:
 
     @property
     def milliseconds(self) -> float:
+        """Mean round trip in milliseconds."""
         return self.seconds * 1000.0
 
     @property
     def microseconds(self) -> float:
+        """Mean round trip in microseconds."""
         return self.seconds * 1.0e6
 
     @property
     def minimum_s(self) -> float:
+        """Shortest round trip in seconds."""
         return min(self._values())
 
     @property
     def maximum_s(self) -> float:
+        """Longest round trip in seconds."""
         return max(self._values())
 
     @property
     def spread_s(self) -> float:
+        """Longest minus shortest round trip, in seconds."""
         values = self._values()
         return max(values) - min(values)
 
     @property
     def standard_deviation_s(self) -> float:
+        """Sample standard deviation of the round trip in seconds; 0 for a single sample."""
         values = self._values()
         return statistics.stdev(values) if len(values) > 1 else 0.0
 

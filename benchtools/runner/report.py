@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import json
 import os
-import xml.etree.ElementTree as ElementTree
+from xml.etree import ElementTree
 from typing import Any, Dict, List, Union
 
 from .results import CaseRecord, RunRecord, Status
@@ -89,9 +89,8 @@ def plugin_text(plugin: Dict[str, Any]) -> str:
     return "%s at %s (%s)" % (plugin.get("name", "?"), ref, plugin.get("path", "?"))
 
 
-def format_markdown(run: RunRecord) -> str:
-    """Render the run as a markdown report."""
-    out: List[str] = []
+def _markdown_summary(run: RunRecord, out: List[str]) -> None:
+    """Append the report title, the summary table and the simulation notice."""
     out.append("# Bench test report: %s" % run.suite)
     out.append("")
     out.append("| Field | Value |")
@@ -117,100 +116,132 @@ def format_markdown(run: RunRecord) -> str:
                    "specification and the tooling, **not** any physical hardware.")
         out.append("")
 
-    if run.instruments:
-        # What actually answered, not what the bench file asked for. Firmware
-        # version in particular decides whether a measurement means what it
-        # appears to mean, so it belongs in the evidence rather than in a log.
-        out.append("## Instruments")
+
+def _markdown_instruments(run: RunRecord, out: List[str]) -> None:
+    """Append the table of instruments that answered, if the run recorded any."""
+    if not run.instruments:
+        return
+    # What actually answered, not what the bench file asked for. Firmware
+    # version in particular decides whether a measurement means what it
+    # appears to mean, so it belongs in the evidence rather than in a log.
+    out.append("## Instruments")
+    out.append("")
+    out.append("| Alias | Event | Driver | Model | Firmware | Resource |")
+    out.append("|---|---|---|---|---|---|")
+    for alias in sorted(run.instruments):
+        entry = run.instruments[alias]
+        out.append("| %s | %s | %s | %s | %s | %s |" % (
+            alias,
+            entry.get("event", "-") or "-",
+            entry.get("driver", "-"),
+            entry.get("model", "-") or "-",
+            entry.get("firmware", "-") or "-",
+            entry.get("resource", "-") or "-",
+        ))
+        if entry.get("identity_error"):
+            out.append("| | | | | **would not identify** | %s |" % entry["identity_error"])
+    out.append("")
+
+
+def _markdown_setup_failure(run: RunRecord, out: List[str]) -> None:
+    """Append the section saying the suite setup failed and nothing was run."""
+    out.append("## Suite setup failed")
+    out.append("")
+    out.append("```")
+    out.append(run.setup_error)
+    out.append("```")
+    out.append("")
+    out.append("No test was run: every measurement after an unknown setup would be "
+               "meaningless.")
+    out.append("")
+
+
+def _markdown_requirements(run: RunRecord, out: List[str]) -> None:
+    """Append the result per requirement verified, if any test names one."""
+    verified = run.requirements_verified
+    if not verified:
+        return
+    out.append("## Requirements verified")
+    out.append("")
+    out.append("| Requirement | Result |")
+    out.append("|---|---|")
+    for requirement, status in verified.items():
+        out.append("| %s | %s |" % (requirement, _MARKS[Status(status)]))
+    out.append("")
+
+
+def _markdown_problems(run: RunRecord, out: List[str]) -> None:
+    """Append each failed or errored test with the measurements that failed."""
+    problems = [case for case in run.cases if case.status.is_problem]
+    if not problems:
+        return
+    out.append("## Problems")
+    out.append("")
+    for case in problems:
+        out.append("### %s - %s" % (case.name, case.status.value))
         out.append("")
-        out.append("| Alias | Event | Driver | Model | Firmware | Resource |")
-        out.append("|---|---|---|---|---|---|")
-        for alias in sorted(run.instruments):
-            entry = run.instruments[alias]
-            out.append("| %s | %s | %s | %s | %s | %s |" % (
-                alias,
-                entry.get("event", "-") or "-",
-                entry.get("driver", "-"),
-                entry.get("model", "-") or "-",
-                entry.get("firmware", "-") or "-",
-                entry.get("resource", "-") or "-",
+        if case.error:
+            out.append("Could not be executed: `%s`" % case.error)
+            out.append("")
+        for measurement in case.measurements:
+            if measurement.status.is_problem:
+                out.append("- `%s` = %s, limit %s - %s" % (
+                    measurement.name,
+                    _format_value(measurement.value, measurement.unit),
+                    measurement.limit or "-",
+                    measurement.reason,
+                ))
+        out.append("")
+
+
+def _markdown_case(case: CaseRecord, out: List[str]) -> None:
+    """Append one test's result line and its measurements or error."""
+    out.append("### %s" % case.name)
+    out.append("")
+    details = ["Result: **%s**" % case.status.value]
+    if case.requirement:
+        details.append("Requirement: %s" % case.requirement)
+    details.append("Duration: %.3f s" % case.duration_s)
+    out.append(" | ".join(details))
+    out.append("")
+    if case.skip_reason:
+        out.append("Skipped: %s" % case.skip_reason)
+        out.append("")
+    if case.measurements:
+        out.append("| Measurement | Value | Limit | Result |")
+        out.append("|---|---|---|---|")
+        for measurement in case.measurements:
+            out.append("| %s | %s | %s | %s |" % (
+                measurement.name,
+                _format_value(measurement.value, measurement.unit),
+                measurement.limit or "-",
+                _MARKS[measurement.status],
             ))
-            if entry.get("identity_error"):
-                out.append("| | | | | **would not identify** | %s |" % entry["identity_error"])
         out.append("")
+    elif case.error:
+        out.append("```")
+        out.append(case.error)
+        out.append("```")
+        out.append("")
+
+
+def format_markdown(run: RunRecord) -> str:
+    """Render the run as a markdown report."""
+    out: List[str] = []
+    _markdown_summary(run, out)
+    _markdown_instruments(run, out)
 
     if run.setup_error:
-        out.append("## Suite setup failed")
-        out.append("")
-        out.append("```")
-        out.append(run.setup_error)
-        out.append("```")
-        out.append("")
-        out.append("No test was run: every measurement after an unknown setup would be "
-                   "meaningless.")
-        out.append("")
+        _markdown_setup_failure(run, out)
         return "\n".join(out) + "\n"
 
-    verified = run.requirements_verified
-    if verified:
-        out.append("## Requirements verified")
-        out.append("")
-        out.append("| Requirement | Result |")
-        out.append("|---|---|")
-        for requirement, status in verified.items():
-            out.append("| %s | %s |" % (requirement, _MARKS[Status(status)]))
-        out.append("")
-
-    problems = [case for case in run.cases if case.status.is_problem]
-    if problems:
-        out.append("## Problems")
-        out.append("")
-        for case in problems:
-            out.append("### %s - %s" % (case.name, case.status.value))
-            out.append("")
-            if case.error:
-                out.append("Could not be executed: `%s`" % case.error)
-                out.append("")
-            for measurement in case.measurements:
-                if measurement.status.is_problem:
-                    out.append("- `%s` = %s, limit %s - %s" % (
-                        measurement.name,
-                        _format_value(measurement.value, measurement.unit),
-                        measurement.limit or "-",
-                        measurement.reason,
-                    ))
-            out.append("")
+    _markdown_requirements(run, out)
+    _markdown_problems(run, out)
 
     out.append("## All tests")
     out.append("")
     for case in run.cases:
-        out.append("### %s" % case.name)
-        out.append("")
-        details = ["Result: **%s**" % case.status.value]
-        if case.requirement:
-            details.append("Requirement: %s" % case.requirement)
-        details.append("Duration: %.3f s" % case.duration_s)
-        out.append(" | ".join(details))
-        out.append("")
-        if case.skip_reason:
-            out.append("Skipped: %s" % case.skip_reason)
-            out.append("")
-        if case.measurements:
-            out.append("| Measurement | Value | Limit | Result |")
-            out.append("|---|---|---|---|")
-            for measurement in case.measurements:
-                out.append("| %s | %s | %s | %s |" % (
-                    measurement.name,
-                    _format_value(measurement.value, measurement.unit),
-                    measurement.limit or "-",
-                    _MARKS[measurement.status],
-                ))
-            out.append("")
-        elif case.error:
-            out.append("```")
-            out.append(case.error)
-            out.append("```")
-            out.append("")
+        _markdown_case(case, out)
     return "\n".join(out) + "\n"
 
 

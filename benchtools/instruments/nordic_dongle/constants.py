@@ -159,6 +159,7 @@ class AddressType(enum.IntEnum):
 
     @classmethod
     def coerce(cls, value) -> "AddressType":
+        """*value* as an address type; an unrecognised value is taken as random static."""
         try:
             return cls(int(value))
         except (ValueError, TypeError):

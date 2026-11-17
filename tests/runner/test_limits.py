@@ -93,7 +93,7 @@ class TestChecking:
         assert "not a number" in Limit(maximum=1.0).check(None).reason
 
 
-class TestRendering:
+class TestRendering:  # pylint: disable=too-few-public-methods  # named in the traceability matrix
     @pytest.mark.parametrize(
         "limit,text",
         [

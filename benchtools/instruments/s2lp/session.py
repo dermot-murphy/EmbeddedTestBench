@@ -102,10 +102,12 @@ class S2lpSession:  # pylint: disable=too-many-instance-attributes
     # ------------------------------------------------------------------
     @property
     def transport(self) -> Transport:
+        """The link this session speaks over; the session does not own it."""
         return self._transport
 
     @property
     def timeout(self) -> float:
+        """Seconds to wait for a reply; setting a negative value gives 0."""
         return self._timeout
 
     @timeout.setter
@@ -140,7 +142,8 @@ class S2lpSession:  # pylint: disable=too-many-instance-attributes
         :returns: The path written.
         """
         self.stop_log()
-        self._log = open(path, "a", encoding="utf-8")
+        self._log = open(  # pylint: disable=consider-using-with  # open until stop_log()
+            path, "a", encoding="utf-8")
         self._log_path = path
         self._write_log("#", "session opened on %s" % self._transport.description)
         return path

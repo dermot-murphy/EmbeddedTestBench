@@ -167,7 +167,7 @@ class Instrument:
         """Release the instrument. Idempotent, and never raises."""
         try:
             self._close()
-        except Exception:  # pragma: no cover - defensive
+        except Exception:  # pylint: disable=broad-exception-caught  # pragma: no cover - close() never raises, whatever the driver throws
             self._logger.warning("error while closing %s", self.MODEL_NAME, exc_info=True)
         finally:
             self._initialised = False

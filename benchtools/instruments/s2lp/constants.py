@@ -92,7 +92,7 @@ AFTER_SHUTDOWN_EXIT: Dict[str, int] = {
 TIMER_HZ = 1_000_000
 
 
-class Band:
+class Band:  # pylint: disable=too-few-public-methods  # a namespace of constants
     """The two sub-1 GHz bands these kits are built for."""
 
     ISM_868 = "868"
@@ -126,7 +126,7 @@ REGISTER_COUNT = 123
 DEFAULT_XTAL_HZ = 0
 
 
-class Strobe:
+class Strobe:  # pylint: disable=too-few-public-methods  # a namespace of constants
     """S2-LP command strobes, by their opcode."""
 
     TX = 0x60
@@ -154,7 +154,7 @@ class Strobe:
     }
 
 
-class Modulation:
+class Modulation:  # pylint: disable=too-few-public-methods  # a namespace of constants
     """Modulation codes, as the MOD2 register encodes them."""
 
     FSK_2 = 0x00
@@ -191,7 +191,7 @@ CRC_MODES: Dict[str, int] = {
 }
 
 
-class PacketFormat:
+class PacketFormat:  # pylint: disable=too-few-public-methods  # a namespace of constants
     """Packet handler formats, as PCKTCTRL3.PCKT_FRMT encodes them."""
 
     BASIC = 0

@@ -23,8 +23,11 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def resource_for(port: int) -> str:
-    """Build a pyvisa-py resource string aimed at the loopback server."""
+def resource_for() -> str:
+    """Build a pyvisa-py resource string aimed at the loopback server.
+
+    The string carries no port: _point_pyvisa_py_at routes it to the server's.
+    """
     return "TCPIP::127.0.0.1::inst0::INSTR"
 
 
@@ -36,14 +39,14 @@ class TestVisaTransport:
         """pyvisa-py's own VXI-11 client must reach the same simulated scope."""
         with FakeVxi11Server() as server:
             _point_pyvisa_py_at(monkeypatch, server.port)
-            transport = VisaTransport(resource_for(server.port), visa_library="@py", timeout=5.0)
+            transport = VisaTransport(resource_for(), visa_library="@py", timeout=5.0)
             with transport as link:
                 assert link.query(b"*IDN?").startswith(b"TEKTRONIX,TDS 3014B")
 
     def test_driver_over_visa(self, monkeypatch):
         with FakeVxi11Server() as server:
             _point_pyvisa_py_at(monkeypatch, server.port)
-            transport = VisaTransport(resource_for(server.port), visa_library="@py", timeout=5.0)
+            transport = VisaTransport(resource_for(), visa_library="@py", timeout=5.0)
             scope = Tek3014B(transport)
             scope.initialise()
             try:
@@ -80,10 +83,10 @@ def _point_pyvisa_py_at(monkeypatch, port: int) -> None:
     from pyvisa_py.protocols import rpc
 
     class _FixedPortMapper:
-        def __init__(self, host, open_timeout=5000):
+        def __init__(self, host, _open_timeout=5000):
             self.host = host
 
-        def get_port(self, mapping):
+        def get_port(self, _mapping):
             return port
 
         def close(self):

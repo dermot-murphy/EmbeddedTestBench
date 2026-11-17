@@ -213,13 +213,13 @@ class TestSwoOverASocket:
         swo.open()
         try:
             server.send(self.stream(1, count=1))
-            assert swo.collect(port=1, count=5, timeout=0.3) != []
-            assert swo.collect(port=9, count=1, timeout=0.1) == []
+            assert len(swo.collect(port=1, count=5, timeout=0.3)) > 0
+            assert len(swo.collect(port=9, count=1, timeout=0.1)) == 0
         finally:
             swo.close()
 
     def test_polling_before_opening_yields_nothing(self):
-        assert SwoStream(port=1).poll() == []
+        assert len(SwoStream(port=1).poll()) == 0
 
     def test_an_unreachable_port_says_what_to_check(self, closed_port):
         with pytest.raises(ConnectionFailedError) as caught:
