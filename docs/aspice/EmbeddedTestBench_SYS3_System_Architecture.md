@@ -35,6 +35,7 @@
 | next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. |
 | next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
 | next | 2026-11-17 | Claude | #365: §5.1 adds SE-DMM, SE-PICO2 and SE-SERIAL, and SE-S2LP's second firmware; §5.2 adds SE-VIEWER and SE-PLUGINS; §5.3 restated for the kit's own firmware. §6 adds ETB-SIF-16 to -19. §7 allocates ETB-SYS2-017 and -051 to -053. §8 splits into the run (§8.1), its operating modes as a state diagram (§8.2), error paths (§8.3) and timing (§8.4). §9 adds the PicoScope, PPK2, TTi 1604 and kit firmware. §10.0 adds evaluation criteria and the alternatives compared for each decision. SD-05 restated for #84. |
+| next | 2026-11-17 | Claude | #365, review round 1 (PR #393): §8.2 - abort from Paused, and restart refused during setup; §8.3 - the paths for an operator abort, a setup failure and a refused control request. |
 
 ---
 
@@ -229,6 +230,7 @@ stateDiagram-v2
     Running --> Paused: pause requested
     Paused --> Running: resume
     Paused --> Running: restart from a step
+    Paused --> TearingDown: abort (RUN-FR-063)
     Running --> TearingDown: last step done
     Running --> TearingDown: a setup step fails, so the suite aborts (RUN-FR-032)
     Running --> TearingDown: abort requested (RUN-FR-063)
@@ -241,8 +243,8 @@ stateDiagram-v2
 |---|---|---|
 | Loading | Reads the bench description and the specification; refuses what it cannot use | Every instrument the specification needs is in the bench |
 | Connecting | Opens each transport, queries identity, records it, notes simulation | Every instrument identified |
-| Running | Executes the setup, then the tests, step by step; records every step | The last step, an abort, or a setup failure |
-| Paused | Holds between steps; instruments stay in their state | Resume, or restart from a chosen step |
+| Running | Executes the setup, then the tests, step by step; records every step. While setup runs, only pause, resume and abort are accepted; a restart is refused (RUN-FR-065) | The last step, an abort, or a setup failure |
+| Paused | Holds between steps; instruments stay in their state | Resume; restart from a chosen step; or abort, which ends the pause and goes to teardown |
 | TearingDown | Runs the specification's teardown steps whatever the outcome (RUN-FR-032); on a powered bench these take the supply to its safe state (ETB-SYS2-024). Closes the links and writes the report. It cannot be interrupted (RUN-FR-065) | The report written |
 | Done | The overall result is set: error, fail or pass (ETB-SYS2-075) | — |
 | Error | A run that never reached Running: no step result exists, and the report says why | — |
@@ -264,6 +266,9 @@ from an **error** (the bench could not measure) (ETB-SYS2-003). The paths:
 | A step | No reply within the step's timeout | The step errors | Error, with the timeout |
 | A step | A reply is received and does not match the expectation | The step fails | Fail, with sent, received and expected (ETB-SYS2-076) |
 | A step | A link drops between steps | The event is logged; the next step that needs the link errors | Error, with the disconnect event (#51) |
+| Running | The operator aborts the run | The current step ends; teardown runs (RUN-FR-063) | The interrupted case is an error, "aborted by operator"; later cases are recorded as not executed |
+| Running, setup | A setup step fails | The suite is aborted; teardown runs (RUN-FR-032) | Error on the setup; the cases are recorded as not executed |
+| Any | A control request the current state does not allow (for example, a restart during setup or teardown) | Refused; the run carries on (RUN-FR-065) | Logged in the event log with its reason |
 | TearingDown | A teardown step errors | The run is in error (ETB-SYS2-075) | Error, with the step |
 
 ### 8.4 Timing

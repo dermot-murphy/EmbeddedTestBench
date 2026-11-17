@@ -37,6 +37,7 @@
 | next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. Blank lines that split this table removed. |
 | next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
 | next | 2026-11-17 | Claude | #365: §3.4 - the verification criterion is the requirement's text; each requirement carries its first release, read from the tags; the priority rule. §3.5 - each change records its impact on the system context. §4 - the context lists the PicoScope, PPK2, TTi 1604, PICO2 Test Board, the target's serial port and product repositories. ETB-SYS2-010 lists every instrument, method T as ETB-SYS5-002. ETB-SYS2-017 added for the PICO2 Test Board. ETB-SYS2-104 records the TTi 1604 hardware runs. §15 - requirements analysis per group, and the impact of each requirement added since `v0.01.0000`. Review & Approval is now §16. |
+| next | 2026-11-17 | Claude | #365, review round 1 (PR #393): ETB-SYS2-017's capability dates from `v0.01.0000`, when the Pico 2 thermometer shipped. |
 
 ---
 
@@ -155,7 +156,7 @@ The impacts of the requirements added since `v0.01.0000` are recorded in §15.2.
 | ETB-SYS2-014 | A bench shall be described as data, in a file, not in code. | I | `v0.01.0000` |
 | ETB-SYS2-015 | The system shall record, for every run, the identity of each instrument used: model, and where the instrument can report them, serial number and firmware revision. | T | `v0.01.0000` |
 | ETB-SYS2-016 | A run in which any instrument was simulated shall be labelled as simulated in every report format the system produces. | T | `v0.01.0000` |
-| ETB-SYS2-017 | The system shall drive a reference test board, the PICO2 Test Board, which gives the bench known quantities to check itself against: a temperature and humidity reading, indicator LEDs, and an analogue and audio signal of stated frequency (#365). | T | `v0.04.0000` (capability since `v0.02.0000`) |
+| ETB-SYS2-017 | The system shall drive a reference test board, the PICO2 Test Board, which gives the bench known quantities to check itself against: a temperature and humidity reading, indicator LEDs, and an analogue and audio signal of stated frequency (#365). | T | `v0.04.0000` (capability since `v0.01.0000`) |
 
 > ETB-SYS2-013 and ETB-SYS2-016 together are the treatment of ETB-RISK-001: a
 > simulator that echoed expected replies would let a driver defect pass, and an
