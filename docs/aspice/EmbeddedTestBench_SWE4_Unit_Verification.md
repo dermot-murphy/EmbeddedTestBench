@@ -12,7 +12,7 @@
 |---|---|---|---|
 | **Document ID** | ETB-SWE4-001 | **Version** | [latest, §2](#2-revision-history) |
 | **Project** | Embedded Test Bench | **Date** | [latest, §2](#2-revision-history) |
-| **Status** | Draft | **Classification** | Internal |
+| **Status** | [by location, ETB-SUP1-001 §6.3](EmbeddedTestBench_SUP1_Quality_Assurance_Plan.md#63-document-status) | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.4 |
 
@@ -88,7 +88,6 @@
 | 1.52 | 2026-10-28 | Claude | #243: SWE4-UT-S2LPMEASURES added (frame measures, against a synthetic hour of Kepler traffic); SWE4-UT-BLE gains `TestLinkTimes` (BLE-FR-123); SWE4-UT-KEPLERSIM gains a frame timed from the link closing. |
 | 1.53 | 2026-10-28 | Claude | #274: SWE4-UT-BLEDFU covers the ATT MTU and piece size recorded per link and over the transfer, in the session log, and their absence from a protocol 1.7 dongle; SWE4-UT-BLESIM covers the simulated dongle's split and its replies, and traces to BLE-FR-121 too; SWE4-UT-FWUNIT 189 → 192 (`+dfu` reports `att_mtu=`, none without a link; `dfupkt` reports `piece=` and `pieces=`). |
 | 1.54 | 2026-10-28 | Claude | #181: SWE4-UT-DMM covers blank frames while ranging and frequency with no signal (9 cases); SWE4-UT-DMMPANEL covers the frequency steps skipped without `--signal` (2 cases); SWE4-UT-DMMBENCH selects frequency only with a frequency reference wired. |
-
 | 1.55 | 2026-10-28 | Claude | #247: SWE4-UT-SER, -SERCONSOLE, -SERSIM and -SERCLI added for the serial capture instrument (SER-FR-001 to SER-FR-013). |
 | 1.56 | 2026-10-29 | Claude | #247, review of #318: SWE4-UT-SER 37 → 54 - the socket port in place of writing to the loopback port from the test, what came before a capture discarded, a refused rate, line endings, port failures, stopping, and the start reply taken before the reader runs; SWE4-UT-SERCONSOLE - the pattern keeps its spaces; SWE4-UT-SERCLI 7 → 8 - a `NACK` before an `ACK` still exits 1. |
 | 1.57 | 2026-10-29 | Claude | #247, review of #318 round 2: SWE4-UT-SER 54 → 61 - LFCR and the ending after a cut line, a port that cannot open at a new rate, arrival times under a slow live output, no line after an abort, a start waiting for the last reader and refusing a stuck one; SWE4-UT-SERCONSOLE - a trailing space kept in the pattern. |
@@ -127,6 +126,8 @@
 | 1.90 | 2026-11-15 | Claude | #349: SWE4-UT-JLINK adds `test_attach.py` (a core left running by the GDB Server is halted on attach); SWE4-UT-JLINKSIM covers `monitor` commands after an attach and a running core's registers. |
 | 1.91 | 2026-11-15 | Claude | #352: SWE4-UT-JLINK adds `test_variable_address.py`: a variable at address 0 refused. |
 | 1.92 | 2026-11-15 | Claude | #352 review round 1: SWE4-UT-JLINK: the address-0 check's `&(name)` and side-effect skip; #351's attach wording brought in line with its review. |
+| next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. Blank lines that split this table removed. |
+
 ---
 
 ## 3. Purpose & Scope

@@ -12,7 +12,7 @@
 |---|---|---|---|
 | **Document ID** | ETB-SWE1-001 | **Version** | [latest, §2](#2-revision-history) |
 | **Project** | Embedded Test Bench | **Date** | [latest, §2](#2-revision-history) |
-| **Status** | Draft | **Classification** | Internal |
+| **Status** | [by location, ETB-SUP1-001 §6.3](EmbeddedTestBench_SUP1_Quality_Assurance_Plan.md#63-document-status) | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.1 |
 
@@ -77,7 +77,6 @@
 | 1.41 | 2026-10-28 | Claude | #243: S2LP-FR-088 to S2LP-FR-092 (host-monotonic packet times and a `where` filter; intervals with bursts; a frame-type census; every copy of a transmission compared; distinct values per group, each over a window or a packet log) and BLE-FR-123 (link times on the same clock). |
 | 1.42 | 2026-10-28 | Claude | #274: BLE-FR-121 - the result and its event-log record give each link's effective ATT MTU and piece size, and the smallest over the transfer; unknown from a dongle that does not report them. |
 | 1.43 | 2026-10-28 | Claude | #181: DMM-FR-035 (a measurement waits past the blank frames of auto-ranging) and DMM-FR-036 (frequency with no signal reported, with how to recover; a key that brings no reading reported as that) added, from the TTi 1604 on the bench. |
-
 | 1.44 | 2026-10-28 | Claude | #247: STK-24 and section 16, `SER-` (SER-FR-001 to SER-FR-013, SER-NFR-001): the serial capture instrument, its `RD`/`WR`/`ROUTINE` command set in the Kepler console's form, capturing, the live line output switched only by `WR LINES`, simulation, bench driver and command line. CORE-FR-063: the default name `SERIAL`. Sections 16 to 19 renumbered 17 to 20. |
 | 1.45 | 2026-10-29 | Claude | #247, review of #318: SER-FR-004 - the pattern as sent; SER-FR-006 - CR, LF and CRLF line endings, non-ASCII bytes escaped, a line after the window left out, a port error ending the capture `Aborted` with the error, a stopped reader finished before the abort returns; SER-FR-007 - a live copy that cannot be shown does not end the capture; SER-FR-009 - `error`. The runner is §17, not §15, in §8. |
 | 1.46 | 2026-10-29 | Claude | #247, review of #318 round 2: SER-FR-005 - `BUSY` while the last reader has not stopped; SER-FR-006 - LFCR pairs, a line timed and windowed by when it arrived, no line kept after the capture ended. |
@@ -105,6 +104,8 @@
 | 1.68 | 2026-11-15 | Claude | #349: JLINK-FR-004 - the driver halts the core on attaching, since a GDB Server already running does not; JLINK-FR-006's reason follows it. |
 | 1.69 | 2026-11-15 | Claude | #349 review round 1: JLINK-FR-004's reason narrowed to what #349 showed: the attach after an earlier client's `monitor go` finds the core running. |
 | 1.70 | 2026-11-15 | Claude | #352: JLINK-FR-041 - a variable at address 0 is refused. |
+| next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. Blank lines that split this table removed. |
+
 ---
 
 ## 3. Purpose & Scope

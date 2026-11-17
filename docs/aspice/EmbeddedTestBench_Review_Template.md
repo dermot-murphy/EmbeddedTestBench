@@ -2,7 +2,7 @@
 
 # Work Product Review Record — Template
 
-*Automotive SPICE® PAM v4.0 | GP 2.2.3, SUP.1, SUP.9*
+*Automotive SPICE® PAM v4.0 | GP 2.2.4, SUP.1, SUP.9*
 
 ---
 
@@ -12,9 +12,9 @@
 |---|---|---|---|
 | **Document ID** | ETB-TMPL-001 | **Version** | [latest, §2](#2-revision-history) |
 | **Project** | Embedded Test Bench | **Date** | [latest, §2](#2-revision-history) |
-| **Status** | Draft | **Classification** | Internal |
+| **Status** | [by location, ETB-SUP1-001 §6.3](EmbeddedTestBench_SUP1_Quality_Assurance_Plan.md#63-document-status) | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
-| **Approver** | Dermot Murphy | **Related Process** | GP 2.2.3 |
+| **Approver** | Dermot Murphy | **Related Process** | GP 2.2.4 |
 
 > Reviewer and Approver are the same person; see ETB-DEV-002.
 
@@ -30,6 +30,7 @@
 | 0.4 | 2026-10-05 | Claude | #204: §3.1 states that a pull request merge is an accepted form of review record and that checks C1 to C6 are what the Reviewer applies before merging. §9 points to the merge of the pull request that adds or last changes the record (ETB-SUP8-001 §5.7). |
 | 0.5 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | 0.6 | 2026-10-25 | Claude | #210: C4 also asks that the Version and Date cells link to the revision history and that a new row is written as `next` (ETB-SUP8-001 §6.2). |
+| next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. The QA review posted on each pull request uses checks C1 to C6 and the type checks, in the table form in §3.1. GP 2.2.4 named in place of GP 2.2.3. |
 
 ---
 
@@ -52,6 +53,18 @@ the pull request, or as a problem under ETB-SUP9-001 when it is Critical or
 Major, and the pull request is not merged until it is resolved. No copy of this
 form is needed for such a review; the pull request, its CI result and its merge
 record are the record.
+
+**The QA review on each pull request uses these checks** (ETB-SUP1-001 §6.5). It
+is posted as a review on the pull request, not on a copy of this form, and gives
+for each work product the pull request changes a table like this one:
+
+| Work product | C1 | C2 | C3 | C4 | C5 | C6 | Type checks (§6.2 to §6.5) |
+|---|---|---|---|---|---|---|---|
+| *document ID or path* | *pass / fail / n/a* | | | | | | *e.g. R1 pass, R2 fail* |
+
+Each fail is a finding in a review comment on the line or section, with its
+severity from §7. The review ends with its verdict: no findings, or findings to
+resolve.
 
 ### 3.2 Referenced Documents
 

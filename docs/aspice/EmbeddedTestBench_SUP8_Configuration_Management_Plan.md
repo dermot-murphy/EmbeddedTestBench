@@ -12,7 +12,7 @@
 |---|---|---|---|
 | **Document ID** | ETB-SUP8-001 | **Version** | [latest, §2](#2-revision-history) |
 | **Project** | Embedded Test Bench | **Date** | [latest, §2](#2-revision-history) |
-| **Status** | Draft | **Classification** | Internal |
+| **Status** | [by location, ETB-SUP1-001 §6.3](EmbeddedTestBench_SUP1_Quality_Assurance_Plan.md#63-document-status) | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SUP.8 |
 
@@ -45,6 +45,7 @@
 | 0.19 | 2026-10-27 | Claude | #305: §6.2 - the conflict style is read from the clone being merged. |
 | 0.20 | 2026-11-14 | Claude | #70: §4 - the prototype bench image (`docker/bench/`) added as a configuration item. |
 | 0.21 | 2026-11-14 | Claude | #195: §5.8 - `Home` and the home page both carry the README's "At a glance" section. |
+| next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. §6 document versions: the rule that a version moves to 1.0 on leaving Draft is removed, since status no longer moves out of Draft; §6.2 drops the same example. |
 
 ---
 
@@ -377,7 +378,7 @@ names, so its first run replaces those pages rather than duplicating them.
 
 | Item | Scheme |
 |---|---|
-| Documents | `major.minor`, starting at 0.1; 0.x while Draft, 1.0 at first approval. Held in the last revision history row and numbered at release (§6.2) |
+| Documents | `major.minor`, starting at 0.1. Status is not part of the version (ETB-SUP1-001 §6.3). Held in the last revision history row and numbered at release (§6.2) |
 | Python package and releases | Semantic versioning, written `MAJOR.MINOR.PATCH` as `0.01.0000`, in `pyproject.toml` and `benchtools/__init__.py`. A release is tagged `v<version>` with a lowercase `v`, e.g. `v0.01.0000`. Python packaging normalises the version under PEP 440, so the wheel's metadata reads `0.1.0` for `0.01.0000`; the tag and `__version__` keep the project's form (ETB-SVD-001 §5.1) |
 | Firmware | `major.minor.patch`, reported by the `rd version` command and recorded in the firmware manifest |
 | Baselines | Annotated git tags |
@@ -411,8 +412,7 @@ shows the values in place of the links (§5.8).
 | Feature, fix or docs branch | `next`, with the date of the change |
 | Release or hotfix branch | Each `next` row is numbered by `python scripts/doc_versions.py number`: one minor version above the row before it, in table order. The same command sets the version column of ETB-SVD-001 §5.3 (§5.6) |
 
-A row is numbered by hand only where the number is itself the change, such as
-1.0 at first approval (§6). Between releases `develop` can hold several `next`
+A row is numbered by hand only where the number is itself the change. Between releases `develop` can hold several `next`
 rows in one document.
 
 ETB-SVD-001 describes the released baseline and is changed only on a release

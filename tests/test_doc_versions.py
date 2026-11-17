@@ -143,6 +143,19 @@ class TestCheck:
                                                 rel in dv.HELD_BACK)]
         assert not offenders, "\n  ".join(["document versioning:"] + offenders)
 
+    def test_every_status_cell_links_to_the_status_rule(self):
+        # ETB-SUP1-001 §6.3 (#371): status follows from where the document
+        # is; a hand-written "Draft" in the cell is the defect this prevents.
+        offenders = []
+        for rel in dv.controlled_documents(ROOT):
+            for line in dv.read_text(ROOT / rel).splitlines():
+                if line.startswith("| **Status** |"):
+                    cell = line.split("|")[2].strip()
+                    if not (cell.startswith("[by location, ETB-SUP1-001 §6.3](")
+                            and "#63-document-status)" in cell):
+                        offenders.append("%s: %s" % (rel, cell))
+        assert not offenders, "\n  ".join(["status cell:"] + offenders)
+
 
 class TestNumber:
     def test_each_next_row_is_one_minor_version_above_the_row_before(self):
