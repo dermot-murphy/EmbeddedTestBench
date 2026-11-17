@@ -122,7 +122,8 @@
 | next | 2026-11-17 | Claude | #374: PICO-NFR-006 names the style.yml step by its new name, "Run CStyleCheck (PICO2 Test Board)". |
 | next | 2026-11-17 | Claude | #368: §18 - the design-unit answers say how they are checked, and that until #368 the check missed units with no code, `Traces to` lines with no unit, and the S2-LP kit firmware. |
 | next | 2026-11-17 | Claude | #367: §17 adds the DMM-ARC-001 and SER-ARC-001 rows, and the S2-LP kit firmware units. |
-| next | 2026-11-17 | Claude | #363: §20 traces each system requirement to the qualification scenarios that name it. Review & Approval is now §21. |
+| next | 2026-11-17 | Claude | #362: §20 traces each system requirement to the integration cases of ETB-SYS4-001 §5. Review & Approval is now §21. |
+| next | 2026-11-17 | Claude | #363: §21 traces each system requirement to the qualification scenarios that name it. Review & Approval is now §22. |
 
 ---
 
@@ -944,7 +945,88 @@ ETB-SWE4-002 §13D and the open items of §19 (OPEN-12).
 
 ---
 
-## 20. System Requirements to Qualification Scenarios (SYS.5)
+## 20. System Requirements to Integration Cases (SYS.4)
+
+Each system requirement and the integration cases of ETB-SYS4-001 §5 that
+exercise its interfaces (#362). The forward trace, from each case to its
+interface, elements and requirements, is in ETB-SYS4-001 §5. A requirement with
+no case is about the bench as a whole, and only qualification verifies it
+(ETB-SYS5-001).
+
+| System requirement | Integration cases |
+|---|---|
+| ETB-SYS2-001 | None: a property of the bench as a whole, verified by qualification |
+| ETB-SYS2-002 | None: a property of the bench as a whole, verified by qualification |
+| ETB-SYS2-003 | None: a property of the bench as a whole, verified by qualification |
+| ETB-SYS2-004 | None: a property of the bench as a whole, verified by qualification |
+| ETB-SYS2-010 | ETB-SIT-01, ETB-SIT-03, ETB-SIT-17, ETB-SIT-19 |
+| ETB-SYS2-011 | None: a property of the bench as a whole, verified by qualification |
+| ETB-SYS2-012 | None: a property of the bench as a whole, verified by qualification |
+| ETB-SYS2-013 | None: a property of the bench as a whole, verified by qualification |
+| ETB-SYS2-014 | None: a property of the bench as a whole, verified by qualification |
+| ETB-SYS2-015 | ETB-SIT-03 |
+| ETB-SYS2-016 | None: a property of the bench as a whole, verified by qualification |
+| ETB-SYS2-017 | ETB-SIT-22 |
+| ETB-SYS2-020 | ETB-SIT-03 |
+| ETB-SYS2-021 | ETB-SIT-03 |
+| ETB-SYS2-022 | ETB-SIT-04 |
+| ETB-SYS2-023 | ETB-SIT-05 |
+| ETB-SYS2-024 | ETB-SIT-05 |
+| ETB-SYS2-025 | None: a property of the bench as a whole, verified by qualification |
+| ETB-SYS2-026 | ETB-SIT-19, ETB-SIT-20 |
+| ETB-SYS2-030 | ETB-SIT-06, ETB-SIT-07 |
+| ETB-SYS2-031 | ETB-SIT-06, ETB-SIT-07 |
+| ETB-SYS2-032 | ETB-SIT-06 |
+| ETB-SYS2-033 | ETB-SIT-06 |
+| ETB-SYS2-034 | ETB-SIT-06, ETB-SIT-09 |
+| ETB-SYS2-035 | ETB-SIT-06, ETB-SIT-15 |
+| ETB-SYS2-036 | ETB-SIT-07, ETB-SIT-13 |
+| ETB-SYS2-037 | ETB-SIT-23 |
+| ETB-SYS2-040 | ETB-SIT-10 |
+| ETB-SYS2-041 | ETB-SIT-10, ETB-SIT-13 |
+| ETB-SYS2-042 | ETB-SIT-11 |
+| ETB-SYS2-043 | ETB-SIT-11 |
+| ETB-SYS2-044 | None: a property of the bench as a whole, verified by qualification |
+| ETB-SYS2-045 | ETB-SIT-12 |
+| ETB-SYS2-046 | ETB-SIT-14, ETB-SIT-24 |
+| ETB-SYS2-047 | ETB-SIT-14, ETB-SIT-24 |
+| ETB-SYS2-051 | ETB-SIT-21 |
+| ETB-SYS2-052 | ETB-SIT-21 |
+| ETB-SYS2-053 | ETB-SIT-21 |
+| ETB-SYS2-048 | ETB-SIT-08, ETB-SIT-12 |
+| ETB-SYS2-049 | ETB-SIT-08, ETB-SIT-12 |
+| ETB-SYS2-050 | ETB-SIT-08, ETB-SIT-12 |
+| ETB-SYS2-060 | ETB-SIT-01 |
+| ETB-SYS2-061 | ETB-SIT-02 |
+| ETB-SYS2-062 | ETB-SIT-15 |
+| ETB-SYS2-063 | None: a property of the bench as a whole, verified by qualification |
+| ETB-SYS2-064 | ETB-SIT-02 |
+| ETB-SYS2-065 | ETB-SIT-17, ETB-SIT-18 |
+| ETB-SYS2-070 | None: a property of the bench as a whole, verified by qualification |
+| ETB-SYS2-071 | None: a property of the bench as a whole, verified by qualification |
+| ETB-SYS2-072 | None: a property of the bench as a whole, verified by qualification |
+| ETB-SYS2-073 | None: a property of the bench as a whole, verified by qualification |
+| ETB-SYS2-074 | None: a property of the bench as a whole, verified by qualification |
+| ETB-SYS2-075 | None: a property of the bench as a whole, verified by qualification |
+| ETB-SYS2-076 | None: a property of the bench as a whole, verified by qualification |
+| ETB-SYS2-077 | None: a property of the bench as a whole, verified by qualification |
+| ETB-SYS2-078 | None: a property of the bench as a whole, verified by qualification |
+| ETB-SYS2-079 | ETB-SIT-16 |
+| ETB-SYS2-080 | None: a property of the bench as a whole, verified by qualification |
+| ETB-SYS2-081 | None: a property of the bench as a whole, verified by qualification |
+| ETB-SYS2-082 | None: a property of the bench as a whole, verified by qualification |
+| ETB-SYS2-083 | None: a property of the bench as a whole, verified by qualification |
+| ETB-SYS2-084 | None: a property of the bench as a whole, verified by qualification |
+| ETB-SYS2-090 | None: a property of the bench as a whole, verified by qualification |
+| ETB-SYS2-091 | ETB-SIT-10 |
+| ETB-SYS2-092 | None: a property of the bench as a whole, verified by qualification |
+| ETB-SYS2-093 | None: a property of the bench as a whole, verified by qualification |
+| ETB-SYS2-094 | None: a property of the bench as a whole, verified by qualification |
+| ETB-SYS2-095 | None: a property of the bench as a whole, verified by qualification |
+
+---
+
+## 21. System Requirements to Qualification Scenarios (SYS.5)
 
 Each system requirement of ETB-SYS2-001 and the scenarios of ETB-SYS5-001 §5 that
 qualify it (#363). The result of each scenario on hardware is in ETB-SYS5-002.
@@ -1022,7 +1104,7 @@ qualify it (#363). The result of each scenario on hardware is in ETB-SYS5-002.
 
 ---
 
-## 21. Review & Approval
+## 22. Review & Approval
 
 Review and approval of this document are not entered in this table. They are
 given by the merge of the pull request that last changed the document, and that

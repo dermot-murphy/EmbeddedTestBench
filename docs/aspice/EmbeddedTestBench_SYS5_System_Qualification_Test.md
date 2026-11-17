@@ -33,7 +33,7 @@
 | 0.7 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
 | next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. |
 | next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
-| next | 2026-11-17 | Claude | #363: every system requirement is now named by a scenario. QS-01 adds -071 and -072; QS-02 adds -080 to -083; QS-08 adds -090. QS-11 (inspection: -013, -093, -095), QS-12 (PPK2, -026), QS-13 (serial capture, -037), QS-14 (PicoScope, -065) and QS-15 (PICO2 Test Board, -017) are added. §4.1 states the selection and regression rule. §8 records that the entry criterion was not met for the 2026-10-04 campaign. X2 counts against the 68 requirements. |
+| next | 2026-11-17 | Claude | #363: every system requirement is now named by a scenario. QS-01 adds -071 and -072; QS-02 adds -080 to -083; QS-08 adds -090. QS-11 (inspection: -013, -093, -095), QS-12 (PPK2, -026), QS-13 (serial capture, -037), QS-14 (PicoScope, -065) and QS-15 (PICO2 Test Board, -017) are added. QS-15 reads the temperature only: #131 removed humidity. §4.1 states the selection and regression rule. §8 records that the entry criterion was not met for the 2026-10-04 campaign. X2 counts against the 68 requirements. |
 
 ---
 
