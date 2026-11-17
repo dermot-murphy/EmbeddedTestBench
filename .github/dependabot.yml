@@ -17,6 +17,10 @@
 # increase-if-necessary (#228). New releases arrive through
 # .github/workflows/constraints_refresh.yml instead. Dependabot security
 # updates are a separate feature and still cover pip.
+#
+# Dependabot reads this file from the default branch, main, so a change here
+# takes effect at the next release. main kept the pip entry until v0.03.0000,
+# which is why pip pull requests still opened after #284 (#376).
 
 version: 2
 

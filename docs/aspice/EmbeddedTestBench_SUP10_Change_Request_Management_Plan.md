@@ -31,6 +31,7 @@
 | 0.5 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
 | next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. |
 | next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
+| next | 2026-11-17 | Claude | #375: the plan follows the practice. §5 says where each step is recorded on the issue, and that approval is on the issue before work starts. §5 step 3 - one instruction covering several issues is quoted once on their umbrella issue. §6 - the ID is the issue number, the `change-request` label exists, and the issue headings map to the record's fields. |
 
 ---
 
@@ -82,14 +83,20 @@ not yet baselined, for fixing a problem within an agreed requirement
 
 ## 5. Process
 
-| Step | What happens | Who |
-|---|---|---|
-| 1. Raise | A change request record (§6) is created with the proposal and its reason | Anyone |
-| 2. Impact analysis | The affected requirements, design elements, tests, documents and bench specifications are listed, using ETB-RTM-001 to find them. Effort and risk are stated | Author |
-| 3. Decide | Approved, rejected or deferred, with the reason recorded | Project lead |
-| 4. Implement | On a branch; code, tests and documents change together | Author |
-| 5. Verify | Suite green including the traceability check; the change's own tests fail without it | Author |
-| 6. Close | Merged; the change request records the merge revision | Project lead |
+| Step | What happens | Who | Recorded on the issue as |
+|---|---|---|---|
+| 1. Raise | A change request record (§6) is created with the proposal and its reason | Anyone | The issue, labelled `change-request` |
+| 2. Impact analysis | The affected requirements, design elements, tests, documents and bench specifications are listed, using ETB-RTM-001 to find them. Effort and risk are stated | Author | An "Impact" section in the body, or a comment headed "Impact analysis", before work starts |
+| 3. Decide | Approved, rejected or deferred, with the reason recorded | Project lead | Approved: the owner's comment on the issue, or the owner's instruction to work it, quoted on the issue with its date by the session that works it, or once on the umbrella issue when one instruction covers the issues it lists (for #362 to #379: #380, 2026-11-17). Rejected: closed as not planned with the reason. Deferred: labelled `blocked` with the reason |
+| 4. Implement | On a branch; code, tests and documents change together | Author | The linked pull request |
+| 5. Verify | Suite green including the traceability check; the change's own tests fail without it | Author | The pull request's CI result and its QA review (ETB-SUP1-001 §6.5) |
+| 6. Close | Merged; the change request records the merge revision | Project lead | A closing comment naming the merged pull request, its merge commit and the tests that cover the change |
+
+Step 3 comes before step 4: no branch is pushed for a change request until its
+approval is on the issue. Quoting the owner's instruction records the
+instruction and its date. It is not an approval written on the owner's behalf:
+the instruction is the approval, as a merge instruction is for a pull request
+(ETB-SUP8-001 §5.7).
 
 ### 5.1 Impact Analysis Is the Point
 
@@ -103,11 +110,17 @@ it, and the traceability check will fail the build if the answer was incomplete.
 ## 6. Change Request Record
 
 Change requests are recorded as repository issues labelled `change-request`, and
-referenced from the pull request that implements them.
+referenced from the pull request that implements them. The ID is the issue
+number, `#n`; there is no separate ETB-CR-nnn number. Traceability runs through
+it: the revision history row of each document the change touches names the
+issue, the commits and pull request name it, and the issue names the affected
+IDs. Most issues use the headings Problem, Fix and Acceptance; Problem holds the
+Description and Reason, Fix the proposal, and the fields below that those
+headings do not hold are added as their own sections.
 
 | Field | Content |
 |---|---|
-| **Change Request ID** | ETB-CR-nnn |
+| **Change Request ID** | The issue number, `#n` |
 | **Raised by / date** | |
 | **Title** | One line |
 | **Type** | New capability / Requirement change / Design change / Process change / Supplier-driven |
