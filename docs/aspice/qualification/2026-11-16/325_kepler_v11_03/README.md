@@ -18,7 +18,7 @@ what it showed.
 |---|---|---|
 | Embedded Test Bench | `develop` at a274967 (0.02.0002 plus the work released as 0.03.0000), installed in its own virtual environment | `v0.02.0002` |
 | BLE dongle | PCA10059 on COM10, firmware 1.8.0 (protocol 1.8) | Firmware 1.7.0 |
-| Kepler specifications | innovateuk-sensor at b1276eba, a frozen clone, so edits made to Kepler during the run did not affect it | Kepler `master` at 0fbb3f85 |
+| Kepler specifications | innovateuk-sensor at b1276eba, on Kepler's branch `feature/TX-1269-re-pin-kepler-bench-tests-to-next-etb-release`, in a frozen clone, so edits made to Kepler during the run did not affect it | Kepler `master` at 0fbb3f85 |
 | Sensor under test | 5C1712 (BLE D1:8D:3B:4C:19:96), V11.03.0000 V4X DEBUG, flashed by J-Link after a flash and UICR backup | The same sensor and image |
 | Test gateway | 5C4EE7 (C9:91:37:E4:C7:36), in TEST mode between specifications | The same |
 | Other instruments | GPD-3303D on COM11 (channel 2 at 3.3 V, independent mode); S2-LP kit on COM4; J-Link OB S/N 682395790 | The same |
@@ -55,8 +55,19 @@ OT-D-26 (a VERSION frame every 12 hours). The power-cycle soak
   - The sensor's BLE link dropped (reason 0x08), and the next commands were
     refused with `not connected`. The bench reported this correctly.
 - The case and its neighbours were run again on 2026-11-16 (`q2_sync_rerun`).
-  The SYNC checks passed with no reset.
-- It is a sensor firmware fault, reported to Kepler (TX-1269), and not a
+  Its own verdict is **FAIL, 3 passed, 2 failed, 21 skipped**. The SYNC checks
+  (OT-F-08, OT-F-14) passed with no reset. The two failures are Kepler test
+  limits, not SYNC and not the bench:
+  - V10-E-06 read 2840 mV at 3.1 V (limit 2950 to 3150 mV). The J-Link was
+    unplugged for the re-run; with it fitted the main run read about 3100 mV.
+  - OT-E-04: the 64-pair preamble is written by an earlier case that the
+    re-run skipped, so the boot frames carried 32 pairs and the read-back was
+    `32 Pairs`. That read-back check fails the SYNC case.
+  Both were sent to Kepler's TX-1269 session as test changes.
+- It is a sensor firmware fault and not a bench defect. It was told to
+  Kepler's TX-1269 session; TX-1269 is the re-pin ticket, so the fault
+  needs a Kepler bug of its own to stay open after the re-pin closes. None
+  has been raised yet. The fault was not a
   bench defect.
 
 **`s_release_legacy_ota`: ERROR in V10-F-01b (baseline: PASS 3/0).**

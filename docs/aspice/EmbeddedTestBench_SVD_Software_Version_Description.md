@@ -98,6 +98,7 @@ removes them, is not in this release.
 | Kepler decoder | Each frame's layout is chosen by its type version; FFT2 type version 2; V10.00's 96-byte and V10.01.x's 99-byte TWF frames decode | #287 / #289; #255 / #288; #313 / #333; #335 / #346 |
 | S2-LP | The interrupt is routed again after a defaults reset, so a receive after a transmit works; frames a stopping receive reports are kept, and `kepler_frame` takes `since_last`; only what re-arming needs is sent between two receives; frame measures (intervals, copies, census, field filters) | #179 / #278; #293 / #298; #299 / #307, #308 / #309; #243 / #312 |
 | S2-LP kit firmware | The project's own firmware for the NUCLEO-L053R8 kit: it receives on the interrupt and queues frames on the board | #84 / #348 |
+| Kepler specifications | The battery and temperature patterns accept the space V11.02 firmware puts before mV and mC | #314 / #315 |
 | Simulation | The simulated S2-LP kit receives the simulated Kepler sensor's frames | #122 / #311 |
 | BLE dongle | Firmware 1.8.0, protocol 1.8: the dongle reports the DFU piece size and ATT MTU it uses. The link code is unchanged from 1.7.0 | #274 / #316 |
 | J-Link | A `segger` backend (JLink.exe command files, RTT Logger) beside `gdb`; the core is halted on attach; a variable GDB places at address 0 is refused | #71 / #336, #337; #349 / #351; #352 / #353 |
@@ -170,6 +171,7 @@ baseline. Its manifests are under `specs/qualification/firmware/`.
 | ETB-SWE5-001 | Software Integration & Integration Test | 0.5 | Draft |
 | ETB-SWE6-001 | Software Qualification Test | 0.7 | Draft |
 | ETB-IF-001 | GPD-3303D Remote Control Interface Specification | 0.4 | Draft |
+| ETB-IF-002 | PicoScope 3000D Driver Interface and Dependencies | 0.1 | Draft |
 | ETB-RTM-001 | Requirements Traceability Matrix | 1.83 | Draft |
 | ETB-MAN3-001 | Project Management Plan | 0.5 | Draft |
 | ETB-MAN5-001 | Risk Management Plan | 0.7 | Draft |
@@ -188,6 +190,8 @@ baseline. Its manifests are under `specs/qualification/firmware/`.
 | ETB-DEV-002 | Deviation Record — Reviewer Independence | 0.5 | Draft |
 | ETB-TMPL-001 | Work Product Review Record — Template | 0.6 | Draft |
 | ETB-TMPL-002 | Test Case Specification — Template | 0.5 | Draft |
+| ETB-DOCK-001 | Bench Tools in a Container: Investigation and Recommendation | 0.6 | Draft |
+| ETB-PICO-002 | PICO2 Test Board User Manual | 0.2 | Draft |
 
 Every document in this baseline is **Draft**. Since #204, review and approval of
 a change are given by the merge of its pull request (ETB-SUP8-001 §5.7), so each
@@ -204,7 +208,7 @@ of Draft status.
 | `.github/workflows/tests.yml` | Runs the Python suite with coverage on Python 3.8, 3.9 and 3.12, gated at 90% |
 | `.github/workflows/lint.yml` | Runs pylint over `benchtools/`, `tests/` and `scripts/` against its baseline |
 | `.github/workflows/style.yml` | Runs CStyleCheck over the firmware against its baseline |
-| `.github/workflows/firmware.yml` | Builds and unit-tests the dongle and Pico firmware (path-filtered) |
+| `.github/workflows/firmware.yml` | Builds and unit-tests the dongle, PICO2 Test Board and S2-LP kit firmware (path-filtered) |
 | `scripts/lint.py` | The pylint runner and baseline comparison |
 | `.github/workflows/wiki_publish.yml`, `.github/workflows/pages_publish.yml`, `scripts/publish_docs.py` | Generate and publish the wiki and the `gh-pages` home page from `main` (ETB-SUP8-001 §5.8) |
 | `.github/dependabot.yml` | Weekly version updates, targeting `develop` |
@@ -252,7 +256,7 @@ of Draft status.
 | C coding-standard check | Green in CI against its baseline |
 | Python lint | Green in CI against its baseline |
 | System qualification on hardware | **44 of 64** system requirements qualified, 3 partially qualified, 10 not qualified, 2 not performed and 5 out of scope (ETB-SYS5-002 §7.1, run 2026-10-04). Not rerun for this release |
-| Kepler regression run (#325, #239) | The bench PC with sensor 5C1712 on **Kepler V11.03.0000**, 2026-11-15 to 2026-11-16: Kepler's TX-1266 automated set, 66 run folders, against the same set on `v0.02.0002`. 60 had the same verdict, 4 did better, and 2 did worse for reasons outside the bench: a sensor watchdog reset during SYNC, which did not happen again on a re-run, and a missing Kepler package, after which the case passed. The 13-hour soak passed. The RF logs show one unexpected sensor reset, that watchdog reset. This is the Kepler firmware this release is qualified against (`docs/aspice/qualification/2026-11-16/325_kepler_v11_03/`) |
+| Kepler regression run (#325, #239) | The bench PC with sensor 5C1712 on **Kepler V11.03.0000** (the V4X DEBUG image), 2026-11-15 to 2026-11-16: Kepler's TX-1266 automated set, from innovateuk-sensor b1276eba on Kepler's TX-1269 branch, 66 run folders, against the same set on `v0.02.0002`. 60 had the same verdict, 4 did better, and 2 did worse for reasons outside the bench: a sensor watchdog reset during SYNC, which did not happen again on a re-run (the re-run's own verdict is FAIL, for two Kepler test-limit reasons recorded in the qualification folder, not for SYNC), and a missing Kepler package, after which the case passed. The 13-hour soak passed. The RF logs show one unexpected sensor reset, that watchdog reset. This is the Kepler firmware this release is qualified against (`docs/aspice/qualification/2026-11-16/325_kepler_v11_03/`) |
 | Hardware runs of changes since `v0.02.0002` | #293, #299 (S2-LP receive gaps, 2026-10-25, 2026-10-27); #181 (TTi 1604), #274 (DFU piece size and MTU) (2026-10-28); #335, #340 (V10 TWF decoding), #84 (S2-LP kit firmware and driver) (2026-11-14); #349, #352, #70 (J-Link) (2026-11-15). The folders are under `docs/aspice/qualification/`. The PICO2 Test Board firmware ran on the bench Pico 2 (ETB-SWE4-002 §13A) |
 
 The release branch changes only the version, the usage examples, the document
