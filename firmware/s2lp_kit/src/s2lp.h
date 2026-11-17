@@ -32,7 +32,6 @@
 /** Interrupt bits, in the 32-bit word read from IRQ_STATUS3 .. 0. */
 #define S2LP_IRQ_RX_DATA_READY  (1UL << 0)
 #define S2LP_IRQ_RX_DATA_DISC   (1UL << 1)
-#define S2LP_IRQ_CRC_ERROR      (1UL << 4)
 #define S2LP_IRQ_RX_FIFO_ERROR  (1UL << 6)
 
 /** GPIO_CONF value: nIRQ out, digital output, low power (mode 2). */

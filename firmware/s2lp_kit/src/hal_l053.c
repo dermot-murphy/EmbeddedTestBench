@@ -217,12 +217,12 @@ uint8_t hal_spi_transfer(uint8_t byte)
 	{
 		/* Wait for room. */
 	}
-	*(volatile uint8_t *)(uintptr_t)(L053_SPI1_BASE + 0x0CUL) = byte;
+	L053_SPI1_DR8 = byte;
 	while ((L053_SPI1_SR & L053_SPI_SR_RXNE) == 0U)
 	{
 		/* Wait for the byte in. */
 	}
-	return *(volatile uint8_t *)(uintptr_t)(L053_SPI1_BASE + 0x0CUL);
+	return L053_SPI1_DR8;
 }
 
 void hal_radio_shutdown(bool shutdown)
@@ -341,7 +341,6 @@ void hal_tim2_isr(void)
 void hal_usart2_isr(void)
 {
 	uint32_t status = L053_USART2_ISR;
-	uint8_t byte;
 
 	if ((status & L053_USART_ISR_ORE) != 0U)
 	{
@@ -350,7 +349,8 @@ void hal_usart2_isr(void)
 	}
 	if ((status & L053_USART_ISR_RXNE) != 0U)
 	{
-		byte = (uint8_t)L053_USART2_RDR;
+		uint8_t byte = (uint8_t)L053_USART2_RDR;
+
 		if ((m_rx_head - m_rx_tail) < HAL_RX_SIZE)
 		{
 			m_rx_bytes[m_rx_head % HAL_RX_SIZE] = byte;
