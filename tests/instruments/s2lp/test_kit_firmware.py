@@ -59,8 +59,8 @@ class TestLines:
         assert parse_record(line) is None
 
     def test_the_identity(self):
-        identity = parse_identity("ok etb-s2lp-kit V1.00.0000 proto=1 silicon=c1")
-        assert (identity.version, identity.protocol, identity.silicon) == ("V1.00.0000", 1, 0xC1)
+        identity = parse_identity("ok etb-s2lp-kit V1.00.0001 proto=1 silicon=c1")
+        assert (identity.version, identity.protocol, identity.silicon) == ("V1.00.0001", 1, 0xC1)
         assert parse_identity("no such command") is None
 
 
@@ -69,7 +69,7 @@ class TestChoosingTheFirmware:
         assert kit.kit_firmware
         assert isinstance(kit.session, KitSession)
         assert board.command_log[0] == "id"
-        assert kit.identify().firmware == "etb-s2lp-kit V1.00.0000"
+        assert kit.identify().firmware == "etb-s2lp-kit V1.00.0001"
         assert kit.silicon_version == 0xC1
 
     def test_st_firmware_answers_id_with_an_error_and_is_kept(self):

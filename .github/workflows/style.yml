@@ -119,15 +119,24 @@ jobs:
         run: |
           set -uo pipefail
           status=0
+          # Cppcheck 2.13 (Ubuntu 24.04) does not count the misra addon's
+          # findings towards --error-exitcode, so the step also fails when
+          # anything at all is reported (#379, review of PR #402).
           check() {
             tree=$1
             shift
             echo "::group::MISRA C:2012 - $tree"
+            report=$(mktemp)
             cppcheck --addon=misra --enable=style --std=c11 --platform=unix32 \
               --check-level=exhaustive --error-exitcode=1 --quiet \
               --suppressions-list=.cppcheck-misra-suppressions.txt \
               --template='::error file={file},line={line},col={column}::{id}: {message}' \
-              "$@" "firmware/$tree/src" "firmware/$tree/include" || status=1
+              "$@" "firmware/$tree/src" "firmware/$tree/include" 2> "$report"
+            code=$?
+            cat "$report"
+            if [ "$code" -ne 0 ] || [ -s "$report" ]; then
+              status=1
+            fi
             echo "::endgroup::"
           }
           check nordic_dongle \

@@ -57,7 +57,7 @@ bool cmd_args_unsigned(const char * text, uint32_t * p_value)
 	return cmd_args_read_unsigned(text, p_value, NULL);
 }
 
-bool cmd_args_signed(const char * text, int32_t * p_value)
+static bool cmd_args_signed(const char * text, int32_t * p_value)
 {
 	long long	value;
 	bool		fits;

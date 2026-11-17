@@ -683,7 +683,7 @@ class NordicDongle(Instrument):  # pylint: disable=too-many-instance-attributes,
         self,
         firmware: Union[str, FirmwareBuild, None] = None,
         port: Optional[str] = None,
-        timeout: float = 180.0,  # pylint: disable=unused-argument  # documented API; not yet used
+        timeout: float = 180.0,
         settle: float = 3.0,
         flasher=None,
     ) -> FirmwareStatus:
@@ -697,8 +697,9 @@ class NordicDongle(Instrument):  # pylint: disable=too-many-instance-attributes,
         :param port: Serial port the bootloader appears on. Defaults to the
             port this dongle was opened on, which is right on Linux and often
             wrong on Windows, where the bootloader takes a different COM number.
-        :param timeout: Not used: ``nrfutil`` runs with its own default of
-            180 s (see #379).
+        :param timeout: Seconds ``nrfutil`` may take to flash the package
+            before it is stopped and the update fails. A supplied *flasher*
+            keeps its own time limit.
         :param settle: Seconds to allow for re-enumeration before reconnecting.
         :param flasher: Called as ``flasher(package, port)``; ``nrfutil`` by
             default. A test supplies its own.
@@ -727,8 +728,10 @@ class NordicDongle(Instrument):  # pylint: disable=too-many-instance-attributes,
         self.enter_dfu()
         time.sleep(settle)
 
-        run = flasher if flasher is not None else run_nrfutil
-        output = run(package, str(target_port))
+        if flasher is None:
+            output = run_nrfutil(package, str(target_port), timeout=timeout)
+        else:
+            output = flasher(package, str(target_port))
         self._logger.info("nrfutil: %s", str(output).strip()[:400])
 
         time.sleep(settle)

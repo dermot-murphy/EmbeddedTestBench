@@ -33,14 +33,6 @@ extern "C" {
 bool cmd_args_unsigned(const char * text, uint32_t * p_value);
 
 /**
- * @brief Read @p text as a signed decimal number, as strtol() would.
- *
- * @param[out] p_value  The number read.
- * @return False when the number does not fit in 32 bits.
- */
-bool cmd_args_signed(const char * text, int32_t * p_value);
-
-/**
  * @brief Read @p token as timeout=<ms>, if it is one.
  *
  * @param[out] p_timeout_ms  The value, when the token is a timeout.

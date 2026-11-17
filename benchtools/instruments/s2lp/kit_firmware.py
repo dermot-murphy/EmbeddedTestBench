@@ -17,7 +17,7 @@ are refused with a message naming the firmware.
 
 The protocol, one command per line, each answered by one line::
 
-    id                      ok etb-s2lp-kit V1.00.0000 proto=1 silicon=c1
+    id                      ok etb-s2lp-kit V1.00.0001 proto=1 silicon=c1
     rd <addr> <count>       ok <hex>
     wr <addr> <hex>         ok
     cmd <code>              ok <MC_STATE1><MC_STATE0>
@@ -371,7 +371,7 @@ class SimulatedKitFirmware:  # pylint: disable=too-many-instance-attributes
     frame sets (RSSI, PQI, ...) are given with the frame.
     """
 
-    def __init__(self, version: str = "V1.00.0000", silicon: int = 0xC1) -> None:
+    def __init__(self, version: str = "V1.00.0001", silicon: int = 0xC1) -> None:
         self.version = version
         self.silicon = silicon
         self.registers: Dict[int, int] = {address: entry.reset

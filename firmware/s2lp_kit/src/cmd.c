@@ -31,6 +31,9 @@
 
 static const char m_hex_digits[] = "0123456789abcdef";
 
+/** Send every record still queued, oldest first. */
+static void cmd_send_queued(void);
+
 /**
  * @brief Text being built for the host.
  */
@@ -396,11 +399,12 @@ static bool cmd_parse_address_list(char *text, uint8_t *addresses, uint32_t *cou
 static void cmd_rx(char *words[], uint32_t count)
 {
 	cmd_out_t out;
-	uint8_t addresses[PROTO_MAX_REGISTERS];
-	uint32_t address_count = 0U;
 
 	if ((count >= 2U) && (strcmp(words[1], "start") == 0) && (count <= 3U))
 	{
+		uint8_t addresses[PROTO_MAX_REGISTERS];
+		uint32_t address_count = 0U;
+
 		if ((count == 3U) && !cmd_parse_address_list(words[2], addresses, &address_count))
 		{
 			cmd_send_text("err bad argument");
@@ -450,7 +454,7 @@ void cmd_line_too_long(void)
 	cmd_send_text("err line too long");
 }
 
-void cmd_send_queued(void)
+static void cmd_send_queued(void)
 {
 	char line[CMD_OUT_MAX];
 	const ring_record_t *record = ring_peek();

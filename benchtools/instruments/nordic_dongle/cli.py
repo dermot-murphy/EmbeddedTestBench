@@ -331,7 +331,7 @@ def _add_dongle_commands(subparsers) -> None:
 
 def _add_sensor_commands(subparsers) -> None:
     """Add the sub-commands that measure or talk to one sensor: profile and cmd."""
-    profile =subparsers.add_parser("profile", help="measure the advertising profile")
+    profile = subparsers.add_parser("profile", help="measure the advertising profile")
     profile.add_argument("--duration", type=float, default=10.0, help="seconds to capture")
     profile_target = profile.add_mutually_exclusive_group()
     profile_target.add_argument("--addr", help="address to profile")

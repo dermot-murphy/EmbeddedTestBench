@@ -27,7 +27,7 @@ One per line, `\n` or `\r` ended; each is answered by one line, `ok ...` or
 `err <reason>`.
 
 ```
-id                      ok etb-s2lp-kit V1.00.0000 proto=1 silicon=c1
+id                      ok etb-s2lp-kit V1.00.0001 proto=1 silicon=c1
 rd <addr> <count>       ok <hex>              count 1 .. 128, decimal
 wr <addr> <hex>         ok                    1 .. 128 bytes
 cmd <code>              ok <MC_STATE1><MC_STATE0>, after a command strobe
