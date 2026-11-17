@@ -45,6 +45,7 @@
 | 0.19 | 2026-10-27 | Claude | #305: §6.2 - the conflict style is read from the clone being merged. |
 | 0.20 | 2026-11-14 | Claude | #70: §4 - the prototype bench image (`docker/bench/`) added as a configuration item. |
 | 0.21 | 2026-11-14 | Claude | #195: §5.8 - `Home` and the home page both carry the README's "At a glance" section. |
+| next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at its released version, its last numbered revision, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). §6.2: the rule for the versions a Referenced Documents table cites, set by `number` and checked by `check`. |
 
 ---
 
@@ -64,11 +65,11 @@ input to the run is an identified configuration item.
 
 | Document ID | Title | Version |
 |---|---|---|
-| ETB-MAN3-001 | Embedded Test Bench Project Management Plan | 0.1 |
-| ETB-SUP1-001 | Embedded Test Bench Quality Assurance Plan | 0.1 |
-| ETB-SUP10-001 | Embedded Test Bench Change Request Management Plan | 0.1 |
-| ETB-ACQ4-001 | Embedded Test Bench Supplier Monitoring Plan | 0.1 |
-| ETB-SVD-001 | Embedded Test Bench Software Version Description | 0.1 |
+| ETB-MAN3-001 | Embedded Test Bench Project Management Plan | 0.5 |
+| ETB-SUP1-001 | Embedded Test Bench Quality Assurance Plan | 0.5 |
+| ETB-SUP10-001 | Embedded Test Bench Change Request Management Plan | 0.5 |
+| ETB-ACQ4-001 | Embedded Test Bench Supplier Monitoring Plan | 0.11 |
+| ETB-SVD-001 | Embedded Test Bench Software Version Description | 0.10 |
 
 ### 3.3 Scope
 
@@ -415,6 +416,16 @@ A row is numbered by hand only where the number is itself the change, such as
 1.0 at first approval (§6). Between releases `develop` can hold several `next`
 rows in one document.
 
+**Referenced documents (#377).** A Referenced Documents table with the
+columns Document ID, Title and Version cites each controlled document at its
+*released* version: the version of its last numbered revision history row.
+`next` rows are not counted, since they are not yet a version anyone can cite.
+So a change on a branch does not touch the tables that cite the document, and
+`number` sets every such table when it numbers the `next` rows on the release
+or hotfix branch. A table that cites another baseline, such as ETB-SUP1-002's
+"Version at `v0.03.0000`", has another header and is not changed. A cited ID that
+is not a controlled document in this repository is not checked.
+
 ETB-SVD-001 describes the released baseline and is changed only on a release
 or hotfix branch (§7). It keeps literal values, which must equal its last
 history row, until it is next revised; it then takes the links, and is removed
@@ -425,7 +436,8 @@ from `HELD_BACK` in `scripts/doc_versions.py`.
 elsewhere than its own history, if its numbered rows do not increase, if a
 numbered row follows a `next` row, or if a history row's version is neither
 `major.minor` nor `next` (a typo such as `Next` or `0.7.1` would otherwise be
-skipped). `tests/test_traceability.py`
+skipped), or if a Referenced Documents table cites a controlled document at
+other than its released version. `tests/test_traceability.py`
 (SWE4-UT-TRACE) also fails if any history table's version column decreases
 from one row to the next.
 

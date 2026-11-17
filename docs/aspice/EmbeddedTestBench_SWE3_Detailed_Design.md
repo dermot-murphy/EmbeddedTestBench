@@ -125,6 +125,7 @@
 | 1.88 | 2026-11-15 | Claude | #352: JLINK-DD-PROBE - `read_variable`, `write_variable` and `variable_address` refuse a variable at address 0 (`_refuse_address_zero`, `_address_of`). |
 | 1.89 | 2026-11-15 | Claude | #352 review round 1: JLINK-DD-PROBE - the address-0 check takes `&(name)` and skips an expression that may have a side effect. |
 | 1.90 | 2026-11-15 | Claude | #352 review round 2: JLINK-DD-PROBE - the side-effect skip covers `>>=` and `<<=`, and says a cast is skipped too. |
+| next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at its released version, its last numbered revision, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
 ---
 
 ## 3. Purpose & Scope
@@ -143,12 +144,12 @@ Design and Unit Construction**.
 
 | Document ID | Title | Version |
 |---|---|---|
-| ETB-SWE1-001 | Embedded Test Bench Software Requirements Specification | 0.1 |
-| ETB-SWE2-001 | Embedded Test Bench Software Architecture Description | 0.1 |
-| ETB-SWE4-001 | Embedded Test Bench Software Unit Verification Specification | 0.2 |
-| ETB-RTM-001 | Embedded Test Bench Requirements Traceability Matrix | 0.6 |
-| ETB-IF-001 | GPD-3303D Remote Control Interface Specification | 0.1 |
-| ETB-SWE3-002 | GPD-3303D Driver Design and Lessons Learned | 0.1 |
+| ETB-SWE1-001 | Embedded Test Bench Software Requirements Specification | 1.70 |
+| ETB-SWE2-001 | Embedded Test Bench Software Architecture Description | 0.33 |
+| ETB-SWE4-001 | Embedded Test Bench Software Unit Verification Specification | 1.92 |
+| ETB-RTM-001 | Embedded Test Bench Requirements Traceability Matrix | 1.83 |
+| ETB-IF-001 | GPD-3303D Remote Control Interface Specification | 0.4 |
+| ETB-SWE3-002 | GPD-3303D Driver Design and Lessons Learned | 0.4 |
 
 ### 3.3 Unit Identification
 

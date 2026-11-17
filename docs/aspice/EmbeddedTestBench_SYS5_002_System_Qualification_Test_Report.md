@@ -30,6 +30,7 @@
 | 1.2 | 2026-10-05 | Claude | #204: Review & Approval table points to the merge of the pull request that last changed the document, which is the review and approval (ETB-SUP8-001 §5.7); no per-change signatures or dates. |
 | 1.3 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | 1.4 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
+| next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at its released version, its last numbered revision, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
 
 ---
 
@@ -46,10 +47,10 @@ says how qualification is done; this report says what happened when it was.
 
 | Document ID | Title | Version |
 |---|---|---|
-| ETB-SYS2-001 | Embedded Test Bench System Requirements Specification | 0.2 |
-| ETB-SYS5-001 | Embedded Test Bench System Qualification Test | 0.3 |
-| ETB-SWE4-002 | Embedded Test Bench Unit Verification Report | 1.18 |
-| ETB-SUP9-001 | Embedded Test Bench Problem Resolution Management Plan | 0.1 |
+| ETB-SYS2-001 | Embedded Test Bench System Requirements Specification | 0.10 |
+| ETB-SYS5-001 | Embedded Test Bench System Qualification Test | 0.7 |
+| ETB-SWE4-002 | Embedded Test Bench Unit Verification Report | 1.87 |
+| ETB-SUP9-001 | Embedded Test Bench Problem Resolution Management Plan | 0.5 |
 | `specs/qualification/README.md` | Hardware qualification procedure | — |
 
 ### 3.3 Scope

@@ -127,6 +127,7 @@
 | 1.90 | 2026-11-15 | Claude | #349: SWE4-UT-JLINK adds `test_attach.py` (a core left running by the GDB Server is halted on attach); SWE4-UT-JLINKSIM covers `monitor` commands after an attach and a running core's registers. |
 | 1.91 | 2026-11-15 | Claude | #352: SWE4-UT-JLINK adds `test_variable_address.py`: a variable at address 0 refused. |
 | 1.92 | 2026-11-15 | Claude | #352 review round 1: SWE4-UT-JLINK: the address-0 check's `&(name)` and side-effect skip; #351's attach wording brought in line with its review. |
+| next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at its released version, its last numbered revision, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
 ---
 
 ## 3. Purpose & Scope
@@ -141,12 +142,12 @@ This document satisfies **Automotive SPICE® PAM v4.0, SWE.4 — Software Unit V
 
 | Document ID | Title | Version |
 |---|---|---|
-| ETB-SYS2-001 | Embedded Test Bench System Requirements Specification | 0.1 |
-| ETB-SWE1-001 | Embedded Test Bench Software Requirements Specification | 0.1 |
-| ETB-SWE2-001 | Embedded Test Bench Software Architecture Description | 0.1 |
-| ETB-SWE3-001 | Embedded Test Bench Software Detailed Design | 0.1 |
-| ETB-RTM-001 | Embedded Test Bench Requirements Traceability Matrix | 0.1 |
-| ETB-SWE4-002 | Embedded Test Bench Software Unit Verification Report | 0.1 |
+| ETB-SYS2-001 | Embedded Test Bench System Requirements Specification | 0.10 |
+| ETB-SWE1-001 | Embedded Test Bench Software Requirements Specification | 1.70 |
+| ETB-SWE2-001 | Embedded Test Bench Software Architecture Description | 0.33 |
+| ETB-SWE3-001 | Embedded Test Bench Software Detailed Design | 1.90 |
+| ETB-RTM-001 | Embedded Test Bench Requirements Traceability Matrix | 1.83 |
+| ETB-SWE4-002 | Embedded Test Bench Software Unit Verification Report | 1.87 |
 
 ---
 

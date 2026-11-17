@@ -27,6 +27,7 @@
 | 0.3 | 2026-10-05 | Claude | #204: Review & Approval table points to the merge of the pull request that last changed the document, which is the review and approval (ETB-SUP8-001 §5.7); no per-change signatures or dates. |
 | 0.4 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | 0.5 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
+| next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at its released version, its last numbered revision, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
 
 ---
 
@@ -123,7 +124,7 @@ request.
 
 | Document ID | Title | Version |
 |---|---|---|
-| ETB-DEV-002 | Embedded Test Bench Independent Review Deviation | 0.1 |
-| ETB-SUP1-001 | Embedded Test Bench Quality Assurance Plan | 0.1 |
-| ETB-MAN3-001 | Embedded Test Bench Project Management Plan | 0.1 |
-| ETB-PA2-001 | Embedded Test Bench Process Capability Records | 0.1 |
+| ETB-DEV-002 | Embedded Test Bench Independent Review Deviation | 0.5 |
+| ETB-SUP1-001 | Embedded Test Bench Quality Assurance Plan | 0.5 |
+| ETB-MAN3-001 | Embedded Test Bench Project Management Plan | 0.5 |
+| ETB-PA2-001 | Embedded Test Bench Process Capability Records | 0.5 |

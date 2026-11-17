@@ -35,6 +35,7 @@
 | 0.8 | 2026-10-28 | Claude | #247: ETB-SYS2-037 - capture a target's serial output, record every line, write nothing to the port; traced to STK-24 and `SER-` (ETB-SWE1-001 §16). The software requirement sections referred to are §6 to §17 (RUN is now §17). |
 | 0.9 | 2026-11-13 | Claude | #200: ETB-SYS2-065 - capture analogue and logic signals together on one time base, and drive a stimulus from a signal generator; traced to STK-02, STK-04, STK-05 and STK-07 and to `PSCOPE-` (ETB-SWE1-001 §17). The software requirement sections referred to are §6 to §18 (RUN is now §18). |
 | 0.10 | 2026-11-14 | Claude | #342: ETB-SYS2-026 - measure the target's current at 100 000 samples a second, as its supply or in its supply line, with the average, charge and pulses, within the bench's voltage limit; traced to STK-25 and `PPK-` (ETB-SWE1-001 §18). The software requirement sections referred to are §6 to §19 (RUN is now §19). |
+| next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at its released version, its last numbered revision, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
 ---
 
 ## 3. Purpose & Scope
@@ -59,13 +60,13 @@ They live in ETB-SWE1-001, and §12 traces down to them.
 
 | Document ID | Title | Version |
 |---|---|---|
-| ETB-SYS3-001 | Embedded Test Bench System Architecture | 0.1 |
-| ETB-SYS4-001 | Embedded Test Bench System Integration & Integration Test | 0.1 |
-| ETB-SYS5-001 | Embedded Test Bench System Qualification Test | 0.1 |
-| ETB-SWE1-001 | Embedded Test Bench Software Requirements Specification | 0.1 |
-| ETB-RTM-001 | Embedded Test Bench Traceability Matrix | 0.1 |
-| ETB-MAN5-001 | Embedded Test Bench Risk Management Plan | 0.1 |
-| ETB-ACQ4-001 | Embedded Test Bench Supplier Monitoring Plan | 0.1 |
+| ETB-SYS3-001 | Embedded Test Bench System Architecture | 0.8 |
+| ETB-SYS4-001 | Embedded Test Bench System Integration & Integration Test | 0.6 |
+| ETB-SYS5-001 | Embedded Test Bench System Qualification Test | 0.7 |
+| ETB-SWE1-001 | Embedded Test Bench Software Requirements Specification | 1.70 |
+| ETB-RTM-001 | Embedded Test Bench Traceability Matrix | 1.83 |
+| ETB-MAN5-001 | Embedded Test Bench Risk Management Plan | 0.7 |
+| ETB-ACQ4-001 | Embedded Test Bench Supplier Monitoring Plan | 0.11 |
 
 ### 3.3 Scope
 

@@ -118,6 +118,7 @@
 | 1.81 | 2026-11-15 | Claude | #352: JLINK-FR-041 row cites `TestAVariableAtAddressZero` and the bench check. |
 | 1.82 | 2026-11-15 | Claude | #352 review round 1: JLINK-FR-041 row: `TestAVariableAtAddressZero` (9). |
 | 1.83 | 2026-11-15 | Claude | #352 review round 2: JLINK-FR-041 row: `TestAVariableAtAddressZero` (11). |
+| next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at its released version, its last numbered revision, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
 ---
 
 ## 3. Purpose & Scope
@@ -132,13 +133,13 @@ It is checked mechanically by `tests/test_traceability.py` on every run of the s
 
 | Document ID | Title | Version |
 |---|---|---|
-| ETB-SYS2-001 | Embedded Test Bench System Requirements Specification | 0.1 |
-| ETB-SWE1-001 | Embedded Test Bench Software Requirements Specification | 0.1 |
-| ETB-SWE2-001 | Embedded Test Bench Software Architecture Description | 0.1 |
-| ETB-SWE3-001 | Embedded Test Bench Software Detailed Design | 0.4 |
-| ETB-SWE3-002 | GPD-3303D Driver Design and Lessons Learned | 0.1 |
-| ETB-IF-001 | GPD-3303D Remote Control Interface Specification | 0.1 |
-| ETB-RTM-001 | Embedded Test Bench Requirements Traceability Matrix | 0.6 |
+| ETB-SYS2-001 | Embedded Test Bench System Requirements Specification | 0.10 |
+| ETB-SWE1-001 | Embedded Test Bench Software Requirements Specification | 1.70 |
+| ETB-SWE2-001 | Embedded Test Bench Software Architecture Description | 0.33 |
+| ETB-SWE3-001 | Embedded Test Bench Software Detailed Design | 1.90 |
+| ETB-SWE3-002 | GPD-3303D Driver Design and Lessons Learned | 0.4 |
+| ETB-IF-001 | GPD-3303D Remote Control Interface Specification | 0.4 |
+| ETB-RTM-001 | Embedded Test Bench Requirements Traceability Matrix | 1.83 |
 
 ---
 

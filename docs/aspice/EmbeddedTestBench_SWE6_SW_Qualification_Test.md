@@ -31,6 +31,7 @@
 | 0.5 | 2026-10-05 | Claude | #204: Review & Approval table points to the merge of the pull request that last changed the document, which is the review and approval (ETB-SUP8-001 §5.7); no per-change signatures or dates. |
 | 0.6 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | 0.7 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
+| next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at its released version, its last numbered revision, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
 
 ---
 
@@ -46,11 +47,11 @@ but as the thing an engineer actually uses.
 
 | Document ID | Title | Version |
 |---|---|---|
-| ETB-SWE1-001 | Embedded Test Bench Software Requirements Specification | 0.1 |
-| ETB-SWE5-001 | Embedded Test Bench Software Integration & Integration Test | 0.1 |
-| ETB-SYS5-001 | Embedded Test Bench System Qualification Test | 0.1 |
-| ETB-RTM-001 | Embedded Test Bench Traceability Matrix | 0.1 |
-| ETB-TMPL-002 | Embedded Test Bench Test Case Specification — Template | 0.1 |
+| ETB-SWE1-001 | Embedded Test Bench Software Requirements Specification | 1.70 |
+| ETB-SWE5-001 | Embedded Test Bench Software Integration & Integration Test | 0.5 |
+| ETB-SYS5-001 | Embedded Test Bench System Qualification Test | 0.7 |
+| ETB-RTM-001 | Embedded Test Bench Traceability Matrix | 1.83 |
+| ETB-TMPL-002 | Embedded Test Bench Test Case Specification — Template | 0.5 |
 
 ### 3.3 Scope
 

@@ -27,6 +27,7 @@
 | 0.3 | 2026-10-05 | Claude | #204: §4 states how review and approval are given - Reviewer and Approver remain the same person by decision, both given in one act, the merge of the pull request; evidence is the pull request, its CI result and its merge record; a merge Claude makes on the owner's instruction carries a merge commit note saying so. §5 states that the compensating measures remain. §7 points to the merge (ETB-SUP8-001 §5.7). |
 | 0.4 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | 0.5 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
+| next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at its released version, its last numbered revision, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
 
 ---
 
@@ -138,6 +139,6 @@ request.
 
 | Document ID | Title | Version |
 |---|---|---|
-| ETB-DEV-001 | Embedded Test Bench AI Authorship Deviation | 0.1 |
-| ETB-SUP1-001 | Embedded Test Bench Quality Assurance Plan | 0.1 |
-| ETB-PA2-001 | Embedded Test Bench Process Capability Records | 0.1 |
+| ETB-DEV-001 | Embedded Test Bench AI Authorship Deviation | 0.5 |
+| ETB-SUP1-001 | Embedded Test Bench Quality Assurance Plan | 0.5 |
+| ETB-PA2-001 | Embedded Test Bench Process Capability Records | 0.5 |

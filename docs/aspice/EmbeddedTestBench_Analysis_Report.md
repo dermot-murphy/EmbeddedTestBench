@@ -30,6 +30,7 @@
 | 0.4 | 2026-10-05 | Claude | #203: §6.1 - the 3.9 and 3.12 legs, and every other job, now pin `ubuntu-24.04` instead of `ubuntu-latest`, which moves to Ubuntu 26 from 2026-10-19. The 3.8 leg stays on `ubuntu-22.04`. |
 | 0.5 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | 0.6 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
+| next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at its released version, its last numbered revision, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
 
 ---
 
@@ -48,12 +49,12 @@ against, not estimated.
 
 | Document ID | Title | Version |
 |---|---|---|
-| ETB-PA2-001 | Embedded Test Bench Process Capability Records | 0.1 |
-| ETB-SVD-001 | Embedded Test Bench Software Version Description | 0.1 |
-| ETB-SYS5-001 | Embedded Test Bench System Qualification Test | 0.1 |
-| ETB-STD-001 | Industry C Coding Standards — Applicability | 0.1 |
-| ETB-SUP1-001 | Embedded Test Bench Quality Assurance Plan | 0.1 |
-| ETB-MAN5-001 | Embedded Test Bench Risk Management Plan | 0.1 |
+| ETB-PA2-001 | Embedded Test Bench Process Capability Records | 0.5 |
+| ETB-SVD-001 | Embedded Test Bench Software Version Description | 0.10 |
+| ETB-SYS5-001 | Embedded Test Bench System Qualification Test | 0.7 |
+| ETB-STD-001 | Industry C Coding Standards — Applicability | 0.6 |
+| ETB-SUP1-001 | Embedded Test Bench Quality Assurance Plan | 0.5 |
+| ETB-MAN5-001 | Embedded Test Bench Risk Management Plan | 0.7 |
 
 ### 3.3 Scope
 

@@ -32,6 +32,7 @@
 | 0.6 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
 | 0.7 | 2026-11-13 | Claude | #200: SE-PSCOPE, the PicoScope 3405D MSO; ETB-SIF-12 (host to scope, specified in ETB-IF-002) and ETB-SIF-13 (target to scope); §6.1 containerisation. |
 | 0.8 | 2026-11-14 | Claude | #342: SE-PPK, the Nordic Power Profiler Kit II; ETB-SIF-14 (host to kit) and ETB-SIF-15 (kit to target); §6.1 containerisation. |
+| next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at its released version, its last numbered revision, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
 
 ---
 
@@ -51,12 +52,12 @@ describes what is on the other side of each wire.
 
 | Document ID | Title | Version |
 |---|---|---|
-| ETB-SYS2-001 | Embedded Test Bench System Requirements Specification | 0.1 |
-| ETB-SYS4-001 | Embedded Test Bench System Integration & Integration Test | 0.1 |
-| ETB-SWE2-001 | Embedded Test Bench Software Architecture | 0.1 |
-| ETB-SWE1-001 | Embedded Test Bench Software Requirements Specification | 0.1 |
-| ETB-MAN5-001 | Embedded Test Bench Risk Management Plan | 0.1 |
-| ETB-ACQ4-001 | Embedded Test Bench Supplier Monitoring Plan | 0.1 |
+| ETB-SYS2-001 | Embedded Test Bench System Requirements Specification | 0.10 |
+| ETB-SYS4-001 | Embedded Test Bench System Integration & Integration Test | 0.6 |
+| ETB-SWE2-001 | Embedded Test Bench Software Architecture | 0.33 |
+| ETB-SWE1-001 | Embedded Test Bench Software Requirements Specification | 1.70 |
+| ETB-MAN5-001 | Embedded Test Bench Risk Management Plan | 0.7 |
+| ETB-ACQ4-001 | Embedded Test Bench Supplier Monitoring Plan | 0.11 |
 
 ### 3.3 Scope
 

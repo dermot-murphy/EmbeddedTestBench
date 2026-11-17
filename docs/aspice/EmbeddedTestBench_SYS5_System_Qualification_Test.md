@@ -31,6 +31,7 @@
 | 0.5 | 2026-10-05 | Claude | #204: Review & Approval table points to the merge of the pull request that last changed the document, which is the review and approval (ETB-SUP8-001 §5.7); no per-change signatures or dates. |
 | 0.6 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | 0.7 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
+| next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at its released version, its last numbered revision, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
 
 ---
 
@@ -45,14 +46,14 @@ requirements of ETB-SYS2-001, and records what remains to be shown.
 
 | Document ID | Title | Version |
 |---|---|---|
-| ETB-SYS2-001 | Embedded Test Bench System Requirements Specification | 0.1 |
-| ETB-SYS3-001 | Embedded Test Bench System Architecture | 0.1 |
-| ETB-SYS4-001 | Embedded Test Bench System Integration & Integration Test | 0.1 |
-| ETB-SWE6-001 | Embedded Test Bench Software Qualification Test | 0.1 |
-| ETB-SWE4-002 | Embedded Test Bench Unit Verification Report | 0.1 |
-| ETB-TMPL-002 | Embedded Test Bench Test Case Specification — Template | 0.1 |
-| ETB-RTM-001 | Embedded Test Bench Traceability Matrix | 0.1 |
-| ETB-SYS5-002 | Embedded Test Bench System Qualification Test Report | 1.0 |
+| ETB-SYS2-001 | Embedded Test Bench System Requirements Specification | 0.10 |
+| ETB-SYS3-001 | Embedded Test Bench System Architecture | 0.8 |
+| ETB-SYS4-001 | Embedded Test Bench System Integration & Integration Test | 0.6 |
+| ETB-SWE6-001 | Embedded Test Bench Software Qualification Test | 0.7 |
+| ETB-SWE4-002 | Embedded Test Bench Unit Verification Report | 1.87 |
+| ETB-TMPL-002 | Embedded Test Bench Test Case Specification — Template | 0.5 |
+| ETB-RTM-001 | Embedded Test Bench Traceability Matrix | 1.83 |
+| ETB-SYS5-002 | Embedded Test Bench System Qualification Test Report | 1.4 |
 
 ### 3.3 Scope
 
