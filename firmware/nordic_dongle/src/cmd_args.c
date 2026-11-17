@@ -2,7 +2,7 @@
  * @file cmd_args.c
  * @brief Reading the optional arguments of host commands.
  *
- * Traces to: BLE-DD-CMD.
+ * Traces to: BLE-DD-CMD, BLE-DD-CMDARGS.
  */
 
 #include "cmd_args.h"

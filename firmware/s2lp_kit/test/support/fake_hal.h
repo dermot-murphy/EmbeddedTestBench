@@ -7,6 +7,8 @@
  * and command strobes are logged. Everything the firmware sends to the host
  * is kept as text. A test sets the radio up, runs firmware code, and checks
  * what the firmware did.
+ *
+ * Traces to: S2LP-DD-KITFW.
  */
 
 #ifndef FAKE_HAL_H

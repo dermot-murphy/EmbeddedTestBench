@@ -8,7 +8,7 @@ It is **not required** to drive a TDS3014B; see the VISA determination report.
 ``pyvisa`` is imported lazily so that the package as a whole keeps a zero
 mandatory dependency footprint.
 
-Traces to: SWE1-FR-004, SWE2-ARC-003, SWE3-DD-VISA.
+Traces to: CORE-FR-006, CORE-ARC-003, CORE-DD-VISA.
 """
 
 from __future__ import annotations

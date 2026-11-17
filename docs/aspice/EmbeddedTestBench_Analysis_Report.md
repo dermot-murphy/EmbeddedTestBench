@@ -32,6 +32,7 @@
 | 0.6 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
 | next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. §6.5 updated: review is by merge since #204, with a QA review on each pull request since #371; it no longer says no review exists. |
 | next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
+| next | 2026-11-17 | Claude | #373: §3.1 says this report is a dated snapshot, and that the QA summary per release is ETB-SUP1-003. §6.3 and §6.4 actions point to #379. |
 
 ---
 
@@ -45,6 +46,12 @@ order.
 
 Every number below was measured on the revision this document was written
 against, not estimated.
+
+*Note, 2026-11-17 (#373).* This report is a snapshot of 2026-09 and 2026-10,
+and its figures are those of that time (for example, 1 878 tests and 113 C
+violations). It is not the QA summary of any release. The QA summary per
+release is in ETB-SUP1-003 (ETB-SUP1-001 §6.7). The actions in §6 that are still
+open are tracked on issues and noted where they stand.
 
 ### 3.2 Referenced Documents
 
@@ -161,7 +168,7 @@ repeated here because it is a gap a reader might otherwise assume closed by the
 presence of a green style badge.
 
 **Action:** add Cppcheck `--misra` to the style workflow, or accept the gap
-explicitly as a change request decision.
+explicitly as a change request decision. Tracked on #379 (2026-11-17).
 
 ### 6.4 🟡 Warning — Firmware compiled with an unstated language standard
 
@@ -170,7 +177,8 @@ language the firmware is compiled as is whatever the pinned toolchain defaults
 to. A toolchain upgrade can change it silently. `-Wextra` is also not enabled.
 
 **Action:** set `-std=gnu11` (or the dialect the SDK requires) explicitly, and
-enable `-Wextra`, fixing what it finds in project-owned files.
+enable `-Wextra`, fixing what it finds in project-owned files. Tracked on #379
+(2026-11-17).
 
 ### 6.5 🟡 Warning — Review records
 
