@@ -70,16 +70,18 @@ uint64_t timestamp_elapsed_us(uint64_t start, uint64_t end);
  */
 static inline const char * timestamp_format_us(uint64_t value_us, char * p_text)
 {
-	char		reversed[TIMESTAMP_TEXT_SIZE];
-	uint32_t	count = 0U;
-	uint32_t	index;
+	static const char	digits[] = "0123456789";
+	char			reversed[TIMESTAMP_TEXT_SIZE];
+	uint64_t		remaining = value_us;
+	uint32_t		count = 0U;
+	uint32_t		index;
 
 	do
 	{
-		reversed[count] = (char)('0' + (char)(value_us % 10U));
-		value_us /= 10U;
+		reversed[count] = digits[remaining % 10U];
+		remaining /= 10U;
 		count++;
-	} while (value_us != 0U);
+	} while (remaining != 0U);
 
 	for (index = 0U; index < count; index++)
 	{

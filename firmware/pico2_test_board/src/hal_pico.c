@@ -33,7 +33,6 @@
 #include "hardware/watchdog.h"
 #include "pico/bootrom.h"
 #include "pico/stdlib.h"
-#include "pico/unique_id.h"
 
 #if (BOARD_I2C_INSTANCE == 0U)
 #define HAL_I2C_PORT		i2c0
@@ -79,7 +78,6 @@
 /** The word-select pin follows the bit clock. */
 #define HAL_DAC_WS_PIN		(BOARD_DAC_BCK_PIN + 1U)
 
-static char			m_board_id_text[HAL_BOARD_ID_LENGTH];
 static int32_t			m_dac_buffers[HAL_DAC_BUFFERS][HAL_DAC_WORDS];
 static int			m_dac_channels[HAL_DAC_BUFFERS];
 static hal_dac_render_t		m_dac_render;
@@ -149,8 +147,6 @@ void hal_init(void)
 	gpio_put((uint)BOARD_FGEN_GPIO_PIN, false);
 	gpio_set_dir((uint)BOARD_FGEN_GPIO_PIN, GPIO_OUT);
 	m_pwm_slice = pwm_gpio_to_slice_num((uint)BOARD_FGEN_GPIO_PIN);
-
-	pico_get_unique_board_id_string(m_board_id_text, (uint)HAL_BOARD_ID_LENGTH);
 }
 
 void hal_critical_enter(void)
@@ -383,11 +379,6 @@ void hal_write_line(const char *line)
 {
 	/* stdio_puts_raw appends '\n' and does no CRLF translation. */
 	(void)stdio_puts_raw(line);
-}
-
-const char *hal_board_id(void)
-{
-	return m_board_id_text;
 }
 
 uint64_t hal_uptime_us(void)

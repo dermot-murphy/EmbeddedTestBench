@@ -104,7 +104,7 @@ exists.
 | 4 | not valid in this state | 9 | payload too long |
 | 5 | no sensor selected | 10 | the BLE stack refused the request |
 
-The definitive list is `PROTO_ERROR_TABLE` in `include/protocol.h`, which the
+The definitive list is `PROTOCOL_ERROR_TABLE` in `include/protocol.h`, which the
 driver's `DongleError` mirrors and `test_firmware_protocol.py` checks.
 
 From protocol 1.5, `connect` adds the SoftDevice's own code to error 10, as in

@@ -30,7 +30,7 @@
 /** Run a command line through the parser, as the main loop would. */
 static void test_handle(const char * line)
 {
-	char buffer[PROTO_MAX_LINE];
+	char buffer[PROTOCOL_MAX_LINE];
 
 	(void)strncpy(buffer, line, sizeof(buffer) - 1U);
 	buffer[sizeof(buffer) - 1U] = '\0';
@@ -134,9 +134,9 @@ static void test_ver_reports_the_protocol_and_uptime(void)
 {
 	fake_clock_set(1234567U);
 	test_handle("ver");
-	TEST_ASSERT_TRUE(test_reply_has(PROTO_MANUFACTURER));
-	TEST_ASSERT_TRUE(test_reply_has(PROTO_MODEL));
-	TEST_ASSERT_TRUE(test_reply_has("proto=" PROTO_VERSION));
+	TEST_ASSERT_TRUE(test_reply_has(PROTOCOL_MANUFACTURER));
+	TEST_ASSERT_TRUE(test_reply_has(PROTOCOL_MODEL));
+	TEST_ASSERT_TRUE(test_reply_has("proto=" PROTOCOL_VERSION));
 	TEST_ASSERT_TRUE(test_reply_has("uptime_us=1234567"));
 	TEST_ASSERT_TRUE(test_reply_has("dropped="));
 }
@@ -146,7 +146,7 @@ static void test_ver_reports_which_build_is_on_the_dongle(void)
 	/* The host compares both against what it built: the version for a
 	 * deliberate change, the date for a rebuild of the same version. */
 	test_handle("ver");
-	TEST_ASSERT_TRUE(test_reply_has("fw=" FIRMWARE_VERSION));
+	TEST_ASSERT_TRUE(test_reply_has("fw=" FIRMWARE_VERSION_STRING));
 	TEST_ASSERT_TRUE(test_reply_has("built="));
 	TEST_ASSERT_TRUE(strstr(test_reply(), "built=") > strstr(test_reply(), "fw="));
 }
@@ -176,7 +176,7 @@ static void test_dfu_answers_before_it_resets(void)
 	test_handle("dfu");
 
 	TEST_ASSERT_TRUE(test_reply_has("dfu=1"));
-	TEST_ASSERT_TRUE(test_reply_has("fw=" FIRMWARE_VERSION));
+	TEST_ASSERT_TRUE(test_reply_has("fw=" FIRMWARE_VERSION_STRING));
 	TEST_ASSERT_EQUAL_HEX32(0xB1U, fake_retained_register());
 
 	fake_g_system_resets = 0U;
@@ -601,7 +601,7 @@ static void test_cmd_carries_a_full_payload_both_ways(void)
 	/* 244 bytes out - the ATT MTU less the write header - and a long reply
 	 * back whole: at 192 characters the reply line cut off anything over about
 	 * 60 bytes (#52). */
-	char		command[PROTO_MAX_LINE];
+	char		command[PROTOCOL_MAX_LINE];
 	char		text[241];
 	char		expected[(240U * 2U) + 8U];
 	uint32_t	index;
@@ -609,7 +609,7 @@ static void test_cmd_carries_a_full_payload_both_ways(void)
 	(void)memset(text, 'A', 240U);
 	text[240] = '\0';
 	(void)strcpy(command, "cmd ");
-	for (index = 0U; index < PROTO_MAX_PAYLOAD; index++)
+	for (index = 0U; index < PROTOCOL_MAX_PAYLOAD; index++)
 	{
 		(void)strcat(command, "42");
 	}
@@ -624,7 +624,7 @@ static void test_cmd_carries_a_full_payload_both_ways(void)
 	test_handle(command);
 
 	TEST_ASSERT_EQUAL_UINT32(1U, fake_nus_client_commands());
-	TEST_ASSERT_EQUAL_HEX8(0x42U, fake_nus_client_last_payload()[PROTO_MAX_PAYLOAD - 1U]);
+	TEST_ASSERT_EQUAL_HEX8(0x42U, fake_nus_client_last_payload()[PROTOCOL_MAX_PAYLOAD - 1U]);
 	TEST_ASSERT_TRUE(test_reply_has("len=240"));
 	TEST_ASSERT_TRUE(test_reply_has(expected));
 }
@@ -653,7 +653,7 @@ static void test_adv_start_uses_the_selected_sensor(void)
 	fake_scanner_add("E4:1C:7B:02:9A:11", 1, "SENS-01", -62);
 	test_handle("select 0");
 	test_handle("adv start");
-	TEST_ASSERT_TRUE(scanner_profile_is_active());
+	TEST_ASSERT_TRUE(ble_scanner_profile_is_active());
 	TEST_ASSERT_EQUAL_STRING("E4:1C:7B:02:9A:11", fake_scanner_profile_address());
 	TEST_ASSERT_TRUE(test_reply_has("profiling=1"));
 }
@@ -687,7 +687,7 @@ static void test_adv_stop_reports_the_totals(void)
 	fake_scanner_set_counters(50U, 50U);
 	fake_scanner_set_profiling(true);
 	test_handle("adv stop");
-	TEST_ASSERT_FALSE(scanner_profile_is_active());
+	TEST_ASSERT_FALSE(ble_scanner_profile_is_active());
 	TEST_ASSERT_TRUE(test_reply_has("profiling=0"));
 	TEST_ASSERT_TRUE(test_reply_has("received=50"));
 }

@@ -76,13 +76,15 @@ static uint32_t sht30_scale(uint16_t ticks, uint32_t span)
 uint8_t sht30_crc8(const uint8_t *data, uint32_t length)
 {
 	uint8_t		crc = (uint8_t)SHT30_CRC_INIT;
-	uint32_t	index;
-	uint32_t	bit;
 
 	if (data != NULL)
 	{
+		uint32_t	index;
+
 		for (index = 0U; index < length; index++)
 		{
+			uint32_t	bit;
+
 			crc ^= data[index];
 			for (bit = 0U; bit < 8U; bit++)
 			{
@@ -138,10 +140,11 @@ sht30_status_t sht30_decode(const uint8_t *frame, sht30_reading_t *reading)
 sht30_status_t sht30_measure(uint8_t address, sht30_reading_t *reading)
 {
 	sht30_status_t	result = SHT30_STATUS_ERR_PARAM;
-	uint8_t		frame[SHT30_FRAME_LENGTH] = { 0U };
 
 	if (reading != NULL)
 	{
+		uint8_t		frame[SHT30_FRAME_LENGTH] = { 0 };
+
 		result = sht30_send_command(address, (uint16_t)SHT30_CMD_MEASURE_HIGH);
 		if (result == SHT30_STATUS_OK)
 		{
@@ -159,10 +162,11 @@ sht30_status_t sht30_measure(uint8_t address, sht30_reading_t *reading)
 sht30_status_t sht30_read_status(uint8_t address, uint16_t *status)
 {
 	sht30_status_t	result = SHT30_STATUS_ERR_PARAM;
-	uint8_t		word[SHT30_WORD_LENGTH] = { 0U };
 
 	if (status != NULL)
 	{
+		uint8_t		word[SHT30_WORD_LENGTH] = { 0 };
+
 		result = sht30_send_command(address, (uint16_t)SHT30_CMD_READ_STATUS);
 		if (result == SHT30_STATUS_OK)
 		{

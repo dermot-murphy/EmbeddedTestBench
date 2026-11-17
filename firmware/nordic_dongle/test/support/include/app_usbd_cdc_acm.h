@@ -38,7 +38,18 @@ extern app_usbd_cdc_acm_user_ev_handler_t fake_cdc_handler;
 				    comm_ep, data_ep_in, data_ep_out, protocol) \
 	static app_usbd_cdc_acm_t name;					\
 	static void name ## _register(void) __attribute__((constructor));	\
-	static void name ## _register(void) { fake_cdc_handler = (handler); }
+	static void name ## _register(void)					\
+	{									\
+		/* Each argument is evaluated, as the SDK's macro uses each, so	\
+		 * the firmware's interface and endpoint numbers are used. */	\
+		(void)(comm_if);						\
+		(void)(data_if);						\
+		(void)(comm_ep);						\
+		(void)(data_ep_in);						\
+		(void)(data_ep_out);						\
+		(void)(protocol);						\
+		fake_cdc_handler = (handler);					\
+	}
 
 uint32_t app_usbd_cdc_acm_write(app_usbd_cdc_acm_t const * p_cdc_acm, const void * p_buf, size_t length);
 uint32_t app_usbd_cdc_acm_read(app_usbd_cdc_acm_t const * p_cdc_acm, void * p_buf, size_t length);

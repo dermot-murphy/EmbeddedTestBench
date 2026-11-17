@@ -26,7 +26,7 @@ static void test_establish_link(void)
 	event.header.evt_id = BLE_GAP_EVT_CONNECTED;
 	event.evt.gap_evt.conn_handle = 1U;
 	event.evt.gap_evt.params.connected.conn_params.min_conn_interval = 24U;  /* 30 ms */
-	(void)scanner_parse_address("E4:1C:7B:02:9A:11",
+	(void)ble_scanner_parse_address("E4:1C:7B:02:9A:11",
 				    &event.evt.gap_evt.params.connected.peer_addr);
 	nus_client_on_ble_evt(&event);
 
@@ -88,7 +88,7 @@ static void test_connecting_asks_the_stack_for_the_right_address(void)
 {
 	ble_gap_addr_t target;
 
-	(void)scanner_parse_address("E4:1C:7B:02:9A:11", &target);
+	(void)ble_scanner_parse_address("E4:1C:7B:02:9A:11", &target);
 	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, nus_client_connect(&target, 15000U));
 	TEST_ASSERT_EQUAL_UINT32(1U, fake_gap_connect_count());
 	TEST_ASSERT_EQUAL_MEMORY(target.addr, fake_gap_connect_address()->addr, BLE_GAP_ADDR_LEN);
@@ -100,7 +100,7 @@ static void test_connecting_listens_continuously_for_the_time_asked(void)
 	 * half the time (#39). */
 	ble_gap_addr_t target;
 
-	(void)scanner_parse_address("E4:1C:7B:02:9A:11", &target);
+	(void)ble_scanner_parse_address("E4:1C:7B:02:9A:11", &target);
 	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, nus_client_connect(&target, 20000U));
 	TEST_ASSERT_EQUAL_UINT16(fake_gap_connect_scan_params()->interval,
 				 fake_gap_connect_scan_params()->window);
@@ -172,7 +172,7 @@ static void test_connecting_while_connected_is_refused(void)
 	ble_gap_addr_t target;
 
 	test_establish_link();
-	(void)scanner_parse_address("AA:BB:CC:DD:EE:FF", &target);
+	(void)ble_scanner_parse_address("AA:BB:CC:DD:EE:FF", &target);
 	TEST_ASSERT_EQUAL_UINT32(NRF_ERROR_INVALID_STATE, nus_client_connect(&target, 15000U));
 }
 
@@ -180,7 +180,7 @@ static void test_connecting_while_connecting_is_refused(void)
 {
 	ble_gap_addr_t target;
 
-	(void)scanner_parse_address("AA:BB:CC:DD:EE:FF", &target);
+	(void)ble_scanner_parse_address("AA:BB:CC:DD:EE:FF", &target);
 	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, nus_client_connect(&target, 15000U));
 	TEST_ASSERT_TRUE(nus_client_is_connecting());
 	TEST_ASSERT_EQUAL_UINT32(NRF_ERROR_BUSY, nus_client_connect(&target, 15000U));
@@ -191,7 +191,7 @@ static void test_a_link_ends_the_connecting(void)
 {
 	ble_gap_addr_t target;
 
-	(void)scanner_parse_address("E4:1C:7B:02:9A:11", &target);
+	(void)ble_scanner_parse_address("E4:1C:7B:02:9A:11", &target);
 	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, nus_client_connect(&target, 15000U));
 	test_establish_link();
 	TEST_ASSERT_FALSE(nus_client_is_connecting());
@@ -202,7 +202,7 @@ static void test_a_closed_connect_window_ends_the_connecting(void)
 {
 	ble_gap_addr_t target;
 
-	(void)scanner_parse_address("AA:BB:CC:DD:EE:FF", &target);
+	(void)ble_scanner_parse_address("AA:BB:CC:DD:EE:FF", &target);
 	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, nus_client_connect(&target, 15000U));
 	test_close_connect_window();
 	TEST_ASSERT_FALSE(nus_client_is_connecting());
@@ -215,7 +215,7 @@ static void test_disconnecting_cancels_a_connection_being_made(void)
 	 * connection went on being made, and every connect was refused. */
 	ble_gap_addr_t target;
 
-	(void)scanner_parse_address("AA:BB:CC:DD:EE:FF", &target);
+	(void)ble_scanner_parse_address("AA:BB:CC:DD:EE:FF", &target);
 	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, nus_client_connect(&target, 20000U));
 	fake_lines_reset();
 
@@ -238,7 +238,7 @@ static void test_a_link_completed_before_the_cancel_is_dropped(void)
 	ble_gap_addr_t	target;
 	ble_evt_t	event;
 
-	(void)scanner_parse_address("E4:1C:7B:02:9A:11", &target);
+	(void)ble_scanner_parse_address("E4:1C:7B:02:9A:11", &target);
 	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, nus_client_connect(&target, 20000U));
 	fake_gap_set_cancel_result(NRF_ERROR_INVALID_STATE);
 	fake_lines_reset();
@@ -260,7 +260,7 @@ static void test_a_window_closed_before_the_cancel_reports_itself(void)
 {
 	ble_gap_addr_t target;
 
-	(void)scanner_parse_address("AA:BB:CC:DD:EE:FF", &target);
+	(void)ble_scanner_parse_address("AA:BB:CC:DD:EE:FF", &target);
 	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, nus_client_connect(&target, 20000U));
 	fake_gap_set_cancel_result(NRF_ERROR_INVALID_STATE);
 	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, nus_client_disconnect());
@@ -350,7 +350,7 @@ static void test_writing(void)
 
 static void test_an_over_long_payload_is_refused(void)
 {
-	uint8_t payload[PROTO_MAX_PAYLOAD + 8U];
+	uint8_t payload[PROTOCOL_MAX_PAYLOAD + 8U];
 
 	test_establish_link();
 	(void)memset(payload, 'x', sizeof(payload));

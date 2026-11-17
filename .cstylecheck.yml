@@ -3,11 +3,11 @@
 # ============================================================
 # Enforces the mechanically checkable part of ETB-STD-002 (Embedded C Coding
 # Standard) and ETB-STY-001 (Embedded C Style Guide) over the firmware this
-# project owns. Run by .github/workflows/style.yml against
-# firmware/nordic_dongle, with .cstylecheck-baseline.json so the job fails on
-# new violations rather than on the 113 that existed when it was introduced,
-# and in a second step against the firmware's host unit tests, with their own
-# aliases and exclusions and no baseline (#111).
+# project owns. Run by .github/workflows/style.yml against the dongle firmware,
+# the PICO2 Test Board firmware, the S2-LP kit firmware and the dongle's host
+# unit tests, each in its own step with its own aliases and exclusions. No step
+# has a baseline: any finding at any severity fails (#379, which fixed the 107
+# the dongle firmware's baseline held).
 #
 # Derived from the CStyleCheck default rule set, with four project decisions
 # applied. Each is recorded in ETB-STY-001, not only here:
@@ -20,12 +20,10 @@
 #   misc.file_length.max_lines: 800     see ETB-STY-001 6.4
 #
 # A rule the project has decided against is switched off here and said so in
-# the style guide. A rule the project accepts but does not yet meet stays on
-# and goes in the baseline, which is debt - see ETB-ANA-001 6.12.
-#
-# The baseline is written by the pinned checker version and is not portable
-# across versions. If the pin in style.yml moves, regenerate it in the same
-# change with --write-baseline and deal with whatever the newer version finds.
+# the style guide. A rule the project accepts is met; there is no baseline to
+# hold findings against it. Exemptions are not widened to make a finding go
+# away. If the pin in style.yml moves, deal in the same change with whatever
+# the newer version finds.
 # ============================================================
 
 file_prefix:

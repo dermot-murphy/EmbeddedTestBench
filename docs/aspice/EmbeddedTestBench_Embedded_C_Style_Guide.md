@@ -35,6 +35,7 @@
 | 0.6 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | 0.7 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). §57 Document Change History, which still showed only 0.1, now points to the revision history instead of repeating it. |
 | next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. |
+| next | 2026-11-17 | Claude | #379: §21.2 - static functions carry the module prefix: the project adopted it rather than exempt internal linkage, and the 43 baselined reports are fixed. §18.4 and §54.2 no longer speak of a baseline; there is none. |
 
 ---
 
@@ -595,8 +596,8 @@ void uart_BufferWrite(uint8_t *p_p_data, uint16_t p_length);
 > the compiler already checks buys nothing here.
 >
 > `variables.pointer_prefix` and `variables.pp_prefix` are **disabled** in
-> `.cstylecheck.yml` rather than suppressed in the baseline, because a rule
-> the project has decided against should be switched off and said so.
+> `.cstylecheck.yml` rather than left to report, because a rule the project
+> has decided against should be switched off and said so.
 >
 > The rules as Barr-C states them, for a project that does want them:
 > single-pointer variables begin with `p_` (`p_buffer`); double pointers with
@@ -685,21 +686,24 @@ Minimum length: 4 characters. Maximum length: 60 characters.
 
 ### 21.2 Static (Private) Functions
 
-File-scope static functions carry **no prefix** — neither the module prefix
-nor `prv_`. Internal linkage already says the function is private, and the
-module is the file.
+File-scope static functions carry the **module prefix**, as public ones do,
+and no `prv_`: internal linkage already says the function is private.
 
 ```c
-static void fifo_flush(void);           /* internal helper */
-void cmd_parser_handle_line(char *line); /* public */
+static void cmd_parser_reply_ok(const char *format, ...); /* internal helper */
+void cmd_parser_handle(char *line);                       /* public */
 ```
 
-`functions.static_prefix` is disabled. The checker cannot tell internal
-linkage from external, so it reports every unprefixed static helper as a
-`function.prefix` violation; those 43 reports are in the baseline rather than
-being fixed by renaming private functions to satisfy a rule the project has
-not adopted. Closing that entry means deciding the question properly — see
-ETB-ANA-001 §6.12.
+> **Project decision (#379).** Until #379 static helpers carried no prefix.
+> The checker cannot tell internal linkage from external, so it reported every
+> one as a `function.prefix` violation, and 43 such reports sat in the
+> baseline (ETB-ANA-001 §6.12). The project chose to adopt the prefix rather
+> than exempt internal linkage: a name then says which module it belongs to
+> wherever it appears - a stack trace, a map file, a grep - and the dongle,
+> PICO2 Test Board and S2-LP kit firmware read alike.
+
+`functions.static_prefix` is disabled: it would require `prv_` on static
+functions, which the project does not use.
 
 ### 21.3 Permitted Object Exclusions
 
@@ -1380,7 +1384,7 @@ Style checks shall run automatically as part of the CI pipeline:
 
 ### 54.2 Zero-Violation Policy
 
-No new style violations shall be introduced in a pull request. The baseline violation count shall not increase. `[RULE: misc.baseline]`
+A pull request shall leave the style check with no finding at any severity. There is no baseline (#379). `[RULE: misc.baseline]`
 
 ### 54.3 Suppression
 

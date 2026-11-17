@@ -126,6 +126,7 @@
 | 1.90 | 2026-11-15 | Claude | #352 review round 2: JLINK-DD-PROBE - the side-effect skip covers `>>=` and `<<=`, and says a cast is skipped too. |
 | next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. Blank lines that split this table removed. |
 | next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
+| next | 2026-11-17 | Claude | #379: BLE-DD-PROTOCOL, BLE-DD-SCANNER, BLE-DD-CMD, BLE-DD-CMDARGS, BLE-DD-BUILD and BLE-DD-TEST follow the dongle firmware's conformance to ETB-STD-002: `PROTOCOL_*` names and parameterised tables, the `ble_scanner_*` interface, one exit per handler, numbers read with `errno` tested, no `<stdio.h>` outside the formatter, `-std=gnu11` and `-Wextra`, and the stand-ins the MISRA check reads `main.c` against. PICO-DD-HAL and PICO-DD-TEXT no longer list the board unique ID and the token, milli-unit and 8-bit hex formats, removed because nothing used them. |
 | next | 2026-11-17 | Claude | #367: §4 catalogue counted from the §5 headings: 150 units in 15 elements, with DMM and VIEW rows and each element's unit IDs; §4.1 package tree regenerated from the tracked files. §5.14 added: dynamic design for the units with state or timing (J-Link probe, dongle session and DFU, S2-LP on both firmwares, GPD-3303D, TTi 1604, PICO2 generator, serial capture, PicoScope, PPK2, runner control channel, viewer hub), including the J-Link rule that GDB's view is resynchronised after an attach or a reset. |
 
 ---
@@ -1420,8 +1421,10 @@ firmware units; `BLE-DD-PROTOCOL` is the interface both sides are built from.
 #### BLE-DD-PROTOCOL — `protocol.py` and `firmware/include/protocol.h`
 
 The header is the contract: command table, event table, error table and size
-limits, as X-macro tables the firmware expands into its dispatch table and the
-host's test suite parses. `protocol.py` is the host's parser for the same
+limits (`PROTOCOL_*`), as X-macro tables the firmware expands into its dispatch
+table and the host's test suite parses. Each table takes its entry macro as
+the parameter `X`, so each user passes a macro of its own and none is
+`#undef`'d (#379). `protocol.py` is the host's parser for the same
 grammar: `parse_line` returns a `Reply`, an `Event`, or `None` for a line that
 is not ours - a boot banner, a stray newline.
 
@@ -2030,6 +2033,11 @@ writing, with everything after them made order-independent by measuring deltas.
 The critical-region fakes keep the SDK's brace-pair shape rather than being flat
 calls, so the misuse of defect D-23 cannot compile here either.
 
+`app_timer.h`, `nrf_drv_clock.h` and `nrf_sdh_soc.h` in `test/support/include/`
+are used by no test: no test links `main.c`. They declare what `main.c` calls,
+so that the MISRA C:2012 check in `style.yml`, which reads the firmware against
+these stand-ins, sees every function declared (Rule 17.3, #379).
+
 #### BLE-DD-CDC — `firmware/src/cdc_acm.c`
 
 USB CDC ACM as a line transport, with a 32-line outgoing queue.
@@ -2086,7 +2094,10 @@ Scanning, the sensor table and advertising-report timestamping.
   response (TX-941). `+sensor` reports them as `mfr=` and `sr=`, before the
   name, which stays last because it may hold a space.
 - Addresses are formatted most significant octet first, as they are written,
-  while the stack stores them the other way round.
+  while the stack stores them the other way round. They are written and read,
+  as `AA:BB:CC:DD:EE:FF` with an optional `/<type>`, without `<stdio.h>`
+  (MISRA C:2012 Rule 21.6), and payloads written as lower-case hex likewise.
+- The module's interface is `ble_scanner_*` (`scanner_*` before #379).
 
 #### BLE-DD-NUS — `firmware/src/nus_client.c`
 
@@ -2112,8 +2123,10 @@ sensor the dongle was linked without the host knowing (#251).
 
 The dispatcher: one line in, exactly one `ok` or `err` line out.
 
-Argument bounds come from `PROTO_COMMAND_TABLE`, so the checks and the
-documented command set cannot drift. Handlers are attached **by name** rather
+Argument bounds come from `PROTOCOL_COMMAND_TABLE`, so the checks and the
+documented command set cannot drift. Each handler has one exit (ETB-STD-002
+§23.1): a refusal is kept in a local and sent as the one `err` reply at the
+end, so a command still replies exactly once. Handlers are attached **by name** rather
 than by position, and `cmd_parser_init` verifies at start-up that every
 documented command has one - a command documented with no implementation would
 otherwise answer "unknown command" at a bench. A timeout waiting for a sensor is
@@ -2176,7 +2189,15 @@ are new in 1.8, #274).
 gives - `PROTOCOL_CONNECT_*` or `PROTOCOL_CMD_*` - and says separately whether
 the token was a timeout and whether its value was good, so a malformed one is
 refused rather than read as an address. `cmd_args_connect` reads `connect`'s
-address and timeout in either order.
+address and timeout in either order, and `cmd_args_scan_filter` the options of
+`scan start`.
+
+Numbers are read by `cmd_args_unsigned` and `cmd_args_signed`, which clear
+`errno` before `strtoull`/`strtoll` and test it after (MISRA C:2012 Rules 22.8,
+22.9): a number that does not fit in 32 bits is refused (`err 3`) rather than
+wrapped. Hex is decoded and encoded without `<stdio.h>`; a token that is not
+an even number of hex digits is refused whole, where `sscanf` had accepted a
+lone first digit.
 
 #### BLE-DD-MAIN — `firmware/src/main.c`
 
@@ -2199,7 +2220,12 @@ The Makefile beside the SES project is the headless build: CI cannot licence an
 IDE, and "the firmware builds" is worth knowing on every push. It is modelled on
 Nordic's own armgcc makefiles and includes the SDK's `Makefile.common`, with
 `gcc/nordic_dongle_gcc_nrf52.ld` repeating the flash and RAM figures the SES
-project carries - if the SoftDevice changes, both change together.
+project carries - if the SoftDevice changes, both change together. It states
+the language, `-std=gnu11`, which overrides the `-std=c99` that
+`Makefile.common` puts before `CFLAGS`, and adds `-Wextra` to the objects of
+`src/*.c` only, with the SDK's include folders as `-isystem` for them so that
+the SDK's own warnings are not reported against this project's code (#379,
+ETB-STD-002 §7.1, §7.2).
 
 `compile_check.sh` compiles every unit against real SDK headers inside the
 `canembed/canembed-arm` image, which carries GCC 10.2.1 and nRF5 SDK 15.2.0.
@@ -3286,7 +3312,7 @@ not part of the owner's statement.
 
 The only seam between portable code and the board (PICO-NFR-001): I2C write
 and read with STOP, returning `HAL_STATUS_OK`, `HAL_STATUS_ERR_NACK` or `HAL_STATUS_ERR_TIMEOUT`;
-millisecond delay; line output (the HAL appends LF); board unique ID; uptime;
+millisecond delay; line output (the HAL appends LF); uptime;
 reboot; reboot to bootloader; and the indicator LEDs (#328): `hal_led_set(led, on)`
 lights or extinguishes one, and `hal_led_get(led)` says whether it is lit, for a
 `hal_led_t` of `HAL_LED_RED`, `HAL_LED_YELLOW` or `HAL_LED_GREEN`; an
@@ -3305,8 +3331,9 @@ the bench, it does nothing and the DAC is never muted (PICO-DD-BOARD).
 `hal_pico.c` implements it on the Pico SDK -
 `i2c_write_timeout_us`/`i2c_read_timeout_us` (a short count or
 `PICO_ERROR_GENERIC` is a NACK, `PICO_ERROR_TIMEOUT` a timeout),
-`stdio_puts_raw` for output (no CRLF translation), `pico_get_unique_board_id_string`,
-`watchdog_reboot` and `reset_usb_boot`. Both reboots flush stdio and wait 50 ms
+`stdio_puts_raw` for output (no CRLF translation), `watchdog_reboot` and
+`reset_usb_boot`. The board unique ID went with #379: nothing read it
+(MISRA C:2012 Rule 8.7). Both reboots flush stdio and wait 50 ms
 first so the `ok` reaches the host. It is the only file that includes SDK
 headers, and it holds the two MISRA deviations (Rule 21.6 for the SDK's own
 output routine, Dir 4.6 for SDK prototypes).
@@ -3334,10 +3361,10 @@ pointer is `SHT30_STATUS_ERR_PARAM`. Status-register bits are `SHT30_STATREG_*`.
 A bounded line builder in place of `snprintf` (MISRA Rules 21.6, 17.1).
 `text_t` holds the caller's buffer, its capacity, the length and an `overflow`
 flag; every append is bounded and sets the flag rather than writing past the
-end. Formats: string, token (spaces to `_`), unsigned decimal, milli-units to
-three places with the sign on the whole value (negation done in unsigned
-arithmetic so `INT32_MIN` is defined), and fixed-width upper-case hex (8 and
-16 bit). `text_centi` (#131, PICO-FR-027) writes milli-units to two places:
+end. Formats: string, unsigned decimal and fixed-width upper-case hex (16
+bit). The token, milli-unit and 8-bit hex formats went with #379: nothing in
+the firmware used them (MISRA C:2012 Rule 8.7). `text_centi` (#131,
+PICO-FR-027) writes milli-units to two places:
 it rounds the magnitude half away from zero (`(|m| + 5) / 10`, in unsigned
 arithmetic, which holds for `INT32_MIN`), then adds the sign only if the
 rounded value is not zero, so that −0.004 is `0.00` and never `-0.00`.

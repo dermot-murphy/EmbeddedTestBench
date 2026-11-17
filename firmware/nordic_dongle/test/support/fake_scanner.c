@@ -19,7 +19,7 @@
 /* The scanner                                                         */
 /* ------------------------------------------------------------------ */
 
-static scanner_sensor_t	m_sensors[PROTO_MAX_SENSORS];
+static ble_scanner_sensor_t	m_sensors[PROTOCOL_MAX_SENSORS];
 static uint32_t		m_sensor_count;
 static bool		m_scanning;
 static bool		m_profiling;
@@ -29,13 +29,13 @@ static uint32_t		m_stops;
 static uint32_t		m_clears;
 static uint32_t		m_start_result;
 static uint32_t		m_duration_ms;
-static scanner_filter_t	m_filter;
+static ble_scanner_filter_t	m_filter;
 static uint32_t		m_received;
 static uint32_t		m_reported;
 
-uint32_t scanner_init(void)	{ return 0U; }
+uint32_t ble_scanner_init(void)	{ return 0U; }
 
-uint32_t scanner_start(const scanner_filter_t * p_filter, uint32_t duration_ms)
+uint32_t ble_scanner_start(const ble_scanner_filter_t * p_filter, uint32_t duration_ms)
 {
 	if (p_filter != NULL)
 	{
@@ -51,23 +51,23 @@ uint32_t scanner_start(const scanner_filter_t * p_filter, uint32_t duration_ms)
 	return 0U;
 }
 
-uint32_t scanner_stop(void)
+uint32_t ble_scanner_stop(void)
 {
 	m_stops++;
 	m_scanning = false;
 	return 0U;
 }
 
-bool     scanner_is_active(void)	{ return m_scanning; }
-void     scanner_clear(void)		{ m_clears++; m_sensor_count = 0U; }
-uint32_t scanner_count(void)		{ return m_sensor_count; }
+bool     ble_scanner_is_active(void)	{ return m_scanning; }
+void     ble_scanner_clear(void)		{ m_clears++; m_sensor_count = 0U; }
+uint32_t ble_scanner_count(void)		{ return m_sensor_count; }
 
-const scanner_sensor_t * scanner_get(uint32_t index)
+const ble_scanner_sensor_t * ble_scanner_get(uint32_t index)
 {
 	return (index < m_sensor_count) ? &m_sensors[index] : NULL;
 }
 
-uint32_t scanner_find(const ble_gap_addr_t * p_address)
+uint32_t ble_scanner_find(const ble_gap_addr_t * p_address)
 {
 	uint32_t index;
 
@@ -79,15 +79,15 @@ uint32_t scanner_find(const ble_gap_addr_t * p_address)
 		}
 	}
 
-	return PROTO_MAX_SENSORS;
+	return PROTOCOL_MAX_SENSORS;
 }
 
-void scanner_profile_start(const ble_gap_addr_t * p_address)
+void ble_scanner_profile_start(const ble_gap_addr_t * p_address)
 {
 	m_profiling = true;
 	if (p_address != NULL)
 	{
-		scanner_format_address(p_address, m_profile_address);
+		ble_scanner_format_address(p_address, m_profile_address);
 	}
 	else
 	{
@@ -95,28 +95,28 @@ void scanner_profile_start(const ble_gap_addr_t * p_address)
 	}
 }
 
-void scanner_profile_stop(void)		{ m_profiling = false; }
-bool scanner_profile_is_active(void)	{ return m_profiling; }
+void ble_scanner_profile_stop(void)		{ m_profiling = false; }
+bool ble_scanner_profile_is_active(void)	{ return m_profiling; }
 
-void scanner_profile_counters(uint32_t * p_received, uint32_t * p_reported)
+void ble_scanner_profile_counters(uint32_t * p_received, uint32_t * p_reported)
 {
 	*p_received = m_received;
 	*p_reported = m_reported;
 }
 
-void scanner_on_ble_evt(const ble_evt_t * p_ble_evt)	{ (void)p_ble_evt; }
+void ble_scanner_on_ble_evt(const ble_evt_t * p_ble_evt)	{ (void)p_ble_evt; }
 
 /* Address formatting is not faked: the command parser's replies contain
  * addresses, and a fake that formatted them differently from the firmware would
  * make those assertions meaningless. */
-void scanner_format_address(const ble_gap_addr_t * p_address, char * buffer)
+void ble_scanner_format_address(const ble_gap_addr_t * p_address, char * buffer)
 {
 	(void)sprintf(buffer, "%02X:%02X:%02X:%02X:%02X:%02X",
 		      p_address->addr[5], p_address->addr[4], p_address->addr[3],
 		      p_address->addr[2], p_address->addr[1], p_address->addr[0]);
 }
 
-bool scanner_parse_address(const char * text, ble_gap_addr_t * p_address)
+bool ble_scanner_parse_address(const char * text, ble_gap_addr_t * p_address)
 {
 	unsigned int	octet[BLE_GAP_ADDR_LEN];
 	unsigned int	type = 1U;
@@ -144,19 +144,19 @@ bool scanner_parse_address(const char * text, ble_gap_addr_t * p_address)
 
 void fake_scanner_add(const char * address, uint8_t address_type, const char * name, int8_t rssi)
 {
-	scanner_sensor_t * p_sensor;
+	ble_scanner_sensor_t * p_sensor;
 
-	if (m_sensor_count >= PROTO_MAX_SENSORS)
+	if (m_sensor_count >= PROTOCOL_MAX_SENSORS)
 	{
 		return;
 	}
 	p_sensor = &m_sensors[m_sensor_count];
 	(void)memset(p_sensor, 0, sizeof(*p_sensor));
-	(void)scanner_parse_address(address, &p_sensor->address);
+	(void)ble_scanner_parse_address(address, &p_sensor->address);
 	p_sensor->address.addr_type = address_type;
 	p_sensor->rssi              = rssi;
 	p_sensor->seen              = 1U;
-	(void)strncpy(p_sensor->name, name, PROTO_MAX_NAME - 1U);
+	(void)strncpy(p_sensor->name, name, PROTOCOL_MAX_NAME - 1U);
 	p_sensor->name_length       = (uint8_t)strlen(p_sensor->name);
 	m_sensor_count++;
 }
@@ -164,7 +164,7 @@ void fake_scanner_add(const char * address, uint8_t address_type, const char * n
 void fake_scanner_set_scan_response(uint16_t manufacturer_id,
 				    const uint8_t * p_data, uint8_t length)
 {
-	scanner_sensor_t * p_sensor = &m_sensors[m_sensor_count - 1U];
+	ble_scanner_sensor_t * p_sensor = &m_sensors[m_sensor_count - 1U];
 
 	p_sensor->has_manufacturer     = true;
 	p_sensor->manufacturer_id      = manufacturer_id;

@@ -22,7 +22,7 @@ extern "C" {
 #endif
 
 /** Most tokens accepted after the command word. */
-#define CMD_MAX_ARGS			6U
+#define CMD_PARSER_MAX_ARGS			6U
 
 /**
  * @brief Attach the handlers to the command table. Call once at start-up.

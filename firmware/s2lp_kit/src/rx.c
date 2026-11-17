@@ -40,11 +40,12 @@ static void rx_arm(void)
 bool rx_start(const uint8_t *addresses, uint32_t count)
 {
 	bool started = false;
-	uint32_t index;
-	uint8_t value;
 
 	if (count <= PROTO_MAX_REGISTERS)
 	{
+		uint32_t index;
+		uint8_t value;
+
 		hal_radio_irq_enable(false);
 		m_running = false;
 		s2lp_command(S2LP_CMD_SABORT);
@@ -93,7 +94,6 @@ static void rx_take_frame(uint32_t irq, uint32_t time_us)
 {
 	ring_record_t *record;
 	uint8_t length;
-	uint32_t index;
 
 	/* RX_FIFO_STATUS: the datasheet gives NELEM_RXFIFO as bits 6:0, which
 	   cannot count a full 128-byte FIFO, so all eight bits are read and the
@@ -106,6 +106,8 @@ static void rx_take_frame(uint32_t irq, uint32_t time_us)
 	record = ring_claim();
 	if (record != NULL)
 	{
+		uint32_t index;
+
 		record->kind = PROTO_KIND_FRAME;
 		record->time_us = time_us;
 		record->irq = irq;

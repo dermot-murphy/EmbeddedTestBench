@@ -22,7 +22,7 @@
 
 #define FAKE_MAX_LINES	64U
 
-static char	m_lines[FAKE_MAX_LINES][PROTO_MAX_EVENT];
+static char	m_lines[FAKE_MAX_LINES][PROTOCOL_MAX_EVENT];
 static uint32_t	m_line_count;
 static bool	m_lines_full;
 static uint32_t	m_dropped;
@@ -36,8 +36,8 @@ static bool fake_record(const char * line)
 	}
 	if (m_line_count < FAKE_MAX_LINES)
 	{
-		(void)strncpy(m_lines[m_line_count], line, PROTO_MAX_EVENT - 1U);
-		m_lines[m_line_count][PROTO_MAX_EVENT - 1U] = '\0';
+		(void)strncpy(m_lines[m_line_count], line, PROTOCOL_MAX_EVENT - 1U);
+		m_lines[m_line_count][PROTOCOL_MAX_EVENT - 1U] = '\0';
 		m_line_count++;
 	}
 	return true;
@@ -50,7 +50,7 @@ bool cdc_acm_send_line(const char * line)
 
 bool cdc_acm_send_format(const char * format, ...)
 {
-	char	line[PROTO_MAX_EVENT];
+	char	line[PROTOCOL_MAX_EVENT];
 	va_list	arguments;
 
 	va_start(arguments, format);
@@ -75,7 +75,6 @@ void cdc_acm_process(void)
 void fake_host_set_process_hook(void (*hook)(void))	{ m_process_hook = hook; }
 bool     cdc_acm_take_line(char * buffer, uint32_t size)	{ (void)buffer; (void)size; return false; }
 uint32_t cdc_acm_dropped(void)				{ return m_dropped; }
-bool     cdc_acm_is_open(void)				{ return true; }
 bool     cdc_acm_tx_idle(void)				{ return true; }
 
 uint32_t     fake_line_count(void)		{ return m_line_count; }

@@ -224,11 +224,6 @@ void hal_write_line(const char *line)
 	m_line_total++;
 }
 
-const char *hal_board_id(void)
-{
-	return FAKE_BOARD_ID;
-}
-
 uint64_t hal_uptime_us(void)
 {
 	return m_uptime;

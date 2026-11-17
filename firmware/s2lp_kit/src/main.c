@@ -23,9 +23,6 @@ int main(void)
 	static char out[CMD_OUT_MAX];
 	uint32_t length = 0U;
 	bool too_long = false;
-	uint32_t written;
-	int32_t byte;
-	const ring_record_t *record;
 
 	hal_init();
 	hal_radio_shutdown(false);
@@ -33,10 +30,12 @@ int main(void)
 
 	for (;;)
 	{
-		record = ring_peek();
+		const ring_record_t *record = ring_peek();
+		int32_t byte;
+
 		if (record != NULL)
 		{
-			written = cmd_format_record(record, out);
+			uint32_t written = cmd_format_record(record, out);
 			ring_release();
 			hal_uart_write(out, written);
 		}

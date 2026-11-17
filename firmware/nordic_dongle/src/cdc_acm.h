@@ -28,7 +28,7 @@ extern "C" {
 #endif
 
 /** Lines buffered towards the host. */
-#define CDC_TX_QUEUE_LINES		32U
+#define CDC_ACM_TX_QUEUE_LINES		32U
 
 /**
  * @brief Bring up USB and the CDC ACM class.
@@ -57,7 +57,7 @@ bool cdc_acm_send_line(const char * line);
  * @brief Queue a line built with printf formatting.
  *
  * @return As @ref cdc_acm_send_line. A result that would exceed
- *         @ref PROTO_MAX_EVENT is truncated rather than overrunning, and the
+ *         @ref PROTOCOL_MAX_EVENT is truncated rather than overrunning, and the
  *         truncation is visible in the log rather than silent.
  */
 bool cdc_acm_send_format(const char * format, ...);
@@ -76,11 +76,6 @@ bool cdc_acm_take_line(char * buffer, uint32_t size);
  * @brief Lines dropped because the transmit queue was full, since power-up.
  */
 uint32_t cdc_acm_dropped(void);
-
-/**
- * @brief True once the host has opened the port.
- */
-bool cdc_acm_is_open(void);
 
 /**
  * @brief True when every queued line has been handed to the host.

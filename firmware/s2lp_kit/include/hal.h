@@ -50,4 +50,15 @@ uint32_t hal_irq_save(void);
 /** Restore the interrupt state hal_irq_save returned. */
 void hal_irq_restore(uint32_t state);
 
+/* Interrupt handlers, named in startup.c's vector table; target only. */
+
+/** EXTI lines 0 and 1: the radio's nIRQ on line 0. */
+void hal_exti0_1_isr(void);
+
+/** TIM2 update: the upper half of the microsecond timer. */
+void hal_tim2_isr(void);
+
+/** USART2: a byte from the host. */
+void hal_usart2_isr(void);
+
 #endif /* HAL_H */

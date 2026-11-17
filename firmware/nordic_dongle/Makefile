@@ -21,7 +21,7 @@ OUTPUT_DIRECTORY := _build
 # is UTC and ISO 8601, and honours SOURCE_DATE_EPOCH, so a reproducible build
 # stays reproducible - the host compares this string, and a date that changed on
 # every rebuild would report every dongle as out of date.
-FIRMWARE_VERSION := $(shell sed -n 's/^\#define FIRMWARE_VERSION[ \t]*"\(.*\)".*/\1/p' include/firmware_version.h)
+FIRMWARE_VERSION := $(shell sed -n 's/^\#define FIRMWARE_VERSION_STRING[ \t]*"\(.*\)".*/\1/p' include/firmware_version.h)
 SOURCE_DATE_EPOCH ?= $(shell date -u +%s)
 FIRMWARE_BUILD_DATE := $(shell date -u -d @$(SOURCE_DATE_EPOCH) +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || \
                                date -u -r $(SOURCE_DATE_EPOCH) +%Y-%m-%dT%H:%M:%SZ)
@@ -169,6 +169,13 @@ CFLAGS += -DNRF_SD_BLE_API_VERSION=7
 CFLAGS += -DS140
 CFLAGS += -DSOFTDEVICE_PRESENT
 CFLAGS += -mcpu=cortex-m4 -mthumb -mabi=aapcs
+# The language, stated rather than inherited (ETB-STD-002 section 7.1, #379).
+# Nordic's Makefile.common compiles every C file as "$(CC) -std=c99 $(CFLAGS)",
+# so the last -std, this one, is the one that applies, to the SDK's sources as
+# well as this project's: the image is built in one dialect.
+CFLAGS += -std=gnu11
+# -Wextra is added to this project's own sources below, not here: the SDK's
+# sources and headers do not build clean under it.
 CFLAGS += -Wall -Werror
 CFLAGS += -mfloat-abi=hard -mfpu=fpv4-sp-d16
 CFLAGS += -ffunction-sections -fdata-sections -fno-strict-aliasing
@@ -238,6 +245,17 @@ include $(TEMPLATE_PATH)/Makefile.common
 
 $(foreach target, $(TARGETS), $(call define_target, $(target)))
 
+# -Wextra on this project's own sources (ETB-STD-002 section 7.2, #379), and
+# nowhere else. Their objects are named as Makefile.common names them. For
+# these objects only, the SDK's include folders are also given as -isystem:
+# GCC then ignores the same folders' -I, and does not report warnings raised
+# inside the SDK's headers - over five thousand under -Wextra, none in this
+# project's code - so a warning that fails the build is one in code this
+# project owns. The SDK's own sources keep -Wall -Werror, as before.
+PROJECT_OBJECTS := $(foreach source,$(filter $(PROJ_DIR)/src/%.c,$(SRC_FILES)), \
+                     $(call get_object_file_name,$(PROJECT_NAME),$(source)))
+$(PROJECT_OBJECTS): CFLAGS += -Wextra $(addprefix -isystem ,$(filter $(SDK_ROOT)/%,$(INC_FOLDERS)))
+
 # --- packaging ---------------------------------------------------------
 # 0x100 is S140 7.2.0 (0xCA is 7.0.1). The dongle's factory bootloader does not verify
 # signatures, so no key is needed; set DFU_KEY for one that does.
@@ -262,8 +280,8 @@ manifest: default
 	@printf '{\n' > $(MANIFEST)
 	@printf '  "version": "%s",\n'     "$(FIRMWARE_VERSION)"    >> $(MANIFEST)
 	@printf '  "built": "%s",\n'       "$(FIRMWARE_BUILD_DATE)" >> $(MANIFEST)
-	@printf '  "protocol": "%s",\n'    "$(shell sed -n 's/^\#define PROTO_VERSION[ \t]*"\(.*\)".*/\1/p' include/protocol.h)" >> $(MANIFEST)
-	@printf '  "model": "%s",\n'       "$(shell sed -n 's/^\#define PROTO_MODEL[ \t]*"\(.*\)".*/\1/p' include/protocol.h)" >> $(MANIFEST)
+	@printf '  "protocol": "%s",\n'    "$(shell sed -n 's/^\#define PROTOCOL_VERSION[ \t]*"\(.*\)".*/\1/p' include/protocol.h)" >> $(MANIFEST)
+	@printf '  "model": "%s",\n'       "$(shell sed -n 's/^\#define PROTOCOL_MODEL[ \t]*"\(.*\)".*/\1/p' include/protocol.h)" >> $(MANIFEST)
 	@printf '  "hex": "%s",\n'         "$(PROJECT_NAME).hex"    >> $(MANIFEST)
 	@printf '  "package": "%s",\n'     "nordic_dongle_dfu.zip"  >> $(MANIFEST)
 	@printf '  "sha256": "%s"\n'       "$(shell sha256sum $(OUTPUT_DIRECTORY)/$(PROJECT_NAME).hex 2>/dev/null | cut -d" " -f1)" >> $(MANIFEST)
