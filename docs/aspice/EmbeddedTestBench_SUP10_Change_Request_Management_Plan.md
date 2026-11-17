@@ -30,6 +30,7 @@
 | 0.4 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | 0.5 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
 | next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. |
+| next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
 
 ---
 
@@ -44,10 +45,10 @@ impact, decided, implemented and confirmed.
 
 | Document ID | Title | Version |
 |---|---|---|
-| ETB-SUP8-001 | Embedded Test Bench Configuration Management Plan | 0.1 |
-| ETB-SUP9-001 | Embedded Test Bench Problem Resolution Management Plan | 0.1 |
-| ETB-SUP1-001 | Embedded Test Bench Quality Assurance Plan | 0.1 |
-| ETB-RTM-001 | Embedded Test Bench Traceability Matrix | 0.1 |
+| ETB-SUP8-001 | Embedded Test Bench Configuration Management Plan | 0.21 |
+| ETB-SUP9-001 | Embedded Test Bench Problem Resolution Management Plan | 0.5 |
+| ETB-SUP1-001 | Embedded Test Bench Quality Assurance Plan | 0.5 |
+| ETB-RTM-001 | Embedded Test Bench Traceability Matrix | 1.83 |
 
 ### 3.3 Scope
 

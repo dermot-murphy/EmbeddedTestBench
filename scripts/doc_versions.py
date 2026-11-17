@@ -20,8 +20,10 @@ row, one minor version above the row before it, and brings the version column
 of ETB-SVD-001 §5.3 up to date. ``check`` is what the test suite runs: every
 controlled document has both links, pointing at its own history, and its
 history is numbered in increasing order with any ``next`` rows last, and
-holds no row whose version is neither. ``list`` prints each document's ID,
-version and date.
+holds no row whose version is neither; and each Referenced Documents table
+cites every controlled document at the version of its last numbered row
+(#377). ``number`` also sets those cited versions. ``list`` prints each
+document's ID, version and date.
 
 ``merge`` is a git merge driver for the documents (``.gitattributes``). It
 resolves a conflict only inside a revision history, and only when every line
@@ -40,7 +42,7 @@ The wiki expands the links with ``expand`` (``scripts/publish_docs.py``).
 
 Standard library only, Python 3.8 and later.
 
-Traces to: ETB-SUP8-001 §5.6 and §6.2, issue #210.
+Traces to: ETB-SUP8-001 §5.6 and §6.2, issues #210 and #377.
 """
 
 from __future__ import annotations
@@ -286,11 +288,101 @@ def doc_id(text):
     return match.group(1) if match else ""
 
 
+def last_numbered(text):
+    """The version of the document's last numbered history row, or None.
+
+    This is the version a Referenced Documents table cites: ``next`` rows are
+    not yet a version anyone can cite (ETB-SUP8-001 §6.2, #377). It is the
+    released version except for a row numbered by hand since the last release.
+    """
+    numbered = [version for _, version, _ in history(text) if version != NEXT]
+    return numbered[-1] if numbered else None
+
+
+_REFERENCES_HEADING = re.compile(r"^#+ +(?:\d+(?:\.\d+)*\.? +)?Referenced Documents *$")
+
+
+def _reference_rows(text):
+    """The rows of the Referenced Documents table as (line index, cells).
+
+    Only a table whose header is exactly Document ID, Title, Version is
+    read; a table that cites another baseline (for example "Version at
+    `v0.03.0000`") is left alone.
+    """
+    lines = text.split("\n")
+    rows = []
+    for start, line in enumerate(lines):
+        if not _REFERENCES_HEADING.match(line):
+            continue
+        header = None
+        for index in range(start + 1, len(lines)):
+            row = lines[index]
+            if row.startswith("#"):
+                break
+            if not row.startswith("|"):
+                if header is not None:
+                    break
+                continue
+            cells = [cell.strip() for cell in row.split("|")[1:-1]]
+            if header is None:
+                header = cells
+                if header != ["Document ID", "Title", "Version"]:
+                    break
+            elif not _SEPARATOR.match(row):
+                rows.append((index, cells))
+    return rows
+
+
+def references(text):
+    """The Referenced Documents rows as a list of (line index, ID, version)."""
+    return [(index, cells[0], cells[2]) for index, cells in _reference_rows(text)
+            if len(cells) == 3]
+
+
+def reference_problems(text, versions):
+    """Cited versions that are not the cited document's last numbered version.
+
+    ``versions`` maps a controlled document's ID to ``last_numbered()``. A cited ID
+    not in the map (an external document) is not checked.
+    """
+    found = []
+    for index, cited, version in references(text):
+        wanted = versions.get(cited)
+        if wanted is not None and version != wanted:
+            found.append("line %d: cites %s at %s, which is at %s"
+                         % (index + 1, cited, version, wanted))
+    return found
+
+
+def set_references(text, versions):
+    """The text with each cited version set from ``versions``."""
+    lines = text.split("\n")
+    for index, cited, _ in references(text):
+        if cited in versions:
+            cells = lines[index].split("|")
+            cells[3] = " %s " % versions[cited]
+            lines[index] = "|".join(cells)
+    return "\n".join(lines)
+
+
+def numbered_versions(root, paths=None):
+    """Each controlled document's ID mapped to its last numbered version."""
+    found = {}
+    for rel in paths if paths is not None else controlled_documents(root):
+        text = read_text(Path(root) / rel)
+        version = last_numbered(text)
+        if doc_id(text) and version:
+            found[doc_id(text)] = version
+    return found
+
+
 def run_check(paths, root):
     """``check``: print each problem; 1 if there was any."""
     failed = False
+    versions = numbered_versions(root)
     for rel in paths:
-        for message in problems(read_text(Path(root) / rel), rel in HELD_BACK):
+        text = read_text(Path(root) / rel)
+        for message in problems(text, rel in HELD_BACK) + reference_problems(text, versions):
             print("%s: %s" % (rel, message))
             failed = True
     return 1 if failed else 0
@@ -310,6 +402,14 @@ def run_number(paths, root):
             write_text(path, numbered)
             print("%s: numbered" % rel)
         versions[doc_id(numbered)] = current(numbered)[0]
+    cited = numbered_versions(root)
+    for rel in controlled_documents(root):
+        path = Path(root) / rel
+        text = read_text(path)
+        updated = set_references(text, cited)
+        if updated != text:
+            write_text(path, updated)
+            print("%s: referenced document versions updated" % rel)
     svd = Path(root) / SVD
     if svd.exists():
         text = read_text(svd)
