@@ -12,7 +12,7 @@
 |---|---|---|---|
 | **Document ID** | ETB-ACQ4-001 | **Version** | [latest, §2](#2-revision-history) |
 | **Project** | Embedded Test Bench | **Date** | [latest, §2](#2-revision-history) |
-| **Status** | Draft | **Classification** | Internal |
+| **Status** | [by location, ETB-SUP1-001 §6.3](EmbeddedTestBench_SUP1_Quality_Assurance_Plan.md#63-document-status) | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | ACQ.4 |
 
@@ -35,6 +35,8 @@
 | 0.9 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
 | 0.10 | 2026-11-13 | Claude | #200: Pico Technology added - §4.1 the PicoScope 3405D MSO, §4.4 the `ps3000a` library (from PicoScope 7 T&M Stable, unit driver version 2.2.160.7569; WinUSB driver 2.4.0.2 of 2022-06-10), not pinned, its licence not yet reviewed; §5 what the library is trusted to do. |
 | 0.11 | 2026-11-14 | Claude | #342: §4.1 Nordic's Power Profiler Kit II and its serial protocol, read from Nordic's Power Profiler app; facts only, no code copied (AD-31). |
+| next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. |
+| next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
 | next | 2026-11-17 | Claude | #376: §3.1 and §4.5 - the AI model supplier (Anthropic, Claude Code) is listed: what is depended upon, what is agreed and exchanged, and how it is monitored. §4.3 - CPython versions as CI runs them (3.8, 3.9, 3.12; 3.10 for `nrfutil`). §4.4 and §6 - the Pico licence review tracked on #382. §6 - Dependabot reads its configuration from `main`, which is why pip pull requests #320 to #324 and #355 to #359 opened after #284; #355 to #359 closed. §9 - supplier corrective action requests are raised on the supplier's tracker (CStyleCheck#439, #447). |
 
 ---
@@ -58,11 +60,11 @@ not apply and are recorded as not applicable in §9 rather than invented.
 
 | Document ID | Title | Version |
 |---|---|---|
-| ETB-MAN3-001 | Embedded Test Bench Project Management Plan | 0.1 |
-| ETB-MAN5-001 | Embedded Test Bench Risk Management Plan | 0.1 |
-| ETB-SUP8-001 | Embedded Test Bench Configuration Management Plan | 0.1 |
-| ETB-SUP9-001 | Embedded Test Bench Problem Resolution Management Plan | 0.1 |
-| ETB-SVD-001 | Embedded Test Bench Software Version Description | 0.1 |
+| ETB-MAN3-001 | Embedded Test Bench Project Management Plan | 0.5 |
+| ETB-MAN5-001 | Embedded Test Bench Risk Management Plan | 0.7 |
+| ETB-SUP8-001 | Embedded Test Bench Configuration Management Plan | 0.21 |
+| ETB-SUP9-001 | Embedded Test Bench Problem Resolution Management Plan | 0.5 |
+| ETB-SVD-001 | Embedded Test Bench Software Version Description | 0.10 |
 
 ### 3.3 Scope
 

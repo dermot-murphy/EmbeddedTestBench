@@ -12,7 +12,7 @@
 |---|---|---|---|
 | **Document ID** | ETB-STD-001 | **Version** | [latest, §2](#2-revision-history) |
 | **Project** | Embedded Test Bench | **Date** | [latest, §2](#2-revision-history) |
-| **Status** | Draft | **Classification** | Internal |
+| **Status** | [by location, ETB-SUP1-001 §6.3](EmbeddedTestBench_SUP1_Quality_Assurance_Plan.md#63-document-status) | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SUP.1 |
 
@@ -30,6 +30,8 @@
 | 0.4 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | 0.5 | 2026-10-06 | Claude | #229: §7 - CStyleCheck is now `@v1.6.1`. |
 | 0.6 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
+| next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. |
+| next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
 
 ---
 
@@ -50,11 +52,11 @@ Neither is true here.
 
 | Document ID | Title | Version |
 |---|---|---|
-| ETB-STD-002 | Embedded Test Bench Embedded C Coding Standard | 0.1 |
-| ETB-STY-001 | Embedded Test Bench Embedded C Style Guide | 0.1 |
-| ETB-SYS2-001 | Embedded Test Bench System Requirements Specification | 0.1 |
-| ETB-SUP1-001 | Embedded Test Bench Quality Assurance Plan | 0.1 |
-| ETB-ACQ4-001 | Embedded Test Bench Supplier Monitoring Plan | 0.1 |
+| ETB-STD-002 | Embedded Test Bench Embedded C Coding Standard | 0.7 |
+| ETB-STY-001 | Embedded Test Bench Embedded C Style Guide | 0.7 |
+| ETB-SYS2-001 | Embedded Test Bench System Requirements Specification | 0.10 |
+| ETB-SUP1-001 | Embedded Test Bench Quality Assurance Plan | 0.5 |
+| ETB-ACQ4-001 | Embedded Test Bench Supplier Monitoring Plan | 0.11 |
 | CSC-STD-001 | CStyleCheck — Industry C Coding Standards Comparative Analysis | 1.2 |
 
 CSC-STD-001 holds the rule-by-rule coverage matrix for the checker used here.

@@ -12,7 +12,7 @@
 |---|---|---|---|
 | **Document ID** | ETB-SUP8-001 | **Version** | [latest, §2](#2-revision-history) |
 | **Project** | Embedded Test Bench | **Date** | [latest, §2](#2-revision-history) |
-| **Status** | Draft | **Classification** | Internal |
+| **Status** | [by location, ETB-SUP1-001 §6.3](EmbeddedTestBench_SUP1_Quality_Assurance_Plan.md#63-document-status) | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SUP.8 |
 
@@ -45,6 +45,9 @@
 | 0.19 | 2026-10-27 | Claude | #305: §6.2 - the conflict style is read from the clone being merged. |
 | 0.20 | 2026-11-14 | Claude | #70: §4 - the prototype bench image (`docker/bench/`) added as a configuration item. |
 | 0.21 | 2026-11-14 | Claude | #195: §5.8 - `Home` and the home page both carry the README's "At a glance" section. |
+| next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. §6 document versions: the rule that a version moves to 1.0 on leaving Draft is removed, since status no longer moves out of Draft; §6.2 drops the same example. |
+| next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). §6.2: the rule for the versions a Referenced Documents table cites (the last numbered version, with its two exceptions), set by `number` and checked by `check`. |
+| next | 2026-11-17 | Claude | #374: §4 - Document ID column reads `ETB-…`, documents versioned by their last history row, firmware source lists all three trees. §6.2 - ETB-SVD-001 has taken the links, `HELD_BACK` is empty. §7.1 added: configuration audit CA1 to CA7 per release baseline, recorded in ETB-SUP8-002. §9 - current document version is the last history row. §10 - the recovery check, recorded in ETB-SUP8-002. |
 
 ---
 
@@ -64,11 +67,11 @@ input to the run is an identified configuration item.
 
 | Document ID | Title | Version |
 |---|---|---|
-| ETB-MAN3-001 | Embedded Test Bench Project Management Plan | 0.1 |
-| ETB-SUP1-001 | Embedded Test Bench Quality Assurance Plan | 0.1 |
-| ETB-SUP10-001 | Embedded Test Bench Change Request Management Plan | 0.1 |
-| ETB-ACQ4-001 | Embedded Test Bench Supplier Monitoring Plan | 0.1 |
-| ETB-SVD-001 | Embedded Test Bench Software Version Description | 0.1 |
+| ETB-MAN3-001 | Embedded Test Bench Project Management Plan | 0.5 |
+| ETB-SUP1-001 | Embedded Test Bench Quality Assurance Plan | 0.5 |
+| ETB-SUP10-001 | Embedded Test Bench Change Request Management Plan | 0.5 |
+| ETB-ACQ4-001 | Embedded Test Bench Supplier Monitoring Plan | 0.11 |
+| ETB-SVD-001 | Embedded Test Bench Software Version Description | 0.10 |
 
 ### 3.3 Scope
 
@@ -81,10 +84,10 @@ physical bench instruments whose identity affects a result.
 
 | Class | Items | Identification | Versioned by |
 |---|---|---|---|
-| Documents | `docs/aspice/*.md`, `docs/templates/*.md`, guides in `docs/` | Document ID (TB-…) | Version field + git |
+| Documents | `docs/aspice/*.md`, `docs/templates/*.md`, guides in `docs/` | Document ID (ETB-…) | Last revision history row (§6.2) + git |
 | Python source | `benchtools/**` | Module path | git |
 | Tests | `tests/**` | pytest node ID | git |
-| Firmware source | `firmware/nordic_dongle/**` | Path | git |
+| Firmware source | `firmware/nordic_dongle/**`, `firmware/pico2_test_board/**`, `firmware/s2lp_kit/**` | Path | git; the PICO2 Test Board application also by its own semantic version (ETB-SVD-001 §5.2) |
 | Firmware images | `.hex`, `.zip` DFU packages | Filename + manifest | `firmware_manifest.json` beside the image |
 | Bench descriptions | `benches/**` | Bench name | git |
 | Bench specifications | `specs/**` | Spec filename | git |
@@ -377,7 +380,7 @@ names, so its first run replaces those pages rather than duplicating them.
 
 | Item | Scheme |
 |---|---|
-| Documents | `major.minor`, starting at 0.1; 0.x while Draft, 1.0 at first approval. Held in the last revision history row and numbered at release (§6.2) |
+| Documents | `major.minor`, starting at 0.1. Status is not part of the version (ETB-SUP1-001 §6.3). Held in the last revision history row and numbered at release (§6.2) |
 | Python package and releases | Semantic versioning, written `MAJOR.MINOR.PATCH` as `0.01.0000`, in `pyproject.toml` and `benchtools/__init__.py`. A release is tagged `v<version>` with a lowercase `v`, e.g. `v0.01.0000`. Python packaging normalises the version under PEP 440, so the wheel's metadata reads `0.1.0` for `0.01.0000`; the tag and `__version__` keep the project's form (ETB-SVD-001 §5.1) |
 | Firmware | `major.minor.patch`, reported by the `rd version` command and recorded in the firmware manifest |
 | Baselines | Annotated git tags |
@@ -411,21 +414,37 @@ shows the values in place of the links (§5.8).
 | Feature, fix or docs branch | `next`, with the date of the change |
 | Release or hotfix branch | Each `next` row is numbered by `python scripts/doc_versions.py number`: one minor version above the row before it, in table order. The same command sets the version column of ETB-SVD-001 §5.3 (§5.6) |
 
-A row is numbered by hand only where the number is itself the change, such as
-1.0 at first approval (§6). Between releases `develop` can hold several `next`
+A row is numbered by hand only where the number is itself the change. Between releases `develop` can hold several `next`
 rows in one document.
 
+**Referenced documents (#377).** A Referenced Documents table with the
+columns Document ID, Title and Version cites each controlled document at its
+*last numbered version*: the version of its last numbered revision history
+row. `next` rows are not counted, since they are not yet a version anyone can
+cite. This is the released version, with two exceptions: a new document's first
+row, 0.1, is numbered by hand and counts before any release contains it; and a
+row numbered by hand on a branch counts at once. Such a row fails `check` in
+every document that cites the document until those citations are updated in
+the same change.
+So a change on a branch does not touch the tables that cite the document, and
+`number` sets every such table when it numbers the `next` rows on the release
+or hotfix branch. A table that cites another baseline, such as ETB-SUP1-002's
+"Version at `v0.03.0000`", has another header and is not changed. A cited ID that
+is not a controlled document in this repository is not checked.
+
 ETB-SVD-001 describes the released baseline and is changed only on a release
-or hotfix branch (§7). It keeps literal values, which must equal its last
-history row, until it is next revised; it then takes the links, and is removed
-from `HELD_BACK` in `scripts/doc_versions.py`.
+or hotfix branch (§7). It held literal Version and Date values until its 0.10
+(#325), when it took the links; `HELD_BACK` in `scripts/doc_versions.py` is
+now empty (#374), so `check` holds it to the same rule as every other
+document.
 
 `scripts/doc_versions.py check`, run by `tests/test_doc_versions.py`
 (SWE4-UT-DOCVER), fails if a controlled document lacks either link or links
 elsewhere than its own history, if its numbered rows do not increase, if a
 numbered row follows a `next` row, or if a history row's version is neither
 `major.minor` nor `next` (a typo such as `Next` or `0.7.1` would otherwise be
-skipped). `tests/test_traceability.py`
+skipped), or if a Referenced Documents table cites a controlled document at
+other than its last numbered version. `tests/test_traceability.py`
 (SWE4-UT-TRACE) also fails if any history table's version column decreases
 from one row to the next.
 
@@ -523,6 +542,26 @@ document versions, firmware versions, tool versions and known problems.
 A baseline is never edited. A correction produces a new baseline with a new
 SVD, and the reason is recorded in the SVD's revision history.
 
+### 7.1 Configuration Audit
+
+Each release baseline is audited on its release or hotfix branch before the
+pull request into `main` is merged, and again on the tag once it exists. The
+audit answers whether the baseline is what its SVD says it is. The record is a
+new entry in ETB-SUP8-002, one per baseline.
+
+| # | Check | How |
+|---|---|---|
+| CA1 | The tag is annotated and points at the merge commit of the release pull request on `main` | `git cat-file -t <tag>`; `git rev-parse <tag>^{commit}`; the pull request's merge commit |
+| CA2 | The version in `pyproject.toml` and `benchtools/__init__.py` is the tag's | `grep` at the tag |
+| CA3 | Every controlled document is in ETB-SVD-001 §5.3 at its version at the tag, and no other | `scripts/doc_versions.py` at the tag, compared with §5.3 |
+| CA4 | Every document passes `scripts/doc_versions.py check` at the tag | `check` at the tag |
+| CA5 | Every firmware image named in the SVD has its `firmware_manifest.json` | `find` at the tag |
+| CA6 | Every required check passed on the release pull request | `gh pr view <n> --json statusCheckRollup` |
+| CA7 | The repository settings are those of §5.5 | `gh api` for the rulesets and merge settings |
+
+A failed check is a problem under ETB-SUP9-001. A baseline that fails CA1 to
+CA4 is corrected by a hotfix, not by editing the tag (§7).
+
 ---
 
 ## 8. Change Control
@@ -544,7 +583,7 @@ The state of any configuration item is answered from the repository:
 |---|---|
 | What is in this release? | ETB-SVD-001 for that baseline |
 | What changed since the last baseline? | `git log <previous-tag>..<tag>` |
-| Which document version is current? | The Version field in the document, on `develop`; on `main` for a released baseline |
+| Which document version is current? | The last row of its revision history (§6.2), on `develop`; at the release tag for a released baseline |
 | What produced this report? | The report's own header: spec revision, bench, instrument identities, simulated or not |
 | What tool versions built this firmware? | The workflow file at that revision, plus ETB-SVD-001 |
 
@@ -557,6 +596,15 @@ full clone and therefore a copy of the history. Build artefacts are reproducible
 from a tagged revision and are not separately archived, with one exception:
 firmware images that were flashed to a device during a recorded test run are
 kept with that run's records, because the run cannot otherwise be reproduced.
+
+**Recovery check.** At each release, and whenever the storage changes, a fresh
+mirror is cloned from GitHub into an empty directory and shown to be complete:
+`git fsck --full` passes; every release tag's tree is the same as in a working
+clone; `develop` and `main` are at the commits GitHub shows; a working tree
+restored from the mirror at the latest tag passes
+`scripts/doc_versions.py check`; the wiki and the `gh-pages` branch can be
+fetched. The result is recorded in ETB-SUP8-002 with the baseline's
+configuration audit.
 
 ---
 

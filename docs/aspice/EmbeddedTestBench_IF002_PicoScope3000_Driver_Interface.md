@@ -12,7 +12,7 @@
 |---|---|---|---|
 | **Document ID** | ETB-IF-002 | **Version** | [latest, §2](#2-revision-history) |
 | **Project** | Embedded Test Bench | **Date** | [latest, §2](#2-revision-history) |
-| **Status** | Draft | **Classification** | Internal |
+| **Status** | [by location, ETB-SUP1-001 §6.3](EmbeddedTestBench_SUP1_Quality_Assurance_Plan.md#63-document-status) | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SYS.3, SWE.2 |
 
@@ -25,6 +25,8 @@
 | Version | Date | Author | Description of Change |
 |---|---|---|---|
 | 0.1 | 2026-11-13 | Claude | #200: first issue. How Embedded Test Bench drives the PicoScope 3000D MSO, and everything that has to be present for it to do so. |
+| next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. |
+| next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
 
 ---
 
@@ -64,13 +66,13 @@ none of them.
 
 | Document ID | Title | Version |
 |---|---|---|
-| ETB-SYS2-001 | Embedded Test Bench System Requirements (ETB-SYS2-065) | latest |
-| ETB-SYS3-001 | Embedded Test Bench System Architecture | latest |
-| ETB-SWE1-001 | Embedded Test Bench Software Requirements Specification, §17 | latest |
-| ETB-SWE2-001 | Embedded Test Bench Software Architecture Description (PSCOPE-ARC-001) | latest |
-| ETB-SWE3-001 | Embedded Test Bench Software Detailed Design (PSCOPE-DD-*) | latest |
-| ETB-ACQ4-001 | Supplier Monitoring Plan, §4.4 (the `ps3000a` library) | latest |
-| ETB-PICO-002 | PICO2 Test Board User Manual, §5.3 (the known signal on channel A) | latest |
+| ETB-SYS2-001 | Embedded Test Bench System Requirements (ETB-SYS2-065) | 0.10 |
+| ETB-SYS3-001 | Embedded Test Bench System Architecture | 0.8 |
+| ETB-SWE1-001 | Embedded Test Bench Software Requirements Specification, §17 | 1.70 |
+| ETB-SWE2-001 | Embedded Test Bench Software Architecture Description (PSCOPE-ARC-001) | 0.33 |
+| ETB-SWE3-001 | Embedded Test Bench Software Detailed Design (PSCOPE-DD-*) | 1.90 |
+| ETB-ACQ4-001 | Supplier Monitoring Plan, §4.4 (the `ps3000a` library) | 0.11 |
+| ETB-PICO-002 | PICO2 Test Board User Manual, §5.3 (the known signal on channel A) | 0.2 |
 | — | `docs/picoscope3000/PicoScope3000_Notes.md`: measurements, sources and open items | — |
 | — | Pico Technology, *PicoScope 3000 Series specifications* (web page, read 2026-11-13) | Manufacturer's |
 | — | Pico Technology, *PicoScope 3000 Series (A API) Programmer's Guide* | Manufacturer's; not read (§11) |
