@@ -66,8 +66,8 @@ cases incomplete, untraced and unplanned. Running them on the bench before
 that is fixed would have produced results that trace to nothing.
 
 **Much of the behaviour has hardware evidence already.** The qualification
-campaign of 2026-10-04 and the bench runs since then exercised 17 of the 24
-integration cases' interfaces (ETB-SYS4-001 §5, last column), and qualified or
+campaign of 2026-10-04 and the bench runs since then gave evidence for 18 of
+the 24 integration cases, two of them only in part (ETB-SYS4-001 §5, last column), and qualified or
 partly qualified most system requirements (ETB-SYS5-002 §7). That evidence is
 not a substitute for the cases. It is why deferring them does not leave the
 bench unverified.
