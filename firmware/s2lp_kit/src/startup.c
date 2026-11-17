@@ -5,6 +5,8 @@
  * Written for this firmware rather than taken from a vendor: copy .data from
  * flash, clear .bss, then run main. The vector table names only the handlers
  * the firmware uses; every other entry stops in startup_default_isr.
+ *
+ * Traces to: S2LP-DD-KITFW.
  */
 
 #include <stdint.h>

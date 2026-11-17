@@ -19,7 +19,7 @@ The port of the core channel is discovered from the instrument's portmapper
 (program 100000, version 2, procedure ``GETPORT``) on port 111, over TCP with
 a UDP fallback for firmware that only answers the datagram form.
 
-Traces to: SWE1-FR-001, SWE1-FR-002, SWE2-ARC-003, SWE3-DD-VXI11.
+Traces to: CORE-FR-001, CORE-FR-002, CORE-ARC-003, CORE-DD-VXI11.
 """
 
 from __future__ import annotations

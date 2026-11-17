@@ -1,6 +1,8 @@
 /**
  * @file fake_hal.c
  * @brief A stand-in for the board and the S2-LP, for the host unit tests (#84).
+ *
+ * Traces to: S2LP-DD-KITFW.
  */
 
 #include "fake_hal.h"
