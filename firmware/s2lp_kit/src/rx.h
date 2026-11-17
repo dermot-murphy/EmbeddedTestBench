@@ -2,6 +2,8 @@
  * @file rx.h
  * @brief Interrupt-driven reception (#84): on each radio interrupt, queue the
  *        frame or the rejection with its time and registers, and re-arm at once.
+ *
+ * Traces to: S2LP-DD-KITFW.
  */
 
 #ifndef RX_H

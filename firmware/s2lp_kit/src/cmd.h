@@ -15,6 +15,8 @@
  *
  * Addresses, codes and data are hexadecimal; counts are decimal. While
  * receiving, only rx, stat and id are taken; the others answer "err receiving".
+ *
+ * Traces to: S2LP-DD-KITFW.
  */
 
 #ifndef CMD_H
