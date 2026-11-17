@@ -121,7 +121,7 @@
 | 1.85 | 2026-11-15 | Claude | #352: §5 SWE4-UT-JLINK 121 -> 126 (`test_variable_address.py`), pass, from a run of `instruments/jlink/` on this branch on 2026-11-15. The §5 total is still the 1.32 whole-suite run's. |
 | 1.86 | 2026-11-15 | Claude | #352 review round 1: §5 SWE4-UT-JLINK 126 -> 130 (`test_variable_address.py` 5 -> 9), pass, from a run of `instruments/jlink/` on this branch on 2026-11-15. |
 | 1.87 | 2026-11-15 | Claude | #352 review round 2: §5 SWE4-UT-JLINK 130 -> 132 (`>>=` and `<<=` cases), pass, from a run of `instruments/jlink/` on this branch on 2026-11-15. |
-| next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (In review, Agreed, Released) and is not written in by hand. Blank lines that split this table removed. |
+| next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. Blank lines that split this table removed. |
 
 ---
 

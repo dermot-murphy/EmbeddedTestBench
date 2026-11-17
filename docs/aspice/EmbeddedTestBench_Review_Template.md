@@ -30,7 +30,7 @@
 | 0.4 | 2026-10-05 | Claude | #204: §3.1 states that a pull request merge is an accepted form of review record and that checks C1 to C6 are what the Reviewer applies before merging. §9 points to the merge of the pull request that adds or last changes the record (ETB-SUP8-001 §5.7). |
 | 0.5 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | 0.6 | 2026-10-25 | Claude | #210: C4 also asks that the Version and Date cells link to the revision history and that a new row is written as `next` (ETB-SUP8-001 §6.2). |
-| next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (In review, Agreed, Released) and is not written in by hand. The QA review posted on each pull request uses checks C1 to C6 and the type checks, in the table form in §3.1. GP 2.2.4 named in place of GP 2.2.3. |
+| next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. The QA review posted on each pull request uses checks C1 to C6 and the type checks, in the table form in §3.1. GP 2.2.4 named in place of GP 2.2.3. |
 
 ---
 

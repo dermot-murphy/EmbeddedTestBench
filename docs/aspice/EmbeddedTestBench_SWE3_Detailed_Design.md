@@ -124,7 +124,7 @@
 | 1.88 | 2026-11-15 | Claude | #352: JLINK-DD-PROBE - `read_variable`, `write_variable` and `variable_address` refuse a variable at address 0 (`_refuse_address_zero`, `_address_of`). |
 | 1.89 | 2026-11-15 | Claude | #352 review round 1: JLINK-DD-PROBE - the address-0 check takes `&(name)` and skips an expression that may have a side effect. |
 | 1.90 | 2026-11-15 | Claude | #352 review round 2: JLINK-DD-PROBE - the side-effect skip covers `>>=` and `<<=`, and says a cast is skipped too. |
-| next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (In review, Agreed, Released) and is not written in by hand. Blank lines that split this table removed. |
+| next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. Blank lines that split this table removed. |
 
 ---
 

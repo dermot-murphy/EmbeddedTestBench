@@ -34,7 +34,7 @@
 | 0.8 | 2026-10-28 | Claude | #247: ETB-SYS2-037 - capture a target's serial output, record every line, write nothing to the port; traced to STK-24 and `SER-` (ETB-SWE1-001 §16). The software requirement sections referred to are §6 to §17 (RUN is now §17). |
 | 0.9 | 2026-11-13 | Claude | #200: ETB-SYS2-065 - capture analogue and logic signals together on one time base, and drive a stimulus from a signal generator; traced to STK-02, STK-04, STK-05 and STK-07 and to `PSCOPE-` (ETB-SWE1-001 §17). The software requirement sections referred to are §6 to §18 (RUN is now §18). |
 | 0.10 | 2026-11-14 | Claude | #342: ETB-SYS2-026 - measure the target's current at 100 000 samples a second, as its supply or in its supply line, with the average, charge and pulses, within the bench's voltage limit; traced to STK-25 and `PPK-` (ETB-SWE1-001 §18). The software requirement sections referred to are §6 to §19 (RUN is now §19). |
-| next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (In review, Agreed, Released) and is not written in by hand. Blank lines that split this table removed. |
+| next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. Blank lines that split this table removed. |
 
 ---
 

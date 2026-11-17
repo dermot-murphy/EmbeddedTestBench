@@ -126,7 +126,7 @@
 | 1.90 | 2026-11-15 | Claude | #349: SWE4-UT-JLINK adds `test_attach.py` (a core left running by the GDB Server is halted on attach); SWE4-UT-JLINKSIM covers `monitor` commands after an attach and a running core's registers. |
 | 1.91 | 2026-11-15 | Claude | #352: SWE4-UT-JLINK adds `test_variable_address.py`: a variable at address 0 refused. |
 | 1.92 | 2026-11-15 | Claude | #352 review round 1: SWE4-UT-JLINK: the address-0 check's `&(name)` and side-effect skip; #351's attach wording brought in line with its review. |
-| next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (In review, Agreed, Released) and is not written in by hand. Blank lines that split this table removed. |
+| next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. Blank lines that split this table removed. |
 
 ---
 

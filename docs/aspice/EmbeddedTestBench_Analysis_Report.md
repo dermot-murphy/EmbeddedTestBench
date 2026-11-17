@@ -30,7 +30,7 @@
 | 0.4 | 2026-10-05 | Claude | #203: §6.1 - the 3.9 and 3.12 legs, and every other job, now pin `ubuntu-24.04` instead of `ubuntu-latest`, which moves to Ubuntu 26 from 2026-10-19. The 3.8 leg stays on `ubuntu-22.04`. |
 | 0.5 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | 0.6 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
-| next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (In review, Agreed, Released) and is not written in by hand. §6.5 updated: review is by merge since #204, with a QA review on each pull request since #371; it no longer says no review exists. |
+| next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. §6.5 updated: review is by merge since #204, with a QA review on each pull request since #371; it no longer says no review exists. |
 
 ---
 

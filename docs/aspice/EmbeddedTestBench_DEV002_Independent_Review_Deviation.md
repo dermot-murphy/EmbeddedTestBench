@@ -27,7 +27,7 @@
 | 0.3 | 2026-10-05 | Claude | #204: §4 states how review and approval are given - Reviewer and Approver remain the same person by decision, both given in one act, the merge of the pull request; evidence is the pull request, its CI result and its merge record; a merge Claude makes on the owner's instruction carries a merge commit note saying so. §5 states that the compensating measures remain. §7 points to the merge (ETB-SUP8-001 §5.7). |
 | 0.4 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | 0.5 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
-| next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (In review, Agreed, Released) and is not written in by hand. The deviated clause is GP 2.2.4, as ETB-PA2-001 uses, not GP 2.2.3. §4 records the QA review that the PR Review session posts on every pull request, and what it does and does not give. |
+| next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. The deviated clause is GP 2.2.4, as ETB-PA2-001 uses, not GP 2.2.3. §4 records the QA review that the PR Review session posts on every pull request, and what it does and does not give. |
 
 ---
 

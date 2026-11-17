@@ -29,7 +29,7 @@
 | 0.3 | 2026-10-05 | Claude | #204: §6.5 added - a pull request merge is an accepted form of review record, and the Reviewer applies ETB-TMPL-001 checks C1 to C6 before merging. §5, §6.3, §7 and §9 updated to match; §10 points to the merge (ETB-SUP8-001 §5.7). |
 | 0.4 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | 0.5 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
-| next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (In review, Agreed, Released) and is not written in by hand. §6.5 adds the QA review that the PR Review session posts on every pull request, with checks C1 to C6 per work product, as the per-pull-request QA record; the merge remains the approval. §6.6 added: content requirements per work product type (GP 2.2.1). §5, §7 and §9 updated to match. |
+| next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. §6.5 adds the QA review that the PR Review session posts on every pull request, with checks C1 to C6 per work product, as the per-pull-request QA record; the merge remains the approval. §6.6 added: content requirements per work product type (GP 2.2.1), for content added or changed from #371 on. §5, §7 and §9 updated to match. Review round 1 (PR #381): §6.3 statuses are exclusive, in order Released, Agreed, In review, In work; §6.5 says what the QA reviewer is given. |
 
 ---
 
@@ -119,15 +119,21 @@ A document's status is not written into it by hand. It follows from where the
 document is in the repository, and the Status cell of every identification
 table links here.
 
-| Status | Where the document is | What makes it so |
-|---|---|---|
-| In review | On a branch, in an open pull request | The pull request; the QA review on it (§6.5) |
-| Agreed | On `develop` | The merge of the pull request that last changed it: the Reviewer's and Approver's approval (§6.5, ETB-SUP8-001 §5.7) |
-| Released | In the baseline of a release tag `v<version>` on `main` | The tag (ETB-SUP8-001 §7) |
+Status belongs to a copy of the document at a commit, not to the document in
+general. The first row that applies is the status:
 
-A copy on a branch is In review even when the same text is Agreed on `develop`.
-The status of the version a reader holds is therefore found from the commit, not
-from the cell: `git branch --contains` and `git tag --contains` give it.
+| Status | The copy is | What makes it so |
+|---|---|---|
+| Released | In the tree of a release tag `v<version>` on `main` | The tag (ETB-SUP8-001 §7) |
+| Agreed | On `develop`, merged since the last release tag | The merge of the pull request that last changed it: the Reviewer's and Approver's approval (§6.5, ETB-SUP8-001 §5.7) |
+| In review | On any other branch, in an open pull request | The pull request; the QA review on it (§6.5) |
+| In work | On any other branch with no open pull request | Nothing yet: it has not been offered for review |
+
+A document on `develop` that has not changed since a release is the same text
+as in the tag, so it is Released. A copy on a branch is In review or In work
+even when the same text is Agreed on `develop`. The status of the copy a reader
+holds is found from its commit, not from the cell: `git tag --contains`, then
+`git branch --contains`, give it.
 
 Before a change to a document is agreed, it passes the QA review in §6.5, and
 Critical and Major findings are closed. There is no separate step from Draft to
@@ -149,8 +155,8 @@ the Approver's approval of everything in it (ETB-SUP8-001 §5.7, ETB-DEV-002).
 **QA review, on every pull request.** Before the pull request is merged, the QA
 reviewer reviews it and posts the result on the pull request as a review. The QA
 reviewer is the *PR Review* session: a Claude Code session separate from the
-session that wrote the change, given only the pull request to review, and doing
-no authoring on it (ETB-DEV-002 §4 records what this independence does and does
+session that wrote the change, given the pull request and the form of review in this
+section, and doing no authoring on it (ETB-DEV-002 §4 records what this independence does and does
 not give). The review:
 
 1. names each work product the pull request changes;
@@ -185,6 +191,12 @@ non-conformance, raised under ETB-SUP9-001.
 What each type of work product must contain (GP 2.2.1). The layout every
 controlled document shares is in ETB-SUP8-001 §6. The checks in ETB-TMPL-001 §6
 are applied against this table.
+
+The table applies to content added or changed from #371 (2026-11-17) on. Content
+written before then does not all meet it; those gaps are the audit findings of
+ETB-SUP1-002 and are tracked on their issues (#362 to #370, #372 to #376 and
+#379). A pull request that changes such content brings what it changes up to
+the table.
 
 | Type | Documents | Must contain |
 |---|---|---|

@@ -29,8 +29,8 @@ instruments are added:
 
 All ASPICE work products live in [`aspice/`](aspice/). Each one's version is in
 the last row of its revision history (ETB-SUP8-001 §6.2). Its status follows from
-where it is: In review on a branch, Agreed on `develop`, Released in a release
-tag (ETB-SUP1-001 §6.3).
+where it is: Released in a release tag, Agreed on `develop` since the last
+release, In review on a branch with an open pull request (ETB-SUP1-001 §6.3).
 
 ### System level
 
