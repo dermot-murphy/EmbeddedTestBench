@@ -120,6 +120,7 @@
 | next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. Blank lines that split this table removed. |
 | next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
 | next | 2026-11-17 | Claude | #374: PICO-NFR-006 names the style.yml step by its new name, "Run CStyleCheck (PICO2 Test Board)". |
+| next | 2026-11-17 | Claude | #379: BLE-FR-004, -012, -013, -021, -022, -024, -030, -044 and -047 name the dongle firmware's functions by their module-prefixed names. |
 
 ---
 
@@ -367,18 +368,18 @@ where the firmware implements the requirement.
 | BLE-FR-001 | BLE-ARC-001 | BLE-DD-PROTOCOL | `firmware/include/protocol.h`, `protocol.py` | `SWE4-UT-BLEPROTO` (34), `SWE4-UT-BLEFW` (17) |
 | BLE-FR-002 | BLE-ARC-001 | BLE-DD-CMD, BLE-DD-SESSION, BLE-DD-TEST | `firmware/src/cmd_parser.c`, `session.py` | `TestCommands` (6), `test_every_command_has_a_handler_in_the_firmware`; firmware side: `SWE4-UT-FWUNIT` `test_cmd_parser` (47) |
 | BLE-FR-003 | BLE-ARC-001 | BLE-DD-CDC, BLE-DD-TEST | `firmware/src/cdc_acm.c` | `test_a_dropping_dongle_says_so`, `test_drop_notices_are_counted`; firmware side: `test_a_full_queue_drops_whole_lines_and_counts_them`, `test_writes_are_serialised_one_at_a_time`, `test_the_tail_of_an_over_long_command_is_not_a_command` |
-| BLE-FR-004 | BLE-ARC-001 | BLE-DD-PROFILE, BLE-DD-SCANNER | `AdvertisingProfile.is_complete`, `report_advertising` | `test_a_lossy_capture_is_declared`, `test_a_lossy_link_is_declared_rather_than_averaged`; firmware side: `test_a_dropped_line_is_counted_as_not_reported`, `test_the_counters_reconcile_what_was_seen_and_sent` |
+| BLE-FR-004 | BLE-ARC-001 | BLE-DD-PROFILE, BLE-DD-SCANNER | `AdvertisingProfile.is_complete`, `ble_scanner_report_advertising` | `test_a_lossy_capture_is_declared`, `test_a_lossy_link_is_declared_rather_than_averaged`; firmware side: `test_a_dropped_line_is_counted_as_not_reported`, `test_the_counters_reconcile_what_was_seen_and_sent` |
 | BLE-FR-010 | BLE-ARC-001 | BLE-DD-TIMESTAMP, BLE-DD-TEST | `firmware/src/timestamp.c` | `test_events_arrive_on_the_nominal_interval`, `test_the_clock_advances_monotonically`; firmware side: `test_timestamp` (11), notably `test_the_counter_is_extended_past_thirty_two_bits` |
 | BLE-FR-011 | BLE-ARC-001 | BLE-DD-SESSION, BLE-DD-LATENCY | `Event.host_time`, `LatencySource` | `test_host_time_is_recorded_on_every_event`, `test_both_clocks_are_recorded` |
-| BLE-FR-012 | BLE-ARC-001 | BLE-DD-VERSION, BLE-DD-CMD, BLE-DD-FIRMWARE | `firmware_version.h`, `Makefile` (`manifest`), `command_ver` | `TestTheDongleReportsItsBuild` (3); `firmware_version.c`'s local fallback: `test_firmware_version` (3); firmware side: `test_ver_reports_which_build_is_on_the_dongle`, `test_the_build_date_carries_no_spaces` |
-| BLE-FR-013 | BLE-ARC-001 | BLE-DD-BOOTLOADER, BLE-DD-CMD | `bootloader.c`, `command_dfu`, `NordicDongle.enter_dfu` | `test_the_dongle_is_asked_into_its_bootloader_first`; firmware side: `test_dfu_answers_before_it_resets` |
+| BLE-FR-012 | BLE-ARC-001 | BLE-DD-VERSION, BLE-DD-CMD, BLE-DD-FIRMWARE | `firmware_version.h`, `Makefile` (`manifest`), `cmd_parser_command_ver` | `TestTheDongleReportsItsBuild` (3); `firmware_version.c`'s local fallback: `test_firmware_version` (3); firmware side: `test_ver_reports_which_build_is_on_the_dongle`, `test_the_build_date_carries_no_spaces` |
+| BLE-FR-013 | BLE-ARC-001 | BLE-DD-BOOTLOADER, BLE-DD-CMD | `bootloader.c`, `cmd_parser_command_dfu`, `NordicDongle.enter_dfu` | `test_the_dongle_is_asked_into_its_bootloader_first`; firmware side: `test_dfu_answers_before_it_resets` |
 | BLE-FR-014 | BLE-ARC-001 | BLE-DD-FIRMWARE, BLE-DD-DONGLE, BLE-DD-CLI | `FirmwareBuild`, `FirmwareStatus`, `check_firmware`, `update_firmware`, `ensure_firmware`, `ble firmware` | `TestStatus` (8), `TestChecking` (7), `TestUpdating` (8), `TestFirmwareCommand` (5), notably `test_the_same_version_rebuilt_is_a_mismatch` and `test_a_flash_that_does_not_take_is_reported` |
 | BLE-FR-020 | BLE-ARC-001 | BLE-DD-SCANNER | `firmware/src/ble_scanner.c`, `NordicDongle.scan` | `test_scan_finds_the_sensors`, `test_scanning_finds_sensors` |
-| BLE-FR-021 | BLE-ARC-001 | BLE-DD-SCANNER | `scanner_get`, `_sensor_from_event` | `test_a_sensor_with_no_name_is_still_listed` |
-| BLE-FR-022 | BLE-ARC-001 | BLE-DD-SCANNER, BLE-DD-CONST | `passes_filter`, `ScanFilter` | `test_filtering_by_name`, `test_filtering_by_signal_strength`, `test_filtering_by_address`, `test_a_name_filter_is_applied` |
+| BLE-FR-021 | BLE-ARC-001 | BLE-DD-SCANNER | `ble_scanner_get`, `_sensor_from_event` | `test_a_sensor_with_no_name_is_still_listed` |
+| BLE-FR-022 | BLE-ARC-001 | BLE-DD-SCANNER, BLE-DD-CONST | `ble_scanner_passes_filter`, `ScanFilter` | `test_filtering_by_name`, `test_filtering_by_signal_strength`, `test_filtering_by_address`, `test_a_name_filter_is_applied` |
 | BLE-FR-023 | BLE-ARC-001 | BLE-DD-DONGLE | `NordicDongle.select` | `TestSelection` (8), notably `test_the_address_type_travels_with_the_address` |
-| BLE-FR-024 | BLE-ARC-001 | BLE-DD-DONGLE | `command_select` (firmware), `select` | `test_selecting_an_unknown_address_is_allowed` |
-| BLE-FR-030 | BLE-ARC-001 | BLE-DD-SCANNER | `report_advertising` | `test_the_events_carry_what_was_advertised`, `test_the_advertising_payload_carries_the_name` |
+| BLE-FR-024 | BLE-ARC-001 | BLE-DD-DONGLE | `cmd_parser_command_select` (firmware), `select` | `test_selecting_an_unknown_address_is_allowed` |
+| BLE-FR-030 | BLE-ARC-001 | BLE-DD-SCANNER | `ble_scanner_report_advertising` | `test_the_events_carry_what_was_advertised`, `test_the_advertising_payload_carries_the_name` |
 | BLE-FR-031 | BLE-ARC-001 | BLE-DD-PROFILE | `AdvertisingProfile` | `TestIntervals` (5), `test_the_nominal_interval_is_recovered` |
 | BLE-FR-032 | BLE-ARC-001 | BLE-DD-PROFILE | `advertising_events` | `TestCoalescing` (3), `test_channels_rotate` |
 | BLE-FR-033 | BLE-ARC-001 | BLE-DD-PROFILE | `expected_jitter_s`, `within_specification` | `TestJitter` (4) |
@@ -391,10 +392,10 @@ where the firmware implements the requirement.
 | BLE-FR-041 | BLE-ARC-001 | BLE-DD-NUS, BLE-DD-DONGLE | `nus_client_interval_us` | `test_the_connection_interval_is_recorded` |
 | BLE-FR-042 | BLE-ARC-001 | BLE-DD-NUS | `nus_client_write`, `NordicDongle.write` | `test_a_write_reports_what_it_sent`, `test_binary_payloads` |
 | BLE-FR-043 | BLE-ARC-001 | BLE-DD-NUS | `nus_client_command`, `NordicDongle.command` | `test_a_command_and_its_reply`, `test_a_command_reports_both_timestamps` |
-| BLE-FR-044 | BLE-ARC-001 | BLE-DD-CMD | `command_cmd` (firmware) | firmware `test_a_sensor_that_does_not_reply_is_a_timeout_not_a_measurement`; host side `test_an_unknown_command_still_answers` |
+| BLE-FR-044 | BLE-ARC-001 | BLE-DD-CMD | `cmd_parser_command_cmd` (firmware) | firmware `test_a_sensor_that_does_not_reply_is_a_timeout_not_a_measurement`; host side `test_an_unknown_command_still_answers` |
 | BLE-FR-045 | BLE-ARC-001 | BLE-DD-DONGLE, BLE-DD-CONST | `NordicDongle._encode` | `test_an_over_long_payload_is_refused_before_sending` |
 | BLE-FR-046 | BLE-ARC-001 | BLE-DD-NUS, BLE-DD-CMDARGS, BLE-DD-DONGLE | `nus_client_connect`, `cmd_args_connect`, `NordicDongle._start_connect` | `test_the_connect_window_is_sent_to_the_dongle`, `test_an_out_of_range_connect_window_is_refused_before_sending`, `test_an_older_dongle_is_sent_no_window`; firmware `test_connecting_listens_continuously_for_the_time_asked`, `test_connect_refuses_a_bad_timeout` |
-| BLE-FR-047 | BLE-ARC-001 | BLE-DD-CMD, BLE-DD-CMDARGS, BLE-DD-DONGLE | `command_cmd`, `cmd_args_timeout`, `NordicDongle.command` | `TestCommandTimeout` (4); firmware `test_cmd_takes_a_timeout_for_a_slow_command`, `test_cmd_refuses_a_bad_timeout` |
+| BLE-FR-047 | BLE-ARC-001 | BLE-DD-CMD, BLE-DD-CMDARGS, BLE-DD-DONGLE | `cmd_parser_command_cmd`, `cmd_args_timeout`, `NordicDongle.command` | `TestCommandTimeout` (4); firmware `test_cmd_takes_a_timeout_for_a_slow_command`, `test_cmd_refuses_a_bad_timeout` |
 | BLE-FR-048 | BLE-ARC-001 | BLE-DD-DONGLE | `NordicDongle.command_expecting_disconnect`, `DisconnectSample` | `TestExpectingADisconnect` (2, `test_dongle.py`) |
 | BLE-FR-049 | BLE-ARC-001 | BLE-DD-DONGLE, BLE-DD-SCRIPTRUN | `NordicDongle.open_link`, `_open_link_once`, `LinkLostError`, `_disconnect`, `_run_connect` | `test_a_sensor_that_never_links_is_reported_as_not_connected`, `test_a_link_that_never_becomes_ready_is_reported_as_linked`, `test_a_failed_link_is_closed_so_the_next_attempt_is_not_refused`, `TestLinkNotEstablished` (7), `test_each_failed_connect_attempt_is_logged`, `test_a_connect_step_makes_no_more_attempts_than_it_is_allowed` |
 | BLE-FR-050 | BLE-ARC-001 | BLE-DD-NUS, BLE-DD-LATENCY | `nus_client_command`, `ResponseSample` | `test_a_command_reports_both_timestamps`, `test_a_slow_command_takes_longer` |

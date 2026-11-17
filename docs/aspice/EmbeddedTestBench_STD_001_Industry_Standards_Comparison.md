@@ -32,6 +32,7 @@
 | 0.6 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
 | next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. |
 | next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
+| next | 2026-11-17 | Claude | #379: §6.1, §7, §7.1 and §9: a Cppcheck MISRA C:2012 check runs in CI and the compiler adds `-Wextra` on the project's sources. The gap is narrower, not closed: the addon is not certified and does not check every rule or any directive. |
 
 ---
 
@@ -140,7 +141,7 @@ untruth told about embedded C.
 
 | Not claimed | Why |
 |---|---|
-| Full MISRA C:2012 compliance | No certified MISRA checker is run over this source; the checks in CI are CStyleCheck's subset plus the compiler's |
+| Full MISRA C:2012 compliance | The MISRA checker in CI, Cppcheck's `misra` addon, is not certified and does not check every rule or directive; what it checks passes, with the deviations of ETB-STD-002 §72.5 |
 | A complete compliance matrix | Rule-by-rule status has not been established for every rule; §7 says what *is* established |
 | Compliance of SDK and SoftDevice sources | Vendor code, out of scope (ETB-STD-002 §1.3), and it would not pass |
 | Tool qualification of the compiler | Not applicable (ETB-STD-002 §7.5) |
@@ -154,18 +155,22 @@ inheriting a claim Embedded Test Bench never made.
 
 | Layer | Enforces | Runs |
 |---|---|---|
-| Compiler (`-Wall -Werror`) | The overlap between MISRA's type and control-flow rules and what GCC diagnoses | Every build, locally and in CI |
-| **CStyleCheck** `@v1.6.1` | The mechanically checkable subset of ETB-STY-001 and the naming, structure and sign-compatibility rules of ETB-STD-002 — see CSC-STD-001 for its matrix | Every push, `.github/workflows/style.yml` |
+| Compiler (`-Wall -Wextra -Werror` on the project's sources) | The overlap between MISRA's type and control-flow rules and what GCC diagnoses | Every build, locally and in CI |
+| **CStyleCheck** `@v1.6.1` | The mechanically checkable subset of ETB-STY-001 and the naming, structure and sign-compatibility rules of ETB-STD-002 — see CSC-STD-001 for its matrix | Every push, `.github/workflows/style.yml`, no baseline |
+| **Cppcheck** `misra` addon | The MISRA C:2012 rules the addon implements, over `src/` and `include/` of each firmware tree, with Cppcheck's own style checks; deviations in ETB-STD-002 §72.5 | Every push, `.github/workflows/style.yml` (#379) |
 | AStyle configuration | Formatting, where a file is reformatted | On demand |
 | Review | Everything the tools cannot see: whether a rule was followed in substance, and whether a deviation is justified | ETB-TMPL-001 §6.5 |
 
 ### 7.1 The Honest Gap
 
-No MISRA checker runs in this project's CI. The rules of ETB-STD-002 that only a
-MISRA checker or a full static analyser could verify are therefore enforced by
-review alone, which is weaker, and is recorded here as weaker. Closing it would
-mean adding Cppcheck `--misra` or a commercial analyser to the style workflow;
-that is a candidate change request, not a claim.
+Since #379 a MISRA checker runs in CI: Cppcheck's `misra` addon, which fails
+the style job on any finding. It narrows the gap this section recorded, and
+does not close it. The addon is not a certified checker, it does not implement
+every rule or any directive, and it reads the dongle firmware against
+stand-ins for the nRF5 SDK headers and the PICO2 Test Board firmware without
+the Pico SDK's. What it cannot see is still enforced by review alone, which is
+weaker, and is recorded here as weaker. A commercial analyser would narrow it
+further; that is a candidate change request, not a claim.
 
 ---
 
@@ -194,9 +199,9 @@ their source, so that a reader can tell taste from citation:
    indentation convention and Power of Ten's structural limits.
 3. **The functional-safety standards do not apply to this project** and are
    recorded as not applicable with reasons, rather than cited for weight.
-4. **Enforcement is partial and the gap is named** (§7.1). A MISRA checker in
-   CI is the one change that would most improve the strength of what ETB-STD-002
-   claims.
+4. **Enforcement is partial and the gap is named** (§7.1). A MISRA checker
+   now runs in CI (#379); a certified analyser is what would most improve the
+   strength of what ETB-STD-002 claims.
 5. **No compliance claim is made that this project cannot evidence**, which is
    the same rule the rest of this document set runs on.
 
