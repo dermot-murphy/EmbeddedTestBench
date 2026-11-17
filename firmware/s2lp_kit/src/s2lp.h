@@ -6,6 +6,8 @@
  * read, 0x80 command), then an address or a command code, then the data.
  * The radio returns its two status bytes while the header is clocked.
  * No ST source is used.
+ *
+ * Traces to: S2LP-DD-KITFW.
  */
 
 #ifndef S2LP_H

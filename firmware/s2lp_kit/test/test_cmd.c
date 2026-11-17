@@ -1,6 +1,8 @@
 /**
  * @file test_cmd.c
  * @brief The host's commands and the record lines (#84).
+ *
+ * Traces to: S2LP-DD-KITFW.
  */
 
 #include <string.h>
