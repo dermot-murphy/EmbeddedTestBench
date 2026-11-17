@@ -5,6 +5,8 @@
  * The radio is re-armed inside the interrupt, before anything is sent to the
  * host, so the time it is deaf is the interrupt's SPI traffic alone, not the
  * USB link's latency nor the host's.
+ *
+ * Traces to: S2LP-DD-KITFW.
  */
 
 #include "rx.h"
