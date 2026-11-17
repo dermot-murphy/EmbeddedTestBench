@@ -1782,7 +1782,7 @@ class NordicDongle(Instrument):  # pylint: disable=too-many-instance-attributes,
         if len(encoded) > self._limits.max_hex_payload:
             raise ConfigurationError(
                 "payload is %d bytes; the firmware accepts at most %d "
-                "(PROTO_MAX_PAYLOAD). Split it, or raise the limit in the "
+                "(PROTOCOL_MAX_PAYLOAD). Split it, or raise the limit in the "
                 "firmware and reflash."
                 % (len(encoded) // 2, self._limits.max_payload_bytes)
             )

@@ -210,7 +210,7 @@ class ScanFilter:
 class DongleLimits:  # pylint: disable=too-many-instance-attributes
     """The firmware's capability envelope, as data rather than in code.
 
-    These mirror the ``PROTO_MAX_*`` figures in ``protocol.h``. Held here so the
+    These mirror the ``PROTOCOL_MAX_*`` figures in ``protocol.h``. Held here so the
     driver refuses an impossible request with a clear message instead of letting
     the firmware truncate it silently.
     """
