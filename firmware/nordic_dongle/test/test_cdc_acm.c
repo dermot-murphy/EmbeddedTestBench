@@ -139,7 +139,7 @@ static void test_a_full_queue_drops_whole_lines_and_counts_them(void)
 }
 
 /** Fill the queue with nothing completing; return how many lines it dropped. */
-static uint32_t fill_until_lines_drop(uint32_t extra)
+static uint32_t test_fill_until_lines_drop(uint32_t extra)
 {
 	uint32_t index;
 	uint32_t before = cdc_acm_dropped();
@@ -152,7 +152,7 @@ static uint32_t fill_until_lines_drop(uint32_t extra)
 }
 
 /** Let every queued line out, servicing the link as the main loop does. */
-static void drain(void)
+static void test_drain(void)
 {
 	uint32_t guard;
 
@@ -166,14 +166,14 @@ static void drain(void)
 static void test_nothing_is_reported_while_nothing_is_dropped(void)
 {
 	cdc_acm_send_line("ok");
-	drain();
+	test_drain();
 	TEST_ASSERT_EQUAL_STRING("ok\n", fake_cdc_written());
 }
 
 static void test_dropped_lines_are_reported_once_the_queue_has_room(void)
 {
 	char		expected[32];
-	uint32_t	lost = fill_until_lines_drop(8U);
+	uint32_t	lost = test_fill_until_lines_drop(8U);
 
 	TEST_ASSERT_GREATER_THAN_UINT32(0U, lost);
 
@@ -181,7 +181,7 @@ static void test_dropped_lines_are_reported_once_the_queue_has_room(void)
 	cdc_acm_process();
 	TEST_ASSERT_NULL(strstr(fake_cdc_written(), "+drop"));
 
-	drain();
+	test_drain();
 	(void)snprintf(expected, sizeof(expected), " count=%lu\n", (unsigned long)lost);
 	TEST_ASSERT_NOT_NULL(strstr(fake_cdc_written(), "+drop t="));
 	TEST_ASSERT_NOT_NULL(strstr(fake_cdc_written(), expected));
@@ -194,13 +194,13 @@ static void test_each_report_counts_only_the_lines_since_the_last(void)
 	uint32_t	lost;
 	char		expected[32];
 
-	(void)fill_until_lines_drop(8U);
-	drain();
+	(void)test_fill_until_lines_drop(8U);
+	test_drain();
 	fake_cdc_reset();
 	fake_cdc_open_port();
 
-	lost = fill_until_lines_drop(3U);
-	drain();
+	lost = test_fill_until_lines_drop(3U);
+	test_drain();
 	(void)snprintf(expected, sizeof(expected), "+drop t=0 count=%lu\n", (unsigned long)lost);
 	TEST_ASSERT_NOT_NULL(strstr(fake_cdc_written(), expected));
 }
