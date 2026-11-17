@@ -56,11 +56,12 @@ OT-D-26 (a VERSION frame every 12 hours). The power-cycle soak
     refused with `not connected`. The bench reported this correctly.
 - The case and its neighbours were run again on 2026-11-16 (`q2_sync_rerun`).
   Its own verdict is **FAIL, 3 passed, 2 failed, 21 skipped**. The SYNC checks
-  (OT-F-08, OT-F-14) passed with no reset. The two failures are Kepler test
-  limits, not SYNC and not the bench:
-  - V10-E-06 read 2840 mV at 3.1 V (limit 2950 to 3150 mV). The J-Link was
-    unplugged for the re-run; with it fitted the main run read 3100 mV.
-  - OT-E-04: the 64-pair preamble is written by an earlier case that the
+  (OT-F-08, OT-F-14) passed with no reset. The two failures are in Kepler's
+  tests, not SYNC and not the bench:
+  - V10-E-06 read 2840 mV at 3.1 V (limit 2950 to 3150 mV). The operator
+    reported the J-Link unplugged during the re-run; nothing in the run folder
+    records it. With it fitted the main run read 3100 mV.
+  - OT-E-04, a case-order dependency: the 64-pair preamble is written by an earlier case that the
     re-run skipped, so the boot frames carried 32 pairs and the read-back was
     `32 Pairs`. That read-back check fails the SYNC case.
   Both were sent to Kepler's TX-1269 session as test changes.
