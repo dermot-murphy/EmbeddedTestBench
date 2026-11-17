@@ -128,6 +128,7 @@
 | next | 2026-11-17 | Claude | #370: §22 traces the integration and qualification cases to their tests, checked by a test, and each qualification case to the requirements it qualifies. Review & Approval is now §23. |
 | next | 2026-11-17 | Claude | #364: §23 to §26 added: stakeholder needs to system requirements; each system requirement to its stakeholder parents, elements and software requirements; each software requirement to its system requirements, with the source of each non-functional one; each software architecture element to its system elements. All checked by `tests/test_traceability.py`. §18 counts 536 functional requirements in force (537 declared), not 532 (533). Review & Approval is now §27. §20 and §21 gain rows for ETB-SYS2-018, -054, -055, -085 and -086. |
 | next | 2026-11-17 | Claude | #364, review round 1 (PR #401): BLE-FR-003 (lines queued, unsent ones counted) refines ETB-SYS2-044, not -043. |
+| next | 2026-11-17 | Claude | #396: BLE-FR-003 row gains the `+drop` tests, host and firmware. |
 
 ---
 
@@ -374,7 +375,7 @@ where the firmware implements the requirement.
 |---|---|---|---|---|
 | BLE-FR-001 | BLE-ARC-001 | BLE-DD-PROTOCOL | `firmware/include/protocol.h`, `protocol.py` | `SWE4-UT-BLEPROTO` (34), `SWE4-UT-BLEFW` (17) |
 | BLE-FR-002 | BLE-ARC-001 | BLE-DD-CMD, BLE-DD-SESSION, BLE-DD-TEST | `firmware/src/cmd_parser.c`, `session.py` | `TestCommands` (6), `test_every_command_has_a_handler_in_the_firmware`; firmware side: `SWE4-UT-FWUNIT` `test_cmd_parser` (47) |
-| BLE-FR-003 | BLE-ARC-001 | BLE-DD-CDC, BLE-DD-TEST | `firmware/src/cdc_acm.c` | `test_a_dropping_dongle_says_so`, `test_drop_notices_are_counted`; firmware side: `test_a_full_queue_drops_whole_lines_and_counts_them`, `test_writes_are_serialised_one_at_a_time`, `test_the_tail_of_an_over_long_command_is_not_a_command` |
+| BLE-FR-003 | BLE-ARC-001 | BLE-DD-CDC, BLE-DD-TEST | `firmware/src/cdc_acm.c` | `test_a_dropping_dongle_says_so`, `test_drop_notices_are_counted`, `test_drop_notices_add_up_to_the_dongle_s_own_count`; firmware side: `test_a_full_queue_drops_whole_lines_and_counts_them`, `test_dropped_lines_are_reported_once_the_queue_has_room`, `test_each_report_counts_only_the_lines_since_the_last`, `test_writes_are_serialised_one_at_a_time`, `test_the_tail_of_an_over_long_command_is_not_a_command` |
 | BLE-FR-004 | BLE-ARC-001 | BLE-DD-PROFILE, BLE-DD-SCANNER | `AdvertisingProfile.is_complete`, `ble_scanner_report_advertising` | `test_a_lossy_capture_is_declared`, `test_a_lossy_link_is_declared_rather_than_averaged`; firmware side: `test_a_dropped_line_is_counted_as_not_reported`, `test_the_counters_reconcile_what_was_seen_and_sent` |
 | BLE-FR-010 | BLE-ARC-001 | BLE-DD-TIMESTAMP, BLE-DD-TEST | `firmware/src/timestamp.c` | `test_events_arrive_on_the_nominal_interval`, `test_the_clock_advances_monotonically`; firmware side: `test_timestamp` (11), notably `test_the_counter_is_extended_past_thirty_two_bits` |
 | BLE-FR-011 | BLE-ARC-001 | BLE-DD-SESSION, BLE-DD-LATENCY | `Event.host_time`, `LatencySource` | `test_host_time_is_recorded_on_every_event`, `test_both_clocks_are_recorded` |

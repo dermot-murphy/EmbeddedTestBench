@@ -622,6 +622,11 @@ class JLinkProbe(Instrument):  # pylint: disable=too-many-instance-attributes,to
                 # Observed on nRF52840 with J-Link V9.42: after -target-detach
                 # alone the core stays halted (DHCSR 0x00030003) and a sensor
                 # stops advertising until it is reset.
+                #
+                # GDB is not told about this resume, and its register cache is
+                # not flushed (rule J1, #396): the session detaches straight
+                # after and GDB is never asked about this core again. The next
+                # client to attach re-synchronises itself (attach(), #349).
                 self._session.execute_console("monitor go", allow_error=True, timeout=5.0)
                 self._halted = False
             if self._attached:
@@ -784,8 +789,6 @@ class JLinkProbe(Instrument):  # pylint: disable=too-many-instance-attributes,to
             )
         self._attached = True
         self.monitor("halt")
-        self._flush_register_cache()
-        self._halted = True
 
     @property
     def is_attached(self) -> bool:
@@ -798,8 +801,24 @@ class JLinkProbe(Instrument):  # pylint: disable=too-many-instance-attributes,to
         The escape hatch for probe features the driver does not wrap -
         ``monitor reset``, ``monitor semihosting enable``, ``monitor flash
         breakpoints``.
+
+        GDB does not see what a ``monitor`` command does to the core, so its
+        register cache is flushed after every one (rule J1, #178, #396):
+        ``reset``, ``halt``, ``flash erase`` or a caller's own command can all
+        change the registers behind GDB's back, and a read afterwards would
+        otherwise return what the core held before. ``monitor halt`` also
+        marks the core halted.
+
+        ``monitor go`` is the one command GDB cannot be brought back in step
+        with: the core runs, but GDB still takes it for stopped and
+        :attr:`is_halted` stays ``True``. Use :meth:`run` to resume a core
+        that will be used again.
         """
-        return self._session.execute_console("monitor %s" % command, timeout=timeout).text
+        text = self._session.execute_console("monitor %s" % command, timeout=timeout).text
+        self._flush_register_cache(timeout=timeout)
+        if command.strip().lower() == "halt":
+            self._halted = True
+        return text
 
     # ------------------------------------------------------------------
     # Flash and verify
@@ -1074,7 +1093,7 @@ class JLinkProbe(Instrument):  # pylint: disable=too-many-instance-attributes,to
         #178) ``program_counter()`` after ``reset()`` returned the PC from
         before the reset while ``monitor reg pc`` said 0x00000A80, the reset
         handler; after ``maintenance flush register-cache`` GDB read 0x00000A80
-        too. The cache is therefore flushed after every reset.
+        too. :meth:`monitor` therefore flushes the cache after every command.
 
         A running core is halted first: GDB refuses every ``monitor`` command
         while the target runs, so after ``reset(halt=False)`` the next reset -
@@ -1086,16 +1105,29 @@ class JLinkProbe(Instrument):  # pylint: disable=too-many-instance-attributes,to
         self._cycle_counter_ready = False
         if halt:
             self.monitor("halt", timeout=timeout)
-            self._flush_register_cache(timeout=timeout)
-            self._halted = True
         else:
-            self._flush_register_cache(timeout=timeout)
             self.run(timeout=timeout)
 
     def _stop_if_running(self, timeout: float = 10.0) -> None:
         """Halt the core if GDB has it running, so that it takes commands again."""
+        self._sync_run_state()
         if self._attached and not self._halted:
             self.halt(timeout=timeout)
+
+    def _sync_run_state(self) -> None:
+        """Take the run state from the ``*running`` and ``*stopped`` records.
+
+        GDB reports every change it makes or sees, including a resume the
+        driver did not ask for, so :attr:`is_halted` follows those records
+        rather than only the driver's own calls (#396). A probe with no GDB
+        session (the SEGGER library driver) has no records to follow.
+        """
+        session = getattr(self, "_session", None)
+        state = session.take_exec_state() if session is not None else None
+        if state == "running":
+            self._halted = False
+        elif state == "stopped":
+            self._halted = True
 
     def _flush_register_cache(self, timeout: Optional[float] = None) -> None:
         """Make GDB read the registers from the target again.
@@ -1109,8 +1141,10 @@ class JLinkProbe(Instrument):  # pylint: disable=too-many-instance-attributes,to
     def run(self, timeout: Optional[float] = None) -> None:
         """Let the target run. Returns as soon as it is running."""
         self._session.clear_async()
+        self._session.take_exec_state()
         self._session.execute("-exec-continue", timeout=timeout)
         self._halted = False
+        self._sync_run_state()
 
     #: ``resume`` reads better in a sequence that has just halted.
     resume = run
@@ -1121,6 +1155,7 @@ class JLinkProbe(Instrument):  # pylint: disable=too-many-instance-attributes,to
         A core already halted - as every attach leaves it (#349) - is reported
         where it is, from its innermost frame, rather than at address 0.
         """
+        self._sync_run_state()
         if self._halted:
             return self._halt_info({"reason": "signal-received", "frame": self._innermost_frame()})
         self._session.execute("-exec-interrupt", timeout=timeout, allow_error=True)
@@ -1150,6 +1185,7 @@ class JLinkProbe(Instrument):  # pylint: disable=too-many-instance-attributes,to
             the breakpoint was never reached.
         """
         results = self._session.wait_for_stop(timeout=timeout)
+        self._session.take_exec_state()
         self._halted = True
         return self._halt_info(results)
 
@@ -1177,7 +1213,14 @@ class JLinkProbe(Instrument):  # pylint: disable=too-many-instance-attributes,to
 
     @property
     def is_halted(self) -> bool:
-        """``True`` when the driver believes the target is halted."""
+        """``True`` when the driver believes the target is halted.
+
+        Follows GDB's ``*running`` and ``*stopped`` records as well as the
+        driver's own calls. A ``monitor go`` is the exception: see
+        :meth:`monitor`.
+        """
+        if self.is_open:
+            self._sync_run_state()
         return self._halted
 
     def program_counter(self) -> int:

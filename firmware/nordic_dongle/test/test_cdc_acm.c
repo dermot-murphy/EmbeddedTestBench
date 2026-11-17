@@ -11,6 +11,7 @@
  * Traces to: BLE-FR-003, BLE-FR-004, BLE-DD-CDC, SWE4-UT-FWUNIT.
  */
 
+#include <stdio.h>
 #include <string.h>
 
 #include "unity.h"
@@ -30,6 +31,8 @@ void setUp(void)
 	fake_cdc_open_port();
 	for (guard = 0U; guard < (CDC_ACM_TX_QUEUE_LINES + 4U); guard++)
 	{
+		/* Processing also sends the +drop report a full queue left owed. */
+		cdc_acm_process();
 		fake_cdc_complete_write();
 	}
 
@@ -133,6 +136,73 @@ static void test_a_full_queue_drops_whole_lines_and_counts_them(void)
 	/* Whole lines only: what was written must still parse as complete lines. */
 	TEST_ASSERT_GREATER_THAN_UINT32(0U, fake_cdc_written_length());
 	TEST_ASSERT_EQUAL_CHAR('\n', fake_cdc_written()[fake_cdc_written_length() - 1U]);
+}
+
+/** Fill the queue with nothing completing; return how many lines it dropped. */
+static uint32_t fill_until_lines_drop(uint32_t extra)
+{
+	uint32_t index;
+	uint32_t before = cdc_acm_dropped();
+
+	for (index = 0U; index < (CDC_ACM_TX_QUEUE_LINES + extra); index++)
+	{
+		(void)cdc_acm_send_format("line=%u", index);
+	}
+	return cdc_acm_dropped() - before;
+}
+
+/** Let every queued line out, servicing the link as the main loop does. */
+static void drain(void)
+{
+	uint32_t guard;
+
+	for (guard = 0U; guard < (CDC_ACM_TX_QUEUE_LINES + 4U); guard++)
+	{
+		fake_cdc_complete_write();
+		cdc_acm_process();
+	}
+}
+
+static void test_nothing_is_reported_while_nothing_is_dropped(void)
+{
+	cdc_acm_send_line("ok");
+	drain();
+	TEST_ASSERT_EQUAL_STRING("ok\n", fake_cdc_written());
+}
+
+static void test_dropped_lines_are_reported_once_the_queue_has_room(void)
+{
+	char		expected[32];
+	uint32_t	lost = fill_until_lines_drop(8U);
+
+	TEST_ASSERT_GREATER_THAN_UINT32(0U, lost);
+
+	/* Still full: the report waits rather than being dropped itself. */
+	cdc_acm_process();
+	TEST_ASSERT_NULL(strstr(fake_cdc_written(), "+drop"));
+
+	drain();
+	(void)snprintf(expected, sizeof(expected), " count=%lu\n", (unsigned long)lost);
+	TEST_ASSERT_NOT_NULL(strstr(fake_cdc_written(), "+drop t="));
+	TEST_ASSERT_NOT_NULL(strstr(fake_cdc_written(), expected));
+	/* One report, not one per pass of the main loop. */
+	TEST_ASSERT_NULL(strstr(strstr(fake_cdc_written(), "+drop") + 1, "+drop"));
+}
+
+static void test_each_report_counts_only_the_lines_since_the_last(void)
+{
+	uint32_t	lost;
+	char		expected[32];
+
+	(void)fill_until_lines_drop(8U);
+	drain();
+	fake_cdc_reset();
+	fake_cdc_open_port();
+
+	lost = fill_until_lines_drop(3U);
+	drain();
+	(void)snprintf(expected, sizeof(expected), "+drop t=0 count=%lu\n", (unsigned long)lost);
+	TEST_ASSERT_NOT_NULL(strstr(fake_cdc_written(), expected));
 }
 
 static void test_an_over_long_line_is_truncated_not_overrun(void)
@@ -308,6 +378,9 @@ int main(void)
 	RUN_TEST(test_idle_only_once_every_line_has_been_handed_over);
 	RUN_TEST(test_the_queue_drains_in_order);
 	RUN_TEST(test_a_full_queue_drops_whole_lines_and_counts_them);
+	RUN_TEST(test_nothing_is_reported_while_nothing_is_dropped);
+	RUN_TEST(test_dropped_lines_are_reported_once_the_queue_has_room);
+	RUN_TEST(test_each_report_counts_only_the_lines_since_the_last);
 	RUN_TEST(test_an_over_long_line_is_truncated_not_overrun);
 	RUN_TEST(test_a_refused_write_releases_the_slot);
 	RUN_TEST(test_nothing_is_written_before_the_port_opens);

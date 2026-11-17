@@ -11,15 +11,21 @@ Method              Resolution   Halts the target?  Needs
 ``CYCLE_COUNTER``   1 core cycle yes                Cortex-M DWT; core clock known
 ``HOST_CLOCK``      ~1 ms        yes                nothing
 ``SWO_ITM``         1 core cycle no                 SWO wired; ITM instrumentation
-``TARGET_TIMER``    target timer no                 firmware writes its own timer
+``TARGET_TIMER``    target timer yes                firmware writes its own timer
 =================== ============ ================== =================================
 
-The two halting methods measure *stop-to-stop* time, which is not the same as
-the time the code takes when running freely: reaching a breakpoint stops the
-core, and the interval excludes whatever the debugger did in between but
-includes nothing of the pipeline state. For an interval that must reflect real
-execution, ``SWO_ITM`` or ``TARGET_TIMER`` are the honest choices, and the
-docstrings say so rather than leaving it to be discovered.
+Every method but ``SWO_ITM`` halts the core: each one stops at a breakpoint to
+read a value. ``CYCLE_COUNTER`` and ``HOST_CLOCK`` measure *stop-to-stop* time,
+which is not the same as the time the code takes when running freely: reaching
+a breakpoint stops the core, and the interval excludes whatever the debugger
+did in between but includes nothing of the pipeline state. ``TARGET_TIMER``
+halts too, at the end breakpoint, to read the target's variables; when the
+firmware fills in both ``start_variable`` and ``end_variable`` itself, the
+interval between them ran freely and only the read is a halt. Read at both
+breakpoints with ``timer_variable``, it is stop-to-stop like the others. For an
+interval that must reflect real execution with the core never stopped,
+``SWO_ITM`` is the honest choice, and the docstrings say so rather than leaving
+it to be discovered (#396).
 
 Traces to: JLINK-FR-060 .. JLINK-FR-065, JLINK-DD-TIMING.
 """

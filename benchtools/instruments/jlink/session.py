@@ -91,7 +91,7 @@ class ConsoleResult:
         return "<ConsoleResult %d line(s)>" % len(self.lines)
 
 
-class GdbMiSession:
+class GdbMiSession:  # pylint: disable=too-many-instance-attributes  # the run state (#396) joins the record buffers
     """A live GDB/MI conversation over a line-oriented transport.
 
     :param transport: An open or unopened transport carrying MI lines - a GDB
@@ -106,6 +106,7 @@ class GdbMiSession:
         self._timeout = float(timeout)
         self._token = 0
         self._async: Deque[AsyncRecord] = deque(maxlen=_HISTORY)
+        self._exec_state: Optional[str] = None
         self._console: Deque[str] = deque(maxlen=_HISTORY)
         self._log: Deque[str] = deque(maxlen=_HISTORY)
 
@@ -160,6 +161,8 @@ class GdbMiSession:
         """Put a non-result record where it belongs."""
         if isinstance(record, AsyncRecord):
             self._async.append(record)
+            if record.kind is RecordKind.EXEC and record.message in ("running", "stopped"):
+                self._exec_state = record.message
             self._logger.debug("async %s%s", record.message, record.results or "")
         elif isinstance(record, StreamRecord):
             text = record.text.rstrip("\r\n")
@@ -285,6 +288,19 @@ class GdbMiSession:
         if message is None:
             return list(self._async)
         return [record for record in self._async if record.message == message]
+
+    def take_exec_state(self) -> Optional[str]:
+        """Return the last run state GDB reported since the previous call.
+
+        ``"running"`` after a ``*running`` record, ``"stopped"`` after a
+        ``*stopped`` one, ``None`` when neither has arrived since. Reading it
+        resets it, so each report is acted on once (#396). Records already
+        received are read first, so one that arrived between commands counts.
+        """
+        if self._transport.is_open:
+            self._drain()
+        state, self._exec_state = self._exec_state, None
+        return state
 
     def clear_async(self) -> None:
         """Discard buffered asynchronous records.

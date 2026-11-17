@@ -19,6 +19,7 @@
 #include "app_usbd_string_desc.h"
 #include "app_util_platform.h"
 #include "nrf_drv_usbd.h"
+#include "timestamp.h"
 
 #define CDC_ACM_COMM_INTERFACE		0
 #define CDC_ACM_COMM_EPIN		NRF_DRV_USBD_EPIN2
@@ -55,6 +56,7 @@ static volatile uint32_t m_tx_head;		/**< next slot to fill */
 static volatile uint32_t m_tx_tail;		/**< next slot to send */
 static volatile bool	m_tx_busy;		/**< an endpoint write is in flight */
 static volatile uint32_t m_dropped;
+static uint32_t		m_drop_reported;	/**< m_dropped when +drop last went out */
 
 static uint32_t		m_rx_length;
 static bool		m_rx_overflow;		/**< discarding to the terminator */
@@ -243,6 +245,38 @@ uint32_t cdc_acm_init(void)
 	return error;
 }
 
+/**
+ * @brief Tell the host about lines dropped since the last report.
+ *
+ * Main-loop context only. The report is queued only when a slot is free, so a
+ * full queue does not turn every pass of the main loop into one more dropped
+ * line. If an event handler takes that slot first, the report is dropped and
+ * counted like any other line, and the next pass reports it with the rest.
+ * The count is lines lost since the previous @c +drop, so the host's sum of
+ * the counts equals the total in @c ver and @c adv @c stats (#396).
+ */
+static void cdc_acm_report_drops(void)
+{
+	uint32_t	dropped;
+	bool		room;
+	char		time_text[TIMESTAMP_TEXT_SIZE];
+
+	CRITICAL_REGION_ENTER();
+	dropped = m_dropped;
+	room    = (((m_tx_head + 1U) % CDC_ACM_TX_QUEUE_LINES) != m_tx_tail);
+	CRITICAL_REGION_EXIT();
+
+	if ((dropped != m_drop_reported) && room)
+	{
+		if (cdc_acm_send_format("+drop t=%s count=%lu",
+					timestamp_format_us(timestamp_now_us(), time_text),
+					(unsigned long)(dropped - m_drop_reported)))
+		{
+			m_drop_reported = dropped;
+		}
+	}
+}
+
 void cdc_acm_process(void)
 {
 	while (app_usbd_event_queue_process())
@@ -250,6 +284,7 @@ void cdc_acm_process(void)
 		/* Each call handles one queued USB event. */
 	}
 	cdc_acm_tx_pump();
+	cdc_acm_report_drops();
 }
 
 bool cdc_acm_send_line(const char * line)

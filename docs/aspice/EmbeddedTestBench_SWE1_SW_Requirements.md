@@ -110,6 +110,7 @@
 | next | 2026-11-17 | Claude | #366: §3.1 states each requirement's attributes, the verification criterion (its text together with its ETB-RTM-001 row) and the priority rule; every requirement carries its first release, read from the tags. CON-01 and CON-07 record the hardware runs since 2026-10-04. §22 - requirements analysis per element, and the impact of each element on the host, the target and the bench. Review & Approval is now §23. |
 | next | 2026-11-17 | Claude | #366, review round 1 (PR #394): the Requirements Analysis section is numbered §22, after §21 Requirements Traceability. |
 | next | 2026-11-17 | Claude | #364: §21 - each software requirement traces upward to the system requirements it refines, and each non-functional one to its source, in ETB-RTM-001, checked by the suite. |
+| next | 2026-11-17 | Claude | #396: BLE-FR-003 - the firmware reports the lines it could not send in a `+drop` event, each counting those lost since the last. |
 
 ---
 
@@ -524,7 +525,7 @@ implements them; §11.6 says which.
 |---|---|---|---|---|
 | BLE-FR-001 | The dongle and the host shall communicate over USB CDC with a line protocol in which a command is one line, a reply is one line beginning ``ok`` or ``err``, and an unsolicited event is one line beginning ``+``. The protocol shall be defined in a single artefact that both halves are built from. | STK-14, STK-15 | Test, Inspection | `v0.01.0000` |
 | BLE-FR-002 | Every command shall produce exactly one reply, including when it fails, so that a lost reply is detectable rather than appearing as a hang. A failure shall carry a numeric code and text. | STK-14 | Test | `v0.01.0000` |
-| BLE-FR-003 | The firmware shall queue outgoing lines rather than block a radio event handler on the USB endpoint, and shall count lines it could not send. | STK-15 | Test, Inspection | `v0.01.0000` |
+| BLE-FR-003 | The firmware shall queue outgoing lines rather than block a radio event handler on the USB endpoint, shall count lines it could not send, and shall report them to the host in a `+drop` event, once the queue has room, carrying the number lost since the previous one (#396). | STK-15 | Test, Inspection | `v0.01.0000` |
 | BLE-FR-004 | The host shall be able to reconcile what it received against what the dongle sent, and a capture that lost lines shall be reported as incomplete rather than analysed as if complete. | STK-15, STK-17 | Test | `v0.01.0000` |
 | BLE-FR-010 | Every event shall carry a timestamp taken on the dongle, resolving one microsecond, taken as close to the radio event as the stack allows. The timestamp shall not wrap within a measurement session. | STK-14, STK-15 | Test | `v0.01.0000` |
 | BLE-FR-011 | The host shall record its own arrival time beside the dongle's timestamp, and shall not present the host figure as the measurement. | STK-14 | Test | `v0.01.0000` |

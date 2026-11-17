@@ -228,7 +228,7 @@ class SimulatedDongle:  # pylint: disable=too-many-instance-attributes  # mirror
 
     #: The build the simulated dongle is running. A test that exercises the
     #: update path changes these, as flashing a real dongle would.
-    DEFAULT_FIRMWARE_VERSION = "1.8.1"
+    DEFAULT_FIRMWARE_VERSION = "1.9.0"
     DEFAULT_FIRMWARE_BUILT = "2026-10-28T12:00:00Z"
     DEFAULT_PROTOCOL = "1.8"
 
@@ -250,6 +250,7 @@ class SimulatedDongle:  # pylint: disable=too-many-instance-attributes  # mirror
         self.clock_us = 1_000_000              # a dongle that has been up a second
         self.command_log: List[str] = []
         self.dropped = 0
+        self._drop_reported = 0
 
         self.firmware_version = self.DEFAULT_FIRMWARE_VERSION
         self.firmware_built = self.DEFAULT_FIRMWARE_BUILT
@@ -370,9 +371,12 @@ class SimulatedDongle:  # pylint: disable=too-many-instance-attributes  # mirror
             self._profile_received += 1
             line = self._emit(self._advertising_line(sensor, when_us))
             if line is None:
+                # As the firmware does (#396): the lines lost since the last
+                # report, so the counts sum to the total in ver and adv stats.
                 lines.append(
-                    "+drop t=%d count=%d" % (when_us, self.dropped)
+                    "+drop t=%d count=%d" % (when_us, self.dropped - self._drop_reported)
                 )
+                self._drop_reported = self.dropped
             else:
                 self._profile_reported += 1
                 lines.append(line)
