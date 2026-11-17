@@ -12,7 +12,7 @@
 |---|---|---|---|
 | **Document ID** | ETB-SWE3-001 | **Version** | [latest, §2](#2-revision-history) |
 | **Project** | Embedded Test Bench | **Date** | [latest, §2](#2-revision-history) |
-| **Status** | Draft | **Classification** | Internal |
+| **Status** | [by location, ETB-SUP1-001 §6.3](EmbeddedTestBench_SUP1_Quality_Assurance_Plan.md#63-document-status) | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.3 |
 
@@ -83,7 +83,6 @@
 | 1.47 | 2026-10-28 | Claude | #243: ANA-DD-FRAMES and S2LP-DD-MEASURES added (ANA count 4 → 5, S2LP 13 → 14, total 77 → 79); ANA-DD-SAMPLES - `instants`; S2LP-DD-PACKETS - `monotonic_s`; S2LP-DD-TRAFFIC - `where` and the frame's `monotonic_s`; S2LP-DD-S2LP - `FrameMeasuresMixin`; BLE-DD-SESSION - event `monotonic_s` and `last_disconnect_s`; BLE-DD-DONGLE - `link_times`; S2LP-DD-KEPLER - the `frame_positions` hook. |
 | 1.48 | 2026-10-28 | Claude | #274: BLE-DD-DFU - `dfupkt` answers with `piece=`, `pieces=` and `att_mtu=`, every `+dfu` carries `att_mtu=` (`dfu_client_att_mtu`); protocol 1.8, firmware 1.8.0. BLE-DD-DFUHOST - `DfuResult.att_mtu`, `piece_size` and `links`, in the `ble_dfu` record and a session note per image; None from a 1.7 dongle. BLE-DD-DFUSIM - `SimulatedBootloader.att_mtu`, each `dfupkt` split into pieces of it less 3; 5C1712's at 23. |
 | 1.49 | 2026-10-28 | Claude | #181: DMM-DD-DMM - blank frames while ranging (`Reading.blank`, `RANGING_TIME`, `measure`), frequency with no signal (`_silent_in_hertz`, `_stalled_in_hertz`), and `_await` reports no reading as none; DMM-DD-SIM - `stalled`, `press_front_panel`, `ranging_frames`. |
-
 | 1.50 | 2026-10-28 | Claude | #247: section 5.9, SER - SER-DD-CONST, SER-DD-DRIVER, SER-DD-CONSOLE, SER-DD-SIM and SER-DD-CLI, the serial capture instrument (total 79 → 84); RUN and VIEW renumbered 5.10 and 5.11; CORE-DD-EVENTS - the default name `SERIAL`. |
 | 1.51 | 2026-10-29 | Claude | #247, review of #318: SER-DD-DRIVER - `split_lines` and `_LineState` (CR, LF and CRLF, escaped bytes, `_MAX_LINE_BYTES`), `read_available` in place of `read_message`, a stop event per run and the reader joined (`_join_reader`), a line after the window left out, a port error ending the capture with `error`, `output_lock` and `_show`, the start result taken before the reader starts; SER-DD-CONSOLE - the pattern as sent; SER-DD-SIM - `ending`; SER-DD-CLI - the driver's `output_lock`. |
 | 1.52 | 2026-10-29 | Claude | #247, review of #318 round 2: SER-DD-DRIVER - LFCR pairs and the ending after a cut line in `split_lines`, lines timed and windowed by arrival (`_read_lines` returns the time), `_record` keeps nothing once the run has ended, `CaptureBusyError` moved to `errors.py` so the command set can catch it without an import cycle; SER-DD-CONSOLE - `BUSY` from `CaptureBusyError`, a trailing space kept in the pattern. |
@@ -125,6 +124,9 @@
 | 1.88 | 2026-11-15 | Claude | #352: JLINK-DD-PROBE - `read_variable`, `write_variable` and `variable_address` refuse a variable at address 0 (`_refuse_address_zero`, `_address_of`). |
 | 1.89 | 2026-11-15 | Claude | #352 review round 1: JLINK-DD-PROBE - the address-0 check takes `&(name)` and skips an expression that may have a side effect. |
 | 1.90 | 2026-11-15 | Claude | #352 review round 2: JLINK-DD-PROBE - the side-effect skip covers `>>=` and `<<=`, and says a cast is skipped too. |
+| next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. Blank lines that split this table removed. |
+| next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
+
 ---
 
 ## 3. Purpose & Scope
@@ -143,12 +145,12 @@ Design and Unit Construction**.
 
 | Document ID | Title | Version |
 |---|---|---|
-| ETB-SWE1-001 | Embedded Test Bench Software Requirements Specification | 0.1 |
-| ETB-SWE2-001 | Embedded Test Bench Software Architecture Description | 0.1 |
-| ETB-SWE4-001 | Embedded Test Bench Software Unit Verification Specification | 0.2 |
-| ETB-RTM-001 | Embedded Test Bench Requirements Traceability Matrix | 0.6 |
-| ETB-IF-001 | GPD-3303D Remote Control Interface Specification | 0.1 |
-| ETB-SWE3-002 | GPD-3303D Driver Design and Lessons Learned | 0.1 |
+| ETB-SWE1-001 | Embedded Test Bench Software Requirements Specification | 1.70 |
+| ETB-SWE2-001 | Embedded Test Bench Software Architecture Description | 0.33 |
+| ETB-SWE4-001 | Embedded Test Bench Software Unit Verification Specification | 1.92 |
+| ETB-RTM-001 | Embedded Test Bench Requirements Traceability Matrix | 1.83 |
+| ETB-IF-001 | GPD-3303D Remote Control Interface Specification | 0.4 |
+| ETB-SWE3-002 | GPD-3303D Driver Design and Lessons Learned | 0.4 |
 
 ### 3.3 Unit Identification
 

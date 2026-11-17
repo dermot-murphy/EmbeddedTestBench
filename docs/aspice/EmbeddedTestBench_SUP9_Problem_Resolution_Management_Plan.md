@@ -12,7 +12,7 @@
 |---|---|---|---|
 | **Document ID** | ETB-SUP9-001 | **Version** | [latest, §2](#2-revision-history) |
 | **Project** | Embedded Test Bench | **Date** | [latest, §2](#2-revision-history) |
-| **Status** | Draft | **Classification** | Internal |
+| **Status** | [by location, ETB-SUP1-001 §6.3](EmbeddedTestBench_SUP1_Quality_Assurance_Plan.md#63-document-status) | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SUP.9 |
 
@@ -29,6 +29,8 @@
 | 0.3 | 2026-10-05 | Claude | #204: Review & Approval table points to the merge of the pull request that last changed the document, which is the review and approval (ETB-SUP8-001 §5.7); no per-change signatures or dates. |
 | 0.4 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | 0.5 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
+| next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. |
+| next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
 | next | 2026-11-17 | Claude | #375: the plan follows the practice. §5 records severity by `severity: S1` to `S4` label and priority by milestone; §5.1 authorises urgent resolution of an S1; §5.2 alert notifications. §6 - a problem is an issue labelled `bug`, its ID the issue number. §7 - each state as the issue shows it. §9 - trend analysis per milestone and release, the first in §9.1. |
 
 ---
@@ -44,11 +46,11 @@ classified, resolved and closed, and what may never be done to make one go away.
 
 | Document ID | Title | Version |
 |---|---|---|
-| ETB-SUP1-001 | Embedded Test Bench Quality Assurance Plan | 0.1 |
-| ETB-SUP8-001 | Embedded Test Bench Configuration Management Plan | 0.1 |
-| ETB-SUP10-001 | Embedded Test Bench Change Request Management Plan | 0.1 |
-| ETB-MAN5-001 | Embedded Test Bench Risk Management Plan | 0.1 |
-| ETB-TMPL-001 | Embedded Test Bench Work Product Review Record — Template | 0.1 |
+| ETB-SUP1-001 | Embedded Test Bench Quality Assurance Plan | 0.5 |
+| ETB-SUP8-001 | Embedded Test Bench Configuration Management Plan | 0.21 |
+| ETB-SUP10-001 | Embedded Test Bench Change Request Management Plan | 0.5 |
+| ETB-MAN5-001 | Embedded Test Bench Risk Management Plan | 0.7 |
+| ETB-TMPL-001 | Embedded Test Bench Work Product Review Record — Template | 0.6 |
 
 ### 3.3 Scope
 

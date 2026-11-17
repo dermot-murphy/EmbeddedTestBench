@@ -12,7 +12,7 @@
 |---|---|---|---|
 | **Document ID** | ETB-SYS5-002 | **Version** | [latest, §2](#2-revision-history) |
 | **Project** | Embedded Test Bench | **Date** | [latest, §2](#2-revision-history) |
-| **Status** | Draft — for review | **Classification** | Internal |
+| **Status** | [by location, ETB-SUP1-001 §6.3](EmbeddedTestBench_SUP1_Quality_Assurance_Plan.md#63-document-status) | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SYS.5 |
 
@@ -30,6 +30,8 @@
 | 1.2 | 2026-10-05 | Claude | #204: Review & Approval table points to the merge of the pull request that last changed the document, which is the review and approval (ETB-SUP8-001 §5.7); no per-change signatures or dates. |
 | 1.3 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | 1.4 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
+| next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. |
+| next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
 
 ---
 
@@ -46,10 +48,10 @@ says how qualification is done; this report says what happened when it was.
 
 | Document ID | Title | Version |
 |---|---|---|
-| ETB-SYS2-001 | Embedded Test Bench System Requirements Specification | 0.2 |
-| ETB-SYS5-001 | Embedded Test Bench System Qualification Test | 0.3 |
-| ETB-SWE4-002 | Embedded Test Bench Unit Verification Report | 1.18 |
-| ETB-SUP9-001 | Embedded Test Bench Problem Resolution Management Plan | 0.1 |
+| ETB-SYS2-001 | Embedded Test Bench System Requirements Specification | 0.10 |
+| ETB-SYS5-001 | Embedded Test Bench System Qualification Test | 0.7 |
+| ETB-SWE4-002 | Embedded Test Bench Unit Verification Report | 1.87 |
+| ETB-SUP9-001 | Embedded Test Bench Problem Resolution Management Plan | 0.5 |
 | `specs/qualification/README.md` | Hardware qualification procedure | — |
 
 ### 3.3 Scope
