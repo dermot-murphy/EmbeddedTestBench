@@ -104,6 +104,7 @@ How to read the columns:
 - **PQ6:** `scripts/doc_versions.py check` passes on `develop` at `83443f7`, the merge of #381. It fails on any document whose history is not numbered in order. The diffs were not read to confirm that every changed document gained a row.
 - **PQ7:** the criterion applies from #375 on.
 - **PQ8:** the criterion applies from #374 on. The configuration audit of `v0.03.0000` was made afterwards and is in ETB-SUP8-002 §4.
+- **PQ9:** the criterion applies from #373 on, to release audits. This audit is not a release audit, so it is n/a.
 
 ### 4.2 Non-conformances
 
