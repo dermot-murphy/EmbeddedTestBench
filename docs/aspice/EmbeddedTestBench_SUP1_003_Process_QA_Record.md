@@ -25,6 +25,7 @@
 | Version | Date | Author | Description of Change |
 |---|---|---|---|
 | 0.1 | 2026-11-17 | Claude | #373: initial. The first process QA audit (ETB-SUP1-001 §6.7): the 15 pull requests merged into `develop` from 2026-11-14 to 2026-11-17, and the QA summary for `v0.03.0000`. |
+| next | 2026-11-17 | Claude | #373, review round 1 (PR #390): §4 states the sample's cutoff, the merge of #381 (`83443f7`), and that later pull requests belong to the next audit. |
 
 ---
 
@@ -51,15 +52,18 @@ Pull requests merged into `develop` or `main`.
 
 ---
 
-## 4. Audit 1: Pull Requests Merged 2026-11-14 to 2026-11-17
+## 4. Audit 1: The 15 Pull Requests Merged up to #381
 
 Performed 2026-11-17 by Claude, in the session working #373. It was not
 performed by the PR Review session, as §6.7 now requires, because §6.7 did not
 exist yet. The PR Review session's QA review of the pull request that adds this
 record is the independent check on it.
 
-**Sample.** The last 15 pull requests merged into `develop`, which is the
-sample ETB-SUP1-002 used for GP 2.2.4 (AUD-v0.03-110). This is not every pull
+**Sample.** The 15 pull requests merged into `develop` up to and including the
+merge of #381 (`83443f7`, 2026-11-17 15:36:51Z), from #337 on. That is the
+sample ETB-SUP1-002 used for GP 2.2.4 (AUD-v0.03-110), with #381 added.
+Pull requests merged after `83443f7` (#383 and later) belong to the next
+audit. This is not every pull
 request since `v0.02.0002`: the first audit is not a release audit, because
 `v0.03.0000` was released before §6.7 existed.
 

@@ -25,6 +25,7 @@
 | Version | Date | Author | Description of Change |
 |---|---|---|---|
 | 0.1 | 2026-11-17 | Claude | #373: initial. QA is performed by a session separate from the authoring session, not by a party organisationally independent of the work; escalation ends at the project lead. Accepted with justification on the owner's decision of 2026-11-17. |
+| next | 2026-11-17 | Claude | #373, review round 1 (PR #390): §4 states the four limits of the QA session's role. |
 
 ---
 
@@ -54,6 +55,19 @@ In this project:
   separate Claude Code session that does no authoring on the work it reviews;
 - the project has one human member, Dermot Murphy, who is the Reviewer, the
   Approver and the project lead (ETB-DEV-002).
+
+The QA session's role has these limits, set by the owner:
+
+1. it reviews only when the authoring session asks, and only what that session
+   sends: the authoring session chooses when to ask and what to put in front of
+   it;
+2. it reviews a pull request for at most four rounds; findings still open after
+   the fourth go to the owner;
+3. it never approves and never merges, even when asked (the owner's rule,
+   2026-11-17);
+4. its reviews are posted through the owner's GitHub account. A QA review is
+   therefore identified by its first line, `claude-auto-review head=<sha>`, not
+   by the GitHub author.
 
 QA is therefore separate from the authoring session, but it is not independent
 of the AI supplier (ETB-ACQ4-001 §4.5): both sessions run the same product. Nor

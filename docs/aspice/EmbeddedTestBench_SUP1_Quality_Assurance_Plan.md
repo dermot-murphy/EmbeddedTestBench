@@ -32,7 +32,7 @@
 | next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. §6.5 adds the QA review that the PR Review session posts on every pull request, with checks C1 to C6 per work product, as the per-pull-request QA record; the merge remains the approval. §6.6 added: content requirements per work product type (GP 2.2.1), for content added or changed from #371 on. §5, §7 and §9 updated to match. Review round 1 (PR #381): §6.3 statuses are exclusive, in order Released, Agreed, In review, In work; §6.5 says what the QA reviewer is given. Review round 2: the status is found from the commit that last changed the file. Round 3: status follows the text; the steps that find it are numbered, and test `develop` with `merge-base --is-ancestor`. |
 | next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
 | next | 2026-11-17 | Claude | #375: §9 - problems are issues labelled `bug`; `docs/aspice/problems/` is not used (ETB-SUP9-001 §6). Review round 1 (PR #389): the two rows the merge with `develop` left behind are removed. |
-| next | 2026-11-17 | Claude | #373: §6.7 added: process QA, with criteria PQ1 to PQ8 checked on each merged pull request before each release, and the QA summary per release, recorded in ETB-SUP1-003. §8 - escalation ends at the lead, recorded as ETB-DEV-003. §9 and §3.2 list ETB-SUP1-003 and ETB-DEV-003. |
+| next | 2026-11-17 | Claude | #373: §6.7 added: process QA, with criteria PQ1 to PQ8 checked on each merged pull request before each release, and the QA summary per release, recorded in ETB-SUP1-003. §8 - escalation ends at the lead, recorded as ETB-DEV-003. §9 and §3.2 list ETB-SUP1-003 and ETB-DEV-003. Review round 1 (PR #390): §6.7 says who starts the release audit and when. |
 
 ---
 
@@ -247,6 +247,13 @@ introduced it. Earlier pull requests are marked n/a for it.
 **When.** On the release branch, before the release pull request is opened, over
 every pull request merged since the previous release. Also at each milestone
 review (ETB-MAN3-001 §10).
+
+**Who starts it.** The session preparing the release asks the QA reviewer for
+the audit, as the first step on the release branch, and names the previous
+release tag. The QA reviewer acts only when asked. If no *PR Review* session is
+running, the session preparing the release starts one with that title, for the
+audit and the release pull request's QA review. The release pull request is not
+opened until the audit's record is in ETB-SUP1-003 (PQ8).
 
 **Procedure.**
 
