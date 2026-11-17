@@ -25,6 +25,7 @@
 | Version | Date | Author | Description of Change |
 |---|---|---|---|
 | 0.1 | 2026-11-17 | Claude | #374: initial. Configuration audit CA1 to CA7 of `v0.03.0000` (ETB-SUP8-001 §7.1) and the first recovery check (ETB-SUP8-001 §10). |
+| 0.2 | 2026-11-17 | Claude | #374, review round 1 (PR #386): §4.2 - the gap in what a clone holds is carried by #387 and ETB-RISK-016; R2 is a completeness check, not a backup check. |
 
 ---
 
@@ -91,7 +92,9 @@ Started 2026-11-17T15:24:52Z, on the bench PC, in an empty directory.
 
 Not covered: the issue tracker, pull request records and CI logs are held by
 GitHub only and are not in a git clone. Their loss would remove the review and
-approval records (ETB-SUP8-001 §5.7). This is recorded as a gap, not fixed here.
+approval records (ETB-SUP8-001 §5.7), and the QA reviews (ETB-SUP1-001 §6.5). This is recorded as a gap, not fixed here. It is carried by #387 (export the GitHub-only records at each release) and by ETB-RISK-016 (#372).
+
+R2 compares two clones of the same remote, so it shows that a clone is complete, not that a copy exists off GitHub. The export in #387 is what makes this a backup check.
 
 ---
 
