@@ -33,6 +33,7 @@
 | next | 2026-11-17 | Claude | #374: §8 work product index lists ETB-SUP8-002, the configuration audit and recovery check record. |
 | next | 2026-11-17 | Claude | #373: §8 lists ETB-SUP1-003 and ETB-DEV-003. |
 | next | 2026-11-17 | Claude | #372: §8 lists ETB-MAN3-002. |
+| next | 2026-11-17 | Claude | #362: GP 2.1.4 says the instruments have been available since 2026-10-04 and that the integration cases' bench time is deferred by ETB-DEV-004; §8 lists ETB-DEV-004. The rating is not changed here (#380). |
 
 ---
 
@@ -108,13 +109,16 @@ and it is the resource gap that currently blocks milestone M6.
 
 **Rating: P**
 
-Software resources are available and pinned. **Hardware is not**: no instrument
-has been attached, which is why ETB-SYS4-001 §5 records sixteen cases as not
-performed and ETB-SYS5-001 §6 shows one hardware pass out of eight scenarios.
-This is the single largest gap in the project's capability, and it is a
-resource gap rather than a process one.
+Software resources are available and pinned. The bench instruments are
+available and have been used since 2026-10-04: the qualification campaign
+(ETB-SYS5-002) and the bench runs since then. The exception is the TDS3014B
+oscilloscope, which has not been on the bench. What is not yet done is
+allocating bench time to the system integration cases: their execution is
+deferred to `v0.05.0000` (ETB-DEV-004). Each case now states its resources
+(ETB-SYS4-001 §5), and the bench time is estimated in ETB-MAN3-001 §8.1.
 
-*Evidence:* ETB-SYS4-001 §5, §6; ETB-SYS5-001 §6, §7.
+*Evidence:* ETB-SYS4-001 §5, §6, §8; ETB-SYS5-002; ETB-DEV-004;
+ETB-MAN3-001 §8.1.
 
 ### GP 2.1.5 — Monitor and adjust the performance of the process
 
@@ -264,7 +268,7 @@ Neither is a documentation exercise. That is the point of rating them P.
 | SUP.1 | Repository Analysis Report | ETB-ANA-001 |
 | GP 2.2.4 | Review and test case templates | ETB-TMPL-001, ETB-TMPL-002 |
 | SUP.1 | Process QA Record | ETB-SUP1-003 |
-| GP 2.1, GP 2.2, SUP.1 | Deviations | ETB-DEV-001, ETB-DEV-002, ETB-DEV-003 |
+| GP 2.1, GP 2.2, SUP.1, SYS.4, SYS.5 | Deviations | ETB-DEV-001, ETB-DEV-002, ETB-DEV-003, ETB-DEV-004 |
 
 ---
 
