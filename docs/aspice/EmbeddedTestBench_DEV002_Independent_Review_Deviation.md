@@ -2,7 +2,7 @@
 
 # Deviation Record — Reviewer Independence
 
-*Automotive SPICE® PAM v4.0 | GP 2.2.3 — Review and Adjust Work Products*
+*Automotive SPICE® PAM v4.0 | GP 2.2.4 — Review and Adjust Work Products*
 
 ---
 
@@ -12,9 +12,9 @@
 |---|---|---|---|
 | **Document ID** | ETB-DEV-002 | **Version** | [latest, §2](#2-revision-history) |
 | **Project** | Embedded Test Bench | **Date** | [latest, §2](#2-revision-history) |
-| **Status** | Draft | **Classification** | Internal |
+| **Status** | [by location, ETB-SUP1-001 §6.3](EmbeddedTestBench_SUP1_Quality_Assurance_Plan.md#63-document-status) | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
-| **Approver** | Dermot Murphy | **Related Process** | GP 2.2.3 |
+| **Approver** | Dermot Murphy | **Related Process** | GP 2.2.4 |
 
 ---
 
@@ -27,6 +27,7 @@
 | 0.3 | 2026-10-05 | Claude | #204: §4 states how review and approval are given - Reviewer and Approver remain the same person by decision, both given in one act, the merge of the pull request; evidence is the pull request, its CI result and its merge record; a merge Claude makes on the owner's instruction carries a merge commit note saying so. §5 states that the compensating measures remain. §7 points to the merge (ETB-SUP8-001 §5.7). |
 | 0.4 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | 0.5 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
+| next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (In review, Agreed, Released) and is not written in by hand. The deviated clause is GP 2.2.4, as ETB-PA2-001 uses, not GP 2.2.3. §4 records the QA review that the PR Review session posts on every pull request, and what it does and does not give. |
 
 ---
 
@@ -36,7 +37,7 @@
 |---|---|
 | **Deviation ID** | ETB-DEV-002 |
 | **Severity** | SEV-3 Minor |
-| **Standard Clause** | ASPICE PAM v4.0, GP 2.2.3 — Review and Adjust Work Products |
+| **Standard Clause** | ASPICE PAM v4.0, GP 2.2.4 — Review and Adjust Work Products |
 | **Affected Work Products** | Every document in `docs/aspice/` |
 | **Disposition** | **Accepted with justification** |
 
@@ -44,7 +45,7 @@
 
 ## 4. Non-Conformance Description
 
-GP 2.2.3 expects work products to be reviewed against their requirements by
+GP 2.2.4 expects work products to be reviewed against their requirements by
 parties who did not produce them, and expects reviewer and approver to be
 distinguishable roles.
 
@@ -72,12 +73,27 @@ for a reader to notice.
   owner's instruction (<date>).`; a merge without it is the owner's own. Either
   way the merge is the review and approval (ETB-SUP8-001 §5.7).
 
+**QA review on every pull request (#371, 2026-11-17).** Before the merge, the
+*PR Review* session reviews the pull request and posts a review with checks C1
+to C6 of ETB-TMPL-001 for each work product it changes (ETB-SUP1-001 §6.5). That
+session is a separate Claude Code session: it did not write the change and does
+no authoring on it. It is the per-pull-request record that the checks were
+applied. What it gives, and what it does not:
+
+- it is a record, made before the merge, that someone other than the author
+  applied C1 to C6 and what they found;
+- it is not independent of the AI supplier (ETB-DEV-001): the author and the QA
+  reviewer are the same model, and can share a blind spot;
+- it is not an approval. The Reviewer reads it and approves by the merge; the
+  QA review does not replace the Reviewer's own application of C1 to C6, and that
+  application is recorded by the merge and by nothing else.
+
 ---
 
 ## 5. Justification for Acceptance
 
 **The author and the reviewer are genuinely different parties**, which is the
-part of GP 2.2.3 that does the work. Documents are drafted by the model and
+part of GP 2.2.4 that does the work. Documents are drafted by the model and
 reviewed by the engineer; neither is reviewing its own output. The weakness is
 that reviewer and *approver* coincide, not that review is absent.
 

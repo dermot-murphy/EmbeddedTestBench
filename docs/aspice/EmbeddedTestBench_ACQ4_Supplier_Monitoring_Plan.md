@@ -12,7 +12,7 @@
 |---|---|---|---|
 | **Document ID** | ETB-ACQ4-001 | **Version** | [latest, §2](#2-revision-history) |
 | **Project** | Embedded Test Bench | **Date** | [latest, §2](#2-revision-history) |
-| **Status** | Draft | **Classification** | Internal |
+| **Status** | [by location, ETB-SUP1-001 §6.3](EmbeddedTestBench_SUP1_Quality_Assurance_Plan.md#63-document-status) | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | ACQ.4 |
 
@@ -35,6 +35,7 @@
 | 0.9 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
 | 0.10 | 2026-11-13 | Claude | #200: Pico Technology added - §4.1 the PicoScope 3405D MSO, §4.4 the `ps3000a` library (from PicoScope 7 T&M Stable, unit driver version 2.2.160.7569; WinUSB driver 2.4.0.2 of 2022-06-10), not pinned, its licence not yet reviewed; §5 what the library is trusted to do. |
 | 0.11 | 2026-11-14 | Claude | #342: §4.1 Nordic's Power Profiler Kit II and its serial protocol, read from Nordic's Power Profiler app; facts only, no code copied (AD-31). |
+| next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (In review, Agreed, Released) and is not written in by hand. |
 
 ---
 

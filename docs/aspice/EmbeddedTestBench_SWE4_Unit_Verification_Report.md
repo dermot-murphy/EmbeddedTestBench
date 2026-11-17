@@ -12,7 +12,7 @@
 |---|---|---|---|
 | **Document ID** | ETB-SWE4-002 | **Version** | [latest, §2](#2-revision-history) |
 | **Project** | Embedded Test Bench | **Date** | [latest, §2](#2-revision-history) |
-| **Status** | Draft | **Classification** | Internal |
+| **Status** | [by location, ETB-SUP1-001 §6.3](EmbeddedTestBench_SUP1_Quality_Assurance_Plan.md#63-document-status) | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.4 |
 
@@ -80,7 +80,6 @@
 | 1.44 | 2026-10-28 | Claude | #243: SWE4-UT-S2LPMEASURES added, 77, pass; SWE4-UT-BLE 116 → 121 and SWE4-UT-KEPLERSIM 131 → 132 (after #314), pass, from runs of `test_frame_measures.py` (77 passed), `test_dongle.py` (121 passed) and `test_kepler_simulated.py` with `test_simulated_air.py` (132 passed) on this branch on 2026-10-28. The §5 total is still the 1.32 whole-suite run's. |
 | 1.45 | 2026-10-28 | Claude | #274: SWE4-UT-BLEDFU 40 → 47 and SWE4-UT-BLESIM 30 → 35, pass, from a run of `tests/instruments/nordic_dongle` on this branch on 2026-10-28; SWE4-UT-FWUNIT 189 → 192, pass (CTest, 8 binaries, bench PC). The §5 total is still the 1.32 whole-suite run's. BLE-OPEN-05 (BENCHTOOLS-BLE-001 §5.3) closed on hardware on 2026-10-28: through bootloader V1.01.0000 and V2.00.0000 on 5C1712, dongle 1.8.0 reported an ATT MTU of 23 and 20-byte pieces, PASS (`docs/aspice/qualification/2026-10-28/274_dfu_piece_mtu/`). |
 | 1.46 | 2026-10-28 | Claude | #181: SWE4-UT-DMM 34 → 43 and SWE4-UT-DMMPANEL 7 → 9, pass, from a run of `tests/instruments/tti1604` on this branch on 2026-10-28. SWE4-UT-DMMBENCH run on the real TTi 1604 (COM13, FTDI A9LQ0R81A, inputs open) on 2026-10-28: 9 passed, 5 skipped (no reference wired), 0 failed, against 6 passed and 4 failed in QS-09; evidence in `docs/aspice/qualification/2026-10-28/181_tti1604/`. The section 5 total is still the 1.32 whole-suite run's. |
-
 | 1.47 | 2026-10-28 | Claude | #247: §5 rows for SWE4-UT-SER (37), -SERCONSOLE (49), -SERSIM (6) and -SERCLI (7), pass, from a run of `tests/instruments/serial_capture` on this branch on 2026-10-28 (99 passed, Windows). The section 5 total is still the 1.32 whole-suite run's. |
 | 1.48 | 2026-10-29 | Claude | #247, review of #318: SWE4-UT-SER 37 → 54 and SWE4-UT-SERCLI 7 → 8, pass, from a run of `tests/instruments/serial_capture` on this branch on 2026-10-29 (117 passed, Windows). The section 5 total is still the 1.32 whole-suite run's. |
 | 1.49 | 2026-10-29 | Claude | #247, review of #318 round 2: SWE4-UT-SER 54 → 61, pass, from a run of `tests/instruments/serial_capture` on this branch on 2026-10-29 (124 passed, Windows). The section 5 total is still the 1.32 whole-suite run's. |
@@ -122,6 +121,8 @@
 | 1.85 | 2026-11-15 | Claude | #352: §5 SWE4-UT-JLINK 121 -> 126 (`test_variable_address.py`), pass, from a run of `instruments/jlink/` on this branch on 2026-11-15. The §5 total is still the 1.32 whole-suite run's. |
 | 1.86 | 2026-11-15 | Claude | #352 review round 1: §5 SWE4-UT-JLINK 126 -> 130 (`test_variable_address.py` 5 -> 9), pass, from a run of `instruments/jlink/` on this branch on 2026-11-15. |
 | 1.87 | 2026-11-15 | Claude | #352 review round 2: §5 SWE4-UT-JLINK 130 -> 132 (`>>=` and `<<=` cases), pass, from a run of `instruments/jlink/` on this branch on 2026-11-15. |
+| next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (In review, Agreed, Released) and is not written in by hand. Blank lines that split this table removed. |
+
 ---
 
 ## 3. Purpose & Scope

@@ -12,7 +12,7 @@
 |---|---|---|---|
 | **Document ID** | ETB-SUP1-002 | **Version** | [latest, §2](#2-revision-history) |
 | **Project** | Embedded Test Bench | **Date** | [latest, §2](#2-revision-history) |
-| **Status** | Draft — for review | **Classification** | Internal |
+| **Status** | [by location, ETB-SUP1-001 §6.3](EmbeddedTestBench_SUP1_Quality_Assurance_Plan.md#63-document-status) | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SUP.1 |
 
@@ -27,6 +27,7 @@
 |---|---|---|---|
 | 0.1 | 2026-11-17 | Claude | #198: first issue. First internal audit, of release `v0.03.0000` against Capability Level 2. |
 | next | 2026-11-17 | Claude | #198: review round 1 (PR #378). §5.1 applies the ISO/IEC 33020 capability level rule (CL2 needs PA 1.1 F): 0 of 17 processes reach CL2, 9 reach CL1. SWE.3 BP3 rated L, not F, because lint and the C standard pass against baselines of known violations; new finding AUD-v0.03-112 on its own issue. SWE.3 BP3 module count corrected to 146. §4.2: generic practice titles are unverified too. |
+| next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (In review, Agreed, Released) and is not written in by hand. |
 
 ---
 
