@@ -125,6 +125,7 @@
 | next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
 | next | 2026-11-17 | Claude | #369: §4.0 gives the results of the release `v0.03.0000` per Python leg and firmware job, from the CI runs on `4b71a51`, with the per-test JUnit kept in `docs/aspice/unit_results/v0.03.0000/`. §5 is regenerated from that run, and its rows sum to the run's total. §16 - PC-1, PC-2, PC-3 and PC-8 and the verdict are current; the retired ID BENCHTOOLS-TRACE-001 is replaced by ETB-RTM-001 §18; the dongle has run on hardware. §17 is marked as earlier revisions' checks. |
 | next | 2026-11-17 | Claude | #369, review round 1 (PR #395): §5's total is the release run's, 4 557, and the paragraphs after it describe that run, not revision 1.32's. |
+| next | 2026-11-17 | Claude | #370: SWE4-UT-INTEGRATION row; its first release result will be the next release's. |
 
 ---
 
@@ -369,6 +370,7 @@ generated this table from a branch run; earlier revisions added rows by hand.
 | SWE4-UT-LIMITS | `runner/test_limits.py` | 45 | Pass |
 | SWE4-UT-COMPARE | `runner/test_compare_steps.py` | 62 | Pass |
 | SWE4-UT-RESOLVE | `runner/test_resolve.py` | 27 | Pass |
+| SWE4-UT-INTEGRATION | `runner/test_integration_cases.py` | 8 | Pass (added in #370, after the release run; 8 passed on its branch) |
 | SWE4-UT-BRINGUP | `runner/test_sensor_bringup.py` | 18 | Pass |
 | SWE4-UT-KEPLERSIM | `runner/test_kepler_simulated.py`, `instruments/s2lp/test_simulated_air.py` | 132 | Pass |
 | SWE4-UT-SELFCHECK | `runner/test_bench_self_check.py` | 7 | Pass |

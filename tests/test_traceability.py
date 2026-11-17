@@ -402,6 +402,42 @@ class TestVerificationReport:
         assert not offenders, "ETB-SWE4-002 section 5:\n  " + "\n  ".join(offenders)
 
 
+class TestIntegrationAndQualificationCases:
+    """ETB-SWE5-001 §6 and ETB-SWE6-001 §5 name the tests that realise each
+    case (#370); a named test that does not exist is a broken trace."""
+
+    DOCS_WITH_CASES = (DOCS / "EmbeddedTestBench_SWE5_SW_Integration_Test.md",
+                       DOCS / "EmbeddedTestBench_SWE6_SW_Qualification_Test.md")
+
+    @staticmethod
+    def _named_tests(text: str) -> list:
+        found = []
+        for line in text.splitlines():
+            if re.match(r"^\| ETB-(?:IT|QT)-\d+a? \|", line):
+                found += re.findall(r"`([\w/]+\.py)::([^`]+)`", line)
+        return found
+
+    def test_every_case_names_a_test(self):
+        for doc in self.DOCS_WITH_CASES:
+            for line in _text(doc).splitlines():
+                if re.match(r"^\| ETB-(?:IT|QT)-\d+a? \|", line):
+                    assert re.search(r"`[\w/]+\.py::", line), "no test named: " + line[:60]
+
+    def test_every_named_test_exists(self):
+        missing = []
+        for doc in self.DOCS_WITH_CASES:
+            for path, node in self._named_tests(_text(doc)):
+                source = ROOT / "tests" / path
+                parts = [part.split("[")[0] for part in node.split("::")]
+                text = source.read_text(encoding="utf-8") if source.exists() else ""
+                defined = bool(text) and ("def %s(" % parts[-1]) in text and all(
+                    re.search(r"^\s*class %s\b" % re.escape(cls), text, re.M)
+                    for cls in parts[:-1])
+                if not defined:
+                    missing.append("%s: %s::%s" % (doc.name, path, node))
+        assert not missing, "named test(s) not found:\n  " + "\n  ".join(missing)
+
+
 class TestArchitectureTraceability:
     def test_architectural_elements_cited_in_code_are_defined(self):
         declared = set(re.findall(_ARCHITECTURE, _text(ARCHITECTURE_DOC)))
