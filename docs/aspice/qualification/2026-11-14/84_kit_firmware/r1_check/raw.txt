@@ -1,0 +1,489 @@
+1794674669.030213 < ok etb-s2lp-kit V1.00.0000 proto=1 silicon=c1
+1794674669.036136 < ok frames=0 rejects=0 overflows=0 deaf_max_us=0
+1794674669.038054 < ok
+1794674669.092611 < ok
+1794674669.145133 < ok
+1794674669.147172 < ok
+1794674669.149125 < ok
+1794674669.151126 < ok
+1794674669.153113 < ok
+1794674669.155127 < ok
+1794674669.157108 < ok
+1794674669.159070 < ok
+1794674669.161136 < ok
+1794674669.163107 < ok
+1794674669.165097 < ok
+1794674669.167090 < ok
+1794674669.169136 < ok
+1794674669.171128 < ok
+1794674669.173125 < ok
+1794674669.175111 < ok
+1794674669.177106 < ok
+1794674669.179143 < ok
+1794674669.181268 < ok
+1794674669.183419 < ok
+1794674669.185223 < ok
+1794674669.187357 < ok
+1794674669.189372 < ok
+1794674669.191388 < ok
+1794674669.193375 < ok
+1794674669.195373 < ok
+1794674669.197374 < ok
+1794674669.199375 < ok
+1794674669.201238 < ok
+1794674669.203379 < ok
+1794674669.205417 < ok
+1794674669.207323 < ok
+1794674669.209378 < ok
+1794674669.211371 < ok
+1794674669.213392 < ok
+1794674669.215360 < ok
+1794674669.217115 < ok
+1794674669.219116 < ok
+1794674669.221150 < ok
+1794674669.223109 < ok
+1794674669.225206 < ok
+1794674669.227174 < ok
+1794674669.229114 < ok
+1794674669.231110 < ok
+1794674669.233132 < ok
+1794674669.235118 < ok
+1794674669.237134 < ok
+1794674669.239338 < ok
+1794674669.241510 < ok
+1794674669.243342 < ok
+1794674669.245361 < ok
+1794674669.247210 < ok
+1794674669.249212 < ok
+1794674669.251132 < ok
+1794674669.253353 < ok
+1794674669.255340 < ok
+1794674669.257341 < ok
+1794674669.259352 < ok
+1794674669.261364 < ok
+1794674669.263321 < ok
+1794674669.265214 < ok
+1794674669.267229 < ok
+1794674669.269230 < ok
+1794674669.271269 < ok
+1794674669.273317 < ok
+1794674669.275323 < ok
+1794674669.277311 < ok
+1794674669.279085 < ok
+1794674669.281125 < ok
+1794674669.283104 < ok
+1794674669.285126 < ok
+1794674669.287074 < ok
+1794674669.289109 < ok
+1794674669.291216 < ok
+1794674669.293324 < ok
+1794674669.295208 < ok
+1794674669.297183 < ok
+1794674669.299312 < ok
+1794674669.301326 < ok
+1794674669.303276 < ok
+1794674669.305311 < ok
+1794674669.307359 < ok
+1794674669.309177 < ok
+1794674669.311201 < ok
+1794674669.313334 < ok
+1794674669.315370 < ok
+1794674669.317325 < ok
+1794674669.319284 < ok
+1794674669.321318 < ok
+1794674669.323279 < ok
+1794674669.325191 < ok
+1794674669.327285 < ok
+1794674669.329325 < ok
+1794674669.331184 < ok
+1794674669.333326 < ok
+1794674669.336344 < ok
+1794674669.401476 < ok running=1 frames=0 rejects=0 overflows=0 deaf_max_us=0 queued=0 uart_overruns=0
+1794674669.902969 < ok running=1 frames=0 rejects=0 overflows=0 deaf_max_us=0 queued=0 uart_overruns=0
+1794674670.402447 < ok running=1 frames=0 rejects=0 overflows=0 deaf_max_us=0 queued=0 uart_overruns=0
+1794674670.898627 < ok running=1 frames=0 rejects=0 overflows=0 deaf_max_us=0 queued=0 uart_overruns=0
+1794674671.460746 < ok running=1 frames=0 rejects=0 overflows=0 deaf_max_us=0 queued=0 uart_overruns=0
+1794674671.835890 < f 0 3279459 15 723f60ee 5c168b0305040408115c168b000300
+1794674671.960152 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674672.459153 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674672.958782 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674673.456235 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674673.953831 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674674.451399 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674674.950119 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674675.450808 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674675.948919 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674676.447586 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674676.944905 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674677.443449 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674677.941025 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674678.439753 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674678.937154 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674679.435384 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674679.933650 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674680.432662 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674680.930865 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674681.429394 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674681.926496 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674682.425452 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674682.924320 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674683.422356 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674683.920658 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674684.420931 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674684.918770 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674685.415779 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674685.913365 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674686.412469 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674686.910378 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674687.407528 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674687.900742 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674688.401876 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674688.904425 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674689.403992 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674689.903288 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674690.459425 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674690.959793 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674691.458717 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674691.958576 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674692.456031 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674692.954634 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674693.453904 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674693.954352 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674694.455343 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674694.952578 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674695.450780 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674695.947135 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674696.446656 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674696.943544 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674697.440543 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674697.938578 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674698.439270 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674698.938844 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674699.439133 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674699.936639 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674700.435507 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674700.933333 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674701.431914 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674701.932997 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674702.430236 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674702.929059 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674703.425928 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674703.921830 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674704.418184 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674704.914491 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674705.411720 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674705.909642 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674706.407394 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674706.903079 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674707.398925 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674707.960405 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674708.459092 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674708.956350 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674709.452503 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674709.951056 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674710.450604 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674710.949675 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674711.446377 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674711.945810 < ok running=1 frames=1 rejects=0 overflows=0 deaf_max_us=158 queued=0 uart_overruns=0
+1794674712.381226 < f 1 43914592 100 713f60f4 5c171203060c040400130100b5800164000134020003870079005000500145019f0254050f03670318042303b4038a02ce046a0396040e0220032c0253035301c002bc02ff037204f2036204e10376029503f601b1042e02fc04a4025200099af101ce96
+1794674712.443060 < ok running=1 frames=2 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674712.505736 < f 2 44055030 100 713f60f2 5c171203060c040400230100b5800164000134020003870079005000500145019f0254050f03670318042303b4038a02ce046a0396040e0220032c0253035301c002bc02ff037204f2036204e10376029503f601b1042e02fc04a4025200099af101ce96
+1794674712.691013 < f 3 44255132 100 713f60f2 5c171203060c040400330100b5800164000134020003870079005000500145019f0254050f03670318042303b4038a02ce046a0396040e0220032c0253035301c002bc02ff037204f2036204e10376029503f601b1042e02fc04a4025200099af101ce96
+1794674712.942289 < ok running=1 frames=4 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674713.442666 < ok running=1 frames=4 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674713.940273 < ok running=1 frames=4 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674714.439647 < ok running=1 frames=4 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674714.937037 < ok running=1 frames=4 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674715.436301 < ok running=1 frames=4 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674715.933071 < ok running=1 frames=4 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674716.433574 < ok running=1 frames=4 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674716.932371 < ok running=1 frames=4 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674717.432642 < ok running=1 frames=4 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674717.931802 < ok running=1 frames=4 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674718.430680 < ok running=1 frames=4 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674718.493025 < f 4 50100808 15 653260f2 5c17050305040408115c1705000300
+1794674718.555065 < f 5 50135956 14 692b20f4 5c4ee703060c0409005c17050003
+1794674718.867222 < f 6 50429955 15 6a3f60f0 5c18050305040408115c1805000300
+1794674718.929159 < ok running=1 frames=7 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674719.426291 < ok running=1 frames=7 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674719.922760 < ok running=1 frames=7 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674720.418255 < ok running=1 frames=7 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674720.916857 < ok running=1 frames=7 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674721.414131 < ok running=1 frames=7 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674721.851487 < f 7 53453482 15 721860ec 5c168b0305040408115c168b000300
+1794674721.914864 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674722.415963 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674722.915124 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674723.413834 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674723.912046 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674724.408674 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674724.909226 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674725.411097 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674725.910870 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674726.411829 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674726.910108 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674727.408136 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674727.906698 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674728.406532 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674728.906115 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674729.406054 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674729.904059 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674730.400099 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674730.959762 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674731.460152 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674731.951555 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674732.450956 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674732.948938 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674733.445732 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674733.945059 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674734.443593 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674734.942899 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674735.439256 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674735.937137 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674736.435450 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674736.935249 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674737.438410 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674737.936538 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674738.434927 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674738.933100 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674739.427712 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674739.926377 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674740.426272 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674740.924581 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674741.421780 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674741.918235 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674742.415870 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674742.914277 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674743.409812 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674743.908862 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674744.407511 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674744.905793 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674745.405526 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674745.902915 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674746.400361 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674746.898988 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674747.399770 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674747.954574 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674748.449480 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674748.948350 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674749.449469 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674749.946738 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674750.443529 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674750.942060 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674751.439995 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674751.940713 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674752.437414 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674752.935033 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674753.434403 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674753.931611 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674754.431463 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674754.929731 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674755.426336 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674755.925786 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674756.423606 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674756.920799 < ok running=1 frames=8 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674757.358189 < f 8 89064624 100 713660f2 5c171203060c040400130100b48021640001350200038800920048006c03d20395031b03e30341040d03570275029203f40246049803fb025d031d01ef0222037f02890388033904420344044d0209033a03c10389039a0389021e031c00099af101ce96
+1794674757.420014 < ok running=1 frames=9 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674757.543909 < f 9 89244761 100 711e60f0 5c171203060c040400230100b48021640001350200038800920048006c03d20395031b03e30341040d03570275029203f40246049803fb025d031d01ef0222037f02890388033904420344044d0209033a03c10389039a0389021e031c00099af101ce96
+1794674757.606397 < f 10 89325540 100 713e60f2 5c171203060c040400330100b48021640001350200038800920048006c03d20395031b03e30341040d03570275029203f40246049803fb025d031d01ef0222037f02890388033904420344044d0209033a03c10389039a0389021e031c00099af101ce96
+1794674757.907171 < ok running=1 frames=11 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674758.405334 < ok running=1 frames=11 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674758.905831 < ok running=1 frames=11 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674759.404902 < ok running=1 frames=11 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674759.904230 < ok running=1 frames=11 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674760.402705 < ok running=1 frames=11 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674760.960169 < ok running=1 frames=11 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674761.458701 < ok running=1 frames=11 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674761.955504 < ok running=1 frames=11 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674762.451857 < ok running=1 frames=11 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674762.951967 < ok running=1 frames=11 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674763.448103 < ok running=1 frames=11 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674763.946441 < ok running=1 frames=11 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674764.444943 < ok running=1 frames=11 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674764.945907 < ok running=1 frames=11 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674765.444052 < ok running=1 frames=11 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674765.942328 < ok running=1 frames=11 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674766.433490 < ok running=1 frames=11 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674766.931922 < ok running=1 frames=11 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674767.429919 < ok running=1 frames=11 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674767.928942 < ok running=1 frames=11 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674768.428440 < ok running=1 frames=11 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674768.491088 < f 11 100273868 15 653f60f0 5c17050305040408115c1705800300
+1794674768.863481 < f 12 100602834 15 6a3f60f0 5c18050305040408115c1805000300
+1794674768.926875 < ok running=1 frames=13 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674769.424408 < ok running=1 frames=13 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674769.921722 < ok running=1 frames=13 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674770.418992 < ok running=1 frames=13 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674770.917603 < ok running=1 frames=13 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674771.403613 < ok running=1 frames=13 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674771.839347 < f 13 103627873 15 723f60f0 5c168b0305040408115c168b000300
+1794674771.901525 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674772.400567 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674772.899405 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674773.458515 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674773.958545 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674774.454252 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674774.951760 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674775.450688 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674775.946842 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674776.447629 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674776.945421 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674777.446622 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674777.937667 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674778.436845 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674778.936779 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674779.434352 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674779.932790 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674780.429108 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674780.927351 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674781.427497 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674781.926013 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674782.426736 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674782.921775 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674783.419311 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674783.918611 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674784.417193 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674784.914621 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674785.414826 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674785.911097 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674786.409315 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674786.906075 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674787.403233 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674787.900354 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674788.401801 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674788.900534 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674789.459366 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674789.959476 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674790.457605 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674790.955581 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674791.453276 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674791.951909 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674792.450590 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674792.946945 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674793.445450 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674793.943441 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674794.443020 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674794.940152 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674795.439384 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674795.937945 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674796.435847 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674796.932913 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674797.431208 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674797.934076 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674798.429794 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674798.928433 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674799.428681 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674799.930025 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674800.426217 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674800.925863 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674801.422963 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674801.921165 < ok running=1 frames=14 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674802.357279 < f 14 134223457 100 713c60f2 5c171203060c040400130100b48041640001360200038902ee02430207038e044e0583017502c503b2026a030303860377032400fa029101e8024702c902f10412038d02df02ca021503ef0386034d0233026d032901a60329025e03bf00099af101ce96
+1794674802.420581 < ok running=1 frames=15 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674802.483211 < f 15 134343963 100 713f60f2 5c171203060c040400230100b48041640001360200038902ee02430207038e044e0583017502c503b2026a030303860377032400fa029101e8024702c902f10412038d02df02ca021503ef0386034d0233026d032901a60329025e03bf00099af101ce96
+1794674802.731604 < f 16 134583666 100 713f60f4 5c171203060c040400330100b48041640001360200038902ee02430207038e044e0583017502c503b2026a030303860377032400fa029101e8024702c902f10412038d02df02ca021503ef0386034d0233026d032901a60329025e03bf00099af101ce96
+1794674802.919705 < ok running=1 frames=17 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674803.421318 < ok running=1 frames=17 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674803.919349 < ok running=1 frames=17 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674804.416254 < ok running=1 frames=17 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674804.913594 < ok running=1 frames=17 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674805.412639 < ok running=1 frames=17 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674805.913146 < ok running=1 frames=17 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674806.411551 < ok running=1 frames=17 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674806.910370 < ok running=1 frames=17 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674807.409858 < ok running=1 frames=17 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674807.907492 < ok running=1 frames=17 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674808.409400 < ok running=1 frames=17 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674808.906929 < ok running=1 frames=17 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674809.404604 < ok running=1 frames=17 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674809.903283 < ok running=1 frames=17 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674810.400756 < ok running=1 frames=17 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674810.898721 < ok running=1 frames=17 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674811.400258 < ok running=1 frames=17 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674811.897777 < ok running=1 frames=17 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674812.456809 < ok running=1 frames=17 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674812.954728 < ok running=1 frames=17 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674813.450981 < ok running=1 frames=17 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674813.949351 < ok running=1 frames=17 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674814.448416 < ok running=1 frames=17 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674814.946186 < ok running=1 frames=17 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674815.444222 < ok running=1 frames=17 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674815.944351 < ok running=1 frames=17 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674816.444390 < ok running=1 frames=17 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674816.942762 < ok running=1 frames=17 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674817.443410 < ok running=1 frames=17 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674817.942635 < ok running=1 frames=17 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674818.444810 < ok running=1 frames=17 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674818.507177 < f 17 150440434 15 653c60f0 5c17050305040408115c1705000300
+1794674818.569685 < f 18 150474961 14 692920f4 5c4ee703060c0409005c17050003
+1794674818.820861 < f 19 150768793 15 6a3f60f0 5c18050305040408115c1805000300
+1794674818.944818 < ok running=1 frames=20 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674819.442689 < ok running=1 frames=20 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674819.941045 < ok running=1 frames=20 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674820.437404 < ok running=1 frames=20 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674820.937155 < ok running=1 frames=20 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674821.434771 < ok running=1 frames=20 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674821.870886 < f 20 153793608 15 723f60ee 5c168b0305040408115c168b000300
+1794674821.933001 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674822.430404 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674822.930038 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674823.431177 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674823.927367 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674824.424347 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674824.924005 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674825.423670 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674825.923073 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674826.422168 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674826.918054 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674827.416926 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674827.911295 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674828.410861 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674828.911556 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674829.412510 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674829.907897 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674830.406338 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674830.904384 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674831.403519 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674831.902932 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674832.397725 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674832.896266 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674833.454599 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674833.948814 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674834.444828 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674834.942673 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674835.440689 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674835.938098 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674836.435394 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674836.932779 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674837.430102 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674837.913770 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674838.409656 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674838.908790 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674839.407254 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674839.903445 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674840.402590 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674840.900779 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674841.397612 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674841.957405 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674842.454713 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674842.951906 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674843.450316 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674843.947910 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674844.435085 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674844.932162 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674845.433211 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674845.932110 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674846.429807 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674846.926765 < ok running=1 frames=21 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674847.177025 < f 21 179176040 41 6a3f60e0 5bd45603020402031300eab5027300007d00510f8d007c0078005f02e001ed02850000000000000001
+1794674847.301226 < f 22 179302330 41 6a3f60e0 5bd45603020402032300eab5027300007d00510f8d007c0078005f02e001ed02850000000000000001
+1794674847.425008 < ok running=1 frames=23 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674847.487415 < f 23 179488809 41 6a3f60e0 5bd45603020402033300eab5027300007d00510f8d007c0078005f02e001ed02850000000000000001
+1794674847.671975 < f 24 179671657 100 713f60f2 5c171203060c040400130100b48081640001370200038a000100010001016402ef034a01a403fa02c30275033903c20174028d032403870156028d036102fb01eb02dc04c9027f0345037b02e10307020403ea02d401ce023e048b022300099af101ce96
+1794674847.797303 < f 25 179792171 100 713f60f4 5c171203060c040400230100b48081640001370200038a000100010001016402ef034a01a403fa02c30275033903c20174028d032403870156028d036102fb01eb02dc04c9027f0345037b02e10307020403ea02d401ce023e048b022300099af101ce96
+1794674847.921068 < ok running=1 frames=26 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674847.983326 < f 26 180031968 100 713c60f2 5c171203060c040400330100b48081640001370200038a000100010001016402ef034a01a403fa02c30275033903c20174028d032403870156028d036102fb01eb02dc04c9027f0345037b02e10307020403ea02d401ce023e048b022300099af101ce96
+1794674848.418310 < ok running=1 frames=27 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674848.916012 < ok running=1 frames=27 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0
+1794674849.409337 < ok frames=27 rejects=0 overflows=0 deaf_max_us=393
+1794674849.418148 < ok running=0 frames=27 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0

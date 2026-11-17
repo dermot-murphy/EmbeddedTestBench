@@ -1,0 +1,2397 @@
+SEGGER J-Link GDB Server V9.42 Command Line Version
+
+JLinkARM.dll V9.42 (DLL compiled May  6 2026 12:30:07)
+
+Command line: -device nRF52840_xxAA -if SWD -speed 4000 -port 2331 -rtttelnetport 19021 -nogui -strict
+-----GDB Server start settings-----
+GDBInit file:                  none
+GDB Server Listening port:     2331
+SWO raw output listening port: 2332
+Terminal I/O port:             2333
+Accept remote connection:      localhost only
+Generate logfile:              off
+Verify download:               off
+Init regs on start:            off
+Silent mode:                   off
+Single run mode:               off
+Target connection timeout:     0 ms
+------J-Link related settings------
+J-Link Host interface:         USB
+J-Link script:                 none
+J-Link settings file:          none
+------Target related settings------
+Target device:                 nRF52840_xxAA
+Target device parameters:      none
+Target interface:              SWD
+Target interface speed:        4000kHz
+Target endian:                 little
+
+Connecting to J-Link...
+J-Link is connected.
+Firmware: J-Link ARM V8 compiled Nov 28 2014 13:44:46
+Hardware: V8.00
+S/N: 682395790
+Feature(s): RDI,FlashDL,FlashBP,JFlash,GDB
+Checking target voltage...
+Target voltage: 3.28 V
+Listening on TCP/IP port 2331
+Connecting to target...
+Halting core...
+Connected to target
+Waiting for GDB connection...Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 904)
+Connected to 127.0.0.1
+GDB client (conn. 844) requested target.xml from GDB Server
+Reading common registers: 
+Reading register 'r0' from hardware = 0x01000001
+Reading register 'r1' from hardware = 0x40020518
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000001
+Reading register 'r4' from hardware = 0x200000C0
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0xE000E000
+Reading register 'r7' from hardware = 0x00000000
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x2003FDEC
+Reading register 'sp' from hardware = 0x2003FF20
+Reading register 'lr' from hardware = 0x00015F59
+Reading register 'pc' from hardware = 0x00015F5A
+Reading register 'xpsr' from hardware = 0x61000000
+Read 4 bytes @ address 0x00015F5A (Data = 0xBF20BF40)
+Read 2 bytes @ address 0x00015F5A (Data = 0xBF40)
+WARNING: Unsupported remote command "version"
+Received monitor command: go
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 844)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 980)
+Connected to 127.0.0.1
+GDB client (conn. 964) requested target.xml from GDB Server
+Reading common registers: 
+ERROR: Cannot read register 0 (R0) while CPU is running
+Reading register 'r0' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 1 (R1) while CPU is running
+Reading register 'r1' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 2 (R2) while CPU is running
+Reading register 'r2' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 3 (R3) while CPU is running
+Reading register 'r3' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 4 (R4) while CPU is running
+Reading register 'r4' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 5 (R5) while CPU is running
+Reading register 'r5' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 6 (R6) while CPU is running
+Reading register 'r6' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 7 (R7) while CPU is running
+Reading register 'r7' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 8 (R8) while CPU is running
+Reading register 'r8' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 9 (R9) while CPU is running
+Reading register 'r9' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 10 (R10) while CPU is running
+Reading register 'r10' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 11 (R11) while CPU is running
+Reading register 'r11' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 12 (R12) while CPU is running
+Reading register 'r12' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 13 (R13) while CPU is running
+Reading register 'sp' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 14 (R14) while CPU is running
+Reading register 'lr' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 15 (R15) while CPU is running
+Reading register 'pc' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 16 (XPSR) while CPU is running
+Reading register 'xpsr' from hardware = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+Received monitor command: reset
+Resetting target
+Received monitor command: halt
+Halting target CPU...
+...Target halted (PC = 0x0000000000000998)
+Reading common registers: 
+Reading register 'r0' from hardware = 0x00000000
+Reading register 'r1' from hardware = 0x00000000
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000000
+Reading register 'r4' from hardware = 0x00000000
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0x00000000
+Reading register 'r7' from hardware = 0x00000000
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x00000000
+Reading register 'sp' from hardware = 0x20000400
+Reading register 'lr' from hardware = 0xFFFFFFFF
+Reading register 'pc' from hardware = 0x00000998
+Reading register 'xpsr' from hardware = 0x01000000
+Received monitor command: flash erase
+Erasing flash (may take a while)...
+Comparing flash   [....................] Done.
+Erasing flash     [....................] Done.
+Flash erase: O.K.
+Flash erase: O.K.
+Read 4 bytes @ address 0x00000000 (Data = 0xFFFFFFFF)
+Received monitor command: go
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 964)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 1036)
+Connected to 127.0.0.1
+GDB client (conn. 1032) requested target.xml from GDB Server
+Reading common registers: 
+ERROR: Cannot read register 0 (R0) while CPU is running
+Reading register 'r0' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 1 (R1) while CPU is running
+Reading register 'r1' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 2 (R2) while CPU is running
+Reading register 'r2' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 3 (R3) while CPU is running
+Reading register 'r3' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 4 (R4) while CPU is running
+Reading register 'r4' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 5 (R5) while CPU is running
+Reading register 'r5' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 6 (R6) while CPU is running
+Reading register 'r6' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 7 (R7) while CPU is running
+Reading register 'r7' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 8 (R8) while CPU is running
+Reading register 'r8' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 9 (R9) while CPU is running
+Reading register 'r9' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 10 (R10) while CPU is running
+Reading register 'r10' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 11 (R11) while CPU is running
+Reading register 'r11' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 12 (R12) while CPU is running
+Reading register 'r12' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 13 (R13) while CPU is running
+Reading register 'sp' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 14 (R14) while CPU is running
+Reading register 'lr' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 15 (R15) while CPU is running
+Reading register 'pc' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 16 (XPSR) while CPU is running
+Reading register 'xpsr' from hardware = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+Read 4 bytes @ address 0x10001080 (Data = 0xFFFFFFFF)
+Received monitor command: go
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 1032)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 988)
+Connected to 127.0.0.1
+GDB client (conn. 916) requested target.xml from GDB Server
+Reading common registers: 
+ERROR: Cannot read register 0 (R0) while CPU is running
+Reading register 'r0' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 1 (R1) while CPU is running
+Reading register 'r1' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 2 (R2) while CPU is running
+Reading register 'r2' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 3 (R3) while CPU is running
+Reading register 'r3' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 4 (R4) while CPU is running
+Reading register 'r4' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 5 (R5) while CPU is running
+Reading register 'r5' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 6 (R6) while CPU is running
+Reading register 'r6' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 7 (R7) while CPU is running
+Reading register 'r7' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 8 (R8) while CPU is running
+Reading register 'r8' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 9 (R9) while CPU is running
+Reading register 'r9' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 10 (R10) while CPU is running
+Reading register 'r10' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 11 (R11) while CPU is running
+Reading register 'r11' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 12 (R12) while CPU is running
+Reading register 'r12' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 13 (R13) while CPU is running
+Reading register 'sp' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 14 (R14) while CPU is running
+Reading register 'lr' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 15 (R15) while CPU is running
+Reading register 'pc' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 16 (XPSR) while CPU is running
+Reading register 'xpsr' from hardware = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+Reading 16 bytes @ address 0x00000000
+Received monitor command: go
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 916)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 1020)
+Connected to 127.0.0.1
+GDB client (conn. 1056) requested target.xml from GDB Server
+Reading common registers: 
+ERROR: Cannot read register 0 (R0) while CPU is running
+Reading register 'r0' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 1 (R1) while CPU is running
+Reading register 'r1' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 2 (R2) while CPU is running
+Reading register 'r2' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 3 (R3) while CPU is running
+Reading register 'r3' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 4 (R4) while CPU is running
+Reading register 'r4' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 5 (R5) while CPU is running
+Reading register 'r5' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 6 (R6) while CPU is running
+Reading register 'r6' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 7 (R7) while CPU is running
+Reading register 'r7' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 8 (R8) while CPU is running
+Reading register 'r8' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 9 (R9) while CPU is running
+Reading register 'r9' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 10 (R10) while CPU is running
+Reading register 'r10' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 11 (R11) while CPU is running
+Reading register 'r11' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 12 (R12) while CPU is running
+Reading register 'r12' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 13 (R13) while CPU is running
+Reading register 'sp' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 14 (R14) while CPU is running
+Reading register 'lr' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 15 (R15) while CPU is running
+Reading register 'pc' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 16 (XPSR) while CPU is running
+Reading register 'xpsr' from hardware = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+Received monitor command: reset
+Resetting target
+Received monitor command: halt
+Halting target CPU...
+...Target halted (PC = 0x00000000FFFFFFFE)
+Reading common registers: 
+Reading register 'r0' from hardware = 0x00000000
+Reading register 'r1' from hardware = 0x00000000
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000000
+Reading register 'r4' from hardware = 0x00000000
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0x00000000
+Reading register 'r7' from hardware = 0x00000000
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x00000000
+Reading register 'sp' from hardware = 0xFFFFFFFC
+Reading register 'lr' from hardware = 0xFFFFFFFF
+Reading register 'pc' from hardware = 0xFFFFFFFE
+Reading register 'xpsr' from hardware = 0x01000000
+Reading common registers: 
+Reading register 'r0' from hardware = 0x00000000
+Reading register 'r1' from hardware = 0x00000000
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000000
+Reading register 'r4' from hardware = 0x00000000
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0x00000000
+Reading register 'r7' from hardware = 0x00000000
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x00000000
+Reading register 'sp' from hardware = 0xFFFFFFFC
+Reading register 'lr' from hardware = 0xFFFFFFFF
+Reading register 'pc' from hardware = 0xFFFFFFFE
+Reading register 'xpsr' from hardware = 0x01000000
+Downloading 2584 bytes @ address 0x00000000
+Downloading 61440 bytes @ address 0x00001000
+Downloading 64864 bytes @ address 0x00010000
+Downloading 672 bytes @ address 0x0001FD60
+Downloading 24188 bytes @ address 0x00020000
+Downloading 40960 bytes @ address 0x00026000
+Downloading 64624 bytes @ address 0x00030000
+Downloading 912 bytes @ address 0x0003FC70
+Downloading 64640 bytes @ address 0x00040000
+Downloading 896 bytes @ address 0x0004FC80
+Downloading 64704 bytes @ address 0x00050000
+Downloading 832 bytes @ address 0x0005FCC0
+Downloading 25348 bytes @ address 0x00060000
+Writing register 'pc' = 0x00000000
+Comparing flash   [....................] Done.
+Erasing flash     [....................] Done.
+Programming flash [....................] Done.
+Verifying flash   [....................] Done.
+Reading common registers: 
+Reading register 'r0' from hardware = 0x00000000
+Reading register 'r1' from hardware = 0x00000000
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000000
+Reading register 'r4' from hardware = 0x00000000
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0x00000000
+Reading register 'r7' from hardware = 0x00000000
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x00000000
+Reading register 'sp' from hardware = 0xFFFFFFFC
+Reading register 'lr' from hardware = 0xFFFFFFFF
+Reading register 'pc' from hardware = 0x00000000
+Reading register 'xpsr' from hardware = 0x01000000
+Reading 1024 bytes @ address 0x00000000
+Reading 1024 bytes @ address 0x00000400
+Reading 536 bytes @ address 0x00000800
+Reading 1024 bytes @ address 0x00001000
+Reading 1024 bytes @ address 0x00001400
+Reading 1024 bytes @ address 0x00001800
+Reading 1024 bytes @ address 0x00001C00
+Reading 1024 bytes @ address 0x00002000
+Reading 1024 bytes @ address 0x00002400
+Reading 1024 bytes @ address 0x00002800
+Reading 1024 bytes @ address 0x00002C00
+Reading 1024 bytes @ address 0x00003000
+Reading 1024 bytes @ address 0x00003400
+Reading 1024 bytes @ address 0x00003800
+Reading 1024 bytes @ address 0x00003C00
+Reading 1024 bytes @ address 0x00004000
+Reading 1024 bytes @ address 0x00004400
+Reading 1024 bytes @ address 0x00004800
+Reading 1024 bytes @ address 0x00004C00
+Reading 1024 bytes @ address 0x00005000
+Reading 1024 bytes @ address 0x00005400
+Reading 1024 bytes @ address 0x00005800
+Reading 1024 bytes @ address 0x00005C00
+Reading 1024 bytes @ address 0x00006000
+Reading 1024 bytes @ address 0x00006400
+Reading 1024 bytes @ address 0x00006800
+Reading 1024 bytes @ address 0x00006C00
+Reading 1024 bytes @ address 0x00007000
+Reading 1024 bytes @ address 0x00007400
+Reading 1024 bytes @ address 0x00007800
+Reading 1024 bytes @ address 0x00007C00
+Reading 1024 bytes @ address 0x00008000
+Reading 1024 bytes @ address 0x00008400
+Reading 1024 bytes @ address 0x00008800
+Reading 1024 bytes @ address 0x00008C00
+Reading 1024 bytes @ address 0x00009000
+Reading 1024 bytes @ address 0x00009400
+Reading 1024 bytes @ address 0x00009800
+Reading 1024 bytes @ address 0x00009C00
+Reading 1024 bytes @ address 0x0000A000
+Reading 1024 bytes @ address 0x0000A400
+Reading 1024 bytes @ address 0x0000A800
+Reading 1024 bytes @ address 0x0000AC00
+Reading 1024 bytes @ address 0x0000B000
+Reading 1024 bytes @ address 0x0000B400
+Reading 1024 bytes @ address 0x0000B800
+Reading 1024 bytes @ address 0x0000BC00
+Reading 1024 bytes @ address 0x0000C000
+Reading 1024 bytes @ address 0x0000C400
+Reading 1024 bytes @ address 0x0000C800
+Reading 1024 bytes @ address 0x0000CC00
+Reading 1024 bytes @ address 0x0000D000
+Reading 1024 bytes @ address 0x0000D400
+Reading 1024 bytes @ address 0x0000D800
+Reading 1024 bytes @ address 0x0000DC00
+Reading 1024 bytes @ address 0x0000E000
+Reading 1024 bytes @ address 0x0000E400
+Reading 1024 bytes @ address 0x0000E800
+Reading 1024 bytes @ address 0x0000EC00
+Reading 1024 bytes @ address 0x0000F000
+Reading 1024 bytes @ address 0x0000F400
+Reading 1024 bytes @ address 0x0000F800
+Reading 1024 bytes @ address 0x0000FC00
+Reading 1024 bytes @ address 0x00010000
+Reading 1024 bytes @ address 0x00010400
+Reading 1024 bytes @ address 0x00010800
+Reading 1024 bytes @ address 0x00010C00
+Reading 1024 bytes @ address 0x00011000
+Reading 1024 bytes @ address 0x00011400
+Reading 1024 bytes @ address 0x00011800
+Reading 1024 bytes @ address 0x00011C00
+Reading 1024 bytes @ address 0x00012000
+Reading 1024 bytes @ address 0x00012400
+Reading 1024 bytes @ address 0x00012800
+Reading 1024 bytes @ address 0x00012C00
+Reading 1024 bytes @ address 0x00013000
+Reading 1024 bytes @ address 0x00013400
+Reading 1024 bytes @ address 0x00013800
+Reading 1024 bytes @ address 0x00013C00
+Reading 1024 bytes @ address 0x00014000
+Reading 1024 bytes @ address 0x00014400
+Reading 1024 bytes @ address 0x00014800
+Reading 1024 bytes @ address 0x00014C00
+Reading 1024 bytes @ address 0x00015000
+Reading 1024 bytes @ address 0x00015400
+Reading 1024 bytes @ address 0x00015800
+Reading 1024 bytes @ address 0x00015C00
+Reading 1024 bytes @ address 0x00016000
+Reading 1024 bytes @ address 0x00016400
+Reading 1024 bytes @ address 0x00016800
+Reading 1024 bytes @ address 0x00016C00
+Reading 1024 bytes @ address 0x00017000
+Reading 1024 bytes @ address 0x00017400
+Reading 1024 bytes @ address 0x00017800
+Reading 1024 bytes @ address 0x00017C00
+Reading 1024 bytes @ address 0x00018000
+Reading 1024 bytes @ address 0x00018400
+Reading 1024 bytes @ address 0x00018800
+Reading 1024 bytes @ address 0x00018C00
+Reading 1024 bytes @ address 0x00019000
+Reading 1024 bytes @ address 0x00019400
+Reading 1024 bytes @ address 0x00019800
+Reading 1024 bytes @ address 0x00019C00
+Reading 1024 bytes @ address 0x0001A000
+Reading 1024 bytes @ address 0x0001A400
+Reading 1024 bytes @ address 0x0001A800
+Reading 1024 bytes @ address 0x0001AC00
+Reading 1024 bytes @ address 0x0001B000
+Reading 1024 bytes @ address 0x0001B400
+Reading 1024 bytes @ address 0x0001B800
+Reading 1024 bytes @ address 0x0001BC00
+Reading 1024 bytes @ address 0x0001C000
+Reading 1024 bytes @ address 0x0001C400
+Reading 1024 bytes @ address 0x0001C800
+Reading 1024 bytes @ address 0x0001CC00
+Reading 1024 bytes @ address 0x0001D000
+Reading 1024 bytes @ address 0x0001D400
+Reading 1024 bytes @ address 0x0001D800
+Reading 1024 bytes @ address 0x0001DC00
+Reading 1024 bytes @ address 0x0001E000
+Reading 1024 bytes @ address 0x0001E400
+Reading 1024 bytes @ address 0x0001E800
+Reading 1024 bytes @ address 0x0001EC00
+Reading 1024 bytes @ address 0x0001F000
+Reading 1024 bytes @ address 0x0001F400
+Reading 1024 bytes @ address 0x0001F800
+Reading 1024 bytes @ address 0x0001FC00
+Reading 1024 bytes @ address 0x00020000
+Reading 1024 bytes @ address 0x00020400
+Reading 1024 bytes @ address 0x00020800
+Reading 1024 bytes @ address 0x00020C00
+Reading 1024 bytes @ address 0x00021000
+Reading 1024 bytes @ address 0x00021400
+Reading 1024 bytes @ address 0x00021800
+Reading 1024 bytes @ address 0x00021C00
+Reading 1024 bytes @ address 0x00022000
+Reading 1024 bytes @ address 0x00022400
+Reading 1024 bytes @ address 0x00022800
+Reading 1024 bytes @ address 0x00022C00
+Reading 1024 bytes @ address 0x00023000
+Reading 1024 bytes @ address 0x00023400
+Reading 1024 bytes @ address 0x00023800
+Reading 1024 bytes @ address 0x00023C00
+Reading 1024 bytes @ address 0x00024000
+Reading 1024 bytes @ address 0x00024400
+Reading 1024 bytes @ address 0x00024800
+Reading 1024 bytes @ address 0x00024C00
+Reading 1024 bytes @ address 0x00025000
+Reading 1024 bytes @ address 0x00025400
+Reading 1024 bytes @ address 0x00025800
+Reading 636 bytes @ address 0x00025C00
+Reading 1024 bytes @ address 0x00026000
+Reading 1024 bytes @ address 0x00026400
+Reading 1024 bytes @ address 0x00026800
+Reading 1024 bytes @ address 0x00026C00
+Reading 1024 bytes @ address 0x00027000
+Reading 1024 bytes @ address 0x00027400
+Reading 1024 bytes @ address 0x00027800
+Reading 1024 bytes @ address 0x00027C00
+Reading 1024 bytes @ address 0x00028000
+Reading 1024 bytes @ address 0x00028400
+Reading 1024 bytes @ address 0x00028800
+Reading 1024 bytes @ address 0x00028C00
+Reading 1024 bytes @ address 0x00029000
+Reading 1024 bytes @ address 0x00029400
+Reading 1024 bytes @ address 0x00029800
+Reading 1024 bytes @ address 0x00029C00
+Reading 1024 bytes @ address 0x0002A000
+Reading 1024 bytes @ address 0x0002A400
+Reading 1024 bytes @ address 0x0002A800
+Reading 1024 bytes @ address 0x0002AC00
+Reading 1024 bytes @ address 0x0002B000
+Reading 1024 bytes @ address 0x0002B400
+Reading 1024 bytes @ address 0x0002B800
+Reading 1024 bytes @ address 0x0002BC00
+Reading 1024 bytes @ address 0x0002C000
+Reading 1024 bytes @ address 0x0002C400
+Reading 1024 bytes @ address 0x0002C800
+Reading 1024 bytes @ address 0x0002CC00
+Reading 1024 bytes @ address 0x0002D000
+Reading 1024 bytes @ address 0x0002D400
+Reading 1024 bytes @ address 0x0002D800
+Reading 1024 bytes @ address 0x0002DC00
+Reading 1024 bytes @ address 0x0002E000
+Reading 1024 bytes @ address 0x0002E400
+Reading 1024 bytes @ address 0x0002E800
+Reading 1024 bytes @ address 0x0002EC00
+Reading 1024 bytes @ address 0x0002F000
+Reading 1024 bytes @ address 0x0002F400
+Reading 1024 bytes @ address 0x0002F800
+Reading 1024 bytes @ address 0x0002FC00
+Reading 1024 bytes @ address 0x00030000
+Reading 1024 bytes @ address 0x00030400
+Reading 1024 bytes @ address 0x00030800
+Reading 1024 bytes @ address 0x00030C00
+Reading 1024 bytes @ address 0x00031000
+Reading 1024 bytes @ address 0x00031400
+Reading 1024 bytes @ address 0x00031800
+Reading 1024 bytes @ address 0x00031C00
+Reading 1024 bytes @ address 0x00032000
+Reading 1024 bytes @ address 0x00032400
+Reading 1024 bytes @ address 0x00032800
+Reading 1024 bytes @ address 0x00032C00
+Reading 1024 bytes @ address 0x00033000
+Reading 1024 bytes @ address 0x00033400
+Reading 1024 bytes @ address 0x00033800
+Reading 1024 bytes @ address 0x00033C00
+Reading 1024 bytes @ address 0x00034000
+Reading 1024 bytes @ address 0x00034400
+Reading 1024 bytes @ address 0x00034800
+Reading 1024 bytes @ address 0x00034C00
+Reading 1024 bytes @ address 0x00035000
+Reading 1024 bytes @ address 0x00035400
+Reading 1024 bytes @ address 0x00035800
+Reading 1024 bytes @ address 0x00035C00
+Reading 1024 bytes @ address 0x00036000
+Reading 1024 bytes @ address 0x00036400
+Reading 1024 bytes @ address 0x00036800
+Reading 1024 bytes @ address 0x00036C00
+Reading 1024 bytes @ address 0x00037000
+Reading 1024 bytes @ address 0x00037400
+Reading 1024 bytes @ address 0x00037800
+Reading 1024 bytes @ address 0x00037C00
+Reading 1024 bytes @ address 0x00038000
+Reading 1024 bytes @ address 0x00038400
+Reading 1024 bytes @ address 0x00038800
+Reading 1024 bytes @ address 0x00038C00
+Reading 1024 bytes @ address 0x00039000
+Reading 1024 bytes @ address 0x00039400
+Reading 1024 bytes @ address 0x00039800
+Reading 1024 bytes @ address 0x00039C00
+Reading 1024 bytes @ address 0x0003A000
+Reading 1024 bytes @ address 0x0003A400
+Reading 1024 bytes @ address 0x0003A800
+Reading 1024 bytes @ address 0x0003AC00
+Reading 1024 bytes @ address 0x0003B000
+Reading 1024 bytes @ address 0x0003B400
+Reading 1024 bytes @ address 0x0003B800
+Reading 1024 bytes @ address 0x0003BC00
+Reading 1024 bytes @ address 0x0003C000
+Reading 1024 bytes @ address 0x0003C400
+Reading 1024 bytes @ address 0x0003C800
+Reading 1024 bytes @ address 0x0003CC00
+Reading 1024 bytes @ address 0x0003D000
+Reading 1024 bytes @ address 0x0003D400
+Reading 1024 bytes @ address 0x0003D800
+Reading 1024 bytes @ address 0x0003DC00
+Reading 1024 bytes @ address 0x0003E000
+Reading 1024 bytes @ address 0x0003E400
+Reading 1024 bytes @ address 0x0003E800
+Reading 1024 bytes @ address 0x0003EC00
+Reading 1024 bytes @ address 0x0003F000
+Reading 1024 bytes @ address 0x0003F400
+Reading 1024 bytes @ address 0x0003F800
+Reading 1024 bytes @ address 0x0003FC00
+Reading 1024 bytes @ address 0x00040000
+Reading 1024 bytes @ address 0x00040400
+Reading 1024 bytes @ address 0x00040800
+Reading 1024 bytes @ address 0x00040C00
+Reading 1024 bytes @ address 0x00041000
+Reading 1024 bytes @ address 0x00041400
+Reading 1024 bytes @ address 0x00041800
+Reading 1024 bytes @ address 0x00041C00
+Reading 1024 bytes @ address 0x00042000
+Reading 1024 bytes @ address 0x00042400
+Reading 1024 bytes @ address 0x00042800
+Reading 1024 bytes @ address 0x00042C00
+Reading 1024 bytes @ address 0x00043000
+Reading 1024 bytes @ address 0x00043400
+Reading 1024 bytes @ address 0x00043800
+Reading 1024 bytes @ address 0x00043C00
+Reading 1024 bytes @ address 0x00044000
+Reading 1024 bytes @ address 0x00044400
+Reading 1024 bytes @ address 0x00044800
+Reading 1024 bytes @ address 0x00044C00
+Reading 1024 bytes @ address 0x00045000
+Reading 1024 bytes @ address 0x00045400
+Reading 1024 bytes @ address 0x00045800
+Reading 1024 bytes @ address 0x00045C00
+Reading 1024 bytes @ address 0x00046000
+Reading 1024 bytes @ address 0x00046400
+Reading 1024 bytes @ address 0x00046800
+Reading 1024 bytes @ address 0x00046C00
+Reading 1024 bytes @ address 0x00047000
+Reading 1024 bytes @ address 0x00047400
+Reading 1024 bytes @ address 0x00047800
+Reading 1024 bytes @ address 0x00047C00
+Reading 1024 bytes @ address 0x00048000
+Reading 1024 bytes @ address 0x00048400
+Reading 1024 bytes @ address 0x00048800
+Reading 1024 bytes @ address 0x00048C00
+Reading 1024 bytes @ address 0x00049000
+Reading 1024 bytes @ address 0x00049400
+Reading 1024 bytes @ address 0x00049800
+Reading 1024 bytes @ address 0x00049C00
+Reading 1024 bytes @ address 0x0004A000
+Reading 1024 bytes @ address 0x0004A400
+Reading 1024 bytes @ address 0x0004A800
+Reading 1024 bytes @ address 0x0004AC00
+Reading 1024 bytes @ address 0x0004B000
+Reading 1024 bytes @ address 0x0004B400
+Reading 1024 bytes @ address 0x0004B800
+Reading 1024 bytes @ address 0x0004BC00
+Reading 1024 bytes @ address 0x0004C000
+Reading 1024 bytes @ address 0x0004C400
+Reading 1024 bytes @ address 0x0004C800
+Reading 1024 bytes @ address 0x0004CC00
+Reading 1024 bytes @ address 0x0004D000
+Reading 1024 bytes @ address 0x0004D400
+Reading 1024 bytes @ address 0x0004D800
+Reading 1024 bytes @ address 0x0004DC00
+Reading 1024 bytes @ address 0x0004E000
+Reading 1024 bytes @ address 0x0004E400
+Reading 1024 bytes @ address 0x0004E800
+Reading 1024 bytes @ address 0x0004EC00
+Reading 1024 bytes @ address 0x0004F000
+Reading 1024 bytes @ address 0x0004F400
+Reading 1024 bytes @ address 0x0004F800
+Reading 1024 bytes @ address 0x0004FC00
+Reading 1024 bytes @ address 0x00050000
+Reading 1024 bytes @ address 0x00050400
+Reading 1024 bytes @ address 0x00050800
+Reading 1024 bytes @ address 0x00050C00
+Reading 1024 bytes @ address 0x00051000
+Reading 1024 bytes @ address 0x00051400
+Reading 1024 bytes @ address 0x00051800
+Reading 1024 bytes @ address 0x00051C00
+Reading 1024 bytes @ address 0x00052000
+Reading 1024 bytes @ address 0x00052400
+Reading 1024 bytes @ address 0x00052800
+Reading 1024 bytes @ address 0x00052C00
+Reading 1024 bytes @ address 0x00053000
+Reading 1024 bytes @ address 0x00053400
+Reading 1024 bytes @ address 0x00053800
+Reading 1024 bytes @ address 0x00053C00
+Reading 1024 bytes @ address 0x00054000
+Reading 1024 bytes @ address 0x00054400
+Reading 1024 bytes @ address 0x00054800
+Reading 1024 bytes @ address 0x00054C00
+Reading 1024 bytes @ address 0x00055000
+Reading 1024 bytes @ address 0x00055400
+Reading 1024 bytes @ address 0x00055800
+Reading 1024 bytes @ address 0x00055C00
+Reading 1024 bytes @ address 0x00056000
+Reading 1024 bytes @ address 0x00056400
+Reading 1024 bytes @ address 0x00056800
+Reading 1024 bytes @ address 0x00056C00
+Reading 1024 bytes @ address 0x00057000
+Reading 1024 bytes @ address 0x00057400
+Reading 1024 bytes @ address 0x00057800
+Reading 1024 bytes @ address 0x00057C00
+Reading 1024 bytes @ address 0x00058000
+Reading 1024 bytes @ address 0x00058400
+Reading 1024 bytes @ address 0x00058800
+Reading 1024 bytes @ address 0x00058C00
+Reading 1024 bytes @ address 0x00059000
+Reading 1024 bytes @ address 0x00059400
+Reading 1024 bytes @ address 0x00059800
+Reading 1024 bytes @ address 0x00059C00
+Reading 1024 bytes @ address 0x0005A000
+Reading 1024 bytes @ address 0x0005A400
+Reading 1024 bytes @ address 0x0005A800
+Reading 1024 bytes @ address 0x0005AC00
+Reading 1024 bytes @ address 0x0005B000
+Reading 1024 bytes @ address 0x0005B400
+Reading 1024 bytes @ address 0x0005B800
+Reading 1024 bytes @ address 0x0005BC00
+Reading 1024 bytes @ address 0x0005C000
+Reading 1024 bytes @ address 0x0005C400
+Reading 1024 bytes @ address 0x0005C800
+Reading 1024 bytes @ address 0x0005CC00
+Reading 1024 bytes @ address 0x0005D000
+Reading 1024 bytes @ address 0x0005D400
+Reading 1024 bytes @ address 0x0005D800
+Reading 1024 bytes @ address 0x0005DC00
+Reading 1024 bytes @ address 0x0005E000
+Reading 1024 bytes @ address 0x0005E400
+Reading 1024 bytes @ address 0x0005E800
+Reading 1024 bytes @ address 0x0005EC00
+Reading 1024 bytes @ address 0x0005F000
+Reading 1024 bytes @ address 0x0005F400
+Reading 1024 bytes @ address 0x0005F800
+Reading 1024 bytes @ address 0x0005FC00
+Reading 1024 bytes @ address 0x00060000
+Reading 1024 bytes @ address 0x00060400
+Reading 1024 bytes @ address 0x00060800
+Reading 1024 bytes @ address 0x00060C00
+Reading 1024 bytes @ address 0x00061000
+Reading 1024 bytes @ address 0x00061400
+Reading 1024 bytes @ address 0x00061800
+Reading 1024 bytes @ address 0x00061C00
+Reading 1024 bytes @ address 0x00062000
+Reading 1024 bytes @ address 0x00062400
+Reading 1024 bytes @ address 0x00062800
+Reading 1024 bytes @ address 0x00062C00
+Reading 1024 bytes @ address 0x00063000
+Reading 1024 bytes @ address 0x00063400
+Reading 1024 bytes @ address 0x00063800
+Reading 1024 bytes @ address 0x00063C00
+Reading 1024 bytes @ address 0x00064000
+Reading 1024 bytes @ address 0x00064400
+Reading 1024 bytes @ address 0x00064800
+Reading 1024 bytes @ address 0x00064C00
+Reading 1024 bytes @ address 0x00065000
+Reading 1024 bytes @ address 0x00065400
+Reading 1024 bytes @ address 0x00065800
+Reading 1024 bytes @ address 0x00065C00
+Reading 772 bytes @ address 0x00066000
+Received monitor command: go
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 1056)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 980)
+Connected to 127.0.0.1
+GDB client (conn. 1016) requested target.xml from GDB Server
+Reading common registers: 
+ERROR: Cannot read register 0 (R0) while CPU is running
+Reading register 'r0' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 1 (R1) while CPU is running
+Reading register 'r1' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 2 (R2) while CPU is running
+Reading register 'r2' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 3 (R3) while CPU is running
+Reading register 'r3' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 4 (R4) while CPU is running
+Reading register 'r4' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 5 (R5) while CPU is running
+Reading register 'r5' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 6 (R6) while CPU is running
+Reading register 'r6' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 7 (R7) while CPU is running
+Reading register 'r7' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 8 (R8) while CPU is running
+Reading register 'r8' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 9 (R9) while CPU is running
+Reading register 'r9' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 10 (R10) while CPU is running
+Reading register 'r10' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 11 (R11) while CPU is running
+Reading register 'r11' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 12 (R12) while CPU is running
+Reading register 'r12' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 13 (R13) while CPU is running
+Reading register 'sp' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 14 (R14) while CPU is running
+Reading register 'lr' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 15 (R15) while CPU is running
+Reading register 'pc' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 16 (XPSR) while CPU is running
+Reading register 'xpsr' from hardware = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+Downloading 4 bytes @ address 0x10001080
+Received monitor command: go
+Starting target CPU...
+Comparing flash   [....................] Done.
+Erasing flash     [....................] Done.
+Programming flash [....................] Done.
+Verifying flash   [....................] Done.
+GDB closed TCP/IP connection (Socket 1016)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 996)
+Connected to 127.0.0.1
+GDB client (conn. 936) requested target.xml from GDB Server
+Reading common registers: 
+ERROR: Cannot read register 0 (R0) while CPU is running
+Reading register 'r0' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 1 (R1) while CPU is running
+Reading register 'r1' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 2 (R2) while CPU is running
+Reading register 'r2' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 3 (R3) while CPU is running
+Reading register 'r3' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 4 (R4) while CPU is running
+Reading register 'r4' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 5 (R5) while CPU is running
+Reading register 'r5' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 6 (R6) while CPU is running
+Reading register 'r6' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 7 (R7) while CPU is running
+Reading register 'r7' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 8 (R8) while CPU is running
+Reading register 'r8' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 9 (R9) while CPU is running
+Reading register 'r9' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 10 (R10) while CPU is running
+Reading register 'r10' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 11 (R11) while CPU is running
+Reading register 'r11' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 12 (R12) while CPU is running
+Reading register 'r12' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 13 (R13) while CPU is running
+Reading register 'sp' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 14 (R14) while CPU is running
+Reading register 'lr' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 15 (R15) while CPU is running
+Reading register 'pc' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 16 (XPSR) while CPU is running
+Reading register 'xpsr' from hardware = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+Read 4 bytes @ address 0x10001080 (Data = 0x12175C00)
+Received monitor command: go
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 936)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 1068)
+Connected to 127.0.0.1
+GDB client (conn. 1080) requested target.xml from GDB Server
+Reading common registers: 
+ERROR: Cannot read register 0 (R0) while CPU is running
+Reading register 'r0' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 1 (R1) while CPU is running
+Reading register 'r1' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 2 (R2) while CPU is running
+Reading register 'r2' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 3 (R3) while CPU is running
+Reading register 'r3' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 4 (R4) while CPU is running
+Reading register 'r4' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 5 (R5) while CPU is running
+Reading register 'r5' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 6 (R6) while CPU is running
+Reading register 'r6' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 7 (R7) while CPU is running
+Reading register 'r7' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 8 (R8) while CPU is running
+Reading register 'r8' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 9 (R9) while CPU is running
+Reading register 'r9' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 10 (R10) while CPU is running
+Reading register 'r10' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 11 (R11) while CPU is running
+Reading register 'r11' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 12 (R12) while CPU is running
+Reading register 'r12' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 13 (R13) while CPU is running
+Reading register 'sp' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 14 (R14) while CPU is running
+Reading register 'lr' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 15 (R15) while CPU is running
+Reading register 'pc' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 16 (XPSR) while CPU is running
+Reading register 'xpsr' from hardware = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+Received monitor command: reset
+Resetting target
+Received monitor command: halt
+Halting target CPU...
+...Target halted (PC = 0x0000000000000998)
+Reading common registers: 
+Reading register 'r0' from hardware = 0x00000000
+Reading register 'r1' from hardware = 0x00000000
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000000
+Reading register 'r4' from hardware = 0x00000000
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0x00000000
+Reading register 'r7' from hardware = 0x00000000
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x00000000
+Reading register 'sp' from hardware = 0x20000400
+Reading register 'lr' from hardware = 0xFFFFFFFF
+Reading register 'pc' from hardware = 0x00000998
+Reading register 'xpsr' from hardware = 0x01000000
+Read 4 bytes @ address 0x10001080 (Data = 0x12175C00)
+Reading common registers: 
+Reading register 'r0' from hardware = 0x00000000
+Reading register 'r1' from hardware = 0x00000000
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000000
+Reading register 'r4' from hardware = 0x00000000
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0x00000000
+Reading register 'r7' from hardware = 0x00000000
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x00000000
+Reading register 'sp' from hardware = 0x20000400
+Reading register 'lr' from hardware = 0xFFFFFFFF
+Reading register 'pc' from hardware = 0x00000998
+Reading register 'xpsr' from hardware = 0x01000000
+Downloading 2816 bytes @ address 0x00000000
+Downloading 61440 bytes @ address 0x00001000
+Downloading 64784 bytes @ address 0x00010000
+Downloading 752 bytes @ address 0x0001FD10
+Downloading 26164 bytes @ address 0x00020000
+Downloading 36864 bytes @ address 0x00027000
+Downloading 64608 bytes @ address 0x00030000
+Downloading 928 bytes @ address 0x0003FC60
+Downloading 64448 bytes @ address 0x00040000
+Downloading 1088 bytes @ address 0x0004FBC0
+Downloading 64896 bytes @ address 0x00050000
+Downloading 640 bytes @ address 0x0005FD80
+Downloading 64528 bytes @ address 0x00060000
+Downloading 1008 bytes @ address 0x0006FC10
+Downloading 8152 bytes @ address 0x00070000
+Downloading 23664 bytes @ address 0x000F8000
+Downloading 820 bytes @ address 0x000FDFF0
+Downloading 804 bytes @ address 0x000FF000
+Downloading 8 bytes @ address 0x10001014
+Writing register 'pc' = 0x00000000
+Comparing flash   [....................] Done.
+Erasing flash     [....................] Done.
+Programming flash [....................] Done.
+Verifying flash   [....................] Done.
+Reading common registers: 
+Reading register 'r0' from hardware = 0x00000000
+Reading register 'r1' from hardware = 0x00000000
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000000
+Reading register 'r4' from hardware = 0x00000000
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0x00000000
+Reading register 'r7' from hardware = 0x00000000
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x00000000
+Reading register 'sp' from hardware = 0x20000400
+Reading register 'lr' from hardware = 0xFFFFFFFF
+Reading register 'pc' from hardware = 0x00000000
+Reading register 'xpsr' from hardware = 0x01000000
+Reading 1024 bytes @ address 0x00000000
+Reading 1024 bytes @ address 0x00000400
+Reading 768 bytes @ address 0x00000800
+Reading 1024 bytes @ address 0x00001000
+Reading 1024 bytes @ address 0x00001400
+Reading 1024 bytes @ address 0x00001800
+Reading 1024 bytes @ address 0x00001C00
+Reading 1024 bytes @ address 0x00002000
+Reading 1024 bytes @ address 0x00002400
+Reading 1024 bytes @ address 0x00002800
+Reading 1024 bytes @ address 0x00002C00
+Reading 1024 bytes @ address 0x00003000
+Reading 1024 bytes @ address 0x00003400
+Reading 1024 bytes @ address 0x00003800
+Reading 1024 bytes @ address 0x00003C00
+Reading 1024 bytes @ address 0x00004000
+Reading 1024 bytes @ address 0x00004400
+Reading 1024 bytes @ address 0x00004800
+Reading 1024 bytes @ address 0x00004C00
+Reading 1024 bytes @ address 0x00005000
+Reading 1024 bytes @ address 0x00005400
+Reading 1024 bytes @ address 0x00005800
+Reading 1024 bytes @ address 0x00005C00
+Reading 1024 bytes @ address 0x00006000
+Reading 1024 bytes @ address 0x00006400
+Reading 1024 bytes @ address 0x00006800
+Reading 1024 bytes @ address 0x00006C00
+Reading 1024 bytes @ address 0x00007000
+Reading 1024 bytes @ address 0x00007400
+Reading 1024 bytes @ address 0x00007800
+Reading 1024 bytes @ address 0x00007C00
+Reading 1024 bytes @ address 0x00008000
+Reading 1024 bytes @ address 0x00008400
+Reading 1024 bytes @ address 0x00008800
+Reading 1024 bytes @ address 0x00008C00
+Reading 1024 bytes @ address 0x00009000
+Reading 1024 bytes @ address 0x00009400
+Reading 1024 bytes @ address 0x00009800
+Reading 1024 bytes @ address 0x00009C00
+Reading 1024 bytes @ address 0x0000A000
+Reading 1024 bytes @ address 0x0000A400
+Reading 1024 bytes @ address 0x0000A800
+Reading 1024 bytes @ address 0x0000AC00
+Reading 1024 bytes @ address 0x0000B000
+Reading 1024 bytes @ address 0x0000B400
+Reading 1024 bytes @ address 0x0000B800
+Reading 1024 bytes @ address 0x0000BC00
+Reading 1024 bytes @ address 0x0000C000
+Reading 1024 bytes @ address 0x0000C400
+Reading 1024 bytes @ address 0x0000C800
+Reading 1024 bytes @ address 0x0000CC00
+Reading 1024 bytes @ address 0x0000D000
+Reading 1024 bytes @ address 0x0000D400
+Reading 1024 bytes @ address 0x0000D800
+Reading 1024 bytes @ address 0x0000DC00
+Reading 1024 bytes @ address 0x0000E000
+Reading 1024 bytes @ address 0x0000E400
+Reading 1024 bytes @ address 0x0000E800
+Reading 1024 bytes @ address 0x0000EC00
+Reading 1024 bytes @ address 0x0000F000
+Reading 1024 bytes @ address 0x0000F400
+Reading 1024 bytes @ address 0x0000F800
+Reading 1024 bytes @ address 0x0000FC00
+Reading 1024 bytes @ address 0x00010000
+Reading 1024 bytes @ address 0x00010400
+Reading 1024 bytes @ address 0x00010800
+Reading 1024 bytes @ address 0x00010C00
+Reading 1024 bytes @ address 0x00011000
+Reading 1024 bytes @ address 0x00011400
+Reading 1024 bytes @ address 0x00011800
+Reading 1024 bytes @ address 0x00011C00
+Reading 1024 bytes @ address 0x00012000
+Reading 1024 bytes @ address 0x00012400
+Reading 1024 bytes @ address 0x00012800
+Reading 1024 bytes @ address 0x00012C00
+Reading 1024 bytes @ address 0x00013000
+Reading 1024 bytes @ address 0x00013400
+Reading 1024 bytes @ address 0x00013800
+Reading 1024 bytes @ address 0x00013C00
+Reading 1024 bytes @ address 0x00014000
+Reading 1024 bytes @ address 0x00014400
+Reading 1024 bytes @ address 0x00014800
+Reading 1024 bytes @ address 0x00014C00
+Reading 1024 bytes @ address 0x00015000
+Reading 1024 bytes @ address 0x00015400
+Reading 1024 bytes @ address 0x00015800
+Reading 1024 bytes @ address 0x00015C00
+Reading 1024 bytes @ address 0x00016000
+Reading 1024 bytes @ address 0x00016400
+Reading 1024 bytes @ address 0x00016800
+Reading 1024 bytes @ address 0x00016C00
+Reading 1024 bytes @ address 0x00017000
+Reading 1024 bytes @ address 0x00017400
+Reading 1024 bytes @ address 0x00017800
+Reading 1024 bytes @ address 0x00017C00
+Reading 1024 bytes @ address 0x00018000
+Reading 1024 bytes @ address 0x00018400
+Reading 1024 bytes @ address 0x00018800
+Reading 1024 bytes @ address 0x00018C00
+Reading 1024 bytes @ address 0x00019000
+Reading 1024 bytes @ address 0x00019400
+Reading 1024 bytes @ address 0x00019800
+Reading 1024 bytes @ address 0x00019C00
+Reading 1024 bytes @ address 0x0001A000
+Reading 1024 bytes @ address 0x0001A400
+Reading 1024 bytes @ address 0x0001A800
+Reading 1024 bytes @ address 0x0001AC00
+Reading 1024 bytes @ address 0x0001B000
+Reading 1024 bytes @ address 0x0001B400
+Reading 1024 bytes @ address 0x0001B800
+Reading 1024 bytes @ address 0x0001BC00
+Reading 1024 bytes @ address 0x0001C000
+Reading 1024 bytes @ address 0x0001C400
+Reading 1024 bytes @ address 0x0001C800
+Reading 1024 bytes @ address 0x0001CC00
+Reading 1024 bytes @ address 0x0001D000
+Reading 1024 bytes @ address 0x0001D400
+Reading 1024 bytes @ address 0x0001D800
+Reading 1024 bytes @ address 0x0001DC00
+Reading 1024 bytes @ address 0x0001E000
+Reading 1024 bytes @ address 0x0001E400
+Reading 1024 bytes @ address 0x0001E800
+Reading 1024 bytes @ address 0x0001EC00
+Reading 1024 bytes @ address 0x0001F000
+Reading 1024 bytes @ address 0x0001F400
+Reading 1024 bytes @ address 0x0001F800
+Reading 1024 bytes @ address 0x0001FC00
+Reading 1024 bytes @ address 0x00020000
+Reading 1024 bytes @ address 0x00020400
+Reading 1024 bytes @ address 0x00020800
+Reading 1024 bytes @ address 0x00020C00
+Reading 1024 bytes @ address 0x00021000
+Reading 1024 bytes @ address 0x00021400
+Reading 1024 bytes @ address 0x00021800
+Reading 1024 bytes @ address 0x00021C00
+Reading 1024 bytes @ address 0x00022000
+Reading 1024 bytes @ address 0x00022400
+Reading 1024 bytes @ address 0x00022800
+Reading 1024 bytes @ address 0x00022C00
+Reading 1024 bytes @ address 0x00023000
+Reading 1024 bytes @ address 0x00023400
+Reading 1024 bytes @ address 0x00023800
+Reading 1024 bytes @ address 0x00023C00
+Reading 1024 bytes @ address 0x00024000
+Reading 1024 bytes @ address 0x00024400
+Reading 1024 bytes @ address 0x00024800
+Reading 1024 bytes @ address 0x00024C00
+Reading 1024 bytes @ address 0x00025000
+Reading 1024 bytes @ address 0x00025400
+Reading 1024 bytes @ address 0x00025800
+Reading 1024 bytes @ address 0x00025C00
+Reading 1024 bytes @ address 0x00026000
+Reading 564 bytes @ address 0x00026400
+Reading 1024 bytes @ address 0x00027000
+Reading 1024 bytes @ address 0x00027400
+Reading 1024 bytes @ address 0x00027800
+Reading 1024 bytes @ address 0x00027C00
+Reading 1024 bytes @ address 0x00028000
+Reading 1024 bytes @ address 0x00028400
+Reading 1024 bytes @ address 0x00028800
+Reading 1024 bytes @ address 0x00028C00
+Reading 1024 bytes @ address 0x00029000
+Reading 1024 bytes @ address 0x00029400
+Reading 1024 bytes @ address 0x00029800
+Reading 1024 bytes @ address 0x00029C00
+Reading 1024 bytes @ address 0x0002A000
+Reading 1024 bytes @ address 0x0002A400
+Reading 1024 bytes @ address 0x0002A800
+Reading 1024 bytes @ address 0x0002AC00
+Reading 1024 bytes @ address 0x0002B000
+Reading 1024 bytes @ address 0x0002B400
+Reading 1024 bytes @ address 0x0002B800
+Reading 1024 bytes @ address 0x0002BC00
+Reading 1024 bytes @ address 0x0002C000
+Reading 1024 bytes @ address 0x0002C400
+Reading 1024 bytes @ address 0x0002C800
+Reading 1024 bytes @ address 0x0002CC00
+Reading 1024 bytes @ address 0x0002D000
+Reading 1024 bytes @ address 0x0002D400
+Reading 1024 bytes @ address 0x0002D800
+Reading 1024 bytes @ address 0x0002DC00
+Reading 1024 bytes @ address 0x0002E000
+Reading 1024 bytes @ address 0x0002E400
+Reading 1024 bytes @ address 0x0002E800
+Reading 1024 bytes @ address 0x0002EC00
+Reading 1024 bytes @ address 0x0002F000
+Reading 1024 bytes @ address 0x0002F400
+Reading 1024 bytes @ address 0x0002F800
+Reading 1024 bytes @ address 0x0002FC00
+Reading 1024 bytes @ address 0x00030000
+Reading 1024 bytes @ address 0x00030400
+Reading 1024 bytes @ address 0x00030800
+Reading 1024 bytes @ address 0x00030C00
+Reading 1024 bytes @ address 0x00031000
+Reading 1024 bytes @ address 0x00031400
+Reading 1024 bytes @ address 0x00031800
+Reading 1024 bytes @ address 0x00031C00
+Reading 1024 bytes @ address 0x00032000
+Reading 1024 bytes @ address 0x00032400
+Reading 1024 bytes @ address 0x00032800
+Reading 1024 bytes @ address 0x00032C00
+Reading 1024 bytes @ address 0x00033000
+Reading 1024 bytes @ address 0x00033400
+Reading 1024 bytes @ address 0x00033800
+Reading 1024 bytes @ address 0x00033C00
+Reading 1024 bytes @ address 0x00034000
+Reading 1024 bytes @ address 0x00034400
+Reading 1024 bytes @ address 0x00034800
+Reading 1024 bytes @ address 0x00034C00
+Reading 1024 bytes @ address 0x00035000
+Reading 1024 bytes @ address 0x00035400
+Reading 1024 bytes @ address 0x00035800
+Reading 1024 bytes @ address 0x00035C00
+Reading 1024 bytes @ address 0x00036000
+Reading 1024 bytes @ address 0x00036400
+Reading 1024 bytes @ address 0x00036800
+Reading 1024 bytes @ address 0x00036C00
+Reading 1024 bytes @ address 0x00037000
+Reading 1024 bytes @ address 0x00037400
+Reading 1024 bytes @ address 0x00037800
+Reading 1024 bytes @ address 0x00037C00
+Reading 1024 bytes @ address 0x00038000
+Reading 1024 bytes @ address 0x00038400
+Reading 1024 bytes @ address 0x00038800
+Reading 1024 bytes @ address 0x00038C00
+Reading 1024 bytes @ address 0x00039000
+Reading 1024 bytes @ address 0x00039400
+Reading 1024 bytes @ address 0x00039800
+Reading 1024 bytes @ address 0x00039C00
+Reading 1024 bytes @ address 0x0003A000
+Reading 1024 bytes @ address 0x0003A400
+Reading 1024 bytes @ address 0x0003A800
+Reading 1024 bytes @ address 0x0003AC00
+Reading 1024 bytes @ address 0x0003B000
+Reading 1024 bytes @ address 0x0003B400
+Reading 1024 bytes @ address 0x0003B800
+Reading 1024 bytes @ address 0x0003BC00
+Reading 1024 bytes @ address 0x0003C000
+Reading 1024 bytes @ address 0x0003C400
+Reading 1024 bytes @ address 0x0003C800
+Reading 1024 bytes @ address 0x0003CC00
+Reading 1024 bytes @ address 0x0003D000
+Reading 1024 bytes @ address 0x0003D400
+Reading 1024 bytes @ address 0x0003D800
+Reading 1024 bytes @ address 0x0003DC00
+Reading 1024 bytes @ address 0x0003E000
+Reading 1024 bytes @ address 0x0003E400
+Reading 1024 bytes @ address 0x0003E800
+Reading 1024 bytes @ address 0x0003EC00
+Reading 1024 bytes @ address 0x0003F000
+Reading 1024 bytes @ address 0x0003F400
+Reading 1024 bytes @ address 0x0003F800
+Reading 1024 bytes @ address 0x0003FC00
+Reading 1024 bytes @ address 0x00040000
+Reading 1024 bytes @ address 0x00040400
+Reading 1024 bytes @ address 0x00040800
+Reading 1024 bytes @ address 0x00040C00
+Reading 1024 bytes @ address 0x00041000
+Reading 1024 bytes @ address 0x00041400
+Reading 1024 bytes @ address 0x00041800
+Reading 1024 bytes @ address 0x00041C00
+Reading 1024 bytes @ address 0x00042000
+Reading 1024 bytes @ address 0x00042400
+Reading 1024 bytes @ address 0x00042800
+Reading 1024 bytes @ address 0x00042C00
+Reading 1024 bytes @ address 0x00043000
+Reading 1024 bytes @ address 0x00043400
+Reading 1024 bytes @ address 0x00043800
+Reading 1024 bytes @ address 0x00043C00
+Reading 1024 bytes @ address 0x00044000
+Reading 1024 bytes @ address 0x00044400
+Reading 1024 bytes @ address 0x00044800
+Reading 1024 bytes @ address 0x00044C00
+Reading 1024 bytes @ address 0x00045000
+Reading 1024 bytes @ address 0x00045400
+Reading 1024 bytes @ address 0x00045800
+Reading 1024 bytes @ address 0x00045C00
+Reading 1024 bytes @ address 0x00046000
+Reading 1024 bytes @ address 0x00046400
+Reading 1024 bytes @ address 0x00046800
+Reading 1024 bytes @ address 0x00046C00
+Reading 1024 bytes @ address 0x00047000
+Reading 1024 bytes @ address 0x00047400
+Reading 1024 bytes @ address 0x00047800
+Reading 1024 bytes @ address 0x00047C00
+Reading 1024 bytes @ address 0x00048000
+Reading 1024 bytes @ address 0x00048400
+Reading 1024 bytes @ address 0x00048800
+Reading 1024 bytes @ address 0x00048C00
+Reading 1024 bytes @ address 0x00049000
+Reading 1024 bytes @ address 0x00049400
+Reading 1024 bytes @ address 0x00049800
+Reading 1024 bytes @ address 0x00049C00
+Reading 1024 bytes @ address 0x0004A000
+Reading 1024 bytes @ address 0x0004A400
+Reading 1024 bytes @ address 0x0004A800
+Reading 1024 bytes @ address 0x0004AC00
+Reading 1024 bytes @ address 0x0004B000
+Reading 1024 bytes @ address 0x0004B400
+Reading 1024 bytes @ address 0x0004B800
+Reading 1024 bytes @ address 0x0004BC00
+Reading 1024 bytes @ address 0x0004C000
+Reading 1024 bytes @ address 0x0004C400
+Reading 1024 bytes @ address 0x0004C800
+Reading 1024 bytes @ address 0x0004CC00
+Reading 1024 bytes @ address 0x0004D000
+Reading 1024 bytes @ address 0x0004D400
+Reading 1024 bytes @ address 0x0004D800
+Reading 1024 bytes @ address 0x0004DC00
+Reading 1024 bytes @ address 0x0004E000
+Reading 1024 bytes @ address 0x0004E400
+Reading 1024 bytes @ address 0x0004E800
+Reading 1024 bytes @ address 0x0004EC00
+Reading 1024 bytes @ address 0x0004F000
+Reading 1024 bytes @ address 0x0004F400
+Reading 1024 bytes @ address 0x0004F800
+Reading 1024 bytes @ address 0x0004FC00
+Reading 1024 bytes @ address 0x00050000
+Reading 1024 bytes @ address 0x00050400
+Reading 1024 bytes @ address 0x00050800
+Reading 1024 bytes @ address 0x00050C00
+Reading 1024 bytes @ address 0x00051000
+Reading 1024 bytes @ address 0x00051400
+Reading 1024 bytes @ address 0x00051800
+Reading 1024 bytes @ address 0x00051C00
+Reading 1024 bytes @ address 0x00052000
+Reading 1024 bytes @ address 0x00052400
+Reading 1024 bytes @ address 0x00052800
+Reading 1024 bytes @ address 0x00052C00
+Reading 1024 bytes @ address 0x00053000
+Reading 1024 bytes @ address 0x00053400
+Reading 1024 bytes @ address 0x00053800
+Reading 1024 bytes @ address 0x00053C00
+Reading 1024 bytes @ address 0x00054000
+Reading 1024 bytes @ address 0x00054400
+Reading 1024 bytes @ address 0x00054800
+Reading 1024 bytes @ address 0x00054C00
+Reading 1024 bytes @ address 0x00055000
+Reading 1024 bytes @ address 0x00055400
+Reading 1024 bytes @ address 0x00055800
+Reading 1024 bytes @ address 0x00055C00
+Reading 1024 bytes @ address 0x00056000
+Reading 1024 bytes @ address 0x00056400
+Reading 1024 bytes @ address 0x00056800
+Reading 1024 bytes @ address 0x00056C00
+Reading 1024 bytes @ address 0x00057000
+Reading 1024 bytes @ address 0x00057400
+Reading 1024 bytes @ address 0x00057800
+Reading 1024 bytes @ address 0x00057C00
+Reading 1024 bytes @ address 0x00058000
+Reading 1024 bytes @ address 0x00058400
+Reading 1024 bytes @ address 0x00058800
+Reading 1024 bytes @ address 0x00058C00
+Reading 1024 bytes @ address 0x00059000
+Reading 1024 bytes @ address 0x00059400
+Reading 1024 bytes @ address 0x00059800
+Reading 1024 bytes @ address 0x00059C00
+Reading 1024 bytes @ address 0x0005A000
+Reading 1024 bytes @ address 0x0005A400
+Reading 1024 bytes @ address 0x0005A800
+Reading 1024 bytes @ address 0x0005AC00
+Reading 1024 bytes @ address 0x0005B000
+Reading 1024 bytes @ address 0x0005B400
+Reading 1024 bytes @ address 0x0005B800
+Reading 1024 bytes @ address 0x0005BC00
+Reading 1024 bytes @ address 0x0005C000
+Reading 1024 bytes @ address 0x0005C400
+Reading 1024 bytes @ address 0x0005C800
+Reading 1024 bytes @ address 0x0005CC00
+Reading 1024 bytes @ address 0x0005D000
+Reading 1024 bytes @ address 0x0005D400
+Reading 1024 bytes @ address 0x0005D800
+Reading 1024 bytes @ address 0x0005DC00
+Reading 1024 bytes @ address 0x0005E000
+Reading 1024 bytes @ address 0x0005E400
+Reading 1024 bytes @ address 0x0005E800
+Reading 1024 bytes @ address 0x0005EC00
+Reading 1024 bytes @ address 0x0005F000
+Reading 1024 bytes @ address 0x0005F400
+Reading 1024 bytes @ address 0x0005F800
+Reading 1024 bytes @ address 0x0005FC00
+Reading 1024 bytes @ address 0x00060000
+Reading 1024 bytes @ address 0x00060400
+Reading 1024 bytes @ address 0x00060800
+Reading 1024 bytes @ address 0x00060C00
+Reading 1024 bytes @ address 0x00061000
+Reading 1024 bytes @ address 0x00061400
+Reading 1024 bytes @ address 0x00061800
+Reading 1024 bytes @ address 0x00061C00
+Reading 1024 bytes @ address 0x00062000
+Reading 1024 bytes @ address 0x00062400
+Reading 1024 bytes @ address 0x00062800
+Reading 1024 bytes @ address 0x00062C00
+Reading 1024 bytes @ address 0x00063000
+Reading 1024 bytes @ address 0x00063400
+Reading 1024 bytes @ address 0x00063800
+Reading 1024 bytes @ address 0x00063C00
+Reading 1024 bytes @ address 0x00064000
+Reading 1024 bytes @ address 0x00064400
+Reading 1024 bytes @ address 0x00064800
+Reading 1024 bytes @ address 0x00064C00
+Reading 1024 bytes @ address 0x00065000
+Reading 1024 bytes @ address 0x00065400
+Reading 1024 bytes @ address 0x00065800
+Reading 1024 bytes @ address 0x00065C00
+Reading 1024 bytes @ address 0x00066000
+Reading 1024 bytes @ address 0x00066400
+Reading 1024 bytes @ address 0x00066800
+Reading 1024 bytes @ address 0x00066C00
+Reading 1024 bytes @ address 0x00067000
+Reading 1024 bytes @ address 0x00067400
+Reading 1024 bytes @ address 0x00067800
+Reading 1024 bytes @ address 0x00067C00
+Reading 1024 bytes @ address 0x00068000
+Reading 1024 bytes @ address 0x00068400
+Reading 1024 bytes @ address 0x00068800
+Reading 1024 bytes @ address 0x00068C00
+Reading 1024 bytes @ address 0x00069000
+Reading 1024 bytes @ address 0x00069400
+Reading 1024 bytes @ address 0x00069800
+Reading 1024 bytes @ address 0x00069C00
+Reading 1024 bytes @ address 0x0006A000
+Reading 1024 bytes @ address 0x0006A400
+Reading 1024 bytes @ address 0x0006A800
+Reading 1024 bytes @ address 0x0006AC00
+Reading 1024 bytes @ address 0x0006B000
+Reading 1024 bytes @ address 0x0006B400
+Reading 1024 bytes @ address 0x0006B800
+Reading 1024 bytes @ address 0x0006BC00
+Reading 1024 bytes @ address 0x0006C000
+Reading 1024 bytes @ address 0x0006C400
+Reading 1024 bytes @ address 0x0006C800
+Reading 1024 bytes @ address 0x0006CC00
+Reading 1024 bytes @ address 0x0006D000
+Reading 1024 bytes @ address 0x0006D400
+Reading 1024 bytes @ address 0x0006D800
+Reading 1024 bytes @ address 0x0006DC00
+Reading 1024 bytes @ address 0x0006E000
+Reading 1024 bytes @ address 0x0006E400
+Reading 1024 bytes @ address 0x0006E800
+Reading 1024 bytes @ address 0x0006EC00
+Reading 1024 bytes @ address 0x0006F000
+Reading 1024 bytes @ address 0x0006F400
+Reading 1024 bytes @ address 0x0006F800
+Reading 1024 bytes @ address 0x0006FC00
+Reading 1024 bytes @ address 0x00070000
+Reading 1024 bytes @ address 0x00070400
+Reading 1024 bytes @ address 0x00070800
+Reading 1024 bytes @ address 0x00070C00
+Reading 1024 bytes @ address 0x00071000
+Reading 1024 bytes @ address 0x00071400
+Reading 1024 bytes @ address 0x00071800
+Reading 984 bytes @ address 0x00071C00
+Reading 1024 bytes @ address 0x000F8000
+Reading 1024 bytes @ address 0x000F8400
+Reading 1024 bytes @ address 0x000F8800
+Reading 1024 bytes @ address 0x000F8C00
+Reading 1024 bytes @ address 0x000F9000
+Reading 1024 bytes @ address 0x000F9400
+Reading 1024 bytes @ address 0x000F9800
+Reading 1024 bytes @ address 0x000F9C00
+Reading 1024 bytes @ address 0x000FA000
+Reading 1024 bytes @ address 0x000FA400
+Reading 1024 bytes @ address 0x000FA800
+Reading 1024 bytes @ address 0x000FAC00
+Reading 1024 bytes @ address 0x000FB000
+Reading 1024 bytes @ address 0x000FB400
+Reading 1024 bytes @ address 0x000FB800
+Reading 1024 bytes @ address 0x000FBC00
+Reading 1024 bytes @ address 0x000FC000
+Reading 1024 bytes @ address 0x000FC400
+Reading 1024 bytes @ address 0x000FC800
+Reading 1024 bytes @ address 0x000FCC00
+Reading 1024 bytes @ address 0x000FD000
+Reading 1024 bytes @ address 0x000FD400
+Reading 1024 bytes @ address 0x000FD800
+Reading 112 bytes @ address 0x000FDC00
+Reading 820 bytes @ address 0x000FDFF0
+Reading 804 bytes @ address 0x000FF000
+Reading 8 bytes @ address 0x10001014
+Read 4 bytes @ address 0x10001080 (Data = 0x12175C00)
+Received monitor command: go
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 1080)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 832)
+Connected to 127.0.0.1
+GDB client (conn. 988) requested target.xml from GDB Server
+Reading common registers: 
+ERROR: Cannot read register 0 (R0) while CPU is running
+Reading register 'r0' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 1 (R1) while CPU is running
+Reading register 'r1' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 2 (R2) while CPU is running
+Reading register 'r2' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 3 (R3) while CPU is running
+Reading register 'r3' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 4 (R4) while CPU is running
+Reading register 'r4' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 5 (R5) while CPU is running
+Reading register 'r5' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 6 (R6) while CPU is running
+Reading register 'r6' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 7 (R7) while CPU is running
+Reading register 'r7' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 8 (R8) while CPU is running
+Reading register 'r8' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 9 (R9) while CPU is running
+Reading register 'r9' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 10 (R10) while CPU is running
+Reading register 'r10' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 11 (R11) while CPU is running
+Reading register 'r11' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 12 (R12) while CPU is running
+Reading register 'r12' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 13 (R13) while CPU is running
+Reading register 'sp' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 14 (R14) while CPU is running
+Reading register 'lr' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 15 (R15) while CPU is running
+Reading register 'pc' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 16 (XPSR) while CPU is running
+Reading register 'xpsr' from hardware = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+Read 4 bytes @ address 0x10001080 (Data = 0x12175C00)
+Received monitor command: go
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 988)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 916)
+Connected to 127.0.0.1
+GDB client (conn. 996) requested target.xml from GDB Server
+Reading common registers: 
+ERROR: Cannot read register 0 (R0) while CPU is running
+Reading register 'r0' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 1 (R1) while CPU is running
+Reading register 'r1' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 2 (R2) while CPU is running
+Reading register 'r2' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 3 (R3) while CPU is running
+Reading register 'r3' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 4 (R4) while CPU is running
+Reading register 'r4' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 5 (R5) while CPU is running
+Reading register 'r5' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 6 (R6) while CPU is running
+Reading register 'r6' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 7 (R7) while CPU is running
+Reading register 'r7' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 8 (R8) while CPU is running
+Reading register 'r8' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 9 (R9) while CPU is running
+Reading register 'r9' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 10 (R10) while CPU is running
+Reading register 'r10' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 11 (R11) while CPU is running
+Reading register 'r11' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 12 (R12) while CPU is running
+Reading register 'r12' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 13 (R13) while CPU is running
+Reading register 'sp' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 14 (R14) while CPU is running
+Reading register 'lr' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 15 (R15) while CPU is running
+Reading register 'pc' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 16 (XPSR) while CPU is running
+Reading register 'xpsr' from hardware = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+Reading 8 bytes @ address 0x10001014
+Received monitor command: go
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 996)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 1064)
+Connected to 127.0.0.1
+GDB client (conn. 980) requested target.xml from GDB Server
+Reading common registers: 
+ERROR: Cannot read register 0 (R0) while CPU is running
+Reading register 'r0' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 1 (R1) while CPU is running
+Reading register 'r1' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 2 (R2) while CPU is running
+Reading register 'r2' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 3 (R3) while CPU is running
+Reading register 'r3' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 4 (R4) while CPU is running
+Reading register 'r4' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 5 (R5) while CPU is running
+Reading register 'r5' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 6 (R6) while CPU is running
+Reading register 'r6' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 7 (R7) while CPU is running
+Reading register 'r7' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 8 (R8) while CPU is running
+Reading register 'r8' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 9 (R9) while CPU is running
+Reading register 'r9' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 10 (R10) while CPU is running
+Reading register 'r10' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 11 (R11) while CPU is running
+Reading register 'r11' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 12 (R12) while CPU is running
+Reading register 'r12' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 13 (R13) while CPU is running
+Reading register 'sp' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 14 (R14) while CPU is running
+Reading register 'lr' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 15 (R15) while CPU is running
+Reading register 'pc' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 16 (XPSR) while CPU is running
+Reading register 'xpsr' from hardware = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+Received monitor command: reset 0
+Resetting target (0 = NORMAL: Resets core & peripherals via SYSRESETREQ & VECTRESET bit.)
+Reading common registers: 
+Reading register 'r0' from hardware = 0x00000000
+Reading register 'r1' from hardware = 0x00000000
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000000
+Reading register 'r4' from hardware = 0x00000000
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0x00000000
+Reading register 'r7' from hardware = 0x00000000
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x00000000
+Reading register 'sp' from hardware = 0x20000400
+Reading register 'lr' from hardware = 0xFFFFFFFF
+Reading register 'pc' from hardware = 0x00000A80
+Reading register 'xpsr' from hardware = 0x01000000
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 980)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 904)
+Connected to 127.0.0.1
+GDB client (conn. 844) requested target.xml from GDB Server
+Reading common registers: 
+...Target halted (PC = 0x0000000000025F40)
+Reading register 'r0' from hardware = 0x00025F40
+Reading register 'r1' from hardware = 0x2003FF20
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000001
+Reading register 'r4' from hardware = 0x200000B8
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0xE000E000
+Reading register 'r7' from hardware = 0x00000001
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x2003A5BB
+Reading register 'sp' from hardware = 0x2003FF20
+Reading register 'lr' from hardware = 0x0001671D
+Reading register 'pc' from hardware = 0x00025F40
+Reading register 'xpsr' from hardware = 0x61000000
+Read 4 bytes @ address 0x00025F40 (Data = 0x00004770)
+Read 2 bytes @ address 0x00025F40 (Data = 0x4770)
+WARNING: Unsupported remote command "rtt start"
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 844)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 980)
+Connected to 127.0.0.1
+GDB client (conn. 1020) requested target.xml from GDB Server
+Reading common registers: 
+...Target halted (PC = 0x0000000000025F40)
+Reading register 'r0' from hardware = 0x00025F40
+Reading register 'r1' from hardware = 0x2003FF20
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000001
+Reading register 'r4' from hardware = 0x200000B8
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0xE000E000
+Reading register 'r7' from hardware = 0x0000000A
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0xCCCCCCCD
+Reading register 'sp' from hardware = 0x2003FF20
+Reading register 'lr' from hardware = 0x0001671D
+Reading register 'pc' from hardware = 0x00025F40
+Reading register 'xpsr' from hardware = 0x61000000
+Read 4 bytes @ address 0x00025F40 (Data = 0x00004770)
+Read 2 bytes @ address 0x00025F40 (Data = 0x4770)
+Read 4 bytes @ address 0x00025F3C (Data = 0xBF200C08)
+Read 1 bytes @ address 0x20038F80 (Data = 0x00)
+Received monitor command: go
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 1020)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 1068)
+Connected to 127.0.0.1
+GDB client (conn. 908) requested target.xml from GDB Server
+Reading common registers: 
+ERROR: Cannot read register 0 (R0) while CPU is running
+Reading register 'r0' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 1 (R1) while CPU is running
+Reading register 'r1' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 2 (R2) while CPU is running
+Reading register 'r2' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 3 (R3) while CPU is running
+Reading register 'r3' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 4 (R4) while CPU is running
+Reading register 'r4' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 5 (R5) while CPU is running
+Reading register 'r5' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 6 (R6) while CPU is running
+Reading register 'r6' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 7 (R7) while CPU is running
+Reading register 'r7' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 8 (R8) while CPU is running
+Reading register 'r8' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 9 (R9) while CPU is running
+Reading register 'r9' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 10 (R10) while CPU is running
+Reading register 'r10' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 11 (R11) while CPU is running
+Reading register 'r11' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 12 (R12) while CPU is running
+Reading register 'r12' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 13 (R13) while CPU is running
+Reading register 'sp' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 14 (R14) while CPU is running
+Reading register 'lr' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 15 (R15) while CPU is running
+Reading register 'pc' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 16 (XPSR) while CPU is running
+Reading register 'xpsr' from hardware = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+Read 4 bytes @ address 0x00000000 (Data = 0x20000400)
+Received monitor command: go
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 908)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 1056)
+Connected to 127.0.0.1
+GDB client (conn. 844) requested target.xml from GDB Server
+Reading common registers: 
+ERROR: Cannot read register 0 (R0) while CPU is running
+Reading register 'r0' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 1 (R1) while CPU is running
+Reading register 'r1' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 2 (R2) while CPU is running
+Reading register 'r2' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 3 (R3) while CPU is running
+Reading register 'r3' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 4 (R4) while CPU is running
+Reading register 'r4' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 5 (R5) while CPU is running
+Reading register 'r5' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 6 (R6) while CPU is running
+Reading register 'r6' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 7 (R7) while CPU is running
+Reading register 'r7' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 8 (R8) while CPU is running
+Reading register 'r8' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 9 (R9) while CPU is running
+Reading register 'r9' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 10 (R10) while CPU is running
+Reading register 'r10' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 11 (R11) while CPU is running
+Reading register 'r11' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 12 (R12) while CPU is running
+Reading register 'r12' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 13 (R13) while CPU is running
+Reading register 'sp' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 14 (R14) while CPU is running
+Reading register 'lr' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 15 (R15) while CPU is running
+Reading register 'pc' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 16 (XPSR) while CPU is running
+Reading register 'xpsr' from hardware = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+ERROR: Cannot read register 17 (MSP) while CPU is running
+Reading register 'msp' = 0xDEADBEEF
+ERROR: Cannot read register 18 (PSP) while CPU is running
+Reading register 'psp' = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+Read 2 bytes @ address 0xDEADBEEE (Data = 0x0000)
+Received monitor command: go
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 844)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 1080)
+Connected to 127.0.0.1
+GDB client (conn. 1044) requested target.xml from GDB Server
+Reading common registers: 
+ERROR: Cannot read register 0 (R0) while CPU is running
+Reading register 'r0' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 1 (R1) while CPU is running
+Reading register 'r1' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 2 (R2) while CPU is running
+Reading register 'r2' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 3 (R3) while CPU is running
+Reading register 'r3' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 4 (R4) while CPU is running
+Reading register 'r4' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 5 (R5) while CPU is running
+Reading register 'r5' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 6 (R6) while CPU is running
+Reading register 'r6' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 7 (R7) while CPU is running
+Reading register 'r7' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 8 (R8) while CPU is running
+Reading register 'r8' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 9 (R9) while CPU is running
+Reading register 'r9' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 10 (R10) while CPU is running
+Reading register 'r10' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 11 (R11) while CPU is running
+Reading register 'r11' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 12 (R12) while CPU is running
+Reading register 'r12' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 13 (R13) while CPU is running
+Reading register 'sp' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 14 (R14) while CPU is running
+Reading register 'lr' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 15 (R15) while CPU is running
+Reading register 'pc' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 16 (XPSR) while CPU is running
+Reading register 'xpsr' from hardware = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+WARNING: Unsupported remote command "version"
+Received monitor command: go
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 1044)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 1016)
+Connected to 127.0.0.1
+GDB client (conn. 1112) requested target.xml from GDB Server
+Reading common registers: 
+ERROR: Cannot read register 0 (R0) while CPU is running
+Reading register 'r0' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 1 (R1) while CPU is running
+Reading register 'r1' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 2 (R2) while CPU is running
+Reading register 'r2' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 3 (R3) while CPU is running
+Reading register 'r3' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 4 (R4) while CPU is running
+Reading register 'r4' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 5 (R5) while CPU is running
+Reading register 'r5' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 6 (R6) while CPU is running
+Reading register 'r6' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 7 (R7) while CPU is running
+Reading register 'r7' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 8 (R8) while CPU is running
+Reading register 'r8' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 9 (R9) while CPU is running
+Reading register 'r9' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 10 (R10) while CPU is running
+Reading register 'r10' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 11 (R11) while CPU is running
+Reading register 'r11' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 12 (R12) while CPU is running
+Reading register 'r12' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 13 (R13) while CPU is running
+Reading register 'sp' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 14 (R14) while CPU is running
+Reading register 'lr' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 15 (R15) while CPU is running
+Reading register 'pc' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 16 (XPSR) while CPU is running
+Reading register 'xpsr' from hardware = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+Read 1 bytes @ address 0x20038F80 (Data = 0x01)
+Received monitor command: go
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 1112)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 1112)
+Connected to 127.0.0.1
+GDB client (conn. 836) requested target.xml from GDB Server
+Reading common registers: 
+ERROR: Cannot read register 0 (R0) while CPU is running
+Reading register 'r0' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 1 (R1) while CPU is running
+Reading register 'r1' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 2 (R2) while CPU is running
+Reading register 'r2' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 3 (R3) while CPU is running
+Reading register 'r3' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 4 (R4) while CPU is running
+Reading register 'r4' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 5 (R5) while CPU is running
+Reading register 'r5' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 6 (R6) while CPU is running
+Reading register 'r6' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 7 (R7) while CPU is running
+Reading register 'r7' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 8 (R8) while CPU is running
+Reading register 'r8' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 9 (R9) while CPU is running
+Reading register 'r9' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 10 (R10) while CPU is running
+Reading register 'r10' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 11 (R11) while CPU is running
+Reading register 'r11' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 12 (R12) while CPU is running
+Reading register 'r12' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 13 (R13) while CPU is running
+Reading register 'sp' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 14 (R14) while CPU is running
+Reading register 'lr' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 15 (R15) while CPU is running
+Reading register 'pc' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 16 (XPSR) while CPU is running
+Reading register 'xpsr' from hardware = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+Read 4 bytes @ address 0x00000000 (Data = 0x20000400)
+Received monitor command: go
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 836)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 1068)
+Connected to 127.0.0.1
+GDB client (conn. 1084) requested target.xml from GDB Server
+Reading common registers: 
+ERROR: Cannot read register 0 (R0) while CPU is running
+Reading register 'r0' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 1 (R1) while CPU is running
+Reading register 'r1' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 2 (R2) while CPU is running
+Reading register 'r2' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 3 (R3) while CPU is running
+Reading register 'r3' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 4 (R4) while CPU is running
+Reading register 'r4' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 5 (R5) while CPU is running
+Reading register 'r5' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 6 (R6) while CPU is running
+Reading register 'r6' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 7 (R7) while CPU is running
+Reading register 'r7' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 8 (R8) while CPU is running
+Reading register 'r8' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 9 (R9) while CPU is running
+Reading register 'r9' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 10 (R10) while CPU is running
+Reading register 'r10' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 11 (R11) while CPU is running
+Reading register 'r11' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 12 (R12) while CPU is running
+Reading register 'r12' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 13 (R13) while CPU is running
+Reading register 'sp' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 14 (R14) while CPU is running
+Reading register 'lr' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 15 (R15) while CPU is running
+Reading register 'pc' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 16 (XPSR) while CPU is running
+Reading register 'xpsr' from hardware = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+ERROR: Cannot read register 17 (MSP) while CPU is running
+Reading register 'msp' = 0xDEADBEEF
+ERROR: Cannot read register 18 (PSP) while CPU is running
+Reading register 'psp' = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+Read 2 bytes @ address 0xDEADBEEE (Data = 0x0000)
+Received monitor command: go
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 1084)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 1124)
+Connected to 127.0.0.1
+GDB client (conn. 1132) requested target.xml from GDB Server
+Reading common registers: 
+ERROR: Cannot read register 0 (R0) while CPU is running
+Reading register 'r0' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 1 (R1) while CPU is running
+Reading register 'r1' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 2 (R2) while CPU is running
+Reading register 'r2' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 3 (R3) while CPU is running
+Reading register 'r3' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 4 (R4) while CPU is running
+Reading register 'r4' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 5 (R5) while CPU is running
+Reading register 'r5' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 6 (R6) while CPU is running
+Reading register 'r6' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 7 (R7) while CPU is running
+Reading register 'r7' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 8 (R8) while CPU is running
+Reading register 'r8' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 9 (R9) while CPU is running
+Reading register 'r9' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 10 (R10) while CPU is running
+Reading register 'r10' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 11 (R11) while CPU is running
+Reading register 'r11' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 12 (R12) while CPU is running
+Reading register 'r12' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 13 (R13) while CPU is running
+Reading register 'sp' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 14 (R14) while CPU is running
+Reading register 'lr' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 15 (R15) while CPU is running
+Reading register 'pc' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 16 (XPSR) while CPU is running
+Reading register 'xpsr' from hardware = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+GDB closed TCP/IP connection (Socket 1132)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 1128)
+Connected to 127.0.0.1
+GDB client (conn. 844) requested target.xml from GDB Server
+Reading common registers: 
+ERROR: Cannot read register 0 (R0) while CPU is running
+Reading register 'r0' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 1 (R1) while CPU is running
+Reading register 'r1' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 2 (R2) while CPU is running
+Reading register 'r2' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 3 (R3) while CPU is running
+Reading register 'r3' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 4 (R4) while CPU is running
+Reading register 'r4' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 5 (R5) while CPU is running
+Reading register 'r5' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 6 (R6) while CPU is running
+Reading register 'r6' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 7 (R7) while CPU is running
+Reading register 'r7' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 8 (R8) while CPU is running
+Reading register 'r8' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 9 (R9) while CPU is running
+Reading register 'r9' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 10 (R10) while CPU is running
+Reading register 'r10' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 11 (R11) while CPU is running
+Reading register 'r11' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 12 (R12) while CPU is running
+Reading register 'r12' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 13 (R13) while CPU is running
+Reading register 'sp' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 14 (R14) while CPU is running
+Reading register 'lr' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 15 (R15) while CPU is running
+Reading register 'pc' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 16 (XPSR) while CPU is running
+Reading register 'xpsr' from hardware = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+WARNING: Unsupported remote command "version"
+Received monitor command: go
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 844)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 1144)
+Connected to 127.0.0.1
+GDB client (conn. 1100) requested target.xml from GDB Server
+Reading common registers: 
+ERROR: Cannot read register 0 (R0) while CPU is running
+Reading register 'r0' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 1 (R1) while CPU is running
+Reading register 'r1' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 2 (R2) while CPU is running
+Reading register 'r2' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 3 (R3) while CPU is running
+Reading register 'r3' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 4 (R4) while CPU is running
+Reading register 'r4' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 5 (R5) while CPU is running
+Reading register 'r5' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 6 (R6) while CPU is running
+Reading register 'r6' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 7 (R7) while CPU is running
+Reading register 'r7' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 8 (R8) while CPU is running
+Reading register 'r8' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 9 (R9) while CPU is running
+Reading register 'r9' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 10 (R10) while CPU is running
+Reading register 'r10' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 11 (R11) while CPU is running
+Reading register 'r11' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 12 (R12) while CPU is running
+Reading register 'r12' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 13 (R13) while CPU is running
+Reading register 'sp' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 14 (R14) while CPU is running
+Reading register 'lr' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 15 (R15) while CPU is running
+Reading register 'pc' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 16 (XPSR) while CPU is running
+Reading register 'xpsr' from hardware = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+ERROR: Cannot read register 17 (MSP) while CPU is running
+Reading register 'msp' = 0xDEADBEEF
+ERROR: Cannot read register 18 (PSP) while CPU is running
+Reading register 'psp' = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+Read 2 bytes @ address 0xDEADBEEE (Data = 0x0000)
+Received monitor command: go
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 1100)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 1028)
+Connected to 127.0.0.1
+GDB client (conn. 1144) requested target.xml from GDB Server
+Reading common registers: 
+ERROR: Cannot read register 0 (R0) while CPU is running
+Reading register 'r0' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 1 (R1) while CPU is running
+Reading register 'r1' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 2 (R2) while CPU is running
+Reading register 'r2' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 3 (R3) while CPU is running
+Reading register 'r3' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 4 (R4) while CPU is running
+Reading register 'r4' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 5 (R5) while CPU is running
+Reading register 'r5' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 6 (R6) while CPU is running
+Reading register 'r6' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 7 (R7) while CPU is running
+Reading register 'r7' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 8 (R8) while CPU is running
+Reading register 'r8' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 9 (R9) while CPU is running
+Reading register 'r9' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 10 (R10) while CPU is running
+Reading register 'r10' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 11 (R11) while CPU is running
+Reading register 'r11' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 12 (R12) while CPU is running
+Reading register 'r12' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 13 (R13) while CPU is running
+Reading register 'sp' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 14 (R14) while CPU is running
+Reading register 'lr' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 15 (R15) while CPU is running
+Reading register 'pc' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 16 (XPSR) while CPU is running
+Reading register 'xpsr' from hardware = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+Read 1 bytes @ address 0x20038F80 (Data = 0x01)
+Received monitor command: go
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 1144)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 1028)
+Connected to 127.0.0.1
+GDB client (conn. 816) requested target.xml from GDB Server
+Reading common registers: 
+ERROR: Cannot read register 0 (R0) while CPU is running
+Reading register 'r0' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 1 (R1) while CPU is running
+Reading register 'r1' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 2 (R2) while CPU is running
+Reading register 'r2' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 3 (R3) while CPU is running
+Reading register 'r3' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 4 (R4) while CPU is running
+Reading register 'r4' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 5 (R5) while CPU is running
+Reading register 'r5' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 6 (R6) while CPU is running
+Reading register 'r6' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 7 (R7) while CPU is running
+Reading register 'r7' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 8 (R8) while CPU is running
+Reading register 'r8' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 9 (R9) while CPU is running
+Reading register 'r9' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 10 (R10) while CPU is running
+Reading register 'r10' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 11 (R11) while CPU is running
+Reading register 'r11' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 12 (R12) while CPU is running
+Reading register 'r12' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 13 (R13) while CPU is running
+Reading register 'sp' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 14 (R14) while CPU is running
+Reading register 'lr' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 15 (R15) while CPU is running
+Reading register 'pc' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 16 (XPSR) while CPU is running
+Reading register 'xpsr' from hardware = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+Reading 120 bytes @ address 0x2003A1CC
+Reading 8 bytes @ address 0x0005E3D8
+Reading 8 bytes @ address 0x0005E3E0
+Reading 8 bytes @ address 0x2003A244
+Reading 8 bytes @ address 0x2003A24C
+Reading 8 bytes @ address 0x2003A254
+Reading 8 bytes @ address 0x2003A25C
+Reading 8 bytes @ address 0x2003A264
+Reading 8 bytes @ address 0x2003A26C
+Reading 8 bytes @ address 0x2003A274
+Reading 8 bytes @ address 0x2003A27C
+Reading 8 bytes @ address 0x2003A284
+Reading 8 bytes @ address 0x2003A28C
+Reading 8 bytes @ address 0x2003A294
+Reading 8 bytes @ address 0x2003A29C
+Reading 8 bytes @ address 0x2003A2A4
+Reading 8 bytes @ address 0x2003A2AC
+Reading 8 bytes @ address 0x2003A2B4
+Reading 8 bytes @ address 0x2003A2BC
+Reading 8 bytes @ address 0x2003A2C4
+Reading 8 bytes @ address 0x2003A2CC
+Reading 8 bytes @ address 0x2003A2D4
+Reading 8 bytes @ address 0x2003A2DC
+Reading 8 bytes @ address 0x2003A2E4
+Reading 8 bytes @ address 0x2003A2EC
+Reading 8 bytes @ address 0x2003A2F4
+Reading 8 bytes @ address 0x2003A2FC
+Reading 8 bytes @ address 0x2003A304
+Read 1 bytes @ address 0x2003A30C (Data = 0x3C)
+Reading 8 bytes @ address 0x0005E3D8
+Reading 8 bytes @ address 0x0005E3E0
+Reading 8 bytes @ address 0x2003A644
+Received monitor command: go
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 816)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 1060)
+Connected to 127.0.0.1
+GDB client (conn. 916) requested target.xml from GDB Server
+Reading common registers: 
+ERROR: Cannot read register 0 (R0) while CPU is running
+Reading register 'r0' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 1 (R1) while CPU is running
+Reading register 'r1' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 2 (R2) while CPU is running
+Reading register 'r2' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 3 (R3) while CPU is running
+Reading register 'r3' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 4 (R4) while CPU is running
+Reading register 'r4' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 5 (R5) while CPU is running
+Reading register 'r5' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 6 (R6) while CPU is running
+Reading register 'r6' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 7 (R7) while CPU is running
+Reading register 'r7' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 8 (R8) while CPU is running
+Reading register 'r8' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 9 (R9) while CPU is running
+Reading register 'r9' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 10 (R10) while CPU is running
+Reading register 'r10' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 11 (R11) while CPU is running
+Reading register 'r11' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 12 (R12) while CPU is running
+Reading register 'r12' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 13 (R13) while CPU is running
+Reading register 'sp' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 14 (R14) while CPU is running
+Reading register 'lr' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 15 (R15) while CPU is running
+Reading register 'pc' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 16 (XPSR) while CPU is running
+Reading register 'xpsr' from hardware = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+Reading 64 bytes @ address 0x000332C0
+Read 2 bytes @ address 0x000332D4 (Data = 0xF00D)
+Setting breakpoint @ address 0x000332D4, Kind = 2, Type = THUMB, BPHandle = 0x0001
+Starting target CPU...
+...Breakpoint (set by 'GDB') reached @ address 0x000332D4
+Reading common registers: 
+Reading register 'r0' from hardware = 0x00000000
+Reading register 'r1' from hardware = 0x6E524635
+Reading register 'r2' from hardware = 0x00000001
+Reading register 'r3' from hardware = 0x00000000
+Reading register 'r4' from hardware = 0x20008BE8
+Reading register 'r5' from hardware = 0x00001000
+Reading register 'r6' from hardware = 0x00000000
+Reading register 'r7' from hardware = 0x20005DD8
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x2003A352
+Reading register 'sp' from hardware = 0x2003FFD8
+Reading register 'lr' from hardware = 0x00034AAD
+Reading register 'pc' from hardware = 0x000332D4
+Reading register 'xpsr' from hardware = 0x61000000
+Removing breakpoint @ address 0x000332D4, Size = 2
+Read 4 bytes @ address 0x000332D4 (Data = 0xFDD7F00D)
+GDB closed TCP/IP connection (Socket 916)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 1116)
+Connected to 127.0.0.1
+GDB client (conn. 908) requested target.xml from GDB Server
+Reading common registers: 
+Reading register 'r0' from hardware = 0x00000000
+Reading register 'r1' from hardware = 0x6E524635
+Reading register 'r2' from hardware = 0x00000001
+Reading register 'r3' from hardware = 0x00000000
+Reading register 'r4' from hardware = 0x20008BE8
+Reading register 'r5' from hardware = 0x00001000
+Reading register 'r6' from hardware = 0x00000000
+Reading register 'r7' from hardware = 0x20005DD8
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x2003A352
+Reading register 'sp' from hardware = 0x2003FFD8
+Reading register 'lr' from hardware = 0x00034AAD
+Reading register 'pc' from hardware = 0x000332D4
+Reading register 'xpsr' from hardware = 0x61000000
+Read 4 bytes @ address 0x000332D4 (Data = 0xFDD7F00D)
+Reading register 'msp' = 0x2003FFD8
+Reading register 'psp' = 0x00000000
+Reading 64 bytes @ address 0x2003FFC0
+Read 4 bytes @ address 0x00034AAC (Data = 0xBD08BF00)
+Read 4 bytes @ address 0x00034AA2 (Data = 0xBD08BF00)
+Read 4 bytes @ address 0x00034BE4 (Data = 0xBD08BF00)
+Read 4 bytes @ address 0x000273EE (Data = 0xDF74E7FC)
+Received monitor command: go
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 908)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 996)
+Connected to 127.0.0.1
+GDB client (conn. 936) requested target.xml from GDB Server
+Reading common registers: 
+ERROR: Cannot read register 0 (R0) while CPU is running
+Reading register 'r0' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 1 (R1) while CPU is running
+Reading register 'r1' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 2 (R2) while CPU is running
+Reading register 'r2' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 3 (R3) while CPU is running
+Reading register 'r3' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 4 (R4) while CPU is running
+Reading register 'r4' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 5 (R5) while CPU is running
+Reading register 'r5' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 6 (R6) while CPU is running
+Reading register 'r6' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 7 (R7) while CPU is running
+Reading register 'r7' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 8 (R8) while CPU is running
+Reading register 'r8' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 9 (R9) while CPU is running
+Reading register 'r9' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 10 (R10) while CPU is running
+Reading register 'r10' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 11 (R11) while CPU is running
+Reading register 'r11' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 12 (R12) while CPU is running
+Reading register 'r12' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 13 (R13) while CPU is running
+Reading register 'sp' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 14 (R14) while CPU is running
+Reading register 'lr' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 15 (R15) while CPU is running
+Reading register 'pc' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 16 (XPSR) while CPU is running
+Reading register 'xpsr' from hardware = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+Read 1 bytes @ address 0x20038F80 (Data = 0x01)
+Received monitor command: go
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 936)
+Connected to 127.0.0.1
+GDB closed TCP/IP connection (Socket 1060)
+Connected to 127.0.0.1
+GDB client (conn. 992) requested target.xml from GDB Server
+Reading common registers: 
+ERROR: Cannot read register 0 (R0) while CPU is running
+Reading register 'r0' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 1 (R1) while CPU is running
+Reading register 'r1' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 2 (R2) while CPU is running
+Reading register 'r2' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 3 (R3) while CPU is running
+Reading register 'r3' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 4 (R4) while CPU is running
+Reading register 'r4' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 5 (R5) while CPU is running
+Reading register 'r5' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 6 (R6) while CPU is running
+Reading register 'r6' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 7 (R7) while CPU is running
+Reading register 'r7' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 8 (R8) while CPU is running
+Reading register 'r8' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 9 (R9) while CPU is running
+Reading register 'r9' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 10 (R10) while CPU is running
+Reading register 'r10' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 11 (R11) while CPU is running
+Reading register 'r11' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 12 (R12) while CPU is running
+Reading register 'r12' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 13 (R13) while CPU is running
+Reading register 'sp' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 14 (R14) while CPU is running
+Reading register 'lr' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 15 (R15) while CPU is running
+Reading register 'pc' from hardware = 0xDEADBEEF
+ERROR: Cannot read register 16 (XPSR) while CPU is running
+Reading register 'xpsr' from hardware = 0xDEADBEEF
+Read 4 bytes @ address 0xDEADBEEE (Data = 0x00000000)
+Received monitor command: reset 0
+Resetting target (0 = NORMAL: Resets core & peripherals via SYSRESETREQ & VECTRESET bit.)
+Reading common registers: 
+Reading register 'r0' from hardware = 0x00000000
+Reading register 'r1' from hardware = 0x00000000
+Reading register 'r2' from hardware = 0x00000000
+Reading register 'r3' from hardware = 0x00000000
+Reading register 'r4' from hardware = 0x00000000
+Reading register 'r5' from hardware = 0x00000000
+Reading register 'r6' from hardware = 0x00000000
+Reading register 'r7' from hardware = 0x00000000
+Reading register 'r8' from hardware = 0x00000000
+Reading register 'r9' from hardware = 0x00000000
+Reading register 'r10' from hardware = 0x00000000
+Reading register 'r11' from hardware = 0x00000000
+Reading register 'r12' from hardware = 0x00000000
+Reading register 'sp' from hardware = 0x20000400
+Reading register 'lr' from hardware = 0xFFFFFFFF
+Reading register 'pc' from hardware = 0x00000A80
+Reading register 'xpsr' from hardware = 0x01000000
+Starting target CPU...
+GDB closed TCP/IP connection (Socket 992)

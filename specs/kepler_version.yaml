@@ -24,8 +24,12 @@
 # Against hardware (5C1712 is the sensor approved for configuration changes):
 #   python -m benchtools run specs/kepler_version.yaml --bench benches/lab1.yaml
 #
-# On the simulated bench the sensor answers over BLE and RTT (#121) but does
-# not yet transmit (#122), so the S2-LP steps need hardware.
+# On the simulated bench a simulated 5C1712 answers over BLE and RTT and
+# transmits its frames to the simulated S2-LP kit (#121, #122):
+#   python -m benchtools run specs/kepler_version.yaml --bench benches/simulated_bench.yaml
+# The report says the run was simulated (AD-10). A simulated pass shows that
+# the specification and the bench agree with a model of the sensor, not that
+# the sensor works.
 
 name: Kepler VERSION frame
 description: >
@@ -42,13 +46,17 @@ parameters:
   frame_timeout_s: 60.0
   battery_tolerance_mv: 20
 
+# The Kepler decoder and register file come from its plugin (#238).
+plugins:
+  - ../plugins/kepler
+
 instruments:
   dongle: ble-dongle
   s2lp: s2lp
 
 setup:
   - do: s2lp.apply_configuration
-    with: {source: configs/s2lp_kepler_433_rx.regs, reset: defaults}
+    with: {source: plugin:kepler/s2lp_kepler_433_rx.regs, reset: defaults}
   - do: dongle.scan
     with: {duration: 5.0}
   - do: dongle.select
@@ -68,7 +76,7 @@ tests:
       - do: dongle.sample_command
         with:
           request: RD BATTERY-LOADED
-          pattern: '= (\d+)mV'
+          pattern: '= (\d+) ?mV'
           count: 1
           unit: mV
           timeout: 45.0
@@ -78,10 +86,11 @@ tests:
       - do: dongle.command
         with: {request: "ECURESET HARD", timeout: 45.0}
         expect:
-          - {name: reset_acknowledged, measure: text, equals: "ACK ECURESET HARD"}
+          - {name: reset_acknowledged, measure: text, equals: "ACK ECURESET HARD", ignore_case: true}
       - do: dongle.close_link
-      - do: s2lp.kepler_frame
+      - do: s2lp.dut_frame
         with:
+          decoder: kepler
           frame_type: VERSION
           source: {param: sensor_id}
           timeout: {param: frame_timeout_s}
@@ -92,9 +101,11 @@ tests:
           - name: version_as_rd_version
             measure: version
             equals: {from: ble_version.value}
+            ignore_case: true   # V11.02 upper-cases the reply; the frame keeps git's g (#314)
           - name: sha_as_start_of_rd_sha
             measure: sha
             equals: {from: ble_sha.value, format: "{:.7}"}
+            ignore_case: true
           - name: battery_loaded_as_rd_battery_loaded
             measure: battery_loaded_mv
             unit: mV

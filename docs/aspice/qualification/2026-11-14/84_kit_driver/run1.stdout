@@ -1,0 +1,62 @@
+{
+  "port": "COM4",
+  "seconds": 300.0,
+  "kit_firmware": true,
+  "identity": "STMicroelectronics,S2-LP DK,S2-LP 0xC1,etb-s2lp-kit V1.00.0000,protocol 1",
+  "registers_written": 94,
+  "registers_differing": [],
+  "st_call": "refused: S2LPRadioGetFrequencyBase needs ST's CLI firmware; this kit runs etb-s2lp-kit V1.00.0000, which provides registers, strobes, shutdown and receiving only",
+  "timed_stream": {
+    "packets": 115,
+    "frames": 24,
+    "rejections": 91,
+    "lost_before_total": 0,
+    "seq_first_last": [
+      0,
+      114
+    ],
+    "decode_errors": 0,
+    "pqi_min_max": [
+      20,
+      63
+    ],
+    "with_registers": 24,
+    "frame_types": {
+      "TWF": 21,
+      "ALIVE": 3
+    },
+    "sensors": [
+      "5BD456",
+      "5C1712"
+    ],
+    "kit_counters": {
+      "frames": 24,
+      "rejects": 91,
+      "overflows": 0,
+      "deaf_max_us": 390
+    }
+  },
+  "counted_stream": {
+    "packets": 3,
+    "frames": 0,
+    "rejections": 3,
+    "lost_before_total": 0,
+    "seq_first_last": [
+      0,
+      2
+    ],
+    "decode_errors": 0,
+    "pqi_min_max": [],
+    "with_registers": 0,
+    "frame_types": {},
+    "sensors": [],
+    "kit_counters": {
+      "frames": 0,
+      "rejects": 3,
+      "overflows": 0,
+      "deaf_max_us": 46
+    },
+    "set_aside": 0
+  },
+  "QI_after": 1
+}

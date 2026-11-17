@@ -1,0 +1,12 @@
+frames 131, decoded 131, undecoded 0
+PQI min 24 max 66; SQI min 32 max 96
+  5BD456   ALIVE     6
+  5C168B   CMD       18
+  5C1705   CMD       18
+  5C1712   ALIVE     3
+  5C1712   TWF       57
+  5C1805   CMD       18
+  5C314E   ALIVE     3
+  5C4EE7   RESPONSE  8
+transmissions 85: all copies 77, missing copies 0
+copy spacing ms: min 41.0, max 240.1, n 46

@@ -25,8 +25,12 @@
 # Against hardware (5C1712 is the sensor approved for configuration changes):
 #   python -m benchtools run specs/kepler_temperature.yaml --bench benches/lab1.yaml
 #
-# On the simulated bench the sensor answers over BLE and RTT (#121) but does
-# not yet transmit (#122), so the S2-LP steps need hardware.
+# On the simulated bench a simulated 5C1712 answers over BLE and RTT and
+# transmits its frames to the simulated S2-LP kit (#121, #122):
+#   python -m benchtools run specs/kepler_temperature.yaml --bench benches/simulated_bench.yaml
+# The report says the run was simulated (AD-10). A simulated pass shows that
+# the specification and the bench agree with a model of the sensor, not that
+# the sensor works.
 
 name: Kepler temperature
 description: >
@@ -46,6 +50,10 @@ parameters:
   mcu_vs_machine_c: 5.0                 # every MCU reading from the BLE mean
   alive_vs_ble_c: 0.5                   # every ALIVE reading from the BLE mean
 
+# The Kepler decoder and register file come from its plugin (#238).
+plugins:
+  - ../plugins/kepler
+
 instruments:
   dongle: ble-dongle
   s2lp: s2lp
@@ -53,7 +61,7 @@ instruments:
 
 setup:
   - do: s2lp.apply_configuration
-    with: {source: configs/s2lp_kepler_433_rx.regs, reset: defaults}
+    with: {source: plugin:kepler/s2lp_kepler_433_rx.regs, reset: defaults}
   - do: rtt.rtt_start
   - do: dongle.scan
     with: {duration: 5.0}
@@ -67,7 +75,9 @@ setup:
     expect:
       - name: alive_period_set
         measure: text
-        equals: {param: alive_period_s, format: "ACK WR ALIVE-PERIOD {} Secs"}
+        matches: {param: alive_period_s, format: "ACK WR ALIVE-PERIOD {} Secs?"}
+        reason: "V11.00 answers ACK WR ALIVE-PERIOD 10 Secs, V11.02 ACK wr alive-period 10 Sec (#314)"
+        ignore_case: true
 
 tests:
   - name: The machine temperature read over BLE is steady
@@ -76,7 +86,7 @@ tests:
       - do: dongle.sample_command
         with:
           request: RD TEMPERATURE
-          pattern: '= (-?\d+)mC'
+          pattern: '= (-?\d+) ?mC'
           count: {param: readings}
           interval: {param: interval_s}
           scale: 0.001
@@ -114,8 +124,9 @@ tests:
   - name: The ALIVE frame carries the temperature read over BLE
     requirement: S2LP-FR-072
     steps:
-      - do: s2lp.kepler_samples
+      - do: s2lp.dut_samples
         with:
+          decoder: kepler
           field: temperature_c
           source: {param: sensor_id}
           frame_type: ALIVE

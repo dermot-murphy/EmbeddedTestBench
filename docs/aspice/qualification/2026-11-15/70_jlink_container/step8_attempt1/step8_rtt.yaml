@@ -1,0 +1,16 @@
+name: RTT from a container without stopping the sensor (#70 step 8)
+description: The rtt alias reads RTT through a host GDB Server started with -nohalt.
+instruments:
+  rtt: jlink-rtt
+setup:
+  - do: rtt.rtt_start
+    with: {log_path: /out/step8_rtt.log}
+teardown:
+  - do: rtt.rtt_stop
+tests:
+  - name: RTT lines arrive
+    steps:
+      - do: rtt.rtt_lines_within
+        with: {timeout: 30.0}
+        expect:
+          - {name: lines, measure: value, min: 1}

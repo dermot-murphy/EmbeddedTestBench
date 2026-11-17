@@ -72,7 +72,7 @@ class ReadCancelled(TransportTimeoutError):
 
 
 
-class S2lpSession:
+class S2lpSession:  # pylint: disable=too-many-instance-attributes
     """Commands in, replies out, everything logged.
 
     :param transport: The link to the board, usually its USB serial port.
@@ -91,6 +91,13 @@ class S2lpSession:
         #: rather than dropped, because a line nobody expected is evidence. The
         #: session log keeps all of them; this keeps the latest.
         self.unclaimed: Deque[str] = deque(maxlen=UNCLAIMED_LIMIT)
+        #: Commands sent since the session was made. The stop character is not
+        #: a command. Lets a caller tell whether anything was asked of the
+        #: board since a given moment (#293).
+        self.commands_sent = 0
+        #: Whether the last :meth:`stop` was acknowledged with ``StopCmd``, so a
+        #: loop really was running and has ended (#299).
+        self.last_stop_acknowledged = False
 
     # ------------------------------------------------------------------
     @property
@@ -158,12 +165,50 @@ class S2lpSession:
         self._log.write("%.6f %s %s\n" % (time.time(), direction, text))
         self._log.flush()
 
+    def adopt_log(self, previous: "S2lpSession") -> None:
+        """Take over *previous*'s open log, so one file covers both sessions.
+
+        Used when the driver finds the board runs the ETB kit firmware and
+        changes session (#84): the log the caller asked for carries on.
+        """
+        self.stop_log()
+        self._log, self._log_path = previous.hand_over_log()
+
+    def hand_over_log(self):
+        """The open log file and its path, which this session stops writing to."""
+        handed = self._log, self._log_path
+        self._log, self._log_path = None, None
+        return handed
+
+    # ------------------------------------------------------------------
+    # Lines
+    # ------------------------------------------------------------------
+    def write_line(self, line: str) -> None:
+        """Send one line as it is, logged and counted as a command.
+
+        The transport's receive buffer is kept: a line already on its way from
+        the board is not dropped by a write (#84).
+        """
+        self.commands_sent += 1
+        self._logger.debug(">> %s", line)
+        self._write_log(">", line)
+        self._transport.write(line.encode("ascii"), keep_buffer=True)
+
+    def read_line(self) -> Optional[str]:
+        """One line from the board, or ``None`` if none completed in :data:`READ_POLL`."""
+        return self._read_line()
+
+    def drain(self) -> None:
+        """Discard whatever the board is saying, until it says nothing."""
+        self._drain()
+
     # ------------------------------------------------------------------
     # Commands
     # ------------------------------------------------------------------
     def send(self, name: str, *arguments) -> str:
         """Format and send one command, without waiting for its reply."""
         line = format_command(name, *arguments)
+        self.commands_sent += 1
         self._logger.debug(">> %s", line)
         self._write_log(">", line)
         self._transport.write(line.encode("ascii"))
@@ -300,6 +345,7 @@ class S2lpSession:
         :returns: Replies that arrived before the acknowledgement - a packet
             that landed while the stop was on its way is still a packet.
         """
+        self.last_stop_acknowledged = False
         self._logger.debug(">> (stop)")
         self._write_log(">", "(stop)")
         self._transport.write(STOP_CHARACTER, append_terminator=False, keep_buffer=True)
@@ -315,6 +361,7 @@ class S2lpSession:
             except TransportTimeoutError:
                 break
             if reply.command == STOP_ACK:
+                self.last_stop_acknowledged = True
                 return arrived
             arrived.append(reply)
 

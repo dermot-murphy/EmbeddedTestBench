@@ -9,7 +9,8 @@ Three things matter on a real kit, and each was found on one:
 
 * **The radio's interrupt has to be routed first.** ST's send and receive
   commands wait for an interrupt that, out of reset, reaches nothing.
-  :meth:`TrafficMixin.prepare_traffic` routes it, once per session.
+  :meth:`TrafficMixin.prepare_traffic` routes it, once per session, and again
+  after anything that puts the registers back at their defaults (#179).
 * **The packet handler has to be set up.** Out of reset the radio's TX source
   is a PN9 test pattern, so a send transmits that indefinitely and never the
   payload. A send is refused until TXSOURCE is the FIFO.
@@ -18,7 +19,7 @@ Three things matter on a real kit, and each was found on one:
 * **Nothing the firmware starts ends by itself.** A receive waits for as long
   as it takes, so every wait here is the host's, and ends with a stop.
 
-Traces to: S2LP-FR-040 .. S2LP-FR-046, S2LP-DD-TRAFFIC.
+Traces to: S2LP-FR-040 .. S2LP-FR-046, S2LP-FR-088, CORE-FR-067, S2LP-DD-TRAFFIC.
 """
 
 from __future__ import annotations
@@ -26,7 +27,9 @@ from __future__ import annotations
 import time
 from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Union
 
+from ...analysis import frames as fr
 from ...analysis.samples import SampleSet
+from ...core import plugins
 from ...core.errors import (
     ConfigurationError,
     InstrumentError,
@@ -35,12 +38,24 @@ from ...core.errors import (
 )
 from .constants import MAX_PAYLOAD, Strobe
 from . import registers as reg
-from .kepler import decode_kepler_frame
 from .packets import Capture, Packet, packet_from_reply, rssi_dbm_from_register
 from .preamble import PreambleMeasurement, check_preamble
+from .kit_firmware import MAX_REGISTERS as KIT_MAX_REGISTERS, KitSession
 from .session import STOP_ACK
 
-__all__ = ["TrafficMixin", "IRQ_GPIO", "TRAFFIC_IRQS", "FRAME_REGISTERS", "ANY_LENGTH"]
+__all__ = ["TrafficMixin", "IRQ_GPIO", "TRAFFIC_IRQS", "FRAME_REGISTERS", "ANY_LENGTH",
+           "DecoderChoice"]
+
+#: A frame decoder, or the name of one a loaded plugin provides (#238), or
+#: None for the only one loaded.
+DecoderChoice = Union[None, str, Callable[[bytes], Dict[str, Any]]]
+
+
+def _decoder(choice: DecoderChoice) -> Callable[[bytes], Dict[str, Any]]:
+    """The decoder *choice* names: itself if callable, else a plugin's."""
+    if callable(choice):
+        return choice
+    return plugins.decoder(choice)
 
 #: Registers a stream reads after each frame by default: AFC correction, PQI,
 #: carrier sense with SQI, and the RSSI level. They are read in one command.
@@ -85,12 +100,33 @@ TX_SOURCE_FIFO = 0
 #: thresholds they need they enable themselves.
 TRAFFIC_IRQS = 0x00000001 | 0x00000002 | 0x00000004 | 0x00000010 | 0x00002000 | 0x10000000
 
+#: The interrupts among :data:`TRAFFIC_IRQS` that a host stop with nothing in
+#: progress leaves pending: IRQ_STATUS read 0x09605002 after 300 of 300 such
+#: stops on the bench kit (#299). Anything more - 0x09607003 after a stop
+#: part-way through a reception (#99) - and the line is checked as well.
+CLEAN_STOP_IRQS = 0x09605002 & TRAFFIC_IRQS
+
 
 class TrafficMixin:
     """Transmit, receive and capture. See the module docstring."""
 
     _traffic_ready = False
     _receive_ready = False
+    #: The frames reported while the board was stopping, after the caller of
+    #: the last batch stream had what it wanted (#293). Logged, not yielded;
+    #: ``dut_frame(since_last=True)`` offers them first, but only while no
+    #: command has been sent to the board since: see :meth:`_take_set_aside`.
+    #: Replaced, never changed in place, so the class's empty list is never
+    #: shared.
+    _set_aside: List[Packet] = []
+    #: The session's command count when :attr:`_set_aside` was filled.
+    _set_aside_at = -1
+    #: Whether ``S2LPGetNBytesReportAll`` is on in the firmware. It stays on
+    #: until the board's MCU resets, so it is sent once (#299).
+    _report_all_on = False
+    #: The session's command count straight after the host's own,
+    #: acknowledged stop of a batch receive; -1 when there is none (#299).
+    _own_stop_at = -1
 
     def prepare_traffic(self, gpio: int = IRQ_GPIO) -> None:
         """Route the radio's interrupt to the board, so traffic can complete.
@@ -102,8 +138,9 @@ class TrafficMixin:
         pin, which must be high: nIRQ is active low, and a line that reads low
         here is not connected, or is already asserted, and would never deliver
         the edge the firmware waits for. It writes the GPIO and IRQ_MASK
-        registers, so it runs once per session, on the first send or receive,
-        not on connecting.
+        registers, so it runs on the first send or receive, not on
+        connecting, and again on the first one after the registers are put
+        back at their defaults, which undo it (#179).
 
         :raises InstrumentError: if the line does not read high at the board.
         """
@@ -150,6 +187,24 @@ class TrafficMixin:
                 "handler first (configure_packets, or a register file)." % source
             )
 
+    def _forget_traffic_setup(self) -> None:
+        """Mark the interrupt routing and the receive setup as gone.
+
+        Called by whatever puts the radio's registers back at their defaults
+        (:meth:`restore_defaults`, :meth:`power_cycle`). The defaults undo
+        everything :meth:`prepare_traffic` and :meth:`prepare_receive` wrote:
+        GPIO3_CONF goes back to 0xA2, a digital output driving GND, so the
+        line reads 0 whatever IRQ_STATUS holds; IRQ_MASK goes back to 0; and
+        TIMERS5 back to 1, a finite RX timer. Without this, the next send or
+        receive trusts a routing that is no longer there and is refused (#179).
+        The packet length is forgotten too: PCKTLEN goes back with the rest,
+        and a send that trusted the old length would leave the radio waiting
+        in TX for bytes that never come.
+        """
+        self._traffic_ready = False
+        self._receive_ready = False
+        self._payload_length = 0
+
     def _ready_for_traffic(self) -> None:
         if not self._traffic_ready:
             self.prepare_traffic()
@@ -163,7 +218,8 @@ class TrafficMixin:
         timeout infinite (``S2LPTimerSetRxTimeoutUs 0``, which ST's firmware
         implements as ``SET_INFINITE_RX_TIMEOUT``) and turns the low-power
         receive off (``S2LPGetBatchLP 0``). Out of reset TIMERS5 is 1, a finite
-        RX timer. Done once per session, on the first receive.
+        RX timer. Done on the first receive, and again on the first one after
+        the registers are put back at their defaults (#179).
         """
         self._ready_for_traffic()
         self._session.execute("S2LPTimerSetRxTimeoutUs", 0)
@@ -171,10 +227,50 @@ class TrafficMixin:
         self._receive_ready = True
 
     def _ready_for_receive(self) -> None:
+        """Make the radio ready to receive, as quickly as is safe.
+
+        Straight after the host's own acknowledged stop of a batch stream,
+        with no command sent since, IRQ_STATUS is read, which clears the
+        interrupts the stop left pending (#99), and the interrupt line is
+        checked only if more is pending than a clean stop leaves
+        (:data:`CLEAN_STOP_IRQS`). The line is checked on every other path.
+        On the bench kit the line read high after 300 of 300 clean stops, and
+        the check cost about 7 ms of the time the radio is deaf between two
+        receives (#299).
+        """
         if not self._receive_ready:
             self.prepare_receive()
+        elif self._session.commands_sent == self._own_stop_at:
+            pending = self._session.execute("S2LPIrqGetStatus").hex_number("value")
+            if pending & TRAFFIC_IRQS & ~CLEAN_STOP_IRQS:
+                self._check_interrupt_line(IRQ_GPIO, "after clearing IRQ_STATUS")
         else:
             self.clear_interrupt()
+        self._own_stop_at = -1
+
+    def _forget_firmware_state(self) -> None:
+        """Forget what the board's firmware was left doing, on connecting.
+
+        Its MCU may have reset since the last connection, which turns
+        ReportAll off and ends any receive the host stopped (#299).
+        """
+        self._report_all_on = False
+        self._own_stop_at = -1
+
+    def _turn_report_all_on(self) -> None:
+        """Have the board re-arm before printing each report, once per connection.
+
+        The firmware keeps the setting until its MCU resets. On the NUCLEO
+        kit the serial port belongs to the ST-LINK, so a reset of the target
+        MCU alone (its reset button, a brown-out, a watchdog) does not close
+        the port: the driver does not see it, and until the next connection
+        it does not send ReportAll again. A caller that sends
+        ``S2LPGetNBytesReportAll 0`` through :attr:`session` is not seen
+        either (#299).
+        """
+        if not self._report_all_on:
+            self._session.execute("S2LPGetNBytesReportAll", 1)
+            self._report_all_on = True
 
     def transmit(self, data: Union[bytes, str], note: str = "",
                  timeout: Optional[float] = None) -> Packet:
@@ -322,7 +418,10 @@ class TrafficMixin:
               after every frame: on the bench, gaps under about 105 ms were
               missed.
         :param registers: Polled mode only: the registers to read after each
-            frame.
+            frame. On the ETB kit firmware (#84) both modes are the same: the
+            board re-arms the radio inside its interrupt and reads up to 8
+            registers after each frame (by default as polled mode does), so
+            registers may be asked for in either.
         :param count: Stop after this many receptions.
         :param timeout: Stop after this many seconds.
         :param until: Stop when this returns true; it is checked while waiting,
@@ -333,11 +432,21 @@ class TrafficMixin:
         if mode not in self.STREAM_MODES:
             raise ConfigurationError(
                 "%r is not a stream mode; they are %s" % (mode, ", ".join(self.STREAM_MODES)))
+        if isinstance(self._session, KitSession):
+            names = list(FRAME_REGISTERS if registers is None else registers)
+            if len(names) > KIT_MAX_REGISTERS:
+                raise ConfigurationError(
+                    "the kit firmware reads at most %d registers per frame, not %d"
+                    % (KIT_MAX_REGISTERS, len(names)))
+            self._set_aside = []
+            return self._stream_kit(self._session, decoder, count, timeout, until,
+                                    [reg.lookup(name) for name in names])
         if mode == "batch" and registers:
             raise ConfigurationError(
                 "registers cannot be read per frame while ST's receive loop runs; "
                 "use mode=\"polled\" for them, at the cost of missing close frames")
         self._ready_for_receive()
+        self._set_aside = []
         if mode == "batch":
             return self._stream_batch(decoder, count, timeout, until)
         return self._stream_polled(decoder, count, timeout, until,
@@ -350,7 +459,7 @@ class TrafficMixin:
     def _stream_batch(self, decoder, count, timeout, until) -> Iterator[Packet]:
         """ST's receive loop, reports read as they arrive."""
         started = time.monotonic()
-        self._session.execute("S2LPGetNBytesReportAll", 1)
+        self._turn_report_all_on()
         self._session.send("S2LPGetNBytesBatch", 0, int(count) if count else BATCH_FOREVER)
         running = True
         received = 0
@@ -373,14 +482,45 @@ class TrafficMixin:
                     return
             # Ended by the host: stop the board, and yield what arrived meanwhile.
             running = False
-            for packet in self._stop_and_collect(decoder):
-                yield self._record(packet)
+            leftover = self._stop_and_collect(decoder)
+            stopped_at = self._session.commands_sent
+            try:
+                while leftover:
+                    yield self._record(leftover.pop(0))
+            finally:
+                # The caller may stop at any one of them: the rest are set
+                # aside, not lost (#293). They date from the stop, so a
+                # command the caller sent while taking the others voids them.
+                self._put_aside(leftover, stopped_at)
         finally:
             if running:
                 # The caller stopped iterating. Stop the board; anything that
-                # arrived meanwhile still goes to the packet log.
-                for packet in self._stop_and_collect(decoder):
-                    self._record(packet)
+                # arrived meanwhile still goes to the packet log, and is set
+                # aside for dut_frame(since_last=True) (#293).
+                leftover = self._stop_and_collect(decoder)
+                self._put_aside(leftover, self._session.commands_sent)
+
+    def _put_aside(self, packets: List[Packet], stopped_at: int) -> None:
+        """Log *packets*, which the caller did not take, and set them aside.
+
+        *stopped_at* is the session's command count when the board stopped.
+        """
+        for packet in packets:
+            self._record(packet)
+        self._set_aside = list(packets)
+        self._set_aside_at = stopped_at
+
+    def _take_set_aside(self) -> List[Packet]:
+        """The frames set aside, if no command has gone to the board since; and empty it.
+
+        Any command - a send, a receive, a register write, a reset, the
+        identification on reconnecting - means the frames were heard before
+        something the caller did, so they are no longer the frames after the
+        last one returned.
+        """
+        fresh = self._session.commands_sent == self._set_aside_at
+        set_aside, self._set_aside = (self._set_aside if fresh else []), []
+        return set_aside
 
     def _next_batch_reply(self, started: float, timeout: Optional[float],
                           until: Optional[Callable[[], bool]]):
@@ -416,7 +556,9 @@ class TrafficMixin:
 
     def _stop_and_collect(self, decoder) -> List[Packet]:
         """Stop the board, and turn the reports that came with the stop into frames."""
-        frames = (self._frame_from(reply, decoder) for reply in self._session.stop())
+        frames = [self._frame_from(reply, decoder) for reply in self._session.stop()]
+        if self._session.last_stop_acknowledged:
+            self._own_stop_at = self._session.commands_sent
         return [packet for packet in frames if packet is not None]
 
     def _stream_polled(self, decoder, count, timeout, until, registers) -> Iterator[Packet]:
@@ -468,7 +610,7 @@ class TrafficMixin:
         source: Optional[str] = None,
         count: Optional[int] = None,
         timeout: float = 120.0,
-        decoder: Callable[[bytes], Dict[str, Any]] = decode_kepler_frame,
+        decoder: DecoderChoice = None,
     ) -> Dict[str, PreambleMeasurement]:
         """Measure transmitters' preamble lengths from PQI, per source.
 
@@ -477,11 +619,13 @@ class TrafficMixin:
 
         :param source: Only count frames from this source, e.g. ``"5C1712"``.
         :param count: Stop after this many frames from *source* (or from anyone).
+        :param decoder: A decoder a loaded plugin provides, by name, e.g.
+            ``"kepler"``; or None for the only one loaded.
         :returns: Source to its :class:`~.preamble.PreambleMeasurement`.
         """
         results: Dict[str, PreambleMeasurement] = {}
         frames = 0
-        for packet in self.stream(decoder=decoder, timeout=timeout, mode="polled",
+        for packet in self.stream(decoder=_decoder(decoder), timeout=timeout, mode="polled",
                                   registers=(PQI_REGISTER, "LINK_QUALIF1", "RSSI_LEVEL")):
             if not packet.ok:
                 continue
@@ -494,7 +638,7 @@ class TrafficMixin:
                 break
         return results
 
-    def kepler_samples(  # pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals
+    def dut_samples(  # pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals
         self,
         field: str,
         source: Optional[str] = None,
@@ -503,36 +647,54 @@ class TrafficMixin:
         timeout: float = 60.0,
         scale: float = 1.0,
         unit: str = "",
-        decoder: Callable[[bytes], Dict[str, Any]] = decode_kepler_frame,
+        decoder: DecoderChoice = None,
+        where: Optional[Dict[str, Any]] = None,
     ) -> SampleSet:
         """Take *field* from the next *count* frames *source* sends.
 
-        A Kepler sensor sends each frame several times, and each reading here
-        is one transmission, not one copy of it. The copies are told apart by
-        their repeat number, which the decoder reads from wherever the frame
-        type keeps it (byte 8, or byte 9 behind TWF's and CONFIG's permute
-        control byte). A copy starts a new transmission when its repeat number
-        is not higher than the last one's. The bytes cannot be compared
-        instead: 5C1712 clears ALIVE_STATUS's "SI updated" bit after the first
-        copy, so the copies of one ALIVE differ (#95). One case is counted as
+        The frames are decoded by *decoder*, a decoder a loaded plugin
+        provides, by name (#238); or by the only one loaded, if None. *field*
+        is a key of the decoded frame, or a field name the plugin defines.
+
+        A sensor may send each frame several times; each reading here is one
+        transmission, not one copy of it. The copies are told apart by the
+        repeat number the decoder gives as ``frame["repeat"]``. On Kepler it is
+        read from wherever the frame type keeps it (byte 8, or byte 9 behind
+        TWF's and CONFIG's permute control byte). A copy starts a new
+        transmission when its repeat number is not higher than the last one's.
+        The bytes cannot be compared instead: on V11.00.0000 and V11.01.0000,
+        ALIVE_STATUS's "SI updated"
+        bit is set in the first copy only, so the copies of one ALIVE differ
+        (#95). Kepler TX-1049 (V11.02.0000) sends the same bit in every copy
+        (#252), but the older firmware is still in use. One case is counted as
         one transmission when it was two: only an early copy of one heard, then
         only later copies of the next.
 
-        :param field: A key of the decoded frame, e.g. ``temperature_c``.
+        :param field: A key of the decoded frame, e.g. ``temperature_c``, or a
+            dotted path into it, e.g. ``status.phase`` (#243).
         :param source: Only frames from this sensor, e.g. ``"5C1712"``.
         :param frame_type: Only frames of this type, e.g. ``"ALIVE"``.
+        :param where: Only frames whose decode has these values, each named
+            by a dotted path: ``{mux: 3}``, ``{status.phase: [1, 2]}`` (a list
+            is any of them). Text matches ignoring case (#243).
+        :param decoder: The decoder, by name, e.g. ``"kepler"``.
         :param timeout: Seconds to wait for all *count*. Fewer is returned
             rather than raised, with ``count`` saying how many came.
         :param scale: Multiplies each value.
         :raises MeasurementError: if a matching frame has no *field*, which is
             a specification naming the wrong field rather than a result.
 
-        Traces to: S2LP-FR-072.
+        Each reading's time on the host's monotonic clock is kept in the
+        set's ``instants`` (#243).
+
+        Traces to: S2LP-FR-072, S2LP-FR-088, CORE-FR-067.
         """
+        key = plugins.REGISTRY.field(field)
+        where = fr.check_where(where)
         samples = SampleSet(name=field, unit=unit, requested=int(count))
         started = time.monotonic()
         last_repeat: Optional[int] = None
-        for packet in self.stream(decoder=decoder, timeout=timeout,
+        for packet in self.stream(decoder=_decoder(decoder), timeout=timeout,
                                   until=lambda: samples.count >= samples.requested):
             decoded = packet.decoded or {}
             if not packet.ok or not decoded:
@@ -541,69 +703,168 @@ class TrafficMixin:
                 continue
             if frame_type is not None and decoded.get("type") != frame_type:
                 continue
+            if not fr.matches(decoded, where):
+                continue
             repeat = (decoded.get("frame") or {}).get("repeat")
             same = repeat is not None and last_repeat is not None and repeat > last_repeat
             last_repeat = repeat
             if same:
                 continue
-            if field not in decoded:
+            value = fr.field_value(decoded, key)
+            if value is fr.MISSING:
                 raise MeasurementError(
                     "a %s frame from %s has no field %r; it has %s"
-                    % (decoded.get("type"), decoded.get("sensor_id"), field,
+                    % (decoded.get("type"), decoded.get("sensor_id"), key,
                        ", ".join(sorted(decoded))))
-            samples.add(float(decoded[field]) * float(scale),
+            samples.add(float(value) * float(scale),
                         source=bytes(packet.data).hex(" ").upper(),
-                        at=time.monotonic() - started)
+                        at=time.monotonic() - started, when=packet.monotonic_s)
             if samples.complete:
                 break
         return samples
 
-    def kepler_frame(
+    def dut_frame(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
         frame_type: str,
         source: Optional[str] = None,
         timeout: float = 60.0,
-        decoder: Callable[[bytes], Dict[str, Any]] = decode_kepler_frame,
+        decoder: DecoderChoice = None,
+        since_last: bool = False,
+        where: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """The decode of the next *frame_type* frame *source* sends, whole.
 
+        Decoded by *decoder*, as for :meth:`dut_samples` (#238).
+
         For a frame whose fields are compared with each other or with text -
         a VERSION frame's version string and SHA against ``RD VERSION`` and
-        ``RD SHA`` (#102) - where :meth:`kepler_samples`, which takes one
+        ``RD SHA`` (#102) - where :meth:`dut_samples`, which takes one
         number from each of several frames, does not fit. The first copy heard
         is returned; the copies of one transmission carry the same fields.
 
+        Each call starts its own receive and stops it on return, and frames
+        that arrive while the board stops are logged but not returned: the
+        next call starts after them. A frame close behind the one returned -
+        the next copy of the same packet, 31 to 229 ms later on 5C1712 - is
+        among them only if it arrives during the stop, which takes about 4 ms
+        (#293). *since_last* asks for those frames too.
+
         :param frame_type: The type, e.g. ``"VERSION"``.
         :param source: Only frames from this sensor, e.g. ``"5C1712"``.
-        :returns: The decoded fields, plus ``raw``: the payload in hex.
+        :param where: Only a frame whose decode has these values, as for
+            :meth:`dut_samples`: ``{mux: 3}`` picks CONFIG multiplex 3 (#243).
+        :param since_last: Look first at the frames that arrived while the
+            last receive was being stopped, after its caller had what it
+            wanted, so that consecutive calls get consecutive frames. They
+            are offered only if no command has gone to the S2-LP board since.
+            Only frames that arrive while the board stops are kept: a frame
+            that arrives after the stop and before this call's receive starts
+            is still missed. On the bench kit that gap was 11 to 12 ms for
+            back-to-back calls (#299, 2026-10-27; 26 to 27 ms before); anything the caller
+            does between two calls adds to it. Leave it off when the frame
+            must be sent after this call, such as one answering a command
+            sent to the sensor since the last call: a frame set aside was
+            sent before it.
+        :returns: The decoded fields, plus ``raw``: the payload in hex, and
+            ``monotonic_s``: when the host read it, on the clock the BLE
+            dongle's ``link_times`` use, for a ``compute`` step to time the
+            frame from a link event (#243).
         :raises MeasurementError: if no such frame arrives within *timeout*.
 
-        Traces to: S2LP-FR-073.
+        Traces to: S2LP-FR-073, S2LP-FR-085, S2LP-FR-088, CORE-FR-067.
         """
+        decoder = _decoder(decoder)
+        where = fr.check_where(where)
+        set_aside = self._take_set_aside()
+        if since_last:
+            for index, packet in enumerate(set_aside):
+                self._annotate(packet, [], decoder)
+                if self._is_frame(packet, frame_type, source, where):
+                    self._set_aside = set_aside[index + 1:]
+                    self._set_aside_at = self._session.commands_sent
+                    return self._whole_frame(packet)
         for packet in self.stream(decoder=decoder, timeout=timeout):
-            decoded = packet.decoded or {}
-            if not packet.ok or decoded.get("type") != frame_type:
-                continue
-            if source is not None and str(decoded.get("sensor_id")) != source:
-                continue
-            frame = dict(decoded)
-            frame["raw"] = bytes(packet.data).hex(" ").upper()
-            return frame
+            if self._is_frame(packet, frame_type, source, where):
+                return self._whole_frame(packet)
+        missed = "" if since_last else self._set_aside_note(set_aside, decoder, frame_type,
+                                                             source, where)
         raise MeasurementError(
-            "no %s frame%s in %g s"
-            % (frame_type, "" if source is None else " from %s" % source, timeout))
+            "no %s frame%s%s in %g s%s"
+            % (frame_type, "" if source is None else " from %s" % source,
+               "" if not where else " with %s" % ", ".join(
+                   "%s %s" % (path, value) for path, value in sorted(where.items())),
+               timeout, missed))
 
-    def check_preamble(self, expected_pairs: int, source: str, count: Optional[int] = None,
-                       timeout: float = 120.0, tolerance_pairs: int = 2) -> Dict[str, Any]:
+    @staticmethod
+    def _is_frame(packet: Packet, frame_type: str, source: Optional[str],
+                  where: Optional[Dict[str, Any]] = None) -> bool:
+        """Whether *packet* is a *frame_type* frame from *source* (any, if None) with *where*."""
+        decoded = packet.decoded or {}
+        if not packet.ok or decoded.get("type") != frame_type:
+            return False
+        if source is not None and str(decoded.get("sensor_id")) != source:
+            return False
+        return fr.matches(decoded, where)
+
+    @staticmethod
+    def _whole_frame(packet: Packet) -> Dict[str, Any]:
+        frame = dict(packet.decoded or {})
+        frame["raw"] = bytes(packet.data).hex(" ").upper()
+        frame["monotonic_s"] = packet.monotonic_s
+        return frame
+
+    def _set_aside_note(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+            self, set_aside: List[Packet], decoder, frame_type: str,
+            source: Optional[str], where: Optional[Dict[str, Any]] = None) -> str:
+        """Why a frame may have been missed: matching frames that were set aside."""
+        matching = 0
+        for packet in set_aside:
+            self._annotate(packet, [], decoder)
+            matching += self._is_frame(packet, frame_type, source, where)
+        if not matching:
+            return ""
+        one = matching == 1
+        return ("; %d such frame%s arrived while the last receive was stopping, and "
+                "%s logged but not offered: since_last takes %s"
+                % (matching, "" if one else "s", "was" if one else "were",
+                   "it" if one else "them"))
+
+    def check_preamble(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+            self, expected_pairs: int, source: str, count: Optional[int] = None,
+            timeout: float = 120.0, tolerance_pairs: int = 2,
+            decoder: DecoderChoice = None) -> Dict[str, Any]:
         """Measure *source*'s preamble and compare it with *expected_pairs*.
 
+        :param decoder: As for :meth:`measure_preamble`.
         :returns: The check as a dictionary: ``verdict`` (pass, fail or
             unmeasurable), ``passed``, ``max_pqi``, ``expected_pqi``,
             ``preamble_bits`` and the reason.
         """
-        measured = self.measure_preamble(source=source, count=count, timeout=timeout)
+        measured = self.measure_preamble(source=source, count=count, timeout=timeout,
+                                         decoder=decoder)
         measurement = measured.get(source, PreambleMeasurement(source))
         return check_preamble(measurement, expected_pairs, tolerance_pairs).as_dict()
+
+    def kepler_samples(self, field: str, **kwargs: Any) -> SampleSet:
+        """:meth:`dut_samples` with the ``kepler`` decoder.
+
+        Kept for one release so existing Kepler specifications keep running
+        (#238); write ``s2lp.dut_samples`` with ``decoder: kepler`` instead.
+        With no ``kepler`` plugin loaded, the checkout's is loaded, with a
+        warning (:func:`~benchtools.core.plugins.ensure_legacy_kepler`).
+        """
+        plugins.ensure_legacy_kepler("s2lp.kepler_samples")
+        kwargs.setdefault("decoder", "kepler")
+        return self.dut_samples(field, **kwargs)
+
+    def kepler_frame(self, frame_type: str, **kwargs: Any) -> Dict[str, Any]:
+        """:meth:`dut_frame` with the ``kepler`` decoder.
+
+        Kept for one release, as :meth:`kepler_samples` is.
+        """
+        plugins.ensure_legacy_kepler("s2lp.kepler_frame")
+        kwargs.setdefault("decoder", "kepler")
+        return self.dut_frame(frame_type, **kwargs)
 
     def _annotate(self, packet: Packet, addresses: List[int],
                   decoder: Optional[Callable[[bytes], Dict[str, Any]]]) -> None:
@@ -613,22 +874,29 @@ class TrafficMixin:
             values = self.read_registers(start, addresses[-1] - start + 1)
             for address in addresses:
                 packet.registers[reg.BY_ADDRESS[address].name] = values[address - start]
-            regs = packet.registers
-            if "RSSI_LEVEL" in regs:
-                packet.rssi_dbm = rssi_dbm_from_register(regs["RSSI_LEVEL"])
-            if "LINK_QUALIF2" in regs:
-                packet.extra["pqi"] = regs["LINK_QUALIF2"]
-            if "LINK_QUALIF1" in regs:
-                packet.extra["sqi"] = regs["LINK_QUALIF1"] & 0x7F
-                packet.extra["carrier_sense"] = regs["LINK_QUALIF1"] >> 7
-            if "AFC_CORR" in regs:
-                value = regs["AFC_CORR"]
-                packet.extra["afc_corr"] = value - 256 if value & 0x80 else value
+            self._interpret_registers(packet)
         if decoder is not None and packet.ok:
             try:
                 packet.decoded = decoder(packet.data)
             except Exception as exc:  # pylint: disable=broad-except
                 packet.decode_error = str(exc) or type(exc).__name__
+            else:
+                packet.decoder = plugins.REGISTRY.decoder_name(decoder)
+
+    @staticmethod
+    def _interpret_registers(packet: Packet) -> None:
+        """RSSI, PQI, SQI, carrier sense and AFC from the registers read after *packet*."""
+        regs = packet.registers
+        if "RSSI_LEVEL" in regs:
+            packet.rssi_dbm = rssi_dbm_from_register(regs["RSSI_LEVEL"])
+        if "LINK_QUALIF2" in regs:
+            packet.extra["pqi"] = regs["LINK_QUALIF2"]
+        if "LINK_QUALIF1" in regs:
+            packet.extra["sqi"] = regs["LINK_QUALIF1"] & 0x7F
+            packet.extra["carrier_sense"] = regs["LINK_QUALIF1"] >> 7
+        if "AFC_CORR" in regs:
+            value = regs["AFC_CORR"]
+            packet.extra["afc_corr"] = value - 256 if value & 0x80 else value
 
     def capture(
         self,
@@ -661,7 +929,7 @@ class TrafficMixin:
     def _capture_batch(self, capture: Capture, started: float, timeout: float) -> None:
         """Let ST's batch loop receive, and read its reports as they come."""
         self._ready_for_receive()
-        self._session.execute("S2LPGetNBytesReportAll", 1)
+        self._turn_report_all_on()
         self._session.send("S2LPGetNBytesBatch", 0, capture.requested)
         finished = False
         receptions = 0

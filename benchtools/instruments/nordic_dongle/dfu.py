@@ -138,6 +138,14 @@ class DfuResult:  # pylint: disable=too-many-instance-attributes
         ``HwVersionFailure``; empty otherwise.
     :param stage: Where it ended: ``init`` (the init packet, where version,
         hardware and signature are checked), ``firmware``, or ``done``.
+    :param att_mtu: The smallest effective ATT MTU of the transfer's links,
+        as the dongle reported it in ``+dfu state=ready``; None from a dongle
+        before protocol 1.8, which does not report it (#274).
+    :param piece_size: The smallest piece the dongle split a Packet write
+        into (``dfupkt`` reply ``piece=``); None before protocol 1.8.
+    :param links: One entry per image linked: ``image``, ``att_mtu`` and
+        ``piece_size``. The images of one package can reach two bootloaders,
+        the old one and the one it installed.
     """
 
     result: str = ""
@@ -151,6 +159,9 @@ class DfuResult:  # pylint: disable=too-many-instance-attributes
     seconds: float = 0.0
     target: str = ""
     retries: int = 0
+    att_mtu: Optional[int] = None
+    piece_size: Optional[int] = None
+    links: List[Dict[str, object]] = field(default_factory=list)
 
     @property
     def succeeded(self) -> bool:
@@ -164,7 +175,8 @@ class DfuResult:  # pylint: disable=too-many-instance-attributes
             "extended_error": self.extended_error, "extended_code": self.extended_code,
             "stage": self.stage, "image": self.image, "images": list(self.images),
             "bytes_sent": self.bytes_sent, "seconds": self.seconds, "target": self.target,
-            "retries": self.retries,
+            "retries": self.retries, "att_mtu": self.att_mtu,
+            "piece_size": self.piece_size, "links": [dict(link) for link in self.links],
         }
 
 

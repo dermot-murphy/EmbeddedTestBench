@@ -16,15 +16,17 @@ It is not a SCPI instrument, so it implements
 :class:`~benchtools.core.instrument.Instrument` directly - the same seam the
 J-Link probe uses.
 
-Traces to: BLE-FR-001 .. BLE-FR-062, BLE-ARC-001, BLE-DD-DONGLE, BLE-DD-FIRMWARE.
+Traces to: BLE-FR-001 .. BLE-FR-062, BLE-FR-122, BLE-ARC-001, BLE-DD-DONGLE, BLE-DD-FIRMWARE.
 """
 
 from __future__ import annotations
 
 import logging
+import math
+import re
 import time
 from dataclasses import dataclass
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from ...analysis.samples import NUMBER, SampleSet, extract_number
 from ...core.events import log_event
@@ -166,6 +168,76 @@ class Sensor:  # pylint: disable=too-many-instance-attributes
         )
 
 
+def _sleep_until(due: float) -> None:
+    """Sleep until ``perf_counter`` reaches *due*, however early a sleep returns."""
+    wait = due - time.perf_counter()
+    while wait > 0:
+        time.sleep(wait)
+        wait = due - time.perf_counter()
+
+
+def _poll_slots(interval: float, duration: float) -> int:
+    """How many polls ``poll_states`` makes: at 0, *interval*, ... up to *duration*."""
+    try:
+        interval, duration = float(interval), float(duration)
+    except (TypeError, ValueError) as exc:
+        raise ConfigurationError("poll_states: interval and duration are seconds") from exc
+    if not math.isfinite(interval) or interval <= 0.0:
+        raise ConfigurationError("poll_states: interval must be a positive number of "
+                                 "seconds, not %r" % interval)
+    if not math.isfinite(duration) or duration < 0.0:
+        raise ConfigurationError("poll_states: duration must be a finite number of seconds, "
+                                 "0 or more, not %r" % duration)
+    return int(duration / interval + 1e-9) + 1
+
+
+def _state_pattern(pattern: Optional[str]) -> Optional["re.Pattern[str]"]:
+    """``poll_states``'s *pattern*, compiled, or None for the whole reply."""
+    try:
+        return re.compile(pattern) if pattern else None
+    except re.error as exc:
+        raise ConfigurationError("poll_states: pattern %r is not a regular expression: %s"
+                                 % (pattern, exc)) from exc
+
+
+def _next_slot(slot: int, slots: int, elapsed: float, interval: float) -> int:
+    """The next poll after *slot*: the first whose time has not passed already.
+
+    A slot due exactly now is still due; one due any earlier is skipped.
+    """
+    first_still_due = math.ceil(elapsed / interval - 1e-9)
+    return max(slot + 1, min(first_still_due, slots))
+
+
+def _state_of(text: str, pattern: Optional["re.Pattern[str]"]) -> Optional[str]:
+    """The state a reply gives: *pattern*'s first group, or the whole reply.
+
+    None when the pattern does not match, or its group took no part in the match.
+    """
+    text = text.strip()
+    if pattern is None:
+        return text
+    match = pattern.search(text)
+    if match is None:
+        return None
+    found = match.group(1) if pattern.groups else match.group(0)
+    return None if found is None else found.strip()
+
+
+def _optional_integer(text: Optional[str]) -> Optional[int]:
+    """A reply or event field as an integer; None when absent or not a number."""
+    try:
+        return int(text) if text else None
+    except ValueError:
+        return None
+
+
+def _smallest(values: Any) -> Optional[int]:
+    """The smallest of *values* that is not None; None when there is none."""
+    present = [value for value in values if value is not None]
+    return min(present) if present else None
+
+
 class NordicDongle(Instrument):
     """A Nordic nRF52840 dongle running the BenchTools bench firmware.
 
@@ -196,6 +268,9 @@ class NordicDongle(Instrument):
         self._selected: Optional[Sensor] = None
         self._connected = False
         self._connection_interval_us = 0
+        #: When the last link became ready, on the clock the S2-LP driver
+        #: stamps its packets with (#243).
+        self._link_opened_s: Optional[float] = None
         self._firmware_protocol = ""
         self._firmware_version = ""
         self._firmware_built = ""
@@ -1038,6 +1113,7 @@ class NordicDongle(Instrument):
                 "neither a link nor a failure." % (sensor.address, timeout)
             ) from exc
         self._connected = True
+        self._link_opened_s = ready.monotonic_s
         # The connection interval comes from the event, not from a later query:
         # it is the floor under every latency measured on this link, and a
         # latency reported without it cannot be read correctly.
@@ -1112,6 +1188,11 @@ class NordicDongle(Instrument):
             service, or stops answering, or an object is still lost after
             every retry.
 
+        The result also says what the links allowed: ``att_mtu`` and
+        ``piece_size``, the smallest the dongle reported, and per image in
+        ``links``. A dongle before protocol 1.8 reports neither, and both are
+        None (#274).
+
         Traces to: BLE-FR-121.
         """
         images = load_package(package)
@@ -1126,9 +1207,20 @@ class NordicDongle(Instrument):
         def control(request: bytes, wait: float) -> bytes:
             return self._dfu_control(request, min(wait, remaining()))
 
+        links: List[Dict[str, object]] = []
+
         def packet(data: bytes) -> None:
             remaining()
-            self._session.execute("dfupkt", data.hex())
+            reply = self._session.execute("dfupkt", data.hex())
+            piece = _optional_integer(reply.fields.get("piece"))
+            if not links or piece is None:
+                return
+            # The write's own ATT MTU and piece, kept together: the MTU
+            # exchange can end after +dfu state=ready reported 23.
+            link = links[-1]
+            if link["piece_size"] is None or piece < link["piece_size"]:  # type: ignore[operator]
+                link["piece_size"] = piece
+                link["att_mtu"] = _optional_integer(reply.fields.get("att_mtu")) or piece + 3
 
         def receipts() -> List[bytes]:
             # Only what was read with a reply: a poll after every Packet write
@@ -1150,23 +1242,42 @@ class NordicDongle(Instrument):
 
             def attempt() -> None:
                 remaining()
-                self._open_dfu_link(sensor, connect_timeout)
+                ready = self._open_dfu_link(sensor, connect_timeout)
+                links.append({"image": image.kind,
+                              "att_mtu": _optional_integer(ready.fields.get("att_mtu")),
+                              "piece_size": None})
 
             self._retry_not_established(sensor, connect_attempts, attempt)
 
-        def disconnect(image: DfuImage, index: int) -> None:  # pylint: disable=unused-argument
+        def disconnect(image: DfuImage, index: int) -> None:
             self._disconnect()
             self._connected = False
+            # After the image, so the note gives what its writes used.
+            link = links[-1]
+            if link["att_mtu"] is None:
+                allowed = "not reported (dongle protocol %s)" % (
+                    self._firmware_protocol or "unknown")
+            elif link["piece_size"] is None:
+                allowed = "%s, no Packet write" % link["att_mtu"]
+            else:
+                allowed = "%s, %s-byte pieces" % (link["att_mtu"], link["piece_size"])
+            self._session.note("DFU image %d of %d (%s): ATT MTU %s"
+                               % (index + 1, len(images), image.kind, allowed))
 
         dfu = SecureDfu(control=control, packet=packet, chunk=chunk,
                         receipts=receipts, retries=retries, on_retry=on_retry,
                         prn=prn, create_pause=create_pause)
         result = run_images(dfu, images, connect, disconnect)
         result.target = "; ".join(found)
-        log_event(self._logger, "ble_dfu", "DFU of %s to %s: %s%s, %d bytes in %.1f s"
+        result.links = links
+        result.att_mtu = _smallest(link["att_mtu"] for link in links)
+        result.piece_size = _smallest(link["piece_size"] for link in links)
+        log_event(self._logger, "ble_dfu", "DFU of %s to %s: %s%s, %d bytes in %.1f s%s"
                   % (package, result.target, result.result,
                      " (%s)" % result.extended_error if result.extended_error else "",
-                     result.bytes_sent, result.seconds),
+                     result.bytes_sent, result.seconds,
+                     ", ATT MTU %d, %d-byte pieces" % (result.att_mtu, result.piece_size)
+                     if result.att_mtu is not None and result.piece_size is not None else ""),
                   result.as_dict(),
                   level=logging.INFO if result.succeeded else logging.WARNING)
         return result
@@ -1194,8 +1305,12 @@ class NordicDongle(Instrument):
         self.select(chosen)
         return chosen
 
-    def _open_dfu_link(self, sensor: Sensor, connect_timeout: float) -> None:
-        """Connect to a bootloader and wait for its DFU service."""
+    def _open_dfu_link(self, sensor: Sensor, connect_timeout: float) -> Event:
+        """Connect to a bootloader and wait for its DFU service.
+
+        :returns: The ``+dfu state=ready`` event; from protocol 1.8 it
+            carries the link's ``att_mtu`` (#274).
+        """
         started_us = self._start_connect(connect_timeout)
         deadline = time.monotonic() + connect_timeout + SERVICE_DISCOVERY_TIMEOUT
         try:
@@ -1211,7 +1326,7 @@ class NordicDongle(Instrument):
                 if event.name == "dfu":
                     if event.get("state") == "ready":
                         self._connected = True
-                        return
+                        return event
                     raise DfuError("linked to %s but its DFU service is %s"
                                    % (sensor.address, event.get("state")))
         except BenchToolsError:
@@ -1269,6 +1384,32 @@ class NordicDongle(Instrument):
             except BenchToolsError:
                 self._logger.warning("no '+disc' followed an accepted disconnect")
         return reply
+
+    def link_times(self) -> Dict[str, Optional[float]]:
+        """When the last link became ready, and when it ended, in seconds.
+
+        ``opened_s`` is the arrival of the dongle's ``+conn state=ready``;
+        ``closed_s`` that of the latest ``+disc`` since - the host's close,
+        a drop, or a sensor reset a command caused - or None while the link
+        is open. Both are on :func:`time.perf_counter`, the clock the S2-LP
+        driver stamps each packet with as ``monotonic_s``, so a ``compute``
+        step can time a frame from a link event within one run (#243). None
+        for a link that has not happened.
+
+        The dongle's lines are read first, so a ``+disc`` already sent is
+        counted. Each event is stamped when the host reads it: one that waited
+        in the port's buffer is stamped late by that wait, which a ``+disc``
+        read only here does. Read ``link_times`` straight after the link
+        event, or take the dongle's own ``t=`` for the exact time.
+
+        Traces to: BLE-FR-123.
+        """
+        self._session.poll()
+        closed = self._session.last_disconnect_s
+        opened = self._link_opened_s
+        if opened is None or closed is None or closed < opened:
+            closed = None
+        return {"opened_s": opened, "closed_s": closed}
 
     @property
     def is_linked(self) -> bool:
@@ -1458,6 +1599,79 @@ class NordicDongle(Instrument):
                     % (index + 1, count, request, text, pattern))
             samples.add(value * float(scale), source=text, at=time.perf_counter() - started)
         return samples
+
+    def poll_states(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+        self,
+        request: str,
+        interval: float = 1.0,
+        duration: float = 10.0,
+        pattern: Optional[str] = None,
+        timeout: float = DEFAULT_COMMAND_TIMEOUT,
+    ) -> Dict[str, Any]:
+        """Send *request* every *interval* seconds for *duration*, and keep the
+        states its replies go through, in order.
+
+        For a sensor that moves through phases on its own - ``RD PHASE`` going
+        DETECT, then IGNORE, then DETECT again - where each reply is a state
+        and the test is the order they come in (#242). A state is kept when it
+        differs from the one before, so ``sequence`` reads
+        ``"DETECT,IGNORE,DETECT"`` however many polls each lasted.
+
+        The polls are due at 0, *interval*, 2 x *interval* ... up to and
+        including *duration*, counted before the first is sent, so the last one
+        is not lost to rounding. A poll whose time has passed while an earlier
+        reply was slow is skipped rather than sent late: the next is the first
+        still due, so the states keep their spacing. A command that fails is
+        counted in ``failed`` and the states seen so far are kept.
+
+        :param pattern: Regular expression whose first group is the state; the
+            whole stripped reply if None. A reply it does not match is counted
+            in ``unmatched`` and changes nothing.
+        :param interval: Seconds from the start of one command to the start of
+            the next.
+        :returns: ``states`` (each distinct state in order), ``times`` (seconds
+            from the first command to the reply that first showed it),
+            ``sequence`` (``states`` joined by commas, for a text limit),
+            ``count`` (how many states), ``polls`` (commands sent),
+            ``skipped``, ``unmatched`` and ``failed``.
+        :raises ConfigurationError: for a *pattern* that is not a regular
+            expression, an *interval* that is not a positive finite number, or a
+            *duration* that is not a finite number of seconds, 0 or more.
+
+        Traces to: BLE-FR-122.
+        """
+        slots = _poll_slots(interval, duration)
+        compiled = _state_pattern(pattern)
+        states: List[str] = []
+        times: List[float] = []
+        counts = {"polls": 0, "skipped": 0, "unmatched": 0, "failed": 0}
+        started = time.perf_counter()
+        slot = 0
+        while slot < slots:
+            _sleep_until(started + slot * float(interval))
+            state = self._poll_once(request, timeout, compiled, counts)
+            if state is not None and (not states or states[-1] != state):
+                states.append(state)
+                times.append(round(time.perf_counter() - started, 3))
+            following = _next_slot(slot, slots, time.perf_counter() - started, float(interval))
+            counts["skipped"] += following - slot - 1
+            slot = following
+        return dict({"states": states, "times": times, "sequence": ",".join(states),
+                     "count": len(states)}, **counts)
+
+    def _poll_once(self, request: str, timeout: float, pattern, counts: Dict[str, int]
+                   ) -> Optional[str]:
+        """One ``poll_states`` command: its state, or None, counted in *counts*."""
+        try:
+            state = _state_of(self.command(request, timeout=timeout).text, pattern)
+        except InstrumentError as exc:
+            self._logger.warning("poll_states: %r failed: %s", request, exc)
+            counts["failed"] += 1
+            return None
+        counts["polls"] += 1
+        if state is None:
+            counts["unmatched"] += 1
+        return state
 
     @input_paths("source")
     def run_script(  # pylint: disable=too-many-arguments,too-many-positional-arguments

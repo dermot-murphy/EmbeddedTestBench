@@ -2,9 +2,10 @@
 
 ``benchtools jlink --help``. Results are printed as JSON so the tool composes
 into a larger harness, and ``--resource sim://`` runs every sub-command with no
-hardware.
+hardware. ``--backend segger`` drives the probe with SEGGER's own tools
+instead of GDB (#71); the sub-commands that need GDB then fail, saying so.
 
-Traces to: JLINK-FR-100, JLINK-DD-CLI.
+Traces to: JLINK-FR-007, JLINK-FR-100, JLINK-DD-CLI.
 """
 
 from __future__ import annotations
@@ -19,7 +20,7 @@ from typing import Optional, Sequence
 from ... import __version__
 from ...core.errors import BenchToolsError
 from .constants import DebugInterface, TimingMethod
-from .probe import JLinkProbe
+from .probe import BACKENDS, JLinkProbe
 
 __all__ = ["main", "build_parser"]
 
@@ -54,8 +55,12 @@ def _range(text: str) -> tuple:
 # ---------------------------------------------------------------------------
 def _cmd_info(probe: JLinkProbe, args) -> int:
     identity = probe.identify()
+    # The segger backend reads no registers: it reports none rather than fail
+    # the identification it can give.
+    counter = probe.program_counter() if probe.backend == "gdb" else None
     _emit(
         {
+            "backend": probe.backend,
             "identity": identity.raw,
             "manufacturer": identity.manufacturer,
             "model": identity.model,
@@ -65,7 +70,7 @@ def _cmd_info(probe: JLinkProbe, args) -> int:
             "halted": probe.is_halted,
             "elf": probe.elf_path,
             "core_clock_hz": probe.core_clock_hz,
-            "program_counter": "0x%08x" % probe.program_counter(),
+            "program_counter": None if counter is None else "0x%08x" % counter,
         },
         args.json,
     )
@@ -89,7 +94,7 @@ def _cmd_verify(probe: JLinkProbe, args) -> int:
 
 def _cmd_erase(probe: JLinkProbe, args) -> int:
     output = probe.erase()
-    _emit({"erased": True, "output": output.strip()}, args.json)
+    _emit({"erased": True, "backend": probe.backend, "output": output.strip()}, args.json)
     return _EXIT_OK
 
 
@@ -155,7 +160,16 @@ def _cmd_read(probe: JLinkProbe, args) -> int:
 
 def _cmd_write(probe: JLinkProbe, args) -> int:
     data = bytes.fromhex(args.data.replace(" ", ""))
-    probe.write_memory(args.address, data)
+    if args.no_read_back and probe.backend != "segger":
+        # The gdb backend never reads a write back, so the option would do
+        # nothing; accepting it silently would suggest it did something.
+        print("error: --no-read-back applies to --backend segger only; the %s "
+              "backend does not read writes back" % probe.backend, file=sys.stderr)
+        return _EXIT_USAGE
+    if args.no_read_back:
+        probe.write_memory(args.address, data, verify=False)
+    else:
+        probe.write_memory(args.address, data)
     _emit({"address": "0x%08x" % args.address, "written": len(data)}, args.json)
     return _EXIT_OK
 
@@ -212,7 +226,10 @@ def _cmd_rtt(probe: JLinkProbe, args) -> int:
                 args.json,
             )
             return _EXIT_OK
-        probe.run()
+        if probe.backend == "gdb":
+            # The segger backend let the core go in rtt_start; a second
+            # Commander run while the logger holds the probe is avoided.
+            probe.run()
         deadline = time.monotonic() + args.duration
         while time.monotonic() < deadline:
             for line in probe.rtt_read_lines():
@@ -273,6 +290,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--core-clock", type=float, help="core clock in Hz, for cycle-to-time conversion")
     parser.add_argument("--gdb", help="path to arm-none-eabi-gdb")
     parser.add_argument("--server", help="path to the J-Link GDB Server")
+    parser.add_argument(
+        "--backend", default="gdb", type=str.lower, choices=BACKENDS,
+        help="gdb: J-Link GDB Server and arm-none-eabi-gdb, everything (default); "
+             "segger: J-Link Commander and RTT Logger only - info, flash, verify, "
+             "erase, reset, run, halt, read, write and RTT reading, no GDB needed",
+    )
+    parser.add_argument("--commander", help="segger backend: path to JLink.exe")
+    parser.add_argument("--rtt-logger", help="segger backend: path to JLinkRTTLogger.exe")
     parser.add_argument("-t", "--timeout", type=float, default=30.0, help="I/O timeout in seconds")
     parser.add_argument("-v", "--verbose", action="count", default=0, help="repeat for debug")
     parser.add_argument("--json", metavar="PATH", help="also write the result as JSON to PATH")
@@ -321,6 +346,11 @@ def build_parser() -> argparse.ArgumentParser:
     write = subparsers.add_parser("write", help="write target memory")
     write.add_argument("address", type=_number)
     write.add_argument("data", help="hex bytes, e.g. deadbeef")
+    write.add_argument(
+        "--no-read-back", action="store_true",
+        help="segger backend: do not read the write back (it is read back by "
+             "default, except in the peripheral and system regions)",
+    )
     write.set_defaults(handler=_cmd_write)
 
     var = subparsers.add_parser("var", help="read or write a variable by name")
@@ -381,6 +411,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             gdb_executable=args.gdb,
             server_executable=args.server,
             timeout=args.timeout,
+            backend=args.backend,
+            commander_executable=args.commander,
+            rtt_logger_executable=args.rtt_logger,
         )
     except BenchToolsError as exc:
         print("error: could not connect to %s: %s" % (args.resource, exc), file=sys.stderr)

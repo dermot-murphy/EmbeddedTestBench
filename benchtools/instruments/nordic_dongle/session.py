@@ -62,7 +62,7 @@ class DongleCommandError(InstrumentError):
         self.text = text
 
 
-class DongleSession:
+class DongleSession:  # pylint: disable=too-many-instance-attributes
     """Command/reply over a line link, with an event queue beside it.
 
     :param transport: An open transport.
@@ -78,6 +78,7 @@ class DongleSession:
         self._log = None
         self._log_path: Optional[str] = None
         self._dropped_notices = 0
+        self._last_disconnect_s: Optional[float] = None
 
     # ------------------------------------------------------------------
     @property
@@ -110,6 +111,16 @@ class DongleSession:
     def dropped_notices(self) -> int:
         """``+drop`` events seen: lines the dongle could not send."""
         return self._dropped_notices
+
+    @property
+    def last_disconnect_s(self) -> Optional[float]:
+        """When the last ``+disc`` arrived, on :func:`time.perf_counter`.
+
+        Recorded as the line is read, whoever consumes the event later: a
+        link a command's reply ends (a sensor reset) is timed as well as one
+        the host closes (#243).
+        """
+        return self._last_disconnect_s
 
     # ------------------------------------------------------------------
     def start(self) -> None:
@@ -352,7 +363,10 @@ class DongleSession:
             return None
         if isinstance(parsed, Event):
             parsed.host_time = time.time()
+            parsed.monotonic_s = time.perf_counter()
             if parsed.name == "drop":
                 self._dropped_notices += parsed.integer("count", 1)
+            elif parsed.name == "disc":
+                self._last_disconnect_s = parsed.monotonic_s
             self._events.append(parsed)
         return parsed

@@ -138,7 +138,9 @@ class TestTheStream:
 # ---------------------------------------------------------------------------
 class TestFunctionAndRange:
     def test_a_tour_of_the_safe_functions(self, meter, findings):
-        """DMM-FR-029: each confirmed from the readings. No current, no ohms."""
+        """DMM-FR-029: each confirmed from the readings. No current, no ohms,
+        and no frequency: on an open input a 1604 in Hz ignores the link (#181).
+        Frequency is in test_the_frequency_gate, with a signal wired."""
         timings = []
         steps = (
             ("ac_volts", meter.select_ac),
@@ -146,8 +148,6 @@ class TestFunctionAndRange:
             ("dc_millivolts", meter.select_dc),
             ("dc_volts", meter.select_volts),
             ("ac_volts", meter.select_ac),
-            ("frequency", meter.select_hertz),
-            ("ac_volts", meter.select_volts),
             ("dc_volts", meter.select_dc),
         )
         for expected, step in steps:
@@ -169,7 +169,13 @@ class TestFunctionAndRange:
                         % ", ".join(seen), "DMM-FR-030")
 
     def test_the_frequency_gate(self, meter, findings):
-        """DMM-FR-032, -033, DMM-OPEN-06: about 30 s, most of it the 10 s gate."""
+        """DMM-FR-032, -033, DMM-OPEN-06: about 30 s, most of it the 10 s gate.
+
+        Needs the frequency reference: with no signal a 1604 in Hz sends no
+        reading and ignores every key over the link until V is pressed on its
+        front panel (#181, 2026-10-28)."""
+        if reference(HERTZ) is None and simulator_of(meter) is None:
+            pytest.skip("frequency needs a signal: set %s (#181)" % HERTZ)
         meter.select_volts()
         meter.select_ac()
         meter.select_hertz()

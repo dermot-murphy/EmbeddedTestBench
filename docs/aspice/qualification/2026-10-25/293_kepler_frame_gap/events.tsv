@@ -1,0 +1,459 @@
+0.0000	call_start	A call 0
+0.0000	send	S2LPGpioInit
+0.0059	send	S2LPIrq
+0.0116	send	S2LPIrqGetStatus
+0.0186	send	S2MGpioIrqConfiguration
+0.0267	send	S2MGpioGetValue
+0.0337	send	S2LPTimerSetRxTimeoutUs
+0.0406	send	S2LPGetBatchLP
+0.0467	send	S2LPGetNBytesReportAll
+0.0536	send	S2LPGetNBytesBatch
+0.9203	rx	None None repeat None board_us 257888189
+6.6228	rx	5C168B CMD repeat 0 board_us 263583861
+7.3649	rx	5C1705 VERSION repeat 0 board_us 264309431
+7.5023	rx	5C1705 VERSION repeat 1 board_us 264446296
+7.6986	rx	5C1705 VERSION repeat 2 board_us 264642477
+9.4530	rx	None None repeat None board_us 266420877
+16.8096	rx	5C1705 ALIVE repeat 0 board_us 273762518
+16.9392	rx	5C1705 ALIVE repeat 1 board_us 273892552
+17.1128	rx	None None repeat None board_us 274080094
+17.1348	rx	None None repeat None board_us 274102133
+18.1919	rx	None None repeat None board_us 275159584
+24.3359	rx	5C1705 VERSION repeat 0 board_us 281279462
+24.4729	rx	5C1705 VERSION repeat 1 board_us 281416304
+24.6690	rx	5C1705 VERSION repeat 2 board_us 281612539
+26.8328	rx	None None repeat None board_us 283800219
+27.2189	rx	5C168B VERSION repeat 0 board_us 284162988
+27.3581	rx	5C168B VERSION repeat 1 board_us 284301208
+27.5559	rx	5C168B VERSION repeat 2 board_us 284499294
+33.7802	rx	5C1705 ALIVE repeat 0 board_us 290733085
+33.9101	rx	5C1705 ALIVE repeat 1 board_us 290863362
+34.0999	rx	5C1705 ALIVE repeat 2 board_us 291053019
+35.6429	rx	None None repeat None board_us 292610133
+37.7960	rx	5C168B ALIVE repeat 0 board_us 294749371
+37.9284	rx	5C168B ALIVE repeat 1 board_us 294880638
+38.1189	rx	5C168B ALIVE repeat 2 board_us 295071723
+43.7198	rx	None None repeat None board_us 300678527
+43.7891	rx	None None repeat None board_us 300747145
+43.9220	rx	None None repeat None board_us 300880005
+44.0060	rx	None None repeat None board_us 300972739
+47.7360	rx	None None repeat None board_us 304693969
+47.8048	rx	None None repeat None board_us 304763181
+47.9393	rx	None None repeat None board_us 304897245
+52.6808	rx	None None repeat None board_us 309647826
+53.7697	rx	5C1705 CMD repeat 0 board_us 310729633
+57.7863	rx	5C168B CMD repeat 0 board_us 314745597
+61.2418	rx	None None repeat None board_us 318208502
+61.4552	rx	5C1705 VERSION repeat 0 board_us 318397646
+61.5550	rx	None None repeat None board_us 318521565
+68.7459	rx	5C1705 VERSION repeat 0 board_us 325688782
+68.8834	rx	5C1705 VERSION repeat 1 board_us 325825634
+69.0792	rx	5C1705 VERSION repeat 2 board_us 326021736
+70.0040	rx	None None repeat None board_us 326970565
+78.1905	rx	5C1705 ALIVE repeat 0 board_us 335142166
+78.3201	rx	5C1705 ALIVE repeat 1 board_us 335272357
+78.5101	rx	5C1705 ALIVE repeat 2 board_us 335461807
+78.6080	rx	None None repeat None board_us 335573446
+87.1058	rx	None None repeat None board_us 344071207
+88.1300	rx	None None repeat None board_us 345087767
+88.1992	rx	None None repeat None board_us 345156298
+88.3320	rx	None None repeat None board_us 345289041
+95.4998	rx	None None repeat None board_us 352465414
+98.1801	rx	5C1705 CMD repeat 0 board_us 355138894
+104.3193	rx	None None repeat None board_us 361284244
+105.6771	rx	None None repeat None board_us 362641803
+107.7848	rx	5C168B CMD repeat 0 board_us 364743286
+113.0628	rx	None None repeat None board_us 370027702
+113.2790	rx	5C1705 VERSION repeat 0 board_us 370220503
+113.4164	rx	5C1705 VERSION repeat 1 board_us 370357410
+113.6122	rx	5C1705 VERSION repeat 2 board_us 370553576
+121.6481	rx	None None repeat None board_us 378612458
+122.7239	rx	5C1705 ALIVE repeat 0 board_us 379674468
+122.8539	rx	5C1705 ALIVE repeat 1 board_us 379804515
+123.0431	rx	5C1705 ALIVE repeat 2 board_us 379993836
+130.0812	rx	None None repeat None board_us 387045886
+132.6639	rx	None None repeat None board_us 389620070
+132.7329	rx	None None repeat None board_us 389688740
+132.8660	rx	None None repeat None board_us 389821711
+138.7118	rx	None None repeat None board_us 395675914
+142.7132	rx	5C1705 CMD repeat 0 board_us 399671085
+147.2909	rx	None None repeat None board_us 404254702
+150.2920	rx	5C1705 VERSION repeat 0 board_us 407232750
+150.4292	rx	5C1705 VERSION repeat 1 board_us 407369574
+150.6250	rx	5C1705 VERSION repeat 2 board_us 407565706
+155.6192	rx	None None repeat None board_us 412583411
+157.7841	rx	5C168B CMD repeat 0 board_us 414741387
+159.7370	rx	5C1705 ALIVE repeat 0 board_us 416686911
+159.8670	rx	5C1705 ALIVE repeat 1 board_us 416817087
+160.0574	rx	5C1705 ALIVE repeat 2 board_us 417006628
+164.2129	rx	None None repeat None board_us 421177132
+168.1493	rx	5C168B VERSION repeat 0 board_us 425089266
+168.2870	rx	5C168B VERSION repeat 1 board_us 425227355
+168.4852	rx	5C168B VERSION repeat 2 board_us 425425224
+169.6771	rx	None None repeat None board_us 426632432
+169.7459	rx	None None repeat None board_us 426701013
+169.8782	rx	None None repeat None board_us 426833797
+172.8730	rx	None None repeat None board_us 429836223
+178.7269	rx	5C168B ALIVE repeat 0 board_us 435676123
+178.8579	rx	5C168B ALIVE repeat 1 board_us 435807416
+179.0490	rx	5C168B ALIVE repeat 2 board_us 435998546
+179.7268	rx	5C1705 CMD repeat 0 board_us 436683475
+181.6889	rx	None None repeat None board_us 438652345
+187.1750	rx	5C1705 VERSION repeat 0 board_us 444114249
+187.2754	rx	None None repeat None board_us 444238047
+188.6670	rx	None None repeat None board_us 445621588
+188.7360	rx	None None repeat None board_us 445690870
+188.8701	rx	None None repeat None board_us 445824961
+190.2301	rx	None None repeat None board_us 447193331
+192.8713	rx	5C1712 ALIVE repeat 0 board_us 449820181
+192.8715	stop_sent	
+192.8751	stop_done	0 replies with it
+192.8752	call_return	A call 0 repeat 0
+192.8752	call_start	A call 1
+192.8752	send	S2LPIrqGetStatus
+192.8828	send	S2MGpioGetValue
+192.8898	send	S2LPGetNBytesReportAll
+192.8968	send	S2LPGetNBytesBatch
+193.1001	rx	5C1712 ALIVE repeat 1 board_us 450049534
+193.1003	stop_sent	
+193.1339	stop_done	1 replies with it
+193.1340	rx	5C1712 ALIVE repeat 2 board_us 450081016
+193.1342	call_return	A call 1 repeat 1
+193.1342	call_start	A call 2
+193.1342	send	S2LPIrqGetStatus
+193.1419	send	S2MGpioGetValue
+193.1492	send	S2LPGetNBytesReportAll
+193.1571	send	S2LPGetNBytesBatch
+194.5010	rx	5C1705 VERSION repeat 0 board_us 451440467
+194.6380	rx	5C1705 VERSION repeat 1 board_us 451577205
+194.8340	rx	5C1705 VERSION repeat 2 board_us 451773250
+196.1967	stop_sent	
+196.2013	stop_done	0 replies with it
+196.2015	call_error	A call 2: no ALIVE frame from 5C1712 in 3 s; 1 such frame arrived while the last receive was stopping, and were logged but not offered: since_last takes them
+196.2015	call_start	B call 0
+196.2015	send	S2LPIrqGetStatus
+196.2093	send	S2MGpioGetValue
+196.2170	send	S2LPGetNBytesReportAll
+196.2239	send	S2LPGetNBytesBatch
+198.7174	rx	5C168B CMD repeat 0 board_us 455673114
+199.0211	rx	None None repeat None board_us 455983936
+203.9450	rx	5C1705 ALIVE repeat 0 board_us 460894281
+204.0753	rx	5C1705 ALIVE repeat 1 board_us 461024272
+204.2651	rx	5C1705 ALIVE repeat 2 board_us 461213469
+207.7993	rx	None None repeat None board_us 464761691
+209.2724	rx	5C168B VERSION repeat 0 board_us 466211206
+209.4105	rx	5C168B VERSION repeat 1 board_us 466349433
+209.5720	rx	None None repeat None board_us 466534450
+213.8859	rx	None None repeat None board_us 470839722
+213.9542	rx	None None repeat None board_us 470908294
+214.0870	rx	None None repeat None board_us 471040995
+216.1822	rx	None None repeat None board_us 473144597
+219.8213	rx	5C168B VERSION repeat 0 board_us 476759941
+219.9235	rx	None None repeat None board_us 476885031
+223.9353	rx	5C1705 CMD repeat 0 board_us 480890915
+224.7757	rx	None None repeat None board_us 481737467
+230.1440	rx	5C168B VERSION repeat 0 board_us 487082324
+230.2820	rx	5C168B VERSION repeat 1 board_us 487220424
+230.4801	rx	5C168B VERSION repeat 2 board_us 487418340
+231.2971	rx	5C1705 VERSION repeat 0 board_us 488235326
+231.4340	rx	5C1705 VERSION repeat 1 board_us 488372217
+231.6301	rx	5C1705 VERSION repeat 2 board_us 488568374
+233.5235	rx	None None repeat None board_us 490485262
+240.7212	rx	5C168B ALIVE repeat 0 board_us 497668903
+240.7520	rx	5C1705 ALIVE repeat 0 board_us 497690427
+240.8525	rx	5C168B ALIVE repeat 1 board_us 497800148
+240.8833	rx	5C1705 ALIVE repeat 1 board_us 497821676
+241.0431	rx	5C168B ALIVE repeat 2 board_us 497991251
+241.0741	rx	5C1705 ALIVE repeat 2 board_us 498012799
+242.1354	rx	None None repeat None board_us 499096464
+250.5210	rx	None None repeat None board_us 507482426
+250.6513	rx	None None repeat None board_us 507612937
+250.6820	rx	None None repeat None board_us 507634958
+250.7504	rx	None None repeat None board_us 507703574
+250.8833	rx	None None repeat None board_us 507836428
+258.9420	rx	None None repeat None board_us 515903838
+260.7319	rx	5C1705 CMD repeat 0 board_us 517685964
+261.0570	rx	5C168B VERSION repeat 0 board_us 517994410
+261.1950	rx	5C168B VERSION repeat 1 board_us 518132609
+261.3563	rx	None None repeat None board_us 518317465
+267.4061	rx	None None repeat None board_us 524367622
+268.2766	rx	5C1705 VERSION repeat 0 board_us 525213943
+271.5885	rx	5C168B VERSION repeat 0 board_us 528526111
+271.7273	rx	5C168B VERSION repeat 1 board_us 528664245
+271.8882	rx	None None repeat None board_us 528849087
+275.8274	rx	5C1705 VERSION repeat 0 board_us 532764092
+275.9634	rx	5C1705 VERSION repeat 1 board_us 532900947
+276.1000	rx	None None repeat None board_us 533060722
+276.1232	rx	None None repeat None board_us 533083965
+282.1404	rx	5C168B VERSION repeat 0 board_us 539077152
+282.2785	rx	5C168B VERSION repeat 1 board_us 539215242
+282.4764	rx	5C168B VERSION repeat 2 board_us 539413160
+283.4290	rx	None None repeat None board_us 540390282
+284.8320	rx	None None repeat None board_us 541792484
+289.2698	rx	5C314E ALIVE repeat 0 board_us 546215747
+289.3981	rx	5C314E ALIVE repeat 1 board_us 546344890
+289.5030	rx	5C314E ALIVE repeat 2 board_us 546449211
+290.9164	rx	5C1705 VERSION repeat 0 board_us 547853386
+291.0536	rx	5C1705 VERSION repeat 1 board_us 547990245
+291.2132	rx	None None repeat None board_us 548173321
+292.7180	rx	5C168B ALIVE repeat 0 board_us 549663620
+292.8481	rx	5C168B ALIVE repeat 1 board_us 549794875
+293.0391	rx	5C168B ALIVE repeat 2 board_us 549985894
+293.3713	rx	None None repeat None board_us 550331659
+298.5266	rx	5C1705 VERSION repeat 0 board_us 555463129
+298.6632	rx	5C1705 VERSION repeat 1 board_us 555600016
+298.8595	rx	5C1705 VERSION repeat 2 board_us 555796099
+302.1067	rx	None None repeat None board_us 559066134
+302.6561	rx	None None repeat None board_us 559608048
+302.7251	rx	None None repeat None board_us 559677282
+302.8591	rx	None None repeat None board_us 559811300
+307.9711	rx	5C1705 ALIVE repeat 0 board_us 564917029
+308.1011	rx	5C1705 ALIVE repeat 1 board_us 565047224
+308.2910	rx	5C1705 ALIVE repeat 2 board_us 565236785
+310.8662	rx	None None repeat None board_us 567826401
+312.7062	rx	5C168B CMD repeat 0 board_us 569659854
+317.9112	rx	None None repeat None board_us 574862539
+317.9796	rx	None None repeat None board_us 574931135
+318.1122	rx	None None repeat None board_us 575063791
+319.2900	rx	None None repeat None board_us 576249524
+327.8304	rx	None None repeat None board_us 584789723
+327.9603	rx	5C1705 CMD repeat 0 board_us 584913433
+335.2714	rx	5C1705 VERSION repeat 0 board_us 592207455
+335.4084	rx	5C1705 VERSION repeat 1 board_us 592344221
+335.6042	rx	5C1705 VERSION repeat 2 board_us 592540300
+336.2455	rx	None None repeat None board_us 593204804
+344.7175	rx	5C1705 ALIVE repeat 0 board_us 601662175
+344.8173	rx	None None repeat None board_us 601776253
+344.8321	rx	None None repeat None board_us 601790542
+352.3051	rx	None None repeat None board_us 609262926
+353.2691	rx	None None repeat None board_us 610228091
+359.6774	rx	5C1705 VERSION repeat 0 board_us 616612756
+359.8152	rx	5C1705 VERSION repeat 1 board_us 616749533
+360.0104	rx	5C1705 VERSION repeat 2 board_us 616945567
+361.6822	rx	None None repeat None board_us 618640385
+362.7064	rx	5C168B CMD repeat 0 board_us 619658135
+369.1224	rx	5C1705 ALIVE repeat 0 board_us 626066495
+369.2523	rx	5C1705 ALIVE repeat 1 board_us 626196522
+369.4418	rx	5C1705 ALIVE repeat 2 board_us 626385812
+370.3701	rx	None None repeat None board_us 627328623
+373.1354	rx	5C168B VERSION repeat 0 board_us 630069739
+373.2733	rx	5C168B VERSION repeat 1 board_us 630207825
+373.4714	rx	5C168B VERSION repeat 2 board_us 630405776
+378.7748	rx	None None repeat None board_us 635732730
+379.0624	rx	None None repeat None board_us 636012153
+379.1313	rx	None None repeat None board_us 636080810
+379.2640	rx	None None repeat None board_us 636213725
+383.7121	rx	5C168B ALIVE repeat 0 board_us 640655983
+383.8436	rx	5C168B ALIVE repeat 1 board_us 640787371
+384.0346	rx	5C168B ALIVE repeat 2 board_us 640978556
+387.1405	rx	None None repeat None board_us 644098303
+389.1111	rx	5C1705 CMD repeat 0 board_us 646063157
+393.6523	rx	None None repeat None board_us 650601336
+393.7214	rx	None None repeat None board_us 650670592
+393.8554	rx	None None repeat None board_us 650804639
+395.9523	rx	None None repeat None board_us 652910318
+396.3802	rx	5C1705 VERSION repeat 0 board_us 653314649
+396.5180	rx	5C1705 VERSION repeat 1 board_us 653451482
+396.7136	rx	5C1705 VERSION repeat 2 board_us 653647526
+403.7014	rx	5C168B CMD repeat 0 board_us 660652903
+404.4182	rx	None None repeat None board_us 661376024
+405.8245	rx	5C1705 ALIVE repeat 0 board_us 662768030
+405.9545	rx	5C1705 ALIVE repeat 1 board_us 662898188
+406.1445	rx	5C1705 ALIVE repeat 2 board_us 663087572
+413.1263	rx	None None repeat None board_us 670083304
+414.1544	rx	5C168B VERSION repeat 0 board_us 671088293
+414.2926	rx	5C168B VERSION repeat 1 board_us 671226478
+414.4905	rx	5C168B VERSION repeat 2 board_us 671424414
+415.7646	rx	None None repeat None board_us 672713590
+415.8340	rx	None None repeat None board_us 672782264
+415.9663	rx	None None repeat None board_us 672914949
+421.6483	rx	None None repeat None board_us 678605442
+424.7324	rx	5C168B ALIVE repeat 0 board_us 681675222
+424.8638	rx	5C168B ALIVE repeat 1 board_us 681806574
+425.0543	rx	5C168B ALIVE repeat 2 board_us 681997750
+425.8142	rx	5C1705 CMD repeat 0 board_us 682764598
+430.2555	rx	None None repeat None board_us 687212343
+433.2048	rx	5C1705 VERSION repeat 0 board_us 690137438
+433.3416	rx	5C1705 VERSION repeat 1 board_us 690274369
+433.5374	rx	5C1705 VERSION repeat 2 board_us 690470479
+434.6712	rx	None None repeat None board_us 691619355
+434.7413	rx	None None repeat None board_us 691688579
+434.8744	rx	None None repeat None board_us 691822622
+438.8434	rx	None None repeat None board_us 695800291
+442.6485	rx	5C1705 ALIVE repeat 0 board_us 699590561
+442.7783	rx	5C1705 ALIVE repeat 1 board_us 699720678
+442.9674	rx	5C1705 ALIVE repeat 2 board_us 699910059
+444.7214	rx	5C168B CMD repeat 0 board_us 701671348
+447.3192	rx	None None repeat None board_us 704276120
+452.5885	rx	None None repeat None board_us 709536102
+452.6563	rx	None None repeat None board_us 709604802
+452.7894	rx	None None repeat None board_us 709737802
+455.6443	rx	None None repeat None board_us 712600708
+462.6374	rx	5C1705 CMD repeat 0 board_us 719587035
+464.1154	rx	None None repeat None board_us 721071488
+469.9175	rx	5C1705 VERSION repeat 0 board_us 726849881
+470.0547	rx	5C1705 VERSION repeat 1 board_us 726986902
+470.2513	rx	5C1705 VERSION repeat 2 board_us 727183338
+472.4453	rx	None None repeat None board_us 729401345
+479.3615	rx	5C1705 ALIVE repeat 0 board_us 736302559
+479.4918	rx	5C1705 ALIVE repeat 1 board_us 736432659
+479.6804	rx	5C1705 ALIVE repeat 2 board_us 736622004
+480.8336	rx	None None repeat None board_us 737789430
+489.3015	rx	None None repeat None board_us 746248079
+489.3605	rx	None None repeat None board_us 746315794
+489.4810	rx	None None repeat None board_us 746435967
+494.7202	rx	5C168B CMD repeat 0 board_us 751669167
+496.7225	rx	5C1705 VERSION repeat 0 board_us 753654169
+496.8594	rx	5C1705 VERSION repeat 1 board_us 753791183
+497.0560	rx	5C1705 VERSION repeat 2 board_us 753987384
+498.0413	rx	None None repeat None board_us 754996064
+506.1653	rx	5C1705 ALIVE repeat 0 board_us 763106769
+506.2803	rx	None None repeat None board_us 763235342
+506.3543	rx	None None repeat None board_us 763309654
+513.7375	rx	None None repeat None board_us 770691244
+515.1510	rx	None None repeat None board_us 772105014
+521.4165	rx	5C1705 VERSION repeat 0 board_us 778347588
+521.5538	rx	5C1705 VERSION repeat 1 board_us 778484472
+521.7494	rx	5C1705 VERSION repeat 2 board_us 778680719
+523.6634	rx	None None repeat None board_us 780617589
+530.8604	rx	5C1705 ALIVE repeat 0 board_us 787800626
+530.9907	rx	5C1705 ALIVE repeat 1 board_us 787930687
+531.1794	rx	5C1705 ALIVE repeat 2 board_us 788120077
+532.4046	rx	None None repeat None board_us 789359062
+540.7296	rx	None None repeat None board_us 797683737
+540.8006	rx	None None repeat None board_us 797746248
+540.8695	rx	None None repeat None board_us 797814861
+541.0023	rx	None None repeat None board_us 797947672
+544.7196	rx	5C168B CMD repeat 0 board_us 801667134
+549.0834	rx	None None repeat None board_us 806037403
+550.8495	rx	5C1705 CMD repeat 0 board_us 807797293
+554.9123	rx	5C168B VERSION repeat 0 board_us 811842209
+555.0504	rx	5C168B VERSION repeat 1 board_us 811980227
+555.2475	rx	5C168B VERSION repeat 2 board_us 812178085
+557.4863	rx	None None repeat None board_us 814439665
+558.5244	rx	5C1705 VERSION repeat 0 board_us 815454295
+558.6614	rx	5C1705 VERSION repeat 1 board_us 815591233
+558.8576	rx	5C1705 VERSION repeat 2 board_us 815787466
+565.4892	rx	5C168B ALIVE repeat 0 board_us 822428287
+565.6203	rx	5C168B ALIVE repeat 1 board_us 822559514
+565.8122	rx	5C168B ALIVE repeat 2 board_us 822750578
+566.0898	rx	None None repeat None board_us 823042645
+567.9523	rx	None None repeat None board_us 824906294
+574.6063	rx	None None repeat None board_us 831559954
+575.4223	rx	None None repeat None board_us 832375167
+575.4658	rx	None None repeat None board_us 832418462
+582.9012	rx	5C1705 VERSION repeat 0 board_us 839830174
+583.0376	rx	5C1705 VERSION repeat 1 board_us 839967203
+583.1976	rx	None None repeat None board_us 840150373
+585.4495	rx	5C168B VERSION repeat 0 board_us 842379035
+585.5874	rx	5C168B VERSION repeat 1 board_us 842517185
+585.7859	rx	5C168B VERSION repeat 2 board_us 842715233
+590.4896	rx	5C1705 VERSION repeat 0 board_us 847419278
+590.6274	rx	5C1705 VERSION repeat 1 board_us 847556277
+590.8234	rx	5C1705 VERSION repeat 2 board_us 847752605
+591.7512	rx	None None repeat None board_us 848703947
+596.0275	rx	5C168B ALIVE repeat 0 board_us 852965681
+596.1593	rx	5C168B ALIVE repeat 1 board_us 853097007
+596.3498	rx	5C168B ALIVE repeat 2 board_us 853288135
+599.9173	rx	None None repeat None board_us 856870313
+600.1603	rx	None None repeat None board_us 857113402
+605.9669	rx	None None repeat None board_us 862910668
+606.0353	rx	None None repeat None board_us 862979933
+606.1702	rx	None None repeat None board_us 863114099
+607.3564	rx	5C1705 VERSION repeat 0 board_us 864285735
+607.4939	rx	5C1705 VERSION repeat 1 board_us 864422672
+607.6906	rx	5C1705 VERSION repeat 2 board_us 864618925
+608.4787	rx	None None repeat None board_us 865430551
+616.0165	rx	5C168B CMD repeat 0 board_us 872961926
+616.8018	rx	5C1705 ALIVE repeat 0 board_us 873739373
+616.9160	rx	None None repeat None board_us 873867649
+616.9584	rx	None None repeat None board_us 873910174
+624.5377	rx	None None repeat None board_us 881488994
+625.4363	rx	None None repeat None board_us 882388898
+626.3058	rx	5C168B VERSION repeat 0 board_us 883234188
+626.4436	rx	5C168B VERSION repeat 1 board_us 883372325
+626.6417	rx	5C168B VERSION repeat 2 board_us 883570336
+632.1985	rx	5C1705 VERSION repeat 0 board_us 889126459
+632.3354	rx	5C1705 VERSION repeat 1 board_us 889263350
+632.5321	rx	5C1705 VERSION repeat 2 board_us 889459496
+634.2177	rx	None None repeat None board_us 891169273
+636.8834	rx	5C168B ALIVE repeat 0 board_us 893820684
+637.0144	rx	5C168B ALIVE repeat 1 board_us 893951976
+637.2054	rx	5C168B ALIVE repeat 2 board_us 894143129
+641.6435	rx	5C1705 ALIVE repeat 0 board_us 898580758
+641.7736	rx	5C1705 ALIVE repeat 1 board_us 898710778
+641.9625	rx	5C1705 ALIVE repeat 2 board_us 898900074
+642.7959	rx	None None repeat None board_us 899747444
+646.8228	rx	None None repeat None board_us 903765783
+646.8914	rx	None None repeat None board_us 903834943
+647.0254	rx	None None repeat None board_us 903968972
+651.1713	rx	None None repeat None board_us 908122285
+651.5837	rx	None None repeat None board_us 908526256
+651.6518	rx	None None repeat None board_us 908594857
+651.7844	rx	None None repeat None board_us 908727776
+656.8724	rx	5C168B CMD repeat 0 board_us 913817126
+659.8554	rx	None None repeat None board_us 916806609
+661.6327	rx	5C1705 CMD repeat 0 board_us 918577468
+668.5816	rx	None None repeat None board_us 925532598
+668.9397	rx	5C1705 VERSION repeat 0 board_us 925866785
+669.0767	rx	5C1705 VERSION repeat 1 board_us 926003705
+669.2725	rx	5C1705 VERSION repeat 2 board_us 926199937
+677.1018	rx	None None repeat None board_us 934052336
+678.3837	rx	5C1705 ALIVE repeat 0 board_us 935319899
+678.5136	rx	5C1705 ALIVE repeat 1 board_us 935449960
+678.7029	rx	5C1705 ALIVE repeat 2 board_us 935639275
+685.6838	rx	None None repeat None board_us 942634158
+688.3236	rx	None None repeat None board_us 945265364
+688.3916	rx	None None repeat None board_us 945333919
+688.5246	rx	None None repeat None board_us 945466652
+694.2681	rx	None None repeat None board_us 951217533
+698.3727	rx	5C1705 CMD repeat 0 board_us 955316466
+702.8486	rx	None None repeat None board_us 959798084
+705.6914	rx	None None repeat None board_us 962641581
+706.8714	rx	5C168B CMD repeat 0 board_us 963814637
+711.6159	rx	None None repeat None board_us 968565765
+713.2298	rx	5C1705 VERSION repeat 0 board_us 970155808
+713.3295	rx	None None repeat None board_us 970279601
+719.9526	rx	None None repeat None board_us 976902401
+720.8246	rx	5C1705 VERSION repeat 0 board_us 977750867
+728.3565	rx	5C1705 VERSION repeat 0 board_us 985281933
+728.4338	rx	None None repeat None board_us 985382533
+728.4564	rx	None None repeat None board_us 985405700
+735.8286	rx	None None repeat None board_us 992777886
+743.4238	rx	5C1705 VERSION repeat 0 board_us 1000348858
+743.5606	rx	5C1705 VERSION repeat 1 board_us 1000485763
+743.7569	rx	5C1705 VERSION repeat 2 board_us 1000681965
+745.4555	rx	None None repeat None board_us 1002404356
+752.8676	rx	5C1705 ALIVE repeat 0 board_us 1009802641
+752.9977	rx	5C1705 ALIVE repeat 1 board_us 1009932757
+753.1881	rx	5C1705 ALIVE repeat 2 board_us 1010122096
+754.0657	rx	None None repeat None board_us 1011014017
+756.8723	rx	5C168B CMD repeat 0 board_us 1013813622
+762.5535	rx	None None repeat None board_us 1019502373
+762.8078	rx	None None repeat None board_us 1019748152
+762.8765	rx	None None repeat None board_us 1019816912
+763.0098	rx	None None repeat None board_us 1019950028
+771.0659	rx	None None repeat None board_us 1028013312
+772.8580	rx	5C1705 CMD repeat 0 board_us 1029799169
+777.8598	rx	5C1712 ALIVE repeat 0 board_us 1034793405
+777.8600	stop_sent	
+777.8637	stop_done	0 replies with it
+777.8637	call_return	B call 0 repeat 0
+777.8637	call_start	B call 1
+777.8637	send	S2LPIrqGetStatus
+777.8714	send	S2MGpioGetValue
+777.8787	send	S2LPGetNBytesReportAll
+777.8864	send	S2LPGetNBytesBatch
+777.9946	rx	5C1712 ALIVE repeat 1 board_us 1034928905
+777.9948	stop_sent	
+777.9984	stop_done	0 replies with it
+777.9984	call_return	B call 1 repeat 1
+777.9984	call_start	B call 2
+777.9984	send	S2LPIrqGetStatus
+778.0065	send	S2MGpioGetValue
+778.0137	send	S2LPGetNBytesReportAll
+778.0214	send	S2LPGetNBytesBatch
+778.1059	rx	5C1712 ALIVE repeat 2 board_us 1035039664
+778.1061	stop_sent	
+778.1097	stop_done	0 replies with it
+778.1097	call_return	B call 2 repeat 2

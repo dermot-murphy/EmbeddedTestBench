@@ -10,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE2-001 | **Version** | 0.16 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
+| **Document ID** | ETB-SWE2-001 | **Version** | [latest, §2](#2-revision-history) |
+| **Project** | Embedded Test Bench | **Date** | [latest, §2](#2-revision-history) |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.2 |
@@ -40,7 +40,24 @@
 | 0.14 | 2026-10-05 | Claude | #204: Review & Approval table points to the merge of the pull request that last changed the document, which is the review and approval (ETB-SUP8-001 §5.7); no per-change signatures or dates. |
 | 0.15 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | 0.16 | 2026-10-05 | Claude | #60: AD-23 covers BLE-FR-119 - timeouts by command prefix, and the timeout each result reports. |
+| 0.17 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
+| 0.18 | 2026-10-25 | Claude | #238: AD-29: device-specific code is a plugin, loaded by path, not part of the package. |
 
+| 0.19 | 2026-10-28 | Claude | #247: SER-ARC-001 added, the serial capture instrument; the layering diagram and the interfaces (the device's serial port, receive only) updated. |
+| 0.20 | 2026-11-12 | Claude | #328: PICO-ARC-001 updated for the `wr` command and the three indicator LEDs; the LED GPIO interface added. |
+| 0.21 | 2026-11-12 | Claude | #202: merged with #328 (LEDs). PICO-ARC-001: the one `wr` command also stores the frequency generator's settings, read by `rd` and run by `routine`; `fgen` and `cmd_fgen` added. The generator's I2S and GPIO interface added, with the bench wiring. |
+| 0.22 | 2026-11-13 | Claude | #202: the frequency generator's I2S interface: an Adafruit UDA1334A board, not a CJMCU-1334, on GP6 (DIN), GP7 (BCLK) and GP8 (WSEL), as the owner rewired it on 2026-11-13. |
+| 0.23 | 2026-11-13 | Claude | #330: PICO-ARC-001 names the element the PICO2 Test Board (the Pico 2 SHT30 Temperature Sensor before #330), its class `Pico2TestBoard` and its bench drivers `pico2-test-board` and `pico2`; the event-name example uses the alias `pico2`. |
+| 0.24 | 2026-11-13 | Claude | #200: PSCOPE-ARC-001 added, the PicoScope 3000D series MSO driver reached through the `ps3000a` C library with `ctypes`; the layering diagram and the interfaces (USB to the unit, the `ps3000a` library) updated. |
+| 0.25 | 2026-11-13 | Claude | #200: the `ps3000a` interface row names its interface specification, ETB-IF-002. |
+| 0.26 | 2026-11-13 | Claude | #71: AD-30 added - SEGGER's J-Link Commander and RTT Logger as a second J-Link backend, chosen by configuration; JLINK-ARC-001 names it. |
+| 0.27 | 2026-11-14 | Claude | #303: AD-29 consequences - the viewer's device analyses are the Kepler plugin's panel, with its RF tabs and report sections; the viewer names no Kepler field. |
+| 0.28 | 2026-11-14 | Claude | #342: PPK-ARC-001 added, the Nordic Power Profiler Kit II driver, and AD-31, the kit driven through its own serial protocol by this project's code; the layering diagram and the interfaces (USB CDC to the kit; power and logic to the device) updated. |
+| 0.29 | 2026-11-14 | Claude | #84: AD-32: the S2-LP kit gets firmware of its own, for receiving on the interrupt, with no SLA0072 source; AD-20 stands for the kit on ST's firmware. |
+| 0.30 | 2026-11-14 | Claude | #84 (2): AD-20 points to AD-32; S2LP-ARC-001 names the kit firmware. |
+| 0.31 | 2026-11-14 | Claude | #84 review round 1: AD-32 trace count 21. |
+| 0.32 | 2026-11-14 | Claude | #84 (driver): S2LP-ARC-001 names `kit_firmware`, `kit_driver`, `KitSession` and `SimulatedKitFirmware`; AD-32 - the host driver is `S2lpDevkit`, and its trace adds SWE4-UT-S2LPKITHOST (31) and the driver's bench run. |
+| 0.33 | 2026-11-14 | Claude | #84 review round 3: AD-32 trace: SWE4-UT-S2LPKITHOST 31 -> 35. |
 ---
 
 ## 3. Purpose & Scope
@@ -95,11 +112,15 @@ This document satisfies **Automotive SPICE® PAM v4.0, SWE.2 — Software Archit
    +--------------------------------------------------------------+
    |  benchtools.instruments                                      |
    |  tek3014b (scope, constants, simulator, cli)                 |
+   |  picoscope3000 (scope, sdk, constants, simulator, cli)       |
+   |  ppk2     (ppk2, protocol, measurement, constants,           |
+   |            simulator, cli)                                   |
    |  jlink    (probe, gdbmi, session, server, rtt, swo,          |
    |            timing, constants, simulator, cli)                |
    |  nordic_dongle (dongle, protocol, session, profile,          |
    |            latency, constants, simulator, cli)               |
-   |  pico_sht30 (thermometer, constants, simulator, cli)         |
+   |  pico2_test_board (thermometer, constants, simulator, cli)         |
+   |  serial_capture (capture, console, constants, simulator, cli)|
    |  generic  (anything answering *IDN?)                         |
    +--------------------------------------------------------------+
               |                                    |
@@ -146,12 +167,15 @@ instrument, and to be importable without importing any other element.
 | ANA-ARC-002 | `analysis.measure`, `analysis.plotting` | Pure analysis over `Waveform` objects, and host-side rendering. | `measure_channel_spread`, `measure_period`, `plot_waveforms` |
 | INST-ARC-001 | `instruments.*` | One subpackage per instrument, adding only its command vocabulary, capability envelope and simulator. | per `ScpiInstrument` |
 | SCOPE-ARC-001 | `instruments.tek3014b` | The TDS3000 SCPI vocabulary and the oscilloscope's capability envelope. | `Tek3014B` |
+| PSCOPE-ARC-001 | `instruments.picoscope3000` | The PicoScope 3000D series MSO (#200): four analogue channels, sixteen digital inputs in two ports and a signal generator, captured in one block on one time base. Not a message-based instrument: it has no command text and no transport, and is reached through Pico Technology's `ps3000a` C library. The seam is `sdk`: `Ps3000aSdk` turns each C call the driver uses into a Python method with Python types, and a non-zero status into an exception, and `SimulatedPs3000a` (`simulator`) offers the same methods, so the driver (`scope`), which takes its lifecycle from `Instrument`, cannot tell which it has. The library is found and loaded with `ctypes` only when a unit is opened, so no Pico package is needed and a bare install imports the element. Its records are `Waveform` objects (ANA-ARC-001) in the form the TDS3014B driver returns, so the analysis helpers and a specification take either scope. The facts and capability envelope (`constants`, each value marked measured, spec page or unverified) and a command line. The 3000D MSO has no digital outputs. | `PicoScope3000`, `BlockCapture`, `ChannelSetup`, `ModelLimits`, `Ps3000aSdk`, `find_library`, `SimulatedPs3000a`, `ChannelSignal`, `benchtools pscope` |
 | BLE-ARC-001 | `instruments.nordic_dongle` **and** `firmware/nordic_dongle` | The BLE bench dongle, as one element across two languages. Host side: the line protocol (`protocol`), the command/event session with its log (`session`), advertising statistics (`profile`), latency statistics (`latency`), command documents read and run (`script`, AD-23), the driver façade (`dongle`) and a simulated dongle. Dongle side: USB CDC line transport, command dispatch, scanner, UART client and the microsecond clock. `include/protocol.h` is the interface both are built from. | `NordicDongle`, `DongleSession`, `AdvertisingProfile`, `ResponseTiming`, `SimulatedDongle`; `cmd_parser_handle`, `scanner_on_ble_evt`, `nus_client_command` |
-| JLINK-ARC-001 | `instruments.jlink` | The debug probe driver. `JLinkProbe` is the façade over seven collaborators, each independently testable: MI record parsing (`gdbmi`), the command/response session (`session`), server discovery and lifetime (`server`), RTT (`rtt`), ITM/SWO decoding (`swo`), timing results (`timing`), and the probe and target envelope (`constants`). Its simulator answers the MI dialogue. | `JLinkProbe`, `GdbMiSession`, `RttClient`, `ItmDecoder`, `TimingResult`, `GdbServer` |
-| S2LP-ARC-001 | `instruments.s2lp` | The ST S2-LP development kit, host side only: ST's firmware runs on the board (AD-20). The line protocol (`protocol`), the command/reply session with its raw log (`session`), the device's register map (`registers`), packet records and their structured log (`packets`), the driver façade (`s2lp`) and a simulated kit with a register file and a modelled air interface. | `S2lpDevkit`, `S2lpSession`, `Register`, `Packet`, `Capture`, `SimulatedS2lp` |
+| JLINK-ARC-001 | `instruments.jlink` | The debug probe driver. `JLinkProbe` is the façade over seven collaborators, each independently testable: MI record parsing (`gdbmi`), the command/response session (`session`), server discovery and lifetime (`server`), RTT (`rtt`), ITM/SWO decoding (`swo`), timing results (`timing`), and the probe and target envelope (`constants`). Its simulator answers the MI dialogue. A second backend, selected by configuration (AD-30), drives the probe with SEGGER's J-Link Commander and RTT Logger instead (`segger`, `commander`, `simcommander`, `image`). | `JLinkProbe`, `SeggerJLinkProbe`, `GdbMiSession`, `JLinkCommander`, `RttClient`, `ItmDecoder`, `TimingResult`, `GdbServer` |
+| S2LP-ARC-001 | `instruments.s2lp` | The ST S2-LP development kit, host side only: ST's firmware runs on the board (AD-20), or the kit firmware in `firmware/s2lp_kit` (AD-32), whichever the board answers as. The line protocol (`protocol`), the command/reply session with its raw log (`session`), the kit firmware's protocol and session (`kit_firmware`) and the driver's side of it (`kit_driver`), the device's register map (`registers`), packet records and their structured log (`packets`), the driver façade (`s2lp`) and a simulated kit with a register file and a modelled air interface. | `S2lpDevkit`, `S2lpSession`, `KitSession`, `Register`, `Packet`, `Capture`, `SimulatedS2lp`, `SimulatedKitFirmware` |
 | PSU-ARC-001 | `instruments.gpd3303d` | The GW Instek bench supply, programmable channels 1 and 2; its fixed rail is a front-panel switch and is outside the element. Not a SCPI instrument: it takes the transport and lifecycle from `ScpiInstrument` and replaces the SCPI-specific parts (`*CLS`, `*RST`, `SYSTem:ERRor?`) with its own. Its own command grammar, a load-modelling simulator, and a command line. | `Gpd3303D`, `ChannelReading`, `SupplyStatus`, `SimulatedGpd` |
 | DMM-ARC-001 | `instruments.tti1604` | The TTi 1604 bench multimeter, on an opto-isolated RS-232 link. Not a SCPI instrument and not close to one: no command language, no query, no `*IDN?`, no error queue. The link carries single characters standing for key presses, and the meter streams a ten-byte binary frame per measurement. Frame decoding (`protocol`) is pure and separate from the link, because decoding is where a wrong number comes from and it should be testable without a meter. The instrument envelope and protocol facts (`constants`), the driver façade (`dmm`) - which reads the link as a stream (AD-26) and confirms every key press from the readings (AD-25) - a behavioural simulator with the meter's resolution and reading rate on a virtual clock, a command line, an opt-in bench test and a front-panel check. | `Tti1604`, `Reading`, `FrameAssembler`, `decode`, `frame_problem`, `SimulatedTti1604` |
-| PICO-ARC-001 | `instruments.pico_sht30` **and** `firmware/pico_sht30` | The Pico 2 + SHT30-D bench thermometer, as one element across two languages. Host side: the driver (`thermometer`), which takes the transport and lifecycle from `ScpiInstrument` and replaces the SCPI-specific parts with the firmware's `rd` command set (`rd name`, `copyright`, `version`, `sha` and `temperature`, answered `ACK rd <option> = <value>` or `NAK`, #131); the protocol tables (`constants`); a simulated thermometer that answers with the firmware's reply text; and a command line. Pico side: line assembly and dispatch (`cmd_parser`), the SHT30 driver (`sht30`), a bounded text builder in place of stdio (`text`), and a HAL seam (`hal.h`) implemented on the Pico SDK by `hal_pico.c` and by a fake in the host tests. `include/protocol.h` is the interface both sides are built from. | `PicoSht30`, `FirmwareInfo`, `Reading`, `SensorError`, `NoReadingError`, `RdRefusedError`, `SimulatedPicoSht30`; `cmd_execute`, `sht30_measure`, `hal_i2c_write` |
+| PICO-ARC-001 | `instruments.pico2_test_board` **and** `firmware/pico2_test_board` | The PICO2 Test Board - a Pico 2 bench thermometer with three LEDs and a frequency generator, named the Pico 2 SHT30 Temperature Sensor before #330 - as one element across two languages. Host side: the driver (`thermometer`, class `Pico2TestBoard`, bench drivers `pico2-test-board` and `pico2`), which takes the transport and lifecycle from `ScpiInstrument` and replaces the SCPI-specific parts with the firmware's `rd` command set (`rd name`, `copyright`, `version`, `sha` and `temperature`, answered `ACK rd <option> = <value>` or `NAK`, #131) and its `wr` command, which switches the three indicator LEDs and is answered with the state read back (`ACK wr <option> = on|off` or `NAK`; the LEDs are also read by `rd`, #328) and also stores the frequency generator's settings, which `rd` reads back and `routine` runs (#202); the protocol tables (`constants`); a simulated thermometer that answers with the firmware's reply text; and a command line. Pico side: line assembly and dispatch (`cmd_parser`), the SHT30 driver (`sht30`), the frequency generator (`fgen`, with its commands in `cmd_fgen`, #202), a bounded text builder in place of stdio (`text`), and a HAL seam (`hal.h`) implemented on the Pico SDK by `hal_pico.c` and by a fake in the host tests. `include/protocol.h` is the interface both sides are built from. | `Pico2TestBoard`, `FirmwareInfo`, `Reading`, `SensorError`, `NoReadingError`, `CommandRefusedError`, `RdRefusedError`, `WrRefusedError`, `SimulatedPico2TestBoard`; `cmd_execute`, `sht30_measure`, `fgen_write`, `fgen_start`, `hal_i2c_write`, `hal_led_set`, `hal_led_get`, `hal_dac_start` |
+| SER-ARC-001 | `instruments.serial_capture` | The serial capture instrument, host side only: it records the lines a device prints on a serial port, and writes nothing to it. The driver (`capture`) takes the lifecycle from `Instrument` and reads the port on a thread of its own while a capture runs, so that `ROUTINE START CAPTURE` returns at once; it reopens the port when the line rate or character format changes. The command set (`console`) - `RD`, `WR` and `ROUTINE`, in the Kepler BLE console's reply form (#247) - is a thin layer over the driver's methods, so a specification can use either. Its limits and words (`constants`), a simulated device that prints a script of lines when a capture starts, and a command line. | `SerialCapture`, `CaptureResult`, `CapturedLine`, `Reply`, `execute`, `SimulatedSerialDevice` |
+| PPK-ARC-001 | `instruments.ppk2` | The Nordic Power Profiler Kit II (#342): a supply and current meter streaming 100 000 samples a second, with eight logic inputs. Reached over USB CDC through the serial transport, in the kit's own binary protocol (AD-31). The wire format (`protocol`) - commands, the metadata, the calibration and the decoding of each sample into amps and logic levels with Nordic's spike filter - is pure and separate from the link, as the 1604's frame decoding is (DMM-ARC-001). The driver (`ppk2`) takes the lifecycle from `Instrument`, finds the kit by USB serial number, and keeps every sample of a measurement as a `Measurement` (`measurement`), which gives the average, the charge and the pulses with no kit attached. Its facts (`constants`), a simulated kit on a virtual clock, and a command line. | `Ppk2`, `Measurement`, `PulseResult`, `Pulse`, `Calibration`, `SampleDecoder`, `SimulatedPpk2`, `find_ppk2_ports`, `benchtools ppk2` |
 | RUN-ARC-001 | `runner` | Specification model, bench resolution, execution engine, result records, report writers, command line, and the run control channel (127.0.0.1 only). | `load_spec`, `BenchConfig`, `BenchRunner`, `write_*` |
 | VIEW-ARC-001 | `viewer` | The test run viewer: follows a run's event log, rebuilds the run's state from its structured records, serves a page and JSON API with Server-Sent Events on 127.0.0.1 - or, with an access token and optionally read-only and over HTTPS, on another address (#141) - passes control requests to the runner's control channel, and starts runs as separate processes. The top layer: it may import from every other, and nothing imports from it. | `RunState`, `Hub`, `ViewerServer`, `Launcher`, `Catalogue`, `benchtools view` |
 
@@ -466,6 +490,9 @@ therefore to be **honest about those limits** rather than to hide them - hence
 the re-arm count carried in every capture (S2LP-FR-033) and the millisecond
 resolution stated wherever a board timestamp is reported.
 
+AD-32 adds the kit's own firmware, for receiving on the interrupt; this decision
+still holds for the kit when it runs ST's firmware.
+
 **Licence.** ST's package is under SLA0072, a limited licence, not a permissive
 one. Interoperating with the protocol is not redistribution; vendoring the
 source would be. No ST source is in this repository, and the register map holds
@@ -703,7 +730,7 @@ they carried. The name was a property of the code, not of the bench (#126).
 
 **Decision.** A record carries the short upper-case name of the *instrument* it
 came from. A specification allocates it to an instrument role
-(`temp: {driver: pico-sht30, event: TEMP}`), a bench attaches it to an actual
+(`pico2: {driver: pico2-test-board, event: TEMP}`), a bench attaches it to an actual
 instrument (`event: TEMP`), and the specification's wins; with neither, the
 driver's default (`Instrument.EVENT_SOURCE`) applies. Each instrument holds its
 name in one `EventSource`, and binds everything it owns - transport, sessions,
@@ -723,6 +750,132 @@ logger; a new driver gets this from `Instrument`. Names are upper case: a log
 written before #126 is lower case, and the monitor reads both. A specification
 that uses `probe` and `rtt` together must name one of them, which the shipped
 benches do (`event: RTT`).
+
+### AD-29 — Device-specific code is a plugin, loaded by path
+
+**Context.** The bench decoded Kepler's radio frames, held Kepler's S2-LP
+register file and showed a Kepler viewer panel, all inside `benchtools`. The
+owner decided that Kepler content belongs in the Kepler repository and is loaded
+from there, so the bench carries no product code of its own (#238).
+
+**Decision.** A device plugin is a folder holding a Python package with a
+`register(plugin)` function, loaded by path (`benchtools.core.plugins`). It
+provides decoders, register files, viewer panels, field names and named hooks.
+A bench file or specification lists the folders it needs (`plugins:`), and the
+command lines take `--plugin`. Actions take a decoder by name. Every report
+records each plugin's folder and git commit.
+
+**Alternatives.** Python entry points would need the product's code installed
+as a package in the bench's environment, and would record a package version
+rather than the commit the results were read with. Keeping the code in
+`benchtools` behind a registry would leave product code in the bench.
+
+**Consequences.** Kepler's code is in `plugins/kepler` until it is hosted in
+innovateuk-sensor and #240 removes it. The simulated Kepler sensor stays in
+`benchtools/simulated` until #119 and #240. The viewer's device analyses
+(sensor series, TWF, diagnostics, sync, the report's sections) are the Kepler
+plugin's panel since #303: the panel lists its RF tabs, and gives its report
+sections as data that the viewer draws, so nothing under `benchtools/viewer`
+names a Kepler field. A plugin runs with the bench's permissions, so only a
+folder the operator names is loaded: the viewer does not load the plugins named
+in a log it follows, and says which they are. For one release, a specification
+written before #238 (`kepler_samples`, `kepler_frame`, the old register file
+path, no `plugins:`) loads the checkout's Kepler plugin with a deprecation
+warning, so the Kepler repository's specifications keep running until they
+name the plugin; #240 removes the fallback with the plugin.
+
+### AD-30 — SEGGER's own tools as a second J-Link backend, chosen by configuration
+
+**Context.** AD-12 drives the probe through the J-Link GDB Server and an ARM
+GDB. That needs a GDB installed, which the bench PC did not have, and it
+carries GDB's own faults (issue #69). The same PC has SEGGER's J-Link Commander
+and RTT Logger, with which the bench's erase, flash, UICR write, reset and RTT
+sequence was done before #69. A bench that needs only those has had to install
+GDB anyway (#71).
+
+**Decision.** A probe option `backend`: `gdb`, the default and AD-12
+unchanged, or `segger`. `segger` runs one J-Link Commander command file per
+operation and reads RTT with J-Link RTT Logger. It is a subclass of
+`JLinkProbe`, so a bench registers and checks it as the same driver; every
+operation that needs symbols or a debugger is refused by name before anything
+reaches the probe. What #69 taught is kept on both: an erase is checked by
+reading back, a write is read back, the core is left running on close, and
+each result records the backend that produced it. Nordic's `nrfjprog` is not
+part of it: it is not SEGGER's, and it is nRF-specific.
+
+**Alternatives.** Driving `JLinkARM.dll` directly is rejected for the reasons
+AD-12 gives. One long-lived Commander process fed commands on its input would
+keep a core halted between operations, but needs a prompt-driven dialogue that
+cannot be checked without a probe; one run per operation is simpler and leaves
+no session behind a failure. Reading RTT through Commander's telnet port needs
+that long-lived process too.
+
+**Consequences.** Commander's syntax was read from the installed binary's own
+strings, not run against a probe (ETB-RISK-004); the `segger` backend is
+verified on the simulator only until its bench check. The image is read on
+the host (`image`), so verification is per range rather than per section
+name. RTT is read only. Whether a core halted by one Commander run stays
+halted after it exits is not known.
+
+### AD-31 — The PPK2 is driven through its own serial protocol, by this project's code
+
+**Context.** The Power Profiler Kit II (#342) is a USB CDC device with a small
+binary protocol: one opcode per command, a metadata text, and a stream of
+32-bit samples. Nordic publishes no Python library for it. Nordic's Power
+Profiler app (`pc-nrfconnect-ppk`, TypeScript, Nordic's own 4-clause licence)
+is the authority on the protocol. `ppk2-api` (IRNAS) is an unofficial Python
+library, licensed GPL-2.0.
+
+**Decision.** The driver speaks the protocol itself, over the project's serial
+transport (CORE-ARC-002). The protocol facts - opcodes, the sample word, the
+calibration formula and the spike filter - were read from Nordic's app and are
+written down in `constants`, `protocol` and `docs/ppk2/PPK2_Notes.md`; no code
+was copied from either project. The samples are kept as read and decoded after
+sampling stops, so decoding never holds up reading a 400 kB/s stream. The
+driver changes nothing on the kit when it connects, and `voltage_limit`, from
+the bench file, caps the voltage it will set or power a device on at.
+
+**Alternatives.** Depending on `ppk2-api` would bring a GPL-2.0 dependency
+into a package with none, and its own threads and buffering in place of the
+project's transport and simulator seam. Driving Nordic's app is not possible:
+it is a desktop program with no remote interface.
+
+**Consequences.** The protocol is followed as Nordic's app uses it, not from a
+specification Nordic publishes; where the bench kit behaved otherwise it is
+recorded (it answers its metadata once per open, and goes off USB for under a
+second each time its port closes). A change in the kit's firmware would be
+found by the bench check, not by the unit tests, which run against the
+simulated kit.
+
+### AD-32 — The S2-LP kit gets firmware of its own, for receiving on the interrupt
+
+**Context.** AD-20 kept ST's CLI firmware on the S2-LP kit. Its receive is
+armed from the host one packet at a time, so a stream that reads PQI and SQI
+after each frame is deaf for the round trip: 26-27 ms measured (#293), while
+the Kepler sensor spaces its repeats from 20 ms (#84). Changing ST's firmware
+is not open to this project: its CLI and S2-LP driver are under SLA0072,
+which forbids publishing them, and this repository is public.
+
+**Decision.** Write the kit's firmware here (`firmware/s2lp_kit`), with no ST
+source: its own startup, linker script, STM32L053 register definitions and
+S2-LP SPI access. It takes each reception on the radio's interrupt, queues it
+on the board with its time and registers, and re-arms the radio before
+anything goes to the host. The radio's setup stays the host's, as register
+writes. AD-20 still holds for the kit when it runs ST's firmware: the existing
+driver is unchanged.
+
+**Consequences.** The kit has to be flashed to use it, and flashed back for
+ST's GUI and for the existing driver; ST's image is kept outside the
+repository. The firmware is built and unit-tested in CI like the dongle's and
+the PICO2 Test Board's. Configuring the radio by its ST commands
+(`S2LPRadioInit` and the like) is not available on it: a register file is the
+way to set it up. The host driver is `S2lpDevkit` itself: it asks which
+firmware the board runs on connecting and changes session, so a caller of
+`stream` does not change (S2LP-FR-098 .. S2LP-FR-100).
+
+AD-32 → `SWE4-UT-S2LPKITFW` (21), notably `test_a_frame_is_queued_with_time_and_registers_then_rearmed` and `test_the_longest_deaf_time_is_kept`; `SWE4-UT-S2LPKITHOST` (35), notably `test_the_kit_firmware_is_found_by_asking` and `test_frames_with_their_registers_and_decode`; and the bench runs in `docs/aspice/qualification/2026-11-14/84_kit_firmware/` and `84_kit_driver/`.
+
+---
 
 ## 8. Dynamic behaviour — a runner invocation
 
@@ -782,8 +935,15 @@ CLI            BenchRunner        Bench           Tek3014B        Transport
 | Bluetooth Low Energy | bidirectional | Dongle to sensor: advertising reports in, UART service both ways. Below the dongle firmware; not visible to the host driver except as events. |
 | `pyserial` | bidirectional | Optional; the serial transport. |
 | nRF5 SDK 17.1.0 + S140 | in | Builds the dongle firmware. Not needed to run the host driver or the tests. |
-| USB CDC (serial) — thermometer | bidirectional | The Pico 2 thermometer's line protocol (`firmware/pico_sht30/include/protocol.h`). |
+| USB CDC (serial) — thermometer | bidirectional | The Pico 2 thermometer's line protocol (`firmware/pico2_test_board/include/protocol.h`). |
+| USB CDC — Nordic Power Profiler Kit II | bidirectional | The PPK2's serial protocol (AD-31): one-byte opcodes with their arguments out; its metadata text and a stream of 32-bit samples, 100 000 a second, in. Found by its USB identity (0x1915:0xC00A) and serial number. Specified, command by command, in `docs/ppk2/PPK2_Notes.md`. |
+| Power and logic — PPK2 to the device under test | bidirectional | In source mode the PPK2's VOUT supplies the device at 0.8 V to 5.0 V; in ammeter mode an outside supply on VIN reaches the device through the kit. Eight logic inputs, D0 to D7, are sampled with the current. Nothing is wired to them on the bench PC as of 2026-11-14. |
+| Serial port — device under test | in | A device's console or test UART, read by the serial capture instrument through a USB serial adapter. Receive only: the instrument writes nothing to it. |
+| USB — PicoScope 3000D MSO | bidirectional | The PicoScope 3405D MSO on USB, through Pico Technology's WinUSB driver (version 2.4.0.2, dated 2022-06-10, on the bench PC). Not visible to this software: every exchange with the unit goes through the `ps3000a` library. Its inputs are four analogue channels and sixteen digital inputs; its only output is the signal generator. |
+| `ps3000a` C library (Pico Technology) | bidirectional | Optional; called through `ctypes` by the PicoScope driver, with no Pico Python package. Installed with PicoScope 7 or the PicoSDK, and found from the bench's `sdk_path`, `PICOSDK_PATH`, the install folders or the system's library path. Not needed to import the driver or to run the tests. On the bench PC it is the `ps3000a.dll` of PicoScope 7 T&M Stable, reporting driver version 2.2.160.7569 (ETB-ACQ4-001 §4.4). Specified, call by call, with every dependency, in ETB-IF-002. |
 | I2C | bidirectional | Pico 2 to SHT30-DIS, 100 kHz, address 0x44. Below the thermometer firmware; not visible to the host driver except as `err 4`/`err 6`. |
+| GPIO — thermometer LEDs | out | Pico 2 GP18, GP19 and GP20 to the red, yellow and green indicator LEDs, each lit by driving its pin high (#328). Set by `wr` and read back by `rd` from the pins' output latches. |
+| I2S and GPIO — frequency generator | out | Pico 2 GP6 (DIN), GP7 (BCLK) and GP8 (WSEL) to an Adafruit UDA1334A board (NXP UDA1334A DAC), generator channels 1 and 2; its `MUTE` input is not connected on the bench. GP15 carries channel 3, a square wave (#202). |
 | Raspberry Pi Pico C SDK 2.1.1 + Arm GNU toolchain | in | Builds the thermometer firmware into a UF2 image. Not needed to run the host driver or the tests. |
 
 ---

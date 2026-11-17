@@ -111,12 +111,26 @@ class TestExecutionModel:
     def test_a_monitor_command_is_refused_while_the_core_runs(self, simulator, command):
         """As GDB refused 'monitor reset' after reset(halt=False) on 5C1712 (#259)."""
         simulator.connected = True
-        simulator.resume()
+        simulator.respond(b"1-exec-continue")   # GDB knows the core runs
         assert not simulator.halted
-        reply = simulator.respond(('1-interpreter-exec console "%s"' % command).encode())
+        reply = simulator.respond(('2-interpreter-exec console "%s"' % command).encode())
         assert b"Cannot execute this command while the target is running" in reply
         assert not simulator.halted
         assert simulator.monitor_log == []
+
+    def test_a_core_gdb_did_not_start_takes_monitor_commands(self, simulator):
+        """After an attach GDB takes the core for stopped, running or not, and
+        passes a monitor command on (#349)."""
+        simulator.halted = False
+        simulator.respond(b"1-target-select extended-remote sim:0")
+        reply = simulator.respond(b'2-interpreter-exec console "monitor halt"')
+        assert b"^done" in reply
+        assert simulator.halted
+
+    def test_a_running_core_s_registers_read_deadbeef(self, simulator):
+        """The GDB Server cannot read a running core's registers (#349)."""
+        simulator.halted = False
+        assert set(simulator.core_registers().values()) == {0xDEADBEEF}
 
     def test_gdb_s_registers_are_stale_after_a_monitor_reset(self, simulator):
         """GDB never sees a 'monitor' command, so it keeps the registers it

@@ -1,0 +1,12 @@
+{
+  "id": "ok etb-s2lp-kit V1.00.0000 proto=1 silicon=c1",
+  "rx_start": "ok",
+  "last_stat": "ok running=1 frames=27 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0",
+  "stat_sent": 360,
+  "stat_answered": 360,
+  "unexpected_lines": [],
+  "frames_seen": 27,
+  "rx_stop": "ok frames=27 rejects=0 overflows=0 deaf_max_us=393",
+  "rx_stop_is_last": true,
+  "after_stop": "ok running=0 frames=27 rejects=0 overflows=0 deaf_max_us=393 queued=0 uart_overruns=0"
+}

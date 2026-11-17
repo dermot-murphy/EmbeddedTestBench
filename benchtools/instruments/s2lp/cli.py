@@ -8,7 +8,7 @@ Two logs, because they answer different questions. ``--log PATH`` records every
 line in both directions, host-timestamped: that file is the evidence.
 ``--packet-log PATH`` records one JSON object per packet: that file is the data.
 
-Traces to: S2LP-FR-060, S2LP-DD-CLI.
+Traces to: S2LP-FR-060, CORE-FR-069, S2LP-DD-CLI.
 """
 
 from __future__ import annotations
@@ -20,10 +20,11 @@ import sys
 from typing import Optional, Sequence
 
 from ... import __version__
+from ...core import plugins
 from ...core.errors import BenchToolsError
+from ...core.paths import resolve_input_path
 from . import registers as reg
 from .constants import BOARDS, CRC_MODES, DEFAULT_BAUDRATE, MODEL, Modulation, Strobe
-from .kepler import decode_kepler_frame
 from .s2lp import S2lpDevkit
 from .traffic import FRAME_REGISTERS
 
@@ -221,7 +222,7 @@ def _cmd_packets(radio: S2lpDevkit, args) -> int:
 
 def _cmd_stream(radio: S2lpDevkit, args) -> int:
     """Receive frames until stopped, one JSON line each, raw and decoded."""
-    decoder = decode_kepler_frame if args.decode == "kepler" else None
+    decoder = plugins.decoder(args.decode) if args.decode else None
     registers = tuple(args.registers.split(",")) if args.registers else None
     frames = rejected = undecoded = 0
     try:
@@ -249,10 +250,12 @@ def _cmd_preamble(radio: S2lpDevkit, args) -> int:
             print("error: --expect-pairs needs --source", file=sys.stderr)
             return _EXIT_ERROR
         check = radio.check_preamble(args.expect_pairs, source=args.source, count=args.count,
-                                     timeout=args.timeout, tolerance_pairs=args.tolerance)
+                                     timeout=args.timeout, tolerance_pairs=args.tolerance,
+                                     decoder=args.decode)
         _emit(check, args.json)
         return _EXIT_OK if check["passed"] else _EXIT_ERROR
-    measured = radio.measure_preamble(source=args.source, count=args.count, timeout=args.timeout)
+    measured = radio.measure_preamble(source=args.source, count=args.count, timeout=args.timeout,
+                                      decoder=args.decode)
     _emit({source: m.as_dict() for source, m in measured.items()}, args.json)
     return _EXIT_OK if measured else _EXIT_ERROR
 
@@ -284,6 +287,9 @@ def build_parser() -> argparse.ArgumentParser:
                         help="reset the radio to its register defaults and apply this "
                              "register file right after connecting, e.g. to "
                              "set up the packet handler before tx or rx")
+    parser.add_argument("--plugin", metavar="PATH", action="append", default=[],
+                        help="load the device plugin in this folder, for its decoders and "
+                             "register files (plugin:<name>/<file>); repeatable")
     parser.add_argument("--log", metavar="PATH", help="raw session log: every line, both ways")
     parser.add_argument("--packet-log", metavar="PATH", help="structured packet log (JSON Lines)")
     parser.add_argument("--json", metavar="PATH", help="also write the JSON result here")
@@ -369,7 +375,9 @@ def build_parser() -> argparse.ArgumentParser:
     stream.add_argument("--registers", metavar="NAMES",
                         help="polled mode: comma-separated registers to read after each "
                              "frame (default %s)" % ",".join(FRAME_REGISTERS))
-    stream.add_argument("--decode", choices=["kepler"], help="decode each payload")
+    stream.add_argument("--decode", metavar="DECODER",
+                        help="decode each payload with this decoder from a --plugin, "
+                             "e.g. kepler")
     stream.set_defaults(handler=_cmd_stream)
 
     preamble = subparsers.add_parser(
@@ -380,6 +388,9 @@ def build_parser() -> argparse.ArgumentParser:
                                "(expected PQI = 2 x pairs - 1, at most 255)")
     preamble.add_argument("--tolerance", type=int, default=2,
                           help="bit-pairs the best frame may fall short by (default 2)")
+    preamble.add_argument("--decode", metavar="DECODER",
+                          help="the decoder that names each frame's sender, from a --plugin "
+                               "(default: the only one loaded)")
     preamble.add_argument("--count", type=int, help="stop after this many frames")
     preamble.add_argument("--timeout", type=float, default=120.0, help="seconds to listen")
     preamble.set_defaults(handler=_cmd_preamble)
@@ -404,6 +415,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     logging.basicConfig(level=level, format="%(levelname)-8s %(name)s: %(message)s")
 
     try:
+        for folder in args.plugin:
+            plugins.load_plugin(folder)
+        setup = resolve_input_path(args.setup, what="register file") if args.setup else None
+    except BenchToolsError as exc:
+        print("error: %s" % exc, file=sys.stderr)
+        return _EXIT_ERROR
+
+    try:
         radio = S2lpDevkit.connect(
             args.resource,
             baudrate=args.baudrate,
@@ -417,8 +436,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         return _EXIT_ERROR
 
     try:
-        if args.setup:
-            radio.apply_configuration(args.setup, reset="defaults")
+        if setup:
+            radio.apply_configuration(setup, reset="defaults")
         return args.handler(radio, args)
     except BenchToolsError as exc:
         print("error: %s" % exc, file=sys.stderr)

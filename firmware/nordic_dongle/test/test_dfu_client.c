@@ -27,6 +27,9 @@ static nrf_ble_gatt_t	m_gatt;
 static bool		m_answer_pending;
 static uint8_t		m_answer[8];
 static uint16_t		m_answer_len;
+/** What the last Packet write reported: its piece size and pieces. */
+static uint16_t		m_piece;
+static uint16_t		m_pieces;
 
 /** Discovery's report of a bootloader's DFU service. */
 static void test_discover(bool with_packet)
@@ -124,6 +127,21 @@ static void test_a_found_service_turns_notifications_on_and_says_so(void)
 	TEST_ASSERT_TRUE(strstr(fake_last_line(), "state=ready") != NULL);
 }
 
+static void test_ready_reports_the_att_mtu_of_the_link(void)
+{
+	/* Both Kepler bootloaders on 5C1712 linked at the minimum, 23; the host
+	 * had to work it out from the receipts (#271, #274). */
+	fake_gatt_set_eff_mtu(23U);
+	test_discover(true);
+	TEST_ASSERT_TRUE(strstr(fake_last_line(), "state=ready error=0x0 att_mtu=23") != NULL);
+	TEST_ASSERT_EQUAL_UINT16(23U, dfu_client_att_mtu());
+}
+
+static void test_without_a_link_the_att_mtu_is_zero(void)
+{
+	TEST_ASSERT_EQUAL_UINT16(0U, dfu_client_att_mtu());
+}
+
 static void test_a_dfu_link_asks_for_a_short_interval(void)
 {
 	/* 191 s for 298 KB at 30 ms on 5C1712; a Kepler spec allows 180 (#244). */
@@ -206,10 +224,12 @@ static void test_a_packet_is_written_without_a_response(void)
 	static const uint8_t data[] = { 0x01U, 0x02U, 0x03U };
 
 	test_discover(true);
-	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, dfu_client_packet(data, sizeof(data), 100U));
+	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, dfu_client_packet(data, sizeof(data), 100U, &m_piece, &m_pieces));
 	TEST_ASSERT_EQUAL_HEX16(TEST_PACKET, fake_gq_write(1U)->handle);
 	TEST_ASSERT_EQUAL_UINT8(BLE_GATT_OP_WRITE_CMD, fake_gq_write(1U)->write_op);
 	TEST_ASSERT_EQUAL_MEMORY(data, fake_gq_write(1U)->data, sizeof(data));
+	TEST_ASSERT_EQUAL_UINT16(244U, m_piece);
+	TEST_ASSERT_EQUAL_UINT16(1U, m_pieces);
 }
 
 static void test_a_packet_is_split_to_fit_the_mtu(void)
@@ -225,11 +245,13 @@ static void test_a_packet_is_split_to_fit_the_mtu(void)
 	}
 	test_discover(true);
 	fake_gatt_set_eff_mtu(23U);
-	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, dfu_client_packet(data, 144U, 100U));
+	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, dfu_client_packet(data, 144U, 100U, &m_piece, &m_pieces));
 	TEST_ASSERT_EQUAL_UINT32(1U + 8U, fake_gq_write_count());    /* CCCD, 7 x 20 and 4 */
 	TEST_ASSERT_EQUAL_UINT16(20U, fake_gq_write(1U)->len);
 	TEST_ASSERT_EQUAL_UINT16(4U, fake_gq_write(8U)->len);
 	TEST_ASSERT_EQUAL_MEMORY(&data[140], fake_gq_write(8U)->data, 4U);
+	TEST_ASSERT_EQUAL_UINT16(20U, m_piece);
+	TEST_ASSERT_EQUAL_UINT16(8U, m_pieces);
 }
 
 static void test_with_a_receipt_interval_each_receipt_is_waited_for(void)
@@ -249,16 +271,16 @@ static void test_with_a_receipt_interval_each_receipt_is_waited_for(void)
 	(void)dfu_client_control(prn_set, sizeof(prn_set), 100U, response, &length);
 
 	/* The first packet owes nothing; the second owes a receipt. */
-	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, dfu_client_packet(data, 8U, 100U));
+	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, dfu_client_packet(data, 8U, 100U, &m_piece, &m_pieces));
 	(void)memcpy(m_answer, receipt, sizeof(receipt));
 	m_answer_len     = sizeof(receipt);
 	m_answer_pending = true;
-	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, dfu_client_packet(data, 8U, 100U));
+	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, dfu_client_packet(data, 8U, 100U, &m_piece, &m_pieces));
 	TEST_ASSERT_FALSE(m_answer_pending);                 /* it was waited for */
 
 	/* A receipt that never comes is a timeout, not a silent loss. */
-	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, dfu_client_packet(data, 8U, 5U));
-	TEST_ASSERT_EQUAL_UINT32(NRF_ERROR_TIMEOUT, dfu_client_packet(data, 8U, 5U));
+	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, dfu_client_packet(data, 8U, 5U, &m_piece, &m_pieces));
+	TEST_ASSERT_EQUAL_UINT32(NRF_ERROR_TIMEOUT, dfu_client_packet(data, 8U, 5U, &m_piece, &m_pieces));
 }
 
 static void test_a_refused_receipt_interval_is_not_waited_on(void)
@@ -276,9 +298,9 @@ static void test_a_refused_receipt_interval_is_not_waited_on(void)
 	m_answer_len     = sizeof(refused);
 	m_answer_pending = true;
 	(void)dfu_client_control(prn_set, sizeof(prn_set), 100U, response, &length);
-	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, dfu_client_packet(data, sizeof(data), 5U));
-	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, dfu_client_packet(data, sizeof(data), 5U));
-	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, dfu_client_packet(data, sizeof(data), 5U));
+	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, dfu_client_packet(data, sizeof(data), 5U, &m_piece, &m_pieces));
+	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, dfu_client_packet(data, sizeof(data), 5U, &m_piece, &m_pieces));
+	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, dfu_client_packet(data, sizeof(data), 5U, &m_piece, &m_pieces));
 }
 
 static void test_a_full_queue_is_waited_out(void)
@@ -287,7 +309,7 @@ static void test_a_full_queue_is_waited_out(void)
 
 	test_discover(true);
 	fake_gq_fail_next(3U, NRF_ERROR_RESOURCES);
-	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, dfu_client_packet(data, sizeof(data), 100U));
+	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, dfu_client_packet(data, sizeof(data), 100U, &m_piece, &m_pieces));
 	TEST_ASSERT_EQUAL_UINT32(2U, fake_gq_write_count());
 }
 
@@ -297,7 +319,8 @@ static void test_a_queue_that_stays_full_is_reported(void)
 
 	test_discover(true);
 	fake_gq_fail_next(100000U, NRF_ERROR_RESOURCES);
-	TEST_ASSERT_EQUAL_UINT32(NRF_ERROR_RESOURCES, dfu_client_packet(data, sizeof(data), 2U));
+	TEST_ASSERT_EQUAL_UINT32(NRF_ERROR_RESOURCES, dfu_client_packet(data, sizeof(data), 2U, &m_piece, &m_pieces));
+	TEST_ASSERT_EQUAL_UINT16(0U, m_pieces);                /* none was written */
 }
 
 static void test_nothing_is_written_without_a_dfu_service(void)
@@ -308,7 +331,7 @@ static void test_nothing_is_written_without_a_dfu_service(void)
 
 	TEST_ASSERT_EQUAL_UINT32(NRF_ERROR_INVALID_STATE,
 				 dfu_client_control(data, 1U, 5U, response, &length));
-	TEST_ASSERT_EQUAL_UINT32(NRF_ERROR_INVALID_STATE, dfu_client_packet(data, 1U, 5U));
+	TEST_ASSERT_EQUAL_UINT32(NRF_ERROR_INVALID_STATE, dfu_client_packet(data, 1U, 5U, &m_piece, &m_pieces));
 }
 
 static void test_an_over_long_write_is_refused(void)
@@ -321,7 +344,7 @@ static void test_an_over_long_write_is_refused(void)
 	test_discover(true);
 	TEST_ASSERT_EQUAL_UINT32(NRF_ERROR_DATA_SIZE,
 				 dfu_client_control(data, sizeof(data), 5U, response, &length));
-	TEST_ASSERT_EQUAL_UINT32(NRF_ERROR_DATA_SIZE, dfu_client_packet(data, sizeof(data), 5U));
+	TEST_ASSERT_EQUAL_UINT32(NRF_ERROR_DATA_SIZE, dfu_client_packet(data, sizeof(data), 5U, &m_piece, &m_pieces));
 }
 
 static void test_a_disconnection_forgets_the_service(void)
@@ -336,6 +359,8 @@ int main(void)
 	UNITY_BEGIN();
 	RUN_TEST(test_the_dfu_service_is_registered_with_discovery);
 	RUN_TEST(test_a_found_service_turns_notifications_on_and_says_so);
+	RUN_TEST(test_ready_reports_the_att_mtu_of_the_link);
+	RUN_TEST(test_without_a_link_the_att_mtu_is_zero);
 	RUN_TEST(test_a_dfu_link_asks_for_a_short_interval);
 	RUN_TEST(test_a_service_without_its_packet_characteristic_is_not_used);
 	RUN_TEST(test_another_service_is_ignored);

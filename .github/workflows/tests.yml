@@ -59,8 +59,11 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      # The library versions are pinned per Python in constraints/, which the
+      # CI image installs too (docker/ci, #282), so a leg can be run locally
+      # with the releases CI uses. Regenerate them with `etb-ci lock`.
       - name: Install
-        run: pip install --quiet -e .[test]
+        run: pip install --quiet -c constraints/py${{ matrix.python-version }}.txt -e .[test]
 
       - name: Run the suite
         run: >

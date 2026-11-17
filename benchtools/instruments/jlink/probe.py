@@ -16,6 +16,12 @@ reach it. Moving this into a container changes a host name and nothing else::
 
     JLinkProbe.connect("jlink://192.168.1.9:2331", elf="build/app.elf")
 
+That is the ``gdb`` backend, and the default. ``backend="segger"`` selects the
+other one (#71): SEGGER's own J-Link Commander and RTT Logger, with no GDB,
+for a bench that needs flash, verify, erase, memory, reset and RTT only. It is
+:class:`~benchtools.instruments.jlink.segger.SeggerJLinkProbe`, and
+:meth:`JLinkProbe.connect` returns one when asked.
+
 Traces to: JLINK-FR-001 .. JLINK-FR-100, JLINK-ARC-001, JLINK-DD-PROBE.
 """
 
@@ -25,7 +31,7 @@ import os
 import re
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 from ...analysis.samples import SampleSet, extract_number
 from ...core.errors import (
@@ -76,12 +82,52 @@ __all__ = [
     "VerifyResult",
     "SectionVerdict",
     "NRF52_UICR",
+    "BACKENDS",
+    "backend_opener",
+    "register_backend",
 ]
 
 #: The nRF52840's UICR, as ``(address, size)``: the sensor ID at 0x10001080
 #: and the bootloader address at 0x10001014 live here, and an image holding a
 #: UICR record erases the whole page (#69).
 NRF52_UICR = (0x10001000, 0x310)
+
+#: An expression that may change the target when evaluated: an increment or
+#: decrement, an assignment (compound ones included, not a comparison), or
+#: anything with a parenthesis - a call, but also a cast or a parenthesised
+#: name, which are skipped too. The address-0 check (#352) would evaluate it a
+#: second time, so it is not checked.
+_MAY_HAVE_SIDE_EFFECT = re.compile(r"\+\+|--|<<=|>>=|(?<![=!<>])=(?!=)|\(")
+
+#: The J-Link backends ``connect`` accepts, the default first (#71).
+BACKENDS = ("gdb", "segger")
+
+#: How each backend other than ``gdb`` opens a link, by name. The module that
+#: implements one registers it, so this module need not import that one,
+#: which builds on it.
+_BACKEND_OPENERS: Dict[str, Callable[..., "JLinkProbe"]] = {}
+
+
+def register_backend(name: str, opener: Callable[..., "JLinkProbe"]) -> None:
+    """Make *opener* what ``connect(backend=name)`` calls."""
+    _BACKEND_OPENERS[name.lower()] = opener
+
+
+def backend_opener(backend: Optional[str]) -> Optional[Callable[..., "JLinkProbe"]]:
+    """The opener for *backend*, or ``None`` for ``gdb``, which is this module.
+
+    :raises ConfigurationError: for a backend that is not one of
+        :data:`BACKENDS`, or one whose module was never imported.
+    """
+    chosen = str(backend or "gdb").strip().lower()
+    if chosen not in BACKENDS:
+        raise ConfigurationError(
+            "unknown J-Link backend %r: choose %s" % (backend, " or ".join(BACKENDS)))
+    if chosen == "gdb":
+        return None
+    if chosen not in _BACKEND_OPENERS:  # pragma: no cover - the package imports it
+        raise ConfigurationError("the J-Link %r backend is not loaded" % chosen)
+    return _BACKEND_OPENERS[chosen]
 
 
 #: Matches "Loading section .text, size 0x1234 lma 0x08000000".
@@ -184,6 +230,8 @@ class VerifyResult:
 
     sections: List[SectionVerdict] = field(default_factory=list)
     output: str = ""
+    #: The J-Link backend that compared, so a report says which did (#71).
+    backend: str = "gdb"
 
     @property
     def matched(self) -> bool:
@@ -202,6 +250,7 @@ class VerifyResult:
 
     def as_dict(self) -> dict:
         return {
+            "backend": self.backend,
             "matched": self.matched,
             "sections": {
                 section.name: {
@@ -228,6 +277,8 @@ class RestoreResult:
     #: restore raises instead.
     unchanged: bool = True
     seconds: float = 0.0
+    #: The J-Link backend that programmed the images (#71).
+    backend: str = "gdb"
 
     @property
     def verified(self) -> Optional[bool]:
@@ -243,6 +294,7 @@ class RestoreResult:
     def as_dict(self) -> dict:
         """The result as plain data, for a report."""
         return {
+            "backend": self.backend,
             "images": list(self.images),
             "bytes_written": self.bytes_written,
             "verified": self.verified,
@@ -263,6 +315,8 @@ class FlashResult:
     verify: Optional[VerifyResult] = None
     #: Ranges kept across the flash, as ``address -> hex bytes`` written back.
     preserved: Dict[int, str] = field(default_factory=dict)
+    #: The J-Link backend that programmed the image (#71).
+    backend: str = "gdb"
 
     @property
     def bytes_written(self) -> int:
@@ -276,6 +330,7 @@ class FlashResult:
 
     def as_dict(self) -> dict:
         summary = {
+            "backend": self.backend,
             "bytes_written": self.bytes_written,
             "seconds": self.seconds,
             "sections": {
@@ -309,6 +364,8 @@ class JLinkProbe(Instrument):
     SIMULATOR_CLASS = SimulatedJLink
     MODEL_NAME = "J-Link"
     EVENT_SOURCE = "JLINK"
+    #: Which mechanism produced a result, recorded in each result (#71).
+    backend = "gdb"
 
     def __init__(
         self,
@@ -341,9 +398,10 @@ class JLinkProbe(Instrument):
         self._cycle_counter_ready = False
         self._itm = ItmDecoder()
         self._adopt(session, session.transport, server, rtt, self._itm)
-        #: Leave the core halted when the link closes. Off by default: the GDB
-        #: Server halts the core on attach and does not resume it on detach, so
-        #: without a resume every read or verify leaves the target stopped.
+        #: Leave the core halted when the link closes. Off by default: the
+        #: core is halted on attach (#95, #349) and the GDB Server does not
+        #: resume it on detach, so without a resume every read or verify
+        #: leaves the target stopped.
         self.leave_halted = False
         #: Attach to the target when the link opens. ``False`` is RTT only;
         #: see :meth:`connect`.
@@ -374,6 +432,9 @@ class JLinkProbe(Instrument):
         start_server: bool = True,
         attach: bool = True,
         simulated_target: Optional[str] = None,
+        backend: str = "gdb",
+        commander_executable: Optional[str] = None,
+        rtt_logger_executable: Optional[str] = None,
         **_ignored,
     ) -> "JLinkProbe":
         """Open a link to a target through a J-Link.
@@ -406,10 +467,30 @@ class JLinkProbe(Instrument):
             probe is wired to, whose RTT log it reads - ``kepler-5C1712``, the
             Kepler sensor the simulated dongle also talks to (#121). Ignored for
             a real probe, which is wired to whatever is on the bench.
+        :param backend: ``gdb`` (the default: the J-Link GDB Server and an ARM
+            GDB) or ``segger`` (J-Link Commander and RTT Logger only, #71),
+            in any case. The ``segger`` backend returns a
+            :class:`~benchtools.instruments.jlink.segger.SeggerJLinkProbe`,
+            which refuses every operation that needs GDB by name.
+        :param commander_executable: ``segger`` only: ``JLink.exe``, searched
+            for when omitted.
+        :param rtt_logger_executable: ``segger`` only: ``JLinkRTTLogger.exe``,
+            searched for when omitted.
+        :raises ConfigurationError: for a backend that is neither.
         """
         text = (resource or "sim://").strip()
         if core_clock_hz is not None:
             limits = ProbeLimits(**{**limits.__dict__, "core_clock_hz": float(core_clock_hz)})
+        opener = backend_opener(backend)
+        if opener is not None:
+            return opener(
+                resource, device=device, elf=elf, firmware=firmware, interface=interface,
+                speed_khz=speed_khz, serial_number=serial_number,
+                commander_executable=commander_executable,
+                rtt_logger_executable=rtt_logger_executable, limits=limits,
+                timeout=timeout, auto_check_errors=auto_check_errors,
+                initialise=initialise, attach=attach, simulated_target=simulated_target,
+            )
 
         if text.lower().startswith(("sim://", "mock://")) or text.lower() in ("sim", "mock"):
             simulator = SimulatedJLink()
@@ -668,7 +749,20 @@ class JLinkProbe(Instrument):
             raise ConfigurationError("no such ELF file: %s" % path)
 
     def attach(self) -> None:
-        """Attach GDB to the target through the GDB Server."""
+        """Attach GDB to the target through the GDB Server, and halt the core.
+
+        An attach has been seen to halt the core (#95), but not after an
+        earlier client resumed it with ``monitor go``: GDB never saw that
+        resume, and a client attaching to the same GDB Server afterwards found
+        the core running while GDB took it for stopped. The driver's own
+        ``close`` ends that way, so the second call against a GDB Server left
+        running - every remote ``jlink://<host>:<port>`` and every run from
+        the bench container - took a running core for a halted one: ``halt``
+        did nothing, and the registers read ``0xDEADBEEF`` (issue #349, seen on
+        5C1712 with GDB Server V9.42). ``monitor halt`` is harmless on a
+        halted core, and GDB's register cache is flushed after it because GDB
+        does not see what a ``monitor`` command does (#178).
+        """
         address = self._target_address if self._target_address != "simulated" else "sim:0"
         record = self._session.execute(
             "-target-select extended-remote %s" % address, allow_error=True, timeout=30.0
@@ -680,6 +774,8 @@ class JLinkProbe(Instrument):
                 % (address, record.error_message)
             )
         self._attached = True
+        self.monitor("halt")
+        self._flush_register_cache()
         self._halted = True
 
     @property
@@ -765,7 +861,8 @@ class JLinkProbe(Instrument):
                 "flashing reported no sections loaded, so nothing was programmed.\n"
                 "GDB said:\n%s" % (console.text or "(no output)")
             )
-        result = FlashResult(sections=sections, output=console.text, seconds=elapsed)
+        result = FlashResult(sections=sections, output=console.text, seconds=elapsed,
+                             backend=self.backend)
         self._logger.info(
             "flashed %d bytes in %d section(s) in %.2f s",
             result.bytes_written, len(sections), elapsed,
@@ -821,6 +918,7 @@ class JLinkProbe(Instrument):
         result = RestoreResult(
             images=list(images),
             kept={address: data.hex() for address, data in before},
+            backend=self.backend,
         )
         for path in images:
             result.flashes.append(
@@ -918,7 +1016,7 @@ class JLinkProbe(Instrument):
             )
             for match in _COMPARE_RE.finditer(console.text)
         ]
-        return VerifyResult(sections=sections, output=console.text)
+        return VerifyResult(sections=sections, output=console.text, backend=self.backend)
 
     def erase(self, timeout: float = 120.0, blank_check_address: Optional[int] = 0) -> str:
         """Erase the target's flash, and check that it did.
@@ -1009,9 +1107,13 @@ class JLinkProbe(Instrument):
     resume = run
 
     def halt(self, timeout: float = 10.0) -> HaltInfo:
-        """Halt the target and report where it stopped."""
+        """Halt the target and report where it stopped.
+
+        A core already halted - as every attach leaves it (#349) - is reported
+        where it is, from its innermost frame, rather than at address 0.
+        """
         if self._halted:
-            return self._halt_info({"reason": "signal-received"})
+            return self._halt_info({"reason": "signal-received", "frame": self._innermost_frame()})
         self._session.execute("-exec-interrupt", timeout=timeout, allow_error=True)
         info = self.wait_for_halt(timeout=timeout)
         return info
@@ -1041,6 +1143,15 @@ class JLinkProbe(Instrument):
         results = self._session.wait_for_stop(timeout=timeout)
         self._halted = True
         return self._halt_info(results)
+
+    def _innermost_frame(self) -> Dict[str, Any]:
+        """The halted core's innermost frame as GDB reports it; empty if none."""
+        record = self._session.execute("-stack-list-frames 0 0", allow_error=True)
+        frames = [] if record.is_error else (record.results.get("stack") or [])
+        for entry in frames if isinstance(frames, list) else [frames]:
+            if isinstance(entry, dict):
+                return entry
+        return {}
 
     def _halt_info(self, results: Dict[str, Any]) -> HaltInfo:
         frame = results.get("frame") or {}
@@ -1334,7 +1445,11 @@ class JLinkProbe(Instrument):
         Needs symbols. Integers, floats, strings, pointers and simple structures
         are converted; anything else is returned as GDB's own text, which is
         better than guessing.
+
+        A variable GDB places at address 0 is refused rather than read
+        (:meth:`_refuse_address_zero`, #352).
         """
+        self._refuse_address_zero(name, "read")
         record = self._session.execute(
             '-data-evaluate-expression "%s"' % name, allow_error=True
         )
@@ -1350,7 +1465,8 @@ class JLinkProbe(Instrument):
         return self._parse_gdb_value(str(record.results.get("value", "")))
 
     def write_variable(self, name: str, value: Any) -> None:
-        """Write a variable by name."""
+        """Write a variable by name. One at address 0 is refused (#352)."""
+        self._refuse_address_zero(name, "write")
         if isinstance(value, bool):
             text = "1" if value else "0"
         elif isinstance(value, (int, float)):
@@ -1367,9 +1483,50 @@ class JLinkProbe(Instrument):
         self._after_configuration()
 
     def variable_address(self, name: str) -> int:
-        """Address of a variable."""
+        """Address of a variable. Address 0 is refused (#352)."""
+        address = self._address_of(name)
+        if address == 0:
+            raise MeasurementError(self._address_zero_message(name, "locate"))
+        return address
+
+    def _refuse_address_zero(self, name: str, action: str) -> None:
+        """Refuse *name* if GDB places it at address 0.
+
+        A variable the linker discarded can keep its debug entry with address
+        0, and GDB then reports it as static storage there. Address 0 is the
+        vector table on every Cortex-M, so a read returned the initial stack
+        pointer as the variable's value: ``m_freq`` read ``0x20000400`` on
+        5C1712 (#352). An expression that has no address, such as a register,
+        is not checked. Nor is one that may have a side effect - an increment,
+        an assignment or a call - because the check evaluates it once more;
+        any parenthesis counts, so a cast such as ``(uint32_t)x`` is not
+        checked either.
+        """
+        if _MAY_HAVE_SIDE_EFFECT.search(name):
+            return
+        try:
+            address = self._address_of(name)
+        except (MeasurementError, ProtocolError):
+            return
+        if address == 0:
+            raise MeasurementError(self._address_zero_message(name, action))
+
+    @staticmethod
+    def _address_zero_message(name: str, action: str) -> str:
+        return (
+            "cannot %s %r: GDB places it at address 0, which on a Cortex-M is the "
+            "vector table, not a variable. It is probably not in the image (the "
+            "linker removed it), or a null pointer was followed; check that the "
+            "ELF is the image's own" % (action, name)
+        )
+
+    def _address_of(self, name: str) -> int:
+        """The address GDB gives ``&(name)``.
+
+        Parenthesised so that ``a + 1`` is not taken as ``(&a) + 1``.
+        """
         value = self._session.execute(
-            '-data-evaluate-expression "&%s"' % name, allow_error=True
+            '-data-evaluate-expression "&(%s)"' % name, allow_error=True
         )
         if value.is_error:
             raise MeasurementError("cannot take the address of %r: %s" % (name, value.error_message))

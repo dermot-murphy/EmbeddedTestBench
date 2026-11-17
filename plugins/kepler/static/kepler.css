@@ -1,0 +1,11 @@
+/* Kepler's viewer panel (#303): the colours of its frame types and of the
+   bytes of a frame on Latest Data. Loaded by kepler.js; the viewer's app.css
+   gives the variables. */
+.frame.t-ALIVE > header { border-left: 4px solid var(--series-3); }
+.frame.t-VERSION > header { border-left: 4px solid var(--series-1); }
+.frame.t-CONFIG > header { border-left: 4px solid var(--series-2); }
+.frame.t-TWF > header { border-left: 4px solid var(--series-7); }
+.frame.t-FFT > header, .frame.t-FFT2 > header { border-left: 4px solid var(--series-4); }
+.frame.t-CMD > header, .frame.t-RESPONSE > header { border-left: 4px solid var(--series-5); }
+.raw .r-header { color: var(--series-1); } .raw .r-type { color: var(--series-3); font-weight: 600; }
+.raw .r-permute { color: var(--series-3); } .raw .r-counter { color: var(--series-2); font-weight: 600; }

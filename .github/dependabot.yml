@@ -9,6 +9,14 @@
 # from with the reason recorded (ETB-ACQ4-001). CStyleCheck in particular is
 # pinned to an exact tag on purpose - see ETB-ACQ4-001 §7 - and moving it means
 # regenerating .cstylecheck-baseline.json in the same change.
+#
+# There is no pip entry (#284). CI installs the Python libraries from the exact
+# pins in constraints/ (#282), so a raised floor in pyproject.toml changes
+# nothing CI tests, and Dependabot kept raising floors that Python 3.8 and 3.9
+# cannot install (#219, #223, #224, #248, #250), even with
+# increase-if-necessary (#228). New releases arrive through
+# .github/workflows/constraints_refresh.yml instead. Dependabot security
+# updates are a separate feature and still cover pip.
 
 version: 2
 
@@ -18,18 +26,5 @@ updates:
     target-branch: develop
     schedule:
       interval: weekly
-    labels:
-      - process
-
-  - package-ecosystem: pip
-    directory: /
-    target-branch: develop
-    schedule:
-      interval: weekly
-    # pyproject.toml states lower bounds for a library that supports Python
-    # 3.8. Raising a bound to the newest release proposed versions that the
-    # older supported Pythons cannot install (#219, #223, #224). Change a
-    # requirement only when its range excludes a new release (#228).
-    versioning-strategy: increase-if-necessary
     labels:
       - process

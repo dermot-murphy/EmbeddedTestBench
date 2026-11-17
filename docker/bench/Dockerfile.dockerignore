@@ -1,0 +1,8 @@
+# Only what docker/bench/Dockerfile copies (#70). BuildKit reads this file in
+# place of the root .dockerignore when it builds docker/bench/Dockerfile.
+*
+!constraints/py3.12.txt
+!pyproject.toml
+!README.md
+!benchtools/
+**/__pycache__

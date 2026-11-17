@@ -1,0 +1,126 @@
+[
+  {
+    "step": "as found",
+    "reopened_in_s": 0.09,
+    "kit_mode": 2,
+    "kit_vdd_mv": 1800
+  },
+  {
+    "step": "connected",
+    "mode": "source",
+    "volts": 1.8,
+    "powered": null,
+    "samples": 100000,
+    "lost": 0,
+    "average_a": 4.1273872062352665e-08,
+    "peak_a": 4.934474084184707e-07,
+    "minimum_a": -2.500135817534253e-07,
+    "logic_values": [
+      255
+    ]
+  },
+  {
+    "step": "source 1.8 V, DUT on, VOUT open",
+    "mode": "source",
+    "volts": 1.8,
+    "powered": true,
+    "samples": 100000,
+    "lost": 0,
+    "average_a": 2.7642703720314644e-06,
+    "peak_a": 0.0007152514743113806,
+    "minimum_a": -1.7369322456913784e-06,
+    "logic_values": [
+      255
+    ]
+  },
+  {
+    "step": "read back after source 1.8 V",
+    "reopened_in_s": 1.01,
+    "kit_mode": 2,
+    "kit_vdd_mv": 1800
+  },
+  {
+    "step": "source 3.0 V, DUT on as left",
+    "mode": "source",
+    "volts": 3.0,
+    "powered": null,
+    "samples": 100000,
+    "lost": 0,
+    "average_a": 4.3404494979839946e-08,
+    "peak_a": 5.261126159111519e-07,
+    "minimum_a": -3.9228061293275635e-07,
+    "logic_values": [
+      255
+    ]
+  },
+  {
+    "step": "3.4 V refused",
+    "error": "3.4 V is above this bench's PPK2 voltage limit, 3.3 V (voltage_limit)"
+  },
+  {
+    "step": "source 3.0 V, DUT off",
+    "mode": "source",
+    "volts": 3.0,
+    "powered": false,
+    "samples": 50000,
+    "lost": 0,
+    "average_a": -2.0781839858318195e-07,
+    "peak_a": 1.7624832982467287e-07,
+    "minimum_a": -5.672124652645268e-07,
+    "logic_values": [
+      255
+    ]
+  },
+  {
+    "step": "read back after source 3.0 V and a refused 3.4 V",
+    "reopened_in_s": 0.95,
+    "kit_mode": 2,
+    "kit_vdd_mv": 3000
+  },
+  {
+    "step": "ammeter, DUT on, nothing on VIN",
+    "mode": "ammeter",
+    "volts": 3.0,
+    "powered": true,
+    "samples": 100000,
+    "lost": 0,
+    "average_a": -4.689143226280509e-07,
+    "peak_a": -1.2988271968057352e-07,
+    "minimum_a": -7.421442563938825e-07,
+    "logic_values": [
+      255
+    ]
+  },
+  {
+    "step": "ammeter, DUT off",
+    "mode": "ammeter",
+    "volts": 3.0,
+    "powered": false,
+    "samples": 50000,
+    "lost": 0,
+    "average_a": -3.027968114737529e-07,
+    "peak_a": 4.855703416143123e-06,
+    "minimum_a": -6.109454187845922e-07,
+    "logic_values": [
+      255
+    ]
+  },
+  {
+    "step": "read back after ammeter",
+    "reopened_in_s": 0.92,
+    "kit_mode": 1,
+    "kit_vdd_mv": 3000
+  },
+  {
+    "step": "restore: source 4.0 V, DUT off",
+    "mode": "source",
+    "volts": 4.0,
+    "powered": false
+  },
+  {
+    "step": "read back after restoring",
+    "reopened_in_s": 0.94,
+    "kit_mode": 2,
+    "kit_vdd_mv": 4000
+  }
+]

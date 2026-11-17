@@ -44,7 +44,7 @@ __all__ = [
 #: commands the other does not - reported, and survivable, because the missing
 #: ones fail individually with "unknown command". A differing *major* version
 #: means a command means something different, which is not survivable.
-PROTOCOL_VERSION = "1.7"
+PROTOCOL_VERSION = "1.8"
 
 #: Commands the firmware accepts, with the argument bounds it enforces.
 COMMANDS: Dict[str, Tuple[int, int]] = {

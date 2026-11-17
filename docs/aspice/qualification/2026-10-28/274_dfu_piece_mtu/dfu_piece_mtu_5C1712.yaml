@@ -1,0 +1,176 @@
+# ETB #274, BLE-OPEN-05: the DFU piece size and ATT MTU that dongle firmware
+# 1.8.0 reports, on 5C1712, through both of its bootloaders.
+#
+# The legacy upgrade of ETB #271 passes through both: V10.00.0000 carries
+# bootloader V1.01.0000 (SDK 15.2), which takes step 1, the bootloader
+# V2.00.0000 upgrade package; the new bootloader then takes step 2, the V4X
+# application package. #271 inferred an ATT MTU of 23 (20-byte pieces) for
+# both from the receipts; here the dongle reports it.
+#
+# Before this run, outside it (the runner has no backup action): the supply's
+# channel 2 switched on at 3.3 V by the CLI, on the owner's go-ahead
+# (2026-10-28), and 5C1712's whole flash and UICR read with
+#   nrfjprog -f NRF52 --readcode backup_5C1712_full.hex --readuicr
+# The last test restores that backup, so 5C1712 ends as it began:
+# V11.02.0000-286-gd01f2a1b0 V4X DEBUG, left by Kepler TX-1139. The supply is
+# switched off by the CLI afterwards.
+#
+# Run from this folder:
+#   python -m benchtools run dfu_piece_mtu_5C1712.yaml ^
+#       --bench ..\..\..\..\..\benches\bench_pc.yaml --acknowledge ^
+#       --markdown report.md --json report.json --event-log events.log
+
+name: ETB 274 - DFU piece size and ATT MTU on 5C1712, both bootloaders
+description: >
+  Puts 5C1712 on V10.00.0000 (bootloader V1.01.0000) with the J-Link, sends
+  the bootloader V2.00.0000 upgrade package and then the V4X application
+  package over BLE, and checks that the dongle reports an ATT MTU of 23 and
+  20-byte pieces for each. Restores the unit from a full backup.
+requirements: [BLE-FR-121]
+
+warning: |
+  THIS RUN REFLASHES SENSOR 5C1712 THROUGH THE J-LINK WITH V10.00.0000,
+  UPGRADES IT OVER THE AIR, AND RESTORES IT FROM A FULL BACKUP. The supply's
+  channel 2 must already power 5C1712 at 3.3 V; this run does not touch the
+  supply.
+
+parameters:
+  sensor_address: "D1:8D:3B:4C:19:96"
+  boot_s: 15.0
+  scan_s: 20.0
+  connect_s: 60.0
+  reply_timeout_s: 45.0
+  id_address: 0x10001080
+  settings_bl_version_address: 0x000FF00C
+  backup_bl_version_address: 0x000FE00C
+  dfu_target: "KAPPA_5C1712"
+  step_timeout_s: 180.0
+  att_mtu: 23
+  piece: 20
+  v10_00_hex: U:/PrivateWork/Sensoteq/Kepler/innovateuk-sensor/software/output/legacy_images/V10.00.0000/KAPPAX_PCB_V4X_Production_V10.00.0000-plus-bl-and-softdevice.hex
+  step_1_package: U:/PrivateWork/Sensoteq/Kepler/innovateuk-sensor/software/output/legacy_images/candidate/KAPPAX_Release_BL_V2.00.0000_UPGRADE_OTA.zip
+  step_2_package: U:/PrivateWork/Sensoteq/Kepler/innovateuk-sensor/software/output/legacy_images/candidate/KAPPAX_APP_SDK17_PCB_V4X_RELEASE_OTA.zip
+  backup_hex: U:/Temp/claude/U--GitHub-EmbeddedTestBench/3e11e252-0b63-4702-9e7c-925fb3f7f509/scratchpad/bench274/backup_5C1712_full.hex
+
+instruments:
+  dongle: ble-dongle
+  probe: jlink
+
+setup:
+  - do: dongle.start_log
+    with: {path: ble_session.log}
+  - do: probe.halt
+  - do: probe.read_word
+    with: {address: {param: id_address}}
+    expect:
+      - {name: sensor_id_word_at_start, equals: 0x12175C00}
+  - do: probe.restore
+    with:
+      images: [{param: v10_00_hex}]
+      keep: [[0x10001000, 0x310]]
+      run: false
+    expect:
+      - {name: v10_00_0000_verified, measure: verified, equals: 1}
+      - {name: uicr_kept_on_v10, measure: unchanged, equals: 1}
+  # Both settings pages must be V10's, or bootloader V1.01.0000 refuses step 1
+  # (TX-1184)
+  - do: probe.read_word
+    with: {address: {param: settings_bl_version_address}}
+    expect:
+      - {name: settings_bootloader_version_v10, equals: 1}
+  - do: probe.read_word
+    with: {address: {param: backup_bl_version_address}}
+    expect:
+      - {name: backup_bootloader_version_v10, equals: 1}
+  - do: probe.reset
+    with: {halt: false}
+  - do: sleep
+    with: {seconds: {param: boot_s}}
+  - do: dongle.scan
+    with: {duration: {param: scan_s}}
+  - do: dongle.select
+    with: {sensor: {param: sensor_address}}
+
+tests:
+  - name: Both bootloaders report their ATT MTU and piece size
+    requirement: BLE-FR-121
+    steps:
+      - do: dongle.open_link
+        with: {connect_timeout: {param: connect_s}}
+      - do: dongle.command
+        with: {request: "RD VERSION", timeout: {param: reply_timeout_s}}
+        expect:
+          - {name: on_v10_00_0000, measure: text, equals: "ACK RD VERSION = V10.00.0000"}
+      - do: dongle.command
+        with: {request: "SESSION SWDL", timeout: {param: reply_timeout_s}}
+        expect:
+          - {name: session_swdl, measure: text, equals: "ACK SESSION SWDL"}
+      - do: dongle.close_link
+      # Through bootloader V1.01.0000 (SDK 15.2)
+      - do: dongle.send_package
+        with: {package: {param: step_1_package}, target: {param: dfu_target}, timeout: {param: step_timeout_s}}
+        expect:
+          - {name: step_1_success, measure: result, equals: "Success"}
+          - {name: step_1_done, measure: stage, equals: "done"}
+          - {name: bl_v1_01_att_mtu, measure: att_mtu, equals: {param: att_mtu}}
+          - {name: bl_v1_01_piece, measure: piece_size, equals: {param: piece}}
+      # Through bootloader V2.00.0000, which step 1 installed
+      - do: dongle.send_package
+        with: {package: {param: step_2_package}, target: {param: dfu_target}, timeout: {param: step_timeout_s}, scan_seconds: 30.0}
+        expect:
+          - {name: step_2_success, measure: result, equals: "Success"}
+          - {name: step_2_done, measure: stage, equals: "done"}
+          - {name: bl_v2_00_att_mtu, measure: att_mtu, equals: {param: att_mtu}}
+          - {name: bl_v2_00_piece, measure: piece_size, equals: {param: piece}}
+      - do: sleep
+        with: {seconds: {param: boot_s}}
+      - do: dongle.scan
+        with: {duration: {param: scan_s}}
+      - do: dongle.select
+        with: {sensor: {param: sensor_address}}
+      - do: dongle.open_link
+        with: {connect_timeout: {param: connect_s}}
+      - do: dongle.command
+        with: {request: "RD VERSION-DFU", timeout: {param: reply_timeout_s}}
+        expect:
+          - {name: bootloader_now_v2, measure: text, equals: "ACK rd version-dfu = V2.00.0000"}
+      - do: dongle.close_link
+
+  - name: Restore 5C1712 from its backup
+    steps:
+      - do: dongle.close_link
+      - do: probe.halt
+      - do: probe.restore
+        with:
+          images: [{param: backup_hex}]
+          keep: [[0x10001000, 0x310]]
+          run: false
+        expect:
+          - {name: backup_verified, measure: verified, equals: 1}
+          - {name: uicr_kept_after_restore, measure: unchanged, equals: 1}
+      - do: probe.read_word
+        with: {address: {param: id_address}}
+        expect:
+          - {name: sensor_id_word_after_restore, equals: 0x12175C00}
+      - do: probe.reset
+        with: {halt: false}
+      - do: sleep
+        with: {seconds: {param: boot_s}}
+      - do: dongle.scan
+        with: {duration: {param: scan_s}}
+      - do: dongle.select
+        with: {sensor: {param: sensor_address}}
+      - do: dongle.open_link
+        with: {connect_timeout: {param: connect_s}}
+      - do: dongle.command
+        with: {request: "RD VERSION", timeout: {param: reply_timeout_s}}
+        expect:
+          - {name: restored_version, measure: text, ignore_case: true, equals: "ACK rd version = V11.02.0000-286-gd01f2a1b0"}
+      - do: dongle.command
+        with: {request: "RD ID", timeout: {param: reply_timeout_s}}
+        expect:
+          - {name: restored_id, measure: text, ignore_case: true, equals: "ACK rd id = 0x5C1712"}
+      - do: dongle.close_link
+
+teardown:
+  - do: dongle.close_link

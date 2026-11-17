@@ -25,7 +25,7 @@ instruments:
   dmm: tti1604
   dongle: ble-dongle
   s2lp: s2lp
-  temp: pico-sht30
+  pico2: pico2-test-board
 
 tests:
   - name: Every instrument answers and is identified
@@ -44,6 +44,6 @@ tests:
       - do: s2lp.read_setup
         expect:
           - {name: s2lp_registers_read, measure: registers.length, minimum: 100}
-      - do: temp.version
+      - do: pico2.version
         expect:
-          - {name: thermometer_version, equals: V1.00.0000}
+          - {name: pico2_version, equals: V1.00.0000}

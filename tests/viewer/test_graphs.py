@@ -14,8 +14,8 @@ from benchtools.core.events import EventTail, log_reading, start_event_log
 from benchtools.core.transport.mock import MockTransport
 from benchtools.instruments.gpd3303d import Gpd3303D
 from benchtools.instruments.gpd3303d.simulator import SimulatedGpd
-from benchtools.instruments.pico_sht30 import PicoSht30
-from benchtools.instruments.pico_sht30.simulator import SimulatedPicoSht30
+from benchtools.instruments.pico2_test_board import Pico2TestBoard
+from benchtools.instruments.pico2_test_board.simulator import SimulatedPico2TestBoard
 from benchtools.instruments.tti1604 import Tti1604
 from benchtools.instruments.tti1604.simulator import SimulatedTti1604
 from benchtools.viewer.graphs import Readings, advertising, step_markers
@@ -55,7 +55,7 @@ class TestDriversLogReadings:
 
     def test_the_thermometer_s_temperature(self, tmp_path):
         def act():
-            thermometer = PicoSht30(MockTransport(responder=SimulatedPicoSht30()))
+            thermometer = Pico2TestBoard(MockTransport(responder=SimulatedPico2TestBoard()))
             thermometer.initialise()
             value = thermometer.temperature()
             thermometer.close()

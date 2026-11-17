@@ -42,7 +42,7 @@ for (const tab of document.querySelectorAll("#tabs button")) {
     }
     if (tab.dataset.page === "start") loadCatalogue();
     if (tab.dataset.page === "instruments") loadInstruments();
-    if (tab.dataset.page === "rf") loadRadio();
+    if (tab.dataset.page === "rf") showRfView(false);
     if (tab.dataset.page === "graphs") loadGraphs();
     if (tab.dataset.page === "ble") loadBle();
   });
@@ -68,10 +68,10 @@ function stepRow(step, where) {
                      state.position.phase !== "teardown";
   const key = where.phase + ":" + where.case + ":" + step.step;
   const text = el("span", {class: "text" + (step.started ? " clickable" : ""),
-                           title: step.started ? "Show the instrument traffic of this step" : ""},
+                           title: step.started ? "Show the events recorded during this step" : ""},
                   step.text);
-  if (step.started) text.addEventListener("click", () => toggleTraffic(key, step));
-  const traffic = openTraffic.has(key) ? openTraffic.get(key) : null;
+  if (step.started) text.addEventListener("click", () => toggleStep(key, where, step));
+  const traffic = openSteps.has(key) ? openSteps.get(key).node : null;
   return el("div", {class: "step"},
     el("span", {class: "dot " + statusClass(step.status), title: step.status}),
     text,
@@ -84,8 +84,6 @@ function stepRow(step, where) {
 }
 
 // ---------------------------------------------------------------- instrument traffic
-const openTraffic = new Map();      // step key -> its traffic element, while shown
-
 function exchangeRow(source, entry) {
   const replies = entry.kind === "exchange" ? (entry.replies || []).join("\n") : "";
   const label = {event: "event: ", note: "", unasked: "unasked: "}[entry.kind];
@@ -97,21 +95,90 @@ function exchangeRow(source, entry) {
     el("span", {class: "ms"}, entry.ms != null ? entry.ms.toFixed(1) : ""));
 }
 
-async function toggleTraffic(key, step) {
-  if (openTraffic.has(key)) { openTraffic.delete(key); renderRun(); return; }
-  const t1 = step.ended || Date.now() / 1000;
-  const reply = await (await fetch("/api/instruments?t0=" + step.started + "&t1=" + t1)).json();
-  const rows = [];
-  for (const [source, listed] of Object.entries(reply.sources)) {
-    for (const entry of listed.entries) rows.push([entry.t, exchangeRow(source, entry)]);
+// ---------------------------------------------------------------- a step's events (#201)
+// Selecting a step shows its measurements against their limits, and every
+// record logged between its start and end, at its time from the start.
+const openSteps = new Map();        // step key -> {where, index, started, ended, node}
+
+function seconds(dt) {
+  return dt === null || dt === undefined ? "" : "+" + dt.toFixed(3) + " s";
+}
+
+function stepPanel(reply) {
+  const parts = [];
+  const measurements = (reply.step && reply.step.measurements) || [];
+  if (measurements.length) {
+    parts.push(el("div", {class: "table step-checks"}, table([
+      {label: "Measurement", value: (m) => m.name},
+      {label: "Measured", value: (m) => format(m.value) + (m.unit ? " " + m.unit : ""), class: "mono"},
+      {label: "Expected", value: (m) => m.limit, class: "mono"},
+      {label: "Verdict", value: (m) => m.status},
+      {label: "Reason", value: (m) => m.reason},
+    ], measurements)));
   }
-  rows.sort((a, b) => a[0] - b[0]);
-  openTraffic.set(key, el("div", {class: "traffic exchanges"},
-    ...(rows.length ? rows.map((row) => row[1])
-                    : [el("div", {class: "exchange note"}, el("span"), el("span", {class: "sent"},
-                       "No instrument traffic during this step."))])));
+  const rows = reply.events.map((event) => el("div", {class: "step-event c-" + event.category},
+    el("span", {class: "dt"}, seconds(event.dt)),
+    el("span", {class: "src"}, event.source),
+    el("span", {class: "cat"}, event.category),
+    el("span", {class: "txt"}, event.text)));
+  const count = reply.events.length + " event(s) recorded during this step" +
+    (reply.ended === null ? ", so far" : "") +
+    (reply.dropped ? "; " + reply.dropped + " earlier one(s) not kept" : "") + ".";
+  parts.push(el("div", {class: "note step-count"}, count));
+  if (rows.length) parts.push(el("div", {class: "step-events"}, ...rows));
+  return el("div", {class: "traffic step-panel"}, ...parts);
+}
+
+async function loadStep(key) {
+  const open = openSteps.get(key);
+  if (!open || open.loading) return;
+  open.loading = true;
+  const query = "phase=" + encodeURIComponent(open.where.phase) + "&step=" + open.index +
+    (open.where.phase === "test" ? "&case=" + open.where.case : "");
+  let reply;
+  try {
+    reply = await (await fetch("/api/step?" + query)).json();
+  } finally {
+    open.loading = false;
+  }
+  if (openSteps.get(key) !== open) return;            // closed meanwhile
+  if (reply.ok === false) {
+    open.node = el("div", {class: "traffic step-panel"}, el("div", {class: "detail error"}, reply.error));
+  } else {
+    open.started = reply.started;
+    open.ended = reply.ended;
+    open.node = stepPanel(reply);
+  }
   renderRun();
 }
+
+function toggleStep(key, where, step) {
+  if (openSteps.has(key)) { openSteps.delete(key); renderRun(); return; }
+  openSteps.set(key, {where, index: step.step, started: undefined, ended: null, loading: false,
+                      node: el("div", {class: "traffic step-panel note"}, "Loading...")});
+  renderRun();
+  loadStep(key);
+}
+
+function stepOf(open) {
+  if (!state || !state.setup) return null;
+  const steps = open.where.phase === "setup" ? state.setup
+    : open.where.phase === "teardown" ? state.teardown
+    : ((state.cases[open.where.case] || {}).steps || []);
+  return steps[open.index] || null;
+}
+
+// A step still running gathers events; a step that runs again starts afresh.
+setInterval(() => {
+  for (const [key, open] of openSteps) {
+    const step = stepOf(open);
+    if (!step || open.started === undefined) continue;
+    if ((step.started || null) !== (open.started || null) ||
+        (open.ended === null && step.started && (step.ended || state.status === "RUNNING"))) {
+      loadStep(key);
+    }
+  }
+}, 1000);
 
 let instrument = null;
 async function loadInstruments() {
@@ -161,8 +228,50 @@ function stickToBottom(id, draw) {
   if (atBottom) box.scrollTop = box.scrollHeight;
 }
 
+// The RF page's tabs (#303). Frames and ST GUI are the bench's own. A device
+// plugin's panel adds its tabs, which /api/plugins lists (plugins.js adds the
+// buttons), and its script fills them: registerRfView(id, {element, load}),
+// the id "<panel>.<tab>". load(entered) is called when the tab is chosen
+// (entered true), every second while it shows, and when the sensor changes.
+let rfView = "frames";
+const rfViews = {};
+
+function registerRfView(id, view) {
+  rfViews[id] = view;
+  if (id === rfView) showRfView(true);
+}
+
+function addRfTab(id, label) {
+  const bar = $("rf-views");
+  if (bar.querySelector('button[data-view="' + CSS.escape(id) + '"]')) return;
+  const button = el("button", {"data-view": id, "aria-selected": "false"}, label);
+  button.addEventListener("click", () => chooseRfView(id));
+  bar.insertBefore(button, bar.querySelector('button[data-view="stgui"]'));
+}
+
+function chooseRfView(id) {
+  rfView = id;
+  for (const button of document.querySelectorAll("#rf-views button")) {
+    button.setAttribute("aria-selected", String(button.dataset.view === id));
+  }
+  showRfView(true);
+}
+
+function showRfView(entered) {
+  const view = rfViews[rfView];
+  for (const other of Object.values(rfViews)) other.element.hidden = true;
+  $("rf-none-view").hidden = Boolean(view);
+  if (view) {
+    view.element.hidden = false;
+    view.load(entered);
+  }
+}
+
+for (const button of document.querySelectorAll("#rf-views button")) {
+  button.addEventListener("click", () => chooseRfView(button.dataset.view));
+}
+
 async function loadRadio() {
-  if (typeof rfView !== "undefined" && rfView !== "frames") return;
   const chosen = $("rf-sensor").value;
   const reply = await (await fetch("/api/radio?sensor=" + encodeURIComponent(chosen))).json();
   const select = $("rf-sensor");
@@ -183,7 +292,7 @@ async function loadRadio() {
     {label: "RSSI dBm", value: (s) => s.rssi_dbm, class: "num"},
     {label: "Latest by type", value: (s) => Object.entries(s.latest).map(
       ([type, f]) => type + ": " + f.summary).join("  |  ")},
-  ], sensors, "No Kepler frames received yet.");
+  ], sensors, "No frames received yet.");
   stickToBottom("rf-frames", () => fill("rf-frames", [
     {label: "Time", value: (f) => time(f.t)},
     {label: "Sensor", value: (f) => f.sensor_id, class: "mono id"},
@@ -197,7 +306,8 @@ async function loadRadio() {
     box.textContent = JSON.stringify({hex: frame.hex, decoded: frame.decoded, problem: frame.problem}, null, 2);
   }));
 }
-$("rf-sensor").addEventListener("change", loadRadio);
+registerRfView("frames", {element: $("rf-frames-view"), load: loadRadio});
+$("rf-sensor").addEventListener("change", () => showRfView(false));
 
 async function loadBle() {
   const reply = await (await fetch("/api/ble")).json();
@@ -229,7 +339,7 @@ async function loadBle() {
 }
 
 setInterval(() => {
-  if (!$("page-rf").hidden) loadRadio();
+  if (!$("page-rf").hidden) showRfView(false);
   if (!$("page-ble").hidden) loadBle();
 }, 1000);
 

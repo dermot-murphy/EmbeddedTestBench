@@ -10,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SWE4-002 | **Version** | 1.31 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-23 |
+| **Document ID** | ETB-SWE4-002 | **Version** | [latest, §2](#2-revision-history) |
+| **Project** | Embedded Test Bench | **Date** | [latest, §2](#2-revision-history) |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.4 |
@@ -65,7 +65,63 @@
 | 1.29 | 2026-10-23 | Claude | #244: §10.6 added - a sensor's firmware updated over BLE by the dongle on the bench, and refused by its bootloader. |
 | 1.30 | 2026-10-23 | Claude | #271: §10.7 added - DFU data lost on 5C1712's SDK 15.2 bootloader, the fix that failed and the one that passed, on the bench; D-52 added. |
 | 1.31 | 2026-10-23 | Claude | #275: §10.8 added - V10-F-01 on the bench with the bootloader link retry; D-53 added. |
+| 1.32 | 2026-10-24 | Claude | #286: §5 regenerated from a whole-suite run on the branch with `develop` 9b7da17 merged in (3 374 passed, 95% coverage, §4): one row per ETB-SWE4-001 group, 19 of them missing before (including SWE4-UT-S2LPKEPLER); firmware CTest counts added; two test files with no group noted. |
+| 1.33 | 2026-10-25 | Claude | #294: SWE4-UT-VIEWSERVER 29 → 36, pass, from a run of `viewer/test_server.py` on this branch on 2026-10-25 (36 passed). The §5 total is still the 1.32 whole-suite run's. |
+| 1.34 | 2026-10-25 | Claude | #292: §5 rows for SWE4-UT-SELFCHECK (7) and SWE4-UT-FIVEINST (8), the two files no group named, with their results from the 1.32 run; the note about them removed. SWE4-UT-TRACE 27 → 30, pass, from a run of `test_traceability.py` on this branch on 2026-10-25 (30 passed); the §5 total is still the 1.32 run's. |
+| 1.35 | 2026-10-25 | Claude | #293: SWE4-UT-TRANSPORT 29 → 31 and SWE4-UT-S2LPFRAME 3 → 10, pass, from runs of `core/transport/test_base.py` (31 passed) and `instruments/s2lp/test_kepler_frame.py` (10 passed) on this branch on 2026-10-25. The §5 total is still the 1.32 whole-suite run's; the whole suite passed at 0960059 on this branch (3 382). The bench run for #293 is in `docs/aspice/qualification/2026-10-25/`. |
+| 1.36 | 2026-10-25 | Claude | #210: §5 row for SWE4-UT-DOCVER (27), and SWE4-UT-PUBLISH 43 → 45, pass, from runs of `test_doc_versions.py` (27 passed) and `test_publish_docs.py` (45 passed) on this branch on 2026-10-25. The §5 total is still the 1.32 whole-suite run's. |
+| 1.37 | 2026-10-25 | Claude | #210, review of #301: SWE4-UT-DOCVER 27 → 61, pass, from a run of `test_doc_versions.py` on this branch on 2026-10-25 (61 passed). The §5 total is still the 1.32 whole-suite run's. |
+| 1.38 | 2026-10-25 | Claude | #238: §5 row for SWE4-UT-PLUGINS (61), pass, from a run of `core/test_plugins.py` on this branch on 2026-10-25 (61 passed, Windows). The §5 total is still the 1.32 whole-suite run's. |
+| 1.39 | 2026-10-26 | Claude | #242: §5 row for SWE4-UT-COMPARE (62); SWE4-UT-BLESAMPLE 5 → 21; pass, from runs of `runner/test_compare_steps.py` (62 passed) and `instruments/nordic_dongle/test_sampling.py` (21 passed) on this branch on 2026-10-26. The §5 total is still the 1.32 whole-suite run's. |
+| 1.40 | 2026-10-27 | Claude | #299: SWE4-UT-S2LP 143 → 150, pass, from a run of `instruments/s2lp/test_s2lp.py` on this branch on 2026-10-27. The §5 total is still the 1.32 whole-suite run's. |
+| 1.41 | 2026-10-27 | Claude | #305: SWE4-UT-DOCVER 61 → 63, pass, from a run of `test_doc_versions.py` on this branch on 2026-10-27 (63 passed). The §5 total is still the 1.32 whole-suite run's. |
+| 1.42 | 2026-10-27 | Claude | #122: §14.5 added - the Kepler specifications' radio side on the simulated bench; SWE4-UT-KEPLERSIM 11 → 123, pass, from a run of `test_kepler_simulated.py` and `test_simulated_air.py` on this branch on 2026-10-27 (123 passed). The §5 total is still the 1.32 whole-suite run's. |
+| 1.43 | 2026-10-28 | Claude | #314: SWE4-UT-KEPLERSIM 123 → 131, pass, from a run of `test_kepler_simulated.py` and `test_simulated_air.py` on this branch on 2026-10-28 (131 passed). The §5 total is still the 1.32 whole-suite run's. |
+| 1.44 | 2026-10-28 | Claude | #243: SWE4-UT-S2LPMEASURES added, 77, pass; SWE4-UT-BLE 116 → 121 and SWE4-UT-KEPLERSIM 131 → 132 (after #314), pass, from runs of `test_frame_measures.py` (77 passed), `test_dongle.py` (121 passed) and `test_kepler_simulated.py` with `test_simulated_air.py` (132 passed) on this branch on 2026-10-28. The §5 total is still the 1.32 whole-suite run's. |
+| 1.45 | 2026-10-28 | Claude | #274: SWE4-UT-BLEDFU 40 → 47 and SWE4-UT-BLESIM 30 → 35, pass, from a run of `tests/instruments/nordic_dongle` on this branch on 2026-10-28; SWE4-UT-FWUNIT 189 → 192, pass (CTest, 8 binaries, bench PC). The §5 total is still the 1.32 whole-suite run's. BLE-OPEN-05 (BENCHTOOLS-BLE-001 §5.3) closed on hardware on 2026-10-28: through bootloader V1.01.0000 and V2.00.0000 on 5C1712, dongle 1.8.0 reported an ATT MTU of 23 and 20-byte pieces, PASS (`docs/aspice/qualification/2026-10-28/274_dfu_piece_mtu/`). |
+| 1.46 | 2026-10-28 | Claude | #181: SWE4-UT-DMM 34 → 43 and SWE4-UT-DMMPANEL 7 → 9, pass, from a run of `tests/instruments/tti1604` on this branch on 2026-10-28. SWE4-UT-DMMBENCH run on the real TTi 1604 (COM13, FTDI A9LQ0R81A, inputs open) on 2026-10-28: 9 passed, 5 skipped (no reference wired), 0 failed, against 6 passed and 4 failed in QS-09; evidence in `docs/aspice/qualification/2026-10-28/181_tti1604/`. The section 5 total is still the 1.32 whole-suite run's. |
 
+| 1.47 | 2026-10-28 | Claude | #247: §5 rows for SWE4-UT-SER (37), -SERCONSOLE (49), -SERSIM (6) and -SERCLI (7), pass, from a run of `tests/instruments/serial_capture` on this branch on 2026-10-28 (99 passed, Windows). The section 5 total is still the 1.32 whole-suite run's. |
+| 1.48 | 2026-10-29 | Claude | #247, review of #318: SWE4-UT-SER 37 → 54 and SWE4-UT-SERCLI 7 → 8, pass, from a run of `tests/instruments/serial_capture` on this branch on 2026-10-29 (117 passed, Windows). The section 5 total is still the 1.32 whole-suite run's. |
+| 1.49 | 2026-10-29 | Claude | #247, review of #318 round 2: SWE4-UT-SER 54 → 61, pass, from a run of `tests/instruments/serial_capture` on this branch on 2026-10-29 (124 passed, Windows). The section 5 total is still the 1.32 whole-suite run's. |
+| 1.50 | 2026-10-29 | Claude | #247, review of #318 round 3: SWE4-UT-SER 61 → 63 and SWE4-UT-SERCONSOLE 49 → 52, pass, from a run of `tests/instruments/serial_capture` on this branch on 2026-10-29 (129 passed, Windows). The section 5 total is still the 1.32 whole-suite run's. |
+| 1.51 | 2026-10-29 | Claude | #247, review of #318 round 4: SWE4-UT-SER 63 → 68 and SWE4-UT-SERCLI 8 → 9, pass, from a run of `tests/instruments/serial_capture` on this branch on 2026-10-29 (135 passed, Windows). The section 5 total is still the 1.32 whole-suite run's. |
+| 1.52 | 2026-10-29 | Claude | #247, review of #318 round 5: SWE4-UT-SER 68 → 75 and SWE4-UT-SERCLI 9 → 10, pass, from a run of `tests/instruments/serial_capture` on this branch on 2026-10-29 (143 passed, Windows). The section 5 total is still the 1.32 whole-suite run's. |
+| 1.53 | 2026-10-29 | Claude | #247, review of #318 round 6: SWE4-UT-SER 75 → 78 and SWE4-UT-SERCLI 10 → 11, pass, from a run of `tests/instruments/serial_capture` on this branch on 2026-10-29 (147 passed, Windows). The section 5 total is still the 1.32 whole-suite run's. |
+| 1.54 | 2026-11-12 | Claude | #328: §13A.8 added - the Pico thermometer's indicator LEDs. SWE4-UT-PICOFW 83 → 92 (`cmd_parser` 55, 0 failures, clang 21 on Windows); SWE4-UT-PICO 44 → 54, SWE4-UT-PICOSIM 36 → 45 and SWE4-UT-PICOCLI 16 → 29, pass, from a run of `tests/instruments/pico_sht30` on this branch on 2026-11-12 (172 passed, Windows); `wr` and `rd` of the LEDs confirmed on the real Pico 2, and the SHT30-D connected and reading about 23 °C. PICO-OPEN-02 noted. The section 5 total is still the 1.32 whole-suite run's. |
+| 1.55 | 2026-11-08 | Claude | #202: §5 row for SWE4-UT-PICOFGEN. |
+| 1.56 | 2026-11-12 | Claude | #202: merged with #328 (LEDs). §13A.9 added: protocol 2.2 and `V1.02.0000`; SWE4-UT-PICOFW 140 cases (`fgen` 48), pass, clang 21 with ASan and UBSan on Windows; `tests/instruments/pico_sht30` 242 cases, pass; the generator not yet run on hardware, with the bench wiring of 2026-11-12. The section 5 total is still the 1.32 whole-suite run's. |
+| 1.57 | 2026-11-13 | Claude | #202: §13A.9: the bench of 2026-11-13 - the DAC board an Adafruit UDA1334A, rewired to GP6, GP7 and GP8, the DAC at 48 828.125 Hz, and a 1 kHz and a 2 kHz sine observed by scope on channels 1 and 2. PICO-OPEN-07 stays open, confirmed in part. |
+| 1.58 | 2026-11-13 | Claude | #330: §5 row for SWE4-UT-PICOSPEC (2 cases, pass, run on its own); the rest of §5 is not re-run. |
+| 1.59 | 2026-11-13 | Claude | #200: §5 rows for SWE4-UT-PSCOPE (18), -PSCOPECONST (34), -PSCOPESDK (7) and -PSCOPECLI (6), pass, from a run of `tests/instruments/picoscope3000` on this branch on 2026-11-13 (65 passed, Windows). §13C added: those results, what the bench's PicoScope 3405D MSO showed on 2026-11-13, and what it has not yet shown (PSCOPE-OPEN-01 … -05). The section 5 total is still the 1.32 whole-suite run's. |
+| 1.60 | 2026-11-13 | Claude | #319: SWE4-UT-SERIAL 31 → 37, pass, from a run of `core/transport/test_serial.py` on this branch on 2026-11-13 (37 passed, Windows). The section 5 total is still the 1.32 whole-suite run's. |
+| 1.61 | 2026-11-13 | Claude | #319, review of #332: SWE4-UT-SERIAL 37 → 39, pass, from a run of `core/transport/test_serial.py` on this branch on 2026-11-13 (39 passed, Windows). The section 5 total is still the 1.32 whole-suite run's. |
+| 1.62 | 2026-11-13 | Claude | #313: §5 rows for SWE4-UT-S2LPKEPLER (63 → 75) and SWE4-UT-VIEWKEPLER (12 → 13), pass, from a whole-suite run on this branch on 2026-11-13 (Windows). The section 5 total is still the 1.32 whole-suite run's. |
+| 1.63 | 2026-11-13 | Claude | #201: §5 row for SWE4-UT-VIEWSTEPS (26), and SWE4-UT-VIEWSERVER 36 → 42, pass, from a run of `tests/viewer` on this branch on 2026-11-13 (Windows). The Run page's step events were also exercised in a browser on a simulated run's event log. The section 5 total is still the 1.32 whole-suite run's. |
+| 1.64 | 2026-11-14 | Claude | #201, review of #334: SWE4-UT-VIEWSTEPS 26 → 31 and SWE4-UT-VIEWSERVER 42 → 44, pass, from a run of `viewer/test_step_events.py` and `viewer/test_server.py` on this branch on 2026-11-14 (Windows). The section 5 total is still the 1.32 whole-suite run's. |
+| 1.65 | 2026-11-13 | Claude | #71: §5 rows for SWE4-UT-JLINKSEGGER (87, pass) and SWE4-UT-JLINKIMAGE (15, pass), from a run of the whole suite on this branch on 2026-11-13 (Windows 10, Python 3.14). The rest of §5 is not regenerated. |
+| 1.66 | 2026-11-14 | Claude | #71 review round 1: §5 SWE4-UT-JLINKSEGGER 87 → 107, pass, from a run of the whole suite on this branch on 2026-11-14 (Windows 10, Python 3.14). The rest of §5 is not regenerated. |
+| 1.67 | 2026-11-14 | Claude | #71 review round 3: §5 SWE4-UT-JLINKSEGGER 107 → 118, pass, from a run of the whole suite on this branch on 2026-11-14 (Windows 10, Python 3.14). The rest of §5 is not regenerated. |
+| 1.68 | 2026-11-14 | Claude | #71 bench check JLINK-OPEN-05: §5 SWE4-UT-JLINKSEGGER 118 → 120, pass - Commander's connect notices are not failures, the simulator connects only when a command needs it, and `identify` sends `f`; from a run of the J-Link tests on this branch on 2026-11-14 (Windows 10, Python 3.11). The rest of §5 is not regenerated. |
+| 1.69 | 2026-11-14 | Claude | #71 bench check review round 1: §5 SWE4-UT-JLINKSEGGER 120 → 122, pass - `JTAGConf>` fails a run, and on Windows the RTT Logger is stopped with CTRL_BREAK (skipped elsewhere); from a run of the J-Link tests on this branch on 2026-11-14 (Windows 10, Python 3.11). The rest of §5 is not regenerated. |
+| 1.70 | 2026-11-14 | Claude | #303: §5 SWE4-UT-PLUGINS 61 → 66, pass - the panel interface, the viewer with no plugin, no viewer module naming a Kepler field; SWE4-UT-VIEWSENSOR (17), -VIEWTWF (15), -VIEWDIAG (14), -VIEWKEPLER (13), -VIEWREPORT (10) and -VIEWRADIO (14) pass unchanged in count against the Kepler plugin's modules; from a whole-suite run on this branch on 2026-11-14 (Windows 10, Python 3.11; `core/transport/test_process.py` left out, it needs `cat`). The rest of §5 is not regenerated. |
+| 1.71 | 2026-11-14 | Claude | #303 review round 1: §5 SWE4-UT-PLUGINS 66 → 69, pass, from a run of `core/test_plugins.py` and `viewer/` on this branch on 2026-11-14 (Windows 10, Python 3.11). The page was exercised in a browser (the app's built-in pane) on an event log of a simulated run with Kepler ALIVE and VERSION frames from two sensors and a 256-sample TWFA X capture. With `--plugin plugins/kepler`: the nine Kepler tabs between Frames and ST GUI; the sensor drop-down filtering the sensor table; Latest Data's ten frames with byte colours from `kepler.css`, Pause and Resume; Config's six groups; Identification V11.00.0000; Short Interval's axis selector (X) and three charts, Environment two and Ticks one, Zoom in, out and Reset; TWF's waveform and spectrum, axis Y with no capture saying so, TWFB falling back to TWFA, zoom and Reset; Diagnostics' three type rows, Auto and Hold, Reset clearing the sensor through `POST /api/panel`; Sync; ST GUI; Download report an attachment with Run and the eight Kepler sections. With no plugin: only Frames and ST GUI, both opening, and the report with Run alone; no console errors. The rest of §5 is not regenerated. |
+| 1.72 | 2026-11-14 | Claude | #342: §5 rows for SWE4-UT-PPK (36), -PPKPROTO (22), -PPKMEAS (15) and -PPKCLI (10), pass, from a run of `tests/instruments/ppk2` on this branch on 2026-11-14 (83 passed, Windows). §13D added: those results, what the bench's PPK2 showed on 2026-11-14 with nothing wired to it, and what it has not yet shown (PPK-OPEN-01 … -03). The section 5 total is still the 1.32 whole-suite run's. |
+| 1.73 | 2026-11-14 | Claude | #342 review round 1: §5 and §13D.1 counts after round 1: SWE4-UT-PPK 38, -PPKPROTO 23, -PPKCLI 13 (89 passed). |
+| 1.74 | 2026-11-14 | Claude | #340: §5 SWE4-UT-PLUGINS 69 → 73, pass, from a run of `tests/` on this branch on 2026-11-14 (Windows 10, Python 3.14): no failures. |
+| 1.75 | 2026-11-14 | Claude | #340 review round 1: §5 SWE4-UT-PLUGINS 73 → 74, pass, from a run of `tests/` on this branch on 2026-11-14 (Windows 10, Python 3.14): no failures. |
+| 1.76 | 2026-11-14 | Claude | #195: §5 SWE4-UT-PUBLISH 45 → 48, pass, from a run of `tests/` on this branch on 2026-11-14 (Windows 10, Python 3.14): no failures. |
+| 1.77 | 2026-11-14 | Claude | #335: §5 SWE4-UT-S2LPKEPLER 75 → 84, pass, from a run of `tests/` on this branch on 2026-11-14 (Windows 10, Python 3.14): no failures. |
+| 1.78 | 2026-11-14 | Claude | #335 (2): §5 SWE4-UT-S2LPKEPLER 84 -> 90, pass, from a run of `tests/` on this branch on 2026-11-14 (Windows 10, Python 3.14): no failures. |
+| 1.79 | 2026-11-14 | Claude | #335 (3): §5 SWE4-UT-S2LPKEPLER 90 -> 91, pass, from a run of `tests/` on this branch on 2026-11-14 (Windows 10, Python 3.14): no failures. |
+| 1.80 | 2026-11-14 | Claude | #84: §5 row for SWE4-UT-S2LPKITFW (17), pass, from a local run (Windows, MinGW gcc, CTest) on 2026-11-14; the bench runs are in `qualification/2026-11-14/84_kit_firmware/`. |
+| 1.81 | 2026-11-14 | Claude | #84 review round 1: §5 SWE4-UT-S2LPKITFW 17 -> 21, pass, local run 2026-11-14; host commands while receiving checked on the kit (`84_kit_firmware/r1_check/`). |
+| 1.82 | 2026-11-14 | Claude | #84 (driver): §5 row for SWE4-UT-S2LPKITHOST (31), pass, from a run of `instruments/s2lp/` on this branch on 2026-11-14 (Windows 10, Python 3.14): no failures; the bench run is in `qualification/2026-11-14/84_kit_driver/`. The §5 total is still the 1.32 whole-suite run's. |
+| 1.83 | 2026-11-14 | Claude | #84 review round 3: §5 SWE4-UT-S2LPKITHOST 31 -> 35, pass, from a run of `instruments/s2lp/` on this branch on 2026-11-14 (772 passed). The §5 total is still the 1.32 whole-suite run's. |
+| 1.84 | 2026-11-15 | Claude | #349: §5 SWE4-UT-JLINK 118 -> 121 (`test_attach.py`) and SWE4-UT-JLINKSIM 30 -> 32, pass, from a run of `instruments/jlink/` and `runner/` on this branch on 2026-11-15. The §5 total is still the 1.32 whole-suite run's. |
+| 1.85 | 2026-11-15 | Claude | #352: §5 SWE4-UT-JLINK 121 -> 126 (`test_variable_address.py`), pass, from a run of `instruments/jlink/` on this branch on 2026-11-15. The §5 total is still the 1.32 whole-suite run's. |
+| 1.86 | 2026-11-15 | Claude | #352 review round 1: §5 SWE4-UT-JLINK 126 -> 130 (`test_variable_address.py` 5 -> 9), pass, from a run of `instruments/jlink/` on this branch on 2026-11-15. |
+| 1.87 | 2026-11-15 | Claude | #352 review round 2: §5 SWE4-UT-JLINK 130 -> 132 (`>>=` and `<<=` cases), pass, from a run of `instruments/jlink/` on this branch on 2026-11-15. |
 ---
 
 ## 3. Purpose & Scope
@@ -91,35 +147,38 @@ It is deliberately a separate work product from the specification. A specificati
 
 ## 4. Execution summary
 
+Revision 1.32's run (#286), the one §5 is generated from:
+
 | Metric | Result |
 |---|---|
-| Tests executed | **3 189** |
-| Passed | **3 183** |
+| Tests executed | **3 374** |
+| Passed | **3 374** |
 | Failed | 0 |
 | Errors | 0 |
-| Skipped | 6 |
-| Statement coverage | Not measured for revision 1.0: `pytest-cov` is not installed on the bench PC. Revision 0.9 measured **95%** (13 695 statements, 679 missed). |
-| Execution time | 228.6 s, without coverage instrumentation |
+| Skipped | 0 |
+| Statement coverage | **95%** (17 517 statements, 840 missed) |
+| Execution time | 246.9 s, with coverage instrumentation |
 | Runtime | CPython 3.14.7, Windows 10 (10.0.19045) |
-| Framework | pytest 9.1.1 |
+| Framework | pytest 9.1.1, pytest-cov 7.1.0 |
+| Code | the #286 branch with `develop` 9b7da17 merged in (after #287 and #252) |
 
 Command:
 
 ```
-python -m pytest -q -x
+python -m pytest -p no:cacheprovider --cov=benchtools --cov-report=term --junitxml=<file>
 ```
 
-The six skipped tests are in `core/transport/test_visa.py`: the `pyvisa`
-optional extra is not installed on the bench PC, and those tests skip without
-it, as designed. The `matplotlib`, `pyyaml` and `pyserial` extras were
-installed, so their tests executed.
+Every optional extra (`matplotlib`, `pyvisa`, `pyyaml`, `pyserial`) was
+installed, so nothing skipped. In revision 1.0, six tests in
+`core/transport/test_visa.py` skipped because `pyvisa` was not installed on the
+bench PC; they skip without it, as designed.
 
 The suite was also run with all extras blocked - `matplotlib`, `pyvisa`,
 `pyyaml` and `pyserial` - to confirm the claim that the package works
 without them: **2 444 passed, 51 skipped, 2 failed. The two failures are on `develop` already and are not this change's: `test_events.py::TestWhatFeedsIt::test_the_runner_reports_each_test_s_result` and `test_serial.py::TestHandshakeLines::test_requested_states_are_applied_after_opening` both need pyserial and do not skip without it** (revision 0.5). They were blocked by a
 `sitecustomize` that raises `ModuleNotFoundError` for those four names, which
 is closer to a machine that never had them than uninstalling is. (The totals
-differ from the figure above because the runner command-line module is skipped as a whole
+differ from the revision 0.5 full run because the runner command-line module is skipped as a whole
 rather than test by test — the shipped specifications are YAML, so without
 `pyyaml` there is nothing in that module to run. Its JSON equivalents are covered
 in `test_spec.py`.) The whole J-Link driver runs in that configuration, which is
@@ -131,7 +190,11 @@ the GDB/MI boundary, the RTT and SWO sockets by a loopback server, the dongle at
 its line protocol, and the serial port by pyserial's own `loop://` handler.
 
 Revision 1.0 re-ran the whole suite with #127's `flash` command on the bench
-PC; the figures above are that run.
+PC: **3 189 executed, 3 183 passed, 0 failed, 6 skipped**, in 228.6 s without
+coverage (`python -m pytest -q -x`); revision 0.9 had measured 95% coverage
+(13 695 statements, 679 missed).
+Revision 1.32 re-ran the whole suite to regenerate §5 (#286); the table at
+the top of this section is that run.
 Revision 1.21 re-ran the whole suite with #177's change to `reset` on the same
 bench PC: **3 132 tests, 3 126 passed, 0 failed, 0 errors, 6 skipped**, in
 212.4 s, CPython 3.11.1 on Windows 10, pytest 9.0.3
@@ -174,7 +237,8 @@ Revision 0.5 re-ran the whole suite with #115's changes to the TTi 1604 driver
 and the core transport. Revision 0.4 re-ran the whole suite on the merge of `develop` - including
 D-42's regression test (#107) - with the `PICO-` element (#104). The per-group table in §5 has
 not been regenerated for the groups `develop` added since revision 0.1, so its
-rows do not sum to the total: the total is the collected count.
+rows did not sum to the total: the total was the collected count. Revision
+1.32 regenerated the table from one run (§5).
 
 **The Pico 2 thermometer firmware has run on a real Pico 2, but not yet with
 a sensor attached** (CON-09). Its 83 host unit tests pass and it agrees with its
@@ -194,104 +258,167 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 
 ## 5. Results by test group
 
+Regenerated for revision 1.32 (#286) from one run of the whole suite on this
+revision's branch with `develop` 9b7da17 merged in (§4): one row for each test group in ETB-SWE4-001, in that
+document's order, with the count and verdict from the run's JUnit XML. Earlier
+revisions added rows by hand, and 19 groups had none. `tests/test_traceability.py`
+now fails when a group in ETB-SWE4-001 has no row here.
+
 | Test group | File | Tests | Result |
 |---|---|---|---|
-| SWE4-UT-SCOPE | `instruments/tek3014b/test_scope.py` | 87 | Pass |
-| SWE4-UT-JLINK | `instruments/jlink/test_probe.py` | 100 | Pass |
-| SWE4-UT-S2LP | `instruments/s2lp/test_s2lp.py` | 75 | Pass |
-| SWE4-UT-S2LPREG | `instruments/s2lp/test_registers.py` | 34 | Pass |
-| SWE4-UT-S2LPPROTO | `instruments/s2lp/test_protocol.py` | 31 | Pass |
-| SWE4-UT-S2LPCONFIG | `instruments/s2lp/test_configuration.py` | 63 | Pass |
-| SWE4-UT-S2LPSIM | `instruments/s2lp/test_simulator.py` | 28 | Pass |
-| SWE4-UT-S2LPCLI | `instruments/s2lp/test_cli.py` | 35 | Pass |
-| SWE4-UT-S2LPSESSION | `instruments/s2lp/test_session.py` | 14 | Pass |
-| SWE4-UT-PSU | `instruments/gpd3303d/test_psu.py` | 102 | Pass |
-| SWE4-UT-BLE | `instruments/nordic_dongle/test_dongle.py` | 99 | Pass |
-| SWE4-UT-BLEFIRMWARE | `instruments/nordic_dongle/test_firmware.py` | 49 | Pass |
-| SWE4-UT-BLEPROTO | `instruments/nordic_dongle/test_protocol.py` | 34 | Pass |
-| SWE4-UT-BLEPROFILE | `instruments/nordic_dongle/test_profile.py` | 30 | Pass |
-| SWE4-UT-BLESIM | `instruments/nordic_dongle/test_simulator.py` | 30 | Pass |
-| SWE4-UT-PSUSIM | `instruments/gpd3303d/test_simulator.py` | 35 | Pass |
-| SWE4-UT-PSUCLI | `instruments/gpd3303d/test_cli.py` | 23 | Pass |
-| SWE4-UT-SERIAL | `core/transport/test_serial.py` | 31 | Pass |
-| SWE4-UT-BLESESSION | `instruments/nordic_dongle/test_session.py` | 23 | Pass |
-| SWE4-UT-BLECLI | `instruments/nordic_dongle/test_cli.py` | 46 | Pass |
-| SWE4-UT-BLESCRIPT | `instruments/nordic_dongle/test_script.py` | 109 | Pass |
-| SWE4-UT-BLELATENCY | `instruments/nordic_dongle/test_latency.py` | 20 | Pass |
-| SWE4-UT-BLEFW | `instruments/nordic_dongle/test_firmware_protocol.py` | 17 | Pass |
-| SWE4-UT-BLESAMPLE | `instruments/nordic_dongle/test_sampling.py` | 5 | Pass |
-| SWE4-UT-LAYERING | `test_layering.py` | 81 | Pass |
-| SWE4-UT-GDBMI | `instruments/jlink/test_gdbmi.py` | 37 | Pass |
-| SWE4-UT-BENCH | `runner/test_bench.py` | 41 | Pass |
-| SWE4-UT-MEASURE | `analysis/test_measure.py` | 35 | Pass |
-| SWE4-UT-SPEC | `runner/test_spec.py` | 38 | Pass |
-| SWE4-UT-WAVEFORM | `analysis/test_waveform.py` | 34 | Pass |
-| SWE4-UT-JLINKSERVER | `instruments/jlink/test_server.py` | 32 | Pass |
+| SWE4-UT-DMMBENCH | `bench/tti1604/test_bench.py` | 14 | Not run: needs a real TTi 1604 named by `BENCHTOOLS_TTI1604`; `tests/bench` is outside the default run |
+| SWE4-UT-LAYERING | `test_layering.py` | 125 | Pass |
+| SWE4-UT-CONSTRAINTS | `test_constraints.py` | 10 | Pass |
+| SWE4-UT-LINT | `test_lint_script.py` | 3 | Pass |
+| SWE4-UT-PUBLISH | `test_publish_docs.py` | 48 | Pass |
+| SWE4-UT-PLUGINS | `core/test_plugins.py` | 74 | Pass (on Linux CI 73 and 1 skipped: the case-insensitive folder test is Windows-only) |
+| SWE4-UT-DOCVER | `test_doc_versions.py` | 63 | Pass |
+| SWE4-UT-TRACE | `test_traceability.py` | 30 | Pass |
 | SWE4-UT-SCPI | `core/test_scpi.py` | 28 | Pass |
-| SWE4-UT-TIMING | `instruments/jlink/test_timing.py` | 29 | Pass |
-| SWE4-UT-JLINKSIM | `instruments/jlink/test_simulator.py` | 27 | Pass |
-| SWE4-UT-JLINKCLI | `instruments/jlink/test_cli.py` | 22 | Pass |
-| SWE4-UT-RTT | `instruments/jlink/test_rtt.py` | 21 | Pass |
-| SWE4-UT-SWO | `instruments/jlink/test_swo.py` | 20 | Pass |
 | SWE4-UT-INSTRUMENT | `core/test_instrument.py` | 20 | Pass |
-| SWE4-UT-GDBSESSION | `instruments/jlink/test_session.py` | 18 | Pass |
-| SWE4-UT-TRACE | `test_traceability.py` | 18 | Pass |
-| SWE4-UT-PROCESS | `core/transport/test_process.py` | 18 | Pass |
-| SWE4-UT-JLINKSOCKETS | `instruments/jlink/test_sockets.py` | 16 | Pass |
-| SWE4-UT-ENGINE | `runner/test_runner.py` | 33 | Pass |
-| SWE4-UT-VALIDATE | `core/test_validation.py` | 23 | Pass |
-| SWE4-UT-FACTORY | `core/transport/test_factory.py` | 23 | Pass |
-| SWE4-UT-LIMITS | `runner/test_limits.py` | 45 | Pass |
+| SWE4-UT-PROCESS | `core/transport/test_process.py` | 20 | Pass |
 | SWE4-UT-SIMBASE | `core/test_simulator.py` | 22 | Pass |
+| SWE4-UT-VALIDATE | `core/test_validation.py` | 23 | Pass |
+| SWE4-UT-TRANSPORT | `core/transport/test_base.py` | 31 | Pass |
 | SWE4-UT-VXI11 | `core/transport/test_vxi11.py` | 22 | Pass |
-| SWE4-UT-CLI | `instruments/tek3014b/test_cli.py` | 20 | Pass |
-| SWE4-UT-REPORT | `runner/test_report.py` | 24 | Pass |
-| SWE4-UT-TRANSPORT | `core/transport/test_base.py` | 29 | Pass |
-| SWE4-UT-ENV | `instruments/tek3014b/test_simulator.py` | 19 | Pass |
+| SWE4-UT-SOCKET | `core/transport/test_socket.py` | 12 | Pass |
+| SWE4-UT-VISA | `core/transport/test_visa.py` | 6 | Pass |
+| SWE4-UT-FACTORY | `core/transport/test_factory.py` | 23 | Pass |
+| SWE4-UT-WAVEFORM | `analysis/test_waveform.py` | 34 | Pass |
+| SWE4-UT-MEASURE | `analysis/test_measure.py` | 35 | Pass |
 | SWE4-UT-PLOT | `analysis/test_plotting.py` | 15 | Pass |
-| SWE4-UT-RUNCLI | `runner/test_cli.py` | 15 | Pass |
+| SWE4-UT-SAMPLES | `analysis/test_samples.py` | 9 | Pass |
+| SWE4-UT-SCOPE | `instruments/tek3014b/test_scope.py` | 87 | Pass |
+| SWE4-UT-ENV | `instruments/tek3014b/test_simulator.py` | 19 | Pass |
+| SWE4-UT-CLI | `instruments/tek3014b/test_cli.py` | 20 | Pass |
+| SWE4-UT-GDBMI | `instruments/jlink/test_gdbmi.py` | 38 | Pass |
+| SWE4-UT-GDBSESSION | `instruments/jlink/test_session.py` | 18 | Pass |
+| SWE4-UT-JLINK | `instruments/jlink/test_probe.py`, `instruments/jlink/test_attach.py`, `instruments/jlink/test_variable_address.py` | 132 | Pass |
+| SWE4-UT-RTT | `instruments/jlink/test_rtt.py` | 22 | Pass |
+| SWE4-UT-SWO | `instruments/jlink/test_swo.py` | 20 | Pass |
+| SWE4-UT-TIMING | `instruments/jlink/test_timing.py` | 29 | Pass |
+| SWE4-UT-JLINKSERVER | `instruments/jlink/test_server.py` | 45 | Pass |
+| SWE4-UT-JLINKSOCKETS | `instruments/jlink/test_sockets.py` | 16 | Pass |
+| SWE4-UT-JLINKSIM | `instruments/jlink/test_simulator.py` | 32 | Pass |
+| SWE4-UT-JLINKCLI | `instruments/jlink/test_cli.py` | 30 | Pass |
+| SWE4-UT-JLINKRTTONLY | `instruments/jlink/test_rtt_only.py` | 6 | Pass |
+| SWE4-UT-JLINKSEGGER | `instruments/jlink/test_segger.py` | 122 | Pass |
+| SWE4-UT-JLINKIMAGE | `instruments/jlink/test_image.py` | 15 | Pass |
+| SWE4-UT-SERIAL | `core/transport/test_serial.py` | 39 | Pass |
+| SWE4-UT-BLE | `instruments/nordic_dongle/test_dongle.py` | 121 | Pass |
+| SWE4-UT-BLESAMPLE | `instruments/nordic_dongle/test_sampling.py` | 21 | Pass |
+| SWE4-UT-BLEPROTO | `instruments/nordic_dongle/test_protocol.py` | 34 | Pass |
+| SWE4-UT-FWUNIT | `firmware/nordic_dongle/test/*.c` | 192 | Pass (CTest, 8 binaries, bench PC; not in the pytest total; §7.4) |
+| SWE4-UT-BLEFW | `instruments/nordic_dongle/test_firmware_protocol.py` | 22 | Pass |
+| SWE4-UT-BLESESSION | `instruments/nordic_dongle/test_session.py` | 23 | Pass |
+| SWE4-UT-BLEPROFILE | `instruments/nordic_dongle/test_profile.py` | 30 | Pass |
+| SWE4-UT-BLESCRIPT | `instruments/nordic_dongle/test_script.py`, `test_script_links.py`, `test_script_timeouts.py` | 147 | Pass |
+| SWE4-UT-BLELATENCY | `instruments/nordic_dongle/test_latency.py` | 24 | Pass |
+| SWE4-UT-BLESIM | `instruments/nordic_dongle/test_simulator.py` | 35 | Pass |
+| SWE4-UT-BLECLI | `instruments/nordic_dongle/test_cli.py` | 50 | Pass |
+| SWE4-UT-BLEFIRMWARE | `instruments/nordic_dongle/test_firmware.py` | 50 | Pass |
+| SWE4-UT-LIMITS | `runner/test_limits.py` | 45 | Pass |
+| SWE4-UT-COMPARE | `runner/test_compare_steps.py` | 62 | Pass |
+| SWE4-UT-RESOLVE | `runner/test_resolve.py` | 27 | Pass |
+| SWE4-UT-BRINGUP | `runner/test_sensor_bringup.py` | 18 | Pass |
+| SWE4-UT-KEPLERSIM | `runner/test_kepler_simulated.py`, `instruments/s2lp/test_simulated_air.py` | 132 | Pass |
+| SWE4-UT-SELFCHECK | `runner/test_bench_self_check.py` | 7 | Pass |
+| SWE4-UT-FIVEINST | `runner/test_sensor_power_signal_and_link.py` | 8 | Pass |
+| SWE4-UT-BLEDFU | `instruments/nordic_dongle/test_dfu.py` | 47 | Pass |
+| SWE4-UT-EVENTS | `core/test_events.py` | 54 | Pass |
+| SWE4-UT-TESTBENCH | `tools/test_test_bench.py` | 32 | Pass |
+| SWE4-UT-EVENTNAMES | `runner/test_event_names.py` | 21 | Pass |
+| SWE4-UT-COREFW | `core/test_firmware.py` | 13 | Pass |
+| SWE4-UT-SPEC | `runner/test_spec.py` | 39 | Pass |
+| SWE4-UT-PARAMS | `runner/test_parameters.py` | 7 | Pass |
 | SWE4-UT-SELECT | `runner/test_selection.py` | 14 | Pass |
 | SWE4-UT-RUNEVENTS | `runner/test_run_events.py` | 21 | Pass |
 | SWE4-UT-CONTROL | `runner/test_control.py` | 33 | Pass |
 | SWE4-UT-VIEWSTATE | `viewer/test_state.py` | 14 | Pass |
-| SWE4-UT-VIEWSERVER | `viewer/test_server.py` | 29 | Pass |
+| SWE4-UT-VIEWSERVER | `viewer/test_server.py` | 44 | Pass |
 | SWE4-UT-VIEWTRAFFIC | `viewer/test_traffic.py` | 26 | Pass |
-| SWE4-UT-VIEWRADIO | `viewer/test_radio.py` | 14 | Pass |
+| SWE4-UT-VIEWRADIO | `viewer/test_radio.py`, `viewer/radio_log.py` | 14 | Pass |
 | SWE4-UT-VIEWGRAPHS | `viewer/test_graphs.py` | 16 | Pass |
 | SWE4-UT-VIEWTAGS | `viewer/test_tags.py` | 19 | Pass |
+| SWE4-UT-VIEWSTEPS | `viewer/test_step_events.py` | 31 | Pass |
 | SWE4-UT-VIEWSTATUS | `viewer/test_status.py` | 10 | Pass |
 | SWE4-UT-VIEWREMOTE | `viewer/test_remote.py` | 22 | Pass |
-| SWE4-UT-S2LPTABLES | `instruments/s2lp/test_kepler_tables.py` | 19 | Pass |
-| SWE4-UT-VIEWKEPLER | `viewer/test_kepler_view.py` | 12 | Pass |
+| SWE4-UT-VIEWKEPLER | `viewer/test_kepler_view.py` | 13 | Pass |
 | SWE4-UT-VIEWSENSOR | `viewer/test_sensor_series.py` | 17 | Pass |
 | SWE4-UT-VIEWTWF | `viewer/test_twf.py` | 15 | Pass |
 | SWE4-UT-VIEWDIAG | `viewer/test_diagnostics.py` | 14 | Pass |
 | SWE4-UT-VIEWREPORT | `viewer/test_report.py` | 10 | Pass |
 | SWE4-UT-VIEWSTGUI | `viewer/test_st_gui.py` | 11 | Pass |
-| SWE4-UT-PATHS | `core/test_paths.py`, `runner/test_input_paths.py` | 70 | Pass |
-| SWE4-UT-EVENTNAMES | `runner/test_event_names.py` | 21 | Pass |
-| SWE4-UT-RESOLVE | `runner/test_resolve.py` | 27 | Pass |
-| SWE4-UT-BRINGUP | `runner/test_sensor_bringup.py` | 18 | Pass |
-| SWE4-UT-COREFW | `core/test_firmware.py` | 13 | Pass |
-| SWE4-UT-SOCKET | `core/transport/test_socket.py` | 12 | Pass |
-| SWE4-UT-VISA | `core/transport/test_visa.py` | 6 | Pass |
-| SWE4-UT-PICO | `instruments/pico_sht30/test_thermometer.py` | 44 | Pass |
-| SWE4-UT-DMM | `instruments/tti1604/test_dmm.py` | 34 | Pass |
+| SWE4-UT-S2LP | `instruments/s2lp/test_s2lp.py` | 150 | Pass |
+| SWE4-UT-S2LPREG | `instruments/s2lp/test_registers.py` | 34 | Pass |
+| SWE4-UT-S2LPCONFIG | `instruments/s2lp/test_configuration.py` | 64 | Pass |
+| SWE4-UT-S2LPPROTO | `instruments/s2lp/test_protocol.py` | 42 | Pass |
+| SWE4-UT-S2LPSESSION | `instruments/s2lp/test_session.py` | 22 | Pass |
+| SWE4-UT-S2LPSIM | `instruments/s2lp/test_simulator.py` | 48 | Pass |
+| SWE4-UT-S2LPKEPLER | `instruments/s2lp/test_kepler.py` | 91 | Pass |
+| SWE4-UT-S2LPTABLES | `instruments/s2lp/test_kepler_tables.py` | 19 | Pass |
+| SWE4-UT-S2LPPREAMBLE | `instruments/s2lp/test_preamble.py` | 17 | Pass |
+| SWE4-UT-S2LPSAMPLES | `instruments/s2lp/test_kepler_samples.py` | 7 | Pass |
+| SWE4-UT-S2LPMEASURES | `instruments/s2lp/test_frame_measures.py` | 77 | Pass |
+| SWE4-UT-S2LPFRAME | `instruments/s2lp/test_kepler_frame.py` | 10 | Pass |
+| SWE4-UT-S2LPEEPROM | `instruments/s2lp/test_eeprom.py` | 13 | Pass |
+| SWE4-UT-S2LPCLI | `instruments/s2lp/test_cli.py` | 46 | Pass |
+| SWE4-UT-PSU | `instruments/gpd3303d/test_psu.py` | 107 | Pass |
+| SWE4-UT-PSUSIM | `instruments/gpd3303d/test_simulator.py` | 40 | Pass |
+| SWE4-UT-PSUCLI | `instruments/gpd3303d/test_cli.py` | 23 | Pass |
+| SWE4-UT-PSUPANEL | `instruments/gpd3303d/test_front_panel_check.py` | 4 | Pass |
 | SWE4-UT-DMMPROTO | `instruments/tti1604/test_protocol.py` | 56 | Pass |
+| SWE4-UT-DMM | `instruments/tti1604/test_dmm.py` | 43 | Pass |
 | SWE4-UT-DMMSIM | `instruments/tti1604/test_simulator.py` | 28 | Pass |
+| SWE4-UT-DMMPANEL | `instruments/tti1604/test_front_panel_check.py` | 9 | Pass |
 | SWE4-UT-DMMCLI | `instruments/tti1604/test_cli.py` | 8 | Pass |
-| SWE4-UT-DMMPANEL | `instruments/tti1604/test_front_panel_check.py` | 7 | Pass |
-| SWE4-UT-PICOSIM | `instruments/pico_sht30/test_simulator.py` | 36 | Pass |
-| SWE4-UT-PICOCLI | `instruments/pico_sht30/test_cli.py` | 16 | Pass |
-| SWE4-UT-PICOFLASH | `instruments/pico_sht30/test_flash.py` | 35 | Pass |
-| SWE4-UT-PICOFWPROTO | `instruments/pico_sht30/test_firmware_protocol.py` | 9 | Pass |
-| **Total** | | **2 591** (2 590 passed, 1 skipped) | **Pass** |
+| SWE4-UT-PICO | `instruments/pico2_test_board/test_thermometer.py` | 44 | Pass |
+| SWE4-UT-PICOSIM | `instruments/pico2_test_board/test_simulator.py` | 36 | Pass |
+| SWE4-UT-PICOCLI | `instruments/pico2_test_board/test_cli.py` | 16 | Pass |
+| SWE4-UT-PICOFLASH | `instruments/pico2_test_board/test_flash.py` | 35 | Pass |
+| SWE4-UT-PICOFWPROTO | `instruments/pico2_test_board/test_firmware_protocol.py` | 9 | Pass |
+| SWE4-UT-PICOFGEN | `instruments/pico2_test_board/test_freq_generator.py` | 66 | Pass |
+| SWE4-UT-PICOSPEC | `instruments/pico2_test_board/test_spec.py` | 2 | Pass (this file alone, Python 3.11 on Windows, 2026-11-13, #330; not part of the run above) |
+| SWE4-UT-SER | `instruments/serial_capture/test_capture.py` | 78 | Pass |
+| SWE4-UT-SERCONSOLE | `instruments/serial_capture/test_console.py` | 52 | Pass |
+| SWE4-UT-SERSIM | `instruments/serial_capture/test_simulator.py` | 6 | Pass |
+| SWE4-UT-SERCLI | `instruments/serial_capture/test_cli.py` | 11 | Pass |
+| SWE4-UT-PSCOPE | `instruments/picoscope3000/test_scope.py` | 18 | Pass |
+| SWE4-UT-PSCOPECONST | `instruments/picoscope3000/test_constants.py` | 34 | Pass |
+| SWE4-UT-PSCOPESDK | `instruments/picoscope3000/test_sdk.py` | 7 | Pass |
+| SWE4-UT-PSCOPECLI | `instruments/picoscope3000/test_cli.py` | 6 | Pass |
+| SWE4-UT-PPK | `instruments/ppk2/test_ppk2.py` | 38 | Pass |
+| SWE4-UT-PPKPROTO | `instruments/ppk2/test_protocol.py` | 23 | Pass |
+| SWE4-UT-PPKMEAS | `instruments/ppk2/test_measurement.py` | 15 | Pass |
+| SWE4-UT-PPKCLI | `instruments/ppk2/test_cli.py` | 13 | Pass |
+| SWE4-UT-PICOFW | `firmware/pico2_test_board/test/*.c` | 83 | Pass (CTest with ASan/UBSan, 3 binaries, CI run 39938471355; not in the pytest total; §13A) |
+| SWE4-UT-S2LPKITFW | `firmware/s2lp_kit/test/*.c` | 21 | Pass (CTest, 2 binaries, local run 2026-11-14; not in the pytest total; on the bench: `docs/aspice/qualification/2026-11-14/84_kit_firmware/`) |
+| SWE4-UT-S2LPKITHOST | `instruments/s2lp/test_kit_firmware.py` | 35 | Pass (on the bench: `docs/aspice/qualification/2026-11-14/84_kit_driver/`) |
+| SWE4-UT-BENCH | `runner/test_bench.py`, `runner/test_shipped_benches.py` | 67 | Pass |
+| SWE4-UT-ENGINE | `runner/test_runner.py` | 33 | Pass |
+| SWE4-UT-REPORT | `runner/test_report.py` | 24 | Pass |
+| SWE4-UT-RUNCLI | `runner/test_cli.py` | 25 | Pass |
+| SWE4-UT-PATHS | `core/test_paths.py`, `runner/test_input_paths.py` | 72 | Pass |
+| **Total (pytest)** | | **3 374** (3 374 passed) | **Pass** |
 
-The thermometer firmware's own unit tests (`SWE4-UT-PICOFW`, 83 cases) run
-under CTest, not pytest, and are reported in §13A. The five `PICO` rows above
-are the counts after #127 was merged into #131 (140 in all, from
-`python -m pytest tests/instruments/pico_sht30 -q`); the total row is still the
-revision 0.4 figure, as explained in §4.
+The Total row is the 1.32 whole-suite run (3 374). The group rows are not all
+from that run, so they do not add up to it. SWE4-UT-SELFCHECK and
+SWE4-UT-FIVEINST were added by #292 after this run; their rows give that run's
+results for the two files, which it ran but no group then named. These rows
+are from later runs of their own files, after cases were added:
+SWE4-UT-TRACE (30, #292), SWE4-UT-VIEWSERVER (36, #294; 44, #201),
+SWE4-UT-VIEWSTEPS (31, #201), SWE4-UT-TRANSPORT (31) and SWE4-UT-S2LPFRAME
+(10, #293). The whole suite passed on 2026-10-25 on
+the #293 branch with #292 and #294 merged in: 3 392 passed.
+
+The firmware unit tests run under CTest, not pytest, and are not in the pytest
+total. The dongle's 8 binaries (189 cases) were built and run on the bench PC
+for this revision. The Pico 2 thermometer's 3 binaries (83 cases) are built
+with AddressSanitizer and UndefinedBehaviorSanitizer, which the bench PC's
+MinGW gcc cannot build (it stops with an internal compiler error), so their
+result is CI run 39938471355 on 7507bda. No file under `firmware/` has changed
+between 7507bda and 9b7da17. `SWE4-UT-DMMBENCH` needs the real meter and is not
+part of the default run.
 
 ## 6. Coverage detail
 
@@ -1163,7 +1290,7 @@ smaller because the humidity and raw-word replies are gone.
 | Toolchain | Arm GNU Toolchain 14.2.Rel1 (`arm-none-eabi-gcc` 14.2.1) |
 | Board / platform | `pico2` / `rp2350-arm-s` (Cortex-M33, secure) |
 | Warnings on the firmware's own sources | **0** (`-Werror`) |
-| Image | `pico_sht30.uf2`, 58 368 bytes |
+| Image | `pico2_test_board.uf2`, 58 368 bytes |
 | Size (`arm-none-eabi-size`) | text 28 764 B, data 0 B, bss 3 476 B |
 | Commit SHA injected | Configure printed `FIRMWARE_GIT_SHA=b6213cc` before the #131 commit was made; after the commit the next build re-configured itself and injected `5c80ae7`, which `rd sha` then reported on the Pico (§13A.6) |
 
@@ -1200,7 +1327,7 @@ way, in C (`test_text.c`, `test_cmd_parser.c`) and in Python
 ### 13A.4 Static analysis
 
 **CStyleCheck v1.5.1** (ETB-STD-002 and ETB-STY-001), over all 18 C files of
-`firmware/pico_sht30` - sources, headers and host unit tests - with
+`firmware/pico2_test_board` - sources, headers and host unit tests - with
 `.cstylecheck.yml`, the Pico alias map and the Pico exclusions: **0 errors,
 0 warnings, 0 info**, with no baseline (PICO-NFR-006). The first run found 210;
 they were fixed in the code (enum member prefixes, `m_` statics, `g_` globals,
@@ -1211,7 +1338,7 @@ run locally; the result is the CI job's (`.github/workflows/style.yml`).
 
 No MISRA checker (for example cppcheck's MISRA addon, PC-lint, Helix QAC) was
 available in the build environment. MISRA C:2012 conformance is therefore by
-construction and review (`docs/pico_sht30/Pico_SHT30_Notes.md` §6) plus the
+construction and review (`docs/pico2_test_board/PICO2_Test_Board_Notes.md` §6) plus the
 mechanical checks of `SWE4-UT-PICOFWPROTO` and CStyleCheck; a MISRA tool run is
 PICO-OPEN-04.
 
@@ -1219,18 +1346,18 @@ PICO-OPEN-04.
 
 | ID | Item |
 |---|---|
-| PICO-OPEN-01 | **Closed 2026-10-03** (§13A.7). Flash `pico_sht30.uf2`, confirm USB enumeration, and confirm `rd name`, `rd copyright`, `rd version` and `rd sha` return the name, copyright, `V1.00.0000` and the SHA the build injected. |
-| PICO-OPEN-02 | **Confirmed in part 2026-10-03** (§13A.7): with no module connected, `rd temperature` answers `ACK rd temperature = Error` and `status` answers `err 4`. Still open: a value to two places with the DollaTek module on GP4/GP5 at 0x44. |
+| PICO-OPEN-01 | **Closed 2026-10-03** (§13A.7). Flash `pico2_test_board.uf2`, confirm USB enumeration, and confirm `rd name`, `rd copyright`, `rd version` and `rd sha` return the name, copyright, `V1.00.0000` and the SHA the build injected. |
+| PICO-OPEN-02 | **Confirmed in part 2026-10-03** (§13A.7): with no module connected, `rd temperature` answers `ACK rd temperature = Error` and `status` answers `err 4`. Still open: a value to two places with the DollaTek module on GP4/GP5 at 0x44. *Note, 2026-11-12 (#328, §13A.8):* the module is now connected on GP4/GP5 and the thermometer read about 23 °C; the item is not closed here. |
 | PICO-OPEN-03 | Compare against a reference thermometer: expect agreement within ±0.2 °C typical between 0 and 65 °C, allowing for self-heating of the Pico. |
-| PICO-OPEN-04 | The reference PDFs (Pico 2 datasheet and schematic, RP2350 datasheet, SDK guide, Sensirion SHT3x-DIS datasheet) could not be fetched in the build environment; run `docs/pico_sht30/fetch_datasheets.sh` and commit them. Run a MISRA C:2012 checker over `firmware/pico_sht30/src`. |
-| PICO-OPEN-05 | Reflash a real Pico 2 with `benchtools thermo flash`: from the running thermometer (`bootsel`), from a board already in its bootloader, and through the 1200-baud reset; confirm the drive is found without `--drive`. **Closed 2026-10-03** on Windows 10: all three methods exited 0 with every check passing (§13A.7). Drive discovery on Linux and macOS is untested on hardware. With the `rd` firmware of #131, `flash -r COM14` (method `bootsel`) passed its `name`, `version` and `sha` checks (§13A.7). |
+| PICO-OPEN-04 | The reference PDFs (Pico 2 datasheet and schematic, RP2350 datasheet, SDK guide, Sensirion SHT3x-DIS datasheet) could not be fetched in the build environment; run `docs/pico2_test_board/fetch_datasheets.sh` and commit them. Run a MISRA C:2012 checker over `firmware/pico2_test_board/src`. |
+| PICO-OPEN-05 | Reflash a real Pico 2 with `benchtools pico2 flash`: from the running thermometer (`bootsel`), from a board already in its bootloader, and through the 1200-baud reset; confirm the drive is found without `--drive`. **Closed 2026-10-03** on Windows 10: all three methods exited 0 with every check passing (§13A.7). Drive discovery on Linux and macOS is untested on hardware. With the `rd` firmware of #131, `flash -r COM14` (method `bootsel`) passed its `name`, `version` and `sha` checks (§13A.7). |
 | PICO-OPEN-06 | **Confirmed in part 2026-10-03** (§13A.2, §13A.7): the `rd` command set (#131) on a real Pico 2. The #131 firmware was cross-compiled with no warnings, its size recorded, the SHA injected, and it was flashed; every `rd` option, the `NAK`, the `err` replies and `ecureset` behaved as specified. Still open: `rd temperature` with a real value to two places, which needs the SHT30-D module connected (PICO-OPEN-02). |
 
 ### 13A.6 Reflashing without BOOTSEL (`SWE4-UT-PICOFLASH`, #127)
 
-`instruments/pico_sht30/test_flash.py`: **35 cases, all pass**. The whole Pico
-SHT30 directory, `tests/instruments/pico_sht30`, is 140 cases, all passing, re-run
-after #127 was merged into #131 (`python -m pytest tests/instruments/pico_sht30
+`instruments/pico2_test_board/test_flash.py`: **35 cases, all pass**. The whole Pico
+SHT30 directory, `tests/instruments/pico2_test_board`, is 140 cases, all passing, re-run
+after #127 was merged into #131 (`python -m pytest tests/instruments/pico2_test_board
 -q`). Since that merge `flash` confirms the build by the `rd` command set
 instead of `ver`: the image is recognised by the firmware's name, and its
 version and commit SHA are read from it to compare with `rd version` and
@@ -1240,12 +1367,12 @@ interaction is a seam of `PicoFlasher`, and `SimulatedRp2350` plays the board.
 
 | Area | What the cases establish |
 |---|---|
-| The image | A UF2 laid out as an SDK 2.x RP2350 build lays it out (an `absolute` block ahead of `rp2350-arm-s` blocks) is accepted; bad magic numbers, a length that is not whole blocks and a missing file are refused; an RP2040 image is refused; an image without the thermometer's name (`Pico 2 SHT30 Temperature Sensor`) is refused unless `--any-image`; an image with more than one commit SHA, or with no version string, is flashed but that point is not compared, and the result says so in a note. |
+| The image | A UF2 laid out as an SDK 2.x RP2350 build lays it out (an `absolute` block ahead of `rp2350-arm-s` blocks) is accepted; bad magic numbers, a length that is not whole blocks and a missing file are refused; an RP2040 image is refused; an image without the thermometer's name (`PICO2 Test Board`) is refused unless `--any-image`; an image with more than one commit SHA, or with no version string, is flashed but that point is not compared, and the result says so in a note. |
 | Reaching the bootloader | From the running firmware (`bootsel`); from a board already in its bootloader, with no `bootsel` sent; and, when the port does not answer the protocol, through the 1200-baud reset. An error from the port during that reset is kept as a note in the result, not raised. |
 | Confirming the result | The checks are `name`, `version` and `sha`, read by `rd`; the version is the image's unless `--expect-version` is given. A version that differs from `--expect-version`, and a commit SHA that differs from the image's (the old image still running), each give `ok: false` without raising; when no port was given, the one the port search returns is used (the search is simulated here: the USB vendor-ID filter itself runs only through pyserial, untested without a Pico); `--no-verify` is honoured. |
 | Failures | Bootloader timeout; no drive and no port; two drives; a copy that fails while the drive remains; a drive that never goes away; a port that never comes back - each raises an error naming what happened. A close error after the drive has gone is not a failure. |
 | Drive discovery | A drive is recognised by `INFO_UF2.TXT` naming `RP2350`; the search roots on Windows (the drive-letter list), Linux and macOS (with `glob` patched); any other system is refused with a request for `--drive`. Discovery has not been run against a real mounted RP2350 drive on any system. |
-| Command line | `benchtools thermo -r sim:// flash` prints the JSON result and exits 0; a mismatch exits 1 with the JSON result; an error exits 1 with an `error:` message on stderr. |
+| Command line | `benchtools pico2 -r sim:// flash` prints the JSON result and exits 0; a mismatch exits 1 with the JSON result; an error exits 1 with an `error:` message on stderr. |
 
 **Confirmed on hardware on 2026-10-03** (PICO-OPEN-05, closed), with the
 firmware of the time, which answered `ver`; the checks were then `title`,
@@ -1258,10 +1385,10 @@ as COM14. The image was built on the bench PC from this branch with Pico SDK
 
 | Route | Command | Result |
 |---|---|---|
-| Already in the bootloader | The board arrived in its bootloader as drive D: (`INFO_UF2.TXT` naming `Board-ID: RP2350`); `benchtools thermo -r "" flash pico_sht30.uf2 --expect-version 1.0.0` | `ok: true`, method `already-in-bootloader`; the port found by vendor ID as COM14; about 2.5 s end to end. `ver` afterwards matched the image's build date `2026-10-03T12:06:39Z`. |
+| Already in the bootloader | The board arrived in its bootloader as drive D: (`INFO_UF2.TXT` naming `Board-ID: RP2350`); `benchtools pico2 -r "" flash pico2_test_board.uf2 --expect-version 1.0.0` | `ok: true`, method `already-in-bootloader`; the port found by vendor ID as COM14; about 2.5 s end to end. `ver` afterwards matched the image's build date `2026-10-03T12:06:39Z`. |
 | From the running thermometer | Rebuilt for a new build date, then `flash -r COM14 ... --expect-version 1.0.0` | `ok: true`, method `bootsel`; build date `12:06:39Z` → `12:07:19Z`; title, version and build checks all passed. |
 | 1200-baud reset | The protocol open made to fail once, so that `flash -r COM14` falls back | `ok: true`, method `1200-baud`; title and build checks passed. |
-| From the running thermometer, `rd` firmware (#131, after the merge) | `benchtools thermo -r COM14 flash pico_sht30.uf2`, image built from commit `5c80ae7` | `ok: true`, method `bootsel`; checks `name`, `version` (`V1.00.0000`, from the image) and `sha` (`5c80ae7`) all passed. |
+| From the running thermometer, `rd` firmware (#131, after the merge) | `benchtools pico2 -r COM14 flash pico2_test_board.uf2`, image built from commit `5c80ae7` | `ok: true`, method `bootsel`; checks `name`, `version` (`V1.00.0000`, from the image) and `sha` (`5c80ae7`) all passed. |
 
 The 1200-baud run found a fault, fixed in this branch. On Windows the Pico
 reboots while pyserial is still configuring the port at 1200 baud, and pyserial
@@ -1283,12 +1410,12 @@ or an SWD probe.
 
 Bench PC on Windows 10, a Raspberry Pi Pico 2 with USB serial number
 `AC5483CD0798FB0B` on COM14, and **no SHT30-D module connected**. The firmware
-of §13A.2 was flashed with `benchtools thermo flash` (the `bootsel` method of
+of §13A.2 was flashed with `benchtools pico2 flash` (the `bootsel` method of
 #127, §13A.6), with no button pressed. The raw replies on COM14 were:
 
 | Sent | Reply | Expected? |
 |---|---|---|
-| `rd name` | `ACK rd name = Pico 2 SHT30 Temperature Sensor` | Yes |
+| `rd name` | `ACK rd name = PICO2 Test Board` | Yes |
 | `rd copyright` | `ACK rd copyright = (c) 2026 Dermot Murphy` | Yes |
 | `rd version` | `ACK rd version = V1.00.0000` | Yes |
 | `rd sha` | `ACK rd sha = 5c80ae7` | Yes, the commit built |
@@ -1298,15 +1425,110 @@ of §13A.2 was flashed with `benchtools thermo flash` (the `bootsel` method of
 | `ver`, `temp`, `reset` | `err 1 unknown command` | Yes, removed by #131 |
 | `status` | `err 4 the sensor did not acknowledge` | Yes, no sensor is connected |
 
-`benchtools thermo -r COM14 info`, and each `rd <option>` through the driver's
+`benchtools pico2 -r COM14 info`, and each `rd <option>` through the driver's
 command line, returned the same values. `ecureset` through the driver rebooted
 the Pico, and it came back answering `rd sha = 5c80ae7`. The raw `ok` reply to
 `ecureset` was not captured separately.
 
 After #127 was merged into this branch, `flash` confirms the build by `rd`
-(§13A.6). `benchtools thermo -r COM14 flash pico_sht30.uf2`, with the same
+(§13A.6). `benchtools pico2 -r COM14 flash pico2_test_board.uf2`, with the same
 image, reported `ok`, method `bootsel`, and its checks `name`, `version`
 (`V1.00.0000`) and `sha` (`5c80ae7`) all passed.
+
+### 13A.8 Indicator LEDs (#328, 2026-11-12)
+
+#328 adds three indicator LEDs to the thermometer - red on GP18, yellow on GP19
+and green on GP20 - with the `wr` command to switch them and the LED options of
+`rd` to read them back (PICO-FR-008, -009, -011, -049, -050, -061, -062). The
+firmware version is `V1.01.0000` and the protocol version 2.1.
+
+**Host unit tests.** The firmware unit tests were built and run on the bench PC
+with clang 21 on Windows, in the configuration of §13A.1. All three suites
+passed:
+
+| Suite | File | Cases | Result |
+|---|---|---|---|
+| text | `test/test_text.c` | 15 | Pass |
+| sht30 | `test/test_sht30.c` | 22 | Pass |
+| cmd_parser | `test/test_cmd_parser.c` | 55 | Pass, 0 failures |
+| **Total** | | **92** | **Pass** |
+
+`cmd_parser` gains nine cases against §13A.1: the LEDs are off until written;
+`wr led-red on` and `off`; each LED drives only its own pin; `wr on` twice stays
+on; `rd` and `wr` of an LED do not touch the sensor; an unknown option is a
+`NAK`; a bad value is a `NAK` and changes nothing; `wr` needs an option and a
+value (`err 2`); and the longest option is echoed whole.
+
+The Python tests of `tests/instruments/pico2_test_board` - 172 cases - all passed on
+the same day (`python -m pytest tests/instruments/pico2_test_board`), as did
+`tests/runner` and `tests/test_publish_docs.py`. Against §5's counts,
+SWE4-UT-PICO goes from 44 to 54 cases (`TestLeds`), SWE4-UT-PICOSIM from 36 to
+45 (the simulated LEDs) and SWE4-UT-PICOCLI from 16 to 29 (`wr`, and `rd` of
+each LED); SWE4-UT-PICOFLASH (35) and SWE4-UT-PICOFWPROTO (9) are unchanged. §5
+is not re-run here.
+
+**On the bench.** The firmware was built on the bench PC with Arm GNU 14.2.1 and
+Pico SDK 2.1.1 into a UF2 image of 59 904 bytes, and flashed onto the Pico 2 on
+COM14 with `benchtools pico2 -r COM14 flash`; its checks of `name`, `version`
+(`V1.01.0000`) and `sha` all passed. Over the serial link:
+
+| Sent | Reply | Expected? |
+|---|---|---|
+| `wr led-red on`, `wr led-yellow on`, `wr led-green on` | `ACK wr led-<colour> = on` | Yes |
+| `wr led-red off`, `wr led-yellow off`, `wr led-green off` | `ACK wr led-<colour> = off` | Yes |
+| `rd led-<colour>` after each write | the state just written | Yes |
+| `wr led-blue on` | `NAK` | Yes, unknown option |
+| `wr led-red 1` | `NAK` | Yes, value other than `on` or `off` |
+| `wr led-red` | `err 2` | Yes, no value |
+| `rd led-purple` | `NAK` | Yes, unknown option |
+
+The owner watched the board and confirmed that red, then yellow, then green lit
+one at a time, and then all three together. On the same day the SHT30-D module
+was connected (SDA on GP4, SCL on GP5), and the thermometer read about 23 °C.
+
+### 13A.9 The frequency generator merged with the LEDs (#202, 2026-11-12)
+
+#202 adds a frequency generator to the Pico 2 (PICO-FR-080 … -089). It was
+written alongside #328, and both claimed protocol 2.1 and firmware
+`V1.01.0000`. With `develop` (holding #328) merged into #202, the generator is
+protocol 2.2 and firmware `V1.02.0000`, and one `wr` command serves both: an
+LED takes exactly an option and a value, and any other option goes to the
+generator, which refuses one it does not know with `NAK`.
+
+**Host unit tests.** The firmware unit tests were built and run with clang 21
+on Windows, in the configuration of §13A.1, with AddressSanitizer and
+UndefinedBehaviorSanitizer. All four suites passed:
+
+| Suite | File | Cases | Result |
+|---|---|---|---|
+| text | `test/test_text.c` | 15 | Pass |
+| sht30 | `test/test_sht30.c` | 22 | Pass |
+| cmd_parser | `test/test_cmd_parser.c` | 55 | Pass |
+| fgen | `test/test_fgen.c` | 48 | Pass |
+| **Total** | | **140** | **Pass** |
+
+The Python tests of `tests/instruments/pico2_test_board` - 242 cases - all passed
+on the same day with Python 3.11 on Windows: SWE4-UT-PICO 58,
+SWE4-UT-PICOSIM 45, SWE4-UT-PICOCLI 29, SWE4-UT-PICOFLASH 35,
+SWE4-UT-PICOFWPROTO 9 and SWE4-UT-PICOFGEN 66. §5 is not re-run here.
+
+**On the bench.** On 2026-11-12 the merged firmware (`V1.02.0000`, protocol 2.2) was built with no warnings, flashed to the bench Pico 2 on COM14 with `benchtools pico2 flash` (name, version and SHA checks passed) and its commands run over the serial link: the LEDs, `wr led-red 2 on` answered `err 2`, `wr led-blue on` a `NAK`; `wr freq 1k`, `wr wave sine`, `wr amp 50`, `wr cycles 0` and `wr freq 3 500` acknowledged and read back; `routine freq start` on channels 1 and 3 reported `Running, sine, 1000.00 Hz` and `Running, square, 500.00 Hz`; `routine all abort` left 1 and 3 `Aborted` and 2 `Not Started`. The analogue outputs were not observed: no scope or meter was on the DAC or GP15, so nothing about the waveforms, levels or frequency accuracy is confirmed. PICO-OPEN-07 stays open. The DAC module's wiring was corrected on 2026-11-12 to the
+bench as the owner stated it: DIN on GP9, BCLK on GP10, WSEL on GP11, VIN on
+VBUS (5 V) and `MUTE` not connected.
+
+**On the bench, 2026-11-13.** The DAC board was identified as an Adafruit
+UDA1334A, not a CJMCU-1334. It pulls `PLL`, `SF0` and `SF1` low (audio mode,
+I2S format) and its `SCLK` is low, which selects the UDA1334A's 16 to 50 kHz
+sample-rate range; at the 97 656.25 Hz of the 2026-11-12 firmware the outputs
+were silent. The owner rewired the I2S lines to DIN on GP6 (pin 9), BCLK on GP7
+(pin 10) and WSEL on GP8 (pin 11), and the firmware's defaults became those
+pins with `BOARD_DAC_PIO_DIVIDER` 24: 150 MHz / 24 / 2 / 64 = 48 828.125 Hz,
+a 3.125 MHz bit clock. With that firmware the owner saw on a scope a continuous
+1 kHz sine on channel 1 (left) and a 2 kHz sine on channel 2 (right), both at
+amplitude 100: the first observation of the DAC's analogue output. Levels, each
+waveform, frequency accuracy against the TTi 1604, cycle counts, channel 3 on
+GP15, the outputs at power-up and silence after `routine all abort` are still
+not observed. PICO-OPEN-07 stays open, confirmed in part.
 
 ## 13B. TTi 1604 multimeter verification results (#115)
 
@@ -1365,6 +1587,89 @@ DMM-OPEN-01 … -08.
 DMM-OPEN-01 … -08, `docs/dmm/TTi1604_Notes.md` §5. None blocks use of the
 driver: each is accepted either way, refused rather than guessed, or confined
 to a function the driver does not select.
+
+## 13C. PicoScope 3000D MSO verification results (#200)
+
+### 13C.1 Unit tests
+
+`tests/instruments/picoscope3000` was run on the `feature/200-picoscope` branch
+on 2026-11-13 (Windows, Python 3.14.7): 65 passed, none failed or skipped -
+SWE4-UT-PSCOPE 18, SWE4-UT-PSCOPECONST 34, SWE4-UT-PSCOPESDK 7 and
+SWE4-UT-PSCOPECLI 6. They run against the simulated unit and, for the `ctypes`
+seam, a fake library; none needs the PicoScope or the `ps3000a` library. The
+section 5 total is still the 1.32 whole-suite run's.
+
+### 13C.2 On the bench unit, 2026-11-13
+
+The bench's PicoScope 3405D MSO (serial HT415/0202), on USB to the bench PC,
+through `ps3000a.dll` from PicoScope 7 T&M Stable (driver version
+2.2.160.7569). These are the observations the requirements and the simulator
+were built from (ETB-SWE1-001 §17); they were made during development of the
+driver, not by a recorded test run, and no evidence folder is kept for them.
+
+| What | Observed | Requirement |
+|---|---|---|
+| Open, close and identity | The unit opened, identified itself as a 3405D MSO with its serial, and closed | PSCOPE-FR-001, -002 |
+| Full-scale code | `ps3000aMaximumValue` 32 512 | PSCOPE-FR-011 |
+| Ranges | Range indices 1 to 10 (±20 mV to ±20 V) accepted; 0 and 11 refused with status 0x0F | PSCOPE-FR-003 |
+| Offset limits | ±0.25 V on the 20 to 200 mV ranges, ±2.5 V on 0.5 to 2 V, ±20 V on 5 to 20 V | PSCOPE-FR-004 |
+| Timebases | 2^n ns below 3, (n − 2) × 8 ns from 3 (n = 0 to 5, 10, 127, 252); 0 refused with 2 channels, 1 with 4, 2 with 4 and a digital port (status 0x0E) | PSCOPE-FR-005, -006 |
+| Memory | 268 435 200 samples with one channel, halving with two and with four, 33 554 400 with four channels and a digital port; 500 000 segments; AWG buffer 32 768 | PSCOPE-FR-006 |
+| One block, analogue and digital | Four analogue channels and both digital ports captured in one block at 8 ns (timebase 3), with no signal connected to the inputs | PSCOPE-FR-011, -012 (in part) |
+| A known analogue signal | A 1 kHz sine of about 1.94 V peak-to-peak captured on channel A | PSCOPE-FR-011 |
+| A known signal, swept | Channel A is wired to the PICO2 Test Board's generator channel 1. 32 settings (sine, `sine2`, square, PWM at 10 to 90 % duty, triangle, sawtooth; 10 Hz to 12 kHz; `amp` 10 to 100 %) captured through the driver, each auto-ranged: every frequency within ±40 ppm of the frequency the board reported, every duty within 0.5 points of its setting. Evidence: `docs/pico2_test_board/measurements/2026-11-13_generator_sweep/`; results in ETB-PICO-002 §5.3 | PSCOPE-FR-003, -005, -008, -011 |
+| Analogue trigger | `RISE`: the trace crossed upwards at t = 0 | PSCOPE-FR-008 (in part) |
+
+### 13C.3 Not yet confirmed on hardware
+
+| ID | Item |
+|---|---|
+| PSCOPE-OPEN-01 | The digital bits decoded against a real logic signal: which bit of a port's code is which input, and the threshold. The block of 13C.2 had nothing connected. |
+| PSCOPE-OPEN-02 | The digital trigger (PSCOPE-FR-009) on the unit. |
+| PSCOPE-OPEN-03 | The signal generator's output (PSCOPE-FR-016, -017): waveform, frequency, amplitude and offset, measured on an analogue channel. |
+| PSCOPE-OPEN-04 | The acceptance of #200: four analogue channels and the digital channels captured in one block, against a known signal on each. |
+| PSCOPE-OPEN-05 | The SDK values taken from the header and marked unverified in `constants.py`: the analogue trigger directions other than `RISE`, the digital directions, the wave types and the power-source statuses. |
+
+## 13D. Nordic PPK2 verification results (#342)
+
+### 13D.1 Unit tests
+
+`tests/instruments/ppk2` was run on the `feature/342-ppk2` branch on
+2026-11-14 (Windows, Python 3.11.1), after review round 1: 89 passed, none
+failed or skipped - SWE4-UT-PPK 38, SWE4-UT-PPKPROTO 23, SWE4-UT-PPKMEAS 15
+and SWE4-UT-PPKCLI 13.
+They run against the simulated kit; none needs a PPK2. The section 5 total is
+still the 1.32 whole-suite run's.
+
+### 13D.2 On the bench kit, 2026-11-14
+
+The bench's PPK2, USB serial number D527E1DA8DBA (hardware 59726), on COM5.
+The owner stated that nothing was wired to its VOUT, VIN, GND or logic inputs.
+The script and its record are in `docs/ppk2/2026-11-14_bench_check/`.
+
+| What | Observed | Requirement |
+|---|---|---|
+| Found and opened | `ppk2://D527E1DA8DBA` resolved to COM5 by USB identity and serial number | PPK-FR-001 |
+| Metadata | 517 bytes ending `END`: the calibration of the five ranges, `VDD: 4000`, `HW: 59726`, `mode: 2`, `Calibrated: 0`, `IA: 56` | PPK-FR-002, -003 |
+| Metadata asked twice | The first request after opening was answered; a second in the same open was not, while the kit went on streaming samples when asked | PPK-FR-002 |
+| Closing the port | The kit went off USB for about 0.7 s and came back; a voltage set before closing (1.8 V) was still set after reopening. The driver's reopening took 0.9 to 1.0 s | PPK-FR-001 |
+| Sampling | 0.1 s, 1.0 s and 5.0 s measured: exactly 10 000, 100 000 and 500 000 samples, none lost by the counter; a 5 s measurement took 6.0 s to record and decode | PPK-FR-003, -006 |
+| Current with nothing wired | About 0.16 µA in source mode at 4.0 V, DUT power as found; within ±1 µA in every later step but one | PPK-FR-003 |
+| Mode and voltage | Source at 1.8 V, then 3.0 V, then ammeter: each read back from the kit's metadata after reopening (`mode` 2, `VDD` 1800; 2, 3000; 1, 3000) | PPK-FR-005 |
+| The voltage limit | 3.4 V refused with the limit at 3.3 V, before anything was sent | PPK-FR-005 |
+| DUT power | Switched on and off in both modes. Switching on at 1.8 V with VOUT open drew a peak of 0.72 mA over the first second, taken to be the output's capacitance charging | PPK-FR-005 |
+| Logic inputs | 255 in every sample: all eight inputs read high with nothing connected | PPK-FR-003 |
+| Restored | Source mode, 4.0 V, DUT power off; read back as `mode` 2, `VDD` 4000 | - |
+
+### 13D.3 Not yet confirmed on hardware
+
+| ID | Item |
+|---|---|
+| PPK-OPEN-01 | A current through a real load, against a reference meter, in each range: the calibration and the spike filter as the driver applies them. |
+| PPK-OPEN-02 | The pulse figures (PPK-FR-008) on a real device's current. |
+| PPK-OPEN-03 | The logic inputs driven by a signal: which bit is which input, and their threshold. The DUT power state cannot be read back, so whether it is on is shown only by a current through a load. |
+
+---
 
 ## 14. Runner verification results
 
@@ -1529,6 +1834,71 @@ With the sensor present the Kepler specifications no longer stop at
 `dongle.select`, and their S2-LP steps would wait out 60 to 180 s receive
 timeouts on the silent simulated air. §14.3's comparison therefore runs their
 setup and teardown only, which is where their paths are; it takes 20 s again.
+§14.5 replaces this: the air is no longer silent.
+
+### 14.5 The Kepler specifications' radio side, simulated (#122)
+
+The simulated Kepler sensor now transmits, and the simulated S2-LP kit hears it
+when the simulated bench wires the two together (`simulated_targets:
+[kepler-5C1712]`) and its registers are set up for the sensor's 433 MHz
+transmitter (BLE-DD-KEPLERSIM, BLE-DD-SIMWORLD, S2LP-DD-SIM). The frames were
+decoded by the Kepler plugin's decoder. Against the ALIVE copies 5C1712 sent in
+`293_kepler_frame_gap/results.json`: the first copy matches in every byte but
+the BLE-connected flag (byte 33: 1 captured, 0 simulated) and the values the
+sensor measured or counted, battery (byte 11) and ticks (bytes 12-13). The second and third
+copies also differ in the "SI updated" bit (byte 34), which that capture sets
+in every copy and the model, following #95, in the first only. Which firmware
+5C1712 ran on 2026-10-25 is not recorded; BLE-DD-KEPLERSIM lists it as an open
+item.
+Run on `fix/122-simulated-s2lp-kepler-frames`, 2026-10-27, simulated, with
+`settle_s` and `interval_s` shortened:
+
+| Specification | Setup | Tests | Steps | Time |
+|---|---|---|---|---|
+| `kepler_version.yaml` | passed | 1 PASS | all PASS | 0.2 s |
+| `kepler_battery.yaml` | passed | 4 PASS | all PASS | 0.5 s |
+| `kepler_preamble.yaml` | passed | 2 PASS | all PASS | under 0.1 s |
+| `kepler_temperature.yaml` | passed | 3 PASS | all PASS | 5.1 s (the RTT line comes once a second) |
+
+The air keeps its own clock, moved on to the next transmission whenever a
+receive waits, so a 10 s alive period takes no time.
+
+Each fact the specifications check over the air was then made false in the
+simulated sensor, and each was noticed: the frame's version with the SHA
+appended, as the captured V11.00.0000-95 build sends it (`version_as_rd_version`
+FAIL, `sha_as_start_of_rd_sha` PASS); another SHA (`sha_as_start_of_rd_sha`
+FAIL); reset reason 1 (`reset_reason` FAIL); PCB code 4 (`pcb_version` FAIL); a
+loaded battery of 3000 mV against 3280 mV over BLE
+(`battery_loaded_as_rd_battery_loaded` FAIL); no VERSION frame after the reset,
+and frames from 5D1712 only (`s2lp.dut_frame` ERROR: no VERSION frame from
+5C1712); a register file with another SYNT0, MOD3 or secondary sync word
+(`frames` FAIL: nothing heard); an ALIVE battery stuck at 3.3 V (the 3.3 V case
+passes, `alive_lowest_from_ble` FAILs at 3.0 V); a sensor that sends nothing
+(`alive_frames` FAIL); an ALIVE temperature of 22.3 C against 21.2 C
+(`alive_highest_from_ble` FAIL); a preamble setting the radio does not take at
+the reset (`preamble_as_set` and `best_pqi` FAIL at 48 pairs); and a preamble 4
+pairs longer than set (`preamble_as_set` FAIL). With the 7 BLE and RTT cases of
+§14.4 and one run of each specification, 26 tests, 22 s, all passed.
+
+`test_simulated_air.py` holds the same parts at unit level, 97 tests: the
+Kepler register file hears the sensor and the reset values do not; every bit a
+receiver must match, 80 of them, listed in the test independently of
+`KEPLER_433_TRANSMITTER`, is flipped in turn and the frame is not heard, and so
+for `SECOND_SYNC_SEL`. Mutations checked on this branch: with the
+`SECOND_SYNC_SEL` check removed from `_hears`, with PCKTCTRL4's, PCKTCTRL2's,
+PCKTCTRL3's or PCKTCTRL6's mask narrowed to what it was before review, or with
+a reset that does not clear `ticks`, tests fail; the sensor's
+sync word set as the primary is heard; PQI reads 63 for 32 pairs; the board
+timer moves 100 ms between two copies; the air takes the earliest sensor's
+frame and moves its clock; every copy carries the same ticks, 1 after a reset;
+a preamble written without a reset is not sent; and `simulated_targets` wires
+the kit, refusing an unknown target. 123 tests in the two files, all passed.
+
+§14.3's comparison now runs the four Kepler specifications whole, inside and
+outside the checkout, and requires them to pass in both. Their `settle_s` and
+`interval_s` are shortened there as here; neither holds a path.
+`test_input_paths.py`: 22 passed on this branch, the longest case
+`kepler_temperature.yaml` at 10 s, waiting on the once-a-second RTT line.
 
 ## 14A. Hardware confirmation of #124 and #126 (#129, 2026-10-04)
 
@@ -1563,7 +1933,7 @@ specification (`temp.name`, `temp.version`, `temp.read`) was run with
   - 13 `TEMP`: every line from the thermometer, from `resource 'serial://COM14' resolved to serial COM14` to `closed serial COM14`.
   - 14 `TEST`: the runner's own records, including `connecting temp (pico-sht30) at COM14`.
   - None `BENCH`.
-- **Report:** the Instruments table reads `temp | TEMP | PicoSht30 | Pico 2/SHT30 | V1.00.0000 (5c80ae7) | COM14`.
+- **Report:** the Instruments table reads `temp | TEMP | Pico2TestBoard | Pico 2/SHT30 | V1.00.0000 (5c80ae7) | COM14`.
 - **Embedded Test Bench monitor:** given the log with `--event-log`, the Events page shows the `TEMP` records in their own colour (`#ff8a65`), with a `TEMP` filter.
 - **Step results:** `temp.name` and `temp.version` passed. `temp.read` errored with `NoReadingError` (`ACK rd temperature = Error`), as expected with no module connected. A real reading remains PICO-OPEN-02.
 

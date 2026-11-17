@@ -1,0 +1,350 @@
+[
+ {
+  "case": "sine 1 kHz 100%",
+  "wave": "sine",
+  "freq": 1000,
+  "amp": 100,
+  "extra": {},
+  "board_hz": 1000.0,
+  "range_v": 2.0,
+  "clipped": false
+ },
+ {
+  "case": "sine 100 Hz 50%",
+  "wave": "sine",
+  "freq": 100,
+  "amp": 50,
+  "extra": {},
+  "board_hz": 100.0,
+  "range_v": 1.0,
+  "clipped": false
+ },
+ {
+  "case": "sine 10 kHz 25%",
+  "wave": "sine",
+  "freq": 10000,
+  "amp": 25,
+  "extra": {},
+  "board_hz": 10000.0,
+  "range_v": 0.2,
+  "clipped": false
+ },
+ {
+  "case": "sine 20 Hz 75%",
+  "wave": "sine",
+  "freq": 20,
+  "amp": 75,
+  "extra": {},
+  "board_hz": 20.0,
+  "range_v": 1.0,
+  "clipped": false
+ },
+ {
+  "case": "square 1 kHz 100%",
+  "wave": "square",
+  "freq": 1000,
+  "amp": 100,
+  "extra": {
+   "duty": 50
+  },
+  "board_hz": 1000.0,
+  "range_v": 2.0,
+  "clipped": false
+ },
+ {
+  "case": "square 5 kHz 60%",
+  "wave": "square",
+  "freq": 5000,
+  "amp": 60,
+  "extra": {
+   "duty": 50
+  },
+  "board_hz": 5000.0,
+  "range_v": 1.0,
+  "clipped": false
+ },
+ {
+  "case": "PWM 1 kHz 10%",
+  "wave": "square",
+  "freq": 1000,
+  "amp": 80,
+  "extra": {
+   "duty": 10
+  },
+  "board_hz": 1000.0,
+  "range_v": 1.0,
+  "clipped": false
+ },
+ {
+  "case": "PWM 1 kHz 25%",
+  "wave": "square",
+  "freq": 1000,
+  "amp": 80,
+  "extra": {
+   "duty": 25
+  },
+  "board_hz": 1000.0,
+  "range_v": 1.0,
+  "clipped": false
+ },
+ {
+  "case": "PWM 2 kHz 75%",
+  "wave": "square",
+  "freq": 2000,
+  "amp": 80,
+  "extra": {
+   "duty": 75
+  },
+  "board_hz": 2000.0,
+  "range_v": 1.0,
+  "clipped": false
+ },
+ {
+  "case": "PWM 500 Hz 90%",
+  "wave": "square",
+  "freq": 500,
+  "amp": 80,
+  "extra": {
+   "duty": 90
+  },
+  "board_hz": 500.0,
+  "range_v": 1.0,
+  "clipped": false
+ },
+ {
+  "case": "triangle 2 kHz 80%",
+  "wave": "triangle",
+  "freq": 2000,
+  "amp": 80,
+  "extra": {},
+  "board_hz": 2000.0,
+  "range_v": 1.0,
+  "clipped": false
+ },
+ {
+  "case": "triangle 500 Hz 40%",
+  "wave": "triangle",
+  "freq": 500,
+  "amp": 40,
+  "extra": {},
+  "board_hz": 500.0,
+  "range_v": 0.5,
+  "clipped": false
+ },
+ {
+  "case": "sawtooth 3 kHz 70%",
+  "wave": "sawtooth",
+  "freq": 3000,
+  "amp": 70,
+  "extra": {},
+  "board_hz": 3000.0,
+  "range_v": 1.0,
+  "clipped": false
+ },
+ {
+  "case": "sine2 1k+3k r0.5 90%",
+  "wave": "sine2",
+  "freq": 1000,
+  "amp": 90,
+  "extra": {
+   "freq2": 3000,
+   "ratio": 0.5
+  },
+  "board_hz": 1000.0,
+  "range_v": 1.0,
+  "clipped": false
+ },
+ {
+  "case": "sine2 500+7k r1 100%",
+  "wave": "sine2",
+  "freq": 500,
+  "amp": 100,
+  "extra": {
+   "freq2": 7000,
+   "ratio": 1.0
+  },
+  "board_hz": 500.0,
+  "range_v": 2.0,
+  "clipped": false
+ },
+ {
+  "case": "amp sweep 1 kHz 10%",
+  "wave": "sine",
+  "freq": 1000,
+  "amp": 10,
+  "extra": {},
+  "board_hz": 1000.0,
+  "range_v": 0.2,
+  "clipped": false
+ },
+ {
+  "case": "amp sweep 1 kHz 20%",
+  "wave": "sine",
+  "freq": 1000,
+  "amp": 20,
+  "extra": {},
+  "board_hz": 1000.0,
+  "range_v": 0.2,
+  "clipped": false
+ },
+ {
+  "case": "amp sweep 1 kHz 30%",
+  "wave": "sine",
+  "freq": 1000,
+  "amp": 30,
+  "extra": {},
+  "board_hz": 1000.0,
+  "range_v": 0.5,
+  "clipped": false
+ },
+ {
+  "case": "amp sweep 1 kHz 40%",
+  "wave": "sine",
+  "freq": 1000,
+  "amp": 40,
+  "extra": {},
+  "board_hz": 1000.0,
+  "range_v": 0.5,
+  "clipped": false
+ },
+ {
+  "case": "amp sweep 1 kHz 50%",
+  "wave": "sine",
+  "freq": 1000,
+  "amp": 50,
+  "extra": {},
+  "board_hz": 1000.0,
+  "range_v": 0.5,
+  "clipped": false
+ },
+ {
+  "case": "amp sweep 1 kHz 60%",
+  "wave": "sine",
+  "freq": 1000,
+  "amp": 60,
+  "extra": {},
+  "board_hz": 1000.0,
+  "range_v": 1.0,
+  "clipped": false
+ },
+ {
+  "case": "amp sweep 1 kHz 70%",
+  "wave": "sine",
+  "freq": 1000,
+  "amp": 70,
+  "extra": {},
+  "board_hz": 1000.0,
+  "range_v": 1.0,
+  "clipped": false
+ },
+ {
+  "case": "amp sweep 1 kHz 80%",
+  "wave": "sine",
+  "freq": 1000,
+  "amp": 80,
+  "extra": {},
+  "board_hz": 1000.0,
+  "range_v": 1.0,
+  "clipped": false
+ },
+ {
+  "case": "amp sweep 1 kHz 90%",
+  "wave": "sine",
+  "freq": 1000,
+  "amp": 90,
+  "extra": {},
+  "board_hz": 1000.0,
+  "range_v": 2.0,
+  "clipped": false
+ },
+ {
+  "case": "freq sweep 10 Hz 50%",
+  "wave": "sine",
+  "freq": 10,
+  "amp": 50,
+  "extra": {},
+  "board_hz": 10.0,
+  "range_v": 1.0,
+  "clipped": false
+ },
+ {
+  "case": "freq sweep 50 Hz 50%",
+  "wave": "sine",
+  "freq": 50,
+  "amp": 50,
+  "extra": {},
+  "board_hz": 50.0,
+  "range_v": 1.0,
+  "clipped": false
+ },
+ {
+  "case": "freq sweep 200 Hz 50%",
+  "wave": "sine",
+  "freq": 200,
+  "amp": 50,
+  "extra": {},
+  "board_hz": 200.0,
+  "range_v": 1.0,
+  "clipped": false
+ },
+ {
+  "case": "freq sweep 2000 Hz 50%",
+  "wave": "sine",
+  "freq": 2000,
+  "amp": 50,
+  "extra": {},
+  "board_hz": 2000.0,
+  "range_v": 0.5,
+  "clipped": false
+ },
+ {
+  "case": "freq sweep 5000 Hz 50%",
+  "wave": "sine",
+  "freq": 5000,
+  "amp": 50,
+  "extra": {},
+  "board_hz": 5000.0,
+  "range_v": 0.5,
+  "clipped": false
+ },
+ {
+  "case": "freq sweep 7000 Hz 50%",
+  "wave": "sine",
+  "freq": 7000,
+  "amp": 50,
+  "extra": {},
+  "board_hz": 7000.0,
+  "range_v": 0.5,
+  "clipped": false
+ },
+ {
+  "case": "freq sweep 10000 Hz 50%",
+  "wave": "sine",
+  "freq": 10000,
+  "amp": 50,
+  "extra": {},
+  "board_hz": 10000.0,
+  "range_v": 0.5,
+  "clipped": false
+ },
+ {
+  "case": "freq sweep 12000 Hz 50%",
+  "wave": "sine",
+  "freq": 12000,
+  "amp": 50,
+  "extra": {},
+  "board_hz": 12000.0,
+  "range_v": 0.5,
+  "clipped": false
+ },
+ {
+  "restored": {
+   "wave": "sine",
+   "freq": "1000.00",
+   "amp": "100.00",
+   "duty": "50.00",
+   "freq2": "2000.00",
+   "ratio": "0.50"
+  }
+ }
+]

@@ -27,12 +27,13 @@ arguments - no timestamp - so a run with nothing changed changes nothing.
 
 Standard library only, Python 3.8 and later.
 
-Traces to: ETB-SUP8-001 §5.8 and §6.3, issues #184 and #194.
+Traces to: ETB-SUP8-001 §5.8, §6.2 and §6.3, issues #184, #194 and #210.
 """
 
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import posixpath
 import re
 import shutil
@@ -41,6 +42,18 @@ from pathlib import Path
 from urllib.parse import quote
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _load_doc_versions():
+    """``scripts/doc_versions.py``, loaded by path like this script itself."""
+    spec = importlib.util.spec_from_file_location(
+        "doc_versions", Path(__file__).resolve().parent / "doc_versions.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+doc_versions = _load_doc_versions()
 DEFAULT_REPO = "dermot-murphy/EmbeddedTestBench"
 DEFAULT_REF = "main"
 
@@ -62,28 +75,29 @@ INSTRUMENTS = (
     ("docs/jlink/JLink_Integration_Notes.md", "SEGGER J-Link"),
     ("docs/s2lp/S2LP_Devkit_Notes.md", "S2-LP Development Kit"),
     ("docs/ble/BLE_Dongle_Notes.md", "Nordic BLE Dongle"),
-    ("docs/pico_sht30/Pico_SHT30_Notes.md", "Pico 2 + SHT30-D Thermometer"),
+    ("docs/pico2_test_board/PICO2_Test_Board_User_Manual.md", "PICO2 Test Board User Manual"),
+    ("docs/pico2_test_board/PICO2_Test_Board_Notes.md", "PICO2 Test Board"),
     ("docs/tek3014b/VISA_Determination_Report.md", "TDS3014B Oscilloscope (VISA)"),
 )
 
 #: Published as pages and reached through links from their parent page, but
 #: given no sidebar entry of their own.
 SUPPORTING = (
-    "docs/pico_sht30/References.md",
+    "docs/pico2_test_board/References.md",
 )
 
 #: Wiki page names that differ from the file name, where the file name alone
 #: would be too generic to identify the page.
 SLUG_OVERRIDES = {
     "docs/README.md": "Documentation-Index",
-    "docs/pico_sht30/References.md": "Pico-SHT30-References",
+    "docs/pico2_test_board/References.md": "PICO2-Test-Board-References",
 }
 
 #: Not published as pages, by path prefix: run records and change records stay
 #: in the repository, and a link to one points at the file there.
 UNPUBLISHED = (
     "docs/aspice/qualification/",
-    "docs/pico_sht30/Issue_104_Change_Report.md",
+    "docs/pico2_test_board/Issue_104_Change_Report.md",
 )
 
 #: ASPICE process groups, in index and sidebar order: (filename code, group).
@@ -330,10 +344,14 @@ def rewrite_links(text, src_rel, site):
 def document_page(rel, site, footer):
     """A document as a wiki page: links rewritten, its source noted, a footer.
 
+    A controlled document's Version and Date, which in the repository are
+    links to its revision history, show their values (``doc_versions``, #210).
+
     The source note goes under the first level-one heading, which need not be
     the first line: a document may open with a logo above its title.
     """
     text = _FRONT_MATTER.sub("", read_text(site.root / rel), count=1)
+    text = doc_versions.expand(text)
     lines = rewrite_links(text, rel, site).rstrip().split("\n")
     note = "*Source: [`%s`](%s)*" % (rel, site.file_url(rel))
     title = next((i for i in _unfenced(lines) if lines[i].startswith("# ")), -1)
@@ -356,6 +374,24 @@ def readme_intro(site):
             if i not in unfenced or not _BRAND_IMG_LINE.match(line)]
     intro = re.sub(r"\n{3,}", "\n\n", "\n".join(kept)).strip()
     return rewrite_links(intro, "README.md", site)
+
+
+#: The README section both home pages carry after the introduction (#195):
+#: what the product is for, what it drives, how to start and where to read more.
+GLANCE = "At a glance"
+
+
+def readme_section(site, title):
+    """The README's ``## <title>`` section, its heading kept, links rewritten.
+
+    ``""`` when the README has no such section.
+    """
+    text = read_text(site.root / "README.md")
+    for part in re.split(r"\n(?=## )", text):
+        if part.startswith("## %s\n" % title):
+            part = re.sub(r"\n-{3,}\s*$", "", part.rstrip()).rstrip()
+            return rewrite_links(part, "README.md", site)
+    return ""
 
 
 def brand_img(site, rel, width):
@@ -424,9 +460,10 @@ def wiki_list(entries):
 
 
 def home_wiki_page(site, guides, instruments):
-    """The wiki's Home page: the logo, the README introduction and the contents."""
+    """The wiki's Home page: the logo, the README introduction, its "At a
+    glance" section (#195) and the contents."""
     lines = [brand_img(site, WIKI_LOGO, 240), "", readme_intro(site), "",
-             "---", "", "## User Guide", ""]
+             readme_section(site, GLANCE), "", "---", "", "## User Guide", ""]
     lines += wiki_list(guides)
     lines += ["", "## Instruments", ""] + wiki_list(instruments)
     lines += ["", "## ASPICE CL2 Documentation", "",
@@ -504,7 +541,8 @@ def generate_home(out, root=ROOT, repo=DEFAULT_REPO, ref=DEFAULT_REF):
     wiki = site.repo_url + "/wiki"
     # The theme's page header already shows the site title from _config.yml.
     lines = ["![Embedded Test Bench](%s)" % HOME_BANNER[1], ""]
-    lines += ["\n".join(intro).strip(), "", "## Links", "",
+    lines += ["\n".join(intro).strip(), "", readme_section(site, GLANCE), "",
+              "## Links", "",
               "- [Documentation wiki](%s)" % wiki,
               "- [Latest release](%s/releases/latest)" % site.repo_url,
               "- [System qualification test report (ETB-SYS5-002)](%s/%s)"

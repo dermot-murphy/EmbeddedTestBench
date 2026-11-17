@@ -16,8 +16,9 @@ from benchtools.core.transport.mock import MockTransport
 from benchtools.instruments.nordic_dongle import NordicDongle
 from benchtools.instruments.nordic_dongle.simulator import SimulatedDongle
 from benchtools.instruments.s2lp import S2lpDevkit
-from benchtools.instruments.s2lp.kepler import decode_kepler_frame
 from benchtools.instruments.s2lp.simulator import SimulatedS2lp
+
+from ..kepler_plugin import decode_kepler_frame
 
 ALIVE = bytes.fromhex(
     "5c171203060c04031300f47f018400008a0056005a00db0051007f02ed0233025c0005")

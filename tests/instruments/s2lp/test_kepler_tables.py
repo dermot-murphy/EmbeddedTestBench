@@ -15,13 +15,17 @@ import struct
 
 import pytest
 
-from benchtools.instruments.s2lp.kepler import decode_kepler_frame
-from benchtools.instruments.s2lp.kepler_tables import (
-    CONFIG_PARAMETERS, config_parameter, name_config, odr_hz, permute_poly,
-    permute_poly_any_size, reset_reasons, twf_sample,
-)
-
+from ...kepler_plugin import decode_kepler_frame, tables
 from .test_kepler import ALIVE_REPEATS, VERSION_FRAME
+
+CONFIG_PARAMETERS = tables.CONFIG_PARAMETERS
+config_parameter = tables.config_parameter
+name_config = tables.name_config
+odr_hz = tables.odr_hz
+permute_poly = tables.permute_poly
+permute_poly_any_size = tables.permute_poly_any_size
+reset_reasons = tables.reset_reasons
+twf_sample = tables.twf_sample
 
 
 class TestParameters:

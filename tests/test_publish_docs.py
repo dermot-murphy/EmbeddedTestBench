@@ -43,7 +43,7 @@ class TestSlugs:
         ("docs/Bench_Runner_Guide.md", "Bench-Runner-Guide"),
         ("docs/psu/GPD3303D_Notes.md", "GPD3303D-Notes"),
         ("docs/README.md", "Documentation-Index"),
-        ("docs/pico_sht30/References.md", "Pico-SHT30-References"),
+        ("docs/pico2_test_board/References.md", "PICO2-Test-Board-References"),
     ])
     def test_page_names(self, rel, expected):
         assert publish.slug(rel) == expected
@@ -138,6 +138,19 @@ class TestDocumentPage:
         lines = self.page(tmp_path, "Body only\n")
         assert lines[0].startswith("*Source: ") and lines[2] == "Body only"
 
+    def test_version_and_date_show_the_last_revision_rows_values(self, tmp_path):
+        link = "[latest, §2](#2-revision-history)"
+        lines = self.page(tmp_path, "\n".join([
+            "# Title", "",
+            "| **Document ID** | ETB-X-001 | **Version** | %s |" % link,
+            "| **Project** | P | **Date** | %s |" % link, "",
+            "## 2. Revision History", "",
+            "| Version | Date | Author | Description of Change |", "|---|---|---|---|",
+            "| 0.1 | 2026-01-01 | Claude | Initial |",
+            "| 0.2 | 2026-02-01 | Claude | #210 |", ""]))
+        assert "| **Document ID** | ETB-X-001 | **Version** | 0.2 |" in lines
+        assert "| **Project** | P | **Date** | 2026-02-01 |" in lines
+
 
 @pytest.fixture(scope="module")
 def wiki(tmp_path_factory):
@@ -179,6 +192,11 @@ class TestGeneratedWiki:
 
     def test_pages_have_lf_line_endings(self, wiki):
         assert not [p.name for p in wiki.glob("*.md") if b"\r\n" in p.read_bytes()]
+
+    def test_no_page_shows_a_version_link_in_place_of_a_value(self, wiki):
+        shown = re.compile(r"\*\*(?:Version|Date)\*\* \| \[latest")
+        assert not [p.name for p in wiki.glob("*.md")
+                    if shown.search(p.read_text(encoding="utf-8"))]
 
 
 _RAW_IMG = re.compile(r'<img src="https://github\.com/dermot-murphy/EmbeddedTestBench/raw/main/'
@@ -246,3 +264,45 @@ def test_the_home_page_head_links_every_favicon_it_copies(tmp_path):
 
 def test_the_pages_address_is_derived_from_the_repository():
     assert site().pages_url == "https://owner.github.io/Repo/"
+
+
+class TestAtAGlance:
+    """The README's "At a glance" section on both home pages (#195)."""
+
+    @staticmethod
+    def section(text):
+        start = text.index("## At a glance")
+        return text[start:text.index("\n## ", start + 1)]
+
+    @staticmethod
+    def rows(text):
+        return [line.split("|")[1].strip() for line in text.split("\n")
+                if line.startswith("| ") and "---" not in line]
+
+    def test_both_home_pages_carry_the_same_section(self, wiki, tmp_path):
+        publish.generate_home(tmp_path)
+        home = self.section((tmp_path / "README.md").read_text(encoding="utf-8"))
+        wiki_home = self.section((wiki / "Home.md").read_text(encoding="utf-8"))
+        for heading in ("### What it drives", "### Getting started", "### Where to read more"):
+            assert heading in home and heading in wiki_home
+        assert self.rows(home) == self.rows(wiki_home) and len(self.rows(home)) > 5
+
+    def test_every_relative_link_in_it_resolves(self):
+        text = self.section((ROOT / "README.md").read_text(encoding="utf-8"))
+        targets = re.findall(r"\]\(([^)]+)\)", text)
+        assert targets
+        for target in targets:
+            if target.startswith("http"):
+                continue
+            path, _, anchor = target.partition("#")
+            assert (ROOT / path).is_file(), target
+            if anchor:
+                headings = [re.sub(r"[^\w\- ]", "", line.lstrip("#").strip().lower())
+                            .replace(" ", "-")
+                            for line in (ROOT / path).read_text(encoding="utf-8").split("\n")
+                            if line.startswith("#")]
+                assert anchor in headings, target
+
+    def test_a_readme_without_the_section_gives_nothing(self, tmp_path):
+        (tmp_path / "README.md").write_text("# Title\n\nIntro.\n\n## Other\n", encoding="utf-8")
+        assert publish.readme_section(site(root=tmp_path), publish.GLANCE) == ""

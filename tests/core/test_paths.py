@@ -21,7 +21,7 @@ from benchtools.core.paths import (
 from benchtools.instruments.gpd3303d import Gpd3303D
 from benchtools.instruments.jlink import JLinkProbe, JLinkRttReader
 from benchtools.instruments.nordic_dongle import NordicDongle
-from benchtools.instruments.pico_sht30 import PicoSht30
+from benchtools.instruments.pico2_test_board import Pico2TestBoard
 from benchtools.instruments.s2lp import S2lpDevkit
 from benchtools.instruments.tek3014b import Tek3014B
 from benchtools.instruments.tti1604 import Tti1604
@@ -194,7 +194,7 @@ class TestEveryDriverDeclaresItsInputFiles:
     def test_an_output_or_a_channel_is_not_a_file_to_find(self, member):
         assert not input_path_names(member)
 
-    @pytest.mark.parametrize("driver", [Gpd3303D, Tti1604, Tek3014B, PicoSht30],
+    @pytest.mark.parametrize("driver", [Gpd3303D, Tti1604, Tek3014B, Pico2TestBoard],
                              ids=lambda driver: driver.__name__)
     def test_a_driver_that_reads_no_file_declares_none(self, driver):
         declared = [

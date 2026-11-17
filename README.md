@@ -27,6 +27,68 @@ for Claude Code sessions.
 
 ---
 
+## At a glance
+
+Embedded Test Bench is for engineers who test embedded devices, such as wireless
+sensors, on a bench of real instruments. It drives the bench from a test
+specification, or from Python, and records each result with the evidence behind
+it, on a desk or in CI. A simulated twin of every instrument runs the same tests
+with no hardware at all.
+
+### What it drives
+
+What has been shown on real hardware, and how. *Qualified* means a system
+qualification campaign ([ETB-SYS5-002](docs/aspice/EmbeddedTestBench_SYS5_002_System_Qualification_Test_Report.md))
+ran it. *Checked on the bench* means it ran on the real instrument, outside such
+a campaign. *Simulated only* means it has run only against its simulator. Every
+instrument also has a simulator.
+
+| Instrument | On hardware |
+|---|---|
+| GW Instek GPD-3303D power supply | Qualified, with its outputs off: QS-03 passed, setting and reading back the limits of independent outputs. No output has been switched on in a test |
+| TTi 1604 multimeter | Checked on the bench: QS-09 failed ([#181](https://github.com/dermot-murphy/EmbeddedTestBench/issues/181)); the fix was checked on 2026-10-28 with the inputs open. Nothing has been measured against a reference |
+| SEGGER J-Link debug probe | Qualified: QS-01 passed; QS-01b failed ([#178](https://github.com/dermot-murphy/EmbeddedTestBench/issues/178)), fixed and checked again on the bench on 2026-10-05 |
+| Nordic nRF52840 BLE dongle, with its own firmware | Qualified: QS-02 passed |
+| ST S2-LP sub-GHz development kit | Checked on the bench: QS-07 ended in error ([#179](https://github.com/dermot-murphy/EmbeddedTestBench/issues/179), since fixed; not yet rerun), with register access passing and a transmission sent but not shown to arrive. Receiving was checked on the bench since |
+| PICO2 Test Board: Raspberry Pi Pico 2 thermometer, LEDs and frequency generator | Its identity is qualified (QS-10). LEDs checked on the bench on 2026-11-12. The thermometer has read a plausible room temperature, with no reference. The generator has been seen only on a scope, in an unrecorded check |
+| PicoScope 3000D mixed-signal oscilloscope | Seen working on the bench on 2026-11-13 (analogue channel A), during development, not in a recorded test run |
+| Nordic Power Profiler Kit II | Checked on the bench, with nothing wired to it, on 2026-11-14 |
+| Tektronix TDS3014B oscilloscope | Simulated only |
+| Serial capture of a device's console or test UART | Simulated only |
+
+Each instrument's notes list what is still unconfirmed on hardware.
+
+### Getting started
+
+The latest release is on the [releases page](https://github.com/dermot-murphy/EmbeddedTestBench/releases/latest).
+Install it with pip, putting its tag, such as `v0.03.0000`, in place of `<tag>`:
+
+```bash
+pip install "benchtools[spec] @ git+https://github.com/dermot-murphy/EmbeddedTestBench@<tag>"
+```
+
+The table above describes the source this page was generated from. What each
+release contains is in its [Software Version Description (ETB-SVD-001)](docs/aspice/EmbeddedTestBench_SVD_Software_Version_Description.md).
+
+Then run a specification on the simulated bench:
+
+```bash
+benchtools run specs/clock_skew.yaml --simulate --markdown report.md
+```
+
+In another project's CI, use the bench runner as a GitHub Action, as shown in
+[Using the bench runner as an action](README.md#using-the-bench-runner-as-an-action).
+
+### Where to read more
+
+- [User Manual](docs/User_Manual.md): installing, a first run, the real bench and its safety limits
+- [Bench Runner Guide](docs/Bench_Runner_Guide.md): writing specifications and bench files
+- [Documentation index](docs/README.md): every document, including the ASPICE work products
+- [System qualification test report (ETB-SYS5-002)](docs/aspice/EmbeddedTestBench_SYS5_002_System_Qualification_Test_Report.md): what the bench was shown to do on hardware
+- Known problems: those in the release are in [ETB-SVD-001 §7](docs/aspice/EmbeddedTestBench_SVD_Software_Version_Description.md#7-known-problems-and-limitations); those found since are the [open issues](https://github.com/dermot-murphy/EmbeddedTestBench/issues)
+
+---
+
 ## Layout
 
 ```
@@ -35,12 +97,15 @@ benchtools/
 ├── analysis/      waveform scaling, edge/period/spread measurement, plotting
 ├── instruments/   one subpackage per instrument
 │   ├── tek3014b/    Tektronix TDS3014B oscilloscope
+│   ├── picoscope3000/  PicoScope 3000D MSO: 4 analogue + 16 digital, signal generator
+│   ├── ppk2/        Nordic Power Profiler Kit II: current, charge and pulses
 │   ├── jlink/       SEGGER J-Link debug probe (flash, RTT, breakpoints, timing)
 │   ├── nordic_dongle/  Nordic BLE dongle (scan, UART over BLE, advertising profile)
 │   ├── gpd3303d/    GW Instek GPD-3303D bench power supply
 │   ├── tti1604/     TTi 1604 bench multimeter over RS-232
 │   ├── s2lp/        ST S2-LP sub-1 GHz development kit (registers, TX, RX, logs)
-│   ├── pico_sht30/  Raspberry Pi Pico 2 + SHT30-D thermometer, with its own firmware
+│   ├── pico2_test_board/  PICO2 Test Board: Pico 2 thermometer, LEDs and frequency generator, with its own firmware
+│   ├── serial_capture/  a device's serial output, captured and checked
 │   └── generic.py   anything answering *IDN?
 ├── runner/        declarative bench test runner
 └── viewer/        test run viewer: watch and control a run in a browser
@@ -287,6 +352,75 @@ benchtools backends       # transport backends a resource string can select
 
 > Pass negative values with `=`, as in `--position=-4,-3`. `argparse` otherwise
 > reads a leading `-` as an option flag.
+
+---
+
+## Mixed-signal oscilloscope — PicoScope 3000D MSO
+
+The bench's PicoScope 3405D MSO captures four analogue channels and sixteen
+digital inputs in one block, on one time base, and has a signal generator. It
+is driven through Pico Technology's `ps3000a` library with `ctypes`: install
+PicoScope 7 or the PicoSDK; no Pico Python package is needed.
+
+```bash
+python -m benchtools pscope -r pico:// info
+python -m benchtools pscope -r pico:// capture -c A B --range 2 --digital 0        --interval 1e-6 --trigger A --level 0 --csv block.csv --plot block.png
+python -m benchtools pscope -r sim:// capture -c A B C D --digital 0 1   # no hardware needed
+```
+
+Analogue records come back as the same `Waveform`, in seconds and volts and
+keyed by channel number (A is 1), as the TDS3014B's, so the analysis helpers
+and `measure_channel_spread` work on either. Each digital bit is a `Waveform`
+of 0 and 1:
+
+```python
+from benchtools.instruments.picoscope3000 import PicoScope3000
+
+with PicoScope3000.connect("pico://HT415/0202") as scope:
+    scope.configure_channel("A", range_volts=2.0)
+    scope.configure_digital_port(0, threshold=1.5)
+    scope.configure_edge_trigger("A", level=0.0)
+    block = scope.capture()
+    print(block.analog[1].peak_to_peak, block.bits(0)[:16])
+```
+
+The 3000D MSO has no digital outputs. What was measured on the unit, and what
+is still unverified, is in the
+[PicoScope 3000 Notes](docs/picoscope3000/PicoScope3000_Notes.md).
+
+---
+
+## Current profiler — Nordic Power Profiler Kit II
+
+The bench's Nordic PPK2 measures the current a device draws, 100 000 times a
+second, from under a microamp to about 1 A, with eight logic inputs sampled
+alongside. It is the device's supply (source mode, 0.8 V to 5.0 V) or sits in
+an outside supply's line (ammeter mode). The driver speaks the kit's own serial
+protocol: no Nordic package is needed, only pyserial.
+
+```bash
+python -m benchtools ppk2 list
+python -m benchtools ppk2 -r ppk2:// measure --duration 1
+python -m benchtools ppk2 -r sim:// measure --duration 1 --threshold 0.001   # no hardware needed
+```
+
+Connecting changes nothing on the kit. A test sets the mode, the voltage and
+the DUT power itself, and the bench's `voltage_limit` caps the voltage:
+
+```python
+from benchtools.instruments.ppk2 import Ppk2
+
+with Ppk2.connect("ppk2://", voltage_limit=3.3) as ppk:
+    ppk.set_mode("source")
+    ppk.set_voltage(3.0)
+    ppk.power_on()
+    result = ppk.measure(1.0, threshold=0.001)
+    print(result.average, result.charge, result.pulses.count, result.pulses.mean_width)
+    ppk.power_off()
+```
+
+The protocol, what the bench's kit showed and what is still unconfirmed are in
+the [PPK2 Notes](docs/ppk2/PPK2_Notes.md).
 
 ---
 
@@ -659,40 +793,82 @@ eight bench confirmation items, and the manufacturer's documents in
 
 ---
 
-## Thermometer — Raspberry Pi Pico 2 + DollaTek SHT30-D
+## PICO2 Test Board — Raspberry Pi Pico 2 thermometer, LEDs and frequency generator
 
-A Pico 2 reads the local temperature from a Sensirion SHT30-DIS, carried on a
-DollaTek SHT30-D module, over I2C (GP4/GP5, address 0x44). It answers
-`rd name`, `rd copyright`, `rd version`, `rd sha` and `rd temperature` over USB,
-each as `ACK rd <option> = <value>`; an unknown option gets
-`NAK rd <option> = Error`. The
-firmware lives in [`firmware/pico_sht30`](firmware/pico_sht30): it is C for
-the Pico SDK, written to MISRA C:2012, and builds to a `.uf2` you copy onto the
-board in BOOTSEL mode.
+A Raspberry Pi Pico 2 with its own firmware
+([`firmware/pico2_test_board`](firmware/pico2_test_board), C for the Pico SDK,
+written to MISRA C:2012), on the bench as `pico2` on COM14. It does three
+things over one USB serial link:
+
+- **Temperature** from a Sensirion SHT30-DIS on a DollaTek SHT30-D module
+  (I2C, GP4/GP5, address 0x44). A reading that fails raises `NoReadingError`;
+  it never returns the previous value.
+- **Three LEDs**, red, yellow and green on GP18 to GP20, each set and read back.
+- **A frequency generator**: channels 1 and 2 from an Adafruit UDA1334A I2S DAC
+  (sine, square, triangle, sawtooth, or two sines summed), channel 3 a square
+  wave on GP15, 10 Hz to 12 kHz. A sine has been seen on a scope; levels and
+  the other waveforms are not yet measured.
 
 ```python
-from benchtools.instruments.pico_sht30 import PicoSht30
+from benchtools.instruments.pico2_test_board import Pico2TestBoard
 
-with PicoSht30.connect("/dev/ttyACM0") as thermometer:     # COM5 on Windows
-    print(thermometer.name, thermometer.version)           # Pico 2 SHT30 Temperature Sensor V1.00.0000
-    print("%.2f °C" % thermometer.temperature())
+with Pico2TestBoard.connect("COM14") as board:          # /dev/ttyACM0 on Linux
+    print(board.name, board.version)                     # PICO2 Test Board V1.00.0000
+    print("%.2f °C" % board.temperature())
+    board.set_led("green", True)
+    board.start_freq(1, 1000, wave="sine", amp=50)       # 1 kHz sine on channel 1
+    board.abort_all()
 ```
 
 ```bash
-python -m benchtools thermo -r /dev/ttyACM0 info
-python -m benchtools thermo -r /dev/ttyACM0 rd sha
-python -m benchtools thermo -r /dev/ttyACM0 temp --count 10 --interval 1
-python -m benchtools thermo -r sim:// temp          # no hardware needed
+python -m benchtools pico2 -r COM14 info
+python -m benchtools pico2 -r COM14 wr led-red on
+python -m benchtools pico2 -r COM14 wr freq 5k            # channel 1 unless named
+python -m benchtools pico2 -r COM14 routine freq start
+python -m benchtools pico2 -r sim:// temp                 # no hardware needed
+python -m benchtools run specs/pico2_test_board.yaml --bench benches/simulated_bench.yaml
 ```
 
-A reading that fails raises an error; it never returns the previous value. When
-the sensor is absent, a frame fails its CRC or the bus times out, the firmware
-answers `ACK rd temperature = Error` and the driver raises `NoReadingError`.
-A value that is not degrees to two decimal places is refused.
-
-See [Pico 2 + SHT30-D Notes](docs/pico_sht30/Pico_SHT30_Notes.md) for wiring,
-building and flashing, the datasheet facts, the MISRA position and the bench
+It was named the Pico 2 SHT30 Temperature Sensor until #330, and `thermo`,
+`pico-sht30` and `PicoSht30` still work. The
+[PICO2 Test Board User Manual](docs/pico2_test_board/PICO2_Test_Board_User_Manual.md)
+covers every command, the command line, the driver and test sequences; the
+[PICO2 Test Board Notes](docs/pico2_test_board/PICO2_Test_Board_Notes.md) cover
+wiring, building, the datasheet facts, the MISRA position and the bench
 confirmation items.
+
+---
+
+## Serial capture — a device's console or test UART
+
+The serial capture instrument records the lines a device prints on its serial
+port, through a USB serial adapter, for a time window or until a line matches
+a pattern. It writes nothing to the device. It is controlled with `RD`, `WR`
+and `ROUTINE` commands, in the form of the Kepler sensor's BLE console: one
+line each, answered `ACK <command> = <value>`, `ACK <command> [<unit>]` or
+`NACK <command> <REASON>`.
+
+```bash
+python -m benchtools serial -r COM5 "WR WINDOW 10000" "WR PATTERN ^SELF TEST (PASS|FAIL)" \
+                                    "WR LINES ON" "ROUTINE START CAPTURE"
+python -m benchtools serial -r sim:// "WR LINES ON" "ROUTINE START CAPTURE"   # no hardware needed
+```
+
+Each line is shown as `LINE <n> = <text>` only after `WR LINES ON`, and
+every line goes to the event log whether shown or not. In a specification,
+`uart.capture` returns the count, the matching line and the value the
+pattern's first group took from it:
+
+```python
+from benchtools.instruments.serial_capture import SerialCapture
+
+with SerialCapture.connect("COM5", baudrate=115200) as uart:
+    result = uart.capture(window_ms=10000, pattern=r"^VBAT = ([0-9.]+) V")
+    print(result.summary(), result.value)       # Complete, 3 lines, Matched 3.30
+```
+
+See [Bench Runner Guide §5.4](docs/Bench_Runner_Guide.md#54-useful-paths-for-the-serial-capture-instrument)
+for the whole command set.
 
 ---
 
@@ -793,8 +969,8 @@ python -m pytest tests/ --cov=benchtools --cov-report=term
 
 **2 498 tests (2 497 pass, 1 skipped without `tkinter`), 95% statement coverage, no hardware required** — no oscilloscope,
 no probe, no target, no GDB, no dongle, no BLE sensor, no power supply, no
-sub-1 GHz kit, no Pico. The Pico firmware's own 61 unit tests run under CTest
-(`firmware/pico_sht30/test`). With
+sub-1 GHz kit, no Pico. The Pico firmware's own 140 unit tests run under CTest
+(`firmware/pico2_test_board/test`). With
 every optional extra removed: 1 807 pass, 40 skip, 0 fail.
 
 The suite includes an independently implemented VXI-11 RPC server, a SCPI socket
@@ -841,7 +1017,7 @@ This repository publishes a composite action, so another project can run its
 bench specifications in CI:
 
 ```yaml
-- uses: dermot-murphy/EmbeddedTestBench@v0.02.0002
+- uses: dermot-murphy/EmbeddedTestBench@v0.03.0000
   id: bench
   with:
     specs: |
@@ -886,13 +1062,18 @@ by `scripts/publish_docs.py` and are not edited by hand.
 |---|---|
 | [Documentation index](docs/README.md) | Work-product map and identifier prefixes |
 | [VISA Determination Report](docs/tek3014b/VISA_Determination_Report.md) | Whether VISA is required, with evidence and bench confirmation items |
+| [PicoScope 3000D Driver Interface](docs/aspice/EmbeddedTestBench_IF002_PicoScope3000_Driver_Interface.md) | ETB-IF-002: how the bench drives the PicoScope, call by call, and its dependencies |
+| [PPK2 Notes](docs/ppk2/PPK2_Notes.md) | The Nordic PPK2's serial protocol, command by command, what the bench's kit showed, and what is unconfirmed |
+| [PicoScope 3000 Notes](docs/picoscope3000/PicoScope3000_Notes.md) | How the PicoScope is reached (ps3000a through ctypes), what was measured on the 3405D, and what is unverified |
 | [J-Link Integration Notes](docs/jlink/JLink_Integration_Notes.md) | Why the GDB Server rather than the DLL, Windows and Docker, timing methods, probe confirmation items |
+| [Bench Tools in a Container](docs/docker/Bench_Container_Investigation.md) | ETB-DOCK-001: what runs in a Docker image and what stays on the host, how instruments are reached, costs, and the J-Link test plan |
 | [Bench Runner Guide](docs/Bench_Runner_Guide.md) | Writing specifications and bench configurations |
 | [BLE Dongle Notes](docs/ble/BLE_Dongle_Notes.md) | Why the dongle needs firmware, the line protocol, building and flashing, reading a profile, and what is unproven |
 | [S2-LP Devkit Notes](docs/s2lp/S2LP_Devkit_Notes.md) | Why ST's firmware is used unchanged, its CLI protocol, the register map, what a polled capture can and cannot be quoted as, and the licence position |
 | [GPD-3303D Notes](docs/psu/GPD3303D_Notes.md) | The four ways this supply will mislead a test, its command set and status word, and the bench confirmation items |
 | [TTi 1604 Notes](docs/dmm/TTi1604_Notes.md) | The multimeter's interface and protocol, why a key press is confirmed from the readings, the stream read, the derived resistance multiplier, the bench test and front-panel check, and the bench confirmation items; the manufacturer's documents in `docs/dmm/reference/` |
-| [Pico 2 + SHT30-D Notes](docs/pico_sht30/Pico_SHT30_Notes.md) | Wiring, building and flashing the thermometer firmware, datasheet facts, MISRA position, bench confirmation items; [reference documents](docs/pico_sht30/References.md) |
+| [PICO2 Test Board User Manual](docs/pico2_test_board/PICO2_Test_Board_User_Manual.md) | Using the PICO2 Test Board: wiring, flashing, every serial command, `benchtools pico2`, the Python driver, test sequences and worked examples |
+| [PICO2 Test Board Notes](docs/pico2_test_board/PICO2_Test_Board_Notes.md) | Wiring, building and flashing the board's firmware, datasheet facts, MISRA position, bench confirmation items; [reference documents](docs/pico2_test_board/References.md) |
 | [SWE.1 Requirements](docs/aspice/EmbeddedTestBench_SWE1_SW_Requirements.md) | 177 functional and 18 non-functional requirements |
 | [SWE.2 Architecture](docs/aspice/EmbeddedTestBench_SWE2_SW_Architecture.md) | Layering, elements, eighteen architectural decisions |
 | [SWE.3 Detailed Design](docs/aspice/EmbeddedTestBench_SWE3_Detailed_Design.md) | Per-module design units |

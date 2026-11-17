@@ -1,0 +1,151 @@
+# Offer new library releases to CI each week (#284).
+#
+# CI installs every Python library at the exact version in constraints/ (#282),
+# so a new upstream release reaches CI only when constraints/ is regenerated
+# with "etb-ci lock". Dependabot's pip updates were removed because they raised
+# floors that Python 3.8 and 3.9 cannot install (#284). This workflow does the
+# regeneration instead, with the same image and command a person would use.
+#
+# When the lock changes, the workflow pushes the result to
+# fix/constraints-refresh and opens an issue (or comments on the open one).
+# It does not open the pull request. A pull request opened with GITHUB_TOKEN
+# gets its CI runs only after someone approves them, and the repository does
+# not let Actions open pull requests at all (ETB-SUP8-001 §5.5). The owner, or
+# Claude on request, opens the pull request from the branch, and CI runs on it
+# as on any other.
+#
+# A scheduled workflow runs from the default branch, main, so the schedule is
+# live only once this file is released. The same holds for the Run button
+# (workflow_dispatch). Until then, and whenever this file or what the lock
+# reads changes, a push runs it as a dry run on the pushed commit: it builds,
+# locks and reports the difference, and pushes and opens nothing.
+
+name: constraints-refresh
+
+on:
+  schedule:
+    # Mondays 05:17 UTC: off the hour, before the working day.
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/constraints_refresh.yml"
+      - "docker/ci/**"
+      - "constraints/**"
+      - "pyproject.toml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: constraints-refresh
+  cancel-in-progress: false
+
+env:
+  BRANCH: fix/constraints-refresh
+  ISSUE_TITLE: "Constraints refresh: new library releases for CI"
+  # Only the schedule and the Run button act on the result.
+  ACT: ${{ github.event_name != 'push' }}
+
+jobs:
+  refresh:
+    name: Constraints refresh
+    runs-on: ubuntu-24.04
+    # The pythons stage builds in about 4 minutes; the lock takes under one.
+    timeout-minutes: 20
+    # Push fix/constraints-refresh and open the issue (ETB-SUP8-001 §5.5).
+    permissions:
+      contents: write
+      issues: write
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'push' && github.sha || 'develop' }}
+          fetch-depth: 0
+
+      # The stage without constraints/: "etb-ci lock" needs only the Pythons.
+      - name: Build the Pythons
+        timeout-minutes: 12
+        run: docker build --target pythons -f docker/ci/Dockerfile -t etb-ci-pythons .
+
+      - name: Lock
+        timeout-minutes: 5
+        run: |
+          docker run --rm --user "$(id -u):$(id -g)" \
+            -v "$PWD":/src:ro -v "$PWD/constraints":/src/constraints \
+            etb-ci-pythons lock
+
+      # Compared with the branch as well as with develop, so a refresh that is
+      # already waiting on the branch is not pushed or reported again.
+      - name: Compare
+        id: compare
+        timeout-minutes: 2
+        run: |
+          if git diff --quiet -- constraints; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "constraints/ is up to date at $(git rev-parse --short HEAD)." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          if git fetch --quiet origin "$BRANCH" 2>/dev/null \
+              && git diff --quiet FETCH_HEAD -- constraints; then
+            echo "waiting=true" >> "$GITHUB_OUTPUT"
+            echo "The same refresh is already on $BRANCH." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "waiting=false" >> "$GITHUB_OUTPUT"
+          fi
+          # One line per pin that moved: "file: package old -> new".
+          for f in constraints/*.txt; do
+            git diff -U0 -- "$f" | awk -v f="${f#constraints/}" '
+              /^-[A-Za-z0-9]/ { split(substr($0, 2), a, "=="); old[a[1]] = a[2] }
+              /^\+[A-Za-z0-9]/ { split(substr($0, 2), a, "=="); new[a[1]] = a[2] }
+              END {
+                for (p in new) print "- " f ": `" p "` " (p in old ? old[p] : "(new)") " -> " new[p]
+                for (p in old) if (!(p in new)) print "- " f ": `" p "` " old[p] " -> (removed)"
+              }' | sort
+          done > "$RUNNER_TEMP/changes.md"
+          cat "$RUNNER_TEMP/changes.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Open or update the issue
+        id: issue
+        if: env.ACT == 'true' && steps.compare.outputs.changed == 'true' && steps.compare.outputs.waiting == 'false'
+        timeout-minutes: 2
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "\`etb-ci lock\` on develop $(git rev-parse --short HEAD) changed \`constraints/\` (run ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})."
+            echo
+            cat "$RUNNER_TEMP/changes.md"
+            echo
+            echo "The result is on \`$BRANCH\`. To test it in CI, open a pull request from it:"
+            echo
+            echo "\`\`\`sh"
+            echo "gh pr create --base develop --head $BRANCH"
+            echo "\`\`\`"
+            echo
+            echo "Before merging, read the release notes of each package that moved (ETB-ACQ4-001 section 6). A release that breaks a leg is pinned away from in \`pyproject.toml\`, with the reason recorded."
+          } > "$RUNNER_TEMP/body.md"
+          number=$(gh issue list --state open --search "in:title \"$ISSUE_TITLE\"" \
+            --json number,title -q ".[] | select(.title == env.ISSUE_TITLE) | .number" | head -n 1)
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --body-file "$RUNNER_TEMP/body.md"
+          else
+            url=$(gh issue create --title "$ISSUE_TITLE" --label process --body-file "$RUNNER_TEMP/body.md")
+            number=${url##*/}
+          fi
+          echo "number=$number" >> "$GITHUB_OUTPUT"
+
+      # Forced: the branch holds only the latest refresh, on top of develop.
+      - name: Push the branch
+        if: env.ACT == 'true' && steps.compare.outputs.changed == 'true' && steps.compare.outputs.waiting == 'false'
+        timeout-minutes: 2
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -C "$BRANCH"
+          git add constraints
+          git commit -q -m "Refresh constraints with etb-ci lock (#${{ steps.issue.outputs.number }})"
+          git push --force origin "$BRANCH"

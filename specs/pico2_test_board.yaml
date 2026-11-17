@@ -1,0 +1,120 @@
+# The PICO2 Test Board as test-sequence steps (#330).
+#
+# Exercises the board's three functions through the bench runner: the LEDs,
+# the SHT30-D temperature and the frequency generator. Every public method of
+# the driver (benchtools.instruments.pico2_test_board.Pico2TestBoard) is a step;
+# docs/pico2_test_board/PICO2_Test_Board_User_Manual.md lists them.
+#
+# On the real bench (the board on COM14):
+#     python -m benchtools run specs/pico2_test_board.yaml \
+#            --bench benches/bench_pc.yaml
+#
+# Against the simulator, unattended:
+#     python -m benchtools run specs/pico2_test_board.yaml \
+#            --bench benches/simulated_bench.yaml
+#
+# The generator checks here are what the board reports over its serial link.
+# The analogue outputs themselves need a scope or a meter on the DAC.
+
+name: PICO2 Test Board check
+description: >
+  Drive the PICO2 Test Board's LEDs, read its temperature and run its frequency
+  generator, each checked against the board's own readback.
+requirements: [PICO-FR-008, PICO-FR-009, PICO-FR-040]
+
+instruments:
+  pico2: pico2-test-board
+
+teardown:
+  # Leave nothing running and nothing lit, however the run ended.
+  - do: pico2.abort_all
+  - do: pico2.set_led
+    with: {colour: red, lit: false}
+  - do: pico2.set_led
+    with: {colour: yellow, lit: false}
+  - do: pico2.set_led
+    with: {colour: green, lit: false}
+
+tests:
+  - name: The board identifies itself
+    steps:
+      - do: pico2.name
+        expect:
+          - {name: board_name, equals: PICO2 Test Board}
+      - do: pico2.version
+        expect:
+          - name: board_version
+            matches: "^V\\d\\.\\d{2}\\.\\d{4}$"
+            reason: "the version changes with every firmware release; this checks its form"
+
+  - name: Each LED lights and goes out
+    steps:
+      - do: pico2.set_led
+        with: {colour: red, lit: true}
+        expect:
+          - {name: red_lit, equals: 1}
+      - do: pico2.set_led
+        with: {colour: red, lit: false}
+        expect:
+          - {name: red_out, equals: 0}
+      - do: pico2.set_led
+        with: {colour: yellow, lit: true}
+        expect:
+          - {name: yellow_lit, equals: 1}
+      - do: pico2.set_led
+        with: {colour: yellow, lit: false}
+        expect:
+          - {name: yellow_out, equals: 0}
+      - do: pico2.set_led
+        with: {colour: green, lit: true}
+        expect:
+          - {name: green_lit, equals: 1}
+      - do: pico2.led
+        with: {colour: green}
+        expect:
+          - {name: green_reads_lit, equals: 1}
+      - do: pico2.set_led
+        with: {colour: green, lit: false}
+        expect:
+          - {name: green_out, equals: 0}
+
+  - name: The temperature is a room temperature
+    steps:
+      - do: pico2.temperature
+        expect:
+          - {name: temperature, minimum: 10.0, maximum: 40.0, unit: degC}
+
+  - name: A finite run on channel 1 completes by itself
+    steps:
+      - do: pico2.start_freq
+        with: {channel: 1, freq: 1000, cycles: 500, wave: sine, amp: 50}
+      - do: sleep
+        with: {seconds: 1.0}
+      - do: pico2.freq_status
+        with: {channel: 1}
+        expect:
+          - {name: channel_1_status, measure: status, equals: Complete}
+          - {name: channel_1_frequency, measure: frequency, equals: 1000.0}
+
+  - name: Every channel runs continuously until aborted
+    steps:
+      - do: pico2.start_freq
+        with: {channel: 1, freq: 1000, wave: sine, amp: 50}
+      - do: pico2.start_freq
+        with: {channel: 2, freq: 500, wave: sine2, freq2: 1000, ratio: 0.5, amp: 100}
+      - do: pico2.start_freq
+        with: {channel: 3, freq: 2000, wave: square, duty: 25}
+      - do: pico2.freq_status
+        with: {channel: 2}
+        expect:
+          - {name: channel_2_status, measure: status, equals: Running}
+          - {name: channel_2_wave, measure: wave, equals: sine2}
+      - do: pico2.freq_status
+        with: {channel: 3}
+        expect:
+          - {name: channel_3_status, measure: status, equals: Running}
+      - do: pico2.abort_all
+      - do: pico2.freq_status
+        with: {channel: 1}
+        expect:
+          - {name: channel_1_aborted, measure: status, equals: Aborted}

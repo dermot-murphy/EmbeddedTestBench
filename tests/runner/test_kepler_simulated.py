@@ -1,27 +1,24 @@
-"""The Kepler specifications' BLE and RTT steps, on the simulated bench (#121).
+"""The Kepler specifications, end to end on the simulated bench (#121, #122).
 
 The four ``specs/kepler_*.yaml`` select sensor 5C1712, talk to it over the
 dongle, read its RTT log through the probe and set its supply, then check what
-its radio transmits with the S2-LP kit. The first three now have a simulated
-sensor behind them; the radio does not yet (#122), so the S2-LP steps are
-stood in for here by ones that fail at once, rather than wait out their 60 to
-180 s receive timeouts on a silent simulated air.
+its radio transmits with the S2-LP kit. On the simulated bench one simulated
+sensor stands behind all of them, and the simulated kit hears its frames.
 
 As with the bring-up specification, passing is half of it. Each fact the
-specifications check over BLE or RTT is then broken in the simulated sensor, to
-confirm the specification would notice.
+specifications check is then broken in the simulated sensor, to confirm the
+specification would notice.
 
-Traces to: BLE-FR-120, SWE4-UT-KEPLERSIM.
+Traces to: BLE-FR-120, S2LP-FR-087, SWE4-UT-KEPLERSIM.
 """
 
 from __future__ import annotations
 
 import pathlib
+import re
 
 import pytest
 
-from benchtools.core.errors import MeasurementError
-from benchtools.instruments.s2lp.s2lp import S2lpDevkit
 from benchtools.runner.bench import Bench, load_bench
 from benchtools.runner.results import Status
 from benchtools.runner.runner import BenchRunner
@@ -33,35 +30,49 @@ yaml = pytest.importorskip("yaml", reason="pyyaml is not installed (it is an opt
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 BENCH = ROOT / "benches" / "simulated_bench.yaml"
-
-#: The instruments the simulated sensor stands behind; every step on them must
-#: pass. ``s2lp`` steps wait for #122.
-SIMULATED = ("dongle.", "rtt.", "psu.", "sleep")
+SPECS = ["kepler_version.yaml", "kepler_battery.yaml", "kepler_preamble.yaml",
+         "kepler_temperature.yaml"]
 
 #: Waits that are about the sensor's real timing, shortened so a run takes
 #: seconds. Nothing checked depends on them.
 FAST = {"settle_s": 0.0, "interval_s": 0.05}
 
+#: A receive that will hear nothing waits out its timeout in real time; a
+#: test that expects that shortens it to this.
+QUIET_S = 1.0
+
+#: The Kepler plugin the specifications name (#238).
+KEPLER_PLUGIN = ROOT / "plugins" / "kepler"
+
 
 @pytest.fixture(autouse=True)
-def silent_radio(monkeypatch):
-    """The S2-LP steps fail at once: the simulated sensor does not transmit yet (#122)."""
-    def not_simulated(self, *args, **kwargs):
-        raise MeasurementError("the simulated sensor does not transmit yet (#122)")
-
-    for name in ("kepler_frame", "kepler_samples", "check_preamble"):
-        monkeypatch.setattr(S2lpDevkit, name, not_simulated)
+def clean_world():
+    """Every test starts with a sensor fresh from the factory, and the air at 0."""
     reset_world()
     yield
     reset_world()
 
 
-def run(spec_name: str, tmp_path: pathlib.Path, only=()):
-    """Run *spec_name* on the simulated bench, with its waits shortened."""
+def run(spec_name: str, tmp_path: pathlib.Path, only=(), quiet: bool = False,
+        regs: str = ""):
+    """Run *spec_name* on the simulated bench, with its waits shortened.
+
+    :param quiet: Shorten the S2-LP receive timeouts, for a test in which the
+        frames will not come.
+    :param regs: Apply this register file instead of the specification's.
+    """
     data = yaml.safe_load((ROOT / "specs" / spec_name).read_text())
+    data["plugins"] = [str(KEPLER_PLUGIN)]      # the copy is not beside plugins/
     for name, value in FAST.items():
         if name in data.get("parameters", {}):
             data["parameters"][name] = value
+    for step in _all_steps(data):
+        if quiet and step.get("do", "").startswith("s2lp.") and "timeout" in step.get("with", {}):
+            step["with"]["timeout"] = QUIET_S
+        if regs and step.get("do") == "s2lp.apply_configuration":
+            step["with"]["source"] = regs
+    if quiet and "frame_timeout_s" in data.get("parameters", {}):
+        data["parameters"]["frame_timeout_s"] = QUIET_S
     path = tmp_path / spec_name
     path.write_text(yaml.safe_dump(data, sort_keys=False))
     bench = Bench(load_bench(str(BENCH)))
@@ -69,6 +80,13 @@ def run(spec_name: str, tmp_path: pathlib.Path, only=()):
         return BenchRunner(bench).run(load_spec(str(path)), selection=only)
     finally:
         bench.close()
+
+
+def _all_steps(data):
+    for section in ("setup", "teardown"):
+        yield from data.get(section) or []
+    for case in data.get("tests") or []:
+        yield from case.get("steps") or []
 
 
 def steps(record):
@@ -88,17 +106,38 @@ def measurement(record, name: str, action: str = ""):
     raise AssertionError("no measurement called %r" % name)
 
 
-@pytest.mark.parametrize("spec_name", ["kepler_version.yaml", "kepler_battery.yaml",
-                                       "kepler_preamble.yaml", "kepler_temperature.yaml"])
-def test_every_ble_rtt_and_supply_step_passes(spec_name, tmp_path):
-    """Done when, #121: the BLE-side steps of all four specifications pass."""
+def step_doing(record, action: str):
+    """The first step doing *action*."""
+    for _, step in steps(record):
+        if step.action == action:
+            return step
+    raise AssertionError("no step did %s" % action)
+
+
+def corrupt(monkeypatch, frame: str, offset: int, value: int) -> None:
+    """Make every *frame* (``version_frame`` or ``alive_frame``) the sensor
+    sends carry *value* at byte *offset*, and nothing else change."""
+    model = kepler_sensor()
+    original = getattr(model, frame)
+
+    def changed(repeat: int = 0) -> bytes:
+        payload = bytearray(original(repeat))
+        payload[offset] = value
+        return bytes(payload)
+
+    monkeypatch.setattr(model, frame, changed)
+
+
+@pytest.mark.parametrize("spec_name", SPECS)
+def test_every_step_passes(spec_name, tmp_path):
+    """Done when, #122: all four specifications pass on the simulated bench."""
     record = run(spec_name, tmp_path)
     assert not record.setup_error, record.setup_error
-    simulated = [(case.name, step) for case, step in steps(record)
-                 if step.action.startswith(SIMULATED)]
-    assert simulated, "no simulated step ran"
-    failed = ["%s: %s %s %s" % (name, step.action, step.status, step.error)
-              for name, step in simulated if step.status is not Status.PASS]
+    ran = list(steps(record))
+    assert any(step.action.startswith("s2lp.dut_") or step.action == "s2lp.check_preamble"
+               for _, step in ran), "no radio step ran"
+    failed = ["%s: %s %s %s" % (case.name, step.action, step.status, step.error)
+              for case, step in ran if step.status is not Status.PASS]
     assert not failed, "\n".join(failed)
 
 
@@ -165,6 +204,7 @@ class TestBrokenFactsAreNoticed:
         monkeypatch.setattr("benchtools.instruments.jlink.probe.rtt_source",
                             lambda target: (lambda: "something else"))
         data = yaml.safe_load((ROOT / "specs" / "kepler_temperature.yaml").read_text())
+        data["plugins"] = [str(KEPLER_PLUGIN)]
         data["parameters"].update(FAST)
         for step in data["tests"][1]["steps"]:
             if step.get("do") == "rtt.rtt_samples":
@@ -176,3 +216,252 @@ class TestBrokenFactsAreNoticed:
         finally:
             bench.close()
         assert measurement(record, "readings", action="rtt.rtt_samples").status is Status.FAIL
+
+
+class TestBrokenRadioFactsAreNoticed:
+    """Each fact checked over the air, made false in the simulated sensor (#122)."""
+
+    # -- kepler_version.yaml ---------------------------------------------
+    def test_a_version_frame_with_the_sha_appended(self, tmp_path):
+        """What the captured V11.00.0000-95 build sends, against the V11 rule."""
+        kepler_sensor().frame_version_with_sha = True
+        record = run("kepler_version.yaml", tmp_path)
+        assert measurement(record, "version_as_rd_version").status is Status.FAIL
+        assert measurement(record, "sha_as_start_of_rd_sha").status is Status.PASS
+
+    def test_a_version_frame_with_another_sha(self, tmp_path, monkeypatch):
+        corrupt(monkeypatch, "version_frame", 9, ord("d"))      # c051f36 -> d051f36
+        record = run("kepler_version.yaml", tmp_path)
+        assert measurement(record, "sha_as_start_of_rd_sha").status is Status.FAIL
+
+    def test_a_version_frame_after_a_reset_that_is_not_a_soft_reset(self, tmp_path,
+                                                                     monkeypatch):
+        model = kepler_sensor()
+        original = model.reset
+
+        def power_on_reset():
+            original()
+            model.reset_reason = 1
+
+        monkeypatch.setattr(model, "reset", power_on_reset)
+        record = run("kepler_version.yaml", tmp_path)
+        assert measurement(record, "reset_reason").status is Status.FAIL
+
+    def test_a_version_frame_from_another_pcb(self, tmp_path):
+        kepler_sensor().pcb_code = 4
+        record = run("kepler_version.yaml", tmp_path)
+        assert measurement(record, "pcb_version").status is Status.FAIL
+
+    def test_a_version_frame_whose_loaded_battery_is_not_the_ble_reading(self, tmp_path,
+                                                                         monkeypatch):
+        corrupt(monkeypatch, "version_frame", 77, 150)          # 3000 mV, not 3280
+        record = run("kepler_version.yaml", tmp_path)
+        assert (measurement(record, "battery_loaded_as_rd_battery_loaded").status
+                is Status.FAIL)
+
+    def test_no_version_frame_after_the_reset(self, tmp_path, monkeypatch):
+        model = kepler_sensor()
+        original = model.reset
+
+        def reset_without_version():
+            original()
+            model._next_version_at = None       # pylint: disable=protected-access
+
+        monkeypatch.setattr(model, "reset", reset_without_version)
+        record = run("kepler_version.yaml", tmp_path, quiet=True)
+        frame = step_doing(record, "s2lp.dut_frame")
+        assert frame.status is Status.ERROR
+        assert "no VERSION frame from 5C1712" in frame.error
+
+    def test_frames_from_another_sensor(self, tmp_path, monkeypatch):
+        """The receiver hears a sensor, but not the one the specification names."""
+        corrupt(monkeypatch, "version_frame", 0, 0x5D)          # 5C1712 -> 5D1712
+        record = run("kepler_version.yaml", tmp_path, quiet=True)
+        assert step_doing(record, "s2lp.dut_frame").status is Status.ERROR
+
+    # -- the receiver's configuration ------------------------------------
+    @pytest.mark.parametrize("register, value", [
+        ("SYNT0", "0xF4"),                  # another frequency
+        ("MOD3", "0x26"),                   # another data rate
+        ("PCKT_FLT_GOALS0", "0xB0"),        # the sensor's sync word, one bit off
+    ])
+    def test_a_receiver_not_set_up_for_the_sensor_hears_nothing(self, tmp_path, register,
+                                                                 value):
+        """The configuration step proves nothing if a wrong one also hears."""
+        source = KEPLER_PLUGIN / "configs" / "s2lp_kepler_433_rx.regs"
+        lines = []
+        for line in source.read_text().splitlines():
+            if line.split() and line.split()[0] == register:
+                line = "%-22s %s" % (register, value)
+            lines.append(line)
+        regs = tmp_path / "wrong.regs"
+        regs.write_text("\n".join(lines) + "\n")
+        record = run("kepler_temperature.yaml", tmp_path, quiet=True, regs=str(regs),
+                     only=("The ALIVE frame carries the temperature read over BLE",))
+        assert measurement(record, "frames").status is Status.FAIL
+
+    # -- kepler_battery.yaml ---------------------------------------------
+    def test_an_alive_battery_that_does_not_follow_the_supply(self, tmp_path, monkeypatch):
+        corrupt(monkeypatch, "alive_frame", 11, 165)            # 3.3 V whatever is set
+        record = run("kepler_battery.yaml", tmp_path)
+        first = [case for case in record.cases if case.name.startswith("At 3.3 V")][0]
+        later = [case for case in record.cases if case.name.startswith("At 3.0 V")][0]
+        assert all(step.status is Status.PASS for step in first.steps)
+        assert any(measured.name == "alive_lowest_from_ble" and measured.status is Status.FAIL
+                   for step in later.steps for measured in step.measurements)
+
+    def test_a_sensor_that_sends_nothing(self, tmp_path):
+        kepler_sensor().transmitting = False
+        record = run("kepler_battery.yaml", tmp_path, quiet=True,
+                     only=("At 3.3 V the sensor reads the supply, and the ALIVE frame carries it",))
+        assert measurement(record, "alive_frames").status is Status.FAIL
+
+    # -- kepler_temperature.yaml -----------------------------------------
+    def test_an_alive_temperature_far_from_the_ble_reading(self, tmp_path, monkeypatch):
+        corrupt(monkeypatch, "alive_frame", 10, 0xDF)           # 22.3 C, not 21.2 C
+        record = run("kepler_temperature.yaml", tmp_path,
+                     only=("The machine temperature read over BLE is steady",
+                           "The ALIVE frame carries the temperature read over BLE"))
+        assert measurement(record, "alive_highest_from_ble").status is Status.FAIL
+
+    # -- kepler_preamble.yaml --------------------------------------------
+    def test_a_preamble_setting_the_radio_does_not_take(self, tmp_path, monkeypatch):
+        """The setting is stored, but the radio keeps sending 32 pairs."""
+        model = kepler_sensor()
+        original = model.reset
+
+        def reset_keeping_the_preamble():
+            kept = model.radio_preamble_length
+            original()
+            model.radio_preamble_length = kept
+
+        monkeypatch.setattr(model, "reset", reset_keeping_the_preamble)
+        record = run("kepler_preamble.yaml", tmp_path,
+                     only=("A 48-pair preamble is heard as 48 pairs",))
+        assert measurement(record, "preamble_as_set").status is Status.FAIL
+        assert measurement(record, "best_pqi").status is Status.FAIL
+
+    def test_a_preamble_longer_than_set(self, tmp_path, monkeypatch):
+        model = kepler_sensor()
+        original = model.reset
+
+        def reset_with_a_longer_preamble():
+            original()
+            model.radio_preamble_length += 4
+
+        monkeypatch.setattr(model, "reset", reset_with_a_longer_preamble)
+        record = run("kepler_preamble.yaml", tmp_path,
+                     only=("The default 32-pair preamble is restored and heard as 32 pairs",))
+        assert measurement(record, "preamble_as_set").status is Status.FAIL
+
+
+#: Replies captured from 5C1712, in the two forms its firmware has used (#314):
+#: V11.00.0000 writes the unit straight after the number (2026-10-04
+#: qualification), V11.02.0000 develop puts a space before it (bench,
+#: 2026-10-28).
+CAPTURED_REPLIES = {
+    "RD BATTERY": ("ACK RD BATTERY = 2789mV", "ACK rd battery = 3307 mV"),
+    "RD BATTERY-LOADED": ("ACK RD BATTERY-LOADED = 2769mV",
+                          "ACK rd battery-loaded = 3293 mV"),
+    "RD TEMPERATURE": ("ACK RD TEMPERATURE = 21187mC", "ACK rd temperature = 21000 mC"),
+}
+
+
+@pytest.mark.parametrize("spec_name", SPECS)
+def test_every_reading_pattern_reads_both_reply_forms(spec_name):
+    """#314: a pattern written for one firmware's replies reads nothing from the other's."""
+    from benchtools.analysis.samples import extract_number  # pylint: disable=import-outside-toplevel
+
+    data = yaml.safe_load((ROOT / "specs" / spec_name).read_text())
+    checked = 0
+    for step in _all_steps(data):
+        arguments = step.get("with") or {}
+        if step.get("do") != "dongle.sample_command" or "pattern" not in arguments:
+            continue
+        for reply in CAPTURED_REPLIES[str(arguments["request"]).upper()]:
+            assert extract_number(reply, arguments["pattern"]) is not None, (reply, arguments)
+            checked += 1
+    assert checked or spec_name == "kepler_preamble.yaml"
+
+
+def answer_as_v11_02(monkeypatch) -> None:
+    """Make the simulated sensor answer as V11.02.0000 did on the bench (#314).
+
+    It echoes the command in lower case, puts a space before ``mV`` and
+    ``mC``, writes ``Sec`` for ``Secs``, and upper-cases the RD VERSION and
+    RD SHA values, while the VERSION frame keeps git's lower case:
+    ``ACK rd version = V11.02.0000-262-G8F547A592``, ``ACK rd battery = 3307
+    mV``, ``ACK wr alive-period 10 Sec``, ``ACK ecureset hard``.
+    """
+    model = kepler_sensor()
+    original = model.respond
+
+    def respond(request: str) -> str:
+        reply = original(request)
+        text = " ".join(request.split())
+        if not reply.startswith("ACK " + text):
+            return reply
+        rest = reply[len("ACK " + text):]
+        if text.upper() in ("RD VERSION", "RD SHA"):
+            rest = rest.upper()
+        rest = re.sub(r"(\d)(mV|mC)$", r"\1 \2", rest)
+        rest = re.sub(r" Secs$", " Sec", rest)
+        return "ACK " + text.lower() + rest
+
+    monkeypatch.setattr(model, "respond", respond)
+
+
+@pytest.mark.parametrize("spec_name", SPECS)
+def test_every_step_passes_on_v11_02_replies(spec_name, tmp_path, monkeypatch):
+    """#314: the specifications' text limits and patterns read the V11.02 replies."""
+    answer_as_v11_02(monkeypatch)
+    record = run(spec_name, tmp_path)
+    assert not record.setup_error, record.setup_error
+    failed = ["%s: %s %s %s" % (case.name, step.action, step.status, step.error)
+              for case, step in steps(record) if step.status is not Status.PASS]
+    assert not failed, "\n".join(failed)
+
+
+def test_a_frame_is_timed_from_the_link_closing(tmp_path):
+    """#243: the dongle's link times and the S2-LP frame's time are on one
+    clock, so ``compute`` gives the time from closing the link to the first
+    VERSION frame after the reset. On the simulated bench the frames are on an
+    air clock the receive moves on, so only the sign is checked here."""
+    data = {
+        "name": "Time from a link event to a frame",
+        "plugins": [str(KEPLER_PLUGIN)],
+        "instruments": {"dongle": "ble-dongle", "s2lp": "s2lp"},
+        "setup": [
+            {"do": "s2lp.apply_configuration",
+             "with": {"source": "plugin:kepler/s2lp_kepler_433_rx.regs", "reset": "defaults"}},
+            {"do": "dongle.scan", "with": {"duration": 5.0}},
+            {"do": "dongle.select", "with": {"sensor": "D1:8D:3B:4C:19:96"}},
+        ],
+        "tests": [{"name": "VERSION after the link closes", "steps": [
+            {"do": "dongle.open_link"},
+            {"do": "dongle.command", "with": {"request": "ECURESET HARD", "timeout": 45.0}},
+            {"do": "dongle.close_link"},
+            {"do": "dongle.link_times", "save": "link",
+             "expect": [{"name": "link_closed", "measure": "closed_s", "min": 0}]},
+            {"do": "s2lp.dut_frame", "save": "version",
+             "with": {"decoder": "kepler", "frame_type": "VERSION", "source": "5C1712",
+                      "timeout": 60.0}},
+            {"do": "compute", "save": "delay",
+             "with": {"operation": "difference", "a": {"from": "version.monotonic_s"},
+                      "b": {"from": "link.closed_s"}},
+             "expect": [{"name": "version_after_close", "measure": "", "unit": "s",
+                         "min": 0, "max": 60}]},
+        ]}],
+    }
+    path = tmp_path / "timing.yaml"
+    path.write_text(yaml.safe_dump(data, sort_keys=False))
+    bench = Bench(load_bench(str(BENCH)))
+    try:
+        record = BenchRunner(bench).run(load_spec(str(path)))
+    finally:
+        bench.close()
+    failed = ["%s %s %s" % (step.action, step.status, step.error)
+              for _, step in steps(record) if step.status is not Status.PASS]
+    assert not record.setup_error and not failed, (record.setup_error, failed, [
+        (s.action, [m.as_dict() for m in s.measurements]) for _, s in steps(record)])
+    assert measurement(record, "version_after_close").value >= 0

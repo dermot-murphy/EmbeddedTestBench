@@ -1,0 +1,5 @@
+# The synthetic device's receive setup (#238): a register file for the tests.
+SYNC3                  0x12
+SYNC2                  0x34
+SYNC1                  0x56
+SYNC0                  0x78

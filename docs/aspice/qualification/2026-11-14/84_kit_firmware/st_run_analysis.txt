@@ -1,0 +1,5 @@
+frames 173, decoded 173, undecoded 0
+  incomplete: ('5BD456', 'ALIVE', None) repeats [0, 1] of 3
+  incomplete: ('5BD456', 'ALIVE', None) repeats [0, 1] of 3
+transmissions 113: all copies 101, missing copies 2
+copy spacing ms: min 31.1, max 239.2, n 60

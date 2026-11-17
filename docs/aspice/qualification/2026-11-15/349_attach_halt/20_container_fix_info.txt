@@ -1,0 +1,13 @@
+{
+  "attached": true,
+  "backend": "gdb",
+  "core_clock_hz": 64000000.0,
+  "elf": null,
+  "firmware": "",
+  "halted": true,
+  "identity": "J-Link (no version reported)",
+  "manufacturer": "SEGGER",
+  "model": "J-Link",
+  "program_counter": "0x0002764e",
+  "serial_number": ""
+}

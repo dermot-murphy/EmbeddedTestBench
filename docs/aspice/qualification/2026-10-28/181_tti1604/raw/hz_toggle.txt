@@ -1,0 +1,5 @@
+setup select_volts -> . (volts)
+setup select_ac -> . (volts)
+t=0.000 wrote 'j' (hertz)
+t=0.016 bytes 6a
+t=15.037 wrote 'j' (hertz)

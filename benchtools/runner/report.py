@@ -14,7 +14,7 @@ Three formats, for three audiences:
 Writers only read :mod:`benchtools.runner.results`, so adding a format needs no
 change to the execution engine.
 
-Traces to: RUN-FR-008, RUN-FR-037, RUN-FR-040 .. RUN-FR-043, RUN-DD-REPORT.
+Traces to: RUN-FR-008, RUN-FR-037, RUN-FR-040 .. RUN-FR-043, CORE-FR-070, RUN-DD-REPORT.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from __future__ import annotations
 import json
 import os
 import xml.etree.ElementTree as ElementTree
-from typing import List, Union
+from typing import Any, Dict, List, Union
 
 from .results import CaseRecord, RunRecord, Status
 
@@ -79,6 +79,16 @@ def write_json(run: RunRecord, path: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+def plugin_text(plugin: Dict[str, Any]) -> str:
+    """A loaded plugin in one line: name, git ref (or that it has none), folder."""
+    ref = plugin.get("ref")
+    if ref:
+        ref = "%s%s" % (ref[:12], ", with uncommitted changes" if plugin.get("dirty") else "")
+    else:
+        ref = "not a git checkout"
+    return "%s at %s (%s)" % (plugin.get("name", "?"), ref, plugin.get("path", "?"))
+
+
 def format_markdown(run: RunRecord) -> str:
     """Render the run as a markdown report."""
     out: List[str] = []
@@ -94,6 +104,8 @@ def format_markdown(run: RunRecord) -> str:
             "%s = %s" % (name, value) for name, value in sorted(run.parameters.items())))
     if run.selection:
         out.append("| Selected tests | %s |" % ", ".join(run.selection))
+    for plugin in run.plugins:
+        out.append("| Plugin | %s |" % plugin_text(plugin))
     out.append("| Started | %s |" % run.started)
     out.append("| Duration | %.2f s |" % run.duration_s)
     out.append("| Tests | %d passed, %d failed, %d errored, %d skipped (of %d) |" % (
@@ -237,7 +249,8 @@ def write_junit(run: RunRecord, path: str) -> str:
         ("specification", run.spec_source or ""),
     ) + tuple(("parameter %s" % name, str(value))
               for name, value in sorted(run.parameters.items())) + tuple(
-                  ("selected test", name) for name in run.selection):
+                  ("selected test", name) for name in run.selection) + tuple(
+                  ("plugin", plugin_text(plugin)) for plugin in run.plugins):
         ElementTree.SubElement(properties, "property", {"name": name, "value": value})
 
     if run.setup_error:

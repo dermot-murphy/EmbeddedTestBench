@@ -1,0 +1,36 @@
+step1_info rc=0 s=2.61
+step2_erase rc=0 s=3.04
+step2_read_uicr rc=0 s=2.49
+step2_read_flash rc=0 s=2.51
+step3_flash_v10 rc=0 s=17.4
+step4_write rc=0 s=2.72
+step4_read rc=0 s=2.3
+step5_flash_v11 rc=0 s=20.12
+step5_read_id rc=0 s=2.44
+step5_read_bl rc=0 s=2.46
+step6_reset rc=0 s=2.69
+step6_rtt rc=0 s=17.33
+step7_var rc=0 s=2.46
+step7_var2 rc=0 s=2.48
+step7_stack rc=0 s=2.48
+step7_info_after rc=0 s=2.41
+host var m_host_present s=4.0
+host var m_freq s=1.38
+host stack s=1.19
+step7b_halt rc=0 s=2.55
+step7b_info rc=0 s=2.46
+step7b_stack rc=0 s=2.35
+step7b_var rc=0 s=2.35
+step7b_var_rtt rc=0 s=2.6
+step7c_run_until rc=0 s=7.45
+step7c_stack rc=0 s=2.37
+step7c_var rc=0 s=2.39
+step7_end_reset rc=0 s=2.53
+step8_rtt_alias s=2.84
+step8_rtt_alias s=62.65
+step8_rtt_alias_attempt3 s=43.17
+step10_restore_host s=28
+step10_restore_attempt2 s=48
+host_local info rc=0 s=2.5
+host_local read 0x10001080 4 rc=0 s=2.43
+host_local read 0x10001014 8 rc=0 s=2.46

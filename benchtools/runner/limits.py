@@ -7,20 +7,25 @@ specification rather than buried in code.
 Four forms are supported, and they compose: ``minimum`` and ``maximum`` give a
 one- or two-sided bound, ``equals`` with ``tolerance`` gives a nominal value
 with a window, and ``tolerance_percent`` expresses that window relative to the
-nominal.
+nominal. Text has its own limit, :class:`TextLimit`: exact, one of a list, or a
+regular expression with a reason, each optionally ignoring case (#242).
 
-Traces to: RUN-FR-020 .. RUN-FR-024, RUN-DD-LIMITS.
+Traces to: RUN-FR-020 .. RUN-FR-024, RUN-FR-067, RUN-FR-068, RUN-DD-LIMITS.
 """
 
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional, Tuple
 
 from ..core.errors import SpecError
 
 __all__ = ["Limit", "LimitOutcome", "TextLimit"]
+
+#: A number as a reply writes one, for comparing with a number in ``one_of``.
+_PLAIN_NUMBER = re.compile(r"[+-]?(\d+(\.\d*)?|\.\d+)")
 
 
 @dataclass(frozen=True)
@@ -57,6 +62,12 @@ class Limit:
     tolerance_percent: Optional[float] = None
 
     def __post_init__(self) -> None:
+        for name in ("minimum", "maximum", "equals", "tolerance", "tolerance_percent"):
+            value = getattr(self, name)
+            if value is not None and not math.isfinite(value):
+                # NaN compares false with everything, so a NaN bound would
+                # pass every value; an infinite one passes as much (#306).
+                raise SpecError("limit %s must be a finite number, not %r" % (name, value))
         if all(
             bound is None
             for bound in (self.minimum, self.maximum, self.equals)
@@ -94,6 +105,8 @@ class Limit:
                 fields[name] = float(value)
             except (TypeError, ValueError) as exc:
                 raise SpecError("limit %s must be a number, got %r" % (key, value)) from exc
+            if not math.isfinite(fields[name]):
+                raise SpecError("limit %s must be a finite number, got %r" % (key, value))
         return cls(**fields)
 
     @property
@@ -153,21 +166,57 @@ class Limit:
 
 @dataclass(frozen=True)
 class TextLimit:
-    """An exact-match bound on a value that is text, not a number.
+    """A bound on a value that is text, not a number.
 
     Not every pass criterion is numeric. "The firmware reports the version that
     was flashed onto it" is a bench test like any other, and before this there
     was no way to state it: every limit went through ``float()`` and a version
     string failed as "not a number" - an error, not a verdict.
 
-    Comparison is exact on the stripped text. Nothing looser is offered on
-    purpose: a limit that matched loosely would pass for a version that merely
-    began with the right digits, which is the failure this exists to catch.
+    Exactly one of three forms (#242):
 
-    Traces to: RUN-FR-024.
+    * ``equals`` - the stripped text, exactly. The default, and the strictest:
+      a limit that matched loosely would pass for a version that merely began
+      with the right digits, which is the failure this exists to catch.
+    * ``one_of`` - any of a list; an item that is a number is compared as a
+      number, so ``one_of: [1, 2]`` passes ``2.0``.
+    * ``matches`` - a regular expression the whole stripped text must match
+      (``re.fullmatch``). Looser by design, so it needs a ``reason`` saying
+      why the exact text cannot be known, which the report carries.
+
+    ``ignore_case`` makes any form compare without regard to case, for text
+    two sources spell differently: a VERSION frame and ``RD VERSION``.
+
+    Traces to: RUN-FR-024, RUN-FR-067, RUN-FR-068.
     """
 
-    equals: str
+    equals: Optional[str] = None
+    matches: Optional[str] = None
+    one_of: Tuple[Any, ...] = ()
+    ignore_case: bool = False
+    reason: str = ""
+
+    def __post_init__(self) -> None:
+        for item in self.one_of:
+            if item is None or isinstance(item, (bool, list, tuple, dict, set)):
+                raise SpecError(
+                    "one_of item %r is not a text or a number%s" % (
+                        item, "; quote ON, OFF, YES and NO, which YAML reads as true and "
+                        "false" if isinstance(item, bool) else ""))
+            if isinstance(item, float) and not math.isfinite(item):
+                raise SpecError("one_of item %r is not a finite number" % item)
+        forms = [self.equals is not None, self.matches is not None, bool(self.one_of)]
+        if sum(forms) != 1:
+            raise SpecError("a text limit takes exactly one of equals, matches or one_of")
+        if self.matches is not None:
+            if not self.reason.strip():
+                raise SpecError("a matches limit needs a reason: why the exact text "
+                                "cannot be stated")
+            try:
+                re.compile(self.matches, re.IGNORECASE if self.ignore_case else 0)
+            except re.error as exc:
+                raise SpecError("matches %r is not a regular expression: %s"
+                                % (self.matches, exc)) from exc
 
     @property
     def window(self) -> Optional[float]:
@@ -177,7 +226,27 @@ class TextLimit:
     @property
     def text(self) -> str:
         """Human-readable rendering, as it appears in a report."""
-        return '= "%s"' % self.equals
+        if self.matches is not None:
+            text = "matches /%s/ (%s)" % (self.matches, self.reason.strip())
+        elif self.one_of:
+            text = "one of %s" % ", ".join('"%s"' % item for item in self.one_of)
+        else:
+            text = '= "%s"' % self.equals
+        return text + (", ignoring case" if self.ignore_case else "")
+
+    def _same(self, actual: str, wanted: Any) -> bool:
+        if isinstance(wanted, (int, float)) and not isinstance(wanted, bool):
+            # Only a plainly written number: float() also reads "1_0" and
+            # "1e0", which no instrument reply means as 10 or 1.
+            if _PLAIN_NUMBER.fullmatch(actual) is None:
+                return False
+            return float(actual) == float(wanted)
+        if isinstance(wanted, (bytes, bytearray)):
+            wanted = wanted.decode("utf-8", errors="replace")
+        wanted = str(wanted).strip()
+        if self.ignore_case:
+            return actual.casefold() == wanted.casefold()
+        return actual == wanted
 
     def check(self, value) -> LimitOutcome:
         """Check *value* against this limit, comparing as text."""
@@ -185,8 +254,16 @@ class TextLimit:
         if value is None:
             return LimitOutcome(False, "no value was measured", text)
         actual = str(value).strip()
-        if actual != self.equals:
+        if self.matches is not None:
+            flags = re.IGNORECASE if self.ignore_case else 0
+            if re.fullmatch(self.matches, actual, flags) is None:
+                return LimitOutcome(
+                    False, '"%s" does not match /%s/' % (actual, self.matches), text)
+        elif self.one_of:
+            if not any(self._same(actual, item) for item in self.one_of):
+                return LimitOutcome(False, '"%s" is not %s' % (actual, text), text)
+        elif not self._same(actual, self.equals):
             return LimitOutcome(
-                False, '"%s" != required "%s"' % (actual, self.equals), text
-            )
+                False, '"%s" != required "%s"%s'
+                % (actual, self.equals, " (ignoring case)" if self.ignore_case else ""), text)
         return LimitOutcome(True, "", text)

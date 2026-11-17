@@ -18,7 +18,8 @@ from benchtools.core.paths import input_paths
 from benchtools.runner.bench import Bench, BenchConfig, load_bench, register_driver
 from benchtools.runner.results import Status
 from benchtools.runner.runner import BenchRunner
-from benchtools.runner.spec import TestSpec, load_spec
+from benchtools.runner.spec import TestSpec, load_mapping
+from benchtools.simulated import reset_world
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 REGISTER_FILE = ROOT / "configs" / "s2lp_915_38k4_basic.regs"
@@ -167,23 +168,30 @@ SPECS = sorted(ROOT.glob("specs/*.yaml"))
 SIMULATED_BENCH = ROOT / "benches" / "simulated_bench.yaml"
 
 
-#: Specifications run here for their setup and teardown only. Their tests talk
-#: to the simulated Kepler sensor (#121) and then wait for its radio frames,
-#: which nothing simulates yet (#122): every receive would sit out its 60 to
-#: 180 s timeout, ten minutes a run. Setup and teardown hold their paths, which
-#: are what this test is about; tests/runner/test_kepler_simulated.py runs the
-#: rest.
-SETUP_ONLY = ("kepler_",)
+#: Specifications that pass on the simulated bench, wherever they are run
+#: from: the Kepler ones, whose sensor is simulated (#121, #122).
+MUST_PASS = ("kepler_",)
 
-#: A test case name no specification has, so a run selects none of its tests.
-NO_TESTS = ("(setup and teardown only)",)
+#: Waits about a real sensor's timing, shortened: none of them holds a path,
+#: and kepler_battery.yaml's settling alone would add a minute a run.
+FAST = {"settle_s": 0.0, "interval_s": 0.05}
 
 
 def _outcome(spec_path: pathlib.Path):
-    """What running *spec_path* on the simulated bench came to, case by case."""
-    selection = NO_TESTS if spec_path.name.startswith(SETUP_ONLY) else ()
+    """What running *spec_path* on the simulated bench came to, case by case.
+
+    Each run starts with the simulated sensor as it left the factory, so the
+    two runs compared see the same sensor.
+    """
+    reset_world()
+    data = load_mapping(str(spec_path))
+    parameters = data.get("parameters") or {}
+    if spec_path.name.startswith(MUST_PASS):
+        parameters.update({name: value for name, value in FAST.items() if name in parameters})
+    # From the file's own path, so its relative paths resolve as load_spec's do.
+    spec = TestSpec.from_mapping(data, source=str(spec_path))
     with BenchRunner.from_config(load_bench(str(SIMULATED_BENCH)), simulate=True) as runner:
-        record = runner.run(load_spec(str(spec_path)), selection=selection)
+        record = runner.run(spec)
     return record.setup_error, [
         (case.name, case.status, [step.error for step in case.steps]) for case in record.cases
     ]
@@ -197,7 +205,8 @@ def test_a_shipped_specification_runs_the_same_from_outside_the_checkout(
     Compared with a run started in the checkout, rather than against PASS:
     some specifications need hardware the simulators do not model, and that
     is not what this test is about. Output files land in the directory each
-    run was started from, as they always have.
+    run was started from, as they always have. The Kepler specifications must
+    also pass, in both places (#122).
     """
     # The shipped specifications and bench files are YAML.
     pytest.importorskip("yaml", reason="pyyaml is not installed (it is an optional extra)")
@@ -206,3 +215,7 @@ def test_a_shipped_specification_runs_the_same_from_outside_the_checkout(
     monkeypatch.chdir(tmp_path)
     outside = _outcome(spec_path)
     assert outside == inside
+    if spec_path.name.startswith(MUST_PASS):
+        setup_error, cases = outside
+        assert not setup_error, setup_error
+        assert cases and all(status is Status.PASS for _, status, _ in cases), cases

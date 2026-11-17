@@ -15,19 +15,19 @@ The API:
                           ``record`` for every event-log record
 ``GET /api/instruments``  each instrument's commands and replies, and front
                           panels; ``?t0=&t1=`` for a step's window (#138)
-``GET /api/radio``        received Kepler frames and each sensor's latest;
+``GET /api/radio``        received frames and each sensor's latest;
                           ``?sensor=`` for one sensor (#139)
 ``GET /api/ble``          BLE devices, events and the dongle's exchanges (#139)
+``GET /api/step``         a step and its events; ``?phase=&case=&step=`` (#201)
 ``GET /api/graphs``       readings, BLE advertising and step markers;
                           ``?ble=&expected_ms=`` (#140)
 ``GET /api/status``       the status bar: run, progress, time left, instruments
-``GET /api/kepler``       rf_monitor's Latest Data, Config, Identification;
-                          ``?sensor=`` (#152)
-``GET /api/sensor``       rf_monitor's Environment, Short Interval, Ticks;
-                          ``?sensor=&axis=`` (#153)
-``GET /api/twf``          rf_monitor's TWF: waveform and spectrum;
-                          ``?sensor=&buffer=&axis=`` (#154)
-``GET /api/diagnostics``  rf_monitor's Diagnostics and Sync; ``?sensor=`` (#155)
+``GET /api/plugins``      the device plugins loaded and missing, scripts (#238)
+``GET /api/panel``        a plugin's panel: ``?name=&sensor=`` and the panel's
+                          own options, e.g. ``tab=`` (#238, #303)
+``POST /api/panel``       a panel's action, e.g. a reset:
+                          ``{name, action, sensor}`` (#303)
+``GET /plugin/<p>/<f>``   a static file of plugin *p*'s panels (#238)
 ``GET /api/notes``        the run's notes; ``POST`` saves them (#156)
 ``GET /api/report``       the run as one HTML report; ``?sensor=&download=1``
 ``GET /api/stgui``        the ST GUI page: RF setup, registers, frames (#157);
@@ -55,7 +55,7 @@ browser first asking this server, which never agrees, so another site open in
 the same browser cannot start or abort a run. The ``Host`` header must name
 this machine, which stops a DNS-rebinding page reaching the API by name.
 
-Traces to: VIEW-FR-001 .. VIEW-FR-045, VIEW-DD-SERVER.
+Traces to: VIEW-FR-001 .. VIEW-FR-045, VIEW-FR-047, VIEW-FR-048, VIEW-DD-SERVER.
 """
 
 from __future__ import annotations
@@ -82,21 +82,21 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 from urllib.parse import parse_qs, urlsplit
 
 from .. import __version__
+from ..core import plugins
 from ..core.errors import BenchToolsError
 from ..core.events import EventTail
 from ..runner.control import HOST
 from ..runner.spec import load_spec
 from .graphs import Readings, advertising, step_markers
-from .diagnostics import Diagnostics, SyncTracker
-from .kepler_view import KeplerView
+from .plugin_panels import (dut_panels, missing_plugins, panel_call, plugin_file, plugins_view,
+                            run_plugins)
 from .radio import BleAir, RfFrames
 from .report import NotesStore, build_report
-from .sensor_series import SensorSeries
 from .state import RunState
+from .step_events import StepEvents, step_query, step_view
 from .st_gui import StGui, regs_text
 from .status import InstrumentStatus, progress
 from .tags import Tagger
-from .twf import TwfAssembler
 from .traffic import Traffic, panel_for
 
 __all__ = ["Hub", "Catalogue", "Launcher", "ViewerServer", "send_control", "main"]
@@ -114,6 +114,9 @@ KEEP_RECORDS = 5000
 #: Seconds between keep-alive comments on an idle event stream.
 KEEPALIVE_S = 15.0
 
+_PER_LOG = ("state traffic panels rf ble readings tagger links dut_panels missing_plugins "
+            "st_gui step_events records").split()
+
 _CONTENT_TYPES = {
     ".html": "text/html; charset=utf-8",
     ".js": "text/javascript; charset=utf-8",
@@ -121,7 +124,7 @@ _CONTENT_TYPES = {
 }
 
 
-class Hub:  # pylint: disable=too-many-instance-attributes
+class Hub:  # pylint: disable=too-many-instance-attributes,too-many-public-methods
     """Follows one event log, and holds its records and the run's state.
 
     A background thread reads the log every *interval* seconds. Readers wait on
@@ -141,12 +144,11 @@ class Hub:  # pylint: disable=too-many-instance-attributes
         self.readings = Readings()
         self.tagger = Tagger()
         self.links = InstrumentStatus()
-        self.kepler = KeplerView()
-        self.sensor_series = SensorSeries()
-        self.twf = TwfAssembler()
-        self.diagnostics = Diagnostics()
-        self.sync = SyncTracker()
+        self.dut_panels = dut_panels()
+        #: Plugins the followed run used that this viewer has not loaded.
+        self.missing_plugins: List[Dict[str, Any]] = []
         self.st_gui = StGui()
+        self.step_events = StepEvents()
         self.records: List[Tuple[int, Dict[str, Any]]] = []
         self.sequence = 0
         self.generation = 0
@@ -166,24 +168,12 @@ class Hub:  # pylint: disable=too-many-instance-attributes
 
     def follow(self, path: Optional[str], control_port: Optional[int] = None) -> None:
         """Follow *path* from its start, forgetting the previous log."""
+        fresh = Hub(self.interval)          # _PER_LOG: every view of the log, made afresh
         with self._condition:
             self.path = path
             self._tail = EventTail(path) if path else None
-            self.state = RunState()
-            self.traffic = Traffic()
-            self.panels = {}
-            self.rf = RfFrames()
-            self.ble = BleAir()
-            self.readings = Readings()
-            self.tagger = Tagger()
-            self.links = InstrumentStatus()
-            self.kepler = KeplerView()
-            self.sensor_series = SensorSeries()
-            self.twf = TwfAssembler()
-            self.diagnostics = Diagnostics()
-            self.sync = SyncTracker()
-            self.st_gui = StGui()
-            self.records = []
+            for name in _PER_LOG:
+                setattr(self, name, getattr(fresh, name))
             self._override_port = control_port
             self.generation += 1
             self.sequence += 1
@@ -221,19 +211,18 @@ class Hub:  # pylint: disable=too-many-instance-attributes
         if record.get("kind") == "run_start":
             self.traffic.clear()
             self.panels = {}
+            self.missing_plugins = missing_plugins(record)
         self.state.apply(record)
         self.rf.last_frame = None
         self.rf.feed(record)
         if self.rf.last_frame is not None:
-            self.kepler.feed(self.rf.last_frame)
-            self.sensor_series.feed(self.rf.last_frame)
-            self.twf.feed(self.rf.last_frame)
-            self.diagnostics.feed(self.rf.last_frame)
-            self.sync.feed(self.rf.last_frame)
+            for panel in self.dut_panels.values():
+                panel.feed(self.rf.last_frame)
         self.ble.feed(record)
         self.readings.feed(record)
         self.links.feed(record)
         self.st_gui.feed(record)
+        self.step_events.feed(record)
         if self.traffic.feed(record):
             source = record["source"]
             if self.panels.get(source) is None:
@@ -252,8 +241,13 @@ class Hub:  # pylint: disable=too-many-instance-attributes
                            for source, panel in self.panels.items() if panel is not None},
             }
 
+    def step(self, phase: str, case: Optional[int], step: int) -> Dict[str, Any]:
+        """A step and the records logged during it (#201); ValueError if none."""
+        with self._condition:
+            return step_view(self.state, self.step_events, phase, case, step)
+
     def radio(self, sensor: str = "") -> Dict[str, Any]:
-        """Received Kepler frames - of one sensor, or all - and the sensor table."""
+        """Received frames - of one sensor, or all - and the sensor table."""
         with self._condition:
             return self.rf.view(sensor)
 
@@ -282,30 +276,62 @@ class Hub:  # pylint: disable=too-many-instance-attributes
                     "progress": progress(state), "instruments": self.links.view(now),
                     "now": now}
 
-    def kepler_screens(self, sensor: str = "") -> Dict[str, Any]:
-        """rf_monitor's Latest Data, Config and Identification (#152)."""
-        with self._condition:
-            return self.kepler.view(sensor)
+    def panel_view(self, name: str, sensor: str = "", **options: str) -> Dict[str, Any]:
+        """A plugin's panel for *sensor*, with the panel's own *options*, such
+        as ``tab``; empty if no plugin loaded provides it (#238, #303).
 
-    def sensor_graphs(self, sensor: str = "", axis: str = "Z") -> Dict[str, Any]:
-        """rf_monitor's Environment, Short Interval and Ticks (#153)."""
+        :raises ValueError: if the panel takes no such option.
+        """
         with self._condition:
-            return self.sensor_series.view(sensor, axis)
+            panel = self.dut_panels.get(name)
+            if panel is None:
+                return {}
+            return panel_call(name, panel.view, sensor, **options)
 
-    def waveform(self, sensor: str = "", buffer: str = "A", axis: str = "X") -> Dict[str, Any]:
-        """rf_monitor's TWF screen: a waveform and its spectrum (#154)."""
-        with self._condition:
-            return self.twf.view(sensor, buffer, axis)
+    def panel_action(self, name: str, action: str, sensor: str = "") -> Dict[str, Any]:
+        """Do a panel's *action*, such as Kepler's Diagnostics reset (#303).
 
-    def diagnostic_screens(self, sensor: str = "") -> Dict[str, Any]:
-        """rf_monitor's Diagnostics (for one sensor) and Sync (all sensors) (#155)."""
+        :raises ValueError: if no plugin loaded provides the panel, it has no
+            actions, or it refuses this one.
+        """
         with self._condition:
-            return {"diagnostics": self.diagnostics.view(sensor), "sync": self.sync.view()}
+            panel = self.dut_panels.get(name)
+            act = getattr(panel, "action", None)
+            if not callable(act):
+                raise ValueError("no panel %r with actions is loaded" % name)
+            reply = act(action, sensor)
+            return reply if isinstance(reply, dict) else {"ok": True}
 
-    def reset_diagnostics(self, sensor: str = "") -> None:
-        """Start the Diagnostics statistics again."""
+    def panel_reports(self, sensor: str = "") -> List[Dict[str, Any]]:
+        """Each panel's sections of the report, for *sensor* (#303).
+
+        A panel with no ``report``, or whose ``report`` fails, gives none;
+        the failure is logged.
+        """
         with self._condition:
-            self.diagnostics.reset(sensor)
+            reports = []
+            for name, panel in self.dut_panels.items():
+                report = getattr(panel, "report", None)
+                if not callable(report):
+                    continue
+                try:
+                    reply = report(sensor)
+                except Exception:  # pylint: disable=broad-exception-caught
+                    # Plugin code: one panel failing must not lose the report.
+                    _LOG.exception("panel %s could not give its report sections", name)
+                    continue
+                if isinstance(reply, dict):
+                    reports.append(dict(reply, panel=name))
+            return reports
+
+    def plugins(self) -> Dict[str, Any]:
+        """The plugins loaded, and those the followed run used that are not.
+
+        A panel of a plugin loaded since is started, keeping those running."""
+        with self._condition:
+            for name, panel in dut_panels().items():
+                self.dut_panels.setdefault(name, panel)
+            return {"plugins": plugins_view(), "missing": list(self.missing_plugins)}
 
     def st_gui_screen(self) -> Dict[str, Any]:
         """The ST GUI page: the kit's latest setup, its registers, its frames (#157)."""
@@ -454,22 +480,22 @@ class Launcher:
                 command, stdout=console, stderr=subprocess.STDOUT,
                 stdin=subprocess.DEVNULL)
         _LOG.info("started %s", " ".join(command))
-        return {"ok": True, "event_log": base + ".events.jsonl", "pid": self.process.pid}
+        return {"ok": True, "event_log": base + ".events.jsonl", "pid": self.process.pid,
+                "plugins": run_plugins(spec["path"], None if simulate else bench)}
 
 
 #: The read-only API: path to the handler method serving it.
 _GET_API = {
     "/api/state": "_get_state",
     "/api/instruments": "_get_instruments",
+    "/api/step": "_get_step",
     "/api/radio": "_get_radio",
     "/api/ble": "_get_ble",
     "/api/graphs": "_get_graphs",
     "/api/catalogue": "_get_catalogue",
     "/api/status": "_get_status",
-    "/api/kepler": "_get_kepler",
-    "/api/sensor": "_get_sensor",
-    "/api/twf": "_get_twf",
-    "/api/diagnostics": "_get_diagnostics",
+    "/api/plugins": "_get_plugins",
+    "/api/panel": "_get_panel",
     "/api/notes": "_get_notes",
     "/api/report": "_get_report",
     "/api/stgui": "_get_stgui",
@@ -482,7 +508,7 @@ _POST_API = {
     "/api/control": "_post_control",
     "/api/start": "_post_start",
     "/api/attach": "_post_attach",
-    "/api/diagnostics/reset": "_post_diagnostics_reset",
+    "/api/panel": "_post_panel",
     "/api/notes": "_post_notes",
     "/api/stgui/refresh": "_post_stgui_refresh",
 }
@@ -577,6 +603,8 @@ class _Handler(BaseHTTPRequestHandler):
             self._static("index.html")
         elif path.startswith("/static/"):
             self._static(path[len("/static/"):])
+        elif path.startswith("/plugin/"):
+            self._plugin_static(path[len("/plugin/"):])
         elif path in _GET_API:
             try:
                 getattr(self, _GET_API[path])()
@@ -598,6 +626,9 @@ class _Handler(BaseHTTPRequestHandler):
             raise ValueError("t0 and t1 are numbers") from exc
         self._json(self.server.hub.instruments(t0, t1))
 
+    def _get_step(self) -> None:
+        self._json(self.server.hub.step(*step_query(self._query)))
+
     def _get_radio(self) -> None:
         self._json(self.server.hub.radio((self._query("sensor") or "").upper()))
 
@@ -616,20 +647,15 @@ class _Handler(BaseHTTPRequestHandler):
                     "benches": self.server.catalogue.benches(),
                     "running": self.server.launcher.running})
 
-    def _get_kepler(self) -> None:
-        self._json(self.server.hub.kepler_screens((self._query("sensor") or "").upper()))
+    def _get_plugins(self) -> None:
+        self._json(self.server.hub.plugins())
 
-    def _get_sensor(self) -> None:
-        self._json(self.server.hub.sensor_graphs((self._query("sensor") or "").upper(),
-                                                 self._query("axis") or "Z"))
-
-    def _get_twf(self) -> None:
-        self._json(self.server.hub.waveform((self._query("sensor") or "").upper(),
-                                            self._query("buffer") or "A",
-                                            self._query("axis") or "X"))
-
-    def _get_diagnostics(self) -> None:
-        self._json(self.server.hub.diagnostic_screens((self._query("sensor") or "").upper()))
+    def _get_panel(self) -> None:
+        query = parse_qs(urlsplit(self.path).query)
+        options = {key: values[0] for key, values in query.items()
+                   if key not in ("name", "sensor") and values}
+        self._json(self.server.hub.panel_view(self._query("name") or "",
+                                              (self._query("sensor") or "").upper(), **options))
 
     def _get_notes(self) -> None:
         self._json(NotesStore(self.server.hub.path).load())
@@ -675,6 +701,15 @@ class _Handler(BaseHTTPRequestHandler):
     def _static(self, name: str) -> None:
         target = (STATIC / name).resolve()
         if STATIC not in target.parents or not target.is_file():
+            self._json({"ok": False, "error": "not found"}, HTTPStatus.NOT_FOUND)
+            return
+        self._send(HTTPStatus.OK, target.read_bytes(),
+                   _CONTENT_TYPES.get(target.suffix, "application/octet-stream"))
+
+    def _plugin_static(self, rest: str) -> None:
+        """A file from the static folder of one of a plugin's panels."""
+        target = plugin_file(rest)
+        if target is None:
             self._json({"ok": False, "error": "not found"}, HTTPStatus.NOT_FOUND)
             return
         self._send(HTTPStatus.OK, target.read_bytes(),
@@ -747,12 +782,19 @@ class _Handler(BaseHTTPRequestHandler):
             reply = self.server.launcher.start(body)
         except OSError as exc:
             raise ValueError(str(exc)) from exc
+        for folder in reply.get("plugins", ()):
+            try:
+                plugins.load_plugin(folder)
+            except BenchToolsError as exc:
+                _LOG.warning("plugin %s not loaded in the viewer: %s", folder, exc)
+        self.server.hub.plugins()                # starts the new plugins' panels
         self.server.hub.follow(reply["event_log"])
         self._json(reply)
 
-    def _post_diagnostics_reset(self, body: Dict[str, Any]) -> None:
-        self.server.hub.reset_diagnostics(str(body.get("sensor") or "").upper())
-        self._json({"ok": True})
+    def _post_panel(self, body: Dict[str, Any]) -> None:
+        self._json(self.server.hub.panel_action(str(body.get("name") or ""),
+                                                str(body.get("action") or ""),
+                                                str(body.get("sensor") or "").upper()))
 
     def _post_stgui_refresh(self, _body: Dict[str, Any]) -> None:
         """Ask the runner to read the kit's setup between steps (RUN-FR-066)."""
@@ -816,6 +858,11 @@ def new_token() -> str:
     return secrets.token_urlsafe(32)
 
 
+#: Errors that mean the client went away mid-request (VIEW-FR-046).
+_CLIENT_WENT_AWAY = (ConnectionAbortedError, ConnectionResetError, BrokenPipeError,
+                     ssl.SSLEOFError, ssl.SSLZeroReturnError)
+
+
 class ViewerServer(ThreadingHTTPServer):  # pylint: disable=too-many-instance-attributes
     """The viewer's HTTP server, on 127.0.0.1 unless told otherwise."""
 
@@ -849,6 +896,21 @@ class ViewerServer(ThreadingHTTPServer):  # pylint: disable=too-many-instance-at
         self.stopping.set()
         super().server_close()
 
+    def handle_error(self, request: Any, client_address: Any) -> None:
+        """Log a client that went away mid-request as one line (VIEW-FR-046).
+
+        A browser tab closed while loading, or a probe that is not HTTP, is
+        normal client behaviour and not worth a traceback. Over ``--tls`` the
+        same disconnect is an ``ssl.SSLEOFError`` or ``ssl.SSLZeroReturnError``.
+        The line is a warning, so ``benchtools view`` prints it. Any other
+        error is reported as ``socketserver`` reports it.
+        """
+        error = sys.exc_info()[1]
+        if isinstance(error, _CLIENT_WENT_AWAY):
+            _LOG.warning("viewer client %s went away: %s", client_address, error)
+            return
+        super().handle_error(request, client_address)
+
 
 def build_parser() -> argparse.ArgumentParser:
     """The ``benchtools view`` command line."""
@@ -875,6 +937,10 @@ def build_parser() -> argparse.ArgumentParser:
                         help="where to offer test specifications from (default: specs)")
     parser.add_argument("--benches", action="append", metavar="DIR",
                         help="where to offer benches from (default: benches)")
+    parser.add_argument("--plugin", action="append", default=[], metavar="PATH",
+                        help="load the device plugin in this folder, for its decoder and "
+                             "panels; repeatable. A run started from the page loads its "
+                             "specification's and bench's plugins as well")
     parser.add_argument("--runs", default="runs", metavar="DIR",
                         help="where a run started from the page writes its event log and "
                              "reports (default: %(default)s)")
@@ -887,6 +953,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     args = build_parser().parse_args(argv)
     logging.basicConfig(level=logging.WARNING, format="%(levelname)-8s %(name)s: %(message)s")
     catalogue = Catalogue(args.specs or ["specs"], args.benches or ["benches"])
+    try:
+        for folder in args.plugin:
+            plugins.load_plugin(folder)
+    except BenchToolsError as exc:
+        print("error: %s" % exc, file=sys.stderr)
+        return 2
     hub = Hub().start()
     if args.event_log:
         hub.follow(args.event_log, args.control)

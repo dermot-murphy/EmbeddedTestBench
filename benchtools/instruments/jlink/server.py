@@ -10,7 +10,10 @@ matter:
   elsewhere. Because GDB reaches the server over TCP, and RTT likewise, moving
   the tests into a container changes an address and nothing else.
 
-Traces to: JLINK-FR-003, JLINK-FR-004, JLINK-DD-SERVER.
+The ``segger`` backend's tools, J-Link Commander and J-Link RTT Logger, are
+found here too, in the same SEGGER installation (#71).
+
+Traces to: JLINK-FR-003, JLINK-FR-004, JLINK-FR-007, JLINK-DD-SERVER.
 """
 
 from __future__ import annotations
@@ -37,7 +40,15 @@ from .constants import (
     DebugInterface,
 )
 
-__all__ = ["GdbServer", "find_gdb_server", "find_gdb", "gdb_debugs_arm", "port_is_open"]
+__all__ = [
+    "GdbServer",
+    "find_gdb_server",
+    "find_gdb",
+    "find_jlink_commander",
+    "find_rtt_logger",
+    "gdb_debugs_arm",
+    "port_is_open",
+]
 
 
 #: Server output kept for a diagnostic: enough to show why it stopped.
@@ -55,6 +66,16 @@ _SERVER_NAMES = (
     "JLinkGDBServerCLExe",
     "JLinkGDBServer",
 )
+
+#: J-Link Commander, for the ``segger`` backend (#71). ``JLink.exe`` is the
+#: name in the Windows installation (``C:\Program Files\SEGGER\JLink_V942``,
+#: seen 2026-11-13); ``JLinkExe`` is SEGGER's name for it on Linux and macOS,
+#: which is not verified on this bench.
+_COMMANDER_NAMES = ("JLink.exe", "JLinkExe")
+
+#: J-Link RTT Logger, the ``segger`` backend's RTT reader (#71). Names as for
+#: Commander; the Windows one is in the same installation.
+_RTT_LOGGER_NAMES = ("JLinkRTTLogger.exe", "JLinkRTTLoggerExe")
 
 #: GDB executables that are built to debug an ARM target.
 _ARM_GDB_NAMES = (
@@ -132,6 +153,36 @@ def find_gdb_server(explicit: Optional[str] = None) -> Optional[str]:
         if found:
             return found
     installed = _installed(_SERVER_DIRECTORIES, _SERVER_NAMES)
+    return installed[0] if installed else None
+
+
+def find_jlink_commander(explicit: Optional[str] = None) -> Optional[str]:
+    """Locate J-Link Commander, the ``segger`` backend's tool (#71).
+
+    Searched as :func:`find_gdb_server` is: *explicit* if given, then PATH,
+    then the SEGGER install directories, newest release first. The same
+    installation provides both, so a bench that finds one finds the other.
+    """
+    if explicit:
+        return explicit
+    for name in _COMMANDER_NAMES:
+        found = shutil.which(name)
+        if found:
+            return found
+    installed = _installed(_SERVER_DIRECTORIES, _COMMANDER_NAMES)
+    return installed[0] if installed else None
+
+
+def find_rtt_logger(explicit: Optional[str] = None) -> Optional[str]:
+    """Locate J-Link RTT Logger, the ``segger`` backend's RTT reader (#71),
+    searched as :func:`find_jlink_commander` is."""
+    if explicit:
+        return explicit
+    for name in _RTT_LOGGER_NAMES:
+        found = shutil.which(name)
+        if found:
+            return found
+    installed = _installed(_SERVER_DIRECTORIES, _RTT_LOGGER_NAMES)
     return installed[0] if installed else None
 
 

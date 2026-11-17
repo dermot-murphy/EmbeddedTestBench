@@ -1,0 +1,8 @@
+# The script runs in a Linux container, whatever the checkout's line endings (#282).
+docker/ci/etb-ci text eol=lf
+
+# A conflict made only of revision history rows is resolved, both sides' rows
+# kept (scripts/doc_versions.py, #210); any other conflict is left. The driver
+# is switched on per clone with `python scripts/doc_versions.py install-driver`
+# (ETB-SUP8-001 §6.2); without it git merges these files as usual.
+docs/**/*.md merge=etb-history

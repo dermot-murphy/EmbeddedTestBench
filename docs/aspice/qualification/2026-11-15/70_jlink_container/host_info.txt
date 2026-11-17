@@ -1,0 +1,13 @@
+{
+  "attached": true,
+  "backend": "gdb",
+  "core_clock_hz": 64000000.0,
+  "elf": null,
+  "firmware": "J-Link ARM V8 compiled Nov 28 2014 13:44:46",
+  "halted": true,
+  "identity": "Firmware: J-Link ARM V8 compiled Nov 28 2014 13:44:46, Hardware: V8.00, S/N: 682395790",
+  "manufacturer": "SEGGER",
+  "model": "J-Link",
+  "program_counter": "0x00015f5a",
+  "serial_number": "682395790"
+}

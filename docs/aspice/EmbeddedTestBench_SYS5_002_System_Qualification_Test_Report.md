@@ -10,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SYS5-002 | **Version** | 1.3 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
+| **Document ID** | ETB-SYS5-002 | **Version** | [latest, §2](#2-revision-history) |
+| **Project** | Embedded Test Bench | **Date** | [latest, §2](#2-revision-history) |
 | **Status** | Draft — for review | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SYS.5 |
@@ -29,6 +29,7 @@
 | 1.1 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
 | 1.2 | 2026-10-05 | Claude | #204: Review & Approval table points to the merge of the pull request that last changed the document, which is the review and approval (ETB-SUP8-001 §5.7); no per-change signatures or dates. |
 | 1.3 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
+| 1.4 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
 
 ---
 
@@ -86,7 +87,7 @@ the first run.
 | `psu` | GW Instek GPD-3303D | SN GER916893, firmware V1.09 | COM11, FTDI `A105X5XCA` |
 | `dmm` | TTi 1604 | (the meter reports no identity) | COM13, FTDI `A9LQ0R81A` |
 | `s2lp` | NUCLEO-L053R8 with STEVAL-FKI433V2, ST CLI firmware | board STEVAL-FKI433V2, firmware 80 | COM4, ST-LINK `066CFF515055657867182645` |
-| `temp` | Raspberry Pi Pico 2, `firmware/pico_sht30` | V1.00.0000 (5c80ae7) | COM14, USB `AC5483CD0798FB0B` |
+| `temp` | Raspberry Pi Pico 2, `firmware/pico2_test_board` | V1.00.0000 (5c80ae7) | COM14, USB `AC5483CD0798FB0B` |
 
 ### 4.2 Target
 

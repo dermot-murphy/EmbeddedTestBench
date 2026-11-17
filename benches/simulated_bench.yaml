@@ -74,10 +74,14 @@ instruments:
     driver: s2lp
     resource: sim://
     timeout: 5.0
+    options:
+      # The simulated kit hears the simulated Kepler sensor's 433 MHz frames
+      # (#122), once its registers are set up to receive them.
+      simulated_targets: [kepler-5C1712]
 
-  # The bench thermometer: Pico 2 + SHT30-D, simulated. Event-log name TEMP.
-  temp:
-    driver: pico-sht30
+  # The PICO2 Test Board (Pico 2 thermometer, LEDs, generator), simulated. Event-log name TEMP.
+  pico2:
+    driver: pico2-test-board
     resource: sim://
     timeout: 5.0
     event: TEMP
@@ -92,3 +96,29 @@ instruments:
       # needed" needs nothing - which is the outcome to want here: flashing a
       # simulator would be flashing nothing.
       update_firmware: true
+
+  # A device's serial output, captured by the serial capture instrument (#247),
+  # simulated. The simulated device prints a short boot script when a capture
+  # starts. Event-log name SERIAL.
+  uart:
+    driver: serial
+    resource: sim://
+    timeout: 5.0
+
+  # The PicoScope 3000D MSO (#200), simulated: a 1 kHz sine on A, a 3.3 V
+  # square wave on B, a counter on the digital inputs, and the signal
+  # generator wired to A. Event-log name PSCOPE.
+  pscope:
+    driver: picoscope3000
+    resource: sim://
+    timeout: 5.0
+
+  # The Nordic PPK2 (#342), simulated: with its DUT power on, the device draws
+  # 20 uA with a 5 mA pulse of 5 ms every 100 ms, and D0 high during each
+  # pulse. Event-log name PPK.
+  ppk:
+    driver: ppk2
+    resource: sim://
+    timeout: 5.0
+    options:
+      voltage_limit: 3.3

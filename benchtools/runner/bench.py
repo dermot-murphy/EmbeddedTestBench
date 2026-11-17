@@ -20,7 +20,7 @@ Example (YAML)::
 Drivers are named, not imported by the specification, so a test file cannot
 reach arbitrary code. New drivers are added with :func:`register_driver`.
 
-Traces to: RUN-FR-001 .. RUN-FR-005, RUN-FR-007, RUN-FR-008, RUN-FR-037, RUN-DD-BENCH.
+Traces to: RUN-FR-001 .. RUN-FR-005, RUN-FR-007, RUN-FR-008, RUN-FR-037, CORE-FR-069, RUN-DD-BENCH.
 """
 
 from __future__ import annotations
@@ -28,18 +28,22 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterator, List, Optional, Type
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Type
 
 from ..core.errors import BenchConfigError, BenchToolsError, ConfigurationError
 from ..core.events import connecting_as, validate_source_name
 from ..core.instrument import Instrument
 from ..core.paths import input_path_names, resolve_input_path, search_locations
+from ..core.plugins import plugin_folders
 from ..instruments.generic import GenericScpiInstrument
 from ..instruments.jlink import JLinkProbe, JLinkRttReader
 from ..instruments.gpd3303d import Gpd3303D
-from ..instruments.pico_sht30 import PicoSht30
+from ..instruments.pico2_test_board import Pico2TestBoard
 from ..instruments.nordic_dongle import NordicDongle
+from ..instruments.picoscope3000 import PicoScope3000
+from ..instruments.ppk2 import Ppk2
 from ..instruments.s2lp import S2lpDevkit
+from ..instruments.serial_capture import SerialCapture
 from ..instruments.tek3014b import Tek3014B
 from ..instruments.tti1604 import Tti1604
 
@@ -82,8 +86,16 @@ register_driver("s2lp", S2lpDevkit)
 register_driver("s2lp-devkit", S2lpDevkit)
 register_driver("tti1604", Tti1604)
 register_driver("dmm", Tti1604)
-register_driver("pico-sht30", PicoSht30)
-register_driver("thermometer", PicoSht30)
+register_driver("pico2-test-board", Pico2TestBoard)
+register_driver("pico2", Pico2TestBoard)
+# Names from before #330, kept so that existing bench files still load.
+register_driver("pico-sht30", Pico2TestBoard)
+register_driver("thermometer", Pico2TestBoard)
+register_driver("serial", SerialCapture)
+register_driver("serial-capture", SerialCapture)
+register_driver("picoscope3000", PicoScope3000)
+register_driver("picoscope", PicoScope3000)
+register_driver("ppk2", Ppk2)
 
 
 @dataclass(frozen=True)
@@ -158,6 +170,8 @@ class BenchConfig:
     instruments: Dict[str, InstrumentConfig]
     description: str = ""
     source: str = ""
+    #: Device plugin folders the bench loads (``plugins:``, #238), absolute.
+    plugins: Tuple[str, ...] = ()
 
     @property
     def directory(self) -> Optional[str]:
@@ -187,11 +201,13 @@ class BenchConfig:
                     "instrument's records need a name of their own"
                     % (seen[item.event], alias, item.event))
             seen[item.event] = alias
+        directory = os.path.dirname(os.path.abspath(source)) if source else None
         return cls(
             name=str(data.get("name", "bench")),
             description=str(data.get("description", "")),
             instruments=configs,
             source=source,
+            plugins=plugin_folders(data.get("plugins"), directory, source or "bench"),
         )
 
     @classmethod

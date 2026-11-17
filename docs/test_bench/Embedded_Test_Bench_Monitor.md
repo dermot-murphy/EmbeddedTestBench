@@ -104,7 +104,7 @@ python tools/test_bench/test_bench.py --log rf_log.txt
 
 Options: `--board` (optional; the driver reads the board's band from its
 EEPROM anyway), `--setup` (register file to receive with; default
-`configs/s2lp_kepler_433_rx.regs`), `--packet-log` (also write every packet,
+`plugins/kepler/configs/s2lp_kepler_433_rx.regs`), `--packet-log` (also write every packet,
 raw and decoded), `--sensor-id` (the initial filter, as in rf_monitor).
 
 **One owner per port.** The monitor opens the S2-LP kit's port, so a test run

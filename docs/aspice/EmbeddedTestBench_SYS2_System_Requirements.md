@@ -10,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SYS2-001 | **Version** | 0.6 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
+| **Document ID** | ETB-SYS2-001 | **Version** | [latest, §2](#2-revision-history) |
+| **Project** | Embedded Test Bench | **Date** | [latest, §2](#2-revision-history) |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SYS.2 |
@@ -30,7 +30,11 @@
 | 0.4 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
 | 0.5 | 2026-10-05 | Claude | #204: Review & Approval table points to the merge of the pull request that last changed the document, which is the review and approval (ETB-SUP8-001 §5.7); no per-change signatures or dates. |
 | 0.6 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
+| 0.7 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
 
+| 0.8 | 2026-10-28 | Claude | #247: ETB-SYS2-037 - capture a target's serial output, record every line, write nothing to the port; traced to STK-24 and `SER-` (ETB-SWE1-001 §16). The software requirement sections referred to are §6 to §17 (RUN is now §17). |
+| 0.9 | 2026-11-13 | Claude | #200: ETB-SYS2-065 - capture analogue and logic signals together on one time base, and drive a stimulus from a signal generator; traced to STK-02, STK-04, STK-05 and STK-07 and to `PSCOPE-` (ETB-SWE1-001 §17). The software requirement sections referred to are §6 to §18 (RUN is now §18). |
+| 0.10 | 2026-11-14 | Claude | #342: ETB-SYS2-026 - measure the target's current at 100 000 samples a second, as its supply or in its supply line, with the average, charge and pulses, within the bench's voltage limit; traced to STK-25 and `PPK-` (ETB-SWE1-001 §18). The software requirement sections referred to are §6 to §19 (RUN is now §19). |
 ---
 
 ## 3. Purpose & Scope
@@ -43,7 +47,7 @@ to it, the dongle firmware Embedded Test Bench itself supplies, and the target u
 as it appears to the bench.
 
 It sits between the stakeholder requirements (ETB-SWE1-001 §4) and the software
-requirements (ETB-SWE1-001 §6–§15). A stakeholder requirement says what the
+requirements (ETB-SWE1-001 §6–§19). A stakeholder requirement says what the
 engineer wants; a system requirement says what the bench must therefore do,
 including the parts that are not software; a software requirement says what the
 code must do.
@@ -140,6 +144,7 @@ Each requirement carries a verification method: **T** test, **A** analysis,
 | ETB-SYS2-023 | Where the supply's tracking mode means a per-channel setpoint would be accepted and silently discarded by the hardware, the system shall refuse the write rather than perform it. | T |
 | ETB-SYS2-024 | The system shall be able to bring the supply to a known safe state — outputs off, setpoints at zero — and that state shall be reachable whatever mode the supply is in. | T |
 | ETB-SYS2-025 | The system shall not present the supply's fixed, front-panel-switched auxiliary rail as a controllable channel. | I |
+| ETB-SYS2-026 | The system shall measure the current the target draws, from under a microamp to about 1 A, at 100 000 samples a second, either supplying the target itself at a set voltage or in the line of an outside supply; and shall report the average current over a window, the charge drawn, and the pulses in it - their count, widths and charges - marked by a current threshold or by a logic signal from the target (#342). It shall not set or switch on a voltage above the limit the bench states for what is wired. | T |
 
 > ETB-SYS2-023 is the treatment of ETB-RISK-008. The GPD-3303D accepts CH2
 > setpoints in series and parallel tracking and discards them; a bench that
@@ -159,6 +164,7 @@ Each requirement carries a verification method: **T** test, **A** analysis,
 | ETB-SYS2-034 | The system shall read and write the target's RTT channels, and shall be able to log RTT output to a file for the duration of a run. | T |
 | ETB-SYS2-035 | The system shall measure elapsed time between points in target execution, and shall report the resolution of the method used. | T |
 | ETB-SYS2-036 | Every firmware image the system programmes shall be accompanied by a manifest stating its version and build date, and the system shall be able to compare the version a running target reports against that manifest. | T |
+| ETB-SYS2-037 | The system shall capture the lines a target prints on a serial port, for a stated time or until a line matches an expected pattern, shall record every line it captures in the run's evidence, and shall write nothing to that port (#247). | T |
 
 ---
 
@@ -197,6 +203,7 @@ Each requirement carries a verification method: **T** test, **A** analysis,
 | ETB-SYS2-062 | The system shall measure quantities from a captured record, including period, frequency, edge times, and the spread in time between several channels reaching a threshold. | T |
 | ETB-SYS2-063 | Analysis of captured records shall be performed on the host from the captured data, so that the same record analysed twice yields the same result. | T |
 | ETB-SYS2-064 | Every measurement the system reports shall carry its units and, where the method bounds it, its resolution. | T |
+| ETB-SYS2-065 | The system shall capture analogue and digital (logic) signals of the target together, in one acquisition on one time base, with the analogue records in seconds and volts and each logic line as a record of 0 and 1, so that a test can relate a logic event to an analogue one; and it shall drive a stated stimulus waveform into the target from a signal generator, within that generator's stated limits (#200). | T |
 
 ---
 
@@ -250,13 +257,13 @@ Each requirement carries a verification method: **T** test, **A** analysis,
 ## 14. Traceability
 
 Upward to the stakeholder requirements in ETB-SWE1-001 §4, downward to the
-software requirements in ETB-SWE1-001 §6–§15. The full matrix is ETB-RTM-001.
+software requirements in ETB-SWE1-001 §6–§19. The full matrix is ETB-RTM-001.
 
 | Stakeholder | System requirements |
 |---|---|
-| STK-01…STK-05 | ETB-SYS2-060…ETB-SYS2-064 |
+| STK-01…STK-05 | ETB-SYS2-060…ETB-SYS2-065 |
 | STK-06 | ETB-SYS2-090 |
-| STK-07 | ETB-SYS2-011, ETB-SYS2-014 |
+| STK-07 | ETB-SYS2-011, ETB-SYS2-014, ETB-SYS2-065 |
 | STK-08 | ETB-SYS2-070…ETB-SYS2-084 |
 | STK-09, STK-10 | ETB-SYS2-030…ETB-SYS2-036, ETB-SYS2-002 |
 | STK-11 | ETB-SYS2-090 |
@@ -267,14 +274,16 @@ software requirements in ETB-SWE1-001 §6–§15. The full matrix is ETB-RTM-001
 | STK-17 | ETB-SYS2-044 |
 | STK-18 | ETB-SYS2-051, ETB-SYS2-052, ETB-SYS2-053, ETB-SYS2-104 |
 | STK-19, STK-20 | ETB-SYS2-046, ETB-SYS2-047, ETB-SYS2-103 |
+| STK-24 | ETB-SYS2-037 |
+| STK-25 | ETB-SYS2-026 |
 
 | System requirement group | Software requirements |
 |---|---|
 | Bench composition §6 | `CORE-FR-*`, `INST-FR-*` |
-| Power §7 | `PSU-FR-*`, `PSU-NFR-*` |
-| Target control §8 | `JLINK-FR-*`, `JLINK-NFR-*` |
+| Power §7 | `PSU-FR-*`, `PSU-NFR-*`, `PPK-FR-*`, `PPK-NFR-*` |
+| Target control §8 | `JLINK-FR-*`, `JLINK-NFR-*`, `SER-FR-*`, `SER-NFR-*` |
 | Wireless §9 | `BLE-FR-*`, `BLE-NFR-*`, `S2LP-FR-*`, `S2LP-NFR-*` |
-| Measurement §10 | `SCOPE-FR-*`, `ANA-FR-*` |
+| Measurement §10 | `SCOPE-FR-*`, `PSCOPE-FR-*`, `PSCOPE-NFR-*`, `ANA-FR-*` |
 | Test definition §11 | `RUN-FR-*` |
 | Non-functional §12 | `CORE-NFR-*`, ETB-STD-002, ETB-STY-001 |
 

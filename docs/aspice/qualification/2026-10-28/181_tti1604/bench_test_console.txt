@@ -1,0 +1,23 @@
+============================= test session starts =============================
+platform win32 -- Python 3.14.7, pytest-9.2.0, pluggy-1.6.0 -- C:\Python314\python.exe
+rootdir: U:\GitHub\EmbeddedTestBench
+configfile: pyproject.toml
+plugins: platformdirs-4.12.0, cov-7.1.0
+collecting ... collected 14 items
+
+tests/bench/tti1604/test_bench.py::TestTheLink::test_the_meter_answers_and_reads PASSED [  7%]
+tests/bench/tti1604/test_bench.py::TestTheLink::test_keys_are_acknowledged_promptly PASSED [ 14%]
+tests/bench/tti1604/test_bench.py::TestTheStream::test_every_frame_decodes PASSED [ 21%]
+tests/bench/tti1604/test_bench.py::TestTheStream::test_the_reading_rate_is_two_and_a_half_per_second PASSED [ 28%]
+tests/bench/tti1604/test_bench.py::TestTheStream::test_the_raw_stream PASSED [ 35%]
+tests/bench/tti1604/test_bench.py::TestFunctionAndRange::test_a_tour_of_the_safe_functions PASSED [ 42%]
+tests/bench/tti1604/test_bench.py::TestFunctionAndRange::test_every_dc_voltage_range PASSED [ 50%]
+tests/bench/tti1604/test_bench.py::TestFunctionAndRange::test_the_frequency_gate SKIPPED [ 57%]
+tests/bench/tti1604/test_bench.py::TestAgainstReferences::test_dc_voltage SKIPPED [ 64%]
+tests/bench/tti1604/test_bench.py::TestAgainstReferences::test_resistance SKIPPED [ 71%]
+tests/bench/tti1604/test_bench.py::TestAgainstReferences::test_dc_current SKIPPED [ 78%]
+tests/bench/tti1604/test_bench.py::TestAgainstReferences::test_frequency SKIPPED [ 85%]
+tests/bench/tti1604/test_bench.py::TestAgainstReferences::test_an_open_input_on_ohms_is_an_overrange PASSED [ 92%]
+tests/bench/tti1604/test_bench.py::TestHandingBack::test_local_then_remote PASSED [100%]
+
+======================== 9 passed, 5 skipped in 51.09s ========================

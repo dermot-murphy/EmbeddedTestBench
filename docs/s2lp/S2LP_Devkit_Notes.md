@@ -42,6 +42,21 @@ this driver without reflashing between them.
 **What comes with that decision** is in §4. The limits are the firmware's, and
 the driver's job is to be honest about them rather than to hide them.
 
+**Since #84 there is a second choice.** `firmware/s2lp_kit` is this project's
+own firmware for the kit (AD-32). It receives on the radio's interrupt and
+re-arms before anything goes to the host: 393 µs at most from a frame's
+interrupt to the radio armed again, against 26-27 ms for a polled stream on
+ST's firmware, with RSSI, PQI, SQI and AFC read after every frame
+(`docs/aspice/qualification/2026-11-14/84_kit_firmware/`). It does not change
+ST's firmware and contains none of ST's source (§6). The radio is set up by
+register writes; ST's configuration commands are not on it. The driver in
+this package talks to either: on connecting it sends `id`, which the kit
+firmware answers and ST's answers with `no such command`, and on the kit
+firmware registers, strobes, shutdown and `stream` work, with RSSI, PQI, SQI
+and AFC on every frame in either mode (`docs/aspice/qualification/2026-11-14/84_kit_driver/`).
+To use it, flash it as its README says; to go back, write the backup of ST's image taken from the kit,
+which is kept outside this repository.
+
 ---
 
 ## 2. The protocol
@@ -312,7 +327,7 @@ usually interrupted on purpose. `radio.log_note(...)` writes into both.
 ### 3.6 Receiving the Kepler sensor
 
 The Kepler (Kappa X) sensor transmits plaintext frames at 433.425 MHz. The bench
-kit is the 433 MHz board (STEVAL-FKI433V2). `configs/s2lp_kepler_433_rx.regs`
+kit is the 433 MHz board (STEVAL-FKI433V2). `plugins/kepler/configs/s2lp_kepler_433_rx.regs`
 holds the receive setup, captured from the kit after it was set up to the
 sensor firmware's settings:
 
@@ -325,17 +340,19 @@ sensor firmware's settings:
 
 ```python
 from benchtools.instruments.s2lp import S2lpDevkit
-from benchtools.instruments.s2lp.kepler import decode_kepler_frame
+from benchtools.core import plugins
 
 with S2lpDevkit.connect("COM4", board="STEVAL-FKI433V2",
                         packet_log="kepler.jsonl") as radio:
-    radio.apply_configuration("configs/s2lp_kepler_433_rx.regs", reset="defaults")
-    for frame in radio.stream(decoder=decode_kepler_frame, timeout=900):
+    plugins.load_plugin("plugins/kepler")          # the Kepler device plugin (#238)
+    radio.apply_configuration(
+        plugins.resolve_plugin_path("plugin:kepler/s2lp_kepler_433_rx.regs"), reset="defaults")
+    for frame in radio.stream(decoder=plugins.decoder("kepler"), timeout=900):
         print(frame)            # RX  35 bytes  -94.5 dBm  ALIVE  5c1712...
 ```
 
 ```bash
-python -m benchtools s2lp -r COM4 --board STEVAL-FKI433V2 --setup configs/s2lp_kepler_433_rx.regs stream --decode kepler --timeout 900 > frames.jsonl
+python -m benchtools s2lp -r COM4 --board STEVAL-FKI433V2 --plugin plugins/kepler --setup plugin:kepler/s2lp_kepler_433_rx.regs stream --decode kepler --timeout 900 > frames.jsonl
 ```
 
 `stream()` has two modes (#87):
@@ -350,8 +367,8 @@ python -m benchtools s2lp -r COM4 --board STEVAL-FKI433V2 --setup configs/s2lp_k
   is deaf while the host re-arms it (§4.1), and close repeats are lost.
 
 ```bash
-python -m benchtools s2lp ... stream --decode kepler                          # batch
-python -m benchtools s2lp ... stream --decode kepler --mode polled --registers LINK_QUALIF2,RSSI_LEVEL
+python -m benchtools s2lp --plugin plugins/kepler ... stream --decode kepler       # batch
+python -m benchtools s2lp --plugin plugins/kepler ... stream --decode kepler --mode polled --registers LINK_QUALIF2,RSSI_LEVEL
 ```
 
 Each record in the packet log carries the raw payload, the registers (polled
@@ -491,11 +508,11 @@ from RAM):
 | RF (433.425 MHz, 2-FSK, 100 kbps, 19.979 kHz deviation, 156.153 kHz filter) | same | same |
 | Packet (sync `0xB19C0CA7`, CRC-16 0x8005, variable length, address byte, no FEC or whitening) | same | same |
 | Preamble | 32 bits | PREAMBLE_LEN 32, the sensor firmware's value; this only matters when transmitting |
-| RX timeout | infinite (`S2LPTimerSetRxTimeoutUs 0`) | **now the same**, set by `prepare_receive()` on the first receive (#87). Out of reset TIMERS5 is 1, a finite timer |
+| RX timeout | infinite (`S2LPTimerSetRxTimeoutUs 0`) | **now the same**, set by `prepare_receive()` on the first receive (#87). Out of reset TIMERS5 is 1, a finite timer. On the ETB kit firmware neither the driver nor the firmware changes it, and RX_TIMEOUT is not among the interrupts the firmware takes, so a timeout would leave the stream silently deaf. It was not seen: with TIMERS5 at 1 and TIMERS4 at 0, the 300 s stream of `84_kit_driver/run1` kept receiving to its end, the longest gap between its 115 records 9.3 s (#348 review) |
 | Low-power receive | `S2LPGetBatchLP 0` | now the same |
 | nIRQ on GPIO3 | GPIO_MODE 3 (high power) | GPIO_MODE 2 (low power); drive strength only |
 | IRQ mask | RX ready, RX discarded | those, plus TX sent, CRC error, valid sync, RX timeout |
-| Sync words | primary `0x4E63F358` from `st_eval/Spirit_GUI_Configuration.dat`, secondary `0xB19C0CA7` written by hand to 0x42-0x45, with SECOND_SYNC_SEL | **now the same** in `configs/s2lp_kepler_433_rx.regs`; before #87 it held `0xB19C0CA7` only and did not hear the gateway |
+| Sync words | primary `0x4E63F358` from `st_eval/Spirit_GUI_Configuration.dat`, secondary `0xB19C0CA7` written by hand to 0x42-0x45, with SECOND_SYNC_SEL | **now the same** in `plugins/kepler/configs/s2lp_kepler_433_rx.regs`; before #87 it held `0xB19C0CA7` only and did not hear the gateway |
 
 The GUI's setup also confirms two things this driver found independently:
 nIRQ goes on GPIO3 with the register's own GPIO_MODE encoding, and the board's
@@ -594,6 +611,22 @@ indefinitely.
    which read back as `GPIO3_CONF = 0x01`, and no interrupt ever arrived. All
    four S2-LP GPIOs were confirmed to reach the board's pins one to one, by
    driving each high in turn and reading `S2MGpioGetValue`.
+
+   **The register defaults undo the routing** (#179). GPIO3_CONF's reset value
+   is 0xA2: GPIO_SELECT 0xA0, a digital output driving GND. After
+   `restore_defaults()` (an `apply_configuration` with `reset="defaults"`) or
+   `power_cycle()` the line reads 0 whatever IRQ_STATUS holds, and IRQ_MASK is
+   0. Read on the kit on 2026-10-24, with and without a transmit before it:
+
+   | Point | GPIO3_CONF | IRQ_MASK3..0 | TIMERS5 | Line |
+   |---|---|---|---|---|
+   | After the first receive | 0x02 | 10 00 20 17 (once 10 00 22 17) | 0x00 | 1 (once 0: pending from the stopped receive, #99) |
+   | After a transmit | 0x02 | as before the transmit | 0x00 | 1 |
+   | After `reset="defaults"` again | 0xA2 | 00 00 00 00 | 0x01 | 0 |
+
+   The transmit was not the cause: a receive followed by a defaults reset was
+   refused the same way. Both resets now make the next send or receive route
+   the interrupt again, so QS-07's receive after transmit passes.
 2. **The TX source has to be the FIFO.** PCKTCTRL1 powers up as 0x2C, with
    TXSOURCE = 3: a PN9 test pattern, which the radio sends for as long as it is
    left in TX, ignoring the FIFO. `configure_packets()` (ST's
@@ -654,6 +687,11 @@ one. This matters for what may be kept here:
   driver targets, which is also what makes a drifted command fail in a test.
 * **No ST source is vendored.** There is no copy of ST's headers, library or
   firmware in this repository.
+* **SLA0072 forbids publishing ST's sources**, modified or not, to third
+  parties: so ST's CLI cannot be extended here, and neither the backup of
+  ST's image nor a patch to it may be committed. The kit firmware of #84 was
+  written instead, with its own startup, linker script, register definitions
+  and S2-LP SPI access; pin assignments are facts of the board.
 * **The register map holds facts, not prose**: addresses, reset values, field
   names and bit positions, which are properties of the silicon published in the
   S2-LP datasheet. It was cross-checked against ST's published register header

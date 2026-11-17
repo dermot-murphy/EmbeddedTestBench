@@ -12,6 +12,7 @@ import pytest
 from benchtools.cli import main as top_level_main
 from benchtools.instruments.nordic_dongle import SimulatedDongle
 from benchtools.instruments.nordic_dongle.cli import build_parser, main
+from benchtools.instruments.nordic_dongle.constants import PROTOCOL_VERSION
 
 
 def run(capsys, *argv):
@@ -35,7 +36,8 @@ class TestSubcommands:
         status, payload, _ = run(capsys, *SIM, "info")
         assert status == 0
         assert payload["manufacturer"] == "Nordic"
-        assert payload["protocol"] == "1.7"
+        assert payload["protocol"] == "1.8"
+        assert payload["driver_protocol"] == PROTOCOL_VERSION
         assert payload["firmware"] == SimulatedDongle.DEFAULT_FIRMWARE_VERSION
         assert payload["built"] == SimulatedDongle.DEFAULT_FIRMWARE_BUILT
 

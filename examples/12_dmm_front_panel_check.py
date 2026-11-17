@@ -5,6 +5,7 @@
     python examples/12_dmm_front_panel_check.py /dev/ttyUSB0
     python examples/12_dmm_front_panel_check.py COM6 --hold 10     # unattended
     python examples/12_dmm_front_panel_check.py sim://              # dry run
+    python examples/12_dmm_front_panel_check.py COM6 --signal       # a signal on V
 
 Each step changes the meter through the driver, reads it back - function,
 range, auto or manual, and the display text - and says what the front panel
@@ -16,6 +17,11 @@ where they are compared.
 
 **Leave the inputs open.** No current function is selected; the resistance
 step drives the meter's test current into the open input, which is safe.
+
+The two frequency steps are skipped unless ``--signal`` says an AC signal is on
+the V input. With no signal a real 1604 in Hz sends nothing and ignores the
+link until V is pressed on its front panel (#181), so on open inputs they would
+stop the check.
 
 Whatever happens, the meter is left on DC volts, auto-ranging, and handed back
 to its front panel (local mode).
@@ -121,10 +127,20 @@ def _ask(hold: float, interactive: bool) -> str:
     return answer.strip()
 
 
-def _run_steps(dmm: Tti1604, record: dict, hold: float, interactive: bool) -> bool:
-    """Take every step, logging each. True if the operator stopped early."""
+def _run_steps(dmm: Tti1604, record: dict, hold: float, interactive: bool,
+               signal: bool = False) -> bool:
+    """Take every step, logging each. True if the operator stopped early.
+
+    Without *signal* the frequency steps are logged as skipped (#181).
+    """
     state = None
     for number, (title, action, expect) in enumerate(_steps(), 1):
+        if title.startswith("Frequency") and not signal:
+            print("Step %d - %s: skipped, no signal on the input (--signal)\n"
+                  % (number, title))
+            record["steps"].append({"step": number, "title": title, "expect": expect,
+                                    "driver": None, "panel": "(skipped - no signal)"})
+            continue
         print("Step %d - %s" % (number, title))
         action(dmm)
         if dmm.is_remote:
@@ -149,15 +165,19 @@ def main(argv=None) -> int:
     parser.add_argument("--hold", type=float, default=None,
                         help="seconds to hold each step instead of prompting")
     parser.add_argument("--log", default=None, help="JSON log path")
+    parser.add_argument("--signal", action="store_true",
+                        help="an AC signal is on the V input: take the frequency steps")
     args = parser.parse_args(argv)
 
     interactive = args.hold is None and sys.stdin.isatty()
     hold = args.hold if args.hold is not None else 8.0
     stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     log_path = args.log or "dmm_front_panel_check_%s.json" % stamp
-    record = {"resource": args.resource, "started": stamp, "steps": []}
+    record = {"resource": args.resource, "started": stamp, "steps": [],
+              "signal": bool(args.signal)}
 
-    print("Leave the meter's inputs open. Watch its front panel.")
+    print("Leave the meter's inputs open%s. Watch its front panel."
+          % (" but for the signal on V" if args.signal else ""))
     if interactive:
         if input("Ready? [y/N] ").strip().lower() != "y":
             return 1
@@ -174,7 +194,7 @@ def main(argv=None) -> int:
         print("Meter: %s, found on %s\n" % (record["identity"], record["original"]["function"]))
         stopped = False
         try:
-            stopped = _run_steps(dmm, record, hold, interactive)
+            stopped = _run_steps(dmm, record, hold, interactive, signal=args.signal)
         except BenchToolsError as exc:
             print("error: %s" % exc)
             record["error"] = str(exc)

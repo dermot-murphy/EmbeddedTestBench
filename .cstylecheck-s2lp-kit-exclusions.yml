@@ -1,0 +1,16 @@
+# CStyleCheck exclusions for firmware/s2lp_kit (#84). Used only by the S2-LP
+# kit step of .github/workflows/style.yml.
+#
+# Unity's test files take numbers as test data, and Unity calls setUp and
+# tearDown by those names, as for the Pico firmware's tests.
+"test_*.c":
+  disabled_rules:
+    - misc.magic_number
+    - misc.unsigned_suffix
+  identifiers:
+    setUp:
+      disabled_rules:
+        - function.prefix
+    tearDown:
+      disabled_rules:
+        - function.prefix

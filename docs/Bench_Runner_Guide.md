@@ -5,9 +5,9 @@ How to write a test specification and a bench configuration, and how to run them
 | Field | Value |
 |---|---|
 | Document ID | BENCHTOOLS-GUIDE-001 |
-| Version | 3.7 |
-| Date | 2026-10-23 |
-| Applies to | `benchtools` 0.02.0002 (release `v0.02.0002`) |
+| Version | 3.8 |
+| Date | 2026-11-17 |
+| Applies to | `benchtools` 0.03.0000 (release `v0.03.0000`) |
 
 ---
 
@@ -182,7 +182,7 @@ instruments:
 It does two things. It makes `--simulate` work for a suite that spans more than one
 kind of instrument — without it, every alias would be simulated as the same driver.
 An entry can also name the instrument in the event log, as a mapping
-(`temp: {driver: pico-sht30, event: TEMP}`), see
+(`pico2: {driver: pico2-test-board, event: TEMP}`), see
 [§6.3](#63-event-log-names-which-instrument-said-what).
 
 And it is checked against the bench before the first step runs, so pointing a suite
@@ -535,6 +535,21 @@ specification itself.
 off the part, finds that board over the air by it, and compares what the board
 reports with what was flashed onto it.
 
+**Computing from saved values.** The built-in `compute` step makes one number
+from two, for a limit on how two readings relate (#242):
+
+```yaml
+- do: compute
+  with: {operation: difference, a: {from: unloaded.mean}, b: {from: loaded.mean}}
+  save: drop
+  expect:
+    - {name: battery_drop, measure: "", unit: mV, min: 0, max: 200}
+```
+
+`operation` is `difference` (`a - b`), `absolute_difference`, `sum`, `product`
+or `ratio` (`a / b`). A value read off a reply as text is read as a number; one
+that is not a number is an error, and a ratio to zero is a measurement error.
+
 ### 3.7 Parameters: values named once, at the top
 
 The values a reader is most likely to want to change - a tolerance, how many
@@ -573,7 +588,7 @@ result can always be read against the limits that produced it.
 
 ### 3.8 Repeated readings
 
-`dongle.sample_command`, `probe.rtt_samples` and `s2lp.kepler_samples` each take
+`dongle.sample_command`, `probe.rtt_samples` and `s2lp.dut_samples` each take
 N readings of one quantity - a reply, a log line, a decoded frame field - and
 return them with their statistics. A limit then applies to the set:
 
@@ -585,6 +600,98 @@ return them with their statistics. A limit then applies to the set:
 
 Bounding `minimum` and `maximum` against another source's `mean` puts every
 reading inside the window, not just their average.
+
+### 3.9 Radio frames: filters, intervals, copies, groups, census
+
+A device's frames are decoded by its plugin (§6.6). These S2-LP actions work on
+the decode, with no device knowledge of their own (#243). A field is a dotted
+path into the decode: `mux`, `status.phase`, `values.2`.
+
+**Choosing frames.** `s2lp.dut_frame` and `s2lp.dut_samples` take `where`, and
+so do the measures below. Each path takes a value, or a list of values any of
+which will do. Text matches ignoring case.
+
+```yaml
+- do: s2lp.dut_frame
+  with: {decoder: kepler, frame_type: CONFIG, source: "5C1712", where: {mux: 8}}
+  expect:
+    - {name: rms_odr, measure: parameters.2.value, equals: 3200}
+- do: s2lp.dut_samples
+  with: {decoder: kepler, field: status.phase, frame_type: ALIVE, where: {status.live: true}}
+```
+
+**Over a window, or a packet log.** Four measures take every frame heard in
+`window` seconds, or read `log`, an S2-LP packet log (an earlier step's `s2lp.start_packet_log`),
+without touching the board. A log path is relative to
+the specification, as other input files are (§6.2). A long soak is better
+judged on its log than held in memory. A log written before #243 has no
+`monotonic_s`, so it is timed by its `host_time`.
+
+| Action | For | Measures (`measure:`) |
+|---|---|---|
+| `dut_intervals` | Time between transmissions of `frame_type` from `source` with `where`, each timed by its first copy. `burst_gap` joins a transmission closer than it to the one before into that burst (a command and its retries; a chain of close ones is one burst). `above` and `below` count the intervals beyond a bound. `clock: board` times by the S2-LP board's timer instead of the host's: no USB jitter, but not comparable with dongle events, and it restarts with the board | `count`, `minimum`, `maximum`, `mean`, `above`, `below`, `bursts`, `transmissions`, `largest_burst`, `runs`, `intervals` |
+| `dut_census` | Every frame by type. `fields` lists each one's distinct values per type; with `expected`, any other type and any frame the decoder cannot read is `unexpected` | `frames`, `rejected`, `undecoded`, `unexpected`, `unexpected_types`, `type_names`, `types.<TYPE>.count`, `.transmissions`, `.lengths`, `.fields.<field>` |
+| `dut_transmissions` | Every copy of each transmission (`count` of them, or the window's). `ignore_offsets` leaves bytes out of the comparison; `same_fields` must agree between copies; `ascending` must rise from one transmission to the next, and `restart_at` names a value that starts it afresh. `sequence` lists fields that tell sequences apart (`[axis, param.twfb]`: each waveform of a capture); without it, choose one sequence with `where`. With `positions: true`, the plugin's `frame_positions` hook places each copy's values in its sequence | `transmissions`, `copies`, `identical`, `not_identical`, `fields_differ`, `not_ascending`; with `positions`: `distinct_blocks`, `repeated_blocks`, `overlapping`, `sequences`, `covered`, `length`, `missing`, `conflicts` |
+| `dut_distinct` | Whether `value` differs within each `group` (a run of transmissions with the same group value). Each item is a transmission, or each combination of the `item` fields. `wrap_after` and `wrap_to` allow a wrapping group counter | `groups`, `items`, `all_distinct`, `not_distinct`, `inconsistent`, `repeated_sets`, `not_incrementing`, `group_values` |
+
+```yaml
+- do: s2lp.dut_intervals
+  with: {frame_type: CMD, source: "5C1712", window: 300, burst_gap: 1.0, above: 45}
+  expect:
+    - {name: cmd_sequences_30_s_apart, measure: minimum, min: 29.0, max: 31.0}
+    - {name: no_steady_50_s, measure: above, max: 1}
+- do: s2lp.dut_transmissions
+  with: {frame_type: CONFIG, source: "5C1712", count: 12, window: 900,
+         ignore_offsets: [9], where: {permute_method: polynomial}, positions: true}
+  expect:
+    - {name: each_copy_its_own_set, measure: repeated_blocks, equals: 0}
+    - {name: every_parameter_carried, measure: missing, equals: 0}
+- do: s2lp.dut_distinct
+  with: {log: runs/soak/s2lp_packets.jsonl, frame_type: TWF, value: sync_attribute,
+         group: group_id, item: [axis, param.twfb], wrap_after: 255, wrap_to: 1}
+  expect:
+    - {name: unique_per_capture, measure: not_distinct, equals: 0}
+    - {name: new_set_each_capture, measure: repeated_sets, equals: 0}
+```
+
+Copies are grouped by the repeat number the decoder gives, per source and
+type. A copy whose repeat number is not higher than the last, or that comes
+more than `copy_gap` seconds after it (2 s unless the step says otherwise),
+starts a new transmission. Each packet log written since #243 marks every
+record with its run, and every `s2lp.start_packet_log` begins a new one. In a
+file appended to by two runs nothing is measured across the join, so a
+transmission lost there is not seen; `runs` in the result says how many
+there were. A step that must cover a whole window should require
+`{measure: runs, equals: 1}`. `first_s` and `last_s` can then be on
+different clocks. A log timed by
+`host_time` (one written before #243) is on the wall clock: across a clock
+step its times can go backwards, and that is refused rather than measured.
+On `clock: board`, a board that restarted mid-connection reads as a counter
+wrap, an interval about 4295 s too long. `dut_transmissions` with `count`, live, receives until the first
+copy of the transmission after the last one counted, so the last is complete.
+
+**Timing a frame from a BLE event.** Every S2-LP packet and every dongle event
+carries `monotonic_s`, the host's arrival time on one clock. `dut_frame`
+returns its frame's time, and `dongle.link_times` returns `opened_s` and
+`closed_s` for the last link. `compute` (§3.6) gives the difference:
+
+```yaml
+- do: dongle.close_link
+- do: dongle.link_times
+  save: link
+- do: s2lp.dut_frame
+  with: {frame_type: ALIVE, source: "5C1712", timeout: 120}
+  save: alive
+- do: compute
+  with: {operation: difference, a: {from: alive.monotonic_s}, b: {from: link.closed_s}}
+  expect:
+    - {name: alive_after_disconnect, measure: "", unit: s, max: 2.0}
+```
+
+Both times are when the host read the line, not when the radio event
+happened. The S2-LP kit reports a frame after reading it out of the radio,
+and the dongle reports an event over USB. Each time therefore carries that
+path's latency, which this bench has not measured.
 
 ---
 
@@ -602,7 +709,11 @@ reads.
 | Nominal, relative window | `nominal`, `tolerance_percent` | `nominal: 1.0`, `tolerance_percent: 1.0` |
 | Exact | `nominal` alone | `nominal: 4` |
 | Exact, text | `equals` with a string | `equals: "1.4.2"` |
+| Text, any of a list | `one_of` | `one_of: [DETECT, IGNORE]` |
+| Text, a pattern, with why | `matches`, `reason` | `matches: 'V11\.\d{2}\.\d{4}'`, `reason: "the build number changes"` |
+| Text, any case | `ignore_case: true` beside `equals`, `one_of` or `matches` | `equals: {from: rd_version}`, `ignore_case: true` |
 | Taken from an earlier step | `equals` with a reference | `equals: {from: build.version}` |
+| A bound from an earlier step | `min` or `max` with a reference | `max: {from: unloaded}` |
 
 `minimum`/`maximum`/`equals` are accepted as the long forms. Bounds are inclusive.
 A failure states by how much the value missed:
@@ -617,6 +728,36 @@ A limit written as text compares as text: no scaling, exact on the stripped
 value, and the report shows the text rather than a number. Exact on purpose —
 a looser rule would pass `1.4.20` for `1.4.2`, which is the failure such a limit
 exists to catch. See §3.6 for taking one from an earlier step.
+
+Three looser text forms exist for what exact text cannot state (#242), and
+each says so in the report:
+
+- `one_of: [...]` passes any of the values listed; a number in the list is
+  compared as a number, so `one_of: [1, 2]` passes `2.0`. Quote `ON`, `OFF`,
+  `YES` and `NO`: YAML reads them as true and false, which are refused.
+- `matches: <regex>` passes text the expression matches *whole*
+  (`re.fullmatch`), and needs a `reason` saying why the exact text cannot be
+  written down. Without one the specification does not load.
+- `ignore_case: true` makes `equals`, `one_of` or `matches` compare without
+  regard to case - a VERSION frame and `RD VERSION` spell the same version in
+  different cases.
+
+`min` and `max` may each take a value an earlier step saved, beside a bound
+stated outright: "the loaded battery is no higher than the unloaded one" is
+
+```yaml
+- do: dongle.sample_command
+  with: {request: "RD BATTERY", count: 3}
+  save: unloaded
+- do: dongle.sample_command
+  with: {request: "RD BATTERY LOADED", count: 3}
+  save: loaded
+  expect:
+    - {name: no_higher, measure: maximum, max: {from: unloaded.minimum}}
+```
+
+A saved bound that is not a number is an **error** naming it. For a
+difference or a ratio, use `compute` (§3.6).
 
 ### 4.1 Units and `scale`
 
@@ -766,6 +907,8 @@ gives you the means to say so in the specification rather than in a comment.
 | `measure_advertising_profile` | `AdvertisingProfile` | `mean_interval_s`, `minimum_interval_s`, `maximum_interval_s`, `spread_s`, `jitter_s`, `expected_jitter_s`, `rate_hz`, `count`, `missed_events`, `expected_events`, `duty_cycle`, `reception_ratio`, `is_complete`, `lost_reports` |
 | `measure_response_time` | `ResponseTiming` | `milliseconds`, `seconds`, `minimum_s`, `maximum_s`, `spread_s`, `standard_deviation_s`, `count`, `is_trustworthy`, `quantisation_s` |
 | `command` | `ResponseSample` | `text`, `dongle_us`, `host_s` |
+| `poll_states` | `dict` | `sequence` (states in order, comma-joined), `states`, `times`, `count`, `polls`, `skipped`, `unmatched`, `failed` |
+| `link_times` | `dict` | `opened_s`, `closed_s` (host-monotonic seconds, for `compute` against an S2-LP frame's `monotonic_s`, §3.9) |
 | `send_package` | `DfuResult` | `result` (`Success`, `InvalidObject`, `ExtendedError`), `extended_error` (`HwVersionFailure`...), `stage`, `bytes_sent`, `seconds`, `succeeded` — BLE notes §2.5 |
 | `write` | `int` | *(omit `measure`)* |
 
@@ -793,6 +936,157 @@ Three of these belong in a specification beside the limits, not in a comment:
 A limit of "100 ms ± 1 ms" fails every conforming sensor, because the Bluetooth
 specification *requires* a random 0-10 ms advertising delay. See
 `docs/ble/BLE_Dongle_Notes.md` §4.1.
+
+`poll_states` sends one command at an interval for a duration and keeps each
+state its replies go through once, in order (#242). "RD PHASE goes DETECT,
+then IGNORE, then DETECT" is
+
+```yaml
+- do: dongle.poll_states
+  with: {request: "RD PHASE", interval: 1.0, duration: 120.0, pattern: 'PHASE = (\w+)'}
+  expect:
+    - {name: phases, measure: sequence, equals: "DETECT,IGNORE,DETECT"}
+```
+
+`pattern`'s first group is the state (the whole reply without one); a reply it
+does not match is counted in `unmatched`. The polls are due every `interval` up
+to and including `duration`; one whose time passed while a reply was slow is
+skipped (`skipped`), and a command that fails is counted in `failed` with the
+states seen kept.
+
+### 5.4 Useful paths for the serial capture instrument
+
+The serial capture instrument (driver `serial`, #247) records the lines a device
+prints on its serial port - its console or a test UART - through a USB serial
+adapter. It writes nothing to the port.
+
+```yaml
+# bench
+uart:
+  driver: serial
+  resource: COM5                # the adapter's port
+  options: {baudrate: 115200, char_format: 8N1}
+```
+
+It is driven with its command set, in the form of the Kepler sensor's BLE
+console, through `command`, or with the methods the commands map onto:
+
+| Command | Reply |
+|---|---|
+| `RD PORT`, `RD BAUD`, `RD FORMAT`, `RD WINDOW`, `RD PATTERN`, `RD LINES` | `ACK RD BAUD = 115200`; `RD PATTERN` is `OFF` with none |
+| `RD COUNT`, `RD LINE <n>`, `RD MATCH`, `RD VALUE` | the last capture: `ACK RD VALUE = 3.30`, or `NACK RD VALUE NOT FOUND` |
+| `WR BAUD <rate>` | `ACK WR BAUD 9600 Baud` (50 to 4 000 000) |
+| `WR FORMAT <bits><parity><stop>` | `ACK WR FORMAT 7E1` |
+| `WR WINDOW <ms>` | `ACK WR WINDOW 10000 ms` (1 to 3 600 000) |
+| `WR PATTERN <regex>`, `WR PATTERN OFF` | `ACK WR PATTERN ^SELF TEST (PASS\|FAIL)` |
+| `WR LINES ON`, `WR LINES OFF` | `ACK WR LINES ON` |
+| `ROUTINE START CAPTURE` | `ACK ROUTINE START CAPTURE = Running` |
+| `ROUTINE ABORT CAPTURE`, `ROUTINE ABORT ALL` | `ACK ROUTINE ABORT CAPTURE = Aborted` |
+| `ROUTINE RESULTS CAPTURE` | `ACK ROUTINE RESULTS CAPTURE = Complete, 4 lines, Matched`, then `, 12 unshown` if live lines were dropped |
+
+A refusal is `NACK <command> INVALID VALUE`, `OUT OF RANGE`, `BUSY` (a capture
+is running) or `NOT FOUND`, and a command the set does not have is
+`NACK Invalid Command`. The command words are not case sensitive, and the
+reply echoes the command as it was sent.
+
+A capture discards what the device printed before it, then records every line
+until the window ends or a line matches the pattern, whichever comes first.
+The pattern is searched for in each line, and its first group in the matching
+line is the value. A capture that hears nothing completes with no lines, so
+silence fails a limit rather than erroring. A line ends at CR, LF or CRLF;
+a byte that is not ASCII is kept as `\xNN`. If the port fails - an adapter
+unplugged - the capture ends `Aborted` and `error` says why.
+
+| Method | Returns | Useful paths |
+|---|---|---|
+| `command` | `Reply` | `text`, `ok` (1 for `ACK`), `value` (after ` = `) |
+| `capture` | `CaptureResult` | `status`, `count`, `matched`, `match`, `match_number`, `value`, `elapsed`, `error`, `unshown`, `lines.0.text`, `text` |
+| `start_capture`, `wait_capture`, `abort_capture`, `results` | `CaptureResult` | as `capture` |
+| `line` | `str` | *(omit `measure`)* |
+
+`capture` takes `window_ms`, `pattern` and `timeout` (seconds beyond the
+window), and returns when the capture ends:
+
+```yaml
+- do: uart.capture
+  with: {window_ms: 10000, pattern: '^VBAT = ([0-9.]+) V'}
+  expect:
+    - {name: vbat_line_seen, measure: matched, equals: 1}
+    - {name: vbat_v, measure: value, unit: V, min: 3.0, max: 3.6}
+```
+
+To power the device on after the capture has started - its boot output is
+what is being checked - start it, switch the supply on, then wait:
+
+```yaml
+- do: uart.command
+  with: {request: "ROUTINE START CAPTURE"}
+- do: psu.output_on
+  with: {channel: 2}
+- do: uart.wait_capture
+  expect:
+    - {name: self_test, measure: match, matches: '.*PASS', reason: "the self test passed"}
+```
+
+Every captured line goes to the event log as a `line` record under the
+instrument's name (`SERIAL` by default). `WR LINES ON` adds a live copy of
+each line, `LINE <n> = <text>`, at INFO; it is off until switched on, and only
+`WR LINES` switches it. `benchtools serial -r COM5 "WR LINES ON" "ROUTINE START
+CAPTURE"` shows the same at the command line.
+
+On the simulated bench (`uart` in `benches/simulated_bench.yaml`) the device
+prints a short boot script when a capture starts; `simulated_lines` and
+`simulated_interval` in the bench's `options` change it.
+`specs/serial_capture.yaml` is a worked example.
+
+### 5.5 Useful paths for the PICO2 Test Board
+
+The PICO2 Test Board (driver `pico2-test-board`, alias `pico2` on the shipped
+benches; the Pico 2 SHT30 Temperature Sensor, driver `pico-sht30`, before #330)
+is a Pico 2 with a temperature sensor, three LEDs and a frequency generator.
+Every public method of its driver is a step; the
+[PICO2 Test Board User Manual §8](pico2_test_board/PICO2_Test_Board_User_Manual.md#8-test-sequences)
+lists them, and `specs/pico2_test_board.yaml` is a worked example.
+
+| Step | `measure` | Value |
+|---|---|---|
+| `pico2.temperature` | *(omitted)* | degrees Celsius |
+| `pico2.read` | `temperature`, `text` | the reading, and the firmware's text |
+| `pico2.set_led` (`colour`, `lit`), `pico2.led` (`colour`) | *(omitted)* | the state read back: `1` lit, `0` out |
+| `pico2.name`, `pico2.version`, `pico2.sha` | *(omitted)* | text |
+| `pico2.freq_status` (`channel`) | `status`, `wave`, `frequency` | `Not Started`, `Running`, `Aborted` or `Complete`; the waveform; hertz |
+| `pico2.rd` (`option`, `channel`) | *(omitted)* | the value as text, e.g. `1000.00` |
+
+The LED argument is `lit`, not `on`: YAML reads a bare `on` key as `true`.
+
+### 5.6 Useful paths for the PPK2
+
+The Nordic Power Profiler Kit II (driver `ppk2`, alias `ppk` on the shipped
+benches, event name `PPK`) measures the current a device draws. Every public
+method of its driver is a step; `specs/ppk2.yaml` is a worked example. The
+bench option `voltage_limit` caps the voltage a step may set: a step asking
+for more is an error, and nothing is sent. Put `ppk.power_off` in the
+specification's `teardown`: the kit keeps its DUT power on after the run
+closes its port.
+
+| Step | `measure` | Value |
+|---|---|---|
+| `ppk.set_mode` (`mode`: `source` or `ammeter`) | *(omitted)* | the mode; the DUT power is switched off first |
+| `ppk.set_voltage` (`volts`) | *(omitted)* | volts set |
+| `ppk.power_on`, `ppk.power_off`, `ppk.power` (`on`) | *(omitted)* | `1` on, `0` off |
+| `ppk.measure` (`duration`; `threshold` with `release`, or `line`) | `average`, `peak`, `minimum` | amps |
+| | `charge` | coulombs |
+| | `samples`, `lost`, `duration` | how many; at least how many the kit's counter says never arrived (it is six bits, so a gap of 64 reads as none); seconds |
+| | `pulses.count`, `pulses.incomplete` | whole pulses; pulses cut by the start or end |
+| | `pulses.mean_width`, `pulses.min_width`, `pulses.max_width`, `pulses.mean_interval` | seconds |
+| | `pulses.mean_charge`, `pulses.total_charge` | coulombs |
+| `ppk.average_current` (`duration`) | *(omitted)* | amps |
+| `ppk.info` | `mode`, `volts`, `voltage_limit` | the kit's settings |
+
+Give `scale` to read amps as microamps or seconds as milliseconds (§4.1).
+A pulse runs from the current rising to `threshold` until it falls below
+`release` (the threshold when not given), or while logic input `line` (0 to 7)
+is high.
 
 ---
 
@@ -864,7 +1158,7 @@ Which arguments are input files is declared by each driver, not guessed:
 | `s2lp` | `source` of `load_configuration`, `apply_configuration`, `verify_configuration` |
 | `ble-dongle` | bench option `firmware`; `firmware` of `expect_firmware`, `check_firmware`, `update_firmware`, `ensure_firmware`; `source` of `run_script` |
 | `jlink`, `jlink-rtt` | bench options `elf`, `firmware`; `elf` of `load_symbols`; `path` of `flash`, `image_build`, `verify` |
-| `gpd3303d`, `tti1604`, `tek3014b`, `pico-sht30` | none |
+| `gpd3303d`, `tti1604`, `tek3014b`, `pico2-test-board`, `picoscope3000`, `ppk2` | none |
 
 **Output files** - logs, reports, screenshots, `--json`/`--markdown`/`--junit` -
 are written relative to the working directory, as before. A run started in the
@@ -883,16 +1177,16 @@ is the short name of the instrument it came from, so a supply's lines and a
 thermometer's never look alike (#126):
 
 ```json
-{"t": 1790600000.12, "source": "TEMP", "level": "DEBUG", "logger": "benchtools.instruments.pico_sht30.thermometer", "text": ">> temp"}
+{"t": 1790600000.12, "source": "TEMP", "level": "DEBUG", "logger": "benchtools.instruments.pico2_test_board.thermometer", "text": ">> temp"}
 ```
 
 The name is allocated in the setup:
 
 | Where | How | Wins |
 |---|---|---|
-| Specification | `instruments:` entry as a mapping: `temp: {driver: pico-sht30, event: TEMP}` | Always |
+| Specification | `instruments:` entry as a mapping: `pico2: {driver: pico2-test-board, event: TEMP}` | Always |
 | Bench | `event: TEMP` on the instrument | When the specification gives none |
-| Driver default | `PSU`, `BLE`, `JLINK`, `RF`, `SCOPE`, `DMM`, `TEMP` (Pico 2 + SHT30-D) | When neither does |
+| Driver default | `PSU`, `BLE`, `JLINK`, `RF`, `SCOPE`, `DMM`, `TEMP` (PICO2 Test Board), `SERIAL` (serial capture), `PSCOPE` (PicoScope), `PPK` (PPK2) | When neither does |
 
 The runner's own records are `TEST`; anything not from an instrument is `BENCH`.
 
@@ -961,6 +1255,60 @@ One JSON request per line, one JSON reply per line:
   (`control`, `control_applied`), so the evidence shows the intervention.
 
 ---
+
+### 6.6 Device plugins: the device's own decoders and files
+
+The bench carries no product code (#238). What belongs to one device - how its
+radio frames decode, the S2-LP register file that receives them, its viewer
+panel - comes from a **plugin**: a folder holding a Python package, usually a
+checkout of the product's repository. Kepler's is `plugins/kepler` until it
+moves to innovateuk-sensor.
+
+A specification names the plugins its steps need, and a bench file can name
+more, each as a folder relative to the file:
+
+```yaml
+plugins:
+  - ../plugins/kepler
+```
+
+`benchtools run --plugin PATH` adds one from the command line, and so do
+`benchtools s2lp --plugin` and `benchtools view --plugin`. All of them are
+loaded before the run starts; one that cannot be loaded stops the run before
+anything is energised.
+
+A step names a plugin's decoder, and a plugin's file by `plugin:<name>/<file>`:
+
+```yaml
+setup:
+  - do: s2lp.apply_configuration
+    with: {source: plugin:kepler/s2lp_kepler_433_rx.regs, reset: defaults}
+tests:
+  - name: VERSION frame
+    steps:
+      - do: s2lp.dut_frame
+        with: {decoder: kepler, frame_type: VERSION, source: "5C1712"}
+```
+
+`decoder` can be left out when exactly one plugin decoder is loaded.
+`s2lp.dut_samples` takes a field from N transmissions the same way, and
+`s2lp.check_preamble` takes `decoder` too. `s2lp.kepler_samples` and
+`s2lp.kepler_frame` still work, for one release, as the same actions with
+`decoder: kepler`. A specification written before #238 that names no plugin
+still runs for that release: the deprecated names, and Kepler's old register
+file path `configs/s2lp_kepler_433_rx.regs`, load the Kepler plugin from the
+EmbeddedTestBench checkout with a warning saying what to write instead.
+
+`plugins/kepler` is in the checkout, not in the installed package: run from a
+clone of EmbeddedTestBench (as the Kepler repository does, from a release tag),
+or name a plugin folder of your own.
+
+Every report names each plugin loaded, its folder and the git commit it was at
+(marked if the folder had uncommitted changes), so a result can be traced to the
+product code that read it. A plugin is code: the runner and the viewer load only
+the folders a specification, a bench file or the command line names. The viewer
+does not load the plugins a log it follows names; it lists them as missing, and
+`benchtools view --plugin PATH` shows that run's frames decoded.
 
 ## 7. Failure versus error — read this before interpreting a report
 

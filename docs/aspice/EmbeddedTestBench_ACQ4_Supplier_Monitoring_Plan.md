@@ -10,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-ACQ4-001 | **Version** | 0.7 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-06 |
+| **Document ID** | ETB-ACQ4-001 | **Version** | [latest, §2](#2-revision-history) |
+| **Project** | Embedded Test Bench | **Date** | [latest, §2](#2-revision-history) |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | ACQ.4 |
@@ -31,6 +31,10 @@
 | 0.5 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | 0.6 | 2026-10-05 | Claude | #228: §6 - Dependabot changes a Python requirement only when its range excludes a new release; #219, #223 and #224 declined because they raised floors the supported Pythons cannot install. |
 | 0.7 | 2026-10-06 | Claude | #229: CStyleCheck moved to v1.6.1, which fixes CStyleCheck#439. §4.3 and §7 updated: baseline line numbers moved for 27 findings, one Pico finding excluded (CStyleCheck#447). |
+| 0.8 | 2026-10-24 | Claude | #284: §6 - Dependabot no longer proposes pip updates; new library releases reach CI through the weekly `constraints_refresh.yml`, which regenerates `constraints/` and offers the result on a branch. #248 and #250 declined for the same reason as #219, #223 and #224. |
+| 0.9 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
+| 0.10 | 2026-11-13 | Claude | #200: Pico Technology added - §4.1 the PicoScope 3405D MSO, §4.4 the `ps3000a` library (from PicoScope 7 T&M Stable, unit driver version 2.2.160.7569; WinUSB driver 2.4.0.2 of 2022-06-10), not pinned, its licence not yet reviewed; §5 what the library is trusted to do. |
+| 0.11 | 2026-11-14 | Claude | #342: §4.1 Nordic's Power Profiler Kit II and its serial protocol, read from Nordic's Power Profiler app; facts only, no code copied (AD-31). |
 
 ---
 
@@ -75,7 +79,9 @@ bench instruments themselves.
 | GW Instek | GPD-3303D power supply | Programming-manual command set, tracking-mode behaviour, status byte encoding | Documentation used as reference only |
 | SEGGER | J-Link probe, J-Link Commander, RTT | Flash programming, memory read, RTT transport | SEGGER licence terms; tools used, not redistributed |
 | Nordic Semiconductor | nRF52840 dongle (PCA10059), nRF5 SDK 17.1.0, S140 SoftDevice 7.2.0, `nrfutil` | Firmware platform, BLE stack, DFU packaging | Nordic 5-clause licence for SDK; SoftDevice binary not redistributed |
+| Nordic Semiconductor | Power Profiler Kit II, USB serial number D527E1DA8DBA (#342); its serial protocol as Nordic's Power Profiler app (`pc-nrfconnect-ppk`) uses it | The opcodes, the metadata, the sample word, the calibration formula and the spike filter, read from the app's source on 2026-11-14 (`docs/ppk2/PPK2_Notes.md`) | The app is under Nordic's 4-clause licence; protocol facts only are used, no code is copied or redistributed (AD-31). The kit's firmware is not pinned and is not reported by the kit beyond its hardware number |
 | STMicroelectronics | S2-LP sub-GHz transceiver | Register map — addresses, widths, reset values | **SLA0072** |
+| Pico Technology | PicoScope 3405D MSO (3000D series), serial HT415/0202; the `ps3000a` driver library and the WinUSB device driver (§4.4) | The behaviour of the `ps3000a` API - each call, its arguments and its status codes - and the unit's ranges, timebases, memory and signal generator as the specification page states them and as measured on the bench (#200) | Pico Technology's terms for PicoScope 7 and the PicoSDK; the library is installed on the bench PC, called through `ctypes`, and not vendored or redistributed. The licence text has not been reviewed (§4.4) |
 
 ### 4.2 Licence Constraint — SLA0072
 
@@ -100,6 +106,35 @@ addresses, field widths and reset values — written independently
 | `carlosperate` | `arm-none-eabi-gcc-action` | `@v1` | No newer major exists; the toolchain release itself is pinned per job |
 | GitHub | Hosted runner images | `ubuntu-24.04`; `ubuntu-22.04` for the Python 3.8 leg | Named, not `ubuntu-latest`, so an image change is a decision (#203); 3.8 is not in the 24.04 tool cache |
 
+### 4.4 Pico Technology `ps3000a` library (#200)
+
+The PicoScope driver (`benchtools.instruments.picoscope3000`, PSCOPE-ARC-001)
+is built on Pico Technology's `ps3000a` C library, called through `ctypes`. No
+Pico Python package is used (PSCOPE-NFR-001), and nothing of Pico's is vendored
+into this repository: the library is installed on the bench PC with PicoScope 7
+or the PicoSDK, and found there at run time.
+
+| Item | Seen on the bench PC (2026-11-13) | Where it is reported |
+|---|---|---|
+| `ps3000a.dll` | From PicoScope 7 T&M Stable; driver version **2.2.160.7569** | The driver version is what `ps3000aGetUnitInfo` returns, given by `benchtools pscope info` and in the identity recorded with each run |
+| USB device driver | WinUSB, version **2.4.0.2**, dated **2022-06-10** | Windows, in the device's driver properties; not reported by `ps3000a` or recorded by a run |
+| Unit | PicoScope 3405D MSO, serial HT415/0202 | `ps3000aGetUnitInfo` (variant and serial), as above |
+
+- **Not pinned.** The library is whatever PicoScope 7 or the PicoSDK installed
+  on the bench PC; this project does not install or choose it. Its version is
+  reported with the unit's identity (`driver <version>`) and so is recorded in
+  every run that uses the scope (§6, "Instrument firmware revision").
+- **What was checked against it.** The ranges, offset limits, timebases, memory
+  and full-scale code the driver uses were measured through this library on the
+  bench unit on 2026-11-13 (ETB-SWE1-001 §17). Some enumeration values were not
+  measured and are taken from the SDK's header; they are marked unverified in
+  `constants.py` and listed as PSCOPE-OPEN-05 (ETB-RTM-001 §19).
+- **Licence.** The terms under which PicoScope 7 and the PicoSDK are supplied
+  have not been read for this entry. Nothing is redistributed, which is the use
+  that most licences restrict, but that is an assumption, not a review. The
+  review is open: §6, "Licence terms".
+- **Interface note.** `docs/picoscope3000/PicoScope3000_Notes.md`.
+
 ---
 
 ## 5. What Each Dependency Is Trusted To Do
@@ -114,6 +149,7 @@ Trust is stated so that it can be checked rather than assumed.
 | `nrfutil` | Produce a valid DFU package for a given SDK | Remain compatible across versions | Pinned exactly |
 | PyPI packages | Honour semantic versioning | Never regress | Version ranges declared; the suite is the check |
 | CStyleCheck | Report violations of ETB-STD-002 and ETB-STY-001 | Be available forever | Pinned tag; failure blocks the style job only |
+| Pico Technology `ps3000a` library | Implement the `ps3000a` API as its calls and status codes behave on the bench unit | Keep enumeration values the driver has not measured where the header puts them; be the same version on every PC | Every call's status is checked and a refusal raised with the call's name; values not measured are marked unverified (PSCOPE-OPEN-05); the driver version is recorded with the unit's identity |
 
 ---
 
@@ -126,7 +162,9 @@ Trust is stated so that it can be checked rather than assumed.
 | Vendor documentation changes | Checked when a driver is next worked on | A documented behaviour differs from what the driver assumes → problem, and the simulator is corrected |
 | Licence terms | Reviewed when a vendor product is added or upgraded | Terms that would require vendoring source → the dependency is not taken |
 | CStyleCheck | The style workflow's result | A failure unrelated to the firmware source → problem under ETB-SUP9-001 |
-| GitHub Actions and Python package versions | Dependabot version updates, weekly, `.github/dependabot.yml`, targeting `develop` (#203). For pip, `versioning-strategy: increase-if-necessary`: a requirement is changed only when its range excludes a new release (#228) | A Dependabot pull request → release notes read, CI result reviewed, merged or declined with the reason |
+| GitHub Actions versions | Dependabot version updates, weekly, `.github/dependabot.yml`, targeting `develop` (#203) | A Dependabot pull request → release notes read, CI result reviewed, merged or declined with the reason |
+| Python package versions | `.github/workflows/constraints_refresh.yml`, weekly: `etb-ci lock` regenerates the exact pins in `constraints/` that CI installs (#282, #284) | A changed lock → pushed to `fix/constraints-refresh` and reported in an issue; a pull request is opened from the branch, release notes read, CI result reviewed, merged or declined with the reason |
+| Python package vulnerabilities | Dependabot security updates (ETB-SUP8-001 §5.5), independent of `dependabot.yml` | A Dependabot security pull request → as above |
 | Runner and action deprecations | Annotations on CI runs | A deprecation warning → ticket to move the pin before the deadline (#203 was the Node.js 20 warning) |
 
 There is no supplier audit, no supplier scorecard and no escalation path to any
@@ -145,12 +183,26 @@ requirement unchanged when it already allows the new release. A floor is raised
 deliberately, by a ticket, when the project needs a newer release or drops a
 Python version.
 
+**Dependabot pip updates removed (#284).** The strategy did not hold: on
+2026-10-14 Dependabot proposed #248 (pytest 9.1.1) and #250 (pyvisa 1.16.2),
+although `pytest>=7.0` and `pyvisa>=1.11` already allowed both. Why the strategy
+was not applied has not been verified. Neither floor installs on Python 3.8 or
+3.9, where the newest releases are pytest 8.3.5 (3.8) and 8.4.2 (3.9), and pyvisa
+1.14.1, so both were declined. Since #282, CI installs the exact versions in
+`constraints/`, resolved for each Python, and a floor no longer decides what CI
+tests. The pip entry was therefore removed from `dependabot.yml`.
+`constraints_refresh.yml` now runs `etb-ci lock` each week. When the pins move,
+it pushes them to `fix/constraints-refresh` and opens or updates an issue that
+lists each pin that moved. It does not open the pull request itself, for the
+reason given in the workflow and in ETB-SUP8-001 §5.5. The schedule runs from
+`main`, so it starts with the first release that contains the workflow.
+
 ---
 
 ## 7. Coding-Standard Checker
 
 `dermot-murphy/CStyleCheck@v1.6.1` is run by `.github/workflows/style.yml` against
-`firmware/nordic_dongle`, its host unit tests and `firmware/pico_sht30`. It is the mechanical enforcement of ETB-STD-002 and
+`firmware/nordic_dongle`, its host unit tests and `firmware/pico2_test_board`. It is the mechanical enforcement of ETB-STD-002 and
 ETB-STY-001. It is a dependency like any other: pinned by tag, its failures
 treated as findings against the firmware source, and its unavailability treated
 as a problem with the style job rather than a licence to merge unchecked C.
@@ -195,7 +247,7 @@ rather than by reading about it:
      the same 110 violations. Under Linux paths, as CI runs it, the dongle
      step reports 0 findings against the baseline.
    - **One new Pico finding**, `misc.constant_comparison` on
-     `#if (BOARD_I2C_INSTANCE == 0U)` in `firmware/pico_sht30/src/hal_pico.c`,
+     `#if (BOARD_I2C_INSTANCE == 0U)` in `firmware/pico2_test_board/src/hal_pico.c`,
      a compile-time board selection. It is a false positive, reported as
      dermot-murphy/CStyleCheck#447, and the rule is disabled for that file in
      `.cstylecheck-pico-exclusions.yml` until it is fixed. The exclusion cannot

@@ -1,6 +1,6 @@
 """The test run viewer's server (#137).
 
-Traces to: VIEW-FR-001 .. VIEW-FR-009, SWE4-UT-VIEWSERVER.
+Traces to: VIEW-FR-001 .. VIEW-FR-009, VIEW-FR-046, SWE4-UT-VIEWSERVER.
 """
 
 from __future__ import annotations
@@ -9,6 +9,8 @@ import http.client
 import json
 import logging
 import pathlib
+import socket
+import ssl
 import threading
 import time
 
@@ -20,7 +22,8 @@ from benchtools.runner import BenchConfig, BenchRunner
 from benchtools.runner.control import ControlServer, RunControl
 from benchtools.runner.spec import TestSpec
 from benchtools.viewer.server import (
-    GUARD_HEADER, Catalogue, Hub, Launcher, ViewerServer, build_parser, send_control,
+    _PER_LOG, GUARD_HEADER, Catalogue, Hub, Launcher, ViewerServer, _Handler, build_parser,
+    send_control,
 )
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -199,6 +202,61 @@ class TestInstruments:
         assert _json(viewer, "GET", "/api/instruments?" + query)[0] == 400
 
 
+class TestFollowRebuilds:
+    """``Hub.follow`` rebuilds every view of the log: ``_PER_LOG`` names them all (#201)."""
+
+    #: What a hub keeps across logs: the thread, the lock, where it reads and counts.
+    KEPT = {"interval", "_condition", "_tail", "path", "sequence", "generation",
+            "_override_port", "_stop", "_thread"}
+
+    def test_per_log_names_every_other_attribute_of_a_new_hub(self):
+        assert set(vars(Hub())) - self.KEPT == set(_PER_LOG)
+        assert len(_PER_LOG) == len(set(_PER_LOG))
+
+    def test_follow_replaces_each_view(self, tmp_path):
+        hub = Hub()
+        before = {name: getattr(hub, name) for name in _PER_LOG}
+        hub.follow(str(tmp_path / "events.jsonl"))
+        assert all(getattr(hub, name) is not before[name] for name in _PER_LOG)
+
+
+class TestStep:
+    """``/api/step``: a step and the events logged during it (VIEW-FR-048, #201)."""
+
+    def test_a_step_of_a_finished_run(self, viewer, tmp_path):
+        log = tmp_path / "events.jsonl"
+        log.write_text("".join(json.dumps(r) + "\n" for r in (
+            {"t": 1.0, "source": "TEST", "level": "INFO", "logger": "benchtools.runner",
+             "text": "run", "kind": "run_start", "data": {
+                 "suite": "s", "tests": [{"name": "t", "steps": [{"action": "psu.output"}]}]}},
+            {"t": 2.0, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner",
+             "text": "step", "kind": "step_start", "data": {"phase": "test", "case": 0,
+                                                            "step": 0}},
+            {"t": 2.5, "source": "PSU", "level": "DEBUG", "logger": "x", "text": ">> OUT1"},
+            {"t": 3.0, "source": "TEST", "level": "DEBUG", "logger": "benchtools.runner",
+             "text": "step", "kind": "step_end", "data": {
+                 "phase": "test", "case": 0, "step": 0, "status": "PASS", "measurements": [
+                     {"name": "v", "value": 3.3, "unit": "V", "limit": "3.2 .. 3.4",
+                      "status": "PASS", "reason": ""}]}},
+            {"t": 4.0, "source": "PSU", "level": "DEBUG", "logger": "x", "text": ">> OUT0"})))
+        viewer.hub.follow(str(log))
+        assert _wait(lambda: viewer.hub.traffic.counts.get("PSU") == 2)
+        status, reply = _json(viewer, "GET", "/api/step?phase=test&case=0&step=0")
+        assert status == 200
+        assert [(e["dt"], e["source"], e["text"]) for e in reply["events"]] == \
+            [(0.5, "PSU", ">> OUT1")]
+        assert (reply["started"], reply["ended"]) == (2.0, 3.0)
+        assert reply["step"]["status"] == "PASS"
+        assert reply["step"]["measurements"][0]["limit"] == "3.2 .. 3.4"
+        assert _json(viewer, "GET", "/api/step?phase=test&case=0&step=5")[0] == 400
+
+    @pytest.mark.parametrize("query", ["", "phase=cleanup&step=0", "phase=test&step=0",
+                                       "phase=test&case=x&step=0", "phase=setup&step=1.5"])
+    def test_a_query_that_names_no_step_is_refused(self, viewer, query):
+        status, reply = _json(viewer, "GET", "/api/step?" + query)
+        assert status == 400 and not reply["ok"]
+
+
 class TestControl:
     def test_control_without_a_channel_is_refused(self, viewer):
         status, reply = _json(viewer, "POST", "/api/control", {"cmd": "pause"})
@@ -213,12 +271,13 @@ class TestControl:
         assert status == 200 and reply["state"] == "paused"
 
     def test_a_runner_that_does_not_answer_is_reported(self, viewer, tmp_path):
-        control = RunControl()
-        channel = ControlServer(control)
-        port = channel.port
-        channel.close()
-        viewer.hub.follow(str(tmp_path / "none.jsonl"), port)
-        status, reply = _json(viewer, "POST", "/api/control", {"cmd": "pause"})
+        # The port stays bound, but not listening, for the whole test: a freed
+        # port can be taken by another process's server, which then receives
+        # the control request (#280).
+        with socket.socket() as unanswered:
+            unanswered.bind(("127.0.0.1", 0))
+            viewer.hub.follow(str(tmp_path / "none.jsonl"), unanswered.getsockname()[1])
+            status, reply = _json(viewer, "POST", "/api/control", {"cmd": "pause"})
         assert status == 502 and "did not answer" in reply["error"]
 
     def test_send_control(self):
@@ -292,3 +351,49 @@ class TestCommandLine:
                                           "0", "--specs", "a", "--specs", "b"])
         assert (args.event_log, args.control, args.port, args.specs) == (
             "e.jsonl", 5, 0, ["a", "b"])
+
+
+class TestClientGoesAway:
+    """VIEW-FR-046 (#294): a client that disconnects mid-request is one log line."""
+
+    @pytest.mark.parametrize("error", [
+        ConnectionAbortedError(10053, "aborted"),
+        ConnectionResetError(10054, "reset"),
+        BrokenPipeError(32, "broken pipe"),
+        ssl.SSLEOFError(8, "EOF occurred in violation of protocol"),
+        ssl.SSLZeroReturnError(6, "TLS/SSL connection has been closed"),
+    ])
+    def test_a_client_that_went_away_is_one_line(self, viewer, error, capsys, caplog):
+        try:
+            raise error
+        except OSError:
+            viewer.handle_error(None, ("127.0.0.1", 60019))
+        assert capsys.readouterr().err == ""
+        lines = [r for r in caplog.records if "went away" in r.getMessage()]
+        assert len(lines) == 1 and lines[0].levelno == logging.WARNING
+        assert "60019" in lines[0].getMessage() and "\n" not in lines[0].getMessage()
+
+    def test_a_real_request_reaches_the_override(self, viewer, monkeypatch, capsys, caplog):
+        """socketserver hands a handler's disconnect error to ViewerServer.handle_error."""
+        def went_away(_handler):
+            raise ConnectionResetError(10054, "reset by the client")
+        monkeypatch.setattr(_Handler, "do_GET", went_away)
+        connection = http.client.HTTPConnection("127.0.0.1", viewer.port, timeout=10)
+        try:
+            connection.request("GET", "/")
+            with pytest.raises((http.client.HTTPException, OSError)):
+                connection.getresponse()
+        finally:
+            connection.close()
+        assert _wait(lambda: any("went away" in r.getMessage() for r in caplog.records))
+        assert "Traceback" not in capsys.readouterr().err
+        lines = [r for r in caplog.records if "went away" in r.getMessage()]
+        assert len(lines) == 1 and lines[0].levelno == logging.WARNING
+
+    def test_any_other_error_keeps_its_traceback(self, viewer, capsys):
+        try:
+            raise ValueError("not a disconnect")
+        except ValueError:
+            viewer.handle_error(None, ("127.0.0.1", 60019))
+        err = capsys.readouterr().err
+        assert "Traceback" in err and "ValueError: not a disconnect" in err

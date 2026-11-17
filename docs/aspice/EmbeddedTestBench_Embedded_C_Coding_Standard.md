@@ -10,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-STD-002 | **Version** | 0.6 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
+| **Document ID** | ETB-STD-002 | **Version** | [latest, Revision History](#revision-history) |
+| **Project** | Embedded Test Bench | **Date** | [latest, Revision History](#revision-history) |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.3, SWE.4, SUP.1 |
@@ -33,6 +33,7 @@
 | 0.4 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
 | 0.5 | 2026-10-05 | Claude | #204: Review & Approval table points to the merge of the pull request that last changed the document, which is the review and approval (ETB-SUP8-001 §5.7); no per-change signatures or dates. |
 | 0.6 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
+| 0.7 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). §73 Document Change History, which still showed only 0.1, now points to the revision history instead of repeating it. |
 
 ---
 
@@ -143,7 +144,7 @@ This standard applies to:
 
 - all `.c` and `.h` files owned by this project — in practice
   `firmware/nordic_dongle/src/` and its headers, the firmware's host unit
-  tests in `firmware/nordic_dongle/test/`, and all of `firmware/pico_sht30/`
+  tests in `firmware/nordic_dongle/test/`, and all of `firmware/pico2_test_board/`
   (sources, headers and host unit tests);
 - all new C files added to this project;
 - existing files undergoing a modification that touches more than 20% of their
@@ -301,7 +302,7 @@ an image stops fitting.
 ### 7.4 Static Analysis
 
 CStyleCheck runs on every push against `firmware/nordic_dongle`, against
-`.cstylecheck-baseline.json`; against all of `firmware/pico_sht30`; and
+`.cstylecheck-baseline.json`; against all of `firmware/pico2_test_board`; and
 against the dongle firmware's host unit tests. The last two are separate
 steps with no baseline that fail on any finding
 (`.github/workflows/style.yml`). Each has its own module aliases and narrow,
@@ -1885,9 +1886,8 @@ goto cleanup;
 
 ## 73. Document Change History
 
-| Version | Date | Author | Change Description |
-|---|---|---|---|
-| 0.1 | 2026-09-19 | Claude | Initial |
+The changes to this document are recorded in its
+[Revision History](#revision-history).
 
 ---
 

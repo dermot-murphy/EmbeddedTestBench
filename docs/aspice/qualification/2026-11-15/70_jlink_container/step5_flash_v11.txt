@@ -1,0 +1,143 @@
+{
+  "backend": "gdb",
+  "bytes_written": 488412,
+  "preserved": {
+    "0x10001080": "005c1712"
+  },
+  "seconds": 16.954892338020727,
+  "sections": {
+    ".sec1": {
+      "address": 0,
+      "size": 2816
+    },
+    ".sec10": {
+      "address": 458752,
+      "size": 8152
+    },
+    ".sec11": {
+      "address": 1015808,
+      "size": 23664
+    },
+    ".sec12": {
+      "address": 1040368,
+      "size": 820
+    },
+    ".sec13": {
+      "address": 1044480,
+      "size": 804
+    },
+    ".sec14": {
+      "address": 268439572,
+      "size": 8
+    },
+    ".sec2": {
+      "address": 4096,
+      "size": 61440
+    },
+    ".sec3": {
+      "address": 65536,
+      "size": 65536
+    },
+    ".sec4": {
+      "address": 131072,
+      "size": 26164
+    },
+    ".sec5": {
+      "address": 159744,
+      "size": 36864
+    },
+    ".sec6": {
+      "address": 196608,
+      "size": 65536
+    },
+    ".sec7": {
+      "address": 262144,
+      "size": 65536
+    },
+    ".sec8": {
+      "address": 327680,
+      "size": 65536
+    },
+    ".sec9": {
+      "address": 393216,
+      "size": 65536
+    }
+  },
+  "verify": {
+    "backend": "gdb",
+    "matched": true,
+    "mismatched": [],
+    "sections": {
+      ".sec1": {
+        "matched": true,
+        "size": 2816,
+        "start": 0
+      },
+      ".sec10": {
+        "matched": true,
+        "size": 8152,
+        "start": 458752
+      },
+      ".sec11": {
+        "matched": true,
+        "size": 23664,
+        "start": 1015808
+      },
+      ".sec12": {
+        "matched": true,
+        "size": 820,
+        "start": 1040368
+      },
+      ".sec13": {
+        "matched": true,
+        "size": 804,
+        "start": 1044480
+      },
+      ".sec14": {
+        "matched": true,
+        "size": 8,
+        "start": 268439572
+      },
+      ".sec2": {
+        "matched": true,
+        "size": 61440,
+        "start": 4096
+      },
+      ".sec3": {
+        "matched": true,
+        "size": 65536,
+        "start": 65536
+      },
+      ".sec4": {
+        "matched": true,
+        "size": 26164,
+        "start": 131072
+      },
+      ".sec5": {
+        "matched": true,
+        "size": 36864,
+        "start": 159744
+      },
+      ".sec6": {
+        "matched": true,
+        "size": 65536,
+        "start": 196608
+      },
+      ".sec7": {
+        "matched": true,
+        "size": 65536,
+        "start": 262144
+      },
+      ".sec8": {
+        "matched": true,
+        "size": 65536,
+        "start": 327680
+      },
+      ".sec9": {
+        "matched": true,
+        "size": 65536,
+        "start": 393216
+      }
+    }
+  }
+}

@@ -1,6 +1,7 @@
 """Nordic Secure DFU over the dongle: the procedure, packages and send_package (#244).
 
 Lost data and its retries: #271. A bootloader link that fails to establish: #275.
+The piece size and ATT MTU the dongle reports: #274.
 
 Traces to: BLE-FR-121, SWE4-UT-BLEDFU.
 """
@@ -375,6 +376,120 @@ class TestSendPackage:
         with pytest.raises(LinkLostError):
             dongle.send_package(package, "KAPPA_5C1712", connect_attempts=1)
         assert bootloader_sensor(simulator).not_established == 0
+
+    def test_the_piece_size_and_att_mtu_are_recorded(self, kepler_dongle, tmp_path, caplog):
+        """5C1712's bootloaders link at the minimum ATT MTU, 23: 20-byte pieces (#274)."""
+        dongle, _ = kepler_dongle
+        enter_bootloader(dongle)
+        package = make_package(tmp_path / "app.zip", [("application", INIT, FIRMWARE)])
+        with caplog.at_level("INFO"):
+            result = dongle.send_package(package, "KAPPA_5C1712")
+        assert result.succeeded
+        assert (result.att_mtu, result.piece_size) == (23, 20)
+        assert result.links == [{"image": "application", "att_mtu": 23, "piece_size": 20}]
+        record = next(record for record in caplog.records
+                      if getattr(record, "event_kind", None) == "ble_dfu")
+        assert (record.event_data["att_mtu"], record.event_data["piece_size"]) == (23, 20)
+        assert "ATT MTU 23, 20-byte pieces" in record.getMessage()
+
+    def test_each_image_s_link_is_recorded(self, kepler_dongle, tmp_path, monkeypatch):
+        """A package's images can reach two bootloaders; the smallest is the result."""
+        dongle, simulator = kepler_dongle
+        enter_bootloader(dongle)
+        target = bootloader_of(simulator)
+        original = simulator._cmd_dfupkt  # pylint: disable=protected-access
+
+        def dfupkt(arguments):
+            # The first image installs a bootloader whose link reaches 247.
+            if target.firmware:
+                target.att_mtu = 247
+            return original(arguments)
+
+        monkeypatch.setattr(simulator, "_cmd_dfupkt", dfupkt)
+        package = make_package(tmp_path / "bl.zip", [("softdevice_bootloader", INIT, b"S" * 5000),
+                                                     ("application", INIT, FIRMWARE)])
+        result = dongle.send_package(package, "KAPPA_5C1712")
+        assert result.succeeded
+        assert [link["att_mtu"] for link in result.links] == [23, 247]
+        assert [link["piece_size"] for link in result.links] == [20, 244]
+        assert (result.att_mtu, result.piece_size) == (23, 20)
+
+    def test_an_mtu_exchange_after_ready_is_taken_from_the_writes(
+            self, kepler_dongle, tmp_path, monkeypatch):
+        """+dfu state=ready said 23, then the exchange ended at 247: the
+        link's ATT MTU and piece come from the same write, not one each."""
+        dongle, simulator = kepler_dongle
+        enter_bootloader(dongle)
+        target = bootloader_of(simulator)
+        original = simulator._cmd_dfupkt  # pylint: disable=protected-access
+
+        def dfupkt(arguments):
+            target.att_mtu = 247
+            return original(arguments)
+
+        monkeypatch.setattr(simulator, "_cmd_dfupkt", dfupkt)
+        path = tmp_path / "ble.log"
+        dongle.start_log(str(path))
+        package = make_package(tmp_path / "app.zip", [("application", INIT, FIRMWARE)])
+        result = dongle.send_package(package, "KAPPA_5C1712")
+        dongle.stop_log()
+        assert result.succeeded
+        assert result.links == [{"image": "application", "att_mtu": 247, "piece_size": 244}]
+        assert "(application): ATT MTU 247, 244-byte pieces" in path.read_text()
+
+    @pytest.mark.parametrize("rewrite, expected", [
+        # The reply's own att_mtu is used, not the piece plus 3.
+        (lambda line: line.replace("att_mtu=23", "att_mtu=30"), 30),
+        # A reply without one falls back to the piece plus 3.
+        (lambda line: line.replace(" att_mtu=23", ""), 23),
+    ])
+    def test_the_att_mtu_of_a_write_is_its_reply_s(
+            self, kepler_dongle, tmp_path, monkeypatch, rewrite, expected):
+        dongle, simulator = kepler_dongle
+        enter_bootloader(dongle)
+        original = simulator._cmd_dfupkt  # pylint: disable=protected-access
+
+        def dfupkt(arguments):
+            lines = original(arguments)
+            return lines[:-1] + [rewrite(lines[-1])]
+
+        monkeypatch.setattr(simulator, "_cmd_dfupkt", dfupkt)
+        package = make_package(tmp_path / "app.zip", [("application", INIT, FIRMWARE)])
+        result = dongle.send_package(package, "KAPPA_5C1712")
+        assert result.succeeded
+        assert (result.att_mtu, result.piece_size) == (expected, 20)
+
+    def test_the_att_mtu_is_in_the_session_log(self, kepler_dongle, tmp_path):
+        dongle, _ = kepler_dongle
+        enter_bootloader(dongle)
+        path = tmp_path / "ble.log"
+        dongle.start_log(str(path))
+        package = make_package(tmp_path / "app.zip", [("application", INIT, b"abc")])
+        assert dongle.send_package(package, "KAPPA_5C1712").succeeded
+        dongle.stop_log()
+        assert "DFU image 1 of 1 (application): ATT MTU 23, 20-byte pieces" in path.read_text()
+
+    def test_a_protocol_1_7_dongle_still_sends_a_package(self, tmp_path):
+        """It reports neither the piece size nor the ATT MTU; both are None."""
+        reset_world()
+        simulator = SimulatedDongle()
+        simulator.protocol = "1.7"
+        dongle = NordicDongle(MockTransport(responder=simulator), timeout=5.0)
+        dongle.initialise()
+        try:
+            enter_bootloader(dongle)
+            path = tmp_path / "ble.log"
+            dongle.start_log(str(path))
+            package = make_package(tmp_path / "app.zip", [("application", INIT, FIRMWARE)])
+            result = dongle.send_package(package, "KAPPA_5C1712")
+            dongle.stop_log()
+            assert result.succeeded and bootloader_of(simulator).firmware == [FIRMWARE]
+            assert (result.att_mtu, result.piece_size) == (None, None)
+            assert result.as_dict()["att_mtu"] is None
+            assert "ATT MTU not reported (dongle protocol 1.7)" in path.read_text()
+        finally:
+            dongle.close()
+            reset_world()
 
     def test_the_target_can_be_its_address(self, kepler_dongle, tmp_path):
         dongle, _ = kepler_dongle

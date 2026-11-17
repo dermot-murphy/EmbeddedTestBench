@@ -16,11 +16,12 @@ import struct
 
 import pytest
 
-from benchtools.instruments.s2lp.kepler import (
-    FRAME_TYPES,
-    KeplerFrameError,
-    decode_kepler_frame,
-)
+from ...kepler_plugin import decoder, tables as decoder_tables
+
+FRAME_TYPES = decoder.FRAME_TYPES
+LAYOUTS = decoder.LAYOUTS
+KeplerFrameError = decoder.KeplerFrameError
+decode_kepler_frame = decoder.decode_kepler_frame
 
 #: Received from sensor 5C1712: one ALIVE packet, its three repeats.
 ALIVE_REPEATS = [
@@ -48,6 +49,34 @@ TWF_FRAMES = [
     "6afbf4fe480082007efd9efcb3fd3a01ad01480144ff58fbb9fcf1fdd8fe0400a1fd51feb2fd"
     "ed008401580185fe1ffe50028701b5fff800099df401750b",
 ]
+
+
+#: Received from sensor 5C314E, the bench's V10 unit (BLE name
+#: KAPPA_5C314E_V10.00.000), on 2026-10-27: an ALIVE frame. Its header is
+#: V10.00.0000's: RF_CAP 4, all of byte 5 the HW capability 4 (type version 0),
+#: FW capability 2 (#313).
+V10_ALIVE = "5c314e03040402031300e7b31a7700010d006f100e007f004d004202df0200021e0019"
+
+
+def v10_twf() -> bytearray:
+    """A 96-byte V10.00 TWF frame: 5C314E's recorded header, PL_TYPE 4, and a
+    payload at the V10.00.0000 firmware's offsets (#313). No 96-byte frame was
+    recorded on the bench, so the payload is built from the firmware."""
+    frame = bytearray(96)
+    frame[0:8] = bytes.fromhex(V10_ALIVE)[0:7] + b"\x04"
+    frame[8] = 0x23                                       # repeat 1 of 3
+    frame[9:11] = struct.pack(">h", 231)                  # 23.1 °C
+    frame[11] = 179                                       # 3580 mV
+    frame[12:14] = struct.pack(">H", (2 << 14) | (1 << 12) | (2 << 10) | (1 << 8)
+                               | (3 << 5) | (7 << 2) | 1)
+    frame[14:16] = struct.pack(">H", 25600)
+    frame[16:20] = struct.pack(">HH", 5, 128)
+    frame[20:22] = struct.pack(">H", 6775)
+    frame[22:28] = struct.pack(">3H", 145, 84, 93)
+    frame[28:92] = struct.pack(">32h", *range(-300, -300 + 32 * 7, 7))
+    frame[92:95] = (0xABCDEF).to_bytes(3, "big")
+    frame[95] = 9
+    return frame
 
 
 def header(pl_type: int, size: int, type_cap: int = 1) -> bytearray:
@@ -196,6 +225,55 @@ class TestLayoutsFromTheReference:
         assert decoded["max_bin_amplitude"] == 1.5
         assert decoded["bins"].startswith("64")
 
+    def test_fft2_version_1_has_no_window_fields(self):
+        decoded = decode_kepler_frame(bytes(header(7, 105)))
+        assert decoded["type_capability"] == 1 and "fft_odr" not in decoded
+        assert len(bytes.fromhex(decoded["bins"])) == 84 and "warnings" not in decoded
+
+    def test_fft2_version_2(self):
+        # Kepler TX-1140: ODR, sample count and first bin at 21-26, bins at
+        # 27-110 (api_radio_transport_cfg.h, API_Radio_Field_Load_FftWindow, #255).
+        frame = header(7, 111, type_cap=2)
+        frame[17:21] = struct.pack("<f", 2.5)
+        frame[21:27] = struct.pack(">3H", 26667, 4096, 10)
+        frame[27] = 0x7F
+        frame[110] = 0x55
+        decoded = decode_kepler_frame(bytes(frame))
+        window = (decoded["fft_odr"], decoded["fft_samples"], decoded["fft_first_bin"])
+        assert window == (26667, 4096, 10)
+        assert decoded["max_bin_amplitude"] == 2.5
+        bins = bytes.fromhex(decoded["bins"])
+        assert len(bins) == 84 and bins[0] == 0x7F and bins[-1] == 0x55
+        assert decoded["fft_bin_hz"] == pytest.approx(26667 / 4096)
+        assert decoded["fft_bins_valid"] == 96 and "warnings" not in decoded
+
+    @pytest.mark.parametrize("samples, first_bin, valid", [
+        (128, 0, 64),      # fewer real bins than slots: the rest is padding
+        (256, 32, 96),     # exactly 96 real bins left
+        (256, 33, 95),     # one short of the slots
+        (128, 64, 0),      # first bin at N / 2: all padding
+        (128, 100, 0),     # past N / 2
+    ])
+    def test_fft2_version_2_real_bins(self, samples, first_bin, valid):
+        frame = header(7, 111, type_cap=2)
+        frame[21:27] = struct.pack(">3H", 3200, samples, first_bin)
+        assert decode_kepler_frame(bytes(frame))["fft_bins_valid"] == valid
+
+    def test_fft2_version_2_with_no_sample_count(self):
+        decoded = decode_kepler_frame(bytes(header(7, 111, type_cap=2)))
+        assert decoded["fft_bin_hz"] is None and decoded["fft_bins_valid"] == 0
+
+    def test_fft2_version_2_must_be_111_bytes(self):
+        # Decoding a short version 2 frame at version 1's offsets would shift
+        # every bin; it is refused instead.
+        with pytest.raises(KeplerFrameError, match="111"):
+            decode_kepler_frame(bytes(header(7, 105, type_cap=2)))
+
+    def test_fft2_later_version_is_decoded_as_2_with_a_warning(self):
+        decoded = decode_kepler_frame(bytes(header(7, 111, type_cap=3)))
+        assert "fft_odr" in decoded
+        assert decoded["warnings"] == ["FFT2 type version 3; decoded as version 2"]
+
     def test_fft(self):
         decoded = decode_kepler_frame(bytes(header(6, 97)))
         assert decoded["type"] == "FFT" and len(bytes.fromhex(decoded["bins"])) == 78
@@ -245,8 +323,306 @@ class TestLayoutsFromTheReference:
         assert decode_kepler_frame(bytes(frame))["config"] == []
 
     def test_every_type_has_a_decoder(self):
+        # FRAME_TYPES holds each type's shortest layout; the header declares
+        # the version that layout belongs to (TWF's is version 0, #313).
         for pl_type, (_name, size) in FRAME_TYPES.items():
-            assert decode_kepler_frame(bytes(header(pl_type, size)))["pl_type"] == pl_type
+            version = min((length, known) for known, (length, _decoder)
+                          in LAYOUTS[pl_type].items())[1]
+            frame = header(pl_type, size, type_cap=version)
+            assert decode_kepler_frame(bytes(frame))["pl_type"] == pl_type
+
+
+class TestV10Twf:
+    """TWF type version 0: the V10.00 firmware's 96-byte layout (#313), from
+    the reference project's V10.00.0000 tag; V10.00.0001, V10.00.1000 and
+    V10.99.x have the same TWF rows."""
+
+    def test_a_v10_twf_frame_is_decoded_not_refused(self):
+        decoded = decode_kepler_frame(bytes(v10_twf()))
+        assert decoded["type"] == "TWF" and decoded["sensor_id"] == "5C314E"
+        assert (decoded["rf_capability"], decoded["type_capability"],
+                decoded["hw_capability"], decoded["fw_capability"]) == (4, 0, 4, 2)
+
+    def test_its_only_warning_is_the_rf_capability(self):
+        # Version 0 is a known TWF layout now, so no fallback is reported.
+        decoded = decode_kepler_frame(bytes(v10_twf()))
+        assert decoded["warnings"] == ["RF_CAP 4; these layouts are for RF_CAP 6"]
+
+    def test_the_counter_is_at_8_with_no_permute_control(self):
+        decoded = decode_kepler_frame(bytes(v10_twf()))
+        assert decoded["frame"] == {"repeat": 1, "frames_per_packet": 3}
+        assert decoded["permute_method"] == "distance" and decoded["permute_implied"]
+
+    def test_the_fields_are_one_byte_earlier_than_version_1(self):
+        decoded = decode_kepler_frame(bytes(v10_twf()))
+        assert decoded["temperature_c"] == 23.1 and decoded["battery_mv"] == 3580
+        assert (decoded["packet_number"], decoded["packet_count"]) == (5, 128)
+        assert decoded["ticks"] == 6775
+        assert decoded["si"] == [145, 84, 93]
+        assert decoded["samples"] == list(range(-300, -300 + 32 * 7, 7))
+
+    def test_param_bits_4_2_are_reserved_not_a_permute_method(self):
+        param = decode_kepler_frame(bytes(v10_twf()))["param"]
+        assert (param["axis"], param["twf_scale"], param["si_scale"], param["twfb"]) == (
+            2, 1, 2, 1)
+        assert (param["si_type"], param["reserved"], param["rescale"]) == (3, 7, 1)
+        assert "permute" not in param
+        assert decode_kepler_frame(bytes(v10_twf()))["axis"] == "Z"
+
+    def test_the_odr_is_sent_uncompressed(self):
+        frame = v10_twf()
+        frame[14:16] = struct.pack(">H", 0x8000 | 3200)
+        decoded = decode_kepler_frame(bytes(frame))
+        assert decoded["freq_code"] == decoded["odr_hz"] == 0x8000 | 3200
+
+    def test_time_taken_is_24_bits_then_the_group_and_no_sync_attribute(self):
+        decoded = decode_kepler_frame(bytes(v10_twf()))
+        assert decoded["time_taken_us"] == 0xABCDEF and decoded["group_id"] == 9
+        assert "sync_attribute" not in decoded
+
+    def test_its_samples_are_placed_in_distance_order(self):
+        decoded = decode_kepler_frame(bytes(v10_twf()))
+        size, placed = decoder_tables.frame_positions(decoded)
+        assert size == 128 * 32
+        assert placed[5] == -300 and placed[5 + 128] == -293
+
+    def test_a_short_v10_twf_frame_is_refused(self):
+        with pytest.raises(KeplerFrameError, match=r"a TWF frame is 96 bytes; this payload is 95$"):
+            decode_kepler_frame(bytes(v10_twf())[:95])
+
+    def test_a_96_byte_frame_of_version_1_is_still_refused(self):
+        # A V11 TWF is 100 bytes; one that declares version 1 is not read at
+        # the V10.00 offsets.
+        frame = v10_twf()
+        frame[5] = (1 << 3) | 4
+        with pytest.raises(KeplerFrameError,
+                           match=r"a TWF frame is 100 bytes; this payload is 96$"):
+            decode_kepler_frame(bytes(frame))
+
+    def test_version_1_is_unchanged(self):
+        decoded = decode_kepler_frame(bytes.fromhex(TWF_FRAMES[0]))
+        assert "permute_implied" not in decoded and decoded["param"]["permute"] == 0
+        assert decoded["time_taken_us"] == 630260 and "sync_attribute" in decoded
+
+
+def v1001_twf() -> bytearray:
+    """A 99-byte V10.01.x TWF frame (#335): the V10.00 payload of
+    :func:`v10_twf` with V10.01.2000's header (RF_CAP 5, TWF type version 1,
+    HW and FW capability 4), a 32-bit time taken, the group ID at 96 and the
+    sync attribute at 97-98. None has been received on the bench, so it is
+    built from the firmware."""
+    frame = bytearray(99)
+    frame[0:92] = v10_twf()[0:92]
+    frame[4:7] = bytes([5, (1 << 3) | 4, 4])
+    frame[92:96] = struct.pack(">I", 0x12ABCDEF)
+    frame[96] = 9
+    frame[97:99] = struct.pack(">H", 0xBEEF)
+    return frame
+
+
+class TestV1001Twf:
+    """TWF type version 1 as V10.01.x sends it: 99 bytes, RF_CAP 5 (#335), from
+    the reference project's V10.01.2000 tag; V10.01.0000 and V10.01.1000 have
+    the same TWF rows."""
+
+    def test_a_99_byte_frame_is_decoded_not_refused(self):
+        decoded = decode_kepler_frame(bytes(v1001_twf()))
+        assert decoded["type"] == "TWF" and decoded["sensor_id"] == "5C314E"
+        assert (decoded["rf_capability"], decoded["type_capability"],
+                decoded["hw_capability"], decoded["fw_capability"]) == (5, 1, 4, 4)
+
+    def test_no_warning_its_rf_capability_has_its_own_layout(self):
+        assert "warnings" not in decode_kepler_frame(bytes(v1001_twf()))
+
+    def test_the_fields_are_at_the_v10_offsets(self):
+        decoded = decode_kepler_frame(bytes(v1001_twf()))
+        assert decoded["frame"] == {"repeat": 1, "frames_per_packet": 3}
+        assert decoded["permute_method"] == "distance" and decoded["permute_implied"]
+        assert decoded["temperature_c"] == 23.1 and decoded["battery_mv"] == 3580
+        assert (decoded["packet_number"], decoded["packet_count"]) == (5, 128)
+        assert decoded["ticks"] == 6775 and decoded["si"] == [145, 84, 93]
+        assert decoded["samples"] == list(range(-300, -300 + 32 * 7, 7))
+        assert decoded["param"]["reserved"] == 7 and "permute" not in decoded["param"]
+        assert decoded["odr_hz"] == 25600
+
+    def test_time_taken_is_32_bits_then_the_group_and_the_sync_attribute(self):
+        decoded = decode_kepler_frame(bytes(v1001_twf()))
+        assert decoded["time_taken_us"] == 0x12ABCDEF
+        assert decoded["group_id"] == 9 and decoded["sync_attribute"] == 0xBEEF
+
+    def test_its_samples_are_placed_in_distance_order(self):
+        size, placed = decoder_tables.frame_positions(decode_kepler_frame(bytes(v1001_twf())))
+        assert size == 128 * 32
+        assert placed[5] == -300 and placed[5 + 128] == -293
+
+    def test_a_short_one_is_refused(self):
+        with pytest.raises(KeplerFrameError, match=r"a TWF frame is 99 bytes; this payload is 98$"):
+            decode_kepler_frame(bytes(v1001_twf())[:98])
+
+    def test_an_rf_cap_6_frame_of_99_bytes_is_still_refused(self):
+        # V11 declares the same type version in 100 bytes: the RF_CAP, not the
+        # length, picks the layout.
+        frame = v1001_twf()
+        frame[4] = 6
+        with pytest.raises(KeplerFrameError,
+                           match=r"a TWF frame is 100 bytes; this payload is 99$"):
+            decode_kepler_frame(bytes(frame))
+
+    def test_v11_and_v10_00_twf_are_unchanged(self):
+        decoded = decode_kepler_frame(bytes.fromhex(TWF_FRAMES[0]))
+        assert decoded["rf_capability"] == 6 and decoded["param"]["permute"] == 0
+        assert decode_kepler_frame(bytes(v10_twf()))["time_taken_us"] == 0xABCDEF
+
+    def test_other_rf_cap_5_frames_keep_the_shared_layouts_and_the_warning(self):
+        frame = header(3, 35)
+        frame[4] = 5
+        assert decode_kepler_frame(bytes(frame))["warnings"] == [
+            "RF_CAP 5; these layouts are for RF_CAP 6"]
+
+
+#: Received on the bench on 2026-11-14 (docs/aspice/qualification/2026-11-14/
+#: 335_5c1712_v10/): 5C1712 on V10.00.0000, and 5C1705 on V10.01.2000-323.
+V10_CONFIG = "5c1712030404020513040000000000004dfc0000"
+V1001_CONFIG = "5c170503050c04051300000a000a000a000a0003"
+V10_TWF = ("5c171203040402041300d38c0001640000000100004802ff10d3021400c6fffe013d0192"
+           "00d703ab041102f0008c0315fff9ffde02a301c4017bffea057f0471041401a202d1ff56"
+           "054a03d70155044f00ea03d202b5038c01600241099abc01")
+V1001_TWF = ("5c171203050c04041300cf8e0001640000000100001002ff10d70216038f0430033bffa4"
+             "00ee036b0040001e01b903fb01a2046703e003db009302f5047efea9016b029c044e03b6"
+             "03e105930340037402ca011dfff60382006b000100099c7701d483")
+
+
+class TestV10ConfigAndRealFrames:
+    """CONFIG as V10 sends it, 20 bytes (#335), and the first V10.00 TWF frame
+    received on the bench, which #313's layout was written for from source."""
+
+    def test_a_v10_00_config_is_decoded(self):
+        decoded = decode_kepler_frame(bytes.fromhex(V10_CONFIG))
+        assert (decoded["type"], decoded["sensor_id"], decoded["type_capability"]) == (
+            "CONFIG", "5C1712", 0)
+        assert decoded["frame"] == {"repeat": 0, "frames_per_packet": 3}
+        assert decoded["mux"] == 4 and decoded["values"] == [0, 0, 0, 0x4DFC, 0]
+        assert decoded["permute_method"] == "none" and decoded["permute_implied"]
+        # V10's parameter list is not V11's, so the values are not named.
+        assert "parameters" not in decoded
+        assert decoded["warnings"] == ["RF_CAP 4; these layouts are for RF_CAP 6"]
+
+    def test_a_v10_01_config_is_decoded_under_its_rf_capability(self):
+        decoded = decode_kepler_frame(bytes.fromhex(V1001_CONFIG))
+        assert (decoded["sensor_id"], decoded["rf_capability"], decoded["type_capability"]) == (
+            "5C1705", 5, 1)
+        assert decoded["mux"] == 0 and decoded["values"] == [10, 10, 10, 10, 3]
+        assert "warnings" not in decoded
+
+    def test_a_20_byte_config_from_v11_is_still_refused(self):
+        frame = bytearray.fromhex(V1001_CONFIG)
+        frame[4] = 6
+        refused = r"a CONFIG frame is 21 bytes; this payload is 20$"
+        with pytest.raises(KeplerFrameError, match=refused):
+            decode_kepler_frame(bytes(frame))
+
+    def test_a_v11_config_is_unchanged(self):
+        frame = header(5, 21)
+        frame[10] = 3
+        decoded = decode_kepler_frame(bytes(frame))
+        assert decoded["mux"] == 3 and "parameters" in decoded
+
+    def test_the_first_real_v10_00_twf_frame(self):
+        decoded = decode_kepler_frame(bytes.fromhex(V10_TWF))
+        assert (decoded["type"], decoded["sensor_id"], decoded["type_capability"]) == (
+            "TWF", "5C1712", 0)
+        assert (decoded["axis"], decoded["packet_number"], decoded["packet_count"]) == ("X", 0, 256)
+        assert decoded["odr_hz"] == 25600
+        # 16384 samples at 25600 Hz take 640 ms; the sensor reports 629 436 us.
+        assert decoded["time_taken_us"] == 629436 and decoded["group_id"] == 1
+        assert decoded["samples"][:4] == [198, -2, 317, 402]
+
+    def test_the_first_real_v10_01_twf_frame(self):
+        # 5C1712 on V10.01.2000, received on 2026-11-14 (335_5c1712_v1001/):
+        # #335's 99-byte layout, confirmed on a frame from the air.
+        decoded = decode_kepler_frame(bytes.fromhex(V1001_TWF))
+        assert (decoded["type"], decoded["sensor_id"], decoded["rf_capability"],
+                decoded["type_capability"]) == ("TWF", "5C1712", 5, 1)
+        assert "warnings" not in decoded
+        assert (decoded["axis"], decoded["packet_number"], decoded["packet_count"]) == ("X", 0, 256)
+        assert decoded["time_taken_us"] == 629879 and decoded["group_id"] == 1
+        assert decoded["sync_attribute"] == 54403
+        assert (decoded["temperature_c"], decoded["battery_mv"]) == (20.7, 2840)
+        assert decoded["samples"][:4] == [911, 1072, 827, -92]
+
+
+#: Every (PL_TYPE, type version) the decoder knows (#287).
+KNOWN_LAYOUTS = [(pl_type, version, size)
+                 for pl_type, versions in sorted(LAYOUTS.items())
+                 for version, (size, _decoder) in sorted(versions.items())]
+
+
+class TestTypeVersions:
+    """The layout is chosen by the type version in byte 5 bits 7:3; an unknown
+    version is decoded with the nearest known version below it, or the lowest
+    known one, and a warning says so (#287)."""
+
+    def test_the_versions_are_pinned_to_the_firmwares(self):
+        # Pinned to API_RADIO_TRANSPORT_TYPE_CAPABILITY_* on innovateuk-sensor
+        # develop e638d66df (CMD falls to the switch's default, 0). The firmware
+        # is not read here: this catches an edit to LAYOUTS, not a firmware change.
+        # TWF version 0 is V10.00.0000's layout, which writes no type version (#313);
+        # CONFIG version 0 is V10's 20-byte layout (#335).
+        versions = {pl_type: sorted(known) for pl_type, known in LAYOUTS.items()}
+        assert versions == {2: [1], 3: [1], 4: [0, 1], 5: [0, 1], 6: [1], 7: [1, 2], 8: [0], 9: [0]}
+
+    def test_frame_types_holds_each_types_shortest_layout(self):
+        for pl_type, (_name, size) in FRAME_TYPES.items():
+            assert size == min(length for length, _decoder in LAYOUTS[pl_type].values())
+
+    @pytest.mark.parametrize("pl_type, version, size", KNOWN_LAYOUTS)
+    def test_a_known_version_decodes_without_a_warning(self, pl_type, version, size):
+        decoded = decode_kepler_frame(bytes(header(pl_type, size, type_cap=version)))
+        assert decoded["type_capability"] == version and "warnings" not in decoded
+
+    @pytest.mark.parametrize("pl_type", [2, 3, 4, 5, 6, 7, 8])
+    def test_an_unknown_version_uses_the_highest_known(self, pl_type):
+        highest = max(LAYOUTS[pl_type])
+        size = LAYOUTS[pl_type][highest][0]
+        decoded = decode_kepler_frame(bytes(header(pl_type, size, type_cap=highest + 1)))
+        name = FRAME_TYPES[pl_type][0]
+        assert decoded["warnings"] == [
+            "%s type version %d; decoded as version %d" % (name, highest + 1, highest)]
+
+    def test_a_version_below_every_known_one_uses_the_lowest(self):
+        # V10.00.0000 writes all of byte 5 as its HW capability, 4, so every
+        # V10.00 frame reads as type version 0 (api_radio_transport_cfg.h).
+        decoded = decode_kepler_frame(bytes(header(7, 105, type_cap=0)))
+        assert "fft_odr" not in decoded and len(bytes.fromhex(decoded["bins"])) == 84
+        assert decoded["warnings"] == ["FFT2 type version 0; decoded as version 1"]
+
+    def test_a_version_between_known_ones_uses_the_nearest_below(self, monkeypatch):
+        monkeypatch.setitem(LAYOUTS, 7, {1: LAYOUTS[7][1], 3: LAYOUTS[7][2]})
+        decoded = decode_kepler_frame(bytes(header(7, 105, type_cap=2)))
+        assert decoded["warnings"] == ["FFT2 type version 2; decoded as version 1"]
+
+    def test_a_short_frame_at_an_unknown_version_names_the_fallback(self):
+        # A V10.00 FFT2 APDU is 104 bytes (version 0).
+        with pytest.raises(KeplerFrameError,
+                           match=r"FFT2 frame is 105 bytes; this payload is 104 "
+                                 r"\(type version 0, decoded as version 1\)"):
+            decode_kepler_frame(bytes(header(7, 104, type_cap=0)))
+
+    def test_a_short_frame_at_a_known_version_does_not(self):
+        with pytest.raises(KeplerFrameError, match=r"this payload is 105$"):
+            decode_kepler_frame(bytes(header(7, 105, type_cap=2)))
+
+    def test_an_alive_frame_at_an_unknown_version(self):
+        frame = bytearray(bytes.fromhex(ALIVE_REPEATS[0]))
+        frame[5] = (2 << 3) | 4
+        decoded = decode_kepler_frame(bytes(frame))
+        assert decoded["battery_mv"] == decode_kepler_frame(
+            bytes.fromhex(ALIVE_REPEATS[0]))["battery_mv"]
+        assert decoded["warnings"] == ["ALIVE type version 2; decoded as version 1"]
+
+    def test_the_gateways_response_is_not_checked(self):
+        # RESPONSE is built by the gateway, whose header is not the sensor's.
+        assert "warnings" not in decode_kepler_frame(bytes(header(9, 14, type_cap=5)))
 
 
 class TestWhatCannotBeDecoded:

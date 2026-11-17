@@ -1,0 +1,4 @@
+# Only what docker/ci/Dockerfile copies (#282).
+*
+!constraints/
+!docker/ci/

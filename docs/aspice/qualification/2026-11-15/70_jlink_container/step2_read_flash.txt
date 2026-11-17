@@ -1,0 +1,8 @@
+{
+  "address": "0x00000000",
+  "dump": [
+    "0x00000000  ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff  ................"
+  ],
+  "hex": "ffffffffffffffffffffffffffffffff",
+  "size": 16
+}

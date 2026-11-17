@@ -74,6 +74,7 @@ __all__ = [
     "DISPLAY_COUNTS",
     "READING_INTERVAL",
     "ECHO_TIMEOUT",
+    "RANGING_TIME",
     "SETTLING_TIME",
     "KEYS",
     "REMOTE",
@@ -140,6 +141,12 @@ ECHO_TIMEOUT = 0.3
 
 #: How long the meter takes to act on a key press and settle, worst case.
 SETTLING_TIME = 2.0
+
+#: Longest the meter takes to auto-range, in seconds. Selecting ohms with an
+#: open input, a real 1604 stepped through all six ranges with a blank display
+#: (a decimal point and no digit) for 2.8 s before it showed 0FL (#181,
+#: 2026-10-28). A measurement waits this long past blank frames.
+RANGING_TIME = 6.0
 
 #: How long one read of the link waits before the driver checks its own
 #: deadline again. Fixed, and set on the transport once: pyserial reconfigures

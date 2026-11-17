@@ -9,8 +9,9 @@ import struct
 
 import pytest
 
-from benchtools.instruments.s2lp.kepler import decode_kepler_frame
-from benchtools.viewer.diagnostics import Diagnostics, SyncTracker
+from ..kepler_plugin import decode_kepler_frame, diagnostics
+
+Diagnostics, SyncTracker = diagnostics.Diagnostics, diagnostics.SyncTracker
 
 
 def _alive(repeat, total=3, ticks=400):

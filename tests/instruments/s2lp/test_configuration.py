@@ -381,7 +381,7 @@ class TestTheShippedConfiguration:
         import pathlib
 
         root = pathlib.Path(__file__).resolve().parents[3]
-        path = str(root / "configs" / "s2lp_kepler_433_rx.regs")
+        path = str(root / "plugins" / "kepler" / "configs" / "s2lp_kepler_433_rx.regs")
         values = load_register_file(path).as_map()
         by_name = {reg.BY_ADDRESS[address].name: value for address, value in values.items()}
         assert [by_name[name] for name in ("SYNC3", "SYNC2", "SYNC1", "SYNC0")] == [

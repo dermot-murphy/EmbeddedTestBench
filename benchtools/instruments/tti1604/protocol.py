@@ -103,6 +103,16 @@ class Reading:  # pylint: disable=too-many-instance-attributes
         return "%s_%s" % ("ac" if self.ac else "dc", self.measurement)
 
     @property
+    def blank(self) -> bool:
+        """No digit is lit: the meter is between ranges while auto-ranging.
+
+        A real 1604 sends these for seconds after a change of function (#181):
+        selecting ohms on an open input gave six blank frames, one per range,
+        before 0FL. A blank frame is neither a value nor an overrange.
+        """
+        return not self.text.replace(".", "").replace("-", "").strip()
+
+    @property
     def is_live(self) -> bool:
         """A number that is the input's value now: not overrange, not held."""
         return self.value is not None and not self.held

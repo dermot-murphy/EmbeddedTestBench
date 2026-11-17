@@ -10,8 +10,8 @@
 
 | Field | Value | Field | Value |
 |---|---|---|---|
-| **Document ID** | ETB-SYS3-001 | **Version** | 0.5 |
-| **Project** | Embedded Test Bench | **Date** | 2026-10-05 |
+| **Document ID** | ETB-SYS3-001 | **Version** | [latest, §2](#2-revision-history) |
+| **Project** | Embedded Test Bench | **Date** | [latest, §2](#2-revision-history) |
 | **Status** | Draft | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SYS.3 |
@@ -29,6 +29,9 @@
 | 0.3 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
 | 0.4 | 2026-10-05 | Claude | #204: Review & Approval table points to the merge of the pull request that last changed the document, which is the review and approval (ETB-SUP8-001 §5.7); no per-change signatures or dates. |
 | 0.5 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
+| 0.6 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
+| 0.7 | 2026-11-13 | Claude | #200: SE-PSCOPE, the PicoScope 3405D MSO; ETB-SIF-12 (host to scope, specified in ETB-IF-002) and ETB-SIF-13 (target to scope); §6.1 containerisation. |
+| 0.8 | 2026-11-14 | Claude | #342: SE-PPK, the Nordic Power Profiler Kit II; ETB-SIF-14 (host to kit) and ETB-SIF-15 (kit to target); §6.1 containerisation. |
 
 ---
 
@@ -83,11 +86,13 @@ Embedded Test Bench supplies, and the target under test as the bench sees it.
 |---|---|---|---|
 | **SE-HOST** | The bench host — a PC or a container running `benchtools` | This project (software) | — |
 | **SE-SCOPE** | Tektronix TDS3014B oscilloscope | Tektronix | Ethernet, VXI-11 |
+| **SE-PSCOPE** | PicoScope 3405D MSO: four analogue channels, 16 digital inputs, signal generator (#200) | Pico Technology | USB, through Pico's `ps3000a` library |
 | **SE-PSU** | GW Instek GPD-3303D bench supply | GW Instek | USB serial, 9600 8N1 |
+| **SE-PPK** | Nordic Power Profiler Kit II: supply and current meter, 100 000 samples a second, eight logic inputs (#342) | Nordic Semiconductor | USB CDC, the kit's own binary protocol |
 | **SE-PROBE** | SEGGER J-Link debug probe | SEGGER | USB, presented as TCP: GDB server and RTT |
 | **SE-DONGLE** | Nordic nRF52840 dongle (PCA10059) | Hardware: Nordic. Firmware: **this project** | USB serial (CDC ACM) |
 | **SE-S2LP** | ST S2-LP development kit | Hardware and firmware: STMicroelectronics | USB serial |
-| **SE-TARGET** | The device under test | The project being tested | Debug port (to SE-PROBE), BLE (to SE-DONGLE), power (from SE-PSU), signals (to SE-SCOPE) |
+| **SE-TARGET** | The device under test | The project being tested | Debug port (to SE-PROBE), BLE (to SE-DONGLE), power (from SE-PSU, or from or through SE-PPK), signals (to SE-SCOPE and SE-PSCOPE) |
 
 ### 5.2 Logical Elements on the Host
 
@@ -128,12 +133,17 @@ observes rather than defines.
 | ETB-SIF-09 | SE-PSU ↔ SE-TARGET | Wires | Power | Tracking mode constrains what may be set (ETB-SYS2-023) |
 | ETB-SIF-10 | SE-TARGET ↔ SE-SCOPE | Probes | Analogue signals | Up to four channels |
 | ETB-SIF-11 | SE-HOST ↔ CI | Files | JUnit XML, markdown reports | ETB-SYS2-079 |
+| ETB-SIF-12 | SE-HOST ↔ SE-PSCOPE | USB | Pico Technology's `ps3000a` C library, called through `ctypes` | No command text on a wire: the interface is the set of library calls. Specified in ETB-IF-002 |
+| ETB-SIF-13 | SE-TARGET ↔ SE-PSCOPE | Probes, logic leads, BNC | Analogue and logic signals in; the signal generator out | Up to four analogue channels and 16 digital inputs in one acquisition (ETB-SYS2-065). On the bench PC, channel A is wired to the PICO2 Test Board's generator channel 1 |
+| ETB-SIF-14 | SE-HOST ↔ SE-PPK | USB CDC | The PPK2's binary protocol: opcodes out; metadata text and 32-bit samples in, 100 000 a second | Found by USB serial number. The kit answers its metadata once per open, and goes off USB for under a second when its port closes. Specified in `docs/ppk2/PPK2_Notes.md` |
+| ETB-SIF-15 | SE-PPK ↔ SE-TARGET | Wires, logic leads | Power out (source mode, 0.8 V to 5.0 V) or through (ammeter mode); logic signals D0 to D7 in | The voltage is capped by the bench's `voltage_limit` (ETB-SYS2-026). Nothing is wired on the bench PC as of 2026-11-14 |
 
 ### 6.1 Containerisation
 
 ETB-SAD-03 is satisfied for SE-SCOPE and SE-PROBE, whose links are TCP. SE-PSU,
 SE-DONGLE and SE-S2LP are USB serial and require the device to be passed into
-the container. This is a property of the instruments, not a decision, and is
+the container. SE-PSCOPE is USB too, and needs Pico's Linux library inside
+the container as well (ETB-IF-002 §12). SE-PPK is USB CDC, as the serial instruments are. This is a property of the instruments, not a decision, and is
 recorded so that a reader does not expect otherwise.
 
 ---

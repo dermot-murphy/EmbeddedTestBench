@@ -43,7 +43,7 @@ def records(path):
     ("benchtools.instruments.s2lp.session", "RF"),
     ("benchtools.instruments.tek3014b.scope", "SCOPE"),
     ("benchtools.instruments.tti1604.dmm", "DMM"),
-    ("benchtools.instruments.pico_sht30.thermometer", "TEMP"),
+    ("benchtools.instruments.pico2_test_board.thermometer", "TEMP"),
     ("benchtools.runner.runner", "TEST"),
     ("benchtools.core.transport.base", "BENCH"),
     ("benchtools.instruments.s2lpx", "BENCH"),     # a prefix, not a package
@@ -215,9 +215,9 @@ class TestPerInstrumentNames:
         assert transport and {r["source"] for r in transport} == {"BENCHPSU"}
 
     def test_an_instrument_is_named_from_construction(self, event_log):
-        from benchtools.instruments.pico_sht30 import PicoSht30
+        from benchtools.instruments.pico2_test_board import Pico2TestBoard
         with connecting_as("BENCHT"):
-            thermometer = PicoSht30.connect("sim://")
+            thermometer = Pico2TestBoard.connect("sim://")
         assert thermometer.event_source == "BENCHT"
         thermometer.close()
         assert records(event_log) and {r["source"] for r in records(event_log)} == {"BENCHT"}
@@ -229,7 +229,7 @@ class TestPerInstrumentNames:
         ("benchtools.instruments.s2lp", "S2lpDevkit", "RF"),
         ("benchtools.instruments.tek3014b", "Tek3014B", "SCOPE"),
         ("benchtools.instruments.tti1604", "Tti1604", "DMM"),
-        ("benchtools.instruments.pico_sht30", "PicoSht30", "TEMP"),
+        ("benchtools.instruments.pico2_test_board", "Pico2TestBoard", "TEMP"),
     ])
     def test_each_driver_s_default(self, module, cls, name):
         import importlib

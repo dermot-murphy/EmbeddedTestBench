@@ -15,11 +15,14 @@ instruments are added:
 | `ANA-` | Analysis of captured records | `benchtools.analysis` |
 | `INST-` | Instrument drivers, common requirements | `benchtools.instruments` |
 | `SCOPE-` | Tektronix TDS3014B driver | `benchtools.instruments.tek3014b` |
+| `PSCOPE-` | PicoScope 3000D MSO driver: four analogue, 16 digital, signal generator | `benchtools.instruments.picoscope3000` |
+| `PPK-` | Nordic Power Profiler Kit II driver: current, charge and pulses | `benchtools.instruments.ppk2` |
 | `JLINK-` | SEGGER J-Link debug probe driver | `benchtools.instruments.jlink` |
 | `BLE-` | Nordic BLE bench dongle: host driver **and** dongle firmware | `benchtools.instruments.nordic_dongle`, `firmware/nordic_dongle` |
 | `PSU-` | GW Instek GPD-3303D bench supply | `benchtools.instruments.gpd3303d` |
 | `S2LP-` | ST S2-LP development kit | `benchtools.instruments.s2lp` |
-| `PICO-` | Pico 2 + SHT30-D thermometer: host driver **and** Pico firmware | `benchtools.instruments.pico_sht30`, `firmware/pico_sht30` |
+| `PICO-` | PICO2 Test Board (Pico 2 thermometer, LEDs and frequency generator): host driver **and** Pico firmware | `benchtools.instruments.pico2_test_board`, `firmware/pico2_test_board` |
+| `SER-` | Serial capture instrument: a device's serial output, recorded | `benchtools.instruments.serial_capture` |
 | `RUN-` | Bench test runner | `benchtools.runner` |
 
 ## Documents
@@ -46,6 +49,7 @@ All ASPICE work products live in [`aspice/`](aspice/). Every one is at version
 | [SWE.3 Detailed Design](aspice/EmbeddedTestBench_SWE3_Detailed_Design.md) | Per-module design units |
 | [SWE.3 GPD-3303D Driver Design](aspice/EmbeddedTestBench_SWE3_002_GPD3303D_Driver_Design.md) | The supply's driver as one component: structure, decisions, and the lessons learned bringing it up on hardware |
 | [GPD-3303D Remote Control Interface](aspice/EmbeddedTestBench_IF001_GPD3303D_Remote_Control_Interface.md) | The supply's protocol as the instrument implements it, command by command, with captured replies |
+| [PicoScope 3000D Driver Interface and Dependencies](aspice/EmbeddedTestBench_IF002_PicoScope3000_Driver_Interface.md) | How Embedded Test Bench drives the PicoScope through the `ps3000a` library, call by call, and every layer it depends on |
 | [SWE.4 Unit Verification](aspice/EmbeddedTestBench_SWE4_Unit_Verification.md) | Verification strategy, test groups, pass criteria |
 | [SWE.4 Unit Verification Report](aspice/EmbeddedTestBench_SWE4_Unit_Verification_Report.md) | Results, coverage, measured accuracy, defects found |
 | [SWE.5 Integration & Integration Test](aspice/EmbeddedTestBench_SWE5_SW_Integration_Test.md) | How the units are joined, and the interface properties no unit test can show |
@@ -92,6 +96,7 @@ All ASPICE work products live in [`aspice/`](aspice/). Every one is at version
 | [Bench Runner Guide](Bench_Runner_Guide.md) | How to write a test specification and a bench configuration |
 | [Bench Self-Check Setup](Bench_Self_Check_Setup.md) | Setting up a Windows or Linux machine to run the bench self-check against real instruments |
 | [Robot Framework Keyword Catalogue](robot/Robot_Keyword_Catalogue.md) | Proposed keywords for the BLE dongle, the J-Link and the GPD-3303D, with the hardware behaviour that set each one's defaults. Nothing is implemented |
+| [Bench Tools in a Container](docker/Bench_Container_Investigation.md) | ETB-DOCK-001 (#70). Whether benchtools and the ARM GDB should run in a Docker image: what moves and what stays on the host, how each instrument is reached, measured costs, the prototype `docker/bench/Dockerfile`, and the J-Link test plan |
 
 ### Product test setups
 
@@ -115,7 +120,8 @@ be checked against the other.
 | [J-Link Integration Notes](jlink/JLink_Integration_Notes.md) | Why the GDB Server rather than the DLL, running it on Windows and in Docker, choosing a timing method, and the probe's bench confirmation items |
 | [BLE Dongle Notes](ble/BLE_Dongle_Notes.md) | Why the dongle needs firmware of its own, the line protocol, building and flashing it, how to read an advertising profile and a response time, and the firmware's bench confirmation items |
 | [S2-LP Devkit Notes](s2lp/S2LP_Devkit_Notes.md) | The ST S2-LP kit: why the vendor's firmware is used unchanged and what that decision costs, its CLI protocol and the two reply traps in it, the register map and what may be kept of it, and the kit's bench confirmation items |
-| [Pico 2 + SHT30-D Notes](pico_sht30/Pico_SHT30_Notes.md) | The Pico 2 thermometer: wiring, building and flashing the firmware, the SHT30 datasheet facts it depends on, its MISRA C position, and bench confirmation items. [References](pico_sht30/References.md) lists the official datasheets, schematics and user guides, with `fetch_datasheets.sh` |
+| [PICO2 Test Board User Manual](pico2_test_board/PICO2_Test_Board_User_Manual.md) | ETB-PICO-002. Using the PICO2 Test Board (named the Pico 2 SHT30 Temperature Sensor before #330): wiring, flashing, every serial command, `benchtools pico2`, the Python driver, test sequences (`specs/pico2_test_board.yaml`), worked examples, limits and troubleshooting |
+| [PICO2 Test Board Notes](pico2_test_board/PICO2_Test_Board_Notes.md) | The PICO2 Test Board's engineering note: wiring, building and flashing the firmware, the SHT30 datasheet facts it depends on, its MISRA C position, and bench confirmation items. [References](pico2_test_board/References.md) lists the official datasheets, schematics and user guides, with `fetch_datasheets.sh` |
 | [GPD-3303D Notes](psu/GPD3303D_Notes.md) | The GW Instek bench supply: why it rejects an out-of-range setting silently, why constant current matters to every other measurement on the bench, why per-channel output is emulated and what that does not promise, why a channel it is slaving to another is refused rather than reported, and its bench confirmation items |
 | [TTi 1604 Notes](dmm/TTi1604_Notes.md) | The TTi 1604 multimeter: its interface and protocol, the stream read and why a key press is confirmed from the readings, the derived resistance multiplier, the bench test and front-panel check, and its bench confirmation items. The manufacturer's documents are in `dmm/reference/` |
 

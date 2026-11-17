@@ -36,6 +36,7 @@ BASELINE = ROOT / ".pylint-baseline.json"
 #                               private detail is verified is a feature
 TARGETS = (
     ("benchtools", ()),
+    ("plugins", ()),
     ("scripts", ()),
     (
         "tests",

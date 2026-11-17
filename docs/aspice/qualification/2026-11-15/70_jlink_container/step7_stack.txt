@@ -1,0 +1,15 @@
+{
+  "backtrace": [
+    "#0  ?? at 0xdeadbeee"
+  ],
+  "depth": 1,
+  "frames": [
+    {
+      "address": "0xdeadbeee",
+      "file": "",
+      "function": "??",
+      "level": 0,
+      "line": 0
+    }
+  ]
+}

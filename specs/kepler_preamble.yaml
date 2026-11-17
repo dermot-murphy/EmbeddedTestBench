@@ -8,8 +8,12 @@
 # Against hardware (5C1712 is the sensor approved for configuration changes):
 #   python -m benchtools run specs/kepler_preamble.yaml --bench benches/lab1.yaml
 #
-# On the simulated bench the sensor answers over BLE and RTT (#121) but does
-# not yet transmit (#122), so the S2-LP steps need hardware.
+# On the simulated bench a simulated 5C1712 answers over BLE and RTT and
+# transmits its frames to the simulated S2-LP kit (#121, #122):
+#   python -m benchtools run specs/kepler_preamble.yaml --bench benches/simulated_bench.yaml
+# The report says the run was simulated (AD-10). A simulated pass shows that
+# the specification and the bench agree with a model of the sensor, not that
+# the sensor works.
 #
 # Limits:
 #   * PQI tops out at 255, so only preambles up to 127 pairs can be checked.
@@ -26,13 +30,17 @@ description: >
   the default.
 requirements: [S2LP-FR-049]
 
+# The Kepler decoder and register file come from its plugin (#238).
+plugins:
+  - ../plugins/kepler
+
 instruments:
   dongle: ble-dongle
   s2lp: s2lp
 
 setup:
   - do: s2lp.apply_configuration
-    with: {source: configs/s2lp_kepler_433_rx.regs, reset: defaults}
+    with: {source: plugin:kepler/s2lp_kepler_433_rx.regs, reset: defaults}
   - do: dongle.scan
     with: {duration: 5.0}
   - do: dongle.select
@@ -49,7 +57,7 @@ tests:
         with: {request: "ECURESET HARD", timeout: 45.0}
       - do: dongle.close_link
       - do: s2lp.check_preamble
-        with: {expected_pairs: 48, source: "5C1712", count: 6, timeout: 180.0}
+        with: {decoder: kepler, expected_pairs: 48, source: "5C1712", count: 6, timeout: 180.0}
         expect:
           - name: preamble_as_set
             measure: passed
@@ -69,7 +77,7 @@ tests:
         with: {request: "ECURESET HARD", timeout: 45.0}
       - do: dongle.close_link
       - do: s2lp.check_preamble
-        with: {expected_pairs: 32, source: "5C1712", count: 6, timeout: 180.0}
+        with: {decoder: kepler, expected_pairs: 32, source: "5C1712", count: 6, timeout: 180.0}
         expect:
           - name: preamble_as_set
             measure: passed

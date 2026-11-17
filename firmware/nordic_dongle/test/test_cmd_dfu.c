@@ -19,6 +19,9 @@
 #include "nrf_error.h"
 #include "protocol.h"
 
+/** The longest Packet write: DFU_CLIENT_MAX_WRITE in dfu_client.h. */
+#define TEST_FULL_PACKET	244U
+
 /** Run a command line through the parser, as the main loop would. */
 static void test_handle(const char * line)
 {
@@ -94,8 +97,27 @@ static void test_dfupkt_writes_the_packet(void)
 {
 	fake_dfu_set_ready(true);
 	test_handle("dfupkt 010203");
-	TEST_ASSERT_EQUAL_STRING("ok len=3", test_reply());
+	TEST_ASSERT_EQUAL_STRING("ok len=3 piece=244 pieces=1 att_mtu=247", test_reply());
 	TEST_ASSERT_EQUAL_UINT32(1U, fake_dfu_packets());
+}
+
+static void test_dfupkt_reports_the_piece_size_and_pieces(void)
+{
+	/* 244 bytes at the minimum ATT MTU of 23: 12 pieces of 20 and one of 4,
+	 * as both Kepler bootloaders on 5C1712 linked (#271, #274). */
+	char		hex[(TEST_FULL_PACKET * 2U) + 8U];
+	uint32_t	index;
+
+	(void)memcpy(hex, "dfupkt ", 7U);
+	for (index = 0U; index < (TEST_FULL_PACKET * 2U); index++)
+	{
+		hex[7U + index] = 'a';
+	}
+	hex[7U + (TEST_FULL_PACKET * 2U)] = '\0';
+	fake_dfu_set_ready(true);
+	fake_dfu_set_att_mtu(23U);
+	test_handle(hex);
+	TEST_ASSERT_EQUAL_STRING("ok len=244 piece=20 pieces=13 att_mtu=23", test_reply());
 }
 
 static void test_dfupkt_reports_a_full_queue_as_busy(void)
@@ -123,6 +145,7 @@ int main(void)
 	RUN_TEST(test_dfucp_with_no_response_is_a_timeout);
 	RUN_TEST(test_dfu_commands_need_a_dfu_service);
 	RUN_TEST(test_dfupkt_writes_the_packet);
+	RUN_TEST(test_dfupkt_reports_the_piece_size_and_pieces);
 	RUN_TEST(test_dfupkt_reports_a_full_queue_as_busy);
 	RUN_TEST(test_dfu_commands_refuse_bad_hex);
 	return UNITY_END();

@@ -7,13 +7,16 @@ from __future__ import annotations
 
 import struct
 
-from benchtools.instruments.s2lp.kepler import decode_kepler_frame
-from benchtools.viewer.kepler_view import (
-    CONFIG_GROUPS, KeplerView, byte_roles, header_rows, payload_rows,
-)
 from benchtools.viewer.radio import RfFrames
 
 from . import radio_log
+from ..kepler_plugin import decode_kepler_frame, tables, view as kepler_view
+
+CONFIG_GROUPS = kepler_view.CONFIG_GROUPS
+KeplerView = kepler_view.KeplerView
+byte_roles = kepler_view.byte_roles
+header_rows = kepler_view.header_rows
+payload_rows = kepler_view.payload_rows
 
 
 def _config(mux, values, method_byte=0x08, counter=0x13):
@@ -48,6 +51,17 @@ class TestLatestData:
         config = decode_kepler_frame(_config(0, [0] * 5))
         assert byte_roles(config, 21)[7:11] == ["type", "permute", "counter", "payload"]
         assert byte_roles(None, 4) == ["header"] * 4
+
+    def test_a_v10_twf_frame_has_its_counter_at_8(self):
+        # V10.00's TWF has no Permute Control byte; the order is implied (#313).
+        frame = bytearray(96)
+        frame[0:8] = bytes.fromhex("5c314e0304040204")
+        frame[8] = 0x13
+        decoded = decode_kepler_frame(bytes(frame))
+        assert byte_roles(decoded, 96)[7:10] == ["type", "counter", "payload"]
+        rows = dict(header_rows(decoded))
+        assert rows["Permute control"] == "Distance (none sent; the firmware's order)"
+        assert "Permute implied" not in dict(payload_rows(decoded))
 
     def test_header_rows(self):
         rows = dict(header_rows(decode_kepler_frame(_config(0, [0] * 5))))
@@ -93,7 +107,7 @@ class TestConfig:
     def test_a_polynomial_frame_is_placed_by_its_repeat(self):
         # Under the polynomial a slot's parameter depends on the repeat; the
         # value lands where the firmware's mapping says, not at mux*5 + slot.
-        from benchtools.instruments.s2lp.kepler_tables import config_parameter
+        config_parameter = tables.config_parameter
         view = _view(_config(0, [11, 22, 33, 44, 55], method_byte=0x10, counter=0x23))
         table = view.view()["config"]
         for slot, value in enumerate([11, 22, 33, 44, 55]):

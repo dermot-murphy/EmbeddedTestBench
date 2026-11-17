@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Applies to | Release `v0.02.0002` and `develop` after it |
+| Applies to | Release `v0.03.0000` and `develop` after it |
 | Issue | #196 |
 | Audience | An engineer new to the bench, and a Claude Code session working in this repository ([§8](#8-for-claude-code-sessions)) |
 
@@ -46,15 +46,15 @@ it:
 
 - **Instrument drivers**: a GW Instek GPD-3303D supply, a TTi 1604 multimeter, a
   Tektronix TDS3014B oscilloscope, a SEGGER J-Link debug probe, a Nordic BLE
-  dongle, an ST S2-LP sub-GHz kit and a Raspberry Pi Pico 2 + SHT30-D
-  thermometer.
+  dongle, an ST S2-LP sub-GHz kit and the PICO2 Test Board (a Raspberry Pi
+  Pico 2 with a temperature sensor, three LEDs and a frequency generator).
 - **A declarative test runner** (`benchtools run`). A *specification* says what
   to do and what counts as a pass. A *bench file* says which instruments are
   where. The runner produces JSON, Markdown and JUnit reports and an event log.
 - **A browser viewer** (`benchtools view`) to watch, start and steer a run.
 - **A GitHub Action** (`action.yml`) that runs specifications in CI.
 - **Firmware** for two of the instruments: the Nordic dongle
-  (`firmware/nordic_dongle`) and the Pico 2 thermometer (`firmware/pico_sht30`).
+  (`firmware/nordic_dongle`) and the PICO2 Test Board (`firmware/pico2_test_board`).
 - **An ASPICE CL2 document set** under `docs/aspice/`.
 
 The package has no mandatory third-party dependency. No VISA installation is
@@ -90,20 +90,20 @@ tests 3.8, 3.9 and 3.12.
 ### 2.1 From the release tag, without cloning
 
 ```sh
-pip install "benchtools[spec] @ git+https://github.com/dermot-murphy/EmbeddedTestBench@v0.02.0002"
+pip install "benchtools[spec] @ git+https://github.com/dermot-murphy/EmbeddedTestBench@v0.03.0000"
 ```
 
 Add `serial` to the extras for a real bench ([§2.3](#23-the-extras)). Checked in a fresh virtual environment:
 
 ```
 > benchtools --version
-benchtools 0.02.0002
+benchtools 0.03.0000
 > pip show benchtools
 Name: benchtools
-Version: 0.2.2
+Version: 0.3.0
 ```
 
-`pip show` reports `0.2.2` because packaging normalises the version under PEP
+`pip show` reports `0.3.0` because packaging normalises the version under PEP
 440. Both name the same release (ETB-SVD-001 §5.1).
 
 This installs the package only. The example specifications and bench files
@@ -115,9 +115,23 @@ in [§3](#3-the-first-run-the-simulated-bench-end-to-end) use a checkout.
 ```sh
 git clone https://github.com/dermot-murphy/EmbeddedTestBench
 cd EmbeddedTestBench
-git checkout v0.02.0002          # or stay on develop
+git checkout v0.03.0000          # or stay on develop
 pip install -e ".[spec,serial,test]"
 ```
+
+A specification for a device names the device's plugin - its frame decoder,
+register file and viewer panel - in `plugins:`; Kepler's is `plugins/kepler`.
+See the Bench Runner Guide, section 6.6.
+
+If you will change the documents, also switch on the merge driver that keeps
+two revision history rows appended by different branches (ETB-SUP8-001 §6.2):
+
+```sh
+python scripts/doc_versions.py install-driver
+```
+
+It writes the driver into this clone's `git config`, naming the Python you ran
+it with.
 
 ### 2.3 The extras
 
@@ -125,7 +139,7 @@ pip install -e ".[spec,serial,test]"
 |---|---|---|
 | *(none)* | nothing | Drivers, analysis, runner, viewer, JSON specifications |
 | `spec` | PyYAML ≥ 5.1 | Reading `.yaml` specifications and bench files — every shipped one |
-| `serial` | pyserial ≥ 3.4 | The supply, multimeter, dongle, S2-LP kit and thermometer on a real port |
+| `serial` | pyserial ≥ 3.4 | The supply, multimeter, dongle, S2-LP kit, thermometer, serial capture instrument and PPK2 on a real port |
 | `visa` | pyvisa, pyvisa-py | Only if your site routes instruments through VISA |
 | `plot` | matplotlib ≥ 3.3 | Host-side plots (`scope spread --plot`) |
 | `test` | all of the above plus pytest, pytest-cov | Running the test suite |
@@ -140,7 +154,7 @@ package might be first on `PATH`.
 
 ```
 > python -m benchtools --version
-benchtools 0.02.0002
+benchtools 0.03.0000
 ```
 
 ### 2.5 Firmware toolchains (only if you build instrument firmware)
@@ -151,12 +165,95 @@ You do not need these to run tests. Versions are those pinned in
 | Firmware | Toolchain | Build | Details |
 |---|---|---|---|
 | Nordic dongle, `firmware/nordic_dongle` | GNU Arm Embedded 10.3-2021.10, nRF5 SDK 17.1.0, `nrfutil` 6.1.7 for DFU | `make SDK_ROOT=/path/to/nRF5_SDK_17.1.0` | [BLE Dongle Notes](ble/BLE_Dongle_Notes.md) |
-| Pico 2 thermometer, `firmware/pico_sht30` | Arm GNU Toolchain 14.2.Rel1, Pico SDK 2.1.1 | `PICO_SDK_PATH=... cmake -S . -B build && cmake --build build` | [Pico 2 + SHT30-D Notes](pico_sht30/Pico_SHT30_Notes.md) |
+| PICO2 Test Board, `firmware/pico2_test_board` | Arm GNU Toolchain 14.2.Rel1, Pico SDK 2.1.1 | `PICO_SDK_PATH=... cmake -S . -B build && cmake --build build`, then `benchtools pico2 -r COM14 flash build/pico2_test_board.uf2` | [PICO2 Test Board User Manual §4](pico2_test_board/PICO2_Test_Board_User_Manual.md#4-flashing-and-building), [Notes §3](pico2_test_board/PICO2_Test_Board_Notes.md#3-building-and-flashing) |
 
 The J-Link driver needs two executables, not Python packages: SEGGER's J-Link
 GDB Server and an ARM GDB (`arm-none-eabi-gdb`). See
 [Bench Self-Check Setup §4](Bench_Self_Check_Setup.md#4-permissions-and-drivers)
 and [J-Link Integration Notes](jlink/JLink_Integration_Notes.md).
+
+### 2.6 Running CI's Python legs before pushing
+
+CI runs the suite on Python 3.8, 3.9 and 3.12 (`tests.yml`) and pylint on
+3.12 (`lint.yml`). A change that passes on your Python can still fail on one of
+those: #281 passed on 3.14 and failed collection on 3.8 and 3.9. The CI image,
+`docker/ci/Dockerfile`, holds all four legs, each with the library versions
+CI installs, so you can run them first. It needs Docker (Docker Desktop on
+Windows).
+
+Build it once, and again when `constraints/` or `docker/ci/` changes. It takes
+about 4 minutes and makes an image of about 1.5 GB:
+
+```sh
+docker build -f docker/ci/Dockerfile -t etb-ci .
+```
+
+Then, from the root of the checkout, run every leg (PowerShell):
+
+```powershell
+docker run --rm -v "${PWD}:/src:ro" etb-ci
+```
+
+or from bash on Ubuntu:
+
+```sh
+docker run --rm -v "$PWD":/src:ro etb-ci
+```
+
+In Git Bash on Windows, prefix the bash form with `MSYS_NO_PATHCONV=1`, or Git
+Bash rewrites `/src`.
+
+Name legs to run only those, and put pytest options after `--`:
+
+```sh
+docker run --rm -v "$PWD":/src:ro etb-ci 3.8 3.9 -- -x tests/viewer
+```
+
+The legs are `3.8`, `3.9`, `3.12` and `lint`. Each runs CI's own command, with
+the coverage floor, and the last line says which passed. The exit status is
+non-zero if any failed.
+
+The checkout is mounted read-only and copied into the container, so the run
+writes nothing into it. The copy is what git would commit: tracked and
+untracked files, not ignored ones, with uncommitted changes included and the LF
+line endings a CI checkout has. To run a commit other than the one checked out,
+export it and mount the export:
+
+```sh
+mkdir /tmp/at && git archive b392ab0 | tar -x -C /tmp/at
+docker run --rm -v /tmp/at:/src:ro etb-ci 3.8
+```
+
+**The library versions** are pinned per Python in `constraints/py3.8.txt`,
+`py3.9.txt`, `py3.12.txt` and `lint.txt`. CI installs from the same files, so
+the image and CI cannot drift apart. The pylint version is stated in
+`constraints/lint.in`. To take newer releases, or after changing a requirement
+in `pyproject.toml`, regenerate them with the image and commit the result:
+
+```sh
+docker run --rm -v "$PWD":/src:ro -v "$PWD/constraints":/src/constraints etb-ci lock
+```
+
+On Linux, add `--user "$(id -u):$(id -g)"` so the files stay yours.
+`tests/test_constraints.py` fails if a requirement of the `test` extra is
+missing from any of the files.
+
+The same lock also runs every Monday in `.github/workflows/constraints_refresh.yml`
+(#284). Dependabot does not propose pip updates. When the pins move, the
+workflow pushes them to `fix/constraints-refresh` and opens an issue, titled
+"Constraints refresh: new library releases for CI". If that issue is already
+open, it adds a comment instead. The issue lists each pin that moved. To test
+the change, open a pull request from the branch into `develop`; CI runs on it
+as usual. The schedule and the Run button on the Actions tab work only once
+the workflow is on `main`, at the next release. Until then, a push that changes
+the workflow, `docker/ci/`, `constraints/` or `pyproject.toml` runs it as a dry
+run. The dry run reports what the lock would change, and pushes and opens
+nothing.
+
+3.9 and 3.12 are at the patch versions CI had when the image was made (3.9.25
+and 3.12.15); 3.8 is 3.8.20, where CI has 3.8.18 (`docker/ci/Dockerfile`
+says why). None of them is the runner's own build of Python, so a fault in one
+particular build would not show up in the image.
 
 ---
 
@@ -243,7 +340,7 @@ BLE dongle firmware identity: PASS - 3 passed, 0 failed, 0 errored, 0 skipped in
 
 | Alias | Event | Driver | Model | Firmware | Resource |
 |---|---|---|---|---|---|
-| dongle | BLE | NordicDongle | PCA10059 | 1.7.0 (built 2026-09-13T12:00:00Z) | sim:// |
+| dongle | BLE | NordicDongle | PCA10059 | 1.8.0 (built 2026-10-28T12:00:00Z) | sim:// |
 | probe | JLINK | JLinkProbe | J-Link V11 | V7.94e | sim:// |
 | psu | PSU | Gpd3303D | GPD-3303D | V1.09 | sim:// |
 ...
@@ -341,7 +438,7 @@ From `benches/bench_pc.yaml` and ETB-SYS5-002 §4.1:
 | `dongle` | Nordic PCA10059 BLE dongle, firmware 1.7.0 | COM10 | `D7FA0F34C85A` |
 | `psu` | GW Instek GPD-3303D, SN GER916893, firmware V1.09, 9600 baud | COM11 (FTDI) | `A105X5XCA` |
 | `dmm` | TTi 1604 multimeter | COM13 (FTDI FT232) | `A9LQ0R81A` |
-| `temp` | Raspberry Pi Pico 2 thermometer, `firmware/pico_sht30` V1.00.0000 | COM14 | `AC5483CD0798FB0B` |
+| `pico2` | PICO2 Test Board (driver `pico2-test-board`): a Raspberry Pi Pico 2, `firmware/pico2_test_board` V1.00.0000, with the SHT30-D temperature sensor, three LEDs and a frequency generator on an Adafruit UDA1334A DAC (DIN GP6, BCLK GP7, WSEL GP8, VIN on VBUS); event-log name `TEMP`. Before #330: alias `temp`, the Pico 2 SHT30 Temperature Sensor, V1.02.0000 | COM14 | `AC5483CD0798FB0B` |
 | `s2lp` | NUCLEO-L053R8 + STEVAL-FKI433V2, ST's CLI firmware | COM4 (ST-LINK VCP) | `066CFF515055657867182645` |
 | `probe` | J-Link OB-SAM3U128-V2-NordicSem, S/N 682395790, on Kepler sensor **5C1712** | `jlink://` (USB) | — |
 | `rtt` | The same J-Link, RTT only, never halting the target | `jlink://127.0.0.1:2341` | — |
@@ -349,7 +446,19 @@ From `benches/bench_pc.yaml` and ETB-SYS5-002 §4.1:
 There is **no oscilloscope** on this bench. A specification that needs `scope`
 stops at connect and names the missing alias (ETB-SYS5-002 §6.7).
 The SHT30-D module is **not yet wired** to the Pico (ETB-SYS5-002 §3.3): the
-thermometer identifies itself but measures nothing real.
+thermometer identifies itself but measures nothing real. *Note, 2026-11-12
+(#328):* the module is now wired, SDA on GP4 and SCL on GP5, and the
+thermometer read about 23 °C; three indicator LEDs on GP18, GP19 and GP20 are
+switched with `thermo wr` ([PICO2 Test Board Notes §7.2](pico2_test_board/PICO2_Test_Board_Notes.md#72-indicator-leds-and-the-sensor-connected-2026-11-12)).
+The frequency generator of #202 (firmware `V1.02.0000`, protocol 2.2) drives
+an Adafruit UDA1334A DAC board wired DIN to GP6, BCLK to GP7, WSEL to GP8 and
+VIN to VBUS (5 V), with MUTE not connected ([PICO2 Test Board Notes §2.1](pico2_test_board/PICO2_Test_Board_Notes.md#21-frequency-generator-wiring-202)).
+*Note, 2026-11-13 (#202):* a scope on the DAC outputs showed a 1 kHz sine on
+channel 1 and a 2 kHz sine on channel 2; the rest of the generator is not yet
+checked on hardware (PICO-OPEN-07). *Note, 2026-11-13 (#330):* the board is
+now the **PICO2 Test Board**, alias `pico2` on the bench and `benchtools pico2`
+on the command line, firmware `V1.00.0000`; its use is described in the
+[PICO2 Test Board User Manual](pico2_test_board/PICO2_Test_Board_User_Manual.md).
 
 **Ports and identification.** COM numbers can change when a device is
 re-plugged. Before a session, match each port to its USB serial number
@@ -413,6 +522,17 @@ From `docs/jlink/JLink_Integration_Notes.md` §4.1–4.2,
   or the other.
 - **Resetting with `reset(halt=False)` leaves the core halted** on a real probe
   (#177). Reset halted, then `run`.
+- **Two backends.** `backend: gdb` (the default) needs `arm-none-eabi-gdb`;
+  `backend: segger` in the probe's `options`, or `--backend segger`, uses only
+  `JLink.exe` and `JLinkRTTLogger.exe` and offers `info`, `flash`, `verify`,
+  `erase`, `read`, `write`, `reset`, `run`, `halt` and reading RTT. It refuses
+  `var`, `stack`, `time` and RTT writes by name. It has run on the simulated
+  bench only: its bench check is open (JLink_Integration_Notes §4.9).
+  **`halt` probably always fails on it**: each operation is a Commander run
+  that ends, ending one let a halted core run again on 2026-10-05, and the
+  driver reads the core back and raises rather than report it halted. To keep
+  a core halted, use `backend: gdb`. `write --no-read-back` is for `segger`
+  only; on `gdb` it is refused.
 
 #### Sensor commands with side effects
 
@@ -599,7 +719,7 @@ Pages (`benchtools/viewer/static/index.html`):
 
 | Page | Shows |
 |---|---|
-| Run | The specification, each test case and step with its live status, result and measurements, and the run controls |
+| Run | The specification, each test case and step with its live status, result and measurements, and the run controls. Click a step that has started to see the events recorded during it |
 | Instruments | Each instrument's exchanges, the latest or those in a time window, with a panel per instrument |
 | RF | S2-LP traffic: frames, latest data, configuration, identification, environment, ticks, TWF, diagnostics, sync, and an ST GUI register view |
 | BLE | Devices, events, commands and replies |
@@ -607,6 +727,17 @@ Pages (`benchtools/viewer/static/index.html`):
 | Event log | Every instrument's traffic, filtered by source |
 | Notes & report | A fault description and findings to save, and a report to download as HTML or print to PDF |
 | Start / attach | Start a run (specification, bench or simulated, test cases), or attach to one already going |
+
+**A step's events (#201).** On the Run page, click the text of a step that has
+started. Below it open the step's measurements - each one's measured value next to
+the limit it was checked against, the verdict and the reason - and every record the
+event log holds between the step's start and its end: instrument commands and
+replies, frames, readings, warnings and errors, each with its time from the step's
+start (`+0.002 s`), its source and what it is. A step still running gathers its
+events as they arrive. It works the same for a live run and for a finished run's
+event log opened with `view --event-log` or Start / attach. Click the step again
+to close it. The same is served as JSON at `/api/step?phase=test&case=0&step=2`
+(`phase` is `setup`, `test` or `teardown`; `case` only for `test`).
 
 ### 6.2 Run control
 
@@ -658,7 +789,7 @@ summary. `.github/workflows/bench.yml` runs `specs/sensor_bringup.yaml` and
 another repository:
 
 ```yaml
-- uses: dermot-murphy/EmbeddedTestBench@v0.02.0002
+- uses: dermot-murphy/EmbeddedTestBench@v0.03.0000
   with:
     specs: specs/sensor_commands.yaml
     bench: benches/simulated_bench.yaml
@@ -674,11 +805,15 @@ Commands:
   run         run bench test specifications against a bench
   view        watch and control test runs in a browser (127.0.0.1 only)
   scope       control a Tektronix TDS3014B oscilloscope
+  pscope      control a PicoScope 3000D MSO: analogue, digital, signal generator
+  ppk2        measure current with a Nordic Power Profiler Kit II
   jlink       control a target through a SEGGER J-Link debug probe
   ble         scan, drive and profile a BLE sensor through a Nordic dongle
   psu         control a GW Instek GPD-3303D bench power supply
   s2lp        drive an ST S2-LP sub-1 GHz development kit
-  thermo      read a Pico 2 + SHT30-D thermometer: identity and temperature
+  pico2       drive the PICO2 Test Board: identity, temperature, LEDs, generator
+              (also: thermo, the name before #330)
+  serial      capture the lines a device prints on a serial port (RD, WR, ROUTINE)
   drivers     list the instrument drivers a bench configuration can name
   backends    list the transport backends a resource string can select
 ```
@@ -696,22 +831,26 @@ to a file. `<tool> <sub-command> --help` gives each sub-command's options.
 |---|---|---|---|
 | `psu` (GPD-3303D) | `COM11`, `/dev/ttyUSB0`, `serial://COM4:57600`, `sim://` | `info`, `read`, `set <ch> -V -I [--on]`, `on`, `off`, `status` | `psu -r sim:// set 1 -V 3.3 -I 0.5 --on` → `"voltage": 3.3, "mode": "CV", "is_on": true` |
 | `dmm` (TTi 1604) | `COM13`, `/dev/ttyUSB0`, `sim://` | `info`, `read`, `press`, `keys` | `dmm -r sim:// read` → `"value": 1.0, "unit": "V"` |
-| `jlink` (J-Link) | `jlink://[host][:port]`, `sim://`; with `-d DEVICE`, `-e ELF`, `--gdb`, `--server` | `info`, `flash [--preserve ADDR:SIZE]`, `verify`, `erase`, `reset [--run]`, `run`, `halt`, `read`, `write`, `var`, `stack`, `rtt`, `time` | `jlink -r sim:// info` → `"model": "J-Link V11", "halted": true` |
+| `jlink` (J-Link) | `jlink://[host][:port]`, `sim://`; with `-d DEVICE`, `-e ELF`, `--gdb`, `--server`; `--backend segger` (with `--commander`, `--rtt-logger`) for SEGGER's own tools and no GDB | `info`, `flash [--preserve ADDR:SIZE]`, `verify`, `erase`, `reset [--run]`, `run`, `halt`, `read`, `write`, `var`, `stack`, `rtt`, `time` | `jlink -r sim:// info` → `"model": "J-Link V11", "halted": true` |
 | `ble` (Nordic dongle) | `COM10`, `/dev/ttyACM0`, `serial://socket://host:4001`, `sim://` | `info`, `firmware`, `scan`, `select`, `profile`, `cmd`, `script`, `monitor` | `ble -r sim:// scan` → 3 sensors, first `SENS-0A1B2C` |
 | `s2lp` (S2-LP kit) | `COM4`, `/dev/ttyACM0`, `sim://`; `--board`, `--setup REGS` | `info`, `registers`, `radio`, `config`, `tx`, `rx`, `capture`, `packets`, `stream`, `preamble`, `strobe` | `s2lp -r sim:// info` → `"library": "1.3.5"` |
-| `thermo` (Pico 2 + SHT30-D) | `COM14`, `/dev/ttyACM0`, `sim://` | `info`, `rd`, `temp`, `status`, `sreset`, `ecureset`, `bootsel`, `flash` | `thermo -r sim:// temp` → `"temperature_c": 22.5` |
+| `serial` (serial capture) | `COM5`, `/dev/ttyUSB0`, `sim://`; `--baudrate`, `--format 8N1` | none: each argument is one command (`RD`, `WR`, `ROUTINE`), or they are read from standard input; replies are text, not JSON | `serial -r sim:// "WR LINES ON" "ROUTINE START CAPTURE"` → `LINE 1 = BOOT V1.00.0000` … `ACK ROUTINE RESULTS CAPTURE = Complete, 4 lines` |
+| `pico2` (PICO2 Test Board; `thermo` before #330, still accepted) | `COM14`, `/dev/ttyACM0`, `sim://` | `info`, `rd`, `wr`, `routine`, `temp`, `status`, `sreset`, `ecureset`, `bootsel`, `flash` | `pico2 -r sim:// temp` → `"temperature_c": 22.5` |
 | `scope` (TDS3014B) | IP address, VISA-style string, `sim://`; `-b` backend | `idn`, `screenshot`, `capture`, `spread`, `period`, `measure` | `scope -r sim:// idn` → `"model": "TDS 3014B"` |
+| `pscope` (PicoScope 3000D MSO) | `pico://`, `pico://<serial>`, `sim://`; `--sdk-path` | `info`, `capture`, `siggen` | `pscope -r sim:// info` → `"variant": "3405DMSO"` |
+| `ppk2` (Nordic PPK2) | `ppk2://`, `ppk2://<serial>`, `COM5`, `sim://`; `--voltage-limit`, `--no-spike-filter` | `list`, `info`, `measure`, `mode`, `voltage`, `power` | `ppk2 -r sim:// measure --duration 1` → `"samples": 100000` |
 
 Commands that change the instrument or the target: `psu set/on/off`,
-`jlink flash/erase/reset/write`, `thermo sreset/ecureset/bootsel/flash`,
-`s2lp tx/config/registers` writes and `strobe`, `dmm press`. `jlink erase` also
+`jlink flash/erase/reset/write`, `pico2 wr/routine/sreset/ecureset/bootsel/flash`,
+`s2lp tx/config/registers` writes and `strobe`, `dmm press`, `ppk2 mode/voltage/power`. `jlink erase` also
 erases UICR on an nRF52, and with it the sensor ID; its help says so. Pass a
 real resource to these only within [§4.3](#43-safety-limits).
 
 Each instrument's notes go further: [J-Link](jlink/JLink_Integration_Notes.md),
 [BLE dongle](ble/BLE_Dongle_Notes.md), [GPD-3303D](psu/GPD3303D_Notes.md),
 [TTi 1604](dmm/TTi1604_Notes.md), [S2-LP](s2lp/S2LP_Devkit_Notes.md),
-[Pico 2 + SHT30-D](pico_sht30/Pico_SHT30_Notes.md),
+[PICO2 Test Board](pico2_test_board/PICO2_Test_Board_User_Manual.md) (and its [notes](pico2_test_board/PICO2_Test_Board_Notes.md)),
+[serial capture](Bench_Runner_Guide.md#54-useful-paths-for-the-serial-capture-instrument),
 [TDS3014B](tek3014b/VISA_Determination_Report.md).
 
 The tkinter Embedded Test Bench monitor (`tools/test_bench`) is frozen. The
@@ -733,8 +872,10 @@ Do not rely on what you remember from an earlier session. Read these:
 | Fact | Source |
 |---|---|
 | Which instruments exist, on which ports, with which serial numbers | `benches/bench_pc.yaml`, and ETB-SYS5-002 §4.1 |
-| How each instrument behaves, its traps, its open items | `docs/<instrument>/*_Notes.md`: `jlink/`, `ble/`, `psu/`, `dmm/`, `s2lp/`, `pico_sht30/`, `tek3014b/` |
+| How each instrument behaves, its traps, its open items | `docs/<instrument>/*_Notes.md`: `jlink/`, `ble/`, `psu/`, `dmm/`, `s2lp/`, `pico2_test_board/`, `tek3014b/`, `picoscope3000/`, `ppk2/` |
+| How to drive the PICO2 Test Board (commands, CLI, driver methods as test steps) | `docs/pico2_test_board/PICO2_Test_Board_User_Manual.md` |
 | The supply protocol, command by command | ETB-IF-001, `docs/aspice/EmbeddedTestBench_IF001_GPD3303D_Remote_Control_Interface.md` |
+| How the PicoScope is driven, and what it depends on | ETB-IF-002, `docs/aspice/EmbeddedTestBench_IF002_PicoScope3000_Driver_Interface.md` |
 | What has been shown on hardware, and what has not | ETB-SYS5-002, and its evidence in `docs/aspice/qualification/2026-10-04/` |
 | The hardware session procedure and the owner's safety limits | `specs/qualification/README.md` |
 | Sensor commands with side effects, timeouts | `docs/robot/Robot_Keyword_Catalogue.md` §2.5–2.6, §3.6, §4.3 |
@@ -795,10 +936,12 @@ Read `CLAUDE.md` itself. In short:
   procedure if you do.
 - Update the issue with what was done. Close it when CI is green, or say that no
   workflow applies.
-- A change to a controlled document under `docs/aspice/` raises its
-  `major.minor` version and date, and appends one revision-history row as the
-  last row (ETB-SUP8-001 §6, §6.2). `tests/test_traceability.py` fails if a
-  history is not oldest first.
+- A change to a controlled document under `docs/aspice/` appends one
+  revision-history row as the last row, with the version `next`. The Version
+  and Date in the identification table are links to that history and are not
+  edited; the release branch numbers the rows (ETB-SUP8-001 §6, §6.2).
+  `tests/test_doc_versions.py` and `tests/test_traceability.py` fail if a
+  history is out of order.
 - `CLAUDE.md` and ETB-SUP8-001 §5 are one configuration item: change both or
   neither.
 - Before pushing, run
@@ -832,9 +975,9 @@ From ETB-SYS5-002 §8 and ETB-SVD-001 §7. All five were open on 2026-10-05.
 |---|---|---|
 | #177 | J-Link: `reset(halt=False)` leaves the target halted on a real probe. The simulator does not show it | Reset halted, then `probe.run` (as `specs/qualification/qs01_bringup.yaml` does) |
 | #178 | J-Link: registers read just after `reset(halt=True)` are stale; the PC reads 0 | Do not trust a register read immediately after a reset. In QS-01b the PC read correctly after one instruction step (ETB-SYS5-002 §6.2) |
-| #179 | S2-LP: receive refused after a transmit in the same session (GPIO3 reads 0) | Run receive in its own session: `--test` on the receive case alone passed in QS-07 |
+| #179 | S2-LP: receive refused after a transmit in the same session (GPIO3 reads 0) | Fixed in v0.03.0000: the cause was the defaults reset before the receive, not the transmit. Up to v0.02.0002, run the receive in its own session: `--test` on the receive case alone passed in QS-07 |
 | #180 | BLE dongle: `open_link` makes one attempt and does not retry a link that fails to establish (reason 0x3E) | Re-run the test. The QS-07 attempts that hit it were re-run (ETB-SYS5-002 §6.8) |
-| #181 | TTi 1604: frequency mode not recognised; the meter is lost afterwards; an open input on ohms reads blank, not overrange | Use DC volts only, which is qualified. Do not select frequency: after it the meter went silent or stopped echoing keys for the rest of the session, and a power cycle did not restore every check (ETB-SYS5-002 §6.10) |
+| #181 | TTi 1604: frequency mode not recognised; the meter is lost afterwards; an open input on ohms reads blank, not overrange | Fixed in v0.03.0000. With no signal a 1604 in Hz sends nothing and ignores the link until V is pressed on its front panel: select frequency only with a signal on the input, and if the meter shows Hz, press V. Open-input ohms now reads 0FL: the blank frames were the meter auto-ranging. Up to v0.02.0002, use DC volts only (ETB-SYS5-002 §6.10) |
 
 Other limits from ETB-SVD-001 §7:
 
@@ -860,6 +1003,6 @@ Each of these was reproduced, except where marked *(from docs)*.
 | A port will not open *(from docs)* | The `serial` extra, a wrong COM number, another process holding the port, or (Linux) group permissions | [Bench Self-Check Setup §3–4](Bench_Self_Check_Setup.md#3-find-the-ports) |
 | The meter answers nothing *(from docs)* | DTR/RTS not passed: three-wire cable | [TTi 1604 Notes](dmm/TTi1604_Notes.md) |
 | The supply answers nothing *(from docs)* | Baud rate does not match the front panel | Utility > Baud on the supply |
-| `pip show benchtools` reports `0.2.2` | PEP 440 normalisation of `0.02.0002` (`0.2.1` for `0.02.0001`) | Expected. `benchtools --version` gives the project's form |
-| `pip show benchtools` reports `4.0.0` | Installed metadata from before the version scheme was set (ETB-SVD-001 §5.1) | Reinstall: `pip install -e ".[spec,serial,test]"`. A fresh editable install reports `benchtools 0.02.0002` |
+| `pip show benchtools` reports `0.3.0` | PEP 440 normalisation of `0.03.0000` (`0.2.2` for `0.02.0002`) | Expected. `benchtools --version` gives the project's form |
+| `pip show benchtools` reports `4.0.0` | Installed metadata from before the version scheme was set (ETB-SVD-001 §5.1) | Reinstall: `pip install -e ".[spec,serial,test]"`. A fresh editable install reports `benchtools 0.03.0000` |
 | `benchtools` runs a different copy from your checkout | Another install is first on `PATH` | Use `python -m benchtools` from the checkout's root |

@@ -18,16 +18,21 @@ either simulator that would have made this bench a fiction fails a test instead.
 
 A real bench points at real build output — see `benches/lab1.yaml`.
 
-## The Kepler sensor (#121)
+## The Kepler sensor (#121, #122)
 
 `simulated_bench.yaml` also stands in for the bench's Kepler sensor 5C1712. One
-model of it (`benchtools/simulated/kepler.py`) is behind three instruments:
+model of it (`benchtools/simulated/kepler.py`) is behind four instruments:
 
 | Instrument | What it sees of 5C1712 |
 |---|---|
 | `dongle` | the sensor at `D1:8D:3B:4C:19:96`, answering `RD VERSION`, `RD SHA`, `RD ID`, `RD BATTERY`, `RD BATTERY-LOADED`, `RD TEMPERATURE`, `WR ALIVE-PERIOD`, `WR PREAMBLE-LENGTH` and `ECURESET HARD` |
 | `psu` | its battery input on channel 2: `RD BATTERY` reads what channel 2 is set to |
 | `rtt` | its RTT log, `MCU Temperature: <n>mC` once a second, because the entry sets `simulated_target: kepler-5C1712` |
+| `s2lp` | its 433 MHz VERSION and ALIVE frames, three copies each, because the entry sets `simulated_targets: [kepler-5C1712]`; heard only once the kit's registers are set up for the sensor, as `plugin:kepler/s2lp_kepler_433_rx.regs` sets them |
 
-Its radio is not simulated yet (#122): the Kepler specifications' S2-LP steps
-still need hardware, and on this bench they wait out their receive timeouts.
+All four Kepler specifications pass on this bench. The frames are on an air
+clock that a waiting receive moves on to the next transmission, so the sensor's
+10 s alive period takes no time. What the model assumes rather than captured is
+listed in `benchtools/simulated/kepler.py` and in BLE-DD-KEPLERSIM. A simulated
+pass shows that a specification and the bench agree with that model, not that
+a sensor works.

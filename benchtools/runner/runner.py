@@ -17,7 +17,8 @@ useful if they mean something:
 
 Conflating them turns a broken rig into a pile of apparent product defects.
 
-Traces to: RUN-FR-008, RUN-FR-010 .. RUN-FR-037, RUN-ARC-001, RUN-DD-RUNNER.
+Traces to: RUN-FR-008, RUN-FR-010 .. RUN-FR-037, RUN-FR-069, RUN-FR-070, CORE-FR-070,
+RUN-ARC-001, RUN-DD-RUNNER.
 """
 
 from __future__ import annotations
@@ -25,13 +26,15 @@ from __future__ import annotations
 import dataclasses
 import datetime
 import logging
+import math
 import os
 import time
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
-from ..core.errors import BenchToolsError, SpecError
+from ..core import plugins
+from ..core.errors import BenchToolsError, MeasurementError, SpecError
 from ..core.events import log_event
-from ..core.paths import input_path_names, resolve_arguments
+from ..core.paths import input_path_names, resolve_arguments, search_locations
 from .bench import Bench, BenchConfig
 from .limits import Limit, TextLimit
 from .control import ABORT, READ_SETUP, Command, RunControl
@@ -111,10 +114,76 @@ def _action_sleep(seconds: float = 0.1) -> float:
     return float(seconds)
 
 
+def _number(value: Any, what: str) -> float:
+    """*value* as a number, for ``compute``; text off a link is read as one too."""
+    if isinstance(value, (bytes, bytearray)):
+        value = value.decode("utf-8", errors="replace")
+    try:
+        number = float(value)
+    except (TypeError, ValueError) as exc:
+        raise SpecError("compute: %s is %r, which is not a number" % (what, value)) from exc
+    if not math.isfinite(number):
+        raise SpecError("compute: %s is %r, not a finite number" % (what, value))
+    return number
+
+
+#: What ``compute`` can do with two saved numbers (#242).
+COMPUTE_OPERATIONS: Dict[str, Callable[[float, float], float]] = {
+    "difference": lambda a, b: a - b,
+    "absolute_difference": lambda a, b: abs(a - b),
+    "sum": lambda a, b: a + b,
+    "product": lambda a, b: a * b,
+    "ratio": lambda a, b: a / b,
+}
+
+
+def _action_compute(operation: str, a: Any, b: Any) -> float:
+    """A number made from two others, for a limit that compares two readings.
+
+    *a* and *b* are usually values earlier steps saved (``{from: name}``):
+    ``difference`` is ``a - b``, ``ratio`` is ``a / b``, and ``sum``,
+    ``product`` and ``absolute_difference`` are what they say. The result is
+    saved and checked like any step's.
+
+    :raises SpecError: for an operation not offered, or a value that is not a
+        number.
+    :raises MeasurementError: for a ratio whose *b* is zero.
+
+    Traces to: RUN-FR-070.
+    """
+    if operation not in COMPUTE_OPERATIONS:
+        raise SpecError("compute: no operation %r; there are %s"
+                        % (operation, ", ".join(sorted(COMPUTE_OPERATIONS))))
+    left, right = _number(a, "a"), _number(b, "b")
+    if operation == "ratio" and right == 0.0:
+        raise MeasurementError("compute: ratio of %g to zero" % left)
+    result = COMPUTE_OPERATIONS[operation](left, right)
+    if not math.isfinite(result):
+        raise MeasurementError("compute: %s of %g and %g is %r" % (operation, left, right, result))
+    return result
+
+
 #: Actions that are not bound to an instrument.
 BUILTIN_ACTIONS: Dict[str, Callable[..., Any]] = {
     "sleep": _action_sleep,
+    "compute": _action_compute,
 }
+
+
+def _names_and_values(spec: TestSpec, finds: Callable[[str, Optional[str]], bool]
+                      ) -> Tuple[List[str], List[Any]]:
+    """Every step's action, and every argument value of *spec* that is not a
+    file *finds* locates, so that a moved path still present is not legacy."""
+    steps = list(spec.setup) + list(spec.teardown) + [
+        step for case in spec.tests for step in case.steps]
+    values: List[Any] = []
+    for step in steps:
+        values.extend(step.arguments.values() if isinstance(step.arguments, dict)
+                      else step.arguments or ())
+    directory = os.path.dirname(os.path.abspath(spec.source)) if spec.source else None
+    values = [value for value in values
+              if not (isinstance(value, str) and finds(value, directory))]
+    return [step.action for step in steps], values
 
 
 def _now() -> str:
@@ -217,7 +286,12 @@ class BenchRunner:
     # ------------------------------------------------------------------
     def _check_expectation(self, result: Any, expectation: Expectation) -> MeasurementRecord:
         """Extract one value from *result* and check it against its limit."""
-        limit_text = expectation.limit.text if expectation.limit else str(expectation.reference)
+        if expectation.limit is not None:
+            limit_text = expectation.limit.text
+        elif expectation.reference is not None:
+            limit_text = str(expectation.reference)
+        else:
+            limit_text = "a limit from saved values, not resolved"
 
         def failed_to_resolve(reason: str) -> MeasurementRecord:
             return MeasurementRecord(
@@ -507,6 +581,12 @@ class BenchRunner:
             } for index, case in enumerate(spec.tests)],
         }
 
+    @staticmethod
+    def _finds(value: str, directory: Optional[str]) -> bool:
+        """Whether a relative input path *value* names a file that exists."""
+        return not os.path.isabs(value) and any(
+            os.path.exists(candidate) for candidate in search_locations(value, directory))
+
     def run(self, spec: TestSpec, selection: Sequence[str] = ()) -> RunRecord:
         """Run a whole specification and return its result record.
 
@@ -519,7 +599,17 @@ class BenchRunner:
 
         The run's start and end go to the event log as ``run_start``, carrying
         the whole plan, and ``run_end``, carrying the verdict (#135).
+
+        The device plugins the bench and the specification name are loaded
+        first, and every plugin loaded is recorded with its git ref (#238).
+
+        :raises ConfigurationError: if a plugin cannot be loaded.
         """
+        for folder in list(self.bench.config.plugins) + list(spec.plugins):
+            plugins.load_plugin(folder)
+        legacy = plugins.uses_legacy_kepler(*_names_and_values(spec, self._finds))
+        if legacy is not None:
+            plugins.ensure_legacy_kepler(legacy)    # before run_start, so it is recorded
         run = RunRecord(
             suite=spec.name,
             bench=self.bench.config.name,
@@ -529,6 +619,7 @@ class BenchRunner:
             simulated=self.bench.is_simulated,
             started=_now(),
             selection=tuple(selection),
+            plugins=plugins.loaded_plugins(),
         )
         started = time.monotonic()
         self._saved = {}
@@ -536,7 +627,7 @@ class BenchRunner:
             os.path.dirname(os.path.abspath(spec.source)) if spec.source else None
         )
         plan = self._plan(spec, selection)
-        plan.update(bench=run.bench, simulated=run.simulated)
+        plan.update(bench=run.bench, simulated=run.simulated, plugins=run.plugins)
         log_event(_LOG, "run_start", "running %r" % spec.name, plan)
         try:
             self._run_body(spec, selection, run, started)

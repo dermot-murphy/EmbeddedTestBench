@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "benchtools"
-version = "0.02.0002"
+version = "0.03.0000"
 description = "Bench test tooling: instrument, debug-probe and BLE-dongle drivers, analysis and a declarative test runner, with no mandatory VISA or vendor dependency"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -64,6 +64,8 @@ include = ["benchtools*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Only test_*.py: tests/test_traceability.py checks that each is in a SWE.4 group (#292).
+python_files = ["test_*.py"]
 addopts = "-q"
 # tests/bench exercises real instruments and runs only when named:
 #     BENCHTOOLS_TTI1604=/dev/ttyUSB0 python -m pytest tests/bench/tti1604 -v

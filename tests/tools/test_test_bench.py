@@ -133,7 +133,8 @@ def test_a_live_radio_receives_from_a_simulated_kit_and_stops_the_board():
 def kepler_snapshot():
     """A snapshot of a simulated kit set up to receive Kepler frames, as the
     ST GUI page reads one: reception is running, so it must pause and resume."""
-    setup = pathlib.Path(__file__).resolve().parents[2] / "configs" / "s2lp_kepler_433_rx.regs"
+    setup = (pathlib.Path(__file__).resolve().parents[2] / "plugins" / "kepler" / "configs"
+             / "s2lp_kepler_433_rx.regs")
     radio = sources.LiveRadio("sim://", setup=str(setup))
     radio.start()
     try:

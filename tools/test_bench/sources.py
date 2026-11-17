@@ -142,7 +142,7 @@ class LiveRadio:
     :param board: Optional board name; the driver also reads the board's band
         from its EEPROM.
     :param setup: A register file to apply (with a reset to defaults) before
-        receiving, e.g. ``configs/s2lp_kepler_433_rx.regs``.
+        receiving, e.g. ``plugins/kepler/configs/s2lp_kepler_433_rx.regs``.
     :param packet_log: Where the driver writes every packet, raw and decoded.
     """
 
