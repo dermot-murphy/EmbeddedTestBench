@@ -45,23 +45,23 @@ def _table(name: str) -> str:
 
 
 def firmware_commands():
-    """``{name: (min_args, max_args)}`` from PROTO_COMMAND_TABLE."""
+    """``{name: (min_args, max_args)}`` from PROTOCOL_COMMAND_TABLE."""
     found = {}
     for name, minimum, maximum in re.findall(
-        r"X\((\w+),\s*(\d+)U?,\s*(\d+)U?,", _table("PROTO_COMMAND_TABLE")
+        r"X\((\w+),\s*(\d+)U?,\s*(\d+)U?,", _table("PROTOCOL_COMMAND_TABLE")
     ):
         found[name] = (int(minimum), int(maximum))
     return found
 
 
 def firmware_events():
-    return tuple(re.findall(r"X\((\w+),", _table("PROTO_EVENT_TABLE")))
+    return tuple(re.findall(r"X\((\w+),", _table("PROTOCOL_EVENT_TABLE")))
 
 
 def firmware_errors():
     return {
         symbol: int(code)
-        for symbol, code in re.findall(r"X\((PROTO_ERR_\w+),\s*(\d+),", _table("PROTO_ERROR_TABLE"))
+        for symbol, code in re.findall(r"X\((PROTO_ERR_\w+),\s*(\d+)U?,", _table("PROTOCOL_ERROR_TABLE"))
     }
 
 
@@ -151,12 +151,12 @@ class TestEnvelope:
     @pytest.mark.parametrize(
         "macro,attribute",
         [
-            ("PROTO_MAX_SENSORS", "max_sensors"),
-            ("PROTO_MAX_PAYLOAD", "max_payload_bytes"),
-            ("PROTO_MAX_NAME", "max_name_length"),
+            ("PROTOCOL_MAX_SENSORS", "max_sensors"),
+            ("PROTOCOL_MAX_PAYLOAD", "max_payload_bytes"),
+            ("PROTOCOL_MAX_NAME", "max_name_length"),
             ("PROTOCOL_MAX_ADV_DATA", "max_adv_data_bytes"),
-            ("PROTO_MAX_LINE", "max_line_bytes"),
-            ("PROTO_MAX_EVENT", "max_event_bytes"),
+            ("PROTOCOL_MAX_LINE", "max_line_bytes"),
+            ("PROTOCOL_MAX_EVENT", "max_event_bytes"),
         ],
     )
     def test_limits_agree(self, macro, attribute):
@@ -166,12 +166,12 @@ class TestEnvelope:
         assert int(match.group(1)) == getattr(constants.DONGLE_LIMITS, attribute)
 
     def test_protocol_version_agrees(self):
-        match = re.search(r'#define\s+PROTO_VERSION\s+"([^"]+)"', _header())
+        match = re.search(r'#define\s+PROTOCOL_VERSION\s+"([^"]+)"', _header())
         assert match is not None
         assert match.group(1) == constants.PROTOCOL_VERSION
 
     def test_model_agrees(self):
-        match = re.search(r'#define\s+PROTO_MODEL\s+"([^"]+)"', _header())
+        match = re.search(r'#define\s+PROTOCOL_MODEL\s+"([^"]+)"', _header())
         assert match.group(1) == constants.DONGLE_LIMITS.model
 
 

@@ -39,7 +39,7 @@ typedef struct
 	uint64_t	rx_us;				/**< notification received */
 	uint64_t	round_trip_us;
 	uint16_t	length;
-	uint8_t		data[PROTO_MAX_PAYLOAD];
+	uint8_t		data[PROTOCOL_MAX_PAYLOAD];
 } nus_response_t;
 
 /**
@@ -124,7 +124,7 @@ void nus_client_on_ble_evt(const ble_evt_t * p_ble_evt);
 /**
  * @brief Feed a database-discovery event to the client.
  */
-void nus_client_on_db_disc_evt(void * p_evt);
+void nus_client_on_db_disc_evt(ble_db_discovery_evt_t * p_evt);
 
 #ifdef __cplusplus
 }

@@ -21,7 +21,7 @@ OUTPUT_DIRECTORY := _build
 # is UTC and ISO 8601, and honours SOURCE_DATE_EPOCH, so a reproducible build
 # stays reproducible - the host compares this string, and a date that changed on
 # every rebuild would report every dongle as out of date.
-FIRMWARE_VERSION := $(shell sed -n 's/^\#define FIRMWARE_VERSION[ \t]*"\(.*\)".*/\1/p' include/firmware_version.h)
+FIRMWARE_VERSION := $(shell sed -n 's/^\#define FIRMWARE_VERSION_STRING[ \t]*"\(.*\)".*/\1/p' include/firmware_version.h)
 SOURCE_DATE_EPOCH ?= $(shell date -u +%s)
 FIRMWARE_BUILD_DATE := $(shell date -u -d @$(SOURCE_DATE_EPOCH) +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || \
                                date -u -r $(SOURCE_DATE_EPOCH) +%Y-%m-%dT%H:%M:%SZ)
@@ -262,8 +262,8 @@ manifest: default
 	@printf '{\n' > $(MANIFEST)
 	@printf '  "version": "%s",\n'     "$(FIRMWARE_VERSION)"    >> $(MANIFEST)
 	@printf '  "built": "%s",\n'       "$(FIRMWARE_BUILD_DATE)" >> $(MANIFEST)
-	@printf '  "protocol": "%s",\n'    "$(shell sed -n 's/^\#define PROTO_VERSION[ \t]*"\(.*\)".*/\1/p' include/protocol.h)" >> $(MANIFEST)
-	@printf '  "model": "%s",\n'       "$(shell sed -n 's/^\#define PROTO_MODEL[ \t]*"\(.*\)".*/\1/p' include/protocol.h)" >> $(MANIFEST)
+	@printf '  "protocol": "%s",\n'    "$(shell sed -n 's/^\#define PROTOCOL_VERSION[ \t]*"\(.*\)".*/\1/p' include/protocol.h)" >> $(MANIFEST)
+	@printf '  "model": "%s",\n'       "$(shell sed -n 's/^\#define PROTOCOL_MODEL[ \t]*"\(.*\)".*/\1/p' include/protocol.h)" >> $(MANIFEST)
 	@printf '  "hex": "%s",\n'         "$(PROJECT_NAME).hex"    >> $(MANIFEST)
 	@printf '  "package": "%s",\n'     "nordic_dongle_dfu.zip"  >> $(MANIFEST)
 	@printf '  "sha256": "%s"\n'       "$(shell sha256sum $(OUTPUT_DIRECTORY)/$(PROJECT_NAME).hex 2>/dev/null | cut -d" " -f1)" >> $(MANIFEST)

@@ -20,12 +20,12 @@ extern "C" {
  * @brief @c dfucp @c <hex> @c [timeout=<ms>]: write the Control Point and
  *        report its response as @c ok @c len=<n> @c data=<hex>.
  */
-void cmd_dfu_control(char * tokens[], uint32_t count);
+void cmd_dfu_control(const char * const tokens[], uint32_t count);
 
 /**
  * @brief @c dfupkt @c <hex>: write the Packet characteristic.
  */
-void cmd_dfu_packet(char * tokens[], uint32_t count);
+void cmd_dfu_packet(const char * const tokens[], uint32_t count);
 
 #ifdef __cplusplus
 }

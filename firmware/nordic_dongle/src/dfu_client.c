@@ -54,19 +54,13 @@
 #define DFU_CLIENT_RESULT_INDEX		2U
 #define DFU_CLIENT_RESULT_SUCCESS	0x01U
 
-/** The vendor base UUID, least significant byte first. */
-static const ble_uuid128_t	m_dfu_client_base =
-{
-	{
-		0x50U, 0xEAU, 0xDAU, 0x30U, 0x88U, 0x83U, 0xB8U, 0x9FU,
-		0x60U, 0x4FU, 0x15U, 0xF3U, 0x00U, 0x00U, 0xC9U, 0x8EU
-	}
-};
+/** No connection, in the type the handle is kept in. */
+#define DFU_CLIENT_NO_CONNECTION	((uint16_t)BLE_CONN_HANDLE_INVALID)
 
 static nrf_ble_gq_t *		m_dfu_client_queue;
 static nrf_ble_gatt_t *		m_dfu_client_gatt;
 static uint8_t			m_dfu_client_uuid_type;
-static uint16_t			m_dfu_client_conn = BLE_CONN_HANDLE_INVALID;
+static uint16_t			m_dfu_client_conn = DFU_CLIENT_NO_CONNECTION;
 static uint16_t			m_dfu_client_control;
 static uint16_t			m_dfu_client_cccd;
 static uint16_t			m_dfu_client_packet_handle;
@@ -76,7 +70,6 @@ static volatile bool		m_dfu_client_waiting;
 static volatile bool		m_dfu_client_answered;
 static uint16_t			m_dfu_client_answer_len;
 static uint8_t			m_dfu_client_answer[DFU_CLIENT_MAX_RESPONSE];
-static uint8_t			m_dfu_client_cccd_value[DFU_CLIENT_CCCD_LENGTH];
 
 /* Flow control. At a 7.5 ms interval writes without response outran the
  * bootloader, which keeps 17 packet buffers, and 3348 bytes of a 4096-byte
@@ -87,11 +80,14 @@ static uint16_t			m_dfu_client_unreceipted;
 
 uint16_t dfu_client_att_mtu(void)
 {
-	if (m_dfu_client_conn == BLE_CONN_HANDLE_INVALID)
+	uint16_t mtu = 0U;
+
+	if (m_dfu_client_conn != DFU_CLIENT_NO_CONNECTION)
 	{
-		return 0U;
+		mtu = nrf_ble_gatt_eff_mtu_get(m_dfu_client_gatt, m_dfu_client_conn);
 	}
-	return nrf_ble_gatt_eff_mtu_get(m_dfu_client_gatt, m_dfu_client_conn);
+
+	return mtu;
 }
 
 /**
@@ -142,7 +138,7 @@ static uint32_t dfu_client_write(uint16_t handle, uint8_t operation,
  */
 static void dfu_client_forget(void)
 {
-	m_dfu_client_conn           = BLE_CONN_HANDLE_INVALID;
+	m_dfu_client_conn           = DFU_CLIENT_NO_CONNECTION;
 	m_dfu_client_control        = 0U;
 	m_dfu_client_cccd           = 0U;
 	m_dfu_client_packet_handle  = 0U;
@@ -154,6 +150,14 @@ static void dfu_client_forget(void)
 
 uint32_t dfu_client_init(nrf_ble_gq_t * p_gatt_queue, nrf_ble_gatt_t * p_gatt)
 {
+	/* The vendor base UUID, least significant byte first. */
+	static const ble_uuid128_t base =
+	{
+		{
+			0x50U, 0xEAU, 0xDAU, 0x30U, 0x88U, 0x83U, 0xB8U, 0x9FU,
+			0x60U, 0x4FU, 0x15U, 0xF3U, 0x00U, 0x00U, 0xC9U, 0x8EU
+		}
+	};
 	ble_uuid_t	service;
 	uint32_t	error;
 
@@ -161,15 +165,15 @@ uint32_t dfu_client_init(nrf_ble_gq_t * p_gatt_queue, nrf_ble_gatt_t * p_gatt)
 	m_dfu_client_gatt  = p_gatt;
 	dfu_client_forget();
 
-	error = sd_ble_uuid_vs_add(&m_dfu_client_base, &m_dfu_client_uuid_type);
-	if (error != NRF_SUCCESS)
+	error = sd_ble_uuid_vs_add(&base, &m_dfu_client_uuid_type);
+	if (error == NRF_SUCCESS)
 	{
-		return error;
+		service.uuid = DFU_CLIENT_SERVICE_UUID;
+		service.type = BLE_UUID_TYPE_BLE;
+		error = ble_db_discovery_evt_register(&service);
 	}
 
-	service.uuid = DFU_CLIENT_SERVICE_UUID;
-	service.type = BLE_UUID_TYPE_BLE;
-	return ble_db_discovery_evt_register(&service);
+	return error;
 }
 
 bool dfu_client_is_ready(void)
@@ -190,9 +194,9 @@ static void dfu_client_take_handles(const ble_gatt_db_srv_t * p_db)
 
 		if (p_char->characteristic.uuid.type != m_dfu_client_uuid_type)
 		{
-			continue;
+			/* Not one of the DFU service's own characteristics. */
 		}
-		if (p_char->characteristic.uuid.uuid == DFU_CLIENT_CONTROL_UUID)
+		else if (p_char->characteristic.uuid.uuid == DFU_CLIENT_CONTROL_UUID)
 		{
 			m_dfu_client_control = p_char->characteristic.handle_value;
 			m_dfu_client_cccd    = p_char->cccd_handle;
@@ -227,41 +231,52 @@ static void dfu_client_speed_up(void)
 	(void)sd_ble_gap_conn_param_update(m_dfu_client_conn, &params);
 }
 
-void dfu_client_on_db_disc_evt(ble_db_discovery_evt_t * p_evt)
+/**
+ * @brief Turn on Control Point notifications for a link whose DFU service is
+ *        complete, and report the link ready or failed.
+ */
+static void dfu_client_enable(void)
 {
-	uint32_t error;
-
-	if ((p_evt->evt_type != BLE_DB_DISCOVERY_COMPLETE) ||
-	    (p_evt->params.discovered_db.srv_uuid.uuid != DFU_CLIENT_SERVICE_UUID) ||
-	    (p_evt->params.discovered_db.srv_uuid.type != BLE_UUID_TYPE_BLE))
-	{
-		return;
-	}
-
-	m_dfu_client_conn = p_evt->conn_handle;
-	dfu_client_take_handles(&p_evt->params.discovered_db);
-	if ((m_dfu_client_control == 0U) || (m_dfu_client_cccd == 0U) ||
-	    (m_dfu_client_packet_handle == 0U))
-	{
-		dfu_client_report("incomplete", NRF_SUCCESS);
-		return;
-	}
+	/* Static: the queued write refers to it until the write is made. */
+	static uint8_t	cccd_value[DFU_CLIENT_CCCD_LENGTH];
+	uint32_t	error;
 
 	/* The queue keeps requests in order, so a Control Point write queued after
 	 * this one cannot overtake it. */
-	m_dfu_client_cccd_value[0] = (uint8_t)DFU_CLIENT_CCCD_NOTIFY;
-	m_dfu_client_cccd_value[1] = 0U;
+	cccd_value[0] = (uint8_t)DFU_CLIENT_CCCD_NOTIFY;
+	cccd_value[1] = 0U;
 	error = dfu_client_write(m_dfu_client_cccd, BLE_GATT_OP_WRITE_REQ,
-				 m_dfu_client_cccd_value, DFU_CLIENT_CCCD_LENGTH);
+				 cccd_value, DFU_CLIENT_CCCD_LENGTH);
 	if (error != NRF_SUCCESS)
 	{
 		dfu_client_report("failed", error);
-		return;
 	}
+	else
+	{
+		dfu_client_speed_up();
+		m_dfu_client_ready = true;
+		dfu_client_report("ready", NRF_SUCCESS);
+	}
+}
 
-	dfu_client_speed_up();
-	m_dfu_client_ready = true;
-	dfu_client_report("ready", NRF_SUCCESS);
+void dfu_client_on_db_disc_evt(ble_db_discovery_evt_t * p_evt)
+{
+	if ((p_evt->evt_type == BLE_DB_DISCOVERY_COMPLETE) &&
+	    (p_evt->params.discovered_db.srv_uuid.uuid == DFU_CLIENT_SERVICE_UUID) &&
+	    (p_evt->params.discovered_db.srv_uuid.type == (uint8_t)BLE_UUID_TYPE_BLE))
+	{
+		m_dfu_client_conn = p_evt->conn_handle;
+		dfu_client_take_handles(&p_evt->params.discovered_db);
+		if ((m_dfu_client_control == 0U) || (m_dfu_client_cccd == 0U) ||
+		    (m_dfu_client_packet_handle == 0U))
+		{
+			dfu_client_report("incomplete", NRF_SUCCESS);
+		}
+		else
+		{
+			dfu_client_enable();
+		}
+	}
 }
 
 /**
@@ -274,28 +289,27 @@ static void dfu_client_on_hvx(const ble_gattc_evt_t * p_gattc)
 
 	/* Kept even when nothing waits for it: a receipt can arrive before the
 	 * packet write that waits for it has looked. A request clears it. */
-	if ((p_gattc->conn_handle != m_dfu_client_conn) ||
-	    (p_hvx->handle != m_dfu_client_control) || m_dfu_client_answered)
+	if ((p_gattc->conn_handle == m_dfu_client_conn) &&
+	    (p_hvx->handle == m_dfu_client_control) && !m_dfu_client_answered)
 	{
-		return;
+		if (kept > DFU_CLIENT_MAX_RESPONSE)
+		{
+			kept = DFU_CLIENT_MAX_RESPONSE;
+		}
+		(void)memcpy(m_dfu_client_answer, p_hvx->data, kept);
+		m_dfu_client_answer_len = kept;
+		m_dfu_client_answered   = true;
 	}
-	if (kept > DFU_CLIENT_MAX_RESPONSE)
-	{
-		kept = DFU_CLIENT_MAX_RESPONSE;
-	}
-	(void)memcpy(m_dfu_client_answer, p_hvx->data, kept);
-	m_dfu_client_answer_len = kept;
-	m_dfu_client_answered   = true;
 }
 
 void dfu_client_on_ble_evt(const ble_evt_t * p_ble_evt)
 {
-	if ((p_ble_evt->header.evt_id == BLE_GAP_EVT_DISCONNECTED) &&
+	if ((p_ble_evt->header.evt_id == (uint16_t)BLE_GAP_EVT_DISCONNECTED) &&
 	    (p_ble_evt->evt.gap_evt.conn_handle == m_dfu_client_conn))
 	{
 		dfu_client_forget();
 	}
-	else if (p_ble_evt->header.evt_id == BLE_GATTC_EVT_HVX)
+	else if (p_ble_evt->header.evt_id == (uint16_t)BLE_GATTC_EVT_HVX)
 	{
 		dfu_client_on_hvx(&p_ble_evt->evt.gattc_evt);
 	}
@@ -313,9 +327,9 @@ static void dfu_client_track(const uint8_t * p_data, uint16_t length)
 	if ((m_dfu_client_answer_len < DFU_CLIENT_RESPONSE_HEADER) ||
 	    (m_dfu_client_answer[DFU_CLIENT_RESULT_INDEX] != DFU_CLIENT_RESULT_SUCCESS))
 	{
-		return;
+		/* Refused or malformed: the bootloader's count is unchanged. */
 	}
-	if ((p_data[0] == DFU_CLIENT_OP_PRN_SET) && (length >= DFU_CLIENT_PRN_SET_LENGTH))
+	else if ((p_data[0] == DFU_CLIENT_OP_PRN_SET) && (length >= DFU_CLIENT_PRN_SET_LENGTH))
 	{
 		m_dfu_client_prn = (uint16_t)((uint16_t)p_data[1] |
 					      (uint16_t)((uint16_t)p_data[2] << DFU_CLIENT_UPPER_BYTE_SHIFT));
@@ -336,47 +350,33 @@ static void dfu_client_track(const uint8_t * p_data, uint16_t length)
  */
 static uint32_t dfu_client_await_receipt(uint64_t deadline_us)
 {
+	uint32_t error = NRF_ERROR_TIMEOUT;
+
 	m_dfu_client_waiting = true;
 	while (!m_dfu_client_answered && (timestamp_now_us() < deadline_us))
 	{
 		cdc_acm_process();
 	}
 	m_dfu_client_waiting = false;
-	if (!m_dfu_client_answered)
+	if (m_dfu_client_answered)
 	{
-		return NRF_ERROR_TIMEOUT;
+		m_dfu_client_answered    = false;
+		m_dfu_client_unreceipted = 0U;
+		error                    = NRF_SUCCESS;
 	}
-	m_dfu_client_answered    = false;
-	m_dfu_client_unreceipted = 0U;
-	return NRF_SUCCESS;
+
+	return error;
 }
 
-uint32_t dfu_client_control(const uint8_t * p_data, uint16_t length, uint32_t timeout_ms,
-			    uint8_t * p_response, uint16_t * p_response_len)
+/**
+ * @brief Wait up to @p timeout_ms for the response to a Control Point request
+ *        just written, and take it if it came.
+ */
+static void dfu_client_collect(const uint8_t * p_data, uint16_t length, uint32_t timeout_ms,
+			       uint8_t * p_response, uint16_t * p_response_len)
 {
-	uint64_t	deadline_us;
-	uint32_t	error;
+	uint64_t deadline_us = timestamp_now_us() + ((uint64_t)timeout_ms * DFU_CLIENT_US_PER_MS);
 
-	*p_response_len = 0U;
-	if (!m_dfu_client_ready)
-	{
-		return NRF_ERROR_INVALID_STATE;
-	}
-	if (length > DFU_CLIENT_MAX_WRITE)
-	{
-		return NRF_ERROR_DATA_SIZE;
-	}
-
-	m_dfu_client_answered = false;
-	m_dfu_client_waiting  = true;
-	error = dfu_client_write(m_dfu_client_control, BLE_GATT_OP_WRITE_REQ, p_data, length);
-	if (error != NRF_SUCCESS)
-	{
-		m_dfu_client_waiting = false;
-		return error;
-	}
-
-	deadline_us = timestamp_now_us() + ((uint64_t)timeout_ms * DFU_CLIENT_US_PER_MS);
 	while (!m_dfu_client_answered && (timestamp_now_us() < deadline_us))
 	{
 		/* Keep USB alive while the bootloader works: validating an init
@@ -392,7 +392,35 @@ uint32_t dfu_client_control(const uint8_t * p_data, uint16_t length, uint32_t ti
 		dfu_client_track(p_data, length);
 		m_dfu_client_answered = false;
 	}
-	return NRF_SUCCESS;
+}
+
+uint32_t dfu_client_control(const uint8_t * p_data, uint16_t length, uint32_t timeout_ms,
+			    uint8_t * p_response, uint16_t * p_response_len)
+{
+	uint32_t error;
+
+	*p_response_len = 0U;
+	if (!m_dfu_client_ready)
+	{
+		error = NRF_ERROR_INVALID_STATE;
+	}
+	else if (length > DFU_CLIENT_MAX_WRITE)
+	{
+		error = NRF_ERROR_DATA_SIZE;
+	}
+	else
+	{
+		m_dfu_client_answered = false;
+		m_dfu_client_waiting  = true;
+		error = dfu_client_write(m_dfu_client_control, BLE_GATT_OP_WRITE_REQ, p_data, length);
+		if (error == NRF_SUCCESS)
+		{
+			dfu_client_collect(p_data, length, timeout_ms, p_response, p_response_len);
+		}
+		m_dfu_client_waiting = false;
+	}
+
+	return error;
 }
 
 /**
@@ -410,6 +438,7 @@ static uint32_t dfu_client_packet_piece(const uint8_t * p_data, uint16_t length,
 {
 	ble_gattc_write_params_t	params;
 	uint32_t			error;
+	bool				waiting;
 
 	(void)memset(&params, 0, sizeof(params));
 	params.write_op = BLE_GATT_OP_WRITE_CMD;
@@ -418,39 +447,27 @@ static uint32_t dfu_client_packet_piece(const uint8_t * p_data, uint16_t length,
 	params.p_value  = p_data;
 	do
 	{
-		error = sd_ble_gattc_write(m_dfu_client_conn, &params);
-		if (error != NRF_ERROR_RESOURCES)
+		error   = sd_ble_gattc_write(m_dfu_client_conn, &params);
+		waiting = (error == NRF_ERROR_RESOURCES);
+		if (waiting)
 		{
-			break;
+			cdc_acm_process();
 		}
-		cdc_acm_process();
-	} while (timestamp_now_us() < deadline_us);
+	} while (waiting && (timestamp_now_us() < deadline_us));
 
 	return error;
 }
 
-uint32_t dfu_client_packet(const uint8_t * p_data, uint16_t length, uint32_t timeout_ms,
-			   uint16_t * p_piece, uint16_t * p_pieces)
+/**
+ * @brief Write @p length bytes as pieces of @p piece bytes, waiting for each
+ *        receipt the bootloader owes, until one fails or @p deadline_us.
+ */
+static uint32_t dfu_client_send_pieces(const uint8_t * p_data, uint16_t length, uint16_t piece,
+				       uint64_t deadline_us, uint16_t * p_pieces)
 {
-	uint64_t	deadline_us;
 	uint32_t	error = NRF_SUCCESS;
-	uint16_t	piece;
 	uint16_t	offset;
 
-	*p_piece  = 0U;
-	*p_pieces = 0U;
-	if (!m_dfu_client_ready)
-	{
-		return NRF_ERROR_INVALID_STATE;
-	}
-	if (length > DFU_CLIENT_MAX_WRITE)
-	{
-		return NRF_ERROR_DATA_SIZE;
-	}
-
-	piece = (uint16_t)(dfu_client_att_mtu() - DFU_CLIENT_ATT_OVERHEAD);
-	*p_piece = piece;
-	deadline_us = timestamp_now_us() + ((uint64_t)timeout_ms * DFU_CLIENT_US_PER_MS);
 	for (offset = 0U; (offset < length) && (error == NRF_SUCCESS); offset += piece)
 	{
 		uint16_t size = (uint16_t)(length - offset);
@@ -460,16 +477,42 @@ uint32_t dfu_client_packet(const uint8_t * p_data, uint16_t length, uint32_t tim
 			size = piece;
 		}
 		error = dfu_client_packet_piece(&p_data[offset], size, deadline_us);
-		if (error != NRF_SUCCESS)
+		if (error == NRF_SUCCESS)
 		{
-			break;
+			(*p_pieces)++;
+			m_dfu_client_unreceipted++;
+			if ((m_dfu_client_prn != 0U) && (m_dfu_client_unreceipted >= m_dfu_client_prn))
+			{
+				error = dfu_client_await_receipt(deadline_us);
+			}
 		}
-		(*p_pieces)++;
-		m_dfu_client_unreceipted++;
-		if ((m_dfu_client_prn != 0U) && (m_dfu_client_unreceipted >= m_dfu_client_prn))
-		{
-			error = dfu_client_await_receipt(deadline_us);
-		}
+	}
+
+	return error;
+}
+
+uint32_t dfu_client_packet(const uint8_t * p_data, uint16_t length, uint32_t timeout_ms,
+			   uint16_t * p_piece, uint16_t * p_pieces)
+{
+	uint32_t error;
+
+	*p_piece  = 0U;
+	*p_pieces = 0U;
+	if (!m_dfu_client_ready)
+	{
+		error = NRF_ERROR_INVALID_STATE;
+	}
+	else if (length > DFU_CLIENT_MAX_WRITE)
+	{
+		error = NRF_ERROR_DATA_SIZE;
+	}
+	else
+	{
+		uint16_t piece       = (uint16_t)(dfu_client_att_mtu() - DFU_CLIENT_ATT_OVERHEAD);
+		uint64_t deadline_us = timestamp_now_us() + ((uint64_t)timeout_ms * DFU_CLIENT_US_PER_MS);
+
+		*p_piece = piece;
+		error    = dfu_client_send_pieces(p_data, length, piece, deadline_us, p_pieces);
 	}
 
 	return error;

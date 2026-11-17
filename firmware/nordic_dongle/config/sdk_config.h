@@ -201,9 +201,9 @@
  *  a write longer than this with NRF_ERROR_DATA_SIZE - so a default of 20
  *  would have refused every command over 20 bytes at run time, with nothing
  *  in the build to say so. */
-#define NRF_BLE_GQ_DATAPOOL_ELEMENT_SIZE	PROTO_MAX_PAYLOAD
+#define NRF_BLE_GQ_DATAPOOL_ELEMENT_SIZE	PROTOCOL_MAX_PAYLOAD
 #define NRF_BLE_GQ_DATAPOOL_ELEMENT_COUNT	8
-#define NRF_BLE_GQ_GATTC_WRITE_MAX_DATA_LEN	PROTO_MAX_PAYLOAD
+#define NRF_BLE_GQ_GATTC_WRITE_MAX_DATA_LEN	PROTOCOL_MAX_PAYLOAD
 /** This dongle is a central and never sends notifications, but nrf_ble_gq.c
  *  declares a stack buffer of this size unconditionally. The SDK's default. */
 #define NRF_BLE_GQ_GATTS_HVX_MAX_DATA_LEN	20

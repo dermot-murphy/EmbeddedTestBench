@@ -29,13 +29,13 @@
 /** Bytes read from the endpoint at a time. One is deliberate: the CDC driver
  *  reports each byte as it arrives, which is what lets a line be assembled
  *  without waiting for a buffer to fill or a timeout to expire. */
-#define CDC_RX_CHUNK			1U
+#define CDC_ACM_RX_CHUNK		1U
 
-static void cdc_event_handler(app_usbd_class_inst_t const * p_inst,
-			      app_usbd_cdc_acm_user_event_t     event);
+static void cdc_acm_event_handler(app_usbd_class_inst_t const * p_inst,
+				  app_usbd_cdc_acm_user_event_t     event);
 
 APP_USBD_CDC_ACM_GLOBAL_DEF(m_app_cdc_acm,
-			    cdc_event_handler,
+			    cdc_acm_event_handler,
 			    CDC_ACM_COMM_INTERFACE,
 			    CDC_ACM_DATA_INTERFACE,
 			    CDC_ACM_COMM_EPIN,
@@ -46,31 +46,28 @@ APP_USBD_CDC_ACM_GLOBAL_DEF(m_app_cdc_acm,
 /** One queued output line. */
 typedef struct
 {
-	char		text[PROTO_MAX_EVENT];
+	char		text[PROTOCOL_MAX_EVENT];
 	uint16_t	length;
 } cdc_line_t;
 
-static cdc_line_t	m_tx_queue[CDC_TX_QUEUE_LINES];
+static cdc_line_t	m_tx_queue[CDC_ACM_TX_QUEUE_LINES];
 static volatile uint32_t m_tx_head;		/**< next slot to fill */
 static volatile uint32_t m_tx_tail;		/**< next slot to send */
 static volatile bool	m_tx_busy;		/**< an endpoint write is in flight */
 static volatile uint32_t m_dropped;
 
-static char		m_rx_byte[CDC_RX_CHUNK];
-static char		m_rx_line[PROTO_MAX_LINE];
 static uint32_t		m_rx_length;
 static bool		m_rx_overflow;		/**< discarding to the terminator */
 static volatile bool	m_rx_ready;		/**< a complete line is waiting */
-static char		m_rx_complete[PROTO_MAX_LINE];
+static char		m_rx_complete[PROTOCOL_MAX_LINE];
 
 static volatile bool	m_port_open;
 
 /**
  * @brief Start the next queued write, if any and if the endpoint is free.
  */
-static void tx_pump(void)
+static void cdc_acm_tx_pump(void)
 {
-	ret_code_t	error;
 	uint32_t	tail  = 0U;
 	bool		start = false;
 
@@ -87,29 +84,68 @@ static void tx_pump(void)
 	}
 	CRITICAL_REGION_EXIT();
 
-	if (!start)
+	if (start)
 	{
-		return;
-	}
-
-	error = app_usbd_cdc_acm_write(&m_app_cdc_acm,
-				       m_tx_queue[tail].text,
-				       m_tx_queue[tail].length);
-	if (error != NRF_SUCCESS)
-	{
-		/* The endpoint refused the write: release the slot and count the
-		 * line as dropped, so the host's total still reconciles. */
-		CRITICAL_REGION_ENTER();
-		m_tx_busy = false;
-		m_tx_tail = (tail + 1U) % CDC_TX_QUEUE_LINES;
-		m_dropped++;
-		CRITICAL_REGION_EXIT();
+		ret_code_t error = app_usbd_cdc_acm_write(&m_app_cdc_acm,
+					       m_tx_queue[tail].text,
+					       m_tx_queue[tail].length);
+		if (error != NRF_SUCCESS)
+		{
+			/* The endpoint refused the write: release the slot and count
+			 * the line as dropped, so the host's total still reconciles. */
+			CRITICAL_REGION_ENTER();
+			m_tx_busy = false;
+			m_tx_tail = (tail + 1U) % CDC_ACM_TX_QUEUE_LINES;
+			m_dropped++;
+			CRITICAL_REGION_EXIT();
+		}
 	}
 }
 
-static void cdc_event_handler(app_usbd_class_inst_t const * p_inst,
-			      app_usbd_cdc_acm_user_event_t     event)
+/**
+ * @brief Add one received byte to the line being assembled.
+ */
+static void cdc_acm_rx_byte(char received)
 {
+	static char line[PROTOCOL_MAX_LINE];
+
+	if ((received == '\n') || (received == '\r'))
+	{
+		if ((m_rx_length > 0U) && !m_rx_ready && !m_rx_overflow)
+		{
+			line[m_rx_length] = '\0';
+			(void)memcpy(m_rx_complete, line, m_rx_length + 1U);
+			m_rx_ready = true;
+		}
+		m_rx_length   = 0U;
+		m_rx_overflow = false;
+	}
+	else if (m_rx_overflow)
+	{
+		/* Still discarding the remains of an over-long line. */
+	}
+	else if (m_rx_length < (PROTOCOL_MAX_LINE - 1U))
+	{
+		line[m_rx_length] = received;
+		m_rx_length++;
+	}
+	else
+	{
+		/* Over-long line: discard it, and keep discarding until the
+		 * terminator. Starting a new line here would make the *tail* of a
+		 * too-long command a command in its own right - and the tail of
+		 * anything is not what the host asked for. The host sees no reply
+		 * and times out, which is the honest outcome. */
+		m_rx_length   = 0U;
+		m_rx_overflow = true;
+	}
+}
+
+static void cdc_acm_event_handler(app_usbd_class_inst_t const * p_inst,
+				  app_usbd_cdc_acm_user_event_t     event)
+{
+	static char rx_byte[CDC_ACM_RX_CHUNK];
+
 	UNUSED_PARAMETER(p_inst);
 
 	switch (event)
@@ -118,7 +154,7 @@ static void cdc_event_handler(app_usbd_class_inst_t const * p_inst,
 		m_port_open   = true;
 		m_rx_length   = 0U;
 		m_rx_overflow = false;
-		(void)app_usbd_cdc_acm_read(&m_app_cdc_acm, m_rx_byte, CDC_RX_CHUNK);
+		(void)app_usbd_cdc_acm_read(&m_app_cdc_acm, rx_byte, CDC_ACM_RX_CHUNK);
 		break;
 
 	case APP_USBD_CDC_ACM_USER_EVT_PORT_CLOSE:
@@ -127,50 +163,17 @@ static void cdc_event_handler(app_usbd_class_inst_t const * p_inst,
 
 	case APP_USBD_CDC_ACM_USER_EVT_TX_DONE:
 		CRITICAL_REGION_ENTER();
-		m_tx_tail = (m_tx_tail + 1U) % CDC_TX_QUEUE_LINES;
+		m_tx_tail = (m_tx_tail + 1U) % CDC_ACM_TX_QUEUE_LINES;
 		m_tx_busy = false;
 		CRITICAL_REGION_EXIT();
-		tx_pump();
+		cdc_acm_tx_pump();
 		break;
 
 	case APP_USBD_CDC_ACM_USER_EVT_RX_DONE:
 		do
 		{
-			char received = m_rx_byte[0];
-
-			if ((received == '\n') || (received == '\r'))
-			{
-				if ((m_rx_length > 0U) && !m_rx_ready && !m_rx_overflow)
-				{
-					m_rx_line[m_rx_length] = '\0';
-					(void)memcpy(m_rx_complete, m_rx_line, m_rx_length + 1U);
-					m_rx_ready = true;
-				}
-				m_rx_length   = 0U;
-				m_rx_overflow = false;
-			}
-			else if (m_rx_overflow)
-			{
-				/* Still discarding the remains of an over-long line. */
-			}
-			else if (m_rx_length < (PROTO_MAX_LINE - 1U))
-			{
-				m_rx_line[m_rx_length] = received;
-				m_rx_length++;
-			}
-			else
-			{
-				/* Over-long line: discard it, and keep discarding
-				 * until the terminator. Starting a new line here
-				 * would make the *tail* of a too-long command a
-				 * command in its own right - and the tail of
-				 * anything is not what the host asked for. The
-				 * host sees no reply and times out, which is the
-				 * honest outcome. */
-				m_rx_length   = 0U;
-				m_rx_overflow = true;
-			}
-		} while (app_usbd_cdc_acm_read(&m_app_cdc_acm, m_rx_byte, CDC_RX_CHUNK) == NRF_SUCCESS);
+			cdc_acm_rx_byte(rx_byte[0]);
+		} while (app_usbd_cdc_acm_read(&m_app_cdc_acm, rx_byte, CDC_ACM_RX_CHUNK) == NRF_SUCCESS);
 		break;
 
 	default:
@@ -178,7 +181,7 @@ static void cdc_event_handler(app_usbd_class_inst_t const * p_inst,
 	}
 }
 
-static void usbd_user_event_handler(app_usbd_event_type_t event)
+static void cdc_acm_usbd_event_handler(app_usbd_event_type_t event)
 {
 	switch (event)
 	{
@@ -218,27 +221,24 @@ uint32_t cdc_acm_init(void)
 {
 	static const app_usbd_config_t config =
 	{
-		.ev_state_proc = usbd_user_event_handler
+		.ev_state_proc = cdc_acm_usbd_event_handler
 	};
-	app_usbd_class_inst_t const *	class_cdc_acm;
-	ret_code_t			error;
+	ret_code_t error;
 
 	app_usbd_serial_num_generate();
 
 	error = app_usbd_init(&config);
-	if (error != NRF_SUCCESS)
+	if (error == NRF_SUCCESS)
 	{
-		return error;
-	}
+		app_usbd_class_inst_t const * class_cdc_acm =
+			app_usbd_cdc_acm_class_inst_get(&m_app_cdc_acm);
 
-	class_cdc_acm = app_usbd_cdc_acm_class_inst_get(&m_app_cdc_acm);
-	error = app_usbd_class_append(class_cdc_acm);
-	if (error != NRF_SUCCESS)
+		error = app_usbd_class_append(class_cdc_acm);
+	}
+	if (error == NRF_SUCCESS)
 	{
-		return error;
+		error = app_usbd_power_events_enable();
 	}
-
-	error = app_usbd_power_events_enable();
 
 	return error;
 }
@@ -249,87 +249,84 @@ void cdc_acm_process(void)
 	{
 		/* Each call handles one queued USB event. */
 	}
-	tx_pump();
+	cdc_acm_tx_pump();
 }
 
 bool cdc_acm_send_line(const char * line)
 {
-	uint32_t	head;
-	uint32_t	next;
-	uint32_t	length;
-	bool		queued = false;
+	bool queued = false;
 
-	if (line == NULL)
+	if (line != NULL)
 	{
-		return false;
-	}
+		uint32_t	head;
+		uint32_t	next;
+		uint32_t	length = (uint32_t)strlen(line);
 
-	length = (uint32_t)strlen(line);
-	if (length > (PROTO_MAX_EVENT - 2U))
-	{
-		length = PROTO_MAX_EVENT - 2U;
-	}
+		if (length > (PROTOCOL_MAX_EVENT - 2U))
+		{
+			length = PROTOCOL_MAX_EVENT - 2U;
+		}
 
-	CRITICAL_REGION_ENTER();
-	head = m_tx_head;
-	next = (head + 1U) % CDC_TX_QUEUE_LINES;
-	if (next != m_tx_tail)
-	{
-		(void)memcpy(m_tx_queue[head].text, line, length);
-		m_tx_queue[head].text[length]      = '\n';
-		m_tx_queue[head].text[length + 1U] = '\0';
-		m_tx_queue[head].length            = (uint16_t)(length + 1U);
-		m_tx_head                          = next;
-		queued                             = true;
-	}
-	else
-	{
-		m_dropped++;
-	}
-	CRITICAL_REGION_EXIT();
+		CRITICAL_REGION_ENTER();
+		head = m_tx_head;
+		next = (head + 1U) % CDC_ACM_TX_QUEUE_LINES;
+		if (next != m_tx_tail)
+		{
+			(void)memcpy(m_tx_queue[head].text, line, length);
+			m_tx_queue[head].text[length]      = '\n';
+			m_tx_queue[head].text[length + 1U] = '\0';
+			m_tx_queue[head].length            = (uint16_t)(length + 1U);
+			m_tx_head                          = next;
+			queued                             = true;
+		}
+		else
+		{
+			m_dropped++;
+		}
+		CRITICAL_REGION_EXIT();
 
-	tx_pump();
+		cdc_acm_tx_pump();
+	}
 
 	return queued;
 }
 
 bool cdc_acm_send_format(const char * format, ...)
 {
-	char	line[PROTO_MAX_EVENT];
+	char	line[PROTOCOL_MAX_EVENT];
 	va_list	arguments;
 	int	written;
+	bool	queued = false;
 
 	va_start(arguments, format);
 	written = vsnprintf(line, sizeof(line) - 1U, format, arguments);
 	va_end(arguments);
 
-	if (written < 0)
+	if (written >= 0)
 	{
-		return false;
+		line[sizeof(line) - 1U] = '\0';
+		queued = cdc_acm_send_line(line);
 	}
-	line[sizeof(line) - 1U] = '\0';
 
-	return cdc_acm_send_line(line);
+	return queued;
 }
 
 bool cdc_acm_take_line(char * buffer, uint32_t size)
 {
 	bool taken = false;
 
-	if ((buffer == NULL) || (size == 0U))
+	if ((buffer != NULL) && (size != 0U))
 	{
-		return false;
+		CRITICAL_REGION_ENTER();
+		if (m_rx_ready)
+		{
+			(void)strncpy(buffer, m_rx_complete, size - 1U);
+			buffer[size - 1U] = '\0';
+			m_rx_ready        = false;
+			taken             = true;
+		}
+		CRITICAL_REGION_EXIT();
 	}
-
-	CRITICAL_REGION_ENTER();
-	if (m_rx_ready)
-	{
-		(void)strncpy(buffer, m_rx_complete, size - 1U);
-		buffer[size - 1U] = '\0';
-		m_rx_ready        = false;
-		taken             = true;
-	}
-	CRITICAL_REGION_EXIT();
 
 	return taken;
 }
@@ -337,11 +334,6 @@ bool cdc_acm_take_line(char * buffer, uint32_t size)
 uint32_t cdc_acm_dropped(void)
 {
 	return m_dropped;
-}
-
-bool cdc_acm_is_open(void)
-{
-	return m_port_open;
 }
 
 bool cdc_acm_tx_idle(void)

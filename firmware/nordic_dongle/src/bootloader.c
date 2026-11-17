@@ -21,9 +21,10 @@
 /**
  * A GPIO wired to the chip's own reset line. On the PCA10059 P0.19 is joined to
  * nRESET, which is how Nordic's USB DFU trigger resets the dongle
- * (BSP_SELF_PINRESET_PIN in the SDK's pca10059.h).
+ * (BSP_SELF_PINRESET_PIN in the SDK's pca10059.h). P0.19 is pin 19 of port 0,
+ * NRF_GPIO_PIN_MAP(0, 19), written as the number that macro gives.
  */
-#define BOOTLOADER_SELF_PINRESET_PIN		NRF_GPIO_PIN_MAP(0, 19)
+#define BOOTLOADER_SELF_PINRESET_PIN		19U
 
 /** How long to hold the reset pin before concluding it is not wired. */
 #define BOOTLOADER_SELF_PINRESET_WAIT_MS		10U

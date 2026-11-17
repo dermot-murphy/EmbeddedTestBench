@@ -63,7 +63,7 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
 {
 	UNUSED_PARAMETER(p_context);
 
-	scanner_on_ble_evt(p_ble_evt);
+	ble_scanner_on_ble_evt(p_ble_evt);
 	nus_client_on_ble_evt(p_ble_evt);
 	dfu_client_on_ble_evt(p_ble_evt);
 	/* Not ble_db_discovery_on_ble_evt(): BLE_DB_DISCOVERY_DEF registers its
@@ -72,7 +72,7 @@ static void ble_evt_handler(ble_evt_t const * p_ble_evt, void * p_context)
 	 * NRF_BLE_GATT_DEF and NRF_BLE_GQ_DEF. */
 }
 
-NRF_SDH_BLE_OBSERVER(m_ble_observer, APP_BLE_OBSERVER_PRIO, ble_evt_handler, NULL);
+NRF_SDH_BLE_OBSERVER(m_ble_observer, APP_BLE_CONFIG_OBSERVER_PRIO, ble_evt_handler, NULL);
 
 static void db_discovery_handler(ble_db_discovery_evt_t * p_evt)
 {
@@ -91,7 +91,7 @@ static void ble_stack_init(void)
 	error = nrf_sdh_enable_request();
 	APP_ERROR_CHECK(error);
 
-	error = nrf_sdh_ble_default_cfg_set(APP_BLE_CONN_CFG_TAG, &ram_start);
+	error = nrf_sdh_ble_default_cfg_set(APP_BLE_CONFIG_CONN_CFG_TAG, &ram_start);
 	APP_ERROR_CHECK(error);
 
 	error = nrf_sdh_ble_enable(&ram_start);
@@ -105,7 +105,7 @@ static void gatt_init(void)
 	error = nrf_ble_gatt_init(&m_gatt, NULL);
 	APP_ERROR_CHECK(error);
 
-	error = nrf_ble_gatt_att_mtu_central_set(&m_gatt, APP_BLE_MAX_ATT_MTU);
+	error = nrf_ble_gatt_att_mtu_central_set(&m_gatt, APP_BLE_CONFIG_MAX_ATT_MTU);
 	APP_ERROR_CHECK(error);
 }
 
@@ -141,7 +141,7 @@ static void clock_init(void)
 
 int main(void)
 {
-	char line[PROTO_MAX_LINE];
+	char line[PROTOCOL_MAX_LINE];
 
 	clock_init();
 
@@ -152,7 +152,7 @@ int main(void)
 	ble_stack_init();
 	gatt_init();
 	db_discovery_init();
-	APP_ERROR_CHECK(scanner_init());
+	APP_ERROR_CHECK(ble_scanner_init());
 	APP_ERROR_CHECK(nus_client_init(&m_gatt_queue, &m_db_discovery));
 	APP_ERROR_CHECK(dfu_client_init(&m_gatt_queue, &m_gatt));
 

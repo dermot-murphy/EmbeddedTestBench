@@ -20,7 +20,7 @@
 
 #include <string.h>
 
-const char	firmware_version_string[] = FIRMWARE_VERSION;
+const char	firmware_version_g_string[] = FIRMWARE_VERSION_STRING;
 
 #ifdef FIRMWARE_BUILD_DATE
 

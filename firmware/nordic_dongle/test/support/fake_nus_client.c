@@ -24,13 +24,13 @@ static bool	m_ready;
 static bool	m_connected;
 static bool	m_connecting;
 static uint32_t	m_interval_us;
-static char	m_reply[PROTO_MAX_PAYLOAD];
+static char	m_reply[PROTOCOL_MAX_PAYLOAD];
 static uint64_t	m_round_trip_us;
 static bool	m_replies;
 static uint32_t	m_write_result;
 static uint32_t	m_writes;
 static uint32_t	m_commands;
-static uint8_t	m_payload[PROTO_MAX_PAYLOAD];
+static uint8_t	m_payload[PROTOCOL_MAX_PAYLOAD];
 static uint16_t	m_payload_length;
 static uint32_t	m_connects;
 static uint32_t	m_disconnects;
@@ -83,7 +83,7 @@ uint32_t nus_client_write(const uint8_t * p_data, uint16_t length)
 		return m_write_result;
 	}
 	m_writes++;
-	m_payload_length = (length <= PROTO_MAX_PAYLOAD) ? length : PROTO_MAX_PAYLOAD;
+	m_payload_length = (length <= PROTOCOL_MAX_PAYLOAD) ? length : PROTOCOL_MAX_PAYLOAD;
 	(void)memcpy(m_payload, p_data, m_payload_length);
 	return 0U;
 }
@@ -102,7 +102,7 @@ uint32_t nus_client_command(const uint8_t * p_data, uint16_t length,
 		return NRF_ERROR_INVALID_STATE;
 	}
 	m_commands++;
-	m_payload_length = (length <= PROTO_MAX_PAYLOAD) ? length : PROTO_MAX_PAYLOAD;
+	m_payload_length = (length <= PROTOCOL_MAX_PAYLOAD) ? length : PROTOCOL_MAX_PAYLOAD;
 	(void)memcpy(m_payload, p_data, m_payload_length);
 
 	(void)memset(p_response, 0, sizeof(*p_response));
@@ -120,7 +120,7 @@ uint32_t nus_client_command(const uint8_t * p_data, uint16_t length,
 }
 
 void nus_client_on_ble_evt(const ble_evt_t * p_ble_evt)	{ (void)p_ble_evt; }
-void nus_client_on_db_disc_evt(void * p_evt)		{ (void)p_evt; }
+void nus_client_on_db_disc_evt(ble_db_discovery_evt_t * p_evt)	{ (void)p_evt; }
 
 void fake_nus_client_set_ready(bool ready)		{ m_ready = ready; m_connected = ready || m_connected; }
 void fake_nus_client_set_connected(bool connected)	{ m_connected = connected; }
@@ -129,8 +129,8 @@ void fake_nus_client_set_interval_us(uint32_t interval_us)	{ m_interval_us = int
 
 void fake_nus_client_set_reply(const char * text, uint64_t round_trip_us)
 {
-	(void)strncpy(m_reply, text, PROTO_MAX_PAYLOAD - 1U);
-	m_reply[PROTO_MAX_PAYLOAD - 1U] = '\0';
+	(void)strncpy(m_reply, text, PROTOCOL_MAX_PAYLOAD - 1U);
+	m_reply[PROTOCOL_MAX_PAYLOAD - 1U] = '\0';
 	m_round_trip_us                 = round_trip_us;
 	m_replies                       = true;
 }
