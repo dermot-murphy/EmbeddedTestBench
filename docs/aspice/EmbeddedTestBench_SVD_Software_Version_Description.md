@@ -137,38 +137,38 @@ baseline. Its manifests are under `specs/qualification/firmware/`.
 
 | Document ID | Title | Version | Status |
 |---|---|---|---|
-| ETB-SYS2-001 | System Requirements Specification | 0.6 | Draft |
-| ETB-SYS3-001 | System Architecture | 0.5 | Draft |
-| ETB-SYS4-001 | System Integration & Integration Test | 0.5 | Draft |
-| ETB-SYS5-001 | System Qualification Test | 0.6 | Draft |
-| ETB-SYS5-002 | System Qualification Test Report | 1.3 | Draft — for review |
-| ETB-SWE1-001 | Software Requirements Specification | 1.32 | Draft |
-| ETB-SWE2-001 | Software Architecture Description | 0.16 | Draft |
-| ETB-SWE3-001 | Software Detailed Design | 1.34 | Draft |
-| ETB-SWE3-002 | GPD-3303D Driver Design and Lessons Learned | 0.3 | Draft |
-| ETB-SWE4-001 | Software Unit Verification Specification | 1.35 | Draft |
-| ETB-SWE4-002 | Software Unit Verification Report | 1.31 | Draft |
-| ETB-SWE5-001 | Software Integration & Integration Test | 0.4 | Draft |
-| ETB-SWE6-001 | Software Qualification Test | 0.6 | Draft |
-| ETB-IF-001 | GPD-3303D Remote Control Interface Specification | 0.3 | Draft |
-| ETB-RTM-001 | Requirements Traceability Matrix | 1.34 | Draft |
-| ETB-MAN3-001 | Project Management Plan | 0.4 | Draft |
-| ETB-MAN5-001 | Risk Management Plan | 0.6 | Draft |
-| ETB-SUP1-001 | Quality Assurance Plan | 0.4 | Draft |
-| ETB-SUP8-001 | Configuration Management Plan | 0.14 | Draft |
-| ETB-SUP9-001 | Problem Resolution Management Plan | 0.4 | Draft |
-| ETB-SUP10-001 | Change Request Management Plan | 0.4 | Draft |
-| ETB-ACQ4-001 | Supplier Monitoring Plan | 0.7 | Draft |
+| ETB-SYS2-001 | System Requirements Specification | 0.10 | Draft |
+| ETB-SYS3-001 | System Architecture | 0.8 | Draft |
+| ETB-SYS4-001 | System Integration & Integration Test | 0.6 | Draft |
+| ETB-SYS5-001 | System Qualification Test | 0.7 | Draft |
+| ETB-SYS5-002 | System Qualification Test Report | 1.4 | Draft — for review |
+| ETB-SWE1-001 | Software Requirements Specification | 1.70 | Draft |
+| ETB-SWE2-001 | Software Architecture Description | 0.33 | Draft |
+| ETB-SWE3-001 | Software Detailed Design | 1.90 | Draft |
+| ETB-SWE3-002 | GPD-3303D Driver Design and Lessons Learned | 0.4 | Draft |
+| ETB-SWE4-001 | Software Unit Verification Specification | 1.92 | Draft |
+| ETB-SWE4-002 | Software Unit Verification Report | 1.87 | Draft |
+| ETB-SWE5-001 | Software Integration & Integration Test | 0.5 | Draft |
+| ETB-SWE6-001 | Software Qualification Test | 0.7 | Draft |
+| ETB-IF-001 | GPD-3303D Remote Control Interface Specification | 0.4 | Draft |
+| ETB-RTM-001 | Requirements Traceability Matrix | 1.83 | Draft |
+| ETB-MAN3-001 | Project Management Plan | 0.5 | Draft |
+| ETB-MAN5-001 | Risk Management Plan | 0.7 | Draft |
+| ETB-SUP1-001 | Quality Assurance Plan | 0.5 | Draft |
+| ETB-SUP8-001 | Configuration Management Plan | 0.21 | Draft |
+| ETB-SUP9-001 | Problem Resolution Management Plan | 0.5 | Draft |
+| ETB-SUP10-001 | Change Request Management Plan | 0.5 | Draft |
+| ETB-ACQ4-001 | Supplier Monitoring Plan | 0.11 | Draft |
 | ETB-SVD-001 | Software Version Description *(this document)* | 0.9 | Draft |
-| ETB-PA2-001 | Process Capability Records — Level 2 | 0.4 | Draft |
-| ETB-STD-001 | Industry C Coding Standards — Applicability | 0.5 | Draft |
-| ETB-STD-002 | Embedded C Coding Standard | 0.6 | Draft |
-| ETB-STY-001 | Embedded C Style Guide | 0.6 | Draft |
-| ETB-ANA-001 | Repository Analysis Report | 0.5 | Draft |
-| ETB-DEV-001 | Deviation Record — AI Authorship of Work Products | 0.4 | Draft |
-| ETB-DEV-002 | Deviation Record — Reviewer Independence | 0.4 | Draft |
-| ETB-TMPL-001 | Work Product Review Record — Template | 0.5 | Draft |
-| ETB-TMPL-002 | Test Case Specification — Template | 0.4 | Draft |
+| ETB-PA2-001 | Process Capability Records — Level 2 | 0.5 | Draft |
+| ETB-STD-001 | Industry C Coding Standards — Applicability | 0.6 | Draft |
+| ETB-STD-002 | Embedded C Coding Standard | 0.7 | Draft |
+| ETB-STY-001 | Embedded C Style Guide | 0.7 | Draft |
+| ETB-ANA-001 | Repository Analysis Report | 0.6 | Draft |
+| ETB-DEV-001 | Deviation Record — AI Authorship of Work Products | 0.5 | Draft |
+| ETB-DEV-002 | Deviation Record — Reviewer Independence | 0.5 | Draft |
+| ETB-TMPL-001 | Work Product Review Record — Template | 0.6 | Draft |
+| ETB-TMPL-002 | Test Case Specification — Template | 0.5 | Draft |
 
 Every document in this baseline is **Draft**. Since #204, review and approval of
 a change are given by the merge of its pull request (ETB-SUP8-001 §5.7), so each

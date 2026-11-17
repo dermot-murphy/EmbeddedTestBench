@@ -30,11 +30,11 @@
 | 0.4 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
 | 0.5 | 2026-10-05 | Claude | #204: Review & Approval table points to the merge of the pull request that last changed the document, which is the review and approval (ETB-SUP8-001 §5.7); no per-change signatures or dates. |
 | 0.6 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
-| next | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
+| 0.7 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
 
-| next | 2026-10-28 | Claude | #247: ETB-SYS2-037 - capture a target's serial output, record every line, write nothing to the port; traced to STK-24 and `SER-` (ETB-SWE1-001 §16). The software requirement sections referred to are §6 to §17 (RUN is now §17). |
-| next | 2026-11-13 | Claude | #200: ETB-SYS2-065 - capture analogue and logic signals together on one time base, and drive a stimulus from a signal generator; traced to STK-02, STK-04, STK-05 and STK-07 and to `PSCOPE-` (ETB-SWE1-001 §17). The software requirement sections referred to are §6 to §18 (RUN is now §18). |
-| next | 2026-11-14 | Claude | #342: ETB-SYS2-026 - measure the target's current at 100 000 samples a second, as its supply or in its supply line, with the average, charge and pulses, within the bench's voltage limit; traced to STK-25 and `PPK-` (ETB-SWE1-001 §18). The software requirement sections referred to are §6 to §19 (RUN is now §19). |
+| 0.8 | 2026-10-28 | Claude | #247: ETB-SYS2-037 - capture a target's serial output, record every line, write nothing to the port; traced to STK-24 and `SER-` (ETB-SWE1-001 §16). The software requirement sections referred to are §6 to §17 (RUN is now §17). |
+| 0.9 | 2026-11-13 | Claude | #200: ETB-SYS2-065 - capture analogue and logic signals together on one time base, and drive a stimulus from a signal generator; traced to STK-02, STK-04, STK-05 and STK-07 and to `PSCOPE-` (ETB-SWE1-001 §17). The software requirement sections referred to are §6 to §18 (RUN is now §18). |
+| 0.10 | 2026-11-14 | Claude | #342: ETB-SYS2-026 - measure the target's current at 100 000 samples a second, as its supply or in its supply line, with the average, charge and pulses, within the bench's voltage limit; traced to STK-25 and `PPK-` (ETB-SWE1-001 §18). The software requirement sections referred to are §6 to §19 (RUN is now §19). |
 ---
 
 ## 3. Purpose & Scope

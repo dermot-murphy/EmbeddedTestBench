@@ -46,11 +46,11 @@ keep every USB device and every vendor tool that drives one on the host.
 | Version | Date | Author | Description of Change |
 |---|---|---|---|
 | 0.1 | 2026-11-14 | Claude | #70: first issue. What moves into an image and what stays on the host, how each instrument is reached, the prototype `docker/bench/Dockerfile`, measured costs, and the J-Link test plan. |
-| next | 2026-11-15 | Claude | #70: the J-Link test plan run on the bench (§7.1); the status, §1, §3, §6.5, §8 and §9 follow it. Step 7 stops the core at a breakpoint (#349). Step 10 erases separately and checks the flash is blank, because `--program --chiperase` did not erase; its malformed row is fixed. |
-| next | 2026-11-15 | Claude | #70 review round 1 (PR #350): §7.1 corrected against the record - step 5 has 14 sections; step 0's host time and step 7's host outputs were seen but not kept; step 1 identifies the core, not the probe; `var m_freq` read a discarded variable at address 0 (#352); step 10's empty `## program` part and its -256 lines explained. |
-| next | 2026-11-15 | Claude | #70 review round 2 (PR #350): §7.1 step 10 - that the -256 lines are routine is the operator's observation, not shown in the record. |
-| next | 2026-11-15 | Claude | #349 follow-up: §7 step 7 uses `halt` again, now that PR #351 halts the core on attach; §7.1 finding 2 says #349 is fixed and words its cause as the bench showed it (an attach after `monitor go`). |
-| next | 2026-11-15 | Claude | #349 follow-up review round 1 (PR #354): finding 2 says `stack` without a breakpoint is not yet shown since the fix; step 7 drops the separate `halt` and says `stack` and `var` are separate stops. |
+| 0.2 | 2026-11-15 | Claude | #70: the J-Link test plan run on the bench (§7.1); the status, §1, §3, §6.5, §8 and §9 follow it. Step 7 stops the core at a breakpoint (#349). Step 10 erases separately and checks the flash is blank, because `--program --chiperase` did not erase; its malformed row is fixed. |
+| 0.3 | 2026-11-15 | Claude | #70 review round 1 (PR #350): §7.1 corrected against the record - step 5 has 14 sections; step 0's host time and step 7's host outputs were seen but not kept; step 1 identifies the core, not the probe; `var m_freq` read a discarded variable at address 0 (#352); step 10's empty `## program` part and its -256 lines explained. |
+| 0.4 | 2026-11-15 | Claude | #70 review round 2 (PR #350): §7.1 step 10 - that the -256 lines are routine is the operator's observation, not shown in the record. |
+| 0.5 | 2026-11-15 | Claude | #349 follow-up: §7 step 7 uses `halt` again, now that PR #351 halts the core on attach; §7.1 finding 2 says #349 is fixed and words its cause as the bench showed it (an attach after `monitor go`). |
+| 0.6 | 2026-11-15 | Claude | #349 follow-up review round 1 (PR #354): finding 2 says `stack` without a breakpoint is not yet shown since the fix; step 7 drops the separate `halt` and says `stack` and `var` are separate stops. |
 
 ---
 

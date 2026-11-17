@@ -74,50 +74,50 @@
 | 1.38 | 2026-10-24 | Claude | #294: row for VIEW-FR-046 (a client that went away is one log line); §16 count corrected to 440 in force, 441 declared (it still said 435 and 436 from 1.21). |
 | 1.39 | 2026-10-25 | Claude | #292: SWE4-UT-SELFCHECK and SWE4-UT-FIVEINST cited for the requirements they verify. The RUN-FR-054 row, broken by the merge in f890c9d (2026-09-30), is repaired: its cells after the ID were PICO-ARC-001's (Python side), and its own cells sat two rows below as a row of their own beginning RUN-ARC-001. The two PICO-ARC-001 rows and the VIEW-ARC-001 row, which belong to §15 and were missing there, are moved to §15. |
 | 1.40 | 2026-10-25 | Claude | #293: row for S2LP-FR-085 (frames set aside while a receive stops, void once a command goes to the board), tracing S2LP-DD-SESSION `commands_sent` too; CORE-FR-004 also cites the mock's two `keep_buffer` tests; S2LP-FR-073 cites SWE4-UT-S2LPFRAME (10); §16 count 441 in force, 442 declared. |
-| next | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
-| next | 2026-10-25 | Claude | #238: rows for CORE-FR-066 .. CORE-FR-070 and VIEW-FR-047 (device plugins); AD-29 traced; §16 count 447 in force, 448 declared. |
-| next | 2026-10-26 | Claude | #242: rows for RUN-FR-067 .. RUN-FR-070 and BLE-FR-122; §16 count 452 in force, 453 declared. |
-| next | 2026-10-27 | Claude | #299: row for S2LP-FR-086 (only what re-arming needs between two batch-stream receives); §16 count 453 in force, 454 declared. |
-| next | 2026-10-27 | Claude | #122: row for S2LP-FR-087 (the simulated S2-LP kit receives the simulated Kepler sensor's frames); §16 count 454 in force, 455 declared. |
-| next | 2026-10-28 | Claude | #243: rows for S2LP-FR-088 .. S2LP-FR-092 (frame filters, intervals, census, copies, distinct values per group) and BLE-FR-123 (link times); §16 count 460 in force, 461 declared. |
-| next | 2026-10-28 | Claude | #274: BLE-FR-121 - `SWE4-UT-BLEDFU` now 47 tests, `SWE4-UT-BLESIM` `TestDfuPieces` (5) added, `test_dfu_client` 19 and `test_cmd_dfu` 8 (the ATT MTU and piece size each link allowed); BLE-NFR-006 - `SWE4-UT-FWUNIT` 192 cases. |
-| next | 2026-10-28 | Claude | #181: rows for DMM-FR-035 (blank frames while ranging) and DMM-FR-036 (frequency with no signal); STK-18 gains them; section 16 count 462 in force, 463 declared. |
+| 1.41 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
+| 1.42 | 2026-10-25 | Claude | #238: rows for CORE-FR-066 .. CORE-FR-070 and VIEW-FR-047 (device plugins); AD-29 traced; §16 count 447 in force, 448 declared. |
+| 1.43 | 2026-10-26 | Claude | #242: rows for RUN-FR-067 .. RUN-FR-070 and BLE-FR-122; §16 count 452 in force, 453 declared. |
+| 1.44 | 2026-10-27 | Claude | #299: row for S2LP-FR-086 (only what re-arming needs between two batch-stream receives); §16 count 453 in force, 454 declared. |
+| 1.45 | 2026-10-27 | Claude | #122: row for S2LP-FR-087 (the simulated S2-LP kit receives the simulated Kepler sensor's frames); §16 count 454 in force, 455 declared. |
+| 1.46 | 2026-10-28 | Claude | #243: rows for S2LP-FR-088 .. S2LP-FR-092 (frame filters, intervals, census, copies, distinct values per group) and BLE-FR-123 (link times); §16 count 460 in force, 461 declared. |
+| 1.47 | 2026-10-28 | Claude | #274: BLE-FR-121 - `SWE4-UT-BLEDFU` now 47 tests, `SWE4-UT-BLESIM` `TestDfuPieces` (5) added, `test_dfu_client` 19 and `test_cmd_dfu` 8 (the ATT MTU and piece size each link allowed); BLE-NFR-006 - `SWE4-UT-FWUNIT` 192 cases. |
+| 1.48 | 2026-10-28 | Claude | #181: rows for DMM-FR-035 (blank frames while ranging) and DMM-FR-036 (frequency with no signal); STK-18 gains them; section 16 count 462 in force, 463 declared. |
 
-| next | 2026-10-28 | Claude | #247: STK-24 and section 14, SER (SER-FR-001 .. SER-FR-013, SER-NFR-001), the serial capture instrument; SER-ARC-001 in section 16; STK-23 gains SER-FR-008; sections 14 to 18 renumbered 15 to 19; section 17 count 475 in force, 476 declared, 37 non-functional. |
-| next | 2026-10-29 | Claude | #247, review of #318: the SER rows name the tests added for the socket port, a refused rate, the pattern's spaces, line endings, port failures, stopping, the line bound and the exit status after a `NACK`. |
-| next | 2026-10-29 | Claude | #247, review of #318 round 2: SER-FR-006 names `_read_lines`, `split_lines` and the reader's stop and join, and the added line-ending, port and stopping tests; SER-FR-004 drops the renamed pattern test and names the port that cannot open. |
-| next | 2026-10-29 | Claude | #247, review of #318 round 3: SER-FR-005 names `CaptureBusyError` and the start tests; SER-FR-006 and SER-FR-007 name the slow-live-output, abort and `WR PATTERN OFF` tests. |
-| next | 2026-10-29 | Claude | #247, review of #318 round 4: SER-FR-007 names `TestLiveOutput` and the CLI test of a capture that ends before the commands. |
-| next | 2026-10-29 | Claude | #247, review of #318 round 5: SER-FR-007 names `TestLiveOutputEnds` and `TestOutputLock`; SER-FR-012 the Ctrl-C test. |
-| next | 2026-10-29 | Claude | #247, review of #318 round 6: SER-FR-007 names `TestLiveOutputUnderTheLock` and `join_thread`'s test; SER-FR-012 the second Ctrl-C test. |
-| next | 2026-11-12 | Claude | #328: rows for PICO-FR-008, -009, -011, -049 and -062 (the Pico thermometer's indicator LEDs, `wr` and the LED options of `rd`); PICO-FR-001, -003, -050 and -061 re-traced; STK-21 gains them; OPEN-09 notes the SHT30-D connected and the LEDs confirmed on 2026-11-12; section 17 count 480 in force, 481 declared, 37 non-functional. |
-| next | 2026-11-08 | Claude | #202: rows for PICO-FR-080 … -089, the frequency generator. |
-| next | 2026-11-12 | Claude | #202: merged with #328 (LEDs). PICO-FR-003, -008, -049, -081, -083, -085 and -089 re-traced to the one `wr` for the LEDs and the generator (`cmd_fgen_wr`, `cmd_fgen_rd`, `_acknowledged`, `WrRefusedError` a `CommandRefusedError`, `hal_dac_mute`); OPEN-09 notes PICO-OPEN-07 and the bench wiring of 2026-11-12; section 17 count 490 in force, 491 declared, 37 non-functional. |
-| next | 2026-11-13 | Claude | #202: OPEN-09 notes the bench of 2026-11-13: the Adafruit UDA1334A board on GP6, GP7 and GP8, the DAC at 48 828.125 Hz, and a sine observed on channels 1 and 2. |
-| next | 2026-11-13 | Claude | #330: SWE4-UT-PICOSPEC (the PICO2 Test Board test sequence on the simulated bench) traced to PICO-FR-008, -009 and -040; PICO-FR-050 names the bench drivers `pico2-test-board` and `pico2`, the names before #330 kept. |
-| next | 2026-11-13 | Claude | #200: section 15, PSCOPE (PSCOPE-FR-001 … PSCOPE-FR-020, PSCOPE-FR-030, PSCOPE-NFR-001), the PicoScope 3000D MSO; STK-02, -03, -04, -05, -07 and -08 gain them; PSCOPE-ARC-001 in section 17; OPEN-11, the PicoScope's bench confirmation items (PSCOPE-OPEN-01 … -05); sections 15 to 19 renumbered 16 to 20, and the AD-24 note points at section 18, coverage analysis; section 18 count 511 in force, 512 declared, 38 non-functional. |
-| next | 2026-11-13 | Claude | #313: S2LP-FR-070 - `SWE4-UT-S2LPKEPLER` now 75 tests (the V10.00 firmware's TWF layout, type version 0); VIEW-FR-028 - `TestLatestData` now 6. |
-| next | 2026-11-13 | Claude | #201: row for VIEW-FR-048 (a step's events on the Run page); VIEW-FR-012 traced to `toggleStep`, which replaced `toggleTraffic`; VIEW-DD-STEPEVENTS in VIEW-ARC-001; section 18 count 512 in force, 513 declared, 38 non-functional. |
-| next | 2026-11-14 | Claude | #201, review of #334: VIEW-FR-048 names `TestRunBound` (the run-wide bound on a step's events) and `TestFollowRebuilds`. |
-| next | 2026-11-13 | Claude | #71: rows for JLINK-FR-007, -008, -009 and -091, the `segger` J-Link backend, traced to JLINK-DD-SEGGER, -COMMANDER, -SIMCOMMANDER and -IMAGE and to SWE4-UT-JLINKSEGGER and -JLINKIMAGE; AD-30 traced. |
-| next | 2026-11-14 | Claude | #71 review round 1: JLINK-FR-008 row cites the round-1 tests; AD-30 count 87 → 107. |
-| next | 2026-11-14 | Claude | #71 review round 3: JLINK-FR-008 and -009 rows cite the round-3 tests; AD-30 count 107 → 118. |
-| next | 2026-11-14 | Claude | #303: VIEW-FR-047 traced to the panel interface (tabs, options, actions, report sections, the summary hooks) and `TestPanelInterface`; VIEW-FR-028, -035, -037 and -041 name the code where it now is (`KeplerPanel`, `benchtools.analysis.spectrum`). No requirement added; counts unchanged. |
-| next | 2026-11-14 | Claude | #303 review round 1: VIEW-FR-047 traced to `decode_with_plugin` and `TestRoundOneOfReview303`. |
-| next | 2026-11-14 | Claude | #342: STK-25 and section 15A, PPK (PPK-FR-001 … PPK-FR-012, PPK-NFR-001), the Nordic Power Profiler Kit II; STK-08 and STK-23 gain them; PPK-ARC-001 in section 17; AD-31 → SWE4-UT-PPKPROTO; OPEN-12; section 18 count 524 in force, 525 declared, 39 non-functional. |
-| next | 2026-11-14 | Claude | #342 review round 1: PPK-FR-003, -005, -010 and -011 rows cite the round-1 tests; AD-31 count 22 → 23. |
-| next | 2026-11-14 | Claude | #340: S2LP-FR-080 traced to `Packet.decoder`; VIEW-FR-047 to `plugin_of_decoder` and `TestTheRecordNamesItsDecoder`. No requirement added; counts unchanged. |
-| next | 2026-11-14 | Claude | #335: S2LP-FR-070 - `SWE4-UT-S2LPKEPLER` now 84 tests (V10.01.x's 99-byte TWF). |
-| next | 2026-11-14 | Claude | #335 (2): S2LP-FR-070 - `SWE4-UT-S2LPKEPLER` now 90 tests (V10's 20-byte CONFIG, real V10 frames). |
-| next | 2026-11-14 | Claude | #335 (3): S2LP-FR-070 - `SWE4-UT-S2LPKEPLER` now 91 tests (a V10.01 TWF frame from the air). |
-| next | 2026-11-14 | Claude | #84: rows for S2LP-FR-093 .. S2LP-FR-097, S2LP-NFR-005 and AD-32 (the S2-LP kit firmware); §16 count 529 in force, 530 declared, 40 non-functional. |
-| next | 2026-11-14 | Claude | #84 review round 1: AD-32 listed after AD-31; S2LP-FR-093 cites the review's inspection; S2LP-FR-094 and -095 the new tests and the bench check. |
-| next | 2026-11-14 | Claude | #84 (driver): rows for S2LP-FR-098 .. S2LP-FR-100 (the host driver on the kit firmware); AD-32 also traces to SWE4-UT-S2LPKITHOST (31) and `84_kit_driver/`; §16 count 532 in force, 533 declared. |
-| next | 2026-11-14 | Claude | #84 review round 3: S2LP-FR-100 cites `TestStream` (13); AD-32 SWE4-UT-S2LPKITHOST (35). |
-| next | 2026-11-15 | Claude | #349: JLINK-FR-004 row cites `JLinkProbe.attach`, the three `test_attach.py` tests and the bench check. |
-| next | 2026-11-15 | Claude | #352: JLINK-FR-041 row cites `TestAVariableAtAddressZero` and the bench check. |
-| next | 2026-11-15 | Claude | #352 review round 1: JLINK-FR-041 row: `TestAVariableAtAddressZero` (9). |
-| next | 2026-11-15 | Claude | #352 review round 2: JLINK-FR-041 row: `TestAVariableAtAddressZero` (11). |
+| 1.49 | 2026-10-28 | Claude | #247: STK-24 and section 14, SER (SER-FR-001 .. SER-FR-013, SER-NFR-001), the serial capture instrument; SER-ARC-001 in section 16; STK-23 gains SER-FR-008; sections 14 to 18 renumbered 15 to 19; section 17 count 475 in force, 476 declared, 37 non-functional. |
+| 1.50 | 2026-10-29 | Claude | #247, review of #318: the SER rows name the tests added for the socket port, a refused rate, the pattern's spaces, line endings, port failures, stopping, the line bound and the exit status after a `NACK`. |
+| 1.51 | 2026-10-29 | Claude | #247, review of #318 round 2: SER-FR-006 names `_read_lines`, `split_lines` and the reader's stop and join, and the added line-ending, port and stopping tests; SER-FR-004 drops the renamed pattern test and names the port that cannot open. |
+| 1.52 | 2026-10-29 | Claude | #247, review of #318 round 3: SER-FR-005 names `CaptureBusyError` and the start tests; SER-FR-006 and SER-FR-007 name the slow-live-output, abort and `WR PATTERN OFF` tests. |
+| 1.53 | 2026-10-29 | Claude | #247, review of #318 round 4: SER-FR-007 names `TestLiveOutput` and the CLI test of a capture that ends before the commands. |
+| 1.54 | 2026-10-29 | Claude | #247, review of #318 round 5: SER-FR-007 names `TestLiveOutputEnds` and `TestOutputLock`; SER-FR-012 the Ctrl-C test. |
+| 1.55 | 2026-10-29 | Claude | #247, review of #318 round 6: SER-FR-007 names `TestLiveOutputUnderTheLock` and `join_thread`'s test; SER-FR-012 the second Ctrl-C test. |
+| 1.56 | 2026-11-12 | Claude | #328: rows for PICO-FR-008, -009, -011, -049 and -062 (the Pico thermometer's indicator LEDs, `wr` and the LED options of `rd`); PICO-FR-001, -003, -050 and -061 re-traced; STK-21 gains them; OPEN-09 notes the SHT30-D connected and the LEDs confirmed on 2026-11-12; section 17 count 480 in force, 481 declared, 37 non-functional. |
+| 1.57 | 2026-11-08 | Claude | #202: rows for PICO-FR-080 … -089, the frequency generator. |
+| 1.58 | 2026-11-12 | Claude | #202: merged with #328 (LEDs). PICO-FR-003, -008, -049, -081, -083, -085 and -089 re-traced to the one `wr` for the LEDs and the generator (`cmd_fgen_wr`, `cmd_fgen_rd`, `_acknowledged`, `WrRefusedError` a `CommandRefusedError`, `hal_dac_mute`); OPEN-09 notes PICO-OPEN-07 and the bench wiring of 2026-11-12; section 17 count 490 in force, 491 declared, 37 non-functional. |
+| 1.59 | 2026-11-13 | Claude | #202: OPEN-09 notes the bench of 2026-11-13: the Adafruit UDA1334A board on GP6, GP7 and GP8, the DAC at 48 828.125 Hz, and a sine observed on channels 1 and 2. |
+| 1.60 | 2026-11-13 | Claude | #330: SWE4-UT-PICOSPEC (the PICO2 Test Board test sequence on the simulated bench) traced to PICO-FR-008, -009 and -040; PICO-FR-050 names the bench drivers `pico2-test-board` and `pico2`, the names before #330 kept. |
+| 1.61 | 2026-11-13 | Claude | #200: section 15, PSCOPE (PSCOPE-FR-001 … PSCOPE-FR-020, PSCOPE-FR-030, PSCOPE-NFR-001), the PicoScope 3000D MSO; STK-02, -03, -04, -05, -07 and -08 gain them; PSCOPE-ARC-001 in section 17; OPEN-11, the PicoScope's bench confirmation items (PSCOPE-OPEN-01 … -05); sections 15 to 19 renumbered 16 to 20, and the AD-24 note points at section 18, coverage analysis; section 18 count 511 in force, 512 declared, 38 non-functional. |
+| 1.62 | 2026-11-13 | Claude | #313: S2LP-FR-070 - `SWE4-UT-S2LPKEPLER` now 75 tests (the V10.00 firmware's TWF layout, type version 0); VIEW-FR-028 - `TestLatestData` now 6. |
+| 1.63 | 2026-11-13 | Claude | #201: row for VIEW-FR-048 (a step's events on the Run page); VIEW-FR-012 traced to `toggleStep`, which replaced `toggleTraffic`; VIEW-DD-STEPEVENTS in VIEW-ARC-001; section 18 count 512 in force, 513 declared, 38 non-functional. |
+| 1.64 | 2026-11-14 | Claude | #201, review of #334: VIEW-FR-048 names `TestRunBound` (the run-wide bound on a step's events) and `TestFollowRebuilds`. |
+| 1.65 | 2026-11-13 | Claude | #71: rows for JLINK-FR-007, -008, -009 and -091, the `segger` J-Link backend, traced to JLINK-DD-SEGGER, -COMMANDER, -SIMCOMMANDER and -IMAGE and to SWE4-UT-JLINKSEGGER and -JLINKIMAGE; AD-30 traced. |
+| 1.66 | 2026-11-14 | Claude | #71 review round 1: JLINK-FR-008 row cites the round-1 tests; AD-30 count 87 → 107. |
+| 1.67 | 2026-11-14 | Claude | #71 review round 3: JLINK-FR-008 and -009 rows cite the round-3 tests; AD-30 count 107 → 118. |
+| 1.68 | 2026-11-14 | Claude | #303: VIEW-FR-047 traced to the panel interface (tabs, options, actions, report sections, the summary hooks) and `TestPanelInterface`; VIEW-FR-028, -035, -037 and -041 name the code where it now is (`KeplerPanel`, `benchtools.analysis.spectrum`). No requirement added; counts unchanged. |
+| 1.69 | 2026-11-14 | Claude | #303 review round 1: VIEW-FR-047 traced to `decode_with_plugin` and `TestRoundOneOfReview303`. |
+| 1.70 | 2026-11-14 | Claude | #342: STK-25 and section 15A, PPK (PPK-FR-001 … PPK-FR-012, PPK-NFR-001), the Nordic Power Profiler Kit II; STK-08 and STK-23 gain them; PPK-ARC-001 in section 17; AD-31 → SWE4-UT-PPKPROTO; OPEN-12; section 18 count 524 in force, 525 declared, 39 non-functional. |
+| 1.71 | 2026-11-14 | Claude | #342 review round 1: PPK-FR-003, -005, -010 and -011 rows cite the round-1 tests; AD-31 count 22 → 23. |
+| 1.72 | 2026-11-14 | Claude | #340: S2LP-FR-080 traced to `Packet.decoder`; VIEW-FR-047 to `plugin_of_decoder` and `TestTheRecordNamesItsDecoder`. No requirement added; counts unchanged. |
+| 1.73 | 2026-11-14 | Claude | #335: S2LP-FR-070 - `SWE4-UT-S2LPKEPLER` now 84 tests (V10.01.x's 99-byte TWF). |
+| 1.74 | 2026-11-14 | Claude | #335 (2): S2LP-FR-070 - `SWE4-UT-S2LPKEPLER` now 90 tests (V10's 20-byte CONFIG, real V10 frames). |
+| 1.75 | 2026-11-14 | Claude | #335 (3): S2LP-FR-070 - `SWE4-UT-S2LPKEPLER` now 91 tests (a V10.01 TWF frame from the air). |
+| 1.76 | 2026-11-14 | Claude | #84: rows for S2LP-FR-093 .. S2LP-FR-097, S2LP-NFR-005 and AD-32 (the S2-LP kit firmware); §16 count 529 in force, 530 declared, 40 non-functional. |
+| 1.77 | 2026-11-14 | Claude | #84 review round 1: AD-32 listed after AD-31; S2LP-FR-093 cites the review's inspection; S2LP-FR-094 and -095 the new tests and the bench check. |
+| 1.78 | 2026-11-14 | Claude | #84 (driver): rows for S2LP-FR-098 .. S2LP-FR-100 (the host driver on the kit firmware); AD-32 also traces to SWE4-UT-S2LPKITHOST (31) and `84_kit_driver/`; §16 count 532 in force, 533 declared. |
+| 1.79 | 2026-11-14 | Claude | #84 review round 3: S2LP-FR-100 cites `TestStream` (13); AD-32 SWE4-UT-S2LPKITHOST (35). |
+| 1.80 | 2026-11-15 | Claude | #349: JLINK-FR-004 row cites `JLinkProbe.attach`, the three `test_attach.py` tests and the bench check. |
+| 1.81 | 2026-11-15 | Claude | #352: JLINK-FR-041 row cites `TestAVariableAtAddressZero` and the bench check. |
+| 1.82 | 2026-11-15 | Claude | #352 review round 1: JLINK-FR-041 row: `TestAVariableAtAddressZero` (9). |
+| 1.83 | 2026-11-15 | Claude | #352 review round 2: JLINK-FR-041 row: `TestAVariableAtAddressZero` (11). |
 ---
 
 ## 3. Purpose & Scope

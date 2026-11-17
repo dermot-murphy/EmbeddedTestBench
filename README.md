@@ -61,7 +61,7 @@ Each instrument's notes list what is still unconfirmed on hardware.
 ### Getting started
 
 The latest release is on the [releases page](https://github.com/dermot-murphy/EmbeddedTestBench/releases/latest).
-Install it with pip, putting its tag, such as `v0.02.0002`, in place of `<tag>`:
+Install it with pip, putting its tag, such as `v0.03.0000`, in place of `<tag>`:
 
 ```bash
 pip install "benchtools[spec] @ git+https://github.com/dermot-murphy/EmbeddedTestBench@<tag>"
@@ -1017,7 +1017,7 @@ This repository publishes a composite action, so another project can run its
 bench specifications in CI:
 
 ```yaml
-- uses: dermot-murphy/EmbeddedTestBench@v0.02.0002
+- uses: dermot-murphy/EmbeddedTestBench@v0.03.0000
   id: bench
   with:
     specs: |
