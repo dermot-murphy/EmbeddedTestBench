@@ -29,7 +29,7 @@
 | 0.3 | 2026-10-05 | Claude | #204: §6.5 added - a pull request merge is an accepted form of review record, and the Reviewer applies ETB-TMPL-001 checks C1 to C6 before merging. §5, §6.3, §7 and §9 updated to match; §10 points to the merge (ETB-SUP8-001 §5.7). |
 | 0.4 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | 0.5 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
-| next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. §6.5 adds the QA review that the PR Review session posts on every pull request, with checks C1 to C6 per work product, as the per-pull-request QA record; the merge remains the approval. §6.6 added: content requirements per work product type (GP 2.2.1), for content added or changed from #371 on. §5, §7 and §9 updated to match. Review round 1 (PR #381): §6.3 statuses are exclusive, in order Released, Agreed, In review, In work; §6.5 says what the QA reviewer is given. |
+| next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. §6.5 adds the QA review that the PR Review session posts on every pull request, with checks C1 to C6 per work product, as the per-pull-request QA record; the merge remains the approval. §6.6 added: content requirements per work product type (GP 2.2.1), for content added or changed from #371 on. §5, §7 and §9 updated to match. Review round 1 (PR #381): §6.3 statuses are exclusive, in order Released, Agreed, In review, In work; §6.5 says what the QA reviewer is given. Review round 2: the status is found from the commit that last changed the file. |
 
 ---
 
@@ -132,8 +132,11 @@ general. The first row that applies is the status:
 A document on `develop` that has not changed since a release is the same text
 as in the tag, so it is Released. A copy on a branch is In review or In work
 even when the same text is Agreed on `develop`. The status of the copy a reader
-holds is found from its commit, not from the cell: `git tag --contains`, then
-`git branch --contains`, give it.
+holds is found from the commit that last changed it, not from the cell. Take
+`C=$(git log -1 --format=%H <commit> -- <file>)`, the last change to the file
+at the commit the reader holds; then `git tag --contains $C` (Released if it
+names a release tag), `git branch --contains $C` (Agreed if it names
+`develop`), and the open pull requests for the branch, give it.
 
 Before a change to a document is agreed, it passes the QA review in §6.5, and
 Critical and Major findings are closed. There is no separate step from Draft to
