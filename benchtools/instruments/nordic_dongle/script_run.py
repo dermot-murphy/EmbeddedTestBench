@@ -5,7 +5,7 @@ The document's shape, and the four results a step can have - ERROR, SKIP,
 FAIL, PASS, the first that applies - are described in
 :mod:`~benchtools.instruments.nordic_dongle.script`.
 
-Traces to: BLE-FR-100 .. BLE-FR-108, BLE-FR-119, BLE-DD-SCRIPT, BLE-DD-SCRIPTRUN.
+Traces to: BLE-FR-100 .. BLE-FR-108, BLE-FR-119, BLE-DD-SCRIPT.
 """
 
 from __future__ import annotations

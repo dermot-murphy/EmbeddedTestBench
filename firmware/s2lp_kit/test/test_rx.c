@@ -1,8 +1,6 @@
 /**
  * @file test_rx.c
  * @brief Interrupt-driven reception and the record queue (#84).
- *
- * Traces to: S2LP-DD-KITFW.
  */
 
 #include <string.h>

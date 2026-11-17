@@ -1,8 +1,6 @@
 /**
  * @file main.c
  * @brief ETB S2-LP kit firmware (#84): commands from the host, records to it.
- *
- * Traces to: S2LP-DD-KITFW.
  */
 
 #include <stdbool.h>

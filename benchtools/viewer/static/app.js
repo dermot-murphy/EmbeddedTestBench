@@ -1,4 +1,4 @@
-// benchtools test run viewer (#137). Plain JavaScript, nothing from a CDN. Traces to: VIEW-DD-PAGE.
+// benchtools test run viewer (#137). Plain JavaScript, nothing from a CDN.
 "use strict";
 
 const $ = (id) => document.getElementById(id);

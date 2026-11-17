@@ -2,8 +2,6 @@
  * @file ring.h
  * @brief The queue of received records between the radio's interrupt and the
  *        main loop (#84): one producer (the interrupt), one consumer.
- *
- * Traces to: S2LP-DD-KITFW.
  */
 
 #ifndef RING_H

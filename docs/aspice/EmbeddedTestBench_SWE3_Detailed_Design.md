@@ -126,6 +126,7 @@
 | 1.90 | 2026-11-15 | Claude | #352 review round 2: JLINK-DD-PROBE - the side-effect skip covers `>>=` and `<<=`, and says a cast is skipped too. |
 | next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. Blank lines that split this table removed. |
 | next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
+| next | 2026-11-17 | Claude | #367: §4 catalogue counted from the §5 headings: 150 units in 15 elements, with DMM and VIEW rows and each element's unit IDs; §4.1 package tree regenerated from the tracked files. §5.14 added: dynamic design for the units with state or timing (J-Link probe, dongle session and DFU, S2-LP on both firmwares, GPD-3303D, TTi 1604, PICO2 generator, serial capture, PicoScope, PPK2, runner control channel, viewer hub), including the J-Link rule that GDB's view is resynchronised after an attach or a reset. |
 
 ---
 
@@ -163,41 +164,115 @@ not declare.
 
 ## 4. Unit Catalogue
 
-| # | Element | Package | Design units |
-|---|---|---|---|
-| 5.1 | CORE | `benchtools.core` | 18 |
-| 5.2 | ANA | `benchtools.analysis` | 5 |
-| 5.3 | INST | `benchtools.instruments` | 5 |
-| 5.4 | JLINK | `benchtools.instruments.jlink` | 10 |
-| 5.5 | BLE | `benchtools.instruments.nordic_dongle` and `firmware/nordic_dongle` | 20 |
-| 5.6 | S2LP | `benchtools.instruments.s2lp` | 14 |
-| 5.7 | PSU | `benchtools.instruments.gpd3303d` | 4 |
-| 5.8 | PICO | `benchtools.instruments.pico2_test_board` and `firmware/pico2_test_board` | 15 |
-| 5.9 | SER | `benchtools.instruments.serial_capture` | 5 |
-| 5.10 | PSCOPE | `benchtools.instruments.picoscope3000` | 5 |
-| 5.11 | PPK | `benchtools.instruments.ppk2` | 6 |
-| 5.12 | RUN | `benchtools.runner` | 8 |
-| | **Total** | | **95** |
+One row per element, in the order of §5. The count is the number of
+`#### <ELEMENT>-DD-<NAME>` headings in that section of §5; every unit is
+declared once.
+
+| # | Element | Package | Design units | Unit IDs |
+|---|---|---|---|---|
+| 5.1 | CORE | `benchtools.core`, `benchtools.core.transport` | 18 | CORE-DD-ERR, -ENUMS, -VALIDATE, -TRANSPORT, -VXI11, -SOCKET, -VISA, -FIRMWARE, -PATHS, -PLUGINS, -PROCESS, -SERIAL, -MOCK, -FACTORY, -INSTRUMENT, -SCPI, -SIM, -EVENTS |
+| 5.2 | ANA | `benchtools.analysis` | 5 | ANA-DD-WAVEFORM, -MEASURE, -PLOT, -SAMPLES, -FRAMES |
+| 5.3 | INST | `benchtools.instruments` (`generic.py`) | 1 | INST-DD-GENERIC |
+| 5.3 | SCOPE | `benchtools.instruments.tek3014b` | 4 | SCOPE-DD-CONST, -SCOPE, -SIM, -CLI |
+| 5.4 | JLINK | `benchtools.instruments.jlink` | 14 | JLINK-DD-GDBMI, -SESSION, -SERVER, -RTT, -SWO, -TIMING, -CONST, -SIM, -PROBE, -SEGGER, -COMMANDER, -SIMCOMMANDER, -IMAGE, -CLI |
+| 5.5 | BLE | `benchtools.instruments.nordic_dongle`, `benchtools.simulated`, `firmware/nordic_dongle` | 27 | BLE-DD-PROTOCOL, -SESSION, -PROFILE, -SCRIPT, -SCRIPTRUN, -LATENCY, -CONST, -DONGLE, -FIRMWARE, -VERSION, -BOOTLOADER, -SIM, -SIMWORLD, -KEPLERSIM, -DFUHOST, -DFUSIM, -CLI, -TEST, -CDC, -TIMESTAMP, -SCANNER, -NUS, -CMD, -DFU, -CMDARGS, -MAIN, -BUILD |
+| 5.6 | S2LP | `benchtools.instruments.s2lp`, `firmware/s2lp_kit`, `plugins/kepler` (`decoder.py`, `tables.py`) | 16 | S2LP-DD-CONST, -REGS, -CONFIG, -PROTOCOL, -SESSION, -PACKETS, -S2LP, -TRAFFIC, -MEASURES, -EEPROM, -PREAMBLE, -KEPLER, -SIM, -CLI, -KITFW, -KITHOST |
+| 5.7 | PSU | `benchtools.instruments.gpd3303d` | 4 | PSU-DD-CONST, -PSU, -SIM, -CLI |
+| 5.7 | DMM | `benchtools.instruments.tti1604` | 5 | DMM-DD-CONST, -PROTO, -DMM, -SIM, -CLI |
+| 5.8 | PICO | `benchtools.instruments.pico2_test_board`, `firmware/pico2_test_board` | 16 | PICO-DD-PROTOCOL, -VERSION, -BOARD, -HAL, -SHT30, -TEXT, -PARSER, -FGEN, -MAIN, -BUILD, -TEST, -CONST, -DRIVER, -SIM, -CLI, -FLASH |
+| 5.9 | SER | `benchtools.instruments.serial_capture` | 5 | SER-DD-CONST, -DRIVER, -CONSOLE, -SIM, -CLI |
+| 5.10 | PSCOPE | `benchtools.instruments.picoscope3000` | 5 | PSCOPE-DD-CONST, -SDK, -SIM, -SCOPE, -CLI |
+| 5.11 | PPK | `benchtools.instruments.ppk2` | 6 | PPK-DD-CONST, -PROTOCOL, -MEASUREMENT, -DRIVER, -SIM, -CLI |
+| 5.12 | RUN | `benchtools.runner`, `benchtools/cli.py` | 9 | RUN-DD-SPEC, -LIMITS, -RESOLVE, -BENCH, -RESULTS, -RUNNER, -CONTROL, -REPORT, -CLI |
+| 5.13 | VIEW | `benchtools.viewer`, `plugins/kepler` (panels, series, TWF, diagnostics), `benchtools/analysis/spectrum.py` | 15 | VIEW-DD-STATE, -SERVER, -TRAFFIC, -RADIO, -GRAPHS, -TAGS, -STEPEVENTS, -STATUS, -KEPLER, -SENSOR, -TWF, -DIAG, -REPORT, -STGUI, -PAGE |
+| | **Total** | | **150** | |
+
+Two sections hold two elements each:
+
+- **§5.3** holds INST (the generic driver) and SCOPE (the Tektronix
+  TDS3014B).
+- **§5.7**, the PSU section, also holds the five DMM units of the TTi 1604
+  multimeter. Their headings name `constants.py`, `protocol.py`, `dmm.py`,
+  `simulator.py` and `cli.py`, which are the files in
+  `benchtools/instruments/tti1604/`, not in `gpd3303d/`.
+
+`tests/test_traceability.py` checks the units against the code in both
+directions: every source file names a unit declared here, and every unit here is
+named by some file of the code (#368). The element prefixes it uses are read
+from ETB-SWE1-001 §5, so VIEW and DMM are checked too.
 
 ### 4.1 Package Structure
 
+Directories and modules as tracked in the repository. Tests, test fakes and
+static assets are summarised, not listed.
+
 ```
 benchtools/
-├── core/          instrument lifecycle, transports, SCPI base, validation, build manifests
-├── analysis/      waveform model, measurement, plotting
-├── instruments/   one subpackage per instrument, plus the generic driver
-│   ├── tek3014b/      oscilloscope
-│   ├── picoscope3000/ PicoScope 3000D MSO: analogue, digital, signal generator
-│   ├── ppk2/          Nordic Power Profiler Kit II: current, charge and pulses
-│   ├── jlink/         debug probe
-│   ├── nordic_dongle/ BLE dongle - host half of the element
-│   ├── gpd3303d/      bench supply
-│   ├── s2lp/          sub-1 GHz development kit
-│   └── serial_capture/ a device's serial output, recorded
-└── runner/        bench configuration, specifications, limits, execution, reports
+├── __init__.py, __main__.py, cli.py   package, `python -m benchtools`, top-level CLI
+├── core/                instrument lifecycle, SCPI base, validation, build manifests
+│   ├── enums.py, errors.py, events.py, firmware.py, instrument.py,
+│   │   paths.py, plugins.py, scpi.py, simulator.py, validation.py
+│   └── transport/       base, constants, factory, mock, process, serial_port,
+│                        socket_raw, visa_backend, vxi11
+├── analysis/            frames, measure, plotting, samples, spectrum, waveform
+├── instruments/
+│   ├── generic.py           any instrument that answers *IDN?
+│   ├── tek3014b/            Tektronix TDS3014B oscilloscope:
+│   │                        cli, constants, scope, simulator
+│   ├── picoscope3000/       PicoScope 3000D MSO:
+│   │                        cli, constants, scope, sdk, simulator
+│   ├── ppk2/                Nordic Power Profiler Kit II:
+│   │                        cli, constants, measurement, ppk2, protocol, simulator
+│   ├── jlink/               SEGGER J-Link debug probe: cli, commander, constants,
+│   │                        gdbmi, image, probe, rtt, segger, server, session,
+│   │                        simcommander, simfirmware, simulator, swo, timing
+│   ├── nordic_dongle/       nRF52840 BLE dongle, host half: cli, constants, dfu,
+│   │                        dfu_target, dongle, firmware, latency, profile,
+│   │                        protocol, script, script_run, session, simulator
+│   ├── gpd3303d/            GW Instek GPD-3303D supply: cli, constants, psu, simulator
+│   ├── tti1604/             TTi 1604 multimeter: cli, constants, dmm, protocol, simulator
+│   ├── s2lp/                S2-LP sub-1 GHz kit, host half: cli, configuration,
+│   │                        constants, eeprom, kit_driver, kit_firmware, measures,
+│   │                        packets, preamble, protocol, registers, s2lp, session,
+│   │                        simulator, traffic
+│   ├── pico2_test_board/    PICO2 Test Board, host half:
+│   │                        cli, constants, flash, simulator, thermometer
+│   └── serial_capture/      a device's serial output, recorded:
+│                            capture, cli, console, constants, errors, simulator
+├── simulated/           devices shared by the simulators: kepler, world
+├── runner/              bench, cli, control, limits, report, resolve, results,
+│                        runner, spec
+└── viewer/              test run viewer: graphs, plugin_panels, radio, report,
+    │                    server, st_gui, state, status, step_events, tags, traffic
+    └── static/          the page: index.html, app.js, app.css, and one script
+                         per view (graphs, notes, plugins, status, stgui)
 
-firmware/nordic_dongle/    the dongle's own half of the BLE element, in C
-plugins/kepler/            the Kepler device plugin (#238), until #240 removes it
+firmware/
+├── nordic_dongle/       the dongle's half of BLE, in C (nRF5 SDK)
+│   ├── src/             ble_scanner, bootloader, cdc_acm, cmd_args, cmd_dfu,
+│   │                    cmd_parser, dfu_client, firmware_version, main,
+│   │                    nus_client, timestamp
+│   ├── include/         app_ble_config.h, firmware_version.h, protocol.h
+│   ├── config/          sdk_config.h
+│   ├── gcc/, ses/       linker script; SEGGER Embedded Studio project
+│   ├── scripts/         compile check, DFU packaging
+│   ├── Makefile
+│   └── test/            host unit tests, with SDK fakes in support/
+├── pico2_test_board/    the PICO2 Test Board's half of PICO, in C (Pico SDK)
+│   ├── src/             cmd_fgen, cmd_parser, fgen, firmware_version, hal_pico,
+│   │                    main, sht30, text
+│   ├── include/         board_config.h, firmware_version.h, hal.h, protocol.h
+│   ├── CMakeLists.txt, pico_sdk_import.cmake, README.md
+│   └── test/            host unit tests
+└── s2lp_kit/            the ETB S2-LP kit firmware, part of S2LP, in C (STM32L053)
+    ├── src/             cmd, hal_l053, main, ring, rx, s2lp, startup
+    ├── include/         firmware_version.h, hal.h, protocol.h
+    ├── stm32l053r8.ld, Makefile, README.md
+    └── test/            host unit tests
+
+plugins/kepler/          the Kepler device plugin (#238): decoder, tables (S2LP);
+                         panel, view, series, twf, diagnostics, static/ (VIEW);
+                         configs/ (an S2-LP register file)
 ```
 
 ---
@@ -4727,6 +4802,423 @@ time, source and text, with a checkbox per source. The start form fills from
 cases, or none when all are ticked. Colours are CSS variables with a dark set
 under `prefers-color-scheme`; the layout narrows to a phone's width without
 scrolling sideways.
+
+### 5.14 Dynamic design
+
+This section gives the behaviour over time of the units that hold state or
+keep time. §5.1 to §5.13 say what each unit is. This section says what each
+unit does over time: the states it moves through and the messages it
+exchanges. Each diagram is drawn from the code and names the class and
+methods that implement it. A timing value is cited by the name of its constant.
+A literal default parameter is cited by parameter name and value.
+
+Units not listed here hold no state between calls beyond their configuration,
+or the state they hold is a cache whose behaviour §5 already describes.
+
+#### 5.14.1 J-Link probe: attach, halt and run, reset
+
+Unit: **JLINK-DD-PROBE**. Class `JLinkProbe` (`jlink/probe.py`). The driver
+tracks `_attached` and `_halted`. GDB has its own view of the core, and the
+driver keeps that view in line with the core.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Detached : connect()
+    Detached --> Halted : attach() - target-select, monitor halt, flush register cache
+    Halted --> Running : run() / resume() - exec-continue
+    Running --> Halted : halt() - exec-interrupt, wait_for_halt()
+    Running --> Halted : breakpoint or step - wait_for_halt()
+    Halted --> Halted : reset(halt=True) - monitor reset, monitor halt, flush
+    Halted --> Running : reset(halt=False) - monitor reset 0, flush, run()
+    Running --> Halted : reset() first calls _stop_if_running()
+    Halted --> Detached : close() - monitor go unless leave_halted, target-detach
+    Running --> Detached : close() - target-detach
+```
+
+**The rule.** GDB does not see what a `monitor` command does to the core. It
+also does not see what happened before it attached. After an attach, and after
+any `monitor` command that changes the core, GDB's view must be
+re-synchronised before a register is read or the core is resumed:
+
+- `attach()` sends `monitor halt` and then `_flush_register_cache()`
+  (`maintenance flush register-cache`). An earlier client may have left the
+  core running with `monitor go`. GDB would then take a running core for a
+  halted one, and the registers read `0xDEADBEEF` (#349).
+- `reset()` flushes the register cache after `monitor reset`. Without the
+  flush, `program_counter()` returned the PC from before the reset (#178).
+- `reset(halt=False)` resumes with `-exec-continue` through `run()`, not
+  with `monitor go`, so that GDB knows the core is running. The GDB Server
+  halts the core after every `monitor reset` (#177).
+- `reset()` first calls `_stop_if_running()`. GDB refuses every `monitor`
+  command while the target runs (#259).
+
+`monitor()` is the escape hatch for commands the driver does not wrap, and
+it does not flush the cache itself. A caller that uses it to change the core
+must re-synchronise GDB's view, for example with `halt()` or `reset()`.
+
+Timing: `attach()` allows 30 s for `-target-select`. `reset()` defaults to
+`timeout=30.0` and `halt()` to `timeout=10.0`. `close()` allows 5 s each for
+`monitor go` and `-target-detach`.
+
+#### 5.14.2 Dongle session: a command, its reply, and the events between
+
+Unit: **BLE-DD-SESSION**. Class `DongleSession` (`nordic_dongle/session.py`).
+Replies and unsolicited events share one line-oriented link. Every line is
+classified by `_read_line()` through `parse_line()`.
+
+```mermaid
+sequenceDiagram
+    participant Driver as NordicDongle
+    participant S as DongleSession
+    participant T as Transport
+    participant FW as Dongle firmware
+    Driver->>S: execute(command, args)
+    S->>S: _drain() queues events already received
+    S->>T: write(line)
+    FW-->>T: +sensor ... (event)
+    S->>S: _read_line() queues Event with host_time
+    FW-->>T: ok ... (reply)
+    S-->>Driver: Reply, or DongleCommandError on err
+    Driver->>S: wait_for_event(name) or collect(duration)
+    S-->>Driver: queued events first, then new ones
+```
+
+Timing: `execute()` waits for the session timeout (`DongleSession(timeout=5.0)`
+by default) and then raises `TransportTimeoutError`. `collect()` and
+`wait_for_event()` read in slices of at most 0.25 s. `poll()` and `_drain()`
+wait at most 10 ms per line. `start()` discards what arrives in its first
+0.3 s. At most `_EVENT_BACKLOG` (4096) unread events are kept.
+
+#### 5.14.3 Dongle DFU: one image to a bootloader
+
+Unit: **BLE-DD-DFUHOST**. `NordicDongle.send_package()` (`dongle.py`) runs
+`run_images()` with `SecureDfu` (`dfu.py`). Each image goes over its own link,
+because the bootloader resets after it executes an image.
+
+```mermaid
+sequenceDiagram
+    participant D as NordicDongle
+    participant U as SecureDfu
+    participant B as Bootloader
+    D->>B: connect: _find_dfu_target(), _open_dfu_link() until +dfu state=ready
+    U->>B: RECEIPT_NOTIF_SET, then SELECT, CREATE, write, CRC_GET, EXECUTE for the init packet
+    loop each data object
+        U->>B: CREATE data object, sleep create_pause
+        U->>B: Packet writes via dfupkt
+        B-->>U: receipts, checked by _check_receipts()
+        U->>B: CRC_GET, then EXECUTE
+    end
+    Note over U,B: a loss raises _Lost and send_image() starts again from the init packet
+    D->>B: disconnect, then the next image
+```
+
+Timing: each Control Point request waits 10 s (`_request(timeout=10.0)`) and
+an EXECUTE waits `execute_timeout` (30 s by default). `DEFAULT_RETRIES` (3)
+bounds the restarts after a loss. `create_pause` rises to `RETRY_CREATE_PAUSE`
+(0.15 s) on the first retry and doubles on each later one (#271). Link setup
+allows `connect_timeout` plus `SERVICE_DISCOVERY_TIMEOUT` (10 s), and the whole
+transfer is bounded by `send_package(timeout=...)`.
+
+#### 5.14.4 S2-LP stream on ST's firmware (batch mode)
+
+Units: **S2LP-DD-TRAFFIC** and **S2LP-DD-SESSION**.
+`TrafficMixin.stream(mode="batch")` (`s2lp/traffic.py`) runs
+`_stream_batch()` over `S2lpSession` (`s2lp/session.py`). A reply is complete
+when its braces balance (`_read_one_reply()`).
+
+```mermaid
+sequenceDiagram
+    participant C as Caller
+    participant D as S2lpDevkit
+    participant S as S2lpSession
+    participant B as ST CLI firmware
+    C->>D: stream(count, timeout, until)
+    D->>S: _turn_report_all_on(), send S2LPGetNBytesBatch
+    loop each frame
+        B-->>S: report reply
+        S-->>D: read_reply()
+        D-->>C: yield Packet
+    end
+    D->>S: stop() sends S, without a line end
+    B-->>S: remaining reports, then StopCmd
+    D->>D: _put_aside() keeps frames the caller did not take
+```
+
+A stream that ends by count reads the loop's closing reply in
+`_read_loop_end()`. A stream that ends by time, by `until`, or because the
+caller stops iterating calls `_stop_and_collect()`. The set-aside frames are
+valid only until the next command, by `commands_sent` (#293).
+
+Timing: `S2lpSession.stop(wait=2.0)` waits for `STOP_ACK`. If the
+acknowledgement does not come, `stop()` ends the line and swallows the `no such command` that
+follows. Each read polls for `READ_POLL` (0.05 s). The command timeout is
+`DEFAULT_TIMEOUT` (5.0 s). `_read_loop_end()` waits 2.0 s.
+
+#### 5.14.5 S2-LP stream on the ETB kit firmware
+
+Units: **S2LP-DD-KITHOST** and **S2LP-DD-KITFW**. `KitFirmwareMixin._stream_kit()`
+(`s2lp/kit_driver.py`) over `KitSession` (`s2lp/kit_firmware.py`). The board
+re-arms the radio itself and reads up to `MAX_REGISTERS` registers per frame.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Idle : _choose_session() - probe(), rx_stop() if stat() says running
+    Idle --> Receiving : rx_start(addresses) - receiving = True
+    Receiving --> Receiving : next_record() - one KitRecord per frame
+    Receiving --> Idle : rx_stop() answered - records left and counters
+    Receiving --> Receiving : rx_stop() not answered - receiving stays True
+    Idle --> [*]
+```
+
+`_stream_kit()` sets `running` before `rx_start()`. However the stream ends,
+`_stop_kit()` then stops the board and restores `QI` if the PQI check was
+switched on. A stop that the board does not answer leaves `receiving` set, so
+`KitSession.stop()` tries again (#348).
+
+Timing: `probe()` waits `PROBE_TIMEOUT` (1.0 s) for the `id` answer. `rx stop`
+waits at least `STOP_TIMEOUT` (5.0 s), because the board first sends every
+queued record.
+
+#### 5.14.6 GPD-3303D: tracking guard and parked channels
+
+Unit: **PSU-DD-PSU**. Class `Gpd3303D` (`gpd3303d/psu.py`). The tracking mode
+is a front-panel switch. `_check_tracking()` reads it from `STATUS?` at each
+write to `TRACKED_CHANNEL` (2) and never caches it. The guard runs in
+`set_voltage()`, `set_current_limit()`, `output_on()` and `output_off()`.
+
+```mermaid
+stateDiagram-v2
+    state mode <<choice>>
+    [*] --> mode : write to channel 2, status().tracking
+    mode --> Sent : independent
+    mode --> Sent : unknown - warning logged
+    mode --> Refused : series or parallel - ConfigurationError
+    Sent --> [*]
+    Refused --> [*]
+```
+
+A channel is switched off by parking it. `output_off()` remembers the setpoint
+in `_parked` and sends `VSETn:0.000`. When every channel is parked it sends
+`OUT0`. `output_on()` restores the parked setpoint and sends `OUT1`.
+`all_outputs_off()` and `reset()` act on the real switch and on channel 1, and
+are not guarded, so a safe state can always be reached.
+
+Timing: `_pace()` holds each command until `DEFAULT_COMMAND_INTERVAL` (0.05 s)
+has passed since the last one. A simulated link is not paced. `reset()`
+waits `settle` (0.2 s by default).
+
+#### 5.14.7 TTi 1604: confirmed key presses, ranging and blank frames
+
+Unit: **DMM-DD-DMM**. Class `Tti1604` (`tti1604/dmm.py`). The meter streams a
+frame after each measurement once it is in remote mode. A key press is
+accepted only when the readings show the state that was asked for.
+
+```mermaid
+sequenceDiagram
+    participant C as Caller
+    participant M as Tti1604
+    participant DMM as Meter
+    C->>M: set_range(full_scale)
+    M->>DMM: press(up, down or auto) - _send_character()
+    DMM-->>M: echo of the key
+    DMM-->>M: frames
+    M->>M: _await() until range_index and auto_range change
+    C->>M: measure()
+    M->>M: _discard_input(), read() and discard one frame
+    DMM-->>M: next frame, read again while blank
+    M-->>C: Reading
+```
+
+`measure()` throws away everything already received. It then discards the
+next frame, which may straddle the call. Frames that are blank while the
+meter auto-ranges are read past, up to `RANGING_TIME` (#181).
+
+Timing: the meter sends a frame every `READING_INTERVAL` (0.4 s). An echo is
+awaited for `ECHO_TIMEOUT` (0.3 s), with up to 2 resends. A key's effect is
+confirmed within `CONFIRM_TIMEOUT` (4.0 s), or within `_patience()` if that is
+longer. `_patience()` is `SETTLING_TIME` (2.0 s), plus two gate times
+(`GATE_TIME`) when the meter is measuring frequency. Blank frames are read for
+up to `RANGING_TIME` (6.0 s). Reads poll for `READ_POLL` (0.05 s). A meter
+that is silent in Hz is detected within `STALL_CHECK` (2.5 s).
+
+#### 5.14.8 PICO2 Test Board: frequency generator routines
+
+Unit: **PICO-DD-FGEN**. `fgen.c` keeps a `fgen_state_t` for each of the
+`FGEN_CHANNEL_COUNT` (3) channels. The host drives it with
+`Pico2TestBoard.freq_start()`, `start_freq()`, `abort_freq()` and
+`freq_status()` (`thermometer.py`), through `routine freq start|abort|results`.
+
+```mermaid
+stateDiagram-v2
+    [*] --> NotStarted : fgen_init()
+    NotStarted --> Running : fgen_start()
+    Running --> Complete : cycles done - fgen_render() or fgen_gpio_done()
+    Running --> Aborted : fgen_abort(), fgen_abort_all()
+    Running --> Running : fgen_start() on a finite run restarts it
+    Complete --> Running : fgen_start()
+    Aborted --> Running : fgen_start()
+```
+
+`fgen_start()` refuses a channel that is running with `cycles` 0: the reply is
+`NAK`, and the host raises `CommandRefusedError`. Channels 1 and 2 are DAC
+channels and reach Complete in `fgen_render()`. Channel 3
+(`FGEN_CHANNEL_GPIO`) is PWM and reaches Complete in the PWM interrupt
+`fgen_gpio_done()`. Each state change is made inside `hal_critical_enter()`
+and `hal_critical_exit()`.
+
+Timing: on a start from mute, the DAC is unmuted and the firmware waits
+`FGEN_UNMUTE_SETTLE_MS` (50 ms). `fgen_poll()` mutes the DAC again once no DAC
+channel has run for `FGEN_MUTE_HOLD_US` (50 ms).
+
+#### 5.14.9 Serial capture: one capture run
+
+Unit: **SER-DD-DRIVER**. Class `SerialCapture` (`serial_capture/capture.py`).
+Each capture is a `_Run`, read by a `serial-capture` thread
+(`_read_until_done()`). A `serial-capture-lines` thread shows the live lines.
+The status values are in `constants.py`.
+
+```mermaid
+stateDiagram-v2
+    [*] --> NotStarted
+    NotStarted --> Running : start_capture() - discard input, start threads
+    Running --> Complete : _finish() - window ended, or pattern matched
+    Running --> Aborted : abort_capture() or close() - _stop_reader()
+    Running --> Aborted : port failure in _read_run() - error kept
+    Complete --> Running : start_capture()
+    Aborted --> Running : start_capture()
+```
+
+`start_capture()` raises `CaptureBusyError` while a run is Running, or while
+the last run's threads have not stopped. A line counts as inside the window by
+when it arrived, not by when it was handled.
+
+Timing: the window is `window_ms` (`DEFAULT_WINDOW_MS`, 5000 ms). Reads poll
+for `READ_POLL` (0.05 s). Threads are joined within `_JOIN_TIMEOUT` (5.0 s).
+`wait_capture()` waits for what is left of the window plus the connect
+timeout.
+
+#### 5.14.10 PicoScope: block acquisition
+
+Unit: **PSCOPE-DD-SCOPE**. `PicoScope3000.capture()`
+(`picoscope3000/scope.py`) over the SDK wrapper (PSCOPE-DD-SDK).
+
+```mermaid
+sequenceDiagram
+    participant C as Caller
+    participant P as PicoScope3000
+    participant SDK as sdk
+    C->>P: capture(timeout)
+    P->>SDK: timebase(timebase, samples)
+    P->>SDK: run_block(pre, post, timebase)
+    loop until is_ready()
+        P->>SDK: is_ready()
+    end
+    P->>SDK: get_values(samples, channels, ports)
+    P-->>C: BlockCapture, scaled by _scale()
+    Note over P,SDK: past the deadline, stop() and AcquisitionTimeoutError
+```
+
+Timing: `is_ready()` is polled every 5 ms until `timeout`. The default is
+`PicoScope3000(timeout=10.0)`. The pre-trigger fraction is 0.2 by default.
+
+#### 5.14.11 PPK2: sample stream
+
+Unit: **PPK-DD-DRIVER**. `Ppk2.measure()` calls `_record()`
+(`ppk2/ppk2.py`). Raw bytes are kept and decoded only after sampling stops,
+because decoding takes longer than the kit takes to send.
+
+```mermaid
+sequenceDiagram
+    participant C as Caller
+    participant K as Ppk2
+    participant HW as PPK2
+    C->>K: measure(duration)
+    K->>K: discard_input(), read timeout set to _STREAM_READ
+    K->>HW: start_command()
+    loop until duration x SAMPLE_RATE samples
+        HW-->>K: read_available()
+    end
+    K->>HW: stop_command(), sleep STOP_SETTLE, discard_input()
+    K->>K: SampleDecoder.feed(raw)
+    K-->>C: Measurement
+```
+
+`_post_open()` sends a stop first, waits `STOP_SETTLE` and discards input. A
+measurement left running by a session that died would otherwise stream into
+the metadata reply. `_open()` retries for `REENUMERATE_WAIT` while the kit
+enumerates again after a close.
+
+Timing: `SAMPLE_RATE` is 100 000 samples a second, `SAMPLE_BYTES` (4) each.
+A read with nothing for `_STREAM_READ` (0.5 s) means the kit stopped. The
+whole record must finish within its duration plus the timeout
+(`DEFAULT_TIMEOUT`, 5.0 s). `MAX_DURATION` is 120 s, `STOP_SETTLE` 0.05 s,
+`REENUMERATE_WAIT` 3.0 s and `METADATA_TIMEOUT` 3.0 s.
+
+#### 5.14.12 Runner control channel
+
+Unit: **RUN-DD-CONTROL**. Class `RunControl` (`runner/control.py`), served by
+`ControlServer` as JSON Lines on `HOST` (127.0.0.1). The runner calls
+`begin()`, then `checkpoint()` between steps, then `finish()`. Operator requests
+arrive through `request()`. All state sits under one `threading.Condition`.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Idle
+    Idle --> Running : begin(suite, validator)
+    Running --> Paused : pause
+    Paused --> Running : resume
+    Running --> Running : abort, restart_test, restart_from - pending, returned at checkpoint()
+    Paused --> Running : abort or restart - ends the pause, pending set
+    Running --> Running : read_setup - Command(READ_SETUP) at next checkpoint()
+    Running --> Idle : finish()
+    Paused --> Idle : finish()
+```
+
+`checkpoint()` blocks while the run is paused and nothing is pending. It never
+blocks, and returns nothing, when `interruptible` is false (teardown).
+`_refusal()` refuses every request except `status` during teardown. It also
+refuses a restart during setup, and any abort or restart while an abort is
+pending. Each request and each
+applied command is logged as a `control` or `control_applied` event.
+
+Timing: the runner acts on a command only at its next checkpoint, so no
+instrument call is interrupted. A request line is at most `_MAX_LINE`
+(4096 bytes).
+
+#### 5.14.13 Viewer hub: following a run
+
+Unit: **VIEW-DD-SERVER**, with VIEW-DD-STATE. Class `Hub` (`viewer/server.py`)
+follows one event log on a `viewer-tail` thread. `_Handler._events()` streams
+to each page as Server-Sent Events. Control requests go to the runner through
+`send_control()`.
+
+```mermaid
+sequenceDiagram
+    participant Log as Event log
+    participant H as Hub
+    participant P as Page via _events()
+    participant R as RunControl
+    loop every interval
+        H->>Log: poll() - EventTail.read()
+        H->>H: _apply(record) to RunState and views, sequence += 1, notify
+    end
+    P->>H: since(sequence, generation)
+    H-->>P: event reset if replaced, then record events and a state event
+    P->>H: wait(sequence, KEEPALIVE_S)
+    P->>R: POST /api/control - send_control(port, body)
+    R-->>P: reply, via the server
+```
+
+`follow()` replaces every per-log view (`_PER_LOG`) and increments
+`generation`. A page with an older generation is sent `reset` and every
+record again.
+
+Timing: the log is read every `interval` (`Hub(interval=0.2)`). A page
+with nothing new gets a keep-alive comment every `KEEPALIVE_S` (15.0 s). At
+most `KEEP_RECORDS` (5000) records are kept. `send_control()` waits 5.0 s
+for the runner's reply.
+
+---
 
 ## 6. Review & Approval
 

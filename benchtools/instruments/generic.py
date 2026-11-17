@@ -13,7 +13,7 @@ Because it adds nothing to :class:`~benchtools.core.scpi.ScpiInstrument` beyond
 a model name, it doubles as a demonstration that the shared core is genuinely
 instrument-agnostic.
 
-Traces to: CORE-FR-028, INST-FR-001, INST-DD-GENERIC.
+Traces to: CORE-FR-028, INST-FR-001.
 """
 
 from __future__ import annotations

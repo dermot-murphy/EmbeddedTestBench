@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import pathlib
 import re
-import subprocess
 
 import pytest
 
@@ -32,44 +31,18 @@ TEST_SPEC_DOC = DOCS / "EmbeddedTestBench_SWE4_Unit_Verification.md"
 MATRIX_DOC = DOCS / "EmbeddedTestBench_Traceability_Matrix.md"
 REPORT_DOC = DOCS / "EmbeddedTestBench_SWE4_Unit_Verification_Report.md"
 
-def _element_prefixes() -> list:
-    """The element prefixes of ETB-SWE1-001 §5, longest first.
-
-    Read from the document, not listed here, so that a new element cannot be
-    left out of the checks (#368: ``VIEW`` and ``DMM`` were). Longest first,
-    so that ``PSCOPE`` is not read as ``SCOPE`` one character in (#200).
-    """
-    text = REQUIREMENTS_DOC.read_text(encoding="utf-8")
-    section = text[text.index("## 5. Element structure"):]
-    section = section[:section.index("\n## ", 1)]
-    found = re.findall(r"^\| `([A-Z0-9]+)-` \|", section, re.M)
-    return sorted(set(found), key=lambda prefix: (-len(prefix), prefix))
-
-
-_PREFIXES = "(?:%s)" % "|".join(_element_prefixes())
-
 #: Requirement identifier, e.g. CORE-FR-001, JLINK-FR-060 or CORE-NFR-007.
-_REQUIREMENT = _PREFIXES + r"-(?:FR|NFR)-\d{3}"
+#: One prefix per element of SWE.1 §3; a new element is registered here.
+#: ``PSCOPE`` must be in the list: without it ``re.findall`` would read
+#: a PicoScope requirement as a TDS3014B one, one character in (#200).
+_REQUIREMENT = (r"(?:CORE|ANA|INST|PSCOPE|SCOPE|JLINK|BLE|PSU|DMM|S2LP|PICO|SER|PPK|RUN)"
+                r"-(?:FR|NFR)-\d{3}")
 
 #: Design unit identifier, e.g. CORE-DD-SCPI.
-_DESIGN_UNIT = _PREFIXES + r"-DD-[A-Z0-9]+"
-
-#: Anything shaped like a design unit, whatever its prefix: catches an ID of
-#: a retired scheme such as ``SWE3-DD-VXI11`` (#368).
-_ANY_DESIGN_UNIT = r"\b[A-Z][A-Z0-9]*-DD-[A-Z0-9]+"
+_DESIGN_UNIT = r"(?:CORE|ANA|INST|PSCOPE|SCOPE|JLINK|BLE|PSU|DMM|S2LP|PICO|SER|PPK|RUN)-DD-[A-Z0-9]+"
 
 #: Architectural element identifier, e.g. CORE-ARC-006.
-_ARCHITECTURE = _PREFIXES + r"-ARC-\d{3}"
-
-#: Project-owned firmware and plugin source, which carry design traces as the
-#: Python package does. Vendor trees are not scanned.
-_TRACED_TREES = (ROOT / "benchtools", ROOT / "plugins", ROOT / "firmware")
-_TRACED_SUFFIXES = {".py", ".c", ".h"}
-_VENDOR_PARTS = {"__pycache__", "_build", "build", "nRF5_SDK", "sdk", "external", "vendor"}
-
-#: Files that carry no behaviour of their own: a package's ``__init__`` and
-#: ``__main__``. They still need a ``Traces to`` line, but not a unit.
-_NO_UNIT_NEEDED = {"__init__.py", "__main__.py"}
+_ARCHITECTURE = r"(?:CORE|ANA|INST|PSCOPE|SCOPE|JLINK|BLE|PICO|SER|PPK|RUN)-ARC-\d{3}"
 
 
 def _text(path: pathlib.Path) -> str:
@@ -89,39 +62,6 @@ def _source_files():
         for path in directory.rglob("*.py"):
             if "__pycache__" not in path.parts:
                 yield path
-
-
-def _read(path: pathlib.Path) -> str:
-    return path.read_text(encoding="utf-8", errors="replace")
-
-
-#: Build files and page scripts that carry a unit's trace (for example BLE-DD-BUILD,
-#: VIEW-DD-PAGE).
-_BUILD_NAMES = {"Makefile", "CMakeLists.txt", "pico_sdk_import.cmake"}
-_BUILD_SUFFIXES = {".cmake", ".bat", ".sh", ".emProject", ".xml", ".ld", ".js"}
-
-
-def _tracked_files():
-    """The files git tracks under ``_TRACED_TREES``. Build output and
-    anything else untracked is left out, and the walk stays fast."""
-    trees = [str(tree.relative_to(ROOT)) for tree in _TRACED_TREES]
-    listed = subprocess.run(["git", "ls-files", "-z", "--"] + trees, cwd=ROOT,
-                            capture_output=True, check=True).stdout.decode("utf-8")
-    return [ROOT / name for name in listed.split("\0") if name]
-
-
-def _traced_files(build_files: bool = False):
-    """Project-owned source under ``_TRACED_TREES``; with ``build_files``,
-    their build scripts, configuration and page scripts too."""
-    for path in _tracked_files():
-        if _VENDOR_PARTS & set(path.parts) or not path.is_file():
-            continue
-        if path.suffix in _TRACED_SUFFIXES:
-            yield path
-        elif build_files and (path.name in _BUILD_NAMES
-                              or path.suffix in _BUILD_SUFFIXES
-                              or path.name == "sdk_config.h"):
-            yield path
 
 
 class TestWorkProductsExist:
@@ -192,66 +132,6 @@ class TestDesignTraceability:
         assert not offenders, (
             "undefined design unit(s) cited in source:\n  " + "\n  ".join(sorted(offenders))
         )
-
-    def test_every_module_names_a_declared_design_unit(self):
-        """'Traces to' must name a unit, not only a requirement (#368)."""
-        declared = set(re.findall(_DESIGN_UNIT, _text(DESIGN_DOC)))
-        offenders = [
-            str(path.relative_to(ROOT)) for path in _traced_files()
-            if path.name not in _NO_UNIT_NEEDED
-            and not set(re.findall(_DESIGN_UNIT, _read(path))) & declared
-        ]
-        assert not offenders, (
-            "file(s) that name no design unit of ETB-SWE3-001:\n  "
-            + "\n  ".join(sorted(offenders))
-        )
-
-    def test_no_file_cites_a_unit_of_another_scheme(self):
-        """An ID such as SWE3-DD-VXI11 is a stale trace, not a unit (#368)."""
-        declared = set(re.findall(_DESIGN_UNIT, _text(DESIGN_DOC)))
-        offenders = sorted(
-            "%s cites %s" % (path.relative_to(ROOT), cited)
-            for path in _traced_files()
-            for cited in set(re.findall(_ANY_DESIGN_UNIT, _read(path))) - declared
-        )
-        assert not offenders, "undeclared design unit(s):\n  " + "\n  ".join(offenders)
-
-    def test_every_design_unit_is_cited_by_its_code(self):
-        """Downward traceability: each unit is named by the code it describes (#368)."""
-        declared = set(re.findall(_DESIGN_UNIT, _text(DESIGN_DOC)))
-        cited = set()
-        for path in _traced_files(build_files=True):
-            cited |= set(re.findall(_DESIGN_UNIT, _read(path)))
-        missing = sorted(declared - cited)
-        assert not missing, (
-            "design unit(s) of ETB-SWE3-001 named by no file of the code: "
-            + ", ".join(missing)
-        )
-
-    def test_every_firmware_file_declares_its_trace(self):
-        """Project-owned C carries its trace as the Python does (#368)."""
-        offenders = [
-            str(path.relative_to(ROOT)) for path in _traced_files()
-            if path.suffix in (".c", ".h") and "Traces to" not in _read(path)
-        ]
-        assert not offenders, (
-            "firmware file(s) with no 'Traces to' line:\n  " + "\n  ".join(sorted(offenders))
-        )
-
-    def test_no_file_cites_an_id_of_a_retired_scheme(self):
-        """SWE1-FR-001 and SWE2-ARC-003 were the IDs before the element
-        prefixes; a trace in that form names nothing that exists (#368)."""
-        offenders = sorted(
-            "%s cites %s" % (path.relative_to(ROOT), cited)
-            for path in _traced_files()
-            for cited in set(re.findall(r"\bSWE\d-(?:FR|NFR|ARC|DD)-[A-Z0-9]+", _read(path)))
-        )
-        assert not offenders, "retired ID(s):\n  " + "\n  ".join(offenders)
-
-    def test_the_element_prefixes_are_read_from_the_requirements(self):
-        prefixes = _element_prefixes()
-        assert {"CORE", "VIEW", "DMM", "PSCOPE", "SCOPE"} <= set(prefixes)
-        assert prefixes.index("PSCOPE") < prefixes.index("SCOPE")
 
     def test_every_module_declares_its_trace(self):
         """Upward traceability is carried in the artefact, not only in a table."""

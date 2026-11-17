@@ -1,8 +1,6 @@
 /**
  * @file s2lp.c
  * @brief S2-LP register, FIFO and command access over SPI (#84).
- *
- * Traces to: S2LP-DD-KITFW.
  */
 
 #include "s2lp.h"

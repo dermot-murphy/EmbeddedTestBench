@@ -106,7 +106,6 @@
 | 1.70 | 2026-11-15 | Claude | #352: JLINK-FR-041 - a variable at address 0 is refused. |
 | next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. Blank lines that split this table removed. |
 | next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
-| next | 2026-11-17 | Claude | #368: §5 lists the `DMM-` element, which had requirements but no row; the traceability check now reads its element prefixes from this table. |
 
 ---
 
@@ -201,7 +200,6 @@ prefixes are per element so they stay unique as instruments are added.
 | `JLINK-` | `benchtools.instruments.jlink` | The SEGGER J-Link debug probe driver. Not a SCPI instrument, and the only element that reaches the target through a debug probe rather than a measurement link. |
 | `BLE-` | `benchtools.instruments.nordic_dongle` **and** `firmware/nordic_dongle` | The BLE bench dongle: host driver and the dongle's own firmware. One element, because the protocol between them is one design decision and splitting it across two elements would let the halves drift apart. |
 | `S2LP-` | `benchtools.instruments.s2lp` | The ST S2-LP development kit. Unlike the BLE dongle, the firmware is **ST's own** (STK-20), so this element is a host driver only and the firmware's command set is an external interface rather than something this project controls. |
-| `DMM-` | `benchtools.instruments.tti1604` | The Aim-TTi 1604 bench multimeter. Separate from `INST-` because it is read as a stream of display frames over an optically isolated serial link, not by query (AD-26). |
 | `PSU-` | `benchtools.instruments.gpd3303d` | The GW Instek GPD-3303D bench supply. Separate from `INST-` because its command set is neither SCPI nor shared with any other instrument here, and its single output switch is a hardware constraint that shapes its whole interface. |
 | `PICO-` | `benchtools.instruments.pico2_test_board` **and** `firmware/pico2_test_board` | The PICO2 Test Board (the Pico 2 SHT30 Temperature Sensor before #330), a Pico 2 bench thermometer with LEDs and a frequency generator: host driver and the Pico's own firmware. One element for the same reason as `BLE-`: the line protocol between them is one design decision. |
 | `SER-` | `benchtools.instruments.serial_capture` | The serial capture instrument: a host-side driver that records a device's serial output. Separate from `INST-` because it has a command set of its own (`RD`, `WR`, `ROUTINE`), and from every other element because it has no hardware of its own beyond a USB serial adapter. |

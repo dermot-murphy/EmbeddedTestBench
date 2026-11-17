@@ -5,8 +5,6 @@
  * Addresses and bit positions are the part's, from its reference manual
  * (RM0367) and device header; only those needed are listed. No vendor header
  * is included, so the firmware builds from this repository alone.
- *
- * Traces to: S2LP-DD-KITFW.
  */
 
 #ifndef L053_H

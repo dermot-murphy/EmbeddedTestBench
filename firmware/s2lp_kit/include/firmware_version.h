@@ -1,8 +1,6 @@
 /**
  * @file firmware_version.h
  * @brief The ETB S2-LP kit firmware's name and version (#84).
- *
- * Traces to: S2LP-DD-KITFW.
  */
 
 #ifndef FIRMWARE_VERSION_H

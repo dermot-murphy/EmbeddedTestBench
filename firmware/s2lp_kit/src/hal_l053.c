@@ -15,8 +15,6 @@
  *
  * The core runs at 32 MHz from HSI16 through the PLL (x4, /2); TIM2 counts
  * microseconds.
- *
- * Traces to: S2LP-DD-KITFW.
  */
 
 #include "hal.h"

@@ -4,8 +4,6 @@
  *
  * hal_l053.c implements it on the NUCLEO-L053R8; test/support/fake_hal.c
  * implements it for the unit tests, which run on the host.
- *
- * Traces to: S2LP-DD-KITFW.
  */
 
 #ifndef HAL_H
