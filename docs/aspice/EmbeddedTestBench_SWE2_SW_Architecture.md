@@ -40,24 +40,24 @@
 | 0.14 | 2026-10-05 | Claude | #204: Review & Approval table points to the merge of the pull request that last changed the document, which is the review and approval (ETB-SUP8-001 §5.7); no per-change signatures or dates. |
 | 0.15 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | 0.16 | 2026-10-05 | Claude | #60: AD-23 covers BLE-FR-119 - timeouts by command prefix, and the timeout each result reports. |
-| next | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
-| next | 2026-10-25 | Claude | #238: AD-29: device-specific code is a plugin, loaded by path, not part of the package. |
+| 0.17 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
+| 0.18 | 2026-10-25 | Claude | #238: AD-29: device-specific code is a plugin, loaded by path, not part of the package. |
 
-| next | 2026-10-28 | Claude | #247: SER-ARC-001 added, the serial capture instrument; the layering diagram and the interfaces (the device's serial port, receive only) updated. |
-| next | 2026-11-12 | Claude | #328: PICO-ARC-001 updated for the `wr` command and the three indicator LEDs; the LED GPIO interface added. |
-| next | 2026-11-12 | Claude | #202: merged with #328 (LEDs). PICO-ARC-001: the one `wr` command also stores the frequency generator's settings, read by `rd` and run by `routine`; `fgen` and `cmd_fgen` added. The generator's I2S and GPIO interface added, with the bench wiring. |
-| next | 2026-11-13 | Claude | #202: the frequency generator's I2S interface: an Adafruit UDA1334A board, not a CJMCU-1334, on GP6 (DIN), GP7 (BCLK) and GP8 (WSEL), as the owner rewired it on 2026-11-13. |
-| next | 2026-11-13 | Claude | #330: PICO-ARC-001 names the element the PICO2 Test Board (the Pico 2 SHT30 Temperature Sensor before #330), its class `Pico2TestBoard` and its bench drivers `pico2-test-board` and `pico2`; the event-name example uses the alias `pico2`. |
-| next | 2026-11-13 | Claude | #200: PSCOPE-ARC-001 added, the PicoScope 3000D series MSO driver reached through the `ps3000a` C library with `ctypes`; the layering diagram and the interfaces (USB to the unit, the `ps3000a` library) updated. |
-| next | 2026-11-13 | Claude | #200: the `ps3000a` interface row names its interface specification, ETB-IF-002. |
-| next | 2026-11-13 | Claude | #71: AD-30 added - SEGGER's J-Link Commander and RTT Logger as a second J-Link backend, chosen by configuration; JLINK-ARC-001 names it. |
-| next | 2026-11-14 | Claude | #303: AD-29 consequences - the viewer's device analyses are the Kepler plugin's panel, with its RF tabs and report sections; the viewer names no Kepler field. |
-| next | 2026-11-14 | Claude | #342: PPK-ARC-001 added, the Nordic Power Profiler Kit II driver, and AD-31, the kit driven through its own serial protocol by this project's code; the layering diagram and the interfaces (USB CDC to the kit; power and logic to the device) updated. |
-| next | 2026-11-14 | Claude | #84: AD-32: the S2-LP kit gets firmware of its own, for receiving on the interrupt, with no SLA0072 source; AD-20 stands for the kit on ST's firmware. |
-| next | 2026-11-14 | Claude | #84 (2): AD-20 points to AD-32; S2LP-ARC-001 names the kit firmware. |
-| next | 2026-11-14 | Claude | #84 review round 1: AD-32 trace count 21. |
-| next | 2026-11-14 | Claude | #84 (driver): S2LP-ARC-001 names `kit_firmware`, `kit_driver`, `KitSession` and `SimulatedKitFirmware`; AD-32 - the host driver is `S2lpDevkit`, and its trace adds SWE4-UT-S2LPKITHOST (31) and the driver's bench run. |
-| next | 2026-11-14 | Claude | #84 review round 3: AD-32 trace: SWE4-UT-S2LPKITHOST 31 -> 35. |
+| 0.19 | 2026-10-28 | Claude | #247: SER-ARC-001 added, the serial capture instrument; the layering diagram and the interfaces (the device's serial port, receive only) updated. |
+| 0.20 | 2026-11-12 | Claude | #328: PICO-ARC-001 updated for the `wr` command and the three indicator LEDs; the LED GPIO interface added. |
+| 0.21 | 2026-11-12 | Claude | #202: merged with #328 (LEDs). PICO-ARC-001: the one `wr` command also stores the frequency generator's settings, read by `rd` and run by `routine`; `fgen` and `cmd_fgen` added. The generator's I2S and GPIO interface added, with the bench wiring. |
+| 0.22 | 2026-11-13 | Claude | #202: the frequency generator's I2S interface: an Adafruit UDA1334A board, not a CJMCU-1334, on GP6 (DIN), GP7 (BCLK) and GP8 (WSEL), as the owner rewired it on 2026-11-13. |
+| 0.23 | 2026-11-13 | Claude | #330: PICO-ARC-001 names the element the PICO2 Test Board (the Pico 2 SHT30 Temperature Sensor before #330), its class `Pico2TestBoard` and its bench drivers `pico2-test-board` and `pico2`; the event-name example uses the alias `pico2`. |
+| 0.24 | 2026-11-13 | Claude | #200: PSCOPE-ARC-001 added, the PicoScope 3000D series MSO driver reached through the `ps3000a` C library with `ctypes`; the layering diagram and the interfaces (USB to the unit, the `ps3000a` library) updated. |
+| 0.25 | 2026-11-13 | Claude | #200: the `ps3000a` interface row names its interface specification, ETB-IF-002. |
+| 0.26 | 2026-11-13 | Claude | #71: AD-30 added - SEGGER's J-Link Commander and RTT Logger as a second J-Link backend, chosen by configuration; JLINK-ARC-001 names it. |
+| 0.27 | 2026-11-14 | Claude | #303: AD-29 consequences - the viewer's device analyses are the Kepler plugin's panel, with its RF tabs and report sections; the viewer names no Kepler field. |
+| 0.28 | 2026-11-14 | Claude | #342: PPK-ARC-001 added, the Nordic Power Profiler Kit II driver, and AD-31, the kit driven through its own serial protocol by this project's code; the layering diagram and the interfaces (USB CDC to the kit; power and logic to the device) updated. |
+| 0.29 | 2026-11-14 | Claude | #84: AD-32: the S2-LP kit gets firmware of its own, for receiving on the interrupt, with no SLA0072 source; AD-20 stands for the kit on ST's firmware. |
+| 0.30 | 2026-11-14 | Claude | #84 (2): AD-20 points to AD-32; S2LP-ARC-001 names the kit firmware. |
+| 0.31 | 2026-11-14 | Claude | #84 review round 1: AD-32 trace count 21. |
+| 0.32 | 2026-11-14 | Claude | #84 (driver): S2LP-ARC-001 names `kit_firmware`, `kit_driver`, `KitSession` and `SimulatedKitFirmware`; AD-32 - the host driver is `S2lpDevkit`, and its trace adds SWE4-UT-S2LPKITHOST (31) and the driver's bench run. |
+| 0.33 | 2026-11-14 | Claude | #84 review round 3: AD-32 trace: SWE4-UT-S2LPKITHOST 31 -> 35. |
 ---
 
 ## 3. Purpose & Scope

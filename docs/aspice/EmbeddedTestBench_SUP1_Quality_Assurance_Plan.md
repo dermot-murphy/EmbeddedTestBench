@@ -28,7 +28,7 @@
 | 0.2 | 2026-10-04 | Claude | #183: product renamed to Embedded Test Bench - document file name prefix `EmbeddedTestBench_`, identifier prefix `ETB-` (was `TB-`), product name in prose. Earlier revision rows keep the names in use when they were written. |
 | 0.3 | 2026-10-05 | Claude | #204: §6.5 added - a pull request merge is an accepted form of review record, and the Reviewer applies ETB-TMPL-001 checks C1 to C6 before merging. §5, §6.3, §7 and §9 updated to match; §10 points to the merge (ETB-SUP8-001 §5.7). |
 | 0.4 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
-| next | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
+| 0.5 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
 
 ---
 

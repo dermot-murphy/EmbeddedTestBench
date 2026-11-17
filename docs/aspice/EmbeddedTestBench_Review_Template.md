@@ -29,7 +29,7 @@
 | 0.3 | 2026-10-04 | Claude | #187: C4 names the revision history order - oldest entry first (ETB-SUP8-001 §6.2). |
 | 0.4 | 2026-10-05 | Claude | #204: §3.1 states that a pull request merge is an accepted form of review record and that checks C1 to C6 are what the Reviewer applies before merging. §9 points to the merge of the pull request that adds or last changes the record (ETB-SUP8-001 §5.7). |
 | 0.5 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
-| next | 2026-10-25 | Claude | #210: C4 also asks that the Version and Date cells link to the revision history and that a new row is written as `next` (ETB-SUP8-001 §6.2). |
+| 0.6 | 2026-10-25 | Claude | #210: C4 also asks that the Version and Date cells link to the revision history and that a new row is written as `next` (ETB-SUP8-001 §6.2). |
 
 ---
 

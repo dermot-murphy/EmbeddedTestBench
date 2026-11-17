@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Applies to | Release `v0.02.0002` and `develop` after it |
+| Applies to | Release `v0.03.0000` and `develop` after it |
 | Issue | #196 |
 | Audience | An engineer new to the bench, and a Claude Code session working in this repository ([§8](#8-for-claude-code-sessions)) |
 
@@ -90,20 +90,20 @@ tests 3.8, 3.9 and 3.12.
 ### 2.1 From the release tag, without cloning
 
 ```sh
-pip install "benchtools[spec] @ git+https://github.com/dermot-murphy/EmbeddedTestBench@v0.02.0002"
+pip install "benchtools[spec] @ git+https://github.com/dermot-murphy/EmbeddedTestBench@v0.03.0000"
 ```
 
 Add `serial` to the extras for a real bench ([§2.3](#23-the-extras)). Checked in a fresh virtual environment:
 
 ```
 > benchtools --version
-benchtools 0.02.0002
+benchtools 0.03.0000
 > pip show benchtools
 Name: benchtools
-Version: 0.2.2
+Version: 0.3.0
 ```
 
-`pip show` reports `0.2.2` because packaging normalises the version under PEP
+`pip show` reports `0.3.0` because packaging normalises the version under PEP
 440. Both name the same release (ETB-SVD-001 §5.1).
 
 This installs the package only. The example specifications and bench files
@@ -115,7 +115,7 @@ in [§3](#3-the-first-run-the-simulated-bench-end-to-end) use a checkout.
 ```sh
 git clone https://github.com/dermot-murphy/EmbeddedTestBench
 cd EmbeddedTestBench
-git checkout v0.02.0002          # or stay on develop
+git checkout v0.03.0000          # or stay on develop
 pip install -e ".[spec,serial,test]"
 ```
 
@@ -154,7 +154,7 @@ package might be first on `PATH`.
 
 ```
 > python -m benchtools --version
-benchtools 0.02.0002
+benchtools 0.03.0000
 ```
 
 ### 2.5 Firmware toolchains (only if you build instrument firmware)
@@ -789,7 +789,7 @@ summary. `.github/workflows/bench.yml` runs `specs/sensor_bringup.yaml` and
 another repository:
 
 ```yaml
-- uses: dermot-murphy/EmbeddedTestBench@v0.02.0002
+- uses: dermot-murphy/EmbeddedTestBench@v0.03.0000
   with:
     specs: specs/sensor_commands.yaml
     bench: benches/simulated_bench.yaml
@@ -975,9 +975,9 @@ From ETB-SYS5-002 §8 and ETB-SVD-001 §7. All five were open on 2026-10-05.
 |---|---|---|
 | #177 | J-Link: `reset(halt=False)` leaves the target halted on a real probe. The simulator does not show it | Reset halted, then `probe.run` (as `specs/qualification/qs01_bringup.yaml` does) |
 | #178 | J-Link: registers read just after `reset(halt=True)` are stale; the PC reads 0 | Do not trust a register read immediately after a reset. In QS-01b the PC read correctly after one instruction step (ETB-SYS5-002 §6.2) |
-| #179 | S2-LP: receive refused after a transmit in the same session (GPIO3 reads 0) | Fixed after v0.02.0002: the cause was the defaults reset before the receive, not the transmit. Up to v0.02.0002, run the receive in its own session: `--test` on the receive case alone passed in QS-07 |
+| #179 | S2-LP: receive refused after a transmit in the same session (GPIO3 reads 0) | Fixed in v0.03.0000: the cause was the defaults reset before the receive, not the transmit. Up to v0.02.0002, run the receive in its own session: `--test` on the receive case alone passed in QS-07 |
 | #180 | BLE dongle: `open_link` makes one attempt and does not retry a link that fails to establish (reason 0x3E) | Re-run the test. The QS-07 attempts that hit it were re-run (ETB-SYS5-002 §6.8) |
-| #181 | TTi 1604: frequency mode not recognised; the meter is lost afterwards; an open input on ohms reads blank, not overrange | Fixed after v0.02.0002. With no signal a 1604 in Hz sends nothing and ignores the link until V is pressed on its front panel: select frequency only with a signal on the input, and if the meter shows Hz, press V. Open-input ohms now reads 0FL: the blank frames were the meter auto-ranging. Up to v0.02.0002, use DC volts only (ETB-SYS5-002 §6.10) |
+| #181 | TTi 1604: frequency mode not recognised; the meter is lost afterwards; an open input on ohms reads blank, not overrange | Fixed in v0.03.0000. With no signal a 1604 in Hz sends nothing and ignores the link until V is pressed on its front panel: select frequency only with a signal on the input, and if the meter shows Hz, press V. Open-input ohms now reads 0FL: the blank frames were the meter auto-ranging. Up to v0.02.0002, use DC volts only (ETB-SYS5-002 §6.10) |
 
 Other limits from ETB-SVD-001 §7:
 
@@ -1003,6 +1003,6 @@ Each of these was reproduced, except where marked *(from docs)*.
 | A port will not open *(from docs)* | The `serial` extra, a wrong COM number, another process holding the port, or (Linux) group permissions | [Bench Self-Check Setup §3–4](Bench_Self_Check_Setup.md#3-find-the-ports) |
 | The meter answers nothing *(from docs)* | DTR/RTS not passed: three-wire cable | [TTi 1604 Notes](dmm/TTi1604_Notes.md) |
 | The supply answers nothing *(from docs)* | Baud rate does not match the front panel | Utility > Baud on the supply |
-| `pip show benchtools` reports `0.2.2` | PEP 440 normalisation of `0.02.0002` (`0.2.1` for `0.02.0001`) | Expected. `benchtools --version` gives the project's form |
-| `pip show benchtools` reports `4.0.0` | Installed metadata from before the version scheme was set (ETB-SVD-001 §5.1) | Reinstall: `pip install -e ".[spec,serial,test]"`. A fresh editable install reports `benchtools 0.02.0002` |
+| `pip show benchtools` reports `0.3.0` | PEP 440 normalisation of `0.03.0000` (`0.2.2` for `0.02.0002`) | Expected. `benchtools --version` gives the project's form |
+| `pip show benchtools` reports `4.0.0` | Installed metadata from before the version scheme was set (ETB-SVD-001 §5.1) | Reinstall: `pip install -e ".[spec,serial,test]"`. A fresh editable install reports `benchtools 0.03.0000` |
 | `benchtools` runs a different copy from your checkout | Another install is first on `PATH` | Use `python -m benchtools` from the checkout's root |

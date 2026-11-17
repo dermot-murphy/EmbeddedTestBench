@@ -764,4 +764,4 @@ The event-log name is still `TEMP`.
 | Version | Date | Author | Description of Change |
 |---|---|---|---|
 | 0.1 | 2026-11-13 | Claude | #330: first issue. |
-| next | 2026-11-13 | Claude | #200: §5.3 measured accuracy, resolution and limits of the generator, channel 1 on the PicoScope 3405D MSO; §5.2 and §10 updated to match. |
+| 0.2 | 2026-11-13 | Claude | #200: §5.3 measured accuracy, resolution and limits of the generator, channel 1 on the PicoScope 3405D MSO; §5.2 and §10 updated to match. |
