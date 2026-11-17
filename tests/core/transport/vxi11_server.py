@@ -63,7 +63,7 @@ class _Reader:
         return payload
 
 
-class FakeVxi11Server:
+class FakeVxi11Server:  # pylint: disable=too-many-instance-attributes  # what a test inspects, plus the socket and link state
     """Serves the VXI-11 core channel for one simulated instrument.
 
     :param simulator: Instrument model to answer from.
@@ -202,65 +202,74 @@ class FakeVxi11Server:
         return header + body
 
     def _handle(self, procedure: int, reader: _Reader) -> bytes:
-        if procedure == CREATE_LINK:
-            reader.int()  # clientId
-            reader.uint()  # lockDevice
-            reader.uint()  # lock_timeout
-            device = reader.opaque().decode("ascii")
-            self.create_link_attempts.append(device)
-            if device not in self.device_names:
-                return struct.pack(">iiII", ERROR_NO_DEVICE, 0, 0, 0)
-            link = self._next_link
-            self._next_link += 1
-            self._links[link] = bytearray()
-            self._pending[link] = bytearray()
-            return struct.pack(">iiII", 0, link, 0, self.max_recv_size)
-
-        if procedure == DEVICE_WRITE:
-            link = reader.int()
-            reader.uint()
-            reader.uint()
-            flags = reader.int()
-            data = reader.opaque()
-            if link not in self._links:
-                return struct.pack(">iI", ERROR_INVALID_LINK, 0)
-            self._links[link].extend(data)
-            if flags & 0x08:  # END
-                command = bytes(self._links[link])
-                self._links[link] = bytearray()
-                reply = self.simulator.respond(command.strip())
-                self._pending[link] = bytearray(reply or b"")
-            return struct.pack(">iI", 0, len(data))
-
-        if procedure == DEVICE_READ:
-            link = reader.int()
-            request = reader.uint()
-            if link not in self._links:
-                return struct.pack(">iiI", ERROR_INVALID_LINK, 0, 0)
-            buffer = self._pending[link]
-            take = min(request, len(buffer))
-            payload = bytes(buffer[:take])
-            del buffer[:take]
-            reason = REASON_END if not buffer else REASON_REQCNT
-            return struct.pack(">ii", 0, reason) + struct.pack(">I", len(payload)) + _pad(payload)
-
+        handlers = {
+            CREATE_LINK: self._create_link,
+            DEVICE_WRITE: self._device_write,
+            DEVICE_READ: self._device_read,
+            DESTROY_LINK: self._destroy_link,
+        }
+        if procedure in handlers:
+            return handlers[procedure](reader)
         if procedure == DEVICE_READSTB:
             return struct.pack(">ii", 0, 16)
-
         if procedure in (DEVICE_CLEAR, DEVICE_TRIGGER, DEVICE_REMOTE, DEVICE_LOCAL):
-            link = reader.int()
-            if procedure == DEVICE_CLEAR and link in self._pending:
-                self._pending[link] = bytearray()
-            self.generic_calls.append(procedure)
-            return struct.pack(">i", 0)
-
-        if procedure == DESTROY_LINK:
-            link = reader.int()
-            self._links.pop(link, None)
-            self._pending.pop(link, None)
-            return struct.pack(">i", 0)
-
+            return self._generic(procedure, reader)
         return struct.pack(">i", 8)  # operation not supported
+
+    def _create_link(self, reader: _Reader) -> bytes:
+        reader.int()  # clientId
+        reader.uint()  # lockDevice
+        reader.uint()  # lock_timeout
+        device = reader.opaque().decode("ascii")
+        self.create_link_attempts.append(device)
+        if device not in self.device_names:
+            return struct.pack(">iiII", ERROR_NO_DEVICE, 0, 0, 0)
+        link = self._next_link
+        self._next_link += 1
+        self._links[link] = bytearray()
+        self._pending[link] = bytearray()
+        return struct.pack(">iiII", 0, link, 0, self.max_recv_size)
+
+    def _device_write(self, reader: _Reader) -> bytes:
+        link = reader.int()
+        reader.uint()
+        reader.uint()
+        flags = reader.int()
+        data = reader.opaque()
+        if link not in self._links:
+            return struct.pack(">iI", ERROR_INVALID_LINK, 0)
+        self._links[link].extend(data)
+        if flags & 0x08:  # END
+            command = bytes(self._links[link])
+            self._links[link] = bytearray()
+            reply = self.simulator.respond(command.strip())
+            self._pending[link] = bytearray(reply or b"")
+        return struct.pack(">iI", 0, len(data))
+
+    def _device_read(self, reader: _Reader) -> bytes:
+        link = reader.int()
+        request = reader.uint()
+        if link not in self._links:
+            return struct.pack(">iiI", ERROR_INVALID_LINK, 0, 0)
+        buffer = self._pending[link]
+        take = min(request, len(buffer))
+        payload = bytes(buffer[:take])
+        del buffer[:take]
+        reason = REASON_END if not buffer else REASON_REQCNT
+        return struct.pack(">ii", 0, reason) + struct.pack(">I", len(payload)) + _pad(payload)
+
+    def _generic(self, procedure: int, reader: _Reader) -> bytes:
+        link = reader.int()
+        if procedure == DEVICE_CLEAR and link in self._pending:
+            self._pending[link] = bytearray()
+        self.generic_calls.append(procedure)
+        return struct.pack(">i", 0)
+
+    def _destroy_link(self, reader: _Reader) -> bytes:
+        link = reader.int()
+        self._links.pop(link, None)
+        self._pending.pop(link, None)
+        return struct.pack(">i", 0)
 
 
 class FakePortmapper:

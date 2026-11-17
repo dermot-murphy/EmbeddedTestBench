@@ -133,25 +133,36 @@ def parse_resource(resource: str, backend: str = "auto") -> dict:
 
     # --- VISA-style resource strings ----------------------------------
     if lowered.startswith("tcpip"):
-        fields = [field for field in text.split("::") if field]
-        if len(fields) < 2:
-            raise UnsupportedTransportError("malformed VISA resource string %r" % resource)
-        host = fields[1]
-        suffix = fields[-1].upper()
-        if backend == "visa":
-            return {"backend": "visa", "resource": text}
-        if suffix == "SOCKET":
-            port = int(fields[2]) if len(fields) > 3 else DEFAULT_RAW_SOCKET_PORT
-            return {"backend": "socket", "host": host, "port": port}
-        result = {"backend": "vxi11", "host": host}
-        if len(fields) > 3 and suffix == "INSTR":
-            result["device_names"] = (fields[2],)
-        return result
+        return _parse_visa_resource(text, backend, resource)
 
     if backend == "visa":
         return {"backend": "visa", "resource": text}
+    return _parse_bare_host(text, backend)
 
-    # --- bare host, optionally with a port ----------------------------
+
+def _parse_visa_resource(text: str, backend: str, resource: str) -> dict:
+    """Build keyword arguments from a ``TCPIP::...`` VISA resource string.
+
+    *resource* is the caller's original spelling, quoted in the diagnostic.
+    """
+    fields = [field for field in text.split("::") if field]
+    if len(fields) < 2:
+        raise UnsupportedTransportError("malformed VISA resource string %r" % resource)
+    host = fields[1]
+    suffix = fields[-1].upper()
+    if backend == "visa":
+        return {"backend": "visa", "resource": text}
+    if suffix == "SOCKET":
+        port = int(fields[2]) if len(fields) > 3 else DEFAULT_RAW_SOCKET_PORT
+        return {"backend": "socket", "host": host, "port": port}
+    result = {"backend": "vxi11", "host": host}
+    if len(fields) > 3 and suffix == "INSTR":
+        result["device_names"] = (fields[2],)
+    return result
+
+
+def _parse_bare_host(text: str, backend: str) -> dict:
+    """Build keyword arguments from a bare host name, optionally with a port."""
     if text.count(":") == 1:
         host, port = _split_host_port(text, DEFAULT_RAW_SOCKET_PORT)
         if backend == "vxi11":

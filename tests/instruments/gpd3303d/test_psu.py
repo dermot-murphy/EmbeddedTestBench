@@ -164,13 +164,13 @@ class TestMeasuring:
         loaded.configure_channel(1, volts=3.3, current_limit=0.5, output=False)
         assert loaded.measure_voltage(1) == 0.0
 
-    def test_the_unit_suffix_is_not_mistaken_for_a_number(self, psu):
+    def test_the_unit_suffix_is_not_mistaken_for_a_number(self):
         """VOUT answers "3.300V" and ISET answers "0.500"; both are numbers."""
         assert Gpd3303D._parse_reading("3.300V", "VOUT1?") == 3.3
         assert Gpd3303D._parse_reading("0.500A", "IOUT1?") == 0.5
         assert Gpd3303D._parse_reading(" 12.000 ", "VSET1?") == 12.0
 
-    def test_a_reply_that_is_not_a_number_is_reported_with_the_command(self, psu):
+    def test_a_reply_that_is_not_a_number_is_reported_with_the_command(self):
         with pytest.raises(ProtocolError, match="VOUT1"):
             Gpd3303D._parse_reading("OVERLOAD", "VOUT1?")
 

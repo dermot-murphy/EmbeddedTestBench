@@ -179,7 +179,7 @@ class TestErrorChecking:
 
 class TestSubclassContract:
     def test_unimplemented_hooks_raise(self):
-        class Incomplete(Instrument):
+        class Incomplete(Instrument):  # pylint: disable=abstract-method  # incomplete on purpose
             pass
 
         with pytest.raises(NotImplementedError):

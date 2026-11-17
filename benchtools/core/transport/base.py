@@ -163,7 +163,7 @@ class Transport(abc.ABC):
         if self._is_open:
             try:
                 self._close_link()
-            except Exception:  # pragma: no cover - defensive
+            except Exception:  # pylint: disable=broad-exception-caught  # pragma: no cover - close() never raises, whatever the link throws
                 self._logger.warning("error while closing %s", self.description, exc_info=True)
             finally:
                 self._is_open = False

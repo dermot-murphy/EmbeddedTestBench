@@ -66,7 +66,7 @@ def parse_build_date(text: str) -> Optional[datetime]:
 
 
 @dataclass
-class FirmwareBuild:
+class FirmwareBuild:  # pylint: disable=too-many-instance-attributes  # a record of the build manifest's fields
     """A build of the dongle firmware, as the build system described it.
 
     :param version: From ``firmware_version.h``.

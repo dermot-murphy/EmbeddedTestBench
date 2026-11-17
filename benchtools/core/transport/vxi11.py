@@ -142,26 +142,32 @@ class _Packer:
         self._buf = bytearray()
 
     def uint(self, value: int) -> "_Packer":
+        """Append *value* as an unsigned 32-bit integer, wrapping it to 32 bits."""
         self._buf += struct.pack(">I", value & 0xFFFFFFFF)
         return self
 
     def int(self, value: int) -> "_Packer":
+        """Append *value* as a signed 32-bit integer."""
         self._buf += struct.pack(">i", value)
         return self
 
     def bool(self, value: bool) -> "_Packer":
+        """Append *value* as an XDR boolean, which is an unsigned integer 0 or 1."""
         return self.uint(1 if value else 0)
 
     def opaque(self, data: bytes) -> "_Packer":
+        """Append variable-length opaque *data*: its length, then the bytes padded to 4."""
         self.uint(len(data))
         self._buf += data
         self._buf += b"\x00" * ((-len(data)) % 4)
         return self
 
     def string(self, text: str) -> "_Packer":
+        """Append *text* as an XDR string, encoded as ASCII."""
         return self.opaque(text.encode("ascii"))
 
     def bytes(self) -> bytes:
+        """Return the stream packed so far."""
         return bytes(self._buf)
 
 
@@ -186,18 +192,22 @@ class _Unpacker:
         return chunk
 
     def uint(self) -> int:
+        """Read an unsigned 32-bit integer."""
         return struct.unpack(">I", self._take(4))[0]
 
     def int(self) -> int:
+        """Read a signed 32-bit integer."""
         return struct.unpack(">i", self._take(4))[0]
 
     def opaque(self) -> bytes:
+        """Read variable-length opaque data, discarding its padding."""
         length = self.uint()
         data = self._take(length)
         self._take((-length) % 4)  # discard padding
         return data
 
     def skip_opaque(self) -> None:
+        """Read and discard variable-length opaque data."""
         self.opaque()
 
 
@@ -220,8 +230,12 @@ def _recv_exactly(sock: socket.socket, count: int) -> bytes:
     return b"".join(chunks)
 
 
-def _rpc_call_body(xid: int, prog: int, vers: int, proc: int, args: bytes) -> bytes:
-    """Build a complete ONC-RPC CALL message with ``AUTH_NULL`` credentials."""
+def _rpc_call_body(xid: int, call: Tuple[int, int, int], args: bytes) -> bytes:
+    """Build a complete ONC-RPC CALL message with ``AUTH_NULL`` credentials.
+
+    *call* is the remote procedure as ``(program, version, procedure)``.
+    """
+    prog, vers, proc = call
     packer = _Packer()
     packer.uint(xid).int(_MSG_CALL).uint(_RPC_VERSION)
     packer.uint(prog).uint(vers).uint(proc)
@@ -248,14 +262,19 @@ def _parse_rpc_reply(message: bytes, xid: int) -> _Unpacker:
     accept_stat = unpacker.int()
     if accept_stat != _ACCEPT_SUCCESS:
         raise ProtocolError(
-            "RPC call not accepted: %s" % _ACCEPT_STAT_TEXT.get(accept_stat, "status %d" % accept_stat)
+            "RPC call not accepted: %s"
+            % _ACCEPT_STAT_TEXT.get(accept_stat, "status %d" % accept_stat)
         )
     return unpacker
 
 
-def _rpc_tcp(sock: socket.socket, xid: int, prog: int, vers: int, proc: int, args: bytes) -> _Unpacker:
-    """Perform one RPC call over a record-marked TCP stream."""
-    body = _rpc_call_body(xid, prog, vers, proc, args)
+def _rpc_tcp(sock: socket.socket, xid: int, call: Tuple[int, int, int],
+             args: bytes) -> _Unpacker:
+    """Perform one RPC call over a record-marked TCP stream.
+
+    *call* is the remote procedure as ``(program, version, procedure)``.
+    """
+    body = _rpc_call_body(xid, call, args)
     sock.sendall(struct.pack(">I", len(body) | _LAST_FRAGMENT) + body)
 
     fragments = []
@@ -268,10 +287,13 @@ def _rpc_tcp(sock: socket.socket, xid: int, prog: int, vers: int, proc: int, arg
     return _parse_rpc_reply(b"".join(fragments), xid)
 
 
-def _rpc_udp(address: Tuple[str, int], xid: int, prog: int, vers: int,
-             proc: int, args: bytes, timeout: float) -> _Unpacker:
-    """Perform one RPC call over UDP (used only for the portmapper fallback)."""
-    body = _rpc_call_body(xid, prog, vers, proc, args)
+def _rpc_udp(address: Tuple[str, int], xid: int, call: Tuple[int, int, int],
+             args: bytes, timeout: float) -> _Unpacker:
+    """Perform one RPC call over UDP (used only for the portmapper fallback).
+
+    *call* is the remote procedure as ``(program, version, procedure)``.
+    """
+    body = _rpc_call_body(xid, call, args)
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         sock.settimeout(timeout)
@@ -309,7 +331,7 @@ def query_portmapper(host: str, prog: int = _CORE_PROG, vers: int = _CORE_VERS,
         try:
             sock.settimeout(timeout)
             xid = _next_xid()
-            port = _rpc_tcp(sock, xid, _PMAP_PROG, _PMAP_VERS, _PMAP_GETPORT, args).uint()
+            port = _rpc_tcp(sock, xid, (_PMAP_PROG, _PMAP_VERS, _PMAP_GETPORT), args).uint()
         finally:
             sock.close()
         if port:
@@ -320,8 +342,8 @@ def query_portmapper(host: str, prog: int = _CORE_PROG, vers: int = _CORE_VERS,
         tcp_error = exc
 
     try:
-        port = _rpc_udp((host, _PMAP_PORT), _next_xid(), _PMAP_PROG, _PMAP_VERS,
-                        _PMAP_GETPORT, args, timeout).uint()
+        port = _rpc_udp((host, _PMAP_PORT), _next_xid(),
+                        (_PMAP_PROG, _PMAP_VERS, _PMAP_GETPORT), args, timeout).uint()
     except (OSError, TransportError) as exc:
         raise ConnectionFailedError(
             "cannot reach the portmapper on %s:%d (TCP: %s; UDP: %s)"
@@ -340,7 +362,7 @@ def query_portmapper(host: str, prog: int = _CORE_PROG, vers: int = _CORE_VERS,
 # ---------------------------------------------------------------------------
 # Transport
 # ---------------------------------------------------------------------------
-class Vxi11Transport(Transport):
+class Vxi11Transport(Transport):  # pylint: disable=too-many-instance-attributes  # the link's settings and its live RPC state
     """VXI-11 instrument link implemented without VISA.
 
     :param host: Host name or IPv4 address of the oscilloscope.
@@ -355,7 +377,7 @@ class Vxi11Transport(Transport):
     :param lock_timeout: Time in seconds the instrument waits for a lock.
     """
 
-    def __init__(
+    def __init__(  # pylint: disable=too-many-arguments,too-many-positional-arguments  # the keywords open_transport passes
         self,
         host: str,
         device_names: Sequence[str] = DEFAULT_VXI11_DEVICE_NAMES,
@@ -409,7 +431,7 @@ class Vxi11Transport(Transport):
         if self._sock is None:
             raise TransportError("VXI-11 core channel is not connected")
         try:
-            return _rpc_tcp(self._sock, _next_xid(), _CORE_PROG, _CORE_VERS, proc, args)
+            return _rpc_tcp(self._sock, _next_xid(), (_CORE_PROG, _CORE_VERS, proc), args)
         except socket.timeout as exc:
             raise TransportTimeoutError("VXI-11 RPC timed out (procedure %d)" % proc) from exc
         except OSError as exc:
@@ -468,7 +490,9 @@ class Vxi11Transport(Transport):
                 self._max_recv_size = max(min(max_recv, 1024 * 1024), 512) if max_recv else 4096
                 self._logger.info("VXI-11 link established to %s as %r", self._host, name)
                 return
-            failures.append("%s: error %d (%s)" % (name, error, _VXI11_ERRORS.get(error, "unknown")))
+            failures.append(
+                "%s: error %d (%s)" % (name, error, _VXI11_ERRORS.get(error, "unknown"))
+            )
 
         self._close_link()
         raise ConnectionFailedError(
