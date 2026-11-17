@@ -76,13 +76,12 @@ filterwarnings = ["ignore::UserWarning:pyvisa_py.*"]
 # ---------------------------------------------------------------------------
 # pylint
 # ---------------------------------------------------------------------------
-# Run by .github/workflows/lint.yml through scripts/lint.py, which also
-# compares the findings against .pylint-baseline.json so the job fails on new
-# ones rather than on the debt that was there when the check was introduced.
+# Run by .github/workflows/lint.yml through scripts/lint.py, which fails on
+# any finding; there is no baseline (#379).
 #
-# The same rule as the C side (ETB-STY-001): a rule the project has decided
-# against is switched off here and said so; a rule the project accepts but has
-# not yet met stays on and goes in the baseline.
+# A rule the project has decided against is switched off here and said so. A
+# finding the code cannot avoid is disabled inline, on that def or class, with
+# its reason in the same comment.
 
 [tool.pylint.main]
 # One job, not one per core. pylint's duplicate-code check compares files

@@ -1,8 +1,8 @@
-"""The pylint baseline gate in scripts/lint.py.
+"""The pylint gate in scripts/lint.py.
 
-A finding is keyed by file and rule. pylint reports paths with the host's
-separator and the baseline records forward slashes, so on Windows every
-baselined finding used to count as new (#81).
+The gate fails on any finding: #379 cleared the baseline it used to compare
+against, and removed it. pylint reports paths with the host's separator, and
+the annotations are written with forward slashes whatever the platform (#81).
 
 Traces to: SWE4-UT-LINT.
 """
@@ -22,23 +22,42 @@ def load_lint():
     return module
 
 
-def test_a_windows_path_keys_the_same_as_the_baseline():
+def finding(path="tests\\test_x.py", symbol="unused-argument", line=3):
+    return {"path": path, "symbol": symbol, "line": line, "message": "Unused argument"}
+
+
+def test_a_windows_path_is_reported_with_forward_slashes(capsys):
     lint = load_lint()
-    windows = {"path": "benchtools\\instruments\\s2lp\\s2lp.py", "symbol": "too-many-lines"}
-    posix = {"path": "benchtools/instruments/s2lp/s2lp.py", "symbol": "too-many-lines"}
-    assert lint.key_of(windows) == lint.key_of(posix)
+    assert lint.report([finding(path="benchtools\\instruments\\s2lp\\s2lp.py")]) == 1
+    out = capsys.readouterr().out
+    assert "file=benchtools/instruments/s2lp/s2lp.py,line=3,title=unused-argument" in out
+    assert "\\" not in out
 
 
-def test_a_baselined_finding_reported_with_backslashes_is_not_new(capsys):
+def test_a_posix_path_is_reported_unchanged():
     lint = load_lint()
-    message = {"path": "tests\\test_x.py", "symbol": "unused-argument", "line": 3,
-               "message": "Unused argument"}
-    counts = lint.tally([message])
-    baseline = {("tests/test_x.py", "unused-argument"): 1}
-    assert lint.report_new(counts, baseline, [message]) == 0
-    assert capsys.readouterr().out == ""
+    assert lint.posix_path("benchtools/core/scpi.py") == "benchtools/core/scpi.py"
 
 
-def test_the_recorded_baseline_uses_forward_slashes():
+def test_no_findings_passes(monkeypatch, capsys):
     lint = load_lint()
-    assert all("\\" not in path for path, _symbol in lint.load_baseline())
+    monkeypatch.setattr(lint, "collect", lambda: [])
+    monkeypatch.setattr("sys.argv", ["lint.py"])
+    assert lint.main() == 0
+    assert capsys.readouterr().out == "pylint: 0 finding(s)\n"
+
+
+def test_a_single_finding_fails(monkeypatch, capsys):
+    lint = load_lint()
+    monkeypatch.setattr(lint, "collect", lambda: [finding()])
+    monkeypatch.setattr("sys.argv", ["lint.py"])
+    assert lint.main() == 1
+    out = capsys.readouterr().out
+    assert "::error file=tests/test_x.py,line=3,title=unused-argument::" in out
+    assert "::error::1 pylint finding(s)" in out
+
+
+def test_there_is_no_baseline_to_hide_findings_in():
+    lint = load_lint()
+    assert not (ROOT / ".pylint-baseline.json").exists()
+    assert not hasattr(lint, "load_baseline")
