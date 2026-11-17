@@ -428,8 +428,10 @@ class TestIntegrationAndQualificationCases:
         for doc in self.DOCS_WITH_CASES:
             for path, node in self._named_tests(_text(doc)):
                 source = ROOT / "tests" / path
-                name = node.split("::")[-1].split("[")[0]
-                defined = source.exists() and ("def %s(" % name) in source.read_text(encoding="utf-8")
+                parts = [part.split("[")[0] for part in node.split("::")]
+                text = source.read_text(encoding="utf-8") if source.exists() else ""
+                defined = bool(text) and ("def %s(" % parts[-1]) in text and all(
+                    ("class %s" % cls) in text for cls in parts[:-1])
                 if not defined:
                     missing.append("%s: %s::%s" % (doc.name, path, node))
         assert not missing, "named test(s) not found:\n  " + "\n  ".join(missing)

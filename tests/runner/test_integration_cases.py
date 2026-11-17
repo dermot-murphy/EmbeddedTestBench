@@ -4,8 +4,8 @@ Each test names the case of ETB-SWE5-001 §6 or ETB-SWE6-001 §5 it realises.
 They were written when the cases were traced to tests and a case had none:
 
 - ETB-IT-07, ETB-QT-17: the JSON report states that a run was simulated;
-- ETB-IT-10: the runner reaches drivers only through the registry, so no
-  runner module imports an instrument package;
+- ETB-IT-10: the runner reaches drivers only through the registry in
+  ``bench.py``, the one runner module that imports instrument packages;
 - ETB-IT-13: the S2-LP driver and the ETB kit firmware agree on the protocol;
 - ETB-IT-15: a specification drives the serial capture instrument through the
   runner;
@@ -79,24 +79,41 @@ def test_the_json_report_says_the_run_was_simulated(tmp_path):
     assert data["simulated"] is True
 
 
-def test_no_runner_module_imports_an_instrument():
-    """ETB-IT-10: the runner reaches drivers only through the registry."""
-    offenders = []
-    for path in sorted((ROOT / "benchtools" / "runner").glob("*.py")):
-        tree = ast.parse(path.read_text(encoding="utf-8"))
-        for node in ast.walk(tree):
-            names = []
-            if isinstance(node, ast.Import):
-                names = [alias.name for alias in node.names]
-            elif isinstance(node, ast.ImportFrom):
+def _imported_modules(path: pathlib.Path) -> set:
+    """Every module a file imports, with relative imports resolved against the
+    file's package, and the names of a ``from X import a, b`` taken as X.a, X.b
+    (a name may be a submodule)."""
+    package = ["benchtools"] + list(path.relative_to(ROOT / "benchtools").parent.parts)
+    found = set()
+    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+        if isinstance(node, ast.Import):
+            found.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            if node.level:
+                base = package[:len(package) - node.level + 1]
+                module = ".".join(base + ([node.module] if node.module else []))
+            else:
                 module = node.module or ""
-                if node.level:
-                    module = "benchtools.runner." + module if node.level == 1 else module
-                names = [module]
-            for name in names:
-                if name.startswith("benchtools.instruments"):
-                    offenders.append("%s imports %s" % (path.name, name))
-    assert not offenders, offenders
+            found.add(module)
+            found.update("%s.%s" % (module, alias.name) for alias in node.names)
+    return found
+
+
+def test_the_runner_reaches_drivers_only_through_the_registry_in_bench_py():
+    """ETB-IT-10: of the runner's modules, only bench.py, which holds the driver
+    registry, imports an instrument package."""
+    importers = set()
+    for path in sorted((ROOT / "benchtools" / "runner").glob("*.py")):
+        if any(name.startswith("benchtools.instruments") for name in _imported_modules(path)):
+            importers.add(path.name)
+    assert importers == {"bench.py"}, importers
+
+
+def test_relative_imports_are_resolved():
+    """The helper sees what a relative import names (review of #400)."""
+    bench = _imported_modules(ROOT / "benchtools" / "runner" / "bench.py")
+    assert "benchtools.instruments.jlink" in bench
+    assert "benchtools.core.instrument" in bench
 
 
 def _firmware_defines(path: pathlib.Path) -> dict:
@@ -135,7 +152,8 @@ class TestTheKitFirmwareProtocolAgrees:
         kinds = {re.search(r"'(.)'", defines[name]).group(1)
                  for name in ("PROTO_KIND_FRAME", "PROTO_KIND_REJECT")}
         assert kinds == {"f", "r"}
-        assert kit_firmware.KitRecord(kind="f", seq=0, time_us=0).kind in kinds
+        host = pathlib.Path(kit_firmware.__file__).read_text(encoding="utf-8")
+        assert all('words[0] == "%s"' % kind in host for kind in kinds)
 
     def test_the_firmware_name(self):
         """The name in the `id` reply is the one the host looks for."""
