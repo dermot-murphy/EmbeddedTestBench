@@ -120,6 +120,7 @@
 | next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. Blank lines that split this table removed. |
 | next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
 | next | 2026-11-17 | Claude | #374: PICO-NFR-006 names the style.yml step by its new name, "Run CStyleCheck (PICO2 Test Board)". |
+| next | 2026-11-17 | Claude | #370: §20 traces the integration and qualification cases to their tests, checked by a test, and each qualification case to the requirements it qualifies. Review & Approval is now §21. |
 
 ---
 
@@ -938,7 +939,44 @@ ETB-SWE4-002 §13D and the open items of §19 (OPEN-12).
 
 ---
 
-## 20. Review & Approval
+## 20. Integration and Qualification Cases (SWE.5, SWE.6)
+
+The software integration cases (ETB-SWE5-001 §6) and the software qualification
+cases (ETB-SWE6-001 §5) each name the tests that realise them, with their
+release result. `tests/test_traceability.py`
+(`TestIntegrationAndQualificationCases`) fails if a case names no test, or if a
+test it names does not exist (#370). The integration cases trace to
+architecture elements through the stages of ETB-SWE5-001 §4. The qualification
+cases trace to the requirements they qualify:
+
+| Case | Requirements qualified |
+|---|---|
+| ETB-QT-01 | CORE-FR-014, INST-FR-002, RUN-FR-037 |
+| ETB-QT-02 | RUN-FR-016, RUN-FR-024, RUN-FR-025 |
+| ETB-QT-02a | RUN-FR-016, RUN-FR-024, DMM-FR-045, BLE-FR-025 |
+| ETB-QT-03 | BLE-FR-100, BLE-FR-105, BLE-FR-108 |
+| ETB-QT-04 | BLE-FR-103, BLE-FR-104, BLE-FR-106 |
+| ETB-QT-05 | RUN-FR-023, RUN-FR-031, RUN-FR-033, BLE-FR-101, BLE-FR-106 |
+| ETB-QT-06 | RUN-FR-016, RUN-FR-060 |
+| ETB-QT-07 | RUN-FR-025 |
+| ETB-QT-08 | PSU-FR-001, PSU-FR-010, PSU-FR-012, PSU-FR-021 |
+| ETB-QT-09 | PSU-FR-006 |
+| ETB-QT-10 | PSU-FR-006, PSU-FR-043 |
+| ETB-QT-11 | JLINK-FR-020, JLINK-FR-024, JLINK-FR-043 |
+| ETB-QT-12 | JLINK-FR-043 |
+| ETB-QT-13 | JLINK-FR-054 |
+| ETB-QT-14 | BLE-FR-022, BLE-FR-043 |
+| ETB-QT-15 | BLE-FR-047, BLE-FR-102, BLE-FR-104, BLE-FR-109 |
+| ETB-QT-16 | SCOPE-FR-060, SCOPE-FR-062, ANA-FR-016 |
+| ETB-QT-17 | RUN-FR-006, RUN-FR-042, RUN-FR-043 |
+| ETB-QT-18 | RUN-FR-035 |
+| ETB-QT-19 | RUN-FR-041, RUN-FR-043, RUN-FR-050 |
+| ETB-QT-20 | JLINK-FR-024, BLE-FR-014, RUN-FR-016 |
+| ETB-QT-21 | RUN-FR-054, RUN-FR-055, RUN-FR-056, RUN-FR-057 |
+
+---
+
+## 21. Review & Approval
 
 Review and approval of this document are not entered in this table. They are
 given by the merge of the pull request that last changed the document, and that

@@ -123,6 +123,7 @@
 | 1.87 | 2026-11-15 | Claude | #352 review round 2: §5 SWE4-UT-JLINK 130 -> 132 (`>>=` and `<<=` cases), pass, from a run of `instruments/jlink/` on this branch on 2026-11-15. |
 | next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. Blank lines that split this table removed. |
 | next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
+| next | 2026-11-17 | Claude | #370: SWE4-UT-INTEGRATION row; its first release result will be the next release's. |
 
 ---
 
@@ -322,6 +323,7 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-LIMITS | `runner/test_limits.py` | 45 | Pass |
 | SWE4-UT-COMPARE | `runner/test_compare_steps.py` | 62 | Pass |
 | SWE4-UT-RESOLVE | `runner/test_resolve.py` | 27 | Pass |
+| SWE4-UT-INTEGRATION | `runner/test_integration_cases.py` | 8 | Pass (added in #370, after the release run; 8 passed on its branch) |
 | SWE4-UT-BRINGUP | `runner/test_sensor_bringup.py` | 18 | Pass |
 | SWE4-UT-KEPLERSIM | `runner/test_kepler_simulated.py`, `instruments/s2lp/test_simulated_air.py` | 132 | Pass |
 | SWE4-UT-SELFCHECK | `runner/test_bench_self_check.py` | 7 | Pass |
