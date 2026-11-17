@@ -124,7 +124,8 @@
 | next | 2026-11-17 | Claude | #367: §17 adds the DMM-ARC-001 and SER-ARC-001 rows, and the S2-LP kit firmware units. |
 | next | 2026-11-17 | Claude | #362: §20 traces each system requirement to the integration cases of ETB-SYS4-001 §5. Review & Approval is now §21. |
 | next | 2026-11-17 | Claude | #363: §21 traces each system requirement to the qualification scenarios that name it. Review & Approval is now §22. |
-| next | 2026-11-17 | Claude | #364: §22 to §25 added: stakeholder needs to system requirements; each system requirement to its stakeholder parents, elements and software requirements; each software requirement to its system requirements, with the source of each non-functional one; each software architecture element to its system elements. All checked by `tests/test_traceability.py`. §18 counts 536 functional requirements in force (537 declared), not 532 (533). Review & Approval is now §26. §20 and §21 gain rows for ETB-SYS2-018, -054, -055, -085 and -086. |
+| next | 2026-11-17 | Claude | #370: §22 traces the integration and qualification cases to their tests, checked by a test, and each qualification case to the requirements it qualifies. Review & Approval is now §23. |
+| next | 2026-11-17 | Claude | #364: §23 to §26 added: stakeholder needs to system requirements; each system requirement to its stakeholder parents, elements and software requirements; each software requirement to its system requirements, with the source of each non-functional one; each software architecture element to its system elements. All checked by `tests/test_traceability.py`. §18 counts 536 functional requirements in force (537 declared), not 532 (533). Review & Approval is now §27. §20 and §21 gain rows for ETB-SYS2-018, -054, -055, -085 and -086. |
 | next | 2026-11-17 | Claude | #364, review round 1 (PR #401): BLE-FR-003 (lines queued, unsent ones counted) refines ETB-SYS2-044, not -043. |
 
 ---
@@ -1116,7 +1117,44 @@ qualify it (#363). The result of each scenario on hardware is in ETB-SYS5-002.
 
 ---
 
-## 22. Stakeholder Needs to System Requirements (SYS.2)
+## 22. Integration and Qualification Cases (SWE.5, SWE.6)
+
+The software integration cases (ETB-SWE5-001 §6) and the software qualification
+cases (ETB-SWE6-001 §5) each name the tests that realise them, with their
+release result. `tests/test_traceability.py`
+(`TestIntegrationAndQualificationCases`) fails if a case names no test, or if a
+test it names does not exist (#370). The integration cases trace to
+architecture elements through the stages of ETB-SWE5-001 §4. The qualification
+cases trace to the requirements they qualify:
+
+| Case | Requirements qualified |
+|---|---|
+| ETB-QT-01 | CORE-FR-014, INST-FR-002, RUN-FR-037 |
+| ETB-QT-02 | RUN-FR-016, RUN-FR-024, RUN-FR-025 |
+| ETB-QT-02a | RUN-FR-016, RUN-FR-024, DMM-FR-045, BLE-FR-025 |
+| ETB-QT-03 | BLE-FR-100, BLE-FR-105, BLE-FR-108 |
+| ETB-QT-04 | BLE-FR-103, BLE-FR-104, BLE-FR-106 |
+| ETB-QT-05 | RUN-FR-023, RUN-FR-031, RUN-FR-033, BLE-FR-101, BLE-FR-106 |
+| ETB-QT-06 | RUN-FR-016, RUN-FR-060 |
+| ETB-QT-07 | RUN-FR-025 |
+| ETB-QT-08 | PSU-FR-001, PSU-FR-010, PSU-FR-012, PSU-FR-021 |
+| ETB-QT-09 | PSU-FR-006 |
+| ETB-QT-10 | PSU-FR-006, PSU-FR-043 |
+| ETB-QT-11 | JLINK-FR-020, JLINK-FR-024, JLINK-FR-043 |
+| ETB-QT-12 | JLINK-FR-043 |
+| ETB-QT-13 | JLINK-FR-054 |
+| ETB-QT-14 | BLE-FR-022, BLE-FR-043 |
+| ETB-QT-15 | BLE-FR-047, BLE-FR-102, BLE-FR-104, BLE-FR-109 |
+| ETB-QT-16 | SCOPE-FR-060, SCOPE-FR-062, ANA-FR-016 |
+| ETB-QT-17 | RUN-FR-006, RUN-FR-042, RUN-FR-043 |
+| ETB-QT-18 | RUN-FR-035 |
+| ETB-QT-19 | RUN-FR-041, RUN-FR-043, RUN-FR-050 |
+| ETB-QT-20 | JLINK-FR-024, BLE-FR-014, RUN-FR-016 |
+| ETB-QT-21 | RUN-FR-054, RUN-FR-055, RUN-FR-056, RUN-FR-057 |
+
+---
+
+## 23. Stakeholder Needs to System Requirements (SYS.2)
 
 Each stakeholder requirement (ETB-SWE1-001 §4) and the system requirements that
 refine it (#364).
@@ -1151,7 +1189,7 @@ refine it (#364).
 
 ---
 
-## 23. System Requirements to Elements and Software Requirements (SYS.2, SYS.3, SWE.1)
+## 24. System Requirements to Elements and Software Requirements (SYS.2, SYS.3, SWE.1)
 
 Each system requirement of ETB-SYS2-001: the stakeholder requirements it refines,
 the system elements of ETB-SYS3-001 it is allocated to, and the software
@@ -1235,7 +1273,7 @@ requirements of ETB-SWE1-001 that refine it (#364).
 
 ---
 
-## 24. Software Requirements to System Requirements (SWE.1)
+## 25. Software Requirements to System Requirements (SWE.1)
 
 Each software requirement of ETB-SWE1-001 and the system requirements it refines
 (#364). For a non-functional requirement, which has no Source cell in ETB-SWE1-001,
@@ -1823,7 +1861,7 @@ the stakeholder source is given here.
 
 ---
 
-## 25. Software Architecture to System Architecture (SWE.2)
+## 26. Software Architecture to System Architecture (SWE.2)
 
 Each architectural element of ETB-SWE2-001 §6 and the system elements of
 ETB-SYS3-001 §5 it realises (#364). The device plugins (AD-29) realise SE-PLUGINS
@@ -1856,7 +1894,7 @@ through CORE-ARC-003's registry and VIEW-ARC-001's panels.
 
 ---
 
-## 26. Review & Approval
+## 27. Review & Approval
 
 Review and approval of this document are not entered in this table. They are
 given by the merge of the pull request that last changed the document, and that
