@@ -32,6 +32,7 @@
 | next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. |
 | next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
 | next | 2026-11-17 | Claude | #375: the plan follows the practice. §5 records severity by `severity: S1` to `S4` label and priority by milestone; §5.1 authorises urgent resolution of an S1; §5.2 alert notifications. §6 - a problem is an issue labelled `bug`, its ID the issue number. §7 - each state as the issue shows it. §9 - trend analysis per milestone and release, the first in §9.1. Review round 1 (PR #389): pattern 3 lists #177, #178, #259 and #349; the cause counts are reconciled; the current milestone is defined. |
+| next | 2026-11-17 | Claude | #403: §9.1 records that the `severity:` labels were applied to the 39 closed `bug` issues, matching the table; it no longer says they were not. |
 
 ---
 
@@ -220,8 +221,10 @@ fixing pull request (#33, #79), and two are not determinable (below). The
 severity and the cause of each are therefore
 assigned here, after the fact, from the issue, its comments and the pull
 request that fixed it. Where the record does not show the cause, that is said.
-The `severity:` labels were not applied to these closed issues; this table is
-the record of their severity.
+On 2026-11-17, on the owner's instruction, each of these closed issues was
+given the `severity:` label this table assigns it (#403); the labels read back
+from GitHub match the table. This table remains the record of why each
+severity was assigned.
 
 | Measure | Count |
 |---|---|
