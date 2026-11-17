@@ -25,6 +25,7 @@
 | Version | Date | Author | Description of Change |
 |---|---|---|---|
 | 0.1 | 2026-11-17 | Claude | #372: initial. The first release progress review and risk review, for `v0.03.0000` (ETB-MAN3-001 §10.2, ETB-MAN5-001 §7). |
+| next | 2026-11-17 | Claude | #372, review round 1 (PR #391): §4.3 counts up to the tag, with the queries; §4.7 - ETB-RISK-001 and -004 answered against their triggers as written, the evidence kept as notes. |
 
 ---
 
@@ -93,9 +94,9 @@ schedule starts now, in ETB-MAN3-001 §7.1.
 |---|---|---|
 | Tests passing | 4 555, 2 skipped | CI run 44057132180 on `4b71a51` |
 | Statement coverage | 95.3 % | As above |
-| Pull requests merged, 2026-10-24 to 2026-11-17 | 51 | `gh pr list --state merged` |
-| Issues closed in the same period | 44, of which 9 labelled `bug` | `gh issue list --state closed` |
-| Open issues at the review | 30 | `gh issue list --state open` |
+| Pull requests merged, 2026-10-24 to the tag (2026-11-17T09:36:13Z) | 47 | `gh pr list --state merged --search "merged:2026-10-24T00:00:00Z..2026-11-17T09:36:13Z"` |
+| Issues closed in the same period | 39, of which 9 labelled `bug` | `gh issue list --state closed --search "closed:2026-10-24T00:00:00Z..2026-11-17T09:36:13Z"` |
+| Open issues when the review was held (about 16:24Z) | 30 | `gh issue list --state open` |
 | Effort | Not estimated before this review, so there is no comparison. Estimates start in ETB-MAN3-001 §8.1 | — |
 
 ### 4.4 Process Objectives
@@ -123,10 +124,10 @@ review.
 
 | Risk | Trigger fired? | P | I | Exp | Change | Treatment still right? | Action |
 |---|---|---|---|---|---|---|---|
-| ETB-RISK-001 | Yes, repeatedly: #61, #64, #69, #76, #177 and others were found at first contact with hardware (ETB-SUP9-001 §9.1) | P3 | I3 | 9 | None | Yes. The hardware runs are the treatment that finds these | Requalify on hardware (#363) and run the integration cases (#362) for `v0.05.0000` |
+| ETB-RISK-001 | No: no bench confirmation item was closed without a hardware run. Note: #61, #64, #69, #76, #177 and others were found at first contact with hardware (ETB-SUP9-001 §9.1). That is the treatment working, and it shows the risk is real | P3 | I3 | 9 | None | Yes. The hardware runs are the treatment that finds these | Requalify on hardware (#363) and run the integration cases (#362) for `v0.05.0000` |
 | ETB-RISK-002 | No new instrument revision seen without its commands being confirmed | P2 | I3 | 6 | None | Yes | None |
 | ETB-RISK-003 | No; the traceability check ran on every change | P3 | I2 | 6 | None | Yes, but the audit found blind spots in the check (#368) | Close the blind spots (#368) |
-| ETB-RISK-004 | Yes, once: the pip pull requests after #284 were explained only by checking which branch Dependabot reads (ETB-ACQ4-001 §6) | P3 | I2 | 6 | None | Yes | None beyond `CLAUDE.md`'s "verify, don't assert" |
+| ETB-RISK-004 | No: no change was found whose reason exists only in conversation. Note: the cause of the pip pull requests after #284 was found by checking the tags, not from memory, and is recorded in ETB-ACQ4-001 §6 | P3 | I2 | 6 | None | Yes | None beyond `CLAUDE.md`'s "verify, don't assert" |
 | ETB-RISK-005 | No | P2 | I3 | 6 | None | Yes | Pico licence review (#382) |
 | ETB-RISK-006 | No | P3 | I2 | 6 | None | Yes; CI now installs exact pins (#282) | None |
 | ETB-RISK-007 | Not observed | P2 | I3 | 6 | None | Yes | None |

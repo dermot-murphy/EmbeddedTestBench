@@ -209,8 +209,8 @@ and SYS.5 (#362, #363).
 ### 7.1 Schedule
 
 A coarse schedule, drafted from the pace of the work so far. From 2026-10-24 to
-2026-11-17, 51 pull requests were merged and 44 issues closed: about two pull
-requests a day. The dates are targets, not commitments. Each target is a GitHub
+the `v0.03.0000` tag (2026-11-17T09:36:13Z), 47 pull requests were merged and
+39 issues closed: about two pull requests a day. The dates are targets, not commitments. Each target is a GitHub
 milestone, and the issues it needs are assigned to it.
 
 | Target | Date | Contents | GitHub milestone |
@@ -262,7 +262,7 @@ estimates.
 | Resource | `v0.04.0000` estimate | `v0.05.0000` estimate | Basis |
 |---|---|---|---|
 | Owner: review and merge decisions | About 20 pull requests at about 15 minutes each: 5 hours | About 10 pull requests: 3 hours | The owner reviews from the QA review and the diff |
-| Owner: bench time | None | 4 bench days. SYS.4: 16 cases at about 30 minutes each, 1 day. SYS.5: 67 requirements in 8 scenarios, 3 days | ETB-SYS4-001 §5; ETB-SYS5-001 §6 |
+| Owner: bench time | None | 4 bench days. SYS.4: 16 cases at about 30 minutes each, 1 day. SYS.5: 67 requirements in 11 scenarios (QS-01, -01b, -02 to -10), 3 days | ETB-SYS4-001 §5; ETB-SYS5-001 §5 |
 | Claude: authoring sessions | About 20 pull requests | About 10 pull requests, and the records of the bench runs | The pace in §7.1 |
 | Claude: QA sessions | One review per pull request, of 1 to 4 rounds | As `v0.04.0000` | The reviews of #381 and #383 |
 | Instruments | None | Every instrument in ETB-SVD-001 §5, on the bench at once | The SYS.4 cases |
