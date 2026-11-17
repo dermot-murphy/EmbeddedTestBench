@@ -131,6 +131,7 @@
 | next | 2026-11-17 | Claude | #368: SWE4-UT-TRACE also checks that each file names a declared design unit and each unit is named by code, firmware included, that no retired or undeclared ID is cited, and reads the element prefixes from ETB-SWE1-001 §5. |
 | next | 2026-11-17 | Claude | #369: §4.1 says skips are optional-dependency or platform skips, the opt-in bench tests are outside the default run, and lists the unit verification measures, pylint among them. §4.2 gives the Python versions CI runs. §1.4a, §1.4b, §1.4 and §1.5 renumbered and cited as §4.4a, §4.4b, §4.4 and §4.5. §4.8 states the selection and regression rule, including the path-filtered firmware runs. |
 | next | 2026-11-17 | Claude | #364: SWE4-UT-TRACE also checks the system trace in ETB-RTM-001: every stakeholder need, system requirement, software requirement and software element traced. |
+| next | 2026-11-17 | Claude | #364, review round 1 (PR #401): SWE4-UT-TRACE also checks that ETB-RTM-001's SYS.4 and SYS.5 sections name every system requirement and only declared cases and scenarios. |
 
 ---
 

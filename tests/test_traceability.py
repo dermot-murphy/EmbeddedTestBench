@@ -464,6 +464,27 @@ class TestSystemTraceability:
                    set(re.findall(r"ETB-SYS2-\d{3}", row[1])) - declared]
         assert not orphans, "software requirement(s) with no valid system parent: %s" % orphans[:10]
 
+    def test_every_system_requirement_has_its_integration_and_qualification_rows(self):
+        """ETB-RTM-001's SYS.4 and SYS.5 sections name every system requirement,
+        each case and scenario they cite is declared, and every requirement has
+        a qualification scenario (review of #401)."""
+        declared = self._system_requirements()
+        cases = set(re.findall(r"^\| (ETB-SIT-\d+) \|", _text(DOCS / "EmbeddedTestBench_SYS4_System_Integration_Test.md"), re.M))
+        scenarios = set(re.findall(r"^### (QS-\d+b?) ", _text(DOCS / "EmbeddedTestBench_SYS5_System_Qualification_Test.md"), re.M))
+        problems = []
+        for title, known, required in (("System Requirements to Integration Cases", cases, False),
+                                       ("System Requirements to Qualification Scenarios", scenarios, True)):
+            rows = {row[0]: row[1] for row in self._section(title)}
+            if set(rows) != declared:
+                problems.append("%s: rows differ for %s" % (title, sorted(declared ^ set(rows))))
+            for rid, cell in rows.items():
+                named = set(re.findall(r"ETB-SIT-\d+|QS-\d+b?", cell))
+                if named - known:
+                    problems.append("%s: %s names %s" % (title, rid, sorted(named - known)))
+                if required and not named:
+                    problems.append("%s: %s has no scenario" % (title, rid))
+        assert not problems, "\n  ".join(["system verification trace:"] + problems)
+
     def test_every_software_element_realises_a_system_element(self):
         """Each SWE.2 element maps to at least one SYS.3 element."""
         rows = self._section("Software Architecture to System Architecture")
