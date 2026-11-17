@@ -29,6 +29,7 @@
 | 0.3 | 2026-10-05 | Claude | #204: Review & Approval table points to the merge of the pull request that last changed the document, which is the review and approval (ETB-SUP8-001 §5.7); no per-change signatures or dates. |
 | 0.4 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | 0.5 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
+| next | 2026-11-17 | Claude | #374: §8 work product index lists ETB-SUP8-002, the configuration audit and recovery check record. |
 
 ---
 
@@ -243,7 +244,7 @@ Neither is a documentation exercise. That is the point of rating them P.
 | MAN.3 | Project Management Plan | ETB-MAN3-001 |
 | MAN.5 | Risk Management Plan | ETB-MAN5-001 |
 | SUP.1 | Quality Assurance Plan | ETB-SUP1-001 |
-| SUP.8 | Configuration Management Plan / SVD | ETB-SUP8-001 / ETB-SVD-001 |
+| SUP.8 | Configuration Management Plan / SVD / Configuration Audit Record | ETB-SUP8-001 / ETB-SVD-001 / ETB-SUP8-002 |
 | SUP.9 | Problem Resolution Management Plan | ETB-SUP9-001 |
 | SUP.10 | Change Request Management Plan | ETB-SUP10-001 |
 | ACQ.4 | Supplier Monitoring Plan | ETB-ACQ4-001 |

@@ -57,11 +57,11 @@ SVD = "docs/aspice/EmbeddedTestBench_SVD_Software_Version_Description.md"
 #: The version written in a history row that is not numbered yet.
 NEXT = "next"
 
-#: Documents that still hold literal values, which must equal their last
-#: history row. ETB-SVD-001 describes the released baseline and is changed
-#: only on a release or hotfix branch (ETB-SUP8-001 §7), so it takes the
-#: links when it is next revised; it is then removed from this set.
-HELD_BACK = frozenset({SVD})
+#: Documents that may still hold literal values, which must equal their last
+#: history row. ETB-SVD-001 was the last, and took the links in its 0.10
+#: (#325); the set is kept for a document that is imported with literal
+#: values (ETB-SUP8-001 §6.2, #374).
+HELD_BACK = frozenset()
 
 _HISTORY_HEADING = re.compile(r"^(#+) +((?:(\d+)\. +)?Revision History) *$", re.M)
 _ROW = re.compile(r"^\| *(\d+\.\d+|%s) *\| *([^|]*?) *\|" % NEXT)

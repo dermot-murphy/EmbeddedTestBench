@@ -118,6 +118,7 @@
 | 1.81 | 2026-11-15 | Claude | #352: JLINK-FR-041 row cites `TestAVariableAtAddressZero` and the bench check. |
 | 1.82 | 2026-11-15 | Claude | #352 review round 1: JLINK-FR-041 row: `TestAVariableAtAddressZero` (9). |
 | 1.83 | 2026-11-15 | Claude | #352 review round 2: JLINK-FR-041 row: `TestAVariableAtAddressZero` (11). |
+| next | 2026-11-17 | Claude | #374: PICO-NFR-006 names the style.yml step by its new name, "Run CStyleCheck (PICO2 Test Board)". |
 ---
 
 ## 3. Purpose & Scope
@@ -677,7 +678,7 @@ tests in `tests/instruments/pico2_test_board/`.
 | PICO-NFR-003 | Target build and host test build both pass with `-Wall -Wextra -Wconversion -Wshadow -Wstrict-prototypes -Werror`; host tests pass under ASan and UBSan (ETB-SWE4-002 §13A). |
 | PICO-NFR-004 | `SWE4-UT-PICOFWPROTO` (9): `test_commands_agree`, `test_errors_agree`, `test_protocol_version_agrees`, `test_sensor_agrees`, `test_name_and_copyright_agree`, `test_version_is_semantic`, `test_default_address_agrees`. |
 | PICO-NFR-005 | `test_no_mandatory_third_party_imports`; the port is reached through CORE-DD-SERIAL, whose pyserial import is deferred. |
-| PICO-NFR-006 | `.github/workflows/style.yml` step "Run CStyleCheck (Pico thermometer)", `fail-on: info`, no baseline; `.cstylecheck-pico-aliases.txt`, `.cstylecheck-pico-exclusions.yml`. Local run with CStyleCheck v1.5.1: 18 files, 0 errors, 0 warnings, 0 info. |
+| PICO-NFR-006 | `.github/workflows/style.yml` step "Run CStyleCheck (PICO2 Test Board)", `fail-on: info`, no baseline; `.cstylecheck-pico-aliases.txt`, `.cstylecheck-pico-exclusions.yml`. Local run with CStyleCheck v1.5.1: 18 files, 0 errors, 0 warnings, 0 info. |
 
 ## 14. SER requirements to design, code and test
 

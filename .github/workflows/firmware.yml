@@ -11,7 +11,7 @@
 #   firmware    The real cross-compile against nRF5 SDK 17.1.0, producing the
 #               hex, elf and map, plus a DFU package for the dongle.
 #
-#   pico-unit-tests  The Pico 2 thermometer's portable code on the host, against
+#   pico-unit-tests  The PICO2 Test Board's portable code on the host, against
 #                    a fake HAL, under ASan and UBSan.
 #   pico-firmware    The real build against Pico SDK 2.1.1: elf, map and .uf2.
 #
@@ -182,10 +182,10 @@ jobs:
           retention-days: 7
 
   # ---------------------------------------------------------------------------
-  # Pico 2 + SHT30-D thermometer (firmware/pico2_test_board).
+  # PICO2 Test Board (firmware/pico2_test_board), renamed from the Pico 2 SHT30 thermometer by #330.
   # Traces to: PICO-FR-031, PICO-NFR-003, SWE4-UT-PICOFW.
   pico-unit-tests:
-    name: Pico thermometer unit tests (Unity + CTest, ASan/UBSan)
+    name: PICO2 Test Board unit tests (Unity + CTest, ASan/UBSan)
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
@@ -212,7 +212,7 @@ jobs:
           retention-days: 30
 
   pico-firmware:
-    name: Build Pico thermometer firmware (UF2)
+    name: Build PICO2 Test Board firmware (UF2)
     runs-on: ubuntu-24.04
     needs: pico-unit-tests
     env:
