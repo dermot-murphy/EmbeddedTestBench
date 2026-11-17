@@ -8,7 +8,7 @@
 | **Question** | Should the bench tools and the toolchain move into a Docker image, and how would the bench's instruments be reached from it? |
 | **Issue** | #70 |
 | **Prototype** | `docker/bench/Dockerfile` |
-| **Status** | Draft. The J-Link path was run on the bench on 2026-11-15 (§7.1) and works from the container; the serial path is still a plan, not a result |
+| **Status** | [by location, ETB-SUP1-001 §6.3](../aspice/EmbeddedTestBench_SUP1_Quality_Assurance_Plan.md#63-document-status). The J-Link path was run on the bench on 2026-11-15 (§7.1) and works from the container; the serial path is still a plan, not a result |
 
 ---
 
@@ -51,6 +51,7 @@ keep every USB device and every vendor tool that drives one on the host.
 | 0.4 | 2026-11-15 | Claude | #70 review round 2 (PR #350): §7.1 step 10 - that the -256 lines are routine is the operator's observation, not shown in the record. |
 | 0.5 | 2026-11-15 | Claude | #349 follow-up: §7 step 7 uses `halt` again, now that PR #351 halts the core on attach; §7.1 finding 2 says #349 is fixed and words its cause as the bench showed it (an attach after `monitor go`). |
 | 0.6 | 2026-11-15 | Claude | #349 follow-up review round 1 (PR #354): finding 2 says `stack` without a breakpoint is not yet shown since the fix; step 7 drops the separate `halt` and says `stack` and `var` are separate stops. |
+| next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. |
 
 ---
 

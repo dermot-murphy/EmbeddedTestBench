@@ -12,7 +12,7 @@
 |---|---|---|---|
 | **Document ID** | ETB-MAN3-001 | **Version** | [latest, §2](#2-revision-history) |
 | **Project** | Embedded Test Bench | **Date** | [latest, §2](#2-revision-history) |
-| **Status** | Draft | **Classification** | Internal |
+| **Status** | [by location, ETB-SUP1-001 §6.3](EmbeddedTestBench_SUP1_Quality_Assurance_Plan.md#63-document-status) | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | MAN.3 |
 
@@ -29,6 +29,8 @@
 | 0.3 | 2026-10-05 | Claude | #204: Review & Approval table points to the merge of the pull request that last changed the document, which is the review and approval (ETB-SUP8-001 §5.7); no per-change signatures or dates. |
 | 0.4 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | 0.5 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
+| next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. §10: the work product review is the QA review on every pull request and the approval by its merge, not a step out of Draft. |
+| next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
 
 ---
 
@@ -48,15 +50,15 @@ to believe them.
 
 | Document ID | Title | Version |
 |---|---|---|
-| ETB-MAN5-001 | Embedded Test Bench Risk Management Plan | 0.1 |
-| ETB-SUP1-001 | Embedded Test Bench Quality Assurance Plan | 0.1 |
-| ETB-SUP8-001 | Embedded Test Bench Configuration Management Plan | 0.1 |
-| ETB-SUP9-001 | Embedded Test Bench Problem Resolution Management Plan | 0.1 |
-| ETB-SUP10-001 | Embedded Test Bench Change Request Management Plan | 0.1 |
-| ETB-ACQ4-001 | Embedded Test Bench Supplier Monitoring Plan | 0.1 |
-| ETB-SYS2-001 | Embedded Test Bench System Requirements Specification | 0.1 |
-| ETB-DEV-001 | Embedded Test Bench AI Authorship Deviation | 0.1 |
-| ETB-DEV-002 | Embedded Test Bench Independent Review Deviation | 0.1 |
+| ETB-MAN5-001 | Embedded Test Bench Risk Management Plan | 0.7 |
+| ETB-SUP1-001 | Embedded Test Bench Quality Assurance Plan | 0.5 |
+| ETB-SUP8-001 | Embedded Test Bench Configuration Management Plan | 0.21 |
+| ETB-SUP9-001 | Embedded Test Bench Problem Resolution Management Plan | 0.5 |
+| ETB-SUP10-001 | Embedded Test Bench Change Request Management Plan | 0.5 |
+| ETB-ACQ4-001 | Embedded Test Bench Supplier Monitoring Plan | 0.11 |
+| ETB-SYS2-001 | Embedded Test Bench System Requirements Specification | 0.10 |
+| ETB-DEV-001 | Embedded Test Bench AI Authorship Deviation | 0.5 |
+| ETB-DEV-002 | Embedded Test Bench Independent Review Deviation | 0.5 |
 
 ### 3.3 Scope
 
@@ -187,7 +189,8 @@ regardless of what it adds.
 | Traceability check | Every change (part of the suite) | `tests/test_traceability.py` |
 | Firmware build | Every push | `.github/workflows/firmware.yml` |
 | C coding-standard check | Every push | `.github/workflows/style.yml` |
-| Work product review | Before a document's status moves past Draft | ETB-TMPL-001 record |
+| QA review | Every pull request, before the merge | The QA review on the pull request (ETB-SUP1-001 §6.5) |
+| Work product review and approval | Every pull request | The merge of the pull request (ETB-SUP1-001 §6.5, ETB-SUP8-001 §5.7) |
 | Risk review | At each milestone, and whenever a risk's trigger fires | ETB-MAN5-001 §7 |
 
 ### 10.1 Deviation Handling

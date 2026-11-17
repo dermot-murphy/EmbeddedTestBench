@@ -12,7 +12,7 @@
 |---|---|---|---|
 | **Document ID** | ETB-RTM-001 | **Version** | [latest, §2](#2-revision-history) |
 | **Project** | Embedded Test Bench | **Date** | [latest, §2](#2-revision-history) |
-| **Status** | Draft | **Classification** | Internal |
+| **Status** | [by location, ETB-SUP1-001 §6.3](EmbeddedTestBench_SUP1_Quality_Assurance_Plan.md#63-document-status) | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.1 / SWE.2 / SWE.3 / SWE.4 |
 
@@ -82,7 +82,6 @@
 | 1.46 | 2026-10-28 | Claude | #243: rows for S2LP-FR-088 .. S2LP-FR-092 (frame filters, intervals, census, copies, distinct values per group) and BLE-FR-123 (link times); §16 count 460 in force, 461 declared. |
 | 1.47 | 2026-10-28 | Claude | #274: BLE-FR-121 - `SWE4-UT-BLEDFU` now 47 tests, `SWE4-UT-BLESIM` `TestDfuPieces` (5) added, `test_dfu_client` 19 and `test_cmd_dfu` 8 (the ATT MTU and piece size each link allowed); BLE-NFR-006 - `SWE4-UT-FWUNIT` 192 cases. |
 | 1.48 | 2026-10-28 | Claude | #181: rows for DMM-FR-035 (blank frames while ranging) and DMM-FR-036 (frequency with no signal); STK-18 gains them; section 16 count 462 in force, 463 declared. |
-
 | 1.49 | 2026-10-28 | Claude | #247: STK-24 and section 14, SER (SER-FR-001 .. SER-FR-013, SER-NFR-001), the serial capture instrument; SER-ARC-001 in section 16; STK-23 gains SER-FR-008; sections 14 to 18 renumbered 15 to 19; section 17 count 475 in force, 476 declared, 37 non-functional. |
 | 1.50 | 2026-10-29 | Claude | #247, review of #318: the SER rows name the tests added for the socket port, a refused rate, the pattern's spaces, line endings, port failures, stopping, the line bound and the exit status after a `NACK`. |
 | 1.51 | 2026-10-29 | Claude | #247, review of #318 round 2: SER-FR-006 names `_read_lines`, `split_lines` and the reader's stop and join, and the added line-ending, port and stopping tests; SER-FR-004 drops the renamed pattern test and names the port that cannot open. |
@@ -118,7 +117,10 @@
 | 1.81 | 2026-11-15 | Claude | #352: JLINK-FR-041 row cites `TestAVariableAtAddressZero` and the bench check. |
 | 1.82 | 2026-11-15 | Claude | #352 review round 1: JLINK-FR-041 row: `TestAVariableAtAddressZero` (9). |
 | 1.83 | 2026-11-15 | Claude | #352 review round 2: JLINK-FR-041 row: `TestAVariableAtAddressZero` (11). |
+| next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. Blank lines that split this table removed. |
+| next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
 | next | 2026-11-17 | Claude | #374: PICO-NFR-006 names the style.yml step by its new name, "Run CStyleCheck (PICO2 Test Board)". |
+
 ---
 
 ## 3. Purpose & Scope
@@ -133,13 +135,13 @@ It is checked mechanically by `tests/test_traceability.py` on every run of the s
 
 | Document ID | Title | Version |
 |---|---|---|
-| ETB-SYS2-001 | Embedded Test Bench System Requirements Specification | 0.1 |
-| ETB-SWE1-001 | Embedded Test Bench Software Requirements Specification | 0.1 |
-| ETB-SWE2-001 | Embedded Test Bench Software Architecture Description | 0.1 |
-| ETB-SWE3-001 | Embedded Test Bench Software Detailed Design | 0.4 |
-| ETB-SWE3-002 | GPD-3303D Driver Design and Lessons Learned | 0.1 |
-| ETB-IF-001 | GPD-3303D Remote Control Interface Specification | 0.1 |
-| ETB-RTM-001 | Embedded Test Bench Requirements Traceability Matrix | 0.6 |
+| ETB-SYS2-001 | Embedded Test Bench System Requirements Specification | 0.10 |
+| ETB-SWE1-001 | Embedded Test Bench Software Requirements Specification | 1.70 |
+| ETB-SWE2-001 | Embedded Test Bench Software Architecture Description | 0.33 |
+| ETB-SWE3-001 | Embedded Test Bench Software Detailed Design | 1.90 |
+| ETB-SWE3-002 | GPD-3303D Driver Design and Lessons Learned | 0.4 |
+| ETB-IF-001 | GPD-3303D Remote Control Interface Specification | 0.4 |
+| ETB-RTM-001 | Embedded Test Bench Requirements Traceability Matrix | 1.83 |
 
 ---
 

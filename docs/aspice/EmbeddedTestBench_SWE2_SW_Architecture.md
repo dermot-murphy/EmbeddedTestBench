@@ -12,7 +12,7 @@
 |---|---|---|---|
 | **Document ID** | ETB-SWE2-001 | **Version** | [latest, §2](#2-revision-history) |
 | **Project** | Embedded Test Bench | **Date** | [latest, §2](#2-revision-history) |
-| **Status** | Draft | **Classification** | Internal |
+| **Status** | [by location, ETB-SUP1-001 §6.3](EmbeddedTestBench_SUP1_Quality_Assurance_Plan.md#63-document-status) | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SWE.2 |
 
@@ -42,7 +42,6 @@
 | 0.16 | 2026-10-05 | Claude | #60: AD-23 covers BLE-FR-119 - timeouts by command prefix, and the timeout each result reports. |
 | 0.17 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
 | 0.18 | 2026-10-25 | Claude | #238: AD-29: device-specific code is a plugin, loaded by path, not part of the package. |
-
 | 0.19 | 2026-10-28 | Claude | #247: SER-ARC-001 added, the serial capture instrument; the layering diagram and the interfaces (the device's serial port, receive only) updated. |
 | 0.20 | 2026-11-12 | Claude | #328: PICO-ARC-001 updated for the `wr` command and the three indicator LEDs; the LED GPIO interface added. |
 | 0.21 | 2026-11-12 | Claude | #202: merged with #328 (LEDs). PICO-ARC-001: the one `wr` command also stores the frequency generator's settings, read by `rd` and run by `routine`; `fgen` and `cmd_fgen` added. The generator's I2S and GPIO interface added, with the bench wiring. |
@@ -58,6 +57,9 @@
 | 0.31 | 2026-11-14 | Claude | #84 review round 1: AD-32 trace count 21. |
 | 0.32 | 2026-11-14 | Claude | #84 (driver): S2LP-ARC-001 names `kit_firmware`, `kit_driver`, `KitSession` and `SimulatedKitFirmware`; AD-32 - the host driver is `S2lpDevkit`, and its trace adds SWE4-UT-S2LPKITHOST (31) and the driver's bench run. |
 | 0.33 | 2026-11-14 | Claude | #84 review round 3: AD-32 trace: SWE4-UT-S2LPKITHOST 31 -> 35. |
+| next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. Blank lines that split this table removed. |
+| next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
+
 ---
 
 ## 3. Purpose & Scope
@@ -72,11 +74,11 @@ This document satisfies **Automotive SPICE® PAM v4.0, SWE.2 — Software Archit
 
 | Document ID | Title | Version |
 |---|---|---|
-| ETB-SYS2-001 | Embedded Test Bench System Requirements Specification | 0.1 |
-| ETB-SWE1-001 | Embedded Test Bench Software Requirements Specification | 0.1 |
-| ETB-SWE2-001 | Embedded Test Bench Software Architecture Description | 0.1 |
-| ETB-SWE3-001 | Embedded Test Bench Software Detailed Design | 0.1 |
-| ETB-RTM-001 | Embedded Test Bench Requirements Traceability Matrix | 0.1 |
+| ETB-SYS2-001 | Embedded Test Bench System Requirements Specification | 0.10 |
+| ETB-SWE1-001 | Embedded Test Bench Software Requirements Specification | 1.70 |
+| ETB-SWE2-001 | Embedded Test Bench Software Architecture Description | 0.33 |
+| ETB-SWE3-001 | Embedded Test Bench Software Detailed Design | 1.90 |
+| ETB-RTM-001 | Embedded Test Bench Requirements Traceability Matrix | 1.83 |
 
 ---
 
