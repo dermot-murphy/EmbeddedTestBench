@@ -60,8 +60,9 @@ exist yet. The PR Review session's QA review of the pull request that adds this
 record is the independent check on it.
 
 **Sample.** The 15 pull requests merged into `develop` up to and including the
-merge of #381 (`83443f7`, 2026-11-17 15:36:51Z), from #337 on. That is the
-sample ETB-SUP1-002 used for GP 2.2.4 (AUD-v0.03-110), with #381 added.
+merge of #381 (`83443f7`, 2026-11-17 15:36:51Z), from #337 on. It covers
+the period of the gap ETB-SUP1-002 found under GP 2.2.4 (AUD-v0.03-110), and
+ends with #381, the first pull request under the QA review of §6.5.
 Pull requests merged after `83443f7` (#383 and later) belong to the next
 audit. This is not every pull
 request since `v0.02.0002`: the first audit is not a release audit, because
