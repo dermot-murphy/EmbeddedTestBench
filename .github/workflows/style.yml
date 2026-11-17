@@ -2,7 +2,7 @@
 #
 # Enforces the mechanically checkable part of ETB-STD-002 (Embedded C Coding
 # Standard) and ETB-STY-001 (Embedded C Style Guide) over the firmware this
-# project owns: the dongle firmware (baselined) and the Pico thermometer
+# project owns: the dongle firmware (baselined) and the PICO2 Test Board
 # firmware (clean, no baseline). The nRF5 SDK and the SoftDevice are vendor sources and are out
 # of scope (ETB-STD-002 §1.3), so they are not in the include patterns.
 #
@@ -45,11 +45,11 @@ jobs:
           baseline-file: .cstylecheck-baseline.json
           fail-on: error
 
-      # The Pico thermometer firmware (PICO-NFR-006), all of it - sources,
+      # The PICO2 Test Board firmware (PICO-NFR-006), all of it - sources,
       # headers and the host unit tests - checked in its own step so that its
       # module aliases cannot relax the check on the dongle firmware. It entered
       # the check clean, so it has no baseline and fails on any finding at all.
-      - name: Run CStyleCheck (Pico thermometer)
+      - name: Run CStyleCheck (PICO2 Test Board)
         id: cstylecheck-pico
         uses: dermot-murphy/CStyleCheck@v1.6.1
         with:

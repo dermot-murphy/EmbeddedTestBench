@@ -105,6 +105,7 @@
 | 1.69 | 2026-11-15 | Claude | #349 review round 1: JLINK-FR-004's reason narrowed to what #349 showed: the attach after an earlier client's `monitor go` finds the core running. |
 | 1.70 | 2026-11-15 | Claude | #352: JLINK-FR-041 - a variable at address 0 is refused. |
 | next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. Blank lines that split this table removed. |
+| next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
 
 ---
 
@@ -125,13 +126,13 @@ Requirements Analysis**.
 
 | Document ID | Title | Version |
 |---|---|---|
-| ETB-SYS2-001 | Embedded Test Bench System Requirements Specification | 0.1 |
-| ETB-SYS3-001 | Embedded Test Bench System Architecture Description | 0.1 |
-| ETB-SWE2-001 | Embedded Test Bench Software Architecture Description | 0.1 |
-| ETB-SWE3-001 | Embedded Test Bench Software Detailed Design | 0.1 |
-| ETB-SWE4-001 | Embedded Test Bench Software Unit Verification | 0.1 |
-| ETB-RTM-001 | Embedded Test Bench Requirements Traceability Matrix | 0.1 |
-| ETB-SUP8-001 | Embedded Test Bench Configuration Management Plan | 0.1 |
+| ETB-SYS2-001 | Embedded Test Bench System Requirements Specification | 0.10 |
+| ETB-SYS3-001 | Embedded Test Bench System Architecture Description | 0.8 |
+| ETB-SWE2-001 | Embedded Test Bench Software Architecture Description | 0.33 |
+| ETB-SWE3-001 | Embedded Test Bench Software Detailed Design | 1.90 |
+| ETB-SWE4-001 | Embedded Test Bench Software Unit Verification | 1.92 |
+| ETB-RTM-001 | Embedded Test Bench Requirements Traceability Matrix | 1.83 |
+| ETB-SUP8-001 | Embedded Test Bench Configuration Management Plan | 0.21 |
 
 ### 3.3 Scope
 
