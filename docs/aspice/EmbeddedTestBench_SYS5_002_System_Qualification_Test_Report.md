@@ -33,6 +33,7 @@
 | next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. |
 | next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
 | next | 2026-11-17 | Claude | #363: §12 added: status at `v0.03.0000` against the 68 requirements of today. It lists the four added since the campaign, the hardware runs since and the requirements they bear on, and the fixes not yet requalified, and summarises the release. Review & Approval is now §13. |
+| next | 2026-11-17 | Claude | #363, review round 1 (PR #399): §12.2 - the 2026-10-28 TTi run bears on -051 and -053, not -052; the 2026-11-16 row drops -073, which its README does not show. |
 
 ---
 
@@ -568,10 +569,10 @@ run's own records.
 | 2026-10-06 | `2026-10-06/180_open_link_retry`, `60_prefix_timeouts` | The dongle's link retry (#180), timeouts by command prefix (#60) | ETB-SYS2-041, -082 |
 | 2026-10-23 | `2026-10-23/` | DFU over BLE to an SDK 15.2 bootloader (#271, #275) | ETB-SYS2-041 |
 | 2026-10-25, 2026-10-27 | `2026-10-25/`, `2026-10-27/` | S2-LP frames between receives (#293, #299) | ETB-SYS2-046 |
-| 2026-10-28 | `2026-10-28/181_tti1604`, `274_dfu_piece_mtu` | The TTi 1604 after #181; DFU at minimum MTU | ETB-SYS2-051 to -053, -041 |
+| 2026-10-28 | `2026-10-28/181_tti1604`, `274_dfu_piece_mtu` | The TTi 1604 after #181; DFU at minimum MTU | ETB-SYS2-051, -053, -041 |
 | 2026-11-14 | `2026-11-14/` | The S2-LP kit's own firmware (#84); Kepler V10 frames (#335) | ETB-SYS2-046, -047 |
 | 2026-11-15 | `2026-11-15/` | J-Link attach and halt (#349), a variable at address 0 (#352), J-Link from the container (#70) | ETB-SYS2-031, -033, -090 |
-| 2026-11-15 to 2026-11-16 | `2026-11-16/325_kepler_v11_03` | The release regression run of Kepler's bench specifications on Kepler V11.03.0000 (#325). Its run folders are held in innovateuk-sensor; the README here records what ran | ETB-SYS2-041, -044, -046, -073 |
+| 2026-11-15 to 2026-11-16 | `2026-11-16/325_kepler_v11_03` | The release regression run of Kepler's bench specifications on Kepler V11.03.0000 (#325). Its run folders are held in innovateuk-sensor; the README here records what ran | ETB-SYS2-041, -044, -046 |
 
 ### 12.3 Fixes Not Yet Requalified
 
