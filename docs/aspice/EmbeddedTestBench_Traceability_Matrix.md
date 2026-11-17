@@ -121,6 +121,7 @@
 | next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
 | next | 2026-11-17 | Claude | #374: PICO-NFR-006 names the style.yml step by its new name, "Run CStyleCheck (PICO2 Test Board)". |
 | next | 2026-11-17 | Claude | #368: §18 - the design-unit answers say how they are checked, and that until #368 the check missed units with no code, `Traces to` lines with no unit, and the S2-LP kit firmware. |
+| next | 2026-11-17 | Claude | #367: §17 adds the DMM-ARC-001 and SER-ARC-001 rows, and the S2-LP kit firmware units. |
 
 ---
 
@@ -903,6 +904,9 @@ ETB-SWE4-002 §13D and the open items of §19 (OPEN-12).
 | BLE-ARC-001 | BLE-DD-CDC, -TIMESTAMP, -SCANNER, -NUS, -CMD, -MAIN, -BUILD, -TEST | `firmware/nordic_dongle/{src,include,config,ses,gcc,scripts,test}/*` |
 | S2LP-ARC-001 | S2LP-DD-S2LP, -REGS, -CONFIG, -PROTOCOL, -SESSION, -PACKETS, -SIM, -CLI, -CONST | `instruments/s2lp/{s2lp,registers,configuration,protocol,session,packets,simulator,cli,constants}.py` |
 | PSU-ARC-001 | PSU-DD-PSU, -CONST, -SIM, -CLI | `instruments/gpd3303d/{psu,constants,simulator,cli}.py` |
+| DMM-ARC-001 | DMM-DD-DMM, -PROTO, -CONST, -SIM, -CLI | `instruments/tti1604/{dmm,protocol,constants,simulator,cli}.py` |
+| SER-ARC-001 | SER-DD-DRIVER, -CONSOLE, -CONST, -SIM, -CLI | `instruments/serial_capture/{capture,errors,console,constants,simulator,cli}.py` |
+| S2LP-ARC-001 | S2LP-DD-KITHOST, S2LP-DD-KITFW | `instruments/s2lp/{kit_firmware,kit_driver}.py`, `firmware/s2lp_kit/{include,src,test}/*` |
 | RUN-ARC-001 | RUN-DD-SPEC, -LIMITS, -RESOLVE, -BENCH, -RESULTS, -RUNNER, -CONTROL, -REPORT, -CLI | `runner/*.py`, `cli.py` |
 | PICO-ARC-001 | PICO-DD-DRIVER, -CONST, -SIM, -CLI, -FLASH | `instruments/pico2_test_board/{thermometer,constants,simulator,cli,flash}.py` |
 | PICO-ARC-001 | PICO-DD-PROTOCOL, -VERSION, -BOARD, -HAL, -SHT30, -TEXT, -PARSER, -MAIN, -BUILD, -TEST | `firmware/pico2_test_board/{include,src,test}/*`, `CMakeLists.txt`, `pico_sdk_import.cmake` |
