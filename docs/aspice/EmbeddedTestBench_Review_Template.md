@@ -31,7 +31,7 @@
 | 0.5 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | 0.6 | 2026-10-25 | Claude | #210: C4 also asks that the Version and Date cells link to the revision history and that a new row is written as `next` (ETB-SUP8-001 §6.2). |
 | next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. The QA review posted on each pull request uses checks C1 to C6 and the type checks, in the table form in §3.1. GP 2.2.4 named in place of GP 2.2.3. |
-| next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at its released version, its last numbered revision, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). C5 names the released version. |
+| next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). C5 names the version of the last numbered row. |
 
 ---
 
@@ -126,7 +126,7 @@ Tick, cross, or mark n/a. A cross needs a finding in §7.
 | C2 | Is every claim in it checkable by someone who was not there? | |
 | C3 | Is each statement traceable up to what it satisfies and down to what satisfies it? | |
 | C4 | Are the identification block, revision history and status filled in and correct, with the revision history oldest entry first, the Version and Date cells linking to the history, and a new row written as `next` until the release numbers it (ETB-SUP8-001 §6.2)? | |
-| C5 | Are referenced documents cited by ID and version, the version being the cited document's released version (ETB-SUP8-001 §6.2)? | |
+| C5 | Are referenced documents cited by ID and version, the version being that of the cited document's last numbered revision row (ETB-SUP8-001 §6.2)? | |
 | C6 | Does it distinguish what has been confirmed on hardware from what has not? | |
 
 ### 6.2 Requirements documents (SYS.2, SWE.1)

@@ -46,7 +46,7 @@
 | 0.20 | 2026-11-14 | Claude | #70: §4 - the prototype bench image (`docker/bench/`) added as a configuration item. |
 | 0.21 | 2026-11-14 | Claude | #195: §5.8 - `Home` and the home page both carry the README's "At a glance" section. |
 | next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. §6 document versions: the rule that a version moves to 1.0 on leaving Draft is removed, since status no longer moves out of Draft; §6.2 drops the same example. |
-| next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at its released version, its last numbered revision, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). §6.2: the rule for the versions a Referenced Documents table cites, set by `number` and checked by `check`. |
+| next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). §6.2: the rule for the versions a Referenced Documents table cites (the last numbered version, with its two exceptions), set by `number` and checked by `check`. |
 
 ---
 
@@ -418,8 +418,13 @@ rows in one document.
 
 **Referenced documents (#377).** A Referenced Documents table with the
 columns Document ID, Title and Version cites each controlled document at its
-*released* version: the version of its last numbered revision history row.
-`next` rows are not counted, since they are not yet a version anyone can cite.
+*last numbered version*: the version of its last numbered revision history
+row. `next` rows are not counted, since they are not yet a version anyone can
+cite. This is the released version, with two exceptions: a new document's first
+row, 0.1, is numbered by hand and counts before any release contains it; and a
+row numbered by hand on a branch counts at once. Such a row fails `check` in
+every document that cites the document until those citations are updated in
+the same change.
 So a change on a branch does not touch the tables that cite the document, and
 `number` sets every such table when it numbers the `next` rows on the release
 or hotfix branch. A table that cites another baseline, such as ETB-SUP1-002's
@@ -437,7 +442,7 @@ elsewhere than its own history, if its numbered rows do not increase, if a
 numbered row follows a `next` row, or if a history row's version is neither
 `major.minor` nor `next` (a typo such as `Next` or `0.7.1` would otherwise be
 skipped), or if a Referenced Documents table cites a controlled document at
-other than its released version. `tests/test_traceability.py`
+other than its last numbered version. `tests/test_traceability.py`
 (SWE4-UT-TRACE) also fails if any history table's version column decreases
 from one row to the next.
 

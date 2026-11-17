@@ -21,9 +21,9 @@ of ETB-SVD-001 §5.3 up to date. ``check`` is what the test suite runs: every
 controlled document has both links, pointing at its own history, and its
 history is numbered in increasing order with any ``next`` rows last, and
 holds no row whose version is neither; and each Referenced Documents table
-cites every controlled document at its released version, the version of its
-last numbered row (#377). ``number`` also sets those cited versions. ``list`` prints each document's ID,
-version and date.
+cites every controlled document at the version of its last numbered row
+(#377). ``number`` also sets those cited versions. ``list`` prints each
+document's ID, version and date.
 
 ``merge`` is a git merge driver for the documents (``.gitattributes``). It
 resolves a conflict only inside a revision history, and only when every line
@@ -288,11 +288,12 @@ def doc_id(text):
     return match.group(1) if match else ""
 
 
-def released(text):
+def last_numbered(text):
     """The version of the document's last numbered history row, or None.
 
     This is the version a Referenced Documents table cites: ``next`` rows are
-    not yet a version anyone can cite (ETB-SUP8-001 §6.2, #377).
+    not yet a version anyone can cite (ETB-SUP8-001 §6.2, #377). It is the
+    released version except for a row numbered by hand since the last release.
     """
     numbered = [version for _, version, _ in history(text) if version != NEXT]
     return numbered[-1] if numbered else None
@@ -319,7 +320,7 @@ def _reference_rows(text):
             if row.startswith("#"):
                 break
             if not row.startswith("|"):
-                if header is not None and not row.strip() == "":
+                if header is not None:
                     break
                 continue
             cells = [cell.strip() for cell in row.split("|")[1:-1]]
@@ -339,9 +340,9 @@ def references(text):
 
 
 def reference_problems(text, versions):
-    """Cited versions that are not the cited document's released version.
+    """Cited versions that are not the cited document's last numbered version.
 
-    ``versions`` maps a controlled document's ID to ``released()``. A cited ID
+    ``versions`` maps a controlled document's ID to ``last_numbered()``. A cited ID
     not in the map (an external document) is not checked.
     """
     found = []
@@ -364,12 +365,12 @@ def set_references(text, versions):
     return "\n".join(lines)
 
 
-def released_versions(root, paths=None):
-    """Each controlled document's ID mapped to its released version."""
+def numbered_versions(root, paths=None):
+    """Each controlled document's ID mapped to its last numbered version."""
     found = {}
     for rel in paths if paths is not None else controlled_documents(root):
         text = read_text(Path(root) / rel)
-        version = released(text)
+        version = last_numbered(text)
         if doc_id(text) and version:
             found[doc_id(text)] = version
     return found
@@ -378,7 +379,7 @@ def released_versions(root, paths=None):
 def run_check(paths, root):
     """``check``: print each problem; 1 if there was any."""
     failed = False
-    versions = released_versions(root)
+    versions = numbered_versions(root)
     for rel in paths:
         text = read_text(Path(root) / rel)
         for message in problems(text, rel in HELD_BACK) + reference_problems(text, versions):
@@ -401,7 +402,7 @@ def run_number(paths, root):
             write_text(path, numbered)
             print("%s: numbered" % rel)
         versions[doc_id(numbered)] = current(numbered)[0]
-    cited = released_versions(root)
+    cited = numbered_versions(root)
     for rel in controlled_documents(root):
         path = Path(root) / rel
         text = read_text(path)

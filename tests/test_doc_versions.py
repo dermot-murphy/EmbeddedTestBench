@@ -158,7 +158,7 @@ class TestCheck:
 
 
 class TestReferences:
-    """Referenced Documents cite the released version (#377)."""
+    """Referenced Documents cite the last numbered version (#377)."""
 
     TABLE = "\n".join([
         "### 3.2 Referenced Documents",
@@ -170,9 +170,9 @@ class TestReferences:
         "",
     ])
 
-    def test_released_ignores_next_rows(self):
-        assert dv.released(document([("0.1", "a"), ("0.2", "b"), ("next", "c")])) == "0.2"
-        assert dv.released(document([("0.1", "a")])) == "0.1"
+    def test_last_numbered_ignores_next_rows(self):
+        assert dv.last_numbered(document([("0.1", "a"), ("0.2", "b"), ("next", "c")])) == "0.2"
+        assert dv.last_numbered(document([("0.1", "a")])) == "0.1"
 
     def test_a_stale_citation_is_a_problem(self):
         found = dv.reference_problems(document([("0.1", "a")], after=self.TABLE),
@@ -195,7 +195,7 @@ class TestReferences:
         assert dv.references(document([("0.1", "a")], after=table)) == []
 
     def test_every_citation_in_the_repository_is_current(self):
-        versions = dv.released_versions(ROOT)
+        versions = dv.numbered_versions(ROOT)
         offenders = ["%s: %s" % (rel, message) for rel in dv.controlled_documents(ROOT)
                      for message in dv.reference_problems(dv.read_text(ROOT / rel), versions)]
         assert not offenders, "\n  ".join(["referenced document versions:"] + offenders)
@@ -240,7 +240,7 @@ class TestNumber:
             text = dv.read_text(tmp_path / rel)
             assert dv.problems(text, rel in dv.HELD_BACK) == [], rel
             assert dv.current(text)[0] != dv.NEXT, rel
-        versions = dv.released_versions(tmp_path)
+        versions = dv.numbered_versions(tmp_path)
         for rel in dv.controlled_documents(tmp_path):
             assert dv.reference_problems(dv.read_text(tmp_path / rel), versions) == [], rel
 
