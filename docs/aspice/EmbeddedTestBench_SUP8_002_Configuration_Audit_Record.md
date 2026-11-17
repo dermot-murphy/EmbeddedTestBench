@@ -25,7 +25,7 @@
 | Version | Date | Author | Description of Change |
 |---|---|---|---|
 | 0.1 | 2026-11-17 | Claude | #374: initial. Configuration audit CA1 to CA7 of `v0.03.0000` (ETB-SUP8-001 §7.1) and the first recovery check (ETB-SUP8-001 §10). |
-| 0.2 | 2026-11-17 | Claude | #374, review round 1 (PR #386): §4.2 - the gap in what a clone holds is carried by #387 and ETB-RISK-016; R2 is a completeness check, not a backup check. |
+| next | 2026-11-17 | Claude | #374, review round 1 (PR #386): §4.2 - the gap in what a clone holds is carried by #387 and ETB-RISK-016; R2 is a completeness check, not a backup check. |
 
 ---
 
