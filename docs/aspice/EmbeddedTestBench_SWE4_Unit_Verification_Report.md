@@ -124,6 +124,7 @@
 | next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. Blank lines that split this table removed. |
 | next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
 | next | 2026-11-17 | Claude | #369: §4.0 gives the results of the release `v0.03.0000` per Python leg and firmware job, from the CI runs on `4b71a51`, with the per-test JUnit kept in `docs/aspice/unit_results/v0.03.0000/`. §5 is regenerated from that run, and its rows sum to the run's total. §16 - PC-1, PC-2, PC-3 and PC-8 and the verdict are current; the retired ID BENCHTOOLS-TRACE-001 is replaced by ETB-RTM-001 §18; the dongle has run on hardware. §17 is marked as earlier revisions' checks. |
+| next | 2026-11-17 | Claude | #369, review round 1 (PR #395): §5's total is the release run's, 4 557, and the paragraphs after it describe that run, not revision 1.32's. |
 
 ---
 
@@ -447,26 +448,13 @@ generated this table from a branch run; earlier revisions added rows by hand.
 | SWE4-UT-REPORT | `runner/test_report.py` | 24 | Pass |
 | SWE4-UT-RUNCLI | `runner/test_cli.py` | 25 | Pass |
 | SWE4-UT-PATHS | `core/test_paths.py`, `runner/test_input_paths.py` | 75 | Pass |
-| **Total (pytest)** | | **3 374** (3 374 passed) | **Pass** |
+| **Total (pytest)** | | **4 557** (4 555 passed, 2 skipped) | **Pass** |
 
-The Total row is the 1.32 whole-suite run (3 374). The group rows are not all
-from that run, so they do not add up to it. SWE4-UT-SELFCHECK and
-SWE4-UT-FIVEINST were added by #292 after this run; their rows give that run's
-results for the two files, which it ran but no group then named. These rows
-are from later runs of their own files, after cases were added:
-SWE4-UT-TRACE (30, #292), SWE4-UT-VIEWSERVER (36, #294; 44, #201),
-SWE4-UT-VIEWSTEPS (31, #201), SWE4-UT-TRANSPORT (31) and SWE4-UT-S2LPFRAME
-(10, #293). The whole suite passed on 2026-10-25 on
-the #293 branch with #292 and #294 merged in: 3 392 passed.
-
-The firmware unit tests run under CTest, not pytest, and are not in the pytest
-total. The dongle's 8 binaries (189 cases) were built and run on the bench PC
-for this revision. The Pico 2 thermometer's 3 binaries (83 cases) are built
-with AddressSanitizer and UndefinedBehaviorSanitizer, which the bench PC's
-MinGW gcc cannot build (it stops with an internal compiler error), so their
-result is CI run 39938471355 on 7507bda. No file under `firmware/` has changed
-between 7507bda and 9b7da17. `SWE4-UT-DMMBENCH` needs the real meter and is not
-part of the default run.
+Every row is from the release run of `v0.03.0000` (§4.0): the pytest rows from
+the Python 3.12 leg, which they sum to, and the firmware rows from the
+`firmware.yml` jobs on the same commit, counted in CTest binaries and not in the
+pytest total. `SWE4-UT-DMMBENCH` needs the real meter and is not part of the
+default run.
 
 ## 6. Coverage detail
 
