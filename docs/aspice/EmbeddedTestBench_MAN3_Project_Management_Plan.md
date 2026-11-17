@@ -32,6 +32,7 @@
 | next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. §10: the work product review is the QA review on every pull request and the approval by its merge, not a step out of Draft. |
 | next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
 | next | 2026-11-17 | Claude | #372: §4 adds ETB-OBJ-006, and §4.1 the process performance objectives and strategy for each process. §5 names the QA reviewer; §5.1 adds the skills and how they are monitored. §6 adds WP8 to WP12 and their monitoring. §7 maps the releases to milestones and restates M5; §7.1 adds the schedule, with GitHub milestones 1 and 2; §7.2 adds the feasibility evaluation. §8 gives the figures at `v0.03.0000`, and §8.1 adds the resource and effort estimates. §9 adds Pico Technology, Aim-TTi, Raspberry Pi and the AI supplier, and §9.1 the agreed commitments. §10.2 adds the release progress review, recorded in ETB-MAN3-002. |
+| next | 2026-11-17 | Claude | #365, review of PR #393: §7 - what each release added, corrected against the tags. |
 
 ---
 
@@ -194,11 +195,11 @@ Releases map to milestones as below. Each release is a baseline
 
 | Release | Date | Milestones it meets |
 |---|---|---|
-| `v0.01.0000` | 2026-10-05 | M1, M2, M3, M4 |
+| `v0.01.0000` | 2026-10-05 | M1, M2, M3, M4: oscilloscope, supply, J-Link, BLE dongle, S2-LP kit (ST firmware), TTi 1604 and the Pico 2 thermometer |
 | `v0.01.0001` | 2026-10-05 | Hotfix |
-| `v0.02.0000` | 2026-10-23 | M2 extended: TTi 1604, PICO2 Test Board, S2-LP kit |
+| `v0.02.0000` | 2026-10-23 | M2 and M3 extended: firmware update over BLE (DFU), the simulated Kepler sensor, dongle fixes, default timeouts in command documents |
 | `v0.02.0001`, `v0.02.0002` | 2026-10-23 | Hotfixes |
-| `v0.03.0000` | 2026-11-17 | M2 extended: PicoScope 3000D, PPK2, serial capture; the first internal audit (ETB-SUP1-002) |
+| `v0.03.0000` | 2026-11-17 | M2 extended: PicoScope 3000D, PPK2, serial capture, the S2-LP kit's own firmware, the PICO2 Test Board (renamed from the thermometer); the first internal audit (ETB-SUP1-002) |
 
 M1 to M4 are met. #371 redefined M5. There is no Draft status to leave, and the
 baseline is reviewed and approved by the merge of each change. M5 is therefore
