@@ -4,6 +4,8 @@
  *
  * The interrupt only advances m_head and the main loop only advances m_tail,
  * so neither needs a lock on a single-core part.
+ *
+ * Traces to: S2LP-DD-KITFW.
  */
 
 #include "ring.h"

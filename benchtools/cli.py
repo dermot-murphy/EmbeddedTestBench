@@ -3,7 +3,7 @@
 Dispatches to a per-tool command line rather than nesting argparse parsers, so
 each tool keeps its own complete ``--help`` and can be run directly.
 
-Traces to: RUN-FR-050, SCOPE-FR-100.
+Traces to: RUN-FR-050, SCOPE-FR-100, RUN-DD-CLI.
 """
 
 from __future__ import annotations
