@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="(empty)"
+	tests="2"
+	failures="0"
+	disabled="0"
+	skipped="0"
+	hostname=""
+	time="0"
+	timestamp="2026-11-17T09:37:06"
+	>
+	<testcase name="rx" classname="rx" time="0.00122793" status="run">
+		<properties/>
+		<system-out>/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/s2lp_kit/test/test_rx.c:233:test_start_routes_nirq_masks_irqs_and_arms:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/s2lp_kit/test/test_rx.c:234:test_too_many_registers_is_refused:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/s2lp_kit/test/test_rx.c:235:test_a_frame_is_queued_with_time_and_registers_then_rearmed:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/s2lp_kit/test/test_rx.c:236:test_a_full_fifo_is_read_whole:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/s2lp_kit/test/test_rx.c:237:test_a_count_beyond_the_fifo_is_held_to_it:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/s2lp_kit/test/test_rx.c:238:test_the_longest_deaf_time_is_kept:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/s2lp_kit/test/test_rx.c:239:test_a_discarded_reception_is_queued_as_a_rejection:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+	<testcase name="cmd" classname="cmd" time="0.000757912" status="run">
+		<properties/>
+		<system-out>/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/s2lp_kit/test/test_cmd.c:187:test_id_names_firmware_protocol_and_silicon:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/s2lp_kit/test/test_cmd.c:188:test_wr_then_rd:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/s2lp_kit/test/test_cmd.c:189:test_bad_arguments_are_refused:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/s2lp_kit/test/test_cmd.c:190:test_cmd_strobes_and_reports_status:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/s2lp_kit/test/test_cmd.c:191:test_sdn:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/s2lp_kit/test/test_cmd.c:192:test_receiving_refuses_register_access_but_answers_stat:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/s2lp_kit/test/test_cmd.c:193:test_rx_stop_sends_what_is_queued_before_its_answer:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/s2lp_kit/test/test_cmd.c:194:test_a_li...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+</testsuite>

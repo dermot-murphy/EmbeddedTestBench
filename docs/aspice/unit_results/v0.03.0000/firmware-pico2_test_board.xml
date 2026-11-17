@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="(empty)"
+	tests="4"
+	failures="0"
+	disabled="0"
+	skipped="0"
+	hostname=""
+	time="0"
+	timestamp="2026-11-17T09:37:03"
+	>
+	<testcase name="text" classname="text" time="0.0513782" status="run">
+		<properties/>
+		<system-out>/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/pico2_test_board/test/test_text.c:176:test_a_new_line_is_empty_and_terminated:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/pico2_test_board/test/test_text.c:177:test_strings_and_characters_append:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/pico2_test_board/test/test_text.c:178:test_a_token_has_no_spaces:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/pico2_test_board/test/test_text.c:179:test_unsigned_decimals:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/pico2_test_board/test/test_text.c:180:test_milli_units_have_three_places:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/pico2_test_board/test/test_text.c:181:test_negative_milli_units_carry_the_sign:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/pico2_test_board/test/test_text.c:182:test_the_most_negative_value_is_formatted:PASS
+/home/runner/work/EmbeddedTestBench/Emb...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+	<testcase name="sht30" classname="sht30" time="0.00552495" status="run">
+		<properties/>
+		<system-out>/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/pico2_test_board/test/test_sht30.c:235:test_crc_matches_the_datasheet_check_value:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/pico2_test_board/test/test_sht30.c:236:test_crc_of_nothing_is_the_initial_value:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/pico2_test_board/test/test_sht30.c:237:test_temperature_end_points:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/pico2_test_board/test/test_sht30.c:238:test_temperature_mid_scale:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/pico2_test_board/test/test_sht30.c:239:test_temperature_rounds_to_nearest:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/pico2_test_board/test/test_sht30.c:240:test_humidity_end_points_and_mid_scale:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/pico2_test_board/test/test_sht30.c:241:test_decode_a_good_frame:PASS
+/home/runner/work/EmbeddedTestBench/E...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+	<testcase name="cmd_parser" classname="cmd_parser" time="0.00866181" status="run">
+		<properties/>
+		<system-out>/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/pico2_test_board/test/test_cmd_parser.c:600:test_a_line_is_ready_at_lf:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/pico2_test_board/test/test_cmd_parser.c:601:test_cr_is_ignored:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/pico2_test_board/test/test_cmd_parser.c:602:test_an_over_length_line_is_dropped_whole:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/pico2_test_board/test/test_cmd_parser.c:603:test_the_line_after_an_overflow_is_accepted:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/pico2_test_board/test/test_cmd_parser.c:604:test_the_longest_line_that_fits_is_ready:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/pico2_test_board/test/test_cmd_parser.c:605:test_an_overflow_is_reported:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/pico2_test_board/test/test_cmd_parser.c:606:test_a_blank_line_has_no_reply:PASS
+/home/r...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+	<testcase name="fgen" classname="fgen" time="0.0303069" status="run">
+		<properties/>
+		<system-out>/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/pico2_test_board/test/test_fgen.c:509:test_the_sample_rate_is_an_integer_division_of_the_clock:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/pico2_test_board/test/test_fgen.c:510:test_harmonics_stop_at_the_dac_pass_band:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/pico2_test_board/test/test_fgen.c:511:test_harmonics_are_capped_at_low_frequency:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/pico2_test_board/test/test_fgen.c:512:test_pwm_at_the_top_of_the_range_is_exact:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/pico2_test_board/test/test_fgen.c:513:test_pwm_reaches_the_bottom_of_the_range:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/pico2_test_board/test/test_fgen.c:514:test_pwm_duty:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/pico2_test_board/test/test_fgen.c:515:test_defaults:PASS
+/home/runner/work/EmbeddedTest...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+</testsuite>
