@@ -26,6 +26,7 @@
 | Version | Date | Author | Description of Change |
 |---|---|---|---|
 | 0.1 | 2026-11-17 | Claude | #198: first issue. First internal audit, of release `v0.03.0000` against Capability Level 2. |
+| next | 2026-11-17 | Claude | #198: review round 1 (PR #378). §5.1 applies the ISO/IEC 33020 capability level rule (CL2 needs PA 1.1 F): 0 of 17 processes reach CL2, 9 reach CL1. SWE.3 BP3 rated L, not F, because lint and the C standard pass against baselines of known violations; new finding AUD-v0.03-112 on its own issue. SWE.3 BP3 module count corrected to 146. §4.2: generic practice titles are unverified too. |
 
 ---
 
@@ -91,7 +92,7 @@ checked; PAM v4.0 leaves the aggregation to the assessment.
 A plan that defines an activity is evidence for the definition, not for the
 activity. Performance is credited only where a record of it exists.
 
-The base practice titles are those of PAM v4.0 as the auditor knows them. They
+The base and generic practice titles are those of PAM v4.0 as the auditor knows them. They
 were not checked against the VDA text in this session, which is not in the
 repository; this is recorded as unverified (ETB-RISK-004).
 
@@ -117,30 +118,33 @@ basis (§6).
 
 ### 5.1 Process Attribute Ratings
 
-| Process | PA 1.1 | PA 2.1 | PA 2.2 | CL2 target met |
-|---|---|---|---|---|
-| SYS.2 | P | L | L | No |
-| SYS.3 | P | L | L | No |
-| SYS.4 | N | P | L | No |
-| SYS.5 | L | L | L | No |
-| SWE.1 | P | L | L | No |
-| SWE.2 | L | L | L | No |
-| SWE.3 | L | L | L | No |
-| SWE.4 | L | L | L | No |
-| SWE.5 | L | L | L | No |
-| SWE.6 | P | L | L | No |
-| MAN.3 | P | L | L | No |
-| MAN.5 | L | L | L | No |
-| SUP.1 | P | L | L | No |
-| SUP.8 | L | L | L | No |
-| SUP.9 | P | L | L | No |
-| SUP.10 | L | L | L | No |
-| ACQ.4 | L | L | L | No |
+| Process | PA 1.1 | PA 2.1 | PA 2.2 | Capability level | Target met |
+|---|---|---|---|---|---|
+| SYS.2 | P | L | L | CL0 | No |
+| SYS.3 | P | L | L | CL0 | No |
+| SYS.4 | N | P | L | CL0 | No |
+| SYS.5 | L | L | L | CL1 | No |
+| SWE.1 | P | L | L | CL0 | No |
+| SWE.2 | L | L | L | CL1 | No |
+| SWE.3 | L | L | L | CL1 | No |
+| SWE.4 | L | L | L | CL1 | No |
+| SWE.5 | L | L | L | CL1 | No |
+| SWE.6 | P | L | L | CL0 | No |
+| MAN.3 | P | L | L | CL0 | No |
+| MAN.5 | L | L | L | CL1 | No |
+| SUP.1 | P | L | L | CL0 | No |
+| SUP.8 | L | L | L | CL1 | No |
+| SUP.9 | P | L | L | CL0 | No |
+| SUP.10 | L | L | L | CL1 | No |
+| ACQ.4 | L | L | L | CL1 | No |
 
 **Verdict: the target is not met.** No process in scope has PA 1.1, PA 2.1
-and PA 2.2 all Fully achieved. Measured against the ordinary threshold for
-Capability Level 2 (PA 1.1 L or F with PA 2.1 and PA 2.2 L or F),
-9 of 17 processes would reach it: SYS.5, SWE.2, SWE.3, SWE.4, SWE.5, MAN.5, SUP.8, SUP.10, ACQ.4.
+and PA 2.2 all Fully achieved.
+
+The capability level column applies the ISO/IEC 33020 rule: a level is
+achieved when its own attributes are L or F and every lower-level attribute is
+F. Capability Level 2 therefore needs PA 1.1 F with PA 2.1 and PA 2.2 L or F.
+0 of 17 processes reach Capability Level 2. 9 reach Capability Level 1 (SYS.5, SWE.2, SWE.3, SWE.4, SWE.5, MAN.5, SUP.8, SUP.10, ACQ.4); the rest are at Capability Level 0.
 
 ### 5.2 The Four Gaps Named in #198
 
@@ -171,6 +175,7 @@ Capability Level 2 (PA 1.1 L or F with PA 2.1 and PA 2.2 L or F),
 | #375 | SUP.9 and SUP.10: issue records do not follow the plans | AUD-v0.03-078, AUD-v0.03-079, AUD-v0.03-080, AUD-v0.03-081, AUD-v0.03-082, AUD-v0.03-083, AUD-v0.03-084, AUD-v0.03-085, AUD-v0.03-086, AUD-v0.03-087, AUD-v0.03-088, AUD-v0.03-089, AUD-v0.03-090 |
 | #376 | ACQ.4: AI model supplier, joint activities and stale supplier facts | AUD-v0.03-091, AUD-v0.03-092, AUD-v0.03-093, AUD-v0.03-094, AUD-v0.03-095, AUD-v0.03-106 |
 | #377 | Referenced Documents tables cite version 0.1 throughout | AUD-v0.03-109 |
+| #379 | SWE.3 unit conformance: baselined lint and C-standard violations, MISRA, compiler flags | AUD-v0.03-112 |
 
 ---
 
@@ -244,7 +249,7 @@ Capability Level 2 (PA 1.1 L or F with PA 2.1 and PA 2.2 L or F),
 |---|---|---|---|
 | BP1 Specify the static aspects of the detailed design | **L** | ETB-SWE3-001 §5.1 to §5.13: 150 design units; ETB-SWE3-002 for the GPD-3303D. | AUD-v0.03-033 |
 | BP2 Specify dynamic aspects of the detailed design | **P** | Prose; ETB-SWE3-002 §5.3 sequence diagram, §5.4 state. | AUD-v0.03-034 |
-| BP3 Develop software units | **F** | 154 modules under `benchtools/`; three firmware trees; CStyleCheck v1.6.1 (`style.yml`) against ETB-STD-002; pylint (`lint.yml`); both green on 4b71a51 (CI run 44057131775, 44057131989). | — |
+| BP3 Develop software units | **L** | 146 Python modules under `benchtools/`; three firmware trees; CStyleCheck v1.6.1 (`style.yml`) against ETB-STD-002; pylint (`lint.yml`); both green on 4b71a51 (CI run 44057131775, 44057131989). | AUD-v0.03-112 |
 | BP4 Ensure consistency and establish bidirectional traceability | **L** | ETB-RTM-001 §5 to §17 trace requirement, architecture, design unit, source, test. | AUD-v0.03-035 |
 | BP5 Communicate agreed design and developed units | **P** | Merged by PR; ETB-SVD-001 §5.3 (1.90, Draft). | AUD-v0.03-036 |
 
@@ -576,8 +581,9 @@ processes that share the rating and the gap.
 | AUD-v0.03-109 | SYS.2, SYS.3, SYS.4, SYS.5, SWE.1, SWE.2, SWE.3, SWE.4, SWE.5, SWE.6, MAN.3, MAN.5, SUP.1, SUP.8, SUP.9, SUP.10, ACQ.4 | GP 2.2.3 Identify, store and control the work products | L | Git, document IDs, revision histories checked by `scripts/doc_versions.py check` (exit 0 at the tag); annotated tag v0.03.0000; ETB-SVD-001 §5.3. | Status not controlled: every document is Draft (ETB-SVD-001 §7 item 9) although ETB-SUP1-001 §6.3 defines when it leaves Draft; ETB-SYS2-001 §2 table broken by a blank line (rows 0.8 to 0.10 outside it); Referenced Documents tables cite 0.1 throughout. | Status maintained; references current; tables intact. | #377 |
 | AUD-v0.03-110 | SWE.1, SWE.2, SWE.3, SWE.4 | GP 2.2.4 Review and adjust work products | L | Changes reviewed in rounds on the PR (e.g. #352 review rounds 1 and 2) and merged by or on the instruction of the owner (ETB-SUP8-001 §5.7). | The reviews on the last 15 merged PRs are `claude-auto-review` comments; no record shows the owner applied C1 to C6 (ETB-SUP1-001 §6.5); stale sections not adjusted (see SWE BPs). | A record of the Reviewer's review against C1 to C6 per PR, and work products adjusted. | #371 |
 | AUD-v0.03-111 | SYS.2, SYS.3, SYS.4, SYS.5, SWE.5, SWE.6, MAN.3, MAN.5, SUP.1, SUP.8, SUP.9, SUP.10, ACQ.4 | GP 2.2.4 Review and adjust work products | P | Merge of the PR is the review (ETB-SUP8-001 §5.7, ETB-DEV-002 §4). | As above, and these work products were not adjusted when the facts changed; ETB-PA2-001 and ETB-ANA-001 §6.5 still say no review exists, which conflicts with #204; ETB-DEV-002 cites GP 2.2.3 for review where ETB-PA2-001 uses GP 2.2.4. | As above. | #371 |
+| AUD-v0.03-112 | SWE.3 | SWE.3.BP3 Develop software units | L | 146 Python modules under `benchtools/`; three firmware trees; CStyleCheck v1.6.1 (`style.yml`) against ETB-STD-002; pylint (`lint.yml`); both green on 4b71a51 (CI run 44057131775, 44057131989). | Both checks pass against baselines of known violations: pylint 436 findings, CStyleCheck 107 (ETB-SVD-001 §5.5, §7 items 12, 13). No MISRA checker runs (§7 item 10); the dongle build sets no `-std` and no `-Wextra` (§7 item 11). | Units conform to ETB-STD-002 and the Python rules without a baseline, or each baselined violation dispositioned; MISRA and compiler flags in force. | #379 |
 
-111 findings.
+112 findings.
 
 ---
 
