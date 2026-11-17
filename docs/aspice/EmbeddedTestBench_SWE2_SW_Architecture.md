@@ -61,6 +61,7 @@
 | next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
 | next | 2026-11-17 | Claude | #379: BLE-ARC-001 names the scanner's entry point `ble_scanner_on_ble_evt`, its name since the module prefix was adopted on the dongle firmware. |
 | next | 2026-11-17 | Claude | #367: §5 shows the s2lp, gpd3303d and tti1604 packages, the plugin registry and the plugin panels. §10 adds the GPD-3303D, TTi 1604, S2-LP kit and J-Link Commander links. §7.0 added: the evaluation criteria and, for each of AD-01 to AD-32, the alternatives and why they were not taken. §8 is now dynamic behaviour: §8.0 the runner invocation, §8.1 to §8.13 each element's states and timing, with the J-Link rule J1 on GDB's view after `monitor` commands. §9 adds the PSU, DMM, S2-LP, PICO, PicoScope, PPK2 and viewer resources, and corrects the dongle queue to 31 lines. |
+| next | 2026-11-17 | Claude | #364: §6 - each element traces to the system elements it realises, in ETB-RTM-001, checked by the suite. |
 
 ---
 
@@ -164,6 +165,10 @@ on a violation. The core is additionally checked to contain no reference to any
 instrument, and to be importable without importing any other element.
 
 ## 6. Architectural elements
+
+Each element below realises one or more system elements of ETB-SYS3-001 §5. The
+mapping is in ETB-RTM-001, section "Software Architecture to System Architecture",
+and the suite checks that every element here is in it (#364).
 
 | ID | Element | Responsibility | Key interfaces |
 |---|---|---|---|
