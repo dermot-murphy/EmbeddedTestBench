@@ -32,6 +32,7 @@
 | 0.6 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
 | next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. §6.5 updated: review is by merge since #204, with a QA review on each pull request since #371; it no longer says no review exists. |
 | next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
+| next | 2026-11-17 | Claude | #379: §6.13 resolved - the 416 pylint findings left in the baseline fixed, or disabled inline with their reason where the shape is required, and `.pylint-baseline.json` deleted; `scripts/lint.py` fails on any finding. Scorecard: 7 warnings (1 resolved). |
 
 ---
 
@@ -92,7 +93,7 @@ module has a test module beside it.
 | Severity | Count |
 |---|---|
 | 🔴 Critical | 1 (1 resolved) |
-| 🟡 Warning | 7 |
+| 🟡 Warning | 7 (1 resolved) |
 | 🔵 Improvement | 4 |
 | ✅ Well handled | 6 |
 
@@ -273,9 +274,26 @@ findings need a decision recorded in ETB-STY-001 first: either adopt the module
 prefix on internal functions, or exempt internal linkage as a stated
 convention.
 
-### 6.13 🟡 Warning — The Python lint check runs against a baseline of 436 findings
+### 6.13 ✅ Resolved — The Python lint check runs with no baseline
 
-`pylint` at its defaults reported **3 282** findings over `benchtools/` and
+*Raised as a warning, a lint check run against a baseline of 436 findings;
+resolved 2026-11-17 by #379 (audit finding AUD-v0.03-112).*
+
+**How it was resolved.** The 416 findings left in the baseline were fixed, and
+`.pylint-baseline.json` was deleted. `scripts/lint.py` now fails on any
+finding. Most were fixed in the code: docstrings written, long lines wrapped,
+trailing returns removed, files opened in context managers, unused arguments
+removed, exceptions narrowed, and long functions split into helpers. Where the
+shape is required, by an instrument's own parameters, a record of fields, a
+resource that deliberately outlives the call or the runner's catch-all
+boundary (ETB-SYS2-003), the finding is disabled inline on that def, class or
+line with its reason in the same comment. No threshold in `pyproject.toml` was
+changed. The two driver modules over pylint's 1 000-line limit,
+`jlink/probe.py` and `nordic_dongle/dongle.py`, carry a module-scoped
+`too-many-lines` disable with its reason, because pylint accepts no narrower
+one; splitting them is its own change (§6.6).
+
+**What it was.** `pylint` at its defaults reported **3 282** findings over `benchtools/` and
 `tests/`, scoring 8.23/10. That came down in three steps, and the difference
 between them is the point:
 
@@ -330,9 +348,10 @@ implements ETB-SYS2-003, so those thirteen are arguably a decision rather than
 debt. They are baselined rather than disabled because a blanket disable would
 also hide the careless catches nobody has written yet.
 
-**Action:** the 98 missing docstrings and the 47 long lines are the tractable
-half and would come out in ordinary work on those files. The design metrics
-should be left alone until a module is being changed for another reason.
+**Action (as raised):** the 98 missing docstrings and the 47 long lines are
+the tractable half and would come out in ordinary work on those files. The
+design metrics should be left alone until a module is being changed for
+another reason. Superseded by #379, which fixed all of them.
 
 ---
 

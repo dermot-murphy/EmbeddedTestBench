@@ -48,6 +48,7 @@
 | next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. §6 document versions: the rule that a version moves to 1.0 on leaving Draft is removed, since status no longer moves out of Draft; §6.2 drops the same example. |
 | next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). §6.2: the rule for the versions a Referenced Documents table cites (the last numbered version, with its two exceptions), set by `number` and checked by `check`. |
 | next | 2026-11-17 | Claude | #374: §4 - Document ID column reads `ETB-…`, documents versioned by their last history row, firmware source lists all three trees. §6.2 - ETB-SVD-001 has taken the links, `HELD_BACK` is empty. §7.1 added: configuration audit CA1 to CA7 per release baseline, recorded in ETB-SUP8-002. §9 - current document version is the last history row. §10 - the recovery check, recorded in ETB-SUP8-002. |
+| next | 2026-11-17 | Claude | #379: §4 - the Python rule configuration is `[tool.pylint]` alone; `.pylint-baseline.json` deleted, and any pylint finding fails the check. |
 
 ---
 
@@ -97,7 +98,7 @@ physical bench instruments whose identity affects a result.
 | Bench image (prototype) | `docker/bench/Dockerfile`, `docker/bench/Dockerfile.dockerignore` | Filename | git - base image pinned by digest, uv by tag; Python, the Arm GNU Toolchain release and its SHA-256 pinned in the Dockerfile; libraries from `constraints/py3.12.txt`; not built by CI, not published, not used for evidence (ETB-DOCK-001) |
 | Generated outputs | GitHub wiki; `gh-pages` branch (home page) | Wiki page name; file path | Regenerated from `main` by `wiki_publish.yml` and `pages_publish.yml`; never edited by hand (§5.8) |
 | C rule configuration | `.cstylecheck.yml`, `.cstylecheck-baseline.json` | Filename | git — the baseline changes only with a recorded reason |
-| Python rule configuration | `[tool.pylint]` in `pyproject.toml`, `.pylint-baseline.json` | Filename | git — as above |
+| Python rule configuration | `[tool.pylint]` in `pyproject.toml`; no baseline, any finding fails (#379) | Filename | git — a rule is switched off only with its reason beside it |
 | Build tools | Python, `nrfutil`, GNU Arm toolchain, nRF5 SDK | Name + exact version | Pinned in the workflow; recorded in ETB-SVD-001 |
 | External actions | `dermot-murphy/CStyleCheck@v1.6.1` | Repository + tag | Pinned in the workflow |
 | Bench instruments | Scope, supply, J-Link, dongle | Model + serial + firmware revision | Queried at run time and written into every report |
