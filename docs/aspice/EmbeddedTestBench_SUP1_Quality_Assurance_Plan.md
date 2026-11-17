@@ -30,6 +30,7 @@
 | 0.4 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | 0.5 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
 | next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. §6.5 adds the QA review that the PR Review session posts on every pull request, with checks C1 to C6 per work product, as the per-pull-request QA record; the merge remains the approval. §6.6 added: content requirements per work product type (GP 2.2.1), for content added or changed from #371 on. §5, §7 and §9 updated to match. Review round 1 (PR #381): §6.3 statuses are exclusive, in order Released, Agreed, In review, In work; §6.5 says what the QA reviewer is given. Review round 2: the status is found from the commit that last changed the file. Round 3: status follows the text; the steps that find it are numbered, and test `develop` with `merge-base --is-ancestor`. |
+| next | 2026-11-17 | Claude | #373: §6.7 added: process QA, with criteria PQ1 to PQ8 checked on each merged pull request before each release, and the QA summary per release, recorded in ETB-SUP1-003. §8 - escalation ends at the lead, recorded as ETB-DEV-003. §9 and §3.2 list ETB-SUP1-003 and ETB-DEV-003. |
 
 ---
 
@@ -58,6 +59,7 @@ that nobody can reconstruct.
 | ETB-STY-001 | Embedded Test Bench Embedded C Style Guide | 0.1 |
 | ETB-DEV-001 | Embedded Test Bench AI Authorship Deviation | 0.1 |
 | ETB-DEV-002 | Embedded Test Bench Independent Review Deviation | 0.1 |
+| ETB-DEV-003 | Embedded Test Bench QA Independence Deviation | 0.1 |
 
 ### 3.3 Scope
 
@@ -217,6 +219,45 @@ the table.
 | Deviation | ETB-DEV-001, ETB-DEV-002 | The clause not met, why, the compensating measures, and what would close it |
 | Standard, guide or template | ETB-STD-001, ETB-STD-002, ETB-STY-001, ETB-TMPL-001, ETB-TMPL-002 | The rules or fields, each with its rationale where it is not obvious |
 
+### 6.7 Process Quality Assurance
+
+Work product QA (§6.5) asks whether a change is right. Process QA asks whether
+the change was made the way the plans say. It is performed by the QA reviewer
+(§6.5), and its independence is as ETB-DEV-003 records.
+
+**Criteria.** Each pull request merged into `develop` or `main` is checked
+against these:
+
+| # | Criterion | Plan | Evidence read |
+|---|---|---|---|
+| PQ1 | It targets `develop`, or follows a gitflow exception | ETB-SUP8-001 §5.1 | The pull request's base |
+| PQ2 | It is merged with a merge commit; a merge Claude made carries the note | ETB-SUP8-001 §5.7 | The merge commit's parents and body |
+| PQ3 | Every required check passed before the merge | ETB-SUP8-001 §5.5 | The pull request's check runs |
+| PQ4 | A QA review in the §6.5 form was posted before the merge, and each finding was answered | §6.5 | The pull request's reviews and threads |
+| PQ5 | It names its issue, and the issue is closed after the merge with what was done | `CLAUDE.md`; ETB-SUP9-001 §7; ETB-SUP10-001 §5 | The title or body; the issue |
+| PQ6 | Each controlled document it changes has a new revision row, and `scripts/doc_versions.py check` passes | ETB-SUP8-001 §6.2 | The diff; the check on the merge commit |
+| PQ7 | A problem it fixes carries a `severity:` label; a change request it implements has its approval on the issue before the first push | ETB-SUP9-001 §5; ETB-SUP10-001 §5 | The issue's labels and its timeline |
+| PQ8 | For a release: the configuration audit and recovery check are recorded before the merge into `main` | ETB-SUP8-001 §7.1, §10 | ETB-SUP8-002 |
+
+A criterion is checked only for pull requests merged after the plan that
+introduced it. Earlier pull requests are marked n/a for it.
+
+**When.** On the release branch, before the release pull request is opened, over
+every pull request merged since the previous release. Also at each milestone
+review (ETB-MAN3-001 §10).
+
+**Procedure.**
+
+1. List the pull requests merged since the previous release tag.
+2. Check each against PQ1 to PQ8. Record pass, fail or n/a, with the evidence.
+3. Summarise the results for the release, together with the measures in §4.
+   That summary is the QA summary for the release (SUP.1.BP5), and it is
+   recorded in ETB-SUP1-003.
+4. Raise each failure as an issue labelled `bug` with its `severity:` label,
+   unless it is fixed before the record is merged. An open failure is listed in
+   the next record until it is closed. The project lead decides each one, and
+   there is no further escalation (§8, ETB-DEV-003).
+
 ---
 
 ## 7. Evidence and Honesty
@@ -248,7 +289,8 @@ A quality issue that cannot be resolved by the person who found it is raised as
 a problem (ETB-SUP9-001) and, if it needs a change of plan or scope, as a change
 request (ETB-SUP10-001). The project lead decides. There is no higher authority
 in this project, and pretending otherwise would make the escalation path a
-fiction.
+fiction. This is recorded as a deviation, ETB-DEV-003, and a
+non-conformance stays open on its issue until the lead closes it with a reason.
 
 Where the quality issue *is* the process — a check that cannot be met as
 written — the plan is changed or a deviation is recorded (ETB-DEV-001,
@@ -266,6 +308,7 @@ ETB-DEV-002 are the standing examples).
 | Review and approval records | The merged pull request, its CI result and its merge record (§6.5); a completed ETB-TMPL-001 copy, when one is used, in `docs/aspice/reviews/` |
 | Problems | `docs/aspice/problems/` and the repository issue tracker (ETB-SUP9-001 §6) |
 | Change requests | ETB-SUP10-001 §6 |
+| Process QA records and QA summaries | ETB-SUP1-003, one entry per release (§6.7) |
 | Deviations | `docs/aspice/EmbeddedTestBench_DEV*.md` |
 | Baselines | Git tags (ETB-SUP8-001 §7) |
 
