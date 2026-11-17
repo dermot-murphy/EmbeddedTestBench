@@ -128,7 +128,9 @@ class TestTheDocumentIsRefused:
 
     def test_a_table_before_any_heading(self):
         with pytest.raises(ConfigurationError, match="before any test heading"):
-            parse_script("| Step | Command | Expected response |\n|---|---|---|\n| 1 | temp | 1 |\n")
+            parse_script(
+                "| Step | Command | Expected response |\n|---|---|---|\n| 1 | temp | 1 |\n"
+            )
 
     def test_a_missing_column(self):
         with pytest.raises(ConfigurationError, match="expected"):
@@ -306,7 +308,7 @@ class TestASensorThatDoesNotAnswer:
     with an error - so silence is modelled here instead, with a dongle whose
     command call raises as a real one does on timeout."""
 
-    class Silent:
+    class Silent:  # pylint: disable=too-few-public-methods  # stub of the one call run_script makes
         """A dongle that never gets a reply."""
 
         selected = None
@@ -389,7 +391,8 @@ class TestTheReport:
 
     def test_it_is_written_where_asked(self, run, tmp_path):
         path = run.write(str(tmp_path / "results.md"))
-        assert "| Result | **FAIL** |" in open(path, encoding="utf-8").read()
+        with open(path, encoding="utf-8") as report:
+            assert "| Result | **FAIL** |" in report.read()
 
     def test_the_record_carries_every_column(self, run):
         record = run.as_dict()

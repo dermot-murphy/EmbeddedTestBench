@@ -69,7 +69,7 @@ def load_build(
 
 
 @dataclass
-class FirmwareStatus:
+class FirmwareStatus:  # pylint: disable=too-many-instance-attributes  # a flat record a spec asserts on
     """What is on the dongle, against what was expected of it.
 
     Every field is a plain type so a declarative test can assert on it:
@@ -109,10 +109,12 @@ class FirmwareStatus:
 
     @property
     def installed_at(self) -> Optional[datetime]:
+        """The installed build's date as an instant, or None when it is not unambiguous."""
         return parse_build_date(self.installed_built)
 
     @property
     def expected_at(self) -> Optional[datetime]:
+        """The expected build's date as an instant, or None when it is not unambiguous."""
         return parse_build_date(self.expected_built)
 
     @property

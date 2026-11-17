@@ -259,7 +259,7 @@ class TestFirmwareCommand:
                             lambda self, *a, **k: attempts.append(a) or self.check_firmware())
         build = self.manifest(tmp_path / "b", "2.0.0", "2026-11-01T00:00:00Z")
         run(capsys, *SIM, "firmware", build)
-        assert attempts == []
+        assert not attempts
         run(capsys, *SIM, "firmware", build, "--update")
         assert len(attempts) == 1
 

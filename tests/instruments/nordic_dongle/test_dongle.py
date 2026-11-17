@@ -602,7 +602,8 @@ class TestResponseTiming:
             linked.measure_response_time("version", repeat=0)
 
     def test_the_replies_are_kept(self, linked):
-        assert linked.measure_response_time("id", repeat=2).responses == ["SENS-0A1B2C", "SENS-0A1B2C"]
+        responses = linked.measure_response_time("id", repeat=2).responses
+        assert responses == ["SENS-0A1B2C", "SENS-0A1B2C"]
 
 
 class TestAdvertisingProfile:
@@ -667,7 +668,7 @@ class TestAdvertisingProfile:
         with pytest.raises(ConfigurationError, match="no sensor is selected"):
             dongle.measure_advertising_profile(1.0)
 
-    def test_a_silent_sensor_gives_no_statistics_rather_than_zero(self, dongle):
+    def test_a_silent_sensor_gives_no_statistics_rather_than_zero(self):
         """Nothing heard is the absence of a measurement, not a rate of zero."""
         quiet = SimulatedSensor(address="AA:BB:CC:DD:EE:FF", name="QUIET",
                                 interval_us=10_000_000)
@@ -710,7 +711,8 @@ class TestLogging:
         path = str(tmp_path / "ble.log")
         with NordicDongle.connect("sim://", log_path=path) as instrument:
             instrument.identify()
-        assert "> ver" in open(path).read()
+        with open(path, encoding="utf-8") as log:
+            assert "> ver" in log.read()
 
 
 class TestMiscellany:

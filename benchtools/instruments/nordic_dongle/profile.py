@@ -55,7 +55,7 @@ ADV_DELAY_MAX_S = 0.010
 
 
 @dataclass
-class AdvertisingEvent:
+class AdvertisingEvent:  # pylint: disable=too-many-instance-attributes  # one field per item of the dongle's report
     """One advertising report, as the dongle saw it.
 
     :param timestamp_us: The dongle's microsecond timestamp. This is the
@@ -98,7 +98,7 @@ class AdvertisingEvent:
 
 
 @dataclass
-class AdvertisingProfile:
+class AdvertisingProfile:  # pylint: disable=too-many-public-methods  # each property is a measurement a spec asserts on
     """Statistics over a capture of advertising events.
 
     :param events: Reports in arrival order.
@@ -180,10 +180,12 @@ class AdvertisingProfile:
 
     @property
     def minimum_interval_s(self) -> float:
+        """Shortest advertising interval in seconds."""
         return min(self._require_intervals())
 
     @property
     def maximum_interval_s(self) -> float:
+        """Longest advertising interval in seconds."""
         return max(self._require_intervals())
 
     @property

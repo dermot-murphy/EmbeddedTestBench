@@ -276,7 +276,8 @@ def build_parser() -> argparse.ArgumentParser:
              "serial://socket://host:4001 for a port published over TCP "
              "(default: %(default)s)",
     )
-    parser.add_argument("--baud", type=int, default=DEFAULT_BAUDRATE, help="line rate (USB CDC ignores it)")
+    parser.add_argument("--baud", type=int, default=DEFAULT_BAUDRATE,
+                        help="line rate (USB CDC ignores it)")
     parser.add_argument("-t", "--timeout", type=float, default=10.0, help="link timeout in seconds")
     parser.add_argument("--log", metavar="PATH", help="append the whole session to this text file")
     parser.add_argument("--firmware", metavar="PATH",
@@ -286,7 +287,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("-v", "--verbose", action="count", default=0, help="repeat for debug")
 
     subparsers = parser.add_subparsers(dest="command", required=True)
+    _add_dongle_commands(subparsers)
+    _add_sensor_commands(subparsers)
+    _add_script_command(subparsers)
+    _add_monitor_command(subparsers)
+    return parser
 
+
+def _add_dongle_commands(subparsers) -> None:
+    """Add the sub-commands that work on the dongle and its scan: info, firmware, scan, select."""
     info = subparsers.add_parser("info", help="identify the dongle")
     info.set_defaults(handler=_cmd_info)
 
@@ -319,7 +328,10 @@ def build_parser() -> argparse.ArgumentParser:
     select.add_argument("--scan-seconds", type=float, default=3.0, help="scan first, for this long")
     select.set_defaults(handler=_cmd_select)
 
-    profile = subparsers.add_parser("profile", help="measure the advertising profile")
+
+def _add_sensor_commands(subparsers) -> None:
+    """Add the sub-commands that measure or talk to one sensor: profile and cmd."""
+    profile =subparsers.add_parser("profile", help="measure the advertising profile")
     profile.add_argument("--duration", type=float, default=10.0, help="seconds to capture")
     profile_target = profile.add_mutually_exclusive_group()
     profile_target.add_argument("--addr", help="address to profile")
@@ -348,6 +360,23 @@ def build_parser() -> argparse.ArgumentParser:
                          help="report the host's round trip instead of the dongle's")
     command.set_defaults(handler=_cmd_cmd)
 
+
+def _add_monitor_command(subparsers) -> None:
+    """Add the ``monitor`` sub-command, which streams events for a while."""
+    monitor = subparsers.add_parser("monitor", help="stream events to the terminal and the log")
+    monitor.add_argument("--duration", type=float, default=10.0, help="seconds to listen")
+    monitor_target = monitor.add_mutually_exclusive_group()
+    monitor_target.add_argument("--addr", help="report only this address")
+    monitor_target.add_argument(
+        "--select",
+        help="scan for this name and follow it; part of a name, any case, "
+             "chooses the strongest match")
+    monitor.add_argument("--scan-seconds", type=float, default=3.0)
+    monitor.set_defaults(handler=_cmd_monitor)
+
+
+def _add_script_command(subparsers) -> None:
+    """Add the ``script`` sub-command, which runs a markdown command document."""
     script = subparsers.add_parser(
         "script",
         help="run a command document: connect, send commands, check replies",
@@ -373,19 +402,6 @@ def build_parser() -> argparse.ArgumentParser:
     script.add_argument("--listen", type=float, default=0.5,
                         help="seconds to listen after a command with no expected reply")
     script.set_defaults(handler=_cmd_script)
-
-    monitor = subparsers.add_parser("monitor", help="stream events to the terminal and the log")
-    monitor.add_argument("--duration", type=float, default=10.0, help="seconds to listen")
-    monitor_target = monitor.add_mutually_exclusive_group()
-    monitor_target.add_argument("--addr", help="report only this address")
-    monitor_target.add_argument(
-        "--select",
-        help="scan for this name and follow it; part of a name, any case, "
-             "chooses the strongest match")
-    monitor.add_argument("--scan-seconds", type=float, default=3.0)
-    monitor.set_defaults(handler=_cmd_monitor)
-
-    return parser
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:

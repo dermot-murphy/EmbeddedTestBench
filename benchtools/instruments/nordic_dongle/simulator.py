@@ -36,7 +36,7 @@ __all__ = ["SimulatedSensor", "SimulatedDongle", "DEFAULT_SENSORS"]
 
 
 @dataclass
-class SimulatedSensor:
+class SimulatedSensor:  # pylint: disable=too-many-instance-attributes  # one field per modelled sensor property
     """A sensor the simulated dongle can hear.
 
     :param interval_us: Nominal advertising interval.
@@ -211,7 +211,7 @@ DEFAULT_SENSORS: Tuple[SimulatedSensor, ...] = (
 )
 
 
-class SimulatedDongle:
+class SimulatedDongle:  # pylint: disable=too-many-instance-attributes  # mirrors the dongle firmware's state
     """An in-process model of the dongle firmware.
 
     Satisfies :class:`~benchtools.core.simulator.Streamer`: it answers commands
@@ -398,7 +398,8 @@ class SimulatedDongle:
 
     def _schedule_next(self, sensor: SimulatedSensor) -> None:
         index = self._delay_index.get(sensor.address, 0)
-        delay = sensor.delay_pattern_us[index % len(sensor.delay_pattern_us)] if sensor.delay_pattern_us else 0
+        pattern = sensor.delay_pattern_us
+        delay = pattern[index % len(pattern)] if pattern else 0
         self._delay_index[sensor.address] = index + 1
         self._next_us[sensor.address] = self.clock_us + sensor.interval_us + delay
 
@@ -460,7 +461,7 @@ class SimulatedDongle:
     def _error(code: DongleError, text: str) -> str:
         return "err %d %s" % (int(code), text)
 
-    def _cmd_ver(self, arguments: List[str]) -> List[str]:
+    def _cmd_ver(self, _arguments: List[str]) -> List[str]:
         return [
             "ok %s fw=%s built=%s proto=%s uptime_us=%d dropped=%d"
             % (
@@ -473,7 +474,7 @@ class SimulatedDongle:
             )
         ]
 
-    def _cmd_dfu(self, arguments: List[str]) -> List[str]:
+    def _cmd_dfu(self, _arguments: List[str]) -> List[str]:
         """Answer, then go quiet: the link comes back as the bootloader's."""
         self.dfu_requests += 1
         self.in_bootloader = True
@@ -484,7 +485,7 @@ class SimulatedDongle:
         reported = tuple(int(part) for part in self.protocol.split(".")[:2])
         return reported >= (major, minor)
 
-    def _cmd_time(self, arguments: List[str]) -> List[str]:
+    def _cmd_time(self, _arguments: List[str]) -> List[str]:
         return ["ok t=%d hz=1000000" % self.clock_us]
 
     def _cmd_scan(self, arguments: List[str]) -> List[str]:
@@ -507,7 +508,7 @@ class SimulatedDongle:
         self._scan_until_us = (self.clock_us + duration_ms * 1000) if duration_ms else None
         return ["ok scanning=1 ms=%s" % arguments[1]]
 
-    def _cmd_list(self, arguments: List[str]) -> List[str]:
+    def _cmd_list(self, _arguments: List[str]) -> List[str]:
         lines = []
         for index, sensor in enumerate(self._found):
             extra = ""
@@ -559,7 +560,7 @@ class SimulatedDongle:
             % (sensor.address, int(sensor.address_type), sensor.name)
         ]
 
-    def _cmd_selected(self, arguments: List[str]) -> List[str]:
+    def _cmd_selected(self, _arguments: List[str]) -> List[str]:
         if self._selected is None:
             return [self._error(DongleError.NO_SENSOR, "no sensor selected")]
         return [
@@ -664,7 +665,7 @@ class SimulatedDongle:
         self.clock_us += 5_000_000
         self._queue.append("+disc t=%d reason=timeout" % self.clock_us)
 
-    def _cmd_disconnect(self, arguments: List[str]) -> List[str]:
+    def _cmd_disconnect(self, _arguments: List[str]) -> List[str]:
         if self.connecting is not None and self._protocol_at_least(1, 5):
             self.connecting = None
             self.clock_us += 1_000
@@ -841,7 +842,7 @@ class SimulatedDongle:
         self.in_bootloader = False
         self._cmd_reset([])
 
-    def _cmd_reset(self, arguments: List[str]) -> List[str]:
+    def _cmd_reset(self, _arguments: List[str]) -> List[str]:
         self._scanning = False
         self._scan_until_us = None
         self._profiling = False
