@@ -15,7 +15,10 @@
 #include <stdint.h>
 
 /** A memory-mapped 32-bit register. */
-#define L053_REG(address)       (*(volatile uint32_t *)(uintptr_t)(address))
+#define L053_REG(address)       (*(volatile uint32_t *)(address))
+
+/** A memory-mapped register accessed a byte at a time. */
+#define L053_REG8(address)      (*(volatile uint8_t *)(address))
 
 /* Base addresses. */
 #define L053_TIM2_BASE          (0x40000000UL)
@@ -83,7 +86,8 @@
 /* SPI1. */
 #define L053_SPI1_CR1           L053_REG(L053_SPI1_BASE + 0x00UL)
 #define L053_SPI1_SR            L053_REG(L053_SPI1_BASE + 0x08UL)
-#define L053_SPI1_DR            L053_REG(L053_SPI1_BASE + 0x0CUL)
+/* SPI1's data register, accessed as a byte: wider access packs two frames. */
+#define L053_SPI1_DR8           L053_REG8(L053_SPI1_BASE + 0x0CUL)
 #define L053_SPI_CR1_MSTR       (1UL << 2)
 #define L053_SPI_CR1_BR_DIV4    (1UL << 3)
 #define L053_SPI_CR1_SPE        (1UL << 6)

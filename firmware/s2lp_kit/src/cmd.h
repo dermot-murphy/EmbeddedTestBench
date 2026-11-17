@@ -35,9 +35,6 @@ void cmd_handle_line(char *line);
 /** Answer a line longer than PROTO_LINE_MAX, which is not run. */
 void cmd_line_too_long(void);
 
-/** Send every record still queued, oldest first. */
-void cmd_send_queued(void);
-
 /**
  * @brief Format a record as the line the host reads, line end included.
  * @return The length written to out, which holds CMD_OUT_MAX bytes.

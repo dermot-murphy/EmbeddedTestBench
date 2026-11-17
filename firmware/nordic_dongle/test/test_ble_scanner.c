@@ -25,7 +25,7 @@ static ble_evt_t test_make_report(const char * address, int8_t rssi, uint8_t cha
 	event.evt.gap_evt.params.adv_report.ch_index   = channel;
 	event.evt.gap_evt.params.adv_report.data.p_data = payload;
 	event.evt.gap_evt.params.adv_report.data.len    = length;
-	(void)scanner_parse_address(address, &event.evt.gap_evt.params.adv_report.peer_addr);
+	(void)ble_scanner_parse_address(address, &event.evt.gap_evt.params.adv_report.peer_addr);
 
 	return event;
 }
@@ -57,7 +57,7 @@ static void test_report(const char * address, int8_t rssi, const char * name)
 	uint16_t	length = test_make_payload(payload, name);
 	ble_evt_t	event  = test_make_report(address, rssi, 37U, payload, length);
 
-	scanner_on_ble_evt(&event);
+	ble_scanner_on_ble_evt(&event);
 }
 
 void setUp(void)
@@ -65,9 +65,9 @@ void setUp(void)
 	fake_lines_reset();
 	fake_clock_reset();
 	fake_scan_reset();
-	scanner_profile_stop();
-	(void)scanner_init();
-	scanner_clear();
+	ble_scanner_profile_stop();
+	(void)ble_scanner_init();
+	ble_scanner_clear();
 }
 
 void tearDown(void)
@@ -85,11 +85,11 @@ static void test_an_address_is_written_most_significant_octet_first(void)
 	ble_gap_addr_t	address;
 	char		text[18];
 
-	TEST_ASSERT_TRUE(scanner_parse_address("E4:1C:7B:02:9A:11", &address));
+	TEST_ASSERT_TRUE(ble_scanner_parse_address("E4:1C:7B:02:9A:11", &address));
 	TEST_ASSERT_EQUAL_HEX8(0x11U, address.addr[0]);
 	TEST_ASSERT_EQUAL_HEX8(0xE4U, address.addr[5]);
 
-	scanner_format_address(&address, text);
+	ble_scanner_format_address(&address, text);
 	TEST_ASSERT_EQUAL_STRING("E4:1C:7B:02:9A:11", text);
 }
 
@@ -98,8 +98,8 @@ static void test_lower_case_is_accepted(void)
 	ble_gap_addr_t	address;
 	char		text[18];
 
-	TEST_ASSERT_TRUE(scanner_parse_address("e4:1c:7b:02:9a:11", &address));
-	scanner_format_address(&address, text);
+	TEST_ASSERT_TRUE(ble_scanner_parse_address("e4:1c:7b:02:9a:11", &address));
+	ble_scanner_format_address(&address, text);
 	TEST_ASSERT_EQUAL_STRING("E4:1C:7B:02:9A:11", text);
 }
 
@@ -107,10 +107,10 @@ static void test_the_address_type_can_be_given(void)
 {
 	ble_gap_addr_t address;
 
-	TEST_ASSERT_TRUE(scanner_parse_address("E4:1C:7B:02:9A:11/0", &address));
+	TEST_ASSERT_TRUE(ble_scanner_parse_address("E4:1C:7B:02:9A:11/0", &address));
 	TEST_ASSERT_EQUAL_UINT8(BLE_GAP_ADDR_TYPE_PUBLIC, address.addr_type);
 
-	TEST_ASSERT_TRUE(scanner_parse_address("E4:1C:7B:02:9A:11", &address));
+	TEST_ASSERT_TRUE(ble_scanner_parse_address("E4:1C:7B:02:9A:11", &address));
 	TEST_ASSERT_EQUAL_UINT8(BLE_GAP_ADDR_TYPE_RANDOM_STATIC, address.addr_type);
 }
 
@@ -118,10 +118,10 @@ static void test_a_malformed_address_is_rejected(void)
 {
 	ble_gap_addr_t address;
 
-	TEST_ASSERT_FALSE(scanner_parse_address("", &address));
-	TEST_ASSERT_FALSE(scanner_parse_address("E4:1C:7B:02:9A", &address));
-	TEST_ASSERT_FALSE(scanner_parse_address("not an address", &address));
-	TEST_ASSERT_FALSE(scanner_parse_address("E4:1C:7B:02:9A:11/9", &address));
+	TEST_ASSERT_FALSE(ble_scanner_parse_address("", &address));
+	TEST_ASSERT_FALSE(ble_scanner_parse_address("E4:1C:7B:02:9A", &address));
+	TEST_ASSERT_FALSE(ble_scanner_parse_address("not an address", &address));
+	TEST_ASSERT_FALSE(ble_scanner_parse_address("E4:1C:7B:02:9A:11/9", &address));
 }
 
 /* ------------------------------------------------------------------ */
@@ -132,81 +132,81 @@ static void test_the_scan_is_continuous(void)
 {
 	/* A duty-cycled scan adds its own gaps to the sensor's, and afterwards
 	 * the two are indistinguishable. */
-	scanner_filter_t filter;
+	ble_scanner_filter_t filter;
 
 	(void)memset(&filter, 0, sizeof(filter));
-	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, scanner_start(&filter, 1000U));
+	TEST_ASSERT_EQUAL_UINT32(NRF_SUCCESS, ble_scanner_start(&filter, 1000U));
 	TEST_ASSERT_EQUAL_UINT16(fake_scan_params()->interval, fake_scan_params()->window);
-	TEST_ASSERT_TRUE(scanner_is_active());
+	TEST_ASSERT_TRUE(ble_scanner_is_active());
 }
 
 static void test_the_duration_is_converted_to_the_gap_unit(void)
 {
 	/* GAP counts 10 ms units; passing milliseconds would scan 100x too long. */
-	scanner_filter_t filter;
+	ble_scanner_filter_t filter;
 
 	(void)memset(&filter, 0, sizeof(filter));
-	(void)scanner_start(&filter, 3000U);
+	(void)ble_scanner_start(&filter, 3000U);
 	TEST_ASSERT_EQUAL_UINT16(300U, fake_scan_params()->timeout);
 }
 
 static void test_an_indefinite_scan(void)
 {
-	scanner_filter_t filter;
+	ble_scanner_filter_t filter;
 
 	(void)memset(&filter, 0, sizeof(filter));
-	(void)scanner_start(&filter, 0U);
+	(void)ble_scanner_start(&filter, 0U);
 	TEST_ASSERT_EQUAL_UINT16(0U, fake_scan_params()->timeout);
 }
 
 static void test_active_scanning_is_requested_only_when_asked(void)
 {
-	scanner_filter_t filter;
+	ble_scanner_filter_t filter;
 
 	(void)memset(&filter, 0, sizeof(filter));
-	(void)scanner_start(&filter, 1000U);
+	(void)ble_scanner_start(&filter, 1000U);
 	TEST_ASSERT_EQUAL_UINT8(0U, fake_scan_params()->active);
 
 	filter.active = true;
-	(void)scanner_start(&filter, 1000U);
+	(void)ble_scanner_start(&filter, 1000U);
 	TEST_ASSERT_EQUAL_UINT8(1U, fake_scan_params()->active);
 }
 
 static void test_starting_announces_itself(void)
 {
-	scanner_filter_t filter;
+	ble_scanner_filter_t filter;
 
 	(void)memset(&filter, 0, sizeof(filter));
-	(void)scanner_start(&filter, 1000U);
+	(void)ble_scanner_start(&filter, 1000U);
 	TEST_ASSERT_TRUE(fake_line_seen("+scan "));
 	TEST_ASSERT_TRUE(strstr(fake_last_line(), "state=started") != NULL);
 }
 
 static void test_stopping_announces_itself_once(void)
 {
-	scanner_filter_t filter;
+	ble_scanner_filter_t filter;
 
 	(void)memset(&filter, 0, sizeof(filter));
-	(void)scanner_start(&filter, 1000U);
+	(void)ble_scanner_start(&filter, 1000U);
 	fake_lines_reset();
-	(void)scanner_stop();
+	(void)ble_scanner_stop();
 	TEST_ASSERT_TRUE(strstr(fake_last_line(), "state=stopped") != NULL);
 
 	fake_lines_reset();
-	(void)scanner_stop();                  /* already stopped */
+	(void)ble_scanner_stop();                  /* already stopped */
 	TEST_ASSERT_EQUAL_UINT32(0U, fake_line_count());
 }
 
 static void test_a_scan_timeout_is_reported(void)
 {
-	scanner_filter_t filter;
+	ble_scanner_filter_t filter;
 
 	(void)memset(&filter, 0, sizeof(filter));
-	(void)scanner_start(&filter, 1000U);
+	(void)ble_scanner_start(&filter, 1000U);
 	fake_lines_reset();
 	fake_scan_fire(NRF_BLE_SCAN_EVT_SCAN_TIMEOUT);
 	TEST_ASSERT_TRUE(strstr(fake_last_line(), "state=stopped") != NULL);
-	TEST_ASSERT_FALSE(scanner_is_active());
+	TEST_ASSERT_FALSE(ble_scanner_is_active());
 }
 
 /* ------------------------------------------------------------------ */
@@ -219,22 +219,22 @@ static void test_a_sensor_is_recorded_once_however_often_it_advertises(void)
 	test_report("E4:1C:7B:02:9A:11", -64, "SENS-01");
 	test_report("E4:1C:7B:02:9A:11", -60, "SENS-01");
 
-	TEST_ASSERT_EQUAL_UINT32(1U, scanner_count());
-	TEST_ASSERT_EQUAL_UINT32(3U, scanner_get(0U)->seen);
-	TEST_ASSERT_EQUAL_INT8(-60, scanner_get(0U)->rssi);     /* the latest */
+	TEST_ASSERT_EQUAL_UINT32(1U, ble_scanner_count());
+	TEST_ASSERT_EQUAL_UINT32(3U, ble_scanner_get(0U)->seen);
+	TEST_ASSERT_EQUAL_INT8(-60, ble_scanner_get(0U)->rssi);     /* the latest */
 }
 
 static void test_the_name_is_taken_from_the_payload(void)
 {
 	test_report("E4:1C:7B:02:9A:11", -62, "SENS-01");
-	TEST_ASSERT_EQUAL_STRING("SENS-01", scanner_get(0U)->name);
+	TEST_ASSERT_EQUAL_STRING("SENS-01", ble_scanner_get(0U)->name);
 }
 
 static void test_a_sensor_that_advertises_no_name_is_still_recorded(void)
 {
 	test_report("F1:22:33:44:55:66", -91, "");
-	TEST_ASSERT_EQUAL_UINT32(1U, scanner_count());
-	TEST_ASSERT_EQUAL_STRING("", scanner_get(0U)->name);
+	TEST_ASSERT_EQUAL_UINT32(1U, ble_scanner_count());
+	TEST_ASSERT_EQUAL_STRING("", ble_scanner_get(0U)->name);
 }
 
 static void test_a_name_once_seen_is_kept(void)
@@ -243,18 +243,18 @@ static void test_a_name_once_seen_is_kept(void)
 	 * appear to lose it on the next report. */
 	test_report("E4:1C:7B:02:9A:11", -62, "SENS-01");
 	test_report("E4:1C:7B:02:9A:11", -62, "");
-	TEST_ASSERT_EQUAL_STRING("SENS-01", scanner_get(0U)->name);
+	TEST_ASSERT_EQUAL_STRING("SENS-01", ble_scanner_get(0U)->name);
 }
 
 static void test_a_full_length_name_is_kept_whole(void)
 {
 	/* Cut to 23 characters before #241: the sensor's name has 25. */
 	test_report("D1:8D:3B:4C:19:96", -55, "KAPPA_5C1712_V11.00.0000X");
-	TEST_ASSERT_EQUAL_STRING("KAPPA_5C1712_V11.00.0000X", scanner_get(0U)->name);
+	TEST_ASSERT_EQUAL_STRING("KAPPA_5C1712_V11.00.0000X", ble_scanner_get(0U)->name);
 
 	/* The longest that fits beside the flags: 26 characters. */
 	test_report("C9:3A:51:0F:22:04", -60, "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
-	TEST_ASSERT_EQUAL_STRING("ABCDEFGHIJKLMNOPQRSTUVWXYZ", scanner_get(1U)->name);
+	TEST_ASSERT_EQUAL_STRING("ABCDEFGHIJKLMNOPQRSTUVWXYZ", ble_scanner_get(1U)->name);
 }
 
 static void test_a_scan_response_is_kept_with_its_manufacturer_id(void)
@@ -265,21 +265,21 @@ static void test_a_scan_response_is_kept_with_its_manufacturer_id(void)
 	ble_evt_t	event;
 
 	event = test_make_report("D1:8D:3B:4C:19:96", -55, 37U, advertising, length);
-	scanner_on_ble_evt(&event);
-	TEST_ASSERT_FALSE(scanner_get(0U)->has_manufacturer);
-	TEST_ASSERT_EQUAL_UINT8(0U, scanner_get(0U)->scan_response_length);
+	ble_scanner_on_ble_evt(&event);
+	TEST_ASSERT_FALSE(ble_scanner_get(0U)->has_manufacturer);
+	TEST_ASSERT_EQUAL_UINT8(0U, ble_scanner_get(0U)->scan_response_length);
 
 	event = test_make_report("D1:8D:3B:4C:19:96", -55, 37U, response, sizeof(response));
 	event.evt.gap_evt.params.adv_report.type.scan_response = 1U;
-	scanner_on_ble_evt(&event);
+	ble_scanner_on_ble_evt(&event);
 
-	TEST_ASSERT_EQUAL_UINT32(1U, scanner_count());
-	TEST_ASSERT_TRUE(scanner_get(0U)->has_manufacturer);
-	TEST_ASSERT_EQUAL_HEX16(0x0F55U, scanner_get(0U)->manufacturer_id);
-	TEST_ASSERT_EQUAL_UINT8(sizeof(response), scanner_get(0U)->scan_response_length);
-	TEST_ASSERT_EQUAL_MEMORY(response, scanner_get(0U)->scan_response, sizeof(response));
+	TEST_ASSERT_EQUAL_UINT32(1U, ble_scanner_count());
+	TEST_ASSERT_TRUE(ble_scanner_get(0U)->has_manufacturer);
+	TEST_ASSERT_EQUAL_HEX16(0x0F55U, ble_scanner_get(0U)->manufacturer_id);
+	TEST_ASSERT_EQUAL_UINT8(sizeof(response), ble_scanner_get(0U)->scan_response_length);
+	TEST_ASSERT_EQUAL_MEMORY(response, ble_scanner_get(0U)->scan_response, sizeof(response));
 	/* The name from the advertising payload survives the scan response. */
-	TEST_ASSERT_EQUAL_STRING("KAPPA_5C1712_V11.00.0000X", scanner_get(0U)->name);
+	TEST_ASSERT_EQUAL_STRING("KAPPA_5C1712_V11.00.0000X", ble_scanner_get(0U)->name);
 }
 
 static void test_a_manufacturer_id_in_the_advertising_payload_is_found(void)
@@ -288,10 +288,10 @@ static void test_a_manufacturer_id_in_the_advertising_payload_is_found(void)
 	ble_evt_t	event = test_make_report("E4:1C:7B:02:9A:11", -62, 38U,
 						 advertising, sizeof(advertising));
 
-	scanner_on_ble_evt(&event);
-	TEST_ASSERT_TRUE(scanner_get(0U)->has_manufacturer);
-	TEST_ASSERT_EQUAL_HEX16(0x0059U, scanner_get(0U)->manufacturer_id);
-	TEST_ASSERT_EQUAL_UINT8(0U, scanner_get(0U)->scan_response_length);
+	ble_scanner_on_ble_evt(&event);
+	TEST_ASSERT_TRUE(ble_scanner_get(0U)->has_manufacturer);
+	TEST_ASSERT_EQUAL_HEX16(0x0059U, ble_scanner_get(0U)->manufacturer_id);
+	TEST_ASSERT_EQUAL_UINT8(0U, ble_scanner_get(0U)->scan_response_length);
 }
 
 static void test_a_manufacturer_record_too_short_for_an_id_is_ignored(void)
@@ -300,16 +300,16 @@ static void test_a_manufacturer_record_too_short_for_an_id_is_ignored(void)
 	ble_evt_t	event = test_make_report("E4:1C:7B:02:9A:11", -62, 38U,
 						 advertising, sizeof(advertising));
 
-	scanner_on_ble_evt(&event);
-	TEST_ASSERT_FALSE(scanner_get(0U)->has_manufacturer);
+	ble_scanner_on_ble_evt(&event);
+	TEST_ASSERT_FALSE(ble_scanner_get(0U)->has_manufacturer);
 }
 
 static void test_several_sensors_are_kept_apart(void)
 {
 	test_report("E4:1C:7B:02:9A:11", -62, "SENS-01");
 	test_report("C9:3A:51:0F:22:04", -78, "SENS-02");
-	TEST_ASSERT_EQUAL_UINT32(2U, scanner_count());
-	TEST_ASSERT_EQUAL_STRING("SENS-02", scanner_get(1U)->name);
+	TEST_ASSERT_EQUAL_UINT32(2U, ble_scanner_count());
+	TEST_ASSERT_EQUAL_STRING("SENS-02", ble_scanner_get(1U)->name);
 }
 
 static void test_the_table_is_bounded_and_does_not_evict(void)
@@ -319,13 +319,13 @@ static void test_the_table_is_bounded_and_does_not_evict(void)
 	char		address[18];
 	uint32_t	index;
 
-	for (index = 0U; index < (PROTO_MAX_SENSORS + 4U); index++)
+	for (index = 0U; index < (PROTOCOL_MAX_SENSORS + 4U); index++)
 	{
 		(void)sprintf(address, "AA:BB:CC:DD:EE:%02X", (unsigned)index);
 		test_report(address, -70, "X");
 	}
-	TEST_ASSERT_EQUAL_UINT32(PROTO_MAX_SENSORS, scanner_count());
-	TEST_ASSERT_EQUAL_STRING("AA:BB:CC:DD:EE:00", (scanner_format_address(&scanner_get(0U)->address, address), address));
+	TEST_ASSERT_EQUAL_UINT32(PROTOCOL_MAX_SENSORS, ble_scanner_count());
+	TEST_ASSERT_EQUAL_STRING("AA:BB:CC:DD:EE:00", (ble_scanner_format_address(&ble_scanner_get(0U)->address, address), address));
 }
 
 static void test_finding_by_address(void)
@@ -333,19 +333,19 @@ static void test_finding_by_address(void)
 	ble_gap_addr_t wanted;
 
 	test_report("E4:1C:7B:02:9A:11", -62, "SENS-01");
-	(void)scanner_parse_address("E4:1C:7B:02:9A:11", &wanted);
-	TEST_ASSERT_EQUAL_UINT32(0U, scanner_find(&wanted));
+	(void)ble_scanner_parse_address("E4:1C:7B:02:9A:11", &wanted);
+	TEST_ASSERT_EQUAL_UINT32(0U, ble_scanner_find(&wanted));
 
-	(void)scanner_parse_address("AA:BB:CC:DD:EE:FF", &wanted);
-	TEST_ASSERT_EQUAL_UINT32(PROTO_MAX_SENSORS, scanner_find(&wanted));
+	(void)ble_scanner_parse_address("AA:BB:CC:DD:EE:FF", &wanted);
+	TEST_ASSERT_EQUAL_UINT32(PROTOCOL_MAX_SENSORS, ble_scanner_find(&wanted));
 }
 
 static void test_clearing(void)
 {
 	test_report("E4:1C:7B:02:9A:11", -62, "SENS-01");
-	scanner_clear();
-	TEST_ASSERT_EQUAL_UINT32(0U, scanner_count());
-	TEST_ASSERT_NULL(scanner_get(0U));
+	ble_scanner_clear();
+	TEST_ASSERT_EQUAL_UINT32(0U, ble_scanner_count());
+	TEST_ASSERT_NULL(ble_scanner_get(0U));
 }
 
 /* ------------------------------------------------------------------ */
@@ -354,43 +354,43 @@ static void test_clearing(void)
 
 static void test_filtering_by_name(void)
 {
-	scanner_filter_t filter;
+	ble_scanner_filter_t filter;
 
 	(void)memset(&filter, 0, sizeof(filter));
 	filter.by_name = true;
 	(void)strcpy(filter.name, "SENS");
-	(void)scanner_start(&filter, 0U);
+	(void)ble_scanner_start(&filter, 0U);
 
 	test_report("E4:1C:7B:02:9A:11", -62, "SENS-01");
 	test_report("F1:22:33:44:55:66", -70, "OTHER");
-	TEST_ASSERT_EQUAL_UINT32(1U, scanner_count());
+	TEST_ASSERT_EQUAL_UINT32(1U, ble_scanner_count());
 }
 
 static void test_filtering_by_address(void)
 {
-	scanner_filter_t filter;
+	ble_scanner_filter_t filter;
 
 	(void)memset(&filter, 0, sizeof(filter));
 	filter.by_address = true;
-	(void)scanner_parse_address("E4:1C:7B:02:9A:11", &filter.address);
-	(void)scanner_start(&filter, 0U);
+	(void)ble_scanner_parse_address("E4:1C:7B:02:9A:11", &filter.address);
+	(void)ble_scanner_start(&filter, 0U);
 
 	test_report("E4:1C:7B:02:9A:11", -62, "SENS-01");
 	test_report("C9:3A:51:0F:22:04", -78, "SENS-02");
-	TEST_ASSERT_EQUAL_UINT32(1U, scanner_count());
+	TEST_ASSERT_EQUAL_UINT32(1U, ble_scanner_count());
 }
 
 static void test_filtering_by_signal_strength(void)
 {
-	scanner_filter_t filter;
+	ble_scanner_filter_t filter;
 
 	(void)memset(&filter, 0, sizeof(filter));
 	filter.min_rssi = -80;
-	(void)scanner_start(&filter, 0U);
+	(void)ble_scanner_start(&filter, 0U);
 
 	test_report("E4:1C:7B:02:9A:11", -62, "SENS-01");
 	test_report("F1:22:33:44:55:66", -91, "FAR");
-	TEST_ASSERT_EQUAL_UINT32(1U, scanner_count());
+	TEST_ASSERT_EQUAL_UINT32(1U, ble_scanner_count());
 }
 
 /* ------------------------------------------------------------------ */
@@ -410,11 +410,11 @@ static void test_an_advertising_event_carries_what_the_host_needs(void)
 	uint16_t	length = test_make_payload(payload, "SENS-01");
 	ble_evt_t	event  = test_make_report("E4:1C:7B:02:9A:11", -62, 38U, payload, length);
 
-	(void)scanner_parse_address("E4:1C:7B:02:9A:11", &target);
-	scanner_profile_start(&target);
+	(void)ble_scanner_parse_address("E4:1C:7B:02:9A:11", &target);
+	ble_scanner_profile_start(&target);
 	fake_clock_set(7654321U);
 
-	scanner_on_ble_evt(&event);
+	ble_scanner_on_ble_evt(&event);
 
 	TEST_ASSERT_TRUE(fake_line_seen("+adv "));
 	TEST_ASSERT_TRUE(strstr(fake_last_line(), "t=7654321") != NULL);
@@ -429,8 +429,8 @@ static void test_only_the_profiled_address_is_reported(void)
 {
 	ble_gap_addr_t target;
 
-	(void)scanner_parse_address("E4:1C:7B:02:9A:11", &target);
-	scanner_profile_start(&target);
+	(void)ble_scanner_parse_address("E4:1C:7B:02:9A:11", &target);
+	ble_scanner_profile_start(&target);
 
 	test_report("C9:3A:51:0F:22:04", -78, "SENS-02");
 	TEST_ASSERT_FALSE(fake_line_seen("+adv "));
@@ -441,7 +441,7 @@ static void test_only_the_profiled_address_is_reported(void)
 
 static void test_profiling_every_address(void)
 {
-	scanner_profile_start(NULL);
+	ble_scanner_profile_start(NULL);
 	test_report("C9:3A:51:0F:22:04", -78, "SENS-02");
 	TEST_ASSERT_TRUE(fake_line_seen("+adv "));
 }
@@ -452,12 +452,12 @@ static void test_the_counters_reconcile_what_was_seen_and_sent(void)
 	uint32_t	received;
 	uint32_t	reported;
 
-	(void)scanner_parse_address("E4:1C:7B:02:9A:11", &target);
-	scanner_profile_start(&target);
+	(void)ble_scanner_parse_address("E4:1C:7B:02:9A:11", &target);
+	ble_scanner_profile_start(&target);
 	test_report("E4:1C:7B:02:9A:11", -62, "SENS-01");
 	test_report("E4:1C:7B:02:9A:11", -62, "SENS-01");
 
-	scanner_profile_counters(&received, &reported);
+	ble_scanner_profile_counters(&received, &reported);
 	TEST_ASSERT_EQUAL_UINT32(2U, received);
 	TEST_ASSERT_EQUAL_UINT32(2U, reported);
 }
@@ -469,12 +469,12 @@ static void test_a_dropped_line_is_counted_as_not_reported(void)
 	uint32_t	received;
 	uint32_t	reported;
 
-	(void)scanner_parse_address("E4:1C:7B:02:9A:11", &target);
-	scanner_profile_start(&target);
+	(void)ble_scanner_parse_address("E4:1C:7B:02:9A:11", &target);
+	ble_scanner_profile_start(&target);
 	fake_lines_set_full(true);
 	test_report("E4:1C:7B:02:9A:11", -62, "SENS-01");
 
-	scanner_profile_counters(&received, &reported);
+	ble_scanner_profile_counters(&received, &reported);
 	TEST_ASSERT_EQUAL_UINT32(1U, received);
 	TEST_ASSERT_EQUAL_UINT32(0U, reported);
 	fake_lines_set_full(false);
@@ -482,10 +482,10 @@ static void test_a_dropped_line_is_counted_as_not_reported(void)
 
 static void test_stopping_profiling(void)
 {
-	scanner_profile_start(NULL);
-	TEST_ASSERT_TRUE(scanner_profile_is_active());
-	scanner_profile_stop();
-	TEST_ASSERT_FALSE(scanner_profile_is_active());
+	ble_scanner_profile_start(NULL);
+	TEST_ASSERT_TRUE(ble_scanner_profile_is_active());
+	ble_scanner_profile_stop();
+	TEST_ASSERT_FALSE(ble_scanner_profile_is_active());
 	test_report("E4:1C:7B:02:9A:11", -62, "SENS-01");
 	TEST_ASSERT_FALSE(fake_line_seen("+adv "));
 }
@@ -496,8 +496,8 @@ static void test_other_stack_events_are_ignored(void)
 
 	(void)memset(&event, 0, sizeof(event));
 	event.header.evt_id = BLE_GAP_EVT_CONNECTED;
-	scanner_on_ble_evt(&event);
-	TEST_ASSERT_EQUAL_UINT32(0U, scanner_count());
+	ble_scanner_on_ble_evt(&event);
+	TEST_ASSERT_EQUAL_UINT32(0U, ble_scanner_count());
 }
 
 int main(void)

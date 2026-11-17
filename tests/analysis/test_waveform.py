@@ -186,7 +186,8 @@ class TestExport:
     def test_single_channel_csv(self, tmp_path):
         waveform = Waveform("CH1", [0.0, 1.0e-9], [0.0, 3.3], raw=[0, 82])
         path = waveform.to_csv(str(tmp_path / "one.csv"), include_raw=True)
-        rows = list(csv.reader(open(path, encoding="utf-8")))
+        with open(path, encoding="utf-8") as handle:
+            rows = list(csv.reader(handle))
         assert rows[0] == ["time_s", "ch1_volts", "raw_code"]
         assert rows[2] == ["1e-09", "3.3", "82"]
 
@@ -196,7 +197,8 @@ class TestExport:
             2: Waveform("CH2", [0.0, 1.0e-9], [1.0, 2.0]),
         }
         path = waveforms_to_csv(waveforms, str(tmp_path / "multi.csv"))
-        rows = list(csv.reader(open(path, encoding="utf-8")))
+        with open(path, encoding="utf-8") as handle:
+            rows = list(csv.reader(handle))
         assert rows[0] == ["time_s", "ch1_volts", "ch2_volts"]
         assert rows[1] == ["0", "0", "1"]
 

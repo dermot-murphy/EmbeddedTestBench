@@ -23,7 +23,7 @@
 #define FIRMWARE_VERSION_H__
 
 /** Firmware version. Change it when behaviour changes; the host compares it. */
-#define FIRMWARE_VERSION		"1.8.0"
+#define FIRMWARE_VERSION_STRING		"1.8.1"
 
 /* FIRMWARE_BUILD_DATE is injected by the build system, and deliberately not
  * defaulted here. Without it, firmware_version.c falls back to the compiler's
@@ -32,7 +32,7 @@
  * spaces because the link protocol splits fields on them. */
 
 /** The version this image was built as, e.g. "1.1.0". */
-extern const char	firmware_version_string[];
+extern const char	firmware_version_g_string[sizeof(FIRMWARE_VERSION_STRING)];
 
 /**
  * @brief When this image was built.

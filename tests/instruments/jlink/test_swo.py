@@ -47,7 +47,9 @@ class TestSourcePackets:
 class TestTimestamps:
     def test_format_2_single_byte(self):
         decoder = ItmDecoder()
-        decoder.feed(ItmDecoder.encode_local_timestamp(6) + ItmDecoder.encode_software_event(1, 1, 1))
+        decoder.feed(
+            ItmDecoder.encode_local_timestamp(6) + ItmDecoder.encode_software_event(1, 1, 1)
+        )
         assert decoder.events[0].timestamp == 6
 
     def test_format_1_multi_byte(self):
@@ -145,7 +147,7 @@ class TestFramingRobustness:
         decoder = ItmDecoder()
         decoder.feed(b"\x70" + ItmDecoder.encode_software_event(1, 5, 1))
         decoder.reset()
-        assert decoder.events == [] and decoder.overflows == 0
+        assert len(decoder.events) == 0 and decoder.overflows == 0
         assert decoder.timestamp_ticks == 0
 
     def test_encoder_rejects_a_bad_width(self):

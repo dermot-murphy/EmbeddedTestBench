@@ -39,7 +39,7 @@
 
 /** Firmware version reported by @c rd @c version. Bump it with every change;
  *  the host compares it. */
-#define FIRMWARE_VERSION		"V1.00.0000"
+#define FIRMWARE_VERSION		"V1.00.0001"
 
 #ifndef FIRMWARE_GIT_SHA
 /* Not injected by the build: say so rather than guess. */
@@ -47,15 +47,15 @@
 #endif
 
 /** The name this image was built with. */
-extern const char	firmware_g_name[];
+extern const char	firmware_g_name[sizeof(FIRMWARE_NAME)];
 
 /** The copyright notice this image was built with. */
-extern const char	firmware_g_copyright[];
+extern const char	firmware_g_copyright[sizeof(FIRMWARE_COPYRIGHT)];
 
 /** The version this image was built as, e.g. "V1.00.0000". */
-extern const char	firmware_g_version[];
+extern const char	firmware_g_version[sizeof(FIRMWARE_VERSION)];
 
 /** The short SHA of the commit this image was built from, or "unknown". */
-extern const char	firmware_g_sha[];
+extern const char	firmware_g_sha[sizeof(FIRMWARE_GIT_SHA)];
 
 #endif /* FIRMWARE_VERSION_H__ */

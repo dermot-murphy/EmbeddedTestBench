@@ -6,7 +6,7 @@
 | **Version** | [latest, §13](#13-revision-history) |
 | **Date** | [latest, §13](#13-revision-history) |
 | **Element** | `PICO-` — `benchtools.instruments.pico2_test_board` and `firmware/pico2_test_board` |
-| **Applies to** | Firmware `V1.00.0000` (protocol 2.2) and `develop` after #330 |
+| **Applies to** | Firmware `V1.00.0001` (protocol 2.2) and `develop` after #330 |
 | **Issue** | #330 |
 
 How to use the PICO2 Test Board: what it does, how it is wired, how to flash
@@ -53,7 +53,7 @@ Temperature Sensor** until #330 ([§12](#12-earlier-names)).
 
 | Function | Hardware | Commands | Range |
 |---|---|---|---|
-| Identity | the firmware | `rd name`, `rd copyright`, `rd version`, `rd sha` | `PICO2 Test Board`, `(c) 2026 Dermot Murphy`, `V1.00.0000`, the 7-character commit SHA of the build |
+| Identity | the firmware | `rd name`, `rd copyright`, `rd version`, `rd sha` | `PICO2 Test Board`, `(c) 2026 Dermot Murphy`, `V1.00.0001`, the 7-character commit SHA of the build |
 | Temperature | Sensirion SHT30-DIS on a DollaTek SHT30-D module, I2C0, address 0x44 | `rd temperature`, `status`, `sreset` | °C to two decimal places; ±0.2 °C typical from 0 to 65 °C (Sensirion datasheet) |
 | Indicator LEDs | red, yellow and green LEDs, each lit when its pin is high | `wr led-<colour> on\|off`, `rd led-<colour>` | on or off, read back from the pin |
 | Frequency generator, channels 1 and 2 | Adafruit UDA1334A I2S DAC: channel 1 the left output, channel 2 the right | `wr`, `rd`, `routine` | 10 Hz to 12 kHz; `sine`, `square`, `triangle`, `sawtooth`, `sine2` (two sines summed); amplitude 0 to 100 % of full scale; duty 1 to 99 %; a set number of cycles or continuous |
@@ -112,7 +112,7 @@ Check it with:
   "copyright": "(c) 2026 Dermot Murphy",
   "name": "PICO2 Test Board",
   "sha": "<7-character commit SHA>",
-  "version": "V1.00.0000"
+  "version": "V1.00.0001"
 }
 ```
 
@@ -125,7 +125,7 @@ Type `help` for the command list.
 
 ```
 python -m benchtools pico2 -r COM14 flash pico2_test_board.uf2
-python -m benchtools pico2 -r COM14 flash build\pico2_test_board.uf2 --expect-version V1.00.0000
+python -m benchtools pico2 -r COM14 flash build\pico2_test_board.uf2 --expect-version V1.00.0001
 python -m benchtools pico2 -r "" flash pico2_test_board.uf2      # a blank board; the port is found afterwards
 ```
 
@@ -194,7 +194,7 @@ which send several. Reply forms:
 |---|---|---|
 | `rd name` | `ACK rd name = PICO2 Test Board` | |
 | `rd copyright` | `ACK rd copyright = (c) 2026 Dermot Murphy` | |
-| `rd version` | `ACK rd version = V1.00.0000` | |
+| `rd version` | `ACK rd version = V1.00.0001` | |
 | `rd sha` | `ACK rd sha = 1a2b3c4` | `unknown` for a build outside a git checkout |
 | `rd temperature` | `ACK rd temperature = 22.85` | one new measurement each time, °C rounded half away from zero to two places (`-1.24`; never `-0.00`). `ACK rd temperature = Error` when the sensor could not be read |
 | `rd led-red` (`led-yellow`, `led-green`) | `ACK rd led-red = off` | read from the pin's output latch |
@@ -291,7 +291,7 @@ for the frequency, then a least-squares sine at that frequency for the
 amplitude of the fundamental. The script, the settings, the results and the
 plot of every capture are in
 [`measurements/2026-11-13_generator_sweep/`](measurements/2026-11-13_generator_sweep/).
-Firmware `V1.00.0000`; driver `benchtools.instruments.picoscope3000` (#200).
+Firmware `V1.00.0001`; driver `benchtools.instruments.picoscope3000` (#200).
 
 **What the scope adds to these numbers.** The PicoScope digitises with 8
 bits and is specified to ±3 % of full scale ±200 µV DC accuracy (Pico's
@@ -404,7 +404,7 @@ as `error: ...`. `pico2-test-board`, and the names before #330 (`thermo`,
 
 | Sub-command | Does | Example and output (simulated board) |
 |---|---|---|
-| `info` | `rd name`, `copyright`, `version`, `sha` | `pico2 -r sim:// info` → `{"copyright": "(c) 2026 Dermot Murphy", "name": "PICO2 Test Board", "sha": "0c0ffee", "version": "V1.00.0000"}` |
+| `info` | `rd name`, `copyright`, `version`, `sha` | `pico2 -r sim:// info` → `{"copyright": "(c) 2026 Dermot Murphy", "name": "PICO2 Test Board", "sha": "0c0ffee", "version": "V1.00.0001"}` |
 | `rd <option> [channel]` | one `rd`; the option is checked before sending | `pico2 -r sim:// rd freq 2` → `{"channel": 2, "option": "freq", "value": "1000.00"}` |
 | `wr <led> on\|off` | switch an LED; exit 1 if it does not read back | `pico2 -r sim:// wr led-red on` → `{"option": "led-red", "value": "on"}` |
 | `wr <setting> [channel] value` | store a generator setting | `pico2 -r sim:// wr amp 2 50` → `{"channel": 2, "setting": "amp", "value": "50.00"}` |
@@ -687,7 +687,7 @@ settings, and start it again.
 
 ## 10. Limits and known gaps
 
-Seen on the real board (Pico 2 on COM14, 2026-11-13, firmware `V1.00.0000`):
+Seen on the real board (Pico 2 on COM14, 2026-11-13, firmware `V1.00.0001`):
 
 - A 45-check serial proof passed: each LED on and off with its read-back,
   `led-blue` refused; the temperature read 24.28 to 24.31 °C; every generator
@@ -742,7 +742,7 @@ simulator models the replies and timing of the generator, not its waveforms.
 
 Until #330 (2026-11-13) the board was the **Pico 2 SHT30 Temperature Sensor**,
 and its last firmware was `V1.02.0000`. #330 renamed it the PICO2 Test Board
-and reset the version to `V1.00.0000`; protocol 2.2 is unchanged. The old
+and reset the version to `V1.00.0001`; protocol 2.2 is unchanged. The old
 names are still accepted:
 
 | What | Now | Before #330, still accepted |
@@ -765,3 +765,4 @@ The event-log name is still `TEMP`.
 |---|---|---|---|
 | 0.1 | 2026-11-13 | Claude | #330: first issue. |
 | 0.2 | 2026-11-13 | Claude | #200: §5.3 measured accuracy, resolution and limits of the generator, channel 1 on the PicoScope 3405D MSO; §5.2 and §10 updated to match. |
+| next | 2026-11-17 | Claude | #379: the firmware is V1.00.0001, a patch: MISRA C:2012 conformance; unused helpers removed; no protocol or behaviour change for valid commands. |

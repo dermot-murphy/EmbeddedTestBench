@@ -26,7 +26,6 @@
 int main(void)
 {
 	static cmd_line_t	line;
-	int			received;
 
 	(void)stdio_init_all();
 	hal_init();
@@ -36,7 +35,8 @@ int main(void)
 
 	for (;;)
 	{
-		received = getchar_timeout_us(MAIN_POLL_US);
+		int	received = getchar_timeout_us(MAIN_POLL_US);
+
 		fgen_poll();
 		if ((received >= 0) && (received <= 0x7F))
 		{

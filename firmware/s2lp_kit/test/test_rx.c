@@ -17,6 +17,10 @@
 
 static const uint8_t m_registers[] = {0xA2U, 0x9FU, 0xA0U, 0x9EU};
 
+/** IRQ_STATUS bit 4, CRC error. The firmware passes the IRQ word on as it is
+ *  and tests no CRC bit itself, so the bit is named here, not in s2lp.h. */
+#define TEST_RX_IRQ_CRC_ERROR   (1UL << 4)
+
 void setUp(void)
 {
 	fake_hal_reset();
@@ -142,14 +146,14 @@ static void test_a_discarded_reception_is_queued_as_a_rejection(void)
 	const ring_record_t *record;
 
 	(void)rx_start(m_registers, 4U);
-	fake_hal_raise_irq(S2LP_IRQ_RX_DATA_DISC | S2LP_IRQ_CRC_ERROR);
+	fake_hal_raise_irq(S2LP_IRQ_RX_DATA_DISC | TEST_RX_IRQ_CRC_ERROR);
 
 	rx_on_irq();
 
 	record = ring_peek();
 	TEST_ASSERT_NOT_NULL(record);
 	TEST_ASSERT_EQUAL_INT(PROTO_KIND_REJECT, record->kind);
-	TEST_ASSERT_EQUAL_HEX32(S2LP_IRQ_RX_DATA_DISC | S2LP_IRQ_CRC_ERROR, record->irq);
+	TEST_ASSERT_EQUAL_HEX32(S2LP_IRQ_RX_DATA_DISC | TEST_RX_IRQ_CRC_ERROR, record->irq);
 	TEST_ASSERT_EQUAL_UINT32(1U, rx_rejects());
 	TEST_ASSERT_EQUAL_HEX8(S2LP_CMD_RX, fake_hal_command(fake_hal_command_count() - 1U));
 }

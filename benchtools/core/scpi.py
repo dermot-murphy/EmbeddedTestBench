@@ -121,7 +121,7 @@ class ScpiInstrument(Instrument):
     # Lifecycle
     # ------------------------------------------------------------------
     @classmethod
-    def connect(
+    def connect(  # pylint: disable=too-many-arguments,too-many-positional-arguments  # public API; callers pass these positionally
         cls,
         resource: str,
         backend: str = "auto",

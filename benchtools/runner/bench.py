@@ -120,6 +120,10 @@ class InstrumentConfig:
 
     @classmethod
     def from_mapping(cls, alias: str, data) -> "InstrumentConfig":
+        """Build the entry for *alias* from its bench-file definition.
+
+        *data* is a mapping or the ``"<driver>@<resource>"`` shorthand.
+        """
         if isinstance(data, str):          # shorthand: alias: "tek3014b@1.2.3.4"
             driver, separator, resource = data.partition("@")
             if not separator:
@@ -180,6 +184,7 @@ class BenchConfig:
 
     @classmethod
     def from_mapping(cls, data, source: str = "") -> "BenchConfig":
+        """Build a bench from a parsed bench file; *source* is the file's path."""
         if not isinstance(data, dict):
             raise BenchConfigError("bench configuration must be a mapping")
         instruments = data.get("instruments")
@@ -478,7 +483,7 @@ class Bench:
         for alias, instrument in list(self._open.items()):
             try:
                 instrument.close()
-            except Exception:  # pragma: no cover - defensive
+            except Exception:  # pylint: disable=broad-exception-caught  # pragma: no cover - any driver error is logged so the rest still close
                 _LOG.warning("error closing %s", alias, exc_info=True)
             finally:
                 self._open.pop(alias, None)

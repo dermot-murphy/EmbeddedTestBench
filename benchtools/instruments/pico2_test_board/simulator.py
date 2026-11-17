@@ -153,7 +153,7 @@ class SimulatedPico2TestBoard:  # pylint: disable=too-many-instance-attributes,t
     :param sha: What ``rd sha`` reports: the commit the image was built from.
     """
 
-    DEFAULT_VERSION = "V1.00.0000"
+    DEFAULT_VERSION = "V1.00.0001"
     DEFAULT_SHA = "0c0ffee"
 
     def __init__(

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+import subprocess
 
 import pytest
 
@@ -207,7 +208,7 @@ class TestTheDongleReportsItsBuild:
 
 
 class TestProtocolCompatibility:
-    def test_a_different_minor_version_is_survivable(self, simulator, caplog):
+    def test_a_different_minor_version_is_survivable(self, simulator):
         """One side lacks commands the other has; those fail individually."""
         simulator.protocol = "1.9"
         instrument = NordicDongle(MockTransport(responder=simulator))
@@ -315,7 +316,7 @@ class TestUpdating:
         status = dongle.ensure_firmware(build, settle=0.0, flasher=flash)
         assert status.matches is True
         assert status.updated is False
-        assert flash.calls == []
+        assert not flash.calls
         assert simulator.dfu_requests == 0
 
     def test_a_flash_that_does_not_take_is_reported(self, dongle, simulator, tmp_path):
@@ -323,7 +324,7 @@ class TestUpdating:
         write_manifest(tmp_path, version="1.9.0", built="2026-11-01T09:00:00Z")
         build = FirmwareBuild.from_path(str(tmp_path))
 
-        def useless(package, port):
+        def useless(_package, _port):
             # The dongle comes back out of its bootloader, as it would after a
             # real flash - but running what it ran before.
             simulator.apply_update(INSTALLED_VERSION, INSTALLED_BUILT)
@@ -376,22 +377,19 @@ class TestFlashingTool:
     def test_a_failing_nrfutil_carries_its_output(self, monkeypatch, tmp_path):
         import benchtools.instruments.nordic_dongle.firmware as module
 
-        class Finished:
-            returncode = 1
-            stdout = "Opening serial port.\n"
-            stderr = "Timed out waiting for acknowledgement.\n"
-
-        monkeypatch.setattr(module.subprocess, "run", lambda *a, **k: Finished())
+        finished = subprocess.CompletedProcess(
+            args=[], returncode=1, stdout="Opening serial port.\n",
+            stderr="Timed out waiting for acknowledgement.\n",
+        )
+        monkeypatch.setattr(module.subprocess, "run", lambda *a, **k: finished)
         with pytest.raises(FirmwareUpdateError, match="Timed out waiting"):
             run_nrfutil(str(tmp_path / "p.zip"), "COM5")
 
     def test_a_successful_run_returns_its_output(self, monkeypatch, tmp_path):
         import benchtools.instruments.nordic_dongle.firmware as module
 
-        class Finished:
-            returncode = 0
-            stdout = "Device programmed.\n"
-            stderr = ""
-
-        monkeypatch.setattr(module.subprocess, "run", lambda *a, **k: Finished())
+        finished = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="Device programmed.\n", stderr="",
+        )
+        monkeypatch.setattr(module.subprocess, "run", lambda *a, **k: finished)
         assert "programmed" in run_nrfutil(str(tmp_path / "p.zip"), "COM5")

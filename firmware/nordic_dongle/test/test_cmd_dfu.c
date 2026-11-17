@@ -25,7 +25,7 @@
 /** Run a command line through the parser, as the main loop would. */
 static void test_handle(const char * line)
 {
-	char buffer[PROTO_MAX_LINE];
+	char buffer[PROTOCOL_MAX_LINE];
 
 	(void)strncpy(buffer, line, sizeof(buffer) - 1U);
 	buffer[sizeof(buffer) - 1U] = '\0';

@@ -47,7 +47,7 @@ extern "C" {
  * 1.1 - ``ver`` reports the firmware version and build date; ``dfu`` added.
  * 1.0 - first release.
  */
-#define PROTO_VERSION			"1.8"
+#define PROTOCOL_VERSION			"1.8"
 
 /** How long a connection attempt listens for the sensor, by default and at
  *  most, in milliseconds. A sensor advertising every 9 s was missed by a
@@ -63,20 +63,20 @@ extern "C" {
 #define PROTOCOL_CMD_MAX_MS		60000U
 
 /** Manufacturer and model reported by @c ver, in the host's identity fields. */
-#define PROTO_MANUFACTURER		"Nordic"
-#define PROTO_MODEL			"PCA10059"
+#define PROTOCOL_MANUFACTURER		"Nordic"
+#define PROTOCOL_MODEL			"PCA10059"
 
 /** Longest command line accepted, including the terminator: "cmd ", a
- *  PROTO_MAX_PAYLOAD payload in hex, and " timeout=60000". */
-#define PROTO_MAX_LINE			512U
+ *  PROTOCOL_MAX_PAYLOAD payload in hex, and " timeout=60000". */
+#define PROTOCOL_MAX_LINE			512U
 
 /** Longest reply or event line produced. The longest is cmd's "ok t_tx= t_rx=
- *  dt_us= interval_us= len= data=" with a PROTO_MAX_PAYLOAD reply in hex, about
+ *  dt_us= interval_us= len= data=" with a PROTOCOL_MAX_PAYLOAD reply in hex, about
  *  600 characters; at 192 a reply over ~60 bytes was cut short. */
-#define PROTO_MAX_EVENT			640U
+#define PROTOCOL_MAX_EVENT			640U
 
 /** Sensors retained by a scan. Bounded because the firmware allocates nothing. */
-#define PROTO_MAX_SENSORS		16U
+#define PROTOCOL_MAX_SENSORS		16U
 
 /** Longest advertising or scan-response payload: 31 bytes in legacy
  *  advertising. */
@@ -85,32 +85,35 @@ extern "C" {
 /** Longest device name kept, with its terminator: PROTOCOL_MAX_ADV_DATA and
  *  one, since a name can fill an advertising payload. At 24 a sensor's
  *  25-character name lost its last two characters (#241). */
-#define PROTO_MAX_NAME			32U
+#define PROTOCOL_MAX_NAME			32U
 
 /** Longest UART payload in one direction, in bytes before hex encoding: the
  *  ATT MTU of 247 less the 3-byte write header, the most one NUS write carries
  *  (#52). A sensor that negotiates a smaller MTU refuses a longer write. */
-#define PROTO_MAX_PAYLOAD		244U
+#define PROTOCOL_MAX_PAYLOAD		244U
 
 /**
  * Command table: X(name, min_args, max_args, help)
  *
  * @c min_args and @c max_args count the tokens after the command word.
+ *
+ * All three tables take their entry macro as the argument @c X, so each user
+ * passes a macro of its own and none is undefined afterwards (MISRA 20.5).
  */
-#define PROTO_COMMAND_TABLE \
-	X(ver,		0, 0, "identity: firmware version, build date, protocol, uptime") \
-	X(scan,		1, 5, "scan start <ms> [name=<text>] [addr=<a>] [active=<0|1>] [rssi=<min>] | scan stop") \
-	X(list,		0, 0, "sensors seen by the last scan, one event per sensor") \
-	X(select,	1, 1, "select <index|addr> as the sensor for later commands") \
-	X(selected,	0, 0, "report the selected sensor") \
-	X(connect,	0, 2, "connect to the selected sensor, or to <addr>; timeout=<ms> bounds the attempt") \
-	X(disconnect,	0, 0, "disconnect") \
-	X(uart,		1, 1, "uart <hex> - write raw bytes to the sensor's UART service") \
-	X(cmd,		1, 2, "cmd <hex> [timeout=<ms>] - write, await the reply, and report the round trip") \
-	X(adv,		1, 2, "adv start [<addr>] | adv stop | adv stats") \
-	X(time,		0, 0, "the dongle's microsecond timestamp now") \
-	X(reset,	0, 0, "reset the dongle") \
-	X(dfu,		0, 0, "reset into the bootloader, to accept a firmware update") \
+#define PROTOCOL_COMMAND_TABLE(X) \
+	X(ver,		0U, 0U, "identity: firmware version, build date, protocol, uptime") \
+	X(scan,		1U, 5U, "scan start <ms> [name=<text>] [addr=<a>] [active=<0|1>] [rssi=<min>] | scan stop") \
+	X(list,		0U, 0U, "sensors seen by the last scan, one event per sensor") \
+	X(select,	1U, 1U, "select <index|addr> as the sensor for later commands") \
+	X(selected,	0U, 0U, "report the selected sensor") \
+	X(connect,	0U, 2U, "connect to the selected sensor, or to <addr>; timeout=<ms> bounds the attempt") \
+	X(disconnect,	0U, 0U, "disconnect") \
+	X(uart,		1U, 1U, "uart <hex> - write raw bytes to the sensor's UART service") \
+	X(cmd,		1U, 2U, "cmd <hex> [timeout=<ms>] - write, await the reply, and report the round trip") \
+	X(adv,		1U, 2U, "adv start [<addr>] | adv stop | adv stats") \
+	X(time,		0U, 0U, "the dongle's microsecond timestamp now") \
+	X(reset,	0U, 0U, "reset the dongle") \
+	X(dfu,		0U, 0U, "reset into the bootloader, to accept a firmware update") \
 	X(dfucp,	1U, 2U, "dfucp <hex> [timeout=<ms>] - write a target's DFU Control Point, report its response") \
 	X(dfupkt,	1U, 1U, "dfupkt <hex> - write a target's DFU Packet characteristic, report the pieces written")
 
@@ -119,7 +122,7 @@ extern "C" {
  *
  * Events are unsolicited. Every one begins with '+' and carries @c t=.
  */
-#define PROTO_EVENT_TABLE \
+#define PROTOCOL_EVENT_TABLE(X) \
 	X(adv,	"+adv t= addr= type= rssi= pdu= ch= name= data= - one advertising report") \
 	X(sensor, "+sensor t= idx= addr= type= rssi= name= - one entry of the scan result") \
 	X(rx,	"+rx t= data= - bytes notified by the sensor's UART service") \
@@ -135,27 +138,28 @@ extern "C" {
  * A reply of "err <code> <text>" is a refusal by the firmware. The code is what
  * the host matches on; the text is for whoever is reading the log.
  */
-#define PROTO_ERROR_TABLE \
-	X(PROTO_ERR_NONE,	0,  "ok") \
-	X(PROTO_ERR_UNKNOWN,	1,  "unknown command") \
-	X(PROTO_ERR_ARGS,	2,  "wrong number of arguments") \
-	X(PROTO_ERR_VALUE,	3,  "bad argument value") \
-	X(PROTO_ERR_STATE,	4,  "not valid in this state") \
-	X(PROTO_ERR_NO_SENSOR,	5,  "no sensor selected") \
-	X(PROTO_ERR_NOT_CONN,	6,  "not connected") \
-	X(PROTO_ERR_BUSY,	7,  "busy") \
-	X(PROTO_ERR_TIMEOUT,	8,  "the sensor did not reply") \
-	X(PROTO_ERR_TOO_LONG,	9,  "payload too long") \
-	X(PROTO_ERR_BLE,	10, "the BLE stack refused the request")
+#define PROTOCOL_ERROR_TABLE(X) \
+	X(PROTO_ERR_NONE,	0U, "ok") \
+	X(PROTO_ERR_UNKNOWN,	1U, "unknown command") \
+	X(PROTO_ERR_ARGS,	2U, "wrong number of arguments") \
+	X(PROTO_ERR_VALUE,	3U, "bad argument value") \
+	X(PROTO_ERR_STATE,	4U, "not valid in this state") \
+	X(PROTO_ERR_NO_SENSOR,	5U, "no sensor selected") \
+	X(PROTO_ERR_NOT_CONN,	6U, "not connected") \
+	X(PROTO_ERR_BUSY,	7U, "busy") \
+	X(PROTO_ERR_TIMEOUT,	8U, "the sensor did not reply") \
+	X(PROTO_ERR_TOO_LONG,	9U, "payload too long") \
+	X(PROTO_ERR_BLE,	10U, "the BLE stack refused the request")
+
+/** One enumerator of proto_error_t, from a row of PROTOCOL_ERROR_TABLE. */
+#define PROTOCOL_ERROR_ENUMERATOR(symbol, code, text)	symbol = (code),
 
 /** Error codes, generated from the table above. */
-#define X(symbol, code, text)	symbol = (code),
 typedef enum
 {
-	PROTO_ERROR_TABLE
+	PROTOCOL_ERROR_TABLE(PROTOCOL_ERROR_ENUMERATOR)
 	PROTO_ERR_LIMIT
 } proto_error_t;
-#undef X
 
 /**
  * @brief The human-readable text for an error code.

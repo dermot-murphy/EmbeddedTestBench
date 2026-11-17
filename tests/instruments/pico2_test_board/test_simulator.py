@@ -50,7 +50,7 @@ class TestReplies:
         "line,reply",
         [("rd name", "ACK rd name = PICO2 Test Board"),
          ("rd copyright", "ACK rd copyright = (c) 2026 Dermot Murphy"),
-         ("rd version", "ACK rd version = V1.00.0000"),
+         ("rd version", "ACK rd version = V1.00.0001"),
          ("rd sha", "ACK rd sha = 0c0ffee"),
          ("rd colour", "NAK rd colour = Error"),
          ("rd NAME", "NAK rd NAME = Error")],

@@ -16,7 +16,12 @@ from __future__ import annotations
 import logging
 from typing import Tuple
 
-from ..errors import ConnectionFailedError, OptionalDependencyError, TransportError, TransportTimeoutError
+from ..errors import (
+    ConnectionFailedError,
+    OptionalDependencyError,
+    TransportError,
+    TransportTimeoutError,
+)
 from .base import Transport
 
 __all__ = ["VisaTransport", "pyvisa_available"]

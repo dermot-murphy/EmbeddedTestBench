@@ -72,19 +72,15 @@ class RttSource(Protocol):
 
     def rtt_open(self) -> None:
         """Make the source ready."""
-        ...
 
     def rtt_close(self) -> None:
         """Release the source."""
-        ...
 
     def rtt_poll(self) -> bytes:
         """Return whatever is available now, without blocking."""
-        ...
 
     def rtt_send(self, data: bytes) -> None:
         """Send *data* to the target."""
-        ...
 
 
 class SocketRttBackend:
@@ -95,13 +91,16 @@ class SocketRttBackend:
     :param connect_timeout: Seconds to wait for the connection.
     """
 
-    def __init__(self, host: str = "127.0.0.1", port: int = 19021, connect_timeout: float = 5.0) -> None:
+    def __init__(
+        self, host: str = "127.0.0.1", port: int = 19021, connect_timeout: float = 5.0
+    ) -> None:
         self._host = host
         self._port = int(port)
         self._connect_timeout = float(connect_timeout)
         self._socket: Optional[socket.socket] = None
 
     def rtt_open(self) -> None:
+        """Connect to the GDB Server's RTT port; does nothing if already connected."""
         if self._socket is not None:
             return
         try:
@@ -117,6 +116,7 @@ class SocketRttBackend:
         self._socket.setblocking(False)
 
     def rtt_close(self) -> None:
+        """Close the RTT connection, if there is one."""
         if self._socket is not None:
             try:
                 self._socket.close()
@@ -124,6 +124,7 @@ class SocketRttBackend:
                 self._socket = None
 
     def rtt_poll(self) -> bytes:
+        """Return every byte waiting on the socket now, or ``b""`` if not connected."""
         if self._socket is None:
             return b""
         collected = bytearray()
@@ -146,6 +147,7 @@ class SocketRttBackend:
         return bytes(collected)
 
     def rtt_send(self, data: bytes) -> None:
+        """Write *data* to the target's RTT down-channel over the socket."""
         if self._socket is None:
             raise BenchToolsError("RTT is not connected")
         try:
@@ -161,19 +163,23 @@ class SimulatedRttBackend:
         self._simulator = simulator
 
     def rtt_open(self) -> None:
+        """Start RTT on the simulated probe."""
         self._simulator.start_rtt()
 
     def rtt_close(self) -> None:
+        """Mark RTT stopped on the simulated probe."""
         self._simulator.rtt_started = False
 
     def rtt_poll(self) -> bytes:
+        """Return the simulator's pending RTT output, encoded as UTF-8."""
         return self._simulator.rtt_read().encode("utf-8")
 
     def rtt_send(self, data: bytes) -> None:
+        """Deliver *data* to the simulated target as text."""
         self._simulator.rtt_write(data.decode("utf-8", errors="replace"))
 
 
-class RttClient:
+class RttClient:  # pylint: disable=too-many-instance-attributes  # buffers, log and reader thread of one channel
     """Buffered, line-aware access to an RTT channel.
 
     :param backend: Where the bytes come from.
@@ -268,7 +274,10 @@ class RttClient:
             directory = os.path.dirname(os.path.abspath(log_path))
             if directory:
                 os.makedirs(directory, exist_ok=True)
-            self._log_handle = open(log_path, "w", encoding=self._encoding, errors="replace")
+            # Held open until stop(), so every byte is logged as it arrives.
+            self._log_handle = open(  # pylint: disable=consider-using-with  # closed in stop()
+                log_path, "w", encoding=self._encoding, errors="replace"
+            )
             self._log_path = log_path
             self._log_handle.write(
                 "# RTT channel %d, opened %s\n"
@@ -314,7 +323,8 @@ class RttClient:
         while not self._stop.is_set():
             try:
                 self._pump()
-            except Exception:  # noqa: BLE001 - a reader thread must not die quietly
+            # A reader thread must not die quietly, whatever the backend raised.
+            except Exception:  # noqa: BLE001  # pylint: disable=broad-exception-caught
                 self._logger.warning("RTT reader failed", exc_info=True)
                 return
             self._stop.wait(_POLL_INTERVAL)

@@ -39,7 +39,7 @@ __all__ = ["ProcessTransport"]
 _STDERR_LINES = 200
 
 
-class ProcessTransport(Transport):
+class ProcessTransport(Transport):  # pylint: disable=too-many-instance-attributes  # the child, its pipes and their reader threads
     """Talk to a child process over its standard input and output.
 
     :param command: Program and arguments. A string is split with :mod:`shlex`.
@@ -58,7 +58,7 @@ class ProcessTransport(Transport):
         stderr, rather than as a read timeout later.
     """
 
-    def __init__(
+    def __init__(  # pylint: disable=too-many-arguments,too-many-positional-arguments  # the keywords open_transport passes
         self,
         command=None,
         resource: Optional[str] = None,
@@ -72,7 +72,9 @@ class ProcessTransport(Transport):
         raw = command if command is not None else resource
         if not raw:
             raise ValueError("a command is required")
-        self._command: List[str] = list(raw) if isinstance(raw, (list, tuple)) else shlex.split(str(raw))
+        self._command: List[str] = (
+            list(raw) if isinstance(raw, (list, tuple)) else shlex.split(str(raw))
+        )
         if not self._command:
             raise ValueError("a command is required")
         self._cwd = cwd
@@ -128,7 +130,7 @@ class ProcessTransport(Transport):
             environment = dict(os.environ)
             environment.update(self._env)
         try:
-            self._process = subprocess.Popen(
+            self._process = subprocess.Popen(  # pylint: disable=consider-using-with  # lives until close()
                 self._command,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,

@@ -12,6 +12,6 @@
 #define FIRMWARE_NAME           "etb-s2lp-kit"
 
 /** Version, in the project's form: major.minor.build, semantic. */
-#define FIRMWARE_VERSION        "V1.00.0000"
+#define FIRMWARE_VERSION        "V1.00.0001"
 
 #endif /* FIRMWARE_VERSION_H */

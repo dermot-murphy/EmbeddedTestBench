@@ -22,7 +22,7 @@
 
 /** One-cycle table length. */
 #define FGEN_TABLE_BITS		12U
-#define FGEN_TABLE_SIZE		(1UL << FGEN_TABLE_BITS)
+#define FGEN_TABLE_SIZE		4096UL		/* 1 << FGEN_TABLE_BITS */
 #define FGEN_TABLE_MASK		(FGEN_TABLE_SIZE - 1UL)
 #define FGEN_QUARTER_TURN	(FGEN_TABLE_SIZE / 4UL)
 
@@ -33,7 +33,8 @@
 /** Interpolation fraction: 15 bits, so that a full-range table step times the
  *  fraction fits an int32_t. */
 #define FGEN_INTERP_BITS	15U
-#define FGEN_INTERP_ONE		(1L << FGEN_INTERP_BITS)
+#define FGEN_INTERP_ONE		32768L		/* 1 << FGEN_INTERP_BITS */
+#define FGEN_INTERP_MASK	((1UL << FGEN_INTERP_BITS) - 1UL)
 #define FGEN_INTERP_SHIFT	(FGEN_PHASE_FRAC_BITS - FGEN_INTERP_BITS)
 
 /** Peak value of a table entry. */
@@ -103,7 +104,6 @@ typedef struct
 static fgen_settings_t	fgen_m_settings[FGEN_CHANNEL_COUNT];
 static fgen_channel_t	fgen_m_channels[FGEN_CHANNEL_COUNT];
 static int16_t		fgen_m_sine[FGEN_TABLE_SIZE];
-static int16_t		fgen_m_tables[FGEN_DAC_CHANNELS][FGEN_TABLE_SIZE];
 static float		fgen_m_scratch[FGEN_TABLE_SIZE];
 static bool		fgen_m_muted;
 static uint64_t		fgen_m_last_active_us;
@@ -136,7 +136,8 @@ static uint32_t fgen_step_to_mhz(uint32_t step)
 static int32_t fgen_lookup(const int16_t *table, uint32_t phase)
 {
 	uint32_t	index = phase >> FGEN_PHASE_FRAC_BITS;
-	int32_t		fraction = (int32_t)((phase >> FGEN_INTERP_SHIFT) & ((uint32_t)FGEN_INTERP_ONE - 1UL));
+	uint32_t	fraction_bits = (phase >> FGEN_INTERP_SHIFT) & FGEN_INTERP_MASK;
+	int32_t		fraction = (int32_t)fraction_bits;
 	int32_t		first = (int32_t)table[index];
 	int32_t		second = (int32_t)table[(index + 1UL) & FGEN_TABLE_MASK];
 
@@ -172,7 +173,7 @@ static void fgen_add_harmonic(uint32_t harmonic, float amplitude, uint32_t offse
  * (1/n) sin(n pi D) cos(n (theta - pi D)). */
 static void fgen_add_pulse_harmonic(uint32_t harmonic, uint32_t duty)
 {
-	uint64_t	turns = ((uint64_t)harmonic * (uint64_t)duty * (uint64_t)FGEN_TABLE_SIZE) /
+	uint64_t	turns = ((uint64_t)harmonic * (uint64_t)duty * FGEN_TABLE_SIZE) /
 				(FGEN_PERCENT_FULL * 2ULL);
 	uint32_t	shift = (uint32_t)turns & FGEN_TABLE_MASK;
 	float		amplitude = (float)fgen_m_sine[shift] / (float)harmonic;
@@ -253,6 +254,8 @@ static void fgen_silence(fgen_channel_t *channel, fgen_state_t state)
 
 static void fgen_start_dac(uint32_t channel_number)
 {
+	/* One built table per DAC channel; a channel plays from it while running. */
+	static int16_t	fgen_m_tables[FGEN_DAC_CHANNELS][FGEN_TABLE_SIZE];
 	const uint32_t	*values = fgen_m_settings[channel_number - 1U].values;
 	fgen_channel_t	*channel = &fgen_m_channels[channel_number - 1U];
 	fgen_wave_t	wave = (fgen_wave_t)values[FGEN_PARAM_WAVE];

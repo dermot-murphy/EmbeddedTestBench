@@ -107,7 +107,7 @@ class ChannelSetup:
     bandwidth: Optional[Union[Bandwidth, str]] = None
 
 
-class Tek3014B(ScpiInstrument):
+class Tek3014B(ScpiInstrument):  # pylint: disable=too-many-public-methods  # one method per instrument function
     """Driver for a TDS3014B (and the wider TDS3000/TDS3000B/C family).
 
     :param transport: An open or unopened
@@ -226,7 +226,7 @@ class Tek3014B(ScpiInstrument):
         """Return the channels currently displayed, in ascending order."""
         return [c for c in self._limits.channels if self.is_channel_enabled(c)]
 
-    def configure_channel(
+    def configure_channel(  # pylint: disable=too-many-arguments,too-many-positional-arguments  # one argument per vertical setting
         self,
         channel: int,
         enabled: bool = True,
@@ -516,8 +516,14 @@ class Tek3014B(ScpiInstrument):
             time.sleep(poll_interval)
 
     def _safe_trigger_state(self) -> str:
+        """Return the trigger state for a diagnostic message, or ``"unknown"``.
+
+        A failure here must not replace the timeout being reported, so any
+        error is absorbed.
+        """
         try:
             return self.trigger_state().value
+        # pylint: disable-next=broad-exception-caught  # must not mask the timeout
         except Exception:  # pragma: no cover - diagnostic path only
             return "unknown"
 
@@ -529,7 +535,8 @@ class Tek3014B(ScpiInstrument):
     # ------------------------------------------------------------------
     # Waveform capture
     # ------------------------------------------------------------------
-    def _read_preamble(self, source: str, start_index: int) -> WaveformPreamble:
+    def _read_preamble(self, start_index: int) -> WaveformPreamble:
+        """Read the ``WFMPRE`` scaling of the current data source in one query."""
         query = ";:".join("WFMPRE:%s?" % field for field in _PREAMBLE_FIELDS)
         response = self._query(query)
         fields = [field.strip() for field in response.split(";")]
@@ -632,35 +639,38 @@ class Tek3014B(ScpiInstrument):
             % (chosen.value, width, start, last)
         )
 
-        signed = chosen in _SIGNED_ENCODINGS
         results: Dict[int, Waveform] = {}
         for channel in requested:
-            source = "CH%d" % channel
-            self._write("DATA:SOURCE %s" % source)
-            preamble = self._read_preamble(source, start_index=start - 1)
-            payload = self._read_curve_payload()
-            if chosen is DataEncoding.ASCII:
-                results[channel] = Waveform.from_ascii(
-                    source=source, text=payload, preamble=preamble
-                )
-            else:
-                results[channel] = Waveform.from_payload(
-                    source=source, payload=payload, preamble=preamble,
-                    width=width, signed=signed,
-                )
-            record = results[channel]
-            if record.is_clipped:
-                self._logger.warning(
-                    "%s is clipped: %d of %d samples are at the digitiser rail. "
-                    "Increase volts/div or move the channel position, otherwise "
-                    "amplitude and threshold-based timing results will be wrong.",
-                    source, record.clipped_sample_count, len(record),
-                )
-            self._logger.debug("captured %d points from %s", len(record), source)
+            results[channel] = self._capture_channel(channel, chosen, width, start)
 
         if self.auto_check_errors:
             self.check_errors()
         return results
+
+    def _capture_channel(
+        self, channel: int, encoding: DataEncoding, width: int, start: int
+    ) -> Waveform:
+        """Transfer one channel's record, set up by :meth:`capture`, and warn if it clipped."""
+        source = "CH%d" % channel
+        self._write("DATA:SOURCE %s" % source)
+        preamble = self._read_preamble(start_index=start - 1)
+        payload = self._read_curve_payload()
+        if encoding is DataEncoding.ASCII:
+            record = Waveform.from_ascii(source=source, text=payload, preamble=preamble)
+        else:
+            record = Waveform.from_payload(
+                source=source, payload=payload, preamble=preamble,
+                width=width, signed=encoding in _SIGNED_ENCODINGS,
+            )
+        if record.is_clipped:
+            self._logger.warning(
+                "%s is clipped: %d of %d samples are at the digitiser rail. "
+                "Increase volts/div or move the channel position, otherwise "
+                "amplitude and threshold-based timing results will be wrong.",
+                source, record.clipped_sample_count, len(record),
+            )
+        self._logger.debug("captured %d points from %s", len(record), source)
+        return record
 
     def capture_single(
         self,
@@ -680,7 +690,7 @@ class Tek3014B(ScpiInstrument):
     # ------------------------------------------------------------------
     # Instrument-side measurements
     # ------------------------------------------------------------------
-    def measure(
+    def measure(  # pylint: disable=too-many-arguments,too-many-positional-arguments  # mirrors the MEASUrement:IMMed settings
         self,
         measurement: Union[MeasurementType, str],
         source1: Union[int, str] = 1,
@@ -813,7 +823,7 @@ class Tek3014B(ScpiInstrument):
     # ------------------------------------------------------------------
     # Host-side analysis built on a capture
     # ------------------------------------------------------------------
-    def measure_channel_spread(
+    def measure_channel_spread(  # pylint: disable=too-many-arguments,too-many-positional-arguments  # one argument per analysis option
         self,
         channels: Sequence[int],
         direction: Union[EdgeDirection, str] = EdgeDirection.RISE,
@@ -880,7 +890,7 @@ class Tek3014B(ScpiInstrument):
     # ------------------------------------------------------------------
     # Screen capture
     # ------------------------------------------------------------------
-    def screenshot(
+    def screenshot(  # pylint: disable=too-many-arguments,too-many-positional-arguments  # mirrors the HARDCopy settings
         self,
         path: str,
         image_format: Union[ImageFormat, str] = ImageFormat.PNG,
@@ -944,15 +954,19 @@ class Tek3014B(ScpiInstrument):
                 "hardcopy port is set to the command interface"
             )
 
+        return self._write_image(path, image, chosen)
+
+    def _write_image(self, path: str, image: bytes, image_format: ImageFormat) -> str:
+        """Write *image* to *path*, adding the format's suffix if it has none."""
         root, suffix = os.path.splitext(path)
-        destination = path if suffix else root + chosen.suffix
+        destination = path if suffix else root + image_format.suffix
         directory = os.path.dirname(os.path.abspath(destination))
         if directory:
             os.makedirs(directory, exist_ok=True)
         with open(destination, "wb") as handle:
             handle.write(image)
         self._logger.info("wrote %d bytes of %s hardcopy to %s",
-                          len(image), chosen.value, destination)
+                          len(image), image_format.value, destination)
         return destination
 
     # ------------------------------------------------------------------

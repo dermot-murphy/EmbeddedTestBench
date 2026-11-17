@@ -50,19 +50,6 @@ typedef struct
 	cmd_value_t	kind;
 } cmd_fgen_field_t;
 
-static const cmd_fgen_field_t	cmd_fgen_fields[] =
-{
-	{ "freq",	FGEN_PARAM_FREQ,	CMD_VALUE_FREQ },
-	{ "freq2",	FGEN_PARAM_FREQ2,	CMD_VALUE_FREQ },
-	{ "wave",	FGEN_PARAM_WAVE,	CMD_VALUE_WAVE },
-	{ "duty",	FGEN_PARAM_DUTY,	CMD_VALUE_DECIMAL },
-	{ "amp",	FGEN_PARAM_AMP,		CMD_VALUE_DECIMAL },
-	{ "ratio",	FGEN_PARAM_RATIO,	CMD_VALUE_DECIMAL },
-	{ "cycles",	FGEN_PARAM_CYCLES,	CMD_VALUE_COUNT }
-};
-
-#define CMD_FGEN_FGEN_FIELD_COUNT	((uint32_t)(sizeof(cmd_fgen_fields) / sizeof(cmd_fgen_fields[0])))
-
 /** Names in fgen_wave_t order. */
 static const char * const	cmd_wave_names[] =
 {
@@ -80,10 +67,21 @@ static const char * const	cmd_state_names[] =
 /* The generator setting named @p option, or NULL. */
 static const cmd_fgen_field_t *cmd_fgen_lookup(const char *option)
 {
+	static const cmd_fgen_field_t	cmd_fgen_fields[] =
+	{
+		{ "freq",	FGEN_PARAM_FREQ,	CMD_VALUE_FREQ },
+		{ "freq2",	FGEN_PARAM_FREQ2,	CMD_VALUE_FREQ },
+		{ "wave",	FGEN_PARAM_WAVE,	CMD_VALUE_WAVE },
+		{ "duty",	FGEN_PARAM_DUTY,	CMD_VALUE_DECIMAL },
+		{ "amp",	FGEN_PARAM_AMP,		CMD_VALUE_DECIMAL },
+		{ "ratio",	FGEN_PARAM_RATIO,	CMD_VALUE_DECIMAL },
+		{ "cycles",	FGEN_PARAM_CYCLES,	CMD_VALUE_COUNT }
+	};
+	const uint32_t		count = (uint32_t)(sizeof(cmd_fgen_fields) / sizeof(cmd_fgen_fields[0]));
 	const cmd_fgen_field_t	*field = NULL;
 	uint32_t		index;
 
-	for (index = 0U; (index < CMD_FGEN_FGEN_FIELD_COUNT) && (field == NULL); index++)
+	for (index = 0U; (index < count) && (field == NULL); index++)
 	{
 		if (strcmp(option, cmd_fgen_fields[index].option) == 0)
 		{

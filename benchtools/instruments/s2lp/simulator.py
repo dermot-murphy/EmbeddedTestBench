@@ -108,7 +108,7 @@ class _Arrival:
     error: int
 
 
-class SimulatedS2lp:
+class SimulatedS2lp:  # pylint: disable=too-many-instance-attributes  # mirrors the kit's state
     """A simulated kit board. Satisfies ``Responder``.
 
     :param board: Recorded for a test's convenience. The firmware never reports
@@ -208,11 +208,12 @@ class SimulatedS2lp:
                                        int(error)))
         self.inbound.append((bytes(data), float(rssi_dbm)))
 
-    def arrive_while_deaf(self, data: bytes) -> None:
+    def arrive_while_deaf(self, _data: bytes) -> None:
         """A packet that arrives while the radio is not armed.
 
-        It is counted and dropped, which is what the hardware does and what the
-        driver must not present as "nothing was transmitted".
+        The packet itself is never seen: it is counted and dropped, which is
+        what the hardware does and what the driver must not present as
+        "nothing was transmitted".
         """
         self.missed += 1
 

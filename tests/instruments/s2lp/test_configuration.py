@@ -10,6 +10,8 @@ Traces to: S2LP-FR-017 .. S2LP-FR-019, SWE4-UT-S2LPCONFIG.
 
 from __future__ import annotations
 
+import pathlib
+
 import pytest
 
 from benchtools.core.errors import ConfigurationError, InstrumentError
@@ -359,14 +361,13 @@ class TestCapturingFromARadio:
     def test_it_records_where_it_came_from(self, radio, tmp_path):
         radio.write_register("PCKTCTRL3", 0xC0)
         path = radio.save_configuration(str(tmp_path / "captured.regs"))
-        assert "captured from S2-LP DK on simulated" in open(path, encoding="utf-8").read()
+        text = pathlib.Path(path).read_text(encoding="utf-8")
+        assert "captured from S2-LP DK on simulated" in text
 
 
 class TestTheShippedConfiguration:
     def test_it_loads(self):
         """The example in configs/ must stay loadable as the map changes."""
-        import pathlib
-
         root = pathlib.Path(__file__).resolve().parents[3]
         configuration = load_register_file(str(root / "configs" / "s2lp_915_38k4_basic.regs"))
         assert len(configuration) >= 5
@@ -378,8 +379,6 @@ class TestTheShippedConfiguration:
         0x4E63F358 and secondary 0xB19C0CA7, each least significant byte first,
         with SECOND_SYNC_SEL on; variable length, one address byte, CRC-16
         0x8005, TX source the FIFO."""
-        import pathlib
-
         root = pathlib.Path(__file__).resolve().parents[3]
         path = str(root / "plugins" / "kepler" / "configs" / "s2lp_kepler_433_rx.regs")
         values = load_register_file(path).as_map()

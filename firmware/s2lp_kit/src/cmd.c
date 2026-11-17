@@ -26,7 +26,13 @@
 #define CMD_NIBBLE_BITS         (4U)
 #define CMD_BYTE_BITS           (8U)
 
+/** Bytes in the widest value cmd_put_hex_word writes. */
+#define CMD_WORD_BYTES          (4U)
+
 static const char m_hex_digits[] = "0123456789abcdef";
+
+/** Send every record still queued, oldest first. */
+static void cmd_send_queued(void);
 
 /**
  * @brief Text being built for the host.
@@ -39,11 +45,13 @@ typedef struct
 
 static void cmd_put_text(cmd_out_t *out, const char *text)
 {
-	while ((*text != '\0') && (out->length < (CMD_OUT_MAX - 2U)))
+	const char *cursor = text;
+
+	while ((*cursor != '\0') && (out->length < (CMD_OUT_MAX - 2U)))
 	{
-		out->text[out->length] = *text;
+		out->text[out->length] = *cursor;
 		out->length++;
-		text++;
+		cursor++;
 	}
 }
 
@@ -51,13 +59,14 @@ static void cmd_put_decimal(cmd_out_t *out, uint32_t value)
 {
 	char digits[CMD_DECIMAL];
 	uint32_t count = 0U;
+	uint32_t rest = value;
 
 	do
 	{
-		digits[count] = (char)('0' + (char)(value % CMD_DECIMAL));
+		digits[count] = m_hex_digits[rest % CMD_DECIMAL];
 		count++;
-		value = value / CMD_DECIMAL;
-	} while (value != 0U);
+		rest = rest / CMD_DECIMAL;
+	} while (rest != 0U);
 
 	while ((count > 0U) && (out->length < (CMD_OUT_MAX - 2U)))
 	{
@@ -81,10 +90,10 @@ static void cmd_put_hex(cmd_out_t *out, const uint8_t *bytes, uint32_t count)
 
 static void cmd_put_hex_word(cmd_out_t *out, uint32_t value, uint32_t bytes)
 {
-	uint8_t data[4];
+	uint8_t data[CMD_WORD_BYTES] = {0U, 0U, 0U, 0U};
 	uint32_t index;
 
-	for (index = 0U; index < bytes; index++)
+	for (index = 0U; (index < bytes) && (index < CMD_WORD_BYTES); index++)
 	{
 		data[index] = (uint8_t)(value >> (CMD_BYTE_BITS * (bytes - 1U - index)));
 	}
@@ -117,15 +126,15 @@ static int32_t cmd_hex_value(char digit)
 
 	if ((digit >= '0') && (digit <= '9'))
 	{
-		value = (int32_t)(digit - '0');
+		value = ((int32_t)digit - (int32_t)'0');
 	}
 	else if ((digit >= 'a') && (digit <= 'f'))
 	{
-		value = (int32_t)(digit - 'a') + (int32_t)CMD_DECIMAL;
+		value = ((int32_t)digit - (int32_t)'a') + (int32_t)CMD_DECIMAL;
 	}
 	else if ((digit >= 'A') && (digit <= 'F'))
 	{
-		value = (int32_t)(digit - 'A') + (int32_t)CMD_DECIMAL;
+		value = ((int32_t)digit - (int32_t)'A') + (int32_t)CMD_DECIMAL;
 	}
 	else
 	{
@@ -141,11 +150,12 @@ static bool cmd_parse_number(const char *text, uint32_t base, uint32_t *value)
 {
 	bool valid = (text != NULL) && (*text != '\0') && (strlen(text) <= 8U);
 	uint32_t result = 0U;
-	int32_t digit;
+	const char *cursor = text;
 
-	while (valid && (*text != '\0'))
+	while (valid && (*cursor != '\0'))
 	{
-		digit = cmd_hex_value(*text);
+		int32_t digit = cmd_hex_value(*cursor);
+
 		if ((digit < 0) || ((uint32_t)digit >= base))
 		{
 			valid = false;
@@ -154,7 +164,7 @@ static bool cmd_parse_number(const char *text, uint32_t base, uint32_t *value)
 		{
 			result = (result * base) + (uint32_t)digit;
 		}
-		text++;
+		cursor++;
 	}
 	if (valid)
 	{
@@ -187,13 +197,12 @@ static bool cmd_parse_bytes(const char *text, uint8_t *bytes, uint32_t *count)
 	bool valid = (length > 0U) && ((length % 2U) == 0U)
 		&& ((length / 2U) <= PROTO_MAX_PAYLOAD);
 	uint32_t index;
-	int32_t high;
-	int32_t low;
 
 	for (index = 0U; valid && (index < (length / 2U)); index++)
 	{
-		high = cmd_hex_value(text[2U * index]);
-		low = cmd_hex_value(text[(2U * index) + 1U]);
+		int32_t high = cmd_hex_value(text[2U * index]);
+		int32_t low = cmd_hex_value(text[(2U * index) + 1U]);
+
 		if ((high < 0) || (low < 0))
 		{
 			valid = false;
@@ -262,10 +271,8 @@ static void cmd_id(void)
 
 static void cmd_rd(char *words[], uint32_t count)
 {
-	cmd_out_t out;
 	uint8_t address = 0U;
 	uint32_t length = 0U;
-	uint8_t data[PROTO_MAX_PAYLOAD];
 
 	if ((count != 3U) || !cmd_parse_address(words[1], &address)
 		|| !cmd_parse_number(words[2], CMD_DECIMAL, &length)
@@ -275,6 +282,9 @@ static void cmd_rd(char *words[], uint32_t count)
 	}
 	else
 	{
+		cmd_out_t out;
+		uint8_t data[PROTO_MAX_PAYLOAD];
+
 		s2lp_read(address, data, length);
 		out.length = 0U;
 		cmd_put_text(&out, "ok ");
@@ -320,16 +330,16 @@ static void cmd_cmd(char *words[], uint32_t count)
 	}
 }
 
-static void cmd_sdn(char *words[], uint32_t count)
+static void cmd_sdn(const char *setting, uint32_t count)
 {
-	if ((count != 2U) || ((strcmp(words[1], "0") != 0) && (strcmp(words[1], "1") != 0)))
+	if ((count != 2U) || ((strcmp(setting, "0") != 0) && (strcmp(setting, "1") != 0)))
 	{
 		cmd_send_text("err bad argument");
 	}
 	else
 	{
-		hal_radio_shutdown(words[1][0] == '1');
-		if (words[1][0] == '0')
+		hal_radio_shutdown(setting[0] == '1');
+		if (setting[0] == '0')
 		{
 			hal_delay_us(2000U);
 		}
@@ -389,11 +399,12 @@ static bool cmd_parse_address_list(char *text, uint8_t *addresses, uint32_t *cou
 static void cmd_rx(char *words[], uint32_t count)
 {
 	cmd_out_t out;
-	uint8_t addresses[PROTO_MAX_REGISTERS];
-	uint32_t address_count = 0U;
 
 	if ((count >= 2U) && (strcmp(words[1], "start") == 0) && (count <= 3U))
 	{
+		uint8_t addresses[PROTO_MAX_REGISTERS];
+		uint32_t address_count = 0U;
+
 		if ((count == 3U) && !cmd_parse_address_list(words[2], addresses, &address_count))
 		{
 			cmd_send_text("err bad argument");
@@ -443,15 +454,15 @@ void cmd_line_too_long(void)
 	cmd_send_text("err line too long");
 }
 
-void cmd_send_queued(void)
+static void cmd_send_queued(void)
 {
 	char line[CMD_OUT_MAX];
-	uint32_t length;
 	const ring_record_t *record = ring_peek();
 
 	while (record != NULL)
 	{
-		length = cmd_format_record(record, line);
+		uint32_t length = cmd_format_record(record, line);
+
 		ring_release();
 		hal_uart_write(line, length);
 		record = ring_peek();
@@ -506,7 +517,7 @@ void cmd_handle_line(char *line)
 	}
 	else
 	{
-		cmd_sdn(words, count);
+		cmd_sdn(words[1], count);
 	}
 }
 
@@ -522,7 +533,7 @@ uint32_t cmd_format_record(const ring_record_t *record, char *out)
 	cmd_put_text(&line, " ");
 	cmd_put_decimal(&line, record->time_us);
 	cmd_put_text(&line, " ");
-	if (record->kind == PROTO_KIND_FRAME)
+	if (record->kind == (uint8_t)PROTO_KIND_FRAME)
 	{
 		cmd_put_decimal(&line, record->length);
 		cmd_put_text(&line, " ");

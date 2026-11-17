@@ -117,7 +117,7 @@ STATUS_BIT_BEEP = 4
 STATUS_BIT_OUTPUT = 6
 
 
-class ChannelMode:
+class ChannelMode:  # pylint: disable=too-few-public-methods  # a namespace of the mode names the driver reports
     """Which loop is in control of a channel.
 
     A supply in **CV** is holding the voltage that was set; in **CC** it has
@@ -131,7 +131,7 @@ class ChannelMode:
     CONSTANT_CURRENT = "CC"
 
 
-class TrackingMode:
+class TrackingMode:  # pylint: disable=too-few-public-methods  # a namespace of the tracking names the driver reports
     """How the two programmable channels are wired together inside the supply.
 
     In **series** and **parallel** the supply drives CH2 from CH1's setting.

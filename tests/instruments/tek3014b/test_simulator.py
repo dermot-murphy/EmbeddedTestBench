@@ -102,7 +102,8 @@ class TestMeasurementModel:
         simulator = SimulatedTDS3014B()
         simulator.handle("SELECT:CH2 OFF;:MEASUREMENT:IMMED:TYPE PERIOD"
                          ";:MEASUREMENT:IMMED:SOURCE1 CH2")
-        assert float(simulator.handle("MEASUREMENT:IMMED:VALUE?")) == pytest.approx(INVALID_MEASUREMENT)
+        value = float(simulator.handle("MEASUREMENT:IMMED:VALUE?"))
+        assert value == pytest.approx(INVALID_MEASUREMENT)
 
     def test_delay_reflects_the_configured_skew(self):
         simulator = SimulatedTDS3014B(signals={

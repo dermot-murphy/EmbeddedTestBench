@@ -95,11 +95,10 @@ class TestBaseSimulator:
         simulator.respond(b"*RST")
         assert simulator.events == []
 
-    def test_binary_reply(self, simulator):
+    def test_binary_reply(self):
         class WithImage(SimulatedInstrument):
             def _cmd_IMAGE_Q(self, _argument):
                 self.set_binary_reply(b"\x89PNG\r\n\x1a\n")
-                return None
 
         assert WithImage().respond(b"IMAGE?") == b"\x89PNG\r\n\x1a\n"
 
@@ -115,7 +114,6 @@ class TestSubclassing:
 
             def _cmd_VOLTAGE(self, argument):
                 self.voltage = float(argument)
-                return None
 
             def _cmd_VOLTAGE_Q(self, _argument):
                 return format_number(self.voltage)

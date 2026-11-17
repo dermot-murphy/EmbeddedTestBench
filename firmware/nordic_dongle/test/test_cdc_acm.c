@@ -28,7 +28,7 @@ void setUp(void)
 	uint32_t guard;
 
 	fake_cdc_open_port();
-	for (guard = 0U; guard < (CDC_TX_QUEUE_LINES + 4U); guard++)
+	for (guard = 0U; guard < (CDC_ACM_TX_QUEUE_LINES + 4U); guard++)
 	{
 		fake_cdc_complete_write();
 	}
@@ -120,7 +120,7 @@ static void test_a_full_queue_drops_whole_lines_and_counts_them(void)
 	uint32_t accepted = 0U;
 
 	/* Nothing completes, so the queue fills. */
-	for (index = 0U; index < (CDC_TX_QUEUE_LINES + 8U); index++)
+	for (index = 0U; index < (CDC_ACM_TX_QUEUE_LINES + 8U); index++)
 	{
 		if (cdc_acm_send_format("line=%u", index))
 		{
@@ -128,7 +128,7 @@ static void test_a_full_queue_drops_whole_lines_and_counts_them(void)
 		}
 	}
 
-	TEST_ASSERT_TRUE_MESSAGE(accepted < (CDC_TX_QUEUE_LINES + 8U), "the queue never filled");
+	TEST_ASSERT_TRUE_MESSAGE(accepted < (CDC_ACM_TX_QUEUE_LINES + 8U), "the queue never filled");
 	TEST_ASSERT_GREATER_THAN_UINT32(before, cdc_acm_dropped());
 	/* Whole lines only: what was written must still parse as complete lines. */
 	TEST_ASSERT_GREATER_THAN_UINT32(0U, fake_cdc_written_length());
@@ -137,7 +137,7 @@ static void test_a_full_queue_drops_whole_lines_and_counts_them(void)
 
 static void test_an_over_long_line_is_truncated_not_overrun(void)
 {
-	char	long_line[PROTO_MAX_EVENT * 2U];
+	char	long_line[PROTOCOL_MAX_EVENT * 2U];
 	uint32_t written;
 
 	(void)memset(long_line, 'x', sizeof(long_line) - 1U);
@@ -146,7 +146,7 @@ static void test_an_over_long_line_is_truncated_not_overrun(void)
 	TEST_ASSERT_TRUE(cdc_acm_send_line(long_line));
 	written = fake_cdc_written_length();
 	TEST_ASSERT_GREATER_THAN_UINT32(0U, written);
-	TEST_ASSERT_TRUE(written <= PROTO_MAX_EVENT);
+	TEST_ASSERT_TRUE(written <= PROTOCOL_MAX_EVENT);
 	TEST_ASSERT_EQUAL_CHAR('\n', fake_cdc_written()[written - 1U]);
 }
 
@@ -172,12 +172,19 @@ static void test_nothing_is_written_before_the_port_opens(void)
 	TEST_ASSERT_EQUAL_STRING("early\n", fake_cdc_written());
 }
 
-static void test_the_port_state_is_reported(void)
+/* The port state is observed through what is written: the module no longer
+ * reports it, as nothing in the firmware asked (#379, MISRA 8.7). */
+static void test_nothing_is_written_once_the_port_closes(void)
 {
-	TEST_ASSERT_TRUE(cdc_acm_is_open());
+	fake_cdc_reset();
 	fake_cdc_close_port();
-	TEST_ASSERT_FALSE(cdc_acm_is_open());
+	cdc_acm_send_line("late");
+	cdc_acm_process();
+	TEST_ASSERT_EQUAL_UINT32(0U, fake_cdc_write_count());
+
 	fake_cdc_open_port();
+	cdc_acm_process();
+	TEST_ASSERT_EQUAL_STRING("late\n", fake_cdc_written());
 }
 
 /* ------------------------------------------------------------------ */
@@ -186,7 +193,7 @@ static void test_the_port_state_is_reported(void)
 
 static void test_a_line_is_assembled_from_bytes(void)
 {
-	char buffer[PROTO_MAX_LINE];
+	char buffer[PROTOCOL_MAX_LINE];
 
 	fake_cdc_receive_text("ver\n");
 	TEST_ASSERT_TRUE(cdc_acm_take_line(buffer, sizeof(buffer)));
@@ -195,7 +202,7 @@ static void test_a_line_is_assembled_from_bytes(void)
 
 static void test_carriage_return_also_ends_a_line(void)
 {
-	char buffer[PROTO_MAX_LINE];
+	char buffer[PROTOCOL_MAX_LINE];
 
 	fake_cdc_receive_text("ver\r\n");
 	TEST_ASSERT_TRUE(cdc_acm_take_line(buffer, sizeof(buffer)));
@@ -205,7 +212,7 @@ static void test_carriage_return_also_ends_a_line(void)
 
 static void test_a_partial_line_is_not_offered(void)
 {
-	char buffer[PROTO_MAX_LINE];
+	char buffer[PROTOCOL_MAX_LINE];
 
 	fake_cdc_receive_text("sca");
 	TEST_ASSERT_FALSE(cdc_acm_take_line(buffer, sizeof(buffer)));
@@ -216,7 +223,7 @@ static void test_a_partial_line_is_not_offered(void)
 
 static void test_an_empty_line_is_ignored(void)
 {
-	char buffer[PROTO_MAX_LINE];
+	char buffer[PROTOCOL_MAX_LINE];
 
 	fake_cdc_receive_text("\n\n");
 	TEST_ASSERT_FALSE(cdc_acm_take_line(buffer, sizeof(buffer)));
@@ -224,7 +231,7 @@ static void test_an_empty_line_is_ignored(void)
 
 static void test_a_line_is_taken_only_once(void)
 {
-	char buffer[PROTO_MAX_LINE];
+	char buffer[PROTOCOL_MAX_LINE];
 
 	fake_cdc_receive_text("time\n");
 	TEST_ASSERT_TRUE(cdc_acm_take_line(buffer, sizeof(buffer)));
@@ -233,10 +240,10 @@ static void test_a_line_is_taken_only_once(void)
 
 static void test_an_over_long_command_is_discarded_not_acted_on_in_part(void)
 {
-	char		buffer[PROTO_MAX_LINE];
+	char		buffer[PROTOCOL_MAX_LINE];
 	uint32_t	index;
 
-	for (index = 0U; index < (PROTO_MAX_LINE + 32U); index++)
+	for (index = 0U; index < (PROTOCOL_MAX_LINE + 32U); index++)
 	{
 		fake_cdc_receive_byte('x');
 	}
@@ -248,10 +255,10 @@ static void test_the_tail_of_an_over_long_command_is_not_a_command(void)
 {
 	/* Regression for D-28: the firmware used to start a new line where the
 	 * buffer overflowed, so "xxx...xxxreset" would have executed `reset`. */
-	char		buffer[PROTO_MAX_LINE];
+	char		buffer[PROTOCOL_MAX_LINE];
 	uint32_t	index;
 
-	for (index = 0U; index < PROTO_MAX_LINE; index++)
+	for (index = 0U; index < PROTOCOL_MAX_LINE; index++)
 	{
 		fake_cdc_receive_byte('x');
 	}
@@ -266,7 +273,7 @@ static void test_the_tail_of_an_over_long_command_is_not_a_command(void)
 
 static void test_taking_into_no_buffer_is_refused(void)
 {
-	char buffer[PROTO_MAX_LINE];
+	char buffer[PROTOCOL_MAX_LINE];
 
 	fake_cdc_receive_text("ver\n");
 	TEST_ASSERT_FALSE(cdc_acm_take_line(NULL, sizeof(buffer)));
@@ -304,7 +311,7 @@ int main(void)
 	RUN_TEST(test_an_over_long_line_is_truncated_not_overrun);
 	RUN_TEST(test_a_refused_write_releases_the_slot);
 	RUN_TEST(test_nothing_is_written_before_the_port_opens);
-	RUN_TEST(test_the_port_state_is_reported);
+	RUN_TEST(test_nothing_is_written_once_the_port_closes);
 	RUN_TEST(test_a_line_is_assembled_from_bytes);
 	RUN_TEST(test_carriage_return_also_ends_a_line);
 	RUN_TEST(test_a_partial_line_is_not_offered);

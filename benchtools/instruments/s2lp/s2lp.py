@@ -86,7 +86,8 @@ FIRMWARES = ("auto", "st", "kit")
 
 
 
-class S2lpDevkit(KitFirmwareMixin, FrameMeasuresMixin, TrafficMixin, Instrument):
+class S2lpDevkit(  # pylint: disable=too-many-public-methods  # mirrors ST's CLI
+        KitFirmwareMixin, FrameMeasuresMixin, TrafficMixin, Instrument):
     """An S2-LP development kit running ST's CLI firmware.
 
     :param transport: The link to the board, usually its USB serial port.
@@ -148,11 +149,10 @@ class S2lpDevkit(KitFirmwareMixin, FrameMeasuresMixin, TrafficMixin, Instrument)
         self._packet_log: Optional[PacketLog] = None
         self._payload_length = 0
 
-    # ------------------------------------------------------------------
-    # Lifecycle
-    # ------------------------------------------------------------------
+    # -- Lifecycle -----------------------------------------------------
     @classmethod
-    def connect(
+    def connect(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+        # The connection options a caller names one by one; public API.
         cls,
         resource: str = "sim://",
         baudrate: int = DEFAULT_BAUDRATE,
@@ -337,15 +337,15 @@ class S2lpDevkit(KitFirmwareMixin, FrameMeasuresMixin, TrafficMixin, Instrument)
         if settle > 0:
             time.sleep(settle)
 
-    # ------------------------------------------------------------------
-    # Properties
-    # ------------------------------------------------------------------
+    # -- Properties ----------------------------------------------------
     @property
     def transport(self) -> Transport:
+        """The link to the board."""
         return self._transport
 
     @property
     def session(self) -> S2lpSession:
+        """The command session that speaks ST's CLI protocol over the transport."""
         return self._session
 
     @property
@@ -381,20 +381,21 @@ class S2lpDevkit(KitFirmwareMixin, FrameMeasuresMixin, TrafficMixin, Instrument)
 
     @property
     def log_path(self) -> Optional[str]:
+        """The raw session log's path, or ``None`` when no log is open."""
         return self._session.log_path
 
     @property
     def packet_log_path(self) -> Optional[str]:
+        """The packet log's path, or ``None`` when no packet log is open."""
         return self._packet_log.path if self._packet_log else None
 
-    # ------------------------------------------------------------------
-    # Logging
-    # ------------------------------------------------------------------
+    # -- Logging -------------------------------------------------------
     def start_log(self, path: str) -> str:
         """Record every line in both directions to *path*."""
         return self._session.log_to(path)
 
     def stop_log(self) -> None:
+        """Stop recording the raw session log."""
         self._session.stop_log()
 
     def log_note(self, text: str) -> None:
@@ -410,6 +411,7 @@ class S2lpDevkit(KitFirmwareMixin, FrameMeasuresMixin, TrafficMixin, Instrument)
         return path
 
     def stop_packet_log(self) -> None:
+        """Close the packet log, if one is open."""
         if self._packet_log is not None:
             self._packet_log.close()
             self._packet_log = None
@@ -424,9 +426,7 @@ class S2lpDevkit(KitFirmwareMixin, FrameMeasuresMixin, TrafficMixin, Instrument)
                   level=logging.DEBUG)
         return packet
 
-    # ------------------------------------------------------------------
-    # Registers
-    # ------------------------------------------------------------------
+    # -- Registers -----------------------------------------------------
     def read_registers(self, start: Union[int, str], count: int = 1) -> List[int]:
         """Read *count* registers from *start*, by name or address."""
         address = reg.lookup(start).address if isinstance(start, str) else int(start)
@@ -613,9 +613,7 @@ class S2lpDevkit(KitFirmwareMixin, FrameMeasuresMixin, TrafficMixin, Instrument)
                     self.write_registers(block_start, block)
                     block, block_start = [], None
 
-    # ------------------------------------------------------------------
-    # Register values from a file
-    # ------------------------------------------------------------------
+    # -- Register values from a file -----------------------------------
     @staticmethod
     @input_paths("source")
     def load_configuration(
@@ -768,7 +766,8 @@ class S2lpDevkit(KitFirmwareMixin, FrameMeasuresMixin, TrafficMixin, Instrument)
         for setting in configuration:
             actual = values.get(setting.address)
             if actual != setting.value:
-                check.mismatches[setting.name] = (setting.value, actual if actual is not None else -1)
+                check.mismatches[setting.name] = (
+                    setting.value, actual if actual is not None else -1)
 
         if strict:
             for address, actual in sorted(values.items()):
@@ -802,9 +801,7 @@ class S2lpDevkit(KitFirmwareMixin, FrameMeasuresMixin, TrafficMixin, Instrument)
             handle.write(text)
         return path
 
-    # ------------------------------------------------------------------
-    # Radio configuration
-    # ------------------------------------------------------------------
+    # -- Radio configuration -------------------------------------------
     def _check_frequency(self, hertz: int) -> int:
         value = int(hertz)
         if self.band is None:
@@ -826,7 +823,8 @@ class S2lpDevkit(KitFirmwareMixin, FrameMeasuresMixin, TrafficMixin, Instrument)
             )
         return value
 
-    def configure_radio(
+    def configure_radio(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+        # One argument per parameter of ST's S2LPRadioInit, which it calls.
         self,
         frequency_hz: int,
         data_rate_bps: int = 38_400,
@@ -907,6 +905,7 @@ class S2lpDevkit(KitFirmwareMixin, FrameMeasuresMixin, TrafficMixin, Instrument)
         return Modulation.name_of(code)
 
     def set_modulation(self, modulation: Union[int, str]) -> str:
+        """Set the modulation, by code or name, and return it as read back."""
         self._session.execute("S2LPRadioSetModulation", self._modulation_code(modulation))
         return self.modulation
 
@@ -988,6 +987,7 @@ class S2lpDevkit(KitFirmwareMixin, FrameMeasuresMixin, TrafficMixin, Instrument)
             "length_size", "crc_mode", "address", "fec", "whitening")}
 
     def set_payload_length(self, length: int) -> int:
+        """Set the packet handler's fixed payload length, 1 to MAX_PAYLOAD bytes."""
         if not 0 < int(length) <= MAX_PAYLOAD:
             raise ConfigurationError(
                 "a payload of %d byte(s) is outside what the packet handler "

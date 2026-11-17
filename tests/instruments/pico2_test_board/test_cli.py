@@ -23,7 +23,7 @@ def test_info(capsys):
     assert status == 0
     payload = json.loads(out.out)
     assert payload["name"] == "PICO2 Test Board"
-    assert payload["version"] == "V1.00.0000"
+    assert payload["version"] == "V1.00.0001"
     assert payload["copyright"] == "(c) 2026 Dermot Murphy"
     assert len(payload["sha"]) == 7
 

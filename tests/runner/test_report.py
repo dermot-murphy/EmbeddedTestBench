@@ -7,7 +7,8 @@ from __future__ import annotations
 
 import copy
 import json
-import xml.etree.ElementTree as ElementTree
+import pathlib
+from xml.etree import ElementTree
 
 import pytest
 
@@ -62,7 +63,7 @@ class TestSummary:
 class TestJson:
     def test_round_trips(self, run, tmp_path):
         path = write_json(run, str(tmp_path / "r.json"))
-        data = json.loads(open(path, encoding="utf-8").read())
+        data = json.loads(pathlib.Path(path).read_text(encoding="utf-8"))
         assert data["status"] == "ERROR"
         assert data["totals"] == {"total": 4, "passed": 1, "failed": 1,
                                   "errored": 1, "skipped": 1}
@@ -73,13 +74,13 @@ class TestJson:
 
     def test_measurements_are_included(self, run, tmp_path):
         path = write_json(run, str(tmp_path / "r.json"))
-        data = json.loads(open(path, encoding="utf-8").read())
+        data = json.loads(pathlib.Path(path).read_text(encoding="utf-8"))
         passing = next(case for case in data["cases"] if case["name"] == "passes")
         assert passing["steps"][0]["measurements"][0]["name"] == "period"
 
     def test_nested_directories_are_created(self, run, tmp_path):
         path = write_json(run, str(tmp_path / "deep" / "nested" / "r.json"))
-        assert open(path, encoding="utf-8").read()
+        assert pathlib.Path(path).read_text(encoding="utf-8")
 
 
 class TestMarkdown:
@@ -112,9 +113,9 @@ class TestMarkdown:
 
     def test_file_is_written(self, run, tmp_path):
         path = write_markdown(run, str(tmp_path / "r.md"))
-        assert open(path, encoding="utf-8").read().startswith("# Bench test report")
+        assert pathlib.Path(path).read_text(encoding="utf-8").startswith("# Bench test report")
 
-    def test_setup_failure_report_is_explicit(self, tmp_path):
+    def test_setup_failure_report_is_explicit(self):
         spec = TestSpec.from_mapping({
             "name": "S",
             "setup": [{"do": "scope.configure_channel", "with": {"channel": 99}}],
@@ -216,7 +217,7 @@ class TestInstrumentsSection:
 
     def test_json_carries_the_same_facts(self, dongle_run, tmp_path):
         path = write_json(dongle_run, str(tmp_path / "r.json"))
-        data = json.loads(open(path, encoding="utf-8").read())
+        data = json.loads(pathlib.Path(path).read_text(encoding="utf-8"))
         assert data["instruments"]["dongle"]["driver"] == "NordicDongle"
 
     def test_an_instrument_that_would_not_identify_is_shown_as_such(self, run):

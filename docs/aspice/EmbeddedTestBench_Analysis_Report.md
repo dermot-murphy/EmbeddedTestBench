@@ -32,6 +32,8 @@
 | 0.6 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
 | next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. §6.5 updated: review is by merge since #204, with a QA review on each pull request since #371; it no longer says no review exists. |
 | next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
+| next | 2026-11-17 | Claude | #379: §6.3, §6.4 and §6.12 resolved: a Cppcheck MISRA C:2012 check runs in `style.yml`, the dongle Makefile states `-std=gnu11` and enables `-Wextra` on the project's sources (it was C99 through Nordic's `Makefile.common`), and the CStyleCheck baseline is fixed and deleted. §6.11 - the MISRA check's deviations are in ETB-STD-002 §72.5. §5 and §8 updated to match. |
+| next | 2026-11-17 | Claude | #379: §6.13 resolved - the 416 pylint findings left in the baseline fixed, or disabled inline with their reason where the shape is required, and `.pylint-baseline.json` deleted; `scripts/lint.py` fails on any finding. Scorecard: 7 warnings (1 resolved). |
 | next | 2026-11-17 | Claude | #373: §3.1 says this report is a dated snapshot, and that the QA summary per release is ETB-SUP1-003. §6.3 and §6.4 actions point to #379. |
 
 ---
@@ -99,7 +101,7 @@ module has a test module beside it.
 | Severity | Count |
 |---|---|
 | 🔴 Critical | 1 (1 resolved) |
-| 🟡 Warning | 7 |
+| 🟡 Warning | 7 (4 resolved) |
 | 🔵 Improvement | 4 |
 | ✅ Well handled | 6 |
 
@@ -159,26 +161,42 @@ that substitutes for attaching an instrument.
 
 **Action:** milestone M6. Work the stages of ETB-SYS4-001 §4 in order.
 
-### 6.3 🟡 Warning — No MISRA checker in CI
+### 6.3 ✅ Resolved — A MISRA checker runs in CI
 
-The style workflow runs CStyleCheck, which enforces naming, structure and
-formatting. The rules of ETB-STD-002 that need a type system or control-flow
-analysis are enforced by review alone. ETB-STD-001 §7.1 states this; it is
-repeated here because it is a gap a reader might otherwise assume closed by the
-presence of a green style badge.
+*Raised 2026-09-19 as a warning; resolved by #379 (audit finding
+AUD-v0.03-112).*
 
-**Action:** add Cppcheck `--misra` to the style workflow, or accept the gap
-explicitly as a change request decision. Tracked on #379 (2026-11-17).
+**What it was.** The style workflow ran CStyleCheck, which enforces naming,
+structure and formatting. The rules of ETB-STD-002 that need a type system or
+control-flow analysis were enforced by review alone.
 
-### 6.4 🟡 Warning — Firmware compiled with an unstated language standard
+**What closed it.** `style.yml` runs Cppcheck's `misra` addon over `src/` and
+`include/` of all three firmware trees and fails on any finding, MISRA or
+Cppcheck's own. Run on `develop` before the fixes (Cppcheck 2.21.0, as the
+step runs it), it found 423 findings in the project's own files: 96 multiple
+exits in
+the dongle firmware (ETB-STD-002 §23.1 adopts Rule 15.5), stdio and errno
+use, single-use file-scope objects, essential-type mismatches, register
+access in the S2-LP kit, and calls the check could not see declared. The code
+was fixed; what could not sensibly be is suppressed one rule and file at a
+time, each a row of ETB-STD-002 §72.5 - nine deviations, four Cppcheck false
+positives and two entries for the absent Pico SDK. The rule texts are licensed
+and are not committed; findings carry rule numbers.
 
-`firmware/nordic_dongle/Makefile` sets `-Wall -Werror` but no `-std`, so the
-language the firmware is compiled as is whatever the pinned toolchain defaults
-to. A toolchain upgrade can change it silently. `-Wextra` is also not enabled.
+### 6.4 ✅ Resolved — Firmware compiled with an unstated language standard
 
-**Action:** set `-std=gnu11` (or the dialect the SDK requires) explicitly, and
-enable `-Wextra`, fixing what it finds in project-owned files. Tracked on #379
-(2026-11-17).
+*Raised 2026-09-19 as a warning; resolved by #379.*
+
+**What it was.** `firmware/nordic_dongle/Makefile` set `-Wall -Werror` but no
+`-std`, and did not enable `-Wextra`. The language was in fact C99, not the
+toolchain default: Nordic's `Makefile.common` compiles every C file as
+`$(CC) -std=c99 $(CFLAGS)`.
+
+**What closed it.** The Makefile sets `-std=gnu11`, which comes after and
+wins, and adds `-Wextra` to the objects of `src/*.c` only, with the SDK's
+include folders as `-isystem` for them, because the SDK raises over five
+thousand `-Wextra` warnings in its own headers and sources. The project's code
+raised none (ETB-STD-002 §7.1, §7.2).
 
 ### 6.5 🟡 Warning — Review records
 
@@ -243,13 +261,19 @@ This document goes stale by design. Nothing causes it to be revisited.
 ### 6.11 🔵 Improvement — The deviation register directory does not exist
 
 ETB-STD-002 §72 points at `docs/aspice/deviations/`, which is currently empty of
-any register. No C deviation has been raised, so nothing is missing — but the
-first person to need one will find no file to add to.
+any register. The first C deviations, those of the MISRA check (#379), are
+recorded in ETB-STD-002 §72.5 instead, so nothing is missing — but a deviation
+outside that check will find no file to add to.
 
 **Action:** create the register with its header and no entries when the first
 deviation is raised, not before.
 
-### 6.12 🟡 Warning — The C standard check runs against a baseline of 113 violations
+### 6.12 ✅ Resolved — The C standard check runs against a baseline of 113 violations
+
+*Resolved by #379: the 107 violations then in the baseline are fixed, the
+baseline is deleted, and every CStyleCheck step fails on any finding. Static
+helpers now carry the module prefix, the decision this finding asked for
+(ETB-STY-001 §21.2). The text below is the finding as raised.*
 
 `.cstylecheck-baseline.json` records 113 violations present when the check was
 introduced, so `style.yml` fails only on new ones. The baseline is real debt,
@@ -281,9 +305,26 @@ findings need a decision recorded in ETB-STY-001 first: either adopt the module
 prefix on internal functions, or exempt internal linkage as a stated
 convention.
 
-### 6.13 🟡 Warning — The Python lint check runs against a baseline of 436 findings
+### 6.13 ✅ Resolved — The Python lint check runs with no baseline
 
-`pylint` at its defaults reported **3 282** findings over `benchtools/` and
+*Raised as a warning, a lint check run against a baseline of 436 findings;
+resolved 2026-11-17 by #379 (audit finding AUD-v0.03-112).*
+
+**How it was resolved.** The 416 findings left in the baseline were fixed, and
+`.pylint-baseline.json` was deleted. `scripts/lint.py` now fails on any
+finding. Most were fixed in the code: docstrings written, long lines wrapped,
+trailing returns removed, files opened in context managers, unused arguments
+removed, exceptions narrowed, and long functions split into helpers. Where the
+shape is required, by an instrument's own parameters, a record of fields, a
+resource that deliberately outlives the call or the runner's catch-all
+boundary (ETB-SYS2-003), the finding is disabled inline on that def, class or
+line with its reason in the same comment. No threshold in `pyproject.toml` was
+changed. The two driver modules over pylint's 1 000-line limit,
+`jlink/probe.py` and `nordic_dongle/dongle.py`, carry a module-scoped
+`too-many-lines` disable with its reason, because pylint accepts no narrower
+one; splitting them is its own change (§6.6).
+
+**What it was.** `pylint` at its defaults reported **3 282** findings over `benchtools/` and
 `tests/`, scoring 8.23/10. That came down in three steps, and the difference
 between them is the point:
 
@@ -338,9 +379,10 @@ implements ETB-SYS2-003, so those thirteen are arguably a decision rather than
 debt. They are baselined rather than disabled because a blanket disable would
 also hide the careless catches nobody has written yet.
 
-**Action:** the 98 missing docstrings and the 47 long lines are the tractable
-half and would come out in ordinary work on those files. The design metrics
-should be left alone until a module is being changed for another reason.
+**Action (as raised):** the 98 missing docstrings and the 47 long lines are
+the tractable half and would come out in ordinary work on those files. The
+design metrics should be left alone until a module is being changed for
+another reason. Superseded by #379, which fixed all of them.
 
 ---
 
@@ -363,11 +405,11 @@ should be left alone until a module is being changed for another reason.
 |---|---|---|---|---|
 | ~~1~~ | ~~Add a CI workflow running `pytest`~~ — **done**, `tests.yml` | 6.1 | Low | Highest; it makes every other control enforcing |
 | 2 | Attach instruments; work ETB-SYS4-001 §4 stages in order | 6.2 | High | Highest — it is the only thing that can qualify the system |
-| 3 | Set `-std` explicitly and enable `-Wextra` | 6.4 | Low | Medium |
+| ~~3~~ | ~~Set `-std` explicitly and enable `-Wextra`~~ — **done**, #379 | 6.4 | Low | Medium |
 | 4 | Hold and record reviews, starting with the requirements documents | 6.5 | Medium | Medium |
-| 5 | Add a MISRA checker to the style workflow | 6.3 | Low | Medium |
+| ~~5~~ | ~~Add a MISRA checker to the style workflow~~ — **done**, #379 | 6.3 | Low | Medium |
 | 6 | Cover the transport error paths and `visa_backend.py` | 6.7, 6.8 | Medium | Medium |
-| 7 | Fix the U-suffix and magic-number entries in the style baseline | 6.12 | Low | Medium |
+| ~~7~~ | ~~Fix the U-suffix and magic-number entries in the style baseline~~ — **done**, with the rest of the baseline, #379 | 6.12 | Low | Medium |
 | 8 | Smoke-test `__main__.py` | 6.9 | Trivial | Low |
 | 9 | Split `probe.py` when next substantially changed | 6.6 | Medium | Low |
 

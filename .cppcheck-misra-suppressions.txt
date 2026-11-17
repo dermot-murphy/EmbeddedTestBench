@@ -1,0 +1,107 @@
+// Cppcheck suppressions for the MISRA C:2012 check (.github/workflows/style.yml, #379).
+//
+// One entry per rule and file, each preceded by its reason. Every entry is also
+// a row of the deviation table in ETB-STD-002 §72.5, under the ID given here;
+// change the two together. The table says which entries are deviations from a
+// rule, which are Cppcheck false positives, and which follow from what the check
+// can see.
+//
+// Cppcheck reports an entry that no longer matches anything only when run with
+// --enable=information (unmatchedSuppression). Run it that way after changing
+// the code an entry covers, and remove what no longer matches.
+
+// --- Scope -------------------------------------------------------------------
+
+// SCOPE-01: the dongle check reads the firmware against the stand-ins for nRF5
+// SDK headers in its test support, so that SDK names resolve. The stand-ins
+// keep the SDK's own names and are vendor API, outside ETB-STD-002 (§1.3).
+*:firmware/nordic_dongle/test/support/include/*
+
+// --- nordic_dongle -----------------------------------------------------------
+
+// DEV-MISRA-01, Rule 17.1: the host link is a text protocol; cdc_acm_send_format()
+// is its one formatter and takes printf-style arguments.
+misra-c2012-17.1:firmware/nordic_dongle/src/cdc_acm.c
+// DEV-MISRA-01, Rule 17.1: cmd_parser_reply_ok() passes its printf-style
+// arguments on, to put "ok" before the reply.
+misra-c2012-17.1:firmware/nordic_dongle/src/cmd_parser.c
+// DEV-MISRA-02, Rule 21.6: the formatter builds each line with vsnprintf(),
+// bounded by the line buffer. No stream I/O is used.
+misra-c2012-21.6:firmware/nordic_dongle/src/cdc_acm.c
+// DEV-MISRA-02, Rule 21.6: a reply body is built with vsnprintf() and a
+// manufacturer ID with snprintf(), both bounded. No stream I/O is used.
+misra-c2012-21.6:firmware/nordic_dongle/src/cmd_parser.c
+// DEV-MISRA-03, Rule 11.8: ble_nus_c_string_send() takes its payload as
+// uint8_t * although it only reads it; the firmware's payload is const.
+misra-c2012-11.8:firmware/nordic_dongle/src/nus_client.c
+// DEV-MISRA-04, Rule 8.9: BLE_DB_DISCOVERY_DEF defines the discovery instance
+// and registers its BLE observer, and both must be at file scope.
+misra-c2012-8.9:firmware/nordic_dongle/src/main.c
+// DEV-MISRA-05, Rule 2.5: PROTOCOL_EVENT_TABLE is the host contract for events,
+// parsed by tests/instruments/nordic_dongle/test_firmware_protocol.py.
+misra-c2012-2.5:firmware/nordic_dongle/include/protocol.h
+// DEV-MISRA-06, Rule 20.7: the protocol tables take their entry macro as the
+// parameter X, which names a macro and cannot be parenthesised, and
+// PROTOCOL_ERROR_ENUMERATOR's symbol is an enumerator name.
+misra-c2012-20.7:firmware/nordic_dongle/include/protocol.h
+// DEV-MISRA-07, Rule 20.10: CMD_PARSER_COMMAND_ENTRY stringises the command
+// name, so the name matched is the protocol table's own token.
+misra-c2012-20.10:firmware/nordic_dongle/src/cmd_parser.c
+// FP-01, Cppcheck knownConditionTrueFalse: the condition reads a character of
+// __DATE__, which Cppcheck evaluates on the day it runs; it is true for builds
+// made on days 1 to 9 of a month and false otherwise.
+knownConditionTrueFalse:firmware/nordic_dongle/src/firmware_version.c
+
+// --- pico2_test_board --------------------------------------------------------
+
+// DEV-MISRA-05, Rule 2.5: PROTO_VERSION and PROTO_SENSOR are the host contract,
+// parsed by tests/instruments/pico2_test_board/test_firmware_protocol.py.
+misra-c2012-2.5:firmware/pico2_test_board/include/protocol.h
+// DEV-MISRA-06, Rule 20.7: as for the dongle; the tables take their entry
+// macro as the parameter X, and PROTO_ERROR_ENUMERATOR's symbol is an
+// enumerator name.
+misra-c2012-20.7:firmware/pico2_test_board/include/protocol.h
+// DEV-MISRA-07, Rule 20.10: CMD_PARSER_ENTRY stringises and pastes the command
+// name, so the name matched and the handler called are the table's own token.
+misra-c2012-20.10:firmware/pico2_test_board/src/cmd_parser.c
+// DEV-MISRA-08, Rule 2.5: the SHT30 command and status-register definitions
+// are kept complete from the datasheet (Table 17); the driver uses a subset.
+misra-c2012-2.5:firmware/pico2_test_board/src/sht30.h
+// CFG-01, Rule 17.3: the Pico SDK headers are not available to the check, so
+// every SDK call looks undeclared. The firmware build (GCC 14, which rejects an
+// implicit declaration) proves each is declared.
+misra-c2012-17.3:firmware/pico2_test_board/src/hal_pico.c
+// CFG-01, Rule 17.3: stdio_init_all() and getchar_timeout_us() come from the
+// Pico SDK headers, as above.
+misra-c2012-17.3:firmware/pico2_test_board/src/main.c
+// CFG-02, misra-config: the same absent Pico SDK headers leave SDK constants
+// such as PICO_ERROR_TIMEOUT unknown to the check.
+misra-config:firmware/pico2_test_board/src/hal_pico.c
+
+// --- s2lp_kit ----------------------------------------------------------------
+
+// DEV-MISRA-10, Rule 8.7 (Advisory): these functions are called by the host
+// unit tests in firmware/pico2_test_board/test, a translation unit the check
+// does not read, so they keep external linkage.
+misra-c2012-8.7:firmware/pico2_test_board/src/cmd_parser.c
+misra-c2012-8.7:firmware/pico2_test_board/src/fgen.c
+misra-c2012-8.7:firmware/pico2_test_board/src/sht30.c
+// DEV-MISRA-09, Rule 11.4: the bare-metal HAL reaches the STM32L053's
+// peripherals at their fixed addresses (L053_REG in l053.h); a memory-mapped
+// register cannot be reached without converting its address to a pointer.
+misra-c2012-11.4:firmware/s2lp_kit/src/hal_l053.c
+// DEV-MISRA-09, Rule 11.4: the Cortex-M vector table holds the initial stack
+// pointer (&_estack, a linker symbol) and the handler addresses as words, as
+// the hardware reads them.
+misra-c2012-11.4:firmware/s2lp_kit/src/startup.c
+// FP-02, Rule 17.3: hal_irq_save() and hal_irq_restore() hold the only inline
+// assembly (MRS/MSR PRIMASK, CPSID I), encapsulated as Directive 4.3 asks;
+// Cppcheck reads each __asm statement as a call to an undeclared function.
+misra-c2012-17.3:firmware/s2lp_kit/src/hal_l053.c
+// FP-03, Rule 2.7: hal_irq_restore()'s parameter is the input operand of its
+// MSR PRIMASK statement, a use Cppcheck does not see.
+misra-c2012-2.7:firmware/s2lp_kit/src/hal_l053.c
+// FP-04, Cppcheck comparePointers: the reset handler copies .data and clears
+// .bss between linker-defined bounds (_sdata/_edata, _sbss/_ebss). Each pair
+// delimits one region; C sees the two symbols as distinct objects.
+comparePointers:firmware/s2lp_kit/src/startup.c

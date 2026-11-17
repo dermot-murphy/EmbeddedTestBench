@@ -11,6 +11,8 @@
 
 #include <stdint.h>
 
+#include "hal.h"
+
 /** Symbols from stm32l053r8.ld. */
 extern uint32_t _sidata;
 extern uint32_t _sdata;
@@ -20,9 +22,6 @@ extern uint32_t _ebss;
 extern uint32_t _estack;
 
 extern int main(void);
-extern void hal_exti0_1_isr(void);
-extern void hal_tim2_isr(void);
-extern void hal_usart2_isr(void);
 
 void startup_reset(void);
 void startup_default_isr(void);
@@ -30,9 +29,11 @@ void startup_default_isr(void);
 /** Vector table entries: 16 core, 32 device. */
 #define STARTUP_VECTORS         (48U)
 
+extern const uintptr_t startup_g_vectors[STARTUP_VECTORS];
+
 void startup_reset(void)
 {
-	uint32_t *source = &_sidata;
+	const uint32_t *source = &_sidata;
 	uint32_t *target = &_sdata;
 
 	while (target < &_edata)
@@ -41,9 +42,11 @@ void startup_reset(void)
 		target++;
 		source++;
 	}
-	for (target = &_sbss; target < &_ebss; target++)
+	target = &_sbss;
+	while (target < &_ebss)
 	{
 		*target = 0U;
+		target++;
 	}
 	(void)main();
 	for (;;)

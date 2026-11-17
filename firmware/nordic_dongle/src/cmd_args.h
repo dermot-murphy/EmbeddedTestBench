@@ -15,10 +15,22 @@
 #include <stdint.h>
 
 #include "ble_gap.h"
+#include "ble_scanner.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/**
+ * @brief Read @p text as an unsigned decimal number, as strtoul() would.
+ *
+ * Reading stops at the first character that is not part of the number, and
+ * text with no number in it reads as 0.
+ *
+ * @param[out] p_value  The number read.
+ * @return False when the number does not fit in 32 bits.
+ */
+bool cmd_args_unsigned(const char * text, uint32_t * p_value);
 
 /**
  * @brief Read @p token as timeout=<ms>, if it is one.
@@ -36,8 +48,19 @@ bool cmd_args_timeout(const char * token, uint32_t min_ms, uint32_t max_ms,
  *
  * @return False if a token is malformed, repeated or out of range.
  */
-bool cmd_args_connect(char * tokens[], uint32_t count, ble_gap_addr_t * p_target,
+bool cmd_args_connect(const char * const tokens[], uint32_t count, ble_gap_addr_t * p_target,
 		      bool * p_have_target, uint32_t * p_timeout_ms);
+
+/**
+ * @brief Read the options of @c scan start, which follow the duration:
+ *        name=, addr=, active= and rssi=, in any order.
+ *
+ * @param[in]  tokens    The command's tokens; the options start at the fourth.
+ * @param[out] p_filter  Cleared, then filled in from the options.
+ * @return False when a token is not a known option or its value is bad.
+ */
+bool cmd_args_scan_filter(const char * const tokens[], uint32_t count,
+			  ble_scanner_filter_t * p_filter);
 
 /**
  * @brief Decode hex text into bytes.

@@ -50,7 +50,7 @@ ESR_COMMAND_ERROR = 0x20
 
 
 @runtime_checkable
-class Responder(Protocol):
+class Responder(Protocol):  # pylint: disable=too-few-public-methods  # a protocol names only the method it needs
     """Anything that can answer a raw instrument message.
 
     :class:`~benchtools.core.transport.mock.MockTransport` accepts any object
@@ -60,7 +60,6 @@ class Responder(Protocol):
 
     def respond(self, message: bytes) -> Optional[bytes]:
         """Return the raw reply to *message*, or ``None`` if there is none."""
-        ...
 
 
 class Streamer(Protocol):
@@ -81,11 +80,9 @@ class Streamer(Protocol):
 
     def respond(self, message: bytes) -> Optional[bytes]:
         """Return the raw reply to *message*, or ``None`` if there is none."""
-        ...
 
     def poll(self) -> bytes:
         """Return unsolicited output, or ``b""`` if there is none."""
-        ...
 
     # A simulator on a virtual clock may also implement
     # ``poll_within(timeout)``, which the mock transport then calls instead,
@@ -221,12 +218,10 @@ class SimulatedInstrument:
 
     def _cmd_RST(self, _argument: str) -> None:
         self.reset()
-        return None
 
     def _cmd_CLS(self, _argument: str) -> None:
         self.events = []
         self.esr = 0
-        return None
 
     def _cmd_OPC_Q(self, _argument: str) -> str:
         return "1"

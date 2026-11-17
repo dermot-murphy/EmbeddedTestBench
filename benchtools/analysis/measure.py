@@ -23,7 +23,7 @@ from __future__ import annotations
 import logging
 import statistics
 from dataclasses import dataclass
-from typing import Dict, List, Mapping, Optional, Tuple
+from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
 from ..core.enums import EdgeDirection
 from ..core.errors import MeasurementError
@@ -360,7 +360,6 @@ def find_crossings(
         raise ValueError("hysteresis must not be negative, got %r" % (hysteresis,))
 
     volts = waveform.volts
-    times = waveform.times
     if len(volts) < 2:
         return []
 
@@ -380,15 +379,9 @@ def find_crossings(
         previous = volts[index - 1]
         current = volts[index]
         if armed and not beyond(previous) and beyond(current):
-            delta = current - previous
-            if delta == 0.0:
-                crossing_time = times[index]
-            else:
-                fraction = (threshold - previous) / delta
-                crossing_time = times[index - 1] + fraction * (times[index] - times[index - 1])
             crossings.append(
                 EdgeCrossing(
-                    time=crossing_time,
+                    time=_interpolated_crossing_time(waveform.times, volts, index, threshold),
                     index=index,
                     threshold=threshold,
                     direction=direction,
@@ -401,6 +394,22 @@ def find_crossings(
             armed = True
 
     return crossings
+
+
+def _interpolated_crossing_time(
+    times: Sequence[float], volts: Sequence[float], index: int, threshold: float
+) -> float:
+    """Time at which the segment ending at sample *index* reaches *threshold*.
+
+    Interpolates linearly between samples ``index - 1`` and *index*; a flat
+    segment takes the time of sample *index*.
+    """
+    previous = volts[index - 1]
+    delta = volts[index] - previous
+    if delta == 0.0:
+        return times[index]
+    fraction = (threshold - previous) / delta
+    return times[index - 1] + fraction * (times[index] - times[index - 1])
 
 
 # ---------------------------------------------------------------------------
@@ -505,7 +514,7 @@ def measure_rise_time(
     return interval
 
 
-def measure_channel_spread(
+def measure_channel_spread(  # pylint: disable=too-many-arguments,too-many-positional-arguments  # public API; each option is documented
     waveforms: Mapping[int, Waveform],
     direction: EdgeDirection = EdgeDirection.RISE,
     percent: float = 50.0,
@@ -550,9 +559,12 @@ def measure_channel_spread(
     for channel in sorted(waveforms):
         waveform = waveforms[channel]
         threshold, levels = threshold_for(waveform, percent, absolute_threshold)
-        hysteresis = levels.amplitude * (hysteresis_percent / 100.0)
         found = find_crossings(
-            waveform, threshold, direction, hysteresis, max_edges=edge_index + 1
+            waveform,
+            threshold,
+            direction,
+            levels.amplitude * (hysteresis_percent / 100.0),
+            max_edges=edge_index + 1,
         )
         if len(found) <= edge_index:
             missing.append(channel)

@@ -78,7 +78,7 @@ def decode_curve(payload: bytes, width: int, signed: bool = True) -> List[int]:
 
 
 @dataclass(frozen=True)
-class WaveformPreamble:
+class WaveformPreamble:  # pylint: disable=too-many-instance-attributes  # mirrors WFMPre fields
     """Axis description returned by the ``WFMPre`` subsystem.
 
     :param x_increment: Seconds between points.
@@ -227,15 +227,15 @@ class Waveform:
         if payload.startswith("#"):
             payload = parse_ieee_block(text).decode("ascii", errors="replace").strip()
         codes = []
-        for field in payload.split(","):
-            field = field.strip()
-            if not field:
+        for item in payload.split(","):
+            item = item.strip()
+            if not item:
                 continue
             try:
-                codes.append(int(float(field)))
+                codes.append(int(float(item)))
             except ValueError as exc:
                 raise ProtocolError(
-                    "unparsable ASCII curve value %r" % field
+                    "unparsable ASCII curve value %r" % item
                 ) from exc
         return cls.from_codes(source, codes, preamble, width=1)
 
@@ -326,8 +326,8 @@ class Waveform:
             if include_raw and self.raw:
                 header.append("raw_code")
             writer.writerow(header)
-            for index in range(len(self.volts)):
-                row = ["%.12g" % self.times[index], "%.9g" % self.volts[index]]
+            for index, value in enumerate(self.volts):
+                row = ["%.12g" % self.times[index], "%.9g" % value]
                 if include_raw and self.raw:
                     row.append(str(self.raw[index]))
                 writer.writerow(row)

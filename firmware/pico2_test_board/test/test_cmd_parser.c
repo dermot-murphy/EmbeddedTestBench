@@ -215,7 +215,7 @@ static void test_rd_copyright(void)
 static void test_rd_version(void)
 {
 	test_feed("rd version\n");
-	TEST_ASSERT_EQUAL_STRING("ACK rd version = V1.00.0000", fake_hal_last_line());
+	TEST_ASSERT_EQUAL_STRING("ACK rd version = V1.00.0001", fake_hal_last_line());
 }
 
 static void test_rd_sha_reports_the_injected_commit(void)

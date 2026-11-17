@@ -41,7 +41,7 @@ __all__ = ["SerialTransport", "DEFAULT_BAUDRATE"]
 DEFAULT_BAUDRATE = 115200
 
 
-class SerialTransport(Transport):
+class SerialTransport(Transport):  # pylint: disable=too-many-instance-attributes  # one per pyserial line setting
     """Talk to an instrument over a serial port.
 
     :param port: Port name or pyserial URL. ``COM5``, ``/dev/ttyACM0``,
@@ -68,7 +68,7 @@ class SerialTransport(Transport):
         alone when ``None``.
     """
 
-    def __init__(
+    def __init__(  # pylint: disable=too-many-arguments,too-many-positional-arguments  # mirrors pyserial's port settings
         self,
         port: Optional[str] = None,
         resource: Optional[str] = None,
@@ -184,7 +184,7 @@ class SerialTransport(Transport):
         try:
             self._serial.reset_input_buffer()
             self._serial.reset_output_buffer()
-        except Exception:                               # pragma: no cover - URL handlers
+        except Exception:  # pylint: disable=broad-exception-caught  # pragma: no cover - URL handlers raise their own
             pass
 
     def discard_input(self) -> int:
@@ -213,7 +213,7 @@ class SerialTransport(Transport):
             return
         try:
             port.close()
-        except Exception:                               # pragma: no cover - defensive
+        except Exception:  # pylint: disable=broad-exception-caught  # pragma: no cover - closing never raises
             self._logger.debug("error closing %s", self._port, exc_info=True)
 
     def _send(self, data: bytes) -> None:
@@ -259,7 +259,7 @@ class SerialTransport(Transport):
             waiting = 0
             try:
                 waiting = self._serial.in_waiting
-            except Exception:                           # pragma: no cover - URL handlers
+            except Exception:  # pylint: disable=broad-exception-caught  # pragma: no cover - URL handlers raise their own
                 waiting = 0
             extra = b""
             if waiting:

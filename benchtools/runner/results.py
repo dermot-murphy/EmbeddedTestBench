@@ -56,6 +56,7 @@ class MeasurementRecord:
     raw_value: Optional[float] = None
 
     def as_dict(self) -> Dict[str, Any]:
+        """The measurement as a JSON-ready mapping, with its status as text."""
         record = {
             "name": self.name,
             "value": self.value,
@@ -85,6 +86,7 @@ class StepRecord:
     description: str = ""
 
     def as_dict(self) -> Dict[str, Any]:
+        """The step and its measurements as a JSON-ready mapping."""
         return {
             "action": self.action,
             "status": self.status.value,
@@ -117,6 +119,7 @@ class CaseRecord:
         return [m for m in self.measurements if m.status is Status.FAIL]
 
     def as_dict(self) -> Dict[str, Any]:
+        """The test case and its steps as a JSON-ready mapping."""
         return {
             "name": self.name,
             "status": self.status.value,
@@ -129,7 +132,7 @@ class CaseRecord:
 
 
 @dataclass
-class RunRecord:
+class RunRecord:  # pylint: disable=too-many-instance-attributes  # the run's evidence record
     """The result of running one specification against one bench."""
 
     suite: str
@@ -163,22 +166,27 @@ class RunRecord:
 
     @property
     def passed(self) -> int:
+        """Number of test cases that passed."""
         return self.count(Status.PASS)
 
     @property
     def failed(self) -> int:
+        """Number of test cases with a measurement outside its limit."""
         return self.count(Status.FAIL)
 
     @property
     def errored(self) -> int:
+        """Number of test cases that could not be executed."""
         return self.count(Status.ERROR)
 
     @property
     def skipped(self) -> int:
+        """Number of test cases skipped."""
         return self.count(Status.SKIP)
 
     @property
     def total(self) -> int:
+        """Number of test cases in the run, whatever their outcome."""
         return len(self.cases)
 
     @property
@@ -215,6 +223,7 @@ class RunRecord:
         }
 
     def as_dict(self) -> Dict[str, Any]:
+        """The whole run, its totals and its cases as a JSON-ready mapping."""
         return {
             "suite": self.suite,
             "bench": self.bench,

@@ -50,7 +50,7 @@ from .constants import (
 __all__ = ["SimulatedGpd", "SimulatedChannel"]
 
 
-class SimulatedChannel:
+class SimulatedChannel:  # pylint: disable=too-few-public-methods  # one output's state; the simulator drives it
     """One output, with whatever is connected to it.
 
     :param load_ohms: Resistance across the terminals. ``None`` is an open
@@ -210,7 +210,6 @@ class SimulatedGpd:
         reveals through ``ERR?``.
         """
         self.last_error = "Undefined Header."
-        return None
 
     # ------------------------------------------------------------------
     # Commands
@@ -220,11 +219,9 @@ class SimulatedGpd:
 
     def _cmd_vset(self, channel, argument) -> None:
         self._set(channel, argument, "voltage_setpoint", MAX_VOLTAGE)
-        return None
 
     def _cmd_iset(self, channel, argument) -> None:
         self._set(channel, argument, "current_limit", MAX_CURRENT)
-        return None
 
     def _cmd_track(self, channel, _argument) -> None:
         """``TRACK0``, ``TRACK1``, ``TRACK2``: independent, series, parallel."""
@@ -300,7 +297,6 @@ class SimulatedGpd:
     def _cmd_out(self, channel, _argument) -> None:
         """``OUT1`` and ``OUT0``: one switch for both channels."""
         self.output = channel == 1
-        return None
 
     def _cmd_status_q(self, _channel, _argument) -> str:
         """Eight fields, bit 0 first, then the legend - as V1.09 answers.
@@ -331,4 +327,3 @@ class SimulatedGpd:
 
     def _cmd_beep(self, channel, _argument) -> None:
         type(self).BEEP = channel == 1
-        return None

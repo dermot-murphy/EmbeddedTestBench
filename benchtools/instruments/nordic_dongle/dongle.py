@@ -1,3 +1,4 @@
+# pylint: disable=too-many-lines  # one instrument and its records; split is its own change
 """The Nordic BLE dongle as a bench instrument.
 
 What it is for: making a sensor's radio behaviour assertable. Four things the
@@ -151,6 +152,7 @@ class Sensor:  # pylint: disable=too-many-instance-attributes
         return format_address(self.address, int(self.address_type))
 
     def as_dict(self) -> dict:
+        """The sensor as a plain dictionary, for JSON output and reports."""
         return {
             "index": self.index,
             "address": self.address,
@@ -238,7 +240,7 @@ def _smallest(values: Any) -> Optional[int]:
     return min(present) if present else None
 
 
-class NordicDongle(Instrument):
+class NordicDongle(Instrument):  # pylint: disable=too-many-instance-attributes,too-many-public-methods  # one method per dongle capability, one field per link fact
     """A Nordic nRF52840 dongle running the BenchTools bench firmware.
 
     :param transport: An open transport to the dongle's serial port.
@@ -282,7 +284,7 @@ class NordicDongle(Instrument):
     # ------------------------------------------------------------------
     @classmethod
     @input_paths("firmware")
-    def connect(
+    def connect(  # pylint: disable=too-many-arguments,too-many-positional-arguments  # connect options of the instrument API
         cls,
         resource: str = "sim://",
         baudrate: int = DEFAULT_BAUDRATE,
@@ -407,7 +409,7 @@ class NordicDongle(Instrument):
             return
 
         theirs = reported.split(".")[0]
-        ours = PROTOCOL_VERSION.split(".")[0]
+        ours = PROTOCOL_VERSION.split(".", maxsplit=1)[0]
         advice = (
             "Rebuild and reflash firmware/nordic_dongle - or connect with "
             "update_firmware=True and a firmware= build, and the driver will "
@@ -568,7 +570,8 @@ class NordicDongle(Instrument):
         """True when the dongle's protocol major version matches the driver's."""
         if not self._firmware_protocol:
             return False
-        return self._firmware_protocol.split(".")[0] == PROTOCOL_VERSION.split(".")[0]
+        ours = PROTOCOL_VERSION.split(".", maxsplit=1)[0]
+        return self._firmware_protocol.split(".")[0] == ours
 
     @property
     def firmware_version(self) -> str:
@@ -694,6 +697,9 @@ class NordicDongle(Instrument):
         :param port: Serial port the bootloader appears on. Defaults to the
             port this dongle was opened on, which is right on Linux and often
             wrong on Windows, where the bootloader takes a different COM number.
+        :param timeout: Seconds ``nrfutil`` may take to flash the package
+            before it is stopped and the update fails. A supplied *flasher*
+            keeps its own time limit.
         :param settle: Seconds to allow for re-enumeration before reconnecting.
         :param flasher: Called as ``flasher(package, port)``; ``nrfutil`` by
             default. A test supplies its own.
@@ -722,8 +728,10 @@ class NordicDongle(Instrument):
         self.enter_dfu()
         time.sleep(settle)
 
-        run = flasher if flasher is not None else run_nrfutil
-        output = run(package, str(target_port))
+        if flasher is None:
+            output = run_nrfutil(package, str(target_port), timeout=timeout)
+        else:
+            output = flasher(package, str(target_port))
         self._logger.info("nrfutil: %s", str(output).strip()[:400])
 
         time.sleep(settle)
@@ -1777,7 +1785,7 @@ class NordicDongle(Instrument):
         if len(encoded) > self._limits.max_hex_payload:
             raise ConfigurationError(
                 "payload is %d bytes; the firmware accepts at most %d "
-                "(PROTO_MAX_PAYLOAD). Split it, or raise the limit in the "
+                "(PROTOCOL_MAX_PAYLOAD). Split it, or raise the limit in the "
                 "firmware and reflash."
                 % (len(encoded) // 2, self._limits.max_payload_bytes)
             )

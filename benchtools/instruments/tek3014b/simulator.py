@@ -51,10 +51,10 @@ def make_png(width: int = 160, height: int = 120) -> bytes:
     simulator rather than from an instrument.
     """
     rows = bytearray()
-    for y in range(height):
+    for row in range(height):
         rows.append(0)  # filter type 0 (None)
-        for x in range(width):
-            on_graticule = (x % (width // 10) == 0) or (y % (height // 8) == 0)
+        for column in range(width):
+            on_graticule = (column % (width // 10) == 0) or (row % (height // 8) == 0)
             if on_graticule:
                 rows += bytes((60, 60, 60))
             else:
@@ -78,7 +78,7 @@ def make_png(width: int = 160, height: int = 120) -> bytes:
 
 
 @dataclass
-class ChannelSignal:
+class ChannelSignal:  # pylint: disable=too-many-instance-attributes  # one field per signal parameter
     """Analytic description of the signal present on one input.
 
     :param frequency: Repetition rate in hertz.
@@ -126,7 +126,36 @@ class ChannelSignal:
         return self.baseline
 
 
-class SimulatedTDS3014B(SimulatedInstrument):
+def _rms(signal: ChannelSignal) -> float:
+    """Return the RMS voltage of the ideal two-level *signal*."""
+    high = signal.high
+    low = signal.baseline
+    return (signal.duty * high * high + (1.0 - signal.duty) * low * low) ** 0.5
+
+
+#: ``MEASUrement:IMMed:TYPe`` values that need only one source, mapped to
+#: the formula that computes each from the analytic signal model.
+_SINGLE_SOURCE_MEASUREMENTS = {
+    "PERIOD": lambda signal: signal.period,
+    "FREQUENCY": lambda signal: signal.frequency,
+    "PK2PK": lambda signal: signal.amplitude,
+    "AMPLITUDE": lambda signal: signal.amplitude,
+    "HIGH": lambda signal: signal.high,
+    "MAXIMUM": lambda signal: signal.high,
+    "LOW": lambda signal: signal.baseline,
+    "MINIMUM": lambda signal: signal.baseline,
+    "MEAN": lambda signal: signal.baseline + signal.amplitude * signal.duty,
+    "RISE": lambda signal: signal.rise_time * 0.8,
+    "FALL": lambda signal: signal.fall_time * 0.8,
+    "PWIDTH": lambda signal: signal.duty * signal.period,
+    "NWIDTH": lambda signal: (1.0 - signal.duty) * signal.period,
+    "PDUTY": lambda signal: signal.duty * 100.0,
+    "NDUTY": lambda signal: (1.0 - signal.duty) * 100.0,
+    "RMS": _rms,
+}
+
+
+class SimulatedTDS3014B(SimulatedInstrument):  # pylint: disable=too-many-instance-attributes  # mirrors the instrument's settings
     """In-memory model of the instrument's SCPI interface.
 
     :param signals: Optional mapping of channel number to :class:`ChannelSignal`.
@@ -230,7 +259,8 @@ class SimulatedTDS3014B(SimulatedInstrument):
             "PT_OFF": self.trigger_point,
             "YMULT": y_mult,
             "YZERO": self.offset[channel],
-            "YOFF": self.position[channel] * LEVELS_PER_DIVISION * (256.0 if self.data_width == 2 else 1.0),
+            "YOFF": (self.position[channel] * LEVELS_PER_DIVISION
+                     * (256.0 if self.data_width == 2 else 1.0)),
             "NR_PT": float(self.data_stop - self.data_start + 1),
         }
 
@@ -241,8 +271,8 @@ class SimulatedTDS3014B(SimulatedInstrument):
         limit = 32767 if self.data_width == 2 else 127
         codes = []
         for index in range(self.data_start - 1, self.data_stop):
-            t = pre["XZERO"] + pre["XINCR"] * (index - pre["PT_OFF"])
-            volts = signal.value_at(t)
+            time = pre["XZERO"] + pre["XINCR"] * (index - pre["PT_OFF"])
+            volts = signal.value_at(time)
             raw = int(round((volts - pre["YZERO"]) / pre["YMULT"] + pre["YOFF"]))
             codes.append(max(-limit - 1, min(limit, raw)))
         return codes
@@ -275,46 +305,25 @@ class SimulatedTDS3014B(SimulatedInstrument):
             return INVALID_MEASUREMENT
 
         kind = self.measurement_type
-        if kind == "PERIOD":
-            return signal.period
-        if kind == "FREQUENCY":
-            return signal.frequency
-        if kind in ("PK2PK", "AMPLITUDE"):
-            return signal.amplitude
-        if kind in ("HIGH", "MAXIMUM"):
-            return signal.high
-        if kind in ("LOW", "MINIMUM"):
-            return signal.baseline
-        if kind == "MEAN":
-            return signal.baseline + signal.amplitude * signal.duty
-        if kind == "RISE":
-            return signal.rise_time * 0.8
-        if kind == "FALL":
-            return signal.fall_time * 0.8
-        if kind == "PWIDTH":
-            return signal.duty * signal.period
-        if kind == "NWIDTH":
-            return (1.0 - signal.duty) * signal.period
-        if kind == "PDUTY":
-            return signal.duty * 100.0
-        if kind == "NDUTY":
-            return (1.0 - signal.duty) * 100.0
-        if kind == "RMS":
-            high = signal.high
-            low = signal.baseline
-            return (signal.duty * high * high + (1.0 - signal.duty) * low * low) ** 0.5
         if kind == "DELAY":
-            second = self._channel_number(self.measurement_source2)
-            if second is None or not self.displayed.get(second, False):
-                return INVALID_MEASUREMENT
-            reference = self.signals[channel]
-            target = self.signals[second]
-            start = reference.delay + (0.0 if self.measurement_edge1 == "RISE"
-                                       else reference.duty * reference.period)
-            stop = target.delay + (0.0 if self.measurement_edge2 == "RISE"
-                                   else target.duty * target.period)
-            return stop - start
-        return INVALID_MEASUREMENT
+            return self._delay_value(channel)
+        formula = _SINGLE_SOURCE_MEASUREMENTS.get(kind)
+        if formula is None:
+            return INVALID_MEASUREMENT
+        return formula(signal)
+
+    def _delay_value(self, channel: int) -> float:
+        """Return the ``DELAY`` measurement from *channel* to source 2."""
+        second = self._channel_number(self.measurement_source2)
+        if second is None or not self.displayed.get(second, False):
+            return INVALID_MEASUREMENT
+        reference = self.signals[channel]
+        target = self.signals[second]
+        start = reference.delay + (0.0 if self.measurement_edge1 == "RISE"
+                                   else reference.duty * reference.period)
+        stop = target.delay + (0.0 if self.measurement_edge2 == "RISE"
+                               else target.duty * target.period)
+        return stop - start
 
     def measurement_units(self) -> str:
         """Return ``MEASUrement:IMMed:UNIts?`` for the configured type."""
@@ -322,7 +331,8 @@ class SimulatedTDS3014B(SimulatedInstrument):
             return "Hz"
         if self.measurement_type in ("PDUTY", "NDUTY", "POVERSHOOT", "NOVERSHOOT", "PHASE"):
             return "%"
-        if self.measurement_type in ("PERIOD", "RISE", "FALL", "PWIDTH", "NWIDTH", "DELAY", "BURST"):
+        if self.measurement_type in ("PERIOD", "RISE", "FALL", "PWIDTH", "NWIDTH", "DELAY",
+                                     "BURST"):
             return "s"
         return "V"
 
@@ -359,11 +369,9 @@ class SimulatedTDS3014B(SimulatedInstrument):
 
     def _cmd_HEADER(self, argument: str) -> None:
         self.header_enabled = argument.upper() in ("ON", "1")
-        return None
 
     def _cmd_VERBOSE(self, argument: str) -> None:
         self.verbose_enabled = argument.upper() in ("ON", "1")
-        return None
 
     def _cmd_BUSY_Q(self, _argument: str) -> str:
         if self._busy_remaining > 0:
@@ -402,7 +410,6 @@ class SimulatedTDS3014B(SimulatedInstrument):
 
     def _select(self, channel: int, argument: str) -> None:
         self.displayed[channel] = argument.upper() in ("ON", "1")
-        return None
 
     def _channel_command(self, channel: int, tail: str, argument: str) -> Optional[str]:
         if channel not in (1, 2, 3, 4):
@@ -439,14 +446,12 @@ class SimulatedTDS3014B(SimulatedInstrument):
     # -- Horizontal -----------------------------------------------------
     def _cmd_HORIZONTAL_MAIN_SCALE(self, argument: str) -> None:
         self.time_per_div = float(argument)
-        return None
 
     def _cmd_HORIZONTAL_MAIN_SCALE_Q(self, _a: str) -> str:
         return format_number(self.time_per_div)
 
     def _cmd_HORIZONTAL_DELAY_TIME(self, argument: str) -> None:
         self.horizontal_delay = float(argument)
-        return None
 
     def _cmd_HORIZONTAL_DELAY_TIME_Q(self, _a: str) -> str:
         return format_number(self.horizontal_delay)
@@ -454,7 +459,6 @@ class SimulatedTDS3014B(SimulatedInstrument):
     def _cmd_HORIZONTAL_RECORDLENGTH(self, argument: str) -> None:
         self.record_length = int(float(argument))
         self.data_stop = self.record_length
-        return None
 
     def _cmd_HORIZONTAL_RECORDLENGTH_Q(self, _a: str) -> str:
         return str(self.record_length)
@@ -462,39 +466,33 @@ class SimulatedTDS3014B(SimulatedInstrument):
     # -- Trigger --------------------------------------------------------
     def _cmd_TRIGGER_A_TYPE(self, argument: str) -> None:
         self.trigger_type = argument.upper()
-        return None
 
     def _cmd_TRIGGER_A_EDGE_SOURCE(self, argument: str) -> None:
         self.trigger_source = argument.upper()
-        return None
 
     def _cmd_TRIGGER_A_EDGE_SOURCE_Q(self, _a: str) -> str:
         return self.trigger_source
 
     def _cmd_TRIGGER_A_EDGE_SLOPE(self, argument: str) -> None:
         self.trigger_slope = argument.upper()
-        return None
 
     def _cmd_TRIGGER_A_EDGE_SLOPE_Q(self, _a: str) -> str:
         return self.trigger_slope
 
     def _cmd_TRIGGER_A_EDGE_COUPLING(self, argument: str) -> None:
         self.trigger_coupling = argument.upper()
-        return None
 
     def _cmd_TRIGGER_A_EDGE_COUPLING_Q(self, _a: str) -> str:
         return self.trigger_coupling
 
     def _cmd_TRIGGER_A_LEVEL(self, argument: str) -> None:
         self.trigger_level = float(argument)
-        return None
 
     def _cmd_TRIGGER_A_LEVEL_Q(self, _a: str) -> str:
         return format_number(self.trigger_level)
 
     def _cmd_TRIGGER_A_MODE(self, argument: str) -> None:
         self.trigger_mode = argument.upper()
-        return None
 
     def _cmd_TRIGGER_A_MODE_Q(self, _a: str) -> str:
         return self.trigger_mode
@@ -510,26 +508,22 @@ class SimulatedTDS3014B(SimulatedInstrument):
         if argument.upper() == "FORCE":
             self._busy_remaining = 0
             self.acquire_state = 0
-        return None
 
     # -- Acquisition ----------------------------------------------------
     def _cmd_ACQUIRE_MODE(self, argument: str) -> None:
         self.acquire_mode = argument.upper()
-        return None
 
     def _cmd_ACQUIRE_MODE_Q(self, _a: str) -> str:
         return self.acquire_mode
 
     def _cmd_ACQUIRE_NUMAVG(self, argument: str) -> None:
         self.num_avg = int(float(argument))
-        return None
 
     def _cmd_ACQUIRE_NUMAVG_Q(self, _a: str) -> str:
         return str(self.num_avg)
 
     def _cmd_ACQUIRE_STOPAFTER(self, argument: str) -> None:
         self.stop_after = argument.upper()
-        return None
 
     def _cmd_ACQUIRE_STOPAFTER_Q(self, _a: str) -> str:
         return self.stop_after
@@ -542,7 +536,6 @@ class SimulatedTDS3014B(SimulatedInstrument):
         else:
             self.acquire_state = 0
             self._busy_remaining = 0
-        return None
 
     def _cmd_ACQUIRE_STATE_Q(self, _a: str) -> str:
         return str(self.acquire_state)
@@ -550,32 +543,27 @@ class SimulatedTDS3014B(SimulatedInstrument):
     # -- Waveform transfer ----------------------------------------------
     def _cmd_DATA_SOURCE(self, argument: str) -> None:
         self.data_source = argument.upper()
-        return None
 
     def _cmd_DATA_SOURCE_Q(self, _a: str) -> str:
         return self.data_source
 
     def _cmd_DATA_ENCDG(self, argument: str) -> None:
         self.data_encoding = argument.upper()
-        return None
 
     def _cmd_DATA_ENCDG_Q(self, _a: str) -> str:
         return self.data_encoding
 
     def _cmd_DATA_WIDTH(self, argument: str) -> None:
         self.data_width = int(float(argument))
-        return None
 
     def _cmd_DATA_WIDTH_Q(self, _a: str) -> str:
         return str(self.data_width)
 
     def _cmd_DATA_START(self, argument: str) -> None:
         self.data_start = int(float(argument))
-        return None
 
     def _cmd_DATA_STOP(self, argument: str) -> None:
         self.data_stop = min(int(float(argument)), self.record_length)
-        return None
 
     def _wfmpre_field(self, field_name: str) -> str:
         channel = self._channel_number(self.data_source)
@@ -628,30 +616,24 @@ class SimulatedTDS3014B(SimulatedInstrument):
     # -- Measurement ----------------------------------------------------
     def _cmd_MEASUREMENT_IMMED_TYPE(self, argument: str) -> None:
         self.measurement_type = argument.upper()
-        return None
 
     def _cmd_MEASUREMENT_IMMED_TYPE_Q(self, _a: str) -> str:
         return self.measurement_type
 
     def _cmd_MEASUREMENT_IMMED_SOURCE1(self, argument: str) -> None:
         self.measurement_source1 = argument.upper()
-        return None
 
     def _cmd_MEASUREMENT_IMMED_SOURCE2(self, argument: str) -> None:
         self.measurement_source2 = argument.upper()
-        return None
 
     def _cmd_MEASUREMENT_IMMED_DELAY_EDGE1(self, argument: str) -> None:
         self.measurement_edge1 = argument.upper()
-        return None
 
     def _cmd_MEASUREMENT_IMMED_DELAY_EDGE2(self, argument: str) -> None:
         self.measurement_edge2 = argument.upper()
-        return None
 
     def _cmd_MEASUREMENT_IMMED_DELAY_DIRECTION(self, argument: str) -> None:
         self.measurement_direction = argument.upper()
-        return None
 
     def _cmd_MEASUREMENT_IMMED_VALUE_Q(self, _a: str) -> str:
         return format_number(self.measurement_value())
@@ -662,11 +644,11 @@ class SimulatedTDS3014B(SimulatedInstrument):
     # -- Hardcopy -------------------------------------------------------
     def _cmd_HARDCOPY_PORT(self, argument: str) -> None:
         self.hardcopy_port = argument.upper()
-        return None
 
     def _cmd_HARDCOPY_FORMAT(self, argument: str) -> None:
         token = argument.upper()
-        if token not in ("PNG", "TIFF", "BMP", "BMPCOLOR", "JPEG", "PCX", "PCXCOLOR", "RLE", "EPSIMAGE"):
+        if token not in ("PNG", "TIFF", "BMP", "BMPCOLOR", "JPEG", "PCX", "PCXCOLOR", "RLE",
+                         "EPSIMAGE"):
             self.push_event(DATA_OUT_OF_RANGE, "Data out of range; unsupported hardcopy format")
             return None
         self.hardcopy_format = token
@@ -677,11 +659,9 @@ class SimulatedTDS3014B(SimulatedInstrument):
 
     def _cmd_HARDCOPY_LAYOUT(self, argument: str) -> None:
         self.hardcopy_layout = argument.upper()
-        return None
 
     def _cmd_HARDCOPY_PALETTE(self, argument: str) -> None:
         self.hardcopy_palette = argument.upper()
-        return None
 
     def _cmd_HARDCOPY(self, argument: str) -> None:
         if argument.upper() != "START":

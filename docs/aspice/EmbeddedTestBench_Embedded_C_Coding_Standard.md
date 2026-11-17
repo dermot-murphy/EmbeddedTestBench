@@ -35,6 +35,8 @@
 | 0.6 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | 0.7 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). §73 Document Change History, which still showed only 0.1, now points to the revision history instead of repeating it. |
 | next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. |
+| next | 2026-11-17 | Claude | #379: §1.2 names `firmware/s2lp_kit/`. §7.1 - the dongle Makefile sets `-std=gnu11`; it was C99 before, through Nordic's `Makefile.common`, not the toolchain default. §7.2 - `-Wextra` on the dongle's own sources, with the SDK's headers as system headers. §7.4 - no CStyleCheck baseline, and a Cppcheck MISRA C:2012 check over all three firmware trees. §72.5 added: the check's suppressions, as deviations, false positives and check configuration. |
+| next | 2026-11-17 | Claude | #379: DEV-MISRA-10 (Rule 8.7, PICO2 functions the host unit tests call) added after CI's Cppcheck 2.13 reported it; `cmd_args_signed` and the kit's `cmd_send_queued` made static instead. |
 
 ---
 
@@ -137,7 +139,8 @@ This standard exists to:
   and ETB-SYS2-092;
 - align with the MISRA C:2012/2023 rules applicable to embedded software;
 - be enforceable by machine, through the CStyleCheck action pinned in
-  `.github/workflows/style.yml`.
+  `.github/workflows/style.yml` and the Cppcheck MISRA C:2012 check beside it
+  (§7.4).
 
 ### 1.2 Scope
 
@@ -146,7 +149,7 @@ This standard applies to:
 - all `.c` and `.h` files owned by this project — in practice
   `firmware/nordic_dongle/src/` and its headers, the firmware's host unit
   tests in `firmware/nordic_dongle/test/`, and all of `firmware/pico2_test_board/`
-  (sources, headers and host unit tests);
+  and `firmware/s2lp_kit/` (sources, headers and host unit tests);
 - all new C files added to this project;
 - existing files undergoing a modification that touches more than 20% of their
   lines.
@@ -276,16 +279,28 @@ Each rule is also tagged with its source standard:
 
 Source shall be compiled as **C11** or a GNU dialect of it. `[MISRA 1.1]`
 
-> **Current state.** `firmware/nordic_dongle/Makefile` sets no `-std` flag, so
-> the toolchain default applies. This is recorded rather than papered over: the
-> flag should be set explicitly so that a toolchain upgrade cannot silently
-> change the language the firmware is compiled as.
+> **Current state.** Each firmware build states its language:
+> `firmware/nordic_dongle/Makefile` sets `-std=gnu11` (#379),
+> `firmware/pico2_test_board/CMakeLists.txt` sets C11 with GNU extensions
+> (`CMAKE_C_STANDARD 11`), and `firmware/s2lp_kit/Makefile` sets `-std=c11`.
+> Before #379 the dongle Makefile set none, and the language was not the
+> toolchain default either: Nordic's `Makefile.common` compiles every C file
+> as `$(CC) -std=c99 $(CFLAGS)`, so the image was C99. The `-std` in `CFLAGS`
+> comes last and is the one that applies, to the SDK's sources as well.
 
 ### 7.2 Warning Level
 
-Compilation shall treat warnings as errors. The firmware build sets
-`-Wall -Werror`; `-Wextra` is not yet enabled, and enabling it is the natural
-next step for this rule. `[MISRA 1.1]`
+Compilation shall treat warnings as errors, with `-Wall -Wextra` on the
+project's own sources. `[MISRA 1.1]`
+
+The dongle build sets `-Wall -Werror` for every file and adds `-Wextra` to
+the objects of `src/*.c` only (#379). The nRF5 SDK does not build clean under
+`-Wextra` - over five thousand warnings, none in this project's code - so for
+those objects the SDK's include folders are also given as `-isystem`, and a
+warning raised inside an SDK header is not reported. The SDK's own sources
+keep `-Wall -Werror`. The PICO2 Test Board and S2-LP kit builds compile their
+own sources with `-Wall -Wextra -Wconversion -Wshadow -Wstrict-prototypes
+-Werror`.
 
 ### 7.3 Toolchain
 
@@ -302,15 +317,28 @@ an image stops fitting.
 
 ### 7.4 Static Analysis
 
-CStyleCheck runs on every push against `firmware/nordic_dongle`, against
-`.cstylecheck-baseline.json`; against all of `firmware/pico2_test_board`; and
-against the dongle firmware's host unit tests. The last two are separate
-steps with no baseline that fail on any finding
-(`.github/workflows/style.yml`). Each has its own module aliases and narrow,
-justified exclusions (`.cstylecheck-pico-*`, `.cstylecheck-dongle-tests-*`),
-which apply to that step only. It enforces the mechanically checkable subset
-of this standard and of ETB-STY-001; the rest is enforced at review
-(ETB-TMPL-001 §6.5).
+Two checkers run on every push, in the "Embedded C standard" job of
+`.github/workflows/style.yml`. Neither has a baseline, and any finding fails
+the job (#379).
+
+- **CStyleCheck** runs against `firmware/nordic_dongle` (sources and
+  headers), its host unit tests, all of `firmware/pico2_test_board` and all
+  of `firmware/s2lp_kit`, each in its own step. Each step but the first has
+  its own module aliases and narrow, justified exclusions
+  (`.cstylecheck-pico-*`, `.cstylecheck-s2lp-kit-*`,
+  `.cstylecheck-dongle-tests-*`), which apply to that step only. It enforces
+  the mechanically checkable subset of this standard and of ETB-STY-001.
+- **Cppcheck with its `misra` addon** checks MISRA C:2012 over `src/` and
+  `include/` of each firmware tree, one tree at a time. It is installed on the
+  runner from the Ubuntu archive. The MISRA rule texts are licensed and are
+  not in the repository, so a finding names its rule by number. Cppcheck's own
+  style checks run with it and fail the job in the same way. The dongle
+  firmware is read against the stand-ins for nRF5 SDK headers in its test
+  support (§1.3), so that SDK names resolve; the Pico SDK is not available to
+  the check. Suppressions are in `.cppcheck-misra-suppressions.txt`, one per
+  rule and file, and each is a row of §72.5.
+
+The rest of this standard is enforced at review (ETB-TMPL-001 §6.5).
 
 Additional analysers — clang-tidy with CERT/MISRA checks, PC-lint Plus,
 Polyspace, LDRA — may be run, and their findings are treated as findings
@@ -1882,6 +1910,44 @@ Every suppression shall reference a deviation ID:
 /* Deviation DEV-0042: MISRA 15.1 — goto to cleanup label — see deviation register */
 goto cleanup;
 ```
+
+### 72.5 MISRA C:2012 Check Suppressions
+
+Every entry of `.cppcheck-misra-suppressions.txt` is a row here, under the ID
+its comment gives (#379). A row is one of three kinds:
+
+- **Deviation** - the rule applies and the code does not meet it, for the
+  reason given. MISRA C:2012 allows a deviation from a Required or Advisory
+  rule, never from a Mandatory one.
+- **False positive** - the code meets the rule; Cppcheck reports otherwise.
+- **Check configuration** - the code meets the rule, and something other
+  than the check shows it, because the check cannot see what it would need.
+
+The check's entries are recorded here rather than in the register directory
+of §72.3, which does not yet exist (ETB-ANA-001 §6.11). Each is approved by
+the merge of the pull request that adds it (ETB-SUP8-001 §5.7), and expires
+when the code it covers changes so that it no longer matches, which Cppcheck
+reports when run with `--enable=information`.
+
+| ID | Rule | File(s) | Kind | Reason | Measures |
+|---|---|---|---|---|---|
+| SCOPE-01 | All | `firmware/nordic_dongle/test/support/include/*` | Scope | The stand-ins for nRF5 SDK headers keep the SDK's names and macros and are vendor API (§1.3). The dongle check reads the firmware against them so that SDK names resolve | They are excluded from the findings only; the firmware read against them is checked in full |
+| DEV-MISRA-01 | 17.1 (Required) | `nordic_dongle/src/cdc_acm.c`, `nordic_dongle/src/cmd_parser.c` | Deviation | The host link is a text protocol. `cdc_acm_send_format()` is its one formatter and takes printf-style arguments; `cmd_parser_reply_ok()` passes its own on to it, to put `ok` before a reply | Confined to these two functions. GCC checks every format string against its arguments (`-Wall -Werror`), and the host driver's protocol tests parse every reply and event |
+| DEV-MISRA-02 | 21.6 (Required) | `nordic_dongle/src/cdc_acm.c`, `nordic_dongle/src/cmd_parser.c` | Deviation | The formatter builds each line with `vsnprintf()`; `cmd_parser.c` builds a reply body with `vsnprintf()` and a manufacturer ID with `snprintf()` | Only the bounded `n` forms, each bounded by its buffer; no stream I/O. The rest of the firmware writes hex, addresses and numbers without `<stdio.h>`. newlib-nano has no long long conversion (#256), so 64-bit values go through `timestamp_format_us()` |
+| DEV-MISRA-03 | 11.8 (Required) | `nordic_dongle/src/nus_client.c` | Deviation | `ble_nus_c_string_send()` takes its payload as `uint8_t *` although it only reads it; the firmware's payload is `const` | Two casts, each at that call. The SDK copies the payload into its write request and does not write through the pointer |
+| DEV-MISRA-04 | 8.9 (Advisory) | `nordic_dongle/src/main.c` | Deviation | `BLE_DB_DISCOVERY_DEF` defines the discovery instance and registers its BLE observer in a linker section; both must be at file scope, though only `main()` names the instance | The object is `static` |
+| DEV-MISRA-05 | 2.5 (Advisory) | `nordic_dongle/include/protocol.h`, `pico2_test_board/include/protocol.h` | Deviation | `PROTOCOL_EVENT_TABLE` (dongle) and `PROTO_VERSION`, `PROTO_SENSOR` (PICO2) are the host contract, which the host driver's tests parse; the firmware does not use them | `tests/instruments/*/test_firmware_protocol.py` fail if the driver and these macros disagree |
+| DEV-MISRA-06 | 20.7 (Required) | `nordic_dongle/include/protocol.h`, `pico2_test_board/include/protocol.h` | Deviation | Each protocol table takes its entry macro as the parameter `X`, which names a macro and cannot be parenthesised; the enumerator macro's `symbol` is an enumerator name, which cannot be either | Neither parameter is an expression. Taking the macro as a parameter is what removes the `#undef` (20.5) the tables needed before |
+| DEV-MISRA-07 | 20.10 (Advisory) | `nordic_dongle/src/cmd_parser.c`, `pico2_test_board/src/cmd_parser.c` | Deviation | The command table stringises each command's name, so the name the parser matches is the protocol table's own token and cannot be spelt differently | One macro in each file. `cmd_parser_init()` checks at start-up that every documented command has a handler |
+| DEV-MISRA-08 | 2.5 (Advisory) | `pico2_test_board/src/sht30.h` | Deviation | The SHT30 command and status-register definitions are kept complete from the datasheet (Table 17); the driver uses a subset | Definitions only; no code depends on the unused ones |
+| DEV-MISRA-10 | 8.7 (Advisory) | `pico2_test_board/src/cmd_parser.c`, `fgen.c`, `sht30.c` | Deviation | `proto_error_text`, `fgen_harmonics`, `fgen_render`, `fgen_pwm_config`, `sht30_crc8`, `sht30_ticks_to_millicelsius`, `sht30_ticks_to_millipercent` and `sht30_decode` are called by the host unit tests in `firmware/pico2_test_board/test`, which the check does not read, so they keep external linkage | Reported by Cppcheck 2.13 (CI), not by 2.21; each is declared in its module's header |
+| DEV-MISRA-09 | 11.4 (Advisory) | `s2lp_kit/src/hal_l053.c`, `s2lp_kit/src/startup.c` | Deviation | The bare-metal HAL reaches the STM32L053's peripherals at their fixed addresses (`L053_REG` in `l053.h`); the vector table holds the initial stack pointer and the handler addresses as words, as the hardware reads them | Confined to the HAL and the start-up file; the rest of the firmware reaches the hardware through `hal.h` only |
+| FP-01 | Cppcheck `knownConditionTrueFalse` | `nordic_dongle/src/firmware_version.c` | False positive | The condition reads a character of `__DATE__`, which Cppcheck evaluates on the day it runs; it is true for a build made on days 1 to 9 of a month | `test_firmware_version` covers the fallback |
+| FP-02 | 17.3 (Mandatory) | `s2lp_kit/src/hal_l053.c` | False positive | `hal_irq_save()` and `hal_irq_restore()` hold the only inline assembly (Directive 4.3); Cppcheck reads each `__asm` statement as a call to an undeclared function | No function is called without a declaration. The build uses `-std=c11 -Werror`, which rejects an implicit declaration |
+| FP-03 | 2.7 (Advisory) | `s2lp_kit/src/hal_l053.c` | False positive | `hal_irq_restore()`'s parameter is the input operand of its `MSR PRIMASK` statement, a use Cppcheck does not see | - |
+| FP-04 | Cppcheck `comparePointers` | `s2lp_kit/src/startup.c` | False positive | The reset handler copies `.data` and clears `.bss` between linker-defined bounds; each pair delimits one region, which C sees as two objects | - |
+| CFG-01 | 17.3 (Mandatory) | `pico2_test_board/src/hal_pico.c`, `pico2_test_board/src/main.c` | Check configuration | The Pico SDK headers are not available to the check, so every SDK call looks undeclared | The firmware build (`firmware.yml`, GCC 14.2) rejects an implicit declaration, so it proves each is declared |
+| CFG-02 | Cppcheck `misra-config` | `pico2_test_board/src/hal_pico.c` | Check configuration | The same absent headers leave SDK constants such as `PICO_ERROR_TIMEOUT` unknown | As CFG-01 |
 
 ---
 

@@ -38,6 +38,7 @@
 | next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. |
 | next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
 | next | 2026-11-17 | Claude | #376: §3.1 and §4.5 - the AI model supplier (Anthropic, Claude Code) is listed: what is depended upon, what is agreed and exchanged, and how it is monitored. §4.3 - CPython versions as CI runs them (3.8, 3.9, 3.12; 3.10 for `nrfutil`). §4.4 and §6 - the Pico licence review tracked on #382. §6 - Dependabot reads its configuration from `main`, which is why pip pull requests #320 to #324 and #355 to #359 opened after #284; #355 to #359 closed. §9 - supplier corrective action requests are raised on the supplier's tracker (CStyleCheck#439, #447). |
+| next | 2026-11-17 | Claude | #379: §4.3 lists Cppcheck, installed from the Ubuntu archive for the MISRA C:2012 check. §7 - the CStyleCheck baseline is gone, so moving the pin means dealing with what the newer version finds. |
 
 ---
 
@@ -105,6 +106,7 @@ addresses, field widths and reset values — written independently
 | Arm | GNU Arm Embedded toolchain | As pinned in `.github/workflows/firmware.yml` | Flash and RAM figures are toolchain-dependent |
 | PyPI maintainers | `pyvisa`, `pyserial`, `bleak`, `pytest`, `PyYAML` | As declared in `pyproject.toml` | Interface stability |
 | `dermot-murphy` | `CStyleCheck` GitHub Action | `@v1.6.1` | Coding-standard enforcement (ETB-RISK-011); v1.6.0 skipped, §7 |
+| Cppcheck team, through Ubuntu | `cppcheck` and its `misra` addon | Not pinned: the `ubuntu-24.04` archive's package, installed by `style.yml` (#379) | MISRA C:2012 check (ETB-STD-002 §7.4). The version is the runner image's; a new one that reports more fails the style job, and is dealt with as a finding |
 | GitHub | `actions/checkout`, `actions/setup-python`, `actions/upload-artifact` | `@v7` | Major tag: a breaking change arrives only as a new major, read before it is taken (#203) |
 | GitHub | `actions/cache` | `@v6` | As above |
 | `carlosperate` | `arm-none-eabi-gcc-action` | `@v1` | No newer major exists; the toolchain release itself is pinned per job |
@@ -293,13 +295,12 @@ rather than by reading about it:
 
    The host unit tests step reported nothing under either version.
 
-The baseline file is written by the pinned version and is not portable across
-versions: the same 113 violations recorded by v1.6.0 were not matched by v1.5.1,
-and v1.6.1 reports 27 of v1.5.1's 110 on different lines. Moving the pin
-therefore means regenerating the baseline in the same change, and dealing with
-whatever new findings the newer version brings. A baseline written on Windows
-records paths with backslashes and matches nothing on the Linux runner: write
-it on Linux, or check its paths before committing it.
+Until #379 the dongle step ran against a baseline, which was written by the
+pinned version and was not portable across versions: the same 113 violations
+recorded by v1.6.0 were not matched by v1.5.1, and v1.6.1 reported 27 of
+v1.5.1's 110 on different lines. #379 fixed what the baseline held and deleted
+it, so no step has one. Moving the pin now means dealing, in the same change,
+with whatever the newer version finds.
 
 ---
 

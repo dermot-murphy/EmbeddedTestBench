@@ -54,9 +54,6 @@ typedef void (*hal_dac_render_t)(int32_t *samples, uint32_t frames);
 /** Called from an interrupt when a finite PWM run has ended. */
 typedef void (*hal_pwm_done_t)(void);
 
-/** Length of the board identifier, including the terminator. */
-#define HAL_BOARD_ID_LENGTH		17U
-
 /**
  * @brief Bring up the I2C bus and anything else the board needs. The LEDs
  *        are made outputs, all off.
@@ -94,11 +91,6 @@ void hal_delay_ms(uint32_t milliseconds);
  * @brief Send one line to the host; the HAL appends the LF terminator.
  */
 void hal_write_line(const char *line);
-
-/**
- * @brief The board's unique identifier as upper-case hex, NUL terminated.
- */
-const char *hal_board_id(void);
 
 /**
  * @brief Microseconds since boot.

@@ -137,20 +137,8 @@ class ItmDecoder:  # pylint: disable=too-many-instance-attributes
             return 0, None
         header = self._buffer[0]
 
-        # Synchronisation: a run of zeros terminated by 0x80.
         if header == 0x00:
-            index = 0
-            while index < len(self._buffer) and self._buffer[index] == 0x00:
-                index += 1
-            if index >= len(self._buffer):
-                return 0, None                      # run may continue
-            if self._buffer[index] == _SYNC_END:
-                del self._buffer[: index + 1]
-                self._synchronised = True
-                return index + 1, None
-            # Zeros not followed by 0x80: discard them and resynchronise.
-            del self._buffer[:index]
-            return index, None
+            return self._decode_sync()
 
         if header == _OVERFLOW:
             del self._buffer[:1]
@@ -169,7 +157,55 @@ class ItmDecoder:  # pylint: disable=too-many-instance-attributes
         return self._decode_source(header)
 
     # ------------------------------------------------------------------
+    def _decode_sync(self):
+        """Decode a synchronisation packet: a run of zeros terminated by 0x80."""
+        index = 0
+        while index < len(self._buffer) and self._buffer[index] == 0x00:
+            index += 1
+        if index >= len(self._buffer):
+            return 0, None                          # run may continue
+        if self._buffer[index] == _SYNC_END:
+            del self._buffer[: index + 1]
+            self._synchronised = True
+            return index + 1, None
+        # Zeros not followed by 0x80: discard them and resynchronise.
+        del self._buffer[:index]
+        return index, None
+
+    def _continued_end(self, index: int):
+        """Index just past a payload starting at *index* whose bytes continue
+        while bit 7 is set, or ``None`` if the buffer does not yet hold it all.
+        """
+        while True:
+            if index >= len(self._buffer):
+                return None
+            byte = self._buffer[index]
+            index += 1
+            if byte & 0x80 == 0:
+                return index
+
+    def _decode_local_timestamp(self):
+        """Decode local timestamp format 1: header 0b11xx0000, then 1-4 payload
+        bytes each carrying 7 bits, continuation flagged by bit 7.
+        """
+        ticks = 0
+        shift = 0
+        index = 1
+        while True:
+            if index >= len(self._buffer):
+                return 0, None                      # payload incomplete
+            byte = self._buffer[index]
+            ticks |= (byte & 0x7F) << shift
+            shift += 7
+            index += 1
+            if byte & 0x80 == 0 or shift >= 28:
+                break
+        del self._buffer[:index]
+        self._timestamp += ticks
+        return index, None
+
     def _decode_protocol(self, header: int):
+        """Decode one protocol packet (size field 00) from the front of the buffer."""
         low_nibble = header & 0x0F
 
         # Local timestamp format 2: single byte, 0b0TTT0000, TS in bits 6:4.
@@ -179,50 +215,17 @@ class ItmDecoder:  # pylint: disable=too-many-instance-attributes
             self._timestamp += ticks
             return 1, None
 
-        # Local timestamp format 1: header 0b11xx0000, then 1-4 payload bytes
-        # each carrying 7 bits, continuation flagged by bit 7.
         if low_nibble == 0x00 and header & 0xC0 == 0xC0:
-            ticks = 0
-            shift = 0
-            index = 1
-            while True:
-                if index >= len(self._buffer):
-                    return 0, None                  # payload incomplete
-                byte = self._buffer[index]
-                ticks |= (byte & 0x7F) << shift
-                shift += 7
-                index += 1
-                if byte & 0x80 == 0 or shift >= 28:
-                    break
-            del self._buffer[:index]
-            self._timestamp += ticks
-            return index, None
+            return self._decode_local_timestamp()
 
-        # Extension packet: bit 2 set, bit 0 clear. Payload continues while
-        # bit 7 is set.
-        if header & 0x0B == 0x08:
-            index = 1
-            if header & 0x80:
-                while True:
-                    if index >= len(self._buffer):
-                        return 0, None
-                    byte = self._buffer[index]
-                    index += 1
-                    if byte & 0x80 == 0:
-                        break
-            del self._buffer[:index]
-            return index, None
-
-        # Global timestamp packets (0x94, 0xB4) carry a continued payload.
-        if header in (0x94, 0xB4):
-            index = 1
-            while True:
-                if index >= len(self._buffer):
-                    return 0, None
-                byte = self._buffer[index]
-                index += 1
-                if byte & 0x80 == 0:
-                    break
+        # Extension packet (bit 2 set, bit 0 clear), whose payload continues
+        # while bit 7 is set, and the global timestamp packets (0x94, 0xB4),
+        # which always carry a continued payload.
+        if header & 0x0B == 0x08 or header in (0x94, 0xB4):
+            continued = header in (0x94, 0xB4) or header & 0x80
+            index = self._continued_end(1) if continued else 1
+            if index is None:
+                return 0, None
             del self._buffer[:index]
             return index, None
 

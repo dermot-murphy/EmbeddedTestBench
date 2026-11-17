@@ -56,12 +56,13 @@ def _scripted(reply: str, **identity) -> Pico2TestBoard:
 class TestIdentity:
     def test_name_version_and_sha(self, thermometer):
         assert thermometer.name == NAME
-        assert thermometer.version == "V1.00.0000"
+        assert thermometer.version == SimulatedPico2TestBoard.DEFAULT_VERSION
         assert thermometer.sha == SimulatedPico2TestBoard.DEFAULT_SHA
 
     def test_firmware_info(self, thermometer):
         assert thermometer.firmware_info().as_dict() == {
-            "name": NAME, "copyright": COPYRIGHT, "version": "V1.00.0000",
+            "name": NAME, "copyright": COPYRIGHT,
+            "version": SimulatedPico2TestBoard.DEFAULT_VERSION,
             "sha": SimulatedPico2TestBoard.DEFAULT_SHA,
         }
 
@@ -69,7 +70,7 @@ class TestIdentity:
         identity = thermometer.identify()
         assert identity.manufacturer == "Raspberry Pi"
         assert identity.model == "Pico 2/SHT30"
-        assert identity.firmware == "V1.00.0000 (0c0ffee)"
+        assert identity.firmware == "%s (0c0ffee)" % SimulatedPico2TestBoard.DEFAULT_VERSION
 
     def test_a_different_version_is_reported_as_it_is(self):
         simulator = SimulatedPico2TestBoard(version="V1.00.0000")

@@ -192,7 +192,8 @@ def _cmd_spread(scope: Tek3014B, args: argparse.Namespace) -> int:
     result = spread.as_dict()
     result["spread_ns"] = spread.spread * 1e9
     result["clipped_samples"] = {
-        str(channel): waveform.clipped_sample_count for channel, waveform in sorted(waveforms.items())
+        str(channel): waveform.clipped_sample_count
+        for channel, waveform in sorted(waveforms.items())
     }
 
     if args.csv:
@@ -252,6 +253,81 @@ def _cmd_measure(scope: Tek3014B, args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 # Parser
 # ---------------------------------------------------------------------------
+def _add_setup_options(sub: argparse.ArgumentParser, default_channels: str = "1") -> None:
+    """Add the channel, vertical, horizontal and trigger options a capture command shares."""
+    sub.add_argument("-c", "--channels", type=_parse_channels,
+                     default=_parse_channels(default_channels),
+                     help="channels to use, e.g. 1,2,3,4 (default: %s)" % default_channels)
+    sub.add_argument("--vdiv", help="volts/division: one value, or one per channel")
+    sub.add_argument("--position",
+                     help="vertical position in divisions: one value, or one per channel")
+    sub.add_argument("--offset", help="vertical offset in volts: one value, or one per channel")
+    sub.add_argument("--coupling", choices=("AC", "DC", "GND"), help="input coupling")
+    sub.add_argument("--bandwidth", choices=("TWENTY", "ONEFIFTY", "FULL"),
+                     help="bandwidth limit")
+    sub.add_argument("--tdiv", type=float, help="time per division in seconds, e.g. 200e-9")
+    sub.add_argument("--record-length", type=int, choices=(500, 10000),
+                     help="record length in points")
+    sub.add_argument("--trigger-source", type=int, help="trigger source channel")
+    sub.add_argument("--trigger-level", type=float, help="trigger level in volts")
+    sub.add_argument("--trigger-slope", default="RISE", choices=("RISE", "FALL"),
+                     help="trigger slope")
+    sub.add_argument("--trigger-mode", default="NORMAL", choices=("AUTO", "NORMAL"),
+                     help="trigger mode")
+    sub.add_argument("--title", default="Tektronix TDS3014B capture", help="plot title")
+
+
+def _add_capture_commands(subparsers) -> None:
+    """Add the subcommands that acquire waveforms: capture, spread, period and measure."""
+    capture = subparsers.add_parser("capture",
+                                    help="trigger once and transfer the waveform records")
+    _add_setup_options(capture, "1")
+    capture.add_argument("--width", type=int, default=1, choices=(1, 2), help="bytes per point")
+    capture.add_argument("--csv", help="write the records to this CSV file")
+    capture.add_argument("--plot", help="render the records to this image file")
+    capture.add_argument("--screenshot", help="also save the instrument screen here")
+    capture.set_defaults(handler=_cmd_capture)
+
+    spread = subparsers.add_parser(
+        "spread",
+        help="measure the timing spread of several channels switching",
+        description="Capture all the given channels from one acquisition and "
+                    "report how far apart in time they cross their thresholds.",
+    )
+    _add_setup_options(spread, "1,2,3,4")
+    spread.add_argument("--direction", default=EdgeDirection.RISE, type=EdgeDirection.coerce,
+                        help="RISE for going high, FALL for going low (default: RISE)")
+    spread.add_argument("--percent", type=float, default=50.0,
+                        help="threshold as a percentage of each channel's amplitude "
+                             "(default: %(default)s)")
+    spread.add_argument("--threshold", type=float,
+                        help="absolute threshold in volts, applied to every channel")
+    spread.add_argument("--edge-index", type=int, default=0,
+                        help="which edge after the trigger to use (default: %(default)s)")
+    spread.add_argument("--reference", type=int, help="channel to report skews against")
+    spread.add_argument("--csv", help="write the records to this CSV file")
+    spread.add_argument("--plot",
+                        help="render the records, with edges marked, to this image file")
+    spread.add_argument("--screenshot", help="also save the instrument screen here")
+    spread.set_defaults(handler=_cmd_spread)
+
+    period = subparsers.add_parser("period",
+                                   help="measure period statistics over a captured record")
+    _add_setup_options(period, "1")
+    period.add_argument("--csv", help="write the record to this CSV file")
+    period.add_argument("--plot", help="render the record to this image file")
+    period.set_defaults(handler=_cmd_period)
+
+    measure = subparsers.add_parser("measure", help="take instrument-side measurements")
+    _add_setup_options(measure, "1")
+    measure.add_argument("--type", type=MeasurementType.coerce,
+                         help="measurement type; omit for a summary of the common ones")
+    measure.add_argument("--source2", type=int, help="second source, for DELAY and PHASE")
+    measure.add_argument("--edge1", default="RISE", choices=("RISE", "FALL"))
+    measure.add_argument("--edge2", default="RISE", choices=("RISE", "FALL"))
+    measure.set_defaults(handler=_cmd_measure)
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Construct the argument parser."""
     parser = argparse.ArgumentParser(
@@ -280,30 +356,16 @@ def build_parser() -> argparse.ArgumentParser:
                         help="increase logging (repeat for debug)")
     parser.add_argument("--json", metavar="PATH", help="also write the result as JSON to PATH")
     parser.add_argument("--no-error-check", action="store_true",
-                        help="skip querying the instrument's event queue after each setup step")
+                        help="skip querying the instrument's event queue after each "
+                             "setup step")
 
     subparsers = parser.add_subparsers(dest="command", required=True)
-
-    def add_setup_options(sub, default_channels="1"):
-        sub.add_argument("-c", "--channels", type=_parse_channels, default=_parse_channels(default_channels),
-                         help="channels to use, e.g. 1,2,3,4 (default: %s)" % default_channels)
-        sub.add_argument("--vdiv", help="volts/division: one value, or one per channel")
-        sub.add_argument("--position", help="vertical position in divisions: one value, or one per channel")
-        sub.add_argument("--offset", help="vertical offset in volts: one value, or one per channel")
-        sub.add_argument("--coupling", choices=("AC", "DC", "GND"), help="input coupling")
-        sub.add_argument("--bandwidth", choices=("TWENTY", "ONEFIFTY", "FULL"), help="bandwidth limit")
-        sub.add_argument("--tdiv", type=float, help="time per division in seconds, e.g. 200e-9")
-        sub.add_argument("--record-length", type=int, choices=(500, 10000), help="record length in points")
-        sub.add_argument("--trigger-source", type=int, help="trigger source channel")
-        sub.add_argument("--trigger-level", type=float, help="trigger level in volts")
-        sub.add_argument("--trigger-slope", default="RISE", choices=("RISE", "FALL"), help="trigger slope")
-        sub.add_argument("--trigger-mode", default="NORMAL", choices=("AUTO", "NORMAL"), help="trigger mode")
-        sub.add_argument("--title", default="Tektronix TDS3014B capture", help="plot title")
 
     identify = subparsers.add_parser("idn", help="identify the instrument and report its state")
     identify.set_defaults(handler=_cmd_idn)
 
-    shot = subparsers.add_parser("screenshot", help="capture the instrument screen to an image file")
+    shot = subparsers.add_parser("screenshot",
+                                 help="capture the instrument screen to an image file")
     shot.add_argument("output", help="destination image path")
     shot.add_argument("--format", default=ImageFormat.PNG,
                       type=ImageFormat.coerce, help="hardcopy format (default: PNG)")
@@ -311,50 +373,7 @@ def build_parser() -> argparse.ArgumentParser:
     shot.add_argument("--layout", default="LANDSCAPE", choices=("LANDSCAPE", "PORTRAIT"))
     shot.set_defaults(handler=_cmd_screenshot)
 
-    capture = subparsers.add_parser("capture", help="trigger once and transfer the waveform records")
-    add_setup_options(capture, "1")
-    capture.add_argument("--width", type=int, default=1, choices=(1, 2), help="bytes per point")
-    capture.add_argument("--csv", help="write the records to this CSV file")
-    capture.add_argument("--plot", help="render the records to this image file")
-    capture.add_argument("--screenshot", help="also save the instrument screen here")
-    capture.set_defaults(handler=_cmd_capture)
-
-    spread = subparsers.add_parser(
-        "spread",
-        help="measure the timing spread of several channels switching",
-        description="Capture all the given channels from one acquisition and "
-                    "report how far apart in time they cross their thresholds.",
-    )
-    add_setup_options(spread, "1,2,3,4")
-    spread.add_argument("--direction", default=EdgeDirection.RISE, type=EdgeDirection.coerce,
-                        help="RISE for going high, FALL for going low (default: RISE)")
-    spread.add_argument("--percent", type=float, default=50.0,
-                        help="threshold as a percentage of each channel's amplitude (default: %(default)s)")
-    spread.add_argument("--threshold", type=float,
-                        help="absolute threshold in volts, applied to every channel")
-    spread.add_argument("--edge-index", type=int, default=0,
-                        help="which edge after the trigger to use (default: %(default)s)")
-    spread.add_argument("--reference", type=int, help="channel to report skews against")
-    spread.add_argument("--csv", help="write the records to this CSV file")
-    spread.add_argument("--plot", help="render the records, with edges marked, to this image file")
-    spread.add_argument("--screenshot", help="also save the instrument screen here")
-    spread.set_defaults(handler=_cmd_spread)
-
-    period = subparsers.add_parser("period", help="measure period statistics over a captured record")
-    add_setup_options(period, "1")
-    period.add_argument("--csv", help="write the record to this CSV file")
-    period.add_argument("--plot", help="render the record to this image file")
-    period.set_defaults(handler=_cmd_period)
-
-    measure = subparsers.add_parser("measure", help="take instrument-side measurements")
-    add_setup_options(measure, "1")
-    measure.add_argument("--type", type=MeasurementType.coerce,
-                         help="measurement type; omit for a summary of the common ones")
-    measure.add_argument("--source2", type=int, help="second source, for DELAY and PHASE")
-    measure.add_argument("--edge1", default="RISE", choices=("RISE", "FALL"))
-    measure.add_argument("--edge2", default="RISE", choices=("RISE", "FALL"))
-    measure.set_defaults(handler=_cmd_measure)
-
+    _add_capture_commands(subparsers)
     return parser
 
 
