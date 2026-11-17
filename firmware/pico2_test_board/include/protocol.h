@@ -118,8 +118,11 @@ extern "C" {
  * Command table: X(name, min_args, max_args, help)
  *
  * @c min_args and @c max_args count the tokens after the command word.
+ *
+ * Both tables take their entry macro as the argument @c X, so each user passes
+ * a macro of its own and none has to be undefined afterwards (MISRA 20.5).
  */
-#define PROTO_COMMAND_TABLE \
+#define PROTO_COMMAND_TABLE(X) \
 	X(help,		0, 0, "list the commands") \
 	X(rd,		1U, 2U, "read a value: name, copyright, version, sha, temperature, led-<red|yellow|green>, freq, freq2, wave, duty, amp, ratio or cycles") \
 	X(wr,		2U, 3U, "write a value: led-<red|yellow|green> on|off, or a generator setting: freq, freq2, wave, duty, amp, ratio or cycles") \
@@ -135,7 +138,7 @@ extern "C" {
  * Sent as "err <code> <text>". The code is the contract; the text is for a
  * person reading a terminal.
  */
-#define PROTO_ERROR_TABLE \
+#define PROTO_ERROR_TABLE(X) \
 	X(PROTO_ERR_NONE,	0U, "ok") \
 	X(PROTO_ERR_UNKNOWN,	1U, "unknown command") \
 	X(PROTO_ERR_ARGS,	2U, "wrong number of arguments") \
@@ -144,14 +147,15 @@ extern "C" {
 	X(PROTO_ERR_CRC,	5U, "the sensor checksum did not match") \
 	X(PROTO_ERR_BUS,	6U, "I2C bus timeout")
 
+/** One enumerator of proto_error_t, from a row of PROTO_ERROR_TABLE. */
+#define PROTO_ERROR_ENUMERATOR(symbol, code, text)	symbol = (code),
+
 /** Error codes, generated from the table above. */
-#define X(symbol, code, text)	symbol = (code),
 typedef enum
 {
-	PROTO_ERROR_TABLE
+	PROTO_ERROR_TABLE(PROTO_ERROR_ENUMERATOR)
 	PROTO_ERR_LIMIT
 } proto_error_t;
-#undef X
 
 /**
  * @brief The human-readable text for @p error; never NULL.

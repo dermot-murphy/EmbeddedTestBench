@@ -64,12 +64,13 @@ static proto_error_t cmd_sreset(uint32_t argc, char *argv[], text_t *reply);
 static proto_error_t cmd_ecureset(uint32_t argc, char *argv[], text_t *reply);
 static proto_error_t cmd_bootsel(uint32_t argc, char *argv[], text_t *reply);
 
+/** One row of cmd_table, from a row of PROTO_COMMAND_TABLE. */
+#define CMD_PARSER_ENTRY(name, min_args, max_args, help) \
+	{ #name, (uint32_t)(min_args), (uint32_t)(max_args), (help), &cmd_##name },
+
 static const cmd_entry_t	cmd_table[] =
 {
-#define X(name, min_args, max_args, help) \
-	{ #name, (uint32_t)(min_args), (uint32_t)(max_args), (help), &cmd_##name },
-	PROTO_COMMAND_TABLE
-#undef X
+	PROTO_COMMAND_TABLE(CMD_PARSER_ENTRY)
 };
 
 #define CMD_PARSER_TABLE_LENGTH	((uint32_t)(sizeof(cmd_table) / sizeof(cmd_table[0])))
@@ -82,16 +83,6 @@ typedef struct
 	const char	*value;
 } cmd_rd_field_t;
 
-static const cmd_rd_field_t	cmd_rd_fields[] =
-{
-	{ "name",	firmware_g_name },
-	{ "copyright",	firmware_g_copyright },
-	{ "version",	firmware_g_version },
-	{ "sha",	firmware_g_sha }
-};
-
-#define CMD_PARSER_RD_FIELD_COUNT	((uint32_t)(sizeof(cmd_rd_fields) / sizeof(cmd_rd_fields[0])))
-
 /** An LED as @c rd and @c wr name it (#328). */
 typedef struct
 {
@@ -99,27 +90,18 @@ typedef struct
 	hal_led_t	led;
 } cmd_led_t;
 
-static const cmd_led_t	cmd_leds[] =
-{
-	{ "led-red",	HAL_LED_RED },
-	{ "led-yellow",	HAL_LED_YELLOW },
-	{ "led-green",	HAL_LED_GREEN }
-};
-
-#define CMD_PARSER_LED_COUNT		((uint32_t)(sizeof(cmd_leds) / sizeof(cmd_leds[0])))
-
-#define X(symbol, code, text)	(text),
-static const char * const	cmd_error_text[] =
-{
-	PROTO_ERROR_TABLE
-};
-#undef X
+/** One entry of the error text table, from a row of PROTO_ERROR_TABLE. */
+#define CMD_PARSER_ERROR_TEXT(symbol, code, text)	(text),
 
 static cmd_after_t	cmd_after = CMD_AFTER_NOTHING;
 
 /* ------------------------------------------------------------------------ */
 const char *proto_error_text(proto_error_t error)
 {
+	static const char * const	cmd_error_text[] =
+	{
+		PROTO_ERROR_TABLE(CMD_PARSER_ERROR_TEXT)
+	};
 	const char	*result = "unknown error";
 
 	if ((uint32_t)error < (uint32_t)PROTO_ERR_LIMIT)
@@ -232,10 +214,17 @@ static void cmd_rd_temperature(text_t *reply)
 /* The LED named @p option, matched exactly, or NULL. */
 static const cmd_led_t *cmd_led_lookup(const char *option)
 {
+	static const cmd_led_t	cmd_leds[] =
+	{
+		{ "led-red",	HAL_LED_RED },
+		{ "led-yellow",	HAL_LED_YELLOW },
+		{ "led-green",	HAL_LED_GREEN }
+	};
+	const uint32_t	count = (uint32_t)(sizeof(cmd_leds) / sizeof(cmd_leds[0]));
 	const cmd_led_t	*entry = NULL;
 	uint32_t	index;
 
-	for (index = 0U; (index < CMD_PARSER_LED_COUNT) && (entry == NULL); index++)
+	for (index = 0U; (index < count) && (entry == NULL); index++)
 	{
 		if (strcmp(option, cmd_leds[index].option) == 0)
 		{
@@ -256,11 +245,19 @@ static const char *cmd_led_state(hal_led_t led)
  * option reports its state (PICO-FR-009). */
 static void cmd_rd_plain(const char *option, text_t *reply)
 {
+	static const cmd_rd_field_t	cmd_rd_fields[] =
+	{
+		{ "name",	firmware_g_name },
+		{ "copyright",	firmware_g_copyright },
+		{ "version",	firmware_g_version },
+		{ "sha",	firmware_g_sha }
+	};
+	const uint32_t	count = (uint32_t)(sizeof(cmd_rd_fields) / sizeof(cmd_rd_fields[0]));
 	const char	*value = NULL;
 	const cmd_led_t	*led = cmd_led_lookup(option);
 	uint32_t	index;
 
-	for (index = 0U; (index < CMD_PARSER_RD_FIELD_COUNT) && (value == NULL); index++)
+	for (index = 0U; (index < count) && (value == NULL); index++)
 	{
 		if (strcmp(option, cmd_rd_fields[index].option) == 0)
 		{
@@ -589,8 +586,6 @@ static void cmd_finish(proto_error_t result, const char *reply_text)
 void cmd_execute(char *line)
 {
 	char		*tokens[PROTO_MAX_TOKENS] = { NULL };
-	char		buffer[PROTO_MAX_REPLY];
-	text_t		reply;
 	uint32_t	count = 0U;
 
 	if (line != NULL)
@@ -599,6 +594,9 @@ void cmd_execute(char *line)
 	}
 	if (count > 0U)
 	{
+		char	buffer[PROTO_MAX_REPLY];
+		text_t	reply;
+
 		cmd_after = CMD_AFTER_NOTHING;
 		text_init(&reply, buffer, PROTO_MAX_REPLY);
 		cmd_finish(cmd_run(cmd_lookup(tokens[0]), count, tokens, &reply), buffer);

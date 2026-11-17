@@ -42,23 +42,13 @@ void text_char(text_t *text, char ch);
 /** Append a NUL-terminated string. */
 void text_str(text_t *text, const char *str);
 
-/** Append a string with every space replaced by '_', so it stays one token. */
-void text_token(text_t *text, const char *str);
-
 /** Append an unsigned decimal. */
 void text_u32(text_t *text, uint32_t value);
-
-/** Append a signed value in thousandths as a decimal with three places,
- *  e.g. -1234 -> "-1.234", 5 -> "0.005". */
-void text_milli(text_t *text, int32_t value);
 
 /** Append a signed value in thousandths as a decimal with two places,
  *  rounded half away from zero, e.g. 22848 -> "22.85", -1234 -> "-1.23",
  *  -4 -> "0.00". A value that rounds to zero is never given a minus sign. */
 void text_centi(text_t *text, int32_t milli);
-
-/** Append "0x" and two upper-case hex digits. */
-void text_hex8(text_t *text, uint8_t value);
 
 /** Append "0x" and four upper-case hex digits. */
 void text_hex16(text_t *text, uint16_t value);

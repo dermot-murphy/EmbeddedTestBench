@@ -22,8 +22,6 @@
 #define FAKE_MAX_LINES		16U
 #define FAKE_MAX_LINE		256U
 
-#define FAKE_BOARD_ID		"E6614C311B7F2A21"
-
 /** Forget everything: no writes, no lines, no scripted reads. */
 void fake_hal_reset(void);
 

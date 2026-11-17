@@ -125,7 +125,4 @@
 #define BOARD_FGEN_GPIO_PIN		15U
 #endif
 
-/** Board name. Not reported on the link since protocol 2.0. */
-#define BOARD_NAME			"pico2"
-
 #endif /* BOARD_CONFIG_H__ */
