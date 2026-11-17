@@ -26,6 +26,7 @@
 |---|---|---|---|
 | 0.1 | 2026-11-17 | Claude | #373: initial. The first process QA audit (ETB-SUP1-001 §6.7): the 15 pull requests merged into `develop` from 2026-11-14 to 2026-11-17, and the QA summary for `v0.03.0000`. |
 | next | 2026-11-17 | Claude | #373, review round 1 (PR #390): §4 states the sample's cutoff, the merge of #381 (`83443f7`), and that later pull requests belong to the next audit. |
+| next | 2026-11-17 | Claude | #373, review round 2 (PR #390): §3.1 names PQ1 to PQ9. Audit 1 predates PQ9, which is n/a for it. |
 
 ---
 
@@ -34,7 +35,7 @@
 ### 3.1 Purpose
 
 The record of process QA (ETB-SUP1-001 §6.7): one entry per release, each giving
-the pull requests checked against criteria PQ1 to PQ8, the failures and what was
+the pull requests checked against criteria PQ1 to PQ9, the failures and what was
 done about them, and the QA summary for the release (SUP.1.BP5). Entries are
 appended, oldest first, and are not edited afterwards.
 
