@@ -31,6 +31,7 @@
 | 0.5 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
 | next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. §6.5 adds the QA review that the PR Review session posts on every pull request, with checks C1 to C6 per work product, as the per-pull-request QA record; the merge remains the approval. §6.6 added: content requirements per work product type (GP 2.2.1), for content added or changed from #371 on. §5, §7 and §9 updated to match. Review round 1 (PR #381): §6.3 statuses are exclusive, in order Released, Agreed, In review, In work; §6.5 says what the QA reviewer is given. Review round 2: the status is found from the commit that last changed the file. Round 3: status follows the text; the steps that find it are numbered, and test `develop` with `merge-base --is-ancestor`. |
 | next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
+| next | 2026-11-17 | Claude | #375: §9 - problems are issues labelled `bug`; `docs/aspice/problems/` is not used (ETB-SUP9-001 §6). Review round 1 (PR #389): the two rows the merge with `develop` left behind are removed. |
 
 ---
 
@@ -265,7 +266,7 @@ ETB-DEV-002 are the standing examples).
 | Coverage | CI run logs |
 | QA review records | The QA review posted on each pull request (§6.5) |
 | Review and approval records | The merged pull request, its CI result and its merge record (§6.5); a completed ETB-TMPL-001 copy, when one is used, in `docs/aspice/reviews/` |
-| Problems | `docs/aspice/problems/` and the repository issue tracker (ETB-SUP9-001 §6) |
+| Problems | The repository issue tracker, issues labelled `bug` (ETB-SUP9-001 §6) |
 | Change requests | ETB-SUP10-001 §6 |
 | Deviations | `docs/aspice/EmbeddedTestBench_DEV*.md` |
 | Baselines | Git tags (ETB-SUP8-001 §7) |
