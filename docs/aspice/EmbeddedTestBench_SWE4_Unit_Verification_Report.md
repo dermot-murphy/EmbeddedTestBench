@@ -123,6 +123,8 @@
 | 1.87 | 2026-11-15 | Claude | #352 review round 2: §5 SWE4-UT-JLINK 130 -> 132 (`>>=` and `<<=` cases), pass, from a run of `instruments/jlink/` on this branch on 2026-11-15. |
 | next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. Blank lines that split this table removed. |
 | next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
+| next | 2026-11-17 | Claude | #369: §4.0 gives the results of the release `v0.03.0000` per Python leg and firmware job, from the CI runs on `4b71a51`, with the per-test JUnit kept in `docs/aspice/unit_results/v0.03.0000/`. §5 is regenerated from that run, and its rows sum to the run's total. §16 - PC-1, PC-2, PC-3 and PC-8 and the verdict are current; the retired ID BENCHTOOLS-TRACE-001 is replaced by ETB-RTM-001 §18; the dongle has run on hardware. §17 is marked as earlier revisions' checks. |
+| next | 2026-11-17 | Claude | #369, review round 1 (PR #395): §5's total is the release run's, 4 557, and the paragraphs after it describe that run, not revision 1.32's. |
 | next | 2026-11-17 | Claude | #370: SWE4-UT-INTEGRATION row; its first release result will be the next release's. |
 
 ---
@@ -150,7 +152,50 @@ It is deliberately a separate work product from the specification. A specificati
 
 ## 4. Execution summary
 
-Revision 1.32's run (#286), the one §5 is generated from:
+### 4.0 Release `v0.03.0000` (#369)
+
+The results for the released baseline. These come from the CI runs on the
+release's merge commit `4b71a51`, the commit the tag `v0.03.0000` points at.
+§5 is generated from them.
+
+| Metric | Python 3.8 | Python 3.9 | Python 3.12 |
+|---|---|---|---|
+| Tests executed | 4 557 | 4 557 | 4 557 |
+| Passed | **4 555** | **4 555** | **4 555** |
+| Failed | 0 | 0 | 0 |
+| Errors | 0 | 0 | 0 |
+| Skipped | 2 | 2 | 2 |
+| Statement coverage | 95.25 % (22 272 statements, 1 058 missed) | 95.28 % (22 265, 1 051) | 95.31 % (22 308, 1 046) |
+| Run | `tests.yml` run 44057132180, 2026-11-17 | As 3.8 | As 3.8 |
+
+The two skips are platform skips, as designed. Both tests run only on
+Windows, and CI runs on Linux:
+
+- `test_plugins.py::TestRoundTwoOfReview::test_a_folder_named_in_another_case_is_the_same_plugin` ("case-insensitive paths are Windows'");
+- `test_segger.py::TestRtt::test_on_windows_the_logger_is_stopped_with_ctrl_break` ("Windows only").
+
+The firmware unit tests, from `firmware.yml` run 44057131868 on the same
+commit:
+
+| Firmware | CTest binaries | Result |
+|---|---|---|
+| Dongle (`firmware/nordic_dongle/test`) | 8 | All pass |
+| PICO2 Test Board (`firmware/pico2_test_board/test`), ASan and UBSan | 4 | All pass |
+| S2-LP kit (`firmware/s2lp_kit/test`) | 2 | All pass |
+
+**Per-test record (SWE.4.BP4).** The JUnit XML of the Python 3.12 leg and of
+the three firmware jobs is kept in `docs/aspice/unit_results/v0.03.0000/`.
+Each test's result for the release can therefore be read without the CI
+artefacts, which GitHub deletes after 90 days. The Python 3.8 and 3.9 legs'
+artefacts give the same totals; they were not kept.
+
+**Not run in the release run.** SWE4-UT-DMMBENCH (`tests/bench/tti1604`) needs a
+physical TTi 1604 and is outside the default run (ETB-SWE4-001 §4.1). Its
+last run is the 2026-10-04 one (ETB-SYS5-002 QS-09).
+
+### 4.1 Earlier runs
+
+Revision 1.32's run (#286), which §5 was generated from until #369:
 
 | Metric | Result |
 |---|---|
@@ -261,22 +306,24 @@ Behaviour on silicon remains BLE-OPEN-02 to -04.
 
 ## 5. Results by test group
 
-Regenerated for revision 1.32 (#286) from one run of the whole suite on this
-revision's branch with `develop` 9b7da17 merged in (§4): one row for each test group in ETB-SWE4-001, in that
-document's order, with the count and verdict from the run's JUnit XML. Earlier
-revisions added rows by hand, and 19 groups had none. `tests/test_traceability.py`
-now fails when a group in ETB-SWE4-001 has no row here.
+Regenerated for the release `v0.03.0000` (#369) from the release CI run's JUnit
+XML (§4.0): the Python 3.12 leg for the pytest groups, and the firmware jobs for
+the CTest groups. There is one row for each test group in ETB-SWE4-001, in that
+document's order. The pytest rows sum to 4 557, which is the run's total. A
+firmware row counts CTest binaries, not Unity cases. Revision 1.32 (#286) first
+generated this table from a branch run; earlier revisions added rows by hand.
+`tests/test_traceability.py` fails when a group in ETB-SWE4-001 has no row here.
 
 | Test group | File | Tests | Result |
 |---|---|---|---|
-| SWE4-UT-DMMBENCH | `bench/tti1604/test_bench.py` | 14 | Not run: needs a real TTi 1604 named by `BENCHTOOLS_TTI1604`; `tests/bench` is outside the default run |
-| SWE4-UT-LAYERING | `test_layering.py` | 125 | Pass |
+| SWE4-UT-DMMBENCH | `bench/tti1604/test_bench.py` | 0 | Not run: needs a real TTi 1604 named by `BENCHTOOLS_TTI1604`; `tests/bench` is outside the default run |
+| SWE4-UT-LAYERING | `test_layering.py` | 152 | Pass |
 | SWE4-UT-CONSTRAINTS | `test_constraints.py` | 10 | Pass |
 | SWE4-UT-LINT | `test_lint_script.py` | 3 | Pass |
 | SWE4-UT-PUBLISH | `test_publish_docs.py` | 48 | Pass |
-| SWE4-UT-PLUGINS | `core/test_plugins.py` | 74 | Pass (on Linux CI 73 and 1 skipped: the case-insensitive folder test is Windows-only) |
+| SWE4-UT-PLUGINS | `core/test_plugins.py` | 74 | Pass, 1 skipped |
 | SWE4-UT-DOCVER | `test_doc_versions.py` | 63 | Pass |
-| SWE4-UT-TRACE | `test_traceability.py` | 30 | Pass |
+| SWE4-UT-TRACE | `test_traceability.py` | 31 | Pass |
 | SWE4-UT-SCPI | `core/test_scpi.py` | 28 | Pass |
 | SWE4-UT-INSTRUMENT | `core/test_instrument.py` | 20 | Pass |
 | SWE4-UT-PROCESS | `core/transport/test_process.py` | 20 | Pass |
@@ -305,13 +352,13 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-JLINKSIM | `instruments/jlink/test_simulator.py` | 32 | Pass |
 | SWE4-UT-JLINKCLI | `instruments/jlink/test_cli.py` | 30 | Pass |
 | SWE4-UT-JLINKRTTONLY | `instruments/jlink/test_rtt_only.py` | 6 | Pass |
-| SWE4-UT-JLINKSEGGER | `instruments/jlink/test_segger.py` | 122 | Pass |
+| SWE4-UT-JLINKSEGGER | `instruments/jlink/test_segger.py` | 122 | Pass, 1 skipped |
 | SWE4-UT-JLINKIMAGE | `instruments/jlink/test_image.py` | 15 | Pass |
 | SWE4-UT-SERIAL | `core/transport/test_serial.py` | 39 | Pass |
 | SWE4-UT-BLE | `instruments/nordic_dongle/test_dongle.py` | 121 | Pass |
 | SWE4-UT-BLESAMPLE | `instruments/nordic_dongle/test_sampling.py` | 21 | Pass |
 | SWE4-UT-BLEPROTO | `instruments/nordic_dongle/test_protocol.py` | 34 | Pass |
-| SWE4-UT-FWUNIT | `firmware/nordic_dongle/test/*.c` | 192 | Pass (CTest, 8 binaries, bench PC; not in the pytest total; §7.4) |
+| SWE4-UT-FWUNIT | `firmware/nordic_dongle/test/*.c` | 8 | Pass (8 of 8 CTest binaries, firmware.yml run 44057131868 on `4b71a51`; not in the pytest total) |
 | SWE4-UT-BLEFW | `instruments/nordic_dongle/test_firmware_protocol.py` | 22 | Pass |
 | SWE4-UT-BLESESSION | `instruments/nordic_dongle/test_session.py` | 23 | Pass |
 | SWE4-UT-BLEPROFILE | `instruments/nordic_dongle/test_profile.py` | 30 | Pass |
@@ -331,7 +378,7 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-BLEDFU | `instruments/nordic_dongle/test_dfu.py` | 47 | Pass |
 | SWE4-UT-EVENTS | `core/test_events.py` | 54 | Pass |
 | SWE4-UT-TESTBENCH | `tools/test_test_bench.py` | 32 | Pass |
-| SWE4-UT-EVENTNAMES | `runner/test_event_names.py` | 21 | Pass |
+| SWE4-UT-EVENTNAMES | `runner/test_event_names.py` | 25 | Pass |
 | SWE4-UT-COREFW | `core/test_firmware.py` | 13 | Pass |
 | SWE4-UT-SPEC | `runner/test_spec.py` | 39 | Pass |
 | SWE4-UT-PARAMS | `runner/test_parameters.py` | 7 | Pass |
@@ -376,13 +423,13 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-DMMSIM | `instruments/tti1604/test_simulator.py` | 28 | Pass |
 | SWE4-UT-DMMPANEL | `instruments/tti1604/test_front_panel_check.py` | 9 | Pass |
 | SWE4-UT-DMMCLI | `instruments/tti1604/test_cli.py` | 8 | Pass |
-| SWE4-UT-PICO | `instruments/pico2_test_board/test_thermometer.py` | 44 | Pass |
-| SWE4-UT-PICOSIM | `instruments/pico2_test_board/test_simulator.py` | 36 | Pass |
-| SWE4-UT-PICOCLI | `instruments/pico2_test_board/test_cli.py` | 16 | Pass |
+| SWE4-UT-PICO | `instruments/pico2_test_board/test_thermometer.py` | 58 | Pass |
+| SWE4-UT-PICOSIM | `instruments/pico2_test_board/test_simulator.py` | 45 | Pass |
+| SWE4-UT-PICOCLI | `instruments/pico2_test_board/test_cli.py` | 33 | Pass |
 | SWE4-UT-PICOFLASH | `instruments/pico2_test_board/test_flash.py` | 35 | Pass |
 | SWE4-UT-PICOFWPROTO | `instruments/pico2_test_board/test_firmware_protocol.py` | 9 | Pass |
 | SWE4-UT-PICOFGEN | `instruments/pico2_test_board/test_freq_generator.py` | 66 | Pass |
-| SWE4-UT-PICOSPEC | `instruments/pico2_test_board/test_spec.py` | 2 | Pass (this file alone, Python 3.11 on Windows, 2026-11-13, #330; not part of the run above) |
+| SWE4-UT-PICOSPEC | `instruments/pico2_test_board/test_spec.py` | 2 | Pass |
 | SWE4-UT-SER | `instruments/serial_capture/test_capture.py` | 78 | Pass |
 | SWE4-UT-SERCONSOLE | `instruments/serial_capture/test_console.py` | 52 | Pass |
 | SWE4-UT-SERSIM | `instruments/serial_capture/test_simulator.py` | 6 | Pass |
@@ -395,34 +442,21 @@ now fails when a group in ETB-SWE4-001 has no row here.
 | SWE4-UT-PPKPROTO | `instruments/ppk2/test_protocol.py` | 23 | Pass |
 | SWE4-UT-PPKMEAS | `instruments/ppk2/test_measurement.py` | 15 | Pass |
 | SWE4-UT-PPKCLI | `instruments/ppk2/test_cli.py` | 13 | Pass |
-| SWE4-UT-PICOFW | `firmware/pico2_test_board/test/*.c` | 83 | Pass (CTest with ASan/UBSan, 3 binaries, CI run 39938471355; not in the pytest total; §13A) |
-| SWE4-UT-S2LPKITFW | `firmware/s2lp_kit/test/*.c` | 21 | Pass (CTest, 2 binaries, local run 2026-11-14; not in the pytest total; on the bench: `docs/aspice/qualification/2026-11-14/84_kit_firmware/`) |
-| SWE4-UT-S2LPKITHOST | `instruments/s2lp/test_kit_firmware.py` | 35 | Pass (on the bench: `docs/aspice/qualification/2026-11-14/84_kit_driver/`) |
-| SWE4-UT-BENCH | `runner/test_bench.py`, `runner/test_shipped_benches.py` | 67 | Pass |
+| SWE4-UT-PICOFW | `firmware/pico2_test_board/test/*.c` | 4 | Pass (4 of 4 CTest binaries, firmware.yml run 44057131868 on `4b71a51`; not in the pytest total) |
+| SWE4-UT-S2LPKITFW | `firmware/s2lp_kit/test/*.c` | 2 | Pass (2 of 2 CTest binaries, firmware.yml run 44057131868 on `4b71a51`; not in the pytest total) |
+| SWE4-UT-S2LPKITHOST | `instruments/s2lp/test_kit_firmware.py` | 35 | Pass |
+| SWE4-UT-BENCH | `runner/test_bench.py`, `runner/test_shipped_benches.py` | 70 | Pass |
 | SWE4-UT-ENGINE | `runner/test_runner.py` | 33 | Pass |
 | SWE4-UT-REPORT | `runner/test_report.py` | 24 | Pass |
 | SWE4-UT-RUNCLI | `runner/test_cli.py` | 25 | Pass |
-| SWE4-UT-PATHS | `core/test_paths.py`, `runner/test_input_paths.py` | 72 | Pass |
-| **Total (pytest)** | | **3 374** (3 374 passed) | **Pass** |
+| SWE4-UT-PATHS | `core/test_paths.py`, `runner/test_input_paths.py` | 75 | Pass |
+| **Total (pytest)** | | **4 557** (4 555 passed, 2 skipped) | **Pass** |
 
-The Total row is the 1.32 whole-suite run (3 374). The group rows are not all
-from that run, so they do not add up to it. SWE4-UT-SELFCHECK and
-SWE4-UT-FIVEINST were added by #292 after this run; their rows give that run's
-results for the two files, which it ran but no group then named. These rows
-are from later runs of their own files, after cases were added:
-SWE4-UT-TRACE (30, #292), SWE4-UT-VIEWSERVER (36, #294; 44, #201),
-SWE4-UT-VIEWSTEPS (31, #201), SWE4-UT-TRANSPORT (31) and SWE4-UT-S2LPFRAME
-(10, #293). The whole suite passed on 2026-10-25 on
-the #293 branch with #292 and #294 merged in: 3 392 passed.
-
-The firmware unit tests run under CTest, not pytest, and are not in the pytest
-total. The dongle's 8 binaries (189 cases) were built and run on the bench PC
-for this revision. The Pico 2 thermometer's 3 binaries (83 cases) are built
-with AddressSanitizer and UndefinedBehaviorSanitizer, which the bench PC's
-MinGW gcc cannot build (it stops with an internal compiler error), so their
-result is CI run 39938471355 on 7507bda. No file under `firmware/` has changed
-between 7507bda and 9b7da17. `SWE4-UT-DMMBENCH` needs the real meter and is not
-part of the default run.
+Every row is from the release run of `v0.03.0000` (§4.0): the pytest rows from
+the Python 3.12 leg, which they sum to, and the firmware rows from the
+`firmware.yml` jobs on the same commit, counted in CTest binaries and not in the
+pytest total. `SWE4-UT-DMMBENCH` needs the real meter and is not part of the
+default run.
 
 ## 6. Coverage detail
 
@@ -1260,7 +1294,7 @@ Host build for #131: clang 21.1.0 on Windows 10 (Ninja, CMake 3.27), C11,
 `-Wall -Wextra -Wconversion -Wshadow -Wstrict-prototypes -Werror`,
 `-fsanitize=address,undefined -fno-sanitize-recover=all`, Unity v2.6.0, with
 `-D_CRT_SECURE_NO_WARNINGS` and the AddressSanitizer runtime on `PATH`
-(ETB-SWE4-001 §1.4b). The bench PC's MinGW GCC 6.3 cannot be used: it stops with
+(ETB-SWE4-001 §4.4b). The bench PC's MinGW GCC 6.3 cannot be used: it stops with
 an internal compiler error on `-fsanitize=address`, which it did before #131
 too. The #104 run, 61 cases, was with GCC on Linux.
 
@@ -2088,14 +2122,14 @@ Notes on process effectiveness:
 
 | ID | Criterion | Result |
 |---|---|---|
-| PC-1 | All tests pass | **Pass** — 2 558/2 558 run (1 skipped: `tests/tools/test_test_bench.py` needs `tkinter`, absent in the build environment), and 61/61 thermometer firmware cases (§13A.1) |
-| PC-2 | Statement coverage ≥ 90% | **Pass** — 95% |
-| PC-3 | Every requirement covered | **Pass** — see BENCHTOOLS-TRACE-001 |
+| PC-1 | All tests pass | **Pass** for `v0.03.0000`: 4 555 of 4 557 passed on each Python leg, 0 failed. The 2 skips are the Windows-only tests in §4.0. Every firmware CTest binary passed: 8 dongle, 4 PICO2 Test Board, 2 S2-LP kit (§4.0) |
+| PC-2 | Statement coverage ≥ 90% | **Pass**: 95.25 % to 95.31 % (§4.0) |
+| PC-3 | Every requirement covered | **Pass**: see ETB-RTM-001 §18 |
 | PC-4 | Injected skews recovered to < 0.1 sample interval | **Pass** — worst case 0.055 |
 | PC-5 | Layering constraints hold | **Pass** |
 | PC-6 | Work-product consistency checks hold | **Pass** |
 | PC-7 | Every timing method recovers the injected 1.000 ms interval, except the host clock, which flags itself | **Pass** — §6.1 |
-| PC-8 | No test requires a probe, target, debugger or GDB server | **Pass** — §1 |
+| PC-8 | No test requires a probe, target, debugger or GDB server | **Pass** for the default suite (§1). The opt-in bench tests under `tests/bench` (SWE4-UT-DMMBENCH) need a meter and are outside it, by design |
 | PC-9 | No module imports a third-party package at module level | **Pass** — §4.2 |
 | PC-10 | Firmware and driver agree; firmware hygiene holds | **Pass** — §4.3 |
 | PC-12 | Firmware unit tests pass; the firmware still compiles | **Pass** — §4.4, §4.5 |
@@ -2110,16 +2144,20 @@ discharged without physical hardware:
   reported figure);
 - `docs/dmm/TTi1604_Notes.md` §5, for the multimeter (DMM-OPEN-01 … -08), by
   running `tests/bench/tti1604` and the front-panel check with a meter attached;
-- `docs/ble/BLE_Dongle_Notes.md` §5, for the dongle. The firmware now has unit
-  tests (§4.4), **compiles** against real SDK headers (§4.5) and **builds,
-  links and packages** against nRF5 SDK 17.1.0 in CI (§4.6), which is a
-  materially stronger position than this report's first issue described. The
-  verdict covers the host driver, the protocol agreement, the firmware's
-  source-level rules, its compilation and its link. It does not cover behaviour
-  on silicon: nothing here has run on a dongle, which BLE-OPEN-02 to -04 exist
-  to establish.
+- `docs/ble/BLE_Dongle_Notes.md` §5, for the dongle. The firmware has unit
+  tests (§4.0), **compiles** against real SDK headers (§4.5), and **builds,
+  links and packages** against nRF5 SDK 17.1.0 in CI (§4.6). Since 2026-10-04 it
+  has also **run on the bench dongle**: QS-01 over BLE (ETB-SYS5-002 §6.1), and
+  the bench runs in §10.5 to §10.8. The items still open on silicon are those in
+  the notes' §5.
 
 ## 17. Supplementary checks performed
+
+These checks were made by hand on earlier revisions, up to 1.32. Their results
+are those of that time, and they were not repeated for `v0.03.0000`. The
+release's results are in §4.0 and §5. The extras-blocked run, for example, last
+gave 1 807 passed with the suite of that time; the current suite is 4 557
+tests.
 
 | Check | Result |
 |---|---|

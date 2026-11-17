@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="(empty)"
+	tests="8"
+	failures="0"
+	disabled="0"
+	skipped="0"
+	hostname=""
+	time="0"
+	timestamp="2026-11-17T09:36:43"
+	>
+	<testcase name="test_timestamp" classname="test_timestamp" time="0.000661504" status="run">
+		<properties/>
+		<system-out>/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_timestamp.c:173:test_before_initialisation_it_reads_zero:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_timestamp.c:174:test_a_driver_failure_is_returned:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_timestamp.c:176:test_the_clock_runs_at_one_megahertz:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_timestamp.c:177:test_the_timer_is_enabled_and_wraps_at_the_full_range:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_timestamp.c:178:test_it_reads_the_hardware_counter:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_timestamp.c:179:test_initialising_twice_is_harmless:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_timestamp.c:180:test_the_counter_is_extended_past_th...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+	<testcase name="test_cdc_acm" classname="test_cdc_acm" time="0.000758468" status="run">
+		<properties/>
+		<system-out>/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_cdc_acm.c:297:test_a_line_is_written_with_a_terminator:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_cdc_acm.c:298:test_formatting:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_cdc_acm.c:299:test_a_null_line_is_refused_rather_than_dereferenced:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_cdc_acm.c:300:test_writes_are_serialised_one_at_a_time:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_cdc_acm.c:301:test_idle_only_once_every_line_has_been_handed_over:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_cdc_acm.c:302:test_the_queue_drains_in_order:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_cdc_acm.c:303:test_a_full_queue_drops_whole_lines_and_counts_them:P...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+	<testcase name="test_ble_scanner" classname="test_ble_scanner" time="0.000745162" status="run">
+		<properties/>
+		<system-out>/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_ble_scanner.c:506:test_an_address_is_written_most_significant_octet_first:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_ble_scanner.c:507:test_lower_case_is_accepted:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_ble_scanner.c:508:test_the_address_type_can_be_given:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_ble_scanner.c:509:test_a_malformed_address_is_rejected:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_ble_scanner.c:511:test_the_scan_is_continuous:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_ble_scanner.c:512:test_the_duration_is_converted_to_the_gap_unit:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_ble_scanner.c:513:test_an_indefinite_scan:PASS...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+	<testcase name="test_nus_client" classname="test_nus_client" time="0.000658763" status="run">
+		<properties/>
+		<system-out>/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_nus_client.c:455:test_nothing_is_ready_before_a_connection:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_nus_client.c:456:test_connecting_asks_the_stack_for_the_right_address:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_nus_client.c:457:test_connecting_listens_continuously_for_the_time_asked:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_nus_client.c:458:test_a_connection_reports_the_interval:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_nus_client.c:459:test_discovery_makes_the_link_usable_and_says_so:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_nus_client.c:460:test_a_connection_starts_discovery_on_that_link:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/t...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+	<testcase name="test_firmware_version" classname="test_firmware_version" time="0.000636228" status="run">
+		<properties/>
+		<system-out>/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_firmware_version.c:73:test_the_fallback_date_carries_no_spaces:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_firmware_version.c:74:test_the_fallback_date_is_tagged_as_local_time:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_firmware_version.c:75:test_the_fallback_date_keeps_every_part_of_the_macros:PASS
+
+-----------------------
+3 Tests 0 Failures 0 Ignored 
+OK
+</system-out>
+	</testcase>
+	<testcase name="test_cmd_parser" classname="test_cmd_parser" time="0.000817665" status="run">
+		<properties/>
+		<system-out>/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_cmd_parser.c:719:test_every_command_answers_exactly_once:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_cmd_parser.c:720:test_an_unknown_command_is_refused:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_cmd_parser.c:721:test_a_blank_line_is_not_a_command:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_cmd_parser.c:722:test_too_few_arguments:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_cmd_parser.c:723:test_too_many_arguments:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_cmd_parser.c:724:test_extra_spaces_are_tolerated:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_cmd_parser.c:725:test_the_error_text_matches_the_table:PASS
+/home/runner/work/EmbeddedTestBenc...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+	<testcase name="test_cmd_dfu" classname="test_cmd_dfu" time="0.000676417" status="run">
+		<properties/>
+		<system-out>/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_cmd_dfu.c:143:test_dfucp_reports_the_control_point_response:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_cmd_dfu.c:144:test_dfucp_takes_a_timeout:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_cmd_dfu.c:145:test_dfucp_with_no_response_is_a_timeout:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_cmd_dfu.c:146:test_dfu_commands_need_a_dfu_service:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_cmd_dfu.c:147:test_dfupkt_writes_the_packet:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_cmd_dfu.c:148:test_dfupkt_reports_the_piece_size_and_pieces:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_cmd_dfu.c:149:test_dfupkt_reports_a_full_queue_as_busy:PASS
+/home/runner/w...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+	<testcase name="test_dfu_client" classname="test_dfu_client" time="0.000601801" status="run">
+		<properties/>
+		<system-out>/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_dfu_client.c:360:test_the_dfu_service_is_registered_with_discovery:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_dfu_client.c:361:test_a_found_service_turns_notifications_on_and_says_so:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_dfu_client.c:362:test_ready_reports_the_att_mtu_of_the_link:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_dfu_client.c:363:test_without_a_link_the_att_mtu_is_zero:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_dfu_client.c:364:test_a_dfu_link_asks_for_a_short_interval:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/test/test_dfu_client.c:365:test_a_service_without_its_packet_characteristic_is_not_used:PASS
+/home/runner/work/EmbeddedTestBench/EmbeddedTestBench/firmware/nordic_dongle/t...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+</testsuite>

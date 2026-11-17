@@ -59,6 +59,7 @@
 | 0.33 | 2026-11-14 | Claude | #84 review round 3: AD-32 trace: SWE4-UT-S2LPKITHOST 31 -> 35. |
 | next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. Blank lines that split this table removed. |
 | next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
+| next | 2026-11-17 | Claude | #367: §5 shows the s2lp, gpd3303d and tti1604 packages, the plugin registry and the plugin panels. §10 adds the GPD-3303D, TTi 1604, S2-LP kit and J-Link Commander links. §7.0 added: the evaluation criteria and, for each of AD-01 to AD-32, the alternatives and why they were not taken. §8 is now dynamic behaviour: §8.0 the runner invocation, §8.1 to §8.13 each element's states and timing, with the J-Link rule J1 on GDB's view after `monitor` commands. §9 adds the PSU, DMM, S2-LP, PICO, PicoScope, PPK2 and viewer resources, and corrects the dongle queue to 31 lines. |
 
 ---
 
@@ -104,6 +105,7 @@ This document satisfies **Automotive SPICE® PAM v4.0, SWE.2 — Software Archit
 ```
    +--------------------------------------------------------------+
    |  benchtools.viewer   state  server  static/ (page)           |
+   |  plugin panels (from plugins/, loaded by path, AD-29)        |
    +--------------------------------------------------------------+
                         |  event log, control channel
    +--------------------------------------------------------------+
@@ -121,8 +123,13 @@ This document satisfies **Automotive SPICE® PAM v4.0, SWE.2 — Software Archit
    |            timing, constants, simulator, cli)                |
    |  nordic_dongle (dongle, protocol, session, profile,          |
    |            latency, constants, simulator, cli)               |
-   |  pico2_test_board (thermometer, constants, simulator, cli)         |
+   |  pico2_test_board (thermometer, constants, simulator, cli,   |
+   |            flash)                                            |
    |  serial_capture (capture, console, constants, simulator, cli)|
+   |  s2lp     (s2lp, protocol, session, registers, traffic,      |
+   |            kit_firmware, kit_driver, and others; simulator)  |
+   |  gpd3303d (psu, constants, simulator, cli)                   |
+   |  tti1604  (dmm, protocol, constants, simulator, cli)         |
    |  generic  (anything answering *IDN?)                         |
    +--------------------------------------------------------------+
               |                                    |
@@ -139,6 +146,7 @@ This document satisfies **Automotive SPICE® PAM v4.0, SWE.2 — Software Archit
    |  enums   validation   errors                                 |
    |  transport: base / vxi11 / socket_raw / visa_backend /        |
    |             process / serial_port / mock / factory (registry)|
+   |  plugins (registry of device plugins, AD-29)  events  paths  |
    +--------------------------------------------------------------+
             |                  |                       |
     [ instrument ]   [ J-Link GDB Server ]    [ USB CDC ]
@@ -182,6 +190,62 @@ instrument, and to be importable without importing any other element.
 | VIEW-ARC-001 | `viewer` | The test run viewer: follows a run's event log, rebuilds the run's state from its structured records, serves a page and JSON API with Server-Sent Events on 127.0.0.1 - or, with an access token and optionally read-only and over HTTPS, on another address (#141) - passes control requests to the runner's control channel, and starts runs as separate processes. The top layer: it may import from every other, and nothing imports from it. | `RunState`, `Hub`, `ViewerServer`, `Launcher`, `Catalogue`, `benchtools view` |
 
 ## 7. Key architectural decisions
+
+### 7.0 Alternatives and the criteria that decided them
+
+Added by #367 (SWE.2.BP3). Each row takes its alternatives from
+the decision's own text where it states them. Where the decision states none,
+the row names the alternative the decision rules out, and says so with
+"(not recorded in the decision)".
+
+**Evaluation criteria.**
+
+- **C1 Reproducible:** the same specification gives the same result on any rig and from any directory.
+- **C2 Runs without hardware:** the element can be run and tested against a simulator, in CI.
+- **C3 No mandatory third-party dependency:** a bare install of the package needs nothing beyond the standard library (CORE-NFR-001).
+- **C4 Timing attributable:** a time figure carries the clock that made it and that clock's resolution.
+- **C5 Honest results:** nothing is lost silently, nothing reports success while doing nothing, failure is kept apart from error, and simulation is disclosed.
+- **C6 Containerisable:** the bench can move into a container without USB pass-through (STK-11).
+- **C7 Vendor licence:** no vendor source is redistributed, and no licence stricter than the package's own is brought in.
+- **C8 One source of truth:** each fact is written once, in data a reviewer can read without reading code.
+- **C9 Safe bench state:** the driver cannot leave the device under test at a voltage or wiring the operator did not set up, and the safe state can always be reached.
+- **C10 Extensible:** a new instrument or link type is added without changing existing code (D2).
+
+| Decision | Alternatives considered | Criteria that decided it | Why the alternative was not taken |
+|---|---|---|---|
+| AD-01 VXI-11 in-package | Depend on a VISA runtime (a VISA library with `pyvisa`) for every LAN instrument. | C3, C6, C7 | A VISA library is a heavyweight, platform-specific and sometimes licensed dependency on every test host. VXI-11 is an open protocol; `pyvisa` stays as an optional backend (§10). |
+| AD-02 Shared core, layering enforced by a test | Self-contained drivers, each with its own transport, SCPI and simulator code; or layering kept by convention only (not recorded in the decision). | C10, C8 | About half of the first driver was instrument-agnostic, so with six more families it would be duplicated six times. Convention alone had already let `transport/mock.py` import the oscilloscope's simulator. |
+| AD-03 Registries for transports and drivers | If-chains in the factory and the runner that name each transport and driver (not recorded in the decision). | C10, C8 | A new link type would mean editing the chain. A registry also lets a bench name a driver as data, so a specification cannot reach arbitrary code. |
+| AD-04 Framing primitives in the base transport | Each transport implements `read_message`, `read_exactly` and `read_raw` itself (not recorded in the decision). | C8 | The three framing modes are the same on every transport and only "end" differs. Writing them once removes the most likely place for transports to diverge. |
+| AD-05 Binary blocks read by declared length | Read `CURVe?` to the terminator or end-of-message (not recorded in the decision). | C5 | Binary sample data can contain the terminator byte, and a raw socket has no end-of-message at all. |
+| AD-06 N-channel timing on the host from one acquisition | Use the oscilloscope's two-source `DELay` measurement N-1 times. | C4, C5 | N-1 measurements come from different acquisitions, so they measure the instrument's repeatability as much as the skew. |
+| AD-07 Poll for acquisition completion | Wait on `*OPC?`. | C5 | On the TDS3000 family, `*OPC?` returns when the command is parsed, not when the acquisition finishes. |
+| AD-08 Test intent as data, separate from the bench | Bench tests written as scripts; or the instruments written into the specification (not recorded in the decision). | C8, C1, C2 | Scripts hide the limits from the test engineer who reviews them. A specification tied to one rig cannot run unchanged on another rig or against simulators. |
+| AD-09 Failure and error are distinct | One pass/fail outcome per step (not recorded in the decision). | C5 | It would turn a broken rig into a pile of apparent product defects, and hide the real ones. |
+| AD-10 A simulated run is always disclosed | Flag a run as simulated only when `--simulate` is given (not recorded in the decision). | C5 | A bench made only of simulators would then give a report with simulated numbers that reads as hardware evidence. |
+| AD-11 Lifecycle separate from SCPI | Make the probe a `ScpiInstrument` with stubbed SCPI; or a separate `Probe` hierarchy beside `ScpiInstrument`. | C5, C10 | Stubs would put lies in the type. A second hierarchy would force the runner to know which kind of instrument it holds. |
+| AD-12 J-Link through the GDB Server and GDB/MI | The `JLinkARM` DLL through `ctypes`; `pylink-square`; the server's telnet/`monitor` interface on its own. | C3, C6, C8 | The DLL has no symbol knowledge, has to be shipped per platform, and is a native library inside a container. `pylink-square` is a third-party dependency with no DWARF reader. Why telnet alone was not taken is not stated; it is kept for probe operations MI lacks. |
+| AD-13 Both links to the probe are TCP | USB pass-through of the probe into the container, with J-Link software in the container (not recorded as an alternative; the context calls pass-through "awkward and host-specific"). | C6 | USB pass-through is host-specific. Over TCP the container needs neither USB access nor J-Link software. |
+| AD-14 Four timing methods, each with its resolution | Pick one method; or choose the method automatically. | C4, C5 | One method would make the driver unusable on some targets. Choosing automatically would hide which method ran, and with it the resolution the number should be read at. |
+| AD-15 Plain types at the driver boundary | Return live handles and objects, and write glue for each driver in a keyword layer; or take a Robot Framework dependency now (not recorded in the decision). | C3, C10 | A keyword layer would have to unwrap driver objects one by one. Plain types cost nothing if the Robot path is never taken. |
+| AD-16 Dongle firmware and driver are one element | A separate `FW-` element with its own documents; Nordic's `ble_connectivity` firmware with `pc-ble-driver-py`. | C8, C4 | A separate element doubles the paperwork for one interface. The stock firmware puts the BLE stack on the host side of USB, so every timestamp carries USB jitter. |
+| AD-17 Timestamps taken in the dongle, host times kept beside them | Timestamp each event on the host when it arrives; or keep only the dongle's time (not recorded in the decision). | C4, C5 | Host arrival carries about 1 ms of USB and scheduling jitter, the same order as a 20 ms advertising interval. Without the host figure, a slow sensor cannot be told from a busy host. |
+| AD-18 Filter in the firmware, count in both places | Send every report and filter on the host; or drop lines without counting them (not recorded in the decision). | C5 | A busy room gives hundreds of reports a second, more than USB and the host keep up with. A silent drop looks like a sensor that skipped a beacon. |
+| AD-19 Emulated per-channel output, stated everywhere | Expose only the supply's global switch; or emulate per-channel output and hide it. | C9, C5 | Global-only makes a two-rail test drive both channels as one. Hiding the emulation invites someone to use `output_off` as an interlock, though a channel off this way is at 0 V, not open circuit. |
+| AD-20 ST's firmware on the S2-LP kit | Firmware of this project's own, following the dongle's precedent (AD-16). | C7, C2 | Register access, transmit, receive and logging are already in ST's firmware, and reimplementing them makes none more accurate. Own firmware would add a build, a flashing step and a licence question. AD-32 later reverses this for interrupt receive. |
+| AD-21 Refuse a write the tracking supply would discard | Pass the write through and report the mode; cache the mode at connect; send `TRACK<n>`. | C5, C9 | Passing through is a command that seems to succeed and changes nothing (D-30, D-31). The mode is a front-panel switch a person can move between two commands. `TRACK<n>` could put a board across two channels in series. |
+| AD-22 Values carried between steps | Write the identifier and version into the specification; allow arbitrary expressions. | C5, C8 | Written-in values make the test assert its own input: it passes against the wrong board and goes stale on a rebuild. Expressions would make a reviewer read code. |
+| AD-23 The command-set document is the test | A specification step that iterates a table; Robot Framework. | C8 | A table step puts the commands back in the specification in a second format. Robot is undecided (CON-06, OPEN-04) and not needed for a document a test engineer maintains. |
+| AD-24 (superseded by #131) A reading carries its raw word | Converted values only; raw words only, converted on the host. | C5 | When decided: converted values alone hide a conversion defect, and raw words alone make the reply unreadable in a terminal. #131 replaced this decision with the fixed `ACK rd` reply. |
+| AD-25 A 1604 key press confirmed from the readings | Trust the key's echo. | C5 | The echo is wrong in the cases that matter: a toggle resent after a lost echo, a key refused with a beep, a front panel changed by hand. The meter has no query to read its state. |
+| AD-26 The 1604 read as a stream; each measurement fresh | A reader thread keeping the latest frame; timestamping frames on arrival. | C5, C1 | A thread in every process that opens a meter saves only 0.4 s. A frame that waited in the operating system's buffer arrives late and looks new. |
+| AD-27 A driver declares its input files | Resolve every string that names an existing file; a base directory parameter per driver; change the working directory to the specification's. | C1 | The first rewrites an output path or a channel name that matches a file. The second fixes one driver only. The third moves every output file. |
+| AD-28 An event source is a named instrument | Keep the driver table and append the alias; name by alias alone; find the owner from the call stack. | C5, C8 | The first leaves transports unlabelled. The second renames every log when a role is renamed. The third breaks across threads and cannot be seen by a reader. |
+| AD-29 Device code is a plugin, loaded by path | Python entry points; device code kept in `benchtools` behind a registry. | C1, C8 | Entry points need the product installed as a package, and record a package version, not the commit the results were read with. A registry still leaves product code in the bench. |
+| AD-30 SEGGER tools as a second J-Link backend | Drive `JLinkARM.dll`; one long-lived Commander process; RTT through Commander's telnet port; Nordic's `nrfjprog`. | C3, C2, C7 | The DLL is rejected for AD-12's reasons. A long-lived Commander needs a prompt-driven dialogue that cannot be checked without a probe, and RTT over telnet needs that process too. `nrfjprog` is not SEGGER's, and it is nRF-specific. |
+| AD-31 PPK2 driven by this project's code | Depend on `ppk2-api` (IRNAS); drive Nordic's Power Profiler app. | C7, C3, C2 | `ppk2-api` is GPL-2.0 and brings its own threads and buffering in place of the transport and simulator seam. Nordic's app is a desktop program with no remote interface. |
+| AD-32 The S2-LP kit gets firmware of its own | Keep ST's firmware (AD-20); change ST's firmware. | C4, C5, C7 | ST's receive is armed per packet from the host and is deaf for 26-27 ms (#293), against 20 ms between Kepler repeats (#84). ST's source is under SLA0072, which forbids publishing it, and this repository is public. |
+
 
 ### AD-01 — Implement VXI-11 rather than depend on VISA
 *Decision:* implement the ONC-RPC/VXI-11 core channel on the standard library.
@@ -879,7 +943,9 @@ AD-32 → `SWE4-UT-S2LPKITFW` (21), notably `test_a_frame_is_queued_with_time_an
 
 ---
 
-## 8. Dynamic behaviour — a runner invocation
+## 8. Dynamic behaviour
+
+### 8.0 A runner invocation
 
 ```
 CLI            BenchRunner        Bench           Tek3014B        Transport
@@ -903,6 +969,452 @@ CLI            BenchRunner        Bench           Tek3014B        Transport
  |- write_json / write_markdown / write_junit          |                |
 ```
 
+Added by #367 (SWE.2.BP2). §8.0 shows one runner invocation.
+These views add each element's behaviour over time. A state diagram appears
+only where the code holds the state, and names the class or variable that
+holds it. Where a phase sequence runs inside one call with no state kept, the
+element has a table only. Paths are relative to `benchtools/` or `firmware/`.
+A number is given only where the code or the notes give it.
+
+### 8.1 CORE transports (CORE-ARC-002, -003)
+
+Source: `core/transport/base.py`, `vxi11.py`, `socket_raw.py`, `serial_port.py`, `process.py`, `mock.py`.
+
+`Transport._is_open` holds the state. `open()` and `close()` can both be called
+again safely, and `close()` never raises. There is no "connecting" or "failed"
+state: a failed open raises, and the transport stays closed.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Closed
+    Closed --> Open : open() / _open_link()
+    Open --> Open : write() discards unread bytes, then sends
+    Open --> Closed : close() / _close_link(), buffer reset
+    Open --> Closed : _close_link() fails, logged, still closed
+```
+
+| Phase | What moves it | Timing that matters |
+|---|---|---|
+| Message read | `read_message()` fills until the read terminator or END | Each fill waits up to the transport timeout, default 10.0 s (`base.py`). An empty fill raises `TransportTimeoutError`. A reply over `MAX_RESPONSE_BYTES` (64 MiB) raises. |
+| Stream read (AD-26) | `read_available()` returns whatever is buffered, and waits only when nothing is | Waits up to the timeout. `discard_input()` also empties the operating system's buffer on serial. |
+| VXI-11 link | `_open_link`: portmapper (TCP, then UDP), then `create_link` for each device name in turn; `_close_link`: `destroy_link` | Lock timeout 5.0 s. `max_recv_size` is what the instrument offers, bounded to 512 B .. 1 MiB, else 4096. Error 4 (invalid link) clears the link and raises `ConnectionFailedError`. |
+| Raw socket read to end | `read_raw()` | The first chunk may take the full timeout. After that it stops at `idle_gap` = 1.0 s of quiet. |
+| Serial | `_recv_chunk` reads 1 byte, then what is waiting | The pyserial timeout is changed only when the value changes, because pyserial on Windows loses bytes when it is reassigned (LL-07). No pacing in the core; drivers pace (PSU). |
+| Process (GDB child) | `open()`: `Popen`, then two daemon reader threads | `ready_timeout` 0.5 s catches a child that exits at once. On close: `terminate`, wait 2.0 s, then `kill`, wait 2.0 s; threads joined with 1.0 s each. |
+
+### 8.2 Plugin loading (AD-29)
+
+Source: `core/plugins.py`, `Registry.load`.
+
+There is no state field. A plugin is loaded if it is in `REGISTRY.plugins`.
+After a failure, its modules are removed from `sys.modules`.
+
+```mermaid
+stateDiagram-v2
+    [*] --> NotLoaded
+    NotLoaded --> Loaded : load(folder) and register(plugin) succeed
+    NotLoaded --> NotLoaded : ConfigurationError, module forgotten
+    Loaded --> Loaded : load(same folder) returns the loaded plugin
+    Loaded --> NotLoaded : unload(name), tests only
+```
+
+| Step | What happens | Timing that matters |
+|---|---|---|
+| 1. Folder | Path normalised. A folder already loaded returns its plugin. `__init__.py` is required. | none |
+| 2. Import | Imported as `etb_plugins.<name>_<sha1[:10]>` from the folder | none |
+| 3. Name | `NAME`, else the folder name. A second plugin of the same name is refused. | none |
+| 4. Commit | `git rev-parse HEAD` and `git status --porcelain` give `ref` and `dirty` | Each git call has a 10 s timeout |
+| 5. Register | `register(plugin)`. A decoder name already taken by another plugin is refused. | none |
+| Pre-#238 fallback | `ensure_legacy_kepler` loads `plugins/kepler` with a deprecation warning, before `run_start` so the run records it | none |
+
+### 8.3 PSU-ARC-001, GPD-3303D
+
+Source: `instruments/gpd3303d/psu.py`, `constants.py`.
+
+Two kinds of state change over time. Each channel is either live or parked,
+held as a key in `Gpd3303D._parked`. The supply's one output switch is held in
+the supply itself, and the driver reads it from `STATUS?` rather than keeping it.
+
+```mermaid
+stateDiagram-v2
+    state "Channel n (key in Gpd3303D._parked)" as ch {
+        [*] --> Live
+        Live --> Parked : output_off(n), setpoint saved, VSETn 0.000
+        Parked --> Parked : set_voltage(n) updates the saved setpoint, nothing sent
+        Parked --> Live : output_on(n), VSETn restored, then OUT1
+        Parked --> Live : all_outputs_on(), every VSET restored, then OUT1
+    }
+```
+
+When every channel is parked, `output_off` also sends `OUT0`. `all_outputs_off`
+sends `OUT0` and leaves `_parked` as it is. `_post_open` and `reset` clear
+`_parked`.
+
+| Behaviour | What moves it | Timing that matters |
+|---|---|---|
+| Command pacing | `_pace` before every `_write` and `_query` | At least `DEFAULT_COMMAND_INTERVAL` = 0.05 s between commands on a real link, and 0 on `sim`, `loop://` or `mock`. Measured latency: `VSET?` and the like take 17-30 ms; `STATUS?` takes about 143 ms to the last byte at 9600 baud (ETB-IF-001). |
+| Tracking check (AD-21) | `_check_tracking(2)` before any setpoint or per-channel switch on channel 2 | One live `STATUS?` each time, never cached. Series or parallel raises `ConfigurationError`. An undecoded mode warns and goes ahead. |
+| Safe state | `reset(settle=0.2)`: `VSET1:0.000`, `VSET2:0.000`, `OUT0`, `_parked` cleared | 0.2 s settle. Current limits are left as they are. Outputs fall to 0 V in 2-3 s with no load (ETB-IF-001). |
+| Connect | `_post_open` identifies the supply and reads its status, and changes nothing | `connect(timeout=5.0)`. A missing status legend line costs one timeout. |
+
+### 8.4 DMM-ARC-001, TTi 1604
+
+Source: `instruments/tti1604/dmm.py`, `protocol.py`, `constants.py`.
+
+`Tti1604._remote` holds the meter's remote mode. `remote()` sends `u` and
+`local()` sends `v`. In remote mode, every key press is confirmed from the
+readings (AD-25). Outside it, keys are pressed unconfirmed.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Local
+    Local --> Remote : remote() sends u, also at connect when enter_remote is set
+    Remote --> Local : local() sends v
+    Remote --> Remote : select_*() presses keys, then waits for a reading that shows the state
+```
+
+`FrameAssembler` keeps no named states, only a frame buffer, a residue (the
+echoes) and a `resynchronised` count.
+
+| Phase | What moves it | Timing that matters |
+|---|---|---|
+| Key press | `_send_character`: write the key, then wait for its echo | `ECHO_TIMEOUT` 0.3 s, three sends at most, then `InstrumentError`. |
+| Confirmation | `_await` waits for a reading showing the state asked for | `max(CONFIRM_TIMEOUT 4.0 s, _patience())`. `_patience` is `SETTLING_TIME` 2.0 s, or in Hz 2.0 s + 2 x gate = 4.0 s or 22.0 s. |
+| Reading stream | Meter sends one 10-byte frame per measurement | `READING_INTERVAL` 0.4 s (2.5/s). The read timeout is fixed at `READ_POLL` 0.05 s and never varied; the driver loops to its own deadline. |
+| Measurement (AD-26) | `measure()`: discard everything, read and drop one frame, return the next | 0.4-0.8 s (TTi1604_Notes §6.5). A blank reading is read again for up to `RANGING_TIME` 6.0 s. Frequency gate 10 s on the 4 kHz range, 1 s on 40 kHz. |
+
+### 8.5 PICO-ARC-001, PICO2 Test Board
+
+Source: `firmware/pico2_test_board/src/cmd_parser.c`, `fgen.c`, `sht30.c`, `hal_pico.c`; `instruments/pico2_test_board/thermometer.py`, `flash.py`.
+
+**Firmware line assembly** (`cmd_line_push`, results in `cmd_parser.h`):
+
+```mermaid
+stateDiagram-v2
+    [*] --> Pending
+    Pending --> Pending : character stored, CR ignored
+    Pending --> Ready : LF ends a line
+    Pending --> Overflow : 64th character with no LF (PROTO_MAX_LINE 64)
+    Overflow --> Pending : LF, answered err 3 line too long
+    Ready --> Pending : cmd_execute, reply sent
+```
+
+**Frequency generator, one per channel** (`fgen_state_t` in `fgen.h`):
+
+```mermaid
+stateDiagram-v2
+    [*] --> NotStarted
+    NotStarted --> Running : routine freq start
+    Running --> Aborted : routine freq abort, or routine all abort
+    Running --> Complete : finite cycles counted
+    Aborted --> Running : start
+    Complete --> Running : start
+    Running --> Running : start on a finite run restarts it
+```
+
+A start is refused while the channel is running with no cycle count. `wr`
+stores a setting that takes effect at the next start.
+
+| Behaviour | What moves it | Timing that matters |
+|---|---|---|
+| Main loop | `getchar_timeout_us`, then `fgen_poll`, then line assembly | `MAIN_POLL_US` 1000 µs. One core, no RTOS. |
+| SHT30 reading | `sht30_measure`: command 0x2400, wait, read 6 bytes, CRC each word | `SHT30_MEASURE_WAIT_MS` 16 ms (datasheet maximum 15 + 1). I2C at 100 kHz, `BOARD_I2C_TIMEOUT_US` 10 ms per transfer. A failure answers `ACK rd temperature = Error`. |
+| DAC output | DMA completion interrupt refills a buffer by `fgen_render` | 48 828.125 samples/s; 256 frames per buffer (about 2.6 ms); two buffers. |
+| DAC mute | `fgen_poll` mutes after the last DAC channel stops | `FGEN_MUTE_HOLD_US` 50 ms; unmute settle `FGEN_UNMUTE_SETTLE_MS` 50 ms. On the bench no mute pin is wired, so no pin is driven. |
+| Reboot / BOOTSEL | `cmd_finish` sends the reply, then reboots | `HAL_REBOOT_DRAIN_MS` 50 ms flush first. LEDs are off after a reboot. |
+| Host reading | `read()` sends one `rd temperature` | `connect` timeout 2.0 s. Connect makes 4 round trips (`rd name`, `copyright`, `version`, `sha`). |
+| Host flash (`flash.py`) | check UF2, enter bootloader (already there, `bootsel`, or 1200-baud touch), copy, wait for the drive to go, verify | Bootloader and reboot waits 15.0 s each; port wait 20.0 s; poll 0.25 s. |
+
+### 8.6 SER-ARC-001, serial capture
+
+Source: `instruments/serial_capture/capture.py`, `constants.py`.
+
+`_Run.status` holds the state of the current run. `SerialCapture._run` is
+guarded by a `threading.Lock`. With no run, `results()` reports Not Started.
+
+```mermaid
+stateDiagram-v2
+    [*] --> NotStarted
+    NotStarted --> Running : start_capture(), input discarded, two threads started
+    Running --> Complete : window ends, or the pattern matches
+    Running --> Aborted : abort_capture() or close
+    Running --> Aborted : the port raises, error recorded
+    Complete --> Running : start_capture()
+    Aborted --> Running : start_capture()
+```
+
+| Behaviour | What moves it | Timing that matters |
+|---|---|---|
+| Reading | thread `serial-capture` reads the port; thread `serial-capture-lines` shows lines | Read timeout `READ_POLL` 0.05 s; window default 5000 ms, 1 ms to 3 600 000 ms. |
+| Start refused | a run in progress, or a thread from the last run still alive | `CaptureBusyError` |
+| Line rate or format change | `_reconfigure` closes the port and reopens it with the new settings; on failure the old settings are restored | Refused while a capture runs. |
+| Waiting | `wait_capture` | Remaining window + connect timeout (default 2.0 s). Threads joined with `_JOIN_TIMEOUT` 5.0 s. |
+
+### 8.7 PSCOPE-ARC-001, PicoScope 3000D
+
+Source: `instruments/picoscope3000/sdk.py`, `scope.py`.
+
+`Ps3000aSdk._handle` holds the state: the unit is open while the handle is
+above 0. The driver keeps its channel, port, timebase and sample settings and
+sends them all at `_post_open`, leaving the trigger off.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Closed
+    Closed --> Open : open(), ps3000aOpenUnit, power source changed if asked
+    Open --> Capturing : run_block(pre, post, timebase)
+    Capturing --> Open : is_ready, then get_values
+    Capturing --> Open : timeout, stop(), AcquisitionTimeoutError
+    Open --> Closed : close(), ps3000aStop, CloseUnit, buffers released
+```
+
+| Phase | What moves it | Timing that matters |
+|---|---|---|
+| Capture | `capture()`: `GetTimebase2`, `RunBlock`, poll, `GetValues` | Poll `is_ready()` every 5 ms; `timeout` 10.0 s by default (ETB-IF-002). |
+| Buffers | `get_values` sets one `c_int16` buffer per enabled channel and port, kept in `_buffers` until read | Copied into Python lists afterwards. |
+
+### 8.8 PPK-ARC-001, Power Profiler Kit II
+
+Source: `instruments/ppk2/ppk2.py`, `constants.py`.
+
+`Ppk2._mode` (None until known), `_vdd_mv` and `_powered` (None until the
+driver switches it, because the kit cannot be asked) hold the state.
+`voltage_limit` caps every setpoint.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Unknown
+    Unknown --> Off : set_mode(m), power_off first
+    Off --> On : power(True), mode known and volts within 0.8 V..voltage_limit
+    On --> Off : power(False), never refused
+    On --> Off : set_mode(m), power_off first
+```
+
+| Phase | What moves it | Timing that matters |
+|---|---|---|
+| Open | find the port by serial number, then open it, retrying while the kit re-enumerates | Retry every 0.1 s for up to `REENUMERATE_WAIT` 3.0 s. The kit is off USB for about 0.7 s each time its port closes (PPK2_Notes). |
+| Metadata | `_post_open`: `AVERAGE_STOP`, settle, discard, then read the metadata to `END` | `STOP_SETTLE` 0.05 s; `METADATA_TIMEOUT` 3.0 s. The kit answers only the first request after the port opens. |
+| Measurement | `_record`: discard, `AVERAGE_START`, read until the byte count, then `AVERAGE_STOP` in `finally` | 100 000 samples/s x 4 bytes. Read timeout `_STREAM_READ` 0.5 s; deadline = duration + transport timeout. Duration at most `MAX_DURATION` 120 s. Decoding happens after sampling stops (AD-31). |
+
+### 8.9 JLINK-ARC-001, debug probe
+
+Source: `instruments/jlink/probe.py`, `server.py`, `session.py`, `rtt.py`, `segger.py`, `commander.py`.
+
+**GDB backend, `JLinkProbe`.** `_attached` and `_halted` hold the state.
+`GdbMiSession` does not track run state from `*running` records. `_halted`
+changes only through the probe's own methods. A `*stopped` record changes it
+only in `wait_for_halt`.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Detached
+    Detached --> Halted : attach(), target-select, monitor halt, flush registers
+    Detached --> Unattached : attach_on_open false, _halted false
+    Halted --> Running : run(), -exec-continue
+    Running --> Halted : halt(), -exec-interrupt, then wait_for_halt()
+    Running --> Halted : reset() or flash(), halt first, then monitor reset
+    Halted --> Halted : reset(halt=True), monitor reset, monitor halt, flush
+    Halted --> Running : reset(halt=False), monitor reset 0, flush, run()
+    Halted --> Detached : close(), monitor go unless leave_halted, target-detach
+    Running --> Detached : close(), target-detach
+```
+
+**GDB Server lifetime, `GdbServer`.** `_spawned` records whether this driver
+started the server. Only a spawned server is stopped (JLINK-FR-005).
+
+```mermaid
+stateDiagram-v2
+    [*] --> Probing
+    Probing --> Borrowed : port already listening, _spawned false
+    Probing --> Refused : nothing listening and the host is not local
+    Probing --> Starting : local, Popen, _spawned true
+    Starting --> Listening : port opens
+    Starting --> Refused : process exits, or start_timeout passes
+    Listening --> [*] : stop(), terminate, then kill
+    Borrowed --> [*] : stop() does nothing
+```
+
+| Behaviour | What moves it | Timing that matters |
+|---|---|---|
+| Server start | `GdbServer.start()` | Port polled every 0.1 s, up to `start_timeout` 15.0 s; each poll has a 0.5 s socket timeout. Stop: `terminate`, wait 5.0 s, `kill`, wait 5.0 s. |
+| MI command | `GdbMiSession.execute()` drains async records, sends, reads to the result with its token | Default 20.0 s. Attach 30.0 s; flash and restore 180.0 s; erase 120.0 s; halt and step 10.0 s; `wait_for_halt` 30.0 s. |
+| Memory | `read_memory`, `write_memory` | Chunked at `max_transfer_bytes` 0x10000 (64 kB). |
+| RTT | `RttClient.start()` and `stop()`; `_running` holds the state | A background thread polls every `_POLL_INTERVAL` 0.01 s. Join on stop 1.0 s. History is bounded at 10 000 lines. |
+| SWO | `SwoStream` open, poll, close; no thread | Polled every 5 ms; `collect` default 10.0 s. |
+| SEGGER backend (AD-30) | One J-Link Commander run per operation; `_halted` is read from DHCSR (0xE000EDF0, bit 17) after `r`, `g` and `h` | Commander run at least 60 s. RTT Logger start wait 10.0 s, polled every 0.1 s; quit wait 2.0 s. |
+
+**Design rule J1: GDB's view of the target is kept true after `monitor` commands.**
+J-Link GDB Server acts on a `monitor` command, but GDB does not see it. After
+one, GDB keeps the registers and the run state it had before. The driver
+therefore never trusts GDB's view after a `monitor` command that changes the
+core:
+
+1. **Flush the register cache after anything that resets or halts the core
+   behind GDB's back.** Use `maintenance flush register-cache`. Do this after
+   every reset and after an attach (`_flush_register_cache`). If GDB refuses,
+   the driver raises. #178: after a reset, the PC read back the value from
+   before the reset until the cache was flushed.
+2. **Resume with `-exec-continue`, never `monitor go`, while the session goes on.**
+   GDB then knows the core is running. `reset(halt=False)` resumes with `run()`.
+   #177: the GDB Server halts the core after `monitor reset`, whatever the
+   reset type.
+3. **Halt with `-exec-interrupt` before any `monitor` command if the core runs.**
+   GDB refuses every `monitor` command while the target runs.
+   `_stop_if_running` does this before `reset` and `flash` (#259).
+4. **Do not assume the core's state on attach.** A previous client's
+   `monitor go` was never seen by GDB, so `attach()` sends `monitor halt` and
+   flushes the register cache before it records `_halted` (#349).
+
+The rule does not yet cover every case. `close()` still resumes with
+`monitor go`, and rule 4 covers that at the next attach. No flush follows
+`monitor("flash erase")` or a caller's own `monitor()`. `_halted` is not
+updated from `*running` records.
+
+### 8.10 BLE-ARC-001, BLE dongle (host and firmware)
+
+Source: `instruments/nordic_dongle/dongle.py`, `session.py`; `firmware/nordic_dongle/src/nus_client.c`, `ble_scanner.c`, `cdc_acm.c`, `timestamp.c`.
+
+**Host.** There is no reader thread: `DongleSession` reads lines when a call
+asks for them. `NordicDongle._connected` holds the link to the sensor. During
+`_open_link_once`, "linked" is a local variable only.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Unlinked
+    Unlinked --> Connecting : open_link(), connect timeout=ms
+    Connecting --> Linked : +conn state=linked
+    Linked --> Ready : +conn state=ready, _connected true
+    Connecting --> Unlinked : +conn state=failed, +disc, or deadline
+    Linked --> Unlinked : +disc, or deadline
+    Ready --> Unlinked : close_link(), +disc seen by check_link(), or reset()
+```
+
+`open_link` retries an attempt that ended with reason 0x3e (not established),
+up to `CONNECT_ATTEMPTS` = 3 times. If a `connect` is refused with error 4, 7
+or 10, the host disconnects and tries again, then resets the dongle and tries
+once more.
+
+**Firmware, `nus_client.c`.** There is no enum. The state is in flags:
+`m_conn_handle`, `m_connecting`, `m_ready`, `m_drop_on_connect`.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Idle
+    Idle --> Connecting : nus_client_connect(), m_connecting
+    Connecting --> Idle : BLE_GAP_EVT_TIMEOUT, +disc reason=timeout
+    Connecting --> Idle : disconnect, cancel accepted, +disc reason=cancelled
+    Connecting --> Discovering : BLE_GAP_EVT_CONNECTED, +conn state=linked
+    Discovering --> Ready : NUS discovery complete, m_ready, +conn state=ready
+    Discovering --> Idle : discovery fails to start, +conn state=failed
+    Ready --> Idle : BLE_GAP_EVT_DISCONNECTED, +disc
+    Discovering --> Idle : BLE_GAP_EVT_DISCONNECTED, +disc
+```
+
+**Firmware scanner.** `m_scanning` holds the state, and each change sends
+`+scan state=started|stopped`. A `connect` stops the scan first.
+
+| Behaviour | What moves it | Timing that matters |
+|---|---|---|
+| Host reply wait | `execute()` drains, sends, reads until a reply; events met on the way are queued | `DongleSession` timeout 5.0 s. Event backlog `_EVENT_BACKLOG` 4096; the oldest event goes first. |
+| Connect | `open_link` | `DEFAULT_CONNECT_TIMEOUT` 15.0 s + `SERVICE_DISCOVERY_TIMEOUT` 10.0 s per attempt. The firmware has no discovery timeout of its own. Firmware connect window 1000-60 000 ms, default 15 000. |
+| Link parameters | firmware connect | Interval 7.5-30 ms (6-24 units), supervision 4 s, latency 0. |
+| Command to the sensor | `cmd <hex> timeout=<ms>`; the firmware waits by polling and keeps servicing USB | Firmware 100-60 000 ms, default 2000 ms. Host waits that timeout + 1.0 s. No reply gives `err 8`. |
+| Disconnect | `disconnect`, then wait for `+disc` | `DISCONNECT_EVENT_TIMEOUT` 6.0 s; a supervision-timeout `+disc` was measured at 3.9 s (BLE_Dongle_Notes). |
+| Scan | `scan start <ms>`, then collect until `+scan state=stopped`, then `scan stop` | `DEFAULT_SCAN_MS` 3000; host collects for duration + 1.0 s. Firmware scan interval = window = 100 ms (continuous). |
+| Dongle reset | `reset`, close, settle, reopen | `DONGLE_RESET_SETTLE` 2.5 s. |
+| Firmware refresh | `ensure_firmware`: compare with the manifest, then `dfu`, `nrfutil`, reopen, check again | `settle` 3.0 s before and after; `nrfutil` 180.0 s. The firmware flushes its reply for up to 250 ms before entering the bootloader. |
+| Firmware USB out | `cdc_acm_send` queues a line; `tx_pump` sends one at a time while the port is open | 32 slots; one always stays empty, so 31 lines wait at most. A line refused is dropped and counted in `m_dropped`. |
+| Firmware clock | TIMER3 at 1 MHz, 32 bits, overflow counted in an interrupt to give 64 bits | Wraps every 71.6 min before extension. The timestamp is taken first in `scanner_on_ble_evt`. |
+
+### 8.11 S2LP-ARC-001, S2-LP kit (ST firmware and kit firmware)
+
+Source: `instruments/s2lp/s2lp.py`, `kit_driver.py`, `kit_firmware.py`, `session.py`, `traffic.py`; `firmware/s2lp_kit/src/rx.c`, `ring.c`, `main.c`, `hal_l053.c`.
+
+**Which firmware the board runs.** `S2lpDevkit._session` holds the session. It
+starts as an `S2lpSession`. `_choose_session` replaces it with a `KitSession`
+if the board answers the `id` probe as the kit firmware (AD-32).
+
+```mermaid
+stateDiagram-v2
+    [*] --> StSession
+    StSession --> Probing : connect, firmware auto or kit
+    StSession --> [*] : firmware st, no probe
+    Probing --> KitSession : ok etb-s2lp-kit, protocol 1
+    Probing --> StSession : no answer within PROBE_TIMEOUT, firmware auto
+    Probing --> Refused : no answer and firmware kit, or protocol not 1
+```
+
+**ST firmware, polled receive** (`_stream_polled`). There is no state variable;
+each phase runs inside the call.
+
+| Phase | What moves it | Timing that matters |
+|---|---|---|
+| Prepare | first receive: GPIO3 as nIRQ, IRQ mask, RX timeout 0 | One command round trip each. |
+| Armed | `S2LPGetNBytes 0xFFFF`, then wait for the reply | Waits for the stream's remaining time. On timeout the host sends `S`, waits up to 2.0 s for `StopCmd`, and keeps any reply that came with it. |
+| Packet and registers | reply parsed; one `SdkEvalSpiReadRegisters` for the asked registers | 14-17 ms for the register read (S2LP_Devkit_Notes). |
+| Re-arm | next `S2LPGetNBytes` | The radio is deaf from the frame to the re-arm: 26-27 ms measured (#293). On the bench, gaps under about 105 ms were missed by the polled stream (`traffic.py` docstring); the shortest received was 108 ms (Notes). |
+
+**Kit firmware, interrupt receive.** `m_running` in `rx.c` holds the state.
+The UART interrupt has priority over the radio's (0x00 against 0x40), because
+a USART byte overruns 174 µs after it arrives.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Idle
+    Idle --> Armed : rx start, IRQ mask set, FLUSHRXFIFO, RX
+    Armed --> Taking : nIRQ falls, time taken first, IRQ status read
+    Taking --> Armed : frame queued or ring full, rx_rearm, deaf time kept
+    Armed --> Idle : rx stop, SABORT, FLUSHRXFIFO, queue sent, counters sent
+```
+
+While the radio is receiving, `rd`, `wr`, `cmd` and `sdn` answer
+`err receiving`. `id`, `stat` and `rx` are still taken.
+
+| Behaviour | What moves it | Timing that matters |
+|---|---|---|
+| Interrupt | `hal_exti0_1_isr` calls `rx_on_irq` while PC0 stays low | Up to 4 passes. A frame's interrupt takes up to 393 µs (`hal_l053.c`). Deaf time is measured per frame and the longest is reported as `deaf_max_us`. |
+| Queue | `ring_claim`, `ring_commit`; the main loop sends one record a pass | `RING_SIZE` 16 records. When it is full, the frame is counted in `overflows` and its sequence number used, so the host sees the gap (`lost_before`). |
+| Board time | TIM2 at 1 MHz with a software upper half | 1 µs resolution, 32-bit µs value. |
+| Host `KitSession` | `receiving` true from the `rx start` answer to the `rx stop` answer | `PROBE_TIMEOUT` 1.0 s; `STOP_TIMEOUT` 5.0 s; line poll 0.05 s. |
+
+### 8.12 VIEW-ARC-001, viewer, and the run control channel
+
+Source: `viewer/server.py`, `state.py`; `runner/control.py`.
+
+**Run as the viewer rebuilds it** (`RunState.status` and `paused`). The final
+status is whatever the runner wrote in `run_end`.
+
+```mermaid
+stateDiagram-v2
+    [*] --> WAITING
+    WAITING --> RUNNING : run_start record
+    RUNNING --> Paused : control_applied pause
+    Paused --> RUNNING : control_applied resume, abort or restart_from
+    RUNNING --> Ended : run_end, status from the record
+    Paused --> Ended : run_end
+```
+
+**Run control channel** (`runner/control.py`). It reports `idle`, `running` or
+`paused`. The runner reaches a `checkpoint` only between steps, so a command
+takes effect at the next step boundary. In teardown, `checkpoint` neither
+blocks nor returns a command.
+
+| Behaviour | What moves it | Timing that matters |
+|---|---|---|
+| Following the log | thread `viewer-tail`: `EventTail.read()`, then wait | Every 0.2 s (`Hub(interval=0.2)`). |
+| Server-Sent Events | one request thread per client waits on the hub's condition | Keep-alive every `KEEPALIVE_S` 15.0 s. No queue per client. |
+| Start a run | `Launcher.start()` runs `python -m benchtools run ... --control 0` as a separate process | One run at a time. |
+| Control request | viewer `send_control` to 127.0.0.1 | 5.0 s; no answer gives 502, no port gives 409. Request line at most 4096 bytes. |
+| Exposure | a non-loopback bind needs a token; `--read-only` refuses every POST | Token from `secrets.token_urlsafe(32)`. |
+
+### 8.13 Not established
+
+- The ST CLI firmware's own internal states: it is ST's, outside this project (AD-20).
+- Whether a core halted by one J-Link Commander run stays halted after the run exits (AD-30 says this is not known).
+- A rate limit for the BLE dongle's USB link: the notes give latency (up to 1 ms polling) but no throughput figure.
+
+---
+
 ## 9. Resource and performance characteristics
 
 | Aspect | Value |
@@ -915,9 +1427,48 @@ CLI            BenchRunner        Bench           Tek3014B        Transport
 | Processes per probe connection | Two at most: the GDB Server (only if not already listening) and one GDB. |
 | Round trips per probe halt/read/resume | 3 MI commands; a variable read is 1. Memory is chunked at the probe's maximum transfer size (64 kB). |
 | Advertising reports per second, one sensor | 3 channels at the advertising rate; at 20 ms that is up to 150 lines/s, about 20 kB/s over USB. |
-| Dongle event queue | 32 lines. Above that, lines are dropped and counted rather than truncated. |
+| Dongle event queue | 32 slots, of which at most 31 lines wait: the full check keeps one slot empty (`cdc_acm.c`). Above that, lines are dropped and counted (`m_dropped`, read through `ver` and `adv stats`) rather than truncated. |
 | Host event backlog | 4096 events, bounded so an unattended session cannot grow without limit. |
 | Cost of a halting timing measurement | Two breakpoint stops per repetition; the target is stopped for the duration, which is why JLINK-FR-064 exists. |
+| PSU: link | 9600 baud by default (`DEFAULT_BAUDRATE`; 57 600 and 115 200 also supported). Commands end in LF; replies end in CR (`REPLY_TERMINATOR`). |
+| PSU: command pacing | At least 50 ms between commands on a real link (`DEFAULT_COMMAND_INTERVAL` 0.05, `psu.py _pace`), and none on a simulated link. No minimum gap was found on the bench, from 0 to 200 ms (ETB-IF-001, PSU-OPEN-03). |
+| PSU: reply latency | 17-30 ms for `VSET?`, `ISET?`, `VOUT?` and `IOUT?`; 58 ms for `*IDN?`. `STATUS?` sends 137 bytes and takes about 143 ms to the last byte at 9600 baud (ETB-IF-001). |
+| PSU: round trips per operation | Setpoint on channel 1: 1 write. Setpoint on channel 2: 1 `STATUS?` (AD-21), then 1 write. Read-back: 1 query, or none for a parked channel. `read_channel`: up to 5 queries (`psu.py`). |
+| PSU: timeouts | `connect(timeout=5.0)`, applied to each reply. Safe state settles for 0.2 s (`reset(settle=0.2)`). |
+| PSU: memory and threads | One float per parked channel (`_parked`). No threads. |
+| DMM: link and rate | 9600 baud 8N1, DTR on, RTS off (`constants.py`). One 10-byte frame per reading (`FRAME_LENGTH`), every 0.4 s (`READING_INTERVAL`), about 25 B/s (derived). |
+| DMM: timeouts | Read poll fixed at 0.05 s (`READ_POLL`). Key echo 0.3 s, three sends at most (`ECHO_TIMEOUT`). Confirmation at least 4.0 s (`CONFIRM_TIMEOUT`); settling 2.0 s; ranging 6.0 s; frequency gate 1 s or 10 s (`GATE_TIME`). |
+| DMM: time per operation | Measurement 0.4-0.8 s (one frame discarded, the next returned); frequency on the 4 kHz range up to 20 s (AD-26). A function change takes 1-2 s (AD-25). |
+| DMM: memory and threads | A frame buffer, a residue for echoes, and the decoded readings not yet used (`FrameAssembler`, `_ready`). No threads (AD-26). |
+| S2LP: link | 115 200 baud 8N1 on both firmwares (`constants.DEFAULT_BAUDRATE`; kit firmware `HAL_USART_BRR_115200`). Kit firmware lines end in CR LF. |
+| S2LP: ST firmware timing | Reply timeout 5.0 s (`DEFAULT_TIMEOUT`); line poll 0.05 s (`session.READ_POLL`); stop acknowledgement wait 2.0 s. Deaf time between polled receptions 26-27 ms (#293); register read 14-17 ms (S2LP_Devkit_Notes). |
+| S2LP: kit firmware timing | Board time 1 µs resolution (TIM2 at 1 MHz). A frame's interrupt takes up to 393 µs (`hal_l053.c`); the longest deaf time is reported as `deaf_max_us`. Host probe 1.0 s (`PROBE_TIMEOUT`); stop 5.0 s (`STOP_TIMEOUT`). |
+| S2LP: buffers | Host: payload at most 255 bytes on ST's CLI (`MAX_PAYLOAD`); radio FIFO 128 (`FIFO_SIZE`); 200 unclaimed lines kept (`UNCLAIMED_LIMIT`). Kit firmware: 16 records (`RING_SIZE`), each up to 128 payload bytes (`PROTO_MAX_PAYLOAD`) and 8 registers; command line 300 characters (`PROTO_LINE_MAX`); UART input 128 bytes (`HAL_RX_SIZE`). The ring is about 2.4 KB (derived) of the board's 8 KB RAM (`stm32l053r8.ld`). |
+| S2LP: overflow | Kit firmware: a frame that finds the ring full is counted in `overflows` and its sequence number is used, so the host reports the gap (`lost_before`). |
+| S2LP: threads | None on the host. The firmware has a main loop and interrupts, with UART at priority 0x00 and radio and timer at 0x40. |
+| PICO: link | USB CDC; the line rate is ignored (`DEFAULT_BAUDRATE` 115 200 is nominal). Replies end in LF. |
+| PICO: round trips | 1 per temperature reading (`rd temperature`); 4 at connect (`rd name`, `copyright`, `version`, `sha`). `start_freq`: 3 or more `wr` and 1 `routine`. |
+| PICO: time per reading | At least 16 ms on the board (`SHT30_MEASURE_WAIT_MS`) plus the I2C transfers at 100 kHz. Each I2C transfer times out at 10 ms (`BOARD_I2C_TIMEOUT_US`). |
+| PICO: host timeouts | `connect` 2.0 s. Flash: bootloader wait 15.0 s, reboot wait 15.0 s, port wait 20.0 s, polled every 0.25 s (`flash.py`). |
+| PICO: firmware buffers | Command line 64 bytes with its terminator (`PROTO_MAX_LINE`); reply 192 (`PROTO_MAX_REPLY`); 4 tokens. Frequency generator table 4096 entries (`FGEN_TABLE_SIZE`); DAC DMA two buffers of 256 frames (512 32-bit words) each (`HAL_DAC_*`), about 2.6 ms of output per buffer. |
+| PICO: firmware rates | DAC 48 828.125 samples/s (`FGEN_SAMPLE_RATE_MHZ`, 150 MHz system clock, PIO divider 24). Main loop poll 1 ms (`MAIN_POLL_US`). |
+| PICO: threads | None on the host. Firmware: one core and no RTOS; the DMA and PWM interrupts run the generator. |
+| PSCOPE: capture | One block per capture: `RunBlock`, then poll `is_ready()` every 5 ms, then `GetValues`. Timeout 10.0 s by default (`scope.timeout`, ETB-IF-002). |
+| PSCOPE: default record | 10 000 samples, 20 % before the trigger (`_samples`, `_pre_trigger`). |
+| PSCOPE: memory | Host: one `c_int16` buffer per enabled channel and port, 2 bytes per sample, then copied into Python lists. Unit: at most 268 435 200 samples with channel A alone; 67 108 800 with four channels (`ModelLimits.max_samples`; PicoScope3000_Notes). The driver does not check a length against this; the library refuses one too long. |
+| PSCOPE: rate and threads | At most 1 GS/s (`max_sample_rate_hz`). No threads. |
+| PPK: stream | 100 000 samples/s (`SAMPLE_RATE`) x 4 bytes (`SAMPLE_BYTES`) = 400 kB/s (derived; AD-31). |
+| PPK: memory | Raw bytes are kept during sampling (4 B per sample) and decoded afterwards into amps (8 B) and logic (1 B) per sample: 9 B per sample, about 108 MB for the longest measurement (`constants.py`). |
+| PPK: limits and timeouts | Measurement at most 120 s (`MAX_DURATION`). Metadata 3.0 s (`METADATA_TIMEOUT`); stream read 0.5 s (`_STREAM_READ`); stop settle 0.05 s; re-enumeration wait 3.0 s (`REENUMERATE_WAIT`). The kit is off USB for about 0.7 s when its port closes (PPK2_Notes). |
+| PPK: time per measurement | A 5 s capture took 6.0 s in all on the bench (PPK2_Notes). |
+| PPK: threads | None. Reading and decoding run on the caller's thread. |
+| VIEW: log following | Event log re-read every 0.2 s by one thread (`Hub(interval=0.2)`). |
+| VIEW: clients | One thread per HTTP request (`ThreadingHTTPServer`), no queue per client; keep-alive every 15.0 s (`KEEPALIVE_S`). Default port 8130. |
+| VIEW: memory bounds | 5000 records (`KEEP_RECORDS`); 5000 per step and 50 000 per run (`KEEP_STEP_RECORDS`, `KEEP_RUN_RECORDS`); 2000 exchanges per source (`KEEP_EXCHANGES`); 5000 points per series (`KEEP_POINTS`); 1000 frames and 1000 BLE events (`KEEP_FRAMES`, `KEEP_BLE_EVENTS`). POST body at most 64 kB. |
+| VIEW: control channel | The runner listens on 127.0.0.1 only, JSON Lines, request at most 4096 bytes (`_MAX_LINE`). The viewer waits 5.0 s for an answer. A command takes effect at the next step boundary. |
+| VIEW: processes | One run at a time, started as a separate process (`Launcher`). |
+
+---
 
 ## 10. Interfaces to external elements
 
@@ -937,6 +1488,10 @@ CLI            BenchRunner        Bench           Tek3014B        Transport
 | Bluetooth Low Energy | bidirectional | Dongle to sensor: advertising reports in, UART service both ways. Below the dongle firmware; not visible to the host driver except as events. |
 | `pyserial` | bidirectional | Optional; the serial transport. |
 | nRF5 SDK 17.1.0 + S140 | in | Builds the dongle firmware. Not needed to run the host driver or the tests. |
+| USB serial — GW Instek GPD-3303D | bidirectional | The supply's own command set, not SCPI: LF out, CR back, 9600 8N1 (ETB-IF-001). |
+| RS-232 through a USB serial adapter — Aim-TTi 1604 | bidirectional | The meter's display-frame stream in; single key codes out. DTR on and RTS off power its optical link; read as a stream, not by query (AD-25, AD-26). |
+| USB serial — ST S2-LP kit | bidirectional | ST's CLI firmware command set (AD-20), or the project's kit firmware's line protocol (AD-32, `firmware/s2lp_kit/include/protocol.h`), chosen by the kit's `id` reply. |
+| J-Link Commander | bidirectional | The second J-Link backend (AD-30): SEGGER's `JLink.exe`, driven as a child process (`instruments/jlink/commander.py`, `segger.py`), chosen by the bench configuration. |
 | USB CDC (serial) — thermometer | bidirectional | The Pico 2 thermometer's line protocol (`firmware/pico2_test_board/include/protocol.h`). |
 | USB CDC — Nordic Power Profiler Kit II | bidirectional | The PPK2's serial protocol (AD-31): one-byte opcodes with their arguments out; its metadata text and a stream of 32-bit samples, 100 000 a second, in. Found by its USB identity (0x1915:0xC00A) and serial number. Specified, command by command, in `docs/ppk2/PPK2_Notes.md`. |
 | Power and logic — PPK2 to the device under test | bidirectional | In source mode the PPK2's VOUT supplies the device at 0.8 V to 5.0 V; in ammeter mode an outside supply on VIN reaches the device through the kit. Eight logic inputs, D0 to D7, are sampled with the current. Nothing is wired to them on the bench PC as of 2026-11-14. |

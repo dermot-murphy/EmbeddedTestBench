@@ -238,7 +238,7 @@ cmake --build build/pico-tests && ctest --test-dir build/pico-tests --output-on-
 ```
 
 On Windows, use clang rather than MinGW GCC 6.3, which stops with an internal
-compiler error on `-fsanitize=address`; ETB-SWE4-001 §1.4b gives the commands.
+compiler error on `-fsanitize=address`; ETB-SWE4-001 §4.4b gives the commands.
 
 ### 3.1 The version number
 
