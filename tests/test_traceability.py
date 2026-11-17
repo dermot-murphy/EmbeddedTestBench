@@ -431,7 +431,8 @@ class TestIntegrationAndQualificationCases:
                 parts = [part.split("[")[0] for part in node.split("::")]
                 text = source.read_text(encoding="utf-8") if source.exists() else ""
                 defined = bool(text) and ("def %s(" % parts[-1]) in text and all(
-                    ("class %s" % cls) in text for cls in parts[:-1])
+                    re.search(r"^\s*class %s\b" % re.escape(cls), text, re.M)
+                    for cls in parts[:-1])
                 if not defined:
                     missing.append("%s: %s::%s" % (doc.name, path, node))
         assert not missing, "named test(s) not found:\n  " + "\n  ".join(missing)
