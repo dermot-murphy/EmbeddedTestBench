@@ -469,11 +469,14 @@ class TestSystemTraceability:
         each case and scenario they cite is declared, and every requirement has
         a qualification scenario (review of #401)."""
         declared = self._system_requirements()
-        cases = set(re.findall(r"^\| (ETB-SIT-\d+) \|", _text(DOCS / "EmbeddedTestBench_SYS4_System_Integration_Test.md"), re.M))
-        scenarios = set(re.findall(r"^### (QS-\d+b?) ", _text(DOCS / "EmbeddedTestBench_SYS5_System_Qualification_Test.md"), re.M))
+        sys4 = _text(DOCS / "EmbeddedTestBench_SYS4_System_Integration_Test.md")
+        sys5 = _text(DOCS / "EmbeddedTestBench_SYS5_System_Qualification_Test.md")
+        cases = set(re.findall(r"^\| (ETB-SIT-\d+) \|", sys4, re.M))
+        scenarios = set(re.findall(r"^### (QS-\d+b?) ", sys5, re.M))
         problems = []
-        for title, known, required in (("System Requirements to Integration Cases", cases, False),
-                                       ("System Requirements to Qualification Scenarios", scenarios, True)):
+        checks = (("System Requirements to Integration Cases", cases, False),
+                  ("System Requirements to Qualification Scenarios", scenarios, True))
+        for title, known, required in checks:
             rows = {row[0]: row[1] for row in self._section(title)}
             if set(rows) != declared:
                 problems.append("%s: rows differ for %s" % (title, sorted(declared ^ set(rows))))
