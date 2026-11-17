@@ -59,7 +59,7 @@ OT-D-26 (a VERSION frame every 12 hours). The power-cycle soak
   (OT-F-08, OT-F-14) passed with no reset. The two failures are Kepler test
   limits, not SYNC and not the bench:
   - V10-E-06 read 2840 mV at 3.1 V (limit 2950 to 3150 mV). The J-Link was
-    unplugged for the re-run; with it fitted the main run read about 3100 mV.
+    unplugged for the re-run; with it fitted the main run read 3100 mV.
   - OT-E-04: the 64-pair preamble is written by an earlier case that the
     re-run skipped, so the boot frames carried 32 pairs and the read-back was
     `32 Pairs`. That read-back check fails the SYNC case.
@@ -67,8 +67,7 @@ OT-D-26 (a VERSION frame every 12 hours). The power-cycle soak
 - It is a sensor firmware fault and not a bench defect. It was told to
   Kepler's TX-1269 session; TX-1269 is the re-pin ticket, so the fault
   needs a Kepler bug of its own to stay open after the re-pin closes. None
-  has been raised yet. The fault was not a
-  bench defect.
+  has been raised yet.
 
 **`s_release_legacy_ota`: ERROR in V10-F-01b (baseline: PASS 3/0).**
 - The V5 DEBUG OTA package the case sends was not in the frozen clone, because
