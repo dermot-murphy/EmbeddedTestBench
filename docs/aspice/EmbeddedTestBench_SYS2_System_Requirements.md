@@ -38,6 +38,7 @@
 | next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
 | next | 2026-11-17 | Claude | #365: §3.4 - the verification criterion is the requirement's text; each requirement carries its first release, read from the tags; the priority rule. §3.5 - each change records its impact on the system context. §4 - the context lists the PicoScope, PPK2, TTi 1604, PICO2 Test Board, the target's serial port and product repositories. ETB-SYS2-010 lists every instrument, method T as ETB-SYS5-002. ETB-SYS2-017 added for the PICO2 Test Board. ETB-SYS2-104 records the TTi 1604 hardware runs. §15 - requirements analysis per group, and the impact of each requirement added since `v0.01.0000`. Review & Approval is now §16. |
 | next | 2026-11-17 | Claude | #365, review round 1 (PR #393): ETB-SYS2-017's capability dates from `v0.01.0000`, when the Pico 2 thermometer shipped. |
+| next | 2026-11-17 | Claude | #364: ETB-SYS2-018 (device plugins), -054 (advertising profile), -055 (firmware update over BLE), -085 (watch and control a run, STK-23) and -086 (safety warning) added, so that every software requirement has a system parent. ETB-SYS2-017 no longer promises humidity (#131) and covers the board's firmware identity (STK-22). §14 traces every stakeholder requirement to its system requirements and points to the per-requirement trace in ETB-RTM-001. |
 
 ---
 
@@ -156,7 +157,8 @@ The impacts of the requirements added since `v0.01.0000` are recorded in §15.2.
 | ETB-SYS2-014 | A bench shall be described as data, in a file, not in code. | I | `v0.01.0000` |
 | ETB-SYS2-015 | The system shall record, for every run, the identity of each instrument used: model, and where the instrument can report them, serial number and firmware revision. | T | `v0.01.0000` |
 | ETB-SYS2-016 | A run in which any instrument was simulated shall be labelled as simulated in every report format the system produces. | T | `v0.01.0000` |
-| ETB-SYS2-017 | The system shall drive a reference test board, the PICO2 Test Board, which gives the bench known quantities to check itself against: a temperature and humidity reading, indicator LEDs, and an analogue and audio signal of stated frequency (#365). | T | `v0.04.0000` (capability since `v0.01.0000`) |
+| ETB-SYS2-017 | The system shall drive a reference test board, the PICO2 Test Board, which gives the bench known quantities to check itself against: a temperature reading, indicator LEDs, and an analogue and audio signal of stated frequency; and shall read the board's firmware name and version and check them against the image it installed (#365, #364). | T | `v0.04.0000` (capability since `v0.01.0000`) |
+| ETB-SYS2-018 | The system shall load the code specific to a device under test - its frame decoders, register files and viewer panels - from a folder outside the bench's own package, named by the bench or the specification, and shall record in every run which was loaded and at which version (#364). | T | `v0.04.0000` (capability since `v0.03.0000`) |
 
 > ETB-SYS2-013 and ETB-SYS2-016 together are the treatment of ETB-RISK-001: a
 > simulator that echoed expected replies would let a driver defect pass, and an
@@ -213,6 +215,8 @@ The impacts of the requirements added since `v0.01.0000` are recorded in §15.2.
 | ETB-SYS2-051 | The system shall measure voltage, current, resistance and frequency with a TTi 1604 bench multimeter over RS-232, reporting every value in SI units. | T | `v0.01.0000` |
 | ETB-SYS2-052 | The system shall report a multimeter reading taken from a frozen display as held, so that a stored value is not recorded as a present measurement. | T | `v0.01.0000` |
 | ETB-SYS2-053 | The system shall report a multimeter overrange as an overrange rather than as a number. | T | `v0.01.0000` |
+| ETB-SYS2-054 | The system shall measure a BLE device's advertising profile: every advertising event from a chosen device, timestamped, with its signal strength and channel; the interval between events and its spread; and the events it missed, reported as missed rather than as a slower interval (#364). | T | `v0.04.0000` (capability since `v0.01.0000`) |
+| ETB-SYS2-055 | The system shall update a target's firmware over BLE through its bootloader, from a DFU package, and shall detect a piece the target did not receive, resend it within a stated bound, and report the transfer as failed when it cannot complete (#364). | T | `v0.04.0000` (capability since `v0.02.0000`) |
 
 ### 9.1 Target Identity
 
@@ -256,6 +260,8 @@ The impacts of the requirements added since `v0.01.0000` are recorded in §15.2.
 | ETB-SYS2-082 | A step shall be able to set how long it waits for its response, since some commands take longer than others. | T | `v0.01.0000` |
 | ETB-SYS2-083 | A step shall be able to expect the sensor to disconnect after a command, and the time from the command to the disconnection shall be measured. | T | `v0.01.0000` |
 | ETB-SYS2-084 | A run shall be able to log each event - transmission, reception, delay, connection, disconnection, error - with the time it occurred, the step, the data and the result. | T | `v0.01.0000` |
+| ETB-SYS2-085 | The system shall let an engineer watch a run while it executes and control it: start a run, or attach to one already running or finished; pause and resume it; restart it from a chosen test case and step; or abort it, teardown still running. It shall show each test case and step with its result, and each instrument's commands, responses and readings, as they occur, rebuilt from the run's event log alone. Control shall take effect only between steps, and shall be accepted only from the host running the bench unless the engineer grants access by token (#364). | T | `v0.04.0000` (capability since `v0.01.0000`) |
+| ETB-SYS2-086 | A specification shall be able to carry a safety warning, which the system shall show before any instrument is opened; a run on real instruments shall not start without the engineer's acknowledgement of it (#364). | T | `v0.04.0000` (capability since `v0.01.0000`) |
 
 ---
 
@@ -287,35 +293,38 @@ The impacts of the requirements added since `v0.01.0000` are recorded in §15.2.
 ## 14. Traceability
 
 Upward to the stakeholder requirements in ETB-SWE1-001 §4, downward to the
-software requirements in ETB-SWE1-001 §6–§19. The full matrix is ETB-RTM-001.
+software requirements in ETB-SWE1-001 §6 to §19 and to the system elements of
+ETB-SYS3-001. The per-requirement trace, both ways, is in ETB-RTM-001, sections
+"Stakeholder Needs to System Requirements" and "System Requirements to Elements
+and Software Requirements", and `tests/test_traceability.py` checks it (#364).
 
 | Stakeholder | System requirements |
 |---|---|
-| STK-01…STK-05 | ETB-SYS2-060…ETB-SYS2-065 |
+| STK-01 | ETB-SYS2-010, ETB-SYS2-060, ETB-SYS2-061 |
+| STK-02 | ETB-SYS2-060, ETB-SYS2-065 |
+| STK-03 | ETB-SYS2-060 |
+| STK-04 | ETB-SYS2-060, ETB-SYS2-061, ETB-SYS2-063, ETB-SYS2-065 |
+| STK-05 | ETB-SYS2-004, ETB-SYS2-062, ETB-SYS2-063, ETB-SYS2-064, ETB-SYS2-065 |
 | STK-06 | ETB-SYS2-090 |
-| STK-07 | ETB-SYS2-011, ETB-SYS2-014, ETB-SYS2-065 |
-| STK-08 | ETB-SYS2-070…ETB-SYS2-084 |
-| STK-09, STK-10 | ETB-SYS2-030…ETB-SYS2-036, ETB-SYS2-002 |
+| STK-07 | ETB-SYS2-010, ETB-SYS2-011, ETB-SYS2-012, ETB-SYS2-013, ETB-SYS2-014, ETB-SYS2-018, ETB-SYS2-065, ETB-SYS2-094 |
+| STK-08 | ETB-SYS2-001, ETB-SYS2-003, ETB-SYS2-004, ETB-SYS2-011, ETB-SYS2-012, ETB-SYS2-013, ETB-SYS2-014, ETB-SYS2-015, ETB-SYS2-016, ETB-SYS2-018, ETB-SYS2-070, ETB-SYS2-071, ETB-SYS2-072, ETB-SYS2-075, ETB-SYS2-076, ETB-SYS2-078, ETB-SYS2-079, ETB-SYS2-086, ETB-SYS2-094, ETB-SYS2-095 |
+| STK-09 | ETB-SYS2-002, ETB-SYS2-010, ETB-SYS2-030, ETB-SYS2-031, ETB-SYS2-032, ETB-SYS2-033, ETB-SYS2-034, ETB-SYS2-035, ETB-SYS2-036, ETB-SYS2-045, ETB-SYS2-048, ETB-SYS2-049 |
+| STK-10 | ETB-SYS2-002, ETB-SYS2-034 |
 | STK-11 | ETB-SYS2-090 |
-| STK-12 | ETB-SYS2-073, ETB-SYS2-074, ETB-SYS2-080…ETB-SYS2-084 |
-| STK-13 | ETB-SYS2-020…ETB-SYS2-025 |
-| STK-14, STK-15 | ETB-SYS2-040…ETB-SYS2-045 |
-| STK-16 | ETB-SYS2-091 |
-| STK-17 | ETB-SYS2-044 |
-| STK-18 | ETB-SYS2-051, ETB-SYS2-052, ETB-SYS2-053, ETB-SYS2-104 |
-| STK-19, STK-20 | ETB-SYS2-046, ETB-SYS2-047, ETB-SYS2-103 |
-| STK-24 | ETB-SYS2-037 |
-| STK-25 | ETB-SYS2-026 |
-
-| System requirement group | Software requirements |
-|---|---|
-| Bench composition §6 | `CORE-FR-*`, `INST-FR-*` |
-| Power §7 | `PSU-FR-*`, `PSU-NFR-*`, `PPK-FR-*`, `PPK-NFR-*` |
-| Target control §8 | `JLINK-FR-*`, `JLINK-NFR-*`, `SER-FR-*`, `SER-NFR-*` |
-| Wireless §9 | `BLE-FR-*`, `BLE-NFR-*`, `S2LP-FR-*`, `S2LP-NFR-*` |
-| Measurement §10 | `SCOPE-FR-*`, `PSCOPE-FR-*`, `PSCOPE-NFR-*`, `ANA-FR-*` |
-| Test definition §11 | `RUN-FR-*` |
-| Non-functional §12 | `CORE-NFR-*`, ETB-STD-002, ETB-STY-001 |
+| STK-12 | ETB-SYS2-073, ETB-SYS2-074, ETB-SYS2-075, ETB-SYS2-076, ETB-SYS2-077, ETB-SYS2-080, ETB-SYS2-081, ETB-SYS2-082, ETB-SYS2-083, ETB-SYS2-084 |
+| STK-13 | ETB-SYS2-010, ETB-SYS2-020, ETB-SYS2-021, ETB-SYS2-022, ETB-SYS2-023, ETB-SYS2-024, ETB-SYS2-025 |
+| STK-14 | ETB-SYS2-010, ETB-SYS2-041, ETB-SYS2-042, ETB-SYS2-043, ETB-SYS2-044, ETB-SYS2-055, ETB-SYS2-077, ETB-SYS2-081, ETB-SYS2-082, ETB-SYS2-083 |
+| STK-15 | ETB-SYS2-040, ETB-SYS2-041, ETB-SYS2-045, ETB-SYS2-048, ETB-SYS2-049, ETB-SYS2-050, ETB-SYS2-054 |
+| STK-16 | ETB-SYS2-036, ETB-SYS2-043, ETB-SYS2-091, ETB-SYS2-092 |
+| STK-17 | ETB-SYS2-015, ETB-SYS2-044, ETB-SYS2-076, ETB-SYS2-084, ETB-SYS2-086 |
+| STK-18 | ETB-SYS2-010, ETB-SYS2-051, ETB-SYS2-052, ETB-SYS2-053, ETB-SYS2-093 |
+| STK-19 | ETB-SYS2-010, ETB-SYS2-046, ETB-SYS2-047, ETB-SYS2-092 |
+| STK-20 | ETB-SYS2-047, ETB-SYS2-093 |
+| STK-21 | ETB-SYS2-010, ETB-SYS2-017, ETB-SYS2-092 |
+| STK-22 | ETB-SYS2-017, ETB-SYS2-036 |
+| STK-23 | ETB-SYS2-085 |
+| STK-24 | ETB-SYS2-010, ETB-SYS2-037 |
+| STK-25 | ETB-SYS2-010, ETB-SYS2-026 |
 
 ---
 

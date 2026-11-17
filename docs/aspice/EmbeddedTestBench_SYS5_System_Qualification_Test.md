@@ -34,6 +34,7 @@
 | next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. |
 | next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
 | next | 2026-11-17 | Claude | #363: every system requirement is now named by a scenario. QS-01 adds -071 and -072; QS-02 adds -080 to -083; QS-08 adds -090. QS-11 (inspection: -013, -093, -095), QS-12 (PPK2, -026), QS-13 (serial capture, -037), QS-14 (PicoScope, -065) and QS-15 (PICO2 Test Board, -017) are added. QS-15 reads the temperature only: #131 removed humidity. §4.1 states the selection and regression rule. §8 records that the entry criterion was not met for the 2026-10-04 campaign. X2 counts against the 68 requirements. |
+| next | 2026-11-17 | Claude | #364: QS-16 (advertising profile and firmware update over BLE: -054, -055), QS-17 (watch, control and warn: -085, -086) and QS-18 (a device plugin: -018) added for the system requirements #364 adds. |
 
 ---
 
@@ -252,6 +253,33 @@ its firmware version, its temperature against a reference, its LEDs set and read
 and its generator's frequency measured by the PicoScope.
 
 *Qualifies:* ETB-SYS2-017.
+
+### QS-16 — Advertising profile and firmware update over BLE
+
+Run `specs/sensor_ble.yaml` against a sensor on air: its advertising profile -
+interval, spread, missed events - against the specified limits. Then update the
+sensor's firmware over BLE from a DFU package through its bootloader, and
+confirm the version it reports afterwards.
+
+*Qualifies:* ETB-SYS2-054, -055.
+
+### QS-17 — Watch, control and warn
+
+Start `specs/bench_self_check.yaml` on real instruments: the safety warning is
+shown before any instrument opens, and the run does not start without the
+engineer's acknowledgement. Watch the run in the viewer, pause and resume it,
+restart it from a chosen step, and abort it; teardown still runs, and every
+request is in the event log.
+
+*Qualifies:* ETB-SYS2-085, -086.
+
+### QS-18 — A device plugin
+
+Run `specs/kepler_version.yaml` with the Kepler plugin loaded from its folder:
+the frames are decoded by the plugin's decoder, and the run record names the
+plugin and its version.
+
+*Qualifies:* ETB-SYS2-018.
 
 ### 5.1 Hardware specifications
 

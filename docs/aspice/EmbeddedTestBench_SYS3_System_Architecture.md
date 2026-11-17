@@ -36,6 +36,7 @@
 | next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
 | next | 2026-11-17 | Claude | #365: §5.1 adds SE-DMM, SE-PICO2 and SE-SERIAL, and SE-S2LP's second firmware; §5.2 adds SE-VIEWER and SE-PLUGINS; §5.3 restated for the kit's own firmware. §6 adds ETB-SIF-16 to -19. §7 allocates ETB-SYS2-017 and -051 to -053. §8 splits into the run (§8.1), its operating modes as a state diagram (§8.2), error paths (§8.3) and timing (§8.4). §9 adds the PicoScope, PPK2, TTi 1604 and kit firmware. §10.0 adds evaluation criteria and the alternatives compared for each decision. SD-05 restated for #84. |
 | next | 2026-11-17 | Claude | #365, review round 1 (PR #393): §8.2 - abort from Paused, and restart refused during setup; §8.3 - the paths for an operator abort, a setup failure and a refused control request. |
+| next | 2026-11-17 | Claude | #364: §7 allocates ETB-SYS2-018, -026, -037, -054, -055, -065, -080 to -086, which had no element, and points to the per-requirement allocation in ETB-RTM-001. |
 
 ---
 
@@ -183,6 +184,22 @@ recorded so that a reader does not expect otherwise.
 | ETB-SYS2-091, 092 | SE-DONGLE firmware, CI workflows |
 | ETB-SYS2-093 | SE-S2LP driver, and every element by rule |
 | ETB-SYS2-094, 095 | All elements |
+| ETB-SYS2-018 | SE-PLUGINS, SE-CORE |
+| ETB-SYS2-026 | SE-PPK, SE-DRIVERS, SE-TARGET |
+| ETB-SYS2-037 | SE-SERIAL, SE-DRIVERS, SE-TARGET |
+| ETB-SYS2-054 | SE-DONGLE, SE-DRIVERS |
+| ETB-SYS2-055 | SE-DONGLE, SE-DRIVERS, SE-TARGET |
+| ETB-SYS2-065 | SE-PSCOPE, SE-DRIVERS, SE-ANALYSIS, SE-TARGET |
+| ETB-SYS2-080 | SE-DRIVERS, SE-DONGLE |
+| ETB-SYS2-081 | SE-DRIVERS, SE-DONGLE, SE-RUNNER |
+| ETB-SYS2-082 | SE-DRIVERS, SE-DONGLE |
+| ETB-SYS2-083 | SE-DRIVERS, SE-DONGLE |
+| ETB-SYS2-084 | SE-DRIVERS, SE-RUNNER, SE-CORE, SE-VIEWER |
+| ETB-SYS2-085 | SE-VIEWER, SE-RUNNER, SE-CORE |
+| ETB-SYS2-086 | SE-RUNNER |
+
+The allocation of every system requirement, one row each, is in ETB-RTM-001,
+section "System Requirements to Elements and Software Requirements" (#364).
 
 ---
 

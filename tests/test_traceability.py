@@ -402,6 +402,76 @@ class TestVerificationReport:
         assert not offenders, "ETB-SWE4-002 section 5:\n  " + "\n  ".join(offenders)
 
 
+class TestSystemTraceability:
+    """The chain stakeholder -> system -> software, one requirement at a time,
+    as ETB-RTM-001 records it (#364)."""
+
+    SYS2_DOC = DOCS / "EmbeddedTestBench_SYS2_System_Requirements.md"
+    SYS3_DOC = DOCS / "EmbeddedTestBench_SYS3_System_Architecture.md"
+
+    @staticmethod
+    def _section(title: str) -> list:
+        text = _text(MATRIX_DOC)
+        start = text.index(title)
+        end = text.index("\n## ", start)
+        rows = []
+        for line in text[start:end].splitlines():
+            cells = [cell.strip() for cell in line.split("|")[1:-1]]
+            if cells and re.match(r"^(STK|ETB-SYS2|[A-Z0-9]+-(?:FR|NFR|ARC))-", cells[0]):
+                rows.append(cells)
+        return rows
+
+    def _system_requirements(self) -> set:
+        return set(re.findall(r"^\| (ETB-SYS2-0\d\d) \| .* \| [TAID] \| `v",
+                              _text(self.SYS2_DOC), re.M))
+
+    def test_every_stakeholder_need_has_a_system_requirement(self):
+        """Each STK-nn names at least one system requirement."""
+        rows = self._section("Stakeholder Needs to System Requirements")
+        assert len(rows) == 25
+        empty = [row[0] for row in rows if not re.search(r"ETB-SYS2-\d{3}", row[1])]
+        assert not empty, "stakeholder requirement(s) with no system requirement: %s" % empty
+
+    def test_every_system_requirement_is_traced_both_ways(self):
+        """Each system requirement has a stakeholder parent, elements and software children."""
+        declared = self._system_requirements()
+        rows = {row[0]: row for row in
+                self._section("System Requirements to Elements and Software Requirements")}
+        assert set(rows) == declared, sorted(declared ^ set(rows))
+        elements = set(re.findall(r"\*\*(SE-[A-Z0-9]+)\*\*", _text(self.SYS3_DOC)))
+        software = _declared_requirements()
+        problems = []
+        for rid, (_, stk, allocated, refined) in rows.items():
+            if not re.search(r"STK-\d+", stk):
+                problems.append("%s has no stakeholder parent" % rid)
+            named = set(re.findall(r"SE-[A-Z0-9]+", allocated))
+            if not named or named - elements:
+                problems.append("%s: elements %s" % (rid, sorted(named - elements) or "none"))
+            children = set(re.findall(_REQUIREMENT, refined))
+            if not children or children - software:
+                problems.append("%s: software %s" % (rid, sorted(children - software) or "none"))
+        assert not problems, "\n  ".join(["system trace:"] + problems)
+
+    def test_every_software_requirement_has_a_system_parent(self):
+        """Each software requirement names at least one declared system requirement."""
+        declared = self._system_requirements()
+        section = self._section("Software Requirements to System Requirements")
+        rows = {row[0]: row for row in section}
+        software = _declared_requirements()
+        assert set(rows) == software, sorted(software ^ set(rows))[:10]
+        orphans = [rid for rid, row in rows.items()
+                   if not set(re.findall(r"ETB-SYS2-\d{3}", row[1])) or
+                   set(re.findall(r"ETB-SYS2-\d{3}", row[1])) - declared]
+        assert not orphans, "software requirement(s) with no valid system parent: %s" % orphans[:10]
+
+    def test_every_software_element_realises_a_system_element(self):
+        """Each SWE.2 element maps to at least one SYS.3 element."""
+        rows = self._section("Software Architecture to System Architecture")
+        declared = set(re.findall(_ARCHITECTURE, _text(ARCHITECTURE_DOC)))
+        assert {row[0] for row in rows} == declared, sorted(declared ^ {row[0] for row in rows})
+        assert all(re.search(r"SE-[A-Z0-9]+", row[1]) for row in rows)
+
+
 class TestArchitectureTraceability:
     def test_architectural_elements_cited_in_code_are_defined(self):
         declared = set(re.findall(_ARCHITECTURE, _text(ARCHITECTURE_DOC)))
