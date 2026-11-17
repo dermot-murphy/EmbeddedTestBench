@@ -109,6 +109,7 @@
 | next | 2026-11-17 | Claude | #368: §5 lists the `DMM-` element, which had requirements but no row; the traceability check now reads its element prefixes from this table. |
 | next | 2026-11-17 | Claude | #366: §3.1 states each requirement's attributes, the verification criterion (its text together with its ETB-RTM-001 row) and the priority rule; every requirement carries its first release, read from the tags. CON-01 and CON-07 record the hardware runs since 2026-10-04. §22 - requirements analysis per element, and the impact of each element on the host, the target and the bench. Review & Approval is now §23. |
 | next | 2026-11-17 | Claude | #366, review round 1 (PR #394): the Requirements Analysis section is numbered §22, after §21 Requirements Traceability. |
+| next | 2026-11-17 | Claude | #364: §21 - each software requirement traces upward to the system requirements it refines, and each non-functional one to its source, in ETB-RTM-001, checked by the suite. |
 
 ---
 
@@ -1440,6 +1441,13 @@ the build if a requirement declared here is absent from it, if a requirement
 cited in source or tests is not declared here, or if a design unit or test group
 is cited without being declared. Traceability in this project is therefore a
 property the suite enforces rather than a table someone maintains by hand.
+
+Upward, each software requirement traces to the system requirements of
+ETB-SYS2-001 it refines, and each non-functional requirement to its stakeholder
+source. ETB-RTM-001 section "Software Requirements to System Requirements" records
+both, and section "System Requirements to Elements and Software Requirements"
+gives the reverse. The suite fails if a software requirement has no valid system
+parent, or a system requirement no software child (#364).
 
 ---
 
