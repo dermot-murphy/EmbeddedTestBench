@@ -128,6 +128,7 @@
 | 1.92 | 2026-11-15 | Claude | #352 review round 1: SWE4-UT-JLINK: the address-0 check's `&(name)` and side-effect skip; #351's attach wording brought in line with its review. |
 | next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. Blank lines that split this table removed. |
 | next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
+| next | 2026-11-17 | Claude | #369: §4.1 says skips are optional-dependency or platform skips, the opt-in bench tests are outside the default run, and lists the unit verification measures, pylint among them. §4.2 gives the Python versions CI runs. §1.4a, §1.4b, §1.4 and §1.5 renumbered and cited as §4.4a, §4.4b, §4.4 and §4.5. §4.8 states the selection and regression rule, including the path-filtered firmware runs. |
 
 ---
 
@@ -156,16 +157,28 @@ This document satisfies **Automotive SPICE® PAM v4.0, SWE.4 — Software Unit V
 
 ### 4.1 Method
 
-Automated unit and integration tests executed with `pytest`. Every test runs
-without instrument hardware; no test is skipped for lack of it. Tests skip only
-when an optional dependency is absent (`matplotlib`, `pyvisa`, `pyyaml`), which is
-the correct behaviour for an optional extra.
+Automated unit and integration tests executed with `pytest`. Every test in the
+default run runs without instrument hardware, and none is skipped for lack of
+it. A test skips only when an optional dependency is absent (`matplotlib`,
+`pyvisa`, `pyyaml`), or on a platform it does not apply to: two tests run on
+Windows only and skip on CI's Linux. The opt-in bench tests (§4.6a) need an
+instrument and are outside the default run.
+
+The unit verification measures are:
+
+| Measure | Applies to | Tool | Where it runs |
+|---|---|---|---|
+| Unit and integration tests | Python | `pytest`, with coverage | `tests.yml`, every push and pull request |
+| Static analysis | Python | `pylint`, against `.pylint-baseline.json` (`scripts/lint.py`) | `lint.yml`, every push and pull request |
+| Firmware unit tests | C, all three firmware trees | Unity and CTest; ASan and UBSan for the PICO2 Test Board | `firmware.yml`, path-filtered (§4.8) |
+| Coding standard | C | CStyleCheck against ETB-STD-002 and ETB-STY-001 | `style.yml`, every push and pull request |
+| Work-product checks | Documents and code | `tests/test_traceability.py`, `tests/test_doc_versions.py` | Part of the `pytest` run |
 
 ### 4.2 Test environment
 
 | Item | Value |
 |---|---|
-| Language / runtime | CPython 3.11.15 (minimum supported: 3.8) |
+| Language / runtime | CPython 3.8, 3.9 and 3.12 in CI (`tests.yml`); CPython 3.14 on the bench PC; minimum supported 3.8 |
 | Framework | `pytest` with `pytest-cov` |
 | Instrument substitute | `benchtools.core.simulator.SimulatedInstrument` and its subclasses, behind `MockTransport` |
 | VXI-11 substitute | `tests/core/transport/vxi11_server.py` — an ONC-RPC server on a loopback socket |
@@ -238,7 +251,7 @@ the build, checking that:
 These check consistency, not content: whether a requirement is well written is a
 review question, but whether it is traced at all is mechanical.
 
-### 1.4a Firmware verification
+### 4.4a Firmware verification
 
 The dongle firmware is verified three ways, none of which needs a dongle:
 
@@ -261,7 +274,7 @@ Between them these catch behaviour, interface drift, compilation and the link.
 What no amount of them establishes is that the firmware *runs*: see the report's
 §4.6 and BLE-OPEN-02 to -04.
 
-### 1.4b Thermometer firmware verification
+### 4.4b Thermometer firmware verification
 
 The Pico 2 thermometer firmware (`firmware/pico2_test_board`) is verified the same
 way, and none of it needs a Pico:
@@ -349,8 +362,8 @@ module's imports:
 | Error guessing / negative testing | Malformed blocks, truncated XDR, refused device names, unreachable portmapper, silent instrument, malformed specifications, unknown drivers, unresolvable paths |
 | Known-answer testing | Synthesised signals with exactly known period and skew; measured values compared against the injected values |
 | Interface testing | Assertions on the exact SCPI emitted, because a misspelled command is silently ignored by real hardware |
-| Architectural testing | Import-graph and layering constraints (§1.5) |
-| Work-product testing | Traceability consistency between code and documents (§1.4) |
+| Architectural testing | Import-graph and layering constraints (§4.5) |
+| Work-product testing | Traceability consistency between code and documents (§4.4) |
 | Regression testing | One test per defect found during development (§4) |
 | Round-trip testing | 488.2 block encode/decode, binary versus ASCII curve decoding, JSON report write/read, ITM encode/decode, GDB/MI escape/unescape |
 | Protocol grammar testing | GDB/MI records: nesting, repeated names, uniformly named lists, escapes, non-MI lines (`SWE4-UT-GDBMI`) |
@@ -387,14 +400,30 @@ against the simulator in the default run (SWE4-UT-PSUPANEL, SWE4-UT-DMMPANEL).
 | PC-2 | Statement coverage ≥ 90% (CORE-NFR-007). |
 | PC-3 | Every requirement is covered by at least one test, or by a recorded inspection where a test is not the appropriate method. |
 | PC-4 | Timing measurements recover injected skews to better than one tenth of a sample interval. |
-| PC-5 | The layering constraints of §1.5 hold. |
-| PC-6 | The work-product consistency checks of §1.4 hold. |
+| PC-5 | The layering constraints of §4.5 hold. |
+| PC-6 | The work-product consistency checks of §4.4 hold. |
 | PC-7 | Every timing method recovers the injected 1.000 ms interval exactly, except the host clock, which is required to flag itself as not trustworthy. |
 | PC-8 | No test requires a J-Link, a target, a debugger or a GDB server to be installed. |
 | PC-9 | No module imports a third-party package at module level. |
 | PC-10 | The firmware's command set, events, error codes and limits agree with the driver's, and every firmware source carries its trace, allocates nothing dynamically, and holds the house indentation. |
 | PC-11 | A simulated 100 ms sensor reads as a mean interval of exactly 105 ms with a spread of exactly 10 ms, and a sensor that skips beacons is reported as missing them rather than as advertising slowly. |
 | PC-12 | Every firmware unit test passes, and the firmware compiles for the target after any change they prompt. |
+
+### 4.8 Selection and Regression (SWE.4.BP2)
+
+| Measure | Selected when | Regression |
+|---|---|---|
+| `pytest` (all groups of §5) | Every push and every pull request, on every Python leg | The whole suite is the regression set; nothing is deselected |
+| `pylint` | Every push and every pull request | Every module; a finding not in the baseline fails |
+| Firmware unit tests and builds | A push or pull request that changes `firmware/**` or `.github/workflows/firmware.yml` (the path filter in `firmware.yml`) | All three firmware trees' tests run together whenever any of them changes |
+| CStyleCheck | Every push and every pull request | All project-owned C |
+| Opt-in bench tests (§4.6a) | By hand, at the bench, when a driver's hardware behaviour changes or a bench confirmation item is to be closed | The whole bench test file for that instrument |
+
+**For a release**, the whole `pytest` suite and the firmware jobs run on the
+release's merge commit. The firmware jobs run because the release pull request
+carries every firmware change since the last release, so the path filter
+selects them; if none changed, `firmware.yml` is run on the tag by hand
+(`workflow_dispatch`). The results are recorded in ETB-SWE4-002 §4.0.
 
 ## 5. Test groups
 
