@@ -31,7 +31,7 @@
 | 0.5 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
 | next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. |
 | next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
-| next | 2026-11-17 | Claude | #375: the plan follows the practice. §5 records severity by `severity: S1` to `S4` label and priority by milestone; §5.1 authorises urgent resolution of an S1; §5.2 alert notifications. §6 - a problem is an issue labelled `bug`, its ID the issue number. §7 - each state as the issue shows it. §9 - trend analysis per milestone and release, the first in §9.1. |
+| next | 2026-11-17 | Claude | #375: the plan follows the practice. §5 records severity by `severity: S1` to `S4` label and priority by milestone; §5.1 authorises urgent resolution of an S1; §5.2 alert notifications. §6 - a problem is an issue labelled `bug`, its ID the issue number. §7 - each state as the issue shows it. §9 - trend analysis per milestone and release, the first in §9.1. Review round 1 (PR #389): pattern 3 lists #177, #178, #259 and #349; the cause counts are reconciled; the current milestone is defined. |
 
 ---
 
@@ -102,7 +102,7 @@ work and is the project lead's call.
 Severity is recorded on the issue with one of the labels `severity: S1` to
 `severity: S4`, set when the problem is raised and changed, with the reason in a
 comment, if the analysis shows it was wrong. Priority is recorded by the
-issue's milestone (ETB-MAN3-001 §7): a P1 problem is in the current milestone
+issue's milestone (ETB-MAN3-001 §7): a P1 problem is in the current milestone (the open GitHub milestone with the earliest due date, ETB-MAN3-001 §7.1)
 and named in the plan (§11), and P2 and P3 are in the next milestone or none.
 
 ### 5.1 Urgent Resolution (S1)
@@ -215,7 +215,9 @@ entry per milestone or release, newest last.
 The first trend analysis, covering every problem recorded up to the release: the
 39 issues labelled `bug`, all closed. Before #375 only 5 of them stated a
 severity, all as words ("Major", "Minor"), and 35 stated their cause in the
-issue or its comments. The severity and the cause of each are therefore
+issue or its comments. Of the other four, the cause of two came from the
+fixing pull request (#33, #79), and two are not determinable (below). The
+severity and the cause of each are therefore
 assigned here, after the fact, from the issue, its comments and the pull
 request that fixed it. Where the record does not show the cause, that is said.
 The `severity:` labels were not applied to these closed issues; this table is
@@ -244,9 +246,9 @@ the record of their severity.
    #305. A fifth, #384, was raised on 2026-11-17. CI runs on Linux only, and the
    bench PC runs Windows. Corrective action: a Windows leg in CI is proposed on
    #385.
-3. **GDB Server state hidden from GDB.** #178, #349 and #352 are each the J-Link
-   driver trusting GDB's view of the target after a `monitor` command that GDB
-   does not see. They are fixed one at a time. ETB-SWE3-001's J-Link design is
+3. **GDB Server state hidden from GDB.** #177, #178, #259 and #349 are each the
+   J-Link driver trusting GDB's view of the target after a `monitor` command, or
+   an attach, that GDB does not see. They are fixed one at a time. ETB-SWE3-001's J-Link design is
    where the rule belongs, and it is carried there by #367.
 
 | Problem | Severity | Kind | Element | Cause | Fixed by |
