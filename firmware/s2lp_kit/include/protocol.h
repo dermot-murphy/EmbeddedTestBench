@@ -11,6 +11,8 @@
  * The sequence number counts every record, sent or dropped, so a gap in it
  * is a record the board could not queue. Times are the board's microsecond
  * timer when the radio's interrupt was taken, modulo 2^32.
+ *
+ * Traces to: S2LP-DD-KITFW.
  */
 
 #ifndef PROTOCOL_H

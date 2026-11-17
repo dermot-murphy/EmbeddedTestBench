@@ -16,7 +16,7 @@ inter-byte idle period. :meth:`SocketTransport.read_raw` implements that with
 a configurable quiet time, which is inherently heuristic. This asymmetry is
 the main technical argument for preferring VXI-11 on this instrument.
 
-Traces to: SWE1-FR-003, SWE2-ARC-003, SWE3-DD-SOCKET.
+Traces to: CORE-FR-003, CORE-ARC-003, CORE-DD-SOCKET.
 """
 
 from __future__ import annotations

@@ -1,6 +1,8 @@
 /**
  * @file cmd.c
  * @brief The host's commands, and the records sent while receiving (#84).
+ *
+ * Traces to: S2LP-DD-KITFW.
  */
 
 #include "cmd.h"
