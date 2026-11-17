@@ -228,7 +228,7 @@ class SimulatedDongle:  # pylint: disable=too-many-instance-attributes  # mirror
 
     #: The build the simulated dongle is running. A test that exercises the
     #: update path changes these, as flashing a real dongle would.
-    DEFAULT_FIRMWARE_VERSION = "1.8.0"
+    DEFAULT_FIRMWARE_VERSION = "1.8.1"
     DEFAULT_FIRMWARE_BUILT = "2026-10-28T12:00:00Z"
     DEFAULT_PROTOCOL = "1.8"
 

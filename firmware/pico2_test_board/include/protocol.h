@@ -22,7 +22,7 @@
  *
  *   rd name         ACK rd name = PICO2 Test Board
  *   rd copyright    ACK rd copyright = (c) 2026 Dermot Murphy
- *   rd version      ACK rd version = V1.00.0000
+ *   rd version      ACK rd version = V1.00.0001
  *   rd sha          ACK rd sha = <short commit SHA, or unknown>
  *   rd temperature  ACK rd temperature = <degC, 2 dp>, e.g. 22.85 or -1.23
  *                   ACK rd temperature = Error   when no reading was possible

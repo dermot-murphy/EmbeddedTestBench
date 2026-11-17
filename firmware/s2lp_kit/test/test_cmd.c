@@ -39,7 +39,7 @@ static void test_cmd_run(const char *command)
 static void test_id_names_firmware_protocol_and_silicon(void)
 {
 	test_cmd_run("id");
-	TEST_ASSERT_EQUAL_STRING("ok etb-s2lp-kit V1.00.0000 proto=1 silicon=c1\r\n",
+	TEST_ASSERT_EQUAL_STRING("ok etb-s2lp-kit V1.00.0001 proto=1 silicon=c1\r\n",
 		fake_hal_output());
 }
 

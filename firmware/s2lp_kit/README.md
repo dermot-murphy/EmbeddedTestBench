@@ -1,6 +1,6 @@
 # ETB S2-LP kit firmware
 
-Firmware `V1.00.0000`, line protocol 1 (#84). It runs on the S2-LP kit's
+Firmware `V1.00.0001`, line protocol 1 (#84; patch for #379, MISRA conformance). It runs on the S2-LP kit's
 NUCLEO-L053R8, with the S2-LP board on its Arduino headers, in place of ST's CLI
 firmware. It receives frames on the radio's interrupt and queues them on the board.
 

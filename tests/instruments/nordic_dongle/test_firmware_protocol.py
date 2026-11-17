@@ -61,7 +61,8 @@ def firmware_events():
 def firmware_errors():
     return {
         symbol: int(code)
-        for symbol, code in re.findall(r"X\((PROTO_ERR_\w+),\s*(\d+)U?,", _table("PROTOCOL_ERROR_TABLE"))
+        for symbol, code in re.findall(r"X\((PROTO_ERR_\w+),\s*(\d+)U?,",
+                                       _table("PROTOCOL_ERROR_TABLE"))
     }
 
 
