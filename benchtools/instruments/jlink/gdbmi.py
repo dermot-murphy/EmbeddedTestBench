@@ -184,17 +184,21 @@ class _Cursor:
 
     @property
     def at_end(self) -> bool:
+        """True once every character of the line has been consumed."""
         return self.pos >= len(self.text)
 
     def peek(self) -> str:
+        """The next character without consuming it, or ``""`` at the end."""
         return self.text[self.pos] if self.pos < len(self.text) else ""
 
     def take(self) -> str:
+        """Consume and return the next character (``""`` at the end)."""
         char = self.peek()
         self.pos += 1
         return char
 
     def expect(self, char: str) -> None:
+        """Consume *char*, raising :class:`ProtocolError` if it is not next."""
         if self.peek() != char:
             raise ProtocolError(
                 "malformed MI output: expected %r at offset %d of %r"
@@ -374,26 +378,34 @@ def parse_line(line: str) -> Optional[Record]:
     body = text[index + 1 :]
 
     if marker in _STREAM_KINDS:
-        cursor = _Cursor(body)
-        try:
-            return StreamRecord(kind=_STREAM_KINDS[marker], text=_parse_cstring(cursor))
-        except ProtocolError:
-            # Some builds emit unquoted stream text; keep it rather than fail.
-            return StreamRecord(kind=_STREAM_KINDS[marker], text=body)
-
+        return _parse_stream(marker, body)
     if marker == "^" or marker in _ASYNC_KINDS:
-        class_end = body.find(",")
-        message = body if class_end < 0 else body[:class_end]
-        remainder = "" if class_end < 0 else body[class_end + 1 :]
-        results = _parse_results(_Cursor(remainder)) if remainder else {}
-        if marker == "^":
-            return ResultRecord(
-                kind=RecordKind.RESULT, message=message.strip(),
-                results=results, token=token,
-            )
-        return AsyncRecord(
-            kind=_ASYNC_KINDS[marker], message=message.strip(),
+        return _parse_result_or_async(marker, body, token)
+    return None
+
+
+def _parse_stream(marker: str, body: str) -> StreamRecord:
+    """Build the stream record for a ``~``, ``@`` or ``&`` line."""
+    cursor = _Cursor(body)
+    try:
+        return StreamRecord(kind=_STREAM_KINDS[marker], text=_parse_cstring(cursor))
+    except ProtocolError:
+        # Some builds emit unquoted stream text; keep it rather than fail.
+        return StreamRecord(kind=_STREAM_KINDS[marker], text=body)
+
+
+def _parse_result_or_async(marker: str, body: str, token: Optional[int]) -> Record:
+    """Build the result (``^``) or async (``*``, ``+``, ``=``) record for a line."""
+    class_end = body.find(",")
+    message = body if class_end < 0 else body[:class_end]
+    remainder = "" if class_end < 0 else body[class_end + 1 :]
+    results = _parse_results(_Cursor(remainder)) if remainder else {}
+    if marker == "^":
+        return ResultRecord(
+            kind=RecordKind.RESULT, message=message.strip(),
             results=results, token=token,
         )
-
-    return None
+    return AsyncRecord(
+        kind=_ASYNC_KINDS[marker], message=message.strip(),
+        results=results, token=token,
+    )

@@ -63,8 +63,8 @@ class TestDiscovery:
         asked = []
 
         def fake_which(name):
+            """Record the name asked for, and find nothing."""
             asked.append(name)
-            return None
 
         monkeypatch.setattr(server_module.shutil, "which", fake_which)
         assert server_module.find_gdb_server() is None
@@ -272,7 +272,7 @@ class TestStartAndStop:
     def test_a_server_that_exits_reports_its_own_output(self, monkeypatch, closed_port):
         """The server's message is the only text that says what was wrong."""
 
-        class DeadProcess:
+        class DeadProcess:  # pylint: disable=too-few-public-methods  # stands in for Popen
             returncode = 255
             stdout = None
 
@@ -286,7 +286,7 @@ class TestStartAndStop:
             def __init__(self, data):
                 self._data = data
 
-            def read(self, size):
+            def read(self, _size):
                 data, self._data = self._data, b""
                 return data
 
@@ -313,7 +313,7 @@ class TestStartAndStop:
             def terminate(self):
                 self.returncode = -15
 
-            def wait(self, timeout=None):
+            def wait(self, timeout=None):  # pylint: disable=unused-argument  # Popen.wait's keyword
                 return self.returncode
 
         monkeypatch.setattr(server_module, "find_gdb_server", lambda explicit=None: "srv")

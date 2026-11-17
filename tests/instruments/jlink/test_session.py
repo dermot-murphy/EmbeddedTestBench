@@ -12,7 +12,7 @@ from benchtools.core.transport.mock import MockTransport
 from benchtools.instruments.jlink.session import GdbError, GdbMiSession
 
 
-class ScriptedResponder:
+class ScriptedResponder:  # pylint: disable=too-few-public-methods  # the one-method Responder protocol
     """Returns a canned reply per command, for exercising the session alone."""
 
     idn = "SCRIPT,SCRIPT,0,0"

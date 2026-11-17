@@ -238,7 +238,7 @@ def port_is_open(host: str, port: int, timeout: float = 0.5) -> bool:
         return False
 
 
-class GdbServer:
+class GdbServer:  # pylint: disable=too-many-instance-attributes  # one per server option
     """A J-Link GDB Server, either spawned here or already running elsewhere.
 
     :param device: Target device name, e.g. ``"nRF52840_xxAA"``. Required when
@@ -254,7 +254,7 @@ class GdbServer:
     :param extra_arguments: Further command-line arguments, verbatim.
     """
 
-    def __init__(
+    def __init__(  # pylint: disable=too-many-arguments,too-many-positional-arguments  # server CLI options
         self,
         device: Optional[str] = None,
         interface: DebugInterface = DebugInterface.SWD,
@@ -369,7 +369,8 @@ class GdbServer:
         arguments = self.command_line()
         self._logger.info("starting %s", " ".join(arguments))
         try:
-            self._process = subprocess.Popen(
+            # The server runs until stop(), which terminates and reaps it.
+            self._process = subprocess.Popen(  # pylint: disable=consider-using-with
                 arguments,
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.PIPE,

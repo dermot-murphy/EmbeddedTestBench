@@ -275,6 +275,16 @@ def build_parser() -> argparse.ArgumentParser:
         ),
         epilog="Use --resource sim:// to run against the built-in simulator.",
     )
+    _add_options(parser)
+    subparsers = parser.add_subparsers(dest="command", required=True)
+    _add_target_commands(subparsers)
+    _add_inspection_commands(subparsers)
+    return parser
+
+
+def _add_options(parser: argparse.ArgumentParser) -> None:
+    """Add the options that apply to every subcommand: the probe, the backend
+    and the output."""
     parser.add_argument("--version", action="version", version="benchtools %s" % __version__)
     parser.add_argument(
         "-r", "--resource", default="sim://",
@@ -285,9 +295,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("-d", "--device", help="target device name, e.g. nRF52840_xxAA")
     parser.add_argument("-e", "--elf", help="ELF file providing symbols")
     parser.add_argument("--interface", default="SWD", choices=[m.value for m in DebugInterface])
-    parser.add_argument("--speed", type=int, default=4000, help="interface speed in kHz (0 = adaptive)")
+    parser.add_argument(
+        "--speed", type=int, default=4000, help="interface speed in kHz (0 = adaptive)"
+    )
     parser.add_argument("--serial", help="probe serial number, to pick one of several")
-    parser.add_argument("--core-clock", type=float, help="core clock in Hz, for cycle-to-time conversion")
+    parser.add_argument(
+        "--core-clock", type=float, help="core clock in Hz, for cycle-to-time conversion"
+    )
     parser.add_argument("--gdb", help="path to arm-none-eabi-gdb")
     parser.add_argument("--server", help="path to the J-Link GDB Server")
     parser.add_argument(
@@ -302,8 +316,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("-v", "--verbose", action="count", default=0, help="repeat for debug")
     parser.add_argument("--json", metavar="PATH", help="also write the result as JSON to PATH")
 
-    subparsers = parser.add_subparsers(dest="command", required=True)
 
+def _add_target_commands(subparsers) -> None:
+    """Add the subcommands that program and control the target."""
     info = subparsers.add_parser("info", help="identify the probe and report target state")
     info.set_defaults(handler=_cmd_info)
 
@@ -338,6 +353,9 @@ def build_parser() -> argparse.ArgumentParser:
     halt = subparsers.add_parser("halt", help="halt the target")
     halt.set_defaults(handler=_cmd_halt)
 
+
+def _add_inspection_commands(subparsers) -> None:
+    """Add the subcommands that read and write target state, RTT and timing."""
     read = subparsers.add_parser("read", help="read target memory")
     read.add_argument("address", type=_number, help="address, decimal or 0x-prefixed")
     read.add_argument("size", type=_number, help="number of bytes")
@@ -383,8 +401,6 @@ def build_parser() -> argparse.ArgumentParser:
     timing.add_argument("--end-variable", help="TARGET_TIMER: variable holding the end time")
     timing.add_argument("--itm-port", type=int, default=1, help="SWO_ITM: stimulus port")
     timing.set_defaults(handler=_cmd_time)
-
-    return parser
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:

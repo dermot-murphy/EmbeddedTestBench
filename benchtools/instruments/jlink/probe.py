@@ -1,3 +1,4 @@
+# pylint: disable=too-many-lines  # one driver class spans the probe's whole feature set
 """SEGGER J-Link debug probe driver.
 
 Drives a target over the J-Link GDB Server using GDB's machine interface. One
@@ -146,7 +147,7 @@ _COMPARE_RE = re.compile(
 # Result types
 # ---------------------------------------------------------------------------
 @dataclass(frozen=True)
-class Breakpoint:
+class Breakpoint:  # pylint: disable=too-many-instance-attributes  # a record of GDB's fields
     """A code breakpoint set on the target."""
 
     number: int
@@ -203,7 +204,9 @@ class HaltInfo:
     @property
     def location(self) -> str:
         """``file:line`` when known, otherwise the address."""
-        return "%s:%d" % (self.file, self.line) if self.file and self.line else "0x%08x" % self.address
+        if self.file and self.line:
+            return "%s:%d" % (self.file, self.line)
+        return "0x%08x" % self.address
 
     def __str__(self) -> str:
         return "%s at %s in %s" % (self.reason.value, self.location, self.function or "??")
@@ -249,6 +252,7 @@ class VerifyResult:
         return [section.name for section in self.sections if not section.matched]
 
     def as_dict(self) -> dict:
+        """The result as plain data, for a report."""
         return {
             "backend": self.backend,
             "matched": self.matched,
@@ -329,6 +333,8 @@ class FlashResult:
         return None if self.verify is None else self.verify.matched
 
     def as_dict(self) -> dict:
+        """The result as plain data, for a report; verification and preserved
+        ranges appear only when there are any."""
         summary = {
             "backend": self.backend,
             "bytes_written": self.bytes_written,
@@ -350,7 +356,7 @@ class FlashResult:
 # ---------------------------------------------------------------------------
 # Driver
 # ---------------------------------------------------------------------------
-class JLinkProbe(Instrument):
+class JLinkProbe(Instrument):  # pylint: disable=too-many-instance-attributes,too-many-public-methods  # the probe's API
     """A SEGGER J-Link driving a target over the GDB Server.
 
     :param session: An open or unopened GDB/MI session.
@@ -367,7 +373,7 @@ class JLinkProbe(Instrument):
     #: Which mechanism produced a result, recorded in each result (#71).
     backend = "gdb"
 
-    def __init__(
+    def __init__(  # pylint: disable=too-many-arguments,too-many-positional-arguments  # see connect()
         self,
         session: GdbMiSession,
         server: Optional[GdbServer] = None,
@@ -412,7 +418,8 @@ class JLinkProbe(Instrument):
     # ------------------------------------------------------------------
     @classmethod
     @input_paths("elf", "firmware")
-    def connect(
+    def connect(  # pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals
+        # One keyword per probe, server and backend option; callers pass them by name.
         cls,
         resource: str = "sim://",
         device: Optional[str] = None,
@@ -607,7 +614,8 @@ class JLinkProbe(Instrument):
         if self._rtt is not None:
             try:
                 self._rtt.stop()
-            except Exception:  # noqa: BLE001 - closing must not raise
+            # Closing must not raise, whatever RTT fails with.
+            except Exception:  # noqa: BLE001  # pylint: disable=broad-exception-caught
                 self._logger.debug("RTT did not stop cleanly", exc_info=True)
         try:
             if self._attached and not self.leave_halted:
@@ -618,7 +626,8 @@ class JLinkProbe(Instrument):
                 self._halted = False
             if self._attached:
                 self._session.execute("-target-detach", allow_error=True, timeout=5.0)
-        except Exception:  # noqa: BLE001
+        # Closing must not raise: the session and server below must still close.
+        except Exception:  # noqa: BLE001  # pylint: disable=broad-exception-caught
             self._logger.debug("resume or detach failed", exc_info=True)
         finally:
             self._attached = False
@@ -1240,7 +1249,9 @@ class JLinkProbe(Instrument):
         arguments.append(location)
 
         record = self._session.execute("-break-insert %s" % " ".join(arguments))
-        return self._breakpoint_from_mi(record.results.get("bkpt") or {}, location, temporary, hardware)
+        return self._breakpoint_from_mi(
+            record.results.get("bkpt") or {}, location, temporary, hardware
+        )
 
     def _breakpoint_from_mi(
         self, entry: Dict[str, Any], location: str, temporary: bool, hardware: bool
@@ -1298,7 +1309,10 @@ class JLinkProbe(Instrument):
         for entry in entries:
             if not isinstance(entry, dict):
                 continue
-            location = "%s:%s" % (entry.get("file", ""), entry.get("line", "")) if entry.get("file") else str(entry.get("func", ""))
+            if entry.get("file"):
+                location = "%s:%s" % (entry.get("file", ""), entry.get("line", ""))
+            else:
+                location = str(entry.get("func", ""))
             out.append(
                 self._breakpoint_from_mi(
                     entry, location, str(entry.get("disp")) == "del",
@@ -1529,7 +1543,9 @@ class JLinkProbe(Instrument):
             '-data-evaluate-expression "&(%s)"' % name, allow_error=True
         )
         if value.is_error:
-            raise MeasurementError("cannot take the address of %r: %s" % (name, value.error_message))
+            raise MeasurementError(
+                "cannot take the address of %r: %s" % (name, value.error_message)
+            )
         match = re.search(r"0x[0-9a-fA-F]+", str(value.results.get("value", "")))
         if not match:
             raise ProtocolError(
@@ -1568,14 +1584,7 @@ class JLinkProbe(Instrument):
         # string, and the string rule below would then return that string as the
         # whole structure (seen on hardware with a struct holding a char pointer).
         if value.startswith("{") and value.endswith("}"):
-            fields: Dict[str, Any] = {}
-            for part in JLinkProbe._split_fields(value[1:-1]):
-                key, equals, item = part.partition("=")
-                if equals:
-                    fields[key.strip()] = JLinkProbe._parse_gdb_value(item)
-            if fields:
-                return fields
-            return value
+            return JLinkProbe._parse_gdb_struct(value)
         # A pointer or a cast: "(uint32_t *) 0x20000104".
         pointer = re.match(r"^\([^)]*\)\s*(0x[0-9a-fA-F]+)", value)
         if pointer:
@@ -1584,6 +1593,25 @@ class JLinkProbe(Instrument):
         quoted = re.search(r'"((?:[^"\\]|\\.)*)"', value)
         if quoted and (value.startswith('"') or "0x" in value.split('"')[0]):
             return quoted.group(1)
+        return JLinkProbe._parse_gdb_scalar(value)
+
+    @staticmethod
+    def _parse_gdb_struct(value: str) -> Any:
+        """Convert a structure, ``{a = 1, b = 2}``, into a dict of its fields;
+        one with no ``name = value`` fields is returned as the text it was."""
+        fields: Dict[str, Any] = {}
+        for part in JLinkProbe._split_fields(value[1:-1]):
+            key, equals, item = part.partition("=")
+            if equals:
+                fields[key.strip()] = JLinkProbe._parse_gdb_value(item)
+        if fields:
+            return fields
+        return value
+
+    @staticmethod
+    def _parse_gdb_scalar(value: str) -> Any:
+        """Convert a number or a boolean; anything else, such as an enum's name,
+        is returned as the text it was."""
         # An enum rendered as "2" or as its name.
         try:
             return int(value, 0)
@@ -1788,7 +1816,8 @@ class JLinkProbe(Instrument):
             self.enable_cycle_counter()
         return self.read_word(DWT_CYCCNT)
 
-    def measure_time_between(
+    def measure_time_between(  # pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-locals
+        # One keyword per timing method's parameters; callers pass them by name.
         self,
         start: str,
         end: str,
@@ -1899,7 +1928,9 @@ class JLinkProbe(Instrument):
                 start_raw=begin, end_raw=finish,
             )
         if method is TimingMethod.HOST_CLOCK:
-            return TimingSample(seconds=float(finish) - float(begin), start_raw=begin, end_raw=finish)
+            return TimingSample(
+                seconds=float(finish) - float(begin), start_raw=begin, end_raw=finish
+            )
         ticks = self._counter_delta(int(begin), int(finish))
         rate = float(timer_hz) if timer_hz else self.core_clock_hz
         return TimingSample(
@@ -1918,7 +1949,8 @@ class JLinkProbe(Instrument):
             delta += 1 << 32
         return delta
 
-    def _measure_target_variables(
+    def _measure_target_variables(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+        # The TARGET_TIMER parameters of measure_time_between, passed through.
         self, start, end, repeat, start_variable, end_variable, timer_hz, timeout
     ) -> TimingResult:
         """Read two variables the firmware has already filled in."""
@@ -1932,7 +1964,9 @@ class JLinkProbe(Instrument):
                 ticks = self._counter_delta(begin, finish)
                 rate = float(timer_hz) if timer_hz else self.core_clock_hz
                 samples.append(
-                    TimingSample(seconds=ticks / rate, cycles=ticks, start_raw=begin, end_raw=finish)
+                    TimingSample(
+                        seconds=ticks / rate, cycles=ticks, start_raw=begin, end_raw=finish
+                    )
                 )
         finally:
             try:
@@ -1945,7 +1979,10 @@ class JLinkProbe(Instrument):
             halts_target=True,
         )
 
-    def _measure_swo(self, start, end, repeat, port, prescaler, timeout) -> TimingResult:
+    # The SWO_ITM parameters of measure_time_between, passed through.
+    def _measure_swo(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+        self, start, end, repeat, port, prescaler, timeout
+    ) -> TimingResult:
         """Measure from ITM timestamps, without halting the target."""
         decoder = ItmDecoder(prescaler=prescaler)
         self._adopt(decoder)

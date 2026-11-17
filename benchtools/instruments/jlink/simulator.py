@@ -44,7 +44,7 @@ __all__ = ["SimulatedSymbol", "SimulatedFirmware", "SimulatedJLink", "DEFAULT_FI
 _LOG = logging.getLogger(__name__)
 
 
-class SimulatedJLink:
+class SimulatedJLink:  # pylint: disable=too-many-instance-attributes  # models probe and target state
     """A J-Link and Cortex-M target answering GDB/MI.
 
     Satisfies :class:`~benchtools.core.simulator.Responder`, so it plugs into
@@ -463,7 +463,7 @@ class SimulatedJLink:
         self.symbols_loaded = True
         return self._ok(token)
 
-    def _mi_target_select(self, argument: str, token: str) -> List[str]:
+    def _mi_target_select(self, _argument: str, token: str) -> List[str]:
         if not self.attached:
             return self._error(
                 token,
@@ -729,7 +729,10 @@ class SimulatedJLink:
         command = command.replace('\\"', '"').replace("\\\\", "\\")
         return self._console_command(command, token)
 
-    def _console_command(self, command: str, token: str) -> List[str]:
+    # One branch per GDB console command the simulator models.
+    def _console_command(  # pylint: disable=too-many-branches,too-many-return-statements
+        self, command: str, token: str
+    ) -> List[str]:
         text = command.strip()
         lower = text.lower()
         output: List[str] = []
@@ -805,7 +808,10 @@ class SimulatedJLink:
             self.memory[offset] = 0xFF
         self.flashed = False
 
-    def _monitor(self, command: str, token: str) -> List[str]:
+    # One branch per J-Link GDB Server monitor command the simulator models.
+    def _monitor(  # pylint: disable=too-many-return-statements
+        self, command: str, token: str
+    ) -> List[str]:
         if self.gdb_knows_running:
             # GDB refuses any "monitor" command while it knows the core runs
             # (#259). After an attach or a "monitor go" it does not know, and
