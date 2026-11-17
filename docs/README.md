@@ -27,9 +27,10 @@ instruments are added:
 
 ## Documents
 
-All ASPICE work products live in [`aspice/`](aspice/). Every one is at version
-0.1 and status Draft: none has been through the review its own process requires
-(ETB-PA2-001 §6, GP 2.2.4).
+All ASPICE work products live in [`aspice/`](aspice/). Each one's version is in
+the last row of its revision history (ETB-SUP8-001 §6.2). Its status follows from
+where it is: Released in a release tag, Agreed on `develop` since the last
+release, In review on a branch with an open pull request (ETB-SUP1-001 §6.3).
 
 ### System level
 

@@ -12,7 +12,7 @@
 |---|---|---|---|
 | **Document ID** | ETB-ANA-001 | **Version** | [latest, §2](#2-revision-history) |
 | **Project** | Embedded Test Bench | **Date** | [latest, §2](#2-revision-history) |
-| **Status** | Draft | **Classification** | Internal |
+| **Status** | [by location, ETB-SUP1-001 §6.3](EmbeddedTestBench_SUP1_Quality_Assurance_Plan.md#63-document-status) | **Classification** | Internal |
 | **Author** | Claude | **Reviewer** | Dermot Murphy |
 | **Approver** | Dermot Murphy | **Related Process** | SUP.1 |
 
@@ -30,6 +30,7 @@
 | 0.4 | 2026-10-05 | Claude | #203: §6.1 - the 3.9 and 3.12 legs, and every other job, now pin `ubuntu-24.04` instead of `ubuntu-latest`, which moves to Ubuntu 26 from 2026-10-19. The 3.8 leg stays on `ubuntu-22.04`. |
 | 0.5 | 2026-10-05 | Claude | #194: the compact brand logo added above the title, the same line in every controlled document (ETB-SUP8-001 §6.3). |
 | 0.6 | 2026-10-25 | Claude | #210: Version and Date in the identification table are links to the last revision history row, which holds them (ETB-SUP8-001 §6.2). |
+| next | 2026-11-17 | Claude | #371: the Status cell links to the status rule, ETB-SUP1-001 §6.3. A document's status follows from where it is in the repository (Released, Agreed, In review, In work) and is not written in by hand. §6.5 updated: review is by merge since #204, with a QA review on each pull request since #371; it no longer says no review exists. |
 | next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at its released version, its last numbered revision, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
 
 ---
@@ -171,15 +172,18 @@ to. A toolchain upgrade can change it silently. `-Wextra` is also not enabled.
 **Action:** set `-std=gnu11` (or the dialect the SDK requires) explicitly, and
 enable `-Wextra`, fixing what it finds in project-owned files.
 
-### 6.5 🟡 Warning — No work product has been reviewed
+### 6.5 🟡 Warning — Review records
 
-All 27 documents are Draft. ETB-TMPL-001 and ETB-TMPL-002 ship blank. This is
-GP 2.2.4 rated P in ETB-PA2-001 §6, and it is deliberate — no review record is
-filed for a review that did not happen — but it remains a real weakness, not
-merely a bookkeeping state.
+*Updated 2026-11-17 (#371).* When this report was written every document was
+Draft and no review had been recorded. Since #204 (2026-10-05) every change is
+reviewed and approved by the merge of its pull request (ETB-SUP1-001 §6.5).
+Since #371, the PR Review session also posts a QA review with checks C1 to C6
+on each pull request before it is merged, and a document's status follows from
+where it is (ETB-SUP1-001 §6.3). Reviewer and Approver remain one person
+(ETB-DEV-002).
 
-**Action:** hold reviews and file the records. The order that gets most value
-first: ETB-SYS2-001, ETB-SWE1-001, then the architecture and design documents.
+**Action:** keep the QA review on every pull request; a merge without one is a
+non-conformance (ETB-SUP1-001 §6.5).
 
 ### 6.6 🟡 Warning — `probe.py` is 1 499 lines
 
