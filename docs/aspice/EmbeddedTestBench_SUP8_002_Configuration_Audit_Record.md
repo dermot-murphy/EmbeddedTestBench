@@ -26,6 +26,8 @@
 |---|---|---|---|
 | 0.1 | 2026-11-17 | Claude | #374: initial. Configuration audit CA1 to CA7 of `v0.03.0000` (ETB-SUP8-001 §7.1) and the first recovery check (ETB-SUP8-001 §10). |
 | next | 2026-11-17 | Claude | #374, review round 1 (PR #386): §4.2 - the gap in what a clone holds is carried by #387 and ETB-RISK-016; R2 is a completeness check, not a backup check. |
+| next | 2026-11-18 | Claude | #387: §4.2 - from the next release, the recovery check records the export of the GitHub-only records: where it is kept, its counts and its manifest hash. |
+| next | 2026-11-18 | Claude | #387: §4.2 - the export's directory is `U:\GitHub\EmbeddedTestBench_Export\v<version>`. |
 
 ---
 
@@ -95,6 +97,8 @@ GitHub only and are not in a git clone. Their loss would remove the review and
 approval records (ETB-SUP8-001 §5.7), and the QA reviews (ETB-SUP1-001 §6.5). This is recorded as a gap, not fixed here. It is carried by #387 (export the GitHub-only records at each release) and by ETB-RISK-016 (#372).
 
 R2 compares two clones of the same remote, so it shows that a clone is complete, not that a copy exists off GitHub. The export in #387 is what makes this a backup check.
+
+From the next release, the recovery check includes the export of the GitHub-only records (ETB-SUP8-001 §10, `scripts/export_github_records.py`, #387). Its record is a row in that baseline's recovery check: the export's directory, `U:\GitHub\EmbeddedTestBench_Export\v<version>` on the bench PC, the record counts from its manifest, and the SHA-256 of `manifest.json`. `v0.03.0000` has no export; the script did not exist when it was released.
 
 ---
 

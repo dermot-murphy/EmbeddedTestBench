@@ -51,6 +51,9 @@
 | next | 2026-11-17 | Claude | #379: §4 - the C rule configuration is `.cstylecheck.yml` with its per-step files and `.cppcheck-misra-suppressions.txt`; `.cstylecheck-baseline.json` is deleted. |
 | next | 2026-11-17 | Claude | #379: §4 - the Python rule configuration is `[tool.pylint]` alone; `.pylint-baseline.json` deleted, and any pylint finding fails the check. |
 | next | 2026-11-18 | Claude | #385: §5.5 - `pytest (3.14, Windows)` is a required status check; the reason it is required, and the owner's decision. Changed together with CLAUDE.md. |
+| next | 2026-11-18 | Claude | #387: §10 - the GitHub-only records (issues, pull requests, reviews, review threads, check results) are exported at each release by `scripts/export_github_records.py`, kept outside the repository with the recovery check, and recorded in ETB-SUP8-002. |
+| next | 2026-11-18 | Claude | #387, review round 1 (PR #408): §10 - the export also holds the issue events, the GitHub releases and the milestones; what it leaves out, and the `gh` it needs. |
+| next | 2026-11-18 | Claude | #387: §10 - the export is kept in `U:\GitHub\EmbeddedTestBench_Export`, one directory per release, on the owner's decision. |
 
 ---
 
@@ -614,6 +617,34 @@ restored from the mirror at the latest tag passes
 `scripts/doc_versions.py check`; the wiki and the `gh-pages` branch can be
 fetched. The result is recorded in ETB-SUP8-002 with the baseline's
 configuration audit.
+
+**Export of the GitHub-only records.** A mirror does not hold the issue
+tracker or the pull request records, which are the problem, change request,
+review and approval records (§5.7, ETB-RISK-016). At each release, with the
+recovery check, they are exported:
+
+```sh
+python scripts/export_github_records.py U:\GitHub\EmbeddedTestBench_Export\v<version> --ref v<version>
+```
+
+The export is kept on the bench PC in `U:\GitHub\EmbeddedTestBench_Export`,
+one directory per release named by its tag (the owner's decision,
+2026-11-18). The script takes any empty directory outside the repository. It writes every
+issue and pull request, every conversation comment, every issue event (labels
+added and removed and by whom, closes, reopens, renames, milestones, review
+requests, base changes), the GitHub releases with their notes, the
+milestones, and for each pull request
+its base and head, who merged it and when, its merge commit, its reviews, its
+review threads with their comments and resolution, and the check results of
+its last commit. It writes a manifest with each file's record count and
+SHA-256, and a `SHA256SUMS` file. It fails rather than writing a partial
+export when GitHub reports a nested list longer than one page. ETB-SUP8-002
+records, for each release, the export's directory, the manifest's counts, and
+the hash of `manifest.json`. CI logs are not exported; GitHub keeps them for a limited
+time, and the export holds each pull request's check results instead. The
+wiki and `gh-pages` are git repositories, fetched by the recovery check above;
+the repository settings are recorded in §5.5. The script needs a `gh` whose
+`gh api` has `--slurp`.
 
 ---
 
