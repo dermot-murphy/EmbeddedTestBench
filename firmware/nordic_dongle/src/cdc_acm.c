@@ -56,7 +56,6 @@ static volatile uint32_t m_tx_head;		/**< next slot to fill */
 static volatile uint32_t m_tx_tail;		/**< next slot to send */
 static volatile bool	m_tx_busy;		/**< an endpoint write is in flight */
 static volatile uint32_t m_dropped;
-static uint32_t		m_drop_reported;	/**< m_dropped when +drop last went out */
 
 static uint32_t		m_rx_length;
 static bool		m_rx_overflow;		/**< discarding to the terminator */
@@ -257,6 +256,7 @@ uint32_t cdc_acm_init(void)
  */
 static void cdc_acm_report_drops(void)
 {
+	static uint32_t	reported;	/* m_dropped when +drop last went out */
 	uint32_t	dropped;
 	bool		room;
 	char		time_text[TIMESTAMP_TEXT_SIZE];
@@ -266,13 +266,13 @@ static void cdc_acm_report_drops(void)
 	room    = (((m_tx_head + 1U) % CDC_ACM_TX_QUEUE_LINES) != m_tx_tail);
 	CRITICAL_REGION_EXIT();
 
-	if ((dropped != m_drop_reported) && room)
+	if ((dropped != reported) && room)
 	{
 		if (cdc_acm_send_format("+drop t=%s count=%lu",
 					timestamp_format_us(timestamp_now_us(), time_text),
-					(unsigned long)(dropped - m_drop_reported)))
+					(unsigned long)(dropped - reported)))
 		{
-			m_drop_reported = dropped;
+			reported = dropped;
 		}
 	}
 }
