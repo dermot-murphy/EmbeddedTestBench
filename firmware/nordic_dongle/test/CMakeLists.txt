@@ -84,7 +84,7 @@ add_firmware_test(test_timestamp
 	SOURCES ${FIRMWARE_DIR}/src/timestamp.c ${FAKE_SDK})
 
 add_firmware_test(test_cdc_acm
-	SOURCES ${FIRMWARE_DIR}/src/cdc_acm.c ${FAKE_SDK})
+	SOURCES ${FIRMWARE_DIR}/src/cdc_acm.c ${FIRMWARE_DIR}/src/timestamp.c ${FAKE_SDK})
 
 add_firmware_test(test_ble_scanner
 	SOURCES ${FIRMWARE_DIR}/src/ble_scanner.c ${FAKE_SDK} ${FAKE_HOST_LINK})

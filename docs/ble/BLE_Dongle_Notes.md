@@ -87,12 +87,15 @@ Every event carries `t=`, microseconds on the dongle's clock.
 | `+conn` | `t addr state interval_us` — `state=linked` then `state=ready` |
 | `+disc` | `t reason` — HCI reason code; `timeout` when the connect window closed; `cancelled` when `disconnect` stopped a connection being made (1.5) |
 | `+scan` | `t state` — `started` or `stopped` |
-| `+drop` | `t count` — lines the dongle could not send |
+| `+drop` | `t count` — lines the dongle could not send since the last `+drop`. From firmware 1.9.0 (#396); earlier firmware counted them only in `ver` and `adv stats` |
 | `+dfu` | `t state error att_mtu` — the link's DFU service: `ready`, `incomplete`, `failed`, or `error` for a queued write that failed (1.7); `att_mtu` is the link's effective ATT MTU, 0 with no link (1.8, #274) |
 
 `+drop` is the important one. It is how the host knows its stream was lossy
 rather than the sensor quiet, and it is why `AdvertisingProfile.is_complete`
-exists.
+exists. The main loop sends it once the queue has room again, so it arrives
+after the burst that overflowed the queue, not in its place. The counts add up
+to the `dropped=` total of `ver` and `adv stats`; the driver takes the larger
+of the two, so it also reads a dongle older than 1.9.0 correctly.
 
 ### 2.3 Errors
 

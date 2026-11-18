@@ -62,6 +62,7 @@
 | next | 2026-11-17 | Claude | #379: BLE-ARC-001 names the scanner's entry point `ble_scanner_on_ble_evt`, its name since the module prefix was adopted on the dongle firmware. |
 | next | 2026-11-17 | Claude | #367: §5 shows the s2lp, gpd3303d and tti1604 packages, the plugin registry and the plugin panels. §10 adds the GPD-3303D, TTi 1604, S2-LP kit and J-Link Commander links. §7.0 added: the evaluation criteria and, for each of AD-01 to AD-32, the alternatives and why they were not taken. §8 is now dynamic behaviour: §8.0 the runner invocation, §8.1 to §8.13 each element's states and timing, with the J-Link rule J1 on GDB's view after `monitor` commands. §9 adds the PSU, DMM, S2-LP, PICO, PicoScope, PPK2 and viewer resources, and corrects the dongle queue to 31 lines. |
 | next | 2026-11-17 | Claude | #364: §6 - each element traces to the system elements it realises, in ETB-RTM-001, checked by the suite. |
+| next | 2026-11-17 | Claude | #396: §8.9 rule J1 - `monitor()` flushes GDB's register cache after every command, and `_halted` follows `*running` and `*stopped` records; the two remaining exceptions (`close()`, a caller's `monitor go`) are documented in their methods. §8.10 and §9: the dongle reports dropped lines in `+drop`. |
 
 ---
 
@@ -1255,11 +1256,12 @@ one, GDB keeps the registers and the run state it had before. The driver
 therefore never trusts GDB's view after a `monitor` command that changes the
 core:
 
-1. **Flush the register cache after anything that resets or halts the core
-   behind GDB's back.** Use `maintenance flush register-cache`. Do this after
-   every reset and after an attach (`_flush_register_cache`). If GDB refuses,
-   the driver raises. #178: after a reset, the PC read back the value from
-   before the reset until the cache was flushed.
+1. **Flush the register cache after every `monitor` command.** Use
+   `maintenance flush register-cache`. `monitor()` does this itself, so a
+   reset, an attach, `flash erase` and a caller's own command are all covered
+   (`_flush_register_cache`, #396). If GDB refuses, the driver raises. #178:
+   after a reset, the PC read back the value from before the reset until the
+   cache was flushed.
 2. **Resume with `-exec-continue`, never `monitor go`, while the session goes on.**
    GDB then knows the core is running. `reset(halt=False)` resumes with `run()`.
    #177: the GDB Server halts the core after `monitor reset`, whatever the
@@ -1271,10 +1273,15 @@ core:
    `monitor go` was never seen by GDB, so `attach()` sends `monitor halt` and
    flushes the register cache before it records `_halted` (#349).
 
-The rule does not yet cover every case. `close()` still resumes with
-`monitor go`, and rule 4 covers that at the next attach. No flush follows
-`monitor("flash erase")` or a caller's own `monitor()`. `_halted` is not
-updated from `*running` records.
+5. **Follow GDB's own run-state records.** `_halted` is set from every
+   `*running` and `*stopped` record GDB sends, as well as from the driver's
+   own calls (`_sync_run_state`, #396).
+
+Two exceptions remain, each documented in the method it affects (#396).
+`close()` resumes with `monitor go` and detaches straight after, so GDB is
+never asked about that core again; rule 4 covers it at the next attach. A
+caller's own `monitor("go")` leaves GDB, and `is_halted`, taking the core for
+stopped; `monitor()` says to resume with `run()` instead.
 
 ### 8.10 BLE-ARC-001, BLE dongle (host and firmware)
 
@@ -1329,7 +1336,7 @@ stateDiagram-v2
 | Scan | `scan start <ms>`, then collect until `+scan state=stopped`, then `scan stop` | `DEFAULT_SCAN_MS` 3000; host collects for duration + 1.0 s. Firmware scan interval = window = 100 ms (continuous). |
 | Dongle reset | `reset`, close, settle, reopen | `DONGLE_RESET_SETTLE` 2.5 s. |
 | Firmware refresh | `ensure_firmware`: compare with the manifest, then `dfu`, `nrfutil`, reopen, check again | `settle` 3.0 s before and after; `nrfutil` 180.0 s. The firmware flushes its reply for up to 250 ms before entering the bootloader. |
-| Firmware USB out | `cdc_acm_send` queues a line; `tx_pump` sends one at a time while the port is open | 32 slots; one always stays empty, so 31 lines wait at most. A line refused is dropped and counted in `m_dropped`. |
+| Firmware USB out | `cdc_acm_send` queues a line; `tx_pump` sends one at a time while the port is open | 32 slots; one always stays empty, so 31 lines wait at most. A line refused is dropped and counted in `m_dropped`; the main loop reports the lines lost since the last report in a `+drop` event once a slot is free (#396). |
 | Firmware clock | TIMER3 at 1 MHz, 32 bits, overflow counted in an interrupt to give 64 bits | Wraps every 71.6 min before extension. The timestamp is taken first in `scanner_on_ble_evt`. |
 
 ### 8.11 S2LP-ARC-001, S2-LP kit (ST firmware and kit firmware)
@@ -1433,7 +1440,7 @@ blocks nor returns a command.
 | Processes per probe connection | Two at most: the GDB Server (only if not already listening) and one GDB. |
 | Round trips per probe halt/read/resume | 3 MI commands; a variable read is 1. Memory is chunked at the probe's maximum transfer size (64 kB). |
 | Advertising reports per second, one sensor | 3 channels at the advertising rate; at 20 ms that is up to 150 lines/s, about 20 kB/s over USB. |
-| Dongle event queue | 32 slots, of which at most 31 lines wait: the full check keeps one slot empty (`cdc_acm.c`). Above that, lines are dropped and counted (`m_dropped`, read through `ver` and `adv stats`) rather than truncated. |
+| Dongle event queue | 32 slots, of which at most 31 lines wait: the full check keeps one slot empty (`cdc_acm.c`). Above that, lines are dropped and counted (`m_dropped`, read through `ver` and `adv stats`) rather than truncated, and reported in `+drop` events (#396). |
 | Host event backlog | 4096 events, bounded so an unattended session cannot grow without limit. |
 | Cost of a halting timing measurement | Two breakpoint stops per repetition; the target is stopped for the duration, which is why JLINK-FR-064 exists. |
 | PSU: link | 9600 baud by default (`DEFAULT_BAUDRATE`; 57 600 and 115 200 also supported). Commands end in LF; replies end in CR (`REPLY_TERMINATOR`). |

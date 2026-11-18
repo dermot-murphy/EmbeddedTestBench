@@ -660,6 +660,18 @@ class TestAdvertisingProfile:
         assert profile.is_complete is False
         assert profile.dongle_dropped > 0
 
+    def test_drop_notices_add_up_to_the_dongle_s_own_count(self, dongle):
+        """Each +drop counts the lines lost since the last one, as the firmware
+        sends it, so the notices sum to the total adv stats reports (#396)."""
+        responder = dongle.session.transport.responder
+        responder.drop_every = 3
+        dongle.scan(1.0)
+        dongle.select(SENSOR_NAME)
+        profile = dongle.measure_advertising_profile(2.0, expected_interval=0.1)
+        assert responder.dropped > 1
+        assert dongle.session.dropped_notices == responder.dropped
+        assert profile.dongle_dropped == responder.dropped
+
     def test_duration_must_be_positive(self, scanned):
         with pytest.raises(ConfigurationError, match="must be positive"):
             scanned.measure_advertising_profile(0.0)

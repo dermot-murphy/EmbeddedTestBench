@@ -10,7 +10,7 @@
  * drains, and when the queue is full the line is *dropped and counted* rather
  * than silently truncated. A host that receives 480 of 500 events must be told,
  * because a profile computed from a lossy stream is wrong in a way that looks
- * plausible.
+ * plausible. The main loop tells the host with a @c +drop event.
  *
  * Traces to: BLE-FR-003, BLE-FR-004, BLE-DD-CDC.
  */
@@ -39,6 +39,9 @@ uint32_t cdc_acm_init(void);
 
 /**
  * @brief Service USB. Call from the main loop; never from an event handler.
+ *
+ * Also reports lines dropped since the last report as one @c +drop event,
+ * once the queue has room for it (BLE-FR-003, #396).
  */
 void cdc_acm_process(void);
 

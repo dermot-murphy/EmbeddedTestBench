@@ -1,0 +1,48 @@
++adv t=165334693 addr=45:56:86:D3:FD:71 type=2 rssi=-61 pdu=0 ch=39 name= data=02011a020a110aff4c001005451c2877e4
++adv t=165612201 addr=45:56:86:D3:FD:71 type=2 rssi=-61 pdu=0 ch=39 name= data=02011a020a110aff4c001005451c2877e4
++adv t=165886257 addr=45:56:86:D3:FD:71 type=2 rssi=-57 pdu=0 ch=38 name= data=02011a020a110aff4c001005451c2877e4
++adv t=166156259 addr=45:56:86:D3:FD:71 type=2 rssi=-57 pdu=0 ch=38 name= data=02011a020a110aff4c001005451c2877e4
++adv t=166436268 addr=45:56:86:D3:FD:71 type=2 rssi=-57 pdu=0 ch=38 name= data=02011a020a110aff4c001005451c2877e4
++adv t=166711270 addr=45:56:86:D3:FD:71 type=2 rssi=-57 pdu=0 ch=38 name= data=02011a020a110aff4c001005451c2877e4
++adv t=166987834 addr=45:56:86:D3:FD:71 type=2 rssi=-57 pdu=0 ch=37 name= data=02011a020a110aff4c001005451c2877e4
++adv t=167264086 addr=45:56:86:D3:FD:71 type=2 rssi=-58 pdu=0 ch=37 name= data=02011a020a110aff4c001005451c2877e4
++adv t=167542837 addr=45:56:86:D3:FD:71 type=2 rssi=-57 pdu=0 ch=37 name= data=02011a020a110aff4c001005451c2877e4
++adv t=167817839 addr=45:56:86:D3:FD:71 type=2 rssi=-57 pdu=0 ch=37 name= data=02011a020a110aff4c001005451c2877e4
++adv t=168097841 addr=45:56:86:D3:FD:71 type=2 rssi=-57 pdu=0 ch=37 name= data=02011a020a110aff4c001005451c2877e4
++adv t=168368460 addr=45:56:86:D3:FD:71 type=2 rssi=-61 pdu=0 ch=39 name= data=02011a020a110aff4c001005451c2877e4
++adv t=168640962 addr=45:56:86:D3:FD:71 type=2 rssi=-64 pdu=0 ch=39 name= data=02011a020a110aff4c001005451c2877e4
++adv t=168917219 addr=45:56:86:D3:FD:71 type=2 rssi=-61 pdu=0 ch=39 name= data=02011a020a110aff4c001005451c2877e4
++adv t=169190027 addr=45:56:86:D3:FD:71 type=2 rssi=-58 pdu=0 ch=38 name= data=02011a020a110aff4c001005451c2877e4
++adv t=169467530 addr=45:56:86:D3:FD:71 type=2 rssi=-57 pdu=0 ch=38 name= data=02011a020a110aff4c001005451c2877e4
++adv t=169743782 addr=45:56:86:D3:FD:71 type=2 rssi=-59 pdu=0 ch=38 name= data=02011a020a110aff4c001005451c2877e4
++adv t=170017539 addr=45:56:86:D3:FD:71 type=2 rssi=-56 pdu=0 ch=38 name= data=02011a020a110aff4c001005451c2877e4
++adv t=170296913 addr=45:56:86:D3:FD:71 type=2 rssi=-56 pdu=0 ch=38 name= data=02011a020a110aff4c001005451c2877e4
++adv t=170566601 addr=45:56:86:D3:FD:71 type=2 rssi=-56 pdu=0 ch=37 name= data=02011a020a110aff4c001005451c2877e4
++adv t=170840357 addr=45:56:86:D3:FD:71 type=2 rssi=-56 pdu=0 ch=37 name= data=02011a020a110aff4c001005451c2877e4
++adv t=171117854 addr=45:56:86:D3:FD:71 type=2 rssi=-56 pdu=0 ch=37 name= data=02011a020a110aff4c001005451c2877e4
++adv t=171392857 addr=45:56:86:D3:FD:71 type=2 rssi=-56 pdu=0 ch=37 name= data=02011a020a110aff4c001005451c2877e4
++adv t=171670987 addr=45:56:86:D3:FD:71 type=2 rssi=-60 pdu=0 ch=39 name= data=02011a020a110aff4c001005451c2877e4
++adv t=171949739 addr=45:56:86:D3:FD:71 type=2 rssi=-61 pdu=0 ch=39 name= data=02011a020a110aff4c001005451c2877e4
++adv t=172225985 addr=45:56:86:D3:FD:71 type=2 rssi=-62 pdu=0 ch=39 name= data=02011a020a110aff4c001005451c2877e4
++adv t=172497236 addr=45:56:86:D3:FD:71 type=2 rssi=-61 pdu=0 ch=39 name= data=02011a020a110aff4c001005451c2877e4
++adv t=172771300 addr=45:56:86:D3:FD:71 type=2 rssi=-56 pdu=0 ch=38 name= data=02011a020a110aff4c001005451c2877e4
++drop t=219099861 count=164
++adv t=219153131 addr=45:56:86:D3:FD:71 type=2 rssi=-57 pdu=0 ch=37 name= data=02011a020a110aff4c001005451c2877e4
++adv t=219431875 addr=45:56:86:D3:FD:71 type=2 rssi=-57 pdu=0 ch=37 name= data=02011a020a110aff4c001005451c2877e4
++adv t=219701877 addr=45:56:86:D3:FD:71 type=2 rssi=-57 pdu=0 ch=37 name= data=02011a020a110aff4c001005451c2877e4
++adv t=219984380 addr=45:56:86:D3:FD:71 type=2 rssi=-62 pdu=0 ch=39 name= data=02011a020a110aff4c001005451c2877e4
++adv t=220259383 addr=45:56:86:D3:FD:71 type=2 rssi=-62 pdu=0 ch=39 name= data=02011a020a110aff4c001005451c2877e4
++adv t=220536890 addr=45:56:86:D3:FD:71 type=2 rssi=-63 pdu=0 ch=39 name= data=02011a020a110aff4c001005451c2877e4
++adv t=220811265 addr=45:56:86:D3:FD:71 type=2 rssi=-61 pdu=0 ch=39 name= data=02011a020a110aff4c001005451c2877e4
++adv t=221081573 addr=45:56:86:D3:FD:71 type=2 rssi=-57 pdu=0 ch=38 name= data=02011a020a110aff4c001005451c2877e4
++adv t=221355330 addr=45:56:86:D3:FD:71 type=2 rssi=-57 pdu=0 ch=38 name= data=02011a020a110aff4c001005451c2877e4
++adv t=221632831 addr=45:56:86:D3:FD:71 type=2 rssi=-57 pdu=0 ch=38 name= data=02011a020a110aff4c001005451c2877e4
++adv t=221909083 addr=45:56:86:D3:FD:71 type=2 rssi=-57 pdu=0 ch=38 name= data=02011a020a110aff4c001005451c2877e4
++adv t=222183147 addr=45:56:86:D3:FD:71 type=2 rssi=-57 pdu=0 ch=37 name= data=02011a020a110aff4c001005451c2877e4
++adv t=222456899 addr=45:56:86:D3:FD:71 type=2 rssi=-58 pdu=0 ch=37 name= data=02011a020a110aff4c001005451c2877e4
++adv t=222730645 addr=45:56:86:D3:FD:71 type=2 rssi=-61 pdu=0 ch=37 name= data=02011a020a110aff4c001005451c2877e4
++adv t=223008147 addr=45:56:86:D3:FD:71 type=2 rssi=-64 pdu=0 ch=37 name= data=02011a020a110aff4c001005451c2877e4
+ok profiling=0 received=213 reported=49
++scan t=223389118 state=stopped
+ok scanning=0 sensors=16
+ok Nordic PCA10059 fw=1.9.0 built=2026-11-17T22:30:08Z proto=1.8 uptime_us=224617375 dropped=164

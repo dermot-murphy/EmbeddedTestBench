@@ -128,6 +128,7 @@
 | next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
 | next | 2026-11-17 | Claude | #379: BLE-DD-PROTOCOL, BLE-DD-SCANNER, BLE-DD-CMD, BLE-DD-CMDARGS, BLE-DD-BUILD and BLE-DD-TEST follow the dongle firmware's conformance to ETB-STD-002: `PROTOCOL_*` names and parameterised tables, the `ble_scanner_*` interface, one exit per handler, numbers read with `errno` tested, no `<stdio.h>` outside the formatter, `-std=gnu11` and `-Wextra`, and the stand-ins the MISRA check reads `main.c` against. PICO-DD-HAL and PICO-DD-TEXT no longer list the board unique ID and the token, milli-unit and 8-bit hex formats, removed because nothing used them. |
 | next | 2026-11-17 | Claude | #367: §4 catalogue counted from the §5 headings: 150 units in 15 elements, with DMM and VIEW rows and each element's unit IDs; §4.1 package tree regenerated from the tracked files. §5.14 added: dynamic design for the units with state or timing (J-Link probe, dongle session and DFU, S2-LP on both firmwares, GPD-3303D, TTi 1604, PICO2 generator, serial capture, PicoScope, PPK2, runner control channel, viewer hub), including the J-Link rule that GDB's view is resynchronised after an attach or a reset. |
+| next | 2026-11-17 | Claude | #396: §5.14.1 - `monitor()` flushes the register cache after every command; `_halted` follows `*running`/`*stopped` (`take_exec_state`, `_sync_run_state`); `close()` and a caller's `monitor go` documented. BLE-DD-CDC - `cdc_acm_report_drops` sends `+drop`. |
 
 ---
 
@@ -2048,6 +2049,14 @@ handler would delay the next radio event and corrupt the very measurement being
 made. When the queue is full a whole line is **dropped and counted**, never
 truncated - half a line is a parse error in the host and would look like a
 protocol fault rather than congestion.
+
+`cdc_acm_process()`, in the main loop, reports drops: when `m_dropped` has
+moved since the last report and a slot is free, it queues
+`+drop t=<us> count=<lost since the last report>` (`cdc_acm_report_drops`,
+#396). It never queues the report into a full queue, so a full queue does not
+make every pass of the main loop one more dropped line. If an event handler
+takes the free slot first, the report is itself dropped and counted, and the
+next pass reports it with the rest; the counts always add up to `m_dropped`.
 
 Input is read a byte at a time (which is how the CDC driver reports it) and
 assembled into a line; an over-long line is discarded rather than acted on in
@@ -4879,9 +4888,15 @@ re-synchronised before a register is read or the core is resumed:
 - `reset()` first calls `_stop_if_running()`. GDB refuses every `monitor`
   command while the target runs (#259).
 
-`monitor()` is the escape hatch for commands the driver does not wrap, and
-it does not flush the cache itself. A caller that uses it to change the core
-must re-synchronise GDB's view, for example with `halt()` or `reset()`.
+`monitor()` is the escape hatch for commands the driver does not wrap. It
+flushes the register cache after every command, and `monitor("halt")` marks
+the core halted (#396). `_halted` also follows GDB's `*running` and
+`*stopped` records: `GdbMiSession.take_exec_state()` returns the last one seen
+since it was last read, and `_sync_run_state()` applies it in `is_halted`,
+`halt()`, `run()` and `_stop_if_running()`. GDB cannot be brought back in step
+after a caller's `monitor("go")`; the method's docstring says to use `run()`.
+`close()` sends `monitor go` without telling GDB, because it detaches straight
+after; the next `attach()` re-synchronises (#349).
 
 Timing: `attach()` allows 30 s for `-target-select`. `reset()` defaults to
 `timeout=30.0` and `halt()` to `timeout=10.0`. `close()` allows 5 s each for
