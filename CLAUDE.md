@@ -210,7 +210,8 @@ recorded in `ETB-SUP8-001 §5.5`:
 
 - `main` and `develop` reject direct pushes, force pushes and deletion. A
   change reaches them only through a pull request whose required checks pass:
-  `pytest (3.8)`, `pytest (3.9)`, `pytest (3.12)`, `pylint`,
+  `pytest (3.8)`, `pytest (3.9)`, `pytest (3.12)`,
+  `pytest (3.14, Windows)`, `pylint`,
   `Embedded C standard` and `Simulated bench`.
 - A pull request needs 0 approvals: the merge itself is the review and approval
   (see [Review, approval and merging](#review-approval-and-merging)).

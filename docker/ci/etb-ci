@@ -4,7 +4,9 @@
 #   etb-ci [LEG...] [-- PYTEST-ARGS...]   run the legs; with none, all of them
 #   etb-ci lock                           regenerate /src/constraints
 #
-# LEG is 3.8, 3.9 or 3.12 (tests.yml's pytest legs) or lint (lint.yml).
+# LEG is 3.8, 3.9 or 3.12 (tests.yml's Linux pytest legs) or lint (lint.yml).
+# tests.yml's Windows leg (3.14, #385) cannot run here; "lock" still writes its
+# constraints, resolved for Windows.
 # PYTEST-ARGS are added to the pytest command line, after CI's own options.
 #
 # The checkout is mounted read-only and copied into the container first, so the
@@ -29,7 +31,7 @@ die() {
 }
 
 usage() {
-    sed -n '4,8p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '4,10p' "$0" | sed 's/^# \{0,1\}//'
 }
 
 copy_tree() {
@@ -106,6 +108,16 @@ lock() {
         # Paths are made relative to /src; say what they are relative to.
         echo "etb-ci: wrote ${out#"$SRC"/}"
     done
+    # The Windows leg (#385): resolved for Windows at the bench PC's Python,
+    # which this image has no interpreter for, so uv fetches one to resolve
+    # with. Windows needs packages Linux does not, colorama for pytest.
+    out="$SRC/constraints/py3.14.txt"
+    (cd "$SRC" && uv pip compile --quiet --extra test --python-version 3.14 \
+        --python-platform x86_64-pc-windows-msvc \
+        --no-emit-package benchtools \
+        --custom-compile-command "etb-ci lock (docker/ci/Dockerfile)" \
+        -o "$out" "$SRC/pyproject.toml" "$inputs/build.in") || exit 1
+    echo "etb-ci: wrote ${out#"$SRC"/}"
 }
 
 legs=()

@@ -50,6 +50,7 @@
 | next | 2026-11-17 | Claude | #374: §4 - Document ID column reads `ETB-…`, documents versioned by their last history row, firmware source lists all three trees. §6.2 - ETB-SVD-001 has taken the links, `HELD_BACK` is empty. §7.1 added: configuration audit CA1 to CA7 per release baseline, recorded in ETB-SUP8-002. §9 - current document version is the last history row. §10 - the recovery check, recorded in ETB-SUP8-002. |
 | next | 2026-11-17 | Claude | #379: §4 - the C rule configuration is `.cstylecheck.yml` with its per-step files and `.cppcheck-misra-suppressions.txt`; `.cstylecheck-baseline.json` is deleted. |
 | next | 2026-11-17 | Claude | #379: §4 - the Python rule configuration is `[tool.pylint]` alone; `.pylint-baseline.json` deleted, and any pylint finding fails the check. |
+| next | 2026-11-18 | Claude | #385: §5.5 - `pytest (3.14, Windows)` is a required status check; the reason it is required, and the owner's decision. Changed together with CLAUDE.md. |
 
 ---
 
@@ -207,7 +208,7 @@ against the API rather than assumed (ETB-RISK-004).
 | Ruleset | Target branches | `refs/heads/main`, `refs/heads/develop` (two patterns) |
 | Ruleset | Deletion, force push | Both blocked |
 | Ruleset | Pull request | Required; 0 approvals, because review and approval are given by the merge itself (§5.7) and the single maintainer cannot approve their own pull request; merge method **merge** only |
-| Ruleset | Required status checks | `pytest (3.8)`, `pytest (3.9)`, `pytest (3.12)`, `pylint`, `Embedded C standard`, `Simulated bench`; branch need not be up to date |
+| Ruleset | Required status checks | `pytest (3.8)`, `pytest (3.9)`, `pytest (3.12)`, `pytest (3.14, Windows)`, `pylint`, `Embedded C standard`, `Simulated bench`; branch need not be up to date |
 | Ruleset | Linear history | Not required: it would block the merge commits §5.2 requires |
 | Tag ruleset | "Protect release tags" | Active, no bypass actors, on `refs/tags/v*`: deletion and update blocked, so a published release tag cannot be moved (#188) |
 | Merge | Merge commits / squash / rebase | On / off / off |
@@ -225,6 +226,12 @@ against the API rather than assumed (ETB-RISK-004).
 The required checks are the jobs that run on every push and pull request. The
 firmware workflow's jobs are path-filtered and are therefore not required: a
 pull request that does not touch firmware would wait for them indefinitely.
+
+`pytest (3.14, Windows)` runs the suite on Windows at the bench PC's Python
+(#385). It is required because five problems up to v0.03.0000 appeared only on
+Windows (ETB-SUP9-001 §9.1), and a check that may fail without blocking the
+merge would let the next one through. The owner decided it is required
+(2026-11-17); the ruleset was updated through the API and read back with it.
 
 **Enforcement observed, 2026-10-05.** With the ruleset temporarily extended to
 a probe branch, a direct push, a force push and a deletion were each rejected
