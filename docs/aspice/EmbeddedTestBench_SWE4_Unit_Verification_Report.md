@@ -126,6 +126,7 @@
 | next | 2026-11-17 | Claude | #369: §4.0 gives the results of the release `v0.03.0000` per Python leg and firmware job, from the CI runs on `4b71a51`, with the per-test JUnit kept in `docs/aspice/unit_results/v0.03.0000/`. §5 is regenerated from that run, and its rows sum to the run's total. §16 - PC-1, PC-2, PC-3 and PC-8 and the verdict are current; the retired ID BENCHTOOLS-TRACE-001 is replaced by ETB-RTM-001 §18; the dongle has run on hardware. §17 is marked as earlier revisions' checks. |
 | next | 2026-11-17 | Claude | #369, review round 1 (PR #395): §5's total is the release run's, 4 557, and the paragraphs after it describe that run, not revision 1.32's. |
 | next | 2026-11-17 | Claude | #370: SWE4-UT-INTEGRATION row; its first release result will be the next release's. |
+| next | 2026-11-18 | Claude | #387: §5 row for SWE4-UT-EXPORT (18), pass, from a run of `test_export_github_records.py` on this branch on 2026-11-18 (18 passed). The §5 total is still the `v0.03.0000` release run's. |
 
 ---
 
@@ -323,6 +324,7 @@ generated this table from a branch run; earlier revisions added rows by hand.
 | SWE4-UT-PUBLISH | `test_publish_docs.py` | 48 | Pass |
 | SWE4-UT-PLUGINS | `core/test_plugins.py` | 74 | Pass, 1 skipped |
 | SWE4-UT-DOCVER | `test_doc_versions.py` | 63 | Pass |
+| SWE4-UT-EXPORT | `test_export_github_records.py` | 18 | Pass |
 | SWE4-UT-TRACE | `test_traceability.py` | 31 | Pass |
 | SWE4-UT-SCPI | `core/test_scpi.py` | 28 | Pass |
 | SWE4-UT-INSTRUMENT | `core/test_instrument.py` | 20 | Pass |
