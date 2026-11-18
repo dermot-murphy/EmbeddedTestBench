@@ -127,6 +127,7 @@
 | next | 2026-11-17 | Claude | #369, review round 1 (PR #395): §5's total is the release run's, 4 557, and the paragraphs after it describe that run, not revision 1.32's. |
 | next | 2026-11-17 | Claude | #370: SWE4-UT-INTEGRATION row; its first release result will be the next release's. |
 | next | 2026-11-18 | Claude | #387: §5 row for SWE4-UT-EXPORT (18), pass, from a run of `test_export_github_records.py` on this branch on 2026-11-18 (18 passed). The §5 total is still the `v0.03.0000` release run's. |
+| next | 2026-11-18 | Claude | #387, review round 1 (PR #408): SWE4-UT-EXPORT 18 → 19, pass, from a run of `test_export_github_records.py` on this branch on 2026-11-18 (19 passed). The §5 total is still the `v0.03.0000` release run's. |
 
 ---
 
@@ -324,7 +325,7 @@ generated this table from a branch run; earlier revisions added rows by hand.
 | SWE4-UT-PUBLISH | `test_publish_docs.py` | 48 | Pass |
 | SWE4-UT-PLUGINS | `core/test_plugins.py` | 74 | Pass, 1 skipped |
 | SWE4-UT-DOCVER | `test_doc_versions.py` | 63 | Pass |
-| SWE4-UT-EXPORT | `test_export_github_records.py` | 18 | Pass |
+| SWE4-UT-EXPORT | `test_export_github_records.py` | 19 | Pass |
 | SWE4-UT-TRACE | `test_traceability.py` | 31 | Pass |
 | SWE4-UT-SCPI | `core/test_scpi.py` | 28 | Pass |
 | SWE4-UT-INSTRUMENT | `core/test_instrument.py` | 20 | Pass |

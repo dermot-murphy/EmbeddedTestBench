@@ -17,6 +17,13 @@ repository's working tree:
   (``GET /repos/{repo}/issues?state=all``), with labels, state and dates;
 - ``issue_comments.json``: every comment on an issue or a pull request's
   conversation (``GET /repos/{repo}/issues/comments``);
+- ``issue_events.json``: the history of every issue and pull request: labels
+  added and removed and by whom, closes and reopens, renames, milestones,
+  review requests, base changes, merges (``GET /repos/{repo}/issues/events``);
+- ``releases.json``: the GitHub releases, with their notes
+  (``GET /repos/{repo}/releases``);
+- ``milestones.json``: every milestone, open or closed
+  (``GET /repos/{repo}/milestones?state=all``);
 - ``pull_requests.json``: every pull request with its base and head, who
   merged it, when, its merge commit, its reviews, its review threads with
   their comments and whether each is resolved, and the check results of its
@@ -32,8 +39,14 @@ export rather than being cut short silently.
 Not exported: CI logs. GitHub keeps them for a limited time; the check
 results of each pull request's last commit are exported instead.
 
+Not exported either: the wiki and the ``gh-pages`` branch, which are git
+repositories the recovery check fetches (ETB-SUP8-001 §10), and the
+repository's settings, recorded in ETB-SUP8-001 §5.5.
+
 The calls go through ``gh api`` (``--paginate --slurp``), authenticated as
-whoever ``gh`` is logged in as. Every call is a read.
+whoever ``gh`` is logged in as. Every call is a read. It needs a ``gh`` whose
+``gh api`` has ``--slurp`` (``gh api --help`` lists it; checked with gh
+2.92.0). An older one fails the export with ``gh``'s own error.
 
 Standard library only, Python 3.8 and later.
 
@@ -171,9 +184,14 @@ def _inside(path, root):
     return True
 
 
+def _write_text(path, text):
+    # Path.write_text has no newline argument before Python 3.10.
+    with open(path, "w", encoding="utf-8", newline="\n") as stream:
+        stream.write(text)
+
+
 def _write(path, data):
-    path.write_text(json.dumps(data, indent=1, sort_keys=True, ensure_ascii=False) + "\n",
-                    encoding="utf-8", newline="\n")
+    _write_text(path, json.dumps(data, indent=1, sort_keys=True, ensure_ascii=False) + "\n")
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
@@ -191,6 +209,9 @@ def export(out_dir, repo, ref=None, run=subprocess.run, now=None):
     records = {
         "issues.json": rest_list("repos/%s/issues?state=all&per_page=100" % repo, run),
         "issue_comments.json": rest_list("repos/%s/issues/comments?per_page=100" % repo, run),
+        "issue_events.json": rest_list("repos/%s/issues/events?per_page=100" % repo, run),
+        "releases.json": rest_list("repos/%s/releases?per_page=100" % repo, run),
+        "milestones.json": rest_list("repos/%s/milestones?state=all&per_page=100" % repo, run),
         "pull_requests.json": pull_requests(repo, run),
     }
     commit = None
@@ -213,9 +234,8 @@ def export(out_dir, repo, ref=None, run=subprocess.run, now=None):
     files_hash = _write(out_dir / "manifest.json", manifest)
     sums = dict((name, entry["sha256"]) for name, entry in files.items())
     sums["manifest.json"] = files_hash
-    (out_dir / "SHA256SUMS").write_text(
-        "".join("%s  %s\n" % (digest, name) for name, digest in sorted(sums.items())),
-        encoding="utf-8", newline="\n")
+    _write_text(out_dir / "SHA256SUMS", "".join(
+        "%s  %s\n" % (digest, name) for name, digest in sorted(sums.items())))
     return manifest
 
 

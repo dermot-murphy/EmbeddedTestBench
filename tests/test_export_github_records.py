@@ -85,6 +85,12 @@ class FakeGh:  # pylint: disable=too-few-public-methods
             out = json.dumps(self.graphql)
         elif "issues/comments" in args[-1]:
             out = json.dumps(self.comments)
+        elif "issues/events" in args[-1]:
+            out = json.dumps([[{"event": "labeled"}, {"event": "closed"}]])
+        elif "/releases?" in args[-1]:
+            out = json.dumps([[{"tag_name": "v1.0", "body": "notes"}]])
+        elif "/milestones?" in args[-1]:
+            out = json.dumps([[{"title": "M1"}], [{"title": "M2"}]])
         elif "/issues?" in args[-1]:
             out = json.dumps(self.issues)
         elif "/commits/" in args[-1]:
@@ -104,6 +110,9 @@ class TestExport:
         ex.export(out, "acme/bench", run=FakeGh(), now=NOW)
         assert [x["number"] for x in read(out / "issues.json")] == [1, 2, 3]
         assert read(out / "issue_comments.json") == [{"id": 10}]
+        assert read(out / "issue_events.json") == [{"event": "labeled"}, {"event": "closed"}]
+        assert read(out / "releases.json") == [{"tag_name": "v1.0", "body": "notes"}]
+        assert read(out / "milestones.json") == [{"title": "M1"}, {"title": "M2"}]
         prs = read(out / "pull_requests.json")
         assert [pr["number"] for pr in prs] == [2, 3]
         assert prs[0]["reviews"]["nodes"] == [{"state": "APPROVED"}]
@@ -113,12 +122,15 @@ class TestExport:
         fake = FakeGh()
         ex.export(tmp_path / "export", "acme/bench", run=fake, now=NOW)
         api = [call for call in fake.calls if call[1] == "api"]
-        assert len(api) == 3
+        assert len(api) == 6
         for call in api:
             assert call[0] == "gh" and "--paginate" in call and "--slurp" in call
         rest = [call[-1] for call in api if call[2] != "graphql"]
         assert rest == ["repos/acme/bench/issues?state=all&per_page=100",
-                        "repos/acme/bench/issues/comments?per_page=100"]
+                        "repos/acme/bench/issues/comments?per_page=100",
+                        "repos/acme/bench/issues/events?per_page=100",
+                        "repos/acme/bench/releases?per_page=100",
+                        "repos/acme/bench/milestones?state=all&per_page=100"]
         graphql = [call for call in api if call[2] == "graphql"][0]
         assert "owner=acme" in graphql and "name=bench" in graphql
         query = [arg for arg in graphql if arg.startswith("query=")][0]
@@ -139,7 +151,8 @@ class TestExport:
         assert manifest["ref"] == "v1.0" and manifest["commit"] == "abc123"
         assert manifest["gh"] == "gh version 9.9.9 (2099-01-01)"
         assert {name: entry["records"] for name, entry in manifest["files"].items()} == {
-            "issues.json": 3, "issue_comments.json": 1, "pull_requests.json": 2}
+            "issues.json": 3, "issue_comments.json": 1, "issue_events.json": 2,
+            "releases.json": 1, "milestones.json": 2, "pull_requests.json": 2}
         for name, entry in manifest["files"].items():
             assert entry["sha256"] == hashlib.sha256((out / name).read_bytes()).hexdigest()
 
@@ -152,6 +165,13 @@ class TestExport:
         for line in lines:
             digest, name = line.split("  ", 1)
             assert digest == hashlib.sha256((out / name).read_bytes()).hexdigest()
+
+    def test_every_file_is_written_with_lf_line_endings(self, tmp_path):
+        out = tmp_path / "export"
+        ex.export(out, "acme/bench", run=FakeGh(), now=NOW)
+        for path in out.iterdir():
+            data = path.read_bytes()
+            assert b"\r" not in data and data.endswith(b"\n"), path.name
 
     def test_without_a_ref_no_commit_is_looked_up(self, tmp_path):
         fake = FakeGh()
