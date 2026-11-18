@@ -6,6 +6,7 @@ Traces to: SER-FR-012, SWE4-UT-SERCLI.
 from __future__ import annotations
 
 import io
+import threading
 import time
 
 from benchtools.cli import main as top_level_main
@@ -19,8 +20,27 @@ def test_commands_in_order(capsys):
     assert out == ["ACK RD BAUD = 115200", "ACK WR WINDOW 300 ms", "ACK RD WINDOW = 300"]
 
 
-def test_a_running_capture_is_waited_for_and_shown(capsys):
-    status = main(["WR WINDOW 2000", "WR PATTERN PASS", "WR LINES ON",
+def test_a_running_capture_is_waited_for_and_shown(capsys, monkeypatch):
+    # The simulated device holds its script until the tool starts waiting, so
+    # the capture is still running when the commands run out, however late
+    # this thread gets there under load (#384). Without the hold, the script
+    # can match the pattern and end the capture before the tool checks, and
+    # the tool then rightly prints no ROUTINE RESULTS CAPTURE.
+    from benchtools.instruments.serial_capture import SerialCapture, SimulatedSerialDevice
+
+    waiting = threading.Event()
+    poll, wait_capture = SimulatedSerialDevice.poll, SerialCapture.wait_capture
+    monkeypatch.setattr(SimulatedSerialDevice, "poll",
+                        lambda self: poll(self) if waiting.is_set() else b"")
+
+    def wait_then_release(self, *args, **kwargs):
+        # The script's timing restarts now, so its lines are not all due at once.
+        self._transport.responder.restart()
+        waiting.set()
+        return wait_capture(self, *args, **kwargs)
+
+    monkeypatch.setattr(SerialCapture, "wait_capture", wait_then_release)
+    status = main(["WR WINDOW 60000", "WR PATTERN PASS", "WR LINES ON",
                    "ROUTINE START CAPTURE"])
     out = capsys.readouterr().out.splitlines()
     assert status == 0
