@@ -1,7 +1,7 @@
 # The Python legs of CI in one image, so they can be run before pushing (#282).
 #
-# tests.yml runs the suite on Python 3.8, 3.9 and 3.12, and lint.yml runs
-# pylint on 3.12. The bench PC has none of 3.8, 3.9 or 3.12, which is how #281
+# tests.yml runs the suite on Python 3.8, 3.9 and 3.12 on Linux, and on 3.14 on
+# Windows (#385), which this image cannot run; lint.yml runs pylint on 3.12. The bench PC has none of 3.8, 3.9 or 3.12, which is how #281
 # failed in CI after passing locally. This image holds one virtual environment
 # per leg, each with the library versions in constraints/, which CI installs
 # from too, so the image and CI cannot drift apart.

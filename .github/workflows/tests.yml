@@ -24,8 +24,14 @@ concurrency:
 
 jobs:
   pytest:
-    name: pytest (${{ matrix.python-version }})
+    name: pytest (${{ matrix.python-version }}${{ matrix.os-name }})
     runs-on: ${{ matrix.runs-on }}
+
+    # bash on every leg, Windows included (Git Bash on the hosted runner), so
+    # each step is the same command wherever it runs.
+    defaults:
+      run:
+        shell: bash
 
     strategy:
       fail-fast: false
@@ -49,6 +55,14 @@ jobs:
             runs-on: ubuntu-24.04
           - python-version: '3.12'
             runs-on: ubuntu-24.04
+          # The bench PC, where every hardware run is made, runs Windows at
+          # Python 3.14. Five problems up to v0.03.0000 appeared only on Windows
+          # (#79, #81, #214, #305, #384; ETB-SUP9-001 9.1), so this leg runs the
+          # suite there (#385). The runner is pinned by name like the others.
+          # Its constraints are resolved for Windows: see etb-ci lock.
+          - python-version: '3.14'
+            runs-on: windows-2025
+            os-name: ', Windows'
 
     steps:
       - name: Check out

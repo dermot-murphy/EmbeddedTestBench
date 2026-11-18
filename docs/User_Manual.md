@@ -85,7 +85,7 @@ passes on `benches/simulated_bench.yaml` and fails with `--simulate`
 ## 2. Installing
 
 Python **3.8 or later** (`requires-python = ">=3.8"` in `pyproject.toml`). CI
-tests 3.8, 3.9 and 3.12.
+tests 3.8, 3.9 and 3.12 on Linux, and 3.14 on Windows.
 
 ### 2.1 From the release tag, without cloning
 
@@ -174,12 +174,12 @@ and [J-Link Integration Notes](jlink/JLink_Integration_Notes.md).
 
 ### 2.6 Running CI's Python legs before pushing
 
-CI runs the suite on Python 3.8, 3.9 and 3.12 (`tests.yml`) and pylint on
-3.12 (`lint.yml`). A change that passes on your Python can still fail on one of
+CI runs the suite on Python 3.8, 3.9 and 3.12 on Linux and 3.14 on Windows
+(`tests.yml`, #385), and pylint on 3.12 (`lint.yml`). A change that passes on your Python can still fail on one of
 those: #281 passed on 3.14 and failed collection on 3.8 and 3.9. The CI image,
 `docker/ci/Dockerfile`, holds all four legs, each with the library versions
 CI installs, so you can run them first. It needs Docker (Docker Desktop on
-Windows).
+Windows). The Windows leg is not in the image; the bench PC runs it natively.
 
 Build it once, and again when `constraints/` or `docker/ci/` changes. It takes
 about 4 minutes and makes an image of about 1.5 GB:
@@ -225,7 +225,8 @@ docker run --rm -v /tmp/at:/src:ro etb-ci 3.8
 ```
 
 **The library versions** are pinned per Python in `constraints/py3.8.txt`,
-`py3.9.txt`, `py3.12.txt` and `lint.txt`. CI installs from the same files, so
+`py3.9.txt`, `py3.12.txt`, `py3.14.txt` (resolved for Windows, for the
+Windows leg) and `lint.txt`. CI installs from the same files, so
 the image and CI cannot drift apart. The pylint version is stated in
 `constraints/lint.in`. To take newer releases, or after changing a requirement
 in `pyproject.toml`, regenerate them with the image and commit the result:

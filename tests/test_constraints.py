@@ -19,7 +19,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 CONSTRAINTS = ROOT / "constraints"
 
 #: Each constraints file and the Python leg that installs it.
-FILES = ("py3.8.txt", "py3.9.txt", "py3.12.txt", "lint.txt")
+FILES = ("py3.8.txt", "py3.9.txt", "py3.12.txt", "py3.14.txt", "lint.txt")
 
 
 def _name(requirement: str) -> str:

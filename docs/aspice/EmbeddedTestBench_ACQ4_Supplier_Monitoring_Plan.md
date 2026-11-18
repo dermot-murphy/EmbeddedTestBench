@@ -39,6 +39,7 @@
 | next | 2026-11-17 | Claude | #377: Referenced Documents cite each controlled document at the version of its last numbered revision row, kept by `scripts/doc_versions.py` (ETB-SUP8-001 §6.2). |
 | next | 2026-11-17 | Claude | #376: §3.1 and §4.5 - the AI model supplier (Anthropic, Claude Code) is listed: what is depended upon, what is agreed and exchanged, and how it is monitored. §4.3 - CPython versions as CI runs them (3.8, 3.9, 3.12; 3.10 for `nrfutil`). §4.4 and §6 - the Pico licence review tracked on #382. §6 - Dependabot reads its configuration from `main`, which is why pip pull requests #320 to #324 and #355 to #359 opened after #284; #355 to #359 closed. §9 - supplier corrective action requests are raised on the supplier's tracker (CStyleCheck#439, #447). |
 | next | 2026-11-17 | Claude | #379: §4.3 lists Cppcheck, installed from the Ubuntu archive for the MISRA C:2012 check. §7 - the CStyleCheck baseline is gone, so moving the pin means dealing with what the newer version finds. |
+| next | 2026-11-18 | Claude | #385: §4.3 - CPython 3.14 and the `windows-2025` runner image for the Windows test leg. |
 
 ---
 
@@ -101,7 +102,7 @@ addresses, field widths and reset values — written independently
 
 | Supplier | Product | Version | Why pinned |
 |---|---|---|---|
-| Python Software Foundation | CPython | 3.8, 3.9 and 3.12 for the test legs (`tests.yml`); 3.12 for `pylint`; 3.10 for the dongle firmware job (`firmware.yml`) | 3.8 is the oldest Python the package supports; 3.10 because `nrfutil` 6.1.7 requires it |
+| Python Software Foundation | CPython | 3.8, 3.9 and 3.12 for the Linux test legs and 3.14 for the Windows leg (`tests.yml`, #385); 3.12 for `pylint`; 3.10 for the dongle firmware job (`firmware.yml`) | 3.8 is the oldest Python the package supports; 3.10 because `nrfutil` 6.1.7 requires it |
 | Nordic Semiconductor | `nrfutil` | **6.1.7** | The last Python release packaging for the SDK 17 bootloader; unpinned installs resolve backwards to a Python 2 release that fails on `dict.iteritems` (ETB-RISK-006) |
 | Arm | GNU Arm Embedded toolchain | As pinned in `.github/workflows/firmware.yml` | Flash and RAM figures are toolchain-dependent |
 | PyPI maintainers | `pyvisa`, `pyserial`, `bleak`, `pytest`, `PyYAML` | As declared in `pyproject.toml` | Interface stability |
@@ -110,7 +111,7 @@ addresses, field widths and reset values — written independently
 | GitHub | `actions/checkout`, `actions/setup-python`, `actions/upload-artifact` | `@v7` | Major tag: a breaking change arrives only as a new major, read before it is taken (#203) |
 | GitHub | `actions/cache` | `@v6` | As above |
 | `carlosperate` | `arm-none-eabi-gcc-action` | `@v1` | No newer major exists; the toolchain release itself is pinned per job |
-| GitHub | Hosted runner images | `ubuntu-24.04`; `ubuntu-22.04` for the Python 3.8 leg | Named, not `ubuntu-latest`, so an image change is a decision (#203); 3.8 is not in the 24.04 tool cache |
+| GitHub | Hosted runner images | `ubuntu-24.04`; `ubuntu-22.04` for the Python 3.8 leg; `windows-2025` for the Windows leg (#385) | Named, not `ubuntu-latest`, so an image change is a decision (#203); 3.8 is not in the 24.04 tool cache |
 
 ### 4.4 Pico Technology `ps3000a` library (#200)
 

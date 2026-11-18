@@ -1,6 +1,6 @@
 # Build the CI image (docker/ci, #282) so that it cannot rot unnoticed.
 #
-# The image holds CI's Python legs - 3.8, 3.9 and 3.12 for tests.yml, and 3.12
+# The image holds CI's Linux Python legs - 3.8, 3.9 and 3.12 for tests.yml, and 3.12
 # with pylint for lint.yml - each with the library versions in constraints/,
 # so a leg can be run before pushing. This job builds it and checks that every
 # leg imports the package and collects the suite. It does not run the suite:
