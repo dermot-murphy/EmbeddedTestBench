@@ -40,6 +40,7 @@
 | next | 2026-11-17 | Claude | #376: §3.1 and §4.5 - the AI model supplier (Anthropic, Claude Code) is listed: what is depended upon, what is agreed and exchanged, and how it is monitored. §4.3 - CPython versions as CI runs them (3.8, 3.9, 3.12; 3.10 for `nrfutil`). §4.4 and §6 - the Pico licence review tracked on #382. §6 - Dependabot reads its configuration from `main`, which is why pip pull requests #320 to #324 and #355 to #359 opened after #284; #355 to #359 closed. §9 - supplier corrective action requests are raised on the supplier's tracker (CStyleCheck#439, #447). |
 | next | 2026-11-17 | Claude | #379: §4.3 lists Cppcheck, installed from the Ubuntu archive for the MISRA C:2012 check. §7 - the CStyleCheck baseline is gone, so moving the pin means dealing with what the newer version finds. |
 | next | 2026-11-18 | Claude | #385: §4.3 - CPython 3.14 and the `windows-2025` runner image for the Windows test leg. |
+| next | 2026-11-18 | Claude | #382: §4.1 and §4.4 - Pico Technology's licence terms read on 2026-11-18 (the 3000A programmer's guide `ps3000apg.en-15` §1.2, and the software licence on Pico's legal-information page); each condition checked against this project's use, and the use is within them. §6 - the Pico licence review is no longer open. |
 
 ---
 
@@ -87,7 +88,7 @@ bench instruments themselves.
 | Nordic Semiconductor | nRF52840 dongle (PCA10059), nRF5 SDK 17.1.0, S140 SoftDevice 7.2.0, `nrfutil` | Firmware platform, BLE stack, DFU packaging | Nordic 5-clause licence for SDK; SoftDevice binary not redistributed |
 | Nordic Semiconductor | Power Profiler Kit II, USB serial number D527E1DA8DBA (#342); its serial protocol as Nordic's Power Profiler app (`pc-nrfconnect-ppk`) uses it | The opcodes, the metadata, the sample word, the calibration formula and the spike filter, read from the app's source on 2026-11-14 (`docs/ppk2/PPK2_Notes.md`) | The app is under Nordic's 4-clause licence; protocol facts only are used, no code is copied or redistributed (AD-31). The kit's firmware is not pinned and is not reported by the kit beyond its hardware number |
 | STMicroelectronics | S2-LP sub-GHz transceiver | Register map — addresses, widths, reset values | **SLA0072** |
-| Pico Technology | PicoScope 3405D MSO (3000D series), serial HT415/0202; the `ps3000a` driver library and the WinUSB device driver (§4.4) | The behaviour of the `ps3000a` API - each call, its arguments and its status codes - and the unit's ranges, timebases, memory and signal generator as the specification page states them and as measured on the bench (#200) | Pico Technology's terms for PicoScope 7 and the PicoSDK; the library is installed on the bench PC, called through `ctypes`, and not vendored or redistributed. The licence text has not been reviewed (§4.4) |
+| Pico Technology | PicoScope 3405D MSO (3000D series), serial HT415/0202; the `ps3000a` driver library and the WinUSB device driver (§4.4) | The behaviour of the `ps3000a` API - each call, its arguments and its status codes - and the unit's ranges, timebases, memory and signal generator as the specification page states them and as measured on the bench (#200) | Pico Technology's terms for PicoScope 7 and the PicoSDK; the library is installed on the bench PC, called through `ctypes`, and not vendored or redistributed. Terms read 2026-11-18 (#382): use only with Pico products, no mission-critical use; the use here is within them (§4.4) |
 
 ### 4.2 Licence Constraint — SLA0072
 
@@ -136,15 +137,37 @@ or the PicoSDK, and found there at run time.
   bench unit on 2026-11-13 (ETB-SWE1-001 §17). Some enumeration values were not
   measured and are taken from the SDK's header; they are marked unverified in
   `constants.py` and listed as PSCOPE-OPEN-05 (ETB-RTM-001 §19).
-- **Licence.** The terms under which PicoScope 7 and the PicoSDK are supplied
-  have not been read for this entry. Nothing is redistributed, which is the use
-  that most licences restrict, but that is an assumption, not a review. The
-  review is open: §6, "Licence terms".
+- **Licence (#382).** Read on 2026-11-18, from Pico Technology's own
+  publications. The installation on the bench PC holds third-party licence
+  files (Austra, NotoSans, OpenCV, Roboto) and a `LICENSES` file, none of which
+  is Pico's own terms, so the terms were taken from these sources:
+
+  | Source | What it covers |
+  |---|---|
+  | *PicoScope 3000 Series (A API) Programmer's Guide*, `ps3000apg.en-15` (© 2011-2022), §1.2 "License agreement", from `https://www.picotech.com/download/manuals/picoscope-3000-series-a-api-programmers-guide.pdf` | The `ps3000a` SDK, the API this driver calls |
+  | "Software license" on `https://www.picotech.com/about/legal-information` (page © 2026) | Pico software in general. No PicoScope 7 specific licence was found on Pico's site |
+  | The 6000A and 4000A programmer's guide licence pages on `picotech.com/helpfiles/` | Read to compare: the same conditions as the 3000A guide |
+
+  The conditions, and this project's use against each:
+
+  | Condition | This project's use |
+  |---|---|
+  | Licensed, not sold, to the person who installs the software | The owner installed PicoScope 7 on the bench PC; this project installs nothing of Pico's |
+  | Access only for persons informed of the conditions who agree to them | Those who use the bench PC. This section is where the conditions are stated for them |
+  | Use only with Pico products or data collected with them | The library drives the PicoScope 3405D MSO only. The simulator (`sim://`) does not load it |
+  | Pico keeps copyright in the SDK; it may be copied and distributed without restriction if Pico's copyright statements are kept | Nothing of Pico's is copied into the repository, the wheel or any image. The few enumeration values taken from the SDK header are numbers, marked as such in `constants.py` |
+  | No liability unless statute excludes it; the user must make sure the product suits the application | The ranges and timebases the driver relies on were measured on the bench unit (above); values not measured are marked unverified (PSCOPE-OPEN-05) |
+  | No use in mission-critical applications, for example life support | The bench tests sensors in development. It is not a mission-critical application |
+  | The user virus-checks the software once installed | The bench PC's own protection; not checked by this project |
+  | Upgrades free from Pico's website | Not taken by this project; an upgrade is a new version under "Not pinned" above |
+
+  **Outcome:** the use is within the terms. They restrict what the library is
+  used with and for, not how it is called, so calling it through `ctypes` from
+  an installation is not in question. The terms do not forbid redistributing
+  the SDK, but this project does not do it, and would review the terms again
+  before it did. "PicoScope" and "PicoSDK" are Pico Technology's registered
+  trademarks; this project uses them only to name Pico's products.
 - **Interface note.** `docs/picoscope3000/PicoScope3000_Notes.md`.
-- **Licence review tracked on #382** (2026-11-17). The installation on the
-  bench PC holds third-party licence files (Austra, NotoSans, OpenCV, Roboto)
-  and a `LICENSES` file, none of which is Pico Technology's own terms for
-  PicoScope 7 or the PicoSDK. Closing #382 closes the open action in §6.
 
 ### 4.5 AI Model Supplier
 
@@ -189,7 +212,7 @@ Trust is stated so that it can be checked rather than assumed.
 | Instrument firmware revision | Recorded in every report | A revision not seen before appears → confirm the affected commands on the bench before the result is used |
 | Toolchain and library versions | Pinned in CI, recorded in ETB-SVD-001 | CI fails on a revision that previously passed with no source change → problem under ETB-SUP9-001 |
 | Vendor documentation changes | Checked when a driver is next worked on | A documented behaviour differs from what the driver assumes → problem, and the simulator is corrected |
-| Licence terms | Reviewed when a vendor product is added or upgraded. Open: Pico Technology, #382 | Terms that would require vendoring source → the dependency is not taken |
+| Licence terms | Reviewed when a vendor product is added or upgraded. Pico Technology reviewed 2026-11-18 (§4.4, #382) | Terms that would require vendoring source → the dependency is not taken |
 | AI model supplier | The model named in the commit trailers; the QA review's findings; the owner's review | A change of model → noted in ETB-SVD-001; a product defect → reported to the supplier (§4.5) |
 | CStyleCheck | The style workflow's result | A failure unrelated to the firmware source → problem under ETB-SUP9-001 |
 | GitHub Actions versions | Dependabot version updates, weekly, `.github/dependabot.yml`, targeting `develop` (#203). Dependabot reads that file from the default branch, `main`, so a change to it takes effect at the next release (#376) | A Dependabot pull request → release notes read, CI result reviewed, merged or declined with the reason |
