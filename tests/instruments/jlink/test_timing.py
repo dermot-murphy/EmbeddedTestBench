@@ -109,13 +109,24 @@ class TestHostClock:
         assert result.is_trustworthy is False
 
     def test_an_interval_of_ten_resolutions_is_trustworthy(self, probe, monkeypatch):
-        """The other side of the threshold: ten times the resolution or more."""
-        fixed_host_clock(monkeypatch, 100.0, 100.010)
+        """The threshold itself: exactly ten times the resolution is trustworthy.
+
+        The readings start at 0.0 so that the difference is exactly 0.01, the
+        threshold. From 100.0 it would be 5e-15 above it, and a ``>`` in place
+        of ``>=`` would go unnoticed."""
+        fixed_host_clock(monkeypatch, 0.0, 0.010)
         result = probe.measure_time_between(
             START_LOCATION, END_LOCATION, method=TimingMethod.HOST_CLOCK
         )
-        assert result.seconds == pytest.approx(10.0e-3)
+        assert result.seconds == 10.0e-3
         assert result.is_trustworthy is True
+
+    def test_an_interval_just_below_ten_resolutions_is_not(self, probe, monkeypatch):
+        fixed_host_clock(monkeypatch, 0.0, 0.0099)
+        result = probe.measure_time_between(
+            START_LOCATION, END_LOCATION, method=TimingMethod.HOST_CLOCK
+        )
+        assert result.is_trustworthy is False
 
 
 class TestTargetTimer:
