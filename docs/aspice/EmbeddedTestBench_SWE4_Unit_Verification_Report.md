@@ -128,6 +128,8 @@
 | next | 2026-11-17 | Claude | #370: SWE4-UT-INTEGRATION row; its first release result will be the next release's. |
 | next | 2026-11-18 | Claude | #387: §5 row for SWE4-UT-EXPORT (18), pass, from a run of `test_export_github_records.py` on this branch on 2026-11-18 (18 passed). The §5 total is still the `v0.03.0000` release run's. |
 | next | 2026-11-18 | Claude | #387, review round 1 (PR #408): SWE4-UT-EXPORT 18 → 19, pass, from a run of `test_export_github_records.py` on this branch on 2026-11-18 (19 passed). The §5 total is still the `v0.03.0000` release run's. |
+| next | 2026-11-19 | Claude | #411: SWE4-UT-TIMING 29 → 30, pass, from a run of `instruments/jlink/test_timing.py` on this branch on 2026-11-19 (30 passed). The §5 total is still the `v0.03.0000` release run's. |
+| next | 2026-11-19 | Claude | #411, review round 1 (PR #412): SWE4-UT-TIMING 30 → 31, pass, from a run of `instruments/jlink/test_timing.py` on this branch on 2026-11-19 (31 passed). The §5 total is still the `v0.03.0000` release run's. |
 
 ---
 
@@ -349,7 +351,7 @@ generated this table from a branch run; earlier revisions added rows by hand.
 | SWE4-UT-JLINK | `instruments/jlink/test_probe.py`, `instruments/jlink/test_attach.py`, `instruments/jlink/test_variable_address.py` | 132 | Pass |
 | SWE4-UT-RTT | `instruments/jlink/test_rtt.py` | 22 | Pass |
 | SWE4-UT-SWO | `instruments/jlink/test_swo.py` | 20 | Pass |
-| SWE4-UT-TIMING | `instruments/jlink/test_timing.py` | 29 | Pass |
+| SWE4-UT-TIMING | `instruments/jlink/test_timing.py` | 31 | Pass |
 | SWE4-UT-JLINKSERVER | `instruments/jlink/test_server.py` | 45 | Pass |
 | SWE4-UT-JLINKSOCKETS | `instruments/jlink/test_sockets.py` | 16 | Pass |
 | SWE4-UT-JLINKSIM | `instruments/jlink/test_simulator.py` | 32 | Pass |
