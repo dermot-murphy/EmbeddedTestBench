@@ -9,10 +9,13 @@ Traces to: JLINK-FR-060 .. JLINK-FR-065, SWE4-UT-TIMING.
 
 from __future__ import annotations
 
+import time
+
 import pytest
 
 from benchtools.core.errors import ConfigurationError, MeasurementError
 from benchtools.instruments.jlink import ProbeLimits, TimingMethod
+from benchtools.instruments.jlink import probe as probe_module
 from benchtools.instruments.jlink.timing import TimingResult, TimingSample
 
 from .conftest import END_LOCATION, INTERVAL_CYCLES, INTERVAL_SECONDS, START_LOCATION
@@ -61,6 +64,25 @@ class TestCycleCounter:
         assert result.seconds == pytest.approx(INTERVAL_CYCLES / 32.0e6)
 
 
+class _FixedClockTime:  # pylint: disable=too-few-public-methods
+    """The ``time`` module as the probe sees it, with ``perf_counter`` giving
+    fixed readings in turn. Only the probe's own reference is replaced, so no
+    other code's clock changes."""
+
+    def __init__(self, readings):
+        self._readings = iter(readings)
+
+    def perf_counter(self):
+        return next(self._readings)
+
+    def __getattr__(self, name):
+        return getattr(time, name)
+
+
+def fixed_host_clock(monkeypatch, *readings):
+    monkeypatch.setattr(probe_module, "time", _FixedClockTime(readings))
+
+
 class TestHostClock:
     def test_produces_a_figure(self, probe):
         result = probe.measure_time_between(
@@ -70,15 +92,30 @@ class TestHostClock:
         assert result.seconds > 0.0
         assert result.cycles is None
 
-    def test_a_short_interval_is_flagged_untrustworthy(self, probe):
+    def test_a_short_interval_is_flagged_untrustworthy(self, probe, monkeypatch):
         """The method resolves about a millisecond. A microsecond figure from it
         is noise presented as a measurement, and a test should refuse it rather
-        than tighten its limit."""
+        than tighten its limit.
+
+        The host clock is fixed here, 12 µs between the two halts. On the real
+        clock the interval is however long the host took, and a stall of 10 ms
+        or more under load made it trustworthy and failed this test (#411)."""
+        fixed_host_clock(monkeypatch, 100.0, 100.000012)
         result = probe.measure_time_between(
             START_LOCATION, END_LOCATION, method=TimingMethod.HOST_CLOCK
         )
+        assert result.seconds == pytest.approx(12.0e-6)
         assert result.resolution_seconds == pytest.approx(1.0e-3)
         assert result.is_trustworthy is False
+
+    def test_an_interval_of_ten_resolutions_is_trustworthy(self, probe, monkeypatch):
+        """The other side of the threshold: ten times the resolution or more."""
+        fixed_host_clock(monkeypatch, 100.0, 100.010)
+        result = probe.measure_time_between(
+            START_LOCATION, END_LOCATION, method=TimingMethod.HOST_CLOCK
+        )
+        assert result.seconds == pytest.approx(10.0e-3)
+        assert result.is_trustworthy is True
 
 
 class TestTargetTimer:
