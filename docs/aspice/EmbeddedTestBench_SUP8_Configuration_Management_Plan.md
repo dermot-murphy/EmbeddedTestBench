@@ -54,6 +54,7 @@
 | next | 2026-11-18 | Claude | #387: §10 - the GitHub-only records (issues, pull requests, reviews, review threads, check results) are exported at each release by `scripts/export_github_records.py`, kept outside the repository with the recovery check, and recorded in ETB-SUP8-002. |
 | next | 2026-11-18 | Claude | #387, review round 1 (PR #408): §10 - the export also holds the issue events, the GitHub releases and the milestones; what it leaves out, and the `gh` it needs. |
 | next | 2026-11-18 | Claude | #387: §10 - the export is kept in `U:\GitHub\EmbeddedTestBench_Export`, one directory per release, on the owner's decision. |
+| next | 2026-11-20 | Claude | #413: §5.9 added - the rules for working a ticket (ownership check, opening the pull request without asking, the review loop with the *PR Review* session, closing after the merge, new findings), the owner's instructions of 2026-10-25 first recorded in the closed work plan #300. Changed together with CLAUDE.md. |
 
 ---
 
@@ -385,6 +386,23 @@ file in the repository. The generator is verified by
 The ASPICE pages were first published by hand on 2026-10-05 from `develop`
 (393d310), before these workflows existed; the generator keeps those page
 names, so its first run replaces those pages rather than duplicating them.
+
+### 5.9 Working a Ticket
+
+**Owner's instructions, 2026-10-25.** First recorded in the work plan #300.
+When that plan closed on 2026-11-19, they moved to `CLAUDE.md`, "Working a
+ticket", and to this section (#413). A session works on a ticket only when the
+owner asks for that ticket.
+
+| Step | Rule |
+|---|---|
+| Ownership | Before starting, check that no open pull request names the issue, no unmerged branch carries its number, and no other Claude Code session's title names it |
+| Dependencies | A ticket that depends on work not merged into `develop` is stopped and reported to the owner, not stacked (§5.2) |
+| Pull request | Opened into `develop` as soon as the ticket is complete, without asking |
+| Review loop | The *PR Review* session reviews the pull request (ETB-SUP1-001 §6.5). Each finding is fixed, or answered on the pull request with the reason. At most 4 rounds of fixes; findings still open after that are commented on the pull request and reported to the owner |
+| Merge | Not made by the session working the ticket. The owner is told the pull request is ready, with its link, the rounds and the CI result (§5.7) |
+| Closing | The ticket is closed after its pull request merges, with green CI (§5.1) |
+| New findings | Small and related: fixed on the ticket in their own commit, listed as "Also fixed". Otherwise an existing issue is looked for first, open or closed. If none exists, a new issue is created and the owner told it is unplanned. At most 4 new issues per ticket; more go to the owner in chat. Findings in `innovateuk-sensor` are reported to the owner, not raised here |
 
 ---
 

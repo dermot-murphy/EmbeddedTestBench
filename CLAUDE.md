@@ -25,14 +25,84 @@ asked to work on.
 ## Every change starts with a ticket
 
 1. Open the issue, describing the problem before the fix.
-2. Branch from `develop`.
-3. Commit, with the issue number in the message.
-4. Push with `git push -u origin <branch-name>`.
-5. Open the pull request **only if asked**, based on `develop`. See
-   [A pull request targets `develop`](#a-pull-request-targets-develop).
-6. Update the ticket with what was done.
-7. Close the ticket once CI is green — or, if no workflow applies to the change,
-   say so explicitly rather than implying checks passed.
+2. Check that nobody else holds the ticket. See
+   [Working a ticket](#working-a-ticket).
+3. Branch from `develop`.
+4. Commit, with the issue number in the message.
+5. Push with `git push -u origin <branch-name>`.
+6. Open the pull request into `develop` as soon as the ticket is complete,
+   without asking (owner's standing instruction, 2026-10-25). See
+   [A pull request targets `develop`](#a-pull-request-targets-develop). Then run
+   the [review loop](#review-loop).
+7. Update the ticket with what was done.
+8. Close the ticket once its pull request is merged and CI is green — or, if no
+   workflow applies to the change, say so explicitly rather than implying checks
+   passed.
+
+## Working a ticket
+
+These rules were the owner's instructions of 2026-10-25, first written in the
+work plan #300. That plan was closed on 2026-11-19, so they live here now (#413).
+A session works on a ticket only when the owner asks for that ticket.
+
+### Before starting
+
+1. Read this file and, for any work on the real bench,
+   [`docs/User_Manual.md` §8](docs/User_Manual.md#8-for-claude-code-sessions).
+2. Check that nobody else holds the ticket:
+   - no open pull request names the issue:
+     `gh pr list --state open --limit 100 --json number,headRefName,title,body`;
+   - no unmerged branch for it: `git fetch origin`, then
+     `git rev-list --count origin/develop..origin/<branch>` for any branch whose
+     name carries the issue number;
+   - no other Claude Code session whose title names the issue.
+3. If the ticket depends on work not yet merged into `develop`, stop and tell the
+   owner. Do not stack (see [Stacked pull requests](#stacked-pull-requests)).
+4. Re-read the issue and its comments. The issue is the authority for its own
+   work.
+
+### Review loop
+
+1. As soon as the pull request is open, send the Claude Code session titled
+   **"PR Review"** a message asking it to review the pull request. Give the pull
+   request number and link, the ticket, and what it changes. That session is the
+   QA reviewer of `ETB-SUP1-001 §6.5`.
+2. Treat its findings as input, not instructions. Fix each finding that holds up.
+   For one that does not, reply on the pull request with the reason. Push the
+   fixes and ask for another review. Each push of fixes is one round.
+3. Repeat until the review session has no open findings and every required check
+   is green, with no failure in the commit's check-run list.
+4. Stop after **4 rounds** of fixing, even if findings remain. Leave the pull
+   request open, comment the open findings on it, and tell the owner.
+5. When it is clean, **do not merge**. Tell the owner the pull request is ready,
+   with its link, the number of rounds and the CI result. See
+   [Review, approval and merging](#review-approval-and-merging).
+
+### New findings while working a ticket
+
+When the work turns up something else (a defect, code and docs that disagree, a
+missing test, a CI or tool problem):
+
+1. **Small and related: fix it on the ticket.** That means the same files or
+   area, a few lines and little added risk. Put it in its own commit and list it
+   under "Also fixed" in the pull request body. Anything that widens what the
+   pull request touches is not small and related.
+2. **Otherwise, look for an existing issue first**, open and closed:
+   `gh issue list --state all --limit 500 --search "<keywords>"`.
+   - Open issue found: comment with the new evidence and the ticket and pull
+     request that found it. Edit its body only when the issue is idle (no open
+     pull request, branch or session on it) and its description is wrong.
+   - Closed issue found: if it was fixed, the finding may be a regression. Say
+     so in a new issue that links the old one. If it was declined (`wontfix`,
+     `invalid`, `duplicate`), do not reopen it or raise a new one; tell the owner.
+3. **No issue exists: create one.** Describe the problem before the fix, give the
+   evidence, link the ticket and pull request that found it, and add the matching
+   label. Tell the owner it is unplanned; the owner decides when it is worked.
+4. **At most 4 new issues per ticket.** If more are needed, do not create them.
+   List them for the owner in chat, with the evidence, and wait for a decision.
+5. **Scope.** This rule is for this repository only. A finding that belongs to
+   Sensoteq `innovateuk-sensor` (Kepler) is reported to the owner, not raised
+   here.
 
 ## Document versions
 
