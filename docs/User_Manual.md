@@ -929,14 +929,19 @@ Read `CLAUDE.md` itself. In short:
 - The repository uses gitflow. Never commit to `main` or `develop`.
 - Every change starts with an issue. Branch `feature/`, `docs/` or `fix/<topic>`
   from `develop`, and put the issue number in each commit message.
-- Push with `git push -u origin <branch>`. Open a pull request only if asked,
-  and its base is **`develop`**, set explicitly. Release and hotfix branches are
-  the only defined exceptions.
+- Before starting, check that nobody else holds the ticket: no open pull
+  request, unmerged branch or other session for it (`CLAUDE.md`, "Working a
+  ticket").
+- Push with `git push -u origin <branch>`. Open the pull request as soon as the
+  ticket is complete, without asking; its base is **`develop`**, set explicitly.
+  Release and hotfix branches are the only defined exceptions. Then ask the
+  "PR Review" session to review it, at most 4 rounds (`CLAUDE.md`, "Review
+  loop").
 - **Merge only when the repository owner says so.**
 - Stack pull requests only when told to, and follow `CLAUDE.md`'s retargeting
   procedure if you do.
-- Update the issue with what was done. Close it when CI is green, or say that no
-  workflow applies.
+- Update the issue with what was done. Close it once its pull request is merged
+  and CI is green, or say that no workflow applies.
 - A change to a controlled document under `docs/aspice/` appends one
   revision-history row as the last row, with the version `next`. The Version
   and Date in the identification table are links to that history and are not
