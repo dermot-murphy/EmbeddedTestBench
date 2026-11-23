@@ -131,6 +131,7 @@
 | next | 2026-11-17 | Claude | #396: §5.14.1 - `monitor()` flushes the register cache after every command; `_halted` follows `*running`/`*stopped` (`take_exec_state`, `_sync_run_state`); `close()` and a caller's `monitor go` documented. BLE-DD-CDC - `cdc_acm_report_drops` sends `+drop`. |
 | next | 2026-11-23 | Claude | #415: BLE-DD-PROTOCOL - a token with no `=` after `name=` is joined back onto the name, spacing kept; `name_has_space`. BLE-DD-DONGLE - `refresh_sensors` reports a sensor whose name holds a space (`_report_spaced_name`). |
 | next | 2026-11-23 | Claude | #415, review round 1 (PR #416): BLE-DD-PROTOCOL - a `+sensor` name takes the rest of the line, so a part holding `=` is kept; trailing spaces lost and not reported; `name_has_space` tests any whitespace. BLE-DD-DONGLE - why the report is still needed. |
+| next | 2026-11-23 | Claude | #415, review round 2 (PR #416): BLE-DD-DONGLE - `select()` takes the name from the sensor table entry when it has one. |
 
 ---
 
@@ -1638,7 +1639,8 @@ which logs a `ble_name_with_space` warning, with the address and the name, and
 notes it in the session log for a name that holds a space (#415): the table's
 `+sensor` lines keep the name whole, but `+adv` and the `select` and `connect`
 replies cut it where a part holds `=`, so it is reported rather than trusted
-silently.
+silently. `select()` takes the name from the table entry when it has one, not
+from the reply, so a selected sensor carries the whole name too.
 
 `NordicDongle`, the façade: an `Instrument` (CORE-DD-INSTRUMENT) whose transport
 is a serial port or a simulator.

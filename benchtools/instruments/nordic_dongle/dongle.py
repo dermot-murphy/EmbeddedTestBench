@@ -977,6 +977,10 @@ class NordicDongle(Instrument):  # pylint: disable=too-many-instance-attributes,
         )
         known = self.find_sensor(chosen.address) if chosen.address else None
         if known is not None:
+            # The +sensor line keeps the whole name; the select reply cuts a
+            # name at a part holding '=' (#415).
+            if known.name:
+                chosen.name = known.name
             chosen.rssi = known.rssi
             chosen.seen = known.seen
             chosen.index = known.index

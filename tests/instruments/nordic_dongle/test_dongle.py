@@ -504,6 +504,7 @@ class TestNameAndManufacturer:
                 sensor = dongle.scan(1.0, active=True)[0]
             assert sensor.name == spaced
             assert len(self.spaced_name_warnings(caplog)) == 1
+            assert dongle.select(self.KEPLER_ADDRESS).name == spaced
         finally:
             dongle.close()
 
