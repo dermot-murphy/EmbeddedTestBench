@@ -874,15 +874,15 @@ class NordicDongle(Instrument):  # pylint: disable=too-many-instance-attributes,
     def _report_spaced_name(self, sensor: Sensor) -> None:
         """Warn when *sensor*'s advertised name holds a space (#415).
 
-        The parser joins the name back together, but a part of it that holds
-        an ``=`` would have been read as a field, so the name is reported
-        rather than trusted silently.
+        The ``+sensor`` line keeps the name whole, but the same name is cut
+        where it holds an ``=`` in ``+adv`` and in the ``select`` and
+        ``connect`` replies, so it is reported rather than trusted silently.
         """
         if not name_has_space(sensor.name):
             return
         text = ("the advertised name %r of %s contains a space; an advertised name "
-                "should hold none, and a part of it that holds '=' cannot be told "
-                "from a field" % (sensor.name, sensor.address))
+                "should hold none, because the dongle's line protocol splits on "
+                "spaces" % (sensor.name, sensor.address))
         log_event(self._logger, "ble_name_with_space", text,
                   {"address": sensor.address, "name": sensor.name},
                   level=logging.WARNING)

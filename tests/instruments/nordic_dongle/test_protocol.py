@@ -62,7 +62,7 @@ class TestEvents:
 
     def test_an_empty_value_is_kept(self):
         """A sensor that advertises no name sends name= and that is a fact."""
-        event = parse_line("+sensor t=1 idx=0 name= rssi=-90")
+        event = parse_line("+sensor t=1 idx=0 rssi=-90 name=")
         assert event.get("name") == ""
         assert "name" in event.fields
 
@@ -144,11 +144,38 @@ class TestNameWithASpace:
         fields = parse_fields("name=KAPPA a=b")
         assert fields["name"] == "KAPPA" and fields["a"] == "b"
 
+    def test_a_name_part_reusing_a_real_key_overwrites_it_in_an_advertising_line(self):
+        """The same limit, where it hurts: the later data= wins, with no sign."""
+        event = parse_line("+adv t=1 addr=E4:1C:7B:02:9A:11 name=A data=zz data=0201")
+        assert event.get("name") == "A"
+        assert event.get("data") == "0201"
+
+    def test_a_sensor_line_keeps_a_name_part_holding_an_equals(self):
+        """+sensor writes the name last, so the rest of the line is the name."""
+        event = parse_line("+sensor t=1 idx=0 addr=E4:1C:7B:02:9A:11 type=1 rssi=-60 "
+                           "seen=3 mfr= sr= name=KAPPA a=b  c")
+        assert event.get("name") == "KAPPA a=b  c"
+        assert "a" not in event.fields
+
+    def test_a_sensor_line_with_an_empty_name_keeps_it_empty(self):
+        event = parse_line("+sensor t=1 idx=0 addr=E4:1C:7B:02:9A:11 sr= name=")
+        assert event.get("name") == "" and event.get("sr") == ""
+
+    def test_a_sensor_line_with_no_name_field_still_parses(self):
+        event = parse_line("+sensor t=1 idx=0 addr=E4:1C:7B:02:9A:11")
+        assert "name" not in event.fields and event.integer("idx") == 0
+
+    def test_a_key_ending_in_name_is_not_the_name(self):
+        """Only a token that starts with name= is the name field."""
+        event = parse_line("+sensor t=1 idx=0 surname=X name=A B")
+        assert event.get("surname") == "X" and event.get("name") == "A B"
+
     @pytest.mark.parametrize("name,expected", [
         ("KAPPA_5C1712_V11.00.0000X", False),
         ("", False),
         (None, False),
         ("KAPPA 5C1712", True),
+        ("KAPPA\t5C1712", True),
     ])
     def test_a_spaced_name_is_recognised(self, name, expected):
         assert name_has_space(name) is expected

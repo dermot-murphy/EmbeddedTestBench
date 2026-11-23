@@ -130,6 +130,7 @@
 | next | 2026-11-17 | Claude | #367: §4 catalogue counted from the §5 headings: 150 units in 15 elements, with DMM and VIEW rows and each element's unit IDs; §4.1 package tree regenerated from the tracked files. §5.14 added: dynamic design for the units with state or timing (J-Link probe, dongle session and DFU, S2-LP on both firmwares, GPD-3303D, TTi 1604, PICO2 generator, serial capture, PicoScope, PPK2, runner control channel, viewer hub), including the J-Link rule that GDB's view is resynchronised after an attach or a reset. |
 | next | 2026-11-17 | Claude | #396: §5.14.1 - `monitor()` flushes the register cache after every command; `_halted` follows `*running`/`*stopped` (`take_exec_state`, `_sync_run_state`); `close()` and a caller's `monitor go` documented. BLE-DD-CDC - `cdc_acm_report_drops` sends `+drop`. |
 | next | 2026-11-23 | Claude | #415: BLE-DD-PROTOCOL - a token with no `=` after `name=` is joined back onto the name, spacing kept; `name_has_space`. BLE-DD-DONGLE - `refresh_sensors` reports a sensor whose name holds a space (`_report_spaced_name`). |
+| next | 2026-11-23 | Claude | #415, review round 1 (PR #416): BLE-DD-PROTOCOL - a `+sensor` name takes the rest of the line, so a part holding `=` is kept; trailing spaces lost and not reported; `name_has_space` tests any whitespace. BLE-DD-DONGLE - why the report is still needed. |
 
 ---
 
@@ -1441,8 +1442,12 @@ Points that matter:
   before `known=` or `connected=` in the `select` and `connect` replies. A
   token with no `=` that follows `name=` is joined back onto the name with
   the spacing it arrived with, sliced from the line rather than re-joined
-  (#415). A part that holds `=` cannot be told from a field and is read as
-  one; `name_has_space` lets BLE-DD-DONGLE report such a name instead.
+  (#415). In a `+sensor` line, whose name is last, everything after the
+  first `name=` token is the name, so a part holding `=` is kept too
+  (`_split_name_last`). Elsewhere a part that holds `=` cannot be told from
+  a field and is read as one, overwriting a field of the same key. Spaces at
+  the end of a name are lost with the line's trailing space and are not
+  reported. `name_has_space` tests for any whitespace, matching the split.
 - Addresses are validated and upper-cased, and carry an optional `/<type>`
   suffix. The type travels with the address everywhere because connecting with
   the wrong one fails by never finding the device - the least diagnosable
@@ -1630,9 +1635,10 @@ reply; None when a group took no part). A command that fails is counted
 
 `refresh_sensors()` passes each sensor of the table to `_report_spaced_name`,
 which logs a `ble_name_with_space` warning, with the address and the name, and
-notes it in the session log for a name that holds a space (#415): the name was
-joined back together by BLE-DD-PROTOCOL, but a part of it holding `=` would not
-have been, so it is reported rather than trusted silently.
+notes it in the session log for a name that holds a space (#415): the table's
+`+sensor` lines keep the name whole, but `+adv` and the `select` and `connect`
+replies cut it where a part holds `=`, so it is reported rather than trusted
+silently.
 
 `NordicDongle`, the façade: an `Instrument` (CORE-DD-INSTRUMENT) whose transport
 is a serial port or a simulator.

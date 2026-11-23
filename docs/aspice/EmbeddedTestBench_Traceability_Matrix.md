@@ -130,6 +130,7 @@
 | next | 2026-11-17 | Claude | #364, review round 1 (PR #401): BLE-FR-003 (lines queued, unsent ones counted) refines ETB-SYS2-044, not -043. |
 | next | 2026-11-17 | Claude | #396: BLE-FR-003 row gains the `+drop` tests, host and firmware. |
 | next | 2026-11-23 | Claude | #415: BLE-FR-001 row gains BLE-DD-DONGLE, `dongle.py` and the spaced-name tests; `SWE4-UT-BLEPROTO` counts 46, not 34. |
+| next | 2026-11-23 | Claude | #415, review round 1 (PR #416): BLE-FR-001 row counts 52 protocol tests and 3 spaced-name driver tests. |
 
 ---
 
@@ -374,7 +375,7 @@ where the firmware implements the requirement.
 
 | Requirement | Architecture | Design unit | Source | Verifying test(s) |
 |---|---|---|---|---|
-| BLE-FR-001 | BLE-ARC-001 | BLE-DD-PROTOCOL, BLE-DD-DONGLE | `firmware/include/protocol.h`, `protocol.py`, `dongle.py` | `SWE4-UT-BLEPROTO` (46), `SWE4-UT-BLEFW` (17), `SWE4-UT-BLE` (2: the spaced-name cases of `TestNameAndManufacturer`) |
+| BLE-FR-001 | BLE-ARC-001 | BLE-DD-PROTOCOL, BLE-DD-DONGLE | `firmware/include/protocol.h`, `protocol.py`, `dongle.py` | `SWE4-UT-BLEPROTO` (52), `SWE4-UT-BLEFW` (17), `SWE4-UT-BLE` (3: the spaced-name cases of `TestNameAndManufacturer`) |
 | BLE-FR-002 | BLE-ARC-001 | BLE-DD-CMD, BLE-DD-SESSION, BLE-DD-TEST | `firmware/src/cmd_parser.c`, `session.py` | `TestCommands` (6), `test_every_command_has_a_handler_in_the_firmware`; firmware side: `SWE4-UT-FWUNIT` `test_cmd_parser` (47) |
 | BLE-FR-003 | BLE-ARC-001 | BLE-DD-CDC, BLE-DD-TEST | `firmware/src/cdc_acm.c` | `test_a_dropping_dongle_says_so`, `test_drop_notices_are_counted`, `test_drop_notices_add_up_to_the_dongle_s_own_count`; firmware side: `test_a_full_queue_drops_whole_lines_and_counts_them`, `test_dropped_lines_are_reported_once_the_queue_has_room`, `test_each_report_counts_only_the_lines_since_the_last`, `test_writes_are_serialised_one_at_a_time`, `test_the_tail_of_an_over_long_command_is_not_a_command` |
 | BLE-FR-004 | BLE-ARC-001 | BLE-DD-PROFILE, BLE-DD-SCANNER | `AdvertisingProfile.is_complete`, `ble_scanner_report_advertising` | `test_a_lossy_capture_is_declared`, `test_a_lossy_link_is_declared_rather_than_averaged`; firmware side: `test_a_dropped_line_is_counted_as_not_reported`, `test_the_counters_reconcile_what_was_seen_and_sent` |

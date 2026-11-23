@@ -112,6 +112,7 @@
 | next | 2026-11-17 | Claude | #364: §21 - each software requirement traces upward to the system requirements it refines, and each non-functional one to its source, in ETB-RTM-001, checked by the suite. |
 | next | 2026-11-17 | Claude | #396: BLE-FR-003 - the firmware reports the lines it could not send in a `+drop` event, each counting those lost since the last. |
 | next | 2026-11-23 | Claude | #415: BLE-FR-001 - an advertised name should hold no space; the host joins a spaced name back together where its parts hold no `=`, and reports each sensor whose name holds a space. |
+| next | 2026-11-23 | Claude | #415, review round 1 (PR #416): BLE-FR-001 - a `+sensor` line keeps the whole name, a part holding `=` included. |
 
 ---
 
@@ -524,7 +525,7 @@ implements them; §11.6 says which.
 
 | ID | Requirement | Source | Verification | Release |
 |---|---|---|---|---|
-| BLE-FR-001 | The dongle and the host shall communicate over USB CDC with a line protocol in which a command is one line, a reply is one line beginning ``ok`` or ``err``, and an unsolicited event is one line beginning ``+``. The protocol shall be defined in a single artefact that both halves are built from. An advertised name should hold no space, because the protocol splits fields on spaces; the host shall join each part of a name that holds no `=` back onto it, keeping its spacing, and shall report each sensor whose name holds a space, because a part that holds `=` cannot be told from a field (#415). | STK-14, STK-15 | Test, Inspection | `v0.01.0000` |
+| BLE-FR-001 | The dongle and the host shall communicate over USB CDC with a line protocol in which a command is one line, a reply is one line beginning ``ok`` or ``err``, and an unsolicited event is one line beginning ``+``. The protocol shall be defined in a single artefact that both halves are built from. An advertised name should hold no space, because the protocol splits fields on spaces; the host shall keep the whole name of a `+sensor` line, where the name is last, shall join each part of a name that holds no `=` back onto it in other lines, keeping its spacing, and shall report each sensor whose name holds a space, because elsewhere a part that holds `=` cannot be told from a field (#415). | STK-14, STK-15 | Test, Inspection | `v0.01.0000` |
 | BLE-FR-002 | Every command shall produce exactly one reply, including when it fails, so that a lost reply is detectable rather than appearing as a hang. A failure shall carry a numeric code and text. | STK-14 | Test | `v0.01.0000` |
 | BLE-FR-003 | The firmware shall queue outgoing lines rather than block a radio event handler on the USB endpoint, shall count lines it could not send, and shall report them to the host in a `+drop` event, once the queue has room, carrying the number lost since the previous one (#396). | STK-15 | Test, Inspection | `v0.01.0000` |
 | BLE-FR-004 | The host shall be able to reconcile what it received against what the dongle sent, and a capture that lost lines shall be reported as incomplete rather than analysed as if complete. | STK-15, STK-17 | Test | `v0.01.0000` |

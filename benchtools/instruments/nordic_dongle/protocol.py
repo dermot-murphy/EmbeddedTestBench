@@ -55,6 +55,13 @@ _TOKEN = re.compile(r"\S+")
 #: The field whose value may hold a space: the advertised name (#415).
 NAME_FIELD = "name"
 
+#: The ``name=`` token where it starts a field.
+_NAME_TOKEN = re.compile(r"(?:^|(?<=\s))name=")
+
+#: Events whose ``name=`` is the last field, so it takes the rest of the line:
+#: ``+sensor`` (``cmd_parser.c`` writes it last on purpose, #241, #415).
+_NAME_LAST_EVENTS = frozenset({"sensor"})
+
 
 class DongleProtocolError(InstrumentError):
     """A line from the dongle that does not fit the grammar."""
@@ -135,9 +142,12 @@ def parse_fields(text: str) -> Dict[str, str]:
     The advertised name is the one value the firmware writes as it was
     received, so it may hold a space (#415). A token with no ``=`` that
     follows ``name=`` is the rest of that name, and is joined back onto it
-    with the spacing it arrived with. A part of a name that itself holds an
-    ``=`` cannot be told from a field and is read as one; see
-    :func:`name_has_space` for how the driver reports a spaced name.
+    with the spacing it arrived with. In a line where other fields follow the
+    name (``+adv``, the ``select`` and ``connect`` replies), a part of a name
+    that itself holds an ``=`` cannot be told from a field and is read as
+    one; a ``+sensor`` line, whose name is last, is parsed by
+    :func:`parse_line` so that its name is always whole. Spaces at the end
+    of a name are lost with the line's own trailing space.
     """
     fields: Dict[str, str] = {}
     name_start = -1
@@ -155,14 +165,28 @@ def parse_fields(text: str) -> Dict[str, str]:
 
 
 def name_has_space(name: Optional[str]) -> bool:
-    """True when an advertised *name* holds a space.
+    """True when an advertised *name* holds a space, a tab or other whitespace.
 
-    The line protocol splits on spaces, so such a name is a breach of the
-    rule that an advertised name holds none (#415). :func:`parse_fields`
-    recovers it where it can; the driver reports it so that a name the
-    parser could not recover is not trusted silently.
+    The line protocol splits on whitespace, so such a name is a breach of the
+    rule that an advertised name holds none (#415). The driver reports it
+    rather than trusting it silently.
     """
-    return bool(name) and " " in name
+    return any(character.isspace() for character in (name or ""))
+
+
+def _split_name_last(text: str) -> Dict[str, str]:
+    """Parse the fields of a line whose ``name=`` is the last field.
+
+    Everything after the first ``name=`` token is the name, ``=`` and all,
+    so a name such as ``KAPPA a=b`` is kept whole rather than cut at the
+    part that looks like a field (#415).
+    """
+    match = _NAME_TOKEN.search(text)
+    if match is None:
+        return parse_fields(text)
+    fields = parse_fields(text[:match.start()])
+    fields[NAME_FIELD] = text[match.end():]
+    return fields
 
 
 def parse_line(line: str) -> Optional[Line]:
@@ -177,7 +201,10 @@ def parse_line(line: str) -> Optional[Line]:
 
     if text.startswith("+"):
         name, _, remainder = text[1:].partition(" ")
-        fields = parse_fields(remainder)
+        if name in _NAME_LAST_EVENTS:
+            fields = _split_name_last(remainder)
+        else:
+            fields = parse_fields(remainder)
         timestamp = None
         if "t" in fields:
             try:

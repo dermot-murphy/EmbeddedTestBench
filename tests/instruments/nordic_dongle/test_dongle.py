@@ -495,6 +495,18 @@ class TestNameAndManufacturer:
         finally:
             dongle.close()
 
+    def test_a_spaced_name_holding_an_equals_is_kept_whole_and_reported(self, caplog):
+        """The case the parser cannot recover elsewhere is the one to report."""
+        spaced = "KAPPA a=b"
+        dongle = self.kepler(advertised=spaced)
+        try:
+            with caplog.at_level("WARNING"):
+                sensor = dongle.scan(1.0, active=True)[0]
+            assert sensor.name == spaced
+            assert len(self.spaced_name_warnings(caplog)) == 1
+        finally:
+            dongle.close()
+
     def test_a_name_without_a_space_is_not_reported(self, caplog):
         dongle = self.kepler()
         try:

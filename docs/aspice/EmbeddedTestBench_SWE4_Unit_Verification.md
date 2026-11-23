@@ -142,6 +142,7 @@
 | next | 2026-11-19 | Claude | #411: SWE4-UT-TIMING - the host-clock trustworthiness cases run on a fixed host clock, on both sides of the threshold. |
 | next | 2026-11-19 | Claude | #411, review round 1 (PR #412): SWE4-UT-TIMING - the threshold case is exactly at the threshold, and a just-below case is added. |
 | next | 2026-11-23 | Claude | #415: SWE4-UT-BLEPROTO - an advertised name holding a space, in `+sensor`, `+adv` and a `select` reply, its spacing, and the part holding `=` that cannot be recovered. SWE4-UT-BLE - a spaced name survives the scan and the selection and is reported once; a name without one is not. |
+| next | 2026-11-23 | Claude | #415, review round 1 (PR #416): SWE4-UT-BLEPROTO - a `+sensor` name holding `=` kept whole, an empty or missing name, a key ending in `name`, a repeated key in `+adv`, a tab. SWE4-UT-BLE - a spaced name holding `=` is kept and reported. |
 
 ---
 
