@@ -81,6 +81,7 @@ from .protocol import (
     encode_payload,
     format_address,
     from_hex,
+    name_has_space,
     normalise_address,
 )
 from .session import DongleCommandError, DongleSession
@@ -865,8 +866,27 @@ class NordicDongle(Instrument):  # pylint: disable=too-many-instance-attributes,
         self._session.take_events("sensor")     # discard any stale entries
         self._session.execute("list")
         found = [self._sensor_from_event(event) for event in self._session.take_events("sensor")]
+        for sensor in found:
+            self._report_spaced_name(sensor)
         self._sensors = sorted(found, key=lambda sensor: sensor.index)
         return list(self._sensors)
+
+    def _report_spaced_name(self, sensor: Sensor) -> None:
+        """Warn when *sensor*'s advertised name holds a space (#415).
+
+        The parser joins the name back together, but a part of it that holds
+        an ``=`` would have been read as a field, so the name is reported
+        rather than trusted silently.
+        """
+        if not name_has_space(sensor.name):
+            return
+        text = ("the advertised name %r of %s contains a space; an advertised name "
+                "should hold none, and a part of it that holds '=' cannot be told "
+                "from a field" % (sensor.name, sensor.address))
+        log_event(self._logger, "ble_name_with_space", text,
+                  {"address": sensor.address, "name": sensor.name},
+                  level=logging.WARNING)
+        self._session.note(text)
 
     @staticmethod
     def _sensor_from_event(event: Event) -> Sensor:

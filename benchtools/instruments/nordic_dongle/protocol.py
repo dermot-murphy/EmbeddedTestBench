@@ -11,9 +11,9 @@ anything else           not ours - a boot banner, a stray newline
 
 No I/O happens here and nothing is remembered, so every shape can be tested
 directly. That matters more than it sounds: the awkward cases in a protocol
-like this are the empty value (``name=``), the value containing an ``=``, and
-the line that is not ours at all, and each is a one-line test here rather than
-a hardware session.
+like this are the empty value (``name=``), the value containing an ``=``, the
+advertised name containing a space, and the line that is not ours at all, and
+each is a one-line test here rather than a hardware session.
 
 Traces to: BLE-FR-001, BLE-DD-PROTOCOL.
 """
@@ -34,6 +34,8 @@ __all__ = [
     "Line",
     "parse_line",
     "parse_fields",
+    "name_has_space",
+    "NAME_FIELD",
     "to_hex",
     "from_hex",
     "manufacturer_id",
@@ -46,6 +48,12 @@ __all__ = [
 #: An address as the firmware writes it, most significant octet first, with an
 #: optional ``/<type>`` suffix.
 _ADDRESS = re.compile(r"^([0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5})(?:/([0-3]))?$")
+
+#: One space-separated token of a line.
+_TOKEN = re.compile(r"\S+")
+
+#: The field whose value may hold a space: the advertised name (#415).
+NAME_FIELD = "name"
 
 
 class DongleProtocolError(InstrumentError):
@@ -123,15 +131,38 @@ def parse_fields(text: str) -> Dict[str, str]:
     may itself contain ``=``; only the first ``=`` of each token separates.
     A token with no ``=`` at all is kept under its own name with an empty
     value, so nothing is silently discarded.
+
+    The advertised name is the one value the firmware writes as it was
+    received, so it may hold a space (#415). A token with no ``=`` that
+    follows ``name=`` is the rest of that name, and is joined back onto it
+    with the spacing it arrived with. A part of a name that itself holds an
+    ``=`` cannot be told from a field and is read as one; see
+    :func:`name_has_space` for how the driver reports a spaced name.
     """
     fields: Dict[str, str] = {}
-    for token in text.split():
+    name_start = -1
+    for match in _TOKEN.finditer(text):
+        token = match.group(0)
         key, separator, value = token.partition("=")
         if separator:
             fields[key] = value
+            name_start = match.start() + len(key) + 1 if key == NAME_FIELD else -1
+        elif name_start >= 0:
+            fields[NAME_FIELD] = text[name_start:match.end()]
         else:
             fields[token] = ""
     return fields
+
+
+def name_has_space(name: Optional[str]) -> bool:
+    """True when an advertised *name* holds a space.
+
+    The line protocol splits on spaces, so such a name is a breach of the
+    rule that an advertised name holds none (#415). :func:`parse_fields`
+    recovers it where it can; the driver reports it so that a name the
+    parser could not recover is not trusted silently.
+    """
+    return bool(name) and " " in name
 
 
 def parse_line(line: str) -> Optional[Line]:

@@ -16,6 +16,7 @@ from benchtools.instruments.nordic_dongle.protocol import (
     encode_payload,
     format_address,
     from_hex,
+    name_has_space,
     normalise_address,
     parse_fields,
     parse_line,
@@ -97,6 +98,60 @@ class TestFields:
         fields = parse_fields("Nordic PCA10059 proto=1.0")
         assert fields["Nordic"] == "" and fields["PCA10059"] == ""
         assert fields["proto"] == "1.0"
+
+
+class TestNameWithASpace:
+    """The line protocol splits on spaces; an advertised name may hold one (#415)."""
+
+    def test_a_sensor_line_keeps_the_whole_name(self):
+        """+sensor writes the name last."""
+        event = parse_line("+sensor t=1 idx=0 addr=E4:1C:7B:02:9A:11 type=1 rssi=-60 "
+                           "seen=3 mfr= sr= name=KAPPA 5C1712 V11")
+        assert event.get("name") == "KAPPA 5C1712 V11"
+        assert set(event.fields) == {"t", "idx", "addr", "type", "rssi", "seen",
+                                     "mfr", "sr", "name"}
+
+    def test_an_advertising_line_keeps_the_name_and_the_data_after_it(self):
+        """+adv writes data= after the name."""
+        event = parse_line("+adv t=1 addr=E4:1C:7B:02:9A:11 type=1 rssi=-60 pdu=0 ch=37 "
+                           "name=KAPPA X data=020106")
+        assert event.get("name") == "KAPPA X"
+        assert event.get("data") == "020106"
+        assert "X" not in event.fields
+
+    def test_a_select_reply_keeps_the_name_and_the_field_after_it(self):
+        reply = parse_line("ok addr=E4:1C:7B:02:9A:11 type=1 name=KAPPA X known=1")
+        assert reply.fields["name"] == "KAPPA X"
+        assert reply.fields["known"] == "1"
+
+    def test_the_spacing_inside_the_name_is_kept(self):
+        assert parse_fields("name=A  B   C")["name"] == "A  B   C"
+
+    def test_trailing_spaces_on_the_line_are_not_part_of_the_name(self):
+        assert parse_fields("name=A B   ")["name"] == "A B"
+
+    def test_positional_words_before_the_name_are_still_their_own_tokens(self):
+        fields = parse_fields("Nordic PCA10059 name=A B")
+        assert fields["Nordic"] == "" and fields["PCA10059"] == ""
+        assert fields["name"] == "A B"
+
+    def test_an_empty_name_followed_by_a_field_stays_empty(self):
+        fields = parse_fields("name= rssi=-90")
+        assert fields["name"] == "" and fields["rssi"] == "-90"
+
+    def test_a_name_part_holding_an_equals_is_read_as_a_field(self):
+        """The limit of the recovery: such a part cannot be told from a field."""
+        fields = parse_fields("name=KAPPA a=b")
+        assert fields["name"] == "KAPPA" and fields["a"] == "b"
+
+    @pytest.mark.parametrize("name,expected", [
+        ("KAPPA_5C1712_V11.00.0000X", False),
+        ("", False),
+        (None, False),
+        ("KAPPA 5C1712", True),
+    ])
+    def test_a_spaced_name_is_recognised(self, name, expected):
+        assert name_has_space(name) is expected
 
 
 class TestHex:
