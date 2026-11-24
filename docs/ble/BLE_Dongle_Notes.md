@@ -82,7 +82,7 @@ Every event carries `t=`, microseconds on the dongle's clock.
 | Event | Fields |
 |---|---|
 | `+adv` | `t addr type rssi pdu ch name data` — one advertising report |
-| `+sensor` | `t idx addr type rssi seen mfr sr name` — one entry of the scan result. From protocol 1.6: `mfr` is the company ID of a manufacturer-specific record in either payload (`0x0F55` for Sensoteq), empty if none; `sr` is the latest scan response in hex, only after an active scan; the name is kept up to 31 bytes (#241) |
+| `+sensor` | `t idx addr type rssi seen mfr sr name` — one entry of the scan result. From protocol 1.6: `mfr` is the company ID of a manufacturer-specific record in either payload (`0x0F55` for Sensoteq), empty if none; `sr` is the latest scan response in hex, only after an active scan; the name is kept up to 31 bytes (#241). An advertised name should hold no space: lines are split on spaces. The name is last here, so the host takes the rest of the line as the name; in `+adv` and the `select` and `connect` replies it joins each later word with no `=` back onto the name, keeping its spacing, but a word that holds `=` is read as a field. The host warns (`ble_name_with_space`) for each sensor whose name holds a space (#415) |
 | `+rx` | `t len data` — bytes notified by the sensor |
 | `+conn` | `t addr state interval_us` — `state=linked` then `state=ready` |
 | `+disc` | `t reason` — HCI reason code; `timeout` when the connect window closed; `cancelled` when `disconnect` stopped a connection being made (1.5) |

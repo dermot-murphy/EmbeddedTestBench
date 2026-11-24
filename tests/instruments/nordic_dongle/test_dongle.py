@@ -423,10 +423,10 @@ class TestNameAndManufacturer:
     KEPLER_ADDRESS = "D1:8D:3B:4C:19:96"
     SCAN_RESPONSE = bytes.fromhex("05ff550f0102")
 
-    def kepler(self, protocol: str = None) -> NordicDongle:
-        name = self.KEPLER_NAME.encode()
+    def kepler(self, protocol: str = None, advertised: str = KEPLER_NAME) -> NordicDongle:
+        name = advertised.encode()
         simulator = SimulatedDongle(sensors=(SimulatedSensor(
-            address=self.KEPLER_ADDRESS, name=self.KEPLER_NAME,
+            address=self.KEPLER_ADDRESS, name=advertised,
             payload=b"\x02\x01\x06" + bytes([len(name) + 1, 0x09]) + name,
             scan_response=self.SCAN_RESPONSE),))
         if protocol is not None:
@@ -472,6 +472,48 @@ class TestNameAndManufacturer:
             sensor = dongle.scan(1.0, active=True)[0]
             assert sensor.manufacturer_id is None
             assert sensor.scan_response == b""
+        finally:
+            dongle.close()
+
+    @staticmethod
+    def spaced_name_warnings(caplog):
+        return [record for record in caplog.records
+                if getattr(record, "event_kind", "") == "ble_name_with_space"]
+
+    def test_a_name_with_a_space_survives_the_scan_and_the_selection(self, caplog):
+        """The line protocol splits on spaces; the name is joined back (#415)."""
+        spaced = "KAPPA 5C1712  V11"
+        dongle = self.kepler(advertised=spaced)
+        try:
+            with caplog.at_level("WARNING"):
+                sensor = dongle.scan(1.0, active=True)[0]
+            assert sensor.name == spaced
+            assert dongle.select(self.KEPLER_ADDRESS).name == spaced
+            warnings = self.spaced_name_warnings(caplog)
+            assert len(warnings) == 1
+            assert warnings[0].event_data == {"address": self.KEPLER_ADDRESS, "name": spaced}
+        finally:
+            dongle.close()
+
+    def test_a_spaced_name_holding_an_equals_is_kept_whole_and_reported(self, caplog):
+        """The case the parser cannot recover elsewhere is the one to report."""
+        spaced = "KAPPA a=b"
+        dongle = self.kepler(advertised=spaced)
+        try:
+            with caplog.at_level("WARNING"):
+                sensor = dongle.scan(1.0, active=True)[0]
+            assert sensor.name == spaced
+            assert len(self.spaced_name_warnings(caplog)) == 1
+            assert dongle.select(self.KEPLER_ADDRESS).name == spaced
+        finally:
+            dongle.close()
+
+    def test_a_name_without_a_space_is_not_reported(self, caplog):
+        dongle = self.kepler()
+        try:
+            with caplog.at_level("WARNING"):
+                dongle.scan(1.0, active=True)
+            assert self.spaced_name_warnings(caplog) == []
         finally:
             dongle.close()
 

@@ -81,6 +81,7 @@ from .protocol import (
     encode_payload,
     format_address,
     from_hex,
+    name_has_space,
     normalise_address,
 )
 from .session import DongleCommandError, DongleSession
@@ -865,8 +866,27 @@ class NordicDongle(Instrument):  # pylint: disable=too-many-instance-attributes,
         self._session.take_events("sensor")     # discard any stale entries
         self._session.execute("list")
         found = [self._sensor_from_event(event) for event in self._session.take_events("sensor")]
+        for sensor in found:
+            self._report_spaced_name(sensor)
         self._sensors = sorted(found, key=lambda sensor: sensor.index)
         return list(self._sensors)
+
+    def _report_spaced_name(self, sensor: Sensor) -> None:
+        """Warn when *sensor*'s advertised name holds a space (#415).
+
+        The ``+sensor`` line keeps the name whole, but the same name is cut
+        where it holds an ``=`` in ``+adv`` and in the ``select`` and
+        ``connect`` replies, so it is reported rather than trusted silently.
+        """
+        if not name_has_space(sensor.name):
+            return
+        text = ("the advertised name %r of %s contains a space; an advertised name "
+                "should hold none, because the dongle's line protocol splits on "
+                "spaces" % (sensor.name, sensor.address))
+        log_event(self._logger, "ble_name_with_space", text,
+                  {"address": sensor.address, "name": sensor.name},
+                  level=logging.WARNING)
+        self._session.note(text)
 
     @staticmethod
     def _sensor_from_event(event: Event) -> Sensor:
@@ -957,6 +977,10 @@ class NordicDongle(Instrument):  # pylint: disable=too-many-instance-attributes,
         )
         known = self.find_sensor(chosen.address) if chosen.address else None
         if known is not None:
+            # The +sensor line keeps the whole name; the select reply cuts a
+            # name at a part holding '=' (#415).
+            if known.name:
+                chosen.name = known.name
             chosen.rssi = known.rssi
             chosen.seen = known.seen
             chosen.index = known.index

@@ -11,9 +11,9 @@ anything else           not ours - a boot banner, a stray newline
 
 No I/O happens here and nothing is remembered, so every shape can be tested
 directly. That matters more than it sounds: the awkward cases in a protocol
-like this are the empty value (``name=``), the value containing an ``=``, and
-the line that is not ours at all, and each is a one-line test here rather than
-a hardware session.
+like this are the empty value (``name=``), the value containing an ``=``, the
+advertised name containing a space, and the line that is not ours at all, and
+each is a one-line test here rather than a hardware session.
 
 Traces to: BLE-FR-001, BLE-DD-PROTOCOL.
 """
@@ -34,6 +34,8 @@ __all__ = [
     "Line",
     "parse_line",
     "parse_fields",
+    "name_has_space",
+    "NAME_FIELD",
     "to_hex",
     "from_hex",
     "manufacturer_id",
@@ -46,6 +48,19 @@ __all__ = [
 #: An address as the firmware writes it, most significant octet first, with an
 #: optional ``/<type>`` suffix.
 _ADDRESS = re.compile(r"^([0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5})(?:/([0-3]))?$")
+
+#: One space-separated token of a line.
+_TOKEN = re.compile(r"\S+")
+
+#: The field whose value may hold a space: the advertised name (#415).
+NAME_FIELD = "name"
+
+#: The ``name=`` token where it starts a field.
+_NAME_TOKEN = re.compile(r"(?:^|(?<=\s))name=")
+
+#: Events whose ``name=`` is the last field, so it takes the rest of the line:
+#: ``+sensor`` (``cmd_parser.c`` writes it last on purpose, #241, #415).
+_NAME_LAST_EVENTS = frozenset({"sensor"})
 
 
 class DongleProtocolError(InstrumentError):
@@ -123,14 +138,54 @@ def parse_fields(text: str) -> Dict[str, str]:
     may itself contain ``=``; only the first ``=`` of each token separates.
     A token with no ``=`` at all is kept under its own name with an empty
     value, so nothing is silently discarded.
+
+    The advertised name is the one value the firmware writes as it was
+    received, so it may hold a space (#415). A token with no ``=`` that
+    follows ``name=`` is the rest of that name, and is joined back onto it
+    with the spacing it arrived with. In a line where other fields follow the
+    name (``+adv``, the ``select`` and ``connect`` replies), a part of a name
+    that itself holds an ``=`` cannot be told from a field and is read as
+    one; a ``+sensor`` line, whose name is last, is parsed by
+    :func:`parse_line` so that its name is always whole. Spaces at the end
+    of a name are lost with the line's own trailing space.
     """
     fields: Dict[str, str] = {}
-    for token in text.split():
+    name_start = -1
+    for match in _TOKEN.finditer(text):
+        token = match.group(0)
         key, separator, value = token.partition("=")
         if separator:
             fields[key] = value
+            name_start = match.start() + len(key) + 1 if key == NAME_FIELD else -1
+        elif name_start >= 0:
+            fields[NAME_FIELD] = text[name_start:match.end()]
         else:
             fields[token] = ""
+    return fields
+
+
+def name_has_space(name: Optional[str]) -> bool:
+    """True when an advertised *name* holds a space, a tab or other whitespace.
+
+    The line protocol splits on whitespace, so such a name is a breach of the
+    rule that an advertised name holds none (#415). The driver reports it
+    rather than trusting it silently.
+    """
+    return any(character.isspace() for character in (name or ""))
+
+
+def _split_name_last(text: str) -> Dict[str, str]:
+    """Parse the fields of a line whose ``name=`` is the last field.
+
+    Everything after the first ``name=`` token is the name, ``=`` and all,
+    so a name such as ``KAPPA a=b`` is kept whole rather than cut at the
+    part that looks like a field (#415).
+    """
+    match = _NAME_TOKEN.search(text)
+    if match is None:
+        return parse_fields(text)
+    fields = parse_fields(text[:match.start()])
+    fields[NAME_FIELD] = text[match.end():]
     return fields
 
 
@@ -146,7 +201,10 @@ def parse_line(line: str) -> Optional[Line]:
 
     if text.startswith("+"):
         name, _, remainder = text[1:].partition(" ")
-        fields = parse_fields(remainder)
+        if name in _NAME_LAST_EVENTS:
+            fields = _split_name_last(remainder)
+        else:
+            fields = parse_fields(remainder)
         timestamp = None
         if "t" in fields:
             try:
